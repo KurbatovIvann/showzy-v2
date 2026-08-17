@@ -104,6 +104,19 @@ implementer is the **scaffold agent** (`/scaffold`, not `/ticket`):
   fnd-T23); it is consumed in phase 9.
 - **Company-selector UI in the app is a stub** (fnd-T49): the `account`
   action that lists own companies (`companies.listMine`) is phase-2 scope.
+- **Phone OTP codes are stored plaintext at rest** (fnd-T6): better-auth
+  stores email OTPs hashed (`storeOTP: "hashed"`), but its phone-number
+  plugin has no equivalent option — phone codes sit in `verification`
+  until they expire (5 minutes). Compensating controls: 5-attempt limit,
+  per-identifier and per-IP send caps, codes never logged. Revisit if
+  upstream adds hashing (better-auth issue tracker) or the owner wants a
+  custom phone OTP flow instead of the plugin.
+- **Generated auth tables use `timestamp` without time zone** (fnd-T6):
+  the better-auth CLI emits `timestamp`, not `timestamptz` (db.md §3
+  convention), and hand edits to the generated file are forbidden
+  (db.md §4). Confined to `src/schema/auth.ts`; better-auth reads/writes
+  these columns itself with `Date` values, so no cross-column arithmetic
+  is affected. Module tables keep `timestamptz`.
 
 ---
 

@@ -15,6 +15,13 @@
       "when": 1786993347298,
       "tag": "0001_foundation_primitives",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787004590655,
+      "tag": "0002_spooky_talon",
+      "breakpoints": true
     }
   ]
 }
