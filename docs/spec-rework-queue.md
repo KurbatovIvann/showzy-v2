@@ -1,7 +1,9 @@
-# Spec-rework queue — consumer discovery integration
+# Spec-rework queue — consumer discovery integration (historical)
 
-> Status: sanctioned 2026-08-17.
+> Status: superseded by `spec-rework-queue-mobile-parity.md` on 2026-08-17.
 > Trigger: ADR-0018 (consumer discovery and principal).
+> Do not execute this queue: ADR-0020 reverses its authenticated-only and
+> no-social assumptions.
 > Rule: these are **not** ordinary documentation cleanups — each rework is
 > a spec-rework loop (`/rework-spec`) that follows the pipeline process:
 > the human proposes changes, the spec agent implements them, and review
