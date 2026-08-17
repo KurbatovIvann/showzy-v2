@@ -1,0 +1,21 @@
+---
+description: Code conventions for Showzy 2.0
+alwaysApply: true
+---
+
+# Code conventions
+
+- **Action naming**: `<module>.<verb>` (e.g. `orders.confirm`, `pricing.resolveProductPrice`). Verbs are imperative, camelCase.
+- **Module structure** (`packages/modules/<name>/`):
+  - `actions/` — one file per action (`defineAction` call).
+  - `services/` — internal logic shared between actions of this module.
+  - `events/` — event definitions this module emits.
+  - `schema.ts` — Drizzle tables owned by this module.
+  - `index.ts` — exports **only** actions and events. Nothing else leaves the module.
+- **Action metadata is mandatory**: every action declares `description`, `input`/`output` (Zod v4), `permissions`, `aiExposure`, `risk`, `requiresConfirmation`, `idempotent`, `emits`, `audit`, `timeout`.
+- **Errors**: typed error classes from `packages/core/errors`. Never `throw new Error("...")` in domain code.
+- **Validation**: Zod v4 schemas are the single source — form, API contract, AI tool, and DB boundary all derive from the same schema.
+- **DB access**: Drizzle only, and only inside action handlers or module services. Tables are owned by exactly one module.
+- **Tenant context**: `companyId` is read from the action context (`ctx.companyId`), never from action input.
+- **Events over calls**: cross-module effects go through domain events (transactional outbox), not direct imports.
+- **Language**: all code, comments, commit messages, and docs in English.

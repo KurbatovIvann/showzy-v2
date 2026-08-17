@@ -1,0 +1,25 @@
+---
+description: Definition of done for every Showzy 2.0 task
+alwaysApply: true
+---
+
+# Definition of done
+
+A task (one branch = one PR, ≤ ~300 diff lines) is done only when all of the
+following hold:
+
+1. **Tests exist for every new/changed action**, written before the
+   implementation (TDD):
+   - happy path;
+   - permission denied;
+   - validation failure;
+   - cross-tenant isolation (attempt to access another company's data fails).
+2. **CI is green**: `tsc --noEmit` → ESLint (boundaries, no `any`) → Vitest
+   (unit + integration with Testcontainers Postgres) → contract check (every
+   action has description/permissions/risk metadata).
+3. **The spec is satisfied** — behavior matches `docs/specs/<module>.md`. If
+   the spec was ambiguous, the ambiguity is reported, not silently resolved.
+4. **Idempotency and audit** requirements of the action are implemented, not
+   just declared in metadata.
+5. **PR description** states: which spec section it implements, what was
+   tested, and any deviations or open questions.
