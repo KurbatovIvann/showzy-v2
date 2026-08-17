@@ -24,19 +24,17 @@ Acceptance: no constitutional document contradicts ADR-0019/0020.
 
 ## Decision D1: stock ownership and atomic confirmation
 
+**Status: accepted — ADR-0021.**
+
 Owner requirement: pending orders do not reserve stock; checkout blocks an
 obviously excessive quantity; staff confirmation atomically revalidates and
 decrements stock.
 
-ADR-0015 forbids cross-module write calls. If catalog owns stock, orders cannot
-perform that atomic mutation through `ctx.call`. Before catalog/orders specs:
-
-1. select one authoritative stock owner;
-2. define the transaction/composition boundary;
-3. prove concurrent confirmations cannot oversell;
-4. record the decision in a new ADR if ownership or ADR-0015 changes.
-
-No stock-dependent implementation begins until D1 is accepted.
+Catalog owns fixed-scale product/variant stock. `orders.confirm` uses the
+narrow same-transaction `ctx.callAtomic` channel; stable catalog row locking
+and non-negative updates ensure one winner in a stock race. Checkout remains a
+read-only availability check and does not reserve. Core must implement the
+ADR-0021 protocol before stock-dependent catalog/orders implementation.
 
 ## Step 1: core, contract, security, DB template
 
@@ -97,7 +95,8 @@ Required capabilities:
   create/reply, author edit/delete, company reply label, permissioned staff
   deletion;
 - product liked/unliked and comment lifecycle events for search/notifications;
-- stock schema/actions only after D1 resolves ownership.
+- stock schema/actions follow ADR-0021 (`quantity_milli` scale, no launch
+  backorders, variant-only decrement when a variant is selected).
 
 Tests: file ownership, published visibility, idempotent likes, comment
 authorization/moderation, counter concurrency, cross-company isolation.
@@ -226,5 +225,6 @@ human/device handoff; AI cannot bypass risk metadata.
 - [ ] Meta, embeddings, GPS radius, reviews, and V1 data migration are absent.
 - [ ] Every P1 screen behavior maps to an approved action/event/local state.
 - [ ] Every new/changed action has mandatory metadata and DoD test cases.
-- [ ] D1 stock atomicity is resolved before catalog/orders implementation.
+- [x] D1 stock atomicity is resolved by ADR-0021; its core protocol remains an
+      implementation prerequisite.
 - [ ] UX gate remains closed until revised DEFINE/SYSTEM/prototype approvals.

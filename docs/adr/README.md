@@ -37,3 +37,4 @@ humans) don't relitigate settled questions or silently deviate.
 | [0018](0018-consumer-discovery-and-principal.md) | Consumer discovery and the `consumer` principal | Accepted |
 | [0019](0019-v1-mobile-canonical-ux.md) | V1 mobile is the canonical V2 UX baseline | Accepted |
 | [0020](0020-public-discovery-and-social-engagement.md) | Public discovery and aggregate-owned social engagement | Accepted |
+| [0021](0021-same-transaction-atomic-capabilities.md) | Same-transaction atomic cross-module capabilities | Accepted |

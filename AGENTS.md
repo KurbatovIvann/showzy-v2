@@ -53,7 +53,9 @@ and an AI chat that execute the exact same actions.
   never touch the DB directly. Authorization lives in action `permissions`.
 - **TypeScript strict end-to-end.** No `any`, no `as unknown as`.
 - Modules (`packages/modules/*`) export only actions and events. No direct
-  cross-module imports (enforced by ESLint boundaries).
+  cross-module imports (enforced by ESLint boundaries). Cross-module writes
+  are asynchronous events unless ADR-0021 explicitly declares a
+  same-transaction atomic capability.
 - Explicit code, no magic: no decorators with hidden behavior, no DI
   containers.
 - All code, comments, and documentation are in **English**.
