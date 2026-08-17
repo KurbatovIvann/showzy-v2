@@ -1,63 +1,65 @@
 # Run the conveyor for one Linear ticket
 
 You are the **ticket orchestrator** for Showzy 2.0. The user names a Linear
-ticket (e.g. `SHO-42`). You take it through the full conveyor:
-ANALYZE → IMPLEMENT → VERIFY → GUARD, and keep Linear updated via MCP at
-every transition. One ticket = one branch = one PR.
+ticket (e.g. `SHO-42`). Lane it, then run only that lane. Keep Linear
+updated via MCP. One ticket = one branch = one PR.
 
-## 1. ANALYZE (gate — do not write code yet)
+## Lanes (`docs/pipeline.md`)
 
-1. Fetch the ticket from Linear (MCP). Read its description, labels, and
-   relations.
-2. **Check blockers**: every `blocked by` ticket must be Done. If not, stop
-   and report which ones block.
-3. Read the context pack referenced by the ticket: the spec section(s) in
-   `docs/specs/<module>.md`, the task entry in `docs/plans/<module>.md`, the
-   relevant reference slice. Do NOT load unrelated v1 material.
-4. Verdict to the user: either "understood, starting" with a 3–5 line summary
-   of scope + test list, or targeted questions / a spec-gap report
-   (Active spec → `/rework-spec` or a same-PR patch; Living spec → amend
-   in the PR). Never invent product decisions silently.
-5. On start: move the ticket to **In Progress**, assign yourself if possible.
+| Lane | When | Run |
+| --- | --- | --- |
+| **mechanical** | tooling, seed, rename, docs-only, no new action protocol | blocker check → IMPLEMENT → VERIFY. Skip ANALYZE ceremony and GUARD |
+| **routine** | new/changed module action, not `sensitive` | short ANALYZE → IMPLEMENT → VERIFY → Bugbot. `/review` only if contested or a prior review failed |
+| **sensitive / first-module** | `sensitive` label, or this is the module's first implementation | full ANALYZE → IMPLEMENT → VERIFY → GUARD (Bugbot + cross-family `/review` + security when `sensitive`) |
+
+## 1. ANALYZE
+
+Always: fetch the ticket, refuse if a `blocked by` issue is not Done, move
+it to **In Progress**.
+
+Skip the rest for **mechanical**.
+
+For **routine** and **sensitive / first-module**:
+
+1. Read the context pack: spec section(s), plan task, relevant reference
+   slice. Do NOT load unrelated v1 material.
+2. Verdict: "understood, starting" with a 3–5 line summary of scope +
+   required tests, or a spec-gap report (Active → `/rework-spec` or a
+   same-PR patch; Living → amend in the PR). Never invent product
+   decisions silently.
+3. `sensitive` requires the strong-model tier (blueprint §7.3); if you
+   are not on it, say so and stop.
 
 ## 2. IMPLEMENT
 
 Follow `.cursor/commands/implement.md` exactly. Use Linear's generated
-`gitBranchName` when present (it already contains the issue identifier needed
-by GitHub integration); otherwise use `feat/sho-<number>-<slug>`. Hard
-boundaries apply: no
+`gitBranchName` when present; otherwise `feat/sho-<number>-<slug>`. No
 `packages/core`, no foreign modules. Spec edits follow Living / Active
 rules in `docs/specs/README.md`.
 
-If the ticket carries the `sensitive` label, you must be running on the
-strong-model tier (blueprint §7.3); if you are not, say so and stop.
-
 ## 3. VERIFY
 
-`tsc --noEmit` → ESLint → full Vitest → contract check → migration/schema
-checks → phase-appropriate smoke locally. All green → push and open the PR
-(title `SHO-<number> <module>-<task>: <title>`; description: ticket + spec
-section implemented, tests written, deviations = none or a stop report). CI
-repeats the same checks — do not bypass or weaken either.
+Run the checks CI will run for this change. All green → push and open the
+PR (title `SHO-<number> <module>-<task>: <title>`; description: ticket +
+spec section, tests written, deviations = none or a stop report). Do not
+bypass or weaken CI.
 
 ## 4. GUARD
 
-1. Launch **Bugbot** on the PR.
-2. Launch the **cross-family review** (`/review`) — a reviewer from a
-   different model family than the implementer (blueprint §7.3).
-3. `sensitive` label → additionally launch the **security review**.
-4. Address findings on the same branch; re-run VERIFY after changes.
-   Escalation rules (pipeline): 2 failed review rounds → rerun IMPLEMENT on
-   the stronger model; 3 → `/rework-spec` if the spec is Active, otherwise
-   amend the Living spec or request human design review.
+- **mechanical:** skip.
+- **routine:** launch **Bugbot**. Launch `/review` only if the human asks,
+  the change is contested, or a previous review failed.
+- **sensitive / first-module:** Bugbot + cross-family `/review` (+ security
+  review when `sensitive`). Address findings on the same branch; re-run
+  VERIFY. Escalation: 2 failed review rounds → rerun IMPLEMENT on the
+  stronger model; 3 → `/rework-spec` if Active, otherwise amend the Living
+  spec or request human design review.
 
 ## 5. HANDOFF
 
-- Post a Linear comment: PR link, what was implemented, test summary, review
-  verdicts, open questions. The current Showzy-v2 workflow has no
-  `In Review` state, so leave it **In Progress** while the linked PR is under
-  review.
-- **A human merges.** Never merge yourself. After merge, Linear's GitHub
-  integration moves the ticket to Done (or note that the human should).
-- If you stopped anywhere (blocker, spec gap, missing model tier), the
-  ticket goes back to **Todo** with a comment explaining why.
+- Post a Linear comment: PR link, what was implemented, test summary,
+  review verdicts (if any), open questions. Leave the ticket **In Progress**
+  while the PR is open.
+- **A human merges.** Never merge yourself.
+- If you stopped (blocker, spec gap, missing model tier), the ticket goes
+  back to **Todo** with a comment explaining why.
