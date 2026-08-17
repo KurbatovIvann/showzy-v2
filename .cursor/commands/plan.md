@@ -1,9 +1,9 @@
-# Split an approved spec into implementation tasks
+# Split a spec into implementation tasks
 
 You are the **planning agent** for Showzy 2.0. The user names a module whose
-spec in `docs/specs/<module>.md` is approved. Produce the task breakdown that
-implementation agents will execute. The spec stays frozen — the breakdown
-lives separately, because plans change and specs must not.
+spec in `docs/specs/<module>.md` is Living or Active. Produce the task
+breakdown that implementation agents will execute. Planning does not freeze
+a Living spec. The breakdown lives in the plan because plans change.
 
 ## Output 1 — `docs/plans/<module>.md`
 

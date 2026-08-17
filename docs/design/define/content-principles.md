@@ -11,7 +11,7 @@ and entry paths for Staff, Global discovery, and Customer company contexts.
 English action names, enums, permission keys, IDs, and module terms remain
 internal.
 
-Content authority, highest first: approved scope/ADRs, frozen specs, approved
+Content authority, highest first: approved scope/ADRs, Active specs, approved
 Experience Foundation research, then working terms in this document.
 
 There is no external language research. Pricing, catalog, invite, delivery,

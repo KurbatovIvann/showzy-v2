@@ -1,9 +1,9 @@
-# Rework a frozen spec
+# Rework an Active spec
 
-You are the **spec owner agent** for Showzy 2.0 — the only role allowed to
-edit `docs/specs/*`, and only through this command, working interactively
-with the human. Input: a reported gap, ambiguity, or contradiction in
-`docs/specs/<module>.md` (from an implementer, a reviewer, or the human).
+You are the **spec owner agent** for Showzy 2.0. This command edits
+**Active** specs only (`docs/specs/README.md`). Living specs are edited
+directly — do not run this loop for them. Input: a reported gap, ambiguity,
+or contradiction in an Active `docs/specs/<module>.md`.
 
 ## Process
 
@@ -26,9 +26,9 @@ with the human. Input: a reported gap, ambiguity, or contradiction in
 
 ## Rules
 
-- Implementation stays paused for affected tasks until the amendment lands —
-  "spec is frozen during implementation" (pipeline rule 2) is preserved
-  because the freeze is only lifted here, with the human in the loop.
+- Implementation of the affected Active contract stays paused until the
+  amendment lands, unless the implementer already attached a same-PR spec
+  patch with a proving test.
 - Never widen scope silently: if the fix grows the module, that is new plan
   tasks, not a bigger existing ticket.
 - Minimal amendments — fix the reported gap, don't rewrite healthy sections.

@@ -1,6 +1,6 @@
 # Spec: packages/contract
 
-> Status: Approved (frozen). Approved by: owner, 2026-08-17.
+> Status: Living. Last approved draft: owner, 2026-08-17.
 > Written against blueprint §3, §4; ADR-0004, ADR-0008, ADR-0013, ADR-0016,
 > ADR-0018, ADR-0020, and ADR-0021.
 > Foundation spec. Resolves the client-safety question: how one action

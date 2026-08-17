@@ -1,6 +1,6 @@
 # Spec: companies foundation schema slice
 
-> Status: Approved (frozen). Approved by: owner, 2026-08-17.
+> Status: Active. Approved by: owner, 2026-08-17.
 > This is a deliberately minimal phase-0 prerequisite, not the full companies
 > module spec. It may create only tenant/RBAC identity required by core tests.
 

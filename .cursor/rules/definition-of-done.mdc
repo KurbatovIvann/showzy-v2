@@ -23,8 +23,10 @@ following hold:
    transport exposure/resolvers/callbacks are valid, contract and
    implementation pair) → migration
    drift/schema checks → phase-appropriate e2e smoke.
-3. **The spec is satisfied** — behavior matches `docs/specs/<module>.md`. If
-   the spec was ambiguous, the ambiguity is reported, not silently resolved.
+3. **The spec is satisfied** — behavior matches `docs/specs/<module>.md`.
+   Ambiguity in an **Active** spec is reported via `/rework-spec` or a
+   same-PR spec patch with a test that proves the gap. A **Living** spec
+   may be amended in the same PR; do not invent product decisions silently.
 4. **Runtime protocols are real** — output validation, idempotency,
    confirmation, events, tenant scope, and audit requirements implied by the
    action metadata are implemented and tested, not just declared.

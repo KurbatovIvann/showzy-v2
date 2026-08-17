@@ -1,6 +1,6 @@
 # Spec: chat
 
-> Status: Approved (frozen). Approved by: owner, 2026-08-17.
+> Status: Living. Last approved draft: owner, 2026-08-17.
 > Written against blueprint §1, §2.1 (invariant 5), §3, §5, §7.1; scope §1.1,
 > §2, §5, §7 (phases 1, 5, 6); ADR-0011, ADR-0012, ADR-0013, ADR-0014,
 > ADR-0015, ADR-0016, ADR-0018; `docs/specs/core.md`, `docs/specs/db.md`,

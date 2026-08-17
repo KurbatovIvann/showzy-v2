@@ -1,6 +1,6 @@
 # Spec: security and operations foundation
 
-> Status: Approved (frozen). Approved by: owner, 2026-08-17.
+> Status: Living. Last approved draft: owner, 2026-08-17.
 > Applies to phase 0 and every module. Written against blueprint §2.1/§3/§7,
 > ADR-0006, ADR-0009, ADR-0010, ADR-0012, ADR-0013, ADR-0018, ADR-0020,
 > ADR-0021, and foundation specs.
