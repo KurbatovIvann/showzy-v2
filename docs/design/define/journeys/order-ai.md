@@ -1,6 +1,6 @@
 # Order — AI Journey
 
-> Status: Complete; pending DEFINE Approval #2  
+> Status: Approval #2 granted by the owner on 2026-08-17  
 > Linear: SHO-10 · Quadrants: Staff/AI, Customer/AI  
 > Evidence: approved constraints and internal assumptions only
 

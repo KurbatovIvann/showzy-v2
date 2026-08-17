@@ -1,6 +1,6 @@
 # Showzy V2 — Accessibility Baseline
 
-> Status: Complete; pending DEFINE Approval #2  
+> Status: Approval #2 granted by the owner on 2026-08-17  
 > Linear: SHO-13 · Stage: DEFINE  
 > Target: WCAG 2.1 AA-oriented native mobile baseline  
 > Evidence: standards and internal constraints, not preference research or a

@@ -1,6 +1,6 @@
 # Documents — AI Journey
 
-> Status: Complete; pending DEFINE Approval #2  
+> Status: Approval #2 granted by the owner on 2026-08-17  
 > Linear: SHO-11 · Quadrants: Staff/AI, Customer/AI  
 > Evidence: scope/architecture constraints and internal assumptions; no
 > approved V2 documents/signing spec exists

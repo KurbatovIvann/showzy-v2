@@ -1,6 +1,6 @@
 # Entry-Path Journey Conventions
 
-> Status: Complete; pending DEFINE Approval #2  
+> Status: Approval #2 granted by the owner on 2026-08-17  
 > Linear: SHO-27 · Applies to discovery, invite, and direct-link journeys  
 > Evidence: approved constraints and internal assumptions only
 
