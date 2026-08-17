@@ -1,7 +1,8 @@
 # Spec: <module>
 
 > Status: Draft | Approved (frozen). Approved by: <owner>, <date>.
-> Written against blueprint §<...>, scope §<...>, ADR-<...>.
+> Written against blueprint §<...>, scope §<...>, ADR-0013, ADR-0015,
+> ADR-0020, ADR-0021, and module-specific decisions.
 
 ## 1. Purpose
 
@@ -21,18 +22,19 @@ For every action, the full contract:
 | --- | --- |
 | Name | `<module>.<verb>` |
 | Description | Written as an instruction to the AI model |
-| Principal | `staff` \| `customer` \| `public` \| `system` \| `consumer` \| `account` (ADR-0013, ADR-0018) |
-| Transport | `client` \| `internal` (system must be internal; consumer must be `client`) |
-| Target/system scope | Typed `resolveTarget` for customer/public; `tenant`/`global` for system; **N/A for consumer** (no company scope, no `resolveTarget` — ADR-0018); **N/A for account** (own-user scope, no company — ADR-0013) |
+| Principal | `staff` \| `customer` \| `public` \| `system` \| `consumer` \| `account` (ADR-0013, ADR-0018, ADR-0020) |
+| Transport | `client` \| `internal` (system must be internal; public/consumer/account must be `client`) |
+| Target/public/system scope | Typed `resolveTarget` for customer/public-target; `publicScope: globalProjection` + declared `projectionGrant` for anonymous cross-company reads; `tenant`/`global` for system; N/A for consumer/account |
 | Input / Output | Zod shapes as TypeScript |
 | Permissions | e.g. `orders:create`; must be `[]` for customer/public/consumer/account/system |
-| aiExposure / risk / requiresConfirmation | Consumer: `risk: read`, `requiresConfirmation: false`; aiExposure `exposed` or `internal` |
+| aiExposure / risk / requiresConfirmation | Public/consumer: `risk: read`, `requiresConfirmation: false`; aiExposure `exposed` or `internal` |
 | Confirmation summary | Required redacted server callback when confirmation is required |
-| Idempotent | If true: key source, scope, and conflict behavior; consumer must be `false` |
-| Emits | Events (see §4); consumer must be `[]` |
-| Audit / Timeout | Consumer: `audit: false` (no `auditTarget`); account: `audit` may be true or false per action |
+| Idempotent | If true: key source, scope, and conflict behavior; public/consumer must be `false`; social desired-state writes must be retry-safe |
+| Emits | Events (see §4); public/consumer must be `[]` |
+| Audit / Timeout / Rate limit | Public/consumer: `audit: false`; account: per action; declare abuse-sensitive social overrides |
 | Audit target/snapshot | Required target callback when audited; optional explicitly redacted snapshot |
 | Calls (`ctx.call`) | Cross-module read actions used (ADR-0015); consumer callers may only call other `consumer`-principal reads |
+| Atomic calls | `atomicCalls`/`atomicCallers` edges and rollback invariant, or `[]` (ADR-0021) |
 
 ### Principal selection guidance
 
@@ -58,9 +60,10 @@ Choose the correct principal mode based on **who is acting** and **what scope**:
   sole authorization basis. May perform writes. Use for creating a company,
   listing own companies, managing personal profile/settings — pre-tenant
   operations that precede the selection of a company to act within.
-- **`public`** — unauthenticated access. Only explicitly public reads with
-  a typed `resolveTarget` proving the target resource is published. Use for
-  direct link/SEO reads of published profiles/products.
+- **`public`** — unauthenticated read-only access. Use `publicScope: target`
+  with a resolver for one published resource. Use
+  `publicScope: globalProjection` without a resolver only for an allowlisted
+  published discovery projection (ADR-0020).
 - **`system`** — machine actors (workers, cron, webhook handlers, outbox
   dispatcher). Named service identity; explicit tenant scope set by the
   enqueuing code.
@@ -74,19 +77,25 @@ Choose the correct principal mode based on **who is acting** and **what scope**:
   it materializes (projections store IDs, never authoritative domain state —
   ADR-0011).
 - **Read-model grants**: tables of this module other modules may read
-  directly (`search`, `analytics` — ADR-0015), if any.
+  directly (`search`, `analytics` — ADR-0015), plus named public projection
+  grants with table/field allowlists (ADR-0020), if any.
 
 ## 5. State machines and concurrency
 
 - Status fields: allowed values, allowed transitions, who/what triggers each.
 - Concurrency: what happens on simultaneous conflicting operations
   (two staff editing, checkout racing a price change, retry racing success).
+- Social desired-state/counter concurrency: duplicate set-state requests,
+  opposite-state races, optimistic client reconciliation, and counter repair.
+- Atomic capabilities: stable lock order and all-or-nothing caller/callee
+  rollback where ADR-0021 applies.
 - Transaction boundaries for multi-table writes.
 
 ## 6. Edge cases
 
-Enumerate explicitly — this is where v1 reference digging pays off. Cite the
-v1 migration/behavior each case comes from.
+Enumerate explicitly — this is where v1 reference digging pays off. Include
+abuse/rate-limit/moderation cases for public/social surfaces and cite the v1
+migration/behavior each case comes from.
 
 ## 7. v1 migration notes
 
@@ -107,7 +116,8 @@ logs/audit.
 
 Testable statements. Mandatory minimum, plus module-specific ones:
 
-- [ ] Cross-tenant isolation per relevant principal mode (ADR-0013, ADR-0018)
+- [ ] Cross-tenant/isolation behavior per relevant principal mode (ADR-0013,
+      ADR-0018, ADR-0020)
 - [ ] Mode-appropriate authorization denial (permission, ownership,
       visibility, system scope, consumer published-only access, or account
       own-user-only access)
@@ -115,6 +125,10 @@ Testable statements. Mandatory minimum, plus module-specific ones:
       published-only access (no unpublished entities); no CRM creation/side
       effects; `audit: false` and `emits: []`; instantiate inherited
       `consumerIsolationSuite` from core.md §12
+- [ ] Public-target/global actions (if any): correct resolver vs projection
+      grant; published/field allowlist; no CRM/domain side effects;
+      `audit: false`, `emits: []`, anonymous rate limit; instantiate
+      `publicProjectionSuite` for global projection actions
 - [ ] Account actions (if any): contract check requires `permissions: []`;
       own-user-only access (user A cannot see/modify user B's companies or
       personal data); no company-scoped resource access; structured logs carry
@@ -125,6 +139,11 @@ Testable statements. Mandatory minimum, plus module-specific ones:
       on the wire, not a JSON number)
 - [ ] Idempotency behavior where declared (retry-safe, conflict on
       same-key/different-payload)
+- [ ] Social desired-state actions (if any): retry and opposite-state races,
+      optimistic reconciliation after server response, own-collection
+      isolation, abuse limits, and exact counter/event concurrency
+- [ ] Declared atomic edges (if any): instantiate `atomicCallSuite`; root and
+      callee commit/roll back together; undeclared/nested edge rejected
 - [ ] Declared events are emitted transactionally (outbox)
 - [ ] Audit records written for `audit: true` actions
 
@@ -132,5 +151,6 @@ Testable statements. Mandatory minimum, plus module-specific ones:
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-17 | Added public-global, social concurrency/abuse, optimistic reconciliation, and atomic-call requirements | Rebaseline module specs for ADR-0020/0021 mobile parity | Human owner via mobile parity rework |
 | 2026-08-17 | Added principal selection guidance (account vs consumer vs customer); added account action test requirements; extended Target/Permissions/Audit rows for account | Complete Step 2 of spec-rework queue (ADR-0018 integration) | Spec-rework agent |
 | 2026-08-17 | Completed consumer action metadata and mandatory test guidance | Close the ADR-0018 Step 2 template gap | Human owner via spec-rework queue |

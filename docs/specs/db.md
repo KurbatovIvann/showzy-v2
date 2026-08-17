@@ -1,7 +1,8 @@
 # Spec: packages/db
 
 > Status: Approved (frozen). Approved by: owner, 2026-08-17.
-> Written against blueprint §3, §6; ADR-0005, ADR-0012, ADR-0014, ADR-0018.
+> Written against blueprint §3, §6; ADR-0005, ADR-0012, ADR-0014, ADR-0018,
+> ADR-0020, and ADR-0021.
 > Foundation spec. Domain tables are specified in their modules' specs; this
 > spec defines the package, conventions every schema file follows, and the
 > foundation tables owned by the platform.
@@ -74,14 +75,15 @@ packages/db/
   boundaries; prefer `RESTRICT` unless the owning spec says otherwise.
 - **Extensions**: pg_trgm and unaccent only (blueprint §3). V1 pg_cron jobs
   move to BullMQ workers; vector/pg_partman remain dropped.
-- **Global published-read / discovery access paths (ADR-0018):**
-  Authenticated consumer discovery must not rely on full-table scans of
-  domain `companies` / catalog product tables across tenants.
+- **Global published-read / discovery access paths (ADR-0018, ADR-0020):**
+  Public and authenticated consumer discovery must not rely on full-table
+  scans of domain `companies` / catalog product tables across tenants.
   - Cross-company discovery reads are served by `search` projection tables
     in `schema/search.ts` (module-owned projections, not domain authority —
     ADR-0011/0015). Those tables carry FTS and/or `pg_trgm` indexes (GIN)
-    plus supporting indexes for category-filter dimensions; exact projection
-    columns and index DDL are owned by `docs/specs/search.md`.
+    plus supporting indexes for category/city/area filters, popular ordering,
+    and public follow/like/comment counters; exact projection columns and
+    index DDL are owned by `docs/specs/search.md`.
   - Domain publication predicates (`companies` published lifecycle; catalog
     active/published product status) remain owned by those modules. Owning
     specs may add **partial indexes** on publication predicates for
@@ -89,14 +91,21 @@ packages/db/
     substitute for action authorization (ADR-0009: no RLS).
   - `search` may read granted foreign tables only via declared read-model
     grants (ADR-0015); projections never store pricing authority or CRM
-    state. Physical v1 marketplace views (e.g. `consumer_products_view`)
-    and social/embedding indexes are not carried forward.
-- **Schema-level considerations for `consumer` and `account` principals
-  (ADR-0013, ADR-0018):**
-  - `consumer` actions access only global discovery projections (search
-    module) and published-entity reads; they never query tenant-scoped
-    domain tables directly. Therefore no tenant-prefixed composite indexes
-    are needed to support consumer queries — the relevant indexes are on
+    state or user identity collections. Physical v1 marketplace views (e.g.
+    `consumer_products_view`) and embedding/geo indexes are not carried
+    forward.
+- **Projection grants:** every public-global action names a grant declared in
+  the projection owner's spec and schema manifest. A grant lists projection
+  tables and output-safe fields. DB exports `ProjectionReadTx<Grant>`, a
+  read-only Drizzle facade restricted to those tables; CI rejects schema
+  imports or queries outside the grant. Grants never authorize writes or
+  access to source domain tables.
+- **Schema-level considerations for public-global, `consumer`, and `account`
+  principals (ADR-0013, ADR-0018, ADR-0020):**
+  - public-global and `consumer` actions access only global discovery
+    projections (`search` module) and published-entity reads; they never query
+    tenant-scoped domain tables directly. Therefore no tenant-prefixed
+    composite indexes are needed to support consumer queries — the relevant indexes are on
     the `search` projection tables (GIN for FTS/trigram, B-tree for
     category/publication filters) and module partial indexes on publication
     predicates (used for projection rebuild, not consumer query paths).
@@ -106,11 +115,15 @@ packages/db/
     carry `user_id` indexes (auth tables) or are filtered by
     `owner_user_id` / membership FK. No cross-tenant composite indexes are
     required — `account` queries are scoped to a single user's rows.
-  - Neither `consumer` nor `account` principals require additional
-    schema-level grant or RLS considerations: authorization is enforced in
-    action code (ADR-0009), and query access patterns naturally avoid
-    full-table scans through the projection and user-scoped index
-    strategies described above.
+  - No principal uses RLS as authorization (ADR-0009). Public-global access is
+    constrained by the projection grant; consumer/account authorization is
+    enforced in action code and by projection/user-scoped access patterns.
+- **Transaction capabilities:** `Tx` exposes Drizzle reads/writes and is
+  created only by core. `ReadTx` omits mutations.
+  `ProjectionReadTx<Grant>` further narrows reads to the declared projection
+  manifest. An ADR-0021 atomic callee receives the root `Tx` object; it cannot
+  acquire/commit/roll back a connection, and rollback tests must prove both
+  module writes use one physical transaction.
 
 ## 4. Foundation tables (`foundation.ts` — scaffold-owned)
 
@@ -230,6 +243,10 @@ dropped, recorded in the owning module's spec §7 (v1 migration notes).
   `showzy_app`, never the harness admin.
 - Factories for foundation rows (events, idempotency keys) used by the
   core test kit (core.md §12).
+- Discovery/social fixture factories create two companies, published and
+  unpublished entities, allowlisted/internal fields, two users, own/private
+  follow-like collections, comments, and exact counters. Factories never
+  create CRM rows as a side effect.
 - Exported so module integration tests reuse the same harness.
 
 ## 9. Seed
@@ -263,9 +280,13 @@ path (not foundation KVED/CPV seeds and not `foundation.ts`).
 - [ ] `business_categories` / `company_business_categories` appear only in
       `schema/companies.ts` when that module schema exists; taxonomy root
       has no `company_id`; junction leads indexes with `company_id`.
-- [ ] Consumer discovery query paths in integration tests use `search`
-      projection indexes (FTS/trigram and category filters) rather than
-      unindexed cross-tenant scans of domain company/product tables.
+- [ ] Public/consumer discovery query paths use declared `search` projection
+      grants and indexes (FTS/trigram, category/city/area, popular counters),
+      never unindexed cross-tenant domain scans.
+- [ ] `ProjectionReadTx` cannot compile or execute writes/foreign-table reads;
+      response fixture tests reject non-allowlisted fields.
+- [ ] Atomic-call integration proves root and callee share one transaction;
+      either failure rolls back both modules and outbox/audit rows.
 - [ ] Backup automation is configured; a documented restore drill meets
       RPO/RTO before production launch.
 
@@ -280,6 +301,7 @@ path (not foundation KVED/CPV seeds and not `foundation.ts`).
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-17 | Added projection grants/read capabilities, public/social fixtures, and atomic transaction requirements | Align DB foundation with ADR-0020/0021 mobile parity | Human owner via mobile parity rework |
 | 2026-08-17 | Added schema-level considerations for consumer/account principals (no tenant-scoped indexes needed for global queries) | Complete Step 2 of spec-rework queue (ADR-0018 integration) | Spec-rework agent |
 | 2026-08-17 | Reflected companies ownership of business-category tables and projection/index constraints for published discovery | Align package conventions with ADR-0018 consumer discovery | Human owner via spec-rework queue |
 | 2026-08-17 | Aligned foundation tables with runtime protocols; added money wire type, tenancy exceptions, SQL exceptions, and backup baseline | Foundation consistency review against core spec and ADR-0012/0014 | GPT-5.6 Sol |
