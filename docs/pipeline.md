@@ -58,7 +58,7 @@ This is the most important stage of the whole project. The Encore-benchmark
 lesson: an agent on an empty minimal framework invents anti-patterns, so the
 patterns are locked in here, before mass generation.
 
-### 4. IMPLEMENTATION — `/ticket SHW-<n>` (wraps `/implement`)
+### 4. IMPLEMENTATION — `/ticket SHO-<n>` (wraps `/implement`)
 
 | | |
 | --- | --- |
@@ -99,8 +99,11 @@ Linear (team **Showzy-v2**, via MCP) is the work ledger; this repo is the
 source of truth for contracts. Mapping:
 
 - **Project = roadmap phase** (`Phase 0 — Foundation` … `Phase 8 — AI
-  Experience`) plus the parallel `Experience Foundation` project.
-  Milestones inside a project = modules / vertical slices.
+  Experience`, then `V2 Production Launch`, then `Phase 9 — Web` …)
+  plus the parallel `Experience Foundation` project.
+  Milestones inside a project = modules / vertical slices (Experience
+  Foundation uses process stages). **V2 Production Launch is its own
+  project**, never a Phase 8 milestone.
 - **Issue = one plan task** (one branch = one PR ≤ ~300 diff lines), created
   by `/plan` after you approve the breakdown. Dependencies = `blocked by`
   relations; parallel tasks have none.
@@ -114,15 +117,16 @@ source of truth for contracts. Mapping:
 Day-to-day loop per ticket:
 
 1. You open a fresh thread, pick the model per the ticket's routing (default
-   Grok 4.6; `sensitive` → Fable 5/Opus 5), and type `/ticket SHW-<n>`.
+   Grok 4.6; `sensitive` → Fable 5/Opus 5), and type `/ticket SHO-<n>`.
 2. The agent gates on blockers and understanding (ANALYZE), implements TDD
    on Linear's generated `gitBranchName` (or fallback
-   `feat/shw-<n>-<slug>`), runs local checks and opens the PR (VERIFY), then
+   `feat/sho-<n>-<slug>`), runs local checks and opens the PR (VERIFY), then
    launches Bugbot + cross-family `/review` (+ security review when
    `sensitive`) and posts the outcome to the ticket (GUARD).
-3. **You merge.** Linear's GitHub integration links the issue identifier in
-   the branch/PR and closes tickets on merge — enable it once in Linear
-   settings (Settings → Integrations → GitHub).
+3. **You merge.** Linear's GitHub integration links the issue identifier
+   (`SHO-n`) in the branch/PR and closes tickets on merge. Enable it once:
+   [Settings → Integrations → GitHub](https://linear.app/showzy-v2/settings/integrations/github)
+   for workspace `showzy-v2`, repository `KurbatovIvann/showzy-v2`.
 
 Spec gaps found mid-ticket stop the conveyor: the ticket returns to Todo
 with a comment, and the fix goes through `/rework-spec` (human-approved

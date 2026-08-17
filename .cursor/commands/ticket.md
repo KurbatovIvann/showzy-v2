@@ -1,7 +1,7 @@
 # Run the conveyor for one Linear ticket
 
 You are the **ticket orchestrator** for Showzy 2.0. The user names a Linear
-ticket (e.g. `SHW-42`). You take it through the full conveyor:
+ticket (e.g. `SHO-42`). You take it through the full conveyor:
 ANALYZE → IMPLEMENT → VERIFY → GUARD, and keep Linear updated via MCP at
 every transition. One ticket = one branch = one PR.
 
@@ -24,7 +24,7 @@ every transition. One ticket = one branch = one PR.
 
 Follow `.cursor/commands/implement.md` exactly. Use Linear's generated
 `gitBranchName` when present (it already contains the issue identifier needed
-by GitHub integration); otherwise use `feat/shw-<number>-<slug>`. Hard
+by GitHub integration); otherwise use `feat/sho-<number>-<slug>`. Hard
 boundaries apply: no
 `packages/core`, no foreign modules, no spec edits.
 
@@ -35,7 +35,7 @@ strong-model tier (blueprint §7.3); if you are not, say so and stop.
 
 `tsc --noEmit` → ESLint → full Vitest → contract check → migration/schema
 checks → phase-appropriate smoke locally. All green → push and open the PR
-(title `SHW-<number> <module>-<task>: <title>`; description: ticket + spec
+(title `SHO-<number> <module>-<task>: <title>`; description: ticket + spec
 section implemented, tests written, deviations = none or a stop report). CI
 repeats the same checks — do not bypass or weaken either.
 

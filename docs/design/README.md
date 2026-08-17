@@ -9,9 +9,12 @@ This directory holds all UX and design-system artifacts for Showzy V2.
 
 ## Current status
 
-Skeleton approved. No execution has started — research, prototypes, and
-implementation will begin after organizational planning is complete and the
-human owner initiates the workstream.
+Workstream started 2026-08-17. Linear project
+[Experience Foundation](https://linear.app/showzy-v2/project/experience-foundation-863513f2aa0a)
+is **In Progress**. Next ticket:
+[SHO-5](https://linear.app/showzy-v2/issue/SHO-5/ef-t1-research-brief)
+(research brief). The UX gate is not open — product UI specs and
+implementation remain blocked.
 
 ## Relationship to the engineering pipeline
 

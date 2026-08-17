@@ -33,3 +33,4 @@ humans) don't relitigate settled questions or silently deviate.
 | [0014](0014-drizzle-schema-placement.md) | Drizzle schema lives in packages/db, one file per owning module | Accepted |
 | [0015](0015-cross-module-composition.md) | Cross-module composition — internal calls for queries, events for effects | Accepted |
 | [0016](0016-client-safe-action-descriptors.md) | Client-safe action descriptors and server implementations | Accepted |
+| [0017](0017-design-system-first-dual-flow-ux.md) | Design-system-first, mobile-first, dual-flow UX | Accepted |

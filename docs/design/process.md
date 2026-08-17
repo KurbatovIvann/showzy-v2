@@ -1,6 +1,6 @@
 # Experience Foundation — Design Process
 
-> Status: skeleton (approved structure, execution not started).
+> Status: workstream started 2026-08-17 (RESEARCH). Process structure approved.
 > Owner: human product owner.
 > Companion to ADR-0017.
 
