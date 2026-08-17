@@ -5,17 +5,18 @@ alwaysApply: true
 
 # Definition of done
 
-A task (one branch = one PR, ≤ ~300 diff lines) is done only when all of the
-following hold:
+A task (one branch = one PR) is done only when all of the following hold.
+~300 diff lines is a review-comfort guideline, not a hard split.
 
-1. **Tests exist for every new/changed action**, written before the
-   implementation (TDD):
-   - happy path;
-   - mode-appropriate authorization denial (`staff` permission,
-     `customer` ownership, `public` visibility, or `system` scope);
-   - validation failure;
-   - cross-tenant isolation (attempt to access another company's data fails);
-   - idempotency/confirmation/event cases required by the action metadata.
+1. **Required tests** — tests-required, not tests-first-or-fail:
+   - **New/changed actions:** happy path; mode-appropriate authorization
+     denial (`staff` permission, `customer` ownership, `public` visibility,
+     or `system` scope); validation failure; cross-tenant isolation;
+     idempotency/confirmation/event cases required by the action metadata.
+   - **Schema / config / tooling / migrations:** tests that prove the
+     change (constraints, drift, boot). A red-then-green ritual is not
+     required.
+   - Tests assert behavior, not mocks. Do not weaken or delete tests to pass.
 2. **CI is green**: format + secret/dependency checks → `tsc --noEmit` →
    ESLint (boundaries, no `any`) → Vitest
    (unit + integration with Testcontainers Postgres) → contract check (every

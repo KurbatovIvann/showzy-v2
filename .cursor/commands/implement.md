@@ -19,16 +19,18 @@ You implement exactly that task — nothing more.
 4. Work on the Linear ticket's branch name when available; otherwise use
    `feat/<module>-<task-id>`.
 
-## Process — TDD, strictly
+## Process
 
-1. **Tests first.** Write the tests listed in the task definition (happy
-   path, mode-appropriate authorization denial, validation failure,
-   cross-tenant isolation, metadata-required protocol cases, task-specific
-   edges). Run them — they must fail.
+1. **Tests required** (see `.cursor/rules/definition-of-done.mdc`). For
+   new/changed actions, cover the five action classes. Write them first
+   when it clarifies the contract; shipping them with the code is fine.
+   They must fail if the behavior is removed. For schema, config, tooling,
+   or migrations, prove the change — do not stage a red-then-green ritual.
 2. **Implement** until tests pass. Follow the relevant reference slice; do
    not invent new patterns, abstractions, or dependencies.
-3. **Verify locally**: `tsc --noEmit`, ESLint, full Vitest, contract checks,
-   migration/schema checks, and the phase-appropriate smoke test.
+3. **Verify locally** the checks CI will run for this change. Runtime/DB
+   work needs the full Vitest + contract + migration suite. Mechanical
+   edits may use the relevant package filter; CI still has to be green.
 4. **Open a PR** titled `<module>-<task-id>: <title>` whose description
    states: the Linear ticket, spec section implemented, tests written, and
    any deviations or open questions (there should be none — deviations mean

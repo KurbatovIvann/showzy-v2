@@ -5,6 +5,10 @@ points you at (or the current branch's diff against `main`). You are always a
 different model family than the implementer — act like it: hunt for the
 implementer's systematic blind spots, do not rubber-stamp.
 
+This command is required for **sensitive** and **first-module** PRs. Skip it
+for mechanical work. On routine action PRs, run only if the human asks, the
+change is contested, or a prior review failed (`docs/pipeline.md` lanes).
+
 ## Checklist — verdict is "request changes" if any item fails
 
 1. **Spec conformance.** Read `docs/specs/<module>.md` and its Status
@@ -29,10 +33,11 @@ implementer's systematic blind spots, do not rubber-stamp.
    `principal`/`transport`; conditional resolver/system/confirmation fields exist; output is
    runtime-validated; `ctx.call` targets are read-only and
    principal-compatible; event names/envelopes match declarations.
-5. **Tests are real.** TDD tests exist for happy path, mode-appropriate
-   authorization denial, validation failure, cross-tenant isolation, and
-   metadata-required idempotency/confirmation/event behavior. Tests assert
-   behavior, not mocks; no tests are weakened or deleted to pass.
+5. **Tests are real.** Required tests from the definition of done exist
+   and assert behavior. Action PRs need the five action classes.
+   Schema/config/tooling PRs need proving tests, not those five classes.
+   Do not fail a PR for missing a red-then-green ritual. No tests are
+   weakened or deleted to pass.
 6. **Pattern fidelity.** Structure matches the relevant reference slice
    (pricing query/composition or order→chat transactional/event pattern).
    Flag invented abstractions.

@@ -39,14 +39,17 @@ stop and report if a task seems to require it.
    foundation specs may be amended in the same PR. Unresolved product
    decisions still stop the task. Accepted ADR-0016 is mandatory for all
    action/contract package work.
-2. Sequential, not parallel: dependency-ordered small PRs
-   (tooling/CI → db foundation/auth → approved minimal companies/RBAC and
-   other reference prerequisite schemas → core → contract → api/worker
-   integration → reference slices).
-   **Every scaffold PR gets full human review** — not just contested spots.
-3. TDD still applies. The foundation invariants (blueprint §2.1) must be
-   verified by tests that later modules inherit: the cross-tenant harness is
-   parameterized over all four principal modes (ADR-0013).
+2. **Merge one foundation PR at a time.** You may prepare the next
+   non-conflicting task on another branch while a PR is in review.
+   Dependency order still holds (tooling/CI → db/auth → companies/RBAC
+   and prerequisite schemas → core → contract → api/worker → reference
+   slices). ~300 lines is review comfort — do not split a coherent slice
+   only to hit the number. Sensitive and first-core PRs get full human
+   review; mechanical scaffold PRs get CI + a human skim.
+3. Tests required for the foundation invariants (blueprint §2.1) that
+   later modules inherit: the cross-tenant harness is parameterized over
+   all principal modes (ADR-0013). Red-then-green is not required for
+   schema or config.
 4. The reference slices are the templates every later agent copies —
    over-invest in clarity: file layout, naming, error style, test style,
    comments explaining non-obvious intent.

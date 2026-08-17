@@ -40,14 +40,14 @@ The agent proposes; you challenge edge cases and product behavior. Expect
 | Model | Same top-tier model as SPECIFICATION |
 | Command | `/plan` with the module name |
 | Input | The Living or Active spec |
-| Output | `docs/plans/<module>.md`: each task ≤ ~300 diff lines, with explicit dependencies, a context pack, and its test list. After your approval the agent creates one Linear ticket per task (see "Linear workflow" below) |
+| Output | `docs/plans/<module>.md`: reviewable tasks (~300 diff lines is comfort, not a cap), with explicit dependencies, a context pack, and its required-test list. After your approval the agent creates one Linear ticket per task (see "Linear workflow" below) |
 | Done when | You approve the breakdown; tickets exist in Linear with `blocked by` relations; parallel tasks are marked |
 
 ### 3. SCAFFOLD — phases 0–1 only, then never again
 
 | | |
 | --- | --- |
-| Agent | One chat agent, **sequential, not parallel** — you review every PR fully |
+| Agent | One chat agent; **merge one foundation PR at a time**. The next non-conflicting task may be prepared in parallel |
 | Model | **Claude Fable 5 (thinking)** (or **Claude Opus 5 (thinking, high)** if Fable's data-retention terms are not accepted) |
 | Command | `/scaffold` — has an explicit allowlist for foundation packages; `/implement` stays forbidden from touching them |
 | Input | Accepted ADR-0016; foundation specs (`core`, `db`, `contract`, security/operations, money, companies-foundation, payment/feature-flag skeleton) and the reference-slice boundaries; ownership map and completed relevant v1 migration slices. Living foundation specs may be patched in the same scaffold PR when a test proves a gap |
@@ -64,21 +64,27 @@ patterns are locked in here, before mass generation.
 | --- | --- |
 | Agent | **One agent per ticket**, parallel where the dependency graph allows; one ticket = one branch = one PR |
 | Model | **Grok 4.6 (high, non-fast)** — default (Fast buys latency at 2× price; irrelevant for background agents). **Claude Fable 5 / Opus 5 (thinking)** for `sensitive` tickets: auth, payments, QES, webhooks, file authorization, tenant/runtime protocols. **Composer 2.5** for purely mechanical/boilerplate tickets |
-| Command | `/ticket` with the Linear ticket id — it analyzes the ticket, gates on blockers, then runs `/implement` rules and the GUARD steps (see "Linear workflow") |
+| Command | `/ticket` with the Linear ticket id — it lanes the ticket, gates on blockers, then runs `/implement` and only the GUARD that lane needs |
 | Input | The Linear ticket (context pack), the module spec, `docs/plans/<module>.md`, the reference slices as template |
-| Output | A PR: tests first (TDD), then implementation; Linear ticket remains In Progress (the current workspace has no In Review state) with a summary/PR comment |
+| Output | A PR with the required tests; Linear ticket remains In Progress (the current workspace has no In Review state) with a summary/PR comment |
 | Done when | PR opened with green local checks and a description referencing the spec section |
 | Escalation | 2 failed review rounds → rerun on the stronger model; 3 → `/rework-spec` (Active spec) or a Living-spec amendment / human design review |
 
-### 5. REVIEW — `/review` + Bugbot (+ security review)
+### 5. REVIEW — lanes, not one ritual
+
+| Lane | Review |
+| --- | --- |
+| **mechanical** | CI + human skim. No Bugbot/`/review` required |
+| **routine** | **Bugbot** + human. `/review` only if contested or a prior review failed |
+| **sensitive / first-module** | Bugbot + cross-family `/review` + security review when `sensitive` + full human review |
 
 | | |
 | --- | --- |
-| Agent | (a) **Bugbot** on every PR; (b) a review agent via `/review` — **different model family than the implementer** |
-| Model | **GPT-5.6 Terra (high)** for routine review (implementers are Grok/Claude, so GPT is always cross-family). **GPT-5.6 Sol (high/xhigh)** + the security-review agent for foundation, migration, auth, payments, QES, and webhook PRs |
+| Agent | `/review` — **different model family than the implementer** — when the lane requires it |
+| Model | **GPT-5.6 Terra (high)** for routine `/review`. **GPT-5.6 Sol (high/xhigh)** + the security-review agent for foundation, migration, auth, payments, QES, and webhook PRs |
 | Input | The PR diff + the module spec + `.cursor/rules/` |
 | Output | Review verdict: approve, or change requests referencing spec/rules/ADR violations |
-| Done when | Both reviewers approve; **a human merges**. Foundation and sensitive PRs receive a full human review; routine PRs may focus on contested spots after the references stabilize |
+| Done when | Required reviewers for the lane approve; **a human merges** |
 
 ### 6. VERIFICATION — CI, no agent
 
@@ -104,9 +110,9 @@ source of truth for contracts. Mapping:
   Milestones inside a project = modules / vertical slices (Experience
   Foundation uses process stages). **V2 Production Launch is its own
   project**, never a phase milestone.
-- **Issue = one plan task** (one branch = one PR ≤ ~300 diff lines), created
-  by `/plan` after you approve the breakdown. Dependencies = `blocked by`
-  relations; parallel tasks have none.
+- **Issue = one plan task** (one branch = one PR; ~300 diff lines is
+  comfort, not a cap), created by `/plan` after you approve the breakdown.
+  Dependencies = `blocked by` relations; parallel tasks have none.
 - **Labels**: the existing child label `<name>` under the `module` group
   (for example `orders`), plus `sensitive`, `spec`, or `scaffold`.
 - **Statuses**: Backlog (blocked) → Todo (ready) → In Progress (conveyor
@@ -117,12 +123,10 @@ source of truth for contracts. Mapping:
 Day-to-day loop per ticket:
 
 1. You open a fresh thread, pick the model per the ticket's routing (default
-   Grok 4.6; `sensitive` → Fable 5/Opus 5), and type `/ticket SHO-<n>`.
-2. The agent gates on blockers and understanding (ANALYZE), implements TDD
-   on Linear's generated `gitBranchName` (or fallback
-   `feat/sho-<n>-<slug>`), runs local checks and opens the PR (VERIFY), then
-   launches Bugbot + cross-family `/review` (+ security review when
-   `sensitive`) and posts the outcome to the ticket (GUARD).
+   Grok 4.6; `sensitive` → Fable 5/Opus 5; mechanical → Composer 2.5), and
+   type `/ticket SHO-<n>`.
+2. The agent lanes the ticket, gates on blockers, implements with the
+   required tests, opens the PR, and runs only that lane's GUARD.
 3. **You merge.** Linear's GitHub integration links the issue identifier
    (`SHO-n`) in the branch/PR and closes tickets on merge. Enable it once:
    [Settings → Integrations → GitHub](https://linear.app/showzy-v2/settings/integrations/github)
@@ -143,8 +147,8 @@ PR; do not invent product decisions silently.
 
 ## Rules that keep the pipeline honest
 
-1. **Writer ≠ reviewer.** Never review a PR with the same model family that
-   wrote it.
+1. **Writer ≠ reviewer** when `/review` runs. Never run `/review` with the
+   same model family that wrote the PR. Mechanical PRs do not need `/review`.
 2. **A spec is Active only after its first merged implementation** (or in
    that first PR). Living specs are not contracts. An implementer who finds
    a gap in an Active spec reports it or patches the spec in the same PR

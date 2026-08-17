@@ -10,17 +10,19 @@ a Living spec. The breakdown lives in the plan because plans change.
 A numbered task list. For every task:
 
 - **ID and title** (`<module>-T1: ...`).
-- **Scope** — exactly which actions/tables/events it implements. Target
-  ≤ ~300 diff lines; split larger work.
+- **Scope** — exactly which actions/tables/events it implements. Aim for
+  a slice the human can review in one sitting (~300 diff lines is comfort,
+  not a hard cap). Split when review would suffer, not to hit a number.
 - **Context pack** — the exact spec sections, relevant reference slice, and (only if
   needed) specific v1 reference files the implementer should read. Nothing
   more — do not point tasks at all 83 migrations.
 - **Dependencies** — which tasks must merge first. Explicitly mark tasks
   that can run **in parallel**.
-- **Tests to write first** (TDD) — derived from the spec's acceptance
-  criteria: happy path, mode-appropriate authorization denial, validation
-  and output failure, cross-tenant isolation (per principal mode, ADR-0013),
-  metadata-required protocols, plus task-specific edges.
+- **Tests required** — for action tasks, the five DoD classes (happy path,
+  mode-appropriate authorization denial, validation/output failure,
+  cross-tenant isolation per principal mode, metadata-required protocols)
+  plus task-specific edges. For schema/config, the proving tests. Do not
+  require a red-then-green ritual.
 - **Sensitivity flag** — mark tasks touching auth, payments, QES, webhooks,
   file authorization, or tenant/runtime protocols as `sensitive` (stronger
   implementer model + security review).

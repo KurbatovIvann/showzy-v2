@@ -259,17 +259,17 @@ SPECIFICATION → PLAN → SCAFFOLD → IMPLEMENTATION → REVIEW → VERIFICATI
 ```
 
 1. **Specification.** For each module — a file `docs/specs/<module>.md`: purpose, actions (name/input/output/permissions), events, tables, edge cases, acceptance criteria. Written by an agent in Cursor Plan mode, approved by a human as **Living** intent. It becomes an **Active** contract when the first implementation of that module merges. Implementers may not silently change Active specs (`docs/specs/README.md`).
-2. **Plan.** The agent splits the spec into tasks of ≤ ~300 diff lines each, with explicit dependencies. One task = one branch = one PR.
+2. **Plan.** The agent splits the spec into reviewable tasks (~300 diff lines is comfort, not a hard cap), with explicit dependencies. One task = one branch = one PR.
 3. **Scaffold.** The first versions of `packages/core`, `db`, `contract`, and **two reference slices** are written with maximum care: (a) pricing resolution for pure/query and `ctx.call` patterns; (b) a thin order → outbox → chat projection for write/idempotency/event patterns. Their prerequisite schema slices are specified and merged first. These are the templates agents copy. The lesson of the Encore benchmark: an agent on an empty minimal framework invents anti-patterns — so patterns are locked in before mass generation.
-4. **Implementation.** Parallel agents (Cursor background/cloud agents) — one per task. Each receives: the module spec, its bounded context pack, and the relevant reference slice. TDD: tests from the spec first, then code.
-5. **Review.** Every PR: (a) Bugbot, (b) a review agent from a different model family than the implementer, (c) for auth/payments/QES — an additional security review. A human fully reviews every foundation/sensitive PR; after the references stabilize, routine PR review focuses on contested spots.
+4. **Implementation.** Parallel agents (Cursor background/cloud agents) — one per task. Each receives: the module spec, its bounded context pack, and the relevant reference slice. Tests are required per the definition of done (action classes, or proving tests for schema/config) — not a red-then-green ritual.
+5. **Review.** Lanes: mechanical = CI + human skim; routine = Bugbot + human (`/review` if contested); sensitive and first-module PRs = Bugbot + cross-family `/review` + security review when applicable + full human review.
 6. **Verification (CI).** Merging is impossible without green: format + secret/dependency checks → `tsc --noEmit` → ESLint (boundaries, no `any`, no direct cross-module imports) → Vitest (unit + integration with Testcontainers Postgres) → action/event contract checks (mandatory metadata including `principal`/`transport`, pairing, resolver and event definitions) → migration drift/safety → e2e smoke, phase-aware: Maestro once mobile screens exist, Playwright only from the web phase.
 
 ### 7.2 Rules for agents (`.cursor/rules/`)
 
 - **Code conventions**: action naming (`<module>.<verb>`), module structure, error style (typed, no bare `throw new Error`).
 - **Prohibitions**: raw SQL outside approved Drizzle/foundation exceptions; DB access outside a handler/service/typed target resolver; `any`/`as unknown as`; new dependencies without approval; changing `packages/core` in module tasks.
-- **Definition of Done**: tests for every action (happy + mode-appropriate authorization denial + validation/output failure + metadata-required protocols), spec ambiguities reported (never silently resolved — Active specs are not silently edited), green CI.
+- **Definition of Done**: required tests for every action (happy + mode-appropriate authorization denial + validation/output failure + metadata-required protocols), proving tests for schema/config, spec ambiguities reported (never silently resolved — Active specs are not silently edited), green CI.
 - **Context**: every package has an `AGENTS.md` with local instructions (as in the current repo).
 
 ### 7.3 Model selection (Cursor, August 2026 lineup)
@@ -315,7 +315,7 @@ Condensed view:
 | Phase | Contents | Result |
 | --- | --- | --- |
 | **0. Foundation** | Monorepo, CI, Docker Compose (Postgres+Redis+MinIO), core/db/contract, better-auth, API/worker + Expo skeleton, minimal Universal/App Links, payment + feature-flag skeletons, security/operations baseline, **foundation invariants (§2.1) verified by tests** | A skeleton on which agents can work in parallel |
-| **1. Reference slices** | Merge approved minimal prerequisite schemas, then pricing resolution + a thin order → outbox → chat projection: spec → plan → TDD → review | Query and transactional/event templates to copy + a proven pipeline |
+| **1. Reference slices** | Merge approved minimal prerequisite schemas, then pricing resolution + a thin order → outbox → chat projection: spec → plan → implement with required tests → review | Query and transactional/event templates to copy + a proven pipeline |
 | **‖ Experience Foundation** | V1 mobile inventory → conflict/action mapping → DEFINE/SYSTEM rebaseline → parity prototypes → internal evaluation | V1 parity/adaptation UX gate passed |
 | **2. Company operating core** | `companies`, `catalog` (with variants), `customers`/groups, `invites`, `pricing` full UI + mobile panel screens | Company and catalog created from a phone |
 | **3. Company presence** | Public profile/showcase, business taxonomy, social links, follows, deep links, invite/direct entry | A public visitor evaluates a company and an authenticated user can follow it |
