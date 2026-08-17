@@ -9,8 +9,9 @@
 
 ## 1. Product positioning
 
-**Showzy is a business operating platform with a consumer discovery surface
-— not a multi-seller marketplace or social hub.**
+**Showzy is a business operating platform with public/authenticated consumer
+discovery and bounded social engagement — not a people-discovery network or
+multi-seller checkout marketplace.**
 
 The product was born from real pain: a home confectionery whose communication
 and management are scattered across Instagram, Telegram, spreadsheets, and
@@ -18,15 +19,15 @@ Taxer. Showzy **replaces this zoo of services** rather than aggregating it.
 
 Three entry paths into a company coexist at launch:
 
-1. **Discovery** — an authenticated user searches or browses published
-   companies/products inside the app (ADR-0018).
+1. **Discovery** — anyone may browse published companies/products; an
+   authenticated user can personalize discovery and engage (ADR-0020).
 2. **Invite** — a token/link that creates or enriches a CRM relationship.
 3. **Direct link** — a Universal/App Link to a specific company profile.
 
-Cold-traffic conversion via web SEO is not a priority for the mobile launch —
-this is a tool for a business, not a storefront for anonymous cold visitors.
-Social marketplace mechanics (follows, likes, feed, embeddings) remain
-dropped.
+Cold-traffic web SEO is not a mobile-launch priority, but public mobile reads
+are required. Company follows, product likes/comments, private Following
+collections, and public counters are retained. Public user graphs/activity
+feeds, embeddings, and GPS-radius discovery remain dropped.
 
 ### 1.1 Canonical order flow (what we preserve at all costs)
 
@@ -80,6 +81,7 @@ with the web phase or with a mobile editor after the research spike (see §9).
 | Customers (CRM), groups, invites | Invites are one channel for onboarding customers; discovery and direct links are others (ADR-0018) |
 | **Orders + chat — one vertical slice** | Checkout → redirect to chat; confirm/edit/cancel — in chat; action log; tracking |
 | Company profile + cart + checkout (in the app) | Account required (OTP). V2 payment — by invoice (see §4) |
+| Public discovery + engagement | Public company/product/comment reads; authenticated follows, likes, comments, and private Following collections (ADR-0020) |
 | Documents: default templates, numbering, PDF generation | Puppeteer worker. Template customization — post-launch (§1.2) |
 | **QES signing** (ASiC-E, mobile Nitro + node verify) + pki-proxy | `@showzy/document-signing`: the verified crypto core, tests, and signing vectors carry over unchanged; the integration surface is re-audited against the new architecture |
 | Socket.IO realtime + **Expo push** | Push is critical for mobile-first: the owner must see a new order instantly. Finish device registration (unfinished in 1.x) |
@@ -95,7 +97,7 @@ with the web phase or with a mobile editor after the research spike (see §9).
 | Was | Becomes in 2.0 | ⚠ |
 | --- | --- | --- |
 | Custom status engine: workflow templates, transitions, automations | A fixed set of order statuses + simple auto-transitions from payment/delivery. The full constructor — a separate phase after launch, if there is demand | ⚠ |
-| Analytics: partitioned event pipeline (pg_partman, queue, daily aggregates) | A simple dashboard with direct queries against operational tables. Event tracking — when the need appears | |
+| Analytics: partitioned event pipeline (pg_partman, queue, daily aggregates) | No launch dashboard or placeholder. Add a focused post-launch projection only after useful metrics are approved | |
 | Search: FTS + trigram + pgvector embeddings (OpenAI) | FTS + trigram only. No embeddings, no embedding queue | |
 | Subscriptions: plans + billing + feature flags | Only a feature-flag skeleton (toggling features). Billing — after launch | |
 | Admin area (templates, delivery) | Minimum: seed default document templates via migrations; a full admin area — with the web phase | |
@@ -122,37 +124,40 @@ with the web phase or with a mobile editor after the research spike (see §9).
 | Functionality | Volume that disappears | Why |
 | --- | --- | --- |
 | **Meta messaging** (Instagram/Messenger) | The channels module: webhooks, Graph API, per-minute cron import, meta-message queue, `messaging_contacts` and `meta_data_deletion_requests` tables, rawBody verification, Meta compliance | Owner's decision + the replacement strategy (§1). The system's largest external dependency; chat becomes single-channel and drastically simpler |
-| **Social marketplace hub** | Social feed, follower-based popularity, geo-radius browse, anonymous browsing | Showzy is not a multi-seller marketplace; authenticated discovery (search, category filters) remains — ADR-0018 |
-| **Company follows** | Table, counters, follower notifications | Social mechanics with no transactional value |
-| **Product likes and comments** | 2 tables, a view, moderation | Same |
+| **Public social graph / activity feed** | User discovery, follower/liker identity lists, public activity feed | V2 retains public counters and private own-user collections, not people discovery |
+| **GPS-radius discovery** | Near-me/radius ranking and distance UI | City/area filters remain |
 | **Embeddings + pgvector** | OpenAI queue, HNSW indexes, embedding columns on 3 tables | Served the marketplace's semantic search; FTS + trigram is retained for discovery |
-| **Anonymous users / guest checkout** | The anonymous flow in auth, `is_anonymous_user()` policies | Owner's decision: account only, security > conversion |
+| **Anonymous accounts / guest checkout** | Anonymous identity and order flow | Public reads need no account; all social/commerce writes require authentication |
+| **Company reviews** | Coming-soon placeholder and future rating model | Product comments remain; company ratings are not planned |
 | **LiqPay** | Webhook, result pages | One acquirer (Mono) is enough |
 | **Meest** | Enums, a half-built integration | Nova Poshta only |
 | Dead code | web-push, empty deprecated email/sms controllers, TipTap as a second editor | |
 
-**Effect:** of the backend's 19 modules, 4 disappear entirely and ~5 more slim
-down substantially (analytics, search, subscriptions, statuses, admin). The
-heaviest external dependencies disappear: Meta API, a second acquirer, OpenAI
-embeddings. Estimated code-surface reduction for V2 launch: **~30–35%** versus a
-straight port — plus the entire web UI shifts out of the initial release.
+**Effect:** Meta, a second acquirer, embeddings, geo-radius search, and the web
+client still disappear from launch. Aggregate-owned social behavior returns
+without a separate engagement module. V2 remains a clean implementation, not
+a legacy backend port.
 
 ---
 
 ## 6. Updated module list (packages/modules/*)
 
-**V2 launch:** `companies` (team/RBAC/profile/publication/taxonomy) ·
+**V2 launch:** `companies` (team/RBAC/profile/publication/taxonomy/follows) ·
 `customers` (CRM/groups/legal profiles) · `catalog` · `pricing` · `orders`
 (carts/fixed statuses/log; owns `company_statuses`) · `payments`
 (invoice/manual + provider interface) · `chat` · `documents` ·
 `doc-generation` · `doc-signing` · `delivery` · `reference-data` (KVED/CPV) ·
 `notifications` · `invites` · `files` (attachments + signed upload URLs) ·
-`feature-flags` · `search` (global FTS/trigram discovery projections —
-ADR-0018) · `analytics` (simple dashboard) · `assistant` (phase 9: AI
+`feature-flags` · `search` (public/consumer FTS/trigram discovery projections
+including public counters — ADR-0020) · `assistant` (phase 9: AI
 conversation persistence)
 
-**Post-launch:** `acquiring` (ph.11) · `banking` + accounting (ph.12) ·
-`subscriptions`/billing · workflow constructor
+`catalog` additionally owns product likes/comments; no engagement module is
+introduced.
+
+**Post-launch:** `analytics` (when a useful dashboard is defined) ·
+`acquiring` (ph.11) · `banking` + accounting (ph.12) · `subscriptions`/billing
+· workflow constructor
 
 **Infrastructure:** `pki-proxy` (part of the doc-signing surface)
 
@@ -163,23 +168,23 @@ The exact ownership/composition ledger is `docs/module-ownership.md`.
 ## 7. Roadmap (mobile-first)
 
 Principle: every product phase ends with a working vertical slice in the
-mobile app. The **Experience Foundation** (ADR-0017) runs as a parallel
+mobile app. The **Experience Foundation** (ADR-0019) runs as a parallel
 workstream during phases 0–1 and gates all product UI implementation.
 
 | # | Phase | Contents | Readiness criterion |
 | --- | --- | --- | --- |
 | 0 | **Foundation** | Monorepo, CI (typecheck/lint/tests/contracts/migration drift), Docker Compose (Postgres 17 + Redis + MinIO), `packages/core`, `db`, better-auth, oRPC/client-safe contract, minimal API/worker, **Expo app skeleton + Universal/App Link routing and install fallback**, `payments` provider abstraction, `feature-flags` skeleton, backup/restore baseline, and foundation invariant suites | An agent can add an action from the template and see green CI; the app signs in and opens an invite deep link; cross-tenant/protocol suites pass; a restore drill is specified |
 | 1 | **Reference slices** | After approved minimal prerequisite schemas: (a) pricing resolution for pure/query/`ctx.call`; (b) thin order → transactional outbox → chat projection for write/idempotency/event patterns. Full SDD cycle and pipeline shakedown | Two exemplary references + proven pipeline; review metrics collected |
-| ‖ | **Experience Foundation** | Competitor research → information architecture → design tokens and component contracts → interactive prototypes → internal evaluation (see `docs/design/process.md`) | UX gate passed: research, IA, tokens, components, and internally evaluated prototypes approved by the owner; no external-validation claim |
+| ‖ | **Experience Foundation** | V1 inventory → conflict/action mapping → DEFINE/SYSTEM rebaseline → parity prototypes → internal evaluation | V1 parity/adaptation UX gate explicitly opened |
 | 2 | **Company operating core** | `companies` (onboarding, team, RBAC, requisites), `catalog` (products, variants, categories, images → S3), `customers`/groups, `invites`, `pricing` full UI. Mobile panel screens: products, prices, customers | A company is created from a phone, the catalog fills up, a customer is invited via invite |
-| 3 | **Company presence** | Public company profile/showcase, company identity, business-category taxonomy, deep links, entry journeys (invite, direct link → install → sign in → company context) | A customer follows a link, installs the app, signs in, and sees the company profile with its catalog |
-| 4 | **Consumer discovery** | `search` (FTS/trigram projections of published companies and products), `consumer` principal actions, category filters, search → profile → cart journey (ADR-0018) | A signed-in user searches for a confectionery, finds it, opens the profile, and browses its catalog without a prior invite |
+| 3 | **Company presence** | Public profile/showcase, taxonomy, social links, follows, deep links, invite/direct entry | A public visitor evaluates a company; an authenticated user can follow it |
+| 4 | **Consumer discovery** | Public/consumer FTS+trigram, category/city/area filters, likes/comments/Following, popular sort | Public browse and authenticated engagement match canonical V1 mobile UX |
 | 5 | **Commerce core** | `orders` (cart, checkout, immutable order/payment snapshots, fixed statuses, log), delivery selection (`delivery`/Nova Poshta), order lifecycle, `notifications` + **Expo push**. Checkout atomically links/creates the CRM customer record | A customer places an order from her phone; the owner gets a push and sees it in the panel; the order progresses through statuses without chat coupling |
 | 6 | **Chat platform** | `chat`: conversations, participants, messages, reactions, attachments, read/unread state, realtime (Socket.IO + Redis adapter), offline/reconnect behavior, message push, typing indicators | Both sides can have a real-time conversation; messages persist offline and sync on reconnect; push notifications work |
 | 7 | **Order collaboration in chat** | Order-card projection in chat, redirect-to-chat from checkout, clarify/edit/confirm/cancel in conversation, order-specific push, failure/retry UX | The canonical flow of §1.1 works end-to-end: order → chat → confirm/edit → done |
 | 8 | **Documents + QES (B2B add-on)** | Counterparty requisites, `documents` (generation from an order using default templates), `doc-generation` (PDF worker), `doc-signing` (Nitro signing, ASiC-E, pki-proxy), document card in chat. In parallel: the mobile-editing research spike (§9) | An invoice/delivery note is generated from an order and signed with QES by both parties from their phones |
 | 9 | **AI experience** | `packages/ai`: agent over the action registry, client-side UI tools (navigate/openModal/prefillForm), generative UI in the assistant chat, human-in-the-loop for QES; validate classic/AI parity | The AI in the app performs the same actions as the UI: creates a document, fills a form, shows an order |
-| — | **🚀 V2 Production Launch** | Data migration (users → better-auth, files → S3, tables), TestFlight/internal track → stores | The confectionery runs on Showzy 2.0 from a phone |
+| — | **🚀 V2 Production Launch** | Clean-database bootstrap, full agreed mobile parity, TestFlight/internal track → stores | The confectionery starts on V2 from a phone |
 | 10 | **Web** | Next.js: storefront by link (SEO), customer cabinet, full panel, desktop template editor (Plate), universal links "open in the app or in the browser" | A customer without the app places an order in the browser |
 | 11 | **Acquiring** | `acquiring`: Mono invoices, webhooks, fiscalization, merchant onboarding — plugs into the payment abstraction from phase 0 | Online payment in checkout |
 | 12 | **Bank + accounting** | `banking`: statement sync, matching transactions to orders/invoices; an income ledger on real transactions, export for tax reporting (Taxer replacement) | The owner sees real income and closes tax reporting from Showzy |
@@ -207,7 +212,8 @@ actions.
 
 | Decision | Accepted | Status / how to reverse |
 | --- | --- | --- |
-| Social marketplace hub | No — business platform with consumer discovery | Approved by the owner. Social mechanics (follows, likes, feed, embeddings) remain dropped; authenticated company/product discovery is a V2 launch capability (ADR-0018) |
+| Bounded social engagement | Company follows, product likes/comments, private Following, public counters | Approved by owner in ADR-0020; no public user graph/activity feed |
+| Public discovery | Published company/product/comment reads without authentication | Approved by owner; writes still require an account |
 | Mobile vs web | **Mobile-first for all functionality**, web — phase 10 | Approved by the owner |
 | Anonymous orders | No — account only (OTP) | Approved by the owner: security > conversion |
 | Meta messaging | Dropped | Approved by the owner |
