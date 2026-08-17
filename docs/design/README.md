@@ -11,9 +11,9 @@ This directory holds all UX and design-system artifacts for Showzy V2.
 
 Workstream started 2026-08-17. Linear project
 [Experience Foundation](https://linear.app/showzy-v2/project/experience-foundation-863513f2aa0a)
-is **In Progress**. Current ticket:
-[SHO-6](https://linear.app/showzy-v2/issue/SHO-6/ef-t2-ukrainian-market-and-competitor-audit)
-(competitor audit). SHO-7 external interviews/personas were cancelled by the
+is **In Progress**. RESEARCH Approval #1 was granted on 2026-08-17; DEFINE is
+open (IA, journey maps, content principles, and accessibility baseline may
+start in parallel). SHO-7 external interviews/personas were cancelled by the
 owner; prototype evaluation is internal only and must not be presented as
 representative user validation. The UX gate is not open — product UI specs
 and implementation remain blocked.
