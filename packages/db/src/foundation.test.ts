@@ -1,9 +1,8 @@
 /**
- * fnd-T4 verification (docs/plans/foundation.md): the initial migrations
- * apply cleanly to a fresh Postgres 17, and the foundation tables, indexes,
- * CHECK constraints, roles, and the shared `updated_at` trigger exist exactly
- * as specified in docs/specs/db.md §4–§6. The full template-DB harness and
- * grant/drift CI stages arrive with fnd-T5.
+ * fnd-T4 verification running through the fnd-T5 template-DB harness: the
+ * initial migrations apply cleanly to Postgres 17, and the foundation tables,
+ * indexes, CHECK constraints, roles, grants, and shared `updated_at` trigger
+ * exist exactly as specified in docs/specs/db.md §4–§6.
  *
  * Raw SQL below is test-only structure verification (catalog queries, CHECK /
  * unique / grant probes) — it cannot be expressed through the Drizzle query
@@ -11,41 +10,26 @@
  * Drizzle-only).
  */
 import { randomUUID } from "node:crypto";
-import { fileURLToPath } from "node:url";
 
-import {
-  PostgreSqlContainer,
-  type StartedPostgreSqlContainer,
-} from "@testcontainers/postgresql";
-import { migrate } from "drizzle-orm/node-postgres/migrator";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { createDbClient, type DbClient } from "./client.js";
+import type { DbClient } from "./client.js";
+import { createTestDatabase, type TestDatabase } from "./testing/harness.js";
 
-const migrationsFolder = fileURLToPath(
-  new URL("../migrations", import.meta.url),
-);
-
-let container: StartedPostgreSqlContainer;
+let database: TestDatabase;
 let dbClient: DbClient;
 /** Superuser session for catalog assertions and SET ROLE grant probes. */
 let admin: pg.Client;
 
 beforeAll(async () => {
-  container = await new PostgreSqlContainer("postgres:17-alpine").start();
-  dbClient = createDbClient({ databaseUrl: container.getConnectionUri() });
-  // The core assertion of fnd-T4: all committed migrations apply cleanly to a
-  // fresh Postgres 17. Everything below inspects the result.
-  await migrate(dbClient.db, { migrationsFolder });
-  admin = new pg.Client({ connectionString: container.getConnectionUri() });
-  await admin.connect();
+  database = await createTestDatabase();
+  dbClient = database.runtime;
+  admin = database.admin;
 });
 
 afterAll(async () => {
-  await admin.end();
-  await dbClient.pool.end();
-  await container.stop();
+  await database.close();
 });
 
 /** Asserts a query fails with the given SQLSTATE (e.g. 23514 check_violation). */
@@ -56,7 +40,7 @@ async function expectSqlState(promise: Promise<unknown>, sqlState: string) {
 function insert(table: string, row: Record<string, unknown>) {
   const keys = Object.keys(row);
   const placeholders = keys.map((_, i) => `$${String(i + 1)}`).join(", ");
-  return admin.query(
+  return dbClient.pool.query(
     `INSERT INTO ${table} (${keys.join(", ")}) VALUES (${placeholders})`,
     keys.map((key) => row[key]),
   );
@@ -385,7 +369,9 @@ describe("audit_log (core.md §8)", () => {
 describe("roles (db.md §6)", () => {
   it("creates showzy_app, showzy_migrate, showzy_maintenance without LOGIN", async () => {
     const result = await admin.query(
-      `SELECT rolname, rolcanlogin FROM pg_roles WHERE rolname LIKE 'showzy_%' ORDER BY rolname`,
+      `SELECT rolname, rolcanlogin FROM pg_roles
+       WHERE rolname IN ('showzy_app', 'showzy_migrate', 'showzy_maintenance')
+       ORDER BY rolname`,
     );
     expect(result.rows).toEqual([
       { rolname: "showzy_app", rolcanlogin: false },
@@ -395,12 +381,8 @@ describe("roles (db.md §6)", () => {
   });
 
   it("gives the runtime role DML everywhere but keeps audit_log append-only and DDL off", async () => {
-    const probe = new pg.Client({
-      connectionString: container.getConnectionUri(),
-    });
-    await probe.connect();
+    const probe = await dbClient.pool.connect();
     try {
-      await probe.query(`SET ROLE showzy_app`);
       // Ordinary DML is granted (writes on protocol tables).
       await probe.query(
         `UPDATE event_deliveries SET attempts = attempts WHERE consumer = 'none'`,
@@ -426,7 +408,7 @@ describe("roles (db.md §6)", () => {
         "42501",
       );
     } finally {
-      await probe.end();
+      probe.release();
     }
   });
 
