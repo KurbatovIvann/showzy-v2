@@ -1,25 +1,27 @@
 # Experience Foundation — Research Brief
 
-> Status: Approved by the owner on 2026-08-17
->  
+> Status: Approved, owner-revised on 2026-08-17  
 > Linear: SHO-5 · Stage: RESEARCH · Owner: human product owner
 
 ## Purpose
 
-Build an evidence base for the information architecture, journey maps, design
-system, and representative prototypes of Showzy V2 before product UI work
-begins.
+Build a practical evidence base for the information architecture, journey
+maps, design system, and representative prototypes of Showzy V2 before product
+UI work begins.
 
-The research focuses on Ukrainian micro-business owners who operate primarily
-from a phone and on the people who discover, buy from, and communicate with
-those businesses. It must explain both how users complete work in a classic
-mobile interface and where an AI-chat path is useful, trustworthy, or
-inappropriate.
+The available research methods are deliberately limited to:
 
-This brief authorizes two parallel tasks after owner approval:
+- Desk research against approved product decisions and V1 behavior.
+- An evidence-backed audit of products familiar to Ukrainian users.
+- Internal review by the human owner and one owner-designated reference user.
 
-- SHO-6: Ukrainian-market and competitor audit.
-- SHO-7: personas and jobs-to-be-done, grounded in real-user interviews.
+The project will not recruit or compensate external participants. It therefore
+does not claim representative target-user research, evidence-based personas,
+or external usability validation. Internal observations are product input,
+not population-level evidence.
+
+This brief authorizes SHO-6, the Ukrainian-market and competitor audit. SHO-7
+(personas and external interviews) is cancelled by owner decision.
 
 ## Product constraints treated as fixed
 
@@ -42,25 +44,24 @@ Research may test how to express these decisions, but does not reopen them:
 
 ## Research goals
 
-1. Understand the highest-frequency jobs, pain points, vocabulary, and
-   decision points of Ukrainian micro-business owners and their customers.
-2. Identify mobile interaction patterns that users already understand from
-   Instagram, Telegram, Monobank, Nova Poshta, Poster, Checkbox, and Horoshop.
-3. Determine which work users prefer to perform through classic screens,
-   through AI chat, or through an explicit handoff between the two.
-4. Understand trust boundaries for AI suggestions, data entry, business
-   changes, payments, documents, and QES-related actions.
-5. Map how a person moves from consumer discovery, invite, or direct link into
-   a company-scoped customer relationship without confusing those contexts.
-6. Capture Ukrainian mobile realities: device constraints, intermittent
-   connectivity, notification dependence, one-handed use, and language or
-   terminology expectations.
-7. Produce evidence that directly constrains DEFINE, SYSTEM, PROTOTYPE, and
-   later usability-validation work.
+1. Identify mobile interaction patterns that Ukrainian users are likely to
+   recognize from Instagram, Telegram, monobank, Nova Poshta, Poster,
+   Checkbox, and Horoshop.
+2. Document known V1 workflow shapes and explicit owner/reference-user
+   assumptions without presenting them as independent user evidence.
+3. Define testable questions about classic screens, AI chat, and handoffs for
+   later internal prototype evaluation.
+4. Identify trust and confirmation patterns relevant to business changes,
+   payments, documents, and QES-related actions.
+5. Map the expected transition from discovery, invite, or direct link into a
+   company-scoped customer context.
+6. Capture likely Ukrainian mobile constraints and terminology questions that
+   DEFINE and PROTOTYPE must address.
+7. Record evidence limitations and assumptions that remain unvalidated.
 
 ## Coverage model
 
-The primary interview and synthesis matrix has four quadrants:
+The audit and internal evaluation matrix has four quadrants:
 
 - Staff/owner using classic UI.
 - Staff/owner using AI chat.
@@ -68,284 +69,171 @@ The primary interview and synthesis matrix has four quadrants:
 - Customer using AI chat.
 
 Consumer discovery is treated as a pre-company context of the customer-side
-participant, not as an access grant or automatic CRM relationship. Each
-applicable quadrant must also consider the three entry paths:
+user, not as an access grant or automatic CRM relationship. Each applicable
+quadrant must consider:
 
 - Search or browse discovery.
 - Invite.
 - Direct link.
 
-Research findings must state which quadrant and entry path they apply to.
-Evidence from one quadrant must not be generalized to another without an
-explicit rationale.
+Every finding must state its source and applicable quadrant. Documented
+competitor behavior, repository constraints, owner assumptions, and reference
+user observations must remain distinguishable.
 
-## Key research questions
+## Key evaluation questions
 
 ### Staff and owner work
 
-- How do owners currently manage products, price differences, customers,
-  orders, chat, invoices, delivery, and follow-up from a phone?
-- Which steps are repeated, error-prone, delayed, or copied between apps?
-- What information must be visible immediately when a new order or message
-  arrives?
-- Which business actions require a structured screen, and which could start
-  from a natural-language request?
-- What must an AI assistant show before an owner trusts and confirms a write
-  or high-risk action?
-- How do owners distinguish personal, customer-list, group-list, default-list,
-  and base prices in their own language?
+- Which product, pricing, customer, order, chat, invoice, delivery, and
+  follow-up actions need immediate mobile access?
+- Which actions require structured forms or previews rather than
+  conversational execution?
+- What must AI show before a write or high-risk action is confirmed?
+- Which terms best distinguish personal, customer-list, group-list,
+  default-list, and base prices?
 
 ### Consumer and customer work
 
-- How do people currently find a small business, evaluate it, choose products,
-  and decide to place an order?
-- What differs when entry comes from search, an invite, or a direct link?
-- What context is needed before account creation feels justified?
-- What should remain available before a CRM customer record exists?
-- What makes cart, checkout, redirect-to-chat, order clarification, and order
-  status understandable?
-- How do B2B customers expect requisites, invoices, delivery notes, and QES
-  signing to fit into the same order conversation?
+- What information supports discovery and trust before entering a company?
+- What differs between search, invite, and direct-link entry?
+- When is account creation justified?
+- What must remain possible before a CRM customer record exists?
+- How should cart, checkout, redirect-to-chat, clarification, and status be
+  presented?
+- How should B2B documents and QES fit into the same order conversation?
 
 ### Classic UI and AI chat
 
-- Which jobs are faster or clearer as navigation, forms, lists, and cards?
-- Which jobs benefit from conversational intent capture or summarization?
-- When should AI open or prefill a classic form instead of acting directly?
-- What evidence, preview, undo path, or confirmation does each action need?
-- How should AI communicate limitations, loading, offline state, and failure?
-- Can users move between classic and AI paths without losing context or
-  wondering whether an action already happened?
+- Which jobs are clearer as navigation, forms, lists, and cards?
+- Which jobs benefit from intent capture or summarization in chat?
+- When should AI open or prefill a classic form instead of acting?
+- What preview, confirmation, undo path, and completion evidence is needed?
+- How should loading, offline state, retry, and failure be communicated?
+- Can users switch modes without losing context or duplicating an action?
 
 ### Mobile, content, and accessibility
 
-- Which devices, screen sizes, network conditions, and notification habits
-  shape daily use?
-- Which Ukrainian terms feel natural for orders, price levels, company roles,
-  documents, delivery, and signing?
-- Where do users need larger targets, reduced density, clearer status,
-  screen-reader support, or alternatives to streaming text?
-- Which information is unsafe or uncomfortable to say aloud or enter into AI
-  chat in a shared environment?
+- Which information and actions must work one-handed and on small screens?
+- What must remain understandable during intermittent connectivity?
+- Which events require push notifications?
+- Which Ukrainian terms are natural for roles, prices, orders, documents,
+  delivery, and signing?
+- What alternatives are needed for streaming text and dense generative cards?
 
 ## Methods
 
 ### 1. Desk research
 
 Review approved product and architecture decisions, the V1 audit, and existing
-usage shapes before interviewing. Extract assumptions rather than presenting
-repository decisions as user evidence.
+usage shapes. Produce an assumption register that labels each item as:
 
-Outputs:
+- Approved product constraint.
+- Documented V1 behavior.
+- Owner assumption.
+- Reference-user observation.
+- Open question.
 
-- Initial assumption register.
-- Domain and terminology prompts for interviews.
-- Known constraints that research may inform but not reopen.
+Repository decisions constrain the design but are not user evidence.
 
 ### 2. Competitor interaction-pattern audit
 
-SHO-6 examines Instagram, Telegram, Monobank, Nova Poshta, Poster, Checkbox,
+SHO-6 examines Instagram, Telegram, monobank, Nova Poshta, Poster, Checkbox,
 and Horoshop on mobile.
 
 For each product, record:
 
-- The user goal and observed interaction.
+- Source URL and access date.
+- Documented interaction and its user goal.
 - Navigation, onboarding, chat/commerce, payment, and notification patterns.
-- What users are likely already trained to expect.
+- Loading, empty, error, offline, retry, and trust patterns where evidenced.
+- What Ukrainian users are likely trained to expect, explicitly marked as an
+  inference.
 - Relevance to the coverage quadrants and entry paths.
-- An `adopt`, `adapt`, or `avoid` recommendation with evidence and rationale.
+- An `adopt`, `adapt`, or `avoid` recommendation with rationale.
 
 The audit evaluates patterns, not visual imitation or feature parity.
 
-### 3. Semi-structured real-user interviews
+### 3. Internal prototype evaluation
 
-SHO-7 uses 35–45 minute remote or in-person sessions led by the human owner.
-An agent prepares the guide and synthesizes de-identified notes.
+External sessions are not part of RESEARCH or VALIDATE. Once representative
+prototypes exist, the human owner and one owner-designated reference user
+evaluate the agreed journeys.
 
-Each session should include:
+Internal findings must:
 
-1. Recent-behavior walkthrough: a real order, catalog update, customer
-   interaction, or purchase rather than hypothetical preferences.
-2. Current-tool map: apps, handoffs, copied data, notifications, and failure
-   recovery.
-3. Entry-path discussion: discovery, invite, and direct link where relevant.
-4. Classic-versus-AI prompts using neutral scenarios without selling either
-   approach.
-5. Trust and confirmation probes for writes, documents, payments, deletion,
-   and signing.
-6. Device, connectivity, language, accessibility, and privacy context.
+- Identify the reviewer and reviewer role without storing unnecessary
+  personal data.
+- Distinguish observed task failure from preference.
+- Record the tested prototype version and journey.
+- Cover both classic and AI paths where applicable.
+- Include severity, recommendation, and owner disposition.
+- Carry the explicit limitation `internal evaluation only`.
 
-The interviewer must ask for examples before asking for desired features and
-must separate observed behavior from participant opinion.
-
-### 4. Synthesis
-
-Interview notes and competitor observations are coded into:
-
-- Jobs, triggers, desired outcomes, and current workarounds.
-- Pain points and failure-recovery behavior.
-- Trusted patterns and terminology.
-- Classic-only, AI-suitable, and handoff-required interactions.
-- Differences between staff, consumer, and customer contexts.
-- Confirmed evidence, conflicting evidence, and unresolved assumptions.
-
-The RESEARCH summary converts findings into `adopt`, `adapt`, or `avoid`
-recommendations. It must retain traceability to de-identified evidence.
-
-## Recruiting plan
-
-### Target sample
-
-Recruit eight participants:
-
-- Four Ukrainian micro-business owners or staff who sell products through
-  chat or social channels and operate mainly from a phone.
-- Four customers who have recently discovered or ordered from a Ukrainian
-  micro-business through social, chat, invite, or direct-link flows.
-
-A minimum of six completed sessions, three in each group, is acceptable only
-if the owner records the recruitment shortfall and the evidence is sufficient
-to draft both personas without hiding open assumptions.
-
-### Sampling criteria
-
-The staff sample should aim to include:
-
-- At least one home or small-batch product business close to the reference
-  confectionery case.
-- Different levels of operational complexity: simple base pricing and
-  differentiated customer/group pricing.
-- At least one participant who uses invoices or other B2B documents.
-- A mix of high and low familiarity with AI assistants.
-
-The customer sample should aim to include:
-
-- Recent experience ordering from a small business on a phone.
-- Exposure across discovery, invite, and direct-link entry paths where
-  recruiting permits.
-- At least one B2B customer or sole proprietor who has handled invoices or
-  signed business documents.
-- A mix of high and low familiarity with AI assistants.
-
-The same person may provide evidence about consumer discovery and later
-company-scoped customer behavior. Those contexts must be marked separately in
-the notes.
-
-### Recruiting channels
-
-Use channels available to the owner in this order:
-
-1. Existing Showzy or reference-business contacts.
-2. Customers of participating businesses, invited without pressure from the
-   business owner.
-3. Owner's Ukrainian small-business network and referrals.
-
-Avoid recruiting only from one business. Where possible, no more than two
-customer participants should come from the same company's network.
-
-Exclude project contributors, professional product designers, and
-participants whose relevant workflow is exclusively desktop-based. Prior
-Showzy experience is useful but not required.
-
-### Contact and scheduling
-
-- Use a short screening message that states the research purpose, session
-  length, voluntary nature, and whether recording is requested.
-- Schedule on the participant's preferred channel and device.
-- Offer recording only with explicit consent; otherwise use written notes.
-- Incentives are optional and decided by the owner before outreach. Lack of an
-  incentive must not be hidden in recruitment reporting.
-- Maintain two replacement candidates per participant group when possible.
-
-## Evidence handling and participant safety
-
-- Store names, contact details, recordings, and raw sensitive notes only in
-  owner-controlled private storage, never in the repository.
-- Use participant codes such as `S1` and `C1` in repository artifacts.
-- Obtain explicit consent for participation and separate consent for
-  recording.
-- Do not collect authentication codes, financial credentials, QES keys,
-  customer lists, or identifiable third-party business data.
-- Redact personal and commercially sensitive details during synthesis.
-- Allow participants to skip any question or stop the session.
-- Report quotes only in de-identified form.
+Internal evaluation can reject or revise a design. It cannot establish broad
+Ukrainian-user preference or usability.
 
 ## Timeline and dependencies
 
-The expected duration is eight working days after this brief is approved:
+After the approved brief:
 
-- Day 0: owner approves the brief and confirms access to recruiting channels.
-- Days 1–2: SHO-6 and SHO-7 start in parallel; desk review, audit setup,
-  screening, interview guide, and outreach.
-- Days 2–6: competitor audit and interviews proceed in parallel.
-- Days 5–7: rolling synthesis, evidence-gap check, and replacement interviews
-  if needed.
-- Day 8: consolidated research summary and Approval #1 review.
+- SHO-6 performs the competitor audit.
+- SHO-8 synthesizes the audit, V1 constraints, assumptions, and open
+  questions, then receives Approval #1.
+- DEFINE proceeds from the approved summary.
+- PROTOTYPE is evaluated internally during VALIDATE by the owner and reference
+  user.
 
-The schedule may move with participant availability. Scope must not be reduced
-silently to preserve the dates.
+Scope must not be expanded or evidence limitations hidden to preserve dates.
 
 ## Deliverables
 
 RESEARCH produces:
 
-- `docs/design/research/brief.md` — this approved brief.
+- `docs/design/research/brief.md` — this owner-revised brief.
 - `docs/design/research/competitor-audit.md` — SHO-6.
-- `docs/design/research/personas.md` — SHO-7 personas, JTBD, evidence, and
-  assumptions.
-- A consolidated research summary for SHO-8 with recommendations and
-  unresolved risks.
+- A consolidated research summary for SHO-8 with recommendations,
+  assumptions, evidence limitations, and open risks.
 
-No production UI, design tokens, component contracts, or Figma prototypes are
-created during RESEARCH.
+No persona artifact, participant repository, production UI, design tokens,
+component contracts, or Figma prototypes are created during RESEARCH.
 
 ## Out of scope
 
+- External participant recruitment, compensation, interviews, or surveys.
+- Evidence-based personas or claims about representative user preference.
 - Designing or implementing product screens.
 - Selecting final visual styles, tokens, icons, or component APIs.
-- Testing completed prototypes; that belongs to VALIDATE.
-- Reopening the mobile-first strategy, account requirement, action-registry
+- Reopening mobile-first strategy, account requirement, action-registry
   parity, or chat/order ownership.
 - Full web UX, browser continuation, or desktop document-template editing.
-- Monobank acquiring, bank-statement accounting, subscriptions, workflow
-  constructor, or other post-launch phases.
+- Post-launch acquiring, banking/accounting, subscriptions, and workflow
+  construction.
 - Social feed, follows, likes, comments, anonymous browsing, guest checkout,
   Meta messaging, semantic search, LiqPay, or Meest.
-- Market sizing, pricing Showzy subscriptions, brand strategy, or broad
-  customer-acquisition research.
-- Collecting production credentials, private keys, or identifiable customer
-  datasets.
+- Market sizing, subscription pricing, or broad acquisition research.
 
 ## Risks and mitigations
 
-- **Convenience-sample bias:** recruit from more than one business and label
-  limits in the summary.
-- **Feature-request bias:** anchor interviews in recent behavior before
-  discussing desired capabilities.
-- **AI novelty bias:** compare concrete tasks and confirmation needs, not
-  general enthusiasm for AI.
-- **Owner-interviewer bias:** use a stable guide, neutral prompts, and
-  de-identified agent-assisted synthesis.
-- **Missing B2B evidence:** make it an explicit recruitment target; if unmet,
-  carry it as a validation risk instead of inventing behavior.
-- **Scope expansion:** map every finding to V2 launch, deferred, or dropped
-  scope before making a recommendation.
-- **Sensitive-data exposure:** use participant codes and keep raw data out of
-  the repository.
+- **Internal-review bias:** label all owner/reference-user findings and avoid
+  generalizing them.
+- **Missing behavioral evidence:** preserve open questions for later product
+  analytics, support feedback, or optional future research.
+- **Competitor inference:** separate documented interaction from interpretation.
+- **AI novelty bias:** compare concrete tasks and confirmation needs instead
+  of general enthusiasm.
+- **Scope expansion:** map every recommendation to launch, deferred, or
+  dropped scope.
+- **False validation claim:** UX Gate records `internal evaluation only`.
 
 ## Completion and approval criteria
 
-This brief is approved when the human owner confirms that:
+The brief is approved when the human owner confirms:
 
-- Goals and questions cover staff/customer × classic UI/AI and the consumer
-  discovery context.
-- Discovery, invite, and direct-link entry paths are represented.
-- The competitor audit and interview methods are executable.
-- The recruiting target, channels, session format, and evidence handling are
-  realistic.
-- The timeline and owner-led responsibilities are accepted.
-- Out-of-scope items match the approved V2 launch scope.
+- The audit covers staff/customer × classic UI/AI and consumer discovery.
+- Discovery, invite, and direct-link paths are represented.
+- Competitor and internal-review methods are executable without recruitment.
+- Evidence types and limitations remain explicit.
+- Out-of-scope items match approved V2 launch scope.
 
-Owner approval unblocks SHO-6 and SHO-7. Approval of this brief does not count
-as Approval #1; that checkpoint occurs after both research outputs are
-synthesized in SHO-8.
+Owner approval unblocks SHO-6. Approval of this brief does not count as
+Approval #1; that checkpoint occurs after SHO-6 is synthesized in SHO-8.

@@ -305,7 +305,7 @@ Condensed view:
 | --- | --- | --- |
 | **0. Foundation** | Monorepo, CI, Docker Compose (Postgres+Redis+MinIO), core/db/contract, better-auth, API/worker + Expo skeleton, minimal Universal/App Links, payment + feature-flag skeletons, security/operations baseline, **foundation invariants (§2.1) verified by tests** | A skeleton on which agents can work in parallel |
 | **1. Reference slices** | Merge approved minimal prerequisite schemas, then pricing resolution + a thin order → outbox → chat projection: spec → plan → TDD → review | Query and transactional/event templates to copy + a proven pipeline |
-| **‖ Experience Foundation** | UX research → IA → tokens/components → prototypes → validation (parallel to phases 0–1; gates product UI) | UX gate passed |
+| **‖ Experience Foundation** | Competitor research → IA → tokens/components → prototypes → internal evaluation (parallel to phases 0–1; gates product UI) | UX gate passed with evidence limitations recorded |
 | **2. Company operating core** | `companies`, `catalog` (with variants), `customers`/groups, `invites`, `pricing` full UI + mobile panel screens | Company and catalog created from a phone |
 | **3. Company presence** | Public profile/showcase, business-category taxonomy, deep links, entry journeys (invite, direct link) | A customer follows a link and enters the company |
 | **4. Consumer discovery** | `search` (FTS/trigram), `consumer` principal, category filters, search → profile → cart (ADR-0018) | A signed-in user discovers a company without a prior invite |
