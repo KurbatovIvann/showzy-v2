@@ -26,6 +26,18 @@ documents, agent rules, design process, and v1 reference materials.
 | [`docs/reference/`](docs/reference/)     | Curated v1 reference: backend/DB audit, schema types, all 83 migrations   |
 | [`AGENTS.md`](AGENTS.md)                 | Entry point for AI agents working in this repo                            |
 
+## Local development
+
+```bash
+pnpm install
+cp .env.example .env      # dev defaults match docker-compose.yml
+docker compose up -d      # PostgreSQL 17 (pg_trgm/unaccent), Redis, MinIO
+```
+
+Runtime configuration is validated at boot by `packages/config` — an invalid
+or incomplete `.env` fails fast with the offending keys named (secret values
+are never echoed).
+
 ## Stack (summary)
 
 Node.js 22 + TypeScript strict · Hono + oRPC · PostgreSQL 17 + Drizzle ·
