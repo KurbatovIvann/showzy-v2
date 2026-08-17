@@ -1,0 +1,20 @@
+{
+  "name": "showzy",
+  "private": true,
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@showzy/tooling": "workspace:*",
+    "prettier": "^3.9.6",
+    "turbo": "^2.10.10"
+  }
+}

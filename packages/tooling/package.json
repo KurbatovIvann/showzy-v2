@@ -1,0 +1,23 @@
+{
+  "name": "@showzy/tooling",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared tooling presets: strict tsconfig base, Prettier config, ESLint flat preset with module-boundary enforcement.",
+  "exports": {
+    "./tsconfig/base.json": "./tsconfig/base.json",
+    "./prettier": "./prettier/index.mjs",
+    "./eslint": "./eslint/base.mjs"
+  },
+  "scripts": {
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.8.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-boundaries": "^7.2.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.67.0"
+  }
+}
