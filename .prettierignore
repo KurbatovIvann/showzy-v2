@@ -1,6 +1,10 @@
 # Generated files
 pnpm-lock.yaml
 
+# drizzle-kit output must stay byte-identical to what the generator emits,
+# or the migration drift check (fnd-T5) would diff formatting, not schema.
+packages/db/migrations/
+
 # Human/pipeline-authored documents. docs/specs/* are frozen contracts that
 # implementers may not edit (prohibitions.mdc), so Prettier never rewrites
 # anything under docs/ or the agent instruction files.
