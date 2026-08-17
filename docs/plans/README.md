@@ -14,3 +14,8 @@ Specs and plans are deliberately separate:
 Each plan task maps 1:1 to a Linear ticket in team **Showzy-v2**
 (created by `/plan`, executed via `/ticket`). One task = one branch = one PR
 ≤ ~300 diff lines.
+
+Cross-cutting owner-approved programs may also have a roadmap plan that points
+to module specs/plans without replacing them. `v1-mobile-ux-migration.md` is
+the mobile parity roadmap established by ADR-0019/0020; implementation still
+requires the owning frozen spec and module plan.
