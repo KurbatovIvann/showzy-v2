@@ -13,11 +13,13 @@ business capability lives.
 
 ## Decision
 
-Every business operation is defined once via `defineAction` with: Zod
-input/output, permissions, AI metadata (`aiExposure`, `risk`,
-`requiresConfirmation`, `idempotent`, `emits`), audit flag, timeout, and a
-handler. From this single definition we derive the oRPC procedure, the AI
-tool, form validation, the permission check, and the audit log.
+Every business operation has one logical action definition: a client-safe
+contract descriptor plus exactly one server implementation (contract.md).
+It includes Zod input/output, principal/transport mode, permissions, AI metadata
+(`aiExposure`, `risk`, `requiresConfirmation`, `idempotent`, `emits`), audit
+flag, timeout, and a handler. From it we derive the oRPC procedure, AI tool,
+form validation, permission check, and audit log without exposing the server
+handler to client bundles.
 
 ## Alternatives considered
 
@@ -31,6 +33,7 @@ tool, form validation, the permission check, and the audit log.
 
 - Interface parity is physical: UI and AI call the same handler.
 - The contract check in CI can enforce completeness (an action without
-  description/permissions/risk = build error).
+  description/principal/transport/permissions/risk or without a paired implementation
+  = build error).
 - Phase 5 (AI) becomes "connect the LLM to the existing capability graph",
   not a backend rewrite.

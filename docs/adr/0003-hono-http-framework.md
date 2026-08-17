@@ -30,7 +30,8 @@ lives in the action registry mounted via oRPC.
 
 ## Consequences
 
-- The three flows where the framework matters (assistant SSE, Meta webhook
-  raw body, PKI streaming proxy) are simpler than in v1.
+- The three flows where the framework matters (assistant SSE, raw-body
+  webhook signature verification — payment providers from phase 7, PKI
+  streaming proxy) are simpler than in v1.
 - No framework-level DI: dependencies are passed explicitly (visible to
   agents, trivial to test).

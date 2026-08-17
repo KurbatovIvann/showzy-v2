@@ -56,11 +56,11 @@ written by AI agents.
 These are not "best practices for later" — they are entry criteria verified by
 tests before any domain module is built:
 
-1. **Tenant isolation.** It must be impossible for a business action to read or write another company's data. `companyId` is injected by the action context from the authenticated membership — never accepted from input as an access grant. Verified by an automated cross-tenant test suite that every module inherits. This is what replaces the deleted ~240 RLS policies: code + tests instead of DB policies.
+1. **Tenant isolation.** It must be impossible for a business action to read or write another company's data. Tenant scope is derived by core from verified staff membership, a typed customer/public target resolver, or explicit system scope (ADR-0013) — never accepted from input as an access grant. Verified by an automated cross-tenant test suite that every module inherits. This is what replaces the deleted ~240 RLS policies: code + tests instead of DB policies.
 2. **Idempotency.** Order creation, payments, document generation, Nova Poshta calls, webhooks, and AI-invoked actions are safely retryable (idempotency keys where needed). Retries come from everywhere: workers, webhook redelivery, the AI loop.
 3. **Money model: immutable snapshots.** An order item stores `unitPriceSnapshot`, `quantity`, `discountSnapshot`, `taxSnapshot`, `total` captured at creation time. An old order is never recomputed from current pricing. Critical given 5-level dynamic pricing and future accounting built on real transactions.
-4. **Observability / audit.** Every action execution carries `request_id`, `actor_id` (human or AI), `company_id`, `action` in structured logs; `audit: true` actions write an audit record. Non-negotiable because actions will be invoked by AI.
-5. **Projections never own domain state.** Chat is the primary interaction surface for orders, but the order domain is the source of truth: an order card in chat is a projection updated by domain events (`orders.confirm` → `OrderConfirmed` → card update). A chat message stores `orderId`, never order status. `orders` does not know chat exists — it emits events; `chat` subscribes and materializes cards. The same rule applies to every future projection (dashboards, notifications, analytics).
+4. **Observability / audit.** Every authorized tenant-scoped action carries `request_id`, accountable `actor_id` (user or system), invocation `channel` (`ui`/`ai`/`system`/`webhook`), resolved `company_id`, and `action`; declared global system work has null company. Unauthenticated public reads use synthetic log actor `anonymous` and cannot emit domain events or durable audit rows. `audit: true` actions write an audit record. AI is a channel acting on behalf of a user, not an independently accountable principal. Non-negotiable because actions will be invoked by AI.
+5. **Projections never own domain state.** Chat is the primary interaction surface for orders, but the order domain is the source of truth: an order card in chat is a projection updated by domain events (`orders.confirm` → `orders.confirmed` → card update). A chat message stores `orderId`, never order status. `orders` does not know chat exists — it emits events; `chat` subscribes and materializes cards. The same rule applies to every future projection (dashboards, notifications, analytics).
 
 ---
 
@@ -72,7 +72,7 @@ tests before any domain module is built:
 | Monorepo | **Turborepo + pnpm** | Already works; shared packages are critical for agents |
 | HTTP framework | **Hono** (`@hono/node-server`) | Minimal, fetch-native, explicit. SSE, raw body, streaming proxy — out of the box. Heavy stuff (Puppeteer, WASM, queues) lives outside the framework |
 | API contract | **oRPC** | End-to-end types for web/mobile + OpenAPI autogeneration. Kills the hand-written DTO duplicates |
-| Database | **PostgreSQL 17** (self-hosted) | Extensions: pgvector, pg_trgm, unaccent, pg_cron, pg_partman — all standard |
+| Database | **PostgreSQL 17** (self-hosted) | Extensions: pg_trgm + unaccent. Scheduled work moves to BullMQ, so pg_cron is dropped with v1 invite/analytics jobs; pgvector/pg_partman return only if their dropped features return |
 | ORM / migrations | **Drizzle ORM + drizzle-kit** | Schema in TypeScript = source of types; SQL-like API without magic; versioned migrations |
 | Auth | **better-auth** | Self-hosted TS library: email/phone OTP, sessions, native Drizzle integration |
 | Storage | **S3-compatible** (MinIO locally → Cloudflare R2 in prod) | Replaces Supabase Storage; signed URLs work the same |
@@ -104,8 +104,8 @@ tests before any domain module is built:
 ## 4. The core: action registry
 
 ```ts
-// packages/core/src/action.ts — concept
-export const createOrder = defineAction({
+// packages/modules/orders/actions/create.contract.ts — client-safe
+export const createOrderContract = defineActionContract({
   name: "orders.create",
   description: "Create an order for a company customer", // ← goes into the AI tool
   input: z.object({
@@ -115,6 +115,8 @@ export const createOrder = defineAction({
     items: z.array(orderItemSchema).min(1),
   }),
   output: orderSchema,
+  principal: "staff",              // staff | customer | public | system (ADR-0013)
+  transport: "client",             // client route | internal-only capability
   permissions: ["orders:create"],  // checked before the handler
 
   // AI & execution metadata — designed in at phase 0, consumed from phase 5
@@ -122,18 +124,25 @@ export const createOrder = defineAction({
   risk: "write",                   // read | draft | write | high
   requiresConfirmation: false,     // high-risk: UI renders a human confirmation step
   idempotent: true,                // safe to retry (workers, webhooks, AI loop)
-  emits: ["order.created"],        // declared outbox events; CI checks vs ctx.emit
+  emits: ["orders.created"],       // declared outbox events; CI checks vs ctx.emit
   timeout: 5_000,
   audit: true,                     // written to the audit log
+});
 
+// packages/modules/orders/actions/create.ts — server-only
+export const createOrder = implementAction(createOrderContract, {
   handler: async (input, ctx) => {
-    // ctx: { db, userId, companyId, membership, emit }
-    // one transaction; ctx.emit puts the event into the outbox in the same transaction
+    // ctx shape depends on the declared principal mode (ADR-0013);
+    // for staff: { db, userId, companyId, membership, emit, call }
+    // one transaction; ctx.emit puts the event into the outbox in the same
+    // transaction; ctx.call invokes another module's read action (ADR-0015)
   },
 });
 ```
 
-From one definition we generate:
+From one logical definition (one client-safe descriptor paired with one
+server implementation; ADR-0008, ADR-0016, and contract.md) we
+generate:
 
 1. **oRPC procedure** → typed client for web/mobile + OpenAPI spec.
 2. **AI tool** → `name`/`description`/`input` become the tool definition; the handler is the same.
@@ -182,23 +191,30 @@ showzy/
 │  ├─ document-signing/  # UAPKI (crypto core carried over; integration re-audited)
 │  ├─ validation/     # shared Zod schemas (carried over, extended)
 │  ├─ ui/             # shared design tokens/types for web+mobile
-│  └─ config/         # eslint (boundaries!), tsconfig, prettier
+│  ├─ config/         # validated runtime env (Zod-parsed process.env; no secrets in code)
+│  └─ tooling/        # eslint presets (boundaries!), tsconfig, prettier
 ├─ docs/
 │  ├─ blueprint.md              # this document
-│  └─ specs/          # module specifications for agents (one .md per module)
+│  ├─ specs/          # module specifications — frozen contracts (one .md per module)
+│  └─ plans/          # mutable task breakdowns (one .md per module; see pipeline.md)
 └─ .cursor/
    ├─ rules/          # rules for agents (conventions, prohibitions, DoD)
-   └─ commands/       # common commands (create module, add action, add migration)
+   └─ commands/       # stage commands: /spec /plan /scaffold /implement /review /ticket /rework-spec
 ```
 
 ### Domain modules (packages/modules/*)
 
-**MVP:** `companies` (+ team, RBAC, legal info) · `catalog` (products, variants, categories) · `pricing` (price lists, personal prices, groups) · `orders` (+ order_logs, fixed statuses) · `chat` (conversations, messages, reactions — the operational core) · `documents` (CRUD, default templates, numbering) · `doc-generation` (Plate → HTML → PDF) · `doc-signing` (QES, ASiC-E, pki-proxy) · `delivery` (Nova Poshta + reference data) · `notifications` (in-app, push, email, sms) · `invites` · `search` (FTS) · `analytics` (simple dashboard)
+**MVP:** `companies` (company, team, RBAC, legal info, public profile) · `customers` (company CRM records, groups, customer legal profiles) · `catalog` (products, variants, categories) · `pricing` (price lists, personal prices; references customers/groups but does not own them) · `orders` (carts, order items/logs, fixed statuses) · `payments` (phase-0 provider abstraction, payment records/status; invoice/manual MVP) · `chat` (conversations, messages, reactions — the operational core) · `documents` (CRUD, default templates, numbering) · `doc-generation` (Plate → HTML → PDF) · `doc-signing` (QES, ASiC-E, pki-proxy) · `delivery` (Nova Poshta + its reference data) · `reference-data` (KVED/CPV) · `notifications` (in-app, push, email, sms) · `invites` · `files` (attachment ownership: product images, chat attachments, document files; signed upload URLs, size/type policy) · `feature-flags` (phase-0 skeleton) · `search` (FTS) · `analytics` (simple dashboard) · `assistant` (phase 5: AI conversation persistence — `packages/ai` is the engine and owns no tables)
 
-**Post-MVP:** `acquiring` (Monobank acquiring + fiscalization) · `banking` (statements, matching, accounting foundation) · `subscriptions` (billing; feature flags — from phase 0)
+**Post-MVP:** `acquiring` (Monobank acquiring + fiscalization, plugs into `payments`) · `banking` (statements, matching, accounting foundation) · `subscriptions` (billing; consumes the existing feature-flag capability)
 
-Boundary rule: a module exports only its actions and events. Directly importing
-another module's internal files is an ESLint error.
+Exact table/capability ownership and sanctioned composition edges are tracked
+in `docs/module-ownership.md`; module specs refine but may not silently move
+these boundaries.
+
+Boundary rule: a module's server barrel exports only actions/events and its
+client-safe barrel only descriptors. Directly importing another module's
+internal files is an ESLint error.
 
 ---
 
@@ -206,14 +222,18 @@ another module's internal files is an ESLint error.
 
 | What | Decision |
 | --- | --- |
-| DB schema (77+ tables) | Carried over into the Drizzle schema ~1:1; we keep text+CHECK instead of enums |
+| DB schema (77+ tables) | **Not** carried over 1:1. Every object appears in the v1→v2 migration matrix as keep/transform/drop and maps to one owning MVP module; text+CHECK is preferred over enums |
 | ~240 RLS policies | Deleted. Logic → `permissions` on actions. The largest rethinking effort |
 | ~79 RPC functions | Rewritten as ordinary module functions on Drizzle (transactions in code) |
 | ~82 triggers | A conscious decision for each: technical ones (updated_at, counters) stay in the DB; business logic (numbering, auto-statuses) moves up into code |
-| Outbox (`domain_events`) | Carried over as-is: claim via SKIP LOCKED + LISTEN/NOTIFY |
+| Outbox (`domain_events`) | Protocol carried over and hardened: SKIP LOCKED + LISTEN/NOTIFY dispatch, per-consumer delivery/dedup/retry state |
 | Storage buckets | `documents-bucket`, `chat-attachments` → same S3 structure, paths in the DB |
 | `database.types.ts` (typegen) | Disappears — types are born from the Drizzle schema |
 | Auth users | Export from Supabase Auth → import into better-auth (phones/emails preserved) |
+
+The object-level ledger and per-module completion gate live in
+`docs/reference/v1-migration-matrix.md`. A domain schema task cannot start
+while its source rows are `REVIEW` or lack the required column mapping.
 
 ---
 
@@ -228,32 +248,32 @@ SPECIFICATION → PLAN → SCAFFOLD → IMPLEMENTATION → REVIEW → VERIFICATI
 
 1. **Specification.** For each module — a file `docs/specs/<module>.md`: purpose, actions (name/input/output/permissions), events, tables, edge cases, acceptance criteria. Written by an agent in Cursor Plan mode, approved by a human. The spec is a contract: the implementing agent may not change it, only send it back for rework.
 2. **Plan.** The agent splits the spec into tasks of ≤ ~300 diff lines each, with explicit dependencies. One task = one branch = one PR.
-3. **Scaffold.** The first versions of `packages/core`, `db`, `contract`, and one reference module (recommendation: `pricing` — compact, pure logic, easy to test) are written with maximum care: this is the template agents will copy. The lesson of the Encore benchmark: an agent on an empty minimal framework invents anti-patterns — so patterns are locked in before mass code generation.
-4. **Implementation.** Parallel agents (Cursor background/cloud agents) — one per task. Each receives: the module spec, this blueprint, the reference module. TDD: tests from the spec first, then code.
-5. **Review.** Every PR: (a) Bugbot, (b) a review agent from a different model family than the implementer, (c) for auth/payments/QES — an additional security review. A human looks only at contentious spots and merges.
-6. **Verification (CI).** Merging is impossible without green: `tsc --noEmit` → ESLint (boundaries, no `any`, no direct cross-module imports) → Vitest (unit + integration with Testcontainers Postgres) → contract check (a new action without a description/permissions = error) → Playwright smoke.
+3. **Scaffold.** The first versions of `packages/core`, `db`, `contract`, and **two reference slices** are written with maximum care: (a) pricing resolution for pure/query and `ctx.call` patterns; (b) a thin order → outbox → chat projection for write/idempotency/event patterns. Their prerequisite schema slices are specified and merged first. These are the templates agents copy. The lesson of the Encore benchmark: an agent on an empty minimal framework invents anti-patterns — so patterns are locked in before mass generation.
+4. **Implementation.** Parallel agents (Cursor background/cloud agents) — one per task. Each receives: the module spec, its bounded context pack, and the relevant reference slice. TDD: tests from the spec first, then code.
+5. **Review.** Every PR: (a) Bugbot, (b) a review agent from a different model family than the implementer, (c) for auth/payments/QES — an additional security review. A human fully reviews every foundation/sensitive PR; after the references stabilize, routine PR review focuses on contested spots.
+6. **Verification (CI).** Merging is impossible without green: format + secret/dependency checks → `tsc --noEmit` → ESLint (boundaries, no `any`, no direct cross-module imports) → Vitest (unit + integration with Testcontainers Postgres) → action/event contract checks (mandatory metadata including `principal`/`transport`, pairing, resolver and event definitions) → migration drift/safety → e2e smoke, phase-aware: Maestro once mobile screens exist, Playwright only from the web phase.
 
 ### 7.2 Rules for agents (`.cursor/rules/`)
 
 - **Code conventions**: action naming (`<module>.<verb>`), module structure, error style (typed, no bare `throw new Error`).
-- **Prohibitions**: raw SQL outside Drizzle; `db` access outside a handler; `any`/`as unknown as`; new dependencies without approval; changing `packages/core` in module tasks.
-- **Definition of Done**: tests for every action (happy + permission denied + validation fail), updated spec, green CI.
+- **Prohibitions**: raw SQL outside approved Drizzle/foundation exceptions; DB access outside a handler/service/typed target resolver; `any`/`as unknown as`; new dependencies without approval; changing `packages/core` in module tasks.
+- **Definition of Done**: tests for every action (happy + mode-appropriate authorization denial + validation/output failure + metadata-required protocols), spec ambiguities reported (never silently resolved — implementers cannot edit specs), green CI.
 - **Context**: every package has an `AGENTS.md` with local instructions (as in the current repo).
 
 ### 7.3 Model selection (Cursor, August 2026 lineup)
 
-Principles: (1) **different model families for writing and review** — one model's systematic blind spots are caught by another; (2) **expensive models front-loaded, cheap models at scale** — top-tier models build the foundation and the reference (phases 0–1); once the template exists, mass implementation shifts to a cheap fast model, because the pipeline (reference module + TDD + CI + review by a stronger model) is what guarantees quality, not the implementer's raw capability; (3) the Cursor model lineup changes monthly — the table below describes roles; substitute current equivalents.
+Principles: (1) **different model families for writing and review** — one model's systematic blind spots are caught by another; (2) **expensive models front-loaded, cheap models at scale** — top-tier models build the foundation and reference slices (phases 0–1); once the templates exist, mass implementation shifts to a cheap fast model, because the pipeline (references + TDD + CI + review by a stronger model) is what guarantees quality, not the implementer's raw capability; (3) the Cursor model lineup changes monthly — the table below describes roles; substitute current equivalents.
 
 | Pipeline role | Model | Why |
 | --- | --- | --- |
-| Architecture, specifications, migration plan | **Claude Opus 5 (thinking, high)** or **GPT-5.6 (xhigh)** | Maximum reasoning depth; a mistake at this level is the most expensive. Rare invocations — cost is negligible |
-| Foundation (phases 0–1): `packages/core`, `db`, `contract`, reference module | **Claude Fable 5 (thinking)** | Code that becomes the template for everything else must be impeccable. Expensive, but bounded: used front-loaded, not permanently |
-| Sensitive surfaces at any phase: auth, payments, QES, webhooks | **Claude Fable 5 (thinking)** | Bugs here are the most expensive to catch late; not worth economizing |
-| Main module implementation (phases 2+, once the reference exists) | **Grok 4.5 (fast, high)** | The cheap workhorse. Works from the spec + reference template; TDD and CI catch its mistakes. Escalate a task to Fable 5 after 2 failed review iterations |
-| Boilerplate, mass edits, template-driven refactors | **Grok 4.5 (fast, high)** | Same model — the pattern is already set by the reference |
-| PR code review | **GPT-5.6** — a different family than the implementer (both Grok and Claude) | + **Bugbot** on every PR as a separate layer. Reviewer must be stronger than the implementer, not cheaper |
-| Security review (auth, payments, QES, webhooks) | **GPT-5.6 (xhigh)** + security-review agent | Independent deep pass over sensitive surfaces |
-| Debugging hard bugs | **Claude Opus 5 (thinking, high)** | Escalation when the working model can't find the root cause in 1–2 iterations |
+| Architecture, specifications, migration plan | **Claude Opus 5 (thinking, high)**; cross-check critical docs with **GPT-5.6 Sol (high)** | Maximum reasoning depth; a mistake at this level is the most expensive. Rare invocations — cost is negligible |
+| Foundation (phases 0–1): `packages/core`, `db`, `contract`, reference slices | **Claude Fable 5 (thinking)** — if its data-retention terms are accepted (Anthropic stores agent I/O for harm prevention); otherwise **Claude Opus 5 (thinking, high)** at half the token price | Code that becomes the template for everything else must be impeccable. Expensive, but bounded: used front-loaded, not permanently |
+| Sensitive surfaces at any phase: auth, payments, QES, webhooks, file authorization, tenant/runtime protocols | Same as foundation (Fable 5 or Opus 5) | Bugs here are the most expensive to catch late; not worth economizing |
+| Main module implementation (phases 2+, once the references exist) | **Grok 4.6 (high, non-fast)** | The cheap workhorse from the Cursor Models pool. Fast mode buys latency at 2× the price — irrelevant for background agents. Works from the spec + reference templates; TDD and CI catch its mistakes. Escalate after 2 failed review iterations |
+| Boilerplate, mass edits, template-driven refactors | **Composer 2.5** | Cheapest tier; the pattern is already set by the reference |
+| Routine PR code review | **GPT-5.6 Terra (high)** — a different family than the implementer (both Grok and Claude) | + **Bugbot** on every PR as a separate layer. Cross-family review catches the implementer's systematic blind spots |
+| Foundation / sensitive PR review (auth, payments, QES, webhooks, migrations, core) | **GPT-5.6 Sol (high/xhigh)** + security-review agent | Independent deep pass; reviewer stronger than the implementer where it matters |
+| Debugging hard bugs | **Claude Opus 5 (thinking, high)** — always a different family than the model whose code is failing | Escalation when the working model can't find the root cause in 1–2 iterations |
 
 Cost model in one line: expensive reasoning is spent where errors are
 irreversible or template-setting (specs, foundation, security, review);
@@ -261,9 +281,10 @@ volume code generation runs on the cheap model under the supervision of
 tests, CI, and a stronger reviewer.
 
 Practice in Cursor: specifications — in Plan mode; implementation — parallel
-cloud agents on separate branches; review — Bugbot + a reviewer agent;
-repetitive operations — custom commands (`/new-module`, `/new-action`,
-`/new-migration`).
+cloud agents on separate branches; review — Bugbot + a reviewer agent; the
+stages run through the commands in `.cursor/commands/` (`/spec`, `/plan`,
+`/scaffold`, `/implement`, `/review`, `/ticket`, `/rework-spec`) —
+see `docs/pipeline.md` for the day-to-day workflow including Linear.
 
 ### 7.4 Pipeline health metrics
 
@@ -281,14 +302,14 @@ Condensed view:
 
 | Phase | Contents | Result |
 | --- | --- | --- |
-| **0. Foundation** | Monorepo, CI, Docker Compose (Postgres+Redis+MinIO), `packages/core`, `db`, better-auth (OTP, account required), oRPC bridge, Expo skeleton, payment abstraction, **foundation invariants (§2.1) verified by tests** | A skeleton on which agents can work in parallel |
-| **1. Reference** | The `pricing` module in full: spec → actions → tests → review | A template to copy + a proven pipeline |
+| **0. Foundation** | Monorepo, CI, Docker Compose (Postgres+Redis+MinIO), core/db/contract, better-auth, API/worker + Expo skeleton, minimal Universal/App Links, payment + feature-flag skeletons, security/operations baseline, **foundation invariants (§2.1) verified by tests** | A skeleton on which agents can work in parallel |
+| **1. Reference slices** | Merge approved minimal prerequisite schemas, then pricing resolution + a thin order → outbox → chat projection: spec → plan → TDD → review | Query and transactional/event templates to copy + a proven pipeline |
 | **2. Companies, catalog, customers** | `companies`, `catalog` (with variants), `invites`, customers/groups + mobile panel screens | Company and catalog created from a phone |
 | **3. Order vertical** | `orders` + profile/cart/checkout + `delivery` (Nova Poshta) + **redirect to chat** (`chat`, Socket.IO, push) | The canonical flow end-to-end in the app |
 | **4. Documents + QES** | `documents`, `doc-generation` (PDF worker), `doc-signing` (Nitro, ASiC-E, pki-proxy) + mobile-editing research spike | B2B document workflow with signing from phones |
 | **5. AI layer** | `packages/ai`: agent over the action registry, UI tools, generative UI in the app | AI performs the same actions as the UI |
 | **🚀 MVP** | Data migration, TestFlight → stores | Real users on 2.0 |
-| **6. Web** | Next.js: storefront (SEO), cabinet, full panel, Plate template editor, universal links | Orders without the app |
+| **6. Web** | Next.js: storefront (SEO), cabinet, full panel, Plate template editor, full browser continuation from existing links | Orders without the app |
 | **7. Acquiring** | `acquiring` on top of the ready payment abstraction | Online payment |
 | **8. Bank + accounting** | `banking`: statements, matching; income ledger on real transactions (Taxer replacement) | Tax reporting from Showzy |
 
@@ -302,5 +323,5 @@ Phases 2 and 4 partially parallelize across agents after phase 1.
 - Workers — a separate process (`apps/worker`), scales independently; Puppeteer lives only there.
 - Postgres — vertically + a read replica for analytics/search when needed.
 - L1 cache (memory) + L2 (Redis) — pattern from the current system.
-- Rate limiting on actions (especially AI calls) — in `defineAction` middleware.
+- Rate limiting on actions (especially AI calls) — in the core action execution pipeline (`packages/core`), designed in the core spec.
 - Structured logs with `request_id`/`action`/`companyId` — correlation from HTTP to worker.

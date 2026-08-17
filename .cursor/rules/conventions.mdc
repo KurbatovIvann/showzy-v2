@@ -6,17 +6,24 @@ alwaysApply: true
 # Code conventions
 
 - **Action naming**: `<module>.<verb>` (e.g. `orders.confirm`, `pricing.resolveProductPrice`). Verbs are imperative, camelCase.
+- **Event naming**: `<module>.<pastVerb>` (e.g. `orders.created`, `orders.confirmed`). The payload schema version lives in the event envelope, never in the name.
 - **Module structure** (`packages/modules/<name>/`):
-  - `actions/` — one file per action (`defineAction` call).
+  - `actions/<name>.contract.ts` — client-safe descriptor (ADR-0016); may
+    import only Zod, `@showzy/core/contract`, and shared
+    validation.
+  - `actions/<name>.ts` — server implementation (`implementAction`), target resolver/confirmation summary, and handler.
   - `services/` — internal logic shared between actions of this module.
-  - `events/` — event definitions this module emits.
-  - `schema.ts` — Drizzle tables owned by this module.
+  - `events/` — emitted event definitions and subscriptions that bind
+    consumed events to internal idempotent system actions; no arbitrary DB
+    handler logic.
   - `index.ts` — exports **only** actions and events. Nothing else leaves the module.
-- **Action metadata is mandatory**: every action declares `description`, `input`/`output` (Zod v4), `permissions`, `aiExposure`, `risk`, `requiresConfirmation`, `idempotent`, `emits`, `audit`, `timeout`.
+  - `index.contract.ts` — exports only client-safe action descriptors for `packages/contract`.
+  - Owned tables live in `packages/db/src/schema/<module>.ts` (ADR-0014); a module imports only its own schema file.
+- **Action metadata is mandatory**: every action declares `description`, `principal`, `transport`, `input`/`output` (Zod v4), `permissions`, `aiExposure`, `risk`, `requiresConfirmation`, `idempotent`, `emits`, `audit`, `timeout`; conditional metadata/resolvers from `docs/specs/core.md` are mandatory when applicable.
 - **Errors**: typed error classes from `packages/core/errors`. Never `throw new Error("...")` in domain code.
 - **Validation**: Zod v4 schemas are the single source — form, API contract, AI tool, and DB boundary all derive from the same schema.
-- **DB access**: Drizzle only, and only inside action handlers or module services. Tables are owned by exactly one module.
-- **Tenant context**: `companyId` is read from the action context (`ctx.companyId`), never from action input.
-- **Events over calls**: cross-module effects go through domain events (transactional outbox), not direct imports.
+- **DB access**: Drizzle only, and only inside action handlers, module services, or typed action target resolvers running under the core transaction. Tables are owned by exactly one module (defined in `packages/db/src/schema/<module>.ts`, ADR-0014).
+- **Tenant context**: tenant scope comes from the verified action context, never from input as an access grant. Every action declares exactly one principal mode — `staff` | `customer` | `public` | `system`; customer/public actions use typed target resolvers and system actions declare tenant/global scope (ADR-0013).
+- **Cross-module composition** (ADR-0015): *effects* go through domain events (transactional outbox); *synchronous reads* go through `ctx.call` of another module's principal-compatible `risk: "read"` action; cross-cutting projections (`search`, `analytics`) use read-model grants declared in the owning spec. Direct imports of another module's services are forbidden.
 - **Language**: all code, comments, commit messages, and docs in English.
 - **Architectural decisions**: any deviation from `docs/blueprint.md` or an accepted ADR requires a new ADR (`docs/adr/template.md`) accepted by the human first.

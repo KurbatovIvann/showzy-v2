@@ -24,20 +24,24 @@ interface: a classic UI and an AI chat that execute the exact same actions.
 
 ## Non-negotiable invariants (blueprint §2.1)
 
-1. **Tenant isolation.** `companyId` comes from the authenticated action
-   context, never from input. Cross-tenant access must be impossible and is
-   verified by tests every module inherits.
+1. **Tenant isolation.** Tenant scope comes from a verified action context
+   (staff membership, typed customer/public target resolver, or explicit
+   system scope), never from an input identifier as an access grant
+   (ADR-0013). Cross-tenant access must be impossible and is verified by
+   tests every module inherits.
 2. **Idempotency.** Orders, payments, document generation, webhooks, and
    AI-invoked actions are safely retryable.
 3. **Money snapshots.** Order items store immutable price/discount/tax
    snapshots captured at creation time. Never recompute old orders from
    current pricing.
-4. **Observability / audit.** Every action execution carries `request_id`,
-   `actor_id`, `company_id`, `action` in structured logs.
+4. **Observability / audit.** Authorized tenant actions carry `request_id`,
+   accountable `actor_id` (user/system), invocation `channel`,
+   `company_id`, and `action`; global system work has null company and public
+   reads use log-only actor `anonymous` (never audit/events).
 5. **Projections never own domain state.** Chat is the primary interaction
    surface for orders, but the order domain is the source of truth. A chat
-   message stores `orderId`, never order status. `orders` emits events;
-   `chat` subscribes and materializes cards.
+   message stores `orderId`, never order status. `orders` emits events
+   (`orders.confirmed`); `chat` subscribes and materializes cards.
 
 ## Core rules
 

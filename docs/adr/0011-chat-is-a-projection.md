@@ -14,7 +14,7 @@ storing order state in chat messages, creating two sources of truth.
 
 Chat is the primary *interaction surface* for orders; the order domain is
 the *source of truth*. A chat order card stores `orderId` and renders a
-projection updated by domain events (`orders.confirm` → `OrderConfirmed` →
+projection updated by domain events (`orders.confirm` → `orders.confirmed` →
 card update). The `orders` module does not know chat exists — it emits
 events; `chat` subscribes and materializes cards. The same rule applies to
 every projection (dashboards, notifications, analytics).

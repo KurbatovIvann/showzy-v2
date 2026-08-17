@@ -15,14 +15,19 @@ becomes a frozen contract for implementing agents, so precision beats brevity.
    reference, not a template (RLS → permissions, RPC → handlers).
 4. If any existing spec in `docs/specs/` overlaps (shared events, shared
    tables), read it and stay consistent.
+5. Start from `docs/specs/template.md`. Confirm the module's ownership and
+   composition edges in `docs/module-ownership.md`; unresolved ownership is
+   a question, not an implicit decision.
 
 ## The spec must contain
 
 1. **Purpose** — 2–4 sentences: what the module owns, what it explicitly
    does not own.
 2. **Actions** — for every action: name (`<module>.<verb>`), description,
-   input/output Zod shapes (as TypeScript), `permissions`, `aiExposure`,
-   `risk`, `requiresConfirmation`, `idempotent`, `emits`, `audit`, `timeout`.
+   principal, transport exposure, input/output Zod shapes (as TypeScript), `permissions`,
+   `aiExposure`, `risk`, `requiresConfirmation`, `idempotent`, `emits`,
+   `audit`, `timeout`, and every conditional target/system/confirmation
+   field required by `docs/specs/core.md`.
 3. **Events** — emitted domain events with payload shapes; which modules are
    expected to subscribe.
 4. **Tables** — Drizzle tables this module owns (columns, indexes,
@@ -30,15 +35,21 @@ becomes a frozen contract for implementing agents, so precision beats brevity.
 5. **Edge cases** — enumerate them explicitly; this is where v1 reference
    digging pays off.
 6. **Acceptance criteria** — testable statements, including the mandatory
-   ones: cross-tenant isolation, permission denial, validation failure,
-   idempotency where declared.
+   ones: mode-appropriate tenant/authorization denial, validation failure,
+   runtime output validation, idempotency where declared.
+7. **v1 migration slice** — every relevant table/trigger/RPC/RLS object is
+   reconciled with `docs/reference/v1-migration-matrix.md`; every carried
+   table has column mapping, cleanup, reconciliation, cutover, and rollback,
+   with no unresolved `REVIEW` row at approval.
 
 ## Rules
 
 - Work interactively: present a draft, ask the human targeted questions about
   contested product behavior, iterate. Do not silently invent product
   decisions — surface them.
-- `companyId` never appears in action input — it comes from context.
+- Tenant IDs may be selectors but never access grants. Staff scope is verified
+  from membership; customer/public scope is produced by typed target
+  resolution; system scope is explicit (ADR-0013).
 - Chat/dashboards/notifications are projections: they store IDs and subscribe
   to events, never domain state (ADR-0011).
 - If the module needs something `packages/core` doesn't provide, flag it as a

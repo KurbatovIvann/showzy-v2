@@ -29,3 +29,7 @@ humans) don't relitigate settled questions or silently deviate.
 | [0010](0010-mobile-first-client-strategy.md) | Mobile-first client strategy | Accepted |
 | [0011](0011-chat-is-a-projection.md) | Chat is a projection; the order domain owns state | Accepted |
 | [0012](0012-carry-over-outbox-and-qes-core.md) | Carry over the outbox pattern and the QES crypto core | Accepted |
+| [0013](0013-principal-model-and-action-context.md) | Principal model — staff, customer, public, system | Accepted |
+| [0014](0014-drizzle-schema-placement.md) | Drizzle schema lives in packages/db, one file per owning module | Accepted |
+| [0015](0015-cross-module-composition.md) | Cross-module composition — internal calls for queries, events for effects | Accepted |
+| [0016](0016-client-safe-action-descriptors.md) | Client-safe action descriptors and server implementations | Accepted |

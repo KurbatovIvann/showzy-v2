@@ -33,7 +33,7 @@ confirmation → REDIRECT TO CHAT with an order card
 - **Chat is the primary interaction surface for orders**, not an extra
   feature. Architecturally, however, the order domain is the source of truth
   and chat is a projection: an order card stores `orderId` and is updated by
-  domain events (`orders.confirm` → `OrderConfirmed` → card update).
+  domain events (`orders.confirm` → `orders.confirmed` → card update).
   **Chat never owns order state**, and `orders` does not know chat exists
   (see blueprint §2.1, invariant 5).
 - For B2B customers (sole proprietor / legal entity) the same flow + a
@@ -51,8 +51,10 @@ confirmation → REDIRECT TO CHAT with an order card
 company panel and the customer side). Web is a separate post-MVP phase.**
 
 Rationale: the target user (a micro-business owner) lives on her phone, not at
-a laptop. Once web exists, deep links are added: a user following a link either
-opens the app or continues in the browser.
+a laptop. MVP still needs minimal iOS Universal Links / Android App Links for
+invites, public company links, order/chat notifications, and QES callbacks:
+open the installed app, otherwise show a small install landing page. Phase 6
+adds the full "open the app or continue in the browser" experience.
 
 A consequence to accept consciously: in the MVP, document template
 customization is limited (the Plate editor is a desktop-grade thing). The MVP
@@ -67,7 +69,7 @@ with the web phase or with a mobile editor after the research spike (see §9).
 | --- | --- |
 | Companies, team, RBAC, legal requisites (sole proprietor / legal entity) | The permission model carries over 1:1 into action permissions |
 | Catalog: products, categories, images, **variants** | ⚠ Variants stay in the MVP — a basic catalog need |
-| **Pricing: 5 levels** (personal → client price list → group price list → default price list → base) | Confirmed by the owner on a real case: separate prices for coffee shops, regular and loyal customers. The pipeline's reference module |
+| **Pricing: 5 levels** (personal → client price list → group price list → default price list → base) | Confirmed by the owner on a real case: separate prices for coffee shops, regular and loyal customers. One of the pipeline's two reference slices |
 | Customers (CRM), groups, invites | Invites are the primary channel for onboarding customers into the app |
 | **Orders + chat — one vertical slice** | Checkout → redirect to chat; confirm/edit/cancel — in chat; action log; tracking |
 | Company profile + cart + checkout (in the app) | Account required (OTP). MVP payment — by invoice (see §4) |
@@ -99,7 +101,7 @@ with the web phase or with a mobile editor after the research spike (see §9).
 | Functionality | When | Rationale |
 | --- | --- | --- |
 | **Web version** (storefront by link, customer cabinet, full panel, desktop template editor) | Phase 6 — first after the MVP launch | Owner's decision: mobile-first for everything. Web sits on the same oRPC contract — no logic is rewritten, only UI. Web brings deep links: "open in the app or continue in the browser" |
-| ⚠ **Mono acquiring** (online payment + fiscalization) | Phase 7 | The MVP runs on invoice-based payment: the platform generates an invoice as a document — a natural flow for small B2B. **Phase 0 requirement:** from day one an order has a `payment_status` and a payment-provider abstraction so acquiring plugs in without core changes |
+| ⚠ **Mono acquiring** (online payment + fiscalization) | Phase 7 | The MVP runs on invoice-based payment: the platform generates an invoice as a document — a natural flow for small B2B. **Phase 0 requirement:** a `payments` module owns payment records/status and the provider interface; orders link to payment IDs and react to payment events, so acquiring plugs in without changing core |
 | **Monobank statements + accounting** | Phase 8 — the next big priority after the core flow | Status elevated after the owner's clarification: statements are not just payment matching but the **foundation of future accounting** (income ledger, tax reporting — a Taxer replacement). Accounting is built on real bank transactions, not on orders in the system. **Phase 0 requirement:** financial data (amounts, currency, payment↔order↔document links) is designed carefully from day one |
 | Mobile document template editing | Research spike in parallel with phase 4 (see §9) | Owner: "would be really cool, but technically hard" |
 | DOCX export of documents | On user demand | PDF covers the main case |
@@ -132,26 +134,33 @@ straight port — plus the entire web UI shifts out of the MVP.
 
 ## 6. Updated module list (packages/modules/*)
 
-**MVP:** `companies` · `catalog` · `pricing` · `orders` · `chat` ·
-`documents` · `doc-generation` · `doc-signing` · `delivery` ·
-`notifications` · `invites` · `search` (FTS) · `analytics` (simple dashboard)
+**MVP:** `companies` (team/RBAC/profile) · `customers` (CRM/groups/legal
+profiles) · `catalog` · `pricing` · `orders` (carts/fixed statuses/log;
+owns `company_statuses`) · `payments` (invoice/manual MVP + provider
+interface) · `chat` · `documents` · `doc-generation` · `doc-signing` ·
+`delivery` · `reference-data` (KVED/CPV) · `notifications` · `invites` ·
+`files` (attachments + signed upload URLs) · `feature-flags` · `search`
+(FTS) · `analytics` (simple dashboard) · `assistant` (phase 5: AI
+conversation persistence)
 
 **Post-MVP:** `acquiring` (ph.7) · `banking` + accounting (ph.8) ·
 `subscriptions`/billing · workflow constructor
 
 **Infrastructure:** `pki-proxy` (part of the doc-signing surface)
 
+The exact ownership/composition ledger is `docs/module-ownership.md`.
+
 ---
 
 ## 7. Roadmap (mobile-first)
 
-Principle: every phase ends with a working vertical slice in the mobile app.
-Phases 2 and 4 partially parallelize after the reference module.
+Principle: every product phase ends with a working vertical slice in the
+mobile app. Phases 2 and 4 partially parallelize after both reference slices.
 
 | # | Phase | Contents | Readiness criterion |
 | --- | --- | --- | --- |
-| 0 | **Foundation** | Monorepo, CI (typecheck/lint/tests/boundaries), Docker Compose (Postgres 17 + Redis + MinIO), `packages/core` (defineAction with AI/risk metadata, context, outbox, event bus), `db` (core Drizzle schema), better-auth (phone OTP, account required), oRPC bridge, **Expo app skeleton**, **payment abstraction** (`payment_status` + provider interface), **foundation invariants** (tenant isolation, idempotency, money snapshots, audit — blueprint §2.1) | An agent can add an action from the template and see green CI; the app signs in; **the cross-tenant isolation test suite passes** |
-| 1 | **Reference: pricing** | The pricing module in full via the SDD cycle: spec → plan → TDD → review. Pipeline and rules shakedown | Reference module + proven pipeline; review metrics collected |
+| 0 | **Foundation** | Monorepo, CI (typecheck/lint/tests/contracts/migration drift), Docker Compose (Postgres 17 + Redis + MinIO), `packages/core`, `db`, better-auth, oRPC/client-safe contract, minimal API/worker, **Expo app skeleton + Universal/App Link routing and install fallback**, `payments` provider abstraction, `feature-flags` skeleton, backup/restore baseline, and foundation invariant suites | An agent can add an action from the template and see green CI; the app signs in and opens an invite deep link; cross-tenant/protocol suites pass; a restore drill is specified |
+| 1 | **Reference slices** | After approved minimal prerequisite schemas: (a) pricing resolution for pure/query/`ctx.call`; (b) thin order → transactional outbox → chat projection for write/idempotency/event patterns. Full SDD cycle and pipeline shakedown | Two exemplary references + proven pipeline; review metrics collected |
 | 2 | **Companies, catalog, customers** | `companies` (onboarding, team, RBAC, requisites), `catalog` (products, variants, categories, images → S3), `invites`, customers/groups. Mobile panel screens: products, prices, customers | A company is created from a phone, the catalog fills up, a customer is invited via invite |
 | 3 | **Order vertical: profile → cart → checkout → chat** | `orders` (fixed statuses, log), company profile in the app, cart, checkout with delivery selection (`delivery`/Nova Poshta) → **redirect to chat** (`chat` + Socket.IO + Redis adapter): order card, confirm/edit/cancel, `notifications` + **Expo push** | A customer places an order from her phone; the owner gets a push and confirms the order in chat. The canonical flow of §1.1 works end-to-end |
 | 4 | **Documents + QES (B2B add-on)** | Counterparty requisites, `documents` (generation from an order using default templates), `doc-generation` (PDF worker), `doc-signing` (Nitro signing, ASiC-E, pki-proxy), document card in chat. In parallel: the mobile-editing research spike (§9) | An invoice/delivery note is generated from an order and signed with QES by both parties from their phones |
@@ -186,7 +195,7 @@ actions.
 | Meta messaging | Dropped | Approved by the owner |
 | Acquiring in the MVP | No — invoice-based payment | ⚠ Pull phase 7 before launch; +3–4 weeks to MVP. The phase-0 payment abstraction makes this painless |
 | Monobank statements | Phase 8, status elevated to accounting foundation | Approved by the owner: the next priority after the core flow |
-| Status constructor | Simplified to fixed statuses | ⚠ The DB schema is designed compatibly: `company_statuses` remains a table; the constructor is only UI + actions on top of it |
+| Status constructor | Simplified to fixed statuses | ⚠ `orders` owns `company_statuses`; MVP seeds a fixed set. A future constructor adds UI/actions without moving table ownership |
 | Product variants | In the MVP | ⚠ If deadlines squeeze — moved out of phase 2 into a separate one |
 | 5-level pricing | In the MVP without simplifications | Approved by the owner on a real case |
 
