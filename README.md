@@ -32,6 +32,7 @@ documents, agent rules, design process, and v1 reference materials.
 pnpm install
 cp .env.example .env      # dev defaults match docker-compose.yml
 docker compose up -d      # PostgreSQL 17 (pg_trgm/unaccent), Redis, MinIO
+pnpm --filter @showzy/db db:migrate   # apply Drizzle migrations
 ```
 
 Runtime configuration is validated at boot by `packages/config` — an invalid
