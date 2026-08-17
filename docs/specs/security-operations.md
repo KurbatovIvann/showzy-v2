@@ -2,12 +2,13 @@
 
 > Status: Approved (frozen). Approved by: owner, 2026-08-17.
 > Applies to phase 0 and every module. Written against blueprint §2.1/§3/§7,
-> ADR-0006, ADR-0009, ADR-0010, ADR-0012, ADR-0013, ADR-0018, and foundation
-> specs.
+> ADR-0006, ADR-0009, ADR-0010, ADR-0012, ADR-0013, ADR-0018, ADR-0020,
+> ADR-0021, and foundation specs.
 
 ## 1. Data classification and trust boundaries
 
-- **Public:** published company/catalog/profile data.
+- **Public:** allowlisted published company/catalog/profile/comment facts and
+  aggregate social counters.
 - **Internal:** non-public business configuration and operational metadata.
 - **Personal:** phone, email, names, addresses, chat, device identifiers.
 - **Financial/legal:** requisites, orders, documents, payments, bank data.
@@ -18,7 +19,7 @@
 
 | Classification | `staff` | `customer` | `public` | `consumer` | `account` | `system` |
 | --- | --- | --- | --- | --- | --- | --- |
-| **Public** (published facts) | Yes, within verified membership company | Yes, via typed `resolveTarget` visibility | Yes, via typed `resolveTarget` proving published visibility | Yes — **global published-only discovery**; no company scope; unpublished/draft/internal facts forbidden | Yes — may read published facts while listing companies or bootstrapping; no company scope | Per explicit `systemScope` |
+| **Public** (published facts) | Yes, within verified membership company | Yes, via typed `resolveTarget` visibility | Yes — target resolver or declared global published projection; unpublished/internal fields forbidden | Yes — **global published-only discovery**; no company scope; unpublished/draft/internal facts forbidden | Yes — may read published facts while listing companies or bootstrapping; no company scope | Per explicit `systemScope` |
 | **Internal** | Permission-gated | No | No | No | No | Per explicit scope / job |
 | **Personal** | Permission-gated or self | Own resources only | No | No (session identity for auth/rate-limit only; never CRM/PII discovery leakage) | Own-user resources only (personal profile, own company list) | Per explicit scope / job |
 | **Financial/legal** | Permission-gated | Own orders/docs/payments only | No | No | No | Per explicit scope / job |
@@ -26,41 +27,53 @@
 
 Notes:
 - Classification **Public** (published facts) is not the same as principal `public`.
+- Public-global actions are anonymous, projection-only, read-only, unaudited,
+  event-free, and rate-limited by rotating IP HMAC. Public-target actions
+  retain typed target resolution (ADR-0020).
 - `consumer` actions never create CRM records, never write audit, never emit
   events (ADR-0018; enforced by core contract check).
 - `account` actions are scoped to own-user data; `permissions` must be `[]`
   (no company RBAC applies); they may perform writes (create company, update
   personal profile) unlike `consumer`. `account` actions must not access
   another user's data or company-scoped resources (ADR-0013).
-- Authorization remains in `defineAction` principal/`permissions`/`resolveTarget`
-  (ADR-0009); this matrix is the ops policy those checks must satisfy.
+- Authorization remains in action principal/permissions/target resolution or
+  a declared public projection grant (ADR-0009, ADR-0020); this matrix is the
+  ops policy those checks must satisfy.
 
 Untrusted inputs include every client field, chat/catalog/document content,
 file upload, webhook, provider response, queue payload, event payload, and AI
 tool result. Zod validation is necessary but never grants tenant access.
 
-### Discovery surface security considerations (ADR-0018)
+### Discovery and social surface security (ADR-0018, ADR-0020)
 
-- **Information disclosure of unpublished entities:** consumer discovery
-  actions must never surface companies or products in draft, unpublished, or
-  internal states. Publication predicates are enforced at the query level in
-  search projections and validated by the inherited `consumerIsolationSuite`
-  (core.md §12). Error responses for non-existent or unpublished entities
+- **Information disclosure of unpublished entities:** public-global and
+  consumer discovery must never surface draft/unpublished company, product,
+  or comment data, or fields outside the response allowlist. Publication
+  predicates are enforced in search projections and validated by inherited
+  isolation suites (core.md §12). Errors for absent/unpublished entities
   must be indistinguishable (same error shape, same status code) to prevent
   enumeration of unpublished entity IDs.
-- **CRM leakage prevention:** consumer discovery must not reveal whether a
+- **CRM/identity leakage prevention:** discovery must not reveal whether a
   browsing user has a CRM record in any company, nor expose personal data of
-  other users (customer lists, order counts, chat history). Projection tables
-  never store CRM state or personal identifiers.
-- **Rate abuse on discovery:** since consumer discovery is authenticated but
-  globally scoped (no single-company bottleneck), a compromised or abusive
-  account could attempt bulk data extraction. The per-user rate limit
-  (60/min), response pagination, and monitoring of sustained high-volume
-  discovery patterns serve as defense.
+  other users, follower/liker identities, private collections, order counts,
+  or chat history. Projections never store CRM state or identity collections.
+- **Rate/scraping abuse:** public uses 30/min per rotating IP HMAC; consumer
+  uses 60/min per user. Both require bounded pagination and monitoring for
+  sustained extraction; raw IP never enters domain logs.
+- **Social write abuse:** follow/like use authenticated desired-state writes
+  with idempotency and target visibility checks. Comments/replies have
+  bounded length/depth, normalized/sanitized text, author/staff authorization,
+  per-user/action rate overrides, and moderation logging. Counter updates and
+  own-user collections must remain transactionally consistent under retries.
 - **Account principal write scope:** `account` actions can create companies
   and modify personal profile. Abuse vector: mass company creation. Defended
   by rate limiting, optional CAPTCHA/verification on company creation, and
   monitoring for anomalous creation patterns.
+- **Atomic capability boundary (ADR-0021):** `ctx.callAtomic` is never a
+  transport route. CI and runtime require a mutually declared caller/callee
+  edge, matching principal and verified tenant, one root transaction, and no
+  nested atomic call. Callee authorization/audit still run; the capability
+  cannot widen schema ownership or grant access.
 
 ## 2. Authentication and sessions
 
@@ -137,10 +150,10 @@ tool result. Zod validation is necessary but never grants tenant access.
 ## 6. Logging, detection, and incident response
 
 - Structured logs contain request/correlation/action/accountable actor/channel
-  and resolved company scope when present. For `consumer`, `account`, and
-  declared global `system` work, `company_id` is null; consumer and account
-  lines carry request ID, actor user, and channel only (ADR-0013, ADR-0018).
-  `public` uses log actor `anonymous`.
+  and resolved company scope when present. For public-global, `consumer`,
+  `account`, and declared global `system` work, `company_id` is null.
+  Public-global uses log actor `anonymous`; public-target additionally carries
+  its resolved company. Consumer/account lines carry accountable user actor.
   Consumer actions never write durable audit rows or domain events; `account`
   actions may write audit when declared (`audit: true`). Logs never
   contain raw OTPs, tokens, secrets, full documents, raw payment/webhook
@@ -180,6 +193,9 @@ review. A critical/high unresolved finding blocks merge.
 - [ ] CI secret/dependency/security gates cannot be bypassed by ordinary PRs.
 - [ ] Consumer principal: unpublished/internal/personal/financial facts are
       denied; no CRM side effects; no audit/event emission (integration).
+- [ ] Public-global: unpublished/non-allowlisted fields denied; no CRM/domain
+      side effects, resolver, audit, event, or foreign projection access;
+      anonymous null-company log and 30/min IP-HMAC limit verified.
 - [ ] Consumer rate limit defaults to 60/min per user; public remains IP-HMAC
       keyed; raw IP absent from domain logs (test).
 - [ ] Consumer structured logs include request/actor/channel with null
@@ -189,13 +205,19 @@ review. A critical/high unresolved finding blocks merge.
       request/actor/channel with null company_id (test).
 - [ ] Account rate limit defaults to 90/min per user (test).
 - [ ] Discovery surface: unpublished entity requests return indistinguishable
-      errors (no enumeration); projection responses contain no CRM/personal
-      data (test).
+      errors; projection responses contain no CRM/personal data or
+      follower/liker identities (test).
+- [ ] Social writes: desired-state retries do not duplicate counters/events;
+      user A cannot read user B's private collections; comment abuse,
+      author/staff moderation, and cross-company target denials are tested.
+- [ ] Atomic capability: client invocation, undeclared edge, tenant/principal
+      mismatch, nested call, and foreign-schema access are rejected.
 
 ## Changelog
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-17 | Added public projection, bounded social-abuse, and atomic capability security controls | Align foundation with ADR-0020/0021 mobile parity | Human owner via mobile parity rework |
 | 2026-08-17 | Added `account` principal to authorization matrix, rate-limit tiers, logging classification; added discovery surface security considerations | Complete Step 2 of spec-rework queue (ADR-0018 integration) | Spec-rework agent |
 | 2026-08-17 | Added consumer authorization/classification matrix, rate-limit tiers, and null-company logging rules | Align security and operations with ADR-0018 consumer discovery | Human owner via spec-rework queue |
 | 2026-08-17 | Initial foundation draft | Close phase-0 security/operations contract gap | GPT-5.6 Sol |
