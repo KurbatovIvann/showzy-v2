@@ -13,7 +13,12 @@ interface: a classic UI and an AI chat that execute the exact same actions.
    invariants, SDD pipeline. This is the constitution of the project.
 2. `docs/scope.md` — what we build in the MVP, what we defer, what we drop,
    and the mobile-first roadmap.
-3. `docs/specs/<module>.md` — the spec of the module you are working on.
+3. `docs/adr/` — accepted architecture decisions and why alternatives were
+   rejected. Never contradict an accepted ADR; deviations require a new ADR
+   first.
+4. `docs/pipeline.md` — how the agent pipeline runs: stages, roles, models,
+   commands, exit criteria.
+5. `docs/specs/<module>.md` — the spec of the module you are working on.
    A spec is a contract: as an implementer you may not change it, only send
    it back for rework.
 

@@ -19,3 +19,4 @@ alwaysApply: true
 - **Tenant context**: `companyId` is read from the action context (`ctx.companyId`), never from action input.
 - **Events over calls**: cross-module effects go through domain events (transactional outbox), not direct imports.
 - **Language**: all code, comments, commit messages, and docs in English.
+- **Architectural decisions**: any deviation from `docs/blueprint.md` or an accepted ADR requires a new ADR (`docs/adr/template.md`) accepted by the human first.

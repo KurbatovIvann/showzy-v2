@@ -17,6 +17,8 @@ contains the architecture documents, agent rules, and v1 reference materials.
 | --- | --- |
 | [`docs/blueprint.md`](docs/blueprint.md) | Architecture, stack, action registry, foundation invariants, SDD pipeline |
 | [`docs/scope.md`](docs/scope.md) | MVP scope, deferred/dropped features, mobile-first roadmap |
+| [`docs/adr/`](docs/adr/) | Architecture decision records (12 accepted) |
+| [`docs/pipeline.md`](docs/pipeline.md) | Agent pipeline operations manual: stages, models, commands |
 | [`docs/specs/`](docs/specs/) | Per-module specifications (contracts for implementing agents) |
 | [`docs/reference/`](docs/reference/) | Curated v1 reference: backend/DB audit, schema types, all 83 migrations |
 | [`AGENTS.md`](AGENTS.md) | Entry point for AI agents working in this repo |
