@@ -1,6 +1,6 @@
 # Showzy V2 — Design Tokens
 
-> Status: Complete; pending SYSTEM Approval #3  
+> Status: Approval #3 granted by the owner on 2026-08-17  
 > Linear: SHO-15 · Stage: SYSTEM  
 > Target: 1:1 future React Native Unistyles theme mapping  
 > Evidence: approved DEFINE constraints and internal standards review only

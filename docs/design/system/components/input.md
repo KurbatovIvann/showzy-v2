@@ -1,6 +1,6 @@
 # Input Contract
 
-> Status: Complete; pending SYSTEM Approval #3  
+> Status: Approval #3 granted by the owner on 2026-08-17  
 > Linear: SHO-16 · Text-entry component
 
 ## Use and interface
