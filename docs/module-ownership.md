@@ -2,7 +2,8 @@
 
 > Status: Approved by owner, 2026-08-17.
 > Normative companion to blueprint §5, scope §6, ADR-0011, ADR-0014, and
-> ADR-0015. Module specs refine this map but may not move ownership silently.
+> ADR-0015, and ADR-0020. Module specs refine this map but may not move
+> ownership silently.
 
 ## Rules
 
@@ -24,9 +25,9 @@
 
 | Module | Owns | Main composition |
 | --- | --- | --- |
-| `companies` | companies, memberships, RBAC roles/overrides, legal requisites, public profile/showcase settings, `business_categories`, `company_business_categories`, publication state | Emits company/member/profile events; exposes principal-compatible company/profile reads and `consumer`-principal published-company discovery reads (ADR-0018) |
+| `companies` | companies, memberships, RBAC roles/overrides, legal requisites, public profile/showcase settings, taxonomy, publication state, company follows/counter | Resolves company targets; exposes public/consumer profile reads and private account follow collections; emits follow/profile events |
 | `customers` | company CRM customer records, customer groups/membership, customer legal profiles | Calls `companies` reads where needed; exposes pricing/order customer facts |
-| `catalog` | products, variants, categories, product media links, product publication/active status | Calls `files` for attachment capabilities; exposes order/pricing product facts and `consumer`-principal published-product discovery reads (ADR-0018) |
+| `catalog` | products, variants, categories, media links, publication/active state, product likes/counter, product comments/replies/counter | Resolves product targets; calls `files`; exposes public/consumer product reads and private account like collections; emits engagement/catalog events |
 | `pricing` | price lists and entries, personal and group price rules | Calls `catalog` and `customers` reads; exposes resolved immutable price facts to `orders` |
 | `orders` | carts/items, orders/items, order log, fixed `company_statuses` | Calls catalog/customer/pricing reads; emits order lifecycle events; consumes payment/delivery status events |
 | `payments` | payment records, order/document links, provider references, payment status machine | Consumes order/document events; emits payment lifecycle events; future `acquiring` integrates through events |
@@ -36,12 +37,11 @@
 | `doc-signing` | signing requests, signatures, ASiC-E artifacts, verification results | Consumes document events; QES keys never leave the client |
 | `delivery` | shipment records and Nova Poshta dictionaries/sync state | Consumes order requests; emits shipment/tracking status |
 | `reference-data` | global KVED/CPV classifiers and import metadata | Read-only actions for companies/customers/documents |
-| `notifications` | notification intents/deliveries/preferences/device registrations | Consumes domain events; channels are projections, not source state |
+| `notifications` | notification intents/deliveries/preferences/device registrations | Consumes domain events; launch families are chat/order/document-signing; followed-company product updates are later opt-in |
 | `invites` | invite tokens, redemption/expiry state | Calls companies/customer reads; emits invite lifecycle events |
 | `files` | attachment metadata, ownership links, upload/finalization state | Object bytes live in S3/MinIO; exposes signed-upload/finalize actions |
 | `feature-flags` | flag definitions and company overrides | Exposes reads; future subscriptions update it through events |
-| `search` | Global FTS/trigram discovery projections (published companies and active published products) | Consumes events or declared read-model grants from `companies`/`catalog`; owns no domain authority or pricing data; `consumer`-principal actions expose search results (ADR-0018) |
-| `analytics` | simple dashboard projections/queries only | Consumes events or declared read-model grants |
+| `search` | Global FTS/trigram discovery projections for published companies/products and public counters | Consumes events or declared read-model grants from `companies`/`catalog`/`orders`; owns no domain authority or pricing data; exposes declared public-global and consumer reads (ADR-0020) |
 | `assistant` | AI conversation/tool-run persistence | Stores action/tool IDs and results; never duplicates domain state |
 
 ## Post-launch ownership
@@ -53,6 +53,8 @@
   accounting ledger foundations.
 - `subscriptions` owns plans/billing/subscription state and updates
   `feature-flags` through events.
+- `analytics` owns dashboard projections only when a useful post-launch
+  dashboard is approved; no launch placeholder is required.
 
 ## Spec gate
 

@@ -9,16 +9,19 @@
 
 ## 1. Product
 
-Showzy is a business operating platform for small businesses in Ukraine — not
-a multi-seller marketplace or social hub, but it includes an authenticated
-consumer discovery surface (ADR-0018). It replaces the zoo of services a
-micro-business juggles (Instagram + Telegram + spreadsheets + Taxer) with a
-single app. The reference user is a home confectionery.
+Showzy is a business operating platform for small businesses in Ukraine with
+a public and authenticated consumer discovery surface plus bounded social
+engagement (ADR-0020). It is not a people-discovery network or multi-seller
+checkout marketplace. It replaces the zoo of services a micro-business
+juggles (Instagram + Telegram + spreadsheets + Taxer) with a single app. The
+reference user is a home confectionery.
 
 - **Company profile** with a catalog and flexible pricing (5 levels: personal price → client price list → group price list → default price list → base price). Validated on a real case: separate prices for coffee shops, regular customers, and loyal customers.
 - **Canonical flow**: customer → company profile → cart → checkout (account required) → **redirect to chat** with an order card. The company confirms/edits/cancels the order in chat. **Chat is the operational core of the product.**
 - **B2B add-on**: a customer with a legal profile (sole proprietor / legal entity) gets document workflow — contracts, invoices, delivery notes, **QES signing** (DSTU, ASiC-E) — the private key never leaves the device. Same flow, extra actions.
 - **Two management surfaces**: company panel and customer cabinet.
+- **Consumer engagement**: company follows, product likes/comments, private
+  Following collections, and public counters; no public social graph.
 - **Integrations**: Nova Poshta (V2 launch); Monobank acquiring + bank statements as the foundation of accounting (post-launch), Resend, SMS.
 - **AI assistant** with tool calling — at parity with the UI.
 - **Client strategy: mobile-first for all functionality** (panel and cabinet). Web is a post-launch phase, with universal links.
@@ -57,7 +60,7 @@ written by AI agents.
 These are not "best practices for later" — they are entry criteria verified by
 tests before any domain module is built:
 
-1. **Tenant isolation.** It must be impossible for a business action to read or write another company's data. Tenant scope is derived by core from verified staff membership, a typed customer/public target resolver, explicit system scope, or null company for `consumer` global discovery (ADR-0013, ADR-0018) — never accepted from input as an access grant. Verified by an automated cross-tenant test suite that every module inherits. This is what replaces the deleted ~240 RLS policies: code + tests instead of DB policies.
+1. **Tenant isolation.** It must be impossible for a business action to read or write another company's data. Tenant scope is derived by core from verified staff membership, a typed customer/public target resolver, explicit system scope, or null company for `consumer` and declared public global discovery projections (ADR-0013, ADR-0018, ADR-0020) — never accepted from input as an access grant. Verified by an automated cross-tenant test suite that every module inherits. This is what replaces the deleted ~240 RLS policies: code + tests instead of DB policies.
 2. **Idempotency.** Order creation, payments, document generation, Nova Poshta calls, webhooks, and AI-invoked actions are safely retryable (idempotency keys where needed). Retries come from everywhere: workers, webhook redelivery, the AI loop.
 3. **Money model: immutable snapshots.** An order item stores `unitPriceSnapshot`, `quantity`, `discountSnapshot`, `taxSnapshot`, `total` captured at creation time. An old order is never recomputed from current pricing. Critical given 5-level dynamic pricing and future accounting built on real transactions.
 4. **Observability / audit.** Every authorized tenant-scoped action carries `request_id`, accountable `actor_id` (user or system), invocation `channel` (`ui`/`ai`/`system`/`webhook`), resolved `company_id`, and `action`; declared global system work has null company. Unauthenticated public reads use synthetic log actor `anonymous` and cannot emit domain events or durable audit rows. `audit: true` actions write an audit record. AI is a channel acting on behalf of a user, not an independently accountable principal. Non-negotiable because actions will be invoked by AI.
@@ -205,9 +208,17 @@ showzy/
 
 ### Domain modules (packages/modules/*)
 
-**V2 launch:** `companies` (company, team, RBAC, legal info, public profile, business categories, publication lifecycle) · `customers` (company CRM records, groups, customer legal profiles) · `catalog` (products, variants, categories) · `pricing` (price lists, personal prices; references customers/groups but does not own them) · `orders` (carts, order items/logs, fixed statuses) · `payments` (phase-0 provider abstraction, payment records/status; invoice/manual) · `chat` (conversations, messages, reactions — the operational core) · `documents` (CRUD, default templates, numbering) · `doc-generation` (Plate → HTML → PDF) · `doc-signing` (QES, ASiC-E, pki-proxy) · `delivery` (Nova Poshta + its reference data) · `reference-data` (KVED/CPV) · `notifications` (in-app, push, email, sms) · `invites` · `files` (attachment ownership: product images, chat attachments, document files; signed upload URLs, size/type policy) · `feature-flags` (phase-0 skeleton) · `search` (global FTS/trigram discovery projections for published companies and products — ADR-0018) · `analytics` (simple dashboard) · `assistant` (phase 9: AI conversation persistence — `packages/ai` is the engine and owns no tables)
+**V2 launch:** `companies` (company/team/RBAC/profile/publication, business
+categories, follows) · `customers` (CRM/groups/legal profiles) · `catalog`
+(products, variants, categories, likes, comments) · `pricing` (five-level
+rules) · `orders` (carts, snapshots, log, fixed statuses) · `payments`
+(invoice/manual) · `chat` · `documents` · `doc-generation` · `doc-signing` ·
+`delivery` (Nova Poshta) · `reference-data` · `notifications` · `invites` ·
+`files` · `feature-flags` · `search` (public/consumer FTS/trigram projections)
+· `assistant`.
 
-**Post-launch:** `acquiring` (Monobank acquiring + fiscalization, plugs into `payments`) · `banking` (statements, matching, accounting foundation) · `subscriptions` (billing; consumes the existing feature-flag capability)
+**Post-launch:** `analytics` (only when a useful dashboard is defined) ·
+`acquiring` · `banking` · `subscriptions`.
 
 Exact table/capability ownership and sanctioned composition edges are tracked
 in `docs/module-ownership.md`; module specs refine but may not silently move
@@ -305,16 +316,16 @@ Condensed view:
 | --- | --- | --- |
 | **0. Foundation** | Monorepo, CI, Docker Compose (Postgres+Redis+MinIO), core/db/contract, better-auth, API/worker + Expo skeleton, minimal Universal/App Links, payment + feature-flag skeletons, security/operations baseline, **foundation invariants (§2.1) verified by tests** | A skeleton on which agents can work in parallel |
 | **1. Reference slices** | Merge approved minimal prerequisite schemas, then pricing resolution + a thin order → outbox → chat projection: spec → plan → TDD → review | Query and transactional/event templates to copy + a proven pipeline |
-| **‖ Experience Foundation** | Competitor research → IA → tokens/components → prototypes → internal evaluation (parallel to phases 0–1; gates product UI) | UX gate passed with evidence limitations recorded |
+| **‖ Experience Foundation** | V1 mobile inventory → conflict/action mapping → DEFINE/SYSTEM rebaseline → parity prototypes → internal evaluation | V1 parity/adaptation UX gate passed |
 | **2. Company operating core** | `companies`, `catalog` (with variants), `customers`/groups, `invites`, `pricing` full UI + mobile panel screens | Company and catalog created from a phone |
-| **3. Company presence** | Public profile/showcase, business-category taxonomy, deep links, entry journeys (invite, direct link) | A customer follows a link and enters the company |
-| **4. Consumer discovery** | `search` (FTS/trigram), `consumer` principal, category filters, search → profile → cart (ADR-0018) | A signed-in user discovers a company without a prior invite |
+| **3. Company presence** | Public profile/showcase, business taxonomy, social links, follows, deep links, invite/direct entry | A public visitor evaluates a company and an authenticated user can follow it |
+| **4. Consumer discovery** | Public/consumer FTS+trigram, category/city/area filters, likes/comments/Following, popular sort | Public browse and authenticated social discovery match V1 mobile UX |
 | **5. Commerce core** | `orders` + cart/checkout + `delivery` (Nova Poshta) + push; atomic CRM link on checkout; no chat coupling | An order is placed and progresses through statuses |
 | **6. Chat platform** | `chat`: conversations, messages, realtime, offline/reconnect, push | Real-time conversation works end-to-end |
 | **7. Order collaboration** | Order-card projection in chat, redirect-to-chat, confirm/edit/cancel | The canonical §1.1 flow works end-to-end |
 | **8. Documents + QES** | `documents`, `doc-generation` (PDF worker), `doc-signing` (Nitro, ASiC-E, pki-proxy) + mobile-editing spike | B2B document workflow with signing from phones |
 | **9. AI experience** | `packages/ai`: agent over the action registry, UI tools, generative UI; classic/AI parity validation | AI performs the same actions as the UI |
-| **🚀 V2 Production Launch** | Data migration, TestFlight → stores | Real users on 2.0 |
+| **🚀 V2 Production Launch** | Clean-database bootstrap, full mobile parity, internal rollout → stores | Real users start on V2 without V1 data migration |
 | **10. Web** | Next.js: storefront (SEO), cabinet, full panel, Plate template editor, full browser continuation from existing links | Orders without the app |
 | **11. Acquiring** | `acquiring` on top of the ready payment abstraction | Online payment |
 | **12. Bank + accounting** | `banking`: statements, matching; income ledger on real transactions (Taxer replacement) | Tax reporting from Showzy |
