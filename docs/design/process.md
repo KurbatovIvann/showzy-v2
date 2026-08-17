@@ -1,24 +1,24 @@
 # Experience Foundation — Design Process
 
-> Status: workstream started 2026-08-17 (RESEARCH). Process amended by owner:
-> external participant research and testing are removed; evaluation is internal.
+> Status: reset 2026-08-17 for V1 mobile parity; UX gate closed.
 > Owner: human product owner.
-> Companion to ADR-0017.
+> Companion to ADR-0019 (supersedes ADR-0017) and ADR-0020.
 
 ---
 
 ## Overview
 
-The Experience Foundation runs as a parallel workstream alongside the
-technical foundation (phases 0–1). Its output — approved, internally evaluated
-design artifacts — gates all product UI implementation. Backend work may
-proceed independently; only UI specs and UI implementation are blocked by the
-UX gate.
+The V1 mobile implementation is the canonical design input. The Experience
+Foundation now verifies parity and documents V2 adaptations instead of
+inventing a greenfield mobile experience. Backend work may proceed
+independently; product UI specs, plans, and implementation remain blocked by
+the UX gate.
 
 ```mermaid
 flowchart LR
-  R["RESEARCH"] --> D["DEFINE"]
-  D --> S["SYSTEM"]
+  I["INVENTORY"] --> C["CONFLICT MAP"]
+  C --> D["DEFINE REBASELINE"]
+  D --> S["SYSTEM REBASELINE"]
   S --> P["PROTOTYPE"]
   P --> V["VALIDATE"]
   V --> G{"UX GATE"}
@@ -27,7 +27,59 @@ flowchart LR
 
 ---
 
-## Stages
+## Active stages
+
+### 1. INVENTORY
+
+Map every V1 mobile route, component, token, transition, visible state, and
+data dependency. Capture golden screenshots and interaction recordings for
+P1 journeys. The V1 repository is read-only.
+
+**Approval:** owner confirms the inventory represents the canonical app.
+
+### 2. CONFLICT MAP
+
+Classify each behavior as preserve, adapt, review, or drop. Map every
+interactive behavior to a V2 action/event/local-state boundary and identify
+ADR/spec blockers.
+
+**Approval:** owner confirms product dispositions; architecture conflicts
+enter ADR or spec rework before implementation.
+
+### 3. DEFINE REBASELINE
+
+Rework IA and journeys from the V1 route model. Preserve customer/staff tabs,
+stacks, sheets, gestures, and entry paths. Add only approved V2 adaptations:
+public/auth handoff, verified contexts, account deletion, and a contextual AI
+overlay.
+
+**Approval:** replaces the previous DEFINE Approval #2.
+
+### 4. SYSTEM REBASELINE
+
+Re-derive tokens and component contracts from the V1 implementation. Carry V1
+colors first; a later palette change is separate. Bind accessibility,
+offline, localization, and AI-context requirements to concrete components.
+
+**Approval:** replaces the previous SYSTEM Approval #3.
+
+### 5. PROTOTYPE
+
+Prototype P1 parity flows from golden references, including exceptional V2
+adaptations and one classic↔AI handoff.
+
+### 6. VALIDATE
+
+The owner and one owner-designated reference user evaluate internally against
+parity evidence. Results remain labeled `internal evaluation only`.
+
+The detailed RESEARCH/DEFINE/SYSTEM requirements below remain useful where
+they do not conflict with ADR-0019. Existing research is retained as evidence,
+not as authority over the canonical V1 experience.
+
+---
+
+## Retained stage requirements
 
 ### 1. RESEARCH
 
@@ -136,12 +188,15 @@ accepts the absence of representative external validation.
 The UX gate is a formal checkpoint. Product UI implementation (engineering
 pipeline `/spec`, `/plan`, `/implement` for screens) is blocked until:
 
-1. Research summary is approved.
-2. IA and journey maps are approved.
-3. Token spec and component contracts are approved.
-4. Representative prototypes are evaluated by the owner and reference user.
-5. The results carry the limitation `internal evaluation only`.
-6. Human owner explicitly opens the gate.
+1. ADR-0019 and ADR-0020 are accepted.
+2. V1 mobile screen, component, token, and state inventories are approved.
+3. Every conflict has an owner disposition.
+4. Every interactive behavior maps to a V2 action/event or approved rework.
+5. V1-derived IA and journeys receive replacement DEFINE approval.
+6. V1-derived tokens/components receive replacement SYSTEM approval.
+7. P1 parity prototypes include all canonical contexts and one AI handoff.
+8. Owner/reference-user evaluation is labeled `internal evaluation only`.
+9. Human owner explicitly records the gate as open.
 
 **Exception:** Expo app shell infrastructure (navigation skeleton, auth
 screens, deep-link routing) is NOT gated — it is technical foundation
@@ -187,6 +242,13 @@ All design documentation lives in `docs/design/`:
 ```
 docs/design/
 ├── process.md              ← this file
+├── inventory/
+│   ├── v1-mobile-screen-map.md
+│   ├── v1-mobile-component-inventory.md
+│   └── v1-mobile-token-baseline.md
+├── mapping/
+│   ├── v1-to-v2-conflict-register.md
+│   └── v1-ux-to-v2-capability-matrix.md
 ├── research/
 │   ├── brief.md
 │   └── competitor-audit.md

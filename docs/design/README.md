@@ -4,18 +4,26 @@ This directory holds all UX and design-system artifacts for Showzy V2.
 
 - **Process:** [`process.md`](process.md) — stages, outputs, approval criteria,
   and the UX gate definition.
-- **Decision:** [ADR-0017](../adr/0017-design-system-first-dual-flow-ux.md) —
-  why design-system-first, what it gates, and alternatives rejected.
+- **Decision:** [ADR-0019](../adr/0019-v1-mobile-canonical-ux.md) — V1 mobile
+  is the canonical UX baseline and the gate verifies parity/adaptation.
+- **Inventory:** [`inventory/`](inventory/) — canonical routes, components,
+  tokens, motion, and state boundaries.
+- **Mapping:** [`mapping/`](mapping/) — owner conflict dispositions and V2
+  capability/spec mapping.
 
 ## Current status
 
-Workstream started 2026-08-17. Linear project
+Workstream reset by the owner on 2026-08-17. Linear project
 [Experience Foundation](https://linear.app/showzy-v2/project/experience-foundation-863513f2aa0a)
-is **In Progress**. RESEARCH Approval #1, DEFINE Approval #2, and SYSTEM
-Approval #3 were granted on 2026-08-17. PROTOTYPE is open. SHO-7 external
-interviews/personas were cancelled by the owner; prototype evaluation is
+is **In Progress**. The prior RESEARCH evidence is retained. Prior DEFINE
+Approval #2 and SYSTEM Approval #3 are superseded pending V1-derived
+re-approval. Inventory and owner conflict decisions are complete; capability
+mapping has identified spec/architecture rework. Prototype evaluation remains
 internal only and must not be presented as representative user validation.
-The UX gate is not open — product UI specs and implementation remain blocked.
+
+The UX gate is closed — product UI specs, plans, and implementation remain
+blocked. Expo shell/auth/deep-link infrastructure remains the documented
+exception.
 
 ## Relationship to the engineering pipeline
 

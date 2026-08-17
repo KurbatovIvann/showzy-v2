@@ -1,10 +1,10 @@
 # Experience Foundation — Plan
 
-> Status: **approved and owner-revised 2026-08-17** (external participant
-> research and testing removed; see "Resolved decisions"). Linear tickets are
-> created from this breakdown; execution started with ef-T1.
+> Status: **reset and owner-approved 2026-08-17** for V1 mobile parity.
+> The original ef-T1…T21 graph below is historical and must be re-cut.
 >
-> Sources: [ADR-0017](../adr/0017-design-system-first-dual-flow-ux.md),
+> Sources: [ADR-0019](../adr/0019-v1-mobile-canonical-ux.md),
+> [ADR-0020](../adr/0020-public-discovery-and-social-engagement.md),
 > [`docs/design/process.md`](../design/process.md).
 
 This is the task breakdown for the Experience Foundation workstream — the
@@ -35,6 +35,83 @@ human owner. Tickets created 2026-08-17: **SHO-5 … SHO-27**; SHO-7 is
 cancelled and SHO-27 is the added ef-T6c discovery journey task.
 
 ---
+
+## Current V1 parity rebaseline
+
+Existing Linear issues must be closed, retained as evidence, or re-scoped
+before execution. Do not silently reuse a ticket whose acceptance criteria
+describe the superseded greenfield design.
+
+### efr-T1: Canonical inventory approval — `human`
+
+- **Scope:** review `docs/design/inventory/`.
+- **Acceptance:** routes, components, tokens, motion, and required screen
+  states represent the V1 mobile implementation; missing P1 evidence is
+  listed.
+- **Dependencies:** ADR-0019.
+
+### efr-T2: Conflict and capability approval — `human`
+
+- **Scope:** review `docs/design/mapping/`.
+- **Acceptance:** every product conflict has an owner disposition; every
+  behavior has an action/event/spec destination or explicit blocker.
+- **Dependencies:** efr-T1, ADR-0020.
+
+### efr-T3: DEFINE rebaseline — `agent`, then `human`
+
+- **Scope:** rework information architecture and journeys around V1 customer
+  and staff tabs, sheets, transitions, public/auth resume, active-company
+  context, social collections, and grouped inbox. AI is a contextual overlay.
+- **Acceptance:** classic flows trace to inventory references; each approved
+  V2 adaptation is explicit; owner grants replacement DEFINE approval.
+- **Dependencies:** efr-T2 and disposition of principal/spec blockers.
+
+### efr-T4: SYSTEM rebaseline — `agent`, then `human`
+
+- **Scope:** replace invented tokens/contracts with V1-derived tokens,
+  components, layout, iconography, motion, accessibility, and state behavior.
+- **Acceptance:** V1 palette is carried first; every P1 component traces to
+  inventory; owner grants replacement SYSTEM approval.
+- **Dependencies:** efr-T3.
+
+### efr-T5: Parity prototypes — `agent`
+
+- **Scope:** prototype auth/onboarding; public discovery/social/company;
+  cart/checkout/order→chat; grouped inbox/chat cards/recap; staff CRUD;
+  documents/QES; account/context selection; one contextual AI handoff.
+- **Acceptance:** golden-reference comparison covers visual hierarchy,
+  gesture/motion, loading/empty/error/offline, and auth resume.
+- **Dependencies:** efr-T4 and approved UX-driven spec dispositions.
+
+### efr-T6: Internal evaluation and iteration — `human-led`
+
+- **Scope:** owner and one owner-designated reference user execute P1 tasks;
+  record findings and changes under `docs/design/validation/`.
+- **Acceptance:** high-severity findings are fixed or accepted; evidence is
+  labeled `internal evaluation only`.
+- **Dependencies:** efr-T5.
+
+### efr-T7: UX gate opening — `human`
+
+- **Scope:** execute `docs/design/process.md` UX Gate checklist and record the
+  decision in `docs/design/README.md`.
+- **Acceptance:** gate explicitly open; UI `/spec`, `/plan`, and `/implement`
+  may reference approved parity artifacts.
+- **Dependencies:** efr-T6 and all blocking ADR/spec decisions.
+
+```mermaid
+flowchart TD
+  T1["efr-T1 inventory approval"] --> T2["efr-T2 conflict/capability approval"]
+  T2 --> T3["efr-T3 DEFINE rebaseline"]
+  T3 --> T4["efr-T4 SYSTEM rebaseline"]
+  T4 --> T5["efr-T5 parity prototypes"]
+  T5 --> T6["efr-T6 internal evaluation"]
+  T6 --> T7{"efr-T7 UX GATE"}
+```
+
+---
+
+## Historical greenfield plan (superseded by ADR-0019)
 
 ## Stage 1 — RESEARCH
 
