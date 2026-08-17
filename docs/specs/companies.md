@@ -1286,4 +1286,4 @@ Seed data is carried over via migration (same 18 categories).
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
-| 2026-08-17 | Initial full spec (supersedes companies-foundation.md) | Spec-rework queue Step 3; deliver complete companies module specification | Human owner |
+| 2026-08-17 | Initial full spec (extends companies-foundation.md; full module scope applies from Phase 2 onward; Phase 0 implements only the foundation slice) | Spec-rework queue Step 3; deliver complete companies module specification | Human owner |

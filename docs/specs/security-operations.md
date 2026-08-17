@@ -187,7 +187,7 @@ review. A critical/high unresolved finding blocks merge.
 - [ ] Account principal: cannot access another user's companies or personal
       data; cannot access company-scoped resources; structured logs include
       request/actor/channel with null company_id (test).
-- [ ] Account rate limit defaults to 60/min per user (test).
+- [ ] Account rate limit defaults to 90/min per user (test).
 - [ ] Discovery surface: unpublished entity requests return indistinguishable
       errors (no enumeration); projection responses contain no CRM/personal
       data (test).
