@@ -1,6 +1,6 @@
 # Showzy V2 — Content Principles
 
-> Status: Complete; pending DEFINE Approval #2  
+> Status: Approval #2 granted by the owner on 2026-08-17  
 > Linear: SHO-12 · Stage: DEFINE  
 > Evidence: approved constraints and internal assumptions only
 

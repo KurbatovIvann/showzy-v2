@@ -1,6 +1,6 @@
 # Chat — Classic UI Journey
 
-> Status: Complete; pending DEFINE Approval #2  
+> Status: Approval #2 granted by the owner on 2026-08-17  
 > Linear: SHO-11 · Quadrants: Staff/Classic, Customer/Classic  
 > Evidence: approved chat/order specs and internal assumptions only
 

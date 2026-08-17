@@ -1,6 +1,6 @@
 # Showzy V2 — Information Architecture
 
-> Status: Complete; pending DEFINE Approval #2  
+> Status: Approval #2 granted by the owner on 2026-08-17  
 > Linear: SHO-9 · Stage: DEFINE  
 > Evidence: approved constraints, desk research, and internal assumptions only
 

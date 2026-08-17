@@ -1,6 +1,6 @@
 # Catalog — Classic UI Journey
 
-> Status: Complete; pending DEFINE Approval #2  
+> Status: Approval #2 granted by the owner on 2026-08-17  
 > Linear: SHO-10 · Quadrants: Staff/Classic, Customer/Classic  
 > Evidence: scope-level constraints and internal assumptions; no approved
 > catalog spec exists
