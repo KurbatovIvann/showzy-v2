@@ -3,6 +3,7 @@
 - **Status**: Accepted
 - **Date**: 2026-08-17
 - **Deciders**: owner (+ Claude Fable 5, foundation review)
+- **Amended by**: ADR-0018 and ADR-0020
 
 ## Context
 

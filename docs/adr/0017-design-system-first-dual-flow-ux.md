@@ -1,6 +1,6 @@
 # ADR-0017: Design-system-first, mobile-first, dual-flow UX
 
-- **Status**: Accepted
+- **Status**: Superseded by ADR-0019
 - **Date**: 2026-08-17
 - **Deciders**: Human owner
 - **Amended**: 2026-08-17 — external participant research and usability
