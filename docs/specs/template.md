@@ -22,17 +22,17 @@ For every action, the full contract:
 | Name | `<module>.<verb>` |
 | Description | Written as an instruction to the AI model |
 | Principal | `staff` \| `customer` \| `public` \| `system` \| `consumer` (ADR-0013, ADR-0018) |
-| Transport | `client` \| `internal` (system must be internal) |
-| Target/system scope | Typed `resolveTarget` for customer/public, or `tenant`/`global` for system |
+| Transport | `client` \| `internal` (system must be internal; consumer must be `client`) |
+| Target/system scope | Typed `resolveTarget` for customer/public; `tenant`/`global` for system; **N/A for consumer** (no company scope, no `resolveTarget` — ADR-0018) |
 | Input / Output | Zod shapes as TypeScript |
-| Permissions | e.g. `orders:create`; empty for non-staff modes |
-| aiExposure / risk / requiresConfirmation | |
+| Permissions | e.g. `orders:create`; must be `[]` for customer/public/consumer/system |
+| aiExposure / risk / requiresConfirmation | Consumer: `risk: read`, `requiresConfirmation: false`; aiExposure `exposed` or `internal` |
 | Confirmation summary | Required redacted server callback when confirmation is required |
-| Idempotent | If true: key source, scope, and conflict behavior |
-| Emits | Events (see §4) |
-| Audit / Timeout | |
+| Idempotent | If true: key source, scope, and conflict behavior; consumer must be `false` |
+| Emits | Events (see §4); consumer must be `[]` |
+| Audit / Timeout | Consumer: `audit: false` (no `auditTarget`) |
 | Audit target/snapshot | Required target callback when audited; optional explicitly redacted snapshot |
-| Calls (`ctx.call`) | Cross-module read actions used (ADR-0015) |
+| Calls (`ctx.call`) | Cross-module read actions used (ADR-0015); consumer callers may only call other `consumer`-principal reads |
 
 ## 4. Events
 
@@ -79,8 +79,10 @@ Testable statements. Mandatory minimum, plus module-specific ones:
 - [ ] Cross-tenant isolation per relevant principal mode (ADR-0013, ADR-0018)
 - [ ] Mode-appropriate authorization denial (permission, ownership,
       visibility, system scope, or consumer published-only access)
-- [ ] Consumer actions (if any): no unpublished entity access, no CRM side
-      effects, no audit/events emitted
+- [ ] Consumer actions (if any): contract check rejects `resolveTarget`;
+      published-only access (no unpublished entities); no CRM creation/side
+      effects; `audit: false` and `emits: []`; instantiate inherited
+      `consumerIsolationSuite` from core.md §12
 - [ ] Validation failure surfaces typed errors
 - [ ] Output validates at runtime and is JSON-safe (money is a decimal string
       on the wire, not a JSON number)
@@ -93,3 +95,4 @@ Testable statements. Mandatory minimum, plus module-specific ones:
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-17 | Completed consumer action metadata and mandatory test guidance | Close the ADR-0018 Step 2 template gap | Human owner via spec-rework queue |
