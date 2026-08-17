@@ -1,6 +1,6 @@
 # Showzy V2 — Mobile Layout System
 
-> Status: Complete; pending SYSTEM Approval #3  
+> Status: Approval #3 granted by the owner on 2026-08-17  
 > Linear: SHO-18 · Stage: SYSTEM  
 > Boundary: phone-first Expo launch; full web UI is post-launch
 
