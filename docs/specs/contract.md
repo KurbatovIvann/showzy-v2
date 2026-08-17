@@ -2,7 +2,7 @@
 
 > Status: Approved (frozen). Approved by: owner, 2026-08-17.
 > Written against blueprint §3, §4; ADR-0004, ADR-0008, ADR-0013, ADR-0016,
-> and ADR-0018.
+> ADR-0018, ADR-0020, and ADR-0021.
 > Foundation spec. Resolves the client-safety question: how one action
 > definition feeds server, mobile, web, AI, and OpenAPI without leaking
 > Node/DB dependencies into client bundles.
@@ -41,7 +41,7 @@ The split:
     module's `index.contract.ts` barrel). It retains all descriptors for
     pairing/CI, but builds the oRPC client contract, OpenAPI document, and
     typed client only from `transport: client` actions (this includes all
-    `consumer`-principal and `account`-principal actions, which must declare
+    `public`, `consumer`, and `account` actions, which must declare
     `transport: client`).
     `system` and other internal actions have no externally mountable route.
   - `apps/api` imports the full modules (contracts + implementations),
@@ -82,6 +82,12 @@ Enforcement (CI):
 - Staff company selection: the active `companyId` travels as a dedicated
   header (`x-company-id`) that core verifies against membership — it is a
   *selector*, never an access grant (ADR-0013).
+- Public routing (ADR-0020): no session or `x-company-id` is required.
+  `publicScope: target` runs its server resolver; `publicScope:
+  globalProjection` constructs an anonymous null-company context bound to the
+  descriptor's `projectionGrant`. The typed procedure never accepts tenant
+  scope as transport metadata. Trusted-proxy-normalized IP is passed only to
+  core rate limiting/logging.
 - Consumer routing (ADR-0018): consumer actions require a valid better-auth
   session; the transport invokes the consumer context factory (core.md §3)
   directly — no `x-company-id` header is required or consumed. If a staff
@@ -150,8 +156,16 @@ API consumers.
       implementation fails boot + contract check (tests).
 - [ ] `transport: internal` and every system action are absent from client,
       OpenAPI, and AI artifacts and return no routable endpoint.
+- [ ] Every `ctx.callAtomic` callee remains internal and absent from client,
+      OpenAPI, and AI artifacts; undeclared caller/callee edges fail pairing.
 - [ ] Error mapping table covered by integration tests per error class.
 - [ ] `x-company-id` for a company without membership → 403 (test).
+- [ ] Public-target and public-global procedures work without a session;
+      neither accepts `x-company-id` as authority.
+- [ ] Public-global descriptor without a declared projection grant, with a
+      resolver, or with mutation metadata fails the contract check.
+- [ ] Public-global route is projection-only, returns only allowlisted fields,
+      and rate-limits by rotating IP HMAC without exposing raw IP.
 - [ ] Consumer action invoked with a valid session and no `x-company-id` →
       succeeds with consumer context (test).
 - [ ] Consumer action invoked without a session → 401 (test).
@@ -177,6 +191,7 @@ API consumers.
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-17 | Added anonymous public-global routing and atomic-capability descriptor enforcement | Align transport with ADR-0020/0021 mobile parity | Human owner via mobile parity rework |
 | 2026-08-17 | Integrated `account` principal: transport exposure, AI manifest filtering, routing rules, and acceptance criteria | Align contract with ADR-0013 (amended) 6-mode principal model (`staff \| customer \| public \| system \| consumer \| account`) per spec-rework queue Step 1 | spec-rework agent |
 | 2026-08-17 | Added consumer client exposure and session routing without company scope | Align transport composition with ADR-0018 and core consumer semantics | Human owner via spec-rework queue |
 | 2026-08-17 | Defined the client-safe core subpath, retry-key ownership, confirmation transport, and bigint wire encoding | Foundation consistency review against core/db specs and ADR-0013 | GPT-5.6 Sol |
