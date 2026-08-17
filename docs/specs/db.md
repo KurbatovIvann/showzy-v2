@@ -1,7 +1,7 @@
 # Spec: packages/db
 
 > Status: Approved (frozen). Approved by: owner, 2026-08-17.
-> Written against blueprint §3, §6; ADR-0005, ADR-0012, ADR-0014.
+> Written against blueprint §3, §6; ADR-0005, ADR-0012, ADR-0014, ADR-0018.
 > Foundation spec. Domain tables are specified in their modules' specs; this
 > spec defines the package, conventions every schema file follows, and the
 > foundation tables owned by the platform.
@@ -55,13 +55,42 @@ packages/db/
 - **Tenancy**: every domain table carries `company_id uuid NOT NULL`
   referencing `companies.id`. Explicit exceptions: the `companies` tenant
   root itself, auth/foundation infrastructure, and genuinely global tables
-  such as delivery dictionaries or KVED/CPV; every exception is justified in
-  the owning spec. Composite indexes on tenant tables lead with `company_id`.
+  justified in the owning spec (delivery dictionaries; KVED/CPV under
+  `reference-data`; `business_categories` under `companies`). Composite
+  indexes on tenant tables lead with `company_id`.
+  - **Companies taxonomy (ADR-0018, module-ownership):**
+    `business_categories` and `company_business_categories` are owned by
+    `companies` and live in `schema/companies.ts` — never in `foundation.ts`
+    and never under `reference-data`. Exact columns, seeds, and FKs are
+    specified in the full `companies` module spec (not the phase-0
+    `companies-foundation` slice).
+    - `business_categories`: global taxonomy root — **no** `company_id`
+      (tenancy exception).
+    - `company_business_categories`: tenant junction — **has** `company_id`
+      FK to `companies.id`; links companies to taxonomy rows for profile
+      metadata and discovery category filters.
 - **FKs across modules**: allowed (order_items → products), `ON DELETE`
   behavior must be explicit — no accidental cascades across module
   boundaries; prefer `RESTRICT` unless the owning spec says otherwise.
 - **Extensions**: pg_trgm and unaccent only (blueprint §3). V1 pg_cron jobs
   move to BullMQ workers; vector/pg_partman remain dropped.
+- **Global published-read / discovery access paths (ADR-0018):**
+  Authenticated consumer discovery must not rely on full-table scans of
+  domain `companies` / catalog product tables across tenants.
+  - Cross-company discovery reads are served by `search` projection tables
+    in `schema/search.ts` (module-owned projections, not domain authority —
+    ADR-0011/0015). Those tables carry FTS and/or `pg_trgm` indexes (GIN)
+    plus supporting indexes for category-filter dimensions; exact projection
+    columns and index DDL are owned by `docs/specs/search.md`.
+  - Domain publication predicates (`companies` published lifecycle; catalog
+    active/published product status) remain owned by those modules. Owning
+    specs may add **partial indexes** on publication predicates for
+    company-scoped published reads and for projection rebuild — never as a
+    substitute for action authorization (ADR-0009: no RLS).
+  - `search` may read granted foreign tables only via declared read-model
+    grants (ADR-0015); projections never store pricing authority or CRM
+    state. Physical v1 marketplace views (e.g. `consumer_products_view`)
+    and social/embedding indexes are not carried forward.
 
 ## 4. Foundation tables (`foundation.ts` — scaffold-owned)
 
@@ -187,7 +216,9 @@ Idempotent (`ON CONFLICT DO NOTHING`) seeds, runnable repeatedly: default
 document templates (scope §3 — seeded via migration-adjacent script, not
 hand admin), KVED/CPV classifiers (static reference data from v1), a local
 dev fixture set (one company, one staff, one customer, products) used by
-Maestro smoke tests later.
+Maestro smoke tests later. When the full `companies` schema lands,
+`business_categories` reference rows are seeded by the companies-owned seed
+path (not foundation KVED/CPV seeds and not `foundation.ts`).
 
 ## 10. Acceptance criteria
 
@@ -207,6 +238,12 @@ Maestro smoke tests later.
       columns and money columns without `_minor` suffix + `currency`.
 - [ ] Every table in `schema/<module>.ts` files maps to exactly one owning
       module; CODEOWNERS covers each file.
+- [ ] `business_categories` / `company_business_categories` appear only in
+      `schema/companies.ts` when that module schema exists; taxonomy root
+      has no `company_id`; junction leads indexes with `company_id`.
+- [ ] Consumer discovery query paths in integration tests use `search`
+      projection indexes (FTS/trigram and category filters) rather than
+      unindexed cross-tenant scans of domain company/product tables.
 - [ ] Backup automation is configured; a documented restore drill meets
       RPO/RTO before production launch.
 
@@ -221,5 +258,6 @@ Maestro smoke tests later.
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-17 | Reflected companies ownership of business-category tables and projection/index constraints for published discovery | Align package conventions with ADR-0018 consumer discovery | Human owner via spec-rework queue |
 | 2026-08-17 | Aligned foundation tables with runtime protocols; added money wire type, tenancy exceptions, SQL exceptions, and backup baseline | Foundation consistency review against core spec and ADR-0012/0014 | GPT-5.6 Sol |
 | 2026-08-17 | Initial draft | — | spec agent (Fable 5) |
