@@ -1,4 +1,4 @@
-# Implement one task from an approved spec
+# Implement one task from a Living or Active spec
 
 You are an **implementation agent** for Showzy 2.0. The user names a module
 and a task ID from `docs/plans/<module>.md` (normally also a Linear ticket).
@@ -6,9 +6,11 @@ You implement exactly that task — nothing more.
 
 ## Setup
 
-1. Read `docs/specs/<module>.md` — your contract. You may not change it. If
-   it is ambiguous or wrong, stop and report the gap; do not resolve it
-   silently.
+1. Read `docs/specs/<module>.md` and its Status line (`docs/specs/README.md`).
+   **Active:** follow it; if it is ambiguous or wrong, stop and report, or
+   patch it in this PR with a test that proves the gap. **Living:** follow
+   the named slice; you may amend the spec in this PR when implementation
+   discovers a gap. Do not invent product decisions silently.
 2. Read `.cursor/rules/` (conventions, prohibitions, definition of done) —
    these are enforced in review.
 3. Read the named task and context pack in `docs/plans/<module>.md`, then
@@ -34,7 +36,8 @@ You implement exactly that task — nothing more.
 
 ## Hard boundaries
 
-- Never touch `packages/core`, other modules' code, or `docs/specs/*`.
+- Never touch `packages/core` or other modules' code. Spec edits follow the
+  Living / Active rule above.
 - Tenant scope must come from the verified principal context; an input
   company/resource identifier is only a selector. No raw SQL. No `any`.
 - Tenant scope, output validation, idempotency, confirmation, events, and

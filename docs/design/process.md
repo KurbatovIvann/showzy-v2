@@ -11,8 +11,8 @@
 The V1 mobile implementation is the canonical design input. The Experience
 Foundation now verifies parity and documents V2 adaptations instead of
 inventing a greenfield mobile experience. Backend work may proceed
-independently; product UI specs, plans, and implementation remain blocked by
-the UX gate.
+independently. The UX gate blocks **product screens in `apps/mobile`**, not
+backend specs or implementation.
 
 ```mermaid
 flowchart LR
@@ -185,8 +185,8 @@ accepts the absence of representative external validation.
 
 ## UX Gate
 
-The UX gate is a formal checkpoint. Product UI implementation (engineering
-pipeline `/spec`, `/plan`, `/implement` for screens) is blocked until:
+The UX gate is a formal checkpoint. Product screens in `apps/mobile`
+(engineering `/implement` for UI) are blocked until:
 
 1. ADR-0019 and ADR-0020 are accepted.
 2. V1 mobile screen, component, token, and state inventories are approved.
@@ -223,11 +223,12 @@ applicable intersections (not every component appears in every cell).
 ## Integration with the engineering pipeline
 
 - `docs/pipeline.md` remains the engineering SDD conveyor.
-- The only addition to the engineering pipeline: UI specs (`/spec`) and UI
-  plans (`/plan`) for product screens require a reference to the approved
-  design artifact and are rejected if the UX gate has not been passed.
-- UI implementation tasks (`/implement`) reference both the module spec and
-  the design-system component contracts.
+- The only addition to the engineering pipeline: product-screen
+  implementation requires a reference to the approved inventory / mapping
+  artifact and is rejected if the UX gate has not been passed. Backend
+  `/spec` and `/plan` are not gated.
+- UI implementation tasks (`/implement`) reference the module spec and the
+  V1 inventory, not archived greenfield component contracts.
 - UI acceptance criteria (added to the definition of done for UI tasks):
   journey conformance, classic/AI parity where applicable, accessibility
   baseline, loading/empty/error/offline states, localization readiness, and
@@ -253,21 +254,11 @@ docs/design/
 │   ├── brief.md
 │   └── competitor-audit.md
 ├── define/
-│   ├── information-architecture.md
-│   ├── journeys/
-│   │   ├── order-classic.md
-│   │   ├── order-ai.md
-│   │   └── ...
+│   ├── journeys/README.md  (greenfield journeys archived)
 │   ├── content-principles.md
 │   └── accessibility-baseline.md
 ├── system/
-│   ├── tokens.md
-│   ├── components/
-│   │   ├── button.md
-│   │   ├── input.md
-│   │   └── ...
-│   ├── iconography.md
-│   └── layout.md
+│   └── README.md           (greenfield system archived; use inventory/)
 ├── prototypes/
 │   └── README.md           (links to Figma or equivalent)
 └── validation/

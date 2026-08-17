@@ -2,6 +2,8 @@
 
 > Status: **reset and owner-approved 2026-08-17** for V1 mobile parity.
 > The original ef-T1…T21 graph below is historical and must be re-cut.
+> Greenfield DEFINE journeys/IA and SYSTEM docs were moved to
+> `docs/archive/design/` on 2026-08-18 and are not authority.
 >
 > Sources: [ADR-0019](../adr/0019-v1-mobile-canonical-ux.md),
 > [ADR-0020](../adr/0020-public-discovery-and-social-engagement.md),
@@ -166,11 +168,11 @@ flowchart TD
 
 ---
 
-## Stage 2 — DEFINE
+## Stage 2 — DEFINE (historical greenfield; artifacts archived)
 
 ### ef-T5: Information architecture — `agent`
 
-- **Scope:** `docs/design/define/information-architecture.md` — screen
+- **Scope:** `docs/archive/design/define/information-architecture.md` — screen
   hierarchy and navigation model for the staff panel, consumer discovery
   surface, and customer cabinet within a single app binary (role-based
   navigation per ADR-0017, ADR-0018), including where the AI chat surface
@@ -186,7 +188,7 @@ flowchart TD
 
 ### ef-T6a: Dual-flow journey maps — order and catalog — `agent`
 
-- **Scope:** `docs/design/define/journeys/` — for the **order** and
+- **Scope:** `docs/archive/design/define/journeys/` — for the **order** and
   **catalog** journeys: the classic-UI path, the AI-chat path, and the
   handoff points between them (e.g. AI suggests → user confirms in classic
   UI). One file per journey × flow as in the process.md artifact tree.
@@ -210,7 +212,7 @@ flowchart TD
 
 ### ef-T6c: Multi-flow journey maps — discovery and entry paths — `agent`
 
-- **Scope:** `docs/design/define/journeys/` — for the **consumer discovery**
+- **Scope:** `docs/archive/design/define/journeys/` — for the **consumer discovery**
   journey and the three entry-path variants: (1) search/browse → profile →
   cart, (2) invite → install → sign in → company context, (3) direct link →
   company profile. Classic-UI and AI-chat paths for each variant. Includes
@@ -260,11 +262,11 @@ flowchart TD
 
 ---
 
-## Stage 3 — SYSTEM
+## Stage 3 — SYSTEM (historical greenfield; artifacts archived)
 
 ### ef-T10: Design tokens — `agent`
 
-- **Scope:** `docs/design/system/tokens.md` — color palette, typography
+- **Scope:** `docs/archive/design/system/tokens.md` — color palette, typography
   scale, spacing, elevation, motion/easing, border radii — expressed as a
   Unistyles theme structure (names and shape ready to transcribe into code
   later; **no code in this workstream**). Includes the dark-mode decision
@@ -277,7 +279,7 @@ flowchart TD
 
 ### ef-T11: Core component contracts, batch 1 (inputs & actions) — `agent`
 
-- **Scope:** `docs/design/system/components/` — contracts for **button,
+- **Scope:** `docs/archive/design/system/components/` — contracts for **button,
   input, list item, card, badge, avatar**: props, variants, states
   (including loading/disabled), accessibility requirements, and behavior in
   each applicable dual-flow quadrant.
@@ -300,8 +302,8 @@ flowchart TD
 
 ### ef-T13: Iconography, illustration, and layout system — `agent`
 
-- **Scope:** `docs/design/system/iconography.md` (icon set direction,
-  illustration style) and `docs/design/system/layout.md` (responsive grid,
+- **Scope:** `docs/archive/design/system/iconography.md` (icon set direction,
+  illustration style) and `docs/archive/design/system/layout.md` (responsive grid,
   safe areas, keyboard-aware scroll).
 - **Context pack:** `process.md` §3; ADR-0010; tokens draft (ef-T10).
 - **Dependencies:** ef-T9. **Parallel with ef-T10, ef-T11, ef-T12.**

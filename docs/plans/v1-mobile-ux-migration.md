@@ -1,6 +1,7 @@
 # V1 mobile UX migration roadmap
 
-> Status: owner-approved direction; execution blocked by the gates below.
+> Status: owner-approved direction. Spec-rework queues are archived; UX gate
+> still blocks product screens only.
 > Decisions: ADR-0019 and ADR-0020.
 > Product source: `E:\showzy\apps\mobile` (read-only).
 
@@ -15,25 +16,25 @@ feature flags may expose incomplete vertical slices to internal cohorts.
 
 ## Hard gates
 
-1. Merge the ADR, inventory, mapping, process-reset, and spec-queue slices.
-2. Complete constitutional synchronization in
-   `docs/spec-rework-queue-mobile-parity.md` Gate 0.
-3. Resolve stock ownership/atomic confirmation decision D1.
-4. Complete foundation core/contract/auth/API/Expo-client prerequisites.
-5. Rework/approve an owning spec before implementing its action.
-6. Open the revised UX gate before product UI implementation.
+1. ADRs 0019–0021, inventory, and conflict mapping are merged (done).
+2. Foundation core/contract/auth/API/Expo-client prerequisites exist before
+   a module's first implementation.
+3. The owning spec is Living or Active and names the actions being built.
+   A full freeze and a spec-rework queue are not required.
+4. Open the UX gate before product screens in `apps/mobile`.
 
 Backend action work may proceed before the UX gate. Expo shell, auth, and
-deep-link infrastructure retain the ADR-0019 exception.
+deep-link infrastructure retain the ADR-0019 exception. The archived
+spec-rework queues in `docs/archive/` are not gates.
 
 ## Dependency graph
 
 ```mermaid
 flowchart TD
-  Decisions["ADRs and constitutional sync"] --> Foundation["Foundation runtime and typed client"]
-  Decisions --> Specs["Dependency-ordered spec rework"]
+  Decisions["ADRs 0019-0021"] --> Foundation["Foundation runtime and typed client"]
+  Decisions --> Backend["Module actions from Living or Active specs"]
   Inventory["Inventory and conflict map"] --> UX["DEFINE and SYSTEM rebaseline"]
-  Specs --> Backend["Module actions and events"]
+  Foundation --> Backend
   UX --> Gate{"UX gate"}
   Foundation --> Gate
   Gate --> UIFoundation["V1-derived UI foundation"]
@@ -60,11 +61,8 @@ flowchart TD
 
 ### vm-T3: foundation contract rework
 
-- Execute spec queue Step 1 for global public projection reads and fixtures.
-- **Tests:** contract metadata, unpublished denial, rate limits, no CRM side
-  effects, cross-user/account isolation.
-- **Spec rework completed:** core/contract/DB/security/template now define the
-  pattern; scaffold implementation remains gated by their task plan.
+- Historical. The public-projection pattern is already in the Living/Active
+  foundation specs. Further edits follow `docs/specs/README.md`, not a queue.
 
 ### vm-T3A: foundation scaffold recut
 
@@ -75,7 +73,11 @@ flowchart TD
 
 ### vm-T4…T12: module spec waves
 
-Execute one reviewable spec step at a time:
+Historical freeze queue — **do not execute as a rework conveyor.** Specs
+stay Living until their first implementation. When a slice is about to be
+built, tighten that slice; do not freeze the full novels.
+
+Previously listed waves, for orientation only:
 
 1. companies;
 2. catalog/files;

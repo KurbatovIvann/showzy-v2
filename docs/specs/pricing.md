@@ -1,6 +1,6 @@
 # Spec: pricing
 
-> Status: Draft.
+> Status: Living.
 > Written against blueprint §2.1, §4, §5; scope §2, §8; ADR-0008, ADR-0013,
 > ADR-0014, ADR-0015, ADR-0016; `docs/specs/core.md`, `docs/specs/db.md`,
 > `docs/specs/money.md`, `docs/specs/contract.md`,

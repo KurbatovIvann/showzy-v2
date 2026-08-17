@@ -1,6 +1,6 @@
 # Spec: packages/db
 
-> Status: Approved (frozen). Approved by: owner, 2026-08-17.
+> Status: Active. Approved by: owner, 2026-08-17.
 > Written against blueprint §3, §6; ADR-0005, ADR-0012, ADR-0014, ADR-0018,
 > ADR-0020, and ADR-0021.
 > Foundation spec. Domain tables are specified in their modules' specs; this

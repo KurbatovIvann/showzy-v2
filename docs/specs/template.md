@@ -1,6 +1,8 @@
 # Spec: <module>
 
-> Status: Draft | Approved (frozen). Approved by: <owner>, <date>.
+> Status: Living | Active. Approved by: <owner>, <date>.
+> Living = no merged code yet. Active = first implementation has merged
+> (see `docs/specs/README.md`).
 > Written against blueprint §<...>, scope §<...>, ADR-0013, ADR-0015,
 > ADR-0020, ADR-0021, and module-specific decisions.
 

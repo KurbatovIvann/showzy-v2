@@ -1,6 +1,6 @@
 # Spec: money, quantity, tax, and snapshot semantics
 
-> Status: Approved (frozen). Approved by: owner, 2026-08-17.
+> Status: Active. Approved by: owner, 2026-08-17.
 > Cross-domain value protocol; it owns no tables or actions.
 
 ## Representation

@@ -1,6 +1,6 @@
 # Spec: search
 
-> Status: Draft. Pending: human review + `catalog` spec (product publication
+> Status: Living. Pending: human review + `catalog` spec (product publication
 > events and read-model grants).
 > Written against blueprint §2.1, §5, §7; scope §3, §6, §7;
 > ADR-0013, ADR-0014, ADR-0015, ADR-0018;

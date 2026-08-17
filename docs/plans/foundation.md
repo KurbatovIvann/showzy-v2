@@ -58,7 +58,8 @@ implementer is the **scaffold agent** (`/scaffold`, not `/ticket`):
    fnd-G1**, before/interleaved with the reference slices, so the shell — the
    first real consumer of the typed client — surfaces contract-boundary flaws
    before the slices freeze as templates.
-3. **Slice 2 width follows the frozen specs**, not the shorthand:
+3. **Slice 2 width follows the Living slice boundary** in `orders.md` §1.1
+   and `chat.md`, not a freeze of those full files:
    `orders.create` + `orders.confirm` + `orders.get`, events `orders.created`
    + `orders.confirmed`, and the chat consumer `chat.order-card-updater` →
    `chat.upsertOrderCard` upserting an **`order_cards` projection row**

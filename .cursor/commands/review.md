@@ -7,9 +7,11 @@ implementer's systematic blind spots, do not rubber-stamp.
 
 ## Checklist — verdict is "request changes" if any item fails
 
-1. **Spec conformance.** Read `docs/specs/<module>.md`. Does the diff
-   implement exactly the claimed task — no missing behavior, no scope creep,
-   no silent spec deviations?
+1. **Spec conformance.** Read `docs/specs/<module>.md` and its Status
+   (`docs/specs/README.md`). Does the diff implement exactly the claimed
+   task — no missing behavior, no scope creep? Silent deviations from an
+   **Active** spec fail review. A documented Living-spec amendment or an
+   Active same-PR patch with a proving test is allowed.
 2. **Foundation invariants** (blueprint §2.1):
    - tenant isolation: staff membership, customer/public target resolver, or
      explicit system scope is verified in the execution transaction; every
@@ -20,8 +22,8 @@ implementer's systematic blind spots, do not rubber-stamp.
    - no projection stores domain state (chat cards store `orderId`, not
      status) — ADR-0011.
 3. **Prohibitions** (`.cursor/rules/prohibitions.mdc`): raw SQL, `any`,
-   cross-module imports, new dependencies, `packages/core` edits, secrets in
-   code/logs.
+   cross-module imports, new dependencies, `packages/core` edits, silent
+   Active-spec edits, secrets in code/logs.
 4. **Action/contract protocol.** Client-safe descriptor and server
    implementation are paired; all mandatory metadata includes
    `principal`/`transport`; conditional resolver/system/confirmation fields exist; output is

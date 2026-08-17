@@ -1,6 +1,6 @@
 # Spec: feature-flags foundation
 
-> Status: Approved (frozen). Approved by: owner, 2026-08-17.
+> Status: Active. Approved by: owner, 2026-08-17.
 > Phase-0 skeleton only; billing/subscriptions remain post-MVP.
 
 ## 1. Purpose and tables

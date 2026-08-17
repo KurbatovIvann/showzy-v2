@@ -18,16 +18,19 @@ Workstream reset by the owner on 2026-08-17. Linear project
 is **In Progress**. The prior RESEARCH evidence is retained. Prior DEFINE
 Approval #2 and SYSTEM Approval #3 are superseded pending V1-derived
 re-approval. Inventory and owner conflict decisions are complete; capability
-mapping has identified spec/architecture rework. Prototype evaluation remains
+mapping is a reference for later slice work, not a freeze queue. Prototype evaluation remains
 internal only and must not be presented as representative user validation.
 
-The UX gate is closed — product UI specs, plans, and implementation remain
-blocked. Expo shell/auth/deep-link infrastructure remains the documented
-exception.
+The UX gate is closed — **product screens in `apps/mobile`** remain blocked.
+Backend specs, plans, and implementation are not gated. Expo
+shell/auth/deep-link infrastructure remains the documented exception.
+
+Greenfield DEFINE journeys/IA and SYSTEM token/component docs were moved to
+`docs/archive/design/`. They are not authority.
 
 ## Relationship to the engineering pipeline
 
 The engineering pipeline (`docs/pipeline.md`) is not modified to include
-design stages. The only integration point is the **UX gate**: product UI
-specs and implementations are blocked until the gate is passed. See
-`process.md` §"Integration with the engineering pipeline."
+design stages. The only integration point is the **UX gate**: it blocks
+product screens, not backend work. See `process.md` §"Integration with the
+engineering pipeline."

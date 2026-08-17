@@ -30,12 +30,15 @@ stop and report if a task seems to require it.
 
 ## Process
 
-1. Work strictly from the approved foundation specs in `docs/specs/`
-   (`core`, `db`, `contract`, security/operations including auth,
-   money, payment/feature-flag skeletons, reference slices), plus the approved
-   ownership map and relevant completed v1 migration-matrix slices. No spec
-   or unresolved legacy object — no code: stop and request the decision.
-   Accepted ADR-0016 is mandatory for all action/contract package work.
+1. Work from the foundation specs in `docs/specs/` (`core`, `db`,
+   `contract`, security/operations including auth, money, payment/feature-flag
+   skeletons, reference-slice boundaries), plus the ownership map and
+   relevant completed v1 migration-matrix slices. **Active** specs
+   (`db`, `companies-foundation`, `money`, `feature-flags`) are contracts —
+   patch them in this PR only when a test proves a gap. **Living**
+   foundation specs may be amended in the same PR. Unresolved product
+   decisions still stop the task. Accepted ADR-0016 is mandatory for all
+   action/contract package work.
 2. Sequential, not parallel: dependency-ordered small PRs
    (tooling/CI → db foundation/auth → approved minimal companies/RBAC and
    other reference prerequisite schemas → core → contract → api/worker

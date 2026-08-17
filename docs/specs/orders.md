@@ -1,6 +1,6 @@
 # Spec: orders (phase-1 reference slice)
 
-> Status: Approved (frozen). Approved by: owner, 2026-08-17.
+> Status: Living. Last approved draft: owner, 2026-08-17.
 > Written against blueprint §2.1, §4, §7.1; scope §1.1, §3, §7 (phase 1);
 > ADR-0008, ADR-0011, ADR-0012, ADR-0013, ADR-0014, ADR-0015, ADR-0016,
 > ADR-0018;

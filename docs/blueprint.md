@@ -199,7 +199,7 @@ showzy/
 │  └─ tooling/        # eslint presets (boundaries!), tsconfig, prettier
 ├─ docs/
 │  ├─ blueprint.md              # this document
-│  ├─ specs/          # module specifications — frozen contracts (one .md per module)
+│  ├─ specs/          # module specifications — Living until first merged code, then Active
 │  └─ plans/          # mutable task breakdowns (one .md per module; see pipeline.md)
 └─ .cursor/
    ├─ rules/          # rules for agents (conventions, prohibitions, DoD)
@@ -258,7 +258,7 @@ SPECIFICATION → PLAN → SCAFFOLD → IMPLEMENTATION → REVIEW → VERIFICATI
  (human+agent)  (agent)  (agent)   (agents in parallel)  (agents)   (CI)
 ```
 
-1. **Specification.** For each module — a file `docs/specs/<module>.md`: purpose, actions (name/input/output/permissions), events, tables, edge cases, acceptance criteria. Written by an agent in Cursor Plan mode, approved by a human. The spec is a contract: the implementing agent may not change it, only send it back for rework.
+1. **Specification.** For each module — a file `docs/specs/<module>.md`: purpose, actions (name/input/output/permissions), events, tables, edge cases, acceptance criteria. Written by an agent in Cursor Plan mode, approved by a human as **Living** intent. It becomes an **Active** contract when the first implementation of that module merges. Implementers may not silently change Active specs (`docs/specs/README.md`).
 2. **Plan.** The agent splits the spec into tasks of ≤ ~300 diff lines each, with explicit dependencies. One task = one branch = one PR.
 3. **Scaffold.** The first versions of `packages/core`, `db`, `contract`, and **two reference slices** are written with maximum care: (a) pricing resolution for pure/query and `ctx.call` patterns; (b) a thin order → outbox → chat projection for write/idempotency/event patterns. Their prerequisite schema slices are specified and merged first. These are the templates agents copy. The lesson of the Encore benchmark: an agent on an empty minimal framework invents anti-patterns — so patterns are locked in before mass generation.
 4. **Implementation.** Parallel agents (Cursor background/cloud agents) — one per task. Each receives: the module spec, its bounded context pack, and the relevant reference slice. TDD: tests from the spec first, then code.
@@ -269,7 +269,7 @@ SPECIFICATION → PLAN → SCAFFOLD → IMPLEMENTATION → REVIEW → VERIFICATI
 
 - **Code conventions**: action naming (`<module>.<verb>`), module structure, error style (typed, no bare `throw new Error`).
 - **Prohibitions**: raw SQL outside approved Drizzle/foundation exceptions; DB access outside a handler/service/typed target resolver; `any`/`as unknown as`; new dependencies without approval; changing `packages/core` in module tasks.
-- **Definition of Done**: tests for every action (happy + mode-appropriate authorization denial + validation/output failure + metadata-required protocols), spec ambiguities reported (never silently resolved — implementers cannot edit specs), green CI.
+- **Definition of Done**: tests for every action (happy + mode-appropriate authorization denial + validation/output failure + metadata-required protocols), spec ambiguities reported (never silently resolved — Active specs are not silently edited), green CI.
 - **Context**: every package has an `AGENTS.md` with local instructions (as in the current repo).
 
 ### 7.3 Model selection (Cursor, August 2026 lineup)

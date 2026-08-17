@@ -27,7 +27,7 @@ SPECIFICATION → PLAN → SCAFFOLD → IMPLEMENTATION → REVIEW → VERIFICATI
 | Command | `/spec` with the module name |
 | Input | `blueprint.md`, `scope.md`, relevant ADRs, `docs/reference/*` (v1 behavior) |
 | Output | `docs/specs/<module>.md` |
-| Done when | **You approve and commit the spec.** From that moment it is a contract — implementers may not change it |
+| Done when | **You approve and commit the Living spec.** It is intent, not a freeze. It becomes **Active** when the first implementation of that module merges (`docs/specs/README.md`) |
 
 The agent proposes; you challenge edge cases and product behavior. Expect
 2–3 iterations. Never skip this for a domain module.
@@ -39,7 +39,7 @@ The agent proposes; you challenge edge cases and product behavior. Expect
 | Agent | Chat agent (can continue the spec session or start fresh) |
 | Model | Same top-tier model as SPECIFICATION |
 | Command | `/plan` with the module name |
-| Input | The approved spec |
+| Input | The Living or Active spec |
 | Output | `docs/plans/<module>.md`: each task ≤ ~300 diff lines, with explicit dependencies, a context pack, and its test list. After your approval the agent creates one Linear ticket per task (see "Linear workflow" below) |
 | Done when | You approve the breakdown; tickets exist in Linear with `blocked by` relations; parallel tasks are marked |
 
@@ -50,7 +50,7 @@ The agent proposes; you challenge edge cases and product behavior. Expect
 | Agent | One chat agent, **sequential, not parallel** — you review every PR fully |
 | Model | **Claude Fable 5 (thinking)** (or **Claude Opus 5 (thinking, high)** if Fable's data-retention terms are not accepted) |
 | Command | `/scaffold` — has an explicit allowlist for foundation packages; `/implement` stays forbidden from touching them |
-| Input | Accepted ADR-0016; approved core/db/contract, security/operations, money, companies-foundation, payment/feature-flag skeleton, and both reference-slice specs; approved ownership map and completed relevant v1 migration slices |
+| Input | Accepted ADR-0016; foundation specs (`core`, `db`, `contract`, security/operations, money, companies-foundation, payment/feature-flag skeleton) and the reference-slice boundaries; ownership map and completed relevant v1 migration slices. Living foundation specs may be patched in the same scaffold PR when a test proves a gap |
 | Output | `packages/core`, `packages/db`, `packages/contract`, both reference slices, CI config with branch protection |
 | Done when | Foundation invariants (blueprint §2.1) are verified by tests across all principal modes (ADR-0013); both reference slices are exemplary — they are the template every later agent copies |
 
@@ -68,7 +68,7 @@ patterns are locked in here, before mass generation.
 | Input | The Linear ticket (context pack), the module spec, `docs/plans/<module>.md`, the reference slices as template |
 | Output | A PR: tests first (TDD), then implementation; Linear ticket remains In Progress (the current workspace has no In Review state) with a summary/PR comment |
 | Done when | PR opened with green local checks and a description referencing the spec section |
-| Escalation | 2 failed review rounds → rerun on the stronger model; 3 → `/rework-spec` or human design review |
+| Escalation | 2 failed review rounds → rerun on the stronger model; 3 → `/rework-spec` (Active spec) or a Living-spec amendment / human design review |
 
 ### 5. REVIEW — `/review` + Bugbot (+ security review)
 
@@ -128,9 +128,10 @@ Day-to-day loop per ticket:
    [Settings → Integrations → GitHub](https://linear.app/showzy-v2/settings/integrations/github)
    for workspace `showzy-v2`, repository `KurbatovIvann/showzy-v2`.
 
-Spec gaps found mid-ticket stop the conveyor: the ticket returns to Todo
-with a comment, and the fix goes through `/rework-spec` (human-approved
-amendment + propagation to affected tickets).
+Gaps in an **Active** spec stop the conveyor: the ticket returns to Todo
+with a comment, and the fix goes through `/rework-spec` or a same-PR spec
+patch with a proving test. Gaps in a **Living** spec are amended in the
+PR; do not invent product decisions silently.
 
 ## Special roles (outside the main flow)
 
@@ -138,25 +139,25 @@ amendment + propagation to affected tickets).
 | --- | --- | --- |
 | Debugging hard bugs | **Claude Opus 5 (thinking, high)** — always a different family than the model whose code is failing | Escalation when the working model can't find the root cause in 1–2 iterations |
 | ADR drafting | Same as SPECIFICATION | When any stage hits a decision the blueprint doesn't cover, or wants to deviate from an accepted ADR |
-| Spec rework | `/rework-spec`, same top-tier model as SPECIFICATION | When an implementer or reviewer reports a spec gap; the only sanctioned way to edit a frozen spec |
+| Spec rework | `/rework-spec`, same top-tier model as SPECIFICATION | Active specs only. Living specs are edited directly |
 
 ## Rules that keep the pipeline honest
 
 1. **Writer ≠ reviewer.** Never review a PR with the same model family that
    wrote it.
-2. **Spec is frozen during implementation.** An implementer who finds a spec
-   gap reports it; the spec owner (you + top model) amends; only then does
-   implementation continue.
+2. **A spec is Active only after its first merged implementation** (or in
+   that first PR). Living specs are not contracts. An implementer who finds
+   a gap in an Active spec reports it or patches the spec in the same PR
+   with a test that proves the gap. `/rework-spec` is only for Active specs.
 3. **Escalate, don't grind.** 2 failed review iterations → stronger model.
    1–2 failed debug attempts → Opus 5.
 4. **Model lineup drifts monthly** — the names above are roles (blueprint
    §7.3); substitute current equivalents, keep the tiering.
-5. **UX gate blocks product UI.** UI specs (`/spec` for screens), UI plans
-   (`/plan`), and UI implementation (`/implement`) for product screens are
-   blocked until the V1 parity/adaptation UX gate is passed (ADR-0019,
-   `docs/design/process.md`). UI work must reference the approved inventory,
-   conflict disposition, and parity artifact. Backend-only work and the Expo
-   app shell infrastructure are not gated.
+5. **UX gate blocks product screens in `apps/mobile`.** It does not block
+   backend specs, backend plans, or backend implementation. UI work must
+   reference the approved inventory, conflict disposition, and parity
+   artifact (ADR-0019, `docs/design/process.md`). Expo shell, auth, and
+   deep-link infrastructure are not gated.
 
 ## Agent skills policy
 

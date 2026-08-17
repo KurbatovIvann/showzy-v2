@@ -16,8 +16,8 @@ every transition. One ticket = one branch = one PR.
    relevant reference slice. Do NOT load unrelated v1 material.
 4. Verdict to the user: either "understood, starting" with a 3–5 line summary
    of scope + test list, or targeted questions / a spec-gap report
-   (→ `/rework-spec`). Spec gaps stop the conveyor — never resolve them
-   silently.
+   (Active spec → `/rework-spec` or a same-PR patch; Living spec → amend
+   in the PR). Never invent product decisions silently.
 5. On start: move the ticket to **In Progress**, assign yourself if possible.
 
 ## 2. IMPLEMENT
@@ -26,7 +26,8 @@ Follow `.cursor/commands/implement.md` exactly. Use Linear's generated
 `gitBranchName` when present (it already contains the issue identifier needed
 by GitHub integration); otherwise use `feat/sho-<number>-<slug>`. Hard
 boundaries apply: no
-`packages/core`, no foreign modules, no spec edits.
+`packages/core`, no foreign modules. Spec edits follow Living / Active
+rules in `docs/specs/README.md`.
 
 If the ticket carries the `sensitive` label, you must be running on the
 strong-model tier (blueprint §7.3); if you are not, say so and stop.
@@ -47,8 +48,8 @@ repeats the same checks — do not bypass or weaken either.
 3. `sensitive` label → additionally launch the **security review**.
 4. Address findings on the same branch; re-run VERIFY after changes.
    Escalation rules (pipeline): 2 failed review rounds → rerun IMPLEMENT on
-   the stronger model; 3 → reopen the spec via `/rework-spec` or request
-   human design review.
+   the stronger model; 3 → `/rework-spec` if the spec is Active, otherwise
+   amend the Living spec or request human design review.
 
 ## 5. HANDOFF
 
