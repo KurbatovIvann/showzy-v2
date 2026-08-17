@@ -153,9 +153,10 @@ amendment + propagation to affected tickets).
    §7.3); substitute current equivalents, keep the tiering.
 5. **UX gate blocks product UI.** UI specs (`/spec` for screens), UI plans
    (`/plan`), and UI implementation (`/implement`) for product screens are
-   blocked until the Experience Foundation UX gate is passed (ADR-0017,
-   `docs/design/process.md`). Backend-only work and the Expo app shell
-   infrastructure are not gated.
+   blocked until the V1 parity/adaptation UX gate is passed (ADR-0019,
+   `docs/design/process.md`). UI work must reference the approved inventory,
+   conflict disposition, and parity artifact. Backend-only work and the Expo
+   app shell infrastructure are not gated.
 
 ## Agent skills policy
 
