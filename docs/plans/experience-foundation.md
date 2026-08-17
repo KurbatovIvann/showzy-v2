@@ -9,7 +9,7 @@
 
 This is the task breakdown for the Experience Foundation workstream — the
 parallel design track that runs alongside technical phases 0–1 and gates all
-product UI implementation (pipeline rule 5, ADR-0017). It is not a code
+product UI implementation (pipeline rule 5, ADR-0019). It is not a code
 module, so this plan deviates from the standard `/plan` format:
 
 - **Deliverables are design artifacts** in `docs/design/` (and Figma), not
