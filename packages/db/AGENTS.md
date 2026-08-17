@@ -28,6 +28,21 @@ actions/services running under the core pipeline.
 4. Migrations are forward-only. Destructive changes ship in two releases
    (stop-write, then drop).
 
+## Transaction capabilities and projection grants (db.md §3)
+
+- `src/capabilities.ts` — `Tx` / `ReadTx` / `ProjectionReadTx<Grant>`
+  facades and the typed projection-grant manifest. Only core constructs
+  transactions; handlers and callees receive the narrowest facade their
+  action risk allows.
+- Projection owners (`search`, `analytics`) register spec-declared grants in
+  `projectionGrants` within their schema tasks. A grant lists projection
+  tables and output-safe columns; it never authorizes writes or source
+  domain tables.
+- `src/testing/fixtures.ts` (`@showzy/db/testing/fixtures`) — test-only
+  discovery/social parity fixtures for the core suites (db.md §8). Never
+  export them from the package root; fixture tables live outside migrations
+  and the drift check.
+
 ## Raw SQL policy
 
 Raw SQL exists only in generated migrations and in explicitly approved

@@ -8,6 +8,7 @@
     ".": "./src/index.ts",
     "./schema/*": "./src/schema/*.ts",
     "./testing": "./src/testing/harness.ts",
+    "./testing/fixtures": "./src/testing/fixtures.ts",
     "./testing/global-setup": "./src/testing/global-setup.ts"
   },
   "scripts": {
