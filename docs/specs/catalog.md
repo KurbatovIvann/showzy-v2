@@ -1151,6 +1151,12 @@ Shares the same service as `catalog.getProductPricingFacts`.
 | Audit | `false` |
 | Timeout | `3_000` |
 
+**Tax fields:** The catalog module does not own tax configuration at V2 launch.
+Callers that need `taxTreatment`/`taxRateBp` (e.g., orders) must default to
+`'exempt'`/`0` when these fields are absent from the response. This matches
+the approved orders spec (§2 `order_items` table: "slice always snapshots
+`'exempt'`"). Tax configuration may be added to catalog in a future phase.
+
 ---
 
 #### `catalog.getProductFactsSystem`

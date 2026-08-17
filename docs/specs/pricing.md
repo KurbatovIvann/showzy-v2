@@ -212,7 +212,7 @@ const ResolvedPrice = z.object({
 | emits | `[]` |
 | audit | `false` |
 | timeout | `3_000` |
-| Calls (`ctx.call`) | `catalog.getProductPricingFacts`, `customers.getCustomerPricingFacts` (called only when `customerId` is non-null; skipped for non-CRM users — levels 1–3 are inapplicable without a CRM record) |
+| Calls (`ctx.call`) | `catalog.getProductPricingFacts`, `customers.getCustomerPricingFactsForUser` (called only when `customerId` is non-null; skipped for non-CRM users — levels 1–3 are inapplicable without a CRM record) |
 
 ### 3.3 `pricing.resolvePublicProductPrices`
 
@@ -660,6 +660,12 @@ order — the resolver runs in the caller's read-consistent transaction.
     checked), customer list (skipped if inactive), group list (skipped if
     inactive), default list (skipped if inactive).
 
+13. **Batch resolve with an unresolvable item.** If any item in the `items`
+    array references a product/variant that does not exist or belongs to
+    another company, the entire call fails with `NotFoundError` — no partial
+    results. This is consistent with the no-leak rules (§6.3, §6.8): a caller
+    cannot distinguish "does not exist" from "belongs to another tenant."
+
 ## 7. v1 migration notes
 
 ### 7.1 Tables
@@ -860,7 +866,8 @@ Module-specific:
       `ResolvedPrice` output regardless of invocation channel (ui/ai/system)
       — per money.md acceptance criteria.
 - [ ] **`resolverVersion` monotonicity.** The version is a compile-time
-      constant bumped on every resolution-semantics change; every snapshot
+      constant (`RESOLVER_VERSION = 1` at launch) in the pricing resolver
+      service, bumped on every resolution-semantics change; every snapshot
       records it.
 - [ ] **Default swap atomicity.** Two concurrent `setDefaultPriceList` calls
       for different lists result in exactly one default, never zero or two.
@@ -918,7 +925,7 @@ owning specs define the exact shapes.
 | Callee | Action (expected) | Principal modes | What pricing needs |
 | --- | --- | --- | --- |
 | `catalog` | `catalog.getProductPricingFacts` | `staff`, `customer`, `public` | Product ID → `{ productId, companyId, basePriceMinor, currency, variants: [{ variantId, basePriceMinor }] }` (or subset per principal). Verifies product exists and belongs to the resolved company. |
-| `customers` | `customers.getCustomerPricingFacts` | `staff`, `customer` | Customer ID → `{ customerId, companyId, priceListId, groupId, groupPriceListId }`. Verifies the customer belongs to the resolved company. **Conditionally called:** when `resolveMyProductPrices` resolves `customerId: null` (non-CRM user, ADR-0018), this action is not invoked — pricing skips levels 1–3 and resolves from default price list and base price only. |
+| `customers` | `customers.getCustomerPricingFacts` (staff), `customers.getCustomerPricingFactsForUser` (customer) | `staff`, `customer` | Customer ID → `{ customerId, companyId, priceListId, groupId, groupPriceListId }`. Verifies the customer belongs to the resolved company. **Conditionally called:** when `resolveMyProductPrices` resolves `customerId: null` (non-CRM user, ADR-0018), this action is not invoked — pricing skips levels 1–3 and resolves from default price list and base price only. |
 
 The catalog and customers specs must expose these as `risk: read`,
 principal-compatible actions per ADR-0015. If these actions do not exist when
