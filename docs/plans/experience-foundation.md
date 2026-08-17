@@ -100,14 +100,17 @@ in plan order through ef-T21 = SHO-26).
 ### ef-T5: Information architecture — `agent`
 
 - **Scope:** `docs/design/define/information-architecture.md` — screen
-  hierarchy and navigation model for both the staff panel and the customer
-  cabinet within a single app binary (role-based navigation per ADR-0017),
-  including where the AI chat surface lives in each.
+  hierarchy and navigation model for the staff panel, consumer discovery
+  surface, and customer cabinet within a single app binary (role-based
+  navigation per ADR-0017, ADR-0018), including where the AI chat surface
+  lives in each context.
 - **Context pack:** `process.md` §2; approved research (ef-T4);
-  ADR-0010 (mobile-first client strategy); `docs/scope.md`.
+  ADR-0010 (mobile-first client strategy); ADR-0018 (consumer discovery);
+  `docs/scope.md`.
 - **Dependencies:** ef-T4. **Parallel with ef-T6, ef-T7, ef-T8** (journey
   maps may iterate against IA; expect one reconciliation pass).
-- **Acceptance:** both personas' navigation fully specified; AI chat
+- **Acceptance:** all three personas' (staff, consumer, customer) navigation
+  fully specified; discovery → company transition located; AI chat
   entry/exit points located; no screens for dropped/deferred scope.
 
 ### ef-T6a: Dual-flow journey maps — order and catalog — `agent`
@@ -129,10 +132,26 @@ in plan order through ef-T21 = SHO-26).
   journeys, using ef-T6a's template (soft dependency: may start in
   parallel, aligns format before merge).
 - **Context pack:** same as ef-T6a.
-- **Dependencies:** ef-T4. **Parallel with ef-T5, ef-T6a, ef-T7, ef-T8.**
+- **Dependencies:** ef-T4. **Parallel with ef-T5, ef-T6a, ef-T6c, ef-T7, ef-T8.**
 - **Acceptance:** same bar as ef-T6a for chat and documents; chat journey
   respects the projection rule (chat renders order cards from events, never
   owns order state — blueprint §2.1 invariant 5).
+
+### ef-T6c: Multi-flow journey maps — discovery and entry paths — `agent`
+
+- **Scope:** `docs/design/define/journeys/` — for the **consumer discovery**
+  journey and the three entry-path variants: (1) search/browse → profile →
+  cart, (2) invite → install → sign in → company context, (3) direct link →
+  company profile. Classic-UI and AI-chat paths for each variant. Includes
+  fallback states: no results, unpublished company, deactivated product,
+  loading, offline, error.
+- **Context pack:** `process.md` §2 and §"Multi-flow design requirements";
+  ADR-0018 (consumer discovery and principal); approved research (ef-T4);
+  draft IA (ef-T5).
+- **Dependencies:** ef-T4. **Parallel with ef-T5, ef-T6a, ef-T6b, ef-T7, ef-T8.**
+- **Acceptance:** all three entry paths have both classic-UI and AI-chat
+  flows; fallback states covered; transition from consumer → customer
+  context explicitly mapped.
 
 ### ef-T7: Content principles — `agent`
 
@@ -159,10 +178,11 @@ in plan order through ef-T21 = SHO-26).
 
 ### ef-T9: Approval #2 — IA, journeys, principles — `human`
 
-- **Scope:** human owner reviews IA, journey maps, content principles, and
-  accessibility baseline together (they must be mutually consistent).
-- **Dependencies:** ef-T5, ef-T6a, ef-T6b, ef-T7, ef-T8. **Blocks all
-  SYSTEM tasks.**
+- **Scope:** human owner reviews IA, journey maps (including discovery entry
+  paths), content principles, and accessibility baseline together (they must
+  be mutually consistent).
+- **Dependencies:** ef-T5, ef-T6a, ef-T6b, ef-T6c, ef-T7, ef-T8. **Blocks
+  all SYSTEM tasks.**
 - **Acceptance:** human owner approves; any reconciliation edits between IA
   and journeys are resolved before approval.
 
@@ -245,16 +265,20 @@ owner reviews directly in Figma.
   logged as system change requests, not silent one-offs); staff journeys
   from ef-T6a/ef-T6b are traceable in the prototype.
 
-### ef-T16: Prototypes — customer and AI-chat flows, states — `agent` (Figma MCP)
+### ef-T16: Prototypes — consumer discovery, customer, and AI-chat flows, states — `agent` (Figma MCP)
 
-- **Scope:** customer side (company profile, cart, checkout, redirect to
-  chat); AI chat with one representative action (e.g. "create an order for
-  customer X"); dual-flow transition examples (AI suggests → user confirms
-  in classic UI); loading, empty, error, and offline state examples.
-- **Context pack:** same as ef-T15.
+- **Scope:** consumer discovery (search → results → company profile → cart);
+  invite and direct-link entry variants; customer side (company profile,
+  cart, checkout, redirect to chat); AI chat with representative actions
+  (e.g. "create an order for customer X", "find me a confectionery");
+  multi-flow transition examples (AI suggests → user confirms in classic UI;
+  consumer discovers → enters company → becomes customer); loading, empty,
+  error, offline, no-results, and unpublished/deactivated state examples.
+- **Context pack:** same as ef-T15; plus ef-T6c (discovery journeys).
 - **Dependencies:** ef-T14. **Parallel with ef-T15.**
-- **Acceptance:** all four state types demonstrated; at least one complete
-  classic↔AI handoff is interactive end-to-end.
+- **Acceptance:** all state types demonstrated; at least one complete
+  classic↔AI handoff is interactive end-to-end; discovery entry path is
+  prototyped through to the first company-scoped action.
 
 ### ef-T17: Approval #4 — prototype review — `human`
 
@@ -335,11 +359,13 @@ flowchart TD
   T4 --> T5[ef-T5 IA]
   T4 --> T6a[ef-T6a journeys: order/catalog]
   T4 --> T6b[ef-T6b journeys: chat/documents]
+  T4 --> T6c[ef-T6c journeys: discovery/entry paths]
   T4 --> T7[ef-T7 content]
   T4 --> T8[ef-T8 a11y]
   T5 --> T9{ef-T9 Approval 2}
   T6a --> T9
   T6b --> T9
+  T6c --> T9
   T7 --> T9
   T8 --> T9
   T9 --> T10[ef-T10 tokens]
@@ -351,7 +377,7 @@ flowchart TD
   T12 --> T14
   T13 --> T14
   T14 --> T15[ef-T15 proto staff]
-  T14 --> T16[ef-T16 proto customer/AI]
+  T14 --> T16[ef-T16 proto customer/AI/discovery]
   T15 --> T17{ef-T17 Approval 4}
   T16 --> T17
   T17 --> T18[ef-T18 test plan]

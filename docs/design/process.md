@@ -51,12 +51,17 @@ DEFINE begins.
 **Goal:** Translate research into structural decisions.
 
 **Outputs:**
-- Information architecture (screen hierarchy, navigation model for both
-  staff panel and customer cabinet within a single app binary).
-- Dual-flow journey maps:
-  - Classic UI path for each core journey (order, catalog, chat, documents).
+- Information architecture (screen hierarchy, navigation model for staff
+  panel, consumer discovery surface, and customer cabinet within a single
+  app binary).
+- Multi-flow journey maps:
+  - Classic UI path for each core journey (discovery, order, catalog, chat,
+    documents).
   - AI chat path for the same journeys.
   - Handoff points between classic and AI flows.
+  - Three entry-path variants: **search/browse discovery** (ADR-0018),
+    **invite**, and **direct link** — with fallback states (no results,
+    unpublished company, deactivated product, loading, offline, error).
 - Content principles (tone, language, terminology for Ukrainian audience).
 - Accessibility baseline (WCAG 2.1 AA minimum; touch targets, contrast,
   screen reader considerations for mobile).
@@ -90,11 +95,17 @@ DEFINE begins.
 **Outputs:**
 - Interactive prototypes (Figma or equivalent) covering at minimum:
   - Onboarding / sign-in.
+  - Consumer: search → results → company profile → cart (discovery entry).
+  - Consumer: invite link → install → sign in → company context (invite entry).
+  - Consumer: direct link → company profile (direct-link entry).
   - Staff: catalog management, order list, order detail in chat.
   - Customer: company profile, cart, checkout, redirect to chat.
   - AI chat: a representative action (e.g., "create an order for customer X").
-- Loading, empty, error, and offline state examples.
-- Dual-flow transition examples (AI suggests → user confirms in classic UI).
+  - AI chat: discovery-equivalent (e.g., "find me a confectionery in Kyiv").
+- Loading, empty, error, offline, no-results, and unpublished/deactivated
+  state examples for discovery and company screens.
+- Multi-flow transition examples (AI suggests → user confirms in classic UI;
+  consumer discovers → enters company → becomes customer).
 
 **Approval:** Human owner reviews prototypes before validation.
 
@@ -133,17 +144,18 @@ product UX decision.
 
 ---
 
-## Dual-flow design requirements
+## Multi-flow design requirements
 
-Every design artifact must address both dimensions:
+Every design artifact must address all three dimensions:
 
-| Dimension | Side A | Side B |
-| --- | --- | --- |
-| Interaction mode | Classic UI (screens, forms, lists) | AI chat (text, tool calls, generative UI cards) |
-| Persona | Staff / company owner | Customer |
+| Dimension | Values |
+| --- | --- |
+| Interaction mode | Classic UI (screens, forms, lists) · AI chat (text, tool calls, generative UI cards) |
+| Persona | Staff / company owner · Consumer (discovery) · Customer (company-scoped) |
+| Entry path | Search/browse discovery · Invite · Direct link |
 
 A component or journey is not complete until it specifies behavior in all
-four quadrants where applicable (not all components appear in all quadrants).
+applicable intersections (not every component appears in every cell).
 
 ---
 

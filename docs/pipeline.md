@@ -98,12 +98,12 @@ branch protection.
 Linear (team **Showzy-v2**, via MCP) is the work ledger; this repo is the
 source of truth for contracts. Mapping:
 
-- **Project = roadmap phase** (`Phase 0 — Foundation` … `Phase 8 — AI
-  Experience`, then `V2 Production Launch`, then `Phase 9 — Web` …)
+- **Project = roadmap phase** (`Phase 0 — Foundation` … `Phase 9 — AI
+  Experience`, then `V2 Production Launch`, then `Phase 10 — Web` …)
   plus the parallel `Experience Foundation` project.
   Milestones inside a project = modules / vertical slices (Experience
   Foundation uses process stages). **V2 Production Launch is its own
-  project**, never a Phase 8 milestone.
+  project**, never a phase milestone.
 - **Issue = one plan task** (one branch = one PR ≤ ~300 diff lines), created
   by `/plan` after you approve the breakdown. Dependencies = `blocked by`
   relations; parallel tasks have none.

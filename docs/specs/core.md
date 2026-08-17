@@ -2,7 +2,7 @@
 
 > Status: Approved (frozen). Approved by: owner, 2026-08-17.
 > Written against blueprint §2.1, §4, §7; ADR-0008, ADR-0009, ADR-0011,
-> ADR-0012, ADR-0013, ADR-0014, ADR-0015, and ADR-0016.
+> ADR-0012, ADR-0013, ADR-0014, ADR-0015, ADR-0016, and ADR-0018.
 > This is a foundation spec: it defines executable protocols, not a domain
 > module. It owns no domain tables; the foundation tables it drives
 > (`domain_events`, `event_aggregate_sequences`, `event_deliveries`,
@@ -32,11 +32,11 @@ bound by `implementAction`. All fields are required unless noted:
 | --- | --- | --- |
 | `name` | `<module>.<verb>` | Unique in the registry; CI fails on duplicates |
 | `description` | string | Written as an instruction to an AI model |
-| `principal` | `staff` \| `customer` \| `public` \| `system` | ADR-0013; exactly one; public actions are read-only |
+| `principal` | `staff` \| `customer` \| `public` \| `system` \| `consumer` | ADR-0013, ADR-0018; exactly one; public and consumer actions are read-only |
 | `transport` | `client` \| `internal` | Whether HTTP/client routers mount it; `system` must be internal |
 | `input` / `output` | Zod v4 schemas | The single source for oRPC, forms, AI tools |
-| `permissions` | `string[]` of `<module>:<verb>` | Non-empty for `staff`; must be `[]` for `customer`/`public` (authorization = ownership/visibility, §4); must be `[]` for `system` |
-| `resolveTarget` | typed fn, **customer/public only** | `<TTarget>(input, { tx, principal }) => Promise<{ companyId, resource: TTarget }>` — customer args include authenticated `userId`; a nested `ctx.call` also supplies the already verified `inheritedCompanyId`. Loads the referenced resource and proves ownership/visibility; throws `NotFoundError` (never "forbidden" — no existence leaks) |
+| `permissions` | `string[]` of `<module>:<verb>` | Non-empty for `staff`; must be `[]` for `customer`/`public`/`consumer` (authorization = ownership/visibility/published-read, §4); must be `[]` for `system` |
+| `resolveTarget` | typed fn, **customer/public only** | `<TTarget>(input, { tx, principal }) => Promise<{ companyId, resource: TTarget }>` — customer args include authenticated `userId`; a nested `ctx.call` also supplies the already verified `inheritedCompanyId`. Loads the referenced resource and proves ownership/visibility; throws `NotFoundError` (never "forbidden" — no existence leaks). Not applicable to `consumer` (no company scope) |
 | `systemScope` | `tenant` \| `global`, **system only** | Tenant-scoped system actions require `ctx.companyId`; `global` is reserved for genuinely global jobs |
 | `aiExposure` | `exposed` \| `internal` | `exposed` requires `transport: client`; `internal` never becomes an AI tool |
 | `risk` | `read` \| `draft` \| `write` \| `high` | `read` handlers/resolvers receive a `ReadTx` capability; top-level reads also use a DB read-only transaction |
@@ -54,7 +54,10 @@ bound by `implementAction`. All fields are required unless noted:
 The **contract check** (CI, phase-0 task) walks the registry and fails on:
 missing/empty metadata, duplicate names, invalid transport/principal/AI
 combinations, `customer`/`public` actions with
-permissions, `customer`/`public` actions without `resolveTarget`, invalid
+permissions, `customer`/`public` actions without `resolveTarget`, `consumer`
+actions with `resolveTarget`, `consumer` actions not satisfying
+(`risk: read`, `permissions: []`, `audit: false`, `idempotent: false`,
+`requiresConfirmation: false`, `emits: []`, `transport: client`), invalid
 `systemScope`, invalid confirmation metadata (`requiresConfirmation` implies
 human principal + `risk: high` + `idempotent: true`), `emits` naming violations
 (`<module>.<pastVerb>`), undeclared event definitions, `ctx.call` targets
@@ -71,7 +74,13 @@ Public actions are a strict subset: `risk: read`, `audit: false`,
 `actor.type: anonymous` exists only for access logs/traces; event and audit
 schemas accept accountable user/system actors only.
 
-## 3. Principal contexts (ADR-0013)
+Consumer actions are a strict subset: `risk: read`, `audit: false`,
+`idempotent: false`, `requiresConfirmation: false`, `emits: []`,
+`permissions: []`, `transport: client`, and no `resolveTarget`. Unlike public,
+consumer requires authentication (`actor.type: user`) and rate-limits per user
+rather than per IP.
+
+## 3. Principal contexts (ADR-0013, ADR-0018)
 
 Discriminated union `ActionCtx`, common fields first:
 
@@ -112,6 +121,14 @@ type SystemCtx<TDb extends ReadTx = Tx> = BaseCtx<TDb> & {
   | { scope: "tenant"; companyId: string }
   | { scope: "global"; companyId?: never }
 );
+type ConsumerCtx = BaseCtx<ReadTx> & {
+  principal: "consumer";
+  userId: string;
+  clientIp: string;
+  companyId?: never;
+  target?: never;
+  membership?: never;
+};
 ```
 
 Construction — exactly one factory per mode, nothing ad-hoc:
@@ -134,12 +151,20 @@ Construction — exactly one factory per mode, nothing ad-hoc:
   `system:<serviceName>`. Scope is set explicitly by the enqueuing code —
   a system context is never "all companies" unless the job genuinely is
   (e.g. Nova Poshta dictionary sync).
+- **consumer**: better-auth session → `userId`; the API factory supplies
+  a trusted-proxy-normalized `clientIp` for per-user rate limiting. No
+  company selector is read or expected; no membership or target resolver
+  runs. `actor.type` is always `user`. Consumer actions receive a `ReadTx`
+  and may access only declared global discovery projections and published
+  facts; owning specs and inherited tests enforce this boundary.
 
 Core exposes one `effectiveCompanyId(ctx)` helper used by logging, events,
 audit, and operational metadata: staff/system-tenant use `ctx.companyId`;
-customer/public use `ctx.target.companyId`; global system work returns null.
+customer/public use `ctx.target.companyId`; consumer and global system work
+return null.
 Pre-authorization access logs may have no company, but the authorized action
-span and every domain event/audit row carry this resolved scope. AI calls keep
+span and every domain event/audit row carry this resolved scope (null for
+consumer — consumer actions never emit events or write audit). AI calls keep
 the initiating user as `actor` and set `channel: "ai"` plus trace/tool IDs.
 
 ## 4. Execution pipeline
@@ -148,20 +173,24 @@ Fixed order, no per-action variation:
 
 1. **Validate input** (Zod). Fail → `ValidationError` (no side effects).
 2. **Authenticate principal and read transport selectors** (session/service
-   credentials; no authorization is inferred from a selector).
+   credentials; no authorization is inferred from a selector). Consumer
+   actions require a valid session but skip the company selector entirely.
 3. **Rate limit** (§10). Fail → `RateLimitError`.
 4. **Authorization preflight** in a short read-only transaction when the
    action needs confirmation or idempotency: verify staff membership or run
-   the typed customer/public `resolveTarget`. This prevents unauthorized
-   challenges/idempotency rows but is never the only authorization check.
+   the typed customer/public `resolveTarget`. Consumer actions skip this step
+   (no company scope, no resolver, no confirmation/idempotency). This
+   prevents unauthorized challenges/idempotency rows but is never the only
+   authorization check.
 5. **Replay probe + confirmation gate** (`requiresConfirmation` actions,
    §7): a completed idempotency record replays before checking the
    single-use challenge; otherwise validate/consume the challenge.
 6. **Idempotency reserve** (idempotent writes, §5) after confirmation.
 7. **Open execution transaction** (read-only for `risk: read`); re-run
-   membership/target authorization in this transaction to prevent TOCTOU,
-   set the transaction-local DB statement timeout, then run the handler with
-   the remaining deadline/abort signal.
+   membership/target authorization in this transaction to prevent TOCTOU
+   (consumer actions have no membership/target — session validity is
+   sufficient), set the transaction-local DB statement timeout, then run
+   the handler with the remaining deadline/abort signal.
 8. **Validate output** with the declared Zod schema before any commit; a
    mismatch is `CoreInvariantError` (server bug), never a client validation
    error.
@@ -172,8 +201,9 @@ Fixed order, no per-action variation:
     a separate short transaction.
 
 The pipeline emits one structured log line (start/finish) with
-`request_id`, `actor`, `company_id`, `action`, `outcome`, `duration_ms`, and
-an OTel span; errors go to Sentry with the same correlation fields.
+`request_id`, `actor`, `company_id` (null for consumer and global system),
+`action`, `outcome`, `duration_ms`, and an OTel span; errors go to Sentry
+with the same correlation fields.
 
 `risk: draft` is still a mutation: it receives a writable transaction and
 must declare idempotency/audit according to its spec. It is not callable
@@ -330,6 +360,10 @@ content in the audit row.
 - Callable targets: another module's `risk: "read"` actions only (runtime
   assert + CI check), and the callee must support the caller's principal
   mode. Same-module composition uses `services/`, not `call`.
+- Consumer callers may only invoke other `consumer`-principal `risk: read`
+  actions; company-scoped callees (`staff`, `customer`, `public`,
+  system-tenant) are rejected at both CI and runtime because the consumer
+  context carries no `companyId` to propagate.
 - The callee runs in the caller's transaction and principal context but sees
   only a `ReadTx` facade even when the caller's transaction is writable; the
   callee's own `permissions`/`resolveTarget` still execute (defense in
@@ -344,15 +378,15 @@ content in the audit row.
 ## 10. Rate limiting
 
 Redis token bucket per `(action, rate-limit scope key)`. Defaults: `public`
-30/min per rotating HMAC of trusted-proxy-normalized IP;
-`customer`/`staff` 120/min per user; `system` unlimited. Raw IP remains
-transport-only and is never the Redis key or a domain log/audit field. Per-action
-override via `rateLimit`. AI tool invocations additionally consume a
-per-conversation budget (defined in the phase-5 spec; core only exposes the
-hook). Exceeded → `RateLimitError` with `retryAfterSec`. Redis failure is
-fail-closed for public/auth/high-risk actions and fail-open with an error log
-for ordinary authenticated reads; system actions define their policy in the
-spec.
+30/min per rotating HMAC of trusted-proxy-normalized IP; `consumer` 60/min
+per user; `customer`/`staff` 120/min per user; `system` unlimited. Raw IP
+remains transport-only and is never the Redis key or a domain log/audit
+field. Per-action override via `rateLimit`. AI tool invocations additionally
+consume a per-conversation budget (defined in the phase-5 spec; core only
+exposes the hook). Exceeded → `RateLimitError` with `retryAfterSec`. Redis
+failure is fail-closed for public/auth/high-risk actions and fail-open with
+an error log for ordinary authenticated reads; system actions define their
+policy in the spec.
 
 ## 11. Typed errors
 
@@ -373,21 +407,26 @@ contract.md) and a client-safe message; internal details stay in logs.
 Exported from `packages/core/testing`, used by every module (this is how
 "every module inherits the invariant tests" becomes real):
 
-- `buildTestContext(mode, overrides)` — context factories for all four
+- `buildTestContext(mode, overrides)` — context factories for all five
   principal modes against the Testcontainers DB (harness in db.md).
 - `crossTenantSuite(actions)` — parameterized by each action's declared
   principal: staff of company A vs data of B; customer X vs resources of Y;
-  public vs non-public resources; or system scoped to A touching B. Every
-  module instantiates the relevant case for each action — omission fails the
-  contract check.
+  public vs non-public resources; system scoped to A touching B; or consumer
+  vs unpublished/company-private data. Every module instantiates the relevant
+  case for each action — omission fails the contract check.
+- `consumerIsolationSuite(actions)` — for `consumer`-principal actions:
+  unpublished entities are hidden, no CRM side effects, no company-private
+  data leakage.
 - `idempotencySuite(action)` — replay, conflict, concurrent-retry cases.
 - `eventSuite(module)` — declared events emitted transactionally (rollback
   removes them), consumer dedup respected.
 
 ## 13. Acceptance criteria
 
-- [ ] Contract check fails on every §2 violation (test per rule).
-- [ ] All four context factories work; no other construction path exists.
+- [ ] Contract check fails on every §2 violation (test per rule), including
+      consumer-specific constraints (resolver present, non-read risk, audit,
+      events, permissions, or non-client transport on a `consumer` action).
+- [ ] All five context factories work; no other construction path exists.
 - [ ] Pipeline order is §4 exactly; a failing handler rolls back outbox and
       audit rows written in the same tx.
 - [ ] Output schema mismatch rolls back and maps to internal error.
@@ -408,8 +447,12 @@ Exported from `packages/core/testing`, used by every module (this is how
 - [ ] Audit rows written for `audit: true` incl. permission denials; AI
       calls retain the initiating user as actor and `channel: ai`.
 - [ ] `ctx.call`: write target rejected; permissions of callee enforced;
-      tx shared (callee sees caller's uncommitted writes).
+      tx shared (callee sees caller's uncommitted writes); consumer caller
+      invoking a company-scoped callee is rejected.
 - [ ] Cross-tenant suite passes for the reference slices in all modes.
+- [ ] Consumer isolation suite: unpublished entities hidden, no CRM record
+      created, no company-private data returned, rate limit at 60/min per
+      user.
 
 ## 14. Resolved decisions
 
@@ -421,5 +464,6 @@ Exported from `packages/core/testing`, used by every module (this is how
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-17 | Added the consumer context, action constraints, logging, call rules, rate limit (60/min per user), and inherited isolation tests | Align the frozen foundation with ADR-0018 authenticated discovery | Human owner via spec-rework queue |
 | 2026-08-17 | Tightened target resolution, idempotency scope, event delivery, confirmation, audit, and output validation | Foundation consistency review against blueprint and ADR-0013/0015 | GPT-5.6 Sol |
 | 2026-08-17 | Initial draft | — | spec agent (Fable 5) |

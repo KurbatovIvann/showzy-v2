@@ -1,11 +1,12 @@
 # Showzy 2.0 — Agent Instructions
 
-Showzy is a SaaS platform that helps small business owners in Ukraine run their
-business: company profile with a product catalog (5-level dynamic pricing),
-chat-centric order flow, B2B document workflow with QES signing (client-side
-crypto, keys never leave the device), and integrations (Monobank, Nova Poshta).
-This repository is a **ground-up rewrite** of Showzy v1 with an AI-first
-interface: a classic UI and an AI chat that execute the exact same actions.
+Showzy is a business operating platform for small businesses in Ukraine —
+company profile with a product catalog (5-level dynamic pricing), an
+authenticated consumer discovery surface, chat-centric order flow, B2B
+document workflow with QES signing (client-side crypto, keys never leave the
+device), and integrations (Monobank, Nova Poshta). This repository is a
+**ground-up rewrite** of Showzy v1 with an AI-first interface: a classic UI
+and an AI chat that execute the exact same actions.
 
 ## Required reading (in this order)
 
@@ -25,10 +26,11 @@ interface: a classic UI and an AI chat that execute the exact same actions.
 ## Non-negotiable invariants (blueprint §2.1)
 
 1. **Tenant isolation.** Tenant scope comes from a verified action context
-   (staff membership, typed customer/public target resolver, or explicit
-   system scope), never from an input identifier as an access grant
-   (ADR-0013). Cross-tenant access must be impossible and is verified by
-   tests every module inherits.
+   (staff membership, typed customer/public target resolver, explicit
+   system scope, or null company for `consumer` global discovery —
+   ADR-0013, ADR-0018), never from an input identifier as an access grant.
+   Cross-tenant access must be impossible and is verified by tests every
+   module inherits.
 2. **Idempotency.** Orders, payments, document generation, webhooks, and
    AI-invoked actions are safely retryable.
 3. **Money snapshots.** Order items store immutable price/discount/tax
