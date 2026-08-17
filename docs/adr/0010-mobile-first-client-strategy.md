@@ -6,19 +6,19 @@
 ## Context
 
 The primary user (small business owner) runs their business from a phone.
-Conversion via web storefront matters later, not for the MVP. Product
-decision confirmed by the owner: build all MVP functionality in the mobile
+Conversion via web storefront matters later, not for V2 launch. Product
+decision confirmed by the owner: build all V2 functionality in the mobile
 app; the full web client comes after.
 
 ## Decision
 
-Expo app is the primary client carrying the complete MVP: owner panel,
+Expo app is the primary client carrying the complete V2 launch: owner panel,
 customer cabinet, chat, orders, documents, AI chat. Next.js web (storefront
-SEO, browser cabinet, desktop template editor) is a post-MVP phase (6).
-MVP nevertheless includes minimal iOS Universal Links and Android App Links
+SEO, browser cabinet, desktop template editor) is a post-launch phase (9).
+V2 launch nevertheless includes minimal iOS Universal Links and Android App Links
 for invites, company links, order/chat notifications, and QES callbacks. If
 the app is not installed, these links open a small install landing page;
-browser continuation of the product flow remains phase 6.
+browser continuation of the product flow remains phase 9.
 
 ## Alternatives considered
 

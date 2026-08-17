@@ -20,7 +20,7 @@
 | `packages/db` / better-auth | users, sessions, accounts, verification/OTP tables | Identity only; company authorization belongs to `companies` |
 | `packages/core` protocol (physical schema in `db/foundation.ts`) | domain events/deliveries, idempotency keys, audit log | No domain state; module tasks may not change these tables |
 
-## MVP domain ownership
+## V2 launch domain ownership
 
 | Module | Owns | Main composition |
 | --- | --- | --- |
@@ -44,7 +44,7 @@
 | `analytics` | simple dashboard projections/queries only | Consumes events or declared read-model grants |
 | `assistant` | AI conversation/tool-run persistence | Stores action/tool IDs and results; never duplicates domain state |
 
-## Post-MVP ownership
+## Post-launch ownership
 
 - `acquiring` owns provider onboarding, Mono webhook deliveries,
   fiscalization, and provider-specific records; it never becomes the payment

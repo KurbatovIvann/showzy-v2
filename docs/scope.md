@@ -48,32 +48,32 @@ confirmation → REDIRECT TO CHAT with an order card
 ### 1.2 Client strategy: mobile-first for everything
 
 **Owner's decision: all functionality ships in the mobile app first (both the
-company panel and the customer side). Web is a separate post-MVP phase.**
+company panel and the customer side). Web is a separate post-launch phase.**
 
 Rationale: the target user (a micro-business owner) lives on her phone, not at
-a laptop. MVP still needs minimal iOS Universal Links / Android App Links for
+a laptop. V2 launch still needs minimal iOS Universal Links / Android App Links for
 invites, public company links, order/chat notifications, and QES callbacks:
-open the installed app, otherwise show a small install landing page. Phase 6
+open the installed app, otherwise show a small install landing page. Phase 9
 adds the full "open the app or continue in the browser" experience.
 
-A consequence to accept consciously: in the MVP, document template
-customization is limited (the Plate editor is a desktop-grade thing). The MVP
+A consequence to accept consciously: in V2 launch, document template
+customization is limited (the Plate editor is a desktop-grade thing). V2 launch
 runs on default templates with requisites substitution; full editing arrives
 with the web phase or with a mobile editor after the research spike (see §9).
 
 ---
 
-## 2. CORE — carried over (MVP, mobile)
+## 2. CORE — carried over (V2 launch, mobile)
 
 | Functionality | Notes |
 | --- | --- |
 | Companies, team, RBAC, legal requisites (sole proprietor / legal entity) | The permission model carries over 1:1 into action permissions |
-| Catalog: products, categories, images, **variants** | ⚠ Variants stay in the MVP — a basic catalog need |
+| Catalog: products, categories, images, **variants** | ⚠ Variants stay in V2 launch — a basic catalog need |
 | **Pricing: 5 levels** (personal → client price list → group price list → default price list → base) | Confirmed by the owner on a real case: separate prices for coffee shops, regular and loyal customers. One of the pipeline's two reference slices |
 | Customers (CRM), groups, invites | Invites are the primary channel for onboarding customers into the app |
 | **Orders + chat — one vertical slice** | Checkout → redirect to chat; confirm/edit/cancel — in chat; action log; tracking |
-| Company profile + cart + checkout (in the app) | Account required (OTP). MVP payment — by invoice (see §4) |
-| Documents: default templates, numbering, PDF generation | Puppeteer worker. Template customization — post-MVP (§1.2) |
+| Company profile + cart + checkout (in the app) | Account required (OTP). V2 payment — by invoice (see §4) |
+| Documents: default templates, numbering, PDF generation | Puppeteer worker. Template customization — post-launch (§1.2) |
 | **QES signing** (ASiC-E, mobile Nitro + node verify) + pki-proxy | `@showzy/document-signing`: the verified crypto core, tests, and signing vectors carry over unchanged; the integration surface is re-audited against the new architecture |
 | Socket.IO realtime + **Expo push** | Push is critical for mobile-first: the owner must see a new order instantly. Finish device registration (unfinished in 1.x) |
 | Notifications: in-app + push + email (Resend) + SMS (OTP) | |
@@ -96,14 +96,14 @@ with the web phase or with a mobile editor after the research spike (see §9).
 
 ---
 
-## 4. DEFERRED (needed, but not in the MVP)
+## 4. DEFERRED (needed, but not in V2 launch)
 
 | Functionality | When | Rationale |
 | --- | --- | --- |
-| **Web version** (storefront by link, customer cabinet, full panel, desktop template editor) | Phase 6 — first after the MVP launch | Owner's decision: mobile-first for everything. Web sits on the same oRPC contract — no logic is rewritten, only UI. Web brings deep links: "open in the app or continue in the browser" |
-| ⚠ **Mono acquiring** (online payment + fiscalization) | Phase 7 | The MVP runs on invoice-based payment: the platform generates an invoice as a document — a natural flow for small B2B. **Phase 0 requirement:** a `payments` module owns payment records/status and the provider interface; orders link to payment IDs and react to payment events, so acquiring plugs in without changing core |
-| **Monobank statements + accounting** | Phase 8 — the next big priority after the core flow | Status elevated after the owner's clarification: statements are not just payment matching but the **foundation of future accounting** (income ledger, tax reporting — a Taxer replacement). Accounting is built on real bank transactions, not on orders in the system. **Phase 0 requirement:** financial data (amounts, currency, payment↔order↔document links) is designed carefully from day one |
-| Mobile document template editing | Research spike in parallel with phase 4 (see §9) | Owner: "would be really cool, but technically hard" |
+| **Web version** (storefront by link, customer cabinet, full panel, desktop template editor) | Phase 9 — first after V2 Production Launch | Owner's decision: mobile-first for everything. Web sits on the same oRPC contract — no logic is rewritten, only UI. Web brings deep links: "open in the app or continue in the browser" |
+| ⚠ **Mono acquiring** (online payment + fiscalization) | Phase 10 | V2 launch runs on invoice-based payment: the platform generates an invoice as a document — a natural flow for small B2B. **Phase 0 requirement:** a `payments` module owns payment records/status and the provider interface; orders link to payment IDs and react to payment events, so acquiring plugs in without changing core |
+| **Monobank statements + accounting** | Phase 11 — the next big priority after the core flow | Status elevated after the owner's clarification: statements are not just payment matching but the **foundation of future accounting** (income ledger, tax reporting — a Taxer replacement). Accounting is built on real bank transactions, not on orders in the system. **Phase 0 requirement:** financial data (amounts, currency, payment↔order↔document links) is designed carefully from day one |
+| Mobile document template editing | Research spike in parallel with phase 7 (see §9) | Owner: "would be really cool, but technically hard" |
 | DOCX export of documents | On user demand | PDF covers the main case |
 | Company verifications | Together with billing | |
 | Full workflow-status constructor | On demand | See §3 |
@@ -127,23 +127,23 @@ with the web phase or with a mobile editor after the research spike (see §9).
 **Effect:** of the backend's 19 modules, 4 disappear entirely and ~5 more slim
 down substantially (analytics, search, subscriptions, statuses, admin). The
 heaviest external dependencies disappear: Meta API, a second acquirer, OpenAI
-embeddings. Estimated code-surface reduction for the MVP: **~30–35%** versus a
-straight port — plus the entire web UI shifts out of the MVP.
+embeddings. Estimated code-surface reduction for V2 launch: **~30–35%** versus a
+straight port — plus the entire web UI shifts out of the initial release.
 
 ---
 
 ## 6. Updated module list (packages/modules/*)
 
-**MVP:** `companies` (team/RBAC/profile) · `customers` (CRM/groups/legal
+**V2 launch:** `companies` (team/RBAC/profile) · `customers` (CRM/groups/legal
 profiles) · `catalog` · `pricing` · `orders` (carts/fixed statuses/log;
-owns `company_statuses`) · `payments` (invoice/manual MVP + provider
+owns `company_statuses`) · `payments` (invoice/manual + provider
 interface) · `chat` · `documents` · `doc-generation` · `doc-signing` ·
 `delivery` · `reference-data` (KVED/CPV) · `notifications` · `invites` ·
 `files` (attachments + signed upload URLs) · `feature-flags` · `search`
-(FTS) · `analytics` (simple dashboard) · `assistant` (phase 5: AI
+(FTS) · `analytics` (simple dashboard) · `assistant` (phase 8: AI
 conversation persistence)
 
-**Post-MVP:** `acquiring` (ph.7) · `banking` + accounting (ph.8) ·
+**Post-launch:** `acquiring` (ph.10) · `banking` + accounting (ph.11) ·
 `subscriptions`/billing · workflow constructor
 
 **Infrastructure:** `pki-proxy` (part of the doc-signing surface)
@@ -155,30 +155,39 @@ The exact ownership/composition ledger is `docs/module-ownership.md`.
 ## 7. Roadmap (mobile-first)
 
 Principle: every product phase ends with a working vertical slice in the
-mobile app. Phases 2 and 4 partially parallelize after both reference slices.
+mobile app. The **Experience Foundation** (ADR-0017) runs as a parallel
+workstream during phases 0–1 and gates all product UI implementation.
 
 | # | Phase | Contents | Readiness criterion |
 | --- | --- | --- | --- |
 | 0 | **Foundation** | Monorepo, CI (typecheck/lint/tests/contracts/migration drift), Docker Compose (Postgres 17 + Redis + MinIO), `packages/core`, `db`, better-auth, oRPC/client-safe contract, minimal API/worker, **Expo app skeleton + Universal/App Link routing and install fallback**, `payments` provider abstraction, `feature-flags` skeleton, backup/restore baseline, and foundation invariant suites | An agent can add an action from the template and see green CI; the app signs in and opens an invite deep link; cross-tenant/protocol suites pass; a restore drill is specified |
 | 1 | **Reference slices** | After approved minimal prerequisite schemas: (a) pricing resolution for pure/query/`ctx.call`; (b) thin order → transactional outbox → chat projection for write/idempotency/event patterns. Full SDD cycle and pipeline shakedown | Two exemplary references + proven pipeline; review metrics collected |
-| 2 | **Companies, catalog, customers** | `companies` (onboarding, team, RBAC, requisites), `catalog` (products, variants, categories, images → S3), `invites`, customers/groups. Mobile panel screens: products, prices, customers | A company is created from a phone, the catalog fills up, a customer is invited via invite |
-| 3 | **Order vertical: profile → cart → checkout → chat** | `orders` (fixed statuses, log), company profile in the app, cart, checkout with delivery selection (`delivery`/Nova Poshta) → **redirect to chat** (`chat` + Socket.IO + Redis adapter): order card, confirm/edit/cancel, `notifications` + **Expo push** | A customer places an order from her phone; the owner gets a push and confirms the order in chat. The canonical flow of §1.1 works end-to-end |
-| 4 | **Documents + QES (B2B add-on)** | Counterparty requisites, `documents` (generation from an order using default templates), `doc-generation` (PDF worker), `doc-signing` (Nitro signing, ASiC-E, pki-proxy), document card in chat. In parallel: the mobile-editing research spike (§9) | An invoice/delivery note is generated from an order and signed with QES by both parties from their phones |
-| 5 | **AI layer** | `packages/ai`: agent over the action registry, client-side UI tools (navigate/openModal/prefillForm), generative UI in the assistant chat, human-in-the-loop for QES | The AI in the app performs the same actions as the UI: creates a document, fills a form, shows an order |
-| — | **🚀 MVP launch** | Data migration (users → better-auth, files → S3, tables), TestFlight/internal track → stores | The confectionery runs on Showzy 2.0 from a phone |
-| 6 | **Web** | Next.js: storefront by link (SEO), customer cabinet, full panel, desktop template editor (Plate), universal links "open in the app or in the browser" | A customer without the app places an order in the browser |
-| 7 | **Acquiring** | `acquiring`: Mono invoices, webhooks, fiscalization, merchant onboarding — plugs into the payment abstraction from phase 0 | Online payment in checkout |
-| 8 | **Bank + accounting** | `banking`: statement sync, matching transactions to orders/invoices; an income ledger on real transactions, export for tax reporting (Taxer replacement) | The owner sees real income and closes tax reporting from Showzy |
-| 9 | **On demand** | Billing/subscriptions, workflow constructor, DOCX, event analytics, mobile template editor (per spike results) | — |
+| ‖ | **Experience Foundation** | UX research → information architecture → design tokens and component contracts → interactive prototypes → usability validation (see `docs/design/process.md`) | UX gate passed: research, IA, tokens, components, and validated prototypes approved by the owner |
+| 2 | **Company operating core** | `companies` (onboarding, team, RBAC, requisites), `catalog` (products, variants, categories, images → S3), `customers`/groups, `invites`, `pricing` full UI. Mobile panel screens: products, prices, customers | A company is created from a phone, the catalog fills up, a customer is invited via invite |
+| 3 | **Company presence** | Public company profile/showcase, company identity, deep links, customer entry journey (invite → install → sign in → company context) | A customer follows a link, installs the app, signs in, and sees the company profile with its catalog |
+| 4 | **Commerce core** | `orders` (cart, checkout, immutable order/payment snapshots, fixed statuses, log), delivery selection (`delivery`/Nova Poshta), order lifecycle, `notifications` + **Expo push** | A customer places an order from her phone; the owner gets a push and sees it in the panel; the order progresses through statuses without chat coupling |
+| 5 | **Chat platform** | `chat`: conversations, participants, messages, reactions, attachments, read/unread state, realtime (Socket.IO + Redis adapter), offline/reconnect behavior, message push, typing indicators | Both sides can have a real-time conversation; messages persist offline and sync on reconnect; push notifications work |
+| 6 | **Order collaboration in chat** | Order-card projection in chat, redirect-to-chat from checkout, clarify/edit/confirm/cancel in conversation, order-specific push, failure/retry UX | The canonical flow of §1.1 works end-to-end: order → chat → confirm/edit → done |
+| 7 | **Documents + QES (B2B add-on)** | Counterparty requisites, `documents` (generation from an order using default templates), `doc-generation` (PDF worker), `doc-signing` (Nitro signing, ASiC-E, pki-proxy), document card in chat. In parallel: the mobile-editing research spike (§9) | An invoice/delivery note is generated from an order and signed with QES by both parties from their phones |
+| 8 | **AI experience** | `packages/ai`: agent over the action registry, client-side UI tools (navigate/openModal/prefillForm), generative UI in the assistant chat, human-in-the-loop for QES; validate classic/AI parity | The AI in the app performs the same actions as the UI: creates a document, fills a form, shows an order |
+| — | **🚀 V2 Production Launch** | Data migration (users → better-auth, files → S3, tables), TestFlight/internal track → stores | The confectionery runs on Showzy 2.0 from a phone |
+| 9 | **Web** | Next.js: storefront by link (SEO), customer cabinet, full panel, desktop template editor (Plate), universal links "open in the app or in the browser" | A customer without the app places an order in the browser |
+| 10 | **Acquiring** | `acquiring`: Mono invoices, webhooks, fiscalization, merchant onboarding — plugs into the payment abstraction from phase 0 | Online payment in checkout |
+| 11 | **Bank + accounting** | `banking`: statement sync, matching transactions to orders/invoices; an income ledger on real transactions, export for tax reporting (Taxer replacement) | The owner sees real income and closes tax reporting from Showzy |
+| 12 | **On demand** | Billing/subscriptions, workflow constructor, DOCX, event analytics, mobile template editor (per spike results) | — |
 
-### Why the AI layer is phase 5, not phase 1
+Phases 4 and 5 (Commerce core and Chat platform) may proceed in parallel
+after shared prerequisites are stable. Phase 6 (Order collaboration) starts
+only when both Commerce core and Chat platform are complete.
+
+### Why the AI experience is phase 8, not phase 1
 
 AI tools are generated from the action registry. While there are no actions,
 the assistant has nothing to execute. But the registry itself (phase 0) is
 designed with AI requirements from day one: each action's `description` is
 written as an instruction for the model, and every action carries AI/risk
 metadata (`aiExposure`, `risk`, `requiresConfirmation`, `idempotent` — see
-blueprint §4) from its first commit. This is what makes phase 5 "connect the
+blueprint §4) from its first commit. This is what makes phase 8 "connect the
 LLM to the existing capability graph" instead of "rewrite half the backend
 for AI". The visible chat interface appears once there is a critical mass of
 actions.
@@ -190,21 +199,21 @@ actions.
 | Decision | Accepted | Status / how to reverse |
 | --- | --- | --- |
 | Marketplace | No — SaaS tool | Approved by the owner. A browsing hub is a separate phase on top of storefronts; the core does not change |
-| Mobile vs web | **Mobile-first for all functionality**, web — phase 6 | Approved by the owner |
+| Mobile vs web | **Mobile-first for all functionality**, web — phase 9 | Approved by the owner |
 | Anonymous orders | No — account only (OTP) | Approved by the owner: security > conversion |
 | Meta messaging | Dropped | Approved by the owner |
-| Acquiring in the MVP | No — invoice-based payment | ⚠ Pull phase 7 before launch; +3–4 weeks to MVP. The phase-0 payment abstraction makes this painless |
-| Monobank statements | Phase 8, status elevated to accounting foundation | Approved by the owner: the next priority after the core flow |
-| Status constructor | Simplified to fixed statuses | ⚠ `orders` owns `company_statuses`; MVP seeds a fixed set. A future constructor adds UI/actions without moving table ownership |
-| Product variants | In the MVP | ⚠ If deadlines squeeze — moved out of phase 2 into a separate one |
-| 5-level pricing | In the MVP without simplifications | Approved by the owner on a real case |
+| Acquiring in V2 launch | No — invoice-based payment | ⚠ Pull phase 10 before launch; +3–4 weeks. The phase-0 payment abstraction makes this painless |
+| Monobank statements | Phase 11, status elevated to accounting foundation | Approved by the owner: the next priority after the core flow |
+| Status constructor | Simplified to fixed statuses | ⚠ `orders` owns `company_statuses`; V2 seeds a fixed set. A future constructor adds UI/actions without moving table ownership |
+| Product variants | In V2 launch | ⚠ If deadlines squeeze — moved out of phase 2 into a separate one |
+| 5-level pricing | In V2 launch without simplifications | Approved by the owner on a real case |
 
 ---
 
 ## 9. Research spike: document editing on mobile
 
 The owner wants the ability to edit documents from a phone; it is known to be
-technically hard. The spike runs in parallel with phase 4, time-boxed
+technically hard. The spike runs in parallel with phase 7, time-boxed
 (1–2 weeks of agent work); the result is a prototype or a substantiated "no".
 
 **Primary candidate:** Expo DOM components (`"use dom"`) — an Expo mechanism
@@ -219,6 +228,6 @@ iOS and Android, bundle size.
 amounts without free-form layout (covers 90% of real needs: fix an amount or
 add a line item to an invoice).
 
-**MVP minimum without the spike:** documents are generated from default
+**V2 minimum without the spike:** documents are generated from default
 templates; only data (requisites, line items, amounts) is edited via regular
 forms.

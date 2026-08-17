@@ -11,7 +11,7 @@ interface: a classic UI and an AI chat that execute the exact same actions.
 
 1. `docs/blueprint.md` — architecture, stack, action registry, foundation
    invariants, SDD pipeline. This is the constitution of the project.
-2. `docs/scope.md` — what we build in the MVP, what we defer, what we drop,
+2. `docs/scope.md` — what we build in V2 launch, what we defer, what we drop,
    and the mobile-first roadmap.
 3. `docs/adr/` — accepted architecture decisions and why alternatives were
    rejected. Never contradict an accepted ADR; deviations require a new ADR

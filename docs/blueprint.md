@@ -18,9 +18,9 @@ confectionery.
 - **Canonical flow**: customer → company profile → cart → checkout (account required) → **redirect to chat** with an order card. The company confirms/edits/cancels the order in chat. **Chat is the operational core of the product.**
 - **B2B add-on**: a customer with a legal profile (sole proprietor / legal entity) gets document workflow — contracts, invoices, delivery notes, **QES signing** (DSTU, ASiC-E) — the private key never leaves the device. Same flow, extra actions.
 - **Two management surfaces**: company panel and customer cabinet.
-- **Integrations**: Nova Poshta (MVP); Monobank acquiring + bank statements as the foundation of accounting (post-MVP), Resend, SMS.
+- **Integrations**: Nova Poshta (V2 launch); Monobank acquiring + bank statements as the foundation of accounting (post-launch), Resend, SMS.
 - **AI assistant** with tool calling — at parity with the UI.
-- **Client strategy: mobile-first for all functionality** (panel and cabinet). Web is a post-MVP phase, with universal links.
+- **Client strategy: mobile-first for all functionality** (panel and cabinet). Web is a post-launch phase, with universal links.
 
 Full scope analysis (what we carry over / simplify / drop) and the roadmap:
 `docs/scope.md`.
@@ -81,8 +81,8 @@ tests before any domain module is built:
 | Reliable events | **Transactional outbox** (`domain_events` + `FOR UPDATE SKIP LOCKED` + LISTEN/NOTIFY) | Already implemented correctly — carried over |
 | Validation | **Zod v4** | One schema: form → API → AI tool → DB boundary |
 | AI | **Vercel AI SDK v6** | Tool calling, streaming, generative UI; provider-agnostic (Anthropic/OpenAI) |
-| Mobile | **Expo + expo-router + Unistyles** — **primary client** | Mobile-first: all MVP functionality (panel + customer cabinet + AI chat) in the app |
-| Web | **Next.js (App Router)** — post-MVP phase | Storefront by link (SEO), cabinet in the browser, desktop template editor; universal links into the app |
+| Mobile | **Expo + expo-router + Unistyles** — **primary client** | Mobile-first: all V2 functionality (panel + customer cabinet + AI chat) in the app |
+| Web | **Next.js (App Router)** — post-launch phase | Storefront by link (SEO), cabinet in the browser, desktop template editor; universal links into the app |
 | Web UI | **shadcn/ui + Tailwind 4 + react-hook-form** | Carried over (in the web phase) |
 | QES | **`@showzy/document-signing`** (UAPKI: WASM web/node, Nitro native) | The verified crypto core carries over unchanged (bindings, ASiC-E, tests, signing vectors); the integration surface (storage, auth context, module wiring) is re-audited against the new architecture |
 | PDF | **Puppeteer** + React SSR of Plate documents | Carried over |
@@ -119,7 +119,7 @@ export const createOrderContract = defineActionContract({
   transport: "client",             // client route | internal-only capability
   permissions: ["orders:create"],  // checked before the handler
 
-  // AI & execution metadata — designed in at phase 0, consumed from phase 5
+  // AI & execution metadata — designed in at phase 0, consumed from phase 8
   aiExposure: "exposed",           // exposed | internal (never becomes an AI tool)
   risk: "write",                   // read | draft | write | high
   requiresConfirmation: false,     // high-risk: UI renders a human confirmation step
@@ -150,7 +150,7 @@ generate:
 4. **Permissions + audit** → in one place, regardless of who called.
 
 The AI metadata is part of the definition from phase 0 precisely so that
-phase 5 becomes "connect the LLM to the existing capability graph" rather than
+phase 8 becomes "connect the LLM to the existing capability graph" rather than
 "rewrite half the backend for AI". Examples of the gradient:
 `orders.get` → `risk: read`, no confirmation · `documents.createDraft` →
 `risk: draft`, no confirmation · `documents.sign` → `risk: high`,
@@ -180,8 +180,8 @@ showzy/
 ├─ apps/
 │  ├─ api/            # Hono: mounts the oRPC router + webhooks + SSE + Socket.IO
 │  ├─ worker/         # BullMQ processors, outbox poller, cron (separate process)
-│  ├─ mobile/         # Expo — primary client (MVP)
-│  └─ web/            # Next.js — phase 6 (post-MVP)
+│  ├─ mobile/         # Expo — primary client (V2 launch)
+│  └─ web/            # Next.js — phase 9 (post-launch)
 ├─ packages/
 │  ├─ core/           # defineAction, registry, context, event bus, outbox client
 │  ├─ db/             # Drizzle schema (source of types), migrations, seed
@@ -204,9 +204,9 @@ showzy/
 
 ### Domain modules (packages/modules/*)
 
-**MVP:** `companies` (company, team, RBAC, legal info, public profile) · `customers` (company CRM records, groups, customer legal profiles) · `catalog` (products, variants, categories) · `pricing` (price lists, personal prices; references customers/groups but does not own them) · `orders` (carts, order items/logs, fixed statuses) · `payments` (phase-0 provider abstraction, payment records/status; invoice/manual MVP) · `chat` (conversations, messages, reactions — the operational core) · `documents` (CRUD, default templates, numbering) · `doc-generation` (Plate → HTML → PDF) · `doc-signing` (QES, ASiC-E, pki-proxy) · `delivery` (Nova Poshta + its reference data) · `reference-data` (KVED/CPV) · `notifications` (in-app, push, email, sms) · `invites` · `files` (attachment ownership: product images, chat attachments, document files; signed upload URLs, size/type policy) · `feature-flags` (phase-0 skeleton) · `search` (FTS) · `analytics` (simple dashboard) · `assistant` (phase 5: AI conversation persistence — `packages/ai` is the engine and owns no tables)
+**V2 launch:** `companies` (company, team, RBAC, legal info, public profile) · `customers` (company CRM records, groups, customer legal profiles) · `catalog` (products, variants, categories) · `pricing` (price lists, personal prices; references customers/groups but does not own them) · `orders` (carts, order items/logs, fixed statuses) · `payments` (phase-0 provider abstraction, payment records/status; invoice/manual) · `chat` (conversations, messages, reactions — the operational core) · `documents` (CRUD, default templates, numbering) · `doc-generation` (Plate → HTML → PDF) · `doc-signing` (QES, ASiC-E, pki-proxy) · `delivery` (Nova Poshta + its reference data) · `reference-data` (KVED/CPV) · `notifications` (in-app, push, email, sms) · `invites` · `files` (attachment ownership: product images, chat attachments, document files; signed upload URLs, size/type policy) · `feature-flags` (phase-0 skeleton) · `search` (FTS) · `analytics` (simple dashboard) · `assistant` (phase 8: AI conversation persistence — `packages/ai` is the engine and owns no tables)
 
-**Post-MVP:** `acquiring` (Monobank acquiring + fiscalization, plugs into `payments`) · `banking` (statements, matching, accounting foundation) · `subscriptions` (billing; consumes the existing feature-flag capability)
+**Post-launch:** `acquiring` (Monobank acquiring + fiscalization, plugs into `payments`) · `banking` (statements, matching, accounting foundation) · `subscriptions` (billing; consumes the existing feature-flag capability)
 
 Exact table/capability ownership and sanctioned composition edges are tracked
 in `docs/module-ownership.md`; module specs refine but may not silently move
@@ -222,7 +222,7 @@ internal files is an ESLint error.
 
 | What | Decision |
 | --- | --- |
-| DB schema (77+ tables) | **Not** carried over 1:1. Every object appears in the v1→v2 migration matrix as keep/transform/drop and maps to one owning MVP module; text+CHECK is preferred over enums |
+| DB schema (77+ tables) | **Not** carried over 1:1. Every object appears in the v1→v2 migration matrix as keep/transform/drop and maps to one owning V2 module; text+CHECK is preferred over enums |
 | ~240 RLS policies | Deleted. Logic → `permissions` on actions. The largest rethinking effort |
 | ~79 RPC functions | Rewritten as ordinary module functions on Drizzle (transactions in code) |
 | ~82 triggers | A conscious decision for each: technical ones (updated_at, counters) stay in the DB; business logic (numbering, auto-statuses) moves up into code |
@@ -304,16 +304,21 @@ Condensed view:
 | --- | --- | --- |
 | **0. Foundation** | Monorepo, CI, Docker Compose (Postgres+Redis+MinIO), core/db/contract, better-auth, API/worker + Expo skeleton, minimal Universal/App Links, payment + feature-flag skeletons, security/operations baseline, **foundation invariants (§2.1) verified by tests** | A skeleton on which agents can work in parallel |
 | **1. Reference slices** | Merge approved minimal prerequisite schemas, then pricing resolution + a thin order → outbox → chat projection: spec → plan → TDD → review | Query and transactional/event templates to copy + a proven pipeline |
-| **2. Companies, catalog, customers** | `companies`, `catalog` (with variants), `invites`, customers/groups + mobile panel screens | Company and catalog created from a phone |
-| **3. Order vertical** | `orders` + profile/cart/checkout + `delivery` (Nova Poshta) + **redirect to chat** (`chat`, Socket.IO, push) | The canonical flow end-to-end in the app |
-| **4. Documents + QES** | `documents`, `doc-generation` (PDF worker), `doc-signing` (Nitro, ASiC-E, pki-proxy) + mobile-editing research spike | B2B document workflow with signing from phones |
-| **5. AI layer** | `packages/ai`: agent over the action registry, UI tools, generative UI in the app | AI performs the same actions as the UI |
-| **🚀 MVP** | Data migration, TestFlight → stores | Real users on 2.0 |
-| **6. Web** | Next.js: storefront (SEO), cabinet, full panel, Plate template editor, full browser continuation from existing links | Orders without the app |
-| **7. Acquiring** | `acquiring` on top of the ready payment abstraction | Online payment |
-| **8. Bank + accounting** | `banking`: statements, matching; income ledger on real transactions (Taxer replacement) | Tax reporting from Showzy |
+| **‖ Experience Foundation** | UX research → IA → tokens/components → prototypes → validation (parallel to phases 0–1; gates product UI) | UX gate passed |
+| **2. Company operating core** | `companies`, `catalog` (with variants), `customers`/groups, `invites`, `pricing` full UI + mobile panel screens | Company and catalog created from a phone |
+| **3. Company presence** | Public profile/showcase, deep links, customer entry journey | A customer follows a link and enters the company |
+| **4. Commerce core** | `orders` + cart/checkout + `delivery` (Nova Poshta) + push; no chat coupling | An order is placed and progresses through statuses |
+| **5. Chat platform** | `chat`: conversations, messages, realtime, offline/reconnect, push | Real-time conversation works end-to-end |
+| **6. Order collaboration** | Order-card projection in chat, redirect-to-chat, confirm/edit/cancel | The canonical §1.1 flow works end-to-end |
+| **7. Documents + QES** | `documents`, `doc-generation` (PDF worker), `doc-signing` (Nitro, ASiC-E, pki-proxy) + mobile-editing spike | B2B document workflow with signing from phones |
+| **8. AI experience** | `packages/ai`: agent over the action registry, UI tools, generative UI; classic/AI parity validation | AI performs the same actions as the UI |
+| **🚀 V2 Production Launch** | Data migration, TestFlight → stores | Real users on 2.0 |
+| **9. Web** | Next.js: storefront (SEO), cabinet, full panel, Plate template editor, full browser continuation from existing links | Orders without the app |
+| **10. Acquiring** | `acquiring` on top of the ready payment abstraction | Online payment |
+| **11. Bank + accounting** | `banking`: statements, matching; income ledger on real transactions (Taxer replacement) | Tax reporting from Showzy |
 
-Phases 2 and 4 partially parallelize across agents after phase 1.
+Phases 4 and 5 (Commerce core, Chat platform) may proceed in parallel after
+shared prerequisites. Phase 6 (Order collaboration) requires both.
 
 ---
 

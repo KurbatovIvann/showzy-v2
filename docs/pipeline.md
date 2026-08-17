@@ -98,8 +98,9 @@ branch protection.
 Linear (team **Showzy-v2**, via MCP) is the work ledger; this repo is the
 source of truth for contracts. Mapping:
 
-- **Project = roadmap phase** (`Phase 0 — Foundation` … `Phase 5 — AI
-  layer`). Milestones inside a project = modules / vertical slices.
+- **Project = roadmap phase** (`Phase 0 — Foundation` … `Phase 8 — AI
+  Experience`) plus the parallel `Experience Foundation` project.
+  Milestones inside a project = modules / vertical slices.
 - **Issue = one plan task** (one branch = one PR ≤ ~300 diff lines), created
   by `/plan` after you approve the breakdown. Dependencies = `blocked by`
   relations; parallel tasks have none.
@@ -146,6 +147,57 @@ amendment + propagation to affected tickets).
    1–2 failed debug attempts → Opus 5.
 4. **Model lineup drifts monthly** — the names above are roles (blueprint
    §7.3); substitute current equivalents, keep the tiering.
+5. **UX gate blocks product UI.** UI specs (`/spec` for screens), UI plans
+   (`/plan`), and UI implementation (`/implement`) for product screens are
+   blocked until the Experience Foundation UX gate is passed (ADR-0017,
+   `docs/design/process.md`). Backend-only work and the Expo app shell
+   infrastructure are not gated.
+
+## Agent skills policy
+
+Skills (`.cursor/skills/`, SKILL.md format) are **not** how this project
+distributes conventions or process — that job belongs to `.cursor/rules/`,
+the stage commands, the specs, and the reference slices. Skills fill exactly
+two gaps the pipeline cannot:
+
+1. **Fast-moving client tech** the models get wrong from memory (Expo Router,
+   React Native performance, native platform patterns).
+2. **Domain API references** absent from model training data (Monobank,
+   Nova Poshta, DSTU/QES — Ukrainian APIs).
+
+No backend-stack skills (Drizzle, Hono, oRPC, better-auth): for server code
+the reference slices and specs are the only authority, and generic skills for
+those libraries are the highest-risk source of conflicting patterns.
+
+### Ground rules
+
+1. **Skills are advisory.** On any conflict, `.cursor/rules/`, the module
+   spec, ADRs, and the reference slices win. A skill never justifies
+   violating a prohibition (e.g. raw SQL from a Postgres skill's examples).
+2. **Vetted like dependencies.** Every third-party skill is reviewed by a
+   human (or a review agent with human sign-off) for conflicts with our
+   rules/ADRs before it lands in `.cursor/skills/`. Same bar as adding a
+   package.
+3. **Installed per phase, not up front.** A skill that cannot trigger on
+   current work is context noise.
+
+### Phased skill set
+
+| Phase | Install | Notes |
+| --- | --- | --- |
+| 0–1 Foundation | **Nothing** | Foundation is written by top-tier models under full human review; third-party patterns must not leak into the templates |
+| 2–3 Mobile screens | Official `expo/skills` (selective: `expo-project-structure`, `expo-router`, `expo-native-ui`, `expo-design-system`, `expo-data-fetching`) + **one** RN performance skill (Callstack `react-native-best-practices` or Vercel `react-native-guidelines`, not both) | Skip `expo-tailwind-setup` — we use Unistyles, not NativeWind |
+| 3 Delivery | Hand-written **Nova Poshta API** skill, modeled on v1's `mono-aquiring` (API reference + minimal flow + webhook/edge cases) | No public equivalent exists; extract from v1 delivery code + official docs |
+| Pre-MVP | `eas-app-stores` from `expo/skills` | TestFlight / store submission |
+| 6 Web | Vercel `react-best-practices` + `composition-patterns` | Not earlier — they would trigger uselessly on mobile work |
+| 7 Acquiring | Port v1 `mono-aquiring` as-is (SKILL.md + API reference files; keep only the Node example) | The one v1 skill worth carrying over; pure Monobank API knowledge, stack-agnostic |
+| 8 Banking | Hand-written Monobank statements API skill | Same pattern as acquiring |
+
+Everything else from v1 (`.cursor/skills` in `E:\showzy`) is deliberately
+dropped: NestJS/Supabase-RLS skills contradict this architecture, Postgres
+skills push raw SQL, and the "superpowers" process set duplicates — and in
+places contradicts — this pipeline (human-conducted stages, human merges,
+one ticket = one branch).
 
 ## Health metrics (blueprint §7.4)
 

@@ -24,7 +24,7 @@
 
 - **KEEP** — same business object, redesigned Drizzle schema.
 - **TRANSFORM** — behavior/data moves to the named owner or protocol.
-- **DEFER** — retained only for a named post-MVP phase; no MVP schema.
+- **DEFER** — retained only for a named post-launch phase; no V2 launch schema.
 - **DROP** — no v2 data/code.
 - **REVIEW** — product/data decision still required; scaffold is blocked.
 
@@ -53,8 +53,8 @@ resolver test in that same spec.
 | doc-signing | `document_signatures` and signature columns/artifacts → TRANSFORM with carried-over crypto vectors | — |
 | reference-data | `kved_codes`, `cpv_codes` → KEEP as global imported data | — |
 | feature-flags | `feature_flags`, `company_feature_overrides` → TRANSFORM | `subscription_plans`, `company_subscriptions` → DEFER to subscriptions |
-| integrations/post-MVP | `bank_transactions` → DEFER to banking; provider-specific company integration metadata → DEFER to owning provider module | `company_integrations`, `integration_secrets` generic v1 design → REVIEW after secret-storage/provider split; LiqPay/Meta rows → DROP |
-| analytics/search | no partitioned analytics tables carried over; MVP direct queries/FTS projections are rebuilt | `analytics.company_daily_stats`, `company_product_daily_stats`, `company_customer_daily_stats`, `analytics.events` → DROP |
+| integrations/post-launch | `bank_transactions` → DEFER to banking; provider-specific company integration metadata → DEFER to owning provider module | `company_integrations`, `integration_secrets` generic v1 design → REVIEW after secret-storage/provider split; LiqPay/Meta rows → DROP |
+| analytics/search | no partitioned analytics tables carried over; V2 direct queries/FTS projections are rebuilt | `analytics.company_daily_stats`, `company_product_daily_stats`, `company_customer_daily_stats`, `analytics.events` → DROP |
 | social/marketplace | — | `company_follows` → DROP |
 
 ## Views and enums

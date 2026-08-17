@@ -7,7 +7,7 @@ becomes a frozen contract for implementing agents, so precision beats brevity.
 ## Before writing
 
 1. Read `docs/blueprint.md` (architecture, §2.1 invariants, §4 action
-   registry) and `docs/scope.md` (what is in/out of the MVP for this module).
+   registry) and `docs/scope.md` (what is in/out of V2 launch for this module).
 2. Read the relevant ADRs in `docs/adr/` — the spec must not contradict any
    accepted ADR.
 3. Study v1 behavior in `docs/reference/v1-backend-audit.md` and the relevant

@@ -1,0 +1,371 @@
+# Experience Foundation — Plan
+
+> Status: **approved 2026-08-17** (owner resolved the open questions; see
+> "Resolved decisions" at the end). Linear tickets are created from this
+> breakdown; execution starts with ef-T1.
+>
+> Sources: [ADR-0017](../adr/0017-design-system-first-dual-flow-ux.md),
+> [`docs/design/process.md`](../design/process.md).
+
+This is the task breakdown for the Experience Foundation workstream — the
+parallel design track that runs alongside technical phases 0–1 and gates all
+product UI implementation (pipeline rule 5, ADR-0017). It is not a code
+module, so this plan deviates from the standard `/plan` format:
+
+- **Deliverables are design artifacts** in `docs/design/` (and Figma), not
+  code. "One task = one PR ≤ ~300 diff lines" becomes "one task = one
+  reviewable artifact set"; a PR is still opened per task for the in-repo
+  documents.
+- **TDD test lists are replaced by acceptance criteria** — the stage outputs
+  defined in `process.md` plus the dual-flow completeness rule (every
+  artifact addresses classic UI ↔ AI chat and staff ↔ customer where
+  applicable).
+- **Approval checkpoints replace CI gates.** Each stage ends with an
+  explicit human-owner approval task; the next stage's tasks stay blocked
+  until it passes.
+- **Execution mode is marked per task**: `agent` (agent drafts, human
+  reviews), `human-led` (requires real-world activity the agent cannot do,
+  e.g. sessions with real users), or `human` (owner decision).
+
+Linear mapping: one issue per task in team **Showzy-v2**, project
+**Experience Foundation** (pipeline.md "Linear workflow"), label `design`
+(created for this workstream — owner-approved). Milestones = the five
+stages plus a UX Gate milestone. Stage-approval tasks are assigned to the
+human owner. Tickets created 2026-08-17: **SHO-5 … SHO-26** (ef-T1 = SHO-5,
+in plan order through ef-T21 = SHO-26).
+
+---
+
+## Stage 1 — RESEARCH
+
+### ef-T1: Research brief — `agent`
+
+- **Scope:** `docs/design/research/brief.md` — research goals, methods
+  (desk research, competitor teardown, and real-user persona interviews —
+  owner decided interviews happen in RESEARCH, not deferred to VALIDATE),
+  interview recruiting plan, timeline, and explicit out-of-scope items.
+- **Context pack:** `process.md` §1 RESEARCH; ADR-0017 (context section);
+  `docs/scope.md` (V2 launch scope — research must not cover dropped
+  features).
+- **Dependencies:** none. First task of the workstream.
+- **Acceptance:** brief covers both dual-flow dimensions
+  (staff/customer × classic/AI); methods are executable with available
+  resources; human owner signs off on the brief before ef-T2/ef-T3 start.
+
+### ef-T2: Ukrainian-market and competitor audit — `agent`
+
+- **Scope:** `docs/design/research/competitor-audit.md` — interaction-pattern
+  audit of Instagram, Telegram, Monobank, Nova Poshta, Poster, Checkbox,
+  Horoshop: navigation models, chat/commerce patterns, onboarding, payments
+  UX, notification patterns. Per product: patterns users are trained on and
+  their relevance to Showzy surfaces.
+- **Context pack:** `process.md` §1; approved brief (ef-T1);
+  `docs/scope.md`.
+- **Dependencies:** ef-T1. **Parallel with ef-T3.**
+- **Acceptance:** every listed competitor covered; each pattern tagged
+  adopt / adapt / avoid with rationale; findings mapped to the four
+  dual-flow quadrants where applicable.
+
+### ef-T3: Personas and jobs-to-be-done — `agent` draft + `human-led` interviews
+
+- **Scope:** `docs/design/research/personas.md` — personas and JTBD for
+  staff/owner and customer, each considered in both classic-UI and AI-chat
+  interaction modes, grounded in real-user interviews conducted per the
+  brief's recruiting plan (sessions are human-led; agents prepare guides
+  and synthesize notes). Includes device/connectivity context (mobile-first,
+  Ukrainian market realities) and language/terminology notes feeding DEFINE.
+- **Context pack:** `process.md` §1; approved brief (ef-T1);
+  `docs/reference/v1-backend-audit.md` (real v1 usage shapes — read-only);
+  `docs/scope.md`.
+- **Dependencies:** ef-T1. **Parallel with ef-T2.**
+- **Acceptance:** at minimum one staff/owner and one customer persona with
+  JTBD in both interaction modes; interview evidence cited; assumptions vs.
+  evidence explicitly separated (drives what VALIDATE must test).
+
+### ef-T4: Research summary + Approval #1 — `agent` draft, `human` approval
+
+- **Scope:** consolidated summary of patterns to adopt, adapt, or
+  deliberately avoid (appended to or referenced from
+  `docs/design/research/`), plus the formal review. This is process.md's
+  "Approval: human owner reviews and approves the research summary before
+  DEFINE begins."
+- **Context pack:** ef-T2 and ef-T3 outputs.
+- **Dependencies:** ef-T2, ef-T3. **Blocks all DEFINE tasks.**
+- **Acceptance:** human owner approves the research summary.
+
+---
+
+## Stage 2 — DEFINE
+
+### ef-T5: Information architecture — `agent`
+
+- **Scope:** `docs/design/define/information-architecture.md` — screen
+  hierarchy and navigation model for both the staff panel and the customer
+  cabinet within a single app binary (role-based navigation per ADR-0017),
+  including where the AI chat surface lives in each.
+- **Context pack:** `process.md` §2; approved research (ef-T4);
+  ADR-0010 (mobile-first client strategy); `docs/scope.md`.
+- **Dependencies:** ef-T4. **Parallel with ef-T6, ef-T7, ef-T8** (journey
+  maps may iterate against IA; expect one reconciliation pass).
+- **Acceptance:** both personas' navigation fully specified; AI chat
+  entry/exit points located; no screens for dropped/deferred scope.
+
+### ef-T6a: Dual-flow journey maps — order and catalog — `agent`
+
+- **Scope:** `docs/design/define/journeys/` — for the **order** and
+  **catalog** journeys: the classic-UI path, the AI-chat path, and the
+  handoff points between them (e.g. AI suggests → user confirms in classic
+  UI). One file per journey × flow as in the process.md artifact tree.
+  Establishes the journey-map template ef-T6b reuses.
+- **Context pack:** `process.md` §2 and §"Dual-flow design requirements";
+  approved research (ef-T4); draft IA (ef-T5).
+- **Dependencies:** ef-T4. **Parallel with ef-T5, ef-T6b, ef-T7, ef-T8.**
+- **Acceptance:** both journeys have both paths plus handoffs; each journey
+  addresses all applicable quadrants of the dual-flow matrix.
+
+### ef-T6b: Dual-flow journey maps — chat and documents — `agent`
+
+- **Scope:** same shape as ef-T6a for the **chat** and **documents**
+  journeys, using ef-T6a's template (soft dependency: may start in
+  parallel, aligns format before merge).
+- **Context pack:** same as ef-T6a.
+- **Dependencies:** ef-T4. **Parallel with ef-T5, ef-T6a, ef-T7, ef-T8.**
+- **Acceptance:** same bar as ef-T6a for chat and documents; chat journey
+  respects the projection rule (chat renders order cards from events, never
+  owns order state — blueprint §2.1 invariant 5).
+
+### ef-T7: Content principles — `agent`
+
+- **Scope:** `docs/design/define/content-principles.md` — tone, language,
+  and terminology for the Ukrainian audience, covering both classic UI copy
+  and AI-chat voice; canonical term glossary (orders, documents, pricing
+  levels) consistent with domain specs.
+- **Context pack:** `process.md` §2; personas (ef-T3); terminology used in
+  `docs/specs/*` (read-only — flag mismatches, do not edit specs).
+- **Dependencies:** ef-T4. **Parallel with ef-T5, ef-T6, ef-T8.**
+- **Acceptance:** principles usable as review criteria for future UI copy;
+  glossary covers the core journeys' vocabulary.
+
+### ef-T8: Accessibility baseline — `agent`
+
+- **Scope:** `docs/design/define/accessibility-baseline.md` — WCAG 2.1 AA
+  minimum: touch targets, contrast, screen-reader considerations for
+  mobile, plus AI-chat-specific accessibility (streaming text, generative
+  UI cards).
+- **Context pack:** `process.md` §2; ADR-0010.
+- **Dependencies:** ef-T4. **Parallel with ef-T5, ef-T6, ef-T7.**
+- **Acceptance:** baseline is testable (checkable criteria, not
+  aspirations); feeds directly into SYSTEM component contracts.
+
+### ef-T9: Approval #2 — IA, journeys, principles — `human`
+
+- **Scope:** human owner reviews IA, journey maps, content principles, and
+  accessibility baseline together (they must be mutually consistent).
+- **Dependencies:** ef-T5, ef-T6a, ef-T6b, ef-T7, ef-T8. **Blocks all
+  SYSTEM tasks.**
+- **Acceptance:** human owner approves; any reconciliation edits between IA
+  and journeys are resolved before approval.
+
+---
+
+## Stage 3 — SYSTEM
+
+### ef-T10: Design tokens — `agent`
+
+- **Scope:** `docs/design/system/tokens.md` — color palette, typography
+  scale, spacing, elevation, motion/easing, border radii — expressed as a
+  Unistyles theme structure (names and shape ready to transcribe into code
+  later; **no code in this workstream**). Includes the dark-mode decision
+  (V2 launch vs. deferred) as an explicit recommendation for the owner.
+- **Context pack:** `process.md` §3; ADR-0017 (mobile-first, Expo +
+  Unistyles); approved DEFINE artifacts (ef-T9).
+- **Dependencies:** ef-T9. **Parallel with ef-T11, ef-T12, ef-T13.**
+- **Acceptance:** every token category from process.md covered; token names
+  map 1:1 to a Unistyles theme shape; dark-mode recommendation stated.
+
+### ef-T11: Core component contracts, batch 1 (inputs & actions) — `agent`
+
+- **Scope:** `docs/design/system/components/` — contracts for **button,
+  input, list item, card, badge, avatar**: props, variants, states
+  (including loading/disabled), accessibility requirements, and behavior in
+  each applicable dual-flow quadrant.
+- **Context pack:** `process.md` §3 and §"Dual-flow design requirements";
+  accessibility baseline (ef-T8); tokens draft (ef-T10).
+- **Dependencies:** ef-T9. **Parallel with ef-T10, ef-T12, ef-T13.**
+- **Acceptance:** each contract specifies props/variants/states/a11y and
+  its dual-flow applicability; consistent contract template across files.
+
+### ef-T12: Core component contracts, batch 2 (surfaces & feedback) — `agent`
+
+- **Scope:** contracts for **bottom sheet, modal, toast, skeleton, empty
+  state, error state** — same contract template as batch 1, with special
+  attention to how feedback components appear inside the AI-chat surface
+  (generative UI cards) vs. classic screens.
+- **Context pack:** same as ef-T11.
+- **Dependencies:** ef-T9. **Parallel with ef-T10, ef-T11, ef-T13.**
+- **Acceptance:** same bar as ef-T11; loading/empty/error semantics align
+  with the state examples PROTOTYPE must produce.
+
+### ef-T13: Iconography, illustration, and layout system — `agent`
+
+- **Scope:** `docs/design/system/iconography.md` (icon set direction,
+  illustration style) and `docs/design/system/layout.md` (responsive grid,
+  safe areas, keyboard-aware scroll).
+- **Context pack:** `process.md` §3; ADR-0010; tokens draft (ef-T10).
+- **Dependencies:** ef-T9. **Parallel with ef-T10, ef-T11, ef-T12.**
+- **Acceptance:** layout rules cover the navigation model from the approved
+  IA; icon direction is licensable/feasible (no invented custom set without
+  owner sign-off).
+
+### ef-T14: Approval #3 — tokens and component contracts — `human`
+
+- **Scope:** human owner reviews the token spec and all component
+  contracts (process.md §3 approval).
+- **Dependencies:** ef-T10, ef-T11, ef-T12, ef-T13. **Blocks PROTOTYPE.**
+- **Acceptance:** human owner approves; dark-mode decision recorded.
+
+---
+
+## Stage 4 — PROTOTYPE
+
+Prototypes live in Figma, driven by agents through the installed Figma MCP
+server (owner decision); the repo artifact is
+`docs/design/prototypes/README.md` with links and coverage notes. The human
+owner reviews directly in Figma.
+
+### ef-T15: Prototypes — onboarding and staff flows — `agent` (Figma MCP)
+
+- **Scope:** interactive prototypes for onboarding / sign-in and the staff
+  side: catalog management, order list, order detail in chat. Built
+  strictly from the approved tokens and component contracts.
+- **Context pack:** `process.md` §4; approved SYSTEM artifacts (ef-T14);
+  journey maps (ef-T6a, ef-T6b).
+- **Dependencies:** ef-T14. **Parallel with ef-T16.**
+- **Acceptance:** screens use only system components/tokens (deviations
+  logged as system change requests, not silent one-offs); staff journeys
+  from ef-T6a/ef-T6b are traceable in the prototype.
+
+### ef-T16: Prototypes — customer and AI-chat flows, states — `agent` (Figma MCP)
+
+- **Scope:** customer side (company profile, cart, checkout, redirect to
+  chat); AI chat with one representative action (e.g. "create an order for
+  customer X"); dual-flow transition examples (AI suggests → user confirms
+  in classic UI); loading, empty, error, and offline state examples.
+- **Context pack:** same as ef-T15.
+- **Dependencies:** ef-T14. **Parallel with ef-T15.**
+- **Acceptance:** all four state types demonstrated; at least one complete
+  classic↔AI handoff is interactive end-to-end.
+
+### ef-T17: Approval #4 — prototype review — `human`
+
+- **Scope:** human owner reviews prototypes before validation
+  (process.md §4 approval).
+- **Dependencies:** ef-T15, ef-T16. **Blocks VALIDATE.**
+- **Acceptance:** human owner approves prototypes as ready to test.
+
+---
+
+## Stage 5 — VALIDATE
+
+### ef-T18: Usability test plan — `agent`
+
+- **Scope:** `docs/design/validation/test-plan.md` — participant profile
+  (Ukrainian small business owners and their customers), recruiting
+  approach, tasks derived from the core journeys, success metrics, session
+  script, consent/recording notes.
+- **Context pack:** `process.md` §5; personas (ef-T3); journeys (ef-T6a,
+  ef-T6b); approved prototypes (ef-T17).
+- **Dependencies:** ef-T17.
+- **Acceptance:** tasks cover both personas and both interaction modes;
+  plan is executable by the human owner with realistic recruiting.
+
+### ef-T19: Run usability tests and record findings — `human-led`
+
+- **Scope:** conduct the sessions per the test plan;
+  `docs/design/validation/results.md` — findings, severity, and
+  recommendations. Agents assist with note synthesis; sessions themselves
+  require the human owner and real users.
+- **Context pack:** test plan (ef-T18); prototypes.
+- **Dependencies:** ef-T18.
+- **Acceptance:** all planned tasks tested with target-profile
+  participants; findings are traceable to session evidence.
+
+### ef-T20: Iteration and final validated prototypes — `agent` (Figma MCP)
+
+- **Scope:** apply changes driven by findings; iteration log (what changed
+  and why, appended to `results.md` or a dedicated log); final validated
+  prototype links in `docs/design/prototypes/README.md`. If findings
+  invalidate SYSTEM or DEFINE artifacts, those documents are amended and
+  re-approved (return to the relevant stage approval), not patched
+  silently.
+- **Context pack:** ef-T19 results; SYSTEM artifacts.
+- **Dependencies:** ef-T19.
+- **Acceptance:** every high-severity finding addressed or explicitly
+  accepted by the owner; human owner confirms validation is sufficient
+  (process.md §5 approval = Approval #5).
+
+---
+
+## UX Gate
+
+### ef-T21: UX gate review and opening — `human`
+
+- **Scope:** formal checklist per process.md §"UX Gate": (1) research
+  summary approved, (2) IA and journey maps approved, (3) token spec and
+  component contracts approved, (4) representative prototypes validated
+  with users, (5) human owner explicitly opens the gate. Record the gate
+  decision in `docs/design/README.md` (status section) so `/spec`, `/plan`,
+  and `/implement` for product screens can reference it.
+- **Dependencies:** ef-T20.
+- **Acceptance:** gate recorded as open; from this point UI specs and UI
+  implementation tasks may proceed (pipeline.md rule 5). The Expo app
+  shell, navigation skeleton, and auth screens remain ungated throughout
+  (ADR-0017 exception) and are **not** part of this plan.
+
+---
+
+## Dependency graph
+
+```mermaid
+flowchart TD
+  T1[ef-T1 brief] --> T2[ef-T2 competitor audit]
+  T1 --> T3[ef-T3 personas]
+  T2 --> T4{ef-T4 Approval 1}
+  T3 --> T4
+  T4 --> T5[ef-T5 IA]
+  T4 --> T6a[ef-T6a journeys: order/catalog]
+  T4 --> T6b[ef-T6b journeys: chat/documents]
+  T4 --> T7[ef-T7 content]
+  T4 --> T8[ef-T8 a11y]
+  T5 --> T9{ef-T9 Approval 2}
+  T6a --> T9
+  T6b --> T9
+  T7 --> T9
+  T8 --> T9
+  T9 --> T10[ef-T10 tokens]
+  T9 --> T11[ef-T11 components 1]
+  T9 --> T12[ef-T12 components 2]
+  T9 --> T13[ef-T13 icons/layout]
+  T10 --> T14{ef-T14 Approval 3}
+  T11 --> T14
+  T12 --> T14
+  T13 --> T14
+  T14 --> T15[ef-T15 proto staff]
+  T14 --> T16[ef-T16 proto customer/AI]
+  T15 --> T17{ef-T17 Approval 4}
+  T16 --> T17
+  T17 --> T18[ef-T18 test plan]
+  T18 --> T19[ef-T19 usability tests]
+  T19 --> T20[ef-T20 iteration / Approval 5]
+  T20 --> T21{ef-T21 UX GATE}
+```
+
+## Resolved decisions (owner, 2026-08-17)
+
+1. **Prototyping tool** — Figma via the installed Figma MCP server; agents
+   build, owner reviews in Figma.
+2. **Linear label** — a `design` label is created for this workstream.
+3. **Journey-map task size** — pre-split into ef-T6a (order + catalog) and
+   ef-T6b (chat + documents).
+4. **Persona interviews** — real-user contact happens in RESEARCH (ef-T3),
+   not deferred to VALIDATE.
