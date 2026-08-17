@@ -1,8 +1,8 @@
 # Experience Foundation — Plan
 
-> Status: **approved 2026-08-17** (owner resolved the open questions; see
-> "Resolved decisions" at the end). Linear tickets are created from this
-> breakdown; execution starts with ef-T1.
+> Status: **approved and owner-revised 2026-08-17** (external participant
+> research and testing removed; see "Resolved decisions"). Linear tickets are
+> created from this breakdown; execution started with ef-T1.
 >
 > Sources: [ADR-0017](../adr/0017-design-system-first-dual-flow-ux.md),
 > [`docs/design/process.md`](../design/process.md).
@@ -25,14 +25,14 @@ module, so this plan deviates from the standard `/plan` format:
   until it passes.
 - **Execution mode is marked per task**: `agent` (agent drafts, human
   reviews), `human-led` (requires real-world activity the agent cannot do,
-  e.g. sessions with real users), or `human` (owner decision).
+  e.g. internal prototype evaluation), or `human` (owner decision).
 
 Linear mapping: one issue per task in team **Showzy-v2**, project
 **Experience Foundation** (pipeline.md "Linear workflow"), label `design`
 (created for this workstream — owner-approved). Milestones = the five
 stages plus a UX Gate milestone. Stage-approval tasks are assigned to the
-human owner. Tickets created 2026-08-17: **SHO-5 … SHO-26** (ef-T1 = SHO-5,
-in plan order through ef-T21 = SHO-26).
+human owner. Tickets created 2026-08-17: **SHO-5 … SHO-27**; SHO-7 is
+cancelled and SHO-27 is the added ef-T6c discovery journey task.
 
 ---
 
@@ -41,16 +41,15 @@ in plan order through ef-T21 = SHO-26).
 ### ef-T1: Research brief — `agent`
 
 - **Scope:** `docs/design/research/brief.md` — research goals, methods
-  (desk research, competitor teardown, and real-user persona interviews —
-  owner decided interviews happen in RESEARCH, not deferred to VALIDATE),
-  interview recruiting plan, timeline, and explicit out-of-scope items.
+  (desk research, competitor teardown, and later internal evaluation),
+  evidence limitations, timeline, and explicit out-of-scope items.
 - **Context pack:** `process.md` §1 RESEARCH; ADR-0017 (context section);
   `docs/scope.md` (V2 launch scope — research must not cover dropped
   features).
 - **Dependencies:** none. First task of the workstream.
 - **Acceptance:** brief covers both dual-flow dimensions
-  (staff/customer × classic/AI); methods are executable with available
-  resources; human owner signs off on the brief before ef-T2/ef-T3 start.
+  (staff/customer × classic/AI); methods and evidence limits are executable
+  with available resources; human owner signs off before ef-T2 starts.
 
 ### ef-T2: Ukrainian-market and competitor audit — `agent`
 
@@ -61,26 +60,19 @@ in plan order through ef-T21 = SHO-26).
   their relevance to Showzy surfaces.
 - **Context pack:** `process.md` §1; approved brief (ef-T1);
   `docs/scope.md`.
-- **Dependencies:** ef-T1. **Parallel with ef-T3.**
+- **Dependencies:** ef-T1.
 - **Acceptance:** every listed competitor covered; each pattern tagged
   adopt / adapt / avoid with rationale; findings mapped to the four
   dual-flow quadrants where applicable.
 
-### ef-T3: Personas and jobs-to-be-done — `agent` draft + `human-led` interviews
+### ef-T3: Cancelled — external interviews and personas
 
-- **Scope:** `docs/design/research/personas.md` — personas and JTBD for
-  staff/owner and customer, each considered in both classic-UI and AI-chat
-  interaction modes, grounded in real-user interviews conducted per the
-  brief's recruiting plan (sessions are human-led; agents prepare guides
-  and synthesize notes). Includes device/connectivity context (mobile-first,
-  Ukrainian market realities) and language/terminology notes feeding DEFINE.
-- **Context pack:** `process.md` §1; approved brief (ef-T1);
-  `docs/reference/v1-backend-audit.md` (real v1 usage shapes — read-only);
-  `docs/scope.md`.
-- **Dependencies:** ef-T1. **Parallel with ef-T2.**
-- **Acceptance:** at minimum one staff/owner and one customer persona with
-  JTBD in both interaction modes; interview evidence cited; assumptions vs.
-  evidence explicitly separated (drives what VALIDATE must test).
+- **Owner decision (2026-08-17):** no external participant recruitment,
+  compensation, interviews, or evidence-based personas. The human owner and
+  one owner-designated reference user are the only prototype evaluators.
+- **Consequence:** SHO-7 is cancelled. Research and UX Gate artifacts must
+  state `internal evaluation only` and may not claim representative
+  target-user validation.
 
 ### ef-T4: Research summary + Approval #1 — `agent` draft, `human` approval
 
@@ -89,9 +81,11 @@ in plan order through ef-T21 = SHO-26).
   `docs/design/research/`), plus the formal review. This is process.md's
   "Approval: human owner reviews and approves the research summary before
   DEFINE begins."
-- **Context pack:** ef-T2 and ef-T3 outputs.
-- **Dependencies:** ef-T2, ef-T3. **Blocks all DEFINE tasks.**
-- **Acceptance:** human owner approves the research summary.
+- **Context pack:** ef-T2 output, V1 behavior, approved constraints, and the
+  explicit internal-assumption register.
+- **Dependencies:** ef-T2. **Blocks all DEFINE tasks.**
+- **Acceptance:** human owner approves the research summary; evidence
+  limitations and open assumptions are explicit.
 
 ---
 
@@ -109,7 +103,7 @@ in plan order through ef-T21 = SHO-26).
   `docs/scope.md`.
 - **Dependencies:** ef-T4. **Parallel with ef-T6, ef-T7, ef-T8** (journey
   maps may iterate against IA; expect one reconciliation pass).
-- **Acceptance:** all three personas' (staff, consumer, customer) navigation
+- **Acceptance:** all three contexts' (staff, consumer, customer) navigation
   fully specified; discovery → company transition located; AI chat
   entry/exit points located; no screens for dropped/deferred scope.
 
@@ -159,8 +153,9 @@ in plan order through ef-T21 = SHO-26).
   and terminology for the Ukrainian audience, covering both classic UI copy
   and AI-chat voice; canonical term glossary (orders, documents, pricing
   levels) consistent with domain specs.
-- **Context pack:** `process.md` §2; personas (ef-T3); terminology used in
-  `docs/specs/*` (read-only — flag mismatches, do not edit specs).
+- **Context pack:** `process.md` §2; approved research summary and assumption
+  register; terminology used in `docs/specs/*` (read-only — flag mismatches,
+  do not edit specs).
 - **Dependencies:** ef-T4. **Parallel with ef-T5, ef-T6, ef-T8.**
 - **Acceptance:** principles usable as review criteria for future UI copy;
   glossary covers the core journeys' vocabulary.
@@ -291,33 +286,32 @@ owner reviews directly in Figma.
 
 ## Stage 5 — VALIDATE
 
-### ef-T18: Usability test plan — `agent`
+### ef-T18: Internal evaluation plan — `agent`
 
-- **Scope:** `docs/design/validation/test-plan.md` — participant profile
-  (Ukrainian small business owners and their customers), recruiting
-  approach, tasks derived from the core journeys, success metrics, session
-  script, consent/recording notes.
-- **Context pack:** `process.md` §5; personas (ef-T3); journeys (ef-T6a,
-  ef-T6b); approved prototypes (ef-T17).
+- **Scope:** `docs/design/validation/test-plan.md` — task-based evaluation by
+  the human owner and one owner-designated reference user, derived from the
+  core journeys; success metrics, session script, and evidence-limit notes.
+- **Context pack:** `process.md` §5; approved research summary and assumptions;
+  journeys (ef-T6a, ef-T6b, ef-T6c); approved prototypes (ef-T17).
 - **Dependencies:** ef-T17.
-- **Acceptance:** tasks cover both personas and both interaction modes;
-  plan is executable by the human owner with realistic recruiting.
+- **Acceptance:** tasks cover staff/customer contexts and both interaction
+  modes; plan is executable by both internal reviewers; limitations are
+  explicit.
 
-### ef-T19: Run usability tests and record findings — `human-led`
+### ef-T19: Run internal evaluation and record findings — `human-led`
 
-- **Scope:** conduct the sessions per the test plan;
+- **Scope:** the owner and reference user conduct the tasks per the plan;
   `docs/design/validation/results.md` — findings, severity, and
-  recommendations. Agents assist with note synthesis; sessions themselves
-  require the human owner and real users.
+  recommendations. Agents assist with note synthesis.
 - **Context pack:** test plan (ef-T18); prototypes.
 - **Dependencies:** ef-T18.
-- **Acceptance:** all planned tasks tested with target-profile
-  participants; findings are traceable to session evidence.
+- **Acceptance:** both reviewers complete all applicable tasks; findings are
+  traceable to the tested prototype and labeled `internal evaluation only`.
 
-### ef-T20: Iteration and final validated prototypes — `agent` (Figma MCP)
+### ef-T20: Iteration and final internally evaluated prototypes — `agent` (Figma MCP)
 
 - **Scope:** apply changes driven by findings; iteration log (what changed
-  and why, appended to `results.md` or a dedicated log); final validated
+  and why, appended to `results.md` or a dedicated log); final internally evaluated
   prototype links in `docs/design/prototypes/README.md`. If findings
   invalidate SYSTEM or DEFINE artifacts, those documents are amended and
   re-approved (return to the relevant stage approval), not patched
@@ -325,8 +319,9 @@ owner reviews directly in Figma.
 - **Context pack:** ef-T19 results; SYSTEM artifacts.
 - **Dependencies:** ef-T19.
 - **Acceptance:** every high-severity finding addressed or explicitly
-  accepted by the owner; human owner confirms validation is sufficient
-  (process.md §5 approval = Approval #5).
+  accepted by the owner; human owner confirms internal evaluation is
+  sufficient and accepts its limitation (process.md §5 approval =
+  Approval #5).
 
 ---
 
@@ -336,8 +331,9 @@ owner reviews directly in Figma.
 
 - **Scope:** formal checklist per process.md §"UX Gate": (1) research
   summary approved, (2) IA and journey maps approved, (3) token spec and
-  component contracts approved, (4) representative prototypes validated
-  with users, (5) human owner explicitly opens the gate. Record the gate
+  component contracts approved, (4) representative prototypes internally
+  evaluated by the owner and reference user, (5) the absence of external
+  validation is recorded, (6) human owner explicitly opens the gate. Record the gate
   decision in `docs/design/README.md` (status section) so `/spec`, `/plan`,
   and `/implement` for product screens can reference it.
 - **Dependencies:** ef-T20.
@@ -353,9 +349,7 @@ owner reviews directly in Figma.
 ```mermaid
 flowchart TD
   T1[ef-T1 brief] --> T2[ef-T2 competitor audit]
-  T1 --> T3[ef-T3 personas]
   T2 --> T4{ef-T4 Approval 1}
-  T3 --> T4
   T4 --> T5[ef-T5 IA]
   T4 --> T6a[ef-T6a journeys: order/catalog]
   T4 --> T6b[ef-T6b journeys: chat/documents]
@@ -381,7 +375,7 @@ flowchart TD
   T15 --> T17{ef-T17 Approval 4}
   T16 --> T17
   T17 --> T18[ef-T18 test plan]
-  T18 --> T19[ef-T19 usability tests]
+  T18 --> T19[ef-T19 internal evaluation]
   T19 --> T20[ef-T20 iteration / Approval 5]
   T20 --> T21{ef-T21 UX GATE}
 ```
@@ -393,5 +387,6 @@ flowchart TD
 2. **Linear label** — a `design` label is created for this workstream.
 3. **Journey-map task size** — pre-split into ef-T6a (order + catalog) and
    ef-T6b (chat + documents).
-4. **Persona interviews** — real-user contact happens in RESEARCH (ef-T3),
-   not deferred to VALIDATE.
+4. **External research and validation** — removed. SHO-7 is cancelled; the
+   owner and one owner-designated reference user perform internal prototype
+   evaluation. No artifact may claim representative target-user validation.

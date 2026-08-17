@@ -3,6 +3,8 @@
 - **Status**: Accepted
 - **Date**: 2026-08-17
 - **Deciders**: Human owner
+- **Amended**: 2026-08-17 — external participant research and usability
+  testing removed; evaluation is internal only
 
 ## Context
 
@@ -26,12 +28,18 @@ architecture risks expensive rework and inconsistent UX.
 No production product screen begins implementation until the Experience
 Foundation is approved. The Experience Foundation delivers, in order:
 
-1. UX research (Ukrainian market, competitor audit, personas, jobs-to-be-done).
+1. UX research (Ukrainian market and competitor audit) with explicit
+   separation between evidence, product constraints, and internal assumptions.
 2. Information architecture and dual-flow journey maps.
 3. Design tokens, core component contracts, content/accessibility principles.
-4. Interactive prototypes validated with target Ukrainian users.
+4. Interactive prototypes evaluated by the human owner and one
+   owner-designated reference user.
 5. A UX gate — formal approval that the above artifacts are complete and
-   validated.
+   internally evaluated.
+
+The project does not recruit or compensate external research participants.
+Internal evaluation may find and prioritize usability problems, but it is not
+representative target-user validation and must never be described as such.
 
 The design system is mobile-first (Expo + Unistyles tokens) and multi-flow
 aware: every component considers the classic interaction path and the AI chat
@@ -64,5 +72,7 @@ not product screens and do not require the full UX gate. Product screens
   with its own stages and approval criteria.
 - Later product phases may start backend work independently; only UI
   implementation is gated.
-- The quality bar for the release is raised: "production-grade UX validated
-  with real users" replaces "functional MVP."
+- The quality bar remains design-system-first with explicit internal
+  evaluation, but external user validation is not a launch claim.
+- Research summaries and UX Gate records must label evidence limitations and
+  distinguish competitor facts from owner/reference-user assumptions.

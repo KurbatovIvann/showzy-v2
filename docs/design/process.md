@@ -1,6 +1,7 @@
 # Experience Foundation — Design Process
 
-> Status: workstream started 2026-08-17 (RESEARCH). Process structure approved.
+> Status: workstream started 2026-08-17 (RESEARCH). Process amended by owner:
+> external participant research and testing are removed; evaluation is internal.
 > Owner: human product owner.
 > Companion to ADR-0017.
 
@@ -9,9 +10,10 @@
 ## Overview
 
 The Experience Foundation runs as a parallel workstream alongside the
-technical foundation (phases 0–1). Its output — validated design artifacts —
-gates all product UI implementation. Backend work may proceed independently;
-only UI specs and UI implementation are blocked by the UX gate.
+technical foundation (phases 0–1). Its output — approved, internally evaluated
+design artifacts — gates all product UI implementation. Backend work may
+proceed independently; only UI specs and UI implementation are blocked by the
+UX gate.
 
 ```mermaid
 flowchart LR
@@ -29,17 +31,18 @@ flowchart LR
 
 ### 1. RESEARCH
 
-**Goal:** Understand Ukrainian users, market patterns, and competitor UX.
+**Goal:** Establish an evidence-backed view of Ukrainian market patterns and
+competitor UX while keeping internal assumptions explicit.
 
 **Outputs:**
 - Research brief (goals, methods, timeline).
 - Ukrainian-market and competitor audit (Instagram, Telegram, Monobank,
   Nova Poshta, Poster, Checkbox, Horoshop — interaction patterns that users
   are already trained on).
-- Personas and jobs-to-be-done for both dimensions:
-  - Staff/owner vs. customer.
-  - Classic UI vs. AI chat.
-- Summary of patterns to adopt, adapt, or deliberately avoid.
+- Assumption register separating product constraints, documented V1 behavior,
+  competitor evidence, owner assumptions, and reference-user observations.
+- Summary of patterns to adopt, adapt, or deliberately avoid, including
+  evidence limitations and open questions.
 
 **Approval:** Human owner reviews and approves the research summary before
 DEFINE begins.
@@ -113,16 +116,18 @@ DEFINE begins.
 
 ### 5. VALIDATE
 
-**Goal:** Test prototypes with real target users.
+**Goal:** Evaluate prototypes internally against the approved journeys and
+record usability limitations honestly.
 
 **Outputs:**
-- Usability test plan (participants: Ukrainian small business owners and
-  their customers; tasks derived from core journeys).
+- Internal evaluation plan for the human owner and one owner-designated
+  reference user; tasks are derived from core journeys.
 - Test results and findings.
 - Iteration log (what changed based on feedback).
-- Final validated prototypes.
+- Final internally evaluated prototypes.
 
-**Approval:** Human owner confirms validation is sufficient.
+**Approval:** Human owner confirms internal evaluation is sufficient and
+accepts the absence of representative external validation.
 
 ---
 
@@ -134,8 +139,9 @@ pipeline `/spec`, `/plan`, `/implement` for screens) is blocked until:
 1. Research summary is approved.
 2. IA and journey maps are approved.
 3. Token spec and component contracts are approved.
-4. Representative prototypes are validated with users.
-5. Human owner explicitly opens the gate.
+4. Representative prototypes are evaluated by the owner and reference user.
+5. The results carry the limitation `internal evaluation only`.
+6. Human owner explicitly opens the gate.
 
 **Exception:** Expo app shell infrastructure (navigation skeleton, auth
 screens, deep-link routing) is NOT gated — it is technical foundation
@@ -170,7 +176,7 @@ applicable intersections (not every component appears in every cell).
 - UI acceptance criteria (added to the definition of done for UI tasks):
   journey conformance, classic/AI parity where applicable, accessibility
   baseline, loading/empty/error/offline states, localization readiness, and
-  usability evidence.
+  internal evaluation evidence with its limitation.
 
 ---
 
@@ -183,8 +189,7 @@ docs/design/
 ├── process.md              ← this file
 ├── research/
 │   ├── brief.md
-│   ├── competitor-audit.md
-│   └── personas.md
+│   └── competitor-audit.md
 ├── define/
 │   ├── information-architecture.md
 │   ├── journeys/
