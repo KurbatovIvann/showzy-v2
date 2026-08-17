@@ -10,8 +10,10 @@
 - Every table has one owner in `packages/db/src/schema/<module>.ts`.
 - Only the owning module queries its tables. Synchronous cross-module reads
   use principal-compatible `risk: read` actions through `ctx.call`.
-- Cross-module effects use domain events. `search` and `analytics` may receive
-  explicit read-model grants in the owning spec; no other direct reads.
+- Cross-module effects use domain events. Rare all-or-nothing writes use only
+  declared `ctx.callAtomic` capabilities (ADR-0021). `search` and `analytics`
+  may receive explicit read-model grants in the owning spec; no other direct
+  reads.
 - Auth and foundation tables are platform-owned, not domain-owned.
 
 ## Foundation ownership
@@ -27,7 +29,7 @@
 | --- | --- | --- |
 | `companies` | companies, memberships, RBAC roles/overrides, legal requisites, public profile/showcase settings, taxonomy, publication state, company follows/counter | Resolves company targets; exposes public/consumer profile reads and private account follow collections; emits follow/profile events |
 | `customers` | company CRM customer records, customer groups/membership, customer legal profiles | Calls `companies` reads where needed; exposes pricing/order customer facts |
-| `catalog` | products, variants, categories, media links, publication/active state, product likes/counter, product comments/replies/counter | Resolves product targets; calls `files`; exposes public/consumer product reads and private account like collections; emits engagement/catalog events |
+| `catalog` | products, variants, categories, media links, publication/active state, fixed-scale product/variant stock balances, product likes/counter, product comments/replies/counter | Resolves product targets; calls `files`; provides declared stock atomic capabilities to orders; exposes public/consumer product reads and private account like collections; emits engagement/catalog events |
 | `pricing` | price lists and entries, personal and group price rules | Calls `catalog` and `customers` reads; exposes resolved immutable price facts to `orders` |
 | `orders` | carts/items, orders/items, order log, fixed `company_statuses` | Calls catalog/customer/pricing reads; emits order lifecycle events; consumes payment/delivery status events |
 | `payments` | payment records, order/document links, provider references, payment status machine | Consumes order/document events; emits payment lifecycle events; future `acquiring` integrates through events |

@@ -3,6 +3,7 @@
 - **Status**: Accepted
 - **Date**: 2026-08-17
 - **Deciders**: owner (+ Claude Fable 5, foundation review)
+- **Amended by**: ADR-0021
 
 ## Context
 
@@ -22,7 +23,8 @@ Three sanctioned composition channels, and no others:
 1. **Asynchronous effects → domain events** (unchanged). Anything that
    *changes* another module's state or triggers side effects goes through
    the transactional outbox. A module never synchronously invokes another
-   module's write.
+   module's write, except through the narrowly declared same-transaction
+   atomic capability defined by ADR-0021.
 2. **Synchronous reads → internal action invocation.** An action handler may
    call another module's action via the registry: `ctx.call(action, input)`.
    Constraints enforced by `packages/core`:
