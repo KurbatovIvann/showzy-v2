@@ -14,8 +14,9 @@ Nova Poshta. Two orthogonal UI dimensions exist:
 1. **Classic UI ↔ AI chat** — every business operation is accessible through
    both a traditional screen flow and an AI assistant that calls the same
    actions.
-2. **Staff/company panel ↔ Customer cabinet** — different personas sharing
-   the same app binary with role-based navigation.
+2. **Staff/company panel ↔ Customer cabinet ↔ Consumer discovery** —
+   different personas and surfaces sharing the same app binary with
+   role-based navigation (ADR-0018).
 
 Building product screens without a validated design system and information
 architecture risks expensive rework and inconsistent UX.
@@ -32,9 +33,9 @@ Foundation is approved. The Experience Foundation delivers, in order:
 5. A UX gate — formal approval that the above artifacts are complete and
    validated.
 
-The design system is mobile-first (Expo + Unistyles tokens) and dual-flow
-aware: every component considers both the classic interaction path and the AI
-chat surface, and both the staff and customer contexts.
+The design system is mobile-first (Expo + Unistyles tokens) and multi-flow
+aware: every component considers the classic interaction path and the AI chat
+surface, and the staff, consumer discovery, and customer contexts.
 
 The Expo app shell, navigation skeleton, and authentication screens may be
 built during the technical foundation (phase 0) as infrastructure; they are

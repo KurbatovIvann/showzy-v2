@@ -39,7 +39,7 @@ resolver test in that same spec.
 | v2 owner | KEEP / TRANSFORM | DROP / DEFER / REVIEW |
 | --- | --- | --- |
 | auth/foundation | `users` → better-auth identity/profile split; `domain_events` → new envelope/delivery protocol | `verifications` → DEFER with company verification; Supabase sessions → DROP/invalidate |
-| companies | `companies`, `company_members`, `role_permission_defaults`, `company_legal_info`, `company_socials`, `showcase_config` → TRANSFORM | `business_categories`, `company_business_categories` → REVIEW: retain profile taxonomy or drop with marketplace |
+| companies | `companies`, `company_members`, `role_permission_defaults`, `company_legal_info`, `company_socials`, `showcase_config`, `business_categories`, `company_business_categories` → TRANSFORM (taxonomy retained for profiles and consumer discovery filters — ADR-0018) | — |
 | customers | `company_customers`, `customer_groups`, `customer_legal_info`, `counterparties` → TRANSFORM | — |
 | catalog | `product_categories`, `unit_types`, `products`, `product_images`, `product_options`, `product_option_values`, `product_variants`, `product_variant_options`, `company_sku_sequences` → TRANSFORM | `product_comments`, `product_likes` → DROP |
 | pricing | `price_lists`, `price_list_items`, `customer_product_prices` → TRANSFORM; group links come from `customer_groups` | — |
@@ -55,17 +55,17 @@ resolver test in that same spec.
 | feature-flags | `feature_flags`, `company_feature_overrides` → TRANSFORM | `subscription_plans`, `company_subscriptions` → DEFER to subscriptions |
 | integrations/post-launch | `bank_transactions` → DEFER to banking; provider-specific company integration metadata → DEFER to owning provider module | `company_integrations`, `integration_secrets` generic v1 design → REVIEW after secret-storage/provider split; LiqPay/Meta rows → DROP |
 | analytics/search | no partitioned analytics tables carried over; V2 direct queries/FTS projections are rebuilt | `analytics.company_daily_stats`, `company_product_daily_stats`, `company_customer_daily_stats`, `analytics.events` → DROP |
-| social/marketplace | — | `company_follows` → DROP |
+| social/marketplace | — | `company_follows` → DROP; social feed/likes/comments/embeddings/geo-radius → DROP (ADR-0018: discovery retained via FTS/trigram, not social mechanics) |
 
 ## Views and enums
 
 | Object | Source | Decision |
 | --- | --- | --- |
 | `products_view` | `20260317000001_payments_fiscal_checkout.sql:154` | TRANSFORM to catalog read action/service |
-| `consumer_products_view` | same migration `:213` | REVIEW: slim company-profile read or drop marketplace shape |
+| `consumer_products_view` | same migration `:213` | DROP physical view; useful published-product/active-product behavior becomes `catalog` domain read actions and `search` FTS projections (ADR-0018) |
 | `product_comments_view` | `20260313000001_product_comments_view.sql:8` | DROP with comments |
 | `carts_view` | `20260301000011_carts.sql:328` | TRANSFORM to orders read action |
-| `public_profiles` | `20260401000001_security_hardening.sql:146` | TRANSFORM to public company/profile action |
+| `public_profiles` | `20260401000001_security_hardening.sql:146` | TRANSFORM to `companies` user-safe profile reads (public direct-link and consumer discovery actions); not the full company showcase |
 | `company_details` | dropped by `20260320000008_drop_company_details_view.sql:158` | Already absent from final v1 state |
 | `order_log_action` | `20260301000012_orders.sql:35` | TRANSFORM to orders text+CHECK contract |
 | `delivery_method_type` | `20260301000014_delivery.sql:22` | TRANSFORM; remove `meest` |
@@ -90,12 +90,15 @@ latest migration is the source behavior to inspect.
   `trg_auto_generate_sku`, `create_default_company_data`,
   `create_company_onboarding`, `assign_free_plan_to_new_company`,
   `auto_enable_bank_transfer`.
-- **Catalog/profile/search → actions:** `haversine_km`,
-  `escape_like_pattern`, `immutable_array_to_string`, `get_public_profiles`,
-  `get_company_page`, `get_company_products`, `get_products_by_ids`,
-  `search_suggestions`, `search_browse`, `assistant_search_products`,
+- **Catalog/profile/search → actions:** `haversine_km` → DROP (geo-radius
+  not carried); `escape_like_pattern`, `immutable_array_to_string` →
+  utility; `get_public_profiles`, `get_company_page`, `get_company_products`,
+  `get_products_by_ids` → TRANSFORM to `companies`/`catalog` domain reads;
+  `search_suggestions`, `search_browse` → TRANSFORM into authenticated
+  FTS/trigram `search` consumer-principal actions (drop feed, followers,
+  geo-radius, embeddings — ADR-0018); `assistant_search_products`,
   `assistant_search_customers`, `assistant_search_counterparties`,
-  `assistant_search_orders`.
+  `assistant_search_orders` → TRANSFORM to module search actions.
 - **Customers/pricing/invites → actions/services:** `resolve_product_price`,
   `resolve_product_prices_batch`, `ensure_single_default_price_list`,
   `get_invite_details`, `accept_company_customer_invite`,
@@ -164,11 +167,12 @@ completed module slice.
 ## RLS, storage, extensions, scheduled jobs, and identity
 
 - **RLS:** all database/table/storage policies are DROP in v2. For every
-  table above, member/customer/public/service-role policies transform into
-  action permissions, typed target resolvers, system scope, signed-file
-  authorization, and cross-tenant tests. Storage policies on
-  `storage.objects` transform to `files` actions; `service_role_only`
-  policies transform to runtime DB grants.
+  table above, member/customer/public/consumer/service-role policies
+  transform into action permissions, typed target resolvers, consumer
+  published-only reads (ADR-0018), system scope, signed-file authorization,
+  and cross-tenant tests. Storage policies on `storage.objects` transform to
+  `files` actions; `service_role_only` policies transform to runtime DB
+  grants.
 - **Buckets:** `documents-bucket`, `chat-attachments`, `companies-bucket`,
   and `users-bucket` → TRANSFORM into private S3/MinIO prefixes owned by
   `files`; public profile assets are served through explicitly public/CDN

@@ -24,9 +24,9 @@
 
 | Module | Owns | Main composition |
 | --- | --- | --- |
-| `companies` | companies, memberships, RBAC roles/overrides, legal requisites, public profile/showcase settings | Emits company/member/profile events; exposes principal-compatible company/profile reads |
+| `companies` | companies, memberships, RBAC roles/overrides, legal requisites, public profile/showcase settings, `business_categories`, `company_business_categories`, publication state | Emits company/member/profile events; exposes principal-compatible company/profile reads and `consumer`-principal published-company discovery reads (ADR-0018) |
 | `customers` | company CRM customer records, customer groups/membership, customer legal profiles | Calls `companies` reads where needed; exposes pricing/order customer facts |
-| `catalog` | products, variants, categories, product media links | Calls `files` for attachment capabilities; exposes order/pricing product facts |
+| `catalog` | products, variants, categories, product media links, product publication/active status | Calls `files` for attachment capabilities; exposes order/pricing product facts and `consumer`-principal published-product discovery reads (ADR-0018) |
 | `pricing` | price lists and entries, personal and group price rules | Calls `catalog` and `customers` reads; exposes resolved immutable price facts to `orders` |
 | `orders` | carts/items, orders/items, order log, fixed `company_statuses` | Calls catalog/customer/pricing reads; emits order lifecycle events; consumes payment/delivery status events |
 | `payments` | payment records, order/document links, provider references, payment status machine | Consumes order/document events; emits payment lifecycle events; future `acquiring` integrates through events |
@@ -40,7 +40,7 @@
 | `invites` | invite tokens, redemption/expiry state | Calls companies/customer reads; emits invite lifecycle events |
 | `files` | attachment metadata, ownership links, upload/finalization state | Object bytes live in S3/MinIO; exposes signed-upload/finalize actions |
 | `feature-flags` | flag definitions and company overrides | Exposes reads; future subscriptions update it through events |
-| `search` | FTS projections only | Consumes events or declared read-model grants |
+| `search` | Global FTS/trigram discovery projections (published companies and active published products) | Consumes events or declared read-model grants from `companies`/`catalog`; owns no domain authority or pricing data; `consumer`-principal actions expose search results (ADR-0018) |
 | `analytics` | simple dashboard projections/queries only | Consumes events or declared read-model grants |
 | `assistant` | AI conversation/tool-run persistence | Stores action/tool IDs and results; never duplicates domain state |
 

@@ -1,4 +1,4 @@
-# ADR-0013: Principal model — staff, customer, public, system
+# ADR-0013: Principal model — staff, customer, public, system, consumer
 
 - **Status**: Accepted
 - **Date**: 2026-08-17
@@ -47,6 +47,11 @@ discriminated union over that mode:
 - **`system`** — workers, cron, webhook handlers, outbox consumers. Carries a
   named service identity for audit (`actor_id = system:<name>`) and an
   explicit tenant scope set by the enqueuing code, never ambient authority.
+- **`consumer`** (ADR-0018) — authenticated user performing **global
+  discovery** without company scope. Read-only; no `companyId`; no
+  `resolveTarget`; no audit/events. Used for cross-company search and
+  published-entity browsing. A user transitions to `customer`/`public` when
+  invoking a company-specific action.
 
 One action = one principal mode. A capability needed by both panel and
 cabinet becomes two actions (e.g. `orders.listForCompany` /
@@ -55,8 +60,9 @@ never conditional on "which kind of caller might this be".
 
 Resource identifiers of another company (product id, company slug, order id)
 MAY appear in input; they are inputs to server-side resolution, never grants.
-The mandatory cross-tenant test suite (§2.1-1) is parameterized over all four
-modes.
+The mandatory cross-tenant test suite (§2.1-1) is parameterized over all five
+modes (the consumer fixture verifies published-only access and no CRM side
+effects).
 
 ## Alternatives considered
 

@@ -37,3 +37,6 @@ browser continuation of the product flow remains phase 9.
   allowlists are phase-0 foundation work; they are not a second product UI.
 - Anonymous orders are out (account required) — aligned with the
   security-over-conversion product decision.
+- The mobile app includes **authenticated consumer discovery** (search,
+  category browse) as a launch entry path alongside invites and direct links
+  (ADR-0018). Web SEO storefront discovery remains phase 9.

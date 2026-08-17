@@ -9,10 +9,11 @@
 
 ## 1. Product
 
-Showzy is a SaaS tool for small businesses in Ukraine (not a marketplace). It
-replaces the zoo of services a micro-business juggles (Instagram + Telegram +
-spreadsheets + Taxer) with a single app. The reference user is a home
-confectionery.
+Showzy is a business operating platform for small businesses in Ukraine — not
+a multi-seller marketplace or social hub, but it includes an authenticated
+consumer discovery surface (ADR-0018). It replaces the zoo of services a
+micro-business juggles (Instagram + Telegram + spreadsheets + Taxer) with a
+single app. The reference user is a home confectionery.
 
 - **Company profile** with a catalog and flexible pricing (5 levels: personal price → client price list → group price list → default price list → base price). Validated on a real case: separate prices for coffee shops, regular customers, and loyal customers.
 - **Canonical flow**: customer → company profile → cart → checkout (account required) → **redirect to chat** with an order card. The company confirms/edits/cancels the order in chat. **Chat is the operational core of the product.**
@@ -56,7 +57,7 @@ written by AI agents.
 These are not "best practices for later" — they are entry criteria verified by
 tests before any domain module is built:
 
-1. **Tenant isolation.** It must be impossible for a business action to read or write another company's data. Tenant scope is derived by core from verified staff membership, a typed customer/public target resolver, or explicit system scope (ADR-0013) — never accepted from input as an access grant. Verified by an automated cross-tenant test suite that every module inherits. This is what replaces the deleted ~240 RLS policies: code + tests instead of DB policies.
+1. **Tenant isolation.** It must be impossible for a business action to read or write another company's data. Tenant scope is derived by core from verified staff membership, a typed customer/public target resolver, explicit system scope, or null company for `consumer` global discovery (ADR-0013, ADR-0018) — never accepted from input as an access grant. Verified by an automated cross-tenant test suite that every module inherits. This is what replaces the deleted ~240 RLS policies: code + tests instead of DB policies.
 2. **Idempotency.** Order creation, payments, document generation, Nova Poshta calls, webhooks, and AI-invoked actions are safely retryable (idempotency keys where needed). Retries come from everywhere: workers, webhook redelivery, the AI loop.
 3. **Money model: immutable snapshots.** An order item stores `unitPriceSnapshot`, `quantity`, `discountSnapshot`, `taxSnapshot`, `total` captured at creation time. An old order is never recomputed from current pricing. Critical given 5-level dynamic pricing and future accounting built on real transactions.
 4. **Observability / audit.** Every authorized tenant-scoped action carries `request_id`, accountable `actor_id` (user or system), invocation `channel` (`ui`/`ai`/`system`/`webhook`), resolved `company_id`, and `action`; declared global system work has null company. Unauthenticated public reads use synthetic log actor `anonymous` and cannot emit domain events or durable audit rows. `audit: true` actions write an audit record. AI is a channel acting on behalf of a user, not an independently accountable principal. Non-negotiable because actions will be invoked by AI.
@@ -115,11 +116,11 @@ export const createOrderContract = defineActionContract({
     items: z.array(orderItemSchema).min(1),
   }),
   output: orderSchema,
-  principal: "staff",              // staff | customer | public | system (ADR-0013)
+  principal: "staff",              // staff | customer | public | system | consumer (ADR-0013, ADR-0018)
   transport: "client",             // client route | internal-only capability
   permissions: ["orders:create"],  // checked before the handler
 
-  // AI & execution metadata — designed in at phase 0, consumed from phase 8
+  // AI & execution metadata — designed in at phase 0, consumed from phase 9
   aiExposure: "exposed",           // exposed | internal (never becomes an AI tool)
   risk: "write",                   // read | draft | write | high
   requiresConfirmation: false,     // high-risk: UI renders a human confirmation step
@@ -150,7 +151,7 @@ generate:
 4. **Permissions + audit** → in one place, regardless of who called.
 
 The AI metadata is part of the definition from phase 0 precisely so that
-phase 8 becomes "connect the LLM to the existing capability graph" rather than
+phase 9 becomes "connect the LLM to the existing capability graph" rather than
 "rewrite half the backend for AI". Examples of the gradient:
 `orders.get` → `risk: read`, no confirmation · `documents.createDraft` →
 `risk: draft`, no confirmation · `documents.sign` → `risk: high`,
@@ -181,7 +182,7 @@ showzy/
 │  ├─ api/            # Hono: mounts the oRPC router + webhooks + SSE + Socket.IO
 │  ├─ worker/         # BullMQ processors, outbox poller, cron (separate process)
 │  ├─ mobile/         # Expo — primary client (V2 launch)
-│  └─ web/            # Next.js — phase 9 (post-launch)
+│  └─ web/            # Next.js — phase 10 (post-launch)
 ├─ packages/
 │  ├─ core/           # defineAction, registry, context, event bus, outbox client
 │  ├─ db/             # Drizzle schema (source of types), migrations, seed
@@ -204,7 +205,7 @@ showzy/
 
 ### Domain modules (packages/modules/*)
 
-**V2 launch:** `companies` (company, team, RBAC, legal info, public profile) · `customers` (company CRM records, groups, customer legal profiles) · `catalog` (products, variants, categories) · `pricing` (price lists, personal prices; references customers/groups but does not own them) · `orders` (carts, order items/logs, fixed statuses) · `payments` (phase-0 provider abstraction, payment records/status; invoice/manual) · `chat` (conversations, messages, reactions — the operational core) · `documents` (CRUD, default templates, numbering) · `doc-generation` (Plate → HTML → PDF) · `doc-signing` (QES, ASiC-E, pki-proxy) · `delivery` (Nova Poshta + its reference data) · `reference-data` (KVED/CPV) · `notifications` (in-app, push, email, sms) · `invites` · `files` (attachment ownership: product images, chat attachments, document files; signed upload URLs, size/type policy) · `feature-flags` (phase-0 skeleton) · `search` (FTS) · `analytics` (simple dashboard) · `assistant` (phase 8: AI conversation persistence — `packages/ai` is the engine and owns no tables)
+**V2 launch:** `companies` (company, team, RBAC, legal info, public profile, business categories, publication lifecycle) · `customers` (company CRM records, groups, customer legal profiles) · `catalog` (products, variants, categories) · `pricing` (price lists, personal prices; references customers/groups but does not own them) · `orders` (carts, order items/logs, fixed statuses) · `payments` (phase-0 provider abstraction, payment records/status; invoice/manual) · `chat` (conversations, messages, reactions — the operational core) · `documents` (CRUD, default templates, numbering) · `doc-generation` (Plate → HTML → PDF) · `doc-signing` (QES, ASiC-E, pki-proxy) · `delivery` (Nova Poshta + its reference data) · `reference-data` (KVED/CPV) · `notifications` (in-app, push, email, sms) · `invites` · `files` (attachment ownership: product images, chat attachments, document files; signed upload URLs, size/type policy) · `feature-flags` (phase-0 skeleton) · `search` (global FTS/trigram discovery projections for published companies and products — ADR-0018) · `analytics` (simple dashboard) · `assistant` (phase 9: AI conversation persistence — `packages/ai` is the engine and owns no tables)
 
 **Post-launch:** `acquiring` (Monobank acquiring + fiscalization, plugs into `payments`) · `banking` (statements, matching, accounting foundation) · `subscriptions` (billing; consumes the existing feature-flag capability)
 
@@ -306,19 +307,20 @@ Condensed view:
 | **1. Reference slices** | Merge approved minimal prerequisite schemas, then pricing resolution + a thin order → outbox → chat projection: spec → plan → TDD → review | Query and transactional/event templates to copy + a proven pipeline |
 | **‖ Experience Foundation** | UX research → IA → tokens/components → prototypes → validation (parallel to phases 0–1; gates product UI) | UX gate passed |
 | **2. Company operating core** | `companies`, `catalog` (with variants), `customers`/groups, `invites`, `pricing` full UI + mobile panel screens | Company and catalog created from a phone |
-| **3. Company presence** | Public profile/showcase, deep links, customer entry journey | A customer follows a link and enters the company |
-| **4. Commerce core** | `orders` + cart/checkout + `delivery` (Nova Poshta) + push; no chat coupling | An order is placed and progresses through statuses |
-| **5. Chat platform** | `chat`: conversations, messages, realtime, offline/reconnect, push | Real-time conversation works end-to-end |
-| **6. Order collaboration** | Order-card projection in chat, redirect-to-chat, confirm/edit/cancel | The canonical §1.1 flow works end-to-end |
-| **7. Documents + QES** | `documents`, `doc-generation` (PDF worker), `doc-signing` (Nitro, ASiC-E, pki-proxy) + mobile-editing spike | B2B document workflow with signing from phones |
-| **8. AI experience** | `packages/ai`: agent over the action registry, UI tools, generative UI; classic/AI parity validation | AI performs the same actions as the UI |
+| **3. Company presence** | Public profile/showcase, business-category taxonomy, deep links, entry journeys (invite, direct link) | A customer follows a link and enters the company |
+| **4. Consumer discovery** | `search` (FTS/trigram), `consumer` principal, category filters, search → profile → cart (ADR-0018) | A signed-in user discovers a company without a prior invite |
+| **5. Commerce core** | `orders` + cart/checkout + `delivery` (Nova Poshta) + push; atomic CRM link on checkout; no chat coupling | An order is placed and progresses through statuses |
+| **6. Chat platform** | `chat`: conversations, messages, realtime, offline/reconnect, push | Real-time conversation works end-to-end |
+| **7. Order collaboration** | Order-card projection in chat, redirect-to-chat, confirm/edit/cancel | The canonical §1.1 flow works end-to-end |
+| **8. Documents + QES** | `documents`, `doc-generation` (PDF worker), `doc-signing` (Nitro, ASiC-E, pki-proxy) + mobile-editing spike | B2B document workflow with signing from phones |
+| **9. AI experience** | `packages/ai`: agent over the action registry, UI tools, generative UI; classic/AI parity validation | AI performs the same actions as the UI |
 | **🚀 V2 Production Launch** | Data migration, TestFlight → stores | Real users on 2.0 |
-| **9. Web** | Next.js: storefront (SEO), cabinet, full panel, Plate template editor, full browser continuation from existing links | Orders without the app |
-| **10. Acquiring** | `acquiring` on top of the ready payment abstraction | Online payment |
-| **11. Bank + accounting** | `banking`: statements, matching; income ledger on real transactions (Taxer replacement) | Tax reporting from Showzy |
+| **10. Web** | Next.js: storefront (SEO), cabinet, full panel, Plate template editor, full browser continuation from existing links | Orders without the app |
+| **11. Acquiring** | `acquiring` on top of the ready payment abstraction | Online payment |
+| **12. Bank + accounting** | `banking`: statements, matching; income ledger on real transactions (Taxer replacement) | Tax reporting from Showzy |
 
-Phases 4 and 5 (Commerce core, Chat platform) may proceed in parallel after
-shared prerequisites. Phase 6 (Order collaboration) requires both.
+Phases 5 and 6 (Commerce core, Chat platform) may proceed in parallel after
+shared prerequisites. Phase 7 (Order collaboration) requires both.
 
 ---
 

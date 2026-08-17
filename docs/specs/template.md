@@ -21,7 +21,7 @@ For every action, the full contract:
 | --- | --- |
 | Name | `<module>.<verb>` |
 | Description | Written as an instruction to the AI model |
-| Principal | `staff` \| `customer` \| `public` \| `system` (ADR-0013) |
+| Principal | `staff` \| `customer` \| `public` \| `system` \| `consumer` (ADR-0013, ADR-0018) |
 | Transport | `client` \| `internal` (system must be internal) |
 | Target/system scope | Typed `resolveTarget` for customer/public, or `tenant`/`global` for system |
 | Input / Output | Zod shapes as TypeScript |
@@ -76,9 +76,11 @@ logs/audit.
 
 Testable statements. Mandatory minimum, plus module-specific ones:
 
-- [ ] Cross-tenant isolation per relevant principal mode (ADR-0013)
+- [ ] Cross-tenant isolation per relevant principal mode (ADR-0013, ADR-0018)
 - [ ] Mode-appropriate authorization denial (permission, ownership,
-      visibility, or system scope)
+      visibility, system scope, or consumer published-only access)
+- [ ] Consumer actions (if any): no unpublished entity access, no CRM side
+      effects, no audit/events emitted
 - [ ] Validation failure surfaces typed errors
 - [ ] Output validates at runtime and is JSON-safe (money is a decimal string
       on the wire, not a JSON number)
