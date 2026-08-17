@@ -1,0 +1,129 @@
+# CI pipeline v1 (fnd-T2) — the verification gate from docs/pipeline.md §6,
+# docs/specs/security-operations.md §7, and docs/blueprint.md §7.1(6).
+#
+# Job names are stable identifiers: branch protection requires them by name
+# (docs/operations/branch-protection.md). Placeholder jobs already carry their
+# final names so the required-checks list never changes when later foundation
+# tasks activate them.
+#
+# All third-party actions are pinned to full commit SHAs (verified against the
+# official repos' tags) because this workflow is itself the merge gate.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      # Push-triggered CI without a PR, e.g. the fnd-T2 seeded-formatting-
+      # violation meta-verification. Throwaway branches run the workflow file
+      # from their own ref, so gate changes can be exercised before merge.
+      - "throwaway/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # gitleaks-action lists PR commits via the GitHub API on pull_request events.
+  pull-requests: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # Superseded PR runs are cancelled; main runs always complete.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  # Format → typecheck → ESLint → Vitest, in the blueprint §7.1(6) gate order.
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Set up pnpm (version from packageManager field)
+        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+
+      - name: Set up Node 22
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Install dependencies (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Format check
+        run: pnpm format:check
+
+      - name: Typecheck (tsc --noEmit)
+        run: pnpm typecheck
+
+      - name: ESLint
+        run: pnpm lint
+
+      - name: Vitest
+        run: pnpm test
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history — gitleaks scans commits)
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Dependency gate. GitHub's dependency-review-action is unavailable here
+  # (private user-owned repo; it requires a public repo or an organization
+  # with GitHub Code Security/Advanced Security), so the gate is `pnpm audit`
+  # over the committed lockfile. Switch path is documented in
+  # docs/operations/branch-protection.md.
+  dependency-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Set up pnpm (version from packageManager field)
+        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+
+      - name: Set up Node 22
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "22"
+
+      - name: pnpm audit (fail on high/critical advisories)
+        run: pnpm audit --audit-level high
+
+  # ---------------------------------------------------------------------------
+  # Placeholder gates. Each exits green until the foundation task that owns it
+  # replaces the placeholder step with the real check. Names are final.
+  # ---------------------------------------------------------------------------
+
+  contract-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Placeholder
+        run: echo "Placeholder — the registry-walking action/event contract check lands with fnd-T10."
+
+  migration-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Placeholder
+        run: echo "Placeholder — migration drift, money schema lint, and grant checks land with fnd-T5."
+
+  bundle-probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Placeholder
+        run: echo "Placeholder — the client bundle probe and OpenAPI drift check land with fnd-T25."
+
+  e2e-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Placeholder
+        run: echo "Placeholder — phase-aware e2e (Maestro) lands with fnd-T51; Playwright only from the web phase."
