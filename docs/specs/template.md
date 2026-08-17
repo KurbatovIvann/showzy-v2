@@ -21,18 +21,49 @@ For every action, the full contract:
 | --- | --- |
 | Name | `<module>.<verb>` |
 | Description | Written as an instruction to the AI model |
-| Principal | `staff` \| `customer` \| `public` \| `system` \| `consumer` (ADR-0013, ADR-0018) |
+| Principal | `staff` \| `customer` \| `public` \| `system` \| `consumer` \| `account` (ADR-0013, ADR-0018) |
 | Transport | `client` \| `internal` (system must be internal; consumer must be `client`) |
-| Target/system scope | Typed `resolveTarget` for customer/public; `tenant`/`global` for system; **N/A for consumer** (no company scope, no `resolveTarget` — ADR-0018) |
+| Target/system scope | Typed `resolveTarget` for customer/public; `tenant`/`global` for system; **N/A for consumer** (no company scope, no `resolveTarget` — ADR-0018); **N/A for account** (own-user scope, no company — ADR-0013) |
 | Input / Output | Zod shapes as TypeScript |
-| Permissions | e.g. `orders:create`; must be `[]` for customer/public/consumer/system |
+| Permissions | e.g. `orders:create`; must be `[]` for customer/public/consumer/account/system |
 | aiExposure / risk / requiresConfirmation | Consumer: `risk: read`, `requiresConfirmation: false`; aiExposure `exposed` or `internal` |
 | Confirmation summary | Required redacted server callback when confirmation is required |
 | Idempotent | If true: key source, scope, and conflict behavior; consumer must be `false` |
 | Emits | Events (see §4); consumer must be `[]` |
-| Audit / Timeout | Consumer: `audit: false` (no `auditTarget`) |
+| Audit / Timeout | Consumer: `audit: false` (no `auditTarget`); account: `audit` may be true or false per action |
 | Audit target/snapshot | Required target callback when audited; optional explicitly redacted snapshot |
 | Calls (`ctx.call`) | Cross-module read actions used (ADR-0015); consumer callers may only call other `consumer`-principal reads |
+
+### Principal selection guidance
+
+Choose the correct principal mode based on **who is acting** and **what scope**:
+
+- **`staff`** — an authenticated user acting as a member of a specific company
+  (panel surface). Company scope comes from verified membership. Use for all
+  company management, CRUD of company-owned resources, and company
+  configuration.
+- **`customer`** — an authenticated user acting on a specific company they do
+  not manage (cabinet surface). Company scope comes from a typed
+  `resolveTarget` proving ownership/visibility of a company-scoped resource
+  (own order, own conversation, own document). Use for checkout, chat, order
+  viewing, document signing — any action that requires a specific company
+  context without staff membership.
+- **`consumer`** — an authenticated user performing global **cross-company
+  discovery** without any company context. Read-only; no `companyId`; no
+  `resolveTarget`. Use for search, browse published companies/products,
+  category filtering — pre-company-selection actions. The user transitions
+  to `customer`/`public` when selecting a specific company.
+- **`account`** — an authenticated user managing **their own account-level
+  resources** without a company context. No `companyId`; `userId` is the
+  sole authorization basis. May perform writes. Use for creating a company,
+  listing own companies, managing personal profile/settings — pre-tenant
+  operations that precede the selection of a company to act within.
+- **`public`** — unauthenticated access. Only explicitly public reads with
+  a typed `resolveTarget` proving the target resource is published. Use for
+  direct link/SEO reads of published profiles/products.
+- **`system`** — machine actors (workers, cron, webhook handlers, outbox
+  dispatcher). Named service identity; explicit tenant scope set by the
+  enqueuing code.
 
 ## 4. Events
 
@@ -78,11 +109,17 @@ Testable statements. Mandatory minimum, plus module-specific ones:
 
 - [ ] Cross-tenant isolation per relevant principal mode (ADR-0013, ADR-0018)
 - [ ] Mode-appropriate authorization denial (permission, ownership,
-      visibility, system scope, or consumer published-only access)
+      visibility, system scope, consumer published-only access, or account
+      own-user-only access)
 - [ ] Consumer actions (if any): contract check rejects `resolveTarget`;
       published-only access (no unpublished entities); no CRM creation/side
       effects; `audit: false` and `emits: []`; instantiate inherited
       `consumerIsolationSuite` from core.md §12
+- [ ] Account actions (if any): contract check requires `permissions: []`;
+      own-user-only access (user A cannot see/modify user B's companies or
+      personal data); no company-scoped resource access; structured logs carry
+      null `company_id`; instantiate inherited `accountIsolationSuite` from
+      core.md §12
 - [ ] Validation failure surfaces typed errors
 - [ ] Output validates at runtime and is JSON-safe (money is a decimal string
       on the wire, not a JSON number)
@@ -95,4 +132,5 @@ Testable statements. Mandatory minimum, plus module-specific ones:
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-17 | Added principal selection guidance (account vs consumer vs customer); added account action test requirements; extended Target/Permissions/Audit rows for account | Complete Step 2 of spec-rework queue (ADR-0018 integration) | Spec-rework agent |
 | 2026-08-17 | Completed consumer action metadata and mandatory test guidance | Close the ADR-0018 Step 2 template gap | Human owner via spec-rework queue |

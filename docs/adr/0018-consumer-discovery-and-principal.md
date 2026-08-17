@@ -115,8 +115,11 @@ search, geo-radius discovery, and anonymous browsing without authentication.
 - The cross-tenant test harness gains a consumer fixture: verify consumer
   cannot access unpublished companies or products; verify no CRM side effects.
 - ADR-0013's principal list becomes `staff | customer | public | system |
-  consumer`; the spec template gains the consumer row; `.cursor/rules/`
-  conventions and prohibitions are updated.
+  consumer | account`; the spec template gains the consumer and account
+  rows; `.cursor/rules/` conventions and prohibitions are updated. The
+  `account` principal covers pre-tenant own-user operations (create company,
+  list my companies, personal profile) that are neither discovery reads
+  nor company-scoped.
 - The `search` module (global FTS/trigram projections) is the primary consumer
   of `consumer`-principal actions; `companies` and `catalog` expose
   consumer-compatible published reads.

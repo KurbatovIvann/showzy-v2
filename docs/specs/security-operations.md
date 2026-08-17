@@ -16,24 +16,51 @@
 
 ### Authorization matrix (principal x classification)
 
-| Classification | `staff` | `customer` | `public` | `consumer` | `system` |
-| --- | --- | --- | --- | --- | --- |
-| **Public** (published facts) | Yes, within verified membership company | Yes, via typed `resolveTarget` visibility | Yes, via typed `resolveTarget` proving published visibility | Yes — **global published-only discovery**; no company scope; unpublished/draft/internal facts forbidden | Per explicit `systemScope` |
-| **Internal** | Permission-gated | No | No | No | Per explicit scope / job |
-| **Personal** | Permission-gated or self | Own resources only | No | No (session identity for auth/rate-limit only; never CRM/PII discovery leakage) | Per explicit scope / job |
-| **Financial/legal** | Permission-gated | Own orders/docs/payments only | No | No | Per explicit scope / job |
-| **Cryptographic/secret** | Never returned to clients; server-side handling only | Never | Never | Never | Constrained server jobs only; QES keys never enter the server |
+| Classification | `staff` | `customer` | `public` | `consumer` | `account` | `system` |
+| --- | --- | --- | --- | --- | --- | --- |
+| **Public** (published facts) | Yes, within verified membership company | Yes, via typed `resolveTarget` visibility | Yes, via typed `resolveTarget` proving published visibility | Yes — **global published-only discovery**; no company scope; unpublished/draft/internal facts forbidden | Yes — may read published facts while listing companies or bootstrapping; no company scope | Per explicit `systemScope` |
+| **Internal** | Permission-gated | No | No | No | No | Per explicit scope / job |
+| **Personal** | Permission-gated or self | Own resources only | No | No (session identity for auth/rate-limit only; never CRM/PII discovery leakage) | Own-user resources only (personal profile, own company list) | Per explicit scope / job |
+| **Financial/legal** | Permission-gated | Own orders/docs/payments only | No | No | No | Per explicit scope / job |
+| **Cryptographic/secret** | Never returned to clients; server-side handling only | Never | Never | Never | Never | Constrained server jobs only; QES keys never enter the server |
 
 Notes:
 - Classification **Public** (published facts) is not the same as principal `public`.
 - `consumer` actions never create CRM records, never write audit, never emit
   events (ADR-0018; enforced by core contract check).
+- `account` actions are scoped to own-user data; `permissions` must be `[]`
+  (no company RBAC applies); they may perform writes (create company, update
+  personal profile) unlike `consumer`. `account` actions must not access
+  another user's data or company-scoped resources (ADR-0013).
 - Authorization remains in `defineAction` principal/`permissions`/`resolveTarget`
   (ADR-0009); this matrix is the ops policy those checks must satisfy.
 
 Untrusted inputs include every client field, chat/catalog/document content,
 file upload, webhook, provider response, queue payload, event payload, and AI
 tool result. Zod validation is necessary but never grants tenant access.
+
+### Discovery surface security considerations (ADR-0018)
+
+- **Information disclosure of unpublished entities:** consumer discovery
+  actions must never surface companies or products in draft, unpublished, or
+  internal states. Publication predicates are enforced at the query level in
+  search projections and validated by the inherited `consumerIsolationSuite`
+  (core.md §12). Error responses for non-existent or unpublished entities
+  must be indistinguishable (same error shape, same status code) to prevent
+  enumeration of unpublished entity IDs.
+- **CRM leakage prevention:** consumer discovery must not reveal whether a
+  browsing user has a CRM record in any company, nor expose personal data of
+  other users (customer lists, order counts, chat history). Projection tables
+  never store CRM state or personal identifiers.
+- **Rate abuse on discovery:** since consumer discovery is authenticated but
+  globally scoped (no single-company bottleneck), a compromised or abusive
+  account could attempt bulk data extraction. The per-user rate limit
+  (60/min), response pagination, and monitoring of sustained high-volume
+  discovery patterns serve as defense.
+- **Account principal write scope:** `account` actions can create companies
+  and modify personal profile. Abuse vector: mass company creation. Defended
+  by rate limiting, optional CAPTCHA/verification on company creation, and
+  monitoring for anomalous creation patterns.
 
 ## 2. Authentication and sessions
 
@@ -54,15 +81,17 @@ tool result. Zod validation is necessary but never grants tenant access.
   direct/spoofed values are ignored. Rate-limit tiers (defaults owned by
   `docs/specs/core.md` §10; do not fork numbers here):
   - `public` — 30/min per rotating HMAC of trusted-proxy-normalized IP;
-  - `consumer` — 60/min per authenticated user (tighter than staff/customer,
-    looser than public);
+  - `consumer` — 60/min per authenticated user (read-only discovery; tighter
+    than staff/customer, looser than public);
+  - `account` — 90/min per authenticated user (moderate; own-user writes
+    need more headroom than read-only consumer discovery);
   - `customer` / `staff` — 120/min per user;
   - `system` — unlimited (job policy may still bound outbound calls).
 
   Raw IP is transport-only: never the Redis key for authenticated principals,
   and never copied into domain logs/audit. Redis failure: fail-closed for
   public/auth/high-risk; fail-open with error log for ordinary authenticated
-  reads (including `consumer`).
+  reads (including `consumer` and `account`).
 
 ## 3. Files and object storage
 
@@ -108,10 +137,12 @@ tool result. Zod validation is necessary but never grants tenant access.
 ## 6. Logging, detection, and incident response
 
 - Structured logs contain request/correlation/action/accountable actor/channel
-  and resolved company scope when present. For `consumer` and declared global
-  `system` work, `company_id` is null; consumer lines carry request ID, actor
-  user, and channel only (ADR-0018). `public` uses log actor `anonymous`.
-  Consumer actions never write durable audit rows or domain events. Logs never
+  and resolved company scope when present. For `consumer`, `account`, and
+  declared global `system` work, `company_id` is null; consumer and account
+  lines carry request ID, actor user, and channel only (ADR-0013, ADR-0018).
+  `public` uses log actor `anonymous`.
+  Consumer actions never write durable audit rows or domain events; `account`
+  actions may write audit when declared (`audit: true`). Logs never
   contain raw OTPs, tokens, secrets, full documents, raw payment/webhook
   payloads, or unredacted personal input.
 - Alert on sustained auth/rate-limit abuse, dead event deliveries, queue
@@ -153,10 +184,18 @@ review. A critical/high unresolved finding blocks merge.
       keyed; raw IP absent from domain logs (test).
 - [ ] Consumer structured logs include request/actor/channel with null
       company_id (test).
+- [ ] Account principal: cannot access another user's companies or personal
+      data; cannot access company-scoped resources; structured logs include
+      request/actor/channel with null company_id (test).
+- [ ] Account rate limit defaults to 60/min per user (test).
+- [ ] Discovery surface: unpublished entity requests return indistinguishable
+      errors (no enumeration); projection responses contain no CRM/personal
+      data (test).
 
 ## Changelog
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-17 | Added `account` principal to authorization matrix, rate-limit tiers, logging classification; added discovery surface security considerations | Complete Step 2 of spec-rework queue (ADR-0018 integration) | Spec-rework agent |
 | 2026-08-17 | Added consumer authorization/classification matrix, rate-limit tiers, and null-company logging rules | Align security and operations with ADR-0018 consumer discovery | Human owner via spec-rework queue |
 | 2026-08-17 | Initial foundation draft | Close phase-0 security/operations contract gap | GPT-5.6 Sol |

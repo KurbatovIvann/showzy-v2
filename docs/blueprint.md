@@ -116,7 +116,7 @@ export const createOrderContract = defineActionContract({
     items: z.array(orderItemSchema).min(1),
   }),
   output: orderSchema,
-  principal: "staff",              // staff | customer | public | system | consumer (ADR-0013, ADR-0018)
+  principal: "staff",              // staff | customer | public | system | consumer | account (ADR-0013, ADR-0018)
   transport: "client",             // client route | internal-only capability
   permissions: ["orders:create"],  // checked before the handler
 

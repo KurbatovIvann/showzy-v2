@@ -41,7 +41,8 @@ The split:
     module's `index.contract.ts` barrel). It retains all descriptors for
     pairing/CI, but builds the oRPC client contract, OpenAPI document, and
     typed client only from `transport: client` actions (this includes all
-    `consumer`-principal actions, which must declare `transport: client`).
+    `consumer`-principal and `account`-principal actions, which must declare
+    `transport: client`).
     `system` and other internal actions have no externally mountable route.
   - `apps/api` imports the full modules (contracts + implementations),
     registers them in the core registry, and mounts the oRPC router that
@@ -51,7 +52,10 @@ The split:
 - AI manifests include only descriptors with both `transport: client` and
   `aiExposure: exposed`, then filter by current principal/permissions. A
   consumer session sees only `consumer`-principal exposed tools (no
-  company-scoped tools appear without an active company context). AI is
+  company-scoped tools appear without an active company context). An
+  account session sees only `account`-principal exposed tools (no
+  company-scoped tools appear without an active company context; account
+  tools cover own-user operations like creating or listing companies). AI is
   not a bypass to an internal action.
 
 Enforcement (CI):
@@ -84,6 +88,13 @@ Enforcement (CI):
   selector is present on a consumer action invocation it is ignored and
   grants no company scope. The client typed procedures for consumer actions
   do not accept a company parameter.
+- Account routing (ADR-0013): account actions require a valid better-auth
+  session; the transport invokes the account context factory (core.md §3)
+  directly — no `x-company-id` header is required or consumed. If a staff
+  selector is present on an account action invocation it is ignored and
+  grants no company scope. The client typed procedures for account actions
+  do not accept a company parameter. Unlike consumer actions, account
+  actions may perform writes (e.g., creating a company) and may emit events.
 - Idempotency keys travel as `idempotency-key` header / oRPC meta
   (core.md §5). The generated client exposes `createMutationAttempt()`,
   which creates one key and reuses it for every retry of that logical
@@ -148,6 +159,13 @@ API consumers.
       does not grant company scope (test).
 - [ ] AI manifest for a consumer session includes only
       `consumer`-principal `aiExposure: exposed` tools (test).
+- [ ] AI manifest for an account session includes only
+      `account`-principal `aiExposure: exposed` tools (test).
+- [ ] Account action invoked with a valid session and no `x-company-id` →
+      succeeds with account context (test).
+- [ ] Account action invoked without a session → 401 (test).
+- [ ] `x-company-id` present on an account action invocation is ignored and
+      does not grant company scope (test).
 - [ ] Missing idempotency meta on an idempotent mutation → typed validation
       error; automatic network retry reuses the original key.
 - [ ] Confirmation challenge meta is not part of action input and cannot
@@ -159,6 +177,7 @@ API consumers.
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-17 | Integrated `account` principal: transport exposure, AI manifest filtering, routing rules, and acceptance criteria | Align contract with ADR-0013 (amended) 6-mode principal model (`staff \| customer \| public \| system \| consumer \| account`) per spec-rework queue Step 1 | spec-rework agent |
 | 2026-08-17 | Added consumer client exposure and session routing without company scope | Align transport composition with ADR-0018 and core consumer semantics | Human owner via spec-rework queue |
 | 2026-08-17 | Defined the client-safe core subpath, retry-key ownership, confirmation transport, and bigint wire encoding | Foundation consistency review against core/db specs and ADR-0013 | GPT-5.6 Sol |
 | 2026-08-17 | Initial draft | — | spec agent (Fable 5) |
