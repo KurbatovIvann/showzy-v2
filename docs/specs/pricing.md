@@ -16,7 +16,12 @@ consumed by orders and the storefront. It explicitly does NOT own: product base
 prices or variant base prices (catalog), customer/group records or
 customer-to-price-list assignments (customers), tax configuration (catalog or
 future tax module), order/cart price snapshots (orders), or discount/promo
-engines (future).
+engines (future). Non-CRM users — authenticated users who discovered the
+company but have no `company_customers` record (ADR-0018) — receive reduced
+resolution: only levels 4 (default price list) and 5 (base price) participate;
+levels 1–3 (personal, client price list, group price list) are skipped.
+Consumer discovery search results do not include prices; prices are shown only
+when the user enters company context (company profile / catalog page).
 
 ## 2. Owned tables
 
@@ -193,10 +198,10 @@ const ResolvedPrice = z.object({
 | Field | Value |
 | --- | --- |
 | Name | `pricing.resolveMyProductPrices` |
-| Description | Resolve effective prices for products/variants from the perspective of the authenticated customer. Used by orders/cart and storefront catalog reads. |
+| Description | Resolve effective prices for products/variants from the perspective of the authenticated user. If the user has a CRM record (`company_customers` row) at this company, the full 5-level resolution chain applies. If not (non-CRM user per ADR-0018), resolution starts at level 4 (default price list) and falls back to level 5 (base price). Used by orders/cart and storefront catalog reads. |
 | Principal | `customer` |
 | Transport | `internal` |
-| Target | Typed `resolveTarget` resolves the company from the first item's `productId` via catalog and verifies the authenticated customer has a CRM record for that company (via customers read); returns `{ companyId, resource: { customerId } }`. When invoked via `ctx.call`, receives `inheritedCompanyId` and verifies consistency. |
+| Target | Typed `resolveTarget` resolves the company from the first item's `productId` via catalog and verifies the company is accessible to the authenticated user (published, or user holds a CRM record). Looks up the user's CRM record for that company (via customers read); returns `{ companyId, resource: { customerId } }` where `customerId` is the CRM record ID if one exists, or `null` if the user has no CRM record at this company. When invoked via `ctx.call`, receives `inheritedCompanyId` and verifies consistency. |
 | Input | `{ items: z.array(z.object({ productId: z.string().uuid(), variantId: z.string().uuid().optional() })).min(1).max(200) }` |
 | Output | `{ prices: z.array(ResolvedPrice) }` |
 | Permissions | `[]` |
@@ -207,7 +212,7 @@ const ResolvedPrice = z.object({
 | emits | `[]` |
 | audit | `false` |
 | timeout | `3_000` |
-| Calls (`ctx.call`) | `catalog.getProductPricingFacts`, `customers.getCustomerPricingFacts` |
+| Calls (`ctx.call`) | `catalog.getProductPricingFacts`, `customers.getCustomerPricingFacts` (called only when `customerId` is non-null; skipped for non-CRM users — levels 1–3 are inapplicable without a CRM record) |
 
 ### 3.3 `pricing.resolvePublicProductPrices`
 
@@ -535,7 +540,51 @@ deactivate, test, and reactivate without losing the default designation.
 calls modifying the same entries on the same list serialize cleanly; different
 entries proceed without contention.
 
-### 5.4 Checkout racing a price change
+### 5.4 Resolution chain and non-CRM fallback
+
+The 5-level resolution chain, in strict priority order:
+
+1. **Personal price** (level 1) — requires a CRM record + a `personal_prices`
+   entry for the customer/product/variant.
+2. **Client price list** (level 2) — requires a CRM record + the customer's
+   assigned `price_list_id` pointing to an **active** price list with a
+   matching entry.
+3. **Group price list** (level 3) — requires a CRM record + group membership +
+   the group's `price_list_id` pointing to an **active** price list with a
+   matching entry.
+4. **Default price list** (level 4) — the company's `is_default = true`
+   **active** price list with a matching entry. No CRM record required.
+5. **Base price** (level 5) — the product/variant base price from catalog.
+   Always available. No CRM record required.
+
+Resolution stops at the first level that produces a hit. Within each level,
+a variant-specific entry takes priority over a product-level entry (§6.2).
+
+**Non-CRM user fallback (ADR-0018):** When the caller has no
+`company_customers` record at the target company, levels 1–3 are skipped
+entirely — resolution begins at level 4 (default price list) and falls back
+to level 5 (base price). This applies to:
+
+- `pricing.resolveMyProductPrices` — authenticated user with no CRM record
+  (target resolver returns `customerId: null`); the handler skips the
+  `customers.getCustomerPricingFacts` call and resolves from default/base
+  only.
+- `pricing.resolveProductPrices` — staff action with `customerId` omitted.
+- `pricing.resolvePublicProductPrices` — unauthenticated; always non-CRM.
+
+This means a non-CRM authenticated user and a public (unauthenticated) visitor
+see identical prices for the same product — both resolve from default price
+list + base price. The difference is authentication and rate-limit tier, not
+pricing.
+
+**Consumer discovery surface:** The `search` module's consumer-principal
+actions (ADR-0018) do **not** call pricing resolution and do **not** return
+price data. Prices are shown only when the user enters company context
+(company profile / catalog page), at which point the appropriate resolution
+action (`resolveMyProductPrices` for authenticated, `resolvePublicProductPrices`
+for unauthenticated) is invoked.
+
+### 5.5 Checkout racing a price change
 
 Pricing is resolved within the order-creation transaction via `ctx.call`. The
 snapshot captured at that moment is immutable (money.md). A price change that
@@ -544,11 +593,24 @@ order — the resolver runs in the caller's read-consistent transaction.
 
 ## 6. Edge cases
 
-1. **No CRM record for the customer.** If `customerId` is omitted or the
-   customer has no `company_customers` row, resolution skips personal,
-   customer-list, and group-list levels, resolving from default list and base
-   price only. This is the public-visitor path. (v1 `resolve_product_price`
-   handled this with `p_customer_id IS NULL` guards.)
+1. **No CRM record for the caller.** If `customerId` is null or omitted,
+   resolution skips levels 1–3 (personal, client price list, group price
+   list) and starts at level 4 (default price list), falling back to level 5
+   (base price). This applies to three distinct caller categories:
+   - **Staff panel** (`resolveProductPrices` with `customerId` omitted): a
+     staff member resolving prices without specifying a customer sees
+     default/base prices (useful for catalog management preview).
+   - **Authenticated non-CRM user** (`resolveMyProductPrices` with
+     `customerId: null` from the target resolver): a user who discovered the
+     company via search or direct link but has not yet placed an order or
+     been manually added as a CRM customer. They see the same prices as a
+     public visitor. (ADR-0018)
+   - **Public visitor** (`resolvePublicProductPrices`): unauthenticated
+     access to a published company's catalog.
+   (v1 `resolve_product_price` handled the no-customer case with
+   `p_customer_id IS NULL` guards; v2 generalizes this to the non-CRM
+   authenticated user path introduced by ADR-0018. See §5.4 for the full
+   resolution chain description.)
 
 2. **Variant entry vs. product entry precedence.** Within each hierarchy level,
    a variant-specific entry takes priority over the product-level entry. If a
@@ -815,6 +877,22 @@ Module-specific:
 - [ ] **Public resolution.** Unauthenticated resolution returns only
       default-list and base prices; personal/customer/group levels are never
       accessible.
+- [ ] **Non-CRM user resolution (ADR-0018).** An authenticated user with no
+      `company_customers` record at the target company resolves prices from
+      default price list and base price only; levels 1–3 (personal,
+      customer-list, group-list) are unreachable. Verified via
+      `resolveMyProductPrices` with a user who has no CRM record — the
+      target resolver returns `customerId: null` and the handler skips
+      `customers.getCustomerPricingFacts`.
+- [ ] **Non-CRM / public price equivalence.** For the same product, a
+      non-CRM authenticated user (`resolveMyProductPrices`) and an
+      unauthenticated visitor (`resolvePublicProductPrices`) receive
+      identical `ResolvedPrice` output (same `unitPriceMinor`, `source`,
+      `matchLevel`).
+- [ ] **Consumer discovery shows no prices.** The pricing module exposes no
+      `consumer`-principal actions. Prices are absent from discovery search
+      results (verified in the `search` module spec; pricing tests confirm
+      no consumer-principal actions are registered).
 
 ## 10. Resolved decisions
 
@@ -840,7 +918,7 @@ owning specs define the exact shapes.
 | Callee | Action (expected) | Principal modes | What pricing needs |
 | --- | --- | --- | --- |
 | `catalog` | `catalog.getProductPricingFacts` | `staff`, `customer`, `public` | Product ID → `{ productId, companyId, basePriceMinor, currency, variants: [{ variantId, basePriceMinor }] }` (or subset per principal). Verifies product exists and belongs to the resolved company. |
-| `customers` | `customers.getCustomerPricingFacts` | `staff`, `customer` | Customer ID → `{ customerId, companyId, priceListId, groupId, groupPriceListId }`. Verifies the customer belongs to the resolved company. |
+| `customers` | `customers.getCustomerPricingFacts` | `staff`, `customer` | Customer ID → `{ customerId, companyId, priceListId, groupId, groupPriceListId }`. Verifies the customer belongs to the resolved company. **Conditionally called:** when `resolveMyProductPrices` resolves `customerId: null` (non-CRM user, ADR-0018), this action is not invoked — pricing skips levels 1–3 and resolves from default price list and base price only. |
 
 The catalog and customers specs must expose these as `risk: read`,
 principal-compatible actions per ADR-0015. If these actions do not exist when
@@ -852,3 +930,4 @@ the gap.
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
 | 2026-08-17 | Initial draft | Pricing module specification | spec agent |
+| 2026-08-17 | Non-CRM user resolution fallback | ADR-0018 Step 5: explicit fallback for authenticated users without a CRM record; resolution skips levels 1–3, starts at default price list; consumer discovery shows no prices; `resolveMyProductPrices` target resolver returns nullable `customerId` | spec-rework agent |

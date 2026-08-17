@@ -31,12 +31,19 @@ start a step until its predecessor is approved.
 
 **Changes required:**
 
-- Add `consumer` to the principal mode union (`staff | customer | public |
-  system | consumer`).
+- Add `consumer` and `account` to the principal mode union (`staff |
+  customer | public | system | consumer | account`).
 - Define `ConsumerCtx` type: `{ db: ReadTx, userId, requestId,
   correlationId, channel, clientIp }` — no `companyId`.
+- Define `AccountCtx` type: `{ db, userId, requestId, correlationId,
+  channel, clientIp }` — no `companyId`; may perform writes scoped to
+  own-user resources (create company, list own companies, personal
+  profile).
 - Contract check rules for `consumer` actions: `risk: read`,
   `permissions: []`, `audit: false`, `emits: []`, `transport: client`.
+- Contract check rules for `account` actions: `permissions: []`,
+  `transport: client`; may have `risk: write`, `audit: true`, `emits`
+  (e.g., `companies.created`).
 - Consumer rate-limiting contract (per-user, tighter than staff, looser
   than public).
 - Consumer logging contract (request ID, actor user, channel; null
@@ -46,7 +53,9 @@ start a step until its predecessor is approved.
 - `ctx.call` rules: a `consumer` action cannot call a company-scoped
   action; it may call another `consumer`-principal read.
 - Update the test-kit section: inherited consumer cross-tenant test cases
-  (no unpublished access, no CRM side effects, no company data leakage).
+  (no unpublished access, no CRM side effects, no company data leakage);
+  account cross-user test cases (user A cannot see/modify user B's
+  companies or personal data).
 
 ---
 
@@ -140,9 +149,11 @@ After all five steps are complete, verify across the full document set:
 - [ ] No stale references to old phase numbers, `marketplace` hub, or
   invite-only entry.
 - [ ] Principal enum in all specs matches `staff | customer | public |
-  system | consumer`.
+  system | consumer | account`.
 - [ ] The `consumer` principal is never used for write, audit, or event
   emission.
+- [ ] The `account` principal is never used to access another user's data
+  or company-scoped resources.
 
 ---
 

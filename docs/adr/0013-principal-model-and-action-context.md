@@ -1,4 +1,4 @@
-# ADR-0013: Principal model — staff, customer, public, system, consumer
+# ADR-0013: Principal model — staff, customer, public, system, consumer, account
 
 - **Status**: Accepted
 - **Date**: 2026-08-17
@@ -52,6 +52,14 @@ discriminated union over that mode:
   `resolveTarget`; no audit/events. Used for cross-company search and
   published-entity browsing. A user transitions to `customer`/`public` when
   invoking a company-specific action.
+- **`account`** — authenticated user managing **their own account-level
+  resources** without an active company context. No `companyId`; `userId`
+  is present and is the sole authorization basis (actions are scoped to
+  own-user data). Used for pre-tenant operations: creating a company,
+  listing/restoring own companies, managing personal profile/settings.
+  May perform writes (unlike `consumer`). `permissions` must be `[]`
+  (no company RBAC applies). A user transitions to `staff` by selecting a
+  company from the list returned by an `account` action.
 
 One action = one principal mode. A capability needed by both panel and
 cabinet becomes two actions (e.g. `orders.listForCompany` /
@@ -60,9 +68,9 @@ never conditional on "which kind of caller might this be".
 
 Resource identifiers of another company (product id, company slug, order id)
 MAY appear in input; they are inputs to server-side resolution, never grants.
-The mandatory cross-tenant test suite (§2.1-1) is parameterized over all five
+The mandatory cross-tenant test suite (§2.1-1) is parameterized over all six
 modes (the consumer fixture verifies published-only access and no CRM side
-effects).
+effects; the account fixture verifies own-user-only access).
 
 ## Alternatives considered
 
@@ -84,7 +92,8 @@ effects).
   `customer`/`public`. The contract check (CI) fails on actions without them.
 - The cross-tenant test harness gains per-mode fixtures: staff of company A
   vs. data of company B; customer X vs. orders of customer Y; public vs.
-  non-public company; system job scoped to A touching B.
+  non-public company; system job scoped to A touching B; consumer accessing
+  unpublished data; account user A accessing account user B's companies.
 - Specs must state the principal mode for every action (spec template
   updated).
 - better-auth integration (phase 0) must expose the session → principal

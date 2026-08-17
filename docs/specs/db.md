@@ -91,6 +91,26 @@ packages/db/
     grants (ADR-0015); projections never store pricing authority or CRM
     state. Physical v1 marketplace views (e.g. `consumer_products_view`)
     and social/embedding indexes are not carried forward.
+- **Schema-level considerations for `consumer` and `account` principals
+  (ADR-0013, ADR-0018):**
+  - `consumer` actions access only global discovery projections (search
+    module) and published-entity reads; they never query tenant-scoped
+    domain tables directly. Therefore no tenant-prefixed composite indexes
+    are needed to support consumer queries — the relevant indexes are on
+    the `search` projection tables (GIN for FTS/trigram, B-tree for
+    category/publication filters) and module partial indexes on publication
+    predicates (used for projection rebuild, not consumer query paths).
+  - `account` actions (own-user scope, no `companyId`) access auth/user
+    tables, `companies` for own-user creation/listing, and
+    `company_members` for membership verification. These tables already
+    carry `user_id` indexes (auth tables) or are filtered by
+    `owner_user_id` / membership FK. No cross-tenant composite indexes are
+    required — `account` queries are scoped to a single user's rows.
+  - Neither `consumer` nor `account` principals require additional
+    schema-level grant or RLS considerations: authorization is enforced in
+    action code (ADR-0009), and query access patterns naturally avoid
+    full-table scans through the projection and user-scoped index
+    strategies described above.
 
 ## 4. Foundation tables (`foundation.ts` — scaffold-owned)
 
@@ -121,8 +141,10 @@ PK `(consumer, event_id)`; indexes on `(status, next_attempt_at)` and
 the same transaction as consumer effects.
 
 **`idempotency_keys`** (core.md §5): `principal_key text`
-(`staff:<userId>`, `customer:<userId>`, or `system:<serviceName>`) ·
-`scope_key text` (`company:<uuid>` or `global`) · `company_id uuid NULL` ·
+(`staff:<userId>`, `customer:<userId>`, `consumer:<userId>`,
+`account:<userId>`, or `system:<serviceName>`) ·
+`scope_key text` (`company:<uuid>`, `user:<userId>`, or `global`) ·
+`company_id uuid NULL` ·
 `action text` · `key text` · `request_hash text` · `status text CHECK
 (in_progress|completed|failed)` · `attempt_id uuid` · `lease_expires_at` ·
 `confirmation_challenge_id uuid NULL` · `confirmed_at timestamptz NULL` ·
@@ -258,6 +280,7 @@ path (not foundation KVED/CPV seeds and not `foundation.ts`).
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-17 | Added schema-level considerations for consumer/account principals (no tenant-scoped indexes needed for global queries) | Complete Step 2 of spec-rework queue (ADR-0018 integration) | Spec-rework agent |
 | 2026-08-17 | Reflected companies ownership of business-category tables and projection/index constraints for published discovery | Align package conventions with ADR-0018 consumer discovery | Human owner via spec-rework queue |
 | 2026-08-17 | Aligned foundation tables with runtime protocols; added money wire type, tenancy exceptions, SQL exceptions, and backup baseline | Foundation consistency review against core spec and ADR-0012/0014 | GPT-5.6 Sol |
 | 2026-08-17 | Initial draft | — | spec agent (Fable 5) |

@@ -32,11 +32,11 @@ bound by `implementAction`. All fields are required unless noted:
 | --- | --- | --- |
 | `name` | `<module>.<verb>` | Unique in the registry; CI fails on duplicates |
 | `description` | string | Written as an instruction to an AI model |
-| `principal` | `staff` \| `customer` \| `public` \| `system` \| `consumer` | ADR-0013, ADR-0018; exactly one; public and consumer actions are read-only |
-| `transport` | `client` \| `internal` | Whether HTTP/client routers mount it; `system` must be internal |
+| `principal` | `staff` \| `customer` \| `public` \| `system` \| `consumer` \| `account` | ADR-0013, ADR-0018; exactly one; public and consumer actions are read-only |
+| `transport` | `client` \| `internal` | Whether HTTP/client routers mount it; `system` must be internal; `consumer` and `account` must be `client` |
 | `input` / `output` | Zod v4 schemas | The single source for oRPC, forms, AI tools |
-| `permissions` | `string[]` of `<module>:<verb>` | Non-empty for `staff`; must be `[]` for `customer`/`public`/`consumer` (authorization = ownership/visibility/published-read, §4); must be `[]` for `system` |
-| `resolveTarget` | typed fn, **customer/public only** | `<TTarget>(input, { tx, principal }) => Promise<{ companyId, resource: TTarget }>` — customer args include authenticated `userId`; a nested `ctx.call` also supplies the already verified `inheritedCompanyId`. Loads the referenced resource and proves ownership/visibility; throws `NotFoundError` (never "forbidden" — no existence leaks). Not applicable to `consumer` (no company scope) |
+| `permissions` | `string[]` of `<module>:<verb>` | Non-empty for `staff`; must be `[]` for `customer`/`public`/`consumer`/`account` (authorization = ownership/visibility/published-read/own-user, §4); must be `[]` for `system` |
+| `resolveTarget` | typed fn, **customer/public only** | `<TTarget>(input, { tx, principal }) => Promise<{ companyId, resource: TTarget }>` — customer args include authenticated `userId`; a nested `ctx.call` also supplies the already verified `inheritedCompanyId`. Loads the referenced resource and proves ownership/visibility; throws `NotFoundError` (never "forbidden" — no existence leaks). Not applicable to `consumer` or `account` (no company scope) |
 | `systemScope` | `tenant` \| `global`, **system only** | Tenant-scoped system actions require `ctx.companyId`; `global` is reserved for genuinely global jobs |
 | `aiExposure` | `exposed` \| `internal` | `exposed` requires `transport: client`; `internal` never becomes an AI tool |
 | `risk` | `read` \| `draft` \| `write` \| `high` | `read` handlers/resolvers receive a `ReadTx` capability; top-level reads also use a DB read-only transaction |
@@ -57,7 +57,9 @@ combinations, `customer`/`public` actions with
 permissions, `customer`/`public` actions without `resolveTarget`, `consumer`
 actions with `resolveTarget`, `consumer` actions not satisfying
 (`risk: read`, `permissions: []`, `audit: false`, `idempotent: false`,
-`requiresConfirmation: false`, `emits: []`, `transport: client`), invalid
+`requiresConfirmation: false`, `emits: []`, `transport: client`), `account`
+actions with `resolveTarget`, `account` actions with non-empty `permissions`,
+`account` actions with `transport` other than `client`, invalid
 `systemScope`, invalid confirmation metadata (`requiresConfirmation` implies
 human principal + `risk: high` + `idempotent: true`), `emits` naming violations
 (`<module>.<pastVerb>`), undeclared event definitions, `ctx.call` targets
@@ -79,6 +81,14 @@ Consumer actions are a strict subset: `risk: read`, `audit: false`,
 `permissions: []`, `transport: client`, and no `resolveTarget`. Unlike public,
 consumer requires authentication (`actor.type: user`) and rate-limits per user
 rather than per IP.
+
+Account actions: `permissions: []`, `transport: client`, and no
+`resolveTarget`. Unlike consumer, account actions may have `risk: write` (or
+`read`/`draft`), `audit: true`, `emits` (e.g. `companies.created`),
+`idempotent: true`, and `requiresConfirmation: true` — subject to the same
+metadata rules as staff writes. Authorization is own-user identity: the
+handler may read/write only resources belonging to `ctx.userId` (no company
+RBAC applies). Account requires authentication (`actor.type: user`).
 
 ## 3. Principal contexts (ADR-0013, ADR-0018)
 
@@ -129,6 +139,14 @@ type ConsumerCtx = BaseCtx<ReadTx> & {
   target?: never;
   membership?: never;
 };
+type AccountCtx<TDb extends ReadTx = Tx> = BaseCtx<TDb> & {
+  principal: "account";
+  userId: string;
+  clientIp: string;
+  companyId?: never;
+  target?: never;
+  membership?: never;
+};
 ```
 
 Construction — exactly one factory per mode, nothing ad-hoc:
@@ -157,15 +175,25 @@ Construction — exactly one factory per mode, nothing ad-hoc:
   runs. `actor.type` is always `user`. Consumer actions receive a `ReadTx`
   and may access only declared global discovery projections and published
   facts; owning specs and inherited tests enforce this boundary.
+- **account**: better-auth session → `userId`; the API factory supplies
+  a trusted-proxy-normalized `clientIp` for per-user rate limiting. No
+  company selector is read or expected; no membership or target resolver
+  runs. `actor.type` is always `user`. Unlike consumer, account actions
+  may receive a writable `Tx` (for `risk: write`/`draft`) or a `ReadTx`
+  (for `risk: read`). The handler may read/write only own-user resources
+  (e.g. own companies, personal profile); owning specs and inherited tests
+  enforce this boundary.
 
 Core exposes one `effectiveCompanyId(ctx)` helper used by logging, events,
 audit, and operational metadata: staff/system-tenant use `ctx.companyId`;
-customer/public use `ctx.target.companyId`; consumer and global system work
-return null.
+customer/public use `ctx.target.companyId`; consumer, account, and global
+system work return null.
 Pre-authorization access logs may have no company, but the authorized action
 span and every domain event/audit row carry this resolved scope (null for
-consumer — consumer actions never emit events or write audit). AI calls keep
-the initiating user as `actor` and set `channel: "ai"` plus trace/tool IDs.
+consumer and account — consumer actions never emit events or write audit;
+account actions may emit events and write audit with null company). AI calls
+keep the initiating user as `actor` and set `channel: "ai"` plus trace/tool
+IDs.
 
 ## 4. Execution pipeline
 
@@ -173,13 +201,17 @@ Fixed order, no per-action variation:
 
 1. **Validate input** (Zod). Fail → `ValidationError` (no side effects).
 2. **Authenticate principal and read transport selectors** (session/service
-   credentials; no authorization is inferred from a selector). Consumer
-   actions require a valid session but skip the company selector entirely.
+   credentials; no authorization is inferred from a selector). Consumer and
+   account actions require a valid session but skip the company selector
+   entirely.
 3. **Rate limit** (§10). Fail → `RateLimitError`.
 4. **Authorization preflight** in a short read-only transaction when the
    action needs confirmation or idempotency: verify staff membership or run
    the typed customer/public `resolveTarget`. Consumer actions skip this step
-   (no company scope, no resolver, no confirmation/idempotency). This
+   (no company scope, no resolver, no confirmation/idempotency). Account
+   actions that declare confirmation or idempotency run a preflight that
+   verifies only session validity (no membership/target to check); the
+   own-user authorization boundary is enforced within the handler. This
    prevents unauthorized challenges/idempotency rows but is never the only
    authorization check.
 5. **Replay probe + confirmation gate** (`requiresConfirmation` actions,
@@ -188,9 +220,9 @@ Fixed order, no per-action variation:
 6. **Idempotency reserve** (idempotent writes, §5) after confirmation.
 7. **Open execution transaction** (read-only for `risk: read`); re-run
    membership/target authorization in this transaction to prevent TOCTOU
-   (consumer actions have no membership/target — session validity is
-   sufficient), set the transaction-local DB statement timeout, then run
-   the handler with the remaining deadline/abort signal.
+   (consumer and account actions have no membership/target — session
+   validity is sufficient), set the transaction-local DB statement timeout,
+   then run the handler with the remaining deadline/abort signal.
 8. **Validate output** with the declared Zod schema before any commit; a
    mismatch is `CoreInvariantError` (server bug), never a client validation
    error.
@@ -201,9 +233,9 @@ Fixed order, no per-action variation:
     a separate short transaction.
 
 The pipeline emits one structured log line (start/finish) with
-`request_id`, `actor`, `company_id` (null for consumer and global system),
-`action`, `outcome`, `duration_ms`, and an OTel span; errors go to Sentry
-with the same correlation fields.
+`request_id`, `actor`, `company_id` (null for consumer, account, and global
+system), `action`, `outcome`, `duration_ms`, and an OTel span; errors go to
+Sentry with the same correlation fields.
 
 `risk: draft` is still a mutation: it receives a writable transaction and
 must declare idempotency/audit according to its spec. It is not callable
@@ -223,11 +255,14 @@ Applies to actions declaring `idempotent: true` with `risk` ≠ `read`
 - **Scope**: unique on
   `(principal key, scope key, action name, idempotency key)`, where
   principal key includes mode + accountable identity
-  (`staff:<userId>`, `customer:<userId>`, or `system:<serviceName>`).
-  Scope key is `company:<effectiveCompanyId>` for every tenant-scoped action
-  and `global` only for a declared global system action. Both actor and scope
-  are required: omitting actor lets one staff member replay another's result;
-  omitting scope lets a system service collide across companies.
+  (`staff:<userId>`, `customer:<userId>`, `account:<userId>`, or
+  `system:<serviceName>`).
+  Scope key is `company:<effectiveCompanyId>` for every tenant-scoped action,
+  `user:<userId>` for `account` actions (own-user scope), and `global` only
+  for a declared global system action. Both actor and scope are required:
+  omitting actor lets one staff member replay another's result; omitting
+  scope lets a system service collide across companies or an account action
+  collide across users.
 - **Request hash**: SHA-256 over RFC 8785 canonical JSON of the JSON-safe
   validated input plus principal key and scope key.
 - **States**: `in_progress` → `completed` | `failed`.
@@ -264,7 +299,7 @@ Envelope (stored in `domain_events`, spec'd in db.md):
 { eventId: uuid,            // UUIDv7 (time-ordered), generated in ctx.emit
   name: "orders.confirmed", // <module>.<pastVerb> (conventions)
   version: 1,               // payload schema version; bump on breaking change
-  occurredAt, companyId,     // UUID; null only for declared global system events
+  occurredAt, companyId,     // UUID; null for declared global system events and account-principal events
   aggregate: { type: "order", id, sequence }, // monotonic per aggregate
   actor: { type: "user" | "system", id,
            channel: "ui" | "ai" | "system" | "webhook" },
@@ -285,7 +320,7 @@ Envelope (stored in `domain_events`, spec'd in db.md):
   transport-internal, AI-internal, system-principal, write/idempotent, and
   accept the event envelope as input. Core invokes it with a system context
   scoped to the event's `companyId`; a null company is allowed only for an
-  explicitly global event/action.
+  explicitly global event/action or an account-principal event.
 - **Delivery**: at-least-once. The dispatcher materializes one
   `event_deliveries` row per registered consumer and marks the outbox event
   dispatched in the same transaction. **Consumer dedup** is mandatory:
@@ -316,8 +351,9 @@ Two-step, single-use, channel-agnostic (same for UI and AI — ADR-0008):
 
 1. Invocation **without** a confirmation token completes authorization
    preflight and stops: core uses the required `confirmationSummary` callback,
-   issues `{ challengeId, actionName, inputHash, principalKey, companyId,
-   idempotencyKey, expiresAt (5 min) }` (Redis), and returns
+   issues `{ challengeId, actionName, inputHash, principalKey, companyId
+   (null for account), idempotencyKey, expiresAt (5 min) }` (Redis), and
+   returns
    `ConfirmationRequiredError` carrying only the redacted summary. The AI
    surfaces this as a confirmation card; the classic UI as a dialog.
 2. Re-invocation with `{ challengeId }` + identical input (hash-checked)
@@ -364,6 +400,11 @@ content in the audit row.
   actions; company-scoped callees (`staff`, `customer`, `public`,
   system-tenant) are rejected at both CI and runtime because the consumer
   context carries no `companyId` to propagate.
+- Account callers may invoke `consumer`-principal `risk: read` actions
+  (global discovery reads) and other `account`-principal `risk: read`
+  actions; company-scoped callees (`staff`, `customer`, `public`,
+  system-tenant) are rejected at both CI and runtime because the account
+  context carries no `companyId` to propagate.
 - The callee runs in the caller's transaction and principal context but sees
   only a `ReadTx` facade even when the caller's transaction is writable; the
   callee's own `permissions`/`resolveTarget` still execute (defense in
@@ -379,7 +420,8 @@ content in the audit row.
 
 Redis token bucket per `(action, rate-limit scope key)`. Defaults: `public`
 30/min per rotating HMAC of trusted-proxy-normalized IP; `consumer` 60/min
-per user; `customer`/`staff` 120/min per user; `system` unlimited. Raw IP
+per user; `account` 90/min per user; `customer`/`staff` 120/min per user;
+`system` unlimited. Raw IP
 remains transport-only and is never the Redis key or a domain log/audit
 field. Per-action override via `rateLimit`. AI tool invocations additionally
 consume a per-conversation budget (defined in the phase-5 spec; core only
@@ -407,16 +449,21 @@ contract.md) and a client-safe message; internal details stay in logs.
 Exported from `packages/core/testing`, used by every module (this is how
 "every module inherits the invariant tests" becomes real):
 
-- `buildTestContext(mode, overrides)` — context factories for all five
+- `buildTestContext(mode, overrides)` — context factories for all six
   principal modes against the Testcontainers DB (harness in db.md).
 - `crossTenantSuite(actions)` — parameterized by each action's declared
   principal: staff of company A vs data of B; customer X vs resources of Y;
-  public vs non-public resources; system scoped to A touching B; or consumer
-  vs unpublished/company-private data. Every module instantiates the relevant
-  case for each action — omission fails the contract check.
+  public vs non-public resources; system scoped to A touching B; consumer
+  vs unpublished/company-private data; or account user A vs user B's
+  companies/personal data. Every module instantiates the relevant case for
+  each action — omission fails the contract check.
 - `consumerIsolationSuite(actions)` — for `consumer`-principal actions:
   unpublished entities are hidden, no CRM side effects, no company-private
   data leakage.
+- `accountIsolationSuite(actions)` — for `account`-principal actions: user A
+  cannot see or modify user B's companies or personal data; no company-scoped
+  resource access; `permissions` must be `[]`; `companyId` is null in context
+  and events/audit.
 - `idempotencySuite(action)` — replay, conflict, concurrent-retry cases.
 - `eventSuite(module)` — declared events emitted transactionally (rollback
   removes them), consumer dedup respected.
@@ -425,8 +472,10 @@ Exported from `packages/core/testing`, used by every module (this is how
 
 - [ ] Contract check fails on every §2 violation (test per rule), including
       consumer-specific constraints (resolver present, non-read risk, audit,
-      events, permissions, or non-client transport on a `consumer` action).
-- [ ] All five context factories work; no other construction path exists.
+      events, permissions, or non-client transport on a `consumer` action)
+      and account-specific constraints (resolver present, non-empty
+      permissions, or non-client transport on an `account` action).
+- [ ] All six context factories work; no other construction path exists.
 - [ ] Pipeline order is §4 exactly; a failing handler rolls back outbox and
       audit rows written in the same tx.
 - [ ] Output schema mismatch rolls back and maps to internal error.
@@ -453,6 +502,11 @@ Exported from `packages/core/testing`, used by every module (this is how
 - [ ] Consumer isolation suite: unpublished entities hidden, no CRM record
       created, no company-private data returned, rate limit at 60/min per
       user.
+- [ ] Account isolation suite: user A cannot see/modify user B's companies
+      or personal data; `companyId` is null in context, events, and audit;
+      `permissions` enforced as `[]`; rate limit at 90/min per user.
+- [ ] `ctx.call` from account: consumer reads accepted, company-scoped
+      callees rejected.
 
 ## 14. Resolved decisions
 
@@ -464,6 +518,7 @@ Exported from `packages/core/testing`, used by every module (this is how
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-17 | Added account principal: `AccountCtx`, contract check rules, `ctx.call` rules, rate limit (90/min), idempotency scope (`user:<userId>`), `accountIsolationSuite`, and acceptance criteria | Complete the 6-principal model per ADR-0013 (amended) and ADR-0018 | Human owner via spec-rework queue Step 1 |
 | 2026-08-17 | Added the consumer context, action constraints, logging, call rules, rate limit (60/min per user), and inherited isolation tests | Align the frozen foundation with ADR-0018 authenticated discovery | Human owner via spec-rework queue |
 | 2026-08-17 | Tightened target resolution, idempotency scope, event delivery, confirmation, audit, and output validation | Foundation consistency review against blueprint and ADR-0013/0015 | GPT-5.6 Sol |
 | 2026-08-17 | Initial draft | — | spec agent (Fable 5) |

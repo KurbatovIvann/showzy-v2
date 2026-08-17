@@ -3,7 +3,7 @@
 > Status: Approved (frozen). Approved by: owner, 2026-08-17.
 > Written against blueprint §1, §2.1 (invariant 5), §3, §5, §7.1; scope §1.1,
 > §2, §5, §7 (phases 1, 5, 6); ADR-0011, ADR-0012, ADR-0013, ADR-0014,
-> ADR-0015, ADR-0016; `docs/specs/core.md`, `docs/specs/db.md`,
+> ADR-0015, ADR-0016, ADR-0018; `docs/specs/core.md`, `docs/specs/db.md`,
 > `docs/specs/contract.md`, `docs/specs/orders.md`,
 > `docs/specs/companies-foundation.md`; `docs/module-ownership.md`.
 >
@@ -36,9 +36,16 @@ channels and everything that existed for them (channels, external contacts,
 external message IDs) are dropped with the v1 channels module (scope §5).
 The conversation model is strictly 1:1 — one conversation per
 `(company, customer user)` pair. Any authenticated user may open a
-conversation with a company (v1 behavior; no CRM link required). The
-customer cabinet is **per-company** in V2: there is no unified cross-company
-inbox (owner, 2026-08-17).
+conversation with a **published** company (v1 behavior; no CRM link
+required — ADR-0018). Existing conversations with companies that later
+unpublish remain accessible. **Chat never creates CRM records**
+(`company_customers` rows) — CRM creation happens only via staff action or
+atomically at checkout (ADR-0018 §CRM customer creation). The
+`company_customer_id` on conversations is nullable and set lazily when a CRM
+row already exists; if the user later becomes a CRM customer (e.g., at
+checkout), existing conversations can be backfilled. The customer cabinet is
+**per-company** in V2: there is no unified cross-company inbox
+(owner, 2026-08-17).
 
 ## 2. Owned tables
 
@@ -54,7 +61,7 @@ tenancy).
 | `id` | `uuid` | PK, default `gen_random_uuid()` | |
 | `company_id` | `uuid NOT NULL` | FK → `companies.id` `ON DELETE CASCADE` | Tenant root |
 | `customer_user_id` | user id type | `NOT NULL`; FK → better-auth users `ON DELETE RESTRICT` | The stable customer identity. NOT NULL in v2 (no external contacts, no anonymous users) |
-| `company_customer_id` | `uuid` | Nullable; FK → `company_customers.id` `ON DELETE SET NULL` | CRM link when one exists; nullable because any authenticated user may message a company before becoming a CRM customer. Conversation survives CRM-record deletion via `customer_user_id` |
+| `company_customer_id` | `uuid` | Nullable; FK → `company_customers.id` `ON DELETE SET NULL` | CRM link when one exists; nullable because any authenticated user may message a published company before becoming a CRM customer (ADR-0018). Set lazily at conversation creation only when a CRM row already exists; never created by chat. Backfilled when the user later becomes a CRM customer (e.g., at checkout or invite accept). Conversation survives CRM-record deletion via `customer_user_id` |
 | `status` | `text NOT NULL` | Default `'active'`, CHECK `IN ('draft','active','archived','blocked')` | Transitions in §5.1. `draft` = customer opened chat but has not sent a message; invisible to staff |
 | `assigned_to_user_id` | user id type | Nullable; FK → better-auth users `ON DELETE SET NULL` | Assigned company member |
 | `customer_display_name` | `text NOT NULL` | | Snapshot of the customer's display name at conversation creation (from the acting user's profile, or from the invite/CRM name on auto-create). Staff hydration prefers live CRM `displayName` when `company_customer_id` is set; this column is the fallback for non-CRM chatters and deleted CRM records. Chat UX state, not a customers projection |
@@ -326,7 +333,7 @@ write/idempotent/audited/5s).
 | --- | --- | --- | --- | --- | --- |
 | `chat.getMyConversation` | Get one of your conversations by ID. | Conversation ownership | `{ conversationId }` → `MyConversation` | `[]` | Also the access proof `files` reuses via `ctx.call` for download authorization (§12) |
 | `chat.listMyMessages` | List messages of your conversation (same paging as `chat.listMessages`). | Conversation ownership | as `chat.listMessages` | `[]` | |
-| `chat.openMyConversation` | Open (get or create) your conversation with a company. Any authenticated user may message any existing company; a CRM link is not required. New conversations start as `draft` until your first message. | **Existing conversation** for `(companyId, userId)` → that row (ownership proven). **No row yet** → prove the company exists via `call` `companies.getVisibleToUser` inside `resolveTarget` (§11 decision 8); `companyId` is a selector, never a grant | `{ companyId: z.string().uuid() }` → `MyConversation` | `["chat.conversationStarted"]` (only when created) | Idempotent get-or-create on unique `(company_id, customer_user_id)`. Sets `company_customer_id` if a CRM row exists at create time (optional `customers` read; null otherwise). Captures `customer_display_name` from the caller's profile |
+| `chat.openMyConversation` | Open (get or create) your conversation with a company. Any authenticated user may message any published company; a CRM link is not required (ADR-0018). Existing conversations with companies that later unpublish remain accessible. New conversations start as `draft` until your first message. Chat never creates CRM records. | **Existing conversation** for `(companyId, userId)` → that row (ownership proven; accessible regardless of company publication status). **No row yet** → prove the company exists **and is published** via `call` `companies.getPublishedCompany` inside `resolveTarget` (§11 decision 8; ADR-0018 publication rule); `companyId` is a selector, never a grant. Exception: if the user already has a CRM record with the company (`company_customers` row exists), the publication check is skipped — existing relationships are not blocked by unpublishing | `{ companyId: z.string().uuid() }` → `MyConversation` | `["chat.conversationStarted"]` (only when created) | Idempotent get-or-create on unique `(company_id, customer_user_id)`. Sets `company_customer_id` only when a CRM row already exists at create time (optional `customers` read; `null` otherwise) — chat never creates CRM records (ADR-0018). If the user later becomes a CRM customer (e.g., at checkout), existing conversations are backfilled with `company_customer_id`. Captures `customer_display_name` from the caller's profile |
 | `chat.sendMyMessage` | Send a message in your conversation. Fails if the company blocked the conversation. First message promotes `draft` → `active`. | Conversation ownership | `SendMessageInput` → `Message` | `["chat.messageSent", "chat.conversationStatusChanged"]` (status event only on draft promotion) | |
 | `chat.editMyMessage` | Edit a message you sent. Only the sender can edit; there is no time window; deleted messages cannot be edited. | Conversation ownership + sender check | as `chat.editMessage` | `["chat.messageEdited"]` | |
 | `chat.deleteMyMessage` | Delete (soft) a message you sent. Content is retained in the DB and masked on every output. | Conversation ownership + sender check | as `chat.deleteMessage` | `["chat.messageDeleted"]` | |
@@ -560,7 +567,9 @@ fixed here:
    `chat.startConversation` for a customer without a linked account →
    `ConflictError` (there is no user to converse with; consistent with
    orders §10.8). **Customer** `chat.openMyConversation` does *not* require
-   a CRM link — any authenticated user may message an existing company.
+   a CRM link — any authenticated user may message a published company
+   (ADR-0018). Chat never creates CRM records; the `company_customer_id` is
+   set only when one already exists, `null` otherwise.
 4. **CRM record deleted mid-conversation.** `company_customer_id` →
    NULL (SET NULL); the conversation and history survive on
    `customer_user_id`; staff hydration falls back to `customer: null` and
@@ -620,8 +629,24 @@ fixed here:
 16. **User is staff in company A and customer of company B.** Both surfaces
     work independently; `sender_type` is captured per message; the same
     user gets separate participant rows per conversation.
-17. **Open conversation with a nonexistent company.** `resolveTarget`
-    `companies.getVisibleToUser` → `NotFoundError`; no conversation row.
+17. **Open conversation with a nonexistent or unpublished company.**
+    `resolveTarget` `companies.getPublishedCompany` → `NotFoundError` for
+    nonexistent or unpublished companies; no conversation row created.
+    Exception: if the user already has a CRM record with the company
+    (`company_customers` row exists), the conversation is allowed even when
+    the company is unpublished — existing relationships are not severed by
+    unpublishing (ADR-0018).
+18. **Existing conversation with a company that unpublishes.** The
+    conversation and full message history remain accessible to both sides.
+    The customer can continue sending messages (the conversation already
+    exists; the publication check applies only to *new* conversation
+    creation). This matches the CRM-relationship exception: once a
+    conversation exists, it is an established relationship.
+19. **Chat does not create CRM records.** Opening a conversation, sending
+    messages, browsing profiles — none of these create a `company_customers`
+    row (ADR-0018). The `company_customer_id` column is set lazily when a CRM
+    row already exists, and backfilled when the user later becomes a CRM
+    customer (e.g., at checkout or invite accept).
 18. **Presence subscribe to a non-counterparty.** Socket subscribe is
     rejected; HTTP actions never return presence (it is socket-only).
 
@@ -820,9 +845,19 @@ Module-specific:
       `afterSequence` returns exactly the missed messages.
 - [ ] **Event payload hygiene**: property-based/contract test that no §4.1
       payload contains message content.
-- [ ] **Any-auth open**: `chat.openMyConversation` for an existing company
-      with no CRM link creates a `draft`; unknown company → `NotFoundError`;
-      staff list still hides drafts.
+- [ ] **Any-auth open**: `chat.openMyConversation` for a published company
+      with no CRM link creates a `draft`; unknown or unpublished company →
+      `NotFoundError`; CRM-linked user can open conversation even with
+      unpublished company; staff list still hides drafts.
+- [ ] **No CRM creation from chat** (ADR-0018): `chat.openMyConversation`
+      never creates a `company_customers` row; `company_customer_id` is
+      `null` when no CRM record exists at conversation creation time; a
+      subsequent CRM record creation (checkout/invite) can backfill it.
+- [ ] **Publication rule for new conversations** (ADR-0018):
+      `chat.openMyConversation` with a new (no existing conversation)
+      unpublished company → `NotFoundError`; existing conversations with
+      unpublished companies remain fully accessible (read, send, react,
+      edit, delete, markRead).
 - [ ] **Invite auto-create**: consuming `invites.accepted` creates exactly
       one `active` conversation; a second delivery is a no-op; an existing
       draft is promoted only by the customer's first message, not by the
@@ -845,10 +880,17 @@ Resolved (owner, 2026-08-17):
    company. `chat.listMyConversations` is not in this spec. A customer
    self-scope read in core is *not* requested here; phase-4
    `orders.listMine` may still need it independently.
-2. **Any authenticated user may message any existing company** (v1
-   behavior). A CRM link is not required to open a conversation.
-   `company_customer_id` is set when a CRM row exists and attached later
-   on invite accept.
+2. **Any authenticated user may message any published company** (v1
+   behavior, refined by ADR-0018 publication rule). A CRM link is not
+   required to open a conversation. `company_customer_id` is set only when
+   a CRM row already exists at conversation creation time (`null`
+   otherwise); it is backfilled when the user later becomes a CRM customer
+   (e.g., at checkout or invite accept). **Chat never creates CRM
+   records** — discovery, browsing, opening conversations, and sending
+   messages produce no `company_customers` side effects (ADR-0018 §CRM
+   customer creation). A user with an existing CRM record may open a
+   conversation even with an unpublished company (existing relationships
+   are not blocked by unpublishing).
 3. **Auto-create the conversation on invite accept** — keep v1 behavior.
    Consumer `chat.invite-conversation-creator` →
    `chat.ensureConversationFromInvite`. Requires the future invites spec
@@ -865,10 +907,11 @@ Resolved (owner, 2026-08-17):
 8. **`resolveTarget` receives read-only `call`.** Core change request
    accepted: customer/public `resolveTarget` is given a depth-limited
    read-only `call` with the same rules as handler `ctx.call` (ADR-0015),
-   so `openMyConversation` can prove company existence via
-   `companies.getVisibleToUser` without chat querying `companies` tables.
-   Lands as a core `/rework-spec` (+ ADR if core's authors require one)
-   before phase-5 implementation; chat does not work around it.
+   so `openMyConversation` can prove company existence and publication via
+   `companies.getPublishedCompany` without chat querying `companies` tables
+   (ADR-0018 publication rule). Lands as a core `/rework-spec` (+ ADR if
+   core's authors require one) before phase-5 implementation; chat does not
+   work around it.
 9. **core.md §10 AI per-conversation budget** belongs to the `assistant`
    module (phase 8), not this chat. This spec defines no AI token budget.
 10. **One chat spec.** The phase-1 order-card slice lives in this file
@@ -879,9 +922,10 @@ Resolved (owner, 2026-08-17):
 
 Composition owed by other specs (not product questions):
 
-- **`companies.getVisibleToUser`** — customer-compatible `risk: read`;
-  any existing company is visible (decision 2). Exact name/output: companies
-  spec.
+- **`companies.getPublishedCompany`** — customer-compatible `risk: read`;
+  verifies the company exists and is published (ADR-0018 publication rule;
+  decision 2). Used by `openMyConversation` `resolveTarget` for new
+  conversations. Exact name/output: companies spec.
 - **`invites.accepted` payload** must include `companyId`,
   `customerUserId`, `companyCustomerId`, and a display name. Exact shape:
   invites spec.
@@ -897,8 +941,8 @@ worked around.
 | `customers` | `customers.getCustomerOrderFacts` (exists, orders §11) or a batch chat variant | staff | `customerId → { displayName, userId }` for list/get hydration and `startConversation` verification; batch form preferred to avoid N+1 in `listConversations` |
 | `customers` | a customer-principal "am I a CRM customer of this company?" read, optional | customer | Best-effort attach of `company_customer_id` in `openMyConversation`; absence → null, not an error |
 | `companies` | `companies.getMemberFacts` (future companies spec) | staff, system | Assignee verification in `assignConversation`; member recipient list in `chat.getMessageContext` |
-| `companies` | `companies.getVisibleToUser` (future companies spec) | customer | Existence/visibility proof inside `openMyConversation` `resolveTarget` (§11 decision 8) |
-| `companies` | customer-compatible company facts read (name, slug, logo) | customer | Cabinet hydration in `MyConversation` (may be the same action as `getVisibleToUser` if the companies spec so decides) |
+| `companies` | `companies.getPublishedCompany` (future companies spec) | customer | Existence + publication proof inside `openMyConversation` `resolveTarget` (§11 decision 8; ADR-0018 publication rule). Returns `NotFoundError` for nonexistent or unpublished companies. When the user has an existing CRM record, the publication check is bypassed by chat's own `resolveTarget` logic (§3.2) |
+| `companies` | customer-compatible company facts read (name, slug, logo) | customer | Cabinet hydration in `MyConversation` (may be the same action as `getPublishedCompany` if the companies spec so decides) |
 | `files` | `files.getAttachmentFacts` (future files spec) | staff, customer | Batch `fileId → { finalized, uploaderUserId, scope: { companyId, conversationId }, mime, size }` for send validation |
 | `files` (reverse direction) | — | — | `files` download/upload authorization for chat attachments is expected to `ctx.call` `chat.getConversation` (staff) / `chat.getMyConversation` (customer) as the access proof; both are declared client reads here and also serve that role |
 | `invites` | `invites.accepted` event | — | Bound to `chat.ensureConversationFromInvite` (§4.2) |
@@ -908,6 +952,7 @@ worked around.
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-17 | ADR-0018 rework (spec-rework-queue Step 5): `openMyConversation` publication rule (new conversations require published company, unless CRM record exists); explicit no-CRM-creation guarantee; `company_customer_id` lazy-set and backfill semantics; renamed `companies.getVisibleToUser` → `companies.getPublishedCompany`; new edge cases §7.18–7.19; new acceptance criteria for publication and CRM invariants. | ADR-0018 consumer discovery alignment | spec-rework agent |
 | 2026-08-17 | Approved. Slice absorbed from `chat-projection.md`; owner decisions 1–10 in §11. | Owner approval | owner |
 | 2026-08-17 | Absorbed the approved `chat-projection.md` slice into this file (table, actions, consumer, edge cases, acceptance). Slice behavior unchanged; companion file removed. | One spec per module (`orders.md` pattern); owner request | owner |
 | 2026-08-17 | Owner decisions folded in: per-company cabinet (no unified inbox), any-auth messaging, invite auto-create, draft kept, presence in phase 5, v1 edit/delete, chat owns attachment join rows, `resolveTarget.call` core change accepted, AI budget is assistant's. | Draft review Q&A | owner |
