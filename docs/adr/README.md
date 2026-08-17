@@ -33,5 +33,7 @@ humans) don't relitigate settled questions or silently deviate.
 | [0014](0014-drizzle-schema-placement.md) | Drizzle schema lives in packages/db, one file per owning module | Accepted |
 | [0015](0015-cross-module-composition.md) | Cross-module composition — internal calls for queries, events for effects | Accepted |
 | [0016](0016-client-safe-action-descriptors.md) | Client-safe action descriptors and server implementations | Accepted |
-| [0017](0017-design-system-first-dual-flow-ux.md) | Design-system-first, mobile-first, dual-flow UX | Accepted |
+| [0017](0017-design-system-first-dual-flow-ux.md) | Design-system-first, mobile-first, dual-flow UX | Superseded by ADR-0019 |
 | [0018](0018-consumer-discovery-and-principal.md) | Consumer discovery and the `consumer` principal | Accepted |
+| [0019](0019-v1-mobile-canonical-ux.md) | V1 mobile is the canonical V2 UX baseline | Accepted |
+| [0020](0020-public-discovery-and-social-engagement.md) | Public discovery and aggregate-owned social engagement | Accepted |

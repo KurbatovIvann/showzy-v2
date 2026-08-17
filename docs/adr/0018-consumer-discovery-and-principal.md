@@ -4,6 +4,7 @@
 - **Date**: 2026-08-17
 - **Deciders**: Human owner
 - **Amends**: ADR-0013 (adds a fifth principal mode)
+- **Amended by**: ADR-0020 (public discovery and social engagement)
 
 ## Context
 
