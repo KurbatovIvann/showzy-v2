@@ -273,8 +273,8 @@ sequence (core.md §6). Payloads are JSON-safe; money as decimal strings.
 }
 ```
 
-Expected subscribers: `chat` (order-card projection slice — consumer
-`chat.order-card-updater`, `docs/specs/chat-projection.md`), `payments`
+Expected subscribers: `chat` (order-card projection — consumer
+`chat.order-card-updater`, `docs/specs/chat.md` §2.7 / §3.3), `payments`
 (`payments.createForOrder`, keyed by this event's ID — payments spec §5),
 later `notifications` (phase 4 push) and `analytics`.
 
@@ -586,7 +586,9 @@ Resolved (owner, 2026-08-17):
 6. **`tracking_token` → DROP** (account-only orders; typed resolvers
    replace token reads).
 7. **Companion slice spec** — the chat side of the slice is specified in
-   `docs/specs/chat-projection.md` (consumer `chat.order-card-updater`).
+   `docs/specs/chat.md` (consumer `chat.order-card-updater`; table
+   `order_cards`). Pointer updated 2026-08-17 when `chat-projection.md`
+   was absorbed into the chat module spec; behavior unchanged.
 8. **Orders require a linked account** (owner, 2026-08-17): no account-less
    orders are supported at this time. `orders.create` rejects a CRM
    customer without a linked `userId` (`ConflictError`, edge case 5), so
@@ -608,12 +610,13 @@ be reported:
 
 Consumers this module's events must satisfy: `payments.createForOrder`
 (payments spec §4–5, keyed by `orders.created` event ID) and the chat
-order-card slice consumer (`docs/specs/chat-projection.md`).
+order-card consumer (`docs/specs/chat.md`, `chat.order-card-updater`).
 
 ## Changelog
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-17 | Pointer-only: chat companion path `chat-projection.md` → `chat.md` (slice absorbed; consumer/table names unchanged) | One spec per chat module | owner |
 | 2026-08-17 | Approved. Decision 8: orders require a linked account; `customerUserId` non-null in `orders.created`; payments cross-spec item closed | Owner approval | owner |
 | 2026-08-17 | Owner resolved decisions 1–7 (§10): staff-mode slice write, text lifecycle, RESTRICT + title snapshot, REVIEW-row resolutions, tracking_token drop, chat companion spec | Draft review Q&A | owner |
 | 2026-08-17 | Initial draft, scoped to the phase-1 reference slice per owner directive | Orders reference-slice specification | spec agent |
