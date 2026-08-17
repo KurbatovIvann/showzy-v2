@@ -1,7 +1,8 @@
 # Foundation (Phases 0–1) — Plan
 
-> Status: **approved by owner 2026-08-17** (scope decisions recorded in
-> "Resolved decisions"). Produced by `/plan` for the scaffold stage.
+> Status: **rebaselined after fnd-T4, approved by owner 2026-08-17**.
+> Tasks fnd-T1…T4 are merged; the remaining task contracts below include the
+> ADR-0019/0020/0021 mobile-parity rework.
 >
 > Sources: [`docs/blueprint.md`](../blueprint.md) (§2.1, §4, §5, §7),
 > [`docs/scope.md`](../scope.md) (§7 phases 0–1),
@@ -10,7 +11,8 @@
 > foundation specs (`core`, `db`, `contract`, `security-operations`, `money`,
 > `payments`, `feature-flags`, `companies-foundation`), reference-slice specs
 > (`pricing`, `orders`, `chat`), prerequisite specs (`catalog`, `customers`),
-> ADR-0012…0016, ADR-0018, [`docs/module-ownership.md`](../module-ownership.md).
+> ADR-0012…0016, ADR-0018…0021,
+> [`docs/module-ownership.md`](../module-ownership.md).
 
 This is the task breakdown for **Phase 0 (Foundation)** and **Phase 1
 (Reference Slices)** as one coordinated sequence. Unlike module plans, the
@@ -22,6 +24,21 @@ implementer is the **scaffold agent** (`/scaffold`, not `/ticket`):
   or interleave those tasks, but never runs two scaffold PRs at once.
 - Tasks marked `sensitive` touch auth, payments, or tenant/runtime protocols:
   strongest implementer model + security review + full human review.
+
+## Execution checkpoint — do not regenerate the scaffold
+
+- **Merged and retained:** fnd-T1 monorepo/tooling, fnd-T2 CI, fnd-T3
+  Compose/config, and fnd-T4 DB foundation tables/roles.
+- Do not rerun `/scaffold` from the beginning and do not replace generated
+  migrations. Continue from **fnd-T5** on a fresh branch from the latest
+  merged base.
+- New requirements are additive follow-up slices: fnd-T5A provides projection
+  DB capabilities/fixtures; fnd-T19A provides atomic calls. Existing merged
+  work is changed only by a focused follow-up when a new test proves it must
+  change.
+- Every task still follows tests-first, one branch/PR, and ~300-line review
+  budget. The UX gate still blocks product UI; technical shell/auth/link work
+  remains the only mobile exception.
 - Milestones are listed in **queue order**: A → B → C → D → E → **I** (Expo,
   owner-positioned after the phase-0 gate) → F → G → H. Task IDs are stable
   and do not re-sort with queue position.
@@ -29,14 +46,14 @@ implementer is the **scaffold agent** (`/scaffold`, not `/ticket`):
 
 ## Resolved decisions (owner, 2026-08-17)
 
-1. **Prerequisite schemas**: the `pricing`, `catalog`, and `customers` drafts
-   are approved as-is (status flip is a precondition of milestone F); Phase 1
-   merges **only the minimal schema + facts-action subset** listed in
-   fnd-T29…T34. Everything else in those specs is phase-2+ work.
+1. **Prerequisite schemas**: the `pricing`, `catalog`, and `customers` specs
+   must be reworked for mobile parity and owner-approved before milestone F.
+   Phase 1 merges only the approved minimal schema + facts-action subset in
+   fnd-T29…T34; everything else remains phase 2+.
 2. **Expo skeleton is in scope**, mobile only (no web app): app shell, OTP
    auth screens, Universal/App Link routing with a static install-fallback
    page served by `apps/api`. No product UI — that remains blocked by the
-   Experience Foundation UX gate (ADR-0017; the shell/auth/link
+   Experience Foundation UX gate (ADR-0019; the shell/auth/link
    infrastructure is the documented exception). Queued **right after
    fnd-G1**, before/interleaved with the reference slices, so the shell — the
    first real consumer of the typed client — surfaces contract-boundary flaws
@@ -56,12 +73,14 @@ implementer is the **scaffold agent** (`/scaffold`, not `/ticket`):
    batch items; companies.md *extends* companies-foundation with full scope
    from phase 2; slice tax snapshots `exempt` per orders.md). They are
    contracts now, not open questions.
-6. **Customer/public/consumer/account principal modes** are verified in
-   phase 0 by core test-kit **fixture actions** (fnd-T21/T22), not real slice
+6. **Customer/public-target/public-global/consumer/account principal modes**
+   are verified in phase 0 by core test-kit **fixture actions**
+   (fnd-T21/T22), not real slice
    actions — `pricing.resolvePublicProductPrices` needs a publication state
    that companies-foundation deliberately lacks. The first *real*
    customer-principal template is `payments.getOwn` (fnd-T46); full
-   customer/public/consumer templates arrive with phase-2+ modules.
+   customer/public-target/public-global/consumer templates arrive with
+   phase-2+ modules.
 7. **New package `packages/money`** hosts the single pure money service
    required by money.md (modules may not import each other's services; core
    owns no domain logic). Pure TypeScript, zero external dependencies.
@@ -169,6 +188,19 @@ implementer is the **scaffold agent** (`/scaffold`, not `/ticket`):
   red on an uncommitted schema edit (fixture).
 - **Sensitive:** no.
 
+### fnd-T5A: Projection DB capability + parity fixtures
+
+- **Scope:** add `ReadTx`/`ProjectionReadTx<Grant>` capability facades and a
+  typed projection-grant manifest; add test-only (never runtime-exported)
+  published/unpublished, allowlisted/internal, two-company, two-user,
+  follow/like/comment/counter, and CRM-sentinel fixtures for core suites.
+- **Context pack:** db.md §3, §8, §10; core.md §2–§4, §12; ADR-0020.
+- **Dependencies:** fnd-T5.
+- **Tests first:** projection capability cannot compile/execute a write or
+  foreign-table read; field allowlist holds; fixtures expose cross-company and
+  private-collection leaks; browsing leaves CRM sentinel unchanged.
+- **Sensitive:** yes (global read/tenant boundary).
+
 ### fnd-T6: better-auth integration (schema + config)
 
 - **Scope:** `src/schema/auth.ts` generated by the better-auth Drizzle
@@ -205,8 +237,9 @@ implementer is the **scaffold agent** (`/scaffold`, not `/ticket`):
 
 - **Scope:** `packages/core` with explicit `exports` subpaths; the
   client-safe `contract` subpath: `defineActionContract`, serializable
-  metadata types (principal/transport/risk/aiExposure unions), define-time
-  validation of serializable fields; no Node/DB/runtime imports reachable.
+  metadata types, including `publicScope`, `projectionGrant`, `atomicCalls`,
+  and `atomicCallers`; define-time validation of serializable fields; no
+  Node/DB/runtime imports reachable.
   `AGENTS.md` for core.
 - **Context pack:** core.md §2; ADR-0016; contract.md §2.
 - **Dependencies:** fnd-T1. **Parallel-eligible with milestone B.**
@@ -232,16 +265,19 @@ implementer is the **scaffold agent** (`/scaffold`, not `/ticket`):
 
 - **Scope:** the registry-walking contract check enforcing **every** core.md
   §2 rule: metadata completeness; duplicate names; principal/transport/AI
-  combinations; customer/public `resolveTarget` required, permissions `[]`;
+  combinations; customer/public-target resolver rules; public-global
+  projection grant + strict read-only metadata/access rules;
   consumer strict subset (read/no-audit/no-events/no-resolver/client);
   account rules; confirmation implications (human principal + `risk: high` +
   `idempotent: true` + `confirmationSummary`); `emits` naming + defined
-  events; `ctx.call` target rules; event scope consistency;
+  events; `ctx.call` target rules; mutually declared `ctx.callAtomic` graph
+  rules; event scope consistency;
   `risk: write|high` ⇒ `audit: true` ⇒ `auditTarget`; subscription binding
   rules; the schema-ownership manifest (read-model grants, ADR-0015). Wired
   as the CI contract-check stage.
-- **Context pack:** core.md §2 (the CI list verbatim); ADR-0015, ADR-0018.
-- **Dependencies:** fnd-T9.
+- **Context pack:** core.md §2 (the CI list verbatim); ADR-0015, ADR-0018,
+  ADR-0020, ADR-0021.
+- **Dependencies:** fnd-T9, fnd-T5A.
 - **Tests first:** one failing fixture per rule — the spec demands "test per
   rule".
 - **Sensitive:** no.
@@ -250,19 +286,21 @@ implementer is the **scaffold agent** (`/scaffold`, not `/ticket`):
 
 - **Scope:** exactly one factory per mode (core.md §3): staff (session +
   `x-company-id` selector → verified `company_members` row, selector never
-  authority), customer/public (typed `resolveTarget` in the execution tx),
-  system (`createSystemContext(serviceName, scope)`), consumer, account;
+  authority), customer and public-target (typed resolver),
+  public-global (anonymous + declared `ProjectionReadTx`), system
+  (`createSystemContext(serviceName, scope)`), consumer, account;
   `effectiveCompanyId(ctx)`; pino child logger binding
   (request/actor/company/action); no other construction path exported.
-- **Context pack:** core.md §3; ADR-0013, ADR-0018; companies-foundation §4;
-  security-operations §6 (log fields).
-- **Dependencies:** fnd-T9, fnd-T7, fnd-T5.
+- **Context pack:** core.md §3; ADR-0013, ADR-0018, ADR-0020;
+  companies-foundation §4; security-operations §6.
+- **Dependencies:** fnd-T9, fnd-T7, fnd-T5A.
 - **Tests first:** staff — missing selector/membership denied, foreign
   membership denied, permissions precedence (owner-all / deny wins / grant /
-  role default); customer/public — resolver proves ownership/visibility,
+  role default); customer/public-target — resolver proves ownership/visibility,
   foreign resource → `NotFoundError` (no existence leak); system — tenant vs
-  global scope; consumer/account — session required, no company, no
-  membership/target; `effectiveCompanyId` per mode incl. nulls.
+  global scope; public-global — no session/resolver, grant-bound DB, anonymous
+  actor/null company; consumer/account — session required, no company,
+  membership, or target; `effectiveCompanyId` per variant.
 - **Sensitive:** yes (tenant protocol).
 
 ### fnd-T12: Execution pipeline
@@ -271,7 +309,8 @@ implementer is the **scaffold agent** (`/scaffold`, not `/ticket`):
   selectors → rate-limit hook (filled by fnd-T14) → authorization preflight
   → confirmation/idempotency hooks (filled by fnd-T20/T15) → execution
   transaction (read-only for `risk: read`, transaction-local statement
-  timeout, TOCTOU re-authorization) → handler with deadline/abort signal →
+  timeout, TOCTOU re-authorization; grant-bound `ProjectionReadTx` for
+  public-global) → handler with deadline/abort signal →
   Zod output validation before commit (`CoreInvariantError` on mismatch) →
   same-tx outbox/audit/finalize slots → commit; failure path rolls back and
   records outcome separately; one structured start/finish log line + OTel
@@ -391,7 +430,7 @@ implementer is the **scaffold agent** (`/scaffold`, not `/ticket`):
 
 - **Scope:** §9: registry-based cross-module invocation; callable targets =
   `risk: read` + principal-compatible only (consumer → consumer reads only;
-  account → consumer/account reads only); same transaction + principal, but
+  account → consumer/account reads only; public-global → no calls); same transaction + principal, but
   the callee sees a `ReadTx` facade even in a writable caller tx; callee
   `permissions`/`resolveTarget` re-evaluated; nested resolver receives
   verified `inheritedCompanyId` and must resolve to the same company
@@ -404,6 +443,21 @@ implementer is the **scaffold agent** (`/scaffold`, not `/ticket`):
   company mismatch → `CoreInvariantError`; consumer calling a company-scoped
   callee rejected; account calling consumer read accepted; depth/cycle.
 - **Sensitive:** yes (tenant protocol).
+
+### fnd-T19A: Declared `ctx.callAtomic`
+
+- **Scope:** ADR-0021/core §9: mutually declared caller/callee edges; internal
+  principal-compatible write callee in the root physical transaction; callee
+  validation/authorization/output/audit/events; root-owned idempotency,
+  confirmation, rate limit, and transaction lifecycle; one atomic edge, no
+  nested call/transaction escape; combined call-graph CI.
+- **Context pack:** ADR-0021; core.md §2, §4, §9; db.md §3; contract.md §2.
+- **Dependencies:** fnd-T10, fnd-T13, fnd-T15, fnd-T16, fnd-T19.
+- **Tests first:** `atomicCallSuite`: declared edge commits; root/callee
+  failure rolls back both writes/audit/events; same Tx identity; undeclared,
+  principal/tenant mismatch, nested call, cycle, client route, and
+  foreign-schema access fail.
+- **Sensitive:** yes (transaction and tenant protocol).
 
 ### fnd-T20: Confirmation protocol
 
@@ -430,11 +484,12 @@ implementer is the **scaffold agent** (`/scaffold`, not `/ticket`):
 - **Scope:** `packages/core/testing`: `buildTestContext(mode, overrides)`
   for all six modes against the db harness; `crossTenantSuite(actions)`
   parameterized by declared principal (staff A vs B's data; customer X vs
-  Y's resources; public vs non-public; system-tenant A touching B; consumer
-  vs unpublished/private; account user A vs user B); `consumerIsolationSuite`
-  and `accountIsolationSuite` per core.md §12.
-- **Context pack:** core.md §12; ADR-0013, ADR-0018; db.md §8 (factories).
-- **Dependencies:** fnd-T11, fnd-T5.
+  Y's resources; public-target vs non-public; public-global/consumer vs
+  unpublished/non-allowlisted; system-tenant A touching B; account user A vs
+  B); `publicProjectionSuite`, `consumerIsolationSuite`, and
+  `accountIsolationSuite`.
+- **Context pack:** core.md §12; ADR-0013, ADR-0018, ADR-0020; db.md §8.
+- **Dependencies:** fnd-T11, fnd-T5A.
 - **Tests first:** kit self-tests via per-mode fixture actions proving each
   suite fails on a seeded violation and passes on correct behavior.
 - **Sensitive:** no.
@@ -442,18 +497,21 @@ implementer is the **scaffold agent** (`/scaffold`, not `/ticket`):
 ### fnd-T22: Module test kit 2 + §2.1 invariant verification
 
 - **Scope:** `idempotencySuite(action)` (replay/conflict/concurrent) and
-  `eventSuite(module)` (transactional emit, consumer dedup); a test-only
+  `eventSuite(module)` (transactional emit, consumer dedup), plus
+  `atomicCallSuite(edge)`; a test-only
   fixture module exercising all six modes end-to-end; the **blueprint §2.1
   invariant verification run** over the fixtures: tenant isolation (1),
-  idempotency (2), observability/audit fields incl. null-company modes (4),
-  projection-ownership rule checks (5); wiring so a module omitting a
+  idempotency (2), observability/audit fields incl. public-global and other
+  null-company modes (4), projection-ownership rule checks (5); wiring so a module omitting a
   required suite instantiation fails the contract check (core.md §12).
   (Invariant 3 — money snapshots — completes with fnd-T37/T40 golden and
   slice tests.)
 - **Context pack:** core.md §12–§13; blueprint §2.1.
-- **Dependencies:** fnd-T15, fnd-T16, fnd-T17, fnd-T21.
-- **Tests first:** the suites themselves + full fixture instantiation green;
-  contract-check failure on omitted suite (fixture).
+- **Dependencies:** fnd-T15, fnd-T16, fnd-T17, fnd-T19A, fnd-T21.
+- **Tests first:** suites + full fixture instantiation green; public field
+  allowlist/rate/no-CRM, private collection isolation, social desired-state
+  counter races/abuse overrides, atomic rollback, and contract-check failure
+  on omitted suite.
 - **Sensitive:** no.
 
 ## Milestone D — Contract layer (Phase 0, `packages/contract`)
@@ -466,14 +524,16 @@ implementer is the **scaffold agent** (`/scaffold`, not `/ticket`):
   API boot through the core pipeline; the contract.md §4 error-mapping table
   (typed core error → HTTP + wire code, discriminated union); transport
   meta: `x-company-id` selector, `idempotency-key` header/meta, confirmation
-  challenge as meta (never action input); AI-manifest source derivation
+  challenge as meta (never action input), anonymous public-target/global
+  dispatch with projection grant binding; AI-manifest source derivation
   (`transport: client` + `aiExposure: exposed`, principal-filtered) with one
   coverage test.
 - **Context pack:** contract.md §2–§4; ADR-0004, ADR-0016; core.md §11.
 - **Dependencies:** fnd-T10, fnd-T15, fnd-T20.
 - **Tests first:** integration test per error class per the §4 table;
-  `transport: internal`/system actions have no routable endpoint; challenge
-  meta cannot change the canonical request hash; orphan
+  `transport: internal`/system/atomic callees have no routable endpoint;
+  public-global needs no session and cannot accept tenant authority;
+  challenge meta cannot change the canonical request hash; orphan
   descriptor/implementation fails boot.
 - **Sensitive:** no.
 
@@ -499,8 +559,9 @@ implementer is the **scaffold agent** (`/scaffold`, not `/ticket`):
   server paths (`@showzy/core/contract` allowed); final ESLint boundary
   rules (`*.contract.ts` import allowlist; `packages/contract` imports only
   `*.contract.ts`; modules import only their own schema file and other
-  modules' `index.ts`; client apps import only `packages/contract` +
-  validation/ui); OpenAPI generation, committed artifact
+  modules' `index.ts`; projection imports must match typed grants; atomic
+  callees still import only their own schema; client apps import only
+  `packages/contract` + validation/ui); OpenAPI generation, committed artifact
   (`packages/contract/openapi.json`), drift check stage.
 - **Context pack:** contract.md §2, §5, §7; ADR-0016; ADR-0014 (schema
   import rule).
@@ -517,7 +578,8 @@ implementer is the **scaffold agent** (`/scaffold`, not `/ticket`):
 - **Scope:** Hono app on `@hono/node-server`: better-auth instance mounted
   (fnd-T6 config); session resolution → the single principal dispatch
   (staff selector verification; consumer/account routing that requires a
-  session and ignores any `x-company-id`; public with trusted-proxy IP);
+  session and ignores any `x-company-id`; public-target/global without a
+  session, with trusted-proxy IP and global grant binding);
   oRPC mounted at `/rpc`; OpenAPI REST aliases at `/api/v1`; request-ID
   middleware; trusted-proxy IP normalization from `packages/config`; health
   endpoint. No webhooks, no Socket.IO (later phases).
@@ -525,7 +587,8 @@ implementer is the **scaffold agent** (`/scaffold`, not `/ticket`):
   ADR-0003, ADR-0006.
 - **Dependencies:** fnd-T25, fnd-T14, fnd-T20, fnd-T6.
 - **Tests first:** contract.md §7 set — no session → 401; `x-company-id`
-  without membership → 403; consumer/account action with session and no
+  without membership → 403; public-global without session succeeds and
+  ignores tenant selectors; consumer/account action with session and no
   header succeeds; header present on consumer/account is ignored (no company
   scope); OTP limit/expiry/attempt/non-enumeration integration tests
   (security-operations §8); spoofed forwarded-IP ignored.
@@ -567,26 +630,28 @@ implementer is the **scaffold agent** (`/scaffold`, not `/ticket`):
 - **Scope:** owner verifies the `/scaffold` exit gates: CI green with branch
   protection (tsc, ESLint boundaries, Vitest incl. Testcontainers, contract
   check, drift checks, bundle probe); §2.1 invariant suites pass across all
-  six principal modes; the "add an action from the fixture template → green
-  CI without touching `packages/core`" demo; ops baseline reviewed.
+  six principal modes and both public scopes; the "add an action from the
+  fixture template → green CI without touching `packages/core`" demo; ops
+  baseline reviewed.
 - **Dependencies:** fnd-T22, fnd-T28. **Blocks milestones I, F, G, H.**
 
 ## Milestone I — Expo app skeleton (Phase 0, mobile only; queued after fnd-G1)
 
-Ungated by UX per ADR-0017 (app shell, auth screens, link infrastructure
-only — no product UI). Parallel-eligible with milestones F–H; owner decision
-queues it first so the typed client gets a real consumer before the slices
-freeze as templates.
+Allowed before the revised UX gate only for technical shell, auth, and link
+infrastructure (ADR-0019) — no product navigation/screens. Parallel-eligible
+with milestones F–H; owner decision queues it first so the typed client gets a
+real consumer before the slices freeze as templates.
 
 ### fnd-T48: `apps/mobile` bootstrap
 
 - **Scope:** Expo app: expo-router, TypeScript strict, Unistyles theme stub
-  (token names placeholder until Experience Foundation SYSTEM output), typed
+  (adapter slots named from the V1 token inventory; values remain gated by
+  Experience Foundation SYSTEM approval), typed
   client from `packages/contract` wired with env-driven API URL, error-union
   handling example, `AGENTS.md`. New dependencies (Expo, expo-router,
   Unistyles) proposed for approval in the PR description.
 - **Context pack:** blueprint §3 (mobile row), §5; ADR-0010, ADR-0016,
-  ADR-0017 (gate exception); contract.md §3; pipeline.md (skills policy:
+  ADR-0019; V1 token inventory; contract.md §3; pipeline.md (skills policy:
   none installed in phases 0–1).
 - **Dependencies:** fnd-T24, fnd-G1 (queue position).
 - **Tests first:** typecheck + lint in CI; `expo export` smoke build stage;
@@ -633,9 +698,9 @@ freeze as templates.
 
 ## Milestone F — Reference slice 1: pricing resolution (Phase 1)
 
-**Entry gate:** owner flips `pricing.md`, `catalog.md`, `customers.md` to
-Approved (frozen) — already decided, execution is a status-line commit. The
-relevant v1 migration-matrix slices must have no `REVIEW` rows (db.md §7).
+**Entry gate:** the mobile-parity queue reworks and the owner approves the
+exact `pricing`, `catalog`, and `customers` reference subsets. This is not a
+status-only flip. Relevant v1 migration-matrix slices have no `REVIEW` rows.
 
 ### fnd-T29: Catalog minimal schema slice
 
@@ -643,7 +708,9 @@ relevant v1 migration-matrix slices must have no `REVIEW` rows (db.md §7).
   actions need: `products`, `product_variants`, `unit_types`,
   `product_options`, `product_option_values`, `product_variant_options`
   (columns per catalog.md §2 restricted to identity/tenancy/active
-  status/base price/unit/option-value needs; db.md §3 conventions) +
+  status/base price/unit/option-value needs plus ADR-0021
+  `stock_quantity_milli`, `low_stock_threshold_milli`, and
+  `track_inventory`; no backorders) +
   migration + CODEOWNERS. Remaining catalog tables (categories, media, SKU
   sequences) are phase 2.
 - **Context pack:** catalog.md §2 (listed tables only); db.md §3, §7;
@@ -651,7 +718,8 @@ relevant v1 migration-matrix slices must have no `REVIEW` rows (db.md §7).
 - **Dependencies:** fnd-G1 (and fnd-T7 schema root).
 - **Tests first:** tenancy columns + composite indexes lead with
   `company_id`; money lint passes (`base_price_minor` + `currency`); CHECKs
-  and uniques per spec; FK behaviors explicit.
+  and uniques per spec; non-negative stock milli-units; variant/product stock
+  authority; FK behaviors explicit.
 - **Sensitive:** no. *Split option: options tables as a second PR.*
 
 ### fnd-T30: Pricing schema A — `price_lists` + `price_list_entries`
@@ -715,14 +783,15 @@ relevant v1 migration-matrix slices must have no `REVIEW` rows (db.md §7).
   `catalog.getProductPricingFacts` (staff, internal, `products:view` —
   batch ≤200 → base prices + variant overrides, foreign IDs silently
   omitted) and `catalog.getProductFacts` (staff, internal — existence,
-  active status, names/SKU, unit type, variant options).
+  active status, names/SKU, unit type, variant options, tracked stock facts).
 - **Context pack:** catalog.md §3 (these two actions); pricing.md §11;
   orders.md §11 (slice defaults tax to `exempt`); ADR-0015.
 - **Dependencies:** fnd-T29, fnd-T22, fnd-T10. **Parallel-eligible with
   fnd-T33.**
 - **Tests first:** happy batch; foreign IDs omitted (pricing facts) /
   surfaced per spec (order facts); inactive product/variant representation;
-  permission denial; validation; `crossTenantSuite`; contract check.
+  product-vs-variant stock facts; permission denial; validation;
+  `crossTenantSuite`; contract check.
 - **Sensitive:** no.
 
 ### fnd-T35: Pricing resolver service + golden cascade tests
@@ -812,9 +881,9 @@ relevant v1 migration-matrix slices must have no `REVIEW` rows (db.md §7).
   (`customers.getCustomerOrderFacts` — reject `userId: null` with
   `ConflictError`; `catalog.getProductFacts`;
   `pricing.resolveProductPrices`) → line snapshots via `packages/money`
-  (slice defaults `discount: none`, `tax: exempt`) → insert order + items →
-  `ctx.emit` — all in one pipeline transaction. Exemplary as the write
-  template.
+  (slice defaults `discount: none`, `tax: exempt`) → soft tracked-stock
+  availability rejection without reservation → insert order + items →
+  `ctx.emit` — all in one pipeline transaction. Exemplary as the write template.
 - **Context pack:** orders.md §1.1, §3 (`orders.create`), §5.2, §9, §11;
   money.md; core.md §5–§6, §9; the fnd-T36 read template.
 - **Dependencies:** fnd-T37, fnd-T38, fnd-T33, fnd-T34, fnd-T36, fnd-T15,
@@ -828,23 +897,43 @@ relevant v1 migration-matrix slices must have no `REVIEW` rows (db.md §7).
   `ConflictError`, no order, no events; cross-tenant customer/product IDs →
   `NotFoundError`; atomicity — failed handler leaves no order/items/outbox
   rows/audit; pricing change after creation does not alter stored snapshots
-  (invariant §2.1-3).
+  (invariant §2.1-3); excessive tracked quantity rejected; successful pending
+  order leaves product/variant stock unchanged.
 - **Sensitive:** no (protocols exercised, not modified; full human review
   applies regardless).
+
+### fnd-T40A: Catalog stock atomic capability
+
+- **Scope:** internal staff `catalog.decrementStockForOrder`, exposed only
+  through the declared `orders.confirm` atomic edge: validate one-company
+  product/variant lines, lock rows in stable ID order, decrement tracked
+  `_milli` balances non-negatively, emit `catalog.stockAdjusted`; no
+  backorders and no double product+variant decrement.
+- **Context pack:** accepted reworked catalog/orders subsets; ADR-0021;
+  core.md §9; money.md quantity scale.
+- **Dependencies:** fnd-T29, fnd-T34, fnd-T19A.
+- **Tests first:** success/untracked/variant-only behavior; insufficient stock
+  rollback; sorted locking; direct client route absent; tenant/principal and
+  undeclared caller rejection.
+- **Sensitive:** yes (inventory/tenant transaction).
 
 ### fnd-T41: `orders.confirm` + `orders.get` + `orders.confirmed`
 
 - **Scope:** the `orders.confirmed` v1 event definition; `orders.confirm`
   (staff, write, idempotent, audited — `new → confirmed`, sets
-  `confirmed_at`, emits) and `orders.get` (staff read returning the shared
-  `Order` shape with items).
-- **Context pack:** orders.md §3 (both actions), §5 (transitions), §9.
-- **Dependencies:** fnd-T40.
+  `confirmed_at`, calls the declared catalog stock capability and emits in one
+  transaction) and `orders.get` (staff read returning the shared `Order`
+  shape with items).
+- **Context pack:** orders.md §3 (both actions), §5 (transitions), §9;
+  ADR-0021; core.md §9.
+- **Dependencies:** fnd-T40, fnd-T40A.
 - **Tests first:** confirm happy + `confirmed_at`; invalid transition
   (`confirmed → confirmed`, `canceled → confirmed`) → `ConflictError`;
   per-aggregate ordering — `orders.created` sequence-precedes
   `orders.confirmed`; idempotent confirm replay; get happy / permission
-  denial / cross-tenant `NotFoundError`.
+  denial / cross-tenant `NotFoundError`; two orders racing for one stock unit
+  produce exactly one confirmation; loser remains `new`, stock never
+  negative; failed decrement rolls back order/audit/outbox.
 - **Sensitive:** no.
 
 ### fnd-T42: Chat order-card projection — **the projection/subscription template**
@@ -877,8 +966,9 @@ relevant v1 migration-matrix slices must have no `REVIEW` rows (db.md §7).
 - **Scope:** owner verifies both slices against the `/scaffold` exit gates:
   exemplary quality (they are the templates `/ticket` agents copy);
   cross-tenant suite green for slice actions; §2.1 invariant 3 (money
-  snapshots) now fully verified; pipeline health metrics recorded (review
-  iterations per PR, spec → green-CI time) per blueprint §7.4.
+  snapshots) and ADR-0021 stock atomicity now verified; pipeline health
+  metrics recorded (review iterations per PR, spec → green-CI time) per
+  blueprint §7.4.
 - **Dependencies:** fnd-T36, fnd-T42. **Blocks milestone H.**
 
 ## Milestone H — Phase-0 skeletons: feature-flags, payments (after fnd-G2)

@@ -49,19 +49,29 @@ flowchart TD
 
 - Reconcile blueprint, scope, module ownership, and roadmap with ADR-0019/0020.
 - Confirm clean V2 database and all preserve/adapt/drop decisions.
-- **Done:** no constitutional document contradicts the accepted ADRs.
+- **Completed:** no constitutional document contradicts the accepted ADRs.
 
 ### vm-T2: stock architecture decision
 
 - Resolve D1 without a cross-module write workaround.
 - Prove concurrent confirmation behavior and assign authoritative ownership.
-- **Done:** accepted ADR/spec direction unblocks catalog and orders.
+- **Completed:** ADR-0021 keeps stock in catalog and defines declared atomic
+  composition.
 
 ### vm-T3: foundation contract rework
 
 - Execute spec queue Step 1 for global public projection reads and fixtures.
 - **Tests:** contract metadata, unpublished denial, rate limits, no CRM side
   effects, cross-user/account isolation.
+- **Spec rework completed:** core/contract/DB/security/template now define the
+  pattern; scaffold implementation remains gated by their task plan.
+
+### vm-T3A: foundation scaffold recut
+
+- Keep merged fnd-T1…T4; do not regenerate migrations or restart scaffold.
+- Continue at fnd-T5, with fnd-T5A projection capabilities/fixtures,
+  fnd-T19A atomic composition, and stock-atomic reference confirmation.
+- **Completed:** `docs/plans/foundation.md` is the executable recut.
 
 ### vm-T4…T12: module spec waves
 
