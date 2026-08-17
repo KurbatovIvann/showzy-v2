@@ -2,6 +2,7 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
+    globalSetup: ["./src/testing/global-setup.ts"],
     // Integration tests boot a Testcontainers Postgres 17; the first run also
     // pulls the image. Generous timeouts keep CI stable, not slow — tests
     // finish as soon as the container is up.

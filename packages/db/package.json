@@ -6,7 +6,9 @@
   "description": "Drizzle schema (one file per owning module + foundation), drizzle-kit migrations, Postgres test harness, and seeds. No business logic, no queries.",
   "exports": {
     ".": "./src/index.ts",
-    "./schema/*": "./src/schema/*.ts"
+    "./schema/*": "./src/schema/*.ts",
+    "./testing": "./src/testing/harness.ts",
+    "./testing/global-setup": "./src/testing/global-setup.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

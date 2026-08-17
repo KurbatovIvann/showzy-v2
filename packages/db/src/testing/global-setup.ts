@@ -1,0 +1,81 @@
+import { randomUUID } from "node:crypto";
+import { fileURLToPath } from "node:url";
+
+import {
+  PostgreSqlContainer,
+  type StartedPostgreSqlContainer,
+} from "@testcontainers/postgresql";
+import { migrate } from "drizzle-orm/node-postgres/migrator";
+import pg from "pg";
+import type { TestProject } from "vitest/node";
+
+import { createDbClient } from "../client.js";
+import type { DbHarnessContext } from "./context.js";
+
+const templateDatabase = "showzy_template";
+const runtimeRole = "showzy_test_app";
+const migrationsFolder = fileURLToPath(
+  new URL("../../migrations", import.meta.url),
+);
+
+function databaseUrl(
+  source: string,
+  database: string,
+  credentials?: { user: string; password: string },
+): string {
+  const url = new URL(source);
+  url.pathname = `/${database}`;
+  if (credentials !== undefined) {
+    url.username = credentials.user;
+    url.password = credentials.password;
+  }
+  return url.toString();
+}
+
+export default async function setup(project: TestProject) {
+  const container: StartedPostgreSqlContainer = await new PostgreSqlContainer(
+    "postgres:17-alpine",
+  ).start();
+  const adminUrl = container.getConnectionUri();
+  const control = new pg.Client({
+    connectionString: databaseUrl(adminUrl, "postgres"),
+  });
+  await control.connect();
+
+  try {
+    await control.query(`CREATE DATABASE "${templateDatabase}"`);
+    const template = createDbClient({
+      databaseUrl: databaseUrl(adminUrl, templateDatabase),
+    });
+    try {
+      await migrate(template.db, { migrationsFolder });
+    } finally {
+      await template.pool.end();
+    }
+
+    const runtimePassword = randomUUID();
+    await control.query(
+      `CREATE ROLE "${runtimeRole}" LOGIN PASSWORD '${runtimePassword}' IN ROLE showzy_app`,
+    );
+    await control.query(
+      `ALTER DATABASE "${templateDatabase}" IS_TEMPLATE TRUE`,
+    );
+
+    const context: DbHarnessContext = {
+      adminUrl,
+      templateDatabase,
+      runtimeRole,
+      runtimePassword,
+    };
+    project.provide("dbHarness", context);
+  } catch (error) {
+    await container.stop();
+    throw error;
+  } finally {
+    await control.end();
+  }
+
+  return async () => {
+    await container.stop();
+  };
+}
