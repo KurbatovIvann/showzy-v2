@@ -1,0 +1,27 @@
+{
+  "name": "@showzy/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "HTTP transport composition. Phase-0 slice (fnd-T6): the better-auth configuration module carrying the security-operations §2 parameters and the auth schema generation entry. The Hono server, session dispatch, and runtime mounting arrive with fnd-T26.",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "auth:generate": "auth generate --config src/auth/cli.ts --output ../../packages/db/src/schema/auth.ts --yes",
+    "auth:check": "pnpm auth:generate && node ../../packages/db/scripts/assert-clean-path.mjs ../../packages/db/src/schema/auth.ts"
+  },
+  "dependencies": {
+    "@showzy/db": "workspace:*",
+    "better-auth": "^1.6.30",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@showzy/tooling": "workspace:*",
+    "@types/node": "^22.20.1",
+    "auth": "^1.6.30",
+    "eslint": "^10.8.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
+  }
+}
