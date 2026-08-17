@@ -8,8 +8,7 @@ const moneyTerm =
   /(?:^|_)(?:price|amount|total|subtotal|discount|tax|fee|balance)(?:_|$)/i;
 const nonMoneySuffix =
   /_(?:id|type|code|rate|bps|percent|percentage|treatment)$/i;
-const columnPattern =
-  /(\w+)\s*:\s*(\w+)\s*\(\s*["']([^"']+)["']/g;
+const columnPattern = /(\w+)\s*:\s*(\w+)\s*\(\s*["']([^"']+)["']/g;
 const currencyPattern =
   /\w+\s*:\s*char\s*\(\s*["']currency["']\s*,\s*\{[\s\S]*?length\s*:\s*3[\s\S]*?\}\s*\)/;
 
