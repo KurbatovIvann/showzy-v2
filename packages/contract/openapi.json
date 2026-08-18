@@ -1,0 +1,13 @@
+{
+  "info": {
+    "title": "Showzy API",
+    "version": "0.0.0",
+    "description": "Generated from the action contract layer. Action descriptions are the OpenAPI summaries (contract.md §5)."
+  },
+  "servers": [
+    {
+      "url": "/api/v1"
+    }
+  ],
+  "openapi": "3.1.1"
+}

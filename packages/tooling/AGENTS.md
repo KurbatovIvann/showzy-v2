@@ -18,10 +18,13 @@ code lives here — only configuration.
   comments require a linked `SHO-<n>` issue, no `as unknown as`) — never
   weaken these without an accepted ADR.
 - `boundaries/elements` is the single source for the architectural element
-  map (blueprint §5). The allowed-dependency matrix
-  (`boundaries/element-types` and the `*.contract.ts` import allowlist,
-  ADR-0014/ADR-0016) is finalized in fnd-T25 — do not add ad-hoc boundary
-  rules in individual packages.
+  map (blueprint §5). The allowed-dependency matrix is `boundaries/dependencies`
+  (v7 successor of `element-types`) plus `showzy/import-boundaries` for
+  specifier rules that cannot depend on pnpm resolving workspace packages:
+  `*.contract.ts` allowlist, own-schema (ADR-0014), module index-only
+  cross-imports, `packages/contract` → `index.contract.ts` only, client apps
+  → `@showzy/contract` + validation/ui. Do not add ad-hoc boundary rules
+  in individual packages.
 - Prettier stays at defaults; style debates are settled by "whatever
   Prettier does".
 - Emitting builds (`declaration`, bundler-specific options) are per-package

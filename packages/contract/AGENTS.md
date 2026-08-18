@@ -7,7 +7,7 @@ from client-safe action descriptors; the `./server` subpath pairs those
 procedures with registered implementations through the core execution
 pipeline. **Owns no domain logic and no state.**
 
-## Current state (fnd-T24)
+## Current state (fnd-T25)
 
 Two export subpaths:
 
@@ -20,11 +20,17 @@ Two export subpaths:
 - `@showzy/contract/server` — `buildServerRouter` (every procedure is
   `executeAction`), `toPipelineRequestMeta` / `toPrincipalInvocation`,
   `toWireError` + `wireErrorInterceptors`. Reaches the core runtime; the
-  CI bundle probe (fnd-T25) must reject this subpath from client entries.
+  CI bundle probe rejects this subpath from client entries.
+
+The `bundle-probe` CI job compiles `probe/entry.ts` (the full typed client)
+with esbuild and fails on Node builtins, `packages/db`, and core server
+paths (`@showzy/core/contract` is allowed). OpenAPI is generated from
+`contractRouter` into the committed `openapi.json`; `openapi:check` diffs
+it like migrations.
 
 No domain modules exist yet, so `contractModules` is explicitly empty.
-Module tasks add their `index.contract.ts` barrels there. ESLint
-boundaries, the bundle probe, and OpenAPI drift are fnd-T25.
+Module tasks add their `index.contract.ts` barrels there and regenerate
+the OpenAPI artifact.
 
 ## Client-safe root (`src/client/`)
 
@@ -32,9 +38,9 @@ boundaries, the bundle probe, and OpenAPI drift are fnd-T25.
   `@showzy/core/contract` (plus a type-only pin to `@showzy/core/errors`
   so the wire table cannot drift from the §11 vocabulary). No core
   runtime, `packages/db`, Node builtins, logging, Redis, or workers.
-- `tsconfig.client.json` re-checks `src/client` with `"types": []` and
-  DOM lib (Fetch / Web Crypto) in the same `typecheck` script — an
-  accidental `process`/`Buffer` reference is a compile error.
+- `tsconfig.client.json` re-checks `src/client` (and `probe/entry.ts`) with
+  `"types": []` and DOM lib (Fetch / Web Crypto) in the same `typecheck`
+  script — an accidental `process`/`Buffer` reference is a compile error.
 - Only `transport: "client"` descriptors are routable.
   `buildContractRouter` / `buildServerRouter` **fail loudly** on an
   internal/system entry rather than filtering it out — silent omission
@@ -81,8 +87,11 @@ all derive from the descriptor.
 
 - `*.test.ts` — Docker-free: the §4 table, composition rules, AI coverage,
   wire mapping, principal dispatch of transport meta, mutation-attempt
-  key reuse, money int64 round-trip, client header injection.
+  key reuse, money int64 round-trip, client header injection, bundle-probe
+  leak fixtures, OpenAPI generation vs the committed artifact.
 - `*.db.test.ts` — transport round-trip against the Testcontainers
   harness (`@showzy/core/testing`): every §4 error class over the wire,
   selector/session rules, idempotency and confirmation meta, orphan boot
   failure, typed-client missing-key / retry. Docker required.
+
+CI also runs `bundle:probe` and `openapi:check` in the `bundle-probe` job.

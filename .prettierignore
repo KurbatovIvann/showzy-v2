@@ -5,6 +5,10 @@ pnpm-lock.yaml
 # or the migration drift check (fnd-T5) would diff formatting, not schema.
 packages/db/migrations/
 
+# OpenAPI artifact must stay byte-identical to generation, or the
+# OpenAPI drift check (fnd-T25) would diff formatting, not the contract.
+packages/contract/openapi.json
+
 # Human/pipeline-authored documents. docs/specs/* are frozen contracts that
 # implementers may not edit (prohibitions.mdc), so Prettier never rewrites
 # anything under docs/ or the agent instruction files.

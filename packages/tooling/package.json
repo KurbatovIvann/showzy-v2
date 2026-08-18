@@ -10,7 +10,8 @@
     "./eslint": "./eslint/base.mjs"
   },
   "scripts": {
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "node --test eslint/import-boundaries.test.mjs"
   },
   "dependencies": {
     "@eslint/js": "^10.0.1",

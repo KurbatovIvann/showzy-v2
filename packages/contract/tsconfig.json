@@ -8,5 +8,5 @@
     // `process`/`Buffer` reference in the client layer still fails CI.
     "types": ["node"]
   },
-  "include": ["src", "vitest.config.ts"]
+  "include": ["src", "probe/entry.ts", "vitest.config.ts"]
 }
