@@ -12,7 +12,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "contract:check": "vitest run src/contract-check/ci-stage.test.ts"
   },
   "dependencies": {
     "zod": "^4.4.3"

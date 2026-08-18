@@ -4,18 +4,18 @@ The action runtime (core.md). **Frozen for module tasks** (prohibitions.mdc):
 module implementation tasks may not change anything here — if core is missing
 something, stop and report.
 
-## Current state (fnd-T9)
+## Current state (fnd-T10)
 
 Three export subpaths exist:
 
 - `@showzy/core/contract` — the client-safe leaf (fnd-T8, below).
 - `@showzy/core/errors` — the ten core.md §11 error classes.
-- `@showzy/core` (root, server-only) — `implementAction` + `ActionRegistry`.
+- `@showzy/core` (root, server-only) — `implementAction` + `ActionRegistry`
+  (fnd-T9) + the registry-walking contract check (fnd-T10).
 
-The rest of the runtime — contract check, principal contexts, execution
-pipeline, events, idempotency, confirmation, rate limiting,
-`ctx.call`/`ctx.callAtomic`, and the module test kit — lands with
-fnd-T10…T22.
+The rest of the runtime — principal contexts, execution pipeline, events,
+idempotency, confirmation, rate limiting, `ctx.call`/`ctx.callAtomic`, and
+the module test kit — lands with fnd-T11…T22.
 
 ## Typed errors (`src/errors/`, core.md §11)
 
@@ -46,6 +46,34 @@ fnd-T10…T22.
   environment parameters (`ActionExecutionCtx`, resolver/summary/audit
   envs) are opaque aliases owned by fnd-T11/T12/T13/T20 — narrow the
   alias there, do not commit context internals here.
+
+## The contract check (`src/contract-check/`, core.md §2)
+
+The CI gate is layered — all three layers run in the `contract-check` CI
+stage (`pnpm --filter @showzy/core contract:check`):
+
+1. **Define time** — `defineActionContract` throws on every single-descriptor
+   rule when the stage imports a module barrel.
+2. **Implement/registration time** — `implementAction` (conditional
+   callbacks), `ActionRegistry` (duplicates, `assertPaired`).
+3. **Registry-wide** — `runContractCheck(input)` aggregates every violation
+   that needs the whole registry plus the manifests: unknown projection
+   grants, event definition existence/duplicates, emitter/event scope
+   consistency (account and global-system emitters declare `scope: "global"`
+   events — their envelopes carry a null company), subscription binding
+   rules (system/internal/AI-internal/write/idempotent + scope match),
+   declared `ctx.call` edge rules (cross-module, `risk: read`,
+   principal-compatible, no public-global on either side), atomic-edge
+   mutuality/compatibility (ADR-0021), and the ADR-0015 schema-ownership
+   manifest (foreign schema imports need an owner-declared read-model grant
+   to `search`/`analytics`).
+
+`registered-modules.ts` is the interim composition manifest the stage walks
+(`ci-stage.test.ts`). Everything is explicitly empty until modules exist;
+event definitions/subscriptions arrive with fnd-T16/T17, and fnd-T23/T26
+move composition to `packages/contract` / apps boot. `EventDefinitionRef`,
+`EventSubscriptionRef`, and the other input shapes are structural on purpose
+so fnd-T16/T17 outputs satisfy them without core changes.
 
 ## The `contract` subpath (ADR-0016)
 
