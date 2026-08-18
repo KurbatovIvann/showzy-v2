@@ -1,0 +1,51 @@
+import { ActionRegistry } from "@showzy/core";
+import { pino } from "pino";
+import { describe, expect, it } from "vitest";
+
+import { createApp, HEALTH_PATH } from "./app.js";
+import { REQUEST_ID_HEADER } from "./request-id.js";
+
+const UUID = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+
+function silentApp() {
+  return createApp({
+    auth: {
+      handler: () => Promise.resolve(new Response(null, { status: 404 })),
+      api: { getSession: () => Promise.resolve(null) },
+    },
+    registry: new ActionRegistry(),
+    contractModules: {},
+    pipeline: {
+      db: {
+        transaction: () => {
+          throw new Error("unit tests do not open transactions");
+        },
+      },
+      logger: pino({ enabled: false }),
+    },
+    trustedProxies: [],
+    getPeerAddress: () => "127.0.0.1",
+  });
+}
+
+describe("createApp HTTP shell", () => {
+  it("GET /health returns ok", async () => {
+    const app = silentApp();
+    const response = await app.request(HEALTH_PATH);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ status: "ok" });
+  });
+
+  it("echoes a valid x-request-id and mints one when absent", async () => {
+    const app = silentApp();
+    const echoed = await app.request(HEALTH_PATH, {
+      headers: { [REQUEST_ID_HEADER]: UUID },
+    });
+    expect(echoed.headers.get(REQUEST_ID_HEADER)).toBe(UUID);
+
+    const minted = await app.request(HEALTH_PATH);
+    expect(minted.headers.get(REQUEST_ID_HEADER)).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
+  });
+});

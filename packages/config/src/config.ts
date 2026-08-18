@@ -13,6 +13,7 @@ const SECRET_ENV_KEYS: ReadonlySet<string> = new Set([
   "S3_ACCESS_KEY_ID",
   "S3_SECRET_ACCESS_KEY",
   "BETTER_AUTH_SECRET",
+  "IP_HMAC_SECRET",
   "SENTRY_DSN",
 ]);
 
@@ -41,6 +42,16 @@ const envSchema = z.object({
 
   BETTER_AUTH_SECRET: z.string().min(32),
   BETTER_AUTH_URL: z.url({ protocol: /^https?$/ }),
+
+  /**
+   * HMAC secret for public rate-limit bucket keys (core.md §10). Rotating
+   * IP HMACs must not be derivable from data; this value is injected into
+   * `createRateLimitHook` at API boot (fnd-T26).
+   */
+  IP_HMAC_SECRET: z.string().min(32),
+
+  /** HTTP listen port for `apps/api` (and later `apps/worker` admin if any). */
+  API_PORT: z.coerce.number().int().min(1).max(65535).default(3000),
 
   /**
    * Comma-separated ingress proxy IPs/CIDRs. Forwarded-IP headers are trusted
@@ -84,6 +95,8 @@ export interface ServerConfig {
     readonly secret: string;
     readonly url: string;
   };
+  readonly rateLimit: { readonly ipHmacSecret: string };
+  readonly http: { readonly port: number };
   readonly trustedProxies: readonly string[];
   readonly sentry: { readonly dsn: string | undefined };
 }
@@ -169,6 +182,8 @@ export function loadServerConfig(
       secret: parsed.BETTER_AUTH_SECRET,
       url: parsed.BETTER_AUTH_URL,
     },
+    rateLimit: { ipHmacSecret: parsed.IP_HMAC_SECRET },
+    http: { port: parsed.API_PORT },
     trustedProxies: parsed.TRUSTED_PROXIES,
     sentry: { dsn: parsed.SENTRY_DSN },
   };

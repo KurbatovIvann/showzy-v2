@@ -1,9 +1,10 @@
 /**
  * The better-auth configuration module (fnd-T6): every security-operations §2
  * parameter is encoded here, once. Runtime mounting — the Hono app, the real
- * Drizzle database, Redis-backed stores, and the SMS/email senders — arrives
- * with fnd-T26 and must build its instance through this factory so the
- * parameters cannot drift between schema generation, runtime, and tests.
+ * Drizzle database, Redis-backed stores, and the SMS/email senders — is
+ * composed in `src/boot.ts` (fnd-T26) and must build its instance through
+ * this factory so the parameters cannot drift between schema generation,
+ * runtime, and tests.
  *
  * OTP codes never persist to Postgres: `secondaryStorage` is a required
  * dependency, and with it configured better-auth keeps all verification
