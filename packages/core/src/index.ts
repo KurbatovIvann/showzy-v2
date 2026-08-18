@@ -33,6 +33,8 @@ export type {
   ReadModelGrantRef,
   SchemaImportRef,
 } from "./contract-check/contract-check.js";
+export { emptySuiteCoverage } from "./contract-check/suite-coverage.js";
+export type { SuiteCoverageManifest } from "./contract-check/suite-coverage.js";
 export type {
   AnyActionContract,
   RegisteredImplementation,

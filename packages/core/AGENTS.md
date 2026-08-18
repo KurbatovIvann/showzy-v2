@@ -4,36 +4,37 @@ The action runtime (core.md). **Frozen for module tasks** (prohibitions.mdc):
 module implementation tasks may not change anything here — if core is missing
 something, stop and report.
 
-## Current state (fnd-T21)
+## Current state (fnd-T22)
 
 Four export subpaths exist:
 
 - `@showzy/core/contract` — the client-safe leaf (fnd-T8, below).
 - `@showzy/core/errors` — the ten core.md §11 error classes.
 - `@showzy/core` (root, server-only) — `implementAction` + `ActionRegistry`
-  (fnd-T9), the registry-walking contract check (fnd-T10), the six
-  principal context factories + `effectiveCompanyId` +
-  `staffHasPermission` (fnd-T11), the execution pipeline
-  `executeAction` (fnd-T12), the audit protocol `createAuditHook` +
-  `canonicalJson`/`canonicalJsonSha256` (fnd-T13), rate limiting
-  `createRateLimitHook` + `createInMemoryRateLimitStore` (fnd-T14), the
-  idempotency protocol `createIdempotencyHook` +
-  `cleanupExpiredIdempotencyKeys` (fnd-T15), domain events
-  `defineEvent` + the pipeline-internal `ctx.emit` buffer (fnd-T16),
-  and event delivery — `defineEventHandler` + `eventEnvelopeSchema`,
-  the dispatcher library `dispatchOutboxBatch`, and the delivery
-  entrypoint `executeDelivery` (fnd-T17), plus claim leases, exponential
-  retry, dead-letter parking, and consumer-scoped admin replay (fnd-T18),
-  cross-module reads — the pipeline-internal `ctx.call` (fnd-T19),
-  declared same-transaction writes — `ctx.callAtomic` (fnd-T19A), and
-  the confirmation protocol `createConfirmationHook` +
-  `createInMemoryConfirmationStore` (fnd-T20).
-- `@showzy/core/testing` — the module test kit (fnd-T21): `createTestKit`
-  / `buildTestContext` against the db harness, plus `crossTenantSuite`,
-  `publicProjectionSuite`, `consumerIsolationSuite`, and
-  `accountIsolationSuite`. `idempotencySuite` / `eventSuite` /
-  `atomicCallSuite` and the contract-check wiring that modules
-  instantiate the suites land with fnd-T22.
+  (fnd-T9), the registry-walking contract check (fnd-T10) including the
+  `suiteCoverage` manifest (fnd-T22), the six principal context factories
+  - `effectiveCompanyId` + `staffHasPermission` (fnd-T11), the execution
+    pipeline `executeAction` (fnd-T12), the audit protocol `createAuditHook`
+  - `canonicalJson`/`canonicalJsonSha256` (fnd-T13), rate limiting
+    `createRateLimitHook` + `createInMemoryRateLimitStore` (fnd-T14), the
+    idempotency protocol `createIdempotencyHook` +
+    `cleanupExpiredIdempotencyKeys` (fnd-T15), domain events
+    `defineEvent` + the pipeline-internal `ctx.emit` buffer (fnd-T16),
+    and event delivery — `defineEventHandler` + `eventEnvelopeSchema`,
+    the dispatcher library `dispatchOutboxBatch`, and the delivery
+    entrypoint `executeDelivery` (fnd-T17), plus claim leases, exponential
+    retry, dead-letter parking, and consumer-scoped admin replay (fnd-T18),
+    cross-module reads — the pipeline-internal `ctx.call` (fnd-T19),
+    declared same-transaction writes — `ctx.callAtomic` (fnd-T19A), and
+    the confirmation protocol `createConfirmationHook` +
+    `createInMemoryConfirmationStore` (fnd-T20).
+- `@showzy/core/testing` — the module test kit (fnd-T21/T22):
+  `createTestKit` / `buildTestContext` against the db harness, plus
+  `crossTenantSuite`, `publicProjectionSuite`, `consumerIsolationSuite`,
+  `accountIsolationSuite`, `idempotencySuite`, `eventSuite`, and
+  `atomicCallSuite`. Module tasks instantiate the registrars; omitting a
+  required suite fails the contract check. The next package is
+  `packages/contract` (fnd-T23).
 
 ## Typed errors (`src/errors/`, core.md §11)
 
@@ -352,9 +353,11 @@ stage (`pnpm --filter @showzy/core contract:check`):
    principal-compatible, no public-global on either side — the per-target
    list lives in `call-rules.ts` and is shared verbatim with the fnd-T19
    runtime assert), atomic-edge
-   mutuality/compatibility (ADR-0021), and the ADR-0015 schema-ownership
+   mutuality/compatibility (ADR-0021), the ADR-0015 schema-ownership
    manifest (foreign schema imports need an owner-declared read-model grant
-   to `search`/`analytics`).
+   to `search`/`analytics`), and inherited-suite coverage (core.md §12:
+   every registered action and declared atomic edge must appear in
+   `suiteCoverage`).
 
 `registered-modules.ts` is the interim composition manifest the stage walks
 (`ci-stage.test.ts`). Everything is explicitly empty until modules exist;
@@ -373,13 +376,17 @@ changes.
   the six-mode factory wrapper — it still goes through the real context
   factories, never hand-rolled objects.
 - Isolation suites (`crossTenantSuite`, `publicProjectionSuite`,
-  `consumerIsolationSuite`, `accountIsolationSuite`) take `getKit` and
+  `consumerIsolationSuite`, `accountIsolationSuite`) and protocol suites
+  (`idempotencySuite`, `eventSuite`, `atomicCallSuite`) take `getKit` and
   register vitest tests. `run*Case` is the same assertion without
   registration, so a leaky fixture action can be proven to fail the
-  suite. Module tasks instantiate the registrars; omitting them fails
-  the contract check once fnd-T22 lands.
-- Self-tests live in `kit.db.test.ts` and use per-mode fixture actions
-  that are **not** part of the public testing export.
+  suite. Module tasks instantiate the registrars; omitting a required
+  suite fails the contract check (`suiteCoverage` on
+  `ContractCheckInput`, fnd-T22).
+- Self-tests live in `kit.db.test.ts` (isolation) and
+  `protocol-suites.db.test.ts` (idempotency/events/atomic, social
+  desired-state, audit fields, projection ownership) and use per-mode
+  fixture actions that are **not** part of the public testing export.
 
 ## The `contract` subpath (ADR-0016)
 

@@ -17,13 +17,16 @@
  *   until core gains that dependency (fnd-T11/T12 need it for transaction
  *   facades), the empty set here states that no grant exists;
  * - the schema-ownership entries (read-model grants and foreign schema
- *   imports) are declared by the owning specs' tasks.
+ *   imports) are declared by the owning specs' tasks;
+ * - inherited-suite coverage (`suiteCoverage`) is declared by each
+ *   module that registers actions — empty until the first module lands.
  *
  * Keeping the empty statements explicit (rather than defaulting inside the
  * check) means a composition root can never skip a rule class silently.
  */
 import { ActionRegistry } from "../runtime/action-registry.js";
 import type { ContractCheckInput } from "./contract-check.js";
+import { emptySuiteCoverage } from "./suite-coverage.js";
 
 export function buildContractCheckStageInput(): ContractCheckInput {
   const registry = new ActionRegistry();
@@ -35,5 +38,6 @@ export function buildContractCheckStageInput(): ContractCheckInput {
     projectionGrants: new Set<string>(),
     readModelGrants: [],
     schemaImports: [],
+    suiteCoverage: emptySuiteCoverage,
   };
 }
