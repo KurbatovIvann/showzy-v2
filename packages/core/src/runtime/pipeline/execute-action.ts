@@ -1,0 +1,728 @@
+/**
+ * `executeAction` — the one execution pipeline every action runs through
+ * (fnd-T12 — core.md §4). The step order is fixed, with no per-action
+ * variation:
+ *
+ *   1. validate input (Zod)
+ *   2. authenticate the principal / read transport selectors
+ *   3. rate limit                        (slot — fnd-T14)
+ *   4. authorization preflight           (short read-only transaction)
+ *   5. replay probe + confirmation gate  (slot — fnd-T20)
+ *   6. idempotency reserve               (slot — fnd-T15)
+ *   7. execution transaction: statement timeout, TOCTOU re-authorization,
+ *      handler with deadline/abort signal
+ *   8. output validation before commit   (mismatch = `CoreInvariantError`)
+ *   9. same-transaction outbox/audit/idempotency-finalize slots
+ *  10. commit — or roll back and record the failed outcome separately
+ *
+ * `risk: read` actions run in a database read-only transaction and their
+ * handlers receive the `ReadTx` capability, so a write can neither compile
+ * nor execute. Public-global handlers are bound to their declared
+ * projection grant. The pipeline emits one structured start and one finish
+ * log line and drives the telemetry seam the apps bind to OTel/Sentry.
+ */
+import {
+  createReadTx,
+  projectionGrants as runtimeProjectionGrants,
+  type ReadTx,
+  type Tx,
+} from "@showzy/db";
+import { sql } from "drizzle-orm";
+import type { z } from "zod";
+
+import {
+  CoreError,
+  CoreInvariantError,
+  PermissionDeniedError,
+  TimeoutError,
+  ValidationError,
+} from "../../errors/index.js";
+import type { AnyActionContract } from "../action-registry.js";
+import {
+  createAccountContext,
+  createConsumerContext,
+  createCustomerContext,
+  createPublicContext,
+  createStaffContext,
+  createSystemContext,
+  effectiveCompanyId,
+  type ActionRequestMeta,
+  type ContextRuntime,
+} from "../context/factories.js";
+import { staffHasPermission } from "../context/permissions.js";
+import type { ActionCtx, StaffMembership } from "../context/types.js";
+import type { ImplementedAction } from "../implement-action.js";
+import type { MaybePromise, TargetResolver } from "../types.js";
+import type {
+  ActionPipelineDeps,
+  PipelineHookEnv,
+  PipelineRequestMeta,
+  PreflightAuthorization,
+  PrincipalInvocation,
+} from "./types.js";
+
+/** One action invocation, as composed by a transport or a worker loop. */
+export interface ActionInvocation<
+  TInput extends z.ZodType,
+  TOutput extends z.ZodType,
+  TTarget,
+> {
+  readonly action: ImplementedAction<TInput, TOutput, TTarget>;
+  /** Raw, untrusted input — validated as pipeline step 1. */
+  readonly input: unknown;
+  readonly request: PipelineRequestMeta;
+  readonly principal: PrincipalInvocation;
+}
+
+/** Everything the per-step helpers need about one validated invocation. */
+interface RunEnv<TInput extends z.ZodType, TOutput extends z.ZodType, TTarget> {
+  readonly deps: ActionPipelineDeps;
+  readonly action: ImplementedAction<TInput, TOutput, TTarget>;
+  readonly contract: AnyActionContract;
+  readonly request: ActionRequestMeta;
+  readonly principal: PrincipalInvocation;
+  readonly input: z.output<TInput>;
+  readonly makeRuntime: <TDb>(db: TDb) => ContextRuntime<TDb>;
+}
+
+export async function executeAction<
+  TInput extends z.ZodType,
+  TOutput extends z.ZodType,
+  TTarget,
+>(
+  deps: ActionPipelineDeps,
+  invocation: ActionInvocation<TInput, TOutput, TTarget>,
+): Promise<z.output<TOutput>> {
+  const now = deps.now ?? Date.now;
+  const { contract } = invocation.action;
+  const principal = invocation.principal;
+  const startedAt = now();
+  // The whole-pipeline deadline (core.md §2 `timeout`), shared with the
+  // handler and — later — nested `ctx.call`s through the abort signal.
+  const deadline = startedAt + contract.timeout;
+  const controller = new AbortController();
+  const request: ActionRequestMeta = {
+    action: contract.name,
+    ...invocation.request,
+  };
+
+  const log = deps.logger.child({
+    request_id: request.requestId,
+    correlation_id: request.correlationId,
+    action: contract.name,
+    channel: request.channel,
+    ...(request.aiTraceId !== undefined
+      ? { ai_trace_id: request.aiTraceId }
+      : {}),
+    ...(request.toolCallId !== undefined
+      ? { tool_call_id: request.toolCallId }
+      : {}),
+  });
+  const span = deps.telemetry?.startSpan({
+    requestId: request.requestId,
+    correlationId: request.correlationId,
+    action: contract.name,
+    channel: request.channel,
+    ...(request.aiTraceId !== undefined
+      ? { aiTraceId: request.aiTraceId }
+      : {}),
+    ...(request.toolCallId !== undefined
+      ? { toolCallId: request.toolCallId }
+      : {}),
+  });
+
+  // Identity evidence strengthens as the pipeline advances; the finish log
+  // line and the failure-path hooks use the strongest available level.
+  let executionCtx: ActionCtx | undefined;
+  let authorization: PreflightAuthorization | undefined;
+  let validatedInput: unknown;
+  let reserved: { readonly reservation: unknown } | undefined;
+  let replayed = false;
+
+  const resolveIdentity = (): {
+    actorType: string | null;
+    actorId: string | null;
+    companyId: string | null;
+  } => {
+    if (executionCtx !== undefined) {
+      return {
+        actorType: executionCtx.actor.type,
+        actorId: executionCtx.actor.id,
+        companyId: effectiveCompanyId(executionCtx),
+      };
+    }
+    if (authorization !== undefined) {
+      return {
+        actorType: authorization.actor.type,
+        actorId: authorization.actor.id,
+        companyId: authorization.companyId,
+      };
+    }
+    // Pre-authorization best effort — such lines may carry no company
+    // (core.md §3); a system scope comes from trusted enqueuing code.
+    switch (principal.mode) {
+      case "system":
+        return {
+          actorType: "system",
+          actorId: principal.serviceName,
+          companyId:
+            principal.scope.scope === "tenant"
+              ? principal.scope.companyId
+              : null,
+        };
+      case "public":
+        return {
+          actorType: "anonymous",
+          actorId: "anonymous",
+          companyId: null,
+        };
+      default:
+        return principal.session !== null
+          ? {
+              actorType: "user",
+              actorId: principal.session.userId,
+              companyId: null,
+            }
+          : { actorType: null, actorId: null, companyId: null };
+    }
+  };
+
+  const finish = (outcome: string): void => {
+    const durationMs = now() - startedAt;
+    const identity = resolveIdentity();
+    const fields = {
+      actor_type: identity.actorType,
+      actor_id: identity.actorId,
+      company_id: identity.companyId,
+      outcome,
+      duration_ms: durationMs,
+      ...(replayed ? { replayed: true } : {}),
+    };
+    // Invariant violations are server bugs and must alert; every other
+    // outcome (including denials and conflicts) is an expected result.
+    if (outcome === "INTERNAL") {
+      log.error(fields, "action finished");
+    } else {
+      log.info(fields, "action finished");
+    }
+    span?.end({
+      outcome,
+      actorType: identity.actorType,
+      actorId: identity.actorId,
+      companyId: identity.companyId,
+      durationMs,
+    });
+  };
+
+  log.info("action started");
+
+  try {
+    // 1. Validate input — before any side effect or database access.
+    const parsedInput = await contract.input.safeParseAsync(invocation.input);
+    if (!parsedInput.success) {
+      throw new ValidationError(parsedInput.error.issues);
+    }
+    const input: z.output<TInput> = parsedInput.data;
+    validatedInput = input;
+
+    // 2. Authenticate the principal and read transport selectors. Selector
+    //    *verification* is authorization and happens inside transactions
+    //    (steps 4/7); nothing here grants access.
+    assertPrincipalShape(contract, principal);
+    assertAuthenticated(principal);
+
+    const env: RunEnv<TInput, TOutput, TTarget> = {
+      deps,
+      action: invocation.action,
+      contract,
+      request,
+      principal,
+      input,
+      makeRuntime: <TDb>(db: TDb): ContextRuntime<TDb> => ({
+        db,
+        logger: deps.logger,
+        deadline,
+        signal: controller.signal,
+        // Protocol slots narrowed by fnd-T16/T19/T19A.
+        emit: undefined,
+        call: undefined,
+        callAtomic: undefined,
+      }),
+    };
+    const hookEnv: PipelineHookEnv = { contract, request, principal, input };
+
+    // 3. Rate limit (slot — fnd-T14).
+    await deps.hooks?.rateLimit?.enforce(hookEnv);
+
+    // 4. Authorization preflight, only when the action will create
+    //    confirmation challenges or idempotency reservations. Never the
+    //    only authorization check — step 7 re-authorizes in-transaction.
+    const needsPreflight =
+      contract.requiresConfirmation ||
+      (contract.idempotent && contract.risk !== "read");
+    if (needsPreflight) {
+      authorization = await runAuthorizationPreflight(env);
+    }
+
+    // 5. Replay probe + confirmation gate (slot — fnd-T20).
+    if (
+      contract.requiresConfirmation &&
+      deps.hooks?.confirmation !== undefined
+    ) {
+      await deps.hooks.confirmation.gate({
+        ...hookEnv,
+        authorization: requireAuthorization(authorization, contract.name),
+        summarize: bindConfirmationSummary(env),
+      });
+    }
+
+    // 6. Idempotency reserve (slot — fnd-T15), after the confirmation gate.
+    if (
+      contract.idempotent &&
+      contract.risk !== "read" &&
+      deps.hooks?.idempotency !== undefined
+    ) {
+      const outcome = await deps.hooks.idempotency.reserve({
+        ...hookEnv,
+        authorization: requireAuthorization(authorization, contract.name),
+      });
+      if (outcome.kind === "replay") {
+        // Replay the stored snapshot without re-running the handler (§5).
+        // Re-validation guards the snapshot itself: a stored response that
+        // no longer satisfies the schema is a server bug, not client data.
+        const replayedOutput = await contract.output.safeParseAsync(
+          outcome.response,
+        );
+        if (!replayedOutput.success) {
+          throw new CoreInvariantError(
+            `stored idempotent response of "${contract.name}" failed the declared output schema: ${JSON.stringify(replayedOutput.error.issues)}`,
+          );
+        }
+        replayed = true;
+        finish("ok");
+        return replayedOutput.data;
+      }
+      reserved = { reservation: outcome.reservation };
+    }
+
+    // 7.–9. The execution transaction.
+    const output = await deps.db.transaction(
+      async (tx) => {
+        await applyStatementTimeout(tx, contract.name, deadline - now());
+
+        // TOCTOU re-authorization (§4 step 7): the principal context is
+        // constructed inside this transaction; preflight results are never
+        // reused as authority.
+        const ctx = await constructPrincipalContext(env, tx);
+        executionCtx = ctx;
+
+        const raw = await runWithDeadline({
+          run: () => invocation.action.handler(input, ctx),
+          deadline,
+          now,
+          controller,
+          actionName: contract.name,
+        });
+
+        // 8. Output validation before any commit: a mismatch is a server
+        //    bug (`CoreInvariantError`), never a client validation error.
+        const parsedOutput = await contract.output.safeParseAsync(raw);
+        if (!parsedOutput.success) {
+          throw new CoreInvariantError(
+            `output of "${contract.name}" failed the declared output schema: ${JSON.stringify(parsedOutput.error.issues)}`,
+          );
+        }
+
+        // 9. Same-transaction protocol slots: outbox rows were already
+        //    inserted by `ctx.emit` during the handler (fnd-T16); the audit
+        //    row (fnd-T13) and the idempotency response snapshot (fnd-T15)
+        //    commit atomically with the handler's effects.
+        if (contract.audit && deps.hooks?.audit !== undefined) {
+          await deps.hooks.audit.recordSuccess({
+            tx,
+            ctx,
+            contract,
+            input,
+            output: parsedOutput.data,
+            durationMs: now() - startedAt,
+          });
+        }
+        if (reserved !== undefined && deps.hooks?.idempotency !== undefined) {
+          await deps.hooks.idempotency.finalize({
+            tx,
+            reservation: reserved.reservation,
+            output: parsedOutput.data,
+          });
+        }
+
+        return parsedOutput.data;
+      },
+      // 10. Commit — and the database-level read-only mode for reads, so a
+      //     runtime write fails even if a capability facade were sidestepped.
+      { accessMode: contract.risk === "read" ? "read only" : "read write" },
+    );
+
+    finish("ok");
+    return output;
+  } catch (error) {
+    const coreError = toCoreError(error, contract.name);
+
+    // Failure path (§4 step 10): the execution transaction has rolled back
+    // (handler writes, outbox, audit, finalization). Record the outcome in
+    // separate short transactions owned by the hooks; a broken hook must
+    // not mask the original failure.
+    if (reserved !== undefined && deps.hooks?.idempotency !== undefined) {
+      try {
+        await deps.hooks.idempotency.markFailed({
+          reservation: reserved.reservation,
+          error: coreError,
+        });
+      } catch (hookError) {
+        log.error({ err: hookError }, "idempotency markFailed hook failed");
+      }
+    }
+    if (contract.audit && deps.hooks?.audit !== undefined) {
+      try {
+        await deps.hooks.audit.recordFailure({
+          contract,
+          request,
+          principal,
+          // Validated when step 1 succeeded; the raw input never reaches
+          // hooks (they must not hash/store unvalidated payloads).
+          input: validatedInput,
+          authorization,
+          error: coreError,
+          durationMs: now() - startedAt,
+        });
+      } catch (hookError) {
+        log.error({ err: hookError }, "audit recordFailure hook failed");
+      }
+    }
+
+    span?.recordError(coreError);
+    finish(coreError.code);
+    throw coreError;
+  }
+}
+
+/** Transport/enqueuing composition must match the declared metadata. */
+function assertPrincipalShape(
+  contract: AnyActionContract,
+  principal: PrincipalInvocation,
+): void {
+  if (principal.mode !== contract.principal) {
+    throw new CoreInvariantError(
+      `action "${contract.name}" declares principal "${contract.principal}" but was invoked as "${principal.mode}" — transport composition bug`,
+    );
+  }
+  if (
+    principal.mode === "system" &&
+    principal.scope.scope !== contract.systemScope
+  ) {
+    throw new CoreInvariantError(
+      `system action "${contract.name}" declares systemScope "${contract.systemScope ?? "<missing>"}" but was enqueued with scope "${principal.scope.scope}"`,
+    );
+  }
+}
+
+/**
+ * Step 2: session presence for the modes that require authentication. The
+ * factories repeat this in-transaction as defense in depth; failing here
+ * keeps rate limiting and preflight behind authentication (§4 order).
+ */
+function assertAuthenticated(principal: PrincipalInvocation): void {
+  if (principal.mode === "public" || principal.mode === "system") {
+    return;
+  }
+  if (principal.session === null) {
+    throw new PermissionDeniedError("Authentication required.", {
+      internalMessage: `${principal.mode} action invoked without a session`,
+    });
+  }
+}
+
+/**
+ * Staff authorization beyond membership: every permission the action
+ * declares must be held (core.md §2 `permissions`). Runs in the preflight
+ * and again in the execution transaction.
+ */
+function assertDeclaredPermissions(
+  membership: StaffMembership,
+  contract: AnyActionContract,
+): void {
+  for (const permission of contract.permissions) {
+    if (!staffHasPermission(membership, permission)) {
+      throw new PermissionDeniedError(undefined, {
+        internalMessage: `staff caller lacks "${permission}" declared by "${contract.name}"`,
+      });
+    }
+  }
+}
+
+function requireResolver<
+  TInput extends z.ZodType,
+  TOutput extends z.ZodType,
+  TTarget,
+>(env: RunEnv<TInput, TOutput, TTarget>): TargetResolver<TInput, TTarget> {
+  const resolver = env.action.resolveTarget;
+  if (resolver === undefined) {
+    throw new CoreInvariantError(
+      `action "${env.contract.name}" requires a target resolver but none is bound — implementAction should have rejected this pairing`,
+    );
+  }
+  return resolver;
+}
+
+function requireAuthorization(
+  authorization: PreflightAuthorization | undefined,
+  actionName: string,
+): PreflightAuthorization {
+  if (authorization === undefined) {
+    throw new CoreInvariantError(
+      `"${actionName}" reached a confirmation/idempotency hook without an authorization preflight — contract metadata allowed a mode that cannot carry these protocols`,
+    );
+  }
+  return authorization;
+}
+
+function bindConfirmationSummary<
+  TInput extends z.ZodType,
+  TOutput extends z.ZodType,
+  TTarget,
+>(env: RunEnv<TInput, TOutput, TTarget>): () => MaybePromise<string> {
+  const summarize = env.action.confirmationSummary;
+  if (summarize === undefined) {
+    throw new CoreInvariantError(
+      `action "${env.contract.name}" requires confirmation but binds no confirmationSummary — implementAction should have rejected this pairing`,
+    );
+  }
+  // The summary environment stays opaque until fnd-T20 narrows it to carry
+  // the resolved target alongside the input.
+  return () => summarize(env.input, undefined);
+}
+
+/**
+ * Step 4: verify membership (staff) or run the typed resolver (customer;
+ * public-target never carries these protocols) in a short read-only
+ * transaction; account verifies only session validity; a system identity
+ * is trusted enqueuing-code input. Consumer/public-global cannot get here
+ * with a validated contract (read-only, no confirmation/idempotency).
+ */
+async function runAuthorizationPreflight<
+  TInput extends z.ZodType,
+  TOutput extends z.ZodType,
+  TTarget,
+>(
+  env: RunEnv<TInput, TOutput, TTarget>,
+): Promise<PreflightAuthorization | undefined> {
+  const { deps, request, principal } = env;
+  switch (principal.mode) {
+    case "staff":
+      return await deps.db.transaction(
+        async (tx) => {
+          const ctx = await createStaffContext({
+            request,
+            runtime: env.makeRuntime(createReadTx(tx)),
+            session: principal.session,
+            companySelector: principal.companySelector,
+          });
+          assertDeclaredPermissions(ctx.membership, env.contract);
+          return { actor: ctx.actor, companyId: ctx.companyId };
+        },
+        { accessMode: "read only" },
+      );
+    case "customer":
+      return await deps.db.transaction(
+        async (tx) => {
+          const ctx = await createCustomerContext({
+            request,
+            runtime: env.makeRuntime(createReadTx(tx)),
+            session: principal.session,
+            input: env.input,
+            resolveTarget: requireResolver(env),
+          });
+          return { actor: ctx.actor, companyId: ctx.target.companyId };
+        },
+        { accessMode: "read only" },
+      );
+    case "account": {
+      // No membership or target exists to verify (§4 step 4); the own-user
+      // boundary is enforced by the handler and inherited tests.
+      const session = principal.session;
+      if (session === null) {
+        throw new PermissionDeniedError("Authentication required.", {
+          internalMessage: "account action invoked without a session",
+        });
+      }
+      return {
+        actor: { type: "user", id: session.userId },
+        companyId: null,
+      };
+    }
+    case "system":
+      return {
+        actor: { type: "system", id: principal.serviceName },
+        companyId:
+          principal.scope.scope === "tenant" ? principal.scope.companyId : null,
+      };
+    case "public":
+    case "consumer":
+      return undefined;
+  }
+}
+
+/**
+ * Step 7: construct the principal context **inside** the execution
+ * transaction — membership/target authorization re-runs here to prevent
+ * TOCTOU, and the DB capability matches the declared risk: `ReadTx` for
+ * reads, the writable transaction otherwise, and the grant-bound
+ * `ProjectionReadTx` for public-global (built by the factory).
+ */
+async function constructPrincipalContext<
+  TInput extends z.ZodType,
+  TOutput extends z.ZodType,
+  TTarget,
+>(env: RunEnv<TInput, TOutput, TTarget>, tx: Tx): Promise<ActionCtx> {
+  const { contract, request, principal } = env;
+  const capability: ReadTx | Tx =
+    contract.risk === "read" ? createReadTx(tx) : tx;
+  switch (principal.mode) {
+    case "staff": {
+      const ctx = await createStaffContext({
+        request,
+        runtime: env.makeRuntime(capability),
+        session: principal.session,
+        companySelector: principal.companySelector,
+      });
+      assertDeclaredPermissions(ctx.membership, contract);
+      return ctx;
+    }
+    case "customer":
+      return await createCustomerContext({
+        request,
+        runtime: env.makeRuntime(capability),
+        session: principal.session,
+        input: env.input,
+        resolveTarget: requireResolver(env),
+      });
+    case "public": {
+      if (contract.publicScope === "globalProjection") {
+        const grantId = contract.projectionGrant;
+        const manifest = env.deps.projectionGrants ?? runtimeProjectionGrants;
+        const grant = grantId !== undefined ? manifest.get(grantId) : undefined;
+        if (grant === undefined) {
+          throw new CoreInvariantError(
+            `public-global action "${contract.name}" references projection grant "${grantId ?? "<missing>"}" which is not in the runtime manifest`,
+          );
+        }
+        return await createPublicContext({
+          request,
+          runtime: env.makeRuntime<ReadTx>(capability),
+          publicScope: "globalProjection",
+          grant,
+        });
+      }
+      return await createPublicContext({
+        request,
+        runtime: env.makeRuntime<ReadTx>(capability),
+        publicScope: "target",
+        input: env.input,
+        resolveTarget: requireResolver(env),
+      });
+    }
+    case "system":
+      return createSystemContext(principal.serviceName, principal.scope, {
+        request,
+        runtime: env.makeRuntime(capability),
+      });
+    case "consumer":
+      return createConsumerContext({
+        request,
+        runtime: env.makeRuntime<ReadTx>(capability),
+        session: principal.session,
+      });
+    case "account":
+      return createAccountContext({
+        request,
+        runtime: env.makeRuntime(capability),
+        session: principal.session,
+      });
+  }
+}
+
+/**
+ * Transaction-local statement timeout sized to the remaining deadline, so
+ * a query that ignores the abort signal is still bounded by the database.
+ */
+async function applyStatementTimeout(
+  tx: Tx,
+  actionName: string,
+  remainingMs: number,
+): Promise<void> {
+  if (remainingMs <= 0) {
+    throw new TimeoutError(undefined, {
+      internalMessage: `deadline of "${actionName}" was exhausted before the execution transaction could start`,
+    });
+  }
+  // Integral milliseconds by construction — the interpolation cannot inject.
+  const budgetMs = Math.max(1, Math.ceil(remainingMs));
+  // Raw SQL approved by core.md §4 ("set the transaction-local DB statement
+  // timeout"): SET LOCAL accepts no bind parameters and Drizzle has no
+  // dedicated API for it.
+  await tx.execute(
+    sql.raw(`SET LOCAL statement_timeout = ${String(budgetMs)}`),
+  );
+}
+
+/**
+ * Races the handler against the remaining deadline. On expiry the shared
+ * abort signal fires (well-behaved handlers observe it) and the pipeline
+ * throws `TimeoutError`, rolling the transaction back; whatever ignores
+ * the signal is bounded by the statement timeout.
+ */
+async function runWithDeadline<T>(options: {
+  readonly run: () => Promise<T>;
+  readonly deadline: number;
+  readonly now: () => number;
+  readonly controller: AbortController;
+  readonly actionName: string;
+}): Promise<T> {
+  const remaining = options.deadline - options.now();
+  if (remaining <= 0) {
+    const timeout = new TimeoutError(undefined, {
+      internalMessage: `deadline of "${options.actionName}" was exhausted before the handler started`,
+    });
+    options.controller.abort(timeout);
+    throw timeout;
+  }
+  let timer: NodeJS.Timeout | undefined;
+  const expiry = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      const timeout = new TimeoutError(undefined, {
+        internalMessage: `handler of "${options.actionName}" exceeded the whole-pipeline deadline`,
+      });
+      options.controller.abort(timeout);
+      reject(timeout);
+    }, remaining);
+  });
+  try {
+    return await Promise.race([options.run(), expiry]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Everything leaving the pipeline is a typed core error (§11). A throw
+ * outside the vocabulary is a server bug by definition — domain code must
+ * use `@showzy/core/errors` (prohibitions.mdc).
+ */
+function toCoreError(error: unknown, actionName: string): CoreError {
+  if (error instanceof CoreError) {
+    return error;
+  }
+  return new CoreInvariantError(
+    `action "${actionName}" threw outside the typed error vocabulary`,
+    { cause: error },
+  );
+}

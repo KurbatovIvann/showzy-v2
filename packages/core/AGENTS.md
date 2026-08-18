@@ -4,20 +4,21 @@ The action runtime (core.md). **Frozen for module tasks** (prohibitions.mdc):
 module implementation tasks may not change anything here — if core is missing
 something, stop and report.
 
-## Current state (fnd-T11)
+## Current state (fnd-T12)
 
 Three export subpaths exist:
 
 - `@showzy/core/contract` — the client-safe leaf (fnd-T8, below).
 - `@showzy/core/errors` — the ten core.md §11 error classes.
 - `@showzy/core` (root, server-only) — `implementAction` + `ActionRegistry`
-  (fnd-T9), the registry-walking contract check (fnd-T10), and the six
+  (fnd-T9), the registry-walking contract check (fnd-T10), the six
   principal context factories + `effectiveCompanyId` +
-  `staffHasPermission` (fnd-T11).
+  `staffHasPermission` (fnd-T11), and the execution pipeline
+  `executeAction` (fnd-T12).
 
-The rest of the runtime — execution pipeline, events, idempotency,
-confirmation, rate limiting, `ctx.call`/`ctx.callAtomic`, and the module
-test kit — lands with fnd-T12…T22.
+The rest of the runtime — events, idempotency, confirmation, rate
+limiting, `ctx.call`/`ctx.callAtomic`, and the module test kit — lands
+with fnd-T13…T22 by filling the pipeline's protocol slots.
 
 ## Typed errors (`src/errors/`, core.md §11)
 
@@ -76,6 +77,36 @@ test kit — lands with fnd-T12…T22.
   boots the shared Testcontainers harness (`@showzy/db/testing`); plain
   `*.test.ts` files stay in the Docker-free `unit` project that the CI
   contract-check stage runs.
+
+## The execution pipeline (`src/runtime/pipeline/`, core.md §4)
+
+- `execute-action.ts` — `executeAction(deps, invocation)`, the one path
+  every action runs through. The §4 step order is fixed and encoded once:
+  validate input → authenticate/read selectors → rate limit →
+  authorization preflight (short read-only tx, only when confirmation or
+  idempotency will store something) → confirmation gate → idempotency
+  reserve → execution transaction (transaction-local statement timeout,
+  TOCTOU re-authorization via the context factories, handler under the
+  deadline/abort signal) → output validation before commit
+  (`CoreInvariantError` on mismatch) → same-tx audit/finalize slots →
+  commit. Failures roll back and record the outcome via separate-tx hooks.
+  `risk: read` runs in a database read-only transaction **and** hands the
+  handler the `ReadTx` facade — two independent walls.
+- `types.ts` — the protocol hook slots (`PipelineHooks`) filled by
+  fnd-T13 (audit), fnd-T14 (rate limit), fnd-T15 (idempotency), fnd-T20
+  (confirmation), plus `ActionTelemetry`, the OTel/Sentry seam bound by
+  the apps (fnd-T26/T28). Core stays dependency-free; the hooks receive
+  every correlation field the log lines carry. An absent hook means "that
+  slice has not landed", never "skip the protocol" — apps compose the
+  full set at boot.
+- The pipeline is the only caller of the context factories and the only
+  place transactions are opened (db.md §3). It emits one structured start
+  and one finish log line (`request_id`, actor, `company_id` — null for
+  the null-company modes — `action`, `outcome`, `duration_ms`).
+- Everything leaving the pipeline is a typed core error; a throw outside
+  the §11 vocabulary is wrapped as `CoreInvariantError` (server bug).
+- The `SET LOCAL statement_timeout` statement is the one approved raw-SQL
+  primitive here (core.md §4; SET LOCAL takes no bind parameters).
 
 ## The contract check (`src/contract-check/`, core.md §2)
 
