@@ -127,14 +127,30 @@ export type {
   EventSubscription,
 } from "./runtime/events/define-event-handler.js";
 export {
+  DELIVERY_CLAIM_MARGIN_MS,
+  DELIVERY_MAX_ATTEMPTS,
+  DELIVERY_RETRY_BASE_MS,
+  deliveryRetryDelayMs,
   dispatchOutboxBatch,
   executeDelivery,
+  findClaimableDeliveries,
 } from "./runtime/events/delivery.js";
 export type {
+  ClaimableDelivery,
   DeliveryOutcome,
   OutboxDispatcherDeps,
   OutboxDispatchResult,
 } from "./runtime/events/delivery.js";
+export {
+  DeliveryReplayCliError,
+  parseDeliveryReplayArgs,
+  runDeliveryReplayCli,
+} from "./runtime/events/replay-dead-deliveries.cli.js";
+export {
+  replayDeadDeliveries,
+  type DeliveryReplayDeps,
+  type DeliveryReplayResult,
+} from "./runtime/events/replay-dead-deliveries.js";
 export {
   createAccountContext,
   createConsumerContext,

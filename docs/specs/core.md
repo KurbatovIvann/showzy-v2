@@ -364,10 +364,15 @@ Envelope (stored in `domain_events`, spec'd in db.md):
   Handlers must still tolerate replays.
 - **Failure**: `event_deliveries` tracks
   `pending|processing|processed|dead`, attempts, next attempt, claim owner,
-  and last error. Retry with exponential backoff (5 attempts), then the
-  delivery is parked for that consumer and alerting fires. Replay = changing
-  dead deliveries back to pending (admin script; a phase-0 CLI task). Other
-  consumers of the same event are not blocked.
+  and last error. A claim lease lasts for the bound action's declared timeout
+  plus a 30-second commit/clock-skew margin; an expired `processing` claim may
+  be taken over by another worker. Failed attempts retry after 1s, 2s, 4s,
+  and 8s; the fifth failure parks the delivery for that consumer and emits an
+  alert log. Replay changes dead deliveries back to immediately due pending,
+  resets the five-attempt budget, and is idempotent. The phase-0 admin command
+  requires a consumer ID and optionally narrows to one event ID; it cannot
+  replay every consumer globally. Other consumers of the same event are not
+  blocked.
 - **Retention**: processed outbox rows are kept (they are the audit-grade
   event history) and partitioned/archived post-MVP if volume demands.
 
@@ -591,6 +596,7 @@ Exported from `packages/core/testing`, used by every module (this is how
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-18 | §6: pinned delivery retry delays (1/2/4/8s), fifth-failure parking, action-timeout + 30s claim leases, and consumer-scoped replay semantics | fnd-T18 implementation proved the operational timing and replay-scope gaps | scaffold (fnd-T18) |
 | 2026-08-18 | §8: added `inputSnapshot` nullable column, audited-read post-commit semantics, and RFC 8785 hash specification | fnd-T13 implementation proved the storage and read-only tx gaps | scaffold (fnd-T13) |
 | 2026-08-17 | Added public-global projection protocol and declared same-transaction atomic capabilities | Rebaseline foundation for ADR-0020/0021 mobile parity | Human owner via mobile parity rework |
 | 2026-08-17 | Added account principal: `AccountCtx`, contract check rules, `ctx.call` rules, rate limit (90/min), idempotency scope (`user:<userId>`), `accountIsolationSuite`, and acceptance criteria | Complete the 6-principal model per ADR-0013 (amended) and ADR-0018 | Human owner via spec-rework queue Step 1 |
