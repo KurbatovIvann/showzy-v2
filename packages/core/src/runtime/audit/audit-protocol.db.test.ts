@@ -57,15 +57,15 @@ beforeAll(async () => {
     { id: users.anna, name: "Anna", email: "anna-audit@example.test" },
     { id: users.boris, name: "Boris", email: "boris-audit@example.test" },
   ]);
-  await database.runtime.db.insert(companies).values([
-    { id: companyA, name: "Audit Co", slug: "audit-co", prefix: "AU" },
-  ]);
   await database.runtime.db
-    .insert(rolePermissionDefaults)
+    .insert(companies)
     .values([
-      { role: "owner", permission: "audit:write" },
-      { role: "owner", permission: "audit:read" },
+      { id: companyA, name: "Audit Co", slug: "audit-co", prefix: "AU" },
     ]);
+  await database.runtime.db.insert(rolePermissionDefaults).values([
+    { role: "owner", permission: "audit:write" },
+    { role: "owner", permission: "audit:read" },
+  ]);
   await database.runtime.db.insert(companyMembers).values([
     {
       companyId: companyA,
@@ -275,7 +275,8 @@ describe("audit protocol — failure and denial paths", () => {
     const req = requestMeta();
 
     const action = implementAction(writeContract, {
-      handler: () => Promise.reject(new ConflictError("Order already confirmed.")),
+      handler: () =>
+        Promise.reject(new ConflictError("Order already confirmed.")),
       auditTarget: (env) => ({
         type: "order",
         id: (env.input as { orderId: string }).orderId,
@@ -343,7 +344,8 @@ describe("audit protocol — transactionality", () => {
       audit: createAuditHook({ db: database.runtime.db }),
       idempotency: {
         reserve: () => Promise.resolve({ kind: "execute", reservation: "r" }),
-        finalize: () => Promise.reject(new CoreInvariantError("finalize failure")),
+        finalize: () =>
+          Promise.reject(new CoreInvariantError("finalize failure")),
         markFailed: () => Promise.resolve(),
       },
     };
@@ -368,16 +370,19 @@ describe("audit protocol — transactionality", () => {
     });
 
     await expect(
-      executeAction({ db: database.runtime.db, logger: silentLogger, hooks }, {
-        action: failingAction,
-        input: { orderId, note: "Will rollback" },
-        request: req,
-        principal: {
-          mode: "staff",
-          session: { userId: users.anna },
-          companySelector: companyA,
+      executeAction(
+        { db: database.runtime.db, logger: silentLogger, hooks },
+        {
+          action: failingAction,
+          input: { orderId, note: "Will rollback" },
+          request: req,
+          principal: {
+            mode: "staff",
+            session: { userId: users.anna },
+            companySelector: companyA,
+          },
         },
-      }),
+      ),
     ).rejects.toThrow(CoreInvariantError);
 
     // The entire execution transaction rolled back — including the audit row.

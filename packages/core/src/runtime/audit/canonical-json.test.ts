@@ -79,7 +79,7 @@ describe("canonicalJson — RFC 8785 JCS serialization", () => {
   });
 
   it("handles unicode keys sorted by UTF-16 code units", () => {
-    const input = { "\u00e9": 1, "a": 2, "\u00c9": 3 };
+    const input = { "\u00e9": 1, a: 2, "\u00c9": 3 };
     const result = canonicalJson(input);
     // UTF-16: 'a' = 0x0061, 'É' = 0x00C9, 'é' = 0x00E9 → sorted a < É < é.
     expect(result).toBe('{"a":2,"\u00c9":3,"\u00e9":1}');
