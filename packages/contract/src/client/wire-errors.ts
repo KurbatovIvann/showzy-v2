@@ -8,6 +8,7 @@
  * rows; `satisfies Record<CoreErrorCode, …>` keeps the table complete when
  * core gains an error class.
  */
+import { ORPCError } from "@orpc/client";
 import type { CoreErrorCode } from "@showzy/core/errors";
 import { z } from "zod";
 
@@ -84,3 +85,62 @@ export const wireErrorDefinitions = {
   TIMEOUT: { status: wireErrorStatus.TIMEOUT },
   INTERNAL: { status: wireErrorStatus.INTERNAL },
 } as const;
+
+type WireErrorDefinition = (typeof wireErrorDefinitions)[WireErrorCode];
+
+type WireErrorData<K extends WireErrorCode> =
+  "data" extends keyof (typeof wireErrorDefinitions)[K]
+    ? z.infer<(typeof wireErrorDefinitions)[K]["data"]>
+    : never;
+
+/**
+ * Discriminated union of defined wire errors. Narrow by `error.code` —
+ * never by matching `message` text (contract.md §4).
+ */
+export type WireError = {
+  [K in WireErrorCode]: [WireErrorData<K>] extends [never]
+    ? {
+        readonly code: K;
+        readonly status: (typeof wireErrorStatus)[K];
+        readonly message: string;
+      }
+    : {
+        readonly code: K;
+        readonly status: (typeof wireErrorStatus)[K];
+        readonly message: string;
+        readonly data: WireErrorData<K>;
+      };
+}[WireErrorCode];
+
+function isWireErrorCode(code: string): code is WireErrorCode {
+  return Object.hasOwn(wireErrorStatus, code);
+}
+
+function definitionHasData(
+  definition: WireErrorDefinition,
+): definition is WireErrorDefinition & { readonly data: z.ZodType } {
+  return "data" in definition;
+}
+
+/**
+ * True when `error` is a contract.md §4 wire error. After this guard,
+ * `error.code` narrows the extras (`issues`, `retryAfterSec`,
+ * `challenge`) without string matching.
+ */
+export function isWireError(error: unknown): error is WireError {
+  if (!(error instanceof ORPCError)) {
+    return false;
+  }
+  const code: unknown = error.code;
+  if (typeof code !== "string" || !isWireErrorCode(code)) {
+    return false;
+  }
+  if (error.status !== wireErrorStatus[code]) {
+    return false;
+  }
+  const definition = wireErrorDefinitions[code];
+  if (definitionHasData(definition)) {
+    return definition.data.safeParse(error.data).success;
+  }
+  return true;
+}

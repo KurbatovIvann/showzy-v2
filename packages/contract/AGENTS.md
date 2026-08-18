@@ -1,38 +1,40 @@
 # @showzy/contract — Agent Instructions
 
 The boundary between action definitions and every consumer (contract.md,
-ADR-0004, ADR-0016). Derives the oRPC contract router, the wire-error table,
-and the AI tool-manifest source from client-safe action descriptors; the
-`./server` subpath pairs those procedures with registered implementations
-through the core execution pipeline. **Owns no domain logic and no state.**
+ADR-0004, ADR-0016). Derives the oRPC contract router, the typed client,
+the wire-error table, money wire helpers, and the AI tool-manifest source
+from client-safe action descriptors; the `./server` subpath pairs those
+procedures with registered implementations through the core execution
+pipeline. **Owns no domain logic and no state.**
 
-## Current state (fnd-T23)
+## Current state (fnd-T24)
 
 Two export subpaths:
 
 - `@showzy/contract` (root, client-safe) — `buildContractRouter` /
-  `contractRouter` from the exposure record, the contract.md §4
-  `wireErrorStatus` / `wireErrorDefinitions` table, transport-meta header
-  names, and `deriveAiToolSources` / `aiToolSourcesForPrincipal`.
+  `contractRouter` from the exposure record, `createContractClient` /
+  `createMutationAttempt`, the contract.md §4 `wireErrorStatus` /
+  `wireErrorDefinitions` / `isWireError` table, `moneyToWire` /
+  `moneyFromWire`, transport-meta header names, and
+  `deriveAiToolSources` / `aiToolSourcesForPrincipal`.
 - `@showzy/contract/server` — `buildServerRouter` (every procedure is
   `executeAction`), `toPipelineRequestMeta` / `toPrincipalInvocation`,
   `toWireError` + `wireErrorInterceptors`. Reaches the core runtime; the
   CI bundle probe (fnd-T25) must reject this subpath from client entries.
 
 No domain modules exist yet, so `contractModules` is explicitly empty.
-Module tasks add their `index.contract.ts` barrels there. The typed client
-(`createMutationAttempt`, money wire helpers) is fnd-T24; ESLint
+Module tasks add their `index.contract.ts` barrels there. ESLint
 boundaries, the bundle probe, and OpenAPI drift are fnd-T25.
 
 ## Client-safe root (`src/client/`)
 
-- Import graph may reach **Zod**, `@orpc/contract`, and
+- Import graph may reach **Zod**, `@orpc/client`, `@orpc/contract`, and
   `@showzy/core/contract` (plus a type-only pin to `@showzy/core/errors`
   so the wire table cannot drift from the §11 vocabulary). No core
   runtime, `packages/db`, Node builtins, logging, Redis, or workers.
-- `tsconfig.client.json` re-checks `src/client` with `"types": []` in the
-  same `typecheck` script — an accidental `process`/`Buffer` reference is
-  a compile error.
+- `tsconfig.client.json` re-checks `src/client` with `"types": []` and
+  DOM lib (Fetch / Web Crypto) in the same `typecheck` script — an
+  accidental `process`/`Buffer` reference is a compile error.
 - Only `transport: "client"` descriptors are routable.
   `buildContractRouter` / `buildServerRouter` **fail loudly** on an
   internal/system entry rather than filtering it out — silent omission
@@ -40,6 +42,12 @@ boundaries, the bundle probe, and OpenAPI drift are fnd-T25.
 - Record keys must mirror `<module>.<verb>` exactly: the RPC path is the
   nested object shape, so a mismatch would serve one action under
   another's name.
+- Apps call `createContractClient({ baseUrl, getAccessToken })`, then
+  `setActiveCompany` for the staff selector. `createMutationAttempt()`
+  mints the idempotency key; retries must reuse `attempt.options`.
+  Confirmation re-invokes with `attempt.withChallenge(id)`. Money minor
+  units use `moneyToWire` / `moneyFromWire`. Narrow errors with
+  `isWireError` and `error.code` — never by matching `message` text.
 
 ## Server subpath (`src/server/`)
 
@@ -72,8 +80,9 @@ all derive from the descriptor.
 ## Testing
 
 - `*.test.ts` — Docker-free: the §4 table, composition rules, AI coverage,
-  wire mapping, principal dispatch of transport meta.
+  wire mapping, principal dispatch of transport meta, mutation-attempt
+  key reuse, money int64 round-trip, client header injection.
 - `*.db.test.ts` — transport round-trip against the Testcontainers
   harness (`@showzy/core/testing`): every §4 error class over the wire,
   selector/session rules, idempotency and confirmation meta, orphan boot
-  failure. Docker required.
+  failure, typed-client missing-key / retry. Docker required.

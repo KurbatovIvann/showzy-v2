@@ -20,7 +20,7 @@ import {
 export const contractModules = {} satisfies ContractModuleMap;
 
 /**
- * The oRPC contract router — what the typed client (fnd-T24) and the
- * OpenAPI document (fnd-T25) consume.
+ * The oRPC contract router — what the typed client and the OpenAPI
+ * document (fnd-T25) consume.
  */
 export const contractRouter = buildContractRouter(contractModules);

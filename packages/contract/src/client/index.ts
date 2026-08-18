@@ -23,15 +23,37 @@ export type {
   ContractRouterFor,
 } from "./contract-router.js";
 export { contractModules, contractRouter } from "./modules.js";
+export { createContractClient, RPC_PREFIX } from "./create-client.js";
+export type {
+  AccessTokenProvider,
+  ContractCallContext,
+  ContractClient,
+  ContractClientOptions,
+} from "./create-client.js";
+export {
+  INT64_MAX,
+  INT64_MIN,
+  MoneyWireError,
+  isMoneyWire,
+  moneyFromWire,
+  moneyToWire,
+  moneyWireSchema,
+} from "./money-wire.js";
+export { createMutationAttempt } from "./mutation-attempt.js";
+export type {
+  MutationAttempt,
+  MutationCallOptions,
+} from "./mutation-attempt.js";
 export {
   COMPANY_SELECTOR_HEADER,
   CONFIRMATION_CHALLENGE_HEADER,
   IDEMPOTENCY_KEY_HEADER,
 } from "./transport-meta.js";
 export {
+  isWireError,
   wireConfirmationChallengeSchema,
   wireErrorDefinitions,
   wireErrorStatus,
   wireValidationIssueSchema,
 } from "./wire-errors.js";
-export type { WireErrorCode } from "./wire-errors.js";
+export type { WireError, WireErrorCode } from "./wire-errors.js";

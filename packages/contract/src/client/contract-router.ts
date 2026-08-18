@@ -1,8 +1,8 @@
 /**
  * Derives the oRPC contract router from action descriptors (contract.md
  * §2, ADR-0004). Client-safe: consumes only `@showzy/core/contract`
- * descriptors and `@orpc/contract` builders — the typed client (fnd-T24),
- * the OpenAPI document (fnd-T25), and the server router (./server) all
+ * descriptors and `@orpc/contract` builders — the typed client, the
+ * OpenAPI document (fnd-T25), and the server router (./server) all
  * derive from the same composition, so they cannot drift.
  *
  * Only `transport: "client"` descriptors are routable. Internal and

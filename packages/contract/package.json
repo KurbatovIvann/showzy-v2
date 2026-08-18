@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "The boundary between action definitions and every consumer (contract.md, ADR-0004/0016): the client-safe root derives the oRPC contract router, the wire-error table, and the AI tool-manifest source from action descriptors; the ./server subpath pairs contract procedures with registered implementations through the core execution pipeline. Owns no logic and no state.",
+  "description": "The boundary between action definitions and every consumer (contract.md, ADR-0004/0016): the client-safe root derives the oRPC contract router, typed client, wire-error table, money wire helpers, and the AI tool-manifest source from action descriptors; the ./server subpath pairs contract procedures with registered implementations through the core execution pipeline. Owns no logic and no state.",
   "exports": {
     ".": "./src/client/index.ts",
     "./server": "./src/server/index.ts"
@@ -14,13 +14,13 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@orpc/client": "^1.14.6",
     "@orpc/contract": "^1.14.6",
     "@orpc/server": "^1.14.6",
     "@showzy/core": "workspace:*",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@orpc/client": "^1.14.6",
     "@showzy/db": "workspace:*",
     "@showzy/tooling": "workspace:*",
     "@types/node": "^22.20.1",

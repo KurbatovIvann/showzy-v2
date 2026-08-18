@@ -1,10 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { ORPCError } from "@orpc/client";
+import { describe, expect, expectTypeOf, it } from "vitest";
 
 import {
+  isWireError,
   wireConfirmationChallengeSchema,
   wireErrorDefinitions,
   wireErrorStatus,
   wireValidationIssueSchema,
+  type WireError,
   type WireErrorCode,
 } from "./wire-errors.js";
 
@@ -71,5 +74,98 @@ describe("contract.md §4 wire table", () => {
         inputHash: "leak",
       }).data,
     ).toEqual(challenge);
+  });
+});
+
+describe("WireError union (contract.md §4)", () => {
+  it("narrows extras by code without matching message text", () => {
+    const limited: unknown = new ORPCError("RATE_LIMITED", {
+      defined: true,
+      status: 429,
+      message: "Too many requests. Retry later.",
+      data: { retryAfterSec: 12 },
+    });
+    expect(isWireError(limited)).toBe(true);
+    if (!isWireError(limited) || limited.code !== "RATE_LIMITED") {
+      expect.unreachable("expected RATE_LIMITED");
+      return;
+    }
+    expectTypeOf(limited.data.retryAfterSec).toEqualTypeOf<number>();
+    expectTypeOf(limited.status).toEqualTypeOf<429>();
+    expect(limited.data.retryAfterSec).toBe(12);
+
+    const denied: unknown = new ORPCError("PERMISSION_DENIED", {
+      defined: true,
+      status: 403,
+      message: "You do not have permission to perform this action.",
+    });
+    expect(isWireError(denied)).toBe(true);
+    if (!isWireError(denied) || denied.code !== "PERMISSION_DENIED") {
+      expect.unreachable("expected PERMISSION_DENIED");
+      return;
+    }
+    expectTypeOf(denied.status).toEqualTypeOf<403>();
+    expect(denied.message).toBe(
+      "You do not have permission to perform this action.",
+    );
+  });
+
+  it("rejects unknown codes and mismatched extras", () => {
+    expect(
+      isWireError(
+        new ORPCError("BAD_REQUEST", {
+          status: 400,
+          message: "not a §4 code",
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      isWireError(
+        new ORPCError("VALIDATION", {
+          defined: true,
+          status: 400,
+          message: "Input validation failed.",
+          data: { notIssues: true },
+        }),
+      ),
+    ).toBe(false);
+    expect(isWireError(new Error("VALIDATION"))).toBe(false);
+  });
+
+  it("the union is exhaustive over the §4 table", () => {
+    const label = (error: WireError): string => {
+      switch (error.code) {
+        case "VALIDATION":
+          return error.data.issues[0]?.message ?? error.message;
+        case "PERMISSION_DENIED":
+          return "denied";
+        case "NOT_FOUND":
+          return "missing";
+        case "CONFLICT":
+          return "conflict";
+        case "IDEMPOTENCY_CONFLICT":
+          return "idempotency";
+        case "RETRY_IN_PROGRESS":
+          return String(error.data.retryAfterSec);
+        case "CONFIRMATION_REQUIRED":
+          return error.data.challenge.challengeId;
+        case "RATE_LIMITED":
+          return String(error.data.retryAfterSec);
+        case "TIMEOUT":
+          return "timeout";
+        case "INTERNAL":
+          return "internal";
+      }
+    };
+
+    const found = new ORPCError("NOT_FOUND", {
+      defined: true,
+      status: 404,
+      message: "The requested resource was not found.",
+    });
+    expect(isWireError(found)).toBe(true);
+    if (isWireError(found)) {
+      expect(label(found)).toBe("missing");
+    }
   });
 });
