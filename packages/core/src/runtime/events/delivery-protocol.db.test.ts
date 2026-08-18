@@ -1118,9 +1118,7 @@ describe("delivery retry, dead-letter, claim recovery, and replay (core.md §6)"
         nextAttemptAt: null,
         lastError: "CONFLICT: parked for replay.",
       })
-      .where(
-        inArray(eventDeliveries.eventId, [first.eventId, second.eventId]),
-      );
+      .where(inArray(eventDeliveries.eventId, [first.eventId, second.eventId]));
 
     const captured = captureLogger();
     await expect(
