@@ -7,7 +7,6 @@
 import { getConnInfo } from "@hono/node-server/conninfo";
 import type { ServerConfig } from "@showzy/config";
 import { contractModules } from "@showzy/contract";
-import { ActionRegistry } from "@showzy/core";
 import { createDbClient } from "@showzy/db";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -15,6 +14,7 @@ import type { Context } from "hono";
 import { Redis } from "ioredis";
 
 import { buildAuthOptions } from "./auth/options.js";
+import { createActionRegistry } from "./composition.js";
 import { createApp, type AuthInstance } from "./http/app.js";
 import { createProcessObservability } from "./observability.js";
 import { createActionPipeline } from "./pipeline.js";
@@ -90,7 +90,7 @@ export async function bootApi(config: ServerConfig): Promise<BootedApi> {
     ipHmacSecret: config.rateLimit.ipHmacSecret,
   });
 
-  const registry = new ActionRegistry();
+  const registry = createActionRegistry();
   const app = createApp({
     auth,
     registry,

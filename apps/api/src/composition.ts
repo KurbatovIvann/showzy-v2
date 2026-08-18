@@ -1,0 +1,118 @@
+/**
+ * The process composition root (fnd-G1 A2): the boot ActionRegistry and
+ * the CI contract-check input are assembled here so they cannot diverge.
+ *
+ * Module tasks register in this file — never in `packages/core`. Each
+ * module exports actions from `index.ts`, client descriptors from
+ * `index.contract.ts` (added to `packages/contract` `contractModules`),
+ * and a `suiteCoverage` declaration next to those barrels (exported from
+ * the module's `./suite-coverage` subpath — `index.ts` exports only
+ * actions and events). This root registers both barrels, concatenates
+ * events/subscriptions/call edges/schema-ownership rows, and merges
+ * coverage.
+ *
+ * Worker delivery bindings stay in `apps/worker/src/subscriptions.ts`
+ * and must list the same `defineEventHandler` objects this file passes
+ * through `eventSubscriptionRefs`.
+ */
+import {
+  ActionRegistry,
+  emptySuiteCoverage,
+  eventSubscriptionRefs,
+  type ContractCheckInput,
+  type DeclaredCallEdge,
+  type EventDefinitionRef,
+  type ImplementedAction,
+  type ReadModelGrantRef,
+  type SchemaImportRef,
+  type SuiteCoverageManifest,
+} from "@showzy/core";
+import { projectionGrants } from "@showzy/db";
+import type { z } from "zod";
+
+/**
+ * Per-module inherited-suite declarations (core.md §12). Module tasks
+ * append the export that lives next to that module's barrels
+ * (`@showzy/<module>/suite-coverage`).
+ */
+const moduleSuiteCoverage: readonly SuiteCoverageManifest[] = [
+  // First real module: append `catalogSuiteCoverage` here.
+];
+
+const events: readonly EventDefinitionRef[] = [
+  // Module tasks append `defineEvent` outputs.
+];
+
+const callEdges: readonly DeclaredCallEdge[] = [
+  // Module tasks append declared `ctx.call` edges from the owning spec.
+];
+
+const readModelGrants: readonly ReadModelGrantRef[] = [
+  // Projection owners record spec-declared grants here (ADR-0015).
+];
+
+const schemaImports: readonly SchemaImportRef[] = [
+  // Module tasks record each `packages/db/src/schema/<owner>` import.
+];
+
+/** Registers one implemented action's contract + implementation pair. */
+export function registerAction<
+  TInput extends z.ZodType,
+  TOutput extends z.ZodType,
+  TTarget,
+>(
+  registry: ActionRegistry,
+  action: ImplementedAction<TInput, TOutput, TTarget>,
+): void {
+  registry.registerContract(action.contract);
+  registry.registerImplementation(action);
+}
+
+export function mergeSuiteCoverage(
+  manifests: readonly SuiteCoverageManifest[],
+): SuiteCoverageManifest {
+  if (manifests.length === 0) {
+    return emptySuiteCoverage;
+  }
+  return {
+    isolation: manifests.flatMap((manifest) => manifest.isolation),
+    publicProjection: manifests.flatMap(
+      (manifest) => manifest.publicProjection,
+    ),
+    consumerIsolation: manifests.flatMap(
+      (manifest) => manifest.consumerIsolation,
+    ),
+    accountIsolation: manifests.flatMap(
+      (manifest) => manifest.accountIsolation,
+    ),
+    idempotency: manifests.flatMap((manifest) => manifest.idempotency),
+    events: manifests.flatMap((manifest) => manifest.events),
+    atomic: manifests.flatMap((manifest) => manifest.atomic),
+  };
+}
+
+/** The boot registry — same builder the contract-check stage walks. */
+export function createActionRegistry(): ActionRegistry {
+  const registry = new ActionRegistry();
+  // Module tasks: registerAction(registry, catalog.getProduct);
+  return registry;
+}
+
+/**
+ * Everything `runContractCheck` walks. Empty collections are explicit
+ * statements that nothing of that kind exists yet.
+ */
+export function buildContractCheckInput(): ContractCheckInput {
+  return {
+    registry: createActionRegistry(),
+    events,
+    subscriptions: eventSubscriptionRefs([
+      // Module tasks append `defineEventHandler` bindings.
+    ]),
+    callEdges,
+    projectionGrants,
+    readModelGrants,
+    schemaImports,
+    suiteCoverage: mergeSuiteCoverage(moduleSuiteCoverage),
+  };
+}

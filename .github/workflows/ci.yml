@@ -121,10 +121,11 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Action/event contract check (core.md §2, fnd-T10)
-        # Walks the registered composition manifest: importing it executes
-        # define/implement-time validation for every registered action, then
-        # runContractCheck enforces the registry-wide rule matrix.
-        run: pnpm --filter @showzy/core contract:check
+        # Walks apps/api composition: importing it executes define/implement
+        # time validation for every registered action, then runContractCheck
+        # (core library) enforces the registry-wide rule matrix. Module tasks
+        # register here — never in packages/core.
+        run: pnpm --filter @showzy/api contract:check
 
   migration-drift:
     runs-on: ubuntu-latest
