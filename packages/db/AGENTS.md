@@ -69,6 +69,22 @@ for CI):
   audit expiry — SELECT/DELETE on `audit_log`). Widen only with an owning
   spec's say-so.
 
+## Backup baseline (fnd-T28, db.md §6)
+
+Production PITR is documented in `docs/operations/backups.md`. Policy
+numbers live in `src/ops/backup-policy.ts` so they cannot drift from
+the verify CLI.
+
+```
+pnpm --filter @showzy/db backup:verify -- --dry-run
+pnpm --filter @showzy/db backup:verify -- --restore-smoke
+```
+
+`--dry-run` is the CI gate (no database). The CLI lives at
+`scripts/backup-verify.mjs`; policy numbers also live in
+`src/ops/backup-policy.ts` so tests can pin them. Do not export ops
+helpers from the package root — modules never call them.
+
 ## Testing
 
 `vitest run` boots Testcontainers Postgres 17 (Docker required). Structure

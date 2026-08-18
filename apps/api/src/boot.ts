@@ -13,10 +13,10 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import type { Context } from "hono";
 import { Redis } from "ioredis";
-import { pino } from "pino";
 
 import { buildAuthOptions } from "./auth/options.js";
 import { createApp, type AuthInstance } from "./http/app.js";
+import { createProcessObservability } from "./observability.js";
 import { createActionPipeline } from "./pipeline.js";
 import {
   createRedisConfirmationStore,
@@ -51,7 +51,10 @@ export async function bootApi(config: ServerConfig): Promise<BootedApi> {
   const db = createDbClient({ databaseUrl: config.database.url });
   const redis = new Redis(config.redis.url);
   await redis.ping();
-  const logger = pino({ name: "api" });
+  const { logger, telemetry } = createProcessObservability({
+    name: "api",
+    sentryDsn: config.sentry.dsn,
+  });
   const secondary = createRedisSecondaryStorage(redis);
 
   const authInstance = betterAuth(
@@ -81,6 +84,7 @@ export async function bootApi(config: ServerConfig): Promise<BootedApi> {
   const pipeline = createActionPipeline({
     db: db.db,
     logger,
+    telemetry,
     rateLimitStore: createRedisRateLimitStore(redis),
     confirmationStore: createRedisConfirmationStore(redis),
     ipHmacSecret: config.rateLimit.ipHmacSecret,

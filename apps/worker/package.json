@@ -11,6 +11,7 @@
     "start": "node --experimental-strip-types src/index.ts"
   },
   "dependencies": {
+    "@sentry/node": "^10.70.0",
     "@showzy/config": "workspace:*",
     "@showzy/core": "workspace:*",
     "@showzy/db": "workspace:*",

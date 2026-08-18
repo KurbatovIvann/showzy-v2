@@ -16,7 +16,11 @@ Auth policy parameters still live in `src/auth/` (fnd-T6).
 - `src/http/client-ip.ts` — forwarded-IP headers are trusted only when the
   TCP peer is in `TRUSTED_PROXIES`. Spoofed `X-Forwarded-For` is ignored.
 - `src/pipeline.ts` — fills every protocol hook slot (audit, idempotency,
-  rate limit, confirmation).
+  rate limit, confirmation) and the Sentry telemetry from
+  `src/observability.ts`.
+- `src/observability.ts` — process logger + optional Sentry
+  (`createProcessObservability`). Keep in lockstep with
+  `apps/worker/src/observability.ts`.
 - `src/stores/redis.ts` — Redis secondary storage (`GETDEL`), confirmation
   store, and the Lua token-bucket rate-limit store. Tests that do not need
   Redis use the in-memory stores from `@showzy/core` and `stores/memory.ts`.
@@ -39,6 +43,9 @@ pnpm --filter @showzy/api auth:check      # CI: regenerate + fail on diff
 - Config comes from `@showzy/config` at the entrypoint; this package never
   reads `process.env` except inside `loadServerConfig`.
 - OTP codes never reach logs, error messages, or audit records.
+- Process loggers are `createProcessLogger` from `@showzy/config`
+  (fnd-T28). Sentry is initialized only when `SENTRY_DSN` is set;
+  `beforeSend` scrubs the event. Do not construct a raw `pino()`.
 - OTP send/verify responses stay identical for existing and unknown
   identifiers (non-enumeration). Tests pin this over HTTP.
 - The 401 gate is this package's job: authenticated principals without a

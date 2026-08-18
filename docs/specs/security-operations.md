@@ -162,7 +162,14 @@ tool result. Zod validation is necessary but never grants tenant access.
   payloads, or unredacted personal input.
 - Alert on sustained auth/rate-limit abuse, dead event deliveries, queue
   exhaustion, payment/provider reconciliation failures, backup failure,
-  elevated 5xx, and cross-tenant invariant failures.
+  elevated 5xx, and cross-tenant invariant failures. Phase-0 wiring notes:
+  [`docs/operations/alerts.md`](../operations/alerts.md). Backups and PITR:
+  [`docs/operations/backups.md`](../operations/backups.md). Restore drill:
+  [`docs/operations/restore-drill.md`](../operations/restore-drill.md).
+  Incident response skeleton:
+  [`docs/operations/incident-response.md`](../operations/incident-response.md).
+  Process logs and Sentry payloads are scrubbed by `@showzy/config`
+  (`createProcessLogger`, `scrubTelemetryEvent`).
 - Severity, owner, containment, credential rotation, customer notification,
   evidence preservation, and post-incident review are documented in the
   production runbook before launch.
@@ -219,6 +226,7 @@ review. A critical/high unresolved finding blocks merge.
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-18 | Linked ops runbooks and log/Sentry redaction helpers | fnd-T28 security/ops baseline | scaffold (fnd-T28) |
 | 2026-08-17 | Added public projection, bounded social-abuse, and atomic capability security controls | Align foundation with ADR-0020/0021 mobile parity | Human owner via mobile parity rework |
 | 2026-08-17 | Added `account` principal to authorization matrix, rate-limit tiers, logging classification; added discovery surface security considerations | Complete Step 2 of spec-rework queue (ADR-0018 integration) | Spec-rework agent |
 | 2026-08-17 | Added consumer authorization/classification matrix, rate-limit tiers, and null-company logging rules | Align security and operations with ADR-0018 consumer discovery | Human owner via spec-rework queue |
