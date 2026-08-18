@@ -1,10 +1,11 @@
 /**
- * The per-target `ctx.call` rules (core.md §9, ADR-0015), shared verbatim
- * between the registry-walking contract check (fnd-T10 — proves every
- * *declared* edge in CI) and the runtime assert inside `ctx.call`
- * (fnd-T19 — re-proves the *actual* target object of every invocation).
- * One rule list with two enforcement points, so CI and runtime cannot
- * drift.
+ * The per-target `ctx.call` rules (core.md §9, ADR-0015) and the per-edge
+ * `ctx.callAtomic` rules (core.md §9, ADR-0021), shared verbatim between
+ * the registry-walking contract check (fnd-T10 — proves every *declared*
+ * edge in CI) and the runtime asserts inside `ctx.call`/`ctx.callAtomic`
+ * (fnd-T19/T19A — re-prove the *actual* target object of every
+ * invocation). One rule list with two enforcement points, so CI and
+ * runtime cannot drift.
  */
 import type { ActionContract } from "../contract/types.js";
 
@@ -75,6 +76,85 @@ export function callTargetProblems(
   if (!callPrincipalCompatible(caller, callee)) {
     problems.push(
       `callee (${describePrincipal(callee)}) does not accept the caller's principal (${describePrincipal(caller)}) (core.md §9, ADR-0015)`,
+    );
+  }
+  return problems;
+}
+
+/**
+ * ADR-0021 requires the same principal mode and verified company scope on
+ * both sides of an atomic edge; company equality is a runtime concern
+ * (the callee context is re-derived from the caller's verified scope), but
+ * mode — and, for system pairs, declared scope — is static. Unlike read
+ * calls, no cross-mode asymmetry exists: separate thin capabilities are
+ * required for different principals.
+ */
+export function atomicPrincipalCompatible(
+  caller: ActionContract,
+  callee: ActionContract,
+): boolean {
+  if (caller.principal !== callee.principal) {
+    return false;
+  }
+  if (caller.principal === "system") {
+    return caller.systemScope === callee.systemScope;
+  }
+  return true;
+}
+
+/**
+ * Every ADR-0021 rule checkable from the caller/callee contract pair.
+ * Returns all violations at once; an empty array means the edge is a
+ * declared, well-shaped atomic capability. Caller/callee *shape* rules
+ * repeat define-time validation on purpose: define time only validates
+ * descriptors that themselves declare atomic fields, while the runtime
+ * assert must also reject an arbitrary action object handed to
+ * `ctx.callAtomic` without any declaration.
+ */
+export function atomicCallTargetProblems(
+  caller: ActionContract,
+  callee: ActionContract,
+): string[] {
+  const problems: string[] = [];
+  if (moduleOf(caller.name) === moduleOf(callee.name)) {
+    problems.push(
+      "same-module composition uses services/, not ctx.callAtomic (ADR-0015, ADR-0021)",
+    );
+  }
+  if (caller.risk === "read") {
+    problems.push(
+      "ctx.callAtomic is available only to writable root actions (ADR-0021)",
+    );
+  }
+  if (!caller.idempotent) {
+    problems.push(
+      "atomic root actions must declare idempotent: true (ADR-0021)",
+    );
+  }
+  if (!caller.atomicCalls.includes(callee.name)) {
+    problems.push(
+      `undeclared edge — "${caller.name}" does not list "${callee.name}" in atomicCalls (ADR-0021)`,
+    );
+  }
+  if (!callee.atomicCallers.includes(caller.name)) {
+    problems.push(
+      `not mutually declared — "${callee.name}" does not list "${caller.name}" in atomicCallers (ADR-0021)`,
+    );
+  }
+  if (callee.transport !== "internal") {
+    problems.push(
+      'atomic callees must declare transport: "internal" — no client or AI route may exist (ADR-0021)',
+    );
+  }
+  if (callee.risk !== "write") {
+    problems.push('atomic callees must declare risk: "write" (ADR-0021)');
+  }
+  if (callee.requiresConfirmation) {
+    problems.push("atomic callees cannot require confirmation (ADR-0021)");
+  }
+  if (!atomicPrincipalCompatible(caller, callee)) {
+    problems.push(
+      `caller (${describePrincipal(caller)}) and callee (${describePrincipal(callee)}) must use the same principal mode (ADR-0021)`,
     );
   }
   return problems;

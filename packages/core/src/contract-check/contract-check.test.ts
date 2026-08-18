@@ -863,6 +863,85 @@ describe("contract check — atomic edges (ADR-0021)", () => {
   });
 });
 
+describe("contract check — call-graph acyclicity (core.md §9, ADR-0021)", () => {
+  it("accepts an acyclic graph, including diamonds over shared callees", () => {
+    // a → b, a → c, b → d, c → d: node d is reached twice without any
+    // cycle — the walk must not misreport revisits of finished nodes.
+    const registry = buildRegistry(
+      fixtureContract({ name: "orders.getSummary" }),
+      fixtureContract({ name: "pricing.getQuote" }),
+      fixtureContract({ name: "catalog.getProduct" }),
+      fixtureContract({ name: "dictionaries.getUnits" }),
+    );
+    const result = runContractCheck(
+      checkInput(registry, {
+        callEdges: [
+          { caller: "orders.getSummary", callee: "pricing.getQuote" },
+          { caller: "orders.getSummary", callee: "catalog.getProduct" },
+          { caller: "pricing.getQuote", callee: "dictionaries.getUnits" },
+          { caller: "catalog.getProduct", callee: "dictionaries.getUnits" },
+        ],
+      }),
+    );
+    expect(result.problems).toEqual([]);
+  });
+
+  it("rejects a ctx.call cycle and names its chain", () => {
+    const registry = buildRegistry(
+      fixtureContract({ name: "orders.getStatus" }),
+      fixtureContract({ name: "pricing.getContext" }),
+    );
+    const problems = problemsOf(
+      checkInput(registry, {
+        callEdges: [
+          { caller: "orders.getStatus", callee: "pricing.getContext" },
+          { caller: "pricing.getContext", callee: "orders.getStatus" },
+        ],
+      }),
+    );
+    expect(problems).toEqual([
+      expect.stringContaining(
+        'call-graph cycle: "orders.getStatus" → "pricing.getContext" → "orders.getStatus"',
+      ),
+    ]);
+  });
+
+  it("detects a cycle closed through a declared atomic edge", () => {
+    // orders.confirm →(atomic) catalog.decrementStock →(read, illegally
+    // declared) orders.confirm. The bad read edge also fails its own
+    // per-edge rule — the point here is that the atomic edge participates
+    // in the combined graph, so the cycle is reported as well.
+    const registry = buildRegistry(
+      fixtureContract({
+        name: "orders.confirm",
+        risk: "write",
+        idempotent: true,
+        audit: true,
+        atomicCalls: ["catalog.decrementStock"],
+      }),
+      fixtureContract({
+        name: "catalog.decrementStock",
+        transport: "internal",
+        risk: "write",
+        audit: true,
+        atomicCallers: ["orders.confirm"],
+      }),
+    );
+    const problems = problemsOf(
+      checkInput(registry, {
+        callEdges: [
+          { caller: "catalog.decrementStock", callee: "orders.confirm" },
+        ],
+      }),
+    );
+    expect(problems).toContainEqual(
+      expect.stringContaining(
+        'call-graph cycle: "catalog.decrementStock" → "orders.confirm" → "catalog.decrementStock"',
+      ),
+    );
+  });
+});
+
 describe("contract check — schema-ownership manifest (ADR-0014, ADR-0015)", () => {
   it("accepts own-schema imports without any grant", () => {
     const result = runContractCheck(

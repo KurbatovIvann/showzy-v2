@@ -26,7 +26,7 @@ import {
   ActionRegistry,
   ActionRegistryError,
 } from "../runtime/action-registry.js";
-import { callTargetProblems, describePrincipal } from "./call-rules.js";
+import { atomicCallTargetProblems, callTargetProblems } from "./call-rules.js";
 
 /**
  * Thrown by `assertContractCheck` with every collected violation. Like the
@@ -160,6 +160,7 @@ export function runContractCheck(
   );
   collectCallEdgeProblems(input.callEdges, contractsByName, problems);
   collectAtomicEdgeProblems(contracts, contractsByName, problems);
+  collectCallGraphCycleProblems(contracts, input.callEdges, problems);
   collectSchemaOwnershipProblems(
     input.readModelGrants,
     input.schemaImports,
@@ -386,9 +387,10 @@ function collectCallEdgeProblems(
 
 /**
  * ADR-0021: atomic edges are valid only when both descriptors declare
- * them. Callee shape (internal, write, no confirmation) and root shape
- * (writable, idempotent) are define-time rules; existence, mutuality, and
- * principal compatibility need the whole registry and live here.
+ * them. Existence needs the whole registry; the per-edge rule list
+ * (mutuality, callee/root shape, principal compatibility) lives in
+ * `call-rules.ts` and is shared verbatim with the fnd-T19A runtime assert,
+ * so this CI layer and `ctx.callAtomic` cannot drift.
  */
 function collectAtomicEdgeProblems(
   contracts: readonly ActionContract[],
@@ -403,15 +405,8 @@ function collectAtomicEdgeProblems(
         problems.push(`${label}: callee is not registered`);
         continue;
       }
-      if (!callee.atomicCallers.includes(contract.name)) {
-        problems.push(
-          `${label}: not mutually declared — "${calleeName}" does not list "${contract.name}" in atomicCallers (ADR-0021)`,
-        );
-      }
-      if (!atomicPrincipalCompatible(contract, callee)) {
-        problems.push(
-          `${label}: caller (${describePrincipal(contract)}) and callee (${describePrincipal(callee)}) must use the same principal mode (ADR-0021)`,
-        );
+      for (const problem of atomicCallTargetProblems(contract, callee)) {
+        problems.push(`${label}: ${problem}`);
       }
     }
     for (const callerName of contract.atomicCallers) {
@@ -426,27 +421,70 @@ function collectAtomicEdgeProblems(
           `${label}: not mutually declared — "${callerName}" does not list "${contract.name}" in atomicCalls (ADR-0021)`,
         );
       }
-      // Principal compatibility is reported once, from the caller side.
+      // The full per-edge rule list is reported once, from the caller side.
     }
   }
 }
 
 /**
- * ADR-0021 requires the same principal mode and verified company scope on
- * both sides of an atomic edge; company equality is a runtime concern, but
- * mode (and, for system pairs, declared scope) is static.
+ * The combined call graph — declared `ctx.call` edges plus declared
+ * `ctx.callAtomic` edges — must be acyclic (core.md §9, ADR-0021). The
+ * runtime detects cycles too, but only on the path an invocation actually
+ * takes; this CI walk proves the declared graph as a whole, before any
+ * cycle is reachable in production.
  */
-function atomicPrincipalCompatible(
-  caller: ActionContract,
-  callee: ActionContract,
-): boolean {
-  if (caller.principal !== callee.principal) {
-    return false;
+function collectCallGraphCycleProblems(
+  contracts: readonly ActionContract[],
+  callEdges: readonly DeclaredCallEdge[],
+  problems: string[],
+): void {
+  const adjacency = new Map<string, string[]>();
+  const addEdge = (from: string, to: string): void => {
+    const targets = adjacency.get(from);
+    if (targets === undefined) {
+      adjacency.set(from, [to]);
+    } else if (!targets.includes(to)) {
+      targets.push(to);
+    }
+  };
+  for (const edge of callEdges) {
+    addEdge(edge.caller, edge.callee);
   }
-  if (caller.principal === "system") {
-    return caller.systemScope === callee.systemScope;
+  for (const contract of contracts) {
+    for (const calleeName of contract.atomicCalls) {
+      addEdge(contract.name, calleeName);
+    }
   }
-  return true;
+
+  // Depth-first walk with a visiting/done coloring: a back edge into the
+  // current stack is a cycle, reported with its full chain. Finished nodes
+  // never re-report, so each cycle appears once per run.
+  const state = new Map<string, "visiting" | "done">();
+  const stack: string[] = [];
+  const visit = (node: string): void => {
+    state.set(node, "visiting");
+    stack.push(node);
+    for (const next of adjacency.get(node) ?? []) {
+      const nextState = state.get(next);
+      if (nextState === "visiting") {
+        const chain = [...stack.slice(stack.indexOf(next)), next]
+          .map((name) => `"${name}"`)
+          .join(" → ");
+        problems.push(
+          `call-graph cycle: ${chain} — the declared ctx.call/ctx.callAtomic graph must be acyclic (core.md §9, ADR-0021)`,
+        );
+      } else if (nextState === undefined) {
+        visit(next);
+      }
+    }
+    stack.pop();
+    state.set(node, "done");
+  };
+  for (const node of adjacency.keys()) {
+    if (!state.has(node)) {
+      visit(node);
+    }
+  }
 }
 
 /** The only modules ADR-0015 §3 grants cross-module read-model access. */

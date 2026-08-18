@@ -54,6 +54,7 @@ import type { ActionCtx } from "../context/types.js";
 import { createEmitBuffer } from "../events/emit.js";
 import type { ImplementedAction } from "../implement-action.js";
 import type { AuditTargetFn, MaybePromise, TargetResolver } from "../types.js";
+import { createCtxCallAtomic } from "./ctx-call-atomic.js";
 import { createCtxCall } from "./ctx-call.js";
 import type {
   ActionPipelineDeps,
@@ -246,6 +247,11 @@ export async function executeAction<
     // One `ctx.call` closure per invocation (fnd-T19 — core.md §9). Its
     // execution boxes stay empty until step 7 constructs the context, so
     // preflight contexts carry a `call` that refuses to run.
+    const getExecution = ():
+      { readonly tx: Tx; readonly ctx: ActionCtx } | undefined =>
+      executionCtx !== undefined && executionTx !== undefined
+        ? { tx: executionTx, ctx: executionCtx }
+        : undefined;
     const ctxCall = createCtxCall({
       deps,
       callerContract: contract,
@@ -253,10 +259,23 @@ export async function executeAction<
       deadline,
       signal: controller.signal,
       now,
-      getExecution: () =>
-        executionCtx !== undefined && executionTx !== undefined
-          ? { tx: executionTx, ctx: executionCtx }
-          : undefined,
+      getExecution,
+      path: [contract.name],
+    });
+
+    // One `ctx.callAtomic` closure per invocation (fnd-T19A — core.md §9,
+    // ADR-0021): the same execution boxing, plus the one-atomic-edge
+    // latch. Root gating (writable + idempotent caller, declared edge) is
+    // asserted inside from the shared rule list.
+    const ctxCallAtomic = createCtxCallAtomic({
+      deps,
+      callerContract: contract,
+      request,
+      causationId: request.causationId ?? request.requestId,
+      deadline,
+      signal: controller.signal,
+      now,
+      getExecution,
       path: [contract.name],
     });
 
@@ -274,8 +293,7 @@ export async function executeAction<
         signal: controller.signal,
         emit: emitBuffer.emit,
         call: ctxCall,
-        // Protocol slot narrowed by fnd-T19A.
-        callAtomic: undefined,
+        callAtomic: ctxCallAtomic,
       }),
     };
     const hookEnv: PipelineHookEnv = { contract, request, principal, input };

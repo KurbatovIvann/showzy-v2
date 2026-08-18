@@ -53,7 +53,7 @@ import {
   type ContextRuntime,
 } from "../context/factories.js";
 import { assertDeclaredPermissions } from "../context/permissions.js";
-import type { ActionCtx, CtxCall } from "../context/types.js";
+import type { ActionCtx, CtxCall, CtxCallAtomic } from "../context/types.js";
 import { createEmitBuffer } from "../events/emit.js";
 import type { ImplementedAction } from "../implement-action.js";
 import type { TargetResolver } from "../types.js";
@@ -61,6 +61,21 @@ import type { ActionPipelineDeps } from "./types.js";
 
 /** Max nested `ctx.call` levels below the root action (core.md §9). */
 export const CALL_DEPTH_LIMIT = 3;
+
+/**
+ * The `callAtomic` every nested callee receives: atomic calls may
+ * originate only from the root action (ADR-0021 — one atomic edge below
+ * the root, no nesting), so a read callee — or the atomic callee itself —
+ * invoking `ctx.callAtomic` is a `CoreInvariantError` naming the callee
+ * that broke the rule.
+ */
+export function rejectNestedCallAtomic(calleeName: string): CtxCallAtomic {
+  return (action) => {
+    throw new CoreInvariantError(
+      `nested callee "${calleeName}" invoked ctx.callAtomic("${action.contract.name}") — atomic calls may originate only from the root action (core.md §9, ADR-0021)`,
+    );
+  };
+}
 
 /** What one caller's `call` closure needs from its pipeline invocation. */
 export interface CtxCallEnv {
@@ -222,7 +237,7 @@ export function createCtxCall(env: CtxCallEnv): CtxCall {
               : { tx: execution.tx, ctx: calleeCtx },
           path: [...env.path, callee.name],
         }),
-        callAtomic: undefined,
+        callAtomic: rejectNestedCallAtomic(callee.name),
       };
       const ctx = await constructCalleeContext({
         callerCtx: execution.ctx,
@@ -287,18 +302,20 @@ export function createCtxCall(env: CtxCallEnv): CtxCall {
  * context factories (core.md §9): the callee's own permission set and
  * target resolver execute even though the caller was already authorized —
  * defense in depth, and the only way nested resolvers prove they stay in
- * the caller's verified company.
+ * the caller's verified company. Shared with `ctx.callAtomic` (fnd-T19A),
+ * whose runtime carries the writable root `Tx` instead of the read facade.
  */
-async function constructCalleeContext<
+export async function constructCalleeContext<
   TInput extends z.ZodType,
   TOutput extends z.ZodType,
   TTarget,
+  TDb extends ReadTx,
 >(options: {
   readonly callerCtx: ActionCtx;
   readonly action: ImplementedAction<TInput, TOutput, TTarget>;
   readonly input: z.output<TInput>;
   readonly request: ActionRequestMeta;
-  readonly runtime: ContextRuntime<ReadTx>;
+  readonly runtime: ContextRuntime<TDb>;
 }): Promise<ActionCtx> {
   const { callerCtx, action, input, request, runtime } = options;
   const callee = action.contract;
