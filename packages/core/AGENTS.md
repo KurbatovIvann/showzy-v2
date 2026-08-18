@@ -4,7 +4,7 @@ The action runtime (core.md). **Frozen for module tasks** (prohibitions.mdc):
 module implementation tasks may not change anything here — if core is missing
 something, stop and report.
 
-## Current state (fnd-T18)
+## Current state (fnd-T19)
 
 Three export subpaths exist:
 
@@ -23,10 +23,11 @@ Three export subpaths exist:
   and event delivery — `defineEventHandler` + `eventEnvelopeSchema`,
   the dispatcher library `dispatchOutboxBatch`, and the delivery
   entrypoint `executeDelivery` (fnd-T17), plus claim leases, exponential
-  retry, dead-letter parking, and consumer-scoped admin replay (fnd-T18).
+  retry, dead-letter parking, and consumer-scoped admin replay (fnd-T18),
+  and cross-module reads — the pipeline-internal `ctx.call` (fnd-T19).
 
-The rest of the runtime — confirmation, `ctx.call`/`ctx.callAtomic`, and
-the module test kit — lands with fnd-T19…T22 by filling the pipeline's
+The rest of the runtime — confirmation, `ctx.callAtomic`, and the module
+test kit — lands with fnd-T19A/T20…T22 by filling the pipeline's
 protocol slots.
 
 ## Typed errors (`src/errors/`, core.md §11)
@@ -66,8 +67,9 @@ protocol slots.
 - `types.ts` — the six-mode `ActionCtx` discriminated union. The DB slot
   is the capability the action's `risk` allows (`Tx`, `ReadTx`, or a
   grant-bound `ProjectionReadTx`); `emit` is the typed buffered emitter
-  (fnd-T16, below); `call`/`callAtomic` stay opaque until fnd-T19/T19A;
-  `deadline`/`signal`/`emit` values are supplied by the pipeline
+  (fnd-T16, below); `call` is the typed cross-module read invoker
+  (fnd-T19, below); `callAtomic` stays opaque until fnd-T19A;
+  `deadline`/`signal`/`emit`/`call` values are supplied by the pipeline
   (fnd-T12) through `ContextRuntime`.
 - `factories.ts` — exactly one factory per mode, the only construction
   path (never assemble a context by hand): staff verifies the
@@ -119,6 +121,24 @@ protocol slots.
   the §11 vocabulary is wrapped as `CoreInvariantError` (server bug).
 - The `SET LOCAL statement_timeout` statement is the one approved raw-SQL
   primitive here (core.md §4; SET LOCAL takes no bind parameters).
+- `ctx-call.ts` — `createCtxCall` (fnd-T19, core.md §9): synchronous
+  cross-module reads. A handler passes another module's implemented
+  `risk: "read"` action (from its `index.ts`) plus input; the callee runs
+  in the caller's execution transaction behind a fresh `ReadTx` facade,
+  under the caller's principal re-authorized through the normal context
+  factories (staff permissions re-checked; customer/public-target
+  resolvers re-run with the caller's verified `inheritedCompanyId` — a
+  company mismatch is a `CoreInvariantError`; system tenant scope
+  propagates), with callee input/output validated like a transport
+  invocation. The target rules are asserted from the same list the
+  contract check proves in CI (`contract-check/call-rules.ts`) — runtime
+  and CI cannot drift. Depth limit 3, cycle detection by action name,
+  shared deadline/abort budget, correlation-nested log lines
+  (`nested call started/finished` with `caller_action`) and one child
+  span per nested call. An audited read callee gets its child audit entry
+  via the §8 audited-read rule (separate short tx, best-effort). The
+  pipeline boxes the execution transaction/context, so a context escaping
+  its handler carries a `call` that refuses to run.
 
 ## Audit protocol (`src/runtime/audit/`, core.md §8)
 
@@ -291,7 +311,9 @@ stage (`pnpm --filter @showzy/core contract:check`):
    events — their envelopes carry a null company), subscription binding
    rules (system/internal/AI-internal/write/idempotent + scope match),
    declared `ctx.call` edge rules (cross-module, `risk: read`,
-   principal-compatible, no public-global on either side), atomic-edge
+   principal-compatible, no public-global on either side — the per-target
+   list lives in `call-rules.ts` and is shared verbatim with the fnd-T19
+   runtime assert), atomic-edge
    mutuality/compatibility (ADR-0021), and the ADR-0015 schema-ownership
    manifest (foreign schema imports need an owner-declared read-model grant
    to `search`/`analytics`).

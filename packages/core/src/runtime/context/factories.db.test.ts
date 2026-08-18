@@ -122,12 +122,15 @@ function runtimeFor<TDb>(
     logger: logger ?? pino({ enabled: false }),
     deadline: Date.now() + 5_000,
     signal: new AbortController().signal,
-    // The pipeline owns the real buffered emit (fnd-T16); factory tests
-    // never emit. Remaining slots are opaque until fnd-T19/T19A.
+    // The pipeline owns the real buffered emit (fnd-T16) and `ctx.call`
+    // (fnd-T19); factory tests never emit or call. The atomic slot stays
+    // opaque until fnd-T19A.
     emit: () => {
       throw new Error("fixture contexts cannot emit");
     },
-    call: undefined,
+    call: () => {
+      throw new Error("fixture contexts cannot call");
+    },
     callAtomic: undefined,
   };
 }
