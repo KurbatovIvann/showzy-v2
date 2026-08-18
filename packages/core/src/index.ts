@@ -18,6 +18,21 @@ export {
   ActionRegistry,
   ActionRegistryError,
 } from "./runtime/action-registry.js";
+export {
+  assertContractCheck,
+  ContractCheckError,
+  runContractCheck,
+} from "./contract-check/contract-check.js";
+export type {
+  ContractCheckInput,
+  ContractCheckResult,
+  DeclaredCallEdge,
+  EventDefinitionRef,
+  EventSubscriptionRef,
+  ProjectionGrantLookup,
+  ReadModelGrantRef,
+  SchemaImportRef,
+} from "./contract-check/contract-check.js";
 export type {
   AnyActionContract,
   RegisteredImplementation,

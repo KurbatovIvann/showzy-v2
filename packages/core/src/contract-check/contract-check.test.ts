@@ -1,0 +1,1002 @@
+/**
+ * Rule-matrix tests for the registry-wide contract check (core.md §2,
+ * §13 "test per rule").
+ *
+ * Scope note: rules checkable from a single descriptor (metadata
+ * completeness, principal/transport/AI combinations, read-only principal
+ * subsets, confirmation implications, `emits` naming, audit implications)
+ * are enforced — and tested per rule — at define time in
+ * `define-action-contract.test.ts`; conditional callback binding
+ * (`resolveTarget`/`confirmationSummary`/`auditTarget`) at implement time
+ * in `implement-action.test.ts`; duplicate names at registration in
+ * `action-registry.test.ts`. The CI stage executes those layers by
+ * importing the composition manifest, so this file covers exactly the
+ * rules that need the whole registry and the event/call/grant manifests.
+ */
+import { describe, expect, it } from "vitest";
+import { z } from "zod";
+
+import type {
+  ActionContract,
+  ActionContractDefinition,
+} from "../contract/index.js";
+import { defineActionContract } from "../contract/index.js";
+import { ActionRegistry } from "../runtime/action-registry.js";
+import { implementAction } from "../runtime/implement-action.js";
+import type { ContractCheckInput } from "./contract-check.js";
+import {
+  assertContractCheck,
+  ContractCheckError,
+  runContractCheck,
+} from "./contract-check.js";
+
+const io = z.object({});
+
+function fixtureContract(
+  overrides: Partial<ActionContractDefinition> & { name: string },
+): ActionContract {
+  return defineActionContract({
+    description: "Contract-check fixture action.",
+    principal: "staff",
+    transport: "client",
+    input: io,
+    output: io,
+    permissions: ["fixture:view"],
+    aiExposure: "internal",
+    risk: "read",
+    requiresConfirmation: false,
+    idempotent: false,
+    emits: [],
+    atomicCalls: [],
+    atomicCallers: [],
+    audit: false,
+    timeout: 5_000,
+    ...overrides,
+  });
+}
+
+/** Binds the minimal callbacks the contract's metadata implies. */
+function fixtureImplementation(contract: ActionContract) {
+  const needsResolver =
+    contract.principal === "customer" ||
+    (contract.principal === "public" && contract.publicScope === "target");
+  return implementAction(contract, {
+    handler: () => Promise.resolve({}),
+    ...(needsResolver
+      ? {
+          resolveTarget: () =>
+            Promise.resolve({ companyId: "company-a", resource: {} }),
+        }
+      : {}),
+    ...(contract.requiresConfirmation
+      ? { confirmationSummary: () => "fixture summary" }
+      : {}),
+    ...(contract.audit
+      ? { auditTarget: () => ({ type: "fixture", id: "1" }) }
+      : {}),
+  });
+}
+
+/** Registers each contract together with a minimal paired implementation. */
+function buildRegistry(...contracts: readonly ActionContract[]) {
+  const registry = new ActionRegistry();
+  for (const contract of contracts) {
+    registry.registerContract(contract);
+    registry.registerImplementation(fixtureImplementation(contract));
+  }
+  return registry;
+}
+
+function checkInput(
+  registry: ActionRegistry,
+  overrides: Partial<Omit<ContractCheckInput, "registry">> = {},
+): ContractCheckInput {
+  return {
+    registry,
+    events: [],
+    subscriptions: [],
+    callEdges: [],
+    projectionGrants: new Set<string>(),
+    readModelGrants: [],
+    schemaImports: [],
+    ...overrides,
+  };
+}
+
+function problemsOf(input: ContractCheckInput): readonly string[] {
+  return runContractCheck(input).problems;
+}
+
+describe("contract check — pairing (ADR-0016)", () => {
+  it("reports an orphan descriptor in the collected problems", () => {
+    const registry = new ActionRegistry();
+    registry.registerContract(fixtureContract({ name: "orders.get" }));
+    expect(problemsOf(checkInput(registry))).toEqual([
+      expect.stringContaining(
+        'contract "orders.get" has no registered implementation',
+      ),
+    ]);
+  });
+
+  it("reports an orphan implementation in the collected problems", () => {
+    const registry = new ActionRegistry();
+    registry.registerImplementation(
+      fixtureImplementation(fixtureContract({ name: "orders.get" })),
+    );
+    expect(problemsOf(checkInput(registry))).toEqual([
+      expect.stringContaining(
+        'implementation "orders.get" has no registered contract',
+      ),
+    ]);
+  });
+});
+
+describe("contract check — projection grants (ADR-0020)", () => {
+  const publicGlobal = fixtureContract({
+    name: "discovery.listCompanies",
+    principal: "public",
+    publicScope: "globalProjection",
+    projectionGrant: "publishedCompanies",
+    permissions: [],
+  });
+
+  it("rejects a public-global action whose grant no projection owner declares", () => {
+    const registry = buildRegistry(publicGlobal);
+    expect(problemsOf(checkInput(registry))).toEqual([
+      expect.stringContaining(
+        'projectionGrant "publishedCompanies" is not declared by any projection owner',
+      ),
+    ]);
+  });
+
+  it("accepts a public-global action whose grant exists in the manifest", () => {
+    const registry = buildRegistry(publicGlobal);
+    const result = runContractCheck(
+      checkInput(registry, {
+        projectionGrants: new Set(["publishedCompanies"]),
+      }),
+    );
+    expect(result.problems).toEqual([]);
+    expect(result.ok).toBe(true);
+  });
+});
+
+describe("contract check — event definitions (core.md §6)", () => {
+  it("rejects duplicate event definitions", () => {
+    const registry = buildRegistry();
+    const problems = problemsOf(
+      checkInput(registry, {
+        events: [
+          { name: "orders.created", scope: "tenant" },
+          { name: "orders.created", scope: "tenant" },
+        ],
+      }),
+    );
+    expect(problems).toEqual([
+      expect.stringContaining('event "orders.created": duplicate definition'),
+    ]);
+  });
+
+  it("rejects an emitted event that has no registered definition", () => {
+    const registry = buildRegistry(
+      fixtureContract({
+        name: "orders.create",
+        risk: "write",
+        idempotent: true,
+        audit: true,
+        emits: ["orders.created"],
+      }),
+    );
+    expect(problemsOf(checkInput(registry))).toEqual([
+      expect.stringContaining(
+        'action "orders.create": emits "orders.created" but no event definition is registered',
+      ),
+    ]);
+  });
+});
+
+describe("contract check — emitter/event scope consistency (core.md §6)", () => {
+  it("rejects a staff emitter declaring a global-scope event", () => {
+    const registry = buildRegistry(
+      fixtureContract({
+        name: "orders.ship",
+        risk: "write",
+        idempotent: true,
+        audit: true,
+        emits: ["orders.shipped"],
+      }),
+    );
+    const problems = problemsOf(
+      checkInput(registry, {
+        events: [{ name: "orders.shipped", scope: "global" }],
+      }),
+    );
+    expect(problems).toEqual([
+      expect.stringContaining('a staff emitter requires scope "tenant"'),
+    ]);
+  });
+
+  it("rejects a tenant-scoped system emitter declaring a global event", () => {
+    const registry = buildRegistry(
+      fixtureContract({
+        name: "payments.reconcile",
+        principal: "system",
+        transport: "internal",
+        systemScope: "tenant",
+        permissions: [],
+        risk: "write",
+        idempotent: true,
+        audit: true,
+        emits: ["payments.reconciled"],
+      }),
+    );
+    const problems = problemsOf(
+      checkInput(registry, {
+        events: [{ name: "payments.reconciled", scope: "global" }],
+      }),
+    );
+    expect(problems).toEqual([
+      expect.stringContaining(
+        'a system (tenant-scope) emitter requires scope "tenant"',
+      ),
+    ]);
+  });
+
+  it("rejects a global system emitter declaring a tenant event", () => {
+    const registry = buildRegistry(
+      fixtureContract({
+        name: "dictionaries.sync",
+        principal: "system",
+        transport: "internal",
+        systemScope: "global",
+        permissions: [],
+        risk: "write",
+        idempotent: true,
+        audit: true,
+        emits: ["dictionaries.synced"],
+      }),
+    );
+    const problems = problemsOf(
+      checkInput(registry, {
+        events: [{ name: "dictionaries.synced", scope: "tenant" }],
+      }),
+    );
+    expect(problems).toEqual([
+      expect.stringContaining(
+        'a system (global-scope) emitter requires scope "global"',
+      ),
+    ]);
+  });
+
+  it("rejects an account emitter declaring a tenant event (account events carry a null company)", () => {
+    const registry = buildRegistry(
+      fixtureContract({
+        name: "companies.create",
+        principal: "account",
+        permissions: [],
+        risk: "write",
+        idempotent: true,
+        audit: true,
+        emits: ["companies.created"],
+      }),
+    );
+    const problems = problemsOf(
+      checkInput(registry, {
+        events: [{ name: "companies.created", scope: "tenant" }],
+      }),
+    );
+    expect(problems).toEqual([
+      expect.stringContaining('an account emitter requires scope "global"'),
+    ]);
+  });
+
+  it("accepts matching emitter and event scopes", () => {
+    const registry = buildRegistry(
+      fixtureContract({
+        name: "orders.create",
+        risk: "write",
+        idempotent: true,
+        audit: true,
+        emits: ["orders.created"],
+      }),
+      fixtureContract({
+        name: "companies.create",
+        principal: "account",
+        permissions: [],
+        risk: "write",
+        idempotent: true,
+        audit: true,
+        emits: ["companies.created"],
+      }),
+    );
+    const result = runContractCheck(
+      checkInput(registry, {
+        events: [
+          { name: "orders.created", scope: "tenant" },
+          { name: "companies.created", scope: "global" },
+        ],
+      }),
+    );
+    expect(result.problems).toEqual([]);
+  });
+});
+
+describe("contract check — subscription bindings (core.md §6)", () => {
+  const orderCreated = { name: "orders.created", scope: "tenant" } as const;
+  const validConsumerAction = fixtureContract({
+    name: "chat.upsertOrderCard",
+    principal: "system",
+    transport: "internal",
+    systemScope: "tenant",
+    permissions: [],
+    risk: "write",
+    idempotent: true,
+    audit: true,
+  });
+
+  it("accepts a binding to a compatible internal idempotent system action", () => {
+    const registry = buildRegistry(validConsumerAction);
+    const result = runContractCheck(
+      checkInput(registry, {
+        events: [orderCreated],
+        subscriptions: [
+          {
+            event: "orders.created",
+            consumer: "chat.order-card-updater",
+            action: "chat.upsertOrderCard",
+          },
+        ],
+      }),
+    );
+    expect(result.problems).toEqual([]);
+  });
+
+  it("rejects a duplicate (consumer, event) binding", () => {
+    const registry = buildRegistry(validConsumerAction);
+    const subscription = {
+      event: "orders.created",
+      consumer: "chat.order-card-updater",
+      action: "chat.upsertOrderCard",
+    };
+    const problems = problemsOf(
+      checkInput(registry, {
+        events: [orderCreated],
+        subscriptions: [subscription, subscription],
+      }),
+    );
+    expect(problems).toEqual([expect.stringContaining("duplicate binding")]);
+  });
+
+  it("rejects a subscription to an undefined event", () => {
+    const registry = buildRegistry(validConsumerAction);
+    const problems = problemsOf(
+      checkInput(registry, {
+        subscriptions: [
+          {
+            event: "orders.created",
+            consumer: "chat.order-card-updater",
+            action: "chat.upsertOrderCard",
+          },
+        ],
+      }),
+    );
+    expect(problems).toEqual([
+      expect.stringContaining("the event has no registered definition"),
+    ]);
+  });
+
+  it("rejects a subscription bound to an unregistered action", () => {
+    const registry = buildRegistry();
+    const problems = problemsOf(
+      checkInput(registry, {
+        events: [orderCreated],
+        subscriptions: [
+          {
+            event: "orders.created",
+            consumer: "chat.order-card-updater",
+            action: "chat.upsertOrderCard",
+          },
+        ],
+      }),
+    );
+    expect(problems).toEqual([
+      expect.stringContaining(
+        'bound action "chat.upsertOrderCard" is not registered',
+      ),
+    ]);
+  });
+
+  it("rejects a binding to a non-system, client-routable, AI-exposed action", () => {
+    const registry = buildRegistry(
+      fixtureContract({
+        name: "chat.getOrderCard",
+        aiExposure: "exposed",
+        risk: "write",
+        idempotent: true,
+        audit: true,
+      }),
+    );
+    const problems = problemsOf(
+      checkInput(registry, {
+        events: [orderCreated],
+        subscriptions: [
+          {
+            event: "orders.created",
+            consumer: "chat.order-card-updater",
+            action: "chat.getOrderCard",
+          },
+        ],
+      }),
+    );
+    expect(problems).toEqual([
+      expect.stringContaining("must be system-principal"),
+      expect.stringContaining("must be transport-internal"),
+      expect.stringContaining("must be AI-internal"),
+    ]);
+  });
+
+  it("rejects a binding to a read-risk, non-idempotent system action", () => {
+    const registry = buildRegistry(
+      fixtureContract({
+        name: "chat.getOrderFacts",
+        principal: "system",
+        transport: "internal",
+        systemScope: "tenant",
+        permissions: [],
+      }),
+    );
+    const problems = problemsOf(
+      checkInput(registry, {
+        events: [orderCreated],
+        subscriptions: [
+          {
+            event: "orders.created",
+            consumer: "chat.order-card-updater",
+            action: "chat.getOrderFacts",
+          },
+        ],
+      }),
+    );
+    expect(problems).toEqual([
+      expect.stringContaining('must declare risk: "write"'),
+      expect.stringContaining("must be idempotent"),
+    ]);
+  });
+
+  it("rejects a binding whose system scope contradicts the event scope", () => {
+    const registry = buildRegistry(
+      fixtureContract({
+        name: "chat.upsertGlobalCard",
+        principal: "system",
+        transport: "internal",
+        systemScope: "global",
+        permissions: [],
+        risk: "write",
+        idempotent: true,
+        audit: true,
+      }),
+    );
+    const problems = problemsOf(
+      checkInput(registry, {
+        events: [orderCreated],
+        subscriptions: [
+          {
+            event: "orders.created",
+            consumer: "chat.order-card-updater",
+            action: "chat.upsertGlobalCard",
+          },
+        ],
+      }),
+    );
+    expect(problems).toEqual([
+      expect.stringContaining(
+        'has systemScope "global" but the event is tenant-scoped',
+      ),
+    ]);
+  });
+});
+
+describe("contract check — ctx.call edges (core.md §9, ADR-0015)", () => {
+  const staffCaller = fixtureContract({
+    name: "orders.create",
+    risk: "write",
+    idempotent: true,
+    audit: true,
+  });
+  const staffRead = fixtureContract({ name: "pricing.resolvePrices" });
+
+  it("accepts a cross-module staff read edge", () => {
+    const registry = buildRegistry(staffCaller, staffRead);
+    const result = runContractCheck(
+      checkInput(registry, {
+        callEdges: [
+          { caller: "orders.create", callee: "pricing.resolvePrices" },
+        ],
+      }),
+    );
+    expect(result.problems).toEqual([]);
+  });
+
+  it("rejects an edge whose caller or callee is not registered", () => {
+    const registry = buildRegistry(staffRead);
+    const problems = problemsOf(
+      checkInput(registry, {
+        callEdges: [
+          { caller: "orders.create", callee: "pricing.resolvePrices" },
+          { caller: "pricing.resolvePrices", callee: "catalog.getFacts" },
+        ],
+      }),
+    );
+    expect(problems).toEqual([
+      expect.stringContaining("caller is not registered"),
+      expect.stringContaining("callee is not registered"),
+    ]);
+  });
+
+  it("rejects a write callee", () => {
+    const registry = buildRegistry(
+      staffCaller,
+      fixtureContract({
+        name: "pricing.updateList",
+        risk: "write",
+        idempotent: true,
+        audit: true,
+      }),
+    );
+    const problems = problemsOf(
+      checkInput(registry, {
+        callEdges: [{ caller: "orders.create", callee: "pricing.updateList" }],
+      }),
+    );
+    expect(problems).toEqual([
+      expect.stringContaining(
+        'only risk: "read" actions are callable cross-module',
+      ),
+    ]);
+  });
+
+  it("rejects a same-module edge (services/, not ctx.call)", () => {
+    const registry = buildRegistry(
+      staffCaller,
+      fixtureContract({ name: "orders.get" }),
+    );
+    const problems = problemsOf(
+      checkInput(registry, {
+        callEdges: [{ caller: "orders.create", callee: "orders.get" }],
+      }),
+    );
+    expect(problems).toEqual([
+      expect.stringContaining("same-module composition uses services/"),
+    ]);
+  });
+
+  it("rejects a public-global caller", () => {
+    const registry = buildRegistry(
+      fixtureContract({
+        name: "discovery.listCompanies",
+        principal: "public",
+        publicScope: "globalProjection",
+        projectionGrant: "publishedCompanies",
+        permissions: [],
+      }),
+      fixtureContract({
+        name: "catalog.browsePublished",
+        principal: "consumer",
+        permissions: [],
+      }),
+    );
+    const problems = problemsOf(
+      checkInput(registry, {
+        projectionGrants: new Set(["publishedCompanies"]),
+        callEdges: [
+          {
+            caller: "discovery.listCompanies",
+            callee: "catalog.browsePublished",
+          },
+        ],
+      }),
+    );
+    expect(problems).toEqual([
+      expect.stringContaining("public-global actions cannot use ctx.call"),
+    ]);
+  });
+
+  it("rejects a public-global callee", () => {
+    const registry = buildRegistry(
+      fixtureContract({
+        name: "companies.viewProfile",
+        principal: "public",
+        publicScope: "target",
+        permissions: [],
+      }),
+      fixtureContract({
+        name: "discovery.listCompanies",
+        principal: "public",
+        publicScope: "globalProjection",
+        projectionGrant: "publishedCompanies",
+        permissions: [],
+      }),
+    );
+    const problems = problemsOf(
+      checkInput(registry, {
+        projectionGrants: new Set(["publishedCompanies"]),
+        callEdges: [
+          {
+            caller: "companies.viewProfile",
+            callee: "discovery.listCompanies",
+          },
+        ],
+      }),
+    );
+    expect(problems).toEqual([
+      expect.stringContaining("cannot be a ctx.call target"),
+    ]);
+  });
+
+  it("rejects a principal mismatch (staff caller, customer callee)", () => {
+    const registry = buildRegistry(
+      staffCaller,
+      fixtureContract({
+        name: "payments.getOwn",
+        principal: "customer",
+        permissions: [],
+      }),
+    );
+    const problems = problemsOf(
+      checkInput(registry, {
+        callEdges: [{ caller: "orders.create", callee: "payments.getOwn" }],
+      }),
+    );
+    expect(problems).toEqual([
+      expect.stringContaining("does not accept the caller's principal"),
+    ]);
+  });
+
+  it("rejects a consumer caller invoking a company-scoped callee", () => {
+    const registry = buildRegistry(
+      fixtureContract({
+        name: "discovery.browse",
+        principal: "consumer",
+        permissions: [],
+      }),
+      staffRead,
+    );
+    const problems = problemsOf(
+      checkInput(registry, {
+        callEdges: [
+          { caller: "discovery.browse", callee: "pricing.resolvePrices" },
+        ],
+      }),
+    );
+    expect(problems).toEqual([
+      expect.stringContaining("does not accept the caller's principal"),
+    ]);
+  });
+
+  it("accepts an account caller invoking a consumer read", () => {
+    const registry = buildRegistry(
+      fixtureContract({
+        name: "companies.listMine",
+        principal: "account",
+        permissions: [],
+      }),
+      fixtureContract({
+        name: "discovery.browse",
+        principal: "consumer",
+        permissions: [],
+      }),
+    );
+    const result = runContractCheck(
+      checkInput(registry, {
+        callEdges: [
+          { caller: "companies.listMine", callee: "discovery.browse" },
+        ],
+      }),
+    );
+    expect(result.problems).toEqual([]);
+  });
+
+  it("rejects a global system caller invoking a tenant-scoped system read", () => {
+    const registry = buildRegistry(
+      fixtureContract({
+        name: "dictionaries.sync",
+        principal: "system",
+        transport: "internal",
+        systemScope: "global",
+        permissions: [],
+      }),
+      fixtureContract({
+        name: "companies.getTenantFacts",
+        principal: "system",
+        transport: "internal",
+        systemScope: "tenant",
+        permissions: [],
+      }),
+    );
+    const problems = problemsOf(
+      checkInput(registry, {
+        callEdges: [
+          { caller: "dictionaries.sync", callee: "companies.getTenantFacts" },
+        ],
+      }),
+    );
+    expect(problems).toEqual([
+      expect.stringContaining("does not accept the caller's principal"),
+    ]);
+  });
+
+  it("accepts a tenant system caller invoking a global system read", () => {
+    const registry = buildRegistry(
+      fixtureContract({
+        name: "payments.reconcile",
+        principal: "system",
+        transport: "internal",
+        systemScope: "tenant",
+        permissions: [],
+      }),
+      fixtureContract({
+        name: "dictionaries.getEntries",
+        principal: "system",
+        transport: "internal",
+        systemScope: "global",
+        permissions: [],
+      }),
+    );
+    const result = runContractCheck(
+      checkInput(registry, {
+        callEdges: [
+          { caller: "payments.reconcile", callee: "dictionaries.getEntries" },
+        ],
+      }),
+    );
+    expect(result.problems).toEqual([]);
+  });
+});
+
+describe("contract check — atomic edges (ADR-0021)", () => {
+  function atomicPair(): readonly [ActionContract, ActionContract] {
+    return [
+      fixtureContract({
+        name: "orders.confirm",
+        risk: "write",
+        idempotent: true,
+        audit: true,
+        atomicCalls: ["catalog.decrementStock"],
+      }),
+      fixtureContract({
+        name: "catalog.decrementStock",
+        transport: "internal",
+        risk: "write",
+        audit: true,
+        atomicCallers: ["orders.confirm"],
+      }),
+    ];
+  }
+
+  it("accepts a mutually declared same-principal edge", () => {
+    const registry = buildRegistry(...atomicPair());
+    const result = runContractCheck(checkInput(registry));
+    expect(result.problems).toEqual([]);
+  });
+
+  it("rejects an atomicCalls entry that is not registered", () => {
+    const [root] = atomicPair();
+    const registry = buildRegistry(root);
+    expect(problemsOf(checkInput(registry))).toEqual([
+      expect.stringContaining(
+        'atomic edge "orders.confirm" → "catalog.decrementStock": callee is not registered',
+      ),
+    ]);
+  });
+
+  it("rejects an atomicCallers entry that is not registered", () => {
+    const [, callee] = atomicPair();
+    const registry = buildRegistry(callee);
+    expect(problemsOf(checkInput(registry))).toEqual([
+      expect.stringContaining(
+        'atomic edge "orders.confirm" → "catalog.decrementStock": declared caller is not registered',
+      ),
+    ]);
+  });
+
+  it("rejects a one-sided edge the callee does not declare", () => {
+    const [root] = atomicPair();
+    const registry = buildRegistry(
+      root,
+      fixtureContract({
+        name: "catalog.decrementStock",
+        transport: "internal",
+        risk: "write",
+        audit: true,
+        // No atomicCallers — the callee does not acknowledge the edge.
+      }),
+    );
+    expect(problemsOf(checkInput(registry))).toEqual([
+      expect.stringContaining(
+        '"catalog.decrementStock" does not list "orders.confirm" in atomicCallers',
+      ),
+    ]);
+  });
+
+  it("rejects a one-sided edge the caller does not declare", () => {
+    const [, callee] = atomicPair();
+    const registry = buildRegistry(
+      fixtureContract({
+        name: "orders.confirm",
+        risk: "write",
+        idempotent: true,
+        audit: true,
+        // No atomicCalls — the root does not acknowledge the edge.
+      }),
+      callee,
+    );
+    expect(problemsOf(checkInput(registry))).toEqual([
+      expect.stringContaining(
+        '"orders.confirm" does not list "catalog.decrementStock" in atomicCalls',
+      ),
+    ]);
+  });
+
+  it("rejects a declared edge whose principals differ", () => {
+    const registry = buildRegistry(
+      fixtureContract({
+        name: "orders.confirm",
+        risk: "write",
+        idempotent: true,
+        audit: true,
+        atomicCalls: ["catalog.decrementStock"],
+      }),
+      fixtureContract({
+        name: "catalog.decrementStock",
+        principal: "system",
+        transport: "internal",
+        systemScope: "tenant",
+        permissions: [],
+        risk: "write",
+        audit: true,
+        atomicCallers: ["orders.confirm"],
+      }),
+    );
+    expect(problemsOf(checkInput(registry))).toEqual([
+      expect.stringContaining("must use the same principal mode"),
+    ]);
+  });
+});
+
+describe("contract check — schema-ownership manifest (ADR-0014, ADR-0015)", () => {
+  it("accepts own-schema imports without any grant", () => {
+    const result = runContractCheck(
+      checkInput(buildRegistry(), {
+        schemaImports: [{ importer: "catalog", schemaOwner: "catalog" }],
+      }),
+    );
+    expect(result.problems).toEqual([]);
+  });
+
+  it("rejects a foreign schema import without a read-model grant", () => {
+    const problems = problemsOf(
+      checkInput(buildRegistry(), {
+        schemaImports: [{ importer: "search", schemaOwner: "catalog" }],
+      }),
+    );
+    expect(problems).toEqual([
+      expect.stringContaining(
+        'module "search" imports the "catalog" schema without a read-model grant',
+      ),
+    ]);
+  });
+
+  it("accepts a foreign schema import covered by a declared grant", () => {
+    const result = runContractCheck(
+      checkInput(buildRegistry(), {
+        readModelGrants: [{ owner: "catalog", grantee: "search" }],
+        schemaImports: [{ importer: "search", schemaOwner: "catalog" }],
+      }),
+    );
+    expect(result.problems).toEqual([]);
+  });
+
+  it("rejects a grant to a module that is not a cross-cutting projection", () => {
+    const problems = problemsOf(
+      checkInput(buildRegistry(), {
+        readModelGrants: [{ owner: "catalog", grantee: "orders" }],
+      }),
+    );
+    expect(problems).toEqual([
+      expect.stringContaining(
+        'read-model grant "catalog" → "orders": grantee is not a cross-cutting projection module',
+      ),
+    ]);
+  });
+});
+
+describe("contract check — reporting", () => {
+  it("aggregates every violation into one report", () => {
+    const registry = new ActionRegistry();
+    registry.registerContract(fixtureContract({ name: "orders.get" }));
+    registry.registerContract(
+      fixtureContract({
+        name: "discovery.listCompanies",
+        principal: "public",
+        publicScope: "globalProjection",
+        projectionGrant: "unknownGrant",
+        permissions: [],
+      }),
+    );
+    const problems = problemsOf(
+      checkInput(registry, {
+        schemaImports: [{ importer: "search", schemaOwner: "catalog" }],
+      }),
+    );
+    expect(problems).toHaveLength(4);
+  });
+
+  it("assertContractCheck throws a ContractCheckError listing the problems", () => {
+    const registry = new ActionRegistry();
+    registry.registerContract(fixtureContract({ name: "orders.get" }));
+    try {
+      assertContractCheck(checkInput(registry));
+    } catch (error) {
+      if (!(error instanceof ContractCheckError)) {
+        throw error;
+      }
+      expect(error.problems).toHaveLength(1);
+      expect(error.message).toContain('contract "orders.get"');
+      return;
+    }
+    expect.unreachable("expected a ContractCheckError");
+  });
+
+  it("passes a fully populated valid composition", () => {
+    const registry = buildRegistry(
+      fixtureContract({
+        name: "orders.create",
+        risk: "write",
+        idempotent: true,
+        audit: true,
+        emits: ["orders.created"],
+      }),
+      fixtureContract({ name: "pricing.resolvePrices" }),
+      fixtureContract({
+        name: "chat.upsertOrderCard",
+        principal: "system",
+        transport: "internal",
+        systemScope: "tenant",
+        permissions: [],
+        risk: "write",
+        idempotent: true,
+        audit: true,
+      }),
+      fixtureContract({
+        name: "discovery.listCompanies",
+        principal: "public",
+        publicScope: "globalProjection",
+        projectionGrant: "publishedCompanies",
+        permissions: [],
+      }),
+    );
+    const result = runContractCheck(
+      checkInput(registry, {
+        events: [{ name: "orders.created", scope: "tenant" }],
+        subscriptions: [
+          {
+            event: "orders.created",
+            consumer: "chat.order-card-updater",
+            action: "chat.upsertOrderCard",
+          },
+        ],
+        callEdges: [
+          { caller: "orders.create", callee: "pricing.resolvePrices" },
+        ],
+        projectionGrants: new Set(["publishedCompanies"]),
+        readModelGrants: [{ owner: "orders", grantee: "search" }],
+        schemaImports: [
+          { importer: "orders", schemaOwner: "orders" },
+          { importer: "search", schemaOwner: "orders" },
+        ],
+      }),
+    );
+    expect(result.problems).toEqual([]);
+    expect(result.ok).toBe(true);
+  });
+});
