@@ -356,6 +356,7 @@ describe("idempotency protocol — concurrency and leases", () => {
         actor: { type: "user", id: users.anna },
         companyId: companyA,
       },
+      confirmationGrant: undefined,
     });
     expect(reserved.kind).toBe("execute");
     const [staleRow] = await rowsForKey(key);

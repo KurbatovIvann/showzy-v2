@@ -370,7 +370,7 @@ export async function executeAction<
       const outcome = await deps.hooks.idempotency.reserve({
         ...hookEnv,
         authorization: requireAuthorization(authorization, contract.name),
-        ...(confirmationGrant !== undefined ? { confirmationGrant } : {}),
+        confirmationGrant,
       });
       if (outcome.kind === "replay") {
         // Replay the stored snapshot without re-running the handler (§5).
