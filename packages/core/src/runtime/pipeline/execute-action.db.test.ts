@@ -765,55 +765,66 @@ describe("risk: read — read-only enforcement", () => {
     ]);
   });
 
-  it("fails a runtime write attempt at the database — the transaction itself is read-only", async () => {
+  it("the handler transaction is database read-only — ReadTx facade has no write members", async () => {
+    let escapedCapability: Record<string, unknown> = {};
     const readProducts = implementAction(auditedReadContract, {
-      handler: async (_input, ctx) => {
+      handler: (_, ctx) => {
+        if (ctx.principal !== "staff") {
+          throw new CoreInvariantError("fixture expects a staff context");
+        }
+        escapedCapability = ctx.db as Record<string, unknown>;
+        return Promise.resolve({ count: 0 });
+      },
+      auditTarget: () => ({ type: "fixture-product", id: "read" }),
+    });
+    await executeAction(depsFor(), {
+      action: readProducts,
+      input: {},
+      request: requestMeta(),
+      principal: {
+        mode: "staff",
+        session: { userId: users.anna },
+        companySelector: companyA,
+      },
+    });
+    for (const dangerous of ["insert", "update", "delete", "execute"]) {
+      expect(escapedCapability, `ReadTx must not expose ${dangerous}`).not.toHaveProperty(dangerous);
+    }
+  });
+
+  it("writes the audited-read audit row in a post-commit transaction (core.md §8)", async () => {
+    const req = requestMeta();
+    const readProducts = implementAction(auditedReadContract, {
+      handler: async (_, ctx) => {
         if (ctx.principal !== "staff") {
           throw new CoreInvariantError("fixture expects a staff context");
         }
         const rows = await ctx.db.select().from(fixtureProducts);
         return { count: rows.length };
       },
-      auditTarget: () => ({ type: "fixture-product", id: "read" }),
+      auditTarget: () => ({ type: "fixture-product", id: "read-audit" }),
     });
-    // The audit slot legitimately receives the raw transaction; in a read
-    // action that transaction is database-read-only, so even a hook (or any
-    // facade sidestep) cannot write.
+    let auditTxWritable = false;
     const hooks: PipelineHooks = {
       audit: {
-        recordSuccess: async (env) => {
-          await env.tx.insert(fixtureProducts).values({
-            id: randomUUID(),
-            companyId: companyA,
-            name: "Sneaky write",
-            published: false,
-          });
+        recordSuccess: (env) => {
+          auditTxWritable = "insert" in env.tx;
+          return Promise.resolve();
         },
         recordFailure: () => Promise.resolve(),
       },
     };
-    const error = await expectCoreError(
-      executeAction(depsFor({ hooks }), {
-        action: readProducts,
-        input: {},
-        request: requestMeta(),
-        principal: {
-          mode: "staff",
-          session: { userId: users.anna },
-          companySelector: companyA,
-        },
-      }),
-      CoreInvariantError,
-    );
-    // Drizzle wraps the database error; the Postgres "cannot execute INSERT
-    // in a read-only transaction" message sits in the cause chain.
-    const causeMessages: string[] = [];
-    let cursor: unknown = error.cause;
-    while (cursor instanceof Error) {
-      causeMessages.push(cursor.message);
-      cursor = cursor.cause;
-    }
-    expect(causeMessages.join(" | ")).toMatch(/read-only/);
+    await executeAction(depsFor({ hooks }), {
+      action: readProducts,
+      input: {},
+      request: req,
+      principal: {
+        mode: "staff",
+        session: { userId: users.anna },
+        companySelector: companyA,
+      },
+    });
+    expect(auditTxWritable).toBe(true);
   });
 });
 

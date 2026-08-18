@@ -52,7 +52,7 @@ import {
 import { staffHasPermission } from "../context/permissions.js";
 import type { ActionCtx, StaffMembership } from "../context/types.js";
 import type { ImplementedAction } from "../implement-action.js";
-import type { MaybePromise, TargetResolver } from "../types.js";
+import type { AuditTargetFn, MaybePromise, TargetResolver } from "../types.js";
 import type {
   ActionPipelineDeps,
   PipelineHookEnv,
@@ -337,7 +337,13 @@ export async function executeAction<
         //    inserted by `ctx.emit` during the handler (fnd-T16); the audit
         //    row (fnd-T13) and the idempotency response snapshot (fnd-T15)
         //    commit atomically with the handler's effects.
-        if (contract.audit && deps.hooks?.audit !== undefined) {
+        //    Audited reads skip the same-tx insert — the read-only tx cannot
+        //    write; the row is inserted post-commit (core.md §8).
+        if (
+          contract.audit &&
+          contract.risk !== "read" &&
+          deps.hooks?.audit !== undefined
+        ) {
           await deps.hooks.audit.recordSuccess({
             tx,
             ctx,
@@ -345,6 +351,8 @@ export async function executeAction<
             input,
             output: parsedOutput.data,
             durationMs: now() - startedAt,
+            auditTarget: requireAuditTarget(env),
+            auditSnapshot: invocation.action.auditSnapshot,
           });
         }
         if (reserved !== undefined && deps.hooks?.idempotency !== undefined) {
@@ -361,6 +369,36 @@ export async function executeAction<
       //     runtime write fails even if a capability facade were sidestepped.
       { accessMode: contract.risk === "read" ? "read only" : "read write" },
     );
+
+    // Post-commit audit for audited reads: the handler transaction is
+    // read-only so the row is written in a separate short transaction.
+    // Best-effort: a failure here is logged but never masks the response
+    // (core.md §8 — audited reads).
+    const auditHook = deps.hooks?.audit;
+    if (
+      contract.audit &&
+      contract.risk === "read" &&
+      auditHook !== undefined &&
+      executionCtx !== undefined
+    ) {
+      const ctx = executionCtx;
+      try {
+        await deps.db.transaction(async (auditTx) => {
+          await auditHook.recordSuccess({
+            tx: auditTx,
+            ctx,
+            contract,
+            input: validatedInput,
+            output,
+            durationMs: now() - startedAt,
+            auditTarget: requireAuditTarget(env),
+            auditSnapshot: invocation.action.auditSnapshot,
+          });
+        });
+      } catch (auditError) {
+        log.error({ err: auditError }, "post-commit read audit failed");
+      }
+    }
 
     finish("ok");
     return output;
@@ -393,6 +431,7 @@ export async function executeAction<
           authorization,
           error: coreError,
           durationMs: now() - startedAt,
+          auditTarget: invocation.action.auditTarget,
         });
       } catch (hookError) {
         log.error({ err: hookError }, "audit recordFailure hook failed");
@@ -471,6 +510,20 @@ function requireResolver<
     );
   }
   return resolver;
+}
+
+function requireAuditTarget<
+  TInput extends z.ZodType,
+  TOutput extends z.ZodType,
+  TTarget,
+>(env: RunEnv<TInput, TOutput, TTarget>): AuditTargetFn {
+  const target = env.action.auditTarget;
+  if (target === undefined) {
+    throw new CoreInvariantError(
+      `action "${env.contract.name}" declares audit: true but binds no auditTarget — implementAction should have rejected this pairing`,
+    );
+  }
+  return target;
 }
 
 function requireAuthorization(

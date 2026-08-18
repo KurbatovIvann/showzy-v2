@@ -27,7 +27,9 @@ import type {
   ActionChannel,
   ActionCtx,
 } from "../context/types.js";
-import type { MaybePromise } from "../types.js";
+import type { z } from "zod";
+
+import type { AuditSnapshotFn, AuditTargetFn, MaybePromise } from "../types.js";
 
 /**
  * Request-scoped metadata the transport supplies. The pipeline derives the
@@ -156,9 +158,10 @@ export interface IdempotencyHook {
 
 /**
  * Filled by fnd-T13 (core.md §8). `recordSuccess` runs inside the handler
- * transaction (same-tx audit row); `recordFailure` runs after rollback in
- * its own transaction and receives whatever identity the pipeline had
- * established when the invocation failed.
+ * transaction (mutations) or in a separate short transaction after the
+ * read-only handler transaction commits (`risk: read`); `recordFailure`
+ * runs after rollback in its own transaction and receives whatever identity
+ * the pipeline had established when the invocation failed.
  */
 export interface AuditHook {
   recordSuccess(env: {
@@ -168,12 +171,15 @@ export interface AuditHook {
     readonly input: unknown;
     readonly output: unknown;
     readonly durationMs: number;
+    readonly auditTarget: AuditTargetFn;
+    readonly auditSnapshot: AuditSnapshotFn<z.ZodType> | undefined;
   }): Promise<void>;
   recordFailure(
     env: PipelineHookEnv & {
       readonly error: CoreError;
       readonly authorization: PreflightAuthorization | undefined;
       readonly durationMs: number;
+      readonly auditTarget: AuditTargetFn | undefined;
     },
   ): Promise<void>;
 }

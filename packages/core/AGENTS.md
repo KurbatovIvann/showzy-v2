@@ -4,7 +4,7 @@ The action runtime (core.md). **Frozen for module tasks** (prohibitions.mdc):
 module implementation tasks may not change anything here — if core is missing
 something, stop and report.
 
-## Current state (fnd-T12)
+## Current state (fnd-T13)
 
 Three export subpaths exist:
 
@@ -13,12 +13,13 @@ Three export subpaths exist:
 - `@showzy/core` (root, server-only) — `implementAction` + `ActionRegistry`
   (fnd-T9), the registry-walking contract check (fnd-T10), the six
   principal context factories + `effectiveCompanyId` +
-  `staffHasPermission` (fnd-T11), and the execution pipeline
-  `executeAction` (fnd-T12).
+  `staffHasPermission` (fnd-T11), the execution pipeline
+  `executeAction` (fnd-T12), and the audit protocol `createAuditHook` +
+  `canonicalJson`/`canonicalJsonSha256` (fnd-T13).
 
 The rest of the runtime — events, idempotency, confirmation, rate
 limiting, `ctx.call`/`ctx.callAtomic`, and the module test kit — lands
-with fnd-T13…T22 by filling the pipeline's protocol slots.
+with fnd-T14…T22 by filling the pipeline's protocol slots.
 
 ## Typed errors (`src/errors/`, core.md §11)
 
@@ -48,8 +49,9 @@ with fnd-T13…T22 by filling the pipeline's protocol slots.
 - `types.ts` — callback shapes. Return types are spec commitments;
   `ActionExecutionCtx` (= `ActionCtx`) and `TargetResolutionEnv`
   (`{ tx: ReadTx, principal, inheritedCompanyId? }`) were narrowed by
-  fnd-T11; the summary/audit environments remain opaque aliases owned by
-  fnd-T13/T20 — narrow the alias there, do not commit internals early.
+  fnd-T11; `AuditTargetEnv` was narrowed by fnd-T13 to
+  `{ input, output?, ctx? }`; the confirmation summary environment
+  remains an opaque alias owned by fnd-T20.
 
 ## Principal contexts (`src/runtime/context/`, core.md §3)
 
@@ -107,6 +109,26 @@ with fnd-T13…T22 by filling the pipeline's protocol slots.
   the §11 vocabulary is wrapped as `CoreInvariantError` (server bug).
 - The `SET LOCAL statement_timeout` statement is the one approved raw-SQL
   primitive here (core.md §4; SET LOCAL takes no bind parameters).
+
+## Audit protocol (`src/runtime/audit/`, core.md §8)
+
+- `canonical-json.ts` — RFC 8785 canonical JSON serialization and SHA-256
+  hashing. Deterministic key ordering, ES `Number.toString` formatting,
+  rejection of non-JSON values. Exported for reuse by fnd-T15 (idempotency
+  `requestHash`).
+- `create-audit-hook.ts` — `createAuditHook({ db })` returns the
+  `AuditHook` the pipeline consumes. `recordSuccess` inserts the audit row
+  using the transaction it receives (handler tx for mutations, a post-commit
+  tx for audited reads). `recordFailure` opens its own short transaction.
+  `inputHash` is always the canonical-JSON SHA-256 of the validated input;
+  `inputSnapshot` is populated only when the action binds `auditSnapshot`.
+- **Audited reads**: the handler transaction is database read-only, so the
+  pipeline writes the success audit row in a separate post-commit
+  transaction. Best-effort: a post-commit write failure is logged but never
+  masks the read result (core.md §8).
+- The `AuditTargetEnv` type (narrowed from the fnd-T9 opaque alias) gives
+  `auditTarget` callbacks `{ input, output?, ctx? }` — output/ctx are absent
+  on failure/denial paths.
 
 ## The contract check (`src/contract-check/`, core.md §2)
 
