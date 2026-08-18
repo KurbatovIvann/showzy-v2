@@ -22,4 +22,5 @@ export {
   type DbClient,
   type DbSchema,
 } from "./client.js";
+export * from "./schema/companies.js";
 export * from "./schema/foundation.js";

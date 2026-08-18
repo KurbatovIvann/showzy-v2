@@ -7,6 +7,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./schema/*": "./src/schema/*.ts",
+    "./seed": "./seed/index.ts",
     "./testing": "./src/testing/harness.ts",
     "./testing/fixtures": "./src/testing/fixtures.ts",
     "./testing/global-setup": "./src/testing/global-setup.ts"

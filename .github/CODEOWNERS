@@ -1,0 +1,2 @@
+# Domain schema ownership follows ADR-0014.
+/packages/db/src/schema/companies.ts @KurbatovIvann
