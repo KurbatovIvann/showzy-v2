@@ -7,8 +7,9 @@
  *
  * OTP codes never persist to Postgres: `secondaryStorage` is a required
  * dependency, and with it configured better-auth keeps all verification
- * values (phone/email OTPs) in that store with a TTL — the `verification`
- * table stays empty and OTPs never reach database backups or dumps. Sessions
+ * values (phone/email OTPs) in that store with a TTL — the generated schema
+ * has no `verification` table at all, so OTPs cannot reach database backups
+ * or dumps. Sessions
  * are explicitly pinned to Postgres (`storeSessionInDatabase`). Residual
  * accepted risk (docs/plans/foundation.md "Reported deviations"): phone codes
  * sit plaintext inside the TTL'd secondary store for their 5-minute lifetime
