@@ -53,6 +53,25 @@ export type {
   TargetResolutionPrincipal,
   TargetResolver,
 } from "./runtime/types.js";
+export { executeAction } from "./runtime/pipeline/execute-action.js";
+export type { ActionInvocation } from "./runtime/pipeline/execute-action.js";
+export type {
+  ActionPipelineDeps,
+  ActionSpan,
+  ActionSpanFields,
+  ActionSpanOutcome,
+  ActionTelemetry,
+  AuditHook,
+  ConfirmationHook,
+  IdempotencyHook,
+  IdempotencyReserveResult,
+  PipelineHookEnv,
+  PipelineHooks,
+  PipelineRequestMeta,
+  PreflightAuthorization,
+  PrincipalInvocation,
+  RateLimitHook,
+} from "./runtime/pipeline/types.js";
 export {
   createAccountContext,
   createConsumerContext,
