@@ -194,7 +194,8 @@ export interface IdempotencyHook {
   reserve(
     env: PipelineHookEnv & {
       readonly authorization: PreflightAuthorization;
-      readonly confirmationGrant?: ConfirmationGrant;
+      /** Present after the confirmation gate; `undefined` when the action is not confirmed. */
+      readonly confirmationGrant: ConfirmationGrant | undefined;
     },
   ): Promise<IdempotencyReserveResult>;
   finalize(env: {

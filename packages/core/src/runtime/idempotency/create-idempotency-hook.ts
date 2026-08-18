@@ -155,7 +155,7 @@ export function createIdempotencyHook(
             observedAttemptId: existing.attemptId,
             leaseMs,
             nowMs: nowAfterRead,
-            ...(grant !== undefined ? { grant } : {}),
+            grant,
             reset: {
               requestHash,
               expiresAt: new Date(nowAfterRead + IDEMPOTENCY_RETENTION_MS),
@@ -184,7 +184,7 @@ export function createIdempotencyHook(
               observedAttemptId: existing.attemptId,
               leaseMs,
               nowMs: nowAfterRead,
-              ...(grant !== undefined ? { grant } : {}),
+              grant,
             });
           case "in_progress": {
             if (existing.leaseExpiresAt.getTime() > nowAfterRead) {
@@ -203,7 +203,7 @@ export function createIdempotencyHook(
               observedAttemptId: existing.attemptId,
               leaseMs,
               nowMs: nowAfterRead,
-              ...(grant !== undefined ? { grant } : {}),
+              grant,
             });
           }
           default:
@@ -308,7 +308,7 @@ async function takeover(
     readonly observedAttemptId: string;
     readonly leaseMs: number;
     readonly nowMs: number;
-    readonly grant?: ConfirmationGrant;
+    readonly grant: ConfirmationGrant | undefined;
     /** Set when reusing a row whose retention has passed. */
     readonly reset?: {
       readonly requestHash: string;
