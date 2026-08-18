@@ -53,11 +53,17 @@ import { assertDeclaredPermissions } from "../context/permissions.js";
 import type { ActionCtx } from "../context/types.js";
 import { createEmitBuffer } from "../events/emit.js";
 import type { ImplementedAction } from "../implement-action.js";
-import type { AuditTargetFn, MaybePromise, TargetResolver } from "../types.js";
+import type {
+  AuditTargetFn,
+  ConfirmationSummaryEnv,
+  MaybePromise,
+  TargetResolver,
+} from "../types.js";
 import { createCtxCallAtomic } from "./ctx-call-atomic.js";
 import { createCtxCall } from "./ctx-call.js";
 import type {
   ActionPipelineDeps,
+  ConfirmationGrant,
   PipelineHookEnv,
   PipelineHookRequestMeta,
   PipelineRequestMeta,
@@ -311,16 +317,48 @@ export async function executeAction<
       authorization = await runAuthorizationPreflight(env);
     }
 
-    // 5. Replay probe + confirmation gate (slot — fnd-T20).
-    if (
-      contract.requiresConfirmation &&
-      deps.hooks?.confirmation !== undefined
-    ) {
-      await deps.hooks.confirmation.gate({
-        ...hookEnv,
-        authorization: requireAuthorization(authorization, contract.name),
-        summarize: bindConfirmationSummary(env),
-      });
+    // 5. Replay probe + confirmation gate (fnd-T20 — core.md §5/§7).
+    //    A completed idempotency record replays before the single-use
+    //    challenge is touched; a failed/stale row with an unexpired
+    //    persisted grant resumes without consuming a new token.
+    let confirmationGrant: ConfirmationGrant | undefined;
+    if (contract.requiresConfirmation) {
+      const confirmedAuth = requireAuthorization(authorization, contract.name);
+      if (deps.hooks?.confirmation === undefined) {
+        throw new CoreInvariantError(
+          `"${contract.name}" requires confirmation but no confirmation hook is composed — high-risk execution cannot proceed`,
+        );
+      }
+      const idempotencyHook = deps.hooks.idempotency;
+      if (idempotencyHook?.probe !== undefined) {
+        const probed = await idempotencyHook.probe({
+          ...hookEnv,
+          authorization: confirmedAuth,
+        });
+        if (probed.kind === "replay") {
+          const replayedOutput = await contract.output.safeParseAsync(
+            probed.response,
+          );
+          if (!replayedOutput.success) {
+            throw new CoreInvariantError(
+              `stored idempotent response of "${contract.name}" failed the declared output schema: ${JSON.stringify(replayedOutput.error.issues)}`,
+            );
+          }
+          replayed = true;
+          finish("ok");
+          return replayedOutput.data;
+        }
+        if (probed.kind === "resume") {
+          confirmationGrant = probed.grant;
+        }
+      }
+      if (confirmationGrant === undefined) {
+        confirmationGrant = await deps.hooks.confirmation.gate({
+          ...hookEnv,
+          authorization: confirmedAuth,
+          summarize: bindConfirmationSummary(env, confirmedAuth),
+        });
+      }
     }
 
     // 6. Idempotency reserve (slot — fnd-T15), after the confirmation gate.
@@ -332,6 +370,7 @@ export async function executeAction<
       const outcome = await deps.hooks.idempotency.reserve({
         ...hookEnv,
         authorization: requireAuthorization(authorization, contract.name),
+        ...(confirmationGrant !== undefined ? { confirmationGrant } : {}),
       });
       if (outcome.kind === "replay") {
         // Replay the stored snapshot without re-running the handler (§5).
@@ -580,16 +619,23 @@ function bindConfirmationSummary<
   TInput extends z.ZodType,
   TOutput extends z.ZodType,
   TTarget,
->(env: RunEnv<TInput, TOutput, TTarget>): () => MaybePromise<string> {
+>(
+  env: RunEnv<TInput, TOutput, TTarget>,
+  authorization: PreflightAuthorization,
+): () => MaybePromise<string> {
   const summarize = env.action.confirmationSummary;
   if (summarize === undefined) {
     throw new CoreInvariantError(
       `action "${env.contract.name}" requires confirmation but binds no confirmationSummary — implementAction should have rejected this pairing`,
     );
   }
-  // The summary environment stays opaque until fnd-T20 narrows it to carry
-  // the resolved target alongside the input.
-  return () => summarize(env.input, undefined);
+  const summaryEnv: ConfirmationSummaryEnv = {
+    companyId: authorization.companyId,
+    ...(authorization.target !== undefined
+      ? { target: authorization.target }
+      : {}),
+  };
+  return () => summarize(env.input, summaryEnv);
 }
 
 /**
@@ -632,7 +678,11 @@ async function runAuthorizationPreflight<
             input: env.input,
             resolveTarget: requireResolver(env),
           });
-          return { actor: ctx.actor, companyId: ctx.target.companyId };
+          return {
+            actor: ctx.actor,
+            companyId: ctx.target.companyId,
+            target: ctx.target.resource,
+          };
         },
         { accessMode: "read only" },
       );

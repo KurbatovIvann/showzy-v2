@@ -90,13 +90,28 @@ export type PrincipalInvocation =
 
 /**
  * What the authorization preflight (§4 step 4) proved, distilled for the
- * confirmation/idempotency hooks: the accountable actor and the resolved
- * company scope. Never a substitute for the in-transaction re-authorization
- * — it only prevents unauthorized challenges/idempotency rows.
+ * confirmation/idempotency hooks: the accountable actor, the resolved
+ * company scope, and (when a typed resolver ran) the loaded resource for
+ * `confirmationSummary`. Never a substitute for the in-transaction
+ * re-authorization — it only prevents unauthorized challenges/idempotency
+ * rows.
  */
 export interface PreflightAuthorization {
   readonly actor: ActionActor;
   readonly companyId: string | null;
+  /** Resolved resource for customer/public-target; omitted otherwise. */
+  readonly target?: unknown;
+}
+
+/**
+ * A consumed (or crash-resumed) confirmation grant (core.md §5/§7).
+ * Persisted on the idempotency reservation so a stale attempt can resume
+ * without reusing the raw challenge token.
+ */
+export interface ConfirmationGrant {
+  readonly challengeId: string;
+  readonly confirmedAt: Date;
+  readonly expiresAt: Date;
 }
 
 /**
@@ -126,8 +141,10 @@ export interface RateLimitHook {
 
 /**
  * Filled by fnd-T20 (core.md §7). Runs after the authorization preflight
- * and before the idempotency reserve: issues `ConfirmationRequiredError`
- * on the first invocation, validates/consumes the challenge on the second.
+ * and the read-only replay probe, and before the idempotency reserve:
+ * issues `ConfirmationRequiredError` on the first invocation, validates
+ * and consumes the challenge on the second. Returns the consumed grant
+ * so reserve can persist it.
  */
 export interface ConfirmationHook {
   gate(
@@ -136,7 +153,7 @@ export interface ConfirmationHook {
       /** The action's `confirmationSummary`, bound to the validated input. */
       readonly summarize: () => MaybePromise<string>;
     },
-  ): Promise<void>;
+  ): Promise<ConfirmationGrant>;
 }
 
 /** Outcome of the idempotency reserve step (core.md §5). */
@@ -153,14 +170,32 @@ export type IdempotencyReserveResult =
     };
 
 /**
- * Filled by fnd-T15 (core.md §5). `reserve` runs in its own short
+ * Read-only probe used by the confirmation gate (core.md §5 "Confirmed
+ * retries"): a completed row replays before the challenge is touched; a
+ * failed/stale row with an unexpired persisted grant resumes without
+ * consuming a new token.
+ */
+export type IdempotencyProbeResult =
+  | { readonly kind: "fresh" }
+  | { readonly kind: "replay"; readonly response: unknown }
+  | { readonly kind: "resume"; readonly grant: ConfirmationGrant };
+
+/**
+ * Filled by fnd-T15 (core.md §5). `probe` is the confirmation-gate
+ * read-only lookup (fnd-T20); `reserve` runs in its own short
  * transaction before the handler; `finalize` runs **inside** the handler
  * transaction so the response snapshot commits atomically with the
  * effects; `markFailed` runs in a separate transaction after rollback.
  */
 export interface IdempotencyHook {
-  reserve(
+  probe?(
     env: PipelineHookEnv & { readonly authorization: PreflightAuthorization },
+  ): Promise<IdempotencyProbeResult>;
+  reserve(
+    env: PipelineHookEnv & {
+      readonly authorization: PreflightAuthorization;
+      readonly confirmationGrant?: ConfirmationGrant;
+    },
   ): Promise<IdempotencyReserveResult>;
   finalize(env: {
     readonly tx: Tx;

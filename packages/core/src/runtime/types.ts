@@ -1,11 +1,11 @@
 /**
  * Server-callback shapes bound by `implementAction` (core.md §2, ADR-0016).
  *
- * Return types are spec commitments and fully typed. The remaining opaque
- * environment aliases are owned by later foundation tasks (audit fnd-T13,
- * confirmation fnd-T20); `ActionExecutionCtx` and `TargetResolutionEnv`
- * were narrowed by the principal context factories (fnd-T11). Narrowing an
- * alias is type-only and cannot break the binding API committed here.
+ * Return types are spec commitments and fully typed. `ActionExecutionCtx`
+ * and `TargetResolutionEnv` were narrowed by the principal context
+ * factories (fnd-T11); `AuditTargetEnv` by fnd-T13; `ConfirmationSummaryEnv`
+ * by fnd-T20. Narrowing an alias is type-only and cannot break the binding
+ * API committed here.
  */
 import type { ReadTx } from "@showzy/db";
 import type { z } from "zod";
@@ -52,8 +52,16 @@ export interface TargetResolutionEnv {
   readonly inheritedCompanyId?: string;
 }
 
-/** Narrowed by fnd-T20 to carry the resolved target alongside input (§7). */
-export type ConfirmationSummaryEnv = unknown;
+/**
+ * What `confirmationSummary` sees (core.md §7): the preflight-verified
+ * company scope (null for account) and, when a typed resolver ran, the
+ * loaded resource. Must stay redacted — the string it returns is the only
+ * confirmation detail that crosses the wire.
+ */
+export interface ConfirmationSummaryEnv {
+  readonly companyId: string | null;
+  readonly target?: unknown;
+}
 
 /**
  * The environment `auditTarget` receives (core.md §8, narrowed by fnd-T13).

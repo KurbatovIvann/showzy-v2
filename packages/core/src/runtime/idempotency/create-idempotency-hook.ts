@@ -22,29 +22,35 @@
  * that outlives its lease is dead by construction and no mid-flight renewal
  * is needed. Keys expire after 48 h; the worker loop (fnd-T27) schedules
  * `cleanupExpiredIdempotencyKeys` — core exposes functions, never loops.
+ *
+ * `probe` is the read-only lookup the confirmation gate uses (fnd-T20):
+ * completed rows replay, a live lease is `ConcurrentRetryError`, and a
+ * failed/stale row with an unexpired persisted grant resumes. `reserve`
+ * persists a consumed confirmation grant on the row so a crash after
+ * reservation can resume without reusing the raw token.
  */
 import { randomUUID } from "node:crypto";
 
 import { idempotencyKeys, type Database } from "@showzy/db";
 import { and, eq, lte } from "drizzle-orm";
-import type { z } from "zod";
 
 import {
   ConcurrentRetryError,
   CoreInvariantError,
   IdempotencyConflictError,
-  ValidationError,
 } from "../../errors/index.js";
 import {
   canonicalJsonSha256,
   type JsonSerializable,
 } from "../audit/canonical-json.js";
 import type {
+  ConfirmationGrant,
   IdempotencyHook,
+  IdempotencyProbeResult,
   IdempotencyReserveResult,
   PipelineHookEnv,
-  PreflightAuthorization,
 } from "../pipeline/types.js";
+import { principalKeyFor, requireIdempotencyKey, scopeKeyFor } from "./keys.js";
 
 /** Keys expire 48 h after creation (core.md §5); replay beyond re-executes. */
 export const IDEMPOTENCY_RETENTION_MS = 48 * 60 * 60 * 1000;
@@ -73,30 +79,38 @@ interface IdempotencyReservation {
   readonly leaseMs: number;
 }
 
-type ReserveEnv = PipelineHookEnv & {
-  readonly authorization: PreflightAuthorization;
-};
-
 export function createIdempotencyHook(
   deps: IdempotencyHookDeps,
 ): IdempotencyHook {
   const now = deps.now ?? Date.now;
 
   return {
+    async probe(env) {
+      const key = requireIdempotencyKey(env);
+      const principalKey = principalKeyFor(env);
+      const scopeKey = scopeKeyFor(env, principalKey);
+      const requestHash = requestHashOf(env, principalKey, scopeKey);
+      const [existing] = await deps.db
+        .select()
+        .from(idempotencyKeys)
+        .where(
+          pkWhere({ principalKey, scopeKey, action: env.contract.name, key }),
+        );
+      if (existing === undefined) {
+        return { kind: "fresh" };
+      }
+      return interpretProbeRow(existing, requestHash, now());
+    },
+
     async reserve(env) {
       const key = requireIdempotencyKey(env);
       const principalKey = principalKeyFor(env);
       const scopeKey = scopeKeyFor(env, principalKey);
       const action = env.contract.name;
-      // The hash covers principal and scope alongside the input (§5), so a
-      // hash match always implies the same accountable identity.
-      const requestHash = canonicalJsonSha256({
-        input: env.input as JsonSerializable,
-        principalKey,
-        scopeKey,
-      });
+      const requestHash = requestHashOf(env, principalKey, scopeKey);
       const leaseMs = env.contract.timeout + IDEMPOTENCY_LEASE_MARGIN_MS;
       const identity = { principalKey, scopeKey, action, key } as const;
+      const grant = env.confirmationGrant;
 
       // Two rounds cover the rare row-vanished race (retention cleanup
       // deleting between our INSERT conflict and SELECT); everything else
@@ -114,6 +128,7 @@ export function createIdempotencyHook(
             attemptId,
             leaseExpiresAt: new Date(nowMs + leaseMs),
             expiresAt: new Date(nowMs + IDEMPOTENCY_RETENTION_MS),
+            ...grantColumns(grant),
           })
           .onConflictDoNothing()
           .returning({ attemptId: idempotencyKeys.attemptId });
@@ -140,6 +155,7 @@ export function createIdempotencyHook(
             observedAttemptId: existing.attemptId,
             leaseMs,
             nowMs: nowAfterRead,
+            ...(grant !== undefined ? { grant } : {}),
             reset: {
               requestHash,
               expiresAt: new Date(nowAfterRead + IDEMPOTENCY_RETENTION_MS),
@@ -168,6 +184,7 @@ export function createIdempotencyHook(
               observedAttemptId: existing.attemptId,
               leaseMs,
               nowMs: nowAfterRead,
+              ...(grant !== undefined ? { grant } : {}),
             });
           case "in_progress": {
             if (existing.leaseExpiresAt.getTime() > nowAfterRead) {
@@ -186,6 +203,7 @@ export function createIdempotencyHook(
               observedAttemptId: existing.attemptId,
               leaseMs,
               nowMs: nowAfterRead,
+              ...(grant !== undefined ? { grant } : {}),
             });
           }
           default:
@@ -290,6 +308,7 @@ async function takeover(
     readonly observedAttemptId: string;
     readonly leaseMs: number;
     readonly nowMs: number;
+    readonly grant?: ConfirmationGrant;
     /** Set when reusing a row whose retention has passed. */
     readonly reset?: {
       readonly requestHash: string;
@@ -309,6 +328,9 @@ async function takeover(
       leaseExpiresAt: new Date(options.nowMs + options.leaseMs),
       response: null,
       ...options.reset,
+      // Applied after `reset` so a fresh post-retention confirm keeps the
+      // newly consumed grant instead of the nulled columns.
+      ...grantColumns(options.grant),
     })
     .where(
       and(
@@ -325,77 +347,92 @@ async function takeover(
   return execute({ ...options.identity, attemptId, leaseMs: options.leaseMs });
 }
 
-/**
- * The key is transport meta (contract.md §3), so no action schema parses
- * it — a hand-built issue keeps the wire shape `VALIDATION`. Never
- * generated server-side: the server cannot infer a logical submit (§5).
- */
-function requireIdempotencyKey(env: ReserveEnv): string {
-  const key = env.request.idempotencyKey;
-  if (key !== undefined && key !== "") {
-    return key;
-  }
-  const issue: z.core.$ZodIssue = {
-    code: "custom",
-    path: ["idempotencyKey"],
-    message: "An idempotency key is required for this action.",
-    input: key,
-  };
-  throw new ValidationError(
-    [issue],
-    "An idempotency key is required for this action.",
-    {
-      internalMessage: `idempotent mutation "${env.contract.name}" invoked without an idempotency key`,
-    },
-  );
+function requestHashOf(
+  env: PipelineHookEnv,
+  principalKey: string,
+  scopeKey: string,
+): string {
+  return canonicalJsonSha256({
+    input: env.input as JsonSerializable,
+    principalKey,
+    scopeKey,
+  });
 }
 
-/**
- * Mode + accountable identity (§5). Consumer and public modes never reach
- * the reserve step: their contracts are read-only by the contract-check
- * rules, and the pipeline gates the hook on `risk !== "read"`.
- */
-function principalKeyFor(env: ReserveEnv): string {
-  const actor = env.authorization.actor;
-  switch (env.principal.mode) {
-    case "staff":
-    case "customer":
-    case "account":
-      if (actor.type !== "user") {
-        throw new CoreInvariantError(
-          `${env.principal.mode} authorization for "${env.contract.name}" carries a non-user actor "${actor.type}"`,
+function grantColumns(grant: ConfirmationGrant | undefined): {
+  confirmationChallengeId?: string;
+  confirmedAt?: Date;
+  confirmationExpiresAt?: Date;
+} {
+  if (grant === undefined) {
+    return {};
+  }
+  return {
+    confirmationChallengeId: grant.challengeId,
+    confirmedAt: grant.confirmedAt,
+    confirmationExpiresAt: grant.expiresAt,
+  };
+}
+
+function interpretProbeRow(
+  existing: typeof idempotencyKeys.$inferSelect,
+  requestHash: string,
+  nowMs: number,
+): IdempotencyProbeResult {
+  if (existing.expiresAt.getTime() <= nowMs) {
+    return { kind: "fresh" };
+  }
+  if (existing.requestHash !== requestHash) {
+    throw new IdempotencyConflictError(undefined, {
+      internalMessage: `idempotency key reuse with a different payload on "${existing.action}" (status ${existing.status})`,
+    });
+  }
+  switch (existing.status) {
+    case "completed":
+      return { kind: "replay", response: existing.response };
+    case "failed":
+    case "in_progress": {
+      if (
+        existing.status === "in_progress" &&
+        existing.leaseExpiresAt.getTime() > nowMs
+      ) {
+        throw new ConcurrentRetryError(
+          retryAfterSec(existing.leaseExpiresAt.getTime() - nowMs),
+          undefined,
+          {
+            internalMessage: `a live attempt ${existing.attemptId} holds the lease on "${existing.action}"`,
+          },
         );
       }
-      return `${env.principal.mode}:${actor.id}`;
-    case "system":
-      return `system:${env.principal.serviceName}`;
-    case "consumer":
-    case "public":
+      const grant = unexpiredGrant(existing, nowMs);
+      return grant === undefined
+        ? { kind: "fresh" }
+        : { kind: "resume", grant };
+    }
+    default:
       throw new CoreInvariantError(
-        `"${env.contract.name}" reached the idempotency reserve as "${env.principal.mode}" — the contract check must reject idempotent mutations for this mode`,
+        `idempotency row for "${existing.action}" has unknown status "${existing.status}"`,
       );
   }
 }
 
-/**
- * `company:<effectiveCompanyId>` for every tenant-scoped action,
- * `user:<userId>` for account actions, `global` only for a declared global
- * system action (§5). Staff/customer without a company cannot happen — the
- * preflight verified membership/target.
- */
-function scopeKeyFor(env: ReserveEnv, principalKey: string): string {
-  if (env.principal.mode === "account") {
-    return `user:${env.authorization.actor.id}`;
+function unexpiredGrant(
+  row: typeof idempotencyKeys.$inferSelect,
+  nowMs: number,
+): ConfirmationGrant | undefined {
+  if (
+    row.confirmationChallengeId === null ||
+    row.confirmedAt === null ||
+    row.confirmationExpiresAt === null ||
+    row.confirmationExpiresAt.getTime() <= nowMs
+  ) {
+    return undefined;
   }
-  if (env.authorization.companyId !== null) {
-    return `company:${env.authorization.companyId}`;
-  }
-  if (env.principal.mode === "system") {
-    return "global";
-  }
-  throw new CoreInvariantError(
-    `"${env.contract.name}" (${principalKey}) has no company scope and is not an account or global system action`,
-  );
+  return {
+    challengeId: row.confirmationChallengeId,
+    confirmedAt: row.confirmedAt,
+    expiresAt: row.confirmationExpiresAt,
+  };
 }
 
 function retryAfterSec(ms: number): number {
