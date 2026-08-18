@@ -1,0 +1,251 @@
+/**
+ * Self-tests for the module test kit (fnd-T21 — core.md §12). Per-mode
+ * fixture actions prove each suite passes on correct isolation and fails
+ * on a seeded violation.
+ */
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
+import { effectiveCompanyId } from "../runtime/context/factories.js";
+import {
+  createCorrectFixtureActions,
+  createCrmWritingConsumerBrowse,
+  createLeakyFixtureActions,
+} from "./fixture-actions.js";
+import { kitIdentities } from "./identities.js";
+import { createTestKit, type TestKit } from "./kit.js";
+import {
+  accountIsolationSuite,
+  browseCase,
+  consumerIsolationSuite,
+  crossTenantSuite,
+  isolationCase,
+  publicProjectionSuite,
+  runAccountIsolationCase,
+  runConsumerIsolationCase,
+  runCrossTenantCase,
+  runPublicProjectionCase,
+} from "./suites.js";
+
+let kit: TestKit;
+const correct = createCorrectFixtureActions();
+let leaky: ReturnType<typeof createLeakyFixtureActions>;
+
+const ownProduct = { productId: kitIdentities.products.published };
+const foreignProduct = {
+  productId: kitIdentities.products.ofUnpublishedCompany,
+};
+const unpublishedProduct = {
+  productId: kitIdentities.products.unpublished,
+};
+const crmInput = { customerId: kitIdentities.crmSentinel };
+
+function correctCrossTenantCases() {
+  return [
+    isolationCase(
+      correct.staffGetProduct,
+      { input: ownProduct },
+      { input: foreignProduct },
+    ),
+    isolationCase(
+      correct.customerGetOwnCrm,
+      { input: crmInput, userId: kitIdentities.users.boris },
+      { input: crmInput, userId: kitIdentities.users.anna },
+    ),
+    isolationCase(
+      correct.publicGetPublishedProduct,
+      { input: ownProduct },
+      { input: unpublishedProduct },
+    ),
+    isolationCase(correct.publicBrowseDiscovery, { input: {} }, { input: {} }),
+    isolationCase(
+      correct.systemGetProduct,
+      { input: ownProduct },
+      { input: foreignProduct },
+    ),
+    isolationCase(
+      correct.consumerBrowseDiscovery,
+      { input: {} },
+      { input: {} },
+    ),
+    isolationCase(
+      correct.accountListMine,
+      { input: {}, userId: kitIdentities.users.anna },
+      { input: {}, userId: kitIdentities.users.boris },
+    ),
+  ];
+}
+
+beforeAll(async () => {
+  kit = await createTestKit();
+  leaky = createLeakyFixtureActions(kit.db.runtime.db);
+});
+
+afterAll(async () => {
+  await kit.db.close();
+});
+
+describe("buildTestContext — six principal modes", () => {
+  it("builds a staff context from the verified membership row", async () => {
+    const ctx = await kit.buildTestContext("staff");
+    expect(ctx.principal).toBe("staff");
+    if (ctx.principal !== "staff") return;
+    expect(ctx.userId).toBe(kitIdentities.users.anna);
+    expect(ctx.companyId).toBe(kitIdentities.companies.a);
+    expect(effectiveCompanyId(ctx)).toBe(kitIdentities.companies.a);
+  });
+
+  it("builds a customer context from the typed resolver", async () => {
+    const ctx = await kit.buildTestContext("customer");
+    expect(ctx.principal).toBe("customer");
+    if (ctx.principal !== "customer") return;
+    expect(ctx.userId).toBe(kitIdentities.users.boris);
+    expect(ctx.target.companyId).toBe(kitIdentities.companies.a);
+    expect(effectiveCompanyId(ctx)).toBe(kitIdentities.companies.a);
+  });
+
+  it("builds a public-target context for a published resource", async () => {
+    const ctx = await kit.buildTestContext("public", { publicScope: "target" });
+    expect(ctx.principal).toBe("public");
+    if (ctx.principal !== "public" || ctx.scope !== "target") return;
+    expect(ctx.target.companyId).toBe(kitIdentities.companies.a);
+    expect(effectiveCompanyId(ctx)).toBe(kitIdentities.companies.a);
+  });
+
+  it("builds a public-global context bound to the fixture grant", async () => {
+    const ctx = await kit.buildTestContext("public");
+    expect(ctx.principal).toBe("public");
+    if (ctx.principal !== "public" || ctx.scope !== "globalProjection") return;
+    expect(ctx.projectionGrant).toBe("fixture.discovery");
+    expect(effectiveCompanyId(ctx)).toBeNull();
+    expect(ctx.actor).toEqual({ type: "anonymous", id: "anonymous" });
+  });
+
+  it("builds a tenant-scoped system context", async () => {
+    const ctx = await kit.buildTestContext("system");
+    expect(ctx.principal).toBe("system");
+    if (ctx.principal !== "system" || ctx.scope !== "tenant") return;
+    expect(ctx.companyId).toBe(kitIdentities.companies.a);
+    expect(effectiveCompanyId(ctx)).toBe(kitIdentities.companies.a);
+  });
+
+  it("builds a consumer context with a session and no company", async () => {
+    const ctx = await kit.buildTestContext("consumer");
+    expect(ctx.principal).toBe("consumer");
+    if (ctx.principal !== "consumer") return;
+    expect(ctx.userId).toBe(kitIdentities.users.anna);
+    expect(effectiveCompanyId(ctx)).toBeNull();
+  });
+
+  it("builds an account context with a session and no company", async () => {
+    const ctx = await kit.buildTestContext("account");
+    expect(ctx.principal).toBe("account");
+    if (ctx.principal !== "account") return;
+    expect(ctx.userId).toBe(kitIdentities.users.anna);
+    expect(effectiveCompanyId(ctx)).toBeNull();
+  });
+});
+
+crossTenantSuite(() => kit, correctCrossTenantCases());
+publicProjectionSuite(() => kit, [browseCase(correct.publicBrowseDiscovery)]);
+consumerIsolationSuite(
+  () => kit,
+  [browseCase(correct.consumerBrowseDiscovery)],
+);
+accountIsolationSuite(
+  () => kit,
+  [
+    isolationCase(
+      correct.accountListMine,
+      { input: {}, userId: kitIdentities.users.anna },
+      { input: {}, userId: kitIdentities.users.boris },
+    ),
+  ],
+);
+
+describe("suites fail on seeded violations", () => {
+  it("detects a staff handler that ignores company scope", async () => {
+    await expect(
+      runCrossTenantCase(
+        kit,
+        isolationCase(
+          leaky.staffGetProduct,
+          { input: ownProduct },
+          { input: foreignProduct },
+        ),
+      ),
+    ).rejects.toThrow(/expected foreign access/);
+  });
+
+  it("detects a customer resolver that skips ownership", async () => {
+    await expect(
+      runCrossTenantCase(
+        kit,
+        isolationCase(
+          leaky.customerGetOwnCrm,
+          { input: crmInput, userId: kitIdentities.users.boris },
+          { input: crmInput, userId: kitIdentities.users.anna },
+        ),
+      ),
+    ).rejects.toThrow(/expected foreign access/);
+  });
+
+  it("detects a public-target resolver that returns unpublished resources", async () => {
+    await expect(
+      runCrossTenantCase(
+        kit,
+        isolationCase(
+          leaky.publicGetPublishedProduct,
+          { input: ownProduct },
+          { input: unpublishedProduct },
+        ),
+      ),
+    ).rejects.toThrow(/expected foreign access/);
+  });
+
+  it("detects a public-global handler that scans domain tables", async () => {
+    await expect(
+      runPublicProjectionCase(kit, browseCase(leaky.publicBrowseDiscovery)),
+    ).rejects.toThrow(/leaked/);
+  });
+
+  it("detects a system handler that ignores tenant scope", async () => {
+    await expect(
+      runCrossTenantCase(
+        kit,
+        isolationCase(
+          leaky.systemGetProduct,
+          { input: ownProduct },
+          { input: foreignProduct },
+        ),
+      ),
+    ).rejects.toThrow(/expected foreign access/);
+  });
+
+  it("detects a consumer handler that returns unpublished products", async () => {
+    await expect(
+      runConsumerIsolationCase(kit, browseCase(leaky.consumerBrowseDiscovery)),
+    ).rejects.toThrow(/leaked/);
+  });
+
+  it("detects a consumer handler that writes a CRM row", async () => {
+    await expect(
+      runConsumerIsolationCase(
+        kit,
+        browseCase(createCrmWritingConsumerBrowse(kit.db.runtime.db)),
+      ),
+    ).rejects.toThrow(/CRM sentinel/);
+  });
+
+  it("detects an account handler that returns another user's companies", async () => {
+    await expect(
+      runAccountIsolationCase(
+        kit,
+        isolationCase(
+          leaky.accountListMine,
+          { input: {}, userId: kitIdentities.users.anna },
+          { input: {}, userId: kitIdentities.users.boris },
+        ),
+      ),
+    ).rejects.toThrow(/leaked user [AB]/);
+  });
+});

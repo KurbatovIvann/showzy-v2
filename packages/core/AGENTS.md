@@ -4,9 +4,9 @@ The action runtime (core.md). **Frozen for module tasks** (prohibitions.mdc):
 module implementation tasks may not change anything here — if core is missing
 something, stop and report.
 
-## Current state (fnd-T20)
+## Current state (fnd-T21)
 
-Three export subpaths exist:
+Four export subpaths exist:
 
 - `@showzy/core/contract` — the client-safe leaf (fnd-T8, below).
 - `@showzy/core/errors` — the ten core.md §11 error classes.
@@ -28,8 +28,12 @@ Three export subpaths exist:
   declared same-transaction writes — `ctx.callAtomic` (fnd-T19A), and
   the confirmation protocol `createConfirmationHook` +
   `createInMemoryConfirmationStore` (fnd-T20).
-
-The rest of the runtime — the module test kit — lands with fnd-T21/T22.
+- `@showzy/core/testing` — the module test kit (fnd-T21): `createTestKit`
+  / `buildTestContext` against the db harness, plus `crossTenantSuite`,
+  `publicProjectionSuite`, `consumerIsolationSuite`, and
+  `accountIsolationSuite`. `idempotencySuite` / `eventSuite` /
+  `atomicCallSuite` and the contract-check wiring that modules
+  instantiate the suites land with fnd-T22.
 
 ## Typed errors (`src/errors/`, core.md §11)
 
@@ -359,6 +363,23 @@ stage (`pnpm --filter @showzy/core contract:check`):
 composition to `packages/contract` / apps boot. The input shapes are
 structural on purpose so fnd-T16/T17 outputs satisfy them without core
 changes.
+
+## Module test kit (`src/testing/`, core.md §12)
+
+- `@showzy/core/testing` is the only import path. `createTestKit` seeds the
+  parity fixtures (db.md §8) plus matching `user` / `companies` /
+  `company_members` rows so staff and system-tenant factories share ids
+  with the discovery tables. `kit.buildTestContext(mode, overrides)` is
+  the six-mode factory wrapper — it still goes through the real context
+  factories, never hand-rolled objects.
+- Isolation suites (`crossTenantSuite`, `publicProjectionSuite`,
+  `consumerIsolationSuite`, `accountIsolationSuite`) take `getKit` and
+  register vitest tests. `run*Case` is the same assertion without
+  registration, so a leaky fixture action can be proven to fail the
+  suite. Module tasks instantiate the registrars; omitting them fails
+  the contract check once fnd-T22 lands.
+- Self-tests live in `kit.db.test.ts` and use per-mode fixture actions
+  that are **not** part of the public testing export.
 
 ## The `contract` subpath (ADR-0016)
 
