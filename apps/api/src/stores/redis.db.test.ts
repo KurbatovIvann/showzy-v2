@@ -10,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
   createRedisConfirmationStore,
+  createRedisOtpSendStore,
   createRedisRateLimitStore,
   createRedisSecondaryStorage,
 } from "./redis.js";
@@ -89,5 +90,25 @@ describe("createRedisRateLimitStore", () => {
     clock.advance(30_000);
     expect(await store.consume(request)).toEqual({ allowed: true });
     expect((await store.consume(request)).allowed).toBe(false);
+  });
+});
+
+describe("createRedisOtpSendStore", () => {
+  it("records at most one send when two attempts race", async () => {
+    const store = createRedisOtpSendStore(redis);
+    const attempt = {
+      key: "otp-send:phone:+380671112233",
+      nowMs: 1_000_000,
+      cooldownMs: 60_000,
+      windowMs: 3_600_000,
+      maxSends: 5,
+      ttlSeconds: 3600,
+    };
+    const [first, second] = await Promise.all([
+      store.tryRecordSend(attempt),
+      store.tryRecordSend(attempt),
+    ]);
+    const allowed = [first, second].filter((decision) => decision.allowed);
+    expect(allowed).toHaveLength(1);
   });
 });

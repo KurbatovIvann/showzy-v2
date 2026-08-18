@@ -3,16 +3,17 @@
  *
  * `--dry-run` (default) prints the production PITR plan and never
  * connects to Postgres — that is the CI gate. `--restore-smoke` runs
- * `pg_dump --schema-only` against `DATABASE_URL` when `pg_dump` is on
- * PATH; connection passwords are stripped from every log line.
+ * `pg_dump --schema-only --file <null-device>` against `DATABASE_URL`
+ * when `pg_dump` is on PATH; connection passwords are stripped from
+ * every log line via `@showzy/config` userinfo redaction.
  */
 import { spawnSync } from "node:child_process";
 import console from "node:console";
 import process from "node:process";
 
-import { backupPolicy } from "./backup-policy.js";
+import { redactText } from "@showzy/config";
 
-const REDACTED = "[Redacted]";
+import { backupPolicy } from "./backup-policy.js";
 
 export type BackupVerifyMode = "dry-run" | "restore-smoke";
 
@@ -27,6 +28,7 @@ export interface BackupVerifyDeps {
   readonly log: (line: string) => void;
   readonly hasCommand: (name: string) => boolean;
   readonly exec: (file: string, args: readonly string[]) => CommandResult;
+  readonly dumpNullFile?: string;
 }
 
 export interface BackupVerifyResult {
@@ -35,8 +37,14 @@ export interface BackupVerifyResult {
   readonly lines: readonly string[];
 }
 
+export function dumpNullDevice(
+  platform: NodeJS.Platform = process.platform,
+): string {
+  return platform === "win32" ? "NUL" : "/dev/null";
+}
+
 export function redactConnectionString(value: string): string {
-  return value.replace(/:([^:@/]+)@/, `:${REDACTED}@`);
+  return redactText(value);
 }
 
 export function parseBackupVerifyMode(
@@ -71,6 +79,7 @@ export function defaultBackupVerifyDeps(): BackupVerifyDeps {
     },
     hasCommand: defaultHasCommand,
     exec: defaultExec,
+    dumpNullFile: dumpNullDevice(),
   };
 }
 
@@ -106,17 +115,21 @@ function restoreSmoke(
     return { ok: false, mode: "restore-smoke", lines };
   }
 
+  const dumpFile = deps.dumpNullFile ?? dumpNullDevice();
   const dump = deps.exec("pg_dump", [
     "--dbname",
     databaseUrl,
     "--format=custom",
     "--no-owner",
     "--schema-only",
+    "--file",
+    dumpFile,
   ]);
-  lines.push(
-    `pg_dump status=${String(dump.status)} stdout=${redactConnectionString(dump.stdout)} stderr=${redactConnectionString(dump.stderr)}`,
-  );
+  lines.push(`pg_dump status=${String(dump.status)} file=${dumpFile}`);
   if (dump.status !== 0) {
+    if (dump.stderr !== "") {
+      lines.push(`pg_dump stderr=${redactConnectionString(dump.stderr)}`);
+    }
     lines.push("restore-smoke failed: pg_dump exited non-zero");
     return { ok: false, mode: "restore-smoke", lines };
   }

@@ -26,7 +26,7 @@ import type {
 } from "@showzy/core";
 import { Hono, type Context } from "hono";
 
-import { resolveClientIp } from "./client-ip.js";
+import { createTrustedProxyMatcher, resolveClientIp } from "./client-ip.js";
 import { REQUEST_ID_HEADER, resolveRequestId } from "./request-id.js";
 
 /** OpenAPI REST aliases (contract.md §3). Distinct from `/api/auth`. */
@@ -184,6 +184,7 @@ export function createApp(options: CreateAppOptions): Hono<AppEnv> {
   });
 
   const app = new Hono<AppEnv>();
+  const isTrusted = createTrustedProxyMatcher(options.trustedProxies);
 
   app.use(async (c, next) => {
     const requestId = resolveRequestId(c.req.header(REQUEST_ID_HEADER));
@@ -193,7 +194,7 @@ export function createApp(options: CreateAppOptions): Hono<AppEnv> {
       resolveClientIp({
         peerAddress: options.getPeerAddress(c),
         forwardedFor: c.req.header("x-forwarded-for"),
-        trustedProxies: options.trustedProxies,
+        isTrusted,
       }),
     );
     await next();

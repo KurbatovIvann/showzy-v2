@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { buildAuthOptions, tempEmailForPhone } from "./options.js";
+import { createAtomicOtpSendStore } from "./otp-send-guard.js";
 import { otpPolicy } from "./policy.js";
 
 const PHONE = "+380671112233";
@@ -43,13 +44,13 @@ function createFixture() {
       sentEmail.push(data);
       return Promise.resolve();
     },
-    otpSendStore: {
+    otpSendStore: createAtomicOtpSendStore({
       get: (key) => Promise.resolve(entries.get(key) ?? null),
       set: (key, value) => {
         entries.set(key, value);
         return Promise.resolve();
       },
-    },
+    }),
     secondaryStorage: {
       get: (key) => Promise.resolve(secondary.get(key) ?? null),
       set: (key, value) => {

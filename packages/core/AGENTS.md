@@ -229,7 +229,8 @@ ipHmacSecret, logger, now? })` fills the pipeline's `rateLimit` slot.
   Replay after expiry re-executes by design.
 - Confirmation-grant columns (`confirmation_*`) are written by
   `reserve` when the pipeline hands over a consumed/resumed grant
-  (fnd-T20). `probe` is the read-only lookup the confirmation gate uses:
+  (fnd-T20). `probe` is required on `IdempotencyHook` and is the
+  read-only lookup the confirmation gate uses:
   `completed` replays, a live lease is `ConcurrentRetryError`, and a
   failed/stale row with an unexpired grant resumes. Takeover preserves
   an existing grant except when reusing a row whose retention passed,

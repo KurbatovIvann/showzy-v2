@@ -283,6 +283,8 @@ Group into three small PRs by area; none blocks fnd-G1.
 
 ### A9 — Worker robustness (one PR)
 
+**Implemented (2026-08-19)** on `scaffold/phase-0-a9-a11`.
+
 - `apps/worker/src/index.ts`: `shutdown()` has no re-entrancy latch — a
   second SIGINT/SIGTERM during drain calls `close()` twice
   (`pool.end()` throws, unhandled rejection). Latch a `closing` flag,
@@ -294,6 +296,8 @@ Group into three small PRs by area; none blocks fnd-G1.
   periodic "outbox listen down, poll-only" heartbeat while degraded.
 
 ### A10 — Config/ops hygiene (one PR)
+
+**Implemented (2026-08-19)** on `scaffold/phase-0-a9-a11`.
 
 - Add a test that parses the real `.env.example` and asserts its key set
   equals the `envSchema` key set (today parity is convention-only).
@@ -316,6 +320,8 @@ Group into three small PRs by area; none blocks fnd-G1.
   or add the scheduled workflow.
 
 ### A11 — Core/runtime polish (one PR)
+
+**Implemented (2026-08-19)** on `scaffold/phase-0-a9-a11` (ActionCtx unique-symbol branding skipped — owner's call).
 
 - Replace the untyped guards with `CoreInvariantError`:
   `events/uuidv7.ts` (`RangeError`), `audit/canonical-json.ts`
@@ -402,6 +408,7 @@ the gate window keeps the reference slices from inheriting the gaps.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-08-19 | A9–A11 implemented: worker shutdown latch + LISTEN reconnect/heartbeat; `.env.example` key-set test; backup-verify TS shim + colon-safe redaction + null-device dump; CODEOWNERS for foundation/auth/migrations; `pg_trgm`/`unaccent` migration; alerts.md restore-smoke planned at launch; CoreInvariantError for uuidv7/canonical-json/anonymous audit; required idempotency `probe`; hoisted trusted-proxy BlockList; atomic OTP send | fnd-G1 minor hygiene (phase-0 audit) |
 | 2026-08-18 | A3–A8 implemented on `scaffold/phase-0-a3-a8`: fail-closed protocol hooks, inherited kit suites, ProjectionReadTx join lock, money lint, OTP per-IP test, `UNAUTHENTICATED` 401 | fnd-G1 MAJOR findings; owner asked for one branch covering A3–A8 |
 | 2026-08-18 | A2 implemented (SHO-82): contract-check CI stage walks `apps/api/src/composition.ts`; core interim manifest retired | fnd-G1 gate: module tasks must not edit frozen core to be covered |
 | 2026-08-18 | A1 resolved as accepted risk: owner keeps the private/free plan; compensating manual merge gate recorded in `docs/operations/branch-protection.md` | Owner decision at gate review |

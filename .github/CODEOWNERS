@@ -1,5 +1,8 @@
 # Domain schema ownership follows ADR-0014.
 /packages/db/src/schema/companies.ts @KurbatovIvann
+/packages/db/src/schema/foundation.ts @KurbatovIvann
+/packages/db/src/schema/auth.ts @KurbatovIvann
+/packages/db/migrations/ @KurbatovIvann
 
 # packages/core is frozen for module tasks (prohibitions.mdc).
 /packages/core/ @KurbatovIvann

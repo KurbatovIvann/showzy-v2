@@ -39,8 +39,7 @@ export const auth = betterAuth(
     sendPhoneOtp: () => Promise.reject(new SchemaGenerationOnlyError()),
     sendEmailOtp: () => Promise.reject(new SchemaGenerationOnlyError()),
     otpSendStore: {
-      get: () => Promise.reject(new SchemaGenerationOnlyError()),
-      set: () => Promise.reject(new SchemaGenerationOnlyError()),
+      tryRecordSend: () => Promise.reject(new SchemaGenerationOnlyError()),
     },
     secondaryStorage: {
       get: () => Promise.reject(new SchemaGenerationOnlyError()),

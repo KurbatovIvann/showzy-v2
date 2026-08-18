@@ -709,6 +709,7 @@ function createDeliveryReservationHook(options: {
   readonly now: () => number;
 }): IdempotencyHook {
   return {
+    probe: () => Promise.resolve({ kind: "fresh" }),
     reserve: () => Promise.resolve({ kind: "execute", reservation: null }),
     finalize: async ({ tx }) => {
       const [updated] = await tx

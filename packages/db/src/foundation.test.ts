@@ -386,6 +386,20 @@ describe("audit_log (core.md §8)", () => {
   });
 });
 
+describe("search extensions (db.md §3)", () => {
+  it("installs pg_trgm and unaccent via migrations", async () => {
+    const result = await admin.query<{ extname: string }>(
+      `SELECT extname FROM pg_extension
+       WHERE extname IN ('pg_trgm', 'unaccent')
+       ORDER BY extname`,
+    );
+    expect(result.rows.map((row) => row.extname)).toEqual([
+      "pg_trgm",
+      "unaccent",
+    ]);
+  });
+});
+
 describe("roles (db.md §6)", () => {
   it("creates showzy_app, showzy_migrate, showzy_maintenance without LOGIN", async () => {
     const result = await admin.query(
