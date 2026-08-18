@@ -104,19 +104,22 @@ implementer is the **scaffold agent** (`/scaffold`, not `/ticket`):
   fnd-T23); it is consumed in phase 9.
 - **Company-selector UI in the app is a stub** (fnd-T49): the `account`
   action that lists own companies (`companies.listMine`) is phase-2 scope.
-- **Phone OTP codes are stored plaintext at rest** (fnd-T6): better-auth
-  stores email OTPs hashed (`storeOTP: "hashed"`), but its phone-number
-  plugin has no equivalent option — phone codes sit in `verification`
-  until they expire (5 minutes). Compensating controls: 5-attempt limit,
-  per-identifier and per-IP send caps, codes never logged. Revisit if
-  upstream adds hashing (better-auth issue tracker) or the owner wants a
-  custom phone OTP flow instead of the plugin.
-- **Generated auth tables use `timestamp` without time zone** (fnd-T6):
-  the better-auth CLI emits `timestamp`, not `timestamptz` (db.md §3
-  convention), and hand edits to the generated file are forbidden
-  (db.md §4). Confined to `src/schema/auth.ts`; better-auth reads/writes
-  these columns itself with `Date` values, so no cross-column arithmetic
-  is affected. Module tables keep `timestamptz`.
+- **OTP codes live in secondary storage, plaintext for phone** (fnd-T6):
+  verification values (OTP codes) are kept out of Postgres entirely —
+  `secondaryStorage` is a required dependency of the auth options factory,
+  so codes live only in the TTL'd Redis store (mounted in fnd-T26; the
+  client must implement `getAndDelete` for atomic single-use consume).
+  Residual accepted risk: the phone plugin has no `storeOTP`, so phone
+  codes sit plaintext inside Redis for their 5-minute lifetime (email
+  codes are additionally hashed — note upstream hashing is unsalted
+  SHA-256, which for 6-digit codes is brute-forceable offline anyway;
+  keeping codes out of durable storage is the real control). Compensating:
+  5-attempt limit, per-identifier and per-IP send caps, codes never
+  logged. Revisit if upstream adds `storeOTP` to the phone plugin.
+- ~~Generated auth tables use `timestamp` without time zone~~ — resolved
+  in fnd-T6: `auth:generate` applies a deterministic timestamptz codemod
+  after the CLI (upstream better-auth#9920); db.md §4 patched in the same
+  PR with a schema test pinning `timestamp with time zone`.
 
 ---
 
@@ -590,7 +593,10 @@ implementer is the **scaffold agent** (`/scaffold`, not `/ticket`):
 ### fnd-T26: `apps/api`
 
 - **Scope:** Hono app on `@hono/node-server`: better-auth instance mounted
-  (fnd-T6 config); session resolution → the single principal dispatch
+  (fnd-T6 config; the Redis `secondaryStorage` client is a required
+  dependency of the options factory and must implement `getAndDelete` for
+  atomic single-use verification consume — OTP codes never persist to
+  Postgres); session resolution → the single principal dispatch
   (staff selector verification; consumer/account routing that requires a
   session and ignores any `x-company-id`; public-target/global without a
   session, with trusted-proxy IP and global grant binding);

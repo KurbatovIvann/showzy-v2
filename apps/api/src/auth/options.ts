@@ -5,12 +5,14 @@
  * with fnd-T26 and must build its instance through this factory so the
  * parameters cannot drift between schema generation, runtime, and tests.
  *
- * Known deviation (reported, not silently resolved): better-auth stores
- * email OTPs hashed (`storeOTP: "hashed"`) but its phone-number plugin has no
- * equivalent option — phone OTP codes are stored plaintext in `verification`
- * until they expire (5 minutes). Compensating controls: 5-attempt limit,
- * per-identifier and per-IP send caps, and OTPs never reach logs. See the
- * fnd-T6 PR description and docs/plans/foundation.md "Reported deviations".
+ * OTP codes never persist to Postgres: `secondaryStorage` is a required
+ * dependency, and with it configured better-auth keeps all verification
+ * values (phone/email OTPs) in that store with a TTL — the `verification`
+ * table stays empty and OTPs never reach database backups or dumps. Sessions
+ * are explicitly pinned to Postgres (`storeSessionInDatabase`). Residual
+ * accepted risk (docs/plans/foundation.md "Reported deviations"): phone codes
+ * sit plaintext inside the TTL'd secondary store for their 5-minute lifetime
+ * (the phone plugin has no `storeOTP`; email codes are additionally hashed).
  */
 import type { BetterAuthOptions, DBAdapterInstance } from "better-auth/types";
 import { APIError, createAuthMiddleware } from "better-auth/api";
@@ -46,6 +48,13 @@ export interface AuthComposition {
   }) => Promise<void>;
   /** Backs the per-identifier send limits; Redis at runtime (fnd-T26). */
   readonly otpSendStore: OtpSendStore;
+  /**
+   * Required: keeps OTP codes and rate-limit counters out of Postgres
+   * entirely (verification values live here with a TTL). Redis at runtime
+   * (fnd-T26) — implement `getAndDelete` (Redis `GETDEL`) so single-use
+   * verification values are consumed atomically across processes.
+   */
+  readonly secondaryStorage: NonNullable<BetterAuthOptions["secondaryStorage"]>;
   /** Injectable clock for tests. */
   readonly now?: () => number;
 }
@@ -89,6 +98,14 @@ export function buildAuthOptions(composition: AuthComposition) {
     baseURL: composition.baseUrl,
     secret: composition.secret,
     database: composition.database,
+    // OTP codes and rate-limit counters live here (TTL'd), never in Postgres.
+    secondaryStorage: composition.secondaryStorage,
+    session: {
+      // Sessions stay in Postgres (the `session` table): durable, queryable,
+      // and revocable by future admin tooling. Only ephemeral verification
+      // values and rate-limit counters belong in the secondary store.
+      storeSessionInDatabase: true,
+    },
     // No emailAndPassword block: OTP is the only credential flow (ADR-0006),
     // so no password surface exists to attack or to leak account existence.
     plugins: [

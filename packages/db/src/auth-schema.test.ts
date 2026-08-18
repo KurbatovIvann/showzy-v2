@@ -100,6 +100,30 @@ describe("better-auth generated schema (db.md §4)", () => {
     expect(result.rows).toHaveLength(3);
   });
 
+  it("uses timestamptz for every timestamp column (db.md §3)", async () => {
+    // The better-auth CLI emits `timestamp without time zone` (upstream
+    // better-auth#9920); auth:generate applies a deterministic codemod so the
+    // generated schema honors the §3 convention. This pins the result.
+    const result = await admin.query(
+      `SELECT table_name, column_name, data_type
+       FROM information_schema.columns
+       WHERE table_schema = 'public'
+         AND table_name IN ('user', 'session', 'account', 'verification')
+         AND data_type LIKE 'timestamp%'`,
+    );
+    expect(result.rows.length).toBeGreaterThan(0);
+    for (const row of result.rows as {
+      table_name: string;
+      column_name: string;
+      data_type: string;
+    }[]) {
+      expect(
+        row.data_type,
+        `${row.table_name}.${row.column_name} must be timestamptz`,
+      ).toBe("timestamp with time zone");
+    }
+  });
+
   it("indexes the verification identifier (OTP lookups) and session/account FKs", async () => {
     const result = await admin.query(
       `SELECT indexname FROM pg_indexes WHERE schemaname = 'public'`,

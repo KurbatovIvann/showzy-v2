@@ -42,5 +42,10 @@ export const auth = betterAuth(
       get: () => Promise.reject(new SchemaGenerationOnlyError()),
       set: () => Promise.reject(new SchemaGenerationOnlyError()),
     },
+    secondaryStorage: {
+      get: () => Promise.reject(new SchemaGenerationOnlyError()),
+      set: () => Promise.reject(new SchemaGenerationOnlyError()),
+      delete: () => Promise.reject(new SchemaGenerationOnlyError()),
+    },
   }),
 );

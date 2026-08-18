@@ -77,9 +77,11 @@ tool result. Zod validation is necessary but never grants tenant access.
 
 ## 2. Authentication and sessions
 
-- Better-auth is the only session authority. OTP codes are hashed at rest,
-  expire after 5 minutes, allow at most 5 verification attempts, resend no
-  faster than 60 seconds, and are never logged.
+- Better-auth is the only session authority. OTP codes never persist to
+  Postgres — they live only in TTL'd secondary storage (Redis), hashed where
+  the plugin supports it — expire after 5 minutes, allow at most 5
+  verification attempts, resend no faster than 60 seconds, and are never
+  logged. Sessions are stored in Postgres.
 - Default OTP limits: 5 sends/hour per phone and 20/hour per IP, plus provider
   abuse controls. Responses do not disclose whether an account exists.
 - Cookie sessions use `Secure`, `HttpOnly`, and appropriate `SameSite`; bearer

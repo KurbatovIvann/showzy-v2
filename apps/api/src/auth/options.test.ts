@@ -3,7 +3,7 @@
  * security-operations §2 parameter. Shape tests pin the wiring; behavioral
  * tests run a real better-auth instance over the in-memory adapter to prove
  * the protocols hold end to end (attempt limits, cooldown, non-enumeration,
- * hashed email OTPs, phone-first sign-up).
+ * OTPs kept out of the database, phone-first sign-up).
  */
 import { betterAuth } from "better-auth";
 import { memoryAdapter, type MemoryDB } from "better-auth/adapters/memory";
@@ -27,6 +27,8 @@ function createFixture() {
   const sentPhone: { phoneNumber: string; code: string }[] = [];
   const sentEmail: { email: string; otp: string; type: string }[] = [];
   const entries = new Map<string, string>();
+  /** In-memory stand-in for the Redis secondary storage mounted in fnd-T26. */
+  const secondary = new Map<string, string>();
   let nowMs = Date.parse("2026-08-18T00:00:00Z");
 
   const options = buildAuthOptions({
@@ -48,6 +50,24 @@ function createFixture() {
         return Promise.resolve();
       },
     },
+    secondaryStorage: {
+      get: (key) => Promise.resolve(secondary.get(key) ?? null),
+      set: (key, value) => {
+        secondary.set(key, value);
+        return Promise.resolve();
+      },
+      delete: (key) => {
+        secondary.delete(key);
+        return Promise.resolve();
+      },
+      // Atomic single-use consume; the fnd-T26 Redis client mirrors this
+      // with GETDEL.
+      getAndDelete: (key) => {
+        const value = secondary.get(key) ?? null;
+        secondary.delete(key);
+        return Promise.resolve(value);
+      },
+    },
     now: () => nowMs,
   });
 
@@ -55,6 +75,7 @@ function createFixture() {
     options,
     auth: betterAuth(options),
     db,
+    secondary,
     sentPhone,
     sentEmail,
     advanceSeconds: (seconds: number) => {
@@ -133,6 +154,13 @@ describe("buildAuthOptions — §2 parameter wiring", () => {
 
   it("never enables the email/password surface (OTP is the only flow)", () => {
     expect("emailAndPassword" in options).toBe(false);
+  });
+
+  it("routes verification values to secondary storage but pins sessions to Postgres", () => {
+    expect(options.secondaryStorage).toBeDefined();
+    // Verification records must NOT also be written to the database.
+    expect("verification" in options).toBe(false);
+    expect(options.session.storeSessionInDatabase).toBe(true);
   });
 });
 
@@ -223,23 +251,40 @@ describe("phone OTP flow (behavioral, in-memory adapter)", () => {
     // The placeholder can never be a deliverable or registrable address.
     expect(userRow.email.endsWith("@phone.invalid")).toBe(true);
   });
+
+  it("keeps OTP codes out of the database while sessions land in it", async () => {
+    const { auth, db, secondary, sentPhone } = createFixture();
+    await auth.api.sendPhoneNumberOTP({ body: { phoneNumber: PHONE } });
+
+    // The code lives only in the TTL'd secondary store (Redis at runtime) —
+    // the verification table never sees it, so neither do backups or dumps.
+    expect(db["verification"]).toEqual([]);
+    expect(secondary.size).toBeGreaterThan(0);
+
+    const code = sentPhone[0]?.code ?? "";
+    await auth.api.verifyPhoneNumber({ body: { phoneNumber: PHONE, code } });
+
+    // Sessions are durable domain state and stay in Postgres.
+    expect(db["verification"]).toEqual([]);
+    expect(db["session"]).toHaveLength(1);
+  });
 });
 
 describe("email OTP flow (behavioral, in-memory adapter)", () => {
-  it("stores the OTP hashed at rest — the plaintext code never touches the database", async () => {
-    const { auth, db, sentEmail } = createFixture();
+  it("never persists the code to the database, and stores it hashed even in the secondary store", async () => {
+    const { auth, db, secondary, sentEmail } = createFixture();
     await auth.api.sendVerificationOTP({
       body: { email: "user@example.com", type: "sign-in" },
     });
     const otp = sentEmail[0]?.otp ?? "";
     expect(otp).toMatch(/^\d{6}$/);
 
-    const rows = z
-      .array(z.object({ value: z.string() }))
-      .parse(db["verification"]);
-    expect(rows.length).toBeGreaterThan(0);
-    for (const row of rows) {
-      expect(row.value).not.toContain(otp);
+    // Nothing in Postgres at all (secondary storage owns verification values).
+    expect(db["verification"]).toEqual([]);
+    // And the secondary store only ever sees the hashed form.
+    expect(secondary.size).toBeGreaterThan(0);
+    for (const value of secondary.values()) {
+      expect(value).not.toContain(otp);
     }
   });
 
