@@ -14,8 +14,8 @@ export const COMPANY_SELECTOR_HEADER = "x-company-id";
 
 /**
  * Caller-supplied idempotency key for idempotent mutations. Created once
- * per logical submit and reused for every retry (`createMutationAttempt`,
- * fnd-T24); the server rejects a missing key, and never generates one.
+ * per logical submit and reused for every retry (`createMutationAttempt`);
+ * the server rejects a missing key, and never generates one.
  */
 export const IDEMPOTENCY_KEY_HEADER = "idempotency-key";
 

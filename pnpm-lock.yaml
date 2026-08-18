@@ -76,6 +76,9 @@ importers:
 
   packages/contract:
     dependencies:
+      '@orpc/client':
+        specifier: ^1.14.6
+        version: 1.15.0
       '@orpc/contract':
         specifier: ^1.14.6
         version: 1.15.0
@@ -89,9 +92,6 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
-      '@orpc/client':
-        specifier: ^1.14.6
-        version: 1.15.0
       '@showzy/db':
         specifier: workspace:*
         version: link:../db
