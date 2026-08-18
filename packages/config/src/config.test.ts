@@ -19,6 +19,7 @@ function validEnv(): Record<string, string> {
     S3_BUCKET_CHAT_ATTACHMENTS: "chat-attachments",
     BETTER_AUTH_SECRET: "dev-only-secret-change-me-0000000000",
     BETTER_AUTH_URL: "http://localhost:3000",
+    IP_HMAC_SECRET: "dev-only-ip-hmac-secret-change-me-00",
     TRUSTED_PROXIES: "10.0.0.1, 172.16.0.0/12",
     SENTRY_DSN: "https://key@sentry.example.com/42",
   };
@@ -43,6 +44,10 @@ describe("loadServerConfig", () => {
       chatAttachments: "chat-attachments",
     });
     expect(config.auth.url).toBe("http://localhost:3000");
+    expect(config.rateLimit.ipHmacSecret).toBe(
+      "dev-only-ip-hmac-secret-change-me-00",
+    );
+    expect(config.http.port).toBe(3000);
     expect(config.trustedProxies).toEqual(["10.0.0.1", "172.16.0.0/12"]);
     expect(config.sentry.dsn).toBe("https://key@sentry.example.com/42");
   });
@@ -57,10 +62,12 @@ describe("loadServerConfig", () => {
     delete env["S3_BUCKET_CHAT_ATTACHMENTS"];
     delete env["TRUSTED_PROXIES"];
     delete env["SENTRY_DSN"];
+    delete env["API_PORT"];
 
     const config = loadServerConfig(env);
 
     expect(config.nodeEnv).toBe("development");
+    expect(config.http.port).toBe(3000);
     expect(config.database.migrateUrl).toBeUndefined();
     expect(config.s3.region).toBe("us-east-1");
     expect(config.s3.forcePathStyle).toBe(false);
@@ -76,6 +83,7 @@ describe("loadServerConfig", () => {
     const env = validEnv();
     delete env["DATABASE_URL"];
     delete env["BETTER_AUTH_SECRET"];
+    delete env["IP_HMAC_SECRET"];
 
     const load = () => loadServerConfig(env);
 
@@ -86,6 +94,7 @@ describe("loadServerConfig", () => {
       const configError = error as ConfigValidationError;
       expect(configError.message).toContain("DATABASE_URL");
       expect(configError.message).toContain("BETTER_AUTH_SECRET");
+      expect(configError.message).toContain("IP_HMAC_SECRET");
       expect(configError.message).toContain("missing");
     }
   });
@@ -116,6 +125,7 @@ describe("loadServerConfig", () => {
       "mysql://showzy:DB_PASSWORD_SENTINEL@localhost:3306/showzy";
     env["REDIS_URL"] = "redis-wrong://:REDIS_PASSWORD_SENTINEL@localhost:6379";
     env["BETTER_AUTH_SECRET"] = "AUTH_SECRET_SENTINEL";
+    env["IP_HMAC_SECRET"] = "IP_HMAC_SECRET_SENTINEL";
     env["SENTRY_DSN"] = "not-a-url-SENTRY_KEY_SENTINEL";
 
     let thrown: unknown;
@@ -131,6 +141,7 @@ describe("loadServerConfig", () => {
     expect(configError.message).toContain("DATABASE_URL");
     expect(configError.message).toContain("REDIS_URL");
     expect(configError.message).toContain("BETTER_AUTH_SECRET");
+    expect(configError.message).toContain("IP_HMAC_SECRET");
     expect(configError.message).toContain("SENTRY_DSN");
     // ...but no serialization of the error may contain a secret value.
     const everything = JSON.stringify({
