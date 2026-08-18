@@ -100,6 +100,17 @@ export type {
   RateLimitHook,
 } from "./runtime/pipeline/types.js";
 export {
+  defineEvent,
+  EventDefinitionError,
+} from "./runtime/events/define-event.js";
+export type {
+  EventAggregateRef,
+  EventDefinition,
+  EventDefinitionInput,
+  EventEmission,
+  EventScope,
+} from "./runtime/events/define-event.js";
+export {
   createAccountContext,
   createConsumerContext,
   createCustomerContext,

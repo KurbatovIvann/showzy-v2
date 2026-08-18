@@ -10,6 +10,9 @@
  */
 import type { ProjectionGrant, ProjectionReadTx, ReadTx, Tx } from "@showzy/db";
 import type { Logger } from "pino";
+import type { z } from "zod";
+
+import type { EventDefinition, EventEmission } from "../events/define-event.js";
 
 /** How the action was invoked; audit and logs carry it (blueprint §2.1-4). */
 export type ActionChannel = "ui" | "ai" | "system" | "webhook";
@@ -40,13 +43,25 @@ export interface StaffMembership {
 }
 
 /**
+ * `ctx.emit` (core.md §6, fnd-T16). Synchronous: the call validates the
+ * emission (declared name, payload against the definition's schema,
+ * aggregate shape) and buffers it; the pipeline inserts the outbox rows and
+ * per-aggregate sequence increments inside the execution transaction
+ * (§4 step 9), so a rollback removes both. Emitting an undeclared event —
+ * or emitting from a read action — throws `CoreInvariantError`.
+ */
+export type CtxEmit = <TPayload extends z.ZodType>(
+  event: EventDefinition<TPayload>,
+  emission: EventEmission<TPayload>,
+) => void;
+
+/**
  * Protocol slots owned by later foundation tasks, kept opaque so nothing
  * can depend on their internals prematurely (same pattern as the fnd-T9
- * callback environments): `ctx.emit` is narrowed by fnd-T16, `ctx.call` by
- * fnd-T19, and `ctx.callAtomic` by fnd-T19A. The execution pipeline
- * (fnd-T12) supplies the real values through `ContextRuntime`.
+ * callback environments): `ctx.call` is narrowed by fnd-T19 and
+ * `ctx.callAtomic` by fnd-T19A. The execution pipeline (fnd-T12) supplies
+ * the real values through `ContextRuntime`.
  */
-export type CtxEmit = unknown;
 export type CtxCall = unknown;
 export type CtxCallAtomic = unknown;
 

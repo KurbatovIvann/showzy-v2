@@ -67,8 +67,9 @@ export interface ActionRequestMeta {
 /**
  * Execution-scoped bindings owned by the pipeline (fnd-T12): the DB
  * capability matching the action's `risk`, the deadline/abort pair, the
- * base process logger, and the protocol slots later tasks narrow
- * (`emit` fnd-T16, `call` fnd-T19, `callAtomic` fnd-T19A).
+ * base process logger, the invocation's buffered `emit` (fnd-T16), and the
+ * protocol slots later tasks narrow (`call` fnd-T19, `callAtomic`
+ * fnd-T19A).
  */
 export interface ContextRuntime<TDb> {
   readonly db: TDb;
