@@ -1,14 +1,40 @@
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+
 import js from "@eslint/js";
 import prettierConfig from "eslint-config-prettier";
 import boundaries from "eslint-plugin-boundaries";
 import tseslint from "typescript-eslint";
 
+import { importBoundariesRule } from "./import-boundaries.mjs";
+
+/**
+ * Walk from a package's eslint config directory to the monorepo root so
+ * `boundaries/elements` patterns (`packages/core`, `apps/*`, …) match
+ * regardless of which package invoked `eslint .`.
+ *
+ * @param {string} start
+ * @returns {string}
+ */
+export function findRepoRoot(start) {
+  let directory = start;
+  while (!existsSync(join(directory, "pnpm-workspace.yaml"))) {
+    const parent = dirname(directory);
+    if (parent === directory) {
+      return start;
+    }
+    directory = parent;
+  }
+  return directory;
+}
+
 /**
  * Architectural element types for eslint-plugin-boundaries, derived from
  * blueprint §5. Declared centrally so every package lints against the same
- * map. The allowed-dependency matrix (`boundaries/element-types` rules) is
- * intentionally NOT enabled yet: it is finalized in fnd-T25 once the real
- * packages exist (contract/db/core/modules import rules per ADR-0014/0016).
+ * map. v7 renamed `boundaries/element-types` to `boundaries/dependencies`
+ * (fnd-T25). Fine-grained specifier rules (own schema, `*.contract.ts`
+ * allowlist) live in `showzy/import-boundaries` so they do not depend on
+ * resolving workspace packages through pnpm.
  */
 const boundaryElements = [
   { type: "app", pattern: "apps/*", capture: ["app"] },
@@ -22,6 +48,104 @@ const boundaryElements = [
   { type: "tooling", pattern: "packages/tooling" },
 ];
 
+const boundaryFiles = [
+  { pattern: "**/*.contract.ts", category: "action-contract" },
+  {
+    pattern: "packages/contract/src/client/**/*.ts",
+    category: "contract-client",
+  },
+  { pattern: "apps/mobile/**/*.{ts,tsx}", category: "client-app" },
+  { pattern: "apps/web/**/*.{ts,tsx}", category: "client-app" },
+];
+
+const showzyPlugin = {
+  meta: { name: "showzy", version: "0.0.0" },
+  rules: {
+    "import-boundaries": importBoundariesRule,
+  },
+};
+
+/**
+ * @param {string} repoRoot
+ */
+export function showzyBoundarySettings(repoRoot) {
+  return {
+    "boundaries/elements": boundaryElements,
+    "boundaries/files": boundaryFiles,
+    "boundaries/root-path": repoRoot,
+    "boundaries/ignore": [
+      "**/*.test.ts",
+      "**/*.db.test.ts",
+      "**/probe/leaks/**",
+      "**/scripts/**",
+      "**/migrations/**",
+    ],
+  };
+}
+
+/**
+ * Package-level dependency matrix. Default is allow so existing packages
+ * keep linting; policies encode the known-forbidden edges. Last matching
+ * policy wins, so an allow that follows a broader disallow is an exception.
+ */
+export const showzyBoundaryDependencyOptions = {
+  default: "allow",
+  checkAllOrigins: true,
+  policies: [
+    {
+      from: { file: { categories: "action-contract" } },
+      disallow: { to: { module: { source: "@showzy/db" } } },
+      message:
+        "*.contract.ts may not import @showzy/db (contract.md §2, ADR-0016).",
+    },
+    {
+      from: { file: { categories: "action-contract" } },
+      disallow: { to: { module: { source: "@showzy/core" } } },
+      message:
+        "*.contract.ts may import @showzy/core/contract only, never the core runtime (ADR-0016).",
+    },
+    {
+      from: { file: { categories: "action-contract" } },
+      allow: {
+        to: { module: { source: "@showzy/core", internalPath: "contract" } },
+      },
+    },
+    {
+      from: { file: { categories: "contract-client" } },
+      disallow: { to: { module: { origin: "core" } } },
+      message:
+        "The contract client layer must not import Node builtins (ADR-0016).",
+    },
+    {
+      from: { file: { categories: "contract-client" } },
+      disallow: { to: { module: { source: "@showzy/db" } } },
+    },
+    {
+      from: { file: { categories: "client-app" } },
+      disallow: { to: { module: { source: "@showzy/core" } } },
+      message:
+        "Client apps may import only @showzy/contract, @showzy/validation, and @showzy/ui (contract.md §2).",
+    },
+    {
+      from: { file: { categories: "client-app" } },
+      disallow: { to: { module: { source: "@showzy/db" } } },
+      message:
+        "Client apps may import only @showzy/contract, @showzy/validation, and @showzy/ui (contract.md §2).",
+    },
+    {
+      from: { file: { categories: "client-app" } },
+      disallow: { to: { module: { source: "@showzy/config" } } },
+      message:
+        "Client apps may import only @showzy/contract, @showzy/validation, and @showzy/ui (contract.md §2).",
+    },
+    {
+      from: { element: { type: "module" } },
+      disallow: { to: { element: { type: "contract" } } },
+      message: "Module server code never imports packages/contract (ADR-0016).",
+    },
+  ],
+};
+
 /**
  * Shared ESLint flat preset (strict, type-checked).
  *
@@ -32,9 +156,16 @@ const boundaryElements = [
  * @returns {import("typescript-eslint").ConfigArray}
  */
 export function showzyEslintConfig({ tsconfigRootDir }) {
+  const repoRoot = findRepoRoot(tsconfigRootDir);
   return tseslint.config(
     {
-      ignores: ["dist/**", "coverage/**", "node_modules/**", ".turbo/**"],
+      ignores: [
+        "dist/**",
+        "coverage/**",
+        "node_modules/**",
+        ".turbo/**",
+        "probe/leaks/**",
+      ],
     },
     js.configs.recommended,
     ...tseslint.configs.strictTypeChecked,
@@ -45,12 +176,11 @@ export function showzyEslintConfig({ tsconfigRootDir }) {
           tsconfigRootDir,
         },
       },
-      plugins: { boundaries },
-      settings: {
-        "boundaries/elements": boundaryElements,
-        "boundaries/root-path": tsconfigRootDir,
-      },
+      plugins: { boundaries, showzy: showzyPlugin },
+      settings: showzyBoundarySettings(repoRoot),
       rules: {
+        "showzy/import-boundaries": "error",
+        "boundaries/dependencies": ["error", showzyBoundaryDependencyOptions],
         // Prohibitions (.cursor/rules/prohibitions.mdc): no `any`,
         // no suppression comments without a linked issue.
         "@typescript-eslint/no-explicit-any": "error",

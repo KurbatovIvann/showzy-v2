@@ -23,9 +23,9 @@ parallel implementation.
    - `checks` — format → typecheck → ESLint → Vitest
    - `secret-scan` — gitleaks
    - `dependency-audit` — pnpm audit over the committed lockfile
-   - `contract-check` — placeholder until fnd-T10
-   - `migration-drift` — placeholder until fnd-T5
-   - `bundle-probe` — placeholder until fnd-T25
+   - `contract-check` — action/event contract check (fnd-T10)
+   - `migration-drift` — schema regeneration + money lint + grants (fnd-T5/T6)
+   - `bundle-probe` — client bundle probe + OpenAPI drift (fnd-T25)
    - `e2e-smoke` — placeholder until fnd-T51
 3. **Require conversation resolution before merging.**
 4. **Block force pushes** and **restrict deletions** on `main`.

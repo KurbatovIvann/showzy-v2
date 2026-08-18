@@ -1,0 +1,289 @@
+/**
+ * Spec-driven import boundaries (contract.md §2, ADR-0014, ADR-0016).
+ *
+ * eslint-plugin-boundaries owns the package-level element map; this rule
+ * matches on the *specifier string* and the importer's path so it does not
+ * depend on resolving workspace packages through pnpm's node_modules layout.
+ * Module tasks copy these messages — do not weaken them without an ADR.
+ */
+import { builtinModules } from "node:module";
+
+const NODE_BUILTINS = new Set([
+  ...builtinModules,
+  ...builtinModules.map((name) =>
+    name.startsWith("node:") ? name.slice("node:".length) : `node:${name}`,
+  ),
+]);
+
+/** Platform packages — never treated as a domain module barrel. */
+const PLATFORM_PACKAGES = new Set([
+  "ai",
+  "config",
+  "contract",
+  "core",
+  "db",
+  "document-signing",
+  "money",
+  "tooling",
+  "ui",
+  "validation",
+]);
+
+/** Projection modules may import foreign schemas; contract-check enforces grants. */
+const PROJECTION_MODULES = new Set(["search", "analytics"]);
+
+const CLIENT_APPS = new Set(["mobile", "web"]);
+
+/**
+ * @param {string} filename
+ */
+function toPosix(filename) {
+  return filename.replaceAll("\\", "/");
+}
+
+/**
+ * @param {string} spec
+ */
+function isRelative(spec) {
+  return spec.startsWith("./") || spec.startsWith("../");
+}
+
+/**
+ * @param {string} spec
+ * @returns {{ name: string, rest: string } | null}
+ */
+function showzyPackage(spec) {
+  const match = /^@showzy\/([^/]+)(?:\/(.*))?$/.exec(spec);
+  if (match === null || match[1] === undefined) {
+    return null;
+  }
+  return { name: match[1], rest: match[2] ?? "" };
+}
+
+/**
+ * @param {string} filename
+ */
+function classify(filename) {
+  const path = toPosix(filename);
+  if (
+    /\.db\.test\.ts$/.test(path) ||
+    /\.test\.ts$/.test(path) ||
+    /\/probe\/leaks\//.test(path) ||
+    /\/scripts\//.test(path) ||
+    /\/migrations\//.test(path)
+  ) {
+    return { kind: "skip" };
+  }
+  if (path.endsWith(".contract.ts")) {
+    return { kind: "action-contract" };
+  }
+  if (path.includes("/packages/contract/src/client/")) {
+    return { kind: "contract-client" };
+  }
+  if (path.includes("/packages/contract/")) {
+    return { kind: "contract" };
+  }
+  const appMatch = /\/apps\/([^/]+)\//.exec(path);
+  if (appMatch !== null && CLIENT_APPS.has(appMatch[1] ?? "")) {
+    return { kind: "client-app" };
+  }
+  const moduleMatch = /\/packages\/modules\/([^/]+)\//.exec(path);
+  if (moduleMatch !== null && moduleMatch[1] !== undefined) {
+    return { kind: "module", module: moduleMatch[1] };
+  }
+  return { kind: "skip" };
+}
+
+/**
+ * @param {import("estree").Node} node
+ */
+function isTypeOnly(node) {
+  if ("importKind" in node && node.importKind === "type") {
+    return true;
+  }
+  if ("exportKind" in node && node.exportKind === "type") {
+    return true;
+  }
+  if ("specifiers" in node && Array.isArray(node.specifiers)) {
+    const specifiers = node.specifiers;
+    return (
+      specifiers.length > 0 &&
+      specifiers.every(
+        (specifier) =>
+          ("importKind" in specifier && specifier.importKind === "type") ||
+          ("exportKind" in specifier && specifier.exportKind === "type"),
+      )
+    );
+  }
+  return false;
+}
+
+/**
+ * @param {{ kind: string, module?: string }} from
+ * @param {string} spec
+ * @param {boolean} typeOnly
+ * @returns {{ messageId: string, data?: Record<string, string> } | null}
+ */
+function violation(from, spec, typeOnly) {
+  if (from.kind === "action-contract") {
+    if (isRelative(spec) || spec === "zod") {
+      return null;
+    }
+    if (spec === "@showzy/core/contract") {
+      return null;
+    }
+    if (
+      spec === "@showzy/validation" ||
+      spec.startsWith("@showzy/validation/")
+    ) {
+      return null;
+    }
+    return { messageId: "actionContract" };
+  }
+
+  const pkg = showzyPackage(spec);
+
+  if (from.kind === "contract-client") {
+    if (isRelative(spec)) {
+      return null;
+    }
+    if (spec.startsWith("node:") || NODE_BUILTINS.has(spec)) {
+      return { messageId: "contractClient" };
+    }
+    if (pkg === null) {
+      return null;
+    }
+    if (pkg.name === "core" && pkg.rest === "contract") {
+      return null;
+    }
+    if (pkg.name === "core" && pkg.rest === "errors" && typeOnly) {
+      return null;
+    }
+    if (pkg.name === "contract" && (pkg.rest === "" || pkg.rest === "server")) {
+      return pkg.rest === "server" ? { messageId: "contractClient" } : null;
+    }
+    if (!PLATFORM_PACKAGES.has(pkg.name) && pkg.rest === "contract") {
+      return null;
+    }
+    return { messageId: "contractClient" };
+  }
+
+  if (from.kind === "contract") {
+    if (
+      pkg !== null &&
+      !PLATFORM_PACKAGES.has(pkg.name) &&
+      pkg.rest !== "contract"
+    ) {
+      return { messageId: "contractModules" };
+    }
+    return null;
+  }
+
+  if (from.kind === "client-app") {
+    if (pkg === null) {
+      return null;
+    }
+    if (pkg.name === "contract" && pkg.rest === "") {
+      return null;
+    }
+    if (pkg.name === "validation" || pkg.name === "ui") {
+      return null;
+    }
+    return { messageId: "clientApp" };
+  }
+
+  if (from.kind === "module") {
+    if (pkg === null) {
+      return null;
+    }
+    const moduleName = from.module ?? "";
+    if (pkg.name === "db") {
+      if (pkg.rest === `schema/${moduleName}`) {
+        return null;
+      }
+      if (
+        PROJECTION_MODULES.has(moduleName) &&
+        pkg.rest.startsWith("schema/")
+      ) {
+        return null;
+      }
+      return { messageId: "moduleSchema", data: { module: moduleName } };
+    }
+    if (pkg.name === "contract") {
+      return { messageId: "moduleCross" };
+    }
+    if (PLATFORM_PACKAGES.has(pkg.name)) {
+      return null;
+    }
+    if (pkg.rest !== "") {
+      return { messageId: "moduleCross" };
+    }
+    return null;
+  }
+
+  return null;
+}
+
+export const importBoundariesRule = {
+  meta: {
+    type: "problem",
+    docs: {
+      description:
+        "Enforce client-safe descriptor imports, schema ownership, and client-app package allowlists.",
+    },
+    schema: [],
+    messages: {
+      actionContract:
+        "*.contract.ts may import only zod, @showzy/core/contract, and @showzy/validation (contract.md §2).",
+      moduleSchema:
+        'Module "{{module}}" may import only @showzy/db/schema/{{module}} (ADR-0014). Projection modules (search/analytics) may import foreign schemas; the contract check enforces the matching read-model grant.',
+      moduleCross:
+        "Modules may import other modules only through their package index.ts; packages/contract is not a module dependency (ADR-0015, ADR-0016).",
+      contractModules:
+        "packages/contract may import only a module's index.contract.ts barrel (@showzy/<module>/contract) (ADR-0016).",
+      clientApp:
+        "Client apps may import only @showzy/contract, @showzy/validation, and @showzy/ui (contract.md §2).",
+      contractClient:
+        "The contract client layer must not import Node builtins, @showzy/db, core server paths, or @showzy/contract/server (ADR-0016).",
+    },
+  },
+  create(context) {
+    const from = classify(context.filename);
+    if (from.kind === "skip") {
+      return {};
+    }
+
+    /**
+     * @param {import("estree").Node} node
+     * @param {string} spec
+     */
+    function reportIfNeeded(node, spec) {
+      const result = violation(from, spec, isTypeOnly(node));
+      if (result !== null) {
+        context.report({
+          node,
+          messageId: result.messageId,
+          ...(result.data !== undefined ? { data: result.data } : {}),
+        });
+      }
+    }
+
+    return {
+      ImportDeclaration(node) {
+        if (typeof node.source.value === "string") {
+          reportIfNeeded(node, node.source.value);
+        }
+      },
+      ExportNamedDeclaration(node) {
+        if (node.source !== null && typeof node.source.value === "string") {
+          reportIfNeeded(node, node.source.value);
+        }
+      },
+      ExportAllDeclaration(node) {
+        if (typeof node.source.value === "string") {
+          reportIfNeeded(node, node.source.value);
+        }
+      },
+    };
+  },
+};

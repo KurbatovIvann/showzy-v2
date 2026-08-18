@@ -8,6 +8,6 @@
     "types": [],
     "lib": ["ES2023", "DOM"]
   },
-  "include": ["src/client"],
+  "include": ["src/client", "probe/entry.ts"],
   "exclude": ["src/client/**/*.test.ts", "src/client/**/*.db.test.ts"]
 }
