@@ -6,7 +6,11 @@
 import { randomBytes, randomUUID } from "node:crypto";
 
 import { ORPCError } from "@orpc/client";
-import { createContractClient, type ContractRouterFor } from "@showzy/contract";
+import {
+  createContractClient,
+  isWireError,
+  type ContractRouterFor,
+} from "@showzy/contract";
 import {
   ActionRegistry,
   createConfirmationHook,
@@ -336,9 +340,12 @@ async function authPost(
 }
 
 describe("contract.md §7 principal dispatch over HTTP", () => {
-  it("no session on a staff action → 401 UNAUTHORIZED", async () => {
+  it("no session on a staff action → 401 UNAUTHENTICATED", async () => {
     const error = await expectOrpcError(rpcClient({}).sample.plan({}));
-    expect(error.code).toBe("UNAUTHORIZED");
+    expect(isWireError(error)).toBe(true);
+    if (!isWireError(error) || error.code !== "UNAUTHENTICATED") {
+      expect.unreachable("expected UNAUTHENTICATED");
+    }
     expect(error.status).toBe(401);
   });
 
@@ -350,7 +357,10 @@ describe("contract.md §7 principal dispatch over HTTP", () => {
         companyId: kitIdentities.companies.b,
       }).sample.plan({}),
     );
-    expect(error.code).toBe("PERMISSION_DENIED");
+    expect(isWireError(error)).toBe(true);
+    if (!isWireError(error) || error.code !== "PERMISSION_DENIED") {
+      expect.unreachable("expected PERMISSION_DENIED");
+    }
     expect(error.status).toBe(403);
   });
 
@@ -392,13 +402,19 @@ describe("contract.md §7 principal dispatch over HTTP", () => {
 
   it("consumer without a session → 401", async () => {
     const error = await expectOrpcError(rpcClient({}).sample.whoami({}));
-    expect(error.code).toBe("UNAUTHORIZED");
+    expect(isWireError(error)).toBe(true);
+    if (!isWireError(error) || error.code !== "UNAUTHENTICATED") {
+      expect.unreachable("expected UNAUTHENTICATED");
+    }
     expect(error.status).toBe(401);
   });
 
   it("account without a session → 401", async () => {
     const error = await expectOrpcError(rpcClient({}).sample.mine({}));
-    expect(error.code).toBe("UNAUTHORIZED");
+    expect(isWireError(error)).toBe(true);
+    if (!isWireError(error) || error.code !== "UNAUTHENTICATED") {
+      expect.unreachable("expected UNAUTHENTICATED");
+    }
     expect(error.status).toBe(401);
   });
 
@@ -413,6 +429,48 @@ describe("contract.md §7 principal dispatch over HTTP", () => {
     );
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ companyId: null });
+  });
+
+  it("no session on a staff REST alias → 401 UNAUTHENTICATED", async () => {
+    const response = await app.request(
+      `http://localhost:3000${REST_PREFIX}/sample/plan`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      },
+    );
+    expect(response.status).toBe(401);
+    const body: unknown = await response.json();
+    expect(body).toEqual(
+      expect.objectContaining({
+        defined: true,
+        code: "UNAUTHENTICATED",
+        status: 401,
+      }),
+    );
+    if (
+      typeof body !== "object" ||
+      body === null ||
+      !("code" in body) ||
+      !("status" in body) ||
+      !("message" in body) ||
+      typeof body.code !== "string" ||
+      typeof body.status !== "number" ||
+      typeof body.message !== "string"
+    ) {
+      expect.unreachable("expected an oRPC error body");
+      return;
+    }
+    const error = new ORPCError(body.code, {
+      defined: true,
+      status: body.status,
+      message: body.message,
+    });
+    expect(isWireError(error)).toBe(true);
+    if (!isWireError(error) || error.code !== "UNAUTHENTICATED") {
+      expect.unreachable("expected UNAUTHENTICATED");
+    }
   });
 });
 
@@ -496,6 +554,10 @@ describe("OTP over HTTP (security-operations §8)", () => {
 
   it("rejects a code after the 5-minute expiry", async () => {
     const phone = "+380671000003";
+    // The phone plugin reads Date.now() for OTP expiry rather than the
+    // injectable `now` passed to buildAuthOptions (that clock drives the
+    // identifier send guard and secondary storage). Patching Date.now is
+    // the only way to advance expiry without waiting five minutes.
     const originalNow = Date.now;
     Date.now = () => nowMs;
     try {
@@ -527,5 +589,41 @@ describe("OTP over HTTP (security-operations §8)", () => {
     await expect(
       rpcClient({ token: bearer }).sample.mine({}),
     ).resolves.toMatchObject({ companyId: null });
+  });
+
+  it("rate-limits OTP sends to 20 per hour per forwarded IP", async () => {
+    const ip = "198.51.100.80";
+    const headers = {
+      "x-test-peer-address": INGRESS,
+      "x-forwarded-for": ip,
+    };
+    for (let i = 0; i < otpPolicy.maxSendsPerHourPerIp; i += 1) {
+      const phone = `+3806720${String(i).padStart(5, "0")}`;
+      const response = await authPost(
+        "/phone-number/send-otp",
+        { phoneNumber: phone },
+        headers,
+      );
+      expect(response.status, `send ${String(i + 1)} from ${ip}`).toBe(200);
+    }
+    const blocked = await authPost(
+      "/phone-number/send-otp",
+      { phoneNumber: "+380672099999" },
+      headers,
+    );
+    expect(blocked.status).toBe(429);
+  });
+
+  it("keys the OTP send IP limit on the sanitized forwarded address, not the proxy peer", async () => {
+    const otherIp = "198.51.100.81";
+    const response = await authPost(
+      "/phone-number/send-otp",
+      { phoneNumber: "+380672188888" },
+      {
+        "x-test-peer-address": INGRESS,
+        "x-forwarded-for": otherIp,
+      },
+    );
+    expect(response.status).toBe(200);
   });
 });

@@ -2,18 +2,18 @@
  * The contract.md §4 error-mapping table — the single client-safe source
  * for wire codes, HTTP statuses, and the typed extras each code carries.
  *
- * Wire codes are pinned to the core error vocabulary (core.md §11):
+ * Core error codes are pinned to the core error vocabulary (core.md §11):
  * renaming one is a breaking client API change and goes through spec
- * rework, never a casual refactor. The table test enforces the exact §4
- * rows; `satisfies Record<CoreErrorCode, …>` keeps the table complete when
- * core gains an error class.
+ * rework, never a casual refactor. `UNAUTHENTICATED` is transport-level
+ * (no session where one is required) and is not a core error class.
+ * The table test enforces the exact §4 rows; `satisfies Record<CoreErrorCode, …>`
+ * keeps the core subset complete when core gains an error class.
  */
 import { ORPCError } from "@orpc/client";
 import type { CoreErrorCode } from "@showzy/core/errors";
 import { z } from "zod";
 
-/** HTTP status per wire code — exactly the §4 table. */
-export const wireErrorStatus = {
+const coreWireErrorStatus = {
   VALIDATION: 400,
   PERMISSION_DENIED: 403,
   NOT_FOUND: 404,
@@ -25,6 +25,21 @@ export const wireErrorStatus = {
   TIMEOUT: 504,
   INTERNAL: 500,
 } as const satisfies Record<CoreErrorCode, number>;
+
+/** HTTP status per wire code — exactly the §4 table. */
+export const wireErrorStatus = {
+  VALIDATION: coreWireErrorStatus.VALIDATION,
+  UNAUTHENTICATED: 401,
+  PERMISSION_DENIED: coreWireErrorStatus.PERMISSION_DENIED,
+  NOT_FOUND: coreWireErrorStatus.NOT_FOUND,
+  CONFLICT: coreWireErrorStatus.CONFLICT,
+  IDEMPOTENCY_CONFLICT: coreWireErrorStatus.IDEMPOTENCY_CONFLICT,
+  RETRY_IN_PROGRESS: coreWireErrorStatus.RETRY_IN_PROGRESS,
+  CONFIRMATION_REQUIRED: coreWireErrorStatus.CONFIRMATION_REQUIRED,
+  RATE_LIMITED: coreWireErrorStatus.RATE_LIMITED,
+  TIMEOUT: coreWireErrorStatus.TIMEOUT,
+  INTERNAL: coreWireErrorStatus.INTERNAL,
+} as const;
 
 /** The stable wire-code union clients discriminate on (contract.md §4). */
 export type WireErrorCode = keyof typeof wireErrorStatus;
@@ -66,6 +81,7 @@ export const wireErrorDefinitions = {
     status: wireErrorStatus.VALIDATION,
     data: z.object({ issues: z.array(wireValidationIssueSchema) }),
   },
+  UNAUTHENTICATED: { status: wireErrorStatus.UNAUTHENTICATED },
   PERMISSION_DENIED: { status: wireErrorStatus.PERMISSION_DENIED },
   NOT_FOUND: { status: wireErrorStatus.NOT_FOUND },
   CONFLICT: { status: wireErrorStatus.CONFLICT },

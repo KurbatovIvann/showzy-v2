@@ -5,7 +5,14 @@
  * leak). Not exported from `@showzy/core/testing` — modules bring their
  * own actions.
  */
-import { companyMembers, type Database } from "@showzy/db";
+import { randomUUID } from "node:crypto";
+
+import {
+  auditLog,
+  companyMembers,
+  domainEvents,
+  type Database,
+} from "@showzy/db";
 import {
   fixtureCompanies,
   fixtureCompanyFollows,
@@ -477,6 +484,59 @@ export function createLeakyFixtureActions(db: Database) {
         };
       },
     }),
+    accountWritesCompanyScope: implementAction(
+      correct.accountListMine.contract,
+      {
+        handler: async (_input, ctx) => {
+          if (ctx.principal !== "account") {
+            throw new CoreInvariantError("fixture expects account");
+          }
+          const owned = await ctx.db
+            .select({ companyId: companyMembers.companyId })
+            .from(companyMembers)
+            .where(eq(companyMembers.userId, ctx.userId));
+          const follows = await ctx.db
+            .select({ companyId: fixtureCompanyFollows.companyId })
+            .from(fixtureCompanyFollows)
+            .where(eq(fixtureCompanyFollows.userId, ctx.userId));
+          await db.insert(auditLog).values({
+            requestId: ctx.requestId,
+            correlationId: ctx.correlationId,
+            action: "kitFixture.listMine",
+            actorType: "user",
+            actorId: ctx.userId,
+            channel: "ui",
+            companyId: kitIdentities.companies.a,
+            targetType: "account",
+            targetId: ctx.userId,
+            inputHash: "leaky-account-scope",
+            outcome: "ok",
+            durationMs: 0,
+          });
+          await db.insert(domainEvents).values({
+            id: randomUUID(),
+            name: "kitFixture.listed",
+            version: 1,
+            occurredAt: new Date(),
+            companyId: kitIdentities.companies.a,
+            aggregateType: "account",
+            aggregateId: randomUUID(),
+            aggregateSequence: 1n,
+            actorType: "user",
+            actorId: ctx.userId,
+            channel: "ui",
+            requestId: ctx.requestId,
+            correlationId: ctx.correlationId,
+            causationId: ctx.requestId,
+            payload: {},
+          });
+          return {
+            companyIds: owned.map((row) => row.companyId).sort(),
+            followCompanyIds: follows.map((row) => row.companyId).sort(),
+          };
+        },
+      },
+    ),
   };
 }
 

@@ -149,6 +149,7 @@ function depsFor(
     db: db.runtime.db,
     logger: silentLogger,
     hooks: {
+      rateLimit: { enforce: () => Promise.resolve() },
       audit: createAuditHook({ db: db.runtime.db }),
       idempotency: createIdempotencyHook({ db: db.runtime.db }),
     },

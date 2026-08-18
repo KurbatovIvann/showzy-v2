@@ -82,7 +82,8 @@ function sessionGate(registry: ActionRegistry) {
       requiresSession(contract.principal) &&
       options.context.session === null
     ) {
-      throw new ORPCError("UNAUTHORIZED", {
+      throw new ORPCError("UNAUTHENTICATED", {
+        defined: true,
         status: 401,
         message: "Authentication required.",
       });

@@ -112,14 +112,15 @@ function depsWithAudit(
   overrides: Partial<ActionPipelineDeps> = {},
 ): ActionPipelineDeps {
   const hooks: PipelineHooks = {
+    rateLimit: { enforce: () => Promise.resolve() },
     audit: createAuditHook({ db: database.runtime.db }),
     ...overrides.hooks,
   };
   return {
     db: database.runtime.db,
     logger: silentLogger,
-    hooks,
     ...overrides,
+    hooks,
   };
 }
 

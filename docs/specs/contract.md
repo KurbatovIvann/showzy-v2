@@ -115,11 +115,13 @@ Enforcement (CI):
 
 ## 4. Error mapping
 
-Typed core errors (core.md §11) map to stable wire codes:
+Typed core errors (core.md §11) map to stable wire codes. Transport-level
+authentication failure is in the same union so clients never string-match:
 
-| Core error | HTTP | Wire code |
+| Core error / transport | HTTP | Wire code |
 | --- | --- | --- |
 | ValidationError | 400 | `VALIDATION` (+ Zod issues) |
+| *(no session where one is required)* | 401 | `UNAUTHENTICATED` |
 | PermissionDeniedError | 403 | `PERMISSION_DENIED` |
 | NotFoundError | 404 | `NOT_FOUND` |
 | ConflictError / IdempotencyConflictError | 409 | `CONFLICT` / `IDEMPOTENCY_CONFLICT` |
@@ -128,6 +130,10 @@ Typed core errors (core.md §11) map to stable wire codes:
 | RateLimitError | 429 | `RATE_LIMITED` (+ retryAfter) |
 | TimeoutError | 504 | `TIMEOUT` |
 | CoreInvariantError / unknown | 500 | `INTERNAL` (no details on the wire) |
+
+`UNAUTHENTICATED` (401) is issued by the HTTP session gate before
+`executeAction` — it is not a core.md §11 class. `PERMISSION_DENIED` (403)
+remains the mapped core error for an authenticated caller without access.
 
 Clients get a discriminated union typed by wire code — no string matching.
 
@@ -191,7 +197,7 @@ API consumers.
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
-| 2026-08-17 | Added anonymous public-global routing and atomic-capability descriptor enforcement | Align transport with ADR-0020/0021 mobile parity | Human owner via mobile parity rework |
+| 2026-08-18 | Added transport-level `UNAUTHENTICATED` / 401 to the §4 wire-error union | Session-gate 401 was outside `isWireError()`, forcing clients to string-match | scaffold (fnd-G1 A8) |
 | 2026-08-17 | Integrated `account` principal: transport exposure, AI manifest filtering, routing rules, and acceptance criteria | Align contract with ADR-0013 (amended) 6-mode principal model (`staff \| customer \| public \| system \| consumer \| account`) per spec-rework queue Step 1 | spec-rework agent |
 | 2026-08-17 | Added consumer client exposure and session routing without company scope | Align transport composition with ADR-0018 and core consumer semantics | Human owner via spec-rework queue |
 | 2026-08-17 | Defined the client-safe core subpath, retry-key ownership, confirmation transport, and bigint wire encoding | Foundation consistency review against core/db specs and ADR-0013 | GPT-5.6 Sol |

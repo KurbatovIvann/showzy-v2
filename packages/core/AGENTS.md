@@ -117,9 +117,10 @@ Four export subpaths exist:
   fnd-T13 (audit), fnd-T14 (rate limit), fnd-T15 (idempotency), fnd-T20
   (confirmation), plus `ActionTelemetry`, the OTel/Sentry seam bound by
   the apps (fnd-T26/T28). Core stays dependency-free; the hooks receive
-  every correlation field the log lines carry. An absent hook means "that
-  slice has not landed", never "skip the protocol" — apps compose the
-  full set at boot.
+  every correlation field the log lines carry. Slots stay optional on the
+  type so tests can compose subsets; execution fails closed with
+  `CoreInvariantError` when a declared protocol has no hook. Apps
+  compose the full set at boot.
 - The pipeline is the only caller of the context factories and the only
   place transactions are opened (db.md §3). It emits one structured start
   and one finish log line (`request_id`, actor, `company_id` — null for

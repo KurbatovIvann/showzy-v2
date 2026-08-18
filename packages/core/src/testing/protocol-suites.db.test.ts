@@ -20,7 +20,7 @@ import {
 import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { CoreInvariantError, RateLimitError } from "../errors/index.js";
+import { RateLimitError } from "../errors/index.js";
 import { createRateLimitHook } from "../runtime/rate-limit/create-rate-limit-hook.js";
 import { createInMemoryRateLimitStore } from "../runtime/rate-limit/token-bucket.js";
 import { createCorrectFixtureActions } from "./fixture-actions.js";
@@ -35,7 +35,6 @@ import {
 import {
   atomicCallSuite,
   eventSuite,
-  expectCoreInvariant,
   idempotencySuite,
   runAtomicCallCase,
   runEventSuiteCase,
@@ -177,6 +176,21 @@ atomicCallSuite(
       },
       readRootEffect: confirmedOrderCount,
       readCalleeEffect: () => stockOf(stockProductId),
+      get undeclared() {
+        return {
+          action: protocol.confirmUndeclared,
+          input: { productId: stockProductId },
+        };
+      },
+      get mismatch() {
+        return { action: protocol.confirmMismatch, input: {} };
+      },
+      get nested() {
+        return {
+          action: protocol.confirmNested,
+          input: { productId: stockProductId },
+        };
+      },
     },
   ],
 );
@@ -357,24 +371,70 @@ describe("social desired-state writes", () => {
   });
 });
 
-describe("atomicCallSuite extra edge failures", () => {
-  it("rejects an undeclared atomic callee", async () => {
-    await expectCoreInvariant(
-      () =>
-        invokeAction(kit, protocol.confirmUndeclared, {
-          productId: stockProductId,
-        }),
-      protocol.confirmUndeclared.contract.name,
-      "undeclared edge",
-    );
+describe("atomicCallSuite fails on seeded violations", () => {
+  it("detects rollback that leaves domain_events rows", async () => {
+    const productId = await seedStock(3);
+    const leaky = protocol.createLeakyConfirmOrder(kit.db.runtime.db);
+    await expect(
+      runAtomicCallCase(kit, {
+        root: leaky,
+        successInput: {
+          orderId: randomUUID(),
+          productId,
+          quantity: 1,
+          failAfterCall: false,
+        },
+        failureInput: {
+          orderId: randomUUID(),
+          productId,
+          quantity: 1,
+          failAfterCall: true,
+        },
+        readRootEffect: confirmedOrderCount,
+        readCalleeEffect: () => stockOf(productId),
+        undeclared: {
+          action: protocol.confirmUndeclared,
+          input: { productId },
+        },
+        mismatch: { action: protocol.confirmMismatch, input: {} },
+        nested: {
+          action: protocol.confirmNested,
+          input: { productId },
+        },
+      }),
+    ).rejects.toThrow(/rollback left domain_events/);
   });
 
-  it("rejects a nested atomic call from the callee", async () => {
+  it("detects an undeclared probe that does not fail", async () => {
+    const productId = await seedStock(3);
     await expect(
-      invokeAction(kit, protocol.confirmNested, {
-        productId: stockProductId,
+      runAtomicCallCase(kit, {
+        root: protocol.confirmOrder,
+        successInput: {
+          orderId: randomUUID(),
+          productId,
+          quantity: 1,
+          failAfterCall: false,
+        },
+        failureInput: {
+          orderId: randomUUID(),
+          productId,
+          quantity: 1,
+          failAfterCall: true,
+        },
+        readRootEffect: confirmedOrderCount,
+        readCalleeEffect: () => stockOf(productId),
+        undeclared: {
+          action: protocol.createNote,
+          input: noteInput("not-undeclared"),
+        },
+        mismatch: { action: protocol.confirmMismatch, input: {} },
+        nested: {
+          action: protocol.confirmNested,
+          input: { productId },
+        },
       }),
-    ).rejects.toBeInstanceOf(CoreInvariantError);
+    ).rejects.toThrow(/undeclared edge/);
   });
 });
 
@@ -410,6 +470,15 @@ describe("protocol suite run* helpers against the fixture module", () => {
       },
       readRootEffect: confirmedOrderCount,
       readCalleeEffect: () => stockOf(productId),
+      undeclared: {
+        action: protocol.confirmUndeclared,
+        input: { productId },
+      },
+      mismatch: { action: protocol.confirmMismatch, input: {} },
+      nested: {
+        action: protocol.confirmNested,
+        input: { productId },
+      },
     });
   });
 });

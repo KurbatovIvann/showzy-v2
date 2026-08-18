@@ -56,6 +56,8 @@ import {
   TimeoutError,
   ValidationError,
 } from "../../errors/index.js";
+import { createAuditHook } from "../audit/create-audit-hook.js";
+import { createIdempotencyHook } from "../idempotency/create-idempotency-hook.js";
 import { implementAction } from "../implement-action.js";
 import type { ResolvedTarget, TargetResolutionEnv } from "../types.js";
 import { executeAction } from "./execute-action.js";
@@ -66,6 +68,7 @@ import type {
   ActionTelemetry,
   PipelineHooks,
   PipelineRequestMeta,
+  RateLimitHook,
 } from "./types.js";
 
 let db: TestDatabase;
@@ -116,6 +119,32 @@ afterAll(async () => {
 
 const silentLogger = pino({ enabled: false });
 
+const noopRateLimit: RateLimitHook = {
+  enforce: () => Promise.resolve(),
+};
+
+function defaultHooks(): PipelineHooks {
+  return {
+    rateLimit: noopRateLimit,
+    audit: createAuditHook({ db: db.runtime.db }),
+    idempotency: createIdempotencyHook({ db: db.runtime.db }),
+  };
+}
+
+function depsFor(
+  overrides: Partial<ActionPipelineDeps> = {},
+): ActionPipelineDeps {
+  return {
+    db: db.runtime.db,
+    logger: silentLogger,
+    hooks: defaultHooks(),
+    ...overrides,
+    ...(overrides.hooks !== undefined
+      ? { hooks: { ...defaultHooks(), ...overrides.hooks } }
+      : {}),
+  };
+}
+
 function requestMeta(
   overrides: Partial<PipelineRequestMeta> = {},
 ): PipelineRequestMeta {
@@ -124,14 +153,9 @@ function requestMeta(
     correlationId: randomUUID(),
     channel: "ui",
     clientIp: "203.0.113.7",
+    idempotencyKey: randomUUID(),
     ...overrides,
   };
-}
-
-function depsFor(
-  overrides: Partial<ActionPipelineDeps> = {},
-): ActionPipelineDeps {
-  return { db: db.runtime.db, logger: silentLogger, ...overrides };
 }
 
 function captureLogger(): {
@@ -1224,5 +1248,140 @@ describe("structured logs and telemetry", () => {
     expect(failedSpan?.outcome).toMatchObject({ outcome: "CONFLICT" });
     expect(failedSpan?.errors).toHaveLength(1);
     expect(failedSpan?.errors[0]).toBeInstanceOf(ConflictError);
+  });
+});
+
+describe("protocol hooks fail closed when missing (core.md §5/§7/§8/§10)", () => {
+  it("does not execute a non-system action without a rate-limit hook", async () => {
+    let ran = 0;
+    const action = implementAction(createProductContract, {
+      handler: (input, ctx) => {
+        ran += 1;
+        if (ctx.principal !== "staff") {
+          throw new CoreInvariantError("fixture expects a staff context");
+        }
+        return Promise.resolve({ id: input.id });
+      },
+      auditTarget: () => ({
+        type: "fixture-product",
+        id: "missing-rate-limit",
+      }),
+    });
+    await expectCoreError(
+      executeAction(depsFor({ hooks: { rateLimit: undefined } }), {
+        action,
+        input: { id: randomUUID(), name: "No rate limit" },
+        request: requestMeta(),
+        principal: {
+          mode: "staff",
+          session: { userId: users.anna },
+          companySelector: companyA,
+        },
+      }),
+      CoreInvariantError,
+    );
+    expect(ran).toBe(0);
+  });
+
+  it("does not execute an idempotent mutation without an idempotency hook", async () => {
+    let ran = 0;
+    const action = implementAction(createProductContract, {
+      handler: (input, ctx) => {
+        ran += 1;
+        if (ctx.principal !== "staff") {
+          throw new CoreInvariantError("fixture expects a staff context");
+        }
+        return Promise.resolve({ id: input.id });
+      },
+      auditTarget: () => ({
+        type: "fixture-product",
+        id: "missing-idempotency",
+      }),
+    });
+    await expectCoreError(
+      executeAction(depsFor({ hooks: { idempotency: undefined } }), {
+        action,
+        input: { id: randomUUID(), name: "No idempotency" },
+        request: requestMeta({ idempotencyKey: randomUUID() }),
+        principal: {
+          mode: "staff",
+          session: { userId: users.anna },
+          companySelector: companyA,
+        },
+      }),
+      CoreInvariantError,
+    );
+    expect(ran).toBe(0);
+  });
+
+  it("does not execute an audited action without an audit hook", async () => {
+    let ran = 0;
+    const action = implementAction(createProductContract, {
+      handler: (input, ctx) => {
+        ran += 1;
+        if (ctx.principal !== "staff") {
+          throw new CoreInvariantError("fixture expects a staff context");
+        }
+        return Promise.resolve({ id: input.id });
+      },
+      auditTarget: () => ({ type: "fixture-product", id: "missing-audit" }),
+    });
+    await expectCoreError(
+      executeAction(depsFor({ hooks: { audit: undefined } }), {
+        action,
+        input: { id: randomUUID(), name: "No audit" },
+        request: requestMeta({ idempotencyKey: randomUUID() }),
+        principal: {
+          mode: "staff",
+          session: { userId: users.anna },
+          companySelector: companyA,
+        },
+      }),
+      CoreInvariantError,
+    );
+    expect(ran).toBe(0);
+  });
+
+  it("does not execute a confirmed action without a confirmation hook", async () => {
+    let ran = 0;
+    const action = implementAction(
+      defineActionContract({
+        ...contractDefaults,
+        name: "pipelineFixture.confirmMissingHook",
+        description: "High-risk fixture proving confirmation fail-closed.",
+        principal: "staff",
+        transport: "client",
+        input: z.object({}),
+        output: z.object({ ok: z.boolean() }),
+        permissions: ["pipelineFixture:write"],
+        risk: "high",
+        requiresConfirmation: true,
+        idempotent: true,
+        audit: true,
+        timeout: 5_000,
+      }),
+      {
+        handler: () => {
+          ran += 1;
+          return Promise.resolve({ ok: true });
+        },
+        confirmationSummary: () => "Confirm the missing-hook fixture.",
+        auditTarget: () => ({ type: "fixture-product", id: "missing-confirm" }),
+      },
+    );
+    await expectCoreError(
+      executeAction(depsFor({ hooks: { confirmation: undefined } }), {
+        action,
+        input: {},
+        request: requestMeta({ idempotencyKey: randomUUID() }),
+        principal: {
+          mode: "staff",
+          session: { userId: users.anna },
+          companySelector: companyA,
+        },
+      }),
+      CoreInvariantError,
+    );
+    expect(ran).toBe(0);
   });
 });

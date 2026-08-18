@@ -34,6 +34,7 @@ import { z } from "zod";
 
 import { defineActionContract } from "../../contract/define-action-contract.js";
 import { ConflictError, CoreInvariantError } from "../../errors/index.js";
+import { createAuditHook } from "../audit/create-audit-hook.js";
 import type { CtxEmit } from "../context/types.js";
 import {
   implementAction,
@@ -45,6 +46,7 @@ import type {
   AuditHook,
   PipelineRequestMeta,
   PrincipalInvocation,
+  RateLimitHook,
 } from "../pipeline/types.js";
 import { defineEvent } from "./define-event.js";
 
@@ -208,10 +210,14 @@ function requestMeta(
 }
 
 function deps(auditHook?: AuditHook): ActionPipelineDeps {
+  const rateLimit: RateLimitHook = { enforce: () => Promise.resolve() };
   return {
     db: database.runtime.db,
     logger: silentLogger,
-    ...(auditHook !== undefined ? { hooks: { audit: auditHook } } : {}),
+    hooks: {
+      rateLimit,
+      audit: auditHook ?? createAuditHook({ db: database.runtime.db }),
+    },
   };
 }
 

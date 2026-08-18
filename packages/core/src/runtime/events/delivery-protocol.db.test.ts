@@ -37,7 +37,7 @@ import {
 } from "@showzy/db";
 import { user } from "@showzy/db/schema/auth";
 import { createTestDatabase, type TestDatabase } from "@showzy/db/testing";
-import { and, asc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
 import { pino, type Logger } from "pino";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -342,16 +342,16 @@ const allSubscriptions = [
 // --- Helpers ----------------------------------------------------------------
 
 function deps(
-  withAudit = false,
   overrides: Pick<Partial<ActionPipelineDeps>, "logger" | "now"> = {},
 ): ActionPipelineDeps {
   return {
     db: database.runtime.db,
     logger: overrides.logger ?? silentLogger,
     ...(overrides.now === undefined ? {} : { now: overrides.now }),
-    ...(withAudit
-      ? { hooks: { audit: createAuditHook({ db: database.runtime.db }) } }
-      : {}),
+    hooks: {
+      rateLimit: { enforce: () => Promise.resolve() },
+      audit: createAuditHook({ db: database.runtime.db }),
+    },
   };
 }
 
@@ -556,6 +556,7 @@ describe("executeDelivery — the delivery entrypoint (core.md §6)", () => {
       {
         ...deps(),
         hooks: {
+          ...deps().hooks,
           // Passed so the test can prove the delivery entrypoint replaces
           // this slot — the delivery row is the reservation (core.md §6).
           idempotency: createIdempotencyHook({ db: database.runtime.db }),
@@ -643,7 +644,19 @@ describe("executeDelivery — the delivery entrypoint (core.md §6)", () => {
     const { eventId } = await placeOrder(orderId);
     await dispatch();
     let now = Date.now();
-    const withAudit = () => deps(true, { now: () => now });
+    const withAudit = () => deps({ now: () => now });
+
+    const auditCounts = async () => {
+      const rows = await database.runtime.db
+        .select({ outcome: auditLog.outcome })
+        .from(auditLog)
+        .where(eq(auditLog.action, "deliveryFixtureChat.upsertCard"));
+      return {
+        ok: rows.filter((row) => row.outcome === "ok").length,
+        conflict: rows.filter((row) => row.outcome === "CONFLICT").length,
+      };
+    };
+    const beforeFail = await auditCounts();
 
     failCardFor.add(eventId);
     const failed = await executeDelivery(withAudit(), {
@@ -666,13 +679,10 @@ describe("executeDelivery — the delivery entrypoint (core.md §6)", () => {
     expect(row?.status).toBe("pending");
     expect(row?.processedAt).toBeNull();
     expect(await emittedCardEvents(orderId)).toHaveLength(0);
-    const auditRows = await database.runtime.db
-      .select()
-      .from(auditLog)
-      .where(eq(auditLog.action, "deliveryFixtureChat.upsertCard"));
-    expect(auditRows.filter((r) => r.outcome === "ok")).toHaveLength(0);
+    const afterFail = await auditCounts();
+    expect(afterFail.ok).toBe(beforeFail.ok);
     // The failure record commits in its own transaction (core.md §8).
-    expect(auditRows.filter((r) => r.outcome === "CONFLICT")).toHaveLength(1);
+    expect(afterFail.conflict).toBe(beforeFail.conflict + 1);
 
     // The pending delivery is retryable: the next attempt commits
     // everything together.
@@ -684,15 +694,22 @@ describe("executeDelivery — the delivery entrypoint (core.md §6)", () => {
     });
     expect(retried).toEqual({ status: "processed" });
     expect(await emittedCardEvents(orderId)).toHaveLength(1);
-    const okRows = await database.runtime.db
+    const afterRetry = await auditCounts();
+    expect(afterRetry.ok).toBe(beforeFail.ok + 1);
+    const latestOk = await database.runtime.db
       .select()
       .from(auditLog)
-      .where(eq(auditLog.action, "deliveryFixtureChat.upsertCard"));
-    const ok = okRows.filter((r) => r.outcome === "ok");
-    expect(ok).toHaveLength(1);
-    expect(ok[0]?.actorType).toBe("system");
-    expect(ok[0]?.actorId).toBe("deliveryFixtureChat.card-updater");
-    expect(ok[0]?.companyId).toBe(companyA);
+      .where(
+        and(
+          eq(auditLog.action, "deliveryFixtureChat.upsertCard"),
+          eq(auditLog.outcome, "ok"),
+        ),
+      )
+      .orderBy(desc(auditLog.createdAt))
+      .limit(1);
+    expect(latestOk[0]?.actorType).toBe("system");
+    expect(latestOk[0]?.actorId).toBe("deliveryFixtureChat.card-updater");
+    expect(latestOk[0]?.companyId).toBe(companyA);
   });
 
   it("defers a later delivery until the aggregate's earlier one is processed", async () => {
@@ -825,8 +842,7 @@ describe("delivery retry, dead-letter, claim recovery, and replay (core.md §6)"
     await dispatch();
     let now = Date.now();
     const captured = captureLogger();
-    const runtime = () =>
-      deps(false, { logger: captured.logger, now: () => now });
+    const runtime = () => deps({ logger: captured.logger, now: () => now });
 
     failCardFor.add(eventId);
     for (let attempt = 1; attempt <= 5; attempt += 1) {
@@ -1000,7 +1016,7 @@ describe("delivery retry, dead-letter, claim recovery, and replay (core.md §6)"
       );
 
     expect(
-      await executeDelivery(deps(false, { now: () => now }), {
+      await executeDelivery(deps({ now: () => now }), {
         subscription: cardSubscription,
         eventId,
         claimedBy: "delivery-recovery-worker",
@@ -1031,7 +1047,7 @@ describe("delivery retry, dead-letter, claim recovery, and replay (core.md §6)"
       eventId,
     });
     expect(
-      await executeDelivery(deps(false, { now: () => now }), {
+      await executeDelivery(deps({ now: () => now }), {
         subscription: cardSubscription,
         eventId,
         claimedBy: "delivery-recovery-worker",

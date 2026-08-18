@@ -50,9 +50,12 @@ import type { ImplementedAction } from "../runtime/implement-action.js";
 import { executeAction } from "../runtime/pipeline/execute-action.js";
 import type {
   ActionPipelineDeps,
+  PipelineHooks,
   PipelineRequestMeta,
   PrincipalInvocation,
 } from "../runtime/pipeline/types.js";
+import { createRateLimitHook } from "../runtime/rate-limit/create-rate-limit-hook.js";
+import { createInMemoryRateLimitStore } from "../runtime/rate-limit/token-bucket.js";
 import type {
   ResolvedTarget,
   TargetResolutionEnv,
@@ -111,6 +114,19 @@ export interface TestKit {
 const silentLogger = pino({ enabled: false });
 const DEFAULT_CLIENT_IP = "203.0.113.7";
 const DEFAULT_SERVICE = "test-kit";
+const KIT_IP_HMAC_SECRET = "test-kit-ip-hmac-secret";
+
+function kitProtocolHooks(database: TestDatabase): PipelineHooks {
+  return {
+    audit: createAuditHook({ db: database.runtime.db }),
+    idempotency: createIdempotencyHook({ db: database.runtime.db }),
+    rateLimit: createRateLimitHook({
+      store: createInMemoryRateLimitStore(),
+      ipHmacSecret: KIT_IP_HMAC_SECRET,
+      logger: silentLogger,
+    }),
+  };
+}
 
 type CrmRow = typeof fixtureCrmCustomers.$inferSelect;
 type ProductRow = typeof fixtureProducts.$inferSelect;
@@ -271,10 +287,7 @@ export async function createTestKit(db?: TestDatabase): Promise<TestKit> {
     db: database.runtime.db,
     logger: silentLogger,
     projectionGrants: createProjectionGrantManifest([fixtureDiscoveryGrant]),
-    hooks: {
-      audit: createAuditHook({ db: database.runtime.db }),
-      idempotency: createIdempotencyHook({ db: database.runtime.db }),
-    },
+    hooks: kitProtocolHooks(database),
   };
 
   const kit: TestKit = {
