@@ -788,7 +788,10 @@ describe("risk: read — read-only enforcement", () => {
       },
     });
     for (const dangerous of ["insert", "update", "delete", "execute"]) {
-      expect(escapedCapability, `ReadTx must not expose ${dangerous}`).not.toHaveProperty(dangerous);
+      expect(
+        escapedCapability,
+        `ReadTx must not expose ${dangerous}`,
+      ).not.toHaveProperty(dangerous);
     }
   });
 

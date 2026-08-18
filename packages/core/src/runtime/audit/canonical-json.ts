@@ -36,9 +36,7 @@ function serialize(value: JsonSerializable): string {
 
     case "number": {
       if (!Number.isFinite(value)) {
-        throw new TypeError(
-          `canonical JSON does not support ${String(value)}`,
-        );
+        throw new TypeError(`canonical JSON does not support ${String(value)}`);
       }
       return Object.is(value, -0) ? "0" : String(value);
     }

@@ -17,8 +17,15 @@ import { auditLog, type Database, type Tx } from "@showzy/db";
 import { effectiveCompanyId } from "../context/factories.js";
 import type { ActionActor, ActionChannel } from "../context/types.js";
 import type { AuditTargetEnv, AuditTargetRef, JsonValue } from "../types.js";
-import type { AuditHook, PreflightAuthorization, PrincipalInvocation } from "../pipeline/types.js";
-import { canonicalJsonSha256, type JsonSerializable } from "./canonical-json.js";
+import type {
+  AuditHook,
+  PreflightAuthorization,
+  PrincipalInvocation,
+} from "../pipeline/types.js";
+import {
+  canonicalJsonSha256,
+  type JsonSerializable,
+} from "./canonical-json.js";
 
 export interface AuditHookDeps {
   readonly db: Database;
