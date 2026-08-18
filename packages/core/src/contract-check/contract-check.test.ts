@@ -29,6 +29,11 @@ import {
   ContractCheckError,
   runContractCheck,
 } from "./contract-check.js";
+import { moduleOf } from "./call-rules.js";
+import {
+  emptySuiteCoverage,
+  type SuiteCoverageManifest,
+} from "./suite-coverage.js";
 
 const io = z.object({});
 
@@ -87,12 +92,61 @@ function buildRegistry(...contracts: readonly ActionContract[]) {
   return registry;
 }
 
+function coverageFor(
+  registry: ActionRegistry,
+  rest: Pick<ContractCheckInput, "subscriptions">,
+): SuiteCoverageManifest {
+  const contracts = registry.contracts();
+  const subscriptionActions = new Set(
+    rest.subscriptions.map((subscription) => subscription.action),
+  );
+  const eventModules = new Set<string>();
+  for (const contract of contracts) {
+    if (contract.emits.length > 0) {
+      eventModules.add(moduleOf(contract.name));
+    }
+  }
+  for (const subscription of rest.subscriptions) {
+    eventModules.add(moduleOf(subscription.action));
+  }
+  return {
+    isolation: contracts.map((contract) => contract.name),
+    publicProjection: contracts
+      .filter(
+        (contract) =>
+          contract.principal === "public" &&
+          contract.publicScope === "globalProjection",
+      )
+      .map((contract) => contract.name),
+    consumerIsolation: contracts
+      .filter((contract) => contract.principal === "consumer")
+      .map((contract) => contract.name),
+    accountIsolation: contracts
+      .filter((contract) => contract.principal === "account")
+      .map((contract) => contract.name),
+    idempotency: contracts
+      .filter(
+        (contract) =>
+          contract.idempotent &&
+          contract.risk !== "read" &&
+          !subscriptionActions.has(contract.name),
+      )
+      .map((contract) => contract.name),
+    events: [...eventModules],
+    atomic: contracts.flatMap((contract) =>
+      contract.atomicCalls.map((callee) => ({
+        caller: contract.name,
+        callee,
+      })),
+    ),
+  };
+}
+
 function checkInput(
   registry: ActionRegistry,
   overrides: Partial<Omit<ContractCheckInput, "registry">> = {},
 ): ContractCheckInput {
-  return {
-    registry,
+  const rest = {
     events: [],
     subscriptions: [],
     callEdges: [],
@@ -100,6 +154,11 @@ function checkInput(
     readModelGrants: [],
     schemaImports: [],
     ...overrides,
+  };
+  return {
+    registry,
+    ...rest,
+    suiteCoverage: overrides.suiteCoverage ?? coverageFor(registry, rest),
   };
 }
 
@@ -1077,5 +1136,239 @@ describe("contract check — reporting", () => {
     );
     expect(result.problems).toEqual([]);
     expect(result.ok).toBe(true);
+  });
+});
+
+describe("contract check — inherited suite coverage (core.md §12)", () => {
+  it("fails when a registered action is omitted from isolation coverage", () => {
+    expect(
+      problemsOf(
+        checkInput(buildRegistry(fixtureContract({ name: "orders.get" })), {
+          suiteCoverage: emptySuiteCoverage,
+        }),
+      ),
+    ).toEqual([
+      expect.stringContaining(
+        'action "orders.get": missing crossTenantSuite instantiation',
+      ),
+    ]);
+  });
+
+  it("fails when a public-global action omits publicProjectionSuite", () => {
+    const contract = fixtureContract({
+      name: "search.browse",
+      principal: "public",
+      permissions: [],
+      publicScope: "globalProjection",
+      projectionGrant: "publishedCompanies",
+    });
+    expect(
+      problemsOf(
+        checkInput(buildRegistry(contract), {
+          projectionGrants: new Set(["publishedCompanies"]),
+          suiteCoverage: {
+            ...emptySuiteCoverage,
+            isolation: ["search.browse"],
+          },
+        }),
+      ),
+    ).toEqual([
+      expect.stringContaining(
+        'action "search.browse": missing publicProjectionSuite instantiation',
+      ),
+    ]);
+  });
+
+  it("fails when a consumer action omits consumerIsolationSuite", () => {
+    const contract = fixtureContract({
+      name: "search.feed",
+      principal: "consumer",
+      permissions: [],
+    });
+    expect(
+      problemsOf(
+        checkInput(buildRegistry(contract), {
+          suiteCoverage: {
+            ...emptySuiteCoverage,
+            isolation: ["search.feed"],
+          },
+        }),
+      ),
+    ).toEqual([
+      expect.stringContaining(
+        'action "search.feed": missing consumerIsolationSuite instantiation',
+      ),
+    ]);
+  });
+
+  it("fails when an account action omits accountIsolationSuite", () => {
+    const contract = fixtureContract({
+      name: "companies.listMine",
+      principal: "account",
+      permissions: [],
+    });
+    expect(
+      problemsOf(
+        checkInput(buildRegistry(contract), {
+          suiteCoverage: {
+            ...emptySuiteCoverage,
+            isolation: ["companies.listMine"],
+          },
+        }),
+      ),
+    ).toEqual([
+      expect.stringContaining(
+        'action "companies.listMine": missing accountIsolationSuite instantiation',
+      ),
+    ]);
+  });
+
+  it("fails when an idempotent mutation omits idempotencySuite", () => {
+    const contract = fixtureContract({
+      name: "orders.create",
+      risk: "write",
+      idempotent: true,
+      audit: true,
+    });
+    expect(
+      problemsOf(
+        checkInput(buildRegistry(contract), {
+          suiteCoverage: {
+            ...emptySuiteCoverage,
+            isolation: ["orders.create"],
+          },
+        }),
+      ),
+    ).toEqual([
+      expect.stringContaining(
+        'action "orders.create": missing idempotencySuite instantiation',
+      ),
+    ]);
+  });
+
+  it("does not require idempotencySuite for an event-consumer binding", () => {
+    const consumer = fixtureContract({
+      name: "chat.upsertOrderCard",
+      principal: "system",
+      systemScope: "tenant",
+      transport: "internal",
+      permissions: [],
+      risk: "write",
+      idempotent: true,
+      audit: true,
+    });
+    expect(
+      problemsOf(
+        checkInput(buildRegistry(consumer), {
+          events: [{ name: "orders.created", scope: "tenant" }],
+          subscriptions: [
+            {
+              event: "orders.created",
+              consumer: "chat.order-card-updater",
+              action: "chat.upsertOrderCard",
+            },
+          ],
+          suiteCoverage: {
+            ...emptySuiteCoverage,
+            isolation: ["chat.upsertOrderCard"],
+            events: ["chat"],
+          },
+        }),
+      ),
+    ).toEqual([]);
+  });
+
+  it("fails when an emitting module omits eventSuite", () => {
+    const contract = fixtureContract({
+      name: "orders.create",
+      risk: "write",
+      idempotent: true,
+      audit: true,
+      emits: ["orders.created"],
+    });
+    expect(
+      problemsOf(
+        checkInput(buildRegistry(contract), {
+          events: [{ name: "orders.created", scope: "tenant" }],
+          suiteCoverage: {
+            ...emptySuiteCoverage,
+            isolation: ["orders.create"],
+            idempotency: ["orders.create"],
+          },
+        }),
+      ),
+    ).toEqual([
+      expect.stringContaining(
+        'module "orders": missing eventSuite instantiation',
+      ),
+    ]);
+  });
+
+  it("fails when a declared atomic edge omits atomicCallSuite", () => {
+    const root = fixtureContract({
+      name: "orders.confirm",
+      transport: "internal",
+      risk: "write",
+      idempotent: true,
+      audit: true,
+      atomicCalls: ["catalog.decrementStock"],
+    });
+    const callee = fixtureContract({
+      name: "catalog.decrementStock",
+      transport: "internal",
+      risk: "write",
+      audit: true,
+      atomicCallers: ["orders.confirm"],
+    });
+    expect(
+      problemsOf(
+        checkInput(buildRegistry(root, callee), {
+          suiteCoverage: {
+            ...emptySuiteCoverage,
+            isolation: ["orders.confirm", "catalog.decrementStock"],
+            idempotency: ["orders.confirm"],
+          },
+        }),
+      ),
+    ).toEqual([
+      expect.stringContaining(
+        'atomic edge "orders.confirm" → "catalog.decrementStock": missing atomicCallSuite instantiation',
+      ),
+    ]);
+  });
+
+  it("fails when isolation coverage names an action that is not registered", () => {
+    expect(
+      problemsOf(
+        checkInput(buildRegistry(), {
+          suiteCoverage: {
+            ...emptySuiteCoverage,
+            isolation: ["orders.get"],
+          },
+        }),
+      ),
+    ).toEqual([
+      expect.stringContaining(
+        'suiteCoverage.isolation "orders.get" is not a registered action',
+      ),
+    ]);
+  });
+
+  it("fails when a staff action is listed in publicProjectionSuite", () => {
+    expect(
+      problemsOf(
+        checkInput(buildRegistry(fixtureContract({ name: "orders.get" })), {
+          suiteCoverage: {
+            ...emptySuiteCoverage,
+            isolation: ["orders.get"],
+            publicProjection: ["orders.get"],
+          },
+        }),
+      ),
+    ).toEqual([
+      expect.stringContaining(
+        'action "orders.get": listed in publicProjectionSuite but is not publicScope: "globalProjection"',
+      ),
+    ]);
   });
 });

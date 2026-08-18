@@ -13,6 +13,7 @@ import { z } from "zod";
 
 import { defineActionContract } from "../../contract/define-action-contract.js";
 import { runContractCheck } from "../../contract-check/contract-check.js";
+import { emptySuiteCoverage } from "../../contract-check/suite-coverage.js";
 import { ActionRegistry } from "../action-registry.js";
 import { implementAction } from "../implement-action.js";
 import { defineEvent } from "./define-event.js";
@@ -135,6 +136,11 @@ describe("defineEventHandler — valid bindings", () => {
       projectionGrants: new Set<string>(),
       readModelGrants: [],
       schemaImports: [],
+      suiteCoverage: {
+        ...emptySuiteCoverage,
+        isolation: ["handlerFixtureChat.upsertCard"],
+        events: ["handlerFixtureChat"],
+      },
     });
 
     expect(result.problems).toEqual([]);

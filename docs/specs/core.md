@@ -538,6 +538,15 @@ Exported from `packages/core/testing`, used by every module (this is how
   rollback removes root/callee effects and events; undeclared, tenant/principal
   mismatch, and nested atomic calls fail.
 
+Composition supplies a `suiteCoverage` manifest to the contract check.
+Every registered action must appear in `isolation` (and in
+`publicProjection` / `consumerIsolation` / `accountIsolation` when those
+suites apply). Every idempotent mutation that is not an event-consumer
+binding must appear in `idempotency`. Every module that emits or
+subscribes must appear in `events`. Every mutually declared atomic edge
+must appear in `atomic`. Omission — or listing an action in a suite that
+does not apply — fails the check.
+
 ## 13. Acceptance criteria
 
 - [ ] Contract check fails on every §2 violation (test per rule), including
@@ -596,6 +605,7 @@ Exported from `packages/core/testing`, used by every module (this is how
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-18 | §12: `suiteCoverage` manifest on the contract check; `idempotencySuite` / `eventSuite` / `atomicCallSuite` are instantiated by every module | fnd-T22 makes omitted inherited suites a CI failure | scaffold (fnd-T22) |
 | 2026-08-18 | §6: pinned delivery retry delays (1/2/4/8s), fifth-failure parking, action-timeout + 30s claim leases, and consumer-scoped replay semantics | fnd-T18 implementation proved the operational timing and replay-scope gaps | scaffold (fnd-T18) |
 | 2026-08-18 | §8: added `inputSnapshot` nullable column, audited-read post-commit semantics, and RFC 8785 hash specification | fnd-T13 implementation proved the storage and read-only tx gaps | scaffold (fnd-T13) |
 | 2026-08-17 | Added public-global projection protocol and declared same-transaction atomic capabilities | Rebaseline foundation for ADR-0020/0021 mobile parity | Human owner via mobile parity rework |

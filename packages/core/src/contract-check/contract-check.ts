@@ -27,6 +27,10 @@ import {
   ActionRegistryError,
 } from "../runtime/action-registry.js";
 import { atomicCallTargetProblems, callTargetProblems } from "./call-rules.js";
+import {
+  collectSuiteCoverageProblems,
+  type SuiteCoverageManifest,
+} from "./suite-coverage.js";
 
 /**
  * Thrown by `assertContractCheck` with every collected violation. Like the
@@ -129,6 +133,12 @@ export interface ContractCheckInput {
   readonly readModelGrants: readonly ReadModelGrantRef[];
   /** Actual module → schema import edges (ADR-0014 ownership map). */
   readonly schemaImports: readonly SchemaImportRef[];
+  /**
+   * Inherited-suite instantiations (fnd-T22, core.md §12). Empty is an
+   * explicit statement that no module has actions yet — a registered
+   * action without a matching entry is a contract-check failure.
+   */
+  readonly suiteCoverage: SuiteCoverageManifest;
 }
 
 export interface ContractCheckResult {
@@ -164,6 +174,12 @@ export function runContractCheck(
   collectSchemaOwnershipProblems(
     input.readModelGrants,
     input.schemaImports,
+    problems,
+  );
+  collectSuiteCoverageProblems(
+    input.suiteCoverage,
+    contracts,
+    input.subscriptions,
     problems,
   );
 

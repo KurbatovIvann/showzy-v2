@@ -1,12 +1,13 @@
 /**
- * `@showzy/core/testing` — the module test kit (fnd-T21, core.md §12).
+ * `@showzy/core/testing` — the module test kit (fnd-T21/T22, core.md §12).
  *
- * Every later module inherits tenant isolation by instantiating these
- * suites against its actions. The kit world is the db.md §8 parity
- * fixtures plus matching `companies` / `company_members` rows.
+ * Every later module inherits tenant isolation, idempotency, events, and
+ * atomic-call coverage by instantiating these suites against its actions.
+ * Omitting a required instantiation fails the contract check
+ * (`suiteCoverage` on `ContractCheckInput`).
  *
- * `idempotencySuite` / `eventSuite` / `atomicCallSuite` and the contract
- * check that modules instantiate the suites land with fnd-T22.
+ * The kit world is the db.md §8 parity fixtures plus matching
+ * `companies` / `company_members` rows.
  */
 export { kitIdentities } from "./identities.js";
 export type { KitIdentities } from "./identities.js";
@@ -41,3 +42,19 @@ export type {
   IsolationInvocation,
   SuiteAction,
 } from "./suites.js";
+export {
+  atomicCallSuite,
+  eventSuite,
+  expectCoreInvariant,
+  idempotencySuite,
+  runAtomicCallCase,
+  runEventSuiteCase,
+  runIdempotencyCase,
+  runSocialDesiredStateCase,
+} from "./protocol-suites.js";
+export type {
+  AtomicCallCase,
+  EventSuiteSpec,
+  IdempotencyCase,
+  SocialDesiredStateCase,
+} from "./protocol-suites.js";
