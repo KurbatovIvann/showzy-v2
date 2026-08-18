@@ -8,7 +8,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
-    "auth:generate": "auth generate --config src/auth/cli.ts --output ../../packages/db/src/schema/auth.ts --yes",
+    "auth:generate": "auth generate --config src/auth/cli.ts --output ../../packages/db/src/schema/auth.ts --yes && node scripts/with-timezone.mjs ../../packages/db/src/schema/auth.ts && pnpm -w exec prettier --write packages/db/src/schema/auth.ts",
     "auth:check": "pnpm auth:generate && node ../../packages/db/scripts/assert-clean-path.mjs ../../packages/db/src/schema/auth.ts"
   },
   "dependencies": {
