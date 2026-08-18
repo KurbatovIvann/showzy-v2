@@ -2,9 +2,10 @@
  * One idempotency key per logical submit (contract.md §3, core.md §5).
  *
  * The server never generates a key — it cannot infer a button press. The
- * client creates one UUID and reuses it for every retry of that submit,
- * including the confirmation re-invocation (the challenge travels as
- * separate transport meta so the input hash stays stable).
+ * client mints one UUID via `createMutationAttempt()`; callers pass
+ * `attempt.options` on every retry of that submit. There is no automatic
+ * HTTP retry layer. The confirmation re-invocation uses
+ * `attempt.withChallenge(id)` so the challenge stays out of action input.
  */
 
 /** Second argument to an oRPC procedure call — transport meta only. */
@@ -38,7 +39,8 @@ function createAttemptKey(): string {
 
 /**
  * Start a logical mutation. Call `options` on every attempt of this
- * submit — automatic retries must not mint a new key.
+ * submit — there is no automatic HTTP retry layer; callers must reuse
+ * the same `attempt.options` so retries do not mint a new key.
  */
 export function createMutationAttempt(): MutationAttempt {
   const key = createAttemptKey();

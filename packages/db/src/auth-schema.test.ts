@@ -136,9 +136,60 @@ describe("better-auth generated schema (db.md §4)", () => {
     const names = new Set(
       result.rows.map((row: { indexname: string }) => row.indexname),
     );
+    // Upstream camelCase names — deliberate db.md §4 exception to §3 snake_case.
     for (const expected of ["session_userId_idx", "account_userId_idx"]) {
       expect(names.has(expected), `missing index ${expected}`).toBe(true);
     }
+  });
+
+  it("keeps upstream $onUpdate semantics — no set_updated_at trigger (db.md §4)", async () => {
+    const triggers = await admin.query<{ tgname: string }>(
+      `SELECT t.tgname
+       FROM pg_trigger t
+       JOIN pg_class c ON c.oid = t.tgrelid
+       JOIN pg_namespace n ON n.oid = c.relnamespace
+       JOIN pg_proc p ON p.oid = t.tgfoid
+       WHERE n.nspname = 'public'
+         AND c.relname IN ('user', 'session', 'account')
+         AND NOT t.tgisinternal
+         AND p.proname = 'set_updated_at'`,
+    );
+    expect(triggers.rows).toEqual([]);
+
+    const userId = await insertUser({ name: "Before" });
+    const before = await dbClient.db
+      .select({ updatedAt: user.updatedAt })
+      .from(user)
+      .where(eq(user.id, userId));
+    const beforeAt = before[0]?.updatedAt;
+    expect(beforeAt).toBeInstanceOf(Date);
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    await dbClient.db
+      .update(user)
+      .set({ name: "Drizzle" })
+      .where(eq(user.id, userId));
+    const afterDrizzle = await dbClient.db
+      .select({ updatedAt: user.updatedAt })
+      .from(user)
+      .where(eq(user.id, userId));
+    expect(afterDrizzle[0]?.updatedAt.getTime()).toBeGreaterThan(
+      beforeAt?.getTime() ?? Number.POSITIVE_INFINITY,
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    await admin.query(`UPDATE "user" SET name = $2 WHERE id = $1`, [
+      userId,
+      "Raw",
+    ]);
+    const afterRaw = await dbClient.db
+      .select({ updatedAt: user.updatedAt, name: user.name })
+      .from(user)
+      .where(eq(user.id, userId));
+    expect(afterRaw[0]?.name).toBe("Raw");
+    expect(afterRaw[0]?.updatedAt.getTime()).toBe(
+      afterDrizzle[0]?.updatedAt.getTime(),
+    );
   });
 });
 

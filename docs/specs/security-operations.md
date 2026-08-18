@@ -135,6 +135,12 @@ tool result. Zod validation is necessary but never grants tenant access.
 - Outbound calls have timeouts, bounded retries with jitter, circuit/alert
   behavior, and correlation IDs. Retrying a side effect requires provider
   idempotency or reconciliation.
+- **Invocation `channel` (phase 0):** every HTTP transport invocation —
+  oRPC at `/rpc` and OpenAPI REST aliases at `/api/v1` — is labeled
+  `channel: "ui"`. Webhooks and workers set `system` / `webhook` when
+  those mounts exist. Revisit when external API consumers or the AI mount
+  need a distinct channel (`ai` / a dedicated external value) so REST
+  aliases and model-initiated calls are not attributed as UI.
 
 ## 5. Environments, database, and release safety
 
@@ -226,6 +232,7 @@ review. A critical/high unresolved finding blocks merge.
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-19 | §4: phase-0 HTTP invocations (including `/api/v1` REST aliases) are `channel: "ui"`; revisit when external consumers or the AI mount land | Align living spec with the API composition (fnd-G1 A12) | scaffold (fnd-G1 A12) |
 | 2026-08-18 | Linked ops runbooks and log/Sentry redaction helpers | fnd-T28 security/ops baseline | scaffold (fnd-T28) |
 | 2026-08-17 | Added public projection, bounded social-abuse, and atomic capability security controls | Align foundation with ADR-0020/0021 mobile parity | Human owner via mobile parity rework |
 | 2026-08-17 | Added `account` principal to authorization matrix, rate-limit tiers, logging classification; added discovery surface security considerations | Complete Step 2 of spec-rework queue (ADR-0018 integration) | Spec-rework agent |

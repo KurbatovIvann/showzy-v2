@@ -398,7 +398,7 @@ proving test where behavior is asserted):
 | 7 | A7 OTP per-IP integration test | scaffold agent | done (`scaffold/phase-0-a3-a8`) |
 | 8 | A8 typed 401 wire error | scaffold agent | done (`scaffold/phase-0-a3-a8`) |
 | 9–11 | A9 / A10 / A11 code polish batches | scaffold agent | none |
-| 12 | A12 spec/doc alignment batch (§5) | scaffold agent + owner | none |
+| 12 | A12 spec/doc alignment batch (§5) | scaffold agent + owner | done (`scaffold/phase-0-a12`) |
 
 A3–A8 are order-independent among themselves (still one PR at a time, per
 pipeline.md §3). A5 and A6 protect milestones F/H entry; doing them inside
@@ -409,6 +409,7 @@ the gate window keeps the reference slices from inheriting the gaps.
 | Date | Change | Why |
 | --- | --- | --- |
 | 2026-08-19 | A9–A11 implemented: worker shutdown latch + LISTEN reconnect/heartbeat; `.env.example` key-set test; backup-verify TS shim + colon-safe redaction + null-device dump; CODEOWNERS for foundation/auth/migrations; `pg_trgm`/`unaccent` migration; alerts.md restore-smoke planned at launch; CoreInvariantError for uuidv7/canonical-json/anonymous audit; required idempotency `probe`; hoisted trusted-proxy BlockList; atomic OTP send | fnd-G1 minor hygiene (phase-0 audit) |
+| 2026-08-19 | A12 implemented: spec/doc alignment for db.md (FK, auth `$onUpdate`, kit factories, seed deferral), core.md (start-log identity, system rate-limit fail-open, social kit helper, pre-validation audit skip), contract.md (manual key reuse, owed atomic composition fixture), security-operations/API (HTTP `channel: "ui"`), tooling (external ESLint allowlist note) | fnd-G1 MINOR findings; owner asked for one PR covering §5 |
 | 2026-08-18 | A3–A8 implemented on `scaffold/phase-0-a3-a8`: fail-closed protocol hooks, inherited kit suites, ProjectionReadTx join lock, money lint, OTP per-IP test, `UNAUTHENTICATED` 401 | fnd-G1 MAJOR findings; owner asked for one branch covering A3–A8 |
 | 2026-08-18 | A2 implemented (SHO-82): contract-check CI stage walks `apps/api/src/composition.ts`; core interim manifest retired | fnd-G1 gate: module tasks must not edit frozen core to be covered |
 | 2026-08-18 | A1 resolved as accepted risk: owner keeps the private/free plan; compensating manual merge gate recorded in `docs/operations/branch-protection.md` | Owner decision at gate review |

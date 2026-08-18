@@ -62,6 +62,9 @@ pnpm --filter @showzy/api auth:check      # CI: regenerate + fail on diff
   defense in depth, 403).
 - Selectors (`x-company-id`) are never authority. Consumer/account/public
   dispatch ignores them. Staff membership is verified by core.
+- Phase-0 invocation `channel` is `"ui"` for every HTTP call, including
+  `/api/v1` REST aliases (security-operations §4). Revisit when external
+  consumers or the AI mount send a distinct channel.
 - Residual accepted risk: phone OTP codes are plaintext inside the TTL'd
   secondary store for their 5-minute lifetime (the phone plugin has no
   `storeOTP`; they never reach Postgres) — see docs/plans/foundation.md

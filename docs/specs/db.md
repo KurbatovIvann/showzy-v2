@@ -39,8 +39,9 @@ packages/db/
 - **IDs**: `uuid` PKs, default `gen_random_uuid()`. Event ids are
   app-generated UUIDv7 (time-ordered) — see core.md §6.
 - **Timestamps**: `timestamptz`, `created_at` default `now()`,
-  `updated_at` maintained by the shared DB trigger (§5). Domain-meaningful
-  times (`confirmed_at`, `signed_at`) are set by handlers, not triggers.
+  `updated_at` maintained by the shared DB trigger (§5). Generated auth
+  tables are the exception (§4). Domain-meaningful times (`confirmed_at`,
+  `signed_at`) are set by handlers, not triggers.
 - **Statuses**: `text` + `CHECK` constraint, never Postgres enums
   (blueprint §6 — enum migrations are painful). Allowed values and
   transitions come from the owning module's spec §5.
@@ -154,9 +155,11 @@ PK `(aggregate_type, aggregate_id)`. Incremented transactionally by
 §6): `consumer text` · `event_id uuid` · `status text CHECK
 (pending|processing|processed|dead)` · `attempts int` · `next_attempt_at` ·
 `claimed_at` · `claimed_by` · `last_error text` · `processed_at`.
-PK `(consumer, event_id)`; indexes on `(status, next_attempt_at)` and
-`(event_id)`. Creation is idempotent; transition to `processed` occurs in
-the same transaction as consumer effects.
+PK `(consumer, event_id)`; `event_id` references `domain_events.id`
+`ON DELETE RESTRICT` (archive deliveries before outbox rows); indexes on
+`(status, next_attempt_at)` and `(event_id)`. Creation is idempotent;
+transition to `processed` occurs in the same transaction as consumer
+effects.
 
 **`idempotency_keys`** (core.md §5): `principal_key text`
 (`staff:<userId>`, `customer:<userId>`, `consumer:<userId>`,
@@ -192,7 +195,10 @@ on drift. The
 v1 → v2 auth mapping (Supabase users import, duplicate identity handling,
 session invalidation, reconciliation) is recorded in the migration matrix
 and rehearsed before launch; it is not designed for the first time during
-cutover.
+cutover. Generated auth tables keep upstream `$onUpdate` semantics for
+`updated_at` (Drizzle client-side; no `set_updated_at` DB trigger) and
+upstream camelCase index names (`session_userId_idx`, `account_userId_idx`).
+Both are deliberate exceptions to §3; `auth:generate` must preserve them.
 
 ### Phase-0 tenant/RBAC prerequisite (not foundation-owned)
 
@@ -255,8 +261,11 @@ dropped, recorded in the owning module's spec §7 (v1 migration notes).
   applied. Each test file gets a fast `CREATE DATABASE ... TEMPLATE` copy —
   isolation without re-migrating. Application assertions run through
   `showzy_app`, never the harness admin.
-- Factories for foundation rows (events, idempotency keys) used by the
-  core test kit (core.md §12).
+- Foundation protocol rows (outbox events, deliveries, idempotency keys,
+  audit) are produced by the core runtime protocols under the test kit
+  (core.md §12). `packages/db` does not export row factories for those
+  tables; builders in `foundation.test.ts` are local to that file's
+  constraint probes.
 - Discovery/social fixture factories create two companies, published and
   unpublished entities, allowlisted/internal fields, two users, own/private
   follow-like collections, comments, and exact counters. Factories never
@@ -265,13 +274,19 @@ dropped, recorded in the owning module's spec §7 (v1 migration notes).
 
 ## 9. Seed
 
-Idempotent (`ON CONFLICT DO NOTHING`) seeds, runnable repeatedly: default
-document templates (scope §3 — seeded via migration-adjacent script, not
-hand admin), KVED/CPV classifiers (static reference data from v1), a local
-dev fixture set (one company, one staff, one customer, products) used by
-Maestro smoke tests later. When the full `companies` schema lands,
-`business_categories` reference rows are seeded by the companies-owned seed
-path (not foundation KVED/CPV seeds and not `foundation.ts`).
+Idempotent (`ON CONFLICT DO NOTHING`) seeds, runnable repeatedly.
+
+**Phase 0:** only `role_permission_defaults` (companies-foundation).
+
+**Deferred** until the owning schema exists:
+
+- Local-dev fixture set (one company, one staff, one customer, products)
+  used by Maestro smoke tests later — needs the catalog schema (fnd-T29+).
+- Default document templates (scope §3) — `documents` module.
+- KVED/CPV classifiers — `reference-data`.
+- `business_categories` reference rows — companies-owned seed when the
+  full `companies` schema lands (not foundation KVED/CPV seeds and not
+  `foundation.ts`).
 
 ## 10. Acceptance criteria
 
@@ -315,6 +330,7 @@ path (not foundation KVED/CPV seeds and not `foundation.ts`).
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-19 | §4: recorded `event_deliveries.event_id → domain_events.id ON DELETE RESTRICT`; generated-auth `$onUpdate` / camelCase index exception; §8: kit does not export foundation row factories; §9: local-dev fixture seed deferred to fnd-T29+ | Same-PR patch: tests prove the FK, auth trigger exception, and seed layout (fnd-G1 A12) | scaffold (fnd-G1 A12) |
 | 2026-08-18 | §4/§5: `domain_events` INSERT notifies channel `domain_events` for the worker LISTEN wakeup | fnd-T27 implementation proved the trigger was specified as a primitive but never named | scaffold (fnd-T27) |
 | 2026-08-17 | Added projection grants/read capabilities, public/social fixtures, and atomic transaction requirements | Align DB foundation with ADR-0020/0021 mobile parity | Human owner via mobile parity rework |
 | 2026-08-17 | Added schema-level considerations for consumer/account principals (no tenant-scoped indexes needed for global queries) | Complete Step 2 of spec-rework queue (ADR-0018 integration) | Spec-rework agent |

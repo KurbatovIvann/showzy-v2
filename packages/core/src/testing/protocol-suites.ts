@@ -2,13 +2,14 @@
  * Inherited protocol suites every module instantiates (fnd-T22 — core.md §12).
  *
  * Isolation suites live in `suites.ts`. These cover idempotency, events,
- * atomic calls, and the social desired-state helper modules with
+ * atomic calls, and the social desired-state helper that modules with
  * follow/like writes copy.
  *
  * Each registrar adds vitest `it` blocks that call `getKit()` lazily so
  * `beforeAll` can seed first. The `run*` functions are the same
  * assertions without registration, so the kit self-tests can prove a
- * seeded violation fails them.
+ * seeded violation fails them. `runSocialDesiredStateCase` is a `run*`
+ * helper only (core.md §12) — not a `suiteCoverage` registrar.
  */
 import { randomUUID } from "node:crypto";
 

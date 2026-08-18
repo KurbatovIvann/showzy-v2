@@ -123,8 +123,9 @@ Four export subpaths exist:
   compose the full set at boot.
 - The pipeline is the only caller of the context factories and the only
   place transactions are opened (db.md §3). It emits one structured start
-  and one finish log line (`request_id`, actor, `company_id` — null for
-  the null-company modes — `action`, `outcome`, `duration_ms`).
+  log line (`request_id`, `action`, `channel`) and one finish line that
+  adds actor, `company_id` (null for the null-company modes), `outcome`,
+  and `duration_ms`. Identity is unknown at start (pre-authentication).
 - Everything leaving the pipeline is a typed core error; a throw outside
   the §11 vocabulary is wrapped as `CoreInvariantError` (server bug).
 - The `SET LOCAL statement_timeout` statement is the one approved raw-SQL
@@ -160,6 +161,8 @@ Four export subpaths exist:
   tx for audited reads). `recordFailure` opens its own short transaction.
   `inputHash` is always the canonical-JSON SHA-256 of the validated input;
   `inputSnapshot` is populated only when the action binds `auditSnapshot`.
+  Failures before successful input validation write no row (`input` is
+  undefined).
 - **Audited reads**: the handler transaction is database read-only, so the
   pipeline writes the success audit row in a separate post-commit
   transaction. Best-effort: a post-commit write failure is logged but never
@@ -197,8 +200,10 @@ ipHmacSecret, logger, now? })` fills the pipeline's `rateLimit` slot.
   address.
 - Store failure splits by action class: fail-open + error log for
   ordinary authenticated reads (`risk: read`, staff/customer/consumer/
-  account) and for system actions; fail-closed (`RateLimitError`, retry
-  after the window) for public actions and every mutation.
+  account) and for system actions (hardcoded; an owning spec may set a
+  `rateLimit` override for the bucket, but store-failure stays fail-open);
+  fail-closed (`RateLimitError`, retry after the window) for public
+  actions and every mutation.
 
 ## Idempotency protocol (`src/runtime/idempotency/`, core.md §5)
 
@@ -385,7 +390,9 @@ without core changes. `runContractCheck` stays here as a library.
   registration, so a leaky fixture action can be proven to fail the
   suite. Module tasks instantiate the registrars; omitting a required
   suite fails the contract check (`suiteCoverage` on
-  `ContractCheckInput`, fnd-T22).
+  `ContractCheckInput`, fnd-T22). `runSocialDesiredStateCase` is a `run*`
+  helper for desired-state social writes (core.md §12); it is not a
+  `suiteCoverage` registrar.
 - Self-tests live in `kit.db.test.ts` (isolation) and
   `protocol-suites.db.test.ts` (idempotency/events/atomic, social
   desired-state, audit fields, projection ownership) and use per-mode

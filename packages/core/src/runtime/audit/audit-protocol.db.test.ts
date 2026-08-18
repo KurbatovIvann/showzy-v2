@@ -6,6 +6,7 @@
  * - Successful write audit row: exact field mapping, hash-only default.
  * - Redacted snapshot opt-in via `auditSnapshot`.
  * - Permission denial recorded without a handler transaction.
+ * - Failures before successful input validation write no audit row.
  * - Typed error outcome recorded in the failure path.
  * - AI channel fields preserved with initiating user as actor.
  * - Rollback of the same-tx audit row when a later pipeline step fails.
@@ -31,6 +32,7 @@ import {
   ConflictError,
   CoreInvariantError,
   PermissionDeniedError,
+  ValidationError,
 } from "../../errors/index.js";
 import { implementAction } from "../implement-action.js";
 import { executeAction } from "../pipeline/execute-action.js";
@@ -333,6 +335,30 @@ describe("audit protocol — failure and denial paths", () => {
     expect(rows[0]?.outcome).toBe("PERMISSION_DENIED");
     expect(rows[0]?.actorType).toBe("user");
     expect(rows[0]?.actorId).toBe(users.boris);
+  });
+
+  it("writes no audit row when input validation fails (core.md §8)", async () => {
+    const req = requestMeta();
+
+    const action = implementAction(writeContract, {
+      handler: () => Promise.resolve({ id: randomUUID() }),
+      auditTarget: () => ({ type: "order", id: randomUUID() }),
+    });
+
+    await expect(
+      executeAction(depsWithAudit(), {
+        action,
+        input: { orderId: "not-a-uuid", note: "bad" },
+        request: req,
+        principal: {
+          mode: "staff",
+          session: { userId: users.anna },
+          companySelector: companyA,
+        },
+      }),
+    ).rejects.toThrow(ValidationError);
+
+    expect(await auditRows(req.requestId)).toHaveLength(0);
   });
 });
 

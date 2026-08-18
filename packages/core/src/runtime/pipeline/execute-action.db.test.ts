@@ -1266,6 +1266,11 @@ describe("structured logs and telemetry", () => {
       channel: "ui",
     });
     expect(typeof started?.["request_id"]).toBe("string");
+    // Identity is unknown pre-authentication (core.md §4).
+    expect(started).not.toHaveProperty("actor_id");
+    expect(started).not.toHaveProperty("actor_type");
+    expect(started).not.toHaveProperty("company_id");
+    expect(started).not.toHaveProperty("outcome");
     expect(finished).toMatchObject({
       action: "pipelineFixture.createProduct",
       actor_type: "user",

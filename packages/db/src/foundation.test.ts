@@ -46,7 +46,10 @@ function insert(table: string, row: Record<string, unknown>) {
   );
 }
 
-/** A valid outbox row; overrides let each test target one constraint. */
+/**
+ * Local constraint-probe builders — not kit or package exports (db.md §8).
+ * The core test kit produces foundation rows through the runtime protocols.
+ */
 function domainEventRow(overrides: Record<string, unknown> = {}) {
   return {
     id: randomUUID(),
@@ -296,6 +299,30 @@ describe("event_deliveries (per-consumer delivery + dedup — core.md §6)", () 
         status: "pending",
         attempts: 0,
       }),
+      "23503",
+    );
+  });
+
+  it("restricts deleting an outbox event that still has deliveries (db.md §4)", async () => {
+    const constraint = await admin.query<{ confdeltype: string }>(
+      `SELECT pg_constraint.confdeltype
+       FROM pg_constraint
+       JOIN pg_class ON pg_class.oid = pg_constraint.conrelid
+       WHERE pg_class.relname = 'event_deliveries'
+         AND pg_constraint.contype = 'f'
+         AND pg_constraint.conname LIKE '%event_id%'`,
+    );
+    expect(constraint.rows).toEqual([{ confdeltype: "r" }]);
+
+    const eventId = await insertEvent();
+    await insert("event_deliveries", {
+      consumer: "chat.order-card-updater",
+      event_id: eventId,
+      status: "pending",
+      attempts: 0,
+    });
+    await expectSqlState(
+      dbClient.pool.query(`DELETE FROM domain_events WHERE id = $1`, [eventId]),
       "23503",
     );
   });

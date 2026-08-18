@@ -7,6 +7,8 @@
  *   transaction; the hook itself is transaction-agnostic.
  * - **Failure / permission denial:** in its own short transaction after
  *   rollback; receives whatever identity the pipeline established.
+ *   Failures before successful input validation pass `input: undefined`
+ *   and write no row (core.md §8).
  *
  * `inputHash` is always the SHA-256 of the RFC 8785 canonical JSON of the
  * validated input. `inputSnapshot` is populated only when the action binds
@@ -66,6 +68,7 @@ export function createAuditHook(deps: AuditHookDeps): AuditHook {
     },
 
     async recordFailure(env) {
+      // core.md §8: no validated input → no accountable audit row.
       if (env.input === undefined) return;
 
       const identity = resolveFailureIdentity(env.principal, env.authorization);

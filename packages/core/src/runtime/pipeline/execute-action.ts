@@ -18,8 +18,10 @@
  * `risk: read` actions run in a database read-only transaction and their
  * handlers receive the `ReadTx` capability, so a write can neither compile
  * nor execute. Public-global handlers are bound to their declared
- * projection grant. The pipeline emits one structured start and one finish
- * log line and drives the telemetry seam the apps bind to OTel/Sentry.
+ * projection grant. The pipeline emits one structured start log line
+ * (`request_id`, `action`, `channel`) and one finish line that adds
+ * identity (`actor_type`, `actor_id`, `company_id`), `outcome`, and
+ * `duration_ms`. Identity is unknown at start (pre-authentication).
  */
 import {
   createReadTx,

@@ -58,6 +58,11 @@ describe("buildContractRouter", () => {
     );
   });
 
+  // When the first ctx.callAtomic edge is registered in composition, add a
+  // fixture proving that callee is absent from contractRouter / OpenAPI /
+  // AI artifacts (contract.md §7, fnd-G1 A12). Do not invent a fake module
+  // before then — enforcement above already rejects transport: internal.
+
   it("rejects record keys that do not mirror the action name", () => {
     expect(() =>
       buildContractRouter({ sample: { things: listThings } }),
