@@ -4,13 +4,48 @@ The action runtime (core.md). **Frozen for module tasks** (prohibitions.mdc):
 module implementation tasks may not change anything here — if core is missing
 something, stop and report.
 
-## Current state (fnd-T8)
+## Current state (fnd-T9)
 
-Only the client-safe `contract` subpath exists. The runtime — typed errors,
-registry, `implementAction`, principal contexts, execution pipeline, events,
-idempotency, confirmation, rate limiting, `ctx.call`/`ctx.callAtomic`, and
-the module test kit — lands with fnd-T9…T22. Do not import `@showzy/core`
-root; it has no export yet.
+Three export subpaths exist:
+
+- `@showzy/core/contract` — the client-safe leaf (fnd-T8, below).
+- `@showzy/core/errors` — the ten core.md §11 error classes.
+- `@showzy/core` (root, server-only) — `implementAction` + `ActionRegistry`.
+
+The rest of the runtime — contract check, principal contexts, execution
+pipeline, events, idempotency, confirmation, rate limiting,
+`ctx.call`/`ctx.callAtomic`, and the module test kit — lands with
+fnd-T10…T22.
+
+## Typed errors (`src/errors/`, core.md §11)
+
+- Ten classes on the `CoreError` base; the only error vocabulary for
+  domain code. Never `throw new Error("...")` in handlers/services.
+- `code` values are pinned to the contract.md §4 wire table by a test —
+  renaming one is a breaking client API change and goes through spec
+  rework.
+- `clientMessage` is the only free-text string the contract layer may
+  serialize; `Error#message` is log-facing and carries `internalMessage`
+  diagnostics (IDs, tenant scope) that must never reach a client.
+  `CoreInvariantError` takes an internal description only — its client
+  message is a fixed generic string.
+
+## Runtime (`src/runtime/`, ADR-0016)
+
+- `implement-action.ts` — `implementAction(contract, callbacks)` validates
+  at implement time that exactly the callbacks the metadata implies are
+  bound (`resolveTarget` iff customer/public-target, `confirmationSummary`
+  iff `requiresConfirmation`, `auditTarget`/optional `auditSnapshot` iff
+  `audit: true`), throws `ActionImplementationError` listing all problems,
+  freezes and brands the pair.
+- `action-registry.ts` — `ActionRegistry` with duplicate detection on both
+  contracts and implementations; `assertPaired()` is the boot gate: orphan
+  descriptors, orphan implementations, and same-name-different-object
+  drift (a redefined descriptor) all fail before anything serves traffic.
+- `types.ts` — callback shapes. Return types are spec commitments; the
+  environment parameters (`ActionExecutionCtx`, resolver/summary/audit
+  envs) are opaque aliases owned by fnd-T11/T12/T13/T20 — narrow the
+  alias there, do not commit context internals here.
 
 ## The `contract` subpath (ADR-0016)
 

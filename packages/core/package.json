@@ -3,9 +3,11 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Action runtime: contracts, registry, principal contexts, execution pipeline, events, idempotency, confirmation, audit, typed errors, and the module test kit. Only the client-safe ./contract subpath exists so far (fnd-T8).",
+  "description": "Action runtime: contracts, registry, principal contexts, execution pipeline, events, idempotency, confirmation, audit, typed errors, and the module test kit. Exists so far: ./contract (fnd-T8), ./errors + implementAction/registry at the root (fnd-T9).",
   "exports": {
-    "./contract": "./src/contract/index.ts"
+    ".": "./src/index.ts",
+    "./contract": "./src/contract/index.ts",
+    "./errors": "./src/errors/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
