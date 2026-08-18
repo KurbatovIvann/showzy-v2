@@ -1,0 +1,49 @@
+/**
+ * Process observability for the API (fnd-T28). Keep in lockstep with
+ * `apps/worker/src/observability.ts`. Loggers always go through
+ * `createProcessLogger`; Sentry is optional (no DSN = no SDK init) and
+ * every event still passes `scrubTelemetryEvent`.
+ */
+import * as Sentry from "@sentry/node";
+import {
+  createErrorTelemetry,
+  createProcessLogger,
+  redactUnknown,
+  scrubTelemetryEvent,
+} from "@showzy/config";
+import type { ActionTelemetry } from "@showzy/core";
+import type { Logger } from "pino";
+
+export interface ProcessObservability {
+  readonly logger: Logger;
+  readonly telemetry: ActionTelemetry;
+}
+
+export function createProcessObservability(options: {
+  readonly name: string;
+  readonly sentryDsn: string | undefined;
+}): ProcessObservability {
+  if (options.sentryDsn !== undefined) {
+    Sentry.init({
+      dsn: options.sentryDsn,
+      sendDefaultPii: false,
+      beforeSend(event) {
+        return scrubTelemetryEvent(event);
+      },
+    });
+  }
+
+  return {
+    logger: createProcessLogger({ name: options.name }),
+    telemetry: createErrorTelemetry({
+      captureException(error, tags) {
+        Sentry.withScope((scope) => {
+          for (const [key, value] of Object.entries(tags)) {
+            scope.setTag(key, value);
+          }
+          Sentry.captureException(redactUnknown(error));
+        });
+      },
+    }),
+  };
+}

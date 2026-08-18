@@ -25,6 +25,9 @@ the loops, LISTEN/NOTIFY wakeup, polling fallback, and graceful drain.
 - `src/subscriptions.ts` — composition root for event subscriptions.
   Empty until modules exist; module tasks append their
   `defineEventHandler` bindings here.
+- `src/observability.ts` — `createProcessObservability` (redacting pino
+  logger + optional Sentry). Keep in lockstep with
+  `apps/api/src/observability.ts`.
 - `src/policy.ts` — poll/cleanup intervals and the notify channel name.
   Values change only through spec rework.
 
@@ -36,5 +39,7 @@ the loops, LISTEN/NOTIFY wakeup, polling fallback, and graceful drain.
   through the core libraries.
 - Domain event delivery is not BullMQ (ADR-0007/ADR-0012). BullMQ is
   for later execution jobs (PDF, email, push, sync).
-- OTP codes, tokens, and secrets never reach logs.
-- Sentry SDK wiring and log redaction utilities are fnd-T28.
+- OTP codes, tokens, and secrets never reach logs. Process loggers are
+  `createProcessLogger` from `@showzy/config`. Sentry is initialized
+  only when `SENTRY_DSN` is set; `beforeSend` scrubs the event. Do not
+  construct a raw `pino()`.

@@ -156,6 +156,9 @@ jobs:
       - name: Runtime database grant integration
         run: pnpm --filter @showzy/db exec vitest run src/foundation.test.ts
 
+      - name: Backup verify dry-run (fnd-T28, db.md §6)
+        run: pnpm --filter @showzy/db backup:verify -- --dry-run
+
   bundle-probe:
     runs-on: ubuntu-latest
     steps:

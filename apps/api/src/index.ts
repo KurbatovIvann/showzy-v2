@@ -3,13 +3,12 @@
  * environment crashes before anything listens.
  */
 import { serve } from "@hono/node-server";
-import { loadServerConfig } from "@showzy/config";
-import { pino } from "pino";
+import { createProcessLogger, loadServerConfig } from "@showzy/config";
 
 import { bootApi } from "./boot.js";
 
 const config = loadServerConfig();
-const logger = pino({ name: "api-boot" });
+const logger = createProcessLogger({ name: "api-boot" });
 const booted = await bootApi(config);
 
 const server = serve(

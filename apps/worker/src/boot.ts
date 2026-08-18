@@ -7,10 +7,10 @@ import { randomUUID } from "node:crypto";
 import type { ServerConfig } from "@showzy/config";
 import { createDbClient } from "@showzy/db";
 import { Redis } from "ioredis";
-import { pino } from "pino";
 
 import { createOutboxListener } from "./listen.js";
 import { createOutboxWorker, type WorkerLoop } from "./loop.js";
+import { createProcessObservability } from "./observability.js";
 import { createActionPipeline } from "./pipeline.js";
 import {
   createRedisConfirmationStore,
@@ -27,11 +27,15 @@ export async function bootWorker(config: ServerConfig): Promise<BootedWorker> {
   const db = createDbClient({ databaseUrl: config.database.url });
   const redis = new Redis(config.redis.url);
   await redis.ping();
-  const logger = pino({ name: "worker" });
+  const { logger, telemetry } = createProcessObservability({
+    name: "worker",
+    sentryDsn: config.sentry.dsn,
+  });
   const workerId = randomUUID();
   const pipeline = createActionPipeline({
     db: db.db,
     logger,
+    telemetry,
     rateLimitStore: createRedisRateLimitStore(redis),
     confirmationStore: createRedisConfirmationStore(redis),
     ipHmacSecret: config.rateLimit.ipHmacSecret,

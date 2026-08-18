@@ -10,6 +10,7 @@ import {
   createIdempotencyHook,
   createRateLimitHook,
   type ActionPipelineDeps,
+  type ActionTelemetry,
   type ConfirmationStore,
   type RateLimitStore,
 } from "@showzy/core";
@@ -19,6 +20,7 @@ import type { Logger } from "pino";
 export interface CreateActionPipelineOptions {
   readonly db: Database;
   readonly logger: Logger;
+  readonly telemetry?: ActionTelemetry;
   readonly rateLimitStore: RateLimitStore;
   readonly confirmationStore: ConfirmationStore;
   readonly ipHmacSecret: string;
@@ -32,6 +34,9 @@ export function createActionPipeline(
   return {
     db: options.db,
     logger: options.logger,
+    ...(options.telemetry !== undefined
+      ? { telemetry: options.telemetry }
+      : {}),
     hooks: {
       rateLimit: createRateLimitHook({
         store: options.rateLimitStore,

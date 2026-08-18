@@ -20,7 +20,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:check-money": "node scripts/check-money-schema.mjs src/schema",
     "db:check-drift": "drizzle-kit generate && node scripts/assert-clean-path.mjs migrations",
-    "db:check": "pnpm db:check-money && pnpm db:check-drift"
+    "db:check": "pnpm db:check-money && pnpm db:check-drift",
+    "backup:verify": "node scripts/backup-verify.mjs"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2",
