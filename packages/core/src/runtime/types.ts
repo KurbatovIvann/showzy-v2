@@ -55,8 +55,17 @@ export interface TargetResolutionEnv {
 /** Narrowed by fnd-T20 to carry the resolved target alongside input (§7). */
 export type ConfirmationSummaryEnv = unknown;
 
-/** Narrowed by fnd-T13 to validated input/output/context accessors (§8). */
-export type AuditTargetEnv = unknown;
+/**
+ * The environment `auditTarget` receives (core.md §8, narrowed by fnd-T13).
+ * `output` is present on success and absent on failure/denial; `ctx` is
+ * present when the execution transaction constructed it (absent on pre-handler
+ * denials). Callbacks must tolerate missing fields — `input` is always available.
+ */
+export interface AuditTargetEnv {
+  readonly input: unknown;
+  readonly output?: unknown;
+  readonly ctx?: ActionCtx;
+}
 
 /**
  * What a typed target resolver must prove (core.md §2): the loaded

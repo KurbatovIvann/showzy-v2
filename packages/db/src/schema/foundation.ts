@@ -235,6 +235,8 @@ export const auditLog = pgTable(
     targetId: text("target_id").notNull(),
     /** Hash only by default; redacted snapshots are a separate opt-in (core.md §8). */
     inputHash: text("input_hash").notNull(),
+    /** Populated only by the action's explicit `auditSnapshot` callback; null when hash-only (core.md §8). */
+    inputSnapshot: jsonb("input_snapshot"),
     /** "ok" or the typed error code (e.g. "PERMISSION_DENIED"). */
     outcome: text("outcome").notNull(),
     durationMs: integer("duration_ms").notNull(),

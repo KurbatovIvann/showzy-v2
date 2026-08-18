@@ -168,7 +168,9 @@ the same transaction as consumer effects.
 cleanup, and operations.
 
 **`audit_log`** (core.md §8): columns exactly as core.md §8 (`actor_type`
-is `user|system`; AI is represented by `channel = ai`); indexes
+is `user|system`; AI is represented by `channel = ai`); `input_snapshot
+jsonb NULL` — populated only by the action's explicit `auditSnapshot`
+callback, null when hash-only (core.md §8 resolved decision 1); indexes
 `(company_id, created_at)`, `(actor_type, actor_id, created_at)`,
 `(action, created_at)`. Append-only: no UPDATE/DELETE grants for the
 runtime role.

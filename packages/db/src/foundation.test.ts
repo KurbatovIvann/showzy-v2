@@ -185,6 +185,9 @@ describe("foundation migrations", () => {
       "YES",
     );
     expect(byColumn.get("audit_log.company_id")?.is_nullable).toBe("YES");
+    // input_snapshot is null when hash-only; populated only by auditSnapshot (core.md §8).
+    expect(byColumn.get("audit_log.input_snapshot")?.is_nullable).toBe("YES");
+    expect(byColumn.get("audit_log.input_snapshot")?.column_default).toBeNull();
     // The response snapshot exists only once the attempt completes (core.md §5).
     expect(byColumn.get("idempotency_keys.response")?.is_nullable).toBe("YES");
     expect(byColumn.get("audit_log.id")?.column_default).toContain(
@@ -352,6 +355,23 @@ describe("audit_log (core.md §8)", () => {
     );
     expect(result.rows[0]?.id).toMatch(/^[0-9a-f-]{36}$/);
     expect(result.rows[0]?.created_at).toBeInstanceOf(Date);
+  });
+
+  it("stores and retrieves input_snapshot as jsonb when provided", async () => {
+    const snapshot = { orderId: "abc-123", items: [1, 2] };
+    await insert("audit_log", auditLogRow({ input_snapshot: snapshot }));
+    const result = await admin.query<{ input_snapshot: unknown }>(
+      `SELECT input_snapshot FROM audit_log WHERE input_snapshot IS NOT NULL LIMIT 1`,
+    );
+    expect(result.rows[0]?.input_snapshot).toEqual(snapshot);
+  });
+
+  it("defaults input_snapshot to null when omitted", async () => {
+    await insert("audit_log", auditLogRow());
+    const result = await admin.query<{ input_snapshot: unknown }>(
+      `SELECT input_snapshot FROM audit_log ORDER BY created_at DESC LIMIT 1`,
+    );
+    expect(result.rows[0]?.input_snapshot).toBeNull();
   });
 
   it("rejects actor types and channels outside their CHECK lists", async () => {

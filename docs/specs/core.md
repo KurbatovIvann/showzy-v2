@@ -399,20 +399,30 @@ not proceed, even if ordinary authenticated read rate limits are fail-open.
 ## 8. Audit
 
 For every action with `audit: true` (mandatory for `write`/`high`), one row
-in `audit_log` written in the handler transaction:
+in `audit_log` written in the handler transaction (mutations) or in a
+separate transaction after the read-only handler transaction commits
+(`risk: read`):
 
 `{ id, requestId, correlationId, action, actorType: user|system,
 actorId, channel: ui|ai|system|webhook, aiTraceId?, toolCallId?, companyId, targetType,
-targetId, inputHash, outcome: ok|<errorCode>, durationMs, createdAt }`
+targetId, inputHash, inputSnapshot?, outcome: ok|<errorCode>, durationMs, createdAt }`
 
 AI trace/tool-call IDs provide attribution without storing prompts or model
-content in the audit row.
+content in the audit row. `inputHash` is always a SHA-256 hex digest of the
+RFC 8785 canonical JSON form of the validated input. `inputSnapshot` is null
+by default (hash-only); it is populated only when the action binds an
+`auditSnapshot` callback, which must return explicitly redacted safe JSON.
 
 - **Permission denials** on `audit: true` actions are also recorded
   (outcome `PERMISSION_DENIED`, separate tx since no handler tx exists).
 - **No raw input by default** — only the hash. An action may opt in to a
   redacted input snapshot via `auditSnapshot: (input) => SafeJson`; storing
   unredacted input is forbidden (prohibitions: no PII/secrets in logs).
+- **Audited reads** run in a database read-only transaction to preserve
+  the `risk: read` write-prevention guarantee; the audit row is written in a
+  separate short transaction after the read-only transaction commits. This is
+  a best-effort record: if the post-commit write fails, the read result is
+  already returned — audit failures are logged but never mask the response.
 - Read access: no UI in MVP; queryable by operators via SQL. Retention:
   12 months online, then export/archive or delete according to the operations
   policy. Audit rows are not an event store.
@@ -581,6 +591,7 @@ Exported from `packages/core/testing`, used by every module (this is how
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-18 | §8: added `inputSnapshot` nullable column, audited-read post-commit semantics, and RFC 8785 hash specification | fnd-T13 implementation proved the storage and read-only tx gaps | scaffold (fnd-T13) |
 | 2026-08-17 | Added public-global projection protocol and declared same-transaction atomic capabilities | Rebaseline foundation for ADR-0020/0021 mobile parity | Human owner via mobile parity rework |
 | 2026-08-17 | Added account principal: `AccountCtx`, contract check rules, `ctx.call` rules, rate limit (90/min), idempotency scope (`user:<userId>`), `accountIsolationSuite`, and acceptance criteria | Complete the 6-principal model per ADR-0013 (amended) and ADR-0018 | Human owner via spec-rework queue Step 1 |
 | 2026-08-17 | Added the consumer context, action constraints, logging, call rules, rate limit (60/min per user), and inherited isolation tests | Align the frozen foundation with ADR-0018 authenticated discovery | Human owner via spec-rework queue |

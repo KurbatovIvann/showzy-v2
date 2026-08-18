@@ -55,6 +55,13 @@ export type {
 } from "./runtime/types.js";
 export { executeAction } from "./runtime/pipeline/execute-action.js";
 export type { ActionInvocation } from "./runtime/pipeline/execute-action.js";
+export { createAuditHook } from "./runtime/audit/create-audit-hook.js";
+export type { AuditHookDeps } from "./runtime/audit/create-audit-hook.js";
+export {
+  canonicalJson,
+  canonicalJsonSha256,
+} from "./runtime/audit/canonical-json.js";
+export type { JsonSerializable } from "./runtime/audit/canonical-json.js";
 export type {
   ActionPipelineDeps,
   ActionSpan,
