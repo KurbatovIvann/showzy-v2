@@ -87,6 +87,7 @@ export type {
   ActionSpanFields,
   ActionSpanOutcome,
   ActionTelemetry,
+  ActionTransactionRunner,
   AuditHook,
   ConfirmationHook,
   IdempotencyHook,
@@ -110,6 +111,30 @@ export type {
   EventEmission,
   EventScope,
 } from "./runtime/events/define-event.js";
+export { eventEnvelopeSchema } from "./runtime/events/envelope.js";
+export type {
+  EventEnvelope,
+  EventEnvelopeActor,
+  EventEnvelopeAggregate,
+} from "./runtime/events/envelope.js";
+export {
+  defineEventHandler,
+  EventHandlerDefinitionError,
+  eventSubscriptionRefs,
+} from "./runtime/events/define-event-handler.js";
+export type {
+  EventHandlerBinding,
+  EventSubscription,
+} from "./runtime/events/define-event-handler.js";
+export {
+  dispatchOutboxBatch,
+  executeDelivery,
+} from "./runtime/events/delivery.js";
+export type {
+  DeliveryOutcome,
+  OutboxDispatcherDeps,
+  OutboxDispatchResult,
+} from "./runtime/events/delivery.js";
 export {
   createAccountContext,
   createConsumerContext,
