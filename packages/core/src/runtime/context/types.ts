@@ -1,0 +1,175 @@
+/**
+ * The six-mode principal context union (core.md §3; ADR-0013, ADR-0018,
+ * ADR-0020). One verified context shape per principal mode — a handler
+ * matching on `ctx.principal` gets exactly the fields that mode guarantees,
+ * and nothing a different caller kind would carry.
+ *
+ * Construction happens only through the factories in `factories.ts`
+ * (core.md §3: "exactly one factory per mode, nothing ad-hoc"). Nothing
+ * else in the package assembles these objects.
+ */
+import type { ProjectionGrant, ProjectionReadTx, ReadTx, Tx } from "@showzy/db";
+import type { Logger } from "pino";
+
+/** How the action was invoked; audit and logs carry it (blueprint §2.1-4). */
+export type ActionChannel = "ui" | "ai" | "system" | "webhook";
+
+/**
+ * The accountable identity of an invocation. `anonymous` exists only for
+ * access logs/traces on public actions — event and audit schemas accept
+ * user/system actors only (core.md §2).
+ */
+export type ActionActor =
+  | { readonly type: "user"; readonly id: string }
+  | { readonly type: "system"; readonly id: string }
+  | { readonly type: "anonymous"; readonly id: "anonymous" };
+
+/** `company_members.role` values (companies-foundation.md §2). */
+export type CompanyRole = "owner" | "admin" | "manager" | "employee";
+
+/**
+ * The verified membership carried by a staff context. `permissions` is the
+ * resolved effective set for non-owner roles (role defaults plus explicit
+ * grants, minus explicit denies); check it through `staffHasPermission`,
+ * which also short-circuits the owner-has-all rule — never by reading the
+ * array directly.
+ */
+export interface StaffMembership {
+  readonly role: CompanyRole;
+  readonly permissions: readonly string[];
+}
+
+/**
+ * Protocol slots owned by later foundation tasks, kept opaque so nothing
+ * can depend on their internals prematurely (same pattern as the fnd-T9
+ * callback environments): `ctx.emit` is narrowed by fnd-T16, `ctx.call` by
+ * fnd-T19, and `ctx.callAtomic` by fnd-T19A. The execution pipeline
+ * (fnd-T12) supplies the real values through `ContextRuntime`.
+ */
+export type CtxEmit = unknown;
+export type CtxCall = unknown;
+export type CtxCallAtomic = unknown;
+
+/**
+ * Fields common to every principal mode (core.md §3). `TDb` is the
+ * capability the handler's declared `risk` allows: `ReadTx` for reads,
+ * `Tx` for mutations, `ProjectionReadTx` for public-global.
+ */
+export interface BaseCtx<TDb> {
+  readonly db: TDb;
+  readonly requestId: string;
+  /** Propagated across `ctx.call` and events. */
+  readonly correlationId: string;
+  readonly actor: ActionActor;
+  readonly channel: ActionChannel;
+  /** Trusted-proxy normalized; rate-limit use only, never a log/audit field. */
+  readonly clientIp?: string;
+  readonly aiTraceId?: string;
+  readonly toolCallId?: string;
+  /** Whole-pipeline deadline (epoch ms), shared with nested calls. */
+  readonly deadline: number;
+  /** Shared with nested calls and external clients (core.md §4). */
+  readonly signal: AbortSignal;
+  /** pino child bound to request/actor/company/action (security-ops §6). */
+  readonly log: Logger;
+  readonly emit: CtxEmit;
+  readonly call: CtxCall;
+  readonly callAtomic: CtxCallAtomic;
+}
+
+/** Authenticated member of the selected company (the panel surface). */
+export interface StaffCtx<TDb = Tx> extends BaseCtx<TDb> {
+  readonly principal: "staff";
+  readonly userId: string;
+  /** Derived from the verified membership row — never from the selector. */
+  readonly companyId: string;
+  readonly membership: StaffMembership;
+}
+
+/**
+ * Authenticated user acting on a company they do not manage (the cabinet
+ * surface). The typed resolver's result is the ownership proof.
+ */
+export interface CustomerCtx<TTarget = unknown, TDb = Tx> extends BaseCtx<TDb> {
+  readonly principal: "customer";
+  readonly userId: string;
+  readonly target: { readonly companyId: string; readonly resource: TTarget };
+}
+
+/** Unauthenticated read of one published company/resource. */
+export interface PublicTargetCtx<TTarget = unknown> extends BaseCtx<ReadTx> {
+  readonly principal: "public";
+  readonly scope: "target";
+  readonly clientIp: string;
+  readonly target: { readonly companyId: string; readonly resource: TTarget };
+}
+
+/**
+ * Unauthenticated global discovery read (ADR-0020), bound to one declared
+ * projection grant — the context's DB capability cannot reach any other
+ * table or column.
+ */
+export interface PublicGlobalCtx<
+  TGrant extends ProjectionGrant = ProjectionGrant,
+> extends BaseCtx<ProjectionReadTx<TGrant>> {
+  readonly principal: "public";
+  readonly scope: "globalProjection";
+  readonly clientIp: string;
+  readonly projectionGrant: TGrant["id"];
+  readonly companyId?: never;
+  readonly target?: never;
+}
+
+export type PublicCtx<
+  TTarget = unknown,
+  TGrant extends ProjectionGrant = ProjectionGrant,
+> = PublicTargetCtx<TTarget> | PublicGlobalCtx<TGrant>;
+
+/**
+ * Workers, cron, webhook handlers, outbox consumers. Scope is set
+ * explicitly by the enqueuing code — never "all companies" by default.
+ */
+export type SystemCtx<TDb = Tx> = BaseCtx<TDb> & {
+  readonly principal: "system";
+  readonly serviceName: string;
+} & (
+    | { readonly scope: "tenant"; readonly companyId: string }
+    | { readonly scope: "global"; readonly companyId?: never }
+  );
+
+/**
+ * Authenticated global discovery without company scope (ADR-0018).
+ * Read-only; may access only declared discovery projections and published
+ * facts (enforced by owning specs and inherited tests, not by this type).
+ */
+export interface ConsumerCtx extends BaseCtx<ReadTx> {
+  readonly principal: "consumer";
+  readonly userId: string;
+  readonly clientIp: string;
+  readonly companyId?: never;
+  readonly target?: never;
+  readonly membership?: never;
+}
+
+/**
+ * Authenticated own-account operations before/outside any tenant context
+ * (ADR-0013 amended). May write (`TDb = Tx`); the handler may touch only
+ * resources belonging to `userId` — no company RBAC applies.
+ */
+export interface AccountCtx<TDb = Tx> extends BaseCtx<TDb> {
+  readonly principal: "account";
+  readonly userId: string;
+  readonly clientIp: string;
+  readonly companyId?: never;
+  readonly target?: never;
+  readonly membership?: never;
+}
+
+/** The discriminated union every handler receives (core.md §3). */
+export type ActionCtx =
+  | StaffCtx<ReadTx | Tx>
+  | CustomerCtx<unknown, ReadTx | Tx>
+  | PublicCtx
+  | SystemCtx<ReadTx | Tx>
+  | ConsumerCtx
+  | AccountCtx<ReadTx | Tx>;

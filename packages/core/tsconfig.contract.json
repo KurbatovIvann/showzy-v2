@@ -1,0 +1,12 @@
+{
+  "extends": "@showzy/tooling/tsconfig/base.json",
+  "compilerOptions": {
+    // The client-safe contract leaf must stay free of Node dependencies
+    // (ADR-0016); keeping ambient @types out makes an accidental
+    // `process`/`Buffer` reference a compile error. This config exists only
+    // as that guard — the package `tsconfig.json` covers all of `src` with
+    // Node types for the server-only runtime.
+    "types": []
+  },
+  "include": ["src/contract"]
+}

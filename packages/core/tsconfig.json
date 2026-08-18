@@ -1,11 +1,13 @@
 {
   "extends": "@showzy/tooling/tsconfig/base.json",
   "compilerOptions": {
-    // The contract leaf must stay free of Node dependencies (ADR-0016);
-    // keeping ambient @types out makes an accidental `process`/`Buffer`
-    // reference a compile error. Runtime subpaths (fnd-T9+) will relax this
-    // in a dedicated tsconfig if they need Node types.
-    "types": []
+    // Runtime subpaths (principal contexts, pipeline, protocols) are
+    // server-only and need Node ambient types (AbortSignal, timers). The
+    // contract leaf's no-Node guarantee (ADR-0016) is NOT weakened by this:
+    // `tsconfig.contract.json` re-checks `src/contract` with `"types": []`
+    // in the same `typecheck` script, so an accidental `process`/`Buffer`
+    // reference in the leaf still fails CI.
+    "types": ["node"]
   },
-  "include": ["src"]
+  "include": ["src", "vitest.config.ts"]
 }

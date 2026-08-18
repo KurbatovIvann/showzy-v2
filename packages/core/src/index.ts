@@ -50,5 +50,41 @@ export type {
   MaybePromise,
   ResolvedTarget,
   TargetResolutionEnv,
+  TargetResolutionPrincipal,
   TargetResolver,
 } from "./runtime/types.js";
+export {
+  createAccountContext,
+  createConsumerContext,
+  createCustomerContext,
+  createPublicContext,
+  createStaffContext,
+  createSystemContext,
+  effectiveCompanyId,
+} from "./runtime/context/factories.js";
+export type {
+  ActionRequestMeta,
+  ContextRuntime,
+  SessionPrincipal,
+  SystemScopeInput,
+} from "./runtime/context/factories.js";
+export { staffHasPermission } from "./runtime/context/permissions.js";
+export type {
+  AccountCtx,
+  ActionActor,
+  ActionChannel,
+  ActionCtx,
+  BaseCtx,
+  CompanyRole,
+  ConsumerCtx,
+  CtxCall,
+  CtxCallAtomic,
+  CtxEmit,
+  CustomerCtx,
+  PublicCtx,
+  PublicGlobalCtx,
+  PublicTargetCtx,
+  StaffCtx,
+  StaffMembership,
+  SystemCtx,
+} from "./runtime/context/types.js";
