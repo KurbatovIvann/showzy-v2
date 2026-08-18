@@ -1,23 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-import { createOtpSendGuard, type OtpSendStore } from "./otp-send-guard.js";
+import {
+  createMemoryOtpSendStore,
+  createOtpSendGuard,
+} from "./otp-send-guard.js";
 import { otpPolicy } from "./policy.js";
 
-/** In-memory stand-in for the Redis-backed store mounted in fnd-T26. */
 function createFixture(startMs = Date.parse("2026-08-18T00:00:00Z")) {
-  const entries = new Map<string, string>();
-  const store: OtpSendStore = {
-    get: (key) => Promise.resolve(entries.get(key) ?? null),
-    set: (key, value) => {
-      entries.set(key, value);
-      return Promise.resolve();
-    },
-  };
+  const store = createMemoryOtpSendStore();
   let nowMs = startMs;
   const guard = createOtpSendGuard({ store, now: () => nowMs });
   return {
     guard,
-    entries,
+    entries: store.entries,
     advanceSeconds: (seconds: number) => {
       nowMs += seconds * 1000;
     },
@@ -109,5 +104,18 @@ describe("createOtpSendGuard (security-operations §2 per-identifier limits)", (
     await expect(guard.check("phone", "+380671112233")).resolves.toEqual({
       allowed: true,
     });
+  });
+
+  it("records at most one send when two checks race on the same identifier", async () => {
+    const { guard, entries } = createFixture();
+    const [first, second] = await Promise.all([
+      guard.check("phone", "+380671112233"),
+      guard.check("phone", "+380671112233"),
+    ]);
+    const allowed = [first, second].filter((decision) => decision.allowed);
+    expect(allowed).toHaveLength(1);
+    const raw = entries.get("otp-send:phone:+380671112233");
+    expect(raw).toBeDefined();
+    expect(JSON.parse(raw ?? "[]")).toHaveLength(1);
   });
 });

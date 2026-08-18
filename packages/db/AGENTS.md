@@ -48,9 +48,11 @@ actions/services running under the core pipeline.
 Raw SQL exists only in generated migrations and in explicitly approved
 foundation primitives that Drizzle cannot express (`updated_at` trigger,
 roles/grants, SKIP LOCKED claims, LISTEN/NOTIFY on `domain_events`,
-advisory locks — db.md §7, ADR-0012). Every such statement carries a
+advisory locks, `pg_trgm`/`unaccent` extensions — db.md §3/§7, ADR-0012).
+Every such statement carries a
 comment naming its approval. The outbox notify trigger is
-`migrations/0006_domain_events_notify.sql` — do not re-express it in
+`migrations/0006_domain_events_notify.sql`; search extensions are
+`migrations/0007_pg_trgm_unaccent.sql` — do not re-express either in
 Drizzle schema. Domain
 queries are Drizzle-only, inside action handlers/services (prohibitions.mdc).
 
@@ -64,7 +66,8 @@ for CI):
   UPDATE/DELETE), no TRUNCATE, no DDL. New tables inherit grants via
   ALTER DEFAULT PRIVILEGES.
 - `showzy_migrate` — DDL; used only by the CI/deploy migration step
-  (`db:migrate` with `DATABASE_MIGRATE_URL`).
+  (`db:migrate` with `DATABASE_MIGRATE_URL`). Must be allowed to
+  `CREATE EXTENSION` for `pg_trgm` / `unaccent` (`0007_pg_trgm_unaccent.sql`).
 - `showzy_maintenance` — scheduled archival/retention jobs only (currently:
   audit expiry — SELECT/DELETE on `audit_log`). Widen only with an owning
   spec's say-so.

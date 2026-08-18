@@ -10,6 +10,8 @@
  */
 import { createHash } from "node:crypto";
 
+import { CoreInvariantError } from "../../errors/index.js";
+
 type JsonPrimitive = string | number | boolean | null;
 type JsonArray = readonly JsonSerializable[];
 type JsonObject = { readonly [key: string]: JsonSerializable };
@@ -20,8 +22,8 @@ export type JsonSerializable = JsonPrimitive | JsonArray | JsonObject;
  * lexicographically (by UTF-16 code units, matching `Array.prototype.sort`
  * which is what JCS §3.2.3 requires).
  *
- * Throws `TypeError` for `undefined`, functions, symbols, `NaN`, and
- * `±Infinity` — none of these are valid JSON.
+ * Throws `CoreInvariantError` for `undefined`, functions, symbols, `NaN`,
+ * and `±Infinity` — none of these are valid JSON.
  */
 export function canonicalJson(value: JsonSerializable): string {
   return serialize(value);
@@ -36,7 +38,9 @@ function serialize(value: JsonSerializable): string {
 
     case "number": {
       if (!Number.isFinite(value)) {
-        throw new TypeError(`canonical JSON does not support ${String(value)}`);
+        throw new CoreInvariantError(
+          `canonical JSON does not support ${String(value)}`,
+        );
       }
       return Object.is(value, -0) ? "0" : String(value);
     }
@@ -53,7 +57,7 @@ function serialize(value: JsonSerializable): string {
       const members = keys.map((key) => {
         const val = obj[key];
         if (val === undefined) {
-          throw new TypeError(
+          throw new CoreInvariantError(
             `canonical JSON does not support undefined value at key "${key}"`,
           );
         }
@@ -63,7 +67,7 @@ function serialize(value: JsonSerializable): string {
     }
 
     default:
-      throw new TypeError(
+      throw new CoreInvariantError(
         `canonical JSON does not support type "${typeof value}"`,
       );
   }

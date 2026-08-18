@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { CoreInvariantError } from "../../errors/index.js";
 import { uuidv7 } from "./uuidv7.js";
 
 const UUID_V7_PATTERN =
@@ -36,7 +37,7 @@ describe("uuidv7", () => {
   it.each([-1, 2 ** 48, 1.5, Number.NaN])(
     "rejects the out-of-range timestamp %s",
     (timestampMs) => {
-      expect(() => uuidv7(timestampMs)).toThrow(RangeError);
+      expect(() => uuidv7(timestampMs)).toThrow(CoreInvariantError);
     },
   );
 });

@@ -331,7 +331,7 @@ export async function executeAction<
         );
       }
       const idempotencyHook = deps.hooks.idempotency;
-      if (idempotencyHook?.probe !== undefined) {
+      if (idempotencyHook !== undefined) {
         const probed = await idempotencyHook.probe({
           ...hookEnv,
           authorization: confirmedAuth,

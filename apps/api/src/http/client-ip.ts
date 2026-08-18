@@ -12,8 +12,37 @@ export interface ResolveClientIpInput {
   readonly peerAddress: string;
   /** Raw `X-Forwarded-For` header; ignored unless the peer is trusted. */
   readonly forwardedFor: string | undefined;
-  /** Validated `TRUSTED_PROXIES` entries (IPs and CIDRs). */
-  readonly trustedProxies: readonly string[];
+  /**
+   * Pre-built matcher from {@link createTrustedProxyMatcher}. Prefer this
+   * on the request hot path — constructing `BlockList` per request is waste.
+   */
+  readonly isTrusted: (address: string) => boolean;
+}
+
+/**
+ * Builds a reusable trusted-proxy matcher at app construction. `TRUSTED_PROXIES`
+ * is static config; the `BlockList` does not change per request.
+ */
+export function createTrustedProxyMatcher(
+  trustedProxies: readonly string[],
+): (address: string) => boolean {
+  const list = new BlockList();
+  for (const entry of trustedProxies) {
+    try {
+      addTrustedEntry(list, entry);
+    } catch {
+      // Config already validated the list; a malformed runtime value must
+      // not fail the request open — skip that entry.
+    }
+  }
+  return (address: string): boolean => {
+    const ipType = address.includes(":") ? "ipv6" : "ipv4";
+    try {
+      return list.check(address, ipType);
+    } catch {
+      return false;
+    }
+  };
 }
 
 /**
@@ -23,17 +52,14 @@ export interface ResolveClientIpInput {
  */
 export function resolveClientIp(input: ResolveClientIpInput): string {
   const peer = normalizeIp(input.peerAddress);
-  if (
-    input.trustedProxies.length === 0 ||
-    !isTrusted(peer, input.trustedProxies)
-  ) {
+  if (!input.isTrusted(peer)) {
     return peer;
   }
 
   const hops = parseForwardedFor(input.forwardedFor);
   for (let i = hops.length - 1; i >= 0; i -= 1) {
     const hop = hops[i];
-    if (hop !== undefined && !isTrusted(hop, input.trustedProxies)) {
+    if (hop !== undefined && !input.isTrusted(hop)) {
       return hop;
     }
   }
@@ -56,27 +82,6 @@ export function normalizeIp(address: string): string {
   const withoutZone = trimmed.replace(/%.+$/, "");
   const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/i.exec(withoutZone);
   return mapped?.[1] ?? withoutZone;
-}
-
-function isTrusted(
-  address: string,
-  trustedProxies: readonly string[],
-): boolean {
-  const ipType = address.includes(":") ? "ipv6" : "ipv4";
-  const list = new BlockList();
-  for (const entry of trustedProxies) {
-    try {
-      addTrustedEntry(list, entry);
-    } catch {
-      // Config already validated the list; a malformed runtime value must
-      // not fail the request open — skip that entry.
-    }
-  }
-  try {
-    return list.check(address, ipType);
-  } catch {
-    return false;
-  }
 }
 
 function addTrustedEntry(list: BlockList, entry: string): void {

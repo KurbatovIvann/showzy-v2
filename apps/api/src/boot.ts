@@ -20,6 +20,7 @@ import { createProcessObservability } from "./observability.js";
 import { createActionPipeline } from "./pipeline.js";
 import {
   createRedisConfirmationStore,
+  createRedisOtpSendStore,
   createRedisRateLimitStore,
   createRedisSecondaryStorage,
 } from "./stores/redis.js";
@@ -64,7 +65,7 @@ export async function bootApi(config: ServerConfig): Promise<BootedApi> {
       secret: config.auth.secret,
       sendPhoneOtp: () => dropOtp(),
       sendEmailOtp: () => dropOtp(),
-      otpSendStore: secondary,
+      otpSendStore: createRedisOtpSendStore(redis),
       secondaryStorage: secondary,
     }),
   );

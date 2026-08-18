@@ -1,20 +1,23 @@
 import { otpPolicy } from "./policy.js";
 
-/**
- * Storage for OTP send history. The shape matches better-auth's
- * `SecondaryStorage` (get/set with TTL) so the Redis client mounted in
- * fnd-T26 satisfies it directly; tests use an in-memory map.
- */
-export interface OtpSendStore {
-  get(key: string): Promise<string | null | undefined>;
-  set(key: string, value: string, ttlSeconds: number): Promise<void>;
-}
-
 export type OtpChannel = "phone" | "email";
 
 export type OtpSendDecision =
   | { readonly allowed: true }
   | { readonly allowed: false; readonly retryAfterSeconds: number };
+
+export interface OtpSendAttempt {
+  readonly key: string;
+  readonly nowMs: number;
+  readonly cooldownMs: number;
+  readonly windowMs: number;
+  readonly maxSends: number;
+  readonly ttlSeconds: number;
+}
+
+export interface OtpSendStore {
+  tryRecordSend(attempt: OtpSendAttempt): Promise<OtpSendDecision>;
+}
 
 export interface OtpSendGuard {
   /**
@@ -30,11 +33,130 @@ export interface CreateOtpSendGuardOptions {
   readonly now?: () => number;
 }
 
+interface GetSetStore {
+  get(key: string): Promise<string | null | undefined>;
+  set(key: string, value: string, ttlSeconds: number): Promise<void>;
+}
+
 function normalizeIdentifier(channel: OtpChannel, identifier: string): string {
   const trimmed = identifier.trim();
   // Email addresses are case-insensitive identifiers; phone numbers pass
   // through (format validation is the endpoint's concern, not the guard's).
   return channel === "email" ? trimmed.toLowerCase() : trimmed;
+}
+
+/** Parses stored history defensively: corrupt state must never block sign-in. */
+export function readOtpSendHistory(raw: string): number[] {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((entry): entry is number => typeof entry === "number");
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Pure decision for one identifier. Callers must invoke this inside an
+ * atomic read-modify-write (in-process mutex or Redis Lua).
+ */
+export function applyOtpSendAttempt(
+  raw: string | null | undefined,
+  attempt: Omit<OtpSendAttempt, "key" | "ttlSeconds">,
+):
+  | { readonly allowed: true; readonly nextRaw: string }
+  | { readonly allowed: false; readonly retryAfterSeconds: number } {
+  const windowStartMs = attempt.nowMs - attempt.windowMs;
+  const history =
+    raw === null || raw === undefined ? [] : readOtpSendHistory(raw);
+  const recent = history.filter((sentAt) => sentAt > windowStartMs);
+
+  const lastSentAt = recent.at(-1);
+  if (lastSentAt !== undefined) {
+    const cooldownEndsMs = lastSentAt + attempt.cooldownMs;
+    if (attempt.nowMs < cooldownEndsMs) {
+      return {
+        allowed: false,
+        retryAfterSeconds: Math.ceil((cooldownEndsMs - attempt.nowMs) / 1000),
+      };
+    }
+  }
+
+  if (recent.length >= attempt.maxSends) {
+    const oldest = recent[0] ?? attempt.nowMs;
+    const windowFreesMs = oldest + attempt.windowMs;
+    return {
+      allowed: false,
+      retryAfterSeconds: Math.max(
+        1,
+        Math.ceil((windowFreesMs - attempt.nowMs) / 1000),
+      ),
+    };
+  }
+
+  recent.push(attempt.nowMs);
+  return { allowed: true, nextRaw: JSON.stringify(recent) };
+}
+
+function withKeyLock<T>(
+  tails: Map<string, Promise<void>>,
+  key: string,
+  work: () => Promise<T>,
+): Promise<T> {
+  const previous = tails.get(key) ?? Promise.resolve();
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  tails.set(
+    key,
+    previous.then(
+      () => gate,
+      () => gate,
+    ),
+  );
+  return previous.then(work, work).finally(release);
+}
+
+/**
+ * In-process atomic wrapper over get/set. JavaScript is single-threaded, but
+ * an await between read and write still races two overlapping `check` calls;
+ * the per-key mutex closes that. Cross-process atomicity is Redis Lua.
+ */
+export function createAtomicOtpSendStore(backing: GetSetStore): OtpSendStore {
+  const tails = new Map<string, Promise<void>>();
+  return {
+    tryRecordSend(attempt) {
+      return withKeyLock(tails, attempt.key, async () => {
+        const raw = await backing.get(attempt.key);
+        const decision = applyOtpSendAttempt(raw, attempt);
+        if (decision.allowed) {
+          await backing.set(attempt.key, decision.nextRaw, attempt.ttlSeconds);
+          return { allowed: true as const };
+        }
+        return {
+          allowed: false as const,
+          retryAfterSeconds: decision.retryAfterSeconds,
+        };
+      });
+    },
+  };
+}
+
+export function createMemoryOtpSendStore(): OtpSendStore & {
+  readonly entries: Map<string, string>;
+} {
+  const entries = new Map<string, string>();
+  const store = createAtomicOtpSendStore({
+    get(key) {
+      return Promise.resolve(entries.get(key) ?? null);
+    },
+    set(key, value) {
+      entries.set(key, value);
+      return Promise.resolve();
+    },
+  });
+  return { entries, tryRecordSend: (attempt) => store.tryRecordSend(attempt) };
 }
 
 /**
@@ -43,10 +165,8 @@ function normalizeIdentifier(channel: OtpChannel, identifier: string): string {
  * security-operations §2 live here; the guard is wired as a better-auth
  * `hooks.before` middleware in `options.ts`, ahead of OTP creation.
  *
- * The read-modify-write below is not atomic: two racing requests for one
- * identifier may both pass. That is acceptable defense-in-depth on top of the
- * per-IP limits — an atomic Redis variant can replace the store operations
- * later without touching callers.
+ * Recording a send is atomic: in-memory stores serialize per key, and the
+ * Redis store (fnd-T26) evaluates cooldown + hourly cap in one Lua script.
  */
 export function createOtpSendGuard(
   options: CreateOtpSendGuardOptions,
@@ -56,56 +176,14 @@ export function createOtpSendGuard(
   return {
     async check(channel, identifier) {
       const key = `otp-send:${channel}:${normalizeIdentifier(channel, identifier)}`;
-      const nowMs = now();
-      const windowStartMs = nowMs - otpPolicy.sendWindowSeconds * 1000;
-
-      const raw = await options.store.get(key);
-      const history = raw === null || raw === undefined ? [] : readHistory(raw);
-      const recent = history.filter((sentAt) => sentAt > windowStartMs);
-
-      const lastSentAt = recent.at(-1);
-      if (lastSentAt !== undefined) {
-        const cooldownEndsMs =
-          lastSentAt + otpPolicy.resendCooldownSeconds * 1000;
-        if (nowMs < cooldownEndsMs) {
-          return {
-            allowed: false,
-            retryAfterSeconds: Math.ceil((cooldownEndsMs - nowMs) / 1000),
-          };
-        }
-      }
-
-      if (recent.length >= otpPolicy.maxSendsPerHourPerIdentifier) {
-        // recent is non-empty here, so the oldest entry exists.
-        const oldest = recent[0] ?? nowMs;
-        const windowFreesMs = oldest + otpPolicy.sendWindowSeconds * 1000;
-        return {
-          allowed: false,
-          retryAfterSeconds: Math.max(
-            1,
-            Math.ceil((windowFreesMs - nowMs) / 1000),
-          ),
-        };
-      }
-
-      recent.push(nowMs);
-      await options.store.set(
+      return options.store.tryRecordSend({
         key,
-        JSON.stringify(recent),
-        otpPolicy.sendWindowSeconds,
-      );
-      return { allowed: true };
+        nowMs: now(),
+        cooldownMs: otpPolicy.resendCooldownSeconds * 1000,
+        windowMs: otpPolicy.sendWindowSeconds * 1000,
+        maxSends: otpPolicy.maxSendsPerHourPerIdentifier,
+        ttlSeconds: otpPolicy.sendWindowSeconds,
+      });
     },
   };
-}
-
-/** Parses stored history defensively: corrupt state must never block sign-in. */
-function readHistory(raw: string): number[] {
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter((entry): entry is number => typeof entry === "number");
-  } catch {
-    return [];
-  }
 }

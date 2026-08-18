@@ -10,6 +10,8 @@
  */
 import { randomBytes } from "node:crypto";
 
+import { CoreInvariantError } from "../../errors/index.js";
+
 /** Largest timestamp the 48-bit field can carry (~year 10889). */
 const MAX_TIMESTAMP_MS = 2 ** 48 - 1;
 
@@ -20,7 +22,7 @@ export function uuidv7(timestampMs: number): string {
     timestampMs < 0 ||
     timestampMs > MAX_TIMESTAMP_MS
   ) {
-    throw new RangeError(
+    throw new CoreInvariantError(
       `uuidv7 timestamp ${String(timestampMs)} is outside the 48-bit unsigned range`,
     );
   }

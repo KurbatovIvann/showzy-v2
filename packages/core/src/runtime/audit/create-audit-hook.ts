@@ -14,6 +14,7 @@
  */
 import { auditLog, type Database, type Tx } from "@showzy/db";
 
+import { CoreInvariantError } from "../../errors/index.js";
 import { effectiveCompanyId } from "../context/factories.js";
 import type { ActionActor, ActionChannel } from "../context/types.js";
 import type { AuditTargetEnv, AuditTargetRef, JsonValue } from "../types.js";
@@ -45,16 +46,17 @@ export function createAuditHook(deps: AuditHookDeps): AuditHook {
         ? env.auditSnapshot(env.input)
         : undefined;
 
+      const actor = toAuditActor(env.ctx.actor, effectiveCompanyId(env.ctx));
       await insertAuditRow(env.tx, {
         requestId: env.ctx.requestId,
         correlationId: env.ctx.correlationId,
         action: env.contract.name,
-        actorType: env.ctx.actor.type as "user" | "system",
-        actorId: env.ctx.actor.id,
+        actorType: actor.actorType,
+        actorId: actor.actorId,
         channel: env.ctx.channel,
         aiTraceId: env.ctx.aiTraceId,
         toolCallId: env.ctx.toolCallId,
-        companyId: effectiveCompanyId(env.ctx),
+        companyId: actor.companyId,
         target,
         inputHash,
         inputSnapshot: snapshot ?? null,
@@ -185,7 +187,9 @@ function toAuditActor(
   companyId: string | null,
 ): { actorType: "user" | "system"; actorId: string; companyId: string | null } {
   if (actor.type === "anonymous") {
-    return { actorType: "user", actorId: "anonymous", companyId };
+    throw new CoreInvariantError(
+      "audit row cannot record anonymous actor — public-global actions must declare audit: false",
+    );
   }
   return { actorType: actor.type, actorId: actor.id, companyId };
 }

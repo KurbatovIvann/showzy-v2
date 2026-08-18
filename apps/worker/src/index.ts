@@ -8,6 +8,8 @@ import { createDbClient } from "@showzy/db";
 
 import { bootWorker } from "./boot.js";
 import { parseWorkerCommand } from "./command.js";
+import { flushProcessObservability } from "./observability.js";
+import { createProcessShutdown } from "./shutdown.js";
 
 const command = parseWorkerCommand(process.argv.slice(2));
 const config = loadServerConfig();
@@ -25,14 +27,16 @@ if (command.kind === "replay") {
   const booted = await bootWorker(config);
   logger.info({ worker_id: booted.loop.workerId }, "worker running");
 
-  async function shutdown(): Promise<void> {
-    await booted.close();
-  }
+  const shutdown = createProcessShutdown({
+    logger,
+    close: () => booted.close(),
+    flush: () => flushProcessObservability(),
+  });
 
   process.on("SIGINT", () => {
-    void shutdown();
+    void shutdown.run();
   });
   process.on("SIGTERM", () => {
-    void shutdown();
+    void shutdown.run();
   });
 }

@@ -72,6 +72,11 @@ const envSchema = z.object({
   SENTRY_DSN: z.url().optional(),
 });
 
+/** Keys the Zod env schema accepts — `.env.example` must list the same set. */
+export const ENV_SCHEMA_KEYS: readonly string[] = Object.freeze(
+  Object.keys(envSchema.shape),
+);
+
 /** Validated runtime configuration, grouped by concern. */
 export interface ServerConfig {
   readonly nodeEnv: "development" | "test" | "production";

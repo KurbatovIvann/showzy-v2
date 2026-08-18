@@ -11,6 +11,7 @@ import {
   backupPolicy,
 } from "./backup-policy.js";
 import {
+  dumpNullDevice,
   parseBackupVerifyMode,
   redactConnectionString,
   runBackupVerify,
@@ -18,6 +19,8 @@ import {
 
 const SENTINEL = "BACKUP_PASSWORD_SENTINEL";
 const URL_WITH_SECRET = `postgresql://showzy:${SENTINEL}@localhost:5432/showzy`;
+const COLON_PASSWORD_URL =
+  "postgresql://showzy:p:ass:word@localhost:5432/showzy";
 
 describe("backup policy", () => {
   it("pins the db.md §6 RPO/RTO contract", () => {
@@ -32,6 +35,14 @@ describe("redactConnectionString", () => {
   it("strips the password from a Postgres URL", () => {
     expect(redactConnectionString(URL_WITH_SECRET)).not.toContain(SENTINEL);
     expect(redactConnectionString(URL_WITH_SECRET)).toContain("[Redacted]");
+  });
+
+  it("redacts a password that itself contains colons", () => {
+    const redacted = redactConnectionString(COLON_PASSWORD_URL);
+    expect(redacted).toBe(
+      "postgresql://showzy:[Redacted]@localhost:5432/showzy",
+    );
+    expect(redacted).not.toContain("ass");
   });
 });
 
@@ -86,15 +97,20 @@ describe("runBackupVerify", () => {
         logs.push(line);
       },
       hasCommand: () => true,
+      dumpNullFile: dumpNullDevice("linux"),
       exec: (file, args) => {
         execs.push({ file, args });
-        return { status: 0, stdout: "dump-ok", stderr: "" };
+        return { status: 0, stdout: "dump-ok-must-not-be-logged", stderr: "" };
       },
     });
     expect(ok.ok).toBe(true);
     expect(execs[0]?.file).toBe("pg_dump");
     expect(execs[0]?.args).toContain(URL_WITH_SECRET);
+    expect(execs[0]?.args).toContain("--file");
+    expect(execs[0]?.args).toContain("/dev/null");
     expect(logs.join("\n")).not.toContain(SENTINEL);
+    expect(logs.join("\n")).not.toContain("dump-ok-must-not-be-logged");
+    expect(logs.join("\n")).toContain("file=/dev/null");
   });
 });
 

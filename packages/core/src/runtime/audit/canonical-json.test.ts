@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import { describe, expect, it } from "vitest";
 
+import { CoreInvariantError } from "../../errors/index.js";
 import { canonicalJson, canonicalJsonSha256 } from "./canonical-json.js";
 
 describe("canonicalJson — RFC 8785 JCS serialization", () => {
@@ -31,9 +32,18 @@ describe("canonicalJson — RFC 8785 JCS serialization", () => {
   });
 
   it("rejects NaN and Infinity", () => {
-    expect(() => canonicalJson(NaN as never)).toThrow(TypeError);
-    expect(() => canonicalJson(Infinity as never)).toThrow(TypeError);
-    expect(() => canonicalJson(-Infinity as never)).toThrow(TypeError);
+    expect(() => canonicalJson(NaN as never)).toThrow(CoreInvariantError);
+    expect(() => canonicalJson(Infinity as never)).toThrow(CoreInvariantError);
+    expect(() => canonicalJson(-Infinity as never)).toThrow(CoreInvariantError);
+  });
+
+  it("rejects undefined values and unsupported types", () => {
+    expect(() => canonicalJson({ a: undefined as never })).toThrow(
+      CoreInvariantError,
+    );
+    expect(() => canonicalJson((() => undefined) as never)).toThrow(
+      CoreInvariantError,
+    );
   });
 
   it("serializes strings with JSON escaping", () => {

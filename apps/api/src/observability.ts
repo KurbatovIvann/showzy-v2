@@ -19,6 +19,13 @@ export interface ProcessObservability {
   readonly telemetry: ActionTelemetry;
 }
 
+/** Best-effort Sentry drain on process shutdown (no-op when DSN is unset). */
+export async function flushProcessObservability(
+  timeoutMs = 2_000,
+): Promise<void> {
+  await Sentry.flush(timeoutMs);
+}
+
 export function createProcessObservability(options: {
   readonly name: string;
   readonly sentryDsn: string | undefined;

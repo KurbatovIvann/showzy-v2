@@ -10,14 +10,18 @@ the loops, LISTEN/NOTIFY wakeup, polling fallback, and graceful drain.
 - `src/index.ts` — process entry. `loadServerConfig()` once. Default
   command runs the worker; `replay-deliveries --consumer <id>` is the
   fnd-T18 admin replay CLI. An invalid environment crashes before work
-  starts.
+  starts. Shutdown is latched (second SIGINT/SIGTERM is a no-op) and
+  flushes Sentry before the process drains.
 - `src/boot.ts` — opens Postgres + Redis, composes the action pipeline,
   LISTENs on `domain_events`, starts the loop.
 - `src/loop.ts` — `createOutboxWorker` / `createWorkerLoop`: one tick
   dispatches then executes due deliveries; shutdown waits for in-flight
   work and does not claim further.
 - `src/listen.ts` — dedicated `pg.Client` for `LISTEN domain_events`.
-  A dropped listen connection is logged; the 1s poll is the fallback.
+  A dropped listen connection reconnects with backoff, logs recovery, and
+  emits `outbox listen down, poll-only` while degraded; the 1s poll is
+  the fallback either way.
+- `src/shutdown.ts` — SIGINT/SIGTERM latch so `close()` cannot run twice.
 - `src/pipeline.ts` — fills every protocol hook slot (same composition
   as `apps/api`).
 - `src/stores/redis.ts` — confirmation `GETDEL` and Lua token-bucket
@@ -27,7 +31,8 @@ the loops, LISTEN/NOTIFY wakeup, polling fallback, and graceful drain.
   `defineEventHandler` bindings here.
 - `src/observability.ts` — `createProcessObservability` (redacting pino
   logger + optional Sentry). Keep in lockstep with
-  `apps/api/src/observability.ts`.
+  `apps/api/src/observability.ts`. `flushProcessObservability` drains
+  Sentry on shutdown.
 - `src/policy.ts` — poll/cleanup intervals and the notify channel name.
   Values change only through spec rework.
 

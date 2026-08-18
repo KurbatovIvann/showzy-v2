@@ -21,15 +21,18 @@ Auth policy parameters still live in `src/auth/` (fnd-T6).
   `GET /health`. Dependencies are injected; tests never read `process.env`.
 - `src/http/client-ip.ts` — forwarded-IP headers are trusted only when the
   TCP peer is in `TRUSTED_PROXIES`. Spoofed `X-Forwarded-For` is ignored.
+  `createTrustedProxyMatcher` builds the `BlockList` once at app construction.
 - `src/pipeline.ts` — fills every protocol hook slot (audit, idempotency,
   rate limit, confirmation) and the Sentry telemetry from
   `src/observability.ts`.
 - `src/observability.ts` — process logger + optional Sentry
   (`createProcessObservability`). Keep in lockstep with
-  `apps/worker/src/observability.ts`.
+  `apps/worker/src/observability.ts`. `flushProcessObservability` drains
+  Sentry on shutdown.
 - `src/stores/redis.ts` — Redis secondary storage (`GETDEL`), confirmation
-  store, and the Lua token-bucket rate-limit store. Tests that do not need
-  Redis use the in-memory stores from `@showzy/core` and `stores/memory.ts`.
+  store, Lua token-bucket rate-limit store, and Lua OTP send throttle.
+  Tests that do not need Redis use the in-memory stores from
+  `@showzy/core` and `stores/memory.ts`.
 - `src/auth/` — `buildAuthOptions` (fnd-T6). Every better-auth instance
   still goes through this factory.
 

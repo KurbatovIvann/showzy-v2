@@ -34,6 +34,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { buildAuthOptions } from "../auth/options.js";
+import { createAtomicOtpSendStore } from "../auth/otp-send-guard.js";
 import { otpPolicy } from "../auth/policy.js";
 import { createMemorySecondaryStorage } from "../stores/memory.js";
 import {
@@ -244,7 +245,7 @@ beforeAll(async () => {
         return Promise.resolve();
       },
       sendEmailOtp: () => Promise.resolve(),
-      otpSendStore: secondary,
+      otpSendStore: createAtomicOtpSendStore(secondary),
       secondaryStorage: secondary,
       now: () => nowMs,
     }),

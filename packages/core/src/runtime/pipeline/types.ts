@@ -182,14 +182,15 @@ export type IdempotencyProbeResult =
   | { readonly kind: "resume"; readonly grant: ConfirmationGrant };
 
 /**
- * Filled by fnd-T15 (core.md §5). `probe` is the confirmation-gate
- * read-only lookup (fnd-T20); `reserve` runs in its own short
+ * Filled by fnd-T15 (core.md §5). `probe` is required (an absent probe
+ * would silently burn a confirmation challenge on replay). `reserve` runs
+ * in its own short
  * transaction before the handler; `finalize` runs **inside** the handler
  * transaction so the response snapshot commits atomically with the
  * effects; `markFailed` runs in a separate transaction after rollback.
  */
 export interface IdempotencyHook {
-  probe?(
+  probe(
     env: PipelineHookEnv & { readonly authorization: PreflightAuthorization },
   ): Promise<IdempotencyProbeResult>;
   reserve(

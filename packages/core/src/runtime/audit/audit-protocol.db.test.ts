@@ -344,6 +344,7 @@ describe("audit protocol — transactionality", () => {
     const hooks: PipelineHooks = {
       audit: createAuditHook({ db: database.runtime.db }),
       idempotency: {
+        probe: () => Promise.resolve({ kind: "fresh" as const }),
         reserve: () => Promise.resolve({ kind: "execute", reservation: "r" }),
         finalize: () =>
           Promise.reject(new CoreInvariantError("finalize failure")),
@@ -416,5 +417,24 @@ describe("audit protocol — transactionality", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]?.outcome).toBe("ok");
     expect(rows[0]?.action).toBe("auditFixture.read");
+  });
+
+  it("refuses to write an audit row for an anonymous actor", async () => {
+    const hook = createAuditHook({ db: database.runtime.db });
+    await expect(
+      hook.recordFailure({
+        contract: writeContract,
+        request: { ...requestMeta(), action: writeContract.name },
+        principal: { mode: "public" },
+        input: { orderId: randomUUID(), note: "anonymous" },
+        error: new ConflictError("unused"),
+        authorization: {
+          actor: { type: "anonymous", id: "anonymous" },
+          companyId: null,
+        },
+        durationMs: 1,
+        auditTarget: () => ({ type: "order", id: randomUUID() }),
+      }),
+    ).rejects.toThrow(CoreInvariantError);
   });
 });

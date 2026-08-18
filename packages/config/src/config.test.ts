@@ -1,6 +1,12 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-import { ConfigValidationError, loadServerConfig } from "./config.js";
+import {
+  ConfigValidationError,
+  ENV_SCHEMA_KEYS,
+  loadServerConfig,
+} from "./config.js";
 
 /** A fully specified, valid environment (mirrors `.env.example`). */
 function validEnv(): Record<string, string> {
@@ -166,5 +172,27 @@ describe("loadServerConfig", () => {
     } catch (error) {
       expect((error as ConfigValidationError).message).toContain("missing");
     }
+  });
+});
+
+describe("ENV_SCHEMA_KEYS vs .env.example", () => {
+  it("lists the same keys the Zod env schema accepts", () => {
+    const source = readFileSync(
+      fileURLToPath(new URL("../../../.env.example", import.meta.url)),
+      { encoding: "utf8" },
+    );
+    const exampleKeys = new Set<string>();
+    for (const line of source.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (trimmed === "" || trimmed.startsWith("#")) {
+        continue;
+      }
+      const eq = trimmed.indexOf("=");
+      if (eq <= 0) {
+        continue;
+      }
+      exampleKeys.add(trimmed.slice(0, eq));
+    }
+    expect([...exampleKeys].sort()).toEqual([...ENV_SCHEMA_KEYS].sort());
   });
 });

@@ -399,6 +399,10 @@ describe("pipeline step order (§4)", () => {
         },
       },
       idempotency: {
+        probe: () => {
+          steps.push("idempotency.probe");
+          return Promise.resolve({ kind: "fresh" as const });
+        },
         reserve: () => {
           steps.push("idempotency.reserve");
           return Promise.resolve({
@@ -443,6 +447,7 @@ describe("pipeline step order (§4)", () => {
     expect(steps).toEqual([
       "rateLimit",
       "resolveTarget",
+      "idempotency.probe",
       "confirmation",
       "idempotency.reserve",
       "resolveTarget",
@@ -453,6 +458,81 @@ describe("pipeline step order (§4)", () => {
     expect(summary).toBe("Confirm the fixture operation.");
     // The confirmation hook sees the preflight-verified company scope.
     expect(gateCompanyId).toBe(parityIds.companies.published);
+  });
+
+  it("replays a completed confirmation without consuming the challenge", async () => {
+    let gateCalls = 0;
+    let handlerRuns = 0;
+    const replayContract = defineActionContract({
+      ...contractDefaults,
+      name: "pipelineFixture.confirmReplay",
+      description: "Confirmation-gated staff fixture for probe replay.",
+      principal: "staff",
+      input: z.object({}),
+      output: z.object({ ok: z.boolean() }),
+      permissions: ["pipelineFixture:write"],
+      risk: "high",
+      requiresConfirmation: true,
+      idempotent: true,
+      audit: true,
+      timeout: 5_000,
+    });
+    const replayAction = implementAction(replayContract, {
+      handler: () => {
+        handlerRuns += 1;
+        return Promise.resolve({ ok: true });
+      },
+      confirmationSummary: () => "unused",
+      auditTarget: () => ({ type: "fixture-product", id: "fixture" }),
+    });
+
+    const output = await executeAction(
+      depsFor({
+        hooks: {
+          confirmation: {
+            gate: () => {
+              gateCalls += 1;
+              return Promise.resolve({
+                challengeId: randomUUID(),
+                confirmedAt: new Date(),
+                expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+              });
+            },
+          },
+          idempotency: {
+            probe: () =>
+              Promise.resolve({
+                kind: "replay" as const,
+                response: { ok: true },
+              }),
+            reserve: () =>
+              Promise.reject(new Error("reserve must not run on probe replay")),
+            finalize: () =>
+              Promise.reject(
+                new Error("finalize must not run on probe replay"),
+              ),
+            markFailed: () =>
+              Promise.reject(
+                new Error("markFailed must not run on probe replay"),
+              ),
+          },
+        },
+      }),
+      {
+        action: replayAction,
+        input: {},
+        request: requestMeta(),
+        principal: {
+          mode: "staff",
+          session: { userId: users.anna },
+          companySelector: companyA,
+        },
+      },
+    );
+
+    expect(output).toEqual({ ok: true });
+    expect(gateCalls).toBe(0);
+    expect(handlerRuns).toBe(0);
   });
 
   it("validates input before anything else — no rate limit, no handler, no side effects", async () => {
@@ -613,6 +693,7 @@ describe("transactionality (§4 steps 7–10)", () => {
     let failureRecorded: string | undefined;
     const hooks: PipelineHooks = {
       idempotency: {
+        probe: () => Promise.resolve({ kind: "fresh" as const }),
         reserve: () =>
           Promise.resolve({ kind: "execute" as const, reservation: "res-42" }),
         finalize: () =>
@@ -951,6 +1032,7 @@ describe("idempotency slot (§4 step 6)", () => {
     let handlerRuns = 0;
     const replayingHooks: PipelineHooks = {
       idempotency: {
+        probe: () => Promise.resolve({ kind: "fresh" as const }),
         reserve: () =>
           Promise.resolve({
             kind: "replay" as const,
@@ -1002,6 +1084,7 @@ describe("idempotency slot (§4 step 6)", () => {
   it("treats a corrupted stored snapshot as a server bug, not client data", async () => {
     const corruptHooks: PipelineHooks = {
       idempotency: {
+        probe: () => Promise.resolve({ kind: "fresh" as const }),
         reserve: () =>
           Promise.resolve({
             kind: "replay" as const,

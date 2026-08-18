@@ -50,6 +50,13 @@
       "when": 1787075891984,
       "tag": "0006_domain_events_notify",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787112000000,
+      "tag": "0007_pg_trgm_unaccent",
+      "breakpoints": true
     }
   ]
 }
