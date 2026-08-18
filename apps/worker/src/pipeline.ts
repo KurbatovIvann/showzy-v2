@@ -1,0 +1,54 @@
+/**
+ * Compose the execution pipeline the worker hands every delivery
+ * (core.md §4). Apps fill every protocol slot; an absent hook would mean
+ * the protocol has not landed, not "skip it". Keep in lockstep with
+ * `apps/api/src/pipeline.ts`.
+ */
+import {
+  createAuditHook,
+  createConfirmationHook,
+  createIdempotencyHook,
+  createRateLimitHook,
+  type ActionPipelineDeps,
+  type ConfirmationStore,
+  type RateLimitStore,
+} from "@showzy/core";
+import type { Database } from "@showzy/db";
+import type { Logger } from "pino";
+
+export interface CreateActionPipelineOptions {
+  readonly db: Database;
+  readonly logger: Logger;
+  readonly rateLimitStore: RateLimitStore;
+  readonly confirmationStore: ConfirmationStore;
+  readonly ipHmacSecret: string;
+  readonly now?: () => number;
+}
+
+export function createActionPipeline(
+  options: CreateActionPipelineOptions,
+): ActionPipelineDeps {
+  const clock = options.now !== undefined ? { now: options.now } : {};
+  return {
+    db: options.db,
+    logger: options.logger,
+    hooks: {
+      rateLimit: createRateLimitHook({
+        store: options.rateLimitStore,
+        ipHmacSecret: options.ipHmacSecret,
+        logger: options.logger,
+        ...clock,
+      }),
+      confirmation: createConfirmationHook({
+        store: options.confirmationStore,
+        ...clock,
+      }),
+      idempotency: createIdempotencyHook({
+        db: options.db,
+        ...clock,
+      }),
+      audit: createAuditHook({ db: options.db }),
+    },
+    ...clock,
+  };
+}

@@ -449,6 +449,31 @@ describe("roles (db.md §6)", () => {
   });
 });
 
+describe("domain_events LISTEN/NOTIFY (db.md §4, ADR-0012)", () => {
+  it("notifies channel domain_events with the event name on INSERT", async () => {
+    await admin.query("LISTEN domain_events");
+    const received = new Promise<string>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error("timed out waiting for domain_events notify"));
+      }, 2_000);
+      const onNotify = (message: pg.Notification) => {
+        if (message.channel !== "domain_events") {
+          return;
+        }
+        clearTimeout(timer);
+        admin.off("notification", onNotify);
+        resolve(message.payload ?? "");
+      };
+      admin.on("notification", onNotify);
+    });
+
+    await insert("domain_events", domainEventRow({ name: "orders.created" }));
+
+    await expect(received).resolves.toBe("orders.created");
+    await admin.query("UNLISTEN domain_events");
+  });
+});
+
 describe("shared updated_at trigger (db.md §5)", () => {
   it("touches updated_at on UPDATE when a table attaches set_updated_at()", async () => {
     // Scratch table standing in for a future module table; module migrations

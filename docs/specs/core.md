@@ -338,7 +338,8 @@ Envelope (stored in `domain_events`, spec'd in db.md):
   `defineEvent({ name, version, scope: "tenant"|"global", payload })` in
   the emitting module's `events/`. `ctx.emit` validates payload and inserts
   into the outbox in the action's transaction (ADR-0012: claim via
-  `FOR UPDATE SKIP LOCKED`, LISTEN/NOTIFY poller in apps/worker).
+  `FOR UPDATE SKIP LOCKED`; `apps/worker` LISTENs on channel
+  `domain_events` and polls as fallback).
 - **Subscriptions**:
   `defineEventHandler({ event, consumer, action })` binds an event to a
   consuming module action; it does not accept arbitrary DB logic.
@@ -605,6 +606,7 @@ does not apply — fails the check.
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-18 | §6: named the outbox wakeup channel `domain_events` (LISTEN + polling fallback in `apps/worker`) | fnd-T27 implementation pinned the channel the trigger notifies | scaffold (fnd-T27) |
 | 2026-08-18 | §12: `suiteCoverage` manifest on the contract check; `idempotencySuite` / `eventSuite` / `atomicCallSuite` are instantiated by every module | fnd-T22 makes omitted inherited suites a CI failure | scaffold (fnd-T22) |
 | 2026-08-18 | §6: pinned delivery retry delays (1/2/4/8s), fifth-failure parking, action-timeout + 30s claim leases, and consumer-scoped replay semantics | fnd-T18 implementation proved the operational timing and replay-scope gaps | scaffold (fnd-T18) |
 | 2026-08-18 | §8: added `inputSnapshot` nullable column, audited-read post-commit semantics, and RFC 8785 hash specification | fnd-T13 implementation proved the storage and read-only tx gaps | scaffold (fnd-T13) |

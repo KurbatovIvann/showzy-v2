@@ -139,6 +139,11 @@ events) · `aggregate_type text` · `aggregate_id uuid` ·
 Indexes: `(dispatched_at) WHERE dispatched_at IS NULL`,
 unique `(aggregate_type, aggregate_id, aggregate_sequence)`,
 `(company_id, occurred_at)`.
+An `AFTER INSERT` trigger `domain_events_notify` calls
+`pg_notify('domain_events', NEW.name)` so `apps/worker` can LISTEN for
+fast wakeup (ADR-0012). Polling remains the fallback for retries, expired
+claims, and a dropped listen connection. Drizzle cannot express this; the
+SQL is the §7 approved exception.
 
 **`event_aggregate_sequences`** (core.md §6): `aggregate_type text` ·
 `aggregate_id uuid` · `company_id uuid NULL` · `last_sequence bigint`.
@@ -201,7 +206,8 @@ invent columns without that approved prerequisite spec/migration slice.
 ## 5. Triggers policy (blueprint §6: deliberate per-trigger decisions)
 
 In the DB (technical, no business meaning): `updated_at` touch trigger;
-counter caches only if a module spec explicitly justifies one. In code
+the `domain_events` INSERT `pg_notify` wakeup (ADR-0012); counter caches
+only if a module spec explicitly justifies one. In code
 (business logic): numbering sequences (documents, orders), auto-status
 transitions, denormalization into projections — all via actions/events.
 The default for any v1 trigger not explicitly kept is: moved to code or
@@ -309,6 +315,7 @@ path (not foundation KVED/CPV seeds and not `foundation.ts`).
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-18 | §4/§5: `domain_events` INSERT notifies channel `domain_events` for the worker LISTEN wakeup | fnd-T27 implementation proved the trigger was specified as a primitive but never named | scaffold (fnd-T27) |
 | 2026-08-17 | Added projection grants/read capabilities, public/social fixtures, and atomic transaction requirements | Align DB foundation with ADR-0020/0021 mobile parity | Human owner via mobile parity rework |
 | 2026-08-17 | Added schema-level considerations for consumer/account principals (no tenant-scoped indexes needed for global queries) | Complete Step 2 of spec-rework queue (ADR-0018 integration) | Spec-rework agent |
 | 2026-08-17 | Reflected companies ownership of business-category tables and projection/index constraints for published discovery | Align package conventions with ADR-0018 consumer discovery | Human owner via spec-rework queue |

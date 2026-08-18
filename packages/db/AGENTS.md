@@ -47,8 +47,11 @@ actions/services running under the core pipeline.
 
 Raw SQL exists only in generated migrations and in explicitly approved
 foundation primitives that Drizzle cannot express (`updated_at` trigger,
-roles/grants, SKIP LOCKED claims, LISTEN/NOTIFY, advisory locks — db.md §7,
-ADR-0012). Every such statement carries a comment naming its approval. Domain
+roles/grants, SKIP LOCKED claims, LISTEN/NOTIFY on `domain_events`,
+advisory locks — db.md §7, ADR-0012). Every such statement carries a
+comment naming its approval. The outbox notify trigger is
+`migrations/0006_domain_events_notify.sql` — do not re-express it in
+Drizzle schema. Domain
 queries are Drizzle-only, inside action handlers/services (prohibitions.mdc).
 
 ## Roles (db.md §6)
