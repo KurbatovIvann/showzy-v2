@@ -2,3 +2,10 @@ packages:
   - "apps/*"
   - "packages/*"
   - "packages/modules/*"
+
+# GHSA-r5fr-rjxr-66jc (CVE-2026-4800): chevrotain 10 still depends on
+# lodash 4.17.21 via the better-auth CLI
+# (`auth` → `@mrleebo/prisma-ast` → chevrotain). Force the patched 4.18.x
+# line already present in the tree (archiver-utils).
+overrides:
+  lodash: "^4.18.1"
