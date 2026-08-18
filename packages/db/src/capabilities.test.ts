@@ -96,6 +96,22 @@ describe("ProjectionReadTx (compile level)", () => {
     expectTypeOf<CompanyRow>().toHaveProperty("followerCount");
     expectTypeOf<CompanyRow>().not.toHaveProperty("internalNote");
   });
+
+  it("omits join methods so a foreign table cannot enter the query", () => {
+    type Builder = GrantedSelect<FixtureGrant["tables"]["discoveryCompanies"]>;
+    expectTypeOf<Builder>().not.toHaveProperty("leftJoin");
+    expectTypeOf<Builder>().not.toHaveProperty("innerJoin");
+    expectTypeOf<Builder>().not.toHaveProperty("rightJoin");
+    expectTypeOf<Builder>().not.toHaveProperty("fullJoin");
+    expectTypeOf<ReturnType<Builder["where"]>>().not.toHaveProperty("leftJoin");
+    expectTypeOf<ReturnType<Builder["where"]>>().not.toHaveProperty(
+      "innerJoin",
+    );
+    expectTypeOf<ReturnType<Builder["where"]>>().not.toHaveProperty(
+      "rightJoin",
+    );
+    expectTypeOf<ReturnType<Builder["where"]>>().not.toHaveProperty("fullJoin");
+  });
 });
 
 describe("projection grant manifest", () => {
@@ -201,6 +217,24 @@ describe("capabilities against the database", () => {
       expect(products.map((product) => product.productId)).toEqual([
         parityIds.products.published,
       ]);
+    });
+  });
+
+  it("does not expose join methods at runtime", async () => {
+    await database.runtime.db.transaction(async (tx) => {
+      const projection = createProjectionReadTx(tx, fixtureDiscoveryGrant);
+      const builder = projection.from("discoveryCompanies");
+      expect(builder).not.toHaveProperty("leftJoin");
+      expect(builder).not.toHaveProperty("innerJoin");
+      expect(builder).not.toHaveProperty("rightJoin");
+      expect(builder).not.toHaveProperty("fullJoin");
+      const filtered = builder.limit(1);
+      expect(filtered).not.toHaveProperty("leftJoin");
+      expect(filtered).not.toHaveProperty("innerJoin");
+      expect(filtered).not.toHaveProperty("rightJoin");
+      expect(filtered).not.toHaveProperty("fullJoin");
+      const rows = await filtered;
+      expect(rows).toHaveLength(1);
     });
   });
 

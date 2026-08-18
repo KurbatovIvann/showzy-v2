@@ -55,6 +55,12 @@ export interface EventSuiteSpec {
   readonly readProjection: (kit: TestKit) => Promise<number>;
 }
 
+export interface AtomicCallProbe {
+  readonly action: SuiteAction;
+  readonly input: unknown;
+  readonly actor?: IsolationActor;
+}
+
 export interface AtomicCallCase {
   readonly root: SuiteAction;
   readonly successInput: unknown;
@@ -62,6 +68,12 @@ export interface AtomicCallCase {
   readonly actor?: IsolationActor;
   readonly readRootEffect: (kit: TestKit) => Promise<number>;
   readonly readCalleeEffect: (kit: TestKit) => Promise<number>;
+  /** Root whose handler calls an undeclared atomic callee. */
+  readonly undeclared: AtomicCallProbe;
+  /** Mutually declared edge with a principal or tenant mismatch. */
+  readonly mismatch: AtomicCallProbe;
+  /** Declared edge whose callee nests another atomic call. */
+  readonly nested: AtomicCallProbe;
 }
 
 export interface SocialDesiredStateCase {
@@ -314,12 +326,40 @@ export function eventSuite(getKit: () => TestKit, spec: EventSuiteSpec): void {
   });
 }
 
+async function domainEventCount(kit: TestKit): Promise<number> {
+  const rows = await kit.db.runtime.db
+    .select({ id: domainEvents.id })
+    .from(domainEvents);
+  return rows.length;
+}
+
+async function invokeProbe(
+  kit: TestKit,
+  probe: AtomicCallProbe,
+  fallbackActor: IsolationActor | undefined,
+  detail: string,
+): Promise<void> {
+  await expectCoreInvariant(
+    () =>
+      invokeAction(
+        kit,
+        probe.action,
+        probe.input,
+        probe.actor ?? fallbackActor,
+        { request: { idempotencyKey: randomUUID() } },
+      ),
+    probe.action.contract.name,
+    detail,
+  );
+}
+
 export async function runAtomicCallCase(
   kit: TestKit,
   c: AtomicCallCase,
 ): Promise<void> {
   const rootBefore = await c.readRootEffect(kit);
   const calleeBefore = await c.readCalleeEffect(kit);
+  const eventsBefore = await domainEventCount(kit);
   try {
     await invokeAction(kit, c.root, c.failureInput, c.actor, {
       request: { idempotencyKey: randomUUID() },
@@ -330,6 +370,12 @@ export async function runAtomicCallCase(
     if (rootAfterFail !== rootBefore || calleeAfterFail !== calleeBefore) {
       throw new Error(
         `"${c.root.contract.name}" rollback left root ${String(rootBefore)}→${String(rootAfterFail)} callee ${String(calleeBefore)}→${String(calleeAfterFail)}`,
+      );
+    }
+    const eventsAfterFail = await domainEventCount(kit);
+    if (eventsAfterFail !== eventsBefore) {
+      throw new Error(
+        `"${c.root.contract.name}" rollback left domain_events rows (${String(eventsBefore)} → ${String(eventsAfterFail)})`,
       );
     }
     const committed = await invokeAction(kit, c.root, c.successInput, c.actor, {
@@ -348,6 +394,9 @@ export async function runAtomicCallCase(
         `"${c.root.contract.name}" commit did not persist the callee effect`,
       );
     }
+    await invokeProbe(kit, c.undeclared, c.actor, "undeclared edge");
+    await invokeProbe(kit, c.mismatch, c.actor, "principal/tenant mismatch");
+    await invokeProbe(kit, c.nested, c.actor, "nested atomic call");
     return;
   }
   throw new Error(
@@ -361,7 +410,7 @@ export function atomicCallSuite(
 ): void {
   describe("atomicCallSuite", () => {
     for (const c of cases) {
-      it(`${c.root.contract.name} commits atomically and rolls back together`, async () => {
+      it(`${c.root.contract.name} commits atomically, rolls back events, and rejects illegal edges`, async () => {
         await runAtomicCallCase(getKit(), c);
       });
     }
@@ -372,11 +421,20 @@ export async function runSocialDesiredStateCase(
   kit: TestKit,
   c: SocialDesiredStateCase,
 ): Promise<void> {
+  const deps = {
+    ...kit.pipeline,
+    hooks: {
+      ...kit.pipeline.hooks,
+      rateLimit: { enforce: () => Promise.resolve() },
+    },
+  };
   await invokeAction(kit, c.action, c.desiredInput, c.actor, {
+    deps,
     request: { idempotencyKey: randomUUID() },
   });
   const afterSet = await c.readCount(kit);
   await invokeAction(kit, c.action, c.desiredInput, c.actor, {
+    deps,
     request: { idempotencyKey: randomUUID() },
   });
   const afterRetry = await c.readCount(kit);
@@ -387,9 +445,11 @@ export async function runSocialDesiredStateCase(
   }
   await Promise.all([
     invokeAction(kit, c.action, c.desiredInput, c.actor, {
+      deps,
       request: { idempotencyKey: randomUUID() },
     }),
     invokeAction(kit, c.action, c.desiredInput, c.actor, {
+      deps,
       request: { idempotencyKey: randomUUID() },
     }),
   ]);
@@ -400,6 +460,7 @@ export async function runSocialDesiredStateCase(
     );
   }
   await invokeAction(kit, c.action, c.oppositeInput, c.actor, {
+    deps,
     request: { idempotencyKey: randomUUID() },
   });
   const afterOpposite = await c.readCount(kit);
@@ -409,6 +470,7 @@ export async function runSocialDesiredStateCase(
     );
   }
   await invokeAction(kit, c.action, c.desiredInput, c.actor, {
+    deps,
     request: { idempotencyKey: randomUUID() },
   });
   const restored = await c.readCount(kit);

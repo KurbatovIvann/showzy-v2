@@ -163,31 +163,83 @@ export function assertGrantedTable(
 }
 
 /**
- * The select builder produced for one granted table: allowlisted columns
- * only ("partial" selection mode), further composable with
- * `where`/`orderBy`/`limit` (dynamic mode).
+ * The inner Drizzle builder for one granted table. Not exported — join
+ * methods on this type are stripped by `GrantedSelect`.
  */
-export type GrantedSelect<TEntry extends ProjectionGrantTable> = PgSelect<
+type DynamicGrantedSelect<TEntry extends ProjectionGrantTable> = PgSelect<
   TEntry["table"]["_"]["name"],
   TEntry["columns"],
   "partial",
   Record<TEntry["table"]["_"]["name"], "not-null">
 >;
 
+type GrantedRows<TEntry extends ProjectionGrantTable> = Awaited<
+  DynamicGrantedSelect<TEntry>
+>;
+
+/**
+ * The select builder produced for one granted table: allowlisted columns
+ * only ("partial" selection mode), further composable with
+ * `where`/`orderBy`/`limit`/`offset`/`groupBy`/`having`. Join methods are
+ * absent so a public-global handler cannot pull a non-granted table into
+ * the query (db.md §10).
+ */
+export interface GrantedSelect<
+  TEntry extends ProjectionGrantTable,
+> extends PromiseLike<GrantedRows<TEntry>> {
+  where(
+    ...args: Parameters<DynamicGrantedSelect<TEntry>["where"]>
+  ): GrantedSelect<TEntry>;
+  orderBy(
+    ...args: Parameters<DynamicGrantedSelect<TEntry>["orderBy"]>
+  ): GrantedSelect<TEntry>;
+  limit(
+    ...args: Parameters<DynamicGrantedSelect<TEntry>["limit"]>
+  ): GrantedSelect<TEntry>;
+  offset(
+    ...args: Parameters<DynamicGrantedSelect<TEntry>["offset"]>
+  ): GrantedSelect<TEntry>;
+  groupBy(
+    ...args: Parameters<DynamicGrantedSelect<TEntry>["groupBy"]>
+  ): GrantedSelect<TEntry>;
+  having(
+    ...args: Parameters<DynamicGrantedSelect<TEntry>["having"]>
+  ): GrantedSelect<TEntry>;
+}
+
+function wrapGrantedSelect<TEntry extends ProjectionGrantTable>(
+  builder: DynamicGrantedSelect<TEntry>,
+): GrantedSelect<TEntry> {
+  const next = (
+    following: DynamicGrantedSelect<TEntry>,
+  ): GrantedSelect<TEntry> => wrapGrantedSelect(following);
+
+  return {
+    where: (...args) => next(builder.where(...args)),
+    orderBy: (...args) => next(builder.orderBy(...args)),
+    limit: (...args) => next(builder.limit(...args)),
+    offset: (...args) => next(builder.offset(...args)),
+    groupBy: (...args) => next(builder.groupBy(...args)),
+    having: (...args) => next(builder.having(...args)),
+    then: (onFulfilled, onRejected) =>
+      Promise.resolve(builder).then(onFulfilled, onRejected),
+  };
+}
+
 function grantedSelect<TEntry extends ProjectionGrantTable>(
   tx: Pick<ReadTx, "select">,
   entry: TEntry,
 ): GrantedSelect<TEntry> {
-  // `.$dynamic()` keeps the builder open for where/orderBy/limit chaining;
-  // the selection is fixed to the grant's allowlist and cannot be widened.
-  // Drizzle's builder generics resolve against the loose `ProjectionGrantTable`
-  // constraint inside this generic body, so the assertion re-pins the precise
-  // granted selection type; the runtime value is the plain builder over
-  // exactly the allowlisted columns.
-  return tx
+  // `.$dynamic()` keeps the inner builder open for where/orderBy/limit
+  // chaining; the wrapper then hides join methods so they cannot compile
+  // or execute. Drizzle's builder generics resolve against the loose
+  // `ProjectionGrantTable` constraint inside this generic body, so the
+  // assertion re-pins the precise granted selection type.
+  const builder = tx
     .select(entry.columns)
     .from(entry.table)
-    .$dynamic() as GrantedSelect<TEntry>;
+    .$dynamic() as DynamicGrantedSelect<TEntry>;
+  return wrapGrantedSelect(builder);
 }
 
 /**

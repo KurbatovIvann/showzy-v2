@@ -5,12 +5,13 @@
  * fnd-T15, confirmation fnd-T20), and the telemetry sink the apps bind to
  * OTel/Sentry (fnd-T26/T28).
  *
- * The hooks are optional injection points on purpose: the pipeline commits
- * the fixed §4 step order and the transaction semantics here, while each
- * protocol's storage/validation logic lands with its own task and plugs
- * into its slot without reordering anything. An absent hook means "this
- * protocol slice has not landed yet" — apps compose the full set at boot,
- * and the contract check keeps actions honest about what they declare.
+ * Hook slots stay optional on the type so the test kit can compose
+ * subsets. At execution time the pipeline fails closed: an idempotent
+ * mutation without the idempotency hook, an `audit: true` action without
+ * the audit hook, a non-system action without the rate-limit hook, or a
+ * `requiresConfirmation` action without the confirmation hook throws
+ * `CoreInvariantError` instead of running. Apps compose the full set at
+ * boot.
  */
 import type { Database, ProjectionGrantManifest, Tx } from "@showzy/db";
 import type { Logger } from "pino";
@@ -240,10 +241,10 @@ export interface AuditHook {
 
 /** The protocol slots, composed at boot. Order of execution is fixed (§4). */
 export interface PipelineHooks {
-  readonly rateLimit?: RateLimitHook;
-  readonly confirmation?: ConfirmationHook;
-  readonly idempotency?: IdempotencyHook;
-  readonly audit?: AuditHook;
+  readonly rateLimit?: RateLimitHook | undefined;
+  readonly confirmation?: ConfirmationHook | undefined;
+  readonly idempotency?: IdempotencyHook | undefined;
+  readonly audit?: AuditHook | undefined;
 }
 
 /** Correlation fields opening one action span (blueprint §9). */

@@ -42,15 +42,17 @@ import {
   CoreInvariantError,
   ValidationError,
 } from "../../errors/index.js";
+import { createAuditHook } from "../audit/create-audit-hook.js";
+import { createIdempotencyHook } from "../idempotency/create-idempotency-hook.js";
 import {
   implementAction,
   type ImplementedAction,
 } from "../implement-action.js";
-import { createIdempotencyHook } from "../idempotency/create-idempotency-hook.js";
 import { executeAction } from "../pipeline/execute-action.js";
 import type {
   ActionPipelineDeps,
   PipelineRequestMeta,
+  RateLimitHook,
 } from "../pipeline/types.js";
 import type { ConfirmationSummaryEnv, ResolvedTarget } from "../types.js";
 import {
@@ -161,10 +163,13 @@ function deps(
 ): ActionPipelineDeps {
   const clock = options.now === undefined ? {} : { now: options.now };
   const store = options.store ?? createInMemoryConfirmationStore(clock);
+  const rateLimit: RateLimitHook = { enforce: () => Promise.resolve() };
   return {
     db: database.runtime.db,
     logger: silentLogger,
     hooks: {
+      rateLimit,
+      audit: createAuditHook({ db: database.runtime.db }),
       idempotency: createIdempotencyHook({
         db: database.runtime.db,
         ...clock,

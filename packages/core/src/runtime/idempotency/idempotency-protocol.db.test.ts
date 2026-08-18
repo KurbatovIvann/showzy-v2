@@ -43,6 +43,7 @@ import {
   IdempotencyConflictError,
   ValidationError,
 } from "../../errors/index.js";
+import { createAuditHook } from "../audit/create-audit-hook.js";
 import {
   implementAction,
   type ImplementedAction,
@@ -52,6 +53,7 @@ import type {
   ActionPipelineDeps,
   IdempotencyHook,
   PipelineRequestMeta,
+  RateLimitHook,
 } from "../pipeline/types.js";
 import {
   cleanupExpiredIdempotencyKeys,
@@ -139,10 +141,13 @@ function countingAction(): { action: FixtureAction; runs: () => number } {
 }
 
 function deps(hook?: IdempotencyHook): ActionPipelineDeps {
+  const rateLimit: RateLimitHook = { enforce: () => Promise.resolve() };
   return {
     db: database.runtime.db,
     logger: silentLogger,
     hooks: {
+      rateLimit,
+      audit: createAuditHook({ db: database.runtime.db }),
       idempotency: hook ?? createIdempotencyHook({ db: database.runtime.db }),
     },
   };

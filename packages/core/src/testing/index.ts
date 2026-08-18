@@ -54,6 +54,7 @@ export {
 } from "./protocol-suites.js";
 export type {
   AtomicCallCase,
+  AtomicCallProbe,
   EventSuiteSpec,
   IdempotencyCase,
   SocialDesiredStateCase,

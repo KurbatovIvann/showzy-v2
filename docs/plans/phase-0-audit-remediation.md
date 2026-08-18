@@ -133,7 +133,7 @@ the boot/CI registry identity test (step 3).
 
 ### A3 — The pipeline is fail-open when protocol hooks are not composed
 
-**Severity: MAJOR (core).** `packages/core/src/runtime/pipeline/types.ts`
+**Severity: MAJOR (core) — implemented.** `packages/core/src/runtime/pipeline/types.ts`
 declares every hook slot optional and `execute-action.ts` skips silently:
 rate limit (`deps.hooks?.rateLimit?.enforce`, line ~308), idempotency
 (`deps.hooks?.idempotency !== undefined`, ~368), audit
@@ -162,7 +162,7 @@ hook fails with `CoreInvariantError` instead of executing the action.
 
 ### A4 — Inherited test-kit suites do not verify everything §12/§13 promise
 
-**Severity: MAJOR (core/testing).** Module authors inherit weaker
+**Severity: MAJOR (core/testing) — implemented.** Module authors inherit weaker
 guarantees than core itself has:
 
 - `atomicCallSuite` (`protocol-suites.ts`) asserts only commit/rollback of
@@ -192,7 +192,7 @@ guarantees than core itself has:
 
 ### A5 — `ProjectionReadTx` allows a foreign-table read through join methods
 
-**Severity: MAJOR (db, tenant boundary).**
+**Severity: MAJOR (db, tenant boundary) — implemented.**
 `packages/db/src/capabilities.ts` returns `GrantedSelect` as a dynamic
 Drizzle `PgSelect`, which still carries `leftJoin` / `innerJoin` /
 `rightJoin` / `fullJoin`. Audit probe confirmed:
@@ -216,7 +216,7 @@ holder of public-global actions) to import foreign schemas.
 
 ### A6 — The money schema lint misses money columns outside its keyword list
 
-**Severity: MAJOR (db/CI).** `packages/db/scripts/check-money-schema.mjs`
+**Severity: MAJOR (db/CI) — implemented.** `packages/db/scripts/check-money-schema.mjs`
 recognizes money only by the term list
 `price|amount|total|subtotal|discount|tax|fee|balance`. Verified misses:
 `numeric("refunded_minor")`, `integer("deposit_minor")`, and
@@ -236,7 +236,7 @@ would sail through CI today.
 
 ### A7 — The 20/h-per-IP OTP send limit is config-asserted, never behavior-tested
 
-**Severity: MAJOR (api/security).** security-operations §8 requires OTP
+**Severity: MAJOR (api/security) — implemented.** security-operations §8 requires OTP
 "send/**IP limits**" to be integration-tested. Expiry, attempt cap,
 cooldown, and 5/h/identifier have behavioral tests; the per-IP limit is
 only asserted as config shape (`options.test.ts`), and its enforcement
@@ -258,7 +258,7 @@ parameter that could silently regress on a dependency upgrade.
 
 ### A8 — 401 is outside the typed wire-error union
 
-**Severity: MAJOR (contract + spec patch).** contract.md §4 promises "a
+**Severity: MAJOR (contract + spec patch) — implemented.** contract.md §4 promises "a
 discriminated union typed by wire code — no string matching", but the table
 has no authentication row: `apps/api/src/http/app.ts` throws
 `ORPCError("UNAUTHORIZED", { status: 401 })`, which `isWireError()` rejects
@@ -385,12 +385,12 @@ proving test where behavior is asserted):
 | --- | --- | --- | --- |
 | 1 | A1 branch protection — resolved as accepted risk; note recorded in `docs/operations/branch-protection.md` | human | done |
 | 2 | A2 composition root retirement + gate demo | scaffold agent | done (SHO-82) |
-| 3 | A3 fail-closed pipeline hooks | scaffold agent | fnd-G1 (recommended) |
-| 4 | A4 test-kit suite completeness | scaffold agent | fnd-G1 (recommended) |
-| 5 | A5 ProjectionReadTx join escape | scaffold agent | before first `search`/public-global work; recommended now |
-| 6 | A6 money lint hardening | scaffold agent | before fnd-T29 (first money schema slice) |
-| 7 | A7 OTP per-IP integration test | scaffold agent | before fnd-T49 (auth screens) |
-| 8 | A8 typed 401 wire error | scaffold agent | before fnd-T48 (typed client consumer) |
+| 3 | A3 fail-closed pipeline hooks | scaffold agent | done (`scaffold/phase-0-a3-a8`) |
+| 4 | A4 test-kit suite completeness | scaffold agent | done (`scaffold/phase-0-a3-a8`) |
+| 5 | A5 ProjectionReadTx join escape | scaffold agent | done (`scaffold/phase-0-a3-a8`) |
+| 6 | A6 money lint hardening | scaffold agent | done (`scaffold/phase-0-a3-a8`) |
+| 7 | A7 OTP per-IP integration test | scaffold agent | done (`scaffold/phase-0-a3-a8`) |
+| 8 | A8 typed 401 wire error | scaffold agent | done (`scaffold/phase-0-a3-a8`) |
 | 9–11 | A9 / A10 / A11 code polish batches | scaffold agent | none |
 | 12 | A12 spec/doc alignment batch (§5) | scaffold agent + owner | none |
 
@@ -402,6 +402,7 @@ the gate window keeps the reference slices from inheriting the gaps.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-08-18 | A3–A8 implemented on `scaffold/phase-0-a3-a8`: fail-closed protocol hooks, inherited kit suites, ProjectionReadTx join lock, money lint, OTP per-IP test, `UNAUTHENTICATED` 401 | fnd-G1 MAJOR findings; owner asked for one branch covering A3–A8 |
 | 2026-08-18 | A2 implemented (SHO-82): contract-check CI stage walks `apps/api/src/composition.ts`; core interim manifest retired | fnd-G1 gate: module tasks must not edit frozen core to be covered |
 | 2026-08-18 | A1 resolved as accepted risk: owner keeps the private/free plan; compensating manual merge gate recorded in `docs/operations/branch-protection.md` | Owner decision at gate review |
 | 2026-08-18 | Initial audit report and remediation breakdown | fnd-G1 phase-0 exit-gate audit (SHO-56) |

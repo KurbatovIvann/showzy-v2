@@ -243,6 +243,7 @@ export async function executeAction<
     //    (steps 4/7); nothing here grants access.
     assertPrincipalShape(contract, principal);
     assertAuthenticated(principal);
+    assertRequiredProtocolHooks(contract, deps.hooks);
 
     // One emission buffer per invocation (fnd-T16): `ctx.emit` validates and
     // buffers synchronously; the buffer flushes into the outbox in step 9,
@@ -536,6 +537,42 @@ export async function executeAction<
     span?.recordError(coreError);
     finish(coreError.code);
     throw coreError;
+  }
+}
+
+/**
+ * Protocol hooks are optional on `PipelineDeps` so tests can compose
+ * subsets, but an action that declares a protocol cannot execute when
+ * that slice is missing (core.md §5/§7/§8/§10). Confirmation already
+ * failed closed; the other three protocols follow the same rule.
+ */
+function assertRequiredProtocolHooks(
+  contract: AnyActionContract,
+  hooks: ActionPipelineDeps["hooks"],
+): void {
+  if (contract.principal !== "system" && hooks?.rateLimit === undefined) {
+    throw new CoreInvariantError(
+      `"${contract.name}" is a non-system action but no rate-limit hook is composed`,
+    );
+  }
+  if (
+    contract.idempotent &&
+    contract.risk !== "read" &&
+    hooks?.idempotency === undefined
+  ) {
+    throw new CoreInvariantError(
+      `"${contract.name}" is an idempotent mutation but no idempotency hook is composed`,
+    );
+  }
+  if (contract.audit && hooks?.audit === undefined) {
+    throw new CoreInvariantError(
+      `"${contract.name}" declares audit: true but no audit hook is composed`,
+    );
+  }
+  if (contract.requiresConfirmation && hooks?.confirmation === undefined) {
+    throw new CoreInvariantError(
+      `"${contract.name}" requires confirmation but no confirmation hook is composed — high-risk execution cannot proceed`,
+    );
   }
 }
 

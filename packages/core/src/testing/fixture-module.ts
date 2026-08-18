@@ -6,7 +6,9 @@
  * invariant run exercise end-to-end. Not exported from
  * `@showzy/core/testing`.
  */
-import type { ReadTx, Tx } from "@showzy/db";
+import { randomUUID } from "node:crypto";
+
+import { domainEvents, type Database, type ReadTx, type Tx } from "@showzy/db";
 import {
   fixtureCompanyFollows,
   fixtureDiscoveryCompanies,
@@ -213,7 +215,7 @@ export function createProtocolFixtureActions() {
       risk: "write",
       idempotent: false,
       emits: ["kitCatalog.stockAdjusted"],
-      atomicCallers: ["kitOrders.confirm"],
+      atomicCallers: ["kitOrders.confirm", "kitOrders.leakyConfirm"],
       audit: true,
       timeout: 5_000,
     }),
@@ -403,6 +405,129 @@ export function createProtocolFixtureActions() {
     },
   );
 
+  const mismatchStock = implementAction(
+    defineActionContract({
+      ...contractDefaults,
+      name: "kitCatalog.mismatchStock",
+      description: "Staff callee declared for a system atomic root (bug).",
+      principal: "staff",
+      transport: "internal",
+      input: z.object({}),
+      output: z.object({ ok: z.boolean() }),
+      permissions: ["kitCatalog:manageStock"],
+      risk: "write",
+      idempotent: false,
+      emits: [],
+      atomicCallers: ["kitOrders.confirmMismatch"],
+      audit: true,
+      timeout: 5_000,
+    }),
+    {
+      handler: () => Promise.resolve({ ok: true }),
+      auditTarget: () => ({ type: "stock", id: "mismatch" }),
+    },
+  );
+
+  const confirmMismatch = implementAction(
+    defineActionContract({
+      ...contractDefaults,
+      name: "kitOrders.confirmMismatch",
+      description: "System root reaching a staff atomic callee (a bug).",
+      principal: "system",
+      systemScope: "tenant",
+      transport: "internal",
+      input: z.object({}),
+      output: z.object({ ok: z.boolean() }),
+      permissions: [],
+      risk: "write",
+      idempotent: true,
+      emits: [],
+      atomicCalls: ["kitCatalog.mismatchStock"],
+      audit: true,
+      timeout: 5_000,
+    }),
+    {
+      handler: async (_input, ctx) => {
+        await ctx.callAtomic(mismatchStock, {});
+        return { ok: true };
+      },
+      auditTarget: () => ({ type: "order", id: "mismatch" }),
+    },
+  );
+
+  const createLeakyConfirmOrder = (db: Database) =>
+    implementAction(
+      defineActionContract({
+        ...contractDefaults,
+        name: "kitOrders.leakyConfirm",
+        description:
+          "Atomic root that smuggles an outbox row out of the handler transaction.",
+        principal: "staff",
+        transport: "client",
+        input: z.object({
+          orderId: z.uuid(),
+          productId: z.uuid(),
+          quantity: z.number().int().positive(),
+          failAfterCall: z.boolean(),
+        }),
+        output: z.object({ unitsLeft: z.number().int() }),
+        permissions: ["kitOrders:confirm"],
+        risk: "write",
+        idempotent: true,
+        emits: ["kitOrders.confirmed"],
+        atomicCalls: ["kitCatalog.decrementStock"],
+        audit: true,
+        timeout: 5_000,
+      }),
+      {
+        handler: async (input, ctx) => {
+          if (ctx.principal !== "staff") {
+            throw new CoreInvariantError("leakyConfirm expects staff");
+          }
+          await requireWritable(ctx.db).insert(fixtureProductComments).values({
+            id: input.orderId,
+            productId: kitIdentities.products.published,
+            authorUserId: ctx.userId,
+            parentCommentId: null,
+            body: "confirmed",
+          });
+          const stock = await ctx.callAtomic(decrementStock, {
+            productId: input.productId,
+            quantity: input.quantity,
+          });
+          ctx.emit(orderConfirmed, {
+            aggregate: { type: "order", id: input.orderId },
+            payload: { orderId: input.orderId },
+          });
+          if (input.failAfterCall) {
+            await db.insert(domainEvents).values({
+              id: randomUUID(),
+              name: "kitOrders.confirmed",
+              version: 1,
+              occurredAt: new Date(),
+              companyId: kitIdentities.companies.a,
+              aggregateType: "order",
+              aggregateId: input.orderId,
+              aggregateSequence: 1n,
+              actorType: "user",
+              actorId: ctx.userId,
+              channel: "ui",
+              requestId: "leaky-confirm",
+              correlationId: "leaky-confirm",
+              causationId: "leaky-confirm",
+              payload: { orderId: input.orderId },
+            });
+            throw new ConflictError("Root failed after the atomic call.");
+          }
+          return stock;
+        },
+        auditTarget: (env) => ({
+          type: "order",
+          id: readOrderId(env.input),
+        }),
+      },
+    );
+
   const setFollow = implementAction(
     defineActionContract({
       ...contractDefaults,
@@ -523,6 +648,9 @@ export function createProtocolFixtureActions() {
     confirmUndeclared,
     nestedCallee,
     confirmNested,
+    mismatchStock,
+    confirmMismatch,
+    createLeakyConfirmOrder,
     setFollow,
     leakySetFollow,
   };

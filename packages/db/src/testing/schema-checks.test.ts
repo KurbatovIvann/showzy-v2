@@ -55,6 +55,24 @@ describe("money schema lint", () => {
     ).resolves.toMatchObject({ stderr: "" });
   });
 
+  it("accepts bigint _milli quantity columns without currency", async () => {
+    const schema = path.join(workspace, "valid-milli");
+    await mkdir(schema);
+    await writeFile(
+      path.join(schema, "weights.ts"),
+      `export const weights = pgTable("weights", {
+        mass: bigint("mass_milli", { mode: "bigint" }).notNull(),
+      });`,
+    );
+
+    await expect(
+      execFileAsync("node", [
+        path.join(scripts, "check-money-schema.mjs"),
+        schema,
+      ]),
+    ).resolves.toMatchObject({ stderr: "" });
+  });
+
   it("rejects decimal money, missing _minor suffix, and missing currency", async () => {
     const schema = path.join(workspace, "invalid");
     await mkdir(schema);
@@ -83,6 +101,43 @@ describe("money schema lint", () => {
     expect(stderr).toContain('"price_minor" must use bigint');
     expect(stderr).toContain('"total" must end in _minor');
     expect(stderr).toContain("money-bearing table must define currency");
+  });
+
+  it("rejects _minor/_milli that are not bigint, floating columns, and new money terms", async () => {
+    const schema = path.join(workspace, "invalid-extended");
+    await mkdir(schema);
+    await writeFile(
+      path.join(schema, "payments.ts"),
+      `export const refunds = pgTable("refunds", {
+        refunded: numeric("refunded_minor"),
+        currency: char("currency", { length: 3 }),
+      });
+      export const deposits = pgTable("deposits", {
+        deposit: integer("deposit_minor"),
+        currency: char("currency", { length: 3 }),
+      });
+      export const payouts = pgTable("payouts", {
+        payout: doublePrecision("payout_value"),
+      });
+      export const extras = pgTable("extras", {
+        ratio: numeric("some_ratio"),
+        milli: integer("qty_milli"),
+      });`,
+    );
+
+    const stderr = await commandFailure(
+      execFileAsync("node", [
+        path.join(scripts, "check-money-schema.mjs"),
+        schema,
+      ]),
+    );
+    expect(stderr).toContain("money schema check failed");
+    expect(stderr).toContain('"refunded_minor" must use bigint');
+    expect(stderr).toContain('"deposit_minor" must use bigint');
+    expect(stderr).toContain('"payout_value" must end in _minor');
+    expect(stderr).toContain("uses doublePrecision");
+    expect(stderr).toContain("uses numeric");
+    expect(stderr).toContain('"qty_milli" must use bigint');
   });
 });
 

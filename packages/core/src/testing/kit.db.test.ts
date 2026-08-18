@@ -15,6 +15,7 @@ import { kitIdentities } from "./identities.js";
 import { createTestKit, type TestKit } from "./kit.js";
 import {
   accountIsolationSuite,
+  assertUserRateLimit,
   browseCase,
   consumerIsolationSuite,
   crossTenantSuite,
@@ -247,5 +248,40 @@ describe("suites fail on seeded violations", () => {
         ),
       ),
     ).rejects.toThrow(/leaked user [AB]/);
+  });
+
+  it("detects an account handler that writes a company-scoped audit/event row", async () => {
+    await expect(
+      runAccountIsolationCase(
+        kit,
+        isolationCase(
+          leaky.accountWritesCompanyScope,
+          { input: {}, userId: kitIdentities.users.anna },
+          { input: {}, userId: kitIdentities.users.boris },
+        ),
+      ),
+    ).rejects.toThrow(/company_id=/);
+  });
+
+  it("detects a consumer action that is not rate-limited at 60/min", async () => {
+    await expect(
+      assertUserRateLimit(
+        kit,
+        correct.consumerBrowseDiscovery,
+        { input: {}, userId: kitIdentities.users.anna },
+        { enforce: () => Promise.resolve() },
+      ),
+    ).rejects.toThrow(/did not rate-limit/);
+  });
+
+  it("detects an account action that is not rate-limited at 90/min", async () => {
+    await expect(
+      assertUserRateLimit(
+        kit,
+        correct.accountListMine,
+        { input: {}, userId: kitIdentities.users.anna },
+        { enforce: () => Promise.resolve() },
+      ),
+    ).rejects.toThrow(/did not rate-limit/);
   });
 });

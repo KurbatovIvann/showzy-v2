@@ -6,7 +6,11 @@
  * assertions without registration, so the kit self-tests can prove a
  * leaky fixture action fails them.
  */
+import { randomUUID } from "node:crypto";
+
+import { auditLog, domainEvents } from "@showzy/db";
 import { readCrmSentinel } from "@showzy/db/testing/fixtures";
+import { eq } from "drizzle-orm";
 import { describe, it } from "vitest";
 import type { z } from "zod";
 
@@ -16,6 +20,7 @@ import {
   RateLimitError,
 } from "../errors/index.js";
 import type { ImplementedAction } from "../runtime/implement-action.js";
+import type { RateLimitHook } from "../runtime/pipeline/types.js";
 import {
   createRateLimitHook,
   rateLimitDefaults,
@@ -304,6 +309,84 @@ async function assertPublicIpHmacLimit(
   );
 }
 
+export async function assertUserRateLimit(
+  kit: TestKit,
+  action: SuiteAction,
+  call: IsolationInvocation,
+  rateLimitHook?: RateLimitHook,
+): Promise<void> {
+  const principal = action.contract.principal;
+  if (principal !== "consumer" && principal !== "account") {
+    throw new Error(
+      `"${action.contract.name}" is not a consumer/account action — user rate-limit assertion only applies to those modes`,
+    );
+  }
+  const policy = action.contract.rateLimit ?? rateLimitDefaults[principal];
+  if (policy.scope !== "user") {
+    throw new Error(
+      `"${action.contract.name}" is not user rate limited (scope=${policy.scope})`,
+    );
+  }
+  const logger = createCapturingLogger().logger;
+  const deps = {
+    ...kit.pipeline,
+    logger,
+    hooks: {
+      ...kit.pipeline.hooks,
+      rateLimit:
+        rateLimitHook ??
+        createRateLimitHook({
+          store: createInMemoryRateLimitStore(),
+          ipHmacSecret: "test-kit-ip-hmac-secret",
+          logger,
+        }),
+    },
+  };
+  for (let i = 0; i < policy.limit; i += 1) {
+    await invoke(kit, action, call, { deps });
+  }
+  try {
+    await invoke(kit, action, call, { deps });
+  } catch (error) {
+    if (error instanceof RateLimitError) {
+      return;
+    }
+    throw error;
+  }
+  throw new Error(
+    `"${action.contract.name}" did not rate-limit the ${String(policy.limit + 1)}th ${principal} call`,
+  );
+}
+
+async function assertNullCompanyProtocolRows(
+  kit: TestKit,
+  actionName: string,
+  requestId: string,
+): Promise<void> {
+  const eventRows = await kit.db.runtime.db
+    .select({ companyId: domainEvents.companyId })
+    .from(domainEvents)
+    .where(eq(domainEvents.requestId, requestId));
+  for (const row of eventRows) {
+    if (row.companyId !== null) {
+      throw new Error(
+        `"${actionName}" emitted a domain_events row with company_id=${row.companyId} — account actions are null-company`,
+      );
+    }
+  }
+  const auditRows = await kit.db.runtime.db
+    .select({ companyId: auditLog.companyId })
+    .from(auditLog)
+    .where(eq(auditLog.requestId, requestId));
+  for (const row of auditRows) {
+    if (row.companyId !== null) {
+      throw new Error(
+        `"${actionName}" wrote an audit_log row with company_id=${row.companyId} — account actions are null-company`,
+      );
+    }
+  }
+}
+
 export function publicProjectionSuite(
   getKit: () => TestKit,
   cases: readonly BrowseCase[],
@@ -349,6 +432,11 @@ export async function runConsumerIsolationCase(
   if (JSON.stringify(crmAfter) !== JSON.stringify(crmBefore)) {
     throw new Error(leakMessage(action.contract.name, "a CRM sentinel change"));
   }
+
+  await assertUserRateLimit(kit, action, {
+    input: c.input ?? {},
+    userId: c.userId ?? kitIdentities.users.anna,
+  });
 }
 
 export function consumerIsolationSuite(
@@ -357,7 +445,7 @@ export function consumerIsolationSuite(
 ): void {
   describe("consumerIsolationSuite", () => {
     for (const c of cases) {
-      it(`${c.action.contract.name} hides unpublished entities, private collections, and does not touch CRM`, async () => {
+      it(`${c.action.contract.name} hides unpublished entities, private collections, does not touch CRM, and user rate-limits`, async () => {
         await runConsumerIsolationCase(getKit(), c);
       });
     }
@@ -381,8 +469,12 @@ export async function runAccountIsolationCase(
   }
 
   const capturing = createCapturingLogger();
+  const requestId = randomUUID();
   const deps = { ...kit.pipeline, logger: capturing.logger };
-  const own = await invoke(kit, action, c.own, { deps });
+  const own = await invoke(kit, action, c.own, {
+    deps,
+    request: { requestId },
+  });
   const ownSeen = new Set(collectJsonStrings(own));
   if (!ownSeen.has(kitIdentities.companies.a)) {
     throw new Error(
@@ -404,6 +496,9 @@ export async function runAccountIsolationCase(
     );
   }
 
+  await assertNullCompanyProtocolRows(kit, action.contract.name, requestId);
+  await assertUserRateLimit(kit, action, c.own);
+
   try {
     const foreign = await invoke(kit, action, c.foreign);
     assertAccountDidNotLeak(action.contract.name, foreign);
@@ -421,7 +516,7 @@ export function accountIsolationSuite(
 ): void {
   describe("accountIsolationSuite", () => {
     for (const c of cases) {
-      it(`${c.action.contract.name} keeps user B out of user A's companies/personal data and logs a null company`, async () => {
+      it(`${c.action.contract.name} keeps user B out of user A's companies/personal data, logs a null company, and user rate-limits`, async () => {
         await runAccountIsolationCase(getKit(), c);
       });
     }

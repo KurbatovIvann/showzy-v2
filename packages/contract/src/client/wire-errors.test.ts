@@ -15,6 +15,7 @@ describe("contract.md §4 wire table", () => {
   it("pins wire code → HTTP status exactly (renames are spec rework)", () => {
     expect(wireErrorStatus).toEqual({
       VALIDATION: 400,
+      UNAUTHENTICATED: 401,
       PERMISSION_DENIED: 403,
       NOT_FOUND: 404,
       CONFLICT: 409,
@@ -108,6 +109,21 @@ describe("WireError union (contract.md §4)", () => {
     expect(denied.message).toBe(
       "You do not have permission to perform this action.",
     );
+
+    const unauthenticated: unknown = new ORPCError("UNAUTHENTICATED", {
+      defined: true,
+      status: 401,
+      message: "Authentication required.",
+    });
+    expect(isWireError(unauthenticated)).toBe(true);
+    if (
+      !isWireError(unauthenticated) ||
+      unauthenticated.code !== "UNAUTHENTICATED"
+    ) {
+      expect.unreachable("expected UNAUTHENTICATED");
+      return;
+    }
+    expectTypeOf(unauthenticated.status).toEqualTypeOf<401>();
   });
 
   it("rejects unknown codes and mismatched extras", () => {
@@ -137,6 +153,8 @@ describe("WireError union (contract.md §4)", () => {
       switch (error.code) {
         case "VALIDATION":
           return error.data.issues[0]?.message ?? error.message;
+        case "UNAUTHENTICATED":
+          return "unauthenticated";
         case "PERMISSION_DENIED":
           return "denied";
         case "NOT_FOUND":

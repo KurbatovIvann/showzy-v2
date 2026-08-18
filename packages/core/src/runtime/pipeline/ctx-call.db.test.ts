@@ -51,11 +51,12 @@ import {
   PermissionDeniedError,
   ValidationError,
 } from "../../errors/index.js";
+import { createAuditHook } from "../audit/create-audit-hook.js";
+import type { ActionCtx } from "../context/types.js";
 import {
   implementAction,
   type ImplementedAction,
 } from "../implement-action.js";
-import type { ActionCtx } from "../context/types.js";
 import { executeAction } from "./execute-action.js";
 import type {
   ActionPipelineDeps,
@@ -131,7 +132,16 @@ function requestMeta(
 function depsFor(
   overrides: Partial<ActionPipelineDeps> = {},
 ): ActionPipelineDeps {
-  return { db: db.runtime.db, logger: silentLogger, ...overrides };
+  return {
+    db: db.runtime.db,
+    logger: silentLogger,
+    ...overrides,
+    hooks: {
+      rateLimit: { enforce: () => Promise.resolve() },
+      audit: createAuditHook({ db: db.runtime.db }),
+      ...overrides.hooks,
+    },
+  };
 }
 
 function captureLogger(): {
