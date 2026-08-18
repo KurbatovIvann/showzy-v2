@@ -1,0 +1,11 @@
+{
+  "extends": "@showzy/tooling/tsconfig/base.json",
+  "compilerOptions": {
+    // The contract leaf must stay free of Node dependencies (ADR-0016);
+    // keeping ambient @types out makes an accidental `process`/`Buffer`
+    // reference a compile error. Runtime subpaths (fnd-T9+) will relax this
+    // in a dedicated tsconfig if they need Node types.
+    "types": []
+  },
+  "include": ["src"]
+}
