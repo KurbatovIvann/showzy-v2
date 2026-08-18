@@ -2,6 +2,7 @@ import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import pg from "pg";
 
 import * as auth from "./schema/auth.js";
+import * as companies from "./schema/companies.js";
 import * as foundation from "./schema/foundation.js";
 
 /**
@@ -10,7 +11,7 @@ import * as foundation from "./schema/foundation.js";
  * `@showzy/db/schema/<module>` file — this aggregate exists for the client
  * factory and relational queries.
  */
-export const schema = { ...foundation, ...auth };
+export const schema = { ...foundation, ...auth, ...companies };
 
 export type DbSchema = typeof schema;
 export type Database = NodePgDatabase<DbSchema>;

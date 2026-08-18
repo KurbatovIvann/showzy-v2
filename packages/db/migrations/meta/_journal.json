@@ -22,6 +22,20 @@
       "when": 1787031739407,
       "tag": "0002_broken_big_bertha",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787033165405,
+      "tag": "0003_shiny_felicia_hardy",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1787033180617,
+      "tag": "0004_companies_updated_at_triggers",
+      "breakpoints": true
     }
   ]
 }
