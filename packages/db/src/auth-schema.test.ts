@@ -5,7 +5,8 @@
  * email/phone/session token, FK cascade from sessions and accounts to users),
  * and the runtime role can perform the DML better-auth needs. The `userIdColumn`
  * helper is pinned so module FKs to users cannot drift from the generated ID
- * type.
+ * type. There is deliberately no `verification` table: OTP codes live only in
+ * TTL'd secondary storage (security-operations §2), never in Postgres.
  *
  * Raw SQL below is test-only structure verification (catalog queries) — not a
  * domain data path (db.md §7).
@@ -24,7 +25,7 @@ import {
 
 import type { DbClient } from "./client.js";
 import { userIdColumn, type UserId } from "./schema/auth-ids.js";
-import { account, session, user, verification } from "./schema/auth.js";
+import { account, session, user } from "./schema/auth.js";
 import { createTestDatabase, type TestDatabase } from "./testing/harness.js";
 
 let database: TestDatabase;
@@ -74,7 +75,7 @@ async function insertUser(overrides: Partial<typeof user.$inferInsert> = {}) {
 }
 
 describe("better-auth generated schema (db.md §4)", () => {
-  it("creates the user, session, account, and verification tables", async () => {
+  it("creates the user, session, and account tables — and no verification table", async () => {
     const result = await admin.query(
       `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'`,
     );
@@ -82,8 +83,12 @@ describe("better-auth generated schema (db.md §4)", () => {
       (row: { table_name: string }) => row.table_name,
     );
     expect(names).toEqual(
-      expect.arrayContaining(["user", "session", "account", "verification"]),
+      expect.arrayContaining(["user", "session", "account"]),
     );
+    // OTP codes must have nowhere to land in Postgres: verification values
+    // live only in TTL'd secondary storage (security-operations §2), so the
+    // generator (run with secondaryStorage configured) emits no table.
+    expect(names).not.toContain("verification");
   });
 
   it("uses text ids for users and text FKs everywhere they are referenced", async () => {
@@ -108,7 +113,7 @@ describe("better-auth generated schema (db.md §4)", () => {
       `SELECT table_name, column_name, data_type
        FROM information_schema.columns
        WHERE table_schema = 'public'
-         AND table_name IN ('user', 'session', 'account', 'verification')
+         AND table_name IN ('user', 'session', 'account')
          AND data_type LIKE 'timestamp%'`,
     );
     expect(result.rows.length).toBeGreaterThan(0);
@@ -124,18 +129,14 @@ describe("better-auth generated schema (db.md §4)", () => {
     }
   });
 
-  it("indexes the verification identifier (OTP lookups) and session/account FKs", async () => {
+  it("indexes the session and account FKs to users", async () => {
     const result = await admin.query(
       `SELECT indexname FROM pg_indexes WHERE schemaname = 'public'`,
     );
     const names = new Set(
       result.rows.map((row: { indexname: string }) => row.indexname),
     );
-    for (const expected of [
-      "verification_identifier_idx",
-      "session_userId_idx",
-      "account_userId_idx",
-    ]) {
+    for (const expected of ["session_userId_idx", "account_userId_idx"]) {
       expect(names.has(expected), `missing index ${expected}`).toBe(true);
     }
   });
@@ -215,19 +216,6 @@ describe("identity constraints", () => {
       .where(eq(account.userId, userId));
     expect(sessions).toEqual([]);
     expect(accounts).toEqual([]);
-  });
-
-  it("lets the runtime role write and expire verification rows (OTP lifecycle)", async () => {
-    const row: typeof verification.$inferInsert = {
-      id: "verification_1",
-      identifier: "sign-in-otp-+380671110002",
-      value: "hashed-or-plaintext-code",
-      expiresAt: new Date(Date.now() + 300_000),
-    };
-    await dbClient.db.insert(verification).values(row);
-    await dbClient.db
-      .delete(verification)
-      .where(eq(verification.id, "verification_1"));
   });
 });
 
