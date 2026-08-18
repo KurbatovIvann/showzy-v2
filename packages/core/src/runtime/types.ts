@@ -1,14 +1,16 @@
 /**
  * Server-callback shapes bound by `implementAction` (core.md §2, ADR-0016).
  *
- * Return types are spec commitments and fully typed. The environment
- * parameters (`ctx`, resolver/summary/audit environments) are deliberately
- * opaque aliases for now: their real shapes are owned by later foundation
- * tasks (principal contexts fnd-T11, pipeline fnd-T12, audit fnd-T13,
- * confirmation fnd-T20). Narrowing an alias later is type-only and cannot
- * break the binding API committed here.
+ * Return types are spec commitments and fully typed. The remaining opaque
+ * environment aliases are owned by later foundation tasks (audit fnd-T13,
+ * confirmation fnd-T20); `ActionExecutionCtx` and `TargetResolutionEnv`
+ * were narrowed by the principal context factories (fnd-T11). Narrowing an
+ * alias is type-only and cannot break the binding API committed here.
  */
+import type { ReadTx } from "@showzy/db";
 import type { z } from "zod";
+
+import type { ActionCtx } from "./context/types.js";
 
 export type MaybePromise<T> = T | Promise<T>;
 
@@ -22,15 +24,33 @@ export type JsonValue =
   | { readonly [key: string]: JsonValue };
 
 /**
- * The execution context passed to handlers. Replaced by the six-mode
- * `ActionCtx` discriminated union (core.md §3) when the principal context
- * factories land (fnd-T11); opaque until then so nothing can depend on
- * context internals prematurely.
+ * The execution context passed to handlers: the six-mode `ActionCtx`
+ * discriminated union (core.md §3), constructed only by the principal
+ * context factories.
  */
-export type ActionExecutionCtx = unknown;
+export type ActionExecutionCtx = ActionCtx;
 
-/** Narrowed by fnd-T11 to `{ tx, principal, inheritedCompanyId? }` (§2). */
-export type TargetResolutionEnv = unknown;
+/**
+ * Who is asking, from the resolver's point of view (core.md §2): customer
+ * resolution receives the authenticated `userId` to prove ownership;
+ * public-target resolution is anonymous and proves publication/visibility.
+ */
+export type TargetResolutionPrincipal =
+  | { readonly mode: "customer"; readonly userId: string }
+  | { readonly mode: "public" };
+
+/**
+ * The environment a typed target resolver runs in (core.md §2): a
+ * read-only capability — even when the surrounding transaction is
+ * writable — plus the resolving principal. `inheritedCompanyId` is
+ * supplied on nested `ctx.call` resolution (core.md §9) and the factory
+ * enforces that the resolved company matches it.
+ */
+export interface TargetResolutionEnv {
+  readonly tx: ReadTx;
+  readonly principal: TargetResolutionPrincipal;
+  readonly inheritedCompanyId?: string;
+}
 
 /** Narrowed by fnd-T20 to carry the resolved target alongside input (§7). */
 export type ConfirmationSummaryEnv = unknown;

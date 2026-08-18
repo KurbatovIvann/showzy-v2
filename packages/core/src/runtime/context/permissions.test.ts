@@ -1,0 +1,72 @@
+/**
+ * Permission precedence (companies-foundation.md §2): owner-all, then
+ * explicit deny wins, then explicit grant, then role default. These are
+ * the pure rules; the staff factory's loading of the membership row and
+ * role defaults is covered by the factories integration suite.
+ */
+import { describe, expect, it } from "vitest";
+
+import {
+  isCompanyRole,
+  resolveEffectivePermissions,
+  staffHasPermission,
+} from "./permissions.js";
+
+describe("resolveEffectivePermissions", () => {
+  it("unions role defaults with explicit grants", () => {
+    const effective = resolveEffectivePermissions(
+      { granted: ["pricing:manage"], denied: [] },
+      ["orders:view", "orders:create"],
+    );
+    expect([...effective].sort()).toEqual([
+      "orders:create",
+      "orders:view",
+      "pricing:manage",
+    ]);
+  });
+
+  it("explicit deny wins over both the role default and an explicit grant", () => {
+    const effective = resolveEffectivePermissions(
+      // A row granting and denying the same key is contradictory input;
+      // deny wins because deny always wins (companies-foundation.md §2).
+      { granted: ["orders:create"], denied: ["orders:create", "orders:view"] },
+      ["orders:view"],
+    );
+    expect(effective).toEqual([]);
+  });
+
+  it("deduplicates a grant that repeats a role default", () => {
+    const effective = resolveEffectivePermissions(
+      { granted: ["orders:view"], denied: [] },
+      ["orders:view"],
+    );
+    expect(effective).toEqual(["orders:view"]);
+  });
+});
+
+describe("staffHasPermission", () => {
+  it("owner has every permission implicitly, even with an empty set", () => {
+    const membership = { role: "owner" as const, permissions: [] };
+    expect(staffHasPermission(membership, "orders:create")).toBe(true);
+    expect(staffHasPermission(membership, "anything:atAll")).toBe(true);
+  });
+
+  it("non-owner roles consult only the resolved effective set", () => {
+    const membership = {
+      role: "manager" as const,
+      permissions: ["orders:view"],
+    };
+    expect(staffHasPermission(membership, "orders:view")).toBe(true);
+    expect(staffHasPermission(membership, "orders:create")).toBe(false);
+  });
+});
+
+describe("isCompanyRole", () => {
+  it("accepts exactly the four companies-foundation roles", () => {
+    for (const role of ["owner", "admin", "manager", "employee"]) {
+      expect(isCompanyRole(role)).toBe(true);
+    }
+    expect(isCompanyRole("superadmin")).toBe(false);
+    expect(isCompanyRole("")).toBe(false);
+  });
+});

@@ -4,18 +4,20 @@ The action runtime (core.md). **Frozen for module tasks** (prohibitions.mdc):
 module implementation tasks may not change anything here — if core is missing
 something, stop and report.
 
-## Current state (fnd-T10)
+## Current state (fnd-T11)
 
 Three export subpaths exist:
 
 - `@showzy/core/contract` — the client-safe leaf (fnd-T8, below).
 - `@showzy/core/errors` — the ten core.md §11 error classes.
 - `@showzy/core` (root, server-only) — `implementAction` + `ActionRegistry`
-  (fnd-T9) + the registry-walking contract check (fnd-T10).
+  (fnd-T9), the registry-walking contract check (fnd-T10), and the six
+  principal context factories + `effectiveCompanyId` +
+  `staffHasPermission` (fnd-T11).
 
-The rest of the runtime — principal contexts, execution pipeline, events,
-idempotency, confirmation, rate limiting, `ctx.call`/`ctx.callAtomic`, and
-the module test kit — lands with fnd-T11…T22.
+The rest of the runtime — execution pipeline, events, idempotency,
+confirmation, rate limiting, `ctx.call`/`ctx.callAtomic`, and the module
+test kit — lands with fnd-T12…T22.
 
 ## Typed errors (`src/errors/`, core.md §11)
 
@@ -42,10 +44,38 @@ the module test kit — lands with fnd-T11…T22.
   contracts and implementations; `assertPaired()` is the boot gate: orphan
   descriptors, orphan implementations, and same-name-different-object
   drift (a redefined descriptor) all fail before anything serves traffic.
-- `types.ts` — callback shapes. Return types are spec commitments; the
-  environment parameters (`ActionExecutionCtx`, resolver/summary/audit
-  envs) are opaque aliases owned by fnd-T11/T12/T13/T20 — narrow the
-  alias there, do not commit context internals here.
+- `types.ts` — callback shapes. Return types are spec commitments;
+  `ActionExecutionCtx` (= `ActionCtx`) and `TargetResolutionEnv`
+  (`{ tx: ReadTx, principal, inheritedCompanyId? }`) were narrowed by
+  fnd-T11; the summary/audit environments remain opaque aliases owned by
+  fnd-T13/T20 — narrow the alias there, do not commit internals early.
+
+## Principal contexts (`src/runtime/context/`, core.md §3)
+
+- `types.ts` — the six-mode `ActionCtx` discriminated union. The DB slot
+  is the capability the action's `risk` allows (`Tx`, `ReadTx`, or a
+  grant-bound `ProjectionReadTx`); `emit`/`call`/`callAtomic` are opaque
+  slots narrowed by fnd-T16/T19/T19A; `deadline`/`signal` values are
+  supplied by the pipeline (fnd-T12) through `ContextRuntime`.
+- `factories.ts` — exactly one factory per mode, the only construction
+  path (never assemble a context by hand): staff verifies the
+  `x-company-id` selector against a `company_members` row (the selector is
+  never authority; missing/foreign/nonexistent all deny with one message);
+  customer/public-target run the typed resolver over a read-only facade
+  and adopt its resolved company; public-global binds the declared
+  projection grant; system takes an explicit tenant/global scope from the
+  enqueuing code; consumer/account require a session and carry no company
+  scope at all. Factories bind the pino child logger
+  (request/actor/company/action, snake_case — security-operations §6) and
+  `effectiveCompanyId(ctx)` is the one resolved-scope helper.
+- `permissions.ts` — precedence in one place: owner-all, deny wins,
+  grant, role default (companies-foundation.md §2). Check permissions only
+  through `staffHasPermission`; never read `membership.permissions`
+  directly (it cannot represent owner-all).
+- Integration tests live in `*.db.test.ts` files — the vitest `db` project
+  boots the shared Testcontainers harness (`@showzy/db/testing`); plain
+  `*.test.ts` files stay in the Docker-free `unit` project that the CI
+  contract-check stage runs.
 
 ## The contract check (`src/contract-check/`, core.md §2)
 
@@ -100,8 +130,9 @@ so fnd-T16/T17 outputs satisfy them without core changes.
 - The `contract` export graph may import **only Zod** (and, later, shared
   validation schemas). No core runtime, `packages/db`, Node builtins,
   logging, Redis, or workers — the CI bundle probe (fnd-T25) fails on leaks.
-- `tsconfig.json` sets `"types": []` so an accidental `process`/`Buffer`
-  reference is a compile error. Runtime subpaths that need Node types must
-  arrange their own config without widening the contract leaf.
+- The package `tsconfig.json` carries `"types": ["node"]` for the
+  server-only runtime; `tsconfig.contract.json` re-checks `src/contract`
+  with `"types": []` in the same `typecheck` script, so an accidental
+  `process`/`Buffer` reference in the leaf is still a compile error.
 - Every better place for server-only concerns exists: put nothing in
   `contract` that a mobile bundle must not ship.

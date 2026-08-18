@@ -3,23 +3,27 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Action runtime: contracts, registry, principal contexts, execution pipeline, events, idempotency, confirmation, audit, typed errors, and the module test kit. Exists so far: ./contract (fnd-T8), ./errors + implementAction/registry at the root (fnd-T9).",
+  "description": "Action runtime: contracts, registry, principal contexts, execution pipeline, events, idempotency, confirmation, audit, typed errors, and the module test kit. Exists so far: ./contract (fnd-T8), ./errors + implementAction/registry at the root (fnd-T9), contract check (fnd-T10), principal context factories (fnd-T11).",
   "exports": {
     ".": "./src/index.ts",
     "./contract": "./src/contract/index.ts",
     "./errors": "./src/errors/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.contract.json --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
-    "contract:check": "vitest run src/contract-check/ci-stage.test.ts"
+    "contract:check": "vitest run --project unit src/contract-check/ci-stage.test.ts"
   },
   "dependencies": {
+    "@showzy/db": "workspace:*",
+    "drizzle-orm": "^0.45.2",
+    "pino": "^10.3.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@showzy/tooling": "workspace:*",
+    "@types/node": "^22.20.1",
     "eslint": "^10.8.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10"
