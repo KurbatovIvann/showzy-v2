@@ -58,6 +58,18 @@ export type { ActionInvocation } from "./runtime/pipeline/execute-action.js";
 export { createAuditHook } from "./runtime/audit/create-audit-hook.js";
 export type { AuditHookDeps } from "./runtime/audit/create-audit-hook.js";
 export {
+  createRateLimitHook,
+  IP_HMAC_ROTATION_MS,
+  rateLimitDefaults,
+} from "./runtime/rate-limit/create-rate-limit-hook.js";
+export type { RateLimitHookDeps } from "./runtime/rate-limit/create-rate-limit-hook.js";
+export { createInMemoryRateLimitStore } from "./runtime/rate-limit/token-bucket.js";
+export type {
+  RateLimitConsumeRequest,
+  RateLimitDecision,
+  RateLimitStore,
+} from "./runtime/rate-limit/token-bucket.js";
+export {
   canonicalJson,
   canonicalJsonSha256,
 } from "./runtime/audit/canonical-json.js";

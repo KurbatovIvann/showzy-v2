@@ -4,7 +4,7 @@ The action runtime (core.md). **Frozen for module tasks** (prohibitions.mdc):
 module implementation tasks may not change anything here — if core is missing
 something, stop and report.
 
-## Current state (fnd-T13)
+## Current state (fnd-T14)
 
 Three export subpaths exist:
 
@@ -14,12 +14,13 @@ Three export subpaths exist:
   (fnd-T9), the registry-walking contract check (fnd-T10), the six
   principal context factories + `effectiveCompanyId` +
   `staffHasPermission` (fnd-T11), the execution pipeline
-  `executeAction` (fnd-T12), and the audit protocol `createAuditHook` +
-  `canonicalJson`/`canonicalJsonSha256` (fnd-T13).
+  `executeAction` (fnd-T12), the audit protocol `createAuditHook` +
+  `canonicalJson`/`canonicalJsonSha256` (fnd-T13), and rate limiting
+  `createRateLimitHook` + `createInMemoryRateLimitStore` (fnd-T14).
 
-The rest of the runtime — events, idempotency, confirmation, rate
-limiting, `ctx.call`/`ctx.callAtomic`, and the module test kit — lands
-with fnd-T14…T22 by filling the pipeline's protocol slots.
+The rest of the runtime — events, idempotency, confirmation,
+`ctx.call`/`ctx.callAtomic`, and the module test kit — lands with
+fnd-T15…T22 by filling the pipeline's protocol slots.
 
 ## Typed errors (`src/errors/`, core.md §11)
 
@@ -129,6 +130,35 @@ with fnd-T14…T22 by filling the pipeline's protocol slots.
 - The `AuditTargetEnv` type (narrowed from the fnd-T9 opaque alias) gives
   `auditTarget` callbacks `{ input, output?, ctx? }` — output/ctx are absent
   on failure/denial paths.
+
+## Rate limiting (`src/runtime/rate-limit/`, core.md §10)
+
+- `token-bucket.ts` — the `RateLimitStore` seam (atomic `consume` of one
+  token per `(action, scope key)` bucket) and the in-memory reference
+  token bucket. The production store is Redis, mounted by the apps in
+  fnd-T26; the bucket math must run atomically there (Lua), and the
+  in-memory implementation is the behavioral contract it must match.
+- `create-rate-limit-hook.ts` — `createRateLimitHook({ store,
+ipHmacSecret, logger, now? })` fills the pipeline's `rateLimit` slot.
+  Principal defaults live in the exported `rateLimitDefaults` constant
+  (public 30/min per rotating IP HMAC, consumer 60, account 90,
+  customer/staff 120 per user; system unlimited); values change only via
+  spec rework. Per-action `rateLimit` overrides are honored, including on
+  system actions.
+- Scope-key rules: `user` needs an authenticated mode; `ipHmac` needs the
+  transport's trusted-proxy `clientIp`; `company` is resolvable this early
+  only from the staff selector (a bucketing key, never authority — a
+  selector-less staff request falls back to its per-user bucket) or a
+  system tenant scope — declaring it on customer/public is a metadata bug
+  (`CoreInvariantError`).
+- The raw IP is never a bucket key or log field: public keys use an
+  HMAC-SHA256 whose input includes a rotation-window index
+  (`IP_HMAC_ROTATION_MS`, 24 h), so keys rotate and are not linkable to an
+  address.
+- Store failure splits by action class: fail-open + error log for
+  ordinary authenticated reads (`risk: read`, staff/customer/consumer/
+  account) and for system actions; fail-closed (`RateLimitError`, retry
+  after the window) for public actions and every mutation.
 
 ## The contract check (`src/contract-check/`, core.md §2)
 
