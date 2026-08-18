@@ -399,35 +399,8 @@ describe("per-action override", () => {
     ).rejects.toBeInstanceOf(RateLimitError);
   });
 
-  it("keys company scope by the staff selector and by system tenant scope", async () => {
-    const companyStaffRead = defineActionContract({
-      ...contractDefaults,
-      name: "rateLimitFixture.companyStaffRead",
-      description: "Staff read with a per-company budget.",
-      principal: "staff",
-      permissions: ["fixture:view"],
-      risk: "read",
-      rateLimit: { limit: 1, windowSec: 60, scope: "company" },
-    });
+  it("keys company scope by the trusted system tenant scope", async () => {
     const hook = hookWith();
-    const annaAtA = envFor(companyStaffRead, staffSession);
-    const borisAtA = envFor(companyStaffRead, {
-      mode: "staff",
-      session: { userId: "user-boris" },
-      companySelector: "company-a",
-    });
-    const borisAtB = envFor(companyStaffRead, {
-      mode: "staff",
-      session: { userId: "user-boris" },
-      companySelector: "company-b",
-    });
-
-    await hook.enforce(annaAtA);
-    // Same selector — same bucket, regardless of user.
-    await expect(hook.enforce(borisAtA)).rejects.toBeInstanceOf(RateLimitError);
-    // Different selector — independent bucket.
-    await expect(hook.enforce(borisAtB)).resolves.toBeUndefined();
-
     const tenantSystem = defineActionContract({
       ...contractDefaults,
       name: "rateLimitFixture.tenantSystem",
@@ -452,29 +425,25 @@ describe("per-action override", () => {
     await expect(hook.enforce(tenantEnv("company-b"))).resolves.toBeUndefined();
   });
 
-  it("falls back to the per-user bucket when a staff request carries no selector", async () => {
+  it("rejects a company-scoped limit on staff — the selector is unverified at this step", async () => {
+    // Keying a bucket off the raw `x-company-id` would let a caller mint a
+    // fresh bucket per rotated selector value and run unmetered (or drain
+    // a victim company's budget). Staff company budgets require
+    // post-authorization enforcement, which no action needs yet.
     const companyStaffRead = defineActionContract({
       ...contractDefaults,
-      name: "rateLimitFixture.companyStaffReadNoSelector",
-      description: "Company-scoped staff read hit without a selector.",
+      name: "rateLimitFixture.companyStaffRead",
+      description: "Staff read misdeclaring a per-company budget.",
       principal: "staff",
       permissions: ["fixture:view"],
       risk: "read",
       rateLimit: { limit: 1, windowSec: 60, scope: "company" },
     });
-    const recording = keyRecordingStore(createInMemoryRateLimitStore());
-    const hook = hookWith({ store: recording.store });
+    const hook = hookWith();
 
-    await hook.enforce(
-      envFor(companyStaffRead, {
-        mode: "staff",
-        session: { userId: "user-anna" },
-        companySelector: null,
-      }),
-    );
-    expect(recording.keys).toEqual([
-      `rl:${companyStaffRead.name}:user:user-anna`,
-    ]);
+    await expect(
+      hook.enforce(envFor(companyStaffRead, staffSession)),
+    ).rejects.toBeInstanceOf(CoreInvariantError);
   });
 
   it("rejects a company-scoped limit on a mode without a company identifier", async () => {

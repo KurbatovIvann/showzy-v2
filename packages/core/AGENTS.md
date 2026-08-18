@@ -146,11 +146,14 @@ ipHmacSecret, logger, now? })` fills the pipeline's `rateLimit` slot.
   spec rework. Per-action `rateLimit` overrides are honored, including on
   system actions.
 - Scope-key rules: `user` needs an authenticated mode; `ipHmac` needs the
-  transport's trusted-proxy `clientIp`; `company` is resolvable this early
-  only from the staff selector (a bucketing key, never authority — a
-  selector-less staff request falls back to its per-user bucket) or a
-  system tenant scope — declaring it on customer/public is a metadata bug
-  (`CoreInvariantError`).
+  transport's trusted-proxy `clientIp`; `company` is enforceable this
+  early only from a system invocation's tenant scope — the only company
+  identifier that is _trusted_ at the rate-limit step. A staff selector is
+  unverified here (keying buckets off it would let a caller mint fresh
+  buckets by rotating selectors), so `scope: "company"` on any non-system
+  mode is a metadata bug (`CoreInvariantError`); staff company budgets
+  need post-authorization enforcement, added when an action first needs
+  it.
 - The raw IP is never a bucket key or log field: public keys use an
   HMAC-SHA256 whose input includes a rotation-window index
   (`IP_HMAC_ROTATION_MS`, 24 h), so keys rotate and are not linkable to an
