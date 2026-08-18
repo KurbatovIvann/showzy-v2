@@ -96,7 +96,11 @@ export interface TestKit {
     mode: ActionPrincipal,
     overrides?: BuildTestContextOverrides,
   ): Promise<ActionCtx>;
-  invoke<TInput extends z.ZodType, TOutput extends z.ZodType, TTarget = unknown>(
+  invoke<
+    TInput extends z.ZodType,
+    TOutput extends z.ZodType,
+    TTarget = unknown,
+  >(
     action: ImplementedAction<TInput, TOutput, TTarget>,
     input: unknown,
     actor?: IsolationActor,
