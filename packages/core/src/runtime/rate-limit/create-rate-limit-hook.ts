@@ -97,7 +97,7 @@ export function createRateLimitHook(deps: RateLimitHookDeps): RateLimitHook {
               action: env.contract.name,
               request_id: env.request.requestId,
             },
-            "rate-limit store unavailable — failing open for an ordinary authenticated read",
+            "rate-limit store unavailable — failing open for this action class",
           );
           return;
         }
@@ -186,27 +186,25 @@ function requireClientIp(env: PipelineHookEnv): string {
 }
 
 /**
- * Company-scoped buckets are resolvable this early only where a company
- * identifier already exists: the staff selector (a bucketing key only —
- * membership verification is authorization's job and runs later) and the
- * tenant scope of a system invocation. Customer/public company scope is
- * resolved by `resolveTarget` *after* this step, so a company-scoped limit
- * on those modes is a metadata bug.
+ * Company-scoped buckets are enforceable this early only where the company
+ * identifier is *trusted* at the rate-limit step, which is exactly one
+ * place: the tenant scope of a system invocation (set by enqueuing code).
+ * A staff `x-company-id` selector is unverified until authorization runs
+ * (steps 4/7) — keying a bucket off it would let a caller mint a fresh
+ * bucket per rotated selector and run unmetered, or drain a victim
+ * company's budget by guessing its UUID. Customer/public company scope is
+ * resolved by `resolveTarget` after this step. Declaring `scope: "company"`
+ * on any of those modes is therefore a metadata bug; staff company budgets
+ * need post-authorization enforcement, which lands when an action first
+ * requires it.
  */
 function resolveCompanyKey(env: PipelineHookEnv): string {
   const principal = env.principal;
-  if (principal.mode === "staff") {
-    // No selector → fall back to the per-user bucket: the request still
-    // cannot run unmetered, and authorization will deny it right after.
-    return principal.companySelector !== null
-      ? `company:${principal.companySelector}`
-      : `user:${requireUserId(env)}`;
-  }
   if (principal.mode === "system" && principal.scope.scope === "tenant") {
     return `company:${principal.scope.companyId}`;
   }
   throw new CoreInvariantError(
-    `action "${env.contract.name}" declares a company-scoped rate limit but the "${principal.mode}" principal has no company identifier at the rate-limit step`,
+    `action "${env.contract.name}" declares a company-scoped rate limit but the "${principal.mode}" principal has no trusted company identifier at the rate-limit step`,
   );
 }
 
