@@ -119,8 +119,8 @@ export const eventDeliveries = pgTable(
     eventId: uuid("event_id")
       .notNull()
       // Deliveries must never point at a missing outbox row; RESTRICT keeps
-      // outbox archival honest (archive deliveries first). Explicit per
-      // db.md §3 FK policy.
+      // outbox archival honest (archive deliveries first). Recorded in
+      // db.md §4.
       .references(() => domainEvents.id, { onDelete: "restrict" }),
     status: text("status").notNull().default("pending"),
     attempts: integer("attempts").notNull().default(0),

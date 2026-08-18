@@ -103,8 +103,9 @@ Enforcement (CI):
   actions may perform writes (e.g., creating a company) and may emit events.
 - Idempotency keys travel as `idempotency-key` header / oRPC meta
   (core.md §5). The generated client exposes `createMutationAttempt()`,
-  which creates one key and reuses it for every retry of that logical
-  submit; the server rejects a missing key for idempotent mutations.
+  which mints one key. Callers pass `attempt.options` on every retry of
+  that logical submit — `@showzy/contract` has no automatic HTTP retry
+  layer. The server rejects a missing key for idempotent mutations.
   `requiresConfirmation` challenges return as a typed error and are supplied
   on re-invocation as transport meta, never added to action input (core.md
   §7, so the input hash stays stable).
@@ -164,6 +165,11 @@ API consumers.
       OpenAPI, and AI artifacts and return no routable endpoint.
 - [ ] Every `ctx.callAtomic` callee remains internal and absent from client,
       OpenAPI, and AI artifacts; undeclared caller/callee edges fail pairing.
+      Enforcement (`buildContractRouter` / `buildServerRouter` reject
+      `transport: internal`) exists today. When the first `ctx.callAtomic`
+      edge is registered in composition, add a fixture proving that callee
+      is absent from `contractRouter`, `openapi.json`, and AI tool sources
+      — do not invent a fake module before then.
 - [ ] Error mapping table covered by integration tests per error class.
 - [ ] `x-company-id` for a company without membership → 403 (test).
 - [ ] Public-target and public-global procedures work without a session;
@@ -187,7 +193,8 @@ API consumers.
 - [ ] `x-company-id` present on an account action invocation is ignored and
       does not grant company scope (test).
 - [ ] Missing idempotency meta on an idempotent mutation → typed validation
-      error; automatic network retry reuses the original key.
+      error; retries of a logical submit must reuse `attempt.options` (no
+      automatic retry helper in the client).
 - [ ] Confirmation challenge meta is not part of action input and cannot
       change the canonical request hash.
 - [ ] OpenAPI drift check red on uncommitted contract changes.
@@ -197,6 +204,7 @@ API consumers.
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-19 | §3/§7: key reuse is manual via `attempt.options` (no automatic retry layer); §7: composition fixture for the first `ctx.callAtomic` callee is owed when that edge lands | Align living spec with the client (fnd-G1 A12) | scaffold (fnd-G1 A12) |
 | 2026-08-18 | Added transport-level `UNAUTHENTICATED` / 401 to the §4 wire-error union | Session-gate 401 was outside `isWireError()`, forcing clients to string-match | scaffold (fnd-G1 A8) |
 | 2026-08-17 | Integrated `account` principal: transport exposure, AI manifest filtering, routing rules, and acceptance criteria | Align contract with ADR-0013 (amended) 6-mode principal model (`staff \| customer \| public \| system \| consumer \| account`) per spec-rework queue Step 1 | spec-rework agent |
 | 2026-08-17 | Added consumer client exposure and session routing without company scope | Align transport composition with ADR-0018 and core consumer semantics | Human owner via spec-rework queue |

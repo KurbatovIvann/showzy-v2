@@ -50,10 +50,11 @@ the OpenAPI artifact.
   another's name.
 - Apps call `createContractClient({ baseUrl, getAccessToken })`, then
   `setActiveCompany` for the staff selector. `createMutationAttempt()`
-  mints the idempotency key; retries must reuse `attempt.options`.
-  Confirmation re-invokes with `attempt.withChallenge(id)`. Money minor
-  units use `moneyToWire` / `moneyFromWire`. Narrow errors with
-  `isWireError` and `error.code` — never by matching `message` text.
+  mints the idempotency key; callers must pass `attempt.options` on retry
+  (no automatic HTTP retry layer). Confirmation re-invokes with
+  `attempt.withChallenge(id)`. Money minor units use `moneyToWire` /
+  `moneyFromWire`. Narrow errors with `isWireError` and `error.code` —
+  never by matching `message` text.
 
 ## Server subpath (`src/server/`)
 

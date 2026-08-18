@@ -10,7 +10,8 @@
  * Store failure splits by action class: fail-closed for public and for
  * every mutation (`draft`/`write`/`high`), fail-open with an error log for
  * ordinary authenticated reads and for system actions (workers must not
- * stall on Redis; a system action's owning spec may tighten this).
+ * stall on Redis). An owning spec may declare a `rateLimit` override for
+ * the bucket; store-failure policy for system stays fail-open (core.md §10).
  *
  * The raw client IP never leaves the transport layer: the bucket key for
  * public traffic is an HMAC whose input includes a rotation-window index,
@@ -122,9 +123,9 @@ function defaultPolicyFor(env: PipelineHookEnv): ActionRateLimit | undefined {
 /**
  * Store failure policy (core.md §10): fail-open only for ordinary
  * authenticated reads — an authenticated principal, `risk: read` — and for
- * system actions (internal callers; availability over throttling unless the
- * owning spec says otherwise). Public actions and every mutation fail
- * closed: abuse pressure concentrates exactly where Redis is down.
+ * system actions (internal callers; availability over throttling). Public
+ * actions and every mutation fail closed: abuse pressure concentrates
+ * exactly where Redis is down.
  */
 function failsOpen(env: PipelineHookEnv): boolean {
   if (env.principal.mode === "system") {

@@ -150,6 +150,9 @@ function violation(from, spec, typeOnly) {
     if (spec.startsWith("node:") || NODE_BUILTINS.has(spec)) {
       return { messageId: "contractClient" };
     }
+    // Non-@showzy npm packages are currently allowed (zod, @orpc/*).
+    // Tighten to an explicit external allowlist when the dependency set
+    // grows (fnd-G1 A12 / tooling AGENTS).
     if (pkg === null) {
       return null;
     }

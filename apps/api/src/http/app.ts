@@ -37,6 +37,13 @@ export const AUTH_PREFIX = "/api/auth";
 export const HEALTH_PATH = "/health";
 
 /**
+ * Phase-0: every HTTP invocation (oRPC and `/api/v1`) is labeled `ui`.
+ * Revisit when external consumers or the AI mount send a distinct channel
+ * (security-operations §4).
+ */
+export const HTTP_INVOCATION_CHANNEL = "ui" as const;
+
+/**
  * The better-auth instance as the transport sees it: session lookup plus
  * the HTTP handler. Callers pass the `betterAuth(...)` return value.
  */
@@ -131,7 +138,7 @@ async function buildTransportContext(
   );
   return {
     requestId: c.get("requestId"),
-    channel: "ui",
+    channel: HTTP_INVOCATION_CHANNEL,
     session,
     companySelector: headerOrNull(headers, COMPANY_SELECTOR_HEADER),
     clientIp: c.get("clientIp"),

@@ -41,7 +41,12 @@ actions/services running under the core pipeline.
 - `src/testing/fixtures.ts` (`@showzy/db/testing/fixtures`) — test-only
   discovery/social parity fixtures for the core suites (db.md §8). Never
   export them from the package root; fixture tables live outside migrations
-  and the drift check.
+  and the drift check. Foundation protocol rows are produced by the core
+  kit through runtime protocols — this package does not export outbox /
+  idempotency / audit row factories.
+- `seed/` — phase 0 ships only `role_permission_defaults`. The local-dev
+  company/staff/customer/products fixture set waits on catalog schema
+  (fnd-T29+, db.md §9).
 
 ## Raw SQL policy
 

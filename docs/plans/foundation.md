@@ -97,7 +97,9 @@ implementer is the **scaffold agent** (`/scaffold`, not `/ticket`):
   now (FK-less), say so before fnd-T45.
 - **Seeds for KVED/CPV and default document templates** (db.md §9) belong to
   `reference-data`/`documents` and are deferred to those modules' phases.
-  Phase 0 seeds only `role_permission_defaults` and the dev fixture set.
+  Phase 0 seeds only `role_permission_defaults`. The local-dev fixture set
+  (company/staff/customer/products) is deferred until the catalog schema
+  exists (fnd-T29+); it is not seeded today.
 - **Socket.IO/SSE realtime** is phase 6 (chat platform); phase 0 sets up
   nothing beyond the Redis dependency it will use.
 - **AI manifest generation** is derived but minimally exercised (one test in
@@ -1136,4 +1138,5 @@ pipeline.md "Linear workflow"):
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-08-19 | Recorded that the local-dev fixture seed is deferred to fnd-T29+; phase 0 seeds only `role_permission_defaults` | fnd-G1 A12: db.md §9 / this plan previously implied the fixture set was seeded |
 | 2026-08-17 | Initial breakdown approved: 51 tasks + 2 gates across 9 milestones; Expo included mobile-only after fnd-G1; drafts to be approved with minimal Phase-1 subset; six spec ambiguities fixed by owner in specs | Plan the scaffold stage (phases 0–1) |

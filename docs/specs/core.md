@@ -258,10 +258,12 @@ Fixed order, no per-action variation:
     record the failed audit outcome and mark the idempotency key `failed` in
     a separate short transaction.
 
-The pipeline emits one structured log line (start/finish) with
-`request_id`, `actor`, `company_id` (null for public-global, consumer,
-account, and global system), `action`, `outcome`, `duration_ms`, and an OTel span; errors go to
-Sentry with the same correlation fields.
+The pipeline emits one structured **start** log line with `request_id`,
+`action`, and `channel` (identity is unknown before authentication) and one
+**finish** log line that adds `actor` (`actor_type` / `actor_id`),
+`company_id` (null for public-global, consumer, account, and global
+system), `outcome`, and `duration_ms`, plus an OTel span; errors go to
+Sentry with the same correlation fields as the finish line.
 
 `risk: draft` is still a mutation: it receives a writable transaction and
 must declare idempotency/audit according to its spec. It is not callable
@@ -421,6 +423,9 @@ by default (hash-only); it is populated only when the action binds an
 
 - **Permission denials** on `audit: true` actions are also recorded
   (outcome `PERMISSION_DENIED`, separate tx since no handler tx exists).
+- **Failures before successful input validation** write no audit row:
+  there is no Zod-validated input to hash, and a malformed request is not
+  an accountable action outcome. The hook skips when `input` is undefined.
 - **No raw input by default** — only the hash. An action may opt in to a
   redacted input snapshot via `auditSnapshot: (input) => SafeJson`; storing
   unredacted input is forbidden (prohibitions: no PII/secrets in logs).
@@ -486,12 +491,16 @@ Redis token bucket per `(action, rate-limit scope key)`. Defaults: `public`
 per user; `account` 90/min per user; `customer`/`staff` 120/min per user;
 `system` unlimited. Raw IP
 remains transport-only and is never the Redis key or a domain log/audit
-field. Per-action override via `rateLimit`. AI tool invocations additionally
-consume a per-conversation budget (defined in the phase-5 spec; core only
-exposes the hook). Exceeded → `RateLimitError` with `retryAfterSec`. Redis
-failure is fail-closed for public/auth/high-risk actions and fail-open with
-an error log for ordinary authenticated reads; system actions define their
-policy in the spec.
+field. Per-action override via `rateLimit` (including on system actions).
+AI tool invocations additionally consume a per-conversation budget (defined
+in the phase-5 spec; core only exposes the hook). Exceeded →
+`RateLimitError` with `retryAfterSec`. Redis failure is fail-closed for
+public actions and every mutation (`draft`/`write`/`high`) and fail-open
+with an error log for ordinary authenticated reads (`risk: read` on
+staff/customer/consumer/account). System actions default to fail-open
+(workers must not stall on Redis); an owning spec may declare a `rateLimit`
+override for the bucket, but store-failure policy stays fail-open unless a
+future spec rework adds a per-contract failure-mode flag.
 
 ## 11. Typed errors
 
@@ -538,6 +547,10 @@ Exported from `packages/core/testing`, used by every module (this is how
 - `atomicCallSuite(edge)` — declared edge succeeds in one transaction;
   rollback removes root/callee effects and events; undeclared, tenant/principal
   mismatch, and nested atomic calls fail.
+- `runSocialDesiredStateCase(action)` — desired-state social writes
+  (follow/like): retry and concurrent same-state writes do not duplicate
+  counters; the opposite state reverses. Exported as a `run*` helper
+  (modules copy the pattern); it is not a `suiteCoverage` registrar.
 
 Composition supplies a `suiteCoverage` manifest to the contract check.
 Every registered action must appear in `isolation` (and in
@@ -575,8 +588,9 @@ does not apply — fails the check.
 - [ ] Confirmation: challenge is single-use, principal-bound, hash-bound,
       company/idempotency-bound, expiring; execution without a valid
       challenge is impossible.
-- [ ] Audit rows written for `audit: true` incl. permission denials; AI
-      calls retain the initiating user as actor and `channel: ai`.
+- [ ] Audit rows written for `audit: true` incl. permission denials after
+      input validation; failures before a successful Zod parse write no
+      row. AI calls retain the initiating user as actor and `channel: ai`.
 - [ ] `ctx.call`: write target rejected; permissions of callee enforced;
       tx shared (callee sees caller's uncommitted writes); consumer caller
       invoking a company-scoped callee is rejected.
@@ -601,11 +615,19 @@ does not apply — fails the check.
 1. Audit input policy — **hash-only by default**, per-action opt-in
    redacted snapshot via `auditSnapshot` (owner, 2026-08-17).
 2. Idempotency retention window — **48h** (owner, 2026-08-17).
+3. Rate-limit store failure for system actions — **fail-open** (phase-0
+   default, fnd-G1 A12). An owning spec may set a `rateLimit` override for
+   the bucket; a per-contract fail-closed flag is not in the protocol.
+4. Audit on pre-validation failure — **no row** (phase-0 default,
+   fnd-G1 A12). There is no validated input to hash; a malformed request is
+   not an accountable action outcome. Permission denials after validation
+   remain recorded.
 
 ## Changelog
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-19 | §4: start log has no actor/company (identity unknown pre-auth); §8: no audit row before successful input validation; §10: system rate-limit store failure is fail-open; §12: `runSocialDesiredStateCase` | Align living spec with phase-0 pipeline (fnd-G1 A12) | scaffold (fnd-G1 A12) |
 | 2026-08-18 | §6: named the outbox wakeup channel `domain_events` (LISTEN + polling fallback in `apps/worker`) | fnd-T27 implementation pinned the channel the trigger notifies | scaffold (fnd-T27) |
 | 2026-08-18 | §12: `suiteCoverage` manifest on the contract check; `idempotencySuite` / `eventSuite` / `atomicCallSuite` are instantiated by every module | fnd-T22 makes omitted inherited suites a CI failure | scaffold (fnd-T22) |
 | 2026-08-18 | §6: pinned delivery retry delays (1/2/4/8s), fifth-failure parking, action-timeout + 30s claim leases, and consumer-scoped replay semantics | fnd-T18 implementation proved the operational timing and replay-scope gaps | scaffold (fnd-T18) |

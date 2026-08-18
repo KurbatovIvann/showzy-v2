@@ -4,6 +4,8 @@
  * runtime role; raw SQL is limited to PostgreSQL catalog structure checks.
  */
 import assert from "node:assert/strict";
+import { readdir } from "node:fs/promises";
+import path from "node:path";
 
 import { eq } from "drizzle-orm";
 import pg from "pg";
@@ -265,6 +267,14 @@ describe("companies foundation schema", () => {
 });
 
 describe("role permission defaults seed", () => {
+  it("does not ship the local-dev company/staff/product fixture seed (db.md §9)", async () => {
+    const seedDir = path.resolve(import.meta.dirname, "../seed");
+    const names = (await readdir(seedDir)).filter((name) =>
+      name.endsWith(".ts"),
+    );
+    expect(names.sort()).toEqual(["index.ts", "role-permission-defaults.ts"]);
+  });
+
   it("is idempotent and never seeds the implicit owner role", async () => {
     const firstRun = await seedRolePermissionDefaults(dbClient.db);
     const secondRun = await seedRolePermissionDefaults(dbClient.db);

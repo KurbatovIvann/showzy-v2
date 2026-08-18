@@ -217,7 +217,9 @@ export interface IdempotencyHook {
  * transaction (mutations) or in a separate short transaction after the
  * read-only handler transaction commits (`risk: read`); `recordFailure`
  * runs after rollback in its own transaction and receives whatever identity
- * the pipeline had established when the invocation failed.
+ * the pipeline had established when the invocation failed. `input` is
+ * omitted when §4 step 1 never succeeded — those failures write no audit
+ * row (core.md §8).
  */
 export interface AuditHook {
   recordSuccess(env: {
@@ -231,7 +233,9 @@ export interface AuditHook {
     readonly auditSnapshot: AuditSnapshotFn<z.ZodType> | undefined;
   }): Promise<void>;
   recordFailure(
-    env: PipelineHookEnv & {
+    env: Omit<PipelineHookEnv, "input"> & {
+      /** Validated input; omitted when §4 step 1 never succeeded. */
+      readonly input?: unknown;
       readonly error: CoreError;
       readonly authorization: PreflightAuthorization | undefined;
       readonly durationMs: number;

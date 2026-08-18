@@ -23,8 +23,10 @@ code lives here — only configuration.
   specifier rules that cannot depend on pnpm resolving workspace packages:
   `*.contract.ts` allowlist, own-schema (ADR-0014), module index-only
   cross-imports, `packages/contract` → `index.contract.ts` only, client apps
-  → `@showzy/contract` + validation/ui. Do not add ad-hoc boundary rules
-  in individual packages.
+  → `@showzy/contract` + validation/ui. The contract-client layer currently
+  permits any non-`@showzy` npm package (today: `zod`, `@orpc/*`). Tighten
+  to an explicit external allowlist when that set grows — do not add
+  ad-hoc boundary rules in individual packages.
 - Prettier stays at defaults; style debates are settled by "whatever
   Prettier does".
 - Emitting builds (`declaration`, bundler-specific options) are per-package

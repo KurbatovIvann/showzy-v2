@@ -17,6 +17,12 @@ describe("createMutationAttempt (contract.md §3, core.md §5)", () => {
     expect(retry).toBe(first);
   });
 
+  it("does not retry HTTP itself — callers must pass attempt.options (contract.md §3)", () => {
+    const attempt = createMutationAttempt();
+    expect(attempt).not.toHaveProperty("retry");
+    expect(typeof attempt.options).toBe("object");
+  });
+
   it("keeps the same key when attaching a confirmation challenge", () => {
     const attempt = createMutationAttempt();
     const confirmed = attempt.withChallenge("challenge-1");
