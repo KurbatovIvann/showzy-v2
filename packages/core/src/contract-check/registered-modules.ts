@@ -9,7 +9,9 @@
  *   actions here until `packages/contract` (fnd-T23) and the apps/api boot
  *   (fnd-T26) become the real composition roots — at that point the stage
  *   walks those instead and this file is retired;
- * - event definitions and subscriptions arrive with fnd-T16/T17;
+ * - event definitions (`defineEvent`, fnd-T16) and subscriptions
+ *   (`eventSubscriptionRefs`, fnd-T17) are registered by the modules that
+ *   declare them — first with the reference slices;
  * - projection owners (`search`, `analytics`) wire the runtime
  *   `projectionGrants` manifest from `@showzy/db` in their schema tasks —
  *   until core gains that dependency (fnd-T11/T12 need it for transaction

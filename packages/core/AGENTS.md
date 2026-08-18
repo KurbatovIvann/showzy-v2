@@ -4,7 +4,7 @@ The action runtime (core.md). **Frozen for module tasks** (prohibitions.mdc):
 module implementation tasks may not change anything here — if core is missing
 something, stop and report.
 
-## Current state (fnd-T16)
+## Current state (fnd-T17)
 
 Three export subpaths exist:
 
@@ -18,12 +18,15 @@ Three export subpaths exist:
   `canonicalJson`/`canonicalJsonSha256` (fnd-T13), rate limiting
   `createRateLimitHook` + `createInMemoryRateLimitStore` (fnd-T14), the
   idempotency protocol `createIdempotencyHook` +
-  `cleanupExpiredIdempotencyKeys` (fnd-T15), and domain events
-  `defineEvent` + the pipeline-internal `ctx.emit` buffer (fnd-T16).
+  `cleanupExpiredIdempotencyKeys` (fnd-T15), domain events
+  `defineEvent` + the pipeline-internal `ctx.emit` buffer (fnd-T16),
+  and event delivery — `defineEventHandler` + `eventEnvelopeSchema`,
+  the dispatcher library `dispatchOutboxBatch`, and the delivery
+  entrypoint `executeDelivery` (fnd-T17).
 
-The rest of the runtime — event delivery/subscriptions (fnd-T17),
+The rest of the runtime — delivery retry/dead-letter (fnd-T18),
 confirmation, `ctx.call`/`ctx.callAtomic`, and the module test kit —
-lands with fnd-T17…T22 by filling the pipeline's protocol slots.
+lands with fnd-T18…T22 by filling the pipeline's protocol slots.
 
 ## Typed errors (`src/errors/`, core.md §11)
 
@@ -228,6 +231,37 @@ ipHmacSecret, logger, now? })` fills the pipeline's `rateLimit` slot.
   implemented locally because Node's `randomUUID()` is v4-only and new
   dependencies need approval. Time-ordered across milliseconds; strict
   ordering is the per-aggregate sequence's job, not the ID's.
+- `envelope.ts` — the JSON-safe `EventEnvelope` delivered as consumer
+  input (`occurredAt` ISO string, `aggregate.sequence` decimal string —
+  the audit protocol canonical-JSON-hashes the validated input, so
+  `Date`/`bigint` are structurally excluded) and `eventEnvelopeSchema`,
+  the builder every consumer action uses as its input schema.
+- `define-event-handler.ts` — `defineEventHandler({ event, consumer,
+action })` binds one event to one consuming action under a stable
+  `<module>.<kebab-name>` consumer id; define-time validation (system
+  principal, transport/AI internal, write + idempotent, `systemScope`
+  matching the event scope) throws `EventHandlerDefinitionError` listing
+  all problems. `eventSubscriptionRefs` maps subscriptions to the
+  structural refs the contract check walks.
+- `delivery.ts` — the fnd-T17 delivery core. `dispatchOutboxBatch`
+  claims undispatched outbox rows (`FOR UPDATE SKIP LOCKED`, expressed
+  natively by Drizzle), fans out one `event_deliveries` row per
+  registered consumer (`ON CONFLICT DO NOTHING` on the
+  `(consumer, eventId)` PK) and marks the rows dispatched in the same
+  tx; consumer-less events are still marked dispatched. `executeDelivery`
+  locks one delivery row, enforces per-aggregate ordering (earliest
+  non-processed delivery + the transaction-scoped `(consumer, aggregate)`
+  advisory lock — the one approved raw-SQL primitive here, db.md §7 /
+  ADR-0012), builds the envelope, and runs the bound action through the
+  normal pipeline **inside** the delivery transaction: the pipeline's
+  execution tx nests as a savepoint (`ActionTransactionRunner` in
+  `pipeline/types.ts` is the seam), and the idempotency slot is replaced
+  by the delivery-row reservation — `processed` commits atomically with
+  the consumer's effects, failure rolls everything back and leaves the
+  row `pending` (attempt/backoff bookkeeping is fnd-T18). Deliveries run
+  with a system context scoped by the event's stored `companyId`;
+  `causationId` is the delivered event's id and each attempt gets a
+  fresh `requestId`.
 
 ## The contract check (`src/contract-check/`, core.md §2)
 
@@ -252,11 +286,11 @@ stage (`pnpm --filter @showzy/core contract:check`):
 
 `registered-modules.ts` is the interim composition manifest the stage walks
 (`ci-stage.test.ts`). Everything is explicitly empty until modules exist;
-`defineEvent` outputs satisfy `EventDefinitionRef`, subscriptions arrive
-with fnd-T17, and fnd-T23/T26 move composition to `packages/contract` /
-apps boot. `EventDefinitionRef`,
-`EventSubscriptionRef`, and the other input shapes are structural on purpose
-so fnd-T16/T17 outputs satisfy them without core changes.
+`defineEvent` outputs satisfy `EventDefinitionRef`, `eventSubscriptionRefs`
+(fnd-T17) produces `EventSubscriptionRef` entries, and fnd-T23/T26 move
+composition to `packages/contract` / apps boot. The input shapes are
+structural on purpose so fnd-T16/T17 outputs satisfy them without core
+changes.
 
 ## The `contract` subpath (ADR-0016)
 

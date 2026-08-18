@@ -244,9 +244,20 @@ export interface ActionTelemetry {
   startSpan(fields: ActionSpanFields): ActionSpan;
 }
 
+/**
+ * The one database capability the pipeline itself needs: opening a
+ * transaction. The process `Database` satisfies it at boot; the event
+ * delivery entrypoint (fnd-T17) substitutes the delivery `Tx` instead —
+ * a Drizzle transaction nests further transactions as savepoints, so the
+ * bound action's "execution transaction" runs inside the delivery
+ * transaction and commits atomically with the `processed` transition
+ * (core.md §6).
+ */
+export type ActionTransactionRunner = Pick<Database, "transaction">;
+
 /** Process-lifetime dependencies of the pipeline, composed once at boot. */
 export interface ActionPipelineDeps {
-  readonly db: Database;
+  readonly db: ActionTransactionRunner;
   readonly logger: Logger;
   /** Defaults to the runtime manifest exported by `@showzy/db`. */
   readonly projectionGrants?: ProjectionGrantManifest;
