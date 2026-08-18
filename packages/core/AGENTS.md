@@ -4,7 +4,7 @@ The action runtime (core.md). **Frozen for module tasks** (prohibitions.mdc):
 module implementation tasks may not change anything here — if core is missing
 something, stop and report.
 
-## Current state (fnd-T19)
+## Current state (fnd-T20)
 
 Three export subpaths exist:
 
@@ -24,11 +24,12 @@ Three export subpaths exist:
   the dispatcher library `dispatchOutboxBatch`, and the delivery
   entrypoint `executeDelivery` (fnd-T17), plus claim leases, exponential
   retry, dead-letter parking, and consumer-scoped admin replay (fnd-T18),
-  and cross-module reads — the pipeline-internal `ctx.call` (fnd-T19).
+  cross-module reads — the pipeline-internal `ctx.call` (fnd-T19),
+  declared same-transaction writes — `ctx.callAtomic` (fnd-T19A), and
+  the confirmation protocol `createConfirmationHook` +
+  `createInMemoryConfirmationStore` (fnd-T20).
 
-The rest of the runtime — confirmation, `ctx.callAtomic`, and the module
-test kit — lands with fnd-T19A/T20…T22 by filling the pipeline's
-protocol slots.
+The rest of the runtime — the module test kit — lands with fnd-T21/T22.
 
 ## Typed errors (`src/errors/`, core.md §11)
 
@@ -59,8 +60,8 @@ protocol slots.
   `ActionExecutionCtx` (= `ActionCtx`) and `TargetResolutionEnv`
   (`{ tx: ReadTx, principal, inheritedCompanyId? }`) were narrowed by
   fnd-T11; `AuditTargetEnv` was narrowed by fnd-T13 to
-  `{ input, output?, ctx? }`; the confirmation summary environment
-  remains an opaque alias owned by fnd-T20.
+  `{ input, output?, ctx? }`; `ConfirmationSummaryEnv` was narrowed by
+  fnd-T20 to `{ companyId, target? }`.
 
 ## Principal contexts (`src/runtime/context/`, core.md §3)
 
@@ -68,7 +69,8 @@ protocol slots.
   is the capability the action's `risk` allows (`Tx`, `ReadTx`, or a
   grant-bound `ProjectionReadTx`); `emit` is the typed buffered emitter
   (fnd-T16, below); `call` is the typed cross-module read invoker
-  (fnd-T19, below); `callAtomic` stays opaque until fnd-T19A;
+  (fnd-T19, below); `callAtomic` is the typed same-transaction write
+  invoker (fnd-T19A);
   `deadline`/`signal`/`emit`/`call` values are supplied by the pipeline
   (fnd-T12) through `ContextRuntime`.
 - `factories.ts` — exactly one factory per mode, the only construction
@@ -97,8 +99,8 @@ protocol slots.
   every action runs through. The §4 step order is fixed and encoded once:
   validate input → authenticate/read selectors → rate limit →
   authorization preflight (short read-only tx, only when confirmation or
-  idempotency will store something) → confirmation gate → idempotency
-  reserve → execution transaction (transaction-local statement timeout,
+  idempotency will store something) → replay probe + confirmation gate
+  (fnd-T20) → idempotency reserve → execution transaction (transaction-local statement timeout,
   TOCTOU re-authorization via the context factories, handler under the
   deadline/abort signal) → output validation before commit
   (`CoreInvariantError` on mismatch) → same-tx outbox flush (fnd-T16) +
@@ -219,9 +221,41 @@ ipHmacSecret, logger, now? })` fills the pipeline's `rateLimit` slot.
 - `cleanupExpiredIdempotencyKeys(db)` deletes rows past the 48-h retention
   (`IDEMPOTENCY_RETENTION_MS`); the worker loop schedules it (fnd-T27).
   Replay after expiry re-executes by design.
-- Confirmation-grant columns (`confirmation_*`) are written by fnd-T20;
-  takeover preserves them (crash-safe resume) except when reusing a row
-  whose retention passed, which resets the slot entirely.
+- Confirmation-grant columns (`confirmation_*`) are written by
+  `reserve` when the pipeline hands over a consumed/resumed grant
+  (fnd-T20). `probe` is the read-only lookup the confirmation gate uses:
+  `completed` replays, a live lease is `ConcurrentRetryError`, and a
+  failed/stale row with an unexpired grant resumes. Takeover preserves
+  an existing grant except when reusing a row whose retention passed,
+  which resets the slot entirely (then applies a newly consumed grant
+  if one was supplied).
+
+## Confirmation protocol (`src/runtime/confirmation/`, core.md §7)
+
+- `store.ts` — the `ConfirmationStore` seam (`set` + atomic
+  `getAndDelete`) and the in-memory reference store. The production store
+  is Redis, mounted by the apps in fnd-T26; it must implement `GETDEL`.
+  A store that cannot decide throws — the hook fails closed.
+- `create-confirmation-hook.ts` — `createConfirmationHook({ store, now? })`
+  fills the pipeline's `confirmation` slot. First invocation (no
+  `confirmationChallengeId` meta) calls `confirmationSummary`, stores a
+  5-minute challenge (`CONFIRMATION_TTL_MS`) bound to action / input hash /
+  principal / company (null for account) / idempotency key, and throws
+  `ConfirmationRequiredError` carrying only the redacted summary. The
+  challenge id is transport meta (contract.md §3), never action input.
+- Re-invocation consumes the challenge atomically. Bindings are checked
+  after consume so a mismatched token is burned. Any mismatch or expiry
+  issues a fresh challenge. The consumed grant is returned so
+  `idempotency.reserve` can persist it.
+- The pipeline probes idempotency **before** the gate (core.md §5
+  "Confirmed retries"): a completed row replays without touching the
+  token; a failed/stale row with an unexpired persisted grant resumes
+  without making the raw token reusable. A missing confirmation hook on
+  a `requiresConfirmation` action is a composition bug
+  (`CoreInvariantError`) — high-risk execution cannot proceed.
+- Store failure fails closed (`CoreInvariantError`, 500 + alert):
+  high-risk work does not execute when Redis is down, even though
+  ordinary authenticated read rate limits are fail-open.
 
 ## Domain events (`src/runtime/events/`, core.md §6)
 

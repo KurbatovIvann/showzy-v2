@@ -367,6 +367,11 @@ describe("pipeline step order (§4)", () => {
           steps.push("confirmation");
           gateCompanyId = env.authorization.companyId;
           summary = await env.summarize();
+          return {
+            challengeId: randomUUID(),
+            confirmedAt: new Date(),
+            expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+          };
         },
       },
       idempotency: {

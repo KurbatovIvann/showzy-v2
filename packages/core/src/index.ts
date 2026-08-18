@@ -81,6 +81,13 @@ export {
   canonicalJsonSha256,
 } from "./runtime/audit/canonical-json.js";
 export type { JsonSerializable } from "./runtime/audit/canonical-json.js";
+export {
+  CONFIRMATION_TTL_MS,
+  createConfirmationHook,
+} from "./runtime/confirmation/create-confirmation-hook.js";
+export type { ConfirmationHookDeps } from "./runtime/confirmation/create-confirmation-hook.js";
+export { createInMemoryConfirmationStore } from "./runtime/confirmation/store.js";
+export type { ConfirmationStore } from "./runtime/confirmation/store.js";
 export type {
   ActionPipelineDeps,
   ActionSpan,
@@ -89,8 +96,10 @@ export type {
   ActionTelemetry,
   ActionTransactionRunner,
   AuditHook,
+  ConfirmationGrant,
   ConfirmationHook,
   IdempotencyHook,
+  IdempotencyProbeResult,
   IdempotencyReserveResult,
   PipelineHookEnv,
   PipelineHookRequestMeta,
