@@ -26,6 +26,7 @@ import {
   ActionRegistry,
   ActionRegistryError,
 } from "../runtime/action-registry.js";
+import { callTargetProblems, describePrincipal } from "./call-rules.js";
 
 /**
  * Thrown by `assertContractCheck` with every collected violation. Like the
@@ -357,27 +358,6 @@ function collectSubscriptionProblems(
   }
 }
 
-/**
- * Whether a declared read call is principal-compatible (core.md §9,
- * ADR-0015): same principal mode by default, with the spec'd asymmetries —
- * account callers may also invoke consumer reads (global discovery), and a
- * global system caller cannot invoke a tenant-scoped system read because
- * it has no `companyId` to propagate (a tenant caller can invoke global
- * system reads, which need nothing tenant-specific).
- */
-function callPrincipalCompatible(
-  caller: ActionContract,
-  callee: ActionContract,
-): boolean {
-  if (caller.principal === callee.principal) {
-    if (caller.principal === "system") {
-      return caller.systemScope === "tenant" || callee.systemScope === "global";
-    }
-    return true;
-  }
-  return caller.principal === "account" && callee.principal === "consumer";
-}
-
 function collectCallEdgeProblems(
   callEdges: readonly DeclaredCallEdge[],
   contractsByName: ReadonlyMap<string, ActionContract>,
@@ -396,41 +376,12 @@ function collectCallEdgeProblems(
     if (caller === undefined || callee === undefined) {
       continue;
     }
-    if (moduleOf(edge.caller) === moduleOf(edge.callee)) {
-      problems.push(
-        `${label}: same-module composition uses services/, not ctx.call (ADR-0015)`,
-      );
-    }
-    if (callee.risk !== "read") {
-      problems.push(
-        `${label}: only risk: "read" actions are callable cross-module (core.md §9, ADR-0015)`,
-      );
-    }
-    if (caller.publicScope === "globalProjection") {
-      problems.push(
-        `${label}: public-global actions cannot use ctx.call — their read capability is limited to the declared projection grant (core.md §9)`,
-      );
-      continue;
-    }
-    if (callee.publicScope === "globalProjection") {
-      problems.push(
-        `${label}: a public-global action cannot be a ctx.call target — its projection grant binds only its own anonymous invocation (core.md §2, ADR-0020)`,
-      );
-      continue;
-    }
-    if (!callPrincipalCompatible(caller, callee)) {
-      problems.push(
-        `${label}: callee (${describePrincipal(callee)}) does not accept the caller's principal (${describePrincipal(caller)}) (core.md §9, ADR-0015)`,
-      );
+    // The per-target rules are shared with the fnd-T19 runtime assert
+    // (call-rules.ts) so this CI layer and `ctx.call` cannot drift.
+    for (const problem of callTargetProblems(caller, callee)) {
+      problems.push(`${label}: ${problem}`);
     }
   }
-}
-
-function describePrincipal(contract: ActionContract): string {
-  if (contract.principal === "system") {
-    return `system/${contract.systemScope ?? "unknown"}`;
-  }
-  return contract.principal;
 }
 
 /**
@@ -531,8 +482,4 @@ function collectSchemaOwnershipProblems(
       );
     }
   }
-}
-
-function moduleOf(qualifiedName: string): string {
-  return qualifiedName.split(".", 1)[0] ?? qualifiedName;
 }

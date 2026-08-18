@@ -49,11 +49,12 @@ import {
   type ActionRequestMeta,
   type ContextRuntime,
 } from "../context/factories.js";
-import { staffHasPermission } from "../context/permissions.js";
-import type { ActionCtx, StaffMembership } from "../context/types.js";
+import { assertDeclaredPermissions } from "../context/permissions.js";
+import type { ActionCtx } from "../context/types.js";
 import { createEmitBuffer } from "../events/emit.js";
 import type { ImplementedAction } from "../implement-action.js";
 import type { AuditTargetFn, MaybePromise, TargetResolver } from "../types.js";
+import { createCtxCall } from "./ctx-call.js";
 import type {
   ActionPipelineDeps,
   PipelineHookEnv,
@@ -136,6 +137,9 @@ export async function executeAction<
   // Identity evidence strengthens as the pipeline advances; the finish log
   // line and the failure-path hooks use the strongest available level.
   let executionCtx: ActionCtx | undefined;
+  // The execution transaction, boxed for `ctx.call` (fnd-T19) and cleared
+  // when it ends, so a context escaping the handler cannot call.
+  let executionTx: Tx | undefined;
   let authorization: PreflightAuthorization | undefined;
   let validatedInput: unknown;
   let reserved: { readonly reservation: unknown } | undefined;
@@ -239,6 +243,23 @@ export async function executeAction<
     // `emit`, but nothing outside the handler ever receives those contexts.
     const emitBuffer = createEmitBuffer({ contract, now });
 
+    // One `ctx.call` closure per invocation (fnd-T19 — core.md §9). Its
+    // execution boxes stay empty until step 7 constructs the context, so
+    // preflight contexts carry a `call` that refuses to run.
+    const ctxCall = createCtxCall({
+      deps,
+      callerContract: contract,
+      request,
+      deadline,
+      signal: controller.signal,
+      now,
+      getExecution: () =>
+        executionCtx !== undefined && executionTx !== undefined
+          ? { tx: executionTx, ctx: executionCtx }
+          : undefined,
+      path: [contract.name],
+    });
+
     const env: RunEnv<TInput, TOutput, TTarget> = {
       deps,
       action: invocation.action,
@@ -252,8 +273,8 @@ export async function executeAction<
         deadline,
         signal: controller.signal,
         emit: emitBuffer.emit,
-        // Protocol slots narrowed by fnd-T19/T19A.
-        call: undefined,
+        call: ctxCall,
+        // Protocol slot narrowed by fnd-T19A.
         callAtomic: undefined,
       }),
     };
@@ -317,6 +338,7 @@ export async function executeAction<
     const output = await deps.db.transaction(
       async (tx) => {
         await applyStatementTimeout(tx, contract.name, deadline - now());
+        executionTx = tx;
 
         // TOCTOU re-authorization (§4 step 7): the principal context is
         // constructed inside this transaction; preflight results are never
@@ -383,6 +405,7 @@ export async function executeAction<
       //     runtime write fails even if a capability facade were sidestepped.
       { accessMode: contract.risk === "read" ? "read only" : "read write" },
     );
+    executionTx = undefined;
 
     // Post-commit audit for audited reads: the handler transaction is
     // read-only so the row is written in a separate short transaction.
@@ -417,6 +440,7 @@ export async function executeAction<
     finish("ok");
     return output;
   } catch (error) {
+    executionTx = undefined;
     const coreError = toCoreError(error, contract.name);
 
     // Failure path (§4 step 10): the execution transaction has rolled back
@@ -491,24 +515,6 @@ function assertAuthenticated(principal: PrincipalInvocation): void {
     throw new PermissionDeniedError("Authentication required.", {
       internalMessage: `${principal.mode} action invoked without a session`,
     });
-  }
-}
-
-/**
- * Staff authorization beyond membership: every permission the action
- * declares must be held (core.md §2 `permissions`). Runs in the preflight
- * and again in the execution transaction.
- */
-function assertDeclaredPermissions(
-  membership: StaffMembership,
-  contract: AnyActionContract,
-): void {
-  for (const permission of contract.permissions) {
-    if (!staffHasPermission(membership, permission)) {
-      throw new PermissionDeniedError(undefined, {
-        internalMessage: `staff caller lacks "${permission}" declared by "${contract.name}"`,
-      });
-    }
   }
 }
 

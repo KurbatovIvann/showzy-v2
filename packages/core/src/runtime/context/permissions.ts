@@ -7,6 +7,7 @@
  */
 import type { CompanyMemberPermissions } from "@showzy/db";
 
+import { PermissionDeniedError } from "../../errors/index.js";
 import type { CompanyRole, StaffMembership } from "./types.js";
 
 export const COMPANY_ROLES = ["owner", "admin", "manager", "employee"] as const;
@@ -49,4 +50,26 @@ export function staffHasPermission(
     return true;
   }
   return membership.permissions.includes(permission);
+}
+
+/**
+ * Staff authorization beyond membership: every permission the action
+ * declares must be held (core.md §2 `permissions`). The pipeline runs
+ * this in the preflight and again in the execution transaction; `ctx.call`
+ * (core.md §9) re-runs it for the callee's own declared permissions.
+ */
+export function assertDeclaredPermissions(
+  membership: StaffMembership,
+  contract: {
+    readonly name: string;
+    readonly permissions: readonly string[];
+  },
+): void {
+  for (const permission of contract.permissions) {
+    if (!staffHasPermission(membership, permission)) {
+      throw new PermissionDeniedError(undefined, {
+        internalMessage: `staff caller lacks "${permission}" declared by "${contract.name}"`,
+      });
+    }
+  }
 }

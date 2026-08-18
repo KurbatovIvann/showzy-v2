@@ -13,6 +13,8 @@ import type { Logger } from "pino";
 import type { z } from "zod";
 
 import type { EventDefinition, EventEmission } from "../events/define-event.js";
+// Type-only and erased at compile time — no runtime import cycle exists.
+import type { ImplementedAction } from "../implement-action.js";
 
 /** How the action was invoked; audit and logs carry it (blueprint §2.1-4). */
 export type ActionChannel = "ui" | "ai" | "system" | "webhook";
@@ -56,13 +58,32 @@ export type CtxEmit = <TPayload extends z.ZodType>(
 ) => void;
 
 /**
- * Protocol slots owned by later foundation tasks, kept opaque so nothing
- * can depend on their internals prematurely (same pattern as the fnd-T9
- * callback environments): `ctx.call` is narrowed by fnd-T19 and
- * `ctx.callAtomic` by fnd-T19A. The execution pipeline (fnd-T12) supplies
- * the real values through `ContextRuntime`.
+ * `ctx.call` (core.md §9, ADR-0015 — fnd-T19): synchronous cross-module
+ * composition. Takes another module's implemented `risk: "read"` action —
+ * imported from that module's `index.ts`, its public API — plus input, and
+ * returns the callee's validated output. The callee runs in the caller's
+ * transaction (it sees uncommitted writes) and principal context, but
+ * behind the `ReadTx` facade even when the caller's transaction is
+ * writable; its own `permissions`/`resolveTarget` re-execute, nested
+ * resolvers must resolve to the caller's verified company, and the
+ * timeout budget is shared. The §9 target rules, the depth limit of 3,
+ * and cycle detection are asserted at runtime and proven in CI.
  */
-export type CtxCall = unknown;
+export type CtxCall = <
+  TInput extends z.ZodType,
+  TOutput extends z.ZodType,
+  TTarget,
+>(
+  action: ImplementedAction<TInput, TOutput, TTarget>,
+  input: z.input<TInput>,
+) => Promise<z.output<TOutput>>;
+
+/**
+ * Protocol slot owned by fnd-T19A, kept opaque so nothing can depend on
+ * its internals prematurely (same pattern as the fnd-T9 callback
+ * environments). The execution pipeline (fnd-T12) supplies the real value
+ * through `ContextRuntime`.
+ */
 export type CtxCallAtomic = unknown;
 
 /**
