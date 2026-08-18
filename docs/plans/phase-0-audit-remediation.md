@@ -64,12 +64,19 @@ Pro/an organization/public.
 
 ### A2 — The interim composition root in `packages/core` was never retired
 
-**Severity: blocker (architecture/process).** The CI contract-check stage
-(`pnpm --filter @showzy/core contract:check`) walks
-`packages/core/src/contract-check/registered-modules.ts`, which is the
-**explicitly empty interim manifest**. Its own header comment says fnd-T23/
+**Severity: blocker (architecture/process) — implemented (SHO-82).**
+The CI contract-check stage is `pnpm --filter @showzy/api contract:check`
+and walks `apps/api/src/composition.ts`. `runContractCheck` stays in core
+as a library; `registered-modules.ts` / `ci-stage.test.ts` are deleted.
+Module tasks register in the API composition root — never in
+`packages/core`.
+
+**Original finding (kept for the audit trail):** The CI contract-check
+stage (`pnpm --filter @showzy/core contract:check`) walked
+`packages/core/src/contract-check/registered-modules.ts`, which was the
+**explicitly empty interim manifest**. Its own header comment said fnd-T23/
 fnd-T26 become "the real composition roots — at that point the stage walks
-those instead and this file is retired". fnd-T23 and fnd-T26 are merged;
+those instead and this file is retired". fnd-T23 and fnd-T26 were merged;
 the file was not retired. Consequences:
 
 - The CI contract-check stage currently validates an **empty registry** —
@@ -377,7 +384,7 @@ proving test where behavior is asserted):
 | Order | Task | Owner | Blocking |
 | --- | --- | --- | --- |
 | 1 | A1 branch protection — resolved as accepted risk; note recorded in `docs/operations/branch-protection.md` | human | done |
-| 2 | A2 composition root retirement + gate demo | scaffold agent | fnd-G1 |
+| 2 | A2 composition root retirement + gate demo | scaffold agent | done (SHO-82) |
 | 3 | A3 fail-closed pipeline hooks | scaffold agent | fnd-G1 (recommended) |
 | 4 | A4 test-kit suite completeness | scaffold agent | fnd-G1 (recommended) |
 | 5 | A5 ProjectionReadTx join escape | scaffold agent | before first `search`/public-global work; recommended now |
@@ -395,5 +402,6 @@ the gate window keeps the reference slices from inheriting the gaps.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-08-18 | A2 implemented (SHO-82): contract-check CI stage walks `apps/api/src/composition.ts`; core interim manifest retired | fnd-G1 gate: module tasks must not edit frozen core to be covered |
 | 2026-08-18 | A1 resolved as accepted risk: owner keeps the private/free plan; compensating manual merge gate recorded in `docs/operations/branch-protection.md` | Owner decision at gate review |
 | 2026-08-18 | Initial audit report and remediation breakdown | fnd-G1 phase-0 exit-gate audit (SHO-56) |

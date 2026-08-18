@@ -4,8 +4,8 @@ export default defineConfig({
   test: {
     projects: [
       {
-        // Pure unit tests — no containers, no Docker. The CI contract-check
-        // stage runs only this project so it stays fast and Docker-free.
+        // Pure unit tests — no containers, no Docker. Rule-matrix tests for
+        // runContractCheck live here; the CI stage walks apps/api composition.
         test: {
           name: "unit",
           include: ["src/**/*.test.ts"],

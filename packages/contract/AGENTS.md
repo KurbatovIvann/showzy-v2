@@ -77,8 +77,10 @@ the OpenAPI artifact.
 1. Export descriptors from the module's `index.contract.ts`.
 2. Add them to `src/client/modules.ts` under `{ [module]: { [verb]: contract } }`
    with keys that match `contract.name`.
-3. Register both barrels in the API boot registry (fnd-T26). The server
-   router builder proves the exposure record and the registry agree.
+3. Register both barrels in `apps/api/src/composition.ts` (implementations
+   and the module's `./suite-coverage` export). Do not edit `packages/core`.
+   The server router builder proves the exposure record and the registry
+   agree.
 
 Do not hand-write oRPC procedures, wire codes, or AI-tool lists — they
 all derive from the descriptor.

@@ -337,7 +337,7 @@ action })` binds one event to one consuming action under a stable
 ## The contract check (`src/contract-check/`, core.md §2)
 
 The CI gate is layered — all three layers run in the `contract-check` CI
-stage (`pnpm --filter @showzy/core contract:check`):
+stage (`pnpm --filter @showzy/api contract:check`):
 
 1. **Define time** — `defineActionContract` throws on every single-descriptor
    rule when the stage imports a module barrel.
@@ -359,13 +359,14 @@ stage (`pnpm --filter @showzy/core contract:check`):
    every registered action and declared atomic edge must appear in
    `suiteCoverage`).
 
-`registered-modules.ts` is the interim composition manifest the stage walks
-(`ci-stage.test.ts`). Everything is explicitly empty until modules exist;
-`defineEvent` outputs satisfy `EventDefinitionRef`, `eventSubscriptionRefs`
-(fnd-T17) produces `EventSubscriptionRef` entries, and fnd-T23/T26 move
-composition to `packages/contract` / apps boot. The input shapes are
-structural on purpose so fnd-T16/T17 outputs satisfy them without core
-changes.
+The composition root is `apps/api/src/composition.ts`
+(`createActionRegistry` and `buildContractCheckInput`). Module tasks
+register actions, events, subscriptions, call edges, schema-ownership
+rows, and `suiteCoverage` (`@showzy/<module>/suite-coverage`) there —
+never in this package. `defineEvent` outputs satisfy `EventDefinitionRef`,
+`eventSubscriptionRefs` (fnd-T17) produces `EventSubscriptionRef` entries.
+The input shapes are structural on purpose so module barrels satisfy them
+without core changes. `runContractCheck` stays here as a library.
 
 ## Module test kit (`src/testing/`, core.md §12)
 
