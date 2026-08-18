@@ -1,0 +1,316 @@
+/**
+ * Worker integration (fnd-T27): emit → dispatch → consumer processed;
+ * LISTEN wakeup vs polling fallback; expired-claim reclaim exactly once;
+ * idempotency cleanup removes expired keys only.
+ */
+import { randomUUID } from "node:crypto";
+
+import {
+  DELIVERY_CLAIM_MARGIN_MS,
+  defineEvent,
+  defineEventHandler,
+  dispatchOutboxBatch,
+  eventEnvelopeSchema,
+  implementAction,
+} from "@showzy/core";
+import { defineActionContract } from "@showzy/core/contract";
+import { createTestKit, type TestKit } from "@showzy/core/testing";
+import { domainEvents, eventDeliveries, idempotencyKeys } from "@showzy/db";
+import { and, eq } from "drizzle-orm";
+import { pino } from "pino";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { z } from "zod";
+
+import { createOutboxListener } from "./listen.js";
+import { createOutboxWorker } from "./loop.js";
+import { OUTBOX_NOTIFY_CHANNEL } from "./policy.js";
+
+const silent = pino({ enabled: false });
+
+const orderPlaced = defineEvent({
+  name: "workerFixture.orderPlaced",
+  version: 1,
+  scope: "tenant",
+  payload: z.object({ orderId: z.uuid() }),
+});
+
+const placeAction = implementAction(
+  defineActionContract({
+    name: "workerFixture.place",
+    description: "Staff fixture emitting an order event into the outbox.",
+    principal: "staff",
+    transport: "internal",
+    aiExposure: "internal",
+    input: z.object({ orderId: z.uuid() }),
+    output: z.object({ ok: z.boolean() }),
+    permissions: ["workerFixture:write"],
+    risk: "write",
+    requiresConfirmation: false,
+    idempotent: false,
+    emits: ["workerFixture.orderPlaced"],
+    atomicCalls: [],
+    atomicCallers: [],
+    audit: true,
+    timeout: 5_000,
+  }),
+  {
+    handler: (input, ctx) => {
+      ctx.emit(orderPlaced, {
+        aggregate: { type: "order", id: input.orderId },
+        payload: { orderId: input.orderId },
+      });
+      return Promise.resolve({ ok: true });
+    },
+    auditTarget: () => ({ type: "order", id: "fixture" }),
+  },
+);
+
+const processedEventIds: string[] = [];
+
+const upsertCardAction = implementAction(
+  defineActionContract({
+    name: "workerFixtureChat.upsertCard",
+    description: "Chat-like consumer of the worker fixture event.",
+    principal: "system",
+    systemScope: "tenant",
+    transport: "internal",
+    aiExposure: "internal",
+    input: eventEnvelopeSchema(z.object({ orderId: z.uuid() })),
+    output: z.object({ ok: z.boolean() }),
+    permissions: [],
+    risk: "write",
+    requiresConfirmation: false,
+    idempotent: true,
+    emits: [],
+    atomicCalls: [],
+    atomicCallers: [],
+    audit: true,
+    timeout: 5_000,
+  }),
+  {
+    handler: (input) => {
+      processedEventIds.push(input.eventId);
+      return Promise.resolve({ ok: true });
+    },
+    auditTarget: () => ({ type: "order-card", id: "fixture" }),
+  },
+);
+
+const cardSubscription = defineEventHandler({
+  event: orderPlaced,
+  consumer: "workerFixtureChat.card-updater",
+  action: upsertCardAction,
+});
+
+let kit: TestKit;
+
+beforeAll(async () => {
+  kit = await createTestKit();
+});
+
+afterAll(async () => {
+  await kit.db.close();
+});
+
+function runtimeConnectionString(): string {
+  const connectionString = kit.db.runtime.pool.options.connectionString;
+  if (connectionString === undefined || connectionString === "") {
+    throw new Error("runtime pool is missing a connection string");
+  }
+  return connectionString;
+}
+
+async function waitUntil(
+  check: () => Promise<boolean>,
+  timeoutMs = 5_000,
+): Promise<void> {
+  const started = Date.now();
+  while (!(await check())) {
+    if (Date.now() - started > timeoutMs) {
+      throw new Error("timed out waiting for worker condition");
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+}
+
+async function deliveryStatus(eventId: string): Promise<string | undefined> {
+  const [row] = await kit.db.runtime.db
+    .select({ status: eventDeliveries.status })
+    .from(eventDeliveries)
+    .where(
+      and(
+        eq(eventDeliveries.consumer, cardSubscription.consumer),
+        eq(eventDeliveries.eventId, eventId),
+      ),
+    );
+  return row?.status;
+}
+
+async function emitOrder(): Promise<{ eventId: string }> {
+  const orderId = randomUUID();
+  await kit.invoke(placeAction, { orderId });
+  const events = await kit.db.runtime.db
+    .select({ id: domainEvents.id })
+    .from(domainEvents)
+    .where(eq(domainEvents.aggregateId, orderId));
+  const eventId = events[0]?.id;
+  if (eventId === undefined || events.length !== 1) {
+    throw new Error("expected exactly one emitted outbox row");
+  }
+  return { eventId };
+}
+
+describe("apps/worker outbox loop (core.md §6)", () => {
+  it("wakes on LISTEN/NOTIFY and processes a delivery without waiting for poll", async () => {
+    processedEventIds.length = 0;
+    const worker = createOutboxWorker({
+      db: kit.db.runtime.db,
+      pipeline: kit.pipeline,
+      subscriptions: [cardSubscription],
+      workerId: "worker-listen",
+      logger: silent,
+      pollIntervalMs: 60_000,
+      cleanupIntervalMs: 60_000,
+      listen: createOutboxListener({
+        connectionString: runtimeConnectionString(),
+        logger: silent,
+      }),
+    });
+    await worker.start();
+    try {
+      const { eventId } = await emitOrder();
+      await waitUntil(
+        async () => (await deliveryStatus(eventId)) === "processed",
+      );
+      expect(processedEventIds).toEqual([eventId]);
+    } finally {
+      await worker.stop();
+    }
+  });
+
+  it("processes a delivery via the polling fallback when LISTEN is not used", async () => {
+    processedEventIds.length = 0;
+    const worker = createOutboxWorker({
+      db: kit.db.runtime.db,
+      pipeline: kit.pipeline,
+      subscriptions: [cardSubscription],
+      workerId: "worker-poll",
+      logger: silent,
+      pollIntervalMs: 50,
+      cleanupIntervalMs: 60_000,
+    });
+    await worker.start();
+    try {
+      const { eventId } = await emitOrder();
+      await waitUntil(
+        async () => (await deliveryStatus(eventId)) === "processed",
+      );
+      expect(processedEventIds).toEqual([eventId]);
+    } finally {
+      await worker.stop();
+    }
+  });
+
+  it("reclaims a killed worker's expired claim exactly once", async () => {
+    processedEventIds.length = 0;
+    const { eventId } = await emitOrder();
+    await dispatchOutboxBatch(
+      { db: kit.db.runtime.db },
+      { subscriptions: [cardSubscription], claimedBy: "setup-dispatcher" },
+    );
+
+    let nowMs = Date.now();
+    await kit.db.runtime.db
+      .update(eventDeliveries)
+      .set({
+        status: "processing",
+        attempts: 1,
+        nextAttemptAt: null,
+        claimedAt: new Date(nowMs),
+        claimedBy: "killed-worker",
+      })
+      .where(
+        and(
+          eq(eventDeliveries.consumer, cardSubscription.consumer),
+          eq(eventDeliveries.eventId, eventId),
+        ),
+      );
+
+    const worker = createOutboxWorker({
+      db: kit.db.runtime.db,
+      pipeline: { ...kit.pipeline, now: () => nowMs },
+      subscriptions: [cardSubscription],
+      workerId: "worker-reclaim",
+      logger: silent,
+      now: () => nowMs,
+    });
+
+    expect(await worker.tick()).toMatchObject({ processed: 0 });
+    expect(processedEventIds).toHaveLength(0);
+    expect(await deliveryStatus(eventId)).toBe("processing");
+
+    nowMs += cardSubscription.contract.timeout + DELIVERY_CLAIM_MARGIN_MS;
+    expect(await worker.tick()).toMatchObject({ processed: 1 });
+    expect(processedEventIds).toEqual([eventId]);
+    expect(await deliveryStatus(eventId)).toBe("processed");
+
+    expect(await worker.tick()).toMatchObject({ processed: 0 });
+    expect(processedEventIds).toEqual([eventId]);
+    await worker.stop();
+  });
+
+  it("cleanup removes expired idempotency keys only", async () => {
+    const expiredKey = randomUUID();
+    const liveKey = randomUUID();
+    const nowMs = Date.now();
+    await kit.db.runtime.db.insert(idempotencyKeys).values([
+      {
+        principalKey: `staff:${kit.identities.users.anna}`,
+        scopeKey: `company:${kit.identities.companies.a}`,
+        companyId: kit.identities.companies.a,
+        action: "workerFixture.place",
+        key: expiredKey,
+        requestHash: "a".repeat(64),
+        status: "completed",
+        attemptId: randomUUID(),
+        leaseExpiresAt: new Date(nowMs),
+        expiresAt: new Date(nowMs - 1_000),
+      },
+      {
+        principalKey: `staff:${kit.identities.users.anna}`,
+        scopeKey: `company:${kit.identities.companies.a}`,
+        companyId: kit.identities.companies.a,
+        action: "workerFixture.place",
+        key: liveKey,
+        requestHash: "b".repeat(64),
+        status: "completed",
+        attemptId: randomUUID(),
+        leaseExpiresAt: new Date(nowMs + 30_000),
+        expiresAt: new Date(nowMs + 48 * 3_600_000),
+      },
+    ]);
+
+    const worker = createOutboxWorker({
+      db: kit.db.runtime.db,
+      pipeline: kit.pipeline,
+      subscriptions: [cardSubscription],
+      workerId: "worker-cleanup",
+      logger: silent,
+      now: () => nowMs,
+    });
+    expect(await worker.cleanup()).toBeGreaterThanOrEqual(1);
+
+    const remaining = await kit.db.runtime.db
+      .select({ key: idempotencyKeys.key })
+      .from(idempotencyKeys)
+      .where(eq(idempotencyKeys.action, "workerFixture.place"));
+    expect(remaining.map((row) => row.key)).toEqual([liveKey]);
+    await worker.stop();
+  });
+});
+
+describe("outbox notify channel", () => {
+  it("matches the db.md §4 trigger channel", () => {
+    expect(OUTBOX_NOTIFY_CHANNEL).toBe("domain_events");
+  });
+});

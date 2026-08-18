@@ -43,6 +43,13 @@
       "when": 1787043150243,
       "tag": "0005_broken_rage",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787075891984,
+      "tag": "0006_domain_events_notify",
+      "breakpoints": true
     }
   ]
 }
