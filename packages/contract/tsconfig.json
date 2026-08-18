@@ -1,0 +1,12 @@
+{
+  "extends": "@showzy/tooling/tsconfig/base.json",
+  "compilerOptions": {
+    // The ./server subpath imports the core runtime and the tests run under
+    // Vitest/Node. The client root's no-Node guarantee (ADR-0016) is NOT
+    // weakened by this: `tsconfig.client.json` re-checks `src/client` with
+    // `"types": []` in the same `typecheck` script, so an accidental
+    // `process`/`Buffer` reference in the client layer still fails CI.
+    "types": ["node"]
+  },
+  "include": ["src", "vitest.config.ts"]
+}

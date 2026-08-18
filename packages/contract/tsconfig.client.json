@@ -1,0 +1,12 @@
+{
+  "extends": "@showzy/tooling/tsconfig/base.json",
+  "compilerOptions": {
+    // The client root ships to Expo bundles (contract.md §2); keeping
+    // ambient @types out makes an accidental `process`/`Buffer` reference a
+    // compile error. This config exists only as that guard — the package
+    // `tsconfig.json` covers all of `src` with Node types for the
+    // server-only subpath and the tests.
+    "types": []
+  },
+  "include": ["src/client"]
+}
