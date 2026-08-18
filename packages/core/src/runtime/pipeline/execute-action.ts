@@ -56,6 +56,7 @@ import type { AuditTargetFn, MaybePromise, TargetResolver } from "../types.js";
 import type {
   ActionPipelineDeps,
   PipelineHookEnv,
+  PipelineHookRequestMeta,
   PipelineRequestMeta,
   PreflightAuthorization,
   PrincipalInvocation,
@@ -101,7 +102,7 @@ export async function executeAction<
   // handler and — later — nested `ctx.call`s through the abort signal.
   const deadline = startedAt + contract.timeout;
   const controller = new AbortController();
-  const request: ActionRequestMeta = {
+  const request: PipelineHookRequestMeta = {
     action: contract.name,
     ...invocation.request,
   };

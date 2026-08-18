@@ -4,7 +4,7 @@ The action runtime (core.md). **Frozen for module tasks** (prohibitions.mdc):
 module implementation tasks may not change anything here — if core is missing
 something, stop and report.
 
-## Current state (fnd-T14)
+## Current state (fnd-T15)
 
 Three export subpaths exist:
 
@@ -15,12 +15,14 @@ Three export subpaths exist:
   principal context factories + `effectiveCompanyId` +
   `staffHasPermission` (fnd-T11), the execution pipeline
   `executeAction` (fnd-T12), the audit protocol `createAuditHook` +
-  `canonicalJson`/`canonicalJsonSha256` (fnd-T13), and rate limiting
-  `createRateLimitHook` + `createInMemoryRateLimitStore` (fnd-T14).
+  `canonicalJson`/`canonicalJsonSha256` (fnd-T13), rate limiting
+  `createRateLimitHook` + `createInMemoryRateLimitStore` (fnd-T14), and
+  the idempotency protocol `createIdempotencyHook` +
+  `cleanupExpiredIdempotencyKeys` (fnd-T15).
 
-The rest of the runtime — events, idempotency, confirmation,
+The rest of the runtime — events, confirmation,
 `ctx.call`/`ctx.callAtomic`, and the module test kit — lands with
-fnd-T15…T22 by filling the pipeline's protocol slots.
+fnd-T16…T22 by filling the pipeline's protocol slots.
 
 ## Typed errors (`src/errors/`, core.md §11)
 
@@ -162,6 +164,37 @@ ipHmacSecret, logger, now? })` fills the pipeline's `rateLimit` slot.
   ordinary authenticated reads (`risk: read`, staff/customer/consumer/
   account) and for system actions; fail-closed (`RateLimitError`, retry
   after the window) for public actions and every mutation.
+
+## Idempotency protocol (`src/runtime/idempotency/`, core.md §5)
+
+- `create-idempotency-hook.ts` — `createIdempotencyHook({ db, now? })`
+  fills the pipeline's `idempotency` slot. Rows are unique on
+  `(principal key, scope key, action, key)`; the request hash covers the
+  validated input **plus** principal and scope keys, so a hash match always
+  implies the same accountable identity.
+- `reserve` runs in its own short transaction (single statements): fresh
+  INSERT `in_progress` → execute; `completed` + same hash → replay the
+  stored snapshot; any different hash → `IdempotencyConflictError` (§5
+  names `completed`, but a divergent payload on a live/failed row is the
+  same caller bug and taking it over would corrupt the record); live lease
+  → `ConcurrentRetryError` (+ retry-after); `failed`/expired lease/passed
+  retention → conditional takeover CAS'd on the observed `attempt_id`, so
+  concurrent retries produce exactly one winner.
+- The lease is `contract.timeout + IDEMPOTENCY_LEASE_MARGIN_MS`. The
+  pipeline deadline bounds every handler, so no mid-flight renewal exists;
+  if `finalize` finds its attempt superseded it throws to roll the whole
+  handler transaction back (never double-execute).
+- `finalize` (inside the handler tx) stores the Zod-validated response
+  snapshot with `completed`; `markFailed` flips to `failed` in its own
+  statement after rollback. A missing key is a `ValidationError` — the key
+  is transport meta (`PipelineHookRequestMeta`), never action input and
+  never generated server-side.
+- `cleanupExpiredIdempotencyKeys(db)` deletes rows past the 48-h retention
+  (`IDEMPOTENCY_RETENTION_MS`); the worker loop schedules it (fnd-T27).
+  Replay after expiry re-executes by design.
+- Confirmation-grant columns (`confirmation_*`) are written by fnd-T20;
+  takeover preserves them (crash-safe resume) except when reusing a row
+  whose retention passed, which resets the slot entirely.
 
 ## The contract check (`src/contract-check/`, core.md §2)
 
