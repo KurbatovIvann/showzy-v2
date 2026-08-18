@@ -79,12 +79,27 @@ export type CtxCall = <
 ) => Promise<z.output<TOutput>>;
 
 /**
- * Protocol slot owned by fnd-T19A, kept opaque so nothing can depend on
- * its internals prematurely (same pattern as the fnd-T9 callback
- * environments). The execution pipeline (fnd-T12) supplies the real value
- * through `ContextRuntime`.
+ * `ctx.callAtomic` (core.md §9, ADR-0021 — fnd-T19A): the exceptional
+ * all-or-nothing cross-module write. Takes another module's implemented
+ * internal `risk: "write"` action — the edge mutually declared via
+ * `atomicCalls`/`atomicCallers` — plus input, and returns the callee's
+ * validated output. The callee runs in the **root physical transaction**
+ * with the writable `Tx` capability, under the same principal re-verified
+ * through the normal context factories; its validation, authorization,
+ * output validation, audit, and events execute normally and commit only
+ * with the root. Available only inside a writable, idempotent root
+ * action's handler; one atomic edge per invocation, no nesting — every
+ * violation is a `CoreInvariantError` at the call, asserted from the same
+ * rule list the contract check proves in CI.
  */
-export type CtxCallAtomic = unknown;
+export type CtxCallAtomic = <
+  TInput extends z.ZodType,
+  TOutput extends z.ZodType,
+  TTarget,
+>(
+  action: ImplementedAction<TInput, TOutput, TTarget>,
+  input: z.input<TInput>,
+) => Promise<z.output<TOutput>>;
 
 /**
  * Fields common to every principal mode (core.md §3). `TDb` is the
