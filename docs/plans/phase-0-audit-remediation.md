@@ -45,25 +45,22 @@ lines is the comfort guideline.
 
 ### A1 — Branch protection cannot be enabled on the current GitHub plan
 
-**Severity: blocker (process).** `docs/operations/branch-protection.md`
-instructs enabling a ruleset, and blueprint §7.1(6) / security-operations §7
-("merging without green CI is impossible") assume it works — but the
-repository is a **private repo on a personal free plan**, where GitHub
-returns `403 "Upgrade to GitHub Pro or make this repository public to
-enable this feature."` Every CI gate is currently advisory: a red PR or a
-direct push to `main` merges freely.
+**Severity: blocker (process) — RESOLVED as accepted risk (owner,
+2026-08-18).** `docs/operations/branch-protection.md` instructs enabling a
+ruleset, and blueprint §7.1(6) / security-operations §7 ("merging without
+green CI is impossible") assume it works — but the repository is a
+**private repo on a personal free plan**, where GitHub returns
+`403 "Upgrade to GitHub Pro or make this repository public to enable this
+feature."` Every CI gate is currently advisory: a red PR or a direct push
+to `main` merges freely.
 
-**Instructions (human owner):**
-
-1. Choose one: upgrade the account to GitHub Pro, move the repo into a
-   GitHub organization, or make it public. Then enable the ruleset exactly
-   as `docs/operations/branch-protection.md` documents and run its
-   verification steps (red PR cannot merge; direct push rejected).
-2. In the same change, add a short "Plan prerequisite" note at the top of
-   `docs/operations/branch-protection.md` recording this constraint, so the
-   gap can never be silent again.
-3. Until done, the owner is the only merge gate and must treat CI status as
-   manually mandatory.
+**Owner decision:** no upgrade to Pro and no switch to public for now. The
+constraint and the compensating process are recorded in the "Plan
+prerequisite" section of `docs/operations/branch-protection.md` (this
+audit's PR): the owner is the only merge gate, all seven CI checks are
+treated as manually mandatory, no direct pushes to `main` by convention,
+and the ruleset is enabled immediately if the repository ever moves to
+Pro/an organization/public.
 
 ### A2 — The interim composition root in `packages/core` was never retired
 
@@ -379,7 +376,7 @@ proving test where behavior is asserted):
 
 | Order | Task | Owner | Blocking |
 | --- | --- | --- | --- |
-| 1 | A1 branch protection | human | fnd-G1 |
+| 1 | A1 branch protection — resolved as accepted risk; note recorded in `docs/operations/branch-protection.md` | human | done |
 | 2 | A2 composition root retirement + gate demo | scaffold agent | fnd-G1 |
 | 3 | A3 fail-closed pipeline hooks | scaffold agent | fnd-G1 (recommended) |
 | 4 | A4 test-kit suite completeness | scaffold agent | fnd-G1 (recommended) |
@@ -398,4 +395,5 @@ the gate window keeps the reference slices from inheriting the gaps.
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-08-18 | A1 resolved as accepted risk: owner keeps the private/free plan; compensating manual merge gate recorded in `docs/operations/branch-protection.md` | Owner decision at gate review |
 | 2026-08-18 | Initial audit report and remediation breakdown | fnd-G1 phase-0 exit-gate audit (SHO-56) |

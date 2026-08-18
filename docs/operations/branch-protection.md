@@ -10,6 +10,32 @@ Blueprint §7.1(6): "Merging is impossible without green CI — branch
 protection." Pipeline stage 6 (VERIFICATION) is a hard gate before any
 parallel implementation.
 
+## Plan prerequisite — NOT currently enforceable (accepted risk)
+
+> Recorded at the fnd-G1 audit (owner decision, 2026-08-18).
+
+GitHub does not offer rulesets or classic branch protection on **private
+repositories under a personal free plan** — the API returns
+`403 "Upgrade to GitHub Pro or make this repository public to enable this
+feature."` The owner has decided not to upgrade to Pro and not to make the
+repository public for now, so the ruleset below **cannot be enabled** and
+every CI gate is technically advisory: a red PR or a direct push to `main`
+is not blocked by GitHub.
+
+Compensating process until the constraint is lifted:
+
+- **The human owner is the merge gate.** Nothing merges into `main` except
+  through a PR that the owner has reviewed, and only with all seven CI
+  checks green — treated as manually mandatory.
+- **No direct pushes to `main`** by convention; every change goes through a
+  branch + PR, including the owner's own.
+- Agents must never merge PRs (already a standing rule) and must report a
+  red check instead of working around it.
+
+Revisit triggers: the repository moves to GitHub Pro, into an organization,
+or becomes public — then enable the ruleset below immediately and run the
+verification steps.
+
 ## Required ruleset (target branch: `main`)
 
 1. **Require a pull request before merging** — direct pushes to `main` are
