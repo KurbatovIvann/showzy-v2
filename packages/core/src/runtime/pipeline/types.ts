@@ -92,10 +92,20 @@ export interface PreflightAuthorization {
   readonly companyId: string | null;
 }
 
+/**
+ * Request meta as protocol hooks see it: the correlation fields plus the
+ * protocol transport meta (contract.md §3) — carried as oRPC meta/headers,
+ * never as action input, so it cannot change the canonical input hash.
+ */
+export interface PipelineHookRequestMeta extends ActionRequestMeta {
+  readonly idempotencyKey?: string;
+  readonly confirmationChallengeId?: string;
+}
+
 /** Fields every protocol hook receives about the current invocation. */
 export interface PipelineHookEnv {
   readonly contract: AnyActionContract;
-  readonly request: ActionRequestMeta;
+  readonly request: PipelineHookRequestMeta;
   readonly principal: PrincipalInvocation;
   /** Zod-validated action input (§4 step 1 has already run). */
   readonly input: unknown;

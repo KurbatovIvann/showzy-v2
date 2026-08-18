@@ -1,0 +1,403 @@
+/**
+ * `createIdempotencyHook` — the fnd-T15 idempotency protocol (core.md §5).
+ *
+ * Reservations live in `idempotency_keys`, unique on
+ * `(principal key, scope key, action, key)`: both the accountable principal
+ * and the tenant scope are part of the identity, so one staff member can
+ * never replay another's stored response and a system service cannot
+ * collide across companies.
+ *
+ * Flow: `reserve` INSERTs `in_progress` in its own short transaction (the
+ * pipeline calls it before the handler transaction opens). On a unique-key
+ * hit: `completed` + same request hash → replay the stored snapshot;
+ * different hash → `IdempotencyConflictError`; a live `in_progress` lease →
+ * `ConcurrentRetryError`; `failed` or an expired lease → conditional
+ * takeover keyed on the observed `attempt_id`, so exactly one retry wins.
+ * `finalize` flips the row to `completed` with the response snapshot
+ * **inside the handler transaction** — snapshot and effects commit
+ * atomically. `markFailed` runs in its own transaction after rollback.
+ *
+ * The lease is the action timeout plus a bounded safety margin: the
+ * whole-pipeline deadline (core.md §4) bounds every handler, so an attempt
+ * that outlives its lease is dead by construction and no mid-flight renewal
+ * is needed. Keys expire after 48 h; the worker loop (fnd-T27) schedules
+ * `cleanupExpiredIdempotencyKeys` — core exposes functions, never loops.
+ */
+import { randomUUID } from "node:crypto";
+
+import { idempotencyKeys, type Database } from "@showzy/db";
+import { and, eq, lte } from "drizzle-orm";
+import type { z } from "zod";
+
+import {
+  ConcurrentRetryError,
+  CoreInvariantError,
+  IdempotencyConflictError,
+  ValidationError,
+} from "../../errors/index.js";
+import {
+  canonicalJsonSha256,
+  type JsonSerializable,
+} from "../audit/canonical-json.js";
+import type {
+  IdempotencyHook,
+  IdempotencyReserveResult,
+  PipelineHookEnv,
+  PreflightAuthorization,
+} from "../pipeline/types.js";
+
+/** Keys expire 48 h after creation (core.md §5); replay beyond re-executes. */
+export const IDEMPOTENCY_RETENTION_MS = 48 * 60 * 60 * 1000;
+
+/**
+ * Added to the action timeout to form the lease (core.md §5 "the action
+ * timeout plus a bounded safety margin"): generous enough to absorb clock
+ * skew and post-handler commit time, small enough that a crashed submit is
+ * retryable quickly.
+ */
+export const IDEMPOTENCY_LEASE_MARGIN_MS = 15_000;
+
+export interface IdempotencyHookDeps {
+  readonly db: Database;
+  /** Clock override for tests; defaults to `Date.now`. */
+  readonly now?: () => number;
+}
+
+/** The opaque reservation handed back to `finalize`/`markFailed`. */
+interface IdempotencyReservation {
+  readonly principalKey: string;
+  readonly scopeKey: string;
+  readonly action: string;
+  readonly key: string;
+  readonly attemptId: string;
+  readonly leaseMs: number;
+}
+
+type ReserveEnv = PipelineHookEnv & {
+  readonly authorization: PreflightAuthorization;
+};
+
+export function createIdempotencyHook(
+  deps: IdempotencyHookDeps,
+): IdempotencyHook {
+  const now = deps.now ?? Date.now;
+
+  return {
+    async reserve(env) {
+      const key = requireIdempotencyKey(env);
+      const principalKey = principalKeyFor(env);
+      const scopeKey = scopeKeyFor(env, principalKey);
+      const action = env.contract.name;
+      // The hash covers principal and scope alongside the input (§5), so a
+      // hash match always implies the same accountable identity.
+      const requestHash = canonicalJsonSha256({
+        input: env.input as JsonSerializable,
+        principalKey,
+        scopeKey,
+      });
+      const leaseMs = env.contract.timeout + IDEMPOTENCY_LEASE_MARGIN_MS;
+      const identity = { principalKey, scopeKey, action, key } as const;
+
+      // Two rounds cover the rare row-vanished race (retention cleanup
+      // deleting between our INSERT conflict and SELECT); everything else
+      // resolves in one.
+      for (let round = 0; round < 2; round += 1) {
+        const attemptId = randomUUID();
+        const nowMs = now();
+        const inserted = await deps.db
+          .insert(idempotencyKeys)
+          .values({
+            ...identity,
+            companyId: env.authorization.companyId,
+            requestHash,
+            status: "in_progress",
+            attemptId,
+            leaseExpiresAt: new Date(nowMs + leaseMs),
+            expiresAt: new Date(nowMs + IDEMPOTENCY_RETENTION_MS),
+          })
+          .onConflictDoNothing()
+          .returning({ attemptId: idempotencyKeys.attemptId });
+        if (inserted.length > 0) {
+          return execute({ ...identity, attemptId, leaseMs });
+        }
+
+        const [existing] = await deps.db
+          .select()
+          .from(idempotencyKeys)
+          .where(pkWhere(identity));
+        if (existing === undefined) {
+          continue;
+        }
+
+        const nowAfterRead = now();
+
+        // Retention passed but cleanup has not collected the row yet: §5
+        // says replay after expiry re-executes, so reuse the slot as if it
+        // were fresh (new hash, new retention window, no stale grant).
+        if (existing.expiresAt.getTime() <= nowAfterRead) {
+          return await takeover(deps.db, {
+            identity,
+            observedAttemptId: existing.attemptId,
+            leaseMs,
+            nowMs: nowAfterRead,
+            reset: {
+              requestHash,
+              expiresAt: new Date(nowAfterRead + IDEMPOTENCY_RETENTION_MS),
+              confirmationChallengeId: null,
+              confirmedAt: null,
+              confirmationExpiresAt: null,
+            },
+          });
+        }
+
+        if (existing.requestHash !== requestHash) {
+          // §5 spells this out for `completed`; a divergent payload on a
+          // live or failed row is the same caller bug (one key = one
+          // logical submit), and taking it over would corrupt the record.
+          throw new IdempotencyConflictError(undefined, {
+            internalMessage: `idempotency key reuse with a different payload on "${action}" (status ${existing.status})`,
+          });
+        }
+
+        switch (existing.status) {
+          case "completed":
+            return { kind: "replay", response: existing.response };
+          case "failed":
+            return await takeover(deps.db, {
+              identity,
+              observedAttemptId: existing.attemptId,
+              leaseMs,
+              nowMs: nowAfterRead,
+            });
+          case "in_progress": {
+            if (existing.leaseExpiresAt.getTime() > nowAfterRead) {
+              throw new ConcurrentRetryError(
+                retryAfterSec(existing.leaseExpiresAt.getTime() - nowAfterRead),
+                undefined,
+                {
+                  internalMessage: `a live attempt ${existing.attemptId} holds the lease on "${action}"`,
+                },
+              );
+            }
+            // Crashed/stale attempt: the lease expired without finalize or
+            // markFailed. Conditional takeover — exactly one caller wins.
+            return await takeover(deps.db, {
+              identity,
+              observedAttemptId: existing.attemptId,
+              leaseMs,
+              nowMs: nowAfterRead,
+            });
+          }
+          default:
+            throw new CoreInvariantError(
+              `idempotency row for "${action}" has unknown status "${existing.status}"`,
+            );
+        }
+      }
+      throw new ConcurrentRetryError(1, undefined, {
+        internalMessage: `idempotency reservation on "${action}" kept vanishing between statements — cleanup race`,
+      });
+    },
+
+    async finalize({ tx, reservation, output }) {
+      const r = reservation as IdempotencyReservation;
+      const updated = await tx
+        .update(idempotencyKeys)
+        .set({ status: "completed", response: output })
+        .where(
+          and(
+            pkWhere(r),
+            eq(idempotencyKeys.attemptId, r.attemptId),
+            eq(idempotencyKeys.status, "in_progress"),
+          ),
+        )
+        .returning({ key: idempotencyKeys.key });
+      if (updated.length === 0) {
+        // A concurrent retry presumed this attempt dead and took the lease
+        // over. Committing would double-execute the effects — throw so the
+        // whole handler transaction rolls back.
+        throw new ConcurrentRetryError(retryAfterSec(r.leaseMs), undefined, {
+          internalMessage: `attempt ${r.attemptId} of "${r.action}" lost its lease before finalize`,
+        });
+      }
+    },
+
+    async markFailed({ reservation }) {
+      const r = reservation as IdempotencyReservation;
+      // A separate short transaction (single statement) after rollback. Zero
+      // rows is fine: a takeover already owns the key.
+      await deps.db
+        .update(idempotencyKeys)
+        .set({ status: "failed" })
+        .where(
+          and(
+            pkWhere(r),
+            eq(idempotencyKeys.attemptId, r.attemptId),
+            eq(idempotencyKeys.status, "in_progress"),
+          ),
+        );
+    },
+  };
+}
+
+/**
+ * Deletes keys past their 48-h retention (core.md §5). The worker loop
+ * (fnd-T27) schedules this; returns the number of removed rows for its
+ * job log line.
+ */
+export async function cleanupExpiredIdempotencyKeys(
+  db: Database,
+  now: () => number = Date.now,
+): Promise<number> {
+  const removed = await db
+    .delete(idempotencyKeys)
+    .where(lte(idempotencyKeys.expiresAt, new Date(now())))
+    .returning({ key: idempotencyKeys.key });
+  return removed.length;
+}
+
+interface RowIdentity {
+  readonly principalKey: string;
+  readonly scopeKey: string;
+  readonly action: string;
+  readonly key: string;
+}
+
+function pkWhere(identity: RowIdentity): ReturnType<typeof and> {
+  return and(
+    eq(idempotencyKeys.principalKey, identity.principalKey),
+    eq(idempotencyKeys.scopeKey, identity.scopeKey),
+    eq(idempotencyKeys.action, identity.action),
+    eq(idempotencyKeys.key, identity.key),
+  );
+}
+
+function execute(
+  reservation: IdempotencyReservation,
+): IdempotencyReserveResult {
+  return { kind: "execute", reservation };
+}
+
+/**
+ * Conditional takeover of a failed/stale/expired reservation, keyed on the
+ * attempt id the caller observed (§5): the UPDATE matches at most once per
+ * observed attempt, so concurrent retries produce exactly one winner.
+ */
+async function takeover(
+  db: Database,
+  options: {
+    readonly identity: RowIdentity;
+    readonly observedAttemptId: string;
+    readonly leaseMs: number;
+    readonly nowMs: number;
+    /** Set when reusing a row whose retention has passed. */
+    readonly reset?: {
+      readonly requestHash: string;
+      readonly expiresAt: Date;
+      readonly confirmationChallengeId: null;
+      readonly confirmedAt: null;
+      readonly confirmationExpiresAt: null;
+    };
+  },
+): Promise<IdempotencyReserveResult> {
+  const attemptId = randomUUID();
+  const updated = await db
+    .update(idempotencyKeys)
+    .set({
+      status: "in_progress",
+      attemptId,
+      leaseExpiresAt: new Date(options.nowMs + options.leaseMs),
+      response: null,
+      ...options.reset,
+    })
+    .where(
+      and(
+        pkWhere(options.identity),
+        eq(idempotencyKeys.attemptId, options.observedAttemptId),
+      ),
+    )
+    .returning({ attemptId: idempotencyKeys.attemptId });
+  if (updated.length === 0) {
+    throw new ConcurrentRetryError(retryAfterSec(options.leaseMs), undefined, {
+      internalMessage: `lost the conditional takeover race on "${options.identity.action}"`,
+    });
+  }
+  return execute({ ...options.identity, attemptId, leaseMs: options.leaseMs });
+}
+
+/**
+ * The key is transport meta (contract.md §3), so no action schema parses
+ * it — a hand-built issue keeps the wire shape `VALIDATION`. Never
+ * generated server-side: the server cannot infer a logical submit (§5).
+ */
+function requireIdempotencyKey(env: ReserveEnv): string {
+  const key = env.request.idempotencyKey;
+  if (key !== undefined && key !== "") {
+    return key;
+  }
+  const issue: z.core.$ZodIssue = {
+    code: "custom",
+    path: ["idempotencyKey"],
+    message: "An idempotency key is required for this action.",
+    input: key,
+  };
+  throw new ValidationError(
+    [issue],
+    "An idempotency key is required for this action.",
+    {
+      internalMessage: `idempotent mutation "${env.contract.name}" invoked without an idempotency key`,
+    },
+  );
+}
+
+/**
+ * Mode + accountable identity (§5). Consumer and public modes never reach
+ * the reserve step: their contracts are read-only by the contract-check
+ * rules, and the pipeline gates the hook on `risk !== "read"`.
+ */
+function principalKeyFor(env: ReserveEnv): string {
+  const actor = env.authorization.actor;
+  switch (env.principal.mode) {
+    case "staff":
+    case "customer":
+    case "account":
+      if (actor.type !== "user") {
+        throw new CoreInvariantError(
+          `${env.principal.mode} authorization for "${env.contract.name}" carries a non-user actor "${actor.type}"`,
+        );
+      }
+      return `${env.principal.mode}:${actor.id}`;
+    case "system":
+      return `system:${env.principal.serviceName}`;
+    case "consumer":
+    case "public":
+      throw new CoreInvariantError(
+        `"${env.contract.name}" reached the idempotency reserve as "${env.principal.mode}" — the contract check must reject idempotent mutations for this mode`,
+      );
+  }
+}
+
+/**
+ * `company:<effectiveCompanyId>` for every tenant-scoped action,
+ * `user:<userId>` for account actions, `global` only for a declared global
+ * system action (§5). Staff/customer without a company cannot happen — the
+ * preflight verified membership/target.
+ */
+function scopeKeyFor(env: ReserveEnv, principalKey: string): string {
+  if (env.principal.mode === "account") {
+    return `user:${env.authorization.actor.id}`;
+  }
+  if (env.authorization.companyId !== null) {
+    return `company:${env.authorization.companyId}`;
+  }
+  if (env.principal.mode === "system") {
+    return "global";
+  }
+  throw new CoreInvariantError(
+    `"${env.contract.name}" (${principalKey}) has no company scope and is not an account or global system action`,
+  );
+}
+
+function retryAfterSec(ms: number): number {
+  return Math.max(1, Math.ceil(ms / 1000));
+}

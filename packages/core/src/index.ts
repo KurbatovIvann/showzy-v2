@@ -58,6 +58,13 @@ export type { ActionInvocation } from "./runtime/pipeline/execute-action.js";
 export { createAuditHook } from "./runtime/audit/create-audit-hook.js";
 export type { AuditHookDeps } from "./runtime/audit/create-audit-hook.js";
 export {
+  cleanupExpiredIdempotencyKeys,
+  createIdempotencyHook,
+  IDEMPOTENCY_LEASE_MARGIN_MS,
+  IDEMPOTENCY_RETENTION_MS,
+} from "./runtime/idempotency/create-idempotency-hook.js";
+export type { IdempotencyHookDeps } from "./runtime/idempotency/create-idempotency-hook.js";
+export {
   createRateLimitHook,
   IP_HMAC_ROTATION_MS,
   rateLimitDefaults,
@@ -85,6 +92,7 @@ export type {
   IdempotencyHook,
   IdempotencyReserveResult,
   PipelineHookEnv,
+  PipelineHookRequestMeta,
   PipelineHooks,
   PipelineRequestMeta,
   PreflightAuthorization,
