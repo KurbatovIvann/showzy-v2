@@ -260,7 +260,7 @@ action })` binds one event to one consuming action under a stable
   execution tx nests as a savepoint (`ActionTransactionRunner` in
   `pipeline/types.ts` is the seam), and the idempotency slot is replaced
   by the delivery-row reservation — `processed` commits atomically with
-  the consumer's effects.   Failure rolls everything back, then records
+  the consumer's effects. Failure rolls everything back, then records
   1/2/4/8-second retry due times; failure five parks only that consumer's
   row as `dead` and emits one alert log. A lost claim (another worker
   took the lease) returns `deferred` and never overwrites the new owner. Deliveries run
