@@ -40,6 +40,13 @@ export interface PipelineRequestMeta {
   readonly requestId: string;
   /** Propagated across `ctx.call` and events; equals `requestId` at the edge. */
   readonly correlationId: string;
+  /**
+   * The eventId or requestId that caused this invocation (core.md §6):
+   * events emitted here carry it as their envelope `causationId`. Omitted
+   * at the edge (defaults to `requestId`); the event-delivery entrypoint
+   * (fnd-T17) sets the delivered event's id.
+   */
+  readonly causationId?: string;
   readonly channel: ActionChannel;
   /** Trusted-proxy normalized; required by public/consumer/account modes. */
   readonly clientIp?: string;
@@ -98,6 +105,7 @@ export interface PreflightAuthorization {
  * never as action input, so it cannot change the canonical input hash.
  */
 export interface PipelineHookRequestMeta extends ActionRequestMeta {
+  readonly causationId?: string;
   readonly idempotencyKey?: string;
   readonly confirmationChallengeId?: string;
 }

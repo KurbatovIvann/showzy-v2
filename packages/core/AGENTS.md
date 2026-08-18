@@ -4,7 +4,7 @@ The action runtime (core.md). **Frozen for module tasks** (prohibitions.mdc):
 module implementation tasks may not change anything here — if core is missing
 something, stop and report.
 
-## Current state (fnd-T15)
+## Current state (fnd-T16)
 
 Three export subpaths exist:
 
@@ -16,13 +16,14 @@ Three export subpaths exist:
   `staffHasPermission` (fnd-T11), the execution pipeline
   `executeAction` (fnd-T12), the audit protocol `createAuditHook` +
   `canonicalJson`/`canonicalJsonSha256` (fnd-T13), rate limiting
-  `createRateLimitHook` + `createInMemoryRateLimitStore` (fnd-T14), and
-  the idempotency protocol `createIdempotencyHook` +
-  `cleanupExpiredIdempotencyKeys` (fnd-T15).
+  `createRateLimitHook` + `createInMemoryRateLimitStore` (fnd-T14), the
+  idempotency protocol `createIdempotencyHook` +
+  `cleanupExpiredIdempotencyKeys` (fnd-T15), and domain events
+  `defineEvent` + the pipeline-internal `ctx.emit` buffer (fnd-T16).
 
-The rest of the runtime — events, confirmation,
-`ctx.call`/`ctx.callAtomic`, and the module test kit — lands with
-fnd-T16…T22 by filling the pipeline's protocol slots.
+The rest of the runtime — event delivery/subscriptions (fnd-T17),
+confirmation, `ctx.call`/`ctx.callAtomic`, and the module test kit —
+lands with fnd-T17…T22 by filling the pipeline's protocol slots.
 
 ## Typed errors (`src/errors/`, core.md §11)
 
@@ -60,9 +61,10 @@ fnd-T16…T22 by filling the pipeline's protocol slots.
 
 - `types.ts` — the six-mode `ActionCtx` discriminated union. The DB slot
   is the capability the action's `risk` allows (`Tx`, `ReadTx`, or a
-  grant-bound `ProjectionReadTx`); `emit`/`call`/`callAtomic` are opaque
-  slots narrowed by fnd-T16/T19/T19A; `deadline`/`signal` values are
-  supplied by the pipeline (fnd-T12) through `ContextRuntime`.
+  grant-bound `ProjectionReadTx`); `emit` is the typed buffered emitter
+  (fnd-T16, below); `call`/`callAtomic` stay opaque until fnd-T19/T19A;
+  `deadline`/`signal`/`emit` values are supplied by the pipeline
+  (fnd-T12) through `ContextRuntime`.
 - `factories.ts` — exactly one factory per mode, the only construction
   path (never assemble a context by hand): staff verifies the
   `x-company-id` selector against a `company_members` row (the selector is
@@ -93,8 +95,9 @@ fnd-T16…T22 by filling the pipeline's protocol slots.
   reserve → execution transaction (transaction-local statement timeout,
   TOCTOU re-authorization via the context factories, handler under the
   deadline/abort signal) → output validation before commit
-  (`CoreInvariantError` on mismatch) → same-tx audit/finalize slots →
-  commit. Failures roll back and record the outcome via separate-tx hooks.
+  (`CoreInvariantError` on mismatch) → same-tx outbox flush (fnd-T16) +
+  audit/finalize slots → commit. Failures roll back and record the
+  outcome via separate-tx hooks.
   `risk: read` runs in a database read-only transaction **and** hands the
   handler the `ReadTx` facade — two independent walls.
 - `types.ts` — the protocol hook slots (`PipelineHooks`) filled by
@@ -196,6 +199,36 @@ ipHmacSecret, logger, now? })` fills the pipeline's `rateLimit` slot.
   takeover preserves them (crash-safe resume) except when reusing a row
   whose retention passed, which resets the slot entirely.
 
+## Domain events (`src/runtime/events/`, core.md §6)
+
+- `define-event.ts` — `defineEvent({ name, version, scope, payload })`
+  validates the declaration (`<module>.<pastVerb>` name, positive-integer
+  version, `tenant`/`global` scope, Zod payload), throws
+  `EventDefinitionError` listing all problems, freezes and brands the
+  result. Modules declare events in `events/` files with this factory;
+  the branded `EventDefinition` is what `ctx.emit` accepts.
+- `emit.ts` — `createEmitBuffer` (pipeline-internal, not exported from
+  the package root). `ctx.emit(definition, { aggregate, payload })` is
+  **synchronous**: it validates at the call (event declared in the
+  contract's `emits`, payload against the event schema, aggregate id is
+  a UUID, action is not `risk: read`) and buffers the emission with its
+  UUIDv7 `eventId` and `occurredAt`. The pipeline flushes the buffer in
+  §4 step 9 inside the execution transaction: per-aggregate sequence
+  upsert (row-lock serialized, strictly monotonic) + one outbox row per
+  emission, so events commit or roll back atomically with the handler's
+  effects. Every violation is a `CoreInvariantError` — the emitting
+  module owns both definition and handler, so a bad emission is a server
+  bug, never client input.
+- Envelope scope: tenant events carry the verified `effectiveCompanyId`
+  (flush throws without one); global events carry null by definition.
+  `causationId` comes from `PipelineRequestMeta` (defaults to
+  `requestId` at the edge; the fnd-T17 delivery entrypoint sets the
+  delivered event's id).
+- `uuidv7.ts` — RFC 9562 UUIDv7 (48-bit timestamp + random tail),
+  implemented locally because Node's `randomUUID()` is v4-only and new
+  dependencies need approval. Time-ordered across milliseconds; strict
+  ordering is the per-aggregate sequence's job, not the ID's.
+
 ## The contract check (`src/contract-check/`, core.md §2)
 
 The CI gate is layered — all three layers run in the `contract-check` CI
@@ -219,8 +252,9 @@ stage (`pnpm --filter @showzy/core contract:check`):
 
 `registered-modules.ts` is the interim composition manifest the stage walks
 (`ci-stage.test.ts`). Everything is explicitly empty until modules exist;
-event definitions/subscriptions arrive with fnd-T16/T17, and fnd-T23/T26
-move composition to `packages/contract` / apps boot. `EventDefinitionRef`,
+`defineEvent` outputs satisfy `EventDefinitionRef`, subscriptions arrive
+with fnd-T17, and fnd-T23/T26 move composition to `packages/contract` /
+apps boot. `EventDefinitionRef`,
 `EventSubscriptionRef`, and the other input shapes are structural on purpose
 so fnd-T16/T17 outputs satisfy them without core changes.
 

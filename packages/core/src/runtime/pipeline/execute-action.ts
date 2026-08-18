@@ -51,6 +51,7 @@ import {
 } from "../context/factories.js";
 import { staffHasPermission } from "../context/permissions.js";
 import type { ActionCtx, StaffMembership } from "../context/types.js";
+import { createEmitBuffer } from "../events/emit.js";
 import type { ImplementedAction } from "../implement-action.js";
 import type { AuditTargetFn, MaybePromise, TargetResolver } from "../types.js";
 import type {
@@ -232,6 +233,12 @@ export async function executeAction<
     assertPrincipalShape(contract, principal);
     assertAuthenticated(principal);
 
+    // One emission buffer per invocation (fnd-T16): `ctx.emit` validates and
+    // buffers synchronously; the buffer flushes into the outbox in step 9,
+    // inside the execution transaction. Preflight contexts carry the same
+    // `emit`, but nothing outside the handler ever receives those contexts.
+    const emitBuffer = createEmitBuffer({ contract, now });
+
     const env: RunEnv<TInput, TOutput, TTarget> = {
       deps,
       action: invocation.action,
@@ -244,8 +251,8 @@ export async function executeAction<
         logger: deps.logger,
         deadline,
         signal: controller.signal,
-        // Protocol slots narrowed by fnd-T16/T19/T19A.
-        emit: undefined,
+        emit: emitBuffer.emit,
+        // Protocol slots narrowed by fnd-T19/T19A.
         call: undefined,
         callAtomic: undefined,
       }),
@@ -334,12 +341,18 @@ export async function executeAction<
           );
         }
 
-        // 9. Same-transaction protocol slots: outbox rows were already
-        //    inserted by `ctx.emit` during the handler (fnd-T16); the audit
-        //    row (fnd-T13) and the idempotency response snapshot (fnd-T15)
-        //    commit atomically with the handler's effects.
+        // 9. Same-transaction protocol slots: the buffered `ctx.emit`
+        //    events insert into the outbox with their per-aggregate
+        //    sequences (fnd-T16), then the audit row (fnd-T13) and the
+        //    idempotency response snapshot (fnd-T15) — all committing
+        //    atomically with the handler's effects.
         //    Audited reads skip the same-tx insert — the read-only tx cannot
         //    write; the row is inserted post-commit (core.md §8).
+        await emitBuffer.flush({
+          tx,
+          ctx,
+          causationId: request.causationId ?? request.requestId,
+        });
         if (
           contract.audit &&
           contract.risk !== "read" &&
