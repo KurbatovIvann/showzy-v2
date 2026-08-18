@@ -1,5 +1,5 @@
 /**
- * Integration tests for the event delivery core (fnd-T17 — core.md §6)
+ * Integration tests for the event delivery core (fnd-T17/T18 — core.md §6)
  * against the shared Testcontainers harness.
  *
  * Verifies:
@@ -19,6 +19,9 @@
  * - Per-aggregate ordering: a later delivery defers until the earlier one
  *   is processed — including under concurrent executors.
  * - One consumer's failure does not block another consumer of the event.
+ * - Due discovery, exponential backoff, five-attempt dead-letter parking,
+ *   alerting, stale-claim takeover, lost-claim deferral, and
+ *   consumer-scoped replay (one event or every dead row for a consumer).
  */
 import { randomUUID } from "node:crypto";
 
@@ -28,13 +31,14 @@ import {
   companyMembers,
   domainEvents,
   eventDeliveries,
+  idempotencyKeys,
   type ReadTx,
   type Tx,
 } from "@showzy/db";
 import { user } from "@showzy/db/schema/auth";
 import { createTestDatabase, type TestDatabase } from "@showzy/db/testing";
-import { asc, eq, isNull } from "drizzle-orm";
-import { pino } from "pino";
+import { and, asc, eq, inArray, isNull } from "drizzle-orm";
+import { pino, type Logger } from "pino";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -42,25 +46,33 @@ import { defineActionContract } from "../../contract/define-action-contract.js";
 import { ConflictError, CoreInvariantError } from "../../errors/index.js";
 import { createAuditHook } from "../audit/create-audit-hook.js";
 import type { SystemCtx } from "../context/types.js";
+import { createIdempotencyHook } from "../idempotency/create-idempotency-hook.js";
 import { implementAction } from "../implement-action.js";
 import { executeAction } from "../pipeline/execute-action.js";
 import type {
   ActionPipelineDeps,
+  ActionTransactionRunner,
   PipelineRequestMeta,
 } from "../pipeline/types.js";
 import { defineEvent } from "./define-event.js";
 import { defineEventHandler } from "./define-event-handler.js";
 import {
+  DELIVERY_CLAIM_MARGIN_MS,
+  DELIVERY_RETRY_BASE_MS,
   dispatchOutboxBatch,
   executeDelivery,
+  findClaimableDeliveries,
   type DeliveryOutcome,
 } from "./delivery.js";
 import { eventEnvelopeSchema, type EventEnvelope } from "./envelope.js";
+import { runDeliveryReplayCli } from "./replay-dead-deliveries.cli.js";
+import { replayDeadDeliveries } from "./replay-dead-deliveries.js";
 
 let database: TestDatabase;
 
 const anna = "user_anna_delivery";
 const companyA = randomUUID();
+const testWorker = "delivery-test-worker";
 const silentLogger = pino({ enabled: false });
 
 beforeAll(async () => {
@@ -329,13 +341,37 @@ const allSubscriptions = [
 
 // --- Helpers ----------------------------------------------------------------
 
-function deps(withAudit = false): ActionPipelineDeps {
+function deps(
+  withAudit = false,
+  overrides: Pick<Partial<ActionPipelineDeps>, "logger" | "now"> = {},
+): ActionPipelineDeps {
   return {
     db: database.runtime.db,
-    logger: silentLogger,
+    logger: overrides.logger ?? silentLogger,
+    ...(overrides.now === undefined ? {} : { now: overrides.now }),
     ...(withAudit
       ? { hooks: { audit: createAuditHook({ db: database.runtime.db }) } }
       : {}),
+  };
+}
+
+function captureLogger(): {
+  readonly logger: Logger;
+  readonly entries: () => Record<string, unknown>[];
+} {
+  const lines: string[] = [];
+  const logger = pino(
+    { base: null },
+    {
+      write(chunk: string) {
+        lines.push(chunk);
+      },
+    },
+  );
+  return {
+    logger,
+    entries: () =>
+      lines.map((line) => JSON.parse(line) as Record<string, unknown>),
   };
 }
 
@@ -409,6 +445,7 @@ async function driveToProcessed(
     const outcome: DeliveryOutcome = await executeDelivery(deps(), {
       subscription,
       eventId,
+      claimedBy: testWorker,
     });
     if (
       outcome.status === "processed" ||
@@ -515,10 +552,21 @@ describe("executeDelivery — the delivery entrypoint (core.md §6)", () => {
     const { eventId, request } = await placeOrder(orderId);
     await dispatch();
 
-    const outcome = await executeDelivery(deps(), {
-      subscription: cardSubscription,
-      eventId,
-    });
+    const outcome = await executeDelivery(
+      {
+        ...deps(),
+        hooks: {
+          // Passed so the test can prove the delivery entrypoint replaces
+          // this slot — the delivery row is the reservation (core.md §6).
+          idempotency: createIdempotencyHook({ db: database.runtime.db }),
+        },
+      },
+      {
+        subscription: cardSubscription,
+        eventId,
+        claimedBy: testWorker,
+      },
+    );
 
     expect(outcome).toEqual({ status: "processed" });
     const row = await deliveryRow("deliveryFixtureChat.card-updater", eventId);
@@ -562,6 +610,14 @@ describe("executeDelivery — the delivery entrypoint (core.md §6)", () => {
     expect(emitted?.actorId).toBe("deliveryFixtureChat.card-updater");
     expect(emitted?.channel).toBe("system");
     expect(emitted?.companyId).toBe(companyA);
+
+    // The delivery row is the reservation — no second idempotency_keys row
+    // (core.md §6).
+    const keys = await database.runtime.db
+      .select({ key: idempotencyKeys.key })
+      .from(idempotencyKeys)
+      .where(eq(idempotencyKeys.key, eventId));
+    expect(keys).toHaveLength(0);
   });
 
   it("treats a redelivery as a no-op", async () => {
@@ -574,6 +630,7 @@ describe("executeDelivery — the delivery entrypoint (core.md §6)", () => {
     const outcome = await executeDelivery(deps(), {
       subscription: cardSubscription,
       eventId,
+      claimedBy: testWorker,
     });
 
     expect(outcome).toEqual({ status: "alreadyProcessed" });
@@ -585,17 +642,23 @@ describe("executeDelivery — the delivery entrypoint (core.md §6)", () => {
     const orderId = randomUUID();
     const { eventId } = await placeOrder(orderId);
     await dispatch();
+    let now = Date.now();
+    const withAudit = () => deps(true, { now: () => now });
 
     failCardFor.add(eventId);
-    const failed = await executeDelivery(deps(true), {
+    const failed = await executeDelivery(withAudit(), {
       subscription: cardSubscription,
       eventId,
+      claimedBy: testWorker,
     });
     failCardFor.delete(eventId);
 
     expect(failed.status).toBe("failed");
     if (failed.status === "failed") {
       expect(failed.error).toBeInstanceOf(ConflictError);
+      expect(failed.retryAt).toBe(
+        new Date(now + DELIVERY_RETRY_BASE_MS).toISOString(),
+      );
     }
     // Rollback left the delivery pending and removed every same-tx write:
     // the consumer's emitted event and its success audit row.
@@ -613,9 +676,11 @@ describe("executeDelivery — the delivery entrypoint (core.md §6)", () => {
 
     // The pending delivery is retryable: the next attempt commits
     // everything together.
-    const retried = await executeDelivery(deps(true), {
+    now += DELIVERY_RETRY_BASE_MS;
+    const retried = await executeDelivery(withAudit(), {
       subscription: cardSubscription,
       eventId,
+      claimedBy: testWorker,
     });
     expect(retried).toEqual({ status: "processed" });
     expect(await emittedCardEvents(orderId)).toHaveLength(1);
@@ -640,18 +705,21 @@ describe("executeDelivery — the delivery entrypoint (core.md §6)", () => {
       await executeDelivery(deps(), {
         subscription: cardSubscription,
         eventId: second.eventId,
+        claimedBy: testWorker,
       }),
     ).toEqual({ status: "deferred" });
     expect(
       await executeDelivery(deps(), {
         subscription: cardSubscription,
         eventId: first.eventId,
+        claimedBy: testWorker,
       }),
     ).toEqual({ status: "processed" });
     expect(
       await executeDelivery(deps(), {
         subscription: cardSubscription,
         eventId: second.eventId,
+        claimedBy: testWorker,
       }),
     ).toEqual({ status: "processed" });
 
@@ -687,11 +755,13 @@ describe("executeDelivery — the delivery entrypoint (core.md §6)", () => {
     const billing = await executeDelivery(deps(), {
       subscription: billingSubscription,
       eventId,
+      claimedBy: testWorker,
     });
     failBillingFor.delete(eventId);
     const chat = await executeDelivery(deps(), {
       subscription: cardSubscription,
       eventId,
+      claimedBy: testWorker,
     });
 
     expect(billing.status).toBe("failed");
@@ -725,6 +795,7 @@ describe("executeDelivery — the delivery entrypoint (core.md §6)", () => {
     const outcome = await executeDelivery(deps(), {
       subscription: sweepSubscription,
       eventId: event.id,
+      claimedBy: testWorker,
     });
 
     expect(outcome).toEqual({ status: "processed" });
@@ -737,6 +808,7 @@ describe("executeDelivery — the delivery entrypoint (core.md §6)", () => {
     const outcome = await executeDelivery(deps(), {
       subscription: cardSubscription,
       eventId: randomUUID(),
+      claimedBy: testWorker,
     });
 
     expect(outcome.status).toBe("failed");
@@ -745,3 +817,393 @@ describe("executeDelivery — the delivery entrypoint (core.md §6)", () => {
     }
   });
 });
+
+describe("delivery retry, dead-letter, claim recovery, and replay (core.md §6)", () => {
+  it("backs off exponentially, parks after five failures, isolates consumers, and replays exactly once", async () => {
+    const orderId = randomUUID();
+    const { eventId } = await placeOrder(orderId);
+    await dispatch();
+    let now = Date.now();
+    const captured = captureLogger();
+    const runtime = () =>
+      deps(false, { logger: captured.logger, now: () => now });
+
+    failCardFor.add(eventId);
+    for (let attempt = 1; attempt <= 5; attempt += 1) {
+      const outcome = await executeDelivery(runtime(), {
+        subscription: cardSubscription,
+        eventId,
+        claimedBy: testWorker,
+      });
+      expect(outcome.status).toBe("failed");
+
+      const row = await deliveryRow(
+        "deliveryFixtureChat.card-updater",
+        eventId,
+      );
+      expect(row?.attempts).toBe(attempt);
+      expect(row?.lastError).toBe("CONFLICT: Injected consumer failure.");
+      expect(row?.claimedAt).toBeNull();
+      expect(row?.claimedBy).toBeNull();
+
+      if (attempt < 5) {
+        const expectedDelay = DELIVERY_RETRY_BASE_MS * 2 ** (attempt - 1);
+        const expectedRetryAt = new Date(now + expectedDelay);
+        expect(row?.status).toBe("pending");
+        expect(row?.nextAttemptAt).toEqual(expectedRetryAt);
+        if (outcome.status === "failed") {
+          expect(outcome.retryAt).toBe(expectedRetryAt.toISOString());
+        }
+        expect(
+          await executeDelivery(runtime(), {
+            subscription: cardSubscription,
+            eventId,
+            claimedBy: "delivery-early-worker",
+          }),
+        ).toEqual({ status: "deferred" });
+        expect(
+          await findClaimableDeliveries(
+            { db: database.runtime.db },
+            { subscriptions: [cardSubscription], now: () => now },
+          ),
+        ).not.toContainEqual({
+          consumer: cardSubscription.consumer,
+          eventId,
+        });
+        now += expectedDelay;
+        expect(
+          await findClaimableDeliveries(
+            { db: database.runtime.db },
+            { subscriptions: [cardSubscription], now: () => now },
+          ),
+        ).toContainEqual({
+          consumer: cardSubscription.consumer,
+          eventId,
+        });
+      } else {
+        expect(row?.status).toBe("dead");
+        expect(row?.nextAttemptAt).toBeNull();
+        if (outcome.status === "failed") {
+          expect(outcome.retryAt).toBeNull();
+        }
+        expect(
+          await findClaimableDeliveries(
+            { db: database.runtime.db },
+            { subscriptions: [cardSubscription], now: () => now },
+          ),
+        ).not.toContainEqual({
+          consumer: cardSubscription.consumer,
+          eventId,
+        });
+      }
+    }
+    failCardFor.delete(eventId);
+
+    expect(
+      captured
+        .entries()
+        .filter((entry) => entry["msg"] === "event delivery dead-lettered"),
+    ).toEqual([
+      expect.objectContaining({
+        consumer: "deliveryFixtureChat.card-updater",
+        event_id: eventId,
+        attempts: 5,
+        error_code: "CONFLICT",
+      }),
+    ]);
+
+    // Parking is per consumer: billing processes the same event while chat
+    // remains dead.
+    expect(
+      await executeDelivery(runtime(), {
+        subscription: billingSubscription,
+        eventId,
+        claimedBy: testWorker,
+      }),
+    ).toEqual({ status: "processed" });
+    expect(
+      (await deliveryRow("deliveryFixtureBilling.order-registrar", eventId))
+        ?.status,
+    ).toBe("processed");
+    expect(
+      (await deliveryRow("deliveryFixtureChat.card-updater", eventId))?.status,
+    ).toBe("dead");
+
+    const replayed = await replayDeadDeliveries(
+      { db: database.runtime.db, now: () => now },
+      { consumer: "deliveryFixtureChat.card-updater", eventId },
+    );
+    expect(replayed).toEqual({ replayed: 1 });
+    const replayedRow = await deliveryRow(
+      "deliveryFixtureChat.card-updater",
+      eventId,
+    );
+    expect(replayedRow).toMatchObject({
+      status: "pending",
+      attempts: 0,
+      claimedAt: null,
+      claimedBy: null,
+      lastError: null,
+      processedAt: null,
+    });
+    expect(replayedRow?.nextAttemptAt).toEqual(new Date(now));
+    // Repeating the admin command is an idempotent no-op.
+    expect(
+      await replayDeadDeliveries(
+        { db: database.runtime.db, now: () => now },
+        { consumer: "deliveryFixtureChat.card-updater", eventId },
+      ),
+    ).toEqual({ replayed: 0 });
+
+    expect(
+      await executeDelivery(runtime(), {
+        subscription: cardSubscription,
+        eventId,
+        claimedBy: testWorker,
+      }),
+    ).toEqual({ status: "processed" });
+    const runsAfterReplay = cardRuns.filter(
+      (run) => run.envelope.eventId === eventId,
+    ).length;
+    expect(
+      await executeDelivery(runtime(), {
+        subscription: cardSubscription,
+        eventId,
+        claimedBy: "delivery-redelivery-worker",
+      }),
+    ).toEqual({ status: "alreadyProcessed" });
+    expect(
+      cardRuns.filter((run) => run.envelope.eventId === eventId),
+    ).toHaveLength(runsAfterReplay);
+    expect(await emittedCardEvents(orderId)).toHaveLength(1);
+  });
+
+  it("keeps a live claim with its owner and reclaims it after the action-timeout lease", async () => {
+    const { eventId } = await placeOrder(randomUUID());
+    await dispatch();
+    let now = Date.now();
+
+    await database.runtime.db
+      .update(eventDeliveries)
+      .set({
+        status: "processing",
+        attempts: 1,
+        nextAttemptAt: null,
+        claimedAt: new Date(now),
+        claimedBy: "delivery-crashed-worker",
+      })
+      .where(
+        and(
+          eq(eventDeliveries.consumer, cardSubscription.consumer),
+          eq(eventDeliveries.eventId, eventId),
+        ),
+      );
+
+    expect(
+      await executeDelivery(deps(false, { now: () => now }), {
+        subscription: cardSubscription,
+        eventId,
+        claimedBy: "delivery-recovery-worker",
+      }),
+    ).toEqual({ status: "deferred" });
+    expect(
+      await findClaimableDeliveries(
+        { db: database.runtime.db },
+        { subscriptions: [cardSubscription], now: () => now },
+      ),
+    ).not.toContainEqual({
+      consumer: cardSubscription.consumer,
+      eventId,
+    });
+    expect(
+      (await deliveryRow("deliveryFixtureChat.card-updater", eventId))
+        ?.claimedBy,
+    ).toBe("delivery-crashed-worker");
+
+    now += cardSubscription.contract.timeout + DELIVERY_CLAIM_MARGIN_MS;
+    expect(
+      await findClaimableDeliveries(
+        { db: database.runtime.db },
+        { subscriptions: [cardSubscription], now: () => now },
+      ),
+    ).toContainEqual({
+      consumer: cardSubscription.consumer,
+      eventId,
+    });
+    expect(
+      await executeDelivery(deps(false, { now: () => now }), {
+        subscription: cardSubscription,
+        eventId,
+        claimedBy: "delivery-recovery-worker",
+      }),
+    ).toEqual({ status: "processed" });
+    const recovered = await deliveryRow(
+      "deliveryFixtureChat.card-updater",
+      eventId,
+    );
+    expect(recovered?.status).toBe("processed");
+    expect(recovered?.attempts).toBe(2);
+    expect(recovered?.claimedAt).toBeNull();
+    expect(recovered?.claimedBy).toBeNull();
+  });
+
+  it("defers without overwriting when another worker takes the claim before execution", async () => {
+    const { eventId } = await placeOrder(randomUUID());
+    await dispatch();
+    const thief = "delivery-thief-worker";
+    const db = stealClaimAfter({
+      after: "claim",
+      consumer: cardSubscription.consumer,
+      eventId,
+      claimedBy: thief,
+    });
+
+    await expect(
+      executeDelivery(
+        { ...deps(), db },
+        {
+          subscription: cardSubscription,
+          eventId,
+          claimedBy: testWorker,
+        },
+      ),
+    ).resolves.toEqual({ status: "deferred" });
+
+    const row = await deliveryRow("deliveryFixtureChat.card-updater", eventId);
+    expect(row?.status).toBe("processing");
+    expect(row?.claimedBy).toBe(thief);
+    expect(row?.lastError).toBeNull();
+  });
+
+  it("defers a stale failure record when the lease was taken over mid-attempt", async () => {
+    const { eventId } = await placeOrder(randomUUID());
+    await dispatch();
+    const thief = "delivery-thief-worker";
+    failCardFor.add(eventId);
+    const db = stealClaimAfter({
+      after: "failed-execute",
+      consumer: cardSubscription.consumer,
+      eventId,
+      claimedBy: thief,
+    });
+
+    await expect(
+      executeDelivery(
+        { ...deps(), db },
+        {
+          subscription: cardSubscription,
+          eventId,
+          claimedBy: testWorker,
+        },
+      ),
+    ).resolves.toEqual({ status: "deferred" });
+    failCardFor.delete(eventId);
+
+    const row = await deliveryRow("deliveryFixtureChat.card-updater", eventId);
+    expect(row?.status).toBe("processing");
+    expect(row?.claimedBy).toBe(thief);
+    expect(row?.lastError).toBeNull();
+  });
+
+  it("replays every dead row for one consumer and leaves other consumers parked", async () => {
+    const first = await placeOrder(randomUUID());
+    const second = await placeOrder(randomUUID());
+    await dispatch();
+    const now = Date.now();
+    await database.runtime.db
+      .update(eventDeliveries)
+      .set({
+        status: "dead",
+        attempts: 5,
+        nextAttemptAt: null,
+        lastError: "CONFLICT: parked for replay.",
+      })
+      .where(
+        inArray(eventDeliveries.eventId, [first.eventId, second.eventId]),
+      );
+
+    const captured = captureLogger();
+    await expect(
+      runDeliveryReplayCli(
+        {
+          db: database.runtime.db,
+          logger: captured.logger,
+          now: () => now,
+        },
+        ["--consumer", "deliveryFixtureChat.card-updater"],
+      ),
+    ).resolves.toEqual({ replayed: 2 });
+
+    for (const eventId of [first.eventId, second.eventId]) {
+      expect(
+        await deliveryRow("deliveryFixtureChat.card-updater", eventId),
+      ).toMatchObject({
+        status: "pending",
+        attempts: 0,
+        lastError: null,
+      });
+      expect(
+        (await deliveryRow("deliveryFixtureBilling.order-registrar", eventId))
+          ?.status,
+      ).toBe("dead");
+    }
+    expect(
+      captured
+        .entries()
+        .filter((entry) => entry["msg"] === "dead event deliveries replayed"),
+    ).toEqual([
+      expect.objectContaining({
+        consumer: "deliveryFixtureChat.card-updater",
+        event_id: null,
+        replayed: 2,
+      }),
+    ]);
+  });
+});
+
+/** Commits a foreign claim after a named executor transaction. */
+function stealClaimAfter(options: {
+  readonly after: "claim" | "failed-execute";
+  readonly consumer: string;
+  readonly eventId: string;
+  readonly claimedBy: string;
+}): ActionTransactionRunner {
+  let phase: "claim" | "execute" | "done" = "claim";
+  const steal = async () => {
+    await database.runtime.db
+      .update(eventDeliveries)
+      .set({
+        status: "processing",
+        claimedAt: new Date(),
+        claimedBy: options.claimedBy,
+      })
+      .where(
+        and(
+          eq(eventDeliveries.consumer, options.consumer),
+          eq(eventDeliveries.eventId, options.eventId),
+        ),
+      );
+  };
+  return {
+    transaction: (async (
+      fn: Parameters<ActionTransactionRunner["transaction"]>[0],
+    ) => {
+      try {
+        const result = await database.runtime.db.transaction(fn);
+        if (options.after === "claim" && phase === "claim") {
+          phase = "done";
+          await steal();
+        } else if (phase === "claim") {
+          phase = "execute";
+        }
+        return result;
+      } catch (error) {
+        if (options.after === "failed-execute" && phase === "execute") {
+          phase = "done";
+          await steal();
+        }
+        throw error;
+      }
+    }) as ActionTransactionRunner["transaction"],
+  };
+}

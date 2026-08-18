@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Action runtime: contracts, registry, principal contexts, execution pipeline, events, idempotency, confirmation, audit, typed errors, and the module test kit. Exists so far: ./contract (fnd-T8), ./errors + implementAction/registry at the root (fnd-T9), contract check (fnd-T10), principal context factories (fnd-T11), execution pipeline (fnd-T12), audit protocol (fnd-T13), rate limiting (fnd-T14), idempotency protocol (fnd-T15), domain events — defineEvent + buffered ctx.emit with same-tx outbox flush (fnd-T16).",
+  "description": "Action runtime: contracts, registry, principal contexts, execution pipeline, events, idempotency, confirmation, audit, typed errors, and the module test kit. Exists so far: ./contract (fnd-T8), ./errors + implementAction/registry at the root (fnd-T9), contract check (fnd-T10), principal context factories (fnd-T11), execution pipeline (fnd-T12), audit protocol (fnd-T13), rate limiting (fnd-T14), idempotency protocol (fnd-T15), domain event emission (fnd-T16), delivery (fnd-T17), and retry/dead-letter/replay (fnd-T18).",
   "exports": {
     ".": "./src/index.ts",
     "./contract": "./src/contract/index.ts",

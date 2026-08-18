@@ -4,7 +4,7 @@ The action runtime (core.md). **Frozen for module tasks** (prohibitions.mdc):
 module implementation tasks may not change anything here — if core is missing
 something, stop and report.
 
-## Current state (fnd-T17)
+## Current state (fnd-T18)
 
 Three export subpaths exist:
 
@@ -22,11 +22,12 @@ Three export subpaths exist:
   `defineEvent` + the pipeline-internal `ctx.emit` buffer (fnd-T16),
   and event delivery — `defineEventHandler` + `eventEnvelopeSchema`,
   the dispatcher library `dispatchOutboxBatch`, and the delivery
-  entrypoint `executeDelivery` (fnd-T17).
+  entrypoint `executeDelivery` (fnd-T17), plus claim leases, exponential
+  retry, dead-letter parking, and consumer-scoped admin replay (fnd-T18).
 
-The rest of the runtime — delivery retry/dead-letter (fnd-T18),
-confirmation, `ctx.call`/`ctx.callAtomic`, and the module test kit —
-lands with fnd-T18…T22 by filling the pipeline's protocol slots.
+The rest of the runtime — confirmation, `ctx.call`/`ctx.callAtomic`, and
+the module test kit — lands with fnd-T19…T22 by filling the pipeline's
+protocol slots.
 
 ## Typed errors (`src/errors/`, core.md §11)
 
@@ -243,13 +244,15 @@ action })` binds one event to one consuming action under a stable
   matching the event scope) throws `EventHandlerDefinitionError` listing
   all problems. `eventSubscriptionRefs` maps subscriptions to the
   structural refs the contract check walks.
-- `delivery.ts` — the fnd-T17 delivery core. `dispatchOutboxBatch`
+- `delivery.ts` — the fnd-T17/T18 delivery core. `dispatchOutboxBatch`
   claims undispatched outbox rows (`FOR UPDATE SKIP LOCKED`, expressed
   natively by Drizzle), fans out one `event_deliveries` row per
   registered consumer (`ON CONFLICT DO NOTHING` on the
   `(consumer, eventId)` PK) and marks the rows dispatched in the same
   tx; consumer-less events are still marked dispatched. `executeDelivery`
-  locks one delivery row, enforces per-aggregate ordering (earliest
+  takes a short owner claim, rejects not-yet-due/live-claimed/dead rows,
+  reclaims claims older than the action timeout + 30 seconds, and enforces
+  per-aggregate ordering (earliest
   non-processed delivery + the transaction-scoped `(consumer, aggregate)`
   advisory lock — the one approved raw-SQL primitive here, db.md §7 /
   ADR-0012), builds the envelope, and runs the bound action through the
@@ -257,11 +260,20 @@ action })` binds one event to one consuming action under a stable
   execution tx nests as a savepoint (`ActionTransactionRunner` in
   `pipeline/types.ts` is the seam), and the idempotency slot is replaced
   by the delivery-row reservation — `processed` commits atomically with
-  the consumer's effects, failure rolls everything back and leaves the
-  row `pending` (attempt/backoff bookkeeping is fnd-T18). Deliveries run
+  the consumer's effects.   Failure rolls everything back, then records
+  1/2/4/8-second retry due times; failure five parks only that consumer's
+  row as `dead` and emits one alert log. A lost claim (another worker
+  took the lease) returns `deferred` and never overwrites the new owner. Deliveries run
   with a system context scoped by the event's stored `companyId`;
   `causationId` is the delivered event's id and each attempt gets a
-  fresh `requestId`.
+  fresh `requestId`. `findClaimableDeliveries` is the bounded discovery
+  read used by the future worker loop; ownership remains authoritative in
+  `executeDelivery`, so concurrent workers may safely discover the same row.
+- `replay-dead-deliveries.ts` resets matching dead rows to immediately due
+  pending rows with a fresh five-attempt budget. The operation is
+  idempotent and always consumer-scoped; `replay-dead-deliveries.cli.ts`
+  parses the admin command (`--consumer` required, `--event-id` optional)
+  without reading env or constructing process dependencies inside core.
 
 ## The contract check (`src/contract-check/`, core.md §2)
 
