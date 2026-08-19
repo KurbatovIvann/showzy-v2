@@ -72,6 +72,21 @@ Task breakdowns do NOT live here — they are mutable and belong in
 `docs/plans/<module>.md` (produced by `/plan` from a Living, Mixed, or
 Active spec).
 
+### Owner-first launch vs customer expansion (2026-08-19)
+
+Owner-first launch is the **company panel** (staff/AI), then documents + QES
++ share. Customer cabinet, public storefront, consumer discovery, and the
+business-chat **platform** are **customer expansion** — not dropped.
+
+Living files named below were slimmed: full action/table density remains
+only for owner-first / phase-1 slices. Deferred capabilities are **names +
+one-line intent**. That supersedes spec-process D6 (“do not rewrite
+novels”) for those files. Agents must not implement Deferred actions as
+first-release work.
+
+Do not treat unimplemented expansion sections as frozen. `/rework-spec`
+still applies only to Active surface.
+
 ## Current ledger (2026-08-19)
 
 The lists below are what the integrity test parses
@@ -109,9 +124,8 @@ with no module code (`packages/modules/` does not exist; fnd-T43 is
 milestone H after fnd-G2).
 
 Phase-1 reference work uses the slice boundary already written in
-`orders.md` §1.1 and `chat.md` (order-card projection only). Do not treat
-the rest of those files as frozen. If a tighter card is needed later, add
-`docs/specs/slices/` rather than freezing the novel.
+`orders.md` §1.1 and `chat.md` (order-card projection only). Deferred
+customer-expansion names in those files are intent, not a freeze.
 
 ### Mixed
 

@@ -6,6 +6,9 @@
 > ADR-0013, ADR-0015, and `docs/specs/core.md`.
 > This spec defines the phase-0 payment boundary. Mono acquiring remains
 > post-MVP and must plug into this boundary without changing core or orders.
+>
+> **Owner-first launch (2026-08-19):** keep this provider-interface skeleton.
+> Do not add acquiring, Checkbox/ПРРО, or bank statements here.
 
 ## 1. Purpose and ownership
 
@@ -115,4 +118,5 @@ status, immutable amount/currency where needed, and use the core envelope.
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-19 | Owner-first banner: keep provider interface; no acquiring/statements in this slice. | Owner-first launch | owner |
 | 2026-08-17 | Initial foundation draft | Close payment ownership/protocol gap before scaffold | GPT-5.6 Sol |

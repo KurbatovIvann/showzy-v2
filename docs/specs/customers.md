@@ -3,11 +3,17 @@
 > Status: Living.
 > Active surface: none.
 > Density beyond the declared slice is intent, not contract; do not treat unimplemented sections as frozen.
-> Written against blueprint §2.1, §4, §5; scope §2, §7 (phases 2, 5);
+> Written against blueprint §2.1, §4, §5; scope §2, §7;
 > ADR-0013, ADR-0014, ADR-0015, ADR-0016, ADR-0018;
 > `docs/specs/core.md`, `docs/specs/db.md`, `docs/specs/contract.md`,
 > `docs/specs/pricing.md`, `docs/specs/chat.md`;
 > `docs/module-ownership.md`, `docs/reference/v1-migration-matrix.md`.
+>
+> **Owner-first launch (2026-08-19):** the first product release is the
+> company panel (staff/AI). Customer cabinet, public storefront, consumer
+> discovery, and the business-chat platform are **Deferred: customer
+> expansion** — named capabilities only, not a freeze and not launch work.
+> Density beyond the named owner-first / phase-1 slice is intent.
 
 ## 1. Purpose
 
@@ -534,72 +540,18 @@ the existing record without modification (domain-level idempotency).
 
 ---
 
-### 3.4 Customer actions (own profile reads)
+### 3.4 Deferred: customer cabinet (customer expansion)
 
-All customer actions: `principal: customer`, `transport: client`,
-`permissions: []`, authorization = typed `resolveTarget` (ADR-0013).
+Named only. `principal: customer`, typed `resolveTarget`, `permissions: []`.
+Do not implement in owner-first launch.
 
-#### `customers.getMyCustomerRecord`
-
-| Field | Value |
+| Action | Intent |
 | --- | --- |
-| Name | `customers.getMyCustomerRecord` |
-| Description | Get your own CRM record at a specific company. Returns null-body NotFoundError if no CRM record exists. |
-| Principal | `customer` |
-| Transport | `client` |
-| Target | Typed `resolveTarget` loads the `company_customers` row by `(company_id, user_id)` from `input.companyId` + authenticated `userId`; returns `{ companyId, resource: { customerId } }`. `NotFoundError` if no record exists. |
-| Input | `{ companyId: z.string().uuid() }` |
-| Output | `CompanyCustomer.omit({ notes: true })` (notes are staff-only) |
-| Permissions | `[]` |
-| aiExposure | `exposed` |
-| risk | `read` |
-| requiresConfirmation | `false` |
-| idempotent | `false` |
-| emits | `[]` |
-| audit | `false` |
-| timeout | `2_000` |
-| Calls (`ctx.call`) | none |
+| `customers.getMyCustomerRecord` | Own CRM row at a company |
+| `customers.getMyLegalProfile` | Own user-scoped FOP/TOV requisites |
+| `customers.upsertMyLegalProfile` | Upsert own legal profile |
 
-#### `customers.getMyLegalProfile`
-
-| Field | Value |
-| --- | --- |
-| Name | `customers.getMyLegalProfile` |
-| Description | Get your own legal profile (FOP/TOV requisites). Returns NotFoundError if no profile exists yet. |
-| Principal | `customer` |
-| Transport | `client` |
-| Target | Typed `resolveTarget`: the action is not company-scoped per se (legal profile is per-user), but needs a company context to ensure it's called from a company cabinet. Resolves via `input.companyId` proving company exists and user has a CRM record. Returns `{ companyId, resource: { userId: ctx.userId } }`. |
-| Input | `{ companyId: z.string().uuid() }` |
-| Output | `CustomerLegalProfile` |
-| Permissions | `[]` |
-| aiExposure | `exposed` |
-| risk | `read` |
-| idempotent | `false` |
-| emits | `[]` |
-| audit | `false` |
-| timeout | `2_000` |
-
-#### `customers.upsertMyLegalProfile`
-
-| Field | Value |
-| --- | --- |
-| Name | `customers.upsertMyLegalProfile` |
-| Description | Create or update your own legal profile (FOP/TOV requisites for B2B documents). |
-| Principal | `customer` |
-| Transport | `client` |
-| Target | Same as `getMyLegalProfile`. |
-| Input | `{ companyId: z.string().uuid(), entityType: z.enum(["fop", "tov"]), legalName: z.string().max(300).optional(), edrpou: z.string().max(10).optional(), legalAddress: z.string().max(500).optional(), iban: z.string().max(34).optional(), bankName: z.string().max(200).optional(), bankMfo: z.string().max(6).optional(), phone: z.string().max(30).optional(), email: z.string().email().max(200).optional() }` |
-| Output | `CustomerLegalProfile` |
-| Permissions | `[]` |
-| aiExposure | `exposed` |
-| risk | `write` |
-| idempotent | `true` — key: client-supplied; scope: `user:<userId>`. Upsert on unique `(user_id)`. |
-| emits | `[]` |
-| audit | `true` |
-| auditTarget | `{ type: "customer_legal_profile", id: <upserted id> }` |
-| timeout | `5_000` |
-
----
+Staff counterparties (`createCounterparty` / …) and `getCounterpartyForDocument` remain owner-first (documents slice).
 
 ### 3.5 System actions (checkout CRM link/create)
 
@@ -670,24 +622,8 @@ query. Verifies the customer belongs to the caller's company (staff context
 provides `companyId`). Returns `NotFoundError` if the customer does not exist
 or belongs to another company (no existence leak).
 
-#### `customers.getCustomerPricingFactsForUser`
-
-| Field | Value |
-| --- | --- |
-| Name | `customers.getCustomerPricingFactsForUser` |
-| Description | Internal read: return pricing-relevant facts for a customer identified by userId+companyId. Used by pricing resolution when called from a customer-principal context. |
-| Principal | `customer` |
-| Transport | `internal` |
-| Target | Typed `resolveTarget`: loads company_customers by `(company_id, user_id)` from input. Returns `{ companyId, resource: { customerId } }`. |
-| Input | `{ companyId: z.string().uuid() }` |
-| Output | `{ customerId: z.string().uuid(), companyId: z.string().uuid(), priceListId: z.string().uuid().nullable(), groupId: z.string().uuid().nullable(), groupPriceListId: z.string().uuid().nullable() }` |
-| Permissions | `[]` |
-| aiExposure | `internal` |
-| risk | `read` |
-| idempotent | `false` |
-| emits | `[]` |
-| audit | `false` |
-| timeout | `2_000` |
+**Deferred: customer expansion:** `customers.getCustomerPricingFactsForUser`
+(`customer` principal) — same facts for checkout/storefront resolution.
 
 #### `customers.getCustomerOrderFacts`
 
@@ -1191,4 +1127,5 @@ Actions this module exposes for `ctx.call` by other modules:
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-19 | Customer cabinet actions collapsed to named Deferred capabilities. Staff CRM/groups/counterparties remain owner-first. | Owner-first launch; `/spec` density | owner |
 | 2026-08-17 | Initial draft | Step 4 of spec-rework queue: customers module specification | spec agent |
