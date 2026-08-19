@@ -1,9 +1,8 @@
 /**
  * App wrapper around `createContractClient` (contract.md §3).
  *
- * Token storage is fnd-T49; callers pass `getAccessToken`. The shell uses
- * `() => null` (anonymous) until then. The company selector is never an
- * access grant (ADR-0013).
+ * `getAccessToken` reads the bearer from the session controller (fnd-T49).
+ * The company selector is never an access grant (ADR-0013).
  */
 import type { AnyContractRouter } from "@orpc/contract";
 import {

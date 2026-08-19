@@ -8,7 +8,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   scheme: "showzy",
   orientation: "portrait",
   userInterfaceStyle: "automatic",
-  plugins: ["expo-router"],
+  plugins: ["expo-router", "expo-secure-store"],
   experiments: {
     tsconfigPaths: true,
   },

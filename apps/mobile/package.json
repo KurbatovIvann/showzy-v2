@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "main": "index.ts",
-  "description": "Expo app shell: Unistyles theme transcribed from V1, typed contract client, no product screens (fnd-T48).",
+  "description": "Expo app: theme, typed client, OTP auth against better-auth (fnd-T49). No product screens.",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
@@ -22,6 +22,7 @@
     "expo-constants": "~57.0.12",
     "expo-linking": "~57.0.6",
     "expo-router": "~57.0.14",
+    "expo-secure-store": "~57.0.1",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",

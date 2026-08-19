@@ -40,9 +40,9 @@ These came from the V1 screenshot pass. They are **not** approved fixes.
 
 ## Found during port
 
-
-| ID  | V1 path | Issue           | Class | Proposal | Status |
-| --- | ------- | --------------- | ----- | -------- | ------ |
-| —   | —       | *(append here)* | —     | —        | —      |
+| ID     | V1 path                                      | Issue                                                                                          | Class | Proposal                                                                                          | Status     |
+| ------ | -------------------------------------------- | ---------------------------------------------------------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------- | ---------- |
+| PF-9   | `components/screens/auth/sign-in-content.tsx` | Google sign-in is Android-only in the conflict register; T49 is OTP-only (ADR-0006)            | C     | Keep OTP as the phase-0 sign-in; add Google Android in a later auth-provider ticket               | `proposed` |
+| PF-10  | `components/screens/auth/sign-in-content.tsx` | “Continue without account” contradicts mandatory accounts (scope §1.1)                         | C     | Omit guest entry on the T49 screens; public discovery remains unauthenticated by principal, not guest mode | `proposed` |
 
 
