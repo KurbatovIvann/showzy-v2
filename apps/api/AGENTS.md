@@ -59,9 +59,11 @@ pnpm --filter @showzy/api auth:check      # CI: regenerate + fail on diff
   identifiers (non-enumeration). Tests pin this over HTTP.
 - The 401 gate is this package's job: authenticated principals without a
   session never reach `executeAction` (core's `PermissionDeniedError` is
-  defense in depth, 403).
-- Selectors (`x-company-id`) are never authority. Consumer/account/public
-  dispatch ignores them. Staff membership is verified by core.
+  defense in depth, 403). Public and share require no session (fnd-T23B;
+  share without a session must not 401).
+- Selectors (`x-company-id`) are never authority. Consumer/account/public/
+  share dispatch ignores them. Share tokens are action input, not a
+  header. Staff membership is verified by core.
 - Phase-0 invocation `channel` is `"ui"` for every HTTP call, including
   `/api/v1` REST aliases (security-operations §4). Revisit when external
   consumers or the AI mount send a distinct channel.

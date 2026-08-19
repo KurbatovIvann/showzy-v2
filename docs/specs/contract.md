@@ -4,7 +4,7 @@
 > Active surface: entire file.
 > Ledger catch-up: first merged `packages/contract` implementation (fnd-T23…T25).
 > Written against blueprint §3, §4; ADR-0004, ADR-0008, ADR-0013, ADR-0016,
-> ADR-0018, ADR-0020, and ADR-0021.
+> ADR-0018, ADR-0020, ADR-0021, and ADR-0022.
 > Foundation spec. Resolves the client-safety question: how one action
 > definition feeds server, mobile, web, AI, and OpenAPI without leaking
 > Node/DB dependencies into client bundles.
@@ -43,7 +43,7 @@ The split:
     module's `index.contract.ts` barrel). It retains all descriptors for
     pairing/CI, but builds the oRPC client contract, OpenAPI document, and
     typed client only from `transport: client` actions (this includes all
-    `public`, `consumer`, and `account` actions, which must declare
+    `public`, `consumer`, `account`, and `share` actions, which must declare
     `transport: client`).
     `system` and other internal actions have no externally mountable route.
   - `apps/api` imports the full modules (contracts + implementations),
@@ -57,8 +57,10 @@ The split:
   company-scoped tools appear without an active company context). An
   account session sees only `account`-principal exposed tools (no
   company-scoped tools appear without an active company context; account
-  tools cover own-user operations like creating or listing companies). AI is
-  not a bypass to an internal action.
+  tools cover own-user operations like creating or listing companies).
+  Share-principal actions are always `aiExposure: internal` (core.md) and
+  never appear in any session's tool list — including a logged-in user on a
+  share page. AI is not a bypass to an internal action or a share write.
 
 Enforcement (CI):
 
@@ -90,6 +92,22 @@ Enforcement (CI):
   descriptor's `projectionGrant`. The typed procedure never accepts tenant
   scope as transport metadata. Trusted-proxy-normalized IP is passed only to
   core rate limiting/logging.
+- Share routing (ADR-0022): no session or `x-company-id` is required or
+  consumed. The capability token is **action input** (the typed
+  `resolveTarget` hashes it). It is not transport meta: no `x-share-token`,
+  and not `x-company-id`. `toPrincipalInvocation` maps share like public:
+  `{ mode: "share" }` — neither session nor selector reaches the pipeline.
+  A present session on a share invocation is ignored: it does not bind
+  `actor` to that user (access log stays `anonymous`) and grants no extra
+  access. Trusted-proxy-normalized IP is passed only to core rate
+  limiting/logging (same path as public). Unlike public, share actions may
+  be `risk: write`; they remain `transport: client` so the share page can
+  call them. The client typed procedures for share actions do not accept a
+  company parameter. Invalid, expired, revoked, or mismatched tokens
+  surface as `NOT_FOUND` (404), never `UNAUTHENTICATED` (401). Share writes
+  still require `idempotency-key` meta (core.md §5). Confirmation meta does
+  not apply (`requiresConfirmation: false`). HTTP `channel` stays `"ui"`
+  (security-operations §4).
 - Consumer routing (ADR-0018): consumer actions require a valid better-auth
   session; the transport invokes the consumer context factory (core.md §3)
   directly — no `x-company-id` header is required or consumed. If a staff
@@ -135,8 +153,10 @@ authentication failure is in the same union so clients never string-match:
 | CoreInvariantError / unknown | 500 | `INTERNAL` (no details on the wire) |
 
 `UNAUTHENTICATED` (401) is issued by the HTTP session gate before
-`executeAction` — it is not a core.md §11 class. `PERMISSION_DENIED` (403)
-remains the mapped core error for an authenticated caller without access.
+`executeAction` — it is not a core.md §11 class. Public and share
+invocations are not "session required"; a missing session must not yield
+401. `PERMISSION_DENIED` (403) remains the mapped core error for an
+authenticated caller without access.
 
 Clients get a discriminated union typed by wire code — no string matching.
 
@@ -194,6 +214,20 @@ API consumers.
 - [ ] Account action invoked without a session → 401 (test).
 - [ ] `x-company-id` present on an account action invocation is ignored and
       does not grant company scope (test).
+- [ ] Share read and write procedures work without a session; neither
+      accepts `x-company-id` as authority; the capability token is action
+      input only (no share-token header) (test).
+- [ ] Share action invoked with a valid session still uses share context;
+      the session is ignored (no user actor, no extra access) (test).
+- [ ] Share action invoked without a session does not return 401 (test).
+- [ ] Invalid, expired, revoked, or mismatched share token → 404
+      `NOT_FOUND` (test).
+- [ ] AI manifest for staff, customer, consumer, and account sessions
+      includes no `share`-principal tools (test).
+- [ ] Share writes missing idempotency meta → typed validation error
+      (test).
+- [ ] Share actions appear in the client router and OpenAPI
+      (`transport: client`) and remain absent from AI artifacts (test).
 - [ ] Missing idempotency meta on an idempotent mutation → typed validation
       error; retries of a logical submit must reuse `attempt.options` (no
       automatic retry helper in the client).
@@ -206,6 +240,7 @@ API consumers.
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-19 | Seventh principal `share` (ADR-0022): client/OpenAPI mount, no-session dispatch, token in action input only, AI never lists share | HTTP dispatch for unauthenticated capability-token writes; core.md already amended | owner via `/rework-spec contract.md` |
 | 2026-08-19 | Status: Active; Active surface: entire file | Ledger catch-up: first merged packages/contract (fnd-T23…T25) | owner via spec-process-after-phase-0 |
 | 2026-08-19 | §3/§7: key reuse is manual via `attempt.options` (no automatic retry layer); §7: composition fixture for the first `ctx.callAtomic` callee is owed when that edge lands | Align living spec with the client (fnd-G1 A12) | scaffold (fnd-G1 A12) |
 | 2026-08-18 | Added transport-level `UNAUTHENTICATED` / 401 to the §4 wire-error union | Session-gate 401 was outside `isWireError()`, forcing clients to string-match | scaffold (fnd-G1 A8) |
