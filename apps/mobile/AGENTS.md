@@ -2,7 +2,10 @@
 
 Expo client (fnd-T48). This is the primary V2 surface (ADR-0010). Product
 screens are blocked by the Experience Foundation UX gate; this package is
-the technical shell, theme, and typed-client wiring only.
+the technical shell, theme, and typed-client wiring only. Runtime is Expo
+SDK 57.0.14 / React Native 0.86.2. Keep Unistyles on 3.2.2 (V1) and
+Reanimated on 4.5.1 with worklets 0.10.1 — do not float Unistyles to 3.3
+(worklets 0.11) or Reanimated to 4.5.0.
 
 ## Sources of truth
 
