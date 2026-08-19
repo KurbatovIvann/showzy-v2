@@ -4,7 +4,7 @@
  * rows the staff and system-tenant factories need, plus `buildTestContext`
  * and a pipeline `invoke` so isolation suites run real actions.
  *
- * Construction of an `ActionCtx` still goes through the six principal
+ * Construction of an `ActionCtx` still goes through the seven principal
  * factories — the kit never assembles a context by hand.
  */
 import { randomUUID } from "node:crypto";
@@ -37,6 +37,7 @@ import {
   createConsumerContext,
   createCustomerContext,
   createPublicContext,
+  createShareContext,
   createStaffContext,
   createSystemContext,
   type ActionRequestMeta,
@@ -62,6 +63,11 @@ import type {
   TargetResolver,
 } from "../runtime/types.js";
 import { kitIdentities, type KitIdentities } from "./identities.js";
+import {
+  kitShareDocuments,
+  kitShareTokens,
+  resolveKitShareTarget,
+} from "./share-fixture.js";
 
 export interface IsolationActor {
   readonly userId?: string;
@@ -305,7 +311,7 @@ export async function createTestKit(db?: TestDatabase): Promise<TestKit> {
 }
 
 /**
- * Context factory wrapper for all six principal modes against the kit
+ * Context factory wrapper for all seven principal modes against the kit
  * world (core.md §12 `buildTestContext(mode, overrides)`). Defaults aim
  * the caller at Anna/company A (or Boris for customer ownership); module
  * tests pass `resolveTarget` / `input` for their own resources.
@@ -384,6 +390,16 @@ export async function buildTestContext(
       return createConsumerContext({ request, runtime, session });
     case "account":
       return createAccountContext({ request, runtime, session });
+    case "share":
+      return createShareContext({
+        request,
+        runtime,
+        input: overrides.input ?? {
+          token: kitShareTokens.a,
+          documentId: kitShareDocuments.a.id,
+        },
+        resolveTarget: overrides.resolveTarget ?? resolveKitShareTarget,
+      });
   }
 }
 
@@ -458,6 +474,8 @@ function principalInvocation(
         mode: "account",
         session: { userId: actor.userId ?? kitIdentities.users.anna },
       };
+    case "share":
+      return { mode: "share" };
   }
 }
 

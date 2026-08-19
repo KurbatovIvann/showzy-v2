@@ -1,8 +1,8 @@
 /**
  * Principal context factories — exactly one per mode, nothing ad-hoc
- * (core.md §3; ADR-0013, ADR-0018, ADR-0020). The execution pipeline
- * (fnd-T12) and the event-delivery entrypoint (fnd-T17) are the only
- * intended callers; transports never assemble a context by hand.
+ * (core.md §3; ADR-0013, ADR-0018, ADR-0020, ADR-0022). The execution
+ * pipeline (fnd-T12) and the event-delivery entrypoint (fnd-T17) are the
+ * only intended callers; transports never assemble a context by hand.
  *
  * Every factory:
  *  - verifies the caller's authority for its mode (membership row, typed
@@ -41,6 +41,7 @@ import type {
   CustomerCtx,
   PublicGlobalCtx,
   PublicTargetCtx,
+  ShareCtx,
   StaffCtx,
   StaffMembership,
   SystemCtx,
@@ -58,7 +59,7 @@ export interface ActionRequestMeta {
   readonly requestId: string;
   readonly correlationId: string;
   readonly channel: ActionChannel;
-  /** Trusted-proxy normalized IP; required for public/consumer/account. */
+  /** Trusted-proxy normalized IP; required for public/consumer/account/share. */
   readonly clientIp?: string;
   readonly aiTraceId?: string;
   readonly toolCallId?: string;
@@ -537,10 +538,71 @@ export function createAccountContext<TDb extends ReadTx>(options: {
 }
 
 /**
+ * Share: no session — the typed `resolveTarget` proves a valid unexpired
+ * unrevoked capability token and returns the stored hash used as the
+ * idempotency principal key (core.md §3/§5, ADR-0022). Log actor is
+ * anonymous; raw tokens never enter log bindings.
+ */
+export async function createShareContext<
+  TInput,
+  TTarget,
+  TDb extends ReadTx,
+>(options: {
+  readonly request: ActionRequestMeta;
+  readonly runtime: ContextRuntime<TDb>;
+  readonly input: TInput;
+  readonly resolveTarget: (
+    input: TInput,
+    env: TargetResolutionEnv,
+  ) => Promise<ResolvedTarget<TTarget>>;
+  /** Verified company scope of a nested `ctx.call` caller (core.md §9). */
+  readonly inheritedCompanyId?: string;
+}): Promise<ShareCtx<TTarget, TDb>> {
+  const { request, runtime } = options;
+  const clientIp = requireClientIp(request, "share");
+
+  const resolved = await options.resolveTarget(options.input, {
+    tx: readOnlyView(runtime.db),
+    principal: { mode: "share" },
+    ...(options.inheritedCompanyId !== undefined
+      ? { inheritedCompanyId: options.inheritedCompanyId }
+      : {}),
+  });
+  if (
+    options.inheritedCompanyId !== undefined &&
+    resolved.companyId !== options.inheritedCompanyId
+  ) {
+    throw new CoreInvariantError(
+      `nested resolver of "${request.action}" resolved company ${resolved.companyId}, expected inherited company ${options.inheritedCompanyId}`,
+    );
+  }
+  const tokenHash = resolved.tokenHash;
+  if (tokenHash === undefined || tokenHash === "") {
+    throw new CoreInvariantError(
+      `share resolver of "${request.action}" returned no tokenHash — the stored hash is the idempotency principal key (core.md §5)`,
+    );
+  }
+
+  return Object.freeze({
+    ...buildBase({
+      request,
+      runtime,
+      db: runtime.db,
+      actor: ANONYMOUS_ACTOR,
+      companyId: resolved.companyId,
+    }),
+    principal: "share" as const,
+    clientIp,
+    target: { companyId: resolved.companyId, resource: resolved.resource },
+    tokenHash,
+  });
+}
+
+/**
  * The one resolved-tenant-scope helper used by logging, events, audit, and
  * operational metadata (core.md §3): staff and tenant-scoped system work
- * use `ctx.companyId`; customer and public-target use the resolved target;
- * public-global, consumer, account, and global system work have none.
+ * use `ctx.companyId`; customer, public-target, and share use the resolved
+ * target; public-global, consumer, account, and global system work have none.
  */
 export function effectiveCompanyId(ctx: ActionCtx): string | null {
   switch (ctx.principal) {
@@ -552,6 +614,8 @@ export function effectiveCompanyId(ctx: ActionCtx): string | null {
       return ctx.scope === "target" ? ctx.target.companyId : null;
     case "system":
       return ctx.scope === "tenant" ? ctx.companyId : null;
+    case "share":
+      return ctx.target.companyId;
     case "consumer":
     case "account":
       return null;

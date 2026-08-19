@@ -135,6 +135,36 @@ describe("implementAction — valid bindings", () => {
     expect(action.resolveTarget).toBe(resolveTarget);
   });
 
+  it("binds a share read action with resolveTarget", () => {
+    const contract = defineActionContract({
+      ...customerReadContract(),
+      name: "docSigning.getShared",
+      principal: "share",
+    });
+    const action = implementAction(contract, { handler, resolveTarget });
+    expect(action.resolveTarget).toBe(resolveTarget);
+  });
+
+  it("binds a share write action with resolveTarget, auditTarget, and auditSnapshot", () => {
+    const contract = defineActionContract({
+      ...staffWriteContract(),
+      name: "docSigning.submitShare",
+      principal: "share",
+      permissions: [],
+      aiExposure: "internal",
+      emits: ["docSigning.shareSubmitted"],
+    });
+    const auditSnapshot = () => ({ cn: "Test Signer" });
+    const action = implementAction(contract, {
+      handler,
+      resolveTarget,
+      auditTarget,
+      auditSnapshot,
+    });
+    expect(action.resolveTarget).toBe(resolveTarget);
+    expect(action.auditSnapshot).toBe(auditSnapshot);
+  });
+
   it("binds a confirmation action with confirmationSummary", () => {
     const contract = defineActionContract({
       ...staffWriteContract(),
@@ -201,11 +231,40 @@ describe("implementAction — binding rejections (core.md §2)", () => {
     expectProblem(contract, { handler }, "must bind resolveTarget");
   });
 
+  it("rejects a share action without resolveTarget", () => {
+    const contract = defineActionContract({
+      ...customerReadContract(),
+      name: "docSigning.getShared",
+      principal: "share",
+    });
+    expectProblem(
+      contract,
+      { handler },
+      "share actions must bind resolveTarget",
+    );
+  });
+
+  it("rejects a share write without auditSnapshot", () => {
+    const contract = defineActionContract({
+      ...staffWriteContract(),
+      name: "docSigning.submitShare",
+      principal: "share",
+      permissions: [],
+      aiExposure: "internal",
+      emits: ["docSigning.shareSubmitted"],
+    });
+    expectProblem(
+      contract,
+      { handler, resolveTarget, auditTarget },
+      "share writes must bind auditSnapshot",
+    );
+  });
+
   it("rejects resolveTarget on a staff action", () => {
     expectProblem(
       staffWriteContract(),
       { handler, auditTarget, resolveTarget },
-      "resolveTarget is allowed only on customer and public-target actions",
+      "resolveTarget is allowed only on customer, public-target, and share actions",
     );
   });
 
@@ -220,7 +279,7 @@ describe("implementAction — binding rejections (core.md §2)", () => {
     expectProblem(
       contract,
       { handler, resolveTarget },
-      "resolveTarget is allowed only on customer and public-target actions",
+      "resolveTarget is allowed only on customer, public-target, and share actions",
     );
   });
 

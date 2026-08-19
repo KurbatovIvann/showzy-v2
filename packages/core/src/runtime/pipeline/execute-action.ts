@@ -45,6 +45,7 @@ import {
   createConsumerContext,
   createCustomerContext,
   createPublicContext,
+  createShareContext,
   createStaffContext,
   createSystemContext,
   effectiveCompanyId,
@@ -186,6 +187,7 @@ export async function executeAction<
               : null,
         };
       case "public":
+      case "share":
         return {
           actorType: "anonymous",
           actorId: "anonymous",
@@ -604,7 +606,11 @@ function assertPrincipalShape(
  * keeps rate limiting and preflight behind authentication (§4 order).
  */
 function assertAuthenticated(principal: PrincipalInvocation): void {
-  if (principal.mode === "public" || principal.mode === "system") {
+  if (
+    principal.mode === "public" ||
+    principal.mode === "system" ||
+    principal.mode === "share"
+  ) {
     return;
   }
   if (principal.session === null) {
@@ -679,10 +685,12 @@ function bindConfirmationSummary<
 
 /**
  * Step 4: verify membership (staff) or run the typed resolver (customer;
- * public-target never carries these protocols) in a short read-only
+ * share; public-target never carries these protocols) in a short read-only
  * transaction; account verifies only session validity; a system identity
  * is trusted enqueuing-code input. Consumer/public-global cannot get here
  * with a validated contract (read-only, no confirmation/idempotency).
+ * Share writes are always idempotent, so they always run `resolveTarget`
+ * here — the stored token hash is known before the idempotency reservation.
  */
 async function runAuthorizationPreflight<
   TInput extends z.ZodType,
@@ -745,6 +753,24 @@ async function runAuthorizationPreflight<
         companyId:
           principal.scope.scope === "tenant" ? principal.scope.companyId : null,
       };
+    case "share":
+      return await deps.db.transaction(
+        async (tx) => {
+          const ctx = await createShareContext({
+            request,
+            runtime: env.makeRuntime(createReadTx(tx)),
+            input: env.input,
+            resolveTarget: requireResolver(env),
+          });
+          return {
+            actor: ctx.actor,
+            companyId: ctx.target.companyId,
+            target: ctx.target.resource,
+            tokenHash: ctx.tokenHash,
+          };
+        },
+        { accessMode: "read only" },
+      );
     case "public":
     case "consumer":
       return undefined;
@@ -826,6 +852,13 @@ async function constructPrincipalContext<
         request,
         runtime: env.makeRuntime(capability),
         session: principal.session,
+      });
+    case "share":
+      return await createShareContext({
+        request,
+        runtime: env.makeRuntime(capability),
+        input: env.input,
+        resolveTarget: requireResolver(env),
       });
   }
 }

@@ -1,8 +1,8 @@
 /**
- * The six-mode principal context union (core.md §3; ADR-0013, ADR-0018,
- * ADR-0020). One verified context shape per principal mode — a handler
- * matching on `ctx.principal` gets exactly the fields that mode guarantees,
- * and nothing a different caller kind would carry.
+ * The seven-mode principal context union (core.md §3; ADR-0013, ADR-0018,
+ * ADR-0020, ADR-0022). One verified context shape per principal mode — a
+ * handler matching on `ctx.principal` gets exactly the fields that mode
+ * guarantees, and nothing a different caller kind would carry.
  *
  * Construction happens only through the factories in `factories.ts`
  * (core.md §3: "exactly one factory per mode, nothing ad-hoc"). Nothing
@@ -21,13 +21,24 @@ export type ActionChannel = "ui" | "ai" | "system" | "webhook";
 
 /**
  * The accountable identity of an invocation. `anonymous` exists only for
- * access logs/traces on public actions — event and audit schemas accept
- * user/system actors only (core.md §2).
+ * access logs/traces on public and share actions — event and audit schemas
+ * accept user/system actors only (core.md §2). Share writes remap to
+ * `SHARE_DURABLE_ACTOR` at the audit/event flush.
  */
 export type ActionActor =
   | { readonly type: "user"; readonly id: string }
   | { readonly type: "system"; readonly id: string }
   | { readonly type: "anonymous"; readonly id: "anonymous" };
+
+/**
+ * Durable audit/event actor for share writes (core.md §8, ADR-0022). Access
+ * logs stay `anonymous`; `audit_log` / `domain_events` CHECKs are
+ * `user|system`, so the stored actor is `system`/`share`.
+ */
+export const SHARE_DURABLE_ACTOR = {
+  type: "system",
+  id: "share",
+} as const satisfies ActionActor;
 
 /** `company_members.role` values (companies-foundation.md §2). */
 export type CompanyRole = "owner" | "admin" | "manager" | "employee";
@@ -216,6 +227,21 @@ export interface AccountCtx<TDb = Tx> extends BaseCtx<TDb> {
   readonly membership?: never;
 }
 
+/**
+ * Unauthenticated capability-token holder (ADR-0022). Log `actor` is
+ * anonymous; `tokenHash` is the stored hash from the resolved token row
+ * (never the raw secret) and is the idempotency principal key.
+ */
+export interface ShareCtx<TTarget = unknown, TDb = Tx> extends BaseCtx<TDb> {
+  readonly principal: "share";
+  readonly clientIp: string;
+  readonly target: { readonly companyId: string; readonly resource: TTarget };
+  /** Stored capability-token hash; never the raw secret (core.md §5). */
+  readonly tokenHash: string;
+  readonly userId?: never;
+  readonly membership?: never;
+}
+
 /** The discriminated union every handler receives (core.md §3). */
 export type ActionCtx =
   | StaffCtx<ReadTx | Tx>
@@ -223,4 +249,5 @@ export type ActionCtx =
   | PublicCtx
   | SystemCtx<ReadTx | Tx>
   | ConsumerCtx
-  | AccountCtx<ReadTx | Tx>;
+  | AccountCtx<ReadTx | Tx>
+  | ShareCtx<unknown, ReadTx | Tx>;

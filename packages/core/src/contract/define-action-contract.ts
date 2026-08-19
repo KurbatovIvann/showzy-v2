@@ -113,6 +113,9 @@ function collectDefinitionProblems(
   if (READ_ONLY_PRINCIPALS.has(principal)) {
     validateReadOnlySubset(definition, problems);
   }
+  if (principal === "share") {
+    validateShareSubset(definition, problems);
+  }
   validateConfirmation(definition, problems);
 
   if (
@@ -164,7 +167,7 @@ function validatePermissions(
     }
   } else if (definition.permissions.length > 0) {
     problems.push(
-      `${definition.principal} actions must declare permissions: [] — their authorization is ownership/visibility/published-read/own-user, not RBAC (core.md §4)`,
+      `${definition.principal} actions must declare permissions: [] — their authorization is ownership/visibility/published-read/own-user/valid token, not RBAC (core.md §4)`,
     );
   }
 }
@@ -180,7 +183,8 @@ function validateTransport(
   if (
     (principal === "public" ||
       principal === "consumer" ||
-      principal === "account") &&
+      principal === "account" ||
+      principal === "share") &&
     transport !== "client"
   ) {
     problems.push(`${principal} actions must declare transport: "client"`);
@@ -253,6 +257,37 @@ function validateReadOnlySubset(
   }
   if (definition.emits.length > 0) {
     problems.push(`${principal} actions must not emit events`);
+  }
+}
+
+/**
+ * Share actions (ADR-0022): unauthenticated capability-token subset.
+ * `resolveTarget` is an implement-time callback; writes also require
+ * `auditSnapshot` there. Serializable rules live here.
+ */
+function validateShareSubset(
+  definition: ActionContractDefinition,
+  problems: string[],
+): void {
+  if (definition.aiExposure !== "internal") {
+    problems.push(
+      'share actions must declare aiExposure: "internal" — capability-token writes never become AI tools (core.md §2, ADR-0022)',
+    );
+  }
+  if (definition.requiresConfirmation) {
+    problems.push(
+      "share actions must declare requiresConfirmation: false — legal intent is on-device QES (core.md §2, ADR-0022)",
+    );
+  }
+  if (definition.risk !== "read" && definition.risk !== "write") {
+    problems.push(
+      'share actions must declare risk: "read" | "write" — draft and high are forbidden (legal intent is on-device QES; core.md §2)',
+    );
+  }
+  if (definition.risk === "write" && !definition.idempotent) {
+    problems.push(
+      "share writes must declare idempotent: true (core.md §2, ADR-0022)",
+    );
   }
 }
 

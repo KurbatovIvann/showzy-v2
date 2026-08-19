@@ -64,13 +64,20 @@ function fixtureContract(
 function fixtureImplementation(contract: ActionContract) {
   const needsResolver =
     contract.principal === "customer" ||
+    contract.principal === "share" ||
     (contract.principal === "public" && contract.publicScope === "target");
   return implementAction(contract, {
     handler: () => Promise.resolve({}),
     ...(needsResolver
       ? {
           resolveTarget: () =>
-            Promise.resolve({ companyId: "company-a", resource: {} }),
+            Promise.resolve({
+              companyId: "company-a",
+              resource: {},
+              ...(contract.principal === "share"
+                ? { tokenHash: "a".repeat(64) }
+                : {}),
+            }),
         }
       : {}),
     ...(contract.requiresConfirmation
@@ -78,6 +85,9 @@ function fixtureImplementation(contract: ActionContract) {
       : {}),
     ...(contract.audit
       ? { auditTarget: () => ({ type: "fixture", id: "1" }) }
+      : {}),
+    ...(contract.principal === "share" && contract.risk === "write"
+      ? { auditSnapshot: () => ({ cn: "fixture" }) }
       : {}),
   });
 }
@@ -123,6 +133,9 @@ function coverageFor(
       .map((contract) => contract.name),
     accountIsolation: contracts
       .filter((contract) => contract.principal === "account")
+      .map((contract) => contract.name),
+    shareIsolation: contracts
+      .filter((contract) => contract.principal === "share")
       .map((contract) => contract.name),
     idempotency: contracts
       .filter(
@@ -346,6 +359,28 @@ describe("contract check — emitter/event scope consistency (core.md §6)", () 
     );
     expect(problems).toEqual([
       expect.stringContaining('an account emitter requires scope "global"'),
+    ]);
+  });
+
+  it("rejects a share emitter declaring a global event (share events carry the resolved company)", () => {
+    const registry = buildRegistry(
+      fixtureContract({
+        name: "docSigning.submitShare",
+        principal: "share",
+        permissions: [],
+        risk: "write",
+        idempotent: true,
+        audit: true,
+        emits: ["docSigning.shareSubmitted"],
+      }),
+    );
+    const problems = problemsOf(
+      checkInput(registry, {
+        events: [{ name: "docSigning.shareSubmitted", scope: "global" }],
+      }),
+    );
+    expect(problems).toEqual([
+      expect.stringContaining('a share emitter requires scope "tenant"'),
     ]);
   });
 
@@ -753,6 +788,61 @@ describe("contract check — ctx.call edges (core.md §9, ADR-0015)", () => {
       }),
     );
     expect(result.problems).toEqual([]);
+  });
+
+  it("accepts a share caller invoking a share read", () => {
+    const registry = buildRegistry(
+      fixtureContract({
+        name: "docSigning.getShared",
+        principal: "share",
+        permissions: [],
+      }),
+      fixtureContract({
+        name: "catalog.getSharedFacts",
+        principal: "share",
+        permissions: [],
+      }),
+    );
+    const result = runContractCheck(
+      checkInput(registry, {
+        callEdges: [
+          {
+            caller: "docSigning.getShared",
+            callee: "catalog.getSharedFacts",
+          },
+        ],
+      }),
+    );
+    expect(result.problems).toEqual([]);
+  });
+
+  it("rejects a share caller invoking a public-target read", () => {
+    const registry = buildRegistry(
+      fixtureContract({
+        name: "docSigning.getShared",
+        principal: "share",
+        permissions: [],
+      }),
+      fixtureContract({
+        name: "companies.getPublicProfile",
+        principal: "public",
+        publicScope: "target",
+        permissions: [],
+      }),
+    );
+    const problems = problemsOf(
+      checkInput(registry, {
+        callEdges: [
+          {
+            caller: "docSigning.getShared",
+            callee: "companies.getPublicProfile",
+          },
+        ],
+      }),
+    );
+    expect(problems).toEqual([
+      expect.stringContaining("does not accept the caller's principal"),
+    ]);
   });
 
   it("rejects a global system caller invoking a tenant-scoped system read", () => {
@@ -1219,6 +1309,28 @@ describe("contract check — inherited suite coverage (core.md §12)", () => {
     ).toEqual([
       expect.stringContaining(
         'action "companies.listMine": missing accountIsolationSuite instantiation',
+      ),
+    ]);
+  });
+
+  it("fails when a share action omits shareIsolationSuite", () => {
+    const contract = fixtureContract({
+      name: "docSigning.getShared",
+      principal: "share",
+      permissions: [],
+    });
+    expect(
+      problemsOf(
+        checkInput(buildRegistry(contract), {
+          suiteCoverage: {
+            ...emptySuiteCoverage,
+            isolation: ["docSigning.getShared"],
+          },
+        }),
+      ),
+    ).toEqual([
+      expect.stringContaining(
+        'action "docSigning.getShared": missing shareIsolationSuite instantiation',
       ),
     ]);
   });

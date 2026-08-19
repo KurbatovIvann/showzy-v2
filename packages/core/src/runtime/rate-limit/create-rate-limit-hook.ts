@@ -2,16 +2,17 @@
  * `createRateLimitHook` — the fnd-T14 rate-limiting protocol (core.md §10).
  *
  * One token bucket per `(action, scope key)`. Defaults per principal:
- * `public` 30/min per rotating HMAC of the trusted-proxy-normalized IP,
+ * `public` and `share` 30/min per rotating HMAC of the trusted-proxy-normalized IP,
  * `consumer` 60/min per user, `account` 90/min per user, `customer`/`staff`
  * 120/min per user, `system` unlimited. Actions override via the contract's
  * `rateLimit` field. Exceeded → `RateLimitError` with `retryAfterSec`.
  *
- * Store failure splits by action class: fail-closed for public and for
- * every mutation (`draft`/`write`/`high`), fail-open with an error log for
- * ordinary authenticated reads and for system actions (workers must not
- * stall on Redis). An owning spec may declare a `rateLimit` override for
- * the bucket; store-failure policy for system stays fail-open (core.md §10).
+ * Store failure splits by action class: fail-closed for public, every share
+ * action (reads and writes), and every mutation (`draft`/`write`/`high`),
+ * fail-open with an error log for ordinary authenticated reads and for
+ * system actions (workers must not stall on Redis). An owning spec may
+ * declare a `rateLimit` override for the bucket; store-failure policy for
+ * system stays fail-open (core.md §10).
  *
  * The raw client IP never leaves the transport layer: the bucket key for
  * public traffic is an HMAC whose input includes a rotation-window index,
@@ -40,6 +41,7 @@ export const rateLimitDefaults: Readonly<
   public: { limit: 30, windowSec: 60, scope: "ipHmac" },
   consumer: { limit: 60, windowSec: 60, scope: "user" },
   account: { limit: 90, windowSec: 60, scope: "user" },
+  share: { limit: 30, windowSec: 60, scope: "ipHmac" },
 });
 
 /**
@@ -131,7 +133,10 @@ function failsOpen(env: PipelineHookEnv): boolean {
   if (env.principal.mode === "system") {
     return true;
   }
-  return env.principal.mode !== "public" && env.contract.risk === "read";
+  if (env.principal.mode === "public" || env.principal.mode === "share") {
+    return false;
+  }
+  return env.contract.risk === "read";
 }
 
 function resolveScopeKey(
@@ -158,7 +163,11 @@ function resolveScopeKey(
  */
 function requireUserId(env: PipelineHookEnv): string {
   const principal = env.principal;
-  if (principal.mode === "public" || principal.mode === "system") {
+  if (
+    principal.mode === "public" ||
+    principal.mode === "system" ||
+    principal.mode === "share"
+  ) {
     throw new CoreInvariantError(
       `action "${env.contract.name}" resolves a user-scoped rate limit but its "${principal.mode}" principal carries no user`,
     );

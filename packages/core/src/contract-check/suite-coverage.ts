@@ -23,6 +23,8 @@ export interface SuiteCoverageManifest {
   readonly consumerIsolation: readonly string[];
   /** Account action names passed to `accountIsolationSuite`. */
   readonly accountIsolation: readonly string[];
+  /** Share action names passed to `shareIsolationSuite`. */
+  readonly shareIsolation: readonly string[];
   /**
    * Idempotent mutation names passed to `idempotencySuite`. Event-consumer
    * bindings may be omitted — `eventSuite` covers their dedup.
@@ -46,6 +48,7 @@ export const emptySuiteCoverage: SuiteCoverageManifest = {
   publicProjection: [],
   consumerIsolation: [],
   accountIsolation: [],
+  shareIsolation: [],
   idempotency: [],
   events: [],
   atomic: [],
@@ -78,6 +81,11 @@ export function collectSuiteCoverageProblems(
     "suiteCoverage.accountIsolation",
     problems,
   );
+  const shareIsolation = uniqueSet(
+    coverage.shareIsolation,
+    "suiteCoverage.shareIsolation",
+    problems,
+  );
   const idempotency = uniqueSet(
     coverage.idempotency,
     "suiteCoverage.idempotency",
@@ -90,6 +98,7 @@ export function collectSuiteCoverageProblems(
   reportUnknownActions(publicProjection, names, "publicProjection", problems);
   reportUnknownActions(consumerIsolation, names, "consumerIsolation", problems);
   reportUnknownActions(accountIsolation, names, "accountIsolation", problems);
+  reportUnknownActions(shareIsolation, names, "shareIsolation", problems);
   reportUnknownActions(idempotency, names, "idempotency", problems);
 
   const subscriptionActions = new Set(
@@ -126,6 +135,14 @@ export function collectSuiteCoverageProblems(
       accountIsolation,
       contract.principal === "account",
       "principal: account",
+      problems,
+    );
+    collectModeSuiteProblems(
+      contract,
+      "shareIsolation",
+      shareIsolation,
+      contract.principal === "share",
+      "principal: share",
       problems,
     );
 

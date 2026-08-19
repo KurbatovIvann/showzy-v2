@@ -12,29 +12,29 @@ Four export subpaths exist:
 - `@showzy/core/errors` — the ten core.md §11 error classes.
 - `@showzy/core` (root, server-only) — `implementAction` + `ActionRegistry`
   (fnd-T9), the registry-walking contract check (fnd-T10) including the
-  `suiteCoverage` manifest (fnd-T22), the six principal context factories
-  plus `effectiveCompanyId` / `staffHasPermission` (fnd-T11; seventh `share`
-  factory is spec'd in core.md / ADR-0022 and waits on fnd-T11B — module
-  tasks must not work around its absence), the execution
+  `suiteCoverage` manifest (fnd-T22), the seven principal context factories
+  plus `effectiveCompanyId` / `staffHasPermission` (fnd-T11 / fnd-T11B),
+  the execution
   pipeline `executeAction` (fnd-T12), the audit protocol `createAuditHook`
   and `canonicalJson`/`canonicalJsonSha256` (fnd-T13), rate limiting
-    `createRateLimitHook` + `createInMemoryRateLimitStore` (fnd-T14), the
-    idempotency protocol `createIdempotencyHook` +
-    `cleanupExpiredIdempotencyKeys` (fnd-T15), domain events
-    `defineEvent` + the pipeline-internal `ctx.emit` buffer (fnd-T16),
-    and event delivery — `defineEventHandler` + `eventEnvelopeSchema`,
-    the dispatcher library `dispatchOutboxBatch`, and the delivery
-    entrypoint `executeDelivery` (fnd-T17), plus claim leases, exponential
-    retry, dead-letter parking, and consumer-scoped admin replay (fnd-T18),
-    cross-module reads — the pipeline-internal `ctx.call` (fnd-T19),
-    declared same-transaction writes — `ctx.callAtomic` (fnd-T19A), and
-    the confirmation protocol `createConfirmationHook` +
-    `createInMemoryConfirmationStore` (fnd-T20).
+  `createRateLimitHook` + `createInMemoryRateLimitStore` (fnd-T14), the
+  idempotency protocol `createIdempotencyHook` +
+  `cleanupExpiredIdempotencyKeys` (fnd-T15), domain events
+  `defineEvent` + the pipeline-internal `ctx.emit` buffer (fnd-T16),
+  and event delivery — `defineEventHandler` + `eventEnvelopeSchema`,
+  the dispatcher library `dispatchOutboxBatch`, and the delivery
+  entrypoint `executeDelivery` (fnd-T17), plus claim leases, exponential
+  retry, dead-letter parking, and consumer-scoped admin replay (fnd-T18),
+  cross-module reads — the pipeline-internal `ctx.call` (fnd-T19),
+  declared same-transaction writes — `ctx.callAtomic` (fnd-T19A), and
+  the confirmation protocol `createConfirmationHook` +
+  `createInMemoryConfirmationStore` (fnd-T20).
 - `@showzy/core/testing` — the module test kit (fnd-T21/T22):
   `createTestKit` / `buildTestContext` against the db harness, plus
   `crossTenantSuite`, `publicProjectionSuite`, `consumerIsolationSuite`,
-  `accountIsolationSuite`, `idempotencySuite`, `eventSuite`, and
-  `atomicCallSuite` (`shareIsolationSuite` waits on fnd-T11B). Module tasks instantiate the registrars; omitting a
+  `accountIsolationSuite`, `shareIsolationSuite`, `idempotencySuite`,
+  `eventSuite`, and `atomicCallSuite`. Module tasks instantiate the
+  registrars; omitting a
   required suite fails the contract check. The next package is
   `packages/contract` (fnd-T23).
 
@@ -55,9 +55,9 @@ Four export subpaths exist:
 
 - `implement-action.ts` — `implementAction(contract, callbacks)` validates
   at implement time that exactly the callbacks the metadata implies are
-  bound (`resolveTarget` iff customer/public-target, `confirmationSummary`
-  iff `requiresConfirmation`, `auditTarget`/optional `auditSnapshot` iff
-  `audit: true`), throws `ActionImplementationError` listing all problems,
+  bound (`resolveTarget` iff customer/public-target/share, `confirmationSummary`
+  iff `requiresConfirmation`, `auditTarget` iff `audit: true`, required
+  `auditSnapshot` on share writes), throws `ActionImplementationError` listing all problems,
   freezes and brands the pair.
 - `action-registry.ts` — `ActionRegistry` with duplicate detection on both
   contracts and implementations; `assertPaired()` is the boot gate: orphan
@@ -72,7 +72,7 @@ Four export subpaths exist:
 
 ## Principal contexts (`src/runtime/context/`, core.md §3)
 
-- `types.ts` — the six-mode `ActionCtx` discriminated union. The DB slot
+- `types.ts` — the seven-mode `ActionCtx` discriminated union. The DB slot
   is the capability the action's `risk` allows (`Tx`, `ReadTx`, or a
   grant-bound `ProjectionReadTx`); `emit` is the typed buffered emitter
   (fnd-T16, below); `call` is the typed cross-module read invoker
@@ -84,8 +84,9 @@ Four export subpaths exist:
   path (never assemble a context by hand): staff verifies the
   `x-company-id` selector against a `company_members` row (the selector is
   never authority; missing/foreign/nonexistent all deny with one message);
-  customer/public-target run the typed resolver over a read-only facade
-  and adopt its resolved company; public-global binds the declared
+  customer/public-target/share run the typed resolver over a read-only facade
+  and adopt its resolved company (share also binds `tokenHash` from the
+  resolver); public-global binds the declared
   projection grant; system takes an explicit tenant/global scope from the
   enqueuing code; consumer/account require a session and carry no company
   scope at all. Factories bind the pino child logger
@@ -383,10 +384,11 @@ without core changes. `runContractCheck` stays here as a library.
   parity fixtures (db.md §8) plus matching `user` / `companies` /
   `company_members` rows so staff and system-tenant factories share ids
   with the discovery tables. `kit.buildTestContext(mode, overrides)` is
-  the six-mode factory wrapper — it still goes through the real context
+  the seven-mode factory wrapper — it still goes through the real context
   factories, never hand-rolled objects.
 - Isolation suites (`crossTenantSuite`, `publicProjectionSuite`,
-  `consumerIsolationSuite`, `accountIsolationSuite`) and protocol suites
+  `consumerIsolationSuite`, `accountIsolationSuite`, `shareIsolationSuite`)
+  and protocol suites
   (`idempotencySuite`, `eventSuite`, `atomicCallSuite`) take `getKit` and
   register vitest tests. `run*Case` is the same assertion without
   registration, so a leaky fixture action can be proven to fail the

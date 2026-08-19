@@ -41,7 +41,7 @@ bound by `implementAction`. All fields are required unless noted:
 | `permissions` | `string[]` of `<module>:<verb>` | Non-empty for `staff`; must be `[]` for `customer`/`public`/`consumer`/`account`/`share` (authorization = ownership/visibility/published-read/own-user/valid token, §4); must be `[]` for `system` |
 | `publicScope` | `target` \| `globalProjection`, **public only** | `target` is one published company/resource; `globalProjection` is an ADR-0020 published discovery projection. Share does not use this field |
 | `projectionGrant` | grant ID, conditional | Required only for `publicScope: globalProjection`; must match a grant declared by the projection owner; forbids `resolveTarget` |
-| `resolveTarget` | typed fn, **customer/public-target/share** | `<TTarget>(input, { tx, principal }) => Promise<{ companyId, resource: TTarget }>` — customer args include authenticated `userId`; share and public-target have no `userId`; a nested `ctx.call` also supplies the already verified `inheritedCompanyId`. Loads the referenced resource and proves ownership/visibility/valid token; throws `NotFoundError` (never "forbidden" — no existence leaks). Missing, expired, revoked, or mismatched share tokens are `NotFoundError` |
+| `resolveTarget` | typed fn, **customer/public-target/share** | `<TTarget>(input, { tx, principal }) => Promise<{ companyId, resource: TTarget, tokenHash?: string }>` — customer args include authenticated `userId`; share and public-target have no `userId`; a nested `ctx.call` also supplies the already verified `inheritedCompanyId`. Loads the referenced resource and proves ownership/visibility/valid token; throws `NotFoundError` (never "forbidden" — no existence leaks). Missing, expired, revoked, or mismatched share tokens are `NotFoundError`. Share resolvers MUST return `tokenHash` (the stored hash from the token row, never the raw secret) — it is the idempotency principal key |
 | `systemScope` | `tenant` \| `global`, **system only** | Tenant-scoped system actions require `ctx.companyId`; `global` is reserved for genuinely global jobs |
 | `aiExposure` | `exposed` \| `internal` | `exposed` requires `transport: client`; `internal` never becomes an AI tool |
 | `risk` | `read` \| `draft` \| `write` \| `high` | `read` handlers/resolvers receive a `ReadTx` capability; top-level reads also use a DB read-only transaction |
@@ -192,6 +192,7 @@ type ShareCtx<TTarget, TDb extends ReadTx = Tx> = BaseCtx<TDb> & {
   principal: "share";
   clientIp: string;
   target: { companyId: string; resource: TTarget };
+  tokenHash: string; // stored hash from the resolved token row; never the raw secret
   userId?: never;
   membership?: never;
 };
@@ -236,7 +237,9 @@ Construction — exactly one factory per mode, nothing ad-hoc:
 - **share**: no session. The action's typed `resolveTarget` runs over the
   hashed capability token in the execution transaction (and in preflight when
   idempotency will store a row); the returned resource is the proof of
-  access. The API factory supplies a trusted-proxy-normalized `clientIp`.
+  access, and the returned `tokenHash` (stored hash, never the raw secret) is
+  bound on `ShareCtx` as the idempotency principal key. The API factory
+  supplies a trusted-proxy-normalized `clientIp`.
   Log `actor.type` is `anonymous`. Share writes receive a writable `Tx`;
   share reads receive a `ReadTx`. Raw tokens never enter log bindings.
 
@@ -702,6 +705,7 @@ does not apply — fails the check.
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-19 | `ShareCtx.tokenHash` and share `resolveTarget` return the stored hash | fnd-T11B: `share:<tokenHash>` is not representable without the hash on the context; the idempotency-key test proved the gap | scaffold (fnd-T11B) |
 | 2026-08-19 | Seventh principal `share` (ADR-0022): `ShareCtx`, contract-check subset, pipeline/idempotency keys, audit/event actor mapping, 30/min IP-HMAC fail-closed, `shareIsolationSuite` | Unauthenticated capability-token writes for owner-first dual-sign without weakening `public` | owner via `/rework-spec core.md` |
 | 2026-08-19 | Status: Active; Active surface: entire file | Ledger catch-up: first merged packages/core (fnd-T8…T28), not a new freeze decision | owner via spec-process-after-phase-0 |
 | 2026-08-19 | §4: start log has no actor/company (identity unknown pre-auth); §8: no audit row before successful input validation; §10: system rate-limit store failure is fail-open; §12: `runSocialDesiredStateCase` | Align living spec with phase-0 pipeline (fnd-G1 A12) | scaffold (fnd-G1 A12) |

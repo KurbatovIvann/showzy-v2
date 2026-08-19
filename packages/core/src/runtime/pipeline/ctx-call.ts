@@ -46,6 +46,7 @@ import {
   createConsumerContext,
   createCustomerContext,
   createPublicContext,
+  createShareContext,
   createStaffContext,
   createSystemContext,
   effectiveCompanyId,
@@ -398,6 +399,14 @@ export async function constructCalleeContext<
             runtime,
             session: { userId: callerCtx.userId },
           });
+    case "share":
+      return await createShareContext({
+        request,
+        runtime,
+        input,
+        resolveTarget: requireNestedResolver(action),
+        inheritedCompanyId: callerCtx.target.companyId,
+      });
   }
 }
 

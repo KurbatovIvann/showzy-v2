@@ -25,7 +25,12 @@ import {
   runConsumerIsolationCase,
   runCrossTenantCase,
   runPublicProjectionCase,
+  runShareIsolationCase,
+  shareIsolationCase,
+  shareIsolationSuite,
+  type SuiteAction,
 } from "./suites.js";
+import { kitShareDocuments, kitShareTokens } from "./share-fixture.js";
 
 let kit: TestKit;
 const correct = createCorrectFixtureActions();
@@ -39,6 +44,37 @@ const unpublishedProduct = {
   productId: kitIdentities.products.unpublished,
 };
 const crmInput = { customerId: kitIdentities.crmSentinel };
+const shareOwn = {
+  token: kitShareTokens.a,
+  documentId: kitShareDocuments.a.id,
+};
+const shareForeign = {
+  token: kitShareTokens.a,
+  documentId: kitShareDocuments.b.id,
+};
+const shareExpired = {
+  token: kitShareTokens.expired,
+  documentId: kitShareDocuments.a.id,
+};
+const shareRevoked = {
+  token: kitShareTokens.revoked,
+  documentId: kitShareDocuments.a.id,
+};
+const shareMismatched = {
+  token: kitShareTokens.b,
+  documentId: kitShareDocuments.a.id,
+};
+
+function shareIsolationFor(action: SuiteAction) {
+  return shareIsolationCase(action, {
+    own: { input: shareOwn },
+    foreign: { input: shareForeign },
+    expired: { input: shareExpired },
+    revoked: { input: shareRevoked },
+    mismatched: { input: shareMismatched },
+    rawToken: kitShareTokens.a,
+  });
+}
 
 function correctCrossTenantCases() {
   return [
@@ -73,6 +109,11 @@ function correctCrossTenantCases() {
       { input: {}, userId: kitIdentities.users.anna },
       { input: {}, userId: kitIdentities.users.boris },
     ),
+    isolationCase(
+      correct.shareGetDocument,
+      { input: shareOwn },
+      { input: shareForeign },
+    ),
   ];
 }
 
@@ -85,7 +126,7 @@ afterAll(async () => {
   await kit.db.close();
 });
 
-describe("buildTestContext — six principal modes", () => {
+describe("buildTestContext — seven principal modes", () => {
   it("builds a staff context from the verified membership row", async () => {
     const ctx = await kit.buildTestContext("staff");
     expect(ctx.principal).toBe("staff");
@@ -144,6 +185,16 @@ describe("buildTestContext — six principal modes", () => {
     expect(ctx.userId).toBe(kitIdentities.users.anna);
     expect(effectiveCompanyId(ctx)).toBeNull();
   });
+
+  it("builds a share context from the hashed token without a session", async () => {
+    const ctx = await kit.buildTestContext("share");
+    expect(ctx.principal).toBe("share");
+    if (ctx.principal !== "share") return;
+    expect(ctx.actor).toEqual({ type: "anonymous", id: "anonymous" });
+    expect(ctx.target.companyId).toBe(kitIdentities.companies.a);
+    expect(effectiveCompanyId(ctx)).toBe(kitIdentities.companies.a);
+    expect(ctx.userId).toBeUndefined();
+  });
 });
 
 crossTenantSuite(() => kit, correctCrossTenantCases());
@@ -160,6 +211,13 @@ accountIsolationSuite(
       { input: {}, userId: kitIdentities.users.anna },
       { input: {}, userId: kitIdentities.users.boris },
     ),
+  ],
+);
+shareIsolationSuite(
+  () => kit,
+  [
+    shareIsolationFor(correct.shareGetDocument),
+    shareIsolationFor(correct.shareSubmitSignature),
   ],
 );
 
@@ -283,5 +341,17 @@ describe("suites fail on seeded violations", () => {
         { enforce: () => Promise.resolve() },
       ),
     ).rejects.toThrow(/did not rate-limit/);
+  });
+
+  it("detects a share resolver that lets token A reach token B's resource", async () => {
+    await expect(
+      runShareIsolationCase(kit, shareIsolationFor(leaky.shareGetDocument)),
+    ).rejects.toThrow(/expected foreign-token access/);
+  });
+
+  it("detects a share write that inserts a CRM row", async () => {
+    await expect(
+      runShareIsolationCase(kit, shareIsolationFor(leaky.shareWritesCrm)),
+    ).rejects.toThrow(/CRM sentinel/);
   });
 });

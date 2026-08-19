@@ -63,6 +63,13 @@ const accountMine = defineActionContract({
   principal: "account",
 });
 
+const sharePeek = defineActionContract({
+  ...readDefaults,
+  name: "sample.getShared",
+  description: "Share-token read.",
+  principal: "share",
+});
+
 const systemJob = defineActionContract({
   ...readDefaults,
   name: "sample.internalJob",
@@ -142,6 +149,12 @@ describe("toPrincipalInvocation", () => {
     expect(toPrincipalInvocation(accountMine, context)).toEqual({
       mode: "account",
       session: { userId: "user-anna" },
+    });
+  });
+
+  it("share receives neither session nor selector even when both are present (ADR-0022)", () => {
+    expect(toPrincipalInvocation(sharePeek, context)).toEqual({
+      mode: "share",
     });
   });
 

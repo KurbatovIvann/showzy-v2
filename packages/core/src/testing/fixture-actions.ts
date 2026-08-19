@@ -25,9 +25,14 @@ import { z } from "zod";
 
 import { defineActionContract } from "../contract/define-action-contract.js";
 import { CoreInvariantError, NotFoundError } from "../errors/index.js";
+import { defineEvent } from "../runtime/events/define-event.js";
 import { implementAction } from "../runtime/implement-action.js";
 import type { ResolvedTarget, TargetResolutionEnv } from "../runtime/types.js";
 import { kitIdentities } from "./identities.js";
+import {
+  resolveKitShareTarget,
+  resolveLeakyKitShareTarget,
+} from "./share-fixture.js";
 
 const contractDefaults = {
   transport: "client" as const,
@@ -67,6 +72,18 @@ const browseOutput = z.object({
 const mineOutput = z.object({
   companyIds: z.array(z.uuid()),
   followCompanyIds: z.array(z.uuid()),
+});
+const shareInput = z.object({ token: z.string().min(1), documentId: z.uuid() });
+const shareOutput = z.object({
+  documentId: z.uuid(),
+  companyId: z.uuid(),
+});
+
+const shareSubmitted = defineEvent({
+  name: "kitFixture.shareSubmitted",
+  version: 1,
+  scope: "tenant",
+  payload: z.object({ documentId: z.uuid() }),
 });
 
 async function resolveOwnCrm(
@@ -381,6 +398,74 @@ export function createCorrectFixtureActions() {
         },
       },
     ),
+    shareGetDocument: implementAction(
+      defineActionContract({
+        ...contractDefaults,
+        name: "kitFixture.getShared",
+        description: "Read a document through a valid share token.",
+        principal: "share",
+        input: shareInput,
+        output: shareOutput,
+        permissions: [],
+        risk: "read",
+        audit: false,
+        timeout: 5_000,
+      }),
+      {
+        resolveTarget: resolveKitShareTarget,
+        handler: (input, ctx) => {
+          if (ctx.principal !== "share") {
+            throw new CoreInvariantError("fixture expects share");
+          }
+          return {
+            documentId: input.documentId,
+            companyId: ctx.target.companyId,
+          };
+        },
+      },
+    ),
+    shareSubmitSignature: implementAction(
+      defineActionContract({
+        ...contractDefaults,
+        name: "kitFixture.submitShare",
+        description: "Persist a dual-signed container through a share token.",
+        principal: "share",
+        input: shareInput,
+        output: shareOutput,
+        permissions: [],
+        risk: "write",
+        idempotent: true,
+        audit: true,
+        emits: ["kitFixture.shareSubmitted"],
+        timeout: 5_000,
+      }),
+      {
+        resolveTarget: resolveKitShareTarget,
+        auditTarget: (env) => {
+          const parsed = shareInput.parse(env.input);
+          return { type: "document", id: parsed.documentId };
+        },
+        auditSnapshot: () => ({
+          cn: "Test Signer",
+          org: "Acme",
+          taxId: "1234567890",
+          role: "buyer",
+        }),
+        handler: (input, ctx) => {
+          if (ctx.principal !== "share") {
+            throw new CoreInvariantError("fixture expects share");
+          }
+          ctx.emit(shareSubmitted, {
+            aggregate: { type: "document", id: input.documentId },
+            payload: { documentId: input.documentId },
+          });
+          return {
+            documentId: input.documentId,
+            companyId: ctx.target.companyId,
+          };
+        },
+      },
+    ),
   };
 }
 
@@ -537,6 +622,38 @@ export function createLeakyFixtureActions(db: Database) {
         },
       },
     ),
+    shareGetDocument: implementAction(correct.shareGetDocument.contract, {
+      resolveTarget: resolveLeakyKitShareTarget,
+      handler: correct.shareGetDocument.handler,
+    }),
+    shareWritesCrm: implementAction(correct.shareSubmitSignature.contract, {
+      resolveTarget: resolveKitShareTarget,
+      auditTarget: (env) => {
+        const parsed = shareInput.parse(env.input);
+        return { type: "document", id: parsed.documentId };
+      },
+      auditSnapshot: () => ({
+        cn: "Test Signer",
+        org: "Acme",
+        taxId: "1234567890",
+        role: "buyer",
+      }),
+      handler: async (input, ctx) => {
+        if (ctx.principal !== "share") {
+          throw new CoreInvariantError("fixture expects share");
+        }
+        await db.insert(fixtureCrmCustomers).values({
+          id: "00000000-0000-4000-8000-00000000f098",
+          companyId: kitIdentities.companies.a,
+          userId: kitIdentities.users.anna,
+          displayName: "leaked share CRM",
+        });
+        return {
+          documentId: input.documentId,
+          companyId: ctx.target.companyId,
+        };
+      },
+    }),
   };
 }
 
