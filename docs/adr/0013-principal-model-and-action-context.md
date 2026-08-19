@@ -1,9 +1,9 @@
-# ADR-0013: Principal model — staff, customer, public, system, consumer, account
+# ADR-0013: Principal model — staff, customer, public, system, consumer, account, share
 
 - **Status**: Accepted
 - **Date**: 2026-08-17
 - **Deciders**: owner (+ Claude Fable 5, foundation review)
-- **Amended by**: ADR-0018 and ADR-0020
+- **Amended by**: ADR-0018, ADR-0020, and ADR-0022
 
 ## Context
 
@@ -61,6 +61,12 @@ discriminated union over that mode:
   May perform writes (unlike `consumer`). `permissions` must be `[]`
   (no company RBAC applies). A user transitions to `staff` by selecting a
   company from the list returned by an `account` action.
+- **`share`** (ADR-0022) — no session. Unauthenticated holder of a hashed
+  capability token, with a typed `resolveTarget` (same shape as
+  `publicScope: target`). Unlike `public`, may perform **allowlisted writes**
+  (`audit`, events, idempotency). `permissions` must be `[]`. Access logs
+  use actor `anonymous`; durable audit/events use `actorType: system` and
+  `actorId: "share"`. `public` stays read-only (ADR-0020).
 
 One action = one principal mode. A capability needed by both panel and
 cabinet becomes two actions (e.g. `orders.listForCompany` /
@@ -69,9 +75,11 @@ never conditional on "which kind of caller might this be".
 
 Resource identifiers of another company (product id, company slug, order id)
 MAY appear in input; they are inputs to server-side resolution, never grants.
-The mandatory cross-tenant test suite (§2.1-1) is parameterized over all six
+The mandatory cross-tenant test suite (§2.1-1) is parameterized over all seven
 modes (the consumer fixture verifies published-only access and no CRM side
-effects; the account fixture verifies own-user-only access).
+effects; the account fixture verifies own-user-only access; the share fixture
+verifies token isolation, expired/revoked → `NotFoundError`, and no CRM
+side effects).
 
 ## Alternatives considered
 
@@ -90,11 +98,13 @@ effects; the account fixture verifies own-user-only access).
 
 - `defineAction` gains a required `principal` field; `packages/core` exposes
   per-mode context types and requires typed target resolvers for
-  `customer`/`public`. The contract check (CI) fails on actions without them.
+  `customer`/`public-target`/`share`. The contract check (CI) fails on
+  actions without them.
 - The cross-tenant test harness gains per-mode fixtures: staff of company A
   vs. data of company B; customer X vs. orders of customer Y; public vs.
   non-public company; system job scoped to A touching B; consumer accessing
-  unpublished data; account user A accessing account user B's companies.
+  unpublished data; account user A accessing account user B's companies;
+  share token A accessing token B's resource.
 - Specs must state the principal mode for every action (spec template
   updated).
 - better-auth integration (phase 0) must expose the session → principal
