@@ -116,6 +116,7 @@ contract / auth implementation (fnd-T8…T28), not by a new decision on
 - `catalog.md`
 - `companies.md`
 - `customers.md`
+- `documents.md`
 - `pricing.md`
 - `search.md`
 

@@ -778,7 +778,7 @@ events and calls this or reads company data directly via its read-model grant.
 | `companies.unpublished` | `{ companyId }` | 1 | `search` (remove from projection) |
 | `companies.archived` | `{ companyId }` | 1 | `search` (remove), `chat` (mark inactive), `notifications` (suppress) |
 | `companies.restored` | `{ companyId }` | 1 | — (company returns unpublished, needs explicit publish) |
-| `companies.legalInfoUpdated` | `{ companyId }` | 1 | `documents` (refresh requisites) |
+| `companies.legalInfoUpdated` | `{ companyId }` | 1 | none in owner-first (`documents` freezes party snapshots at create; it does not refresh issued documents) |
 | `companies.categoriesUpdated` | `{ companyId, categoryIds: string[] }` | 1 | `search` (update category facets) |
 | `companies.showcaseUpdated` | `{ companyId }` | 1 | — |
 | `companies.socialsUpdated` | `{ companyId }` | 1 | — |
@@ -1152,5 +1152,6 @@ Seed data is carried over via migration (same 18 categories).
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-19 | `companies.legalInfoUpdated` no longer lists `documents` as a requisites-refresh subscriber | Owner-first documents freeze snapshots at create (`docs/specs/documents.md`) | spec agent |
 | 2026-08-19 | Public/consumer profile reads collapsed to named Deferred capabilities. Staff panel (create/team/legal/publish flags) remains owner-first. | Owner-first launch; `/spec` density | owner |
 | 2026-08-17 | Initial full spec (extends companies-foundation.md; full module scope applies from Phase 2 onward; Phase 0 implements only the foundation slice) | Spec-rework queue Step 3; deliver complete companies module specification | Human owner |
