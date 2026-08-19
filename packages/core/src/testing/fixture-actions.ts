@@ -417,10 +417,10 @@ export function createCorrectFixtureActions() {
           if (ctx.principal !== "share") {
             throw new CoreInvariantError("fixture expects share");
           }
-          return {
+          return Promise.resolve({
             documentId: input.documentId,
             companyId: ctx.target.companyId,
-          };
+          });
         },
       },
     ),
@@ -459,10 +459,10 @@ export function createCorrectFixtureActions() {
             aggregate: { type: "document", id: input.documentId },
             payload: { documentId: input.documentId },
           });
-          return {
+          return Promise.resolve({
             documentId: input.documentId,
             companyId: ctx.target.companyId,
-          };
+          });
         },
       },
     ),
