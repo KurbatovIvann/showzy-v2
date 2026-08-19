@@ -63,6 +63,11 @@ jobs:
       - name: Vitest
         run: pnpm test
 
+      - name: Expo export smoke (fnd-T48)
+        run: pnpm --filter @showzy/mobile export:web
+        env:
+          EXPO_NO_TELEMETRY: "1"
+
   secret-scan:
     runs-on: ubuntu-latest
     steps:

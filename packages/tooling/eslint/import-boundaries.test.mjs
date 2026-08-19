@@ -79,6 +79,10 @@ test("showzy/import-boundaries", () => {
         `,
       },
       {
+        filename: file("apps/mobile/eslint.config.mjs"),
+        code: `import { showzyEslintConfig } from "@showzy/tooling/eslint";`,
+      },
+      {
         filename: file("packages/modules/orders/actions/create.test.ts"),
         code: `import { users } from "@showzy/db";`,
       },

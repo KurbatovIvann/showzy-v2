@@ -70,7 +70,10 @@ function classify(filename) {
     /\.test\.ts$/.test(path) ||
     /\/probe\/leaks\//.test(path) ||
     /\/scripts\//.test(path) ||
-    /\/migrations\//.test(path)
+    /\/migrations\//.test(path) ||
+    /\/eslint\.config\.mjs$/.test(path) ||
+    /\/vitest\.config\.mjs$/.test(path) ||
+    /\.cjs$/.test(path)
   ) {
     return { kind: "skip" };
   }

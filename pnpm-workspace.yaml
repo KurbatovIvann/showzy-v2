@@ -9,3 +9,11 @@ packages:
 # line already present in the tree (archiver-utils).
 overrides:
   lodash: "^4.18.1"
+
+# Expo SDK 55 Metro depends on image-size 2.0.2. Both high GHSAs have no
+# patched release (latest is 2.0.2). Build-time parser DoS in Metro, not a
+# Showzy runtime path. Drop when Expo/Metro bumps image-size (fnd-T48).
+auditConfig:
+  ignoreGhsas:
+    - GHSA-w3rx-r6r6-pgpr
+    - GHSA-5p2g-fcmc-qvqq
