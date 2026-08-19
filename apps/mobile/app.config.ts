@@ -8,7 +8,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   scheme: "showzy",
   orientation: "portrait",
   userInterfaceStyle: "automatic",
-  jsEngine: "hermes",
   plugins: ["expo-router"],
   experiments: {
     tsconfigPaths: true,
