@@ -2,6 +2,8 @@
 
 > Status: owner-approved direction. Spec-rework queues are archived; UX gate
 > still blocks product screens only.
+> Amended 2026-08-19: V1 theme transcribes in fnd-T48; Figma is not a gate;
+> port recipe at `docs/design/mapping/v1-mobile-port-recipe.md`.
 > Decisions: ADR-0019 and ADR-0020.
 > Product source: `E:\showzy\apps\mobile` (read-only).
 
@@ -33,14 +35,16 @@ spec-rework queues in `docs/archive/` are not gates.
 flowchart TD
   Decisions["ADRs 0019-0021"] --> Foundation["Foundation runtime and typed client"]
   Decisions --> Backend["Module actions from Living or Active specs"]
-  Inventory["Inventory and conflict map"] --> UX["DEFINE and SYSTEM rebaseline"]
+  Inventory["Inventory, conflict map, port recipe"] --> DEFINE["DEFINE rebaseline"]
   Foundation --> Backend
-  UX --> Gate{"UX gate"}
+  Foundation --> Theme["fnd-T48 V1 theme in Expo"]
+  Theme --> System["vm-T14–T16 primitives (SYSTEM)"]
+  DEFINE --> Gate{"UX gate"}
+  System --> Gate
   Foundation --> Gate
-  Gate --> UIFoundation["V1-derived UI foundation"]
-  Backend --> VerticalSlices["Mobile vertical slices"]
-  UIFoundation --> VerticalSlices
-  VerticalSlices --> AI["Contextual AI parity"]
+  Gate --> VerticalSlices["Mobile vertical slices"]
+  Backend --> VerticalSlices
+  VerticalSlices --> AI["Contextual AI overlay later"]
   AI --> Launch["Full-parity launch verification"]
 ```
 
@@ -92,30 +96,37 @@ Each approved spec is followed by its own module plan and Linear tickets.
 
 ## Workstream B: Experience Foundation
 
-Execute `docs/plans/experience-foundation.md` efr-T1…T7:
+Execute `docs/plans/experience-foundation.md` efr-T1…T7 as recut on
+2026-08-19:
 
-- approve inventory and mapping;
-- research active-company switching;
-- rebaseline IA/journeys and system contracts;
-- build parity prototypes from golden references;
-- run internal evaluation;
-- explicitly open the UX gate.
+- inventory, mapping, and [port recipe](../design/mapping/v1-mobile-port-recipe.md)
+  are the inputs;
+- DEFINE rebaseline is IA from V1 tabs/sheets (AI overlay directed, not built);
+- SYSTEM is the running Unistyles theme + primitives, not Figma;
+- efr-T5 (full-journey/Figma prototypes) is cancelled;
+- the gate opens after DEFINE + owner review of the running SYSTEM.
 
 No product screen is implemented from the superseded greenfield IA.
+Figma is not a gate artifact.
 
 ## Workstream C: mobile presentation foundation
 
-Starts only after the UX gate, except technical shell/auth/link work already
-allowed by foundation.
+Token transcription starts **before** the UX gate, inside fnd-T48, so the
+Expo skeleton is not a stub theme. Primitives and shell (`vm-T14`…`T16`)
+are the SYSTEM artifact the gate reviews. Product screens stay gated.
+Follow `docs/design/mapping/v1-mobile-port-recipe.md` on every UI PR.
 
-### vm-T13: theme and token transcription
+### vm-T13: theme and token transcription — pulled into fnd-T48
 
-- Transcribe the V1 light/dark/system baseline into the approved V2 UI package.
-- Keep semantic roles; no color rebrand in this task.
-- **Tests:** token shape, mode switching, persistence, contrast audit.
+- Do not run as a separate post-gate task.
+- fnd-T48 transcribes the V1 light/dark/system baseline into Unistyles from
+  `docs/design/inventory/v1-mobile-token-baseline.md`.
+- Keep semantic roles; no color rebrand in that task.
+- **Tests:** live with fnd-T48 (token shape, mode switching, persistence).
 
 ### vm-T14: primitive components — actions and inputs
 
+- Starts after fnd-T48; this wave **is** efr-T4 SYSTEM (before the UX gate).
 - Button, icon button, input, OTP/phone input, form field/group, toggle,
   segmented control, quantity controls.
 - **Tests:** variants, disabled/loading, keyboard, labels, touch targets.
@@ -222,6 +233,7 @@ Action tests are written before implementation.
 
 - Global text overlay, current-screen/entity context, navigate/open/prefill,
   same action descriptors and confirmation flows as classic UI.
+- **Not a UX-gate dependency.** Schedule after classic vertical slices.
 - **E2E:** execute each launch action family or complete its required
   human/device handoff; QES remains human-in-the-loop.
 
@@ -253,4 +265,8 @@ Action tests are written before implementation.
 - Meta messaging, embeddings, GPS radius, user discovery, reviews.
 - Monobank acquiring at launch.
 - Dashboard/analytics placeholders.
-- Per-screen redesign or unapproved palette changes.
+- **Per-screen redesign** or unapproved palette changes. Class A/B craft
+  (token binding, contrast) is required; Class C product UX waits on
+  `docs/design/mapping/v1-port-findings.md`.
+- **Figma as a prerequisite** for tokens, primitives, or the UX gate.
+- **Contextual AI overlay** before `vm-T29`.

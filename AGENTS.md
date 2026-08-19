@@ -83,3 +83,9 @@ The v1 schema is a reference, **not** a template: v2 replaces RLS with
 code-level permissions, replaces DB RPC with Drizzle queries in action
 handlers, and makes deliberate per-trigger decisions about what moves into
 application code (blueprint §6).
+
+V1 **mobile UI** is a separate baseline (ADR-0019): `E:\showzy\apps\mobile`
+is canonical for visuals and interaction, not for data access. When
+implementing `apps/mobile`, follow
+`docs/design/mapping/v1-mobile-port-recipe.md` — port presentation and
+behavior, bind values to theme, and do not copy the V1 data layer.

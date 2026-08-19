@@ -1,0 +1,24 @@
+---
+description: V1→V2 mobile port — craft not product, no V1 data layer
+globs: apps/mobile/**
+alwaysApply: false
+---
+
+# V1 mobile port
+
+Canonical rule: `docs/design/mapping/v1-mobile-port-recipe.md`.
+Findings: `docs/design/mapping/v1-port-findings.md`.
+V1 app is read-only at `E:\showzy\apps\mobile`.
+
+- **Improve craft, not the product.** Bind hardcoded color/space/radius/type
+  to the Unistyles theme (Class A). Snap off-scale values to existing tokens
+  (Class B). Do not change IA, tabs, gestures, copy, or control hierarchy
+  (Class C) — keep V1 and append a `proposed` finding.
+- If the class is unclear, it is C.
+- Read V1 `theme`, `components/ui`, glass/shell, and screen layout. Do not
+  copy Supabase, Nest clients, `lib/actions`, or entity stores.
+- V2 screens take contract view-models and callbacks. No `companyId` from
+  input as an access grant. Chat stores IDs, not order state.
+- Figma is not a source of tokens or components. AI overlay is out of scope
+  until `vm-T29`.
+- New npm dependencies need owner approval in the PR description.

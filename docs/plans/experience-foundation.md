@@ -1,6 +1,9 @@
 # Experience Foundation — Plan
 
 > Status: **reset and owner-approved 2026-08-17** for V1 mobile parity.
+> Amended **2026-08-19**: SYSTEM is running Expo (theme + primitives), not
+> Figma; efr-T5 full-journey/Figma prototypes are cancelled; AI overlay is
+> not a gate dependency.
 > The original ef-T1…T21 graph below is historical and must be re-cut.
 > Greenfield DEFINE journeys/IA and SYSTEM docs were moved to
 > `docs/archive/design/` on 2026-08-18 and are not authority.
@@ -14,20 +17,19 @@ parallel design track that runs alongside technical phases 0–1 and gates all
 product UI implementation (pipeline rule 5, ADR-0019). It is not a code
 module, so this plan deviates from the standard `/plan` format:
 
-- **Deliverables are design artifacts** in `docs/design/` (and Figma), not
-  code. "One task = one PR ≤ ~300 diff lines" becomes "one task = one
-  reviewable artifact set"; a PR is still opened per task for the in-repo
-  documents.
+- **Deliverables are design artifacts** in `docs/design/` and the running
+  Unistyles theme/primitives in `apps/mobile`, not Figma. "One task = one PR
+  ≤ ~300 diff lines" becomes "one task = one reviewable artifact set"; a PR
+  is still opened per task.
 - **TDD test lists are replaced by acceptance criteria** — the stage outputs
-  defined in `process.md` plus the dual-flow completeness rule (every
-  artifact addresses classic UI ↔ AI chat and staff ↔ customer where
-  applicable).
+  defined in `process.md`. Classic staff/customer surfaces are in scope for
+  SYSTEM. The AI overlay is `vm-T29`, not a per-artifact gate rule.
 - **Approval checkpoints replace CI gates.** Each stage ends with an
   explicit human-owner approval task; the next stage's tasks stay blocked
   until it passes.
 - **Execution mode is marked per task**: `agent` (agent drafts, human
   reviews), `human-led` (requires real-world activity the agent cannot do,
-  e.g. internal prototype evaluation), or `human` (owner decision).
+  e.g. internal evaluation of the running Expo SYSTEM), or `human` (owner decision).
 
 Linear mapping: one issue per task in team **Showzy-v2**, project
 **Experience Foundation** (pipeline.md "Linear workflow"), label `design`
@@ -61,54 +63,56 @@ describe the superseded greenfield design.
 
 ### efr-T3: DEFINE rebaseline — `agent`, then `human`
 
-- **Scope:** rework information architecture and journeys around V1 customer
-  and staff tabs, sheets, transitions, public/auth resume, active-company
-  context, social collections, and grouped inbox. AI is a contextual overlay.
+- **Scope:** rework information architecture around V1 customer and staff
+  tabs, sheets, transitions, public/auth resume, active-company context,
+  social collections, and grouped inbox. Document the AI overlay as a
+  directed later surface (`vm-T29`), not as a tab and not as a gate
+  deliverable.
 - **Acceptance:** classic flows trace to inventory references; each approved
   V2 adaptation is explicit; owner grants replacement DEFINE approval.
 - **Dependencies:** efr-T2 and disposition of principal/spec blockers.
 
 ### efr-T4: SYSTEM rebaseline — `agent`, then `human`
 
-- **Scope:** replace invented tokens/contracts with V1-derived tokens,
-  components, layout, iconography, motion, accessibility, and state behavior.
-- **Acceptance:** V1 palette is carried first; every P1 component traces to
-  inventory; owner grants replacement SYSTEM approval.
-- **Dependencies:** efr-T3.
+- **Scope:** V1 tokens in the Unistyles theme (fnd-T48) plus primitives and
+  shell (`vm-T14`…`T16`) in `apps/mobile`. Follow
+  `docs/design/mapping/v1-mobile-port-recipe.md`. No Figma library.
+- **Acceptance:** V1 palette is carried first; every P1 primitive traces to
+  inventory; owner reviews the running app on a device/simulator.
+- **Dependencies:** efr-T2 and fnd-T48. Parallel-eligible with efr-T3.
 
-### efr-T5: Parity prototypes — `agent`
+### efr-T5: Full-journey / Figma prototypes — cancelled
 
-- **Scope:** prototype auth/onboarding; public discovery/social/company;
-  cart/checkout/order→chat; grouped inbox/chat cards/recap; staff CRUD;
-  documents/QES; account/context selection; one contextual AI handoff.
-- **Acceptance:** golden-reference comparison covers visual hierarchy,
-  gesture/motion, loading/empty/error/offline, and auth resume.
-- **Dependencies:** efr-T4 and approved UX-driven spec dispositions.
+- **Scope:** cancelled 2026-08-19. Product-flow parity is the vertical
+  slices after the gate. Do not rebuild this as a Figma wave.
+- **Dependencies:** none.
 
-### efr-T6: Internal evaluation and iteration — `human-led`
+### efr-T6: Internal evaluation of SYSTEM — `human-led`
 
-- **Scope:** owner and one owner-designated reference user execute P1 tasks;
-  record findings and changes under `docs/design/validation/`.
-- **Acceptance:** high-severity findings are fixed or accepted; evidence is
-  labeled `internal evaluation only`.
-- **Dependencies:** efr-T5.
+- **Scope:** owner (and optional reference user) reviews the running theme,
+  primitives, and auth shell. Record notes under `docs/design/validation/`.
+  Dispose any new Class C rows in `docs/design/mapping/v1-port-findings.md`.
+- **Acceptance:** high-severity SYSTEM findings are fixed or accepted;
+  evidence is labeled `internal evaluation only`. Full P1 journeys wait for
+  slice work and `vm-T30`.
+- **Dependencies:** efr-T4.
 
 ### efr-T7: UX gate opening — `human`
 
 - **Scope:** execute `docs/design/process.md` UX Gate checklist and record the
   decision in `docs/design/README.md`.
-- **Acceptance:** gate explicitly open; UI `/spec`, `/plan`, and `/implement`
-  may reference approved parity artifacts.
-- **Dependencies:** efr-T6 and all blocking ADR/spec decisions.
+- **Acceptance:** gate explicitly open; product screens in `apps/mobile` may
+  start. AI overlay remains `vm-T29`.
+- **Dependencies:** efr-T3, efr-T6, and blocking ADR/spec decisions.
 
 ```mermaid
 flowchart TD
   T1["efr-T1 inventory approval"] --> T2["efr-T2 conflict/capability approval"]
   T2 --> T3["efr-T3 DEFINE rebaseline"]
-  T3 --> T4["efr-T4 SYSTEM rebaseline"]
-  T4 --> T5["efr-T5 parity prototypes"]
-  T5 --> T6["efr-T6 internal evaluation"]
-  T6 --> T7{"efr-T7 UX GATE"}
+  T2 --> T4["efr-T4 SYSTEM in Expo"]
+  T4 --> T6["efr-T6 SYSTEM evaluation"]
+  T3 --> T7{"efr-T7 UX GATE"}
+  T6 --> T7
 ```
 
 ---

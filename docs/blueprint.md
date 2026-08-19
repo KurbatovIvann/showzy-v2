@@ -323,7 +323,7 @@ Condensed view:
 | --- | --- | --- |
 | **0. Foundation** | Monorepo, CI, Docker Compose (Postgres+Redis+MinIO), core/db/contract, better-auth, API/worker + Expo skeleton, minimal Universal/App Links, payment + feature-flag skeletons, security/operations baseline, **foundation invariants (§2.1) verified by tests** | A skeleton on which agents can work in parallel |
 | **1. Reference slices** | Merge approved minimal prerequisite schemas, then pricing resolution + a thin order → outbox → chat projection: spec → plan → implement with required tests → review | Query and transactional/event templates to copy + a proven pipeline |
-| **‖ Experience Foundation** | V1 mobile inventory → conflict/action mapping → DEFINE/SYSTEM rebaseline → parity prototypes → internal evaluation | V1 parity/adaptation UX gate passed |
+| **‖ Experience Foundation** | V1 inventory → conflict map → DEFINE IA + SYSTEM in Expo (theme/primitives) → owner review of the running shell. Figma is not a gate. AI overlay is phase 9 / `vm-T29` | Product-screen UX gate passed |
 | **2. Company operating core** | `companies`, `catalog` (with variants), `customers`/groups, `invites`, `pricing` full UI + mobile panel screens | Company and catalog created from a phone |
 | **3. Company presence** | Public profile/showcase, business taxonomy, social links, follows, deep links, invite/direct entry | A public visitor evaluates a company and an authenticated user can follow it |
 | **4. Consumer discovery** | Public/consumer FTS+trigram, category/city/area filters, likes/comments/Following, popular sort | Public browse and authenticated social discovery match V1 mobile UX |
