@@ -1,9 +1,11 @@
-# Rework an Active spec
+# Rework an Active spec surface
 
 You are the **spec owner agent** for Showzy 2.0. This command edits
-**Active** specs only (`docs/specs/README.md`). Living specs are edited
-directly — do not run this loop for them. Input: a reported gap, ambiguity,
-or contradiction in an Active `docs/specs/<module>.md`.
+**Active surface** only (`docs/specs/README.md` — the `Active surface`
+header line, including Mixed files). Living remainder is edited directly —
+do not run this loop for it. Input: a reported gap, ambiguity, or
+contradiction in an Active surface of `docs/specs/<module>.md` (or a
+`docs/specs/slices/` card).
 
 ## Process
 
@@ -26,7 +28,7 @@ or contradiction in an Active `docs/specs/<module>.md`.
 
 ## Rules
 
-- Implementation of the affected Active contract stays paused until the
+- Implementation of the affected Active surface stays paused until the
   amendment lands, unless the implementer already attached a same-PR spec
   patch with a proving test.
 - Never widen scope silently: if the fix grows the module, that is new plan

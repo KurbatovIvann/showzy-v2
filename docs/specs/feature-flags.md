@@ -1,7 +1,9 @@
 # Spec: feature-flags foundation
 
-> Status: Active. Approved by: owner, 2026-08-17.
+> Status: Living.
+> Active surface: none.
 > Phase-0 skeleton only; billing/subscriptions remain post-MVP.
+> Returned to Living 2026-08-19: no module code yet (fnd-T43 is milestone H).
 
 ## 1. Purpose and tables
 
@@ -48,4 +50,5 @@ before side effects.
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-19 | Status: Living; Active surface: none | False freeze: no module code; fnd-T43 is milestone H after G2 | owner via spec-process-after-phase-0 |
 | 2026-08-17 | Initial foundation draft | Make the phase-0 skeleton executable rather than implied | GPT-5.6 Sol |

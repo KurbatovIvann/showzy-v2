@@ -1,6 +1,9 @@
 # Spec: orders (phase-1 reference slice)
 
-> Status: Living. Last approved draft: owner, 2026-08-17.
+> Status: Living.
+> Active surface: none.
+> Density beyond the declared slice is intent, not contract; do not treat unimplemented sections as frozen.
+> Last approved draft: owner, 2026-08-17.
 > Written against blueprint §2.1, §4, §7.1; scope §1.1, §3, §7 (phase 1);
 > ADR-0008, ADR-0011, ADR-0012, ADR-0013, ADR-0014, ADR-0015, ADR-0016,
 > ADR-0018;
@@ -13,7 +16,8 @@
 > This spec covers exactly that slice. Full orders functionality (carts,
 > customer checkout, delivery, numbering, cancel/edit, order log,
 > `company_statuses`, chat collaboration) belongs to phases 4–6 and reaches
-> this file only through `/rework-spec` with owner approval. The slice
+> this file only by amending the Living remainder or adding a slice card;
+> `/rework-spec` applies only after that surface is Active. The slice
 > schema is designed so those phases extend it additively — no renames, no
 > column-type changes.
 
@@ -287,7 +291,9 @@ calls it via `ctx.call`, keeping CRM ownership with `customers` (ADR-0015).
 customer and rejects CRM-less lookups with `NotFoundError` (§6 case 1).
 
 The full `orders.checkout` action spec (input, output, permissions, events,
-edge cases) will be defined in the phase-4 `/rework-spec` of this file.
+edge cases) will be defined when phase 4 amends the Living remainder of
+this file (or a slice card); `/rework-spec` applies only after that
+surface is Active.
 
 ## 4. Events
 
@@ -352,7 +358,8 @@ None.
 
 Any other transition is `ConflictError`. Phase 4 extends the value set
 additively (e.g. fulfillment states) via CHECK-constraint migration and
-`/rework-spec`; `company_statuses` (deferred) becomes a display/workflow
+a later Living amendment or slice card; `/rework-spec` applies only after
+that surface is Active. `company_statuses` (deferred) becomes a display/workflow
 layer on top of this fixed lifecycle and never replaces it as domain truth.
 
 ### 5.2 Concurrency
@@ -429,7 +436,7 @@ layer on top of this fixed lifecycle and never replaces it as domain truth.
 This slice creates the v2 `orders`/`order_items` tables, so their
 column-level mapping is fixed now. Columns deferred to phase 4 (marked
 below) are additive; their mapping is completed by the phase-4
-`/rework-spec` before the launch data migration runs. Deferred tables
+Living remainder amendment before the launch data migration runs. Deferred tables
 (`carts`, `cart_items`, `order_logs`, `company_statuses`) stay `TRANSFORM`
 in the matrix with mapping owed by phase 4.
 
@@ -621,8 +628,9 @@ Module-specific (the reference-template guarantees):
 Resolved (owner, 2026-08-17):
 
 1. **Spec scope** — this file covers only the phase-1 slice; phases 4–6
-   extend it via `/rework-spec` (structure mirrors
-   `companies-foundation.md`).
+   extend it by amending the Living remainder or a slice card (structure
+   mirrors `companies-foundation.md`). `/rework-spec` applies only after
+   that surface is Active.
 2. **Slice write action is staff-mode `orders.create`** (blueprint §4
    example; v1 `create_company_order`). Customer checkout is phase 4.
 3. **Fixed lifecycle as `status text` + CHECK**; `company_statuses`
@@ -645,7 +653,7 @@ Resolved (owner, 2026-08-17):
    customer without a linked `userId` (`ConflictError`, edge case 5), so
    `orders.created.customerUserId` is non-null and the frozen
    `payments.createForOrder` input contract is satisfied without a
-   payments `/rework-spec`.
+   payments spec amendment.
 9. **Atomic CRM link/create at checkout** (ADR-0018, 2026-08-17): the
    phase-4 `orders.checkout` action atomically ensures a
    `company_customers` record exists for the authenticated user before

@@ -1,6 +1,7 @@
 # Spec: money, quantity, tax, and snapshot semantics
 
 > Status: Active. Approved by: owner, 2026-08-17.
+> Active surface: entire file.
 > Cross-domain value protocol; it owns no tables or actions.
 
 ## Representation

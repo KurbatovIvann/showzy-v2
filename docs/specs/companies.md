@@ -1,6 +1,8 @@
 # Spec: companies
 
 > Status: Living.
+> Active surface: none.
+> Density beyond the declared slice is intent, not contract; do not treat unimplemented sections as frozen.
 > Written against blueprint §2.1, §4, §5; scope §2, §6; ADR-0013, ADR-0014,
 > ADR-0015, ADR-0018; module-ownership.md; spec-rework-queue Step 3.
 

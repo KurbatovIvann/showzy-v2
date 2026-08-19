@@ -1,42 +1,35 @@
 # Spec: <module>
 
-> Status: Living | Active. Approved by: <owner>, <date>.
-> Living = no merged code yet. Active = first implementation has merged
-> (see `docs/specs/README.md`).
+> Status: Living | Active | Mixed. Approved by: <owner>, <date>.
+> Active surface: none. | entire file. | §<n> slice (<actions>, <tables>, <events>).
+> Remainder: Living intent. Update Active surface when a later slice merges.
+> Density beyond the declared slice is intent, not contract; do not treat unimplemented sections as frozen.
+> (Omit the density line when Active surface is entire file.)
 > Written against blueprint §<...>, scope §<...>, ADR-0013, ADR-0015,
 > ADR-0020, ADR-0021, and module-specific decisions.
+>
+> See `docs/specs/README.md`. `/rework-spec` applies only to Active surface.
 
-## 1. Purpose
+## Living intent (always)
+
+Required while the file is Living or Mixed. Do not novelize unimplemented
+phases. Budget roughly 100–200 lines when this module is not the next slice.
+
+### Purpose
 
 2–4 sentences: what the module owns, what it explicitly does NOT own.
 
-## 2. Owned tables
+### Invariants and principal modes
 
-Tables in `packages/db/src/schema/<module>.ts` (ADR-0014): columns, types,
-indexes, constraints, FKs (note which reference other modules' tables).
-State machine columns get their allowed values and transitions in §5.
+Which of `staff` | `customer` | `public` | `system` | `consumer` | `account`
+this module will use, and any module-specific invariants (tenant, money,
+projections). Principal selection guidance is below.
 
-## 3. Actions
+### Named capabilities
 
-For every action, the full contract:
-
-| Field | Value |
-| --- | --- |
-| Name | `<module>.<verb>` |
-| Description | Written as an instruction to the AI model |
-| Principal | `staff` \| `customer` \| `public` \| `system` \| `consumer` \| `account` (ADR-0013, ADR-0018, ADR-0020) |
-| Transport | `client` \| `internal` (system must be internal; public/consumer/account must be `client`) |
-| Target/public/system scope | Typed `resolveTarget` for customer/public-target; `publicScope: globalProjection` + declared `projectionGrant` for anonymous cross-company reads; `tenant`/`global` for system; N/A for consumer/account |
-| Input / Output | Zod shapes as TypeScript |
-| Permissions | e.g. `orders:create`; must be `[]` for customer/public/consumer/account/system |
-| aiExposure / risk / requiresConfirmation | Public/consumer: `risk: read`, `requiresConfirmation: false`; aiExposure `exposed` or `internal` |
-| Confirmation summary | Required redacted server callback when confirmation is required |
-| Idempotent | If true: key source, scope, and conflict behavior; public/consumer must be `false`; social desired-state writes must be retry-safe |
-| Emits | Events (see §4); public/consumer must be `[]` |
-| Audit / Timeout / Rate limit | Public/consumer: `audit: false`; account: per action; declare abuse-sensitive social overrides |
-| Audit target/snapshot | Required target callback when audited; optional explicitly redacted snapshot |
-| Calls (`ctx.call`) | Cross-module read actions used (ADR-0015); consumer callers may only call other `consumer`-principal reads |
-| Atomic calls | `atomicCalls`/`atomicCallers` edges and rollback invariant, or `[]` (ADR-0021) |
+Action and event **names** plus one-line intent. No full Zod tables, per-action
+timeout/rate-limit rows, or complete CHECKs for phases that are not about to
+be built. Owned-table **names** if already known.
 
 ### Principal selection guidance
 
@@ -70,7 +63,40 @@ Choose the correct principal mode based on **who is acting** and **what scope**:
   dispatcher). Named service identity; explicit tenant scope set by the
   enqueuing code.
 
-## 4. Events
+## Slice / Active contract (Active surface only)
+
+Required for actions and tables in the Active surface (or for the slice
+about to be built). Schema columns freeze when their schema PR merges.
+
+### Owned tables
+
+Tables in `packages/db/src/schema/<module>.ts` (ADR-0014): columns, types,
+indexes, constraints, FKs (note which reference other modules' tables).
+State machine columns get their allowed values and transitions below.
+
+### Actions
+
+For every action **in this slice**, the full contract:
+
+| Field | Value |
+| --- | --- |
+| Name | `<module>.<verb>` |
+| Description | Written as an instruction to the AI model |
+| Principal | `staff` \| `customer` \| `public` \| `system` \| `consumer` \| `account` (ADR-0013, ADR-0018, ADR-0020) |
+| Transport | `client` \| `internal` (system must be internal; public/consumer/account must be `client`) |
+| Target/public/system scope | Typed `resolveTarget` for customer/public-target; `publicScope: globalProjection` + declared `projectionGrant` for anonymous cross-company reads; `tenant`/`global` for system; N/A for consumer/account |
+| Input / Output | Zod shapes as TypeScript |
+| Permissions | e.g. `orders:create`; must be `[]` for customer/public/consumer/account/system |
+| aiExposure / risk / requiresConfirmation | Public/consumer: `risk: read`, `requiresConfirmation: false`; aiExposure `exposed` or `internal` |
+| Confirmation summary | Required redacted server callback when confirmation is required |
+| Idempotent | If true: key source, scope, and conflict behavior; public/consumer must be `false`; social desired-state writes must be retry-safe |
+| Emits | Events; public/consumer must be `[]` |
+| Audit / Timeout / Rate limit | Public/consumer: `audit: false`; account: per action; declare abuse-sensitive social overrides |
+| Audit target/snapshot | Required target callback when audited; optional explicitly redacted snapshot |
+| Calls (`ctx.call`) | Cross-module read actions used (ADR-0015); consumer callers may only call other `consumer`-principal reads |
+| Atomic calls | `atomicCalls`/`atomicCallers` edges and rollback invariant, or `[]` (ADR-0021) |
+
+### Events
 
 - **Emitted**: name (`<module>.<pastVerb>`), payload shape, envelope
   version, expected subscribers.
@@ -82,7 +108,7 @@ Choose the correct principal mode based on **who is acting** and **what scope**:
   directly (`search`, `analytics` — ADR-0015), plus named public projection
   grants with table/field allowlists (ADR-0020), if any.
 
-## 5. State machines and concurrency
+### State machines and concurrency
 
 - Status fields: allowed values, allowed transitions, who/what triggers each.
 - Concurrency: what happens on simultaneous conflicting operations
@@ -93,13 +119,13 @@ Choose the correct principal mode based on **who is acting** and **what scope**:
   rollback where ADR-0021 applies.
 - Transaction boundaries for multi-table writes.
 
-## 6. Edge cases
+### Edge cases
 
 Enumerate explicitly — this is where v1 reference digging pays off. Include
 abuse/rate-limit/moderation cases for public/social surfaces and cite the v1
 migration/behavior each case comes from.
 
-## 7. v1 migration notes
+### v1 migration notes
 
 For the v1 tables/triggers/RPCs/RLS policies this module replaces:
 keep / transform / drop, and where the behavior moves (action, event,
@@ -108,13 +134,13 @@ service, or deliberately dropped). This is the module's slice of the
 column-level mapping, cleanup, reconciliation, cutover, and rollback. No
 `REVIEW` item may remain when the spec is approved.
 
-## 8. Non-functional requirements
+### Non-functional requirements
 
 Only where they deviate from defaults: rate limits, payload size limits,
 expected volumes, latency-sensitive paths, PII fields and their handling in
 logs/audit.
 
-## 9. Acceptance criteria
+### Acceptance criteria
 
 Testable statements. Mandatory minimum, plus module-specific ones:
 
@@ -153,6 +179,7 @@ Testable statements. Mandatory minimum, plus module-specific ones:
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-19 | Split Living intent vs slice/Active contract; mandatory Active surface header | Phase-0 spec-process plan (sp-T1) | owner via spec-process-after-phase-0 |
 | 2026-08-17 | Added public-global, social concurrency/abuse, optimistic reconciliation, and atomic-call requirements | Rebaseline module specs for ADR-0020/0021 mobile parity | Human owner via mobile parity rework |
 | 2026-08-17 | Added principal selection guidance (account vs consumer vs customer); added account action test requirements; extended Target/Permissions/Audit rows for account | Complete Step 2 of spec-rework queue (ADR-0018 integration) | Spec-rework agent |
 | 2026-08-17 | Completed consumer action metadata and mandatory test guidance | Close the ADR-0018 Step 2 template gap | Human owner via spec-rework queue |

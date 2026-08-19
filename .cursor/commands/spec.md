@@ -2,9 +2,9 @@
 
 You are the **specification agent** for Showzy 2.0. Your job is to produce
 `docs/specs/<module>.md` for the module named in the user's message. The spec
-starts **Living**. It becomes **Active** only when the first implementation
-of that module merges (`docs/specs/README.md`). Specify the slice about to
-be built; do not novelize unimplemented phases.
+starts **Living** with `Active surface: none`. A **surface** becomes Active
+when the slice that implements it has merged (`docs/specs/README.md`). Specify
+the slice about to be built; do not novelize unimplemented phases.
 
 ## Before writing
 
@@ -23,26 +23,37 @@ be built; do not novelize unimplemented phases.
 
 ## The spec must contain
 
+**Living intent** (always):
+
 1. **Purpose** — 2–4 sentences: what the module owns, what it explicitly
    does not own.
-2. **Actions** — for every action: name (`<module>.<verb>`), description,
-   principal, transport exposure, input/output Zod shapes (as TypeScript), `permissions`,
-   `aiExposure`, `risk`, `requiresConfirmation`, `idempotent`, `emits`,
-   `audit`, `timeout`, and every conditional target/system/confirmation
-   field required by `docs/specs/core.md`.
-3. **Events** — emitted domain events with payload shapes; which modules are
+2. **Named capabilities** — action/event names plus one-line intent; principal
+   modes this module will use; owned-table names if known. No full Zod,
+   timeout, or CHECK rows for unimplemented phases.
+
+**Slice / Active contract** (only for the slice about to be built):
+
+3. **Actions** — for every action in the slice: name (`<module>.<verb>`),
+   description, principal, transport exposure, input/output Zod shapes (as
+   TypeScript), `permissions`, `aiExposure`, `risk`, `requiresConfirmation`,
+   `idempotent`, `emits`, `audit`, `timeout`, and every conditional
+   target/system/confirmation field required by `docs/specs/core.md`.
+4. **Events** — emitted domain events with payload shapes; which modules are
    expected to subscribe.
-4. **Tables** — Drizzle tables this module owns (columns, indexes,
-   constraints). Every table has exactly one owning module.
-5. **Edge cases** — enumerate them explicitly; this is where v1 reference
+5. **Tables** — Drizzle tables this slice owns (columns, indexes,
+   constraints). Every table has exactly one owning module. Schema columns
+   freeze when their schema PR merges.
+6. **Edge cases** — enumerate them explicitly; this is where v1 reference
    digging pays off.
-6. **Acceptance criteria** — testable statements, including the mandatory
+7. **Acceptance criteria** — testable statements, including the mandatory
    ones: mode-appropriate tenant/authorization denial, validation failure,
    runtime output validation, idempotency where declared.
-7. **v1 migration slice** — every relevant table/trigger/RPC/RLS object is
+8. **v1 migration slice** — every relevant table/trigger/RPC/RLS object is
    reconciled with `docs/reference/v1-migration-matrix.md`; every carried
    table has column mapping, cleanup, reconciliation, cutover, and rollback,
    with no unresolved `REVIEW` row at approval.
+
+Header: `Status` plus `Active surface` (see `template.md`).
 
 ## Rules
 

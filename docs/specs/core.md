@@ -1,6 +1,8 @@
 # Spec: packages/core
 
-> Status: Living. Last approved draft: owner, 2026-08-17.
+> Status: Active. Approved by: owner, 2026-08-18.
+> Active surface: entire file.
+> Ledger catch-up: first merged `packages/core` implementation (fnd-T8…T28).
 > Written against blueprint §2.1, §4, §7; ADR-0008, ADR-0009, ADR-0011,
 > ADR-0012, ADR-0013, ADR-0014, ADR-0015, ADR-0016, ADR-0018, ADR-0020,
 > and ADR-0021.
@@ -627,6 +629,7 @@ does not apply — fails the check.
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-19 | Status: Active; Active surface: entire file | Ledger catch-up: first merged packages/core (fnd-T8…T28), not a new freeze decision | owner via spec-process-after-phase-0 |
 | 2026-08-19 | §4: start log has no actor/company (identity unknown pre-auth); §8: no audit row before successful input validation; §10: system rate-limit store failure is fail-open; §12: `runSocialDesiredStateCase` | Align living spec with phase-0 pipeline (fnd-G1 A12) | scaffold (fnd-G1 A12) |
 | 2026-08-18 | §6: named the outbox wakeup channel `domain_events` (LISTEN + polling fallback in `apps/worker`) | fnd-T27 implementation pinned the channel the trigger notifies | scaffold (fnd-T27) |
 | 2026-08-18 | §12: `suiteCoverage` manifest on the contract check; `idempotencySuite` / `eventSuite` / `atomicCallSuite` are instantiated by every module | fnd-T22 makes omitted inherited suites a CI failure | scaffold (fnd-T22) |
