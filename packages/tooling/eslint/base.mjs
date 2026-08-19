@@ -165,6 +165,7 @@ export function showzyEslintConfig({ tsconfigRootDir }) {
         "node_modules/**",
         ".turbo/**",
         "probe/leaks/**",
+        ".expo/**",
       ],
     },
     js.configs.recommended,
@@ -211,8 +212,24 @@ export function showzyEslintConfig({ tsconfigRootDir }) {
     {
       // Config and script files (.mjs) are not covered by a tsconfig project;
       // typed rules cannot run on them.
-      files: ["**/*.mjs", "**/*.js"],
+      files: ["**/*.mjs", "**/*.js", "**/*.cjs"],
       extends: [tseslint.configs.disableTypeChecked],
+    },
+    {
+      // Expo (and similar) CJS configs: Metro/Babel loaders require() these.
+      files: ["**/*.cjs"],
+      languageOptions: {
+        globals: {
+          __dirname: "readonly",
+          __filename: "readonly",
+          exports: "writable",
+          module: "writable",
+          require: "readonly",
+        },
+      },
+      rules: {
+        "@typescript-eslint/no-require-imports": "off",
+      },
     },
     // Keep last: disables formatting rules that would conflict with Prettier.
     prettierConfig,

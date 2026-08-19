@@ -1,0 +1,44 @@
+{
+  "name": "@showzy/mobile",
+  "version": "0.0.0",
+  "private": true,
+  "main": "index.ts",
+  "description": "Expo app shell: Unistyles theme transcribed from V1, typed contract client, no product screens (fnd-T48).",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "export:web": "expo export --platform web --output-dir dist"
+  },
+  "dependencies": {
+    "@orpc/contract": "1.15.0",
+    "@showzy/contract": "workspace:*",
+    "expo": "~55.0.0",
+    "expo-constants": "~55.0.7",
+    "expo-linking": "~55.0.7",
+    "expo-router": "~55.0.0",
+    "expo-status-bar": "~55.0.4",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "react-native": "0.83.10",
+    "react-native-gesture-handler": "~2.30.0",
+    "react-native-nitro-modules": "0.33.9",
+    "react-native-safe-area-context": "~5.6.2",
+    "react-native-screens": "~4.23.0",
+    "react-native-unistyles": "^3.2.2",
+    "react-native-web": "^0.21.0"
+  },
+  "devDependencies": {
+    "@orpc/client": "1.15.0",
+    "@showzy/core": "workspace:*",
+    "@showzy/tooling": "workspace:*",
+    "@types/react": "^19.1.17",
+    "eslint": "^10.8.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10",
+    "zod": "^4.4.3"
+  }
+}
