@@ -823,7 +823,7 @@ describe("principal compatibility", () => {
         if (ctx.principal !== "share") {
           throw new CoreInvariantError("callee expects a share context");
         }
-        return { companyId: ctx.target.companyId };
+        return Promise.resolve({ companyId: ctx.target.companyId });
       },
     },
   );
@@ -863,7 +863,7 @@ describe("principal compatibility", () => {
         }
         return { companyId: row.companyId, resource: row };
       },
-      handler: () => ({ found: true }),
+      handler: () => Promise.resolve({ found: true }),
     },
   );
 
