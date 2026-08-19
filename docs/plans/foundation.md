@@ -34,9 +34,10 @@ implementer is the **scaffold agent** (`/scaffold`, not `/ticket`):
   merged base.
 - New requirements are additive follow-up slices: fnd-T5A provides projection
   DB capabilities/fixtures; fnd-T19A provides atomic calls; **fnd-T11B**
-  adds the seventh `share` principal (ADR-0022) after phase 0 merged.
-  Existing merged work is changed only by a focused follow-up when a new
-  test proves it must change.
+  adds the seventh `share` principal (ADR-0022) after phase 0 merged;
+  **fnd-T23B** adds HTTP/oRPC share dispatch after the contract.md
+  2026-08-19 amendment. Existing merged work is changed only by a focused
+  follow-up when a new test proves it must change.
 - Every task still follows tests-first, one branch/PR, and ~300-line review
   budget. The UX gate still blocks product UI; technical shell/auth/link work
   remains the only mobile exception.
@@ -128,8 +129,10 @@ implementer is the **scaffold agent** (`/scaffold`, not `/ticket`):
   PR with a schema test pinning `timestamp with time zone`.
 - **`share` principal (ADR-0022, accepted 2026-08-19):** core.md Active
   surface is amended; implementation is **fnd-T11B**, not a reopen of
-  fnd-T11. Contract HTTP dispatch and security-operations matrix wait on
-  their own `/rework-spec`. Co-sign cannot ship until those land.
+  fnd-T11. contract.md Active surface is amended (2026-08-19); HTTP/oRPC
+  dispatch is **fnd-T23B**, not a reopen of fnd-T23/T26. Security-operations
+  matrix waits on its own `/rework-spec`. Co-sign cannot ship until T11B,
+  T23B, and that rework land.
 
 ---
 
@@ -340,13 +343,16 @@ implementer is the **scaffold agent** (`/scaffold`, not `/ticket`):
   `share:<tokenHash>`, audit/event actor `system`/`share` with mandatory
   write `auditSnapshot`, 30/min IP-HMAC fail-closed rate limit, `ctx.call`
   share→share reads only, `shareIsolationSuite` + `suiteCoverage.shareIsolation`.
-  HTTP/oRPC dispatch is **not** this task — it waits on `/rework-spec
-  contract.md` (and a later contract follow-up). `db.md` CHECKs do not
-  change. Do not reopen fnd-T11…T22 as catch-all tickets.
+  Full HTTP/oRPC dispatch is **not** this task — that is **fnd-T23B**.
+  Compile seam: adding `"share"` to `ActionPrincipal` makes
+  `toPrincipalInvocation` non-exhaustive, so this task adds the one-line
+  `case "share": return { mode: "share" }` in `packages/contract` (token
+  stays action input; no session-gate or HTTP tests here). `db.md` CHECKs
+  do not change. Do not reopen fnd-T11…T22 as catch-all tickets.
 - **Context pack:** core.md (Active, 2026-08-19 share amendment); ADR-0022;
-  ADR-0013 (amended); contract.md remains a separate rework.
-- **Dependencies:** fnd-G1. **Blocks** owner-first `doc-signing`
-  co-sign (`submitShareSignature`).
+  ADR-0013 (amended); contract.md (Active, 2026-08-19 share dispatch).
+- **Dependencies:** fnd-G1. **Blocks** fnd-T23B and owner-first
+  `doc-signing` co-sign (`submitShareSignature`).
 - **Tests first:** define-time rejection of every share-subset violation;
   factory: no session, resolver `NotFoundError` on expired/revoked/mismatch,
   raw token absent from logs; isolation suite; idempotency key uses stored
@@ -586,6 +592,28 @@ implementer is the **scaffold agent** (`/scaffold`, not `/ticket`):
   challenge meta cannot change the canonical request hash; orphan
   descriptor/implementation fails boot.
 - **Sensitive:** no.
+
+### fnd-T23B: Share principal HTTP dispatch (ADR-0022)
+
+- **Scope:** additive follow-up after merged fnd-T23 and fnd-T26 (those
+  tickets stay Done). Implement the contract.md 2026-08-19 share routing:
+  `toPrincipalInvocation` returns `{ mode: "share" }` (neither session nor
+  selector; the capability token is action input, never a header);
+  `apps/api` session gate treats `share` like `public` (no 401);
+  share actions stay on the client router and OpenAPI (`transport: client`)
+  and stay out of AI artifacts (`aiExposure: internal`). Do not add
+  `x-share-token`. Do not reopen fnd-T23…T26 as catch-all tickets.
+- **Context pack:** contract.md §2–§3, §7 (2026-08-19 share amendment);
+  ADR-0022; core.md §3 share factory (fnd-T11B).
+- **Dependencies:** fnd-T11B, fnd-T26. **Blocks** owner-first `doc-signing`
+  co-sign (`submitShareSignature`).
+- **Tests first:** contract.md §7 share set — no session does not 401;
+  present session ignored (share context, anonymous actor); `x-company-id`
+  ignored; token is action input only; invalid/expired/revoked/mismatch →
+  404 `NOT_FOUND`; AI manifests for staff/customer/consumer/account include
+  no share tools; share writes missing idempotency meta → validation;
+  share actions present in client router/OpenAPI, absent from AI artifacts.
+- **Sensitive:** yes (auth surface).
 
 ### fnd-T24: Typed client + `createMutationAttempt` + wire helpers
 

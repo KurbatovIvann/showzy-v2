@@ -63,8 +63,11 @@ the OpenAPI artifact.
   pipeline shapes; it never treats a selector as authority (ADR-0013).
 - `toPrincipalInvocation` is the one place each mode is allowed to see
   transport meta: staff gets the raw selector (core verifies membership);
-  customer/consumer/account get only the session; public gets nothing;
-  system is unreachable (composition error).
+  customer/consumer/account get only the session; public and share get
+  nothing (share capability token is action input, never a header; a
+  present session is ignored); system is unreachable (composition error).
+  Full share HTTP tests wait on fnd-T23B; fnd-T11B may add only the
+  exhaustive `case "share"` arm so `tsc` stays green.
 - Every procedure runs `executeAction`. There is no second data path.
   Pairing problems (orphans, descriptor drift, a registered client action
   missing from the exposure record) fail boot.
