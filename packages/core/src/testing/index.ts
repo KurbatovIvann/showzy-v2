@@ -35,11 +35,15 @@ export {
   runConsumerIsolationCase,
   runCrossTenantCase,
   runPublicProjectionCase,
+  runShareIsolationCase,
+  shareIsolationCase,
+  shareIsolationSuite,
 } from "./suites.js";
 export type {
   BrowseCase,
   CrossTenantCase,
   IsolationInvocation,
+  ShareIsolationCase,
   SuiteAction,
 } from "./suites.js";
 export {

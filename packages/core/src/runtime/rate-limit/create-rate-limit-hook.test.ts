@@ -137,6 +137,16 @@ const accountRead = defineActionContract({
   risk: "read",
 });
 
+const shareRead = defineActionContract({
+  ...contractDefaults,
+  name: "rateLimitFixture.shareRead",
+  description: "Share read fixture for rate-limit tests.",
+  principal: "share",
+  transport: "client",
+  permissions: [],
+  risk: "read",
+});
+
 const staffWrite = defineActionContract({
   ...contractDefaults,
   name: "rateLimitFixture.staffWrite",
@@ -250,6 +260,13 @@ describe("per-principal defaults (core.md §10)", () => {
       contract: accountRead,
       principal: { mode: "account", session: { userId: "user-taras" } },
       limit: 90,
+    },
+    {
+      label: "share 30/min per IP HMAC",
+      contract: shareRead,
+      principal: { mode: "share" },
+      clientIp: "203.0.113.11",
+      limit: 30,
     },
   ];
 
@@ -588,6 +605,16 @@ describe("store failure — fail-open/fail-closed split (core.md §10)", () => {
     await expect(
       hook.enforce(
         envFor(publicRead, { mode: "public" }, { clientIp: "1.2.3.4" }),
+      ),
+    ).rejects.toBeInstanceOf(RateLimitError);
+  });
+
+  it("fails closed for a share read", async () => {
+    const hook = hookWith({ store: failingStore });
+
+    await expect(
+      hook.enforce(
+        envFor(shareRead, { mode: "share" }, { clientIp: "1.2.3.4" }),
       ),
     ).rejects.toBeInstanceOf(RateLimitError);
   });

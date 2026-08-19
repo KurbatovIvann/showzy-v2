@@ -1,13 +1,14 @@
 /**
- * Integration tests for the six principal context factories (fnd-T11 —
- * core.md §3; ADR-0013, ADR-0018, ADR-0020) against the shared
- * Testcontainers harness: staff selector/membership verification and
- * permission precedence, resolver-proved customer/public-target scope,
- * explicit system scope, grant-bound public-global reads, session-required
- * consumer/account, `effectiveCompanyId` per mode, and the bound log
- * fields (security-operations §6).
+ * Integration tests for the seven principal context factories (fnd-T11 /
+ * fnd-T11B — core.md §3; ADR-0013, ADR-0018, ADR-0020, ADR-0022) against
+ * the shared Testcontainers harness: staff selector/membership verification
+ * and permission precedence, resolver-proved customer/public-target/share
+ * scope, explicit system scope, grant-bound public-global reads,
+ * session-required consumer/account, unauthenticated share (no session),
+ * `effectiveCompanyId` per mode, and the bound log fields
+ * (security-operations §6).
  */
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import {
   companies,
@@ -41,6 +42,7 @@ import {
   createConsumerContext,
   createCustomerContext,
   createPublicContext,
+  createShareContext,
   createStaffContext,
   createSystemContext,
   effectiveCompanyId,
@@ -641,6 +643,133 @@ describe("createAccountContext", () => {
   });
 });
 
+const SHARE = {
+  token: "factory-share-token",
+  expired: "factory-share-expired",
+  revoked: "factory-share-revoked",
+  documentId: randomUUID(),
+} as const;
+
+function hashShare(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+function resolveFactoryShare(
+  input: { token: string; documentId: string },
+  env: TargetResolutionEnv,
+): Promise<ResolvedTarget<{ documentId: string }>> {
+  if (env.principal.mode !== "share") {
+    throw new NotFoundError();
+  }
+  if (input.token === SHARE.expired || input.token === SHARE.revoked) {
+    throw new NotFoundError();
+  }
+  if (input.token !== SHARE.token || input.documentId !== SHARE.documentId) {
+    throw new NotFoundError();
+  }
+  return Promise.resolve({
+    companyId: companyA,
+    resource: { documentId: input.documentId },
+    tokenHash: hashShare(input.token),
+  });
+}
+
+describe("createShareContext", () => {
+  it("constructs without a session and binds the stored token hash", async () => {
+    const ctx = await createShareContext({
+      request: requestMeta(),
+      runtime: runtimeFor<ReadTx>(db.runtime.db),
+      input: { token: SHARE.token, documentId: SHARE.documentId },
+      resolveTarget: resolveFactoryShare,
+    });
+    expect(ctx.principal).toBe("share");
+    expect(ctx.actor).toEqual({ type: "anonymous", id: "anonymous" });
+    expect(ctx.clientIp).toBe("203.0.113.7");
+    expect(ctx.target.companyId).toBe(companyA);
+    expect(ctx.tokenHash).toBe(hashShare(SHARE.token));
+    expect(ctx.tokenHash).not.toBe(SHARE.token);
+    expect(ctx.userId).toBeUndefined();
+    expect(effectiveCompanyId(ctx)).toBe(companyA);
+  });
+
+  it("hides expired, revoked, and mismatched tokens behind NotFoundError", async () => {
+    const runtime = runtimeFor<ReadTx>(db.runtime.db);
+    await expectCoreError(
+      createShareContext({
+        request: requestMeta(),
+        runtime,
+        input: { token: SHARE.expired, documentId: SHARE.documentId },
+        resolveTarget: resolveFactoryShare,
+      }),
+      NotFoundError,
+    );
+    await expectCoreError(
+      createShareContext({
+        request: requestMeta(),
+        runtime,
+        input: { token: SHARE.revoked, documentId: SHARE.documentId },
+        resolveTarget: resolveFactoryShare,
+      }),
+      NotFoundError,
+    );
+    await expectCoreError(
+      createShareContext({
+        request: requestMeta(),
+        runtime,
+        input: { token: SHARE.token, documentId: randomUUID() },
+        resolveTarget: resolveFactoryShare,
+      }),
+      NotFoundError,
+    );
+  });
+
+  it("treats a resolver that omits tokenHash as a core invariant violation", async () => {
+    await expectCoreError(
+      createShareContext({
+        request: requestMeta(),
+        runtime: runtimeFor<ReadTx>(db.runtime.db),
+        input: { token: SHARE.token, documentId: SHARE.documentId },
+        resolveTarget: () =>
+          Promise.resolve({
+            companyId: companyA,
+            resource: { documentId: SHARE.documentId },
+          }),
+      }),
+      CoreInvariantError,
+    );
+  });
+
+  it("treats a nested resolver crossing tenants as a core invariant violation", async () => {
+    await expectCoreError(
+      createShareContext({
+        request: requestMeta(),
+        runtime: runtimeFor<ReadTx>(db.runtime.db),
+        input: { token: SHARE.token, documentId: SHARE.documentId },
+        resolveTarget: resolveFactoryShare,
+        inheritedCompanyId: companyB,
+      }),
+      CoreInvariantError,
+    );
+  });
+
+  it("refuses to construct without a trusted-proxy clientIp", async () => {
+    await expectCoreError(
+      createShareContext({
+        request: {
+          action: "fixture.doThing",
+          requestId: randomUUID(),
+          correlationId: randomUUID(),
+          channel: "ui",
+        },
+        runtime: runtimeFor<ReadTx>(db.runtime.db),
+        input: { token: SHARE.token, documentId: SHARE.documentId },
+        resolveTarget: resolveFactoryShare,
+      }),
+      CoreInvariantError,
+    );
+  });
+});
+
 describe("log binding (security-operations §6)", () => {
   it("binds request/actor/company/action onto every staff log line", async () => {
     const { logger, entries } = captureLogger();
@@ -692,5 +821,27 @@ describe("log binding (security-operations §6)", () => {
       company_id: null,
       msg: "browsing",
     });
+  });
+
+  it("binds the anonymous actor for share and never logs the raw token", async () => {
+    const { logger, entries } = captureLogger();
+    const ctx = await createShareContext({
+      request: requestMeta(),
+      runtime: runtimeFor<ReadTx>(db.runtime.db, logger),
+      input: { token: SHARE.token, documentId: SHARE.documentId },
+      resolveTarget: resolveFactoryShare,
+    });
+    ctx.log.info("co-signing");
+
+    const [line] = entries();
+    expect(line).toMatchObject({
+      actor_type: "anonymous",
+      actor_id: "anonymous",
+      company_id: companyA,
+      msg: "co-signing",
+    });
+    expect(JSON.stringify(line)).not.toContain(SHARE.token);
+    expect(line).not.toHaveProperty("clientIp");
+    expect(line).not.toHaveProperty("client_ip");
   });
 });

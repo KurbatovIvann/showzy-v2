@@ -66,8 +66,8 @@ the OpenAPI artifact.
   customer/consumer/account get only the session; public and share get
   nothing (share capability token is action input, never a header; a
   present session is ignored); system is unreachable (composition error).
-  Full share HTTP tests wait on fnd-T23B; fnd-T11B may add only the
-  exhaustive `case "share"` arm so `tsc` stays green.
+  fnd-T11B landed the exhaustive `case "share"` arm so `tsc` stays green.
+  Full share HTTP tests and the session-gate skip remain fnd-T23B.
 - Every procedure runs `executeAction`. There is no second data path.
   Pairing problems (orphans, descriptor drift, a registered client action
   missing from the exposure record) fail boot.

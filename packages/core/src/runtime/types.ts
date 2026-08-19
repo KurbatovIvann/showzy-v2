@@ -24,7 +24,7 @@ export type JsonValue =
   | { readonly [key: string]: JsonValue };
 
 /**
- * The execution context passed to handlers: the six-mode `ActionCtx`
+ * The execution context passed to handlers: the seven-mode `ActionCtx`
  * discriminated union (core.md §3), constructed only by the principal
  * context factories.
  */
@@ -33,11 +33,13 @@ export type ActionExecutionCtx = ActionCtx;
 /**
  * Who is asking, from the resolver's point of view (core.md §2): customer
  * resolution receives the authenticated `userId` to prove ownership;
- * public-target resolution is anonymous and proves publication/visibility.
+ * public-target and share resolution are anonymous and prove
+ * publication/visibility or a valid unexpired unrevoked token.
  */
 export type TargetResolutionPrincipal =
   | { readonly mode: "customer"; readonly userId: string }
-  | { readonly mode: "public" };
+  | { readonly mode: "public" }
+  | { readonly mode: "share" };
 
 /**
  * The environment a typed target resolver runs in (core.md §2): a
@@ -77,12 +79,16 @@ export interface AuditTargetEnv {
 
 /**
  * What a typed target resolver must prove (core.md §2): the loaded
- * resource is the ownership/visibility evidence and `companyId` becomes
- * the verified tenant scope of the whole invocation.
+ * resource is the ownership/visibility/valid-token evidence and
+ * `companyId` becomes the verified tenant scope of the whole invocation.
+ * Share resolvers must also return `tokenHash` — the stored hash of the
+ * capability token, never the raw secret (core.md §5).
  */
 export interface ResolvedTarget<TTarget> {
   readonly companyId: string;
   readonly resource: TTarget;
+  /** Share only: stored capability-token hash. Other modes omit this. */
+  readonly tokenHash?: string;
 }
 
 /** The audit row's target reference (core.md §8). */

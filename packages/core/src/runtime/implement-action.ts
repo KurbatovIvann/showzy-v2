@@ -46,7 +46,7 @@ export interface ActionServerCallbacks<
   TTarget = never,
 > {
   readonly handler: ActionHandler<TInput, TOutput>;
-  /** Required for customer and public-target actions, forbidden otherwise. */
+  /** Required for customer, public-target, and share actions, forbidden otherwise. */
   readonly resolveTarget?: TargetResolver<TInput, TTarget>;
   /** Required when `requiresConfirmation: true`, forbidden otherwise. */
   readonly confirmationSummary?: ConfirmationSummaryFn<TInput>;
@@ -105,17 +105,20 @@ function collectBindingProblems(
 
   const requiresResolver =
     contract.principal === "customer" ||
+    contract.principal === "share" ||
     (contract.principal === "public" && contract.publicScope === "target");
   if (requiresResolver && callbacks.resolveTarget === undefined) {
     problems.push(
       contract.principal === "customer"
         ? "customer actions must bind resolveTarget — the typed resolver is the ownership proof (core.md §3)"
-        : 'public actions with publicScope "target" must bind resolveTarget — the typed resolver is the visibility proof (core.md §3)',
+        : contract.principal === "share"
+          ? "share actions must bind resolveTarget — the typed resolver is the valid-token proof (core.md §3)"
+          : 'public actions with publicScope "target" must bind resolveTarget — the typed resolver is the visibility proof (core.md §3)',
     );
   }
   if (!requiresResolver && callbacks.resolveTarget !== undefined) {
     problems.push(
-      "resolveTarget is allowed only on customer and public-target actions (core.md §2)",
+      "resolveTarget is allowed only on customer, public-target, and share actions (core.md §2)",
     );
   }
 
@@ -144,6 +147,15 @@ function collectBindingProblems(
   }
   if (!contract.audit && callbacks.auditSnapshot !== undefined) {
     problems.push("auditSnapshot is allowed only when audit: true");
+  }
+  if (
+    contract.principal === "share" &&
+    contract.risk === "write" &&
+    callbacks.auditSnapshot === undefined
+  ) {
+    problems.push(
+      "share writes must bind auditSnapshot — redacted certificate identity, never the raw token (core.md §8)",
+    );
   }
 
   return problems;

@@ -14,6 +14,7 @@ import { eq } from "drizzle-orm";
 import { describe, it } from "vitest";
 import type { z } from "zod";
 
+import { SHARE_DURABLE_ACTOR } from "../runtime/context/types.js";
 import {
   NotFoundError,
   PermissionDeniedError,
@@ -265,15 +266,21 @@ export async function runPublicProjectionCase(
     );
   }
 
-  await assertPublicIpHmacLimit(kit, action, c.input ?? {});
+  await assertIpHmacLimit(kit, action, c.input ?? {});
 }
 
-async function assertPublicIpHmacLimit(
+async function assertIpHmacLimit(
   kit: TestKit,
   action: SuiteAction,
   input: unknown,
 ): Promise<void> {
-  const policy = action.contract.rateLimit ?? rateLimitDefaults.public;
+  const principal = action.contract.principal;
+  if (principal !== "public" && principal !== "share") {
+    throw new Error(
+      `"${action.contract.name}" is not IP-HMAC rate limited (principal=${principal})`,
+    );
+  }
+  const policy = action.contract.rateLimit ?? rateLimitDefaults[principal];
   if (policy.scope !== "ipHmac") {
     throw new Error(
       `"${action.contract.name}" is not IP-HMAC rate limited (scope=${policy.scope})`,
@@ -305,7 +312,7 @@ async function assertPublicIpHmacLimit(
     throw error;
   }
   throw new Error(
-    `"${action.contract.name}" did not rate-limit the ${String(policy.limit + 1)}th public call`,
+    `"${action.contract.name}" did not rate-limit the ${String(policy.limit + 1)}th ${principal} call`,
   );
 }
 
@@ -518,6 +525,202 @@ export function accountIsolationSuite(
     for (const c of cases) {
       it(`${c.action.contract.name} keeps user B out of user A's companies/personal data, logs a null company, and user rate-limits`, async () => {
         await runAccountIsolationCase(getKit(), c);
+      });
+    }
+  });
+}
+
+export interface ShareIsolationCase {
+  readonly action: SuiteAction;
+  readonly own: IsolationInvocation;
+  readonly foreign: IsolationInvocation;
+  readonly expired: IsolationInvocation;
+  readonly revoked: IsolationInvocation;
+  readonly mismatched: IsolationInvocation;
+  /** Raw capability token that must never appear in logs, audit, or events. */
+  readonly rawToken: string;
+}
+
+export function shareIsolationCase(
+  action: SuiteAction,
+  parts: Omit<ShareIsolationCase, "action">,
+): ShareIsolationCase {
+  return { action, ...parts };
+}
+
+async function expectShareNotFound(
+  actionName: string,
+  label: string,
+  run: () => Promise<unknown>,
+): Promise<void> {
+  try {
+    await run();
+  } catch (error) {
+    if (error instanceof NotFoundError) {
+      return;
+    }
+    throw error;
+  }
+  throw new Error(
+    `expected ${label} access to "${actionName}" to be NotFoundError`,
+  );
+}
+
+function serializedContainsToken(value: unknown, rawToken: string): boolean {
+  return JSON.stringify(value).includes(rawToken);
+}
+
+export async function runShareIsolationCase(
+  kit: TestKit,
+  c: ShareIsolationCase,
+): Promise<void> {
+  const action = c.action;
+  if (action.contract.principal !== "share") {
+    throw new Error(
+      `"${action.contract.name}" is not a share action — shareIsolationSuite only accepts principal: share`,
+    );
+  }
+  if (action.contract.permissions.length > 0) {
+    throw new Error(
+      `"${action.contract.name}" declared permissions ${JSON.stringify(action.contract.permissions)} — share actions must use permissions: []`,
+    );
+  }
+
+  const crmBefore = await readCrmSentinel(kit.db.runtime.db);
+  const capturing = createCapturingLogger();
+  const requestId = randomUUID();
+  const deps = { ...kit.pipeline, logger: capturing.logger };
+
+  await invoke(kit, action, c.own, { deps, request: { requestId } });
+
+  await expectShareNotFound(action.contract.name, "foreign-token", () =>
+    invoke(kit, action, c.foreign),
+  );
+  await expectShareNotFound(action.contract.name, "expired-token", () =>
+    invoke(kit, action, c.expired),
+  );
+  await expectShareNotFound(action.contract.name, "revoked-token", () =>
+    invoke(kit, action, c.revoked),
+  );
+  await expectShareNotFound(action.contract.name, "mismatched-token", () =>
+    invoke(kit, action, c.mismatched),
+  );
+
+  const crmAfter = await readCrmSentinel(kit.db.runtime.db);
+  if (JSON.stringify(crmAfter) !== JSON.stringify(crmBefore)) {
+    throw new Error(leakMessage(action.contract.name, "a CRM sentinel change"));
+  }
+
+  const logBlob = capturing.entries();
+  if (serializedContainsToken(logBlob, c.rawToken)) {
+    throw new Error(
+      `"${action.contract.name}" logged the raw capability token`,
+    );
+  }
+  const finished = logBlob.find((line) => line["msg"] === "action finished");
+  if (finished === undefined) {
+    throw new Error(
+      `"${action.contract.name}" produced no action-finished log`,
+    );
+  }
+  if (finished["actor_type"] !== "anonymous") {
+    throw new Error(
+      `"${action.contract.name}" log actor_type was ${String(finished["actor_type"])} — share access logs are anonymous`,
+    );
+  }
+  if ("client_ip" in finished) {
+    throw new Error(
+      `"${action.contract.name}" logged a raw client_ip — IPs stay transport-only`,
+    );
+  }
+
+  if (action.contract.risk !== "read") {
+    const auditRows = await kit.db.runtime.db
+      .select({
+        actorType: auditLog.actorType,
+        actorId: auditLog.actorId,
+        inputSnapshot: auditLog.inputSnapshot,
+      })
+      .from(auditLog)
+      .where(eq(auditLog.requestId, requestId));
+    for (const row of auditRows) {
+      if (
+        row.actorType !== SHARE_DURABLE_ACTOR.type ||
+        row.actorId !== SHARE_DURABLE_ACTOR.id
+      ) {
+        throw new Error(
+          `"${action.contract.name}" audit actor was ${row.actorType}/${row.actorId} — share writes use system/share`,
+        );
+      }
+      if (serializedContainsToken(row.inputSnapshot, c.rawToken)) {
+        throw new Error(
+          `"${action.contract.name}" stored the raw capability token in auditSnapshot`,
+        );
+      }
+    }
+    const eventRows = await kit.db.runtime.db
+      .select({
+        actorType: domainEvents.actorType,
+        actorId: domainEvents.actorId,
+        payload: domainEvents.payload,
+      })
+      .from(domainEvents)
+      .where(eq(domainEvents.requestId, requestId));
+    for (const row of eventRows) {
+      if (
+        row.actorType !== SHARE_DURABLE_ACTOR.type ||
+        row.actorId !== SHARE_DURABLE_ACTOR.id
+      ) {
+        throw new Error(
+          `"${action.contract.name}" event actor was ${row.actorType}/${row.actorId} — share writes use system/share`,
+        );
+      }
+      if (serializedContainsToken(row.payload, c.rawToken)) {
+        throw new Error(
+          `"${action.contract.name}" stored the raw capability token in an event payload`,
+        );
+      }
+    }
+  }
+
+  await assertIpHmacLimit(kit, action, c.own.input);
+
+  const failClosedLogger = createCapturingLogger().logger;
+  const failClosedDeps = {
+    ...kit.pipeline,
+    logger: failClosedLogger,
+    hooks: {
+      ...kit.pipeline.hooks,
+      rateLimit: createRateLimitHook({
+        store: {
+          consume: () => Promise.reject(new Error("redis connection refused")),
+        },
+        ipHmacSecret: "test-kit-ip-hmac-secret",
+        logger: failClosedLogger,
+      }),
+    },
+  };
+  try {
+    await invoke(kit, action, c.own, { deps: failClosedDeps });
+  } catch (error) {
+    if (error instanceof RateLimitError) {
+      return;
+    }
+    throw error;
+  }
+  throw new Error(
+    `"${action.contract.name}" did not fail closed when the rate-limit store was down`,
+  );
+}
+
+export function shareIsolationSuite(
+  getKit: () => TestKit,
+  cases: readonly ShareIsolationCase[],
+): void {
+  describe("shareIsolationSuite", () => {
+    for (const c of cases) {
+      it(`${c.action.contract.name} isolates tokens, hides expired/revoked/mismatch as NotFound, does not touch CRM, and IP-HMAC fail-closes`, async () => {
+        await runShareIsolationCase(getKit(), c);
       });
     }
   });

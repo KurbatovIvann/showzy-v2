@@ -87,7 +87,9 @@ export type PrincipalInvocation =
       readonly scope: SystemScopeInput;
     }
   | { readonly mode: "consumer"; readonly session: SessionPrincipal | null }
-  | { readonly mode: "account"; readonly session: SessionPrincipal | null };
+  | { readonly mode: "account"; readonly session: SessionPrincipal | null }
+  /** Unauthenticated; the capability token is action input, never a header. */
+  | { readonly mode: "share" };
 
 /**
  * What the authorization preflight (§4 step 4) proved, distilled for the
@@ -100,8 +102,13 @@ export type PrincipalInvocation =
 export interface PreflightAuthorization {
   readonly actor: ActionActor;
   readonly companyId: string | null;
-  /** Resolved resource for customer/public-target; omitted otherwise. */
+  /** Resolved resource for customer/public-target/share; omitted otherwise. */
   readonly target?: unknown;
+  /**
+   * Share only: stored capability-token hash used as the idempotency
+   * principal key `share:<tokenHash>` (core.md §5). Never the raw secret.
+   */
+  readonly tokenHash?: string;
 }
 
 /**

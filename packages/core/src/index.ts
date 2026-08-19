@@ -167,6 +167,7 @@ export {
   createConsumerContext,
   createCustomerContext,
   createPublicContext,
+  createShareContext,
   createStaffContext,
   createSystemContext,
   effectiveCompanyId,
@@ -178,6 +179,7 @@ export type {
   SystemScopeInput,
 } from "./runtime/context/factories.js";
 export { staffHasPermission } from "./runtime/context/permissions.js";
+export { SHARE_DURABLE_ACTOR } from "./runtime/context/types.js";
 export type {
   AccountCtx,
   ActionActor,
@@ -193,6 +195,7 @@ export type {
   PublicCtx,
   PublicGlobalCtx,
   PublicTargetCtx,
+  ShareCtx,
   StaffCtx,
   StaffMembership,
   SystemCtx,

@@ -8,9 +8,9 @@
  */
 import type { z } from "zod";
 
-/** ADR-0013, ADR-0018, ADR-0020 — exactly one mode per action. */
+/** ADR-0013, ADR-0018, ADR-0020, ADR-0022 — exactly one mode per action. */
 export type ActionPrincipal =
-  "staff" | "customer" | "public" | "system" | "consumer" | "account";
+  "staff" | "customer" | "public" | "system" | "consumer" | "account" | "share";
 
 /** Whether HTTP/client routers mount the action. */
 export type ActionTransport = "client" | "internal";
@@ -73,7 +73,8 @@ export interface ActionContractDefinition<
   /**
    * `<module>:<verb>` permission strings. Non-empty for `staff`; must be
    * `[]` for every other principal (their authorization is ownership,
-   * visibility, published-read, or own-user identity — core.md §4).
+   * visibility, published-read, own-user identity, or a valid share
+   * token — core.md §4).
    */
   readonly permissions: readonly string[];
   /** Required for `public` actions, forbidden otherwise. */

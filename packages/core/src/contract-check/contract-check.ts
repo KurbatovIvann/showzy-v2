@@ -266,6 +266,7 @@ function emitterEventScope(
   switch (contract.principal) {
     case "staff":
     case "customer":
+    case "share":
       return "tenant";
     case "system":
       return contract.systemScope;

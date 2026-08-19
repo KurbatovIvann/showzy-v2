@@ -18,7 +18,11 @@ import { auditLog, type Database, type Tx } from "@showzy/db";
 
 import { CoreInvariantError } from "../../errors/index.js";
 import { effectiveCompanyId } from "../context/factories.js";
-import type { ActionActor, ActionChannel } from "../context/types.js";
+import {
+  SHARE_DURABLE_ACTOR,
+  type ActionActor,
+  type ActionChannel,
+} from "../context/types.js";
 import type { AuditTargetEnv, AuditTargetRef, JsonValue } from "../types.js";
 import type {
   AuditHook,
@@ -48,7 +52,11 @@ export function createAuditHook(deps: AuditHookDeps): AuditHook {
         ? env.auditSnapshot(env.input)
         : undefined;
 
-      const actor = toAuditActor(env.ctx.actor, effectiveCompanyId(env.ctx));
+      const actor = toAuditActor(
+        env.ctx.actor,
+        effectiveCompanyId(env.ctx),
+        env.ctx.principal === "share",
+      );
       await insertAuditRow(env.tx, {
         requestId: env.ctx.requestId,
         correlationId: env.ctx.correlationId,
@@ -158,7 +166,11 @@ function resolveFailureIdentity(
   companyId: string | null;
 } {
   if (authorization !== undefined) {
-    return toAuditActor(authorization.actor, authorization.companyId);
+    return toAuditActor(
+      authorization.actor,
+      authorization.companyId,
+      principal.mode === "share",
+    );
   }
   switch (principal.mode) {
     case "system":
@@ -180,6 +192,12 @@ function resolveFailureIdentity(
         };
       }
       return { actorType: "user", actorId: "unknown", companyId: null };
+    case "share":
+      return {
+        actorType: SHARE_DURABLE_ACTOR.type,
+        actorId: SHARE_DURABLE_ACTOR.id,
+        companyId: null,
+      };
     case "public":
       return { actorType: "user", actorId: "unknown", companyId: null };
   }
@@ -188,7 +206,15 @@ function resolveFailureIdentity(
 function toAuditActor(
   actor: ActionActor,
   companyId: string | null,
+  isShare = false,
 ): { actorType: "user" | "system"; actorId: string; companyId: string | null } {
+  if (isShare) {
+    return {
+      actorType: SHARE_DURABLE_ACTOR.type,
+      actorId: SHARE_DURABLE_ACTOR.id,
+      companyId,
+    };
+  }
   if (actor.type === "anonymous") {
     throw new CoreInvariantError(
       "audit row cannot record anonymous actor — public-global actions must declare audit: false",

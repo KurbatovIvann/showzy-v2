@@ -25,7 +25,11 @@ import { sql } from "drizzle-orm";
 import { CoreInvariantError } from "../../errors/index.js";
 import type { AnyActionContract } from "../action-registry.js";
 import { effectiveCompanyId } from "../context/factories.js";
-import type { ActionCtx, CtxEmit } from "../context/types.js";
+import {
+  SHARE_DURABLE_ACTOR,
+  type ActionCtx,
+  type CtxEmit,
+} from "../context/types.js";
 import type { EventAggregateRef, EventDefinition } from "./define-event.js";
 import { uuidv7 } from "./uuidv7.js";
 
@@ -120,10 +124,10 @@ export function createEmitBuffer(options: {
       if (buffered.length === 0) {
         return;
       }
-      // Event envelopes accept accountable actors only (core.md §2):
-      // anonymous cannot get here — public actions cannot declare emits —
-      // so this is pure defense in depth.
-      const actor = ctx.actor;
+      // Event envelopes accept accountable actors only (core.md §2).
+      // Public actions cannot declare emits. Share writes remap the
+      // anonymous access-log actor to system/share (core.md §6, ADR-0022).
+      const actor = ctx.principal === "share" ? SHARE_DURABLE_ACTOR : ctx.actor;
       if (actor.type === "anonymous") {
         throw new CoreInvariantError(
           `"${contract.name}" flushed events with an anonymous actor — event envelopes accept user/system actors only (core.md §2)`,

@@ -180,6 +180,36 @@ describe("defineActionContract — valid descriptors per principal mode", () => 
     expect(contract.principal).toBe("account");
   });
 
+  it("accepts a share read action", () => {
+    const contract = defineActionContract({
+      ...staffWriteDefinition(),
+      name: "docSigning.getShared",
+      principal: "share",
+      permissions: [],
+      aiExposure: "internal",
+      risk: "read",
+      idempotent: false,
+      emits: [],
+      audit: false,
+    });
+    expect(contract.principal).toBe("share");
+    expect(contract.risk).toBe("read");
+  });
+
+  it("accepts a share write action", () => {
+    const contract = defineActionContract({
+      ...staffWriteDefinition(),
+      name: "docSigning.submitShare",
+      principal: "share",
+      permissions: [],
+      aiExposure: "internal",
+      emits: ["docSigning.shareSubmitted"],
+    });
+    expect(contract.principal).toBe("share");
+    expect(contract.idempotent).toBe(true);
+    expect(contract.audit).toBe(true);
+  });
+
   it("accepts a declared atomic root/callee pair (per-descriptor half)", () => {
     const root = defineActionContract({
       ...staffWriteDefinition(),
@@ -327,6 +357,10 @@ describe("defineActionContract — define-time rejections", () => {
       { ...readOnlyBase, principal: "account" },
       'account actions must declare transport: "client"',
     );
+    expectProblem(
+      { ...readOnlyBase, principal: "share" },
+      'share actions must declare transport: "client"',
+    );
   });
 
   it("rejects a public action without publicScope", () => {
@@ -347,6 +381,59 @@ describe("defineActionContract — define-time rejections", () => {
   it("rejects publicScope on a non-public action", () => {
     expectProblem(
       { ...staffWriteDefinition(), publicScope: "target" },
+      "publicScope is allowed only on public actions",
+    );
+  });
+
+  it("rejects every share-subset violation (ADR-0022)", () => {
+    const shareWrite = {
+      ...staffWriteDefinition(),
+      name: "docSigning.submitShare",
+      principal: "share" as const,
+      permissions: [] as string[],
+      aiExposure: "internal" as const,
+      emits: ["docSigning.shareSubmitted"],
+    };
+    expectProblem(
+      { ...shareWrite, aiExposure: "exposed" },
+      'share actions must declare aiExposure: "internal"',
+    );
+    expectProblem(
+      {
+        ...shareWrite,
+        risk: "high",
+        requiresConfirmation: true,
+      },
+      'share actions must declare risk: "read" | "write"',
+    );
+    expectProblem(
+      {
+        ...shareWrite,
+        risk: "draft",
+        idempotent: false,
+        audit: false,
+        emits: [],
+      },
+      'share actions must declare risk: "read" | "write"',
+    );
+    expectProblem(
+      {
+        ...shareWrite,
+        risk: "high",
+        requiresConfirmation: true,
+      },
+      "share actions must declare requiresConfirmation: false",
+    );
+    expectProblem(
+      { ...shareWrite, idempotent: false },
+      "share writes must declare idempotent: true",
+    );
+    expectProblem(
+      { ...shareWrite, permissions: ["docSigning:submit"] },
+      "share actions must declare permissions: []",
+    );
+    expectProblem(
+      { ...shareWrite, publicScope: "target" },
       "publicScope is allowed only on public actions",
     );
   });

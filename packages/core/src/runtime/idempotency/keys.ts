@@ -47,7 +47,8 @@ export function requireIdempotencyKey(env: {
  * Mode + accountable identity (§5). Consumer and public modes never reach
  * a confirmation/idempotency hook: their contracts are read-only by the
  * contract-check rules, and the pipeline gates both protocols on
- * `risk !== "read"`.
+ * `risk !== "read"`. Share writes use the stored token hash, never the
+ * raw secret.
  */
 export function principalKeyFor(env: ProtocolIdentityEnv): string {
   const actor = env.authorization.actor;
@@ -63,6 +64,15 @@ export function principalKeyFor(env: ProtocolIdentityEnv): string {
       return `${env.principal.mode}:${actor.id}`;
     case "system":
       return `system:${env.principal.serviceName}`;
+    case "share": {
+      const tokenHash = env.authorization.tokenHash;
+      if (tokenHash === undefined || tokenHash === "") {
+        throw new CoreInvariantError(
+          `share authorization for "${env.contract.name}" has no tokenHash — preflight must run resolveTarget before the idempotency reservation (core.md §5)`,
+        );
+      }
+      return `share:${tokenHash}`;
+    }
     case "consumer":
     case "public":
       throw new CoreInvariantError(

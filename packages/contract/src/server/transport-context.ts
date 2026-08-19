@@ -102,6 +102,8 @@ export function toPrincipalInvocation(
       return { mode: "consumer", session: context.session };
     case "account":
       return { mode: "account", session: context.session };
+    case "share":
+      return { mode: "share" };
     case "system":
       throw new ContractCompositionError([
         `action "${contract.name}" declares principal "system" — system actions are transport: "internal" and never routable (contract.md §2)`,

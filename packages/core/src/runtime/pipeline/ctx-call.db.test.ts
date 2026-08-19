@@ -11,13 +11,14 @@
  *   receive the caller's verified `inheritedCompanyId` (a company
  *   mismatch is a `CoreInvariantError`);
  * - principal compatibility: consumer callers cannot reach company-scoped
- *   callees; account callers may invoke consumer reads; system scope
- *   propagates (tenant → tenant/global, global → global only);
+ *   callees; account callers may invoke consumer reads; share callers
+ *   may invoke only share reads; system scope propagates (tenant →
+ *   tenant/global, global → global only);
  * - depth limit 3 and cycle detection by action name;
  * - callee input/output validation, the escaped-context guard, nested
  *   logs/spans, and the audited-callee child audit entry.
  */
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import {
   companies,
@@ -57,6 +58,7 @@ import {
   implementAction,
   type ImplementedAction,
 } from "../implement-action.js";
+import type { ResolvedTarget, TargetResolutionEnv } from "../types.js";
 import { executeAction } from "./execute-action.js";
 import type {
   ActionPipelineDeps,
@@ -779,6 +781,189 @@ describe("principal compatibility", () => {
     });
     // The callee ran as a consumer context with no company scope at all.
     expect(output).toEqual({ count: 1, companyId: null });
+  });
+
+  const shareToken = "ctx-call-share-token";
+  const shareDocumentId = randomUUID();
+
+  function resolveShareToken(
+    input: { token: string; documentId: string },
+    env: TargetResolutionEnv,
+  ): Promise<ResolvedTarget<{ documentId: string }>> {
+    if (env.principal.mode !== "share") {
+      throw new NotFoundError();
+    }
+    if (input.token !== shareToken || input.documentId !== shareDocumentId) {
+      throw new NotFoundError();
+    }
+    return Promise.resolve({
+      companyId: companyA,
+      resource: { documentId: input.documentId },
+      tokenHash: createHash("sha256").update(input.token).digest("hex"),
+    });
+  }
+
+  const shareGetFacts = implementAction(
+    defineActionContract({
+      ...contractDefaults,
+      name: "ctxShareCallee.getFacts",
+      description: "Share-token read callee.",
+      principal: "share",
+      transport: "client",
+      input: z.object({ token: z.string().min(1), documentId: z.uuid() }),
+      output: z.object({ companyId: z.uuid() }),
+      permissions: [],
+      risk: "read",
+      audit: false,
+      timeout: 5_000,
+    }),
+    {
+      resolveTarget: resolveShareToken,
+      handler: (_input, ctx) => {
+        if (ctx.principal !== "share") {
+          throw new CoreInvariantError("callee expects a share context");
+        }
+        return { companyId: ctx.target.companyId };
+      },
+    },
+  );
+
+  const publicGetProduct = implementAction(
+    defineActionContract({
+      ...contractDefaults,
+      name: "ctxPublicCallee.getProduct",
+      description: "Public-target read for share compatibility tests.",
+      principal: "public",
+      transport: "client",
+      publicScope: "target",
+      input: z.object({ productId: z.uuid() }),
+      output: z.object({ found: z.boolean() }),
+      permissions: [],
+      risk: "read",
+      audit: false,
+      timeout: 5_000,
+    }),
+    {
+      resolveTarget: async (input, env) => {
+        if (env.principal.mode !== "public") {
+          throw new NotFoundError();
+        }
+        const rows = await env.tx
+          .select()
+          .from(fixtureProducts)
+          .where(
+            and(
+              eq(fixtureProducts.id, input.productId),
+              eq(fixtureProducts.published, true),
+            ),
+          );
+        const row = rows[0];
+        if (row === undefined) {
+          throw new NotFoundError();
+        }
+        return { companyId: row.companyId, resource: row };
+      },
+      handler: () => ({ found: true }),
+    },
+  );
+
+  it("lets a share caller invoke a share read", async () => {
+    const peek = implementAction(
+      defineActionContract({
+        ...contractDefaults,
+        name: "ctxShareCaller.peek",
+        description: "Share caller composing another share read.",
+        principal: "share",
+        transport: "client",
+        input: z.object({ token: z.string().min(1), documentId: z.uuid() }),
+        output: z.object({ companyId: z.uuid() }),
+        permissions: [],
+        risk: "read",
+        audit: false,
+        timeout: 5_000,
+      }),
+      {
+        resolveTarget: resolveShareToken,
+        handler: (input, ctx) => ctx.call(shareGetFacts, input),
+      },
+    );
+    const output = await executeAction(depsFor(), {
+      action: peek,
+      input: { token: shareToken, documentId: shareDocumentId },
+      request: requestMeta(),
+      principal: { mode: "share" },
+    });
+    expect(output).toEqual({ companyId: companyA });
+  });
+
+  it("rejects a share caller invoking a staff read", async () => {
+    const peek = implementAction(
+      defineActionContract({
+        ...contractDefaults,
+        name: "ctxShareCaller.staffLeak",
+        description: "Share caller reaching for staff facts (a bug).",
+        principal: "share",
+        transport: "client",
+        input: z.object({ token: z.string().min(1), documentId: z.uuid() }),
+        output: z.object({}),
+        permissions: [],
+        risk: "read",
+        audit: false,
+        timeout: 5_000,
+      }),
+      {
+        resolveTarget: resolveShareToken,
+        handler: async (_input, ctx) => {
+          await ctx.call(getProductFacts, { productId: randomUUID() });
+          return {};
+        },
+      },
+    );
+    const error = await expectCoreError(
+      executeAction(depsFor(), {
+        action: peek,
+        input: { token: shareToken, documentId: shareDocumentId },
+        request: requestMeta(),
+        principal: { mode: "share" },
+      }),
+      CoreInvariantError,
+    );
+    expect(error.message).toContain("does not accept the caller's principal");
+  });
+
+  it("rejects a share caller invoking a public-target read", async () => {
+    const peek = implementAction(
+      defineActionContract({
+        ...contractDefaults,
+        name: "ctxShareCaller.publicLeak",
+        description: "Share caller reaching for a public-target read (a bug).",
+        principal: "share",
+        transport: "client",
+        input: z.object({ token: z.string().min(1), documentId: z.uuid() }),
+        output: z.object({}),
+        permissions: [],
+        risk: "read",
+        audit: false,
+        timeout: 5_000,
+      }),
+      {
+        resolveTarget: resolveShareToken,
+        handler: async (_input, ctx) => {
+          await ctx.call(publicGetProduct, { productId: randomUUID() });
+          return {};
+        },
+      },
+    );
+    const error = await expectCoreError(
+      executeAction(depsFor(), {
+        action: peek,
+        input: { token: shareToken, documentId: shareDocumentId },
+        request: requestMeta(),
+        principal: { mode: "share" },
+      }),
+      CoreInvariantError,
+    );
+    expect(error.message).toContain("does not accept the caller's principal");
   });
 
   it("propagates system tenant scope and rejects global → tenant calls", async () => {

@@ -85,6 +85,7 @@ export function mergeSuiteCoverage(
     accountIsolation: manifests.flatMap(
       (manifest) => manifest.accountIsolation,
     ),
+    shareIsolation: manifests.flatMap((manifest) => manifest.shareIsolation),
     idempotency: manifests.flatMap((manifest) => manifest.idempotency),
     events: manifests.flatMap((manifest) => manifest.events),
     atomic: manifests.flatMap((manifest) => manifest.atomic),
