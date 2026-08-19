@@ -1,6 +1,8 @@
 # Spec: packages/contract
 
-> Status: Living. Last approved draft: owner, 2026-08-17.
+> Status: Active. Approved by: owner, 2026-08-18.
+> Active surface: entire file.
+> Ledger catch-up: first merged `packages/contract` implementation (fnd-T23…T25).
 > Written against blueprint §3, §4; ADR-0004, ADR-0008, ADR-0013, ADR-0016,
 > ADR-0018, ADR-0020, and ADR-0021.
 > Foundation spec. Resolves the client-safety question: how one action
@@ -204,6 +206,7 @@ API consumers.
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-19 | Status: Active; Active surface: entire file | Ledger catch-up: first merged packages/contract (fnd-T23…T25) | owner via spec-process-after-phase-0 |
 | 2026-08-19 | §3/§7: key reuse is manual via `attempt.options` (no automatic retry layer); §7: composition fixture for the first `ctx.callAtomic` callee is owed when that edge lands | Align living spec with the client (fnd-G1 A12) | scaffold (fnd-G1 A12) |
 | 2026-08-18 | Added transport-level `UNAUTHENTICATED` / 401 to the §4 wire-error union | Session-gate 401 was outside `isWireError()`, forcing clients to string-match | scaffold (fnd-G1 A8) |
 | 2026-08-17 | Integrated `account` principal: transport exposure, AI manifest filtering, routing rules, and acceptance criteria | Align contract with ADR-0013 (amended) 6-mode principal model (`staff \| customer \| public \| system \| consumer \| account`) per spec-rework queue Step 1 | spec-rework agent |

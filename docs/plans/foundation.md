@@ -46,10 +46,13 @@ implementer is the **scaffold agent** (`/scaffold`, not `/ticket`):
 
 ## Resolved decisions (owner, 2026-08-17)
 
-1. **Prerequisite schemas**: the `pricing`, `catalog`, and `customers` specs
-   must be reworked for mobile parity and owner-approved before milestone F.
-   Phase 1 merges only the approved minimal schema + facts-action subset in
-   fnd-T29…T34; everything else remains phase 2+.
+1. **Prerequisite schemas**: Phase 1 merges only the approved minimal schema
+   + facts-action subset in fnd-T29…T34; everything else remains phase 2+.
+   The `pricing`, `catalog`, and `customers` specs stay Living. Schema
+   columns freeze when their schema PR merges (owner reviews fnd-T29…T32);
+   facts/actions tighten in their implementing PRs under the stop-vs-amend
+   rule (`docs/specs/README.md`). There is no file-level freeze before
+   milestone F.
 2. **Expo skeleton is in scope**, mobile only (no web app): app shell, OTP
    auth screens, Universal/App Link routing with a static install-fallback
    page served by `apps/api`. No product UI — that remains blocked by the
@@ -721,9 +724,11 @@ real consumer before the slices freeze as templates.
 
 ## Milestone F — Reference slice 1: pricing resolution (Phase 1)
 
-**Entry gate:** the mobile-parity queue reworks and the owner approves the
-exact `pricing`, `catalog`, and `customers` reference subsets. This is not a
-status-only flip. Relevant v1 migration-matrix slices have no `REVIEW` rows.
+**Entry gate:** fnd-G1 is Done. The `pricing`, `catalog`, and `customers`
+specs stay Living. fnd-T29…T32 are the column freeze (owner reviews
+irreversible columns in those schema PRs). Facts/actions (T33–T36) tighten
+in their PRs under stop-vs-amend (`docs/specs/README.md`). Relevant v1
+migration-matrix slices have no `REVIEW` rows.
 
 ### fnd-T29: Catalog minimal schema slice
 
@@ -1097,8 +1102,7 @@ flowchart TD
   D --> E[E: API worker ops fnd-T26..T28]
   E --> G1{fnd-G1 Phase-0 gate}
   G1 --> I[I: Expo skeleton fnd-T48..T51]
-  G1 --> specGate{Freeze pricing catalog customers specs}
-  specGate --> F[F: Slice 1 pricing fnd-T29..T36]
+  G1 --> F[F: Slice 1 pricing fnd-T29..T36]
   F --> G[G: Slice 2 orders chat fnd-T37..T42]
   G --> G2{fnd-G2 Phase-1 gate}
   G2 --> H[H: Skeletons fnd-T43..T47]
@@ -1138,5 +1142,6 @@ pipeline.md "Linear workflow"):
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-08-19 | Removed the pre-F spec freeze gate (mermaid, resolved decision 1, Milestone F Entry gate). Schema columns freeze in fnd-T29…T32 PRs; Living slice boundaries remain | Phase-0 spec-process plan D5 |
 | 2026-08-19 | Recorded that the local-dev fixture seed is deferred to fnd-T29+; phase 0 seeds only `role_permission_defaults` | fnd-G1 A12: db.md §9 / this plan previously implied the fixture set was seeded |
 | 2026-08-17 | Initial breakdown approved: 51 tasks + 2 gates across 9 milestones; Expo included mobile-only after fnd-G1; drafts to be approved with minimal Phase-1 subset; six spec ambiguities fixed by owner in specs | Plan the scaffold stage (phases 0–1) |

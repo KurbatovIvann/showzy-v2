@@ -14,18 +14,18 @@ documents, agent rules, design process, and v1 reference materials.
 
 ## Documents
 
-| File                                     | Purpose                                                                   |
-| ---------------------------------------- | ------------------------------------------------------------------------- |
-| [`docs/blueprint.md`](docs/blueprint.md) | Architecture, stack, action registry, foundation invariants, SDD pipeline |
-| [`docs/scope.md`](docs/scope.md)         | MVP scope, deferred/dropped features, mobile-first roadmap                |
-| [`docs/adr/`](docs/adr/)                 | Architecture decision records (17 accepted)                               |
-| [`docs/pipeline.md`](docs/pipeline.md)   | Agent pipeline operations manual: stages, models, commands                |
-| [`docs/specs/`](docs/specs/)             | Per-module specifications (Living until first merged code, then Active)   |
-| [`docs/plans/`](docs/plans/)             | Mutable task breakdowns; Linear tickets are created from these            |
-| [`docs/design/`](docs/design/)           | Experience Foundation process and UX artifacts                            |
-| [`docs/archive/`](docs/archive/)         | Historical docs — not authority                                           |
-| [`docs/reference/`](docs/reference/)     | Curated v1 reference: backend/DB audit, schema types, all 83 migrations   |
-| [`AGENTS.md`](AGENTS.md)                 | Entry point for AI agents working in this repo                            |
+| File                                     | Purpose                                                                                       |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------- |
+| [`docs/blueprint.md`](docs/blueprint.md) | Architecture, stack, action registry, foundation invariants, SDD pipeline                     |
+| [`docs/scope.md`](docs/scope.md)         | MVP scope, deferred/dropped features, mobile-first roadmap                                    |
+| [`docs/adr/`](docs/adr/)                 | Architecture decision records (17 accepted)                                                   |
+| [`docs/pipeline.md`](docs/pipeline.md)   | Agent pipeline operations manual: stages, models, commands                                    |
+| [`docs/specs/`](docs/specs/)             | Per-module specifications (Living intent; Active surface after the implementing slice merges) |
+| [`docs/plans/`](docs/plans/)             | Mutable task breakdowns; Linear tickets are created from these                                |
+| [`docs/design/`](docs/design/)           | Experience Foundation process and UX artifacts                                                |
+| [`docs/archive/`](docs/archive/)         | Historical docs — not authority                                                               |
+| [`docs/reference/`](docs/reference/)     | Curated v1 reference: backend/DB audit, schema types, all 83 migrations                       |
+| [`AGENTS.md`](AGENTS.md)                 | Entry point for AI agents working in this repo                                                |
 
 ## Local development
 

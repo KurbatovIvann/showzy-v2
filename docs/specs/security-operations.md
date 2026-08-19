@@ -1,6 +1,8 @@
 # Spec: security and operations foundation
 
-> Status: Living. Last approved draft: owner, 2026-08-17.
+> Status: Active. Approved by: owner, 2026-08-18.
+> Active surface: entire file.
+> Ledger catch-up: first merged auth/ops implementation (fnd-T6, fnd-T26…T28).
 > Applies to phase 0 and every module. Written against blueprint §2.1/§3/§7,
 > ADR-0006, ADR-0009, ADR-0010, ADR-0012, ADR-0013, ADR-0018, ADR-0020,
 > ADR-0021, and foundation specs.
@@ -232,6 +234,7 @@ review. A critical/high unresolved finding blocks merge.
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-19 | Status: Active; Active surface: entire file | Ledger catch-up: first merged auth/ops (fnd-T6, fnd-T26…T28) | owner via spec-process-after-phase-0 |
 | 2026-08-19 | §4: phase-0 HTTP invocations (including `/api/v1` REST aliases) are `channel: "ui"`; revisit when external consumers or the AI mount land | Align living spec with the API composition (fnd-G1 A12) | scaffold (fnd-G1 A12) |
 | 2026-08-18 | Linked ops runbooks and log/Sentry redaction helpers | fnd-T28 security/ops baseline | scaffold (fnd-T28) |
 | 2026-08-17 | Added public projection, bounded social-abuse, and atomic capability security controls | Align foundation with ADR-0020/0021 mobile parity | Human owner via mobile parity rework |

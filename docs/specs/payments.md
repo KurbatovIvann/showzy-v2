@@ -1,6 +1,7 @@
 # Spec: payments foundation
 
-> Status: Living. Last approved draft: owner, 2026-08-17.
+> Status: Living.
+> Active surface: none.
 > Written against blueprint §2.1/§5, scope §4/§6, ADR-0008, ADR-0012,
 > ADR-0013, ADR-0015, and `docs/specs/core.md`.
 > This spec defines the phase-0 payment boundary. Mono acquiring remains

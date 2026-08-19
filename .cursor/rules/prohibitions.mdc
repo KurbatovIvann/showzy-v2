@@ -12,10 +12,11 @@ Violating any of these fails review automatically:
 - **No `any`, no `as unknown as`,** no `@ts-ignore` / `@ts-expect-error` without a linked issue.
 - **No new dependencies** without explicit human approval. Propose in the PR description first.
 - **No changes to `packages/core`** within module implementation tasks. If core is missing something, stop and report — do not work around it.
-- **No silent edits to Active specs.** A `docs/specs/*` file marked
-  `Status: Active` changes only through `/rework-spec` or a same-PR patch
-  when a test proves the contract is wrong. Living specs may be edited
-  without that loop. Files in `docs/archive/` are not authority.
+- **No silent edits to Active surface.** A `docs/specs/*` **Active surface**
+  (the header line; entire file when Status is Active) changes only through
+  `/rework-spec` or a same-PR patch when a test proves the contract is wrong.
+  Living remainder may be edited without that loop. Files in `docs/archive/`
+  are not authority.
 - **No accepting `companyId` (or any tenant identifier) from action input** as an access grant.
 - **No storing derived order state in chat messages** (or any projection). Store IDs, subscribe to events.
 - **No secrets in code or logs.** Config through validated env (`packages/config`).

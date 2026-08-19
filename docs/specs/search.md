@@ -1,6 +1,9 @@
 # Spec: search
 
-> Status: Living. Pending: human review + `catalog` spec (product publication
+> Status: Living.
+> Active surface: none.
+> Density beyond the declared slice is intent, not contract; do not treat unimplemented sections as frozen.
+> Pending: human review + `catalog` spec (product publication
 > events and read-model grants).
 > Written against blueprint §2.1, §5, §7; scope §3, §6, §7;
 > ADR-0013, ADR-0014, ADR-0015, ADR-0018;

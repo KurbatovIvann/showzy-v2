@@ -21,10 +21,10 @@ and an AI chat that execute the exact same actions.
 4. `docs/pipeline.md` — how the agent pipeline runs: stages, roles, models,
    commands, exit criteria.
 5. `docs/specs/<module>.md` — the spec of the module you are working on.
-   **Living** specs are intent and may be amended. **Active** specs are
-   contracts (first merged implementation); do not change them silently —
-   use `/rework-spec` or a same-PR patch when a test proves a gap. See
-   `docs/specs/README.md`.
+   Obey the **Active surface** header (`docs/specs/README.md`). Living
+   remainder is intent and may be amended. Active surface is a contract —
+   do not change it silently; use `/rework-spec` or a same-PR patch when a
+   test proves a gap.
 
 ## Non-negotiable invariants (blueprint §2.1)
 

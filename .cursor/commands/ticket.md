@@ -24,9 +24,12 @@ For **routine** and **sensitive / first-module**:
 1. Read the context pack: spec section(s), plan task, relevant reference
    slice. Do NOT load unrelated v1 material.
 2. Verdict: "understood, starting" with a 3–5 line summary of scope +
-   required tests, or a spec-gap report (Active → `/rework-spec` or a
-   same-PR patch; Living → amend in the PR). Never invent product
-   decisions silently.
+   required tests, or a spec-gap report. **Active surface** → `/rework-spec`
+   or a same-PR patch with a proving test. **Living remainder** → amend in
+   the PR. Stop vs amend (`docs/specs/README.md`): stop for a product fork
+   (new capability, new principal, invariant change); amend for mechanical
+   contract detail (timeout/rate-limit defaults, a Zod refine a test proved,
+   a CHECK/column the spec implied). Never invent product decisions silently.
 3. `sensitive` requires the strong-model tier (blueprint §7.3); if you
    are not on it, say so and stop.
 
@@ -34,8 +37,8 @@ For **routine** and **sensitive / first-module**:
 
 Follow `.cursor/commands/implement.md` exactly. Use Linear's generated
 `gitBranchName` when present; otherwise `feat/sho-<number>-<slug>`. No
-`packages/core`, no foreign modules. Spec edits follow Living / Active
-rules in `docs/specs/README.md`.
+`packages/core`, no foreign modules. Spec edits follow Active-surface /
+Living-remainder rules in `docs/specs/README.md`.
 
 ## 3. VERIFY
 
@@ -52,8 +55,8 @@ bypass or weaken CI.
 - **sensitive / first-module:** Bugbot + cross-family `/review` (+ security
   review when `sensitive`). Address findings on the same branch; re-run
   VERIFY. Escalation: 2 failed review rounds → rerun IMPLEMENT on the
-  stronger model; 3 → `/rework-spec` if Active, otherwise amend the Living
-  spec or request human design review.
+  stronger model; 3 → `/rework-spec` if Active surface, otherwise amend the
+  Living remainder or request human design review.
 
 ## 5. HANDOFF
 

@@ -1,6 +1,9 @@
 # Spec: chat
 
-> Status: Living. Last approved draft: owner, 2026-08-17.
+> Status: Living.
+> Active surface: none.
+> Density beyond the declared slice is intent, not contract; do not treat unimplemented sections as frozen.
+> Last approved draft: owner, 2026-08-17.
 > Written against blueprint §1, §2.1 (invariant 5), §3, §5, §7.1; scope §1.1,
 > §2, §5, §7 (phases 1, 5, 6); ADR-0011, ADR-0012, ADR-0013, ADR-0014,
 > ADR-0015, ADR-0016, ADR-0018; `docs/specs/core.md`, `docs/specs/db.md`,
@@ -15,7 +18,8 @@
 > messages, reactions, attachments, realtime, presence). Phase 6 attaches
 > order cards to conversations (redirect-to-chat, card messages,
 > confirm/edit/cancel) and is the only phase allowed to migrate or supersede
-> `order_cards`, via `/rework-spec`. The former companion file
+> `order_cards`, by amending the Living remainder or a slice card.
+> `/rework-spec` applies only after that surface is Active. The former companion file
 > `chat-projection.md` was absorbed here (owner, 2026-08-17); slice behavior
 > is unchanged.
 
@@ -182,7 +186,8 @@ through the owning module's read actions.
 The consumer-template table. It stores `order_id` only — never status,
 totals, or any other order attribute (ADR-0011; prohibitions). Phase 5 does
 not attach it to conversations; phase 6 may migrate or supersede it
-explicitly via `/rework-spec`.
+explicitly by amending the Living remainder; `/rework-spec` applies only after
+that surface is Active.
 
 | Column | Type | Constraints / default | Notes |
 | --- | --- | --- | --- |
@@ -440,8 +445,8 @@ retained forever and must not hold chat text (NFR §9).
 ### 4.3 Read-model grants
 
 None granted. `search` (message FTS) is out of phase-5 scope; if the search
-spec later wants chat content it must request a grant through `/rework-spec`
-here.
+spec later wants chat content it must request a grant by amending this
+Living remainder. `/rework-spec` applies only after that surface is Active.
 
 ## 5. State machines and concurrency
 
@@ -909,7 +914,8 @@ Resolved (owner, 2026-08-17):
    read-only `call` with the same rules as handler `ctx.call` (ADR-0015),
    so `openMyConversation` can prove company existence and publication via
    `companies.getPublishedCompany` without chat querying `companies` tables
-   (ADR-0018 publication rule). Lands as a core `/rework-spec` (+ ADR if
+   (ADR-0018 publication rule). Lands as a core `/rework-spec` (core.md is
+   Active surface) (+ ADR if
    core's authors require one) before phase-5 implementation; chat does not
    work around it.
 9. **core.md §10 AI per-conversation budget** belongs to the `assistant`
