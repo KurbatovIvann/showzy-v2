@@ -20,8 +20,11 @@ import {
   effectiveCompanyId,
   implementAction,
   type ImplementedAction,
+  type ResolvedTarget,
+  type TargetResolutionEnv,
 } from "@showzy/core";
 import { defineActionContract } from "@showzy/core/contract";
+import { NotFoundError } from "@showzy/core/errors";
 import {
   createTestKit,
   kitIdentities,
@@ -68,6 +71,53 @@ const scopeOutput = z.object({
   companyId: z.string().nullable(),
   clientIp: z.string(),
 });
+
+const SHARE = {
+  tokenA: "http-share-token-a",
+  tokenB: "http-share-token-b",
+  expired: "http-share-token-expired",
+  revoked: "http-share-token-revoked",
+  documentA: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  documentB: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+} as const;
+
+const shareInput = z.object({
+  token: z.string().min(1),
+  documentId: z.uuid(),
+});
+
+const shareOutput = z.object({
+  companyId: z.string(),
+  actorType: z.string(),
+  actorId: z.string(),
+});
+
+function resolveShareTarget(
+  input: { token: string; documentId: string },
+  env: TargetResolutionEnv,
+): Promise<ResolvedTarget<{ documentId: string }>> {
+  if (env.principal.mode !== "share") {
+    throw new NotFoundError();
+  }
+  if (input.token === SHARE.expired || input.token === SHARE.revoked) {
+    throw new NotFoundError();
+  }
+  if (input.token === SHARE.tokenA && input.documentId === SHARE.documentA) {
+    return Promise.resolve({
+      companyId: kitIdentities.companies.a,
+      resource: { documentId: SHARE.documentA },
+      tokenHash: "hash-a",
+    });
+  }
+  if (input.token === SHARE.tokenB && input.documentId === SHARE.documentB) {
+    return Promise.resolve({
+      companyId: kitIdentities.companies.b,
+      resource: { documentId: SHARE.documentB },
+      tokenHash: "hash-b",
+    });
+  }
+  throw new NotFoundError();
+}
 
 function createSampleActions() {
   return {
@@ -145,6 +195,67 @@ function createSampleActions() {
           }),
       },
     ),
+    getShared: implementAction(
+      defineActionContract({
+        ...readDefaults,
+        name: "sample.getShared",
+        description: "Anonymous share-token read of one document.",
+        principal: "share",
+        permissions: [],
+        input: shareInput,
+        output: shareOutput,
+      }),
+      {
+        resolveTarget: resolveShareTarget,
+        handler: (_input, ctx) => {
+          if (ctx.principal !== "share") {
+            throw new NotFoundError();
+          }
+          return Promise.resolve({
+            companyId: ctx.target.companyId,
+            actorType: ctx.actor.type,
+            actorId: ctx.actor.id,
+          });
+        },
+      },
+    ),
+    submitShare: implementAction(
+      defineActionContract({
+        ...readDefaults,
+        name: "sample.submitShare",
+        description: "Anonymous share-token write of a dual-signed container.",
+        principal: "share",
+        permissions: [],
+        risk: "write",
+        idempotent: true,
+        audit: true,
+        input: shareInput,
+        output: shareOutput,
+      }),
+      {
+        resolveTarget: resolveShareTarget,
+        auditTarget: (env) => {
+          const parsed = shareInput.parse(env.input);
+          return { type: "document", id: parsed.documentId };
+        },
+        auditSnapshot: () => ({
+          cn: "Test Signer",
+          org: "Acme",
+          taxId: "1234567890",
+          role: "buyer",
+        }),
+        handler: (_input, ctx) => {
+          if (ctx.principal !== "share") {
+            throw new NotFoundError();
+          }
+          return Promise.resolve({
+            companyId: ctx.target.companyId,
+            actorType: ctx.actor.type,
+            actorId: ctx.actor.id,
+          });
+        },
+      },
+    ),
   };
 }
 
@@ -155,6 +266,8 @@ function createExposed(actions: ReturnType<typeof createSampleActions>) {
       discover: actions.discover.contract,
       whoami: actions.whoami.contract,
       mine: actions.mine.contract,
+      getShared: actions.getShared.contract,
+      submitShare: actions.submitShare.contract,
     },
   };
 }
@@ -256,6 +369,8 @@ beforeAll(async () => {
   register(registry, actions.discover);
   register(registry, actions.whoami);
   register(registry, actions.mine);
+  register(registry, actions.getShared);
+  register(registry, actions.submitShare);
 
   app = createApp({
     auth: toAuthInstance(auth),
@@ -430,6 +545,125 @@ describe("contract.md §7 principal dispatch over HTTP", () => {
     );
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ companyId: null });
+  });
+
+  it("share read without a session does not 401 and uses the token's company", async () => {
+    await expect(
+      rpcClient({}).sample.getShared({
+        token: SHARE.tokenA,
+        documentId: SHARE.documentA,
+      }),
+    ).resolves.toEqual({
+      companyId: kitIdentities.companies.a,
+      actorType: "anonymous",
+      actorId: "anonymous",
+    });
+  });
+
+  it("share write without a session succeeds when idempotency meta is present", async () => {
+    await expect(
+      rpcClient({
+        extraHeaders: { "idempotency-key": randomUUID() },
+      }).sample.submitShare({
+        token: SHARE.tokenA,
+        documentId: SHARE.documentA,
+      }),
+    ).resolves.toMatchObject({
+      companyId: kitIdentities.companies.a,
+      actorType: "anonymous",
+    });
+  });
+
+  it("share write missing idempotency meta → VALIDATION", async () => {
+    const error = await expectOrpcError(
+      rpcClient({}).sample.submitShare({
+        token: SHARE.tokenA,
+        documentId: SHARE.documentA,
+      }),
+    );
+    expect(isWireError(error)).toBe(true);
+    if (!isWireError(error) || error.code !== "VALIDATION") {
+      expect.unreachable("expected VALIDATION");
+    }
+    expect(error.status).toBe(400);
+  });
+
+  it("a present session and x-company-id are ignored on share — no user actor, no extra company", async () => {
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    await expect(
+      rpcClient({
+        token,
+        companyId: kitIdentities.companies.b,
+      }).sample.getShared({
+        token: SHARE.tokenA,
+        documentId: SHARE.documentA,
+      }),
+    ).resolves.toEqual({
+      companyId: kitIdentities.companies.a,
+      actorType: "anonymous",
+      actorId: "anonymous",
+    });
+  });
+
+  it("x-share-token is not consumed — the capability token is action input only", async () => {
+    const viaHeader = await expectOrpcError(
+      rpcClient({
+        extraHeaders: { "x-share-token": SHARE.tokenA },
+      }).sample.getShared({
+        token: SHARE.tokenB,
+        documentId: SHARE.documentA,
+      }),
+    );
+    expect(isWireError(viaHeader)).toBe(true);
+    if (!isWireError(viaHeader) || viaHeader.code !== "NOT_FOUND") {
+      expect.unreachable("expected NOT_FOUND");
+    }
+    expect(viaHeader.status).toBe(404);
+
+    await expect(
+      rpcClient({}).sample.getShared({
+        token: SHARE.tokenA,
+        documentId: SHARE.documentA,
+      }),
+    ).resolves.toMatchObject({ companyId: kitIdentities.companies.a });
+  });
+
+  it("invalid, expired, revoked, or mismatched share token → 404 NOT_FOUND", async () => {
+    const cases = [
+      { token: "unknown-token", documentId: SHARE.documentA },
+      { token: SHARE.expired, documentId: SHARE.documentA },
+      { token: SHARE.revoked, documentId: SHARE.documentA },
+      { token: SHARE.tokenA, documentId: SHARE.documentB },
+    ];
+    for (const input of cases) {
+      const error = await expectOrpcError(
+        rpcClient({}).sample.getShared(input),
+      );
+      expect(isWireError(error)).toBe(true);
+      if (!isWireError(error) || error.code !== "NOT_FOUND") {
+        expect.unreachable("expected NOT_FOUND");
+      }
+      expect(error.status).toBe(404);
+    }
+  });
+
+  it("OpenAPI REST alias serves the share read without a session", async () => {
+    const response = await app.request(
+      `http://localhost:3000${REST_PREFIX}/sample/getShared`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          token: SHARE.tokenA,
+          documentId: SHARE.documentA,
+        }),
+      },
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      companyId: kitIdentities.companies.a,
+      actorType: "anonymous",
+    });
   });
 
   it("no session on a staff REST alias → 401 UNAUTHENTICATED", async () => {

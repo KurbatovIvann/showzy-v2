@@ -31,6 +31,17 @@ const listThings = defineActionContract({
   permissions: ["sample:view"],
 });
 
+const getShared = defineActionContract({
+  ...readDefaults,
+  name: "sample.getShared",
+  description: "Anonymous share-token read of one document.",
+  principal: "share",
+  transport: "client",
+  input: z.object({ token: z.string().min(1), documentId: z.uuid() }),
+  output: z.object({ companyId: z.string() }),
+  permissions: [],
+});
+
 const internalJob = defineActionContract({
   ...readDefaults,
   name: "sample.internalJob",
@@ -47,6 +58,11 @@ describe("buildContractRouter", () => {
   it("builds one contract procedure per client descriptor", () => {
     const router = buildContractRouter({ sample: { listThings } });
     expect(isContractProcedure(router.sample.listThings)).toBe(true);
+  });
+
+  it("mounts share-principal actions — transport: client is routable (ADR-0022)", () => {
+    const router = buildContractRouter({ sample: { getShared } });
+    expect(isContractProcedure(router.sample.getShared)).toBe(true);
   });
 
   it("rejects non-client transports — internal/system actions have no routable endpoint", () => {

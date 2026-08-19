@@ -63,4 +63,39 @@ describe("OpenAPI generation", () => {
       "List sample things for the active company.",
     );
   });
+
+  it("includes share-principal client actions and never a share-token header (ADR-0022)", async () => {
+    const getShared = defineActionContract({
+      ...readDefaults,
+      name: "sample.getShared",
+      description: "Anonymous share-token read of one document.",
+      principal: "share",
+      transport: "client",
+      input: z.object({ token: z.string().min(1), documentId: z.uuid() }),
+      output: z.object({ companyId: z.string() }),
+      permissions: [],
+    });
+    const submitShare = defineActionContract({
+      ...readDefaults,
+      name: "sample.submitShare",
+      description: "Anonymous share-token write of a dual-signed container.",
+      principal: "share",
+      transport: "client",
+      risk: "write",
+      idempotent: true,
+      audit: true,
+      input: z.object({ token: z.string().min(1), documentId: z.uuid() }),
+      output: z.object({ ok: z.boolean() }),
+      permissions: [],
+    });
+    const populated = await generateOpenApiDocument(
+      buildContractRouter({ sample: { getShared, submitShare } }),
+    );
+    const json = JSON.stringify(populated);
+    expect(json).toContain("Anonymous share-token read of one document.");
+    expect(json).toContain(
+      "Anonymous share-token write of a dual-signed container.",
+    );
+    expect(json).not.toContain("x-share-token");
+  });
 });

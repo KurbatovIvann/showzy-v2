@@ -60,6 +60,31 @@ const accountExposed = defineActionContract({
   permissions: [],
 });
 
+const customerExposed = defineActionContract({
+  ...readDefaults,
+  name: "sample.customerPeek",
+  description: "Customer owned-record tool.",
+  principal: "customer",
+  transport: "client",
+  aiExposure: "exposed",
+  permissions: [],
+});
+
+const shareWrite = defineActionContract({
+  ...readDefaults,
+  name: "sample.submitShare",
+  description: "Share-token write — never an AI tool.",
+  principal: "share",
+  transport: "client",
+  aiExposure: "internal",
+  risk: "write",
+  idempotent: true,
+  audit: true,
+  permissions: [],
+  input: z.object({ token: z.string().min(1), documentId: z.uuid() }),
+  output: z.object({ ok: z.boolean() }),
+});
+
 const systemInternal = defineActionContract({
   ...readDefaults,
   name: "sample.internalJob",
@@ -76,6 +101,8 @@ const all = [
   staffHidden,
   consumerExposed,
   accountExposed,
+  customerExposed,
+  shareWrite,
   systemInternal,
 ];
 
@@ -85,6 +112,7 @@ describe("AI manifest source derivation (contract.md §2)", () => {
       staffExposed,
       consumerExposed,
       accountExposed,
+      customerExposed,
     ]);
   });
 
@@ -94,6 +122,26 @@ describe("AI manifest source derivation (contract.md §2)", () => {
     ]);
     expect(aiToolSourcesForPrincipal(all, "account")).toEqual([accountExposed]);
     expect(aiToolSourcesForPrincipal(all, "staff")).toEqual([staffExposed]);
+    expect(aiToolSourcesForPrincipal(all, "customer")).toEqual([
+      customerExposed,
+    ]);
     expect(aiToolSourcesForPrincipal(all, "system")).toEqual([]);
+  });
+
+  it("never lists share-principal tools for staff, customer, consumer, or account sessions (ADR-0022)", () => {
+    for (const principal of [
+      "staff",
+      "customer",
+      "consumer",
+      "account",
+    ] as const) {
+      expect(
+        aiToolSourcesForPrincipal(all, principal).some(
+          (contract) => contract.principal === "share",
+        ),
+      ).toBe(false);
+    }
+    expect(deriveAiToolSources(all)).not.toContain(shareWrite);
+    expect(aiToolSourcesForPrincipal(all, "share")).toEqual([]);
   });
 });

@@ -24,6 +24,7 @@ import type {
   ActionRegistry,
   SessionPrincipal,
 } from "@showzy/core";
+import type { ActionPrincipal } from "@showzy/core/contract";
 import { Hono, type Context } from "hono";
 
 import { createTrustedProxyMatcher, resolveClientIp } from "./client-ip.js";
@@ -73,8 +74,23 @@ export interface CreateAppOptions {
   readonly getPeerAddress: (c: Context<AppEnv>) => string;
 }
 
-function requiresSession(principal: string): boolean {
-  return principal !== "public";
+/**
+ * Public and share invocations are unauthenticated (contract.md §3,
+ * ADR-0022). Every other client principal needs a session; `system` is
+ * not HTTP-routable and stays fail-closed here if composition ever leaks.
+ */
+function requiresSession(principal: ActionPrincipal): boolean {
+  switch (principal) {
+    case "public":
+    case "share":
+      return false;
+    case "staff":
+    case "customer":
+    case "consumer":
+    case "account":
+    case "system":
+      return true;
+  }
 }
 
 function sessionGate(registry: ActionRegistry) {

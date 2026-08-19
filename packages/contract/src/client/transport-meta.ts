@@ -8,7 +8,8 @@
 /**
  * The staff active-company *selector*. Core verifies it against a
  * `company_members` row — it is never an access grant (ADR-0013), and
- * consumer/account/public dispatch ignores it entirely.
+ * consumer/account/public/share dispatch ignores it entirely. There is
+ * no share-token header — the capability token is action input (ADR-0022).
  */
 export const COMPANY_SELECTOR_HEADER = "x-company-id";
 
