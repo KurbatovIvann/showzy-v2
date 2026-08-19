@@ -19,6 +19,7 @@ import {
   createRateLimitHook,
   effectiveCompanyId,
   implementAction,
+  type ActionExecutionCtx,
   type ActionPipelineDeps,
   type ImplementedAction,
   type ResolvedTarget,
@@ -94,6 +95,67 @@ function hasName(value: unknown): value is Pick<ProductRow, "name"> {
     "name" in value &&
     typeof value.name === "string"
   );
+}
+
+const SHARE = {
+  tokenA: "http-share-token-a",
+  tokenB: "http-share-token-b",
+  expired: "http-share-token-expired",
+  revoked: "http-share-token-revoked",
+  documentA: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  documentB: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+} as const;
+
+const shareInput = z.object({
+  token: z.string().min(1),
+  documentId: z.uuid(),
+});
+
+const shareOutput = z.object({
+  companyId: z.string(),
+  actorType: z.string(),
+  actorId: z.string(),
+});
+
+function resolveShareTarget(
+  input: { token: string; documentId: string },
+  env: TargetResolutionEnv,
+): Promise<ResolvedTarget<{ documentId: string }>> {
+  if (env.principal.mode !== "share") {
+    throw new NotFoundError();
+  }
+  if (input.token === SHARE.expired || input.token === SHARE.revoked) {
+    throw new NotFoundError();
+  }
+  if (input.token === SHARE.tokenA && input.documentId === SHARE.documentA) {
+    return Promise.resolve({
+      companyId: kitIdentities.companies.a,
+      resource: { documentId: SHARE.documentA },
+      tokenHash: "hash-a",
+    });
+  }
+  if (input.token === SHARE.tokenB && input.documentId === SHARE.documentB) {
+    return Promise.resolve({
+      companyId: kitIdentities.companies.b,
+      resource: { documentId: SHARE.documentB },
+      tokenHash: "hash-b",
+    });
+  }
+  throw new NotFoundError();
+}
+
+function shareEcho(
+  _input: { token: string; documentId: string },
+  ctx: ActionExecutionCtx,
+) {
+  if (ctx.principal !== "share") {
+    throw new NotFoundError();
+  }
+  return Promise.resolve({
+    companyId: ctx.target.companyId,
+    actorType: ctx.actor.type,
+    actorId: ctx.actor.id,
+  });
 }
 
 function createSampleActions() {
@@ -267,6 +329,46 @@ function createSampleActions() {
           Promise.resolve({ companyId: effectiveCompanyId(ctx) }),
       },
     ),
+    getShared: implementAction(
+      defineActionContract({
+        ...readDefaults,
+        name: "sample.getShared",
+        description: "Anonymous share-token read of one document.",
+        principal: "share",
+        permissions: [],
+        input: shareInput,
+        output: shareOutput,
+      }),
+      {
+        resolveTarget: resolveShareTarget,
+        handler: shareEcho,
+      },
+    ),
+    submitShare: implementAction(
+      defineActionContract({
+        ...writeDefaults,
+        name: "sample.submitShare",
+        description: "Anonymous share-token write of a dual-signed container.",
+        principal: "share",
+        permissions: [],
+        input: shareInput,
+        output: shareOutput,
+      }),
+      {
+        resolveTarget: resolveShareTarget,
+        auditTarget: (env) => {
+          const parsed = shareInput.parse(env.input);
+          return { type: "document", id: parsed.documentId };
+        },
+        auditSnapshot: () => ({
+          cn: "Test Signer",
+          org: "Acme",
+          taxId: "1234567890",
+          role: "buyer",
+        }),
+        handler: shareEcho,
+      },
+    ),
     internalJob: implementAction(
       defineActionContract({
         ...readDefaults,
@@ -310,6 +412,8 @@ function clientExposedModules(a: ReturnType<typeof createSampleActions>) {
       peek: a.peek.contract,
       whoami: a.whoami.contract,
       mine: a.mine.contract,
+      getShared: a.getShared.contract,
+      submitShare: a.submitShare.contract,
     },
   };
 }
@@ -396,6 +500,8 @@ beforeAll(async () => {
   register(registry, actions.peek);
   register(registry, actions.whoami);
   register(registry, actions.mine);
+  register(registry, actions.getShared);
+  register(registry, actions.submitShare);
   register(registry, actions.internalJob);
   const serverRouter = buildServerRouter(clientExposedModules(actions), {
     registry,
@@ -567,6 +673,56 @@ describe("principal dispatch", () => {
     expect(error.code).toBe("PERMISSION_DENIED");
     expect(error.status).toBe(403);
   });
+
+  it("share: no session required; a present selector grants nothing; actor stays anonymous", async () => {
+    const client = clientFor(
+      makeContext({
+        session: { userId: kitIdentities.users.anna },
+        companySelector: kitIdentities.companies.b,
+      }),
+    );
+    await expect(
+      client.sample.getShared({
+        token: SHARE.tokenA,
+        documentId: SHARE.documentA,
+      }),
+    ).resolves.toEqual({
+      companyId: kitIdentities.companies.a,
+      actorType: "anonymous",
+      actorId: "anonymous",
+    });
+
+    const anonymous = clientFor(
+      makeContext({ session: null, companySelector: null }),
+    );
+    await expect(
+      anonymous.sample.getShared({
+        token: SHARE.tokenA,
+        documentId: SHARE.documentA,
+      }),
+    ).resolves.toEqual({
+      companyId: kitIdentities.companies.a,
+      actorType: "anonymous",
+      actorId: "anonymous",
+    });
+  });
+
+  it("share: invalid, expired, revoked, or mismatched token → NOT_FOUND 404", async () => {
+    const client = clientFor(
+      makeContext({ session: null, companySelector: null }),
+    );
+    const cases = [
+      { token: "unknown-token", documentId: SHARE.documentA },
+      { token: SHARE.expired, documentId: SHARE.documentA },
+      { token: SHARE.revoked, documentId: SHARE.documentA },
+      { token: SHARE.tokenA, documentId: SHARE.documentB },
+    ];
+    for (const input of cases) {
+      const error = await expectWireError(client.sample.getShared(input));
+      expect(error.code).toBe("NOT_FOUND");
+      expect(error.status).toBe(404);
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -578,6 +734,20 @@ describe("idempotency meta", () => {
     const client = clientFor(makeContext());
     const error = await expectWireError(
       client.sample.submit({ note: "no key supplied" }),
+    );
+    expect(error.code).toBe("VALIDATION");
+    expect(error.status).toBe(400);
+  });
+
+  it("a missing key on a share write → VALIDATION 400", async () => {
+    const client = clientFor(
+      makeContext({ session: null, companySelector: null }),
+    );
+    const error = await expectWireError(
+      client.sample.submitShare({
+        token: SHARE.tokenA,
+        documentId: SHARE.documentA,
+      }),
     );
     expect(error.code).toBe("VALIDATION");
     expect(error.status).toBe(400);

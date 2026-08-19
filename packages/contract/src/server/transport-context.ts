@@ -28,7 +28,7 @@ export interface TransportInvocationContext {
   readonly session: SessionPrincipal | null;
   /** Raw `x-company-id` header value; `null` when absent (ADR-0013). */
   readonly companySelector: string | null;
-  /** Trusted-proxy normalized; required by public/consumer/account modes. */
+  /** Trusted-proxy normalized; required by public/share/consumer/account. */
   readonly clientIp?: string;
   /** `idempotency-key` header/meta (core.md §5) — never action input. */
   readonly idempotencyKey?: string;
@@ -78,6 +78,9 @@ export function toPipelineRequestMeta(
  * - `public` gets nothing: neither session nor selector reaches the
  *   pipeline — tenant scope comes from the target resolver or the
  *   declared projection grant, never from transport meta (ADR-0020).
+ * - `share` gets nothing: neither session nor selector. The capability
+ *   token is action input, never a header (ADR-0022). A present session
+ *   is ignored and grants no extra access.
  * - `consumer`/`account` get only the session: a present `x-company-id`
  *   is ignored and grants no company scope (ADR-0018, ADR-0013).
  * - `system` is unreachable — system actions are `transport: "internal"`
