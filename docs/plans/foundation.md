@@ -670,18 +670,21 @@ real consumer before the slices freeze as templates.
 
 ### fnd-T48: `apps/mobile` bootstrap
 
-- **Scope:** Expo app: expo-router, TypeScript strict, Unistyles theme stub
-  (adapter slots named from the V1 token inventory; values remain gated by
-  Experience Foundation SYSTEM approval), typed
-  client from `packages/contract` wired with env-driven API URL, error-union
-  handling example, `AGENTS.md`. New dependencies (Expo, expo-router,
-  Unistyles) proposed for approval in the PR description.
+- **Scope:** Expo app: expo-router, TypeScript strict, Unistyles theme
+  transcribed from `docs/design/inventory/v1-mobile-token-baseline.md`
+  (light/dark/system; semantic roles; **not** a stub and **not** a rebrand),
+  typed client from `packages/contract` wired with env-driven API URL,
+  error-union handling example, `AGENTS.md` that points at
+  `docs/design/mapping/v1-mobile-port-recipe.md`. New dependencies (Expo,
+  expo-router, Unistyles) proposed for approval in the PR description. No
+  product navigation/screens. Do not copy V1 data-layer code.
 - **Context pack:** blueprint §3 (mobile row), §5; ADR-0010, ADR-0016,
-  ADR-0019; V1 token inventory; contract.md §3; pipeline.md (skills policy:
-  none installed in phases 0–1).
+  ADR-0019; V1 token inventory; port recipe; contract.md §3; pipeline.md
+  (skills policy: none installed in phases 0–1).
 - **Dependencies:** fnd-T24, fnd-G1 (queue position).
 - **Tests first:** typecheck + lint in CI; `expo export` smoke build stage;
-  client wiring unit test (mocked transport).
+  client wiring unit test (mocked transport); token shape and
+  light/dark/system switch.
 - **Sensitive:** no.
 
 ### fnd-T49: Auth screens
@@ -692,7 +695,9 @@ real consumer before the slices freeze as templates.
   (the `account` action listing own companies is phase-2 scope — stub shows
   session state only).
 - **Context pack:** security-operations §2; contract.md §3 (bearer);
-  ADR-0006; scope.md §7 phase-0 readiness ("the app signs in").
+  ADR-0006; scope.md §7 phase-0 readiness ("the app signs in");
+  `docs/design/mapping/v1-mobile-port-recipe.md` (V1 auth presentation,
+  theme tokens, no V1 data layer).
 - **Dependencies:** fnd-T48, fnd-T26.
 - **Tests first:** token storage/refresh/sign-out unit tests; wrong-OTP and
   resend-limit UI states driven by typed errors (mocked); e2e in fnd-T51.
@@ -1142,6 +1147,7 @@ pipeline.md "Linear workflow"):
 
 | Date | Change | Why |
 | --- | --- | --- |
+| 2026-08-19 | fnd-T48 transcribes the V1 Unistyles theme (no stub); `AGENTS.md` must point at the mobile port recipe. Figma is not a theme/SYSTEM gate | Owner: port V1 presentation from code, craft not product |
 | 2026-08-19 | Removed the pre-F spec freeze gate (mermaid, resolved decision 1, Milestone F Entry gate). Schema columns freeze in fnd-T29…T32 PRs; Living slice boundaries remain | Phase-0 spec-process plan D5 |
 | 2026-08-19 | Recorded that the local-dev fixture seed is deferred to fnd-T29+; phase 0 seeds only `role_permission_defaults` | fnd-G1 A12: db.md §9 / this plan previously implied the fixture set was seeded |
 | 2026-08-17 | Initial breakdown approved: 51 tasks + 2 gates across 9 milestones; Expo included mobile-only after fnd-G1; drafts to be approved with minimal Phase-1 subset; six spec ambiguities fixed by owner in specs | Plan the scaffold stage (phases 0–1) |

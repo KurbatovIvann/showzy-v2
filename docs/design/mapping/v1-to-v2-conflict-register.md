@@ -3,6 +3,8 @@
 > Status: Owner-approved decisions, 2026-08-17.
 > Authority: ADR-0019 and ADR-0020.
 > Source: `E:\showzy\apps\mobile` (read-only).
+> Implementation craft (hardcoded tokens, a11y slips) and undecided UX
+> nits live in [`v1-port-findings.md`](v1-port-findings.md), not here.
 
 ## Dispositions
 

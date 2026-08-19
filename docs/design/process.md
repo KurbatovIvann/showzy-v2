@@ -1,6 +1,9 @@
 # Experience Foundation — Design Process
 
 > Status: reset 2026-08-17 for V1 mobile parity; UX gate closed.
+> Amended 2026-08-19: SYSTEM/prototypes are running Expo, not Figma;
+> AI overlay is not a gate dependency. Port rule:
+> [`mapping/v1-mobile-port-recipe.md`](mapping/v1-mobile-port-recipe.md).
 > Owner: human product owner.
 > Companion to ADR-0019 (supersedes ADR-0017) and ADR-0020.
 
@@ -18,11 +21,11 @@ backend specs or implementation.
 flowchart LR
   I["INVENTORY"] --> C["CONFLICT MAP"]
   C --> D["DEFINE REBASELINE"]
-  D --> S["SYSTEM REBASELINE"]
-  S --> P["PROTOTYPE"]
-  P --> V["VALIDATE"]
-  V --> G{"UX GATE"}
-  G -->|approved| UI["UI IMPLEMENTATION (engineering pipeline)"]
+  C --> S["SYSTEM in Expo"]
+  D --> G{"UX GATE"}
+  S --> V["VALIDATE shell"]
+  V --> G
+  G -->|approved| UI["PRODUCT SCREENS (engineering pipeline)"]
 ```
 
 ---
@@ -50,28 +53,37 @@ enter ADR or spec rework before implementation.
 
 Rework IA and journeys from the V1 route model. Preserve customer/staff tabs,
 stacks, sheets, gestures, and entry paths. Add only approved V2 adaptations:
-public/auth handoff, verified contexts, account deletion, and a contextual AI
-overlay.
+public/auth handoff, verified contexts, and account deletion. A contextual
+AI overlay is approved in direction (ADR-0019) and scheduled as `vm-T29`;
+it is not a DEFINE or gate deliverable.
 
 **Approval:** replaces the previous DEFINE Approval #2.
 
 ### 4. SYSTEM REBASELINE
 
-Re-derive tokens and component contracts from the V1 implementation. Carry V1
-colors first; a later palette change is separate. Bind accessibility,
-offline, localization, and AI-context requirements to concrete components.
+Re-derive tokens and component contracts from the V1 implementation, in
+**code**. Carry V1 colors first; a later palette change is separate. The
+Unistyles theme lands in fnd-T48; primitives and shell are `vm-T14`…`T16`.
+Figma is not the SYSTEM artifact. Bind accessibility, offline, localization,
+and (later) AI-context requirements to concrete components.
 
-**Approval:** replaces the previous SYSTEM Approval #3.
+**Approval:** owner reviews the running theme and primitives on a device or
+simulator. This replaces the previous SYSTEM Approval #3.
 
 ### 5. PROTOTYPE
 
-Prototype P1 parity flows from golden references, including exceptional V2
-adaptations and one classic↔AI handoff.
+There is no Figma prototype wave. Auth and the app shell run as Expo
+foundation (fnd-T49/T50). Product-flow parity is proven on the vertical
+slices after the gate (`vm-T18`…), compared to V1 screenshots and recordings.
+The contextual AI overlay is `vm-T29` and is **not** required to open the
+gate.
 
 ### 6. VALIDATE
 
-The owner and one owner-designated reference user evaluate internally against
-parity evidence. Results remain labeled `internal evaluation only`.
+The owner (and, when designated, one reference user) evaluates the running
+Expo SYSTEM — theme, primitives, auth shell — internally. Full P1 journey
+evaluation happens on vertical slices and in `vm-T30`. Results remain
+labeled `internal evaluation only`.
 
 The detailed RESEARCH/DEFINE/SYSTEM requirements below remain useful where
 they do not conflict with ADR-0019. Existing research is retained as evidence,
@@ -112,8 +124,8 @@ DEFINE begins.
 - Multi-flow journey maps:
   - Classic UI path for each core journey (discovery, order, catalog, chat,
     documents).
-  - AI chat path for the same journeys.
-  - Handoff points between classic and AI flows.
+  - AI overlay path is directed (ADR-0019) and specified with the `vm-T29`
+    slice; it is not a DEFINE gate deliverable.
   - Three entry-path variants: **search/browse discovery** (ADR-0018),
     **invite**, and **direct link** — with fallback states (no results,
     unpublished company, deactivated product, loading, offline, error).
@@ -131,55 +143,49 @@ DEFINE begins.
 
 **Outputs:**
 - Design tokens (color palette, typography scale, spacing, elevation,
-  motion/easing, border radii) — mapped to Unistyles theme structure.
-- Core component contracts (button, input, card, list item, bottom sheet,
-  modal, toast, avatar, badge, skeleton, empty state, error state) — props,
-  variants, states, accessibility requirements.
-- Iconography and illustration direction.
-- Layout system (responsive grid, safe areas, keyboard-aware scroll).
-- Dark mode strategy (if applicable for V2 launch or deferred).
+  motion/easing, border radii) implemented as the Unistyles theme in
+  `apps/mobile` from the V1 inventory — not a parallel Figma library.
+- Core component contracts implemented as primitives (`vm-T14`…`T16`):
+  button, input, card, list item, bottom sheet, toast, avatar, badge,
+  skeleton, empty/error — props, variants, states, accessibility.
+- Iconography carried from V1 (Lucide usage and sizes), not a new set.
+- Layout system (safe areas, keyboard-aware scroll) in the screen shell.
+- Light, dark, and system modes from the V1 theme contract.
 
-**Approval:** Human owner reviews token spec and component contracts.
+**Approval:** Human owner reviews the running theme and primitives.
 
 ---
 
 ### 4. PROTOTYPE
 
-**Goal:** Assemble the system into representative interactive screens.
+**Goal:** Prove parity on running software, not a Figma file.
 
 **Outputs:**
-- Interactive prototypes (Figma or equivalent) covering at minimum:
-  - Onboarding / sign-in.
-  - Consumer: search → results → company profile → cart (discovery entry).
-  - Consumer: invite link → install → sign in → company context (invite entry).
-  - Consumer: direct link → company profile (direct-link entry).
-  - Staff: catalog management, order list, order detail in chat.
-  - Customer: company profile, cart, checkout, redirect to chat.
-  - AI chat: a representative action (e.g., "create an order for customer X").
-  - AI chat: discovery-equivalent (e.g., "find me a confectionery in Kyiv").
-- Loading, empty, error, offline, no-results, and unpublished/deactivated
-  state examples for discovery and company screens.
-- Multi-flow transition examples (AI suggests → user confirms in classic UI;
-  consumer discovers → enters company → becomes customer).
+- fnd-T48 theme + `vm-T14`…`T16` primitives and shell in `apps/mobile`.
+- fnd-T49/T50 auth and deep-link infrastructure (ADR-0019 exception).
+- After the gate, each vertical slice compared to V1 screenshots/recordings,
+  including loading/empty/error/offline for that slice.
+- Contextual AI overlay (`vm-T29`) after classic slices, not before the gate.
 
-**Approval:** Human owner reviews prototypes before validation.
+**Approval:** Human owner reviews the running SYSTEM before the gate;
+journey-level review is per slice and `vm-T30`.
 
 ---
 
 ### 5. VALIDATE
 
-**Goal:** Evaluate prototypes internally against the approved journeys and
-record usability limitations honestly.
+**Goal:** Evaluate the running Expo SYSTEM internally and record limitations
+honestly. Full P1 journey evaluation is not a gate input.
 
 **Outputs:**
-- Internal evaluation plan for the human owner and one owner-designated
-  reference user; tasks are derived from core journeys.
-- Test results and findings.
-- Iteration log (what changed based on feedback).
-- Final internally evaluated prototypes.
+- Owner (and optional reference-user) notes on theme, primitives, and auth
+  shell, labeled `internal evaluation only`.
+- Port findings dispositions for any Class C items the review raises.
+- Slice-level evaluation records under `docs/design/validation/` as product
+  screens land.
 
-**Approval:** Human owner confirms internal evaluation is sufficient and
-accepts the absence of representative external validation.
+**Approval:** Human owner confirms SYSTEM evaluation is enough to open the
+gate and accepts the absence of representative external validation.
 
 ---
 
@@ -192,11 +198,14 @@ The UX gate is a formal checkpoint. Product screens in `apps/mobile`
 2. V1 mobile screen, component, token, and state inventories are approved.
 3. Every conflict has an owner disposition.
 4. Every interactive behavior maps to a V2 action/event or approved rework.
-5. V1-derived IA and journeys receive replacement DEFINE approval.
-6. V1-derived tokens/components receive replacement SYSTEM approval.
-7. P1 parity prototypes include all canonical contexts and one AI handoff.
-8. Owner/reference-user evaluation is labeled `internal evaluation only`.
-9. Human owner explicitly records the gate as open.
+5. V1-derived IA (tabs, stacks, sheets, entry paths) receives replacement
+   DEFINE approval. Contextual AI overlay is directed, not delivered.
+6. V1-derived Unistyles theme (fnd-T48) and primitives/shell (`vm-T14`…`T16`)
+   receive replacement SYSTEM approval on a running device/simulator.
+7. Owner evaluation of that running SYSTEM is labeled
+   `internal evaluation only`. Full P1 journey prototypes and the AI overlay
+   are not gate inputs.
+8. Human owner explicitly records the gate as open.
 
 **Exception:** Expo app shell infrastructure (navigation skeleton, auth
 screens, deep-link routing) is NOT gated — it is technical foundation
@@ -207,16 +216,18 @@ product UX decision.
 
 ## Multi-flow design requirements
 
-Every design artifact must address all three dimensions:
+Launch completeness still spans three dimensions:
 
 | Dimension | Values |
 | --- | --- |
-| Interaction mode | Classic UI (screens, forms, lists) · AI chat (text, tool calls, generative UI cards) |
+| Interaction mode | Classic UI (screens, forms, lists) · AI overlay (`vm-T29`) |
 | Persona | Staff / company owner · Consumer (discovery) · Customer (company-scoped) |
 | Entry path | Search/browse discovery · Invite · Direct link |
 
-A component or journey is not complete until it specifies behavior in all
-applicable intersections (not every component appears in every cell).
+A **product journey** is not complete until classic UI is specified for every
+applicable persona and entry path. The AI overlay is a later slice that must
+call the same actions; it is not required on theme/primitive PRs or to open
+the UX gate.
 
 ---
 
@@ -227,12 +238,14 @@ applicable intersections (not every component appears in every cell).
   implementation requires a reference to the approved inventory / mapping
   artifact and is rejected if the UX gate has not been passed. Backend
   `/spec` and `/plan` are not gated.
-- UI implementation tasks (`/implement`) reference the module spec and the
-  V1 inventory, not archived greenfield component contracts.
+- UI implementation tasks (`/implement`) reference the module spec, the
+  V1 inventory, and `docs/design/mapping/v1-mobile-port-recipe.md`, not
+  archived greenfield component contracts or Figma.
 - UI acceptance criteria (added to the definition of done for UI tasks):
-  journey conformance, classic/AI parity where applicable, accessibility
-  baseline, loading/empty/error/offline states, localization readiness, and
-  internal evaluation evidence with its limitation.
+  journey conformance, accessibility baseline, loading/empty/error/offline
+  states, localization readiness, port-recipe Class A/B hygiene, and
+  internal evaluation evidence with its limitation. Classic/AI parity is
+  required when `vm-T29` is in scope, not on every earlier UI PR.
 
 ---
 
@@ -249,7 +262,9 @@ docs/design/
 │   └── v1-mobile-token-baseline.md
 ├── mapping/
 │   ├── v1-to-v2-conflict-register.md
-│   └── v1-ux-to-v2-capability-matrix.md
+│   ├── v1-ux-to-v2-capability-matrix.md
+│   ├── v1-mobile-port-recipe.md
+│   └── v1-port-findings.md
 ├── research/
 │   ├── brief.md
 │   └── competitor-audit.md
@@ -260,7 +275,7 @@ docs/design/
 ├── system/
 │   └── README.md           (greenfield system archived; use inventory/)
 ├── prototypes/
-│   └── README.md           (links to Figma or equivalent)
+│   └── README.md           (not a Figma gate; optional later)
 └── validation/
     ├── test-plan.md
     └── results.md
