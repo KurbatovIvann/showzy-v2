@@ -5,7 +5,7 @@
 > Ledger catch-up: first merged auth/ops implementation (fnd-T6, fnd-T26…T28).
 > Applies to phase 0 and every module. Written against blueprint §2.1/§3/§7,
 > ADR-0006, ADR-0009, ADR-0010, ADR-0012, ADR-0013, ADR-0018, ADR-0020,
-> ADR-0021, and foundation specs.
+> ADR-0021, ADR-0022, and foundation specs.
 
 ## 1. Data classification and trust boundaries
 
@@ -19,13 +19,13 @@
 
 ### Authorization matrix (principal x classification)
 
-| Classification | `staff` | `customer` | `public` | `consumer` | `account` | `system` |
-| --- | --- | --- | --- | --- | --- | --- |
-| **Public** (published facts) | Yes, within verified membership company | Yes, via typed `resolveTarget` visibility | Yes — target resolver or declared global published projection; unpublished/internal fields forbidden | Yes — **global published-only discovery**; no company scope; unpublished/draft/internal facts forbidden | Yes — may read published facts while listing companies or bootstrapping; no company scope | Per explicit `systemScope` |
-| **Internal** | Permission-gated | No | No | No | No | Per explicit scope / job |
-| **Personal** | Permission-gated or self | Own resources only | No | No (session identity for auth/rate-limit only; never CRM/PII discovery leakage) | Own-user resources only (personal profile, own company list) | Per explicit scope / job |
-| **Financial/legal** | Permission-gated | Own orders/docs/payments only | No | No | No | Per explicit scope / job |
-| **Cryptographic/secret** | Never returned to clients; server-side handling only | Never | Never | Never | Never | Constrained server jobs only; QES keys never enter the server |
+| Classification | `staff` | `customer` | `public` | `consumer` | `account` | `share` | `system` |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| **Public** (published facts) | Yes, within verified membership company | Yes, via typed `resolveTarget` visibility | Yes — target resolver or declared global published projection; unpublished/internal fields forbidden | Yes — **global published-only discovery**; no company scope; unpublished/draft/internal facts forbidden | Yes — may read published facts while listing companies or bootstrapping; no company scope | Yes — typed `resolveTarget` over hashed capability token; fields outside the owning spec's share allowlist forbidden | Per explicit `systemScope` |
+| **Internal** | Permission-gated | No | No | No | No | No | Per explicit scope / job |
+| **Personal** | Permission-gated or self | Own resources only | No | No (session identity for auth/rate-limit only; never CRM/PII discovery leakage) | Own-user resources only (personal profile, own company list) | No (no session; never CRM/PII) | Per explicit scope / job |
+| **Financial/legal** | Permission-gated | Own orders/docs/payments only | No | No | No | Yes — only the token-bound document/artifact the owning spec allowlists; no other orders/docs/payments | Per explicit scope / job |
+| **Cryptographic/secret** | Never returned to clients; server-side handling only | Never | Never | Never | Never | Never; QES keys never enter the server; raw token never returned | Constrained server jobs only; QES keys never enter the server |
 
 Notes:
 - Classification **Public** (published facts) is not the same as principal `public`.
@@ -38,6 +38,15 @@ Notes:
   (no company RBAC applies); they may perform writes (create company, update
   personal profile) unlike `consumer`. `account` actions must not access
   another user's data or company-scoped resources (ADR-0013).
+- `share` actions are unauthenticated capability-token holders (ADR-0022).
+  Company scope comes only from typed `resolveTarget` over the hashed token
+  (a selector, never a `companyId` grant). `public` stays read-only; share
+  may write when the owning spec allowlists it. Access-log actor is
+  `anonymous`; durable audit/events use `actorType: system` and
+  `actorId: "share"` (`audit_log` CHECK is `user|system`). Raw token never
+  appears in logs, audit, or events. Expired, revoked, or mismatched tokens
+  are indistinguishable `NotFoundError`. Co-sign (and any other share write)
+  MUST NOT create CRM rows.
 - Authorization remains in action principal/permissions/target resolution or
   a declared public projection grant (ADR-0009, ADR-0020); this matrix is the
   ops policy those checks must satisfy.
@@ -46,7 +55,7 @@ Untrusted inputs include every client field, chat/catalog/document content,
 file upload, webhook, provider response, queue payload, event payload, and AI
 tool result. Zod validation is necessary but never grants tenant access.
 
-### Discovery and social surface security (ADR-0018, ADR-0020)
+### Discovery and social surface security (ADR-0018, ADR-0020, ADR-0022)
 
 - **Information disclosure of unpublished entities:** public-global and
   consumer discovery must never surface draft/unpublished company, product,
@@ -71,6 +80,11 @@ tool result. Zod validation is necessary but never grants tenant access.
   and modify personal profile. Abuse vector: mass company creation. Defended
   by rate limiting, optional CAPTCHA/verification on company creation, and
   monitoring for anomalous creation patterns.
+- **Share-token abuse (ADR-0022):** unauthenticated writes are allowlisted
+  only. Rate-limited 30/min per rotating IP HMAC, fail-closed on Redis
+  failure (reads and writes). Token A cannot read or write token B's
+  resource. A present session on a share invocation is ignored (no extra
+  access; log actor stays `anonymous`). AI never lists share tools.
 - **Atomic capability boundary (ADR-0021):** `ctx.callAtomic` is never a
   transport route. CI and runtime require a mutually declared caller/callee
   edge, matching principal and verified tenant, one root transaction, and no
@@ -92,12 +106,18 @@ tool result. Zod validation is necessary but never grants tenant access.
 - Password/session/token changes invalidate affected sessions. High-risk
   actions may require recent authentication in addition to core confirmation.
 - Staff active-company headers remain selectors verified against membership
-  on every action (ADR-0013). Socket.IO/SSE room joins run the same
-  principal/tenant authorization as HTTP actions.
+  on every action (ADR-0013). Share capability tokens travel as action input
+  (hashed by `resolveTarget`), never as `x-company-id` or a session
+  (contract.md §3). A present session on a share invocation is ignored.
+  Socket.IO/SSE room joins run the same principal/tenant authorization as
+  HTTP actions.
 - Hono trusts forwarded IP headers only from configured ingress proxies;
   direct/spoofed values are ignored. Rate-limit tiers (defaults owned by
   `docs/specs/core.md` §10; do not fork numbers here):
   - `public` — 30/min per rotating HMAC of trusted-proxy-normalized IP;
+  - `share` — 30/min per rotating HMAC of trusted-proxy-normalized IP
+    (same class as `public`; fail-closed on Redis failure for reads and
+    writes);
   - `consumer` — 60/min per authenticated user (read-only discovery; tighter
     than staff/customer, looser than public);
   - `account` — 90/min per authenticated user (moderate; own-user writes
@@ -106,9 +126,11 @@ tool result. Zod validation is necessary but never grants tenant access.
   - `system` — unlimited (job policy may still bound outbound calls).
 
   Raw IP is transport-only: never the Redis key for authenticated principals,
-  and never copied into domain logs/audit. Redis failure: fail-closed for
-  public/auth/high-risk; fail-open with error log for ordinary authenticated
-  reads (including `consumer` and `account`).
+  and never copied into domain logs/audit. Redis failure (owned by core.md
+  §10; do not fork here): fail-closed for public actions, every share action
+  (reads and writes), and every mutation (`draft`/`write`/`high`); fail-open
+  with an error log for ordinary authenticated reads (`risk: read` on
+  staff/customer/consumer/account). System actions default to fail-open.
 
 ## 3. Files and object storage
 
@@ -164,9 +186,14 @@ tool result. Zod validation is necessary but never grants tenant access.
   `account`, and declared global `system` work, `company_id` is null.
   Public-global uses log actor `anonymous`; public-target additionally carries
   its resolved company. Consumer/account lines carry accountable user actor.
-  Consumer actions never write durable audit rows or domain events; `account`
-  actions may write audit when declared (`audit: true`). Logs never
-  contain raw OTPs, tokens, secrets, full documents, raw payment/webhook
+  Share uses log actor `anonymous` with `company_id` from the resolved target.
+  Durable audit rows and domain events for share writes use `actorType:
+  system` and `actorId: "share"` — never `anonymous` (db.md `audit_log`
+  CHECK is `user|system`). Consumer actions never write durable audit rows
+  or domain events; `account` actions may write audit when declared
+  (`audit: true`); share writes must (`audit: true` + redacted certificate
+  `auditSnapshot`). Logs never contain raw OTPs, tokens (including share
+  capability tokens), secrets, full documents, raw payment/webhook
   payloads, or unredacted personal input.
 - Alert on sustained auth/rate-limit abuse, dead event deliveries, queue
   exhaustion, payment/provider reconciliation failures, backup failure,
@@ -221,6 +248,13 @@ review. A critical/high unresolved finding blocks merge.
       data; cannot access company-scoped resources; structured logs include
       request/actor/channel with null company_id (test).
 - [ ] Account rate limit defaults to 90/min per user (test).
+- [ ] Share principal: token A cannot read/write token B's resource;
+      expired/revoked/mismatch are indistinguishable `NotFoundError`;
+      no CRM side effects; raw token absent from logs/audit/events (test).
+- [ ] Share rate limit defaults to 30/min per IP-HMAC; Redis failure
+      fail-closed for share reads and writes (test).
+- [ ] Share structured logs use actor `anonymous` with resolved company_id;
+      share-write audit/event actor is `system`/`share` (test).
 - [ ] Discovery surface: unpublished entity requests return indistinguishable
       errors; projection responses contain no CRM/personal data or
       follower/liker identities (test).
@@ -234,6 +268,7 @@ review. A critical/high unresolved finding blocks merge.
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-19 | Seventh principal `share` (ADR-0022): matrix column, 30/min IP-HMAC fail-closed, access-log `anonymous` vs audit/event `system`/`share` | Unauthenticated capability-token writes for owner-first dual-sign; core.md and contract.md already amended | owner via `/rework-spec security-operations.md` |
 | 2026-08-19 | Status: Active; Active surface: entire file | Ledger catch-up: first merged auth/ops (fnd-T6, fnd-T26…T28) | owner via spec-process-after-phase-0 |
 | 2026-08-19 | §4: phase-0 HTTP invocations (including `/api/v1` REST aliases) are `channel: "ui"`; revisit when external consumers or the AI mount land | Align living spec with the API composition (fnd-G1 A12) | scaffold (fnd-G1 A12) |
 | 2026-08-18 | Linked ops runbooks and log/Sentry redaction helpers | fnd-T28 security/ops baseline | scaffold (fnd-T28) |

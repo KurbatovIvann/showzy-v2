@@ -127,12 +127,11 @@ implementer is the **scaffold agent** (`/scaffold`, not `/ticket`):
   in fnd-T6: `auth:generate` applies a deterministic timestamptz codemod
   after the CLI (upstream better-auth#9920); db.md §4 patched in the same
   PR with a schema test pinning `timestamp with time zone`.
-- **`share` principal (ADR-0022, accepted 2026-08-19):** core.md Active
-  surface is amended; implementation is **fnd-T11B**, not a reopen of
-  fnd-T11. contract.md Active surface is amended (2026-08-19); HTTP/oRPC
-  dispatch is **fnd-T23B**, not a reopen of fnd-T23/T26. Security-operations
-  matrix waits on its own `/rework-spec`. Co-sign cannot ship until T11B,
-  T23B, and that rework land.
+- **`share` principal (ADR-0022, accepted 2026-08-19):** core.md, contract.md,
+  and security-operations.md Active surfaces are amended (2026-08-19).
+  Implementation is **fnd-T11B** (core factory; not a reopen of fnd-T11) and
+  **fnd-T23B** (HTTP/oRPC dispatch; not a reopen of fnd-T23/T26). Co-sign
+  cannot ship until T11B and T23B land.
 
 ---
 
@@ -350,7 +349,9 @@ implementer is the **scaffold agent** (`/scaffold`, not `/ticket`):
   stays action input; no session-gate or HTTP tests here). `db.md` CHECKs
   do not change. Do not reopen fnd-T11…T22 as catch-all tickets.
 - **Context pack:** core.md (Active, 2026-08-19 share amendment); ADR-0022;
-  ADR-0013 (amended); contract.md (Active, 2026-08-19 share dispatch).
+  ADR-0013 (amended); contract.md (Active, 2026-08-19 share dispatch);
+  security-operations.md (Active, 2026-08-19 share matrix / IP-HMAC
+  fail-closed / log vs audit actor).
 - **Dependencies:** fnd-G1. **Blocks** fnd-T23B and owner-first
   `doc-signing` co-sign (`submitShareSignature`).
 - **Tests first:** define-time rejection of every share-subset violation;
@@ -604,7 +605,8 @@ implementer is the **scaffold agent** (`/scaffold`, not `/ticket`):
   and stay out of AI artifacts (`aiExposure: internal`). Do not add
   `x-share-token`. Do not reopen fnd-T23…T26 as catch-all tickets.
 - **Context pack:** contract.md §2–§3, §7 (2026-08-19 share amendment);
-  ADR-0022; core.md §3 share factory (fnd-T11B).
+  ADR-0022; core.md §3 share factory (fnd-T11B); security-operations.md
+  §1–§2, §6, §8 (share matrix, IP-HMAC fail-closed, log vs audit actor).
 - **Dependencies:** fnd-T11B, fnd-T26. **Blocks** owner-first `doc-signing`
   co-sign (`submitShareSignature`).
 - **Tests first:** contract.md §7 share set — no session does not 401;

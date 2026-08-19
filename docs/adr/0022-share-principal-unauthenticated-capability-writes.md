@@ -81,8 +81,9 @@ cannot write. Download limits belong to pre-minted `files` URLs at
   Implementation is scaffold **fnd-T11B**.
 - `contract.md` was amended 2026-08-19 (`/rework-spec`). HTTP/oRPC dispatch
   is scaffold **fnd-T23B**. `share` receives the token from action input
-  (resolver), not from `x-company-id` or a session. Security-operations
-  matrix still needs `/rework-spec`.
+  (resolver), not from `x-company-id` or a session. `security-operations.md`
+  was amended 2026-08-19 (`/rework-spec`): matrix column, 30/min IP-HMAC
+  fail-closed, access-log `anonymous` vs audit/event `system`/`share`.
 - `doc-signing` spec must declare `prepareShareSign` (read) and
 `submitShareSignature` (write) with this principal.
 - Safer dual-sign UX: Showzy asserts "both parties" only when the

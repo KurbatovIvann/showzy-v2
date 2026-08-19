@@ -19,8 +19,7 @@
 > download the supplier-signed artifact and apply a second QES. Dual-sign
 > without login is required product, not cabinet expansion. Recording that
 > second signature uses **ADR-0022** (unauthenticated write principal
-> `share`) after fnd-T11B, fnd-T23B, and the security-operations rework
-> land. Customer-cabinet
+> `share`) after fnd-T11B and fnd-T23B land. Customer-cabinet
 > `getMine` / in-app review remain Deferred.
 > QES keys never leave the device (`doc-signing`). PDF rendering is
 > `doc-generation`.
@@ -188,9 +187,9 @@ to sign and for authority to sign. Showzy is responsible for integrity of
 the stored payload, for not restamping signed bytes, and for not labelling
 the document fully signed unless P9 holds.
 
-Co-sign **implementation is blocked** until fnd-T11B (core `share` factory),
-fnd-T23B (HTTP/oRPC share dispatch), and `/rework-spec
-security-operations.md` land. `getShared` can ship earlier (download-only).
+Co-sign **implementation is blocked** until fnd-T11B (core `share` factory)
+and fnd-T23B (HTTP/oRPC share dispatch) land. `getShared` can ship earlier
+(download-only).
 
 ---
 
@@ -938,8 +937,8 @@ files key, not a documents column.
    `submitShareSignature`, and `doc-signing.recorded`. `markSigned` is idle
    until that subscription exists.
 3. **Co-sign waits on fnd-T11B** (core `share` factory) plus **fnd-T23B**
-   (HTTP dispatch) and `/rework-spec security-operations.md`. `contract.md`
-   is amended. ADR-0022 is accepted. `getShared` (download-only) can ship
+   (HTTP dispatch). `core.md`, `contract.md`, and `security-operations.md`
+   are amended. ADR-0022 is accepted. `getShared` (download-only) can ship
    without the factory. Do not fold the write into `public`.
 
 **Companies spec consistency:** `companies.legalInfoUpdated` does not
@@ -992,11 +991,11 @@ refresh issued documents.
 
 ### Core change request
 
-**ADR-0022 (`share` principal)** — accepted 2026-08-19. `core.md` and
-`contract.md` Active surfaces are amended (`/rework-spec`). Remaining:
-`/rework-spec security-operations.md`, then scaffold **fnd-T11B** and
-**fnd-T23B**. Numbering in this module still uses ordinary
-`SELECT … FOR UPDATE` via Drizzle; that is not a core change.
+**ADR-0022 (`share` principal)** — accepted 2026-08-19. `core.md`,
+`contract.md`, and `security-operations.md` Active surfaces are amended
+(`/rework-spec`). Remaining: scaffold **fnd-T11B** and **fnd-T23B**.
+Numbering in this module still uses ordinary `SELECT … FOR UPDATE` via
+Drizzle; that is not a core change.
 
 ---
 
@@ -1004,6 +1003,7 @@ refresh issued documents.
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-19 | security-operations.md share matrix/rate-limit/audit-actor amended; co-sign blocked only on fnd-T11B + fnd-T23B | Ops contract for unauthenticated capability-token writes | owner via `/rework-spec security-operations.md` |
 | 2026-08-19 | contract.md share dispatch amended; co-sign blocked on fnd-T11B + fnd-T23B + security-ops rework | HTTP rules for unauthenticated capability-token writes | owner via `/rework-spec contract.md` |
 | 2026-08-19 | ADR-0022 accepted; co-sign blocked on fnd-T11B + contract/security-ops rework, not on ADR | core.md Active surface amended | owner via `/rework-spec core.md` |
 | 2026-08-19 | Unauthenticated share + co-sign is owner-first: immutable payload, append second QES, EDRPOU match for `fully_signed`, statuses `supplier_signed`/`fully_signed`, ADR-0022 | Required product: handover without Showzy login | owner via spec discussion |
