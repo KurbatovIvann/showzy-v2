@@ -98,6 +98,26 @@ describe("auth API client", () => {
     expect(wrong.message).not.toContain("123456");
   });
 
+  it("signs in email OTP via /sign-in/email-otp, not verify-email", async () => {
+    const requests: Request[] = [];
+    const api = createAuthApi({
+      baseUrl: "http://api.test",
+      fetch: (input) => {
+        const request = asRequest(input);
+        requests.push(request);
+        return Promise.resolve(jsonResponse(200, { token: "tok" }));
+      },
+    });
+    await expect(
+      api.verifyOtp({ channel: "email", email: "a@b.c" }, "111111"),
+    ).resolves.toBe("tok");
+    expect(requests[0]?.url).toBe("http://api.test/api/auth/sign-in/email-otp");
+    expect(await requests[0]?.clone().json()).toEqual({
+      email: "a@b.c",
+      otp: "111111",
+    });
+  });
+
   it("reads the bearer from the body or set-auth-token header", async () => {
     const fromBody = createAuthApi({
       baseUrl: "http://api.test",

@@ -107,7 +107,9 @@ export function createAuthApi(options: AuthApiOptions): AuthApi {
               operation: "verify",
               body: { phoneNumber: identifier.phoneNumber, code },
             })
-          : await request("/email-otp/verify-email", {
+          : await request("/sign-in/email-otp", {
+              // Send uses type "sign-in"; /email-otp/verify-email looks up a
+              // different identifier and would reject a valid sign-in code.
               method: "POST",
               operation: "verify",
               body: { email: identifier.email, otp: code },
