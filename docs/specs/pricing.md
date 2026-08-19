@@ -7,6 +7,13 @@
 > ADR-0014, ADR-0015, ADR-0016; `docs/specs/core.md`, `docs/specs/db.md`,
 > `docs/specs/money.md`, `docs/specs/contract.md`,
 > `docs/specs/companies-foundation.md`.
+>
+> **Owner-first launch (2026-08-19):** the first product release is the
+> company panel (staff/AI). Customer cabinet, public storefront, consumer
+> discovery, and the business-chat platform are **Deferred: customer
+> expansion** — named capabilities only, not a freeze and not launch work.
+> Staff `pricing.resolveProductPrices` is owner-first (needed by
+> `orders.create`). Customer-checkout resolution is Deferred.
 
 ## 1. Purpose
 
@@ -195,47 +202,14 @@ const ResolvedPrice = z.object({
 | timeout | `3_000` |
 | Calls (`ctx.call`) | `catalog.getProductPricingFacts`, `customers.getCustomerPricingFacts` |
 
-### 3.2 `pricing.resolveMyProductPrices`
+### 3.2–3.3 Deferred: storefront resolution (customer expansion)
 
-| Field | Value |
-| --- | --- |
-| Name | `pricing.resolveMyProductPrices` |
-| Description | Resolve effective prices for products/variants from the perspective of the authenticated user. If the user has a CRM record (`company_customers` row) at this company, the full 5-level resolution chain applies. If not (non-CRM user per ADR-0018), resolution starts at level 4 (default price list) and falls back to level 5 (base price). Used by orders/cart and storefront catalog reads. |
-| Principal | `customer` |
-| Transport | `internal` |
-| Target | Typed `resolveTarget` resolves the company from the first item's `productId` via catalog and verifies the company is accessible to the authenticated user (published, or user holds a CRM record). Looks up the user's CRM record for that company (via customers read); returns `{ companyId, resource: { customerId } }` where `customerId` is the CRM record ID if one exists, or `null` if the user has no CRM record at this company. When invoked via `ctx.call`, receives `inheritedCompanyId` and verifies consistency. |
-| Input | `{ items: z.array(z.object({ productId: z.string().uuid(), variantId: z.string().uuid().optional() })).min(1).max(200) }` |
-| Output | `{ prices: z.array(ResolvedPrice) }` |
-| Permissions | `[]` |
-| aiExposure | `internal` |
-| risk | `read` |
-| requiresConfirmation | `false` |
-| idempotent | `false` |
-| emits | `[]` |
-| audit | `false` |
-| timeout | `3_000` |
-| Calls (`ctx.call`) | `catalog.getProductPricingFacts`, `customers.getCustomerPricingFactsForUser` (called only when `customerId` is non-null; skipped for non-CRM users — levels 1–3 are inapplicable without a CRM record) |
+Named only. Same 5-level algorithm as §3.1; do not implement in owner-first launch.
 
-### 3.3 `pricing.resolvePublicProductPrices`
-
-| Field | Value |
-| --- | --- |
-| Name | `pricing.resolvePublicProductPrices` |
-| Description | Resolve product prices visible to an unauthenticated visitor: default price list and base price only (personal/customer/group levels are unavailable without identity). |
-| Principal | `public` |
-| Transport | `internal` |
-| Target | Typed `resolveTarget` loads the company by slug/id and proves it is public; returns `{ companyId, resource: { companyId } }`. |
-| Input | `{ companySlug: z.string(), items: z.array(z.object({ productId: z.string().uuid(), variantId: z.string().uuid().optional() })).min(1).max(200) }` |
-| Output | `{ prices: z.array(ResolvedPrice) }` |
-| Permissions | `[]` |
-| aiExposure | `internal` |
-| risk | `read` |
-| requiresConfirmation | `false` |
-| idempotent | `false` |
-| emits | `[]` |
-| audit | `false` |
-| timeout | `3_000` |
-| Calls (`ctx.call`) | `catalog.getProductPricingFacts` |
+| Action | Principal | Intent |
+| --- | --- | --- |
+| `pricing.resolveMyProductPrices` | `customer` | Resolve for the authenticated user (full chain if CRM exists; else levels 4–5) |
+| `pricing.resolvePublicProductPrices` | `public` | Default list + base only |
 
 ---
 
@@ -938,5 +912,6 @@ the gap.
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-19 | Owner-first banner: staff resolution stays; customer-checkout resolution is Deferred. | Owner-first launch | owner |
 | 2026-08-17 | Initial draft | Pricing module specification | spec agent |
 | 2026-08-17 | Non-CRM user resolution fallback | ADR-0018 Step 5: explicit fallback for authenticated users without a CRM record; resolution skips levels 1–3, starts at default price list; consumer discovery shows no prices; `resolveMyProductPrices` target resolver returns nullable `customerId` | spec-rework agent |

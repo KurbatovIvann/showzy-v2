@@ -17,14 +17,15 @@ juggles (Instagram + Telegram + spreadsheets + Taxer) with a single app. The
 reference user is a home confectionery.
 
 - **Company profile** with a catalog and flexible pricing (5 levels: personal price → client price list → group price list → default price list → base price). Validated on a real case: separate prices for coffee shops, regular customers, and loyal customers.
-- **Canonical flow**: customer → company profile → cart → checkout (account required) → **redirect to chat** with an order card. The company confirms/edits/cancels the order in chat. **Chat is the operational core of the product.**
-- **B2B add-on**: a customer with a legal profile (sole proprietor / legal entity) gets document workflow — contracts, invoices, delivery notes, **QES signing** (DSTU, ASiC-E) — the private key never leaves the device. Same flow, extra actions.
-- **Two management surfaces**: company panel and customer cabinet.
+- **Canonical flow (destination):** customer → company profile → cart → checkout (account required) → **redirect to chat** with an order card. The company confirms/edits/cancels the order in chat. **Chat is the operational core of the destination product.** Launch sequence, including owner-first panel-before-cabinet, is `docs/scope.md` — do not treat the destination flow as the first-release build order.
+- **B2B add-on**: a customer with a legal profile (sole proprietor / legal entity) gets document workflow — contracts, invoices, delivery notes, **QES signing** (DSTU, ASiC-E) — the private key never leaves the device. Owner-first launch ships documents from **staff** orders with share via link/QR/print; two-sided signing in the customer cabinet is customer expansion.
+- **Two management surfaces**: company panel (owner-first launch) and customer cabinet (customer expansion).
 - **Consumer engagement**: company follows, product likes/comments, private
   Following collections, and public counters; no public social graph.
-- **Integrations**: Nova Poshta (V2 launch); Monobank acquiring + bank statements as the foundation of accounting (post-launch), Resend, SMS.
-- **AI assistant** with tool calling — at parity with the UI.
-- **Client strategy: mobile-first for all functionality** (panel and cabinet). Web is a post-launch phase, with universal links.
+  Destination product; not owner-first launch UI.
+- **Integrations**: Nova Poshta (customer-checkout expansion); Monobank acquiring + bank statements as the foundation of accounting (post-launch), Resend, SMS.
+- **AI assistant** with tool calling — at parity with the UI (panel first).
+- **Client strategy: mobile-first** (panel, then cabinet). Web is a post-launch phase, with universal links.
 
 Full scope analysis (what we carry over / simplify / drop) and the roadmap:
 `docs/scope.md`.
@@ -317,28 +318,25 @@ see `docs/pipeline.md` for the day-to-day workflow including Linear.
 ## 8. Roadmap (mobile-first)
 
 Detailed roadmap with readiness criteria: `docs/scope.md` §7.
-Condensed view:
+Condensed view (owner-first first; numbered expansion phases are not first-release work):
 
 | Phase | Contents | Result |
 | --- | --- | --- |
 | **0. Foundation** | Monorepo, CI, Docker Compose (Postgres+Redis+MinIO), core/db/contract, better-auth, API/worker + Expo skeleton, minimal Universal/App Links, payment + feature-flag skeletons, security/operations baseline, **foundation invariants (§2.1) verified by tests** | A skeleton on which agents can work in parallel |
-| **1. Reference slices** | Merge approved minimal prerequisite schemas, then pricing resolution + a thin order → outbox → chat projection: spec → plan → implement with required tests → review | Query and transactional/event templates to copy + a proven pipeline |
-| **‖ Experience Foundation** | V1 inventory → conflict map → DEFINE IA + SYSTEM in Expo (theme/primitives) → owner review of the running shell. Figma is not a gate. AI overlay is phase 9 / `vm-T29` | Product-screen UX gate passed |
-| **2. Company operating core** | `companies`, `catalog` (with variants), `customers`/groups, `invites`, `pricing` full UI + mobile panel screens | Company and catalog created from a phone |
-| **3. Company presence** | Public profile/showcase, business taxonomy, social links, follows, deep links, invite/direct entry | A public visitor evaluates a company and an authenticated user can follow it |
-| **4. Consumer discovery** | Public/consumer FTS+trigram, category/city/area filters, likes/comments/Following, popular sort | Public browse and authenticated social discovery match V1 mobile UX |
-| **5. Commerce core** | `orders` + cart/checkout + `delivery` (Nova Poshta) + push; atomic CRM link on checkout; no chat coupling | An order is placed and progresses through statuses |
-| **6. Chat platform** | `chat`: conversations, messages, realtime, offline/reconnect, push | Real-time conversation works end-to-end |
-| **7. Order collaboration** | Order-card projection in chat, redirect-to-chat, confirm/edit/cancel | The canonical §1.1 flow works end-to-end |
-| **8. Documents + QES** | `documents`, `doc-generation` (PDF worker), `doc-signing` (Nitro, ASiC-E, pki-proxy) + mobile-editing spike | B2B document workflow with signing from phones |
-| **9. AI experience** | `packages/ai`: agent over the action registry, UI tools, generative UI; classic/AI parity validation | AI performs the same actions as the UI |
-| **🚀 V2 Production Launch** | Clean-database bootstrap, full mobile parity, internal rollout → stores | Real users start on V2 without V1 data migration |
-| **10. Web** | Next.js: storefront (SEO), cabinet, full panel, Plate template editor, full browser continuation from existing links | Orders without the app |
+| **1. Reference slices** | Merge approved minimal prerequisite schemas, then pricing resolution + a thin order → outbox → **order-card projection** (not the chat platform) | Query and transactional/event templates to copy + a proven pipeline |
+| **‖ Experience Foundation** | V1 inventory → conflict map → DEFINE IA + SYSTEM in Expo (theme/primitives) for the **panel**. Figma is not a gate. AI overlay is phase 9 | Panel UX gate passed |
+| **2. Company operating core** | `companies`, `catalog` (with variants), `customers`/groups, `invites`, `pricing` full UI + mobile **panel** screens | Company and catalog created from a phone |
+| **5a. Staff commerce** | Staff `orders.create`/`confirm`/`get`, push, no customer checkout | The owner records an order in the panel |
+| **8. Documents + QES** | `documents`, `doc-generation`, `doc-signing` + share (link/QR/print) + mobile-editing spike | Owner generates, signs, and hands over a document |
+| **9. AI experience** | `packages/ai` over the action registry; classic/AI parity in the panel | AI performs the same actions as the UI |
+| **🚀 Owner-first production** | Clean-database bootstrap, panel parity, internal rollout → stores | The owner starts on V2 without V1 data migration |
+| **3–4, 5b, 6–7. Customer expansion** | Presence, discovery, customer checkout, chat platform, order collaboration | The §1 destination flow; see `docs/scope.md` §7 |
+| **10. Web** | Next.js: storefront (SEO), cabinet, full panel, Plate template editor | Orders without the app |
 | **11. Acquiring** | `acquiring` on top of the ready payment abstraction | Online payment |
-| **12. Bank + accounting** | `banking`: statements, matching; income ledger on real transactions (Taxer replacement) | Tax reporting from Showzy |
+| **12. Bank + accounting** | `banking`: statements, matching; income ledger on real transactions (Taxer replacement) | Ledger from bank transactions; tax filing is later |
 
-Phases 5 and 6 (Commerce core, Chat platform) may proceed in parallel after
-shared prerequisites. Phase 7 (Order collaboration) requires both.
+Documents (8) precede the chat platform (6). Do not implement phases 6–7 as
+owner-first work.
 
 ---
 

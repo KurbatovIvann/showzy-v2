@@ -5,6 +5,12 @@
 > Density beyond the declared slice is intent, not contract; do not treat unimplemented sections as frozen.
 > Written against blueprint §2.1, §4, §5; scope §2, §6; ADR-0013, ADR-0014,
 > ADR-0015, ADR-0018; module-ownership.md; spec-rework-queue Step 3.
+>
+> **Owner-first launch (2026-08-19):** the first product release is the
+> company panel (staff/AI). Customer cabinet, public storefront, consumer
+> discovery, and the business-chat platform are **Deferred: customer
+> expansion** — named capabilities only, not a freeze and not launch work.
+> Density beyond the named owner-first / phase-1 slice is intent.
 
 ## 1. Purpose
 
@@ -396,164 +402,22 @@ is a system-wide taxonomy. Managed only by `system` actions or migrations.
 - Existing customers with CRM records retain access; only discovery and
   public entry are blocked.
 
-### 3.9 `companies.getPublishedProfile`
+### 3.9–3.14 Deferred: public / consumer discovery reads (customer expansion)
 
-| Field | Value |
-| --- | --- |
-| Name | `companies.getPublishedProfile` |
-| Description | Get the public profile of a published company by slug |
-| Principal | `public` |
-| Transport | `client` |
-| Target | Typed `resolveTarget(input, { tx, principal })` verifies: company exists, `publication_status = 'published'`, `archived_at IS NULL`. Returns `{ companyId }`. |
-| Input | `{ slug: string }` |
-| Output | `{ id, name, slug, bio, aboutHtml, logoUrl, city, area, address, workingHours, keywords, socials: Array<{platform, url}>, showcaseConfig: {...}, categories: Array<{slug, nameEn, nameUk, icon}>, publishedAt }` |
-| Permissions | `[]` |
-| aiExposure | `exposed` |
-| risk | `read` |
-| requiresConfirmation | `false` |
-| Idempotent | `false` |
-| Emits | `[]` |
-| Audit | `false` |
-| Timeout | `3_000` |
-| Calls | — |
+Named only. Staff `publish` / `unpublish` may exist on the panel so a company
+can be marked published before expansion; do not implement public/consumer
+HTTP reads in owner-first launch.
 
-**Behavior:**
-- The `resolveTarget` callback proves the company is published; slug is a
-  selector, not a grant.
-- Returns the public-safe subset of company data (no legal info, no team info,
-  no internal settings).
+| Action | Principal | Intent |
+| --- | --- | --- |
+| `companies.getPublishedProfile` | `public` | Public profile by slug |
+| `companies.listPublishedByCategory` | `consumer` | Browse by category |
+| `companies.listPublished` | `consumer` | List published companies |
+| `companies.getPublishedById` | `consumer` | Profile by id |
+| `companies.getPublishedCompany` | `customer` | Existence + publication proof for `ctx.call` / `resolveTarget` |
+| `companies.listCategories` | `consumer` | Active business categories for discovery |
 
-### 3.10 `companies.listPublishedByCategory`
-
-| Field | Value |
-| --- | --- |
-| Name | `companies.listPublishedByCategory` |
-| Description | List published companies filtered by a business category |
-| Principal | `consumer` |
-| Transport | `client` |
-| Target/system scope | N/A (consumer — no company scope, no resolveTarget) |
-| Input | `{ categorySlug: string, cursor?: string, limit?: number }` |
-| Output | `{ items: Array<{ id, name, slug, bio, logoUrl, city, categories: Array<{slug, nameUk}> }>, nextCursor: string | null }` |
-| Permissions | `[]` |
-| aiExposure | `exposed` |
-| risk | `read` |
-| requiresConfirmation | `false` |
-| Idempotent | `false` |
-| Emits | `[]` |
-| Audit | `false` |
-| Timeout | `3_000` |
-| Calls | — |
-
-**Behavior:**
-- Cursor-based pagination over published, non-archived companies that have
-  the specified category.
-- Only `published` + `archived_at IS NULL` companies are returned.
-- No CRM side effects.
-
-### 3.11 `companies.listPublished`
-
-| Field | Value |
-| --- | --- |
-| Name | `companies.listPublished` |
-| Description | List all published companies for consumer discovery |
-| Principal | `consumer` |
-| Transport | `client` |
-| Target/system scope | N/A |
-| Input | `{ cursor?: string, limit?: number }` |
-| Output | Same shape as `listPublishedByCategory` |
-| Permissions | `[]` |
-| aiExposure | `exposed` |
-| risk | `read` |
-| requiresConfirmation | `false` |
-| Idempotent | `false` |
-| Emits | `[]` |
-| Audit | `false` |
-| Timeout | `3_000` |
-| Calls | — |
-
-### 3.12 `companies.getPublishedById`
-
-| Field | Value |
-| --- | --- |
-| Name | `companies.getPublishedById` |
-| Description | Get a published company's public profile by ID (for consumer context) |
-| Principal | `consumer` |
-| Transport | `client` |
-| Target/system scope | N/A |
-| Input | `{ companyId: string }` |
-| Output | Same shape as `getPublishedProfile` output |
-| Permissions | `[]` |
-| aiExposure | `exposed` |
-| risk | `read` |
-| requiresConfirmation | `false` |
-| Idempotent | `false` |
-| Emits | `[]` |
-| Audit | `false` |
-| Timeout | `3_000` |
-| Calls | — |
-
-**Behavior:**
-- Returns the same public-safe profile as `getPublishedProfile` but uses
-  `companyId` as input. Verifies `publication_status = 'published'` and
-  `archived_at IS NULL` in the query; returns a typed NotFoundError if the
-  company is not published.
-- No `resolveTarget` (consumer principal); the query itself enforces
-  published-only access.
-
-### 3.13 `companies.getPublishedCompany`
-
-| Field | Value |
-| --- | --- |
-| Name | `companies.getPublishedCompany` |
-| Description | Verify a company exists and is published; return its public profile. Used by other modules (e.g., chat) as an existence + publication proof inside `resolveTarget` via `ctx.call` |
-| Principal | `customer` |
-| Transport | `internal` |
-| Target/system scope | Typed `resolveTarget`: loads company by `companyId`, verifies `publication_status = 'published'` and `archived_at IS NULL` |
-| Input | `{ companyId: string }` |
-| Output | Same shape as `getPublishedProfile` output |
-| Permissions | `[]` |
-| aiExposure | `internal` |
-| risk | `read` |
-| requiresConfirmation | `false` |
-| Idempotent | N/A (read) |
-| Emits | `[]` |
-| Audit | `false` |
-| Timeout | default |
-| Calls | — |
-
-**Behavior:**
-- Returns the company's public-safe profile if published and not archived.
-- Returns `NotFoundError` if the company does not exist, is not published,
-  or is archived.
-- This is the `ctx.call` target for chat's `openMyConversation` resolveTarget
-  (ADR-0018 publication rule). The customer principal allows it to be called
-  from customer-context resolvers.
-
----
-
-### 3.14 `companies.listCategories`
-
-| Field | Value |
-| --- | --- |
-| Name | `companies.listCategories` |
-| Description | List all active business categories |
-| Principal | `consumer` |
-| Transport | `client` |
-| Target/system scope | N/A |
-| Input | `{}` |
-| Output | `Array<{ id, slug, nameEn, nameUk, icon, displayOrder }>` |
-| Permissions | `[]` |
-| aiExposure | `exposed` |
-| risk | `read` |
-| requiresConfirmation | `false` |
-| Idempotent | `false` |
-| Emits | `[]` |
-| Audit | `false` |
-| Timeout | `3_000` |
-| Calls | — |
-
-**Behavior:**
-- Returns only `is_active = true` categories, sorted by `display_order`.
+Staff `companies.updateCategories` (next) stays owner-first.
 
 ### 3.14 `companies.updateCategories`
 
@@ -1288,4 +1152,5 @@ Seed data is carried over via migration (same 18 categories).
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-19 | Public/consumer profile reads collapsed to named Deferred capabilities. Staff panel (create/team/legal/publish flags) remains owner-first. | Owner-first launch; `/spec` density | owner |
 | 2026-08-17 | Initial full spec (extends companies-foundation.md; full module scope applies from Phase 2 onward; Phase 0 implements only the foundation slice) | Spec-rework queue Step 3; deliver complete companies module specification | Human owner |

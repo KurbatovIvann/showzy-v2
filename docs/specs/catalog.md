@@ -9,6 +9,12 @@
 > `docs/specs/contract.md`, `docs/specs/pricing.md`,
 > `docs/specs/companies.md`, `docs/module-ownership.md`;
 > spec-rework-queue Step 3b.
+>
+> **Owner-first launch (2026-08-19):** the first product release is the
+> company panel (staff/AI). Customer cabinet, public storefront, consumer
+> discovery, and the business-chat platform are **Deferred: customer
+> expansion** — named capabilities only, not a freeze and not launch work.
+> Density beyond the named owner-first / phase-1 slice is intent.
 
 ## 1. Purpose
 
@@ -884,182 +890,18 @@ const ProductSummary = z.object({
 
 ---
 
-### 3.7 Consumer discovery reads (ADR-0018)
+### 3.7–3.9 Deferred: storefront reads (customer expansion)
 
----
+Named only. Do not implement in owner-first launch.
 
-#### `catalog.getPublishedProduct`
+| Action | Principal | Intent |
+| --- | --- | --- |
+| `catalog.getPublishedProduct` | `consumer` | Active published product of a published company |
+| `catalog.listPublishedProducts` | `consumer` | List published products for discovery |
+| `catalog.listCompanyProducts` | `customer` | Active products for a company the customer can access |
+| `catalog.getProductBySlug` | `public` | Direct-link preview |
 
-| Field | Value |
-| --- | --- |
-| Name | `catalog.getPublishedProduct` |
-| Description | Consumer discovery read: get a single active published product by ID, including its media, variants, and unit type. Only returns products of published companies. |
-| Principal | `consumer` |
-| Transport | `client` |
-| Input | `{ productId: z.string().uuid() }` |
-| Output | `ConsumerProductDetail` (see below) |
-| Permissions | `[]` |
-| aiExposure | `exposed` |
-| risk | `read` |
-| requiresConfirmation | `false` |
-| Idempotent | `false` |
-| Emits | `[]` |
-| Audit | `false` |
-| Timeout | `3_000` |
-| Calls (`ctx.call`) | `companies.getPublishedCompany` (verify company is published) |
-
-```ts
-const ConsumerProductDetail = z.object({
-  id: z.string().uuid(),
-  companyId: z.string().uuid(),
-  name: z.string(),
-  description: z.string().nullable(),
-  basePriceMinor: z.string(),
-  currency: z.string().length(3),
-  hidePrice: z.boolean(),
-  sku: z.string(),
-  categoryName: z.string().nullable(),
-  unitTypeCode: z.string().nullable(),
-  unitTypeName: z.string().nullable(),
-  unitTypeSymbol: z.string().nullable(),
-  media: z.array(ProductMedia),
-  weightValue: z.string().nullable(),
-  weightUnit: z.string().nullable(),
-  lengthValue: z.string().nullable(),
-  widthValue: z.string().nullable(),
-  heightValue: z.string().nullable(),
-  dimensionUnit: z.string().nullable(),
-  volumeValue: z.string().nullable(),
-  volumeUnit: z.string().nullable(),
-  stockQuantity: z.number().int(),
-  trackInventory: z.boolean(),
-  hasVariants: z.boolean(),
-  variants: z.array(z.object({
-    id: z.string().uuid(),
-    sku: z.string().nullable(),
-    basePriceMinor: z.string().nullable(),
-    currency: z.string().length(3).nullable(),
-    weightValue: z.string().nullable(),
-    weightUnit: z.string().nullable(),
-    stockQuantity: z.number().int(),
-    trackInventory: z.boolean(),
-    isActive: z.boolean(),
-    options: z.array(z.object({
-      optionName: z.string(),
-      value: z.string(),
-    })),
-  })),
-  createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime(),
-});
-```
-
-**Handler logic:**
-1. Load product by ID. Not found, not active, or not published → `NotFoundError` (no existence leak).
-2. Verify the owning company is published via `ctx.call` to `companies.getPublishedCompany`. Unpublished company → `NotFoundError`.
-3. Return product with active variants, media, unit type, and category name. Only active variants are returned.
-
----
-
-#### `catalog.listPublishedProducts`
-
-| Field | Value |
-| --- | --- |
-| Name | `catalog.listPublishedProducts` |
-| Description | Consumer discovery read: list active published products for a published company, with category filter and cursor pagination. |
-| Principal | `consumer` |
-| Transport | `client` |
-| Input | `{ companyId: z.string().uuid(), categoryId: z.string().uuid().optional(), cursor: z.string().optional(), limit: z.number().int().min(1).max(50).optional().default(20) }` |
-| Output | `{ products: z.array(ConsumerProductCard), nextCursor: z.string().nullable() }` |
-| Permissions | `[]` |
-| aiExposure | `exposed` |
-| risk | `read` |
-| requiresConfirmation | `false` |
-| Idempotent | `false` |
-| Emits | `[]` |
-| Audit | `false` |
-| Timeout | `5_000` |
-| Calls (`ctx.call`) | `companies.getPublishedCompany` (verify company is published) |
-
-```ts
-const ConsumerProductCard = z.object({
-  id: z.string().uuid(),
-  name: z.string(),
-  basePriceMinor: z.string(),
-  currency: z.string().length(3),
-  hidePrice: z.boolean(),
-  categoryName: z.string().nullable(),
-  unitTypeCode: z.string().nullable(),
-  unitTypeSymbol: z.string().nullable(),
-  primaryMediaFileId: z.string().uuid().nullable(),
-  hasVariants: z.boolean(),
-  stockQuantity: z.number().int(),
-  trackInventory: z.boolean(),
-  updatedAt: z.string().datetime(),
-});
-```
-
-**Handler logic:**
-1. Verify company is published via `ctx.call` to `companies.getPublishedCompany`. Not published → `NotFoundError`.
-2. Query products where `company_id = input.companyId AND is_active = true AND is_published = true`.
-3. Optionally filter by `categoryId`. Cursor-based pagination by `(sort_order, created_at, id)`.
-
----
-
-### 3.8 Customer-scoped reads
-
----
-
-#### `catalog.listCompanyProducts`
-
-| Field | Value |
-| --- | --- |
-| Name | `catalog.listCompanyProducts` |
-| Description | List active products for a company from the customer's perspective. Only active products are shown; publication status is not filtered (customers with direct access can see active unpublished products). |
-| Principal | `customer` |
-| Transport | `client` |
-| resolveTarget | Receives `{ companyId }` from input; loads company via `companies.getVisibleToUser`; verifies published and not deleted; returns `{ companyId, resource: { companyId } }`. |
-| Input | `{ companyId: z.string().uuid(), categoryId: z.string().uuid().optional(), cursor: z.string().optional(), limit: z.number().int().min(1).max(50).optional().default(20) }` |
-| Output | `{ products: z.array(ConsumerProductCard), nextCursor: z.string().nullable() }` |
-| Permissions | `[]` |
-| aiExposure | `internal` |
-| risk | `read` |
-| requiresConfirmation | `false` |
-| Idempotent | `false` |
-| Emits | `[]` |
-| Audit | `false` |
-| Timeout | `5_000` |
-| Calls (`ctx.call`) | `companies.getVisibleToUser` (resolveTarget) |
-
-**Handler:** Query products where `company_id = resolved.companyId AND is_active = true`. Customer sees active products regardless of publication status (they have a direct relationship). Cursor pagination.
-
----
-
-### 3.9 Public reads
-
----
-
-#### `catalog.getProductBySlug`
-
-| Field | Value |
-| --- | --- |
-| Name | `catalog.getProductBySlug` |
-| Description | Get a single active published product by company slug and product ID for direct-link previews. |
-| Principal | `public` |
-| Transport | `client` |
-| resolveTarget | Receives `{ companySlug, productId }` from input; loads company by slug, proves `publication_status = 'published' AND deleted_at IS NULL`; loads product, proves `is_active = true AND is_published = true`; returns `{ companyId, resource: { product } }`. Not found/unpublished → `NotFoundError`. |
-| Input | `{ companySlug: z.string(), productId: z.string().uuid() }` |
-| Output | `ConsumerProductDetail` |
-| Permissions | `[]` |
-| aiExposure | `exposed` |
-| risk | `read` |
-| requiresConfirmation | `false` |
-| Idempotent | `false` |
-| Emits | `[]` |
-| Audit | `false` |
-| Timeout | `3_000` |
-
----
+Staff catalog CRUD and publication flags on products stay owner-first (panel).
 
 ### 3.10 Cross-module read actions (composition contract fulfillment)
 
@@ -1086,51 +928,9 @@ const ConsumerProductCard = z.object({
 
 **Handler:** Load products by IDs within `ctx.companyId`. Products not belonging to the company are silently excluded (no existence leak). Returns base prices and all active variant base prices. This fulfills the composition contract declared in pricing.md §11.
 
----
-
-#### `catalog.getProductPricingFactsCustomer`
-
-| Field | Value |
-| --- | --- |
-| Name | `catalog.getProductPricingFactsCustomer` |
-| Description | Customer-compatible variant of getProductPricingFacts for pricing.resolveMyProductPrices. |
-| Principal | `customer` |
-| Transport | `internal` |
-| resolveTarget | Receives `{ productIds }` from input; loads the company from the first product and verifies it is visible to the customer; returns `{ companyId, resource: { companyId } }`. |
-| Input | `{ productIds: z.array(z.string().uuid()).min(1).max(200) }` |
-| Output | Same as `catalog.getProductPricingFacts` |
-| Permissions | `[]` |
-| aiExposure | `internal` |
-| risk | `read` |
-| requiresConfirmation | `false` |
-| Idempotent | `false` |
-| Emits | `[]` |
-| Audit | `false` |
-| Timeout | `3_000` |
-
-Shares the same service as `catalog.getProductPricingFacts`.
-
----
-
-#### `catalog.getProductPricingFactsPublic`
-
-| Field | Value |
-| --- | --- |
-| Name | `catalog.getProductPricingFactsPublic` |
-| Description | Public variant of getProductPricingFacts for pricing.resolvePublicProductPrices. |
-| Principal | `public` |
-| Transport | `internal` |
-| resolveTarget | Receives `{ companySlug, productIds }` from input; loads company by slug; proves it is public/published; returns `{ companyId, resource: { companyId } }`. |
-| Input | `{ companySlug: z.string(), productIds: z.array(z.string().uuid()).min(1).max(200) }` |
-| Output | Same as `catalog.getProductPricingFacts` |
-| Permissions | `[]` |
-| aiExposure | `internal` |
-| risk | `read` |
-| requiresConfirmation | `false` |
-| Idempotent | `false` |
-| Emits | `[]` |
-| Audit | `false` |
-| Timeout | `3_000` |
+**Deferred: customer expansion** (same service, do not implement now):
+`catalog.getProductPricingFactsCustomer` (`customer`),
+`catalog.getProductPricingFactsPublic` (`public`).
 
 ---
 
@@ -1727,4 +1527,5 @@ Module-specific:
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-19 | Consumer/customer/public catalog reads collapsed to named Deferred capabilities. Staff CRUD remains owner-first. | Owner-first launch; `/spec` density | owner |
 | 2026-08-17 | Initial draft | Spec-rework queue Step 3b: full catalog module | spec agent |

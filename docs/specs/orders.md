@@ -4,19 +4,25 @@
 > Active surface: none.
 > Density beyond the declared slice is intent, not contract; do not treat unimplemented sections as frozen.
 > Last approved draft: owner, 2026-08-17.
-> Written against blueprint §2.1, §4, §7.1; scope §1.1, §3, §7 (phase 1);
+> Written against blueprint §2.1, §4, §7.1; scope §1.1, §2, §7;
 > ADR-0008, ADR-0011, ADR-0012, ADR-0013, ADR-0014, ADR-0015, ADR-0016,
 > ADR-0018;
 > `docs/specs/core.md`, `docs/specs/db.md`, `docs/specs/money.md`,
 > `docs/specs/contract.md`, `docs/specs/payments.md`, `docs/specs/pricing.md`,
 > `docs/specs/companies-foundation.md`; `docs/module-ownership.md`.
 >
-> **Scope note (owner directive, 2026-08-17): phase 1 implements only the
-> thin order → transactional outbox → chat projection reference slice.**
-> This spec covers exactly that slice. Full orders functionality (carts,
-> customer checkout, delivery, numbering, cancel/edit, order log,
-> `company_statuses`, chat collaboration) belongs to phases 4–6 and reaches
-> this file only by amending the Living remainder or adding a slice card;
+> **Owner-first launch (2026-08-19):** the first product release is the
+> company panel (staff/AI). Customer cabinet, public storefront, consumer
+> discovery, and the business-chat platform are **Deferred: customer
+> expansion** — named capabilities only, not a freeze and not launch work.
+> Density beyond the named owner-first / phase-1 slice is intent.
+>
+> **Scope note:** phase 1 implements only the thin order → transactional
+> outbox → order-card projection reference slice. Owner-first launch then
+> uses this slice's staff `orders.create` / `confirm` / `get`. Customer
+> checkout, carts, delivery, numbering, `getMine`/`listMine`, chat
+> collaboration, and `company_statuses` belong to later slices and reach
+> this file only by amending the Living remainder or a slice card.
 > `/rework-spec` applies only after that surface is Active. The slice
 > schema is designed so those phases extend it additively — no renames, no
 > column-type changes.
@@ -45,17 +51,17 @@ The phase-1 slice is the write/idempotency/event reference template
 - the canonical `ctx.call` composition: orders → pricing/catalog/customers
   reads inside the order-creation transaction (ADR-0015).
 
-Explicitly deferred (target phase in parentheses): `carts`/`cart_items` and
-customer checkout incl. `orders.checkout` with atomic CRM link/create
-(ADR-0018) and customer reads
-`orders.getMine`/`orders.listMine` (4) · delivery selection and
-`order_deliveries` consumption (4) · order numbering
-(`order_number`, per-company prefix + sequence service in code) (4) ·
-counterparty/contact snapshot columns (4) · `company_statuses` seeding and
-display-status layer (4) · payment/delivery auto-transitions from consumed
-events (4) · `orders.cancel` (4) · `order_logs` activity trail (4) · order
+Explicitly deferred (**customer expansion** unless noted): `carts`/`cart_items`
+and customer checkout incl. `orders.checkout` with atomic CRM link/create
+(ADR-0018) and customer reads `orders.getMine`/`orders.listMine` · delivery
+selection and `order_deliveries` consumption · order numbering
+(`order_number`, per-company prefix + sequence service in code) ·
+counterparty/contact snapshot columns · `company_statuses` seeding and
+display-status layer (owner-first panel may add a staff list slice by
+amending this remainder) · payment/delivery auto-transitions from consumed
+events · `orders.cancel` · `order_logs` activity trail · order
 editing `orders.updateItems` with versioned adjustment snapshots
-(6, money.md) · chat collaboration actions and redirect-to-chat (6).
+(money.md) · chat collaboration actions and redirect-to-chat.
 
 ## 2. Owned tables
 
@@ -252,48 +258,22 @@ check (§5) → set `status='confirmed'`, `confirmed_at=now-in-handler` →
 | Audit | `false` |
 | Timeout | `2_000` |
 
-This is also the read that chat/AI clients use to render an order card from
+This is also the read that panel/AI clients use to render an order card from
 a stored `orderId` (ADR-0011: the projection stores the ID; the client
-fetches authoritative state through this action). The phase-4 customer
-counterpart (`orders.getMine` with a typed ownership resolver) shares the
-same module service.
+fetches authoritative state through this action).
 
-### 3.4 Phase-4 `orders.checkout` — CRM atomic link/create (forward declaration)
+### 3.4 Deferred: customer commerce (customer expansion)
 
-The phase-4 `orders.checkout` action (customer principal) converts a cart
-into an order on behalf of the authenticated user. Per ADR-0018, checkout
-is the **only** point in the consumer-to-customer journey where a CRM
-`company_customers` record must exist.
+Named only — full Zod returns when that slice is specified for build.
 
-**Cart interaction does NOT require a CRM record.** A user may discover a
-company (consumer principal), browse their catalog, and add items to a
-cart without any CRM record in that company.
-
-**Atomic CRM link/create rule:** When `orders.checkout` executes, it must
-atomically ensure a `company_customers` record exists for the authenticated
-user in the target company:
-
-1. If the user already has a CRM record in this company → use it.
-2. If the user does not have a CRM record → create one atomically within
-   the checkout transaction, via `ctx.call` to the customers module's
-   idempotent link/create action (matching v1 `create_order_secure`
-   phone/email-first logic; exact contract in `docs/specs/customers.md`).
-
-The resolved `customerId` is then used for the order's `customer_id` column,
-event payloads, and downstream composition (pricing resolution, etc.).
-
-This replaces the v1 `create_order_secure` logic where the RPC function
-resolved the counterparty by phone/email and created a CRM row inline.
-In v2, that responsibility is delegated to the `customers` module — `orders`
-calls it via `ctx.call`, keeping CRM ownership with `customers` (ADR-0015).
+| Action | Principal | Intent |
+| --- | --- | --- |
+| `orders.checkout` | `customer` | Convert a cart to an order. **Only** consumer-journey point that must have a CRM row (ADR-0018): atomically `ctx.call` customers link/create, then insert the order. Cart browse does **not** create CRM |
+| `orders.getMine` / `orders.listMine` | `customer` | Typed `resolveTarget` ownership; same module service as `orders.get` |
+| Cart actions | `customer` | `carts` / `cart_items` (not created in phase 1) |
 
 `orders.create` (staff, this slice) is unaffected: it requires an existing
 customer and rejects CRM-less lookups with `NotFoundError` (§6 case 1).
-
-The full `orders.checkout` action spec (input, output, permissions, events,
-edge cases) will be defined when phase 4 amends the Living remainder of
-this file (or a slice card); `/rework-spec` applies only after that
-surface is Active.
 
 ## 4. Events
 
@@ -410,26 +390,15 @@ layer on top of this fixed lifecycle and never replaces it as domain truth.
    uses `title_snapshot` regardless of catalog state.
 10. **CRM record deleted after order creation.** `customer_id` becomes null
     (SET NULL, v1 behavior); the order, its snapshots, and emitted events
-    are unaffected. Phase 4 adds counterparty snapshot columns so contact
-    data survives too.
+    are unaffected. Customer expansion adds counterparty snapshot columns so
+    contact data survives too.
 11. **Redelivery of `orders.created`/`orders.confirmed`.** Consumer dedup is
     the consumer's obligation via `event_deliveries` (core.md §6); orders
     guarantees per-aggregate ordering (created always sequence-precedes
     confirmed for one order).
-12. **Checkout without existing CRM record (phase 4).** `orders.checkout`
-    atomically creates a `company_customers` record via `ctx.call` to the
-    customers module's idempotent link/create action before inserting the
-    order. The CRM creation and order insertion share the same core pipeline
-    transaction. If the user already has a CRM record, it is reused
-    (idempotent). Matches v1 `create_order_secure` behavior (ADR-0018).
-13. **Cart without CRM record.** A user may add items to a cart (phase 4)
-    without having a CRM record in the company. The cart is not gated on CRM
-    existence (ADR-0018). CRM is required only at checkout time (§3.4).
-14. **Concurrent checkouts creating the same CRM record.** Two simultaneous
-    `orders.checkout` calls by the same user for the same company: the
-    customers module's link/create action is idempotent, so both calls
-    succeed — the second finds the record created by the first (or the
-    serialized transaction retries and finds it). No duplicate CRM records.
+
+Checkout/cart CRM races are **Deferred: customer expansion** (see §3.4). Do
+not treat them as phase-1 work.
 
 ## 7. v1 migration notes
 
@@ -678,7 +647,9 @@ phase-4 checkout (`orders.checkout`, customer):
 | `customers` | `customers.getCustomerOrderFacts` | Customer ID → `{ customerId, companyId, userId \| null, displayName }`; verifies the customer belongs to the caller's company. Orders rejects `userId: null` with `ConflictError` (§10.8) |
 | `catalog` | `catalog.getProductFacts` | Product IDs → `{ productId, companyId, name, isActive, taxTreatment, taxRateBp, variants: [{ variantId, name, isActive }] }`; slice may default tax facts to `exempt`/`0` until catalog carries tax configuration |
 | `pricing` | `pricing.resolveProductPrices` | Already specified (pricing spec §3.1) |
-| `customers` | `customers.ensureCustomerForCheckout` (or equivalent idempotent link/create; exact name in `docs/specs/customers.md`) | User ID + company ID → `{ customerId, companyId, userId, displayName }`; idempotently finds or creates a `company_customers` record for the authenticated user in the target company (phone/email matching per customers spec; ADR-0018). Called by the phase-4 `orders.checkout` only — not by the phase-1 `orders.create` (which requires an existing customer via `customers.getCustomerOrderFacts`) |
+
+**Deferred (customer expansion):** `customers.ensureCustomerForCheckout` (or
+equivalent) for `orders.checkout` only — not called by this slice.
 
 Consumers this module's events must satisfy: `payments.createForOrder`
 (payments spec §4–5, keyed by `orders.created` event ID) and the chat
@@ -688,6 +659,7 @@ order-card consumer (`docs/specs/chat.md`, `chat.order-card-updater`).
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-19 | Owner-first: staff create/confirm/get remain the launch write path; checkout/getMine/carts collapsed to named Deferred capabilities. | Owner-first launch; `/spec` density | owner |
 | 2026-08-17 | Atomic CRM link/create for phase-4 checkout: §1.1 deferred-item update, §3.4 forward declaration, §6 edge cases 12–14, §7.3 `create_order_secure` mapping, §10.9, §11 composition contract | ADR-0018 consumer discovery spec-rework Step 4 | spec-rework agent |
 | 2026-08-17 | Pointer-only: chat companion path `chat-projection.md` → `chat.md` (slice absorbed; consumer/table names unchanged) | One spec per chat module | owner |
 | 2026-08-17 | Approved. Decision 8: orders require a linked account; `customerUserId` non-null in `orders.created`; payments cross-spec item closed | Owner approval | owner |
