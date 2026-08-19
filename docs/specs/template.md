@@ -21,9 +21,9 @@ phases. Budget roughly 100–200 lines when this module is not the next slice.
 
 ### Invariants and principal modes
 
-Which of `staff` | `customer` | `public` | `system` | `consumer` | `account`
-this module will use, and any module-specific invariants (tenant, money,
-projections). Principal selection guidance is below.
+Which of `staff` | `customer` | `public` | `system` | `consumer` | `account` |
+`share` this module will use, and any module-specific invariants (tenant,
+money, projections). Principal selection guidance is below.
 
 ### Named capabilities
 
@@ -59,6 +59,12 @@ Choose the correct principal mode based on **who is acting** and **what scope**:
   with a resolver for one published resource. Use
   `publicScope: globalProjection` without a resolver only for an allowlisted
   published discovery projection (ADR-0020).
+- **`share`** — unauthenticated holder of a hashed capability token
+  (ADR-0022). Typed `resolveTarget` like public-target; unlike `public`, may
+  perform owning-spec-allowlisted writes (`audit`, events, idempotency).
+  `aiExposure: internal`. Use for handover pages that must record a
+  counterparty QES without a Showzy session. Do not use `public` for those
+  writes.
 - **`system`** — machine actors (workers, cron, webhook handlers, outbox
   dispatcher). Named service identity; explicit tenant scope set by the
   enqueuing code.

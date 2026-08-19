@@ -11,7 +11,7 @@
 > foundation specs (`core`, `db`, `contract`, `security-operations`, `money`,
 > `payments`, `feature-flags`, `companies-foundation`), reference-slice specs
 > (`pricing`, `orders`, `chat`), prerequisite specs (`catalog`, `customers`),
-> ADR-0012…0016, ADR-0018…0021,
+> ADR-0012…0016, ADR-0018…0022,
 > [`docs/module-ownership.md`](../module-ownership.md).
 
 This is the task breakdown for **Phase 0 (Foundation)** and **Phase 1
@@ -33,9 +33,10 @@ implementer is the **scaffold agent** (`/scaffold`, not `/ticket`):
   migrations. Continue from **fnd-T5** on a fresh branch from the latest
   merged base.
 - New requirements are additive follow-up slices: fnd-T5A provides projection
-  DB capabilities/fixtures; fnd-T19A provides atomic calls. Existing merged
-  work is changed only by a focused follow-up when a new test proves it must
-  change.
+  DB capabilities/fixtures; fnd-T19A provides atomic calls; **fnd-T11B**
+  adds the seventh `share` principal (ADR-0022) after phase 0 merged.
+  Existing merged work is changed only by a focused follow-up when a new
+  test proves it must change.
 - Every task still follows tests-first, one branch/PR, and ~300-line review
   budget. The UX gate still blocks product UI; technical shell/auth/link work
   remains the only mobile exception.
@@ -125,6 +126,10 @@ implementer is the **scaffold agent** (`/scaffold`, not `/ticket`):
   in fnd-T6: `auth:generate` applies a deterministic timestamptz codemod
   after the CLI (upstream better-auth#9920); db.md §4 patched in the same
   PR with a schema test pinning `timestamp with time zone`.
+- **`share` principal (ADR-0022, accepted 2026-08-19):** core.md Active
+  surface is amended; implementation is **fnd-T11B**, not a reopen of
+  fnd-T11. Contract HTTP dispatch and security-operations matrix wait on
+  their own `/rework-spec`. Co-sign cannot ship until those land.
 
 ---
 
@@ -324,6 +329,28 @@ implementer is the **scaffold agent** (`/scaffold`, not `/ticket`):
   global scope; public-global — no session/resolver, grant-bound DB, anonymous
   actor/null company; consumer/account — session required, no company,
   membership, or target; `effectiveCompanyId` per variant.
+- **Sensitive:** yes (tenant protocol).
+
+### fnd-T11B: Seventh principal — `share` (ADR-0022)
+
+- **Scope:** additive follow-up after merged fnd-T11 (that ticket stays
+  Done). Implement the seventh context factory and the core.md 2026-08-19
+  `share` subset: `defineActionContract` / contract-check rules, pipeline
+  authenticate/preflight/TOCTOU, idempotency principal key
+  `share:<tokenHash>`, audit/event actor `system`/`share` with mandatory
+  write `auditSnapshot`, 30/min IP-HMAC fail-closed rate limit, `ctx.call`
+  share→share reads only, `shareIsolationSuite` + `suiteCoverage.shareIsolation`.
+  HTTP/oRPC dispatch is **not** this task — it waits on `/rework-spec
+  contract.md` (and a later contract follow-up). `db.md` CHECKs do not
+  change. Do not reopen fnd-T11…T22 as catch-all tickets.
+- **Context pack:** core.md (Active, 2026-08-19 share amendment); ADR-0022;
+  ADR-0013 (amended); contract.md remains a separate rework.
+- **Dependencies:** fnd-G1. **Blocks** owner-first `doc-signing`
+  co-sign (`submitShareSignature`).
+- **Tests first:** define-time rejection of every share-subset violation;
+  factory: no session, resolver `NotFoundError` on expired/revoked/mismatch,
+  raw token absent from logs; isolation suite; idempotency key uses stored
+  hash; Redis down fails closed on a share read; audit row `system`/`share`.
 - **Sensitive:** yes (tenant protocol).
 
 ### fnd-T12: Execution pipeline

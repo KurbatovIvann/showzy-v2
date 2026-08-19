@@ -5,7 +5,7 @@
 > Ledger catch-up: first merged `packages/core` implementation (fnd-T8…T28).
 > Written against blueprint §2.1, §4, §7; ADR-0008, ADR-0009, ADR-0011,
 > ADR-0012, ADR-0013, ADR-0014, ADR-0015, ADR-0016, ADR-0018, ADR-0020,
-> and ADR-0021.
+> ADR-0021, and ADR-0022.
 > This is a foundation spec: it defines executable protocols, not a domain
 > module. It owns no domain tables; the foundation tables it drives
 > (`domain_events`, `event_aggregate_sequences`, `event_deliveries`,
@@ -35,41 +35,45 @@ bound by `implementAction`. All fields are required unless noted:
 | --- | --- | --- |
 | `name` | `<module>.<verb>` | Unique in the registry; CI fails on duplicates |
 | `description` | string | Written as an instruction to an AI model |
-| `principal` | `staff` \| `customer` \| `public` \| `system` \| `consumer` \| `account` | ADR-0013, ADR-0018, ADR-0020; exactly one; public and consumer actions are read-only |
-| `transport` | `client` \| `internal` | Whether HTTP/client routers mount it; `system` must be internal; `consumer` and `account` must be `client` |
+| `principal` | `staff` \| `customer` \| `public` \| `system` \| `consumer` \| `account` \| `share` | ADR-0013, ADR-0018, ADR-0020, ADR-0022; exactly one; public and consumer actions are read-only; share may write |
+| `transport` | `client` \| `internal` | Whether HTTP/client routers mount it; `system` must be internal; `consumer`, `account`, and `share` must be `client` |
 | `input` / `output` | Zod v4 schemas | The single source for oRPC, forms, AI tools |
-| `permissions` | `string[]` of `<module>:<verb>` | Non-empty for `staff`; must be `[]` for `customer`/`public`/`consumer`/`account` (authorization = ownership/visibility/published-read/own-user, §4); must be `[]` for `system` |
-| `publicScope` | `target` \| `globalProjection`, **public only** | `target` is one published company/resource; `globalProjection` is an ADR-0020 published discovery projection |
+| `permissions` | `string[]` of `<module>:<verb>` | Non-empty for `staff`; must be `[]` for `customer`/`public`/`consumer`/`account`/`share` (authorization = ownership/visibility/published-read/own-user/valid token, §4); must be `[]` for `system` |
+| `publicScope` | `target` \| `globalProjection`, **public only** | `target` is one published company/resource; `globalProjection` is an ADR-0020 published discovery projection. Share does not use this field |
 | `projectionGrant` | grant ID, conditional | Required only for `publicScope: globalProjection`; must match a grant declared by the projection owner; forbids `resolveTarget` |
-| `resolveTarget` | typed fn, **customer/public-target only** | `<TTarget>(input, { tx, principal }) => Promise<{ companyId, resource: TTarget }>` — customer args include authenticated `userId`; a nested `ctx.call` also supplies the already verified `inheritedCompanyId`. Loads the referenced resource and proves ownership/visibility; throws `NotFoundError` (never "forbidden" — no existence leaks) |
+| `resolveTarget` | typed fn, **customer/public-target/share** | `<TTarget>(input, { tx, principal }) => Promise<{ companyId, resource: TTarget }>` — customer args include authenticated `userId`; share and public-target have no `userId`; a nested `ctx.call` also supplies the already verified `inheritedCompanyId`. Loads the referenced resource and proves ownership/visibility/valid token; throws `NotFoundError` (never "forbidden" — no existence leaks). Missing, expired, revoked, or mismatched share tokens are `NotFoundError` |
 | `systemScope` | `tenant` \| `global`, **system only** | Tenant-scoped system actions require `ctx.companyId`; `global` is reserved for genuinely global jobs |
 | `aiExposure` | `exposed` \| `internal` | `exposed` requires `transport: client`; `internal` never becomes an AI tool |
 | `risk` | `read` \| `draft` \| `write` \| `high` | `read` handlers/resolvers receive a `ReadTx` capability; top-level reads also use a DB read-only transaction |
-| `requiresConfirmation` | boolean | Required for human-invoked `risk: high`; triggers the confirmation protocol (§7) |
+| `requiresConfirmation` | boolean | Required for human-invoked `risk: high` (staff, customer, account — not share); triggers the confirmation protocol (§7) |
 | `confirmationSummary` | server fn, conditional | Required when `requiresConfirmation: true`; returns a redacted, human-readable summary from validated input + resolved target |
 | `idempotent` | boolean | Write actions with `true` participate in the idempotency protocol (§5) |
 | `emits` | `string[]` event names | Declared outbox events; `ctx.emit` of an undeclared event throws; CI checks declared events have a definition |
 | `atomicCalls` / `atomicCallers` | action-name arrays | ADR-0021 allowlist edges; empty unless this action is a root caller/internal atomic callee |
 | `audit` | boolean | §8. Mandatory `true` for `risk: write`/`high` |
 | `auditTarget` | server fn, conditional | Required when `audit: true`; derives `{ type, id }` from validated input/output/context |
-| `auditSnapshot` | optional server fn | Returns explicitly redacted safe JSON; hash-only is the default |
+| `auditSnapshot` | optional server fn | Returns explicitly redacted safe JSON; hash-only is the default. **Required** on `share` writes (redacted certificate identity; never the raw token) |
 | `timeout` | ms | Whole-pipeline deadline, shared with nested `ctx.call`s; DB statement timeout and abort signal enforce it |
 | `rateLimit` | optional `{ limit, windowSec, scope }` | Defaults per principal (§10) |
 | `handler` | `(input, ctx) => Promise<TOutput>` | Runs inside the transaction; output is Zod-validated before commit and must be JSON-safe |
 
 The **contract check** (CI, phase-0 task) walks the registry and fails on:
 missing/empty metadata, duplicate names, invalid transport/principal/AI
-combinations, `customer`/`public` actions with permissions, customer or
-public-target actions without `resolveTarget`, public-global actions with a
-resolver or missing/unknown `projectionGrant`, public-global actions that do
-not satisfy the strict public metadata/access rules below, `consumer` actions
-with `resolveTarget`, `consumer` actions not satisfying
+combinations, `customer`/`public`/`share` actions with permissions, customer,
+public-target, or share actions without `resolveTarget`, public-global actions
+with a resolver or missing/unknown `projectionGrant`, public-global actions
+that do not satisfy the strict public metadata/access rules below, `consumer`
+actions with `resolveTarget`, `consumer` actions not satisfying
 (`risk: read`, `permissions: []`, `audit: false`, `idempotent: false`,
 `requiresConfirmation: false`, `emits: []`, `transport: client`), `account`
 actions with `resolveTarget`, `account` actions with non-empty `permissions`,
-`account` actions with `transport` other than `client`, invalid
-`systemScope`, invalid confirmation metadata (`requiresConfirmation` implies
-human principal + `risk: high` + `idempotent: true`), `emits` naming violations
+`account` actions with `transport` other than `client`, `share` actions not
+satisfying the share subset below (`transport: client`, `aiExposure: internal`,
+`permissions: []`, typed `resolveTarget`, `requiresConfirmation: false`,
+`risk` not `draft`/`high`, writes with `idempotent: true` + `audit: true` +
+`auditSnapshot`), invalid `systemScope`, invalid confirmation metadata
+(`requiresConfirmation` implies human principal — staff, customer, account —
++ `risk: high` + `idempotent: true`), `emits` naming violations
 (`<module>.<pastVerb>`), undeclared event definitions, `ctx.call` targets
 that are not `risk: read` or do not accept the caller's principal, undeclared
 or invalid `ctx.callAtomic` edges (ADR-0021),
@@ -102,7 +106,20 @@ metadata rules as staff writes. Authorization is own-user identity: the
 handler may read/write only resources belonging to `ctx.userId` (no company
 RBAC applies). Account requires authentication (`actor.type: user`).
 
-## 3. Principal contexts (ADR-0013, ADR-0018, ADR-0020)
+Share actions (ADR-0022): no session; `permissions: []`; `transport: client`;
+`aiExposure: internal`; typed `resolveTarget` always (there is no global
+share form; `publicScope` is forbidden). `requiresConfirmation: false`.
+`risk` is `read` or `write` only (`draft` and `high` are forbidden — legal
+intent is on-device QES; staff/AI supplier signing remains `high` +
+confirmation). Writes: `idempotent: true`, `audit: true`, `auditSnapshot`
+required (redacted certificate identity: CN, org, tax id, role — never the
+raw token), `emits` allowed. Reads follow ordinary read rules. Access logs
+and traces use `actor.type: anonymous`. Durable audit rows and domain events
+use `actorType: system` and `actorId: "share"` so they fit the
+`user|system` CHECKs. The raw capability token never appears in logs, audit,
+or events. Expired, revoked, or mismatched tokens are `NotFoundError`.
+
+## 3. Principal contexts (ADR-0013, ADR-0018, ADR-0020, ADR-0022)
 
 Discriminated union `ActionCtx`, common fields first:
 
@@ -171,6 +188,13 @@ type AccountCtx<TDb extends ReadTx = Tx> = BaseCtx<TDb> & {
   target?: never;
   membership?: never;
 };
+type ShareCtx<TTarget, TDb extends ReadTx = Tx> = BaseCtx<TDb> & {
+  principal: "share";
+  clientIp: string;
+  target: { companyId: string; resource: TTarget };
+  userId?: never;
+  membership?: never;
+};
 ```
 
 Construction — exactly one factory per mode, nothing ad-hoc:
@@ -209,17 +233,24 @@ Construction — exactly one factory per mode, nothing ad-hoc:
   (for `risk: read`). The handler may read/write only own-user resources
   (e.g. own companies, personal profile); owning specs and inherited tests
   enforce this boundary.
+- **share**: no session. The action's typed `resolveTarget` runs over the
+  hashed capability token in the execution transaction (and in preflight when
+  idempotency will store a row); the returned resource is the proof of
+  access. The API factory supplies a trusted-proxy-normalized `clientIp`.
+  Log `actor.type` is `anonymous`. Share writes receive a writable `Tx`;
+  share reads receive a `ReadTx`. Raw tokens never enter log bindings.
 
 Core exposes one `effectiveCompanyId(ctx)` helper used by logging, events,
 audit, and operational metadata: staff/system-tenant use `ctx.companyId`;
-customer/public-target use `ctx.target.companyId`; public-global, consumer,
-account, and global system work return null.
+customer/public-target/share use `ctx.target.companyId`; public-global,
+consumer, account, and global system work return null.
 Pre-authorization access logs may have no company, but the authorized action
 span and every domain event/audit row carry this resolved scope (null for
 public-global, consumer, and account; public/consumer never emit events or
-write audit; account may do both with null company). AI calls
-keep the initiating user as `actor` and set `channel: "ai"` plus trace/tool
-IDs.
+write audit; account may do both with null company; share emits and audits
+with the resolved company while the access-log actor stays `anonymous`). AI
+calls keep the initiating user as `actor` and set `channel: "ai"` plus
+trace/tool IDs.
 
 ## 4. Execution pipeline
 
@@ -228,17 +259,20 @@ Fixed order, no per-action variation:
 1. **Validate input** (Zod). Fail → `ValidationError` (no side effects).
 2. **Authenticate principal and read transport selectors** (session/service
    credentials; no authorization is inferred from a selector). Consumer and
-   account actions require a valid session; public-global, consumer, and
-   account actions skip the company selector entirely.
+   account actions require a valid session; public (both scopes), share,
+   consumer, and account actions skip the company selector entirely. Public
+   and share require no session.
 3. **Rate limit** (§10). Fail → `RateLimitError`.
 4. **Authorization preflight** in a short read-only transaction when the
    action needs confirmation or idempotency: verify staff membership or run
-   the typed customer/public-target `resolveTarget`. Public-global and
+   the typed customer/public-target/share `resolveTarget`. Public-global and
    consumer actions skip this step (no company scope, resolver,
    confirmation, or idempotency). Account
    actions that declare confirmation or idempotency run a preflight that
    verifies only session validity (no membership/target to check); the
-   own-user authorization boundary is enforced within the handler. This
+   own-user authorization boundary is enforced within the handler. Share
+   writes are always idempotent, so they always run `resolveTarget` here —
+   the stored token hash is known before the idempotency reservation. This
    prevents unauthorized challenges/idempotency rows but is never the only
    authorization check.
 5. **Replay probe + confirmation gate** (`requiresConfirmation` actions,
@@ -247,7 +281,8 @@ Fixed order, no per-action variation:
 6. **Idempotency reserve** (idempotent writes, §5) after confirmation.
 7. **Open execution transaction** (read-only for `risk: read`); re-run
    membership/target authorization in this transaction to prevent TOCTOU
-   (public-global, consumer, and account actions have no target). Bind a
+   (public-global, consumer, and account actions have no target; share
+   re-runs `resolveTarget` like public-target). Bind a
    public-global handler to its declared projection-only DB capability, set
    the transaction-local DB statement timeout, then run the handler with the
    remaining deadline/abort signal.
@@ -285,9 +320,12 @@ Applies to actions declaring `idempotent: true` with `risk` ≠ `read`
 - **Scope**: unique on
   `(principal key, scope key, action name, idempotency key)`, where
   principal key includes mode + accountable identity
-  (`staff:<userId>`, `customer:<userId>`, `account:<userId>`, or
-  `system:<serviceName>`).
-  Scope key is `company:<effectiveCompanyId>` for every tenant-scoped action,
+  (`staff:<userId>`, `customer:<userId>`, `account:<userId>`,
+  `system:<serviceName>`, or `share:<tokenHash>`). For share, `tokenHash` is
+  the stored hash from the resolved token row, never the raw secret; reserve
+  runs after preflight so the hash is known.
+  Scope key is `company:<effectiveCompanyId>` for every tenant-scoped action
+  (including share),
   `user:<userId>` for `account` actions (own-user scope), and `global` only
   for a declared global system action. Both actor and scope are required:
   omitting actor lets one staff member replay another's result; omitting
@@ -329,7 +367,7 @@ Envelope (stored in `domain_events`, spec'd in db.md):
 { eventId: uuid,            // UUIDv7 (time-ordered), generated in ctx.emit
   name: "orders.confirmed", // <module>.<pastVerb> (conventions)
   version: 1,               // payload schema version; bump on breaking change
-  occurredAt, companyId,     // UUID; null for declared global system events and account-principal events
+  occurredAt, companyId,     // UUID; null for declared global system events and account-principal events; share events carry the resolved target company
   aggregate: { type: "order", id, sequence }, // monotonic per aggregate
   actor: { type: "user" | "system", id,
            channel: "ui" | "ai" | "system" | "webhook" },
@@ -343,7 +381,10 @@ Envelope (stored in `domain_events`, spec'd in db.md):
   the emitting module's `events/`. `ctx.emit` validates payload and inserts
   into the outbox in the action's transaction (ADR-0012: claim via
   `FOR UPDATE SKIP LOCKED`; `apps/worker` LISTENs on channel
-  `domain_events` and polls as fallback).
+  `domain_events` and polls as fallback). Share-emitted tenant events carry
+  the resolved target `companyId` and envelope actor
+  `{ type: "system", id: "share", channel }` (HTTP invocations use
+  `channel: "ui"`).
 - **Subscriptions**:
   `defineEventHandler({ event, consumer, action })` binds an event to a
   consuming module action; it does not accept arbitrary DB logic.
@@ -423,6 +464,11 @@ RFC 8785 canonical JSON form of the validated input. `inputSnapshot` is null
 by default (hash-only); it is populated only when the action binds an
 `auditSnapshot` callback, which must return explicitly redacted safe JSON.
 
+- **Share writes (ADR-0022):** `actorType: "system"`, `actorId: "share"`,
+  `companyId` from the resolved target. `auditSnapshot` is mandatory and
+  holds the redacted certificate identity, never the raw token. Access logs
+  still use actor `anonymous`. The `audit_log.actor_type` CHECK stays
+  `user|system` (no db.md change).
 - **Permission denials** on `audit: true` actions are also recorded
   (outcome `PERMISSION_DENIED`, separate tx since no handler tx exists).
 - **Failures before successful input validation** write no audit row:
@@ -458,14 +504,19 @@ by default (hash-only); it is populated only when the action binds an
   context carries no `companyId` to propagate.
 - Public-global callers cannot use `ctx.call`; their read capability is
   limited to the action's own declared projection grant.
+- Share callers may only invoke other `share`-principal `risk: read` actions;
+  `staff` / `customer` / `public` / `consumer` / `account` / system-tenant
+  callees are rejected at both CI and runtime. Cross-module document facts
+  for a share page are a `share`-principal read on the owning module, not a
+  call into `public`.
 - The callee runs in the caller's transaction and principal context but sees
   only a `ReadTx` facade even when the caller's transaction is writable; the
   callee's own `permissions`/`resolveTarget` still execute (defense in
-  depth). For customer/public-target calls, the resolver receives the caller's
-  verified `inheritedCompanyId` and must return the same company; a mismatch
-  is `CoreInvariantError`. Timeout budget is shared; audit gets a child entry only if the
-  callee itself declares `audit: true` (rare for reads); logs/spans always
-  nest via `correlationId`.
+  depth). For customer/public-target/share calls, the resolver receives the
+  caller's verified `inheritedCompanyId` and must return the same company; a
+  mismatch is `CoreInvariantError`. Timeout budget is shared; audit gets a
+  child entry only if the callee itself declares `audit: true` (rare for
+  reads); logs/spans always nest via `correlationId`.
 - Depth limit 3, cycle detection by action name — exceeding either is a
   `CoreInvariantError` (a bug, not a user error).
 
@@ -489,15 +540,16 @@ by default (hash-only); it is populated only when the action binds an
 ## 10. Rate limiting
 
 Redis token bucket per `(action, rate-limit scope key)`. Defaults: `public`
-30/min per rotating HMAC of trusted-proxy-normalized IP; `consumer` 60/min
-per user; `account` 90/min per user; `customer`/`staff` 120/min per user;
-`system` unlimited. Raw IP
+and `share` 30/min per rotating HMAC of trusted-proxy-normalized IP;
+`consumer` 60/min per user; `account` 90/min per user; `customer`/`staff`
+120/min per user; `system` unlimited. Raw IP
 remains transport-only and is never the Redis key or a domain log/audit
 field. Per-action override via `rateLimit` (including on system actions).
 AI tool invocations additionally consume a per-conversation budget (defined
 in the phase-5 spec; core only exposes the hook). Exceeded →
 `RateLimitError` with `retryAfterSec`. Redis failure is fail-closed for
-public actions and every mutation (`draft`/`write`/`high`) and fail-open
+public actions, **every share action** (reads and writes), and every
+mutation (`draft`/`write`/`high`) and fail-open
 with an error log for ordinary authenticated reads (`risk: read` on
 staff/customer/consumer/account). System actions default to fail-open
 (workers must not stall on Redis); an owning spec may declare a `rateLimit`
@@ -523,13 +575,14 @@ contract.md) and a client-safe message; internal details stay in logs.
 Exported from `packages/core/testing`, used by every module (this is how
 "every module inherits the invariant tests" becomes real):
 
-- `buildTestContext(mode, overrides)` — context factories for all six
+- `buildTestContext(mode, overrides)` — context factories for all seven
   principal modes against the Testcontainers DB (harness in db.md).
 - `crossTenantSuite(actions)` — parameterized by each action's declared
   principal: staff of company A vs data of B; customer X vs resources of Y;
   public-target vs non-public resources; public-global/consumer vs
-  unpublished or non-allowlisted fields; system scoped to A touching B; or
-  account user A vs user B's companies/personal data. Every module
+  unpublished or non-allowlisted fields; system scoped to A touching B;
+  account user A vs user B's companies/personal data; or share token A vs
+  document/resource of token B. Every module
   instantiates the relevant case for each action — omission fails the
   contract check.
 - `publicProjectionSuite(actions)` — for `publicScope: globalProjection`:
@@ -543,6 +596,10 @@ Exported from `packages/core/testing`, used by every module (this is how
   cannot see or modify user B's companies or personal data; no company-scoped
   resource access; `permissions` must be `[]`; `companyId` is null in context
   and events/audit.
+- `shareIsolationSuite(actions)` — for `share`-principal actions: token A
+  cannot read or write token B's resource; expired, revoked, and mismatched
+  tokens are `NotFoundError`; co-sign (and any other share write) MUST NOT
+  create CRM rows; raw token is absent from logs/audit/events.
 - `idempotencySuite(action)` — replay, conflict, concurrent-retry cases.
 - `eventSuite(module)` — declared events emitted transactionally (rollback
   removes them), consumer dedup respected.
@@ -556,7 +613,8 @@ Exported from `packages/core/testing`, used by every module (this is how
 
 Composition supplies a `suiteCoverage` manifest to the contract check.
 Every registered action must appear in `isolation` (and in
-`publicProjection` / `consumerIsolation` / `accountIsolation` when those
+`publicProjection` / `consumerIsolation` / `accountIsolation` /
+`shareIsolation` when those
 suites apply). Every idempotent mutation that is not an event-consumer
 binding must appear in `idempotency`. Every module that emits or
 subscribes must appear in `events`. Every mutually declared atomic edge
@@ -569,10 +627,14 @@ does not apply — fails the check.
       both public-scope variants (resolver/grant mismatch, mutation metadata,
       projection escape), atomic-call graph violations,
       consumer-specific constraints (resolver present, non-read risk, audit,
-      events, permissions, or non-client transport on a `consumer` action)
-      and account-specific constraints (resolver present, non-empty
-      permissions, or non-client transport on an `account` action).
-- [ ] All six context factories work; no other construction path exists.
+      events, permissions, or non-client transport on a `consumer` action),
+      account-specific constraints (resolver present, non-empty
+      permissions, or non-client transport on an `account` action), and
+      share-specific constraints (missing resolver, non-client transport,
+      `aiExposure: exposed`, `risk: draft`/`high`, `requiresConfirmation`,
+      write without `idempotent`/`audit`/`auditSnapshot`, or non-empty
+      permissions on a `share` action).
+- [ ] All seven context factories work; no other construction path exists.
 - [ ] Pipeline order is §4 exactly; a failing handler rolls back outbox and
       audit rows written in the same tx.
 - [ ] Output schema mismatch rolls back and maps to internal error.
@@ -611,6 +673,12 @@ does not apply — fails the check.
       `permissions` enforced as `[]`; rate limit at 90/min per user.
 - [ ] `ctx.call` from account: consumer reads accepted, company-scoped
       callees rejected.
+- [ ] Share isolation suite: token A cannot read/write token B's resource;
+      expired/revoked/mismatch → `NotFoundError`; no CRM row; rate limit at
+      30/min per IP-HMAC key; fail-closed on Redis failure; audit actor
+      `system`/`share` on writes.
+- [ ] `ctx.call` from share: only `share`-principal reads accepted;
+      public/staff/customer/consumer/account/system-tenant callees rejected.
 
 ## 14. Resolved decisions
 
@@ -624,11 +692,17 @@ does not apply — fails the check.
    fnd-G1 A12). There is no validated input to hash; a malformed request is
    not an accountable action outcome. Permission denials after validation
    remain recorded.
+5. Share principal (ADR-0022, owner 2026-08-19) — seventh mode for
+   unauthenticated capability-token writes. Access-log actor is `anonymous`;
+   audit/event actor is `system`/`share`. Default rate limit 30/min IP-HMAC,
+   fail-closed. `ctx.call` is share→share reads only. `draft`/`high` and
+   confirmation are forbidden on share.
 
 ## Changelog
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-19 | Seventh principal `share` (ADR-0022): `ShareCtx`, contract-check subset, pipeline/idempotency keys, audit/event actor mapping, 30/min IP-HMAC fail-closed, `shareIsolationSuite` | Unauthenticated capability-token writes for owner-first dual-sign without weakening `public` | owner via `/rework-spec core.md` |
 | 2026-08-19 | Status: Active; Active surface: entire file | Ledger catch-up: first merged packages/core (fnd-T8…T28), not a new freeze decision | owner via spec-process-after-phase-0 |
 | 2026-08-19 | §4: start log has no actor/company (identity unknown pre-auth); §8: no audit row before successful input validation; §10: system rate-limit store failure is fail-open; §12: `runSocialDesiredStateCase` | Align living spec with phase-0 pipeline (fnd-G1 A12) | scaffold (fnd-G1 A12) |
 | 2026-08-18 | §6: named the outbox wakeup channel `domain_events` (LISTEN + polling fallback in `apps/worker`) | fnd-T27 implementation pinned the channel the trigger notifies | scaffold (fnd-T27) |

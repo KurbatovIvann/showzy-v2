@@ -13,9 +13,11 @@ Four export subpaths exist:
 - `@showzy/core` (root, server-only) — `implementAction` + `ActionRegistry`
   (fnd-T9), the registry-walking contract check (fnd-T10) including the
   `suiteCoverage` manifest (fnd-T22), the six principal context factories
-  - `effectiveCompanyId` + `staffHasPermission` (fnd-T11), the execution
-    pipeline `executeAction` (fnd-T12), the audit protocol `createAuditHook`
-  - `canonicalJson`/`canonicalJsonSha256` (fnd-T13), rate limiting
+  plus `effectiveCompanyId` / `staffHasPermission` (fnd-T11; seventh `share`
+  factory is spec'd in core.md / ADR-0022 and waits on fnd-T11B — module
+  tasks must not work around its absence), the execution
+  pipeline `executeAction` (fnd-T12), the audit protocol `createAuditHook`
+  and `canonicalJson`/`canonicalJsonSha256` (fnd-T13), rate limiting
     `createRateLimitHook` + `createInMemoryRateLimitStore` (fnd-T14), the
     idempotency protocol `createIdempotencyHook` +
     `cleanupExpiredIdempotencyKeys` (fnd-T15), domain events
@@ -32,7 +34,7 @@ Four export subpaths exist:
   `createTestKit` / `buildTestContext` against the db harness, plus
   `crossTenantSuite`, `publicProjectionSuite`, `consumerIsolationSuite`,
   `accountIsolationSuite`, `idempotencySuite`, `eventSuite`, and
-  `atomicCallSuite`. Module tasks instantiate the registrars; omitting a
+  `atomicCallSuite` (`shareIsolationSuite` waits on fnd-T11B). Module tasks instantiate the registrars; omitting a
   required suite fails the contract check. The next package is
   `packages/contract` (fnd-T23).
 

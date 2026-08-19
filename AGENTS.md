@@ -29,10 +29,10 @@ and an AI chat that execute the exact same actions.
 ## Non-negotiable invariants (blueprint §2.1)
 
 1. **Tenant isolation.** Tenant scope comes from a verified action context
-   (staff membership, typed customer/public target resolver, explicit
+   (staff membership, typed customer/public/share target resolver, explicit
    system scope, or null company for `consumer` and declared public global
-   discovery projections — ADR-0013, ADR-0018, ADR-0020), never from an input
-   identifier as an access grant.
+   discovery projections — ADR-0013, ADR-0018, ADR-0020, ADR-0022), never
+   from an input identifier as an access grant.
    Cross-tenant access must be impossible and is verified by tests every
    module inherits.
 2. **Idempotency.** Orders, payments, document generation, webhooks, and
