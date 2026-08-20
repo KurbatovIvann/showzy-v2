@@ -1,5 +1,5 @@
 import { AuthClientError, isAuthClientError } from "./errors";
-import type { AuthApi, AuthSessionUser } from "./api";
+import type { AuthApi, AuthSessionUser } from "./http";
 import type { TokenStore } from "./storage";
 
 export type SessionSnapshot = AuthSessionUser;

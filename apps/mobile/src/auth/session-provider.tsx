@@ -11,11 +11,13 @@ import { AppState } from "react-native";
 
 import { apiUrlFromEnv } from "../api/config";
 import { createShowzyClient, type ContractClient } from "../api/client";
-import { createAuthApi } from "./api";
-import { authCopy, detectAuthLocale, type AuthCopy } from "./copy";
+import { authCopy, type AuthCopy } from "../i18n/auth";
+import { detectLocale } from "../i18n/locale";
+import { createAuthApi } from "./http";
 import { isAuthClientError, type AuthErrorKind } from "./errors";
 import { createOtpFlow, type OtpFlow } from "./otp-flow";
 import { createPlatformTokenStore } from "./secure-storage";
+import { bindSessionController } from "./session-binding";
 import {
   createSessionController,
   type SessionController,
@@ -38,26 +40,28 @@ export type AuthSessionValue = {
 
 const AuthSessionContext = createContext<AuthSessionValue | null>(null);
 
+type AuthResources = {
+  readonly session: SessionController;
+  readonly flow: OtpFlow;
+  readonly client: ContractClient;
+};
+
 export function AuthSessionProvider({
   children,
 }: {
   readonly children: ReactNode;
 }) {
-  const copy = useMemo(() => authCopy(detectAuthLocale()), []);
-  const apiUrl = useMemo(() => {
-    try {
-      return apiUrlFromEnv();
-    } catch {
-      return null;
-    }
-  }, []);
-
+  const copy = useMemo(() => authCopy(detectLocale()), []);
   const [sessionUser, setSessionUser] = useState<SessionSnapshot | null>(null);
-  const [ready, setReady] = useState(apiUrl === null);
   const [bootError, setBootError] = useState<AuthErrorKind | null>(null);
 
-  const resources = useMemo(() => {
-    if (apiUrl === null) {
+  // Lazy singleton: the controllers are built once per mount, not re-created
+  // by re-renders (a side-effectful useMemo would be).
+  const [resources] = useState<AuthResources | null>(() => {
+    let apiUrl: string;
+    try {
+      apiUrl = apiUrlFromEnv();
+    } catch {
       return null;
     }
     const api = createAuthApi({ baseUrl: apiUrl });
@@ -65,38 +69,31 @@ export function AuthSessionProvider({
       store: createPlatformTokenStore(),
       api,
     });
-    const session: SessionController = {
-      getAccessToken: () => inner.getAccessToken(),
-      getSnapshot: () => inner.getSnapshot(),
-      async hydrate() {
-        const user = await inner.hydrate();
+    // The flow does not exist yet when the binding is created; the closure
+    // reads it after assignment below.
+    let boundFlow: OtpFlow | null = null;
+    const session = bindSessionController(inner, {
+      onUser: (user) => {
         setSessionUser(user);
-        return user;
       },
-      async refresh() {
-        const user = await inner.refresh();
-        setSessionUser(user);
-        return user;
+      // Server-side revocation must not strand the user on a stale
+      // verify screen.
+      onRevoked: () => {
+        boundFlow?.reset();
       },
-      async completeSignIn(token) {
-        const user = await inner.completeSignIn(token);
-        setSessionUser(user);
-        return user;
-      },
-      async signOut() {
-        await inner.signOut();
-        setSessionUser(null);
-      },
-    };
+    });
+    const flow = createOtpFlow({ api, session });
+    boundFlow = flow;
     return {
       session,
-      flow: createOtpFlow({ api, session }),
+      flow,
       client: createShowzyClient({
         apiUrl,
         getAccessToken: () => inner.getAccessToken(),
       }),
     };
-  }, [apiUrl]);
+  });
+  const [ready, setReady] = useState(resources === null);
 
   const hydrate = useCallback(async () => {
     if (resources === null) {
@@ -138,21 +135,24 @@ export function AuthSessionProvider({
     resources.flow.reset();
   }, [resources]);
 
-  const value: AuthSessionValue = {
-    status: !ready
-      ? "loading"
-      : sessionUser === null
-        ? "anonymous"
-        : "authenticated",
-    session: sessionUser,
-    bootError,
-    configError: apiUrl === null,
-    copy,
-    client: resources?.client ?? null,
-    flow: resources?.flow ?? null,
-    retryHydrate: hydrate,
-    signOut,
-  };
+  const value: AuthSessionValue = useMemo(
+    () => ({
+      status: !ready
+        ? "loading"
+        : sessionUser === null
+          ? "anonymous"
+          : "authenticated",
+      session: sessionUser,
+      bootError,
+      configError: resources === null,
+      copy,
+      client: resources?.client ?? null,
+      flow: resources?.flow ?? null,
+      retryHydrate: hydrate,
+      signOut,
+    }),
+    [ready, sessionUser, bootError, resources, copy, hydrate, signOut],
+  );
 
   return (
     <AuthSessionContext.Provider value={value}>

@@ -1,7 +1,7 @@
-import type { AuthErrorKind } from "./errors";
-import type { AuthChannel } from "./identifiers";
-
-export type AuthLocale = "en" | "uk";
+/** Auth copy namespace (uk/en). Locale plumbing lives in `./locale`. */
+import type { AuthErrorKind } from "../auth/errors";
+import type { AuthChannel } from "../auth/identifiers";
+import { interpolate, type Locale } from "./locale";
 
 export type AuthCopy = {
   readonly welcome: string;
@@ -102,23 +102,8 @@ const uk: AuthCopy = {
   },
 };
 
-export function detectAuthLocale(
-  locale: string = Intl.DateTimeFormat().resolvedOptions().locale,
-): AuthLocale {
-  return locale.toLowerCase().startsWith("uk") ? "uk" : "en";
-}
-
-export function authCopy(locale: AuthLocale): AuthCopy {
+export function authCopy(locale: Locale): AuthCopy {
   return locale === "uk" ? uk : en;
-}
-
-export function interpolate(
-  template: string,
-  vars: Readonly<Record<string, string>>,
-): string {
-  return template.replaceAll(/\{\{(\w+)\}\}/g, (_match, key: string) => {
-    return vars[key] ?? "";
-  });
 }
 
 export function verifyMessage(

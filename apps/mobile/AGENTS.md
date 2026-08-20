@@ -20,14 +20,35 @@ V1 repository (`E:\showzy`).
 
 ## Layout
 
+Every file is kebab-case; components export PascalCase names. One folder =
+one role — do not mix transport, domain state, screens, UI kit, and copy in
+the same directory.
+
+- `src/app/` — expo-router routes **only**, each a one-line re-export of a
+  screen component. Auth routes live in the `(auth)` group (V1 route
+  composition). No logic in route files.
+- `src/components/ui/` — generic controls (`button`, `card`, `text-field`,
+  `segmented-tabs`, `otp-input`, `banner`), the V2 counterpart of V1
+  `components/ui`. Never imports feature code; feature policy values (e.g.
+  OTP length) arrive as props.
+- `src/components/screens/<feature>/` — screen components (V1 canon:
+  `components/screens`). Screens take view models and callbacks; they do not
+  own transport.
+- `src/auth/` — auth logic only, no screens: `http.ts` (better-auth HTTP
+  client), `otp-flow.ts` (UI state machine), `session.ts` (token/session
+  controller), `session-binding.ts` (UI notifications + revocation reset),
+  `session-provider.tsx` (React context wiring), `use-otp-flow-state.ts`,
+  `secure-storage.ts` / `storage.ts`, `errors.ts`, `identifiers.ts`,
+  `policy.ts`. Tests cover the non-RN modules (`*.test.ts`).
+- `src/i18n/` — `locale.ts` (detection + interpolation) plus one copy
+  namespace per feature (`auth.ts`). uk/en, matching V1's namespace split.
+  New features add a namespace here instead of a local `copy.ts`.
+- `src/api/client.ts` — `createShowzyClient` wraps `createContractClient` with the env-driven API origin. `getAccessToken` comes from the session controller.
+- `src/api/errors.ts` — example of discriminating `isWireError` by `code`, never by message text.
 - `src/theme/tokens.ts` — palettes, spacing, radii, type, shadows, glass fallbacks. Pure TypeScript; no React Native imports.
 - `src/theme/light.ts` / `dark.ts` — Unistyles theme objects.
 - `src/theme/preference.ts` — `light` / `dark` / `system` resolution (default `light`, matching V1).
 - `src/theme/unistyles.ts` — `StyleSheet.configure` only. Import from `index.ts` and `src/app/_layout.tsx` before any component. Do not import from tests.
-- `src/api/client.ts` — `createShowzyClient` wraps `createContractClient` with the env-driven API origin. `getAccessToken` comes from the session controller.
-- `src/api/errors.ts` — example of discriminating `isWireError` by `code`, never by message text.
-- `src/auth/` — OTP sign-in, secure token store, session hydrate/refresh/sign-out. Tests cover the non-RN modules (`*.test.ts`).
-- `src/app/` — expo-router routes: sign-in, verify, signed-in session stub. No product navigation.
 - `metro.config.cjs` — NodeNext `.js` specifiers in workspace packages resolve to `.ts` so `@showzy/contract` can be bundled.
 
 ## Rules

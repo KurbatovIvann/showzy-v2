@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { AuthClientError } from "./errors";
 import { createSessionController } from "./session";
 import { createMemoryTokenStore } from "./storage";
-import type { AuthApi, GetSessionResult } from "./api";
+import type { AuthApi, GetSessionResult } from "./http";
 
 function apiStub(handlers: {
   getSession?: (token: string) => Promise<GetSessionResult>;

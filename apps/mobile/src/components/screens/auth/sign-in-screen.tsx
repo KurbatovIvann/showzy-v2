@@ -1,34 +1,36 @@
-import { useSyncExternalStore } from "react";
 import { Text, View } from "react-native";
 import { Redirect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet } from "react-native-unistyles";
 
-import { useAuthSession } from "./AuthSession";
-import { errorCopy } from "./copy";
-import { AuthButton, AuthCard, AuthField, AuthTabs, Banner } from "./ui";
+import { useAuthSession } from "../../../auth/session-provider";
+import { useOtpFlowState } from "../../../auth/use-otp-flow-state";
+import type { AuthChannel } from "../../../auth/identifiers";
+import { errorCopy } from "../../../i18n/auth";
+import { Banner, Button, Card, SegmentedTabs, TextField } from "../../ui";
 
 export function SignInScreen() {
   const auth = useAuthSession();
   const flow = auth.flow;
-  const state = useSyncExternalStore(
-    (listener) => (flow === null ? emptySubscribe() : flow.subscribe(listener)),
-    () => (flow === null ? emptyIdentifier() : flow.get()),
-    () => (flow === null ? emptyIdentifier() : flow.get()),
-  );
+  const state = useOtpFlowState(flow);
 
   if (auth.status === "authenticated") {
     return <Redirect href="/session" />;
   }
-  if (flow === null || state.step !== "identifier") {
-    if (state.step === "verify") {
-      return <Redirect href="/verify" />;
-    }
-    return null;
+  if (flow === null) {
+    // Config error: the index route renders the actionable message.
+    return <Redirect href="/" />;
+  }
+  if (state.step !== "identifier") {
+    return <Redirect href="/verify" />;
   }
 
   const fieldError =
     state.fieldError === null ? null : errorCopy(auth.copy, state.fieldError);
+  const channels: ReadonlyArray<{ key: AuthChannel; label: string }> = [
+    { key: "phone", label: auth.copy.phone },
+    { key: "email", label: auth.copy.email },
+  ];
 
   return (
     <SafeAreaView style={styles.screen} accessibilityLabel={auth.copy.welcome}>
@@ -36,19 +38,18 @@ export function SignInScreen() {
         <Text style={styles.title}>Showzy</Text>
         <Text style={styles.subtitle}>{auth.copy.welcomeMessage}</Text>
       </View>
-      <AuthCard>
+      <Card>
         <Text style={styles.cardTitle}>{auth.copy.welcome}</Text>
-        <AuthTabs
-          phoneLabel={auth.copy.phone}
-          emailLabel={auth.copy.email}
+        <SegmentedTabs
+          tabs={channels}
           selected={state.channel}
           disabled={state.busy}
-          onChange={(channel) => {
+          onSelect={(channel) => {
             flow.setChannel(channel);
           }}
         />
         {state.channel === "phone" ? (
-          <AuthField
+          <TextField
             value={state.phone}
             onChangeText={(value) => {
               flow.setPhone(value);
@@ -60,7 +61,7 @@ export function SignInScreen() {
             error={fieldError}
           />
         ) : (
-          <AuthField
+          <TextField
             value={state.email}
             onChangeText={(value) => {
               flow.setEmail(value);
@@ -75,32 +76,16 @@ export function SignInScreen() {
         {state.bannerError ? (
           <Banner message={errorCopy(auth.copy, state.bannerError)} />
         ) : null}
-        <AuthButton
+        <Button
           label={auth.copy.continue}
           loading={state.busy}
           onPress={() => {
             void flow.submitIdentifier();
           }}
         />
-      </AuthCard>
+      </Card>
     </SafeAreaView>
   );
-}
-
-function emptySubscribe(): () => void {
-  return () => undefined;
-}
-
-function emptyIdentifier() {
-  return {
-    step: "identifier" as const,
-    channel: "phone" as const,
-    phone: "",
-    email: "",
-    fieldError: null,
-    bannerError: null,
-    busy: false,
-  };
 }
 
 const styles = StyleSheet.create((theme) => ({

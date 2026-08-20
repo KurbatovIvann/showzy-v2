@@ -3,9 +3,9 @@ import { Redirect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet } from "react-native-unistyles";
 
-import { useAuthSession } from "./AuthSession";
-import { isPlaceholderEmail } from "./identifiers";
-import { AuthButton, AuthCard } from "./ui";
+import { isPlaceholderEmail } from "../../../auth/identifiers";
+import { useAuthSession } from "../../../auth/session-provider";
+import { Button, Card } from "../../ui";
 
 export function SessionStubScreen() {
   const auth = useAuthSession();
@@ -27,7 +27,7 @@ export function SessionStubScreen() {
       accessibilityLabel={auth.copy.sessionTitle}
     >
       <Text style={styles.title}>{auth.copy.sessionTitle}</Text>
-      <AuthCard>
+      <Card>
         <Text style={styles.label}>{auth.copy.userId}</Text>
         <Text style={styles.value}>{auth.session.userId}</Text>
         {auth.session.phoneNumber ? (
@@ -49,13 +49,13 @@ export function SessionStubScreen() {
         >
           <Text style={styles.stubValue}>{auth.copy.companySelectorStub}</Text>
         </View>
-        <AuthButton
+        <Button
           label={auth.copy.signOut}
           onPress={() => {
             void auth.signOut();
           }}
         />
-      </AuthCard>
+      </Card>
     </SafeAreaView>
   );
 }

@@ -1,1 +1,1 @@
-export { SessionStubScreen as default } from "../auth/SessionStubScreen";
+export { SessionStubScreen as default } from "../components/screens/auth/session-stub-screen";

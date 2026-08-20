@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { AuthClientError } from "./errors";
-import { authUrl, createAuthApi } from "./api";
+import { authUrl, createAuthApi } from "./http";
 
 function asRequest(input: RequestInfo | URL): Request {
   return input instanceof Request ? input : new Request(input);

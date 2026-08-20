@@ -4,7 +4,7 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
-import { AuthSessionProvider } from "../auth/AuthSession";
+import { AuthSessionProvider } from "../auth/session-provider";
 
 export default function RootLayout() {
   return (
