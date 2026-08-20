@@ -7,6 +7,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { catalogSuiteCoverage } from "@showzy/catalog/suite-coverage";
+import { customersSuiteCoverage } from "@showzy/customers/suite-coverage";
 import { implementAction, runContractCheck } from "@showzy/core";
 import { defineActionContract } from "@showzy/core/contract";
 import { projectionGrants } from "@showzy/db";
@@ -16,6 +17,7 @@ import { z } from "zod";
 import {
   buildContractCheckInput,
   createActionRegistry,
+  mergeSuiteCoverage,
   registerAction,
 } from "./composition.js";
 
@@ -53,7 +55,9 @@ describe("composition root identity", () => {
         .toSorted(),
     ).toEqual(actionNames(createActionRegistry()));
     expect(input.projectionGrants).toBe(projectionGrants);
-    expect(input.suiteCoverage).toEqual(catalogSuiteCoverage);
+    expect(input.suiteCoverage).toEqual(
+      mergeSuiteCoverage([catalogSuiteCoverage, customersSuiteCoverage]),
+    );
   });
 });
 

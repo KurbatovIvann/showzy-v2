@@ -21,6 +21,7 @@
     "@sentry/node": "^10.70.0",
     "@showzy/catalog": "workspace:*",
     "@showzy/config": "workspace:*",
+    "@showzy/customers": "workspace:*",
     "@showzy/contract": "workspace:*",
     "@showzy/core": "workspace:*",
     "@showzy/db": "workspace:*",
