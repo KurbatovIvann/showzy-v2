@@ -59,7 +59,9 @@ the same directory.
 - Bearer tokens live in `expo-secure-store` (iOS `AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY`). Web keeps them in memory so the export-smoke bundle does not persist them. Never log tokens or OTP codes. Classify auth HTTP failures by status, not message text.
 - Auth is phone/email OTP only (ADR-0006). Google and guest browse are not in this slice.
 - The signed-in company selector is a stub until `companies.listMine` (phase 2). The selector is never an access grant (ADR-0013).
-- Theme persistence across launches (V1 MMKV) is deferred so auth is the only extra native module in this slice. Preference still switches in-process (`createMemoryThemeStore`).
+- Theme preference still switches in-process (`createMemoryThemeStore`). `react-native-mmkv` is installed for a later persistence wiring; do not add a second storage native module.
+- Native modules for owner-first launch and near-term surfaces are preinstalled (see `package.json` + `app.config.ts` plugins) so product screens do not force a new Expo/dev-client binary. Unistyles 3 already requires a custom dev client (`expo-dev-client`); do not use Expo Go. Pin new Expo packages with `pnpm --filter @showzy/mobile exec expo install`.
+- Icons: `lucide-react-native` (Magic Patterns canvas, ADR-0024). Do not add Ionicons, `@expo/vector-icons`, NativeWind, Google Sign-In, `expo-location`, `@callstack/liquid-glass`, or `@gorhom/bottom-sheet` (sheets are Reanimated; gorhom is unreliable on Reanimated 4.5).
 - No Cursor skills are installed in phases 0–1 (`docs/pipeline.md`).
 - Porting a canvas screen: follow the inventory → classify → reuse/create
   loop in [`mp-to-mobile.md`](../../docs/design/mapping/mp-to-mobile.md).
