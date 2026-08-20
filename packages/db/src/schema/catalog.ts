@@ -1,0 +1,81 @@
+/**
+ * Minimal catalog slice for price resolution (SHO-85, pricing-T1). Owned by
+ * the catalog module (ADR-0014). Only the base-price facts the pricing
+ * resolver needs exist here; the full catalog schema task adds its own
+ * columns later. Deliberately absent: name/sku/status/`is_active` — the
+ * feature card names no other column family.
+ */
+import { sql } from "drizzle-orm";
+import {
+  bigint,
+  char,
+  check,
+  index,
+  pgTable,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
+
+import { companies } from "./companies.js";
+
+/** Products carry the level-5 base price of the resolution chain. */
+export const products = pgTable(
+  "products",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    basePriceMinor: bigint("base_price_minor", { mode: "bigint" }).notNull(),
+    currency: char("currency", { length: 3 }).notNull().default("UAH"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("products_company_idx").on(table.companyId),
+    check("products_base_price_minor_check", sql`${table.basePriceMinor} >= 0`),
+  ],
+);
+
+/**
+ * Variants carry an optional base-price override used at level 5 when set;
+ * otherwise resolution falls back to the product base price. The override
+ * price and its currency are set or null together (consistency CHECK).
+ */
+export const productVariants = pgTable(
+  "product_variants",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    // Same-module ownership: a product deletion removes its variants.
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "cascade" }),
+    basePriceMinor: bigint("base_price_minor", { mode: "bigint" }),
+    currency: char("currency", { length: 3 }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("product_variants_company_idx").on(table.companyId),
+    index("product_variants_product_idx").on(table.productId),
+    check(
+      "product_variants_base_price_minor_check",
+      sql`${table.basePriceMinor} IS NULL OR ${table.basePriceMinor} >= 0`,
+    ),
+    check(
+      "product_variants_price_currency_check",
+      sql`(${table.basePriceMinor} IS NULL) = (${table.currency} IS NULL)`,
+    ),
+  ],
+);

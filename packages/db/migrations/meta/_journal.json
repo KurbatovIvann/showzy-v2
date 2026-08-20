@@ -57,6 +57,20 @@
       "when": 1787112000000,
       "tag": "0007_pg_trgm_unaccent",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1787232803885,
+      "tag": "0008_pricing_resolution_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1787232822442,
+      "tag": "0009_pricing_resolution_updated_at_triggers",
+      "breakpoints": true
     }
   ]
 }

@@ -2,8 +2,11 @@ import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import pg from "pg";
 
 import * as auth from "./schema/auth.js";
+import * as catalog from "./schema/catalog.js";
 import * as companies from "./schema/companies.js";
+import * as customers from "./schema/customers.js";
 import * as foundation from "./schema/foundation.js";
+import * as pricing from "./schema/pricing.js";
 
 /**
  * Aggregated Drizzle schema. Module schema files are spread in here as their
@@ -11,7 +14,14 @@ import * as foundation from "./schema/foundation.js";
  * `@showzy/db/schema/<module>` file — this aggregate exists for the client
  * factory and relational queries.
  */
-export const schema = { ...foundation, ...auth, ...companies };
+export const schema = {
+  ...foundation,
+  ...auth,
+  ...companies,
+  ...catalog,
+  ...customers,
+  ...pricing,
+};
 
 export type DbSchema = typeof schema;
 export type Database = NodePgDatabase<DbSchema>;
