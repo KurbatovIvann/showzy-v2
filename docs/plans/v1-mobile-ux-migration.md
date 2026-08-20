@@ -66,7 +66,8 @@ flowchart TD
 ### vm-T3: foundation contract rework
 
 - Historical. The public-projection pattern is already in the Living/Active
-  foundation specs. Further edits follow `docs/specs/README.md`, not a queue.
+  foundation protocol manuals. Further edits follow ADR-0023 (feature card +
+  `*.contract.ts`), not a spec-rework queue.
 
 ### vm-T3A: foundation scaffold recut
 

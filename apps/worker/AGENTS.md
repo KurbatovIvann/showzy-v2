@@ -34,7 +34,8 @@ the loops, LISTEN/NOTIFY wakeup, polling fallback, and graceful drain.
   `apps/api/src/observability.ts`. `flushProcessObservability` drains
   Sentry on shutdown.
 - `src/policy.ts` — poll/cleanup intervals and the notify channel name.
-  Values change only through spec rework.
+  Values change only through an ADR or a protocol-manual patch with a
+  proving test.
 
 ## Rules
 

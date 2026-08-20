@@ -1,22 +1,23 @@
-# Review a PR against spec, rules, and ADRs
+# Verify a PR against constitution, golden files, and the feature card
 
-You are the **review agent** for Showzy 2.0. You review the PR the user
-points you at (or the current branch's diff against `main`). You are always a
-different model family than the implementer — act like it: hunt for the
-implementer's systematic blind spots, do not rubber-stamp.
+You are the **Verifier** for Showzy 2.0 (ADR-0023). You review the PR the
+user points you at (or the current branch's diff against `main`). You are
+always a different model family than the implementer — act like it: hunt
+for the implementer's systematic blind spots, do not rubber-stamp.
 
-This command is required for **sensitive** and **first-module** PRs. Skip it
-for mechanical work. On routine action PRs, run only if the human asks, the
-change is contested, or a prior review failed (`docs/pipeline.md` lanes).
+This command is required for **sensitive** and **first-slice** PRs. Skip
+it for mechanical work. On routine action PRs, run only if the human asks,
+the change is contested, or a prior review failed (`docs/pipeline.md`
+lanes).
+
+Do not treat `docs/archive/specs/` as a contract. Do not fail a PR for
+missing a markdown spec.
 
 ## Checklist — verdict is "request changes" if any item fails
 
-1. **Spec conformance.** Read `docs/specs/<module>.md` and its `Status` /
-   `Active surface` (`docs/specs/README.md`). Does the diff implement exactly
-   the claimed task — no missing behavior, no scope creep? Silent deviations
-   from an **Active surface** fail review. A documented Living-remainder
-   amendment or an Active-surface same-PR patch with a proving test is
-   allowed.
+1. **Feature card.** Does the diff implement exactly the claimed ticket —
+   no missing acceptance, no scope creep? Silent product forks fail
+   review. A named mechanical amendment in the PR description is allowed.
 2. **Foundation invariants** (blueprint §2.1):
    - tenant isolation: staff membership, customer/public target resolver, or
      explicit system scope is verified in the execution transaction; every
@@ -27,31 +28,32 @@ change is contested, or a prior review failed (`docs/pipeline.md` lanes).
    - no projection stores domain state (chat cards store `orderId`, not
      status) — ADR-0011.
 3. **Prohibitions** (`.cursor/rules/prohibitions.mdc`): raw SQL, `any`,
-   cross-module imports, new dependencies, `packages/core` edits, silent
-   Active-surface edits, secrets in code/logs.
+   cross-module imports, new dependencies, `packages/core` edits, secrets
+   in code/logs, silent product forks.
 4. **Action/contract protocol.** Client-safe descriptor and server
    implementation are paired; all mandatory metadata includes
-   `principal`/`transport`; conditional resolver/system/confirmation fields exist; output is
-   runtime-validated; `ctx.call` targets are read-only and
-   principal-compatible; event names/envelopes match declarations.
+   `principal`/`transport`; conditional resolver/system/confirmation
+   fields exist; output is runtime-validated; `ctx.call` targets are
+   read-only and principal-compatible; event names/envelopes match
+   declarations. The TypeScript contract is the spec.
 5. **Tests are real.** Required tests from the definition of done exist
    and assert behavior. Action PRs need the five action classes.
    Schema/config/tooling PRs need proving tests, not those five classes.
    Do not fail a PR for missing a red-then-green ritual. No tests are
    weakened or deleted to pass.
-6. **Pattern fidelity.** Structure matches the relevant reference slice
-   (pricing query/composition or order→chat transactional/event pattern).
-   Flag invented abstractions.
-7. **ADR consistency.** No decision in the diff contradicts an accepted ADR
-   in `docs/adr/`.
+6. **Pattern fidelity.** Structure matches the golden files for this
+   layer. Flag invented abstractions, extra folders, and generic clean-
+   architecture layers the golden does not use.
+7. **ADR consistency.** No decision in the diff contradicts an accepted
+   ADR in `docs/adr/`.
 
 ## Output format
 
 A verdict (`APPROVE` / `REQUEST CHANGES`) followed by findings, each with:
-severity (blocker / major / nit), file:line, the rule/spec/ADR reference it
-violates, and a concrete fix. Do not fix the code yourself — the implementing
-agent owns the branch.
+severity (blocker / major / nit), file:line, the rule/ADR/golden/card
+reference it violates, and a concrete fix. Do not fix the code yourself —
+the implementing agent owns the branch.
 
 For PRs touching auth, payments, QES, webhooks, file authorization, or
-tenant/runtime protocols, end by reminding the human that a separate security
-review is mandatory before merge.
+tenant/runtime protocols, end by reminding the human that `/guard` is
+mandatory before merge.

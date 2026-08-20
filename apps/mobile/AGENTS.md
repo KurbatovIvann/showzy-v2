@@ -12,7 +12,7 @@ Reanimated on 4.5.1 with worklets 0.10.1 — do not float Unistyles to 3.3
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Visual language      | `src/theme/` transcribed from V1 `apps/mobile/src/theme` and [`docs/design/inventory/v1-mobile-token-baseline.md`](../../docs/design/inventory/v1-mobile-token-baseline.md) |
 | How to port a screen | [`docs/design/mapping/v1-mobile-port-recipe.md`](../../docs/design/mapping/v1-mobile-port-recipe.md)                                                                        |
-| Domain behavior      | The owning V2 spec and `@showzy/contract`                                                                                                                                   |
+| Domain behavior      | The Linear feature card, `@showzy/contract`, and the golden UI slice when it exists                                                                                         |
 | Auth / sessions      | better-auth over `/api/auth` (ADR-0006, security-operations §2). Bearer in OS secure storage.                                                                               |
 
 Figma is not a source of spacing, color, or components. Never modify the
