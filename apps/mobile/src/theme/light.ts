@@ -1,4 +1,5 @@
 import {
+  hitTarget,
   lightGlassFallback,
   lightGlassFallbackDense,
   lightGlassFallbackPressed,
@@ -15,6 +16,7 @@ export const lightTheme = {
   radii,
   typography,
   shadows,
+  hitTarget,
   glassFallback: lightGlassFallback,
   glassFallbackDense: lightGlassFallbackDense,
   glassFallbackPressed: lightGlassFallbackPressed,

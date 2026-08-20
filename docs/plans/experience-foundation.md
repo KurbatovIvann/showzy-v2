@@ -1,6 +1,14 @@
 # Experience Foundation — Plan
 
-> Status: **reset and owner-approved 2026-08-17** for V1 mobile parity.
+> Status: **reset 2026-08-20** — Magic Patterns is the V2 UX canon
+> ([ADR-0024](../adr/0024-magic-patterns-canonical-ux.md)). The V1 parity
+> rebaseline below is historical; do not execute efr-T* as written.
+> Operating rule: [`docs/design/mapping/mp-to-mobile.md`](../design/mapping/mp-to-mobile.md).
+> Process: [`docs/design/process.md`](../design/process.md).
+>
+> Previous status (2026-08-17, ADR-0019) kept below for ticket archaeology
+> (SHO-5 … SHO-27). Close or re-scope those issues before reuse.
+
 > Amended **2026-08-19**: SYSTEM is running Expo (theme + primitives), not
 > Figma; efr-T5 full-journey/Figma prototypes are cancelled; AI overlay is
 > not a gate dependency.
@@ -8,7 +16,7 @@
 > Greenfield DEFINE journeys/IA and SYSTEM docs were moved to
 > `docs/archive/design/` on 2026-08-18 and are not authority.
 >
-> Sources: [ADR-0019](../adr/0019-v1-mobile-canonical-ux.md),
+> Sources: [ADR-0019](../adr/0019-v1-mobile-canonical-ux.md) (superseded),
 > [ADR-0020](../adr/0020-public-discovery-and-social-engagement.md),
 > [`docs/design/process.md`](../design/process.md).
 

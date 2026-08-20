@@ -8,15 +8,16 @@ Reanimated on 4.5.1 with worklets 0.10.1 — do not float Unistyles to 3.3
 
 ## Sources of truth
 
-| Concern              | Source                                                                                                                                                                      |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Visual language      | `src/theme/` transcribed from V1 `apps/mobile/src/theme` and [`docs/design/inventory/v1-mobile-token-baseline.md`](../../docs/design/inventory/v1-mobile-token-baseline.md) |
-| How to port a screen | [`docs/design/mapping/v1-mobile-port-recipe.md`](../../docs/design/mapping/v1-mobile-port-recipe.md)                                                                        |
-| Domain behavior      | The Linear feature card, `@showzy/contract`, and the golden UI slice when it exists                                                                                         |
-| Auth / sessions      | better-auth over `/api/auth` (ADR-0006, security-operations §2). Bearer in OS secure storage.                                                                               |
+| Concern              | Source                                                                                                                                                                       |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Visual language      | Unistyles `src/theme/` mapped from the Magic Patterns canvas ([`mp-to-mobile.md`](../../docs/design/mapping/mp-to-mobile.md))                                                |
+| How to port a screen | Inventory the canvas → classify shared vs feature → reuse/create in `components/ui` or `components/screens` — [`mp-to-mobile.md`](../../docs/design/mapping/mp-to-mobile.md) |
+| Domain behavior      | The Linear feature card, `@showzy/contract`, and the golden UI slice when it exists                                                                                          |
+| Auth / sessions      | better-auth over `/api/auth` (ADR-0006, security-operations §2). Bearer in OS secure storage.                                                                                |
 
 Figma is not a source of spacing, color, or components. Never modify the
-V1 repository (`E:\showzy`).
+V1 repository (`E:\showzy`). Do not paste Magic Patterns React/Tailwind
+into this app.
 
 ## Layout
 
@@ -27,13 +28,13 @@ the same directory.
 - `src/app/` — expo-router routes **only**, each a one-line re-export of a
   screen component. Auth routes live in the `(auth)` group (V1 route
   composition). No logic in route files.
-- `src/components/ui/` — generic controls (`button`, `card`, `text-field`,
-  `segmented-tabs`, `otp-input`, `banner`), the V2 counterpart of V1
-  `components/ui`. Never imports feature code; feature policy values (e.g.
-  OTP length) arrive as props.
-- `src/components/screens/<feature>/` — screen components (V1 canon:
-  `components/screens`). Screens take view models and callbacks; they do not
-  own transport.
+- `src/components/ui/` — **shared** primitives only (Button, Card, TextField,
+  tabs, inputs, later Sheet / StatusPill / EmptyState). Never imports
+  feature code; feature policy values (e.g. OTP length) arrive as props.
+  Before adding a new file here, confirm the canvas piece is actually shared.
+- `src/components/screens/<feature>/` — screen and **feature** components
+  (OrderRow, editor sections). Take view models and callbacks; they do not
+  own transport. Compose `components/ui`; do not duplicate button/card chrome.
 - `src/auth/` — auth logic only, no screens: `http.ts` (better-auth HTTP
   client), `otp-flow.ts` (UI state machine), `session.ts` (token/session
   controller), `session-binding.ts` (UI notifications + revocation reset),
@@ -60,4 +61,6 @@ the same directory.
 - The signed-in company selector is a stub until `companies.listMine` (phase 2). The selector is never an access grant (ADR-0013).
 - Theme persistence across launches (V1 MMKV) is deferred so auth is the only extra native module in this slice. Preference still switches in-process (`createMemoryThemeStore`).
 - No Cursor skills are installed in phases 0–1 (`docs/pipeline.md`).
-- Discretion from the port recipe: improve craft and accessibility, not the product.
+- Porting a canvas screen: follow the inventory → classify → reuse/create
+  loop in [`mp-to-mobile.md`](../../docs/design/mapping/mp-to-mobile.md).
+  Bind values to the theme (Class A/B). Product IA is Class C — canvas first.

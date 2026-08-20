@@ -18,6 +18,7 @@ export {
   avatarSizes,
   companyAvatarSizes,
   darkPalette,
+  hitTarget,
   lightPalette,
   radii,
   shadows,

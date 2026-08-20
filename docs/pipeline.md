@@ -111,7 +111,7 @@ plus the order-card projection — whichever is the smaller closed cut.
 
 **UI (later, after the UX gate).** One owner-first panel screen in
 `apps/mobile`, bound to an already-shipped action, following
-`docs/design/mapping/v1-mobile-port-recipe.md`. Until it exists, feature
+`docs/design/mapping/mp-to-mobile.md`. Until it exists, feature
 cards that need a screen stop at the API ticket.
 
 Core test fixtures in `packages/core/src/testing/` stay core-internal.
@@ -176,9 +176,10 @@ and is named in the description.
    §7.3); substitute current equivalents, keep the tiering.
 5. **UX gate blocks product screens in `apps/mobile`.** It does not block
    backend features. UI work must follow
-   `docs/design/mapping/v1-mobile-port-recipe.md` and reference the
-   approved inventory. Figma is not a gate artifact. Expo shell, auth,
-   and deep-link infrastructure are not gated.
+   `docs/design/mapping/mp-to-mobile.md` and reference the Magic
+   Patterns canvas screen, the running Expo SYSTEM, and
+   `docs/design/process.md` (ADR-0024). Figma is not a gate artifact.
+   Expo shell, auth, and deep-link infrastructure are not gated.
 6. **Copy the golden. Do not invent layers.** Flag new abstractions,
    extra folders, or generic “clean architecture” that the golden does
    not use.

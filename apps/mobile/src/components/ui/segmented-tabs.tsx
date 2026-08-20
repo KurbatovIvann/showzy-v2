@@ -36,7 +36,7 @@ const styles = StyleSheet.create((theme) => ({
   tabs: {
     flexDirection: "row",
     backgroundColor: theme.colors.muted,
-    borderRadius: theme.radii.md,
+    borderRadius: theme.radii.full,
     padding: theme.spacing.xs,
     minHeight: 48,
   },
@@ -44,7 +44,7 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: theme.radii.sm,
+    borderRadius: theme.radii.full,
   },
   tabSelected: {
     backgroundColor: theme.colors.card,
