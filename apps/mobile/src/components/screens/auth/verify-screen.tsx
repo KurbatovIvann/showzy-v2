@@ -1,26 +1,28 @@
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { Redirect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet } from "react-native-unistyles";
 
-import { useAuthSession } from "./AuthSession";
-import { errorCopy, interpolate, verifyMessage } from "./copy";
-import { identifierDestination } from "./identifiers";
-import { AuthButton, AuthCard, Banner, OtpBoxes } from "./ui";
+import { identifierDestination } from "../../../auth/identifiers";
+import { authPolicy } from "../../../auth/policy";
+import { useAuthSession } from "../../../auth/session-provider";
+import { useOtpFlowState } from "../../../auth/use-otp-flow-state";
+import { errorCopy, verifyMessage } from "../../../i18n/auth";
+import { interpolate } from "../../../i18n/locale";
+import { Banner, Button, Card, OtpInput } from "../../ui";
 
 export function VerifyScreen() {
   const auth = useAuthSession();
   const flow = auth.flow;
-  const state = useSyncExternalStore(
-    (listener) => (flow === null ? emptySubscribe() : flow.subscribe(listener)),
-    () => (flow === null ? emptyVerify() : flow.get()),
-    () => (flow === null ? emptyVerify() : flow.get()),
-  );
+  const state = useOtpFlowState(flow);
   const [, setTick] = useState(0);
 
+  const remaining = flow === null ? 0 : flow.resendSecondsRemaining();
+  const countdownActive = state.step === "verify" && remaining > 0;
+
   useEffect(() => {
-    if (state.step !== "verify") {
+    if (!countdownActive) {
       return;
     }
     const id = setInterval(() => {
@@ -29,7 +31,7 @@ export function VerifyScreen() {
     return () => {
       clearInterval(id);
     };
-  }, [state.step]);
+  }, [countdownActive]);
 
   if (auth.status === "authenticated") {
     return <Redirect href="/session" />;
@@ -38,7 +40,6 @@ export function VerifyScreen() {
     return <Redirect href="/sign-in" />;
   }
 
-  const remaining = flow.resendSecondsRemaining();
   const destination = identifierDestination(state.identifier);
   const locked = state.codeError === "verify_locked";
 
@@ -65,15 +66,16 @@ export function VerifyScreen() {
       <Text style={styles.subtitle}>
         {verifyMessage(auth.copy, state.identifier.channel, destination)}
       </Text>
-      <AuthCard>
-        <OtpBoxes
+      <Card>
+        <OtpInput
           value={state.code}
+          length={authPolicy.otpLength}
           disabled={state.busy || locked}
           error={state.codeError !== null}
           accessibilityLabel={auth.copy.verifyCode}
           onChange={(code) => {
             flow.setCode(code);
-            if (code.length === 6) {
+            if (code.length === authPolicy.otpLength) {
               void flow.submitCode();
             }
           }}
@@ -84,7 +86,7 @@ export function VerifyScreen() {
         {state.bannerError ? (
           <Banner message={errorCopy(auth.copy, state.bannerError)} />
         ) : null}
-        <AuthButton
+        <Button
           label={auth.copy.verifyCode}
           loading={state.busy}
           disabled={locked}
@@ -112,25 +114,9 @@ export function VerifyScreen() {
             </Pressable>
           )}
         </View>
-      </AuthCard>
+      </Card>
     </SafeAreaView>
   );
-}
-
-function emptySubscribe(): () => void {
-  return () => undefined;
-}
-
-function emptyVerify() {
-  return {
-    step: "identifier" as const,
-    channel: "phone" as const,
-    phone: "",
-    email: "",
-    fieldError: null,
-    bannerError: null,
-    busy: false,
-  };
 }
 
 const styles = StyleSheet.create((theme) => ({

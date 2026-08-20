@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { AuthClientError } from "./errors";
 import { createOtpFlow } from "./otp-flow";
 import { authPolicy } from "./policy";
-import type { AuthApi } from "./api";
+import type { AuthApi } from "./http";
 import type { SessionController } from "./session";
 
 function flowFixture(options?: {

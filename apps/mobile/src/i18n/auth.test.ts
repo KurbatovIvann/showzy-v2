@@ -1,18 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  authCopy,
-  detectAuthLocale,
-  errorCopy,
-  interpolate,
-  verifyMessage,
-} from "./copy";
+import { authCopy, errorCopy, verifyMessage } from "./auth";
+import { detectLocale, interpolate } from "./locale";
 
 describe("auth copy", () => {
   it("picks Ukrainian from a uk locale and English otherwise", () => {
-    expect(detectAuthLocale("uk-UA")).toBe("uk");
-    expect(detectAuthLocale("UK")).toBe("uk");
-    expect(detectAuthLocale("en-US")).toBe("en");
+    expect(detectLocale("uk-UA")).toBe("uk");
+    expect(detectLocale("UK")).toBe("uk");
+    expect(detectLocale("en-US")).toBe("en");
     expect(authCopy("uk").welcome).toBe("Ласкаво просимо");
     expect(authCopy("en").welcome).toBe("Welcome");
   });

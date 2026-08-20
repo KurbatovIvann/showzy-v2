@@ -2,9 +2,9 @@ import { ActivityIndicator, Text, View } from "react-native";
 import { Redirect } from "expo-router";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
-import { useAuthSession } from "../auth/AuthSession";
-import { errorCopy } from "../auth/copy";
-import { AuthButton } from "../auth/ui";
+import { useAuthSession } from "../auth/session-provider";
+import { errorCopy } from "../i18n/auth";
+import { Button } from "../components/ui";
 
 export default function Index() {
   const auth = useAuthSession();
@@ -34,7 +34,7 @@ export default function Index() {
         <Text style={styles.message}>
           {errorCopy(auth.copy, auth.bootError)}
         </Text>
-        <AuthButton
+        <Button
           label={auth.copy.retry}
           onPress={() => {
             void auth.retryHydrate();

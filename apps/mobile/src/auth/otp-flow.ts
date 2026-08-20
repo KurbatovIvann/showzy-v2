@@ -1,4 +1,4 @@
-import type { AuthApi } from "./api";
+import type { AuthApi } from "./http";
 import { toAuthClientError, type AuthErrorKind } from "./errors";
 import type { AuthChannel, ParsedIdentifier } from "./identifiers";
 import { parseIdentifier } from "./identifiers";
@@ -49,7 +49,7 @@ export function createOtpFlow(deps: {
   readonly now?: () => number;
 }): OtpFlow {
   const now = deps.now ?? Date.now;
-  let state: OtpFlowState = initialIdentifier();
+  let state: OtpFlowState = initialOtpFlowState();
   const listeners = new Set<() => void>();
 
   function emit(next: OtpFlowState): void {
@@ -210,7 +210,7 @@ export function createOtpFlow(deps: {
       });
     },
     reset() {
-      emit(initialIdentifier());
+      emit(initialOtpFlowState());
     },
     resendSecondsRemaining() {
       if (state.step !== "verify") {
@@ -221,7 +221,7 @@ export function createOtpFlow(deps: {
   };
 }
 
-function initialIdentifier(): IdentifierStep {
+export function initialOtpFlowState(): IdentifierStep {
   return {
     step: "identifier",
     channel: "phone",
