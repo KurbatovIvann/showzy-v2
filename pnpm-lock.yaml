@@ -38,6 +38,9 @@ importers:
       '@sentry/node':
         specifier: ^10.70.0
         version: 10.70.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))
+      '@showzy/catalog':
+        specifier: workspace:*
+        version: link:../../packages/modules/catalog
       '@showzy/config':
         specifier: workspace:*
         version: link:../../packages/config
@@ -450,6 +453,37 @@ importers:
       drizzle-kit:
         specifier: ^0.31.10
         version: 0.31.10
+      eslint:
+        specifier: ^10.8.1
+        version: 10.8.1(jiti@2.7.0)
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@22.20.1)(vite@8.2.1(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0))
+
+  packages/modules/catalog:
+    dependencies:
+      '@showzy/core':
+        specifier: workspace:*
+        version: link:../../core
+      '@showzy/db':
+        specifier: workspace:*
+        version: link:../../db
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.23.0)(kysely@0.29.5)(pg@8.23.0)
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@showzy/tooling':
+        specifier: workspace:*
+        version: link:../../tooling
+      '@types/node':
+        specifier: ^22.20.1
+        version: 22.20.1
       eslint:
         specifier: ^10.8.1
         version: 10.8.1(jiti@2.7.0)

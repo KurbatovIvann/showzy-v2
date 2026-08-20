@@ -6,11 +6,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import {
-  emptySuiteCoverage,
-  implementAction,
-  runContractCheck,
-} from "@showzy/core";
+import { catalogSuiteCoverage } from "@showzy/catalog/suite-coverage";
+import { implementAction, runContractCheck } from "@showzy/core";
 import { defineActionContract } from "@showzy/core/contract";
 import { projectionGrants } from "@showzy/db";
 import { describe, expect, it } from "vitest";
@@ -56,7 +53,7 @@ describe("composition root identity", () => {
         .toSorted(),
     ).toEqual(actionNames(createActionRegistry()));
     expect(input.projectionGrants).toBe(projectionGrants);
-    expect(input.suiteCoverage).toBe(emptySuiteCoverage);
+    expect(input.suiteCoverage).toEqual(catalogSuiteCoverage);
   });
 });
 
@@ -91,7 +88,6 @@ describe("composition suiteCoverage gate", () => {
     const result = runContractCheck({
       ...buildContractCheckInput(),
       registry,
-      suiteCoverage: emptySuiteCoverage,
     });
 
     expect(result.ok).toBe(false);
