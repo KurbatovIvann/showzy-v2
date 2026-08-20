@@ -17,6 +17,8 @@
  */
 import { getProductPricingFacts } from "@showzy/catalog";
 import { catalogSuiteCoverage } from "@showzy/catalog/suite-coverage";
+import { getCustomerPricingFacts } from "@showzy/customers";
+import { customersSuiteCoverage } from "@showzy/customers/suite-coverage";
 import {
   ActionRegistry,
   emptySuiteCoverage,
@@ -39,6 +41,7 @@ import type { z } from "zod";
  */
 const moduleSuiteCoverage: readonly SuiteCoverageManifest[] = [
   catalogSuiteCoverage,
+  customersSuiteCoverage,
 ];
 
 const events: readonly EventDefinitionRef[] = [
@@ -55,6 +58,7 @@ const readModelGrants: readonly ReadModelGrantRef[] = [
 
 const schemaImports: readonly SchemaImportRef[] = [
   { importer: "catalog", schemaOwner: "catalog" },
+  { importer: "customers", schemaOwner: "customers" },
 ];
 
 /** Registers one implemented action's contract + implementation pair. */
@@ -98,6 +102,7 @@ export function mergeSuiteCoverage(
 export function createActionRegistry(): ActionRegistry {
   const registry = new ActionRegistry();
   registerAction(registry, getProductPricingFacts);
+  registerAction(registry, getCustomerPricingFacts);
   return registry;
 }
 
