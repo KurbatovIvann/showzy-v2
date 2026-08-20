@@ -1,7 +1,7 @@
 # Magic Patterns → Expo port map
 
 > Status: Owner-approved operating rule, 2026-08-20.
-> Authority: [ADR-0023](../../adr/0023-magic-patterns-canonical-ux.md).
+> Authority: [ADR-0024](../../adr/0024-magic-patterns-canonical-ux.md).
 > Canvas: [Showzy V2 prototype](https://www.magicpatterns.com/c/g4fsekajwwkeex3v612gvp).
 
 The canvas is the approved design. The design system is Expo Unistyles

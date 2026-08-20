@@ -1,6 +1,6 @@
 # V1 → V2 mobile port recipe
 
-> **Historical.** Visual canon moved to [ADR-0023](../../adr/0023-magic-patterns-canonical-ux.md)
+> **Historical.** Visual canon moved to [ADR-0024](../../adr/0024-magic-patterns-canonical-ux.md)
 > and [`mp-to-mobile.md`](mp-to-mobile.md) on 2026-08-20.
 > Keep this file for V1 domain/edge-case notes. Do not use it as visual
 > acceptance.

@@ -4,7 +4,7 @@ This directory holds all UX and design-system artifacts for Showzy V2.
 
 - **Process:** [`process.md`](process.md) — stages, outputs, approval criteria,
   and the UX gate definition.
-- **Decision:** [ADR-0023](../adr/0023-magic-patterns-canonical-ux.md) — the
+- **Decision:** [ADR-0024](../adr/0024-magic-patterns-canonical-ux.md) — the
   Magic Patterns canvas is the canonical V2 UX. ADR-0019 (V1 parity) is
   superseded.
 - **Prototype:** [Magic Patterns canvas](https://www.magicpatterns.com/c/g4fsekajwwkeex3v612gvp).
@@ -18,7 +18,7 @@ This directory holds all UX and design-system artifacts for Showzy V2.
 
 ## Current status
 
-Owner reset the visual canon on 2026-08-20 (ADR-0023). Linear project
+Owner reset the visual canon on 2026-08-20 (ADR-0024). Linear project
 [Experience Foundation](https://linear.app/showzy-v2/project/experience-foundation-863513f2aa0a)
 is **In Progress**. Visual acceptance is the Magic Patterns canvas mapped
 into Expo. A Magic Patterns design-system preset is not part of the

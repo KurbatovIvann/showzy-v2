@@ -1,17 +1,20 @@
 # Foundation (Phases 0–1) — Plan
 
-> Status: **rebaselined after fnd-T4, approved by owner 2026-08-17**.
+> Status: **historical after ADR-0023**. Leftover foundation packages still
+> use `/scaffold`. Remaining reference-slice / domain work uses `/feature`,
+> not this file's `/scaffold` + spec-gate language.
+>
+> Status was **rebaselined after fnd-T4, approved by owner 2026-08-17**.
 > Tasks fnd-T1…T4 are merged; the remaining task contracts below include the
 > ADR-0019/0020/0021 mobile-parity rework.
 >
 > Sources: [`docs/blueprint.md`](../blueprint.md) (§2.1, §4, §5, §7),
 > [`docs/scope.md`](../scope.md) (§7 phases 0–1),
-> [`docs/pipeline.md`](../pipeline.md) (§3 SCAFFOLD),
+> [`docs/pipeline.md`](../pipeline.md),
 > [`.cursor/commands/scaffold.md`](../../.cursor/commands/scaffold.md),
-> foundation specs (`core`, `db`, `contract`, `security-operations`, `money`,
-> `payments`, `feature-flags`, `companies-foundation`), reference-slice specs
-> (`pricing`, `orders`, `chat`), prerequisite specs (`catalog`, `customers`),
-> ADR-0012…0016, ADR-0018…0022,
+> protocol manuals (`core`, `db`, `contract`, `security-operations`, `money`,
+> `companies-foundation`), archived domain novels in `docs/archive/specs/`,
+> ADR-0012…0016, ADR-0018…0023,
 > [`docs/module-ownership.md`](../module-ownership.md).
 
 This is the task breakdown for **Phase 0 (Foundation)** and **Phase 1

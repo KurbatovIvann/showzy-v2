@@ -1,5 +1,5 @@
 /**
- * Canvas tokens mapped into Unistyles (ADR-0023).
+ * Canvas tokens mapped into Unistyles (ADR-0024).
  *
  * Light hex values come from the Magic Patterns canvas
  * `tailwind.config.js`. Dark is the same roles, not a second palette

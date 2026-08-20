@@ -12,7 +12,7 @@ Reanimated on 4.5.1 with worklets 0.10.1 — do not float Unistyles to 3.3
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Visual language      | Unistyles `src/theme/` mapped from the Magic Patterns canvas ([`mp-to-mobile.md`](../../docs/design/mapping/mp-to-mobile.md))                                                |
 | How to port a screen | Inventory the canvas → classify shared vs feature → reuse/create in `components/ui` or `components/screens` — [`mp-to-mobile.md`](../../docs/design/mapping/mp-to-mobile.md) |
-| Domain behavior      | The owning V2 spec and `@showzy/contract`                                                                                                                                    |
+| Domain behavior      | The Linear feature card, `@showzy/contract`, and the golden UI slice when it exists                                                                                          |
 | Auth / sessions      | better-auth over `/api/auth` (ADR-0006, security-operations §2). Bearer in OS secure storage.                                                                                |
 
 Figma is not a source of spacing, color, or components. Never modify the

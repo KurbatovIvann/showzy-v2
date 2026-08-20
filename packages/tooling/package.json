@@ -11,7 +11,7 @@
   },
   "scripts": {
     "lint": "eslint .",
-    "test": "node --test eslint/import-boundaries.test.mjs scripts/check-spec-ledger.test.mjs"
+    "test": "node --test eslint/import-boundaries.test.mjs"
   },
   "dependencies": {
     "@eslint/js": "^10.0.1",

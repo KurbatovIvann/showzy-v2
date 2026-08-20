@@ -1,13 +1,13 @@
 # ADR-0019: V1 mobile is the canonical V2 UX baseline
 
-- **Status**: Superseded by ADR-0023
+- **Status**: Superseded by ADR-0024
 - **Date**: 2026-08-17
 - **Deciders**: Human owner
 - **Supersedes**: ADR-0017
 
 > Superseded 2026-08-20: V2 visuals and IA now come from the Magic Patterns
 > canvas, not V1 pixel parity. Domain edge cases in V1 remain useful
-> reference. See [ADR-0023](0023-magic-patterns-canonical-ux.md).
+> reference. See [ADR-0024](0024-magic-patterns-canonical-ux.md).
 
 ## Context
 

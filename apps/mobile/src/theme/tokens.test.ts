@@ -16,7 +16,7 @@ import {
   typography,
 } from "./tokens";
 
-describe("canvas token map (ADR-0023)", () => {
+describe("canvas token map (ADR-0024)", () => {
   it("pins light roles from the Magic Patterns canvas", () => {
     expect(lightPalette.background).toBe("#F7F6F2");
     expect(lightPalette.foreground).toBe("#1C1C1A");

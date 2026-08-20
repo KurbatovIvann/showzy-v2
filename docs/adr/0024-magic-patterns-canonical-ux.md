@@ -1,4 +1,4 @@
-# ADR-0023: Magic Patterns canvas is the canonical V2 UX
+# ADR-0024: Magic Patterns canvas is the canonical V2 UX
 
 - **Status**: Accepted
 - **Date**: 2026-08-20

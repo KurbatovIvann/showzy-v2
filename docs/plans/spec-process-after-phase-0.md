@@ -1,7 +1,9 @@
 # Spec process after Phase 0 — Plan
 
-> Status: **executing** (sp-T1 + sp-T2 in this change). Owner-reviewed
-> 2026-08-19. Slice cards (sp-T3) wait until after Expo.
+> Status: **superseded by ADR-0023**. Kept as history. Do not execute
+> remaining slice-card work (sp-T3) as a `/spec` stage.
+>
+> Status was **executing** (sp-T1 + sp-T2). Owner-reviewed 2026-08-19.
 
 Sources: Phase-0 retro, owner review of this plan, `docs/specs/README.md`,
 `docs/specs/template.md`, `.cursor/commands/spec.md`,

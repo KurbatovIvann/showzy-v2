@@ -1,7 +1,7 @@
 # Experience Foundation — Plan
 
 > Status: **reset 2026-08-20** — Magic Patterns is the V2 UX canon
-> ([ADR-0023](../adr/0023-magic-patterns-canonical-ux.md)). The V1 parity
+> ([ADR-0024](../adr/0024-magic-patterns-canonical-ux.md)). The V1 parity
 > rebaseline below is historical; do not execute efr-T* as written.
 > Operating rule: [`docs/design/mapping/mp-to-mobile.md`](../design/mapping/mp-to-mobile.md).
 > Process: [`docs/design/process.md`](../design/process.md).
@@ -23,7 +23,7 @@
 This is the task breakdown for the Experience Foundation workstream — the
 parallel design track that runs alongside technical phases 0–1 and gates all
 product UI implementation (pipeline rule 5, ADR-0019). It is not a code
-module, so this plan deviates from the standard `/plan` format:
+module, so this plan is not a `/feature` ticket graph:
 
 - **Deliverables are design artifacts** in `docs/design/` and the running
   Unistyles theme/primitives in `apps/mobile`, not Figma. "One task = one PR
@@ -425,8 +425,8 @@ owner reviews directly in Figma.
   component contracts approved, (4) representative prototypes internally
   evaluated by the owner and reference user, (5) the absence of external
   validation is recorded, (6) human owner explicitly opens the gate. Record the gate
-  decision in `docs/design/README.md` (status section) so `/spec`, `/plan`,
-  and `/implement` for product screens can reference it.
+  decision in `docs/design/README.md` (status section) so `/feature` and
+  `/implement` for product screens can reference it.
 - **Dependencies:** ef-T20.
 - **Acceptance:** gate recorded as open; from this point UI specs and UI
   implementation tasks may proceed (pipeline.md rule 5). The Expo app

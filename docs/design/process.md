@@ -1,10 +1,10 @@
 # Experience Foundation — Design Process
 
-> Status: reset 2026-08-20 for Magic Patterns as V2 UX canon (ADR-0023).
+> Status: reset 2026-08-20 for Magic Patterns as V2 UX canon (ADR-0024).
 > UX gate closed. Port rule:
 > [`mapping/mp-to-mobile.md`](mapping/mp-to-mobile.md).
 > Owner: human product owner.
-> Companion to ADR-0023 (supersedes ADR-0019) and ADR-0020.
+> Companion to ADR-0024 (supersedes ADR-0019) and ADR-0020.
 
 ---
 
@@ -67,7 +67,7 @@ Owner (and optional reference user) evaluates internally. Label results
 
 Product screens in `apps/mobile` are blocked until:
 
-1. ADR-0023 and ADR-0020 are accepted.
+1. ADR-0024 and ADR-0020 are accepted.
 2. Unistyles theme matches the canvas tables in `mp-to-mobile.md`.
 3. The specific screen exists on the canvas.
 4. Shared pieces went through `components/ui` (reuse or new primitive);
@@ -100,11 +100,17 @@ confirmation, or QES.
 
 ## Integration with the engineering pipeline
 
-- `docs/pipeline.md` remains the engineering SDD conveyor.
+- `docs/pipeline.md` is the engineering feature loop (ADR-0023).
 - Product-screen `/implement` requires a canvas reference and
-  `mp-to-mobile.md`. Backend `/spec` and `/plan` are not gated.
+  `mp-to-mobile.md`. Backend `/feature` tickets are not gated.
+- UI implementation tasks (`/implement`) reference the feature card, the
+  Magic Patterns canvas, and `docs/design/mapping/mp-to-mobile.md`, not
+  archived greenfield component contracts, archived domain specs, or Figma.
 - UI acceptance: canvas intent, token fidelity, shared-vs-feature
-  placement, accessibility, loading/empty/error/offline, localization.
+  placement, accessibility, loading/empty/error/offline, localization,
+  and internal evaluation evidence with its limitation. Classic/AI
+  parity is required when `vm-T29` is in scope, not on every earlier
+  UI PR.
 
 ---
 
@@ -114,7 +120,7 @@ confirmation, or QES.
 docs/design/
 ├── process.md
 ├── mapping/
-│   ├── mp-to-mobile.md          ← operating port rule (ADR-0023)
+│   ├── mp-to-mobile.md          ← operating port rule (ADR-0024)
 │   ├── v1-mobile-port-recipe.md ← historical (ADR-0019)
 │   └── …
 ├── inventory/                   ← historical V1 maps
