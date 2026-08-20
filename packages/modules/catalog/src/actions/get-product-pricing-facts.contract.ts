@@ -1,3 +1,20 @@
+/**
+ * Golden facts contract for later Executors (SHO-86 / pricing-T2).
+ *
+ * Mechanical choices the feature card left unnamed — copy them, do not invent
+ * a second shape:
+ * - `timeout: 5000` is the fixture default. A later `ctx.call` from pricing
+ *   shares this remaining budget; raise the *caller's* timeout if the
+ *   combined read is tight.
+ * - Input is resolve's `items: [{ productId, variantId? }]` (min 1, max 200)
+ *   so this action can fail the batch on a foreign or mismatched variant.
+ *   Facts still return every variant of each product.
+ * - Output is `{ products: [...] }` (unique products, first-seen order), not
+ *   per-item. Pricing maps this dictionary back to resolve rows.
+ * - Money refine is local: `*.contract.ts` cannot import `@showzy/contract`,
+ *   and `packages/validation` does not exist yet. Keep the regex in lockstep
+ *   with `packages/contract/src/client/money-wire.ts` until validation owns it.
+ */
 import { defineActionContract } from "@showzy/core/contract";
 import { z } from "zod";
 
