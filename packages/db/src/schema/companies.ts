@@ -13,6 +13,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  unique,
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
@@ -79,6 +80,7 @@ export const companyMembers = pgTable(
       .defaultNow(),
   },
   (table) => [
+    unique("company_members_company_id_id_uq").on(table.companyId, table.id),
     uniqueIndex("company_members_company_user_uq").on(
       table.companyId,
       table.userId,

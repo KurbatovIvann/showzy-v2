@@ -61,20 +61,35 @@ packages/db/
   justified in the owning spec (delivery dictionaries; KVED/CPV under
   `reference-data`; `business_categories` under `companies`). Composite
   indexes on tenant tables lead with `company_id`.
-  - **Companies taxonomy (ADR-0018, module-ownership):**
-    `business_categories` and `company_business_categories` are owned by
-    `companies` and live in `schema/companies.ts` — never in `foundation.ts`
-    and never under `reference-data`. Exact columns, seeds, and FKs are
-    specified in the full `companies` module spec (not the phase-0
-    `companies-foundation` slice).
-    - `business_categories`: global taxonomy root — **no** `company_id`
-      (tenancy exception).
-    - `company_business_categories`: tenant junction — **has** `company_id`
-      FK to `companies.id`; links companies to taxonomy rows for profile
-      metadata and discovery category filters.
+- **Same-tenant FKs (ADR-0025):** every tenant table declares
+  `UNIQUE (company_id, id)` named `{table}_company_id_id_uq` as the target
+  for intra-tenant FKs. PK remains `id`. A foreign key to another tenant
+  row is composite: `(company_id, parent_id) REFERENCES parent
+  (company_id, id)` with the `ON DELETE` the owning spec already named. Do
+  not keep a second single-column FK on `parent_id`. `company_id →
+  companies.id` stays a single-column FK. Nullable parent columns use
+  Postgres `MATCH SIMPLE` (default). When `ON DELETE SET NULL` would also
+  null `NOT NULL company_id`, the migration must use PostgreSQL 15
+  `ON DELETE SET NULL (parent_id)` — Drizzle cannot emit that clause; the
+  custom SQL is the §7 exception (`0011_same_tenant_set_null.sql`).
+  Authorization stays in action code (ADR-0009): handlers load the parent
+  under the verified company and return `NotFoundError`.
+- **Companies taxonomy (ADR-0018, module-ownership):**
+  `business_categories` and `company_business_categories` are owned by
+  `companies` and live in `schema/companies.ts` — never in `foundation.ts`
+  and never under `reference-data`. Exact columns, seeds, and FKs are
+  specified in the full `companies` module spec (not the phase-0
+  `companies-foundation` slice).
+  - `business_categories`: global taxonomy root — **no** `company_id`
+    (tenancy exception).
+  - `company_business_categories`: tenant junction — **has** `company_id`
+    FK to `companies.id`; links companies to taxonomy rows for profile
+    metadata and discovery category filters.
 - **FKs across modules**: allowed (order_items → products), `ON DELETE`
   behavior must be explicit — no accidental cascades across module
   boundaries; prefer `RESTRICT` unless the owning spec says otherwise.
+  Cross-module FKs between two tenant tables are still composite
+  (ADR-0025).
 - **Extensions**: pg_trgm and unaccent only (blueprint §3). V1 pg_cron jobs
   move to BullMQ workers; vector/pg_partman remain dropped.
 - **Global published-read / discovery access paths (ADR-0018, ADR-0020):**
@@ -252,9 +267,10 @@ dropped, recorded in the owning module's spec §7 (v1 migration notes).
 3. Raw SQL appears only inside generated migrations or explicitly approved
    foundation primitives that Drizzle cannot express (`SKIP LOCKED`,
    LISTEN/NOTIFY, transaction advisory locks for per-aggregate delivery, the
-   shared `updated_at` trigger). Each exception carries a
-   comment referencing ADR-0012 or this approved spec; domain queries remain
-   Drizzle-only.
+   shared `updated_at` trigger, PostgreSQL 15 `ON DELETE SET NULL (column)`
+   on composite tenant FKs — ADR-0025). Each exception carries a
+   comment referencing ADR-0012, ADR-0025, or this approved spec; domain
+   queries remain Drizzle-only.
 
 ## 8. Test harness (`src/testing`)
 
@@ -332,6 +348,7 @@ Idempotent (`ON CONFLICT DO NOTHING`) seeds, runnable repeatedly.
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-20 | §3: same-tenant composite FKs + `UNIQUE (company_id, id)`; §7: PG15 `SET NULL (column)` exception | Owner amendment on the SHO-85 golden (ADR-0025) | Human owner |
 | 2026-08-19 | §4: recorded `event_deliveries.event_id → domain_events.id ON DELETE RESTRICT`; generated-auth `$onUpdate` / camelCase index exception; §8: kit does not export foundation row factories; §9: local-dev fixture seed deferred to fnd-T29+ | Same-PR patch: tests prove the FK, auth trigger exception, and seed layout (fnd-G1 A12) | scaffold (fnd-G1 A12) |
 | 2026-08-18 | §4/§5: `domain_events` INSERT notifies channel `domain_events` for the worker LISTEN wakeup | fnd-T27 implementation proved the trigger was specified as a primitive but never named | scaffold (fnd-T27) |
 | 2026-08-17 | Added projection grants/read capabilities, public/social fixtures, and atomic transaction requirements | Align DB foundation with ADR-0020/0021 mobile parity | Human owner via mobile parity rework |

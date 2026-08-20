@@ -21,7 +21,8 @@ actions/services running under the core pipeline.
 1. Edit the owning `src/schema/<module>.ts` following db.md §3 conventions
    (snake_case, uuid PKs, `timestamptz`, text + CHECK statuses, money as
    `bigint` `_minor` + `currency`, explicit FK `ON DELETE`, tenant composite
-   indexes leading with `company_id`).
+   indexes leading with `company_id`, `UNIQUE (company_id, id)` and
+   composite same-tenant FKs — ADR-0025).
 2. `pnpm --filter @showzy/db db:generate` — never hand-edit generated SQL.
 3. Review the generated migration like code: lock risk, indexes for new FKs,
    CHECK completeness (db.md §7).
@@ -53,11 +54,14 @@ actions/services running under the core pipeline.
 Raw SQL exists only in generated migrations and in explicitly approved
 foundation primitives that Drizzle cannot express (`updated_at` trigger,
 roles/grants, SKIP LOCKED claims, LISTEN/NOTIFY on `domain_events`,
-advisory locks, `pg_trgm`/`unaccent` extensions — db.md §3/§7, ADR-0012).
+advisory locks, `pg_trgm`/`unaccent` extensions, PostgreSQL 15
+`ON DELETE SET NULL (column)` on composite tenant FKs — db.md §3/§7,
+ADR-0012, ADR-0025).
 Every such statement carries a
 comment naming its approval. The outbox notify trigger is
 `migrations/0006_domain_events_notify.sql`; search extensions are
-`migrations/0007_pg_trgm_unaccent.sql` — do not re-express either in
+`migrations/0007_pg_trgm_unaccent.sql`; same-tenant SET NULL scoping is
+`migrations/0011_same_tenant_set_null.sql` — do not re-express those in
 Drizzle schema. Domain
 queries are Drizzle-only, inside action handlers/services (prohibitions.mdc).
 

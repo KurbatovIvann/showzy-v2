@@ -10,9 +10,11 @@ import {
   bigint,
   char,
   check,
+  foreignKey,
   index,
   pgTable,
   timestamp,
+  unique,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -36,6 +38,7 @@ export const products = pgTable(
       .defaultNow(),
   },
   (table) => [
+    unique("products_company_id_id_uq").on(table.companyId, table.id),
     index("products_company_idx").on(table.companyId),
     check("products_base_price_minor_check", sql`${table.basePriceMinor} >= 0`),
   ],
@@ -54,9 +57,7 @@ export const productVariants = pgTable(
       .notNull()
       .references(() => companies.id, { onDelete: "cascade" }),
     // Same-module ownership: a product deletion removes its variants.
-    productId: uuid("product_id")
-      .notNull()
-      .references(() => products.id, { onDelete: "cascade" }),
+    productId: uuid("product_id").notNull(),
     basePriceMinor: bigint("base_price_minor", { mode: "bigint" }),
     currency: char("currency", { length: 3 }),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -67,8 +68,14 @@ export const productVariants = pgTable(
       .defaultNow(),
   },
   (table) => [
+    unique("product_variants_company_id_id_uq").on(table.companyId, table.id),
     index("product_variants_company_idx").on(table.companyId),
     index("product_variants_product_idx").on(table.productId),
+    foreignKey({
+      name: "product_variants_products_company_fk",
+      columns: [table.companyId, table.productId],
+      foreignColumns: [products.companyId, products.id],
+    }).onDelete("cascade"),
     check(
       "product_variants_base_price_minor_check",
       sql`${table.basePriceMinor} IS NULL OR ${table.basePriceMinor} >= 0`,

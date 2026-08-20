@@ -4,7 +4,14 @@
  * needs exist here (group and price-list links); identity/contact columns
  * arrive with the full customers schema task.
  */
-import { index, pgTable, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  foreignKey,
+  index,
+  pgTable,
+  timestamp,
+  unique,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 import { companies } from "./companies.js";
 import { priceLists } from "./pricing.js";
@@ -21,9 +28,7 @@ export const customerGroups = pgTable(
     companyId: uuid("company_id")
       .notNull()
       .references(() => companies.id, { onDelete: "cascade" }),
-    priceListId: uuid("price_list_id").references(() => priceLists.id, {
-      onDelete: "set null",
-    }),
+    priceListId: uuid("price_list_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -32,8 +37,21 @@ export const customerGroups = pgTable(
       .defaultNow(),
   },
   (table) => [
+    unique("customer_groups_company_id_id_uq").on(table.companyId, table.id),
     index("customer_groups_company_idx").on(table.companyId),
     index("customer_groups_price_list_idx").on(table.priceListId),
+    // Getter defers the customers ↔ pricing import cycle (ADR-0025).
+    // ON DELETE SET NULL is scoped to price_list_id in 0011 (db.md §7).
+    foreignKey({
+      name: "customer_groups_price_lists_company_fk",
+      columns: [table.companyId, table.priceListId],
+      get foreignColumns(): [
+        typeof priceLists.companyId,
+        typeof priceLists.id,
+      ] {
+        return [priceLists.companyId, priceLists.id];
+      },
+    }).onDelete("set null"),
   ],
 );
 
@@ -49,12 +67,8 @@ export const companyCustomers = pgTable(
     companyId: uuid("company_id")
       .notNull()
       .references(() => companies.id, { onDelete: "cascade" }),
-    groupId: uuid("group_id").references(() => customerGroups.id, {
-      onDelete: "set null",
-    }),
-    priceListId: uuid("price_list_id").references(() => priceLists.id, {
-      onDelete: "set null",
-    }),
+    groupId: uuid("group_id"),
+    priceListId: uuid("price_list_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -63,8 +77,26 @@ export const companyCustomers = pgTable(
       .defaultNow(),
   },
   (table) => [
+    unique("company_customers_company_id_id_uq").on(table.companyId, table.id),
     index("company_customers_company_idx").on(table.companyId),
     index("company_customers_group_idx").on(table.groupId),
     index("company_customers_price_list_idx").on(table.priceListId),
+    foreignKey({
+      name: "company_customers_customer_groups_company_fk",
+      columns: [table.companyId, table.groupId],
+      foreignColumns: [customerGroups.companyId, customerGroups.id],
+    }).onDelete("set null"),
+    // Getter defers the customers ↔ pricing import cycle (ADR-0025).
+    // ON DELETE SET NULL is scoped to price_list_id in 0011 (db.md §7).
+    foreignKey({
+      name: "company_customers_price_lists_company_fk",
+      columns: [table.companyId, table.priceListId],
+      get foreignColumns(): [
+        typeof priceLists.companyId,
+        typeof priceLists.id,
+      ] {
+        return [priceLists.companyId, priceLists.id];
+      },
+    }).onDelete("set null"),
   ],
 );

@@ -233,6 +233,9 @@ describe("companies foundation schema", () => {
     expect(indexes.get("company_members_company_user_uq")).toContain(
       "(company_id, user_id)",
     );
+    expect(indexes.get("company_members_company_id_id_uq")).toContain(
+      "(company_id, id)",
+    );
     expect(indexes.get("company_members_user_company_idx")).toContain(
       "(user_id, company_id)",
     );

@@ -2,6 +2,8 @@
 
 - **Status**: Accepted
 - **Date**: 2026-08-16
+- **See also**: ADR-0025 (same-tenant composite FKs are referential
+  integrity, not RLS)
 
 ## Context
 
@@ -30,6 +32,7 @@ test suite inherited by every module.
 
 - The single biggest v1 artifact (~240 policies) is deleted, replaced by
   code + tests.
-- The DB no longer protects against application bugs — which is exactly why
-  the cross-tenant test suite is a phase-0 foundation invariant, not
-  optional.
+- The DB no longer enforces **authorization** (who may act) — which is
+  exactly why the cross-tenant test suite is a phase-0 foundation
+  invariant, not optional. Same-tenant pointer integrity is ADR-0025, not
+  a return of RLS.

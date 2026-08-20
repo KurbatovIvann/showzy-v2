@@ -506,6 +506,180 @@ describe("price resolution schema slice", () => {
     expect(indexes.get("personal_prices_customer_idx")).toContain(
       "(customer_id)",
     );
+
+    for (const name of [
+      "price_lists_company_id_id_uq",
+      "price_list_entries_company_id_id_uq",
+      "personal_prices_company_id_id_uq",
+    ]) {
+      expect(indexes.get(name)).toContain("UNIQUE");
+      expect(indexes.get(name)).toContain("(company_id, id)");
+    }
+  });
+
+  it("declares UNIQUE (company_id, id) on every slice tenant table", async () => {
+    const result = await admin.query<{ indexname: string; indexdef: string }>(
+      `SELECT indexname, indexdef
+       FROM pg_indexes
+       WHERE schemaname = 'public'
+         AND indexname LIKE '%_company_id_id_uq'`,
+    );
+    const indexes = new Map(
+      result.rows.map((row) => [row.indexname, row.indexdef]),
+    );
+    for (const name of [
+      "products_company_id_id_uq",
+      "product_variants_company_id_id_uq",
+      "customer_groups_company_id_id_uq",
+      "company_customers_company_id_id_uq",
+      "price_lists_company_id_id_uq",
+      "price_list_entries_company_id_id_uq",
+      "personal_prices_company_id_id_uq",
+    ]) {
+      expect(indexes.get(name)).toContain("UNIQUE");
+      expect(indexes.get(name)).toContain("(company_id, id)");
+    }
+  });
+
+  it("declares composite same-tenant foreign keys (ADR-0025)", async () => {
+    const result = await admin.query<{
+      conname: string;
+      definition: string;
+    }>(
+      `SELECT con.conname,
+              pg_get_constraintdef(con.oid) AS definition
+       FROM pg_constraint con
+       JOIN pg_class rel ON rel.oid = con.conrelid
+       JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+       WHERE nsp.nspname = 'public'
+         AND con.contype = 'f'
+         AND rel.relname IN
+           ('product_variants', 'customer_groups', 'company_customers',
+            'price_list_entries', 'personal_prices')
+       ORDER BY con.conname`,
+    );
+    const defs = new Map(
+      result.rows.map((row) => [row.conname, row.definition]),
+    );
+
+    expect(defs.get("product_variants_products_company_fk")).toContain(
+      "(company_id, product_id) REFERENCES products(company_id, id)",
+    );
+    expect(defs.get("customer_groups_price_lists_company_fk")).toContain(
+      "(company_id, price_list_id) REFERENCES price_lists(company_id, id)",
+    );
+    expect(defs.get("customer_groups_price_lists_company_fk")).toContain(
+      "ON DELETE SET NULL (price_list_id)",
+    );
+    expect(defs.get("company_customers_customer_groups_company_fk")).toContain(
+      "(company_id, group_id) REFERENCES customer_groups(company_id, id)",
+    );
+    expect(defs.get("company_customers_customer_groups_company_fk")).toContain(
+      "ON DELETE SET NULL (group_id)",
+    );
+    expect(defs.get("company_customers_price_lists_company_fk")).toContain(
+      "(company_id, price_list_id) REFERENCES price_lists(company_id, id)",
+    );
+    expect(defs.get("company_customers_price_lists_company_fk")).toContain(
+      "ON DELETE SET NULL (price_list_id)",
+    );
+    expect(defs.get("price_list_entries_price_lists_company_fk")).toContain(
+      "(company_id, price_list_id) REFERENCES price_lists(company_id, id)",
+    );
+    expect(defs.get("price_list_entries_products_company_fk")).toContain(
+      "(company_id, product_id) REFERENCES products(company_id, id)",
+    );
+    expect(
+      defs.get("price_list_entries_product_variants_company_fk"),
+    ).toContain(
+      "(company_id, variant_id) REFERENCES product_variants(company_id, id)",
+    );
+    expect(defs.get("personal_prices_company_customers_company_fk")).toContain(
+      "(company_id, customer_id) REFERENCES company_customers(company_id, id)",
+    );
+    expect(defs.get("personal_prices_products_company_fk")).toContain(
+      "(company_id, product_id) REFERENCES products(company_id, id)",
+    );
+    expect(defs.get("personal_prices_product_variants_company_fk")).toContain(
+      "(company_id, variant_id) REFERENCES product_variants(company_id, id)",
+    );
+  });
+
+  it("rejects a child row that points at another tenant's parent", async () => {
+    const companyA = await insertCompany();
+    const companyB = await insertCompany();
+    const productA = await insertProduct(companyA.id);
+    const productB = await insertProduct(companyB.id);
+    const variantB = await insertVariant(companyB.id, productB.id);
+    const listA = await insertPriceList(companyA.id);
+    const listB = await insertPriceList(companyB.id);
+    const groupB = await insertGroup(companyB.id);
+    const customerA = await insertCustomer(companyA.id);
+    const customerB = await insertCustomer(companyB.id);
+
+    await expectSqlState(insertVariant(companyA.id, productB.id), "23503");
+    await expectSqlState(
+      insertGroup(companyA.id, { priceListId: listB.id }),
+      "23503",
+    );
+    await expectSqlState(
+      insertCustomer(companyA.id, { groupId: groupB.id }),
+      "23503",
+    );
+    await expectSqlState(
+      insertCustomer(companyA.id, { priceListId: listB.id }),
+      "23503",
+    );
+    await expectSqlState(
+      insertEntry({
+        companyId: companyA.id,
+        priceListId: listB.id,
+        productId: productA.id,
+      }),
+      "23503",
+    );
+    await expectSqlState(
+      insertEntry({
+        companyId: companyA.id,
+        priceListId: listA.id,
+        productId: productB.id,
+      }),
+      "23503",
+    );
+    await expectSqlState(
+      insertEntry({
+        companyId: companyA.id,
+        priceListId: listA.id,
+        productId: productA.id,
+        variantId: variantB.id,
+      }),
+      "23503",
+    );
+    await expectSqlState(
+      insertPersonalPrice({
+        companyId: companyA.id,
+        customerId: customerB.id,
+        productId: productA.id,
+      }),
+      "23503",
+    );
+    await expectSqlState(
+      insertPersonalPrice({
+        companyId: companyA.id,
+        customerId: customerA.id,
+        productId: productB.id,
+      }),
+      "23503",
+    );
+    await expectSqlState(
+      insertPersonalPrice({
+        companyId: companyA.id,
+        customerId: customerA.id,
+        productId: productA.id,
+        variantId: variantB.id,
+      }),
+      "23503",
+    );
   });
 
   it("cascades product deletion to variants, entries, and personal prices", async () => {
