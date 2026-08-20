@@ -124,6 +124,7 @@ export const orderItems = pgTable(
     index("order_items_order_idx").on(table.orderId),
     index("order_items_company_idx").on(table.companyId),
     index("order_items_product_idx").on(table.productId),
+    index("order_items_variant_idx").on(table.variantId),
     foreignKey({
       name: "order_items_orders_company_fk",
       columns: [table.companyId, table.orderId],

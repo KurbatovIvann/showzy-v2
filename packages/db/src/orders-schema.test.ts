@@ -309,6 +309,7 @@ describe("staff orders schema slice", () => {
     expect(indexes.get("order_items_order_idx")).toContain("(order_id)");
     expect(indexes.get("order_items_company_idx")).toContain("(company_id)");
     expect(indexes.get("order_items_product_idx")).toContain("(product_id)");
+    expect(indexes.get("order_items_variant_idx")).toContain("(variant_id)");
   });
 
   it("declares composite same-tenant foreign keys (ADR-0025)", async () => {
