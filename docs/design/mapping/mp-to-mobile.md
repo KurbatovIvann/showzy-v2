@@ -54,6 +54,7 @@ first.
 - `canvas.manifest.js`, `useScreenInit.js`, `data-id` props
 - `react-router-dom` → expo-router
 - `framer-motion` → Reanimated
+- `lucide-react` → `lucide-react-native` (needs `react-native-svg`, already in the native kit)
 - `sonner` → app toast primitive once it exists
 - mock `contexts/` and `data/` → `@showzy/contract`
 - Google sign-in and “demo mode”

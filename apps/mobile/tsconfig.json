@@ -10,5 +10,5 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src", "app.config.ts", "index.ts"]
+  "include": ["src", "app.config.ts", "index.ts", "package.json"]
 }
