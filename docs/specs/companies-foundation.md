@@ -23,8 +23,8 @@ profile/search/geo/counter/embedding columns.
 (`ON DELETE RESTRICT`), `role text CHECK
 (owner|admin|manager|employee)`, `permissions jsonb` with canonical
 `{ granted: string[], denied: string[] }`, timestamps, unique
-`(company_id, user_id)`. Indexes `(user_id, company_id)` and
-`(company_id, role)`.
+`(company_id, user_id)`, unique `(company_id, id)` (ADR-0025 FK target).
+Indexes `(user_id, company_id)` and `(company_id, role)`.
 
 `role_permission_defaults`: global seed table, `role text`, `permission text`,
 PK `(role, permission)`. Owner has all known permissions implicitly; explicit
@@ -66,4 +66,5 @@ insert fixtures directly only under the test harness.
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-20 | `company_members` unique `(company_id, id)` | Match ADR-0025 tenant FK-target convention | Human owner |
 | 2026-08-17 | Initial foundation slice | Unblock staff principal integration without giving core domain ownership | GPT-5.6 Sol |

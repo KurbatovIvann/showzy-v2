@@ -1,5 +1,8 @@
 # Domain schema ownership follows ADR-0014.
 /packages/db/src/schema/companies.ts @KurbatovIvann
+/packages/db/src/schema/catalog.ts @KurbatovIvann
+/packages/db/src/schema/customers.ts @KurbatovIvann
+/packages/db/src/schema/pricing.ts @KurbatovIvann
 /packages/db/src/schema/foundation.ts @KurbatovIvann
 /packages/db/src/schema/auth.ts @KurbatovIvann
 /packages/db/migrations/ @KurbatovIvann
