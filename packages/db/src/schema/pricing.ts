@@ -85,6 +85,7 @@ export const priceListEntries = pgTable(
   },
   (table) => [
     index("price_list_entries_company_idx").on(table.companyId),
+    index("price_list_entries_price_list_idx").on(table.priceListId),
     index("price_list_entries_product_idx").on(table.productId),
     index("price_list_entries_variant_idx").on(table.variantId),
     uniqueIndex("price_list_entries_list_product_uq")
@@ -134,6 +135,7 @@ export const personalPrices = pgTable(
   },
   (table) => [
     index("personal_prices_company_idx").on(table.companyId),
+    index("personal_prices_customer_idx").on(table.customerId),
     index("personal_prices_product_idx").on(table.productId),
     index("personal_prices_variant_idx").on(table.variantId),
     uniqueIndex("personal_prices_customer_product_uq")

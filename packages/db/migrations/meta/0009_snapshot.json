@@ -1,6 +1,6 @@
 {
-  "id": "b1a42fca-e97e-490b-b387-f9334833a75a",
-  "prevId": "0ec5e821-9303-442d-9821-eedd7b66b321",
+  "id": "dfb3318c-60ed-41d8-abb8-4b1700a55291",
+  "prevId": "2e80d1a1-e773-4725-b96b-ddab9e576173",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1862,6 +1862,21 @@
           "method": "btree",
           "concurrently": false
         },
+        "personal_prices_customer_idx": {
+          "name": "personal_prices_customer_idx",
+          "columns": [
+            {
+              "expression": "customer_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
         "personal_prices_product_idx": {
           "name": "personal_prices_product_idx",
           "columns": [
@@ -2077,6 +2092,21 @@
           "columns": [
             {
               "expression": "company_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "price_list_entries_price_list_idx": {
+          "name": "price_list_entries_price_list_idx",
+          "columns": [
+            {
+              "expression": "price_list_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

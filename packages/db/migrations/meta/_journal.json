@@ -61,14 +61,14 @@
     {
       "idx": 8,
       "version": "7",
-      "when": 1787232803885,
+      "when": 1787234465291,
       "tag": "0008_pricing_resolution_schema",
       "breakpoints": true
     },
     {
       "idx": 9,
       "version": "7",
-      "when": 1787232822442,
+      "when": 1787234469597,
       "tag": "0009_pricing_resolution_updated_at_triggers",
       "breakpoints": true
     }

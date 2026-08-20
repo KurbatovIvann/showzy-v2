@@ -497,8 +497,14 @@ describe("price resolution schema slice", () => {
     expect(indexes.get("price_list_entries_company_idx")).toContain(
       "(company_id)",
     );
+    expect(indexes.get("price_list_entries_price_list_idx")).toContain(
+      "(price_list_id)",
+    );
     expect(indexes.get("personal_prices_company_idx")).toContain(
       "(company_id)",
+    );
+    expect(indexes.get("personal_prices_customer_idx")).toContain(
+      "(customer_id)",
     );
   });
 

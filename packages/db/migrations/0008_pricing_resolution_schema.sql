@@ -98,11 +98,13 @@ CREATE INDEX "company_customers_price_list_idx" ON "company_customers" USING btr
 CREATE INDEX "customer_groups_company_idx" ON "customer_groups" USING btree ("company_id");--> statement-breakpoint
 CREATE INDEX "customer_groups_price_list_idx" ON "customer_groups" USING btree ("price_list_id");--> statement-breakpoint
 CREATE INDEX "personal_prices_company_idx" ON "personal_prices" USING btree ("company_id");--> statement-breakpoint
+CREATE INDEX "personal_prices_customer_idx" ON "personal_prices" USING btree ("customer_id");--> statement-breakpoint
 CREATE INDEX "personal_prices_product_idx" ON "personal_prices" USING btree ("product_id");--> statement-breakpoint
 CREATE INDEX "personal_prices_variant_idx" ON "personal_prices" USING btree ("variant_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "personal_prices_customer_product_uq" ON "personal_prices" USING btree ("customer_id","product_id") WHERE "personal_prices"."variant_id" IS NULL;--> statement-breakpoint
 CREATE UNIQUE INDEX "personal_prices_customer_variant_uq" ON "personal_prices" USING btree ("customer_id","product_id","variant_id") WHERE "personal_prices"."variant_id" IS NOT NULL;--> statement-breakpoint
 CREATE INDEX "price_list_entries_company_idx" ON "price_list_entries" USING btree ("company_id");--> statement-breakpoint
+CREATE INDEX "price_list_entries_price_list_idx" ON "price_list_entries" USING btree ("price_list_id");--> statement-breakpoint
 CREATE INDEX "price_list_entries_product_idx" ON "price_list_entries" USING btree ("product_id");--> statement-breakpoint
 CREATE INDEX "price_list_entries_variant_idx" ON "price_list_entries" USING btree ("variant_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "price_list_entries_list_product_uq" ON "price_list_entries" USING btree ("price_list_id","product_id") WHERE "price_list_entries"."variant_id" IS NULL;--> statement-breakpoint
