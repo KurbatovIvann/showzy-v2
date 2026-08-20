@@ -17,8 +17,8 @@ import { products, productVariants } from "@showzy/db/schema/catalog";
 import { companyMembers } from "@showzy/db/schema/companies";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { getProductPricingFacts } from "./get-product-pricing-facts.js";
-import { PRODUCT_PRICING_FACTS_MAX_ITEMS } from "./get-product-pricing-facts.contract.js";
+import { getProductOrderFacts } from "./get-product-order-facts.js";
+import { PRODUCT_ORDER_FACTS_MAX_ITEMS } from "./get-product-order-facts.contract.js";
 
 const fixtures = {
   productA: randomUUID(),
@@ -40,14 +40,12 @@ async function insertProduct(values: {
   companyId: string;
   name: string;
   basePriceMinor: bigint;
-  currency?: string;
 }): Promise<void> {
   await kit.db.runtime.db.insert(products).values({
     id: values.id,
     companyId: values.companyId,
     name: values.name,
     basePriceMinor: values.basePriceMinor,
-    ...(values.currency === undefined ? {} : { currency: values.currency }),
   });
 }
 
@@ -56,18 +54,12 @@ async function insertVariant(values: {
   companyId: string;
   productId: string;
   name: string;
-  basePriceMinor?: bigint;
-  currency?: string;
 }): Promise<void> {
   await kit.db.runtime.db.insert(productVariants).values({
     id: values.id,
     companyId: values.companyId,
     productId: values.productId,
     name: values.name,
-    ...(values.basePriceMinor === undefined
-      ? {}
-      : { basePriceMinor: values.basePriceMinor }),
-    ...(values.currency === undefined ? {} : { currency: values.currency }),
   });
 }
 
@@ -104,8 +96,6 @@ beforeAll(async () => {
     companyId: kitIdentities.companies.a,
     productId: fixtures.productA,
     name: "Override",
-    basePriceMinor: 1250n,
-    currency: "UAH",
   });
   await insertVariant({
     id: fixtures.variantABase,
@@ -124,14 +114,12 @@ beforeAll(async () => {
     companyId: kitIdentities.companies.b,
     productId: fixtures.productB,
     name: "Bravo variant",
-    basePriceMinor: 2100n,
-    currency: "UAH",
   });
 
   await kit.db.runtime.db.insert(user).values({
     id: clerkUserId,
     name: "Clerk",
-    email: "clerk@catalog-kit.test",
+    email: "clerk@catalog-order-facts-kit.test",
   });
   await kit.db.runtime.db.insert(companyMembers).values({
     companyId: kitIdentities.companies.a,
@@ -149,16 +137,16 @@ crossTenantSuite(
   () => kit,
   [
     isolationCase(
-      getProductPricingFacts,
+      getProductOrderFacts,
       { input: { items: [{ productId: fixtures.productA }] } },
       { input: { items: [{ productId: fixtures.productB }] } },
     ),
   ],
 );
 
-describe("catalog.getProductPricingFacts", () => {
-  it("returns products with variants and nullable base-price overrides", async () => {
-    const result = await kit.invoke(getProductPricingFacts, {
+describe("catalog.getProductOrderFacts", () => {
+  it("returns products with names and every variant of each product", async () => {
+    const result = await kit.invoke(getProductOrderFacts, {
       items: [{ productId: fixtures.productA }],
     });
 
@@ -166,18 +154,15 @@ describe("catalog.getProductPricingFacts", () => {
       products: [
         {
           productId: fixtures.productA,
-          basePriceMinor: "1500",
-          currency: "UAH",
+          name: "Alpha",
           variants: [
             {
               variantId: fixtures.variantABase,
-              basePriceMinor: null,
-              currency: null,
+              name: "Base",
             },
             {
               variantId: fixtures.variantAOverride,
-              basePriceMinor: "1250",
-              currency: "UAH",
+              name: "Override",
             },
           ].sort((left, right) =>
             left.variantId < right.variantId
@@ -191,8 +176,8 @@ describe("catalog.getProductPricingFacts", () => {
     });
   });
 
-  it("returns a product with no variants and accepts a zero base price", async () => {
-    const result = await kit.invoke(getProductPricingFacts, {
+  it("returns a product with no variants", async () => {
+    const result = await kit.invoke(getProductOrderFacts, {
       items: [{ productId: fixtures.productAZero }],
     });
 
@@ -200,8 +185,7 @@ describe("catalog.getProductPricingFacts", () => {
       products: [
         {
           productId: fixtures.productAZero,
-          basePriceMinor: "0",
-          currency: "UAH",
+          name: "Zero",
           variants: [],
         },
       ],
@@ -209,7 +193,7 @@ describe("catalog.getProductPricingFacts", () => {
   });
 
   it("returns unique products in first-seen input order", async () => {
-    const result = await kit.invoke(getProductPricingFacts, {
+    const result = await kit.invoke(getProductOrderFacts, {
       items: [
         { productId: fixtures.productAZero },
         { productId: fixtures.productA, variantId: fixtures.variantAOverride },
@@ -221,12 +205,16 @@ describe("catalog.getProductPricingFacts", () => {
       fixtures.productAZero,
       fixtures.productA,
     ]);
+    expect(result.products.map((product) => product.name)).toEqual([
+      "Zero",
+      "Alpha",
+    ]);
   });
 
   it("denies staff without products:view", async () => {
     await expect(
       kit.invoke(
-        getProductPricingFacts,
+        getProductOrderFacts,
         { items: [{ productId: fixtures.productA }] },
         { userId: clerkUserId, companyId: kitIdentities.companies.a },
       ),
@@ -235,19 +223,19 @@ describe("catalog.getProductPricingFacts", () => {
 
   it("rejects an empty batch, oversized batch, and malformed ids", async () => {
     await expect(
-      kit.invoke(getProductPricingFacts, { items: [] }),
+      kit.invoke(getProductOrderFacts, { items: [] }),
     ).rejects.toBeInstanceOf(ValidationError);
 
     const oversized = Array.from(
-      { length: PRODUCT_PRICING_FACTS_MAX_ITEMS + 1 },
+      { length: PRODUCT_ORDER_FACTS_MAX_ITEMS + 1 },
       () => ({ productId: randomUUID() }),
     );
     await expect(
-      kit.invoke(getProductPricingFacts, { items: oversized }),
+      kit.invoke(getProductOrderFacts, { items: oversized }),
     ).rejects.toBeInstanceOf(ValidationError);
 
     await expect(
-      kit.invoke(getProductPricingFacts, {
+      kit.invoke(getProductOrderFacts, {
         items: [{ productId: "not-a-uuid" }],
       }),
     ).rejects.toBeInstanceOf(ValidationError);
@@ -256,7 +244,7 @@ describe("catalog.getProductPricingFacts", () => {
   it("fails the whole batch for a missing or foreign product with the same not-found", async () => {
     const missingId = randomUUID();
     const missingError = await kit
-      .invoke(getProductPricingFacts, {
+      .invoke(getProductOrderFacts, {
         items: [{ productId: missingId }],
       })
       .then(
@@ -266,7 +254,7 @@ describe("catalog.getProductPricingFacts", () => {
         (error: unknown) => error,
       );
     const foreignError = await kit
-      .invoke(getProductPricingFacts, {
+      .invoke(getProductOrderFacts, {
         items: [{ productId: fixtures.productB }],
       })
       .then(
@@ -286,12 +274,12 @@ describe("catalog.getProductPricingFacts", () => {
     }
 
     await expect(
-      kit.invoke(getProductPricingFacts, {
+      kit.invoke(getProductOrderFacts, {
         items: [{ productId: fixtures.productA }, { productId: missingId }],
       }),
     ).rejects.toBeInstanceOf(NotFoundError);
 
-    const stillOwn = await kit.invoke(getProductPricingFacts, {
+    const stillOwn = await kit.invoke(getProductOrderFacts, {
       items: [{ productId: fixtures.productA }],
     });
     expect(stillOwn.products).toHaveLength(1);
@@ -299,13 +287,13 @@ describe("catalog.getProductPricingFacts", () => {
 
   it("fails the whole batch when a variantId is foreign or not on the product", async () => {
     await expect(
-      kit.invoke(getProductPricingFacts, {
+      kit.invoke(getProductOrderFacts, {
         items: [{ productId: fixtures.productA, variantId: fixtures.variantB }],
       }),
     ).rejects.toBeInstanceOf(NotFoundError);
 
     await expect(
-      kit.invoke(getProductPricingFacts, {
+      kit.invoke(getProductOrderFacts, {
         items: [
           {
             productId: fixtures.productA,
@@ -316,7 +304,7 @@ describe("catalog.getProductPricingFacts", () => {
     ).rejects.toBeInstanceOf(NotFoundError);
 
     await expect(
-      kit.invoke(getProductPricingFacts, {
+      kit.invoke(getProductOrderFacts, {
         items: [
           { productId: fixtures.productA },
           { productId: fixtures.productAZero, variantId: randomUUID() },

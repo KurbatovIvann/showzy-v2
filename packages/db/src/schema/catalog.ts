@@ -1,9 +1,8 @@
 /**
- * Minimal catalog slice for price resolution (SHO-85, pricing-T1). Owned by
- * the catalog module (ADR-0014). Only the base-price facts the pricing
- * resolver needs exist here; the full catalog schema task adds its own
- * columns later. Deliberately absent: name/sku/status/`is_active` — the
- * feature card names no other column family.
+ * Minimal catalog slice for price resolution (SHO-85, pricing-T1) and
+ * order-line titles (SHO-90, catalog-T2). Owned by the catalog module
+ * (ADR-0014). Deliberately absent: sku/status/`is_active` — later catalog
+ * schema tasks add those families.
  */
 import { sql } from "drizzle-orm";
 import {
@@ -13,6 +12,7 @@ import {
   foreignKey,
   index,
   pgTable,
+  text,
   timestamp,
   unique,
   uuid,
@@ -20,7 +20,7 @@ import {
 
 import { companies } from "./companies.js";
 
-/** Products carry the level-5 base price of the resolution chain. */
+/** Products carry the display name and the level-5 base price. */
 export const products = pgTable(
   "products",
   {
@@ -28,6 +28,7 @@ export const products = pgTable(
     companyId: uuid("company_id")
       .notNull()
       .references(() => companies.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
     basePriceMinor: bigint("base_price_minor", { mode: "bigint" }).notNull(),
     currency: char("currency", { length: 3 }).notNull().default("UAH"),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -58,6 +59,7 @@ export const productVariants = pgTable(
       .references(() => companies.id, { onDelete: "cascade" }),
     // Same-module ownership: a product deletion removes its variants.
     productId: uuid("product_id").notNull(),
+    name: text("name").notNull(),
     basePriceMinor: bigint("base_price_minor", { mode: "bigint" }),
     currency: char("currency", { length: 3 }),
     createdAt: timestamp("created_at", { withTimezone: true })

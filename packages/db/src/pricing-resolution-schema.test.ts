@@ -81,7 +81,12 @@ async function insertProduct(
 ) {
   const rows = await dbClient.db
     .insert(products)
-    .values({ companyId, basePriceMinor: 10_000n, ...overrides })
+    .values({
+      companyId,
+      name: "Fixture product",
+      basePriceMinor: 10_000n,
+      ...overrides,
+    })
     .returning();
   const row = rows[0];
   assert.ok(row);
@@ -95,7 +100,12 @@ async function insertVariant(
 ) {
   const rows = await dbClient.db
     .insert(productVariants)
-    .values({ companyId, productId, ...overrides })
+    .values({
+      companyId,
+      productId,
+      name: "Fixture variant",
+      ...overrides,
+    })
     .returning();
   const row = rows[0];
   assert.ok(row);
@@ -205,6 +215,7 @@ describe("price resolution schema slice", () => {
       "currency",
       "created_at",
       "updated_at",
+      "name",
     ]);
     expect(columns.get("product_variants")).toEqual([
       "id",
@@ -214,6 +225,7 @@ describe("price resolution schema slice", () => {
       "currency",
       "created_at",
       "updated_at",
+      "name",
     ]);
     expect(columns.get("customer_groups")).toEqual([
       "id",
@@ -260,6 +272,42 @@ describe("price resolution schema slice", () => {
       "created_at",
       "updated_at",
     ]);
+  });
+
+  it("requires a text name on products and product_variants", async () => {
+    const result = await admin.query<{
+      table_name: string;
+      column_name: string;
+      data_type: string;
+      is_nullable: string;
+    }>(
+      `SELECT table_name, column_name, data_type, is_nullable
+       FROM information_schema.columns
+       WHERE table_schema = 'public'
+         AND table_name IN ('products', 'product_variants')
+         AND column_name = 'name'
+       ORDER BY table_name`,
+    );
+    expect(result.rows).toEqual([
+      {
+        table_name: "product_variants",
+        column_name: "name",
+        data_type: "text",
+        is_nullable: "NO",
+      },
+      {
+        table_name: "products",
+        column_name: "name",
+        data_type: "text",
+        is_nullable: "NO",
+      },
+    ]);
+    expectTypeOf<
+      (typeof products.$inferInsert)["name"]
+    >().toEqualTypeOf<string>();
+    expectTypeOf<
+      (typeof productVariants.$inferInsert)["name"]
+    >().toEqualTypeOf<string>();
   });
 
   it("represents money columns as bigint in TypeScript", () => {
