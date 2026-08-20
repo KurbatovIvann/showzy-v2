@@ -103,6 +103,51 @@ describe("money schema lint", () => {
     expect(stderr).toContain("money-bearing table must define currency");
   });
 
+  it("accepts bigint discount_value and integer tax_rate_bp on a money table", async () => {
+    const schema = path.join(workspace, "valid-kind-dependent");
+    await mkdir(schema);
+    await writeFile(
+      path.join(schema, "order-items.ts"),
+      `export const orderItems = pgTable("order_items", {
+        discountKind: text("discount_kind").notNull(),
+        discountValue: bigint("discount_value", { mode: "bigint" }).notNull(),
+        taxRateBp: integer("tax_rate_bp").notNull(),
+        priceSource: text("price_source"),
+        net: bigint("net_amount_minor", { mode: "bigint" }).notNull(),
+        currency: char("currency", { length: 3 }).notNull(),
+      });`,
+    );
+
+    await expect(
+      execFileAsync("node", [
+        path.join(scripts, "check-money-schema.mjs"),
+        schema,
+      ]),
+    ).resolves.toMatchObject({ stderr: "" });
+  });
+
+  it("rejects a non-bigint discount_value", async () => {
+    const schema = path.join(workspace, "invalid-discount-value");
+    await mkdir(schema);
+    await writeFile(
+      path.join(schema, "order-items.ts"),
+      `export const orderItems = pgTable("order_items", {
+        discountValue: integer("discount_value"),
+        currency: char("currency", { length: 3 }).notNull(),
+      });`,
+    );
+
+    const stderr = await commandFailure(
+      execFileAsync("node", [
+        path.join(scripts, "check-money-schema.mjs"),
+        schema,
+      ]),
+    );
+    expect(stderr).toContain(
+      'kind-dependent column "discount_value" must use bigint',
+    );
+  });
+
   it("rejects _minor/_milli that are not bigint, floating columns, and new money terms", async () => {
     const schema = path.join(workspace, "invalid-extended");
     await mkdir(schema);

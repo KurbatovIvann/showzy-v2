@@ -7,7 +7,13 @@ const schemaRoot = path.resolve(process.argv[2] ?? "src/schema");
 const moneyTerm =
   /(?:^|_)(?:price|amount|total|subtotal|discount|tax|fee|balance|refunded|payout|deposit|cost)(?:_|$)/i;
 const nonMoneySuffix =
-  /_(?:id|type|code|rate|bps|percent|percentage|treatment)$/i;
+  /_(?:id|type|code|kind|source|rate|bps|bp|percent|percentage|treatment)$/i;
+/**
+ * Kind-dependent raw values (money.md): not a persisted amount, so they are
+ * bigint without a `_minor` suffix. `discount_value` is percent-or-amount
+ * depending on `discount_kind`; this slice only stores `none` / 0.
+ */
+const kindDependentRawColumns = new Set(["discount_value"]);
 const columnPattern = /(\w+)\s*:\s*(\w+)\s*\(\s*["']([^"']+)["']/g;
 const currencyPattern =
   /\w+\s*:\s*char\s*\(\s*["']currency["']\s*,\s*\{[\s\S]*?length\s*:\s*3[\s\S]*?\}\s*\)/;
@@ -16,7 +22,8 @@ const floatConstructors = new Set(["numeric", "doublePrecision", "real"]);
 /**
  * Non-money decimal/float columns permitted in schema files.
  * Keys are `<relative-from-schema-root>:<sql_column_name>`. Empty until a
- * spec declares a legitimate non-money decimal (rates use `_bps`/`_percent`).
+ * spec declares a legitimate non-money decimal (rates use `_bps`/`_percent`;
+ * enums use `_kind`/`_source`/`_treatment`).
  */
 const decimalAllowlist = new Set([
   // Example: "pricing.ts:display_ratio" — document why it is not money.
@@ -69,6 +76,15 @@ for (const file of await collectTypeScriptFiles(schemaRoot)) {
         errors.push(
           `${file}: column "${sqlName}" uses ${constructor} — money/quantity must be bigint; other decimals must be allowlisted`,
         );
+      }
+
+      if (kindDependentRawColumns.has(sqlName)) {
+        if (constructor !== "bigint") {
+          errors.push(
+            `${file}: kind-dependent column "${sqlName}" must use bigint`,
+          );
+        }
+        continue;
       }
 
       if (endsMinor || endsMilli) {
