@@ -1,8 +1,9 @@
 /**
- * ESM resolve hook so `node --experimental-strip-types` can load the
- * backup-verify CLI: NodeNext sources import siblings with `.js`
- * specifiers, and type-stripping does not remap those to `.ts`.
- * Native resolution always wins first (real `.js` files are not shadowed).
+ * ESM resolve hook so `node --experimental-strip-types` can load
+ * NodeNext sources (API/worker start, backup-verify CLI): they import
+ * siblings with `.js` specifiers, and type-stripping does not remap
+ * those to `.ts`. Native resolution always wins first (real `.js` files
+ * are not shadowed).
  */
 import { existsSync } from "node:fs";
 import { extname } from "node:path";

@@ -5,6 +5,9 @@
     },
     "figma": {
       "enabled": true
+    },
+    "magic-patterns": {
+      "enabled": true
     }
   }
 }
