@@ -8,6 +8,7 @@ import { join } from "node:path";
 
 import { catalogSuiteCoverage } from "@showzy/catalog/suite-coverage";
 import { customersSuiteCoverage } from "@showzy/customers/suite-coverage";
+import { pricingSuiteCoverage } from "@showzy/pricing/suite-coverage";
 import { implementAction, runContractCheck } from "@showzy/core";
 import { defineActionContract } from "@showzy/core/contract";
 import { projectionGrants } from "@showzy/db";
@@ -56,7 +57,11 @@ describe("composition root identity", () => {
     ).toEqual(actionNames(createActionRegistry()));
     expect(input.projectionGrants).toBe(projectionGrants);
     expect(input.suiteCoverage).toEqual(
-      mergeSuiteCoverage([catalogSuiteCoverage, customersSuiteCoverage]),
+      mergeSuiteCoverage([
+        catalogSuiteCoverage,
+        customersSuiteCoverage,
+        pricingSuiteCoverage,
+      ]),
     );
   });
 });

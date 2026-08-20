@@ -19,6 +19,8 @@ import { getProductPricingFacts } from "@showzy/catalog";
 import { catalogSuiteCoverage } from "@showzy/catalog/suite-coverage";
 import { getCustomerPricingFacts } from "@showzy/customers";
 import { customersSuiteCoverage } from "@showzy/customers/suite-coverage";
+import { resolveProductPrices } from "@showzy/pricing";
+import { pricingSuiteCoverage } from "@showzy/pricing/suite-coverage";
 import {
   ActionRegistry,
   emptySuiteCoverage,
@@ -42,6 +44,7 @@ import type { z } from "zod";
 const moduleSuiteCoverage: readonly SuiteCoverageManifest[] = [
   catalogSuiteCoverage,
   customersSuiteCoverage,
+  pricingSuiteCoverage,
 ];
 
 const events: readonly EventDefinitionRef[] = [
@@ -49,7 +52,14 @@ const events: readonly EventDefinitionRef[] = [
 ];
 
 const callEdges: readonly DeclaredCallEdge[] = [
-  // Module tasks append declared `ctx.call` edges from the owning spec.
+  {
+    caller: "pricing.resolveProductPrices",
+    callee: "catalog.getProductPricingFacts",
+  },
+  {
+    caller: "pricing.resolveProductPrices",
+    callee: "customers.getCustomerPricingFacts",
+  },
 ];
 
 const readModelGrants: readonly ReadModelGrantRef[] = [
@@ -59,6 +69,7 @@ const readModelGrants: readonly ReadModelGrantRef[] = [
 const schemaImports: readonly SchemaImportRef[] = [
   { importer: "catalog", schemaOwner: "catalog" },
   { importer: "customers", schemaOwner: "customers" },
+  { importer: "pricing", schemaOwner: "pricing" },
 ];
 
 /** Registers one implemented action's contract + implementation pair. */
@@ -103,6 +114,7 @@ export function createActionRegistry(): ActionRegistry {
   const registry = new ActionRegistry();
   registerAction(registry, getProductPricingFacts);
   registerAction(registry, getCustomerPricingFacts);
+  registerAction(registry, resolveProductPrices);
   return registry;
 }
 

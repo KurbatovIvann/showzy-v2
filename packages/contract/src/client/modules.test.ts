@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
 
+import { resolveProductPricesContract } from "@showzy/pricing/contract";
+
 import { contractModules, contractRouter } from "./modules.js";
 
-describe("empty composition (no domain modules yet)", () => {
-  it("exposes an empty record so an exposure decision cannot be skipped silently", () => {
-    expect(contractModules).toEqual({});
-    expect(contractRouter).toEqual({});
+describe("client composition", () => {
+  it("exposes pricing.resolveProductPrices and no internal facts actions", () => {
+    expect(contractModules).toEqual({
+      pricing: {
+        resolveProductPrices: resolveProductPricesContract,
+      },
+    });
+    expect(contractRouter.pricing.resolveProductPrices).toBeDefined();
   });
 });
