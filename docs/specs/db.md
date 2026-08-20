@@ -71,7 +71,8 @@ packages/db/
   Postgres `MATCH SIMPLE` (default). When `ON DELETE SET NULL` would also
   null `NOT NULL company_id`, the migration must use PostgreSQL 15
   `ON DELETE SET NULL (parent_id)` — Drizzle cannot emit that clause; the
-  custom SQL is the §7 exception (`0011_same_tenant_set_null.sql`).
+  custom SQL is the §7 exception (`0011_same_tenant_set_null.sql` and
+  later module follow-ups that attach the same column-scoped SET NULL).
   Authorization stays in action code (ADR-0009): handlers load the parent
   under the verified company and return `NotFoundError`.
 - **Companies taxonomy (ADR-0018, module-ownership):**
@@ -348,7 +349,7 @@ Idempotent (`ON CONFLICT DO NOTHING`) seeds, runnable repeatedly.
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
-| 2026-08-20 | §3: same-tenant composite FKs + `UNIQUE (company_id, id)`; §7: PG15 `SET NULL (column)` exception | Owner amendment on the SHO-85 golden (ADR-0025) | Human owner |
+| 2026-08-20 | §3: later modules reuse the PG15 column-scoped SET NULL custom-migration pattern | SHO-91 orders customer FK cannot null `company_id` | orders-T1 (SHO-91) |
 | 2026-08-19 | §4: recorded `event_deliveries.event_id → domain_events.id ON DELETE RESTRICT`; generated-auth `$onUpdate` / camelCase index exception; §8: kit does not export foundation row factories; §9: local-dev fixture seed deferred to fnd-T29+ | Same-PR patch: tests prove the FK, auth trigger exception, and seed layout (fnd-G1 A12) | scaffold (fnd-G1 A12) |
 | 2026-08-18 | §4/§5: `domain_events` INSERT notifies channel `domain_events` for the worker LISTEN wakeup | fnd-T27 implementation proved the trigger was specified as a primitive but never named | scaffold (fnd-T27) |
 | 2026-08-17 | Added projection grants/read capabilities, public/social fixtures, and atomic transaction requirements | Align DB foundation with ADR-0020/0021 mobile parity | Human owner via mobile parity rework |
