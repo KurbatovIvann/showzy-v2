@@ -233,14 +233,14 @@ the UX gate.
 
 ## Integration with the engineering pipeline
 
-- `docs/pipeline.md` remains the engineering SDD conveyor.
+- `docs/pipeline.md` is the engineering feature loop (ADR-0023).
 - The only addition to the engineering pipeline: product-screen
   implementation requires a reference to the approved inventory / mapping
   artifact and is rejected if the UX gate has not been passed. Backend
-  `/spec` and `/plan` are not gated.
-- UI implementation tasks (`/implement`) reference the module spec, the
+  `/feature` tickets are not gated.
+- UI implementation tasks (`/implement`) reference the feature card, the
   V1 inventory, and `docs/design/mapping/v1-mobile-port-recipe.md`, not
-  archived greenfield component contracts or Figma.
+  archived greenfield component contracts, archived domain specs, or Figma.
 - UI acceptance criteria (added to the definition of done for UI tasks):
   journey conformance, accessibility baseline, loading/empty/error/offline
   states, localization readiness, port-recipe Class A/B hygiene, and

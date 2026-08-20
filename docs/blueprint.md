@@ -1,6 +1,6 @@
 # Showzy 2.0 — Architecture Blueprint
 
-> Final document: architecture, technology stack, and the SDD agent pipeline.
+> Final document: architecture, technology stack, and the feature pipeline.
 > Status: approved. Date: August 2026.
 > Sources: audit of the current system (apps/api ~36k lines, apps/web ~119k,
 > apps/mobile ~58k, 77+ tables, 83 migrations, ~240 RLS policies).
@@ -34,8 +34,8 @@ Full scope analysis (what we carry over / simplify / drop) and the roadmap:
 
 **AI-first interface**: two parallel interfaces — a classic UI and an AI chat —
 that perform **the same actions**. The AI can show data in chat, open modals,
-fill forms, execute operations. Development follows SDD: 90–100% of the code is
-written by AI agents.
+fill forms, execute operations. Development follows the feature loop
+(ADR-0023): 90–100% of the code is written by AI agents.
 
 ### Main problems of the current system (from the audit)
 
@@ -200,11 +200,12 @@ showzy/
 │  └─ tooling/        # eslint presets (boundaries!), tsconfig, prettier
 ├─ docs/
 │  ├─ blueprint.md              # this document
-│  ├─ specs/          # module specifications — Living intent; Active surface after the slice merges
-│  └─ plans/          # mutable task breakdowns (one .md per module; see pipeline.md)
+│  ├─ specs/          # protocol manuals for frozen foundation packages
+│  ├─ archive/specs/  # domain novels — research, not a gate (ADR-0023)
+│  └─ plans/          # historical breakdowns; new work is Linear feature cards
 └─ .cursor/
    ├─ rules/          # rules for agents (conventions, prohibitions, DoD)
-   └─ commands/       # stage commands: /spec /plan /scaffold /implement /review /ticket /rework-spec
+   └─ commands/       # /feature /ticket /implement /review /guard /scaffold
 ```
 
 ### Domain modules (packages/modules/*)
@@ -250,67 +251,88 @@ while its source rows are `REVIEW` or lack the required column mapping.
 
 ---
 
-## 7. SDD agent pipeline
+## 7. Feature pipeline
 
-### 7.1 Work phases
+Day-to-day process is ADR-0023. Constitution (this document §2–§6, accepted
+ADRs, prohibitions) does not change when a feature ships. The executable
+contract of a feature is `*.contract.ts` plus the required tests — not a
+module markdown novel.
+
+### 7.1 Work loop
 
 ```
-SPECIFICATION → PLAN → SCAFFOLD → IMPLEMENTATION → REVIEW → VERIFICATION
- (human+agent)  (agent)  (agent)   (agents in parallel)  (agents)   (CI)
+PLANNER → EXECUTOR → VERIFIER → GUARDIAN (optional)
+(human+agent)  (agent)    (CI + agent)   (sensitive / first slice)
 ```
 
-1. **Specification.** For each module — a file `docs/specs/<module>.md`.
-   Written by an agent in Cursor Plan mode, approved by a human as **Living**
-   intent (purpose, ownership, named capabilities). Full action metadata
-   applies to the slice about to be built. A **surface** becomes an **Active**
-   contract when that slice merges; Mixed files name the Active surface in
-   the header. Implementers may not silently change Active surface
-   (`docs/specs/README.md`). The first implementing PR may still patch that
-   surface in the same PR when a test proves a gap.
-2. **Plan.** The agent splits the spec into reviewable tasks (~300 diff lines is comfort, not a hard cap), with explicit dependencies. One task = one branch = one PR.
-3. **Scaffold.** The first versions of `packages/core`, `db`, `contract`, and **two reference slices** are written with maximum care: (a) pricing resolution for pure/query and `ctx.call` patterns; (b) a thin order → outbox → chat projection for write/idempotency/event patterns. Their prerequisite schema slices are specified and merged first. These are the templates agents copy. The lesson of the Encore benchmark: an agent on an empty minimal framework invents anti-patterns — so patterns are locked in before mass generation.
-4. **Implementation.** Parallel agents (Cursor background/cloud agents) — one per task. Each receives: the module spec, its bounded context pack, and the relevant reference slice. Tests are required per the definition of done (action classes, or proving tests for schema/config) — not a red-then-green ritual.
-5. **Review.** Lanes: mechanical = CI + human skim; routine = Bugbot + human (`/review` if contested); sensitive and first-module PRs = Bugbot + cross-family `/review` + security review when applicable + full human review.
-6. **Verification (CI).** Merging is impossible without green: format + secret/dependency checks → `tsc --noEmit` → ESLint (boundaries, no `any`, no direct cross-module imports) → Vitest (unit + integration with Testcontainers Postgres) → action/event contract checks (mandatory metadata including `principal`/`transport`, pairing, resolver and event definitions) → migration drift/safety → e2e smoke, phase-aware: Maestro once mobile screens exist, Playwright only from the web phase.
+1. **Planner** (`/feature`). Human names a user-visible capability. The
+   agent produces a Linear feature card, a ticket graph, and a 5–15 file
+   context pack. Contested APIs get a contract-first `*.contract.ts`
+   ticket. No `docs/specs/<module>.md`. Product forks stop and ask.
+2. **Executor** (`/ticket` / `/implement`). One agent per ticket, one
+   branch, one PR. Copies the **golden files for that layer**. Runs the
+   verify loop until CI-equivalent checks are green. Tests follow the
+   definition of done — not a red-then-green ritual.
+3. **Verifier.** CI always. Bugbot on routine+. Cross-family `/review`
+   on sensitive and first-slice PRs. Rubric is constitution, ADRs, golden
+   fidelity, feature card, real tests — not an archived spec section.
+4. **Guardian** (`/guard`, optional). Sensitive surfaces, the first
+   golden backend or UI slice, first use of a new principal or composition
+   edge. Architecture/security pass. ADR deviation is a stop.
+5. **Golden slices.** Patterns are locked in TypeScript, not in novels.
+   The first merged backend slice (schema + read action + write/event if
+   needed + tests) is the API template. A golden UI slice (one panel
+   screen) waits on the Experience Foundation UX gate. Agents copy by
+   layer — not API+UI in one blob. The Encore lesson stands: an agent on
+   an empty framework invents anti-patterns.
+6. **CI.** Merging is impossible without green: format + secret/dependency
+   checks → `tsc --noEmit` → ESLint (boundaries, no `any`, no direct
+   cross-module imports) → Vitest (unit + integration with Testcontainers
+   Postgres) → action/event contract checks (mandatory metadata including
+   `principal`/`transport`, pairing, resolver and event definitions) →
+   migration drift/safety → e2e smoke, phase-aware: Maestro once mobile
+   screens exist, Playwright only from the web phase.
+
+Leftover phase 0–1 foundation work may still use `/scaffold` on the
+allowlisted packages. New domain work uses `/feature`.
 
 ### 7.2 Rules for agents (`.cursor/rules/`)
 
 - **Code conventions**: action naming (`<module>.<verb>`), module structure, error style (typed, no bare `throw new Error`).
-- **Prohibitions**: raw SQL outside approved Drizzle/foundation exceptions; DB access outside a handler/service/typed target resolver; `any`/`as unknown as`; new dependencies without approval; changing `packages/core` in module tasks.
-- **Definition of Done**: required tests for every action (happy + mode-appropriate authorization denial + validation/output failure + metadata-required protocols), proving tests for schema/config, spec ambiguities reported (never silently resolved — Active surface is not silently edited), green CI.
-- **Context**: every package has an `AGENTS.md` with local instructions (as in the current repo).
+- **Prohibitions**: raw SQL outside approved Drizzle/foundation exceptions; DB access outside a handler/service/typed target resolver; `any`/`as unknown as`; new dependencies without approval; changing `packages/core` in module tasks; silent product forks.
+- **Definition of Done**: required tests for every action (happy + mode-appropriate authorization denial + validation/output failure + metadata-required protocols), proving tests for schema/config, feature-card acceptance, green CI.
+- **Context**: every package has an `AGENTS.md` with local instructions (as in the current repo). Feature executors read the ticket's context pack, not every package manual.
 
 ### 7.3 Model selection (Cursor, August 2026 lineup)
 
-Principles: (1) **different model families for writing and review** — one model's systematic blind spots are caught by another; (2) **expensive models front-loaded, cheap models at scale** — top-tier models build the foundation and reference slices (phases 0–1); once the templates exist, mass implementation shifts to a cheap fast model, because the pipeline (references + TDD + CI + review by a stronger model) is what guarantees quality, not the implementer's raw capability; (3) the Cursor model lineup changes monthly — the table below describes roles; substitute current equivalents.
+Principles: (1) **different model families for writing and review** — one model's systematic blind spots are caught by another; (2) **expensive models front-loaded, cheap models at scale** — top-tier models build the foundation and the golden backend slice; once the templates exist, mass implementation shifts to a cheap fast model, because the pipeline (golden files + CI + Verifier) is what guarantees quality, not the implementer's raw capability; (3) the Cursor model lineup changes monthly — the table below describes roles; substitute current equivalents.
 
 | Pipeline role | Model | Why |
 | --- | --- | --- |
-| Architecture, specifications, migration plan | **Claude Opus 5 (thinking, high)**; cross-check critical docs with **GPT-5.6 Sol (high)** | Maximum reasoning depth; a mistake at this level is the most expensive. Rare invocations — cost is negligible |
-| Foundation (phases 0–1): `packages/core`, `db`, `contract`, reference slices | **Claude Fable 5 (thinking)** — if its data-retention terms are accepted (Anthropic stores agent I/O for harm prevention); otherwise **Claude Opus 5 (thinking, high)** at half the token price | Code that becomes the template for everything else must be impeccable. Expensive, but bounded: used front-loaded, not permanently |
+| Architecture, feature cards, ADRs | **Claude Opus 5 (thinking, high)**; cross-check critical docs with **GPT-5.6 Sol (high)** | Maximum reasoning depth; a mistake at this level is the most expensive. Rare invocations — cost is negligible |
+| Foundation leftovers and the golden backend slice | **Claude Fable 5 (thinking)** — if its data-retention terms are accepted (Anthropic stores agent I/O for harm prevention); otherwise **Claude Opus 5 (thinking, high)** at half the token price | Code that becomes the template for everything else must be impeccable. Expensive, but bounded: used front-loaded, not permanently |
 | Sensitive surfaces at any phase: auth, payments, QES, webhooks, file authorization, tenant/runtime protocols | Same as foundation (Fable 5 or Opus 5) | Bugs here are the most expensive to catch late; not worth economizing |
-| Main module implementation (phases 2+, once the references exist) | **Grok 4.6 (high, non-fast)** | The cheap workhorse from the Cursor Models pool. Fast mode buys latency at 2× the price — irrelevant for background agents. Works from the spec + reference templates; TDD and CI catch its mistakes. Escalate after 2 failed review iterations |
+| Main feature implementation (once the golden backend slice exists) | **Grok 4.6 (high, non-fast)** | The cheap workhorse from the Cursor Models pool. Fast mode buys latency at 2× the price — irrelevant for background agents. Works from the feature card + golden files; CI and Verifier catch its mistakes. Escalate after 2 failed review iterations |
 | Boilerplate, mass edits, template-driven refactors | **Composer 2.5** | Cheapest tier; the pattern is already set by the reference |
 | Routine PR code review | **GPT-5.6 Terra (high)** — a different family than the implementer (both Grok and Claude) | + **Bugbot** on every PR as a separate layer. Cross-family review catches the implementer's systematic blind spots |
 | Foundation / sensitive PR review (auth, payments, QES, webhooks, migrations, core) | **GPT-5.6 Sol (high/xhigh)** + security-review agent | Independent deep pass; reviewer stronger than the implementer where it matters |
 | Debugging hard bugs | **Claude Opus 5 (thinking, high)** — always a different family than the model whose code is failing | Escalation when the working model can't find the root cause in 1–2 iterations |
 
 Cost model in one line: expensive reasoning is spent where errors are
-irreversible or template-setting (specs, foundation, security, review);
-volume code generation runs on the cheap model under the supervision of
-tests, CI, and a stronger reviewer.
+irreversible or template-setting (feature cards, foundation, golden
+slices, security, review); volume code generation runs on the cheap model
+under the supervision of tests, CI, and a stronger reviewer.
 
-Practice in Cursor: specifications — in Plan mode; implementation — parallel
-cloud agents on separate branches; review — Bugbot + a reviewer agent; the
-stages run through the commands in `.cursor/commands/` (`/spec`, `/plan`,
-`/scaffold`, `/implement`, `/review`, `/ticket`, `/rework-spec`) —
-see `docs/pipeline.md` for the day-to-day workflow including Linear.
+Practice in Cursor: feature cards — in Plan mode (`/feature`);
+implementation — parallel cloud agents on separate branches (`/ticket`);
+review — Bugbot + `/review`; safety — `/guard` when the lane requires it.
+See `docs/pipeline.md` for the day-to-day workflow including Linear.
 
 ### 7.4 Pipeline health metrics
 
-- % of PRs merged without human edits (target: >80% after the reference stabilizes).
+- % of PRs merged without human edits (target: >80% after the golden backend slice stabilizes).
 - Number of review iterations per PR (target: ≤2).
-- Time from spec to green CI per module.
+- Time from feature card to green CI.
 - Regressions reaching main (target: ~0 — caught in CI/review).
 
 ---

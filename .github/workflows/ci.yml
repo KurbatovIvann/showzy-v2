@@ -1,5 +1,6 @@
-# CI pipeline v1 (fnd-T2) — the verification gate from docs/pipeline.md §6,
-# docs/specs/security-operations.md §7, and docs/blueprint.md §7.1(6).
+# CI pipeline v1 (fnd-T2) — the verification gate from docs/pipeline.md
+# (Verifier), docs/specs/security-operations.md §7, and docs/blueprint.md
+# §7.1(6).
 #
 # Job names are stable identifiers: branch protection requires them by name
 # (docs/operations/branch-protection.md). `e2e-smoke` is still a named

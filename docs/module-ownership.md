@@ -1,9 +1,9 @@
 # Module ownership and composition map
 
 > Status: Approved by owner, 2026-08-17.
-> Normative companion to blueprint §5, scope §6, ADR-0011, ADR-0014, and
-> ADR-0015, and ADR-0020. Module specs refine this map but may not move
-> ownership silently.
+> Normative companion to blueprint §5, scope §6, ADR-0011, ADR-0014,
+> ADR-0015, ADR-0020, and ADR-0023. Feature cards refine this map but may
+> not move ownership silently.
 
 ## Rules
 
@@ -12,8 +12,8 @@
   use principal-compatible `risk: read` actions through `ctx.call`.
 - Cross-module effects use domain events. Rare all-or-nothing writes use only
   declared `ctx.callAtomic` capabilities (ADR-0021). `search` and `analytics`
-  may receive explicit read-model grants in the owning spec; no other direct
-  reads.
+  may receive explicit read-model grants declared by the owning module; no
+  other direct reads.
 - Auth and foundation tables are platform-owned, not domain-owned.
 
 ## Foundation ownership
@@ -58,8 +58,9 @@
 - `analytics` owns dashboard projections only when a useful post-launch
   dashboard is approved; no launch placeholder is required.
 
-## Spec gate
+## Ownership gate
 
-Every module spec must list exact tables, actions, emitted/consumed events,
-`ctx.call` targets, and read-model grants. A conflict with this map requires a
-human-approved ADR before either spec is approved.
+A `/feature` card must name its tables, actions, emitted/consumed events,
+`ctx.call` targets, and read-model grants against this map. A conflict
+requires a human-approved ADR before the feature starts. Do not invent a
+module spec to resolve the conflict.

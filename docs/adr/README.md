@@ -39,3 +39,4 @@ humans) don't relitigate settled questions or silently deviate.
 | [0020](0020-public-discovery-and-social-engagement.md) | Public discovery and aggregate-owned social engagement | Accepted |
 | [0021](0021-same-transaction-atomic-capabilities.md) | Same-transaction atomic cross-module capabilities | Accepted |
 | [0022](0022-share-principal-unauthenticated-capability-writes.md) | `share` principal — unauthenticated capability-token writes | Accepted |
+| [0023](0023-feature-pipeline.md) | Feature pipeline replaces SDD stages | Accepted |

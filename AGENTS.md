@@ -12,19 +12,20 @@ and an AI chat that execute the exact same actions.
 ## Required reading (in this order)
 
 1. `docs/blueprint.md` — architecture, stack, action registry, foundation
-   invariants, SDD pipeline. This is the constitution of the project.
+   invariants, feature pipeline (ADR-0023). This is the constitution of
+   the project.
 2. `docs/scope.md` — what we build in V2 launch, what we defer, what we drop,
    and the mobile-first roadmap.
 3. `docs/adr/` — accepted architecture decisions and why alternatives were
    rejected. Never contradict an accepted ADR; deviations require a new ADR
    first.
-4. `docs/pipeline.md` — how the agent pipeline runs: stages, roles, models,
-   commands, exit criteria.
-5. `docs/specs/<module>.md` — the spec of the module you are working on.
-   Obey the **Active surface** header (`docs/specs/README.md`). Living
-   remainder is intent and may be amended. Active surface is a contract —
-   do not change it silently; use `/rework-spec` or a same-PR patch when a
-   test proves a gap.
+4. `docs/pipeline.md` — how the feature loop runs: Planner, Executor,
+   Verifier, Guardian, models, commands, exit criteria.
+5. The Linear feature card plus `*.contract.ts` — the executable contract
+   of the work in this thread. Protocol manuals for frozen packages live
+   in `docs/specs/` (`core`, `db`, `contract`, `money`,
+   `security-operations`, `companies-foundation`). Domain novels in
+   `docs/archive/specs/` are research, not a gate.
 
 ## Non-negotiable invariants (blueprint §2.1)
 

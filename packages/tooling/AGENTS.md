@@ -31,6 +31,3 @@ code lives here — only configuration.
   Prettier does".
 - Emitting builds (`declaration`, bundler-specific options) are per-package
   concerns: packages that build override the base's `noEmit` locally.
-- Spec ledger integrity (`scripts/check-spec-ledger.test.mjs`, run by `pnpm
-test` in this package) asserts `docs/specs/README.md` matches each spec
-  file's `Status` and `Active surface` headers. Do not skip it.
