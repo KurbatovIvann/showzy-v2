@@ -1,58 +1,61 @@
 /**
- * V1 mobile tokens, transcribed for V2 (ADR-0019).
+ * Canvas tokens mapped into Unistyles (ADR-0023).
  *
- * Source: `E:\showzy\apps\mobile\src\theme\tokens.ts` plus the inventory
- * in `docs/design/inventory/v1-mobile-token-baseline.md`. V1 is the
- * authority when the inventory snapshot disagrees (glass alpha, hex
- * casing). A color rebrand is a separate owner-approved change.
+ * Light hex values come from the Magic Patterns canvas
+ * `tailwind.config.js`. Dark is the same roles, not a second palette
+ * invented per screen. Components consume semantic roles from the theme,
+ * never these values directly, except audited artwork.
  *
- * Components consume semantic roles from a Unistyles theme, never these
- * palette values directly, except audited artwork.
+ * Source of the map: `docs/design/mapping/mp-to-mobile.md`.
  */
 
 export const lightPalette = {
-  background: "#F0EDE7",
-  foreground: "#1A1814",
-  card: "#FDFCFA",
-  cardForeground: "#1A1814",
-  popover: "#FDFCFA",
-  popoverForeground: "#1A1814",
-  primary: "#1C1A15",
-  primaryForeground: "#F0EDE7",
-  secondary: "#E8E5DF",
-  secondaryForeground: "#1A1814",
-  muted: "#E5E2DC",
-  mutedForeground: "#7A7570",
-  accent: "#2684CC",
-  accentForeground: "#FDFCFA",
-  destructive: "#ef4343",
-  destructiveForeground: "#FDFCFA",
-  success: "#21c45d",
-  successForeground: "#ffffff",
-  warning: "#f59f0a",
-  warningForeground: "#000000",
-  border: "#D8D4CC",
-  input: "#D8D4CC",
-  inputFill: "#F2F0EB",
-  ring: "#2684CC",
+  background: "#F7F6F2",
+  foreground: "#1C1C1A",
+  card: "#FFFFFF",
+  cardForeground: "#1C1C1A",
+  popover: "#FFFFFF",
+  popoverForeground: "#1C1C1A",
+  primary: "#1C1C1A",
+  primaryForeground: "#FFFFFF",
+  secondary: "#E5E2DA",
+  secondaryForeground: "#1C1C1A",
+  muted: "#E5E2DA",
+  mutedForeground: "#6E6A61",
+  accent: "#2F6FED",
+  accentForeground: "#FFFFFF",
+  accentSoft: "#E8F0FF",
+  destructive: "#C0392B",
+  destructiveForeground: "#FFFFFF",
+  destructiveSoft: "#FBEAE7",
+  success: "#237A4B",
+  successForeground: "#FFFFFF",
+  successSoft: "#E6F2EA",
+  warning: "#A65A16",
+  warningForeground: "#FFFFFF",
+  warningSoft: "#FBEFE1",
+  border: "#E5E2DA",
+  input: "#E5E2DA",
+  inputFill: "#F7F6F2",
+  ring: "#2F6FED",
 
-  white: "#FEFDFB",
-  black: "#1A1814",
-  skeleton: "#E5E2DC",
+  white: "#FFFFFF",
+  black: "#1C1C1A",
+  skeleton: "#E5E2DA",
 
   status: {
-    pending: "#E09F3E",
-    pendingForeground: "#000000",
-    progress: "#5B8CB8",
-    progressForeground: "#ffffff",
-    ready: "#3DAD9C",
-    readyForeground: "#ffffff",
-    success: "#3DAD6B",
-    successForeground: "#ffffff",
-    neutral: "#8A857E",
-    neutralForeground: "#ffffff",
-    danger: "#D45B5B",
-    dangerForeground: "#ffffff",
+    pending: "#FBEFE1",
+    pendingForeground: "#A65A16",
+    progress: "#E8F0FF",
+    progressForeground: "#2F6FED",
+    ready: "#E6F2EA",
+    readyForeground: "#237A4B",
+    success: "#E6F2EA",
+    successForeground: "#237A4B",
+    neutral: "#F7F6F2",
+    neutralForeground: "#6E6A61",
+    danger: "#FBEAE7",
+    dangerForeground: "#C0392B",
   },
 
   documentStatus: {
@@ -66,64 +69,68 @@ export const lightPalette = {
     awaitingText: "#92400e",
   },
 
-  overlay: "rgba(0, 0, 0, 0.06)",
+  overlay: "rgba(28, 28, 26, 0.35)",
 
   icon: {
-    default: "#7A7570",
-    muted: "#A09A92",
-    active: "#1C1A15",
-    inactive: "#8e8e93",
+    default: "#6E6A61",
+    muted: "#9B968B",
+    active: "#1C1C1A",
+    inactive: "#9B968B",
   },
 
   activityIndicator: {
-    onPrimary: "#F0EDE7",
-    onBackground: "#1C1A15",
+    onPrimary: "#FFFFFF",
+    onBackground: "#1C1C1A",
   },
 } as const;
 
 export const darkPalette = {
   background: "#161410",
-  foreground: "#E6E3DD",
+  foreground: "#EDEBE6",
   card: "#211F1A",
-  cardForeground: "#E6E3DD",
+  cardForeground: "#EDEBE6",
   popover: "#211F1A",
-  popoverForeground: "#E6E3DD",
-  primary: "#E6E3DD",
+  popoverForeground: "#EDEBE6",
+  primary: "#EDEBE6",
   primaryForeground: "#161410",
-  secondary: "#2A2722",
-  secondaryForeground: "#E6E3DD",
-  muted: "#211F1A",
-  mutedForeground: "#908B84",
-  accent: "#5CB0E0",
+  secondary: "#322F2A",
+  secondaryForeground: "#EDEBE6",
+  muted: "#322F2A",
+  mutedForeground: "#9B968B",
+  accent: "#5B8FFF",
   accentForeground: "#161410",
-  destructive: "#d15147",
-  destructiveForeground: "#ffffff",
-  success: "#4ca957",
-  successForeground: "#ffffff",
-  warning: "#cd922d",
-  warningForeground: "#ffffff",
+  accentSoft: "#1A2744",
+  destructive: "#D45B4F",
+  destructiveForeground: "#FFFFFF",
+  destructiveSoft: "#2E1C1A",
+  success: "#3D9A64",
+  successForeground: "#FFFFFF",
+  successSoft: "#1A2E24",
+  warning: "#D4893A",
+  warningForeground: "#161410",
+  warningSoft: "#2E2418",
   border: "#322F2A",
   input: "#322F2A",
-  inputFill: "#2A2722",
-  ring: "#5CB0E0",
+  inputFill: "#1C1A17",
+  ring: "#5B8FFF",
 
-  white: "#FEFDFB",
+  white: "#FFFFFF",
   black: "#161410",
   skeleton: "#322F2A",
 
   status: {
-    pending: "#E0B652",
-    pendingForeground: "#000000",
-    progress: "#7A9EC0",
-    progressForeground: "#000000",
-    ready: "#5EC9BB",
-    readyForeground: "#000000",
-    success: "#5EC994",
-    successForeground: "#000000",
-    neutral: "#908B84",
-    neutralForeground: "#000000",
-    danger: "#DB7770",
-    dangerForeground: "#000000",
+    pending: "#2E2418",
+    pendingForeground: "#D4893A",
+    progress: "#1A2744",
+    progressForeground: "#5B8FFF",
+    ready: "#1A2E24",
+    readyForeground: "#3D9A64",
+    success: "#1A2E24",
+    successForeground: "#3D9A64",
+    neutral: "#211F1A",
+    neutralForeground: "#9B968B",
+    danger: "#2E1C1A",
+    dangerForeground: "#D45B4F",
   },
 
   documentStatus: {
@@ -137,18 +144,18 @@ export const darkPalette = {
     awaitingText: "#fbbf24",
   },
 
-  overlay: "rgba(255, 255, 255, 0.12)",
+  overlay: "rgba(0, 0, 0, 0.45)",
 
   icon: {
-    default: "#908B84",
-    muted: "#6B6660",
-    active: "#E6E3DD",
-    inactive: "#8e8e93",
+    default: "#9B968B",
+    muted: "#7A7570",
+    active: "#EDEBE6",
+    inactive: "#7A7570",
   },
 
   activityIndicator: {
     onPrimary: "#161410",
-    onBackground: "#E6E3DD",
+    onBackground: "#EDEBE6",
   },
 } as const;
 
@@ -169,8 +176,16 @@ export const radii = {
   md: 12,
   lg: 16,
   xl: 20,
+  card: 22,
+  nav: 24,
   pill: 25,
+  sheet: 30,
   full: 9999,
+} as const;
+
+export const hitTarget = {
+  min: 44,
+  auth: 54,
 } as const;
 
 export type TypeScale = {
@@ -216,30 +231,30 @@ export const companyAvatarSizes = {
 
 export const shadows = {
   sm: {
-    shadowColor: "#2A2518",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowColor: "#1C1C1A",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   md: {
-    shadowColor: "#2A2518",
+    shadowColor: "#1C1C1A",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
     shadowRadius: 12,
     elevation: 4,
   },
   lg: {
-    shadowColor: "#2A2518",
+    shadowColor: "#1C1C1A",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.16,
     shadowRadius: 24,
     elevation: 8,
   },
   xl: {
-    shadowColor: "#2A2518",
+    shadowColor: "#1C1C1A",
     shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.18,
     shadowRadius: 32,
     elevation: 12,
   },
@@ -252,26 +267,26 @@ export type GlassFallback = {
 };
 
 export const lightGlassFallback: GlassFallback = {
-  backgroundColor: "rgba(253, 252, 250, 0.92)",
+  backgroundColor: "rgba(255, 255, 255, 0.92)",
   borderWidth: 0.5,
-  borderColor: "rgba(100, 116, 139, 0.15)",
+  borderColor: "rgba(229, 226, 218, 1)",
 };
 
 export const lightGlassFallbackDense: GlassFallback = {
-  backgroundColor: "rgba(253, 252, 250, 0.97)",
+  backgroundColor: "rgba(255, 255, 255, 0.97)",
   borderWidth: 0,
 };
 
 export const lightGlassFallbackPressed: GlassFallback = {
-  backgroundColor: "hsl(218, 16%, 93%)",
+  backgroundColor: "#E5E2DA",
   borderWidth: 0.5,
-  borderColor: "hsl(218, 16%, 93%)",
+  borderColor: "#E5E2DA",
 };
 
 export const darkGlassFallback: GlassFallback = {
   backgroundColor: "rgba(33, 31, 26, 0.92)",
   borderWidth: 0.5,
-  borderColor: "rgba(255, 255, 255, 0.12)",
+  borderColor: "rgba(50, 47, 42, 1)",
 };
 
 export const darkGlassFallbackDense: GlassFallback = {
@@ -282,5 +297,5 @@ export const darkGlassFallbackDense: GlassFallback = {
 export const darkGlassFallbackPressed: GlassFallback = {
   backgroundColor: "rgba(50, 47, 42, 0.97)",
   borderWidth: 0.5,
-  borderColor: "rgba(255, 255, 255, 0.12)",
+  borderColor: "rgba(50, 47, 42, 1)",
 };

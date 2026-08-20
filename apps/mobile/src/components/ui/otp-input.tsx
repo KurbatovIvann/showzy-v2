@@ -64,14 +64,14 @@ const styles = StyleSheet.create((theme) => ({
     width: 48,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: theme.radii.md,
+    borderRadius: theme.radii.lg,
     borderWidth: 2,
   },
   cellIdle: {
     borderColor: theme.colors.input,
   },
   cellFilled: {
-    borderColor: theme.colors.border,
+    borderColor: theme.colors.foreground,
   },
   cellActive: {
     borderColor: theme.colors.ring,

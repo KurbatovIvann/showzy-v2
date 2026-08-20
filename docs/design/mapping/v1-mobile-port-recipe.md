@@ -1,11 +1,16 @@
 # V1 → V2 mobile port recipe
 
-> Status: Owner-approved working rule, 2026-08-19.
-> Authority: [ADR-0019](../../adr/0019-v1-mobile-canonical-ux.md).
+> **Historical.** Visual canon moved to [ADR-0023](../../adr/0023-magic-patterns-canonical-ux.md)
+> and [`mp-to-mobile.md`](mp-to-mobile.md) on 2026-08-20.
+> Keep this file for V1 domain/edge-case notes. Do not use it as visual
+> acceptance.
+>
+> Status: Owner-approved working rule, 2026-08-19 (superseded).
+> Authority: [ADR-0019](../../adr/0019-v1-mobile-canonical-ux.md) (superseded).
 > Product source: `E:\showzy\apps\mobile` (read-only). Never modify it.
 
-This is the operating rule for `apps/mobile`. It is not a redesign brief.
-When `apps/mobile/AGENTS.md` is created (fnd-T48), it must point here.
+This was the operating rule for `apps/mobile` under V1 parity. It is not
+the current redesign brief. Use [`mp-to-mobile.md`](mp-to-mobile.md) instead.
 
 Figma is not a gate and is not a source of spacing, color, or components.
 The contextual AI overlay is `vm-T29` and is out of scope until that task.

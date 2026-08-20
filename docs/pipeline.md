@@ -165,9 +165,9 @@ detail patches in the same PR (`docs/specs/README.md`).
    §7.3); substitute current equivalents, keep the tiering.
 5. **UX gate blocks product screens in `apps/mobile`.** It does not block
    backend specs, backend plans, or backend implementation. UI work must
-   follow `docs/design/mapping/v1-mobile-port-recipe.md` and reference the
-   approved inventory, conflict disposition, and running Expo SYSTEM
-   (ADR-0019, `docs/design/process.md`). Figma is not a gate artifact.
+   follow `docs/design/mapping/mp-to-mobile.md` and reference the Magic
+   Patterns canvas screen, the running Expo SYSTEM, and
+   `docs/design/process.md` (ADR-0023). Figma is not a gate artifact.
    Expo shell, auth, and deep-link infrastructure are not gated.
 
 ## Agent skills policy

@@ -43,8 +43,8 @@ export function Button(props: {
 
 const styles = StyleSheet.create((theme) => ({
   button: {
-    minHeight: 48,
-    borderRadius: theme.radii.md,
+    minHeight: theme.hitTarget.min,
+    borderRadius: theme.radii.full,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: theme.spacing.lg,
