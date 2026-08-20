@@ -84,11 +84,13 @@ let kit: TestKit;
 async function insertProduct(values: {
   id: string;
   companyId: string;
+  name?: string;
   basePriceMinor: bigint;
 }): Promise<void> {
   await kit.db.runtime.db.insert(products).values({
     id: values.id,
     companyId: values.companyId,
+    name: values.name ?? "Fixture product",
     basePriceMinor: values.basePriceMinor,
   });
 }
@@ -97,6 +99,7 @@ async function insertVariant(values: {
   id: string;
   companyId: string;
   productId: string;
+  name?: string;
   basePriceMinor?: bigint;
   currency?: string;
 }): Promise<void> {
@@ -104,6 +107,7 @@ async function insertVariant(values: {
     id: values.id,
     companyId: values.companyId,
     productId: values.productId,
+    name: values.name ?? "Fixture variant",
     ...(values.basePriceMinor === undefined
       ? {}
       : { basePriceMinor: values.basePriceMinor }),

@@ -1,7 +1,7 @@
 import type { SuiteCoverageManifest } from "@showzy/core";
 
 export const catalogSuiteCoverage = {
-  isolation: ["catalog.getProductPricingFacts"],
+  isolation: ["catalog.getProductPricingFacts", "catalog.getProductOrderFacts"],
   publicProjection: [],
   consumerIsolation: [],
   accountIsolation: [],

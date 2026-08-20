@@ -15,7 +15,7 @@
  * and must list the same `defineEventHandler` objects this file passes
  * through `eventSubscriptionRefs`.
  */
-import { getProductPricingFacts } from "@showzy/catalog";
+import { getProductOrderFacts, getProductPricingFacts } from "@showzy/catalog";
 import { catalogSuiteCoverage } from "@showzy/catalog/suite-coverage";
 import { getCustomerPricingFacts } from "@showzy/customers";
 import { customersSuiteCoverage } from "@showzy/customers/suite-coverage";
@@ -112,6 +112,7 @@ export function mergeSuiteCoverage(
 /** The boot registry — same builder the contract-check stage walks. */
 export function createActionRegistry(): ActionRegistry {
   const registry = new ActionRegistry();
+  registerAction(registry, getProductOrderFacts);
   registerAction(registry, getProductPricingFacts);
   registerAction(registry, getCustomerPricingFacts);
   registerAction(registry, resolveProductPrices);
