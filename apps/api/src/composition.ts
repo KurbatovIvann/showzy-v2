@@ -15,6 +15,8 @@
  * and must list the same `defineEventHandler` objects this file passes
  * through `eventSubscriptionRefs`.
  */
+import { getProductPricingFacts } from "@showzy/catalog";
+import { catalogSuiteCoverage } from "@showzy/catalog/suite-coverage";
 import {
   ActionRegistry,
   emptySuiteCoverage,
@@ -36,7 +38,7 @@ import type { z } from "zod";
  * (`@showzy/<module>/suite-coverage`).
  */
 const moduleSuiteCoverage: readonly SuiteCoverageManifest[] = [
-  // First real module: append `catalogSuiteCoverage` here.
+  catalogSuiteCoverage,
 ];
 
 const events: readonly EventDefinitionRef[] = [
@@ -52,7 +54,7 @@ const readModelGrants: readonly ReadModelGrantRef[] = [
 ];
 
 const schemaImports: readonly SchemaImportRef[] = [
-  // Module tasks record each `packages/db/src/schema/<owner>` import.
+  { importer: "catalog", schemaOwner: "catalog" },
 ];
 
 /** Registers one implemented action's contract + implementation pair. */
@@ -95,7 +97,7 @@ export function mergeSuiteCoverage(
 /** The boot registry — same builder the contract-check stage walks. */
 export function createActionRegistry(): ActionRegistry {
   const registry = new ActionRegistry();
-  // Module tasks: registerAction(registry, catalog.getProduct);
+  registerAction(registry, getProductPricingFacts);
   return registry;
 }
 
