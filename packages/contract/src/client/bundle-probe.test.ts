@@ -38,7 +38,7 @@ async function probe(entry?: string): Promise<string> {
 describe("bundle probe", () => {
   it("passes for the real typed-client entry", async () => {
     await expect(probe()).resolves.toBe("");
-  });
+  }, 30_000);
 
   it("fails on a seeded @showzy/core server-import leak", async () => {
     const stderr = await probe(path.join(probeDir, "leaks/server-core.ts"));

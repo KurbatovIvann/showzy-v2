@@ -19,6 +19,14 @@ import { getProductOrderFacts, getProductPricingFacts } from "@showzy/catalog";
 import { catalogSuiteCoverage } from "@showzy/catalog/suite-coverage";
 import { getCustomerPricingFacts } from "@showzy/customers";
 import { customersSuiteCoverage } from "@showzy/customers/suite-coverage";
+import {
+  confirmOrder,
+  createOrder,
+  getOrder,
+  ordersConfirmed,
+  ordersCreated,
+} from "@showzy/orders";
+import { ordersSuiteCoverage } from "@showzy/orders/suite-coverage";
 import { resolveProductPrices } from "@showzy/pricing";
 import { pricingSuiteCoverage } from "@showzy/pricing/suite-coverage";
 import {
@@ -44,14 +52,21 @@ import type { z } from "zod";
 const moduleSuiteCoverage: readonly SuiteCoverageManifest[] = [
   catalogSuiteCoverage,
   customersSuiteCoverage,
+  ordersSuiteCoverage,
   pricingSuiteCoverage,
 ];
 
-const events: readonly EventDefinitionRef[] = [
-  // Module tasks append `defineEvent` outputs.
-];
+const events: readonly EventDefinitionRef[] = [ordersCreated, ordersConfirmed];
 
 const callEdges: readonly DeclaredCallEdge[] = [
+  {
+    caller: "orders.create",
+    callee: "catalog.getProductOrderFacts",
+  },
+  {
+    caller: "orders.create",
+    callee: "pricing.resolveProductPrices",
+  },
   {
     caller: "pricing.resolveProductPrices",
     callee: "catalog.getProductPricingFacts",
@@ -69,6 +84,7 @@ const readModelGrants: readonly ReadModelGrantRef[] = [
 const schemaImports: readonly SchemaImportRef[] = [
   { importer: "catalog", schemaOwner: "catalog" },
   { importer: "customers", schemaOwner: "customers" },
+  { importer: "orders", schemaOwner: "orders" },
   { importer: "pricing", schemaOwner: "pricing" },
 ];
 
@@ -115,6 +131,9 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, getProductOrderFacts);
   registerAction(registry, getProductPricingFacts);
   registerAction(registry, getCustomerPricingFacts);
+  registerAction(registry, createOrder);
+  registerAction(registry, confirmOrder);
+  registerAction(registry, getOrder);
   registerAction(registry, resolveProductPrices);
   return registry;
 }

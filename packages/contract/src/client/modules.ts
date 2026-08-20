@@ -11,6 +11,11 @@
  * this record matches the boot registry: a registered client action
  * missing here, or an entry here that is not registered, fails boot.
  */
+import {
+  confirmOrderContract,
+  createOrderContract,
+  getOrderContract,
+} from "@showzy/orders/contract";
 import { resolveProductPricesContract } from "@showzy/pricing/contract";
 
 import {
@@ -19,6 +24,11 @@ import {
 } from "./contract-router.js";
 
 export const contractModules = {
+  orders: {
+    create: createOrderContract,
+    confirm: confirmOrderContract,
+    get: getOrderContract,
+  },
   pricing: {
     resolveProductPrices: resolveProductPricesContract,
   },
