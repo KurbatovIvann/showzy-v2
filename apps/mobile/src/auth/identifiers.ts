@@ -42,23 +42,37 @@ export function stripUaNationalDigits(value: string): string | null {
   return national;
 }
 
-/** National digits shown in the UA phone field (0–9). Flow may hold E.164. */
+/**
+ * National digits for the UA phone field (0–9). Accepts a typed fragment,
+ * `+380…`, or `380…` so a paste of a full number does not keep the
+ * country code as national digits. A leading `0` is kept so `067…`
+ * without a prefix still fails `parseIdentifier`.
+ */
 export function uaNationalFieldDigits(value: string): string {
   const phone = normalizePhone(value);
-  const national = phone.startsWith(UA_E164_PREFIX)
-    ? phone.slice(UA_E164_PREFIX.length)
-    : phone.replaceAll(/\D/g, "");
-  return national.slice(0, UA_NATIONAL_DIGIT_COUNT);
+  if (phone.startsWith(UA_E164_PREFIX)) {
+    return phone.slice(UA_E164_PREFIX.length).slice(0, UA_NATIONAL_DIGIT_COUNT);
+  }
+  const digits = phone.replaceAll(/\D/g, "");
+  if (
+    digits.startsWith("380") &&
+    digits.length >= 3 + UA_NATIONAL_DIGIT_COUNT
+  ) {
+    return digits.slice(3, 3 + UA_NATIONAL_DIGIT_COUNT);
+  }
+  return digits.slice(0, UA_NATIONAL_DIGIT_COUNT);
 }
 
 /**
- * Persist field edits for the OTP flow: complete 9 digits become E.164;
- * a partial entry stays digits-only so `parseIdentifier` still rejects it.
+ * Persist field edits for the OTP flow: complete 9 national digits become
+ * E.164; a partial or `0…` entry stays digits-only so `parseIdentifier`
+ * still rejects it.
  */
 export function uaPhoneFieldValue(nationalDigits: string): string {
-  const digits = nationalDigits
-    .replaceAll(/\D/g, "")
-    .slice(0, UA_NATIONAL_DIGIT_COUNT);
+  const digits = uaNationalFieldDigits(nationalDigits);
+  if (digits.startsWith("0")) {
+    return digits;
+  }
   return composeUaE164(digits) ?? digits;
 }
 
