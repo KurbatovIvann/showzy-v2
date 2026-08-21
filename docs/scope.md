@@ -203,9 +203,10 @@ The exact ownership/composition ledger is `docs/module-ownership.md`.
 ## 7. Roadmap (mobile-first)
 
 Principle: every product phase ends with a working vertical slice in the
-mobile app. The **Experience Foundation** (ADR-0019) runs as a parallel
-workstream during phases 0–1 and gates **panel** UI. Customer-facing screens
-are not an owner-first launch gate.
+mobile app. The **Experience Foundation** (ADR-0024) runs as a parallel
+workstream and gates **panel** UI. Visuals come from the Magic Patterns
+canvas; V1 mobile is domain/edge-case reference only. Customer-facing
+screens are not an owner-first launch gate.
 
 **Build owner-first first.** Customer expansion phases keep their historical
 numbers (3–4, 6–7, and customer checkout in 5) so existing tickets and
@@ -216,14 +217,14 @@ release.
 | --- | --- | --- | --- | --- |
 | 0 | **Foundation** | Owner-first | Unchanged: monorepo, CI, Compose, core/db/contract, better-auth, API/worker, Expo skeleton, links/install fallback, backup baseline, invariant suites. `payments` + `feature-flags` skeletons as milestone H after fnd-G2 | An agent can add an action and see green CI; the app signs in; cross-tenant/protocol suites pass |
 | 1 | **Reference slices** | Owner-first | (a) pricing resolution; (b) thin order → outbox → **order-card projection** (not the chat platform) | Two exemplary references + proven pipeline |
-| ‖ | **Experience Foundation** | Owner-first (panel) | V1 inventory → conflict map → DEFINE IA + SYSTEM in Expo. Customer IA is sketched, not a launch gate. AI overlay is phase 9 | Panel UX gate opened |
+| ‖ | **Experience Foundation** | Owner-first (panel) | Magic Patterns canvas → Unistyles theme + shared primitives. V1 is domain reference, not visual acceptance. AI is the center tab (ADR-0024) | Panel UX gate opened |
 | 2 | **Company operating core** | Owner-first | `companies` (onboarding, team, RBAC, requisites), `catalog`, `customers`/groups, `invites`, `pricing` full UI. Mobile **panel** screens: products, prices, customers | A company is created from a phone; catalog fills; a customer is invited |
 | 5a | **Staff commerce** | Owner-first | `orders` staff create/confirm/get, immutable snapshots, fixed statuses, log, `notifications` + **Expo push**. No customer cart/checkout. CRM exists because staff/invite created it | The owner (or AI, after human confirm) records an order; push arrives; status progresses without chat |
 | 8 | **Documents + QES** | Owner-first (before chat) | Counterparty requisites, `documents` from an order (default templates), `doc-generation`, `doc-signing`, share via link/QR/print. Signing by the owner. Research spike §9 in parallel | An invoice/delivery note is generated, signed, and handed over without a customer account |
 | 9 | **AI experience** | Owner-first | `packages/ai`: agent over the action registry, UI tools, generative UI, HITL for QES | The AI in the **panel** performs the same actions as the UI |
 | — | **🚀 Owner-first production** | — | Clean-database bootstrap, panel parity, TestFlight/internal → stores | The confectionery **owner** runs catalog, customers, orders, and documents from a phone |
 | 3 | **Company presence** | Customer expansion | Public profile/showcase, taxonomy, social links, follows, deep links | A public visitor evaluates a company |
-| 4 | **Consumer discovery** | Customer expansion | Public/consumer FTS+trigram, filters, likes/comments/Following | Browse and engagement match canonical V1 mobile UX |
+| 4 | **Consumer discovery** | Customer expansion | Public/consumer FTS+trigram, filters, likes/comments/Following | Browse and engagement follow ADR-0020; visuals follow the canvas |
 | 5b | **Customer commerce** | Customer expansion | Cart, `orders.checkout` (atomic CRM link), `delivery`/Nova Poshta, customer reads | A customer places an order from her phone |
 | 6 | **Chat platform** | Customer expansion | Conversations, messages, reactions, attachments, realtime, presence | Both sides can converse in-app |
 | 7 | **Order collaboration in chat** | Customer expansion | Order card in conversation, redirect-to-chat, confirm/edit/cancel in thread | The §1.1 destination flow works end-to-end |

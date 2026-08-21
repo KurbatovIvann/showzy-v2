@@ -1,7 +1,12 @@
 # V1 mobile screen map
 
-> Status: Draft inventory for ADR-0019 rebaseline.
-> Canonical source: `E:\showzy\apps\mobile` (read-only).
+> **Archived 2026-08-21.** ADR-0019 inventory. **Not visual acceptance.**
+> Visuals and IA come from the Magic Patterns canvas (ADR-0024). This file
+> is a historical map of V1 routes and edge cases. Agents may still read
+> `E:\showzy\apps\mobile` for domain behavior.
+
+> Status: Archived inventory from the ADR-0019 rebaseline.
+> Source: `E:\showzy\apps\mobile` (read-only).
 > Scope: mobile only; audited 2026-08-17.
 
 ## Scale

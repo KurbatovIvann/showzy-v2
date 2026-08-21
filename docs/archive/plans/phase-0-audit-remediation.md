@@ -1,5 +1,7 @@
 # Phase-0 exit-gate audit — remediation plan
 
+> **Archived 2026-08-21.** Historical fnd-G1 follow-up list. **Not authority.**
+
 > Status: **proposed for owner review at fnd-G1** (SHO-56), 2026-08-18.
 > Produced by a full audit of the merged phase-0 scaffold (fnd-T1…fnd-T28)
 > against `docs/specs/core.md`, `docs/specs/db.md`, `docs/specs/contract.md`,

@@ -21,7 +21,7 @@ documents, agent rules, design process, and v1 reference materials.
 | [`docs/adr/`](docs/adr/)                 | Architecture decision records                                                 |
 | [`docs/pipeline.md`](docs/pipeline.md)   | Feature loop: Planner, Executor, Verifier, Guardian                           |
 | [`docs/specs/`](docs/specs/)             | Protocol manuals for frozen foundation packages                               |
-| [`docs/plans/`](docs/plans/)             | Historical task breakdowns — new work is Linear feature cards                 |
+| [`docs/plans/`](docs/plans/)             | Pointer to archived phase-0 task graphs — new work is Linear feature cards    |
 | [`docs/design/`](docs/design/)           | Experience Foundation process and UX artifacts                                |
 | [`docs/archive/`](docs/archive/)         | Historical docs — not authority                                               |
 | [`docs/reference/`](docs/reference/)     | Curated v1 reference: backend/DB audit, schema types, all 83 migrations       |

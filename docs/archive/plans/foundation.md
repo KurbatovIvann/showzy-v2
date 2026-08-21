@@ -1,5 +1,10 @@
 # Foundation (Phases 0–1) — Plan
 
+> **Archived 2026-08-21.** Historical phase 0/1 task graph. **Not authority.**
+> Do not execute leftover `fnd-T*` tickets from this file. Current process:
+> `docs/pipeline.md` and ADR-0023. UX: ADR-0024 and
+> `docs/design/mapping/mp-to-mobile.md`.
+
 > Status: **historical after ADR-0023**. Leftover foundation packages still
 > use `/scaffold`. Remaining reference-slice / domain work uses `/feature`,
 > not this file's `/scaffold` + spec-gate language.

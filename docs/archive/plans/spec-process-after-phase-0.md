@@ -1,5 +1,7 @@
 # Spec process after Phase 0 — Plan
 
+> **Archived 2026-08-21.** Superseded by ADR-0023. **Not authority.**
+
 > Status: **superseded by ADR-0023**. Kept as history. Do not execute
 > remaining slice-card work (sp-T3) as a `/spec` stage.
 >

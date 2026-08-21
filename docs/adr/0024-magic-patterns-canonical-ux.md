@@ -6,6 +6,8 @@
 - **Supersedes**: ADR-0019
 - **Amended**: 2026-08-20 — Magic Patterns has no required design-system
   preset. The Unistyles theme in `apps/mobile` is the design system.
+  2026-08-21 — ADR-0019 inventories and the V1 port recipe moved to
+  `docs/archive/design/`. They remain artifacts, not visual acceptance.
 
 ## Context
 
@@ -90,10 +92,11 @@ they are designed there. Do not invent those screens in Expo.
 
 ## Consequences
 
-- ADR-0019 is superseded. V1 inventories and the old port recipe remain
-  historical reference (`docs/design/inventory/`,
-  `docs/design/mapping/v1-mobile-port-recipe.md`) and must not be used as
-  visual acceptance.
+- ADR-0019 is superseded. V1 inventories and the old port recipe are
+  archived (`docs/archive/design/inventory/`,
+  `docs/archive/design/mapping/v1-mobile-port-recipe.md`) and must not be
+  used as visual acceptance. V1 mobile at `E:\showzy\apps\mobile` remains
+  read-only domain and edge-case reference.
 - Experience Foundation SYSTEM is the Unistyles theme and
   `components/ui` primitives. The Magic Patterns canvas is the prototype
   to read, not a second component library.

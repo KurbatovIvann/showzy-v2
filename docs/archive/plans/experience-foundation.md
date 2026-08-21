@@ -1,10 +1,15 @@
 # Experience Foundation — Plan
 
+> **Archived 2026-08-21.** Ticket archaeology only. **Not authority.**
+> Do not execute `efr-T*` / `ef-T*` from this file. Visual canon is
+> [ADR-0024](../../adr/0024-magic-patterns-canonical-ux.md) and
+> [`docs/design/mapping/mp-to-mobile.md`](../../design/mapping/mp-to-mobile.md).
+
 > Status: **reset 2026-08-20** — Magic Patterns is the V2 UX canon
-> ([ADR-0024](../adr/0024-magic-patterns-canonical-ux.md)). The V1 parity
+> ([ADR-0024](../../adr/0024-magic-patterns-canonical-ux.md)). The V1 parity
 > rebaseline below is historical; do not execute efr-T* as written.
-> Operating rule: [`docs/design/mapping/mp-to-mobile.md`](../design/mapping/mp-to-mobile.md).
-> Process: [`docs/design/process.md`](../design/process.md).
+> Operating rule: [`docs/design/mapping/mp-to-mobile.md`](../../design/mapping/mp-to-mobile.md).
+> Process: [`docs/design/process.md`](../../design/process.md).
 >
 > Previous status (2026-08-17, ADR-0019) kept below for ticket archaeology
 > (SHO-5 … SHO-27). Close or re-scope those issues before reuse.
@@ -16,9 +21,9 @@
 > Greenfield DEFINE journeys/IA and SYSTEM docs were moved to
 > `docs/archive/design/` on 2026-08-18 and are not authority.
 >
-> Sources: [ADR-0019](../adr/0019-v1-mobile-canonical-ux.md) (superseded),
-> [ADR-0020](../adr/0020-public-discovery-and-social-engagement.md),
-> [`docs/design/process.md`](../design/process.md).
+> Sources: [ADR-0019](../../adr/0019-v1-mobile-canonical-ux.md) (superseded),
+> [ADR-0020](../../adr/0020-public-discovery-and-social-engagement.md),
+> [`docs/design/process.md`](../../design/process.md).
 
 This is the task breakdown for the Experience Foundation workstream — the
 parallel design track that runs alongside technical phases 0–1 and gates all
