@@ -41,6 +41,9 @@ the same directory.
   `session-provider.tsx` (React context wiring), `use-otp-flow-state.ts`,
   `secure-storage.ts` / `storage.ts`, `errors.ts`, `identifiers.ts`,
   `policy.ts`. Tests cover the non-RN modules (`*.test.ts`).
+- `src/prefs/` — device preferences (theme + last staff company selector).
+  Native = MMKV (`platform-storage.native.ts`); web + tests = memory
+  (`platform-storage.ts`). Never tokens, never the query cache.
 - `src/i18n/` — `locale.ts` (detection + interpolation) plus one copy
   namespace per feature (`auth.ts`). uk/en, matching V1's namespace split.
   New features add a namespace here instead of a local `copy.ts`.
@@ -49,7 +52,7 @@ the same directory.
 - `src/api/errors.ts` — `describeWireError` / `describeQueryFailure` discriminate on `error.code` / `kind`, never message text.
 - `src/theme/tokens.ts` — palettes, spacing, radii, type, shadows, glass fallbacks. Pure TypeScript; no React Native imports.
 - `src/theme/light.ts` / `dark.ts` — Unistyles theme objects.
-- `src/theme/preference.ts` — `light` / `dark` / `system` resolution (default `light`, matching V1).
+- `src/theme/preference.ts` — `light` / `dark` / `system` resolution (default `light`, matching V1). Persisted via `src/prefs/` on native; web stays in-memory.
 - `src/theme/unistyles.ts` — `StyleSheet.configure` only. Import from `index.ts` and `src/app/_layout.tsx` before any component. Do not import from tests.
 - `metro.config.cjs` — NodeNext `.js` specifiers in workspace packages resolve to `.ts` so `@showzy/contract` can be bundled.
 
@@ -59,8 +62,8 @@ the same directory.
 - Config is `EXPO_PUBLIC_API_URL` (Metro-inlined). Empty string is unset. Do not read `process.env` through `@showzy/config`.
 - Bearer tokens live in `expo-secure-store` (iOS `AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY`). Web keeps them in memory so the export-smoke bundle does not persist them. Never log tokens or OTP codes. Classify auth HTTP failures by status, not message text.
 - Auth is phone/email OTP only (ADR-0006). Google and guest browse are not in this slice.
-- The signed-in company selector is a stub until `companies.listMine` (phase 2). The selector is never an access grant (ADR-0013).
-- Theme preference still switches in-process (`createMemoryThemeStore`). `react-native-mmkv` is installed for a later persistence wiring; do not add a second storage native module.
+- The signed-in company selector is a stub until `companies.listMine` (phase 2). The last selector is restored from device prefs after session hydrate. The selector is never an access grant (ADR-0013).
+- Theme preference persists in MMKV on native (`src/prefs/`). Web and tests use the memory adapter — do not write tokens or the company selector to `localStorage`. Do not add a second storage native module. Tokens stay in SecureStore.
 - Native modules for owner-first launch and near-term surfaces are preinstalled (see `package.json` + `app.config.ts` plugins) so product screens do not force a new Expo/dev-client binary. Unistyles 3 already requires a custom dev client (`expo-dev-client`); do not use Expo Go. Pin new Expo packages with `pnpm --filter @showzy/mobile exec expo install`.
 - Icons: `lucide-react-native` (Magic Patterns canvas, ADR-0024). Do not add Ionicons, `@expo/vector-icons`, NativeWind, Google Sign-In, `expo-location`, `@callstack/liquid-glass`, or `@gorhom/bottom-sheet` (sheets are Reanimated; gorhom is unreliable on Reanimated 4.5).
 - No Cursor skills are installed in phases 0–1 (`docs/pipeline.md`).

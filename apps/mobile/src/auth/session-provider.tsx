@@ -13,8 +13,13 @@ import { apiUrlFromEnv } from "../api/config";
 import { createShowzyClient, type ContractClient } from "../api/client";
 import { authCopy, type AuthCopy } from "../i18n/auth";
 import { detectLocale } from "../i18n/locale";
-import { createAuthApi } from "./http";
+import {
+  bindCompanySelectorPersistence,
+  restoreLastCompanySelectorIfSignedIn,
+} from "../prefs/device-prefs";
+import { createPlatformDevicePrefs } from "../prefs/platform-storage";
 import { isAuthClientError, type AuthErrorKind } from "./errors";
+import { createAuthApi } from "./http";
 import { createOtpFlow, type OtpFlow } from "./otp-flow";
 import { createPlatformTokenStore } from "./secure-storage";
 import { bindSessionController } from "./session-binding";
@@ -71,12 +76,19 @@ export function AuthSessionProvider({
       store: createPlatformTokenStore(),
       api,
     });
+    const prefs = createPlatformDevicePrefs();
+    const client = createShowzyClient({
+      apiUrl,
+      getAccessToken: () => inner.getAccessToken(),
+    });
+    bindCompanySelectorPersistence(client, prefs);
     // The flow does not exist yet when the binding is created; the closure
     // reads it after assignment below.
     let boundFlow: OtpFlow | null = null;
     const session = bindSessionController(inner, {
       onUser: (user) => {
         setSessionUser(user);
+        restoreLastCompanySelectorIfSignedIn(client, prefs, user);
       },
       // Server-side revocation must not strand the user on a stale
       // verify screen.
@@ -89,10 +101,7 @@ export function AuthSessionProvider({
     return {
       session,
       flow,
-      client: createShowzyClient({
-        apiUrl,
-        getAccessToken: () => inner.getAccessToken(),
-      }),
+      client,
     };
   });
   const [ready, setReady] = useState(resources === null);
