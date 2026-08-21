@@ -4,11 +4,11 @@ import { createShowzyClient } from "../api/client";
 import { ACCESS_TOKEN_KEY } from "../auth/storage";
 import { DEFAULT_THEME_MODE } from "../theme/preference";
 import {
+  applySessionHydrateToCompanySelector,
   asThemePreferenceStore,
   bindCompanySelectorPersistence,
   createDevicePrefs,
   restoreLastCompanySelector,
-  restoreLastCompanySelectorIfSignedIn,
 } from "./device-prefs";
 import {
   createMemoryPrefsStore,
@@ -55,20 +55,24 @@ describe("device prefs (memory adapter)", () => {
     expect(restored.getActiveCompany()).toBe("company-a");
   });
 
-  it("does not restore a selector until a session user is present", () => {
-    const prefs = createDevicePrefs(
-      createMemoryPrefsStore({
-        [DEVICE_PREF_LAST_COMPANY_KEY]: "company-a",
-      }),
-    );
+  it("restores the selector only on a live hydrate and clears it when unsigned", () => {
+    const kv = createMemoryPrefsStore({
+      [DEVICE_PREF_LAST_COMPANY_KEY]: "company-a",
+    });
+    const prefs = createDevicePrefs(kv);
     const created = createShowzyClient({ apiUrl: "http://api.test" });
-    restoreLastCompanySelectorIfSignedIn(created, prefs, null);
+    bindCompanySelectorPersistence(created, prefs);
+
+    applySessionHydrateToCompanySelector(created, prefs, null);
     expect(created.getActiveCompany()).toBeNull();
-    restoreLastCompanySelectorIfSignedIn(created, prefs, { userId: "u-1" });
+    expect(prefs.getLastCompanyId()).toBeNull();
+
+    prefs.setLastCompanyId("company-a");
+    applySessionHydrateToCompanySelector(created, prefs, { userId: "u-1" });
     expect(created.getActiveCompany()).toBe("company-a");
 
     created.setActiveCompany("company-b");
-    restoreLastCompanySelector(created, prefs);
+    applySessionHydrateToCompanySelector(created, prefs, { userId: "u-1" });
     expect(created.getActiveCompany()).toBe("company-b");
   });
 

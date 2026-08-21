@@ -14,8 +14,9 @@ import { createShowzyClient, type ContractClient } from "../api/client";
 import { authCopy, type AuthCopy } from "../i18n/auth";
 import { detectLocale } from "../i18n/locale";
 import {
+  applySessionHydrateToCompanySelector,
   bindCompanySelectorPersistence,
-  restoreLastCompanySelectorIfSignedIn,
+  type DevicePrefs,
 } from "../prefs/device-prefs";
 import { createPlatformDevicePrefs } from "../prefs/platform-storage";
 import { isAuthClientError, type AuthErrorKind } from "./errors";
@@ -51,6 +52,7 @@ type AuthResources = {
   readonly session: SessionController;
   readonly flow: OtpFlow;
   readonly client: ContractClient;
+  readonly prefs: DevicePrefs;
 };
 
 export function AuthSessionProvider({
@@ -88,7 +90,6 @@ export function AuthSessionProvider({
     const session = bindSessionController(inner, {
       onUser: (user) => {
         setSessionUser(user);
-        restoreLastCompanySelectorIfSignedIn(client, prefs, user);
       },
       // Server-side revocation must not strand the user on a stale
       // verify screen.
@@ -102,6 +103,7 @@ export function AuthSessionProvider({
       session,
       flow,
       client,
+      prefs,
     };
   });
   const [ready, setReady] = useState(resources === null);
@@ -112,7 +114,12 @@ export function AuthSessionProvider({
     }
     setBootError(null);
     try {
-      await resources.session.hydrate();
+      const snapshot = await resources.session.hydrate();
+      applySessionHydrateToCompanySelector(
+        resources.client,
+        resources.prefs,
+        snapshot,
+      );
     } catch (error) {
       setBootError(isAuthClientError(error) ? error.kind : "network");
     } finally {
