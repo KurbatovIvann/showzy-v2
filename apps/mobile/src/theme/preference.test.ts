@@ -6,6 +6,7 @@ import {
   isThemeMode,
   nativeAppearanceScheme,
   resolveColorScheme,
+  themeModeFromStoredValue,
   unistylesSettings,
 } from "./preference";
 
@@ -44,5 +45,7 @@ describe("theme mode (light / dark / system)", () => {
     expect(isThemeMode("light")).toBe(true);
     expect(isThemeMode("dim")).toBe(false);
     expect(isThemeMode(null)).toBe(false);
+    expect(themeModeFromStoredValue("dim")).toBe("light");
+    expect(themeModeFromStoredValue("dark")).toBe("dark");
   });
 });
