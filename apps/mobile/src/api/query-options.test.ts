@@ -37,10 +37,11 @@ type SampleRouter = typeof sampleRouter;
 function samplePingQueryOptions(
   client: ReturnType<typeof createShowzyClient<SampleRouter>>,
   input: { n: number },
+  companyId: string | null,
 ) {
   return contractQueryOptions({
     actionName: "sample.ping",
-    companyId: client.getActiveCompany(),
+    companyId,
     input,
     getActiveCompany: () => client.getActiveCompany(),
     queryFn: () => client.client.sample.ping(input),
@@ -54,12 +55,12 @@ describe("contractQueryOptions", () => {
       apiUrl: "http://api.test",
       initialCompanyId: "company-a",
     });
-    const options = samplePingQueryOptions(created, { n: 1 });
+    const options = samplePingQueryOptions(created, { n: 1 }, "company-a");
     expect(options.queryKey).toEqual(
       contractQueryKey("sample.ping", "company-a", { n: 1 }),
     );
     created.setActiveCompany(null);
-    expect(samplePingQueryOptions(created, { n: 1 }).queryKey[1]).toBe(
+    expect(samplePingQueryOptions(created, { n: 1 }, null).queryKey[1]).toBe(
       NULL_COMPANY_QUERY_SCOPE,
     );
   });
@@ -77,7 +78,7 @@ describe("contractQueryOptions", () => {
     const queryClient = createShowzyQueryClient({ retryDelay: () => 0 });
     await queryClient
       .fetchQuery({
-        ...samplePingQueryOptions(created, { n: 7 }),
+        ...samplePingQueryOptions(created, { n: 7 }, "company-a"),
         retry: false,
       })
       .catch(() => undefined);

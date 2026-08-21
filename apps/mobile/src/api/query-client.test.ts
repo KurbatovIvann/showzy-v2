@@ -24,6 +24,7 @@ import {
   contractQueryKey,
   contractQueryOptions,
   NULL_COMPANY_QUERY_SCOPE,
+  StaleCompanyQueryError,
 } from "./query-options";
 
 const getOrder = defineActionContract({
@@ -51,7 +52,7 @@ type SampleRouter = typeof sampleRouter;
 function sampleGetOrderQueryOptions(
   client: ReturnType<typeof createShowzyClient<SampleRouter>>,
   input: { orderId: string },
-  companyId: string | null = client.getActiveCompany(),
+  companyId: string | null,
 ) {
   return contractQueryOptions({
     actionName: "sample.getOrder",
@@ -176,6 +177,7 @@ describe("createShowzyQueryClient retry policy", () => {
     expect(await countQueryAttempts(validation())).toBe(1);
     expect(await countQueryAttempts(unauthenticated())).toBe(1);
     expect(await countQueryAttempts(confirmationRequired())).toBe(1);
+    expect(await countQueryAttempts(new StaleCompanyQueryError())).toBe(1);
   });
 
   it("does not retry mutations", async () => {
@@ -403,7 +405,7 @@ describe("UNAUTHENTICATED query handling", () => {
     const queryClient = createShowzyQueryClient({ retryDelay: () => 0 });
     await queryClient
       .fetchQuery({
-        ...sampleGetOrderQueryOptions(created, { orderId: "o-public" }),
+        ...sampleGetOrderQueryOptions(created, { orderId: "o-public" }, null),
         retry: false,
       })
       .catch(() => undefined);
