@@ -1,11 +1,14 @@
 /**
- * OTP delivery ports and compose (auth-T1). Copy is mapped here; vendor HTTP
- * adapters are selected from config and land in auth-T2. Stubs succeed with
+ * OTP delivery ports and compose. Copy is mapped here; live Resend / SMS Fly
+ * adapters are selected from validated config (auth-T2). Stubs succeed with
  * no I/O and never log the message body or the code.
  */
 import type { ServerConfig } from "@showzy/config";
 
 import type { AuthComposition } from "./options.js";
+import { OtpVendorSendError, type OtpTransportRuntime } from "./otp-vendor.js";
+import { createResendEmailTransport } from "./resend-email-transport.js";
+import { createSmsFlySmsTransport } from "./sms-fly-sms-transport.js";
 
 export interface EmailTransport {
   send(input: { to: string; subject: string; html: string }): Promise<void>;
@@ -13,15 +16,6 @@ export interface EmailTransport {
 
 export interface SmsTransport {
   send(input: { to: string; text: string }): Promise<void>;
-}
-
-export class OtpTransportNotWiredError extends Error {
-  constructor(channel: "email" | "sms", transport: string) {
-    super(
-      `OTP ${channel} transport "${transport}" has no adapter in this process.`,
-    );
-    this.name = "OtpTransportNotWiredError";
-  }
 }
 
 export const OTP_EMAIL_SUBJECT = "Ваш код підтвердження для Шозі";
@@ -86,35 +80,66 @@ export function createStubSmsTransport(): SmsTransport {
   };
 }
 
-export function selectOtpTransports(otpDelivery: ServerConfig["otpDelivery"]): {
+export function selectOtpTransports(
+  otpDelivery: ServerConfig["otpDelivery"],
+  runtime: OtpTransportRuntime = {},
+): {
   email: EmailTransport;
   sms: SmsTransport;
 } {
   return {
-    email: emailTransportFor(otpDelivery.email),
-    sms: smsTransportFor(otpDelivery.sms),
+    email: emailTransportFor(otpDelivery.email, runtime),
+    sms: smsTransportFor(otpDelivery.sms, runtime),
   };
+}
+
+function requireLogger(
+  logger: OtpTransportRuntime["logger"],
+  channel: "email" | "sms",
+): NonNullable<OtpTransportRuntime["logger"]> {
+  if (logger === undefined) {
+    throw new OtpVendorSendError(
+      `OTP live ${channel} adapter requires a process logger`,
+    );
+  }
+  return logger;
 }
 
 function emailTransportFor(
   email: ServerConfig["otpDelivery"]["email"],
+  runtime: OtpTransportRuntime,
 ): EmailTransport {
   switch (email.transport) {
     case "stub":
       return createStubEmailTransport();
     case "resend":
-      throw new OtpTransportNotWiredError("email", email.transport);
+      return createResendEmailTransport({
+        apiKey: email.apiKey,
+        fromEmail: email.fromEmail,
+        fromName: email.fromName,
+        logger: requireLogger(runtime.logger, "email"),
+        fetch: runtime.fetch,
+        timeoutMs: runtime.timeoutMs,
+      });
   }
 }
 
 function smsTransportFor(
   sms: ServerConfig["otpDelivery"]["sms"],
+  runtime: OtpTransportRuntime,
 ): SmsTransport {
   switch (sms.transport) {
     case "stub":
       return createStubSmsTransport();
     case "sms-fly":
-      throw new OtpTransportNotWiredError("sms", sms.transport);
+      return createSmsFlySmsTransport({
+        apiKey: sms.apiKey,
+        apiUrl: sms.apiUrl,
+        sender: sms.sender,
+        logger: requireLogger(runtime.logger, "sms"),
+        fetch: runtime.fetch,
+        timeoutMs: runtime.timeoutMs,
+      });
   }
 }
 
@@ -141,6 +166,7 @@ export function composeOtpSenders(transports: {
 
 export function otpSendersFromConfig(
   otpDelivery: ServerConfig["otpDelivery"],
+  runtime: OtpTransportRuntime = {},
 ): Pick<AuthComposition, "sendPhoneOtp" | "sendEmailOtp"> {
-  return composeOtpSenders(selectOtpTransports(otpDelivery));
+  return composeOtpSenders(selectOtpTransports(otpDelivery, runtime));
 }

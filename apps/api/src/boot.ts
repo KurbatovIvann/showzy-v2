@@ -1,8 +1,8 @@
 /**
  * Process boot: load validated config, open Postgres + Redis, compose
  * better-auth and the action pipeline, return the Hono app. OTP senders are
- * composed from validated `otpDelivery` config (stub in development/test;
- * live adapters in auth-T2). Codes never reach logs (security-operations §2).
+ * composed from validated `otpDelivery` config (stub or live Resend / SMS Fly).
+ * Codes never reach logs (security-operations §2).
  */
 import { getConnInfo } from "@hono/node-server/conninfo";
 import type { ServerConfig } from "@showzy/config";
@@ -53,7 +53,7 @@ export async function bootApi(config: ServerConfig): Promise<BootedApi> {
     sentryDsn: config.sentry.dsn,
   });
   const secondary = createRedisSecondaryStorage(redis);
-  const otpSenders = otpSendersFromConfig(config.otpDelivery);
+  const otpSenders = otpSendersFromConfig(config.otpDelivery, { logger });
 
   const authInstance = betterAuth(
     buildAuthOptions({

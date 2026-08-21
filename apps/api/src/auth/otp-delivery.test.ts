@@ -2,14 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   OTP_EMAIL_SUBJECT,
-  OtpTransportNotWiredError,
   buildOtpEmailHtml,
   composeOtpSenders,
   createStubEmailTransport,
   createStubSmsTransport,
   otpSendersFromConfig,
   otpSmsText,
-  selectOtpTransports,
   type EmailTransport,
   type SmsTransport,
 } from "./otp-delivery.js";
@@ -121,34 +119,5 @@ describe("selectOtpTransports", () => {
     await expect(
       senders.sendPhoneOtp({ phoneNumber: PHONE, code: CODE }),
     ).resolves.toBeUndefined();
-  });
-
-  it("does not call live vendors — resend and sms-fly wait for auth-T2", () => {
-    expect(() =>
-      selectOtpTransports({
-        email: {
-          transport: "resend",
-          apiKey: "re_test_not_a_real_key_000000",
-          fromEmail: "noreply@example.com",
-          fromName: "Шозі",
-        },
-        sms: {
-          transport: "stub",
-          apiUrl: "https://sms-fly.ua/api/v2/api.php",
-        },
-      }),
-    ).toThrow(OtpTransportNotWiredError);
-
-    expect(() =>
-      selectOtpTransports({
-        email: { transport: "stub" },
-        sms: {
-          transport: "sms-fly",
-          apiKey: "test-sms-fly-key-not-real-0000",
-          apiUrl: "https://sms-fly.ua/api/v2/api.php",
-          sender: "Showzy",
-        },
-      }),
-    ).toThrow(OtpTransportNotWiredError);
   });
 });
