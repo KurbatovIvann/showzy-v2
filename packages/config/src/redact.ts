@@ -67,7 +67,13 @@ const SENSITIVE_KEYS = new Set([
   "documentcontent",
 ]);
 
-const SENSITIVE_SUFFIXES = ["password", "secret", "token", "otp"] as const;
+const SENSITIVE_SUFFIXES = [
+  "password",
+  "secret",
+  "token",
+  "otp",
+  "apikey",
+] as const;
 
 /** pino `redact.paths` covering one- and two-level nesting plus headers. */
 export const LOG_REDACT_PATHS: readonly string[] = Object.freeze(

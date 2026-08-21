@@ -15,7 +15,11 @@ const SECRET_ENV_KEYS: ReadonlySet<string> = new Set([
   "BETTER_AUTH_SECRET",
   "IP_HMAC_SECRET",
   "SENTRY_DSN",
+  "RESEND_API_KEY",
+  "SMS_FLY_API_KEY",
 ]);
+
+const DEFAULT_SMS_FLY_API_URL = "https://sms-fly.ua/api/v2/api.php";
 
 const trustedProxyEntry = z.union([z.ipv4(), z.ipv6(), z.cidrv4(), z.cidrv6()]);
 
@@ -70,7 +74,24 @@ const envSchema = z.object({
     .pipe(z.array(trustedProxyEntry)),
 
   SENTRY_DSN: z.url().optional(),
+
+  /**
+   * OTP delivery transports. Development/test default to `stub` (no I/O).
+   * Production must select the live vendors; adapters are composed in apps/api.
+   */
+  OTP_EMAIL_TRANSPORT: z.enum(["resend", "stub"]).default("stub"),
+  OTP_SMS_TRANSPORT: z.enum(["sms-fly", "stub"]).default("stub"),
+  RESEND_API_KEY: z.string().min(1).optional(),
+  RESEND_FROM_EMAIL: z.email().optional(),
+  RESEND_FROM_NAME: z.string().min(1).optional(),
+  SMS_FLY_API_KEY: z.string().min(1).optional(),
+  SMS_FLY_API_URL: z
+    .url({ protocol: /^https?$/ })
+    .default(DEFAULT_SMS_FLY_API_URL),
+  SMS_FLY_SENDER: z.string().min(1).optional(),
 });
+
+type ParsedEnv = z.infer<typeof envSchema>;
 
 /** Keys the Zod env schema accepts — `.env.example` must list the same set. */
 export const ENV_SCHEMA_KEYS: readonly string[] = Object.freeze(
@@ -104,6 +125,24 @@ export interface ServerConfig {
   readonly http: { readonly port: number };
   readonly trustedProxies: readonly string[];
   readonly sentry: { readonly dsn: string | undefined };
+  readonly otpDelivery: {
+    readonly email:
+      | { readonly transport: "stub" }
+      | {
+          readonly transport: "resend";
+          readonly apiKey: string;
+          readonly fromEmail: string;
+          readonly fromName: string;
+        };
+    readonly sms:
+      | { readonly transport: "stub"; readonly apiUrl: string }
+      | {
+          readonly transport: "sms-fly";
+          readonly apiKey: string;
+          readonly apiUrl: string;
+          readonly sender: string;
+        };
+  };
 }
 
 /** One redacted, operator-facing validation problem. */
@@ -191,5 +230,109 @@ export function loadServerConfig(
     http: { port: parsed.API_PORT },
     trustedProxies: parsed.TRUSTED_PROXIES,
     sentry: { dsn: parsed.SENTRY_DSN },
+    otpDelivery: mapOtpDelivery(parsed),
   };
+}
+
+function otpDeliveryIssues(parsed: ParsedEnv): ConfigIssue[] {
+  const issues: ConfigIssue[] = [];
+
+  if (parsed.NODE_ENV === "production") {
+    if (parsed.OTP_EMAIL_TRANSPORT !== "resend") {
+      issues.push({
+        key: "OTP_EMAIL_TRANSPORT",
+        message: "production requires resend",
+      });
+    }
+    if (parsed.OTP_SMS_TRANSPORT !== "sms-fly") {
+      issues.push({
+        key: "OTP_SMS_TRANSPORT",
+        message: "production requires sms-fly",
+      });
+    }
+  }
+
+  if (parsed.OTP_EMAIL_TRANSPORT === "resend") {
+    if (parsed.RESEND_API_KEY === undefined) {
+      issues.push({
+        key: "RESEND_API_KEY",
+        message: "missing required value",
+      });
+    }
+    if (parsed.RESEND_FROM_EMAIL === undefined) {
+      issues.push({
+        key: "RESEND_FROM_EMAIL",
+        message: "missing required value",
+      });
+    }
+    if (parsed.RESEND_FROM_NAME === undefined) {
+      issues.push({
+        key: "RESEND_FROM_NAME",
+        message: "missing required value",
+      });
+    }
+  }
+
+  if (parsed.OTP_SMS_TRANSPORT === "sms-fly") {
+    if (parsed.SMS_FLY_API_KEY === undefined) {
+      issues.push({
+        key: "SMS_FLY_API_KEY",
+        message: "missing required value",
+      });
+    }
+    if (parsed.SMS_FLY_SENDER === undefined) {
+      issues.push({
+        key: "SMS_FLY_SENDER",
+        message: "missing required value",
+      });
+    }
+  }
+
+  return issues;
+}
+
+function mapOtpDelivery(parsed: ParsedEnv): ServerConfig["otpDelivery"] {
+  const issues = otpDeliveryIssues(parsed);
+  if (issues.length > 0) {
+    throw new ConfigValidationError(issues);
+  }
+
+  return {
+    email: mapOtpEmail(parsed),
+    sms: mapOtpSms(parsed),
+  };
+}
+
+function mapOtpEmail(parsed: ParsedEnv): ServerConfig["otpDelivery"]["email"] {
+  if (parsed.OTP_EMAIL_TRANSPORT === "resend") {
+    const apiKey = parsed.RESEND_API_KEY;
+    const fromEmail = parsed.RESEND_FROM_EMAIL;
+    const fromName = parsed.RESEND_FROM_NAME;
+    if (
+      apiKey === undefined ||
+      fromEmail === undefined ||
+      fromName === undefined
+    ) {
+      throw new ConfigValidationError(otpDeliveryIssues(parsed));
+    }
+    return { transport: "resend", apiKey, fromEmail, fromName };
+  }
+  return { transport: "stub" };
+}
+
+function mapOtpSms(parsed: ParsedEnv): ServerConfig["otpDelivery"]["sms"] {
+  if (parsed.OTP_SMS_TRANSPORT === "sms-fly") {
+    const apiKey = parsed.SMS_FLY_API_KEY;
+    const sender = parsed.SMS_FLY_SENDER;
+    if (apiKey === undefined || sender === undefined) {
+      throw new ConfigValidationError(otpDeliveryIssues(parsed));
+    }
+    return {
+      transport: "sms-fly",
+      apiKey,
+      apiUrl: parsed.SMS_FLY_API_URL,
+      sender,
+    };
+  }
+  return { transport: "stub", apiUrl: parsed.SMS_FLY_API_URL };
 }

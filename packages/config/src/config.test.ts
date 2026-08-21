@@ -56,6 +56,13 @@ describe("loadServerConfig", () => {
     expect(config.http.port).toBe(3000);
     expect(config.trustedProxies).toEqual(["10.0.0.1", "172.16.0.0/12"]);
     expect(config.sentry.dsn).toBe("https://key@sentry.example.com/42");
+    expect(config.otpDelivery).toEqual({
+      email: { transport: "stub" },
+      sms: {
+        transport: "stub",
+        apiUrl: "https://sms-fly.ua/api/v2/api.php",
+      },
+    });
   });
 
   it("applies defaults for optional keys", () => {
@@ -83,6 +90,11 @@ describe("loadServerConfig", () => {
     });
     expect(config.trustedProxies).toEqual([]);
     expect(config.sentry.dsn).toBeUndefined();
+    expect(config.otpDelivery.email.transport).toBe("stub");
+    expect(config.otpDelivery.sms).toEqual({
+      transport: "stub",
+      apiUrl: "https://sms-fly.ua/api/v2/api.php",
+    });
   });
 
   it("fails fast on missing required keys and reports every one of them", () => {
@@ -133,6 +145,11 @@ describe("loadServerConfig", () => {
     env["BETTER_AUTH_SECRET"] = "AUTH_SECRET_SENTINEL";
     env["IP_HMAC_SECRET"] = "IP_HMAC_SECRET_SENTINEL";
     env["SENTRY_DSN"] = "not-a-url-SENTRY_KEY_SENTINEL";
+    env["OTP_EMAIL_TRANSPORT"] = "resend";
+    env["RESEND_API_KEY"] = "RESEND_API_KEY_SENTINEL";
+    env["RESEND_FROM_EMAIL"] = "not-an-email";
+    env["OTP_SMS_TRANSPORT"] = "sms-fly";
+    env["SMS_FLY_API_KEY"] = "SMS_FLY_API_KEY_SENTINEL";
 
     let thrown: unknown;
     try {
@@ -149,6 +166,7 @@ describe("loadServerConfig", () => {
     expect(configError.message).toContain("BETTER_AUTH_SECRET");
     expect(configError.message).toContain("IP_HMAC_SECRET");
     expect(configError.message).toContain("SENTRY_DSN");
+    expect(configError.message).toContain("RESEND_FROM_EMAIL");
     // ...but no serialization of the error may contain a secret value.
     const everything = JSON.stringify({
       message: configError.message,
@@ -194,5 +212,129 @@ describe("ENV_SCHEMA_KEYS vs .env.example", () => {
       exampleKeys.add(trimmed.slice(0, eq));
     }
     expect([...exampleKeys].sort()).toEqual([...ENV_SCHEMA_KEYS].sort());
+  });
+});
+
+function liveOtpEnv(): Record<string, string> {
+  return {
+    ...validEnv(),
+    OTP_EMAIL_TRANSPORT: "resend",
+    RESEND_API_KEY: "re_test_not_a_real_key_000000",
+    RESEND_FROM_EMAIL: "noreply@example.com",
+    RESEND_FROM_NAME: "Шозі",
+    OTP_SMS_TRANSPORT: "sms-fly",
+    SMS_FLY_API_KEY: "test-sms-fly-key-not-real-0000",
+    SMS_FLY_SENDER: "Showzy",
+  };
+}
+
+describe("OTP delivery config", () => {
+  it("defaults development and test to stub without live keys", () => {
+    const development = validEnv();
+    development["NODE_ENV"] = "development";
+    const config = loadServerConfig(development);
+
+    expect(config.otpDelivery.email).toEqual({ transport: "stub" });
+    expect(config.otpDelivery.sms.transport).toBe("stub");
+  });
+
+  it("accepts live transports in non-production when keys and from-line are set", () => {
+    const config = loadServerConfig(liveOtpEnv());
+
+    expect(config.otpDelivery.email).toEqual({
+      transport: "resend",
+      apiKey: "re_test_not_a_real_key_000000",
+      fromEmail: "noreply@example.com",
+      fromName: "Шозі",
+    });
+    expect(config.otpDelivery.sms).toEqual({
+      transport: "sms-fly",
+      apiKey: "test-sms-fly-key-not-real-0000",
+      apiUrl: "https://sms-fly.ua/api/v2/api.php",
+      sender: "Showzy",
+    });
+  });
+
+  it("accepts production when live transports and keys are present", () => {
+    const env = liveOtpEnv();
+    env["NODE_ENV"] = "production";
+    const config = loadServerConfig(env);
+    expect(config.nodeEnv).toBe("production");
+    expect(config.otpDelivery.email.transport).toBe("resend");
+    expect(config.otpDelivery.sms.transport).toBe("sms-fly");
+  });
+
+  it("fails production when live transports are missing", () => {
+    const env = validEnv();
+    env["NODE_ENV"] = "production";
+
+    expect(() => loadServerConfig(env)).toThrow(ConfigValidationError);
+    try {
+      loadServerConfig(env);
+    } catch (error) {
+      const configError = error as ConfigValidationError;
+      expect(configError.message).toContain("OTP_EMAIL_TRANSPORT");
+      expect(configError.message).toContain("production requires resend");
+      expect(configError.message).toContain("OTP_SMS_TRANSPORT");
+      expect(configError.message).toContain("production requires sms-fly");
+    }
+  });
+
+  it("fails a live email transport that is missing its key or from-line", () => {
+    const env = validEnv();
+    env["OTP_EMAIL_TRANSPORT"] = "resend";
+
+    expect(() => loadServerConfig(env)).toThrow(ConfigValidationError);
+    try {
+      loadServerConfig(env);
+    } catch (error) {
+      const configError = error as ConfigValidationError;
+      expect(configError.message).toContain("RESEND_API_KEY");
+      expect(configError.message).toContain("RESEND_FROM_EMAIL");
+      expect(configError.message).toContain("RESEND_FROM_NAME");
+      expect(configError.message).toContain("missing required value");
+    }
+  });
+
+  it("fails a live SMS transport that is missing its key or sender", () => {
+    const env = validEnv();
+    env["OTP_SMS_TRANSPORT"] = "sms-fly";
+
+    expect(() => loadServerConfig(env)).toThrow(ConfigValidationError);
+    try {
+      loadServerConfig(env);
+    } catch (error) {
+      const configError = error as ConfigValidationError;
+      expect(configError.message).toContain("SMS_FLY_API_KEY");
+      expect(configError.message).toContain("SMS_FLY_SENDER");
+      expect(configError.message).toContain("missing required value");
+    }
+  });
+
+  it("never echoes OTP provider API keys in ConfigValidationError", () => {
+    const env = validEnv();
+    env["OTP_EMAIL_TRANSPORT"] = "resend";
+    env["RESEND_API_KEY"] = "RESEND_API_KEY_SENTINEL";
+    env["RESEND_FROM_EMAIL"] = "not-an-email";
+    env["OTP_SMS_TRANSPORT"] = "sms-fly";
+    env["SMS_FLY_API_KEY"] = "SMS_FLY_API_KEY_SENTINEL";
+    env["SMS_FLY_SENDER"] = "Showzy";
+
+    let thrown: unknown;
+    try {
+      loadServerConfig(env);
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(ConfigValidationError);
+    const everything = JSON.stringify({
+      message: (thrown as ConfigValidationError).message,
+      issues: (thrown as ConfigValidationError).issues,
+      stack: (thrown as ConfigValidationError).stack,
+      cause: (thrown as ConfigValidationError).cause,
+    });
+    expect(everything).not.toContain("SENTINEL");
+    expect(everything).toContain("RESEND_FROM_EMAIL");
   });
 });

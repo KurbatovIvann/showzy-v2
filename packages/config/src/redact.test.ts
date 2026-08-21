@@ -25,6 +25,8 @@ describe("isSensitiveKey", () => {
     expect(isSensitiveKey("authorization")).toBe(true);
     expect(isSensitiveKey("secretAccessKey")).toBe(true);
     expect(isSensitiveKey("ip_hmac_secret")).toBe(true);
+    expect(isSensitiveKey("RESEND_API_KEY")).toBe(true);
+    expect(isSensitiveKey("SMS_FLY_API_KEY")).toBe(true);
     expect(isSensitiveKey("clientIp")).toBe(true);
     expect(isSensitiveKey("rawPayload")).toBe(true);
   });
@@ -77,7 +79,11 @@ describe("redactUnknown", () => {
       phone: PHONE,
       clientIp: RAW_IP,
       rawPayload: { provider: "monobank", body: "PAN 4444333322221111" },
-      nested: { ipHmacSecret: AUTH_SECRET, ok: true },
+      nested: {
+        ipHmacSecret: AUTH_SECRET,
+        resendApiKey: AUTH_SECRET,
+        ok: true,
+      },
     });
 
     expect(redacted.request_id).toBe("req-1");
@@ -92,7 +98,11 @@ describe("redactUnknown", () => {
     expect(redacted.phone).toBe(REDACTED);
     expect(redacted.clientIp).toBe(REDACTED);
     expect(redacted.rawPayload).toBe(REDACTED);
-    expect(redacted.nested).toEqual({ ipHmacSecret: REDACTED, ok: true });
+    expect(redacted.nested).toEqual({
+      ipHmacSecret: REDACTED,
+      resendApiKey: REDACTED,
+      ok: true,
+    });
 
     const serialized = JSON.stringify(redacted);
     expect(serialized).not.toContain(OTP);
