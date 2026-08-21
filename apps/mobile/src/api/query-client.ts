@@ -12,6 +12,8 @@ import {
 } from "@tanstack/react-query";
 import { isWireError, type ContractClient } from "@showzy/contract";
 
+import { StaleCompanyQueryError } from "./query-options";
+
 /** V1 `staleTime` — keep reads warm for a minute unless a test proves otherwise. */
 export const QUERY_STALE_TIME_MS = 60_000;
 export const QUERY_GC_TIME_MS = 5 * 60_000;
@@ -27,6 +29,9 @@ export type QueryRetryDelay = NonNullable<
 const RETRYABLE_WIRE_CODES = new Set(["TIMEOUT", "RATE_LIMITED"]);
 
 export function isRetryableQueryFailure(error: unknown): boolean {
+  if (error instanceof StaleCompanyQueryError) {
+    return false;
+  }
   if (isWireError(error)) {
     return RETRYABLE_WIRE_CODES.has(error.code);
   }
@@ -52,7 +57,40 @@ export function isUnauthenticatedWireError(error: unknown): boolean {
 }
 
 export function clearCachedContractQueries(queryClient: QueryClient): void {
+  void queryClient.cancelQueries();
   queryClient.clear();
+}
+
+export function hasLocalBearer(token: string | null | undefined): boolean {
+  return token !== undefined && token !== null && token !== "";
+}
+
+export type QueryAuthStatus = "loading" | "anonymous" | "authenticated";
+
+/**
+ * Drop the previous tenant selector and the cache so the next session
+ * cannot inherit leftover rows or `x-company-id`.
+ */
+export function resetTenantQueryState(deps: {
+  readonly client: Pick<ContractClient, "setActiveCompany"> | null;
+  readonly queryClient: QueryClient;
+}): void {
+  deps.client?.setActiveCompany(null);
+  clearCachedContractQueries(deps.queryClient);
+}
+
+export function isolateCacheOnSessionLoss(
+  previousStatus: QueryAuthStatus,
+  nextStatus: QueryAuthStatus,
+  deps: {
+    readonly client: Pick<ContractClient, "setActiveCompany"> | null;
+    readonly queryClient: QueryClient;
+  },
+): void {
+  if (previousStatus !== "authenticated" || nextStatus !== "anonymous") {
+    return;
+  }
+  resetTenantQueryState(deps);
 }
 
 /**
@@ -74,10 +112,14 @@ export function handleUnauthenticatedQueryError(input: {
 export function bindActiveCompanyQueryIsolation(
   client: Pick<ContractClient, "setActiveCompany">,
   queryClient: QueryClient,
+  hooks: {
+    readonly onCompanyId?: (companyId: string | null) => void;
+  } = {},
 ): () => void {
   const original = client.setActiveCompany.bind(client);
   client.setActiveCompany = (companyId: string | null): void => {
     original(companyId);
+    hooks.onCompanyId?.(companyId);
     clearCachedContractQueries(queryClient);
   };
   return (): void => {

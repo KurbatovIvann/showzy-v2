@@ -37,6 +37,7 @@ export type AuthSessionValue = {
   readonly retryHydrate: () => Promise<void>;
   readonly signOut: () => Promise<void>;
   readonly clearDeadSession: () => Promise<void>;
+  readonly getAccessToken: () => string | null;
 };
 
 const AuthSessionContext = createContext<AuthSessionValue | null>(null);
@@ -159,6 +160,7 @@ export function AuthSessionProvider({
       retryHydrate: hydrate,
       signOut,
       clearDeadSession,
+      getAccessToken: () => resources?.session.getAccessToken() ?? null,
     }),
     [
       ready,

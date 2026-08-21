@@ -4,16 +4,21 @@ import { z } from "zod";
 
 import { buildContractRouter } from "@showzy/contract";
 import { defineActionContract } from "@showzy/core/contract";
-import { MutationObserver } from "@tanstack/react-query";
+import { MutationObserver, QueryObserver } from "@tanstack/react-query";
 
+import { AuthClientError } from "../auth/errors";
+import { createSessionController } from "../auth/session";
+import { createMemoryTokenStore } from "../auth/storage";
 import { createShowzyClient } from "./client";
 import {
   bindActiveCompanyQueryIsolation,
-  clearCachedContractQueries,
   createShowzyQueryClient,
   handleUnauthenticatedQueryError,
+  hasLocalBearer,
+  isolateCacheOnSessionLoss,
   QUERY_RETRY_LIMIT,
   queryRetryDelay,
+  resetTenantQueryState,
 } from "./query-client";
 import {
   contractQueryKey,
@@ -46,11 +51,13 @@ type SampleRouter = typeof sampleRouter;
 function sampleGetOrderQueryOptions(
   client: ReturnType<typeof createShowzyClient<SampleRouter>>,
   input: { orderId: string },
+  companyId: string | null = client.getActiveCompany(),
 ) {
   return contractQueryOptions({
     actionName: "sample.getOrder",
-    companyId: client.getActiveCompany(),
+    companyId,
     input,
+    getActiveCompany: () => client.getActiveCompany(),
     queryFn: () => client.client.sample.getOrder(input),
   });
 }
@@ -211,15 +218,89 @@ describe("query cache isolation", () => {
     expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
   });
 
-  it("clears leftover rows on sign-out", () => {
+  it("clears leftover rows and resets the selector on session loss", () => {
     const queryClient = createShowzyQueryClient();
+    const created = createShowzyClient<SampleRouter>({
+      apiUrl: "http://api.test",
+      initialCompanyId: "company-a",
+    });
+    bindActiveCompanyQueryIsolation(created, queryClient);
     const priceKey = contractQueryKey("sample.getOrder", "company-a", {
       orderId: "o-2",
     });
     queryClient.setQueryData(priceKey, { orderId: "o-2", totalMinor: "500" });
-    clearCachedContractQueries(queryClient);
+
+    isolateCacheOnSessionLoss("loading", "anonymous", {
+      client: created,
+      queryClient,
+    });
+    expect(queryClient.getQueryData(priceKey)).toEqual({
+      orderId: "o-2",
+      totalMinor: "500",
+    });
+    expect(created.getActiveCompany()).toBe("company-a");
+
+    isolateCacheOnSessionLoss("authenticated", "anonymous", {
+      client: created,
+      queryClient,
+    });
     expect(queryClient.getQueryData(priceKey)).toBeUndefined();
     expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+    expect(created.getActiveCompany()).toBeNull();
+  });
+
+  it("does not store the next company's payload under the previous key", async () => {
+    const created = createShowzyClient<SampleRouter>({
+      apiUrl: "http://api.test",
+    });
+    created.setActiveCompany("company-a");
+    const queryClient = createShowzyQueryClient({ retryDelay: () => 0 });
+    bindActiveCompanyQueryIsolation(created, queryClient);
+
+    const input = { orderId: "o-1" };
+    const keyA = contractQueryKey("sample.getOrder", "company-a", input);
+    const keyB = contractQueryKey("sample.getOrder", "company-b", input);
+
+    function optionsFor(companyId: string) {
+      return {
+        ...contractQueryOptions({
+          actionName: "sample.getOrder",
+          companyId,
+          input,
+          getActiveCompany: () => created.getActiveCompany(),
+          queryFn: () =>
+            Promise.resolve({
+              orderId: "o-1",
+              totalMinor:
+                created.getActiveCompany() === "company-b" ? "B" : "A",
+            }),
+        }),
+        retry: false as const,
+      };
+    }
+
+    const observer = new QueryObserver(queryClient, optionsFor("company-a"));
+    const unsubscribe = observer.subscribe(() => undefined);
+    await queryClient.fetchQuery(optionsFor("company-a"));
+    expect(queryClient.getQueryData(keyA)).toEqual({
+      orderId: "o-1",
+      totalMinor: "A",
+    });
+
+    created.setActiveCompany("company-b");
+    expect(queryClient.getQueryData(keyA)).toBeUndefined();
+
+    await observer.refetch().catch(() => undefined);
+    expect(queryClient.getQueryData(keyA)).toBeUndefined();
+
+    await queryClient.fetchQuery(optionsFor("company-b"));
+    expect(queryClient.getQueryData(keyB)).toEqual({
+      orderId: "o-1",
+      totalMinor: "B",
+    });
+    expect(queryClient.getQueryData(keyA)).toBeUndefined();
+    unsubscribe();
+    queryClient.clear();
   });
 
   it("uses a distinct null-company key namespace", () => {
@@ -253,7 +334,7 @@ describe("UNAUTHENTICATED query handling", () => {
     const clearSession = vi.fn();
     const clearCache = vi.fn();
     handleUnauthenticatedQueryError({
-      hadSession: false,
+      hadSession: hasLocalBearer(null),
       clearSession,
       clearCache,
     });
@@ -261,12 +342,52 @@ describe("UNAUTHENTICATED query handling", () => {
     expect(clearCache).not.toHaveBeenCalled();
 
     handleUnauthenticatedQueryError({
-      hadSession: true,
+      hadSession: hasLocalBearer("token"),
       clearSession,
       clearCache,
     });
     expect(clearSession).toHaveBeenCalledTimes(1);
     expect(clearCache).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears a stored bearer on 401 even when the session snapshot is still null", async () => {
+    const store = createMemoryTokenStore("dead");
+    const session = createSessionController({
+      store,
+      api: {
+        getSession: () => Promise.reject(new AuthClientError("network")),
+        signOut: () => Promise.resolve(),
+      },
+    });
+    await expect(session.hydrate()).rejects.toMatchObject({ kind: "network" });
+    expect(session.getSnapshot()).toBeNull();
+    expect(hasLocalBearer(session.getAccessToken())).toBe(true);
+
+    const created = createShowzyClient<SampleRouter>({
+      apiUrl: "http://api.test",
+      initialCompanyId: "company-a",
+    });
+    const queryClient = createShowzyQueryClient();
+    bindActiveCompanyQueryIsolation(created, queryClient);
+    const priceKey = contractQueryKey("sample.getOrder", "company-a", {
+      orderId: "o-3",
+    });
+    queryClient.setQueryData(priceKey, { orderId: "o-3", totalMinor: "1" });
+
+    let cleared: Promise<void> | undefined;
+    handleUnauthenticatedQueryError({
+      hadSession: hasLocalBearer(session.getAccessToken()),
+      clearSession: () => {
+        cleared = session.clearDeadSession();
+      },
+      clearCache: () => {
+        resetTenantQueryState({ client: created, queryClient });
+      },
+    });
+    await cleared;
+    expect(session.getAccessToken()).toBeNull();
+    expect(queryClient.getQueryData(priceKey)).toBeUndefined();
+    expect(created.getActiveCompany()).toBeNull();
   });
 
   it("issues a read without a session (no client-side 401 gate)", async () => {

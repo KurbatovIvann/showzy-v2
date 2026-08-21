@@ -45,7 +45,7 @@ the same directory.
   namespace per feature (`auth.ts`). uk/en, matching V1's namespace split.
   New features add a namespace here instead of a local `copy.ts`.
 - `src/api/client.ts` — `createShowzyClient` wraps `createContractClient` with the env-driven API origin. `getAccessToken` comes from the session controller.
-- `src/api/query-client.ts` / `query-options.ts` / `contract-mutation.ts` / `query-provider.tsx` — TanStack Query v5 runtime (SHO-102). Keys are `[actionName, companyId | null-company, input]`. `useContractMutation` mints one `createMutationAttempt()` per submit. Do not persist the cache or add `@orpc/tanstack-query`. `query-platform.ts` is native-only (not imported from tests).
+- `src/api/query-client.ts` / `query-options.ts` / `contract-mutation.ts` / `query-provider.tsx` — TanStack Query v5 runtime (SHO-102). Keys are `[actionName, companyId | null-company, input]`. Pass `useActiveCompany().activeCompanyId` into `contractQueryOptions` (and `getActiveCompany`) so a selector change re-renders keys. `useContractMutation` mints one `createMutationAttempt()` per submit. Do not persist the cache or add `@orpc/tanstack-query`. `query-platform.ts` is native-only (not imported from tests).
 - `src/api/errors.ts` — `describeWireError` / `describeQueryFailure` discriminate on `error.code` / `kind`, never message text.
 - `src/theme/tokens.ts` — palettes, spacing, radii, type, shadows, glass fallbacks. Pure TypeScript; no React Native imports.
 - `src/theme/light.ts` / `dark.ts` — Unistyles theme objects.
