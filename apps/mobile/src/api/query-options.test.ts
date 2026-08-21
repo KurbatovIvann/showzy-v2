@@ -42,6 +42,7 @@ function samplePingQueryOptions(
     actionName: "sample.ping",
     companyId: client.getActiveCompany(),
     input,
+    getActiveCompany: () => client.getActiveCompany(),
     queryFn: () => client.client.sample.ping(input),
   });
 }
