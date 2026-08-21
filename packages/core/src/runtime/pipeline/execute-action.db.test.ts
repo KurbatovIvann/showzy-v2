@@ -954,12 +954,16 @@ describe("deadline enforcement", () => {
       permissions: ["pipelineFixture:read"],
       risk: "read",
       audit: false,
-      timeout: 200,
+      // Must outlast auth + tx begin on a loaded CI runner. 200ms is enough
+      // locally and too tight under `pnpm test` (handler never starts, so
+      // `ctx.signal` is never observed).
+      timeout: 5_000,
     });
+    const handlerSleepMs = 20_000;
     const sleepForever = implementAction(slowContract, {
       handler: async (_input, ctx) => {
         observedSignal = ctx.signal;
-        await new Promise((resolve) => setTimeout(resolve, 2_000));
+        await new Promise((resolve) => setTimeout(resolve, handlerSleepMs));
         return { done: true };
       },
     });
@@ -979,7 +983,8 @@ describe("deadline enforcement", () => {
       TimeoutError,
     );
     // The pipeline gave up at the deadline, not after the full sleep.
-    expect(Date.now() - startedAt).toBeLessThan(1_500);
+    expect(Date.now() - startedAt).toBeLessThan(handlerSleepMs / 2);
+    expect(observedSignal).toBeDefined();
     expect(observedSignal?.aborted).toBe(true);
     expect(observedSignal?.reason).toBeInstanceOf(TimeoutError);
   });
