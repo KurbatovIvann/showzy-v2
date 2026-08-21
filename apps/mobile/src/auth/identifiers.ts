@@ -6,6 +6,8 @@ export type ParsedIdentifier =
 
 const E164 = /^\+[1-9]\d{7,14}$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const UA_E164_PREFIX = "+380";
+const UA_NATIONAL_DIGIT_COUNT = 9;
 
 export function normalizePhone(value: string): string {
   return value.replaceAll(/[^\d+]/g, "");
@@ -13,6 +15,31 @@ export function normalizePhone(value: string): string {
 
 export function normalizeEmail(value: string): string {
   return value.trim().toLowerCase();
+}
+
+/** Compose a UA E.164 number from exactly 9 national digits. */
+export function composeUaE164(nationalDigits: string): string | null {
+  const digits = nationalDigits.replaceAll(/\D/g, "");
+  if (digits.length !== UA_NATIONAL_DIGIT_COUNT) {
+    return null;
+  }
+  return `${UA_E164_PREFIX}${digits}`;
+}
+
+/** Strip a UA E.164 number (`+380` + 9) back to national digits. */
+export function stripUaNationalDigits(value: string): string | null {
+  const phone = normalizePhone(value);
+  if (!phone.startsWith(UA_E164_PREFIX)) {
+    return null;
+  }
+  const national = phone.slice(UA_E164_PREFIX.length);
+  if (
+    national.length !== UA_NATIONAL_DIGIT_COUNT ||
+    !/^\d{9}$/.test(national)
+  ) {
+    return null;
+  }
+  return national;
 }
 
 export function parseIdentifier(
