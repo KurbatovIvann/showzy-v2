@@ -32,6 +32,8 @@ export function createSmsFlySmsTransport(options: {
   return {
     async send({ to, text }) {
       const recipientDigits = e164Digits(to);
+      // Mask before logging. Field name is `recipient` so pino key-redaction
+      // does not replace the card-allowed mask with `[Redacted]`.
       const recipient = maskPhone(to);
       let response: Response;
       try {

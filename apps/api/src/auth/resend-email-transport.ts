@@ -30,6 +30,8 @@ export function createResendEmailTransport(options: {
 
   return {
     async send({ to, subject, html }) {
+      // Mask before logging. Field name is `recipient` so pino key-redaction
+      // does not replace the card-allowed mask with `[Redacted]`.
       const recipient = maskEmail(to);
       let response: Response;
       try {
