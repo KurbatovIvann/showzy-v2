@@ -9,6 +9,8 @@ export interface SessionController {
   refresh(): Promise<SessionSnapshot | null>;
   completeSignIn(token: string): Promise<SessionSnapshot>;
   signOut(): Promise<void>;
+  /** Drop a locally stored session that the API already rejected (401). */
+  clearDeadSession(): Promise<void>;
   getAccessToken(): string | null;
   getSnapshot(): SessionSnapshot | null;
 }
@@ -95,6 +97,9 @@ export function createSessionController(deps: {
           // Local revocation still wins — a dead server must not keep a token.
         }
       }
+      await clearLocal();
+    },
+    async clearDeadSession() {
       await clearLocal();
     },
   };

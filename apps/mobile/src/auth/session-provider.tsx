@@ -36,6 +36,7 @@ export type AuthSessionValue = {
   readonly flow: OtpFlow | null;
   readonly retryHydrate: () => Promise<void>;
   readonly signOut: () => Promise<void>;
+  readonly clearDeadSession: () => Promise<void>;
 };
 
 const AuthSessionContext = createContext<AuthSessionValue | null>(null);
@@ -135,6 +136,13 @@ export function AuthSessionProvider({
     resources.flow.reset();
   }, [resources]);
 
+  const clearDeadSession = useCallback(async () => {
+    if (resources === null) {
+      return;
+    }
+    await resources.session.clearDeadSession();
+  }, [resources]);
+
   const value: AuthSessionValue = useMemo(
     () => ({
       status: !ready
@@ -150,8 +158,18 @@ export function AuthSessionProvider({
       flow: resources?.flow ?? null,
       retryHydrate: hydrate,
       signOut,
+      clearDeadSession,
     }),
-    [ready, sessionUser, bootError, resources, copy, hydrate, signOut],
+    [
+      ready,
+      sessionUser,
+      bootError,
+      resources,
+      copy,
+      hydrate,
+      signOut,
+      clearDeadSession,
+    ],
   );
 
   return (

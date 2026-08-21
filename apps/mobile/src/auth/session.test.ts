@@ -114,4 +114,29 @@ describe("session controller", () => {
     expect(session.getAccessToken()).toBeNull();
     expect(await store.get()).toBeNull();
   });
+
+  it("clears a dead session locally without calling remote sign-out", async () => {
+    const store = createMemoryTokenStore();
+    let revoked = 0;
+    const session = createSessionController({
+      store,
+      api: apiStub({
+        getSession: () =>
+          Promise.resolve({
+            user: { userId: "user-1", email: null, phoneNumber: null },
+            rotatedToken: null,
+          }),
+        signOut: () => {
+          revoked += 1;
+          return Promise.resolve();
+        },
+      }),
+    });
+
+    await session.completeSignIn("fresh");
+    await session.clearDeadSession();
+    expect(revoked).toBe(0);
+    expect(session.getAccessToken()).toBeNull();
+    expect(await store.get()).toBeNull();
+  });
 });
