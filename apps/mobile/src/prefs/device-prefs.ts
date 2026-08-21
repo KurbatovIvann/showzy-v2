@@ -81,8 +81,8 @@ export function bindCompanySelectorPersistence(
 }
 
 /**
- * After a live session hydrate (or sign-in), restore the last selector
- * if the client does not already have one. No-op when unsigned.
+ * After a live session hydrate, restore the last selector if the client
+ * does not already have one.
  */
 export function restoreLastCompanySelector(
   client: CompanySelectorClient,
@@ -98,12 +98,20 @@ export function restoreLastCompanySelector(
   client.setActiveCompany(last);
 }
 
-export function restoreLastCompanySelectorIfSignedIn(
+/**
+ * Hydrate-only restore. A missing session (dead token, first run) drops
+ * the stored selector so a later OTP sign-in cannot inherit another
+ * user's last company. Theme is untouched. Network failures should not
+ * call this — retry hydrate may still succeed.
+ */
+export function applySessionHydrateToCompanySelector(
   client: CompanySelectorClient,
-  prefs: Pick<DevicePrefs, "getLastCompanyId">,
+  prefs: Pick<DevicePrefs, "getLastCompanyId" | "setLastCompanyId">,
   sessionUser: unknown,
 ): void {
   if (sessionUser === null) {
+    prefs.setLastCompanyId(null);
+    client.setActiveCompany(null);
     return;
   }
   restoreLastCompanySelector(client, prefs);
