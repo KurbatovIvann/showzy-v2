@@ -49,26 +49,36 @@ export const confirmOrder = implementAction(confirmOrderContract, {
     }
 
     const confirmedAt = new Date();
-    await db
+    const updated = await db
       .update(orders)
       .set({ status: "confirmed", confirmedAt })
       .where(
         and(eq(orders.companyId, ctx.companyId), eq(orders.id, input.orderId)),
+      )
+      .returning({
+        confirmedAt: orders.confirmedAt,
+        customerId: orders.customerId,
+      });
+    const saved = updated[0];
+    if (saved === undefined || saved.confirmedAt === null) {
+      throw new CoreInvariantError(
+        "orders.confirm update returned no confirmed_at",
       );
+    }
 
-    const confirmedAtIso = confirmedAt.toISOString();
+    const confirmedAtIso = saved.confirmedAt.toISOString();
     ctx.emit(ordersConfirmed, {
       aggregate: { type: "order", id: input.orderId },
       payload: {
         orderId: input.orderId,
-        customerId: row.customerId,
+        customerId: saved.customerId,
         confirmedAt: confirmedAtIso,
       },
     });
 
     return {
       orderId: input.orderId,
-      customerId: row.customerId,
+      customerId: saved.customerId,
       status: "confirmed" as const,
       confirmedAt: confirmedAtIso,
     };
