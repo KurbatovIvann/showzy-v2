@@ -1,9 +1,8 @@
 # Verify a PR against constitution, golden files, and the feature card
 
 You are the **Verifier** for Showzy 2.0 (ADR-0023). You review the PR the
-user points you at (or the current branch's diff against `main`). You are
-always a different model family than the implementer — act like it: hunt
-for the implementer's systematic blind spots, do not rubber-stamp.
+user points you at (or the current branch's diff against `main`). Hunt
+for constitution and golden misses; do not rubber-stamp.
 
 This command is required for **sensitive** and **first-slice** PRs. Skip
 it for mechanical work. On routine action PRs, run only if the human asks,

@@ -5,9 +5,11 @@
  */
 import { StyleSheet } from "react-native-unistyles";
 
+import { asThemePreferenceStore } from "../prefs/device-prefs";
+import { createPlatformDevicePrefs } from "../prefs/platform-storage";
 import { darkTheme } from "./dark";
 import { lightTheme } from "./light";
-import { createMemoryThemeStore, unistylesSettings } from "./preference";
+import { unistylesSettings } from "./preference";
 
 type AppThemes = {
   light: typeof lightTheme;
@@ -21,7 +23,9 @@ declare module "react-native-unistyles" {
   }
 }
 
-export const themePreference = createMemoryThemeStore();
+export const themePreference = asThemePreferenceStore(
+  createPlatformDevicePrefs(),
+);
 
 StyleSheet.configure({
   themes: {

@@ -13,6 +13,11 @@ export function isThemeMode(value: unknown): value is ThemeMode {
   return value === "system" || value === "light" || value === "dark";
 }
 
+/** Corrupt or unknown stored values fall back to the first-run default. */
+export function themeModeFromStoredValue(value: unknown): ThemeMode {
+  return isThemeMode(value) ? value : DEFAULT_THEME_MODE;
+}
+
 export function resolveColorScheme(
   mode: ThemeMode,
   systemScheme: ColorScheme,

@@ -35,8 +35,8 @@ nothing more. You do not write `docs/specs/` or `docs/plans/`.
 2. **Implement** until tests pass. Follow the golden slice. Do not invent
    new patterns, abstractions, or dependencies.
 3. **Verify loop** — run the checks CI will run for this change. Repeat
-   until green. Two failed rounds → stop and say a stronger model is
-   needed. Runtime/DB work needs Vitest + contract + migration suite.
+   until green. Two failed rounds → stop and ask the human. Runtime/DB
+   work needs Vitest + contract + migration suite.
    Mechanical edits may use the relevant package filter; CI still has to
    be green.
 4. **Open a PR** titled `SHO-<n> <title>` whose description states: the

@@ -1,31 +1,18 @@
 # Showzy 2.0 — Agent Instructions
 
-Showzy is a business operating platform for small businesses in Ukraine —
-company profile with a product catalog (5-level dynamic pricing), public and
-authenticated consumer discovery with bounded social engagement, chat-centric
-order flow, B2B
-document workflow with QES signing (client-side crypto, keys never leave the
-device), and integrations (Monobank, Nova Poshta). This repository is a
-**ground-up rewrite** of Showzy v1 with an AI-first interface: a classic UI
-and an AI chat that execute the exact same actions.
+Ground-up rewrite of Showzy v1: a business operating platform for Ukrainian
+small businesses. Classic UI and AI chat execute the same actions.
 
-## Required reading (in this order)
+## Contract of this thread
 
-1. `docs/blueprint.md` — architecture, stack, action registry, foundation
-   invariants, feature pipeline (ADR-0023). This is the constitution of
-   the project.
-2. `docs/scope.md` — what we build in V2 launch, what we defer, what we drop,
-   and the mobile-first roadmap.
-3. `docs/adr/` — accepted architecture decisions and why alternatives were
-   rejected. Never contradict an accepted ADR; deviations require a new ADR
-   first.
-4. `docs/pipeline.md` — how the feature loop runs: Planner, Executor,
-   Verifier, Guardian, models, commands, exit criteria.
-5. The Linear feature card plus `*.contract.ts` — the executable contract
-   of the work in this thread. Protocol manuals for frozen packages live
-   in `docs/specs/` (`core`, `db`, `contract`, `money`,
-   `security-operations`, `companies-foundation`). Domain novels in
-   `docs/archive/specs/` are research, not a gate.
+The executable contract is the Linear feature card plus `*.contract.ts` and
+the tests in the definition of done. Protocol manuals for frozen packages
+live in `docs/specs/` (`core`, `db`, `contract`, `money`,
+`security-operations`, `companies-foundation`). Domain novels in
+`docs/archive/specs/` are research, not a gate. Do not contradict an
+accepted ADR in `docs/adr/`; deviations need a new ADR first.
+
+Constitution and conventions are in `.cursor/rules/` (already applied).
 
 ## Non-negotiable invariants (blueprint §2.1)
 
@@ -69,25 +56,12 @@ definition of done.
 ## Legacy reference (Showzy v1)
 
 The previous implementation lives in a separate repository (locally at
-`E:\showzy`). **Never modify it.** Use it as read-only reference for business
-logic, edge cases, and data shapes. Curated extracts are available in this
-repo so you usually don't need v1 at all:
+`E:\showzy`). **Never modify it.** Curated extracts in this repo are
+usually enough:
 
-- `docs/reference/v1-backend-audit.md` — full audit of the v1 backend and DB
-  (modules, endpoints, infrastructure, migration decisions).
-- `docs/reference/v1-database.types.ts` — generated types of the v1 Postgres
-  schema (note: has minor drift vs. migrations; treat migrations as truth).
-- `docs/reference/v1-migrations/` — all 83 v1 SQL migrations (the authoritative
-  record of the v1 schema, triggers, RPC functions, and RLS policies).
+- `docs/reference/v1-backend-audit.md`
+- `docs/reference/v1-database.types.ts`
+- `docs/reference/v1-migrations/`
 
-The v1 schema is a reference, **not** a template: v2 replaces RLS with
-code-level permissions, replaces DB RPC with Drizzle queries in action
-handlers, and makes deliberate per-trigger decisions about what moves into
-application code (blueprint §6).
-
-V1 **mobile UI** was the visual baseline under ADR-0019. ADR-0024
-supersedes that: visuals and IA come from the Magic Patterns canvas;
-`E:\showzy\apps\mobile` remains read-only domain/edge-case reference.
-When implementing `apps/mobile`, follow
-`docs/design/mapping/mp-to-mobile.md` — reproduce the canvas in
-Unistyles, and do not copy the V1 data layer or Magic Patterns React.
+The v1 schema is a reference, not a template. V2 uses code-level
+permissions and Drizzle in action handlers (blueprint §6).

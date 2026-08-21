@@ -10,7 +10,7 @@ that lane. Keep Linear updated via MCP. One ticket = one branch = one PR.
 | --- | --- | --- |
 | **mechanical** | tooling, seed, rename, docs-only, no new action protocol | blocker check → IMPLEMENT → VERIFY. Skip ANALYZE ceremony and GUARD |
 | **routine** | new/changed module action, not `sensitive` | short ANALYZE → IMPLEMENT → VERIFY → Bugbot. `/review` only if contested or a prior review failed |
-| **sensitive / first-slice** | `sensitive` label, or this is the golden backend/UI slice | full ANALYZE → IMPLEMENT → VERIFY → GUARD (Bugbot + cross-family `/review` + `/guard` when `sensitive` or first slice) |
+| **sensitive / first-slice** | `sensitive` label, or this is the golden backend/UI slice | full ANALYZE → IMPLEMENT → VERIFY → GUARD (Bugbot + `/review` + `/guard` when `sensitive` or first slice) |
 
 ## 1. ANALYZE
 
@@ -27,8 +27,6 @@ For **routine** and **sensitive / first-slice**:
    required tests, or a stop report. Stop for a product fork (new
    capability, new principal, invariant change, new table). Amend
    mechanical contract detail in the PR. Never invent product decisions.
-3. `sensitive` and the first golden slice require the strong-model tier
-   (blueprint §7.3); if you are not on it, say so and stop.
 
 ## 2. IMPLEMENT
 
@@ -41,17 +39,17 @@ Follow `.cursor/commands/implement.md` exactly. Use Linear's generated
 Run the checks CI will run for this change. All green → push and open
 the PR (title `SHO-<number> <title>`; description: ticket + feature card,
 tests written, deviations = none or a stop report). Do not bypass or
-weaken CI. Two failed verify rounds → stop and request a stronger model.
+weaken CI. Two failed verify rounds → stop and ask the human.
 
 ## 4. GUARD
 
 - **mechanical:** skip.
 - **routine:** launch **Bugbot**. Launch `/review` only if the human asks,
   the change is contested, or a previous review failed.
-- **sensitive / first-slice:** Bugbot + cross-family `/review` + `/guard`
+- **sensitive / first-slice:** Bugbot + `/review` + `/guard`
   (security when `sensitive`). Address findings on the same branch;
-  re-run VERIFY. Escalation: 2 failed review rounds → rerun IMPLEMENT on
-  the stronger model; 3 → human design review or a new ADR.
+  re-run VERIFY. Escalation: 2 failed review rounds → ask the human;
+  3 → design review or a new ADR.
 
 ## 5. HANDOFF
 
@@ -59,5 +57,5 @@ weaken CI. Two failed verify rounds → stop and request a stronger model.
   review verdicts (if any), open questions. Leave the ticket **In Progress**
   while the PR is open.
 - **A human merges.** Never merge yourself.
-- If you stopped (blocker, product fork, missing model tier), the ticket
+- If you stopped (blocker, product fork), the ticket
   goes back to **Todo** with a comment explaining why.

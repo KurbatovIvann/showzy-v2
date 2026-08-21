@@ -9,6 +9,8 @@ export type ExpoAuthStorage = {
 };
 
 export const AUTH_STORAGE_PREFIX = "showzy";
+/** Expo plugin cookie jar key. Device prefs must refuse this. */
+export const AUTH_COOKIE_KEY = `${AUTH_STORAGE_PREFIX}_cookie`;
 
 export function createMemoryAuthStorage(
   initial: Readonly<Record<string, string>> = {},

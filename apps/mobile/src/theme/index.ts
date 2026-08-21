@@ -6,6 +6,7 @@ export {
   isThemeMode,
   nativeAppearanceScheme,
   resolveColorScheme,
+  themeModeFromStoredValue,
   unistylesSettings,
 } from "./preference";
 export type {

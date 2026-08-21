@@ -2,14 +2,17 @@
 
 How the feature loop from `docs/blueprint.md` §7 and ADR-0023 actually
 runs in Cursor. The blueprint defines *what* the roles are; this file is
-the day-to-day checklist: which agent, which model, which command, what
-goes in, what comes out, and when a role is done.
+the day-to-day checklist: which agent, which command, what goes in, what
+comes out, and when a role is done.
 
 **Key fact: there is no automatic orchestrator.** Cursor does not chain
 agents by itself — the human is the conductor. Each role = you launch an
-agent (chat, background, or cloud), pick the model in the model picker,
-and invoke the command. The files in `.cursor/commands/` are the role
-instructions.
+agent (chat, background, or cloud) and invoke the command. The files in
+`.cursor/commands/` are the role instructions.
+
+Working model: **Grok 4.6** for every role. Do not stop a ticket because
+Claude or GPT names in older notes are unavailable. Independent review is
+CI, Bugbot on routine+, and a human merge.
 
 ```
 PLANNER → EXECUTOR → VERIFIER → GUARDIAN (optional)
@@ -28,7 +31,6 @@ of a feature is `*.contract.ts` plus the tests in the definition of done.
 | | |
 | --- | --- |
 | Agent | One chat agent in **Plan mode**, working with you interactively |
-| Model | **Claude Opus 5 (thinking, high)** or **GPT-5.6 (xhigh)** |
 | Command | `/feature` with a user-visible capability |
 | Input | Constitution, ADRs, ownership map, golden slice files for the layer, v1 reference only if needed |
 | Output | A Linear **feature card**, a ticket graph, and a 5–15 file context pack. Contested APIs also get a contract-first ticket (`*.contract.ts` only) |
@@ -48,16 +50,14 @@ Experience Foundation UX gate; backend tickets do not.
 | | |
 | --- | --- |
 | Agent | **One agent per ticket**, parallel where the dependency graph allows |
-| Model | **Grok 4.6 (high, non-fast)** — default. **Claude Fable 5 / Opus 5 (thinking)** for `sensitive` tickets and for the **first golden slice**. **Composer 2.5** for purely mechanical work |
 | Command | `/ticket` with the Linear ticket id — it lanes the ticket, gates on blockers, implements, and runs the verify loop |
 | Input | The Linear card + ticket, the context pack, the golden files for this layer |
 | Output | A PR with the required tests. Linear stays In Progress |
 | Done when | PR opened with green local checks. Description names the feature card, the tests, and any deviations (there should be none — deviations mean stop) |
-| Escalation | 2 failed verify/review rounds → stronger model; 3 → human design review or a new ADR |
+| Escalation | 2 failed verify/review rounds → ask the human; 3 → design review or a new ADR |
 
-The first backend slice is not cheap-model work. It becomes the golden
-API template. Do not start catalog/companies (or extract backend skills)
-until that slice has merged.
+The first backend slice becomes the golden API template. Do not start
+catalog/companies (or extract backend skills) until that slice has merged.
 
 ### 3. VERIFIER — CI always; `/review` by lane
 
@@ -65,12 +65,11 @@ until that slice has merged.
 | --- | --- |
 | **mechanical** | CI + human skim. No Bugbot/`/review` |
 | **routine** | **Bugbot** + human. `/review` only if contested or a prior review failed |
-| **sensitive / first-slice** | Bugbot + cross-family `/review` + `/guard` when `sensitive` or this is the first backend/UI golden + full human review |
+| **sensitive / first-slice** | Bugbot + `/review` + `/guard` when `sensitive` or this is the first backend/UI golden + full human review |
 
 | | |
 | --- | --- |
-| Agent | `/review` — **different model family than the implementer** — when the lane requires it |
-| Model | **GPT-5.6 Terra (high)** for routine `/review`. **GPT-5.6 Sol (high/xhigh)** for foundation, migration, auth, payments, QES, webhook, and first-slice PRs |
+| Agent | `/review` when the lane requires it |
 | Input | The PR diff + the feature card + golden files + `.cursor/rules/` + ADRs |
 | Output | Verdict: approve, or change requests referencing constitution / ADR / golden / DoD — not an archived spec section |
 | Done when | Required reviewers for the lane approve; **a human merges** |
@@ -82,15 +81,13 @@ routine work.
 
 | When | What |
 | --- | --- |
-| `sensitive` | Security-review agent + strong cross-family pass (auth, payments, QES, webhooks, files, tenant/runtime protocols) |
+| `sensitive` | Security-review agent + `/guard` (auth, payments, QES, webhooks, files, tenant/runtime protocols) |
 | First golden backend or UI slice | Architecture pass vs ADRs and the intended copy template |
 | First use of a new principal or composition edge | Same |
 | Any ADR deviation | Stop. Do not land. Draft a new ADR instead |
 
-| | |
-| --- | --- |
-| Model | **GPT-5.6 Sol (high/xhigh)** + the security-review agent when `sensitive` |
-| Done when | Guardian findings are addressed on the same branch and VERIFY is green again |
+Done when Guardian findings are addressed on the same branch and VERIFY
+is green again.
 
 ## Golden slices
 
@@ -137,10 +134,9 @@ Linear (team **Showzy-v2**, via MCP) is the work ledger. Mapping:
 
 Day-to-day loop:
 
-1. You open a thread in Plan mode, pick a top-tier model, and type
-   `/feature <capability>`. Approve the card and tickets.
-2. You open a fresh thread per ticket, pick the model for that lane, and
-   type `/ticket SHO-<n>`.
+1. You open a thread in Plan mode and type `/feature <capability>`.
+   Approve the card and tickets.
+2. You open a fresh thread per ticket and type `/ticket SHO-<n>`.
 3. The agent implements, runs VERIFY, opens the PR, and runs only that
    lane's Verifier / Guardian.
 4. **You merge.** Linear's GitHub integration links `SHO-n` in the
@@ -155,25 +151,25 @@ and is named in the description.
 
 ## Special roles (outside the main flow)
 
-| Role | Model | When |
-| --- | --- | --- |
-| Debugging hard bugs | **Claude Opus 5 (thinking, high)** — always a different family than the model whose code is failing | Escalation when the working model can't find the root cause in 1–2 iterations |
-| ADR drafting | Same as PLANNER | When any role hits a decision the blueprint doesn't cover, or wants to deviate from an accepted ADR |
-| Leftover foundation | `/scaffold` | Phases 0–1 only; allowlisted packages. New domain work uses `/feature`, not `/scaffold` |
+| Role | When |
+| --- | --- |
+| Debugging hard bugs | Escalation when the working model can't find the root cause in 1–2 iterations — then a human |
+| ADR drafting | When any role hits a decision the blueprint doesn't cover, or wants to deviate from an accepted ADR |
+| Leftover foundation | `/scaffold`. Phases 0–1 only; allowlisted packages. New domain work uses `/feature`, not `/scaffold` |
 
 ## Rules that keep the pipeline honest
 
-1. **Writer ≠ reviewer** when `/review` or `/guard` runs. Never review
-   with the same model family that wrote the PR. Mechanical PRs do not
-   need `/review`.
+1. **Writer ≠ reviewer** when `/review` or `/guard` runs. Do not
+   rubber-stamp your own PR. Independent review is CI, Bugbot, and a
+   human merge. Mechanical PRs do not need `/review`.
 2. **The contract is TypeScript.** `*.contract.ts` plus DoD tests. Do not
    write `docs/specs/<module>.md` or treat `docs/archive/specs/` as a
    gate. Protocol manuals for frozen packages may be patched in the same
    PR when a test proves them wrong; otherwise they change via ADR.
-3. **Escalate, don't grind.** 2 failed review iterations → stronger
-   model. 1–2 failed debug attempts → Opus 5.
-4. **Model lineup drifts monthly** — the names above are roles (blueprint
-   §7.3); substitute current equivalents, keep the tiering.
+3. **Escalate, don't grind.** 2 failed review or debug iterations →
+   human. Do not wait for another model family.
+4. **Working model is Grok 4.6** until another family is on the Cursor
+   plan. Do not keep a per-role model matrix in the meantime.
 5. **UX gate blocks product screens in `apps/mobile`.** It does not block
    backend features. UI work must follow
    `docs/design/mapping/mp-to-mobile.md` and reference the Magic
@@ -209,7 +205,7 @@ commands. Constitution lives in the blueprint, ADRs, and `.cursor/rules/`.
 
 | Phase | Install | Notes |
 | --- | --- | --- |
-| Until golden backend merges | **Nothing backend** | Foundation and the first slice are written by top-tier models under Guardian |
+| Until golden backend merges | **Nothing backend** | Foundation and the first slice run under Guardian |
 | After golden backend | Hand-written Showzy skills listed above | Extracted from the golden files, not from memory |
 | 2–3 Mobile screens | Official `expo/skills` (selective: `expo-project-structure`, `expo-router`, `expo-native-ui`, `expo-design-system`, `expo-data-fetching`) + **one** RN performance skill (Callstack `react-native-best-practices` or Vercel `react-native-guidelines`, not both) | Skip `expo-tailwind-setup` — we use Unistyles, not NativeWind. After the golden UI slice, add `showzy-panel-screen` |
 | 3 Delivery | Hand-written **Nova Poshta API** skill | No public equivalent; extract from v1 + official docs |

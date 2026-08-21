@@ -45,6 +45,9 @@ the same directory.
   `platform-storage.ts` (memory jar; native hydrates SecureStore; web stays
   in-memory), `use-sign-in.ts` / `use-verify.ts`.
   Tests cover the non-RN modules (`*.test.ts`).
+- `src/prefs/` — device preferences (theme + last staff company selector).
+  Native = MMKV (`platform-storage.native.ts`); web + tests = memory
+  (`platform-storage.ts`). Never cookies, never the query cache.
 - `src/i18n/` — `locale.ts` (detection + interpolation) plus one copy
   namespace per feature (`auth.ts`). uk/en, matching V1's namespace split.
   New features add a namespace here instead of a local `copy.ts`.
@@ -52,12 +55,12 @@ the same directory.
   with the env-driven API origin. Mobile passes `getCookie` from the Expo
   plugin; Bearer is optional for other clients.
 - `src/api/api-provider.tsx` — contract client with Cookie. Sits inside
-  `SessionProvider`.
+  `SessionProvider`. Binds last-company restore on live hydrate (SHO-103).
 - `src/api/query-client.ts` / `query-options.ts` / `contract-mutation.ts` / `query-provider.tsx` — TanStack Query v5 runtime (SHO-102). Keys are `[actionName, companyId | null-company, input]`. Pass `useActiveCompany().activeCompanyId` into `contractQueryOptions` (and `getActiveCompany`) so a selector change re-renders keys. `useContractMutation` mints one `createMutationAttempt()` per submit. Do not persist the cache or add `@orpc/tanstack-query`. `query-platform.ts` is native-only (not imported from tests).
 - `src/api/errors.ts` — `describeWireError` / `describeQueryFailure` discriminate on `error.code` / `kind`, never message text.
 - `src/theme/tokens.ts` — palettes, spacing, radii, type, shadows, glass fallbacks. Pure TypeScript; no React Native imports.
 - `src/theme/light.ts` / `dark.ts` — Unistyles theme objects.
-- `src/theme/preference.ts` — `light` / `dark` / `system` resolution (default `light`, matching V1).
+- `src/theme/preference.ts` — `light` / `dark` / `system` resolution (default `light`, matching V1). Persisted via `src/prefs/` on native; web stays in-memory.
 - `src/theme/unistyles.ts` — `StyleSheet.configure` only. Import from `index.ts` and `src/app/_layout.tsx` before any component. Do not import from tests.
 - `metro.config.cjs` — NodeNext `.js` specifiers in workspace packages resolve to `.ts` so `@showzy/contract` can be bundled.
 
@@ -67,8 +70,8 @@ the same directory.
 - Config is `EXPO_PUBLIC_API_URL` (Metro-inlined). Empty string is unset. Do not read `process.env` through `@showzy/config`.
 - Mobile session transport is a Cookie header from `@better-auth/expo` (SecureStore). Web export-smoke keeps cookies in memory. Never log tokens, cookies, or OTP codes. Classify auth HTTP failures by status, not message text.
 - Auth is phone/email OTP only (ADR-0006). Google and guest browse are not in this slice.
-- The signed-in company selector is a stub until `companies.listMine` (phase 2). The selector is never an access grant (ADR-0013).
-- Theme preference still switches in-process (`createMemoryThemeStore`). `react-native-mmkv` is installed for a later persistence wiring; do not add a second storage native module.
+- The signed-in company selector is a stub until `companies.listMine` (phase 2). The last selector is restored from device prefs after a **live** session hydrate only. An unsigned hydrate (dead cookie) clears the stored selector so the next sign-in cannot inherit another user's company. The selector is never an access grant (ADR-0013).
+- Theme preference persists in MMKV on native (`src/prefs/`). Web and tests use the memory adapter — do not write cookies or the company selector to `localStorage`. Do not add a second storage native module. Session cookies stay in SecureStore.
 - Native modules for owner-first launch and near-term surfaces are preinstalled (see `package.json` + `app.config.ts` plugins) so product screens do not force a new Expo/dev-client binary. Unistyles 3 already requires a custom dev client (`expo-dev-client`); do not use Expo Go. Pin new Expo packages with `pnpm --filter @showzy/mobile exec expo install`.
 - Icons: `lucide-react-native` (Magic Patterns canvas, ADR-0024). Do not add Ionicons, `@expo/vector-icons`, NativeWind, Google Sign-In, `expo-location`, `@callstack/liquid-glass`, or `@gorhom/bottom-sheet` (sheets are Reanimated; gorhom is unreliable on Reanimated 4.5).
 - No Cursor skills are installed in phases 0–1 (`docs/pipeline.md`).
