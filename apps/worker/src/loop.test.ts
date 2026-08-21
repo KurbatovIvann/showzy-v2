@@ -1,8 +1,22 @@
-import type { ClaimableDelivery } from "@showzy/core";
+import {
+  defineEvent,
+  defineEventHandler,
+  eventEnvelopeSchema,
+  implementAction,
+  type ClaimableDelivery,
+} from "@showzy/core";
+import { defineActionContract } from "@showzy/core/contract";
+import { CoreInvariantError } from "@showzy/core/errors";
 import { pino } from "pino";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
-import { createWorkerLoop, type TickResult } from "./loop.js";
+import {
+  consumerEventKey,
+  createWorkerLoop,
+  indexSubscriptionsByConsumerEvent,
+  type TickResult,
+} from "./loop.js";
 
 const silent = pino({ enabled: false });
 
@@ -76,6 +90,7 @@ describe("createWorkerLoop", () => {
     const delivery: ClaimableDelivery = {
       consumer: "fixture.consumer",
       eventId: "11111111-1111-4111-8111-111111111111",
+      eventName: "fixture.happened",
     };
     let release: ((outcome: { status: "processed" }) => void) | undefined;
     let executing = 0;
@@ -128,6 +143,7 @@ describe("createWorkerLoop", () => {
           {
             consumer: "fixture.consumer",
             eventId: "11111111-1111-4111-8111-111111111111",
+            eventName: "fixture.happened",
           },
         ]),
       execute: () => {
@@ -140,5 +156,80 @@ describe("createWorkerLoop", () => {
     await loop.stop();
     expect(await loop.tick()).toEqual(emptyTick());
     expect(executed).toBe(0);
+  });
+});
+
+const placed = defineEvent({
+  name: "loopFixture.placed",
+  version: 1,
+  scope: "tenant",
+  payload: z.object({ orderId: z.uuid() }),
+});
+
+const confirmed = defineEvent({
+  name: "loopFixture.confirmed",
+  version: 1,
+  scope: "tenant",
+  payload: z.object({ orderId: z.uuid() }),
+});
+
+const upsertAction = implementAction(
+  defineActionContract({
+    name: "loopFixtureChat.upsertCard",
+    description: "Same system action bound to two events.",
+    principal: "system",
+    systemScope: "tenant",
+    transport: "internal",
+    aiExposure: "internal",
+    input: eventEnvelopeSchema(z.object({ orderId: z.uuid() })),
+    output: z.object({ ok: z.boolean() }),
+    permissions: [],
+    risk: "write",
+    requiresConfirmation: false,
+    idempotent: true,
+    emits: [],
+    atomicCalls: [],
+    atomicCallers: [],
+    audit: true,
+    timeout: 5_000,
+  }),
+  {
+    handler: () => Promise.resolve({ ok: true }),
+    auditTarget: () => ({ type: "order-card", id: "fixture" }),
+  },
+);
+
+const placedBinding = defineEventHandler({
+  event: placed,
+  consumer: "loopFixtureChat.card-updater",
+  action: upsertAction,
+});
+
+const confirmedBinding = defineEventHandler({
+  event: confirmed,
+  consumer: "loopFixtureChat.card-updater",
+  action: upsertAction,
+});
+
+describe("indexSubscriptionsByConsumerEvent (core.md §6)", () => {
+  it("keeps two same-consumer bindings when their events differ", () => {
+    const indexed = indexSubscriptionsByConsumerEvent([
+      placedBinding,
+      confirmedBinding,
+    ]);
+    expect(indexed.size).toBe(2);
+    expect(
+      indexed.get(consumerEventKey(placedBinding.consumer, placed.name)),
+    ).toBe(placedBinding);
+    expect(
+      indexed.get(consumerEventKey(confirmedBinding.consumer, confirmed.name)),
+    ).toBe(confirmedBinding);
+    expect(indexed.get(placedBinding.consumer)).toBeUndefined();
+  });
+
+  it("fails closed on a duplicate (consumer, event) binding", () => {
+    expect(() =>
+      indexSubscriptionsByConsumerEvent([placedBinding, placedBinding]),
+    ).toThrow(CoreInvariantError);
   });
 });

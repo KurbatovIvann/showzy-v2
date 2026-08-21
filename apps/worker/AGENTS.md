@@ -16,7 +16,8 @@ the loops, LISTEN/NOTIFY wakeup, polling fallback, and graceful drain.
   LISTENs on `domain_events`, starts the loop.
 - `src/loop.ts` — `createOutboxWorker` / `createWorkerLoop`: one tick
   dispatches then executes due deliveries; shutdown waits for in-flight
-  work and does not claim further.
+  work and does not claim further. Executor lookup is keyed by
+  `(consumer, eventName)` so one consumer id may bind multiple events.
 - `src/listen.ts` — dedicated `pg.Client` for `LISTEN domain_events`.
   A dropped listen connection reconnects with backoff, logs recovery, and
   emits `outbox listen down, poll-only` while degraded; the 1s poll is

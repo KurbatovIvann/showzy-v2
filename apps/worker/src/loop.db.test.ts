@@ -1,7 +1,8 @@
 /**
  * Worker integration (fnd-T27): emit → dispatch → consumer processed;
  * LISTEN wakeup vs polling fallback; expired-claim reclaim exactly once;
- * idempotency cleanup removes expired keys only.
+ * one consumer id delivering two events (SHO-95); idempotency cleanup
+ * removes expired keys only.
  */
 import { randomUUID } from "node:crypto";
 
@@ -11,9 +12,11 @@ import {
   defineEventHandler,
   dispatchOutboxBatch,
   eventEnvelopeSchema,
+  executeDelivery,
   implementAction,
 } from "@showzy/core";
 import { defineActionContract } from "@showzy/core/contract";
+import { CoreInvariantError } from "@showzy/core/errors";
 import { createTestKit, type TestKit } from "@showzy/core/testing";
 import { domainEvents, eventDeliveries, idempotencyKeys } from "@showzy/db";
 import { and, eq } from "drizzle-orm";
@@ -29,6 +32,13 @@ const silent = pino({ enabled: false });
 
 const orderPlaced = defineEvent({
   name: "workerFixture.orderPlaced",
+  version: 1,
+  scope: "tenant",
+  payload: z.object({ orderId: z.uuid() }),
+});
+
+const orderConfirmed = defineEvent({
+  name: "workerFixture.orderConfirmed",
   version: 1,
   scope: "tenant",
   payload: z.object({ orderId: z.uuid() }),
@@ -56,6 +66,37 @@ const placeAction = implementAction(
   {
     handler: (input, ctx) => {
       ctx.emit(orderPlaced, {
+        aggregate: { type: "order", id: input.orderId },
+        payload: { orderId: input.orderId },
+      });
+      return Promise.resolve({ ok: true });
+    },
+    auditTarget: () => ({ type: "order", id: "fixture" }),
+  },
+);
+
+const confirmAction = implementAction(
+  defineActionContract({
+    name: "workerFixture.confirm",
+    description: "Staff fixture emitting an order-confirmed event.",
+    principal: "staff",
+    transport: "internal",
+    aiExposure: "internal",
+    input: z.object({ orderId: z.uuid() }),
+    output: z.object({ ok: z.boolean() }),
+    permissions: ["workerFixture:write"],
+    risk: "write",
+    requiresConfirmation: false,
+    idempotent: false,
+    emits: ["workerFixture.orderConfirmed"],
+    atomicCalls: [],
+    atomicCallers: [],
+    audit: true,
+    timeout: 5_000,
+  }),
+  {
+    handler: (input, ctx) => {
+      ctx.emit(orderConfirmed, {
         aggregate: { type: "order", id: input.orderId },
         payload: { orderId: input.orderId },
       });
@@ -98,6 +139,12 @@ const upsertCardAction = implementAction(
 
 const cardSubscription = defineEventHandler({
   event: orderPlaced,
+  consumer: "workerFixtureChat.card-updater",
+  action: upsertCardAction,
+});
+
+const confirmedCardSubscription = defineEventHandler({
+  event: orderConfirmed,
   consumer: "workerFixtureChat.card-updater",
   action: upsertCardAction,
 });
@@ -149,6 +196,20 @@ async function deliveryStatus(eventId: string): Promise<string | undefined> {
 async function emitOrder(): Promise<{ eventId: string }> {
   const orderId = randomUUID();
   await kit.invoke(placeAction, { orderId });
+  const events = await kit.db.runtime.db
+    .select({ id: domainEvents.id })
+    .from(domainEvents)
+    .where(eq(domainEvents.aggregateId, orderId));
+  const eventId = events[0]?.id;
+  if (eventId === undefined || events.length !== 1) {
+    throw new Error("expected exactly one emitted outbox row");
+  }
+  return { eventId };
+}
+
+async function emitConfirmedOrder(): Promise<{ eventId: string }> {
+  const orderId = randomUUID();
+  await kit.invoke(confirmAction, { orderId });
   const events = await kit.db.runtime.db
     .select({ id: domainEvents.id })
     .from(domainEvents)
@@ -257,6 +318,63 @@ describe("apps/worker outbox loop (core.md §6)", () => {
     expect(await worker.tick()).toMatchObject({ processed: 0 });
     expect(processedEventIds).toEqual([eventId]);
     await worker.stop();
+  });
+
+  it("delivers two events to one consumer id through worker lookup", async () => {
+    processedEventIds.length = 0;
+    const worker = createOutboxWorker({
+      db: kit.db.runtime.db,
+      pipeline: kit.pipeline,
+      subscriptions: [cardSubscription, confirmedCardSubscription],
+      workerId: "worker-multi-event",
+      logger: silent,
+      pollIntervalMs: 50,
+      cleanupIntervalMs: 60_000,
+    });
+    await worker.start();
+    try {
+      const placed = await emitOrder();
+      const confirmed = await emitConfirmedOrder();
+      await waitUntil(async () => {
+        const placedStatus = await deliveryStatus(placed.eventId);
+        const confirmedStatus = await deliveryStatus(confirmed.eventId);
+        return placedStatus === "processed" && confirmedStatus === "processed";
+      });
+      expect(processedEventIds).toEqual(
+        expect.arrayContaining([placed.eventId, confirmed.eventId]),
+      );
+      expect(processedEventIds).toHaveLength(2);
+
+      expect(
+        await executeDelivery(kit.pipeline, {
+          subscription: cardSubscription,
+          eventId: placed.eventId,
+          claimedBy: "worker-redelivery",
+        }),
+      ).toEqual({ status: "alreadyProcessed" });
+      expect(
+        await executeDelivery(kit.pipeline, {
+          subscription: confirmedCardSubscription,
+          eventId: confirmed.eventId,
+          claimedBy: "worker-redelivery",
+        }),
+      ).toEqual({ status: "alreadyProcessed" });
+      expect(processedEventIds).toHaveLength(2);
+    } finally {
+      await worker.stop();
+    }
+  });
+
+  it("refuses to compose two bindings that share consumer and event", () => {
+    expect(() =>
+      createOutboxWorker({
+        db: kit.db.runtime.db,
+        pipeline: kit.pipeline,
+        subscriptions: [cardSubscription, cardSubscription],
+        workerId: "worker-duplicate",
+        logger: silent,
+      }),
+    ).toThrow(CoreInvariantError);
   });
 
   it("cleanup removes expired idempotency keys only", async () => {

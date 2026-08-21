@@ -189,6 +189,12 @@ export type DeliveryOutcome =
 export interface ClaimableDelivery {
   readonly consumer: string;
   readonly eventId: string;
+  /**
+   * Outbox event name (`domain_events.name`). The worker executor keys
+   * subscriptions by `(consumer, eventName)` so one consumer id may bind
+   * multiple events without querying foundation tables (core.md §6).
+   */
+  readonly eventName: string;
 }
 
 /**
@@ -197,7 +203,9 @@ export interface ClaimableDelivery {
  * same row, while the short claim transaction below chooses one owner.
  *
  * Keeping discovery in core means the fnd-T27 worker loop never queries
- * foundation tables directly.
+ * foundation tables directly. Each row includes `eventName` so the worker
+ * can select the matching `EventSubscription` when one consumer binds
+ * more than one event.
  */
 export async function findClaimableDeliveries(
   deps: Pick<ActionPipelineDeps, "db">,
@@ -215,6 +223,7 @@ export async function findClaimableDeliveries(
   const consumerConditions = options.subscriptions.map((subscription) =>
     and(
       eq(eventDeliveries.consumer, subscription.consumer),
+      eq(domainEvents.name, subscription.event.name),
       or(
         and(
           eq(eventDeliveries.status, "pending"),
@@ -250,8 +259,10 @@ export async function findClaimableDeliveries(
       .select({
         consumer: eventDeliveries.consumer,
         eventId: eventDeliveries.eventId,
+        eventName: domainEvents.name,
       })
       .from(eventDeliveries)
+      .innerJoin(domainEvents, eq(eventDeliveries.eventId, domainEvents.id))
       .where(predicate)
       .orderBy(asc(eventDeliveries.nextAttemptAt), asc(eventDeliveries.eventId))
       .limit(options.batchSize ?? DEFAULT_DELIVERY_BATCH_SIZE),
