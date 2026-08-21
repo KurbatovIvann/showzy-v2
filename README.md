@@ -8,9 +8,9 @@ under the constitution (blueprint + ADRs) and the feature loop (ADR-0023).
 
 ## Status
 
-**Phase 0 — foundation** (in progress) plus parallel **Experience Foundation**.
-No application code yet; the repository currently contains the architecture
-documents, agent rules, design process, and v1 reference materials.
+**Phase 0 foundation is on main** — action runtime, contract, API/worker, Expo shell.
+**Phase 1 golden backend slices have merged** — price resolution, staff create/confirm, order-card projection.
+**Mobile** has auth and the contract query runtime; product panel screens wait on the UX gate.
 
 ## Documents
 
