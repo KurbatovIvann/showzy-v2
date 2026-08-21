@@ -17,6 +17,12 @@
  */
 import { getProductOrderFacts, getProductPricingFacts } from "@showzy/catalog";
 import { catalogSuiteCoverage } from "@showzy/catalog/suite-coverage";
+import {
+  getOrderCard,
+  orderCardUpdaterSubscriptions,
+  upsertOrderCard,
+} from "@showzy/chat";
+import { chatSuiteCoverage } from "@showzy/chat/suite-coverage";
 import { getCustomerPricingFacts } from "@showzy/customers";
 import { customersSuiteCoverage } from "@showzy/customers/suite-coverage";
 import {
@@ -51,6 +57,7 @@ import type { z } from "zod";
  */
 const moduleSuiteCoverage: readonly SuiteCoverageManifest[] = [
   catalogSuiteCoverage,
+  chatSuiteCoverage,
   customersSuiteCoverage,
   ordersSuiteCoverage,
   pricingSuiteCoverage,
@@ -83,6 +90,7 @@ const readModelGrants: readonly ReadModelGrantRef[] = [
 
 const schemaImports: readonly SchemaImportRef[] = [
   { importer: "catalog", schemaOwner: "catalog" },
+  { importer: "chat", schemaOwner: "chat" },
   { importer: "customers", schemaOwner: "customers" },
   { importer: "orders", schemaOwner: "orders" },
   { importer: "pricing", schemaOwner: "pricing" },
@@ -130,6 +138,8 @@ export function createActionRegistry(): ActionRegistry {
   const registry = new ActionRegistry();
   registerAction(registry, getProductOrderFacts);
   registerAction(registry, getProductPricingFacts);
+  registerAction(registry, getOrderCard);
+  registerAction(registry, upsertOrderCard);
   registerAction(registry, getCustomerPricingFacts);
   registerAction(registry, createOrder);
   registerAction(registry, confirmOrder);
@@ -146,9 +156,7 @@ export function buildContractCheckInput(): ContractCheckInput {
   return {
     registry: createActionRegistry(),
     events,
-    subscriptions: eventSubscriptionRefs([
-      // Module tasks append `defineEventHandler` bindings.
-    ]),
+    subscriptions: eventSubscriptionRefs([...orderCardUpdaterSubscriptions]),
     callEdges,
     projectionGrants,
     readModelGrants,

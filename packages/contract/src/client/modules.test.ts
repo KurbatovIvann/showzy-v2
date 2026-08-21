@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { getOrderCardContract } from "@showzy/chat/contract";
 import {
   confirmOrderContract,
   createOrderContract,
@@ -10,8 +11,11 @@ import { resolveProductPricesContract } from "@showzy/pricing/contract";
 import { contractModules, contractRouter } from "./modules.js";
 
 describe("client composition", () => {
-  it("exposes staff client orders and pricing actions and no internal facts actions", () => {
+  it("exposes staff client chat, orders, and pricing actions and no internal facts actions", () => {
     expect(contractModules).toEqual({
+      chat: {
+        getOrderCard: getOrderCardContract,
+      },
       orders: {
         create: createOrderContract,
         confirm: confirmOrderContract,
@@ -21,6 +25,7 @@ describe("client composition", () => {
         resolveProductPrices: resolveProductPricesContract,
       },
     });
+    expect(contractRouter.chat.getOrderCard).toBeDefined();
     expect(contractRouter.orders.create).toBeDefined();
     expect(contractRouter.orders.confirm).toBeDefined();
     expect(contractRouter.orders.get).toBeDefined();

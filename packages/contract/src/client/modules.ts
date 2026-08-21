@@ -11,6 +11,7 @@
  * this record matches the boot registry: a registered client action
  * missing here, or an entry here that is not registered, fails boot.
  */
+import { getOrderCardContract } from "@showzy/chat/contract";
 import {
   confirmOrderContract,
   createOrderContract,
@@ -24,6 +25,9 @@ import {
 } from "./contract-router.js";
 
 export const contractModules = {
+  chat: {
+    getOrderCard: getOrderCardContract,
+  },
   orders: {
     create: createOrderContract,
     confirm: confirmOrderContract,

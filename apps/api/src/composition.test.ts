@@ -7,6 +7,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { catalogSuiteCoverage } from "@showzy/catalog/suite-coverage";
+import { chatSuiteCoverage } from "@showzy/chat/suite-coverage";
 import { customersSuiteCoverage } from "@showzy/customers/suite-coverage";
 import { ordersSuiteCoverage } from "@showzy/orders/suite-coverage";
 import { pricingSuiteCoverage } from "@showzy/pricing/suite-coverage";
@@ -60,6 +61,7 @@ describe("composition root identity", () => {
     expect(input.suiteCoverage).toEqual(
       mergeSuiteCoverage([
         catalogSuiteCoverage,
+        chatSuiteCoverage,
         customersSuiteCoverage,
         ordersSuiteCoverage,
         pricingSuiteCoverage,
