@@ -461,6 +461,28 @@ describe("contract check — subscription bindings (core.md §6)", () => {
     expect(problems).toEqual([expect.stringContaining("duplicate binding")]);
   });
 
+  it("accepts one consumer bound to two events", () => {
+    const registry = buildRegistry(validConsumerAction);
+    const result = runContractCheck(
+      checkInput(registry, {
+        events: [orderCreated, { name: "orders.confirmed", scope: "tenant" }],
+        subscriptions: [
+          {
+            event: "orders.created",
+            consumer: "chat.order-card-updater",
+            action: "chat.upsertOrderCard",
+          },
+          {
+            event: "orders.confirmed",
+            consumer: "chat.order-card-updater",
+            action: "chat.upsertOrderCard",
+          },
+        ],
+      }),
+    );
+    expect(result.problems).toEqual([]);
+  });
+
   it("rejects a subscription to an undefined event", () => {
     const registry = buildRegistry(validConsumerAction);
     const problems = problemsOf(

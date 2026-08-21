@@ -323,6 +323,12 @@ const cardSubscription = defineEventHandler({
   consumer: "deliveryFixtureChat.card-updater",
   action: upsertCardAction,
 });
+/** Same consumer as `cardSubscription`, different event — SHO-95 routing. */
+const notedCardSubscription = defineEventHandler({
+  event: orderNoted,
+  consumer: "deliveryFixtureChat.card-updater",
+  action: upsertCardAction,
+});
 const billingSubscription = defineEventHandler({
   event: orderPlaced,
   consumer: "deliveryFixtureBilling.order-registrar",
@@ -380,6 +386,14 @@ function requestMeta(): PipelineRequestMeta {
     requestId: randomUUID(),
     correlationId: randomUUID(),
     channel: "ui",
+  };
+}
+
+function claimableOf(subscription: typeof cardSubscription, eventId: string) {
+  return {
+    consumer: subscription.consumer,
+    eventId,
+    eventName: subscription.event.name,
   };
 }
 
@@ -833,6 +847,61 @@ describe("executeDelivery — the delivery entrypoint (core.md §6)", () => {
       expect(outcome.error).toBeInstanceOf(CoreInvariantError);
     }
   });
+
+  it("fails closed when the executor routes a delivery to the wrong event binding", async () => {
+    const { eventId } = await placeOrder(randomUUID());
+    await dispatch();
+
+    const outcome = await executeDelivery(deps(), {
+      subscription: notedCardSubscription,
+      eventId,
+      claimedBy: testWorker,
+    });
+
+    expect(outcome.status).toBe("failed");
+    if (outcome.status === "failed") {
+      expect(outcome.error).toBeInstanceOf(CoreInvariantError);
+      expect(outcome.error.message).toContain("executor composition bug");
+      expect(outcome.retryAt).toBeNull();
+    }
+    expect(
+      (await deliveryRow(cardSubscription.consumer, eventId))?.status,
+    ).toBe("pending");
+  });
+});
+
+describe("findClaimableDeliveries (core.md §6)", () => {
+  it("includes the outbox event name so one consumer can bind multiple events", async () => {
+    const placed = await placeOrder(randomUUID(), "placed");
+    const noted = await placeOrder(randomUUID(), "noted");
+    await dispatchOutboxBatch(
+      { db: database.runtime.db },
+      {
+        subscriptions: [cardSubscription, notedCardSubscription],
+        claimedBy: "discovery-dispatcher",
+      },
+    );
+
+    const both = await findClaimableDeliveries(
+      { db: database.runtime.db },
+      { subscriptions: [cardSubscription, notedCardSubscription] },
+    );
+    expect(both).toContainEqual(claimableOf(cardSubscription, placed.eventId));
+    expect(both).toContainEqual(
+      claimableOf(notedCardSubscription, noted.eventId),
+    );
+
+    const placedOnly = await findClaimableDeliveries(
+      { db: database.runtime.db },
+      { subscriptions: [cardSubscription] },
+    );
+    expect(placedOnly).toContainEqual(
+      claimableOf(cardSubscription, placed.eventId),
+    );
+    expect(placedOnly).not.toContainEqual(
+      claimableOf(notedCardSubscription, noted.eventId),
+    );
+  });
 });
 
 describe("delivery retry, dead-letter, claim recovery, and replay (core.md §6)", () => {
@@ -882,20 +951,14 @@ describe("delivery retry, dead-letter, claim recovery, and replay (core.md §6)"
             { db: database.runtime.db },
             { subscriptions: [cardSubscription], now: () => now },
           ),
-        ).not.toContainEqual({
-          consumer: cardSubscription.consumer,
-          eventId,
-        });
+        ).not.toContainEqual(claimableOf(cardSubscription, eventId));
         now += expectedDelay;
         expect(
           await findClaimableDeliveries(
             { db: database.runtime.db },
             { subscriptions: [cardSubscription], now: () => now },
           ),
-        ).toContainEqual({
-          consumer: cardSubscription.consumer,
-          eventId,
-        });
+        ).toContainEqual(claimableOf(cardSubscription, eventId));
       } else {
         expect(row?.status).toBe("dead");
         expect(row?.nextAttemptAt).toBeNull();
@@ -907,10 +970,7 @@ describe("delivery retry, dead-letter, claim recovery, and replay (core.md §6)"
             { db: database.runtime.db },
             { subscriptions: [cardSubscription], now: () => now },
           ),
-        ).not.toContainEqual({
-          consumer: cardSubscription.consumer,
-          eventId,
-        });
+        ).not.toContainEqual(claimableOf(cardSubscription, eventId));
       }
     }
     failCardFor.delete(eventId);
@@ -1027,10 +1087,7 @@ describe("delivery retry, dead-letter, claim recovery, and replay (core.md §6)"
         { db: database.runtime.db },
         { subscriptions: [cardSubscription], now: () => now },
       ),
-    ).not.toContainEqual({
-      consumer: cardSubscription.consumer,
-      eventId,
-    });
+    ).not.toContainEqual(claimableOf(cardSubscription, eventId));
     expect(
       (await deliveryRow("deliveryFixtureChat.card-updater", eventId))
         ?.claimedBy,
@@ -1042,10 +1099,7 @@ describe("delivery retry, dead-letter, claim recovery, and replay (core.md §6)"
         { db: database.runtime.db },
         { subscriptions: [cardSubscription], now: () => now },
       ),
-    ).toContainEqual({
-      consumer: cardSubscription.consumer,
-      eventId,
-    });
+    ).toContainEqual(claimableOf(cardSubscription, eventId));
     expect(
       await executeDelivery(deps({ now: () => now }), {
         subscription: cardSubscription,

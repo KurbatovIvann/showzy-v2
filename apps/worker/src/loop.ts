@@ -14,6 +14,7 @@ import {
   type EventSubscription,
   type OutboxDispatchResult,
 } from "@showzy/core";
+import { CoreInvariantError } from "@showzy/core/errors";
 import type { Database } from "@showzy/db";
 import type { Logger } from "pino";
 
@@ -252,16 +253,46 @@ export interface CreateOutboxWorkerOptions {
 }
 
 /**
+ * Worker executor lookup key. One consumer id may bind multiple events
+ * (duplicate is only `(consumer, event)`); indexing by consumer alone
+ * overwrites the first binding (core.md §6, SHO-95).
+ */
+export function consumerEventKey(consumer: string, eventName: string): string {
+  return `${consumer}\u0000${eventName}`;
+}
+
+/**
+ * Indexes subscriptions by `(consumer, eventName)`. Duplicate keys are a
+ * composition bug — the contract check already rejects them; failing here
+ * keeps a mis-composed worker from silently dropping a binding.
+ */
+export function indexSubscriptionsByConsumerEvent(
+  subscriptions: readonly EventSubscription[],
+): ReadonlyMap<string, EventSubscription> {
+  const indexed = new Map<string, EventSubscription>();
+  for (const subscription of subscriptions) {
+    const key = consumerEventKey(
+      subscription.consumer,
+      subscription.event.name,
+    );
+    if (indexed.has(key)) {
+      throw new CoreInvariantError(
+        `duplicate event subscription for consumer "${subscription.consumer}" of "${subscription.event.name}" — executor composition bug`,
+      );
+    }
+    indexed.set(key, subscription);
+  }
+  return indexed;
+}
+
+/**
  * Binds the core dispatcher/executor/cleanup libraries to the process loop.
  */
 export function createOutboxWorker(
   options: CreateOutboxWorkerOptions,
 ): WorkerLoop {
-  const byConsumer = new Map(
-    options.subscriptions.map((subscription) => [
-      subscription.consumer,
-      subscription,
-    ]),
+  const byConsumerAndEvent = indexSubscriptionsByConsumerEvent(
+    options.subscriptions,
   );
   const clock = options.now !== undefined ? { now: options.now } : {};
   const listen = options.listen !== undefined ? { listen: options.listen } : {};
@@ -286,13 +317,16 @@ export function createOutboxWorker(
         { subscriptions: options.subscriptions, ...clock },
       ),
     execute: (delivery) => {
-      const subscription = byConsumer.get(delivery.consumer);
+      const subscription = byConsumerAndEvent.get(
+        consumerEventKey(delivery.consumer, delivery.eventName),
+      );
       if (subscription === undefined) {
         options.logger.error(
           {
             worker_id: options.workerId,
             consumer: delivery.consumer,
             event_id: delivery.eventId,
+            event_name: delivery.eventName,
           },
           "no subscription for claimable delivery",
         );

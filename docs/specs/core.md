@@ -391,7 +391,9 @@ Envelope (stored in `domain_events`, spec'd in db.md):
 - **Subscriptions**:
   `defineEventHandler({ event, consumer, action })` binds an event to a
   consuming module action; it does not accept arbitrary DB logic.
-  `consumer` is stable (`chat.order-card-updater`). The target action must be
+  `consumer` is stable (`chat.order-card-updater`). One consumer id may
+  bind multiple events; the duplicate key is `(consumer, event)`. The
+  target action must be
   transport-internal, AI-internal, system-principal, write/idempotent, and
   accept the event envelope as input. Core invokes it with a system context
   scoped to the event's `companyId`; a null company is allowed only for an
@@ -399,7 +401,11 @@ Envelope (stored in `domain_events`, spec'd in db.md):
 - **Delivery**: at-least-once. The dispatcher materializes one
   `event_deliveries` row per registered consumer and marks the outbox event
   dispatched in the same transaction. **Consumer dedup** is mandatory:
-  `(consumer, eventId)` is unique. The dispatcher runs the bound system
+  `(consumer, eventId)` is unique (the delivery PK and claim key).
+  `findClaimableDeliveries` returns the outbox event name so the worker
+  executor selects the matching `EventSubscription` by
+  `(consumer, eventName)` without querying foundation tables. The
+  dispatcher runs the bound system
   action through the normal action pipeline in the delivery transaction
   (special core entrypoint, not `ctx.call`); transition to `processed`,
   action effects, audit, and emitted events commit together. A redelivery is
@@ -705,6 +711,7 @@ does not apply — fails the check.
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-21 | §6: one consumer id may bind multiple events; `findClaimableDeliveries` returns the outbox event name so the worker executor looks up `(consumer, eventName)` | SHO-95: `Map(consumer → subscription)` dropped the second binding of `chat.order-card-updater` | SHO-95 |
 | 2026-08-19 | `ShareCtx.tokenHash` and share `resolveTarget` return the stored hash | fnd-T11B: `share:<tokenHash>` is not representable without the hash on the context; the idempotency-key test proved the gap | scaffold (fnd-T11B) |
 | 2026-08-19 | Seventh principal `share` (ADR-0022): `ShareCtx`, contract-check subset, pipeline/idempotency keys, audit/event actor mapping, 30/min IP-HMAC fail-closed, `shareIsolationSuite` | Unauthenticated capability-token writes for owner-first dual-sign without weakening `public` | owner via `/rework-spec core.md` |
 | 2026-08-19 | Status: Active; Active surface: entire file | Ledger catch-up: first merged packages/core (fnd-T8…T28), not a new freeze decision | owner via spec-process-after-phase-0 |

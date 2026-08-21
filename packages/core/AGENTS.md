@@ -336,7 +336,9 @@ action })` binds one event to one consuming action under a stable
   with a system context scoped by the event's stored `companyId`;
   `causationId` is the delivered event's id and each attempt gets a
   fresh `requestId`. `findClaimableDeliveries` is the bounded discovery
-  read used by the future worker loop; ownership remains authoritative in
+  read used by the worker loop and includes the outbox event name so the
+  executor can select among multiple events bound to one consumer id;
+  ownership remains authoritative in
   `executeDelivery`, so concurrent workers may safely discover the same row.
 - `replay-dead-deliveries.ts` resets matching dead rows to immediately due
   pending rows with a fresh five-attempt budget. The operation is
