@@ -1,15 +1,20 @@
 # V1 mobile → V2 product conflict register
 
-> Status: Owner-approved decisions, 2026-08-17.
-> Authority: ADR-0019 and ADR-0020.
-> Source: `E:\showzy\apps\mobile` (read-only).
-> Implementation craft (hardcoded tokens, a11y slips) and undecided UX
-> nits live in [`v1-port-findings.md`](v1-port-findings.md), not here.
+> Status: Owner-approved **product** dispositions, 2026-08-17.
+> Visuals and IA: [ADR-0024](../../adr/0024-magic-patterns-canonical-ux.md)
+> and [`mp-to-mobile.md`](mp-to-mobile.md). This file does not set layout,
+> color, navigation, or motion.
+> Domain authority: ADR-0020 and the Linear feature card.
+> Source of the original inventory: `E:\showzy\apps\mobile` (read-only).
+> Archived V1 port craft notes:
+> [`docs/archive/design/mapping/v1-port-findings.md`](../../archive/design/mapping/v1-port-findings.md).
 
 ## Dispositions
 
-- **Preserve** — V1 visual and behavioral contract remains canonical.
-- **Adapt** — preserve the visible UX while changing logic for V2.
+- **Preserve** — keep the V1 **product** behavior (what the user can do).
+  Presentation follows the Magic Patterns canvas.
+- **Adapt** — keep the product outcome; change the V2 mechanism. Visuals
+  still follow the canvas.
 - **Review** — owner approved the boundary but research/spec work remains.
 - **Drop** — remove the behavior and its placeholder.
 
@@ -20,11 +25,11 @@
 | Anonymous browse | Adapt | Published discovery/company/product/comments, public price, and counters are readable |
 | Auth-required actions | Adapt | Social, cart, checkout, chat, and orders require auth; auth sheet resumes the requested action |
 | Auth methods | Adapt | Phone/email OTP everywhere; Google on Android only |
-| Buyer/seller onboarding | Adapt | Preserve V1 flow; submit through account/company contracts |
+| Buyer/seller onboarding | Adapt | Keep the onboarding steps; submit through account/company contracts; presentation follows the canvas |
 | Account profile | Preserve | Avatar, name/username, verified contacts, language/theme, logout |
 | Account deletion | Adapt | Add in-app re-auth, consequences, confirmation, and grace period |
 | Multiple companies | Adapt | An account may own/join several companies but selects one active company |
-| Context switcher | Review | Keep the V1 Profile/More design family; research the exact interaction |
+| Context switcher | Review | Research the interaction; presentation follows the canvas, not a V1 chrome copy |
 | Company lifecycle | Adapt | Create, edit, publish/unpublish, and archive from mobile |
 | Deep links | Adapt | Design all target types now; full web fallback testing arrives with web |
 
@@ -38,7 +43,7 @@
 | Following tab | Preserve | Private own-user followed companies and liked products |
 | Public social identity | Drop | No follower/liker lists, user navigation, profiles, or user search |
 | Existing counters | Preserve | Company cards: followers/products; profile: followers; products: likes/comments; account: orders/following |
-| Search UX | Adapt | Preserve V1 controls; implement FTS+trigram |
+| Search UX | Adapt | Keep filter/sort capabilities; implement FTS+trigram; presentation follows the canvas |
 | Popular sort | Adapt | Likes, comments, confirmed orders, and time decay |
 | Popular weights/abuse | Review | Define weighting, rate limits, and anti-manipulation in search spec |
 | Location | Adapt | City and area filters; no GPS near-me or radius |
@@ -93,11 +98,11 @@
 | Integrations | Adapt | Nova Poshta active; approved future integrations may be disabled |
 | Meta/Instagram messaging | Drop | No channel, card, placeholder, or backend |
 | Notifications | Adapt | Generic event/outbox system; launch with chat/order/document-signing families |
-| AI assistant | Adapt | Global text overlay with current context; same actions and safeguards as classic UI |
+| AI assistant | Adapt | Center tab that opens a confirmation sheet (ADR-0024); same actions and safeguards as classic UI |
 | Languages | Preserve | Ukrainian and English |
-| Themes | Preserve | Light, dark, and system |
-| Colors | Adapt | Port V1 palette first; any rebrand is a separate decision |
-| Release | Adapt | Public launch requires full agreed parity; incomplete slices use internal flags |
+| Themes | Adapt | Light from the canvas first; dark is a later role-by-role token map |
+| Colors | Adapt | Canvas tokens in Unistyles; do not port the V1 palette as visual law |
+| Release | Adapt | Incomplete slices use internal flags; visuals accept against the canvas, not V1 pixel parity |
 
 ## Research queue
 

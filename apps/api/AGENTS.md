@@ -69,5 +69,6 @@ pnpm --filter @showzy/api auth:check      # CI: regenerate + fail on diff
   consumers or the AI mount send a distinct channel.
 - Residual accepted risk: phone OTP codes are plaintext inside the TTL'd
   secondary store for their 5-minute lifetime (the phone plugin has no
-  `storeOTP`; they never reach Postgres) — see docs/plans/foundation.md
-  "Reported deviations" before touching the phone plugin config.
+  `storeOTP`; they never reach Postgres) — see
+  `docs/archive/plans/foundation.md` "Reported deviations" before
+  touching the phone plugin config.

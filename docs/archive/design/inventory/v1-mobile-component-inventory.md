@@ -1,6 +1,11 @@
 # V1 mobile component inventory
 
-> Status: Draft inventory for ADR-0019 rebaseline.
+> **Archived 2026-08-21.** ADR-0019 inventory. **Not visual acceptance.**
+> Shared primitives are built from the Magic Patterns canvas into
+> `apps/mobile/src/components/ui/` (ADR-0024). This file is a historical
+> V1 component map.
+
+> Status: Archived inventory from the ADR-0019 rebaseline.
 > Source roots are relative to `E:\showzy\apps\mobile\src`.
 
 ## Inventory summary

@@ -1,7 +1,9 @@
 # V1 mobile UX → V2 capability matrix
 
-> Status: Draft input to spec rework.
-> Action names are candidates until the owning spec is approved.
+> Status: Historical domain map. **Not visual acceptance.**
+> Visuals and IA come from the Magic Patterns canvas (ADR-0024).
+> Action names are candidates until the owning feature card / contract
+> is approved.
 
 Every client operation uses the action registry. IDs select resources for
 verified resolution; they never grant company access.

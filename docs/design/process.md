@@ -120,9 +120,12 @@ confirmation, or QES.
 docs/design/
 ├── process.md
 ├── mapping/
-│   ├── mp-to-mobile.md          ← operating port rule (ADR-0024)
-│   ├── v1-mobile-port-recipe.md ← historical (ADR-0019)
-│   └── …
-├── inventory/                   ← historical V1 maps
-└── system/README.md             ← points at Expo Unistyles
+│   ├── mp-to-mobile.md                    ← operating port rule (ADR-0024)
+│   ├── v1-to-v2-conflict-register.md      ← product dispositions (not visuals)
+│   └── v1-ux-to-v2-capability-matrix.md   ← candidate actions (not visuals)
+└── system/README.md                       ← points at Expo Unistyles
+
+docs/archive/design/
+├── inventory/                 ← ADR-0019 V1 maps (not visual acceptance)
+└── mapping/v1-mobile-port-recipe.md
 ```

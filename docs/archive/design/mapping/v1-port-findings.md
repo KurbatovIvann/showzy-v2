@@ -1,9 +1,12 @@
 # V1 → V2 mobile port findings
 
-> Status: Living list. Rows are `proposed` until the owner sets a disposition.
-> Not a product conflict register — that remains
-> `[v1-to-v2-conflict-register.md](v1-to-v2-conflict-register.md)`.
-> Rule: `[v1-mobile-port-recipe.md](v1-mobile-port-recipe.md)`.
+> **Archived 2026-08-21.** Findings from the superseded ADR-0019 V1 port.
+> **Not authority.** Visual acceptance is the Magic Patterns canvas
+> ([`mp-to-mobile.md`](../../../design/mapping/mp-to-mobile.md)). Product
+> dispositions that are still useful live in
+> [`v1-to-v2-conflict-register.md`](../../../design/mapping/v1-to-v2-conflict-register.md).
+
+> Status: Archived list. Rows were `proposed` until the owner set a disposition.
 
 Add a row when a port discovers a Class B/C issue (or a Class A theme gap
 that needs a new token name). Do not silently ship Class C.

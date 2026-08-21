@@ -10,7 +10,8 @@ The Magic Patterns canvas is the prototype to read. It is not a second
 component library, and it does not need its own design-system preset.
 
 Archived greenfield contracts in `docs/archive/design/system/` and the
-ADR-0019 V1 token inventory are not visual authority.
+ADR-0019 V1 token inventory in `docs/archive/design/inventory/` are not
+visual authority.
 
 Figma is not a source of tokens or components. Do not add NativeWind to
 paste Tailwind from Magic Patterns.

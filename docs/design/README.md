@@ -1,20 +1,26 @@
 # Experience Foundation
 
-This directory holds all UX and design-system artifacts for Showzy V2.
+This directory holds UX and design-system artifacts for Showzy V2.
 
 - **Process:** [`process.md`](process.md) — stages, outputs, approval criteria,
   and the UX gate definition.
 - **Decision:** [ADR-0024](../adr/0024-magic-patterns-canonical-ux.md) — the
-  Magic Patterns canvas is the canonical V2 UX. ADR-0019 (V1 parity) is
-  superseded.
+  Magic Patterns canvas is the canonical V2 UX. ADR-0019 (V1 visual parity)
+  is superseded.
 - **Prototype:** [Magic Patterns canvas](https://www.magicpatterns.com/c/g4fsekajwwkeex3v612gvp).
 - **Design system:** Unistyles in `apps/mobile/src/theme/` and shared
   primitives in `apps/mobile/src/components/ui/`.
 - **Port rule:** [`mapping/mp-to-mobile.md`](mapping/mp-to-mobile.md) —
   inventory the canvas, classify shared vs feature, reuse or create;
   do not paste React/Tailwind.
-- **Inventory:** [`inventory/`](inventory/) — historical V1 map (domain
-  coverage and edge cases, not visual acceptance).
+- **V1 reference:** `E:\showzy\apps\mobile` is read-only domain and
+  edge-case reference. Archived V1 inventories live in
+  [`docs/archive/design/`](../archive/design/) and are not visual
+  acceptance.
+- **Domain mapping:** [`mapping/v1-to-v2-conflict-register.md`](mapping/v1-to-v2-conflict-register.md)
+  and [`mapping/v1-ux-to-v2-capability-matrix.md`](mapping/v1-ux-to-v2-capability-matrix.md)
+  record product dispositions and candidate actions. They do not set
+  layout, color, or navigation.
 
 ## Current status
 
@@ -32,8 +38,8 @@ follow the canvas.
 
 Figma is not a source of tokens or components.
 
-Archived greenfield DEFINE/SYSTEM docs in `docs/archive/design/` are not
-authority.
+Archived greenfield DEFINE/SYSTEM docs and the ADR-0019 V1 inventories in
+`docs/archive/design/` are not authority.
 
 ## Relationship to the engineering pipeline
 

@@ -1,6 +1,6 @@
 # Branch protection for `main`
 
-> Owned by fnd-T2 (`docs/plans/foundation.md`). The settings below are
+> Owned by fnd-T2 (`docs/archive/plans/foundation.md`). The settings below are
 > **enabled by the human owner** in GitHub — repository
 > `KurbatovIvann/showzy-v2` → Settings → Rules → Rulesets (preferred over
 > classic branch protection). CI job names come from

@@ -1,10 +1,14 @@
 # V1 mobile token baseline
 
-> Status: Draft inventory for ADR-0019 rebaseline.
+> **Archived 2026-08-21.** ADR-0019 token dump. **Not visual acceptance.**
+> The running theme is `apps/mobile/src/theme/`, mapped from the Magic
+> Patterns canvas (`docs/design/mapping/mp-to-mobile.md`, ADR-0024).
+
+> Status: Archived inventory from the ADR-0019 rebaseline.
 > Source: `E:\showzy\apps\mobile\src\theme`.
 
-V2 carries these tokens first. A color rebrand is a separate owner-approved
-change after parity; it must not alter spacing, hierarchy, or interaction.
+These were the V1 tokens at the 2026-08-17 audit. They are not the V2
+theme to ship.
 
 ## Color roles
 

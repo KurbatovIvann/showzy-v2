@@ -1,6 +1,11 @@
 # V1 mobile UX migration roadmap
 
-> Status: owner-approved direction. Spec-rework queues are archived; UX gate
+> **Archived 2026-08-21.** This roadmap targeted maximum V1 visual/behavior
+> parity under ADR-0019. **Not authority.** ADR-0024 superseded that:
+> visuals and IA come from the Magic Patterns canvas. V1 mobile remains
+> read-only domain/edge-case reference.
+
+> Status: archived. Spec-rework queues are archived; UX gate
 > still blocks product screens only.
 > Amended 2026-08-19: V1 theme transcribes in fnd-T48; Figma is not a gate;
 > port recipe at `docs/design/mapping/v1-mobile-port-recipe.md`.

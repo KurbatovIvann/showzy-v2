@@ -346,7 +346,7 @@ Condensed view (owner-first first; numbered expansion phases are not first-relea
 | --- | --- | --- |
 | **0. Foundation** | Monorepo, CI, Docker Compose (Postgres+Redis+MinIO), core/db/contract, better-auth, API/worker + Expo skeleton, minimal Universal/App Links, payment + feature-flag skeletons, security/operations baseline, **foundation invariants (§2.1) verified by tests** | A skeleton on which agents can work in parallel |
 | **1. Reference slices** | Merge approved minimal prerequisite schemas, then pricing resolution + a thin order → outbox → **order-card projection** (not the chat platform) | Query and transactional/event templates to copy + a proven pipeline |
-| **‖ Experience Foundation** | V1 inventory → conflict map → DEFINE IA + SYSTEM in Expo (theme/primitives) for the **panel**. Figma is not a gate. AI overlay is phase 9 | Panel UX gate passed |
+| **‖ Experience Foundation** | Magic Patterns canvas → Unistyles theme/primitives for the **panel**. V1 is domain reference, not visual acceptance (ADR-0024). Figma is not a gate. AI is the center tab | Panel UX gate passed |
 | **2. Company operating core** | `companies`, `catalog` (with variants), `customers`/groups, `invites`, `pricing` full UI + mobile **panel** screens | Company and catalog created from a phone |
 | **5a. Staff commerce** | Staff `orders.create`/`confirm`/`get`, push, no customer checkout | The owner records an order in the panel |
 | **8. Documents + QES** | `documents`, `doc-generation`, `doc-signing` + share (link/QR/print) + mobile-editing spike | Owner generates, signs, and hands over a document |
