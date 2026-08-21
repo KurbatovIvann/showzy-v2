@@ -40,18 +40,16 @@ export function contractQueryOptions<TInput, TOutput>(args: {
   readonly input: TInput;
   readonly queryFn: () => Promise<TOutput>;
   /** Live selector; mismatch must not write another tenant under this key. */
-  readonly getActiveCompany?: () => string | null;
+  readonly getActiveCompany: () => string | null;
 }) {
   return queryOptions({
     queryKey: contractQueryKey(args.actionName, args.companyId, args.input),
     queryFn: async () => {
-      if (args.getActiveCompany !== undefined) {
-        if (
-          companyQueryScope(args.getActiveCompany()) !==
-          companyQueryScope(args.companyId)
-        ) {
-          throw new StaleCompanyQueryError();
-        }
+      if (
+        companyQueryScope(args.getActiveCompany()) !==
+        companyQueryScope(args.companyId)
+      ) {
+        throw new StaleCompanyQueryError();
       }
       return args.queryFn();
     },
