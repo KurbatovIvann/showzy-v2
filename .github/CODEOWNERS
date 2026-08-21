@@ -4,6 +4,7 @@
 /packages/db/src/schema/customers.ts @KurbatovIvann
 /packages/db/src/schema/pricing.ts @KurbatovIvann
 /packages/db/src/schema/orders.ts @KurbatovIvann
+/packages/db/src/schema/chat.ts @KurbatovIvann
 /packages/db/src/schema/foundation.ts @KurbatovIvann
 /packages/db/src/schema/auth.ts @KurbatovIvann
 /packages/db/migrations/ @KurbatovIvann

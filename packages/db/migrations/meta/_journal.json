@@ -120,6 +120,20 @@
       "when": 1787256265532,
       "tag": "0016_curvy_loners",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1787290787568,
+      "tag": "0017_tense_longshot",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1787290788000,
+      "tag": "0018_order_cards_updated_at_triggers",
+      "breakpoints": true
     }
   ]
 }
