@@ -1,5 +1,5 @@
 import { createProcessLogger } from "@showzy/config";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
   OTP_EMAIL_SUBJECT,
@@ -27,6 +27,18 @@ const SMS_FLY_API_URL = "https://sms-fly.ua/api/v2/api.php";
 const FROM_EMAIL = "noreply@example.com";
 const FROM_NAME = "Шозі";
 const SENDER = "Showzy";
+
+const originalFetch = globalThis.fetch;
+
+beforeEach(() => {
+  globalThis.fetch = (): Promise<Response> => {
+    throw new Error("live vendor fetch is forbidden in these tests");
+  };
+});
+
+afterEach(() => {
+  globalThis.fetch = originalFetch;
+});
 
 type FetchCall = { url: string; init: RequestInit };
 
@@ -150,8 +162,8 @@ describe("createResendEmailTransport", () => {
   });
 
   it("throws on 4xx, 5xx, timeout, and a 200 without id", async () => {
-    const { logger } = captureLogger("resend-fail");
-    const html = "<p>secret-otp-html</p>";
+    const { logger, dump } = captureLogger("resend-fail");
+    const html = `<p>secret-otp-html-${CODE}</p>`;
 
     const fail = async (
       fetchImpl: OtpVendorFetch,
@@ -194,6 +206,12 @@ describe("createResendEmailTransport", () => {
       name: "OtpVendorSendError",
       message: "Resend returned an unsuccessful payload",
     });
+
+    const logs = dump();
+    expect(logs).not.toContain(CODE);
+    expect(logs).not.toContain(RESEND_API_KEY);
+    expect(logs).not.toContain("secret-otp-html");
+    expect(logs).not.toContain("nope");
   });
 });
 
