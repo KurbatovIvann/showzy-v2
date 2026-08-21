@@ -79,10 +79,12 @@ Enforcement (CI):
 - oRPC over HTTP mounted in Hono at `/rpc`; OpenAPI-shaped REST aliases are
   generated at `/api/v1` for external consumers (webhooks docs, future
   public API).
-- Auth: better-auth session — cookie on web, bearer token on Expo. The
-  contract client factory accepts a token provider; apps/api resolves the
-  session and hands it to the core principal factories (core.md §3). The
-  contract layer itself never interprets permissions — that is core's job.
+- Auth: better-auth session. Browser and Expo clients use cookies (Expo
+  persists them in OS secure storage via `@better-auth/expo`). The contract
+  client factory accepts a cookie provider and an optional bearer token
+  provider for non-RN callers. `apps/api` resolves the session and hands it
+  to the core principal factories (core.md §3). The contract layer itself
+  never interprets permissions — that is core's job.
 - Staff company selection: the active `companyId` travels as a dedicated
   header (`x-company-id`) that core verifies against membership — it is a
   *selector*, never an access grant (ADR-0013).
@@ -240,6 +242,7 @@ API consumers.
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-21 | Expo sessions use cookies (`@better-auth/expo`); bearer remains for non-RN callers | Align transport with the Expo integration; drop client-side bearer as the mobile path | owner |
 | 2026-08-19 | Seventh principal `share` (ADR-0022): client/OpenAPI mount, no-session dispatch, token in action input only, AI never lists share | HTTP dispatch for unauthenticated capability-token writes; core.md already amended | owner via `/rework-spec contract.md` |
 | 2026-08-19 | Status: Active; Active surface: entire file | Ledger catch-up: first merged packages/contract (fnd-T23…T25) | owner via spec-process-after-phase-0 |
 | 2026-08-19 | §3/§7: key reuse is manual via `attempt.options` (no automatic retry layer); §7: composition fixture for the first `ctx.callAtomic` callee is owed when that edge lands | Align living spec with the client (fnd-G1 A12) | scaffold (fnd-G1 A12) |

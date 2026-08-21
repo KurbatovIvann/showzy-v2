@@ -9,186 +9,169 @@ import {
 } from "react";
 import { AppState } from "react-native";
 
-import { apiUrlFromEnv } from "../api/config";
-import { createShowzyClient, type ContractClient } from "../api/client";
+import { apiUrlFromEnv, MobileConfigError } from "../api/config";
 import { authCopy, type AuthCopy } from "../i18n/auth";
 import { detectLocale } from "../i18n/locale";
-import {
-  applySessionHydrateToCompanySelector,
-  bindCompanySelectorPersistence,
-  type DevicePrefs,
-} from "../prefs/device-prefs";
-import { createPlatformDevicePrefs } from "../prefs/platform-storage";
+import { createShowzyAuthClient, type ShowzyAuthClient } from "./client";
 import { isAuthClientError, type AuthErrorKind } from "./errors";
-import { createAuthApi } from "./http";
-import { createOtpFlow, type OtpFlow } from "./otp-flow";
-import { createPlatformTokenStore } from "./secure-storage";
-import { bindSessionController } from "./session-binding";
-import {
-  createSessionController,
-  type SessionController,
-  type SessionSnapshot,
-} from "./session";
+import { isPlaceholderEmail } from "./otp/identifiers";
+import { createPlatformAuthStorage } from "./platform-storage";
 
 export type AuthStatus = "loading" | "anonymous" | "authenticated";
 
+export type AuthSessionUser = {
+  readonly userId: string;
+  readonly email: string | null;
+  readonly phoneNumber: string | null;
+};
+
 export type AuthSessionValue = {
   readonly status: AuthStatus;
-  readonly session: SessionSnapshot | null;
+  readonly session: AuthSessionUser | null;
   readonly bootError: AuthErrorKind | null;
   readonly configError: boolean;
   readonly copy: AuthCopy;
-  readonly client: ContractClient | null;
-  readonly flow: OtpFlow | null;
   readonly retryHydrate: () => Promise<void>;
   readonly signOut: () => Promise<void>;
   readonly clearDeadSession: () => Promise<void>;
-  readonly getAccessToken: () => string | null;
+  readonly getCookie: () => string;
+  readonly authClient: ShowzyAuthClient | null;
 };
 
 const AuthSessionContext = createContext<AuthSessionValue | null>(null);
 
-type AuthResources = {
-  readonly session: SessionController;
-  readonly flow: OtpFlow;
-  readonly client: ContractClient;
-  readonly prefs: DevicePrefs;
-};
+type BootState =
+  | { readonly kind: "loading" }
+  | { readonly kind: "config-error" }
+  | { readonly kind: "hydrate-error" }
+  | { readonly kind: "ready"; readonly client: ShowzyAuthClient };
 
-export function AuthSessionProvider({
+export function SessionProvider({
   children,
 }: {
   readonly children: ReactNode;
 }) {
   const copy = useMemo(() => authCopy(detectLocale()), []);
-  const [sessionUser, setSessionUser] = useState<SessionSnapshot | null>(null);
+  const [boot, setBoot] = useState<BootState>({ kind: "loading" });
   const [bootError, setBootError] = useState<AuthErrorKind | null>(null);
+  const [generation, setGeneration] = useState(0);
 
-  // Lazy singleton: the controllers are built once per mount, not re-created
-  // by re-renders (a side-effectful useMemo would be).
-  const [resources] = useState<AuthResources | null>(() => {
-    let apiUrl: string;
-    try {
-      apiUrl = apiUrlFromEnv();
-    } catch {
-      return null;
+  useEffect(() => {
+    let cancelled = false;
+    async function start(): Promise<void> {
+      setBootError(null);
+      try {
+        const baseURL = apiUrlFromEnv();
+        const storage = await createPlatformAuthStorage();
+        const client = createShowzyAuthClient({ baseURL, storage });
+        if (!cancelled) {
+          setBoot({ kind: "ready", client });
+        }
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+        if (error instanceof MobileConfigError) {
+          setBoot({ kind: "config-error" });
+          return;
+        }
+        setBootError(isAuthClientError(error) ? error.kind : "network");
+        setBoot({ kind: "hydrate-error" });
+      }
     }
-    const api = createAuthApi({ baseUrl: apiUrl });
-    const inner = createSessionController({
-      store: createPlatformTokenStore(),
-      api,
-    });
-    const prefs = createPlatformDevicePrefs();
-    const client = createShowzyClient({
-      apiUrl,
-      getAccessToken: () => inner.getAccessToken(),
-    });
-    bindCompanySelectorPersistence(client, prefs);
-    // The flow does not exist yet when the binding is created; the closure
-    // reads it after assignment below.
-    let boundFlow: OtpFlow | null = null;
-    const session = bindSessionController(inner, {
-      onUser: (user) => {
-        setSessionUser(user);
-      },
-      // Server-side revocation must not strand the user on a stale
-      // verify screen.
-      onRevoked: () => {
-        boundFlow?.reset();
-      },
-    });
-    const flow = createOtpFlow({ api, session });
-    boundFlow = flow;
-    return {
-      session,
-      flow,
-      client,
-      prefs,
+    void start();
+    return () => {
+      cancelled = true;
     };
-  });
-  const [ready, setReady] = useState(resources === null);
+  }, [generation]);
 
-  const hydrate = useCallback(async () => {
-    if (resources === null) {
-      return;
-    }
-    setBootError(null);
-    try {
-      const snapshot = await resources.session.hydrate();
-      applySessionHydrateToCompanySelector(
-        resources.client,
-        resources.prefs,
-        snapshot,
-      );
-    } catch (error) {
-      setBootError(isAuthClientError(error) ? error.kind : "network");
-    } finally {
-      setReady(true);
-    }
-  }, [resources]);
+  const retryHydrate = useCallback((): Promise<void> => {
+    setBoot({ kind: "loading" });
+    setGeneration((value) => value + 1);
+    return Promise.resolve();
+  }, []);
+
+  if (boot.kind !== "ready") {
+    const value: AuthSessionValue = {
+      status: boot.kind === "loading" ? "loading" : "anonymous",
+      session: null,
+      bootError: boot.kind === "hydrate-error" ? bootError : null,
+      configError: boot.kind === "config-error",
+      copy,
+      retryHydrate,
+      signOut: () => Promise.resolve(),
+      clearDeadSession: () => Promise.resolve(),
+      getCookie: () => "",
+      authClient: null,
+    };
+    return (
+      <AuthSessionContext.Provider value={value}>
+        {children}
+      </AuthSessionContext.Provider>
+    );
+  }
+
+  return (
+    <SessionFromSdk
+      authClient={boot.client}
+      copy={copy}
+      retryHydrate={retryHydrate}
+    >
+      {children}
+    </SessionFromSdk>
+  );
+}
+
+function SessionFromSdk({
+  authClient,
+  copy,
+  retryHydrate,
+  children,
+}: {
+  readonly authClient: ShowzyAuthClient;
+  readonly copy: AuthCopy;
+  readonly retryHydrate: () => Promise<void>;
+  readonly children: ReactNode;
+}) {
+  const sessionQuery = authClient.useSession();
+
+  const refetch = sessionQuery.refetch;
 
   useEffect(() => {
-    void hydrate();
-  }, [hydrate]);
-
-  useEffect(() => {
-    if (resources === null) {
-      return;
-    }
     const sub = AppState.addEventListener("change", (next) => {
       if (next === "active") {
-        void resources.session.refresh().catch(() => undefined);
+        void refetch();
       }
     });
     return () => {
       sub.remove();
     };
-  }, [resources]);
+  }, [refetch]);
 
   const signOut = useCallback(async () => {
-    if (resources === null) {
-      return;
-    }
-    await resources.session.signOut();
-    resources.flow.reset();
-  }, [resources]);
+    await authClient.signOut();
+  }, [authClient]);
 
-  const clearDeadSession = useCallback(async () => {
-    if (resources === null) {
-      return;
-    }
-    await resources.session.clearDeadSession();
-  }, [resources]);
+  const session = userFromSession(sessionQuery.data);
+  const status: AuthStatus = sessionQuery.isPending
+    ? "loading"
+    : session === null
+      ? "anonymous"
+      : "authenticated";
 
-  const value: AuthSessionValue = useMemo(
-    () => ({
-      status: !ready
-        ? "loading"
-        : sessionUser === null
-          ? "anonymous"
-          : "authenticated",
-      session: sessionUser,
-      bootError,
-      configError: resources === null,
-      copy,
-      client: resources?.client ?? null,
-      flow: resources?.flow ?? null,
-      retryHydrate: hydrate,
-      signOut,
-      clearDeadSession,
-      getAccessToken: () => resources?.session.getAccessToken() ?? null,
-    }),
-    [
-      ready,
-      sessionUser,
-      bootError,
-      resources,
-      copy,
-      hydrate,
-      signOut,
-      clearDeadSession,
-    ],
-  );
+  const value: AuthSessionValue = {
+    status,
+    session,
+    bootError:
+      status === "anonymous" ? mapSessionError(sessionQuery.error) : null,
+    configError: false,
+    copy,
+    retryHydrate,
+    signOut,
+    clearDeadSession: signOut,
+    getCookie: () => authClient.getCookie(),
+    authClient,
+  };
 
   return (
     <AuthSessionContext.Provider value={value}>
@@ -197,10 +180,59 @@ export function AuthSessionProvider({
   );
 }
 
+function mapSessionError(error: unknown): AuthErrorKind | null {
+  if (error === null || error === undefined) {
+    return null;
+  }
+  if (isAuthClientError(error)) {
+    return error.kind;
+  }
+  if (typeof error === "object" && "status" in error) {
+    const status = error.status;
+    if (typeof status === "number" && status === 401) {
+      return "unauthenticated";
+    }
+  }
+  return "network";
+}
+
+function userFromSession(data: unknown): AuthSessionUser | null {
+  if (typeof data !== "object" || data === null || !("user" in data)) {
+    return null;
+  }
+  const user = data.user;
+  if (typeof user !== "object" || user === null || !("id" in user)) {
+    return null;
+  }
+  if (typeof user.id !== "string" || user.id === "") {
+    return null;
+  }
+  const emailRaw =
+    "email" in user && typeof user.email === "string" ? user.email : null;
+  const email = emailRaw === "" ? null : emailRaw;
+  const phoneRaw =
+    "phoneNumber" in user && typeof user.phoneNumber === "string"
+      ? user.phoneNumber
+      : null;
+  return {
+    userId: user.id,
+    email: isPlaceholderEmail(email) ? null : email,
+    phoneNumber: phoneRaw === "" ? null : phoneRaw,
+  };
+}
+
 export function useAuthSession(): AuthSessionValue {
   const value = useContext(AuthSessionContext);
   if (value === null) {
-    throw new Error("useAuthSession must be used within AuthSessionProvider");
+    throw new Error("useAuthSession must be used within SessionProvider");
   }
   return value;
+}
+
+export function useAuthClient(): ShowzyAuthClient {
+  const session = useAuthSession();
+  if (session.authClient === null) {
+    throw new Error("useAuthClient requires a configured auth client");
+  }
+  return session.authClient;
 }

@@ -11,11 +11,12 @@ import {
 } from "react";
 
 import { useAuthSession } from "../auth/session-provider";
+import { useApiClient } from "./api-provider";
 import {
   bindActiveCompanyQueryIsolation,
   createShowzyQueryClient,
   handleUnauthenticatedQueryError,
-  hasLocalBearer,
+  hasLocalSession,
   isolateCacheOnSessionLoss,
   resetTenantQueryState,
 } from "./query-client";
@@ -29,8 +30,8 @@ export type QueryRuntimeValue = {
 const QueryRuntimeContext = createContext<QueryRuntimeValue | null>(null);
 
 /**
- * Root QueryClient + platform managers. Must sit inside
- * `AuthSessionProvider` so 401 handling can clear a dead session.
+ * Root QueryClient + platform managers. Must sit inside SessionProvider
+ * and ApiProvider so 401 handling can clear a dead session.
  *
  * Screens pass `activeCompanyId` into `contractQueryOptions` so a company
  * switch re-renders new keys before leftover rows can be reused.
@@ -41,14 +42,17 @@ export function QueryRuntimeProvider({
   readonly children: ReactNode;
 }) {
   const auth = useAuthSession();
+  const apiClient = useApiClient();
   const authRef = useRef(auth);
   authRef.current = auth;
+  const apiRef = useRef(apiClient);
+  apiRef.current = apiClient;
   const previousStatus = useRef(auth.status);
   const queryClientRef = useRef<ReturnType<
     typeof createShowzyQueryClient
   > | null>(null);
   const [activeCompanyId, setActiveCompanyId] = useState<string | null>(
-    () => auth.client?.getActiveCompany() ?? null,
+    () => apiClient?.getActiveCompany() ?? null,
   );
 
   const [queryClient] = useState(() => {
@@ -59,13 +63,13 @@ export function QueryRuntimeProvider({
           return;
         }
         handleUnauthenticatedQueryError({
-          hadSession: hasLocalBearer(authRef.current.getAccessToken()),
+          hadSession: hasLocalSession(authRef.current.getCookie()),
           clearSession: () => {
             void authRef.current.clearDeadSession();
           },
           clearCache: () => {
             resetTenantQueryState({
-              client: authRef.current.client,
+              client: apiRef.current,
               queryClient: current,
             });
           },
@@ -79,27 +83,27 @@ export function QueryRuntimeProvider({
   useEffect(() => setupQueryPlatform(), []);
 
   useEffect(() => {
-    if (auth.client === null) {
+    if (apiClient === null) {
       return;
     }
-    return bindActiveCompanyQueryIsolation(auth.client, queryClient, {
+    return bindActiveCompanyQueryIsolation(apiClient, queryClient, {
       onCompanyId: setActiveCompanyId,
     });
-  }, [auth.client, queryClient]);
+  }, [apiClient, queryClient]);
 
   useEffect(() => {
     isolateCacheOnSessionLoss(previousStatus.current, auth.status, {
-      client: auth.client,
+      client: apiClient,
       queryClient,
     });
     previousStatus.current = auth.status;
-  }, [auth.status, auth.client, queryClient]);
+  }, [auth.status, apiClient, queryClient]);
 
   const setActiveCompany = useCallback(
     (companyId: string | null) => {
-      auth.client?.setActiveCompany(companyId);
+      apiClient?.setActiveCompany(companyId);
     },
-    [auth.client],
+    [apiClient],
   );
 
   const value = useMemo(

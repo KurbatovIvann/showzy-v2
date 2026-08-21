@@ -100,9 +100,12 @@ tool result. Zod validation is necessary but never grants tenant access.
   logged. Sessions are stored in Postgres.
 - Default OTP limits: 5 sends/hour per phone and 20/hour per IP, plus provider
   abuse controls. Responses do not disclose whether an account exists.
-- Cookie sessions use `Secure`, `HttpOnly`, and appropriate `SameSite`; bearer
-  tokens use OS secure storage on mobile. Session/device list and remote
-  revocation are MVP requirements.
+- Cookie sessions use `Secure`, `HttpOnly`, and appropriate `SameSite`. Expo
+  clients persist those cookies in OS secure storage (`@better-auth/expo`)
+  and replay them as a `Cookie` header. Bearer tokens remain supported for
+  non-RN callers. Sessions last 7 days and slide after 1 day of activity
+  (`get-session` / authenticated `/rpc`). Session/device list and remote
+  revocation are required before launch.
 - Password/session/token changes invalidate affected sessions. High-risk
   actions may require recent authentication in addition to core confirmation.
 - Staff active-company headers remain selectors verified against membership
@@ -268,6 +271,7 @@ review. A critical/high unresolved finding blocks merge.
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-21 | Session TTL 7d / sliding 1d; Expo cookie origin `showzy://`; bearer kept for non-RN | Pin better-auth defaults; mobile uses `@better-auth/expo` cookies | owner |
 | 2026-08-19 | Seventh principal `share` (ADR-0022): matrix column, 30/min IP-HMAC fail-closed, access-log `anonymous` vs audit/event `system`/`share` | Unauthenticated capability-token writes for owner-first dual-sign; core.md and contract.md already amended | owner via `/rework-spec security-operations.md` |
 | 2026-08-19 | Status: Active; Active surface: entire file | Ledger catch-up: first merged auth/ops (fnd-T6, fnd-T26…T28) | owner via spec-process-after-phase-0 |
 | 2026-08-19 | §4: phase-0 HTTP invocations (including `/api/v1` REST aliases) are `channel: "ui"`; revisit when external consumers or the AI mount land | Align living spec with the API composition (fnd-G1 A12) | scaffold (fnd-G1 A12) |

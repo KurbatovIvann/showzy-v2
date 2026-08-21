@@ -48,10 +48,12 @@ the OpenAPI artifact.
 - Record keys must mirror `<module>.<verb>` exactly: the RPC path is the
   nested object shape, so a mismatch would serve one action under
   another's name.
-- Apps call `createContractClient({ baseUrl, getAccessToken })`, then
-  `setActiveCompany` for the staff selector. `createMutationAttempt()`
-  mints the idempotency key; callers must pass `attempt.options` on retry
-  (no automatic HTTP retry layer). Confirmation re-invokes with
+- Apps call `createContractClient({ baseUrl, getCookie })` (Expo) or
+  `getAccessToken` (bearer). Then `setActiveCompany` for the staff
+  selector. `/rpc` fetch uses `credentials: "omit"` so a manual `Cookie`
+  header is not overwritten. `createMutationAttempt()` mints the
+  idempotency key; callers must pass `attempt.options` on retry (no
+  automatic HTTP retry layer). Confirmation re-invokes with
   `attempt.withChallenge(id)`. Money minor units use `moneyToWire` /
   `moneyFromWire`. Narrow errors with `isWireError` and `error.code` —
   never by matching `message` text.

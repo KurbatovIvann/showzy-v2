@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createShowzyClient } from "../api/client";
-import { ACCESS_TOKEN_KEY } from "../auth/storage";
+import { AUTH_COOKIE_KEY } from "../auth/storage";
 import { DEFAULT_THEME_MODE } from "../theme/preference";
 import {
   applySessionHydrateToCompanySelector,
@@ -95,15 +95,15 @@ describe("device prefs (memory adapter)", () => {
     expect(createDevicePrefs(kv).getTheme()).toBe("dark");
   });
 
-  it("never writes the access token key through the prefs API", () => {
-    expect(DEVICE_PREF_KEYS).not.toContain(ACCESS_TOKEN_KEY);
+  it("never writes the auth cookie key through the prefs API", () => {
+    expect(DEVICE_PREF_KEYS).not.toContain(AUTH_COOKIE_KEY);
     const kv = createMemoryPrefsStore();
     const prefs = createDevicePrefs(kv);
     prefs.setTheme("dark");
     prefs.setLastCompanyId("company-a");
     expect(kv.get(DEVICE_PREF_THEME_KEY)).toBe("dark");
     expect(() => {
-      kv.set(ACCESS_TOKEN_KEY as typeof DEVICE_PREF_THEME_KEY, "Bearer secret");
-    }).toThrow(/access token key/);
+      kv.set(AUTH_COOKIE_KEY as typeof DEVICE_PREF_THEME_KEY, "cookie-secret");
+    }).toThrow(/auth cookie key/);
   });
 });

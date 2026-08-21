@@ -1,17 +1,23 @@
 import { describe, expect, it } from "vitest";
 
-import { ACCESS_TOKEN_KEY, createMemoryTokenStore } from "./storage";
+import {
+  AUTH_COOKIE_KEY,
+  AUTH_STORAGE_PREFIX,
+  createMemoryAuthStorage,
+} from "./storage";
 
-describe("token store", () => {
-  it("round-trips, overwrites, and clears without exposing a default token", async () => {
-    const store = createMemoryTokenStore();
-    expect(ACCESS_TOKEN_KEY).toBe("showzy.auth.access-token");
-    expect(await store.get()).toBeNull();
-    await store.set("tok-1");
-    expect(await store.get()).toBe("tok-1");
-    await store.set("tok-2");
-    expect(await store.get()).toBe("tok-2");
-    await store.clear();
-    expect(await store.get()).toBeNull();
+describe("auth cookie storage", () => {
+  it("round-trips cookie values in memory without a default session", () => {
+    expect(AUTH_STORAGE_PREFIX).toBe("showzy");
+    expect(AUTH_COOKIE_KEY).toBe("showzy_cookie");
+    const store = createMemoryAuthStorage();
+    expect(store.getItem(AUTH_COOKIE_KEY)).toBeNull();
+    void store.setItem(
+      AUTH_COOKIE_KEY,
+      '{"better-auth.session_token":{"value":"x","expires":null}}',
+    );
+    expect(store.getItem(AUTH_COOKIE_KEY)).toContain("session_token");
+    void store.setItem(AUTH_COOKIE_KEY, "");
+    expect(store.getItem(AUTH_COOKIE_KEY)).toBeNull();
   });
 });

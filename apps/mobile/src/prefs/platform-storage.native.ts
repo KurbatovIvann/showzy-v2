@@ -1,5 +1,5 @@
 /**
- * Native device prefs (MMKV). Tokens stay in SecureStore; this instance
+ * Native device prefs (MMKV). Session cookies stay in SecureStore; this instance
  * id is prefs-only. Web must not import this file — Metro selects it
  * via the `.native` suffix.
  */

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ACCESS_TOKEN_KEY } from "../auth/storage";
+import { AUTH_COOKIE_KEY } from "../auth/storage";
 import {
   assertDevicePrefKey,
   createMemoryPrefsStore,
@@ -11,10 +11,10 @@ import {
 } from "./storage";
 
 describe("device prefs KV", () => {
-  it("round-trips allowed keys and refuses the bearer token key", () => {
+  it("round-trips allowed keys and refuses the auth cookie key", () => {
     const store = createMemoryPrefsStore();
-    expect(DEVICE_PREF_KEYS).not.toContain(ACCESS_TOKEN_KEY);
-    expect(isDevicePrefKey(ACCESS_TOKEN_KEY)).toBe(false);
+    expect(DEVICE_PREF_KEYS).not.toContain(AUTH_COOKIE_KEY);
+    expect(isDevicePrefKey(AUTH_COOKIE_KEY)).toBe(false);
     expect(isDevicePrefKey(DEVICE_PREF_THEME_KEY)).toBe(true);
 
     store.set(DEVICE_PREF_THEME_KEY, "dark");
@@ -23,11 +23,11 @@ describe("device prefs KV", () => {
     expect(store.get(DEVICE_PREF_LAST_COMPANY_KEY)).toBe("company-a");
 
     expect(() => {
-      store.set(ACCESS_TOKEN_KEY as typeof DEVICE_PREF_THEME_KEY, "tok");
-    }).toThrow(/access token key/);
+      store.set(AUTH_COOKIE_KEY as typeof DEVICE_PREF_THEME_KEY, "tok");
+    }).toThrow(/auth cookie key/);
     expect(() => {
-      assertDevicePrefKey(ACCESS_TOKEN_KEY);
-    }).toThrow(/access token key/);
+      assertDevicePrefKey(AUTH_COOKIE_KEY);
+    }).toThrow(/auth cookie key/);
     expect(() => {
       store.set("showzy.prefs.unknown" as typeof DEVICE_PREF_THEME_KEY, "x");
     }).toThrow(/unknown device pref key/);

@@ -16,6 +16,7 @@
  * sit plaintext inside the TTL'd secondary store for their 5-minute lifetime
  * (the phone plugin has no `storeOTP`; email codes are additionally hashed).
  */
+import { expo } from "@better-auth/expo";
 import type { BetterAuthOptions, DBAdapterInstance } from "better-auth/types";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { bearer } from "better-auth/plugins/bearer";
@@ -28,7 +29,12 @@ import {
   type OtpChannel,
   type OtpSendStore,
 } from "./otp-send-guard.js";
-import { cookiePolicy, otpPolicy } from "./policy.js";
+import {
+  cookiePolicy,
+  expoClientPolicy,
+  otpPolicy,
+  sessionPolicy,
+} from "./policy.js";
 
 export interface AuthComposition {
   /** Database adapter — `drizzleAdapter(db, { provider: "pg" })` at runtime. */
@@ -100,6 +106,7 @@ export function buildAuthOptions(composition: AuthComposition) {
     baseURL: composition.baseUrl,
     secret: composition.secret,
     database: composition.database,
+    trustedOrigins: [composition.baseUrl, expoClientPolicy.origin],
     // OTP codes and rate-limit counters live here (TTL'd), never in Postgres.
     secondaryStorage: composition.secondaryStorage,
     session: {
@@ -107,6 +114,8 @@ export function buildAuthOptions(composition: AuthComposition) {
       // and revocable by future admin tooling. Only ephemeral verification
       // values and rate-limit counters belong in the secondary store.
       storeSessionInDatabase: true,
+      expiresIn: sessionPolicy.expiresInSeconds,
+      updateAge: sessionPolicy.updateAgeSeconds,
     },
     // No emailAndPassword block: OTP is the only credential flow (ADR-0006),
     // so no password surface exists to attack or to leak account existence.
@@ -138,7 +147,9 @@ export function buildAuthOptions(composition: AuthComposition) {
         // known and unknown addresses (non-enumeration).
         disableSignUp: false,
       }),
-      /** Mobile clients authenticate with bearer tokens (contract.md §3). */
+      /** Expo cookie jar + deep-link origin (contract.md §3). */
+      expo(),
+      /** Bearer remains for non-RN callers (tests, future machine clients). */
       bearer(),
     ],
     hooks: {

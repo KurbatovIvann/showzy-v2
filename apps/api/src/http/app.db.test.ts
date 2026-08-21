@@ -38,7 +38,7 @@ import { z } from "zod";
 
 import { buildAuthOptions } from "../auth/options.js";
 import { createAtomicOtpSendStore } from "../auth/otp-send-guard.js";
-import { otpPolicy } from "../auth/policy.js";
+import { expoClientPolicy, otpPolicy } from "../auth/policy.js";
 import { createMemorySecondaryStorage } from "../stores/memory.js";
 import {
   AUTH_PREFIX,
@@ -747,6 +747,16 @@ describe("OTP over HTTP (security-operations §8)", () => {
     const code = sentPhone[0]?.code ?? "";
     expect(code).toMatch(/^\d{6}$/);
     expect(JSON.stringify(firstBody)).not.toContain(code);
+  });
+
+  it("accepts OTP send from the Expo app origin", async () => {
+    const phone = "+380671000010";
+    const response = await authPost(
+      "/phone-number/send-otp",
+      { phoneNumber: phone },
+      { origin: expoClientPolicy.origin },
+    );
+    expect(response.status).toBe(200);
   });
 
   it("enforces the 60-second resend cooldown over HTTP", async () => {

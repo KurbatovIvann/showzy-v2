@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   AuthClientError,
+  authErrorFromUnknown,
   classifyAuthHttpStatus,
   parseRetryAfterSec,
   toAuthClientError,
@@ -38,6 +39,19 @@ describe("auth HTTP errors (status, not message text)", () => {
     expect(mapped.kind).toBe("network");
     expect(mapped.message).toBe("network");
     expect(mapped.message).not.toContain("123456");
+  });
+
+  it("maps better-auth errors by status and ignores message text", () => {
+    const leaked = authErrorFromUnknown(
+      { status: 400, message: "otp=000000" },
+      "verify",
+    );
+    expect(leaked.kind).toBe("invalid_otp");
+    expect(leaked.message).toBe("invalid_otp");
+    expect(leaked.message).not.toContain("000000");
+    expect(
+      authErrorFromUnknown({ status: 429, message: "slow down" }, "send").kind,
+    ).toBe("resend_limited");
   });
 
   it("parses Retry-After delta-seconds and ignores junk", () => {

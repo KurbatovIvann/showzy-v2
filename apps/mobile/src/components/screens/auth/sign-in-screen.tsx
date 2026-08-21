@@ -4,105 +4,69 @@ import { AtSign, Phone } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
-import { useAuthSession } from "../../../auth/session-provider";
-import { useOtpFlowState } from "../../../auth/use-otp-flow-state";
-import {
-  uaNationalFieldDigits,
-  uaPhoneFieldValue,
-  type AuthChannel,
-} from "../../../auth/identifiers";
-import { errorCopy } from "../../../i18n/auth";
+import { useSignInScreen } from "../../../auth/use-sign-in";
 import { Banner, Button, SegmentedTabs, TextField } from "../../ui";
 import { AuthBrand } from "./auth-brand";
 import { AuthPanel } from "./auth-panel";
 
 export function SignInScreen() {
-  const auth = useAuthSession();
-  const flow = auth.flow;
-  const state = useOtpFlowState(flow);
+  const model = useSignInScreen();
   const { theme } = useUnistyles();
 
-  if (auth.status === "authenticated") {
-    return <Redirect href="/session" />;
-  }
-  if (flow === null) {
-    // Config error: the index route renders the actionable message.
-    return <Redirect href="/" />;
-  }
-  if (state.step !== "identifier") {
+  if (model.kind === "redirect-verify") {
     return <Redirect href="/verify" />;
   }
 
-  const fieldError =
-    state.fieldError === null ? null : errorCopy(auth.copy, state.fieldError);
-  const channels: ReadonlyArray<{ key: AuthChannel; label: string }> = [
-    { key: "phone", label: auth.copy.phone },
-    { key: "email", label: auth.copy.email },
-  ];
-  const nationalDigits = uaNationalFieldDigits(state.phone);
-  const identifierEmpty =
-    state.channel === "phone"
-      ? nationalDigits.length === 0
-      : state.email.trim().length === 0;
-  const submitDisabled = identifierEmpty || state.busy;
   const iconColor = theme.colors.mutedForeground;
 
   return (
-    <SafeAreaView style={styles.screen} accessibilityLabel={auth.copy.welcome}>
-      <AuthBrand tagline={auth.copy.tagline} />
+    <SafeAreaView style={styles.screen} accessibilityLabel={model.copy.welcome}>
+      <AuthBrand tagline={model.copy.tagline} />
       <AuthPanel>
-        <Text style={styles.title}>{auth.copy.welcome}</Text>
+        <Text style={styles.title}>{model.copy.welcome}</Text>
         <View style={styles.form}>
           <SegmentedTabs
-            tabs={channels}
-            selected={state.channel}
-            disabled={state.busy}
-            onSelect={(channel) => {
-              flow.setChannel(channel);
-            }}
+            tabs={model.channels}
+            selected={model.channel}
+            disabled={model.busy}
+            onSelect={model.setChannel}
           />
-          {state.channel === "phone" ? (
+          {model.channel === "phone" ? (
             <TextField
               size="auth"
-              label={auth.copy.phoneLabel}
+              label={model.copy.phoneLabel}
               leading={<Phone size={18} color={iconColor} />}
               prefix="+380"
-              value={nationalDigits}
-              onChangeText={(value) => {
-                flow.setPhone(uaPhoneFieldValue(value));
-              }}
-              placeholder={auth.copy.phonePlaceholder}
-              accessibilityLabel={auth.copy.phoneLabel}
+              value={model.phoneDigits}
+              onChangeText={model.setPhoneDigits}
+              placeholder={model.copy.phonePlaceholder}
+              accessibilityLabel={model.copy.phoneLabel}
               keyboardType="phone-pad"
-              editable={!state.busy}
-              error={fieldError}
+              editable={!model.busy}
+              error={model.fieldError}
             />
           ) : (
             <TextField
               size="auth"
-              label={auth.copy.emailLabel}
+              label={model.copy.emailLabel}
               leading={<AtSign size={18} color={iconColor} />}
-              value={state.email}
-              onChangeText={(value) => {
-                flow.setEmail(value);
-              }}
-              placeholder={auth.copy.emailPlaceholder}
-              accessibilityLabel={auth.copy.emailLabel}
+              value={model.email}
+              onChangeText={model.setEmail}
+              placeholder={model.copy.emailPlaceholder}
+              accessibilityLabel={model.copy.emailLabel}
               keyboardType="email-address"
-              editable={!state.busy}
-              error={fieldError}
+              editable={!model.busy}
+              error={model.fieldError}
             />
           )}
-          {state.bannerError ? (
-            <Banner message={errorCopy(auth.copy, state.bannerError)} />
-          ) : null}
+          {model.banner ? <Banner message={model.banner} /> : null}
           <Button
             size="auth"
-            label={state.busy ? auth.copy.continueLoading : auth.copy.continue}
-            disabled={submitDisabled}
-            onPress={() => {
-              void flow.submitIdentifier();
-            }}
+            label={
+              model.busy ? model.copy.continueLoading : model.copy.continue
+            }
+            disabled={model.submitDisabled}
+            onPress={model.submit}
           />
         </View>
       </AuthPanel>

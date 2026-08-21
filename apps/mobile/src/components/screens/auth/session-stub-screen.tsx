@@ -1,25 +1,16 @@
 import { Text, View } from "react-native";
-import { Redirect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet } from "react-native-unistyles";
 
-import { isPlaceholderEmail } from "../../../auth/identifiers";
 import { useAuthSession } from "../../../auth/session-provider";
 import { Button, Card } from "../../ui";
 
 export function SessionStubScreen() {
   const auth = useAuthSession();
 
-  if (auth.status === "loading") {
+  if (auth.session === null) {
     return null;
   }
-  if (auth.status !== "authenticated" || auth.session === null) {
-    return <Redirect href="/sign-in" />;
-  }
-
-  const email = isPlaceholderEmail(auth.session.email)
-    ? null
-    : auth.session.email;
 
   return (
     <SafeAreaView
@@ -36,10 +27,10 @@ export function SessionStubScreen() {
             <Text style={styles.value}>{auth.session.phoneNumber}</Text>
           </>
         ) : null}
-        {email ? (
+        {auth.session.email ? (
           <>
             <Text style={styles.label}>{auth.copy.email}</Text>
-            <Text style={styles.value}>{email}</Text>
+            <Text style={styles.value}>{auth.session.email}</Text>
           </>
         ) : null}
         <Text style={styles.label}>{auth.copy.companySelector}</Text>

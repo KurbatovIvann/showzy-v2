@@ -6,15 +6,12 @@ import { buildContractRouter } from "@showzy/contract";
 import { defineActionContract } from "@showzy/core/contract";
 import { MutationObserver, QueryObserver } from "@tanstack/react-query";
 
-import { AuthClientError } from "../auth/errors";
-import { createSessionController } from "../auth/session";
-import { createMemoryTokenStore } from "../auth/storage";
 import { createShowzyClient } from "./client";
 import {
   bindActiveCompanyQueryIsolation,
   createShowzyQueryClient,
   handleUnauthenticatedQueryError,
-  hasLocalBearer,
+  hasLocalSession,
   isolateCacheOnSessionLoss,
   QUERY_RETRY_LIMIT,
   queryRetryDelay,
@@ -336,7 +333,7 @@ describe("UNAUTHENTICATED query handling", () => {
     const clearSession = vi.fn();
     const clearCache = vi.fn();
     handleUnauthenticatedQueryError({
-      hadSession: hasLocalBearer(null),
+      hadSession: hasLocalSession(null),
       clearSession,
       clearCache,
     });
@@ -344,7 +341,7 @@ describe("UNAUTHENTICATED query handling", () => {
     expect(clearCache).not.toHaveBeenCalled();
 
     handleUnauthenticatedQueryError({
-      hadSession: hasLocalBearer("token"),
+      hadSession: hasLocalSession("better-auth.session_token=abc"),
       clearSession,
       clearCache,
     });
@@ -352,19 +349,8 @@ describe("UNAUTHENTICATED query handling", () => {
     expect(clearCache).toHaveBeenCalledTimes(1);
   });
 
-  it("clears a stored bearer on 401 even when the session snapshot is still null", async () => {
-    const store = createMemoryTokenStore("dead");
-    const session = createSessionController({
-      store,
-      api: {
-        getSession: () => Promise.reject(new AuthClientError("network")),
-        signOut: () => Promise.resolve(),
-      },
-    });
-    await expect(session.hydrate()).rejects.toMatchObject({ kind: "network" });
-    expect(session.getSnapshot()).toBeNull();
-    expect(hasLocalBearer(session.getAccessToken())).toBe(true);
-
+  it("clears a stored cookie on 401 even when the session snapshot is still null", () => {
+    let cookie = "better-auth.session_token=dead";
     const created = createShowzyClient<SampleRouter>({
       apiUrl: "http://api.test",
       initialCompanyId: "company-a",
@@ -376,18 +362,16 @@ describe("UNAUTHENTICATED query handling", () => {
     });
     queryClient.setQueryData(priceKey, { orderId: "o-3", totalMinor: "1" });
 
-    let cleared: Promise<void> | undefined;
     handleUnauthenticatedQueryError({
-      hadSession: hasLocalBearer(session.getAccessToken()),
+      hadSession: hasLocalSession(cookie),
       clearSession: () => {
-        cleared = session.clearDeadSession();
+        cookie = "";
       },
       clearCache: () => {
         resetTenantQueryState({ client: created, queryClient });
       },
     });
-    await cleared;
-    expect(session.getAccessToken()).toBeNull();
+    expect(cookie).toBe("");
     expect(queryClient.getQueryData(priceKey)).toBeUndefined();
     expect(created.getActiveCompany()).toBeNull();
   });
@@ -396,7 +380,7 @@ describe("UNAUTHENTICATED query handling", () => {
     const requests: Request[] = [];
     const created = createShowzyClient<SampleRouter>({
       apiUrl: "http://api.test",
-      getAccessToken: () => null,
+      getCookie: () => null,
       fetch: (request) => {
         requests.push(request);
         return Promise.resolve(new Response(null, { status: 599 }));

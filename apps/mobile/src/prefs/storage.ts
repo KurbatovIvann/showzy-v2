@@ -1,9 +1,9 @@
 /**
  * Device-preference KV. Allowed keys are theme and last company selector.
- * Bearer tokens stay in SecureStore (`ACCESS_TOKEN_KEY`); this store
+ * Session cookies stay in SecureStore (`AUTH_COOKIE_KEY`); this store
  * refuses that key at the API boundary.
  */
-import { ACCESS_TOKEN_KEY } from "../auth/storage";
+import { AUTH_COOKIE_KEY } from "../auth/storage";
 
 export const DEVICE_PREF_THEME_KEY = "showzy.prefs.theme";
 export const DEVICE_PREF_LAST_COMPANY_KEY = "showzy.prefs.last-company";
@@ -26,8 +26,8 @@ export function isDevicePrefKey(key: string): key is DevicePrefKey {
 }
 
 export function assertDevicePrefKey(key: string): asserts key is DevicePrefKey {
-  if (key === ACCESS_TOKEN_KEY) {
-    throw new Error("device prefs must not store the access token key");
+  if (key === AUTH_COOKIE_KEY) {
+    throw new Error("device prefs must not store the auth cookie key");
   }
   if (!isDevicePrefKey(key)) {
     throw new Error("unknown device pref key");
