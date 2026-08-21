@@ -103,14 +103,19 @@ System font. No webfont.
 | Sheet / empty title | 17 semibold | `typography.lg` (snap) |
 | Screen title | 20 semibold | `typography.xl` |
 | Auth title | 28 semibold | `typography.3xl` |
+| Auth wordmark | 44 bold leading-none | `typography.display` |
+| Auth OTP digits | 22 semibold | `typography.2xl` (snap; owner-approved) |
+| Auth CTA | 17 semibold | `typography.lg` (snap; owner-approved) |
 | Gutter | 16 | `spacing.lg` |
 | Field radius | 16 | `radii.lg` |
 | Card | 22 | `radii.card` |
 | Nav cluster | 24 | `radii.nav` |
+| Auth panel | 28 | `radii.authPanel` |
 | Sheet top | 30 | `radii.sheet` |
 | Button / search / icon | pill | `radii.full` |
 | Hit target | 44 / auth 54 | `hitTarget.min` / `hitTarget.auth` |
 | Card shadow | `0 1px 2px rgba(28,28,26,0.05)` | `shadows.sm` |
+| Auth panel shadow | `0 14px 40px rgba(28,28,26,0.10)` | `shadows.auth` |
 
 ## Shared primitives today
 
@@ -118,11 +123,11 @@ System font. No webfont.
 
 | Primitive | Canvas counterpart | Notes |
 | --- | --- | --- |
-| `Button` | `Button` | pill; add `secondary` / `danger` when a screen needs them |
+| `Button` | `Button` | pill; `size: "auth"` is 54 + `typography.lg`; auth disabled uses faint fill, not opacity |
 | `Card` | section / `Card` | 22px, `line` border, `surface` fill |
-| `TextField` | `TextField` | 16px radius, canvas fill; label/suffix/`changed` when a form needs them |
-| `SegmentedTabs` | `AuthModeSwitch` | pill track `muted`, raised `card` |
-| `OtpInput` | `OtpInput` | 16px cells; filled digit → ink border |
+| `TextField` | `TextField` | 16px radius, canvas fill; optional label / leading / prefix; `size: "auth"` is 54 + 16 tabular-nums + focus `ring` |
+| `SegmentedTabs` | `AuthModeSwitch` | pill track `muted`, raised `card` with `shadows.sm` |
+| `OtpInput` | `OtpInput` | square cells, gap 8, digits `typography.2xl`; optional inline `error` string |
 | `Banner` | inline error | keep; do not invent a second error strip |
 
 **Not shared yet** (add to `ui/` on first screen that needs them): Sheet,

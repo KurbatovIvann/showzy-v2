@@ -179,6 +179,7 @@ export const radii = {
   card: 22,
   nav: 24,
   pill: 25,
+  authPanel: 28,
   sheet: 30,
   full: 9999,
 } as const;
@@ -203,6 +204,7 @@ export const typography = {
   "2xl": { fontSize: 24, lineHeight: 30 },
   "3xl": { fontSize: 28, lineHeight: 34 },
   "4xl": { fontSize: 32, lineHeight: 38 },
+  display: { fontSize: 44, lineHeight: 44 },
 } as const satisfies Record<string, TypeScale>;
 
 export type TypographyKey = keyof typeof typography;
@@ -257,6 +259,13 @@ export const shadows = {
     shadowOpacity: 0.18,
     shadowRadius: 32,
     elevation: 12,
+  },
+  auth: {
+    shadowColor: "#1C1C1A",
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.1,
+    shadowRadius: 40,
+    elevation: 10,
   },
 } as const;
 

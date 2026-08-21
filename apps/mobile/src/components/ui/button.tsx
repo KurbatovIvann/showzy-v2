@@ -7,9 +7,12 @@ export function Button(props: {
   readonly loading?: boolean;
   readonly disabled?: boolean;
   readonly variant?: "primary" | "ghost";
+  readonly size?: "default" | "auth";
 }) {
   const variant = props.variant ?? "primary";
+  const size = props.size ?? "default";
   const disabled = props.disabled === true || props.loading === true;
+  const authDisabled = disabled && size === "auth" && variant === "primary";
   const { theme } = useUnistyles();
   return (
     <Pressable
@@ -19,8 +22,9 @@ export function Button(props: {
       onPress={props.onPress}
       style={({ pressed }) => [
         styles.button,
+        size === "auth" ? styles.buttonAuth : null,
         variant === "ghost" ? styles.ghost : styles.primary,
-        disabled && styles.disabled,
+        authDisabled ? styles.disabledAuth : disabled ? styles.disabled : null,
         pressed && !disabled && styles.pressed,
       ]}
     >
@@ -33,7 +37,15 @@ export function Button(props: {
           }
         />
       ) : (
-        <Text style={variant === "ghost" ? styles.ghostLabel : styles.label}>
+        <Text
+          style={
+            variant === "ghost"
+              ? styles.ghostLabel
+              : size === "auth"
+                ? styles.authLabel
+                : styles.label
+          }
+        >
           {props.label}
         </Text>
       )}
@@ -49,6 +61,9 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: "center",
     paddingHorizontal: theme.spacing.lg,
   },
+  buttonAuth: {
+    minHeight: theme.hitTarget.auth,
+  },
   primary: {
     backgroundColor: theme.colors.primary,
   },
@@ -58,6 +73,9 @@ const styles = StyleSheet.create((theme) => ({
   disabled: {
     opacity: 0.5,
   },
+  disabledAuth: {
+    backgroundColor: theme.colors.icon.muted,
+  },
   pressed: {
     opacity: 0.85,
   },
@@ -65,6 +83,12 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.primaryForeground,
     fontSize: theme.typography.md.fontSize,
     lineHeight: theme.typography.md.lineHeight,
+    fontWeight: "600",
+  },
+  authLabel: {
+    color: theme.colors.primaryForeground,
+    fontSize: theme.typography.lg.fontSize,
+    lineHeight: theme.typography.lg.lineHeight,
     fontWeight: "600",
   },
   ghostLabel: {

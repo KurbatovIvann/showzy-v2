@@ -48,6 +48,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   tabSelected: {
     backgroundColor: theme.colors.card,
+    ...theme.shadows.sm,
   },
   label: {
     color: theme.colors.mutedForeground,
