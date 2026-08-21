@@ -58,6 +58,14 @@ describe("auth identifiers", () => {
       channel: "phone",
       phoneNumber: "+380671112233",
     });
+    expect(uaPhoneFieldValue("+380671112233")).toBe("+380671112233");
+    expect(uaPhoneFieldValue("380671112233")).toBe("+380671112233");
+    expect(uaNationalFieldDigits("+380671112233")).toBe("671112233");
+    expect(uaNationalFieldDigits("380671112233")).toBe("671112233");
+    expect(uaPhoneFieldValue("0671112233")).toBe("067111223");
+    expect(
+      parseIdentifier("phone", uaPhoneFieldValue("0671112233")),
+    ).toBeNull();
   });
 
   it("hides phone-first placeholder emails from session display", () => {
