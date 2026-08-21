@@ -40,5 +40,13 @@ export function bindSessionController(
       await inner.signOut();
       hooks.onUser(null);
     },
+    async clearDeadSession() {
+      const hadSession = inner.getSnapshot() !== null;
+      await inner.clearDeadSession();
+      hooks.onUser(null);
+      if (hadSession) {
+        hooks.onRevoked();
+      }
+    },
   };
 }

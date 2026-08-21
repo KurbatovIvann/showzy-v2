@@ -82,4 +82,25 @@ describe("bindSessionController", () => {
     expect(revoked).toBe(0);
     expect(session.getAccessToken()).toBeNull();
   });
+
+  it("treats clearDeadSession as revocation, not an explicit sign-out", async () => {
+    let revoked = 0;
+    const session = bindSessionController(
+      createSessionController({
+        store: createMemoryTokenStore(),
+        api: sessionApi(() => Promise.resolve(liveUser())),
+      }),
+      {
+        onUser: () => undefined,
+        onRevoked: () => {
+          revoked += 1;
+        },
+      },
+    );
+
+    await session.completeSignIn("fresh");
+    await session.clearDeadSession();
+    expect(revoked).toBe(1);
+    expect(session.getAccessToken()).toBeNull();
+  });
 });

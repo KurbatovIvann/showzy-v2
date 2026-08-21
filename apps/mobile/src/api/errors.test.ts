@@ -1,7 +1,7 @@
 import { ORPCError } from "@orpc/client";
 import { describe, expect, it } from "vitest";
 
-import { describeWireError } from "./errors";
+import { describeQueryFailure, describeWireError } from "./errors";
 
 describe("describeWireError (contract.md §4)", () => {
   it("narrows by code, not by message text", () => {
@@ -49,10 +49,57 @@ describe("describeWireError (contract.md §4)", () => {
       },
     });
     expect(describeWireError(challenge)?.challengeId).toBe("c-1");
+    expect(describeWireError(challenge)?.summary).toBe("Delete?");
   });
 
   it("returns null for non-wire errors", () => {
     expect(describeWireError(new Error("PERMISSION_DENIED"))).toBeNull();
     expect(describeWireError("PERMISSION_DENIED")).toBeNull();
+  });
+});
+
+describe("describeQueryFailure", () => {
+  it("maps wire codes to kinds and keeps retry/challenge extras", () => {
+    const limited: unknown = new ORPCError("RATE_LIMITED", {
+      defined: true,
+      status: 429,
+      message: "Too many requests. Retry later.",
+      data: { retryAfterSec: 12 },
+    });
+    expect(describeQueryFailure(limited)).toEqual({
+      kind: "rate_limited",
+      message: "Too many requests. Retry later.",
+      retryAfterSec: 12,
+    });
+
+    const challenge: unknown = new ORPCError("CONFIRMATION_REQUIRED", {
+      defined: true,
+      status: 409,
+      message: "Confirmation required.",
+      data: {
+        challenge: {
+          challengeId: "c-1",
+          summary: "Delete?",
+          expiresAt: "2026-08-19T00:00:00.000Z",
+        },
+      },
+    });
+    expect(describeQueryFailure(challenge)).toEqual({
+      kind: "confirmation",
+      message: "Confirmation required.",
+      challengeId: "c-1",
+      summary: "Delete?",
+    });
+  });
+
+  it("classifies non-wire errors as network or offline", () => {
+    expect(describeQueryFailure(new TypeError("Failed to fetch")).kind).toBe(
+      "network",
+    );
+    expect(
+      describeQueryFailure(new TypeError("Failed to fetch"), {
+        online: false,
+      }).kind,
+    ).toBe("offline");
   });
 });

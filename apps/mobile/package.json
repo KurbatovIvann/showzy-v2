@@ -22,6 +22,7 @@
     "@react-native-community/slider": "5.2.0",
     "@shopify/flash-list": "2.0.2",
     "@showzy/contract": "workspace:*",
+    "@tanstack/react-query": "5.101.4",
     "expo": "~57.0.14",
     "expo-audio": "~57.0.4",
     "expo-build-properties": "~57.0.13",
