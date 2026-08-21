@@ -40,6 +40,48 @@ Runtime configuration is validated at boot by `packages/config` — an invalid
 or incomplete `.env` fails fast with the offending keys named (secret values
 are never echoed).
 
+## Mobile (Expo)
+
+Unistyles 3 requires a custom [development build](https://docs.expo.dev/develop/development-builds/introduction/)
+(`expo-dev-client`). Expo Go will not load this app.
+
+### Cloud build for a physical device
+
+One-time: Expo account, then from `apps/mobile` log in. The EAS project id
+lives in `app.config.ts` (`extra.eas.projectId`); EAS cannot write that
+field into a dynamic config itself.
+
+```bash
+cd apps/mobile
+npx eas-cli login
+npx eas-cli build --profile development --platform android
+npx eas-cli build --profile development --platform ios
+```
+
+The `development` profile in `eas.json` is an internal development client.
+When the build finishes, install the artifact from the Expo dashboard (QR /
+install link) onto the device. iOS internal distribution needs an Apple
+Developer account and registered devices.
+
+### Local Metro (after the development build is installed)
+
+```bash
+cp apps/mobile/.env.example apps/mobile/.env
+pnpm --filter @showzy/api start
+pnpm --filter @showzy/mobile start -- --dev-client
+```
+
+Open the installed **Showzy** app on the device (same Wi-Fi as the machine)
+and connect to the bundler. `EXPO_PUBLIC_API_URL` is inlined by Metro at
+bundle time — change it without a new native build. A phone cannot reach
+`localhost` on your computer; use the machine's LAN address
+(`http://192.168.x.x:3000`) in `apps/mobile/.env` when talking to a local
+API. If device discovery fails, add `--tunnel`:
+
+```bash
+pnpm --filter @showzy/mobile start -- --dev-client --tunnel
+```
+
 ## Stack (summary)
 
 Node.js 22 + TypeScript strict · Hono + oRPC · PostgreSQL 17 + Drizzle ·

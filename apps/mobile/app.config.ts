@@ -65,10 +65,17 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: "Showzy",
   slug: "showzy",
+  owner: "showzy-organization",
   version: "0.0.0",
   scheme: "showzy",
   orientation: "portrait",
   userInterfaceStyle: "automatic",
+  extra: {
+    ...config.extra,
+    eas: {
+      projectId: "0cedd12b-3114-4375-b7bb-b680b24a621f",
+    },
+  },
   plugins: expoConfigPlugins,
   experiments: {
     tsconfigPaths: true,
