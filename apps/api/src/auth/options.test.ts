@@ -13,7 +13,7 @@ import { z } from "zod";
 
 import { buildAuthOptions, tempEmailForPhone } from "./options.js";
 import { createAtomicOtpSendStore } from "./otp-send-guard.js";
-import { otpPolicy } from "./policy.js";
+import { expoClientPolicy, otpPolicy, sessionPolicy } from "./policy.js";
 
 const PHONE = "+380671112233";
 
@@ -126,10 +126,22 @@ describe("buildAuthOptions — §2 parameter wiring", () => {
     expect(plugin.options.storeOTP).toBe("hashed");
   });
 
-  it("enables bearer tokens for mobile clients", () => {
+  it("enables Expo cookie sessions and keeps bearer for non-RN callers", () => {
+    expect(options.plugins.some((candidate) => candidate.id === "expo")).toBe(
+      true,
+    );
     expect(options.plugins.some((candidate) => candidate.id === "bearer")).toBe(
       true,
     );
+  });
+
+  it("pins session lifetime and trusts the Expo app origin", () => {
+    expect(options.session.expiresIn).toBe(sessionPolicy.expiresInSeconds);
+    expect(options.session.updateAge).toBe(sessionPolicy.updateAgeSeconds);
+    expect(options.trustedOrigins).toEqual([
+      "http://localhost:3000",
+      expoClientPolicy.origin,
+    ]);
   });
 
   it("rate-limits OTP sends to 20 per hour per IP in every environment", () => {
@@ -162,6 +174,7 @@ describe("buildAuthOptions — §2 parameter wiring", () => {
     // Verification records must NOT also be written to the database.
     expect("verification" in options).toBe(false);
     expect(options.session.storeSessionInDatabase).toBe(true);
+    expect(options.session.expiresIn).toBe(sessionPolicy.expiresInSeconds);
   });
 });
 

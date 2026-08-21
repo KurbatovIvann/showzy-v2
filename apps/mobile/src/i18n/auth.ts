@@ -1,6 +1,6 @@
 /** Auth copy namespace (uk/en). Locale plumbing lives in `./locale`. */
 import type { AuthErrorKind } from "../auth/errors";
-import type { AuthChannel } from "../auth/identifiers";
+import type { AuthChannel } from "../auth/otp/identifiers";
 import { interpolate, type Locale } from "./locale";
 
 export type AuthCopy = {

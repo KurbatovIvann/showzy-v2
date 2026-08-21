@@ -4,6 +4,22 @@
  * the OTP send guard consume these, and tests assert against them. Values
  * change only through spec rework — never ad hoc.
  */
+export const sessionPolicy = {
+  /** Sliding session lifetime (better-auth `expiresIn`). */
+  expiresInSeconds: 60 * 60 * 24 * 7,
+  /**
+   * Refresh `expiresAt` when the remaining lifetime is shorter than
+   * `expiresIn - updateAge` (better-auth default: bump after 1 day of age).
+   */
+  updateAgeSeconds: 60 * 60 * 24,
+} as const;
+
+/** Expo app scheme (`apps/mobile/app.config.ts`). Origin checks, not a grant. */
+export const expoClientPolicy = {
+  scheme: "showzy",
+  origin: "showzy://",
+} as const;
+
 export const otpPolicy = {
   /** OTP length in digits (better-auth default, kept explicit). */
   length: 6,
@@ -22,8 +38,9 @@ export const otpPolicy = {
 } as const;
 
 /**
- * Cookie attributes for web sessions (security-operations §2). Mobile clients
- * use bearer tokens instead (the `bearer` plugin in `options.ts`).
+ * Cookie attributes for browser and Expo sessions (security-operations §2).
+ * Expo persists the same cookies in SecureStore via `@better-auth/expo`.
+ * The `bearer` plugin remains for non-RN callers (tests, future APIs).
  */
 export const cookiePolicy = {
   /** `Secure` in every environment, not only production. */

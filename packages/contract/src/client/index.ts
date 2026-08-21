@@ -29,6 +29,7 @@ export type {
   ContractCallContext,
   ContractClient,
   ContractClientOptions,
+  CookieProvider,
 } from "./create-client.js";
 export {
   INT64_MAX,

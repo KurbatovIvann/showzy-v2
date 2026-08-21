@@ -35,12 +35,12 @@ async function ignoreRpcFailure(promise: Promise<unknown>): Promise<void> {
 }
 
 describe("createShowzyClient (contract.md §3)", () => {
-  it("sends bearer, selector, and /rpc path through the mocked transport", async () => {
+  it("sends a session cookie and /rpc path through the mocked transport", async () => {
     expect("sample" in sampleRouter).toBe(true);
     const requests: Request[] = [];
     const created = createShowzyClient<SampleRouter>({
       apiUrl: "http://api.test/",
-      getAccessToken: () => "token-1",
+      getCookie: () => "better-auth.session_token=abc",
       initialCompanyId: "company-a",
       fetch: (request) => {
         requests.push(request);
@@ -55,22 +55,27 @@ describe("createShowzyClient (contract.md §3)", () => {
     expect(requests).toHaveLength(2);
     expect(new URL(requests[0]?.url ?? "").origin).toBe("http://api.test");
     expect(new URL(requests[0]?.url ?? "").pathname).toBe("/rpc/sample/ping");
-    expect(requests[0]?.headers.get("authorization")).toBe("Bearer token-1");
+    expect(requests[0]?.headers.get("cookie")).toBe(
+      "better-auth.session_token=abc",
+    );
+    expect(requests[0]?.headers.has("authorization")).toBe(false);
     expect(requests[0]?.headers.get("x-company-id")).toBe("company-a");
+    expect(requests[0]?.credentials).toBe("omit");
     expect(requests[1]?.headers.has("x-company-id")).toBe(false);
   });
 
-  it("omits authorization when the token provider returns null", async () => {
+  it("omits cookie and authorization when providers return empty", async () => {
     const requests: Request[] = [];
     const created = createShowzyClient<SampleRouter>({
       apiUrl: "http://api.test",
-      getAccessToken: () => null,
+      getCookie: () => null,
       fetch: (request) => {
         requests.push(request);
         return Promise.resolve(new Response(null, { status: 599 }));
       },
     });
     await ignoreRpcFailure(created.client.sample.ping({}));
+    expect(requests[0]?.headers.has("cookie")).toBe(false);
     expect(requests[0]?.headers.has("authorization")).toBe(false);
   });
 

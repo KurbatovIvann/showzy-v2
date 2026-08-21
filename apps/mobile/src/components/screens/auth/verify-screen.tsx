@@ -1,133 +1,80 @@
-import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { Redirect } from "expo-router";
 import { ChevronLeft } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
-import { identifierDestination } from "../../../auth/identifiers";
-import { authPolicy } from "../../../auth/policy";
-import { useAuthSession } from "../../../auth/session-provider";
-import { useOtpFlowState } from "../../../auth/use-otp-flow-state";
-import { errorCopy } from "../../../i18n/auth";
-import { interpolate } from "../../../i18n/locale";
+import { useVerifyScreen } from "../../../auth/use-verify";
 import { Banner, Button, OtpInput } from "../../ui";
 import { AuthPanel } from "./auth-panel";
 
 export function VerifyScreen() {
-  const auth = useAuthSession();
-  const flow = auth.flow;
-  const state = useOtpFlowState(flow);
+  const model = useVerifyScreen();
   const { theme } = useUnistyles();
-  const [, setTick] = useState(0);
 
-  const remaining = flow === null ? 0 : flow.resendSecondsRemaining();
-  const countdownActive = state.step === "verify" && remaining > 0;
-
-  useEffect(() => {
-    if (!countdownActive) {
-      return;
-    }
-    const id = setInterval(() => {
-      setTick((value) => value + 1);
-    }, 1000);
-    return () => {
-      clearInterval(id);
-    };
-  }, [countdownActive]);
-
-  if (auth.status === "authenticated") {
-    return <Redirect href="/session" />;
-  }
-  if (flow === null || state.step !== "verify") {
+  if (model.kind === "redirect-sign-in") {
     return <Redirect href="/sign-in" />;
   }
-
-  const destination = identifierDestination(state.identifier);
-  const locked = state.codeError === "verify_locked";
-  const otpError =
-    state.codeError === null ? null : errorCopy(auth.copy, state.codeError);
-  const submitDisabled = state.code.length === 0 || state.busy || locked;
-  const messageTemplate =
-    state.identifier.channel === "phone"
-      ? auth.copy.verifyPhoneMessage
-      : auth.copy.verifyEmailMessage;
-  const [messageBefore, messageAfter = ""] =
-    messageTemplate.split("{{destination}}");
-  const backLabel =
-    state.identifier.channel === "phone"
-      ? auth.copy.wrongNumber
-      : auth.copy.wrongEmail;
 
   return (
     <SafeAreaView
       style={styles.screen}
-      accessibilityLabel={auth.copy.verifyTitle}
+      accessibilityLabel={model.copy.verifyTitle}
     >
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={backLabel}
+        accessibilityLabel={model.backLabel}
         hitSlop={8}
-        onPress={() => {
-          flow.back();
-        }}
+        onPress={model.back}
         style={styles.back}
       >
         <ChevronLeft size={20} color={theme.colors.mutedForeground} />
-        <Text style={styles.backLabel}>{backLabel}</Text>
+        <Text style={styles.backLabel}>{model.backLabel}</Text>
       </Pressable>
       <View style={styles.header}>
-        <Text style={styles.title}>{auth.copy.verifyTitle}</Text>
+        <Text style={styles.title}>{model.copy.verifyTitle}</Text>
         <Text style={styles.subtitle}>
-          {messageBefore}
-          <Text style={styles.destination}>{destination}</Text>
-          {messageAfter}
+          {model.messageBefore}
+          <Text style={styles.destination}>{model.destination}</Text>
+          {model.messageAfter}
         </Text>
       </View>
       <AuthPanel>
         <OtpInput
-          value={state.code}
-          length={authPolicy.otpLength}
-          disabled={state.busy || locked}
-          error={otpError ?? false}
-          accessibilityLabel={auth.copy.verifyCode}
+          value={model.code}
+          length={model.otpLength}
+          disabled={model.busy || model.locked}
+          error={model.otpError ?? false}
+          accessibilityLabel={model.copy.verifyCode}
           onChange={(code) => {
-            flow.setCode(code);
-            if (code.length === authPolicy.otpLength) {
-              void flow.submitCode();
+            model.setCode(code);
+            if (code.length === model.otpLength) {
+              model.submit(code);
             }
           }}
         />
-        {state.bannerError ? (
-          <Banner message={errorCopy(auth.copy, state.bannerError)} />
-        ) : null}
+        {model.banner ? <Banner message={model.banner} /> : null}
         <View style={styles.actions}>
           <Button
             size="auth"
-            label={state.busy ? auth.copy.verifyLoading : auth.copy.verifyCode}
-            disabled={submitDisabled}
-            onPress={() => {
-              void flow.submitCode();
-            }}
+            label={
+              model.busy ? model.copy.verifyLoading : model.copy.verifyCode
+            }
+            disabled={model.submitDisabled}
+            onPress={model.submit}
           />
           <View style={styles.resend}>
-            {remaining > 0 ? (
-              <Text style={styles.resendWait}>
-                {interpolate(auth.copy.resendCodeIn, {
-                  seconds: String(remaining),
-                })}
-              </Text>
+            {model.resendWaitLabel !== null ? (
+              <Text style={styles.resendWait}>{model.resendWaitLabel}</Text>
             ) : (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={auth.copy.resendCode}
-                disabled={state.resendBusy}
-                onPress={() => {
-                  void flow.resend();
-                }}
+                accessibilityLabel={model.copy.resendCode}
+                disabled={model.resendBusy}
+                onPress={model.resend}
                 style={styles.resendHit}
               >
-                <Text style={styles.resendAction}>{auth.copy.resendCode}</Text>
+                <Text style={styles.resendAction}>{model.copy.resendCode}</Text>
               </Pressable>
             )}
           </View>

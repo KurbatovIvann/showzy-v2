@@ -61,8 +61,8 @@ export function clearCachedContractQueries(queryClient: QueryClient): void {
   queryClient.clear();
 }
 
-export function hasLocalBearer(token: string | null | undefined): boolean {
-  return token !== undefined && token !== null && token !== "";
+export function hasLocalSession(cookie: string | null | undefined): boolean {
+  return cookie !== undefined && cookie !== null && cookie !== "";
 }
 
 export type QueryAuthStatus = "loading" | "anonymous" | "authenticated";
@@ -95,7 +95,7 @@ export function isolateCacheOnSessionLoss(
 
 /**
  * Public/share calls must still run without a session. A 401 only clears
- * cache when a local session existed (dead bearer), never as a gate.
+ * cache when a local session existed (dead cookie), never as a gate.
  */
 export function handleUnauthenticatedQueryError(input: {
   readonly hadSession: boolean;

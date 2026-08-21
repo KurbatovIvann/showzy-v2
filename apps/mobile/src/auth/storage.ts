@@ -1,31 +1,27 @@
 /**
- * Bearer-token persistence. Native uses OS secure storage
- * (`expo-secure-store`); tests and web use this in-memory store.
- * The value is never logged.
+ * In-memory cookie jar used by tests and as the native hydrate buffer.
+ * Native persistence lives in `platform-storage.ts` so this file stays
+ * runnable in Docker-free vitest.
  */
-export const ACCESS_TOKEN_KEY = "showzy.auth.access-token";
+export type ExpoAuthStorage = {
+  getItem: (key: string) => string | null;
+  setItem: (key: string, value: string) => void | Promise<void>;
+};
 
-export interface TokenStore {
-  get(): Promise<string | null>;
-  set(token: string): Promise<void>;
-  clear(): Promise<void>;
-}
+export const AUTH_STORAGE_PREFIX = "showzy";
 
-export function createMemoryTokenStore(
-  initial: string | null = null,
-): TokenStore {
-  let value = initial;
+export function createMemoryAuthStorage(
+  initial: Readonly<Record<string, string>> = {},
+): ExpoAuthStorage {
+  const map = new Map<string, string>(Object.entries(initial));
   return {
-    get(): Promise<string | null> {
-      return Promise.resolve(value);
-    },
-    set(token: string): Promise<void> {
-      value = token;
-      return Promise.resolve();
-    },
-    clear(): Promise<void> {
-      value = null;
-      return Promise.resolve();
+    getItem: (key) => map.get(key) ?? null,
+    setItem: (key, value) => {
+      if (value === "") {
+        map.delete(key);
+        return;
+      }
+      map.set(key, value);
     },
   };
 }

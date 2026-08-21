@@ -46,6 +46,7 @@ async function captureRequest(
   ) => Promise<void>,
   options: {
     readonly getAccessToken?: () => string | null;
+    readonly getCookie?: () => string | null;
     readonly initialCompanyId?: string | null;
   } = {},
 ): Promise<Request[]> {
@@ -93,6 +94,21 @@ describe("createContractClient (contract.md §3)", () => {
     expect(requests[0]?.headers.get(COMPANY_SELECTOR_HEADER)).toBe("company-a");
     expect(requests[1]?.headers.get(COMPANY_SELECTOR_HEADER)).toBe("company-b");
     expect(requests[2]?.headers.has(COMPANY_SELECTOR_HEADER)).toBe(false);
+  });
+
+  it("sends the session cookie with credentials omitted", async () => {
+    const requests = await captureRequest(
+      async ({ client }) => {
+        await ignoreRpcFailure(client.sample.submit({ note: "hello" }));
+      },
+      { getCookie: () => "better-auth.session_token=abc" },
+    );
+    expect(requests).toHaveLength(1);
+    expect(requests[0]?.headers.get("cookie")).toBe(
+      "better-auth.session_token=abc",
+    );
+    expect(requests[0]?.headers.has("authorization")).toBe(false);
+    expect(requests[0]?.credentials).toBe("omit");
   });
 
   it("omits authorization and the selector when anonymous", async () => {

@@ -1,11 +1,11 @@
 /**
  * Typed contract client factory (contract.md §3).
  *
- * Apps supply a base URL and a token provider; this module attaches the
- * transport-meta headers (bearer, active-company selector, idempotency
- * key, confirmation challenge) and returns an oRPC client typed from the
- * contract router. It never interprets permissions — that is core's job
- * after `apps/api` resolves the session (fnd-T26).
+ * Apps supply a base URL and session credentials; this module attaches the
+ * transport-meta headers (Cookie and/or bearer, active-company selector,
+ * idempotency key, confirmation challenge) and returns an oRPC client typed
+ * from the contract router. It never interprets permissions — that is
+ * core's job after `apps/api` resolves the session (fnd-T26).
  */
 import { createORPCClient } from "@orpc/client";
 import { RPCLink, type RPCLinkOptions } from "@orpc/client/fetch";
@@ -34,13 +34,21 @@ export interface ContractCallContext {
 export type AccessTokenProvider = () =>
   string | null | undefined | Promise<string | null | undefined>;
 
+/** Cookie header value from `@better-auth/expo` `getCookie()`. */
+export type CookieProvider = AccessTokenProvider;
+
 export interface ContractClientOptions {
   /**
    * API origin without the `/rpc` suffix, e.g. `https://api.example.com`.
    * The factory appends {@link RPC_PREFIX}.
    */
   readonly baseUrl: string;
-  /** Bearer token for cookie-less clients (Expo). `null` = anonymous. */
+  /**
+   * Expo/browser session cookie (`Cookie` header). Prefer this for mobile
+   * (`@better-auth/expo`). `null` = anonymous.
+   */
+  readonly getCookie?: CookieProvider;
+  /** Optional bearer for non-RN callers. `null` = omit. */
   readonly getAccessToken?: AccessTokenProvider;
   /** Initial staff company *selector* — never an access grant (ADR-0013). */
   readonly initialCompanyId?: string | null;
@@ -72,13 +80,25 @@ function headerIfPresent(
   }
 }
 
-async function resolveAccessToken(
-  getAccessToken: AccessTokenProvider | undefined,
+async function resolveCredential(
+  provider: AccessTokenProvider | undefined,
 ): Promise<string | null | undefined> {
-  if (getAccessToken === undefined) {
+  if (provider === undefined) {
     return undefined;
   }
-  return getAccessToken();
+  return provider();
+}
+
+type RpcFetch = NonNullable<RPCLinkOptions<ContractCallContext>["fetch"]>;
+
+function fetchOmittingCredentials(fetchImpl: RpcFetch | undefined): RpcFetch {
+  return (request, init, options, path, input) => {
+    const next = new Request(request, { credentials: "omit" });
+    if (fetchImpl !== undefined) {
+      return fetchImpl(next, init, options, path, input);
+    }
+    return fetch(next, init);
+  };
 }
 
 /**
@@ -95,7 +115,9 @@ export function createContractClient<
     url: rpcUrl(options.baseUrl),
     headers: async ({ context }) => {
       const headers: Record<string, string> = {};
-      const token = await resolveAccessToken(options.getAccessToken);
+      const cookie = await resolveCredential(options.getCookie);
+      headerIfPresent(headers, "cookie", cookie);
+      const token = await resolveCredential(options.getAccessToken);
       headerIfPresent(headers, "authorization", tokenToBearer(token));
       headerIfPresent(headers, COMPANY_SELECTOR_HEADER, activeCompanyId);
       headerIfPresent(headers, IDEMPOTENCY_KEY_HEADER, context.idempotencyKey);
@@ -106,7 +128,7 @@ export function createContractClient<
       );
       return headers;
     },
-    ...(options.fetch !== undefined ? { fetch: options.fetch } : {}),
+    fetch: fetchOmittingCredentials(options.fetch),
   });
 
   const client =

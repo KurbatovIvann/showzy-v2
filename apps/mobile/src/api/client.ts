@@ -1,8 +1,9 @@
 /**
  * App wrapper around `createContractClient` (contract.md §3).
  *
- * `getAccessToken` reads the bearer from the session controller (fnd-T49).
- * The company selector is never an access grant (ADR-0013).
+ * Expo supplies `getCookie` from `@better-auth/expo`. Bearer remains
+ * optional for non-RN callers. The company selector is never an access
+ * grant (ADR-0013).
  */
 import type { AnyContractRouter } from "@orpc/contract";
 import {
@@ -12,10 +13,12 @@ import {
   type ContractCallContext,
   type ContractClient,
   type ContractClientOptions,
+  type CookieProvider,
 } from "@showzy/contract";
 
 export interface ShowzyClientOptions {
   readonly apiUrl: string;
+  readonly getCookie?: CookieProvider;
   readonly getAccessToken?: AccessTokenProvider;
   readonly fetch?: ContractClientOptions["fetch"];
   readonly initialCompanyId?: string | null;
@@ -26,7 +29,12 @@ export function toContractClientOptions(
 ): ContractClientOptions {
   return {
     baseUrl: options.apiUrl,
-    getAccessToken: options.getAccessToken ?? ((): null => null),
+    ...(options.getCookie === undefined
+      ? {}
+      : { getCookie: options.getCookie }),
+    ...(options.getAccessToken === undefined
+      ? {}
+      : { getAccessToken: options.getAccessToken }),
     ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
     ...(options.initialCompanyId === undefined
       ? {}
@@ -40,4 +48,9 @@ export function createShowzyClient<
   return createContractClient<TRouter>(toContractClientOptions(options));
 }
 
-export type { AccessTokenProvider, ContractCallContext, ContractClient };
+export type {
+  AccessTokenProvider,
+  ContractCallContext,
+  ContractClient,
+  CookieProvider,
+};
