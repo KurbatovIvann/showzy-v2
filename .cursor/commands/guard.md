@@ -8,9 +8,7 @@ Run this only when the lane requires it: `sensitive` tickets, the first
 golden backend or UI slice, or the first use of a new principal /
 composition edge. Skip mechanical and ordinary routine work.
 
-You are a different model family than the implementer. Prefer
-**GPT-5.6 Sol (high/xhigh)**. On `sensitive` work also launch the
-security-review agent.
+On `sensitive` work also launch the security-review agent.
 
 ## What you check
 

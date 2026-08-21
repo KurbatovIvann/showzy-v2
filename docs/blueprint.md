@@ -273,9 +273,9 @@ PLANNER → EXECUTOR → VERIFIER → GUARDIAN (optional)
    branch, one PR. Copies the **golden files for that layer**. Runs the
    verify loop until CI-equivalent checks are green. Tests follow the
    definition of done — not a red-then-green ritual.
-3. **Verifier.** CI always. Bugbot on routine+. Cross-family `/review`
-   on sensitive and first-slice PRs. Rubric is constitution, ADRs, golden
-   fidelity, feature card, real tests — not an archived spec section.
+3. **Verifier.** CI always. Bugbot on routine+. `/review` on sensitive
+   and first-slice PRs. Rubric is constitution, ADRs, golden fidelity,
+   feature card, real tests — not an archived spec section.
 4. **Guardian** (`/guard`, optional). Sensitive surfaces, the first
    golden backend or UI slice, first use of a new principal or composition
    edge. Architecture/security pass. ADR deviation is a stop.
@@ -303,28 +303,19 @@ allowlisted packages. New domain work uses `/feature`.
 - **Definition of Done**: required tests for every action (happy + mode-appropriate authorization denial + validation/output failure + metadata-required protocols), proving tests for schema/config, feature-card acceptance, green CI.
 - **Context**: every package has an `AGENTS.md` with local instructions (as in the current repo). Feature executors read the ticket's context pack, not every package manual.
 
-### 7.3 Model selection (Cursor, August 2026 lineup)
+### 7.3 Model selection
 
-Principles: (1) **different model families for writing and review** — one model's systematic blind spots are caught by another; (2) **expensive models front-loaded, cheap models at scale** — top-tier models build the foundation and the golden backend slice; once the templates exist, mass implementation shifts to a cheap fast model, because the pipeline (golden files + CI + Verifier) is what guarantees quality, not the implementer's raw capability; (3) the Cursor model lineup changes monthly — the table below describes roles; substitute current equivalents.
+Every pipeline role uses **Grok 4.6** while that is the model on this
+Cursor plan. Do not stop a ticket because a named Claude or GPT model is
+unavailable.
 
-| Pipeline role | Model | Why |
-| --- | --- | --- |
-| Architecture, feature cards, ADRs | **Claude Opus 5 (thinking, high)**; cross-check critical docs with **GPT-5.6 Sol (high)** | Maximum reasoning depth; a mistake at this level is the most expensive. Rare invocations — cost is negligible |
-| Foundation leftovers and the golden backend slice | **Claude Fable 5 (thinking)** — if its data-retention terms are accepted (Anthropic stores agent I/O for harm prevention); otherwise **Claude Opus 5 (thinking, high)** at half the token price | Code that becomes the template for everything else must be impeccable. Expensive, but bounded: used front-loaded, not permanently |
-| Sensitive surfaces at any phase: auth, payments, QES, webhooks, file authorization, tenant/runtime protocols | Same as foundation (Fable 5 or Opus 5) | Bugs here are the most expensive to catch late; not worth economizing |
-| Main feature implementation (once the golden backend slice exists) | **Grok 4.6 (high, non-fast)** | The cheap workhorse from the Cursor Models pool. Fast mode buys latency at 2× the price — irrelevant for background agents. Works from the feature card + golden files; CI and Verifier catch its mistakes. Escalate after 2 failed review iterations |
-| Boilerplate, mass edits, template-driven refactors | **Composer 2.5** | Cheapest tier; the pattern is already set by the reference |
-| Routine PR code review | **GPT-5.6 Terra (high)** — a different family than the implementer (both Grok and Claude) | + **Bugbot** on every PR as a separate layer. Cross-family review catches the implementer's systematic blind spots |
-| Foundation / sensitive PR review (auth, payments, QES, webhooks, migrations, core) | **GPT-5.6 Sol (high/xhigh)** + security-review agent | Independent deep pass; reviewer stronger than the implementer where it matters |
-| Debugging hard bugs | **Claude Opus 5 (thinking, high)** — always a different family than the model whose code is failing | Escalation when the working model can't find the root cause in 1–2 iterations |
-
-Cost model in one line: expensive reasoning is spent where errors are
-irreversible or template-setting (feature cards, foundation, golden
-slices, security, review); volume code generation runs on the cheap model
-under the supervision of tests, CI, and a stronger reviewer.
+Independent review is CI, Bugbot on routine+, and a human merge — not a
+second model family. `/review` and `/guard` still run on Grok when the
+lane requires them. When another family is on the plan, revisit this
+section; until then do not keep a per-role model matrix.
 
 Practice in Cursor: feature cards — in Plan mode (`/feature`);
-implementation — parallel cloud agents on separate branches (`/ticket`);
+implementation — parallel agents on separate branches (`/ticket`);
 review — Bugbot + `/review`; safety — `/guard` when the lane requires it.
 See `docs/pipeline.md` for the day-to-day workflow including Linear.
 
