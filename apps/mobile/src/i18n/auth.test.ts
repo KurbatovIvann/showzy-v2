@@ -4,9 +4,11 @@ import { authCopy, errorCopy, verifyMessage } from "./auth";
 import { detectLocale, interpolate } from "./locale";
 
 describe("auth copy", () => {
-  it("picks Ukrainian from a uk locale and English otherwise", () => {
+  it("defaults to Ukrainian and picks English only from an en locale", () => {
+    expect(detectLocale()).toBe("uk");
     expect(detectLocale("uk-UA")).toBe("uk");
     expect(detectLocale("UK")).toBe("uk");
+    expect(detectLocale("de-DE")).toBe("uk");
     expect(detectLocale("en-US")).toBe("en");
     expect(authCopy("uk").welcome).toBe("Ласкаво просимо");
     expect(authCopy("en").welcome).toBe("Welcome");
