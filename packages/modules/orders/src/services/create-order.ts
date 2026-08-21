@@ -130,6 +130,15 @@ export async function createStaffOrder(env: {
     if (item === undefined || price === undefined) {
       throw new CoreInvariantError("create line zip went out of range");
     }
+    const expectedVariantId = item.variantId ?? null;
+    if (
+      price.productId !== item.productId ||
+      price.variantId !== expectedVariantId
+    ) {
+      throw new CoreInvariantError(
+        `pricing.resolveProductPrices row ${String(index)} does not match the create line`,
+      );
+    }
     const fact = productFact(products, item.productId);
     const unitPriceMinor = BigInt(price.unitPriceMinor);
     const quantityMilli = BigInt(item.quantityMilli);

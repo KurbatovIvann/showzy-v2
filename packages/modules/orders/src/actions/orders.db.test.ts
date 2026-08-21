@@ -674,6 +674,7 @@ describe("orders.create / confirm / get", () => {
       currency: "UAH",
       itemCount: 6,
     });
+    expect(createdEvent?.payload).not.toHaveProperty("comment");
 
     const createAudit = await kit.db.runtime.db
       .select()
@@ -717,6 +718,7 @@ describe("orders.create / confirm / get", () => {
     const fetched = await kit.invoke(getOrder, { orderId: created.orderId });
     expect(fetched.status).toBe("confirmed");
     expect(fetched.comment).toBe("Staff note");
+    expect(fetched.confirmedAt).toBe(confirmed.confirmedAt);
     expect(fetched.totalGrossMinor).toBe(created.totalGrossMinor);
     expect(fetched.items).toHaveLength(6);
     expect(fetched.items.map((item) => item.unitPriceMinor).sort()).toEqual(
