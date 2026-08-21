@@ -1,14 +1,14 @@
 /**
  * Locale detection and template interpolation shared by every copy
  * namespace. V1 shipped Ukrainian and English; V2 keeps the same pair.
+ * Ukrainian is the product default (UA-first). English only when the
+ * locale is explicitly `en*`.
  */
 
 export type Locale = "en" | "uk";
 
-export function detectLocale(
-  locale: string = Intl.DateTimeFormat().resolvedOptions().locale,
-): Locale {
-  return locale.toLowerCase().startsWith("uk") ? "uk" : "en";
+export function detectLocale(locale: string = "uk"): Locale {
+  return locale.toLowerCase().startsWith("en") ? "en" : "uk";
 }
 
 export function interpolate(
