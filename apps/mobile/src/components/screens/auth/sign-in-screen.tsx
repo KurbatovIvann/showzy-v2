@@ -1,18 +1,26 @@
 import { Text, View } from "react-native";
 import { Redirect } from "expo-router";
+import { AtSign, Phone } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { StyleSheet } from "react-native-unistyles";
+import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { useAuthSession } from "../../../auth/session-provider";
 import { useOtpFlowState } from "../../../auth/use-otp-flow-state";
-import type { AuthChannel } from "../../../auth/identifiers";
+import {
+  uaNationalFieldDigits,
+  uaPhoneFieldValue,
+  type AuthChannel,
+} from "../../../auth/identifiers";
 import { errorCopy } from "../../../i18n/auth";
-import { Banner, Button, Card, SegmentedTabs, TextField } from "../../ui";
+import { Banner, Button, SegmentedTabs, TextField } from "../../ui";
+import { AuthBrand } from "./auth-brand";
+import { AuthPanel } from "./auth-panel";
 
 export function SignInScreen() {
   const auth = useAuthSession();
   const flow = auth.flow;
   const state = useOtpFlowState(flow);
+  const { theme } = useUnistyles();
 
   if (auth.status === "authenticated") {
     return <Redirect href="/session" />;
@@ -31,59 +39,73 @@ export function SignInScreen() {
     { key: "phone", label: auth.copy.phone },
     { key: "email", label: auth.copy.email },
   ];
+  const nationalDigits = uaNationalFieldDigits(state.phone);
+  const identifierEmpty =
+    state.channel === "phone"
+      ? nationalDigits.length === 0
+      : state.email.trim().length === 0;
+  const submitDisabled = identifierEmpty || state.busy;
+  const iconColor = theme.colors.mutedForeground;
 
   return (
     <SafeAreaView style={styles.screen} accessibilityLabel={auth.copy.welcome}>
-      <View style={styles.branding}>
-        <Text style={styles.title}>Showzy</Text>
-        <Text style={styles.subtitle}>{auth.copy.welcomeMessage}</Text>
-      </View>
-      <Card>
-        <Text style={styles.cardTitle}>{auth.copy.welcome}</Text>
-        <SegmentedTabs
-          tabs={channels}
-          selected={state.channel}
-          disabled={state.busy}
-          onSelect={(channel) => {
-            flow.setChannel(channel);
-          }}
-        />
-        {state.channel === "phone" ? (
-          <TextField
-            value={state.phone}
-            onChangeText={(value) => {
-              flow.setPhone(value);
+      <AuthBrand tagline={auth.copy.tagline} />
+      <AuthPanel>
+        <Text style={styles.title}>{auth.copy.welcome}</Text>
+        <View style={styles.form}>
+          <SegmentedTabs
+            tabs={channels}
+            selected={state.channel}
+            disabled={state.busy}
+            onSelect={(channel) => {
+              flow.setChannel(channel);
             }}
-            placeholder={auth.copy.phonePlaceholder}
-            accessibilityLabel={auth.copy.phone}
-            keyboardType="phone-pad"
-            editable={!state.busy}
-            error={fieldError}
           />
-        ) : (
-          <TextField
-            value={state.email}
-            onChangeText={(value) => {
-              flow.setEmail(value);
+          {state.channel === "phone" ? (
+            <TextField
+              size="auth"
+              label={auth.copy.phoneLabel}
+              leading={<Phone size={18} color={iconColor} />}
+              prefix="+380"
+              value={nationalDigits}
+              onChangeText={(value) => {
+                flow.setPhone(uaPhoneFieldValue(value));
+              }}
+              placeholder={auth.copy.phonePlaceholder}
+              accessibilityLabel={auth.copy.phoneLabel}
+              keyboardType="phone-pad"
+              editable={!state.busy}
+              error={fieldError}
+            />
+          ) : (
+            <TextField
+              size="auth"
+              label={auth.copy.emailLabel}
+              leading={<AtSign size={18} color={iconColor} />}
+              value={state.email}
+              onChangeText={(value) => {
+                flow.setEmail(value);
+              }}
+              placeholder={auth.copy.emailPlaceholder}
+              accessibilityLabel={auth.copy.emailLabel}
+              keyboardType="email-address"
+              editable={!state.busy}
+              error={fieldError}
+            />
+          )}
+          {state.bannerError ? (
+            <Banner message={errorCopy(auth.copy, state.bannerError)} />
+          ) : null}
+          <Button
+            size="auth"
+            label={state.busy ? auth.copy.continueLoading : auth.copy.continue}
+            disabled={submitDisabled}
+            onPress={() => {
+              void flow.submitIdentifier();
             }}
-            placeholder={auth.copy.emailPlaceholder}
-            accessibilityLabel={auth.copy.email}
-            keyboardType="email-address"
-            editable={!state.busy}
-            error={fieldError}
           />
-        )}
-        {state.bannerError ? (
-          <Banner message={errorCopy(auth.copy, state.bannerError)} />
-        ) : null}
-        <Button
-          label={auth.copy.continue}
-          loading={state.busy}
-          onPress={() => {
-            void flow.submitIdentifier();
-          }}
-        />
-      </Card>
+        </View>
+      </AuthPanel>
     </SafeAreaView>
   );
 }
@@ -93,30 +115,16 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
     backgroundColor: theme.colors.background,
     paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.lg,
-  },
-  branding: {
-    marginBottom: theme.spacing["3xl"],
-    marginTop: theme.spacing.lg,
-    alignItems: "center",
   },
   title: {
     color: theme.colors.foreground,
-    fontSize: theme.typography["4xl"].fontSize,
-    lineHeight: theme.typography["4xl"].lineHeight,
-    fontWeight: "700",
-  },
-  subtitle: {
-    color: theme.colors.mutedForeground,
-    marginTop: theme.spacing.sm,
-    fontSize: theme.typography.base.fontSize,
-    lineHeight: theme.typography.base.lineHeight,
-  },
-  cardTitle: {
-    color: theme.colors.foreground,
     textAlign: "center",
-    fontSize: theme.typography["2xl"].fontSize,
-    lineHeight: theme.typography["2xl"].lineHeight,
-    fontWeight: "700",
+    fontSize: theme.typography["3xl"].fontSize,
+    lineHeight: theme.typography["3xl"].lineHeight,
+    fontWeight: "600",
+  },
+  form: {
+    marginTop: theme.spacing.xs,
+    gap: theme.spacing.xl,
   },
 }));

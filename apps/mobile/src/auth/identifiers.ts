@@ -42,6 +42,26 @@ export function stripUaNationalDigits(value: string): string | null {
   return national;
 }
 
+/** National digits shown in the UA phone field (0–9). Flow may hold E.164. */
+export function uaNationalFieldDigits(value: string): string {
+  const phone = normalizePhone(value);
+  const national = phone.startsWith(UA_E164_PREFIX)
+    ? phone.slice(UA_E164_PREFIX.length)
+    : phone.replaceAll(/\D/g, "");
+  return national.slice(0, UA_NATIONAL_DIGIT_COUNT);
+}
+
+/**
+ * Persist field edits for the OTP flow: complete 9 digits become E.164;
+ * a partial entry stays digits-only so `parseIdentifier` still rejects it.
+ */
+export function uaPhoneFieldValue(nationalDigits: string): string {
+  const digits = nationalDigits
+    .replaceAll(/\D/g, "")
+    .slice(0, UA_NATIONAL_DIGIT_COUNT);
+  return composeUaE164(digits) ?? digits;
+}
+
 export function parseIdentifier(
   channel: AuthChannel,
   raw: string,

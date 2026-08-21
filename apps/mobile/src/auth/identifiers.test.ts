@@ -8,6 +8,8 @@ import {
   normalizePhone,
   parseIdentifier,
   stripUaNationalDigits,
+  uaNationalFieldDigits,
+  uaPhoneFieldValue,
 } from "./identifiers";
 
 describe("auth identifiers", () => {
@@ -41,6 +43,21 @@ describe("auth identifiers", () => {
     expect(stripUaNationalDigits("+380 67 111 22 33")).toBe("671112233");
     expect(stripUaNationalDigits("+38067")).toBeNull();
     expect(stripUaNationalDigits("671112233")).toBeNull();
+  });
+
+  it("adapts the UA phone field without requiring a complete E.164", () => {
+    expect(uaNationalFieldDigits("+380")).toBe("");
+    expect(uaNationalFieldDigits("+38067")).toBe("67");
+    expect(uaNationalFieldDigits("+380 67 111 22 33")).toBe("671112233");
+    expect(uaNationalFieldDigits("671112233")).toBe("671112233");
+    expect(uaPhoneFieldValue("67")).toBe("67");
+    expect(uaPhoneFieldValue("671112233")).toBe("+380671112233");
+    expect(uaPhoneFieldValue("67 111 22 33")).toBe("+380671112233");
+    expect(parseIdentifier("phone", uaPhoneFieldValue("67"))).toBeNull();
+    expect(parseIdentifier("phone", uaPhoneFieldValue("671112233"))).toEqual({
+      channel: "phone",
+      phoneNumber: "+380671112233",
+    });
   });
 
   it("hides phone-first placeholder emails from session display", () => {
