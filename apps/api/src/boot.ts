@@ -1,8 +1,8 @@
 /**
  * Process boot: load validated config, open Postgres + Redis, compose
- * better-auth and the action pipeline, return the Hono app. OTP delivery
- * providers are not in this slice — senders are no-ops so codes never
- * reach logs (security-operations §2). T49 mounts real senders.
+ * better-auth and the action pipeline, return the Hono app. OTP senders are
+ * composed from validated `otpDelivery` config (stub in development/test;
+ * live adapters in auth-T2). Codes never reach logs (security-operations §2).
  */
 import { getConnInfo } from "@hono/node-server/conninfo";
 import type { ServerConfig } from "@showzy/config";
@@ -14,6 +14,7 @@ import type { Context } from "hono";
 import { Redis } from "ioredis";
 
 import { buildAuthOptions } from "./auth/options.js";
+import { otpSendersFromConfig } from "./auth/otp-delivery.js";
 import { createActionRegistry } from "./composition.js";
 import { createApp, type AuthInstance } from "./http/app.js";
 import { createProcessObservability } from "./observability.js";
@@ -28,11 +29,6 @@ import {
 export interface BootedApi {
   readonly app: ReturnType<typeof createApp>;
   close(): Promise<void>;
-}
-
-async function dropOtp(): Promise<void> {
-  // Intentionally empty: codes are never logged, and SMS/email providers
-  // are not part of this slice.
 }
 
 function peerAddressFromConnInfo(c: Context): string {
@@ -57,14 +53,15 @@ export async function bootApi(config: ServerConfig): Promise<BootedApi> {
     sentryDsn: config.sentry.dsn,
   });
   const secondary = createRedisSecondaryStorage(redis);
+  const otpSenders = otpSendersFromConfig(config.otpDelivery);
 
   const authInstance = betterAuth(
     buildAuthOptions({
       database: drizzleAdapter(db.db, { provider: "pg" }),
       baseUrl: config.auth.url,
       secret: config.auth.secret,
-      sendPhoneOtp: () => dropOtp(),
-      sendEmailOtp: () => dropOtp(),
+      sendPhoneOtp: otpSenders.sendPhoneOtp,
+      sendEmailOtp: otpSenders.sendEmailOtp,
       otpSendStore: createRedisOtpSendStore(redis),
       secondaryStorage: secondary,
     }),
