@@ -33,6 +33,8 @@ import { finalizeUpload } from "./finalize-upload.js";
 import { getDownloadUrl } from "./get-download-url.js";
 import { getUploadUrl } from "./get-upload-url.js";
 import { requestUpload } from "./request-upload.js";
+import { sweepAbandonedUploads } from "./sweep-abandoned-uploads.js";
+import { ABANDONED_PENDING_TTL_MS } from "./sweep-abandoned-uploads.contract.js";
 import { sha256Hex } from "../services/checksum.js";
 import { catalogObjectKey, stagingObjectKey } from "../services/object-key.js";
 import {
@@ -94,6 +96,10 @@ const uploadOwnInput = { fileId: "" };
 const uploadForeignInput = { fileId: "" };
 const finalizeIdempotentInput = { fileId: "" };
 const finalizeIdempotentFreshInput = { fileId: "" };
+const sweepOwnInput = { fileId: "" };
+const sweepForeignInput = { fileId: "" };
+const sweepIdempotentInput = { fileId: "" };
+const sweepIdempotentFreshInput = { fileId: "" };
 
 let kit: TestKit | undefined;
 let garage: StartedTestContainer | undefined;
@@ -228,6 +234,39 @@ async function requestAndPut(
   return requested.fileId;
 }
 
+async function insertFileRow(values: {
+  readonly id: string;
+  readonly companyId: string;
+  readonly uploadedByUserId: string;
+  readonly status: "pending" | "ready";
+  readonly createdAt?: Date;
+}): Promise<void> {
+  await requireKit()
+    .db.runtime.db.insert(files)
+    .values({
+      id: values.id,
+      companyId: values.companyId,
+      uploadedByUserId: values.uploadedByUserId,
+      purpose: "catalog",
+      objectKey: catalogObjectKey(values.companyId, values.id),
+      mimeType: "image/jpeg",
+      byteSize: BigInt(jpegBytes.byteLength),
+      checksumSha256: jpegChecksum,
+      status: values.status,
+      ...(values.createdAt !== undefined
+        ? { createdAt: values.createdAt }
+        : {}),
+    });
+}
+
+async function putStoreObject(key: string): Promise<void> {
+  await getFilesObjectStore().putObject({
+    key,
+    mimeType: "image/jpeg",
+    bytes: jpegBytes,
+  });
+}
+
 beforeAll(async () => {
   const garageToml = readFileSync(
     path.join(repoRoot(), "docker/garage/garage.toml"),
@@ -330,6 +369,44 @@ beforeAll(async () => {
     jpegBytes,
     "image/jpeg",
   );
+
+  sweepOwnInput.fileId = randomUUID();
+  sweepForeignInput.fileId = randomUUID();
+  sweepIdempotentInput.fileId = randomUUID();
+  sweepIdempotentFreshInput.fileId = randomUUID();
+  await insertFileRow({
+    id: sweepOwnInput.fileId,
+    companyId: kitIdentities.companies.a,
+    uploadedByUserId: kitIdentities.users.anna,
+    status: "pending",
+  });
+  await insertFileRow({
+    id: sweepForeignInput.fileId,
+    companyId: kitIdentities.companies.b,
+    uploadedByUserId: kitIdentities.users.boris,
+    status: "pending",
+  });
+  await insertFileRow({
+    id: sweepIdempotentInput.fileId,
+    companyId: kitIdentities.companies.a,
+    uploadedByUserId: kitIdentities.users.anna,
+    status: "ready",
+  });
+  await insertFileRow({
+    id: sweepIdempotentFreshInput.fileId,
+    companyId: kitIdentities.companies.a,
+    uploadedByUserId: kitIdentities.users.anna,
+    status: "ready",
+  });
+  await putStoreObject(
+    stagingObjectKey(kitIdentities.companies.a, sweepIdempotentInput.fileId),
+  );
+  await putStoreObject(
+    stagingObjectKey(
+      kitIdentities.companies.a,
+      sweepIdempotentFreshInput.fileId,
+    ),
+  );
 });
 
 afterAll(async () => {
@@ -363,6 +440,11 @@ crossTenantSuite(requireKit, [
     { input: uploadOwnInput },
     { input: uploadForeignInput },
   ),
+  isolationCase(
+    sweepAbandonedUploads,
+    { input: sweepOwnInput },
+    { input: sweepForeignInput },
+  ),
 ]);
 
 idempotencySuite(requireKit, [
@@ -382,6 +464,13 @@ idempotencySuite(requireKit, [
     input: finalizeIdempotentInput,
     conflictingInput: finalizeForeignInput,
     freshInput: () => finalizeIdempotentFreshInput,
+    readEffect: () => countReadyFiles(kitIdentities.companies.a),
+  },
+  {
+    action: sweepAbandonedUploads,
+    input: sweepIdempotentInput,
+    conflictingInput: sweepForeignInput,
+    freshInput: () => sweepIdempotentFreshInput,
     readEffect: () => countReadyFiles(kitIdentities.companies.a),
   },
 ]);
@@ -825,5 +914,206 @@ describe("files signed upload slice", () => {
     expect(blob).not.toContain("/uploads/");
     expect(blob).not.toContain("objectKey");
     expect(blob).not.toContain("object_key");
+  });
+});
+
+describe("files.sweepAbandonedUploads", () => {
+  it("leaves in-flight pending objects and the row in place", async () => {
+    const fileId = await requestAndPut(jpegBytes, "image/jpeg");
+    await putStoreObject(catalogObjectKey(kitIdentities.companies.a, fileId));
+
+    const result = await requireKit().invoke(sweepAbandonedUploads, { fileId });
+    expect(result).toEqual({
+      fileId,
+      deletedPendingRow: false,
+      deletedStaging: false,
+      deletedCatalog: false,
+    });
+
+    const store = getFilesObjectStore();
+    expect(
+      await store.headObject(
+        stagingObjectKey(kitIdentities.companies.a, fileId),
+      ),
+    ).not.toBe("missing");
+    expect(
+      await store.headObject(
+        catalogObjectKey(kitIdentities.companies.a, fileId),
+      ),
+    ).not.toBe("missing");
+    const rows = await requireKit()
+      .db.runtime.db.select({ status: files.status })
+      .from(files)
+      .where(eq(files.id, fileId));
+    expect(rows[0]?.status).toBe("pending");
+  });
+
+  it("deletes leftover staging after ready and keeps catalog downloadable", async () => {
+    const requested = await requireKit().invoke(requestUpload, jpegInput);
+    const signed = await mintPut(requested.fileId);
+    await putSigned(signed.uploadUrl, jpegBytes, "image/jpeg");
+    const ready = await requireKit().invoke(finalizeUpload, {
+      fileId: requested.fileId,
+    });
+    const leftoverBytes = Uint8Array.from(jpegBytes);
+    leftoverBytes[leftoverBytes.byteLength - 3] =
+      (leftoverBytes.at(leftoverBytes.byteLength - 3) ?? 0) ^ 0xff;
+    await putSigned(signed.uploadUrl, leftoverBytes, "image/jpeg");
+
+    const capturing = createCapturingLogger();
+    const result = await requireKit().invoke(
+      sweepAbandonedUploads,
+      { fileId: ready.fileId },
+      {},
+      { deps: { ...requireKit().pipeline, logger: capturing.logger } },
+    );
+    expect(result).toEqual({
+      fileId: ready.fileId,
+      deletedPendingRow: false,
+      deletedStaging: true,
+      deletedCatalog: false,
+    });
+
+    const store = getFilesObjectStore();
+    expect(
+      await store.headObject(
+        stagingObjectKey(kitIdentities.companies.a, ready.fileId),
+      ),
+    ).toBe("missing");
+    const catalog = await store.getObject(
+      catalogObjectKey(kitIdentities.companies.a, ready.fileId),
+    );
+    expect(catalog).not.toBe("missing");
+    if (catalog === "missing") {
+      throw new Error("expected catalog object after staging sweep");
+    }
+    expect(sha256Hex(catalog.bytes)).toBe(jpegChecksum);
+
+    const download = await requireKit().invoke(getDownloadUrl, {
+      fileId: ready.fileId,
+    });
+    const fetched = await fetch(download.downloadUrl);
+    expect(fetched.ok).toBe(true);
+    expect(sha256Hex(new Uint8Array(await fetched.arrayBuffer()))).toBe(
+      jpegChecksum,
+    );
+
+    const logs = JSON.stringify(capturing.entries());
+    expect(logs).not.toContain(signed.uploadUrl);
+    expect(logs).not.toMatch(/\/catalog\//);
+    expect(logs).not.toMatch(/\/uploads\//);
+  });
+
+  it("deletes abandoned pending staging, orphan catalog, and the row", async () => {
+    const fileId = randomUUID();
+    const foreignId = randomUUID();
+    const abandonedAt = new Date(Date.now() - ABANDONED_PENDING_TTL_MS - 1_000);
+    await insertFileRow({
+      id: fileId,
+      companyId: kitIdentities.companies.a,
+      uploadedByUserId: kitIdentities.users.anna,
+      status: "pending",
+      createdAt: abandonedAt,
+    });
+    await insertFileRow({
+      id: foreignId,
+      companyId: kitIdentities.companies.b,
+      uploadedByUserId: kitIdentities.users.boris,
+      status: "pending",
+      createdAt: abandonedAt,
+    });
+    await putStoreObject(stagingObjectKey(kitIdentities.companies.a, fileId));
+    await putStoreObject(catalogObjectKey(kitIdentities.companies.a, fileId));
+    await putStoreObject(
+      stagingObjectKey(kitIdentities.companies.b, foreignId),
+    );
+    await putStoreObject(
+      catalogObjectKey(kitIdentities.companies.b, foreignId),
+    );
+
+    const capturing = createCapturingLogger();
+    const result = await requireKit().invoke(
+      sweepAbandonedUploads,
+      { fileId },
+      {},
+      { deps: { ...requireKit().pipeline, logger: capturing.logger } },
+    );
+    expect(result).toEqual({
+      fileId,
+      deletedPendingRow: true,
+      deletedStaging: true,
+      deletedCatalog: true,
+    });
+
+    const store = getFilesObjectStore();
+    expect(
+      await store.headObject(
+        stagingObjectKey(kitIdentities.companies.a, fileId),
+      ),
+    ).toBe("missing");
+    expect(
+      await store.headObject(
+        catalogObjectKey(kitIdentities.companies.a, fileId),
+      ),
+    ).toBe("missing");
+    expect(
+      await store.headObject(
+        stagingObjectKey(kitIdentities.companies.b, foreignId),
+      ),
+    ).not.toBe("missing");
+    expect(
+      await store.headObject(
+        catalogObjectKey(kitIdentities.companies.b, foreignId),
+      ),
+    ).not.toBe("missing");
+
+    const gone = await requireKit()
+      .db.runtime.db.select({ id: files.id })
+      .from(files)
+      .where(eq(files.id, fileId));
+    expect(gone).toHaveLength(0);
+    const foreign = await requireKit()
+      .db.runtime.db.select({ id: files.id })
+      .from(files)
+      .where(eq(files.id, foreignId));
+    expect(foreign).toHaveLength(1);
+
+    const audit = await requireKit()
+      .db.runtime.db.select()
+      .from(auditLog)
+      .where(
+        and(
+          eq(auditLog.action, "files.sweepAbandonedUploads"),
+          eq(auditLog.targetId, fileId),
+        ),
+      );
+    expect(audit.length).toBeGreaterThanOrEqual(1);
+    expect(audit[0]?.companyId).toBe(kitIdentities.companies.a);
+    expect(audit[0]?.targetType).toBe("file");
+    const blob = JSON.stringify([result, capturing.entries(), audit[0]]);
+    expect(blob).not.toMatch(/\/catalog\//);
+    expect(blob).not.toMatch(/\/uploads\//);
+    expect(blob).not.toContain("objectKey");
+  });
+
+  it("rejects invalid, missing, and foreign fileIds", async () => {
+    await expect(
+      requireKit().invoke(sweepAbandonedUploads, { fileId: "not-a-uuid" }),
+    ).rejects.toBeInstanceOf(ValidationError);
+    await expect(
+      requireKit().invoke(sweepAbandonedUploads, { fileId: randomUUID() }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      requireKit().invoke(sweepAbandonedUploads, {
+        fileId: sweepForeignInput.fileId,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      requireKit().invoke(
+        sweepAbandonedUploads,
+        { fileId: sweepOwnInput.fileId },
+        { companyId: kitIdentities.companies.b },
+      ),
+    ).rejects.toBeInstanceOf(NotFoundError);
   });
 });

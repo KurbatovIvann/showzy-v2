@@ -43,6 +43,7 @@ describe("client composition", () => {
     expect(contractRouter.files.finalizeUpload).toBeDefined();
     expect(contractRouter.files.getDownloadUrl).toBeDefined();
     expect(contractModules.files).not.toHaveProperty("getAttachmentFacts");
+    expect(contractModules.files).not.toHaveProperty("sweepAbandonedUploads");
     expect(contractRouter.orders.create).toBeDefined();
     expect(contractRouter.orders.confirm).toBeDefined();
     expect(contractRouter.orders.get).toBeDefined();

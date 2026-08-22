@@ -7,12 +7,17 @@ export const filesSuiteCoverage = {
     "files.finalizeUpload",
     "files.getDownloadUrl",
     "files.getAttachmentFacts",
+    "files.sweepAbandonedUploads",
   ],
   publicProjection: [],
   consumerIsolation: [],
   accountIsolation: [],
   shareIsolation: [],
-  idempotency: ["files.requestUpload", "files.finalizeUpload"],
+  idempotency: [
+    "files.requestUpload",
+    "files.finalizeUpload",
+    "files.sweepAbandonedUploads",
+  ],
   events: [],
   atomic: [],
 } as const satisfies SuiteCoverageManifest;

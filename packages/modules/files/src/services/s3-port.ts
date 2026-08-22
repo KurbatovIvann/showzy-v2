@@ -1,4 +1,5 @@
 import {
+  DeleteObjectCommand,
   GetObjectCommand,
   HeadBucketCommand,
   HeadObjectCommand,
@@ -49,6 +50,7 @@ export interface FilesObjectStore {
     readonly mimeType: FileMimeType;
     readonly bytes: Uint8Array;
   }): Promise<void>;
+  deleteObject(key: string): Promise<void>;
   probeBucket(): Promise<void>;
   close(): void;
 }
@@ -185,6 +187,19 @@ export function createFilesObjectStore(
         );
       } catch {
         throw new CoreInvariantError("files object store PutObject failed");
+      }
+    },
+
+    async deleteObject(key) {
+      try {
+        await client.send(
+          new DeleteObjectCommand({ Bucket: bucket, Key: key }),
+        );
+      } catch (error) {
+        if (isMissingObject(error)) {
+          return;
+        }
+        throw new CoreInvariantError("files object store DeleteObject failed");
       }
     },
 
