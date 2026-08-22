@@ -5,7 +5,7 @@
 # Brings up the local development infrastructure the app and tests depend on:
 #   1. the Docker daemon (nested-container VM -> fuse-overlayfs storage driver,
 #      pinned by /etc/docker/daemon.json from install.sh);
-#   2. the docker compose dev stack (PostgreSQL 17 + Redis + MinIO), matching
+#   2. the docker compose dev stack (PostgreSQL 17 + Redis + Garage), matching
 #      README "Local development";
 #   3. Drizzle migrations against that Postgres.
 #
@@ -35,14 +35,14 @@ log "docker ready: $(docker --version)"
 
 # In this nested VM, br_netfilter routes same-network container-to-container
 # traffic through the host iptables FORWARD path, where it is dropped. Disable
-# bridge netfilter so intra-compose traffic (e.g. minio-init -> minio) is
+# bridge netfilter so intra-compose traffic (e.g. garage RPC on the bridge) is
 # switched at layer 2. Host-published ports keep working via docker-proxy.
 sudo sysctl -qw net.bridge.bridge-nf-call-iptables=0 net.bridge.bridge-nf-call-ip6tables=0 2>/dev/null || true
 
 # --- 2. Dev stack ------------------------------------------------------------
 [ -f .env ] || cp .env.example .env
 
-log "starting compose stack (postgres, redis, minio)"
+log "starting compose stack (postgres, redis, garage)"
 docker compose up -d
 
 log "waiting for postgres to become healthy"

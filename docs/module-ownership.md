@@ -41,7 +41,7 @@
 | `reference-data` | global KVED/CPV classifiers and import metadata | Read-only actions for companies/customers/documents |
 | `notifications` | notification intents/deliveries/preferences/device registrations | Consumes domain events; launch families are chat/order/document-signing; followed-company product updates are later opt-in |
 | `invites` | invite tokens, redemption/expiry state | Calls companies/customer reads; emits invite lifecycle events |
-| `files` | attachment metadata, ownership links, upload/finalization state | Object bytes live in S3/MinIO; exposes signed-upload/finalize actions |
+| `files` | attachment metadata, ownership links, upload/finalization state | Object bytes live in S3 (Garage locally, R2 in prod); exposes signed-upload/finalize actions |
 | `feature-flags` | flag definitions and company overrides | Exposes reads; future subscriptions update it through events |
 | `search` | Global FTS/trigram discovery projections for published companies/products and public counters | Consumes events or declared read-model grants from `companies`/`catalog`/`orders`; owns no domain authority or pricing data; exposes declared public-global and consumer reads (ADR-0020) |
 | `assistant` | AI conversation/tool-run persistence | Stores action/tool IDs and results; never duplicates domain state |

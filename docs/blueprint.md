@@ -80,7 +80,7 @@ tests before any domain module is built:
 | Database | **PostgreSQL 17** (self-hosted) | Extensions: pg_trgm + unaccent. Scheduled work moves to BullMQ, so pg_cron is dropped with v1 invite/analytics jobs; pgvector/pg_partman return only if their dropped features return |
 | ORM / migrations | **Drizzle ORM + drizzle-kit** | Schema in TypeScript = source of types; SQL-like API without magic; versioned migrations |
 | Auth | **better-auth** | Self-hosted TS library: email/phone OTP, sessions, native Drizzle integration |
-| Storage | **S3-compatible** (MinIO locally → Cloudflare R2 in prod) | Replaces Supabase Storage; signed URLs work the same |
+| Storage | **S3-compatible** (Garage locally → Cloudflare R2 in prod) | Replaces Supabase Storage; signed URLs work the same. ADR-0027 |
 | Queues | **BullMQ + Redis** | Decision revised after the audit: Redis is mandatory anyway (Socket.IO adapter, cache, leader election), and patterns for 7 queues are already established |
 | Realtime | **Socket.IO + Redis adapter** | Carried over from the current system almost unchanged |
 | Reliable events | **Transactional outbox** (`domain_events` + `FOR UPDATE SKIP LOCKED` + LISTEN/NOTIFY) | Already implemented correctly — carried over |
@@ -241,7 +241,7 @@ internal files is an ESLint error.
 | ~79 RPC functions | Rewritten as ordinary module functions on Drizzle (transactions in code) |
 | ~82 triggers | A conscious decision for each: technical ones (updated_at, counters) stay in the DB; business logic (numbering, auto-statuses) moves up into code |
 | Outbox (`domain_events`) | Protocol carried over and hardened: SKIP LOCKED + LISTEN/NOTIFY dispatch, per-consumer delivery/dedup/retry state |
-| Storage buckets | `documents-bucket`, `chat-attachments` → same S3 structure, paths in the DB |
+| Storage buckets | v1 four buckets collapse to one `S3_BUCKET`; prefixes in the object key, metadata in the DB (ADR-0027) |
 | `database.types.ts` (typegen) | Disappears — types are born from the Drizzle schema |
 | Auth users | Export from Supabase Auth → import into better-auth (phones/emails preserved) |
 
@@ -335,7 +335,7 @@ Condensed view (owner-first first; numbered expansion phases are not first-relea
 
 | Phase | Contents | Result |
 | --- | --- | --- |
-| **0. Foundation** | Monorepo, CI, Docker Compose (Postgres+Redis+MinIO), core/db/contract, better-auth, API/worker + Expo skeleton, minimal Universal/App Links, payment + feature-flag skeletons, security/operations baseline, **foundation invariants (§2.1) verified by tests** | A skeleton on which agents can work in parallel |
+| **0. Foundation** | Monorepo, CI, Docker Compose (Postgres+Redis+Garage), core/db/contract, better-auth, API/worker + Expo skeleton, minimal Universal/App Links, payment + feature-flag skeletons, security/operations baseline, **foundation invariants (§2.1) verified by tests** | A skeleton on which agents can work in parallel |
 | **1. Reference slices** | Merge approved minimal prerequisite schemas, then pricing resolution + a thin order → outbox → **order-card projection** (not the chat platform) | Query and transactional/event templates to copy + a proven pipeline |
 | **‖ Experience Foundation** | Magic Patterns canvas → Unistyles theme/primitives for the **panel**. V1 is domain reference, not visual acceptance (ADR-0024). Figma is not a gate. AI is the center tab | Panel UX gate passed |
 | **2. Company operating core** | `companies`, `catalog` (with variants), `customers`/groups, `invites`, `pricing` full UI + mobile **panel** screens | Company and catalog created from a phone |

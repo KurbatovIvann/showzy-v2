@@ -32,7 +32,7 @@ under the constitution (blueprint + ADRs) and the feature loop (ADR-0023).
 ```bash
 pnpm install
 cp .env.example .env      # dev defaults match docker-compose.yml
-docker compose up -d      # PostgreSQL 17 (pg_trgm/unaccent), Redis, MinIO
+docker compose up -d      # PostgreSQL 17 (pg_trgm/unaccent), Redis, Garage
 pnpm --filter @showzy/db db:migrate   # apply Drizzle migrations
 ```
 

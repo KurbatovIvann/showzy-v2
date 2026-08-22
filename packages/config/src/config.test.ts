@@ -16,13 +16,12 @@ function validEnv(): Record<string, string> {
     DATABASE_MIGRATE_URL:
       "postgresql://showzy_migrate:showzy@localhost:5432/showzy",
     REDIS_URL: "redis://localhost:6379",
-    S3_ENDPOINT: "http://localhost:9000",
+    S3_ENDPOINT: "http://localhost:3900",
     S3_REGION: "us-east-1",
     S3_ACCESS_KEY_ID: "showzy-local",
     S3_SECRET_ACCESS_KEY: "showzy-local-secret",
     S3_FORCE_PATH_STYLE: "true",
-    S3_BUCKET_DOCUMENTS: "documents-bucket",
-    S3_BUCKET_CHAT_ATTACHMENTS: "chat-attachments",
+    S3_BUCKET: "showzy",
     BETTER_AUTH_SECRET: "dev-only-secret-change-me-0000000000",
     BETTER_AUTH_URL: "http://localhost:3000",
     IP_HMAC_SECRET: "dev-only-ip-hmac-secret-change-me-00",
@@ -43,12 +42,10 @@ describe("loadServerConfig", () => {
       "postgresql://showzy_migrate:showzy@localhost:5432/showzy",
     );
     expect(config.redis.url).toBe("redis://localhost:6379");
-    expect(config.s3.endpoint).toBe("http://localhost:9000");
+    expect(config.s3.endpoint).toBe("http://localhost:3900");
     expect(config.s3.forcePathStyle).toBe(true);
-    expect(config.s3.buckets).toEqual({
-      documents: "documents-bucket",
-      chatAttachments: "chat-attachments",
-    });
+    expect(config.s3.bucket).toBe("showzy");
+    expect(config.s3).not.toHaveProperty("buckets");
     expect(config.auth.url).toBe("http://localhost:3000");
     expect(config.rateLimit.ipHmacSecret).toBe(
       "dev-only-ip-hmac-secret-change-me-00",
@@ -71,8 +68,6 @@ describe("loadServerConfig", () => {
     delete env["DATABASE_MIGRATE_URL"];
     delete env["S3_REGION"];
     delete env["S3_FORCE_PATH_STYLE"];
-    delete env["S3_BUCKET_DOCUMENTS"];
-    delete env["S3_BUCKET_CHAT_ATTACHMENTS"];
     delete env["TRUSTED_PROXIES"];
     delete env["SENTRY_DSN"];
     delete env["API_PORT"];
@@ -84,10 +79,7 @@ describe("loadServerConfig", () => {
     expect(config.database.migrateUrl).toBeUndefined();
     expect(config.s3.region).toBe("us-east-1");
     expect(config.s3.forcePathStyle).toBe(false);
-    expect(config.s3.buckets).toEqual({
-      documents: "documents-bucket",
-      chatAttachments: "chat-attachments",
-    });
+    expect(config.s3.bucket).toBe("showzy");
     expect(config.trustedProxies).toEqual([]);
     expect(config.sentry.dsn).toBeUndefined();
     expect(config.otpDelivery.email.transport).toBe("stub");
@@ -102,6 +94,9 @@ describe("loadServerConfig", () => {
     delete env["DATABASE_URL"];
     delete env["BETTER_AUTH_SECRET"];
     delete env["IP_HMAC_SECRET"];
+    delete env["S3_BUCKET"];
+    delete env["S3_ACCESS_KEY_ID"];
+    delete env["S3_SECRET_ACCESS_KEY"];
 
     const load = () => loadServerConfig(env);
 
@@ -113,6 +108,9 @@ describe("loadServerConfig", () => {
       expect(configError.message).toContain("DATABASE_URL");
       expect(configError.message).toContain("BETTER_AUTH_SECRET");
       expect(configError.message).toContain("IP_HMAC_SECRET");
+      expect(configError.message).toContain("S3_BUCKET");
+      expect(configError.message).toContain("S3_ACCESS_KEY_ID");
+      expect(configError.message).toContain("S3_SECRET_ACCESS_KEY");
       expect(configError.message).toContain("missing");
     }
   });
@@ -188,6 +186,16 @@ describe("loadServerConfig", () => {
     try {
       loadServerConfig(required);
     } catch (error) {
+      expect((error as ConfigValidationError).message).toContain("missing");
+    }
+
+    const bucket = validEnv();
+    bucket["S3_BUCKET"] = "";
+    expect(() => loadServerConfig(bucket)).toThrow(ConfigValidationError);
+    try {
+      loadServerConfig(bucket);
+    } catch (error) {
+      expect((error as ConfigValidationError).message).toContain("S3_BUCKET");
       expect((error as ConfigValidationError).message).toContain("missing");
     }
   });
