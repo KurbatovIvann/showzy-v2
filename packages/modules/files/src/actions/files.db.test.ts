@@ -33,7 +33,7 @@ import { finalizeUpload } from "./finalize-upload.js";
 import { getDownloadUrl } from "./get-download-url.js";
 import { requestUpload } from "./request-upload.js";
 import { sha256Hex } from "../services/checksum.js";
-import { catalogObjectKey } from "../services/object-key.js";
+import { catalogObjectKey, stagingObjectKey } from "../services/object-key.js";
 import {
   closeFilesObjectStore,
   configureFilesObjectStore,
@@ -367,6 +367,8 @@ describe("files signed upload slice", () => {
     );
     expect(requested.fileId).toEqual(expect.any(String));
     expect(requested.uploadUrl.startsWith("http")).toBe(true);
+    expect(requested.uploadUrl).toContain("/uploads/");
+    expect(requested.uploadUrl).not.toContain("/catalog/");
     expect(requested.expiresAt).toEqual(expect.any(String));
 
     const rows = await requireKit()
@@ -383,6 +385,21 @@ describe("files signed upload slice", () => {
     );
 
     await putSigned(requested.uploadUrl, jpegBytes, "image/jpeg");
+    const store = getFilesObjectStore();
+    expect(
+      await store.getObject(
+        catalogObjectKey(kitIdentities.companies.a, requested.fileId),
+      ),
+    ).toBe("missing");
+    const staged = await store.getObject(
+      stagingObjectKey(kitIdentities.companies.a, requested.fileId),
+    );
+    expect(staged).not.toBe("missing");
+    if (staged === "missing") {
+      throw new Error("expected staging object after signed PUT");
+    }
+    expect(sha256Hex(staged.bytes)).toBe(jpegChecksum);
+
     const ready = await requireKit().invoke(finalizeUpload, {
       fileId: requested.fileId,
     });
@@ -413,6 +430,68 @@ describe("files signed upload slice", () => {
     expect(logs).not.toContain(requested.uploadUrl);
     expect(logs).not.toContain(rows[0]?.objectKey ?? "missing-key");
     expect(logs).not.toMatch(/\/catalog\//);
+    expect(logs).not.toMatch(/\/uploads\//);
+  });
+
+  it("does not let a leftover signed PUT overwrite a ready catalog object", async () => {
+    const requested = await requireKit().invoke(requestUpload, jpegInput);
+    await putSigned(requested.uploadUrl, jpegBytes, "image/jpeg");
+    const ready = await requireKit().invoke(finalizeUpload, {
+      fileId: requested.fileId,
+    });
+    expect(ready.checksumSha256).toBe(jpegChecksum);
+
+    const leftoverBytes = Uint8Array.from(jpegBytes);
+    const flipIndex = leftoverBytes.byteLength - 3;
+    const originalByte = leftoverBytes.at(flipIndex);
+    if (originalByte === undefined) {
+      throw new Error("jpeg fixture is too short to mutate");
+    }
+    leftoverBytes[flipIndex] = originalByte ^ 0xff;
+    expect(leftoverBytes.byteLength).toBe(jpegBytes.byteLength);
+    const leftoverChecksum = sha256Hex(leftoverBytes);
+    expect(leftoverChecksum).not.toBe(jpegChecksum);
+
+    await putSigned(requested.uploadUrl, leftoverBytes, "image/jpeg");
+
+    const store = getFilesObjectStore();
+    const catalog = await store.getObject(
+      catalogObjectKey(kitIdentities.companies.a, requested.fileId),
+    );
+    expect(catalog).not.toBe("missing");
+    if (catalog === "missing") {
+      throw new Error("expected catalog object after finalize");
+    }
+    expect(sha256Hex(catalog.bytes)).toBe(jpegChecksum);
+
+    const staging = await store.getObject(
+      stagingObjectKey(kitIdentities.companies.a, requested.fileId),
+    );
+    expect(staging).not.toBe("missing");
+    if (staging === "missing") {
+      throw new Error("expected staging object after leftover PUT");
+    }
+    expect(sha256Hex(staging.bytes)).toBe(leftoverChecksum);
+
+    const download = await requireKit().invoke(getDownloadUrl, {
+      fileId: requested.fileId,
+    });
+    const fetched = await fetch(download.downloadUrl);
+    expect(fetched.ok).toBe(true);
+    const body = new Uint8Array(await fetched.arrayBuffer());
+    expect(sha256Hex(body)).toBe(jpegChecksum);
+
+    const rows = await requireKit()
+      .db.runtime.db.select()
+      .from(files)
+      .where(eq(files.id, requested.fileId));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.status).toBe("ready");
+    expect(rows[0]?.checksumSha256).toBe(jpegChecksum);
+    expect(rows[0]?.objectKey).toBe(
+      catalogObjectKey(kitIdentities.companies.a, requested.fileId),
+    );
+    expect(rows[0]?.objectKey).not.toContain("/uploads/");
   });
 
   it("denies staff without files:upload or files:view", async () => {
@@ -561,6 +640,7 @@ describe("files signed upload slice", () => {
     const blob = JSON.stringify([createAudit[0], finalizeAudit[0]]);
     expect(blob).not.toContain(requested.uploadUrl);
     expect(blob).not.toContain("/catalog/");
+    expect(blob).not.toContain("/uploads/");
     expect(blob).not.toContain("objectKey");
     expect(blob).not.toContain("object_key");
   });

@@ -28,5 +28,7 @@ describe("files.requestUpload contract", () => {
       "mimeType",
       "purpose",
     ]);
+    expect(requestUploadContract.description).toContain("/uploads/");
+    expect(requestUploadContract.description).toContain("/catalog/");
   });
 });
