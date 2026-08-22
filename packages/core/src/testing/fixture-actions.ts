@@ -330,6 +330,32 @@ export function createCorrectFixtureActions() {
         },
       },
     ),
+    systemGlobalSweep: implementAction(
+      defineActionContract({
+        ...contractDefaults,
+        name: "kitFixture.systemGlobalSweep",
+        description:
+          "Global system no-op used to prove crossTenantSuite accepts system-global jobs.",
+        principal: "system",
+        transport: "internal",
+        systemScope: "global",
+        input: z.object({}),
+        output: z.object({ ok: z.boolean() }),
+        permissions: [],
+        risk: "write",
+        audit: true,
+        timeout: 5_000,
+      }),
+      {
+        handler: (_input, ctx) => {
+          if (ctx.principal !== "system" || ctx.scope !== "global") {
+            throw new CoreInvariantError("fixture expects global system");
+          }
+          return Promise.resolve({ ok: true });
+        },
+        auditTarget: () => ({ type: "sweep", id: "fixture" }),
+      },
+    ),
     consumerBrowseDiscovery: implementAction(
       defineActionContract({
         ...contractDefaults,

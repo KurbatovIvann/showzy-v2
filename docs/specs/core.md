@@ -589,9 +589,12 @@ Exported from `packages/core/testing`, used by every module (this is how
 - `crossTenantSuite(actions)` — parameterized by each action's declared
   principal: staff of company A vs data of B; customer X vs resources of Y;
   public-target vs non-public resources; public-global/consumer vs
-  unpublished or non-allowlisted fields; system scoped to A touching B;
-  account user A vs user B's companies/personal data; or share token A vs
-  document/resource of token B. Every module
+  unpublished or non-allowlisted fields; system tenant scoped to A
+  touching B; system-global jobs succeed in the only scope they have
+  (they do not deny a "foreign" tenant — isolation is that a locked row's
+  derived keys do not mutate another company's objects, proven in the
+  module tests); account user A vs user B's companies/personal data; or
+  share token A vs document/resource of token B. Every module
   instantiates the relevant case for each action — omission fails the
   contract check.
 - `publicProjectionSuite(actions)` — for `publicScope: globalProjection`:
@@ -711,6 +714,7 @@ does not apply — fails the check.
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-22 | §12: `crossTenantSuite` treats `system` + `systemScope: global` like public-global — invoke succeeds; foreign deny is not the isolation property | SHO-115 scheduled GC cannot discover leftovers if the suite requires a per-id 404 | SHO-115 |
 | 2026-08-21 | §6: one consumer id may bind multiple events; `findClaimableDeliveries` returns the outbox event name so the worker executor looks up `(consumer, eventName)` | SHO-95: `Map(consumer → subscription)` dropped the second binding of `chat.order-card-updater` | SHO-95 |
 | 2026-08-19 | `ShareCtx.tokenHash` and share `resolveTarget` return the stored hash | fnd-T11B: `share:<tokenHash>` is not representable without the hash on the context; the idempotency-key test proved the gap | scaffold (fnd-T11B) |
 | 2026-08-19 | Seventh principal `share` (ADR-0022): `ShareCtx`, contract-check subset, pipeline/idempotency keys, audit/event actor mapping, 30/min IP-HMAC fail-closed, `shareIsolationSuite` | Unauthenticated capability-token writes for owner-first dual-sign without weakening `public` | owner via `/rework-spec core.md` |
