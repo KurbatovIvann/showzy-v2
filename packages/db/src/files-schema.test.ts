@@ -198,6 +198,9 @@ describe("private company files schema slice", () => {
     expect(indexes.get("files_company_status_idx")).toContain(
       "(company_id, status)",
     );
+    expect(indexes.get("files_uploaded_by_user_idx")).toContain(
+      "(uploaded_by_user_id)",
+    );
   });
 
   it("declares company CASCADE and uploader RESTRICT foreign keys", async () => {

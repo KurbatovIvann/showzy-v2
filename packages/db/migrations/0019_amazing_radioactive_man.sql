@@ -21,4 +21,5 @@ CREATE TABLE "files" (
 ALTER TABLE "files" ADD CONSTRAINT "files_company_id_companies_id_fk" FOREIGN KEY ("company_id") REFERENCES "public"."companies"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "files" ADD CONSTRAINT "files_uploaded_by_user_id_user_id_fk" FOREIGN KEY ("uploaded_by_user_id") REFERENCES "public"."user"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "files_company_idx" ON "files" USING btree ("company_id");--> statement-breakpoint
-CREATE INDEX "files_company_status_idx" ON "files" USING btree ("company_id","status");
+CREATE INDEX "files_company_status_idx" ON "files" USING btree ("company_id","status");--> statement-breakpoint
+CREATE INDEX "files_uploaded_by_user_idx" ON "files" USING btree ("uploaded_by_user_id");
