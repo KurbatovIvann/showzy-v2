@@ -29,7 +29,7 @@ export const requestUploadOutputSchema = z.object({
 export const requestUploadContract = defineActionContract({
   name: "files.requestUpload",
   description:
-    "Create a pending private catalog file in the active company and return a short-lived signed PUT URL. The durable object key is server-derived ({companyId}/catalog/{fileId}); the handshake PUT targets ({companyId}/uploads/{fileId}) and is never stored on the row. Clients never supply a key, URL, or bucket. JPEG, PNG, and WebP up to 10 MiB are accepted. HEIC and other types fail validation. The signed URL is not stored on the file row.",
+    "Create a pending private catalog file in the active company and return a short-lived signed PUT URL. The durable object key is server-derived ({companyId}/catalog/{fileId}); the handshake PUT targets {companyId}/uploads/{fileId} and is never stored on the row. Clients never supply a key, URL, or bucket. JPEG, PNG, and WebP up to 10 MiB are accepted. HEIC and other types fail validation. The signed URL is not stored on the file row.",
   principal: "staff",
   transport: "client",
   input: requestUploadInputSchema,
