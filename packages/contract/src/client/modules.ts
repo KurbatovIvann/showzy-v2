@@ -15,6 +15,7 @@ import { getOrderCardContract } from "@showzy/chat/contract";
 import {
   finalizeUploadContract,
   getDownloadUrlContract,
+  getUploadUrlContract,
   requestUploadContract,
 } from "@showzy/files/contract";
 import {
@@ -35,6 +36,7 @@ export const contractModules = {
   },
   files: {
     requestUpload: requestUploadContract,
+    getUploadUrl: getUploadUrlContract,
     finalizeUpload: finalizeUploadContract,
     getDownloadUrl: getDownloadUrlContract,
   },

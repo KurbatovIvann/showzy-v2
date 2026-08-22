@@ -29,6 +29,7 @@ import {
   finalizeUpload,
   getAttachmentFacts,
   getDownloadUrl,
+  getUploadUrl,
   requestUpload,
 } from "@showzy/files";
 import { filesSuiteCoverage } from "@showzy/files/suite-coverage";
@@ -151,6 +152,7 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, upsertOrderCard);
   registerAction(registry, getCustomerPricingFacts);
   registerAction(registry, requestUpload);
+  registerAction(registry, getUploadUrl);
   registerAction(registry, finalizeUpload);
   registerAction(registry, getDownloadUrl);
   registerAction(registry, getAttachmentFacts);
