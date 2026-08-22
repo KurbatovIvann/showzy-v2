@@ -1,0 +1,1 @@
+ALTER TABLE "files" ADD CONSTRAINT "files_object_key_catalog_prefix_check" CHECK ("files"."object_key" = "files"."company_id"::text || '/catalog/' || "files"."id"::text);

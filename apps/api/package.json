@@ -24,6 +24,7 @@
     "@showzy/chat": "workspace:*",
     "@showzy/config": "workspace:*",
     "@showzy/customers": "workspace:*",
+    "@showzy/files": "workspace:*",
     "@showzy/contract": "workspace:*",
     "@showzy/core": "workspace:*",
     "@showzy/db": "workspace:*",

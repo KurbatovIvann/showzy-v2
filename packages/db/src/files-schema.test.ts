@@ -236,6 +236,31 @@ describe("private company files schema slice", () => {
     );
   });
 
+  it("declares the catalog object_key prefix CHECK", async () => {
+    const result = await admin.query<{
+      conname: string;
+      definition: string;
+    }>(
+      `SELECT con.conname,
+              pg_get_constraintdef(con.oid) AS definition
+       FROM pg_constraint con
+       JOIN pg_class rel ON rel.oid = con.conrelid
+       JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+       WHERE nsp.nspname = 'public'
+         AND con.contype = 'c'
+         AND rel.relname = 'files'`,
+    );
+    const defs = new Map(
+      result.rows.map((row) => [row.conname, row.definition]),
+    );
+    expect(defs.get("files_object_key_catalog_prefix_check")).toContain(
+      "object_key",
+    );
+    expect(defs.get("files_object_key_catalog_prefix_check")).toContain(
+      "/catalog/",
+    );
+  });
+
   it("rejects illegal purpose, status, negative byte_size, and malformed checksums", async () => {
     const company = await insertCompany();
     const userId = await insertUser();
@@ -318,34 +343,66 @@ describe("private company files schema slice", () => {
     expect(ready.checksumSha256).toBe("a".repeat(64));
   });
 
-  it("rejects a duplicate object_key in the same tenant and allows it across tenants", async () => {
+  it("rejects object_key values that are not {company_id}/catalog/{id}", async () => {
+    const company = await insertCompany();
+    const userId = await insertUser();
+    const id = randomUUID();
+
+    await expectSqlState(
+      insertFile({
+        id,
+        companyId: company.id,
+        uploadedByUserId: userId,
+        objectKey: `${company.id}/documents/${id}`,
+      }),
+      "23514",
+    );
+    await expectSqlState(
+      insertFile({
+        id,
+        companyId: company.id,
+        uploadedByUserId: userId,
+        objectKey: `${randomUUID()}/catalog/${id}`,
+      }),
+      "23514",
+    );
+
+    const row = await insertFile({
+      id,
+      companyId: company.id,
+      uploadedByUserId: userId,
+    });
+    expect(row.objectKey).toBe(`${company.id}/catalog/${id}`);
+  });
+
+  it("keeps object keys unique per tenant; other tenants use their own prefix", async () => {
     const companyA = await insertCompany();
     const companyB = await insertCompany();
     const userA = await insertUser();
     const userB = await insertUser();
-    const objectKey = `${companyA.id}/catalog/${randomUUID()}`;
+    const id = randomUUID();
 
-    await insertFile({
+    const fileA = await insertFile({
+      id,
       companyId: companyA.id,
       uploadedByUserId: userA,
-      objectKey,
     });
     await expectSqlState(
       insertFile({
+        id,
         companyId: companyA.id,
         uploadedByUserId: userA,
-        objectKey,
       }),
       "23505",
     );
 
-    const otherTenant = await insertFile({
+    const fileB = await insertFile({
       companyId: companyB.id,
       uploadedByUserId: userB,
-      objectKey,
     });
-    expect(otherTenant.objectKey).toBe(objectKey);
-    expect(otherTenant.companyId).toBe(companyB.id);
+    expect(fileA.objectKey).toBe(`${companyA.id}/catalog/${id}`);
+    expect(fileB.objectKey).toBe(`${companyB.id}/catalog/${fileB.id}`);
+    expect(fileB.objectKey).not.toBe(fileA.objectKey);
   });
 
   it("cascades company deletion and restricts deleting an uploader with files", async () => {

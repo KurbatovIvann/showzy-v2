@@ -9,6 +9,7 @@ import { join } from "node:path";
 import { catalogSuiteCoverage } from "@showzy/catalog/suite-coverage";
 import { chatSuiteCoverage } from "@showzy/chat/suite-coverage";
 import { customersSuiteCoverage } from "@showzy/customers/suite-coverage";
+import { filesSuiteCoverage } from "@showzy/files/suite-coverage";
 import { ordersSuiteCoverage } from "@showzy/orders/suite-coverage";
 import { pricingSuiteCoverage } from "@showzy/pricing/suite-coverage";
 import { implementAction, runContractCheck } from "@showzy/core";
@@ -43,6 +44,7 @@ describe("composition root identity", () => {
     );
     expect(bootSource).toContain('from "./composition.js"');
     expect(bootSource).toContain("createActionRegistry");
+    expect(bootSource).toContain("configureFilesObjectStore");
     expect(bootSource).not.toMatch(/new ActionRegistry\s*\(/);
   });
 
@@ -63,6 +65,7 @@ describe("composition root identity", () => {
         catalogSuiteCoverage,
         chatSuiteCoverage,
         customersSuiteCoverage,
+        filesSuiteCoverage,
         ordersSuiteCoverage,
         pricingSuiteCoverage,
       ]),
