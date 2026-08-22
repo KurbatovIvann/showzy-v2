@@ -161,6 +161,14 @@ async function countReadyFiles(companyId: string): Promise<number> {
   return rows[0]?.value ?? 0;
 }
 
+async function countPendingFiles(companyId: string): Promise<number> {
+  const rows = await requireKit()
+    .db.runtime.db.select({ value: count() })
+    .from(files)
+    .where(and(eq(files.companyId, companyId), eq(files.status, "pending")));
+  return rows[0]?.value ?? 0;
+}
+
 async function mintPut(
   fileId: string,
   actor: { readonly userId?: string; readonly companyId?: string } = {},
@@ -743,11 +751,16 @@ describe("files signed upload slice", () => {
 
   it("mints a live PUT again without a new pending row", async () => {
     const requested = await requireKit().invoke(requestUpload, jpegInput);
+    const pendingBefore = await countPendingFiles(kitIdentities.companies.a);
     const first = await mintPut(requested.fileId);
     const second = await mintPut(requested.fileId);
     expect(second.fileId).toBe(requested.fileId);
+    expect(first.uploadUrl.startsWith("http")).toBe(true);
     expect(second.uploadUrl.startsWith("http")).toBe(true);
     expect(second.uploadUrl).toContain("/uploads/");
+    expect(await countPendingFiles(kitIdentities.companies.a)).toBe(
+      pendingBefore,
+    );
 
     const fileRows = await requireKit()
       .db.runtime.db.select()
@@ -762,15 +775,11 @@ describe("files signed upload slice", () => {
     });
     expect(ready.checksumSha256).toBe(jpegChecksum);
 
-    const logsFirst = first.uploadUrl;
-    const logsSecond = second.uploadUrl;
     const reservations = await requireKit()
       .db.runtime.db.select()
       .from(idempotencyKeys)
       .where(eq(idempotencyKeys.action, "files.getUploadUrl"));
     expect(reservations).toHaveLength(0);
-    expect(JSON.stringify(reservations)).not.toContain(logsFirst);
-    expect(JSON.stringify(reservations)).not.toContain(logsSecond);
   });
 
   it("writes audit rows for the writes without URLs or object keys", async () => {

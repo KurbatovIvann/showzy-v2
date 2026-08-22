@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { getUploadUrlContract } from "./get-upload-url.contract.js";
+import {
+  getUploadUrlContract,
+  getUploadUrlOutputSchema,
+} from "./get-upload-url.contract.js";
 
 describe("files.getUploadUrl contract", () => {
   it("is a staff client read with files:upload, unaudited, and not an idempotent write", () => {
@@ -14,5 +17,10 @@ describe("files.getUploadUrl contract", () => {
     expect(getUploadUrlContract.idempotent).toBe(false);
     expect(getUploadUrlContract.emits).toEqual([]);
     expect(getUploadUrlContract.timeout).toBe(5_000);
+    expect(Object.keys(getUploadUrlOutputSchema.shape).toSorted()).toEqual([
+      "expiresAt",
+      "fileId",
+      "uploadUrl",
+    ]);
   });
 });
