@@ -38,6 +38,7 @@ describe("theme mode (light / dark / system)", () => {
     expect(unistylesSettings("light")).toEqual({ initialTheme: "light" });
     expect(unistylesSettings("dark")).toEqual({ initialTheme: "dark" });
     expect(nativeAppearanceScheme("system")).toBe("unspecified");
+    expect(nativeAppearanceScheme("light")).toBe("light");
     expect(nativeAppearanceScheme("dark")).toBe("dark");
   });
 
