@@ -25,6 +25,8 @@ import {
 import { chatSuiteCoverage } from "@showzy/chat/suite-coverage";
 import { getCustomerPricingFacts } from "@showzy/customers";
 import { customersSuiteCoverage } from "@showzy/customers/suite-coverage";
+import { finalizeUpload, getDownloadUrl, requestUpload } from "@showzy/files";
+import { filesSuiteCoverage } from "@showzy/files/suite-coverage";
 import {
   confirmOrder,
   createOrder,
@@ -59,6 +61,7 @@ const moduleSuiteCoverage: readonly SuiteCoverageManifest[] = [
   catalogSuiteCoverage,
   chatSuiteCoverage,
   customersSuiteCoverage,
+  filesSuiteCoverage,
   ordersSuiteCoverage,
   pricingSuiteCoverage,
 ];
@@ -92,6 +95,7 @@ const schemaImports: readonly SchemaImportRef[] = [
   { importer: "catalog", schemaOwner: "catalog" },
   { importer: "chat", schemaOwner: "chat" },
   { importer: "customers", schemaOwner: "customers" },
+  { importer: "files", schemaOwner: "files" },
   { importer: "orders", schemaOwner: "orders" },
   { importer: "pricing", schemaOwner: "pricing" },
 ];
@@ -141,6 +145,9 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, getOrderCard);
   registerAction(registry, upsertOrderCard);
   registerAction(registry, getCustomerPricingFacts);
+  registerAction(registry, requestUpload);
+  registerAction(registry, finalizeUpload);
+  registerAction(registry, getDownloadUrl);
   registerAction(registry, createOrder);
   registerAction(registry, confirmOrder);
   registerAction(registry, getOrder);

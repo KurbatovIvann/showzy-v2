@@ -1,9 +1,13 @@
 /**
- * Private company file metadata (SHO-110, files-T1). Owned by the files
+ * Private company file metadata (SHO-110 / SHO-111). Owned by the files
  * module (ADR-0014). Object bytes live in S3 (`config.s3.bucket`); this
- * table stores only tenant-scoped metadata. Actions and the S3 client are
- * a later ticket. Deliberately absent: public URL, bucket name, extra
- * purposes (`documents` / `chat` / `avatar`), `product_media`.
+ * table stores only tenant-scoped metadata. Deliberately absent: public
+ * URL, bucket name, extra purposes (`documents` / `chat` / `avatar`),
+ * `product_media`.
+ *
+ * `object_key` is server-derived `{companyId}/catalog/{fileId}`. The CHECK
+ * is a mechanical carry-over from T1; finalize still verifies the prefix
+ * (security-operations.md §3).
  */
 import { sql } from "drizzle-orm";
 import {
@@ -61,6 +65,10 @@ export const files = pgTable(
     check(
       "files_checksum_sha256_check",
       sql`${table.checksumSha256} IS NULL OR ${table.checksumSha256} ~ '^[0-9a-f]{64}$'`,
+    ),
+    check(
+      "files_object_key_catalog_prefix_check",
+      sql`${table.objectKey} = ${table.companyId}::text || '/catalog/' || ${table.id}::text`,
     ),
   ],
 );
