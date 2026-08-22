@@ -1,7 +1,7 @@
 /**
- * Staff write: create a pending catalog file and return a short-lived signed
- * PUT. Mechanical: `timeout: 5000` covers one insert plus local presign.
- * The signed URL is a live response field, not a column.
+ * Staff write: create a pending catalog file and return its fileId.
+ * Mechanical: `timeout: 5000` covers one insert. The signed PUT lives on
+ * `files.getUploadUrl`, not on this idempotent write (core.md §5).
  */
 import { defineActionContract } from "@showzy/core/contract";
 import { z } from "zod";
@@ -22,14 +22,12 @@ export const requestUploadInputSchema = z.object({
 
 export const requestUploadOutputSchema = z.object({
   fileId: z.uuid(),
-  uploadUrl: z.url(),
-  expiresAt: z.iso.datetime(),
 });
 
 export const requestUploadContract = defineActionContract({
   name: "files.requestUpload",
   description:
-    "Create a pending private catalog file in the active company and return a short-lived signed PUT URL. The durable object key is server-derived ({companyId}/catalog/{fileId}); the handshake PUT targets {companyId}/uploads/{fileId} and is never stored on the row. Clients never supply a key, URL, or bucket. JPEG, PNG, and WebP up to 10 MiB are accepted. HEIC and other types fail validation. The signed URL is not stored on the file row.",
+    "Create a pending private catalog file in the active company and return its fileId. The durable object key is server-derived ({companyId}/catalog/{fileId}); the handshake PUT targets {companyId}/uploads/{fileId} and is never stored on the row. Clients never supply a key, URL, or bucket. JPEG, PNG, and WebP up to 10 MiB are accepted. HEIC and other types fail validation. Call files.getUploadUrl to mint a short-lived signed PUT; this write does not return a URL.",
   principal: "staff",
   transport: "client",
   input: requestUploadInputSchema,

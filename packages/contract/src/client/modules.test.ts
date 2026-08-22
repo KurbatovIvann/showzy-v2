@@ -4,6 +4,7 @@ import { getOrderCardContract } from "@showzy/chat/contract";
 import {
   finalizeUploadContract,
   getDownloadUrlContract,
+  getUploadUrlContract,
   requestUploadContract,
 } from "@showzy/files/contract";
 import {
@@ -23,6 +24,7 @@ describe("client composition", () => {
       },
       files: {
         requestUpload: requestUploadContract,
+        getUploadUrl: getUploadUrlContract,
         finalizeUpload: finalizeUploadContract,
         getDownloadUrl: getDownloadUrlContract,
       },
@@ -37,6 +39,7 @@ describe("client composition", () => {
     });
     expect(contractRouter.chat.getOrderCard).toBeDefined();
     expect(contractRouter.files.requestUpload).toBeDefined();
+    expect(contractRouter.files.getUploadUrl).toBeDefined();
     expect(contractRouter.files.finalizeUpload).toBeDefined();
     expect(contractRouter.files.getDownloadUrl).toBeDefined();
     expect(contractModules.files).not.toHaveProperty("getAttachmentFacts");

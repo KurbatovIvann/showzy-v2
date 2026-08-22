@@ -4,6 +4,7 @@ import { MAX_UPLOAD_BYTES } from "../wire.contract.js";
 import {
   requestUploadContract,
   requestUploadInputSchema,
+  requestUploadOutputSchema,
 } from "./request-upload.contract.js";
 
 describe("files.requestUpload contract", () => {
@@ -30,5 +31,9 @@ describe("files.requestUpload contract", () => {
     ]);
     expect(requestUploadContract.description).toContain("/uploads/");
     expect(requestUploadContract.description).toContain("/catalog/");
+    expect(requestUploadContract.description).toContain("getUploadUrl");
+    expect(Object.keys(requestUploadOutputSchema.shape).toSorted()).toEqual([
+      "fileId",
+    ]);
   });
 });

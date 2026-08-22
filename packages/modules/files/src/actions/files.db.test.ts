@@ -17,7 +17,7 @@ import {
   kitIdentities,
   type TestKit,
 } from "@showzy/core/testing";
-import { auditLog } from "@showzy/db";
+import { auditLog, idempotencyKeys } from "@showzy/db";
 import { user } from "@showzy/db/schema/auth";
 import { companyMembers } from "@showzy/db/schema/companies";
 import { files } from "@showzy/db/schema/files";
@@ -31,6 +31,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { finalizeUpload } from "./finalize-upload.js";
 import { getDownloadUrl } from "./get-download-url.js";
+import { getUploadUrl } from "./get-upload-url.js";
 import { requestUpload } from "./request-upload.js";
 import { sha256Hex } from "../services/checksum.js";
 import { catalogObjectKey, stagingObjectKey } from "../services/object-key.js";
@@ -89,6 +90,8 @@ const finalizeOwnInput = { fileId: "" };
 const finalizeForeignInput = { fileId: "" };
 const downloadOwnInput = { fileId: "" };
 const downloadForeignInput = { fileId: "" };
+const uploadOwnInput = { fileId: "" };
+const uploadForeignInput = { fileId: "" };
 const finalizeIdempotentInput = { fileId: "" };
 const finalizeIdempotentFreshInput = { fileId: "" };
 
@@ -158,6 +161,17 @@ async function countReadyFiles(companyId: string): Promise<number> {
   return rows[0]?.value ?? 0;
 }
 
+async function mintPut(
+  fileId: string,
+  actor: { readonly userId?: string; readonly companyId?: string } = {},
+): Promise<{
+  readonly fileId: string;
+  readonly uploadUrl: string;
+  readonly expiresAt: string;
+}> {
+  return requireKit().invoke(getUploadUrl, { fileId }, actor);
+}
+
 async function requestPutFinalize(
   bytes: Uint8Array,
   mimeType: "image/jpeg" | "image/png" | "image/webp",
@@ -173,7 +187,8 @@ async function requestPutFinalize(
     },
     actor,
   );
-  await putSigned(requested.uploadUrl, bytes, mimeType);
+  const signed = await mintPut(requested.fileId, actor);
+  await putSigned(signed.uploadUrl, bytes, mimeType);
   const ready = await requireKit().invoke(
     finalizeUpload,
     { fileId: requested.fileId },
@@ -200,7 +215,8 @@ async function requestAndPut(
     },
     actor,
   );
-  await putSigned(requested.uploadUrl, bytes, mimeType);
+  const signed = await mintPut(requested.fileId, actor);
+  await putSigned(signed.uploadUrl, bytes, mimeType);
   return requested.fileId;
 }
 
@@ -295,6 +311,12 @@ beforeAll(async () => {
   downloadForeignInput.fileId = (
     await requestPutFinalize(jpegBytes, "image/jpeg", companyB)
   ).fileId;
+  uploadOwnInput.fileId = (
+    await requireKit().invoke(requestUpload, jpegInput)
+  ).fileId;
+  uploadForeignInput.fileId = (
+    await requireKit().invoke(requestUpload, jpegInput, companyB)
+  ).fileId;
   finalizeIdempotentInput.fileId = await requestAndPut(jpegBytes, "image/jpeg");
   finalizeIdempotentFreshInput.fileId = await requestAndPut(
     jpegBytes,
@@ -327,6 +349,11 @@ crossTenantSuite(requireKit, [
     getDownloadUrl,
     { input: downloadOwnInput },
     { input: downloadForeignInput },
+  ),
+  isolationCase(
+    getUploadUrl,
+    { input: uploadOwnInput },
+    { input: uploadForeignInput },
   ),
 ]);
 
@@ -365,11 +392,8 @@ describe("files signed upload slice", () => {
       {},
       { deps: { ...requireKit().pipeline, logger: capturing.logger } },
     );
-    expect(requested.fileId).toEqual(expect.any(String));
-    expect(requested.uploadUrl.startsWith("http")).toBe(true);
-    expect(requested.uploadUrl).toContain("/uploads/");
-    expect(requested.uploadUrl).not.toContain("/catalog/");
-    expect(requested.expiresAt).toEqual(expect.any(String));
+    expect(requested).toEqual({ fileId: requested.fileId });
+    expect(requested).not.toHaveProperty("uploadUrl");
 
     const rows = await requireKit()
       .db.runtime.db.select()
@@ -384,7 +408,19 @@ describe("files signed upload slice", () => {
       `${kitIdentities.companies.a}/catalog/${requested.fileId}`,
     );
 
-    await putSigned(requested.uploadUrl, jpegBytes, "image/jpeg");
+    const signed = await requireKit().invoke(
+      getUploadUrl,
+      { fileId: requested.fileId },
+      {},
+      { deps: { ...requireKit().pipeline, logger: capturing.logger } },
+    );
+    expect(signed.fileId).toBe(requested.fileId);
+    expect(signed.uploadUrl.startsWith("http")).toBe(true);
+    expect(signed.uploadUrl).toContain("/uploads/");
+    expect(signed.uploadUrl).not.toContain("/catalog/");
+    expect(signed.expiresAt).toEqual(expect.any(String));
+
+    await putSigned(signed.uploadUrl, jpegBytes, "image/jpeg");
     const store = getFilesObjectStore();
     expect(
       await store.getObject(
@@ -430,7 +466,7 @@ describe("files signed upload slice", () => {
     expect(fetched.headers.get("content-disposition")).toContain("attachment");
 
     const logs = JSON.stringify(capturing.entries());
-    expect(logs).not.toContain(requested.uploadUrl);
+    expect(logs).not.toContain(signed.uploadUrl);
     expect(logs).not.toContain(rows[0]?.objectKey ?? "missing-key");
     expect(logs).not.toMatch(/\/catalog\//);
     expect(logs).not.toMatch(/\/uploads\//);
@@ -438,7 +474,8 @@ describe("files signed upload slice", () => {
 
   it("does not let a leftover signed PUT overwrite a ready catalog object", async () => {
     const requested = await requireKit().invoke(requestUpload, jpegInput);
-    await putSigned(requested.uploadUrl, jpegBytes, "image/jpeg");
+    const signed = await mintPut(requested.fileId);
+    await putSigned(signed.uploadUrl, jpegBytes, "image/jpeg");
     const ready = await requireKit().invoke(finalizeUpload, {
       fileId: requested.fileId,
     });
@@ -455,7 +492,7 @@ describe("files signed upload slice", () => {
     const leftoverChecksum = sha256Hex(leftoverBytes);
     expect(leftoverChecksum).not.toBe(jpegChecksum);
 
-    await putSigned(requested.uploadUrl, leftoverBytes, "image/jpeg");
+    await putSigned(signed.uploadUrl, leftoverBytes, "image/jpeg");
 
     const store = getFilesObjectStore();
     const catalog = await store.getObject(
@@ -534,6 +571,13 @@ describe("files signed upload slice", () => {
         { ...actorCompany, userId: clerks.noView },
       ),
     ).rejects.toBeInstanceOf(PermissionDeniedError);
+    await expect(
+      requireKit().invoke(
+        getUploadUrl,
+        { fileId: uploadOwnInput.fileId },
+        { ...actorCompany, userId: clerks.noUpload },
+      ),
+    ).rejects.toBeInstanceOf(PermissionDeniedError);
   });
 
   it("rejects oversize, wrong MIME, HEIC, executables, and archives", async () => {
@@ -564,7 +608,11 @@ describe("files signed upload slice", () => {
       byteSize: exeBytes.byteLength,
       checksumSha256: exeChecksum,
     });
-    await putSigned(exe.uploadUrl, exeBytes, "image/jpeg");
+    await putSigned(
+      (await mintPut(exe.fileId)).uploadUrl,
+      exeBytes,
+      "image/jpeg",
+    );
     await expect(
       requireKit().invoke(finalizeUpload, { fileId: exe.fileId }),
     ).rejects.toBeInstanceOf(ValidationError);
@@ -575,7 +623,11 @@ describe("files signed upload slice", () => {
       byteSize: zipBytes.byteLength,
       checksumSha256: zipChecksum,
     });
-    await putSigned(zip.uploadUrl, zipBytes, "image/png");
+    await putSigned(
+      (await mintPut(zip.fileId)).uploadUrl,
+      zipBytes,
+      "image/png",
+    );
     await expect(
       requireKit().invoke(finalizeUpload, { fileId: zip.fileId }),
     ).rejects.toBeInstanceOf(ValidationError);
@@ -586,19 +638,26 @@ describe("files signed upload slice", () => {
       byteSize: heicBytes.byteLength,
       checksumSha256: heicAsJpegChecksum,
     });
-    await putSigned(heic.uploadUrl, heicBytes, "image/jpeg");
+    await putSigned(
+      (await mintPut(heic.fileId)).uploadUrl,
+      heicBytes,
+      "image/jpeg",
+    );
     await expect(
       requireKit().invoke(finalizeUpload, { fileId: heic.fileId }),
     ).rejects.toBeInstanceOf(ValidationError);
   });
 
-  it("treats foreign and pending fileIds as not-found", async () => {
+  it("treats foreign, missing, and ready fileIds as not-found on getUploadUrl", async () => {
     const missing = randomUUID();
     await expect(
       requireKit().invoke(finalizeUpload, { fileId: missing }),
     ).rejects.toBeInstanceOf(NotFoundError);
     await expect(
       requireKit().invoke(getDownloadUrl, { fileId: missing }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      requireKit().invoke(getUploadUrl, { fileId: missing }),
     ).rejects.toBeInstanceOf(NotFoundError);
     await expect(
       requireKit().invoke(finalizeUpload, {
@@ -615,6 +674,16 @@ describe("files signed upload slice", () => {
         fileId: downloadForeignInput.fileId,
       }),
     ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      requireKit().invoke(getUploadUrl, {
+        fileId: uploadForeignInput.fileId,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      requireKit().invoke(getUploadUrl, {
+        fileId: downloadOwnInput.fileId,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
 
     const pending = await requireKit().invoke(requestUpload, jpegInput);
     await expect(
@@ -625,9 +694,89 @@ describe("files signed upload slice", () => {
     ).rejects.toBeInstanceOf(ValidationError);
   });
 
+  it("replays requestUpload as the same fileId without a second pending row or a stored URL", async () => {
+    const key = randomUUID();
+    const first = await requireKit().invoke(
+      requestUpload,
+      jpegInput,
+      {},
+      {
+        request: { idempotencyKey: key },
+      },
+    );
+    const replay = await requireKit().invoke(
+      requestUpload,
+      jpegInput,
+      {},
+      {
+        request: { idempotencyKey: key },
+      },
+    );
+    expect(first).toEqual({ fileId: first.fileId });
+    expect(replay).toEqual(first);
+
+    const fileRows = await requireKit()
+      .db.runtime.db.select()
+      .from(files)
+      .where(eq(files.id, first.fileId));
+    expect(fileRows).toHaveLength(1);
+    expect(fileRows[0]?.status).toBe("pending");
+
+    const reservations = await requireKit()
+      .db.runtime.db.select()
+      .from(idempotencyKeys)
+      .where(
+        and(
+          eq(idempotencyKeys.action, "files.requestUpload"),
+          eq(idempotencyKeys.key, key),
+        ),
+      );
+    expect(reservations).toHaveLength(1);
+    expect(reservations[0]?.response).toEqual({ fileId: first.fileId });
+    const snapshot = JSON.stringify(reservations[0]?.response);
+    expect(snapshot).not.toContain("uploadUrl");
+    expect(snapshot).not.toContain("/catalog/");
+    expect(snapshot).not.toContain("/uploads/");
+    expect(snapshot).not.toContain("objectKey");
+    expect(snapshot).not.toContain("http");
+  });
+
+  it("mints a live PUT again without a new pending row", async () => {
+    const requested = await requireKit().invoke(requestUpload, jpegInput);
+    const first = await mintPut(requested.fileId);
+    const second = await mintPut(requested.fileId);
+    expect(second.fileId).toBe(requested.fileId);
+    expect(second.uploadUrl.startsWith("http")).toBe(true);
+    expect(second.uploadUrl).toContain("/uploads/");
+
+    const fileRows = await requireKit()
+      .db.runtime.db.select()
+      .from(files)
+      .where(eq(files.id, requested.fileId));
+    expect(fileRows).toHaveLength(1);
+    expect(fileRows[0]?.status).toBe("pending");
+
+    await putSigned(second.uploadUrl, jpegBytes, "image/jpeg");
+    const ready = await requireKit().invoke(finalizeUpload, {
+      fileId: requested.fileId,
+    });
+    expect(ready.checksumSha256).toBe(jpegChecksum);
+
+    const logsFirst = first.uploadUrl;
+    const logsSecond = second.uploadUrl;
+    const reservations = await requireKit()
+      .db.runtime.db.select()
+      .from(idempotencyKeys)
+      .where(eq(idempotencyKeys.action, "files.getUploadUrl"));
+    expect(reservations).toHaveLength(0);
+    expect(JSON.stringify(reservations)).not.toContain(logsFirst);
+    expect(JSON.stringify(reservations)).not.toContain(logsSecond);
+  });
+
   it("writes audit rows for the writes without URLs or object keys", async () => {
     const requested = await requireKit().invoke(requestUpload, jpegInput);
-    await putSigned(requested.uploadUrl, jpegBytes, "image/jpeg");
+    const signed = await mintPut(requested.fileId);
+    await putSigned(signed.uploadUrl, jpegBytes, "image/jpeg");
     await requireKit().invoke(finalizeUpload, { fileId: requested.fileId });
 
     const createAudit = await requireKit()
@@ -655,8 +804,14 @@ describe("files signed upload slice", () => {
     expect(finalizeAudit.length).toBeGreaterThanOrEqual(1);
     expect(finalizeAudit[0]?.inputSnapshot).toBeNull();
 
+    const uploadAudit = await requireKit()
+      .db.runtime.db.select()
+      .from(auditLog)
+      .where(eq(auditLog.action, "files.getUploadUrl"));
+    expect(uploadAudit).toHaveLength(0);
+
     const blob = JSON.stringify([createAudit[0], finalizeAudit[0]]);
-    expect(blob).not.toContain(requested.uploadUrl);
+    expect(blob).not.toContain(signed.uploadUrl);
     expect(blob).not.toContain("/catalog/");
     expect(blob).not.toContain("/uploads/");
     expect(blob).not.toContain("objectKey");
