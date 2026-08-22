@@ -39,6 +39,7 @@ describe("client composition", () => {
     expect(contractRouter.files.requestUpload).toBeDefined();
     expect(contractRouter.files.finalizeUpload).toBeDefined();
     expect(contractRouter.files.getDownloadUrl).toBeDefined();
+    expect(contractModules.files).not.toHaveProperty("getAttachmentFacts");
     expect(contractRouter.orders.create).toBeDefined();
     expect(contractRouter.orders.confirm).toBeDefined();
     expect(contractRouter.orders.get).toBeDefined();

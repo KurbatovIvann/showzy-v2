@@ -5,6 +5,7 @@ export const filesSuiteCoverage = {
     "files.requestUpload",
     "files.finalizeUpload",
     "files.getDownloadUrl",
+    "files.getAttachmentFacts",
   ],
   publicProjection: [],
   consumerIsolation: [],

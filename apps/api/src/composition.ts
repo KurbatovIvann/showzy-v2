@@ -25,7 +25,12 @@ import {
 import { chatSuiteCoverage } from "@showzy/chat/suite-coverage";
 import { getCustomerPricingFacts } from "@showzy/customers";
 import { customersSuiteCoverage } from "@showzy/customers/suite-coverage";
-import { finalizeUpload, getDownloadUrl, requestUpload } from "@showzy/files";
+import {
+  finalizeUpload,
+  getAttachmentFacts,
+  getDownloadUrl,
+  requestUpload,
+} from "@showzy/files";
 import { filesSuiteCoverage } from "@showzy/files/suite-coverage";
 import {
   confirmOrder,
@@ -148,6 +153,7 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, requestUpload);
   registerAction(registry, finalizeUpload);
   registerAction(registry, getDownloadUrl);
+  registerAction(registry, getAttachmentFacts);
   registerAction(registry, createOrder);
   registerAction(registry, confirmOrder);
   registerAction(registry, getOrder);
