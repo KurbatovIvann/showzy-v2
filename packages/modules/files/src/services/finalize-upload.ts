@@ -74,36 +74,21 @@ export async function finalizeStaffUpload(input: {
   if (object === "missing" || object.byteSize !== declaredSize) {
     throw uploadedObjectInvalid();
   }
-  if (
-    !uploadBytesMatchDeclaredMime(
-      object.bytes,
-      requireDeclaredMime(row.mimeType),
-    )
-  ) {
+  const mimeType = requireDeclaredMime(row.mimeType);
+  if (!uploadBytesMatchDeclaredMime(object.bytes, mimeType)) {
     throw uploadedObjectInvalid();
   }
   if (sha256Hex(object.bytes) !== row.checksumSha256) {
     throw uploadedObjectInvalid();
   }
 
-  const copied = await store.copyObject({
-    fromKey: stagingKey,
-    toKey: catalogKey,
+  // Durable catalog bytes are the already-hashed buffer (owner call
+  // 2026-08-22). A leftover PUT can only mutate staging.
+  await store.putObject({
+    key: catalogKey,
+    mimeType,
+    bytes: object.bytes,
   });
-  if (copied === "missing") {
-    throw uploadedObjectInvalid();
-  }
-
-  // Bind ready metadata to catalog bytes. A leftover PUT can race staging
-  // between GET and CopyObject; refuse ready if the durable object diverged.
-  const durable = await store.getObject(catalogKey);
-  if (
-    durable === "missing" ||
-    durable.byteSize !== declaredSize ||
-    sha256Hex(durable.bytes) !== row.checksumSha256
-  ) {
-    throw uploadedObjectInvalid();
-  }
 
   const updated = await db
     .update(files)

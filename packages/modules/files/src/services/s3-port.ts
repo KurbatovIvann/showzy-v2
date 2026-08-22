@@ -1,5 +1,4 @@
 import {
-  CopyObjectCommand,
   GetObjectCommand,
   HeadBucketCommand,
   HeadObjectCommand,
@@ -45,10 +44,11 @@ export interface FilesObjectStore {
   }): Promise<SignedUrl>;
   headObject(key: string): Promise<{ readonly byteSize: number } | "missing">;
   getObject(key: string): Promise<ObjectBytes | "missing">;
-  copyObject(input: {
-    readonly fromKey: string;
-    readonly toKey: string;
-  }): Promise<"copied" | "missing">;
+  putObject(input: {
+    readonly key: string;
+    readonly mimeType: FileMimeType;
+    readonly bytes: Uint8Array;
+  }): Promise<void>;
   probeBucket(): Promise<void>;
   close(): void;
 }
@@ -172,21 +172,19 @@ export function createFilesObjectStore(
       }
     },
 
-    async copyObject(input) {
+    async putObject(input) {
       try {
         await client.send(
-          new CopyObjectCommand({
+          new PutObjectCommand({
             Bucket: bucket,
-            CopySource: copySourceHeader(bucket, input.fromKey),
-            Key: input.toKey,
+            Key: input.key,
+            Body: input.bytes,
+            ContentType: input.mimeType,
+            ContentLength: input.bytes.byteLength,
           }),
         );
-        return "copied";
-      } catch (error) {
-        if (isMissingObject(error)) {
-          return "missing";
-        }
-        throw new CoreInvariantError("files object store CopyObject failed");
+      } catch {
+        throw new CoreInvariantError("files object store PutObject failed");
       }
     },
 
@@ -202,16 +200,6 @@ export function createFilesObjectStore(
       client.destroy();
     },
   };
-}
-
-export function copySourceHeader(bucket: string, key: string): string {
-  const encodedKey = key
-    .split("/")
-    .map((segment) => encodeURIComponent(segment))
-    .join("/");
-  // S3/R2 CopySource is `bucket/key` (no leading slash). Garage accepts this
-  // form; a leading slash has 400'd on R2.
-  return `${encodeURIComponent(bucket)}/${encodedKey}`;
 }
 
 function downloadFilename(mimeType: FileMimeType): string {
