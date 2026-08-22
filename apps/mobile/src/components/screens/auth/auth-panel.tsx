@@ -13,6 +13,7 @@ const styles = StyleSheet.create((theme) => ({
     borderColor: theme.colors.border,
     borderWidth: 1,
     borderRadius: theme.radii.authPanel,
+    ...theme.squircle,
     padding: theme.spacing.xl,
     gap: theme.spacing.xl,
     ...theme.shadows.auth,

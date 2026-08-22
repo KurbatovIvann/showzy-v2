@@ -7,12 +7,14 @@ import {
   companyAvatarSizes,
   darkPalette,
   hitTarget,
+  iconSize,
   lightGlassFallback,
   lightGlassFallbackDense,
   lightPalette,
   radii,
   shadows,
   spacing,
+  squircle,
   typography,
 } from "./tokens";
 
@@ -70,7 +72,9 @@ describe("canvas token map (ADR-0024)", () => {
       sheet: 30,
       full: 9999,
     });
-    expect(hitTarget).toEqual({ min: 44, auth: 54 });
+    expect(hitTarget).toEqual({ min: 44, field: 48, auth: 54 });
+    expect(iconSize).toEqual({ sm: 18, md: 20 });
+    expect(squircle).toEqual({ borderCurve: "continuous" });
     expect(typography.xs).toEqual({ fontSize: 13, lineHeight: 18 });
     expect(typography.base).toEqual({ fontSize: 15, lineHeight: 22 });
     expect(typography.lg).toEqual({ fontSize: 18, lineHeight: 24 });
@@ -83,20 +87,11 @@ describe("canvas token map (ADR-0024)", () => {
   });
 
   it("uses ink-tinted card shadow from the canvas", () => {
-    expect(shadows.sm.shadowColor).toBe("#1C1C1A");
-    expect(shadows.sm.shadowOffset).toEqual({ width: 0, height: 1 });
-    expect(shadows.sm.shadowOpacity).toBe(0.05);
-    expect(shadows.sm.elevation).toBe(1);
+    expect(shadows.sm.boxShadow).toBe("0 1px 2px rgba(28, 28, 26, 0.05)");
   });
 
   it("pins the auth panel shadow from the canvas (0 14px 40px / 10%)", () => {
-    expect(shadows.auth).toEqual({
-      shadowColor: "#1C1C1A",
-      shadowOffset: { width: 0, height: 14 },
-      shadowOpacity: 0.1,
-      shadowRadius: 40,
-      elevation: 10,
-    });
+    expect(shadows.auth.boxShadow).toBe("0 14px 40px rgba(28, 28, 26, 0.10)");
   });
 
   it("keeps glass fallbacks on canvas white / line", () => {
@@ -115,6 +110,8 @@ describe("canvas token map (ADR-0024)", () => {
     expect(darkTheme.radii).toBe(radii);
     expect(lightTheme.hitTarget).toBe(hitTarget);
     expect(darkTheme.hitTarget).toBe(hitTarget);
+    expect(lightTheme.iconSize).toBe(iconSize);
+    expect(lightTheme.squircle).toBe(squircle);
     expect(lightTheme.typography).toBe(typography);
     expect(darkTheme.colors).toBe(darkPalette);
     expect(lightTheme.colors).toBe(lightPalette);

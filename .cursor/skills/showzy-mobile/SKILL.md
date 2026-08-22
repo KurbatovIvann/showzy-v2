@@ -50,3 +50,11 @@ cache, or restructure `apps/mobile`. Session transport is Cookie via
 
 Unistyles 3.2.2 at `apps/mobile/src/theme/` is the only theme. Extend it in
 its own idiom. Port screens per `docs/design/mapping/mp-to-mobile.md`.
+
+Corners and shadows (checked against RN 0.86 View style props):
+
+- `borderCurve: "continuous"` is **not** deprecated. It is still the iOS 13+
+  squircle (`circular` | `continuous`). Android ignores it. Spread
+  `theme.squircle` next to non-capsule `borderRadius`. Skip `radii.full`.
+- Legacy `shadowColor` / `elevation` **are** superseded on the New
+  Architecture. Use `theme.shadows.*` (`boxShadow` strings).

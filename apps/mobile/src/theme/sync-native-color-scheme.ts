@@ -1,9 +1,6 @@
 import { Appearance } from "react-native";
 
-import {
-  nativeAppearanceScheme,
-  type ThemeMode,
-} from "./preference";
+import { nativeAppearanceScheme, type ThemeMode } from "./preference";
 
 /** Pins iOS/Android chrome (IME, status bar, window) to the app theme.
  * Unistyles can stay light while `userInterfaceStyle: automatic` would

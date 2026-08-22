@@ -23,15 +23,15 @@ Do not add npm dependencies. Do not introduce NativeWind, Tailwind,
 
 ## Installed leaves (read the matching `SKILL.md`)
 
-| Task | Skill path |
-| --- | --- |
-| Vague Expo/mobile request | `.cursor/skills/expo-overview/SKILL.md` |
-| Routes, groups, Stack, redirects, headers | `.cursor/skills/expo-router/SKILL.md` |
-| Keyboard, safe area, HIG, native controls, screen chrome | `.cursor/skills/expo-native-ui/SKILL.md` |
-| Unistyles tokens, `src/theme/`, `src/components/ui/` | `.cursor/skills/expo-design-system/SKILL.md` |
-| Reanimated, gestures, press feedback, haptics, sheets | `.cursor/skills/expo-animation/SKILL.md` |
-| Custom dev client, native rebuilds | `.cursor/skills/expo-dev-client/SKILL.md` |
-| `Text`/`Pressable`/lists/FlashList/scroll | `.cursor/skills/vercel-react-native-skills/SKILL.md` then the matching `rules/*.md` |
+| Task                                                     | Skill path                                                                          |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Vague Expo/mobile request                                | `.cursor/skills/expo-overview/SKILL.md`                                             |
+| Routes, groups, Stack, redirects, headers                | `.cursor/skills/expo-router/SKILL.md`                                               |
+| Keyboard, safe area, HIG, native controls, screen chrome | `.cursor/skills/expo-native-ui/SKILL.md`                                            |
+| Unistyles tokens, `src/theme/`, `src/components/ui/`     | `.cursor/skills/expo-design-system/SKILL.md`                                        |
+| Reanimated, gestures, press feedback, haptics, sheets    | `.cursor/skills/expo-animation/SKILL.md`                                            |
+| Custom dev client, native rebuilds                       | `.cursor/skills/expo-dev-client/SKILL.md`                                           |
+| `Text`/`Pressable`/lists/FlashList/scroll                | `.cursor/skills/vercel-react-native-skills/SKILL.md` then the matching `rules/*.md` |
 
 Copies also live under `.agents/skills/` (skills CLI). Prefer `.cursor/skills/`.
 
@@ -50,3 +50,11 @@ cache, or restructure `apps/mobile`. Session transport is Cookie via
 
 Unistyles 3.2.2 at `apps/mobile/src/theme/` is the only theme. Extend it in
 its own idiom. Port screens per `docs/design/mapping/mp-to-mobile.md`.
+
+Corners and shadows (checked against RN 0.86 View style props):
+
+- `borderCurve: "continuous"` is **not** deprecated. It is still the iOS 13+
+  squircle (`circular` | `continuous`). Android ignores it. Spread
+  `theme.squircle` next to non-capsule `borderRadius`. Skip `radii.full`.
+- Legacy `shadowColor` / `elevation` **are** superseded on the New
+  Architecture. Use `theme.shadows.*` (`boxShadow` strings).

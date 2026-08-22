@@ -1,12 +1,12 @@
 import { Pressable, Text, View } from "react-native";
 import { Redirect } from "expo-router";
 import { ChevronLeft } from "lucide-react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { useVerifyScreen } from "../../../auth/use-verify";
 import { Banner, Button, OtpInput } from "../../ui";
 import { AuthPanel } from "./auth-panel";
+import { AuthScreen } from "./auth-screen";
 
 export function VerifyScreen() {
   const model = useVerifyScreen();
@@ -17,25 +17,27 @@ export function VerifyScreen() {
   }
 
   return (
-    <SafeAreaView
-      style={styles.screen}
-      accessibilityLabel={model.copy.verifyTitle}
-    >
+    <AuthScreen accessibilityLabel={model.copy.verifyTitle}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={model.backLabel}
-        hitSlop={8}
+        hitSlop={theme.spacing.sm}
         onPress={model.back}
-        style={styles.back}
+        style={({ pressed }) => [styles.back, pressed ? styles.pressed : null]}
       >
-        <ChevronLeft size={20} color={theme.colors.mutedForeground} />
+        <ChevronLeft
+          size={theme.iconSize.md}
+          color={theme.colors.mutedForeground}
+        />
         <Text style={styles.backLabel}>{model.backLabel}</Text>
       </Pressable>
       <View style={styles.header}>
         <Text style={styles.title}>{model.copy.verifyTitle}</Text>
         <Text style={styles.subtitle}>
           {model.messageBefore}
-          <Text style={styles.destination}>{model.destination}</Text>
+          <Text selectable style={styles.destination}>
+            {model.destination}
+          </Text>
           {model.messageAfter}
         </Text>
       </View>
@@ -72,7 +74,10 @@ export function VerifyScreen() {
                 accessibilityLabel={model.copy.resendCode}
                 disabled={model.resendBusy}
                 onPress={model.resend}
-                style={styles.resendHit}
+                style={({ pressed }) => [
+                  styles.resendHit,
+                  pressed && !model.resendBusy ? styles.pressed : null,
+                ]}
               >
                 <Text style={styles.resendAction}>{model.copy.resendCode}</Text>
               </Pressable>
@@ -80,16 +85,11 @@ export function VerifyScreen() {
           </View>
         </View>
       </AuthPanel>
-    </SafeAreaView>
+    </AuthScreen>
   );
 }
 
 const styles = StyleSheet.create((theme) => ({
-  screen: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-    paddingHorizontal: theme.spacing.lg,
-  },
   back: {
     flexDirection: "row",
     alignItems: "center",
@@ -97,6 +97,9 @@ const styles = StyleSheet.create((theme) => ({
     marginLeft: -theme.spacing.sm,
     paddingHorizontal: theme.spacing.sm,
     minHeight: theme.hitTarget.min,
+  },
+  pressed: {
+    opacity: 0.85,
   },
   backLabel: {
     color: theme.colors.mutedForeground,

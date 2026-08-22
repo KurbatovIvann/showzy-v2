@@ -1,5 +1,6 @@
-import { Redirect, Stack } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
+import { Redirect } from "expo-router";
+import { Stack } from "expo-router/stack";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { useAuthSession } from "../../auth/session-provider";
@@ -21,7 +22,14 @@ export default function AppLayout() {
     return <Redirect href="/sign-in" />;
   }
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: theme.colors.background },
+      }}
+    />
+  );
 }
 
 const styles = StyleSheet.create((theme) => ({

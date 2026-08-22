@@ -4,9 +4,11 @@ import {
   darkGlassFallbackPressed,
   darkPalette,
   hitTarget,
+  iconSize,
   radii,
   shadows,
   spacing,
+  squircle,
   typography,
 } from "./tokens";
 
@@ -17,6 +19,8 @@ export const darkTheme = {
   typography,
   shadows,
   hitTarget,
+  iconSize,
+  squircle,
   glassFallback: darkGlassFallback,
   glassFallbackDense: darkGlassFallbackDense,
   glassFallbackPressed: darkGlassFallbackPressed,

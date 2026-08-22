@@ -20,10 +20,12 @@ export {
   companyAvatarSizes,
   darkPalette,
   hitTarget,
+  iconSize,
   lightPalette,
   radii,
   shadows,
   spacing,
+  squircle,
   typography,
 } from "./tokens";
 export type { ColorPalette, GlassFallback, TypographyKey } from "./tokens";

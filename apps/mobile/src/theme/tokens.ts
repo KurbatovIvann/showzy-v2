@@ -186,7 +186,23 @@ export const radii = {
 
 export const hitTarget = {
   min: 44,
+  field: 48,
   auth: 54,
+} as const;
+
+export const iconSize = {
+  sm: 18,
+  md: 20,
+} as const;
+
+/**
+ * iOS squircle (`CACornerCurve.continuous`). Current on RN 0.86 View style
+ * props — not deprecated. Android ignores it. Skip on `radii.full` capsules.
+ * Do not confuse with legacy `shadow*` / `elevation`, which `boxShadow`
+ * replaces on the New Architecture.
+ */
+export const squircle = {
+  borderCurve: "continuous",
 } as const;
 
 export type TypeScale = {
@@ -232,41 +248,11 @@ export const companyAvatarSizes = {
 >;
 
 export const shadows = {
-  sm: {
-    shadowColor: "#1C1C1A",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  md: {
-    shadowColor: "#1C1C1A",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  lg: {
-    shadowColor: "#1C1C1A",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.16,
-    shadowRadius: 24,
-    elevation: 8,
-  },
-  xl: {
-    shadowColor: "#1C1C1A",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.18,
-    shadowRadius: 32,
-    elevation: 12,
-  },
-  auth: {
-    shadowColor: "#1C1C1A",
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.1,
-    shadowRadius: 40,
-    elevation: 10,
-  },
+  sm: { boxShadow: "0 1px 2px rgba(28, 28, 26, 0.05)" },
+  md: { boxShadow: "0 4px 12px rgba(28, 28, 26, 0.12)" },
+  lg: { boxShadow: "0 8px 24px rgba(28, 28, 26, 0.16)" },
+  xl: { boxShadow: "0 12px 32px rgba(28, 28, 26, 0.18)" },
+  auth: { boxShadow: "0 14px 40px rgba(28, 28, 26, 0.10)" },
 } as const;
 
 export type GlassFallback = {

@@ -20,7 +20,11 @@ export function SegmentedTabs<K extends string>(props: {
             onPress={() => {
               props.onSelect(tab.key);
             }}
-            style={[styles.tab, selected ? styles.tabSelected : null]}
+            style={({ pressed }) => [
+              styles.tab,
+              selected ? styles.tabSelected : null,
+              pressed && !selected ? styles.pressed : null,
+            ]}
           >
             <Text style={selected ? styles.labelSelected : styles.label}>
               {tab.label}
@@ -38,7 +42,7 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.muted,
     borderRadius: theme.radii.full,
     padding: theme.spacing.xs,
-    minHeight: 48,
+    minHeight: theme.hitTarget.field,
   },
   tab: {
     flex: 1,
@@ -49,6 +53,9 @@ const styles = StyleSheet.create((theme) => ({
   tabSelected: {
     backgroundColor: theme.colors.card,
     ...theme.shadows.sm,
+  },
+  pressed: {
+    opacity: 0.85,
   },
   label: {
     color: theme.colors.mutedForeground,
