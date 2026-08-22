@@ -1,6 +1,6 @@
 {
-  "id": "b6e2a91c-4d70-48f5-93a8-1c5e7d2f0b44",
-  "prevId": "337cfd5a-7798-45fb-8fb1-c011b1216c75",
+  "id": "d1f8e3a7-6b24-4c90-8e51-9a0c4b7d2f16",
+  "prevId": "cbacf4ac-ba68-4d92-b9fc-77ff84c61dc4",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1324,6 +1324,21 @@
             },
             {
               "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "files_uploaded_by_user_idx": {
+          "name": "files_uploaded_by_user_idx",
+          "columns": [
+            {
+              "expression": "uploaded_by_user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

@@ -1,5 +1,5 @@
 {
-  "id": "337cfd5a-7798-45fb-8fb1-c011b1216c75",
+  "id": "cbacf4ac-ba68-4d92-b9fc-77ff84c61dc4",
   "prevId": "8c1d4e27-6f9a-4b3e-91d0-2a7f5c8e4b16",
   "version": "7",
   "dialect": "postgresql",
@@ -1324,6 +1324,21 @@
             },
             {
               "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "files_uploaded_by_user_idx": {
+          "name": "files_uploaded_by_user_idx",
+          "columns": [
+            {
+              "expression": "uploaded_by_user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

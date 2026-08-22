@@ -54,6 +54,7 @@ export const files = pgTable(
     unique("files_company_object_key_uq").on(table.companyId, table.objectKey),
     index("files_company_idx").on(table.companyId),
     index("files_company_status_idx").on(table.companyId, table.status),
+    index("files_uploaded_by_user_idx").on(table.uploadedByUserId),
     check("files_purpose_check", sql`${table.purpose} IN ('catalog')`),
     check("files_status_check", sql`${table.status} IN ('pending', 'ready')`),
     check("files_byte_size_check", sql`${table.byteSize} >= 0`),
