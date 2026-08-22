@@ -8,8 +8,10 @@
  * Mechanical choices the feature card left unnamed:
  * - `timeout: 30000` covers Head+Delete for a batch of 20 on Garage.
  * - Abandoned pending TTL is 1 hour (4× the 15-minute PUT TTL) so an
- *   in-flight handshake is not swept. Ready leftover staging is deleted
- *   without waiting — download never reads it.
+ *   in-flight first handshake is not swept. `files.getUploadUrl` is a
+ *   read and cannot bump row age; reminting after this TTL is not a
+ *   lease extension — call `requestUpload` again. Ready leftover staging
+ *   is deleted without waiting — download never reads it.
  * - Batch default is 20. Optional `limit` exists so the inherited
  *   idempotency suite can conflict on a different payload; the handler
  *   still caps at this default.
