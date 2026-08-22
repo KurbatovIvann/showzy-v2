@@ -204,12 +204,14 @@ export function createFilesObjectStore(
   };
 }
 
-function copySourceHeader(bucket: string, key: string): string {
+export function copySourceHeader(bucket: string, key: string): string {
   const encodedKey = key
     .split("/")
     .map((segment) => encodeURIComponent(segment))
     .join("/");
-  return `/${encodeURIComponent(bucket)}/${encodedKey}`;
+  // S3/R2 CopySource is `bucket/key` (no leading slash). Garage accepts this
+  // form; a leading slash has 400'd on R2.
+  return `${encodeURIComponent(bucket)}/${encodedKey}`;
 }
 
 function downloadFilename(mimeType: FileMimeType): string {
