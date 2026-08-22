@@ -3,3 +3,4 @@ export { getAttachmentFactsContract } from "./actions/get-attachment-facts.contr
 export { getDownloadUrlContract } from "./actions/get-download-url.contract.js";
 export { getUploadUrlContract } from "./actions/get-upload-url.contract.js";
 export { requestUploadContract } from "./actions/request-upload.contract.js";
+export { sweepAbandonedUploadsContract } from "./actions/sweep-abandoned-uploads.contract.js";

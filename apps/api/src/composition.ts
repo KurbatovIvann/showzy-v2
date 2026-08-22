@@ -31,6 +31,7 @@ import {
   getDownloadUrl,
   getUploadUrl,
   requestUpload,
+  sweepAbandonedUploads,
 } from "@showzy/files";
 import { filesSuiteCoverage } from "@showzy/files/suite-coverage";
 import {
@@ -156,6 +157,7 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, finalizeUpload);
   registerAction(registry, getDownloadUrl);
   registerAction(registry, getAttachmentFacts);
+  registerAction(registry, sweepAbandonedUploads);
   registerAction(registry, createOrder);
   registerAction(registry, confirmOrder);
   registerAction(registry, getOrder);
