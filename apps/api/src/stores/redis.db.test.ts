@@ -52,12 +52,24 @@ describe("createRedisSecondaryStorage", () => {
 });
 
 describe("createRedisConfirmationStore", () => {
+  it("GETDEL returns the value once while unexpired", async () => {
+    const store = createRedisConfirmationStore(redis);
+    await store.set("confirm:test", "challenge", 60_000);
+    expect(await store.getAndDelete("confirm:test")).toBe("challenge");
+    expect(await store.getAndDelete("confirm:test")).toBeNull();
+  });
+
   it("expires via PX and GETDEL returns null after expiry", async () => {
     const store = createRedisConfirmationStore(redis);
-    await store.set("confirm:test", "challenge", 50);
-    expect(await store.getAndDelete("confirm:test")).toBe("challenge");
-    await store.set("confirm:ttl", "challenge", 50);
-    await new Promise((resolve) => setTimeout(resolve, 80));
+    await store.set("confirm:ttl", "challenge", 200);
+    const remainingMs = await redis.pttl("confirm:ttl");
+    expect(remainingMs).toBeGreaterThan(0);
+    expect(remainingMs).toBeLessThanOrEqual(200);
+
+    const deadline = Date.now() + 2_000;
+    while (Date.now() < deadline && (await redis.pttl("confirm:ttl")) > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
     expect(await store.getAndDelete("confirm:ttl")).toBeNull();
   });
 });
