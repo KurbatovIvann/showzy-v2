@@ -156,7 +156,10 @@ async function expectForeignDenied(
 /**
  * Own-scope access succeeds; foreign-scope access is denied — or, for
  * public-global / consumer browse, the response contains no unpublished
- * or internal fixture fields.
+ * or internal fixture fields. System-global jobs have no foreign tenant
+ * to deny: they succeed in the only scope they have (SHO-115). Module
+ * tests prove a row's derived keys do not mutate another company's
+ * objects.
  */
 export async function runCrossTenantCase(
   kit: TestKit,
@@ -174,6 +177,11 @@ export async function runCrossTenantCase(
       action.contract.name,
       await invoke(kit, action, c.own),
     );
+    return;
+  }
+
+  if (principal === "system" && action.contract.systemScope === "global") {
+    await invoke(kit, action, c.own);
     return;
   }
 

@@ -392,7 +392,9 @@ without core changes. `runContractCheck` stays here as a library.
   `consumerIsolationSuite`, `accountIsolationSuite`, `shareIsolationSuite`)
   and protocol suites
   (`idempotencySuite`, `eventSuite`, `atomicCallSuite`) take `getKit` and
-  register vitest tests. `run*Case` is the same assertion without
+  register vitest tests. `crossTenantSuite` does not require a foreign deny
+  for `system` + `systemScope: global` (the job has no other tenant).
+  `run*Case` is the same assertion without
   registration, so a leaky fixture action can be proven to fail the
   suite. Module tasks instantiate the registrars; omitting a required
   suite fails the contract check (`suiteCoverage` on

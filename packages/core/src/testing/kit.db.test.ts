@@ -99,6 +99,7 @@ function correctCrossTenantCases() {
       { input: ownProduct },
       { input: foreignProduct },
     ),
+    isolationCase(correct.systemGlobalSweep, { input: {} }, { input: {} }),
     isolationCase(
       correct.consumerBrowseDiscovery,
       { input: {} },
@@ -278,6 +279,15 @@ describe("suites fail on seeded violations", () => {
         ),
       ),
     ).rejects.toThrow(/expected foreign access/);
+  });
+
+  it("accepts a system-global job without a foreign deny", async () => {
+    await expect(
+      runCrossTenantCase(
+        kit,
+        isolationCase(correct.systemGlobalSweep, { input: {} }, { input: {} }),
+      ),
+    ).resolves.toBeUndefined();
   });
 
   it("detects a consumer handler that returns unpublished products", async () => {

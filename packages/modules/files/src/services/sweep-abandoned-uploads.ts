@@ -1,91 +1,114 @@
 import type { ActionCtx } from "@showzy/core";
-import { CoreInvariantError, NotFoundError } from "@showzy/core/errors";
+import { CoreInvariantError } from "@showzy/core/errors";
 import { files } from "@showzy/db/schema/files";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq, lte } from "drizzle-orm";
 import type { z } from "zod";
 
 import type { sweepAbandonedUploadsInputSchema } from "../actions/sweep-abandoned-uploads.contract.js";
-import { ABANDONED_PENDING_TTL_MS } from "../actions/sweep-abandoned-uploads.contract.js";
+import {
+  ABANDONED_PENDING_TTL_MS,
+  SWEEP_BATCH_LIMIT,
+} from "../actions/sweep-abandoned-uploads.contract.js";
 import { catalogObjectKey, stagingObjectKey } from "./object-key.js";
-import { getFilesObjectStore } from "./s3-port.js";
+import { getFilesObjectStore, type FilesObjectStore } from "./s3-port.js";
 import { requireWritable } from "./writable.js";
 
-type SystemTenantCtx = Extract<
+type SystemGlobalCtx = Extract<
   ActionCtx,
-  { principal: "system"; scope: "tenant" }
+  { principal: "system"; scope: "global" }
 >;
 type SweepInput = z.output<typeof sweepAbandonedUploadsInputSchema>;
+type FileRow = typeof files.$inferSelect;
+type WritableDb = ReturnType<typeof requireWritable>;
 
-export interface SweepAbandonedUploadResult {
-  readonly fileId: string;
-  readonly deletedPendingRow: boolean;
-  readonly deletedStaging: boolean;
-  readonly deletedCatalog: boolean;
+export interface SweepAbandonedUploadsResult {
+  readonly leftoverStagingDeleted: number;
+  readonly abandonedPendingDeleted: number;
 }
 
-export async function sweepAbandonedUpload(input: {
-  readonly ctx: SystemTenantCtx;
+export async function runAbandonedUploadSweep(input: {
+  readonly ctx: SystemGlobalCtx;
   readonly input: SweepInput;
-}): Promise<SweepAbandonedUploadResult> {
+}): Promise<SweepAbandonedUploadsResult> {
   const db = requireWritable(input.ctx.db);
-  const rows = await db
+  const limit = input.input.limit ?? SWEEP_BATCH_LIMIT;
+  const cutoff = new Date(Date.now() - ABANDONED_PENDING_TTL_MS);
+  const store = getFilesObjectStore();
+
+  const abandoned = await db
     .select()
     .from(files)
-    .where(
-      and(
-        eq(files.companyId, input.ctx.companyId),
-        eq(files.id, input.input.fileId),
-      ),
-    )
-    .limit(1)
-    .for("update");
-  const row = rows[0];
-  if (row === undefined) {
-    throw new NotFoundError();
+    .where(and(eq(files.status, "pending"), lte(files.createdAt, cutoff)))
+    .orderBy(asc(files.createdAt), asc(files.id))
+    .limit(limit)
+    .for("update", { skipLocked: true });
+
+  const remaining = limit - abandoned.length;
+  const ready =
+    remaining > 0
+      ? await db
+          .select()
+          .from(files)
+          .where(eq(files.status, "ready"))
+          .orderBy(asc(files.updatedAt), asc(files.id))
+          .limit(remaining)
+          .for("update", { skipLocked: true })
+      : [];
+
+  let leftoverStagingDeleted = 0;
+  let abandonedPendingDeleted = 0;
+
+  for (const row of abandoned) {
+    const deleted = await sweepAbandonedPending({ db, store, row });
+    if (deleted) {
+      abandonedPendingDeleted += 1;
+    }
   }
 
-  if (row.status === "ready") {
-    await getFilesObjectStore().deleteObject(
-      stagingObjectKey(row.companyId, row.id),
-    );
-    input.ctx.log.info(
-      { file_id: row.id, outcome: "leftover_staging" },
-      "files.sweepAbandonedUploads deleted leftover staging",
-    );
-    return {
-      fileId: row.id,
-      deletedPendingRow: false,
-      deletedStaging: true,
-      deletedCatalog: false,
-    };
+  for (const row of ready) {
+    const deletedStaging = await sweepReadyLeftoverStaging({ db, store, row });
+    if (deletedStaging) {
+      leftoverStagingDeleted += 1;
+    }
   }
 
-  if (row.status !== "pending") {
+  input.ctx.log.info(
+    {
+      leftover_staging_deleted: leftoverStagingDeleted,
+      abandoned_pending_deleted: abandonedPendingDeleted,
+    },
+    "files.sweepAbandonedUploads finished",
+  );
+
+  return { leftoverStagingDeleted, abandonedPendingDeleted };
+}
+
+async function sweepAbandonedPending(input: {
+  readonly db: WritableDb;
+  readonly store: FilesObjectStore;
+  readonly row: FileRow;
+}): Promise<boolean> {
+  if (input.row.status !== "pending") {
     throw new CoreInvariantError(
-      "files.sweepAbandonedUploads saw an unknown status",
+      "files.sweepAbandonedUploads expected a pending row",
     );
   }
 
-  const cutoff = Date.now() - ABANDONED_PENDING_TTL_MS;
-  if (row.createdAt.getTime() > cutoff) {
-    return {
-      fileId: row.id,
-      deletedPendingRow: false,
-      deletedStaging: false,
-      deletedCatalog: false,
-    };
-  }
+  await deleteIfPresent(
+    input.store,
+    stagingObjectKey(input.row.companyId, input.row.id),
+  );
+  await deleteIfPresent(
+    input.store,
+    catalogObjectKey(input.row.companyId, input.row.id),
+  );
 
-  const store = getFilesObjectStore();
-  await store.deleteObject(stagingObjectKey(row.companyId, row.id));
-  await store.deleteObject(catalogObjectKey(row.companyId, row.id));
-
-  const deleted = await db
+  const deleted = await input.db
     .delete(files)
     .where(
       and(
-        eq(files.companyId, input.ctx.companyId),
-        eq(files.id, row.id),
+        eq(files.companyId, input.row.companyId),
+        eq(files.id, input.row.id),
         eq(files.status, "pending"),
       ),
     )
@@ -95,16 +118,45 @@ export async function sweepAbandonedUpload(input: {
       "files.sweepAbandonedUploads lost the pending row",
     );
   }
+  return true;
+}
 
-  input.ctx.log.info(
-    { file_id: row.id, outcome: "abandoned_pending" },
-    "files.sweepAbandonedUploads deleted abandoned pending upload",
+async function sweepReadyLeftoverStaging(input: {
+  readonly db: WritableDb;
+  readonly store: FilesObjectStore;
+  readonly row: FileRow;
+}): Promise<boolean> {
+  if (input.row.status !== "ready") {
+    throw new CoreInvariantError(
+      "files.sweepAbandonedUploads expected a ready row",
+    );
+  }
+
+  const deletedStaging = await deleteIfPresent(
+    input.store,
+    stagingObjectKey(input.row.companyId, input.row.id),
   );
+  await input.db
+    .update(files)
+    .set({ updatedAt: new Date() })
+    .where(
+      and(
+        eq(files.companyId, input.row.companyId),
+        eq(files.id, input.row.id),
+        eq(files.status, "ready"),
+      ),
+    );
+  return deletedStaging;
+}
 
-  return {
-    fileId: row.id,
-    deletedPendingRow: true,
-    deletedStaging: true,
-    deletedCatalog: true,
-  };
+async function deleteIfPresent(
+  store: FilesObjectStore,
+  key: string,
+): Promise<boolean> {
+  const head = await store.headObject(key);
+  if (head === "missing") {
+    return false;
+  }
+  await store.deleteObject(key);
+  return true;
 }
