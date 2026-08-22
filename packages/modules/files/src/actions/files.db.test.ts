@@ -155,6 +155,19 @@ async function countCompanyFiles(companyId: string): Promise<number> {
   return rows[0]?.value ?? 0;
 }
 
+async function countSweepAudits(): Promise<number> {
+  const rows = await requireKit()
+    .db.runtime.db.select({ value: count() })
+    .from(auditLog)
+    .where(
+      and(
+        eq(auditLog.action, "files.sweepAbandonedUploads"),
+        eq(auditLog.outcome, "ok"),
+      ),
+    );
+  return rows[0]?.value ?? 0;
+}
+
 async function countReadyFiles(companyId: string): Promise<number> {
   const rows = await requireKit()
     .db.runtime.db.select({ value: count() })
@@ -439,7 +452,7 @@ idempotencySuite(requireKit, [
     action: sweepAbandonedUploads,
     input: {},
     conflictingInput: { limit: 1 },
-    readEffect: () => countReadyFiles(kitIdentities.companies.a),
+    readEffect: () => countSweepAudits(),
   },
 ]);
 

@@ -35,6 +35,8 @@ export async function runAbandonedUploadSweep(input: {
   const cutoff = new Date(Date.now() - ABANDONED_PENDING_TTL_MS);
   const store = getFilesObjectStore();
 
+  // Row age from createdAt. getUploadUrl is risk:read and cannot extend
+  // this lease; 1 hour is 4× the signed PUT TTL (in-flight handshake).
   const abandoned = await db
     .select()
     .from(files)
