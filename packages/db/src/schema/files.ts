@@ -7,7 +7,8 @@
  *
  * `object_key` is server-derived `{companyId}/catalog/{fileId}`. The CHECK
  * is a mechanical carry-over from T1; finalize still verifies the prefix
- * (security-operations.md §3).
+ * (security-operations.md §3). Handshake PUT uses `{companyId}/uploads/{fileId}`
+ * derived in code and is never stored (SHO-113).
  */
 import { sql } from "drizzle-orm";
 import {
@@ -27,7 +28,8 @@ import { companies } from "./companies.js";
 
 /**
  * One row per uploaded object. `object_key` is server-derived
- * `{companyId}/catalog/{fileId}` and unique per tenant. `pending` rows may
+ * `{companyId}/catalog/{fileId}` and unique per tenant. Handshake PUT targets
+ * `{companyId}/uploads/{fileId}` and is never stored. `pending` rows may
  * have `byte_size = 0` and a null checksum until finalize.
  */
 export const files = pgTable(

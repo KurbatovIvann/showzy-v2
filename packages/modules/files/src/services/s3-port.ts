@@ -1,4 +1,5 @@
 import {
+  CopyObjectCommand,
   GetObjectCommand,
   HeadBucketCommand,
   HeadObjectCommand,
@@ -44,6 +45,10 @@ export interface FilesObjectStore {
   }): Promise<SignedUrl>;
   headObject(key: string): Promise<{ readonly byteSize: number } | "missing">;
   getObject(key: string): Promise<ObjectBytes | "missing">;
+  copyObject(input: {
+    readonly fromKey: string;
+    readonly toKey: string;
+  }): Promise<"copied" | "missing">;
   probeBucket(): Promise<void>;
   close(): void;
 }
@@ -167,6 +172,24 @@ export function createFilesObjectStore(
       }
     },
 
+    async copyObject(input) {
+      try {
+        await client.send(
+          new CopyObjectCommand({
+            Bucket: bucket,
+            CopySource: copySourceHeader(bucket, input.fromKey),
+            Key: input.toKey,
+          }),
+        );
+        return "copied";
+      } catch (error) {
+        if (isMissingObject(error)) {
+          return "missing";
+        }
+        throw new CoreInvariantError("files object store CopyObject failed");
+      }
+    },
+
     async probeBucket() {
       try {
         await client.send(new HeadBucketCommand({ Bucket: bucket }));
@@ -179,6 +202,14 @@ export function createFilesObjectStore(
       client.destroy();
     },
   };
+}
+
+function copySourceHeader(bucket: string, key: string): string {
+  const encodedKey = key
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+  return `/${encodeURIComponent(bucket)}/${encodedKey}`;
 }
 
 function downloadFilename(mimeType: FileMimeType): string {

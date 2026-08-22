@@ -13,7 +13,7 @@ import {
   type FileReadyView,
 } from "./file-view.js";
 import { uploadBytesMatchDeclaredMime } from "./magic-bytes.js";
-import { catalogObjectKey } from "./object-key.js";
+import { catalogObjectKey, stagingObjectKey } from "./object-key.js";
 import { getFilesObjectStore } from "./s3-port.js";
 import { uploadedObjectInvalid } from "./uploaded-object.js";
 import { requireWritable } from "./writable.js";
@@ -48,8 +48,9 @@ export async function finalizeStaffUpload(input: {
     throw new CoreInvariantError("files.finalizeUpload saw an unknown status");
   }
 
-  const expectedKey = catalogObjectKey(input.ctx.companyId, row.id);
-  if (row.objectKey !== expectedKey) {
+  const catalogKey = catalogObjectKey(input.ctx.companyId, row.id);
+  const stagingKey = stagingObjectKey(input.ctx.companyId, row.id);
+  if (row.objectKey !== catalogKey) {
     throw uploadedObjectInvalid();
   }
   if (row.checksumSha256 === null) {
@@ -61,7 +62,7 @@ export async function finalizeStaffUpload(input: {
   }
 
   const store = getFilesObjectStore();
-  const head = await store.headObject(row.objectKey);
+  const head = await store.headObject(stagingKey);
   if (head === "missing") {
     throw uploadedObjectInvalid();
   }
@@ -69,7 +70,7 @@ export async function finalizeStaffUpload(input: {
     throw uploadedObjectInvalid();
   }
 
-  const object = await store.getObject(row.objectKey);
+  const object = await store.getObject(stagingKey);
   if (object === "missing" || object.byteSize !== declaredSize) {
     throw uploadedObjectInvalid();
   }
@@ -82,6 +83,14 @@ export async function finalizeStaffUpload(input: {
     throw uploadedObjectInvalid();
   }
   if (sha256Hex(object.bytes) !== row.checksumSha256) {
+    throw uploadedObjectInvalid();
+  }
+
+  const copied = await store.copyObject({
+    fromKey: stagingKey,
+    toKey: catalogKey,
+  });
+  if (copied === "missing") {
     throw uploadedObjectInvalid();
   }
 

@@ -6,7 +6,7 @@ import { files } from "@showzy/db/schema/files";
 import type { z } from "zod";
 
 import type { requestUploadInputSchema } from "../actions/request-upload.contract.js";
-import { catalogObjectKey } from "./object-key.js";
+import { catalogObjectKey, stagingObjectKey } from "./object-key.js";
 import { getFilesObjectStore } from "./s3-port.js";
 import { requireWritable } from "./writable.js";
 
@@ -23,7 +23,8 @@ export async function requestStaffUpload(input: {
 }> {
   const db = requireWritable(input.ctx.db);
   const fileId = randomUUID();
-  const objectKey = catalogObjectKey(input.ctx.companyId, fileId);
+  const catalogKey = catalogObjectKey(input.ctx.companyId, fileId);
+  const stagingKey = stagingObjectKey(input.ctx.companyId, fileId);
   const store = getFilesObjectStore();
 
   await db.insert(files).values({
@@ -31,7 +32,7 @@ export async function requestStaffUpload(input: {
     companyId: input.ctx.companyId,
     uploadedByUserId: input.ctx.userId,
     purpose: input.input.purpose,
-    objectKey,
+    objectKey: catalogKey,
     mimeType: input.input.mimeType,
     byteSize: BigInt(input.input.byteSize),
     checksumSha256: input.input.checksumSha256,
@@ -39,7 +40,7 @@ export async function requestStaffUpload(input: {
   });
 
   const signed = await store.signPut({
-    key: objectKey,
+    key: stagingKey,
     mimeType: input.input.mimeType,
     byteSize: input.input.byteSize,
   });
