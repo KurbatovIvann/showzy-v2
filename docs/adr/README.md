@@ -43,3 +43,4 @@ humans) don't relitigate settled questions or silently deviate.
 | [0024](0024-magic-patterns-canonical-ux.md) | Magic Patterns canvas is the canonical V2 UX | Accepted |
 | [0025](0025-same-tenant-composite-foreign-keys.md) | Same-tenant composite foreign keys | Accepted |
 | [0026](0026-golden-slice-confirm-is-status-only.md) | Golden-slice confirm is status-only | Accepted |
+| [0027](0027-s3-stand-in-is-garage.md) | S3 stand-in is Garage (R2 in prod) | Accepted |

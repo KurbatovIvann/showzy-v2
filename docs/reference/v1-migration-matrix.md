@@ -174,9 +174,9 @@ completed module slice.
   `files` actions; `service_role_only` policies transform to runtime DB
   grants.
 - **Buckets:** `documents-bucket`, `chat-attachments`, `companies-bucket`,
-  and `users-bucket` → TRANSFORM into private S3/MinIO prefixes owned by
-  `files`; public profile assets are served through explicitly public/CDN
-  policy, not by trusting client paths.
+  and `users-bucket` → TRANSFORM into private S3 prefixes (Garage locally,
+  R2 in prod; ADR-0027) owned by `files`; public profile assets are served
+  through explicitly public/CDN policy, not by trusting client paths.
 - **Extensions:** `pg_trgm`, `unaccent` → KEEP; `vector`, `pg_partman`, and
   `pg_cron` → DROP. Invite expiry moves to a BullMQ worker; analytics partman
   maintenance drops with the partitioned pipeline. No extension is enabled

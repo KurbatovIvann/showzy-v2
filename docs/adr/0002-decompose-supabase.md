@@ -2,6 +2,7 @@
 
 - **Status**: Accepted
 - **Date**: 2026-08-16
+- **Amended by**: ADR-0027
 
 ## Context
 
@@ -13,8 +14,9 @@ and ~79 RPC functions — the hardest part of v1 to maintain.
 ## Decision
 
 Replace Supabase with independent components: self-hosted PostgreSQL 17 +
-Drizzle, better-auth, S3-compatible storage (MinIO → Cloudflare R2),
-Socket.IO + Redis for realtime, and application-level permissions.
+Drizzle, better-auth, object storage over the S3 API (Garage locally →
+Cloudflare R2 in prod; ADR-0027), Socket.IO + Redis for realtime, and
+application-level permissions.
 
 ## Alternatives considered
 

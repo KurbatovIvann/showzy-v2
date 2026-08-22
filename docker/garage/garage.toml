@@ -1,0 +1,23 @@
+# Local/CI Garage config (ADR-0027). S3 access/secret in docker-compose.yml
+# match .env.example. rpc_secret is a Garage cluster dummy required by the
+# daemon (32-byte hex); it is not an application env key and is not in
+# packages/config. Real environments never reuse these values.
+#
+# Single-node: replication_factor = 1. The S3 website endpoint is omitted on
+# purpose — it is not a product surface.
+
+metadata_dir = "/var/lib/garage/meta"
+data_dir = "/var/lib/garage/data"
+db_engine = "sqlite"
+replication_factor = 1
+
+rpc_bind_addr = "0.0.0.0:3901"
+rpc_public_addr = "127.0.0.1:3901"
+rpc_secret = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
+# Compose bind-mounts this file mode 0644; Garage otherwise refuses to start.
+allow_world_readable_secrets = true
+
+[s3_api]
+s3_region = "us-east-1"
+api_bind_addr = "0.0.0.0:3900"
