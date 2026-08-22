@@ -15,7 +15,7 @@ export function TextField(props: {
   readonly prefix?: string;
   readonly size?: "default" | "auth";
 }) {
-  const { theme } = useUnistyles();
+  const { theme, rt } = useUnistyles();
   const [focused, setFocused] = useState(false);
   const size = props.size ?? "default";
   const auth = size === "auth";
@@ -44,6 +44,7 @@ export function TextField(props: {
           placeholder={props.placeholder}
           accessibilityLabel={props.accessibilityLabel}
           keyboardType={props.keyboardType ?? "email-address"}
+          keyboardAppearance={rt.themeName === "dark" ? "dark" : "light"}
           autoCapitalize="none"
           autoCorrect={false}
           editable={props.editable !== false}

@@ -4,7 +4,7 @@ import { StyleSheet } from "react-native-unistyles";
 export function AuthBrand(props: { readonly tagline: string }) {
   return (
     <View style={styles.brand} accessibilityRole="header">
-      <Text style={styles.wordmark}>Showzy</Text>
+      <Text style={styles.wordmark}>ШОЗІ</Text>
       <Text style={styles.tagline}>{props.tagline}</Text>
     </View>
   );

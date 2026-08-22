@@ -9,7 +9,11 @@ import { asThemePreferenceStore } from "../prefs/device-prefs";
 import { createPlatformDevicePrefs } from "../prefs/platform-storage";
 import { darkTheme } from "./dark";
 import { lightTheme } from "./light";
-import { unistylesSettings } from "./preference";
+import {
+  unistylesSettings,
+  type ThemePreferenceStore,
+} from "./preference";
+import { syncNativeColorScheme } from "./sync-native-color-scheme";
 
 type AppThemes = {
   light: typeof lightTheme;
@@ -23,9 +27,15 @@ declare module "react-native-unistyles" {
   }
 }
 
-export const themePreference = asThemePreferenceStore(
-  createPlatformDevicePrefs(),
-);
+const persisted = asThemePreferenceStore(createPlatformDevicePrefs());
+
+export const themePreference: ThemePreferenceStore = {
+  get: () => persisted.get(),
+  set: (mode) => {
+    persisted.set(mode);
+    syncNativeColorScheme(mode);
+  },
+};
 
 StyleSheet.configure({
   themes: {
@@ -34,3 +44,4 @@ StyleSheet.configure({
   },
   settings: unistylesSettings(themePreference.get()),
 });
+syncNativeColorScheme(themePreference.get());

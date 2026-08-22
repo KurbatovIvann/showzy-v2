@@ -1,5 +1,6 @@
-import { Text, TextInput, View } from "react-native";
-import { StyleSheet } from "react-native-unistyles";
+import { useLayoutEffect, useRef } from "react";
+import { Pressable, Text, TextInput, View } from "react-native";
+import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 function otpHasError(error: boolean | string | undefined): boolean {
   return error === true || (typeof error === "string" && error.length > 0);
@@ -19,14 +20,35 @@ export function OtpInput(props: {
   readonly error?: boolean | string;
   readonly accessibilityLabel: string;
 }) {
+  const { rt } = useUnistyles();
+  const inputRef = useRef<TextInput>(null);
+  const disabled = props.disabled === true;
   const hasError = otpHasError(props.error);
   const errorText = otpErrorText(props.error);
+
+  function focusInput(): void {
+    if (disabled) {
+      return;
+    }
+    inputRef.current?.focus();
+  }
+
+  // Focus before paint so the IME can transfer from the previous field
+  // instead of dismissing and reopening (black window + delay).
+  useLayoutEffect(() => {
+    if (disabled) {
+      return;
+    }
+    inputRef.current?.focus();
+  }, [disabled]);
+
   const cells = Array.from({ length: props.length }, (_, index) => {
     const filled = props.value[index] !== undefined;
     const active = index === props.value.length;
     return (
       <View
         key={index}
+        pointerEvents="none"
         style={[
           styles.cell,
           hasError
@@ -45,20 +67,35 @@ export function OtpInput(props: {
 
   return (
     <View>
-      <View style={styles.row}>{cells}</View>
-      <TextInput
-        value={props.value}
-        onChangeText={(text) => {
-          props.onChange(text.replaceAll(/\D/g, "").slice(0, props.length));
-        }}
-        keyboardType="number-pad"
-        maxLength={props.length}
-        autoComplete="one-time-code"
-        textContentType="oneTimeCode"
-        editable={props.disabled !== true}
-        accessibilityLabel={props.accessibilityLabel}
-        style={styles.hiddenInput}
-      />
+      <View style={styles.field}>
+        <Pressable
+          accessible={false}
+          disabled={disabled}
+          onPress={focusInput}
+          style={styles.row}
+        >
+          {cells}
+        </Pressable>
+        <TextInput
+          ref={inputRef}
+          value={props.value}
+          onChangeText={(text) => {
+            props.onChange(text.replaceAll(/\D/g, "").slice(0, props.length));
+          }}
+          keyboardType="number-pad"
+          inputMode="numeric"
+          keyboardAppearance={rt.themeName === "dark" ? "dark" : "light"}
+          maxLength={props.length}
+          autoComplete="one-time-code"
+          textContentType="oneTimeCode"
+          importantForAutofill="yes"
+          caretHidden
+          showSoftInputOnFocus
+          editable={!disabled}
+          accessibilityLabel={props.accessibilityLabel}
+          style={styles.hiddenInput}
+        />
+      </View>
       {errorText !== null ? (
         <Text style={styles.error}>{errorText}</Text>
       ) : null}
@@ -67,6 +104,9 @@ export function OtpInput(props: {
 }
 
 const styles = StyleSheet.create((theme) => ({
+  field: {
+    position: "relative",
+  },
   row: {
     flexDirection: "row",
     justifyContent: "center",
@@ -100,11 +140,16 @@ const styles = StyleSheet.create((theme) => ({
     fontWeight: "600",
     fontVariant: ["tabular-nums"],
   },
+  // Opacity 0 is ignored by Android and KeyboardProvider (no IME, no taps).
+  // Overlay the field so a tap hits this input; digits stay in the cells.
   hiddenInput: {
     position: "absolute",
-    opacity: 0,
-    width: "100%",
-    height: "100%",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    opacity: 0.02,
+    color: "transparent",
   },
   error: {
     color: theme.colors.destructive,

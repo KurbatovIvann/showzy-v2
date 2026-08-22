@@ -30,7 +30,13 @@ export default function AuthLayout() {
 
   return (
     <OtpProvider>
-      <Stack screenOptions={{ headerShown: false }} />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          animation: "none",
+          contentStyle: { backgroundColor: theme.colors.background },
+        }}
+      />
     </OtpProvider>
   );
 }
