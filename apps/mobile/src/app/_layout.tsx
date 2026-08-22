@@ -1,7 +1,7 @@
 import "../theme/unistyles";
 
 import { useEffect } from "react";
-import { Stack } from "expo-router";
+import { Stack } from "expo-router/stack";
 import { StatusBar } from "expo-status-bar";
 import * as SystemUI from "expo-system-ui";
 import { KeyboardProvider } from "react-native-keyboard-controller";

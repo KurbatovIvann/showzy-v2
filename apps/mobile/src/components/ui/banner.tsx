@@ -3,7 +3,7 @@ import { StyleSheet } from "react-native-unistyles";
 
 export function Banner({ message }: { readonly message: string }) {
   return (
-    <Text accessibilityRole="alert" style={styles.error}>
+    <Text selectable accessibilityRole="alert" style={styles.error}>
       {message}
     </Text>
   );

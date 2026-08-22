@@ -1,5 +1,6 @@
-import { Redirect, Stack } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
+import { Redirect } from "expo-router";
+import { Stack } from "expo-router/stack";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { OtpProvider } from "../../auth/otp/provider";

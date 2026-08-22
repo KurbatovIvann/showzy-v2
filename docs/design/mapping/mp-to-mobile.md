@@ -113,9 +113,11 @@ System font. No webfont.
 | Auth panel | 28 | `radii.authPanel` |
 | Sheet top | 30 | `radii.sheet` |
 | Button / search / icon | pill | `radii.full` |
-| Hit target | 44 / auth 54 | `hitTarget.min` / `hitTarget.auth` |
-| Card shadow | `0 1px 2px rgba(28,28,26,0.05)` | `shadows.sm` |
-| Auth panel shadow | `0 14px 40px rgba(28,28,26,0.10)` | `shadows.auth` |
+| Hit target | 44 / field 48 / auth 54 | `hitTarget.min` / `hitTarget.field` / `hitTarget.auth` |
+| Lucide | 18 / 20 | `iconSize.sm` / `iconSize.md` |
+| Card shadow | `0 1px 2px rgba(28,28,26,0.05)` | `shadows.sm` (`boxShadow`; New Architecture) |
+| Auth panel shadow | `0 14px 40px rgba(28,28,26,0.10)` | `shadows.auth` (`boxShadow`; New Architecture) |
+| iOS squircle | `CACornerCurve.continuous` | `theme.squircle` (`borderCurve: "continuous"`). Current on RN 0.86 — not deprecated. Android ignores it. Skip on `radii.full` capsules. |
 
 ## Shared primitives today
 

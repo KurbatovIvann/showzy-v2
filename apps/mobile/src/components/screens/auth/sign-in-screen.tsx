@@ -1,13 +1,13 @@
 import { Text, View } from "react-native";
 import { Redirect } from "expo-router";
 import { AtSign, Phone } from "lucide-react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { useSignInScreen } from "../../../auth/use-sign-in";
 import { Banner, Button, SegmentedTabs, TextField } from "../../ui";
 import { AuthBrand } from "./auth-brand";
 import { AuthPanel } from "./auth-panel";
+import { AuthScreen } from "./auth-screen";
 
 export function SignInScreen() {
   const model = useSignInScreen();
@@ -20,7 +20,7 @@ export function SignInScreen() {
   const iconColor = theme.colors.mutedForeground;
 
   return (
-    <SafeAreaView style={styles.screen} accessibilityLabel={model.copy.welcome}>
+    <AuthScreen accessibilityLabel={model.copy.welcome}>
       <AuthBrand tagline={model.copy.tagline} />
       <AuthPanel>
         <Text style={styles.title}>{model.copy.welcome}</Text>
@@ -35,7 +35,7 @@ export function SignInScreen() {
             <TextField
               size="auth"
               label={model.copy.phoneLabel}
-              leading={<Phone size={18} color={iconColor} />}
+              leading={<Phone size={theme.iconSize.sm} color={iconColor} />}
               prefix="+380"
               value={model.phoneDigits}
               onChangeText={model.setPhoneDigits}
@@ -49,7 +49,7 @@ export function SignInScreen() {
             <TextField
               size="auth"
               label={model.copy.emailLabel}
-              leading={<AtSign size={18} color={iconColor} />}
+              leading={<AtSign size={theme.iconSize.sm} color={iconColor} />}
               value={model.email}
               onChangeText={model.setEmail}
               placeholder={model.copy.emailPlaceholder}
@@ -70,16 +70,11 @@ export function SignInScreen() {
           />
         </View>
       </AuthPanel>
-    </SafeAreaView>
+    </AuthScreen>
   );
 }
 
 const styles = StyleSheet.create((theme) => ({
-  screen: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-    paddingHorizontal: theme.spacing.lg,
-  },
   title: {
     color: theme.colors.foreground,
     textAlign: "center",

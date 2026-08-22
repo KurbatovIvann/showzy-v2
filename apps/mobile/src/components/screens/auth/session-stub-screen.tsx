@@ -1,9 +1,9 @@
 import { Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet } from "react-native-unistyles";
 
 import { useAuthSession } from "../../../auth/session-provider";
 import { Button, Card } from "../../ui";
+import { AuthScreen } from "./auth-screen";
 
 export function SessionStubScreen() {
   const auth = useAuthSession();
@@ -13,24 +13,27 @@ export function SessionStubScreen() {
   }
 
   return (
-    <SafeAreaView
-      style={styles.screen}
-      accessibilityLabel={auth.copy.sessionTitle}
-    >
+    <AuthScreen accessibilityLabel={auth.copy.sessionTitle} keyboard={false}>
       <Text style={styles.title}>{auth.copy.sessionTitle}</Text>
       <Card>
         <Text style={styles.label}>{auth.copy.userId}</Text>
-        <Text style={styles.value}>{auth.session.userId}</Text>
+        <Text selectable style={styles.value}>
+          {auth.session.userId}
+        </Text>
         {auth.session.phoneNumber ? (
           <>
             <Text style={styles.label}>{auth.copy.phone}</Text>
-            <Text style={styles.value}>{auth.session.phoneNumber}</Text>
+            <Text selectable style={styles.value}>
+              {auth.session.phoneNumber}
+            </Text>
           </>
         ) : null}
         {auth.session.email ? (
           <>
             <Text style={styles.label}>{auth.copy.email}</Text>
-            <Text style={styles.value}>{auth.session.email}</Text>
+            <Text selectable style={styles.value}>
+              {auth.session.email}
+            </Text>
           </>
         ) : null}
         <Text style={styles.label}>{auth.copy.companySelector}</Text>
@@ -47,19 +50,14 @@ export function SessionStubScreen() {
           }}
         />
       </Card>
-    </SafeAreaView>
+    </AuthScreen>
   );
 }
 
 const styles = StyleSheet.create((theme) => ({
-  screen: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing["3xl"],
-  },
   title: {
     color: theme.colors.foreground,
+    marginTop: theme.spacing["3xl"],
     marginBottom: theme.spacing["2xl"],
     fontSize: theme.typography["2xl"].fontSize,
     lineHeight: theme.typography["2xl"].lineHeight,
@@ -76,10 +74,11 @@ const styles = StyleSheet.create((theme) => ({
     lineHeight: theme.typography.base.lineHeight,
   },
   stub: {
-    minHeight: 48,
+    minHeight: theme.hitTarget.field,
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: theme.radii.md,
+    ...theme.squircle,
     paddingHorizontal: theme.spacing.md,
     justifyContent: "center",
     backgroundColor: theme.colors.muted,

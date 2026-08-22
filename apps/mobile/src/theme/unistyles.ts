@@ -9,10 +9,7 @@ import { asThemePreferenceStore } from "../prefs/device-prefs";
 import { createPlatformDevicePrefs } from "../prefs/platform-storage";
 import { darkTheme } from "./dark";
 import { lightTheme } from "./light";
-import {
-  unistylesSettings,
-  type ThemePreferenceStore,
-} from "./preference";
+import { unistylesSettings, type ThemePreferenceStore } from "./preference";
 import { syncNativeColorScheme } from "./sync-native-color-scheme";
 
 type AppThemes = {

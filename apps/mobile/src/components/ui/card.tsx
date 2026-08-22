@@ -12,6 +12,7 @@ const styles = StyleSheet.create((theme) => ({
     borderColor: theme.colors.border,
     borderWidth: 1,
     borderRadius: theme.radii.card,
+    ...theme.squircle,
     padding: theme.spacing.lg,
     gap: theme.spacing.xl,
     ...theme.shadows.sm,

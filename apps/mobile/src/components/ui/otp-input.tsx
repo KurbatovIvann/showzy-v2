@@ -97,7 +97,9 @@ export function OtpInput(props: {
         />
       </View>
       {errorText !== null ? (
-        <Text style={styles.error}>{errorText}</Text>
+        <Text selectable style={styles.error}>
+          {errorText}
+        </Text>
       ) : null}
     </View>
   );
@@ -119,6 +121,7 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: theme.radii.lg,
+    ...theme.squircle,
     borderWidth: 2,
   },
   cellIdle: {

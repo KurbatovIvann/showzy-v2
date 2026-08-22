@@ -20,6 +20,7 @@ export function TextField(props: {
   const size = props.size ?? "default";
   const auth = size === "auth";
   const hasError = props.error != null && props.error.length > 0;
+  const phone = props.keyboardType === "phone-pad";
 
   return (
     <View>
@@ -45,6 +46,8 @@ export function TextField(props: {
           accessibilityLabel={props.accessibilityLabel}
           keyboardType={props.keyboardType ?? "email-address"}
           keyboardAppearance={rt.themeName === "dark" ? "dark" : "light"}
+          autoComplete={phone ? "tel" : "email"}
+          textContentType={phone ? "telephoneNumber" : "emailAddress"}
           autoCapitalize="none"
           autoCorrect={false}
           editable={props.editable !== false}
@@ -60,7 +63,11 @@ export function TextField(props: {
           style={[styles.input, auth ? styles.inputAuth : null]}
         />
       </View>
-      {hasError ? <Text style={styles.error}>{props.error}</Text> : null}
+      {hasError ? (
+        <Text selectable style={styles.error}>
+          {props.error}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -74,7 +81,7 @@ const styles = StyleSheet.create((theme) => ({
     marginBottom: theme.spacing.sm,
   },
   chrome: {
-    minHeight: 48,
+    minHeight: theme.hitTarget.field,
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing.md,
@@ -82,6 +89,7 @@ const styles = StyleSheet.create((theme) => ({
     borderColor: theme.colors.input,
     backgroundColor: theme.colors.inputFill,
     borderRadius: theme.radii.lg,
+    ...theme.squircle,
     paddingHorizontal: theme.spacing.md,
   },
   chromeAuth: {

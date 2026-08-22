@@ -1,5 +1,6 @@
 import {
   hitTarget,
+  iconSize,
   lightGlassFallback,
   lightGlassFallbackDense,
   lightGlassFallbackPressed,
@@ -7,6 +8,7 @@ import {
   radii,
   shadows,
   spacing,
+  squircle,
   typography,
 } from "./tokens";
 
@@ -17,6 +19,8 @@ export const lightTheme = {
   typography,
   shadows,
   hitTarget,
+  iconSize,
+  squircle,
   glassFallback: lightGlassFallback,
   glassFallbackDense: lightGlassFallbackDense,
   glassFallbackPressed: lightGlassFallbackPressed,
