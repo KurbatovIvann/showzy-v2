@@ -74,7 +74,13 @@ the same directory.
 - Theme preference persists in MMKV on native (`src/prefs/`). Web and tests use the memory adapter — do not write cookies or the company selector to `localStorage`. Do not add a second storage native module. Session cookies stay in SecureStore.
 - Native modules for owner-first launch and near-term surfaces are preinstalled (see `package.json` + `app.config.ts` plugins) so product screens do not force a new Expo/dev-client binary. Unistyles 3 already requires a custom dev client (`expo-dev-client`); do not use Expo Go. Pin new Expo packages with `pnpm --filter @showzy/mobile exec expo install`.
 - Icons: `lucide-react-native` (Magic Patterns canvas, ADR-0024). Do not add Ionicons, `@expo/vector-icons`, NativeWind, Google Sign-In, `expo-location`, `@callstack/liquid-glass`, or `@gorhom/bottom-sheet` (sheets are Reanimated; gorhom is unreliable on Reanimated 4.5).
-- No Cursor skills are installed in phases 0–1 (`docs/pipeline.md`).
+- Before writing mobile UI, routing, theme, animation, or native-module
+  code, load `.cursor/skills/showzy-mobile/SKILL.md` and the matching leaf
+  (`expo-router`, `expo-native-ui`, `expo-design-system`, `expo-animation`,
+  `expo-dev-client`, `vercel-react-native-skills`). Skills are advisory
+  (`docs/pipeline.md`): this file, ADRs, and `.cursor/rules/` win. Do not
+  load `expo-ui`, `expo-tailwind-setup`, `expo-data-fetching`, or
+  `expo-project-structure`.
 - Porting a canvas screen: follow the inventory → classify → reuse/create
   loop in [`mp-to-mobile.md`](../../docs/design/mapping/mp-to-mobile.md).
   Bind values to the theme (Class A/B). Product IA is Class C — canvas first.

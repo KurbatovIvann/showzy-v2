@@ -182,9 +182,13 @@ and is named in the description.
 
 ## Agent skills policy
 
-Skills (`.cursor/skills/`, SKILL.md format) distribute **code patterns**,
-not process and not constitution. Process lives in this file and the
-commands. Constitution lives in the blueprint, ADRs, and `.cursor/rules/`.
+Skills (`.cursor/skills/` and the skills-CLI copy in `.agents/skills/`,
+SKILL.md format) distribute **code patterns**, not process and not
+constitution. Process lives in this file and the commands. Constitution
+lives in the blueprint, ADRs, and `.cursor/rules/`. Vendored skills are
+pinned in `skills-lock.json`. After `npx skills update`, recopy
+`.agents/skills/<name>` into `.cursor/skills/<name>` and keep the
+hand-written `showzy-mobile` router.
 
 ### Ground rules
 
@@ -192,7 +196,7 @@ commands. Constitution lives in the blueprint, ADRs, and `.cursor/rules/`.
    golden files, and this pipeline win. A skill never justifies violating
    a prohibition (e.g. raw SQL from a Postgres skill's examples).
 2. **Vetted like dependencies.** Every third-party skill is reviewed by a
-   human before it lands in `.cursor/skills/`.
+   human before it lands in `.cursor/skills/` / `.agents/skills/`.
 3. **No generic backend-stack skills** (Drizzle, Hono, oRPC, better-auth,
    raw Postgres). Those leak conflicting patterns.
 4. **No Showzy backend skills until the golden backend slice has
@@ -207,7 +211,7 @@ commands. Constitution lives in the blueprint, ADRs, and `.cursor/rules/`.
 | --- | --- | --- |
 | Until golden backend merges | **Nothing backend** | Foundation and the first slice run under Guardian |
 | After golden backend | Hand-written Showzy skills listed above | Extracted from the golden files, not from memory |
-| 2–3 Mobile screens | Official `expo/skills` (selective: `expo-project-structure`, `expo-router`, `expo-native-ui`, `expo-design-system`, `expo-data-fetching`) + **one** RN performance skill (Callstack `react-native-best-practices` or Vercel `react-native-guidelines`, not both) | Skip `expo-tailwind-setup` — we use Unistyles, not NativeWind. After the golden UI slice, add `showzy-panel-screen` |
+| 2–3 Mobile screens | Official `expo/skills` (selective: `expo-overview`, `expo-router`, `expo-native-ui`, `expo-design-system`, `expo-animation`, `expo-dev-client`) + **one** RN skill (`vercel-react-native-skills`, not Callstack) + hand-written `showzy-mobile` router | Skip `expo-tailwind-setup`, `expo-ui`, `expo-data-fetching`, and `expo-project-structure` — Unistyles, existing layout, Cookie/`@showzy/contract` transport. After the golden UI slice, add `showzy-panel-screen` |
 | 3 Delivery | Hand-written **Nova Poshta API** skill | No public equivalent; extract from v1 + official docs |
 | Pre-MVP | `eas-app-stores` from `expo/skills` | TestFlight / store submission |
 | 6 Web | Vercel `react-best-practices` + `composition-patterns` | Not earlier |

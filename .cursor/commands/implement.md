@@ -20,7 +20,9 @@ nothing more. You do not write `docs/specs/` or `docs/plans/`.
 3. Read `.cursor/rules/` (conventions, prohibitions, definition of done).
 4. Read only the context pack on the ticket. Study the **golden files for
    this layer**. Copy their shape. Do not invent folders, layers, or
-   dependencies.
+   dependencies. Mobile tickets: load
+   `.cursor/skills/showzy-mobile/SKILL.md` before writing `apps/mobile`
+   code.
 5. Work on the Linear ticket's branch name when available; otherwise
    `feat/sho-<number>-<slug>`.
 
