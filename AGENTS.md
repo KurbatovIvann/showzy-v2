@@ -53,6 +53,10 @@ Constitution and conventions are in `.cursor/rules/` (already applied).
 See `.cursor/rules/` for detailed conventions, prohibitions, and the
 definition of done.
 
+When the task touches `apps/mobile`, load
+`.cursor/skills/showzy-mobile/SKILL.md` before writing code. Do not load
+Expo skills for backend or module work.
+
 ## Legacy reference (Showzy v1)
 
 The previous implementation lives in a separate repository (locally at
