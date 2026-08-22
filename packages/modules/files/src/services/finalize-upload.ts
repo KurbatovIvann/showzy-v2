@@ -94,6 +94,17 @@ export async function finalizeStaffUpload(input: {
     throw uploadedObjectInvalid();
   }
 
+  // Bind ready metadata to catalog bytes. A leftover PUT can race staging
+  // between GET and CopyObject; refuse ready if the durable object diverged.
+  const durable = await store.getObject(catalogKey);
+  if (
+    durable === "missing" ||
+    durable.byteSize !== declaredSize ||
+    sha256Hex(durable.bytes) !== row.checksumSha256
+  ) {
+    throw uploadedObjectInvalid();
+  }
+
   const updated = await db
     .update(files)
     .set({

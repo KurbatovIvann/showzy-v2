@@ -400,9 +400,12 @@ describe("files signed upload slice", () => {
     }
     expect(sha256Hex(staged.bytes)).toBe(jpegChecksum);
 
-    const ready = await requireKit().invoke(finalizeUpload, {
-      fileId: requested.fileId,
-    });
+    const ready = await requireKit().invoke(
+      finalizeUpload,
+      { fileId: requested.fileId },
+      {},
+      { deps: { ...requireKit().pipeline, logger: capturing.logger } },
+    );
     expect(ready).toEqual({
       fileId: requested.fileId,
       status: "ready",
@@ -472,6 +475,21 @@ describe("files signed upload slice", () => {
       throw new Error("expected staging object after leftover PUT");
     }
     expect(sha256Hex(staging.bytes)).toBe(leftoverChecksum);
+
+    const again = await requireKit().invoke(finalizeUpload, {
+      fileId: requested.fileId,
+    });
+    expect(again.checksumSha256).toBe(jpegChecksum);
+    expect(again).toEqual(ready);
+
+    const catalogAfterReplay = await store.getObject(
+      catalogObjectKey(kitIdentities.companies.a, requested.fileId),
+    );
+    expect(catalogAfterReplay).not.toBe("missing");
+    if (catalogAfterReplay === "missing") {
+      throw new Error("expected catalog object after second finalize");
+    }
+    expect(sha256Hex(catalogAfterReplay.bytes)).toBe(jpegChecksum);
 
     const download = await requireKit().invoke(getDownloadUrl, {
       fileId: requested.fileId,
