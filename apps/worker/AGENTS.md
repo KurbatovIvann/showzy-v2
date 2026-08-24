@@ -1,23 +1,31 @@
 # @showzy/worker — Agent Instructions
 
-Outbox dispatcher and delivery executor process (fnd-T27). Core exposes
-libraries only (`dispatchOutboxBatch`, `findClaimableDeliveries`,
-`executeDelivery`, `cleanupExpiredIdempotencyKeys`); this package owns
-the loops, LISTEN/NOTIFY wakeup, polling fallback, and graceful drain.
+Outbox dispatcher, delivery executor, and BullMQ execution-job host
+(fnd-T27 / fnd-T29). Core exposes libraries only (`dispatchOutboxBatch`,
+`findClaimableDeliveries`, `executeDelivery`,
+`cleanupExpiredIdempotencyKeys`); this package owns the loops, LISTEN/NOTIFY
+wakeup, polling fallback, graceful drain, and the job host.
 
 ## Layout
 
 - `src/index.ts` — process entry. `loadServerConfig()` once. Default
   command runs the worker; `replay-deliveries --consumer <id>` is the
   fnd-T18 admin replay CLI. An invalid environment crashes before work
-  starts. Shutdown is latched (second SIGINT/SIGTERM is a no-op) and
-  flushes Sentry before the process drains.
-- `src/boot.ts` — opens Postgres + Redis, composes the action pipeline,
-  LISTENs on `domain_events`, starts the loop.
+  starts. Shutdown is latched (second SIGINT/SIGTERM is a no-op): drain
+  in-flight BullMQ jobs, then the outbox close latch, then flush Sentry.
+- `src/boot.ts` — opens Postgres + Redis (confirmation/rate-limit) plus a
+  **dedicated** BullMQ Redis connection, composes the action pipeline,
+  starts the job host, LISTENs on `domain_events`, starts the outbox loop.
+- `src/jobs.ts` — BullMQ job host. Prefix `showzy`, one queue
+  `maintenance`. On boot, upserts a Job Scheduler that runs
+  `cleanupExpiredIdempotencyKeys` at `CLEANUP_INTERVAL_MS` (1 h). Do not
+  pre-create pdf / email / push / sms / sync queues. Processors stay thin
+  (no domain SQL, no module service imports).
 - `src/loop.ts` — `createOutboxWorker` / `createWorkerLoop`: one tick
   dispatches then executes due deliveries; shutdown waits for in-flight
   work and does not claim further. Executor lookup is keyed by
   `(consumer, eventName)` so one consumer id may bind multiple events.
+  Idempotency cleanup is **not** on this loop.
 - `src/listen.ts` — dedicated `pg.Client` for `LISTEN domain_events`.
   A dropped listen connection reconnects with backoff, logs recovery, and
   emits `outbox listen down, poll-only` while degraded; the 1s poll is
@@ -27,6 +35,7 @@ the loops, LISTEN/NOTIFY wakeup, polling fallback, and graceful drain.
   as `apps/api`).
 - `src/stores/redis.ts` — confirmation `GETDEL` and Lua token-bucket
   stores. Must stay behaviorally identical to `apps/api/src/stores/redis.ts`.
+  Never reuse this client as the blocking BullMQ connection.
 - `src/subscriptions.ts` — composition root for event subscriptions.
   Empty until modules exist; module tasks append their
   `defineEventHandler` bindings here.
@@ -34,9 +43,9 @@ the loops, LISTEN/NOTIFY wakeup, polling fallback, and graceful drain.
   logger + optional Sentry). Keep in lockstep with
   `apps/api/src/observability.ts`. `flushProcessObservability` drains
   Sentry on shutdown.
-- `src/policy.ts` — poll/cleanup intervals and the notify channel name.
-  Values change only through an ADR or a protocol-manual patch with a
-  proving test.
+- `src/policy.ts` — poll/cleanup intervals, notify channel, BullMQ prefix
+  and queue name. Values change only through an ADR or a protocol-manual
+  patch with a proving test.
 
 ## Rules
 
@@ -44,8 +53,12 @@ the loops, LISTEN/NOTIFY wakeup, polling fallback, and graceful drain.
   never reads `process.env` except inside `loadServerConfig`.
 - Do not query `domain_events` / `event_deliveries` directly — go
   through the core libraries.
-- Domain event delivery is not BullMQ (ADR-0007/ADR-0012). BullMQ is
-  for later execution jobs (PDF, email, push, sync).
+- Domain event delivery is not BullMQ (ADR-0007/ADR-0012). BullMQ is the
+  execution job host (maintenance today; PDF, email, push, sync later).
+  Outbox stays on core libraries.
+- Compose Redis has no volume (db.md §6). This host only runs work that
+  is safe to miss and re-run. Re-upsert the scheduler on every boot.
+  Durable one-shot jobs need a later ticket **and** a persistence policy.
 - OTP codes, tokens, and secrets never reach logs. Process loggers are
   `createProcessLogger` from `@showzy/config`. Sentry is initialized
   only when `SENTRY_DSN` is set; `beforeSend` scrubs the event. Do not

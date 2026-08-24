@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Outbox poller and delivery executor: LISTEN/NOTIFY with polling fallback, claim drain on shutdown, idempotency-key expiry cleanup (fnd-T27).",
+  "description": "Outbox poller, delivery executor, and BullMQ maintenance job host (fnd-T27 / fnd-T29).",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
@@ -16,15 +16,17 @@
     "@showzy/config": "workspace:*",
     "@showzy/core": "workspace:*",
     "@showzy/db": "workspace:*",
+    "bullmq": "6.2.0",
     "ioredis": "^6.0.0",
     "pg": "^8.23.0",
     "pino": "^10.3.1"
   },
   "devDependencies": {
     "@showzy/tooling": "workspace:*",
+    "@testcontainers/redis": "^12.1.0",
     "@types/node": "^22.20.1",
-    "drizzle-orm": "^0.45.2",
     "@types/pg": "^8.23.0",
+    "drizzle-orm": "^0.45.2",
     "eslint": "^10.8.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10",

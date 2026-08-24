@@ -54,7 +54,6 @@ describe("createWorkerLoop", () => {
       workerId: "coalesce",
       logger: silent,
       pollIntervalMs: 60_000,
-      cleanupIntervalMs: 60_000,
       dispatch: () => {
         dispatchCount += 1;
         return new Promise((resolve) => {
@@ -98,7 +97,6 @@ describe("createWorkerLoop", () => {
       workerId: "drain",
       logger: silent,
       pollIntervalMs: 60_000,
-      cleanupIntervalMs: 60_000,
       dispatch: () =>
         Promise.resolve({ claimedEvents: 0, createdDeliveries: 0 }),
       findDue: () => Promise.resolve([delivery]),
@@ -135,7 +133,6 @@ describe("createWorkerLoop", () => {
       workerId: "stopped",
       logger: silent,
       pollIntervalMs: 60_000,
-      cleanupIntervalMs: 60_000,
       dispatch: () =>
         Promise.resolve({ claimedEvents: 1, createdDeliveries: 1 }),
       findDue: () =>
@@ -156,6 +153,28 @@ describe("createWorkerLoop", () => {
     await loop.stop();
     expect(await loop.tick()).toEqual(emptyTick());
     expect(executed).toBe(0);
+  });
+
+  it("does not run idempotency cleanup from the outbox loop", async () => {
+    let cleanups = 0;
+    const loop = createWorkerLoop({
+      workerId: "no-cleanup-timer",
+      logger: silent,
+      pollIntervalMs: 60_000,
+      dispatch: () =>
+        Promise.resolve({ claimedEvents: 0, createdDeliveries: 0 }),
+      findDue: () => Promise.resolve([]),
+      execute: () => Promise.resolve({ status: "processed" }),
+      cleanup: () => {
+        cleanups += 1;
+        return Promise.resolve(0);
+      },
+    });
+
+    await loop.start();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(cleanups).toBe(0);
+    await loop.stop();
   });
 });
 
