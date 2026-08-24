@@ -216,6 +216,7 @@ describe("price resolution schema slice", () => {
       "created_at",
       "updated_at",
       "name",
+      "status",
     ]);
     expect(columns.get("product_variants")).toEqual([
       "id",
@@ -226,6 +227,7 @@ describe("price resolution schema slice", () => {
       "created_at",
       "updated_at",
       "name",
+      "status",
     ]);
     expect(columns.get("customer_groups")).toEqual([
       "id",
