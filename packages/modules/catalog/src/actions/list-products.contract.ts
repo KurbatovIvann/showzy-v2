@@ -5,8 +5,11 @@
  *   `limit` defaults to 20 and caps at 50 (small-business catalog pages).
  * - `status` defaults to `active`; `archived` and `all` are explicit.
  * - Name search is optional, case-insensitive Drizzle `ilike`. LIKE
- *   metacharacters `%` and `_` in the query are stripped so they cannot
- *   widen the match; a query that strips to empty returns no rows.
+ *   metacharacters `%`, `_`, and `\\` in the query are stripped so they
+ *   cannot widen or escape the match; a query that strips to empty
+ *   returns no rows.
+ * - Primary image is lowest `position`, then media id (same as
+ *   `getProduct.imageFileIds[0]`).
  * - `timeout: 5000` matches the golden catalog reads.
  * - Money refine is local: keep the regex in lockstep with
  *   `packages/contract/src/client/money-wire.ts` until validation owns it.

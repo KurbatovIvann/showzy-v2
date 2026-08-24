@@ -4,7 +4,9 @@
  * - `timeout: 5000` matches the golden catalog reads (variants + media).
  * - Variants include archived rows and the nullable base-price override
  *   already stored on `product_variants` (needed by the later detail form).
- * - Image fileIds are ordered by `position` then id. No signed URLs.
+ *   Staff detail order is `createdAt` then id, not the facts-action id sort.
+ * - Image fileIds are ordered by `position` then media id (same primary
+ *   as `listProducts` when positions tie). No signed URLs.
  * - Money refine is local: keep the regex in lockstep with
  *   `packages/contract/src/client/money-wire.ts` until validation owns it.
  */

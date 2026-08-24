@@ -18,11 +18,14 @@ import { companyMembers } from "@showzy/db/schema/companies";
 import { files } from "@showzy/db/schema/files";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { getProduct } from "./get-product.js";
 import { listProducts } from "./list-products.js";
 import {
   formatListProductsCursor,
   LIST_PRODUCTS_MAX_LIMIT,
 } from "./list-products.contract.js";
+
+const [mediaPrimaryId, mediaTieId] = [randomUUID(), randomUUID()].toSorted();
 
 const fixtures = {
   alpha: randomUUID(),
@@ -34,8 +37,10 @@ const fixtures = {
   variantAlphaArchived: randomUUID(),
   filePrimary: randomUUID(),
   fileSecond: randomUUID(),
-  mediaPrimary: randomUUID(),
+  fileTie: randomUUID(),
+  mediaPrimary: mediaPrimaryId,
   mediaSecond: randomUUID(),
+  mediaTie: mediaTieId,
 };
 
 const clerkUserId = randomUUID();
@@ -156,6 +161,10 @@ beforeAll(async () => {
     id: fixtures.fileSecond,
     companyId: kitIdentities.companies.a,
   });
+  await insertFile({
+    id: fixtures.fileTie,
+    companyId: kitIdentities.companies.a,
+  });
   await kit.db.runtime.db.insert(productMedia).values([
     {
       id: fixtures.mediaSecond,
@@ -163,6 +172,13 @@ beforeAll(async () => {
       productId: fixtures.alpha,
       fileId: fixtures.fileSecond,
       position: 1,
+    },
+    {
+      id: fixtures.mediaTie,
+      companyId: kitIdentities.companies.a,
+      productId: fixtures.alpha,
+      fileId: fixtures.fileTie,
+      position: 0,
     },
     {
       id: fixtures.mediaPrimary,
@@ -190,6 +206,9 @@ afterAll(async () => {
   await kit.db.close();
 });
 
+// Staff lists have no resource id: the inherited suite's foreign case is
+// Anna selecting company B (membership deny). The handler's company_id
+// filter is proven by "does not include another company's products".
 crossTenantSuite(
   () => kit,
   [
@@ -234,6 +253,14 @@ describe("catalog.listProducts", () => {
     expect(beta?.primaryImageFileId).toBeNull();
     expect(JSON.stringify(result)).not.toMatch(/https?:\/\//);
     expect(JSON.stringify(result)).not.toContain("/catalog/");
+  });
+
+  it("picks the same primary image as getProduct when positions tie", async () => {
+    const listed = await kit.invoke(listProducts, { query: "Alpha Cake" });
+    const got = await kit.invoke(getProduct, { productId: fixtures.alpha });
+    expect(listed.items[0]?.primaryImageFileId).toBe(fixtures.filePrimary);
+    expect(got.imageFileIds[0]).toBe(fixtures.filePrimary);
+    expect(listed.items[0]?.primaryImageFileId).toBe(got.imageFileIds[0]);
   });
 
   it("filters archived and all, and searches names case-insensitively", async () => {
@@ -314,8 +341,10 @@ describe("catalog.listProducts", () => {
     ).rejects.toBeInstanceOf(ValidationError);
   });
 
-  it("returns an empty page when the search is only LIKE wildcards", async () => {
-    const result = await kit.invoke(listProducts, { query: "%%" });
-    expect(result).toEqual({ items: [], nextCursor: null });
+  it("returns an empty page when the search is only LIKE metacharacters", async () => {
+    const wildcards = await kit.invoke(listProducts, { query: "%%" });
+    const escaped = await kit.invoke(listProducts, { query: "\\" });
+    expect(wildcards).toEqual({ items: [], nextCursor: null });
+    expect(escaped).toEqual({ items: [], nextCursor: null });
   });
 });

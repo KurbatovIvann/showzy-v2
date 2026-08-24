@@ -27,7 +27,10 @@ function parseProductStatus(value: string): "active" | "archived" {
 }
 
 function nameSearchPattern(query: string): string | undefined {
-  const literal = query.replaceAll("%", "").replaceAll("_", "");
+  const literal = query
+    .replaceAll("\\", "")
+    .replaceAll("%", "")
+    .replaceAll("_", "");
   if (literal.length === 0) {
     return undefined;
   }
@@ -35,16 +38,16 @@ function nameSearchPattern(query: string): string | undefined {
 }
 
 function compareMediaPosition(
-  left: { position: number; fileId: string },
-  right: { position: number; fileId: string },
+  left: { position: number; id: string },
+  right: { position: number; id: string },
 ): number {
   if (left.position !== right.position) {
     return left.position - right.position;
   }
-  if (left.fileId < right.fileId) {
+  if (left.id < right.id) {
     return -1;
   }
-  if (left.fileId > right.fileId) {
+  if (left.id > right.id) {
     return 1;
   }
   return 0;
@@ -144,6 +147,7 @@ export const listProducts = implementAction(listProductsContract, {
 
     const mediaRows = await ctx.db
       .select({
+        id: productMedia.id,
         productId: productMedia.productId,
         fileId: productMedia.fileId,
         position: productMedia.position,
