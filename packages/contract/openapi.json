@@ -14,7 +14,7 @@
     "/catalog/createProduct": {
       "post": {
         "operationId": "catalog.createProduct",
-        "summary": "Create a product in the staff member's active company, optionally with an initial set of variants, in one transaction. Takes a trimmed name, a non-negative base price in minor units, optional currency (default UAH), and optional variants (name plus an optional price override that must include its currency). Company id is never input. Re-submitting the identical payload with the same idempotency key returns the already-created product and does not insert duplicates.",
+        "summary": "Create a product in the staff member's active company, optionally with an initial set of variants, in one transaction. Takes a trimmed name, a non-negative base price in minor units, optional currency UAH (default UAH; MVP is UAH-only), and optional variants (name plus an optional price override that must include its currency). Company id is never input. Re-submitting the identical payload with the same idempotency key returns the already-created product and does not insert duplicates.",
         "requestBody": {
           "required": true,
           "content": {
@@ -32,9 +32,7 @@
                     "pattern": "^(0|-?[1-9][0-9]*)$"
                   },
                   "currency": {
-                    "type": "string",
-                    "minLength": 3,
-                    "maxLength": 3,
+                    "const": "UAH",
                     "default": "UAH"
                   },
                   "variants": {
@@ -53,9 +51,7 @@
                           "pattern": "^(0|-?[1-9][0-9]*)$"
                         },
                         "currency": {
-                          "type": "string",
-                          "minLength": 3,
-                          "maxLength": 3
+                          "const": "UAH"
                         }
                       },
                       "required": [
@@ -95,9 +91,7 @@
                       "pattern": "^(0|-?[1-9][0-9]*)$"
                     },
                     "currency": {
-                      "type": "string",
-                      "minLength": 3,
-                      "maxLength": 3
+                      "const": "UAH"
                     },
                     "variants": {
                       "type": "array",
@@ -125,9 +119,7 @@
                           "currency": {
                             "anyOf": [
                               {
-                                "type": "string",
-                                "minLength": 3,
-                                "maxLength": 3
+                                "const": "UAH"
                               },
                               {
                                 "type": "null"
@@ -806,7 +798,7 @@
     "/catalog/updateProduct": {
       "post": {
         "operationId": "catalog.updateProduct",
-        "summary": "Update the name and base price of a product in the staff member's active company. Missing products and products that belong to another company fail with the same not-found. Company id is never input. Variants are not changed. Re-submitting the identical payload with the same idempotency key returns the same view without a second write.",
+        "summary": "Update the name and base price of a product in the staff member's active company. Currency is UAH-only (MVP). Missing products and products that belong to another company fail with the same not-found. Company id is never input. Variants are not changed. Re-submitting the identical payload with the same idempotency key returns the same view without a second write.",
         "requestBody": {
           "required": true,
           "content": {
@@ -828,9 +820,7 @@
                     "pattern": "^(0|-?[1-9][0-9]*)$"
                   },
                   "currency": {
-                    "type": "string",
-                    "minLength": 3,
-                    "maxLength": 3
+                    "const": "UAH"
                   }
                 },
                 "required": [
@@ -864,9 +854,7 @@
                       "pattern": "^(0|-?[1-9][0-9]*)$"
                     },
                     "currency": {
-                      "type": "string",
-                      "minLength": 3,
-                      "maxLength": 3
+                      "const": "UAH"
                     },
                     "variants": {
                       "type": "array",
@@ -894,9 +882,7 @@
                           "currency": {
                             "anyOf": [
                               {
-                                "type": "string",
-                                "minLength": 3,
-                                "maxLength": 3
+                                "const": "UAH"
                               },
                               {
                                 "type": "null"

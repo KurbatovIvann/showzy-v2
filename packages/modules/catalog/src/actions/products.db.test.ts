@@ -17,7 +17,7 @@ import { auditLog, domainEvents } from "@showzy/db";
 import { user } from "@showzy/db/schema/auth";
 import { products, productVariants } from "@showzy/db/schema/catalog";
 import { companyMembers } from "@showzy/db/schema/companies";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { PRODUCT_NAME_MAX } from "../wire.contract.js";
@@ -62,6 +62,20 @@ async function countCompanyProducts(companyId: string): Promise<number> {
     .select({ id: products.id })
     .from(products)
     .where(eq(products.companyId, companyId));
+  return rows.length;
+}
+
+async function countUpdateAudits(productId: string): Promise<number> {
+  const rows = await kit.db.runtime.db
+    .select({ id: auditLog.id })
+    .from(auditLog)
+    .where(
+      and(
+        eq(auditLog.action, "catalog.updateProduct"),
+        eq(auditLog.targetId, productId),
+        eq(auditLog.outcome, "ok"),
+      ),
+    );
   return rows.length;
 }
 
@@ -168,7 +182,7 @@ idempotencySuite(
         basePriceMinor: "1",
         currency: "UAH",
       },
-      readEffect: () => countCompanyProducts(kitIdentities.companies.a),
+      readEffect: () => countUpdateAudits(fixtures.productIdem),
     },
   ],
 );
@@ -263,6 +277,9 @@ describe("catalog.createProduct", () => {
       { name: "   ", basePriceMinor: "100" },
       { name: "x".repeat(PRODUCT_NAME_MAX + 1), basePriceMinor: "100" },
       { name: "Cake", basePriceMinor: "-1" },
+      { name: "Cake", basePriceMinor: "9223372036854775808" },
+      { name: "Cake", basePriceMinor: "100", currency: "USD" },
+      { name: "Cake", basePriceMinor: "100", currency: "uah" },
       {
         name: "Cake",
         basePriceMinor: "100",
@@ -411,6 +428,18 @@ describe("catalog.updateProduct", () => {
         name: "Cake",
         basePriceMinor: "-1",
         currency: "UAH",
+      },
+      {
+        productId: fixtures.productUpdateA,
+        name: "Cake",
+        basePriceMinor: "9223372036854775808",
+        currency: "UAH",
+      },
+      {
+        productId: fixtures.productUpdateA,
+        name: "Cake",
+        basePriceMinor: "100",
+        currency: "USD",
       },
       {
         productId: "not-a-uuid",

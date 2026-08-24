@@ -33,7 +33,7 @@ export const updateProductOutputSchema = productViewSchema;
 export const updateProductContract = defineActionContract({
   name: "catalog.updateProduct",
   description:
-    "Update the name and base price of a product in the staff member's active company. Missing products and products that belong to another company fail with the same not-found. Company id is never input. Variants are not changed. Re-submitting the identical payload with the same idempotency key returns the same view without a second write.",
+    "Update the name and base price of a product in the staff member's active company. Currency is UAH-only (MVP). Missing products and products that belong to another company fail with the same not-found. Company id is never input. Variants are not changed. Re-submitting the identical payload with the same idempotency key returns the same view without a second write.",
   principal: "staff",
   transport: "client",
   input: updateProductInputSchema,

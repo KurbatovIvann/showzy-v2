@@ -1,3 +1,4 @@
+import { CoreInvariantError } from "@showzy/core/errors";
 import type { z } from "zod";
 
 import type { productViewSchema } from "../actions/product-view.contract.js";
@@ -13,6 +14,22 @@ export function compareVariantId(left: string, right: string): number {
     return 1;
   }
   return 0;
+}
+
+function requireUah(currency: string): "UAH" {
+  if (currency !== "UAH") {
+    throw new CoreInvariantError(
+      "catalog write view expected UAH (db.md §11 UAH-only MVP)",
+    );
+  }
+  return "UAH";
+}
+
+function requireUahOrNull(currency: string | null): "UAH" | null {
+  if (currency === null) {
+    return null;
+  }
+  return requireUah(currency);
 }
 
 export function toProductView(
@@ -33,7 +50,7 @@ export function toProductView(
     productId: product.id,
     name: product.name,
     basePriceMinor: moneyToCanonical(product.basePriceMinor),
-    currency: product.currency,
+    currency: requireUah(product.currency),
     variants: [...variants]
       .sort((left, right) => compareVariantId(left.id, right.id))
       .map((variant) => ({
@@ -43,7 +60,7 @@ export function toProductView(
           variant.basePriceMinor === null
             ? null
             : moneyToCanonical(variant.basePriceMinor),
-        currency: variant.currency,
+        currency: requireUahOrNull(variant.currency),
       })),
   };
 }

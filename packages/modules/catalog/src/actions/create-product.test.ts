@@ -53,7 +53,7 @@ describe("catalog.createProduct contract", () => {
     ]);
   });
 
-  it("rejects blank names, negative prices, and unpaired variant currency", () => {
+  it("rejects blank names, negative prices, oversize money, non-UAH currency, and unpaired variant currency", () => {
     expect(
       createProductInputSchema.safeParse({
         name: "   ",
@@ -70,6 +70,32 @@ describe("catalog.createProduct contract", () => {
       createProductInputSchema.safeParse({
         name: "Cake",
         basePriceMinor: "-1",
+      }).success,
+    ).toBe(false);
+    expect(
+      createProductInputSchema.safeParse({
+        name: "Cake",
+        basePriceMinor: "9223372036854775807",
+      }).success,
+    ).toBe(true);
+    expect(
+      createProductInputSchema.safeParse({
+        name: "Cake",
+        basePriceMinor: "9223372036854775808",
+      }).success,
+    ).toBe(false);
+    expect(
+      createProductInputSchema.safeParse({
+        name: "Cake",
+        basePriceMinor: "100",
+        currency: "USD",
+      }).success,
+    ).toBe(false);
+    expect(
+      createProductInputSchema.safeParse({
+        name: "Cake",
+        basePriceMinor: "100",
+        currency: "uah",
       }).success,
     ).toBe(false);
     expect(
