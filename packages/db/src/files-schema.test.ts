@@ -170,7 +170,7 @@ describe("private company files schema slice", () => {
       `SELECT table_name
        FROM information_schema.tables
        WHERE table_schema = 'public'
-         AND table_name IN ('product_media', 'documents', 'avatars')`,
+         AND table_name IN ('documents', 'avatars')`,
     );
     expect(result.rows).toEqual([]);
   });

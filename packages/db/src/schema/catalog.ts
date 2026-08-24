@@ -1,8 +1,7 @@
 /**
- * Minimal catalog slice for price resolution (SHO-85, pricing-T1) and
- * order-line titles (SHO-90, catalog-T2). Owned by the catalog module
- * (ADR-0014). Deliberately absent: sku/status/`is_active` — later catalog
- * schema tasks add those families.
+ * Catalog slice for price resolution (SHO-85), order-line titles (SHO-90),
+ * and staff catalog status + media (SHO-131). Owned by the catalog module
+ * (ADR-0014). Deliberately absent: sku.
  */
 import { sql } from "drizzle-orm";
 import {
@@ -11,6 +10,7 @@ import {
   check,
   foreignKey,
   index,
+  integer,
   pgTable,
   text,
   timestamp,
@@ -19,6 +19,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { companies } from "./companies.js";
+import { files } from "./files.js";
 
 /** Products carry the display name and the level-5 base price. */
 export const products = pgTable(
@@ -31,6 +32,7 @@ export const products = pgTable(
     name: text("name").notNull(),
     basePriceMinor: bigint("base_price_minor", { mode: "bigint" }).notNull(),
     currency: char("currency", { length: 3 }).notNull().default("UAH"),
+    status: text("status").notNull().default("active"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -41,7 +43,12 @@ export const products = pgTable(
   (table) => [
     unique("products_company_id_id_uq").on(table.companyId, table.id),
     index("products_company_idx").on(table.companyId),
+    index("products_company_status_idx").on(table.companyId, table.status),
     check("products_base_price_minor_check", sql`${table.basePriceMinor} >= 0`),
+    check(
+      "products_status_check",
+      sql`${table.status} IN ('active', 'archived')`,
+    ),
   ],
 );
 
@@ -62,6 +69,7 @@ export const productVariants = pgTable(
     name: text("name").notNull(),
     basePriceMinor: bigint("base_price_minor", { mode: "bigint" }),
     currency: char("currency", { length: 3 }),
+    status: text("status").notNull().default("active"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -86,5 +94,56 @@ export const productVariants = pgTable(
       "product_variants_price_currency_check",
       sql`(${table.basePriceMinor} IS NULL) = (${table.currency} IS NULL)`,
     ),
+    check(
+      "product_variants_status_check",
+      sql`${table.status} IN ('active', 'archived')`,
+    ),
+  ],
+);
+
+/**
+ * Ordered product↔file links (SHO-131). Same-tenant FKs (ADR-0025): product
+ * deletion removes media rows; a referenced file cannot be deleted while
+ * linked. Unique file per product; position is a non-negative sort key.
+ */
+export const productMedia = pgTable(
+  "product_media",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    productId: uuid("product_id").notNull(),
+    fileId: uuid("file_id").notNull(),
+    position: integer("position").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("product_media_company_id_id_uq").on(table.companyId, table.id),
+    unique("product_media_product_file_uq").on(
+      table.companyId,
+      table.productId,
+      table.fileId,
+    ),
+    index("product_media_company_idx").on(table.companyId),
+    index("product_media_product_idx").on(
+      table.companyId,
+      table.productId,
+      table.position,
+    ),
+    index("product_media_file_idx").on(table.companyId, table.fileId),
+    foreignKey({
+      name: "product_media_products_company_fk",
+      columns: [table.companyId, table.productId],
+      foreignColumns: [products.companyId, products.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "product_media_files_company_fk",
+      columns: [table.companyId, table.fileId],
+      foreignColumns: [files.companyId, files.id],
+    }).onDelete("restrict"),
+    check("product_media_position_check", sql`${table.position} >= 0`),
   ],
 );
