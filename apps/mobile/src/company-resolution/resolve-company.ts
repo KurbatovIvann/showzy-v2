@@ -21,10 +21,14 @@ export type CompanyResolution =
       readonly clearSelector: boolean;
     };
 
+type MembershipList = {
+  readonly memberships: readonly CompanyMembership[];
+};
+
 export type MembershipQueryState =
   | { readonly status: "loading" }
   | { readonly status: "error" }
-  | { readonly status: "success"; readonly data: ListMineOutput };
+  | { readonly status: "success"; readonly data: MembershipList };
 
 export function membershipQueryState(args: {
   readonly data: ListMineOutput | undefined;
