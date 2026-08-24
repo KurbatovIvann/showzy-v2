@@ -17,6 +17,15 @@ describe("files.getUploadUrl contract", () => {
     expect(getUploadUrlContract.idempotent).toBe(false);
     expect(getUploadUrlContract.emits).toEqual([]);
     expect(getUploadUrlContract.timeout).toBe(5_000);
+    expect(getUploadUrlContract.description).toContain(
+      "PUT TTL plus skew margin",
+    );
+    expect(getUploadUrlContract.description).toContain(
+      "call this action again; do not mint a new requestUpload idempotency key",
+    );
+    expect(getUploadUrlContract.description).toContain(
+      "call requestUpload with a new idempotency key",
+    );
     expect(Object.keys(getUploadUrlOutputSchema.shape).toSorted()).toEqual([
       "expiresAt",
       "fileId",
