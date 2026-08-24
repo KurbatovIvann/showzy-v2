@@ -1,6 +1,6 @@
 /**
- * `apps/worker` process entry (fnd-T27). Config is parsed once; an invalid
- * environment crashes before anything claims work.
+ * `apps/worker` process entry (fnd-T27 / fnd-T29). Config is parsed once; an
+ * invalid environment crashes before anything claims work.
  */
 import { createProcessLogger, loadServerConfig } from "@showzy/config";
 import { runDeliveryReplayCli } from "@showzy/core";

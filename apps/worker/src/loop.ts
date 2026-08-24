@@ -1,7 +1,8 @@
 /**
  * Worker loop (fnd-T27 — core.md §6): dispatch undispatched outbox rows,
- * execute due deliveries, clean expired idempotency keys, drain in-flight
- * claims on shutdown. Core owns the libraries; this owns the process.
+ * execute due deliveries, drain in-flight claims on shutdown. Idempotency
+ * key expiry is the BullMQ maintenance scheduler (fnd-T29), not this loop.
+ * Core owns the libraries; this owns the outbox process.
  */
 import {
   cleanupExpiredIdempotencyKeys,
@@ -19,7 +20,7 @@ import type { Database } from "@showzy/db";
 import type { Logger } from "pino";
 
 import type { OutboxListener } from "./listen.js";
-import { CLEANUP_INTERVAL_MS, POLL_INTERVAL_MS } from "./policy.js";
+import { POLL_INTERVAL_MS } from "./policy.js";
 
 export interface TickResult {
   readonly claimedEvents: number;
@@ -51,7 +52,6 @@ export interface WorkerLoopDeps {
   readonly workerId: string;
   readonly logger: Logger;
   readonly pollIntervalMs: number;
-  readonly cleanupIntervalMs: number;
   readonly listen?: OutboxListener;
   dispatch(): Promise<OutboxDispatchResult>;
   findDue(): Promise<ClaimableDelivery[]>;
@@ -70,7 +70,6 @@ export function createWorkerLoop(deps: WorkerLoopDeps): WorkerLoop {
   const pendingWakes = new Set<"tick">();
   let chain = Promise.resolve();
   let pollTimer: ReturnType<typeof setInterval> | undefined;
-  let cleanupTimer: ReturnType<typeof setInterval> | undefined;
 
   function serialized<T>(work: () => Promise<T>): Promise<T> {
     const run = chain.then(work, work);
@@ -207,29 +206,20 @@ export function createWorkerLoop(deps: WorkerLoopDeps): WorkerLoop {
         {
           worker_id: deps.workerId,
           poll_interval_ms: deps.pollIntervalMs,
-          cleanup_interval_ms: deps.cleanupIntervalMs,
           listen: deps.listen !== undefined,
         },
         "outbox worker started",
       );
       void tick();
-      void cleanup();
       pollTimer = setInterval(() => {
         requestTick();
       }, deps.pollIntervalMs);
-      cleanupTimer = setInterval(() => {
-        void cleanup();
-      }, deps.cleanupIntervalMs);
     },
     async stop() {
       state.stopping = true;
       if (pollTimer !== undefined) {
         clearInterval(pollTimer);
         pollTimer = undefined;
-      }
-      if (cleanupTimer !== undefined) {
-        clearInterval(cleanupTimer);
-        cleanupTimer = undefined;
       }
       if (deps.listen !== undefined) {
         await deps.listen.stop();
@@ -248,7 +238,6 @@ export interface CreateOutboxWorkerOptions {
   readonly logger: Logger;
   readonly listen?: OutboxListener;
   readonly pollIntervalMs?: number;
-  readonly cleanupIntervalMs?: number;
   readonly now?: () => number;
 }
 
@@ -301,7 +290,6 @@ export function createOutboxWorker(
     workerId: options.workerId,
     logger: options.logger,
     pollIntervalMs: options.pollIntervalMs ?? POLL_INTERVAL_MS,
-    cleanupIntervalMs: options.cleanupIntervalMs ?? CLEANUP_INTERVAL_MS,
     ...listen,
     dispatch: () =>
       dispatchOutboxBatch(

@@ -231,7 +231,6 @@ describe("apps/worker outbox loop (core.md §6)", () => {
       workerId: "worker-listen",
       logger: silent,
       pollIntervalMs: 60_000,
-      cleanupIntervalMs: 60_000,
       listen: createOutboxListener({
         connectionString: runtimeConnectionString(),
         logger: silent,
@@ -258,7 +257,6 @@ describe("apps/worker outbox loop (core.md §6)", () => {
       workerId: "worker-poll",
       logger: silent,
       pollIntervalMs: 50,
-      cleanupIntervalMs: 60_000,
     });
     await worker.start();
     try {
@@ -329,7 +327,6 @@ describe("apps/worker outbox loop (core.md §6)", () => {
       workerId: "worker-multi-event",
       logger: silent,
       pollIntervalMs: 50,
-      cleanupIntervalMs: 60_000,
     });
     await worker.start();
     try {
