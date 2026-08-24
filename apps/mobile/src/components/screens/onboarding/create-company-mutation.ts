@@ -1,9 +1,7 @@
 import type { MutationCallOptions } from "@showzy/contract";
 
-import type {
-  CompanyMembership,
-  CreateCompanyInput,
-} from "./create-company-form";
+import type { CompanyMembership } from "../../../api/company-membership-query";
+import type { CreateCompanyInput } from "./create-company-form";
 
 export type CreateCompanyTransport = {
   readonly client: {

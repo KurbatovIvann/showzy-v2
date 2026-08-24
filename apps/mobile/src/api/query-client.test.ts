@@ -18,6 +18,7 @@ import {
   resetTenantQueryState,
 } from "./query-client";
 import {
+  accountContractQueryKey,
   contractQueryKey,
   contractQueryOptions,
   NULL_COMPANY_QUERY_SCOPE,
@@ -227,7 +228,13 @@ describe("query cache isolation", () => {
     const priceKey = contractQueryKey("sample.getOrder", "company-a", {
       orderId: "o-2",
     });
+    const membershipsKey = accountContractQueryKey(
+      "companies.listMine",
+      "user-a",
+      {},
+    );
     queryClient.setQueryData(priceKey, { orderId: "o-2", totalMinor: "500" });
+    queryClient.setQueryData(membershipsKey, { memberships: [] });
 
     isolateCacheOnSessionLoss("loading", "anonymous", {
       client: created,
@@ -244,6 +251,7 @@ describe("query cache isolation", () => {
       queryClient,
     });
     expect(queryClient.getQueryData(priceKey)).toBeUndefined();
+    expect(queryClient.getQueryData(membershipsKey)).toBeUndefined();
     expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
     expect(created.getActiveCompany()).toBeNull();
   });

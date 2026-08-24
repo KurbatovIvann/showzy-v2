@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { buildContractRouter } from "@showzy/contract";
@@ -7,6 +7,8 @@ import { defineActionContract } from "@showzy/core/contract";
 import { createShowzyClient } from "./client";
 import { createShowzyQueryClient } from "./query-client";
 import {
+  accountContractQueryKey,
+  accountContractQueryOptions,
   contractQueryKey,
   contractQueryOptions,
   NULL_COMPANY_QUERY_SCOPE,
@@ -85,6 +87,42 @@ describe("contractQueryOptions", () => {
     expect(requests).toHaveLength(1);
     expect(new URL(requests[0]?.url ?? "").pathname).toBe("/rpc/sample/ping");
     expect(requests[0]?.headers.get("x-company-id")).toBe("company-a");
+    queryClient.clear();
+  });
+});
+
+describe("accountContractQueryOptions", () => {
+  it("isolates null-company cache entries by authenticated session", () => {
+    const input = {};
+    expect(
+      accountContractQueryKey("companies.listMine", "user-a", input),
+    ).toEqual([
+      "companies.listMine",
+      NULL_COMPANY_QUERY_SCOPE,
+      "user-a",
+      input,
+    ]);
+    expect(
+      accountContractQueryKey("companies.listMine", "user-b", input),
+    ).not.toEqual(
+      accountContractQueryKey("companies.listMine", "user-a", input),
+    );
+  });
+
+  it("runs independently of an active staff selector", async () => {
+    const queryFn = vi.fn(() => Promise.resolve({ memberships: [] }));
+    const queryClient = createShowzyQueryClient({ retryDelay: () => 0 });
+    const options = accountContractQueryOptions({
+      actionName: "companies.listMine",
+      sessionUserId: "user-a",
+      input: {},
+      queryFn,
+    });
+
+    await expect(queryClient.fetchQuery(options)).resolves.toEqual({
+      memberships: [],
+    });
+    expect(queryFn).toHaveBeenCalledOnce();
     queryClient.clear();
   });
 });

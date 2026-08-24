@@ -22,6 +22,13 @@ export type ContractQueryKey<TInput> = readonly [
   input: TInput,
 ];
 
+export type AccountContractQueryKey<TInput> = readonly [
+  actionName: string,
+  companyScope: typeof NULL_COMPANY_QUERY_SCOPE,
+  sessionUserId: string,
+  input: TInput,
+];
+
 export function contractQueryKey<TInput>(
   actionName: string,
   companyId: string | null,
@@ -32,6 +39,34 @@ export function contractQueryKey<TInput>(
 
 export function companyQueryScope(companyId: string | null): string {
   return companyId === null ? NULL_COMPANY_QUERY_SCOPE : companyId;
+}
+
+export function accountContractQueryKey<TInput>(
+  actionName: string,
+  sessionUserId: string,
+  input: TInput,
+): AccountContractQueryKey<TInput> {
+  return [actionName, NULL_COMPANY_QUERY_SCOPE, sessionUserId, input];
+}
+
+/**
+ * Account reads are session-scoped and independent of the staff selector.
+ * The server derives account authority from the authenticated session.
+ */
+export function accountContractQueryOptions<TInput, TOutput>(args: {
+  readonly actionName: string;
+  readonly sessionUserId: string;
+  readonly input: TInput;
+  readonly queryFn: () => Promise<TOutput>;
+}) {
+  return queryOptions({
+    queryKey: accountContractQueryKey(
+      args.actionName,
+      args.sessionUserId,
+      args.input,
+    ),
+    queryFn: args.queryFn,
+  });
 }
 
 export function contractQueryOptions<TInput, TOutput>(args: {

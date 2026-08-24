@@ -1,8 +1,12 @@
 import type { QueryClient } from "@tanstack/react-query";
 import type { WireErrorCode } from "@showzy/contract";
 
+import {
+  listMineQueryKey,
+  type CompanyMembership,
+  type ListMineOutput,
+} from "../../../api/company-membership-query";
 import type { QueryFailureKind } from "../../../api/errors";
-import { contractQueryKey } from "../../../api/query-options";
 import type { OnboardingCopy } from "../../../i18n/onboarding";
 
 /** Matches `companies.create` name cap (SHO-127). */
@@ -12,26 +16,9 @@ export const COMPANY_SLUG_MAX = 48;
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-export const LIST_MINE_ACTION = "companies.listMine";
-
 export type CreateCompanyInput = {
   readonly name: string;
   readonly slug: string;
-};
-
-export type CompanyMembership = {
-  readonly membershipId: string;
-  readonly role: string;
-  readonly company: {
-    readonly id: string;
-    readonly name: string;
-    readonly slug: string;
-    readonly prefix: string;
-  };
-};
-
-export type ListMineCache = {
-  readonly memberships: readonly CompanyMembership[];
 };
 
 export type NameErrorKey = "required" | "too_long";
@@ -221,14 +208,10 @@ export function resolveCreateCompanyCopy(
   };
 }
 
-export function listMineQueryKey() {
-  return contractQueryKey(LIST_MINE_ACTION, null, {});
-}
-
 export function mergeCreatedMembership(
-  current: ListMineCache | undefined,
+  current: ListMineOutput | undefined,
   created: CompanyMembership,
-): ListMineCache {
+): ListMineOutput {
   if (current === undefined) {
     return { memberships: [created] };
   }
@@ -251,14 +234,15 @@ export function shouldApplyCreatedCompany(args: {
  */
 export function applyCreatedCompany(args: {
   readonly membership: CompanyMembership;
+  readonly sessionUserId: string;
   readonly setActiveCompany: (companyId: string | null) => void;
   readonly queryClient: QueryClient;
   readonly enterPanel: () => void;
 }): void {
   args.setActiveCompany(args.membership.company.id);
   args.queryClient.setQueryData(
-    listMineQueryKey(),
-    (current: ListMineCache | undefined) =>
+    listMineQueryKey(args.sessionUserId),
+    (current: ListMineOutput | undefined) =>
       mergeCreatedMembership(current, args.membership),
   );
   args.enterPanel();

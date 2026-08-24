@@ -2,6 +2,7 @@ import { Tabs } from "expo-router";
 import { useUnistyles } from "react-native-unistyles";
 
 import { BottomNav } from "../../../components/screens/panel/bottom-nav";
+import { CompanyResolutionBoundary } from "../../../company-resolution/company-resolution-boundary";
 
 /**
  * Staff panel tab shell (SHO-122). Nested inside the `(app)` Stack so
@@ -12,19 +13,21 @@ export default function TabsLayout() {
   const { theme } = useUnistyles();
 
   return (
-    <Tabs
-      initialRouteName="orders"
-      tabBar={(props) => <BottomNav {...props} />}
-      screenOptions={{
-        headerShown: false,
-        sceneStyle: { backgroundColor: theme.colors.background },
-      }}
-    >
-      <Tabs.Screen name="orders" />
-      <Tabs.Screen name="products" />
-      <Tabs.Screen name="ai" />
-      <Tabs.Screen name="customers" />
-      <Tabs.Screen name="more" />
-    </Tabs>
+    <CompanyResolutionBoundary>
+      <Tabs
+        initialRouteName="orders"
+        tabBar={(props) => <BottomNav {...props} />}
+        screenOptions={{
+          headerShown: false,
+          sceneStyle: { backgroundColor: theme.colors.background },
+        }}
+      >
+        <Tabs.Screen name="orders" />
+        <Tabs.Screen name="products" />
+        <Tabs.Screen name="ai" />
+        <Tabs.Screen name="customers" />
+        <Tabs.Screen name="more" />
+      </Tabs>
+    </CompanyResolutionBoundary>
   );
 }
