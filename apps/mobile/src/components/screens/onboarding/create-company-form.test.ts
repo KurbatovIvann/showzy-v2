@@ -11,7 +11,6 @@ import {
   COMPANY_NAME_MAX,
   createCompanyPayload,
   mapCreateCompanyFailure,
-  mergeCreatedMembership,
   nextLastSubmitted,
   planCreateCompanySubmit,
   resolveCreateCompanyCopy,
@@ -218,13 +217,15 @@ describe("resolveCreateCompanyCopy", () => {
 });
 
 describe("applyCreatedCompany", () => {
-  it("selects the returned company, seeds listMine after isolation, and enters the panel once", () => {
+  it("selects the returned company, refreshes listMine, and enters the panel once", () => {
     const queryClient = createShowzyQueryClient({ retryDelay: () => 0 });
     const setActiveCompany = vi.fn((companyId: string | null) => {
-      queryClient.clear();
       void companyId;
     });
     const enterPanel = vi.fn();
+    queryClient.setQueryData(listMineQueryKey(sessionUserId), {
+      memberships: [],
+    });
 
     applyCreatedCompany({
       membership,
@@ -236,19 +237,9 @@ describe("applyCreatedCompany", () => {
 
     expect(setActiveCompany).toHaveBeenCalledTimes(1);
     expect(setActiveCompany).toHaveBeenCalledWith(membership.company.id);
-    expect(queryClient.getQueryData(listMineQueryKey(sessionUserId))).toEqual({
-      memberships: [membership],
-    });
-    expect(enterPanel).toHaveBeenCalledTimes(1);
-  });
-
-  it("replaces a cached row for the same company instead of duplicating it", () => {
-    const updated = {
-      ...membership,
-      company: { ...membership.company, name: "New name" },
-    };
     expect(
-      mergeCreatedMembership({ memberships: [membership] }, updated),
-    ).toEqual({ memberships: [updated] });
+      queryClient.getQueryData(listMineQueryKey(sessionUserId)),
+    ).toBeUndefined();
+    expect(enterPanel).toHaveBeenCalledTimes(1);
   });
 });

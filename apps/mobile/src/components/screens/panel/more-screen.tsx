@@ -81,6 +81,7 @@ function ResolvedCompanyField(props: {
     <View>
       <Text style={styles.label}>{props.label}</Text>
       <View
+        accessible
         accessibilityLabel={`${props.label}: ${props.value}`}
         style={styles.company}
       >

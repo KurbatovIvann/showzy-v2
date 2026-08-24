@@ -194,7 +194,7 @@ describe("createShowzyQueryClient retry policy", () => {
 });
 
 describe("query cache isolation", () => {
-  it("clears leftover company rows on setActiveCompany", () => {
+  it("clears tenant rows but preserves account rows on setActiveCompany", () => {
     const queryClient = createShowzyQueryClient();
     const created = createShowzyClient<SampleRouter>({
       apiUrl: "http://api.test",
@@ -204,10 +204,16 @@ describe("query cache isolation", () => {
     const companyAKey = contractQueryKey("sample.getOrder", "company-a", {
       orderId: "o-1",
     });
+    const membershipsKey = accountContractQueryKey(
+      "companies.listMine",
+      "user-a",
+      {},
+    );
     queryClient.setQueryData(companyAKey, {
       orderId: "o-1",
       totalMinor: "1990",
     });
+    queryClient.setQueryData(membershipsKey, { memberships: [] });
     expect(queryClient.getQueryData(companyAKey)).toEqual({
       orderId: "o-1",
       totalMinor: "1990",
@@ -215,7 +221,10 @@ describe("query cache isolation", () => {
 
     created.setActiveCompany("company-b");
     expect(queryClient.getQueryData(companyAKey)).toBeUndefined();
-    expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+    expect(queryClient.getQueryData(membershipsKey)).toEqual({
+      memberships: [],
+    });
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(1);
   });
 
   it("clears leftover rows and resets the selector on session loss", () => {

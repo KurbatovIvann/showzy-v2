@@ -1,16 +1,16 @@
+import type { ReactNode } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
 import { Building2Icon, RefreshCwIcon } from "lucide-react-native";
-import type { ReactNode } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
-import type { CompanyResolutionCopy } from "../i18n/company-resolution";
-import { Button, EmptyState } from "../components/ui";
+import type { CompanyResolutionCopy } from "../../../i18n/company-resolution";
+import { Button, EmptyState } from "../../ui";
 
 export function CompanyResolutionLoading(props: { readonly label: string }) {
   const { theme } = useUnistyles();
   return (
-    <View accessibilityLabel={props.label} style={styles.loading}>
+    <View accessible accessibilityLabel={props.label} style={styles.loading}>
       <ActivityIndicator color={theme.colors.activityIndicator.onBackground} />
       <Text style={styles.loadingLabel}>{props.label}</Text>
     </View>
@@ -48,6 +48,7 @@ export function CompanyResolutionError(props: {
 
 export function MultipleCompaniesStub(props: {
   readonly copy: CompanyResolutionCopy;
+  readonly onSignOut: () => void;
 }) {
   const { theme } = useUnistyles();
   return (
@@ -61,6 +62,13 @@ export function MultipleCompaniesStub(props: {
         }
         title={props.copy.multipleTitle}
         description={props.copy.multipleDescription}
+        action={
+          <Button
+            label={props.copy.signOut}
+            variant="ghost"
+            onPress={props.onSignOut}
+          />
+        }
       />
     </ResolutionScreen>
   );
@@ -71,7 +79,11 @@ function ResolutionScreen(props: {
   readonly children: ReactNode;
 }) {
   return (
-    <SafeAreaView accessibilityLabel={props.label} style={styles.screen}>
+    <SafeAreaView
+      accessible
+      accessibilityLabel={props.label}
+      style={styles.screen}
+    >
       {props.children}
     </SafeAreaView>
   );
