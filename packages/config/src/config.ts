@@ -204,6 +204,13 @@ export function loadServerConfig(
   }
 
   const parsed = result.data;
+  const bootIssues = [
+    ...productionTlsIssues(parsed),
+    ...otpDeliveryIssues(parsed),
+  ];
+  if (bootIssues.length > 0) {
+    throw new ConfigValidationError(bootIssues);
+  }
   return {
     nodeEnv: parsed.NODE_ENV,
     database: {
@@ -229,6 +236,28 @@ export function loadServerConfig(
     sentry: { dsn: parsed.SENTRY_DSN },
     otpDelivery: mapOtpDelivery(parsed),
   };
+}
+
+/**
+ * Endpoints that carry credentials must be TLS in production: signed S3
+ * URLs put SigV4 credentials in the query string and better-auth carries
+ * session cookies. Local Garage/dev stay on `http`.
+ */
+function productionTlsIssues(parsed: ParsedEnv): ConfigIssue[] {
+  if (parsed.NODE_ENV !== "production") {
+    return [];
+  }
+  const issues: ConfigIssue[] = [];
+  if (new URL(parsed.S3_ENDPOINT).protocol !== "https:") {
+    issues.push({ key: "S3_ENDPOINT", message: "production requires https" });
+  }
+  if (new URL(parsed.BETTER_AUTH_URL).protocol !== "https:") {
+    issues.push({
+      key: "BETTER_AUTH_URL",
+      message: "production requires https",
+    });
+  }
+  return issues;
 }
 
 function otpDeliveryIssues(parsed: ParsedEnv): ConfigIssue[] {
