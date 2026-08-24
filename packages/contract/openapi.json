@@ -2138,7 +2138,7 @@
     "/files/finalizeUpload": {
       "post": {
         "operationId": "files.finalizeUpload",
-        "summary": "Finalize a pending catalog upload in the active company. Reads the handshake staging object, then verifies size, magic bytes against the declared MIME, SHA-256 checksum, and the server-derived key prefix, then writes those already-hashed bytes onto the durable catalog key. Executables, archives, and HEIC fail validation even when the declared MIME is an image. Missing or foreign-company files fail with not-found. A second finalize of a ready file returns the same view.",
+        "summary": "Finalize a pending catalog upload in the active company. Reads the handshake staging object, then verifies size, magic bytes against the declared MIME, SHA-256 checksum, and the server-derived key prefix, then writes those already-hashed bytes onto the durable catalog key. A leftover PUT that changes staging after that read fails validation rather than marking the file ready. Executables, archives, and HEIC fail validation even when the declared MIME is an image. Missing or foreign-company files fail with not-found. A second finalize of a ready file returns the same view.",
         "requestBody": {
           "required": true,
           "content": {
