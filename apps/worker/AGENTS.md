@@ -13,12 +13,18 @@ wakeup, polling fallback, graceful drain, and the job host.
   fnd-T18 admin replay CLI. An invalid environment crashes before work
   starts. Shutdown is latched (second SIGINT/SIGTERM is a no-op): drain
   in-flight BullMQ jobs, then the outbox close latch, then flush Sentry.
-- `src/boot.ts` — opens Postgres + Redis (confirmation/rate-limit) plus a
-  **dedicated** BullMQ Redis connection, composes the action pipeline,
-  starts the job host, LISTENs on `domain_events`, starts the outbox loop.
+- `src/boot.ts` — binds the files object store from validated `config.s3`
+  (same as the API; do not import API internals), opens Postgres + Redis
+  (confirmation/rate-limit) plus a **dedicated** BullMQ Redis connection,
+  composes the action pipeline, starts the job host, LISTENs on
+  `domain_events`, starts the outbox loop. Close the object store after
+  draining jobs.
 - `src/jobs.ts` — BullMQ job host. Prefix `showzy`, one queue
-  `maintenance`. On boot, upserts a Job Scheduler that runs
-  `cleanupExpiredIdempotencyKeys` at `CLEANUP_INTERVAL_MS` (1 h). Do not
+  `maintenance`. On boot, upserts Job Schedulers for
+  `cleanupExpiredIdempotencyKeys` (`CLEANUP_INTERVAL_MS`, 1 h) and
+  `sweepAbandonedUploads` (`SWEEP_INTERVAL_MS`, 5 min, action batch
+  default 20). The sweep processor invokes `files.sweepAbandonedUploads`
+  as system/global with a fresh idempotency key per `job.id`. Do not
   pre-create pdf / email / push / sms / sync queues. Processors stay thin
   (no domain SQL, no module service imports).
 - `src/loop.ts` — `createOutboxWorker` / `createWorkerLoop`: one tick
@@ -43,9 +49,9 @@ wakeup, polling fallback, graceful drain, and the job host.
   logger + optional Sentry). Keep in lockstep with
   `apps/api/src/observability.ts`. `flushProcessObservability` drains
   Sentry on shutdown.
-- `src/policy.ts` — poll/cleanup intervals, notify channel, BullMQ prefix
-  and queue name. Values change only through an ADR or a protocol-manual
-  patch with a proving test.
+- `src/policy.ts` — poll/cleanup/sweep intervals, notify channel, BullMQ
+  prefix and queue name. Values change only through an ADR or a
+  protocol-manual patch with a proving test.
 
 ## Rules
 

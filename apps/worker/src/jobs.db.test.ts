@@ -1,28 +1,51 @@
 /**
- * BullMQ job host (fnd-T29): maintenance scheduler tick, single-flight
- * across replicas, drain on shutdown, log hygiene, re-upsert after flush.
+ * BullMQ job host (fnd-T29 / SHO-120): maintenance scheduler ticks,
+ * abandoned-upload sweep, single-flight across replicas, drain on
+ * shutdown, log hygiene, re-upsert after flush.
  */
+import { existsSync, readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { createProcessLogger, loadServerConfig } from "@showzy/config";
-import { createTestKit, type TestKit } from "@showzy/core/testing";
+import { CoreInvariantError } from "@showzy/core/errors";
+import {
+  createTestKit,
+  kitIdentities,
+  type TestKit,
+} from "@showzy/core/testing";
 import { idempotencyKeys } from "@showzy/db";
+import { files } from "@showzy/db/schema/files";
+import {
+  closeFilesObjectStore,
+  configureFilesObjectStore,
+  getFilesObjectStore,
+  probeFilesObjectStore,
+} from "@showzy/files/storage";
 import {
   RedisContainer,
   type StartedRedisContainer,
 } from "@testcontainers/redis";
-import { Queue } from "bullmq";
-import { inArray } from "drizzle-orm";
+import { Queue, QueueEvents } from "bullmq";
+import { eq, inArray } from "drizzle-orm";
 import { Redis } from "ioredis";
-import { pino } from "pino";
+import { pino, type Logger } from "pino";
+import {
+  GenericContainer,
+  Wait,
+  type StartedTestContainer,
+} from "testcontainers";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { bootWorker } from "./boot.js";
-import { createJobHost } from "./jobs.js";
+import { createJobHost, type SweepTickResult } from "./jobs.js";
 import {
   BULLMQ_PREFIX,
   IDEMPOTENCY_CLEANUP_JOB_NAME,
   MAINTENANCE_QUEUE_NAME,
+  SWEEP_ABANDONED_UPLOADS_JOB_NAME,
+  SWEEP_INTERVAL_MS,
 } from "./policy.js";
 import { createProcessShutdown } from "./shutdown.js";
 
@@ -30,10 +53,25 @@ const silent = pino({ enabled: false });
 const REDIS_PASSWORD = "REDIS_TICK_SECRET";
 const TICK_INTERVAL_MS = 400;
 const SINGLE_FLIGHT_INTERVAL_MS = 5_000;
+const ABANDONED_PENDING_TTL_MS = 60 * 60 * 1_000;
+const LONG_INTERVAL_MS = 60 * 60 * 1_000;
+
+/** Same pin as docker-compose.yml (ADR-0027). */
+const GARAGE_IMAGE = "dxflrs/garage:v2.3.0";
+const GARAGE_BUCKET = "showzy";
+const GARAGE_ACCESS_KEY = "showzy-local";
+const GARAGE_SECRET_KEY = "showzy-local-secret";
+
+const jpegBytes = Uint8Array.from([
+  0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01,
+  0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0xff, 0xd9,
+]);
 
 let kit: TestKit;
 let redisContainer: StartedRedisContainer;
 let redisUrl: string;
+let garage: StartedTestContainer;
+let garageEndpoint: string;
 
 beforeAll(async () => {
   kit = await createTestKit();
@@ -41,11 +79,42 @@ beforeAll(async () => {
     .withPassword(REDIS_PASSWORD)
     .start();
   redisUrl = redisContainer.getConnectionUrl();
+
+  const garageToml = readFileSync(
+    path.join(repoRoot(), "docker/garage/garage.toml"),
+    "utf8",
+  ).replaceAll("\r\n", "\n");
+  garage = await new GenericContainer(GARAGE_IMAGE)
+    .withCommand(["/garage", "server", "--single-node", "--default-bucket"])
+    .withEnvironment({
+      GARAGE_ALLOW_WORLD_READABLE_SECRETS: "true",
+      GARAGE_DEFAULT_ACCESS_KEY: GARAGE_ACCESS_KEY,
+      GARAGE_DEFAULT_SECRET_KEY: GARAGE_SECRET_KEY,
+      GARAGE_DEFAULT_BUCKET: GARAGE_BUCKET,
+    })
+    .withCopyContentToContainer([
+      {
+        content: garageToml,
+        target: "/etc/garage.toml",
+      },
+    ])
+    .withTmpFs({
+      "/var/lib/garage/meta": "rw,noexec,nosuid,size=64m",
+      "/var/lib/garage/data": "rw,noexec,nosuid,size=256m",
+    })
+    .withExposedPorts(3900)
+    .withWaitStrategy(Wait.forLogMessage(/S3 API server listening/))
+    .withStartupTimeout(120_000)
+    .start();
+  garageEndpoint = `http://127.0.0.1:${String(garage.getMappedPort(3900))}`;
+  configureFilesObjectStore(garageS3Config());
+  await waitForBucket();
 });
 
 afterAll(async () => {
   await kit.db.close();
   await redisContainer.stop();
+  await garage.stop();
 });
 
 async function flushRedis(): Promise<void> {
@@ -56,7 +125,43 @@ async function flushRedis(): Promise<void> {
 
 beforeEach(async () => {
   await flushRedis();
+  configureFilesObjectStore(garageS3Config());
 });
+
+function repoRoot(): string {
+  let directory = path.dirname(fileURLToPath(import.meta.url));
+  while (!existsSync(path.join(directory, "pnpm-workspace.yaml"))) {
+    const parent = path.dirname(directory);
+    if (parent === directory) {
+      throw new Error("repository root not found");
+    }
+    directory = parent;
+  }
+  return directory;
+}
+
+function garageS3Config() {
+  return {
+    endpoint: garageEndpoint,
+    region: "us-east-1",
+    accessKeyId: GARAGE_ACCESS_KEY,
+    secretAccessKey: GARAGE_SECRET_KEY,
+    forcePathStyle: true,
+    bucket: GARAGE_BUCKET,
+  };
+}
+
+async function waitForBucket(): Promise<void> {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    try {
+      await probeFilesObjectStore();
+      return;
+    } catch {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+  }
+  throw new Error("Garage bucket did not become ready");
+}
 
 function runtimeConnectionString(): string {
   const connectionString = kit.db.runtime.pool.options.connectionString;
@@ -71,14 +176,21 @@ function testConfig() {
     NODE_ENV: "test",
     DATABASE_URL: runtimeConnectionString(),
     REDIS_URL: redisUrl,
-    S3_ENDPOINT: "http://localhost:3900",
-    S3_ACCESS_KEY_ID: "showzy-local",
-    S3_SECRET_ACCESS_KEY: "showzy-local-secret",
+    S3_ENDPOINT: garageEndpoint,
+    S3_ACCESS_KEY_ID: GARAGE_ACCESS_KEY,
+    S3_SECRET_ACCESS_KEY: GARAGE_SECRET_KEY,
     S3_FORCE_PATH_STYLE: "true",
-    S3_BUCKET: "showzy",
+    S3_BUCKET: GARAGE_BUCKET,
     BETTER_AUTH_SECRET: "dev-only-secret-change-me-0000000000",
     BETTER_AUTH_URL: "http://localhost:3000",
     IP_HMAC_SECRET: "dev-only-ip-hmac-secret-change-me-00",
+  });
+}
+
+function stubSweep(): Promise<SweepTickResult> {
+  return Promise.resolve({
+    leftoverStagingDeleted: 0,
+    abandonedPendingDeleted: 0,
   });
 }
 
@@ -109,6 +221,45 @@ async function withMaintenanceQueue<T>(
     await queue.close();
     await connection.quit();
   }
+}
+
+async function enqueueMaintenanceJob(
+  jobName: string,
+  jobId: string,
+): Promise<void> {
+  const connection = new Redis(redisUrl, { maxRetriesPerRequest: null });
+  const eventsConnection = new Redis(redisUrl, {
+    maxRetriesPerRequest: null,
+  });
+  const queue = new Queue(MAINTENANCE_QUEUE_NAME, {
+    connection,
+    prefix: BULLMQ_PREFIX,
+  });
+  const events = new QueueEvents(MAINTENANCE_QUEUE_NAME, {
+    connection: eventsConnection,
+    prefix: BULLMQ_PREFIX,
+  });
+  await events.waitUntilReady();
+  try {
+    const job = await queue.add(jobName, {}, { jobId });
+    await job.waitUntilFinished(events, 30_000);
+  } finally {
+    await events.close();
+    await queue.close();
+    await connection.quit();
+    await eventsConnection.quit();
+  }
+}
+
+function requireScheduler(
+  schedulers: Awaited<ReturnType<Queue["getJobSchedulers"]>>,
+  name: string,
+) {
+  const match = schedulers.find((scheduler) => scheduler.name === name);
+  if (match === undefined) {
+    throw new Error(`expected scheduler ${name}`);
+  }
+  return match;
 }
 
 async function insertKeyPair(): Promise<{
@@ -158,21 +309,88 @@ async function remainingKeys(
   return rows.map((row) => row.key);
 }
 
+function catalogKey(companyId: string, fileId: string): string {
+  return `${companyId}/catalog/${fileId}`;
+}
+
+function stagingKey(companyId: string, fileId: string): string {
+  return `${companyId}/uploads/${fileId}`;
+}
+
+async function insertFileRow(values: {
+  readonly id: string;
+  readonly companyId: string;
+  readonly uploadedByUserId: string;
+  readonly status: "pending" | "ready";
+  readonly createdAt?: Date;
+  readonly updatedAt?: Date;
+  readonly stagingPurgedAt?: Date;
+}): Promise<void> {
+  await kit.db.runtime.db.insert(files).values({
+    id: values.id,
+    companyId: values.companyId,
+    uploadedByUserId: values.uploadedByUserId,
+    purpose: "catalog",
+    objectKey: catalogKey(values.companyId, values.id),
+    mimeType: "image/jpeg",
+    byteSize: BigInt(jpegBytes.byteLength),
+    checksumSha256: "a".repeat(64),
+    status: values.status,
+    ...(values.createdAt !== undefined ? { createdAt: values.createdAt } : {}),
+    ...(values.updatedAt !== undefined ? { updatedAt: values.updatedAt } : {}),
+    ...(values.stagingPurgedAt !== undefined
+      ? { stagingPurgedAt: values.stagingPurgedAt }
+      : {}),
+  });
+}
+
+async function putStoreObject(key: string): Promise<void> {
+  await getFilesObjectStore().putObject({
+    key,
+    mimeType: "image/jpeg",
+    bytes: jpegBytes,
+  });
+}
+
+async function fileRow(id: string): Promise<
+  | {
+      readonly status: string;
+      readonly updatedAt: Date;
+      readonly stagingPurgedAt: Date | null;
+    }
+  | undefined
+> {
+  const rows = await kit.db.runtime.db
+    .select({
+      status: files.status,
+      updatedAt: files.updatedAt,
+      stagingPurgedAt: files.stagingPurgedAt,
+    })
+    .from(files)
+    .where(eq(files.id, id));
+  return rows[0];
+}
+
 describe("apps/worker BullMQ job host (fnd-T29)", () => {
-  it("boots, registers the maintenance scheduler, and a tick deletes expired keys only", async () => {
+  it("boots, registers both maintenance schedulers, and a tick deletes expired keys only", async () => {
     const { expiredKey, liveKey } = await insertKeyPair();
     const booted = await bootWorker(testConfig(), {
       logger: silent,
       pollIntervalMs: 60_000,
       cleanupIntervalMs: TICK_INTERVAL_MS,
+      sweepIntervalMs: LONG_INTERVAL_MS,
     });
     try {
       const schedulers = await withMaintenanceQueue((queue) =>
         queue.getJobSchedulers(),
       );
-      expect(schedulers).toHaveLength(1);
-      expect(schedulers[0]?.name).toBe(IDEMPOTENCY_CLEANUP_JOB_NAME);
-      expect(schedulers[0]?.every).toBe(TICK_INTERVAL_MS);
+      expect(schedulers).toHaveLength(2);
+      expect(
+        requireScheduler(schedulers, IDEMPOTENCY_CLEANUP_JOB_NAME).every,
+      ).toBe(TICK_INTERVAL_MS);
+      expect(
+        requireScheduler(schedulers, SWEEP_ABANDONED_UPLOADS_JOB_NAME).every,
+      ).toBe(LONG_INTERVAL_MS);
 
       await waitUntil(async () => {
         const remaining = await remainingKeys([expiredKey, liveKey]);
@@ -192,10 +410,12 @@ describe("apps/worker BullMQ job host (fnd-T29)", () => {
       logger: silent,
       workerId: "jobs-replica-a",
       cleanupIntervalMs: SINGLE_FLIGHT_INTERVAL_MS,
+      sweepIntervalMs: LONG_INTERVAL_MS,
       cleanup: () => {
         runs += 1;
         return Promise.resolve(0);
       },
+      sweep: stubSweep,
     });
     const hostB = createJobHost({
       redisUrl,
@@ -203,10 +423,12 @@ describe("apps/worker BullMQ job host (fnd-T29)", () => {
       logger: silent,
       workerId: "jobs-replica-b",
       cleanupIntervalMs: SINGLE_FLIGHT_INTERVAL_MS,
+      sweepIntervalMs: LONG_INTERVAL_MS,
       cleanup: () => {
         runs += 1;
         return Promise.resolve(0);
       },
+      sweep: stubSweep,
     });
     await hostA.start();
     await hostB.start();
@@ -214,7 +436,7 @@ describe("apps/worker BullMQ job host (fnd-T29)", () => {
       const schedulers = await withMaintenanceQueue((queue) =>
         queue.getJobSchedulers(),
       );
-      expect(schedulers).toHaveLength(1);
+      expect(schedulers).toHaveLength(2);
       await waitUntil(() => Promise.resolve(runs >= 1), 15_000);
       await hostA.close();
       await hostB.close();
@@ -235,6 +457,7 @@ describe("apps/worker BullMQ job host (fnd-T29)", () => {
       logger: silent,
       workerId: "jobs-drain",
       cleanupIntervalMs: 60_000,
+      sweepIntervalMs: LONG_INTERVAL_MS,
       cleanup: () => {
         entered = true;
         return new Promise((resolve) => {
@@ -243,6 +466,7 @@ describe("apps/worker BullMQ job host (fnd-T29)", () => {
           };
         });
       },
+      sweep: stubSweep,
     });
     await host.start();
     let closes = 0;
@@ -294,6 +518,8 @@ describe("apps/worker BullMQ job host (fnd-T29)", () => {
       logger,
       workerId: "jobs-logs",
       cleanupIntervalMs: TICK_INTERVAL_MS,
+      sweepIntervalMs: LONG_INTERVAL_MS,
+      sweep: stubSweep,
     });
     await host.start();
     try {
@@ -310,20 +536,22 @@ describe("apps/worker BullMQ job host (fnd-T29)", () => {
     }
   });
 
-  it("re-upserts the scheduler after flushing BullMQ keys so the next tick still runs", async () => {
+  it("re-upserts both schedulers after flushing BullMQ keys so the next tick still runs", async () => {
     const first = createJobHost({
       redisUrl,
       db: kit.db.runtime.db,
       logger: silent,
       workerId: "jobs-flush-1",
       cleanupIntervalMs: TICK_INTERVAL_MS,
+      sweepIntervalMs: LONG_INTERVAL_MS,
+      sweep: stubSweep,
     });
     await first.start();
     await waitUntil(async () => {
       const schedulers = await withMaintenanceQueue((queue) =>
         queue.getJobSchedulers(),
       );
-      return schedulers.length === 1;
+      return schedulers.length === 2;
     });
     await first.close();
 
@@ -343,20 +571,364 @@ describe("apps/worker BullMQ job host (fnd-T29)", () => {
       logger: silent,
       workerId: "jobs-flush-2",
       cleanupIntervalMs: TICK_INTERVAL_MS,
+      sweepIntervalMs: LONG_INTERVAL_MS,
+      sweep: stubSweep,
     });
     await second.start();
     try {
       const restored = await withMaintenanceQueue((queue) =>
         queue.getJobSchedulers(),
       );
-      expect(restored).toHaveLength(1);
-      expect(restored[0]?.name).toBe(IDEMPOTENCY_CLEANUP_JOB_NAME);
+      expect(restored).toHaveLength(2);
+      expect(
+        requireScheduler(restored, IDEMPOTENCY_CLEANUP_JOB_NAME).name,
+      ).toBe(IDEMPOTENCY_CLEANUP_JOB_NAME);
+      expect(
+        requireScheduler(restored, SWEEP_ABANDONED_UPLOADS_JOB_NAME).name,
+      ).toBe(SWEEP_ABANDONED_UPLOADS_JOB_NAME);
       await waitUntil(async () => {
         const remaining = await remainingKeys([expiredKey, liveKey]);
         return remaining.length === 1 && remaining[0] === liveKey;
       });
     } finally {
       await second.close();
+    }
+  });
+});
+
+describe("apps/worker sweepAbandonedUploads scheduler (SHO-120)", () => {
+  async function bootSweepHost(logger: Logger = silent) {
+    return bootWorker(testConfig(), {
+      logger,
+      pollIntervalMs: 60_000,
+      cleanupIntervalMs: LONG_INTERVAL_MS,
+      sweepIntervalMs: LONG_INTERVAL_MS,
+    });
+  }
+
+  it("configures the object store so a worker-shaped sweep does not throw not-configured", async () => {
+    closeFilesObjectStore();
+    expect(() => getFilesObjectStore()).toThrow(CoreInvariantError);
+    expect(() => getFilesObjectStore()).toThrow(
+      /object store is not configured/,
+    );
+
+    const booted = await bootSweepHost();
+    try {
+      expect(getFilesObjectStore()).toBeDefined();
+      const dueId = randomUUID();
+      await insertFileRow({
+        id: dueId,
+        companyId: kitIdentities.companies.a,
+        uploadedByUserId: kitIdentities.users.anna,
+        status: "pending",
+        createdAt: new Date(Date.now() - ABANDONED_PENDING_TTL_MS - 1_000),
+      });
+      await enqueueMaintenanceJob(
+        SWEEP_ABANDONED_UPLOADS_JOB_NAME,
+        randomUUID(),
+      );
+      expect(await fileRow(dueId)).toBeUndefined();
+    } finally {
+      await booted.close();
+    }
+  });
+
+  it("deletes a due pending row and leaves a young pending row (SHO-116)", async () => {
+    const booted = await bootSweepHost();
+    try {
+      const dueId = randomUUID();
+      const youngId = randomUUID();
+      await insertFileRow({
+        id: dueId,
+        companyId: kitIdentities.companies.a,
+        uploadedByUserId: kitIdentities.users.anna,
+        status: "pending",
+        createdAt: new Date(Date.now() - ABANDONED_PENDING_TTL_MS - 1_000),
+      });
+      await insertFileRow({
+        id: youngId,
+        companyId: kitIdentities.companies.a,
+        uploadedByUserId: kitIdentities.users.anna,
+        status: "pending",
+      });
+      await putStoreObject(stagingKey(kitIdentities.companies.a, dueId));
+      await putStoreObject(catalogKey(kitIdentities.companies.a, dueId));
+      await putStoreObject(stagingKey(kitIdentities.companies.a, youngId));
+
+      await enqueueMaintenanceJob(
+        SWEEP_ABANDONED_UPLOADS_JOB_NAME,
+        randomUUID(),
+      );
+
+      expect(await fileRow(dueId)).toBeUndefined();
+      expect(await fileRow(youngId)).toMatchObject({ status: "pending" });
+      const store = getFilesObjectStore();
+      expect(
+        await store.headObject(stagingKey(kitIdentities.companies.a, dueId)),
+      ).toBe("missing");
+      expect(
+        await store.headObject(catalogKey(kitIdentities.companies.a, dueId)),
+      ).toBe("missing");
+      expect(
+        await store.headObject(stagingKey(kitIdentities.companies.a, youngId)),
+      ).not.toBe("missing");
+    } finally {
+      await booted.close();
+    }
+  });
+
+  it("deletes leftover staging, keeps catalog bytes, and skips already-purged rows", async () => {
+    const booted = await bootSweepHost();
+    try {
+      const leftoverId = randomUUID();
+      const purgedId = randomUUID();
+      await insertFileRow({
+        id: leftoverId,
+        companyId: kitIdentities.companies.a,
+        uploadedByUserId: kitIdentities.users.anna,
+        status: "ready",
+        updatedAt: new Date(0),
+      });
+      await insertFileRow({
+        id: purgedId,
+        companyId: kitIdentities.companies.a,
+        uploadedByUserId: kitIdentities.users.anna,
+        status: "ready",
+        updatedAt: new Date(0),
+        stagingPurgedAt: new Date(0),
+      });
+      await putStoreObject(catalogKey(kitIdentities.companies.a, leftoverId));
+      await putStoreObject(stagingKey(kitIdentities.companies.a, leftoverId));
+      await putStoreObject(catalogKey(kitIdentities.companies.a, purgedId));
+
+      await enqueueMaintenanceJob(
+        SWEEP_ABANDONED_UPLOADS_JOB_NAME,
+        randomUUID(),
+      );
+
+      const store = getFilesObjectStore();
+      expect(
+        await store.headObject(
+          stagingKey(kitIdentities.companies.a, leftoverId),
+        ),
+      ).toBe("missing");
+      expect(
+        await store.headObject(
+          catalogKey(kitIdentities.companies.a, leftoverId),
+        ),
+      ).not.toBe("missing");
+      expect(
+        await store.headObject(catalogKey(kitIdentities.companies.a, purgedId)),
+      ).not.toBe("missing");
+      const afterFirst = await fileRow(leftoverId);
+      const purgedAfterFirst = await fileRow(purgedId);
+      if (afterFirst === undefined || purgedAfterFirst === undefined) {
+        throw new Error("expected ready rows to remain");
+      }
+      expect(afterFirst.stagingPurgedAt).not.toBeNull();
+      expect(purgedAfterFirst.stagingPurgedAt?.getTime()).toBe(0);
+      expect(purgedAfterFirst.updatedAt.getTime()).toBe(0);
+
+      await enqueueMaintenanceJob(
+        SWEEP_ABANDONED_UPLOADS_JOB_NAME,
+        randomUUID(),
+      );
+      const afterSecond = await fileRow(leftoverId);
+      const purgedAfterSecond = await fileRow(purgedId);
+      expect(afterSecond?.stagingPurgedAt?.getTime()).toBe(
+        afterFirst.stagingPurgedAt?.getTime(),
+      );
+      expect(afterSecond?.updatedAt.getTime()).toBe(
+        afterFirst.updatedAt.getTime(),
+      );
+      expect(purgedAfterSecond?.updatedAt.getTime()).toBe(0);
+    } finally {
+      await booted.close();
+    }
+  });
+
+  it("does not delete another company's catalog while sweeping as system/global", async () => {
+    const booted = await bootSweepHost();
+    try {
+      const abandonedId = randomUUID();
+      const foreignReadyId = randomUUID();
+      await insertFileRow({
+        id: abandonedId,
+        companyId: kitIdentities.companies.a,
+        uploadedByUserId: kitIdentities.users.anna,
+        status: "pending",
+        createdAt: new Date(Date.now() - ABANDONED_PENDING_TTL_MS - 1_000),
+      });
+      await insertFileRow({
+        id: foreignReadyId,
+        companyId: kitIdentities.companies.b,
+        uploadedByUserId: kitIdentities.users.boris,
+        status: "ready",
+        updatedAt: new Date(0),
+        stagingPurgedAt: new Date(0),
+      });
+      await putStoreObject(stagingKey(kitIdentities.companies.a, abandonedId));
+      await putStoreObject(
+        catalogKey(kitIdentities.companies.b, foreignReadyId),
+      );
+
+      await enqueueMaintenanceJob(
+        SWEEP_ABANDONED_UPLOADS_JOB_NAME,
+        randomUUID(),
+      );
+
+      expect(await fileRow(abandonedId)).toBeUndefined();
+      expect(await fileRow(foreignReadyId)).toMatchObject({ status: "ready" });
+      expect(
+        await getFilesObjectStore().headObject(
+          catalogKey(kitIdentities.companies.b, foreignReadyId),
+        ),
+      ).not.toBe("missing");
+    } finally {
+      await booted.close();
+    }
+  });
+
+  it("logs counts only — no URL or object key", async () => {
+    const lines: string[] = [];
+    const logger = createProcessLogger({
+      name: "worker-sweep-logs",
+      destination: {
+        write(chunk: string) {
+          lines.push(chunk);
+        },
+      },
+    });
+    const booted = await bootSweepHost(logger);
+    try {
+      const dueId = randomUUID();
+      await insertFileRow({
+        id: dueId,
+        companyId: kitIdentities.companies.a,
+        uploadedByUserId: kitIdentities.users.anna,
+        status: "pending",
+        createdAt: new Date(Date.now() - ABANDONED_PENDING_TTL_MS - 1_000),
+      });
+      await putStoreObject(stagingKey(kitIdentities.companies.a, dueId));
+      await enqueueMaintenanceJob(
+        SWEEP_ABANDONED_UPLOADS_JOB_NAME,
+        randomUUID(),
+      );
+      const payload = lines.join("\n");
+      expect(payload).toContain("abandoned uploads swept");
+      expect(payload).toContain("abandoned_pending_deleted");
+      expect(payload).toContain("leftover_staging_deleted");
+      expect(payload).not.toMatch(/\/catalog\//);
+      expect(payload).not.toMatch(/\/uploads\//);
+      expect(payload).not.toContain(garageEndpoint);
+      expect(payload).not.toContain(GARAGE_SECRET_KEY);
+    } finally {
+      await booted.close();
+    }
+  });
+
+  it("replays one idempotency key without extra deletes; a fresh key continues", async () => {
+    const booted = await bootSweepHost();
+    try {
+      const firstId = randomUUID();
+      await insertFileRow({
+        id: firstId,
+        companyId: kitIdentities.companies.a,
+        uploadedByUserId: kitIdentities.users.anna,
+        status: "pending",
+        createdAt: new Date(Date.now() - ABANDONED_PENDING_TTL_MS - 1_000),
+      });
+      await putStoreObject(stagingKey(kitIdentities.companies.a, firstId));
+      const replayKey = randomUUID();
+      await enqueueMaintenanceJob(SWEEP_ABANDONED_UPLOADS_JOB_NAME, replayKey);
+      expect(await fileRow(firstId)).toBeUndefined();
+
+      const secondId = randomUUID();
+      await insertFileRow({
+        id: secondId,
+        companyId: kitIdentities.companies.a,
+        uploadedByUserId: kitIdentities.users.anna,
+        status: "pending",
+        createdAt: new Date(Date.now() - ABANDONED_PENDING_TTL_MS - 1_000),
+      });
+      await putStoreObject(stagingKey(kitIdentities.companies.a, secondId));
+      await enqueueMaintenanceJob(SWEEP_ABANDONED_UPLOADS_JOB_NAME, replayKey);
+      expect(await fileRow(secondId)).toMatchObject({ status: "pending" });
+
+      await enqueueMaintenanceJob(
+        SWEEP_ABANDONED_UPLOADS_JOB_NAME,
+        randomUUID(),
+      );
+      expect(await fileRow(secondId)).toBeUndefined();
+    } finally {
+      await booted.close();
+    }
+  });
+
+  it("processes a given sweep tick once across two hosts sharing Redis", async () => {
+    let runs = 0;
+    const hostA = createJobHost({
+      redisUrl,
+      db: kit.db.runtime.db,
+      logger: silent,
+      workerId: "jobs-sweep-replica-a",
+      cleanupIntervalMs: LONG_INTERVAL_MS,
+      sweepIntervalMs: SINGLE_FLIGHT_INTERVAL_MS,
+      cleanup: () => Promise.resolve(0),
+      sweep: () => {
+        runs += 1;
+        return Promise.resolve({
+          leftoverStagingDeleted: 0,
+          abandonedPendingDeleted: 0,
+        });
+      },
+    });
+    const hostB = createJobHost({
+      redisUrl,
+      db: kit.db.runtime.db,
+      logger: silent,
+      workerId: "jobs-sweep-replica-b",
+      cleanupIntervalMs: LONG_INTERVAL_MS,
+      sweepIntervalMs: SINGLE_FLIGHT_INTERVAL_MS,
+      cleanup: () => Promise.resolve(0),
+      sweep: () => {
+        runs += 1;
+        return Promise.resolve({
+          leftoverStagingDeleted: 0,
+          abandonedPendingDeleted: 0,
+        });
+      },
+    });
+    await hostA.start();
+    await hostB.start();
+    try {
+      await waitUntil(() => Promise.resolve(runs >= 1), 15_000);
+      await hostA.close();
+      await hostB.close();
+      await new Promise((resolve) => setTimeout(resolve, TICK_INTERVAL_MS * 2));
+      expect(runs).toBe(1);
+    } finally {
+      await hostA.close();
+      await hostB.close();
+    }
+  });
+
+  it("keeps the default sweep interval at 5 minutes when boot omits an override", async () => {
+    const booted = await bootWorker(testConfig(), {
+      logger: silent,
+      pollIntervalMs: 60_000,
+      cleanupIntervalMs: LONG_INTERVAL_MS,
+    });
+    try {
+      const schedulers = await withMaintenanceQueue((queue) =>
+        queue.getJobSchedulers(),
+      );
+      expect(
+        requireScheduler(schedulers, SWEEP_ABANDONED_UPLOADS_JOB_NAME).every,
+      ).toBe(SWEEP_INTERVAL_MS);
+    } finally {
+      await booted.close();
     }
   });
 });
