@@ -8,7 +8,8 @@
  * `object_key` is server-derived `{companyId}/catalog/{fileId}`. The CHECK
  * is a mechanical carry-over from T1; finalize still verifies the prefix
  * (security-operations.md §3). Handshake PUT uses `{companyId}/uploads/{fileId}`
- * derived in code and is never stored (SHO-113).
+ * derived in code and is never stored (SHO-113). `staging_purged_at` is the
+ * ready leftover GC cursor (SHO-117).
  */
 import { sql } from "drizzle-orm";
 import {
@@ -30,7 +31,9 @@ import { companies } from "./companies.js";
  * One row per uploaded object. `object_key` is server-derived
  * `{companyId}/catalog/{fileId}` and unique per tenant. Handshake PUT targets
  * `{companyId}/uploads/{fileId}` and is never stored. `pending` rows may
- * have `byte_size = 0` and a null checksum until finalize.
+ * have `byte_size = 0` and a null checksum until finalize. `staging_purged_at`
+ * is null until leftover `{companyId}/uploads/{fileId}` has been confirmed
+ * gone.
  */
 export const files = pgTable(
   "files",
@@ -54,6 +57,7 @@ export const files = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
+    stagingPurgedAt: timestamp("staging_purged_at", { withTimezone: true }),
   },
   (table) => [
     unique("files_company_id_id_uq").on(table.companyId, table.id),
@@ -61,6 +65,16 @@ export const files = pgTable(
     index("files_company_idx").on(table.companyId),
     index("files_company_status_idx").on(table.companyId, table.status),
     index("files_uploaded_by_user_idx").on(table.uploadedByUserId),
+    index("files_status_created_at_id_idx").on(
+      table.status,
+      table.createdAt,
+      table.id,
+    ),
+    index("files_ready_leftover_sweep_idx")
+      .on(table.updatedAt, table.id)
+      .where(
+        sql`${table.status} = 'ready' AND ${table.stagingPurgedAt} IS NULL`,
+      ),
     check("files_purpose_check", sql`${table.purpose} IN ('catalog')`),
     check("files_status_check", sql`${table.status} IN ('pending', 'ready')`),
     check("files_byte_size_check", sql`${table.byteSize} >= 0`),

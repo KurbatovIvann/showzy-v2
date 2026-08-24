@@ -1,7 +1,7 @@
 import type { ActionCtx } from "@showzy/core";
 import { CoreInvariantError } from "@showzy/core/errors";
 import { files } from "@showzy/db/schema/files";
-import { and, asc, eq, lte } from "drizzle-orm";
+import { and, asc, eq, isNull, lte } from "drizzle-orm";
 import type { z } from "zod";
 
 import {
@@ -51,7 +51,7 @@ export async function runAbandonedUploadSweep(input: {
       ? await db
           .select()
           .from(files)
-          .where(eq(files.status, "ready"))
+          .where(and(eq(files.status, "ready"), isNull(files.stagingPurgedAt)))
           .orderBy(asc(files.updatedAt), asc(files.id))
           .limit(remaining)
           .for("update", { skipLocked: true })
@@ -138,16 +138,23 @@ async function sweepReadyLeftoverStaging(input: {
     input.store,
     stagingObjectKey(input.row.companyId, input.row.id),
   );
-  await input.db
+  const marked = await input.db
     .update(files)
-    .set({ updatedAt: new Date() })
+    .set({ stagingPurgedAt: new Date() })
     .where(
       and(
         eq(files.companyId, input.row.companyId),
         eq(files.id, input.row.id),
         eq(files.status, "ready"),
+        isNull(files.stagingPurgedAt),
       ),
+    )
+    .returning({ id: files.id });
+  if (marked[0] === undefined) {
+    throw new CoreInvariantError(
+      "files.sweepAbandonedUploads lost the ready leftover row",
     );
+  }
   return deletedStaging;
 }
 

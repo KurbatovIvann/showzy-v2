@@ -133,6 +133,7 @@ describe("private company files schema slice", () => {
       "status",
       "created_at",
       "updated_at",
+      "staging_purged_at",
     ]);
     for (const row of result.rows) {
       if (row.column_name.endsWith("_at")) {
@@ -147,6 +148,12 @@ describe("private company files schema slice", () => {
     expect(checksum?.is_nullable).toBe("YES");
     const status = result.rows.find((row) => row.column_name === "status");
     expect(status?.column_default).toContain("pending");
+    const stagingPurgedAt = result.rows.find(
+      (row) => row.column_name === "staging_purged_at",
+    );
+    expect(stagingPurgedAt?.data_type).toBe("timestamp with time zone");
+    expect(stagingPurgedAt?.is_nullable).toBe("YES");
+    expect(stagingPurgedAt?.column_default).toBeNull();
     for (const forbidden of [
       "public_url",
       "url",
@@ -177,7 +184,7 @@ describe("private company files schema slice", () => {
     >().toEqualTypeOf<UserId>();
   });
 
-  it("declares UNIQUE (company_id, id), UNIQUE (company_id, object_key), and tenant indexes", async () => {
+  it("declares UNIQUE (company_id, id), UNIQUE (company_id, object_key), tenant indexes, and sweep indexes", async () => {
     const result = await admin.query<{ indexname: string; indexdef: string }>(
       `SELECT indexname, indexdef
        FROM pg_indexes
@@ -201,6 +208,14 @@ describe("private company files schema slice", () => {
     expect(indexes.get("files_uploaded_by_user_idx")).toContain(
       "(uploaded_by_user_id)",
     );
+    expect(indexes.get("files_status_created_at_id_idx")).toContain(
+      "(status, created_at, id)",
+    );
+    const leftoverSweep = indexes.get("files_ready_leftover_sweep_idx");
+    expect(leftoverSweep).toContain("(updated_at, id)");
+    expect(leftoverSweep).toMatch(/status = 'ready'/);
+    expect(leftoverSweep).toMatch(/staging_purged_at IS NULL/);
+    expect(leftoverSweep).not.toContain("UNIQUE");
   });
 
   it("declares company CASCADE and uploader RESTRICT foreign keys", async () => {
@@ -341,6 +356,7 @@ describe("private company files schema slice", () => {
     });
     expect(ready.status).toBe("ready");
     expect(ready.checksumSha256).toBe("a".repeat(64));
+    expect(ready.stagingPurgedAt).toBeNull();
   });
 
   it("rejects object_key values that are not {company_id}/catalog/{id}", async () => {

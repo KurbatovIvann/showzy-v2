@@ -21,7 +21,7 @@ import { auditLog, idempotencyKeys } from "@showzy/db";
 import { user } from "@showzy/db/schema/auth";
 import { companyMembers } from "@showzy/db/schema/companies";
 import { files } from "@showzy/db/schema/files";
-import { and, count, eq } from "drizzle-orm";
+import { and, count, eq, isNull } from "drizzle-orm";
 import {
   GenericContainer,
   Wait,
@@ -1023,6 +1023,43 @@ describe("files.sweepAbandonedUploads", () => {
     throw new Error("abandoned pending drain did not empty the batch");
   }
 
+  async function countUnpurgedReady(): Promise<number> {
+    const rows = await requireKit()
+      .db.runtime.db.select({ value: count() })
+      .from(files)
+      .where(and(eq(files.status, "ready"), isNull(files.stagingPurgedAt)));
+    return rows[0]?.value ?? 0;
+  }
+
+  async function drainUnpurgedReady(): Promise<void> {
+    await drainAbandonedPending();
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      if ((await countUnpurgedReady()) === 0) {
+        return;
+      }
+      await requireKit().invoke(sweepAbandonedUploads, {});
+    }
+    throw new Error("ready leftover drain did not empty the batch");
+  }
+
+  async function fileCursor(id: string): Promise<{
+    readonly stagingPurgedAt: Date | null;
+    readonly updatedAt: Date;
+  }> {
+    const rows = await requireKit()
+      .db.runtime.db.select({
+        stagingPurgedAt: files.stagingPurgedAt,
+        updatedAt: files.updatedAt,
+      })
+      .from(files)
+      .where(eq(files.id, id));
+    const row = rows[0];
+    if (row === undefined) {
+      throw new Error(`expected file row ${id}`);
+    }
+    return row;
+  }
+
   it("leaves in-flight pending objects and the row in place", async () => {
     const fileId = await requestAndPut(jpegBytes, "image/jpeg");
     await putStoreObject(catalogObjectKey(kitIdentities.companies.a, fileId));
@@ -1048,7 +1085,7 @@ describe("files.sweepAbandonedUploads", () => {
   });
 
   it("discovers leftover staging on ready files in both companies without touching catalog bytes", async () => {
-    await drainAbandonedPending();
+    await drainUnpurgedReady();
     const requestedA = await requireKit().invoke(requestUpload, jpegInput);
     const signedA = await mintPut(requestedA.fileId);
     await putSigned(signedA.uploadUrl, jpegBytes, "image/jpeg");
@@ -1078,7 +1115,7 @@ describe("files.sweepAbandonedUploads", () => {
       {},
       { deps: { ...requireKit().pipeline, logger: capturing.logger } },
     );
-    expect(result.leftoverStagingDeleted).toBeGreaterThanOrEqual(2);
+    expect(result.leftoverStagingDeleted).toBe(2);
 
     const store = getFilesObjectStore();
     expect(
@@ -1104,6 +1141,8 @@ describe("files.sweepAbandonedUploads", () => {
     }
     expect(sha256Hex(catalogA.bytes)).toBe(jpegChecksum);
     expect(sha256Hex(catalogB.bytes)).toBe(pngChecksum);
+    expect((await fileCursor(readyA.fileId)).stagingPurgedAt).not.toBeNull();
+    expect((await fileCursor(readyB.fileId)).stagingPurgedAt).not.toBeNull();
 
     const download = await requireKit().invoke(getDownloadUrl, {
       fileId: readyA.fileId,
@@ -1302,34 +1341,76 @@ describe("files.sweepAbandonedUploads", () => {
     ).toHaveLength(0);
   });
 
-  it("does not count leftover staging when the handshake object is already missing", async () => {
-    await drainAbandonedPending();
-    const id = randomUUID();
+  it("marks a ready HEAD miss so a later tick skips the row", async () => {
+    await drainUnpurgedReady();
+    const cleanedId = randomUUID();
+    const leftoverId = randomUUID();
     await insertFileRow({
-      id,
+      id: cleanedId,
       companyId: kitIdentities.companies.a,
       uploadedByUserId: kitIdentities.users.anna,
       status: "ready",
       updatedAt: sweepEpoch,
     });
-    await putStoreObject(catalogObjectKey(kitIdentities.companies.a, id));
+    await putStoreObject(
+      catalogObjectKey(kitIdentities.companies.a, cleanedId),
+    );
 
     const capturing = createCapturingLogger();
-    const result = await requireKit().invoke(
+    const first = await requireKit().invoke(
       sweepAbandonedUploads,
       { limit: 1 },
       {},
       { deps: { ...requireKit().pipeline, logger: capturing.logger } },
     );
-    expect(result.leftoverStagingDeleted).toBe(0);
+    expect(first.leftoverStagingDeleted).toBe(0);
+    const afterFirst = await fileCursor(cleanedId);
+    expect(afterFirst.stagingPurgedAt).not.toBeNull();
     expect(
       await getFilesObjectStore().headObject(
-        catalogObjectKey(kitIdentities.companies.a, id),
+        catalogObjectKey(kitIdentities.companies.a, cleanedId),
       ),
     ).not.toBe("missing");
     const logs = JSON.stringify(capturing.entries());
     expect(logs).not.toMatch(/\/catalog\//);
     expect(logs).not.toMatch(/\/uploads\//);
+
+    await insertFileRow({
+      id: leftoverId,
+      companyId: kitIdentities.companies.a,
+      uploadedByUserId: kitIdentities.users.anna,
+      status: "ready",
+      updatedAt: new Date(Date.now() + 60 * 60 * 1000),
+    });
+    await putStoreObject(
+      catalogObjectKey(kitIdentities.companies.a, leftoverId),
+    );
+    await putStoreObject(
+      stagingObjectKey(kitIdentities.companies.a, leftoverId),
+    );
+
+    const second = await requireKit().invoke(sweepAbandonedUploads, {
+      limit: 1,
+    });
+    expect(second.leftoverStagingDeleted).toBe(1);
+    const afterSecond = await fileCursor(cleanedId);
+    expect(afterSecond.stagingPurgedAt?.getTime()).toBe(
+      afterFirst.stagingPurgedAt?.getTime(),
+    );
+    expect(afterSecond.updatedAt.getTime()).toBe(
+      afterFirst.updatedAt.getTime(),
+    );
+    expect(
+      await getFilesObjectStore().headObject(
+        stagingObjectKey(kitIdentities.companies.a, leftoverId),
+      ),
+    ).toBe("missing");
+    expect(
+      await getFilesObjectStore().headObject(
+        catalogObjectKey(kitIdentities.companies.a, leftoverId),
+      ),
+    ).not.toBe("missing");
+    expect((await fileCursor(leftoverId)).stagingPurgedAt).not.toBeNull();
   });
 
   it("replays the same idempotency key after deleting an abandoned row", async () => {
