@@ -907,7 +907,14 @@ describe("apps/worker sweepAbandonedUploads scheduler (SHO-120)", () => {
         SWEEP_ABANDONED_UPLOADS_JOB_NAME,
         randomUUID(),
       );
-      expect(batchIndexes).toEqual([0, 1, 2]);
+      // The sweep scheduler also enqueues its first iteration on start, so
+      // the stub may run for two jobs. Worker concurrency is 1, so drains
+      // never interleave: every drain walks 0 → 1 → 2 through the two full
+      // batches and stops at the partial third — no drain requests a
+      // fourth batch.
+      expect(batchIndexes.length).toBeGreaterThanOrEqual(3);
+      expect(batchIndexes.slice(0, 3)).toEqual([0, 1, 2]);
+      expect(Math.max(...batchIndexes)).toBe(2);
     } finally {
       await host.close();
     }
