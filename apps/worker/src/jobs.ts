@@ -2,8 +2,10 @@
  * BullMQ job host (fnd-T29, ADR-0007 / SHO-120). One dedicated Redis
  * connection (`maxRetriesPerRequest: null`), prefix `showzy`, queue
  * `maintenance`. Processors stay thin: idempotency cleanup calls the core
- * library; abandoned-upload GC invokes the registered system action.
- * Domain event delivery stays on the outbox loop (ADR-0012).
+ * library; abandoned-upload GC invokes the registered system action in
+ * bounded batches until the backlog drains or the per-tick cap is hit.
+ * Failed jobs retry with exponential backoff before waiting for the next
+ * schedule. Domain event delivery stays on the outbox loop (ADR-0012).
  */
 import { randomUUID } from "node:crypto";
 
@@ -23,16 +25,53 @@ import {
   BULLMQ_PREFIX,
   CLEANUP_INTERVAL_MS,
   IDEMPOTENCY_CLEANUP_JOB_NAME,
+  MAINTENANCE_JOB_ATTEMPTS,
+  MAINTENANCE_JOB_BACKOFF_MS,
   MAINTENANCE_LOCK_DURATION_MS,
   MAINTENANCE_QUEUE_NAME,
   MAINTENANCE_SERVICE_NAME,
   SWEEP_ABANDONED_UPLOADS_JOB_NAME,
+  SWEEP_BATCH_SIZE,
   SWEEP_INTERVAL_MS,
+  SWEEP_MAX_BATCHES_PER_TICK,
 } from "./policy.js";
 
 export interface SweepTickResult {
   readonly leftoverStagingDeleted: number;
   readonly abandonedPendingDeleted: number;
+}
+
+export interface SweepDrainResult extends SweepTickResult {
+  readonly batches: number;
+}
+
+/**
+ * Run sweep batches until one deletes fewer rows than a full batch or the
+ * per-tick cap is hit. A full batch means more backlog is likely waiting,
+ * so one tick drains it instead of leaving 20 rows per 5 minutes. A full
+ * batch whose ready rows had already-missing staging under-counts and
+ * stops early; those rows are marked purged, so the next tick continues.
+ */
+export async function drainSweepBatches(input: {
+  readonly runBatch: (batchIndex: number) => Promise<SweepTickResult>;
+  readonly batchSize: number;
+  readonly maxBatches: number;
+}): Promise<SweepDrainResult> {
+  let leftoverStagingDeleted = 0;
+  let abandonedPendingDeleted = 0;
+  let batches = 0;
+  while (batches < input.maxBatches) {
+    const batch = await input.runBatch(batches);
+    batches += 1;
+    leftoverStagingDeleted += batch.leftoverStagingDeleted;
+    abandonedPendingDeleted += batch.abandonedPendingDeleted;
+    const deleted =
+      batch.leftoverStagingDeleted + batch.abandonedPendingDeleted;
+    if (deleted < input.batchSize) {
+      break;
+    }
+  }
+  return { leftoverStagingDeleted, abandonedPendingDeleted, batches };
 }
 
 export interface JobHost {
@@ -55,8 +94,8 @@ export interface CreateJobHostOptions {
   readonly pipeline?: ActionPipelineDeps;
   /** Test seam to observe or gate a tick; production omits this. */
   cleanup?: () => Promise<number>;
-  /** Test seam to observe or gate a sweep tick; production omits this. */
-  sweep?: () => Promise<SweepTickResult>;
+  /** Test seam to observe or gate one sweep batch; production omits this. */
+  sweep?: (batchIndex: number) => Promise<SweepTickResult>;
 }
 
 type MaintenanceJob = Job<Record<string, never>, number>;
@@ -74,9 +113,12 @@ export function createJobHost(options: CreateJobHostOptions): JobHost {
         ? cleanupExpiredIdempotencyKeys(options.db)
         : cleanupExpiredIdempotencyKeys(options.db, options.now));
 
-  async function runSweep(job: MaintenanceJob): Promise<SweepTickResult> {
+  async function runSweepBatch(
+    jobKey: string,
+    batchIndex: number,
+  ): Promise<SweepTickResult> {
     if (options.sweep !== undefined) {
-      return options.sweep();
+      return options.sweep(batchIndex);
     }
     if (options.pipeline === undefined) {
       throw new CoreInvariantError(
@@ -85,18 +127,29 @@ export function createJobHost(options: CreateJobHostOptions): JobHost {
     }
     return executeAction(options.pipeline, {
       action: sweepAbandonedUploads,
-      input: {},
+      input: { limit: SWEEP_BATCH_SIZE },
       request: {
         requestId: randomUUID(),
         correlationId: randomUUID(),
         channel: "system",
-        idempotencyKey: job.id ?? randomUUID(),
+        // Stable per (job, batch): a stalled or retried job replays the
+        // batches it already completed instead of re-deleting.
+        idempotencyKey: `${jobKey}#${String(batchIndex)}`,
       },
       principal: {
         mode: "system",
         serviceName: MAINTENANCE_SERVICE_NAME,
         scope: { scope: "global" },
       },
+    });
+  }
+
+  function runSweep(job: MaintenanceJob): Promise<SweepDrainResult> {
+    const jobKey = job.id ?? randomUUID();
+    return drainSweepBatches({
+      runBatch: (batchIndex) => runSweepBatch(jobKey, batchIndex),
+      batchSize: SWEEP_BATCH_SIZE,
+      maxBatches: SWEEP_MAX_BATCHES_PER_TICK,
     });
   }
 
@@ -119,6 +172,7 @@ export function createJobHost(options: CreateJobHostOptions): JobHost {
             worker_id: options.workerId,
             leftover_staging_deleted: swept.leftoverStagingDeleted,
             abandoned_pending_deleted: swept.abandonedPendingDeleted,
+            sweep_batches: swept.batches,
           },
           "abandoned uploads swept",
         );
@@ -176,16 +230,22 @@ export function createJobHost(options: CreateJobHostOptions): JobHost {
           "maintenance job failed",
         );
       });
+      const maintenanceJobOpts = {
+        removeOnComplete: true,
+        removeOnFail: 50,
+        attempts: MAINTENANCE_JOB_ATTEMPTS,
+        backoff: {
+          type: "exponential",
+          delay: MAINTENANCE_JOB_BACKOFF_MS,
+        },
+      } as const;
       await queue.upsertJobScheduler(
         IDEMPOTENCY_CLEANUP_JOB_NAME,
         { every: cleanupIntervalMs },
         {
           name: IDEMPOTENCY_CLEANUP_JOB_NAME,
           data: {},
-          opts: {
-            removeOnComplete: true,
-            removeOnFail: 50,
-          },
+          opts: maintenanceJobOpts,
         },
       );
       await queue.upsertJobScheduler(
@@ -194,10 +254,7 @@ export function createJobHost(options: CreateJobHostOptions): JobHost {
         {
           name: SWEEP_ABANDONED_UPLOADS_JOB_NAME,
           data: {},
-          opts: {
-            removeOnComplete: true,
-            removeOnFail: 50,
-          },
+          opts: maintenanceJobOpts,
         },
       );
       await worker.waitUntilReady();
