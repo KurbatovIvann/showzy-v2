@@ -7,7 +7,11 @@ export function TextField(props: {
   readonly onChangeText: (value: string) => void;
   readonly placeholder: string;
   readonly accessibilityLabel: string;
-  readonly keyboardType?: "phone-pad" | "email-address";
+  readonly keyboardType?: "phone-pad" | "email-address" | "default";
+  readonly autoCapitalize?: "none" | "sentences" | "words" | "characters";
+  readonly autoCorrect?: boolean;
+  readonly autoComplete?: "email" | "tel" | "off" | "organization";
+  readonly maxLength?: number;
   readonly error?: string | null;
   readonly editable?: boolean;
   readonly label?: string;
@@ -20,7 +24,19 @@ export function TextField(props: {
   const size = props.size ?? "default";
   const auth = size === "auth";
   const hasError = props.error != null && props.error.length > 0;
-  const phone = props.keyboardType === "phone-pad";
+  const keyboardType = props.keyboardType ?? "email-address";
+  const phone = keyboardType === "phone-pad";
+  const email = keyboardType === "email-address";
+  const autoComplete =
+    props.autoComplete ?? (phone ? "tel" : email ? "email" : "off");
+  const textContentType = phone
+    ? "telephoneNumber"
+    : email
+      ? "emailAddress"
+      : autoComplete === "organization"
+        ? "organizationName"
+        : "none";
+  const tabular = phone || email;
 
   return (
     <View>
@@ -44,12 +60,13 @@ export function TextField(props: {
           onChangeText={props.onChangeText}
           placeholder={props.placeholder}
           accessibilityLabel={props.accessibilityLabel}
-          keyboardType={props.keyboardType ?? "email-address"}
+          keyboardType={keyboardType}
           keyboardAppearance={rt.themeName === "dark" ? "dark" : "light"}
-          autoComplete={phone ? "tel" : "email"}
-          textContentType={phone ? "telephoneNumber" : "emailAddress"}
-          autoCapitalize="none"
-          autoCorrect={false}
+          autoComplete={autoComplete}
+          textContentType={textContentType}
+          autoCapitalize={props.autoCapitalize ?? "none"}
+          autoCorrect={props.autoCorrect ?? false}
+          maxLength={props.maxLength}
           editable={props.editable !== false}
           placeholderTextColor={
             auth ? theme.colors.icon.muted : theme.colors.mutedForeground
@@ -60,7 +77,11 @@ export function TextField(props: {
           onBlur={() => {
             setFocused(false);
           }}
-          style={[styles.input, auth ? styles.inputAuth : null]}
+          style={[
+            styles.input,
+            auth ? styles.inputAuth : null,
+            tabular ? styles.tabular : null,
+          ]}
         />
       </View>
       {hasError ? (
@@ -117,6 +138,8 @@ const styles = StyleSheet.create((theme) => ({
   },
   inputAuth: {
     fontSize: theme.typography.md.fontSize,
+  },
+  tabular: {
     fontVariant: ["tabular-nums"],
   },
   error: {
