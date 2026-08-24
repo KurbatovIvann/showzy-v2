@@ -1,5 +1,3 @@
-import { contractRouter } from "@showzy/contract";
-
 import type { ContractClient } from "./client";
 import {
   accountContractQueryKey,
@@ -8,7 +6,7 @@ import {
 
 export const LIST_MINE_ACTION = "companies.listMine";
 
-type ShowzyClient = ContractClient<typeof contractRouter>;
+type ShowzyClient = ContractClient;
 export type ListMineOutput = Awaited<
   ReturnType<ShowzyClient["client"]["companies"]["listMine"]>
 >;
