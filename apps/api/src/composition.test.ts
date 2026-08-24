@@ -45,6 +45,8 @@ describe("composition root identity", () => {
     expect(bootSource).toContain('from "./composition.js"');
     expect(bootSource).toContain("createActionRegistry");
     expect(bootSource).toContain("configureFilesObjectStore");
+    expect(bootSource).toContain("probeFilesObjectStore");
+    expect(bootSource).toContain("closeFilesObjectStore");
     expect(bootSource).not.toMatch(/new ActionRegistry\s*\(/);
   });
 

@@ -3,8 +3,9 @@
  *
  * Structured logs and Sentry events must never carry raw OTPs, tokens,
  * secrets, connection passwords, full documents, raw webhook/payment
- * payloads, or unredacted personal input. The walker is the authority;
- * pino path lists and Sentry `beforeSend` both run this function.
+ * payloads, unredacted personal input, object keys, or signed object-store
+ * URLs. The walker is the authority; pino path lists and Sentry `beforeSend`
+ * both run this function.
  */
 
 /** Replacement written in place of a sensitive value. Safe to log. */
@@ -65,6 +66,9 @@ const SENSITIVE_KEYS = new Set([
   "webhookbody",
   "documenthtml",
   "documentcontent",
+  "uploadurl",
+  "downloadurl",
+  "objectkey",
 ]);
 
 const SENSITIVE_SUFFIXES = [
@@ -113,6 +117,17 @@ function redactUriUserinfo(value: string, protocol: string): string {
 }
 
 /**
+ * AWS SigV4 (Garage, R2, S3) and legacy SigV2 query credentials. Host and
+ * object path may remain; the bearer signature must not.
+ */
+function redactPresignedQuery(value: string): string {
+  return value.replaceAll(
+    /([?&](?:X-Amz-Signature|X-Amz-Credential|X-Amz-Security-Token|AWSAccessKeyId|Signature)=)([^&\s"'<>]+)/gi,
+    `$1${REDACTED}`,
+  );
+}
+
+/**
  * Strip credentials out of free-text so a connection string or Bearer
  * token accidentally interpolated into a message still cannot leak.
  */
@@ -129,10 +144,11 @@ export function redactText(value: string): string {
     /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g,
     REDACTED,
   );
-  return next.replaceAll(
+  next = next.replaceAll(
     /\b(?:otp|verification[_-]?code)\s*[:=]?\s*\d{4,8}\b/gi,
     `otp ${REDACTED}`,
   );
+  return redactPresignedQuery(next);
 }
 
 function redactError(error: Error): Error {

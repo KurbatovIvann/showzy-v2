@@ -104,6 +104,117 @@ export function normalizeObjectEtag(etag: string): string {
   return value;
 }
 
+export interface FilesObjectStoreErrorCause {
+  readonly code: string;
+  readonly httpStatusCode?: number;
+}
+
+const TIMEOUT_CODES = new Set([
+  "Timeout",
+  "TimeoutError",
+  "TimeoutErrorException",
+  "RequestTimeout",
+  "RequestTimeoutException",
+  "ETIMEDOUT",
+  "UND_ERR_CONNECT_TIMEOUT",
+  "UND_ERR_HEADERS_TIMEOUT",
+  "UND_ERR_BODY_TIMEOUT",
+  "AbortError",
+]);
+
+function readErrorToken(error: object): string | undefined {
+  if ("name" in error && typeof error.name === "string") {
+    const name = error.name;
+    if (name !== "" && name !== "Error" && name !== "S3ServiceException") {
+      return name;
+    }
+  }
+  if ("Code" in error && typeof error.Code === "string" && error.Code !== "") {
+    return error.Code;
+  }
+  if ("code" in error && typeof error.code === "string" && error.code !== "") {
+    return error.code;
+  }
+  return undefined;
+}
+
+function readHttpStatus(error: object): number | undefined {
+  if (!("$metadata" in error)) {
+    return undefined;
+  }
+  const metadata = error.$metadata;
+  if (typeof metadata !== "object" || metadata === null) {
+    return undefined;
+  }
+  if (!("httpStatusCode" in metadata)) {
+    return undefined;
+  }
+  return typeof metadata.httpStatusCode === "number"
+    ? metadata.httpStatusCode
+    : undefined;
+}
+
+function classifyObjectStoreError(error: unknown): string {
+  if (typeof error !== "object" || error === null) {
+    return "Unknown";
+  }
+  const token = readErrorToken(error);
+  const message = error instanceof Error ? error.message : "";
+  if (
+    (token !== undefined && TIMEOUT_CODES.has(token)) ||
+    /\btimeout\b/i.test(message)
+  ) {
+    return "Timeout";
+  }
+  if (
+    /checksum|bad[\s-]?digest|integrity|contentsha256|crc32|crc64/i.test(
+      `${token ?? ""} ${message}`,
+    )
+  ) {
+    return "ChecksumMismatch";
+  }
+  return token ?? "Unknown";
+}
+
+/** Stable, URL-free cause for Sentry. Never copies the AWS message. */
+export function filesObjectStoreErrorCause(
+  error: unknown,
+): FilesObjectStoreErrorCause {
+  const code = classifyObjectStoreError(error);
+  const httpStatusCode =
+    typeof error === "object" && error !== null
+      ? readHttpStatus(error)
+      : undefined;
+  if (httpStatusCode === undefined) {
+    return { code };
+  }
+  return { code, httpStatusCode };
+}
+
+function objectStoreFailureMessage(
+  operation: string,
+  cause: FilesObjectStoreErrorCause,
+): string {
+  if (cause.httpStatusCode === undefined) {
+    return `files object store ${operation} failed (${cause.code})`;
+  }
+  return `files object store ${operation} failed (${cause.code}, http ${String(cause.httpStatusCode)})`;
+}
+
+function rethrowObjectStoreFailure(operation: string, error: unknown): never {
+  if (error instanceof CoreInvariantError) {
+    throw error;
+  }
+  const cause = filesObjectStoreErrorCause(error);
+  throw new CoreInvariantError(objectStoreFailureMessage(operation, cause), {
+    cause,
+  });
+}
+
+export async function probeFilesObjectStore(): Promise<void> {
+  await getFilesObjectStore().probeBucket();
+}
+
 export function createFilesObjectStore(
   config: FilesS3Config,
 ): FilesObjectStore {
@@ -136,8 +247,8 @@ export function createFilesObjectStore(
           { expiresIn: SIGNED_URL_TTL_SEC },
         );
         return { url, expiresAt };
-      } catch {
-        throw new CoreInvariantError("files object store signPut failed");
+      } catch (error) {
+        rethrowObjectStoreFailure("signPut", error);
       }
     },
 
@@ -156,8 +267,8 @@ export function createFilesObjectStore(
           { expiresIn: SIGNED_URL_TTL_SEC },
         );
         return { url, expiresAt };
-      } catch {
-        throw new CoreInvariantError("files object store signGet failed");
+      } catch (error) {
+        rethrowObjectStoreFailure("signGet", error);
       }
     },
 
@@ -180,7 +291,7 @@ export function createFilesObjectStore(
         if (isMissingObject(error)) {
           return "missing";
         }
-        throw new CoreInvariantError("files object store HeadObject failed");
+        rethrowObjectStoreFailure("HeadObject", error);
       }
     },
 
@@ -205,7 +316,7 @@ export function createFilesObjectStore(
         if (isMissingObject(error)) {
           return "missing";
         }
-        throw new CoreInvariantError("files object store GetObject failed");
+        rethrowObjectStoreFailure("GetObject", error);
       }
     },
 
@@ -220,8 +331,8 @@ export function createFilesObjectStore(
             ContentLength: input.bytes.byteLength,
           }),
         );
-      } catch {
-        throw new CoreInvariantError("files object store PutObject failed");
+      } catch (error) {
+        rethrowObjectStoreFailure("PutObject", error);
       }
     },
 
@@ -234,15 +345,15 @@ export function createFilesObjectStore(
         if (isMissingObject(error)) {
           return;
         }
-        throw new CoreInvariantError("files object store DeleteObject failed");
+        rethrowObjectStoreFailure("DeleteObject", error);
       }
     },
 
     async probeBucket() {
       try {
         await client.send(new HeadBucketCommand({ Bucket: bucket }));
-      } catch {
-        throw new CoreInvariantError("files object store HeadBucket failed");
+      } catch (error) {
+        rethrowObjectStoreFailure("HeadBucket", error);
       }
     },
 

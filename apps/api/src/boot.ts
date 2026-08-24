@@ -8,7 +8,11 @@ import { getConnInfo } from "@hono/node-server/conninfo";
 import type { ServerConfig } from "@showzy/config";
 import { contractModules } from "@showzy/contract";
 import { createDbClient } from "@showzy/db";
-import { configureFilesObjectStore } from "@showzy/files/storage";
+import {
+  closeFilesObjectStore,
+  configureFilesObjectStore,
+  probeFilesObjectStore,
+} from "@showzy/files/storage";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import type { Context } from "hono";
@@ -47,6 +51,12 @@ function peerAddressFromConnInfo(c: Context): string {
 
 export async function bootApi(config: ServerConfig): Promise<BootedApi> {
   configureFilesObjectStore(config.s3);
+  try {
+    await probeFilesObjectStore();
+  } catch (error) {
+    closeFilesObjectStore();
+    throw error;
+  }
   const db = createDbClient({ databaseUrl: config.database.url });
   const redis = new Redis(config.redis.url);
   await redis.ping();
@@ -103,6 +113,7 @@ export async function bootApi(config: ServerConfig): Promise<BootedApi> {
   return {
     app,
     async close() {
+      closeFilesObjectStore();
       await redis.quit();
       await db.pool.end();
     },
