@@ -12,6 +12,7 @@ import {
   nextLastSubmitted,
   planCreateCompanySubmit,
   resolveCreateCompanyCopy,
+  shouldApplyCreatedCompany,
   validateCreateCompanyForm,
   type CompanyMembership,
 } from "./create-company-form";
@@ -140,6 +141,42 @@ describe("mapCreateCompanyFailure", () => {
       slugError: null,
       banner: null,
     });
+  });
+
+  it("does not treat in-flight or idempotency-key collisions as a taken slug", () => {
+    expect(mapCreateCompanyFailure("conflict", "RETRY_IN_PROGRESS")).toEqual({
+      slugError: null,
+      banner: "unavailable",
+    });
+    expect(mapCreateCompanyFailure("conflict", "IDEMPOTENCY_CONFLICT")).toEqual(
+      {
+        slugError: null,
+        banner: "unavailable",
+      },
+    );
+    expect(
+      planCreateCompanySubmit({
+        name: "Cafe",
+        slug: "cafe",
+        lastSubmitted: { name: "Cafe", slug: "cafe" },
+        lastFailureKind: "conflict",
+        lastWireCode: "RETRY_IN_PROGRESS",
+      }),
+    ).toEqual({ kind: "retry" });
+  });
+});
+
+describe("shouldApplyCreatedCompany", () => {
+  it("skips selector and navigation after unmount or a dropped client", () => {
+    expect(
+      shouldApplyCreatedCompany({ mounted: true, clientReady: true }),
+    ).toBe(true);
+    expect(
+      shouldApplyCreatedCompany({ mounted: false, clientReady: true }),
+    ).toBe(false);
+    expect(
+      shouldApplyCreatedCompany({ mounted: true, clientReady: false }),
+    ).toBe(false);
   });
 });
 

@@ -1,4 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
+import type { WireErrorCode } from "@showzy/contract";
 
 import type { QueryFailureKind } from "../../../api/errors";
 import { contractQueryKey } from "../../../api/query-options";
@@ -55,6 +56,22 @@ const RETRYABLE_FAILURE: ReadonlySet<QueryFailureKind> = new Set([
   "internal",
 ]);
 
+/** Same attempt — not a taken slug. Collapsed into `conflict` by describeQueryFailure. */
+const RETRYABLE_WIRE: ReadonlySet<WireErrorCode> = new Set([
+  "RETRY_IN_PROGRESS",
+  "IDEMPOTENCY_CONFLICT",
+]);
+
+export function isCreateCompanyRetryable(
+  kind: QueryFailureKind | null,
+  wireCode: WireErrorCode | null = null,
+): boolean {
+  if (wireCode !== null && RETRYABLE_WIRE.has(wireCode)) {
+    return true;
+  }
+  return kind !== null && RETRYABLE_FAILURE.has(kind);
+}
+
 export function createCompanyPayload(
   name: string,
   slug: string,
@@ -93,6 +110,7 @@ export function planCreateCompanySubmit(args: {
   readonly slug: string;
   readonly lastSubmitted: CreateCompanyInput | null;
   readonly lastFailureKind: QueryFailureKind | null;
+  readonly lastWireCode?: WireErrorCode | null;
 }): CreateCompanySubmitPlan {
   const errors = validateCreateCompanyForm(args.name, args.slug);
   if (!isCreateCompanyFormValid(errors)) {
@@ -103,8 +121,7 @@ export function planCreateCompanySubmit(args: {
     args.lastSubmitted !== null &&
     args.lastSubmitted.name === input.name &&
     args.lastSubmitted.slug === input.slug &&
-    args.lastFailureKind !== null &&
-    RETRYABLE_FAILURE.has(args.lastFailureKind)
+    isCreateCompanyRetryable(args.lastFailureKind, args.lastWireCode ?? null)
   ) {
     return { kind: "retry" };
   }
@@ -119,10 +136,16 @@ export function nextLastSubmitted(
   return plan.kind === "submit" ? plan.input : previous;
 }
 
-export function mapCreateCompanyFailure(kind: QueryFailureKind | null): {
+export function mapCreateCompanyFailure(
+  kind: QueryFailureKind | null,
+  wireCode: WireErrorCode | null = null,
+): {
   readonly slugError: SlugErrorKey | null;
   readonly banner: BannerKey | null;
 } {
+  if (wireCode !== null && RETRYABLE_WIRE.has(wireCode)) {
+    return { slugError: null, banner: "unavailable" };
+  }
   if (kind === null) {
     return { slugError: null, banner: null };
   }
@@ -213,6 +236,13 @@ export function mergeCreatedMembership(
     (row) => row.company.id !== created.company.id,
   );
   return { memberships: [...rest, created] };
+}
+
+export function shouldApplyCreatedCompany(args: {
+  readonly mounted: boolean;
+  readonly clientReady: boolean;
+}): boolean {
+  return args.mounted && args.clientReady;
 }
 
 /**

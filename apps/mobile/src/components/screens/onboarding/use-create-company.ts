@@ -1,10 +1,10 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useApiClient } from "../../../api/api-provider";
 import { useContractMutation } from "../../../api/contract-mutation";
-import { describeQueryFailure } from "../../../api/errors";
+import { describeQueryFailure, describeWireError } from "../../../api/errors";
 import { useActiveCompany } from "../../../api/query-provider";
 import { onboardingCopy } from "../../../i18n/onboarding";
 import { detectLocale } from "../../../i18n/locale";
@@ -14,6 +14,7 @@ import {
   nextLastSubmitted,
   planCreateCompanySubmit,
   resolveCreateCompanyCopy,
+  shouldApplyCreatedCompany,
   type CreateCompanyFieldErrors,
   type CreateCompanyInput,
 } from "./create-company-form";
@@ -27,6 +28,13 @@ export function useCreateCompany() {
   const apiClient = useApiClient();
   const apiRef = useRef(apiClient);
   apiRef.current = apiClient;
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
   const { setActiveCompany } = useActiveCompany();
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -51,7 +59,11 @@ export function useCreateCompany() {
   const failure = mutation.isError
     ? describeQueryFailure(mutation.error)
     : null;
-  const mapped = mapCreateCompanyFailure(failure?.kind ?? null);
+  const wire = mutation.isError ? describeWireError(mutation.error) : null;
+  const mapped = mapCreateCompanyFailure(
+    failure?.kind ?? null,
+    wire?.code ?? null,
+  );
   const resolved = resolveCreateCompanyCopy(copy, {
     nameError: clientErrors.name,
     slugError: clientErrors.slug ?? mapped.slugError,
@@ -89,6 +101,7 @@ export function useCreateCompany() {
       slug,
       lastSubmitted,
       lastFailureKind: failure?.kind ?? null,
+      lastWireCode: wire?.code ?? null,
     });
     if (plan.kind === "invalid") {
       setClientErrors(plan.errors);
@@ -100,6 +113,14 @@ export function useCreateCompany() {
         plan.kind === "retry"
           ? await mutation.retry()
           : await mutation.submit(plan.input);
+      if (
+        !shouldApplyCreatedCompany({
+          mounted: mountedRef.current,
+          clientReady: apiRef.current !== null,
+        })
+      ) {
+        return;
+      }
       applyCreatedCompany({
         membership,
         setActiveCompany,
