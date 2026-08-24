@@ -58,4 +58,27 @@ describe("createProcessLogger", () => {
     );
     expect(JSON.stringify(entries())).not.toContain(DB_PASSWORD);
   });
+
+  it("never writes a presigned URL signature or objectKey field to the log sink", () => {
+    const signature =
+      "aa11bb22cc33dd44ee55ff6677889900aa11bb22cc33dd44ee55ff6677889900";
+    const objectKey =
+      "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/catalog/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
+    const uploadUrl = `https://garage.example:3900/showzy/${objectKey}?X-Amz-Signature=${signature}`;
+    const { logger, entries } = captureLogger();
+    logger.info(
+      { request_id: "req-files", uploadUrl, objectKey },
+      `signed PUT ${uploadUrl}`,
+    );
+
+    const [entry] = entries();
+    expect(entry).toBeDefined();
+    expect(entry?.["request_id"]).toBe("req-files");
+    expect(entry?.["uploadUrl"]).toBe(REDACTED);
+    expect(entry?.["objectKey"]).toBe(REDACTED);
+    expect(entry?.["msg"]).toContain("https://garage.example:3900");
+    const serialized = JSON.stringify(entry);
+    expect(serialized).toContain(REDACTED);
+    expect(serialized).not.toContain(signature);
+  });
 });

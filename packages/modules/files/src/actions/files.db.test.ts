@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
+  CoreInvariantError,
   NotFoundError,
   PermissionDeniedError,
   ValidationError,
@@ -42,6 +43,7 @@ import { SIGNED_PUT_SKEW_MARGIN_MS } from "../services/pending-abandon.js";
 import {
   closeFilesObjectStore,
   configureFilesObjectStore,
+  createFilesObjectStore,
   getFilesObjectStore,
   mapConfiguredFilesObjectStore,
   SIGNED_URL_TTL_SEC,
@@ -115,6 +117,7 @@ const finalizeIdempotentFreshInput = { fileId: "" };
 
 let kit: TestKit | undefined;
 let garage: StartedTestContainer | undefined;
+let garageEndpoint: string | undefined;
 
 function requireKit(): TestKit {
   if (kit === undefined) {
@@ -339,6 +342,7 @@ beforeAll(async () => {
   garage = startedGarage;
 
   const endpoint = `http://127.0.0.1:${String(startedGarage.getMappedPort(3900))}`;
+  garageEndpoint = endpoint;
   configureFilesObjectStore({
     endpoint,
     region: "us-east-1",
@@ -419,6 +423,53 @@ afterAll(async () => {
   if (garage !== undefined) {
     await garage.stop();
   }
+});
+
+describe("files object store probe", () => {
+  it("fails HeadBucket on a missing bucket without echoing credentials", async () => {
+    if (garageEndpoint === undefined) {
+      throw new Error("Garage endpoint was not captured");
+    }
+    const store = createFilesObjectStore({
+      endpoint: garageEndpoint,
+      region: "us-east-1",
+      accessKeyId: GARAGE_ACCESS_KEY,
+      secretAccessKey: GARAGE_SECRET_KEY,
+      forcePathStyle: true,
+      bucket: "missing-bucket-sho-119",
+    });
+    try {
+      let thrown: unknown;
+      try {
+        await store.probeBucket();
+      } catch (error) {
+        thrown = error;
+      }
+      if (!(thrown instanceof CoreInvariantError)) {
+        throw new Error("expected CoreInvariantError from missing bucket");
+      }
+      const serialized = JSON.stringify({
+        message: thrown.message,
+        cause: thrown.cause,
+        stack: thrown.stack,
+      });
+      expect(thrown.message).toContain("HeadBucket");
+      if (
+        typeof thrown.cause !== "object" ||
+        thrown.cause === null ||
+        !("code" in thrown.cause) ||
+        typeof thrown.cause.code !== "string"
+      ) {
+        throw new Error("expected sanitized object-store cause");
+      }
+      expect(thrown.cause.code.length).toBeGreaterThan(0);
+      expect(thrown.cause).not.toHaveProperty("message");
+      expect(serialized).not.toContain(GARAGE_SECRET_KEY);
+      expect(serialized).not.toContain("X-Amz-Signature");
+    } finally {
+      store.close();
+    }
+  });
 });
 
 crossTenantSuite(requireKit, [

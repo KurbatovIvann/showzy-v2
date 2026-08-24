@@ -29,6 +29,12 @@ describe("isSensitiveKey", () => {
     expect(isSensitiveKey("SMS_FLY_API_KEY")).toBe(true);
     expect(isSensitiveKey("clientIp")).toBe(true);
     expect(isSensitiveKey("rawPayload")).toBe(true);
+    expect(isSensitiveKey("uploadUrl")).toBe(true);
+    expect(isSensitiveKey("upload_url")).toBe(true);
+    expect(isSensitiveKey("downloadUrl")).toBe(true);
+    expect(isSensitiveKey("download_url")).toBe(true);
+    expect(isSensitiveKey("objectKey")).toBe(true);
+    expect(isSensitiveKey("object_key")).toBe(true);
   });
 
   it("leaves correlation fields alone", () => {
@@ -61,6 +67,29 @@ describe("redactText", () => {
     expect(
       redactText(`https://${SENTRY_KEY}@sentry.example.com/42`),
     ).not.toContain(SENTRY_KEY);
+  });
+
+  it("strips AWS/Garage/R2 presign query credentials and leaves the host", () => {
+    const signature =
+      "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    const credential =
+      "showzy-local%2F20260824%2Fus-east-1%2Fs3%2Faws4_request";
+    const presigned =
+      "https://garage.example:3900/showzy/11111111-1111-1111-1111-111111111111/uploads/22222222-2222-2222-2222-222222222222" +
+      "?X-Amz-Algorithm=AWS4-HMAC-SHA256" +
+      `&X-Amz-Credential=${credential}` +
+      "&X-Amz-Date=20260824T100000Z" +
+      "&X-Amz-Expires=900" +
+      "&X-Amz-SignedHeaders=content-length%3Bhost" +
+      `&X-Amz-Signature=${signature}`;
+
+    const redacted = redactText(`mint failed: ${presigned}`);
+    expect(redacted).toContain("https://garage.example:3900/showzy/");
+    expect(redacted).toContain("X-Amz-Algorithm=AWS4-HMAC-SHA256");
+    expect(redacted).not.toContain(signature);
+    expect(redacted).not.toContain(credential);
+    expect(redacted).toContain(`X-Amz-Signature=${REDACTED}`);
+    expect(redacted).toContain(`X-Amz-Credential=${REDACTED}`);
   });
 });
 
@@ -112,6 +141,49 @@ describe("redactUnknown", () => {
     expect(serialized).not.toContain(PHONE);
     expect(serialized).not.toContain(RAW_IP);
     expect(serialized).not.toContain("4444333322221111");
+  });
+
+  it("censors uploadUrl, downloadUrl, and objectKey one and two levels down", () => {
+    const signature =
+      "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210";
+    const objectKey =
+      "11111111-1111-1111-1111-111111111111/catalog/22222222-2222-2222-2222-222222222222";
+    const uploadUrl = `https://files.example/showzy/${objectKey}?X-Amz-Signature=${signature}`;
+    const downloadUrl = `https://files.example/showzy/${objectKey}?X-Amz-Signature=${signature}`;
+
+    const oneLevel = redactUnknown({
+      request_id: "req-files",
+      uploadUrl,
+      downloadUrl,
+      objectKey,
+    });
+    expect(oneLevel.request_id).toBe("req-files");
+    expect(oneLevel.uploadUrl).toBe(REDACTED);
+    expect(oneLevel.downloadUrl).toBe(REDACTED);
+    expect(oneLevel.objectKey).toBe(REDACTED);
+
+    const twoLevels = redactUnknown({
+      extra: {
+        result: {
+          uploadUrl,
+          download_url: downloadUrl,
+          object_key: objectKey,
+          fileId: "22222222-2222-2222-2222-222222222222",
+        },
+      },
+    });
+    expect(twoLevels.extra.result.fileId).toBe(
+      "22222222-2222-2222-2222-222222222222",
+    );
+    expect(twoLevels.extra.result.uploadUrl).toBe(REDACTED);
+    expect(twoLevels.extra.result.download_url).toBe(REDACTED);
+    expect(twoLevels.extra.result.object_key).toBe(REDACTED);
+
+    const serialized = JSON.stringify({ oneLevel, twoLevels });
+    expect(serialized).not.toContain(signature);
+    expect(serialized).not.toContain(objectKey);
+    expect(serialized).not.toContain(uploadUrl);
+    expect(serialized).not.toContain(downloadUrl);
   });
 
   it("redacts credentials inside Error messages without dropping the Error", () => {
