@@ -18,7 +18,7 @@ import { auditLog, domainEvents } from "@showzy/db";
 import { user } from "@showzy/db/schema/auth";
 import { products, productVariants } from "@showzy/db/schema/catalog";
 import { companyMembers } from "@showzy/db/schema/companies";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { archiveProduct } from "./archive-product.js";
@@ -56,6 +56,7 @@ const fixtures = {
   variantIdempotencyRestoreFresh: randomUUID(),
   variantFacts: randomUUID(),
   variantUnchangedOnProductArchive: randomUUID(),
+  variantStayArchivedOnProductRestore: randomUUID(),
 };
 
 const clerkUserId = randomUUID();
@@ -110,25 +111,30 @@ async function variantRow(id: string) {
   return rows[0];
 }
 
-async function countProductStatus(
-  id: string,
+async function countProductIdsWithStatus(
+  ids: readonly string[],
   status: "active" | "archived",
 ): Promise<number> {
   const rows = await kit.db.runtime.db
     .select({ id: products.id })
     .from(products)
-    .where(and(eq(products.id, id), eq(products.status, status)));
+    .where(and(inArray(products.id, [...ids]), eq(products.status, status)));
   return rows.length;
 }
 
-async function countVariantStatus(
-  id: string,
+async function countVariantIdsWithStatus(
+  ids: readonly string[],
   status: "active" | "archived",
 ): Promise<number> {
   const rows = await kit.db.runtime.db
     .select({ id: productVariants.id })
     .from(productVariants)
-    .where(and(eq(productVariants.id, id), eq(productVariants.status, status)));
+    .where(
+      and(
+        inArray(productVariants.id, [...ids]),
+        eq(productVariants.status, status),
+      ),
+    );
   return rows.length;
 }
 
@@ -230,6 +236,13 @@ beforeAll(async () => {
     companyId: kitIdentities.companies.a,
     productId: fixtures.productHappy,
     name: "Stays active when product archives",
+  });
+  await insertVariant({
+    id: fixtures.variantStayArchivedOnProductRestore,
+    companyId: kitIdentities.companies.a,
+    productId: fixtures.productRestore,
+    name: "Stays archived when product restores",
+    status: "archived",
   });
   await insertVariant({
     id: fixtures.variantHappy,
@@ -365,7 +378,13 @@ idempotencySuite(
         productId: fixtures.productIdempotencyArchiveFresh,
       }),
       readEffect: () =>
-        countProductStatus(fixtures.productIdempotencyArchive, "archived"),
+        countProductIdsWithStatus(
+          [
+            fixtures.productIdempotencyArchive,
+            fixtures.productIdempotencyArchiveFresh,
+          ],
+          "archived",
+        ),
     },
     {
       action: restoreProduct,
@@ -377,7 +396,13 @@ idempotencySuite(
         productId: fixtures.productIdempotencyRestoreFresh,
       }),
       readEffect: () =>
-        countProductStatus(fixtures.productIdempotencyRestore, "active"),
+        countProductIdsWithStatus(
+          [
+            fixtures.productIdempotencyRestore,
+            fixtures.productIdempotencyRestoreFresh,
+          ],
+          "active",
+        ),
     },
     {
       action: archiveVariant,
@@ -389,7 +414,13 @@ idempotencySuite(
         variantId: fixtures.variantIdempotencyArchiveFresh,
       }),
       readEffect: () =>
-        countVariantStatus(fixtures.variantIdempotencyArchive, "archived"),
+        countVariantIdsWithStatus(
+          [
+            fixtures.variantIdempotencyArchive,
+            fixtures.variantIdempotencyArchiveFresh,
+          ],
+          "archived",
+        ),
     },
     {
       action: restoreVariant,
@@ -401,7 +432,13 @@ idempotencySuite(
         variantId: fixtures.variantIdempotencyRestoreFresh,
       }),
       readEffect: () =>
-        countVariantStatus(fixtures.variantIdempotencyRestore, "active"),
+        countVariantIdsWithStatus(
+          [
+            fixtures.variantIdempotencyRestore,
+            fixtures.variantIdempotencyRestoreFresh,
+          ],
+          "active",
+        ),
     },
   ],
 );
@@ -456,13 +493,37 @@ describe("catalog archive/restore", () => {
   });
 
   it("restores an archived product and archives/restores a variant", async () => {
-    const restored = await kit.invoke(restoreProduct, {
-      productId: fixtures.productRestore,
-    });
+    const requestId = randomUUID();
+    const restored = await kit.invoke(
+      restoreProduct,
+      { productId: fixtures.productRestore },
+      {},
+      { request: { requestId } },
+    );
     expect(restored).toEqual({
       productId: fixtures.productRestore,
       status: "active",
     });
+    expect(
+      (await variantRow(fixtures.variantStayArchivedOnProductRestore))?.status,
+    ).toBe("archived");
+
+    const restoreAudit = await kit.db.runtime.db
+      .select()
+      .from(auditLog)
+      .where(eq(auditLog.requestId, requestId));
+    expect(restoreAudit).toHaveLength(1);
+    expect(restoreAudit[0]).toMatchObject({
+      action: "catalog.restoreProduct",
+      targetType: "product",
+      targetId: fixtures.productRestore,
+      outcome: "ok",
+    });
+    const restoreEvents = await kit.db.runtime.db
+      .select({ id: domainEvents.id })
+      .from(domainEvents)
+      .where(eq(domainEvents.requestId, requestId));
+    expect(restoreEvents).toEqual([]);
 
     const archivedVariant = await kit.invoke(archiveVariant, {
       variantId: fixtures.variantHappy,
@@ -520,12 +581,36 @@ describe("catalog archive/restore", () => {
       variantBefore?.updatedAt.getTime(),
     );
 
-    await kit.invoke(restoreProduct, { productId: fixtures.productColumns });
+    const restoredOnce = await kit.invoke(restoreProduct, {
+      productId: fixtures.productColumns,
+    });
+    const restoredBeforeRepeat = await productRow(fixtures.productColumns);
     const restoreAgain = await kit.invoke(restoreProduct, {
       productId: fixtures.productColumns,
     });
-    expect(restoreAgain.status).toBe("active");
-    expect((await productRow(fixtures.productColumns))?.status).toBe("active");
+    const restoredAfterRepeat = await productRow(fixtures.productColumns);
+    expect(restoreAgain).toEqual(restoredOnce);
+    expect(restoredAfterRepeat?.name).toBe(restoredBeforeRepeat?.name);
+    expect(restoredAfterRepeat?.basePriceMinor).toBe(
+      restoredBeforeRepeat?.basePriceMinor,
+    );
+    expect(restoredAfterRepeat?.updatedAt.getTime()).toBe(
+      restoredBeforeRepeat?.updatedAt.getTime(),
+    );
+
+    const restoredVariantOnce = await kit.invoke(restoreVariant, {
+      variantId: fixtures.variantColumns,
+    });
+    const restoredVariantBefore = await variantRow(fixtures.variantColumns);
+    const restoredVariantAgain = await kit.invoke(restoreVariant, {
+      variantId: fixtures.variantColumns,
+    });
+    const restoredVariantAfter = await variantRow(fixtures.variantColumns);
+    expect(restoredVariantAgain).toEqual(restoredVariantOnce);
+    expect(restoredVariantAfter?.name).toBe(restoredVariantBefore?.name);
+    expect(restoredVariantAfter?.updatedAt.getTime()).toBe(
+      restoredVariantBefore?.updatedAt.getTime(),
+    );
   });
 
   it("keeps archived rows visible to pricing and order facts", async () => {
