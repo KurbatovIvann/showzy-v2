@@ -36,12 +36,14 @@ import { requestUpload } from "./request-upload.js";
 import { sweepAbandonedUploads } from "./sweep-abandoned-uploads.js";
 import { ABANDONED_PENDING_TTL_MS } from "./sweep-abandoned-uploads.contract.js";
 import { sha256Hex } from "../services/checksum.js";
+import type { FileReadyView } from "../services/file-view.js";
 import { catalogObjectKey, stagingObjectKey } from "../services/object-key.js";
 import { SIGNED_PUT_SKEW_MARGIN_MS } from "../services/pending-abandon.js";
 import {
   closeFilesObjectStore,
   configureFilesObjectStore,
   getFilesObjectStore,
+  mapConfiguredFilesObjectStore,
   SIGNED_URL_TTL_SEC,
 } from "../services/s3-port.js";
 import { MAX_UPLOAD_BYTES, type FileMimeType } from "../wire.contract.js";
@@ -74,6 +76,18 @@ const heicBytes = Uint8Array.from([
 
 const jpegChecksum = sha256Hex(jpegBytes);
 const pngChecksum = sha256Hex(pngBytes);
+
+function sameSizeMutatedJpeg(source: Uint8Array = jpegBytes): Uint8Array {
+  const leftoverBytes = Uint8Array.from(source);
+  const flipIndex = leftoverBytes.byteLength - 3;
+  const originalByte = leftoverBytes.at(flipIndex);
+  if (originalByte === undefined) {
+    throw new Error("jpeg fixture is too short to mutate");
+  }
+  leftoverBytes[flipIndex] = originalByte ^ 0xff;
+  return leftoverBytes;
+}
+
 const exeChecksum = sha256Hex(exeBytes);
 const zipChecksum = sha256Hex(zipBytes);
 const heicAsJpegChecksum = sha256Hex(heicBytes);
@@ -561,13 +575,7 @@ describe("files signed upload slice", () => {
     });
     expect(ready.checksumSha256).toBe(jpegChecksum);
 
-    const leftoverBytes = Uint8Array.from(jpegBytes);
-    const flipIndex = leftoverBytes.byteLength - 3;
-    const originalByte = leftoverBytes.at(flipIndex);
-    if (originalByte === undefined) {
-      throw new Error("jpeg fixture is too short to mutate");
-    }
-    leftoverBytes[flipIndex] = originalByte ^ 0xff;
+    const leftoverBytes = sameSizeMutatedJpeg();
     expect(leftoverBytes.byteLength).toBe(jpegBytes.byteLength);
     const leftoverChecksum = sha256Hex(leftoverBytes);
     expect(leftoverChecksum).not.toBe(jpegChecksum);
@@ -627,6 +635,109 @@ describe("files signed upload slice", () => {
       catalogObjectKey(kitIdentities.companies.a, requested.fileId),
     );
     expect(rows[0]?.objectKey).not.toContain("/uploads/");
+  });
+
+  it("lets one concurrent finalize win with identical ready bytes", async () => {
+    const fileId = await requestAndPut(jpegBytes, "image/jpeg");
+    const results = await Promise.allSettled([
+      requireKit().invoke(finalizeUpload, { fileId }),
+      requireKit().invoke(finalizeUpload, { fileId }),
+    ]);
+    const fulfilled = results.flatMap((result) =>
+      result.status === "fulfilled" ? [result.value] : [],
+    );
+    expect(fulfilled).toHaveLength(2);
+    const winner: FileReadyView | undefined = fulfilled[0];
+    if (winner === undefined) {
+      throw new Error("expected at least one successful finalize");
+    }
+    for (const view of fulfilled) {
+      expect(view).toEqual(winner);
+    }
+    expect(winner.status).toBe("ready");
+    expect(winner.checksumSha256).toBe(jpegChecksum);
+
+    const rows = await requireKit()
+      .db.runtime.db.select()
+      .from(files)
+      .where(eq(files.id, fileId));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.status).toBe("ready");
+    expect(rows[0]?.checksumSha256).toBe(jpegChecksum);
+
+    const catalog = await getFilesObjectStore().getObject(
+      catalogObjectKey(kitIdentities.companies.a, fileId),
+    );
+    expect(catalog).not.toBe("missing");
+    if (catalog === "missing") {
+      throw new Error("expected catalog object after concurrent finalize");
+    }
+    expect(sha256Hex(catalog.bytes)).toBe(jpegChecksum);
+    expect(sha256Hex(catalog.bytes)).toBe(rows[0]?.checksumSha256);
+  });
+
+  it("fails closed when staging changes after the unlocked GET", async () => {
+    const fileId = await requestAndPut(jpegBytes, "image/jpeg");
+    const leftoverBytes = sameSizeMutatedJpeg();
+    const leftoverChecksum = sha256Hex(leftoverBytes);
+    expect(leftoverChecksum).not.toBe(jpegChecksum);
+    const stagingKey = stagingObjectKey(kitIdentities.companies.a, fileId);
+    const catalogKey = catalogObjectKey(kitIdentities.companies.a, fileId);
+
+    const restore = mapConfiguredFilesObjectStore((inner) => ({
+      ...inner,
+      async getObject(key) {
+        const object = await inner.getObject(key);
+        if (key === stagingKey && object !== "missing") {
+          await inner.putObject({
+            key,
+            mimeType: "image/jpeg",
+            bytes: leftoverBytes,
+          });
+        }
+        return object;
+      },
+    }));
+    try {
+      await expect(
+        requireKit().invoke(finalizeUpload, { fileId }),
+      ).rejects.toBeInstanceOf(ValidationError);
+    } finally {
+      restore();
+    }
+
+    const rows = await requireKit()
+      .db.runtime.db.select()
+      .from(files)
+      .where(eq(files.id, fileId));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.status).toBe("pending");
+    expect(rows[0]?.checksumSha256).toBe(jpegChecksum);
+
+    const store = getFilesObjectStore();
+    expect(await store.getObject(catalogKey)).toBe("missing");
+    const staging = await store.getObject(stagingKey);
+    expect(staging).not.toBe("missing");
+    if (staging === "missing") {
+      throw new Error("expected leftover staging after TOCTOU finalize");
+    }
+    expect(sha256Hex(staging.bytes)).toBe(leftoverChecksum);
+
+    const capturing = createCapturingLogger();
+    await expect(
+      requireKit().invoke(
+        finalizeUpload,
+        { fileId },
+        {},
+        { deps: { ...requireKit().pipeline, logger: capturing.logger } },
+      ),
+    ).rejects.toBeInstanceOf(ValidationError);
+    expect(await store.getObject(catalogKey)).toBe("missing");
+    const logs = JSON.stringify(capturing.entries());
+    expect(logs).not.toContain(catalogKey);
+    expect(logs).not.toContain(stagingKey);
+    expect(logs).not.toMatch(/\/catalog\//);
+    expect(logs).not.toMatch(/\/uploads\//);
   });
 
   it("denies staff without files:upload or files:view", async () => {
