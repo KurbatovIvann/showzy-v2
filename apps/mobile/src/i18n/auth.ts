@@ -24,12 +24,6 @@ export type AuthCopy = {
   readonly resendCodeIn: string;
   readonly wrongNumber: string;
   readonly wrongEmail: string;
-  readonly signOut: string;
-  readonly sessionTitle: string;
-  readonly signedInAs: string;
-  readonly userId: string;
-  readonly companySelector: string;
-  readonly companySelectorStub: string;
   readonly loading: string;
   readonly retry: string;
   readonly errors: Record<AuthErrorKind, string>;
@@ -56,13 +50,6 @@ const en: AuthCopy = {
   resendCodeIn: "Resend in {{seconds}}s",
   wrongNumber: "Change number",
   wrongEmail: "Change email",
-  signOut: "Sign Out",
-  sessionTitle: "Signed in",
-  signedInAs: "Session",
-  userId: "User ID",
-  companySelector: "Active company",
-  companySelectorStub:
-    "None — company list waits on companies.listMine (phase 2).",
   loading: "Loading",
   retry: "Retry",
   errors: {
@@ -97,13 +84,6 @@ const uk: AuthCopy = {
   resendCodeIn: "Надіслати повторно через {{seconds}} с",
   wrongNumber: "Змінити номер",
   wrongEmail: "Змінити email",
-  signOut: "Вийти",
-  sessionTitle: "Вхід виконано",
-  signedInAs: "Сесія",
-  userId: "ID користувача",
-  companySelector: "Активна компанія",
-  companySelectorStub:
-    "Немає — список компаній чекає на companies.listMine (фаза 2).",
   loading: "Завантаження",
   retry: "Повторити",
   errors: {
