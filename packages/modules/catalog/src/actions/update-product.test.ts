@@ -39,7 +39,7 @@ describe("catalog.updateProduct contract", () => {
     ]);
   });
 
-  it("trims the name and rejects blank names, negative prices, and bad ids", () => {
+  it("trims the name and rejects blank names, negative prices, oversize money, non-UAH currency, and bad ids", () => {
     expect(updateProductInputSchema.parse(validUpdate).name).toBe("Cake");
     expect(
       updateProductInputSchema.parse({
@@ -63,6 +63,30 @@ describe("catalog.updateProduct contract", () => {
       updateProductInputSchema.safeParse({
         ...validUpdate,
         basePriceMinor: "-1",
+      }).success,
+    ).toBe(false);
+    expect(
+      updateProductInputSchema.safeParse({
+        ...validUpdate,
+        basePriceMinor: "9223372036854775807",
+      }).success,
+    ).toBe(true);
+    expect(
+      updateProductInputSchema.safeParse({
+        ...validUpdate,
+        basePriceMinor: "9223372036854775808",
+      }).success,
+    ).toBe(false);
+    expect(
+      updateProductInputSchema.safeParse({
+        ...validUpdate,
+        currency: "USD",
+      }).success,
+    ).toBe(false);
+    expect(
+      updateProductInputSchema.safeParse({
+        ...validUpdate,
+        currency: "uah",
       }).success,
     ).toBe(false);
     expect(
