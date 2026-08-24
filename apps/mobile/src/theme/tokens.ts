@@ -211,6 +211,7 @@ export type TypeScale = {
 };
 
 export const typography = {
+  "2xs": { fontSize: 11, lineHeight: 14 },
   xs: { fontSize: 13, lineHeight: 18 },
   sm: { fontSize: 14, lineHeight: 20 },
   base: { fontSize: 15, lineHeight: 22 },
@@ -253,6 +254,8 @@ export const shadows = {
   lg: { boxShadow: "0 8px 24px rgba(28, 28, 26, 0.16)" },
   xl: { boxShadow: "0 12px 32px rgba(28, 28, 26, 0.18)" },
   auth: { boxShadow: "0 14px 40px rgba(28, 28, 26, 0.10)" },
+  nav: { boxShadow: "0 8px 24px rgba(28, 28, 26, 0.10)" },
+  accent: { boxShadow: "0 6px 16px rgba(47, 111, 237, 0.28)" },
 } as const;
 
 export type GlassFallback = {

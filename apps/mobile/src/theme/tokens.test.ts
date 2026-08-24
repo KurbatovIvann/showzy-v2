@@ -75,6 +75,7 @@ describe("canvas token map (ADR-0024)", () => {
     expect(hitTarget).toEqual({ min: 44, field: 48, auth: 54 });
     expect(iconSize).toEqual({ sm: 18, md: 20 });
     expect(squircle).toEqual({ borderCurve: "continuous" });
+    expect(typography["2xs"]).toEqual({ fontSize: 11, lineHeight: 14 });
     expect(typography.xs).toEqual({ fontSize: 13, lineHeight: 18 });
     expect(typography.base).toEqual({ fontSize: 15, lineHeight: 22 });
     expect(typography.lg).toEqual({ fontSize: 18, lineHeight: 24 });
@@ -92,6 +93,13 @@ describe("canvas token map (ADR-0024)", () => {
 
   it("pins the auth panel shadow from the canvas (0 14px 40px / 10%)", () => {
     expect(shadows.auth.boxShadow).toBe("0 14px 40px rgba(28, 28, 26, 0.10)");
+  });
+
+  it("pins the nav cluster and AI control shadows from the canvas", () => {
+    expect(shadows.nav.boxShadow).toBe("0 8px 24px rgba(28, 28, 26, 0.10)");
+    expect(shadows.accent.boxShadow).toBe(
+      "0 6px 16px rgba(47, 111, 237, 0.28)",
+    );
   });
 
   it("keeps glass fallbacks on canvas white / line", () => {

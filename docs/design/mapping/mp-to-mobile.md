@@ -99,6 +99,7 @@ System font. No webfont.
 | Use | Canvas | Unistyles |
 | --- | --- | --- |
 | Field label | 13 medium muted | `typography.xs` |
+| Nav label | 11 medium (AI label 10 snapped) | `typography.2xs` |
 | Body / control | 15 | `typography.base` (controls weight 600) |
 | Sheet / empty title | 17 semibold | `typography.lg` (snap) |
 | Screen title | 20 semibold | `typography.xl` |
@@ -117,6 +118,8 @@ System font. No webfont.
 | Lucide | 18 / 20 | `iconSize.sm` / `iconSize.md` |
 | Card shadow | `0 1px 2px rgba(28,28,26,0.05)` | `shadows.sm` (`boxShadow`; New Architecture) |
 | Auth panel shadow | `0 14px 40px rgba(28,28,26,0.10)` | `shadows.auth` (`boxShadow`; New Architecture) |
+| Nav cluster shadow | `0 8px 24px rgba(28,28,26,0.10)` | `shadows.nav` (`boxShadow`; New Architecture) |
+| AI control glow | `0 6px 16px rgba(47,111,237,0.28)` | `shadows.accent` (`boxShadow`; New Architecture) |
 | iOS squircle | `CACornerCurve.continuous` | `theme.squircle` (`borderCurve: "continuous"`). Current on RN 0.86 — not deprecated. Android ignores it. Skip on `radii.full` capsules. |
 
 ## Shared primitives today
@@ -131,9 +134,10 @@ System font. No webfont.
 | `SegmentedTabs` | `AuthModeSwitch` | pill track `muted`, raised `card` with `shadows.sm` |
 | `OtpInput` | `OtpInput` | square cells, gap 8, digits `typography.2xl`; optional inline `error` string |
 | `Banner` | inline error | keep; do not invent a second error strip |
+| `EmptyState` | `EmptyState` | centered icon badge (48 circle on `muted`), `typography.lg` title, `typography.sm` muted description, optional action slot |
 
 **Not shared yet** (add to `ui/` on first screen that needs them): Sheet,
-StatusPill, EmptyState, AppHeader, SwitchRow, ChoiceField (chip row — not
+StatusPill, AppHeader, SwitchRow, ChoiceField (chip row — not
 the same as SegmentedTabs).
 
 Feature examples (never in `ui/`): `OrderRow`, `ProductRow`,
