@@ -19,10 +19,38 @@ export const CLEANUP_INTERVAL_MS = 60 * 60 * 1_000;
 
 /**
  * How often the maintenance Job Scheduler runs
- * `files.sweepAbandonedUploads` (SHO-120). Batch size stays the action
- * default (20). BullMQ, not `setInterval`.
+ * `files.sweepAbandonedUploads` (SHO-120). BullMQ, not `setInterval`.
  */
 export const SWEEP_INTERVAL_MS = 5 * 60 * 1_000;
+
+/**
+ * Rows requested per `files.sweepAbandonedUploads` call. Must not exceed
+ * the action's input ceiling (20) — a larger value fails input validation
+ * loudly on the first tick.
+ */
+export const SWEEP_BATCH_SIZE = 20;
+
+/**
+ * Ceiling on sweep batches per scheduler tick. A full batch signals more
+ * backlog, so the processor keeps sweeping within the tick instead of
+ * waiting 5 minutes per 20 rows (audit follow-up: one flooding client can
+ * create pending rows far faster than 20 per 5 minutes). 25 batches ×
+ * 20 rows every 5 minutes clears 144 000 rows/day; a remainder is picked
+ * up by the next tick.
+ */
+export const SWEEP_MAX_BATCHES_PER_TICK = 25;
+
+/**
+ * Retry budget for failed maintenance jobs. Both jobs are idempotent
+ * (cleanup is a bounded DELETE; sweep batches reuse per-batch idempotency
+ * keys, and core re-executes a `failed` reservation on takeover), so a
+ * transient Redis/Postgres/S3 error retries within the tick instead of
+ * waiting for the next schedule (1 h for cleanup).
+ */
+export const MAINTENANCE_JOB_ATTEMPTS = 3;
+
+/** First retry delay; BullMQ doubles it per attempt (5s, 10s). */
+export const MAINTENANCE_JOB_BACKOFF_MS = 5_000;
 
 /**
  * BullMQ Redis key prefix (ADR-0007). Do not set ioredis `keyPrefix` —

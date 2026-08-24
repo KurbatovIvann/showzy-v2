@@ -43,8 +43,11 @@ import { createJobHost, type SweepTickResult } from "./jobs.js";
 import {
   BULLMQ_PREFIX,
   IDEMPOTENCY_CLEANUP_JOB_NAME,
+  MAINTENANCE_JOB_ATTEMPTS,
+  MAINTENANCE_JOB_BACKOFF_MS,
   MAINTENANCE_QUEUE_NAME,
   SWEEP_ABANDONED_UPLOADS_JOB_NAME,
+  SWEEP_BATCH_SIZE,
   SWEEP_INTERVAL_MS,
 } from "./policy.js";
 import { createProcessShutdown } from "./shutdown.js";
@@ -399,6 +402,20 @@ describe("apps/worker BullMQ job host (fnd-T29)", () => {
       expect(
         requireScheduler(schedulers, SWEEP_ABANDONED_UPLOADS_JOB_NAME).every,
       ).toBe(LONG_INTERVAL_MS);
+      for (const name of [
+        IDEMPOTENCY_CLEANUP_JOB_NAME,
+        SWEEP_ABANDONED_UPLOADS_JOB_NAME,
+      ]) {
+        expect(requireScheduler(schedulers, name).template?.opts).toMatchObject(
+          {
+            attempts: MAINTENANCE_JOB_ATTEMPTS,
+            backoff: {
+              type: "exponential",
+              delay: MAINTENANCE_JOB_BACKOFF_MS,
+            },
+          },
+        );
+      }
 
       await waitUntil(async () => {
         const remaining = await remainingKeys([expiredKey, liveKey]);
@@ -870,6 +887,65 @@ describe("apps/worker sweepAbandonedUploads scheduler (SHO-120)", () => {
         randomUUID(),
       );
       expect(await fileRow(secondId)).toBeUndefined();
+    } finally {
+      await booted.close();
+    }
+  });
+
+  it("runs sweep batches within one job until the first partial batch", async () => {
+    const batchIndexes: number[] = [];
+    const host = createJobHost({
+      redisUrl,
+      db: kit.db.runtime.db,
+      logger: silent,
+      workerId: "jobs-sweep-drain",
+      cleanupIntervalMs: LONG_INTERVAL_MS,
+      sweepIntervalMs: LONG_INTERVAL_MS,
+      cleanup: () => Promise.resolve(0),
+      sweep: (batchIndex) => {
+        batchIndexes.push(batchIndex);
+        return Promise.resolve({
+          leftoverStagingDeleted: 0,
+          abandonedPendingDeleted: batchIndex < 2 ? SWEEP_BATCH_SIZE : 3,
+        });
+      },
+    });
+    await host.start();
+    try {
+      await enqueueMaintenanceJob(
+        SWEEP_ABANDONED_UPLOADS_JOB_NAME,
+        randomUUID(),
+      );
+      expect(batchIndexes).toEqual([0, 1, 2]);
+    } finally {
+      await host.close();
+    }
+  });
+
+  it("clears a pending backlog larger than one batch in a single tick", async () => {
+    const booted = await bootSweepHost();
+    try {
+      const ids = Array.from({ length: SWEEP_BATCH_SIZE + 5 }, () =>
+        randomUUID(),
+      );
+      for (const id of ids) {
+        await insertFileRow({
+          id,
+          companyId: kitIdentities.companies.a,
+          uploadedByUserId: kitIdentities.users.anna,
+          status: "pending",
+          createdAt: new Date(Date.now() - ABANDONED_PENDING_TTL_MS - 1_000),
+        });
+      }
+
+      await enqueueMaintenanceJob(
+        SWEEP_ABANDONED_UPLOADS_JOB_NAME,
+        randomUUID(),
+      );
+
+      for (const id of ids) {
+        expect(await fileRow(id)).toBeUndefined();
+      }
     } finally {
       await booted.close();
     }

@@ -22,11 +22,15 @@ wakeup, polling fallback, graceful drain, and the job host.
 - `src/jobs.ts` — BullMQ job host. Prefix `showzy`, one queue
   `maintenance`. On boot, upserts Job Schedulers for
   `cleanupExpiredIdempotencyKeys` (`CLEANUP_INTERVAL_MS`, 1 h) and
-  `sweepAbandonedUploads` (`SWEEP_INTERVAL_MS`, 5 min, action batch
-  default 20). The sweep processor invokes `files.sweepAbandonedUploads`
-  as system/global with a fresh idempotency key per `job.id`. Do not
-  pre-create pdf / email / push / sms / sync queues. Processors stay thin
-  (no domain SQL, no module service imports).
+  `sweepAbandonedUploads` (`SWEEP_INTERVAL_MS`, 5 min). Scheduled jobs
+  retry `MAINTENANCE_JOB_ATTEMPTS` times with exponential backoff before
+  waiting for the next tick. The sweep processor invokes
+  `files.sweepAbandonedUploads` as system/global in `SWEEP_BATCH_SIZE`
+  batches and keeps sweeping while batches come back full (up to
+  `SWEEP_MAX_BATCHES_PER_TICK`), with a stable idempotency key per
+  `(job.id, batch)`. Do not pre-create pdf / email / push / sms / sync
+  queues. Processors stay thin (no domain SQL, no module service
+  imports).
 - `src/loop.ts` — `createOutboxWorker` / `createWorkerLoop`: one tick
   dispatches then executes due deliveries; shutdown waits for in-flight
   work and does not claim further. Executor lookup is keyed by
