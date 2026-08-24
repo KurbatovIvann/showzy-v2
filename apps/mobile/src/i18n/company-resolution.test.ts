@@ -14,5 +14,7 @@ describe("company resolution copy", () => {
     expect(en.retry).toBe("Try Again");
     expect(uk.multipleTitle).toBe("Оберіть компанію");
     expect(en.multipleTitle).toBe("Choose a company");
+    expect(uk.signOut).toBe("Вийти");
+    expect(en.signOut).toBe("Sign Out");
   });
 });

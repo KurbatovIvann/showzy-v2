@@ -27,6 +27,8 @@ const EMPTY_ERRORS: CreateCompanyFieldErrors = { name: null, slug: null };
 export function useCreateCompany() {
   const copy = useMemo(() => onboardingCopy(detectLocale()), []);
   const auth = useAuthSession();
+  const authRef = useRef(auth);
+  authRef.current = auth;
   const apiClient = useApiClient();
   const apiRef = useRef(apiClient);
   apiRef.current = apiClient;
@@ -118,17 +120,19 @@ export function useCreateCompany() {
       if (
         !shouldApplyCreatedCompany({
           mounted: mountedRef.current,
-          clientReady: apiRef.current !== null && auth.session !== null,
+          clientReady:
+            apiRef.current !== null && authRef.current.session !== null,
         })
       ) {
         return;
       }
-      if (auth.session === null) {
+      const currentSession = authRef.current.session;
+      if (currentSession === null) {
         return;
       }
       applyCreatedCompany({
         membership,
-        sessionUserId: auth.session.userId,
+        sessionUserId: currentSession.userId,
         setActiveCompany,
         queryClient,
         enterPanel: () => {

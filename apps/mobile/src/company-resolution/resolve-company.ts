@@ -26,6 +26,21 @@ export type MembershipQueryState =
   | { readonly status: "error" }
   | { readonly status: "success"; readonly data: ListMineOutput };
 
+export function membershipQueryState(args: {
+  readonly data: ListMineOutput | undefined;
+  readonly isError: boolean;
+  readonly clientReady: boolean;
+  readonly sessionReady: boolean;
+}): MembershipQueryState {
+  if (args.data !== undefined) {
+    return { status: "success", data: args.data };
+  }
+  if (!args.clientReady || !args.sessionReady || args.isError) {
+    return { status: "error" };
+  }
+  return { status: "loading" };
+}
+
 export function resolveCompany(
   query: MembershipQueryState,
   activeCompanyId: string | null,
@@ -48,7 +63,7 @@ export function resolveCompany(
   if (memberships.length === 1) {
     const membership = memberships[0];
     if (membership === undefined) {
-      return { kind: "loading" };
+      return { kind: "error" };
     }
     return membership.company.id === activeCompanyId
       ? { kind: "ready", membership }

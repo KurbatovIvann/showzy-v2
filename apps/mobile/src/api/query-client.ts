@@ -13,6 +13,7 @@ import {
 import { isWireError, type ContractClient } from "@showzy/contract";
 
 import { StaleCompanyQueryError } from "./query-options";
+import { NULL_COMPANY_QUERY_SCOPE } from "./query-options";
 
 /** V1 `staleTime` — keep reads warm for a minute unless a test proves otherwise. */
 export const QUERY_STALE_TIME_MS = 60_000;
@@ -59,6 +60,13 @@ export function isUnauthenticatedWireError(error: unknown): boolean {
 export function clearCachedContractQueries(queryClient: QueryClient): void {
   void queryClient.cancelQueries();
   queryClient.clear();
+}
+
+export function clearCachedTenantQueries(queryClient: QueryClient): void {
+  const isTenantScoped = (query: { readonly queryKey: readonly unknown[] }) =>
+    query.queryKey[1] !== NULL_COMPANY_QUERY_SCOPE;
+  void queryClient.cancelQueries({ predicate: isTenantScoped });
+  queryClient.removeQueries({ predicate: isTenantScoped });
 }
 
 export function hasLocalSession(cookie: string | null | undefined): boolean {
@@ -120,7 +128,7 @@ export function bindActiveCompanyQueryIsolation(
   client.setActiveCompany = (companyId: string | null): void => {
     original(companyId);
     hooks.onCompanyId?.(companyId);
-    clearCachedContractQueries(queryClient);
+    clearCachedTenantQueries(queryClient);
   };
   return (): void => {
     client.setActiveCompany = original;

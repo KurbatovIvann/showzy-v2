@@ -4,7 +4,6 @@ import type { WireErrorCode } from "@showzy/contract";
 import {
   listMineQueryKey,
   type CompanyMembership,
-  type ListMineOutput,
 } from "../../../api/company-membership-query";
 import type { QueryFailureKind } from "../../../api/errors";
 import type { OnboardingCopy } from "../../../i18n/onboarding";
@@ -208,19 +207,6 @@ export function resolveCreateCompanyCopy(
   };
 }
 
-export function mergeCreatedMembership(
-  current: ListMineOutput | undefined,
-  created: CompanyMembership,
-): ListMineOutput {
-  if (current === undefined) {
-    return { memberships: [created] };
-  }
-  const rest = current.memberships.filter(
-    (row) => row.company.id !== created.company.id,
-  );
-  return { memberships: [...rest, created] };
-}
-
 export function shouldApplyCreatedCompany(args: {
   readonly mounted: boolean;
   readonly clientReady: boolean;
@@ -229,8 +215,8 @@ export function shouldApplyCreatedCompany(args: {
 }
 
 /**
- * Isolation on `setActiveCompany` clears the query cache first. Seed
- * `companies.listMine` *after* the selector swap so the new row survives.
+ * Force the panel boundary to refresh the authoritative membership list
+ * after creation instead of treating a client-side projection as proof.
  */
 export function applyCreatedCompany(args: {
   readonly membership: CompanyMembership;
@@ -240,10 +226,9 @@ export function applyCreatedCompany(args: {
   readonly enterPanel: () => void;
 }): void {
   args.setActiveCompany(args.membership.company.id);
-  args.queryClient.setQueryData(
-    listMineQueryKey(args.sessionUserId),
-    (current: ListMineOutput | undefined) =>
-      mergeCreatedMembership(current, args.membership),
-  );
+  args.queryClient.removeQueries({
+    queryKey: listMineQueryKey(args.sessionUserId),
+    exact: true,
+  });
   args.enterPanel();
 }

@@ -1,4 +1,4 @@
-import type { ContractClient } from "./client";
+import { type ContractClient, createShowzyClient } from "./client";
 import {
   accountContractQueryKey,
   accountContractQueryOptions,
@@ -6,20 +6,11 @@ import {
 
 export const LIST_MINE_ACTION = "companies.listMine";
 
-export type CompanyMembership = {
-  readonly membershipId: string;
-  readonly role: "owner" | "admin" | "manager" | "employee";
-  readonly company: {
-    readonly id: string;
-    readonly name: string;
-    readonly slug: string;
-    readonly prefix: string;
-  };
-};
-
-export type ListMineOutput = {
-  readonly memberships: readonly CompanyMembership[];
-};
+type ShowzyClient = ReturnType<typeof createShowzyClient>;
+export type ListMineOutput = Awaited<
+  ReturnType<ShowzyClient["client"]["companies"]["listMine"]>
+>;
+export type CompanyMembership = ListMineOutput["memberships"][number];
 
 export function listMineQueryKey(sessionUserId: string) {
   return accountContractQueryKey(LIST_MINE_ACTION, sessionUserId, {});
@@ -27,12 +18,13 @@ export function listMineQueryKey(sessionUserId: string) {
 
 export function listMineQueryOptions(
   client: ContractClient | null,
-  sessionUserId: string,
+  sessionUserId: string | null,
 ) {
+  const querySession = sessionUserId ?? "missing-session";
   return {
     ...accountContractQueryOptions({
       actionName: LIST_MINE_ACTION,
-      sessionUserId,
+      sessionUserId: querySession,
       input: {},
       queryFn: () => {
         if (client === null) {
@@ -41,6 +33,6 @@ export function listMineQueryOptions(
         return client.client.companies.listMine({});
       },
     }),
-    enabled: client !== null,
+    enabled: client !== null && sessionUserId !== null,
   };
 }

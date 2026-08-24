@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { CompanyMembership } from "../api/company-membership-query";
-import { resolveCompany } from "./resolve-company";
+import { membershipQueryState, resolveCompany } from "./resolve-company";
 
 const companyA = membership("company-a", "Alpha");
 const companyB = membership("company-b", "Beta");
@@ -78,6 +78,39 @@ describe("resolveCompany", () => {
     expect(resolveCompany({ status: "error" }, "stale")).toEqual({
       kind: "error",
     });
+  });
+});
+
+describe("membershipQueryState", () => {
+  it("keeps verified data available when a background refresh fails", () => {
+    const data = { memberships: [companyA] };
+    expect(
+      membershipQueryState({
+        data,
+        isError: true,
+        clientReady: true,
+        sessionReady: true,
+      }),
+    ).toEqual({ status: "success", data });
+  });
+
+  it("surfaces unavailable client and initial query failures", () => {
+    expect(
+      membershipQueryState({
+        data: undefined,
+        isError: false,
+        clientReady: false,
+        sessionReady: true,
+      }),
+    ).toEqual({ status: "error" });
+    expect(
+      membershipQueryState({
+        data: undefined,
+        isError: true,
+        clientReady: true,
+        sessionReady: true,
+      }),
+    ).toEqual({ status: "error" });
   });
 });
 

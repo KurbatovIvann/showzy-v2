@@ -7,6 +7,7 @@ export type CompanyResolutionCopy = {
   readonly retry: string;
   readonly multipleTitle: string;
   readonly multipleDescription: string;
+  readonly signOut: string;
 };
 
 const en: CompanyResolutionCopy = {
@@ -18,6 +19,7 @@ const en: CompanyResolutionCopy = {
   multipleTitle: "Choose a company",
   multipleDescription:
     "This account belongs to multiple companies. Company switching is coming soon.",
+  signOut: "Sign Out",
 };
 
 const uk: CompanyResolutionCopy = {
@@ -29,6 +31,7 @@ const uk: CompanyResolutionCopy = {
   multipleTitle: "Оберіть компанію",
   multipleDescription:
     "Цей акаунт належить до кількох компаній. Перемикання між компаніями з’явиться незабаром.",
+  signOut: "Вийти",
 };
 
 export function companyResolutionCopy(locale: Locale): CompanyResolutionCopy {

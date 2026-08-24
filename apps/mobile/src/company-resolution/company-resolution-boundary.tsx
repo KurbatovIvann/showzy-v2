@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, type ReactNode } from "react";
 
@@ -6,16 +6,16 @@ import { listMineQueryOptions } from "../api/company-membership-query";
 import { useApiClient } from "../api/api-provider";
 import { useActiveCompany } from "../api/query-provider";
 import { useAuthSession } from "../auth/session-provider";
-import { companyResolutionCopy } from "../i18n/company-resolution";
-import { detectLocale } from "../i18n/locale";
-import { applyCompanyResolution } from "./apply-company-resolution";
 import {
   CompanyResolutionError,
   CompanyResolutionLoading,
   MultipleCompaniesStub,
-} from "./company-resolution-state";
+} from "../components/screens/company-resolution/company-resolution-state";
+import { companyResolutionCopy } from "../i18n/company-resolution";
+import { detectLocale } from "../i18n/locale";
+import { applyCompanyResolution } from "./apply-company-resolution";
 import { ResolvedCompanyProvider } from "./resolved-company-provider";
-import { resolveCompany } from "./resolve-company";
+import { membershipQueryState, resolveCompany } from "./resolve-company";
 
 export function CompanyResolutionBoundary(props: {
   readonly children: ReactNode;
@@ -23,33 +23,31 @@ export function CompanyResolutionBoundary(props: {
   const auth = useAuthSession();
   const apiClient = useApiClient();
   const { activeCompanyId, setActiveCompany } = useActiveCompany();
-  const queryClient = useQueryClient();
   const { replace } = useRouter();
   const copy = useMemo(() => companyResolutionCopy(detectLocale()), []);
-  const sessionUserId = auth.session?.userId ?? "";
+  const sessionUserId = auth.session?.userId ?? null;
   const query = useQuery(listMineQueryOptions(apiClient, sessionUserId));
   const resolution = useMemo(
     () =>
       resolveCompany(
-        query.isPending
-          ? { status: "loading" }
-          : query.isError
-            ? { status: "error" }
-            : { status: "success", data: query.data },
+        membershipQueryState({
+          data: query.data,
+          isError: query.isError,
+          clientReady: apiClient !== null,
+          sessionReady: sessionUserId !== null,
+        }),
         activeCompanyId,
       ),
-    [activeCompanyId, query.data, query.isError, query.isPending],
+    [activeCompanyId, apiClient, query.data, query.isError, sessionUserId],
   );
 
   useEffect(() => {
     applyCompanyResolution({
       resolution,
-      sessionUserId,
-      queryClient,
       setActiveCompany,
       replace,
     });
-  }, [queryClient, replace, resolution, sessionUserId, setActiveCompany]);
+  }, [replace, resolution, setActiveCompany]);
 
   if (
     resolution.kind === "loading" ||
@@ -70,7 +68,14 @@ export function CompanyResolutionBoundary(props: {
     );
   }
   if (resolution.kind === "multiple-unresolved") {
-    return <MultipleCompaniesStub copy={copy} />;
+    return (
+      <MultipleCompaniesStub
+        copy={copy}
+        onSignOut={() => {
+          void auth.signOut();
+        }}
+      />
+    );
   }
 
   return (
