@@ -3,17 +3,17 @@
  * stays testable without the React Native runtime.
  *
  * Canvas product lock (mp-to-mobile.md): Замовлення · Товари · AI (center)
- * · Клієнти · Ще. The `more` tab lands in ui-shell-T2; until then only the
- * first four routes exist.
+ * · Клієнти · Ще.
  */
 
-export type PanelTab = "orders" | "products" | "ai" | "customers";
+export type PanelTab = "orders" | "products" | "ai" | "customers" | "more";
 
 export const panelTabOrder: readonly PanelTab[] = [
   "orders",
   "products",
   "ai",
   "customers",
+  "more",
 ];
 
 export function isPanelTab(routeName: string): routeName is PanelTab {
