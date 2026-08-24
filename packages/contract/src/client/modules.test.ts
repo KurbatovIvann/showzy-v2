@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { getOrderCardContract } from "@showzy/chat/contract";
+import { listMineContract } from "@showzy/companies/contract";
 import {
   finalizeUploadContract,
   getDownloadUrlContract,
@@ -17,10 +18,13 @@ import { resolveProductPricesContract } from "@showzy/pricing/contract";
 import { contractModules, contractRouter } from "./modules.js";
 
 describe("client composition", () => {
-  it("exposes staff client chat, files, orders, and pricing actions and no internal facts actions", () => {
+  it("exposes client chat, companies, files, orders, and pricing actions and no internal facts actions", () => {
     expect(contractModules).toEqual({
       chat: {
         getOrderCard: getOrderCardContract,
+      },
+      companies: {
+        listMine: listMineContract,
       },
       files: {
         requestUpload: requestUploadContract,
@@ -38,6 +42,7 @@ describe("client composition", () => {
       },
     });
     expect(contractRouter.chat.getOrderCard).toBeDefined();
+    expect(contractRouter.companies.listMine).toBeDefined();
     expect(contractRouter.files.requestUpload).toBeDefined();
     expect(contractRouter.files.getUploadUrl).toBeDefined();
     expect(contractRouter.files.finalizeUpload).toBeDefined();

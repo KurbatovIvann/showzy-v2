@@ -8,6 +8,7 @@ import { join } from "node:path";
 
 import { catalogSuiteCoverage } from "@showzy/catalog/suite-coverage";
 import { chatSuiteCoverage } from "@showzy/chat/suite-coverage";
+import { companiesSuiteCoverage } from "@showzy/companies/suite-coverage";
 import { customersSuiteCoverage } from "@showzy/customers/suite-coverage";
 import { filesSuiteCoverage } from "@showzy/files/suite-coverage";
 import { ordersSuiteCoverage } from "@showzy/orders/suite-coverage";
@@ -66,6 +67,7 @@ describe("composition root identity", () => {
       mergeSuiteCoverage([
         catalogSuiteCoverage,
         chatSuiteCoverage,
+        companiesSuiteCoverage,
         customersSuiteCoverage,
         filesSuiteCoverage,
         ordersSuiteCoverage,
