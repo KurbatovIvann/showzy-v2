@@ -1,0 +1,30 @@
+{
+  "name": "@showzy/companies",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Companies module: tenant identity, own-membership account reads, and (later) onboarding writes. This package exports actions and events only.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./contract": "./src/index.contract.ts",
+    "./suite-coverage": "./src/suite-coverage.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@showzy/core": "workspace:*",
+    "@showzy/db": "workspace:*",
+    "drizzle-orm": "^0.45.2",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@showzy/tooling": "workspace:*",
+    "@types/node": "^22.20.1",
+    "eslint": "^10.8.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
+  }
+}

@@ -12,6 +12,7 @@
  * missing here, or an entry here that is not registered, fails boot.
  */
 import { getOrderCardContract } from "@showzy/chat/contract";
+import { listMineContract } from "@showzy/companies/contract";
 import {
   finalizeUploadContract,
   getDownloadUrlContract,
@@ -33,6 +34,9 @@ import {
 export const contractModules = {
   chat: {
     getOrderCard: getOrderCardContract,
+  },
+  companies: {
+    listMine: listMineContract,
   },
   files: {
     requestUpload: requestUploadContract,

@@ -21,6 +21,7 @@
     "@orpc/contract": "^1.14.6",
     "@orpc/server": "^1.14.6",
     "@showzy/chat": "workspace:*",
+    "@showzy/companies": "workspace:*",
     "@showzy/core": "workspace:*",
     "@showzy/files": "workspace:*",
     "@showzy/orders": "workspace:*",

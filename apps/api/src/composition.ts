@@ -23,6 +23,8 @@ import {
   upsertOrderCard,
 } from "@showzy/chat";
 import { chatSuiteCoverage } from "@showzy/chat/suite-coverage";
+import { listMine } from "@showzy/companies";
+import { companiesSuiteCoverage } from "@showzy/companies/suite-coverage";
 import { getCustomerPricingFacts } from "@showzy/customers";
 import { customersSuiteCoverage } from "@showzy/customers/suite-coverage";
 import {
@@ -67,6 +69,7 @@ import type { z } from "zod";
 const moduleSuiteCoverage: readonly SuiteCoverageManifest[] = [
   catalogSuiteCoverage,
   chatSuiteCoverage,
+  companiesSuiteCoverage,
   customersSuiteCoverage,
   filesSuiteCoverage,
   ordersSuiteCoverage,
@@ -101,6 +104,7 @@ const readModelGrants: readonly ReadModelGrantRef[] = [
 const schemaImports: readonly SchemaImportRef[] = [
   { importer: "catalog", schemaOwner: "catalog" },
   { importer: "chat", schemaOwner: "chat" },
+  { importer: "companies", schemaOwner: "companies" },
   { importer: "customers", schemaOwner: "customers" },
   { importer: "files", schemaOwner: "files" },
   { importer: "orders", schemaOwner: "orders" },
@@ -151,6 +155,7 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, getProductPricingFacts);
   registerAction(registry, getOrderCard);
   registerAction(registry, upsertOrderCard);
+  registerAction(registry, listMine);
   registerAction(registry, getCustomerPricingFacts);
   registerAction(registry, requestUpload);
   registerAction(registry, getUploadUrl);
