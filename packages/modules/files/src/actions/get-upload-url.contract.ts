@@ -1,8 +1,9 @@
 /**
  * Staff read: short-lived signed PUT for a pending catalog file.
  * Mechanical: `timeout: 5000` is one tenant-scoped lookup plus local presign.
- * Ready, missing, and foreign files are not-found. Authorization is
- * rechecked when the URL is issued. The URL is not stored.
+ * Ready, missing, foreign, and pending files whose PUT would outlive the
+ * abandoned-at cutoff are not-found. Authorization is rechecked when the
+ * URL is issued. The URL is not stored.
  */
 import { defineActionContract } from "@showzy/core/contract";
 import { z } from "zod";
@@ -20,7 +21,7 @@ export const getUploadUrlOutputSchema = z.object({
 export const getUploadUrlContract = defineActionContract({
   name: "files.getUploadUrl",
   description:
-    "Return a short-lived signed PUT URL for a pending private catalog file in the active company. Ready, missing, or foreign-company files fail with not-found. The handshake PUT targets {companyId}/uploads/{fileId} (derived in code, never stored). Clients never receive or choose the durable object key as a durable field. Call again if the previous PUT expired; do not mint a new requestUpload idempotency key.",
+    "Return a short-lived signed PUT URL for a pending private catalog file in the active company. Ready, missing, foreign-company, or pending files whose remaining life is shorter than the PUT TTL fail with not-found; then call requestUpload again rather than reminting. The handshake PUT targets {companyId}/uploads/{fileId} (derived in code, never stored). Clients never receive or choose the durable object key as a durable field. Call again if the previous PUT expired; do not mint a new requestUpload idempotency key.",
   principal: "staff",
   transport: "client",
   input: getUploadUrlInputSchema,

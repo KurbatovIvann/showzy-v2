@@ -7,6 +7,7 @@ import type { z } from "zod";
 import type { getUploadUrlInputSchema } from "../actions/get-upload-url.contract.js";
 import { requireDeclaredMime } from "./file-view.js";
 import { catalogObjectKey, stagingObjectKey } from "./object-key.js";
+import { signedPutWouldOutlivePending } from "./pending-abandon.js";
 import { getFilesObjectStore } from "./s3-port.js";
 
 type StaffCtx = Extract<ActionCtx, { principal: "staff" }>;
@@ -47,6 +48,15 @@ export async function getStaffUploadUrl(input: {
     throw new CoreInvariantError(
       "files pending row has a non-positive declared size",
     );
+  }
+
+  if (
+    signedPutWouldOutlivePending({
+      createdAt: row.createdAt,
+      now: new Date(),
+    })
+  ) {
+    throw new NotFoundError();
   }
 
   const signed = await getFilesObjectStore().signPut({
