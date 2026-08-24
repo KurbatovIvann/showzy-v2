@@ -28,9 +28,13 @@ export interface SignedUrl {
   readonly expiresAt: Date;
 }
 
-export interface ObjectBytes {
-  readonly bytes: Uint8Array;
+export interface ObjectIdentity {
   readonly byteSize: number;
+  readonly etag: string;
+}
+
+export interface ObjectBytes extends ObjectIdentity {
+  readonly bytes: Uint8Array;
 }
 
 export interface FilesObjectStore {
@@ -43,7 +47,7 @@ export interface FilesObjectStore {
     readonly key: string;
     readonly mimeType: FileMimeType;
   }): Promise<SignedUrl>;
-  headObject(key: string): Promise<{ readonly byteSize: number } | "missing">;
+  headObject(key: string): Promise<ObjectIdentity | "missing">;
   getObject(key: string): Promise<ObjectBytes | "missing">;
   putObject(input: {
     readonly key: string;
@@ -74,6 +78,30 @@ export function getFilesObjectStore(): FilesObjectStore {
     );
   }
   return configured;
+}
+
+/**
+ * Wrap the process-wide store and return a restore function. Finalize TOCTOU
+ * tests use this to mutate staging after GetObject without adding a core hook.
+ */
+export function mapConfiguredFilesObjectStore(
+  map: (store: FilesObjectStore) => FilesObjectStore,
+): () => void {
+  const inner = getFilesObjectStore();
+  configured = map(inner);
+  return () => {
+    configured = inner;
+  };
+}
+
+/** Strip S3 weak-validator prefixes and quotes so Head/Get ETags compare. */
+export function normalizeObjectEtag(etag: string): string {
+  const value =
+    etag.startsWith("W/") || etag.startsWith("w/") ? etag.slice(2) : etag;
+  if (value.length >= 2 && value.startsWith('"') && value.endsWith('"')) {
+    return value.slice(1, -1);
+  }
+  return value;
 }
 
 export function createFilesObjectStore(
@@ -144,7 +172,10 @@ export function createFilesObjectStore(
             "files object store HeadObject omitted ContentLength",
           );
         }
-        return { byteSize };
+        return {
+          byteSize,
+          etag: requireObjectEtag(result.ETag, "HeadObject"),
+        };
       } catch (error) {
         if (isMissingObject(error)) {
           return "missing";
@@ -165,7 +196,11 @@ export function createFilesObjectStore(
           );
         }
         const bytes = await body.transformToByteArray();
-        return { bytes, byteSize: bytes.byteLength };
+        return {
+          bytes,
+          byteSize: bytes.byteLength,
+          etag: requireObjectEtag(result.ETag, "GetObject"),
+        };
       } catch (error) {
         if (isMissingObject(error)) {
           return "missing";
@@ -215,6 +250,18 @@ export function createFilesObjectStore(
       client.destroy();
     },
   };
+}
+
+function requireObjectEtag(
+  etag: string | undefined,
+  operation: "HeadObject" | "GetObject",
+): string {
+  if (etag === undefined || etag.length === 0) {
+    throw new CoreInvariantError(
+      `files object store ${operation} omitted ETag`,
+    );
+  }
+  return normalizeObjectEtag(etag);
 }
 
 function downloadFilename(mimeType: FileMimeType): string {

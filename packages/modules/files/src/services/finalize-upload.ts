@@ -5,7 +5,7 @@ import { and, eq } from "drizzle-orm";
 import type { z } from "zod";
 
 import type { finalizeUploadInputSchema } from "../actions/finalize-upload.contract.js";
-import { MAX_UPLOAD_BYTES } from "../wire.contract.js";
+import { MAX_UPLOAD_BYTES, type FileMimeType } from "../wire.contract.js";
 import { sha256Hex } from "./checksum.js";
 import {
   requireDeclaredMime,
@@ -14,42 +14,164 @@ import {
 } from "./file-view.js";
 import { uploadBytesMatchDeclaredMime } from "./magic-bytes.js";
 import { catalogObjectKey, stagingObjectKey } from "./object-key.js";
-import { getFilesObjectStore } from "./s3-port.js";
+import {
+  getFilesObjectStore,
+  type FilesObjectStore,
+  type ObjectBytes,
+} from "./s3-port.js";
 import { uploadedObjectInvalid } from "./uploaded-object.js";
 import { requireWritable } from "./writable.js";
 
 type StaffCtx = Extract<ActionCtx, { principal: "staff" }>;
 type FinalizeInput = z.output<typeof finalizeUploadInputSchema>;
+type FileRow = typeof files.$inferSelect;
+type WritableDb = ReturnType<typeof requireWritable>;
+
+interface PendingUploadMeta {
+  readonly checksumSha256: string;
+  readonly declaredSize: number;
+  readonly mimeType: FileMimeType;
+}
 
 export async function finalizeStaffUpload(input: {
   readonly ctx: StaffCtx;
   readonly input: FinalizeInput;
 }): Promise<FileReadyView> {
   const db = requireWritable(input.ctx.db);
-  const rows = await db
+  const companyId = input.ctx.companyId;
+  const fileId = input.input.fileId;
+
+  const unlocked = await loadFileRow({
+    db,
+    companyId,
+    fileId,
+    lock: false,
+  });
+  if (unlocked.status === "ready") {
+    return toReadyView(unlocked);
+  }
+  requirePending(unlocked);
+
+  const catalogKey = catalogObjectKey(companyId, unlocked.id);
+  const stagingKey = stagingObjectKey(companyId, unlocked.id);
+  const declared = requirePendingUploadMeta(unlocked, catalogKey);
+
+  const store = getFilesObjectStore();
+  const staged = await readValidatedStaging({
+    store,
+    stagingKey,
+    declared,
+  });
+
+  const locked = await loadFileRow({
+    db,
+    companyId,
+    fileId,
+    lock: true,
+  });
+  if (locked.status === "ready") {
+    return toReadyView(locked);
+  }
+  requirePending(locked);
+  const lockedMeta = requirePendingUploadMeta(locked, catalogKey);
+  if (
+    lockedMeta.checksumSha256 !== declared.checksumSha256 ||
+    lockedMeta.declaredSize !== declared.declaredSize ||
+    lockedMeta.mimeType !== declared.mimeType
+  ) {
+    throw uploadedObjectInvalid();
+  }
+
+  const head = await store.headObject(stagingKey);
+  if (
+    head === "missing" ||
+    head.byteSize !== staged.byteSize ||
+    head.etag !== staged.etag
+  ) {
+    throw uploadedObjectInvalid();
+  }
+
+  // Durable catalog bytes are the already-hashed buffer (owner call
+  // 2026-08-22). PutObject runs only while the row is still pending under
+  // FOR UPDATE so a leftover PUT cannot overwrite a ready catalog key.
+  await store.putObject({
+    key: catalogKey,
+    mimeType: declared.mimeType,
+    bytes: staged.bytes,
+  });
+
+  const updated = await db
+    .update(files)
+    .set({
+      status: "ready",
+      byteSize: BigInt(staged.byteSize),
+      checksumSha256: declared.checksumSha256,
+    })
+    .where(
+      and(
+        eq(files.companyId, companyId),
+        eq(files.id, locked.id),
+        eq(files.status, "pending"),
+      ),
+    )
+    .returning();
+  const saved = updated[0];
+  if (saved === undefined) {
+    const raced = await loadFileRow({
+      db,
+      companyId,
+      fileId: locked.id,
+      lock: false,
+    });
+    if (raced.status !== "ready") {
+      throw new CoreInvariantError("files.finalizeUpload lost the row");
+    }
+    return toReadyView(raced);
+  }
+
+  input.ctx.log.info(
+    {
+      file_id: saved.id,
+      mime_type: saved.mimeType,
+      byte_size: staged.byteSize,
+    },
+    "files.finalizeUpload marked file ready",
+  );
+
+  return toReadyView(saved);
+}
+
+async function loadFileRow(input: {
+  readonly db: WritableDb;
+  readonly companyId: string;
+  readonly fileId: string;
+  readonly lock: boolean;
+}): Promise<FileRow> {
+  const query = input.db
     .select()
     .from(files)
     .where(
-      and(
-        eq(files.companyId, input.ctx.companyId),
-        eq(files.id, input.input.fileId),
-      ),
+      and(eq(files.companyId, input.companyId), eq(files.id, input.fileId)),
     )
-    .limit(1)
-    .for("update");
+    .limit(1);
+  const rows = input.lock ? await query.for("update") : await query;
   const row = rows[0];
   if (row === undefined) {
     throw new NotFoundError();
   }
-  if (row.status === "ready") {
-    return toReadyView(row);
-  }
+  return row;
+}
+
+function requirePending(row: FileRow): void {
   if (row.status !== "pending") {
     throw new CoreInvariantError("files.finalizeUpload saw an unknown status");
   }
+}
 
-  const catalogKey = catalogObjectKey(input.ctx.companyId, row.id);
-  const stagingKey = stagingObjectKey(input.ctx.companyId, row.id);
+function requirePendingUploadMeta(
+  row: FileRow,
+  catalogKey: string,
+): PendingUploadMeta {
   if (row.objectKey !== catalogKey) {
     throw uploadedObjectInvalid();
   }
@@ -60,75 +182,38 @@ export async function finalizeStaffUpload(input: {
   if (!Number.isSafeInteger(declaredSize) || declaredSize < 1) {
     throw uploadedObjectInvalid();
   }
+  return {
+    checksumSha256: row.checksumSha256,
+    declaredSize,
+    mimeType: requireDeclaredMime(row.mimeType),
+  };
+}
 
-  const store = getFilesObjectStore();
-  const head = await store.headObject(stagingKey);
+async function readValidatedStaging(input: {
+  readonly store: FilesObjectStore;
+  readonly stagingKey: string;
+  readonly declared: PendingUploadMeta;
+}): Promise<ObjectBytes> {
+  const head = await input.store.headObject(input.stagingKey);
   if (head === "missing") {
     throw uploadedObjectInvalid();
   }
-  if (head.byteSize !== declaredSize || head.byteSize > MAX_UPLOAD_BYTES) {
+  if (
+    head.byteSize !== input.declared.declaredSize ||
+    head.byteSize > MAX_UPLOAD_BYTES
+  ) {
     throw uploadedObjectInvalid();
   }
 
-  const object = await store.getObject(stagingKey);
-  if (object === "missing" || object.byteSize !== declaredSize) {
+  const object = await input.store.getObject(input.stagingKey);
+  if (object === "missing" || object.byteSize !== input.declared.declaredSize) {
     throw uploadedObjectInvalid();
   }
-  const mimeType = requireDeclaredMime(row.mimeType);
-  if (!uploadBytesMatchDeclaredMime(object.bytes, mimeType)) {
+  if (!uploadBytesMatchDeclaredMime(object.bytes, input.declared.mimeType)) {
     throw uploadedObjectInvalid();
   }
-  if (sha256Hex(object.bytes) !== row.checksumSha256) {
+  if (sha256Hex(object.bytes) !== input.declared.checksumSha256) {
     throw uploadedObjectInvalid();
   }
-
-  // Durable catalog bytes are the already-hashed buffer (owner call
-  // 2026-08-22). A leftover PUT can only mutate staging.
-  await store.putObject({
-    key: catalogKey,
-    mimeType,
-    bytes: object.bytes,
-  });
-
-  const updated = await db
-    .update(files)
-    .set({
-      status: "ready",
-      byteSize: BigInt(object.byteSize),
-      checksumSha256: row.checksumSha256,
-    })
-    .where(
-      and(
-        eq(files.companyId, input.ctx.companyId),
-        eq(files.id, row.id),
-        eq(files.status, "pending"),
-      ),
-    )
-    .returning();
-  const saved = updated[0];
-  if (saved === undefined) {
-    const raced = await db
-      .select()
-      .from(files)
-      .where(
-        and(eq(files.companyId, input.ctx.companyId), eq(files.id, row.id)),
-      )
-      .limit(1);
-    const ready = raced[0];
-    if (ready === undefined || ready.status !== "ready") {
-      throw new CoreInvariantError("files.finalizeUpload lost the row");
-    }
-    return toReadyView(ready);
-  }
-
-  input.ctx.log.info(
-    {
-      file_id: saved.id,
-      mime_type: saved.mimeType,
-      byte_size: object.byteSize,
-    },
-    "files.finalizeUpload marked file ready",
-  );
-
-  return toReadyView(saved);
+  return object;
 }
