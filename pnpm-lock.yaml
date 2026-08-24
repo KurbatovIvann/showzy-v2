@@ -336,7 +336,7 @@ importers:
         specifier: workspace:*
         version: link:../../packages/tooling
       '@testcontainers/redis':
-        specifier: 12.1.0
+        specifier: ^12.1.0
         version: 12.1.0
       '@types/node':
         specifier: ^22.20.1
