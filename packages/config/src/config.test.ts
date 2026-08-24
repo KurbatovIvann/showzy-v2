@@ -199,6 +199,31 @@ describe("loadServerConfig", () => {
       expect((error as ConfigValidationError).message).toContain("missing");
     }
   });
+
+  it("never echoes S3 credentials in ConfigValidationError", () => {
+    const env = validEnv();
+    env["S3_ACCESS_KEY_ID"] = "S3_ACCESS_KEY_ID_SENTINEL";
+    env["S3_SECRET_ACCESS_KEY"] = "S3_SECRET_ACCESS_KEY_SENTINEL";
+    env["S3_ENDPOINT"] = "ftp://not-s3";
+
+    let thrown: unknown;
+    try {
+      loadServerConfig(env);
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(ConfigValidationError);
+    const everything = JSON.stringify({
+      message: (thrown as ConfigValidationError).message,
+      issues: (thrown as ConfigValidationError).issues,
+      stack: (thrown as ConfigValidationError).stack,
+      cause: (thrown as ConfigValidationError).cause,
+    });
+    expect(everything).not.toContain("SENTINEL");
+    expect(everything).toContain("S3_ENDPOINT");
+    expect(everything).not.toContain("S3_SECRET_ACCESS_KEY_SENTINEL");
+  });
 });
 
 describe("ENV_SCHEMA_KEYS vs .env.example", () => {
@@ -344,30 +369,5 @@ describe("OTP delivery config", () => {
     });
     expect(everything).not.toContain("SENTINEL");
     expect(everything).toContain("RESEND_FROM_EMAIL");
-  });
-
-  it("never echoes S3 credentials in ConfigValidationError", () => {
-    const env = validEnv();
-    env["S3_ACCESS_KEY_ID"] = "S3_ACCESS_KEY_ID_SENTINEL";
-    env["S3_SECRET_ACCESS_KEY"] = "S3_SECRET_ACCESS_KEY_SENTINEL";
-    env["S3_ENDPOINT"] = "ftp://not-s3";
-
-    let thrown: unknown;
-    try {
-      loadServerConfig(env);
-    } catch (error) {
-      thrown = error;
-    }
-
-    expect(thrown).toBeInstanceOf(ConfigValidationError);
-    const everything = JSON.stringify({
-      message: (thrown as ConfigValidationError).message,
-      issues: (thrown as ConfigValidationError).issues,
-      stack: (thrown as ConfigValidationError).stack,
-      cause: (thrown as ConfigValidationError).cause,
-    });
-    expect(everything).not.toContain("SENTINEL");
-    expect(everything).toContain("S3_ENDPOINT");
-    expect(everything).not.toContain("S3_SECRET_ACCESS_KEY_SENTINEL");
   });
 });
