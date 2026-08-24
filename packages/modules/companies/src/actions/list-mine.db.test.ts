@@ -79,6 +79,14 @@ beforeAll(async () => {
       createdAt: new Date("2026-02-01T00:00:00Z"),
     },
   ]);
+
+  // Warm the pooled connection, Drizzle statements, and schema parsers
+  // before the isolation suites run: the inherited rate-limit assertion
+  // races the bucket's continuous refill, so cold first-call latency must
+  // not eat its budget under parallel CI load.
+  for (let i = 0; i < 3; i += 1) {
+    await kit.invoke(listMine, {}, { userId: fixtures.emptyUser });
+  }
 });
 
 afterAll(async () => {

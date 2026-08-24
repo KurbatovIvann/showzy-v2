@@ -5,7 +5,13 @@
  * - `aiExposure: "exposed"` — a safe own-user read, the account-session
  *   tool the AI surface lists (contract.md §2).
  * - `timeout: 5000` matches the golden read actions.
- * - Rate limit stays at the account default (90/min per user).
+ * - `rateLimit` 30 per 120s per user instead of the account default
+ *   (90/min): a phone reads its own company list a handful of times per
+ *   session, so a 30-call burst with a 15/min sustained refill is ample,
+ *   and the slower refill keeps the inherited account rate-limit
+ *   assertion deterministic under parallel CI load (the 90/min default
+ *   refills a token every ~667ms — faster than 90 sequential pipeline
+ *   invocations complete on a loaded runner).
  * - Output wrapper is `{ memberships: [...] }`; stable order is membership
  *   `created_at` then membership id, so renames cannot reshuffle the list.
  */
@@ -56,4 +62,5 @@ export const listMineContract = defineActionContract({
   atomicCallers: [],
   audit: false,
   timeout: 5_000,
+  rateLimit: { scope: "user", limit: 30, windowSec: 120 },
 });
