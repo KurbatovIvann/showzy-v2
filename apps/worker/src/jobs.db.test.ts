@@ -241,7 +241,15 @@ async function enqueueMaintenanceJob(
   });
   await events.waitUntilReady();
   try {
-    const job = await queue.add(jobName, {}, { jobId });
+    const job = await queue.add(
+      jobName,
+      {},
+      {
+        jobId,
+        removeOnComplete: true,
+        removeOnFail: 50,
+      },
+    );
     await job.waitUntilFinished(events, 30_000);
   } finally {
     await events.close();
@@ -819,6 +827,7 @@ describe("apps/worker sweepAbandonedUploads scheduler (SHO-120)", () => {
       expect(payload).toContain("abandoned uploads swept");
       expect(payload).toContain("abandoned_pending_deleted");
       expect(payload).toContain("leftover_staging_deleted");
+      expect(payload).not.toContain(dueId);
       expect(payload).not.toMatch(/\/catalog\//);
       expect(payload).not.toMatch(/\/uploads\//);
       expect(payload).not.toContain(garageEndpoint);
