@@ -127,24 +127,27 @@ function AiTab(props: {
 }) {
   const { theme } = useUnistyles();
   return (
-    <View style={styles.aiSlot}>
-      <Pressable
-        accessibilityRole="tab"
-        accessibilityLabel={props.label}
-        accessibilityState={{ selected: props.active }}
-        onPress={props.onPress}
-        style={({ pressed }) => [
-          styles.aiButton,
-          pressed ? styles.aiButtonPressed : null,
-        ]}
-      >
-        <SparklesIcon
-          size={theme.iconSize.md}
-          color={theme.colors.accentForeground}
-        />
-      </Pressable>
-      <Text style={styles.aiLabel}>{props.label}</Text>
-    </View>
+    <Pressable
+      accessibilityRole="tab"
+      accessibilityLabel={props.label}
+      accessibilityState={{ selected: props.active }}
+      onPress={props.onPress}
+      style={styles.aiSlot}
+    >
+      {({ pressed }) => (
+        <>
+          <View
+            style={[styles.aiButton, pressed ? styles.aiButtonPressed : null]}
+          >
+            <SparklesIcon
+              size={theme.iconSize.md}
+              color={theme.colors.accentForeground}
+            />
+          </View>
+          <Text style={styles.aiLabel}>{props.label}</Text>
+        </>
+      )}
+    </Pressable>
   );
 }
 
