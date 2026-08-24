@@ -1,5 +1,5 @@
 /**
- * System GC for handshake leftovers (SHO-115 / files-T6). Global system
+ * System GC for handshake leftovers (SHO-115 / files-T6, cursor SHO-117). Global system
  * write, internal, audited, idempotent. Empty input discovers leftover
  * ready staging and abandoned pending rows; `limit` only bounds the
  * batch. Keys are derived from each locked row's `companyId`, never from
