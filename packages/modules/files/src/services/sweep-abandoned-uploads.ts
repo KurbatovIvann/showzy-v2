@@ -4,12 +4,12 @@ import { files } from "@showzy/db/schema/files";
 import { and, asc, eq, lte } from "drizzle-orm";
 import type { z } from "zod";
 
-import type { sweepAbandonedUploadsInputSchema } from "../actions/sweep-abandoned-uploads.contract.js";
 import {
-  ABANDONED_PENDING_TTL_MS,
   SWEEP_BATCH_LIMIT,
+  type sweepAbandonedUploadsInputSchema,
 } from "../actions/sweep-abandoned-uploads.contract.js";
 import { catalogObjectKey, stagingObjectKey } from "./object-key.js";
+import { abandonedPendingCutoff } from "./pending-abandon.js";
 import { getFilesObjectStore, type FilesObjectStore } from "./s3-port.js";
 import { requireWritable } from "./writable.js";
 
@@ -32,11 +32,11 @@ export async function runAbandonedUploadSweep(input: {
 }): Promise<SweepAbandonedUploadsResult> {
   const db = requireWritable(input.ctx.db);
   const limit = input.input.limit ?? SWEEP_BATCH_LIMIT;
-  const cutoff = new Date(Date.now() - ABANDONED_PENDING_TTL_MS);
+  const cutoff = abandonedPendingCutoff(new Date());
   const store = getFilesObjectStore();
 
   // Row age from createdAt. getUploadUrl is risk:read and cannot extend
-  // this lease; 1 hour is 4× the signed PUT TTL (in-flight handshake).
+  // this lease; it refuses a remint whose PUT would outlive this cutoff.
   const abandoned = await db
     .select()
     .from(files)

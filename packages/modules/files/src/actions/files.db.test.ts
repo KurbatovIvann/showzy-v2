@@ -37,10 +37,12 @@ import { sweepAbandonedUploads } from "./sweep-abandoned-uploads.js";
 import { ABANDONED_PENDING_TTL_MS } from "./sweep-abandoned-uploads.contract.js";
 import { sha256Hex } from "../services/checksum.js";
 import { catalogObjectKey, stagingObjectKey } from "../services/object-key.js";
+import { SIGNED_PUT_SKEW_MARGIN_MS } from "../services/pending-abandon.js";
 import {
   closeFilesObjectStore,
   configureFilesObjectStore,
   getFilesObjectStore,
+  SIGNED_URL_TTL_SEC,
 } from "../services/s3-port.js";
 import { MAX_UPLOAD_BYTES, type FileMimeType } from "../wire.contract.js";
 
@@ -850,6 +852,109 @@ describe("files signed upload slice", () => {
       .from(idempotencyKeys)
       .where(eq(idempotencyKeys.action, "files.getUploadUrl"));
     expect(reservations).toHaveLength(0);
+  });
+
+  it("mints a PUT for a pending file younger than the remint cutoff without logging the URL", async () => {
+    const fileId = randomUUID();
+    const createdAt = new Date(Date.now() - 20 * 60 * 1000);
+    await insertFileRow({
+      id: fileId,
+      companyId: kitIdentities.companies.a,
+      uploadedByUserId: kitIdentities.users.anna,
+      status: "pending",
+      createdAt,
+    });
+
+    const capturing = createCapturingLogger();
+    const signed = await requireKit().invoke(
+      getUploadUrl,
+      { fileId },
+      {},
+      { deps: { ...requireKit().pipeline, logger: capturing.logger } },
+    );
+    expect(signed.fileId).toBe(fileId);
+    expect(signed.uploadUrl.startsWith("http")).toBe(true);
+    expect(signed.uploadUrl).toContain("/uploads/");
+    const logs = JSON.stringify(capturing.entries());
+    expect(logs).not.toContain(signed.uploadUrl);
+    expect(logs).not.toContain(
+      catalogObjectKey(kitIdentities.companies.a, fileId),
+    );
+    expect(logs).not.toMatch(/\/catalog\//);
+    expect(logs).not.toMatch(/\/uploads\//);
+  });
+
+  it("refuses getUploadUrl when the PUT would outlive the pending row", async () => {
+    const fileId = randomUUID();
+    const remainingMs =
+      SIGNED_URL_TTL_SEC * 1000 - SIGNED_PUT_SKEW_MARGIN_MS - 1_000;
+    const createdAt = new Date(
+      Date.now() - (ABANDONED_PENDING_TTL_MS - remainingMs),
+    );
+    await insertFileRow({
+      id: fileId,
+      companyId: kitIdentities.companies.a,
+      uploadedByUserId: kitIdentities.users.anna,
+      status: "pending",
+      createdAt,
+    });
+    await putStoreObject(stagingObjectKey(kitIdentities.companies.a, fileId));
+
+    const capturing = createCapturingLogger();
+    await expect(
+      requireKit().invoke(
+        getUploadUrl,
+        { fileId },
+        {},
+        { deps: { ...requireKit().pipeline, logger: capturing.logger } },
+      ),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      requireKit().invoke(
+        getUploadUrl,
+        { fileId },
+        {
+          userId: kitIdentities.users.boris,
+          companyId: kitIdentities.companies.b,
+        },
+      ),
+    ).rejects.toBeInstanceOf(NotFoundError);
+
+    const logs = JSON.stringify(capturing.entries());
+    expect(logs).not.toMatch(/\/catalog\//);
+    expect(logs).not.toMatch(/\/uploads\//);
+
+    await requireKit().invoke(sweepAbandonedUploads, {});
+    const stillPending = await requireKit()
+      .db.runtime.db.select({ id: files.id, status: files.status })
+      .from(files)
+      .where(eq(files.id, fileId));
+    expect(stillPending).toEqual([{ id: fileId, status: "pending" }]);
+    expect(
+      await getFilesObjectStore().headObject(
+        stagingObjectKey(kitIdentities.companies.a, fileId),
+      ),
+    ).not.toBe("missing");
+
+    await requireKit()
+      .db.runtime.db.update(files)
+      .set({
+        createdAt: new Date(Date.now() - ABANDONED_PENDING_TTL_MS - 1_000),
+      })
+      .where(eq(files.id, fileId));
+
+    const swept = await requireKit().invoke(sweepAbandonedUploads, {});
+    expect(swept.abandonedPendingDeleted).toBeGreaterThanOrEqual(1);
+    const gone = await requireKit()
+      .db.runtime.db.select({ id: files.id })
+      .from(files)
+      .where(eq(files.id, fileId));
+    expect(gone).toHaveLength(0);
+    expect(
+      await getFilesObjectStore().headObject(
+        stagingObjectKey(kitIdentities.companies.a, fileId),
+      ),
+    ).toBe("missing");
   });
 
   it("writes audit rows for the writes without URLs or object keys", async () => {
