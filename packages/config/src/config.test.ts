@@ -261,6 +261,16 @@ function liveOtpEnv(): Record<string, string> {
   };
 }
 
+/** A production environment that passes every production-only gate. */
+function productionEnv(): Record<string, string> {
+  return {
+    ...liveOtpEnv(),
+    NODE_ENV: "production",
+    S3_ENDPOINT: "https://s3.example.com",
+    BETTER_AUTH_URL: "https://app.example.com",
+  };
+}
+
 describe("OTP delivery config", () => {
   it("defaults development and test to stub without live keys", () => {
     const development = validEnv();
@@ -288,13 +298,14 @@ describe("OTP delivery config", () => {
     });
   });
 
-  it("accepts production when live transports and keys are present", () => {
-    const env = liveOtpEnv();
-    env["NODE_ENV"] = "production";
+  it("accepts production when live transports, keys, and https endpoints are present", () => {
+    const env = productionEnv();
     const config = loadServerConfig(env);
     expect(config.nodeEnv).toBe("production");
     expect(config.otpDelivery.email.transport).toBe("resend");
     expect(config.otpDelivery.sms.transport).toBe("sms-fly");
+    expect(config.s3.endpoint).toBe("https://s3.example.com");
+    expect(config.auth.url).toBe("https://app.example.com");
   });
 
   it("fails production when live transports are missing", () => {
@@ -311,6 +322,30 @@ describe("OTP delivery config", () => {
       expect(configError.message).toContain("OTP_SMS_TRANSPORT");
       expect(configError.message).toContain("production requires sms-fly");
     }
+  });
+
+  it("fails production when S3 or auth endpoints are not https", () => {
+    const env = productionEnv();
+    env["S3_ENDPOINT"] = "http://s3.example.com";
+    env["BETTER_AUTH_URL"] = "http://app.example.com";
+
+    expect(() => loadServerConfig(env)).toThrow(ConfigValidationError);
+    try {
+      loadServerConfig(env);
+    } catch (error) {
+      const configError = error as ConfigValidationError;
+      expect(configError.message).toContain("S3_ENDPOINT");
+      expect(configError.message).toContain("BETTER_AUTH_URL");
+      expect(configError.message).toContain("production requires https");
+    }
+  });
+
+  it("accepts http S3 and auth endpoints outside production", () => {
+    const env = validEnv();
+    env["NODE_ENV"] = "development";
+    const config = loadServerConfig(env);
+    expect(config.s3.endpoint).toBe("http://localhost:3900");
+    expect(config.auth.url).toBe("http://localhost:3000");
   });
 
   it("fails a live email transport that is missing its key or from-line", () => {
