@@ -11,6 +11,7 @@ import {
   idempotencySuite,
   isolationCase,
   kitIdentities,
+  type SuiteAction,
   type TestKit,
 } from "@showzy/core/testing";
 import { auditLog, domainEvents } from "@showzy/db";
@@ -634,54 +635,54 @@ describe("catalog archive/restore", () => {
 
   it("returns the same not-found for missing and foreign rows", async () => {
     const missing = randomUUID();
-    const cases = [
-      {
-        action: archiveProduct,
-        missing: { productId: missing },
-        foreign: { productId: fixtures.productIsolationArchiveB },
-      },
-      {
-        action: restoreProduct,
-        missing: { productId: missing },
-        foreign: { productId: fixtures.productIsolationRestoreB },
-      },
-      {
-        action: archiveVariant,
-        missing: { variantId: missing },
-        foreign: { variantId: fixtures.variantIsolationArchiveB },
-      },
-      {
-        action: restoreVariant,
-        missing: { variantId: missing },
-        foreign: { variantId: fixtures.variantIsolationRestoreB },
-      },
-    ] as const;
-
-    for (const c of cases) {
-      const missingError = await kit.invoke(c.action, c.missing).then(
-        () => {
-          throw new Error(
-            `expected NotFoundError for ${c.action.contract.name}`,
-          );
-        },
-        (error: unknown) => error,
-      );
-      const foreignError = await kit.invoke(c.action, c.foreign).then(
-        () => {
-          throw new Error(
-            `expected NotFoundError for foreign ${c.action.contract.name}`,
-          );
-        },
-        (error: unknown) => error,
-      );
-      expect(missingError).toBeInstanceOf(NotFoundError);
-      expect(foreignError).toBeInstanceOf(NotFoundError);
-      if (
-        missingError instanceof NotFoundError &&
-        foreignError instanceof NotFoundError
-      ) {
-        expect(missingError.clientMessage).toBe(foreignError.clientMessage);
-      }
-    }
+    await expectSameNotFound(
+      archiveProduct,
+      { productId: missing },
+      { productId: fixtures.productIsolationArchiveB },
+    );
+    await expectSameNotFound(
+      restoreProduct,
+      { productId: missing },
+      { productId: fixtures.productIsolationRestoreB },
+    );
+    await expectSameNotFound(
+      archiveVariant,
+      { variantId: missing },
+      { variantId: fixtures.variantIsolationArchiveB },
+    );
+    await expectSameNotFound(
+      restoreVariant,
+      { variantId: missing },
+      { variantId: fixtures.variantIsolationRestoreB },
+    );
   });
 });
+
+async function expectSameNotFound(
+  action: SuiteAction,
+  missingInput: unknown,
+  foreignInput: unknown,
+): Promise<void> {
+  const missingError = await kit.invoke(action, missingInput).then(
+    () => {
+      throw new Error(`expected NotFoundError for ${action.contract.name}`);
+    },
+    (error: unknown) => error,
+  );
+  const foreignError = await kit.invoke(action, foreignInput).then(
+    () => {
+      throw new Error(
+        `expected NotFoundError for foreign ${action.contract.name}`,
+      );
+    },
+    (error: unknown) => error,
+  );
+  expect(missingError).toBeInstanceOf(NotFoundError);
+  expect(foreignError).toBeInstanceOf(NotFoundError);
+  if (
+    missingError instanceof NotFoundError &&
+    foreignError instanceof NotFoundError
+  ) {
+    expect(missingError.clientMessage).toBe(foreignError.clientMessage);
+  }
+}
