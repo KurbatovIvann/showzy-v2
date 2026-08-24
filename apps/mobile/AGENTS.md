@@ -27,8 +27,10 @@ the same directory.
 
 - `src/app/` — expo-router routes **only**, each a one-line re-export of a
   screen component. Auth routes live in the `(auth)` group with `OtpProvider`;
-  signed-in routes live in `(app)`. `/session` stays the signed-in URL. No
-  logic in route files besides layout guards.
+  signed-in routes live in `(app)` under the `(tabs)` shell. `/session`
+  redirects into the tabs (SHO-122, owner decision 1); session identity
+  lives on the More tab. No logic in route files besides layout guards
+  and redirects.
 - `src/components/ui/` — **shared** primitives only (Button, Card, TextField,
   tabs, inputs, later Sheet / StatusPill / EmptyState). Never imports
   feature code; feature policy values (e.g. OTP length) arrive as props.
