@@ -1,12 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 
+import {
+  listMineQueryKey,
+  type CompanyMembership,
+} from "../../../api/company-membership-query";
 import { createShowzyQueryClient } from "../../../api/query-client";
 import { onboardingCopy } from "../../../i18n/onboarding";
 import {
   applyCreatedCompany,
   COMPANY_NAME_MAX,
   createCompanyPayload,
-  listMineQueryKey,
   mapCreateCompanyFailure,
   mergeCreatedMembership,
   nextLastSubmitted,
@@ -14,8 +17,9 @@ import {
   resolveCreateCompanyCopy,
   shouldApplyCreatedCompany,
   validateCreateCompanyForm,
-  type CompanyMembership,
 } from "./create-company-form";
+
+const sessionUserId = "33333333-3333-4333-8333-333333333333";
 
 const membership: CompanyMembership = {
   membershipId: "11111111-1111-4111-8111-111111111111",
@@ -224,6 +228,7 @@ describe("applyCreatedCompany", () => {
 
     applyCreatedCompany({
       membership,
+      sessionUserId,
       setActiveCompany,
       queryClient,
       enterPanel,
@@ -231,7 +236,7 @@ describe("applyCreatedCompany", () => {
 
     expect(setActiveCompany).toHaveBeenCalledTimes(1);
     expect(setActiveCompany).toHaveBeenCalledWith(membership.company.id);
-    expect(queryClient.getQueryData(listMineQueryKey())).toEqual({
+    expect(queryClient.getQueryData(listMineQueryKey(sessionUserId))).toEqual({
       memberships: [membership],
     });
     expect(enterPanel).toHaveBeenCalledTimes(1);

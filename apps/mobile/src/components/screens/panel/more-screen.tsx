@@ -4,21 +4,20 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet } from "react-native-unistyles";
 
 import { useAuthSession } from "../../../auth/session-provider";
+import { useResolvedCompany } from "../../../company-resolution/resolved-company-provider";
 import { detectLocale } from "../../../i18n/locale";
 import { panelCopy } from "../../../i18n/panel";
 import { Button, Card } from "../../ui";
 
 /**
- * More (Ще) tab (SHO-124): session identity, the company-selector stub
- * (unchanged SHO-58 semantics — `companies.listMine` is phase 2 and the
- * selector is never an access grant, ADR-0013), and sign-out through the
- * existing session provider. The `(app)` layout guard returns to
- * `/sign-in` once the session is gone. Bottom inset is owned by the tab
- * bar.
+ * More (Ще) tab: session and verified company identity plus sign-out.
+ * The company-resolution boundary proves membership before this screen
+ * mounts. Bottom inset is owned by the tab bar.
  */
 export function MoreScreen() {
   const copy = useMemo(() => panelCopy(detectLocale()), []);
   const auth = useAuthSession();
+  const membership = useResolvedCompany();
 
   if (auth.session === null) {
     return null;
@@ -44,9 +43,9 @@ export function MoreScreen() {
           {auth.session.email !== null ? (
             <IdentityField label={copy.more.email} value={auth.session.email} />
           ) : null}
-          <CompanySelectorStub
+          <ResolvedCompanyField
             label={copy.more.companySelector}
-            value={copy.more.companySelectorStub}
+            value={membership.company.name}
           />
           <Button
             label={copy.more.signOut}
@@ -74,15 +73,20 @@ function IdentityField(props: {
   );
 }
 
-function CompanySelectorStub(props: {
+function ResolvedCompanyField(props: {
   readonly label: string;
   readonly value: string;
 }) {
   return (
     <View>
       <Text style={styles.label}>{props.label}</Text>
-      <View accessibilityLabel={props.label} style={styles.stub}>
-        <Text style={styles.stubValue}>{props.value}</Text>
+      <View
+        accessibilityLabel={`${props.label}: ${props.value}`}
+        style={styles.company}
+      >
+        <Text selectable style={styles.companyValue}>
+          {props.value}
+        </Text>
       </View>
     </View>
   );
@@ -122,7 +126,7 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: theme.typography.base.fontSize,
     lineHeight: theme.typography.base.lineHeight,
   },
-  stub: {
+  company: {
     minHeight: theme.hitTarget.field,
     borderWidth: 1,
     borderColor: theme.colors.border,
@@ -133,8 +137,8 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.muted,
     marginTop: theme.spacing.xs,
   },
-  stubValue: {
-    color: theme.colors.mutedForeground,
+  companyValue: {
+    color: theme.colors.foreground,
     fontSize: theme.typography.sm.fontSize,
     lineHeight: theme.typography.sm.lineHeight,
   },

@@ -6,6 +6,7 @@ import { useApiClient } from "../../../api/api-provider";
 import { useContractMutation } from "../../../api/contract-mutation";
 import { describeQueryFailure, describeWireError } from "../../../api/errors";
 import { useActiveCompany } from "../../../api/query-provider";
+import { useAuthSession } from "../../../auth/session-provider";
 import { onboardingCopy } from "../../../i18n/onboarding";
 import { detectLocale } from "../../../i18n/locale";
 import {
@@ -25,6 +26,7 @@ const EMPTY_ERRORS: CreateCompanyFieldErrors = { name: null, slug: null };
 
 export function useCreateCompany() {
   const copy = useMemo(() => onboardingCopy(detectLocale()), []);
+  const auth = useAuthSession();
   const apiClient = useApiClient();
   const apiRef = useRef(apiClient);
   apiRef.current = apiClient;
@@ -116,13 +118,17 @@ export function useCreateCompany() {
       if (
         !shouldApplyCreatedCompany({
           mounted: mountedRef.current,
-          clientReady: apiRef.current !== null,
+          clientReady: apiRef.current !== null && auth.session !== null,
         })
       ) {
         return;
       }
+      if (auth.session === null) {
+        return;
+      }
       applyCreatedCompany({
         membership,
+        sessionUserId: auth.session.userId,
         setActiveCompany,
         queryClient,
         enterPanel: () => {

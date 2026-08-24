@@ -2,11 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import type { MutationCallOptions } from "@showzy/contract";
 
+import type { CompanyMembership } from "../../../api/company-membership-query";
 import { createContractMutationController } from "../../../api/contract-mutation";
-import type {
-  CompanyMembership,
-  CreateCompanyInput,
-} from "./create-company-form";
+import type { CreateCompanyInput } from "./create-company-form";
 import { bindCreateCompanyMutate } from "./create-company-mutation";
 
 const membership: CompanyMembership = {

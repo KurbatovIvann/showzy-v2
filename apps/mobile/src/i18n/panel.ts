@@ -8,7 +8,6 @@ export type MoreCopy = {
   readonly phone: string;
   readonly email: string;
   readonly companySelector: string;
-  readonly companySelectorStub: string;
   readonly signOut: string;
 };
 
@@ -37,8 +36,6 @@ const en: PanelCopy = {
     phone: "Phone",
     email: "Email",
     companySelector: "Active company",
-    companySelectorStub:
-      "None — company list waits on companies.listMine (phase 2).",
     signOut: "Sign Out",
   },
 };
@@ -60,8 +57,6 @@ const uk: PanelCopy = {
     phone: "Телефон",
     email: "Email",
     companySelector: "Активна компанія",
-    companySelectorStub:
-      "Немає — список компаній чекає на companies.listMine (фаза 2).",
     signOut: "Вийти",
   },
 };

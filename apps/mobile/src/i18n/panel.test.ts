@@ -47,8 +47,6 @@ describe("panel copy", () => {
       phone: "Телефон",
       email: "Email",
       companySelector: "Активна компанія",
-      companySelectorStub:
-        "Немає — список компаній чекає на companies.listMine (фаза 2).",
       signOut: "Вийти",
     });
     expect(en.more).toEqual({
@@ -57,8 +55,6 @@ describe("panel copy", () => {
       phone: "Phone",
       email: "Email",
       companySelector: "Active company",
-      companySelectorStub:
-        "None — company list waits on companies.listMine (phase 2).",
       signOut: "Sign Out",
     });
   });
