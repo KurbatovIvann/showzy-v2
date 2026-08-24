@@ -3,6 +3,7 @@ import { Pressable, Text, View } from "react-native";
 import type { Tabs } from "expo-router";
 import {
   BoxIcon,
+  MenuIcon,
   ShoppingBagIcon,
   SparklesIcon,
   UsersIcon,
@@ -30,6 +31,7 @@ const tabIcons: Readonly<Record<PanelTab, LucideIcon>> = {
   products: BoxIcon,
   ai: SparklesIcon,
   customers: UsersIcon,
+  more: MenuIcon,
 };
 
 export function BottomNav({ state, navigation, insets }: TabBarProps) {

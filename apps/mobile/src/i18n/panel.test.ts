@@ -14,6 +14,7 @@ describe("panel copy", () => {
     const en = panelCopy("en");
     expect(Object.keys(uk)).toEqual(Object.keys(en));
     expect(Object.keys(uk.tabs)).toEqual(Object.keys(en.tabs));
+    expect(Object.keys(uk.more)).toEqual(Object.keys(en.more));
   });
 
   it("pins canvas tab labels in uk and en", () => {
@@ -24,15 +25,42 @@ describe("panel copy", () => {
       products: "Товари",
       ai: "AI",
       customers: "Клієнти",
+      more: "Ще",
     });
     expect(en.tabs).toEqual({
       orders: "Orders",
       products: "Products",
       ai: "AI",
       customers: "Customers",
+      more: "More",
     });
     expect(uk.navigation).toBe("Основна навігація");
     expect(en.navigation).toBe("Main navigation");
+  });
+
+  it("pins More-tab session copy carried over from the auth stub", () => {
+    const uk = panelCopy("uk");
+    const en = panelCopy("en");
+    expect(uk.more).toEqual({
+      session: "Сесія",
+      userId: "ID користувача",
+      phone: "Телефон",
+      email: "Email",
+      companySelector: "Активна компанія",
+      companySelectorStub:
+        "Немає — список компаній чекає на companies.listMine (фаза 2).",
+      signOut: "Вийти",
+    });
+    expect(en.more).toEqual({
+      session: "Session",
+      userId: "User ID",
+      phone: "Phone",
+      email: "Email",
+      companySelector: "Active company",
+      companySelectorStub:
+        "None — company list waits on companies.listMine (phase 2).",
+      signOut: "Sign Out",
+    });
   });
 
   it("pins placeholder copy in uk and en", () => {

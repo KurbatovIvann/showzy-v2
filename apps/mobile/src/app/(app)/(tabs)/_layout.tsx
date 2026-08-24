@@ -6,7 +6,7 @@ import { BottomNav } from "../../../components/screens/panel/bottom-nav";
 /**
  * Staff panel tab shell (SHO-122). Nested inside the `(app)` Stack so
  * future detail screens can push over the tabs. Canvas order: orders ·
- * products · ai (center) · customers; `more` lands in ui-shell-T2.
+ * products · ai (center) · customers · more.
  */
 export default function TabsLayout() {
   const { theme } = useUnistyles();
@@ -24,6 +24,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="products" />
       <Tabs.Screen name="ai" />
       <Tabs.Screen name="customers" />
+      <Tabs.Screen name="more" />
     </Tabs>
   );
 }
