@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
 
+import {
+  archiveProductContract,
+  archiveVariantContract,
+  restoreProductContract,
+  restoreVariantContract,
+} from "@showzy/catalog/contract";
 import { getOrderCardContract } from "@showzy/chat/contract";
 import {
   createCompanyContract,
@@ -21,8 +27,14 @@ import { resolveProductPricesContract } from "@showzy/pricing/contract";
 import { contractModules, contractRouter } from "./modules.js";
 
 describe("client composition", () => {
-  it("exposes client chat, companies, files, orders, and pricing actions and no internal facts actions", () => {
+  it("exposes client catalog, chat, companies, files, orders, and pricing actions and no internal facts actions", () => {
     expect(contractModules).toEqual({
+      catalog: {
+        archiveProduct: archiveProductContract,
+        restoreProduct: restoreProductContract,
+        archiveVariant: archiveVariantContract,
+        restoreVariant: restoreVariantContract,
+      },
       chat: {
         getOrderCard: getOrderCardContract,
       },
@@ -45,6 +57,14 @@ describe("client composition", () => {
         resolveProductPrices: resolveProductPricesContract,
       },
     });
+    expect(contractRouter.catalog.archiveProduct).toBeDefined();
+    expect(contractRouter.catalog.restoreProduct).toBeDefined();
+    expect(contractRouter.catalog.archiveVariant).toBeDefined();
+    expect(contractRouter.catalog.restoreVariant).toBeDefined();
+    expect(contractModules.catalog).not.toHaveProperty(
+      "getProductPricingFacts",
+    );
+    expect(contractModules.catalog).not.toHaveProperty("getProductOrderFacts");
     expect(contractRouter.chat.getOrderCard).toBeDefined();
     expect(contractRouter.companies.create).toBeDefined();
     expect(contractRouter.companies.listMine).toBeDefined();
