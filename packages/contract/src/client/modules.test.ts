@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { getOrderCardContract } from "@showzy/chat/contract";
-import { listMineContract } from "@showzy/companies/contract";
+import {
+  createCompanyContract,
+  listMineContract,
+} from "@showzy/companies/contract";
 import {
   finalizeUploadContract,
   getDownloadUrlContract,
@@ -24,6 +27,7 @@ describe("client composition", () => {
         getOrderCard: getOrderCardContract,
       },
       companies: {
+        create: createCompanyContract,
         listMine: listMineContract,
       },
       files: {
@@ -42,6 +46,7 @@ describe("client composition", () => {
       },
     });
     expect(contractRouter.chat.getOrderCard).toBeDefined();
+    expect(contractRouter.companies.create).toBeDefined();
     expect(contractRouter.companies.listMine).toBeDefined();
     expect(contractRouter.files.requestUpload).toBeDefined();
     expect(contractRouter.files.getUploadUrl).toBeDefined();
