@@ -18,6 +18,13 @@ export const POLL_INTERVAL_MS = 1_000;
 export const CLEANUP_INTERVAL_MS = 60 * 60 * 1_000;
 
 /**
+ * How often the maintenance Job Scheduler runs
+ * `files.sweepAbandonedUploads` (SHO-120). Batch size stays the action
+ * default (20). BullMQ, not `setInterval`.
+ */
+export const SWEEP_INTERVAL_MS = 5 * 60 * 1_000;
+
+/**
  * BullMQ Redis key prefix (ADR-0007). Do not set ioredis `keyPrefix` —
  * BullMQ owns prefixing. Do not add pdf/email/push/sms/sync queues here.
  */
@@ -31,6 +38,24 @@ export const MAINTENANCE_QUEUE_NAME = "maintenance";
  * flushed Redis only misses ticks (db.md §6: Redis is rebuildable).
  */
 export const IDEMPOTENCY_CLEANUP_JOB_NAME = "cleanupExpiredIdempotencyKeys";
+
+/**
+ * Second Job Scheduler on the same `maintenance` queue (SHO-120).
+ * Do not add a second queue.
+ */
+export const SWEEP_ABANDONED_UPLOADS_JOB_NAME = "sweepAbandonedUploads";
+
+/**
+ * System actor for maintenance jobs that invoke registered actions.
+ * Not a new principal — `system` + `systemScope: "global"`.
+ */
+export const MAINTENANCE_SERVICE_NAME = "worker.maintenance";
+
+/**
+ * Worker lock longer than `files.sweepAbandonedUploads` timeout (30s)
+ * so a replica cannot steal an in-flight sweep.
+ */
+export const MAINTENANCE_LOCK_DURATION_MS = 60_000;
 
 /** First LISTEN reconnect delay after a dropped connection. */
 export const LISTEN_RECONNECT_MIN_MS = 1_000;
