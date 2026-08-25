@@ -4,6 +4,8 @@ export const catalogSuiteCoverage = {
   isolation: [
     "catalog.getProductPricingFacts",
     "catalog.getProductOrderFacts",
+    "catalog.createProduct",
+    "catalog.updateProduct",
     "catalog.createVariant",
     "catalog.updateVariant",
   ],
@@ -11,7 +13,12 @@ export const catalogSuiteCoverage = {
   consumerIsolation: [],
   accountIsolation: [],
   shareIsolation: [],
-  idempotency: ["catalog.createVariant", "catalog.updateVariant"],
+  idempotency: [
+    "catalog.createProduct",
+    "catalog.updateProduct",
+    "catalog.createVariant",
+    "catalog.updateVariant",
+  ],
   events: [],
   atomic: [],
 } as const satisfies SuiteCoverageManifest;
