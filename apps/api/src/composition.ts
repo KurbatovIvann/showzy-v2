@@ -17,11 +17,13 @@
  */
 import {
   createProduct,
+  createVariant,
   getProduct,
   getProductOrderFacts,
   getProductPricingFacts,
   listProducts,
   updateProduct,
+  updateVariant,
 } from "@showzy/catalog";
 import { catalogSuiteCoverage } from "@showzy/catalog/suite-coverage";
 import {
@@ -159,11 +161,13 @@ export function mergeSuiteCoverage(
 export function createActionRegistry(): ActionRegistry {
   const registry = new ActionRegistry();
   registerAction(registry, createProduct);
+  registerAction(registry, createVariant);
   registerAction(registry, getProduct);
   registerAction(registry, getProductOrderFacts);
   registerAction(registry, getProductPricingFacts);
   registerAction(registry, listProducts);
   registerAction(registry, updateProduct);
+  registerAction(registry, updateVariant);
   registerAction(registry, getOrderCard);
   registerAction(registry, upsertOrderCard);
   registerAction(registry, createCompany);

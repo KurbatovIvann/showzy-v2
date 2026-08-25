@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   createProductContract,
+  createVariantContract,
   getProductContract,
   listProductsContract,
   updateProductContract,
+  updateVariantContract,
 } from "@showzy/catalog/contract";
 import { getOrderCardContract } from "@showzy/chat/contract";
 import {
@@ -31,9 +33,11 @@ describe("client composition", () => {
     expect(contractModules).toEqual({
       catalog: {
         createProduct: createProductContract,
+        createVariant: createVariantContract,
         getProduct: getProductContract,
         listProducts: listProductsContract,
         updateProduct: updateProductContract,
+        updateVariant: updateVariantContract,
       },
       chat: {
         getOrderCard: getOrderCardContract,
@@ -58,9 +62,11 @@ describe("client composition", () => {
       },
     });
     expect(contractRouter.catalog.createProduct).toBeDefined();
+    expect(contractRouter.catalog.createVariant).toBeDefined();
     expect(contractRouter.catalog.getProduct).toBeDefined();
     expect(contractRouter.catalog.listProducts).toBeDefined();
     expect(contractRouter.catalog.updateProduct).toBeDefined();
+    expect(contractRouter.catalog.updateVariant).toBeDefined();
     expect(contractModules.catalog).not.toHaveProperty("getProductOrderFacts");
     expect(contractModules.catalog).not.toHaveProperty(
       "getProductPricingFacts",
