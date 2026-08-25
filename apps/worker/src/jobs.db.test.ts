@@ -722,6 +722,12 @@ describe("apps/worker sweepAbandonedUploads scheduler (SHO-120)", () => {
 
       const store = getFilesObjectStore();
       const leftoverStaging = stagingKey(kitIdentities.companies.a, leftoverId);
+      const afterFirst = await fileRow(leftoverId);
+      const purgedAfterFirst = await fileRow(purgedId);
+      if (afterFirst === undefined || purgedAfterFirst === undefined) {
+        throw new Error("expected ready rows to remain");
+      }
+      expect(afterFirst.stagingPurgedAt).not.toBeNull();
       await waitForObjectVisibility(store, leftoverStaging, "missing");
       expect(await store.headObject(leftoverStaging)).toBe("missing");
       expect(
@@ -732,12 +738,6 @@ describe("apps/worker sweepAbandonedUploads scheduler (SHO-120)", () => {
       expect(
         await store.headObject(catalogKey(kitIdentities.companies.a, purgedId)),
       ).not.toBe("missing");
-      const afterFirst = await fileRow(leftoverId);
-      const purgedAfterFirst = await fileRow(purgedId);
-      if (afterFirst === undefined || purgedAfterFirst === undefined) {
-        throw new Error("expected ready rows to remain");
-      }
-      expect(afterFirst.stagingPurgedAt).not.toBeNull();
       expect(purgedAfterFirst.stagingPurgedAt?.getTime()).toBe(0);
       expect(purgedAfterFirst.updatedAt.getTime()).toBe(0);
 

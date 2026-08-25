@@ -1650,6 +1650,52 @@ describe("files.sweepAbandonedUploads", () => {
     expect((await fileCursor(leftoverId)).stagingPurgedAt).not.toBeNull();
   });
 
+  it("deletes leftover staging when HeadObject still misses after PutObject", async () => {
+    await drainUnpurgedReady();
+    const leftoverId = randomUUID();
+    await insertFileRow({
+      id: leftoverId,
+      companyId: kitIdentities.companies.a,
+      uploadedByUserId: kitIdentities.users.anna,
+      status: "ready",
+      updatedAt: sweepEpoch,
+    });
+    await putStoreObject(
+      catalogObjectKey(kitIdentities.companies.a, leftoverId),
+    );
+    await putStoreObject(
+      stagingObjectKey(kitIdentities.companies.a, leftoverId),
+    );
+
+    const stagingKey = stagingObjectKey(kitIdentities.companies.a, leftoverId);
+    const restore = mapConfiguredFilesObjectStore((inner) => ({
+      ...inner,
+      headObject(key) {
+        if (key === stagingKey) {
+          return Promise.resolve("missing" as const);
+        }
+        return inner.headObject(key);
+      },
+    }));
+    try {
+      const result = await requireKit().invoke(sweepAbandonedUploads, {
+        limit: 1,
+      });
+      expect(result.leftoverStagingDeleted).toBe(0);
+      expect((await fileCursor(leftoverId)).stagingPurgedAt).not.toBeNull();
+    } finally {
+      restore();
+    }
+
+    await waitForObjectVisibility(getFilesObjectStore(), stagingKey, "missing");
+    expect(await getFilesObjectStore().headObject(stagingKey)).toBe("missing");
+    expect(
+      await getFilesObjectStore().headObject(
+        catalogObjectKey(kitIdentities.companies.a, leftoverId),
+      ),
+    ).not.toBe("missing");
+  });
+
   it("replays the same idempotency key after deleting an abandoned row", async () => {
     await drainAbandonedPending();
     const id = randomUUID();
