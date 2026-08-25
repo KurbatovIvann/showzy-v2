@@ -159,6 +159,61 @@ describe("product photo ordering", () => {
     expect(next[1]?.kind).toBe("upload");
   });
 
+  it("keeps a ready upload that was not in this replace so the next write can attach it", () => {
+    const slots = [
+      ...committedSlotsFromFileIds([FILE_A]),
+      uploadSlot("local-1", "ready", FILE_C),
+    ];
+    const next = applyCommitSuccess(slots, [FILE_A]);
+    expect(readyOrderedFileIds(next)).toEqual([FILE_A, FILE_C]);
+    expect(next[1]).toMatchObject({ kind: "upload", id: "local-1" });
+    expect(
+      planPhotoCommit({
+        productId: PRODUCT_ID,
+        slots: next,
+        lastCommitted: [FILE_A],
+        lastWrite: [FILE_A],
+        lastFailureKind: null,
+        canRetryAttempt: false,
+      }),
+    ).toEqual({
+      kind: "write",
+      productId: PRODUCT_ID,
+      fileIds: [FILE_A, FILE_C],
+    });
+  });
+
+  it("does not restore a photo the user removed while the replace was in flight", () => {
+    const next = applyCommitSuccess([], [FILE_A]);
+    expect(next).toEqual([]);
+    const afterRemove = applyCommitSuccess(
+      committedSlotsFromFileIds([FILE_B]),
+      [FILE_A, FILE_B],
+    );
+    expect(readyOrderedFileIds(afterRemove)).toEqual([FILE_B]);
+  });
+
+  it("keeps a local preview URI when a ready upload becomes committed", () => {
+    const slots = [uploadSlot("local-1", "ready", FILE_C)];
+    const next = applyCommitSuccess(slots, [FILE_C]);
+    expect(next[0]).toMatchObject({
+      kind: "committed",
+      fileId: FILE_C,
+      localUri: "file:///tmp/local-1.jpg",
+    });
+    expect(toPhotoTiles(next)[0]?.localUri).toBe("file:///tmp/local-1.jpg");
+  });
+
+  it("hides cancelled uploads from the tile grid", () => {
+    const cancelled = {
+      kind: "upload" as const,
+      id: "local-1",
+      localUri: "file:///tmp/local-1.jpg",
+      machine: reduceUpload(initialUploadMachine(), { type: "cancel" }).state,
+    };
+    expect(toPhotoTiles([cancelled])).toEqual([]);
+  });
+
   it("does not treat duplicate ready ids as two photos", () => {
     const slots = [
       ...committedSlotsFromFileIds([FILE_A]),

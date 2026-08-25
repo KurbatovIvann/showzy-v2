@@ -24,6 +24,7 @@ export type PhotoSlot =
       readonly kind: "committed";
       readonly id: string;
       readonly fileId: string;
+      readonly localUri: string | null;
     }
   | {
       readonly kind: "upload";
@@ -114,6 +115,7 @@ export function committedSlotsFromFileIds(
     kind: "committed" as const,
     id: fileId,
     fileId,
+    localUri: null,
   }));
 }
 
@@ -221,20 +223,22 @@ export function applyCommitSuccess(
   const next: PhotoSlot[] = [];
   const used = new Set<string>();
   for (const slot of slots) {
+    if (isDropped(slot)) {
+      continue;
+    }
     const fileId = readyFileId(slot);
     if (fileId !== null && committed.has(fileId) && !used.has(fileId)) {
-      next.push({ kind: "committed", id: fileId, fileId });
+      next.push({
+        kind: "committed",
+        id: fileId,
+        fileId,
+        localUri: slot.localUri,
+      });
       used.add(fileId);
       continue;
     }
-    if (slot.kind === "upload" && !isDropped(slot) && fileId === null) {
+    if (slot.kind === "upload") {
       next.push(slot);
-    }
-  }
-  for (const fileId of fileIds) {
-    if (!used.has(fileId)) {
-      next.push({ kind: "committed", id: fileId, fileId });
-      used.add(fileId);
     }
   }
   return next;
@@ -289,13 +293,14 @@ export function planPhotoCommit(args: {
 export function toPhotoTiles(
   slots: readonly PhotoSlot[],
 ): readonly PhotoTileView[] {
-  return slots.map((slot, index) => {
-    const last = index === slots.length - 1;
+  const visible = slots.filter((slot) => !isDropped(slot));
+  return visible.map((slot, index) => {
+    const last = index === visible.length - 1;
     if (slot.kind === "committed") {
       return {
         id: slot.id,
         fileId: slot.fileId,
-        localUri: null,
+        localUri: slot.localUri,
         phase: "ready",
         progress: 1,
         isCover: index === 0,
@@ -307,7 +312,6 @@ export function toPhotoTiles(
     }
     const failed = slot.machine.phase === "failed";
     const ready = slot.machine.phase === "ready";
-    const cancelled = slot.machine.phase === "cancelled";
     return {
       id: slot.id,
       fileId: slot.machine.fileId,
@@ -315,14 +319,10 @@ export function toPhotoTiles(
       phase: failed ? "failed" : ready ? "ready" : "uploading",
       progress: slot.machine.progress,
       isCover: index === 0,
-      canMoveEarlier: index > 0 && !cancelled,
-      canMoveLater: !last && !cancelled,
+      canMoveEarlier: index > 0,
+      canMoveLater: !last,
       canRetry: failed,
-      canCancel:
-        !failed &&
-        !ready &&
-        slot.machine.phase !== "idle" &&
-        slot.machine.phase !== "cancelled",
+      canCancel: !failed && !ready && slot.machine.phase !== "idle",
     };
   });
 }

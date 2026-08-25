@@ -138,6 +138,7 @@ export function useProductPhotos(idParam: string | string[] | undefined) {
         kind: "committed" as const,
         id: fileId,
         fileId,
+        localUri: null,
       })),
     );
     setBaseline(next);
