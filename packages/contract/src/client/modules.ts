@@ -20,6 +20,7 @@ import {
   listProductsContract,
   restoreProductContract,
   restoreVariantContract,
+  setProductImagesContract,
   updateProductContract,
   updateVariantContract,
 } from "@showzy/catalog/contract";
@@ -58,6 +59,7 @@ export const contractModules = {
     restoreProduct: restoreProductContract,
     archiveVariant: archiveVariantContract,
     restoreVariant: restoreVariantContract,
+    setProductImages: setProductImagesContract,
   },
   chat: {
     getOrderCard: getOrderCardContract,

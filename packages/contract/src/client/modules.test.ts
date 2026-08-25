@@ -9,6 +9,7 @@ import {
   listProductsContract,
   restoreProductContract,
   restoreVariantContract,
+  setProductImagesContract,
   updateProductContract,
   updateVariantContract,
 } from "@showzy/catalog/contract";
@@ -46,6 +47,7 @@ describe("client composition", () => {
         restoreProduct: restoreProductContract,
         archiveVariant: archiveVariantContract,
         restoreVariant: restoreVariantContract,
+        setProductImages: setProductImagesContract,
       },
       chat: {
         getOrderCard: getOrderCardContract,
@@ -79,6 +81,7 @@ describe("client composition", () => {
     expect(contractRouter.catalog.restoreProduct).toBeDefined();
     expect(contractRouter.catalog.archiveVariant).toBeDefined();
     expect(contractRouter.catalog.restoreVariant).toBeDefined();
+    expect(contractRouter.catalog.setProductImages).toBeDefined();
     expect(contractModules.catalog).not.toHaveProperty("getProductOrderFacts");
     expect(contractModules.catalog).not.toHaveProperty(
       "getProductPricingFacts",

@@ -26,6 +26,7 @@ import {
   listProducts,
   restoreProduct,
   restoreVariant,
+  setProductImages,
   updateProduct,
   updateVariant,
 } from "@showzy/catalog";
@@ -108,6 +109,10 @@ const callEdges: readonly DeclaredCallEdge[] = [
     caller: "pricing.resolveProductPrices",
     callee: "customers.getCustomerPricingFacts",
   },
+  {
+    caller: "catalog.setProductImages",
+    callee: "files.getAttachmentFacts",
+  },
 ];
 
 const readModelGrants: readonly ReadModelGrantRef[] = [
@@ -176,6 +181,7 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, restoreProduct);
   registerAction(registry, archiveVariant);
   registerAction(registry, restoreVariant);
+  registerAction(registry, setProductImages);
   registerAction(registry, getOrderCard);
   registerAction(registry, upsertOrderCard);
   registerAction(registry, createCompany);

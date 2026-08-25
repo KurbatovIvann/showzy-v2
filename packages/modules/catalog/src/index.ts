@@ -8,5 +8,6 @@ export { getProductPricingFacts } from "./actions/get-product-pricing-facts.js";
 export { listProducts } from "./actions/list-products.js";
 export { restoreProduct } from "./actions/restore-product.js";
 export { restoreVariant } from "./actions/restore-variant.js";
+export { setProductImages } from "./actions/set-product-images.js";
 export { updateProduct } from "./actions/update-product.js";
 export { updateVariant } from "./actions/update-variant.js";
