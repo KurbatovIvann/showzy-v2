@@ -5,6 +5,8 @@ import {
   archiveVariantContract,
   createProductContract,
   createVariantContract,
+  getProductContract,
+  listProductsContract,
   restoreProductContract,
   restoreVariantContract,
   updateProductContract,
@@ -35,8 +37,10 @@ describe("client composition", () => {
     expect(contractModules).toEqual({
       catalog: {
         createProduct: createProductContract,
-        updateProduct: updateProductContract,
         createVariant: createVariantContract,
+        getProduct: getProductContract,
+        listProducts: listProductsContract,
+        updateProduct: updateProductContract,
         updateVariant: updateVariantContract,
         archiveProduct: archiveProductContract,
         restoreProduct: restoreProductContract,
@@ -66,17 +70,19 @@ describe("client composition", () => {
       },
     });
     expect(contractRouter.catalog.createProduct).toBeDefined();
-    expect(contractRouter.catalog.updateProduct).toBeDefined();
     expect(contractRouter.catalog.createVariant).toBeDefined();
+    expect(contractRouter.catalog.getProduct).toBeDefined();
+    expect(contractRouter.catalog.listProducts).toBeDefined();
+    expect(contractRouter.catalog.updateProduct).toBeDefined();
     expect(contractRouter.catalog.updateVariant).toBeDefined();
     expect(contractRouter.catalog.archiveProduct).toBeDefined();
     expect(contractRouter.catalog.restoreProduct).toBeDefined();
     expect(contractRouter.catalog.archiveVariant).toBeDefined();
     expect(contractRouter.catalog.restoreVariant).toBeDefined();
+    expect(contractModules.catalog).not.toHaveProperty("getProductOrderFacts");
     expect(contractModules.catalog).not.toHaveProperty(
       "getProductPricingFacts",
     );
-    expect(contractModules.catalog).not.toHaveProperty("getProductOrderFacts");
     expect(contractRouter.chat.getOrderCard).toBeDefined();
     expect(contractRouter.companies.create).toBeDefined();
     expect(contractRouter.companies.listMine).toBeDefined();

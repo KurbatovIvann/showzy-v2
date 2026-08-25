@@ -44,3 +44,5 @@ export const catalogNameSchema = z
   .trim()
   .min(1, { message: "Name must not be blank." })
   .max(PRODUCT_NAME_MAX);
+
+export const productStatusSchema = z.enum(["active", "archived"]);

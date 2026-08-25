@@ -1,0 +1,196 @@
+import { implementAction } from "@showzy/core";
+import { CoreInvariantError } from "@showzy/core/errors";
+import {
+  productMedia,
+  products,
+  productVariants,
+} from "@showzy/db/schema/catalog";
+import { and, count, desc, eq, ilike, inArray, lt, or } from "drizzle-orm";
+
+import { productStatusSchema } from "../wire.contract.js";
+import {
+  formatListProductsCursor,
+  listProductsContract,
+  parseListProductsCursor,
+} from "./list-products.contract.js";
+
+function moneyToCanonical(minor: bigint): string {
+  return minor.toString(10);
+}
+
+function parseProductStatus(value: string): "active" | "archived" {
+  const parsed = productStatusSchema.safeParse(value);
+  if (!parsed.success) {
+    throw new CoreInvariantError(`products row has illegal status "${value}"`);
+  }
+  return parsed.data;
+}
+
+function nameSearchPattern(query: string): string | undefined {
+  const literal = query
+    .replaceAll("\\", "")
+    .replaceAll("%", "")
+    .replaceAll("_", "");
+  if (literal.length === 0) {
+    return undefined;
+  }
+  return `%${literal}%`;
+}
+
+function compareMediaPosition(
+  left: { position: number; id: string },
+  right: { position: number; id: string },
+): number {
+  if (left.position !== right.position) {
+    return left.position - right.position;
+  }
+  if (left.id < right.id) {
+    return -1;
+  }
+  if (left.id > right.id) {
+    return 1;
+  }
+  return 0;
+}
+
+export const listProducts = implementAction(listProductsContract, {
+  handler: async (input, ctx) => {
+    if (ctx.principal !== "staff") {
+      throw new CoreInvariantError("catalog.listProducts expects staff");
+    }
+
+    const searchPattern =
+      input.query === undefined ? undefined : nameSearchPattern(input.query);
+    if (input.query !== undefined && searchPattern === undefined) {
+      return { items: [], nextCursor: null };
+    }
+
+    const cursor =
+      input.cursor === undefined
+        ? undefined
+        : parseListProductsCursor(input.cursor);
+    if (input.cursor !== undefined && cursor === undefined) {
+      throw new CoreInvariantError(
+        "listProducts cursor passed validation but failed to parse",
+      );
+    }
+
+    const cursorPredicate =
+      cursor === undefined
+        ? undefined
+        : or(
+            lt(products.createdAt, new Date(cursor.createdAt)),
+            and(
+              eq(products.createdAt, new Date(cursor.createdAt)),
+              lt(products.id, cursor.id),
+            ),
+          );
+
+    const pageRows = await ctx.db
+      .select({
+        id: products.id,
+        name: products.name,
+        basePriceMinor: products.basePriceMinor,
+        currency: products.currency,
+        status: products.status,
+        createdAt: products.createdAt,
+        updatedAt: products.updatedAt,
+      })
+      .from(products)
+      .where(
+        and(
+          eq(products.companyId, ctx.companyId),
+          input.status === "all"
+            ? undefined
+            : eq(products.status, input.status),
+          searchPattern === undefined
+            ? undefined
+            : ilike(products.name, searchPattern),
+          cursorPredicate,
+        ),
+      )
+      .orderBy(desc(products.createdAt), desc(products.id))
+      .limit(input.limit + 1);
+
+    const hasMore = pageRows.length > input.limit;
+    const page = hasMore ? pageRows.slice(0, input.limit) : pageRows;
+    const last = page[page.length - 1];
+    const nextCursor =
+      hasMore && last !== undefined
+        ? formatListProductsCursor(last.createdAt, last.id)
+        : null;
+
+    if (page.length === 0) {
+      return { items: [], nextCursor: null };
+    }
+
+    const productIds = page.map((row) => row.id);
+
+    const variantCountRows = await ctx.db
+      .select({
+        productId: productVariants.productId,
+        value: count(),
+      })
+      .from(productVariants)
+      .where(
+        and(
+          eq(productVariants.companyId, ctx.companyId),
+          inArray(productVariants.productId, productIds),
+        ),
+      )
+      .groupBy(productVariants.productId);
+
+    const variantCountByProduct = new Map<string, number>();
+    for (const row of variantCountRows) {
+      variantCountByProduct.set(row.productId, row.value);
+    }
+
+    const mediaRows = await ctx.db
+      .select({
+        id: productMedia.id,
+        productId: productMedia.productId,
+        fileId: productMedia.fileId,
+        position: productMedia.position,
+      })
+      .from(productMedia)
+      .where(
+        and(
+          eq(productMedia.companyId, ctx.companyId),
+          inArray(productMedia.productId, productIds),
+        ),
+      );
+
+    const primaryImageByProduct = new Map<string, string>();
+    const mediaByProduct = new Map<string, typeof mediaRows>();
+    for (const row of mediaRows) {
+      const existing = mediaByProduct.get(row.productId);
+      if (existing === undefined) {
+        mediaByProduct.set(row.productId, [row]);
+      } else {
+        existing.push(row);
+      }
+    }
+    for (const [productId, rows] of mediaByProduct) {
+      const sorted = [...rows].sort(compareMediaPosition);
+      const primary = sorted[0];
+      if (primary !== undefined) {
+        primaryImageByProduct.set(productId, primary.fileId);
+      }
+    }
+
+    return {
+      items: page.map((row) => ({
+        id: row.id,
+        name: row.name,
+        basePriceMinor: moneyToCanonical(row.basePriceMinor),
+        currency: row.currency,
+        status: parseProductStatus(row.status),
+        variantCount: variantCountByProduct.get(row.id) ?? 0,
+        primaryImageFileId: primaryImageByProduct.get(row.id) ?? null,
+        createdAt: row.createdAt.toISOString(),
+        updatedAt: row.updatedAt.toISOString(),
+      })),
+      nextCursor,
+    };
+  },
+});

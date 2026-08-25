@@ -20,8 +20,10 @@ import {
   archiveVariant,
   createProduct,
   createVariant,
+  getProduct,
   getProductOrderFacts,
   getProductPricingFacts,
+  listProducts,
   restoreProduct,
   restoreVariant,
   updateProduct,
@@ -162,11 +164,13 @@ export function mergeSuiteCoverage(
 /** The boot registry — same builder the contract-check stage walks. */
 export function createActionRegistry(): ActionRegistry {
   const registry = new ActionRegistry();
+  registerAction(registry, createProduct);
+  registerAction(registry, createVariant);
+  registerAction(registry, getProduct);
   registerAction(registry, getProductOrderFacts);
   registerAction(registry, getProductPricingFacts);
-  registerAction(registry, createProduct);
+  registerAction(registry, listProducts);
   registerAction(registry, updateProduct);
-  registerAction(registry, createVariant);
   registerAction(registry, updateVariant);
   registerAction(registry, archiveProduct);
   registerAction(registry, restoreProduct);

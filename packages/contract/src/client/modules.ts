@@ -16,6 +16,8 @@ import {
   archiveVariantContract,
   createProductContract,
   createVariantContract,
+  getProductContract,
+  listProductsContract,
   restoreProductContract,
   restoreVariantContract,
   updateProductContract,
@@ -47,8 +49,10 @@ import {
 export const contractModules = {
   catalog: {
     createProduct: createProductContract,
-    updateProduct: updateProductContract,
     createVariant: createVariantContract,
+    getProduct: getProductContract,
+    listProducts: listProductsContract,
+    updateProduct: updateProductContract,
     updateVariant: updateVariantContract,
     archiveProduct: archiveProductContract,
     restoreProduct: restoreProductContract,
