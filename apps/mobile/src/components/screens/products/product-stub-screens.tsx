@@ -11,16 +11,16 @@ import { productsCopy } from "../../../i18n/products";
 import { AppHeader, EmptyState } from "../../ui";
 
 /**
- * Route stubs for the create/edit form (SHO-139) and photo attach
- * (SHO-141) screens so detail navigation works before those tickets.
- * Zero product data, zero contract calls.
+ * Route stub for the photo attach screen (SHO-141) so detail navigation
+ * works before that ticket. Zero product data, zero contract calls.
  */
-function ProductStubScreen({ title }: { readonly title: string }) {
+export function ProductPhotosStubScreen() {
   const locale = detectLocale();
   const copy = useMemo(() => productsCopy(locale), [locale]);
   const placeholder = useMemo(() => panelCopy(locale), [locale]);
   const { theme } = useUnistyles();
   const router = useRouter();
+  const title = copy.stub.photosTitle;
 
   return (
     <SafeAreaView
@@ -51,21 +51,6 @@ function ProductStubScreen({ title }: { readonly title: string }) {
       </View>
     </SafeAreaView>
   );
-}
-
-export function ProductCreateStubScreen() {
-  const copy = productsCopy(detectLocale());
-  return <ProductStubScreen title={copy.stub.createTitle} />;
-}
-
-export function ProductEditStubScreen() {
-  const copy = productsCopy(detectLocale());
-  return <ProductStubScreen title={copy.stub.editTitle} />;
-}
-
-export function ProductPhotosStubScreen() {
-  const copy = productsCopy(detectLocale());
-  return <ProductStubScreen title={copy.stub.photosTitle} />;
 }
 
 const styles = StyleSheet.create((theme) => ({

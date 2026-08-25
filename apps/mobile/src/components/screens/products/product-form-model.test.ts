@@ -1,0 +1,517 @@
+import { ORPCError } from "@orpc/client";
+import { describe, expect, it } from "vitest";
+
+import {
+  addVariantRow,
+  applyWriteSuccess,
+  classifyProductFormLoad,
+  compactDraft,
+  createProductPayload,
+  draftFromProduct,
+  emptyProductFormDraft,
+  mapProductFormFailure,
+  mapValidationIssues,
+  planProductFormSave,
+  remainingFormWrites,
+  removeVariantRow,
+  snapshotFromDraft,
+  snapshotFromProduct,
+  validateProductForm,
+  type ProductFormDraft,
+  type ProductFormWrite,
+} from "./product-form-model";
+import type { GetProductOutput } from "./product-detail-query";
+
+const PRODUCT_ID = "0f0e2d5c-4a1b-4c3d-9e8f-102938475601";
+const VARIANT_ID = "11111111-1111-4111-8111-111111111111";
+
+const loaded: GetProductOutput = {
+  id: PRODUCT_ID,
+  name: "Торт",
+  basePriceMinor: "150000",
+  currency: "UAH",
+  status: "active",
+  createdAt: "2026-08-25T00:00:00.000Z",
+  updatedAt: "2026-08-25T00:00:00.000Z",
+  imageFileIds: [],
+  variants: [
+    {
+      id: VARIANT_ID,
+      name: "1 кг",
+      status: "active",
+      basePriceMinor: "180000",
+      currency: "UAH",
+    },
+    {
+      id: "22222222-2222-4222-8222-222222222222",
+      name: "0.5 кг",
+      status: "archived",
+      basePriceMinor: null,
+      currency: null,
+    },
+  ],
+};
+
+function validCreateDraft(): ProductFormDraft {
+  return {
+    name: "  Торт  ",
+    priceText: "1 500",
+    nextDraftSerial: 2,
+    variants: [
+      {
+        key: "draft-1",
+        variantId: null,
+        name: "1 кг",
+        priceText: "1800",
+        archived: false,
+      },
+      {
+        key: "draft-empty",
+        variantId: null,
+        name: "  ",
+        priceText: "",
+        archived: false,
+      },
+    ],
+  };
+}
+
+describe("draftFromProduct", () => {
+  it("prefills major-unit prices and keeps archived variants", () => {
+    const draft = draftFromProduct(loaded);
+    expect(draft.name).toBe("Торт");
+    expect(draft.priceText).toBe("1500");
+    expect(draft.variants).toEqual([
+      {
+        key: VARIANT_ID,
+        variantId: VARIANT_ID,
+        name: "1 кг",
+        priceText: "1800",
+        archived: false,
+      },
+      {
+        key: "22222222-2222-4222-8222-222222222222",
+        variantId: "22222222-2222-4222-8222-222222222222",
+        name: "0.5 кг",
+        priceText: "",
+        archived: true,
+      },
+    ]);
+  });
+});
+
+describe("validateProductForm", () => {
+  it("requires a name and a non-negative major-unit price", () => {
+    expect(validateProductForm(emptyProductFormDraft())).toEqual({
+      name: "required",
+      price: "required",
+      variants: {},
+    });
+    expect(
+      validateProductForm({
+        ...emptyProductFormDraft(),
+        name: "x".repeat(121),
+        priceText: "-1",
+      }),
+    ).toMatchObject({ name: "too_long", price: "invalid" });
+    expect(validateProductForm(validCreateDraft())).toEqual({
+      name: null,
+      price: null,
+      variants: {},
+    });
+  });
+
+  it("rejects a variant price without a name and drops blank unsaved rows", () => {
+    const draft: ProductFormDraft = {
+      name: "Торт",
+      priceText: "10",
+      nextDraftSerial: 2,
+      variants: [
+        {
+          key: "draft-1",
+          variantId: null,
+          name: "",
+          priceText: "5",
+          archived: false,
+        },
+      ],
+    };
+    expect(validateProductForm(draft).variants["draft-1"]?.name).toBe(
+      "required",
+    );
+    expect(compactDraft(validCreateDraft()).variants).toHaveLength(1);
+  });
+});
+
+describe("createProductPayload", () => {
+  it("sends trimmed name, canonical minor units, UAH, and paired variant overrides", () => {
+    const payload = createProductPayload(validCreateDraft());
+    expect(payload?.input).toEqual({
+      name: "Торт",
+      basePriceMinor: "150000",
+      currency: "UAH",
+      variants: [{ name: "1 кг", basePriceMinor: "180000", currency: "UAH" }],
+    });
+    expect(payload?.variantKeys).toEqual(["draft-1"]);
+    expect(Object.keys(payload?.input.variants?.[0] ?? {})).toEqual([
+      "name",
+      "basePriceMinor",
+      "currency",
+    ]);
+  });
+
+  it("omits variants and unpaired override currency when none are set", () => {
+    const payload = createProductPayload({
+      name: "Торт",
+      priceText: "10",
+      nextDraftSerial: 2,
+      variants: [
+        {
+          key: "draft-1",
+          variantId: null,
+          name: "Класичний",
+          priceText: "",
+          archived: false,
+        },
+      ],
+    });
+    expect(payload?.input.variants).toEqual([{ name: "Класичний" }]);
+    expect(Object.keys(payload?.input.variants?.[0] ?? {})).toEqual(["name"]);
+  });
+});
+
+describe("planProductFormSave", () => {
+  it("submits create and retries the same attempt after a network failure", () => {
+    const first = planProductFormSave({
+      mode: "create",
+      productId: null,
+      draft: validCreateDraft(),
+      baseline: null,
+      lastWrite: null,
+      lastFailureKind: null,
+    });
+    expect(first.kind).toBe("write");
+    if (first.kind !== "write") {
+      return;
+    }
+    expect(first.write.kind).toBe("createProduct");
+    expect(
+      planProductFormSave({
+        mode: "create",
+        productId: null,
+        draft: validCreateDraft(),
+        baseline: null,
+        lastWrite: first.write,
+        lastFailureKind: "network",
+      }),
+    ).toEqual({ kind: "retry" });
+  });
+
+  it("stays invalid without calling transport", () => {
+    expect(
+      planProductFormSave({
+        mode: "create",
+        productId: null,
+        draft: emptyProductFormDraft(),
+        baseline: null,
+        lastWrite: null,
+        lastFailureKind: null,
+      }).kind,
+    ).toBe("invalid");
+  });
+
+  it("plans product then variant writes and noops when unchanged", () => {
+    const draft = draftFromProduct(loaded);
+    const baseline = snapshotFromDraft(draft);
+    expect(baseline).not.toBeNull();
+    if (baseline === null) {
+      return;
+    }
+    expect(
+      planProductFormSave({
+        mode: "edit",
+        productId: PRODUCT_ID,
+        draft,
+        baseline,
+        lastWrite: null,
+        lastFailureKind: null,
+      }),
+    ).toEqual({ kind: "noop" });
+
+    const renamed = { ...draft, name: "Наполеон" };
+    const planned = planProductFormSave({
+      mode: "edit",
+      productId: PRODUCT_ID,
+      draft: renamed,
+      baseline,
+      lastWrite: null,
+      lastFailureKind: null,
+    });
+    expect(planned).toEqual({
+      kind: "write",
+      write: {
+        kind: "updateProduct",
+        input: {
+          productId: PRODUCT_ID,
+          name: "Наполеон",
+          basePriceMinor: "150000",
+          currency: "UAH",
+        },
+      },
+    });
+  });
+});
+
+describe("remainingFormWrites", () => {
+  it("emits updateProduct, updateVariant, and createVariant in that order", () => {
+    const draft = addVariantRow({
+      ...draftFromProduct(loaded),
+      name: "Наполеон",
+      variants: [
+        {
+          key: VARIANT_ID,
+          variantId: VARIANT_ID,
+          name: "2 кг",
+          priceText: "1800",
+          archived: false,
+        },
+        {
+          key: "22222222-2222-4222-8222-222222222222",
+          variantId: "22222222-2222-4222-8222-222222222222",
+          name: "0.5 кг",
+          priceText: "",
+          archived: true,
+        },
+      ],
+    });
+    const withNew = {
+      ...draft,
+      variants: draft.variants.map((variant) =>
+        variant.variantId === null ? { ...variant, name: "Міні" } : variant,
+      ),
+    };
+    const baseline = snapshotFromDraft(draftFromProduct(loaded));
+    const snapshot = snapshotFromDraft(withNew);
+    expect(baseline).not.toBeNull();
+    expect(snapshot).not.toBeNull();
+    if (baseline === null || snapshot === null) {
+      return;
+    }
+    const writes = remainingFormWrites(PRODUCT_ID, snapshot, baseline);
+    expect(writes.map((write) => write.kind)).toEqual([
+      "updateProduct",
+      "updateVariant",
+      "createVariant",
+    ]);
+    const created = writes[2];
+    expect(created?.kind).toBe("createVariant");
+    if (created?.kind === "createVariant") {
+      expect(created.input).toEqual({ productId: PRODUCT_ID, name: "Міні" });
+    }
+  });
+
+  it("clears a price override by omitting the currency pair", () => {
+    const draft = {
+      ...draftFromProduct(loaded),
+      variants: draftFromProduct(loaded).variants.map((variant) =>
+        variant.key === VARIANT_ID ? { ...variant, priceText: "" } : variant,
+      ),
+    };
+    const baseline = snapshotFromProduct(loaded);
+    const snapshot = snapshotFromDraft(draft);
+    expect(snapshot).not.toBeNull();
+    if (snapshot === null) {
+      return;
+    }
+    const writes = remainingFormWrites(PRODUCT_ID, snapshot, baseline);
+    expect(writes).toHaveLength(1);
+    const write = writes[0];
+    expect(write?.kind).toBe("updateVariant");
+    if (write?.kind === "updateVariant") {
+      expect(write.input).toEqual({
+        productId: PRODUCT_ID,
+        variantId: VARIANT_ID,
+        name: "1 кг",
+      });
+      expect(Object.keys(write.input)).toEqual([
+        "productId",
+        "variantId",
+        "name",
+      ]);
+    }
+  });
+});
+
+describe("applyWriteSuccess", () => {
+  it("marks create done and advances edit writes after a created variant id", () => {
+    const createWrite: ProductFormWrite = {
+      kind: "createProduct",
+      input: {
+        name: "Торт",
+        basePriceMinor: "100",
+        currency: "UAH",
+      },
+      variantKeys: [],
+    };
+    expect(
+      applyWriteSuccess({
+        draft: validCreateDraft(),
+        baseline: null,
+        write: createWrite,
+        result: { kind: "product", productId: PRODUCT_ID },
+      }).done,
+    ).toBe(true);
+
+    const draft = addVariantRow(draftFromProduct(loaded));
+    const named = {
+      ...draft,
+      variants: draft.variants.map((variant) =>
+        variant.variantId === null ? { ...variant, name: "Міні" } : variant,
+      ),
+    };
+    const baseline = snapshotFromDraft(draftFromProduct(loaded));
+    const snapshot = snapshotFromDraft(named);
+    if (baseline === null || snapshot === null) {
+      return;
+    }
+    const write = remainingFormWrites(PRODUCT_ID, snapshot, baseline)[0];
+    expect(write?.kind).toBe("createVariant");
+    if (write === undefined || write.kind !== "createVariant") {
+      return;
+    }
+    const applied = applyWriteSuccess({
+      draft: named,
+      baseline,
+      write,
+      result: {
+        kind: "variant",
+        variantId: "33333333-3333-4333-8333-333333333333",
+      },
+    });
+    expect(applied.done).toBe(true);
+    expect(
+      applied.draft.variants.some(
+        (variant) =>
+          variant.variantId === "33333333-3333-4333-8333-333333333333",
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("addVariantRow / removeVariantRow", () => {
+  it("adds a local row and only removes unsaved rows", () => {
+    const added = addVariantRow(emptyProductFormDraft());
+    expect(added.variants).toHaveLength(1);
+    expect(added.variants[0]?.variantId).toBeNull();
+    expect(
+      removeVariantRow(added, added.variants[0]?.key ?? "").variants,
+    ).toHaveLength(0);
+    const loadedDraft = draftFromProduct(loaded);
+    expect(removeVariantRow(loadedDraft, VARIANT_ID).variants).toHaveLength(2);
+  });
+});
+
+describe("mapProductFormFailure / mapValidationIssues", () => {
+  it("maps wire kinds without reading error messages", () => {
+    expect(mapProductFormFailure("network")).toBe("network");
+    expect(mapProductFormFailure("offline")).toBe("offline");
+    expect(mapProductFormFailure("permission")).toBe("permission");
+    expect(mapProductFormFailure("conflict", "RETRY_IN_PROGRESS")).toBe(
+      "unavailable",
+    );
+    expect(mapProductFormFailure("validation")).toBe("validation");
+  });
+
+  it("maps VALIDATION issues onto fields by path", () => {
+    const write: ProductFormWrite = {
+      kind: "createProduct",
+      input: {
+        name: "Торт",
+        basePriceMinor: "100",
+        currency: "UAH",
+        variants: [{ name: "1 кг" }],
+      },
+      variantKeys: ["draft-1"],
+    };
+    const error: unknown = new ORPCError("VALIDATION", {
+      defined: true,
+      status: 400,
+      message: "do-not-match-this",
+      data: {
+        issues: [
+          { code: "too_small", path: ["name"], message: "secret" },
+          {
+            code: "custom",
+            path: ["variants", 0, "basePriceMinor"],
+            message: "secret",
+          },
+        ],
+      },
+    });
+    expect(mapValidationIssues(error, write)).toEqual({
+      name: "required",
+      price: null,
+      variants: { "draft-1": { name: null, price: "invalid" } },
+    });
+  });
+});
+
+describe("classifyProductFormLoad", () => {
+  it("blocks employees before fetching and is ready for create without a query", () => {
+    expect(
+      classifyProductFormLoad({
+        mode: "edit",
+        canWrite: false,
+        productId: PRODUCT_ID,
+        clientReady: true,
+        status: "pending",
+        failureKind: null,
+      }),
+    ).toEqual({ kind: "permission" });
+    expect(
+      classifyProductFormLoad({
+        mode: "create",
+        canWrite: true,
+        productId: null,
+        clientReady: true,
+        status: "pending",
+        failureKind: null,
+      }),
+    ).toEqual({ kind: "ready" });
+    expect(
+      classifyProductFormLoad({
+        mode: "create",
+        canWrite: true,
+        productId: null,
+        clientReady: false,
+        status: "pending",
+        failureKind: null,
+      }),
+    ).toEqual({ kind: "error" });
+  });
+});
+
+describe("snapshotFromDraft", () => {
+  it("prefills the same minor-unit snapshot as the loaded product", () => {
+    expect(snapshotFromDraft(draftFromProduct(loaded))).toEqual(
+      snapshotFromProduct(loaded),
+    );
+  });
+
+  it("canonicalizes 1,00 and 1 as the same minor-unit snapshot", () => {
+    const left = snapshotFromDraft({
+      name: "Торт",
+      priceText: "1,00",
+      variants: [],
+      nextDraftSerial: 1,
+    });
+    const right = snapshotFromDraft({
+      name: "Торт",
+      priceText: "1",
+      variants: [],
+      nextDraftSerial: 1,
+    });
+    expect(left?.priceMinor).toBe("100");
+    expect(left?.priceMinor).toBe(right?.priceMinor);
+  });
+});
