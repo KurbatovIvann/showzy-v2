@@ -13,7 +13,9 @@
  */
 import {
   createProductContract,
+  createVariantContract,
   updateProductContract,
+  updateVariantContract,
 } from "@showzy/catalog/contract";
 import { getOrderCardContract } from "@showzy/chat/contract";
 import {
@@ -42,6 +44,8 @@ export const contractModules = {
   catalog: {
     createProduct: createProductContract,
     updateProduct: updateProductContract,
+    createVariant: createVariantContract,
+    updateVariant: updateVariantContract,
   },
   chat: {
     getOrderCard: getOrderCardContract,

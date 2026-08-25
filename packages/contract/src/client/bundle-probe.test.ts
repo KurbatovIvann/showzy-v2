@@ -36,6 +36,9 @@ async function probe(entry?: string): Promise<string> {
 }
 
 describe("bundle probe", () => {
+  // Each probe is a full esbuild of the typed-client graph. Catalog on that
+  // graph exceeds Vitest's default 5s under the CI `checks` job; keep the
+  // same 30s budget as the real-entry case.
   it("passes for the real typed-client entry", async () => {
     await expect(probe()).resolves.toBe("");
   }, 30_000);
@@ -43,15 +46,15 @@ describe("bundle probe", () => {
   it("fails on a seeded @showzy/core server-import leak", async () => {
     const stderr = await probe(path.join(probeDir, "leaks/server-core.ts"));
     expect(stderr).toContain("@showzy/core");
-  });
+  }, 30_000);
 
   it("fails on a seeded Node builtin leak", async () => {
     const stderr = await probe(path.join(probeDir, "leaks/node-builtin.ts"));
     expect(stderr).toContain("Node builtin");
-  });
+  }, 30_000);
 
   it("fails on a seeded @showzy/db leak", async () => {
     const stderr = await probe(path.join(probeDir, "leaks/db-import.ts"));
     expect(stderr).toContain("@showzy/db");
-  });
+  }, 30_000);
 });

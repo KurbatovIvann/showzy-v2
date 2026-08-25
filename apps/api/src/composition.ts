@@ -17,9 +17,11 @@
  */
 import {
   createProduct,
+  createVariant,
   getProductOrderFacts,
   getProductPricingFacts,
   updateProduct,
+  updateVariant,
 } from "@showzy/catalog";
 import { catalogSuiteCoverage } from "@showzy/catalog/suite-coverage";
 import {
@@ -160,6 +162,8 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, getProductPricingFacts);
   registerAction(registry, createProduct);
   registerAction(registry, updateProduct);
+  registerAction(registry, createVariant);
+  registerAction(registry, updateVariant);
   registerAction(registry, getOrderCard);
   registerAction(registry, upsertOrderCard);
   registerAction(registry, createCompany);
