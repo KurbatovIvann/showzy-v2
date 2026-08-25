@@ -377,7 +377,7 @@ export async function runProductPhotoUpload(args: {
   let uploadUrl: string | null = null;
 
   while (step.effect.kind !== "none") {
-    if (args.signal.aborted || current.phase === "cancelled") {
+    if (signalAborted(args.signal) || current.phase === "cancelled") {
       step = reduceUpload(current, { type: "cancel" });
       current = step.state;
       args.onState(current);
@@ -456,7 +456,7 @@ export async function runProductPhotoUpload(args: {
         }
       }
     } catch (error: unknown) {
-      if (args.signal.aborted || isAbortError(error)) {
+      if (signalAborted(args.signal) || isAbortError(error)) {
         step = reduceUpload(current, { type: "cancel" });
         current = step.state;
         args.onState(current);
@@ -507,4 +507,8 @@ function clamp01(value: number): number {
     return 1;
   }
   return value;
+}
+
+function signalAborted(signal: AbortSignal): boolean {
+  return signal.aborted;
 }

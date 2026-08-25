@@ -35,7 +35,10 @@ import {
   type PhotoBannerKey,
   type PhotoSlot,
 } from "./product-photos-model";
-import { bindSetProductImages } from "./product-photos-mutation";
+import {
+  bindSetProductImages,
+  type SetProductImagesInput,
+} from "./product-photos-mutation";
 import {
   pickProductPhotos,
   prepareCatalogImage,
@@ -48,7 +51,6 @@ import {
   canUploadFiles,
 } from "./product-permissions";
 import {
-  initialUploadMachine,
   runProductPhotoUpload,
   type PreparedCatalogImage,
   type ProductPhotoUploadPorts,
@@ -162,13 +164,15 @@ export function useProductPhotos(idParam: string | string[] | undefined) {
     previewByFileId.set(file.fileId, file.downloadUrl);
   }
 
-  const mutation = useContractMutation((input, options) => {
-    const current = apiRef.current;
-    if (current === null) {
-      return Promise.reject(new TypeError("Failed to fetch"));
-    }
-    return bindSetProductImages(current)(input, options);
-  });
+  const mutation = useContractMutation(
+    (input: SetProductImagesInput, options) => {
+      const current = apiRef.current;
+      if (current === null) {
+        return Promise.reject(new TypeError("Failed to fetch"));
+      }
+      return bindSetProductImages(current)(input, options);
+    },
+  );
 
   const clientReady = apiClient !== null && activeCompanyId !== null;
   const state = classifyProductPhotosLoad({
@@ -287,7 +291,7 @@ export function useProductPhotos(idParam: string | string[] | undefined) {
           queryClient,
           companyId: activeCompanyId,
         });
-      } while (commitQueuedRef.current);
+      } while (readQueued(commitQueuedRef));
     } catch (error: unknown) {
       lastFailureRef.current = describeQueryFailure(error).kind;
     } finally {
@@ -483,4 +487,8 @@ export function useProductPhotos(idParam: string | string[] | undefined) {
     },
     cancelUpload,
   };
+}
+
+function readQueued(ref: { current: boolean }): boolean {
+  return ref.current;
 }
