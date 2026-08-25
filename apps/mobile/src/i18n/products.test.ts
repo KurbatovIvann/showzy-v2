@@ -17,6 +17,7 @@ describe("products copy", () => {
     expect(Object.keys(uk.variants)).toEqual(Object.keys(en.variants));
     expect(Object.keys(uk.empty)).toEqual(Object.keys(en.empty));
     expect(Object.keys(uk.stub)).toEqual(Object.keys(en.stub));
+    expect(Object.keys(uk.detail)).toEqual(Object.keys(en.detail));
   });
 
   it("pins the canvas products-list copy in uk", () => {
@@ -48,5 +49,18 @@ describe("products copy", () => {
   it("keeps the interpolation slot in both found-count templates", () => {
     expect(productsCopy("uk").foundCount).toContain("{{count}}");
     expect(productsCopy("en").foundCount).toContain("{{count}}");
+  });
+
+  it("pins the product-detail archive/restore copy in uk", () => {
+    const uk = productsCopy("uk");
+    expect(uk.detail.title).toBe("Товар");
+    expect(uk.detail.variantsTitle).toBe("Варіанти");
+    expect(uk.detail.archiveProduct).toBe("Архівувати товар");
+    expect(uk.detail.restoreProduct).toBe("Повернути з архіву");
+    expect(uk.detail.confirmArchiveProductTitle).toBe("Архівувати товар?");
+    expect(uk.detail.cancel).toBe("Скасувати");
+    expect(uk.detail.confirmArchiveVariantDescription).toContain("{{name}}");
+    expect(uk.stub.editTitle).toBe("Редагування товару");
+    expect(uk.stub.photosTitle).toBe("Фото");
   });
 });

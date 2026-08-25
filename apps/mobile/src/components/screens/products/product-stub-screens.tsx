@@ -11,8 +11,8 @@ import { productsCopy } from "../../../i18n/products";
 import { AppHeader, EmptyState } from "../../ui";
 
 /**
- * Route stubs for the product detail (SHO-138) and create/edit form
- * (SHO-139) screens so list navigation works before those tickets land.
+ * Route stubs for the create/edit form (SHO-139) and photo attach
+ * (SHO-141) screens so detail navigation works before those tickets.
  * Zero product data, zero contract calls.
  */
 function ProductStubScreen({ title }: { readonly title: string }) {
@@ -53,14 +53,19 @@ function ProductStubScreen({ title }: { readonly title: string }) {
   );
 }
 
-export function ProductDetailStubScreen() {
-  const copy = productsCopy(detectLocale());
-  return <ProductStubScreen title={copy.stub.detailTitle} />;
-}
-
 export function ProductCreateStubScreen() {
   const copy = productsCopy(detectLocale());
   return <ProductStubScreen title={copy.stub.createTitle} />;
+}
+
+export function ProductEditStubScreen() {
+  const copy = productsCopy(detectLocale());
+  return <ProductStubScreen title={copy.stub.editTitle} />;
+}
+
+export function ProductPhotosStubScreen() {
+  const copy = productsCopy(detectLocale());
+  return <ProductStubScreen title={copy.stub.photosTitle} />;
 }
 
 const styles = StyleSheet.create((theme) => ({

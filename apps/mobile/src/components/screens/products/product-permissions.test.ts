@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   canCreateProducts,
+  canEditProducts,
   canFetchFileDownloadUrls,
 } from "./product-permissions";
 
@@ -16,6 +17,13 @@ describe("product permission affordances", () => {
     expect(canCreateProducts("admin")).toBe(true);
     expect(canCreateProducts("manager")).toBe(true);
     expect(canCreateProducts("employee")).toBe(false);
+  });
+
+  it("hides archive/restore and edit controls only for employees", () => {
+    expect(canEditProducts("owner")).toBe(true);
+    expect(canEditProducts("admin")).toBe(true);
+    expect(canEditProducts("manager")).toBe(true);
+    expect(canEditProducts("employee")).toBe(false);
   });
 
   it("skips download-url fetches only for employees", () => {

@@ -1,0 +1,141 @@
+import { useEffect, type ReactNode } from "react";
+import { Modal, Pressable, Text, View } from "react-native";
+import Animated, {
+  Easing,
+  interpolate,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { StyleSheet, useUnistyles } from "react-native-unistyles";
+
+const EASE_SHEET = Easing.bezier(0.32, 0.72, 0, 1);
+const SHEET_MS = 300;
+
+/**
+ * Canvas confirmation sheet: dim overlay (`colors.overlay`) and a
+ * bottom card with `radii.sheet`. First shared use is product
+ * archive/restore (SHO-138). Not a dropdown. Open/close is opacity +
+ * translateY (no layout animation). Drag-to-dismiss is omitted — the
+ * cancel control and Android back (`onRequestClose`) dismiss it.
+ */
+export function Sheet(props: {
+  readonly visible: boolean;
+  readonly title: string;
+  readonly description: string;
+  readonly onClose: () => void;
+  readonly children: ReactNode;
+}) {
+  const insets = useSafeAreaInsets();
+  const { theme } = useUnistyles();
+  const reduceMotion = useReducedMotion();
+  const progress = useSharedValue(0);
+
+  useEffect(() => {
+    if (reduceMotion) {
+      progress.set(props.visible ? 1 : 0);
+      return;
+    }
+    progress.set(
+      withTiming(props.visible ? 1 : 0, {
+        duration: SHEET_MS,
+        easing: EASE_SHEET,
+      }),
+    );
+  }, [progress, props.visible, reduceMotion]);
+
+  const slideDistance = theme.hitTarget.field;
+  const overlayStyle = useAnimatedStyle(() => ({
+    opacity: progress.get(),
+  }));
+  const panelStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateY: interpolate(progress.get(), [0, 1], [slideDistance, 0]),
+      },
+    ],
+  }));
+
+  return (
+    <Modal
+      visible={props.visible}
+      transparent
+      animationType="none"
+      onRequestClose={props.onClose}
+      statusBarTranslucent
+    >
+      <View style={styles.host} pointerEvents="box-none">
+        <Pressable
+          accessible={false}
+          onPress={props.onClose}
+          style={styles.overlayHit}
+        >
+          <Animated.View style={[styles.overlay, overlayStyle]} />
+        </Pressable>
+        <Animated.View
+          accessibilityViewIsModal
+          style={[
+            styles.panel,
+            { paddingBottom: Math.max(insets.bottom, theme.spacing.lg) },
+            panelStyle,
+          ]}
+        >
+          <View style={styles.grabber} />
+          <Text accessibilityRole="header" style={styles.title}>
+            {props.title}
+          </Text>
+          <Text style={styles.description}>{props.description}</Text>
+          <View style={styles.actions}>{props.children}</View>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+}
+
+const styles = StyleSheet.create((theme) => ({
+  host: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  overlayHit: {
+    flex: 1,
+  },
+  overlay: {
+    flex: 1,
+    backgroundColor: theme.colors.overlay,
+  },
+  panel: {
+    backgroundColor: theme.colors.card,
+    borderTopLeftRadius: theme.radii.sheet,
+    borderTopRightRadius: theme.radii.sheet,
+    ...theme.squircle,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.md,
+    gap: theme.spacing.md,
+    ...theme.shadows.lg,
+  },
+  grabber: {
+    alignSelf: "center",
+    width: theme.spacing["3xl"],
+    height: theme.spacing["2xs"] + theme.spacing["2xs"],
+    borderRadius: theme.radii.full,
+    backgroundColor: theme.colors.border,
+  },
+  title: {
+    color: theme.colors.foreground,
+    fontSize: theme.typography.lg.fontSize,
+    lineHeight: theme.typography.lg.lineHeight,
+    fontWeight: "600",
+  },
+  description: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.sm.fontSize,
+    lineHeight: theme.typography.sm.lineHeight,
+  },
+  actions: {
+    gap: theme.spacing.sm,
+    paddingTop: theme.spacing.xs,
+  },
+}));
