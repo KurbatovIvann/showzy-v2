@@ -128,6 +128,10 @@ describe("mapCreateCompanyFailure", () => {
       slugError: null,
       banner: "validation",
     });
+    expect(mapCreateCompanyFailure("unauthenticated")).toEqual({
+      slugError: null,
+      banner: "unavailable",
+    });
     expect(mapCreateCompanyFailure("network")).toEqual({
       slugError: null,
       banner: "network",

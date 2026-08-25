@@ -139,8 +139,16 @@ export function useCreateCompany() {
           router.replace("/orders");
         },
       });
-    } catch {
-      // Screen state is derived from mutation.error.
+    } catch (error) {
+      if (__DEV__) {
+        const described = describeQueryFailure(error);
+        console.info("[showzy/onboarding]", {
+          kind: described.kind,
+          wire: describeWireError(error)?.code ?? null,
+          name: error instanceof Error ? error.name : typeof error,
+          ...(error instanceof Error ? { message: error.message } : {}),
+        });
+      }
     }
   }
 

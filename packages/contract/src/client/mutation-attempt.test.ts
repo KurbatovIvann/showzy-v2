@@ -35,4 +35,60 @@ describe("createMutationAttempt (contract.md §3, core.md §5)", () => {
     const second = createMutationAttempt();
     expect(first.key).not.toBe(second.key);
   });
+
+  it("mints a UUID v4 from getRandomValues when randomUUID is missing", () => {
+    const originalCrypto = globalThis.crypto;
+    Object.defineProperty(globalThis, "crypto", {
+      configurable: true,
+      value: {
+        getRandomValues(target: Uint8Array) {
+          target.fill(0x11);
+          return target;
+        },
+      },
+    });
+    try {
+      const attempt = createMutationAttempt();
+      expect(attempt.key).toBe("11111111-1111-4111-9111-111111111111");
+      expect(attempt.key).toMatch(UUID_V4);
+    } finally {
+      Object.defineProperty(globalThis, "crypto", {
+        configurable: true,
+        value: originalCrypto,
+      });
+    }
+  });
+
+  it("falls through to getRandomValues when randomUUID throws Illegal invocation", () => {
+    const originalCrypto = globalThis.crypto;
+    Object.defineProperty(globalThis, "crypto", {
+      configurable: true,
+      value: {
+        randomUUID() {
+          throw new TypeError("Illegal invocation");
+        },
+        getRandomValues(target: Uint8Array) {
+          target.fill(0x22);
+          return target;
+        },
+      },
+    });
+    try {
+      const attempt = createMutationAttempt();
+      expect(attempt.key).toBe("22222222-2222-4222-a222-222222222222");
+    } finally {
+      Object.defineProperty(globalThis, "crypto", {
+        configurable: true,
+        value: originalCrypto,
+      });
+    }
+  });
+
+  it("uses an injected key factory when Web Crypto is unavailable", () => {
+    const attempt = createMutationAttempt(
+      () => "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    );
+    expect(attempt.key).toBe("aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee");
+    expect(attempt.options.context.idempotencyKey).toBe(attempt.key);
+  });
 });
