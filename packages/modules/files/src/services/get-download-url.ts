@@ -94,7 +94,7 @@ export async function getStaffDownloadUrl(input: {
 export async function getStaffDownloadUrls(input: {
   readonly ctx: StaffCtx;
   readonly input: DownloadUrlsInput;
-}): Promise<{ readonly files: readonly SignedDownload[] }> {
+}): Promise<{ files: SignedDownload[] }> {
   const fileIds = uniqueFileIds(input.input.fileIds);
   const rows = await input.ctx.db
     .select()
