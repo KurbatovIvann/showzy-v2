@@ -8,5 +8,6 @@ export { getProductPricingFactsContract } from "./actions/get-product-pricing-fa
 export { listProductsContract } from "./actions/list-products.contract.js";
 export { restoreProductContract } from "./actions/restore-product.contract.js";
 export { restoreVariantContract } from "./actions/restore-variant.contract.js";
+export { setProductImagesContract } from "./actions/set-product-images.contract.js";
 export { updateProductContract } from "./actions/update-product.contract.js";
 export { updateVariantContract } from "./actions/update-variant.contract.js";

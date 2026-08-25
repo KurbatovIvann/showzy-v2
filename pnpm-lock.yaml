@@ -534,6 +534,9 @@ importers:
       '@showzy/db':
         specifier: workspace:*
         version: link:../../db
+      '@showzy/files':
+        specifier: workspace:*
+        version: link:../files
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.23.0)(kysely@0.29.5)(pg@8.23.0)
@@ -8817,9 +8820,7 @@ snapshots:
       metro-runtime: 0.84.4
     transitivePeerDependencies:
       - '@babel/core'
-      - bufferutil
       - supports-color
-      - utf-8-validate
 
   '@react-native/normalize-colors@0.74.89': {}
 
