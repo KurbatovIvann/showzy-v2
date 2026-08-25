@@ -6,7 +6,7 @@ export function Button(props: {
   readonly onPress: () => void;
   readonly loading?: boolean;
   readonly disabled?: boolean;
-  readonly variant?: "primary" | "ghost";
+  readonly variant?: "primary" | "secondary" | "ghost";
   readonly size?: "default" | "auth";
 }) {
   const variant = props.variant ?? "primary";
@@ -23,7 +23,11 @@ export function Button(props: {
       style={({ pressed }) => [
         styles.button,
         size === "auth" ? styles.buttonAuth : null,
-        variant === "ghost" ? styles.ghost : styles.primary,
+        variant === "ghost"
+          ? styles.ghost
+          : variant === "secondary"
+            ? styles.secondary
+            : styles.primary,
         authDisabled ? styles.disabledAuth : disabled ? styles.disabled : null,
         pressed && !disabled && styles.pressed,
       ]}
@@ -31,9 +35,9 @@ export function Button(props: {
       {props.loading === true ? (
         <ActivityIndicator
           color={
-            variant === "ghost"
-              ? theme.colors.activityIndicator.onBackground
-              : theme.colors.activityIndicator.onPrimary
+            variant === "primary"
+              ? theme.colors.activityIndicator.onPrimary
+              : theme.colors.activityIndicator.onBackground
           }
         />
       ) : (
@@ -41,9 +45,11 @@ export function Button(props: {
           style={
             variant === "ghost"
               ? styles.ghostLabel
-              : size === "auth"
-                ? styles.authLabel
-                : styles.label
+              : variant === "secondary"
+                ? styles.secondaryLabel
+                : size === "auth"
+                  ? styles.authLabel
+                  : styles.label
           }
         >
           {props.label}
@@ -67,6 +73,11 @@ const styles = StyleSheet.create((theme) => ({
   primary: {
     backgroundColor: theme.colors.primary,
   },
+  secondary: {
+    backgroundColor: theme.colors.card,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
   ghost: {
     backgroundColor: "transparent",
   },
@@ -81,6 +92,12 @@ const styles = StyleSheet.create((theme) => ({
   },
   label: {
     color: theme.colors.primaryForeground,
+    fontSize: theme.typography.md.fontSize,
+    lineHeight: theme.typography.md.lineHeight,
+    fontWeight: "600",
+  },
+  secondaryLabel: {
+    color: theme.colors.foreground,
     fontSize: theme.typography.md.fontSize,
     lineHeight: theme.typography.md.lineHeight,
     fontWeight: "600",

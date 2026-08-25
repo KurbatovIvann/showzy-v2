@@ -9,9 +9,11 @@ import { createShowzyQueryClient } from "./query-client";
 import {
   accountContractQueryKey,
   accountContractQueryOptions,
+  contractInfiniteQueryOptions,
   contractQueryKey,
   contractQueryOptions,
   NULL_COMPANY_QUERY_SCOPE,
+  StaleCompanyQueryError,
 } from "./query-options";
 
 const ping = defineActionContract({
@@ -87,6 +89,77 @@ describe("contractQueryOptions", () => {
     expect(requests).toHaveLength(1);
     expect(new URL(requests[0]?.url ?? "").pathname).toBe("/rpc/sample/ping");
     expect(requests[0]?.headers.get("x-company-id")).toBe("company-a");
+    queryClient.clear();
+  });
+});
+
+describe("contractInfiniteQueryOptions", () => {
+  type Page = {
+    readonly items: readonly number[];
+    readonly nextCursor: string | null;
+  };
+
+  function pagedOptions(args: {
+    readonly pages: Readonly<Record<string, Page>>;
+    readonly firstPage: Page;
+    readonly getActiveCompany?: () => string | null;
+    readonly seen?: Array<string | null>;
+  }) {
+    return contractInfiniteQueryOptions({
+      actionName: "sample.list",
+      companyId: "company-a",
+      input: { status: "active" },
+      getActiveCompany: args.getActiveCompany ?? (() => "company-a"),
+      queryFn: (cursor) => {
+        args.seen?.push(cursor);
+        return Promise.resolve(
+          cursor === null
+            ? args.firstPage
+            : (args.pages[cursor] ?? args.firstPage),
+        );
+      },
+      nextCursor: (page) => page.nextCursor,
+    });
+  }
+
+  it("keeps the [actionName, companyScope, input] key shape without the cursor", () => {
+    const options = pagedOptions({
+      pages: {},
+      firstPage: { items: [], nextCursor: null },
+    });
+    expect(options.queryKey).toEqual(
+      contractQueryKey("sample.list", "company-a", { status: "active" }),
+    );
+  });
+
+  it("feeds the server cursor into the next page fetch and stops on null", async () => {
+    const seen: Array<string | null> = [];
+    const queryClient = createShowzyQueryClient({ retryDelay: () => 0 });
+    const data = await queryClient.fetchInfiniteQuery({
+      ...pagedOptions({
+        firstPage: { items: [1, 2], nextCursor: "cursor-2" },
+        pages: { "cursor-2": { items: [3], nextCursor: null } },
+        seen,
+      }),
+      pages: 3,
+    });
+    expect(seen).toEqual([null, "cursor-2"]);
+    expect(data.pages.map((page) => page.items)).toEqual([[1, 2], [3]]);
+    queryClient.clear();
+  });
+
+  it("refuses to fetch under a stale company selector", async () => {
+    const queryClient = createShowzyQueryClient({ retryDelay: () => 0 });
+    await expect(
+      queryClient.fetchInfiniteQuery({
+        ...pagedOptions({
+          firstPage: { items: [], nextCursor: null },
+          pages: {},
+          getActiveCompany: () => "company-b",
+        }),
+        retry: false,
+      }),
+    ).rejects.toBeInstanceOf(StaleCompanyQueryError);
     queryClient.clear();
   });
 });
