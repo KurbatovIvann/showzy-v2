@@ -415,6 +415,9 @@ export function useProductPhotos(idParam: string | string[] | undefined) {
     const next = removePhotoSlot(slotsRef.current, id);
     slotsRef.current = next;
     setSlots(next);
+    // Ready uploads may already be in an in-flight replace; re-plan so a
+    // dropped fileId is not left on the product.
+    void commitIfNeeded();
   }
 
   function removePhoto(id: string): void {

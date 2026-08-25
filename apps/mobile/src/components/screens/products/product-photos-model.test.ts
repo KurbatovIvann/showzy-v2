@@ -191,6 +191,20 @@ describe("product photo ordering", () => {
       [FILE_A, FILE_B],
     );
     expect(readyOrderedFileIds(afterRemove)).toEqual([FILE_B]);
+    expect(
+      planPhotoCommit({
+        productId: PRODUCT_ID,
+        slots: afterRemove,
+        lastCommitted: [FILE_A, FILE_B],
+        lastWrite: [FILE_A, FILE_B],
+        lastFailureKind: null,
+        canRetryAttempt: false,
+      }),
+    ).toEqual({
+      kind: "write",
+      productId: PRODUCT_ID,
+      fileIds: [FILE_B],
+    });
   });
 
   it("keeps a local preview URI when a ready upload becomes committed", () => {
