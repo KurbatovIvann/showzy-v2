@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Catalog module: staff product reads plus product and variant facts for price resolution and order-line titles. This package exports actions and events only.",
+  "description": "Catalog module: staff product reads and writes plus product and variant facts for price resolution and order-line titles. This package exports actions and events only.",
   "exports": {
     ".": "./src/index.ts",
     "./contract": "./src/index.contract.ts",

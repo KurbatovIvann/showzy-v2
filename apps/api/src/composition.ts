@@ -16,10 +16,12 @@
  * through `eventSubscriptionRefs`.
  */
 import {
+  createProduct,
   getProduct,
   getProductOrderFacts,
   getProductPricingFacts,
   listProducts,
+  updateProduct,
 } from "@showzy/catalog";
 import { catalogSuiteCoverage } from "@showzy/catalog/suite-coverage";
 import {
@@ -156,10 +158,12 @@ export function mergeSuiteCoverage(
 /** The boot registry — same builder the contract-check stage walks. */
 export function createActionRegistry(): ActionRegistry {
   const registry = new ActionRegistry();
+  registerAction(registry, createProduct);
   registerAction(registry, getProduct);
   registerAction(registry, getProductOrderFacts);
   registerAction(registry, getProductPricingFacts);
   registerAction(registry, listProducts);
+  registerAction(registry, updateProduct);
   registerAction(registry, getOrderCard);
   registerAction(registry, upsertOrderCard);
   registerAction(registry, createCompany);

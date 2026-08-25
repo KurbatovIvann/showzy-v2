@@ -12,8 +12,10 @@
  * missing here, or an entry here that is not registered, fails boot.
  */
 import {
+  createProductContract,
   getProductContract,
   listProductsContract,
+  updateProductContract,
 } from "@showzy/catalog/contract";
 import { getOrderCardContract } from "@showzy/chat/contract";
 import {
@@ -40,8 +42,10 @@ import {
 
 export const contractModules = {
   catalog: {
+    createProduct: createProductContract,
     getProduct: getProductContract,
     listProducts: listProductsContract,
+    updateProduct: updateProductContract,
   },
   chat: {
     getOrderCard: getOrderCardContract,
