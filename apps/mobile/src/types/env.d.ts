@@ -7,3 +7,6 @@ declare const process: {
     readonly EXPO_PUBLIC_API_URL?: string;
   };
 };
+
+/** Metro inlines this to `true` in the Expo dev client and `false` in release. */
+declare const __DEV__: boolean;

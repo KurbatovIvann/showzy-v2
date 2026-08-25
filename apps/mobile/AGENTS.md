@@ -58,12 +58,12 @@ the same directory.
   plugin; Bearer is optional for other clients.
 - `src/api/api-provider.tsx` — contract client with Cookie. Sits inside
   `SessionProvider`. Binds last-company restore on live hydrate (SHO-103).
-- `src/api/query-client.ts` / `query-options.ts` / `contract-mutation.ts` / `query-provider.tsx` — TanStack Query v5 runtime (SHO-102). Keys are `[actionName, companyId | null-company, input]`. Pass `useActiveCompany().activeCompanyId` into `contractQueryOptions` (and `getActiveCompany`) so a selector change re-renders keys. `useContractMutation` mints one `createMutationAttempt()` per submit. Do not persist the cache or add `@orpc/tanstack-query`. `query-platform.ts` is native-only (not imported from tests).
+- `src/api/query-client.ts` / `query-options.ts` / `contract-mutation.ts` / `query-provider.tsx` — TanStack Query v5 runtime (SHO-102). Keys are `[actionName, companyId | null-company, input]`. Pass `useActiveCompany().activeCompanyId` into `contractQueryOptions` (and `getActiveCompany`) so a selector change re-renders keys. `useContractMutation` mints one `createMutationAttempt()` per submit via `src/crypto/create-attempt` (`expo-crypto` on native — Hermes Web Crypto throws). Do not persist the cache or add `@orpc/tanstack-query`. `query-platform.ts` is native-only (not imported from tests).
 - `src/api/errors.ts` — `describeWireError` / `describeQueryFailure` discriminate on `error.code` / `kind`, never message text.
 - `src/theme/tokens.ts` — palettes, spacing, radii, type, shadows, glass fallbacks. Pure TypeScript; no React Native imports.
 - `src/theme/light.ts` / `dark.ts` — Unistyles theme objects.
 - `src/theme/preference.ts` — `light` / `dark` / `system` resolution (default `light`, matching V1). Persisted via `src/prefs/` on native; web stays in-memory.
-- `src/theme/unistyles.ts` — `StyleSheet.configure` only. Import from `index.ts` and `src/app/_layout.tsx` before any component. Do not import from tests.
+- `src/theme/unistyles.ts` — `StyleSheet.configure` only. Import from `index.ts` and `src/app/_layout.tsx` before any component. Do not import from tests. `index.ts` also side-effect-imports `src/crypto/install-web-crypto` first so Hermes gets `expo-crypto` Web Crypto.
 - `metro.config.cjs` — NodeNext `.js` specifiers in workspace packages resolve to `.ts` so `@showzy/contract` can be bundled.
 
 ## Rules

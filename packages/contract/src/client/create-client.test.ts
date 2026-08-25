@@ -131,6 +131,45 @@ describe("createContractClient (contract.md §3)", () => {
     expect(requests[0]?.credentials).toBe("omit");
   });
 
+  it("passes a JSON string body to global fetch, not an ArrayBuffer", async () => {
+    const captured: RequestInit[] = [];
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (_url, init = {}): Promise<Response> => {
+      captured.push(init);
+      return Promise.resolve(new Response(null, { status: 599 }));
+    };
+    try {
+      const created = createContractClient<SampleRouter>({
+        baseUrl: "http://contract.test",
+        getCookie: () => "better-auth.session_token=abc",
+      });
+      const attempt = created.createMutationAttempt();
+      await ignoreRpcFailure(
+        created.client.sample.submit({ note: "sofi" }, attempt.options),
+      );
+      expect(captured).toHaveLength(1);
+      const body = captured[0]?.body;
+      expect(typeof body).toBe("string");
+      if (typeof body !== "string") {
+        throw new Error("expected a JSON string body");
+      }
+      expect(JSON.parse(body)).toEqual({
+        json: { note: "sofi" },
+      });
+      expect(captured[0]?.credentials).toBe("omit");
+      const headers = captured[0]?.headers;
+      expect(headers).toEqual(
+        expect.objectContaining({
+          cookie: "better-auth.session_token=abc",
+          [IDEMPOTENCY_KEY_HEADER]: attempt.key,
+        }),
+      );
+      expect(headers instanceof Headers).toBe(false);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it("keeps Cookie, JSON body, and the attempt key through the omit wrapper", async () => {
     const captured: Array<{
       readonly method: string;

@@ -11,6 +11,7 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import { useRef } from "react";
 
+import { createMobileMutationAttempt } from "../crypto/create-attempt";
 import { describeWireError } from "./errors";
 
 export type ConfirmationChallenge = {
@@ -100,6 +101,7 @@ export function useContractMutation<TInput, TOutput>(
   if (controllerRef.current === null) {
     controllerRef.current = createContractMutationController({
       mutate: (input, options) => mutateRef.current(input, options),
+      createAttempt: createMobileMutationAttempt,
     });
   }
   const controller = controllerRef.current;

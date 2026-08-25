@@ -53,9 +53,15 @@ the OpenAPI artifact.
   selector. `/rpc` fetch uses `credentials: "omit"` so a manual `Cookie`
   header is not overwritten. The omit wrapper rebuilds from URL + init
   and must not `new Request(existingRequest)` (Expo mutations lose Cookie
-  and/or body on that clone). `isWireError` matches §4 `code` + `status`,
+  and/or body on that clone). Rebuilt bodies are JSON **strings**
+  (`request.text()`), not `ArrayBuffer` — RN XHR drops a buffer from
+  another realm, which makes empty-input reads succeed and writes never
+  hit `executeAction`. `isWireError` matches §4 `code` + `status`,
   not `instanceof ORPCError`. `createMutationAttempt()` mints the
-  idempotency key; callers must pass `attempt.options` on retry (no
+  idempotency key via Web Crypto method calls (`randomUUID`, then
+  `getRandomValues`); Expo may pass
+  `createMutationAttempt(() => expoCrypto.randomUUID())` when Hermes
+  Web Crypto throws. Callers must pass `attempt.options` on retry (no
   automatic HTTP retry layer). Confirmation re-invokes with
   `attempt.withChallenge(id)`. Money minor units use `moneyToWire` /
   `moneyFromWire`. Narrow errors with `isWireError` and `error.code` —

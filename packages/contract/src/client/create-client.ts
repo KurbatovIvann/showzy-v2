@@ -95,50 +95,164 @@ function methodMayHaveBody(method: string): boolean {
   return method !== "GET" && method !== "HEAD";
 }
 
+function headersToRecord(headers: Headers): Record<string, string> {
+  const record: Record<string, string> = {};
+  headers.forEach((value, key) => {
+    record[key] = value;
+  });
+  return record;
+}
+
+function rpcPathname(url: string): string {
+  try {
+    return new URL(url).pathname;
+  } catch {
+    return "invalid-url";
+  }
+}
+
+function errorName(error: unknown): string {
+  return error instanceof Error ? error.name : typeof error;
+}
+
+declare const __DEV__: boolean | undefined;
+
+function isDevRuntime(): boolean {
+  return typeof __DEV__ !== "undefined" && __DEV__;
+}
+
+/**
+ * Metro-only transport breadcrumb. Never logs Cookie values, OTP, or
+ * authorization secrets — only presence flags, pathname, and error name.
+ */
+function rpcDevLog(event: {
+  readonly phase: "send" | "throw";
+  readonly method: string;
+  readonly path: string;
+  readonly hasCookie: boolean;
+  readonly hasIdempotencyKey: boolean;
+  readonly bodyChars: number;
+  readonly errorName?: string;
+}): void {
+  if (!isDevRuntime()) {
+    return;
+  }
+  console.info("[showzy/rpc]", event);
+}
+
+type RebuiltRpcRequest = {
+  readonly url: string;
+  readonly method: string;
+  readonly headers: Record<string, string>;
+  readonly body?: string;
+  readonly signal?: AbortSignal;
+};
+
+function toRequestInit(rebuilt: RebuiltRpcRequest): RequestInit {
+  const init: RequestInit = {
+    method: rebuilt.method,
+    headers: rebuilt.headers,
+    credentials: "omit",
+  };
+  if (rebuilt.signal !== undefined) {
+    init.signal = rebuilt.signal;
+  }
+  if (rebuilt.body !== undefined) {
+    init.body = rebuilt.body;
+  }
+  return init;
+}
+
+function rebuiltDevFields(rebuilt: RebuiltRpcRequest): {
+  readonly method: string;
+  readonly path: string;
+  readonly hasCookie: boolean;
+  readonly hasIdempotencyKey: boolean;
+  readonly bodyChars: number;
+} {
+  const cookie = rebuilt.headers.cookie;
+  return {
+    method: rebuilt.method,
+    path: rpcPathname(rebuilt.url),
+    hasCookie: cookie !== undefined && cookie !== "",
+    hasIdempotencyKey: Object.hasOwn(rebuilt.headers, IDEMPOTENCY_KEY_HEADER),
+    bodyChars: rebuilt.body === undefined ? 0 : rebuilt.body.length,
+  };
+}
+
 /**
  * Rebuild from URL + init. Never `new Request(existingRequest)`: Hermes /
  * whatwg-fetch treat that clone as consuming the original body, and native
  * Request copies drop `Cookie` when `credentials: "omit"` is applied to an
  * existing Request. `credentials: "omit"` still belongs on the init so a
  * cookie jar cannot overwrite the manual Cookie (contract.md §3).
+ *
+ * Body is the JSON *string* (`request.text()`), not an `ArrayBuffer`.
+ * React Native's XHR converter only treats `instanceof ArrayBuffer` as
+ * binary; a buffer from another realm is dropped, so `listMine` (`{}`)
+ * still parses while `companies.create` never reaches executeAction.
+ * String bodies are realm-safe. `redirect: "manual"` is omitted — RN
+ * fetch documents it as not working.
  */
 async function rpcFetchOmittingCredentials(
   request: Request,
-  redirect: Request["redirect"] | undefined,
-): Promise<{ readonly url: string; readonly init: RequestInit }> {
+): Promise<RebuiltRpcRequest> {
   const method = request.method;
-  const headers = new Headers(request.headers);
-  const init: RequestInit = {
+  const headers = headersToRecord(request.headers);
+  const rebuilt: RebuiltRpcRequest = {
+    url: request.url,
     method,
     headers,
-    credentials: "omit",
     signal: request.signal,
   };
-  if (redirect !== undefined) {
-    init.redirect = redirect;
+  if (!methodMayHaveBody(method)) {
+    return rebuilt;
   }
-  if (methodMayHaveBody(method)) {
-    const body = await request.arrayBuffer();
-    if (body.byteLength > 0) {
-      init.body = body;
-    }
+  const body = await request.text();
+  if (body.length === 0) {
+    return rebuilt;
   }
-  return { url: request.url, init };
+  return { ...rebuilt, body };
 }
 
 function fetchOmittingCredentials(fetchImpl: RpcFetch | undefined): RpcFetch {
   return async (request, init, options, path, input) => {
-    const rebuilt = await rpcFetchOmittingCredentials(request, init.redirect);
-    if (fetchImpl !== undefined) {
-      return fetchImpl(
-        new Request(rebuilt.url, rebuilt.init),
-        init,
-        options,
-        path,
-        input,
-      );
+    let rebuilt: RebuiltRpcRequest;
+    try {
+      rebuilt = await rpcFetchOmittingCredentials(request);
+    } catch (error) {
+      rpcDevLog({
+        phase: "throw",
+        method: request.method,
+        path: rpcPathname(request.url),
+        hasCookie: request.headers.has("cookie"),
+        hasIdempotencyKey: request.headers.has(IDEMPOTENCY_KEY_HEADER),
+        bodyChars: 0,
+        errorName: errorName(error),
+      });
+      throw error;
     }
-    return fetch(rebuilt.url, rebuilt.init);
+    rpcDevLog({ phase: "send", ...rebuiltDevFields(rebuilt) });
+    const fetchInit = toRequestInit(rebuilt);
+    try {
+      if (fetchImpl !== undefined) {
+        return await fetchImpl(
+          new Request(rebuilt.url, fetchInit),
+          init,
+          options,
+          path,
+          input,
+        );
+      }
+      return await fetch(rebuilt.url, fetchInit);
+    } catch (error) {
+      rpcDevLog({
+        phase: "throw",
+        ...rebuiltDevFields(rebuilt),
+        errorName: errorName(error),
+      });
+      throw error;
+    }
   };
 }
 
