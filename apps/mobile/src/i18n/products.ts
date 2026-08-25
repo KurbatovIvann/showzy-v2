@@ -8,6 +8,41 @@ export type ProductsVariantForms = {
   readonly many: string;
 };
 
+export type ProductsFormCopy = {
+  readonly nameLabel: string;
+  readonly namePlaceholder: string;
+  readonly priceLabel: string;
+  readonly pricePlaceholder: string;
+  readonly variantsTitle: string;
+  readonly addVariant: string;
+  readonly removeVariant: string;
+  readonly variantNameLabel: string;
+  readonly variantNamePlaceholder: string;
+  readonly variantPriceLabel: string;
+  readonly variantPricePlaceholder: string;
+  readonly inheritHint: string;
+  readonly submitCreate: string;
+  readonly submitCreateLoading: string;
+  readonly submitEdit: string;
+  readonly submitEditLoading: string;
+  readonly permissionCreateTitle: string;
+  readonly permissionCreateDescription: string;
+  readonly permissionEditTitle: string;
+  readonly permissionEditDescription: string;
+  readonly errors: {
+    readonly nameRequired: string;
+    readonly nameTooLong: string;
+    readonly priceRequired: string;
+    readonly priceInvalid: string;
+    readonly validation: string;
+    readonly network: string;
+    readonly offline: string;
+    readonly unavailable: string;
+    readonly permission: string;
+    readonly tooManyVariants: string;
+  };
+};
+
 export type ProductsDetailCopy = {
   readonly title: string;
   readonly loadingLabel: string;
@@ -83,6 +118,7 @@ export type ProductsCopy = {
     readonly editTitle: string;
     readonly photosTitle: string;
   };
+  readonly form: ProductsFormCopy;
   readonly detail: ProductsDetailCopy;
 };
 
@@ -133,6 +169,42 @@ const en: ProductsCopy = {
     createTitle: "New product",
     editTitle: "Edit product",
     photosTitle: "Photos",
+  },
+  form: {
+    nameLabel: "Name",
+    namePlaceholder: "Product name",
+    priceLabel: "Base price",
+    pricePlaceholder: "0",
+    variantsTitle: "Variants",
+    addVariant: "Add variant",
+    removeVariant: "Remove",
+    variantNameLabel: "Variant name",
+    variantNamePlaceholder: "For example, 1 kg",
+    variantPriceLabel: "Price",
+    variantPricePlaceholder: "Base price",
+    inheritHint: "Empty price uses the product price",
+    submitCreate: "Create product",
+    submitCreateLoading: "Creating…",
+    submitEdit: "Save",
+    submitEditLoading: "Saving…",
+    permissionCreateTitle: "No permission",
+    permissionCreateDescription:
+      "You do not have permission to create products.",
+    permissionEditTitle: "No permission",
+    permissionEditDescription:
+      "You do not have permission to change this product.",
+    errors: {
+      nameRequired: "Enter a name",
+      nameTooLong: "Name is too long",
+      priceRequired: "Enter a price",
+      priceInvalid: "Check the price",
+      validation: "Check the fields and try again.",
+      network: "Network error. Check your connection.",
+      offline: "You're offline. Check your connection and try again.",
+      unavailable: "Something went wrong. Try again.",
+      permission: "You do not have permission to change this product.",
+      tooManyVariants: "Too many variants. Maximum is 100.",
+    },
   },
   detail: {
     title: "Product",
@@ -222,6 +294,40 @@ const uk: ProductsCopy = {
     createTitle: "Новий товар",
     editTitle: "Редагування товару",
     photosTitle: "Фото",
+  },
+  form: {
+    nameLabel: "Назва",
+    namePlaceholder: "Назва товару",
+    priceLabel: "Базова ціна",
+    pricePlaceholder: "0",
+    variantsTitle: "Варіанти",
+    addVariant: "Додати варіант",
+    removeVariant: "Видалити",
+    variantNameLabel: "Назва варіанта",
+    variantNamePlaceholder: "Наприклад, 1 кг",
+    variantPriceLabel: "Ціна",
+    variantPricePlaceholder: "Базова ціна",
+    inheritHint: "Порожня ціна — як у товару",
+    submitCreate: "Створити товар",
+    submitCreateLoading: "Створюємо…",
+    submitEdit: "Зберегти",
+    submitEditLoading: "Зберігаємо…",
+    permissionCreateTitle: "Немає права",
+    permissionCreateDescription: "Немає права створювати товари.",
+    permissionEditTitle: "Немає права",
+    permissionEditDescription: "Немає права змінювати цей товар.",
+    errors: {
+      nameRequired: "Вкажіть назву",
+      nameTooLong: "Назва занадто довга",
+      priceRequired: "Вкажіть ціну",
+      priceInvalid: "Перевірте ціну",
+      validation: "Перевірте поля і спробуйте ще раз.",
+      network: "Помилка мережі. Перевірте з’єднання.",
+      offline: "Немає зʼєднання. Підключіться і спробуйте ще раз.",
+      unavailable: "Щось пішло не так. Спробуйте ще раз.",
+      permission: "Немає права змінювати цей товар.",
+      tooManyVariants: "Забагато варіантів. Максимум 100.",
+    },
   },
   detail: {
     title: "Товар",

@@ -17,6 +17,8 @@ describe("products copy", () => {
     expect(Object.keys(uk.variants)).toEqual(Object.keys(en.variants));
     expect(Object.keys(uk.empty)).toEqual(Object.keys(en.empty));
     expect(Object.keys(uk.stub)).toEqual(Object.keys(en.stub));
+    expect(Object.keys(uk.form)).toEqual(Object.keys(en.form));
+    expect(Object.keys(uk.form.errors)).toEqual(Object.keys(en.form.errors));
     expect(Object.keys(uk.detail)).toEqual(Object.keys(en.detail));
   });
 
@@ -71,5 +73,20 @@ describe("products copy", () => {
     expect(uk.detail.photosManageLabel).toBe("Керувати фото");
     expect(uk.detail.archiveVariantNamed).toContain("{{name}}");
     expect(uk.detail.restoreVariantNamed).toContain("{{name}}");
+  });
+
+  it("pins the product-form copy in uk", () => {
+    const uk = productsCopy("uk");
+    expect(uk.form.nameLabel).toBe("Назва");
+    expect(uk.form.priceLabel).toBe("Базова ціна");
+    expect(uk.form.variantsTitle).toBe("Варіанти");
+    expect(uk.form.addVariant).toBe("Додати варіант");
+    expect(uk.form.submitCreate).toBe("Створити товар");
+    expect(uk.form.submitEdit).toBe("Зберегти");
+    expect(uk.form.inheritHint).toBe("Порожня ціна — як у товару");
+    expect(uk.form.errors.priceInvalid).toBe("Перевірте ціну");
+    expect(uk.form.permissionCreateDescription).toBe(
+      "Немає права створювати товари.",
+    );
   });
 });

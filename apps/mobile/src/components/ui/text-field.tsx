@@ -7,7 +7,8 @@ export function TextField(props: {
   readonly onChangeText: (value: string) => void;
   readonly placeholder: string;
   readonly accessibilityLabel: string;
-  readonly keyboardType?: "phone-pad" | "email-address" | "default";
+  readonly keyboardType?:
+    "phone-pad" | "email-address" | "default" | "decimal-pad";
   readonly autoCapitalize?: "none" | "sentences" | "words" | "characters";
   readonly autoCorrect?: boolean;
   readonly autoComplete?: "email" | "tel" | "off" | "organization";
@@ -27,6 +28,7 @@ export function TextField(props: {
   const keyboardType = props.keyboardType ?? "email-address";
   const phone = keyboardType === "phone-pad";
   const email = keyboardType === "email-address";
+  const decimal = keyboardType === "decimal-pad";
   const autoComplete =
     props.autoComplete ?? (phone ? "tel" : email ? "email" : "off");
   const textContentType = phone
@@ -36,7 +38,7 @@ export function TextField(props: {
       : autoComplete === "organization"
         ? "organizationName"
         : "none";
-  const tabular = phone || email;
+  const tabular = phone || email || decimal;
 
   return (
     <View>

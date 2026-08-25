@@ -1,1 +1,1 @@
-export { ProductEditStubScreen as default } from "../../../../components/screens/products/product-stub-screens";
+export { ProductEditScreen as default } from "../../../../components/screens/products/product-form-screen";
