@@ -100,6 +100,29 @@ function leakMessage(actionName: string, detail: string): string {
   return `"${actionName}" leaked ${detail}`;
 }
 
+/**
+ * Isolation-suite rate-limit assertions freeze time so wall-clock refill
+ * cannot race `policy.limit` sequential invokes (SHO-146). HMAC rotation
+ * also reads this clock. Matches the injectable-clock pattern already used
+ * by `token-bucket.test.ts`.
+ */
+const FROZEN_SUITE_RATE_LIMIT_NOW_MS = 1_000_000;
+
+function frozenSuiteRateLimitNow(): number {
+  return FROZEN_SUITE_RATE_LIMIT_NOW_MS;
+}
+
+function createFrozenSuiteRateLimitHook(
+  logger: ReturnType<typeof createCapturingLogger>["logger"],
+): RateLimitHook {
+  return createRateLimitHook({
+    store: createInMemoryRateLimitStore({ now: frozenSuiteRateLimitNow }),
+    ipHmacSecret: "test-kit-ip-hmac-secret",
+    logger,
+    now: frozenSuiteRateLimitNow,
+  });
+}
+
 async function invoke(
   kit: TestKit,
   action: SuiteAction,
@@ -300,11 +323,7 @@ async function assertIpHmacLimit(
     logger,
     hooks: {
       ...kit.pipeline.hooks,
-      rateLimit: createRateLimitHook({
-        store: createInMemoryRateLimitStore(),
-        ipHmacSecret: "test-kit-ip-hmac-secret",
-        logger,
-      }),
+      rateLimit: createFrozenSuiteRateLimitHook(logger),
     },
   };
   const clientIp = "198.51.100.20";
@@ -348,13 +367,7 @@ export async function assertUserRateLimit(
     logger,
     hooks: {
       ...kit.pipeline.hooks,
-      rateLimit:
-        rateLimitHook ??
-        createRateLimitHook({
-          store: createInMemoryRateLimitStore(),
-          ipHmacSecret: "test-kit-ip-hmac-secret",
-          logger,
-        }),
+      rateLimit: rateLimitHook ?? createFrozenSuiteRateLimitHook(logger),
     },
   };
   for (let i = 0; i < policy.limit; i += 1) {

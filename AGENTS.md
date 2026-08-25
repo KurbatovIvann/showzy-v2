@@ -53,6 +53,15 @@ Constitution and conventions are in `.cursor/rules/` (already applied).
 See `.cursor/rules/` for detailed conventions, prohibitions, and the
 definition of done.
 
+## CI flakes
+
+A red Vitest on an unrelated file is a **flake or a real regression**,
+not a reason to retrigger CI. Open or reuse a Linear issue with the
+`flake` label. Never push `--allow-empty` (or an equivalent no-op
+commit) to turn CI green. Do not add Vitest `retry` or GitHub Actions
+rerun-on-failure — those hide the same bugs. Details:
+`docs/operations/ci-flakes.md`.
+
 When the task touches `apps/mobile`, load
 `.cursor/skills/showzy-mobile/SKILL.md` before writing code. Do not load
 Expo skills for backend or module work.

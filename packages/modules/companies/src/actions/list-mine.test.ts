@@ -17,11 +17,7 @@ describe("companies.listMine contract", () => {
     expect(listMineContract.atomicCalls).toEqual([]);
     expect(listMineContract.atomicCallers).toEqual([]);
     expect(listMineContract.timeout).toBe(5_000);
-    expect(listMineContract.rateLimit).toEqual({
-      scope: "user",
-      limit: 30,
-      windowSec: 120,
-    });
+    expect(listMineContract.rateLimit).toBeUndefined();
   });
 
   it("accepts only a strict empty object — identifiers are never input", () => {

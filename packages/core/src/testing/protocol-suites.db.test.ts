@@ -345,15 +345,17 @@ describe("social desired-state writes", () => {
 
   it("enforces the per-action abuse rate limit", async () => {
     const logger = createCapturingLogger().logger;
+    const now = () => 1_000_000;
     const deps = {
       ...kit.pipeline,
       logger,
       hooks: {
         ...kit.pipeline.hooks,
         rateLimit: createRateLimitHook({
-          store: createInMemoryRateLimitStore(),
+          store: createInMemoryRateLimitStore({ now }),
           ipHmacSecret: "test-kit-ip-hmac-secret",
           logger,
+          now,
         }),
       },
     };

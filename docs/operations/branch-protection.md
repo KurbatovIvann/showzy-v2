@@ -31,6 +31,10 @@ Compensating process until the constraint is lifted:
   branch + PR, including the owner's own.
 - Agents must never merge PRs (already a standing rule) and must report a
   red check instead of working around it.
+- **No empty CI retriggers.** A red Vitest is a flake or a regression —
+  open a `flake` Linear issue. Never push `--allow-empty`, Vitest
+  `retry`, or Actions rerun-on-failure
+  (`docs/operations/ci-flakes.md`, SHO-145).
 
 Revisit triggers: the repository moves to GitHub Pro, into an organization,
 or becomes public — then enable the ruleset below immediately and run the
