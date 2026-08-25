@@ -27,7 +27,7 @@ const styles = StyleSheet.create((theme) => ({
     borderWidth: 1,
     borderColor: "transparent",
     paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 2,
+    paddingVertical: theme.spacing["2xs"],
   },
   label: {
     fontSize: theme.typography.xs.fontSize,

@@ -78,7 +78,7 @@ export function ProductRowSkeleton() {
 
 const styles = StyleSheet.create((theme) => ({
   card: {
-    minHeight: 88,
+    minHeight: theme.hitTarget.row,
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing.md,

@@ -59,7 +59,7 @@ describe("canvas token map (ADR-0024)", () => {
   });
 
   it("pins spacing, canvas radii, type, and hit targets", () => {
-    expect(Object.values(spacing)).toEqual([4, 8, 12, 16, 20, 24, 32]);
+    expect(Object.values(spacing)).toEqual([2, 4, 8, 12, 16, 20, 24, 32]);
     expect(radii).toEqual({
       sm: 8,
       md: 12,
@@ -72,7 +72,7 @@ describe("canvas token map (ADR-0024)", () => {
       sheet: 30,
       full: 9999,
     });
-    expect(hitTarget).toEqual({ min: 44, field: 48, auth: 54 });
+    expect(hitTarget).toEqual({ min: 44, field: 48, auth: 54, row: 88 });
     expect(iconSize).toEqual({ sm: 18, md: 20 });
     expect(squircle).toEqual({ borderCurve: "continuous" });
     expect(typography["2xs"]).toEqual({ fontSize: 11, lineHeight: 14 });

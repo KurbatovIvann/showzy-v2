@@ -30,10 +30,12 @@ function ProductStubScreen({ title }: { readonly title: string }) {
     >
       <AppHeader
         title={title}
-        onBack={() => {
-          router.back();
+        back={{
+          onPress: () => {
+            router.back();
+          },
+          accessibilityLabel: copy.backLabel,
         }}
-        backAccessibilityLabel={copy.backLabel}
       />
       <View style={styles.body}>
         <EmptyState

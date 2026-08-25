@@ -77,6 +77,10 @@ export function useProductsList() {
       getActiveCompany,
     }),
     enabled: probeEnabled,
+    // Refetch whenever the probe is consulted: the default 60s staleTime
+    // could otherwise pin yesterday's emptiness verdict onto today's
+    // empty-state choice (Bugbot, PR #112).
+    staleTime: 0,
   });
 
   const canFetchThumbnails = canFetchFileDownloadUrls(membership.role);

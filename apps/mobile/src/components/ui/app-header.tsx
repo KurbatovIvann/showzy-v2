@@ -5,6 +5,12 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { IconButton } from "./icon-button";
 
+/** The icon-only control must never be silent to screen readers. */
+export type AppHeaderBack = {
+  readonly onPress: () => void;
+  readonly accessibilityLabel: string;
+};
+
 /**
  * Canvas `AppHeader`: screen title row with optional subtitle, back
  * control, and a trailing actions slot. Screens own the safe-area top
@@ -13,14 +19,13 @@ import { IconButton } from "./icon-button";
 export function AppHeader(props: {
   readonly title: string;
   readonly subtitle?: string;
-  readonly onBack?: () => void;
-  readonly backAccessibilityLabel?: string;
+  readonly back?: AppHeaderBack;
   readonly actions?: ReactNode;
 }) {
   const { theme } = useUnistyles();
   return (
     <View style={styles.row}>
-      {props.onBack !== undefined ? (
+      {props.back !== undefined ? (
         <IconButton
           variant="surface"
           icon={
@@ -29,8 +34,8 @@ export function AppHeader(props: {
               color={theme.colors.foreground}
             />
           }
-          accessibilityLabel={props.backAccessibilityLabel ?? ""}
-          onPress={props.onBack}
+          accessibilityLabel={props.back.accessibilityLabel}
+          onPress={props.back.onPress}
         />
       ) : null}
       <View style={styles.titles}>
