@@ -353,11 +353,15 @@ async function insertFileRow(values: {
 }
 
 async function putStoreObject(key: string): Promise<void> {
-  await getFilesObjectStore().putObject({
+  const store = getFilesObjectStore();
+  await store.putObject({
     key,
     mimeType: "image/jpeg",
     bytes: jpegBytes,
   });
+  // Garage can acknowledge PutObject before HeadObject sees the key.
+  // Sweep treats a missing HEAD as "already purged" and would skip delete.
+  await waitUntil(async () => (await store.headObject(key)) !== "missing");
 }
 
 async function fileRow(id: string): Promise<
@@ -716,11 +720,11 @@ describe("apps/worker sweepAbandonedUploads scheduler (SHO-120)", () => {
       );
 
       const store = getFilesObjectStore();
-      expect(
-        await store.headObject(
-          stagingKey(kitIdentities.companies.a, leftoverId),
-        ),
-      ).toBe("missing");
+      const leftoverStaging = stagingKey(kitIdentities.companies.a, leftoverId);
+      await waitUntil(
+        async () => (await store.headObject(leftoverStaging)) === "missing",
+      );
+      expect(await store.headObject(leftoverStaging)).toBe("missing");
       expect(
         await store.headObject(
           catalogKey(kitIdentities.companies.a, leftoverId),

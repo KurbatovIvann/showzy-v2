@@ -2,12 +2,16 @@ import type { SuiteCoverageManifest } from "@showzy/core";
 
 export const catalogSuiteCoverage = {
   isolation: [
+    "catalog.archiveProduct",
+    "catalog.archiveVariant",
     "catalog.createProduct",
     "catalog.createVariant",
     "catalog.getProduct",
     "catalog.getProductOrderFacts",
     "catalog.getProductPricingFacts",
     "catalog.listProducts",
+    "catalog.restoreProduct",
+    "catalog.restoreVariant",
     "catalog.updateProduct",
     "catalog.updateVariant",
   ],
@@ -20,6 +24,10 @@ export const catalogSuiteCoverage = {
     "catalog.updateProduct",
     "catalog.createVariant",
     "catalog.updateVariant",
+    "catalog.archiveProduct",
+    "catalog.restoreProduct",
+    "catalog.archiveVariant",
+    "catalog.restoreVariant",
   ],
   events: [],
   atomic: [],

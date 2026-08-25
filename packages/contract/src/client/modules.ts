@@ -12,10 +12,14 @@
  * missing here, or an entry here that is not registered, fails boot.
  */
 import {
+  archiveProductContract,
+  archiveVariantContract,
   createProductContract,
   createVariantContract,
   getProductContract,
   listProductsContract,
+  restoreProductContract,
+  restoreVariantContract,
   updateProductContract,
   updateVariantContract,
 } from "@showzy/catalog/contract";
@@ -50,6 +54,10 @@ export const contractModules = {
     listProducts: listProductsContract,
     updateProduct: updateProductContract,
     updateVariant: updateVariantContract,
+    archiveProduct: archiveProductContract,
+    restoreProduct: restoreProductContract,
+    archiveVariant: archiveVariantContract,
+    restoreVariant: restoreVariantContract,
   },
   chat: {
     getOrderCard: getOrderCardContract,
