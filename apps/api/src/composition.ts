@@ -45,6 +45,7 @@ import {
   finalizeUpload,
   getAttachmentFacts,
   getDownloadUrl,
+  getDownloadUrls,
   getUploadUrl,
   requestUpload,
   sweepAbandonedUploads,
@@ -191,6 +192,7 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, getUploadUrl);
   registerAction(registry, finalizeUpload);
   registerAction(registry, getDownloadUrl);
+  registerAction(registry, getDownloadUrls);
   registerAction(registry, getAttachmentFacts);
   registerAction(registry, sweepAbandonedUploads);
   registerAction(registry, createOrder);

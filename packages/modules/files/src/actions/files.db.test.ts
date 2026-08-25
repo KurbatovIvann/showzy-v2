@@ -31,7 +31,9 @@ import {
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { finalizeUpload } from "./finalize-upload.js";
+import { ATTACHMENT_FACTS_MAX_IDS } from "./get-attachment-facts.contract.js";
 import { getDownloadUrl } from "./get-download-url.js";
+import { getDownloadUrls } from "./get-download-urls.js";
 import { getUploadUrl } from "./get-upload-url.js";
 import { requestUpload } from "./request-upload.js";
 import { sweepAbandonedUploads } from "./sweep-abandoned-uploads.js";
@@ -111,6 +113,8 @@ const finalizeOwnInput = { fileId: "" };
 const finalizeForeignInput = { fileId: "" };
 const downloadOwnInput = { fileId: "" };
 const downloadForeignInput = { fileId: "" };
+const downloadUrlsOwnInput = { fileIds: [""] };
+const downloadUrlsForeignInput = { fileIds: [""] };
 const uploadOwnInput = { fileId: "" };
 const uploadForeignInput = { fileId: "" };
 const finalizeIdempotentInput = { fileId: "" };
@@ -423,6 +427,8 @@ beforeAll(async () => {
   downloadForeignInput.fileId = (
     await requestPutFinalize(jpegBytes, "image/jpeg", companyB)
   ).fileId;
+  downloadUrlsOwnInput.fileIds = [downloadOwnInput.fileId];
+  downloadUrlsForeignInput.fileIds = [downloadForeignInput.fileId];
   uploadOwnInput.fileId = (
     await requireKit().invoke(requestUpload, jpegInput)
   ).fileId;
@@ -508,6 +514,11 @@ crossTenantSuite(requireKit, [
     getDownloadUrl,
     { input: downloadOwnInput },
     { input: downloadForeignInput },
+  ),
+  isolationCase(
+    getDownloadUrls,
+    { input: downloadUrlsOwnInput },
+    { input: downloadUrlsForeignInput },
   ),
   isolationCase(
     getUploadUrl,
@@ -1210,6 +1221,147 @@ describe("files signed upload slice", () => {
     expect(blob).not.toContain("/uploads/");
     expect(blob).not.toContain("objectKey");
     expect(blob).not.toContain("object_key");
+  });
+});
+
+describe("files.getDownloadUrls", () => {
+  it("returns signed GETs for a batch of ready files in first-seen unique order", async () => {
+    const capturing = createCapturingLogger();
+    const second = await requestPutFinalize(pngBytes, "image/png");
+    const result = await requireKit().invoke(
+      getDownloadUrls,
+      {
+        fileIds: [
+          second.fileId,
+          downloadOwnInput.fileId,
+          second.fileId,
+          downloadOwnInput.fileId,
+        ],
+      },
+      {},
+      { deps: { ...requireKit().pipeline, logger: capturing.logger } },
+    );
+
+    expect(result.files.map((file) => file.fileId)).toEqual([
+      second.fileId,
+      downloadOwnInput.fileId,
+    ]);
+    expect(result.files).toHaveLength(2);
+
+    const fetchedPng = await fetch(result.files[0]?.downloadUrl ?? "");
+    expect(fetchedPng.ok).toBe(true);
+    expect(sha256Hex(new Uint8Array(await fetchedPng.arrayBuffer()))).toBe(
+      pngChecksum,
+    );
+    expect(fetchedPng.headers.get("content-disposition")).toContain(
+      "attachment",
+    );
+
+    const fetchedJpeg = await fetch(result.files[1]?.downloadUrl ?? "");
+    expect(fetchedJpeg.ok).toBe(true);
+    expect(sha256Hex(new Uint8Array(await fetchedJpeg.arrayBuffer()))).toBe(
+      jpegChecksum,
+    );
+
+    const logs = JSON.stringify(capturing.entries());
+    for (const file of result.files) {
+      expect(file.downloadUrl.startsWith("http")).toBe(true);
+      expect(logs).not.toContain(file.downloadUrl);
+    }
+    expect(logs).not.toMatch(/\/catalog\//);
+    expect(logs).not.toMatch(/\/uploads\//);
+    expect(logs).not.toMatch(/X-Amz-Signature/);
+  });
+
+  it("denies staff without files:view", async () => {
+    await expect(
+      requireKit().invoke(
+        getDownloadUrls,
+        { fileIds: [downloadOwnInput.fileId] },
+        { companyId: kitIdentities.companies.a, userId: clerks.noView },
+      ),
+    ).rejects.toBeInstanceOf(PermissionDeniedError);
+  });
+
+  it("rejects an empty batch, oversized batch, and malformed ids", async () => {
+    await expect(
+      requireKit().invoke(getDownloadUrls, { fileIds: [] }),
+    ).rejects.toBeInstanceOf(ValidationError);
+
+    const oversized = Array.from({ length: ATTACHMENT_FACTS_MAX_IDS + 1 }, () =>
+      randomUUID(),
+    );
+    await expect(
+      requireKit().invoke(getDownloadUrls, { fileIds: oversized }),
+    ).rejects.toBeInstanceOf(ValidationError);
+
+    await expect(
+      requireKit().invoke(getDownloadUrls, { fileIds: ["not-a-uuid"] }),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it("fails the whole batch for a missing, pending, or foreign file with the same not-found", async () => {
+    const missingId = randomUUID();
+    const pending = await requireKit().invoke(requestUpload, jpegInput);
+
+    const missingError = await requireKit()
+      .invoke(getDownloadUrls, { fileIds: [missingId] })
+      .then(
+        () => {
+          throw new Error("expected NotFoundError for a missing file");
+        },
+        (error: unknown) => error,
+      );
+    const pendingError = await requireKit()
+      .invoke(getDownloadUrls, { fileIds: [pending.fileId] })
+      .then(
+        () => {
+          throw new Error("expected NotFoundError for a pending file");
+        },
+        (error: unknown) => error,
+      );
+    const foreignError = await requireKit()
+      .invoke(getDownloadUrls, { fileIds: [downloadForeignInput.fileId] })
+      .then(
+        () => {
+          throw new Error("expected NotFoundError for a foreign file");
+        },
+        (error: unknown) => error,
+      );
+
+    expect(missingError).toBeInstanceOf(NotFoundError);
+    expect(pendingError).toBeInstanceOf(NotFoundError);
+    expect(foreignError).toBeInstanceOf(NotFoundError);
+    if (
+      missingError instanceof NotFoundError &&
+      pendingError instanceof NotFoundError &&
+      foreignError instanceof NotFoundError
+    ) {
+      expect(missingError.clientMessage).toBe(pendingError.clientMessage);
+      expect(pendingError.clientMessage).toBe(foreignError.clientMessage);
+    }
+
+    await expect(
+      requireKit().invoke(getDownloadUrls, {
+        fileIds: [downloadOwnInput.fileId, missingId],
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      requireKit().invoke(getDownloadUrls, {
+        fileIds: [downloadOwnInput.fileId, pending.fileId],
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      requireKit().invoke(getDownloadUrls, {
+        fileIds: [downloadOwnInput.fileId, downloadForeignInput.fileId],
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+
+    const stillOwn = await requireKit().invoke(getDownloadUrls, {
+      fileIds: [downloadOwnInput.fileId],
+    });
+    expect(stillOwn.files).toHaveLength(1);
+    expect(stillOwn.files[0]?.fileId).toBe(downloadOwnInput.fileId);
   });
 });
 

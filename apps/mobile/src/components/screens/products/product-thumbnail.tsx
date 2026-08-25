@@ -2,40 +2,25 @@ import { memo } from "react";
 import { View } from "react-native";
 import { Image } from "expo-image";
 import { PackageIcon } from "lucide-react-native";
-import { useQuery } from "@tanstack/react-query";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
-import { useApiClient } from "../../../api/api-provider";
-import { fileDownloadUrlQueryOptions } from "../../../api/file-download-query";
-import { useActiveCompany } from "../../../api/query-provider";
-
 /**
- * Per-row signed thumbnail: `files.getDownloadUrl` → `expo-image`.
- * Accepted as chatty for this slice (SHO-137); the batch URL action is
- * the files follow-up (SHO-140). `fileId: null` (no image, or the role
- * cannot read files) renders the package placeholder without a request.
+ * Signed thumbnail from a parent-batched `files.getDownloadUrls` query
+ * (SHO-140). `fileId: null` or a missing URL (no image, loading, batch
+ * failure, or a role that cannot read files) renders the package
+ * placeholder without a request. `fileId` is only the expo-image recycle
+ * key — the URL is never persisted.
  */
 export const ProductThumbnail = memo(function ProductThumbnail(props: {
   readonly fileId: string | null;
+  readonly url: string | null;
 }) {
   const { theme } = useUnistyles();
-  const apiClient = useApiClient();
-  const { activeCompanyId } = useActiveCompany();
-  const options = fileDownloadUrlQueryOptions({
-    client: apiClient,
-    companyId: activeCompanyId,
-    fileId: props.fileId ?? "",
-    getActiveCompany: () => apiClient?.getActiveCompany() ?? null,
-  });
-  const query = useQuery({
-    ...options,
-    enabled: options.enabled && props.fileId !== null,
-  });
+  const url = props.url;
 
-  const url = query.data?.downloadUrl;
   return (
     <View style={styles.frame}>
-      {url === undefined ? (
+      {url === null ? (
         <PackageIcon
           size={theme.iconSize.md}
           color={theme.colors.mutedForeground}
@@ -43,7 +28,7 @@ export const ProductThumbnail = memo(function ProductThumbnail(props: {
       ) : (
         <Image
           source={{ uri: url }}
-          recyclingKey={props.fileId}
+          recyclingKey={props.fileId ?? url}
           contentFit="cover"
           transition={150}
           style={styles.image}

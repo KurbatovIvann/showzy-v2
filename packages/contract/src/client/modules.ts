@@ -32,6 +32,7 @@ import {
 import {
   finalizeUploadContract,
   getDownloadUrlContract,
+  getDownloadUrlsContract,
   getUploadUrlContract,
   requestUploadContract,
 } from "@showzy/files/contract";
@@ -73,6 +74,7 @@ export const contractModules = {
     getUploadUrl: getUploadUrlContract,
     finalizeUpload: finalizeUploadContract,
     getDownloadUrl: getDownloadUrlContract,
+    getDownloadUrls: getDownloadUrlsContract,
   },
   orders: {
     create: createOrderContract,

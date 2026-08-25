@@ -38,6 +38,46 @@ export function flattenProductPages(
   return pages.flatMap((page) => page.items);
 }
 
+/** First-seen unique `primaryImageFileId` values for one list page. */
+export function uniquePrimaryImageFileIds(
+  items: ReadonlyArray<{ readonly primaryImageFileId: string | null }>,
+): string[] {
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  for (const item of items) {
+    const fileId = item.primaryImageFileId;
+    if (fileId === null || seen.has(fileId)) {
+      continue;
+    }
+    seen.add(fileId);
+    ids.push(fileId);
+  }
+  return ids;
+}
+
+export function mergeDownloadUrlPages(
+  pages: ReadonlyArray<
+    | {
+        readonly files: ReadonlyArray<{
+          readonly fileId: string;
+          readonly downloadUrl: string;
+        }>;
+      }
+    | undefined
+  >,
+): ReadonlyMap<string, string> {
+  const map = new Map<string, string>();
+  for (const page of pages) {
+    if (page === undefined) {
+      continue;
+    }
+    for (const file of page.files) {
+      map.set(file.fileId, file.downloadUrl);
+    }
+  }
+  return map;
+}
+
 export type ProductRowView = {
   readonly id: string;
   readonly name: string;
