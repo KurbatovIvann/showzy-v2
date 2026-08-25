@@ -9,12 +9,12 @@ import { Modal, Pressable, Text, View } from "react-native";
 import Animated, {
   Easing,
   interpolate,
-  runOnJS,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
+import { scheduleOnRN } from "react-native-worklets";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
@@ -85,7 +85,7 @@ export function Sheet(props: {
         },
         (finished) => {
           if (finished && closeGenerationRef.current === generation) {
-            runOnJS(hideModal)();
+            scheduleOnRN(hideModal);
           }
         },
       ),
