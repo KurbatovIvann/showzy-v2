@@ -363,7 +363,9 @@ beforeAll(async () => {
       },
       sendEmailOtp: () => Promise.resolve(),
       otpSendStore: createAtomicOtpSendStore(secondary),
-      authRateLimitStore: createMemoryAuthRateLimitStore(),
+      authRateLimitStore: createMemoryAuthRateLimitStore({
+        ipHmacSecret: "test-ip-hmac-secret",
+      }),
       secondaryStorage: secondary,
       now: () => nowMs,
     }),
@@ -860,6 +862,32 @@ describe("OTP over HTTP (security-operations §8)", () => {
       "/phone-number/send-otp",
       { phoneNumber: "+380672099999" },
       headers,
+    );
+    expect(blocked.status).toBe(429);
+  });
+
+  it("blocks a 6th send to the same phone independently of the IP HMAC bucket", async () => {
+    const phone = "+380677100001";
+    for (let i = 0; i < otpPolicy.maxSendsPerHourPerIdentifier; i += 1) {
+      const ip = `198.51.100.${String(110 + i)}`;
+      const response = await authPost(
+        "/phone-number/send-otp",
+        { phoneNumber: phone },
+        {
+          "x-test-peer-address": INGRESS,
+          "x-forwarded-for": ip,
+        },
+      );
+      expect(response.status, `identifier send ${String(i + 1)}`).toBe(200);
+      advanceSeconds(otpPolicy.resendCooldownSeconds);
+    }
+    const blocked = await authPost(
+      "/phone-number/send-otp",
+      { phoneNumber: phone },
+      {
+        "x-test-peer-address": INGRESS,
+        "x-forwarded-for": "198.51.100.199",
+      },
     );
     expect(blocked.status).toBe(429);
   });

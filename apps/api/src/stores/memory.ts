@@ -5,6 +5,11 @@
  * `getAndDelete` is atomic here because JavaScript is single-threaded; the
  * Redis client uses `GETDEL` for the same contract across processes.
  */
+import {
+  hmacBetterAuthConsumeKey,
+  requireAuthIpHmacSecret,
+} from "./auth-ip-hmac.js";
+
 export interface SecondaryStorage {
   get(key: string): Promise<string | null>;
   set(key: string, value: string, ttlSeconds?: number): Promise<void>;
@@ -26,6 +31,7 @@ export interface AuthRateLimitDecision {
 /**
  * Atomic fixed-window consume for Better Auth's IP rate limiter.
  * Redis runs this as Lua INCR+EXPIRE; tests use the in-memory mutex store.
+ * Both stores HMAC the Better Auth key before persist (SHO-147).
  */
 export interface AuthRateLimitStore {
   consume(key: string, rule: AuthRateLimitRule): Promise<AuthRateLimitDecision>;
@@ -106,27 +112,31 @@ interface FixedWindowState {
 /**
  * In-process atomic fixed-window consume. An await between read and write
  * still races two overlapping `consume` calls; the per-key mutex closes that.
- * Cross-process atomicity is Redis Lua INCR+EXPIRE.
+ * Cross-process atomicity is Redis Lua INCR+EXPIRE. The map key is an HMAC
+ * digest of the Better Auth preimage — never the raw `${ip}|${path}`.
  */
-export function createMemoryAuthRateLimitStore(options?: {
+export function createMemoryAuthRateLimitStore(options: {
+  readonly ipHmacSecret: string;
   /** Injectable clock (epoch milliseconds) for tests; defaults to Date.now. */
   readonly now?: () => number;
 }): AuthRateLimitStore {
-  const now = options?.now ?? Date.now;
+  const ipHmacSecret = requireAuthIpHmacSecret(options.ipHmacSecret);
+  const now = options.now ?? Date.now;
   const windows = new Map<string, FixedWindowState>();
   const tails = new Map<string, Promise<void>>();
 
   return {
     consume(key, rule) {
-      return withKeyLock(tails, key, (): Promise<AuthRateLimitDecision> => {
+      const digest = hmacBetterAuthConsumeKey(key, ipHmacSecret);
+      return withKeyLock(tails, digest, (): Promise<AuthRateLimitDecision> => {
         const nowMs = now();
-        const existing = windows.get(key);
+        const existing = windows.get(digest);
         const active =
           existing !== undefined && existing.expiresAtMs > nowMs
             ? existing
             : undefined;
         if (active === undefined) {
-          windows.set(key, {
+          windows.set(digest, {
             count: 1,
             expiresAtMs: nowMs + rule.window * 1000,
           });
