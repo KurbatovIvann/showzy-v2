@@ -23,8 +23,8 @@ function requireUahOrNull(currency: string | null): "UAH" | null {
 }
 
 export function variantPriceFields(fields: {
-  readonly basePriceMinor?: string;
-  readonly currency?: "UAH";
+  readonly basePriceMinor?: string | undefined;
+  readonly currency?: "UAH" | undefined;
 }): {
   readonly basePriceMinor: bigint | null;
   readonly currency: string | null;
