@@ -40,6 +40,26 @@ async function ignoreRpcFailure(promise: Promise<unknown>): Promise<void> {
   });
 }
 
+/**
+ * Hermes/whatwg-fetch-shaped clone: copying an existing Request with
+ * `credentials: "omit"` does not tee the body (the original is marked
+ * used; a native copy may also strip forbidden `Cookie`). The production
+ * wrapper must rebuild from URL + init instead of this path.
+ */
+function cloneRequestLikeHermes(request: Request): Request {
+  const headers = new Headers();
+  request.headers.forEach((value, key) => {
+    if (key.toLowerCase() !== "cookie") {
+      headers.set(key, value);
+    }
+  });
+  return new Request(request.url, {
+    method: request.method,
+    headers,
+    credentials: "omit",
+  });
+}
+
 async function captureRequest(
   run: (
     created: ReturnType<typeof createContractClient<SampleRouter>>,
@@ -109,6 +129,61 @@ describe("createContractClient (contract.md §3)", () => {
     );
     expect(requests[0]?.headers.has("authorization")).toBe(false);
     expect(requests[0]?.credentials).toBe("omit");
+  });
+
+  it("keeps Cookie, JSON body, and the attempt key through the omit wrapper", async () => {
+    const captured: Array<{
+      readonly method: string;
+      readonly url: string;
+      readonly cookie: string | null;
+      readonly idempotencyKey: string | null;
+      readonly body: unknown;
+      readonly credentials: Request["credentials"];
+    }> = [];
+    const created = createContractClient<SampleRouter>({
+      baseUrl: "http://contract.test",
+      getCookie: () => "better-auth.session_token=abc",
+      fetch: async (request) => {
+        captured.push({
+          method: request.method,
+          url: request.url,
+          cookie: request.headers.get("cookie"),
+          idempotencyKey: request.headers.get(IDEMPOTENCY_KEY_HEADER),
+          body: JSON.parse(await request.text()) as unknown,
+          credentials: request.credentials,
+        });
+        return new Response(null, { status: 599 });
+      },
+    });
+    const attempt = created.createMutationAttempt();
+    await ignoreRpcFailure(
+      created.client.sample.submit({ note: "sofi" }, attempt.options),
+    );
+    expect(captured).toHaveLength(1);
+    expect(captured[0]?.method).toBe("POST");
+    expect(new URL(captured[0]?.url ?? "").pathname).toBe(
+      `${RPC_PREFIX}/sample/submit`,
+    );
+    expect(captured[0]?.cookie).toBe("better-auth.session_token=abc");
+    expect(captured[0]?.idempotencyKey).toBe(attempt.key);
+    expect(captured[0]?.credentials).toBe("omit");
+    expect(captured[0]?.body).toEqual({ json: { note: "sofi" } });
+  });
+
+  it("an RN-shaped Request clone drops Cookie and the JSON body", async () => {
+    const original = new Request("http://contract.test/rpc/companies/create", {
+      method: "POST",
+      headers: {
+        cookie: "better-auth.session_token=abc",
+        [IDEMPOTENCY_KEY_HEADER]: "attempt-1",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ json: { name: "Sofi", slug: "sofi" } }),
+    });
+    const cloned = cloneRequestLikeHermes(original);
+    expect(cloned.headers.get("cookie")).toBeNull();
+    expect(cloned.headers.get(IDEMPOTENCY_KEY_HEADER)).toBe("attempt-1");
+    expect(await cloned.text()).toBe("");
   });
 
   it("omits authorization and the selector when anonymous", async () => {

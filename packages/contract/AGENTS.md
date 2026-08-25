@@ -51,7 +51,10 @@ the OpenAPI artifact.
 - Apps call `createContractClient({ baseUrl, getCookie })` (Expo) or
   `getAccessToken` (bearer). Then `setActiveCompany` for the staff
   selector. `/rpc` fetch uses `credentials: "omit"` so a manual `Cookie`
-  header is not overwritten. `createMutationAttempt()` mints the
+  header is not overwritten. The omit wrapper rebuilds from URL + init
+  and must not `new Request(existingRequest)` (Expo mutations lose Cookie
+  and/or body on that clone). `isWireError` matches §4 `code` + `status`,
+  not `instanceof ORPCError`. `createMutationAttempt()` mints the
   idempotency key; callers must pass `attempt.options` on retry (no
   automatic HTTP retry layer). Confirmation re-invokes with
   `attempt.withChallenge(id)`. Money minor units use `moneyToWire` /

@@ -102,4 +102,34 @@ describe("describeQueryFailure", () => {
       }).kind,
     ).toBe("offline");
   });
+
+  it("maps a duck-typed 401 to unauthenticated, not network", () => {
+    const error = {
+      code: "UNAUTHENTICATED",
+      status: 401,
+      message: "Authentication required.",
+    };
+    expect(describeQueryFailure(error)).toEqual({
+      kind: "unauthenticated",
+      message: "Authentication required.",
+    });
+  });
+
+  it("maps duck-typed VALIDATION and CONFLICT by code, not as network", () => {
+    expect(
+      describeQueryFailure({
+        code: "VALIDATION",
+        status: 400,
+        message: "Input validation failed.",
+        data: { issues: [] },
+      }).kind,
+    ).toBe("validation");
+    expect(
+      describeQueryFailure({
+        code: "CONFLICT",
+        status: 409,
+        message: "Conflict.",
+      }).kind,
+    ).toBe("conflict");
+  });
 });

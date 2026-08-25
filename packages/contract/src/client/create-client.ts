@@ -91,13 +91,54 @@ async function resolveCredential(
 
 type RpcFetch = NonNullable<RPCLinkOptions<ContractCallContext>["fetch"]>;
 
-function fetchOmittingCredentials(fetchImpl: RpcFetch | undefined): RpcFetch {
-  return (request, init, options, path, input) => {
-    const next = new Request(request, { credentials: "omit" });
-    if (fetchImpl !== undefined) {
-      return fetchImpl(next, init, options, path, input);
+function methodMayHaveBody(method: string): boolean {
+  return method !== "GET" && method !== "HEAD";
+}
+
+/**
+ * Rebuild from URL + init. Never `new Request(existingRequest)`: Hermes /
+ * whatwg-fetch treat that clone as consuming the original body, and native
+ * Request copies drop `Cookie` when `credentials: "omit"` is applied to an
+ * existing Request. `credentials: "omit"` still belongs on the init so a
+ * cookie jar cannot overwrite the manual Cookie (contract.md §3).
+ */
+async function rpcFetchOmittingCredentials(
+  request: Request,
+  redirect: Request["redirect"] | undefined,
+): Promise<{ readonly url: string; readonly init: RequestInit }> {
+  const method = request.method;
+  const headers = new Headers(request.headers);
+  const init: RequestInit = {
+    method,
+    headers,
+    credentials: "omit",
+    signal: request.signal,
+  };
+  if (redirect !== undefined) {
+    init.redirect = redirect;
+  }
+  if (methodMayHaveBody(method)) {
+    const body = await request.arrayBuffer();
+    if (body.byteLength > 0) {
+      init.body = body;
     }
-    return fetch(next, init);
+  }
+  return { url: request.url, init };
+}
+
+function fetchOmittingCredentials(fetchImpl: RpcFetch | undefined): RpcFetch {
+  return async (request, init, options, path, input) => {
+    const rebuilt = await rpcFetchOmittingCredentials(request, init.redirect);
+    if (fetchImpl !== undefined) {
+      return fetchImpl(
+        new Request(rebuilt.url, rebuilt.init),
+        init,
+        options,
+        path,
+        input,
+      );
+    }
+    return fetch(rebuilt.url, rebuilt.init);
   };
 }
 

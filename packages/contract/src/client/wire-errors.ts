@@ -9,7 +9,6 @@
  * The table test enforces the exact §4 rows; `satisfies Record<CoreErrorCode, …>`
  * keeps the core subset complete when core gains an error class.
  */
-import { ORPCError } from "@orpc/client";
 import type { CoreErrorCode } from "@showzy/core/errors";
 import { z } from "zod";
 
@@ -138,20 +137,29 @@ function definitionHasData(
   return "data" in definition;
 }
 
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
 /**
- * True when `error` is a contract.md §4 wire error. After this guard,
- * `error.code` narrows the extras (`issues`, `retryAfterSec`,
- * `challenge`) without string matching.
+ * True when `error` is a contract.md §4 wire error. Identify by `code`
+ * and HTTP `status` (and typed extras), not `instanceof ORPCError` —
+ * Metro can load more than one `@orpc/client` copy, and a 401 then
+ * collapses to a network banner. After this guard, `error.code` narrows
+ * the extras without matching `message` text.
  */
 export function isWireError(error: unknown): error is WireError {
-  if (!(error instanceof ORPCError)) {
+  if (!isObjectRecord(error)) {
     return false;
   }
-  const code: unknown = error.code;
+  const code = error.code;
   if (typeof code !== "string" || !isWireErrorCode(code)) {
     return false;
   }
   if (error.status !== wireErrorStatus[code]) {
+    return false;
+  }
+  if (typeof error.message !== "string") {
     return false;
   }
   const definition = wireErrorDefinitions[code];

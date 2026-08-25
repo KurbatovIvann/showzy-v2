@@ -148,6 +148,31 @@ describe("WireError union (contract.md §4)", () => {
     expect(isWireError(new Error("VALIDATION"))).toBe(false);
   });
 
+  it("accepts a 401-shaped error that is not instanceof ORPCError", () => {
+    const foreign = {
+      code: "UNAUTHENTICATED",
+      status: 401,
+      message: "Authentication required.",
+    };
+    expect(foreign instanceof ORPCError).toBe(false);
+    expect(isWireError(foreign)).toBe(true);
+    if (!isWireError(foreign) || foreign.code !== "UNAUTHENTICATED") {
+      expect.unreachable("expected duck-typed UNAUTHENTICATED");
+      return;
+    }
+    expect(foreign.status).toBe(401);
+  });
+
+  it("rejects a 401 that is not a §4 code (oRPC UNAUTHORIZED)", () => {
+    expect(
+      isWireError({
+        code: "UNAUTHORIZED",
+        status: 401,
+        message: "Unauthorized",
+      }),
+    ).toBe(false);
+  });
+
   it("the union is exhaustive over the §4 table", () => {
     const label = (error: WireError): string => {
       switch (error.code) {
