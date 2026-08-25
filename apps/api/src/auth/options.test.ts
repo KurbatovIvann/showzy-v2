@@ -148,7 +148,7 @@ describe("buildAuthOptions — §2 parameter wiring", () => {
 
   it("rate-limits OTP sends to 20 per hour per IP in every environment", () => {
     expect(options.rateLimit.enabled).toBe(true);
-    expect(typeof options.rateLimit.customStorage?.consume).toBe("function");
+    expect(typeof options.rateLimit.customStorage.consume).toBe("function");
     for (const path of [
       "/phone-number/send-otp",
       "/email-otp/send-verification-otp",
