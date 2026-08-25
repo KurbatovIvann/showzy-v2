@@ -1,4 +1,4 @@
-/** Products list copy namespace (uk/en). Locale plumbing lives in `./locale`. */
+/** Products list + detail copy namespace (uk/en). Locale plumbing lives in `./locale`. */
 import type { Locale } from "./locale";
 
 export type ProductsVariantForms = {
@@ -6,6 +6,42 @@ export type ProductsVariantForms = {
   readonly one: string;
   readonly few: string;
   readonly many: string;
+};
+
+export type ProductsDetailCopy = {
+  readonly title: string;
+  readonly loadingLabel: string;
+  readonly offlineTitle: string;
+  readonly offlineDescription: string;
+  readonly errorTitle: string;
+  readonly errorDescription: string;
+  readonly retry: string;
+  readonly notFoundTitle: string;
+  readonly notFoundDescription: string;
+  readonly variantsTitle: string;
+  readonly noPhotos: string;
+  readonly photosLabel: string;
+  readonly photosManageLabel: string;
+  readonly editLabel: string;
+  readonly inheritedPrice: string;
+  readonly archiveProduct: string;
+  readonly restoreProduct: string;
+  readonly archiveVariant: string;
+  readonly restoreVariant: string;
+  readonly archiveVariantNamed: string;
+  readonly restoreVariantNamed: string;
+  readonly confirmArchiveProductTitle: string;
+  readonly confirmArchiveProductDescription: string;
+  readonly confirmRestoreProductTitle: string;
+  readonly confirmRestoreProductDescription: string;
+  readonly confirmArchiveVariantTitle: string;
+  readonly confirmArchiveVariantDescription: string;
+  readonly confirmRestoreVariantTitle: string;
+  readonly confirmRestoreVariantDescription: string;
+  readonly cancel: string;
+  readonly mutationError: string;
+  readonly mutationOffline: string;
+  readonly mutationPermission: string;
 };
 
 export type ProductsCopy = {
@@ -43,9 +79,11 @@ export type ProductsCopy = {
     readonly showAll: string;
   };
   readonly stub: {
-    readonly detailTitle: string;
     readonly createTitle: string;
+    readonly editTitle: string;
+    readonly photosTitle: string;
   };
+  readonly detail: ProductsDetailCopy;
 };
 
 const en: ProductsCopy = {
@@ -92,8 +130,49 @@ const en: ProductsCopy = {
     showAll: "Show all",
   },
   stub: {
-    detailTitle: "Product",
     createTitle: "New product",
+    editTitle: "Edit product",
+    photosTitle: "Photos",
+  },
+  detail: {
+    title: "Product",
+    loadingLabel: "Loading product",
+    offlineTitle: "No connection",
+    offlineDescription:
+      "Product details are unavailable offline. Connect and try again.",
+    errorTitle: "Could not load the product",
+    errorDescription: "Check your connection and try again.",
+    retry: "Retry",
+    notFoundTitle: "Product not found",
+    notFoundDescription: "This product could not be found or is unavailable.",
+    variantsTitle: "Variants",
+    noPhotos: "No photos",
+    photosLabel: "Photos",
+    photosManageLabel: "Manage photos",
+    editLabel: "Edit",
+    inheritedPrice: "Base price",
+    archiveProduct: "Archive product",
+    restoreProduct: "Restore from archive",
+    archiveVariant: "Archive",
+    restoreVariant: "Restore",
+    archiveVariantNamed: "Archive variant «{{name}}»",
+    restoreVariantNamed: "Restore variant «{{name}}»",
+    confirmArchiveProductTitle: "Archive this product?",
+    confirmArchiveProductDescription:
+      "The product will leave sale. Variants keep their own status. Existing orders stay valid.",
+    confirmRestoreProductTitle: "Restore this product?",
+    confirmRestoreProductDescription:
+      "The product will be available for sale again.",
+    confirmArchiveVariantTitle: "Archive this variant?",
+    confirmArchiveVariantDescription:
+      "Variant «{{name}}» will leave sale. The product status does not change.",
+    confirmRestoreVariantTitle: "Restore this variant?",
+    confirmRestoreVariantDescription:
+      "Variant «{{name}}» will be available for sale again.",
+    cancel: "Cancel",
+    mutationError: "Could not update status. Try again.",
+    mutationOffline: "No connection. Connect and try again.",
+    mutationPermission: "You do not have permission to change this product.",
   },
 };
 
@@ -140,8 +219,48 @@ const uk: ProductsCopy = {
     showAll: "Показати всі",
   },
   stub: {
-    detailTitle: "Товар",
     createTitle: "Новий товар",
+    editTitle: "Редагування товару",
+    photosTitle: "Фото",
+  },
+  detail: {
+    title: "Товар",
+    loadingLabel: "Завантаження товару",
+    offlineTitle: "Немає зʼєднання",
+    offlineDescription:
+      "Картка товару недоступна офлайн. Підключіться і спробуйте ще раз.",
+    errorTitle: "Не вдалося завантажити товар",
+    errorDescription: "Перевірте з’єднання та спробуйте ще раз.",
+    retry: "Повторити",
+    notFoundTitle: "Товар не знайдено",
+    notFoundDescription: "Не вдалося знайти цей товар або він недоступний.",
+    variantsTitle: "Варіанти",
+    noPhotos: "Немає фото",
+    photosLabel: "Фото",
+    photosManageLabel: "Керувати фото",
+    editLabel: "Редагувати",
+    inheritedPrice: "Базова ціна",
+    archiveProduct: "Архівувати товар",
+    restoreProduct: "Повернути з архіву",
+    archiveVariant: "Архівувати",
+    restoreVariant: "Повернути",
+    archiveVariantNamed: "Архівувати варіант «{{name}}»",
+    restoreVariantNamed: "Повернути варіант «{{name}}»",
+    confirmArchiveProductTitle: "Архівувати товар?",
+    confirmArchiveProductDescription:
+      "Товар зникне з продажу. Статус варіантів не зміниться. Старі замовлення залишаться чинними.",
+    confirmRestoreProductTitle: "Повернути товар?",
+    confirmRestoreProductDescription: "Товар знову буде доступний для продажу.",
+    confirmArchiveVariantTitle: "Архівувати варіант?",
+    confirmArchiveVariantDescription:
+      "Варіант «{{name}}» зникне з продажу. Статус товару не зміниться.",
+    confirmRestoreVariantTitle: "Повернути варіант?",
+    confirmRestoreVariantDescription:
+      "Варіант «{{name}}» знову буде доступний для продажу.",
+    cancel: "Скасувати",
+    mutationError: "Не вдалося змінити статус. Спробуйте ще раз.",
+    mutationOffline: "Немає зʼєднання. Підключіться і спробуйте ще раз.",
+    mutationPermission: "Немає права змінювати цей товар.",
   },
 };
 

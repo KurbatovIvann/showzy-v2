@@ -8,5 +8,6 @@ export { IconButton } from "./icon-button";
 export { OtpInput } from "./otp-input";
 export { SearchField } from "./search-field";
 export { SegmentedTabs } from "./segmented-tabs";
+export { Sheet } from "./sheet";
 export { StatusPill } from "./status-pill";
 export { TextField } from "./text-field";

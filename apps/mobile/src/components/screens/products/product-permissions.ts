@@ -16,6 +16,11 @@ export function canCreateProducts(role: CompanyRole): boolean {
   return role !== "employee";
 }
 
+/** `products:edit` — hides archive/restore, edit, and photo controls. */
+export function canEditProducts(role: CompanyRole): boolean {
+  return role !== "employee";
+}
+
 /** `files:view` — skips per-row `files.getDownloadUrl` calls that would 403. */
 export function canFetchFileDownloadUrls(role: CompanyRole): boolean {
   return role !== "employee";

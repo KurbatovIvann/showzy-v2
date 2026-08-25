@@ -23,7 +23,7 @@ When work starts on a canvas screen, do this **before writing screen JSX**:
 
    | Kind | Lives in | Examples |
    | --- | --- | --- |
-   | **Shared primitive** | `apps/mobile/src/components/ui/` | Button, Card, TextField, SegmentedTabs, OtpInput, Banner, later Sheet / StatusPill / EmptyState once they exist |
+   | **Shared primitive** | `apps/mobile/src/components/ui/` | Button, Card, TextField, SegmentedTabs, OtpInput, Banner, EmptyState, StatusPill, AppHeader, Sheet |
    | **Feature component** | `apps/mobile/src/components/screens/<feature>/` | OrderRow, ProductImagePicker, AssistantSheet, editor sections |
    | **Route only** | `apps/mobile/src/app/` | one-line re-export |
 
@@ -142,9 +142,9 @@ System font. No webfont.
 | `IconButton` | round icon controls | 44pt circle; `primary` ink fill, `surface` bordered card |
 | `SearchField` | list search | raised capsule, leading search icon; not the squircle `TextField` |
 | `ChoiceField` | `ChoiceField` | horizontal chip row (44pt chips for list filters) — not the same as SegmentedTabs |
+| `Sheet` | confirmation sheet | overlay `colors.overlay`, top radius `radii.sheet`, grabber; host stays mounted and `visible` drives open/close — Modal hides after close timing; sheets not dropdowns |
 
-**Not shared yet** (add to `ui/` on first screen that needs them): Sheet,
-SwitchRow.
+**Not shared yet** (add to `ui/` on first screen that needs them): SwitchRow.
 
 Feature examples (never in `ui/`): `OrderRow`, `ProductRow`,
 `AssistantSheet`, `BottomNav` (staff shell, not a generic tab primitive).
