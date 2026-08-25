@@ -1,6 +1,10 @@
+export { archiveProductContract } from "./actions/archive-product.contract.js";
+export { archiveVariantContract } from "./actions/archive-variant.contract.js";
 export { createProductContract } from "./actions/create-product.contract.js";
 export { createVariantContract } from "./actions/create-variant.contract.js";
 export { getProductOrderFactsContract } from "./actions/get-product-order-facts.contract.js";
 export { getProductPricingFactsContract } from "./actions/get-product-pricing-facts.contract.js";
+export { restoreProductContract } from "./actions/restore-product.contract.js";
+export { restoreVariantContract } from "./actions/restore-variant.contract.js";
 export { updateProductContract } from "./actions/update-product.contract.js";
 export { updateVariantContract } from "./actions/update-variant.contract.js";

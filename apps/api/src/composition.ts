@@ -16,10 +16,14 @@
  * through `eventSubscriptionRefs`.
  */
 import {
+  archiveProduct,
+  archiveVariant,
   createProduct,
   createVariant,
   getProductOrderFacts,
   getProductPricingFacts,
+  restoreProduct,
+  restoreVariant,
   updateProduct,
   updateVariant,
 } from "@showzy/catalog";
@@ -164,6 +168,10 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, updateProduct);
   registerAction(registry, createVariant);
   registerAction(registry, updateVariant);
+  registerAction(registry, archiveProduct);
+  registerAction(registry, restoreProduct);
+  registerAction(registry, archiveVariant);
+  registerAction(registry, restoreVariant);
   registerAction(registry, getOrderCard);
   registerAction(registry, upsertOrderCard);
   registerAction(registry, createCompany);

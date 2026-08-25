@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  archiveProductContract,
+  archiveVariantContract,
   createProductContract,
   createVariantContract,
+  restoreProductContract,
+  restoreVariantContract,
   updateProductContract,
   updateVariantContract,
 } from "@showzy/catalog/contract";
@@ -34,6 +38,10 @@ describe("client composition", () => {
         updateProduct: updateProductContract,
         createVariant: createVariantContract,
         updateVariant: updateVariantContract,
+        archiveProduct: archiveProductContract,
+        restoreProduct: restoreProductContract,
+        archiveVariant: archiveVariantContract,
+        restoreVariant: restoreVariantContract,
       },
       chat: {
         getOrderCard: getOrderCardContract,
@@ -61,6 +69,10 @@ describe("client composition", () => {
     expect(contractRouter.catalog.updateProduct).toBeDefined();
     expect(contractRouter.catalog.createVariant).toBeDefined();
     expect(contractRouter.catalog.updateVariant).toBeDefined();
+    expect(contractRouter.catalog.archiveProduct).toBeDefined();
+    expect(contractRouter.catalog.restoreProduct).toBeDefined();
+    expect(contractRouter.catalog.archiveVariant).toBeDefined();
+    expect(contractRouter.catalog.restoreVariant).toBeDefined();
     expect(contractModules.catalog).not.toHaveProperty(
       "getProductPricingFacts",
     );
