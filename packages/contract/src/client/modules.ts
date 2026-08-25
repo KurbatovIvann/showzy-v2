@@ -15,9 +15,11 @@ import {
   archiveProductContract,
   archiveVariantContract,
   createProductContract,
+  createVariantContract,
   restoreProductContract,
   restoreVariantContract,
   updateProductContract,
+  updateVariantContract,
 } from "@showzy/catalog/contract";
 import { getOrderCardContract } from "@showzy/chat/contract";
 import {
@@ -46,6 +48,8 @@ export const contractModules = {
   catalog: {
     createProduct: createProductContract,
     updateProduct: updateProductContract,
+    createVariant: createVariantContract,
+    updateVariant: updateVariantContract,
     archiveProduct: archiveProductContract,
     restoreProduct: restoreProductContract,
     archiveVariant: archiveVariantContract,

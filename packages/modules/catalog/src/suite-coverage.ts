@@ -6,6 +6,8 @@ export const catalogSuiteCoverage = {
     "catalog.getProductOrderFacts",
     "catalog.createProduct",
     "catalog.updateProduct",
+    "catalog.createVariant",
+    "catalog.updateVariant",
     "catalog.archiveProduct",
     "catalog.restoreProduct",
     "catalog.archiveVariant",
@@ -18,6 +20,8 @@ export const catalogSuiteCoverage = {
   idempotency: [
     "catalog.createProduct",
     "catalog.updateProduct",
+    "catalog.createVariant",
+    "catalog.updateVariant",
     "catalog.archiveProduct",
     "catalog.restoreProduct",
     "catalog.archiveVariant",
