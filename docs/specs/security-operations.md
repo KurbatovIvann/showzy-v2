@@ -98,8 +98,14 @@ tool result. Zod validation is necessary but never grants tenant access.
   the plugin supports it — expire after 5 minutes, allow at most 5
   verification attempts, resend no faster than 60 seconds, and are never
   logged. Sessions are stored in Postgres.
-- Default OTP limits: 5 sends/hour per phone and 20/hour per IP, plus provider
-  abuse controls. Responses do not disclose whether an account exists.
+- Default OTP limits: 5 sends/hour per phone and 20/hour per
+  trusted-proxy-normalized IP, plus provider abuse controls. Variant A: the
+  Better Auth IP consume key (`${ip}|${path}`) is stored as
+  HMAC-SHA256(`IP_HMAC_SECRET`, key) hex truncated to 32 characters — **no
+  24h rotation** (unlike public/share action buckets in core.md §10), so the
+  20-send window does not reset at a rotation boundary. Redis never stores
+  the raw address. Identifier keys (`otp-send:phone:…` / `otp-send:email:…`)
+  are not HMAC'd. Responses do not disclose whether an account exists.
 - Cookie sessions use `Secure`, `HttpOnly`, and appropriate `SameSite`. Expo
   clients persist those cookies in OS secure storage (`@better-auth/expo`)
   and replay them as a `Cookie` header. Bearer tokens remain supported for
@@ -271,6 +277,7 @@ review. A critical/high unresolved finding blocks merge.
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-25 | §2: OTP IP cap remains 20/hour per trusted-proxy IP; Redis stores HMAC-SHA256 of the Better Auth consume key (32 hex chars, no 24h rotation) | Variant A (SHO-147): Redis must not retain client IPs of OTP senders; rotation would reset the 20-send bucket | SHO-147 |
 | 2026-08-21 | Session TTL 7d / sliding 1d; Expo cookie origin `showzy://`; bearer kept for non-RN | Pin better-auth defaults; mobile uses `@better-auth/expo` cookies | owner |
 | 2026-08-19 | Seventh principal `share` (ADR-0022): matrix column, 30/min IP-HMAC fail-closed, access-log `anonymous` vs audit/event `system`/`share` | Unauthenticated capability-token writes for owner-first dual-sign; core.md and contract.md already amended | owner via `/rework-spec security-operations.md` |
 | 2026-08-19 | Status: Active; Active surface: entire file | Ledger catch-up: first merged auth/ops (fnd-T6, fnd-T26…T28) | owner via spec-process-after-phase-0 |

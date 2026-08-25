@@ -52,7 +52,10 @@ function createFixture() {
         return Promise.resolve();
       },
     }),
-    authRateLimitStore: createMemoryAuthRateLimitStore({ now: () => nowMs }),
+    authRateLimitStore: createMemoryAuthRateLimitStore({
+      ipHmacSecret: "test-ip-hmac-secret",
+      now: () => nowMs,
+    }),
     secondaryStorage: {
       get: (key) => Promise.resolve(secondary.get(key) ?? null),
       set: (key, value) => {

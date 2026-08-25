@@ -1,13 +1,15 @@
 /**
  * Redis adapters must match the in-memory reference stores (core.md §7/§10).
  */
-import { Redis } from "ioredis";
+import { CoreInvariantError } from "@showzy/core/errors";
 import {
   RedisContainer,
   type StartedRedisContainer,
 } from "@testcontainers/redis";
+import { Redis } from "ioredis";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { hmacBetterAuthConsumeKey } from "./auth-ip-hmac.js";
 import {
   createRedisAuthRateLimitStore,
   createRedisConfirmationStore,
@@ -127,8 +129,10 @@ describe("createRedisOtpSendStore", () => {
 });
 
 describe("createRedisAuthRateLimitStore", () => {
+  const ipHmacSecret = "test-ip-hmac-secret";
+
   it("allows exactly max concurrent consumes, then denies", async () => {
-    const store = createRedisAuthRateLimitStore(redis);
+    const store = createRedisAuthRateLimitStore(redis, { ipHmacSecret });
     const rule = { window: 3600, max: 20 };
     const extra = 10;
     const decisions = await Promise.all(
@@ -145,11 +149,57 @@ describe("createRedisAuthRateLimitStore", () => {
   });
 
   it("fails closed when Redis eval rejects", async () => {
-    const store = createRedisAuthRateLimitStore({
-      eval: () => Promise.reject(new Error("ECONNREFUSED")),
-    });
+    const store = createRedisAuthRateLimitStore(
+      {
+        eval: () => Promise.reject(new Error("ECONNREFUSED")),
+      },
+      { ipHmacSecret },
+    );
     await expect(
       store.consume("auth-rl:down", { window: 3600, max: 20 }),
     ).resolves.toEqual({ allowed: false, retryAfter: 3600 });
+  });
+
+  it("stores HMAC digests, not the client IP, as Redis keys", async () => {
+    const store = createRedisAuthRateLimitStore(redis, { ipHmacSecret });
+    const rule = { window: 3600, max: 20 };
+    const v4 = "198.51.100.41|/phone-number/send-otp";
+    const v6 = "2001:db8::1|/phone-number/send-otp";
+    await store.consume(v4, rule);
+    await store.consume(v6, rule);
+    const digestV4 = hmacBetterAuthConsumeKey(v4, ipHmacSecret);
+    const digestV6 = hmacBetterAuthConsumeKey(v6, ipHmacSecret);
+    expect(digestV4).toMatch(/^[0-9a-f]{32}$/);
+    expect(digestV6).toMatch(/^[0-9a-f]{32}$/);
+    expect(digestV4).not.toContain("198.51.100.41");
+    expect(digestV6).not.toContain("2001:db8::1");
+    expect(await redis.exists(v4)).toBe(0);
+    expect(await redis.exists(v6)).toBe(0);
+    expect(await redis.exists(digestV4)).toBe(1);
+    expect(await redis.exists(digestV6)).toBe(1);
+    expect(await redis.get(digestV4)).not.toContain("198.51.100");
+    expect(await redis.get(digestV6)).not.toContain("2001:db8");
+  });
+
+  it("keeps two IPs on independent buckets", async () => {
+    const store = createRedisAuthRateLimitStore(redis, { ipHmacSecret });
+    const rule = { window: 3600, max: 1 };
+    const first = "198.51.100.50|/phone-number/send-otp";
+    const second = "198.51.100.51|/phone-number/send-otp";
+    await expect(store.consume(first, rule)).resolves.toMatchObject({
+      allowed: true,
+    });
+    await expect(store.consume(first, rule)).resolves.toMatchObject({
+      allowed: false,
+    });
+    await expect(store.consume(second, rule)).resolves.toMatchObject({
+      allowed: true,
+    });
+  });
+
+  it("refuses construction with an empty HMAC secret", () => {
+    expect(() =>
+      createRedisAuthRateLimitStore(redis, { ipHmacSecret: "" }),
+    ).toThrow(CoreInvariantError);
   });
 });

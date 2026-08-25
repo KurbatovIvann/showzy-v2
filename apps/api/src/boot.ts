@@ -76,7 +76,9 @@ export async function bootApi(config: ServerConfig): Promise<BootedApi> {
       sendPhoneOtp: otpSenders.sendPhoneOtp,
       sendEmailOtp: otpSenders.sendEmailOtp,
       otpSendStore: createRedisOtpSendStore(redis),
-      authRateLimitStore: createRedisAuthRateLimitStore(redis),
+      authRateLimitStore: createRedisAuthRateLimitStore(redis, {
+        ipHmacSecret: config.rateLimit.ipHmacSecret,
+      }),
       secondaryStorage: secondary,
     }),
   );

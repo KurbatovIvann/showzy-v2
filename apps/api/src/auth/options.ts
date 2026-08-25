@@ -60,8 +60,9 @@ export interface AuthComposition {
   /**
    * Atomic Better Auth IP / path rate-limit consume (security-operations §2
    * 20/hour per IP for OTP send). Redis Lua INCR+EXPIRE at runtime; in-memory
-   * mutex store in tests. Do not rely on Better Auth's default memory store
-   * or secondary-storage get/set (those are racy across replicas).
+   * mutex store in tests. Both HMAC the Better Auth key with `IP_HMAC_SECRET`
+   * before persist (no 24h rotation). Do not rely on Better Auth's default
+   * memory store or secondary-storage get/set (those are racy across replicas).
    */
   readonly authRateLimitStore: AuthRateLimitStore;
   /**
@@ -186,7 +187,8 @@ export function buildAuthOptions(composition: AuthComposition) {
       // Atomic consume is required: with secondaryStorage configured, Better
       // Auth otherwise stores counters via get/set (racy) and warns that
       // storage has no `consume`. Fail closed on store errors — OTP send is
-      // public/auth abuse. Never log `key` (it contains the client IP).
+      // public/auth abuse. Never log `key` (the preimage contains the client
+      // IP; the store HMACs it before Redis / the in-memory map).
       customStorage: {
         get: () => Promise.resolve(null),
         set: () => Promise.resolve(),

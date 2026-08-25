@@ -8,6 +8,10 @@ import type { ConfirmationStore, RateLimitStore } from "@showzy/core";
 import type { Redis } from "ioredis";
 
 import type { OtpSendStore } from "../auth/otp-send-guard.js";
+import {
+  hmacBetterAuthConsumeKey,
+  requireAuthIpHmacSecret,
+} from "./auth-ip-hmac.js";
 import type { AuthRateLimitStore, SecondaryStorage } from "./memory.js";
 
 /** Adapter failure — the rate-limit/confirmation hooks own fail-open/closed. */
@@ -164,18 +168,22 @@ export function createRedisOtpSendStore(redis: Redis): OtpSendStore {
 /**
  * Better Auth IP / path rate-limit consume. Fail-closed on Redis errors:
  * OTP send is public/auth abuse (security-operations §2) — never send SMS
- * when the limiter cannot decide. Does not log the key (it contains the IP).
+ * when the limiter cannot decide. Never log the consume preimage (it
+ * contains the client IP); Redis stores an HMAC digest, not the address.
  */
 export function createRedisAuthRateLimitStore(
   redis: Pick<Redis, "eval">,
+  options: { readonly ipHmacSecret: string },
 ): AuthRateLimitStore {
+  const ipHmacSecret = requireAuthIpHmacSecret(options.ipHmacSecret);
   return {
     async consume(key, rule) {
+      const digest = hmacBetterAuthConsumeKey(key, ipHmacSecret);
       try {
         const result = await redis.eval(
           AUTH_RATE_LIMIT_LUA,
           1,
-          key,
+          digest,
           String(rule.max),
           String(rule.window),
         );
