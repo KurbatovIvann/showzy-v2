@@ -15,7 +15,12 @@
  * and must list the same `defineEventHandler` objects this file passes
  * through `eventSubscriptionRefs`.
  */
-import { getProductOrderFacts, getProductPricingFacts } from "@showzy/catalog";
+import {
+  createVariant,
+  getProductOrderFacts,
+  getProductPricingFacts,
+  updateVariant,
+} from "@showzy/catalog";
 import { catalogSuiteCoverage } from "@showzy/catalog/suite-coverage";
 import {
   getOrderCard,
@@ -153,6 +158,8 @@ export function createActionRegistry(): ActionRegistry {
   const registry = new ActionRegistry();
   registerAction(registry, getProductOrderFacts);
   registerAction(registry, getProductPricingFacts);
+  registerAction(registry, createVariant);
+  registerAction(registry, updateVariant);
   registerAction(registry, getOrderCard);
   registerAction(registry, upsertOrderCard);
   registerAction(registry, createCompany);
