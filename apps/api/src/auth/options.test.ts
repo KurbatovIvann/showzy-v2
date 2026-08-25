@@ -11,6 +11,7 @@ import { APIError } from "better-auth/api";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
+import { createMemoryAuthRateLimitStore } from "../stores/memory.js";
 import { buildAuthOptions, tempEmailForPhone } from "./options.js";
 import { createAtomicOtpSendStore } from "./otp-send-guard.js";
 import { expoClientPolicy, otpPolicy, sessionPolicy } from "./policy.js";
@@ -51,6 +52,7 @@ function createFixture() {
         return Promise.resolve();
       },
     }),
+    authRateLimitStore: createMemoryAuthRateLimitStore({ now: () => nowMs }),
     secondaryStorage: {
       get: (key) => Promise.resolve(secondary.get(key) ?? null),
       set: (key, value) => {
@@ -146,6 +148,7 @@ describe("buildAuthOptions — §2 parameter wiring", () => {
 
   it("rate-limits OTP sends to 20 per hour per IP in every environment", () => {
     expect(options.rateLimit.enabled).toBe(true);
+    expect(typeof options.rateLimit.customStorage?.consume).toBe("function");
     for (const path of [
       "/phone-number/send-otp",
       "/email-otp/send-verification-otp",
