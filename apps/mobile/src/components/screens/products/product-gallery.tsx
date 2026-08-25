@@ -9,16 +9,21 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useApiClient } from "../../../api/api-provider";
 import { fileDownloadUrlQueryOptions } from "../../../api/file-download-query";
 import { useActiveCompany } from "../../../api/query-provider";
-import { galleryPageIndex } from "./product-detail-model";
+import {
+  classifyProductGallery,
+  galleryPageIndex,
+} from "./product-detail-model";
 
 /**
  * Product-level gallery: ordered `fileIds` → `files.getDownloadUrl` →
  * `expo-image`. Chatty per-image GETs match the list thumbnail slice
- * (SHO-140 batches later). Empty file list (or a role that cannot
- * fetch files) shows the package placeholder, never a signed URL.
+ * (SHO-140 batches later). Empty copy is only for a product with no
+ * photos. A no-fetch role still shows that photos exist, without a
+ * signed URL. Layout measurement uses a skeleton, never empty copy.
  */
 export function ProductGallery(props: {
   readonly fileIds: readonly string[];
+  readonly canFetchImages: boolean;
   readonly emptyLabel: string;
   readonly photosLabel: string;
 }) {
@@ -26,7 +31,11 @@ export function ProductGallery(props: {
   const [pageWidth, setPageWidth] = useState<number | undefined>(undefined);
   const [page, setPage] = useState(0);
   const ids = props.fileIds;
-  const hasImages = ids.length > 0;
+  const mode = classifyProductGallery({
+    fileCount: ids.length,
+    canFetchImages: props.canFetchImages,
+    pageWidth,
+  });
 
   function onScrollEnd(event: NativeSyntheticEvent<NativeScrollEvent>) {
     if (pageWidth === undefined) {
@@ -49,7 +58,30 @@ export function ProductGallery(props: {
         setPageWidth((prev) => (prev === width ? prev : width));
       }}
     >
-      {hasImages && pageWidth !== undefined ? (
+      {mode === "empty" ? (
+        <View style={styles.frame}>
+          <PackageIcon
+            size={theme.iconSize.md}
+            color={theme.colors.mutedForeground}
+          />
+          <Text style={styles.empty}>{props.emptyLabel}</Text>
+        </View>
+      ) : null}
+      {mode === "pending-layout" ? (
+        <View
+          accessibilityElementsHidden
+          style={[styles.frame, styles.skeleton]}
+        />
+      ) : null}
+      {mode === "no-fetch" ? (
+        <View style={styles.frame}>
+          <PackageIcon
+            size={theme.iconSize.md}
+            color={theme.colors.mutedForeground}
+          />
+        </View>
+      ) : null}
+      {mode === "images" && pageWidth !== undefined ? (
         <ScrollView
           horizontal
           pagingEnabled
@@ -65,16 +97,8 @@ export function ProductGallery(props: {
             />
           ))}
         </ScrollView>
-      ) : (
-        <View style={styles.frame}>
-          <PackageIcon
-            size={theme.iconSize.md}
-            color={theme.colors.mutedForeground}
-          />
-          <Text style={styles.empty}>{props.emptyLabel}</Text>
-        </View>
-      )}
-      {hasImages && ids.length > 1 ? (
+      ) : null}
+      {mode === "images" && ids.length > 1 ? (
         <View style={styles.dots} accessibilityElementsHidden>
           {ids.map((fileId, index) => (
             <View
@@ -116,6 +140,7 @@ const ProductGalleryImage = memo(function ProductGalleryImage(props: {
           source={{ uri: url }}
           recyclingKey={props.fileId}
           contentFit="cover"
+          cachePolicy="memory"
           transition={150}
           style={styles.image}
         />
@@ -136,6 +161,10 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: "center",
     overflow: "hidden",
     ...theme.shadows.sm,
+  },
+  skeleton: {
+    backgroundColor: theme.colors.skeleton,
+    borderColor: theme.colors.skeleton,
   },
   slide: {
     aspectRatio: 4 / 3,

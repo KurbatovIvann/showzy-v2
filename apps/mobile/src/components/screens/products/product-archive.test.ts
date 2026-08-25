@@ -107,6 +107,58 @@ describe("bindCatalogStatusMutate", () => {
     expect(calls[2]?.input).toEqual({ variantId: VARIANT_ID });
     expect(calls.every((call) => call.key.length > 0)).toBe(true);
   });
+
+  it("retries a failed archive with the same attempt key", async () => {
+    const keys: string[] = [];
+    let failNext = true;
+    const controller = createContractMutationController<
+      CatalogStatusWrite,
+      unknown
+    >({
+      mutate: bindCatalogStatusMutate({
+        client: {
+          catalog: {
+            archiveProduct: (input, options: MutationCallOptions) => {
+              keys.push(options.context.idempotencyKey);
+              if (failNext) {
+                failNext = false;
+                return Promise.reject(new TypeError("Failed to fetch"));
+              }
+              return Promise.resolve({
+                productId: input.productId,
+                status: "archived",
+              });
+            },
+            restoreProduct: (input) =>
+              Promise.resolve({
+                productId: input.productId,
+                status: "active",
+              }),
+            archiveVariant: (input) =>
+              Promise.resolve({
+                variantId: input.variantId,
+                status: "archived",
+              }),
+            restoreVariant: (input) =>
+              Promise.resolve({
+                variantId: input.variantId,
+                status: "active",
+              }),
+          },
+        },
+      }),
+    });
+
+    await controller
+      .submit({ kind: "archiveProduct", productId: PRODUCT_ID })
+      .catch(() => {
+        // First attempt fails on purpose.
+      });
+    const keyAfterFail = controller.attemptKey();
+    await controller.retry();
+
+    expect(keys).toEqual([keyAfterFail, keyAfterFail]);
+  });
 });
 
 describe("catalogStatusInvalidationKeys", () => {

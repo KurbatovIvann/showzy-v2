@@ -142,7 +142,7 @@ System font. No webfont.
 | `IconButton` | round icon controls | 44pt circle; `primary` ink fill, `surface` bordered card |
 | `SearchField` | list search | raised capsule, leading search icon; not the squircle `TextField` |
 | `ChoiceField` | `ChoiceField` | horizontal chip row (44pt chips for list filters) — not the same as SegmentedTabs |
-| `Sheet` | confirmation sheet | overlay `colors.overlay`, top radius `radii.sheet`, grabber; sheets not dropdowns |
+| `Sheet` | confirmation sheet | overlay `colors.overlay`, top radius `radii.sheet`, grabber; host stays mounted and `visible` drives open/close — Modal hides after close timing; sheets not dropdowns |
 
 **Not shared yet** (add to `ui/` on first screen that needs them): SwitchRow.
 

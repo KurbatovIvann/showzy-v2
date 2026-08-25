@@ -1,8 +1,15 @@
-import { useEffect, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { Modal, Pressable, Text, View } from "react-native";
 import Animated, {
   Easing,
   interpolate,
+  runOnJS,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -18,8 +25,10 @@ const SHEET_MS = 300;
  * Canvas confirmation sheet: dim overlay (`colors.overlay`) and a
  * bottom card with `radii.sheet`. First shared use is product
  * archive/restore (SHO-138). Not a dropdown. Open/close is opacity +
- * translateY (no layout animation). Drag-to-dismiss is omitted — the
- * cancel control and Android back (`onRequestClose`) dismiss it.
+ * translateY (no layout animation). Keep the host mounted and drive
+ * `visible`; the Modal stays up until the close timing finishes.
+ * Drag-to-dismiss is omitted — the cancel control and Android back
+ * (`onRequestClose`) dismiss it.
  */
 export function Sheet(props: {
   readonly visible: boolean;
@@ -32,19 +41,56 @@ export function Sheet(props: {
   const { theme } = useUnistyles();
   const reduceMotion = useReducedMotion();
   const progress = useSharedValue(0);
+  const [presented, setPresented] = useState(false);
+  const presentedRef = useRef(false);
+  const closeGenerationRef = useRef(0);
+  const hideModal = useCallback(() => {
+    presentedRef.current = false;
+    setPresented(false);
+  }, []);
 
   useEffect(() => {
-    if (reduceMotion) {
-      progress.set(props.visible ? 1 : 0);
+    if (props.visible) {
+      closeGenerationRef.current += 1;
+      presentedRef.current = true;
+      setPresented(true);
+      if (reduceMotion) {
+        progress.set(1);
+        return;
+      }
+      progress.set(
+        withTiming(1, {
+          duration: SHEET_MS,
+          easing: EASE_SHEET,
+        }),
+      );
       return;
     }
+    if (!presentedRef.current) {
+      progress.set(0);
+      return;
+    }
+    if (reduceMotion) {
+      progress.set(0);
+      hideModal();
+      return;
+    }
+    const generation = closeGenerationRef.current;
     progress.set(
-      withTiming(props.visible ? 1 : 0, {
-        duration: SHEET_MS,
-        easing: EASE_SHEET,
-      }),
+      withTiming(
+        0,
+        {
+          duration: SHEET_MS,
+          easing: EASE_SHEET,
+        },
+        (finished) => {
+          if (finished && closeGenerationRef.current === generation) {
+            runOnJS(hideModal)();
+          }
+        },
+      ),
     );
-  }, [progress, props.visible, reduceMotion]);
+  }, [hideModal, progress, props.visible, reduceMotion]);
 
   const slideDistance = theme.hitTarget.field;
   const overlayStyle = useAnimatedStyle(() => ({
@@ -60,7 +106,7 @@ export function Sheet(props: {
 
   return (
     <Modal
-      visible={props.visible}
+      visible={presented}
       transparent
       animationType="none"
       onRequestClose={props.onClose}

@@ -142,7 +142,7 @@ const en: ProductsCopy = {
     retry: "Retry",
     notFoundTitle: "Product not found",
     notFoundDescription:
-      "It may have been removed or belongs to another company.",
+      "It is missing, inaccessible, or belongs to another company.",
     variantsTitle: "Variants",
     noPhotos: "No photos",
     photosLabel: "Photos",
@@ -229,7 +229,7 @@ const uk: ProductsCopy = {
     retry: "Повторити",
     notFoundTitle: "Товар не знайдено",
     notFoundDescription:
-      "Його могли видалити, або він належить іншій компанії.",
+      "Його немає, він недоступний або належить іншій компанії.",
     variantsTitle: "Варіанти",
     noPhotos: "Немає фото",
     photosLabel: "Фото",

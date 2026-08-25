@@ -62,5 +62,11 @@ describe("products copy", () => {
     expect(uk.detail.confirmArchiveVariantDescription).toContain("{{name}}");
     expect(uk.stub.editTitle).toBe("Редагування товару");
     expect(uk.stub.photosTitle).toBe("Фото");
+    expect(uk.detail.notFoundDescription).toBe(
+      "Його немає, він недоступний або належить іншій компанії.",
+    );
+    expect(productsCopy("en").detail.notFoundDescription).toBe(
+      "It is missing, inaccessible, or belongs to another company.",
+    );
   });
 });

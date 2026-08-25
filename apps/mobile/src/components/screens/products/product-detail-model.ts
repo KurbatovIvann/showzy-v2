@@ -261,3 +261,34 @@ export function galleryPageIndex(args: {
   const page = Math.round(args.offsetX / args.pageWidth);
   return Math.min(args.pageCount - 1, Math.max(0, page));
 }
+
+/**
+ * Gallery empty copy is only for a product with no photos. Fetching
+ * (`files.getDownloadUrl`) is gated separately so an employee still
+ * sees that photos exist, and so layout measurement never flashes the
+ * empty label.
+ */
+export type ProductGalleryMode =
+  "empty" | "pending-layout" | "no-fetch" | "images";
+
+export function classifyProductGallery(args: {
+  readonly fileCount: number;
+  readonly canFetchImages: boolean;
+  readonly pageWidth: number | undefined;
+}): ProductGalleryMode {
+  if (args.fileCount <= 0) {
+    return "empty";
+  }
+  if (args.pageWidth === undefined || args.pageWidth <= 0) {
+    return "pending-layout";
+  }
+  if (!args.canFetchImages) {
+    return "no-fetch";
+  }
+  return "images";
+}
+
+/** Failed confirm reuses the in-flight attempt; a fresh confirm submits. */
+export function planConfirmStatusWrite(isError: boolean): "retry" | "submit" {
+  return isError ? "retry" : "submit";
+}

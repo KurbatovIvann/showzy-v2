@@ -3,11 +3,13 @@ import { describe, expect, it } from "vitest";
 import { productsCopy } from "../../../i18n/products";
 import {
   classifyProductDetail,
+  classifyProductGallery,
   confirmSheetCopy,
   confirmTargetForProduct,
   confirmTargetForVariant,
   galleryPageIndex,
   mapStatusWriteFailure,
+  planConfirmStatusWrite,
   productIdFromParam,
   statusWriteBanner,
   statusWriteForConfirm,
@@ -277,5 +279,62 @@ describe("galleryPageIndex", () => {
     expect(galleryPageIndex({ offsetX: 50, pageWidth: 0, pageCount: 3 })).toBe(
       0,
     );
+  });
+});
+
+describe("classifyProductGallery", () => {
+  it("shows empty copy only when the product has no photos", () => {
+    expect(
+      classifyProductGallery({
+        fileCount: 0,
+        canFetchImages: true,
+        pageWidth: 320,
+      }),
+    ).toBe("empty");
+    expect(
+      classifyProductGallery({
+        fileCount: 0,
+        canFetchImages: false,
+        pageWidth: undefined,
+      }),
+    ).toBe("empty");
+  });
+
+  it("does not treat missing layout or a no-fetch role as empty", () => {
+    expect(
+      classifyProductGallery({
+        fileCount: 2,
+        canFetchImages: true,
+        pageWidth: undefined,
+      }),
+    ).toBe("pending-layout");
+    expect(
+      classifyProductGallery({
+        fileCount: 2,
+        canFetchImages: true,
+        pageWidth: 0,
+      }),
+    ).toBe("pending-layout");
+    expect(
+      classifyProductGallery({
+        fileCount: 2,
+        canFetchImages: false,
+        pageWidth: 320,
+      }),
+    ).toBe("no-fetch");
+    expect(
+      classifyProductGallery({
+        fileCount: 2,
+        canFetchImages: true,
+        pageWidth: 320,
+      }),
+    ).toBe("images");
+  });
+});
+
+describe("planConfirmStatusWrite", () => {
+  it("retries a failed confirm and submits a fresh one", () => {
+    expect(planConfirmStatusWrite(false)).toBe("submit");
+    expect(planConfirmStatusWrite(true)).toBe("retry");
   });
 });

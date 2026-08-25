@@ -68,29 +68,27 @@ export function ProductDetailView(model: ProductDetailModel) {
         }
       />
       <ProductDetailBody model={model} />
-      {model.confirmCopy !== null ? (
-        <Sheet
-          visible
-          title={model.confirmCopy.title}
-          description={model.confirmCopy.description}
-          onClose={model.closeConfirm}
-        >
-          {model.confirmBanner !== null && model.confirmBanner.length > 0 ? (
-            <Banner message={model.confirmBanner} />
-          ) : null}
-          <Button
-            label={model.confirmCopy.confirmLabel}
-            loading={model.confirmPending}
-            onPress={model.confirmStatusWrite}
-          />
-          <Button
-            variant="secondary"
-            label={copy.detail.cancel}
-            disabled={model.confirmPending}
-            onPress={model.closeConfirm}
-          />
-        </Sheet>
-      ) : null}
+      <Sheet
+        visible={model.confirm !== null}
+        title={model.confirmCopy?.title ?? ""}
+        description={model.confirmCopy?.description ?? ""}
+        onClose={model.closeConfirm}
+      >
+        {model.confirmBanner !== null && model.confirmBanner.length > 0 ? (
+          <Banner message={model.confirmBanner} />
+        ) : null}
+        <Button
+          label={model.confirmCopy?.confirmLabel ?? ""}
+          loading={model.confirmPending}
+          onPress={model.confirmStatusWrite}
+        />
+        <Button
+          variant="secondary"
+          label={copy.detail.cancel}
+          disabled={model.confirmPending}
+          onPress={model.closeConfirm}
+        />
+      </Sheet>
     </SafeAreaView>
   );
 }
@@ -179,7 +177,8 @@ function ProductDetailReady(props: { readonly model: ProductDetailModel }) {
       keyboardShouldPersistTaps="handled"
     >
       <ProductGallery
-        fileIds={model.canFetchImages ? product.imageFileIds : []}
+        fileIds={product.imageFileIds}
+        canFetchImages={model.canFetchImages}
         emptyLabel={copy.detail.noPhotos}
         photosLabel={copy.detail.photosLabel}
       />

@@ -20,6 +20,7 @@ import {
   confirmTargetForProduct,
   confirmTargetForVariant,
   mapStatusWriteFailure,
+  planConfirmStatusWrite,
   productIdFromParam,
   statusWriteBanner,
   statusWriteForConfirm,
@@ -69,6 +70,11 @@ export function useProductDetail(
   const queryClient = useQueryClient();
   const productId = productIdFromParam(idParam);
   const [confirm, setConfirm] = useState<ConfirmTarget | null>(null);
+  const lastConfirmRef = useRef<ConfirmTarget | null>(null);
+  if (confirm !== null) {
+    lastConfirmRef.current = confirm;
+  }
+  const sheetTarget = confirm ?? lastConfirmRef.current;
 
   const query = useQuery(
     getProductQueryOptions({
@@ -112,7 +118,11 @@ export function useProductDetail(
       return;
     }
     try {
-      await mutation.submit(statusWriteForConfirm(confirm, productId));
+      if (planConfirmStatusWrite(mutation.isError) === "retry") {
+        await mutation.retry();
+      } else {
+        await mutation.submit(statusWriteForConfirm(confirm, productId));
+      }
       invalidateCatalogAfterStatusWrite({
         queryClient,
         companyId: activeCompanyId,
@@ -132,7 +142,7 @@ export function useProductDetail(
     canFetchImages: canFetchFileDownloadUrls(membership.role),
     confirm,
     confirmCopy:
-      confirm === null ? null : confirmSheetCopy(confirm, copy.detail),
+      sheetTarget === null ? null : confirmSheetCopy(sheetTarget, copy.detail),
     confirmBanner: statusWriteBanner(
       mapStatusWriteFailure(mutationFailure),
       copy.detail,
