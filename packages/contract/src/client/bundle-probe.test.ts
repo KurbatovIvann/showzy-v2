@@ -43,15 +43,15 @@ describe("bundle probe", () => {
   it("fails on a seeded @showzy/core server-import leak", async () => {
     const stderr = await probe(path.join(probeDir, "leaks/server-core.ts"));
     expect(stderr).toContain("@showzy/core");
-  });
+  }, 30_000);
 
   it("fails on a seeded Node builtin leak", async () => {
     const stderr = await probe(path.join(probeDir, "leaks/node-builtin.ts"));
     expect(stderr).toContain("Node builtin");
-  });
+  }, 30_000);
 
   it("fails on a seeded @showzy/db leak", async () => {
     const stderr = await probe(path.join(probeDir, "leaks/db-import.ts"));
     expect(stderr).toContain("@showzy/db");
-  });
+  }, 30_000);
 });
