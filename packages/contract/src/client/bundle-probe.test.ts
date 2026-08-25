@@ -36,6 +36,9 @@ async function probe(entry?: string): Promise<string> {
 }
 
 describe("bundle probe", () => {
+  // Each probe is a full esbuild of the typed-client graph. Catalog on that
+  // graph exceeds Vitest's default 5s under the CI `checks` job; keep the
+  // same 30s budget as the real-entry case.
   it("passes for the real typed-client entry", async () => {
     await expect(probe()).resolves.toBe("");
   }, 30_000);
