@@ -13,9 +13,9 @@ describe("waitForObjectVisibility", () => {
   it("polls HeadObject until present", async () => {
     let calls = 0;
     const store = {
-      async headObject() {
+      headObject() {
         calls += 1;
-        return calls < 3 ? "missing" : { byteSize: 1 };
+        return Promise.resolve(calls < 3 ? "missing" : { byteSize: 1 });
       },
     };
     await waitForObjectVisibility(store, "k", "present");
@@ -25,9 +25,9 @@ describe("waitForObjectVisibility", () => {
   it("polls HeadObject until missing", async () => {
     let calls = 0;
     const store = {
-      async headObject() {
+      headObject() {
         calls += 1;
-        return calls < 2 ? { byteSize: 1 } : "missing";
+        return Promise.resolve(calls < 2 ? { byteSize: 1 } : "missing");
       },
     };
     await waitForObjectVisibility(store, "k", "missing");
