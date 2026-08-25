@@ -47,10 +47,6 @@ export function OrdersPlaceholderScreen() {
   return <PanelPlaceholderScreen tab="orders" />;
 }
 
-export function ProductsPlaceholderScreen() {
-  return <PanelPlaceholderScreen tab="products" />;
-}
-
 export function AiPlaceholderScreen() {
   return <PanelPlaceholderScreen tab="ai" />;
 }

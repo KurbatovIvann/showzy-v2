@@ -4,7 +4,7 @@
  * from `useActiveCompany()` (React state), not a one-shot
  * `client.getActiveCompany()` that will not re-render.
  */
-import { queryOptions } from "@tanstack/react-query";
+import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
 
 /** Distinct key namespace when the client has no company selector. */
 export const NULL_COMPANY_QUERY_SCOPE = "null-company";
@@ -88,5 +88,37 @@ export function contractQueryOptions<TInput, TOutput>(args: {
       }
       return args.queryFn();
     },
+  });
+}
+
+/**
+ * Cursor-paginated contract reads (SHO-137). The key keeps the
+ * `[actionName, companyScope, input]` shape — the cursor is the page
+ * param, never part of the key — so tenant isolation and cache clearing
+ * treat all pages as one entry.
+ */
+export function contractInfiniteQueryOptions<TInput, TPage>(args: {
+  readonly actionName: string;
+  readonly companyId: string | null;
+  readonly input: TInput;
+  readonly queryFn: (cursor: string | null) => Promise<TPage>;
+  /** Live selector; mismatch must not write another tenant under this key. */
+  readonly getActiveCompany: () => string | null;
+  /** `null` when the server reports no further page. */
+  readonly nextCursor: (page: TPage) => string | null;
+}) {
+  return infiniteQueryOptions({
+    queryKey: contractQueryKey(args.actionName, args.companyId, args.input),
+    initialPageParam: null as string | null,
+    queryFn: async ({ pageParam }) => {
+      if (
+        companyQueryScope(args.getActiveCompany()) !==
+        companyQueryScope(args.companyId)
+      ) {
+        throw new StaleCompanyQueryError();
+      }
+      return args.queryFn(pageParam);
+    },
+    getNextPageParam: (lastPage) => args.nextCursor(lastPage),
   });
 }

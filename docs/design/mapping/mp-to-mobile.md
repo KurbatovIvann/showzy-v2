@@ -115,6 +115,8 @@ System font. No webfont.
 | Sheet top | 30 | `radii.sheet` |
 | Button / search / icon | pill | `radii.full` |
 | Hit target | 44 / field 48 / auth 54 | `hitTarget.min` / `hitTarget.field` / `hitTarget.auth` |
+| List row | min 88 | `hitTarget.row` |
+| Pill inset | 2 | `spacing.2xs` |
 | Lucide | 18 / 20 | `iconSize.sm` / `iconSize.md` |
 | Card shadow | `0 1px 2px rgba(28,28,26,0.05)` | `shadows.sm` (`boxShadow`; New Architecture) |
 | Auth panel shadow | `0 14px 40px rgba(28,28,26,0.10)` | `shadows.auth` (`boxShadow`; New Architecture) |
@@ -135,10 +137,14 @@ System font. No webfont.
 | `OtpInput` | `OtpInput` | square cells, gap 8, digits `typography.2xl`; optional inline `error` string |
 | `Banner` | inline error | keep; do not invent a second error strip |
 | `EmptyState` | `EmptyState` | centered icon badge (48 circle on `muted`), `typography.lg` title, `typography.sm` muted description, optional action slot |
+| `StatusPill` | `StatusPill` | soft tone capsule (neutral/action/success/attention/danger); status is never color-only |
+| `AppHeader` | `AppHeader` | title/subtitle row with paired back control (`{ onPress, accessibilityLabel }`) and actions slot; screens own the safe-area inset |
+| `IconButton` | round icon controls | 44pt circle; `primary` ink fill, `surface` bordered card |
+| `SearchField` | list search | raised capsule, leading search icon; not the squircle `TextField` |
+| `ChoiceField` | `ChoiceField` | horizontal chip row (44pt chips for list filters) — not the same as SegmentedTabs |
 
 **Not shared yet** (add to `ui/` on first screen that needs them): Sheet,
-StatusPill, AppHeader, SwitchRow, ChoiceField (chip row — not
-the same as SegmentedTabs).
+SwitchRow.
 
 Feature examples (never in `ui/`): `OrderRow`, `ProductRow`,
 `AssistantSheet`, `BottomNav` (staff shell, not a generic tab primitive).

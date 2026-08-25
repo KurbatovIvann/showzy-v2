@@ -162,6 +162,7 @@ export const darkPalette = {
 export type ColorPalette = typeof lightPalette;
 
 export const spacing = {
+  "2xs": 2,
   xs: 4,
   sm: 8,
   md: 12,
@@ -188,6 +189,8 @@ export const hitTarget = {
   min: 44,
   field: 48,
   auth: 54,
+  /** Canvas list row minimum (ProductRow, later Order/Customer rows). */
+  row: 88,
 } as const;
 
 export const iconSize = {

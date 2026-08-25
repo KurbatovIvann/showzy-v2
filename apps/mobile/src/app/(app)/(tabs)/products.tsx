@@ -1,1 +1,1 @@
-export { ProductsPlaceholderScreen as default } from "../../../components/screens/panel/panel-placeholder-screen";
+export { ProductsListScreen as default } from "../../../components/screens/products/products-list-screen";
