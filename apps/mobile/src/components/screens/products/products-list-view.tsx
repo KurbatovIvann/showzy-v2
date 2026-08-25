@@ -37,6 +37,7 @@ export function ProductsListView(model: ProductsListModel) {
         archivedLabel={copy.archivedBadge}
         variantsLabel={item.variantsLabel}
         thumbnailFileId={item.thumbnailFileId}
+        thumbnailUrl={item.thumbnailUrl}
         onPress={openProduct}
       />
     ),

@@ -21,7 +21,7 @@ export function canEditProducts(role: CompanyRole): boolean {
   return role !== "employee";
 }
 
-/** `files:view` — skips per-row `files.getDownloadUrl` calls that would 403. */
+/** `files:view` — skips `files.getDownloadUrls` calls that would 403. */
 export function canFetchFileDownloadUrls(role: CompanyRole): boolean {
   return role !== "employee";
 }

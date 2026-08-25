@@ -6,6 +6,7 @@ export const filesSuiteCoverage = {
     "files.getUploadUrl",
     "files.finalizeUpload",
     "files.getDownloadUrl",
+    "files.getDownloadUrls",
     "files.getAttachmentFacts",
     "files.sweepAbandonedUploads",
   ],

@@ -20,6 +20,7 @@ export const ProductRow = memo(function ProductRow(props: {
   readonly archivedLabel: string;
   readonly variantsLabel: string;
   readonly thumbnailFileId: string | null;
+  readonly thumbnailUrl: string | null;
   readonly onPress: (id: string) => void;
 }) {
   return (
@@ -31,7 +32,10 @@ export const ProductRow = memo(function ProductRow(props: {
       }}
       style={({ pressed }) => [styles.card, pressed ? styles.pressed : null]}
     >
-      <ProductThumbnail fileId={props.thumbnailFileId} />
+      <ProductThumbnail
+        fileId={props.thumbnailFileId}
+        url={props.thumbnailUrl}
+      />
       <View style={styles.body}>
         <View style={styles.nameRow}>
           <Text numberOfLines={2} style={styles.name}>

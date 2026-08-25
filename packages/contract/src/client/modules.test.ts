@@ -21,6 +21,7 @@ import {
 import {
   finalizeUploadContract,
   getDownloadUrlContract,
+  getDownloadUrlsContract,
   getUploadUrlContract,
   requestUploadContract,
 } from "@showzy/files/contract";
@@ -61,6 +62,7 @@ describe("client composition", () => {
         getUploadUrl: getUploadUrlContract,
         finalizeUpload: finalizeUploadContract,
         getDownloadUrl: getDownloadUrlContract,
+        getDownloadUrls: getDownloadUrlsContract,
       },
       orders: {
         create: createOrderContract,
@@ -93,6 +95,7 @@ describe("client composition", () => {
     expect(contractRouter.files.getUploadUrl).toBeDefined();
     expect(contractRouter.files.finalizeUpload).toBeDefined();
     expect(contractRouter.files.getDownloadUrl).toBeDefined();
+    expect(contractRouter.files.getDownloadUrls).toBeDefined();
     expect(contractModules.files).not.toHaveProperty("getAttachmentFacts");
     expect(contractModules.files).not.toHaveProperty("sweepAbandonedUploads");
     expect(contractRouter.orders.create).toBeDefined();

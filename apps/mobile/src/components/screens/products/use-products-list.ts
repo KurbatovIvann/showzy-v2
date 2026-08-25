@@ -1,9 +1,10 @@
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueries, useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 
 import { useApiClient } from "../../../api/api-provider";
 import { describeQueryFailure } from "../../../api/errors";
+import { fileDownloadUrlsQueryOptions } from "../../../api/file-download-query";
 import { useActiveCompany } from "../../../api/query-provider";
 import { useResolvedCompany } from "../../../company-resolution/resolved-company-provider";
 import { detectLocale, interpolate } from "../../../i18n/locale";
@@ -16,9 +17,11 @@ import {
   classifyProductsList,
   flattenProductPages,
   listProductsPageInput,
+  mergeDownloadUrlPages,
   normalizeProductsSearch,
   productsProbeState,
   toProductRowView,
+  uniquePrimaryImageFileIds,
   PRODUCTS_SEARCH_MAX_LENGTH,
   type ProductsListState,
 } from "./products-list-model";
@@ -37,6 +40,7 @@ export type ProductsListRow = {
   readonly archived: boolean;
   readonly variantsLabel: string;
   readonly thumbnailFileId: string | null;
+  readonly thumbnailUrl: string | null;
 };
 
 export function useProductsList() {
@@ -84,6 +88,25 @@ export function useProductsList() {
   });
 
   const canFetchThumbnails = canFetchFileDownloadUrls(membership.role);
+  const listPages = listQuery.data?.pages ?? [];
+  const thumbnailQueries = useQueries({
+    queries: listPages.map((page) => {
+      const fileIds = uniquePrimaryImageFileIds(page.items);
+      const options = fileDownloadUrlsQueryOptions({
+        client: apiClient,
+        companyId: activeCompanyId,
+        fileIds,
+        getActiveCompany,
+      });
+      return {
+        ...options,
+        enabled: options.enabled && canFetchThumbnails,
+      };
+    }),
+  });
+  const thumbnailUrlsByFileId = mergeDownloadUrlPages(
+    thumbnailQueries.map((query) => query.data),
+  );
   const rows = useMemo((): readonly ProductsListRow[] => {
     const pages = listQuery.data?.pages;
     if (pages === undefined) {
@@ -91,6 +114,9 @@ export function useProductsList() {
     }
     return flattenProductPages(pages).map((item) => {
       const view = toProductRowView(item);
+      const thumbnailFileId = canFetchThumbnails
+        ? view.primaryImageFileId
+        : null;
       return {
         id: view.id,
         name: view.name,
@@ -101,10 +127,20 @@ export function useProductsList() {
           locale,
           copy.variants,
         ),
-        thumbnailFileId: canFetchThumbnails ? view.primaryImageFileId : null,
+        thumbnailFileId,
+        thumbnailUrl:
+          thumbnailFileId === null
+            ? null
+            : (thumbnailUrlsByFileId.get(thumbnailFileId) ?? null),
       };
     });
-  }, [listQuery.data?.pages, locale, copy, canFetchThumbnails]);
+  }, [
+    listQuery.data?.pages,
+    locale,
+    copy,
+    canFetchThumbnails,
+    thumbnailUrlsByFileId,
+  ]);
 
   const failureKind = listQuery.isError
     ? describeQueryFailure(listQuery.error).kind
@@ -145,9 +181,15 @@ export function useProductsList() {
     refreshing: listQuery.isRefetching && !listQuery.isFetchingNextPage,
     refresh: () => {
       void listQuery.refetch();
+      for (const query of thumbnailQueries) {
+        void query.refetch();
+      }
     },
     retry: () => {
       void listQuery.refetch();
+      for (const query of thumbnailQueries) {
+        void query.refetch();
+      }
     },
     loadingMore: listQuery.isFetchingNextPage,
     loadMore: () => {
