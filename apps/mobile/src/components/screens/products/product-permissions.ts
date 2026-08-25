@@ -21,6 +21,11 @@ export function canEditProducts(role: CompanyRole): boolean {
   return role !== "employee";
 }
 
+/** `files:upload` — skips the photo attach handshake that would 403. */
+export function canUploadFiles(role: CompanyRole): boolean {
+  return role !== "employee";
+}
+
 /** `files:view` — skips `files.getDownloadUrls` calls that would 403. */
 export function canFetchFileDownloadUrls(role: CompanyRole): boolean {
   return role !== "employee";

@@ -20,6 +20,10 @@ describe("products copy", () => {
     expect(Object.keys(uk.form)).toEqual(Object.keys(en.form));
     expect(Object.keys(uk.form.errors)).toEqual(Object.keys(en.form.errors));
     expect(Object.keys(uk.detail)).toEqual(Object.keys(en.detail));
+    expect(Object.keys(uk.photos)).toEqual(Object.keys(en.photos));
+    expect(Object.keys(uk.photos.errors)).toEqual(
+      Object.keys(en.photos.errors),
+    );
   });
 
   it("pins the canvas products-list copy in uk", () => {
@@ -71,6 +75,13 @@ describe("products copy", () => {
       "This product could not be found or is unavailable.",
     );
     expect(uk.detail.photosManageLabel).toBe("Керувати фото");
+    expect(uk.photos.title).toBe("Фото");
+    expect(uk.photos.addLabel).toBe("Додати фото");
+    expect(uk.photos.addCamera).toBe("Камера");
+    expect(uk.photos.addLibrary).toBe("Галерея");
+    expect(uk.photos.coverLabel).toBe("Обкладинка");
+    expect(uk.photos.emptyTitle).toBe("Немає фото");
+    expect(uk.photos.errors.too_many).toBe("Забагато фото. Максимум 10.");
     expect(uk.detail.archiveVariantNamed).toContain("{{name}}");
     expect(uk.detail.restoreVariantNamed).toContain("{{name}}");
   });

@@ -1,1 +1,1 @@
-export { ProductPhotosStubScreen as default } from "../../../../components/screens/products/product-stub-screens";
+export { ProductPhotosScreen as default } from "../../../../components/screens/products/product-photos-screen";

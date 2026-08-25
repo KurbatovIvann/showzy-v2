@@ -1,0 +1,459 @@
+/**
+ * Pure view-model for product photo attach (SHO-141). No React Native
+ * imports so ordering, the image cap, commit planning, and copy mapping
+ * stay unit-testable.
+ */
+import type { QueryFailureKind } from "../../../api/errors";
+import type { ProductsPhotosCopy } from "../../../i18n/products";
+import { classifyProductDetail } from "./product-detail-model";
+import {
+  MAX_UPLOAD_BYTES,
+  PHOTO_MAX_EDGE,
+  PHOTO_MIN_COMPRESS,
+  PHOTO_MIN_EDGE,
+  SET_PRODUCT_IMAGES_MAX,
+} from "./product-photos-limits";
+import {
+  initialUploadMachine,
+  type UploadFailureKind,
+  type UploadMachine,
+} from "./product-photos-upload";
+
+export type PhotoSlot =
+  | {
+      readonly kind: "committed";
+      readonly id: string;
+      readonly fileId: string;
+    }
+  | {
+      readonly kind: "upload";
+      readonly id: string;
+      readonly localUri: string;
+      readonly machine: UploadMachine;
+    };
+
+export type PhotoTilePhase = "ready" | "uploading" | "failed";
+
+export type PhotoTileView = {
+  readonly id: string;
+  readonly fileId: string | null;
+  readonly localUri: string | null;
+  readonly phase: PhotoTilePhase;
+  readonly progress: number;
+  readonly isCover: boolean;
+  readonly canMoveEarlier: boolean;
+  readonly canMoveLater: boolean;
+  readonly canRetry: boolean;
+  readonly canCancel: boolean;
+};
+
+export type ProductPhotosLoadState =
+  | { readonly kind: "loading" }
+  | { readonly kind: "offline" }
+  | { readonly kind: "error" }
+  | { readonly kind: "not-found" }
+  | { readonly kind: "permission" }
+  | { readonly kind: "ready" };
+
+export type PhotoBannerKey =
+  | "network"
+  | "offline"
+  | "unavailable"
+  | "permission"
+  | "validation"
+  | "too_many"
+  | "commit";
+
+export type PhotoCommitPlan =
+  | { readonly kind: "noop" }
+  | { readonly kind: "retry" }
+  | {
+      readonly kind: "write";
+      readonly productId: string;
+      readonly fileIds: readonly string[];
+    };
+
+export type CatalogImageStrategy =
+  "keep-jpeg" | "keep-png" | "keep-webp" | "convert-jpeg";
+
+export type PhotoCompressPlan =
+  | { readonly kind: "ok" }
+  | { readonly kind: "again"; readonly edge: number; readonly compress: number }
+  | { readonly kind: "fail" };
+
+const RETRYABLE_FAILURE: ReadonlySet<QueryFailureKind> = new Set([
+  "network",
+  "offline",
+  "timeout",
+  "rate_limited",
+  "internal",
+]);
+
+export function classifyProductPhotosLoad(args: {
+  readonly canWrite: boolean;
+  readonly productId: string | null;
+  readonly clientReady: boolean;
+  readonly status: "pending" | "error" | "success";
+  readonly failureKind: QueryFailureKind | null;
+}): ProductPhotosLoadState {
+  if (!args.canWrite) {
+    return { kind: "permission" };
+  }
+  return classifyProductDetail({
+    productId: args.productId,
+    clientReady: args.clientReady,
+    status: args.status,
+    failureKind: args.failureKind,
+  });
+}
+
+export function committedSlotsFromFileIds(
+  fileIds: readonly string[],
+): readonly PhotoSlot[] {
+  return fileIds.map((fileId) => ({
+    kind: "committed" as const,
+    id: fileId,
+    fileId,
+  }));
+}
+
+export function slotsTowardCap(slots: readonly PhotoSlot[]): number {
+  return slots.filter((slot) => slot.kind === "committed" || !isDropped(slot))
+    .length;
+}
+
+export function canAddPhoto(slots: readonly PhotoSlot[]): boolean {
+  return slotsTowardCap(slots) < SET_PRODUCT_IMAGES_MAX;
+}
+
+export function addUploadSlots(
+  slots: readonly PhotoSlot[],
+  photos: readonly { readonly id: string; readonly localUri: string }[],
+): { readonly slots: readonly PhotoSlot[]; readonly added: number } {
+  const next = [...slots];
+  let added = 0;
+  for (const photo of photos) {
+    if (slotsTowardCap(next) >= SET_PRODUCT_IMAGES_MAX) {
+      break;
+    }
+    if (next.some((slot) => slot.id === photo.id)) {
+      continue;
+    }
+    next.push({
+      kind: "upload",
+      id: photo.id,
+      localUri: photo.localUri,
+      machine: initialUploadMachine(),
+    });
+    added += 1;
+  }
+  return { slots: next, added };
+}
+
+export function removePhotoSlot(
+  slots: readonly PhotoSlot[],
+  id: string,
+): readonly PhotoSlot[] {
+  return slots.filter((slot) => slot.id !== id);
+}
+
+export function movePhotoSlot(
+  slots: readonly PhotoSlot[],
+  id: string,
+  direction: "earlier" | "later",
+): readonly PhotoSlot[] {
+  const index = slots.findIndex((slot) => slot.id === id);
+  if (index < 0) {
+    return slots;
+  }
+  const swapWith = direction === "earlier" ? index - 1 : index + 1;
+  const left = slots[index];
+  const right = slots[swapWith];
+  if (left === undefined || right === undefined) {
+    return slots;
+  }
+  const next = [...slots];
+  next[index] = right;
+  next[swapWith] = left;
+  return next;
+}
+
+export function patchUploadMachine(
+  slots: readonly PhotoSlot[],
+  id: string,
+  machine: UploadMachine,
+): readonly PhotoSlot[] {
+  return slots.map((slot) => {
+    if (slot.kind !== "upload" || slot.id !== id) {
+      return slot;
+    }
+    return { ...slot, machine };
+  });
+}
+
+export function readyOrderedFileIds(slots: readonly PhotoSlot[]): string[] {
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  for (const slot of slots) {
+    const fileId = readyFileId(slot);
+    if (fileId === null || seen.has(fileId)) {
+      continue;
+    }
+    seen.add(fileId);
+    ids.push(fileId);
+  }
+  return ids;
+}
+
+export function idleUploadSlots(
+  slots: readonly PhotoSlot[],
+): readonly PhotoSlot[] {
+  return slots.filter(
+    (slot) => slot.kind === "upload" && slot.machine.phase === "idle",
+  );
+}
+
+export function applyCommitSuccess(
+  slots: readonly PhotoSlot[],
+  fileIds: readonly string[],
+): readonly PhotoSlot[] {
+  const committed = new Set(fileIds);
+  const next: PhotoSlot[] = [];
+  const used = new Set<string>();
+  for (const slot of slots) {
+    const fileId = readyFileId(slot);
+    if (fileId !== null && committed.has(fileId) && !used.has(fileId)) {
+      next.push({ kind: "committed", id: fileId, fileId });
+      used.add(fileId);
+      continue;
+    }
+    if (slot.kind === "upload" && !isDropped(slot) && fileId === null) {
+      next.push(slot);
+    }
+  }
+  for (const fileId of fileIds) {
+    if (!used.has(fileId)) {
+      next.push({ kind: "committed", id: fileId, fileId });
+      used.add(fileId);
+    }
+  }
+  return next;
+}
+
+export function fileIdsEqual(
+  left: readonly string[],
+  right: readonly string[],
+): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+  return left.every((id, index) => id === right[index]);
+}
+
+export function planPhotoCommit(args: {
+  readonly productId: string | null;
+  readonly slots: readonly PhotoSlot[];
+  readonly lastCommitted: readonly string[] | null;
+  readonly lastWrite: readonly string[] | null;
+  readonly lastFailureKind: QueryFailureKind | null;
+  readonly canRetryAttempt: boolean;
+}): PhotoCommitPlan {
+  if (args.productId === null) {
+    return { kind: "noop" };
+  }
+  const fileIds = readyOrderedFileIds(args.slots);
+  const retryable =
+    args.lastFailureKind !== null &&
+    RETRYABLE_FAILURE.has(args.lastFailureKind);
+  if (
+    args.canRetryAttempt &&
+    args.lastWrite !== null &&
+    fileIdsEqual(args.lastWrite, fileIds) &&
+    retryable
+  ) {
+    return { kind: "retry" };
+  }
+  if (
+    args.lastCommitted !== null &&
+    fileIdsEqual(args.lastCommitted, fileIds)
+  ) {
+    return { kind: "noop" };
+  }
+  return {
+    kind: "write",
+    productId: args.productId,
+    fileIds,
+  };
+}
+
+export function toPhotoTiles(
+  slots: readonly PhotoSlot[],
+): readonly PhotoTileView[] {
+  return slots.map((slot, index) => {
+    const last = index === slots.length - 1;
+    if (slot.kind === "committed") {
+      return {
+        id: slot.id,
+        fileId: slot.fileId,
+        localUri: null,
+        phase: "ready",
+        progress: 1,
+        isCover: index === 0,
+        canMoveEarlier: index > 0,
+        canMoveLater: !last,
+        canRetry: false,
+        canCancel: false,
+      };
+    }
+    const failed = slot.machine.phase === "failed";
+    const ready = slot.machine.phase === "ready";
+    const cancelled = slot.machine.phase === "cancelled";
+    return {
+      id: slot.id,
+      fileId: slot.machine.fileId,
+      localUri: slot.localUri,
+      phase: failed ? "failed" : ready ? "ready" : "uploading",
+      progress: slot.machine.progress,
+      isCover: index === 0,
+      canMoveEarlier: index > 0 && !cancelled,
+      canMoveLater: !last && !cancelled,
+      canRetry: failed,
+      canCancel:
+        !failed &&
+        !ready &&
+        slot.machine.phase !== "idle" &&
+        slot.machine.phase !== "cancelled",
+    };
+  });
+}
+
+export function mapPhotoFailure(
+  kind: QueryFailureKind | null,
+): PhotoBannerKey | null {
+  if (kind === null) {
+    return null;
+  }
+  if (kind === "permission") {
+    return "permission";
+  }
+  if (kind === "validation") {
+    return "validation";
+  }
+  if (kind === "network") {
+    return "network";
+  }
+  if (kind === "offline") {
+    return "offline";
+  }
+  return "unavailable";
+}
+
+export function mapUploadBanner(
+  reason: UploadFailureKind | null,
+): PhotoBannerKey | null {
+  if (reason === null) {
+    return null;
+  }
+  if (reason === "permission") {
+    return "permission";
+  }
+  if (reason === "validation") {
+    return "validation";
+  }
+  if (reason === "network") {
+    return "network";
+  }
+  if (reason === "offline") {
+    return "offline";
+  }
+  return "unavailable";
+}
+
+export function resolvePhotoBanner(
+  copy: ProductsPhotosCopy,
+  key: PhotoBannerKey | null,
+): string | null {
+  if (key === null) {
+    return null;
+  }
+  return copy.errors[key];
+}
+
+export function catalogImageStrategy(
+  mimeType: string | undefined,
+  fileName: string | undefined,
+): CatalogImageStrategy {
+  const mime = (mimeType ?? "").toLowerCase();
+  const name = (fileName ?? "").toLowerCase();
+  if (mime === "image/jpeg" || mime === "image/jpg") {
+    return "keep-jpeg";
+  }
+  if (mime === "image/png") {
+    return "keep-png";
+  }
+  if (mime === "image/webp") {
+    return "keep-webp";
+  }
+  if (
+    mime === "image/heic" ||
+    mime === "image/heif" ||
+    name.endsWith(".heic") ||
+    name.endsWith(".heif")
+  ) {
+    return "convert-jpeg";
+  }
+  if (name.endsWith(".png")) {
+    return "keep-png";
+  }
+  if (name.endsWith(".webp")) {
+    return "keep-webp";
+  }
+  if (name.endsWith(".jpg") || name.endsWith(".jpeg")) {
+    return "keep-jpeg";
+  }
+  return "convert-jpeg";
+}
+
+export function nextPhotoCompressPlan(args: {
+  readonly byteSize: number;
+  readonly edge: number;
+  readonly compress: number;
+}): PhotoCompressPlan {
+  if (args.byteSize >= 1 && args.byteSize <= MAX_UPLOAD_BYTES) {
+    return { kind: "ok" };
+  }
+  const atFloor =
+    args.edge <= PHOTO_MIN_EDGE && args.compress <= PHOTO_MIN_COMPRESS;
+  if (atFloor) {
+    return { kind: "fail" };
+  }
+  return {
+    kind: "again",
+    edge: Math.max(PHOTO_MIN_EDGE, Math.floor(args.edge * 0.75)),
+    compress: Math.max(PHOTO_MIN_COMPRESS, roundCompress(args.compress - 0.14)),
+  };
+}
+
+export function remainingPhotoSlots(slots: readonly PhotoSlot[]): number {
+  return Math.max(0, SET_PRODUCT_IMAGES_MAX - slotsTowardCap(slots));
+}
+
+function readyFileId(slot: PhotoSlot): string | null {
+  if (slot.kind === "committed") {
+    return slot.fileId;
+  }
+  if (slot.machine.phase === "ready" && slot.machine.fileId !== null) {
+    return slot.machine.fileId;
+  }
+  return null;
+}
+
+function isDropped(slot: PhotoSlot): boolean {
+  return slot.kind === "upload" && slot.machine.phase === "cancelled";
+}
+
+function roundCompress(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+export { PHOTO_MAX_EDGE, SET_PRODUCT_IMAGES_MAX };
