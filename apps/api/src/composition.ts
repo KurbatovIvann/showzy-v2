@@ -18,10 +18,12 @@
 import {
   archiveProduct,
   archiveVariant,
+  createProduct,
   getProductOrderFacts,
   getProductPricingFacts,
   restoreProduct,
   restoreVariant,
+  updateProduct,
 } from "@showzy/catalog";
 import { catalogSuiteCoverage } from "@showzy/catalog/suite-coverage";
 import {
@@ -160,6 +162,8 @@ export function createActionRegistry(): ActionRegistry {
   const registry = new ActionRegistry();
   registerAction(registry, getProductOrderFacts);
   registerAction(registry, getProductPricingFacts);
+  registerAction(registry, createProduct);
+  registerAction(registry, updateProduct);
   registerAction(registry, archiveProduct);
   registerAction(registry, restoreProduct);
   registerAction(registry, archiveVariant);

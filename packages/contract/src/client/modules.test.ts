@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   archiveProductContract,
   archiveVariantContract,
+  createProductContract,
   restoreProductContract,
   restoreVariantContract,
+  updateProductContract,
 } from "@showzy/catalog/contract";
 import { getOrderCardContract } from "@showzy/chat/contract";
 import {
@@ -30,6 +32,8 @@ describe("client composition", () => {
   it("exposes client catalog, chat, companies, files, orders, and pricing actions and no internal facts actions", () => {
     expect(contractModules).toEqual({
       catalog: {
+        createProduct: createProductContract,
+        updateProduct: updateProductContract,
         archiveProduct: archiveProductContract,
         restoreProduct: restoreProductContract,
         archiveVariant: archiveVariantContract,
@@ -57,6 +61,8 @@ describe("client composition", () => {
         resolveProductPrices: resolveProductPricesContract,
       },
     });
+    expect(contractRouter.catalog.createProduct).toBeDefined();
+    expect(contractRouter.catalog.updateProduct).toBeDefined();
     expect(contractRouter.catalog.archiveProduct).toBeDefined();
     expect(contractRouter.catalog.restoreProduct).toBeDefined();
     expect(contractRouter.catalog.archiveVariant).toBeDefined();

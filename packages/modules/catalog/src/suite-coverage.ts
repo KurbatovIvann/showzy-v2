@@ -4,6 +4,8 @@ export const catalogSuiteCoverage = {
   isolation: [
     "catalog.getProductPricingFacts",
     "catalog.getProductOrderFacts",
+    "catalog.createProduct",
+    "catalog.updateProduct",
     "catalog.archiveProduct",
     "catalog.restoreProduct",
     "catalog.archiveVariant",
@@ -14,6 +16,8 @@ export const catalogSuiteCoverage = {
   accountIsolation: [],
   shareIsolation: [],
   idempotency: [
+    "catalog.createProduct",
+    "catalog.updateProduct",
     "catalog.archiveProduct",
     "catalog.restoreProduct",
     "catalog.archiveVariant",
