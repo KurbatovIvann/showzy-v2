@@ -1,25 +1,35 @@
 import { ValidationError } from "@showzy/core/errors";
 import { z } from "zod";
 
-const imageMimeSchema = z.string().startsWith("image/", {
-  message: "Product images must use an image MIME type.",
+const factsImageGate = z.object({
+  fileIds: z.array(
+    z.object({
+      fileId: z.uuid(),
+      mimeType: z.string().startsWith("image/", {
+        message: "Product images must use an image MIME type.",
+      }),
+    }),
+  ),
 });
 
 /**
  * Defense in depth after `files.getAttachmentFacts`: facts currently only
  * returns JPEG/PNG/WebP, but catalog still rejects any non-image MIME the
- * facts action might later admit (ticket: whole-batch validation failure).
+ * facts action might later admit.
  */
 export function rejectNonImageAttachments(
-  files: readonly { readonly mimeType: string }[],
+  files: readonly { readonly fileId: string; readonly mimeType: string }[],
 ): void {
-  for (const file of files) {
-    const parsed = imageMimeSchema.safeParse(file.mimeType);
-    if (!parsed.success) {
-      throw new ValidationError(
-        parsed.error.issues,
-        "Product images must use an image MIME type.",
-      );
-    }
+  const parsed = factsImageGate.safeParse({
+    fileIds: files.map((file) => ({
+      fileId: file.fileId,
+      mimeType: file.mimeType,
+    })),
+  });
+  if (!parsed.success) {
+    throw new ValidationError(
+      parsed.error.issues,
+      "Product images must use an image MIME type.",
+    );
   }
 }

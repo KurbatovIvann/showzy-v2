@@ -15,6 +15,9 @@
  * - Output is `{ productId, fileIds }` in input order so the client does
  *   not need a second round-trip. Same field name as input; display URLs
  *   stay on `files.getDownloadUrl` / `catalog.getProduct`.
+ * - Nested facts only returns JPEG/PNG/WebP (files `toReadyView`
+ *   fail-closes undeclared MIME as INTERNAL). Catalog still rejects any
+ *   non-image MIME facts might later admit (`rejectNonImageAttachments`).
  */
 import { defineActionContract } from "@showzy/core/contract";
 import { z } from "zod";
@@ -41,7 +44,7 @@ export const setProductImagesOutputSchema = z.strictObject({
 export const setProductImagesContract = defineActionContract({
   name: "catalog.setProductImages",
   description:
-    "Replace the ordered product image list for a product in the staff member's active company. Takes the product id and an ordered fileIds array (empty clears). Each file must be a ready in-company image; pending, missing, foreign, or non-image files fail the whole batch. Duplicate fileIds fail validation. Company id is never input. Object keys and signed URLs are never stored or returned. Re-submitting the identical payload with the same idempotency key returns the same ordered set without a second write.",
+    "Replace the ordered product image list for a product in the staff member's active company. Takes the product id and an ordered fileIds array (empty clears). Pending, missing, or foreign files fail the whole batch with not-found via files.getAttachmentFacts. Facts only returns JPEG/PNG/WebP, all of which are images. Duplicate fileIds fail validation. Company id is never input. Object keys and signed URLs are never stored or returned. Re-submitting the identical payload with the same idempotency key returns the same ordered set without a second write.",
   principal: "staff",
   transport: "client",
   input: setProductImagesInputSchema,

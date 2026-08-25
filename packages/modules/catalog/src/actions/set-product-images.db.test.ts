@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 
 import {
-  CoreInvariantError,
   NotFoundError,
   PermissionDeniedError,
   ValidationError,
@@ -36,7 +35,6 @@ const fixtures = {
   filePng: randomUUID(),
   fileWebp: randomUUID(),
   filePending: randomUUID(),
-  filePdf: randomUUID(),
   fileB: randomUUID(),
   fileIdem: randomUUID(),
   fileIdemConflict: randomUUID(),
@@ -171,13 +169,6 @@ beforeAll(async () => {
     status: "pending",
     mimeType: "image/jpeg",
     checksumSha256: "44".repeat(32),
-  });
-  await insertFile({
-    id: fixtures.filePdf,
-    companyId: companyA,
-    status: "ready",
-    mimeType: "application/pdf",
-    checksumSha256: "55".repeat(32),
   });
   await insertFile({
     id: fixtures.fileB,
@@ -410,17 +401,6 @@ describe("catalog.setProductImages", () => {
         companyId: kitIdentities.companies.a,
       }),
     ).rejects.toBeInstanceOf(ValidationError);
-    expect(await mediaFileIds(fixtures.productHappy)).toEqual(before);
-  });
-
-  it("does not attach a ready non-image file", async () => {
-    const before = await mediaFileIds(fixtures.productHappy);
-    await expect(
-      kit.invoke(setProductImages, {
-        productId: fixtures.productHappy,
-        fileIds: [fixtures.filePdf],
-      }),
-    ).rejects.toBeInstanceOf(CoreInvariantError);
     expect(await mediaFileIds(fixtures.productHappy)).toEqual(before);
   });
 

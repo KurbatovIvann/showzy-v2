@@ -4,21 +4,18 @@ import { productMedia, products } from "@showzy/db/schema/catalog";
 import { and, eq } from "drizzle-orm";
 import type { z } from "zod";
 
-import type {
-  setProductImagesInputSchema,
-  setProductImagesOutputSchema,
-} from "../actions/set-product-images.contract.js";
+import type { setProductImagesOutputSchema } from "../actions/set-product-images.contract.js";
 import { requireWritable } from "./writable.js";
 
 type StaffCtx = Extract<ActionCtx, { principal: "staff" }>;
-type SetInput = z.output<typeof setProductImagesInputSchema>;
 type SetOutput = z.output<typeof setProductImagesOutputSchema>;
 
 export async function replaceProductImages(env: {
   readonly ctx: StaffCtx;
-  readonly input: SetInput;
+  readonly productId: string;
+  readonly fileIds: readonly string[];
 }): Promise<SetOutput> {
-  const { ctx, input } = env;
+  const { ctx, productId, fileIds } = env;
   const db = requireWritable(ctx.db);
 
   const existing = (
@@ -26,10 +23,7 @@ export async function replaceProductImages(env: {
       .select({ id: products.id })
       .from(products)
       .where(
-        and(
-          eq(products.companyId, ctx.companyId),
-          eq(products.id, input.productId),
-        ),
+        and(eq(products.companyId, ctx.companyId), eq(products.id, productId)),
       )
       .limit(1)
       .for("update")
@@ -43,17 +37,17 @@ export async function replaceProductImages(env: {
     .where(
       and(
         eq(productMedia.companyId, ctx.companyId),
-        eq(productMedia.productId, input.productId),
+        eq(productMedia.productId, productId),
       ),
     );
 
-  if (input.fileIds.length > 0) {
+  if (fileIds.length > 0) {
     const inserted = await db
       .insert(productMedia)
       .values(
-        input.fileIds.map((fileId, position) => ({
+        fileIds.map((fileId, position) => ({
           companyId: ctx.companyId,
-          productId: input.productId,
+          productId,
           fileId,
           position,
         })),
@@ -62,7 +56,7 @@ export async function replaceProductImages(env: {
         fileId: productMedia.fileId,
         position: productMedia.position,
       });
-    if (inserted.length !== input.fileIds.length) {
+    if (inserted.length !== fileIds.length) {
       throw new CoreInvariantError(
         "catalog.setProductImages insert returned a different row count",
       );
@@ -71,11 +65,11 @@ export async function replaceProductImages(env: {
 
   ctx.log.info(
     {
-      product_id: input.productId,
-      image_count: input.fileIds.length,
+      product_id: productId,
+      image_count: fileIds.length,
     },
     "catalog.setProductImages replaced product images",
   );
 
-  return { productId: input.productId, fileIds: input.fileIds };
+  return { productId, fileIds: [...fileIds] };
 }
