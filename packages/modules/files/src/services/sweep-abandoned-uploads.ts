@@ -163,9 +163,8 @@ async function deleteIfPresent(
   key: string,
 ): Promise<boolean> {
   const head = await store.headObject(key);
-  if (head === "missing") {
-    return false;
-  }
+  // DeleteObject is idempotent. Garage can miss HeadObject after PutObject;
+  // a HEAD-gated skip leaves leftover staging (SHO-143 CI leftover sweep).
   await store.deleteObject(key);
-  return true;
+  return head !== "missing";
 }

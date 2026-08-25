@@ -23,6 +23,7 @@ import {
   getFilesObjectStore,
   probeFilesObjectStore,
 } from "@showzy/files/storage";
+import { waitForObjectVisibility } from "@showzy/files/testing";
 import {
   RedisContainer,
   type StartedRedisContainer,
@@ -361,7 +362,7 @@ async function putStoreObject(key: string): Promise<void> {
   });
   // Garage can acknowledge PutObject before HeadObject sees the key.
   // Sweep treats a missing HEAD as "already purged" and would skip delete.
-  await waitUntil(async () => (await store.headObject(key)) !== "missing");
+  await waitForObjectVisibility(store, key, "present");
 }
 
 async function fileRow(id: string): Promise<
@@ -647,27 +648,26 @@ describe("apps/worker sweepAbandonedUploads scheduler (SHO-120)", () => {
   });
 
   it("deletes a due pending row and leaves a young pending row (SHO-116)", async () => {
+    const dueId = randomUUID();
+    const youngId = randomUUID();
+    await putStoreObject(stagingKey(kitIdentities.companies.a, dueId));
+    await putStoreObject(catalogKey(kitIdentities.companies.a, dueId));
+    await putStoreObject(stagingKey(kitIdentities.companies.a, youngId));
+    await insertFileRow({
+      id: dueId,
+      companyId: kitIdentities.companies.a,
+      uploadedByUserId: kitIdentities.users.anna,
+      status: "pending",
+      createdAt: new Date(Date.now() - ABANDONED_PENDING_TTL_MS - 1_000),
+    });
+    await insertFileRow({
+      id: youngId,
+      companyId: kitIdentities.companies.a,
+      uploadedByUserId: kitIdentities.users.anna,
+      status: "pending",
+    });
     const booted = await bootSweepHost();
     try {
-      const dueId = randomUUID();
-      const youngId = randomUUID();
-      await insertFileRow({
-        id: dueId,
-        companyId: kitIdentities.companies.a,
-        uploadedByUserId: kitIdentities.users.anna,
-        status: "pending",
-        createdAt: new Date(Date.now() - ABANDONED_PENDING_TTL_MS - 1_000),
-      });
-      await insertFileRow({
-        id: youngId,
-        companyId: kitIdentities.companies.a,
-        uploadedByUserId: kitIdentities.users.anna,
-        status: "pending",
-      });
-      await putStoreObject(stagingKey(kitIdentities.companies.a, dueId));
-      await putStoreObject(catalogKey(kitIdentities.companies.a, dueId));
-      await putStoreObject(stagingKey(kitIdentities.companies.a, youngId));
-
       await enqueueMaintenanceJob(
         SWEEP_ABANDONED_UPLOADS_JOB_NAME,
         randomUUID(),
@@ -676,12 +676,12 @@ describe("apps/worker sweepAbandonedUploads scheduler (SHO-120)", () => {
       expect(await fileRow(dueId)).toBeUndefined();
       expect(await fileRow(youngId)).toMatchObject({ status: "pending" });
       const store = getFilesObjectStore();
-      expect(
-        await store.headObject(stagingKey(kitIdentities.companies.a, dueId)),
-      ).toBe("missing");
-      expect(
-        await store.headObject(catalogKey(kitIdentities.companies.a, dueId)),
-      ).toBe("missing");
+      const dueStaging = stagingKey(kitIdentities.companies.a, dueId);
+      const dueCatalog = catalogKey(kitIdentities.companies.a, dueId);
+      await waitForObjectVisibility(store, dueStaging, "missing");
+      await waitForObjectVisibility(store, dueCatalog, "missing");
+      expect(await store.headObject(dueStaging)).toBe("missing");
+      expect(await store.headObject(dueCatalog)).toBe("missing");
       expect(
         await store.headObject(stagingKey(kitIdentities.companies.a, youngId)),
       ).not.toBe("missing");
@@ -691,29 +691,30 @@ describe("apps/worker sweepAbandonedUploads scheduler (SHO-120)", () => {
   });
 
   it("deletes leftover staging, keeps catalog bytes, and skips already-purged rows", async () => {
+    const leftoverId = randomUUID();
+    const purgedId = randomUUID();
+    // Seed bytes before the worker: a boot scheduler tick can mark a ready
+    // row purged on a staging HEAD miss, then a later PUT leaves orphans.
+    await putStoreObject(catalogKey(kitIdentities.companies.a, leftoverId));
+    await putStoreObject(stagingKey(kitIdentities.companies.a, leftoverId));
+    await putStoreObject(catalogKey(kitIdentities.companies.a, purgedId));
+    await insertFileRow({
+      id: leftoverId,
+      companyId: kitIdentities.companies.a,
+      uploadedByUserId: kitIdentities.users.anna,
+      status: "ready",
+      updatedAt: new Date(0),
+    });
+    await insertFileRow({
+      id: purgedId,
+      companyId: kitIdentities.companies.a,
+      uploadedByUserId: kitIdentities.users.anna,
+      status: "ready",
+      updatedAt: new Date(0),
+      stagingPurgedAt: new Date(0),
+    });
     const booted = await bootSweepHost();
     try {
-      const leftoverId = randomUUID();
-      const purgedId = randomUUID();
-      await insertFileRow({
-        id: leftoverId,
-        companyId: kitIdentities.companies.a,
-        uploadedByUserId: kitIdentities.users.anna,
-        status: "ready",
-        updatedAt: new Date(0),
-      });
-      await insertFileRow({
-        id: purgedId,
-        companyId: kitIdentities.companies.a,
-        uploadedByUserId: kitIdentities.users.anna,
-        status: "ready",
-        updatedAt: new Date(0),
-        stagingPurgedAt: new Date(0),
-      });
-      await putStoreObject(catalogKey(kitIdentities.companies.a, leftoverId));
-      await putStoreObject(stagingKey(kitIdentities.companies.a, leftoverId));
-      await putStoreObject(catalogKey(kitIdentities.companies.a, purgedId));
-
       await enqueueMaintenanceJob(
         SWEEP_ABANDONED_UPLOADS_JOB_NAME,
         randomUUID(),
@@ -721,9 +722,13 @@ describe("apps/worker sweepAbandonedUploads scheduler (SHO-120)", () => {
 
       const store = getFilesObjectStore();
       const leftoverStaging = stagingKey(kitIdentities.companies.a, leftoverId);
-      await waitUntil(
-        async () => (await store.headObject(leftoverStaging)) === "missing",
-      );
+      const afterFirst = await fileRow(leftoverId);
+      const purgedAfterFirst = await fileRow(purgedId);
+      if (afterFirst === undefined || purgedAfterFirst === undefined) {
+        throw new Error("expected ready rows to remain");
+      }
+      expect(afterFirst.stagingPurgedAt).not.toBeNull();
+      await waitForObjectVisibility(store, leftoverStaging, "missing");
       expect(await store.headObject(leftoverStaging)).toBe("missing");
       expect(
         await store.headObject(
@@ -733,12 +738,6 @@ describe("apps/worker sweepAbandonedUploads scheduler (SHO-120)", () => {
       expect(
         await store.headObject(catalogKey(kitIdentities.companies.a, purgedId)),
       ).not.toBe("missing");
-      const afterFirst = await fileRow(leftoverId);
-      const purgedAfterFirst = await fileRow(purgedId);
-      if (afterFirst === undefined || purgedAfterFirst === undefined) {
-        throw new Error("expected ready rows to remain");
-      }
-      expect(afterFirst.stagingPurgedAt).not.toBeNull();
       expect(purgedAfterFirst.stagingPurgedAt?.getTime()).toBe(0);
       expect(purgedAfterFirst.updatedAt.getTime()).toBe(0);
 
@@ -761,30 +760,27 @@ describe("apps/worker sweepAbandonedUploads scheduler (SHO-120)", () => {
   });
 
   it("does not delete another company's catalog while sweeping as system/global", async () => {
+    const abandonedId = randomUUID();
+    const foreignReadyId = randomUUID();
+    await putStoreObject(stagingKey(kitIdentities.companies.a, abandonedId));
+    await putStoreObject(catalogKey(kitIdentities.companies.b, foreignReadyId));
+    await insertFileRow({
+      id: abandonedId,
+      companyId: kitIdentities.companies.a,
+      uploadedByUserId: kitIdentities.users.anna,
+      status: "pending",
+      createdAt: new Date(Date.now() - ABANDONED_PENDING_TTL_MS - 1_000),
+    });
+    await insertFileRow({
+      id: foreignReadyId,
+      companyId: kitIdentities.companies.b,
+      uploadedByUserId: kitIdentities.users.boris,
+      status: "ready",
+      updatedAt: new Date(0),
+      stagingPurgedAt: new Date(0),
+    });
     const booted = await bootSweepHost();
     try {
-      const abandonedId = randomUUID();
-      const foreignReadyId = randomUUID();
-      await insertFileRow({
-        id: abandonedId,
-        companyId: kitIdentities.companies.a,
-        uploadedByUserId: kitIdentities.users.anna,
-        status: "pending",
-        createdAt: new Date(Date.now() - ABANDONED_PENDING_TTL_MS - 1_000),
-      });
-      await insertFileRow({
-        id: foreignReadyId,
-        companyId: kitIdentities.companies.b,
-        uploadedByUserId: kitIdentities.users.boris,
-        status: "ready",
-        updatedAt: new Date(0),
-        stagingPurgedAt: new Date(0),
-      });
-      await putStoreObject(stagingKey(kitIdentities.companies.a, abandonedId));
-      await putStoreObject(
-        catalogKey(kitIdentities.companies.b, foreignReadyId),
-      );
-
       await enqueueMaintenanceJob(
         SWEEP_ABANDONED_UPLOADS_JOB_NAME,
         randomUUID(),
@@ -792,8 +788,14 @@ describe("apps/worker sweepAbandonedUploads scheduler (SHO-120)", () => {
 
       expect(await fileRow(abandonedId)).toBeUndefined();
       expect(await fileRow(foreignReadyId)).toMatchObject({ status: "ready" });
+      const store = getFilesObjectStore();
+      await waitForObjectVisibility(
+        store,
+        stagingKey(kitIdentities.companies.a, abandonedId),
+        "missing",
+      );
       expect(
-        await getFilesObjectStore().headObject(
+        await store.headObject(
           catalogKey(kitIdentities.companies.b, foreignReadyId),
         ),
       ).not.toBe("missing");
@@ -812,17 +814,17 @@ describe("apps/worker sweepAbandonedUploads scheduler (SHO-120)", () => {
         },
       },
     });
+    const dueId = randomUUID();
+    await putStoreObject(stagingKey(kitIdentities.companies.a, dueId));
+    await insertFileRow({
+      id: dueId,
+      companyId: kitIdentities.companies.a,
+      uploadedByUserId: kitIdentities.users.anna,
+      status: "pending",
+      createdAt: new Date(Date.now() - ABANDONED_PENDING_TTL_MS - 1_000),
+    });
     const booted = await bootSweepHost(logger);
     try {
-      const dueId = randomUUID();
-      await insertFileRow({
-        id: dueId,
-        companyId: kitIdentities.companies.a,
-        uploadedByUserId: kitIdentities.users.anna,
-        status: "pending",
-        createdAt: new Date(Date.now() - ABANDONED_PENDING_TTL_MS - 1_000),
-      });
-      await putStoreObject(stagingKey(kitIdentities.companies.a, dueId));
       await enqueueMaintenanceJob(
         SWEEP_ABANDONED_UPLOADS_JOB_NAME,
         randomUUID(),
@@ -842,22 +844,28 @@ describe("apps/worker sweepAbandonedUploads scheduler (SHO-120)", () => {
   });
 
   it("replays one idempotency key without extra deletes; a fresh key continues", async () => {
+    const firstId = randomUUID();
+    await putStoreObject(stagingKey(kitIdentities.companies.a, firstId));
+    await insertFileRow({
+      id: firstId,
+      companyId: kitIdentities.companies.a,
+      uploadedByUserId: kitIdentities.users.anna,
+      status: "pending",
+      createdAt: new Date(Date.now() - ABANDONED_PENDING_TTL_MS - 1_000),
+    });
     const booted = await bootSweepHost();
     try {
-      const firstId = randomUUID();
-      await insertFileRow({
-        id: firstId,
-        companyId: kitIdentities.companies.a,
-        uploadedByUserId: kitIdentities.users.anna,
-        status: "pending",
-        createdAt: new Date(Date.now() - ABANDONED_PENDING_TTL_MS - 1_000),
-      });
-      await putStoreObject(stagingKey(kitIdentities.companies.a, firstId));
       const replayKey = randomUUID();
       await enqueueMaintenanceJob(SWEEP_ABANDONED_UPLOADS_JOB_NAME, replayKey);
       expect(await fileRow(firstId)).toBeUndefined();
+      await waitForObjectVisibility(
+        getFilesObjectStore(),
+        stagingKey(kitIdentities.companies.a, firstId),
+        "missing",
+      );
 
       const secondId = randomUUID();
+      await putStoreObject(stagingKey(kitIdentities.companies.a, secondId));
       await insertFileRow({
         id: secondId,
         companyId: kitIdentities.companies.a,
@@ -865,7 +873,6 @@ describe("apps/worker sweepAbandonedUploads scheduler (SHO-120)", () => {
         status: "pending",
         createdAt: new Date(Date.now() - ABANDONED_PENDING_TTL_MS - 1_000),
       });
-      await putStoreObject(stagingKey(kitIdentities.companies.a, secondId));
       await enqueueMaintenanceJob(SWEEP_ABANDONED_UPLOADS_JOB_NAME, replayKey);
       expect(await fileRow(secondId)).toMatchObject({ status: "pending" });
 
@@ -874,6 +881,11 @@ describe("apps/worker sweepAbandonedUploads scheduler (SHO-120)", () => {
         randomUUID(),
       );
       expect(await fileRow(secondId)).toBeUndefined();
+      await waitForObjectVisibility(
+        getFilesObjectStore(),
+        stagingKey(kitIdentities.companies.a, secondId),
+        "missing",
+      );
     } finally {
       await booted.close();
     }
