@@ -39,7 +39,11 @@ import { z } from "zod";
 import { buildAuthOptions } from "../auth/options.js";
 import { createAtomicOtpSendStore } from "../auth/otp-send-guard.js";
 import { expoClientPolicy, otpPolicy } from "../auth/policy.js";
-import { createMemorySecondaryStorage } from "../stores/memory.js";
+import {
+  createMemoryAuthRateLimitStore,
+  createMemorySecondaryStorage,
+} from "../stores/memory.js";
+import { RedisStoreError } from "../stores/redis.js";
 import {
   AUTH_PREFIX,
   createApp,
@@ -359,6 +363,7 @@ beforeAll(async () => {
       },
       sendEmailOtp: () => Promise.resolve(),
       otpSendStore: createAtomicOtpSendStore(secondary),
+      authRateLimitStore: createMemoryAuthRateLimitStore(),
       secondaryStorage: secondary,
       now: () => nowMs,
     }),
@@ -857,6 +862,79 @@ describe("OTP over HTTP (security-operations §8)", () => {
       headers,
     );
     expect(blocked.status).toBe(429);
+  });
+
+  it("caps concurrent OTP sends from one IP at 20 even when phones differ", async () => {
+    const ip = "198.51.100.82";
+    const headers = {
+      "x-test-peer-address": INGRESS,
+      "x-forwarded-for": ip,
+    };
+    const extra = 8;
+    const total = otpPolicy.maxSendsPerHourPerIp + extra;
+    const sentBefore = sentPhone.length;
+    const responses = await Promise.all(
+      Array.from({ length: total }, (_, i) => {
+        const phone = `+3806740${String(i).padStart(5, "0")}`;
+        return authPost(
+          "/phone-number/send-otp",
+          { phoneNumber: phone },
+          headers,
+        );
+      }),
+    );
+    const ok = responses.filter((response) => response.status === 200);
+    const limited = responses.filter((response) => response.status === 429);
+    expect(ok).toHaveLength(otpPolicy.maxSendsPerHourPerIp);
+    expect(limited).toHaveLength(extra);
+    expect(sentPhone.length - sentBefore).toBe(otpPolicy.maxSendsPerHourPerIp);
+  });
+
+  it("fails closed on IP consume errors and never sends SMS", async () => {
+    const failSent: { phoneNumber: string; code: string }[] = [];
+    const secondary = createMemorySecondaryStorage({ now: () => nowMs });
+    const auth = betterAuth(
+      buildAuthOptions({
+        database: drizzleAdapter(kit.db.runtime.db, { provider: "pg" }),
+        baseUrl: "http://localhost:3000",
+        secret: "test-only-secret-0123456789abcdef-0000",
+        sendPhoneOtp: (data) => {
+          failSent.push(data);
+          return Promise.resolve();
+        },
+        sendEmailOtp: () => Promise.resolve(),
+        otpSendStore: createAtomicOtpSendStore(secondary),
+        authRateLimitStore: {
+          consume: () =>
+            Promise.reject(new RedisStoreError("redis unavailable")),
+        },
+        secondaryStorage: secondary,
+        now: () => nowMs,
+      }),
+    );
+    const failApp = createApp({
+      auth: toAuthInstance(auth),
+      registry: new ActionRegistry(),
+      contractModules: {},
+      pipeline: kit.pipeline,
+      trustedProxies: [INGRESS],
+      getPeerAddress: (c) => c.req.header("x-test-peer-address") ?? "127.0.0.1",
+    });
+    const response = await failApp.request(
+      `http://localhost:3000${AUTH_PREFIX}/phone-number/send-otp`,
+      {
+        method: "POST",
+        headers: {
+          origin: "http://localhost:3000",
+          "content-type": "application/json",
+          "x-test-peer-address": INGRESS,
+          "x-forwarded-for": "198.51.100.83",
+        },
+        body: JSON.stringify({ phoneNumber: "+380675000001" }),
+      },
+    );
+    expect(response.status).toBe(429);
+    expect(failSent).toHaveLength(0);
   });
 
   it("keys the OTP send IP limit on the sanitized forwarded address, not the proxy peer", async () => {

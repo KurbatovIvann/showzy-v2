@@ -25,6 +25,7 @@ import { createApp, type AuthInstance } from "./http/app.js";
 import { createProcessObservability } from "./observability.js";
 import { createActionPipeline } from "./pipeline.js";
 import {
+  createRedisAuthRateLimitStore,
   createRedisConfirmationStore,
   createRedisOtpSendStore,
   createRedisRateLimitStore,
@@ -75,6 +76,7 @@ export async function bootApi(config: ServerConfig): Promise<BootedApi> {
       sendPhoneOtp: otpSenders.sendPhoneOtp,
       sendEmailOtp: otpSenders.sendEmailOtp,
       otpSendStore: createRedisOtpSendStore(redis),
+      authRateLimitStore: createRedisAuthRateLimitStore(redis),
       secondaryStorage: secondary,
     }),
   );

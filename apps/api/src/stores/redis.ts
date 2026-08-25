@@ -8,7 +8,7 @@ import type { ConfirmationStore, RateLimitStore } from "@showzy/core";
 import type { Redis } from "ioredis";
 
 import type { OtpSendStore } from "../auth/otp-send-guard.js";
-import type { SecondaryStorage } from "./memory.js";
+import type { AuthRateLimitStore, SecondaryStorage } from "./memory.js";
 
 /** Adapter failure — the rate-limit/confirmation hooks own fail-open/closed. */
 export class RedisStoreError extends Error {
@@ -87,6 +87,28 @@ redis.call('SET', KEYS[1], cjson.encode(recent), 'EX', ttlSec)
 return {1, 0}
 `;
 
+/**
+ * Fixed-window INCR + EXPIRE for Better Auth `customStorage.consume`.
+ * First hit opens the window (EXPIRE = window seconds); later hits INCR.
+ * Over the cap returns the remaining TTL as retry-after.
+ */
+const AUTH_RATE_LIMIT_LUA = `
+local max = tonumber(ARGV[1])
+local windowSec = tonumber(ARGV[2])
+local count = redis.call('INCR', KEYS[1])
+if count == 1 then
+  redis.call('EXPIRE', KEYS[1], windowSec)
+end
+if count <= max then
+  return {1, 0}
+end
+local ttl = tonumber(redis.call('TTL', KEYS[1]))
+if ttl == nil or ttl < 1 then
+  ttl = windowSec
+end
+return {0, ttl}
+`;
+
 export function createRedisSecondaryStorage(redis: Redis): SecondaryStorage {
   return {
     get(key) {
@@ -139,6 +161,32 @@ export function createRedisOtpSendStore(redis: Redis): OtpSendStore {
   };
 }
 
+/**
+ * Better Auth IP / path rate-limit consume. Fail-closed on Redis errors:
+ * OTP send is public/auth abuse (security-operations §2) — never send SMS
+ * when the limiter cannot decide. Does not log the key (it contains the IP).
+ */
+export function createRedisAuthRateLimitStore(
+  redis: Pick<Redis, "eval">,
+): AuthRateLimitStore {
+  return {
+    async consume(key, rule) {
+      try {
+        const result = await redis.eval(
+          AUTH_RATE_LIMIT_LUA,
+          1,
+          key,
+          String(rule.max),
+          String(rule.window),
+        );
+        return parseAuthRateLimitResult(result, rule.window);
+      } catch {
+        return failClosedAuthRateLimit(rule.window);
+      }
+    },
+  };
+}
+
 export function createRedisRateLimitStore(
   redis: Redis,
   options?: { readonly now?: () => number },
@@ -178,6 +226,37 @@ function parseTokenBucketResult(
     allowed: false,
     retryAfterSec:
       Number.isFinite(retryAfterSec) && retryAfterSec > 0 ? retryAfterSec : 1,
+  };
+}
+
+function failClosedAuthRateLimit(windowSec: number): {
+  readonly allowed: false;
+  readonly retryAfter: number;
+} {
+  return {
+    allowed: false,
+    retryAfter: Math.max(1, windowSec),
+  };
+}
+
+function parseAuthRateLimitResult(
+  result: unknown,
+  windowSec: number,
+):
+  | { readonly allowed: true; readonly retryAfter: null }
+  | { readonly allowed: false; readonly retryAfter: number } {
+  if (!Array.isArray(result) || result.length === 0) {
+    return failClosedAuthRateLimit(windowSec);
+  }
+  const allowedFlag = Number(result[0]);
+  if (allowedFlag === 1) {
+    return { allowed: true, retryAfter: null };
+  }
+  const retryAfter = Number(result[1]);
+  return {
+    allowed: false,
+    retryAfter:
+      Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : windowSec,
   };
 }
 

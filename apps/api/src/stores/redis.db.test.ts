@@ -9,6 +9,7 @@ import {
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
+  createRedisAuthRateLimitStore,
   createRedisConfirmationStore,
   createRedisOtpSendStore,
   createRedisRateLimitStore,
@@ -122,5 +123,33 @@ describe("createRedisOtpSendStore", () => {
     ]);
     const allowed = [first, second].filter((decision) => decision.allowed);
     expect(allowed).toHaveLength(1);
+  });
+});
+
+describe("createRedisAuthRateLimitStore", () => {
+  it("allows exactly max concurrent consumes, then denies", async () => {
+    const store = createRedisAuthRateLimitStore(redis);
+    const rule = { window: 3600, max: 20 };
+    const extra = 10;
+    const decisions = await Promise.all(
+      Array.from({ length: rule.max + extra }, () =>
+        store.consume("auth-rl:concurrent", rule),
+      ),
+    );
+    expect(decisions.filter((decision) => decision.allowed)).toHaveLength(
+      rule.max,
+    );
+    expect(decisions.filter((decision) => !decision.allowed)).toHaveLength(
+      extra,
+    );
+  });
+
+  it("fails closed when Redis eval rejects", async () => {
+    const store = createRedisAuthRateLimitStore({
+      eval: () => Promise.reject(new Error("ECONNREFUSED")),
+    });
+    await expect(
+      store.consume("auth-rl:down", { window: 3600, max: 20 }),
+    ).resolves.toEqual({ allowed: false, retryAfter: 3600 });
   });
 });

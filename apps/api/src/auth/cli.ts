@@ -41,6 +41,9 @@ export const auth = betterAuth(
     otpSendStore: {
       tryRecordSend: () => Promise.reject(new SchemaGenerationOnlyError()),
     },
+    authRateLimitStore: {
+      consume: () => Promise.reject(new SchemaGenerationOnlyError()),
+    },
     secondaryStorage: {
       get: () => Promise.reject(new SchemaGenerationOnlyError()),
       set: () => Promise.reject(new SchemaGenerationOnlyError()),

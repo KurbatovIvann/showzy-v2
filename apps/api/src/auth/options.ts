@@ -24,6 +24,7 @@ import { emailOTP } from "better-auth/plugins/email-otp";
 import { phoneNumber } from "better-auth/plugins/phone-number";
 import { z } from "zod";
 
+import type { AuthRateLimitStore } from "../stores/memory.js";
 import {
   createOtpSendGuard,
   type OtpChannel,
@@ -57,10 +58,18 @@ export interface AuthComposition {
   /** Backs the per-identifier send limits; Redis at runtime (fnd-T26). */
   readonly otpSendStore: OtpSendStore;
   /**
-   * Required: keeps OTP codes and rate-limit counters out of Postgres
-   * entirely (verification values live here with a TTL). Redis at runtime
-   * (fnd-T26) — implement `getAndDelete` (Redis `GETDEL`) so single-use
-   * verification values are consumed atomically across processes.
+   * Atomic Better Auth IP / path rate-limit consume (security-operations §2
+   * 20/hour per IP for OTP send). Redis Lua INCR+EXPIRE at runtime; in-memory
+   * mutex store in tests. Do not rely on Better Auth's default memory store
+   * or secondary-storage get/set (those are racy across replicas).
+   */
+  readonly authRateLimitStore: AuthRateLimitStore;
+  /**
+   * Required: keeps OTP codes out of Postgres entirely (verification values
+   * live here with a TTL). Redis at runtime (fnd-T26) — implement
+   * `getAndDelete` (Redis `GETDEL`) so single-use verification values are
+   * consumed atomically across processes. IP send counters use
+   * `authRateLimitStore`, not this map.
    */
   readonly secondaryStorage: NonNullable<BetterAuthOptions["secondaryStorage"]>;
   /** Injectable clock for tests. */
@@ -107,12 +116,13 @@ export function buildAuthOptions(composition: AuthComposition) {
     secret: composition.secret,
     database: composition.database,
     trustedOrigins: [composition.baseUrl, expoClientPolicy.origin],
-    // OTP codes and rate-limit counters live here (TTL'd), never in Postgres.
+    // OTP codes live here (TTL'd), never in Postgres.
     secondaryStorage: composition.secondaryStorage,
     session: {
       // Sessions stay in Postgres (the `session` table): durable, queryable,
       // and revocable by future admin tooling. Only ephemeral verification
-      // values and rate-limit counters belong in the secondary store.
+      // values belong in the secondary store. IP send counters use
+      // `authRateLimitStore` (atomic consume), not this map.
       storeSessionInDatabase: true,
       expiresIn: sessionPolicy.expiresInSeconds,
       updateAge: sessionPolicy.updateAgeSeconds,
@@ -173,6 +183,24 @@ export function buildAuthOptions(composition: AuthComposition) {
     rateLimit: {
       // §2 limits apply in every environment, not only NODE_ENV=production.
       enabled: true,
+      // Atomic consume is required: with secondaryStorage configured, Better
+      // Auth otherwise stores counters via get/set (racy) and warns that
+      // storage has no `consume`. Fail closed on store errors — OTP send is
+      // public/auth abuse. Never log `key` (it contains the client IP).
+      customStorage: {
+        get: () => Promise.resolve(null),
+        set: () => Promise.resolve(),
+        consume: async (key, rule) => {
+          try {
+            return await composition.authRateLimitStore.consume(key, rule);
+          } catch {
+            return {
+              allowed: false,
+              retryAfter: Math.max(1, rule.window),
+            };
+          }
+        },
+      },
       customRules: {
         "/phone-number/send-otp": {
           window: otpPolicy.sendWindowSeconds,
