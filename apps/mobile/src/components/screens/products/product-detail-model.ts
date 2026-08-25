@@ -292,3 +292,16 @@ export function classifyProductGallery(args: {
 export function planConfirmStatusWrite(isError: boolean): "retry" | "submit" {
   return isError ? "retry" : "submit";
 }
+
+export function variantStatusActionLabel(args: {
+  readonly archived: boolean;
+  readonly variantName: string;
+  readonly copy: ProductsDetailCopy;
+}): string {
+  return interpolate(
+    args.archived
+      ? args.copy.restoreVariantNamed
+      : args.copy.archiveVariantNamed,
+    { name: args.variantName },
+  );
+}

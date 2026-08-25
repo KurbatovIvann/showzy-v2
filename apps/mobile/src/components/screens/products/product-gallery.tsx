@@ -82,21 +82,24 @@ export function ProductGallery(props: {
         </View>
       ) : null}
       {mode === "images" && pageWidth !== undefined ? (
-        <ScrollView
-          horizontal
-          pagingEnabled
-          onMomentumScrollEnd={onScrollEnd}
-          showsHorizontalScrollIndicator={false}
-          style={[styles.frame, { width: pageWidth }]}
-        >
-          {ids.map((fileId) => (
-            <ProductGalleryImage
-              key={fileId}
-              fileId={fileId}
-              width={pageWidth}
-            />
-          ))}
-        </ScrollView>
+        <View style={[styles.frame, { width: pageWidth }]}>
+          <ScrollView
+            horizontal
+            pagingEnabled
+            nestedScrollEnabled
+            onMomentumScrollEnd={onScrollEnd}
+            showsHorizontalScrollIndicator={false}
+            style={{ width: pageWidth }}
+          >
+            {ids.map((fileId) => (
+              <ProductGalleryImage
+                key={fileId}
+                fileId={fileId}
+                width={pageWidth}
+              />
+            ))}
+          </ScrollView>
+        </View>
       ) : null}
       {mode === "images" && ids.length > 1 ? (
         <View style={styles.dots} accessibilityElementsHidden>

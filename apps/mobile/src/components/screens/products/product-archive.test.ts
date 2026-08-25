@@ -169,7 +169,7 @@ describe("catalogStatusInvalidationKeys", () => {
     ]);
   });
 
-  it("invalidates after a successful write without touching other companies", () => {
+  it("invalidates after a successful write without touching other companies", async () => {
     const queryClient = createShowzyQueryClient();
     const productKey = contractQueryKey(GET_PRODUCT_ACTION, "company-a", {
       productId: PRODUCT_ID,
@@ -184,7 +184,7 @@ describe("catalogStatusInvalidationKeys", () => {
     queryClient.setQueryData(listKey, { items: [] });
     queryClient.setQueryData(otherKey, { id: PRODUCT_ID });
 
-    invalidateCatalogAfterStatusWrite({
+    await invalidateCatalogAfterStatusWrite({
       queryClient,
       companyId: "company-a",
     });
@@ -193,7 +193,7 @@ describe("catalogStatusInvalidationKeys", () => {
     expect(queryClient.getQueryState(listKey)?.isInvalidated).toBe(true);
     expect(queryClient.getQueryState(otherKey)?.isInvalidated).toBe(false);
 
-    invalidateCatalogAfterStatusWrite({
+    await invalidateCatalogAfterStatusWrite({
       queryClient,
       companyId: null,
     });

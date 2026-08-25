@@ -123,7 +123,7 @@ export function useProductDetail(
       } else {
         await mutation.submit(statusWriteForConfirm(confirm, productId));
       }
-      invalidateCatalogAfterStatusWrite({
+      await invalidateCatalogAfterStatusWrite({
         queryClient,
         companyId: activeCompanyId,
       });

@@ -14,6 +14,7 @@ import {
   statusWriteBanner,
   statusWriteForConfirm,
   toProductDetailView,
+  variantStatusActionLabel,
 } from "./product-detail-model";
 import type { GetProductOutput } from "./product-detail-query";
 
@@ -336,5 +337,25 @@ describe("planConfirmStatusWrite", () => {
   it("retries a failed confirm and submits a fresh one", () => {
     expect(planConfirmStatusWrite(false)).toBe("submit");
     expect(planConfirmStatusWrite(true)).toBe("retry");
+  });
+});
+
+describe("variantStatusActionLabel", () => {
+  it("puts the variant name in the spoken archive/restore label", () => {
+    const copy = productsCopy("uk").detail;
+    expect(
+      variantStatusActionLabel({
+        archived: false,
+        variantName: "1 кг",
+        copy,
+      }),
+    ).toBe("Архівувати варіант «1 кг»");
+    expect(
+      variantStatusActionLabel({
+        archived: true,
+        variantName: "1 кг",
+        copy,
+      }),
+    ).toBe("Повернути варіант «1 кг»");
   });
 });

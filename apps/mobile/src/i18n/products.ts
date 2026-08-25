@@ -21,12 +21,15 @@ export type ProductsDetailCopy = {
   readonly variantsTitle: string;
   readonly noPhotos: string;
   readonly photosLabel: string;
+  readonly photosManageLabel: string;
   readonly editLabel: string;
   readonly inheritedPrice: string;
   readonly archiveProduct: string;
   readonly restoreProduct: string;
   readonly archiveVariant: string;
   readonly restoreVariant: string;
+  readonly archiveVariantNamed: string;
+  readonly restoreVariantNamed: string;
   readonly confirmArchiveProductTitle: string;
   readonly confirmArchiveProductDescription: string;
   readonly confirmRestoreProductTitle: string;
@@ -141,17 +144,19 @@ const en: ProductsCopy = {
     errorDescription: "Check your connection and try again.",
     retry: "Retry",
     notFoundTitle: "Product not found",
-    notFoundDescription:
-      "It is missing, inaccessible, or belongs to another company.",
+    notFoundDescription: "This product could not be found or is unavailable.",
     variantsTitle: "Variants",
     noPhotos: "No photos",
     photosLabel: "Photos",
+    photosManageLabel: "Manage photos",
     editLabel: "Edit",
     inheritedPrice: "Base price",
     archiveProduct: "Archive product",
     restoreProduct: "Restore from archive",
     archiveVariant: "Archive",
     restoreVariant: "Restore",
+    archiveVariantNamed: "Archive variant «{{name}}»",
+    restoreVariantNamed: "Restore variant «{{name}}»",
     confirmArchiveProductTitle: "Archive this product?",
     confirmArchiveProductDescription:
       "The product will leave sale. Variants keep their own status. Existing orders stay valid.",
@@ -228,17 +233,19 @@ const uk: ProductsCopy = {
     errorDescription: "Перевірте з’єднання та спробуйте ще раз.",
     retry: "Повторити",
     notFoundTitle: "Товар не знайдено",
-    notFoundDescription:
-      "Його немає, він недоступний або належить іншій компанії.",
+    notFoundDescription: "Не вдалося знайти цей товар або він недоступний.",
     variantsTitle: "Варіанти",
     noPhotos: "Немає фото",
     photosLabel: "Фото",
+    photosManageLabel: "Керувати фото",
     editLabel: "Редагувати",
     inheritedPrice: "Базова ціна",
     archiveProduct: "Архівувати товар",
     restoreProduct: "Повернути з архіву",
     archiveVariant: "Архівувати",
     restoreVariant: "Повернути",
+    archiveVariantNamed: "Архівувати варіант «{{name}}»",
+    restoreVariantNamed: "Повернути варіант «{{name}}»",
     confirmArchiveProductTitle: "Архівувати товар?",
     confirmArchiveProductDescription:
       "Товар зникне з продажу. Статус варіантів не зміниться. Старі замовлення залишаться чинними.",

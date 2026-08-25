@@ -19,6 +19,7 @@ import {
   StatusPill,
 } from "../../ui";
 import { ProductGallery } from "./product-gallery";
+import { variantStatusActionLabel } from "./product-detail-model";
 import { ProductVariantRow } from "./product-variant-row";
 import type { ProductDetailModel } from "./use-product-detail";
 
@@ -49,7 +50,7 @@ export function ProductDetailView(model: ProductDetailModel) {
                     color={theme.colors.foreground}
                   />
                 }
-                accessibilityLabel={copy.detail.photosLabel}
+                accessibilityLabel={copy.detail.photosManageLabel}
                 onPress={model.openPhotos}
               />
               <IconButton
@@ -209,6 +210,11 @@ function ProductDetailReady(props: { readonly model: ProductDetailModel }) {
                 archivedLabel={copy.archivedBadge}
                 archiveLabel={copy.detail.archiveVariant}
                 restoreLabel={copy.detail.restoreVariant}
+                actionAccessibilityLabel={variantStatusActionLabel({
+                  archived: variant.archived,
+                  variantName: variant.name,
+                  copy: copy.detail,
+                })}
                 canEdit={model.canEdit}
                 onArchive={model.requestArchiveVariant}
                 onRestore={model.requestRestoreVariant}

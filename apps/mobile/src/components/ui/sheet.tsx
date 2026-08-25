@@ -41,6 +41,7 @@ export function Sheet(props: {
   const { theme } = useUnistyles();
   const reduceMotion = useReducedMotion();
   const progress = useSharedValue(0);
+  const panelHeight = useSharedValue(0);
   const [presented, setPresented] = useState(false);
   const presentedRef = useRef(false);
   const closeGenerationRef = useRef(0);
@@ -92,17 +93,21 @@ export function Sheet(props: {
     );
   }, [hideModal, progress, props.visible, reduceMotion]);
 
-  const slideDistance = theme.hitTarget.field;
+  const fallbackTravel = theme.hitTarget.field;
   const overlayStyle = useAnimatedStyle(() => ({
     opacity: progress.get(),
   }));
-  const panelStyle = useAnimatedStyle(() => ({
-    transform: [
-      {
-        translateY: interpolate(progress.get(), [0, 1], [slideDistance, 0]),
-      },
-    ],
-  }));
+  const panelStyle = useAnimatedStyle(() => {
+    const measured = panelHeight.get();
+    const travel = measured > 0 ? measured : fallbackTravel;
+    return {
+      transform: [
+        {
+          translateY: interpolate(progress.get(), [0, 1], [travel, 0]),
+        },
+      ],
+    };
+  });
 
   return (
     <Modal
@@ -122,6 +127,9 @@ export function Sheet(props: {
         </Pressable>
         <Animated.View
           accessibilityViewIsModal
+          onLayout={(event) => {
+            panelHeight.set(event.nativeEvent.layout.height);
+          }}
           style={[
             styles.panel,
             { paddingBottom: Math.max(insets.bottom, theme.spacing.lg) },
@@ -146,7 +154,11 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: "flex-end",
   },
   overlayHit: {
-    flex: 1,
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
   },
   overlay: {
     flex: 1,

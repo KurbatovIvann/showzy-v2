@@ -18,6 +18,7 @@ export const ProductVariantRow = memo(function ProductVariantRow(props: {
   readonly archivedLabel: string;
   readonly archiveLabel: string;
   readonly restoreLabel: string;
+  readonly actionAccessibilityLabel: string;
   readonly canEdit: boolean;
   readonly onArchive: (id: string, name: string) => void;
   readonly onRestore: (id: string, name: string) => void;
@@ -45,9 +46,7 @@ export const ProductVariantRow = memo(function ProductVariantRow(props: {
       {props.canEdit ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={
-            props.archived ? props.restoreLabel : props.archiveLabel
-          }
+          accessibilityLabel={props.actionAccessibilityLabel}
           onPress={() => {
             if (props.archived) {
               props.onRestore(props.id, props.name);

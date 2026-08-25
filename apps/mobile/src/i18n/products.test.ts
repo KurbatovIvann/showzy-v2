@@ -63,10 +63,13 @@ describe("products copy", () => {
     expect(uk.stub.editTitle).toBe("Редагування товару");
     expect(uk.stub.photosTitle).toBe("Фото");
     expect(uk.detail.notFoundDescription).toBe(
-      "Його немає, він недоступний або належить іншій компанії.",
+      "Не вдалося знайти цей товар або він недоступний.",
     );
     expect(productsCopy("en").detail.notFoundDescription).toBe(
-      "It is missing, inaccessible, or belongs to another company.",
+      "This product could not be found or is unavailable.",
     );
+    expect(uk.detail.photosManageLabel).toBe("Керувати фото");
+    expect(uk.detail.archiveVariantNamed).toContain("{{name}}");
+    expect(uk.detail.restoreVariantNamed).toContain("{{name}}");
   });
 });

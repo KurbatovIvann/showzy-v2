@@ -84,14 +84,16 @@ export function catalogStatusInvalidationKeys(
   ] as const;
 }
 
-export function invalidateCatalogAfterStatusWrite(args: {
+export async function invalidateCatalogAfterStatusWrite(args: {
   readonly queryClient: QueryClient;
   readonly companyId: string | null;
-}): void {
+}): Promise<void> {
   if (args.companyId === null) {
     return;
   }
-  for (const queryKey of catalogStatusInvalidationKeys(args.companyId)) {
-    void args.queryClient.invalidateQueries({ queryKey });
-  }
+  await Promise.all(
+    catalogStatusInvalidationKeys(args.companyId).map((queryKey) =>
+      args.queryClient.invalidateQueries({ queryKey }),
+    ),
+  );
 }
