@@ -195,7 +195,7 @@ export function addVariantRow(draft: ProductFormDraft): ProductFormDraft {
   if (draft.variants.length >= PRODUCT_FORM_MAX_VARIANTS) {
     return draft;
   }
-  const key = `draft-${draft.nextDraftSerial}`;
+  const key = `draft-${String(draft.nextDraftSerial)}`;
   return {
     ...draft,
     nextDraftSerial: draft.nextDraftSerial + 1,
