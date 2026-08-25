@@ -28,7 +28,7 @@ export const ProductThumbnail = memo(function ProductThumbnail(props: {
       ) : (
         <Image
           source={{ uri: url }}
-          recyclingKey={props.fileId ?? undefined}
+          recyclingKey={props.fileId}
           contentFit="cover"
           transition={150}
           style={styles.image}
