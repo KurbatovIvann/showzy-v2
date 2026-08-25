@@ -8,6 +8,7 @@ import {
   confirmTargetForProduct,
   confirmTargetForVariant,
   galleryPageIndex,
+  isConfirmWriteBusy,
   mapStatusWriteFailure,
   planConfirmStatusWrite,
   productIdFromParam,
@@ -337,6 +338,20 @@ describe("planConfirmStatusWrite", () => {
   it("retries a failed confirm and submits a fresh one", () => {
     expect(planConfirmStatusWrite(false)).toBe("submit");
     expect(planConfirmStatusWrite(true)).toBe("retry");
+  });
+});
+
+describe("isConfirmWriteBusy", () => {
+  it("keeps the sheet busy through mutation and post-success invalidation", () => {
+    expect(
+      isConfirmWriteBusy({ mutationPending: false, writeBusy: false }),
+    ).toBe(false);
+    expect(
+      isConfirmWriteBusy({ mutationPending: true, writeBusy: false }),
+    ).toBe(true);
+    expect(
+      isConfirmWriteBusy({ mutationPending: false, writeBusy: true }),
+    ).toBe(true);
   });
 });
 

@@ -178,6 +178,7 @@ function ProductDetailReady(props: { readonly model: ProductDetailModel }) {
       keyboardShouldPersistTaps="handled"
     >
       <ProductGallery
+        key={product.id}
         fileIds={product.imageFileIds}
         canFetchImages={model.canFetchImages}
         emptyLabel={copy.detail.noPhotos}

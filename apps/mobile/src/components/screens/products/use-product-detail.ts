@@ -19,6 +19,7 @@ import {
   confirmSheetCopy,
   confirmTargetForProduct,
   confirmTargetForVariant,
+  isConfirmWriteBusy,
   mapStatusWriteFailure,
   planConfirmStatusWrite,
   productIdFromParam,
@@ -71,6 +72,8 @@ export function useProductDetail(
   const productId = productIdFromParam(idParam);
   const [confirm, setConfirm] = useState<ConfirmTarget | null>(null);
   const lastConfirmRef = useRef<ConfirmTarget | null>(null);
+  const writeBusyRef = useRef(false);
+  const [writeBusy, setWriteBusy] = useState(false);
   if (confirm !== null) {
     lastConfirmRef.current = confirm;
   }
@@ -114,9 +117,16 @@ export function useProductDetail(
   }
 
   async function submitConfirm(): Promise<void> {
-    if (confirm === null || productId === null || mutation.isPending) {
+    if (
+      confirm === null ||
+      productId === null ||
+      writeBusyRef.current ||
+      mutation.isPending
+    ) {
       return;
     }
+    writeBusyRef.current = true;
+    setWriteBusy(true);
     try {
       if (planConfirmStatusWrite(mutation.isError) === "retry") {
         await mutation.retry();
@@ -131,6 +141,9 @@ export function useProductDetail(
       mutation.reset();
     } catch {
       // Banner is derived from mutation.error.
+    } finally {
+      writeBusyRef.current = false;
+      setWriteBusy(false);
     }
   }
 
@@ -147,7 +160,10 @@ export function useProductDetail(
       mapStatusWriteFailure(mutationFailure),
       copy.detail,
     ),
-    confirmPending: mutation.isPending,
+    confirmPending: isConfirmWriteBusy({
+      mutationPending: mutation.isPending,
+      writeBusy,
+    }),
     headerTitle: product?.name ?? copy.detail.title,
     goBack: () => {
       router.back();
@@ -189,7 +205,12 @@ export function useProductDetail(
       );
     },
     closeConfirm: () => {
-      if (!mutation.isPending) {
+      if (
+        !isConfirmWriteBusy({
+          mutationPending: mutation.isPending,
+          writeBusy,
+        })
+      ) {
         setConfirm(null);
         mutation.reset();
       }

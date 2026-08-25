@@ -293,6 +293,13 @@ export function planConfirmStatusWrite(isError: boolean): "retry" | "submit" {
   return isError ? "retry" : "submit";
 }
 
+export function isConfirmWriteBusy(args: {
+  readonly mutationPending: boolean;
+  readonly writeBusy: boolean;
+}): boolean {
+  return args.mutationPending || args.writeBusy;
+}
+
 export function variantStatusActionLabel(args: {
   readonly archived: boolean;
   readonly variantName: string;
