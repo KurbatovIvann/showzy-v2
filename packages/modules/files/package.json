@@ -8,7 +8,8 @@
     ".": "./src/index.ts",
     "./contract": "./src/index.contract.ts",
     "./suite-coverage": "./src/suite-coverage.ts",
-    "./storage": "./src/storage.ts"
+    "./storage": "./src/storage.ts",
+    "./testing": "./src/testing/object-visibility.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

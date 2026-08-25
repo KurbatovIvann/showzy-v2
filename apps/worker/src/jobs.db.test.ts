@@ -23,6 +23,7 @@ import {
   getFilesObjectStore,
   probeFilesObjectStore,
 } from "@showzy/files/storage";
+import { waitForObjectVisibility } from "@showzy/files/testing";
 import {
   RedisContainer,
   type StartedRedisContainer,
@@ -361,7 +362,7 @@ async function putStoreObject(key: string): Promise<void> {
   });
   // Garage can acknowledge PutObject before HeadObject sees the key.
   // Sweep treats a missing HEAD as "already purged" and would skip delete.
-  await waitUntil(async () => (await store.headObject(key)) !== "missing");
+  await waitForObjectVisibility(store, key, "present");
 }
 
 async function fileRow(id: string): Promise<
@@ -676,12 +677,12 @@ describe("apps/worker sweepAbandonedUploads scheduler (SHO-120)", () => {
       expect(await fileRow(dueId)).toBeUndefined();
       expect(await fileRow(youngId)).toMatchObject({ status: "pending" });
       const store = getFilesObjectStore();
-      expect(
-        await store.headObject(stagingKey(kitIdentities.companies.a, dueId)),
-      ).toBe("missing");
-      expect(
-        await store.headObject(catalogKey(kitIdentities.companies.a, dueId)),
-      ).toBe("missing");
+      const dueStaging = stagingKey(kitIdentities.companies.a, dueId);
+      const dueCatalog = catalogKey(kitIdentities.companies.a, dueId);
+      await waitForObjectVisibility(store, dueStaging, "missing");
+      await waitForObjectVisibility(store, dueCatalog, "missing");
+      expect(await store.headObject(dueStaging)).toBe("missing");
+      expect(await store.headObject(dueCatalog)).toBe("missing");
       expect(
         await store.headObject(stagingKey(kitIdentities.companies.a, youngId)),
       ).not.toBe("missing");
@@ -721,9 +722,7 @@ describe("apps/worker sweepAbandonedUploads scheduler (SHO-120)", () => {
 
       const store = getFilesObjectStore();
       const leftoverStaging = stagingKey(kitIdentities.companies.a, leftoverId);
-      await waitUntil(
-        async () => (await store.headObject(leftoverStaging)) === "missing",
-      );
+      await waitForObjectVisibility(store, leftoverStaging, "missing");
       expect(await store.headObject(leftoverStaging)).toBe("missing");
       expect(
         await store.headObject(
@@ -792,8 +791,14 @@ describe("apps/worker sweepAbandonedUploads scheduler (SHO-120)", () => {
 
       expect(await fileRow(abandonedId)).toBeUndefined();
       expect(await fileRow(foreignReadyId)).toMatchObject({ status: "ready" });
+      const store = getFilesObjectStore();
+      await waitForObjectVisibility(
+        store,
+        stagingKey(kitIdentities.companies.a, abandonedId),
+        "missing",
+      );
       expect(
-        await getFilesObjectStore().headObject(
+        await store.headObject(
           catalogKey(kitIdentities.companies.b, foreignReadyId),
         ),
       ).not.toBe("missing");
@@ -856,6 +861,11 @@ describe("apps/worker sweepAbandonedUploads scheduler (SHO-120)", () => {
       const replayKey = randomUUID();
       await enqueueMaintenanceJob(SWEEP_ABANDONED_UPLOADS_JOB_NAME, replayKey);
       expect(await fileRow(firstId)).toBeUndefined();
+      await waitForObjectVisibility(
+        getFilesObjectStore(),
+        stagingKey(kitIdentities.companies.a, firstId),
+        "missing",
+      );
 
       const secondId = randomUUID();
       await insertFileRow({
@@ -874,6 +884,11 @@ describe("apps/worker sweepAbandonedUploads scheduler (SHO-120)", () => {
         randomUUID(),
       );
       expect(await fileRow(secondId)).toBeUndefined();
+      await waitForObjectVisibility(
+        getFilesObjectStore(),
+        stagingKey(kitIdentities.companies.a, secondId),
+        "missing",
+      );
     } finally {
       await booted.close();
     }

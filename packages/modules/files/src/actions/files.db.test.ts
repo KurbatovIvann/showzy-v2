@@ -48,6 +48,7 @@ import {
   mapConfiguredFilesObjectStore,
   SIGNED_URL_TTL_SEC,
 } from "../services/s3-port.js";
+import { waitForObjectVisibility } from "../testing/object-visibility.js";
 import { MAX_UPLOAD_BYTES, type FileMimeType } from "../wire.contract.js";
 
 /** Same pin as docker-compose.yml (ADR-0027). */
@@ -142,6 +143,7 @@ async function putSigned(
   uploadUrl: string,
   bytes: Uint8Array,
   mimeType: string,
+  objectKey: string,
 ): Promise<void> {
   const response = await fetch(uploadUrl, {
     method: "PUT",
@@ -151,6 +153,7 @@ async function putSigned(
   if (!response.ok) {
     throw new Error(`signed PUT failed: ${String(response.status)}`);
   }
+  await waitForObjectVisibility(getFilesObjectStore(), objectKey, "present");
 }
 
 async function waitForBucket(): Promise<void> {
@@ -230,7 +233,15 @@ async function requestPutFinalize(
     actor,
   );
   const signed = await mintPut(requested.fileId, actor);
-  await putSigned(signed.uploadUrl, bytes, mimeType);
+  await putSigned(
+    signed.uploadUrl,
+    bytes,
+    mimeType,
+    stagingObjectKey(
+      actor.companyId ?? kitIdentities.companies.a,
+      requested.fileId,
+    ),
+  );
   const ready = await requireKit().invoke(
     finalizeUpload,
     { fileId: requested.fileId },
@@ -258,7 +269,15 @@ async function requestAndPut(
     actor,
   );
   const signed = await mintPut(requested.fileId, actor);
-  await putSigned(signed.uploadUrl, bytes, mimeType);
+  await putSigned(
+    signed.uploadUrl,
+    bytes,
+    mimeType,
+    stagingObjectKey(
+      actor.companyId ?? kitIdentities.companies.a,
+      requested.fileId,
+    ),
+  );
   return requested.fileId;
 }
 
@@ -301,11 +320,13 @@ async function putStoreObject(
   bytes: Uint8Array = jpegBytes,
   mimeType: FileMimeType = "image/jpeg",
 ): Promise<void> {
-  await getFilesObjectStore().putObject({
+  const store = getFilesObjectStore();
+  await store.putObject({
     key,
     mimeType,
     bytes,
   });
+  await waitForObjectVisibility(store, key, "present");
 }
 
 const sweepEpoch = new Date(0);
@@ -565,7 +586,12 @@ describe("files signed upload slice", () => {
     expect(signed.uploadUrl).not.toContain("/catalog/");
     expect(signed.expiresAt).toEqual(expect.any(String));
 
-    await putSigned(signed.uploadUrl, jpegBytes, "image/jpeg");
+    await putSigned(
+      signed.uploadUrl,
+      jpegBytes,
+      "image/jpeg",
+      stagingObjectKey(kitIdentities.companies.a, requested.fileId),
+    );
     const store = getFilesObjectStore();
     expect(
       await store.getObject(
@@ -620,7 +646,12 @@ describe("files signed upload slice", () => {
   it("does not let a leftover signed PUT overwrite a ready catalog object", async () => {
     const requested = await requireKit().invoke(requestUpload, jpegInput);
     const signed = await mintPut(requested.fileId);
-    await putSigned(signed.uploadUrl, jpegBytes, "image/jpeg");
+    await putSigned(
+      signed.uploadUrl,
+      jpegBytes,
+      "image/jpeg",
+      stagingObjectKey(kitIdentities.companies.a, requested.fileId),
+    );
     const ready = await requireKit().invoke(finalizeUpload, {
       fileId: requested.fileId,
     });
@@ -631,7 +662,12 @@ describe("files signed upload slice", () => {
     const leftoverChecksum = sha256Hex(leftoverBytes);
     expect(leftoverChecksum).not.toBe(jpegChecksum);
 
-    await putSigned(signed.uploadUrl, leftoverBytes, "image/jpeg");
+    await putSigned(
+      signed.uploadUrl,
+      leftoverBytes,
+      "image/jpeg",
+      stagingObjectKey(kitIdentities.companies.a, requested.fileId),
+    );
 
     const store = getFilesObjectStore();
     const catalog = await store.getObject(
@@ -854,6 +890,7 @@ describe("files signed upload slice", () => {
       (await mintPut(exe.fileId)).uploadUrl,
       exeBytes,
       "image/jpeg",
+      stagingObjectKey(kitIdentities.companies.a, exe.fileId),
     );
     await expect(
       requireKit().invoke(finalizeUpload, { fileId: exe.fileId }),
@@ -869,6 +906,7 @@ describe("files signed upload slice", () => {
       (await mintPut(zip.fileId)).uploadUrl,
       zipBytes,
       "image/png",
+      stagingObjectKey(kitIdentities.companies.a, zip.fileId),
     );
     await expect(
       requireKit().invoke(finalizeUpload, { fileId: zip.fileId }),
@@ -884,6 +922,7 @@ describe("files signed upload slice", () => {
       (await mintPut(heic.fileId)).uploadUrl,
       heicBytes,
       "image/jpeg",
+      stagingObjectKey(kitIdentities.companies.a, heic.fileId),
     );
     await expect(
       requireKit().invoke(finalizeUpload, { fileId: heic.fileId }),
@@ -1003,7 +1042,12 @@ describe("files signed upload slice", () => {
     expect(fileRows).toHaveLength(1);
     expect(fileRows[0]?.status).toBe("pending");
 
-    await putSigned(second.uploadUrl, jpegBytes, "image/jpeg");
+    await putSigned(
+      second.uploadUrl,
+      jpegBytes,
+      "image/jpeg",
+      stagingObjectKey(kitIdentities.companies.a, requested.fileId),
+    );
     const ready = await requireKit().invoke(finalizeUpload, {
       fileId: requested.fileId,
     });
@@ -1112,17 +1156,21 @@ describe("files signed upload slice", () => {
       .from(files)
       .where(eq(files.id, fileId));
     expect(gone).toHaveLength(0);
-    expect(
-      await getFilesObjectStore().headObject(
-        stagingObjectKey(kitIdentities.companies.a, fileId),
-      ),
-    ).toBe("missing");
+    const stagingKey = stagingObjectKey(kitIdentities.companies.a, fileId);
+    const store = getFilesObjectStore();
+    await waitForObjectVisibility(store, stagingKey, "missing");
+    expect(await store.headObject(stagingKey)).toBe("missing");
   });
 
   it("writes audit rows for the writes without URLs or object keys", async () => {
     const requested = await requireKit().invoke(requestUpload, jpegInput);
     const signed = await mintPut(requested.fileId);
-    await putSigned(signed.uploadUrl, jpegBytes, "image/jpeg");
+    await putSigned(
+      signed.uploadUrl,
+      jpegBytes,
+      "image/jpeg",
+      stagingObjectKey(kitIdentities.companies.a, requested.fileId),
+    );
     await requireKit().invoke(finalizeUpload, { fileId: requested.fileId });
 
     const createAudit = await requireKit()
@@ -1250,14 +1298,24 @@ describe("files.sweepAbandonedUploads", () => {
     await drainUnpurgedReady();
     const requestedA = await requireKit().invoke(requestUpload, jpegInput);
     const signedA = await mintPut(requestedA.fileId);
-    await putSigned(signedA.uploadUrl, jpegBytes, "image/jpeg");
+    await putSigned(
+      signedA.uploadUrl,
+      jpegBytes,
+      "image/jpeg",
+      stagingObjectKey(kitIdentities.companies.a, requestedA.fileId),
+    );
     const readyA = await requireKit().invoke(finalizeUpload, {
       fileId: requestedA.fileId,
     });
     const leftoverA = Uint8Array.from(jpegBytes);
     leftoverA[leftoverA.byteLength - 3] =
       (leftoverA.at(leftoverA.byteLength - 3) ?? 0) ^ 0xff;
-    await putSigned(signedA.uploadUrl, leftoverA, "image/jpeg");
+    await putSigned(
+      signedA.uploadUrl,
+      leftoverA,
+      "image/jpeg",
+      stagingObjectKey(kitIdentities.companies.a, requestedA.fileId),
+    );
 
     const readyB = await requestPutFinalize(pngBytes, "image/png", {
       userId: kitIdentities.users.boris,
@@ -1280,16 +1338,18 @@ describe("files.sweepAbandonedUploads", () => {
     expect(result.leftoverStagingDeleted).toBe(2);
 
     const store = getFilesObjectStore();
-    expect(
-      await store.headObject(
-        stagingObjectKey(kitIdentities.companies.a, readyA.fileId),
-      ),
-    ).toBe("missing");
-    expect(
-      await store.headObject(
-        stagingObjectKey(kitIdentities.companies.b, readyB.fileId),
-      ),
-    ).toBe("missing");
+    const leftoverAKey = stagingObjectKey(
+      kitIdentities.companies.a,
+      readyA.fileId,
+    );
+    const leftoverBKey = stagingObjectKey(
+      kitIdentities.companies.b,
+      readyB.fileId,
+    );
+    await waitForObjectVisibility(store, leftoverAKey, "missing");
+    await waitForObjectVisibility(store, leftoverBKey, "missing");
+    expect(await store.headObject(leftoverAKey)).toBe("missing");
+    expect(await store.headObject(leftoverBKey)).toBe("missing");
     const catalogA = await store.getObject(
       catalogObjectKey(kitIdentities.companies.a, readyA.fileId),
     );
@@ -1363,26 +1423,24 @@ describe("files.sweepAbandonedUploads", () => {
     expect(result.abandonedPendingDeleted).toBeGreaterThanOrEqual(2);
 
     const store = getFilesObjectStore();
-    expect(
-      await store.headObject(
-        stagingObjectKey(kitIdentities.companies.a, fileId),
-      ),
-    ).toBe("missing");
-    expect(
-      await store.headObject(
-        catalogObjectKey(kitIdentities.companies.a, fileId),
-      ),
-    ).toBe("missing");
-    expect(
-      await store.headObject(
-        stagingObjectKey(kitIdentities.companies.b, foreignId),
-      ),
-    ).toBe("missing");
-    expect(
-      await store.headObject(
-        catalogObjectKey(kitIdentities.companies.b, foreignId),
-      ),
-    ).toBe("missing");
+    const companyAStaging = stagingObjectKey(kitIdentities.companies.a, fileId);
+    const companyACatalog = catalogObjectKey(kitIdentities.companies.a, fileId);
+    const companyBStaging = stagingObjectKey(
+      kitIdentities.companies.b,
+      foreignId,
+    );
+    const companyBCatalog = catalogObjectKey(
+      kitIdentities.companies.b,
+      foreignId,
+    );
+    await waitForObjectVisibility(store, companyAStaging, "missing");
+    await waitForObjectVisibility(store, companyACatalog, "missing");
+    await waitForObjectVisibility(store, companyBStaging, "missing");
+    await waitForObjectVisibility(store, companyBCatalog, "missing");
+    expect(await store.headObject(companyAStaging)).toBe("missing");
+    expect(await store.headObject(companyACatalog)).toBe("missing");
+    expect(await store.headObject(companyBStaging)).toBe("missing");
+    expect(await store.headObject(companyBCatalog)).toBe("missing");
 
     const remaining = await requireKit()
       .db.runtime.db.select({ id: files.id })
@@ -1444,6 +1502,16 @@ describe("files.sweepAbandonedUploads", () => {
 
     await requireKit().invoke(sweepAbandonedUploads, {});
 
+    await waitForObjectVisibility(
+      getFilesObjectStore(),
+      stagingObjectKey(kitIdentities.companies.a, abandonedId),
+      "missing",
+    );
+    await waitForObjectVisibility(
+      getFilesObjectStore(),
+      catalogObjectKey(kitIdentities.companies.a, abandonedId),
+      "missing",
+    );
     const catalog = await getFilesObjectStore().getObject(
       catalogObjectKey(kitIdentities.companies.b, readyId),
     );
@@ -1562,11 +1630,18 @@ describe("files.sweepAbandonedUploads", () => {
     expect(afterSecond.updatedAt.getTime()).toBe(
       afterFirst.updatedAt.getTime(),
     );
-    expect(
-      await getFilesObjectStore().headObject(
-        stagingObjectKey(kitIdentities.companies.a, leftoverId),
-      ),
-    ).toBe("missing");
+    const leftoverStaging = stagingObjectKey(
+      kitIdentities.companies.a,
+      leftoverId,
+    );
+    await waitForObjectVisibility(
+      getFilesObjectStore(),
+      leftoverStaging,
+      "missing",
+    );
+    expect(await getFilesObjectStore().headObject(leftoverStaging)).toBe(
+      "missing",
+    );
     expect(
       await getFilesObjectStore().headObject(
         catalogObjectKey(kitIdentities.companies.a, leftoverId),
@@ -1598,6 +1673,11 @@ describe("files.sweepAbandonedUploads", () => {
       leftoverStagingDeleted: 0,
       abandonedPendingDeleted: 1,
     });
+    await waitForObjectVisibility(
+      getFilesObjectStore(),
+      stagingObjectKey(kitIdentities.companies.a, id),
+      "missing",
+    );
     const replay = await requireKit().invoke(
       sweepAbandonedUploads,
       { limit: 1 },
