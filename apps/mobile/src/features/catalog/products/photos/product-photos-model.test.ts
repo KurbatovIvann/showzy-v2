@@ -197,6 +197,16 @@ describe("product photo ordering", () => {
       }).kind,
     ).toBe("ready");
     expect(canAddPhoto([])).toBe(true);
+    expect(
+      classifyProductPhotosLoad({
+        canWrite: true,
+        productId: PRODUCT_ID,
+        requireProduct: true,
+        clientReady: true,
+        status: "pending",
+        failureKind: null,
+      }).kind,
+    ).toBe("loading");
     const ready = [uploadSlot("local-1", "ready", FILE_C)];
     expect(
       planPhotoCommit({

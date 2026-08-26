@@ -1,13 +1,11 @@
 import type { MutationAttempt } from "@showzy/contract";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useActor } from "@xstate/react";
+import { useEffect, useRef } from "react";
 
 import { useApiClient } from "../../../../api/api-provider";
 import { useContractMutation } from "../../../../api/contract-mutation";
-import {
-  describeQueryFailure,
-  type QueryFailureKind,
-} from "../../../../api/errors";
+import { describeQueryFailure } from "../../../../api/errors";
 import { fileDownloadUrlsQueryOptions } from "../../../../api/file-download-query";
 import { useActiveCompany } from "../../../../api/query-provider";
 import { useResolvedCompany } from "../../../../company-resolution/resolved-company-provider";
@@ -15,27 +13,13 @@ import { createMobileMutationAttempt } from "../../../../crypto/create-attempt";
 import { detectLocale } from "../../../../i18n/locale";
 import { productsCopy } from "../../../../i18n/products";
 import { invalidateCatalogAfterStatusWrite } from "../api/product-archive";
-import { getProductQueryOptions } from "../api/product-detail-query";
 import {
-  addUploadSlots,
-  applyCommitSuccess,
   classifyProductPhotosLoad,
-  hasInFlightPhotoUploads,
-  idleUploadSlots,
-  mapDeniedBanner,
   mapPhotoFailure,
   mapUploadBanner,
-  movePhotoSlot,
-  patchUploadMachine,
-  photoFlushOutcome,
-  photosAreDirty,
-  planPhotoCommit,
   remainingPhotoSlots,
-  removePhotoSlot,
   resolvePhotoBanner,
-  toPhotoTiles,
   type PhotoBannerKey,
-  type PhotoSlot,
 } from "./product-photos-model";
 import {
   bindSetProductImages,
@@ -49,6 +33,17 @@ import {
 } from "./product-photos-native";
 import { waitForSheetHidden } from "../../../../components/ui/sheet-dismiss";
 import { canFetchFileDownloadUrls } from "../shared/product-permissions";
+import {
+  photoSessionDirty,
+  photoSessionIsBusy,
+  photoSessionNeedsCommit,
+  photoSessionTiles,
+  productPhotosSessionLogic,
+  selectPhotoSessionCommitPlan,
+  selectPhotoSessionFlushOutcome,
+  selectPhotoSessionIdleIds,
+  type PhotoSessionContext,
+} from "./product-photos-session";
 import {
   runProductPhotoUpload,
   type PreparedCatalogImage,
@@ -67,8 +62,19 @@ export type ProductPhotosFlushResult = "ok" | "commit-failed";
 
 export type ProductPhotosModel = ReturnType<typeof useProductPhotos>;
 
+function snapshotFileIdsFromArgs(args: {
+  readonly imageFileIds?: readonly string[] | undefined;
+  readonly requireProduct: boolean;
+}): string[] | null {
+  if (args.imageFileIds !== undefined) {
+    return [...args.imageFileIds];
+  }
+  return args.requireProduct ? null : [];
+}
+
 export function useProductPhotos(args: {
   readonly productId: string | null;
+  readonly imageFileIds?: readonly string[] | undefined;
   readonly requireProduct: boolean;
   readonly canWrite: boolean;
 }) {
@@ -80,34 +86,21 @@ export function useProductPhotos(args: {
   const membership = useResolvedCompany();
   const queryClient = useQueryClient();
   const canWrite = args.canWrite;
-  const productIdRef = useRef(args.productId);
-  if (args.productId !== null) {
-    productIdRef.current = args.productId;
-  }
+  const snapshotFileIds = snapshotFileIdsFromArgs(args);
 
-  const [slots, setSlots] = useState<readonly PhotoSlot[]>([]);
-  const [baseline, setBaseline] = useState<readonly string[] | null>(
-    args.requireProduct ? null : [],
-  );
-  const [lastWrite, setLastWrite] = useState<readonly string[] | null>(null);
-  const [localBanner, setLocalBanner] = useState<PhotoBannerKey | null>(null);
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [commitBusy, setCommitBusy] = useState(false);
+  const [snapshot, send, actorRef] = useActor(productPhotosSessionLogic, {
+    input: {
+      productId: args.productId,
+      requireProduct: args.requireProduct,
+      snapshotFileIds,
+    },
+  });
+  const session: PhotoSessionContext = snapshot.context;
 
-  const slotsRef = useRef(slots);
-  slotsRef.current = slots;
-  const baselineRef = useRef(baseline);
-  baselineRef.current = baseline;
-  const lastWriteRef = useRef(lastWrite);
-  lastWriteRef.current = lastWrite;
-  const lastFailureRef = useRef<QueryFailureKind | null>(null);
-  const commitBusyRef = useRef(false);
-  const commitQueuedRef = useRef(false);
   const runningRef = useRef(new Set<string>());
   const handshakeRef = useRef(new Map<string, Handshake>());
   const pickMetaRef = useRef(new Map<string, PickedPhoto>());
   const nextLocalRef = useRef(1);
-  const hydratedIdRef = useRef<string | null>(null);
   const mountedRef = useRef(true);
   const settleWaitersRef = useRef<Array<() => void>>([]);
   const sheetHiddenWaitersRef = useRef<Array<() => void>>([]);
@@ -122,38 +115,26 @@ export function useProductPhotos(args: {
     };
   }, []);
 
-  const query = useQuery(
-    getProductQueryOptions({
-      client: canWrite && args.requireProduct ? apiClient : null,
-      companyId: activeCompanyId,
-      productId: args.requireProduct ? args.productId : null,
-      getActiveCompany: () => apiClient?.getActiveCompany() ?? null,
-    }),
-  );
+  useEffect(() => {
+    if (args.imageFileIds === undefined && args.requireProduct) {
+      return;
+    }
+    send({
+      type: "hydrate",
+      productId: args.productId,
+      imageFileIds:
+        args.imageFileIds === undefined ? [] : [...args.imageFileIds],
+    });
+  }, [args.imageFileIds, args.productId, args.requireProduct, send]);
 
   useEffect(() => {
-    if (!args.requireProduct || query.data === undefined) {
+    if (args.productId === null) {
       return;
     }
-    if (hydratedIdRef.current === query.data.id) {
-      return;
-    }
-    hydratedIdRef.current = query.data.id;
-    const next = query.data.imageFileIds;
-    setSlots(
-      next.map((fileId) => ({
-        kind: "committed" as const,
-        id: fileId,
-        fileId,
-        localUri: null,
-      })),
-    );
-    setBaseline(next);
-    setLastWrite(null);
-    lastFailureRef.current = null;
-  }, [args.requireProduct, query.data]);
+    send({ type: "bindProductId", productId: args.productId });
+  }, [args.productId, send]);
 
-  const committedIds = slots
+  const committedIds = session.slots
     .filter((slot) => slot.kind === "committed")
     .map((slot) => slot.fileId);
   const urlsQuery = useQuery(
@@ -182,29 +163,34 @@ export function useProductPhotos(args: {
     },
   );
 
+  useEffect(() => {
+    send({ type: "setCanRetryAttempt", value: mutation.isError });
+  }, [mutation.isError, send]);
+
   const clientReady = apiClient !== null && activeCompanyId !== null;
   const state = classifyProductPhotosLoad({
     canWrite,
-    productId: productIdRef.current,
+    productId: session.productId,
     requireProduct: args.requireProduct,
     clientReady,
-    status: query.status,
-    failureKind: query.isError ? describeQueryFailure(query.error).kind : null,
+    status:
+      args.requireProduct && snapshotFileIds === null ? "pending" : "success",
+    failureKind: null,
   });
   const mutationFailure = mutation.isError
     ? describeQueryFailure(mutation.error).kind
     : null;
   const bannerKey: PhotoBannerKey | null =
-    localBanner ??
+    session.localBanner ??
     mapPhotoFailure(mutationFailure) ??
     (mutationFailure === null ? null : "commit");
   const banner = resolvePhotoBanner(copy.photos, bannerKey);
-  const tiles = toPhotoTiles(slots);
+  const tiles = photoSessionTiles(session);
 
   function portsFor(): ProductPhotoUploadPorts {
     return {
       prepare: (localUri) => {
-        const slot = slotsRef.current.find(
+        const slot = contextNow().slots.find(
           (item) => item.kind === "upload" && item.localUri === localUri,
         );
         const meta =
@@ -242,43 +228,30 @@ export function useProductPhotos(args: {
   }
 
   function updateMachine(id: string, machine: UploadMachine): void {
-    const next = patchUploadMachine(slotsRef.current, id, machine);
-    slotsRef.current = next;
-    if (mountedRef.current) {
-      setSlots(next);
-    }
+    actorRef.send({ type: "patchMachine", id, machine });
+  }
+
+  function contextNow(): PhotoSessionContext {
+    return actorRef.getSnapshot().context;
   }
 
   async function commitIfNeeded(): Promise<void> {
-    if (commitBusyRef.current) {
-      commitQueuedRef.current = true;
+    if (contextNow().commitBusy) {
+      actorRef.send({ type: "queueCommit" });
       return;
     }
-    commitBusyRef.current = true;
-    if (mountedRef.current) {
-      setCommitBusy(true);
-    }
+    actorRef.send({ type: "beginCommit" });
     try {
       do {
-        commitQueuedRef.current = false;
-        const plan = planPhotoCommit({
-          productId: productIdRef.current,
-          slots: slotsRef.current,
-          lastCommitted: baselineRef.current,
-          lastWrite: lastWriteRef.current,
-          lastFailureKind: lastFailureRef.current,
-          canRetryAttempt: mutation.isError,
-        });
+        actorRef.send({ type: "clearCommitQueue" });
+        const plan = selectPhotoSessionCommitPlan(contextNow());
         if (plan.kind === "noop") {
-          lastFailureRef.current = null;
+          actorRef.send({ type: "commitNoop" });
           mutation.reset();
           return;
         }
         if (plan.kind === "write") {
-          lastWriteRef.current = plan.fileIds;
-          if (mountedRef.current) {
-            setLastWrite(plan.fileIds);
-          }
+          actorRef.send({ type: "noteWrite", fileIds: [...plan.fileIds] });
         }
         const output =
           plan.kind === "write"
@@ -287,28 +260,23 @@ export function useProductPhotos(args: {
                 fileIds: plan.fileIds,
               })
             : await mutation.retry();
-        lastFailureRef.current = null;
-        const outputIds = [...output.fileIds];
-        const next = applyCommitSuccess(slotsRef.current, outputIds);
-        slotsRef.current = next;
-        baselineRef.current = outputIds;
-        if (mountedRef.current) {
-          setSlots(next);
-          setBaseline(outputIds);
-        }
+        actorRef.send({
+          type: "commitSucceeded",
+          fileIds: [...output.fileIds],
+        });
         mutation.reset();
         await invalidateCatalogAfterStatusWrite({
           queryClient,
           companyId: activeCompanyId,
         });
-      } while (readQueued(commitQueuedRef));
+      } while (contextNow().commitQueued);
     } catch (error: unknown) {
-      lastFailureRef.current = describeQueryFailure(error).kind;
+      actorRef.send({
+        type: "commitFailed",
+        kind: describeQueryFailure(error).kind,
+      });
     } finally {
-      commitBusyRef.current = false;
-      if (mountedRef.current) {
-        setCommitBusy(false);
-      }
+      actorRef.send({ type: "finishCommit" });
       notifySettled();
     }
   }
@@ -320,7 +288,7 @@ export function useProductPhotos(args: {
     if (runningRef.current.has(id)) {
       return;
     }
-    const slot = slotsRef.current.find((item) => item.id === id);
+    const slot = contextNow().slots.find((item) => item.id === id);
     if (slot === undefined || slot.kind !== "upload") {
       return;
     }
@@ -352,7 +320,7 @@ export function useProductPhotos(args: {
       handshake.prepared = result.prepared;
       handshake.requestAttempt = result.requestAttempt;
       handshake.finalizeAttempt = result.finalizeAttempt;
-      const stillPresent = slotsRef.current.some(
+      const stillPresent = contextNow().slots.some(
         (item) => item.kind === "upload" && item.id === id,
       );
       if (stillPresent) {
@@ -364,10 +332,11 @@ export function useProductPhotos(args: {
       if (result.machine.phase === "ready") {
         await commitIfNeeded();
       }
-      if (result.machine.phase === "failed") {
-        if (mountedRef.current) {
-          setLocalBanner(mapUploadBanner(result.machine.failure));
-        }
+      if (result.machine.phase === "failed" && mountedRef.current) {
+        actorRef.send({
+          type: "setBanner",
+          key: mapUploadBanner(result.machine.failure),
+        });
       }
     } finally {
       runningRef.current.delete(id);
@@ -376,19 +345,16 @@ export function useProductPhotos(args: {
   }
 
   function kickIdleUploads(): void {
-    for (const slot of idleUploadSlots(slotsRef.current)) {
-      void runSlot(slot.id, "start");
+    for (const id of selectPhotoSessionIdleIds(contextNow())) {
+      void runSlot(id, "start");
     }
   }
 
   function openPicker(): void {
-    if (remainingPhotoSlots(slotsRef.current) < 1) {
-      setLocalBanner("too_many");
-      return;
+    if (remainingPhotoSlots(contextNow().slots) > 0) {
+      mutation.reset();
     }
-    mutation.reset();
-    setLocalBanner(null);
-    setPickerOpen(true);
+    actorRef.send({ type: "openPicker" });
   }
 
   function notifySheetHidden(): void {
@@ -409,16 +375,17 @@ export function useProductPhotos(args: {
 
   async function pickFrom(source: "camera" | "library"): Promise<void> {
     const hidden = waitUntilSourceSheetHidden();
-    setPickerOpen(false);
+    actorRef.send({ type: "closePicker" });
     await hidden;
-    const remaining = remainingPhotoSlots(slotsRef.current);
+    const remaining = remainingPhotoSlots(contextNow().slots);
     const result = await pickProductPhotos(source, remaining);
     if (result.kind === "canceled") {
+      actorRef.send({ type: "pickCanceled" });
       notifySettled();
       return;
     }
     if (result.kind === "denied") {
-      setLocalBanner(mapDeniedBanner(result.source));
+      actorRef.send({ type: "pickDenied" });
       notifySettled();
       return;
     }
@@ -428,12 +395,7 @@ export function useProductPhotos(args: {
       pickMetaRef.current.set(id, photo);
       return { id, localUri: photo.uri };
     });
-    const added = addUploadSlots(slotsRef.current, photos);
-    slotsRef.current = added.slots;
-    setSlots(added.slots);
-    if (added.added < photos.length) {
-      setLocalBanner("too_many");
-    }
+    actorRef.send({ type: "addPhotos", photos });
     kickIdleUploads();
     notifySettled();
   }
@@ -443,40 +405,28 @@ export function useProductPhotos(args: {
     handshakeRef.current.delete(id);
     pickMetaRef.current.delete(id);
     runningRef.current.delete(id);
-    const next = removePhotoSlot(slotsRef.current, id);
-    slotsRef.current = next;
-    setSlots(next);
+    actorRef.send({ type: "cancelUpload", id });
     notifySettled();
-    // Ready uploads may already be in an in-flight replace; re-plan so a
-    // dropped fileId is not left on the product.
     void commitIfNeeded();
   }
 
   function removePhoto(id: string): void {
-    const slot = slotsRef.current.find((item) => item.id === id);
+    const slot = contextNow().slots.find((item) => item.id === id);
     if (slot?.kind === "upload") {
       cancelUpload(id);
       return;
     }
-    const next = removePhotoSlot(slotsRef.current, id);
-    slotsRef.current = next;
-    setSlots(next);
+    actorRef.send({ type: "removePhoto", id });
     void commitIfNeeded();
   }
 
   function movePhoto(id: string, direction: "earlier" | "later"): void {
-    const next = movePhotoSlot(slotsRef.current, id, direction);
-    slotsRef.current = next;
-    setSlots(next);
+    actorRef.send({ type: "movePhoto", id, direction });
     void commitIfNeeded();
   }
 
   function photosBusy(): boolean {
-    return (
-      hasInFlightPhotoUploads(slotsRef.current) ||
-      runningRef.current.size > 0 ||
-      commitBusyRef.current
-    );
+    return photoSessionIsBusy(contextNow()) || runningRef.current.size > 0;
   }
 
   function notifySettled(): void {
@@ -500,7 +450,7 @@ export function useProductPhotos(args: {
   }
 
   function bindProductId(productId: string): void {
-    productIdRef.current = productId;
+    actorRef.send({ type: "bindProductId", productId });
   }
 
   async function flush(): Promise<ProductPhotosFlushResult> {
@@ -508,56 +458,35 @@ export function useProductPhotos(args: {
     await waitUntilSettled();
     await commitIfNeeded();
     await waitUntilSettled();
-    const plan = planPhotoCommit({
-      productId: productIdRef.current,
-      slots: slotsRef.current,
-      lastCommitted: baselineRef.current,
-      lastWrite: lastWriteRef.current,
-      lastFailureKind: lastFailureRef.current,
-      canRetryAttempt: mutation.isError,
-    });
-    const outcome = photoFlushOutcome({
-      planKind: plan.kind,
-      lastFailureKind: lastFailureRef.current,
-    });
+    const outcome = selectPhotoSessionFlushOutcome(contextNow());
     if (outcome === "ok") {
-      lastFailureRef.current = null;
+      actorRef.send({ type: "clearFailure" });
     }
     return outcome;
   }
-
-  const needsCommit =
-    planPhotoCommit({
-      productId: productIdRef.current,
-      slots,
-      lastCommitted: baseline,
-      lastWrite,
-      lastFailureKind: lastFailureRef.current,
-      canRetryAttempt: mutation.isError,
-    }).kind !== "noop";
 
   return {
     tiles,
     previewByFileId,
     banner,
-    pickerOpen,
-    canAdd: remainingPhotoSlots(slots) > 0 && state.kind === "ready",
+    pickerOpen: session.pickerOpen,
+    canAdd: remainingPhotoSlots(session.slots) > 0 && state.kind === "ready",
     canRetryCommit: mutation.isError && state.kind === "ready",
-    commitPending: commitBusy || mutation.isPending,
-    dirty: photosAreDirty(slots, baseline),
-    needsCommit,
+    commitPending: session.commitBusy || mutation.isPending,
+    dirty: photoSessionDirty(session),
+    needsCommit: photoSessionNeedsCommit(session),
     bindProductId,
     flush,
     retry: () => {
-      void query.refetch();
+      void urlsQuery.refetch();
     },
     retryCommit: () => {
-      setLocalBanner(null);
+      actorRef.send({ type: "setBanner", key: null });
       void commitIfNeeded();
     },
     openPicker,
     closePicker: () => {
-      setPickerOpen(false);
+      actorRef.send({ type: "closePicker" });
     },
     onSourceSheetHidden: notifySheetHidden,
     pickCamera: () => {
@@ -574,8 +503,8 @@ export function useProductPhotos(args: {
       movePhoto(id, "later");
     },
     retryUpload: (id: string) => {
-      setLocalBanner(null);
-      const slot = slotsRef.current.find((item) => item.id === id);
+      actorRef.send({ type: "setBanner", key: null });
+      const slot = contextNow().slots.find((item) => item.id === id);
       if (slot?.kind === "upload") {
         updateMachine(id, slot.machine);
         void runSlot(id, "retry");
@@ -583,8 +512,4 @@ export function useProductPhotos(args: {
     },
     cancelUpload,
   };
-}
-
-function readQueued(ref: { current: boolean }): boolean {
-  return ref.current;
 }

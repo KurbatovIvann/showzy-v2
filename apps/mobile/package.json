@@ -14,6 +14,7 @@
     "export:web": "expo export --platform web --output-dir dist"
   },
   "dependencies": {
+    "@better-auth/expo": "1.6.30",
     "@expo/dom-webview": "~57.0.1",
     "@expo/metro-runtime": "~57.0.11",
     "@orpc/contract": "1.15.0",
@@ -21,10 +22,10 @@
     "@react-native-community/netinfo": "12.0.1",
     "@react-native-community/slider": "5.2.0",
     "@shopify/flash-list": "2.0.2",
-    "@better-auth/expo": "1.6.30",
     "@showzy/contract": "workspace:*",
     "@showzy/validation": "workspace:*",
     "@tanstack/react-query": "5.101.4",
+    "@xstate/react": "7.0.0-alpha.1",
     "better-auth": "1.6.30",
     "expo": "~57.0.14",
     "expo-audio": "~57.0.4",
@@ -69,7 +70,9 @@
     "react-native-view-shot": "5.1.0",
     "react-native-web": "^0.21.0",
     "react-native-webview": "13.16.1",
-    "react-native-worklets": "0.10.1"
+    "react-native-worklets": "0.10.1",
+    "xstate": "6.0.0-alpha.49",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@orpc/client": "1.15.0",
@@ -78,7 +81,6 @@
     "@types/react": "^19.1.17",
     "eslint": "^10.8.1",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.10",
-    "zod": "^4.4.3"
+    "vitest": "^4.1.10"
   }
 }

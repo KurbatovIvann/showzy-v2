@@ -1,13 +1,9 @@
 /**
- * Catalog image attach ceilings (SHO-141). Copied from the client-safe
- * files/catalog contracts — mobile cannot import module internals.
- *
- * - `SET_PRODUCT_IMAGES_MAX` matches `catalog.setProductImages` (~10).
- * - MIME/purpose/size match `files.requestUpload` (`wire.contract.ts`).
+ * Catalog image attach ceilings. The replace cap is
+ * `@showzy/validation/catalog` (SHO-156 / SHO-158). MIME/purpose/size
+ * match `files.requestUpload` (`wire.contract.ts`).
  */
-
-/** Ticket / contract ceiling for `catalog.setProductImages`. */
-export const SET_PRODUCT_IMAGES_MAX = 10;
+export { SET_PRODUCT_IMAGES_MAX } from "@showzy/validation/catalog";
 
 /** Files handshake purpose — catalog uploads only. */
 export const FILE_PURPOSE = "catalog" as const;
