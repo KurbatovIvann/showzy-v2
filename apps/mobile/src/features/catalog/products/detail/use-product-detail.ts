@@ -199,6 +199,7 @@ export function useProductDetail(
   const canFetchImages = canFetchFileDownloadUrls(membership.role);
   const photos = useProductPhotos({
     productId,
+    imageFileIds: query.data?.imageFileIds,
     requireProduct: true,
     canWrite: canEdit,
   });

@@ -91,14 +91,6 @@ export function useProductForm(args: {
       ? canCreateProducts(membership.role)
       : canEditProducts(membership.role);
 
-  const photos = useProductPhotos({
-    productId: routeProductId,
-    requireProduct: args.mode === "edit",
-    canWrite,
-  });
-  const photosRef = useRef(photos);
-  photosRef.current = photos;
-
   const [draft, setDraft] = useState<ProductFormDraft>(emptyProductFormDraft);
   const [origin, setOrigin] = useState<ProductFormDraft>(emptyProductFormDraft);
   const [baseline, setBaseline] = useState<ProductFormSnapshot | null>(null);
@@ -162,6 +154,15 @@ export function useProductForm(args: {
     setOrigin(next);
     setBaseline(snap);
   }, [args.mode, query.data]);
+
+  const photos = useProductPhotos({
+    productId: routeProductId,
+    imageFileIds: query.data?.imageFileIds,
+    requireProduct: args.mode === "edit",
+    canWrite,
+  });
+  const photosRef = useRef(photos);
+  photosRef.current = photos;
 
   const mutation = useContractMutation((input: ProductFormWrite, options) => {
     const current = apiRef.current;
