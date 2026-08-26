@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   detailViewerPhotoTiles,
+  imageFileIdsFromGetProduct,
   photoManagerInputFromDetailQuery,
 } from "./product-detail-photos";
 
@@ -9,9 +10,21 @@ const PRODUCT_ID = "0f0e2d5c-4a1b-4c3d-9e8f-102938475601";
 const FILE_A = "44444444-4444-4444-8444-444444444444";
 const FILE_B = "55555555-5555-4555-8555-555555555555";
 
+describe("imageFileIdsFromGetProduct", () => {
+  it("is undefined until getProduct data exists, then forwards the snapshot (including empty)", () => {
+    expect(imageFileIdsFromGetProduct(undefined)).toBeUndefined();
+    expect(imageFileIdsFromGetProduct({ imageFileIds: [] })).toEqual([]);
+    expect(
+      imageFileIdsFromGetProduct({ imageFileIds: [FILE_A, FILE_B] }),
+    ).toEqual([FILE_A, FILE_B]);
+  });
+});
+
 describe("photoManagerInputFromDetailQuery", () => {
   it("passes getProduct imageFileIds into the photo manager", () => {
-    const imageFileIds = [FILE_A, FILE_B];
+    const imageFileIds = imageFileIdsFromGetProduct({
+      imageFileIds: [FILE_A, FILE_B],
+    });
     expect(
       photoManagerInputFromDetailQuery({
         productId: PRODUCT_ID,
@@ -20,7 +33,7 @@ describe("photoManagerInputFromDetailQuery", () => {
       }),
     ).toEqual({
       productId: PRODUCT_ID,
-      imageFileIds,
+      imageFileIds: [FILE_A, FILE_B],
       requireProduct: true,
       canWrite: true,
     });
@@ -29,7 +42,7 @@ describe("photoManagerInputFromDetailQuery", () => {
   it("keeps imageFileIds undefined while the query is pending so photos wait instead of calling getProduct", () => {
     const input = photoManagerInputFromDetailQuery({
       productId: PRODUCT_ID,
-      imageFileIds: undefined,
+      imageFileIds: imageFileIdsFromGetProduct(undefined),
       canWrite: true,
     });
     expect(input.imageFileIds).toBeUndefined();
@@ -40,7 +53,7 @@ describe("photoManagerInputFromDetailQuery", () => {
     expect(
       photoManagerInputFromDetailQuery({
         productId: PRODUCT_ID,
-        imageFileIds: [],
+        imageFileIds: imageFileIdsFromGetProduct({ imageFileIds: [] }),
         canWrite: false,
       }).imageFileIds,
     ).toEqual([]);

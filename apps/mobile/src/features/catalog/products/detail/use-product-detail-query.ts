@@ -15,6 +15,7 @@ import {
   type ProductDetailState,
   type ProductDetailViewModel,
 } from "./product-detail-model";
+import { imageFileIdsFromGetProduct } from "./product-detail-photos";
 
 export function useProductDetailQuery(idParam: string | string[] | undefined): {
   readonly productId: string | null;
@@ -47,7 +48,7 @@ export function useProductDetailQuery(idParam: string | string[] | undefined): {
       failureKind,
     }),
     product: query.data === undefined ? null : toProductDetailView(query.data),
-    imageFileIds: query.data?.imageFileIds,
+    imageFileIds: imageFileIdsFromGetProduct(query.data),
     retry: () => {
       void query.refetch();
     },

@@ -15,6 +15,12 @@ export type ProductDetailPhotoManagerInput = {
   readonly canWrite: boolean;
 };
 
+export function imageFileIdsFromGetProduct(
+  data: { readonly imageFileIds: readonly string[] } | undefined,
+): readonly string[] | undefined {
+  return data === undefined ? undefined : data.imageFileIds;
+}
+
 export function photoManagerInputFromDetailQuery(args: {
   readonly productId: string | null;
   readonly imageFileIds: readonly string[] | undefined;
