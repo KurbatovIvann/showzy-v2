@@ -89,6 +89,7 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.card,
     borderWidth: 1,
     borderColor: theme.colors.border,
+    // Class B: canvas rounded-[20px] → radii.xl. Card primitive is 22.
     borderRadius: theme.radii.xl,
     ...theme.squircle,
     paddingHorizontal: theme.spacing.lg,
@@ -112,6 +113,7 @@ const styles = StyleSheet.create((theme) => ({
   name: {
     flexShrink: 1,
     color: theme.colors.foreground,
+    // Canvas 15 / 13 / 16 → base / xs / md.
     fontSize: theme.typography.base.fontSize,
     lineHeight: theme.typography.base.lineHeight,
     fontWeight: "600",
