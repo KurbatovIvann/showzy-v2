@@ -1,1 +1,1 @@
-export { ProductEditScreen as default } from "../../../../components/screens/products/product-form-screen";
+export { ProductEditScreen as default } from "../../../../features/catalog/products/form/product-form-screen";

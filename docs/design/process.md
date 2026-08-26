@@ -71,7 +71,9 @@ Product screens in `apps/mobile` are blocked until:
 2. Unistyles theme matches the canvas tables in `mp-to-mobile.md`.
 3. The specific screen exists on the canvas.
 4. Shared pieces went through `components/ui` (reuse or new primitive);
-   feature pieces stay under `components/screens/<feature>/`.
+   feature pieces live under `src/features/<module>/<surface>/` (golden:
+   `catalog/products`). Unmigrated screens stay in
+   `components/screens/<feature>/`.
 5. Interactive behavior maps to a V2 action/event or approved rework.
 6. Owner evaluation of the running SYSTEM is labeled
    `internal evaluation only`.
