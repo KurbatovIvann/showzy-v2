@@ -146,23 +146,17 @@ export function mapValidationIssues(
  */
 export function mapRhfVariantFieldErrors(
   variants: ReadonlyArray<{ readonly key: string }>,
-  rhfVariants: object | undefined,
+  rhfVariants: unknown,
 ): Record<string, VariantFieldErrors> {
-  if (rhfVariants === undefined) {
-    return {};
-  }
   const mapped: Record<string, VariantFieldErrors> = {};
   for (let index = 0; index < variants.length; index += 1) {
     const key = variants[index]?.key;
     if (key === undefined) {
       continue;
     }
-    const row = Reflect.get(rhfVariants, index);
-    if (row === null || typeof row !== "object") {
-      continue;
-    }
-    const nameMessage = rhfMessage(Reflect.get(row, "name"));
-    const priceMessage = rhfMessage(Reflect.get(row, "priceText"));
+    const row = rhfRowAt(rhfVariants, index);
+    const nameMessage = rhfFieldMessage(row, "name");
+    const priceMessage = rhfFieldMessage(row, "priceText");
     const name =
       nameMessage !== undefined && isNameErrorKey(nameMessage)
         ? nameMessage
@@ -178,11 +172,32 @@ export function mapRhfVariantFieldErrors(
   return mapped;
 }
 
-function rhfMessage(value: unknown): string | undefined {
-  if (value === null || typeof value !== "object") {
+function isUnknownRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function rhfRowAt(source: unknown, index: number): unknown {
+  if (Array.isArray(source)) {
+    return source[index];
+  }
+  if (isUnknownRecord(source)) {
+    return source[String(index)];
+  }
+  return undefined;
+}
+
+function rhfFieldMessage(
+  row: unknown,
+  field: "name" | "priceText",
+): string | undefined {
+  if (!isUnknownRecord(row)) {
     return undefined;
   }
-  const message = Reflect.get(value, "message");
+  const nested = row[field];
+  if (!isUnknownRecord(nested)) {
+    return undefined;
+  }
+  const message = nested.message;
   return typeof message === "string" ? message : undefined;
 }
 

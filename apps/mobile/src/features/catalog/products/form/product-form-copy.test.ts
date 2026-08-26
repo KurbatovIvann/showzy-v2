@@ -59,11 +59,7 @@ describe("mapRhfVariantFieldErrors", () => {
   it("maps indexed RHF variant messages onto draft keys", () => {
     expect(
       mapRhfVariantFieldErrors(
-        [
-          { key: "draft-1" },
-          { key: "draft-2" },
-          { key: "draft-blank" },
-        ],
+        [{ key: "draft-1" }, { key: "draft-2" }, { key: "draft-blank" }],
         [
           { name: { message: "required" } },
           { priceText: { message: "invalid" } },
