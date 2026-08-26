@@ -81,6 +81,12 @@ export type ProductsDetailCopy = {
   readonly restoreVariant: string;
   readonly archiveVariantNamed: string;
   readonly restoreVariantNamed: string;
+  readonly productActionsTitle: string;
+  readonly productActionsLabel: string;
+  readonly variantActionsLabel: string;
+  readonly statusActive: string;
+  readonly factsTitle: string;
+  readonly factStatus: string;
   readonly confirmArchiveProductTitle: string;
   readonly confirmArchiveProductDescription: string;
   readonly confirmRestoreProductTitle: string;
@@ -294,11 +300,17 @@ const en: ProductsCopy = {
     editLabel: "Edit",
     inheritedPrice: "Base price",
     archiveProduct: "Archive product",
-    restoreProduct: "Restore from archive",
+    restoreProduct: "Restore product",
     archiveVariant: "Archive",
     restoreVariant: "Restore",
     archiveVariantNamed: "Archive variant «{{name}}»",
     restoreVariantNamed: "Restore variant «{{name}}»",
+    productActionsTitle: "Product actions",
+    productActionsLabel: "Product actions",
+    variantActionsLabel: "Actions for «{{name}}»",
+    statusActive: "Active",
+    factsTitle: "Overview",
+    factStatus: "Status",
     confirmArchiveProductTitle: "Archive this product?",
     confirmArchiveProductDescription:
       "The product will leave sale. Variants keep their own status. Existing orders stay valid.",
@@ -471,11 +483,17 @@ const uk: ProductsCopy = {
     editLabel: "Редагувати",
     inheritedPrice: "Базова ціна",
     archiveProduct: "Архівувати товар",
-    restoreProduct: "Повернути з архіву",
+    restoreProduct: "Відновити товар",
     archiveVariant: "Архівувати",
-    restoreVariant: "Повернути",
+    restoreVariant: "Відновити",
     archiveVariantNamed: "Архівувати варіант «{{name}}»",
-    restoreVariantNamed: "Повернути варіант «{{name}}»",
+    restoreVariantNamed: "Відновити варіант «{{name}}»",
+    productActionsTitle: "Дії з товаром",
+    productActionsLabel: "Дії з товаром",
+    variantActionsLabel: "Дії з варіантом «{{name}}»",
+    statusActive: "Активний",
+    factsTitle: "Основне",
+    factStatus: "Статус",
     confirmArchiveProductTitle: "Архівувати товар?",
     confirmArchiveProductDescription:
       "Товар зникне з продажу. Статус варіантів не зміниться. Старі замовлення залишаться чинними.",

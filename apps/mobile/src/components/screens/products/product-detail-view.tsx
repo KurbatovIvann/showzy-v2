@@ -1,9 +1,11 @@
 import type { ReactNode } from "react";
 import { ScrollView, Text, View } from "react-native";
 import {
-  ImageIcon,
+  CameraIcon,
+  MoreHorizontalIcon,
   PackageIcon,
   PencilIcon,
+  PlusIcon,
   WifiOffIcon,
 } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -18,9 +20,11 @@ import {
   Sheet,
   StatusPill,
 } from "../../ui";
+import { ProductActionsSheet } from "./product-actions-sheet";
+import { ProductFormVariantSheet } from "./product-form-variant-sheet";
 import { ProductGallery } from "./product-gallery";
-import { variantStatusActionLabel } from "./product-detail-model";
 import { ProductVariantRow } from "./product-variant-row";
+import { VariantActionsSheet } from "./variant-actions-sheet";
 import type { ProductDetailModel } from "./use-product-detail";
 
 export function ProductDetailView(model: ProductDetailModel) {
@@ -35,60 +39,130 @@ export function ProductDetailView(model: ProductDetailModel) {
     >
       <AppHeader
         title={model.headerTitle}
+        subtitle={model.headerSubtitle}
         back={{
           onPress: model.goBack,
           accessibilityLabel: copy.backLabel,
         }}
         actions={
           model.canEdit && model.state.kind === "ready" ? (
-            <View style={styles.headerActions}>
-              <IconButton
-                variant="surface"
-                icon={
-                  <ImageIcon
-                    size={theme.iconSize.md}
-                    color={theme.colors.foreground}
-                  />
-                }
-                accessibilityLabel={copy.detail.photosManageLabel}
-                onPress={model.openPhotos}
-              />
-              <IconButton
-                variant="surface"
-                icon={
-                  <PencilIcon
-                    size={theme.iconSize.md}
-                    color={theme.colors.foreground}
-                  />
-                }
-                accessibilityLabel={copy.detail.editLabel}
-                onPress={model.openEdit}
-              />
-            </View>
+            <IconButton
+              variant="surface"
+              icon={
+                <MoreHorizontalIcon
+                  size={theme.iconSize.md}
+                  color={theme.colors.foreground}
+                />
+              }
+              accessibilityLabel={copy.detail.productActionsLabel}
+              onPress={model.openProductActions}
+            />
           ) : undefined
         }
       />
       <ProductDetailBody model={model} />
+      {model.canEdit &&
+      model.state.kind === "ready" &&
+      model.product !== null ? (
+        <View style={styles.footer}>
+          <View style={styles.footerButton}>
+            <Button
+              fullWidth
+              icon={
+                <PencilIcon
+                  size={theme.iconSize.sm}
+                  color={theme.colors.primaryForeground}
+                />
+              }
+              label={copy.detail.editLabel}
+              onPress={model.openEdit}
+            />
+          </View>
+          <View style={styles.footerButton}>
+            <Button
+              variant="secondary"
+              fullWidth
+              icon={
+                <CameraIcon
+                  size={theme.iconSize.sm}
+                  color={theme.colors.foreground}
+                />
+              }
+              label={copy.detail.photosLabel}
+              onPress={model.openPhotos}
+            />
+          </View>
+        </View>
+      ) : null}
+      <ProductActionsSheet
+        visible={model.productActionsVisible}
+        archived={model.product?.archived === true}
+        copy={copy.detail}
+        photosLabel={copy.detail.photosLabel}
+        onClose={model.closeProductActions}
+        onEdit={() => {
+          model.onProductSheetAction("edit");
+        }}
+        onPhotos={() => {
+          model.onProductSheetAction("photos");
+        }}
+        onStatus={() => {
+          model.onProductSheetAction("status");
+        }}
+      />
+      <VariantActionsSheet
+        visible={model.variantActionsVisible}
+        title={model.variantActionsTitle}
+        archived={model.variantActionsArchived}
+        copy={copy.detail}
+        onClose={model.closeVariantActions}
+        onEdit={() => {
+          model.onVariantSheetAction("edit");
+        }}
+        onStatus={() => {
+          model.onVariantSheetAction("status");
+        }}
+      />
+      <ProductFormVariantSheet
+        visible={model.variantEditorVisible}
+        mode={model.variantEditorMode}
+        initial={model.variantSheetInitial}
+        copy={copy.form}
+        nameMaxLength={model.nameMaxLength}
+        editable={!model.variantPending}
+        banner={model.variantBanner}
+        onClose={model.closeVariantEditor}
+        onSave={model.saveVariantFromSheet}
+      />
       <Sheet
         visible={model.confirm !== null}
         title={model.confirmCopy?.title ?? ""}
-        description={model.confirmCopy?.description ?? ""}
         onClose={model.closeConfirm}
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              fullWidth
+              label={copy.detail.cancel}
+              disabled={model.confirmPending}
+              onPress={model.closeConfirm}
+            />
+            <Button
+              variant={model.confirmDestructive ? "danger" : "primary"}
+              fullWidth
+              label={model.confirmCopy?.confirmLabel ?? ""}
+              loading={model.confirmPending}
+              onPress={model.confirmStatusWrite}
+            />
+          </>
+        }
       >
         {model.confirmBanner !== null && model.confirmBanner.length > 0 ? (
           <Banner message={model.confirmBanner} />
         ) : null}
-        <Button
-          label={model.confirmCopy?.confirmLabel ?? ""}
-          loading={model.confirmPending}
-          onPress={model.confirmStatusWrite}
-        />
-        <Button
-          variant="secondary"
-          label={copy.detail.cancel}
-          disabled={model.confirmPending}
-          onPress={model.closeConfirm}
-        />
+        <Text style={styles.confirmBody}>
+          {model.confirmCopy?.description ?? ""}
+        </Text>
       </Sheet>
     </SafeAreaView>
   );
@@ -108,8 +182,8 @@ function ProductDetailBody(props: { readonly model: ProductDetailModel }) {
           accessibilityLabel={copy.detail.loadingLabel}
         >
           <View style={styles.skeletonGallery} />
-          <View style={[styles.skeletonLine, styles.skeletonName]} />
-          <View style={[styles.skeletonLine, styles.skeletonPrice]} />
+          <View style={styles.skeletonCard} />
+          <View style={styles.skeletonCard} />
         </View>
       );
     case "offline":
@@ -167,13 +241,17 @@ function ProductDetailBody(props: { readonly model: ProductDetailModel }) {
 function ProductDetailReady(props: { readonly model: ProductDetailModel }) {
   const { model } = props;
   const product = model.product;
-  if (product === null) {
+  const facts = model.facts;
+  if (product === null || facts === null) {
     return null;
   }
   const { copy } = model;
+  const { theme } = useUnistyles();
+  const form = copy.form;
 
   return (
     <ScrollView
+      style={styles.scroll}
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
@@ -185,57 +263,108 @@ function ProductDetailReady(props: { readonly model: ProductDetailModel }) {
         photosLabel={copy.detail.photosLabel}
       />
       <View style={styles.identity}>
-        <View style={styles.nameRow}>
-          <Text style={styles.name}>{product.name}</Text>
-          {product.archived ? (
-            <StatusPill label={copy.archivedBadge} tone="neutral" />
-          ) : null}
-        </View>
+        <StatusPill label={facts.statusLabel} tone={facts.statusTone} />
         <Text style={styles.price}>{product.priceLabel}</Text>
       </View>
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{copy.detail.variantsTitle}</Text>
-        {product.variants.length === 0 ? (
-          <Text style={styles.muted}>{copy.variants.none}</Text>
-        ) : (
-          <View style={styles.variantList}>
-            {product.variants.map((variant) => (
-              <ProductVariantRow
-                key={variant.id}
-                id={variant.id}
-                name={variant.name}
-                priceLabel={variant.priceLabel}
-                priceInherited={variant.priceInherited}
-                inheritedLabel={copy.detail.inheritedPrice}
-                archived={variant.archived}
-                archivedLabel={copy.archivedBadge}
-                archiveLabel={copy.detail.archiveVariant}
-                restoreLabel={copy.detail.restoreVariant}
-                actionAccessibilityLabel={variantStatusActionLabel({
-                  archived: variant.archived,
-                  variantName: variant.name,
-                  copy: copy.detail,
-                })}
-                canEdit={model.canEdit}
-                onArchive={model.requestArchiveVariant}
-                onRestore={model.requestRestoreVariant}
-              />
-            ))}
-          </View>
-        )}
+        <Text style={styles.sectionTitle}>{copy.detail.factsTitle}</Text>
+        <View style={styles.factsCard}>
+          <FactRow
+            label={copy.detail.factStatus}
+            value={
+              <StatusPill label={facts.statusLabel} tone={facts.statusTone} />
+            }
+          />
+          <FactRow label={form.priceLabel} value={facts.priceLabel} />
+          <FactRow
+            label={copy.detail.variantsTitle}
+            value={facts.variantsLabel}
+            last
+          />
+        </View>
       </View>
-      {model.canEdit ? (
-        <Button
-          variant={product.archived ? "primary" : "secondary"}
-          label={
-            product.archived
-              ? copy.detail.restoreProduct
-              : copy.detail.archiveProduct
-          }
-          onPress={model.requestProductStatus}
-        />
+      <View style={styles.section}>
+        <View style={styles.sectionHeading}>
+          <Text style={styles.sectionTitle}>{copy.detail.variantsTitle}</Text>
+          {model.canAddVariant && product.variants.length > 0 ? (
+            <Button
+              variant="ghost"
+              icon={
+                <PlusIcon
+                  size={theme.iconSize.sm}
+                  color={theme.colors.primary}
+                />
+              }
+              label={form.addVariant}
+              onPress={model.openNewVariant}
+            />
+          ) : null}
+        </View>
+        <View style={styles.variantsCard}>
+          {product.variants.length === 0 ? (
+            <View style={styles.variantsEmpty}>
+              <Text style={styles.variantsEmptyTitle}>
+                {form.variantsEmptyTitle}
+              </Text>
+              <Text style={styles.muted}>{form.variantsEmptyDescription}</Text>
+              {model.canAddVariant ? (
+                <Button
+                  variant="secondary"
+                  icon={
+                    <PlusIcon
+                      size={theme.iconSize.sm}
+                      color={theme.colors.foreground}
+                    />
+                  }
+                  label={form.addVariant}
+                  onPress={model.openNewVariant}
+                />
+              ) : null}
+            </View>
+          ) : (
+            <View style={styles.variantList}>
+              {product.variants.map((variant) => (
+                <ProductVariantRow
+                  key={variant.id}
+                  id={variant.id}
+                  name={variant.name}
+                  priceLabel={model.variantPriceLabel(variant)}
+                  archived={variant.archived}
+                  archivedLabel={copy.archivedBadge}
+                  accessibilityLabel={model.variantAccessibilityLabel(variant)}
+                  canEdit={model.canEdit}
+                  onPress={model.openVariantActions}
+                />
+              ))}
+            </View>
+          )}
+        </View>
+      </View>
+      {model.variantBanner !== null &&
+      model.variantBanner.length > 0 &&
+      !model.variantEditorVisible ? (
+        <Banner message={model.variantBanner} />
       ) : null}
     </ScrollView>
+  );
+}
+
+function FactRow(props: {
+  readonly label: string;
+  readonly value: ReactNode;
+  readonly last?: boolean;
+}) {
+  return (
+    <View
+      style={[styles.factRow, props.last === true ? null : styles.factDivider]}
+    >
+      <Text style={styles.factLabel}>{props.label}</Text>
+      {typeof props.value === "string" ? (
+        <Text style={styles.factValue}>{props.value}</Text>
+      ) : (
+        props.value
+      )}
+    </View>
   );
 }
 
@@ -248,31 +377,19 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
     backgroundColor: theme.colors.background,
   },
-  headerActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing.sm,
+  scroll: {
+    flex: 1,
   },
   content: {
     paddingHorizontal: theme.spacing.lg,
-    paddingBottom: theme.spacing["3xl"],
+    paddingBottom: theme.spacing.xl,
     gap: theme.spacing.xl,
   },
   identity: {
-    gap: theme.spacing.sm,
-  },
-  nameRow: {
     flexDirection: "row",
-    alignItems: "center",
     flexWrap: "wrap",
+    alignItems: "center",
     gap: theme.spacing.sm,
-  },
-  name: {
-    flexShrink: 1,
-    color: theme.colors.foreground,
-    fontSize: theme.typography.xl.fontSize,
-    lineHeight: theme.typography.xl.lineHeight,
-    fontWeight: "600",
   },
   price: {
     color: theme.colors.foreground,
@@ -282,21 +399,100 @@ const styles = StyleSheet.create((theme) => ({
     fontVariant: ["tabular-nums"],
   },
   section: {
-    gap: theme.spacing.md,
+    gap: theme.spacing.sm,
+  },
+  sectionHeading: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: theme.spacing.sm,
   },
   sectionTitle: {
-    color: theme.colors.foreground,
-    fontSize: theme.typography.base.fontSize,
-    lineHeight: theme.typography.base.lineHeight,
+    paddingHorizontal: theme.spacing.xs,
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.xs.fontSize,
+    lineHeight: theme.typography.xs.lineHeight,
     fontWeight: "600",
   },
-  muted: {
+  factsCard: {
+    backgroundColor: theme.colors.card,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radii.card,
+    ...theme.squircle,
+    paddingHorizontal: theme.spacing.lg,
+    ...theme.shadows.sm,
+  },
+  factRow: {
+    minHeight: theme.hitTarget.min,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: theme.spacing.lg,
+  },
+  factDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  factLabel: {
     color: theme.colors.mutedForeground,
     fontSize: theme.typography.sm.fontSize,
     lineHeight: theme.typography.sm.lineHeight,
   },
+  factValue: {
+    flexShrink: 1,
+    textAlign: "right",
+    color: theme.colors.foreground,
+    fontSize: theme.typography.sm.fontSize,
+    lineHeight: theme.typography.sm.lineHeight,
+    fontWeight: "600",
+  },
+  variantsCard: {
+    backgroundColor: theme.colors.card,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radii.card,
+    ...theme.squircle,
+    padding: theme.spacing.md,
+    gap: theme.spacing.sm,
+    ...theme.shadows.sm,
+  },
   variantList: {
-    gap: theme.spacing.md,
+    gap: theme.spacing.sm,
+  },
+  variantsEmpty: {
+    gap: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.md,
+  },
+  variantsEmptyTitle: {
+    color: theme.colors.foreground,
+    fontSize: theme.typography.sm.fontSize,
+    lineHeight: theme.typography.sm.lineHeight,
+    fontWeight: "600",
+  },
+  muted: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.xs.fontSize,
+    lineHeight: theme.typography.xs.lineHeight,
+  },
+  footer: {
+    flexDirection: "row",
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+    backgroundColor: theme.colors.card,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.md,
+    paddingBottom: theme.spacing.md,
+    gap: theme.spacing.sm,
+  },
+  footerButton: {
+    flex: 1,
+  },
+  confirmBody: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.sm.fontSize,
+    lineHeight: theme.typography.sm.lineHeight,
   },
   centered: {
     flex: 1,
@@ -313,16 +509,10 @@ const styles = StyleSheet.create((theme) => ({
     ...theme.squircle,
     backgroundColor: theme.colors.skeleton,
   },
-  skeletonLine: {
-    borderRadius: theme.radii.full,
+  skeletonCard: {
+    height: theme.hitTarget.row,
+    borderRadius: theme.radii.card,
+    ...theme.squircle,
     backgroundColor: theme.colors.skeleton,
-  },
-  skeletonName: {
-    height: theme.spacing.xl,
-    width: "70%",
-  },
-  skeletonPrice: {
-    height: theme.spacing.lg,
-    width: "40%",
   },
 }));

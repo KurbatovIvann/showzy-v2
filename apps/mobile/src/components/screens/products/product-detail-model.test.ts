@@ -4,6 +4,7 @@ import { productsCopy } from "../../../i18n/products";
 import {
   classifyProductDetail,
   classifyProductGallery,
+  confirmIsDestructive,
   confirmSheetCopy,
   confirmTargetForProduct,
   confirmTargetForVariant,
@@ -11,10 +12,25 @@ import {
   isConfirmWriteBusy,
   mapStatusWriteFailure,
   planConfirmStatusWrite,
+  productEditorHref,
+  productFacts,
+  productHeaderSubtitle,
+  productPhotoHref,
+  productSheetActionIds,
   productIdFromParam,
+  resultForProductSheetAction,
+  resultForVariantSheetAction,
+  sheetsAfterCloseVariantEditor,
+  sheetsAfterDismissConfirm,
+  sheetsAfterProductSheetAction,
+  sheetsAfterVariantSheetAction,
+  sheetsOpenNewVariant,
+  sheetsOpenVariantActions,
+  IDLE_DETAIL_SHEETS,
   statusWriteBanner,
   statusWriteForConfirm,
   toProductDetailView,
+  variantRowPriceLabel,
   variantStatusActionLabel,
 } from "./product-detail-model";
 import type { GetProductOutput } from "./product-detail-query";
@@ -143,6 +159,7 @@ describe("toProductDetailView", () => {
         archived: false,
         priceLabel: "1\u00A0234,56\u00A0₴",
         priceInherited: true,
+        priceMinor: null,
       },
     ]);
   });
@@ -167,6 +184,7 @@ describe("toProductDetailView", () => {
       archived: true,
       priceLabel: "2\u00A0000\u00A0₴",
       priceInherited: false,
+      priceMinor: "200000",
     });
   });
 });
@@ -371,6 +389,178 @@ describe("variantStatusActionLabel", () => {
         variantName: "1 кг",
         copy,
       }),
-    ).toBe("Повернути варіант «1 кг»");
+    ).toBe("Відновити варіант «1 кг»");
+  });
+});
+
+describe("photo and edit routes", () => {
+  it("sends Фото and Редагувати to the editor, never /photos", () => {
+    expect(productEditorHref(PRODUCT_ID)).toBe(`/products/${PRODUCT_ID}/edit`);
+    expect(productPhotoHref(PRODUCT_ID)).toBe(productEditorHref(PRODUCT_ID));
+    expect(productPhotoHref(PRODUCT_ID)).not.toContain("/photos");
+  });
+});
+
+describe("⋯ sheet and variant action destinations", () => {
+  it("keeps edit and photos on the editor route and status on confirm", () => {
+    expect(productSheetActionIds()).toEqual(["edit", "photos", "status"]);
+    expect(
+      resultForProductSheetAction({ action: "edit", archived: false }),
+    ).toEqual({ kind: "navigate-edit" });
+    expect(
+      resultForProductSheetAction({ action: "photos", archived: true }),
+    ).toEqual({ kind: "navigate-edit" });
+    expect(
+      resultForProductSheetAction({ action: "status", archived: false }),
+    ).toEqual({
+      kind: "confirm",
+      target: { kind: "archive-product" },
+    });
+    expect(
+      resultForProductSheetAction({ action: "status", archived: true }),
+    ).toEqual({
+      kind: "confirm",
+      target: { kind: "restore-product" },
+    });
+  });
+
+  it("routes variant edit to the editor and status to confirm", () => {
+    expect(
+      resultForVariantSheetAction({
+        action: "edit",
+        archived: false,
+        variantId: VARIANT_ID,
+        variantName: "1 кг",
+      }),
+    ).toEqual({ kind: "editor" });
+    expect(
+      resultForVariantSheetAction({
+        action: "status",
+        archived: false,
+        variantId: VARIANT_ID,
+        variantName: "1 кг",
+      }),
+    ).toEqual({
+      kind: "confirm",
+      target: {
+        kind: "archive-variant",
+        variantId: VARIANT_ID,
+        variantName: "1 кг",
+      },
+    });
+    expect(
+      resultForVariantSheetAction({
+        action: "status",
+        archived: true,
+        variantId: VARIANT_ID,
+        variantName: "1 кг",
+      }),
+    ).toEqual({
+      kind: "confirm",
+      target: {
+        kind: "restore-variant",
+        variantId: VARIANT_ID,
+        variantName: "1 кг",
+      },
+    });
+  });
+
+  it("closes ⋯ before confirm and returns variant actions after a cancelled variant confirm", () => {
+    expect(
+      sheetsAfterProductSheetAction(
+        resultForProductSheetAction({ action: "photos", archived: false }),
+      ),
+    ).toEqual({
+      productActions: false,
+      variantActionId: null,
+      variantEditor: null,
+      confirm: null,
+    });
+    expect(
+      sheetsAfterProductSheetAction(
+        resultForProductSheetAction({ action: "status", archived: false }),
+      ).confirm,
+    ).toEqual({ kind: "archive-product" });
+    const variantConfirm = sheetsAfterVariantSheetAction({
+      variantId: VARIANT_ID,
+      result: resultForVariantSheetAction({
+        action: "status",
+        archived: false,
+        variantId: VARIANT_ID,
+        variantName: "1 кг",
+      }),
+    });
+    expect(variantConfirm.variantActionId).toBe(VARIANT_ID);
+    expect(variantConfirm.confirm?.kind).toBe("archive-variant");
+    expect(sheetsAfterDismissConfirm(variantConfirm)).toEqual(
+      sheetsOpenVariantActions(VARIANT_ID),
+    );
+    expect(
+      sheetsAfterCloseVariantEditor(
+        sheetsAfterVariantSheetAction({
+          variantId: VARIANT_ID,
+          result: { kind: "editor" },
+        }),
+      ),
+    ).toEqual(sheetsOpenVariantActions(VARIANT_ID));
+    expect(sheetsAfterCloseVariantEditor(sheetsOpenNewVariant())).toEqual(
+      IDLE_DETAIL_SHEETS,
+    );
+  });
+
+  it("marks archive confirms as danger and restore as not", () => {
+    expect(confirmIsDestructive({ kind: "archive-product" })).toBe(true);
+    expect(confirmIsDestructive({ kind: "restore-product" })).toBe(false);
+    expect(
+      confirmIsDestructive({
+        kind: "archive-variant",
+        variantId: VARIANT_ID,
+        variantName: "1 кг",
+      }),
+    ).toBe(true);
+    expect(
+      confirmIsDestructive({
+        kind: "restore-variant",
+        variantId: VARIANT_ID,
+        variantName: "1 кг",
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("header subtitle and Основне facts", () => {
+  it("joins status and price for the header and counts variants in uk", () => {
+    const copy = productsCopy("uk");
+    expect(
+      productHeaderSubtitle({
+        archived: false,
+        statusActive: copy.detail.statusActive,
+        statusArchived: copy.archivedBadge,
+        priceLabel: "1 234,56 ₴",
+      }),
+    ).toBe("Активний · 1 234,56 ₴");
+    expect(
+      productFacts({
+        archived: false,
+        statusActive: copy.detail.statusActive,
+        statusArchived: copy.archivedBadge,
+        priceLabel: "1 234,56 ₴",
+        variantCount: 2,
+        locale: "uk",
+        variantForms: copy.variants,
+      }),
+    ).toEqual({
+      statusLabel: "Активний",
+      statusTone: "success",
+      priceLabel: "1 234,56 ₴",
+      variantsLabel: "2 варіанти",
+    });
+    expect(
+      variantRowPriceLabel({
+        inherited: true,
+        priceLabel: "1 234,56 ₴",
+        inheritedTemplate: copy.form.variantInheritedPrice,
+      }),
+    ).toBe("як у товару · 1 234,56 ₴");
   });
 });

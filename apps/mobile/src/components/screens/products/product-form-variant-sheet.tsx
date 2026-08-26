@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import { Button, Sheet, SwitchRow, TextField } from "../../ui";
 import type { ProductsFormCopy } from "../../../i18n/products";
+import { Banner, Button, Sheet, SwitchRow, TextField } from "../../ui";
 import {
   isVariantSheetValid,
   validateVariantSheet,
@@ -25,6 +25,7 @@ export function ProductFormVariantSheet(props: {
     readonly name: string;
     readonly priceText: string;
   }) => void;
+  readonly banner?: string | null;
 }) {
   const { copy } = props;
   const [draft, setDraft] = useState<VariantSheetDraft>(() =>
@@ -34,9 +35,12 @@ export function ProductFormVariantSheet(props: {
     validateVariantSheet(variantDraftToSheet(null)),
   );
   const [showErrors, setShowErrors] = useState(false);
+  const wasVisible = useRef(false);
 
   useEffect(() => {
-    if (!props.visible) {
+    const opened = props.visible && !wasVisible.current;
+    wasVisible.current = props.visible;
+    if (!opened) {
       return;
     }
     const next = variantDraftToSheet(props.initial);
@@ -94,6 +98,9 @@ export function ProductFormVariantSheet(props: {
         />
       }
     >
+      {props.banner != null && props.banner.length > 0 ? (
+        <Banner message={props.banner} />
+      ) : null}
       <TextField
         label={copy.variantSheetNameLabel}
         value={draft.name}

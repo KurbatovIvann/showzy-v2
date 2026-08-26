@@ -1,16 +1,20 @@
 /**
- * Pure view-model logic for the product detail screen (SHO-138). No
- * React Native imports so the decision surface is unit-testable.
+ * Pure view-model logic for the product detail screen (SHO-138 / SHO-152).
+ * No React Native imports so the decision surface is unit-testable.
  */
 import type { QueryFailureKind } from "../../../api/errors";
 import { formatMoneyMinor } from "../../../format/money";
-import { interpolate } from "../../../i18n/locale";
-import type { ProductsDetailCopy } from "../../../i18n/products";
+import { interpolate, type Locale } from "../../../i18n/locale";
+import type {
+  ProductsDetailCopy,
+  ProductsVariantForms,
+} from "../../../i18n/products";
 import type { CatalogStatusWrite } from "./product-archive";
 import type {
   GetProductOutput,
   GetProductVariant,
 } from "./product-detail-query";
+import { variantCountLabel } from "./variant-count";
 
 /** Contract `productId` / `variantId` are UUIDs; refuse anything else. */
 export const PRODUCT_ID_PATTERN =
@@ -66,6 +70,7 @@ export type ProductVariantView = {
   readonly archived: boolean;
   readonly priceLabel: string;
   readonly priceInherited: boolean;
+  readonly priceMinor: string | null;
 };
 
 export type ProductDetailViewModel = {
@@ -118,6 +123,7 @@ export function toProductDetailView(
         archived: variant.status === "archived",
         priceLabel: price.priceLabel,
         priceInherited: price.priceInherited,
+        priceMinor: variant.basePriceMinor,
       };
     }),
   };
@@ -311,4 +317,207 @@ export function variantStatusActionLabel(args: {
       : args.copy.archiveVariantNamed,
     { name: args.variantName },
   );
+}
+
+/** Owner 2026-08-26: attach lives on create/edit, not detail. Never `/photos`. */
+export function productEditorHref(productId: string): string {
+  return `/products/${productId}/edit`;
+}
+
+export function productPhotoHref(productId: string): string {
+  return productEditorHref(productId);
+}
+
+export type ProductSheetActionId = "edit" | "photos" | "status";
+
+export type VariantSheetActionId = "edit" | "status";
+
+export type ProductSheetActionResult =
+  | { readonly kind: "navigate-edit" }
+  | { readonly kind: "confirm"; readonly target: ConfirmTarget };
+
+export type VariantSheetActionResult =
+  | { readonly kind: "editor" }
+  | { readonly kind: "confirm"; readonly target: ConfirmTarget };
+
+export function productSheetActionIds(): readonly ProductSheetActionId[] {
+  return ["edit", "photos", "status"];
+}
+
+export function resultForProductSheetAction(args: {
+  readonly action: ProductSheetActionId;
+  readonly archived: boolean;
+}): ProductSheetActionResult {
+  if (args.action === "edit" || args.action === "photos") {
+    return { kind: "navigate-edit" };
+  }
+  return {
+    kind: "confirm",
+    target: confirmTargetForProduct(args.archived),
+  };
+}
+
+export function resultForVariantSheetAction(args: {
+  readonly action: VariantSheetActionId;
+  readonly archived: boolean;
+  readonly variantId: string;
+  readonly variantName: string;
+}): VariantSheetActionResult {
+  if (args.action === "edit") {
+    return { kind: "editor" };
+  }
+  return {
+    kind: "confirm",
+    target: confirmTargetForVariant({
+      archived: args.archived,
+      variantId: args.variantId,
+      variantName: args.variantName,
+    }),
+  };
+}
+
+export function confirmIsDestructive(target: ConfirmTarget): boolean {
+  return target.kind === "archive-product" || target.kind === "archive-variant";
+}
+
+export type DetailSheets = {
+  readonly productActions: boolean;
+  readonly variantActionId: string | null;
+  readonly variantEditor:
+    | { readonly mode: "new" }
+    | { readonly mode: "edit"; readonly variantId: string }
+    | null;
+  readonly confirm: ConfirmTarget | null;
+};
+
+export const IDLE_DETAIL_SHEETS: DetailSheets = {
+  productActions: false,
+  variantActionId: null,
+  variantEditor: null,
+  confirm: null,
+};
+
+export function sheetsOpenProductActions(): DetailSheets {
+  return { ...IDLE_DETAIL_SHEETS, productActions: true };
+}
+
+export function sheetsOpenVariantActions(variantId: string): DetailSheets {
+  return { ...IDLE_DETAIL_SHEETS, variantActionId: variantId };
+}
+
+export function sheetsOpenNewVariant(): DetailSheets {
+  return { ...IDLE_DETAIL_SHEETS, variantEditor: { mode: "new" } };
+}
+
+export function sheetsAfterProductSheetAction(
+  result: ProductSheetActionResult,
+): DetailSheets {
+  if (result.kind === "navigate-edit") {
+    return IDLE_DETAIL_SHEETS;
+  }
+  return { ...IDLE_DETAIL_SHEETS, confirm: result.target };
+}
+
+export function sheetsAfterVariantSheetAction(args: {
+  readonly variantId: string;
+  readonly result: VariantSheetActionResult;
+}): DetailSheets {
+  if (args.result.kind === "editor") {
+    return {
+      productActions: false,
+      variantActionId: args.variantId,
+      variantEditor: { mode: "edit", variantId: args.variantId },
+      confirm: null,
+    };
+  }
+  return {
+    productActions: false,
+    variantActionId: args.variantId,
+    variantEditor: null,
+    confirm: args.result.target,
+  };
+}
+
+export function sheetsAfterCloseVariantEditor(
+  sheets: DetailSheets,
+): DetailSheets {
+  const editor = sheets.variantEditor;
+  if (editor !== null && editor.mode === "edit") {
+    return {
+      ...IDLE_DETAIL_SHEETS,
+      variantActionId: editor.variantId,
+    };
+  }
+  return IDLE_DETAIL_SHEETS;
+}
+
+export function sheetsAfterDismissConfirm(sheets: DetailSheets): DetailSheets {
+  const target = sheets.confirm;
+  if (
+    target !== null &&
+    (target.kind === "archive-variant" || target.kind === "restore-variant") &&
+    sheets.variantActionId !== null
+  ) {
+    return {
+      ...IDLE_DETAIL_SHEETS,
+      variantActionId: sheets.variantActionId,
+    };
+  }
+  return IDLE_DETAIL_SHEETS;
+}
+
+export function productHeaderSubtitle(args: {
+  readonly archived: boolean;
+  readonly statusActive: string;
+  readonly statusArchived: string;
+  readonly priceLabel: string;
+}): string {
+  const status = args.archived ? args.statusArchived : args.statusActive;
+  return `${status} · ${args.priceLabel}`;
+}
+
+export type ProductFacts = {
+  readonly statusLabel: string;
+  readonly statusTone: "success" | "neutral";
+  readonly priceLabel: string;
+  readonly variantsLabel: string;
+};
+
+export function productFacts(args: {
+  readonly archived: boolean;
+  readonly statusActive: string;
+  readonly statusArchived: string;
+  readonly priceLabel: string;
+  readonly variantCount: number;
+  readonly locale: Locale;
+  readonly variantForms: ProductsVariantForms;
+}): ProductFacts {
+  return {
+    statusLabel: args.archived ? args.statusArchived : args.statusActive,
+    statusTone: args.archived ? "neutral" : "success",
+    priceLabel: args.priceLabel,
+    variantsLabel: variantCountLabel(
+      args.variantCount,
+      args.locale,
+      args.variantForms,
+    ),
+  };
+}
+
+export function variantRowPriceLabel(args: {
+  readonly inherited: boolean;
+  readonly priceLabel: string;
+  readonly inheritedTemplate: string;
+}): string {
+  if (!args.inherited) {
+    return args.priceLabel;
+  }
+  return interpolate(args.inheritedTemplate, { price: args.priceLabel });
+}
+
+export function variantRowActionsLabel(args: {
+  readonly variantName: string;
+  readonly template: string;
+}): string {
+  return interpolate(args.template, { name: args.variantName });
 }
