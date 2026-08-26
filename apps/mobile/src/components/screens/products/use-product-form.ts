@@ -293,7 +293,7 @@ export function useProductForm(args: {
       companyId: activeCompanyId,
     });
     if (mountedRef.current) {
-      router.back();
+      setLeaveArmed(true);
     }
   }
 
@@ -328,6 +328,7 @@ export function useProductForm(args: {
           return;
         }
         if (plan.kind === "noop") {
+          setOrigin(draftRef.current);
           await finish();
           return;
         }
@@ -353,6 +354,7 @@ export function useProductForm(args: {
         draftRef.current = applied.draft;
         baselineRef.current = applied.baseline;
         setDraft(applied.draft);
+        setOrigin(applied.draft);
         setBaseline(applied.baseline);
         mutation.reset();
         if (applied.done) {
