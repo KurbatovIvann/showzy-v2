@@ -256,44 +256,6 @@ export function statusWriteBanner(
   return copy.mutationError;
 }
 
-export function galleryPageIndex(args: {
-  readonly offsetX: number;
-  readonly pageWidth: number;
-  readonly pageCount: number;
-}): number {
-  if (args.pageWidth <= 0 || args.pageCount <= 0) {
-    return 0;
-  }
-  const page = Math.round(args.offsetX / args.pageWidth);
-  return Math.min(args.pageCount - 1, Math.max(0, page));
-}
-
-/**
- * Gallery empty copy is only for a product with no photos. Fetching
- * (`files.getDownloadUrl`) is gated separately so an employee still
- * sees that photos exist, and so layout measurement never flashes the
- * empty label.
- */
-export type ProductGalleryMode =
-  "empty" | "pending-layout" | "no-fetch" | "images";
-
-export function classifyProductGallery(args: {
-  readonly fileCount: number;
-  readonly canFetchImages: boolean;
-  readonly pageWidth: number | undefined;
-}): ProductGalleryMode {
-  if (args.fileCount <= 0) {
-    return "empty";
-  }
-  if (args.pageWidth === undefined || args.pageWidth <= 0) {
-    return "pending-layout";
-  }
-  if (!args.canFetchImages) {
-    return "no-fetch";
-  }
-  return "images";
-}
-
 /** Failed confirm reuses the in-flight attempt; a fresh confirm submits. */
 export function planConfirmStatusWrite(isError: boolean): "retry" | "submit" {
   return isError ? "retry" : "submit";
@@ -319,13 +281,13 @@ export function variantStatusActionLabel(args: {
   );
 }
 
-/** Owner 2026-08-26: attach lives on create/edit, not detail. Never `/photos`. */
+/** Photos attach on create, edit, and detail. Never a `/photos` route. */
 export function productEditorHref(productId: string): string {
   return `/products/${productId}/edit`;
 }
 
 export function productPhotoHref(productId: string): string {
-  return productEditorHref(productId);
+  return `/products/${productId}`;
 }
 
 export type ProductSheetActionId = "edit" | "photos" | "status";
@@ -334,6 +296,7 @@ export type VariantSheetActionId = "edit" | "status";
 
 export type ProductSheetActionResult =
   | { readonly kind: "navigate-edit" }
+  | { readonly kind: "focus-photos" }
   | { readonly kind: "confirm"; readonly target: ConfirmTarget };
 
 export type VariantSheetActionResult =
@@ -348,8 +311,11 @@ export function resultForProductSheetAction(args: {
   readonly action: ProductSheetActionId;
   readonly archived: boolean;
 }): ProductSheetActionResult {
-  if (args.action === "edit" || args.action === "photos") {
+  if (args.action === "edit") {
     return { kind: "navigate-edit" };
+  }
+  if (args.action === "photos") {
+    return { kind: "focus-photos" };
   }
   return {
     kind: "confirm",
@@ -387,14 +353,12 @@ export type DetailSheets = {
     | { readonly mode: "new" }
     | { readonly mode: "edit"; readonly variantId: string }
     | null;
-  readonly confirm: ConfirmTarget | null;
 };
 
 export const IDLE_DETAIL_SHEETS: DetailSheets = {
   productActions: false,
   variantActionId: null,
   variantEditor: null,
-  confirm: null,
 };
 
 export function sheetsOpenProductActions(): DetailSheets {
@@ -409,13 +373,8 @@ export function sheetsOpenNewVariant(): DetailSheets {
   return { ...IDLE_DETAIL_SHEETS, variantEditor: { mode: "new" } };
 }
 
-export function sheetsAfterProductSheetAction(
-  result: ProductSheetActionResult,
-): DetailSheets {
-  if (result.kind === "navigate-edit") {
-    return IDLE_DETAIL_SHEETS;
-  }
-  return { ...IDLE_DETAIL_SHEETS, confirm: result.target };
+export function sheetsAfterProductSheetAction(): DetailSheets {
+  return IDLE_DETAIL_SHEETS;
 }
 
 export function sheetsAfterVariantSheetAction(args: {
@@ -427,15 +386,9 @@ export function sheetsAfterVariantSheetAction(args: {
       productActions: false,
       variantActionId: args.variantId,
       variantEditor: { mode: "edit", variantId: args.variantId },
-      confirm: null,
     };
   }
-  return {
-    productActions: false,
-    variantActionId: args.variantId,
-    variantEditor: null,
-    confirm: args.result.target,
-  };
+  return IDLE_DETAIL_SHEETS;
 }
 
 export function sheetsAfterCloseVariantEditor(
@@ -451,17 +404,16 @@ export function sheetsAfterCloseVariantEditor(
   return IDLE_DETAIL_SHEETS;
 }
 
-export function sheetsAfterDismissConfirm(sheets: DetailSheets): DetailSheets {
-  const target = sheets.confirm;
+export function sheetsAfterCancelStatusConfirm(args: {
+  readonly target: ConfirmTarget;
+  readonly variantActionId: string | null;
+}): DetailSheets {
   if (
-    target !== null &&
-    (target.kind === "archive-variant" || target.kind === "restore-variant") &&
-    sheets.variantActionId !== null
+    (args.target.kind === "archive-variant" ||
+      args.target.kind === "restore-variant") &&
+    args.variantActionId !== null
   ) {
-    return {
-      ...IDLE_DETAIL_SHEETS,
-      variantActionId: sheets.variantActionId,
-    };
+    return sheetsOpenVariantActions(args.variantActionId);
   }
   return IDLE_DETAIL_SHEETS;
 }

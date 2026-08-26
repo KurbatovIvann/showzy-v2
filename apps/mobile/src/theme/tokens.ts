@@ -187,7 +187,7 @@ export const radii = {
 
 export const hitTarget = {
   min: 44,
-  field: 48,
+  field: 64,
   auth: 54,
   /** Canvas list row minimum (ProductRow, later Order/Customer rows). */
   row: 88,

@@ -11,7 +11,7 @@ import { Sheet } from "../../ui";
 import { ProductSheetAction } from "./product-sheet-action";
 
 /**
- * Canvas «Дії з товаром»: Редагувати, Фото (→ edit), Архівувати|Відновити.
+ * Canvas «Дії з товаром»: Редагувати, Фото (this screen), Архівувати|Відновити.
  */
 export function ProductActionsSheet(props: {
   readonly visible: boolean;
@@ -19,6 +19,7 @@ export function ProductActionsSheet(props: {
   readonly copy: ProductsDetailCopy;
   readonly photosLabel: string;
   readonly onClose: () => void;
+  readonly onHidden: () => void;
   readonly onEdit: () => void;
   readonly onPhotos: () => void;
   readonly onStatus: () => void;
@@ -33,6 +34,7 @@ export function ProductActionsSheet(props: {
       visible={props.visible}
       title={copy.productActionsTitle}
       onClose={props.onClose}
+      onHidden={props.onHidden}
     >
       <ProductSheetAction
         icon={<PencilIcon size={icon} color={ink} />}

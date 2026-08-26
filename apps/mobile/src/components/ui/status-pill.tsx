@@ -23,6 +23,9 @@ export function StatusPill(props: {
 const styles = StyleSheet.create((theme) => ({
   pill: {
     alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     borderRadius: theme.radii.full,
     borderWidth: 1,
     borderColor: "transparent",

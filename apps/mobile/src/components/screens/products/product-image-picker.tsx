@@ -1,78 +1,127 @@
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
 import { Image } from "expo-image";
 import {
+  AlertCircleIcon,
+  ArrowLeftIcon,
+  ArrowRightIcon,
   CameraIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  PlusIcon,
+  ImagePlusIcon,
   XIcon,
 } from "lucide-react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
+import { interpolate } from "../../../i18n/locale";
 import type { ProductsPhotosCopy } from "../../../i18n/products";
-import { StatusPill } from "../../ui";
+import { Banner } from "../../ui";
 import type { PhotoTileView } from "./product-photos-model";
 
+/** Canvas `h-40 w-40` product photo tile. Feature size, not a theme token. */
+const PHOTO_TILE = 160;
+
 /**
- * Feature photo grid (SHO-141). Canvas `ProductImagePicker`: ordered
- * tiles, cover on the first, add tile, per-image progress. Reorder is
- * explicit earlier/later controls. Camera/library picking is a Sheet
- * on the parent screen (sheets, not dropdowns).
+ * Feature photo strip (SHO-153). Canvas `ProductImagePicker`: 160px
+ * tiles, cover on the first, overlay upload/fail, dashed add tile.
+ * Reorder is explicit earlier/later controls. Camera/library picking
+ * is a Sheet on the parent (sheets, not dropdowns).
  */
 export function ProductImagePicker(props: {
   readonly tiles: readonly PhotoTileView[];
   readonly copy: ProductsPhotosCopy;
   readonly previewByFileId: ReadonlyMap<string, string>;
   readonly canAdd: boolean;
-  readonly onAdd: () => void;
-  readonly onRemove: (id: string) => void;
-  readonly onMoveEarlier: (id: string) => void;
-  readonly onMoveLater: (id: string) => void;
-  readonly onRetry: (id: string) => void;
-  readonly onCancel: (id: string) => void;
+  readonly readOnly?: boolean;
+  readonly showHeading?: boolean;
+  readonly banner?: string | null;
+  readonly onAdd?: () => void;
+  readonly onRemove?: (id: string) => void;
+  readonly onMoveEarlier?: (id: string) => void;
+  readonly onMoveLater?: (id: string) => void;
+  readonly onRetry?: (id: string) => void;
+  readonly onCancel?: (id: string) => void;
 }) {
+  const readOnly = props.readOnly === true;
+  const showHeading = props.showHeading === true;
+  const banner =
+    props.banner !== undefined &&
+    props.banner !== null &&
+    props.banner.length > 0
+      ? props.banner
+      : null;
+
   return (
-    <View style={styles.grid}>
-      {props.tiles.map((tile) => (
-        <PhotoTile
-          key={tile.id}
-          tile={tile}
-          copy={props.copy}
-          previewUrl={
-            tile.fileId === null
-              ? null
-              : (props.previewByFileId.get(tile.fileId) ?? null)
-          }
-          onRemove={props.onRemove}
-          onMoveEarlier={props.onMoveEarlier}
-          onMoveLater={props.onMoveLater}
-          onRetry={props.onRetry}
-          onCancel={props.onCancel}
-        />
-      ))}
-      {props.canAdd ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={props.copy.addLabel}
-          onPress={props.onAdd}
-          style={({ pressed }) => [
-            styles.cell,
-            styles.addCell,
-            pressed ? styles.pressed : null,
-          ]}
-        >
-          <AddTileBody copy={props.copy} />
-        </Pressable>
+    <View style={styles.root}>
+      {showHeading ? (
+        <View style={styles.headingRow}>
+          <Text style={styles.heading}>{props.copy.heading}</Text>
+          <Text style={styles.count}>
+            {interpolate(props.copy.count, {
+              count: String(props.tiles.length),
+            })}
+          </Text>
+        </View>
       ) : null}
+      {banner !== null ? <Banner message={banner} /> : null}
+      <ScrollView
+        horizontal
+        nestedScrollEnabled
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.strip}
+      >
+        {props.tiles.map((tile) => (
+          <PhotoTile
+            key={tile.id}
+            tile={tile}
+            copy={props.copy}
+            readOnly={readOnly}
+            previewUrl={
+              tile.fileId === null
+                ? null
+                : (props.previewByFileId.get(tile.fileId) ?? null)
+            }
+            onRemove={props.onRemove}
+            onMoveEarlier={props.onMoveEarlier}
+            onMoveLater={props.onMoveLater}
+            onRetry={props.onRetry}
+            onCancel={props.onCancel}
+          />
+        ))}
+        {!readOnly && props.canAdd && props.onAdd ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={props.copy.addLabel}
+            onPress={props.onAdd}
+            style={({ pressed }) => [
+              styles.addCell,
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            <AddTileBody copy={props.copy} />
+          </Pressable>
+        ) : null}
+      </ScrollView>
+      <Text style={styles.hint}>{props.copy.hint}</Text>
     </View>
   );
+}
+
+export function photoCountLabel(template: string, count: number): string {
+  return interpolate(template, { count: String(count) });
 }
 
 function AddTileBody(props: { readonly copy: ProductsPhotosCopy }) {
   const { theme } = useUnistyles();
   return (
     <View style={styles.addBody}>
-      <PlusIcon size={theme.iconSize.md} color={theme.colors.foreground} />
+      <ImagePlusIcon
+        size={theme.iconSize.md}
+        color={theme.colors.mutedForeground}
+      />
       <Text style={styles.addLabel}>{props.copy.addLabel}</Text>
     </View>
   );
@@ -82,110 +131,46 @@ function PhotoTile(props: {
   readonly tile: PhotoTileView;
   readonly copy: ProductsPhotosCopy;
   readonly previewUrl: string | null;
-  readonly onRemove: (id: string) => void;
-  readonly onMoveEarlier: (id: string) => void;
-  readonly onMoveLater: (id: string) => void;
-  readonly onRetry: (id: string) => void;
-  readonly onCancel: (id: string) => void;
+  readonly readOnly: boolean;
+  readonly onRemove: ((id: string) => void) | undefined;
+  readonly onMoveEarlier: ((id: string) => void) | undefined;
+  readonly onMoveLater: ((id: string) => void) | undefined;
+  readonly onRetry: ((id: string) => void) | undefined;
+  readonly onCancel: ((id: string) => void) | undefined;
 }) {
   const { tile, copy } = props;
   const { theme } = useUnistyles();
   const source = tile.localUri !== null ? tile.localUri : props.previewUrl;
   const showProgress = tile.phase === "uploading";
   const showFailed = tile.phase === "failed";
+  const ink = theme.colors.foreground;
+  const onPrimary = theme.colors.primaryForeground;
 
   return (
     <View style={styles.cell}>
-      <View style={styles.frame}>
-        {source === null ? (
-          <View style={styles.placeholder}>
-            <CameraIcon
-              size={theme.iconSize.md}
-              color={theme.colors.mutedForeground}
-            />
-          </View>
-        ) : (
-          <Image
-            source={{ uri: source }}
-            recyclingKey={tile.fileId ?? tile.id}
-            contentFit="cover"
-            cachePolicy="memory"
-            transition={150}
-            style={styles.image}
+      {source === null ? (
+        <View style={styles.placeholder}>
+          <CameraIcon
+            size={theme.iconSize.md}
+            color={theme.colors.mutedForeground}
           />
-        )}
-        {tile.isCover ? (
-          <View style={styles.cover}>
-            <StatusPill label={copy.coverLabel} tone="action" />
-          </View>
-        ) : null}
-        {showProgress ? (
-          <View style={styles.overlay} accessibilityLabel={copy.uploadingLabel}>
-            <ActivityIndicator
-              color={theme.colors.activityIndicator.onPrimary}
-            />
-            <Text style={styles.overlayLabel}>
-              {`${String(Math.round(tile.progress * 100))}%`}
-            </Text>
-          </View>
-        ) : null}
-        {showFailed ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={copy.retryLabel}
-            onPress={() => {
-              props.onRetry(tile.id);
-            }}
-            style={styles.overlay}
-          >
-            <Text style={styles.overlayLabel}>{copy.failedLabel}</Text>
-            <Text style={styles.overlayActionLabel}>{copy.retryLabel}</Text>
-          </Pressable>
-        ) : null}
-      </View>
-      <View style={styles.tileActions}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={copy.moveEarlier}
-          disabled={!tile.canMoveEarlier}
-          onPress={() => {
-            props.onMoveEarlier(tile.id);
-          }}
-          style={({ pressed }) => [
-            styles.iconHit,
-            pressed ? styles.pressed : null,
-          ]}
-        >
-          <ChevronLeftIcon
-            size={theme.iconSize.sm}
-            color={
-              tile.canMoveEarlier
-                ? theme.colors.foreground
-                : theme.colors.icon.muted
-            }
-          />
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={copy.moveLater}
-          disabled={!tile.canMoveLater}
-          onPress={() => {
-            props.onMoveLater(tile.id);
-          }}
-          style={({ pressed }) => [
-            styles.iconHit,
-            pressed ? styles.pressed : null,
-          ]}
-        >
-          <ChevronRightIcon
-            size={theme.iconSize.sm}
-            color={
-              tile.canMoveLater
-                ? theme.colors.foreground
-                : theme.colors.icon.muted
-            }
-          />
-        </Pressable>
+        </View>
+      ) : (
+        <Image
+          source={{ uri: source }}
+          recyclingKey={tile.fileId ?? tile.id}
+          contentFit="cover"
+          cachePolicy="memory"
+          transition={150}
+          style={styles.image}
+        />
+      )}
+      {tile.isCover ? (
+        <View style={styles.cover}>
+          <Text style={styles.coverLabel}>{copy.coverLabel}</Text>
+        </View>
+      ) : null}
+      {!props.readOnly ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={
@@ -193,48 +178,148 @@ function PhotoTile(props: {
           }
           onPress={() => {
             if (tile.canCancel) {
-              props.onCancel(tile.id);
+              props.onCancel?.(tile.id);
               return;
             }
-            props.onRemove(tile.id);
+            props.onRemove?.(tile.id);
           }}
           style={({ pressed }) => [
-            styles.iconHit,
+            styles.overlayHit,
+            styles.removeHit,
             pressed ? styles.pressed : null,
           ]}
         >
-          <XIcon size={theme.iconSize.sm} color={theme.colors.destructive} />
+          <XIcon size={theme.iconSize.sm} color={ink} />
         </Pressable>
-      </View>
+      ) : null}
+      {!props.readOnly ? (
+        <View style={styles.moveRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={copy.moveEarlier}
+            disabled={!tile.canMoveEarlier}
+            onPress={() => {
+              props.onMoveEarlier?.(tile.id);
+            }}
+            style={({ pressed }) => [
+              styles.overlayHit,
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            <ArrowLeftIcon
+              size={theme.iconSize.sm}
+              color={tile.canMoveEarlier ? ink : theme.colors.icon.muted}
+            />
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={copy.moveLater}
+            disabled={!tile.canMoveLater}
+            onPress={() => {
+              props.onMoveLater?.(tile.id);
+            }}
+            style={({ pressed }) => [
+              styles.overlayHit,
+              pressed ? styles.pressed : null,
+            ]}
+          >
+            <ArrowRightIcon
+              size={theme.iconSize.sm}
+              color={tile.canMoveLater ? ink : theme.colors.icon.muted}
+            />
+          </Pressable>
+        </View>
+      ) : null}
+      {showProgress ? (
+        <View style={styles.overlay} accessibilityLabel={copy.uploadingLabel}>
+          <ActivityIndicator color={theme.colors.activityIndicator.onPrimary} />
+          <Text style={styles.overlayLabel}>{copy.uploadingLabel}</Text>
+          {!props.readOnly && tile.canCancel ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={copy.cancelUpload}
+              onPress={() => {
+                props.onCancel?.(tile.id);
+              }}
+              style={({ pressed }) => [
+                styles.cancelChip,
+                pressed ? styles.pressed : null,
+              ]}
+            >
+              <Text style={styles.cancelChipLabel}>{copy.cancelUpload}</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+      {showFailed ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={copy.retryLabel}
+          disabled={props.readOnly}
+          onPress={() => {
+            props.onRetry?.(tile.id);
+          }}
+          style={styles.overlay}
+        >
+          <AlertCircleIcon size={theme.iconSize.md} color={onPrimary} />
+          <Text style={styles.overlayLabel}>{copy.failedLabel}</Text>
+          {!props.readOnly ? (
+            <Text style={styles.overlayActionLabel}>{copy.retryLabel}</Text>
+          ) : null}
+        </Pressable>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create((theme) => ({
-  grid: {
+  root: {
+    gap: theme.spacing.sm,
+  },
+  headingRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: theme.spacing.md,
   },
+  heading: {
+    flexShrink: 1,
+    color: theme.colors.foreground,
+    fontSize: theme.typography.base.fontSize,
+    lineHeight: theme.typography.base.lineHeight,
+    fontWeight: "600",
+  },
+  count: {
+    color: theme.colors.icon.muted,
+    fontSize: theme.typography.xs.fontSize,
+    lineHeight: theme.typography.xs.lineHeight,
+    fontVariant: ["tabular-nums"],
+  },
+  strip: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: theme.spacing.md,
+    paddingVertical: theme.spacing["2xs"],
+  },
   cell: {
-    width: "30%",
-    flexGrow: 1,
-    maxWidth: "31.5%",
-    gap: theme.spacing.xs,
-  },
-  addCell: {
-    aspectRatio: 1,
-    maxWidth: "31.5%",
-  },
-  frame: {
-    aspectRatio: 1,
+    width: PHOTO_TILE,
+    height: PHOTO_TILE,
     borderRadius: theme.radii.lg,
     ...theme.squircle,
     overflow: "hidden",
-    backgroundColor: theme.colors.card,
+    backgroundColor: theme.colors.background,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    ...theme.shadows.sm,
+  },
+  addCell: {
+    width: PHOTO_TILE,
+    height: PHOTO_TILE,
+    borderRadius: theme.radii.lg,
+    ...theme.squircle,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: theme.colors.icon.muted,
+    backgroundColor: theme.colors.background,
   },
   image: {
     width: "100%",
@@ -251,22 +336,27 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "center",
     justifyContent: "center",
     gap: theme.spacing.sm,
-    borderRadius: theme.radii.lg,
-    ...theme.squircle,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.background,
   },
   addLabel: {
-    color: theme.colors.foreground,
-    fontSize: theme.typography.xs.fontSize,
-    lineHeight: theme.typography.xs.lineHeight,
-    fontWeight: "600",
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.sm.fontSize,
+    lineHeight: theme.typography.sm.lineHeight,
+    fontWeight: "500",
   },
   cover: {
     position: "absolute",
     top: theme.spacing.sm,
     left: theme.spacing.sm,
+    backgroundColor: theme.colors.primary,
+    borderRadius: theme.radii.full,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing["2xs"],
+  },
+  coverLabel: {
+    color: theme.colors.primaryForeground,
+    fontSize: theme.typography["2xs"].fontSize,
+    lineHeight: theme.typography["2xs"].lineHeight,
+    fontWeight: "500",
   },
   overlay: {
     position: "absolute",
@@ -293,16 +383,44 @@ const styles = StyleSheet.create((theme) => ({
     lineHeight: theme.typography.sm.lineHeight,
     fontWeight: "600",
   },
-  tileActions: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  iconHit: {
+  overlayHit: {
     width: theme.hitTarget.min,
     height: theme.hitTarget.min,
     borderRadius: theme.radii.full,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: theme.colors.card,
+    ...theme.shadows.sm,
+  },
+  removeHit: {
+    position: "absolute",
+    top: theme.spacing["2xs"],
+    right: theme.spacing["2xs"],
+  },
+  moveRow: {
+    position: "absolute",
+    right: theme.spacing["2xs"],
+    bottom: theme.spacing["2xs"],
+    flexDirection: "row",
+    gap: theme.spacing["2xs"],
+  },
+  cancelChip: {
+    minHeight: theme.hitTarget.min,
+    justifyContent: "center",
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.radii.full,
+    backgroundColor: theme.colors.card,
+  },
+  cancelChipLabel: {
+    color: theme.colors.foreground,
+    fontSize: theme.typography.xs.fontSize,
+    lineHeight: theme.typography.xs.lineHeight,
+    fontWeight: "600",
+  },
+  hint: {
+    color: theme.colors.icon.muted,
+    fontSize: theme.typography.xs.fontSize,
+    lineHeight: theme.typography.xs.lineHeight,
   },
   pressed: {
     opacity: 0.85,

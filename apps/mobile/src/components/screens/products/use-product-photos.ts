@@ -1,6 +1,5 @@
 import type { MutationAttempt } from "@showzy/contract";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 
 import { useApiClient } from "../../../api/api-provider";
@@ -16,17 +15,20 @@ import { createMobileMutationAttempt } from "../../../crypto/create-attempt";
 import { detectLocale } from "../../../i18n/locale";
 import { productsCopy } from "../../../i18n/products";
 import { invalidateCatalogAfterStatusWrite } from "./product-archive";
-import { productIdFromParam } from "./product-detail-model";
 import { getProductQueryOptions } from "./product-detail-query";
 import {
   addUploadSlots,
   applyCommitSuccess,
   classifyProductPhotosLoad,
+  hasInFlightPhotoUploads,
   idleUploadSlots,
+  mapDeniedBanner,
   mapPhotoFailure,
   mapUploadBanner,
   movePhotoSlot,
   patchUploadMachine,
+  photoFlushOutcome,
+  photosAreDirty,
   planPhotoCommit,
   remainingPhotoSlots,
   removePhotoSlot,
@@ -45,11 +47,8 @@ import {
   putCatalogBytes,
   type PickedPhoto,
 } from "./product-photos-native";
-import {
-  canEditProducts,
-  canFetchFileDownloadUrls,
-  canUploadFiles,
-} from "./product-permissions";
+import { waitForSheetHidden } from "../../ui/sheet-dismiss";
+import { canFetchFileDownloadUrls } from "./product-permissions";
 import {
   runProductPhotoUpload,
   type PreparedCatalogImage,
@@ -64,29 +63,35 @@ type Handshake = {
   abort: AbortController;
 };
 
-type PickDenied = "camera" | "library" | null;
+export type ProductPhotosFlushResult = "ok" | "commit-failed";
 
 export type ProductPhotosModel = ReturnType<typeof useProductPhotos>;
 
-export function useProductPhotos(idParam: string | string[] | undefined) {
+export function useProductPhotos(args: {
+  readonly productId: string | null;
+  readonly requireProduct: boolean;
+  readonly canWrite: boolean;
+}) {
   const copy = productsCopy(detectLocale());
   const apiClient = useApiClient();
   const apiRef = useRef(apiClient);
   apiRef.current = apiClient;
   const { activeCompanyId } = useActiveCompany();
   const membership = useResolvedCompany();
-  const router = useRouter();
   const queryClient = useQueryClient();
-  const productId = productIdFromParam(idParam);
-  const canWrite =
-    canEditProducts(membership.role) && canUploadFiles(membership.role);
+  const canWrite = args.canWrite;
+  const productIdRef = useRef(args.productId);
+  if (args.productId !== null) {
+    productIdRef.current = args.productId;
+  }
 
   const [slots, setSlots] = useState<readonly PhotoSlot[]>([]);
-  const [baseline, setBaseline] = useState<readonly string[] | null>(null);
+  const [baseline, setBaseline] = useState<readonly string[] | null>(
+    args.requireProduct ? null : [],
+  );
   const [lastWrite, setLastWrite] = useState<readonly string[] | null>(null);
   const [localBanner, setLocalBanner] = useState<PhotoBannerKey | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [denied, setDenied] = useState<PickDenied>(null);
   const [commitBusy, setCommitBusy] = useState(false);
 
   const slotsRef = useRef(slots);
@@ -104,6 +109,8 @@ export function useProductPhotos(idParam: string | string[] | undefined) {
   const nextLocalRef = useRef(1);
   const hydratedIdRef = useRef<string | null>(null);
   const mountedRef = useRef(true);
+  const settleWaitersRef = useRef<Array<() => void>>([]);
+  const sheetHiddenWaitersRef = useRef<Array<() => void>>([]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -117,15 +124,15 @@ export function useProductPhotos(idParam: string | string[] | undefined) {
 
   const query = useQuery(
     getProductQueryOptions({
-      client: canWrite ? apiClient : null,
+      client: canWrite && args.requireProduct ? apiClient : null,
       companyId: activeCompanyId,
-      productId,
+      productId: args.requireProduct ? args.productId : null,
       getActiveCompany: () => apiClient?.getActiveCompany() ?? null,
     }),
   );
 
   useEffect(() => {
-    if (query.data === undefined) {
+    if (!args.requireProduct || query.data === undefined) {
       return;
     }
     if (hydratedIdRef.current === query.data.id) {
@@ -144,7 +151,7 @@ export function useProductPhotos(idParam: string | string[] | undefined) {
     setBaseline(next);
     setLastWrite(null);
     lastFailureRef.current = null;
-  }, [query.data]);
+  }, [args.requireProduct, query.data]);
 
   const committedIds = slots
     .filter((slot) => slot.kind === "committed")
@@ -178,7 +185,8 @@ export function useProductPhotos(idParam: string | string[] | undefined) {
   const clientReady = apiClient !== null && activeCompanyId !== null;
   const state = classifyProductPhotosLoad({
     canWrite,
-    productId,
+    productId: productIdRef.current,
+    requireProduct: args.requireProduct,
     clientReady,
     status: query.status,
     failureKind: query.isError ? describeQueryFailure(query.error).kind : null,
@@ -254,7 +262,7 @@ export function useProductPhotos(idParam: string | string[] | undefined) {
       do {
         commitQueuedRef.current = false;
         const plan = planPhotoCommit({
-          productId,
+          productId: productIdRef.current,
           slots: slotsRef.current,
           lastCommitted: baselineRef.current,
           lastWrite: lastWriteRef.current,
@@ -262,6 +270,7 @@ export function useProductPhotos(idParam: string | string[] | undefined) {
           canRetryAttempt: mutation.isError,
         });
         if (plan.kind === "noop") {
+          lastFailureRef.current = null;
           mutation.reset();
           return;
         }
@@ -300,6 +309,7 @@ export function useProductPhotos(idParam: string | string[] | undefined) {
       if (mountedRef.current) {
         setCommitBusy(false);
       }
+      notifySettled();
     }
   }
 
@@ -361,6 +371,7 @@ export function useProductPhotos(idParam: string | string[] | undefined) {
       }
     } finally {
       runningRef.current.delete(id);
+      notifySettled();
     }
   }
 
@@ -377,19 +388,38 @@ export function useProductPhotos(idParam: string | string[] | undefined) {
     }
     mutation.reset();
     setLocalBanner(null);
-    setDenied(null);
     setPickerOpen(true);
   }
 
+  function notifySheetHidden(): void {
+    const waiters = sheetHiddenWaitersRef.current;
+    sheetHiddenWaitersRef.current = [];
+    for (const waiter of waiters) {
+      waiter();
+    }
+  }
+
+  function waitUntilSourceSheetHidden(): Promise<void> {
+    return waitForSheetHidden(
+      new Promise<void>((resolve) => {
+        sheetHiddenWaitersRef.current.push(resolve);
+      }),
+    );
+  }
+
   async function pickFrom(source: "camera" | "library"): Promise<void> {
+    const hidden = waitUntilSourceSheetHidden();
     setPickerOpen(false);
+    await hidden;
     const remaining = remainingPhotoSlots(slotsRef.current);
     const result = await pickProductPhotos(source, remaining);
     if (result.kind === "canceled") {
+      notifySettled();
       return;
     }
     if (result.kind === "denied") {
-      setDenied(result.source);
+      setLocalBanner(mapDeniedBanner(result.source));
+      notifySettled();
       return;
     }
     const photos = result.photos.map((photo) => {
@@ -405,6 +435,7 @@ export function useProductPhotos(idParam: string | string[] | undefined) {
       setLocalBanner("too_many");
     }
     kickIdleUploads();
+    notifySettled();
   }
 
   function cancelUpload(id: string): void {
@@ -415,6 +446,7 @@ export function useProductPhotos(idParam: string | string[] | undefined) {
     const next = removePhotoSlot(slotsRef.current, id);
     slotsRef.current = next;
     setSlots(next);
+    notifySettled();
     // Ready uploads may already be in an in-flight replace; re-plan so a
     // dropped fileId is not left on the product.
     void commitIfNeeded();
@@ -439,21 +471,83 @@ export function useProductPhotos(idParam: string | string[] | undefined) {
     void commitIfNeeded();
   }
 
+  function photosBusy(): boolean {
+    return (
+      hasInFlightPhotoUploads(slotsRef.current) ||
+      runningRef.current.size > 0 ||
+      commitBusyRef.current
+    );
+  }
+
+  function notifySettled(): void {
+    if (photosBusy()) {
+      return;
+    }
+    const waiters = settleWaitersRef.current;
+    settleWaitersRef.current = [];
+    for (const waiter of waiters) {
+      waiter();
+    }
+  }
+
+  function waitUntilSettled(): Promise<void> {
+    if (!photosBusy()) {
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      settleWaitersRef.current.push(resolve);
+    });
+  }
+
+  function bindProductId(productId: string): void {
+    productIdRef.current = productId;
+  }
+
+  async function flush(): Promise<ProductPhotosFlushResult> {
+    kickIdleUploads();
+    await waitUntilSettled();
+    await commitIfNeeded();
+    await waitUntilSettled();
+    const plan = planPhotoCommit({
+      productId: productIdRef.current,
+      slots: slotsRef.current,
+      lastCommitted: baselineRef.current,
+      lastWrite: lastWriteRef.current,
+      lastFailureKind: lastFailureRef.current,
+      canRetryAttempt: mutation.isError,
+    });
+    const outcome = photoFlushOutcome({
+      planKind: plan.kind,
+      lastFailureKind: lastFailureRef.current,
+    });
+    if (outcome === "ok") {
+      lastFailureRef.current = null;
+    }
+    return outcome;
+  }
+
+  const needsCommit =
+    planPhotoCommit({
+      productId: productIdRef.current,
+      slots,
+      lastCommitted: baseline,
+      lastWrite,
+      lastFailureKind: lastFailureRef.current,
+      canRetryAttempt: mutation.isError,
+    }).kind !== "noop";
+
   return {
-    copy,
-    state,
     tiles,
     previewByFileId,
     banner,
     pickerOpen,
-    denied,
     canAdd: remainingPhotoSlots(slots) > 0 && state.kind === "ready",
     canRetryCommit: mutation.isError && state.kind === "ready",
     commitPending: commitBusy || mutation.isPending,
-    headerTitle: copy.photos.title,
-    goBack: () => {
-      router.back();
-    },
+    dirty: photosAreDirty(slots, baseline),
+    needsCommit,
+    bindProductId,
+    flush,
     retry: () => {
       void query.refetch();
     },
@@ -465,14 +559,12 @@ export function useProductPhotos(idParam: string | string[] | undefined) {
     closePicker: () => {
       setPickerOpen(false);
     },
+    onSourceSheetHidden: notifySheetHidden,
     pickCamera: () => {
       void pickFrom("camera");
     },
     pickLibrary: () => {
       void pickFrom("library");
-    },
-    closeDenied: () => {
-      setDenied(null);
     },
     removePhoto,
     moveEarlier: (id: string) => {

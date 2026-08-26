@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { ScrollView, Text, View } from "react-native";
 import {
   CameraIcon,
@@ -17,12 +17,12 @@ import {
   Button,
   EmptyState,
   IconButton,
-  Sheet,
   StatusPill,
 } from "../../ui";
+import { PhotoSourceSheet } from "./photo-source-sheet";
 import { ProductActionsSheet } from "./product-actions-sheet";
 import { ProductFormVariantSheet } from "./product-form-variant-sheet";
-import { ProductGallery } from "./product-gallery";
+import { ProductImagePicker } from "./product-image-picker";
 import { ProductVariantRow } from "./product-variant-row";
 import { VariantActionsSheet } from "./variant-actions-sheet";
 import type { ProductDetailModel } from "./use-product-detail";
@@ -100,6 +100,7 @@ export function ProductDetailView(model: ProductDetailModel) {
         copy={copy.detail}
         photosLabel={copy.detail.photosLabel}
         onClose={model.closeProductActions}
+        onHidden={model.onProductActionsHidden}
         onEdit={() => {
           model.onProductSheetAction("edit");
         }}
@@ -116,6 +117,7 @@ export function ProductDetailView(model: ProductDetailModel) {
         archived={model.variantActionsArchived}
         copy={copy.detail}
         onClose={model.closeVariantActions}
+        onHidden={model.onVariantActionsHidden}
         onEdit={() => {
           model.onVariantSheetAction("edit");
         }}
@@ -134,36 +136,14 @@ export function ProductDetailView(model: ProductDetailModel) {
         onClose={model.closeVariantEditor}
         onSave={model.saveVariantFromSheet}
       />
-      <Sheet
-        visible={model.confirm !== null}
-        title={model.confirmCopy?.title ?? ""}
-        onClose={model.closeConfirm}
-        footer={
-          <>
-            <Button
-              variant="secondary"
-              fullWidth
-              label={copy.detail.cancel}
-              disabled={model.confirmPending}
-              onPress={model.closeConfirm}
-            />
-            <Button
-              variant={model.confirmDestructive ? "danger" : "primary"}
-              fullWidth
-              label={model.confirmCopy?.confirmLabel ?? ""}
-              loading={model.confirmPending}
-              onPress={model.confirmStatusWrite}
-            />
-          </>
-        }
-      >
-        {model.confirmBanner !== null && model.confirmBanner.length > 0 ? (
-          <Banner message={model.confirmBanner} />
-        ) : null}
-        <Text style={styles.confirmBody}>
-          {model.confirmCopy?.description ?? ""}
-        </Text>
-      </Sheet>
+      <PhotoSourceSheet
+        visible={model.canEdit && model.photos.pickerOpen}
+        copy={copy.photos}
+        onClose={model.photos.closePicker}
+        onHidden={model.photos.onSourceSheetHidden}
+        onCamera={model.photos.pickCamera}
+        onLibrary={model.photos.pickLibrary}
+      />
     </SafeAreaView>
   );
 }
@@ -181,7 +161,7 @@ function ProductDetailBody(props: { readonly model: ProductDetailModel }) {
           style={styles.skeletons}
           accessibilityLabel={copy.detail.loadingLabel}
         >
-          <View style={styles.skeletonGallery} />
+          <View style={styles.skeletonPhotos} />
           <View style={styles.skeletonCard} />
           <View style={styles.skeletonCard} />
         </View>
@@ -240,31 +220,65 @@ function ProductDetailBody(props: { readonly model: ProductDetailModel }) {
 
 function ProductDetailReady(props: { readonly model: ProductDetailModel }) {
   const { model } = props;
+  const { copy } = model;
+  const { theme } = useUnistyles();
+  const scrollRef = useRef<ScrollView>(null);
+  const photoY = useRef(0);
+
+  useEffect(() => {
+    if (model.photosFocus === 0) {
+      return;
+    }
+    scrollRef.current?.scrollTo({ y: photoY.current, animated: true });
+  }, [model.photosFocus]);
+
   const product = model.product;
   const facts = model.facts;
   if (product === null || facts === null) {
     return null;
   }
-  const { copy } = model;
-  const { theme } = useUnistyles();
   const form = copy.form;
 
   return (
     <ScrollView
+      ref={scrollRef}
       style={styles.scroll}
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
-      <ProductGallery
-        key={product.id}
-        fileIds={product.imageFileIds}
-        canFetchImages={model.canFetchImages}
-        emptyLabel={copy.detail.noPhotos}
-        photosLabel={copy.detail.photosLabel}
-      />
       <View style={styles.identity}>
         <StatusPill label={facts.statusLabel} tone={facts.statusTone} />
         <Text style={styles.price}>{product.priceLabel}</Text>
+      </View>
+      <View
+        onLayout={(event) => {
+          photoY.current = event.nativeEvent.layout.y;
+        }}
+        style={styles.photosCard}
+      >
+        <ProductImagePicker
+          tiles={model.photoTiles}
+          copy={copy.photos}
+          previewByFileId={model.previewByFileId}
+          canAdd={model.canEdit && model.photos.canAdd}
+          readOnly={!model.canEdit}
+          showHeading
+          banner={model.canEdit ? model.photos.banner : null}
+          onAdd={model.photos.openPicker}
+          onRemove={model.photos.removePhoto}
+          onMoveEarlier={model.photos.moveEarlier}
+          onMoveLater={model.photos.moveLater}
+          onRetry={model.photos.retryUpload}
+          onCancel={model.photos.cancelUpload}
+        />
+        {model.canEdit && model.photos.canRetryCommit ? (
+          <Button
+            variant="secondary"
+            label={copy.photos.retryLabel}
+            loading={model.photos.commitPending}
+            onPress={model.photos.retryCommit}
+          />
+        ) : null}
       </View>
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>{copy.detail.factsTitle}</Text>
@@ -340,6 +354,9 @@ function ProductDetailReady(props: { readonly model: ProductDetailModel }) {
           )}
         </View>
       </View>
+      {model.statusBanner !== null && model.statusBanner.length > 0 ? (
+        <Banner message={model.statusBanner} />
+      ) : null}
       {model.variantBanner !== null &&
       model.variantBanner.length > 0 &&
       !model.variantEditorVisible ? (
@@ -362,7 +379,7 @@ function FactRow(props: {
       {typeof props.value === "string" ? (
         <Text style={styles.factValue}>{props.value}</Text>
       ) : (
-        props.value
+        <View style={styles.factValueSlot}>{props.value}</View>
       )}
     </View>
   );
@@ -384,6 +401,16 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: theme.spacing.lg,
     paddingBottom: theme.spacing.xl,
     gap: theme.spacing.xl,
+  },
+  photosCard: {
+    backgroundColor: theme.colors.card,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radii.card,
+    ...theme.squircle,
+    padding: theme.spacing.lg,
+    gap: theme.spacing.md,
+    ...theme.shadows.sm,
   },
   identity: {
     flexDirection: "row",
@@ -447,6 +474,11 @@ const styles = StyleSheet.create((theme) => ({
     lineHeight: theme.typography.sm.lineHeight,
     fontWeight: "600",
   },
+  factValueSlot: {
+    flexShrink: 1,
+    justifyContent: "center",
+    alignItems: "flex-end",
+  },
   variantsCard: {
     backgroundColor: theme.colors.card,
     borderWidth: 1,
@@ -489,11 +521,6 @@ const styles = StyleSheet.create((theme) => ({
   footerButton: {
     flex: 1,
   },
-  confirmBody: {
-    color: theme.colors.mutedForeground,
-    fontSize: theme.typography.sm.fontSize,
-    lineHeight: theme.typography.sm.lineHeight,
-  },
   centered: {
     flex: 1,
     justifyContent: "center",
@@ -503,8 +530,8 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.sm,
   },
-  skeletonGallery: {
-    aspectRatio: 4 / 3,
+  skeletonPhotos: {
+    height: 160,
     borderRadius: theme.radii.card,
     ...theme.squircle,
     backgroundColor: theme.colors.skeleton,

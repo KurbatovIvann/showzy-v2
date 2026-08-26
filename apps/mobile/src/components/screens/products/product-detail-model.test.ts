@@ -3,12 +3,10 @@ import { describe, expect, it } from "vitest";
 import { productsCopy } from "../../../i18n/products";
 import {
   classifyProductDetail,
-  classifyProductGallery,
   confirmIsDestructive,
   confirmSheetCopy,
   confirmTargetForProduct,
   confirmTargetForVariant,
-  galleryPageIndex,
   isConfirmWriteBusy,
   mapStatusWriteFailure,
   planConfirmStatusWrite,
@@ -21,7 +19,7 @@ import {
   resultForProductSheetAction,
   resultForVariantSheetAction,
   sheetsAfterCloseVariantEditor,
-  sheetsAfterDismissConfirm,
+  sheetsAfterCancelStatusConfirm,
   sheetsAfterProductSheetAction,
   sheetsAfterVariantSheetAction,
   sheetsOpenNewVariant,
@@ -279,79 +277,6 @@ describe("mapStatusWriteFailure", () => {
   });
 });
 
-describe("galleryPageIndex", () => {
-  it("rounds to the nearest page and clamps to the range", () => {
-    expect(galleryPageIndex({ offsetX: 0, pageWidth: 100, pageCount: 3 })).toBe(
-      0,
-    );
-    expect(
-      galleryPageIndex({ offsetX: 140, pageWidth: 100, pageCount: 3 }),
-    ).toBe(1);
-    expect(
-      galleryPageIndex({ offsetX: 280, pageWidth: 100, pageCount: 3 }),
-    ).toBe(2);
-    expect(
-      galleryPageIndex({ offsetX: -20, pageWidth: 100, pageCount: 3 }),
-    ).toBe(0);
-    expect(
-      galleryPageIndex({ offsetX: 900, pageWidth: 100, pageCount: 3 }),
-    ).toBe(2);
-    expect(galleryPageIndex({ offsetX: 50, pageWidth: 0, pageCount: 3 })).toBe(
-      0,
-    );
-  });
-});
-
-describe("classifyProductGallery", () => {
-  it("shows empty copy only when the product has no photos", () => {
-    expect(
-      classifyProductGallery({
-        fileCount: 0,
-        canFetchImages: true,
-        pageWidth: 320,
-      }),
-    ).toBe("empty");
-    expect(
-      classifyProductGallery({
-        fileCount: 0,
-        canFetchImages: false,
-        pageWidth: undefined,
-      }),
-    ).toBe("empty");
-  });
-
-  it("does not treat missing layout or a no-fetch role as empty", () => {
-    expect(
-      classifyProductGallery({
-        fileCount: 2,
-        canFetchImages: true,
-        pageWidth: undefined,
-      }),
-    ).toBe("pending-layout");
-    expect(
-      classifyProductGallery({
-        fileCount: 2,
-        canFetchImages: true,
-        pageWidth: 0,
-      }),
-    ).toBe("pending-layout");
-    expect(
-      classifyProductGallery({
-        fileCount: 2,
-        canFetchImages: false,
-        pageWidth: 320,
-      }),
-    ).toBe("no-fetch");
-    expect(
-      classifyProductGallery({
-        fileCount: 2,
-        canFetchImages: true,
-        pageWidth: 320,
-      }),
-    ).toBe("images");
-  });
-});
-
 describe("planConfirmStatusWrite", () => {
   it("retries a failed confirm and submits a fresh one", () => {
     expect(planConfirmStatusWrite(false)).toBe("submit");
@@ -394,22 +319,22 @@ describe("variantStatusActionLabel", () => {
 });
 
 describe("photo and edit routes", () => {
-  it("sends Фото and Редагувати to the editor, never /photos", () => {
+  it("keeps Фото on the product, never /photos", () => {
     expect(productEditorHref(PRODUCT_ID)).toBe(`/products/${PRODUCT_ID}/edit`);
-    expect(productPhotoHref(PRODUCT_ID)).toBe(productEditorHref(PRODUCT_ID));
+    expect(productPhotoHref(PRODUCT_ID)).toBe(`/products/${PRODUCT_ID}`);
     expect(productPhotoHref(PRODUCT_ID)).not.toContain("/photos");
   });
 });
 
 describe("⋯ sheet and variant action destinations", () => {
-  it("keeps edit and photos on the editor route and status on confirm", () => {
+  it("keeps edit on the editor route, photos on this screen, and status on confirm", () => {
     expect(productSheetActionIds()).toEqual(["edit", "photos", "status"]);
     expect(
       resultForProductSheetAction({ action: "edit", archived: false }),
     ).toEqual({ kind: "navigate-edit" });
     expect(
       resultForProductSheetAction({ action: "photos", archived: true }),
-    ).toEqual({ kind: "navigate-edit" });
+    ).toEqual({ kind: "focus-photos" });
     expect(
       resultForProductSheetAction({ action: "status", archived: false }),
     ).toEqual({
@@ -465,36 +390,24 @@ describe("⋯ sheet and variant action destinations", () => {
     });
   });
 
-  it("closes ⋯ before confirm and returns variant actions after a cancelled variant confirm", () => {
+  it("closes ⋯ before a native confirm and returns variant actions after a cancelled variant confirm", () => {
+    expect(sheetsAfterProductSheetAction()).toEqual(IDLE_DETAIL_SHEETS);
     expect(
-      sheetsAfterProductSheetAction(
-        resultForProductSheetAction({ action: "photos", archived: false }),
-      ),
-    ).toEqual({
-      productActions: false,
-      variantActionId: null,
-      variantEditor: null,
-      confirm: null,
-    });
-    expect(
-      sheetsAfterProductSheetAction(
-        resultForProductSheetAction({ action: "status", archived: false }),
-      ).confirm,
-    ).toEqual({ kind: "archive-product" });
-    const variantConfirm = sheetsAfterVariantSheetAction({
-      variantId: VARIANT_ID,
-      result: resultForVariantSheetAction({
-        action: "status",
-        archived: false,
-        variantId: VARIANT_ID,
-        variantName: "1 кг",
+      sheetsAfterCancelStatusConfirm({
+        target: {
+          kind: "archive-variant",
+          variantId: VARIANT_ID,
+          variantName: "1 кг",
+        },
+        variantActionId: VARIANT_ID,
       }),
-    });
-    expect(variantConfirm.variantActionId).toBe(VARIANT_ID);
-    expect(variantConfirm.confirm?.kind).toBe("archive-variant");
-    expect(sheetsAfterDismissConfirm(variantConfirm)).toEqual(
-      sheetsOpenVariantActions(VARIANT_ID),
-    );
+    ).toEqual(sheetsOpenVariantActions(VARIANT_ID));
+    expect(
+      sheetsAfterCancelStatusConfirm({
+        target: { kind: "archive-product" },
+        variantActionId: null,
+      }),
+    ).toEqual(IDLE_DETAIL_SHEETS);
     expect(
       sheetsAfterCloseVariantEditor(
         sheetsAfterVariantSheetAction({

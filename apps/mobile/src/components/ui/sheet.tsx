@@ -20,8 +20,9 @@ import { scheduleOnRN } from "react-native-worklets";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
+import { SHEET_MS, sheetDismissTimeoutMs } from "./sheet-dismiss";
+
 const EASE_SHEET = Easing.bezier(0.32, 0.72, 0, 1);
-const SHEET_MS = 300;
 
 /**
  * Canvas sheet: dim overlay (`colors.overlay`) and a bottom card with
@@ -40,6 +41,7 @@ export function Sheet(props: {
   readonly footer?: ReactNode;
   readonly fullHeight?: boolean;
   readonly closeAccessibilityLabel?: string;
+  readonly onHidden?: () => void;
 }) {
   const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
@@ -49,6 +51,8 @@ export function Sheet(props: {
   const [presented, setPresented] = useState(false);
   const presentedRef = useRef(false);
   const closeGenerationRef = useRef(0);
+  const onHiddenRef = useRef(props.onHidden);
+  onHiddenRef.current = props.onHidden;
   const hideModal = useCallback(() => {
     presentedRef.current = false;
     setPresented(false);
@@ -97,15 +101,20 @@ export function Sheet(props: {
           duration: SHEET_MS,
           easing: EASE_SHEET,
         },
-        (finished) => {
-          // withTiming's callback is a worklet — do not read a React ref
-          // here; mutating ref.current after capture throws.
-          if (finished) {
-            scheduleOnRN(hideModalIfCurrent, generation);
-          }
+        () => {
+          // Always hide — an interrupted close (`finished === false`)
+          // used to leave the iOS Modal window mounted, which eats taps
+          // until the app is relaunched. Worklet: do not read React refs.
+          scheduleOnRN(hideModalIfCurrent, generation);
         },
       ),
     );
+    const timeout = setTimeout(() => {
+      hideModalIfCurrent(generation);
+    }, sheetDismissTimeoutMs());
+    return () => {
+      clearTimeout(timeout);
+    };
   }, [hideModal, hideModalIfCurrent, progress, props.visible, reduceMotion]);
 
   const fallbackTravel = theme.hitTarget.field;
@@ -141,9 +150,15 @@ export function Sheet(props: {
       transparent
       animationType="none"
       onRequestClose={props.onClose}
+      onDismiss={() => {
+        onHiddenRef.current?.();
+      }}
       statusBarTranslucent
     >
-      <View style={styles.host} pointerEvents="box-none">
+      <View
+        style={styles.host}
+        pointerEvents={props.visible ? "box-none" : "none"}
+      >
         <Pressable
           accessible={false}
           onPress={props.onClose}

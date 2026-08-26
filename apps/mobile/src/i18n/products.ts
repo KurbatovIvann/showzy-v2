@@ -103,6 +103,9 @@ export type ProductsDetailCopy = {
 
 export type ProductsPhotosCopy = {
   readonly title: string;
+  readonly heading: string;
+  readonly count: string;
+  readonly hint: string;
   readonly addLabel: string;
   readonly addCamera: string;
   readonly addLibrary: string;
@@ -130,6 +133,7 @@ export type ProductsPhotosCopy = {
     readonly offline: string;
     readonly unavailable: string;
     readonly permission: string;
+    readonly denied: string;
     readonly validation: string;
     readonly too_many: string;
     readonly commit: string;
@@ -330,6 +334,9 @@ const en: ProductsCopy = {
   },
   photos: {
     title: "Photos",
+    heading: "Product photos",
+    count: "{{count}}/10",
+    hint: "JPG, PNG or WebP · up to 10 MB · up to 10 photos. Photos belong to the product, not a variant.",
     addLabel: "Add photo",
     addCamera: "Camera",
     addLibrary: "Photo library",
@@ -359,6 +366,7 @@ const en: ProductsCopy = {
       offline: "You're offline. Check your connection and try again.",
       unavailable: "Something went wrong. Try again.",
       permission: "You do not have permission to change these photos.",
+      denied: "No camera or library access. Allow it in the phone settings.",
       validation: "This image cannot be attached. Try another photo.",
       too_many: "Too many photos. Maximum is 10.",
       commit: "Could not save the photo list. Try again.",
@@ -512,6 +520,9 @@ const uk: ProductsCopy = {
   },
   photos: {
     title: "Фото",
+    heading: "Фото товару",
+    count: "{{count}}/10",
+    hint: "JPG, PNG або WebP · до 10 МБ · до 10 фото. Фото належать товару, не варіанту.",
     addLabel: "Додати фото",
     addCamera: "Камера",
     addLibrary: "Галерея",
@@ -541,6 +552,8 @@ const uk: ProductsCopy = {
       offline: "Немає зʼєднання. Підключіться і спробуйте ще раз.",
       unavailable: "Щось пішло не так. Спробуйте ще раз.",
       permission: "Немає права змінювати фото цього товару.",
+      denied:
+        "Немає доступу до камери / галереї. Дозвольте у налаштуваннях телефона.",
       validation: "Це зображення не можна додати. Спробуйте інше фото.",
       too_many: "Забагато фото. Максимум 10.",
       commit: "Не вдалося зберегти список фото. Спробуйте ще раз.",

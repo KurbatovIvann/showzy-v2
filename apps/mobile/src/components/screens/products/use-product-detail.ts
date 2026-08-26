@@ -5,10 +5,13 @@ import { useRouter } from "expo-router";
 import { useApiClient } from "../../../api/api-provider";
 import { useContractMutation } from "../../../api/contract-mutation";
 import { describeQueryFailure, describeWireError } from "../../../api/errors";
+import { fileDownloadUrlsQueryOptions } from "../../../api/file-download-query";
 import { useActiveCompany } from "../../../api/query-provider";
 import { useResolvedCompany } from "../../../company-resolution/resolved-company-provider";
 import { detectLocale } from "../../../i18n/locale";
 import { productsCopy } from "../../../i18n/products";
+import { presentConfirmDialog } from "../../ui/present-confirm-dialog";
+import { waitForSheetHidden } from "../../ui/sheet-dismiss";
 import {
   bindCatalogStatusMutate,
   invalidateCatalogAfterStatusWrite,
@@ -28,9 +31,8 @@ import {
   productIdFromParam,
   resultForProductSheetAction,
   resultForVariantSheetAction,
+  sheetsAfterCancelStatusConfirm,
   sheetsAfterCloseVariantEditor,
-  sheetsAfterDismissConfirm,
-  sheetsAfterProductSheetAction,
   sheetsAfterVariantSheetAction,
   sheetsOpenNewVariant,
   sheetsOpenProductActions,
@@ -68,6 +70,15 @@ import {
   canEditProducts,
   canFetchFileDownloadUrls,
 } from "./product-permissions";
+import {
+  committedSlotsFromFileIds,
+  toPhotoTiles,
+  type PhotoTileView,
+} from "./product-photos-model";
+import {
+  useProductPhotos,
+  type ProductPhotosModel,
+} from "./use-product-photos";
 
 export type ProductDetailModel = {
   readonly copy: ReturnType<typeof productsCopy>;
@@ -76,13 +87,11 @@ export type ProductDetailModel = {
   readonly facts: ProductFacts | null;
   readonly canEdit: boolean;
   readonly canAddVariant: boolean;
-  readonly canFetchImages: boolean;
+  readonly photoTiles: readonly PhotoTileView[];
+  readonly previewByFileId: ReadonlyMap<string, string>;
+  readonly photos: ProductPhotosModel;
+  readonly photosFocus: number;
   readonly nameMaxLength: number;
-  readonly confirm: ConfirmTarget | null;
-  readonly confirmCopy: ReturnType<typeof confirmSheetCopy> | null;
-  readonly confirmBanner: string | null;
-  readonly confirmPending: boolean;
-  readonly confirmDestructive: boolean;
   readonly headerTitle: string;
   readonly headerSubtitle: string;
   readonly productActionsVisible: boolean;
@@ -94,10 +103,13 @@ export type ProductDetailModel = {
   readonly variantSheetInitial: ProductFormVariantDraft | null;
   readonly variantBanner: string | null;
   readonly variantPending: boolean;
+  readonly statusBanner: string | null;
   readonly goBack: () => void;
   readonly retry: () => void;
   readonly openEdit: () => void;
   readonly openPhotos: () => void;
+  readonly onProductActionsHidden: () => void;
+  readonly onVariantActionsHidden: () => void;
   readonly openProductActions: () => void;
   readonly closeProductActions: () => void;
   readonly onProductSheetAction: (action: ProductSheetActionId) => void;
@@ -110,8 +122,6 @@ export type ProductDetailModel = {
     readonly name: string;
     readonly priceText: string;
   }) => void;
-  readonly closeConfirm: () => void;
-  readonly confirmStatusWrite: () => void;
   readonly variantPriceLabel: (variant: ProductVariantView) => string;
   readonly variantAccessibilityLabel: (variant: ProductVariantView) => string;
 };
@@ -130,19 +140,16 @@ export function useProductDetail(
   const queryClient = useQueryClient();
   const productId = productIdFromParam(idParam);
   const [sheets, setSheets] = useState<DetailSheets>(IDLE_DETAIL_SHEETS);
-  const lastConfirmRef = useRef<ConfirmTarget | null>(null);
+  const [photosFocus, setPhotosFocus] = useState(0);
   const lastVariantRef = useRef<ProductVariantView | null>(null);
   const lastVariantWriteRef = useRef<ProductFormWrite | null>(null);
   const writeBusyRef = useRef(false);
-  const [writeBusy, setWriteBusy] = useState(false);
   const variantBusyRef = useRef(false);
   const [variantBusy, setVariantBusy] = useState(false);
+  const actionsHiddenWaitersRef = useRef<Array<() => void>>([]);
+  const variantHiddenWaitersRef = useRef<Array<() => void>>([]);
   const [variantBannerKey, setVariantBannerKey] =
     useState<ReturnType<typeof mapProductFormFailure>>(null);
-  if (sheets.confirm !== null) {
-    lastConfirmRef.current = sheets.confirm;
-  }
-  const sheetTarget = sheets.confirm ?? lastConfirmRef.current;
 
   const query = useQuery(
     getProductQueryOptions({
@@ -186,6 +193,34 @@ export function useProductDetail(
     ? describeQueryFailure(mutation.error).kind
     : null;
   const canEdit = canEditProducts(membership.role);
+  const canFetchImages = canFetchFileDownloadUrls(membership.role);
+  const photos = useProductPhotos({
+    productId,
+    requireProduct: true,
+    canWrite: canEdit,
+  });
+  const { openPicker } = photos;
+  const photoFileIds = product?.imageFileIds ?? [];
+  const urlsQuery = useQuery(
+    fileDownloadUrlsQueryOptions({
+      client: !canEdit && canFetchImages ? apiClient : null,
+      companyId: activeCompanyId,
+      fileIds: canEdit ? [] : photoFileIds,
+      getActiveCompany: () => apiClient?.getActiveCompany() ?? null,
+    }),
+  );
+  const viewerPreviewByFileId = new Map<string, string>();
+  if (!canEdit) {
+    for (const file of urlsQuery.data?.files ?? []) {
+      viewerPreviewByFileId.set(file.fileId, file.downloadUrl);
+    }
+  }
+  const photoTiles = canEdit
+    ? photos.tiles
+    : toPhotoTiles(committedSlotsFromFileIds(photoFileIds));
+  const previewByFileId = canEdit
+    ? photos.previewByFileId
+    : viewerPreviewByFileId;
   const selectedVariant = resolveSelectedVariant(
     product,
     sheets.variantActionId,
@@ -202,22 +237,57 @@ export function useProductDetail(
     }
   }
 
-  async function submitConfirm(): Promise<void> {
-    if (
-      sheets.confirm === null ||
-      productId === null ||
-      writeBusyRef.current ||
-      mutation.isPending
-    ) {
+  function notifyActionsHidden(): void {
+    const waiters = actionsHiddenWaitersRef.current;
+    actionsHiddenWaitersRef.current = [];
+    for (const waiter of waiters) {
+      waiter();
+    }
+  }
+
+  function notifyVariantActionsHidden(): void {
+    const waiters = variantHiddenWaitersRef.current;
+    variantHiddenWaitersRef.current = [];
+    for (const waiter of waiters) {
+      waiter();
+    }
+  }
+
+  function waitUntilActionsHidden(): Promise<void> {
+    return waitForSheetHidden(
+      new Promise<void>((resolve) => {
+        actionsHiddenWaitersRef.current.push(resolve);
+      }),
+    );
+  }
+
+  function waitUntilVariantActionsHidden(): Promise<void> {
+    return waitForSheetHidden(
+      new Promise<void>((resolve) => {
+        variantHiddenWaitersRef.current.push(resolve);
+      }),
+    );
+  }
+
+  function focusPhotosAfterActions(): void {
+    const hidden = waitUntilActionsHidden();
+    setSheets(IDLE_DETAIL_SHEETS);
+    setPhotosFocus((count) => count + 1);
+    void hidden.then(() => {
+      openPicker();
+    });
+  }
+
+  async function submitConfirm(target: ConfirmTarget): Promise<void> {
+    if (productId === null || writeBusyRef.current || mutation.isPending) {
       return;
     }
     writeBusyRef.current = true;
-    setWriteBusy(true);
     try {
       if (planConfirmStatusWrite(mutation.isError) === "retry") {
         await mutation.retry();
       } else {
-        await mutation.submit(statusWriteForConfirm(sheets.confirm, productId));
+        await mutation.submit(statusWriteForConfirm(target, productId));
       }
       await invalidateCatalogAfterStatusWrite({
         queryClient,
@@ -229,8 +299,36 @@ export function useProductDetail(
       // Banner is derived from mutation.error.
     } finally {
       writeBusyRef.current = false;
-      setWriteBusy(false);
     }
+  }
+
+  async function promptStatusConfirm(
+    target: ConfirmTarget,
+    variantActionId: string | null,
+    waitHidden: () => Promise<void>,
+  ): Promise<void> {
+    const hidden = waitHidden();
+    setSheets(IDLE_DETAIL_SHEETS);
+    await hidden;
+    const prompt = confirmSheetCopy(target, copy.detail);
+    const choice = await presentConfirmDialog({
+      title: prompt.title,
+      message: prompt.description,
+      confirmLabel: prompt.confirmLabel,
+      cancelLabel: copy.detail.cancel,
+      tone: confirmIsDestructive(target) ? "danger" : "default",
+    });
+    if (choice === "cancel") {
+      mutation.reset();
+      setSheets(
+        sheetsAfterCancelStatusConfirm({
+          target,
+          variantActionId,
+        }),
+      );
+      return;
+    }
+    await submitConfirm(target);
   }
 
   async function submitVariantWrite(write: ProductFormWrite): Promise<void> {
@@ -294,21 +392,11 @@ export function useProductDetail(
       canEdit &&
       product !== null &&
       product.variants.length < PRODUCT_FORM_MAX_VARIANTS,
-    canFetchImages: canFetchFileDownloadUrls(membership.role),
+    photoTiles,
+    previewByFileId,
+    photos,
+    photosFocus,
     nameMaxLength: PRODUCT_NAME_MAX,
-    confirm: sheets.confirm,
-    confirmCopy:
-      sheetTarget === null ? null : confirmSheetCopy(sheetTarget, copy.detail),
-    confirmBanner: statusWriteBanner(
-      mapStatusWriteFailure(mutationFailure),
-      copy.detail,
-    ),
-    confirmPending: isConfirmWriteBusy({
-      mutationPending: mutation.isPending,
-      writeBusy,
-    }),
-    confirmDestructive:
-      sheetTarget !== null && confirmIsDestructive(sheetTarget),
     headerTitle: product?.name ?? copy.detail.title,
     headerSubtitle:
       product === null
@@ -321,9 +409,7 @@ export function useProductDetail(
           }),
     productActionsVisible: sheets.productActions,
     variantActionsVisible:
-      sheets.variantActionId !== null &&
-      sheets.variantEditor === null &&
-      sheets.confirm === null,
+      sheets.variantActionId !== null && sheets.variantEditor === null,
     variantActionsTitle: variantForChrome?.name ?? "",
     variantActionsArchived: variantForChrome?.archived === true,
     variantEditorVisible: sheets.variantEditor !== null,
@@ -337,6 +423,10 @@ export function useProductDetail(
       mutationPending: variantMutation.isPending,
       writeBusy: variantBusy,
     }),
+    statusBanner: statusWriteBanner(
+      mapStatusWriteFailure(mutationFailure),
+      copy.detail,
+    ),
     goBack: () => {
       router.back();
     },
@@ -344,7 +434,12 @@ export function useProductDetail(
       void query.refetch();
     },
     openEdit: navigateEdit,
-    openPhotos: navigateEdit,
+    openPhotos: () => {
+      setPhotosFocus((count) => count + 1);
+      openPicker();
+    },
+    onProductActionsHidden: notifyActionsHidden,
+    onVariantActionsHidden: notifyVariantActionsHidden,
     openProductActions: () => {
       setSheets(sheetsOpenProductActions());
     },
@@ -363,8 +458,11 @@ export function useProductDetail(
         navigateEdit();
         return;
       }
-      mutation.reset();
-      setSheets(sheetsAfterProductSheetAction(result));
+      if (result.kind === "focus-photos") {
+        focusPhotosAfterActions();
+        return;
+      }
+      void promptStatusConfirm(result.target, null, waitUntilActionsHidden);
     },
     openVariantActions: (id) => {
       setSheets(sheetsOpenVariantActions(id));
@@ -385,14 +483,18 @@ export function useProductDetail(
       if (result.kind === "editor") {
         variantMutation.reset();
         setVariantBannerKey(null);
-      } else {
-        mutation.reset();
+        setSheets(
+          sheetsAfterVariantSheetAction({
+            variantId: variantForChrome.id,
+            result,
+          }),
+        );
+        return;
       }
-      setSheets(
-        sheetsAfterVariantSheetAction({
-          variantId: variantForChrome.id,
-          result,
-        }),
+      void promptStatusConfirm(
+        result.target,
+        variantForChrome.id,
+        waitUntilVariantActionsHidden,
       );
     },
     openNewVariant: () => {
@@ -454,20 +556,6 @@ export function useProductDetail(
         return;
       }
       void submitVariantWrite(plan.write);
-    },
-    closeConfirm: () => {
-      if (
-        !isConfirmWriteBusy({
-          mutationPending: mutation.isPending,
-          writeBusy,
-        })
-      ) {
-        setSheets(sheetsAfterDismissConfirm(sheets));
-        mutation.reset();
-      }
-    },
-    confirmStatusWrite: () => {
-      void submitConfirm();
     },
     variantPriceLabel: (variant) =>
       variantRowPriceLabel({

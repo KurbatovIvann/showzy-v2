@@ -72,7 +72,7 @@ describe("canvas token map (ADR-0024)", () => {
       sheet: 30,
       full: 9999,
     });
-    expect(hitTarget).toEqual({ min: 44, field: 48, auth: 54, row: 88 });
+    expect(hitTarget).toEqual({ min: 44, field: 64, auth: 54, row: 88 });
     expect(iconSize).toEqual({ sm: 18, md: 20 });
     expect(squircle).toEqual({ borderCurve: "continuous" });
     expect(typography["2xs"]).toEqual({ fontSize: 11, lineHeight: 14 });

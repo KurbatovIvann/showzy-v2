@@ -14,6 +14,7 @@ export function VariantActionsSheet(props: {
   readonly archived: boolean;
   readonly copy: ProductsDetailCopy;
   readonly onClose: () => void;
+  readonly onHidden: () => void;
   readonly onEdit: () => void;
   readonly onStatus: () => void;
 }) {
@@ -22,7 +23,12 @@ export function VariantActionsSheet(props: {
   const danger = theme.colors.destructive;
   const icon = theme.iconSize.sm;
   return (
-    <Sheet visible={props.visible} title={props.title} onClose={props.onClose}>
+    <Sheet
+      visible={props.visible}
+      title={props.title}
+      onClose={props.onClose}
+      onHidden={props.onHidden}
+    >
       <ProductSheetAction
         icon={<PencilIcon size={icon} color={ink} />}
         label={props.copy.editLabel}

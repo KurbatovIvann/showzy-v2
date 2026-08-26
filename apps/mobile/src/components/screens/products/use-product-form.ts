@@ -18,6 +18,8 @@ import { useActiveCompany } from "../../../api/query-provider";
 import { useResolvedCompany } from "../../../company-resolution/resolved-company-provider";
 import { detectLocale } from "../../../i18n/locale";
 import { productsCopy } from "../../../i18n/products";
+import { presentConfirmDialog } from "../../ui/present-confirm-dialog";
+import { waitForSheetDismiss } from "../../ui/sheet-dismiss";
 import { invalidateCatalogAfterStatusWrite } from "./product-archive";
 import { productIdFromParam } from "./product-detail-model";
 import { getProductQueryOptions } from "./product-detail-query";
@@ -38,6 +40,7 @@ import {
   PRODUCT_FORM_MAX_VARIANTS,
   PRODUCT_NAME_MAX,
   resolveProductFormCopy,
+  snapshotFromDraft,
   snapshotFromProduct,
   upsertVariantDraft,
   type BannerKey,
@@ -49,6 +52,7 @@ import {
 } from "./product-form-model";
 import { bindProductFormMutate } from "./product-form-mutation";
 import { canCreateProducts, canEditProducts } from "./product-permissions";
+import { useProductPhotos } from "./use-product-photos";
 
 export type ProductFormModel = ReturnType<typeof useProductForm>;
 
@@ -77,12 +81,20 @@ export function useProductForm(args: {
   const router = useRouter();
   const navigation = useNavigation();
   const queryClient = useQueryClient();
-  const productId =
+  const routeProductId =
     args.mode === "edit" ? productIdFromParam(args.idParam) : null;
   const canWrite =
     args.mode === "create"
       ? canCreateProducts(membership.role)
       : canEditProducts(membership.role);
+
+  const photos = useProductPhotos({
+    productId: routeProductId,
+    requireProduct: args.mode === "edit",
+    canWrite,
+  });
+  const photosRef = useRef(photos);
+  photosRef.current = photos;
 
   const [draft, setDraft] = useState<ProductFormDraft>(emptyProductFormDraft);
   const [origin, setOrigin] = useState<ProductFormDraft>(emptyProductFormDraft);
@@ -92,7 +104,6 @@ export function useProductForm(args: {
   const [localBanner, setLocalBanner] = useState<BannerKey | null>(null);
   const [lastWrite, setLastWrite] = useState<ProductFormWrite | null>(null);
   const [saveBusy, setSaveBusy] = useState(false);
-  const [confirmLeaveVisible, setConfirmLeaveVisible] = useState(false);
   const [leaveArmed, setLeaveArmed] = useState(false);
   const [variantSheet, setVariantSheet] =
     useState<ProductFormVariantSheetState>({ kind: "closed" });
@@ -106,8 +117,11 @@ export function useProductForm(args: {
   const variantSheetRef = useRef(variantSheet);
   variantSheetRef.current = variantSheet;
   const pendingLeaveActionRef = useRef<NavigationAction | null>(null);
-  const productIdRef = useRef(productId);
-  productIdRef.current = productId;
+  const leavePromptingRef = useRef(false);
+  const productIdRef = useRef(routeProductId);
+  if (routeProductId !== null) {
+    productIdRef.current = routeProductId;
+  }
   const lastFailureRef = useRef<LastFailure>(NO_FAILURE);
   const saveBusyRef = useRef(false);
   const mountedRef = useRef(true);
@@ -124,7 +138,7 @@ export function useProductForm(args: {
     getProductQueryOptions({
       client: canWrite ? apiClient : null,
       companyId: activeCompanyId,
-      productId,
+      productId: routeProductId,
       getActiveCompany: () => apiClient?.getActiveCompany() ?? null,
     }),
   );
@@ -170,11 +184,11 @@ export function useProductForm(args: {
     localBanner ??
     mapProductFormFailure(failure?.kind ?? null, wire?.code ?? null);
   const pending = saveBusy || mutation.isPending;
-  const dirty = isProductFormDirty(draft, origin);
+  const dirty = isProductFormDirty(draft, origin) || photos.dirty;
 
   usePreventRemove(dirty && !pending && !leaveArmed, ({ data }) => {
     pendingLeaveActionRef.current = data.action;
-    setConfirmLeaveVisible(true);
+    void promptLeave();
   });
 
   useEffect(() => {
@@ -194,7 +208,7 @@ export function useProductForm(args: {
   const loadState = classifyProductFormLoad({
     mode: args.mode,
     canWrite,
-    productId,
+    productId: routeProductId,
     clientReady,
     status: query.status,
     failureKind: query.isError ? describeQueryFailure(query.error).kind : null,
@@ -234,14 +248,30 @@ export function useProductForm(args: {
     router.back();
   }
 
-  function dismissLeave(): void {
+  async function promptLeave(): Promise<void> {
+    if (leavePromptingRef.current) {
+      return;
+    }
+    leavePromptingRef.current = true;
+    const hadSheet = variantSheetRef.current.kind !== "closed";
+    setVariantSheet({ kind: "closed" });
+    if (hadSheet) {
+      await waitForSheetDismiss();
+    }
+    const form = copy.form;
+    const choice = await presentConfirmDialog({
+      title: form.leaveTitle,
+      message: form.leaveDescription,
+      confirmLabel: form.leaveConfirm,
+      cancelLabel: form.leaveContinue,
+      tone: "danger",
+    });
+    leavePromptingRef.current = false;
+    if (choice === "confirm") {
+      setLeaveArmed(true);
+      return;
+    }
     pendingLeaveActionRef.current = null;
-    setConfirmLeaveVisible(false);
-  }
-
-  function confirmLeave(): void {
-    setConfirmLeaveVisible(false);
-    setLeaveArmed(true);
   }
 
   function openNewVariant(): void {
@@ -315,7 +345,10 @@ export function useProductForm(args: {
           return;
         }
         const plan = planProductFormSave({
-          mode: args.mode,
+          mode:
+            productIdRef.current !== null && args.mode === "create"
+              ? "edit"
+              : args.mode,
           productId: productIdRef.current,
           draft: draftRef.current,
           baseline: baselineRef.current,
@@ -329,6 +362,10 @@ export function useProductForm(args: {
         }
         if (plan.kind === "noop") {
           setOrigin(draftRef.current);
+          const photoResult = await photosRef.current.flush();
+          if (photoResult === "commit-failed") {
+            return;
+          }
           await finish();
           return;
         }
@@ -345,19 +382,32 @@ export function useProductForm(args: {
             ? await mutation.retry()
             : await mutation.submit(write);
         lastFailureRef.current = NO_FAILURE;
+        if (write.kind === "createProduct" && result.kind === "product") {
+          productIdRef.current = result.productId;
+          photosRef.current.bindProductId(result.productId);
+        }
         const applied = applyWriteSuccess({
           draft: draftRef.current,
           baseline: baselineRef.current,
           write,
           result,
         });
+        const nextBaseline =
+          write.kind === "createProduct"
+            ? (snapshotFromDraft(compactDraft(applied.draft)) ??
+              applied.baseline)
+            : applied.baseline;
         draftRef.current = applied.draft;
-        baselineRef.current = applied.baseline;
+        baselineRef.current = nextBaseline;
         setDraft(applied.draft);
         setOrigin(applied.draft);
-        setBaseline(applied.baseline);
+        setBaseline(nextBaseline);
         mutation.reset();
         if (applied.done) {
+          const photoResult = await photosRef.current.flush();
+          if (photoResult === "commit-failed") {
+            return;
+          }
           await finish();
           return;
         }
@@ -396,7 +446,7 @@ export function useProductForm(args: {
     submitDisabled:
       resolved.submitDisabled ||
       loadState.kind !== "ready" ||
-      (args.mode === "edit" && !dirty),
+      (args.mode === "edit" && !dirty && !photos.needsCommit),
     submitLabel: resolved.submitLabel,
     fieldsEditable: resolved.fieldsEditable && loadState.kind === "ready",
     canAddVariant:
@@ -412,12 +462,10 @@ export function useProductForm(args: {
       draft.priceText,
       origin.priceText,
     ),
-    confirmLeaveVisible,
     variantSheet,
     variantSheetInitial,
+    photos,
     requestLeave,
-    dismissLeave,
-    confirmLeave,
     openNewVariant,
     openEditVariant,
     closeVariantSheet,

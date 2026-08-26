@@ -11,14 +11,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { interpolate } from "../../../i18n/locale";
-import {
-  AppHeader,
-  Banner,
-  Button,
-  EmptyState,
-  Sheet,
-  TextField,
-} from "../../ui";
+import { AppHeader, Banner, Button, EmptyState, TextField } from "../../ui";
+import { PhotoSourceSheet } from "./photo-source-sheet";
 import {
   firstVariantFieldError,
   formatProductFormFooterPrice,
@@ -26,6 +20,7 @@ import {
 } from "./product-form-model";
 import { ProductFormVariantRow } from "./product-form-variant-row";
 import { ProductFormVariantSheet } from "./product-form-variant-sheet";
+import { ProductImagePicker, photoCountLabel } from "./product-image-picker";
 import type { ProductFormModel } from "./use-product-form";
 
 const UAH_SUFFIX = "₴";
@@ -88,30 +83,14 @@ export function ProductFormView(model: ProductFormModel) {
         onClose={model.closeVariantSheet}
         onSave={model.saveVariantFromSheet}
       />
-      <Sheet
-        visible={model.confirmLeaveVisible}
-        title={form.leaveTitle}
-        closeAccessibilityLabel={form.closeSheet}
-        onClose={model.dismissLeave}
-        footer={
-          <>
-            <Button
-              variant="secondary"
-              fullWidth
-              label={form.leaveContinue}
-              onPress={model.dismissLeave}
-            />
-            <Button
-              variant="danger"
-              fullWidth
-              label={form.leaveConfirm}
-              onPress={model.confirmLeave}
-            />
-          </>
-        }
-      >
-        <Text style={styles.leaveBody}>{form.leaveDescription}</Text>
-      </Sheet>
+      <PhotoSourceSheet
+        visible={model.photos.pickerOpen}
+        copy={copy.photos}
+        onClose={model.photos.closePicker}
+        onHidden={model.photos.onSourceSheetHidden}
+        onCamera={model.photos.pickCamera}
+        onLibrary={model.photos.pickLibrary}
+      />
     </SafeAreaView>
   );
 }
@@ -236,6 +215,36 @@ function ProductFormReady(props: { readonly model: ProductFormModel }) {
           changedLabel={form.changedLabel}
         />
       </ProductFormSection>
+      <ProductFormSection
+        title={copy.photos.title}
+        accessory={photoCountLabel(
+          copy.photos.count,
+          model.photos.tiles.length,
+        )}
+      >
+        <ProductImagePicker
+          tiles={model.photos.tiles}
+          copy={copy.photos}
+          previewByFileId={model.photos.previewByFileId}
+          canAdd={model.photos.canAdd && model.fieldsEditable}
+          readOnly={!model.fieldsEditable}
+          banner={model.photos.banner}
+          onAdd={model.photos.openPicker}
+          onRemove={model.photos.removePhoto}
+          onMoveEarlier={model.photos.moveEarlier}
+          onMoveLater={model.photos.moveLater}
+          onRetry={model.photos.retryUpload}
+          onCancel={model.photos.cancelUpload}
+        />
+        {model.photos.canRetryCommit ? (
+          <Button
+            variant="secondary"
+            label={copy.photos.retryLabel}
+            loading={model.photos.commitPending}
+            onPress={model.photos.retryCommit}
+          />
+        ) : null}
+      </ProductFormSection>
       <ProductFormSection title={form.priceSectionTitle}>
         <TextField
           label={form.priceLabel}
@@ -320,11 +329,17 @@ function variantPriceLabel(
 
 function ProductFormSection(props: {
   readonly title: string;
+  readonly accessory?: string;
   readonly children: ReactNode;
 }) {
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{props.title}</Text>
+      <View style={styles.sectionHeading}>
+        <Text style={styles.sectionTitle}>{props.title}</Text>
+        {props.accessory !== undefined && props.accessory.length > 0 ? (
+          <Text style={styles.sectionAccessory}>{props.accessory}</Text>
+        ) : null}
+      </View>
       <View style={styles.sectionCard}>{props.children}</View>
     </View>
   );
@@ -351,12 +366,24 @@ const styles = StyleSheet.create((theme) => ({
   section: {
     gap: theme.spacing.sm,
   },
-  sectionTitle: {
+  sectionHeading: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: theme.spacing.md,
     paddingHorizontal: theme.spacing.xs,
+  },
+  sectionTitle: {
     color: theme.colors.mutedForeground,
     fontSize: theme.typography.xs.fontSize,
     lineHeight: theme.typography.xs.lineHeight,
     fontWeight: "600",
+  },
+  sectionAccessory: {
+    color: theme.colors.icon.muted,
+    fontSize: theme.typography.xs.fontSize,
+    lineHeight: theme.typography.xs.lineHeight,
+    fontVariant: ["tabular-nums"],
   },
   sectionCard: {
     backgroundColor: theme.colors.card,
@@ -449,11 +476,6 @@ const styles = StyleSheet.create((theme) => ({
   },
   footerButton: {
     flex: 1,
-  },
-  leaveBody: {
-    color: theme.colors.mutedForeground,
-    fontSize: theme.typography.sm.fontSize,
-    lineHeight: theme.typography.sm.lineHeight,
   },
   pressed: {
     opacity: 0.85,
