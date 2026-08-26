@@ -8,12 +8,12 @@ Reanimated on 4.5.1 with worklets 0.10.1 — do not float Unistyles to 3.3
 
 ## Sources of truth
 
-| Concern              | Source                                                                                                                                                                       |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Visual language      | Unistyles `src/theme/` mapped from the Magic Patterns canvas ([`mp-to-mobile.md`](../../docs/design/mapping/mp-to-mobile.md))                                                |
-| How to port a screen | Inventory the canvas → classify shared vs feature → reuse/create in `components/ui` or `components/screens` — [`mp-to-mobile.md`](../../docs/design/mapping/mp-to-mobile.md) |
-| Domain behavior      | The Linear feature card, `@showzy/contract`, and the golden UI slice when it exists                                                                                          |
-| Auth / sessions      | better-auth over `/api/auth` (ADR-0006, security-operations §2). Expo cookies via `@better-auth/expo` in SecureStore.                                                        |
+| Concern              | Source                                                                                                                                                                           |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Visual language      | Unistyles `src/theme/` mapped from the Magic Patterns canvas ([`mp-to-mobile.md`](../../docs/design/mapping/mp-to-mobile.md))                                                    |
+| How to port a screen | Inventory the canvas → classify shared vs feature → reuse/create in `components/ui` or `src/features/<module>/` — [`mp-to-mobile.md`](../../docs/design/mapping/mp-to-mobile.md) |
+| Domain behavior      | The Linear feature card, `@showzy/contract`, and the golden UI slice when it exists                                                                                              |
+| Auth / sessions      | better-auth over `/api/auth` (ADR-0006, security-operations §2). Expo cookies via `@better-auth/expo` in SecureStore.                                                            |
 
 Figma is not a source of spacing, color, or components. Never modify the
 V1 repository (`E:\showzy`). Do not paste Magic Patterns React/Tailwind
@@ -35,9 +35,14 @@ the same directory.
   tabs, inputs, later Sheet / StatusPill / EmptyState). Never imports
   feature code; feature policy values (e.g. OTP length) arrive as props.
   Before adding a new file here, confirm the canvas piece is actually shared.
-- `src/components/screens/<feature>/` — screen and **feature** components
-  (OrderRow, editor sections). Take view models and callbacks; they do not
-  own transport. Compose `components/ui`; do not duplicate button/card chrome.
+- `src/features/<module>/<surface>/` — golden feature slices. Copy
+  `src/features/catalog/products/` (SHO-155): `api/`, `list/`, `detail/`,
+  `form/`, `photos/`, `shared/`. Screens take view models and callbacks;
+  they do not own transport. Compose `components/ui`; do not duplicate
+  button/card chrome. Read that folder's `AGENTS.md` before adding files.
+- `src/components/screens/<feature>/` — unmigrated feature screens (auth,
+  panel, onboarding, company-resolution). Do not add new product modules
+  here.
 - `src/auth/` — auth logic only, no screens. `better-auth` and
   `@better-auth/expo` may be imported **only here**: `client.ts`
   (`createAuthClient` + `expoClient` cookie jar), `errors.ts` (HTTP status

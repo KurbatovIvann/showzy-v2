@@ -1,1 +1,1 @@
-export { ProductDetailScreen as default } from "../../../../components/screens/products/product-detail-screen";
+export { ProductDetailScreen as default } from "../../../../features/catalog/products/detail/product-detail-screen";
