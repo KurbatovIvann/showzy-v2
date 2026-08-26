@@ -15,6 +15,25 @@ import type {
   GetProductVariant,
 } from "../api/product-detail-query";
 import { variantCountLabel } from "../shared/variant-count";
+import {
+  IDLE_DETAIL_SHEETS,
+  reduceProductDetailSheets,
+  type DetailSheets,
+} from "./product-detail.reducer";
+
+export {
+  IDLE_DETAIL_SHEETS,
+  productDetailSheetChrome,
+  reduceProductDetailSheets,
+  sheetsAfterCloseVariantEditor,
+  sheetsAfterProductSheetAction,
+  sheetsAfterVariantSheetAction,
+  sheetsOpenNewVariant,
+  sheetsOpenProductActions,
+  sheetsOpenVariantActions,
+  type DetailSheets,
+  type ProductDetailSheetAction,
+} from "./product-detail.reducer";
 
 /** Contract `productId` / `variantId` are UUIDs; refuse anything else. */
 export const PRODUCT_ID_PATTERN =
@@ -346,76 +365,19 @@ export function confirmIsDestructive(target: ConfirmTarget): boolean {
   return target.kind === "archive-product" || target.kind === "archive-variant";
 }
 
-export type DetailSheets = {
-  readonly productActions: boolean;
-  readonly variantActionId: string | null;
-  readonly variantEditor:
-    | { readonly mode: "new" }
-    | { readonly mode: "edit"; readonly variantId: string }
-    | null;
-};
-
-export const IDLE_DETAIL_SHEETS: DetailSheets = {
-  productActions: false,
-  variantActionId: null,
-  variantEditor: null,
-};
-
-export function sheetsOpenProductActions(): DetailSheets {
-  return { ...IDLE_DETAIL_SHEETS, productActions: true };
-}
-
-export function sheetsOpenVariantActions(variantId: string): DetailSheets {
-  return { ...IDLE_DETAIL_SHEETS, variantActionId: variantId };
-}
-
-export function sheetsOpenNewVariant(): DetailSheets {
-  return { ...IDLE_DETAIL_SHEETS, variantEditor: { mode: "new" } };
-}
-
-export function sheetsAfterProductSheetAction(): DetailSheets {
-  return IDLE_DETAIL_SHEETS;
-}
-
-export function sheetsAfterVariantSheetAction(args: {
-  readonly variantId: string;
-  readonly result: VariantSheetActionResult;
-}): DetailSheets {
-  if (args.result.kind === "editor") {
-    return {
-      productActions: false,
-      variantActionId: args.variantId,
-      variantEditor: { mode: "edit", variantId: args.variantId },
-    };
-  }
-  return IDLE_DETAIL_SHEETS;
-}
-
-export function sheetsAfterCloseVariantEditor(
-  sheets: DetailSheets,
-): DetailSheets {
-  const editor = sheets.variantEditor;
-  if (editor !== null && editor.mode === "edit") {
-    return {
-      ...IDLE_DETAIL_SHEETS,
-      variantActionId: editor.variantId,
-    };
-  }
-  return IDLE_DETAIL_SHEETS;
-}
-
 export function sheetsAfterCancelStatusConfirm(args: {
   readonly target: ConfirmTarget;
   readonly variantActionId: string | null;
 }): DetailSheets {
-  if (
-    (args.target.kind === "archive-variant" ||
-      args.target.kind === "restore-variant") &&
-    args.variantActionId !== null
-  ) {
-    return sheetsOpenVariantActions(args.variantActionId);
-  }
-  return IDLE_DETAIL_SHEETS;
+  return reduceProductDetailSheets(IDLE_DETAIL_SHEETS, {
+    type: "cancelStatusConfirm",
+    restore:
+      args.target.kind === "archive-variant" ||
+      args.target.kind === "restore-variant"
+        ? "variantActions"
+        : "idle",
+    variantActionId: args.variantActionId,
+  });
 }
 
 export function productHeaderSubtitle(args: {
@@ -472,4 +434,16 @@ export function variantRowActionsLabel(args: {
   readonly template: string;
 }): string {
   return interpolate(args.template, { name: args.variantName });
+}
+
+export function resolveSelectedVariant(
+  product: ProductDetailViewModel | null,
+  variantActionId: string | null,
+): ProductVariantView | null {
+  if (product === null || variantActionId === null) {
+    return null;
+  }
+  return (
+    product.variants.find((variant) => variant.id === variantActionId) ?? null
+  );
 }

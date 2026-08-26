@@ -15,7 +15,7 @@ pin exact `xstate` / `@xstate/react` — no floating `@alpha` tag.
 | --------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | `api/`    | `product.queries.ts`, mutation binders, `product-cache.ts` invalidation keys                  | JSX, RHF, XState                                                         |
 | `list/`   | Screen, view, composer hook, presenter, row, `use-product-thumbnails.ts`                      | Writes, photo session                                                    |
-| `detail/` | Detail screen, view, facade hook, sheets                                                      | Form field state, photo machine                                          |
+| `detail/` | Screen, view, facade, query/actions/variant hooks, sheet reducer                              | Form field state, photo machine                                          |
 | `form/`   | Create/edit screen, view, UI draft Zod, RHF composer, save loop, unsaved guard, variant sheet | List filters; photo session internals                                    |
 | `photos/` | XState v6 session, thin manager hook, commit/runtime I/O, upload runner, native, picker       | A second `catalog.getProduct` when the parent already has `imageFileIds` |
 | `shared/` | Permissions, presenters (`variant-count`), sheet chrome used by more than one surface         | Transport                                                                |
@@ -29,7 +29,11 @@ pin exact `xstate` / `@xstate/react` — no floating `@alpha` tag.
   does not own slots or the handshake. List filters and sheet chrome are
   not XState. Views take a view-model and callbacks. `use-products-list.ts`
   stays a thin composer: filter/search state + query + presenter +
-  thumbnails + navigation.
+  thumbnails + navigation. `use-product-detail.ts` stays a thin facade:
+  `useProductDetailQuery` (`catalog.getProduct` only) + product actions +
+  variant actions + photo manager + `product-detail.reducer.ts`. Pass
+  `imageFileIds` from the detail query into photos; do not start a second
+  `getProduct`. No RHF on detail.
 - **No second `getProduct`.** If the parent already has `imageFileIds`,
   hydrate photos from that list. Do not start another `catalog.getProduct`
   for thumbnails.
