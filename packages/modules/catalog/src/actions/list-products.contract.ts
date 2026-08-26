@@ -15,13 +15,15 @@
  *   `packages/contract/src/client/money-wire.ts` until validation owns it.
  */
 import { defineActionContract } from "@showzy/core/contract";
+import { LIST_PRODUCTS_QUERY_MAX_LENGTH } from "@showzy/validation/catalog";
 import { z } from "zod";
 
 import { moneyWireSchema, productStatusSchema } from "../wire.contract.js";
 
+export { LIST_PRODUCTS_QUERY_MAX_LENGTH };
+
 export const LIST_PRODUCTS_DEFAULT_LIMIT = 20;
 export const LIST_PRODUCTS_MAX_LIMIT = 50;
-export const LIST_PRODUCTS_QUERY_MAX_LENGTH = 100;
 
 const listProductsCursorPayloadSchema = z.object({
   createdAt: z.iso.datetime(),

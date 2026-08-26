@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   LIST_PRODUCTS_DEFAULT_LIMIT,
   LIST_PRODUCTS_MAX_LIMIT,
+  LIST_PRODUCTS_QUERY_MAX_LENGTH,
   listProductsContract,
   parseListProductsCursor,
 } from "./list-products.contract.js";
@@ -20,6 +21,7 @@ describe("catalog.listProducts contract", () => {
     expect(listProductsContract.timeout).toBe(5_000);
     expect(LIST_PRODUCTS_DEFAULT_LIMIT).toBe(20);
     expect(LIST_PRODUCTS_MAX_LIMIT).toBe(50);
+    expect(LIST_PRODUCTS_QUERY_MAX_LENGTH).toBe(100);
   });
 
   it("defaults status to active and rejects a malformed cursor", () => {
@@ -37,6 +39,11 @@ describe("catalog.listProducts contract", () => {
     ).toBe(false);
     expect(
       listProductsContract.input.safeParse({ status: "deleted" }).success,
+    ).toBe(false);
+    expect(
+      listProductsContract.input.safeParse({
+        query: "x".repeat(LIST_PRODUCTS_QUERY_MAX_LENGTH + 1),
+      }).success,
     ).toBe(false);
     expect(parseListProductsCursor("nope")).toBeUndefined();
   });

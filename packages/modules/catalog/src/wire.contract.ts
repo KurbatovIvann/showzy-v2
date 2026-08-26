@@ -1,5 +1,12 @@
 import { z } from "zod";
 
+export {
+  DEFAULT_PRODUCT_CURRENCY,
+  PRODUCT_NAME_MAX,
+  catalogNameSchema,
+  currencyCodeSchema,
+} from "@showzy/validation/catalog";
+
 /**
  * Canonical signed integer minor units (money.md / contract.md §3). Local
  * copy — `*.contract.ts` cannot import `@showzy/contract`. Keep the regex
@@ -30,19 +37,5 @@ export const nonNegativeMoneyWireSchema = moneyWireSchema.refine(
   (value) => !value.startsWith("-"),
   { message: "Price must not be negative." },
 );
-
-/** MVP is UAH-only (db.md §11); the column is reserved for a later ADR. */
-export const currencyCodeSchema = z.literal("UAH");
-
-export const DEFAULT_PRODUCT_CURRENCY = "UAH";
-
-/** Same cap as `companies.create` (golden write). */
-export const PRODUCT_NAME_MAX = 120;
-
-export const catalogNameSchema = z
-  .string()
-  .trim()
-  .min(1, { message: "Name must not be blank." })
-  .max(PRODUCT_NAME_MAX);
 
 export const productStatusSchema = z.enum(["active", "archived"]);

@@ -20,10 +20,10 @@
  *   non-image MIME facts might later admit (`rejectNonImageAttachments`).
  */
 import { defineActionContract } from "@showzy/core/contract";
+import { SET_PRODUCT_IMAGES_MAX } from "@showzy/validation/catalog";
 import { z } from "zod";
 
-/** Ticket ceiling ("max ~10"). */
-export const SET_PRODUCT_IMAGES_MAX = 10;
+export { SET_PRODUCT_IMAGES_MAX };
 
 function uniqueFileIds(fileIds: readonly string[]): boolean {
   return new Set(fileIds).size === fileIds.length;
