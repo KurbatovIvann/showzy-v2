@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 import { useApiClient } from "../../../api/api-provider";
 import { useContractMutation } from "../../../api/contract-mutation";
 import { describeQueryFailure, describeWireError } from "../../../api/errors";
+import { fileDownloadUrlsQueryOptions } from "../../../api/file-download-query";
 import { useActiveCompany } from "../../../api/query-provider";
 import { useResolvedCompany } from "../../../company-resolution/resolved-company-provider";
 import { detectLocale } from "../../../i18n/locale";
@@ -68,6 +69,11 @@ import {
   canEditProducts,
   canFetchFileDownloadUrls,
 } from "./product-permissions";
+import {
+  committedSlotsFromFileIds,
+  toPhotoTiles,
+  type PhotoTileView,
+} from "./product-photos-model";
 
 export type ProductDetailModel = {
   readonly copy: ReturnType<typeof productsCopy>;
@@ -76,7 +82,8 @@ export type ProductDetailModel = {
   readonly facts: ProductFacts | null;
   readonly canEdit: boolean;
   readonly canAddVariant: boolean;
-  readonly canFetchImages: boolean;
+  readonly photoTiles: readonly PhotoTileView[];
+  readonly previewByFileId: ReadonlyMap<string, string>;
   readonly nameMaxLength: number;
   readonly confirm: ConfirmTarget | null;
   readonly confirmCopy: ReturnType<typeof confirmSheetCopy> | null;
@@ -186,6 +193,21 @@ export function useProductDetail(
     ? describeQueryFailure(mutation.error).kind
     : null;
   const canEdit = canEditProducts(membership.role);
+  const canFetchImages = canFetchFileDownloadUrls(membership.role);
+  const photoFileIds = product?.imageFileIds ?? [];
+  const urlsQuery = useQuery(
+    fileDownloadUrlsQueryOptions({
+      client: canFetchImages ? apiClient : null,
+      companyId: activeCompanyId,
+      fileIds: photoFileIds,
+      getActiveCompany: () => apiClient?.getActiveCompany() ?? null,
+    }),
+  );
+  const previewByFileId = new Map<string, string>();
+  for (const file of urlsQuery.data?.files ?? []) {
+    previewByFileId.set(file.fileId, file.downloadUrl);
+  }
+  const photoTiles = toPhotoTiles(committedSlotsFromFileIds(photoFileIds));
   const selectedVariant = resolveSelectedVariant(
     product,
     sheets.variantActionId,
@@ -294,7 +316,8 @@ export function useProductDetail(
       canEdit &&
       product !== null &&
       product.variants.length < PRODUCT_FORM_MAX_VARIANTS,
-    canFetchImages: canFetchFileDownloadUrls(membership.role),
+    photoTiles,
+    previewByFileId,
     nameMaxLength: PRODUCT_NAME_MAX,
     confirm: sheets.confirm,
     confirmCopy:

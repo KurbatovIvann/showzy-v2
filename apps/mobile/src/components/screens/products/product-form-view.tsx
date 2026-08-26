@@ -19,6 +19,7 @@ import {
   Sheet,
   TextField,
 } from "../../ui";
+import { PhotoSourceSheet } from "./photo-source-sheet";
 import {
   firstVariantFieldError,
   formatProductFormFooterPrice,
@@ -26,6 +27,7 @@ import {
 } from "./product-form-model";
 import { ProductFormVariantRow } from "./product-form-variant-row";
 import { ProductFormVariantSheet } from "./product-form-variant-sheet";
+import { ProductImagePicker, photoCountLabel } from "./product-image-picker";
 import type { ProductFormModel } from "./use-product-form";
 
 const UAH_SUFFIX = "₴";
@@ -87,6 +89,13 @@ export function ProductFormView(model: ProductFormModel) {
         editable={model.fieldsEditable}
         onClose={model.closeVariantSheet}
         onSave={model.saveVariantFromSheet}
+      />
+      <PhotoSourceSheet
+        visible={model.photos.pickerOpen}
+        copy={copy.photos}
+        onClose={model.photos.closePicker}
+        onCamera={model.photos.pickCamera}
+        onLibrary={model.photos.pickLibrary}
       />
       <Sheet
         visible={model.confirmLeaveVisible}
@@ -300,6 +309,36 @@ function ProductFormReady(props: { readonly model: ProductFormModel }) {
           <Text style={styles.addVariantLabel}>{form.addVariant}</Text>
         </Pressable>
       </ProductFormSection>
+      <ProductFormSection
+        title={copy.photos.title}
+        accessory={photoCountLabel(
+          copy.photos.count,
+          model.photos.tiles.length,
+        )}
+      >
+        <ProductImagePicker
+          tiles={model.photos.tiles}
+          copy={copy.photos}
+          previewByFileId={model.photos.previewByFileId}
+          canAdd={model.photos.canAdd && model.fieldsEditable}
+          readOnly={!model.fieldsEditable}
+          banner={model.photos.banner}
+          onAdd={model.photos.openPicker}
+          onRemove={model.photos.removePhoto}
+          onMoveEarlier={model.photos.moveEarlier}
+          onMoveLater={model.photos.moveLater}
+          onRetry={model.photos.retryUpload}
+          onCancel={model.photos.cancelUpload}
+        />
+        {model.photos.canRetryCommit ? (
+          <Button
+            variant="secondary"
+            label={copy.photos.retryLabel}
+            loading={model.photos.commitPending}
+            onPress={model.photos.retryCommit}
+          />
+        ) : null}
+      </ProductFormSection>
       {model.banner !== null && model.banner.length > 0 ? (
         <Banner message={model.banner} />
       ) : null}
@@ -320,11 +359,17 @@ function variantPriceLabel(
 
 function ProductFormSection(props: {
   readonly title: string;
+  readonly accessory?: string;
   readonly children: ReactNode;
 }) {
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{props.title}</Text>
+      <View style={styles.sectionHeading}>
+        <Text style={styles.sectionTitle}>{props.title}</Text>
+        {props.accessory !== undefined && props.accessory.length > 0 ? (
+          <Text style={styles.sectionAccessory}>{props.accessory}</Text>
+        ) : null}
+      </View>
       <View style={styles.sectionCard}>{props.children}</View>
     </View>
   );
@@ -351,12 +396,24 @@ const styles = StyleSheet.create((theme) => ({
   section: {
     gap: theme.spacing.sm,
   },
-  sectionTitle: {
+  sectionHeading: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: theme.spacing.md,
     paddingHorizontal: theme.spacing.xs,
+  },
+  sectionTitle: {
     color: theme.colors.mutedForeground,
     fontSize: theme.typography.xs.fontSize,
     lineHeight: theme.typography.xs.lineHeight,
     fontWeight: "600",
+  },
+  sectionAccessory: {
+    color: theme.colors.icon.muted,
+    fontSize: theme.typography.xs.fontSize,
+    lineHeight: theme.typography.xs.lineHeight,
+    fontVariant: ["tabular-nums"],
   },
   sectionCard: {
     backgroundColor: theme.colors.card,

@@ -61,6 +61,7 @@ export type PhotoBannerKey =
   | "offline"
   | "unavailable"
   | "permission"
+  | "denied"
   | "validation"
   | "too_many"
   | "commit";
@@ -93,6 +94,7 @@ const RETRYABLE_FAILURE: ReadonlySet<QueryFailureKind> = new Set([
 export function classifyProductPhotosLoad(args: {
   readonly canWrite: boolean;
   readonly productId: string | null;
+  readonly requireProduct: boolean;
   readonly clientReady: boolean;
   readonly status: "pending" | "error" | "success";
   readonly failureKind: QueryFailureKind | null;
@@ -100,12 +102,56 @@ export function classifyProductPhotosLoad(args: {
   if (!args.canWrite) {
     return { kind: "permission" };
   }
+  if (!args.requireProduct) {
+    if (!args.clientReady) {
+      return { kind: "error" };
+    }
+    return { kind: "ready" };
+  }
   return classifyProductDetail({
     productId: args.productId,
     clientReady: args.clientReady,
     status: args.status,
     failureKind: args.failureKind,
   });
+}
+
+const IN_FLIGHT_PHASES: ReadonlySet<UploadMachine["phase"]> = new Set([
+  "idle",
+  "preparing",
+  "requesting",
+  "signing",
+  "putting",
+  "finalizing",
+]);
+
+/** True while a local file is still in the handshake and must not unmount. */
+export function hasInFlightPhotoUploads(slots: readonly PhotoSlot[]): boolean {
+  return slots.some(
+    (slot) =>
+      slot.kind === "upload" && IN_FLIGHT_PHASES.has(slot.machine.phase),
+  );
+}
+
+/**
+ * Create/edit leave-guard: local picks, in-flight uploads, or an ordered
+ * list that has not been written yet. Edit auto-commit clears this after
+ * `setProductImages` succeeds.
+ */
+export function photosAreDirty(
+  slots: readonly PhotoSlot[],
+  lastCommitted: readonly string[] | null,
+): boolean {
+  if (hasInFlightPhotoUploads(slots)) {
+    return true;
+  }
+  if (slots.some((slot) => slot.kind === "upload" && !isDropped(slot))) {
+    return true;
+  }
+  if (lastCommitted === null) {
+    return slotsTowardCap(slots) > 0;
+  }
+  return !fileIdsEqual(readyOrderedFileIds(slots), lastCommitted);
 }
 
 export function committedSlotsFromFileIds(
@@ -325,6 +371,12 @@ export function toPhotoTiles(
       canCancel: !failed && !ready && slot.machine.phase !== "idle",
     };
   });
+}
+
+export function mapDeniedBanner(
+  source: "camera" | "library" | null,
+): PhotoBannerKey | null {
+  return source === null ? null : "denied";
 }
 
 export function mapPhotoFailure(

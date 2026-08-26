@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { productEditorHref, productPhotoHref } from "./product-detail-model";
 import {
   addUploadSlots,
   applyCommitSuccess,
@@ -8,7 +9,10 @@ import {
   committedSlotsFromFileIds,
   classifyProductPhotosLoad,
   fileIdsEqual,
+  hasInFlightPhotoUploads,
+  mapDeniedBanner,
   movePhotoSlot,
+  photosAreDirty,
   nextPhotoCompressPlan,
   planPhotoCommit,
   readyOrderedFileIds,
@@ -149,6 +153,80 @@ describe("product photo ordering", () => {
     ).toEqual({ kind: "noop" });
   });
 
+  it("lets create and edit attach, and defers setProductImages until a product id exists", () => {
+    expect(
+      classifyProductPhotosLoad({
+        canWrite: true,
+        productId: null,
+        requireProduct: false,
+        clientReady: true,
+        status: "pending",
+        failureKind: null,
+      }).kind,
+    ).toBe("ready");
+    expect(
+      classifyProductPhotosLoad({
+        canWrite: true,
+        productId: PRODUCT_ID,
+        requireProduct: true,
+        clientReady: true,
+        status: "success",
+        failureKind: null,
+      }).kind,
+    ).toBe("ready");
+    expect(canAddPhoto([])).toBe(true);
+    const ready = [uploadSlot("local-1", "ready", FILE_C)];
+    expect(
+      planPhotoCommit({
+        productId: null,
+        slots: ready,
+        lastCommitted: [],
+        lastWrite: null,
+        lastFailureKind: null,
+        canRetryAttempt: false,
+      }),
+    ).toEqual({ kind: "noop" });
+    expect(
+      planPhotoCommit({
+        productId: PRODUCT_ID,
+        slots: ready,
+        lastCommitted: [],
+        lastWrite: null,
+        lastFailureKind: null,
+        canRetryAttempt: false,
+      }),
+    ).toEqual({
+      kind: "write",
+      productId: PRODUCT_ID,
+      fileIds: [FILE_C],
+    });
+  });
+
+  it("does not keep a /photos route — attach is create/edit", () => {
+    expect(productPhotoHref(PRODUCT_ID)).toBe(productEditorHref(PRODUCT_ID));
+    expect(productPhotoHref(PRODUCT_ID)).not.toContain("/photos");
+  });
+
+  it("treats local picks as dirty until they are committed", () => {
+    expect(photosAreDirty([], [])).toBe(false);
+    expect(photosAreDirty([uploadSlot("local-1")], [])).toBe(true);
+    expect(hasInFlightPhotoUploads([uploadSlot("local-1")])).toBe(true);
+    expect(
+      hasInFlightPhotoUploads([uploadSlot("local-1", "ready", FILE_C)]),
+    ).toBe(false);
+    expect(photosAreDirty(committedSlotsFromFileIds([FILE_A]), [FILE_A])).toBe(
+      false,
+    );
+    expect(
+      photosAreDirty(committedSlotsFromFileIds([FILE_B, FILE_A]), [
+        FILE_A,
+        FILE_B,
+      ]),
+    ).toBe(true);
+    expect(mapDeniedBanner("camera")).toBe("denied");
+    expect(mapDeniedBanner(null)).toBeNull();
+  });
+
   it("keeps in-flight uploads in place after a successful replace", () => {
     const slots = [
       ...committedSlotsFromFileIds([FILE_A]),
@@ -244,6 +322,7 @@ describe("classifyProductPhotosLoad", () => {
       classifyProductPhotosLoad({
         canWrite: false,
         productId: PRODUCT_ID,
+        requireProduct: true,
         clientReady: true,
         status: "success",
         failureKind: null,

@@ -22,7 +22,7 @@ import {
 } from "../../ui";
 import { ProductActionsSheet } from "./product-actions-sheet";
 import { ProductFormVariantSheet } from "./product-form-variant-sheet";
-import { ProductGallery } from "./product-gallery";
+import { ProductImagePicker } from "./product-image-picker";
 import { ProductVariantRow } from "./product-variant-row";
 import { VariantActionsSheet } from "./variant-actions-sheet";
 import type { ProductDetailModel } from "./use-product-detail";
@@ -181,7 +181,7 @@ function ProductDetailBody(props: { readonly model: ProductDetailModel }) {
           style={styles.skeletons}
           accessibilityLabel={copy.detail.loadingLabel}
         >
-          <View style={styles.skeletonGallery} />
+          <View style={styles.skeletonPhotos} />
           <View style={styles.skeletonCard} />
           <View style={styles.skeletonCard} />
         </View>
@@ -255,16 +255,19 @@ function ProductDetailReady(props: { readonly model: ProductDetailModel }) {
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
-      <ProductGallery
-        key={product.id}
-        fileIds={product.imageFileIds}
-        canFetchImages={model.canFetchImages}
-        emptyLabel={copy.detail.noPhotos}
-        photosLabel={copy.detail.photosLabel}
-      />
       <View style={styles.identity}>
         <StatusPill label={facts.statusLabel} tone={facts.statusTone} />
         <Text style={styles.price}>{product.priceLabel}</Text>
+      </View>
+      <View style={styles.photosCard}>
+        <ProductImagePicker
+          tiles={model.photoTiles}
+          copy={copy.photos}
+          previewByFileId={model.previewByFileId}
+          canAdd={false}
+          readOnly
+          showHeading
+        />
       </View>
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>{copy.detail.factsTitle}</Text>
@@ -385,6 +388,15 @@ const styles = StyleSheet.create((theme) => ({
     paddingBottom: theme.spacing.xl,
     gap: theme.spacing.xl,
   },
+  photosCard: {
+    backgroundColor: theme.colors.card,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radii.card,
+    ...theme.squircle,
+    padding: theme.spacing.lg,
+    ...theme.shadows.sm,
+  },
   identity: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -503,8 +515,8 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.sm,
   },
-  skeletonGallery: {
-    aspectRatio: 4 / 3,
+  skeletonPhotos: {
+    height: 160,
     borderRadius: theme.radii.card,
     ...theme.squircle,
     backgroundColor: theme.colors.skeleton,

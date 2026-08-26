@@ -3,12 +3,10 @@ import { describe, expect, it } from "vitest";
 import { productsCopy } from "../../../i18n/products";
 import {
   classifyProductDetail,
-  classifyProductGallery,
   confirmIsDestructive,
   confirmSheetCopy,
   confirmTargetForProduct,
   confirmTargetForVariant,
-  galleryPageIndex,
   isConfirmWriteBusy,
   mapStatusWriteFailure,
   planConfirmStatusWrite,
@@ -276,79 +274,6 @@ describe("mapStatusWriteFailure", () => {
     expect(statusWriteBanner("offline", copy)).toBe(copy.mutationOffline);
     expect(statusWriteBanner("permission", copy)).toBe(copy.mutationPermission);
     expect(statusWriteBanner("error", copy)).toBe(copy.mutationError);
-  });
-});
-
-describe("galleryPageIndex", () => {
-  it("rounds to the nearest page and clamps to the range", () => {
-    expect(galleryPageIndex({ offsetX: 0, pageWidth: 100, pageCount: 3 })).toBe(
-      0,
-    );
-    expect(
-      galleryPageIndex({ offsetX: 140, pageWidth: 100, pageCount: 3 }),
-    ).toBe(1);
-    expect(
-      galleryPageIndex({ offsetX: 280, pageWidth: 100, pageCount: 3 }),
-    ).toBe(2);
-    expect(
-      galleryPageIndex({ offsetX: -20, pageWidth: 100, pageCount: 3 }),
-    ).toBe(0);
-    expect(
-      galleryPageIndex({ offsetX: 900, pageWidth: 100, pageCount: 3 }),
-    ).toBe(2);
-    expect(galleryPageIndex({ offsetX: 50, pageWidth: 0, pageCount: 3 })).toBe(
-      0,
-    );
-  });
-});
-
-describe("classifyProductGallery", () => {
-  it("shows empty copy only when the product has no photos", () => {
-    expect(
-      classifyProductGallery({
-        fileCount: 0,
-        canFetchImages: true,
-        pageWidth: 320,
-      }),
-    ).toBe("empty");
-    expect(
-      classifyProductGallery({
-        fileCount: 0,
-        canFetchImages: false,
-        pageWidth: undefined,
-      }),
-    ).toBe("empty");
-  });
-
-  it("does not treat missing layout or a no-fetch role as empty", () => {
-    expect(
-      classifyProductGallery({
-        fileCount: 2,
-        canFetchImages: true,
-        pageWidth: undefined,
-      }),
-    ).toBe("pending-layout");
-    expect(
-      classifyProductGallery({
-        fileCount: 2,
-        canFetchImages: true,
-        pageWidth: 0,
-      }),
-    ).toBe("pending-layout");
-    expect(
-      classifyProductGallery({
-        fileCount: 2,
-        canFetchImages: false,
-        pageWidth: 320,
-      }),
-    ).toBe("no-fetch");
-    expect(
-      classifyProductGallery({
-        fileCount: 2,
-        canFetchImages: true,
-        pageWidth: 320,
-      }),
-    ).toBe("images");
   });
 });
 

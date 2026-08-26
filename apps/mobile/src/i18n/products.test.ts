@@ -80,12 +80,16 @@ describe("products copy", () => {
     expect(uk.detail.statusActive).toBe("Активний");
     expect(uk.detail.variantActionsLabel).toContain("{{name}}");
     expect(uk.photos.title).toBe("Фото");
+    expect(uk.photos.heading).toBe("Фото товару");
+    expect(uk.photos.count).toBe("{{count}}/10");
+    expect(uk.photos.hint).toContain("до 10 МБ");
     expect(uk.photos.addLabel).toBe("Додати фото");
     expect(uk.photos.addCamera).toBe("Камера");
     expect(uk.photos.addLibrary).toBe("Галерея");
     expect(uk.photos.coverLabel).toBe("Обкладинка");
     expect(uk.photos.emptyTitle).toBe("Немає фото");
     expect(uk.photos.errors.too_many).toBe("Забагато фото. Максимум 10.");
+    expect(uk.photos.errors.denied).toContain("камери");
     expect(uk.detail.archiveVariantNamed).toContain("{{name}}");
     expect(uk.detail.restoreVariantNamed).toContain("{{name}}");
   });
