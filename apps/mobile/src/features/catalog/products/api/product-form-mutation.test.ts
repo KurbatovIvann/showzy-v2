@@ -7,7 +7,7 @@ import { createContractMutationController } from "../../../../api/contract-mutat
 import {
   isProductFormRetryable,
   type ProductFormWrite,
-} from "../form/product-form-model";
+} from "../form/product-form-plan";
 import { bindProductFormMutate } from "./product-form-mutation";
 
 const PRODUCT_ID = "0f0e2d5c-4a1b-4c3d-9e8f-102938475601";

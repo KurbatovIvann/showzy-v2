@@ -14,6 +14,7 @@ import type {
   GetProductOutput,
   GetProductVariant,
 } from "../api/product-detail-query";
+import type { ProductQueryLoadState } from "../shared/classify-product-load";
 import { variantCountLabel } from "../shared/variant-count";
 import {
   IDLE_DETAIL_SHEETS,
@@ -35,53 +36,7 @@ export {
   type ProductDetailSheetAction,
 } from "./product-detail.reducer";
 
-/** Contract `productId` / `variantId` are UUIDs; refuse anything else. */
-export const PRODUCT_ID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-export function productIdFromParam(
-  value: string | string[] | undefined,
-): string | null {
-  const raw = Array.isArray(value) ? value[0] : value;
-  if (raw === undefined || raw.trim().length === 0) {
-    return null;
-  }
-  return PRODUCT_ID_PATTERN.test(raw) ? raw : null;
-}
-
-export type ProductDetailState =
-  | { readonly kind: "loading" }
-  | { readonly kind: "offline" }
-  | { readonly kind: "error" }
-  | { readonly kind: "not-found" }
-  | { readonly kind: "ready" };
-
-export function classifyProductDetail(args: {
-  readonly productId: string | null;
-  readonly clientReady: boolean;
-  readonly status: "pending" | "error" | "success";
-  readonly failureKind: QueryFailureKind | null;
-}): ProductDetailState {
-  if (args.productId === null) {
-    return { kind: "not-found" };
-  }
-  if (!args.clientReady) {
-    return { kind: "error" };
-  }
-  if (args.status === "pending") {
-    return { kind: "loading" };
-  }
-  if (args.status === "error") {
-    if (args.failureKind === "offline") {
-      return { kind: "offline" };
-    }
-    if (args.failureKind === "not_found") {
-      return { kind: "not-found" };
-    }
-    return { kind: "error" };
-  }
-  return { kind: "ready" };
-}
+export type ProductDetailState = ProductQueryLoadState;
 
 export type ProductVariantView = {
   readonly id: string;
@@ -298,15 +253,6 @@ export function variantStatusActionLabel(args: {
       : args.copy.archiveVariantNamed,
     { name: args.variantName },
   );
-}
-
-/** Photos attach on create, edit, and detail. Never a `/photos` route. */
-export function productEditorHref(productId: string): string {
-  return `/products/${productId}/edit`;
-}
-
-export function productPhotoHref(productId: string): string {
-  return `/products/${productId}`;
 }
 
 export type ProductSheetActionId = "edit" | "photos" | "status";

@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  productEditorHref,
-  productPhotoHref,
-} from "../detail/product-detail-model";
+import { productEditorHref, productPhotoHref } from "../shared/product-hrefs";
 import {
   addUploadSlots,
   applyCommitSuccess,

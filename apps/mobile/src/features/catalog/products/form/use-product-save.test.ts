@@ -5,10 +5,12 @@ import {
   emptyProductFormDraft,
   type ProductFormDraft,
   type ProductFormFieldErrors,
-  type ProductFormMutationResult,
   type ProductFormSnapshot,
-  type ProductFormWrite,
-} from "./product-form-model";
+} from "./product-form-draft";
+import type {
+  ProductFormMutationResult,
+  ProductFormWrite,
+} from "./product-form-plan";
 import {
   runProductFormSave,
   type LastWriteFailure,

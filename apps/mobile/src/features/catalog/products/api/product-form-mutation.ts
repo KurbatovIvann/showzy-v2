@@ -18,7 +18,7 @@ import type {
   ProductFormWrite,
   UpdateProductPayload,
   UpdateVariantPayload,
-} from "../form/product-form-model";
+} from "../form/product-form-plan";
 
 type CatalogWrites = {
   readonly createProduct: (

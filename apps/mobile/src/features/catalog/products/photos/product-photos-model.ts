@@ -5,7 +5,7 @@
  */
 import type { QueryFailureKind } from "../../../../api/errors";
 import type { ProductsPhotosCopy } from "../../../../i18n/products";
-import { classifyProductDetail } from "../detail/product-detail-model";
+import { classifyProductDetail } from "../shared/classify-product-load";
 import {
   MAX_UPLOAD_BYTES,
   PHOTO_MAX_EDGE,
