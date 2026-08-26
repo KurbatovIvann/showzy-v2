@@ -11,35 +11,45 @@ import { useActiveCompany } from "../../../../api/query-provider";
 import { useResolvedCompany } from "../../../../company-resolution/resolved-company-provider";
 import { detectLocale } from "../../../../i18n/locale";
 import { productsCopy } from "../../../../i18n/products";
-import { productIdFromParam } from "../detail/product-detail-model";
 import { getProductQueryOptions } from "../api/product-detail-query";
+import { useProductPhotos } from "../photos/use-product-photos";
 import {
-  classifyProductFormLoad,
-  draftFromProduct,
-  emptyFieldErrors,
-  emptyProductFormDraft,
-  formatProductFormFooterPrice,
-  isProductFormDirty,
-  mapProductFormFailure,
-  mapValidationIssues,
   PRODUCT_FORM_MAX_VARIANTS,
   PRODUCT_NAME_MAX,
-  productFormFieldChanged,
-  resolveProductFormCopy,
-  snapshotFromProduct,
-  upsertVariantDraft,
-  type BannerKey,
-  type ProductFormDraft,
-  type ProductFormFieldErrors,
-  type ProductFormMode,
-  type ProductFormSnapshot,
-} from "./product-form-model";
-import { productFormResolver } from "./product-form.schema";
+} from "../shared/product-caps";
+import { productIdFromParam } from "../shared/product-id";
 import {
   canCreateProducts,
   canEditProducts,
 } from "../shared/product-permissions";
-import { useProductPhotos } from "../photos/use-product-photos";
+import {
+  cloneProductFormDraft,
+  draftFromProduct,
+  emptyFieldErrors,
+  emptyProductFormDraft,
+  parseProductFormUiDraft,
+  snapshotFromProduct,
+  upsertVariantDraft,
+  type ProductFormDraft,
+  type ProductFormFieldErrors,
+  type ProductFormMode,
+  type ProductFormSnapshot,
+  type ProductFormVariantDraft,
+} from "./product-form-draft";
+import {
+  mapProductFormFailure,
+  mapRhfVariantFieldErrors,
+  mapValidationIssues,
+  overlayVariantFieldErrors,
+  resolveProductFormCopy,
+  type BannerKey,
+} from "./product-form-copy";
+import { classifyProductFormLoad } from "./product-form-load";
+import {
+  isNameErrorKey,
+  isPriceErrorKey,
+  productFormResolver,
+} from "./product-form.schema";
 import { useProductSave } from "./use-product-save";
 import { useUnsavedProductGuard } from "./use-unsaved-product-guard";
 
@@ -49,21 +59,6 @@ export type ProductFormVariantSheetState =
   | { readonly kind: "closed" }
   | { readonly kind: "new" }
   | { readonly kind: "edit"; readonly key: string };
-
-function toProductFormDraft(values: ProductFormDraft): ProductFormDraft {
-  return {
-    name: values.name,
-    priceText: values.priceText,
-    nextDraftSerial: values.nextDraftSerial,
-    variants: values.variants.map((variant) => ({
-      key: variant.key,
-      variantId: variant.variantId,
-      name: variant.name,
-      priceText: variant.priceText,
-      archived: variant.archived,
-    })),
-  };
-}
 
 export function useProductForm(args: {
   readonly mode: ProductFormMode;
@@ -80,14 +75,24 @@ export function useProductForm(args: {
       ? canCreateProducts(membership.role)
       : canEditProducts(membership.role);
 
-  const { reset, setValue, getValues, watch, control } = useForm({
+  const {
+    control,
+    reset,
+    getValues,
+    setValue,
+    handleSubmit,
+    clearErrors,
+    formState,
+  } = useForm<ProductFormDraft>({
     defaultValues: emptyProductFormDraft(),
     resolver: productFormResolver,
     mode: "onSubmit",
   });
-  const { append, update } = useFieldArray({ control, name: "variants" });
-  const watched = watch();
-  const draft = toProductFormDraft(watched);
+  const { append, update, fields } = useFieldArray({
+    control,
+    name: "variants",
+  });
+  const { isDirty, errors, isSubmitted } = formState;
 
   const [origin, setOrigin] = useState<ProductFormDraft>(emptyProductFormDraft);
   const [baseline, setBaseline] = useState<ProductFormSnapshot | null>(null);
@@ -154,7 +159,7 @@ export function useProductForm(args: {
   const saveApi = useProductSave({
     mode: args.mode,
     loadKind: loadState.kind,
-    getDraft: () => toProductFormDraft(getValues()),
+    getDraft: () => cloneProductFormDraft(getValues()),
     setDraft: (next) => {
       reset(next);
     },
@@ -171,7 +176,7 @@ export function useProductForm(args: {
     setLocalBanner,
   });
 
-  const dirty = isProductFormDirty(draft, origin) || photos.dirty;
+  const dirty = isDirty || photos.dirty;
   const { armLeave, requestLeave } = useUnsavedProductGuard({
     dirty,
     pending: saveApi.pending,
@@ -192,10 +197,30 @@ export function useProductForm(args: {
   const serverFields = saveApi.isMutationError
     ? mapValidationIssues(saveApi.mutationError, saveApi.lastWrite)
     : null;
+  const rhfName = errors.name?.message;
+  const rhfPrice = errors.priceText?.message;
   const fieldErrors: ProductFormFieldErrors = {
-    name: clientErrors.name ?? serverFields?.name ?? null,
-    price: clientErrors.price ?? serverFields?.price ?? null,
-    variants: { ...serverFields?.variants, ...clientErrors.variants },
+    name:
+      (isSubmitted && rhfName !== undefined && isNameErrorKey(rhfName)
+        ? rhfName
+        : null) ??
+      clientErrors.name ??
+      serverFields?.name ??
+      null,
+    price:
+      (isSubmitted && rhfPrice !== undefined && isPriceErrorKey(rhfPrice)
+        ? rhfPrice
+        : null) ??
+      clientErrors.price ??
+      serverFields?.price ??
+      null,
+    variants: overlayVariantFieldErrors(
+      serverFields?.variants,
+      clientErrors.variants,
+      isSubmitted
+        ? mapRhfVariantFieldErrors(getValues().variants, errors.variants)
+        : undefined,
+    ),
   };
   const mappedBanner =
     localBanner ??
@@ -211,27 +236,15 @@ export function useProductForm(args: {
     clientReady,
   });
 
-  function clearAttempt(): void {
+  function onFieldEdit(): void {
+    clearErrors();
     setClientErrors(emptyFieldErrors());
     setLocalBanner(null);
     saveApi.resetMutation();
   }
 
-  function changeName(value: string): void {
-    setValue("name", value, { shouldDirty: true, shouldValidate: false });
-    clearAttempt();
-  }
-
-  function changePrice(value: string): void {
-    setValue("priceText", value, { shouldDirty: true, shouldValidate: false });
-    clearAttempt();
-  }
-
   function openNewVariant(): void {
-    if (
-      toProductFormDraft(getValues()).variants.length >=
-      PRODUCT_FORM_MAX_VARIANTS
-    ) {
+    if (getValues().variants.length >= PRODUCT_FORM_MAX_VARIANTS) {
       setLocalBanner("too_many_variants");
       return;
     }
@@ -254,7 +267,7 @@ export function useProductForm(args: {
     if (sheet.kind === "closed") {
       return;
     }
-    const current = toProductFormDraft(getValues());
+    const current = cloneProductFormDraft(getValues());
     if (
       sheet.kind === "new" &&
       current.variants.length >= PRODUCT_FORM_MAX_VARIANTS
@@ -284,22 +297,31 @@ export function useProductForm(args: {
     }
     setValue("nextDraftSerial", next.nextDraftSerial, { shouldDirty: true });
     setVariantSheet({ kind: "closed" });
-    clearAttempt();
+    onFieldEdit();
   }
 
   const headerTitle =
     args.mode === "create" ? copy.stub.createTitle : copy.stub.editTitle;
+  const variants: ProductFormVariantDraft[] = fields.map((field) => ({
+    key: field.key,
+    variantId: field.variantId,
+    name: field.name,
+    priceText: field.priceText,
+    archived: field.archived,
+  }));
   const variantSheetInitial =
     variantSheet.kind === "edit"
-      ? (draft.variants.find((variant) => variant.key === variantSheet.key) ??
-        null)
+      ? (variants.find((variant) => variant.key === variantSheet.key) ?? null)
       : null;
 
   return {
     copy,
     mode: args.mode,
+    control,
+    originName: origin.name,
+    originPriceText: origin.priceText,
+    variants,
     state: loadState,
-    draft,
     nameError: resolved.nameError,
     priceError: resolved.priceError,
     variantErrors: resolved.variantErrors,
@@ -314,19 +336,13 @@ export function useProductForm(args: {
     canAddVariant:
       resolved.fieldsEditable &&
       loadState.kind === "ready" &&
-      draft.variants.length < PRODUCT_FORM_MAX_VARIANTS,
+      variants.length < PRODUCT_FORM_MAX_VARIANTS,
     nameMaxLength: PRODUCT_NAME_MAX,
     headerTitle,
-    footerPriceLabel: formatProductFormFooterPrice(draft.priceText),
-    nameChanged: productFormFieldChanged(args.mode, draft.name, origin.name),
-    priceChanged: productFormFieldChanged(
-      args.mode,
-      draft.priceText,
-      origin.priceText,
-    ),
     variantSheet,
     variantSheetInitial,
     photos,
+    onFieldEdit,
     requestLeave,
     openNewVariant,
     openEditVariant,
@@ -335,10 +351,20 @@ export function useProductForm(args: {
     retry: () => {
       void query.refetch();
     },
-    changeName,
-    changePrice,
     save: () => {
-      void saveApi.save();
+      void handleSubmit(
+        () => {
+          void saveApi.save();
+        },
+        () => {
+          const parsed = parseProductFormUiDraft(
+            cloneProductFormDraft(getValues()),
+          );
+          if (!parsed.ok) {
+            setClientErrors(parsed.errors);
+          }
+        },
+      )();
     },
   };
 }

@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { productsCopy } from "../../../../i18n/products";
 import {
-  classifyProductDetail,
   confirmIsDestructive,
   confirmSheetCopy,
   confirmTargetForProduct,
@@ -10,12 +9,9 @@ import {
   isConfirmWriteBusy,
   mapStatusWriteFailure,
   planConfirmStatusWrite,
-  productEditorHref,
   productFacts,
   productHeaderSubtitle,
-  productPhotoHref,
   productSheetActionIds,
-  productIdFromParam,
   resultForProductSheetAction,
   resultForVariantSheetAction,
   sheetsAfterCloseVariantEditor,
@@ -51,72 +47,6 @@ function product(overrides: Partial<GetProductOutput> = {}): GetProductOutput {
     ...overrides,
   };
 }
-
-describe("productIdFromParam", () => {
-  it("accepts a UUID string and rejects empty, array-empty, and non-UUID values", () => {
-    expect(productIdFromParam(PRODUCT_ID)).toBe(PRODUCT_ID);
-    expect(productIdFromParam([PRODUCT_ID, "extra"])).toBe(PRODUCT_ID);
-    expect(productIdFromParam(undefined)).toBeNull();
-    expect(productIdFromParam("")).toBeNull();
-    expect(productIdFromParam("not-a-uuid")).toBeNull();
-    expect(productIdFromParam(["", PRODUCT_ID])).toBeNull();
-  });
-});
-
-describe("classifyProductDetail", () => {
-  const base = {
-    productId: PRODUCT_ID,
-    clientReady: true,
-    status: "success" as const,
-    failureKind: null,
-  };
-
-  it("is not-found when the route id is missing or invalid", () => {
-    expect(classifyProductDetail({ ...base, productId: null })).toEqual({
-      kind: "not-found",
-    });
-  });
-
-  it("is an error when the client is not ready", () => {
-    expect(classifyProductDetail({ ...base, clientReady: false })).toEqual({
-      kind: "error",
-    });
-  });
-
-  it("is loading while the query is pending", () => {
-    expect(classifyProductDetail({ ...base, status: "pending" })).toEqual({
-      kind: "loading",
-    });
-  });
-
-  it("splits offline, not-found, and other failures", () => {
-    expect(
-      classifyProductDetail({
-        ...base,
-        status: "error",
-        failureKind: "offline",
-      }),
-    ).toEqual({ kind: "offline" });
-    expect(
-      classifyProductDetail({
-        ...base,
-        status: "error",
-        failureKind: "not_found",
-      }),
-    ).toEqual({ kind: "not-found" });
-    expect(
-      classifyProductDetail({
-        ...base,
-        status: "error",
-        failureKind: "network",
-      }),
-    ).toEqual({ kind: "error" });
-  });
-
-  it("is ready on a successful fetch", () => {
-    expect(classifyProductDetail(base)).toEqual({ kind: "ready" });
-  });
-});
 
 describe("toProductDetailView", () => {
   it("maps name, base price, archived flag, and ordered image ids", () => {
@@ -315,14 +245,6 @@ describe("variantStatusActionLabel", () => {
         copy,
       }),
     ).toBe("Відновити варіант «1 кг»");
-  });
-});
-
-describe("photo and edit routes", () => {
-  it("keeps Фото on the product, never /photos", () => {
-    expect(productEditorHref(PRODUCT_ID)).toBe(`/products/${PRODUCT_ID}/edit`);
-    expect(productPhotoHref(PRODUCT_ID)).toBe(`/products/${PRODUCT_ID}`);
-    expect(productPhotoHref(PRODUCT_ID)).not.toContain("/photos");
   });
 });
 

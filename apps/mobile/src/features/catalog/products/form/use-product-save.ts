@@ -22,11 +22,11 @@ import {
 import type {
   ProductFormDraft,
   ProductFormFieldErrors,
-  ProductFormLoadState,
   ProductFormMode,
   ProductFormSnapshot,
-  ProductFormWrite,
-} from "./product-form-model";
+} from "./product-form-draft";
+import type { ProductFormLoadState } from "./product-form-load";
+import type { ProductFormWrite } from "./product-form-plan";
 
 export { runProductFormSave } from "./product-form-save";
 export type {

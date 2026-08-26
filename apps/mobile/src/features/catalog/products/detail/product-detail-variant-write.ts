@@ -10,17 +10,19 @@ import {
 } from "../../../../format/money-input";
 import type { ProductsFormCopy } from "../../../../i18n/products";
 import type { ProductVariantView } from "./product-detail-model";
+import { PRODUCT_FORM_MAX_VARIANTS } from "../shared/product-caps";
+import type { BannerKey } from "../form/product-form-copy";
 import {
   isVariantSheetValid,
-  remainingFormWrites,
   validateVariantSheet,
-  PRODUCT_FORM_MAX_VARIANTS,
-  type BannerKey,
   type ProductFormSnapshot,
   type ProductFormVariantDraft,
+} from "../form/product-form-draft";
+import {
+  remainingFormWrites,
   type ProductFormWrite,
-  type VariantFieldErrors,
-} from "../form/product-form-model";
+} from "../form/product-form-plan";
+import type { VariantFieldErrors } from "../form/product-form.schema";
 
 export type DetailVariantWritePlan =
   | { readonly kind: "invalid"; readonly errors: VariantFieldErrors }

@@ -15,13 +15,10 @@ import { useActiveCompany } from "../../../../api/query-provider";
 import type { ProductsCopy } from "../../../../i18n/products";
 import { invalidateCatalogAfterStatusWrite } from "../api/product-archive";
 import { bindProductFormMutate } from "../api/product-form-mutation";
-import {
-  mapProductFormFailure,
-  PRODUCT_FORM_MAX_VARIANTS,
-  writesEqual,
-  type ProductFormVariantDraft,
-  type ProductFormWrite,
-} from "../form/product-form-model";
+import { mapProductFormFailure } from "../form/product-form-copy";
+import type { ProductFormVariantDraft } from "../form/product-form-draft";
+import { writesEqual, type ProductFormWrite } from "../form/product-form-plan";
+import { PRODUCT_FORM_MAX_VARIANTS } from "../shared/product-caps";
 import {
   isConfirmWriteBusy,
   resolveSelectedVariant,

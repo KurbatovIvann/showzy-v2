@@ -16,14 +16,19 @@ import {
   Banner,
   Button,
   EmptyState,
-  TextField,
 } from "../../../../components/ui";
 import { PhotoSourceSheet } from "../photos/photo-source-sheet";
+import { firstVariantFieldError } from "./product-form-copy";
 import {
-  firstVariantFieldError,
   formatProductFormFooterPrice,
   type ProductFormVariantDraft,
-} from "./product-form-model";
+} from "./product-form-draft";
+import {
+  ProductFormFooterPrice,
+  ProductFormNameField,
+  ProductFormPriceField,
+  useProductFormPriceLabel,
+} from "./product-form-fields";
 import { ProductFormVariantRow } from "./product-form-variant-row";
 import { VariantEditorSheet } from "./variant-editor-sheet";
 import {
@@ -31,8 +36,6 @@ import {
   photoCountLabel,
 } from "../photos/product-image-picker";
 import type { ProductFormModel } from "./use-product-form";
-
-const UAH_SUFFIX = "₴";
 
 export function ProductFormView(model: ProductFormModel) {
   const { copy } = model;
@@ -56,9 +59,10 @@ export function ProductFormView(model: ProductFormModel) {
         <View style={styles.footer}>
           <View style={styles.footerPriceRow}>
             <Text style={styles.footerPriceLabel}>{form.footerBasePrice}</Text>
-            <Text style={styles.footerPriceValue}>
-              {model.footerPriceLabel}
-            </Text>
+            <ProductFormFooterPrice
+              control={model.control}
+              style={styles.footerPriceValue}
+            />
           </View>
           <View style={styles.footerActions}>
             <View style={styles.footerButton}>
@@ -194,10 +198,10 @@ function ProductFormBody(props: { readonly model: ProductFormModel }) {
 
 function ProductFormReady(props: { readonly model: ProductFormModel }) {
   const { model } = props;
-  const { copy, draft } = model;
+  const { copy, variants } = model;
   const form = copy.form;
   const { theme } = useUnistyles();
-  const productPriceLabel = model.footerPriceLabel;
+  const productPriceLabel = useProductFormPriceLabel(model.control);
 
   return (
     <KeyboardAwareScrollView
@@ -207,21 +211,15 @@ function ProductFormReady(props: { readonly model: ProductFormModel }) {
       bottomOffset={theme.spacing.lg}
     >
       <ProductFormSection title={form.detailsTitle}>
-        <TextField
-          label={form.nameLabel}
-          value={draft.name}
-          onChangeText={model.changeName}
-          placeholder={form.namePlaceholder}
-          accessibilityLabel={form.nameLabel}
-          keyboardType="default"
-          autoCapitalize="sentences"
-          autoCorrect
-          autoComplete="off"
-          maxLength={model.nameMaxLength}
+        <ProductFormNameField
+          control={model.control}
+          copy={form}
+          mode={model.mode}
+          originName={model.originName}
+          nameMaxLength={model.nameMaxLength}
           editable={model.fieldsEditable}
           error={model.nameError}
-          changed={model.nameChanged}
-          changedLabel={form.changedLabel}
+          onFieldEdit={model.onFieldEdit}
         />
       </ProductFormSection>
       <ProductFormSection
@@ -255,26 +253,19 @@ function ProductFormReady(props: { readonly model: ProductFormModel }) {
         ) : null}
       </ProductFormSection>
       <ProductFormSection title={form.priceSectionTitle}>
-        <TextField
-          label={form.priceLabel}
-          value={draft.priceText}
-          onChangeText={model.changePrice}
-          placeholder={form.pricePlaceholder}
-          accessibilityLabel={form.priceLabel}
-          keyboardType="decimal-pad"
-          autoCapitalize="none"
-          autoCorrect={false}
-          autoComplete="off"
+        <ProductFormPriceField
+          control={model.control}
+          copy={form}
+          mode={model.mode}
+          originPriceText={model.originPriceText}
           editable={model.fieldsEditable}
-          suffix={UAH_SUFFIX}
           error={model.priceError}
-          changed={model.priceChanged}
-          changedLabel={form.changedLabel}
+          onFieldEdit={model.onFieldEdit}
         />
         <Text style={styles.hint}>{form.priceHint}</Text>
       </ProductFormSection>
       <ProductFormSection title={form.variantsTitle}>
-        {draft.variants.length === 0 ? (
+        {variants.length === 0 ? (
           <View style={styles.variantsEmpty}>
             <Text style={styles.variantsEmptyTitle}>
               {form.variantsEmptyTitle}
@@ -283,7 +274,7 @@ function ProductFormReady(props: { readonly model: ProductFormModel }) {
           </View>
         ) : (
           <View style={styles.variantList}>
-            {draft.variants.map((variant) => (
+            {variants.map((variant) => (
               <ProductFormVariantRow
                 key={variant.key}
                 id={variant.key}

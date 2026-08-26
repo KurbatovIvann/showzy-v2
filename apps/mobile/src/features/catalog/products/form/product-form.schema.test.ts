@@ -6,10 +6,10 @@ import { productsCopy } from "../../../../i18n/products";
 import {
   compactDraft,
   emptyProductFormDraft,
-  resolveProductFormCopy,
   validateProductForm,
   validateVariantSheet,
-} from "./product-form-model";
+} from "./product-form-draft";
+import { resolveProductFormCopy } from "./product-form-copy";
 import {
   CREATE_PRODUCT_MAX_VARIANTS as SCHEMA_MAX_VARIANTS,
   PRODUCT_NAME_MAX,

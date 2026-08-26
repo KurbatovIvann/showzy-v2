@@ -15,8 +15,8 @@ import { productsCopy } from "../../../../i18n/products";
 import {
   PRODUCT_FORM_MAX_VARIANTS,
   PRODUCT_NAME_MAX,
-  type ProductFormVariantDraft,
-} from "../form/product-form-model";
+} from "../shared/product-caps";
+import { type ProductFormVariantDraft } from "../form/product-form-draft";
 import {
   canEditProducts,
   canFetchFileDownloadUrls,

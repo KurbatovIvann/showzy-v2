@@ -1,24 +1,27 @@
 /**
- * Product form save workflow (SHO-159). RHF owns field state; this loop
- * still plans writes with `planProductFormSave` / `applyWriteSuccess`,
- * then `photos.flush()`. Not `handleSubmit` as the only write.
+ * Product form save workflow (SHO-159 / SHO-163). RHF `handleSubmit` /
+ * `parseProductFormUiDraft` owns the UI parse; this loop still plans
+ * writes with `planProductFormSave` / `applyWriteSuccess`, then
+ * `photos.flush()`. Not `handleSubmit` as the only write.
  */
 import type { WireErrorCode } from "@showzy/contract";
 
 import type { QueryFailureKind } from "../../../../api/errors";
+import { PRODUCT_FORM_MAX_VARIANTS } from "../shared/product-caps";
 import {
-  applyWriteSuccess,
   compactDraft,
-  planProductFormSave,
-  PRODUCT_FORM_MAX_VARIANTS,
   snapshotFromDraft,
   type ProductFormDraft,
   type ProductFormFieldErrors,
   type ProductFormMode,
-  type ProductFormMutationResult,
   type ProductFormSnapshot,
+} from "./product-form-draft";
+import {
+  applyWriteSuccess,
+  parseThenPlanProductFormSave,
+  type ProductFormMutationResult,
   type ProductFormWrite,
-} from "./product-form-model";
+} from "./product-form-plan";
 
 export type LastWriteFailure = {
   readonly kind: QueryFailureKind | null;
@@ -63,7 +66,7 @@ export async function runProductFormSave(
     }
     const mode = ports.getMode();
     const productId = ports.getProductId();
-    const plan = planProductFormSave({
+    const plan = parseThenPlanProductFormSave({
       mode: productId !== null && mode === "create" ? "edit" : mode,
       productId,
       draft: ports.getDraft(),

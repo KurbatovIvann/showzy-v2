@@ -20,7 +20,7 @@ import {
   variantSheetPriceText,
   type ProductFormVariantDraft,
   type VariantSheetDraft,
-} from "./product-form-model";
+} from "./product-form-draft";
 
 const UAH_SUFFIX = "₴";
 

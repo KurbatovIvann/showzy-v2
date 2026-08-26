@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { productsCopy } from "../../../../i18n/products";
-import { PRODUCT_FORM_MAX_VARIANTS } from "../form/product-form-model";
+import { PRODUCT_FORM_MAX_VARIANTS } from "../shared/product-caps";
 import {
   detailVariantBanner,
   detailVariantToDraft,

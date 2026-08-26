@@ -19,12 +19,12 @@ import {
   invalidateCatalogAfterStatusWrite,
   type CatalogStatusWrite,
 } from "../api/product-archive";
+import { productEditorHref } from "../shared/product-hrefs";
 import {
   confirmIsDestructive,
   confirmSheetCopy,
   mapStatusWriteFailure,
   planConfirmStatusWrite,
-  productEditorHref,
   resultForProductSheetAction,
   statusWriteBanner,
   statusWriteForConfirm,
