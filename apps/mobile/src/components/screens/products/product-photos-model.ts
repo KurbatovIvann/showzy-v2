@@ -336,6 +336,21 @@ export function planPhotoCommit(args: {
   };
 }
 
+/**
+ * After `commitIfNeeded`, save may still `flush`. A list that already
+ * matches the server is success even if an earlier replace failed —
+ * the user may have undone the change.
+ */
+export function photoFlushOutcome(args: {
+  readonly planKind: PhotoCommitPlan["kind"];
+  readonly lastFailureKind: QueryFailureKind | null;
+}): "ok" | "commit-failed" {
+  if (args.planKind === "noop") {
+    return "ok";
+  }
+  return args.lastFailureKind === null ? "ok" : "commit-failed";
+}
+
 export function toPhotoTiles(
   slots: readonly PhotoSlot[],
 ): readonly PhotoTileView[] {

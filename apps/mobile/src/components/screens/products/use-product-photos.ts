@@ -27,6 +27,7 @@ import {
   mapUploadBanner,
   movePhotoSlot,
   patchUploadMachine,
+  photoFlushOutcome,
   photosAreDirty,
   planPhotoCommit,
   remainingPhotoSlots,
@@ -267,6 +268,7 @@ export function useProductPhotos(args: {
           canRetryAttempt: mutation.isError,
         });
         if (plan.kind === "noop") {
+          lastFailureRef.current = null;
           mutation.reset();
           return;
         }
@@ -486,7 +488,22 @@ export function useProductPhotos(args: {
     await waitUntilSettled();
     await commitIfNeeded();
     await waitUntilSettled();
-    return lastFailureRef.current === null ? "ok" : "commit-failed";
+    const plan = planPhotoCommit({
+      productId: productIdRef.current,
+      slots: slotsRef.current,
+      lastCommitted: baselineRef.current,
+      lastWrite: lastWriteRef.current,
+      lastFailureKind: lastFailureRef.current,
+      canRetryAttempt: mutation.isError,
+    });
+    const outcome = photoFlushOutcome({
+      planKind: plan.kind,
+      lastFailureKind: lastFailureRef.current,
+    });
+    if (outcome === "ok") {
+      lastFailureRef.current = null;
+    }
+    return outcome;
   }
 
   const needsCommit =

@@ -12,8 +12,9 @@ import {
   hasInFlightPhotoUploads,
   mapDeniedBanner,
   movePhotoSlot,
-  photosAreDirty,
   nextPhotoCompressPlan,
+  photoFlushOutcome,
+  photosAreDirty,
   planPhotoCommit,
   readyOrderedFileIds,
   remainingPhotoSlots,
@@ -151,6 +152,24 @@ describe("product photo ordering", () => {
         canRetryAttempt: false,
       }),
     ).toEqual({ kind: "noop" });
+    expect(
+      photoFlushOutcome({
+        planKind: "noop",
+        lastFailureKind: "network",
+      }),
+    ).toBe("ok");
+    expect(
+      photoFlushOutcome({
+        planKind: "write",
+        lastFailureKind: "network",
+      }),
+    ).toBe("commit-failed");
+    expect(
+      photoFlushOutcome({
+        planKind: "retry",
+        lastFailureKind: null,
+      }),
+    ).toBe("ok");
   });
 
   it("lets create and edit attach, and defers setProductImages until a product id exists", () => {
