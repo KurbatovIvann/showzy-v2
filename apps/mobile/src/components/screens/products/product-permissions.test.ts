@@ -4,12 +4,14 @@ import {
   canCreateProducts,
   canEditProducts,
   canFetchFileDownloadUrls,
+  canUploadFiles,
 } from "./product-permissions";
 
 /**
  * Mirrors `packages/db/seed/role-permission-defaults.ts`: employees hold
- * neither `products:create` nor `files:view`; owners hold everything
- * implicitly. UI affordance only — the server re-checks permissions.
+ * neither `products:create`, `products:edit`, `files:upload`, nor
+ * `files:view`; owners hold everything implicitly. UI affordance only —
+ * the server re-checks permissions.
  */
 describe("product permission affordances", () => {
   it("hides the create control only for employees", () => {
@@ -31,5 +33,12 @@ describe("product permission affordances", () => {
     expect(canFetchFileDownloadUrls("admin")).toBe(true);
     expect(canFetchFileDownloadUrls("manager")).toBe(true);
     expect(canFetchFileDownloadUrls("employee")).toBe(false);
+  });
+
+  it("hides the photo attach handshake only for employees", () => {
+    expect(canUploadFiles("owner")).toBe(true);
+    expect(canUploadFiles("admin")).toBe(true);
+    expect(canUploadFiles("manager")).toBe(true);
+    expect(canUploadFiles("employee")).toBe(false);
   });
 });

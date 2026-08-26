@@ -79,6 +79,41 @@ export type ProductsDetailCopy = {
   readonly mutationPermission: string;
 };
 
+export type ProductsPhotosCopy = {
+  readonly title: string;
+  readonly addLabel: string;
+  readonly addCamera: string;
+  readonly addLibrary: string;
+  readonly coverLabel: string;
+  readonly removeLabel: string;
+  readonly moveEarlier: string;
+  readonly moveLater: string;
+  readonly retryLabel: string;
+  readonly cancelUpload: string;
+  readonly uploadingLabel: string;
+  readonly failedLabel: string;
+  readonly emptyTitle: string;
+  readonly emptyDescription: string;
+  readonly pickTitle: string;
+  readonly pickDescription: string;
+  readonly permissionTitle: string;
+  readonly permissionDescription: string;
+  readonly cameraDeniedTitle: string;
+  readonly cameraDeniedDescription: string;
+  readonly libraryDeniedTitle: string;
+  readonly libraryDeniedDescription: string;
+  readonly closeSheet: string;
+  readonly errors: {
+    readonly network: string;
+    readonly offline: string;
+    readonly unavailable: string;
+    readonly permission: string;
+    readonly validation: string;
+    readonly too_many: string;
+    readonly commit: string;
+  };
+};
+
 export type ProductsCopy = {
   readonly title: string;
   readonly searchLabel: string;
@@ -120,6 +155,7 @@ export type ProductsCopy = {
   };
   readonly form: ProductsFormCopy;
   readonly detail: ProductsDetailCopy;
+  readonly photos: ProductsPhotosCopy;
 };
 
 const en: ProductsCopy = {
@@ -246,6 +282,42 @@ const en: ProductsCopy = {
     mutationOffline: "No connection. Connect and try again.",
     mutationPermission: "You do not have permission to change this product.",
   },
+  photos: {
+    title: "Photos",
+    addLabel: "Add photo",
+    addCamera: "Camera",
+    addLibrary: "Photo library",
+    coverLabel: "Cover",
+    removeLabel: "Remove photo",
+    moveEarlier: "Move earlier",
+    moveLater: "Move later",
+    retryLabel: "Retry",
+    cancelUpload: "Cancel upload",
+    uploadingLabel: "Uploading",
+    failedLabel: "Could not upload",
+    emptyTitle: "No photos",
+    emptyDescription: "Add photos from the camera or the photo library.",
+    pickTitle: "Add a photo",
+    pickDescription: "Choose the camera or the photo library.",
+    permissionTitle: "No permission",
+    permissionDescription: "You do not have permission to change these photos.",
+    cameraDeniedTitle: "No camera access",
+    cameraDeniedDescription:
+      "Allow camera access in system settings to take product photos.",
+    libraryDeniedTitle: "No photo access",
+    libraryDeniedDescription:
+      "Allow photo library access in system settings to attach product images.",
+    closeSheet: "Cancel",
+    errors: {
+      network: "Network error. Check your connection.",
+      offline: "You're offline. Check your connection and try again.",
+      unavailable: "Something went wrong. Try again.",
+      permission: "You do not have permission to change these photos.",
+      validation: "This image cannot be attached. Try another photo.",
+      too_many: "Too many photos. Maximum is 10.",
+      commit: "Could not save the photo list. Try again.",
+    },
+  },
 };
 
 const uk: ProductsCopy = {
@@ -367,6 +439,42 @@ const uk: ProductsCopy = {
     mutationError: "Не вдалося змінити статус. Спробуйте ще раз.",
     mutationOffline: "Немає зʼєднання. Підключіться і спробуйте ще раз.",
     mutationPermission: "Немає права змінювати цей товар.",
+  },
+  photos: {
+    title: "Фото",
+    addLabel: "Додати фото",
+    addCamera: "Камера",
+    addLibrary: "Галерея",
+    coverLabel: "Обкладинка",
+    removeLabel: "Видалити фото",
+    moveEarlier: "Перемістити ліворуч",
+    moveLater: "Перемістити праворуч",
+    retryLabel: "Повторити",
+    cancelUpload: "Скасувати завантаження",
+    uploadingLabel: "Завантаження",
+    failedLabel: "Не вдалося завантажити",
+    emptyTitle: "Немає фото",
+    emptyDescription: "Додайте фото з камери або галереї.",
+    pickTitle: "Додати фото",
+    pickDescription: "Оберіть камеру або галерею.",
+    permissionTitle: "Немає права",
+    permissionDescription: "Немає права змінювати фото цього товару.",
+    cameraDeniedTitle: "Немає доступу до камери",
+    cameraDeniedDescription:
+      "Дозвольте доступ до камери в налаштуваннях системи, щоб знімати фото товару.",
+    libraryDeniedTitle: "Немає доступу до фото",
+    libraryDeniedDescription:
+      "Дозвольте доступ до фото в налаштуваннях системи, щоб додати зображення товару.",
+    closeSheet: "Скасувати",
+    errors: {
+      network: "Помилка мережі. Перевірте з’єднання.",
+      offline: "Немає зʼєднання. Підключіться і спробуйте ще раз.",
+      unavailable: "Щось пішло не так. Спробуйте ще раз.",
+      permission: "Немає права змінювати фото цього товару.",
+      validation: "Це зображення не можна додати. Спробуйте інше фото.",
+      too_many: "Забагато фото. Максимум 10.",
+      commit: "Не вдалося зберегти список фото. Спробуйте ще раз.",
+    },
   },
 };
 
