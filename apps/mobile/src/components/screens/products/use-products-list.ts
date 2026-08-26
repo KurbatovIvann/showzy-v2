@@ -163,6 +163,7 @@ export function useProductsList() {
     copy,
     state,
     rows,
+    // Loaded-page size only (SHO-149 owner: no catalog.listProducts activeCount).
     foundCountLabel: interpolate(copy.foundCount, {
       count: String(rows.length),
     }),

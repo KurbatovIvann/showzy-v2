@@ -50,6 +50,7 @@ export function ProductsListView(model: ProductsListModel) {
       accessibilityLabel={copy.title}
       style={styles.screen}
     >
+      {/* Named deviation: omit canvas subtitle "N активних" (no activeCount). */}
       <AppHeader
         title={copy.title}
         actions={
@@ -178,7 +179,16 @@ function ProductsListBody(props: {
             description={copy.empty.catalogDescription}
             action={
               model.canCreate ? (
-                <Button label={copy.empty.create} onPress={model.openCreate} />
+                <Button
+                  icon={
+                    <PlusIcon
+                      size={theme.iconSize.sm}
+                      color={theme.colors.primaryForeground}
+                    />
+                  }
+                  label={copy.empty.create}
+                  onPress={model.openCreate}
+                />
               ) : undefined
             }
           />
@@ -203,31 +213,39 @@ function ProductsListBody(props: {
       );
     case "rows":
       return (
-        <FlashList
-          data={model.rows}
-          keyExtractor={keyExtractor}
-          renderItem={props.renderItem}
-          ItemSeparatorComponent={RowSeparator}
-          ListHeaderComponent={
-            <Text style={styles.foundCount}>{model.foundCountLabel}</Text>
-          }
-          ListFooterComponent={
-            model.loadingMore ? (
-              <ActivityIndicator
-                accessibilityLabel={copy.loadingMoreLabel}
-                color={theme.colors.activityIndicator.onBackground}
-                style={styles.footerSpinner}
-              />
-            ) : null
-          }
-          onEndReached={model.loadMore}
-          onEndReachedThreshold={0.5}
-          refreshing={model.refreshing}
-          onRefresh={model.refresh}
-          keyboardDismissMode="on-drag"
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={styles.listContent}
-        />
+        <View style={styles.rowsPane}>
+          {/*
+            Canvas `sticky top-0 bg-canvas` "Знайдено · N". Sibling of
+            FlashList so the loaded-page count stays put while rows
+            scroll (ListHeaderComponent does not). Omit live "N активних".
+          */}
+          <Text accessibilityRole="header" style={styles.foundCount}>
+            {model.foundCountLabel}
+          </Text>
+          <FlashList
+            data={model.rows}
+            style={styles.list}
+            keyExtractor={keyExtractor}
+            renderItem={props.renderItem}
+            ItemSeparatorComponent={RowSeparator}
+            ListFooterComponent={
+              model.loadingMore ? (
+                <ActivityIndicator
+                  accessibilityLabel={copy.loadingMoreLabel}
+                  color={theme.colors.activityIndicator.onBackground}
+                  style={styles.footerSpinner}
+                />
+              ) : null
+            }
+            onEndReached={model.loadMore}
+            onEndReachedThreshold={0.5}
+            refreshing={model.refreshing}
+            onRefresh={model.refresh}
+            keyboardDismissMode="on-drag"
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.listContent}
+          />
+        </View>
       );
   }
 }
@@ -263,15 +281,24 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
     justifyContent: "center",
   },
+  rowsPane: {
+    flex: 1,
+  },
+  list: {
+    flex: 1,
+  },
   listContent: {
     paddingHorizontal: theme.spacing.lg,
     paddingBottom: theme.spacing["2xl"],
   },
   foundCount: {
     color: theme.colors.mutedForeground,
+    // Class B: canvas 12px / py-2.5 → typography.xs (13) / spacing.sm (8).
     fontSize: theme.typography.xs.fontSize,
     lineHeight: theme.typography.xs.lineHeight,
     fontWeight: "600",
+    backgroundColor: theme.colors.background,
+    paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.sm,
   },
   separator: {
