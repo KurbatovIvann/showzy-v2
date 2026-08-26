@@ -42,6 +42,16 @@ test("showzy/import-boundaries", () => {
         `,
       },
       {
+        filename: file(
+          "packages/modules/catalog/src/actions/create-product.contract.ts",
+        ),
+        code: `
+          import { z } from "zod";
+          import { defineActionContract } from "@showzy/core/contract";
+          import { catalogNameSchema } from "@showzy/validation/catalog";
+        `,
+      },
+      {
         filename: file("packages/modules/orders/actions/create.ts"),
         code: `import { orders } from "@showzy/db/schema/orders";`,
       },
@@ -74,6 +84,7 @@ test("showzy/import-boundaries", () => {
         code: `
           import { createContractClient } from "@showzy/contract";
           import { moneySchema } from "@showzy/validation";
+          import { catalogNameSchema } from "@showzy/validation/catalog";
           import { Button } from "@showzy/ui";
           import { useState } from "react";
         `,

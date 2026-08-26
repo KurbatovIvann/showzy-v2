@@ -19,18 +19,18 @@
  *   second round-trip.
  */
 import { defineActionContract } from "@showzy/core/contract";
-import { z } from "zod";
-
 import {
+  CREATE_PRODUCT_MAX_VARIANTS,
   DEFAULT_PRODUCT_CURRENCY,
   catalogNameSchema,
   currencyCodeSchema,
-  nonNegativeMoneyWireSchema,
-} from "../wire.contract.js";
+} from "@showzy/validation/catalog";
+import { z } from "zod";
+
+import { nonNegativeMoneyWireSchema } from "../wire.contract.js";
 import { productViewSchema } from "./product-view.contract.js";
 
-/** Line-item-style ceiling copied from `orders.create` (mechanical). */
-export const CREATE_PRODUCT_MAX_VARIANTS = 100;
+export { CREATE_PRODUCT_MAX_VARIANTS };
 
 export const createProductVariantInputSchema = z
   .strictObject({
