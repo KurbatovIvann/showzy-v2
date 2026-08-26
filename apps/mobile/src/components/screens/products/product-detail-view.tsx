@@ -251,6 +251,7 @@ function ProductDetailReady(props: { readonly model: ProductDetailModel }) {
 
   return (
     <ScrollView
+      style={styles.scroll}
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
@@ -375,6 +376,9 @@ const styles = StyleSheet.create((theme) => ({
   screen: {
     flex: 1,
     backgroundColor: theme.colors.background,
+  },
+  scroll: {
+    flex: 1,
   },
   content: {
     paddingHorizontal: theme.spacing.lg,

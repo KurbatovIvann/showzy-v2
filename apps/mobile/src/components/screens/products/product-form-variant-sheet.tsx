@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { ProductsFormCopy } from "../../../i18n/products";
 import { Banner, Button, Sheet, SwitchRow, TextField } from "../../ui";
@@ -35,9 +35,12 @@ export function ProductFormVariantSheet(props: {
     validateVariantSheet(variantDraftToSheet(null)),
   );
   const [showErrors, setShowErrors] = useState(false);
+  const wasVisible = useRef(false);
 
   useEffect(() => {
-    if (!props.visible) {
+    const opened = props.visible && !wasVisible.current;
+    wasVisible.current = props.visible;
+    if (!opened) {
       return;
     }
     const next = variantDraftToSheet(props.initial);
