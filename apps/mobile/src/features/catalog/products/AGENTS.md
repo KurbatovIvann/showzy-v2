@@ -29,7 +29,10 @@ RHF sheet for variants (SHO-163). Pin exact `react-hook-form` /
   not `watch()` of the whole form as the render model, and not a parallel
   `useState` per field. After a successful UI parse (`handleSubmit` /
   `parseProductFormUiDraft`), run `planProductFormSave` then
-  `photos.flush()`. Photo session belongs in `useReducer` +
+  `photos.flush()`. After submit, variant row errors come from
+  `formState.errors.variants` mapped onto draft keys (RHF gates the
+  write; compacting a blank unsaved row must not hide remaining
+  variant failures). Photo session belongs in `useReducer` +
   `reducePhotoSession`. `use-product-photos.ts` composes the session with
   Query (download URLs) and the commit/runtime drivers — it does not own
   slots or the handshake. List filters and sheet chrome are `useReducer`

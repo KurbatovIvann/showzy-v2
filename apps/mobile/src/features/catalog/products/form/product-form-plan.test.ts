@@ -517,4 +517,39 @@ describe("parseThenPlanProductFormSave", () => {
     expect(planned.errors.name).toBe(resolverResult.errors.name?.message);
     expect(planned.errors.price).toBe(resolverResult.errors.priceText?.message);
   });
+
+  it("rejects a variant with an empty name and a filled price before planning", async () => {
+    const draft: ProductFormDraft = {
+      name: "Торт",
+      priceText: "10",
+      nextDraftSerial: 1,
+      variants: [
+        {
+          key: "draft-1",
+          variantId: null,
+          name: "",
+          priceText: "12",
+          archived: false,
+        },
+      ],
+    };
+    const resolverResult = await productFormResolver(draft, undefined, {
+      fields: {},
+      shouldUseNativeValidation: false,
+    });
+    expect(resolverResult.errors.variants?.[0]?.name?.message).toBe("required");
+    const planned = parseThenPlanProductFormSave({
+      mode: "create",
+      productId: null,
+      draft,
+      baseline: null,
+      lastWrite: null,
+      lastFailureKind: null,
+    });
+    expect(planned.kind).toBe("invalid");
+    if (planned.kind !== "invalid") {
+      return;
+    }
+    expect(planned.errors.variants["draft-1"]?.name).toBe("required");
+  });
 });

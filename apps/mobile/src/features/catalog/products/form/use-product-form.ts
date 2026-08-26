@@ -27,6 +27,7 @@ import {
   draftFromProduct,
   emptyFieldErrors,
   emptyProductFormDraft,
+  parseProductFormUiDraft,
   snapshotFromProduct,
   upsertVariantDraft,
   type ProductFormDraft,
@@ -37,7 +38,9 @@ import {
 } from "./product-form-draft";
 import {
   mapProductFormFailure,
+  mapRhfVariantFieldErrors,
   mapValidationIssues,
+  overlayVariantFieldErrors,
   resolveProductFormCopy,
   type BannerKey,
 } from "./product-form-copy";
@@ -211,7 +214,13 @@ export function useProductForm(args: {
       clientErrors.price ??
       serverFields?.price ??
       null,
-    variants: { ...serverFields?.variants, ...clientErrors.variants },
+    variants: overlayVariantFieldErrors(
+      serverFields?.variants,
+      clientErrors.variants,
+      isSubmitted
+        ? mapRhfVariantFieldErrors(getValues().variants, errors.variants)
+        : undefined,
+    ),
   };
   const mappedBanner =
     localBanner ??
@@ -343,9 +352,19 @@ export function useProductForm(args: {
       void query.refetch();
     },
     save: () => {
-      void handleSubmit(() => {
-        void saveApi.save();
-      })();
+      void handleSubmit(
+        () => {
+          void saveApi.save();
+        },
+        () => {
+          const parsed = parseProductFormUiDraft(
+            cloneProductFormDraft(getValues()),
+          );
+          if (!parsed.ok) {
+            setClientErrors(parsed.errors);
+          }
+        },
+      )();
     },
   };
 }

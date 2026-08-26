@@ -6,14 +6,16 @@ import { isWireError, type WireErrorCode } from "@showzy/contract";
 
 import type { QueryFailureKind } from "../../../../api/errors";
 import type { ProductsFormCopy } from "../../../../i18n/products";
-import type { ProductFormWrite } from "./product-form-plan";
-import type {
-  NameErrorKey,
-  PriceErrorKey,
-  ProductFormFieldErrors,
-  VariantFieldErrors,
-} from "./product-form.schema";
 import type { ProductFormMode } from "./product-form-draft";
+import type { ProductFormWrite } from "./product-form-plan";
+import {
+  isNameErrorKey,
+  isPriceErrorKey,
+  type NameErrorKey,
+  type PriceErrorKey,
+  type ProductFormFieldErrors,
+  type VariantFieldErrors,
+} from "./product-form.schema";
 
 export type BannerKey =
   | "validation"
@@ -136,6 +138,77 @@ export function mapValidationIssues(
     return null;
   }
   return { name, price, variants };
+}
+
+/**
+ * Map RHF `formState.errors.variants` (indexed rows) onto draft keys.
+ * Schema `message` values stay copy keys. Does not import RHF types.
+ */
+export function mapRhfVariantFieldErrors(
+  variants: ReadonlyArray<{ readonly key: string }>,
+  rhfVariants: object | undefined,
+): Record<string, VariantFieldErrors> {
+  if (rhfVariants === undefined) {
+    return {};
+  }
+  const mapped: Record<string, VariantFieldErrors> = {};
+  for (let index = 0; index < variants.length; index += 1) {
+    const key = variants[index]?.key;
+    if (key === undefined) {
+      continue;
+    }
+    const row = Reflect.get(rhfVariants, index);
+    if (row === null || typeof row !== "object") {
+      continue;
+    }
+    const nameMessage = rhfMessage(Reflect.get(row, "name"));
+    const priceMessage = rhfMessage(Reflect.get(row, "priceText"));
+    const name =
+      nameMessage !== undefined && isNameErrorKey(nameMessage)
+        ? nameMessage
+        : null;
+    const price =
+      priceMessage !== undefined && isPriceErrorKey(priceMessage)
+        ? priceMessage
+        : null;
+    if (name !== null || price !== null) {
+      mapped[key] = { name, price };
+    }
+  }
+  return mapped;
+}
+
+function rhfMessage(value: unknown): string | undefined {
+  if (value === null || typeof value !== "object") {
+    return undefined;
+  }
+  const message = Reflect.get(value, "message");
+  return typeof message === "string" ? message : undefined;
+}
+
+/**
+ * Later layers win on a field when they carry a non-null key. Sparse
+ * overlays (RHF name-only) keep the previous price on the same row.
+ */
+export function overlayVariantFieldErrors(
+  ...layers: ReadonlyArray<
+    Readonly<Record<string, VariantFieldErrors>> | undefined
+  >
+): Record<string, VariantFieldErrors> {
+  const mapped: Record<string, VariantFieldErrors> = {};
+  for (const layer of layers) {
+    if (layer === undefined) {
+      continue;
+    }
+    for (const [key, row] of Object.entries(layer)) {
+      const previous = mapped[key] ?? EMPTY_VARIANT_ERRORS;
+      mapped[key] = {
+        name: row.name ?? previous.name,
+        price: row.price ?? previous.price,
+      };
+    }
+  }
+  return mapped;
 }
 
 function nameErrorCopy(

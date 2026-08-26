@@ -4,7 +4,9 @@ import { describe, expect, it } from "vitest";
 import {
   firstVariantFieldError,
   mapProductFormFailure,
+  mapRhfVariantFieldErrors,
   mapValidationIssues,
+  overlayVariantFieldErrors,
 } from "./product-form-copy";
 import type { ProductFormWrite } from "./product-form-plan";
 
@@ -49,6 +51,52 @@ describe("mapProductFormFailure / mapValidationIssues", () => {
       name: "required",
       price: null,
       variants: { "draft-1": { name: null, price: "invalid" } },
+    });
+  });
+});
+
+describe("mapRhfVariantFieldErrors", () => {
+  it("maps indexed RHF variant messages onto draft keys", () => {
+    expect(
+      mapRhfVariantFieldErrors(
+        [
+          { key: "draft-1" },
+          { key: "draft-2" },
+          { key: "draft-blank" },
+        ],
+        [
+          { name: { message: "required" } },
+          { priceText: { message: "invalid" } },
+          undefined,
+        ],
+      ),
+    ).toEqual({
+      "draft-1": { name: "required", price: null },
+      "draft-2": { name: null, price: "invalid" },
+    });
+  });
+
+  it("ignores non-key messages and missing rows", () => {
+    expect(
+      mapRhfVariantFieldErrors([{ key: "draft-1" }], {
+        0: { name: { message: "not-a-key" } },
+      }),
+    ).toEqual({});
+    expect(mapRhfVariantFieldErrors([{ key: "draft-1" }], undefined)).toEqual(
+      {},
+    );
+  });
+});
+
+describe("overlayVariantFieldErrors", () => {
+  it("lets later non-null keys win without wiping the other field", () => {
+    expect(
+      overlayVariantFieldErrors(
+        { "draft-1": { name: null, price: "invalid" } },
+        { "draft-1": { name: "required", price: null } },
+      ),
+    ).toEqual({
+      "draft-1": { name: "required", price: "invalid" },
     });
   });
 });
