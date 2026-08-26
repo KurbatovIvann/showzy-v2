@@ -7,12 +7,13 @@ import { ProductSheetAction } from "./product-sheet-action";
 
 /**
  * Canvas `PhotoSourceSheet`: Камера / Галерея as icon rows, not stacked
- * Buttons. Feature chrome on the product form.
+ * Buttons. Form and product-detail chrome.
  */
 export function PhotoSourceSheet(props: {
   readonly visible: boolean;
   readonly copy: ProductsPhotosCopy;
   readonly onClose: () => void;
+  readonly onHidden: () => void;
   readonly onCamera: () => void;
   readonly onLibrary: () => void;
 }) {
@@ -27,6 +28,7 @@ export function PhotoSourceSheet(props: {
       description={props.copy.pickDescription}
       closeAccessibilityLabel={props.copy.closeSheet}
       onClose={props.onClose}
+      onHidden={props.onHidden}
     >
       <ProductSheetAction
         icon={<CameraIcon size={icon} color={ink} />}

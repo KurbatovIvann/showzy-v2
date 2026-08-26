@@ -19,7 +19,7 @@ import {
   resultForProductSheetAction,
   resultForVariantSheetAction,
   sheetsAfterCloseVariantEditor,
-  sheetsAfterDismissConfirm,
+  sheetsAfterCancelStatusConfirm,
   sheetsAfterProductSheetAction,
   sheetsAfterVariantSheetAction,
   sheetsOpenNewVariant,
@@ -319,22 +319,22 @@ describe("variantStatusActionLabel", () => {
 });
 
 describe("photo and edit routes", () => {
-  it("sends Фото and Редагувати to the editor, never /photos", () => {
+  it("keeps Фото on the product, never /photos", () => {
     expect(productEditorHref(PRODUCT_ID)).toBe(`/products/${PRODUCT_ID}/edit`);
-    expect(productPhotoHref(PRODUCT_ID)).toBe(productEditorHref(PRODUCT_ID));
+    expect(productPhotoHref(PRODUCT_ID)).toBe(`/products/${PRODUCT_ID}`);
     expect(productPhotoHref(PRODUCT_ID)).not.toContain("/photos");
   });
 });
 
 describe("⋯ sheet and variant action destinations", () => {
-  it("keeps edit and photos on the editor route and status on confirm", () => {
+  it("keeps edit on the editor route, photos on this screen, and status on confirm", () => {
     expect(productSheetActionIds()).toEqual(["edit", "photos", "status"]);
     expect(
       resultForProductSheetAction({ action: "edit", archived: false }),
     ).toEqual({ kind: "navigate-edit" });
     expect(
       resultForProductSheetAction({ action: "photos", archived: true }),
-    ).toEqual({ kind: "navigate-edit" });
+    ).toEqual({ kind: "focus-photos" });
     expect(
       resultForProductSheetAction({ action: "status", archived: false }),
     ).toEqual({
@@ -390,36 +390,24 @@ describe("⋯ sheet and variant action destinations", () => {
     });
   });
 
-  it("closes ⋯ before confirm and returns variant actions after a cancelled variant confirm", () => {
+  it("closes ⋯ before a native confirm and returns variant actions after a cancelled variant confirm", () => {
+    expect(sheetsAfterProductSheetAction()).toEqual(IDLE_DETAIL_SHEETS);
     expect(
-      sheetsAfterProductSheetAction(
-        resultForProductSheetAction({ action: "photos", archived: false }),
-      ),
-    ).toEqual({
-      productActions: false,
-      variantActionId: null,
-      variantEditor: null,
-      confirm: null,
-    });
-    expect(
-      sheetsAfterProductSheetAction(
-        resultForProductSheetAction({ action: "status", archived: false }),
-      ).confirm,
-    ).toEqual({ kind: "archive-product" });
-    const variantConfirm = sheetsAfterVariantSheetAction({
-      variantId: VARIANT_ID,
-      result: resultForVariantSheetAction({
-        action: "status",
-        archived: false,
-        variantId: VARIANT_ID,
-        variantName: "1 кг",
+      sheetsAfterCancelStatusConfirm({
+        target: {
+          kind: "archive-variant",
+          variantId: VARIANT_ID,
+          variantName: "1 кг",
+        },
+        variantActionId: VARIANT_ID,
       }),
-    });
-    expect(variantConfirm.variantActionId).toBe(VARIANT_ID);
-    expect(variantConfirm.confirm?.kind).toBe("archive-variant");
-    expect(sheetsAfterDismissConfirm(variantConfirm)).toEqual(
-      sheetsOpenVariantActions(VARIANT_ID),
-    );
+    ).toEqual(sheetsOpenVariantActions(VARIANT_ID));
+    expect(
+      sheetsAfterCancelStatusConfirm({
+        target: { kind: "archive-product" },
+        variantActionId: null,
+      }),
+    ).toEqual(IDLE_DETAIL_SHEETS);
     expect(
       sheetsAfterCloseVariantEditor(
         sheetsAfterVariantSheetAction({

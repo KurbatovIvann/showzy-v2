@@ -221,8 +221,11 @@ describe("product photo ordering", () => {
     });
   });
 
-  it("does not keep a /photos route — attach is create/edit", () => {
-    expect(productPhotoHref(PRODUCT_ID)).toBe(productEditorHref(PRODUCT_ID));
+  it("does not keep a /photos route — attach is create, edit, and detail", () => {
+    expect(productPhotoHref(PRODUCT_ID)).toBe(`/products/${PRODUCT_ID}`);
+    expect(productPhotoHref(PRODUCT_ID)).not.toBe(
+      productEditorHref(PRODUCT_ID),
+    );
     expect(productPhotoHref(PRODUCT_ID)).not.toContain("/photos");
   });
 

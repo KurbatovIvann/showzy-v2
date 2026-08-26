@@ -18,6 +18,8 @@ import { useActiveCompany } from "../../../api/query-provider";
 import { useResolvedCompany } from "../../../company-resolution/resolved-company-provider";
 import { detectLocale } from "../../../i18n/locale";
 import { productsCopy } from "../../../i18n/products";
+import { presentConfirmDialog } from "../../ui/present-confirm-dialog";
+import { waitForSheetDismiss } from "../../ui/sheet-dismiss";
 import { invalidateCatalogAfterStatusWrite } from "./product-archive";
 import { productIdFromParam } from "./product-detail-model";
 import { getProductQueryOptions } from "./product-detail-query";
@@ -102,7 +104,6 @@ export function useProductForm(args: {
   const [localBanner, setLocalBanner] = useState<BannerKey | null>(null);
   const [lastWrite, setLastWrite] = useState<ProductFormWrite | null>(null);
   const [saveBusy, setSaveBusy] = useState(false);
-  const [confirmLeaveVisible, setConfirmLeaveVisible] = useState(false);
   const [leaveArmed, setLeaveArmed] = useState(false);
   const [variantSheet, setVariantSheet] =
     useState<ProductFormVariantSheetState>({ kind: "closed" });
@@ -116,6 +117,7 @@ export function useProductForm(args: {
   const variantSheetRef = useRef(variantSheet);
   variantSheetRef.current = variantSheet;
   const pendingLeaveActionRef = useRef<NavigationAction | null>(null);
+  const leavePromptingRef = useRef(false);
   const productIdRef = useRef(routeProductId);
   if (routeProductId !== null) {
     productIdRef.current = routeProductId;
@@ -186,7 +188,7 @@ export function useProductForm(args: {
 
   usePreventRemove(dirty && !pending && !leaveArmed, ({ data }) => {
     pendingLeaveActionRef.current = data.action;
-    setConfirmLeaveVisible(true);
+    void promptLeave();
   });
 
   useEffect(() => {
@@ -246,14 +248,30 @@ export function useProductForm(args: {
     router.back();
   }
 
-  function dismissLeave(): void {
+  async function promptLeave(): Promise<void> {
+    if (leavePromptingRef.current) {
+      return;
+    }
+    leavePromptingRef.current = true;
+    const hadSheet = variantSheetRef.current.kind !== "closed";
+    setVariantSheet({ kind: "closed" });
+    if (hadSheet) {
+      await waitForSheetDismiss();
+    }
+    const form = copy.form;
+    const choice = await presentConfirmDialog({
+      title: form.leaveTitle,
+      message: form.leaveDescription,
+      confirmLabel: form.leaveConfirm,
+      cancelLabel: form.leaveContinue,
+      tone: "danger",
+    });
+    leavePromptingRef.current = false;
+    if (choice === "confirm") {
+      setLeaveArmed(true);
+      return;
+    }
     pendingLeaveActionRef.current = null;
-    setConfirmLeaveVisible(false);
-  }
-
-  function confirmLeave(): void {
-    setConfirmLeaveVisible(false);
-    setLeaveArmed(true);
   }
 
   function openNewVariant(): void {
@@ -444,13 +462,10 @@ export function useProductForm(args: {
       draft.priceText,
       origin.priceText,
     ),
-    confirmLeaveVisible,
     variantSheet,
     variantSheetInitial,
     photos,
     requestLeave,
-    dismissLeave,
-    confirmLeave,
     openNewVariant,
     openEditVariant,
     closeVariantSheet,

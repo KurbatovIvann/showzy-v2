@@ -11,14 +11,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { interpolate } from "../../../i18n/locale";
-import {
-  AppHeader,
-  Banner,
-  Button,
-  EmptyState,
-  Sheet,
-  TextField,
-} from "../../ui";
+import { AppHeader, Banner, Button, EmptyState, TextField } from "../../ui";
 import { PhotoSourceSheet } from "./photo-source-sheet";
 import {
   firstVariantFieldError,
@@ -94,33 +87,10 @@ export function ProductFormView(model: ProductFormModel) {
         visible={model.photos.pickerOpen}
         copy={copy.photos}
         onClose={model.photos.closePicker}
+        onHidden={model.photos.onSourceSheetHidden}
         onCamera={model.photos.pickCamera}
         onLibrary={model.photos.pickLibrary}
       />
-      <Sheet
-        visible={model.confirmLeaveVisible}
-        title={form.leaveTitle}
-        closeAccessibilityLabel={form.closeSheet}
-        onClose={model.dismissLeave}
-        footer={
-          <>
-            <Button
-              variant="secondary"
-              fullWidth
-              label={form.leaveContinue}
-              onPress={model.dismissLeave}
-            />
-            <Button
-              variant="danger"
-              fullWidth
-              label={form.leaveConfirm}
-              onPress={model.confirmLeave}
-            />
-          </>
-        }
-      >
-        <Text style={styles.leaveBody}>{form.leaveDescription}</Text>
-      </Sheet>
     </SafeAreaView>
   );
 }
@@ -245,6 +215,36 @@ function ProductFormReady(props: { readonly model: ProductFormModel }) {
           changedLabel={form.changedLabel}
         />
       </ProductFormSection>
+      <ProductFormSection
+        title={copy.photos.title}
+        accessory={photoCountLabel(
+          copy.photos.count,
+          model.photos.tiles.length,
+        )}
+      >
+        <ProductImagePicker
+          tiles={model.photos.tiles}
+          copy={copy.photos}
+          previewByFileId={model.photos.previewByFileId}
+          canAdd={model.photos.canAdd && model.fieldsEditable}
+          readOnly={!model.fieldsEditable}
+          banner={model.photos.banner}
+          onAdd={model.photos.openPicker}
+          onRemove={model.photos.removePhoto}
+          onMoveEarlier={model.photos.moveEarlier}
+          onMoveLater={model.photos.moveLater}
+          onRetry={model.photos.retryUpload}
+          onCancel={model.photos.cancelUpload}
+        />
+        {model.photos.canRetryCommit ? (
+          <Button
+            variant="secondary"
+            label={copy.photos.retryLabel}
+            loading={model.photos.commitPending}
+            onPress={model.photos.retryCommit}
+          />
+        ) : null}
+      </ProductFormSection>
       <ProductFormSection title={form.priceSectionTitle}>
         <TextField
           label={form.priceLabel}
@@ -308,36 +308,6 @@ function ProductFormReady(props: { readonly model: ProductFormModel }) {
           <PlusIcon size={theme.iconSize.sm} color={theme.colors.foreground} />
           <Text style={styles.addVariantLabel}>{form.addVariant}</Text>
         </Pressable>
-      </ProductFormSection>
-      <ProductFormSection
-        title={copy.photos.title}
-        accessory={photoCountLabel(
-          copy.photos.count,
-          model.photos.tiles.length,
-        )}
-      >
-        <ProductImagePicker
-          tiles={model.photos.tiles}
-          copy={copy.photos}
-          previewByFileId={model.photos.previewByFileId}
-          canAdd={model.photos.canAdd && model.fieldsEditable}
-          readOnly={!model.fieldsEditable}
-          banner={model.photos.banner}
-          onAdd={model.photos.openPicker}
-          onRemove={model.photos.removePhoto}
-          onMoveEarlier={model.photos.moveEarlier}
-          onMoveLater={model.photos.moveLater}
-          onRetry={model.photos.retryUpload}
-          onCancel={model.photos.cancelUpload}
-        />
-        {model.photos.canRetryCommit ? (
-          <Button
-            variant="secondary"
-            label={copy.photos.retryLabel}
-            loading={model.photos.commitPending}
-            onPress={model.photos.retryCommit}
-          />
-        ) : null}
       </ProductFormSection>
       {model.banner !== null && model.banner.length > 0 ? (
         <Banner message={model.banner} />
@@ -506,11 +476,6 @@ const styles = StyleSheet.create((theme) => ({
   },
   footerButton: {
     flex: 1,
-  },
-  leaveBody: {
-    color: theme.colors.mutedForeground,
-    fontSize: theme.typography.sm.fontSize,
-    lineHeight: theme.typography.sm.lineHeight,
   },
   pressed: {
     opacity: 0.85,

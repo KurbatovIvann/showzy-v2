@@ -47,6 +47,7 @@ import {
   putCatalogBytes,
   type PickedPhoto,
 } from "./product-photos-native";
+import { waitForSheetHidden } from "../../ui/sheet-dismiss";
 import { canFetchFileDownloadUrls } from "./product-permissions";
 import {
   runProductPhotoUpload,
@@ -109,6 +110,7 @@ export function useProductPhotos(args: {
   const hydratedIdRef = useRef<string | null>(null);
   const mountedRef = useRef(true);
   const settleWaitersRef = useRef<Array<() => void>>([]);
+  const sheetHiddenWaitersRef = useRef<Array<() => void>>([]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -389,8 +391,26 @@ export function useProductPhotos(args: {
     setPickerOpen(true);
   }
 
+  function notifySheetHidden(): void {
+    const waiters = sheetHiddenWaitersRef.current;
+    sheetHiddenWaitersRef.current = [];
+    for (const waiter of waiters) {
+      waiter();
+    }
+  }
+
+  function waitUntilSourceSheetHidden(): Promise<void> {
+    return waitForSheetHidden(
+      new Promise<void>((resolve) => {
+        sheetHiddenWaitersRef.current.push(resolve);
+      }),
+    );
+  }
+
   async function pickFrom(source: "camera" | "library"): Promise<void> {
+    const hidden = waitUntilSourceSheetHidden();
     setPickerOpen(false);
+    await hidden;
     const remaining = remainingPhotoSlots(slotsRef.current);
     const result = await pickProductPhotos(source, remaining);
     if (result.kind === "canceled") {
@@ -539,6 +559,7 @@ export function useProductPhotos(args: {
     closePicker: () => {
       setPickerOpen(false);
     },
+    onSourceSheetHidden: notifySheetHidden,
     pickCamera: () => {
       void pickFrom("camera");
     },
