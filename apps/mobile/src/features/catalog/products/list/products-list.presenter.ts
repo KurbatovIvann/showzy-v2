@@ -1,17 +1,18 @@
 /**
- * Pure view-model logic for the products list (SHO-137). No React
- * Native imports so the whole decision surface is unit-testable.
+ * Pure view-model logic for the products list (SHO-137 / SHO-157). No
+ * React Native imports so the whole decision surface is unit-testable.
  */
+import { LIST_PRODUCTS_QUERY_MAX_LENGTH } from "@showzy/validation/catalog";
+
 import type { QueryFailureKind } from "../../../../api/errors";
 import { formatMoneyMinor } from "../../../../format/money";
 import type {
   ListProductsPageInput,
   ProductListItem,
   ProductsStatusFilter,
-} from "../api/products-list-query";
+} from "../api/product.queries";
 
-/** Matches the `catalog.listProducts` contract query cap. */
-export const PRODUCTS_SEARCH_MAX_LENGTH = 100;
+export { LIST_PRODUCTS_QUERY_MAX_LENGTH };
 
 /** Empty and whitespace-only searches are "no search" — the action rejects them. */
 export function normalizeProductsSearch(text: string): string | undefined {
@@ -19,7 +20,7 @@ export function normalizeProductsSearch(text: string): string | undefined {
   if (trimmed.length === 0) {
     return undefined;
   }
-  return trimmed.slice(0, PRODUCTS_SEARCH_MAX_LENGTH);
+  return trimmed.slice(0, LIST_PRODUCTS_QUERY_MAX_LENGTH);
 }
 
 export function listProductsPageInput(
@@ -36,46 +37,6 @@ export function flattenProductPages(
   pages: ReadonlyArray<{ readonly items: readonly ProductListItem[] }>,
 ): readonly ProductListItem[] {
   return pages.flatMap((page) => page.items);
-}
-
-/** First-seen unique `primaryImageFileId` values for one list page. */
-export function uniquePrimaryImageFileIds(
-  items: ReadonlyArray<{ readonly primaryImageFileId: string | null }>,
-): string[] {
-  const ids: string[] = [];
-  const seen = new Set<string>();
-  for (const item of items) {
-    const fileId = item.primaryImageFileId;
-    if (fileId === null || seen.has(fileId)) {
-      continue;
-    }
-    seen.add(fileId);
-    ids.push(fileId);
-  }
-  return ids;
-}
-
-export function mergeDownloadUrlPages(
-  pages: ReadonlyArray<
-    | {
-        readonly files: ReadonlyArray<{
-          readonly fileId: string;
-          readonly downloadUrl: string;
-        }>;
-      }
-    | undefined
-  >,
-): ReadonlyMap<string, string> {
-  const map = new Map<string, string>();
-  for (const page of pages) {
-    if (page === undefined) {
-      continue;
-    }
-    for (const file of page.files) {
-      map.set(file.fileId, file.downloadUrl);
-    }
-  }
-  return map;
 }
 
 export type ProductRowView = {

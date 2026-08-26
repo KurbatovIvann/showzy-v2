@@ -1,17 +1,17 @@
 import { describe, expect, it } from "vitest";
 
+import { LIST_PRODUCTS_QUERY_MAX_LENGTH } from "@showzy/validation/catalog";
+
+import type { ProductListItem } from "../api/product.queries";
 import {
   classifyProductsList,
   flattenProductPages,
   listProductsPageInput,
-  mergeDownloadUrlPages,
   normalizeProductsSearch,
   productsProbeState,
   toProductRowView,
-  uniquePrimaryImageFileIds,
-  PRODUCTS_SEARCH_MAX_LENGTH,
-} from "./products-list-model";
-import type { ProductListItem } from "../api/products-list-query";
+  LIST_PRODUCTS_QUERY_MAX_LENGTH as presenterSearchMax,
+} from "./products-list.presenter";
 
 function item(overrides: Partial<ProductListItem> = {}): ProductListItem {
   return {
@@ -34,11 +34,12 @@ describe("normalizeProductsSearch", () => {
     expect(normalizeProductsSearch("   ")).toBeUndefined();
   });
 
-  it("trims and caps at the contract query length", () => {
+  it("trims and caps at the validation catalog export, not a local literal", () => {
+    expect(presenterSearchMax).toBe(LIST_PRODUCTS_QUERY_MAX_LENGTH);
     expect(normalizeProductsSearch("  торт  ")).toBe("торт");
-    const long = "a".repeat(PRODUCTS_SEARCH_MAX_LENGTH + 20);
+    const long = "a".repeat(LIST_PRODUCTS_QUERY_MAX_LENGTH + 20);
     expect(normalizeProductsSearch(long)).toHaveLength(
-      PRODUCTS_SEARCH_MAX_LENGTH,
+      LIST_PRODUCTS_QUERY_MAX_LENGTH,
     );
   });
 });
@@ -63,44 +64,6 @@ describe("flattenProductPages", () => {
     expect(
       flattenProductPages([{ items: [first, second] }, { items: [third] }]),
     ).toEqual([first, second, third]);
-  });
-});
-
-describe("uniquePrimaryImageFileIds", () => {
-  it("skips nulls and duplicates, keeping first-seen order", () => {
-    const shared = "44444444-4444-4444-8444-444444444444";
-    const other = "55555555-5555-4555-8555-555555555555";
-    expect(
-      uniquePrimaryImageFileIds([
-        item({ primaryImageFileId: null }),
-        item({ primaryImageFileId: shared }),
-        item({ primaryImageFileId: other }),
-        item({ primaryImageFileId: shared }),
-        item({ primaryImageFileId: null }),
-      ]),
-    ).toEqual([shared, other]);
-  });
-});
-
-describe("mergeDownloadUrlPages", () => {
-  it("ignores pending pages and last write wins for a repeated fileId", () => {
-    const first = "44444444-4444-4444-8444-444444444444";
-    const second = "55555555-5555-4555-8555-555555555555";
-    const merged = mergeDownloadUrlPages([
-      undefined,
-      {
-        files: [
-          { fileId: first, downloadUrl: "https://example.test/a" },
-          { fileId: second, downloadUrl: "https://example.test/b" },
-        ],
-      },
-      {
-        files: [{ fileId: first, downloadUrl: "https://example.test/a2" }],
-      },
-    ]);
-    expect(merged.get(first)).toBe("https://example.test/a2");
-    expect(merged.get(second)).toBe("https://example.test/b");
-    expect(merged.get("missing")).toBeUndefined();
   });
 });
 

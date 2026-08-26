@@ -6,9 +6,7 @@
 import type { MutationCallOptions } from "@showzy/contract";
 import type { QueryClient } from "@tanstack/react-query";
 
-import { companyQueryScope } from "../../../../api/query-options";
-import { GET_PRODUCT_ACTION } from "./product-detail-query";
-import { LIST_PRODUCTS_ACTION } from "./products-list-query";
+import { catalogWriteInvalidationKeys } from "./product-cache";
 
 export type CatalogStatusWrite =
   | { readonly kind: "archiveProduct"; readonly productId: string }
@@ -77,11 +75,7 @@ export function bindCatalogStatusMutate(client: CatalogStatusTransport) {
 export function catalogStatusInvalidationKeys(
   companyId: string,
 ): readonly [readonly [string, string], readonly [string, string]] {
-  const scope = companyQueryScope(companyId);
-  return [
-    [GET_PRODUCT_ACTION, scope],
-    [LIST_PRODUCTS_ACTION, scope],
-  ] as const;
+  return catalogWriteInvalidationKeys(companyId);
 }
 
 export async function invalidateCatalogAfterStatusWrite(args: {

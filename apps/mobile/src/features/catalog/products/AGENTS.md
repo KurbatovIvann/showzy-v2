@@ -11,8 +11,8 @@ This folder is the layout contract now.
 
 | Folder    | Owns                                                                                  | Does not own                                                             |
 | --------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `api/`    | Query options, mutation binders, archive invalidation                                 | JSX, RHF, XState                                                         |
-| `list/`   | List screen, view, hook, presenter, row, thumbnails                                   | Writes, photo session                                                    |
+| `api/`    | `product.queries.ts`, mutation binders, `product-cache.ts` invalidation keys          | JSX, RHF, XState                                                         |
+| `list/`   | Screen, view, composer hook, presenter, row, `use-product-thumbnails.ts`              | Writes, photo session                                                    |
 | `detail/` | Detail screen, view, facade hook, sheets                                              | Form field state, photo machine                                          |
 | `form/`   | Create/edit screen, view, draft model, save                                           | List filters; photo session internals                                    |
 | `photos/` | Photo hook/model, upload runner, native, picker                                       | A second `catalog.getProduct` when the parent already has `imageFileIds` |
@@ -23,11 +23,19 @@ This folder is the layout contract now.
 - **Query vs RHF vs XState vs view.** TanStack Query stays in `api/` and
   surface hooks. Form fields belong in RHF (not the detail/list hooks).
   Photo session belongs in XState v6. List filters and sheet chrome are
-  not XState. Views take a view-model and callbacks.
+  not XState. Views take a view-model and callbacks. `use-products-list.ts`
+  stays a thin composer: filter/search state + query + presenter +
+  thumbnails + navigation.
 - **No second `getProduct`.** If the parent already has `imageFileIds`,
   hydrate photos from that list. Do not start another `catalog.getProduct`
   for thumbnails.
-- **Kebab-case files**, PascalCase component exports.
+- **Kebab-case files**, PascalCase component exports. Query/command
+  binders use the feature-card names `product.queries.ts` /
+  `product.commands.ts`; the list presenter is `products-list.presenter.ts`.
+- **Catalog limits** come from `@showzy/validation/catalog` (or
+  `ContractClient` types), not a second local number. List search uses
+  `LIST_PRODUCTS_QUERY_MAX_LENGTH`. Thumbnail URLs go through
+  `src/api/file-download-query.ts`.
 - **Screens do not own transport.** Routes re-export a screen. Screens
   compose a hook + view. Hooks call `api/` binders. Never import
   `@showzy/core`.

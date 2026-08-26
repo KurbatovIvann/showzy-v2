@@ -12,7 +12,7 @@ import {
   type CatalogStatusWrite,
 } from "./product-archive";
 import { GET_PRODUCT_ACTION } from "./product-detail-query";
-import { LIST_PRODUCTS_ACTION } from "./products-list-query";
+import { LIST_PRODUCTS_ACTION } from "./product.queries";
 
 const PRODUCT_ID = "0f0e2d5c-4a1b-4c3d-9e8f-102938475601";
 const VARIANT_ID = "11111111-1111-4111-8111-111111111111";
