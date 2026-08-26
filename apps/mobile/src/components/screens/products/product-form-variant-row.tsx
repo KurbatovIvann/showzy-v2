@@ -17,14 +17,19 @@ export const ProductFormVariantRow = memo(
     readonly archived: boolean;
     readonly archivedLabel: string;
     readonly editLabel: string;
+    readonly error: string | null;
     readonly disabled: boolean;
     readonly onPress: (id: string) => void;
   }) {
     const { theme } = useUnistyles();
+    const hasError = props.error != null && props.error.length > 0;
+    const accessibilityLabel = hasError
+      ? `${props.name}. ${props.error}. ${props.editLabel}`
+      : `${props.name}. ${props.editLabel}`;
     return (
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${props.name}. ${props.editLabel}`}
+        accessibilityLabel={accessibilityLabel}
         disabled={props.disabled}
         onPress={() => {
           props.onPress(props.id);
@@ -44,6 +49,7 @@ export const ProductFormVariantRow = memo(
           <Text numberOfLines={1} style={styles.price}>
             {props.priceLabel}
           </Text>
+          {hasError ? <Text style={styles.error}>{props.error}</Text> : null}
         </View>
         <PencilIcon
           size={theme.iconSize.sm}
@@ -90,6 +96,12 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.mutedForeground,
     fontSize: theme.typography.xs.fontSize,
     lineHeight: theme.typography.xs.lineHeight,
+  },
+  error: {
+    color: theme.colors.destructive,
+    fontSize: theme.typography.xs.fontSize,
+    lineHeight: theme.typography.xs.lineHeight,
+    fontWeight: "500",
   },
   pressed: {
     opacity: 0.85,

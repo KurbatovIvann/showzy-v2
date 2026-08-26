@@ -1,6 +1,10 @@
 import type { WireErrorCode } from "@showzy/contract";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "expo-router";
+import { useNavigation, useRouter } from "expo-router";
+import {
+  usePreventRemove,
+  type NavigationAction,
+} from "expo-router/react-navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { useApiClient } from "../../../api/api-provider";
@@ -71,6 +75,7 @@ export function useProductForm(args: {
   const { activeCompanyId } = useActiveCompany();
   const membership = useResolvedCompany();
   const router = useRouter();
+  const navigation = useNavigation();
   const queryClient = useQueryClient();
   const productId =
     args.mode === "edit" ? productIdFromParam(args.idParam) : null;
@@ -88,19 +93,19 @@ export function useProductForm(args: {
   const [lastWrite, setLastWrite] = useState<ProductFormWrite | null>(null);
   const [saveBusy, setSaveBusy] = useState(false);
   const [confirmLeaveVisible, setConfirmLeaveVisible] = useState(false);
+  const [leaveArmed, setLeaveArmed] = useState(false);
   const [variantSheet, setVariantSheet] =
     useState<ProductFormVariantSheetState>({ kind: "closed" });
 
   const draftRef = useRef(draft);
   draftRef.current = draft;
-  const originRef = useRef(origin);
-  originRef.current = origin;
   const baselineRef = useRef(baseline);
   baselineRef.current = baseline;
   const lastWriteRef = useRef(lastWrite);
   lastWriteRef.current = lastWrite;
   const variantSheetRef = useRef(variantSheet);
   variantSheetRef.current = variantSheet;
+  const pendingLeaveActionRef = useRef<NavigationAction | null>(null);
   const productIdRef = useRef(productId);
   productIdRef.current = productId;
   const lastFailureRef = useRef<LastFailure>(NO_FAILURE);
@@ -135,7 +140,6 @@ export function useProductForm(args: {
     const next = draftFromProduct(query.data);
     const snap = snapshotFromProduct(query.data);
     draftRef.current = next;
-    originRef.current = next;
     baselineRef.current = snap;
     setDraft(next);
     setOrigin(next);
@@ -166,6 +170,26 @@ export function useProductForm(args: {
     localBanner ??
     mapProductFormFailure(failure?.kind ?? null, wire?.code ?? null);
   const pending = saveBusy || mutation.isPending;
+  const dirty = isProductFormDirty(draft, origin);
+
+  usePreventRemove(dirty && !pending && !leaveArmed, ({ data }) => {
+    pendingLeaveActionRef.current = data.action;
+    setConfirmLeaveVisible(true);
+  });
+
+  useEffect(() => {
+    if (!leaveArmed) {
+      return;
+    }
+    const action = pendingLeaveActionRef.current;
+    pendingLeaveActionRef.current = null;
+    if (action !== null) {
+      navigation.dispatch(action);
+      return;
+    }
+    router.back();
+  }, [leaveArmed, navigation, router]);
+
   const clientReady = apiClient !== null && activeCompanyId !== null;
   const loadState = classifyProductFormLoad({
     mode: args.mode,
@@ -207,20 +231,17 @@ export function useProductForm(args: {
   }
 
   function requestLeave(): void {
-    if (isProductFormDirty(draftRef.current, originRef.current)) {
-      setConfirmLeaveVisible(true);
-      return;
-    }
     router.back();
   }
 
   function dismissLeave(): void {
+    pendingLeaveActionRef.current = null;
     setConfirmLeaveVisible(false);
   }
 
   function confirmLeave(): void {
     setConfirmLeaveVisible(false);
-    router.back();
+    setLeaveArmed(true);
   }
 
   function openNewVariant(): void {
@@ -354,7 +375,6 @@ export function useProductForm(args: {
 
   const headerTitle =
     args.mode === "create" ? copy.stub.createTitle : copy.stub.editTitle;
-  const dirty = isProductFormDirty(draft, origin);
   const variantSheetInitial =
     variantSheet.kind === "edit"
       ? (draft.variants.find((variant) => variant.key === variantSheet.key) ??

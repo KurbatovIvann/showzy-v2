@@ -9,6 +9,7 @@ import {
   createProductPayload,
   draftFromProduct,
   emptyProductFormDraft,
+  firstVariantFieldError,
   formatProductFormFooterPrice,
   isProductFormDirty,
   mapProductFormFailure,
@@ -544,6 +545,22 @@ describe("isProductFormDirty / productFormFieldChanged", () => {
       priceText: "",
     });
     expect(isProductFormDirty(withVariant, origin)).toBe(true);
+  });
+});
+
+describe("firstVariantFieldError", () => {
+  it("prefers the name message and ignores empty strings", () => {
+    expect(firstVariantFieldError(undefined)).toBeNull();
+    expect(firstVariantFieldError({ name: null, price: null })).toBeNull();
+    expect(firstVariantFieldError({ name: "", price: "Ціна некоректна" })).toBe(
+      "Ціна некоректна",
+    );
+    expect(
+      firstVariantFieldError({
+        name: "Назва обовʼязкова",
+        price: "Ціна некоректна",
+      }),
+    ).toBe("Назва обовʼязкова");
   });
 });
 

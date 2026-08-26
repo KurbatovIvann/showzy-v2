@@ -986,3 +986,19 @@ export function resolveProductFormCopy(
     fieldsEditable: !args.pending && args.clientReady,
   };
 }
+
+export function firstVariantFieldError(
+  errors:
+    { readonly name: string | null; readonly price: string | null } | undefined,
+): string | null {
+  if (errors === undefined) {
+    return null;
+  }
+  if (errors.name !== null && errors.name.length > 0) {
+    return errors.name;
+  }
+  if (errors.price !== null && errors.price.length > 0) {
+    return errors.price;
+  }
+  return null;
+}

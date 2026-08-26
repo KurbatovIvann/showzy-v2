@@ -20,6 +20,7 @@ import {
   TextField,
 } from "../../ui";
 import {
+  firstVariantFieldError,
   formatProductFormFooterPrice,
   type ProductFormVariantDraft,
 } from "./product-form-model";
@@ -277,6 +278,7 @@ function ProductFormReady(props: { readonly model: ProductFormModel }) {
                 archived={variant.archived}
                 archivedLabel={copy.archivedBadge}
                 editLabel={form.variantSheetEditTitle}
+                error={firstVariantFieldError(model.variantErrors[variant.key])}
                 disabled={!model.fieldsEditable}
                 onPress={model.openEditVariant}
               />
