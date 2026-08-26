@@ -43,6 +43,7 @@ describe("loadServerConfig", () => {
     );
     expect(config.redis.url).toBe("redis://localhost:6379");
     expect(config.s3.endpoint).toBe("http://localhost:3900");
+    expect(config.s3.publicEndpoint).toBe("http://localhost:3900");
     expect(config.s3.forcePathStyle).toBe(true);
     expect(config.s3.bucket).toBe("showzy");
     expect(config.s3).not.toHaveProperty("buckets");
@@ -80,6 +81,7 @@ describe("loadServerConfig", () => {
     expect(config.s3.region).toBe("us-east-1");
     expect(config.s3.forcePathStyle).toBe(false);
     expect(config.s3.bucket).toBe("showzy");
+    expect(config.s3.publicEndpoint).toBe(config.s3.endpoint);
     expect(config.trustedProxies).toEqual([]);
     expect(config.sentry.dsn).toBeUndefined();
     expect(config.otpDelivery.email.transport).toBe("stub");
@@ -223,6 +225,14 @@ describe("loadServerConfig", () => {
     expect(everything).not.toContain("SENTINEL");
     expect(everything).toContain("S3_ENDPOINT");
     expect(everything).not.toContain("S3_SECRET_ACCESS_KEY_SENTINEL");
+  });
+
+  it("signs client URLs against S3_PUBLIC_ENDPOINT when it is set", () => {
+    const env = validEnv();
+    env["S3_PUBLIC_ENDPOINT"] = "http://192.168.0.106:3900";
+    const config = loadServerConfig(env);
+    expect(config.s3.endpoint).toBe("http://localhost:3900");
+    expect(config.s3.publicEndpoint).toBe("http://192.168.0.106:3900");
   });
 });
 

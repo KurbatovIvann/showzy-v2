@@ -76,7 +76,10 @@ and connect to the bundler. `EXPO_PUBLIC_API_URL` is inlined by Metro at
 bundle time — change it without a new native build. A phone cannot reach
 `localhost` on your computer; use the machine's LAN address
 (`http://192.168.x.x:3000`) in `apps/mobile/.env` when talking to a local
-API. If device discovery fails, add `--tunnel`:
+API. Product photo PUT/GET URLs are signed against `S3_PUBLIC_ENDPOINT`
+(empty = `S3_ENDPOINT`); set that to `http://192.168.x.x:3900` so the
+phone can reach local Garage. Restart the API after changing it. If device
+discovery fails, add `--tunnel`:
 
 ```bash
 pnpm --filter @showzy/mobile start -- --dev-client --tunnel

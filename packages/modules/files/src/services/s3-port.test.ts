@@ -1,7 +1,11 @@
 import { CoreInvariantError } from "@showzy/core/errors";
 import { describe, expect, it } from "vitest";
 
-import { filesObjectStoreErrorCause, normalizeObjectEtag } from "./s3-port.js";
+import {
+  createFilesObjectStore,
+  filesObjectStoreErrorCause,
+  normalizeObjectEtag,
+} from "./s3-port.js";
 
 describe("normalizeObjectEtag", () => {
   it("strips S3 quotes and weak-validator prefixes", () => {
@@ -59,5 +63,54 @@ describe("filesObjectStoreErrorCause", () => {
     expect(serialized).not.toContain(signature);
     expect(serialized).not.toContain(objectKey);
     expect(JSON.stringify(accessDenied)).not.toContain(leakingMessage);
+  });
+});
+
+describe("createFilesObjectStore signed URL host", () => {
+  const localConfig = {
+    endpoint: "http://127.0.0.1:3900",
+    region: "us-east-1",
+    accessKeyId: "showzy-local",
+    secretAccessKey: "showzy-local-secret",
+    forcePathStyle: true,
+    bucket: "showzy",
+  } as const;
+
+  it("embeds the SDK endpoint when no public endpoint is set", async () => {
+    const store = createFilesObjectStore(localConfig);
+    try {
+      const put = await store.signPut({
+        key: "company/uploads/file",
+        mimeType: "image/jpeg",
+        byteSize: 12,
+      });
+      expect(new URL(put.url).origin).toBe("http://127.0.0.1:3900");
+    } finally {
+      store.close();
+    }
+  });
+
+  it("embeds the public endpoint in PUT and GET URLs instead of the SDK host", async () => {
+    const store = createFilesObjectStore({
+      ...localConfig,
+      publicEndpoint: "http://192.168.0.106:3900",
+    });
+    try {
+      const put = await store.signPut({
+        key: "company/uploads/file",
+        mimeType: "image/jpeg",
+        byteSize: 12,
+      });
+      const got = await store.signGet({
+        key: "company/catalog/file",
+        mimeType: "image/jpeg",
+      });
+      expect(new URL(put.url).origin).toBe("http://192.168.0.106:3900");
+      expect(new URL(got.url).origin).toBe("http://192.168.0.106:3900");
+      expect(put.url).not.toContain("127.0.0.1");
+      expect(got.url).not.toContain("127.0.0.1");
+    } finally {
+      store.close();
+    }
   });
 });

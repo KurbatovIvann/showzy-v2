@@ -16,6 +16,12 @@ export const SIGNED_URL_TTL_SEC = 15 * 60;
 
 export interface FilesS3Config {
   readonly endpoint: string;
+  /**
+   * Host embedded in signed PUT/GET URLs. Defaults to `endpoint`. Split this
+   * from `endpoint` when clients cannot reach the SDK endpoint (local Garage
+   * on localhost vs a phone on the LAN).
+   */
+  readonly publicEndpoint?: string;
   readonly region: string;
   readonly accessKeyId: string;
   readonly secretAccessKey: string;
@@ -215,12 +221,10 @@ export async function probeFilesObjectStore(): Promise<void> {
   await getFilesObjectStore().probeBucket();
 }
 
-export function createFilesObjectStore(
-  config: FilesS3Config,
-): FilesObjectStore {
-  const client = new S3Client({
+function createS3Client(config: FilesS3Config, endpoint: string): S3Client {
+  return new S3Client({
     region: config.region,
-    endpoint: config.endpoint,
+    endpoint,
     forcePathStyle: config.forcePathStyle,
     credentials: {
       accessKeyId: config.accessKeyId,
@@ -230,6 +234,17 @@ export function createFilesObjectStore(
     requestChecksumCalculation: "WHEN_REQUIRED",
     responseChecksumValidation: "WHEN_REQUIRED",
   });
+}
+
+export function createFilesObjectStore(
+  config: FilesS3Config,
+): FilesObjectStore {
+  const signEndpoint = config.publicEndpoint ?? config.endpoint;
+  const dataClient = createS3Client(config, config.endpoint);
+  const signClient =
+    signEndpoint === config.endpoint
+      ? dataClient
+      : createS3Client(config, signEndpoint);
   const bucket = config.bucket;
 
   return {
@@ -237,7 +252,7 @@ export function createFilesObjectStore(
       const expiresAt = new Date(Date.now() + SIGNED_URL_TTL_SEC * 1000);
       try {
         const url = await getSignedUrl(
-          client,
+          signClient,
           new PutObjectCommand({
             Bucket: bucket,
             Key: input.key,
@@ -257,7 +272,7 @@ export function createFilesObjectStore(
       const filename = downloadFilename(input.mimeType);
       try {
         const url = await getSignedUrl(
-          client,
+          signClient,
           new GetObjectCommand({
             Bucket: bucket,
             Key: input.key,
@@ -274,7 +289,7 @@ export function createFilesObjectStore(
 
     async headObject(key) {
       try {
-        const result = await client.send(
+        const result = await dataClient.send(
           new HeadObjectCommand({ Bucket: bucket, Key: key }),
         );
         const byteSize = result.ContentLength;
@@ -297,7 +312,7 @@ export function createFilesObjectStore(
 
     async getObject(key) {
       try {
-        const result = await client.send(
+        const result = await dataClient.send(
           new GetObjectCommand({ Bucket: bucket, Key: key }),
         );
         const body = result.Body;
@@ -322,7 +337,7 @@ export function createFilesObjectStore(
 
     async putObject(input) {
       try {
-        await client.send(
+        await dataClient.send(
           new PutObjectCommand({
             Bucket: bucket,
             Key: input.key,
@@ -338,7 +353,7 @@ export function createFilesObjectStore(
 
     async deleteObject(key) {
       try {
-        await client.send(
+        await dataClient.send(
           new DeleteObjectCommand({ Bucket: bucket, Key: key }),
         );
       } catch (error) {
@@ -351,14 +366,17 @@ export function createFilesObjectStore(
 
     async probeBucket() {
       try {
-        await client.send(new HeadBucketCommand({ Bucket: bucket }));
+        await dataClient.send(new HeadBucketCommand({ Bucket: bucket }));
       } catch (error) {
         rethrowObjectStoreFailure("HeadBucket", error);
       }
     },
 
     close() {
-      client.destroy();
+      signClient.destroy();
+      if (signClient !== dataClient) {
+        dataClient.destroy();
+      }
     },
   };
 }

@@ -36,6 +36,13 @@ const envSchema = z.object({
   REDIS_URL: z.url({ protocol: /^rediss?$/ }),
 
   S3_ENDPOINT: z.url({ protocol: /^https?$/ }),
+  /**
+   * Host clients use for signed PUT/GET URLs. The API/worker keep talking
+   * to `S3_ENDPOINT`. Empty = same as `S3_ENDPOINT`. Set this to the
+   * machine LAN address (`http://192.168.x.x:3900`) when a physical
+   * device uploads to local Garage — phones cannot reach localhost.
+   */
+  S3_PUBLIC_ENDPOINT: z.url({ protocol: /^https?$/ }).optional(),
   S3_REGION: z.string().min(1).default("us-east-1"),
   S3_ACCESS_KEY_ID: z.string().min(1),
   S3_SECRET_ACCESS_KEY: z.string().min(1),
@@ -111,6 +118,8 @@ export interface ServerConfig {
   readonly redis: { readonly url: string };
   readonly s3: {
     readonly endpoint: string;
+    /** Signed URL host; equals `endpoint` when `S3_PUBLIC_ENDPOINT` is unset. */
+    readonly publicEndpoint: string;
     readonly region: string;
     readonly accessKeyId: string;
     readonly secretAccessKey: string;
@@ -213,6 +222,7 @@ export function loadServerConfig(
     redis: { url: parsed.REDIS_URL },
     s3: {
       endpoint: parsed.S3_ENDPOINT,
+      publicEndpoint: parsed.S3_PUBLIC_ENDPOINT ?? parsed.S3_ENDPOINT,
       region: parsed.S3_REGION,
       accessKeyId: parsed.S3_ACCESS_KEY_ID,
       secretAccessKey: parsed.S3_SECRET_ACCESS_KEY,

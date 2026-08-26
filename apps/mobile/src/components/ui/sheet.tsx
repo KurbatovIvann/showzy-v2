@@ -49,6 +49,15 @@ export function Sheet(props: {
     presentedRef.current = false;
     setPresented(false);
   }, []);
+  const hideModalIfCurrent = useCallback(
+    (generation: number) => {
+      if (closeGenerationRef.current !== generation) {
+        return;
+      }
+      hideModal();
+    },
+    [hideModal],
+  );
 
   useEffect(() => {
     if (props.visible) {
@@ -85,13 +94,15 @@ export function Sheet(props: {
           easing: EASE_SHEET,
         },
         (finished) => {
-          if (finished && closeGenerationRef.current === generation) {
-            scheduleOnRN(hideModal);
+          // withTiming's callback is a worklet — do not read a React ref
+          // here; mutating ref.current after capture throws.
+          if (finished) {
+            scheduleOnRN(hideModalIfCurrent, generation);
           }
         },
       ),
     );
-  }, [hideModal, progress, props.visible, reduceMotion]);
+  }, [hideModal, hideModalIfCurrent, progress, props.visible, reduceMotion]);
 
   const fallbackTravel = theme.hitTarget.field;
   const overlayStyle = useAnimatedStyle(() => ({
