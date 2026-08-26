@@ -66,7 +66,7 @@ describe("products copy", () => {
     expect(uk.detail.confirmArchiveProductTitle).toBe("Архівувати товар?");
     expect(uk.detail.cancel).toBe("Скасувати");
     expect(uk.detail.confirmArchiveVariantDescription).toContain("{{name}}");
-    expect(uk.stub.editTitle).toBe("Редагування товару");
+    expect(uk.stub.editTitle).toBe("Редагувати товар");
     expect(uk.stub.photosTitle).toBe("Фото");
     expect(uk.detail.notFoundDescription).toBe(
       "Не вдалося знайти цей товар або він недоступний.",
@@ -88,16 +88,26 @@ describe("products copy", () => {
 
   it("pins the product-form copy in uk", () => {
     const uk = productsCopy("uk");
-    expect(uk.form.nameLabel).toBe("Назва");
+    expect(uk.form.detailsTitle).toBe("Деталі");
+    expect(uk.form.priceSectionTitle).toBe("Ціна");
+    expect(uk.form.nameLabel).toBe("Назва товару");
+    expect(uk.form.namePlaceholder).toBe("Наприклад, Торт «Наполеон»");
     expect(uk.form.priceLabel).toBe("Базова ціна");
     expect(uk.form.variantsTitle).toBe("Варіанти");
     expect(uk.form.addVariant).toBe("Додати варіант");
     expect(uk.form.submitCreate).toBe("Створити товар");
     expect(uk.form.submitEdit).toBe("Зберегти");
-    expect(uk.form.inheritHint).toBe("Порожня ціна — як у товару");
+    expect(uk.form.cancel).toBe("Скасувати");
+    expect(uk.form.changedLabel).toBe("змінено");
+    expect(uk.form.leaveTitle).toBe("Вийти без збереження?");
+    expect(uk.form.variantSheetCustomPrice).toBe("Інша ціна");
+    expect(uk.form.variantInheritedPrice).toContain("{{price}}");
     expect(uk.form.errors.priceInvalid).toBe("Перевірте ціну");
     expect(uk.form.permissionCreateDescription).toBe(
       "Немає права створювати товари.",
+    );
+    expect(productsCopy("en").form.variantInheritedPrice).toContain(
+      "{{price}}",
     );
   });
 });

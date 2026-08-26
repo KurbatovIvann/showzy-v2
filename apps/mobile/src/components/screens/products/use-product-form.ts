@@ -18,22 +18,24 @@ import { invalidateCatalogAfterStatusWrite } from "./product-archive";
 import { productIdFromParam } from "./product-detail-model";
 import { getProductQueryOptions } from "./product-detail-query";
 import {
-  addVariantRow,
   applyWriteSuccess,
   classifyProductFormLoad,
   compactDraft,
   draftFromProduct,
   emptyFieldErrors,
   emptyProductFormDraft,
+  formatProductFormFooterPrice,
+  isProductFormDirty,
   mapProductFormFailure,
   mapValidationIssues,
   patchDraft,
   planProductFormSave,
+  productFormFieldChanged,
   PRODUCT_FORM_MAX_VARIANTS,
   PRODUCT_NAME_MAX,
-  removeVariantRow,
   resolveProductFormCopy,
   snapshotFromProduct,
+  upsertVariantDraft,
   type BannerKey,
   type ProductFormDraft,
   type ProductFormFieldErrors,
@@ -45,6 +47,11 @@ import { bindProductFormMutate } from "./product-form-mutation";
 import { canCreateProducts, canEditProducts } from "./product-permissions";
 
 export type ProductFormModel = ReturnType<typeof useProductForm>;
+
+export type ProductFormVariantSheetState =
+  | { readonly kind: "closed" }
+  | { readonly kind: "new" }
+  | { readonly kind: "edit"; readonly key: string };
 
 type LastFailure = {
   readonly kind: QueryFailureKind | null;
@@ -73,19 +80,27 @@ export function useProductForm(args: {
       : canEditProducts(membership.role);
 
   const [draft, setDraft] = useState<ProductFormDraft>(emptyProductFormDraft);
+  const [origin, setOrigin] = useState<ProductFormDraft>(emptyProductFormDraft);
   const [baseline, setBaseline] = useState<ProductFormSnapshot | null>(null);
   const [clientErrors, setClientErrors] =
     useState<ProductFormFieldErrors>(emptyFieldErrors);
   const [localBanner, setLocalBanner] = useState<BannerKey | null>(null);
   const [lastWrite, setLastWrite] = useState<ProductFormWrite | null>(null);
   const [saveBusy, setSaveBusy] = useState(false);
+  const [confirmLeaveVisible, setConfirmLeaveVisible] = useState(false);
+  const [variantSheet, setVariantSheet] =
+    useState<ProductFormVariantSheetState>({ kind: "closed" });
 
   const draftRef = useRef(draft);
   draftRef.current = draft;
+  const originRef = useRef(origin);
+  originRef.current = origin;
   const baselineRef = useRef(baseline);
   baselineRef.current = baseline;
   const lastWriteRef = useRef(lastWrite);
   lastWriteRef.current = lastWrite;
+  const variantSheetRef = useRef(variantSheet);
+  variantSheetRef.current = variantSheet;
   const productIdRef = useRef(productId);
   productIdRef.current = productId;
   const lastFailureRef = useRef<LastFailure>(NO_FAILURE);
@@ -120,8 +135,10 @@ export function useProductForm(args: {
     const next = draftFromProduct(query.data);
     const snap = snapshotFromProduct(query.data);
     draftRef.current = next;
+    originRef.current = next;
     baselineRef.current = snap;
     setDraft(next);
+    setOrigin(next);
     setBaseline(snap);
   }, [args.mode, query.data]);
 
@@ -189,41 +206,63 @@ export function useProductForm(args: {
     clearAttempt();
   }
 
-  function changeVariantName(key: string, value: string): void {
-    const next = patchDraft(draftRef.current, {
-      variantKey: key,
-      variantName: value,
-    });
-    draftRef.current = next;
-    setDraft(next);
-    clearAttempt();
+  function requestLeave(): void {
+    if (isProductFormDirty(draftRef.current, originRef.current)) {
+      setConfirmLeaveVisible(true);
+      return;
+    }
+    router.back();
   }
 
-  function changeVariantPrice(key: string, value: string): void {
-    const next = patchDraft(draftRef.current, {
-      variantKey: key,
-      variantPriceText: value,
-    });
-    draftRef.current = next;
-    setDraft(next);
-    clearAttempt();
+  function dismissLeave(): void {
+    setConfirmLeaveVisible(false);
   }
 
-  function addVariant(): void {
+  function confirmLeave(): void {
+    setConfirmLeaveVisible(false);
+    router.back();
+  }
+
+  function openNewVariant(): void {
     if (draftRef.current.variants.length >= PRODUCT_FORM_MAX_VARIANTS) {
       setLocalBanner("too_many_variants");
       return;
     }
-    const next = addVariantRow(draftRef.current);
-    draftRef.current = next;
-    setDraft(next);
-    clearAttempt();
+    setVariantSheet({ kind: "new" });
   }
 
-  function removeVariant(key: string): void {
-    const next = removeVariantRow(draftRef.current, key);
+  function openEditVariant(key: string): void {
+    setVariantSheet({ kind: "edit", key });
+  }
+
+  function closeVariantSheet(): void {
+    setVariantSheet({ kind: "closed" });
+  }
+
+  function saveVariantFromSheet(input: {
+    readonly name: string;
+    readonly priceText: string;
+  }): void {
+    const sheet = variantSheetRef.current;
+    if (sheet.kind === "closed") {
+      return;
+    }
+    if (
+      sheet.kind === "new" &&
+      draftRef.current.variants.length >= PRODUCT_FORM_MAX_VARIANTS
+    ) {
+      setLocalBanner("too_many_variants");
+      setVariantSheet({ kind: "closed" });
+      return;
+    }
+    const next = upsertVariantDraft(draftRef.current, {
+      key: sheet.kind === "edit" ? sheet.key : null,
+      name: input.name,
+      priceText: input.priceText,
+    });
     draftRef.current = next;
     setDraft(next);
+    setVariantSheet({ kind: "closed" });
     clearAttempt();
   }
 
@@ -315,6 +354,12 @@ export function useProductForm(args: {
 
   const headerTitle =
     args.mode === "create" ? copy.stub.createTitle : copy.stub.editTitle;
+  const dirty = isProductFormDirty(draft, origin);
+  const variantSheetInitial =
+    variantSheet.kind === "edit"
+      ? (draft.variants.find((variant) => variant.key === variantSheet.key) ??
+        null)
+      : null;
 
   return {
     copy,
@@ -326,7 +371,10 @@ export function useProductForm(args: {
     variantErrors: resolved.variantErrors,
     banner: resolved.banner,
     pending,
-    submitDisabled: resolved.submitDisabled || loadState.kind !== "ready",
+    submitDisabled:
+      resolved.submitDisabled ||
+      loadState.kind !== "ready" ||
+      (args.mode === "edit" && !dirty),
     submitLabel: resolved.submitLabel,
     fieldsEditable: resolved.fieldsEditable && loadState.kind === "ready",
     canAddVariant:
@@ -335,18 +383,28 @@ export function useProductForm(args: {
       draft.variants.length < PRODUCT_FORM_MAX_VARIANTS,
     nameMaxLength: PRODUCT_NAME_MAX,
     headerTitle,
-    goBack: () => {
-      router.back();
-    },
+    footerPriceLabel: formatProductFormFooterPrice(draft.priceText),
+    nameChanged: productFormFieldChanged(args.mode, draft.name, origin.name),
+    priceChanged: productFormFieldChanged(
+      args.mode,
+      draft.priceText,
+      origin.priceText,
+    ),
+    confirmLeaveVisible,
+    variantSheet,
+    variantSheetInitial,
+    requestLeave,
+    dismissLeave,
+    confirmLeave,
+    openNewVariant,
+    openEditVariant,
+    closeVariantSheet,
+    saveVariantFromSheet,
     retry: () => {
       void query.refetch();
     },
     changeName,
     changePrice,
-    changeVariantName,
-    changeVariantPrice,
-    addVariant,
-    removeVariant,
     save: () => {
       void save();
     },

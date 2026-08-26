@@ -10,4 +10,5 @@ export { SearchField } from "./search-field";
 export { SegmentedTabs } from "./segmented-tabs";
 export { Sheet } from "./sheet";
 export { StatusPill } from "./status-pill";
+export { SwitchRow } from "./switch-row";
 export { TextField } from "./text-field";

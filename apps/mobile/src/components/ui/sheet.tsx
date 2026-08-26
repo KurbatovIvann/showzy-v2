@@ -6,6 +6,8 @@ import {
   type ReactNode,
 } from "react";
 import { Modal, Pressable, Text, View } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import { XIcon } from "lucide-react-native";
 import Animated, {
   Easing,
   interpolate,
@@ -22,20 +24,22 @@ const EASE_SHEET = Easing.bezier(0.32, 0.72, 0, 1);
 const SHEET_MS = 300;
 
 /**
- * Canvas confirmation sheet: dim overlay (`colors.overlay`) and a
- * bottom card with `radii.sheet`. First shared use is product
- * archive/restore (SHO-138). Not a dropdown. Open/close is opacity +
- * translateY (no layout animation). Keep the host mounted and drive
- * `visible`; the Modal stays up until the close timing finishes.
- * Drag-to-dismiss is omitted — the cancel control and Android back
- * (`onRequestClose`) dismiss it.
+ * Canvas sheet: dim overlay (`colors.overlay`) and a bottom card with
+ * `radii.sheet`. Confirmation callers keep `children` as actions.
+ * Content callers pass `footer` (and optional `fullHeight`) so children
+ * become the scrollable body. Host stays mounted; `visible` drives
+ * open/close. Drag-to-dismiss is omitted — the close control and Android
+ * back (`onRequestClose`) dismiss it.
  */
 export function Sheet(props: {
   readonly visible: boolean;
   readonly title: string;
-  readonly description: string;
   readonly onClose: () => void;
   readonly children: ReactNode;
+  readonly description?: string;
+  readonly footer?: ReactNode;
+  readonly fullHeight?: boolean;
+  readonly closeAccessibilityLabel?: string;
 }) {
   const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
@@ -119,6 +123,17 @@ export function Sheet(props: {
       ],
     };
   });
+  const description =
+    props.description != null && props.description.length > 0
+      ? props.description
+      : null;
+  const closeLabel =
+    props.closeAccessibilityLabel != null &&
+    props.closeAccessibilityLabel.length > 0
+      ? props.closeAccessibilityLabel
+      : null;
+  const contentMode = props.footer !== undefined;
+  const fullHeight = props.fullHeight === true;
 
   return (
     <Modal
@@ -143,16 +158,51 @@ export function Sheet(props: {
           }}
           style={[
             styles.panel,
+            fullHeight ? styles.panelFull : styles.panelMax,
             { paddingBottom: Math.max(insets.bottom, theme.spacing.lg) },
             panelStyle,
           ]}
         >
           <View style={styles.grabber} />
-          <Text accessibilityRole="header" style={styles.title}>
-            {props.title}
-          </Text>
-          <Text style={styles.description}>{props.description}</Text>
-          <View style={styles.actions}>{props.children}</View>
+          <View style={styles.header}>
+            <Text accessibilityRole="header" style={styles.title}>
+              {props.title}
+            </Text>
+            {closeLabel !== null ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={closeLabel}
+                onPress={props.onClose}
+                style={({ pressed }) => [
+                  styles.close,
+                  pressed ? styles.pressed : null,
+                ]}
+              >
+                <XIcon
+                  size={theme.iconSize.sm}
+                  color={theme.colors.mutedForeground}
+                />
+              </Pressable>
+            ) : null}
+          </View>
+          {description !== null ? (
+            <Text style={styles.description}>{description}</Text>
+          ) : null}
+          {contentMode ? (
+            <>
+              <KeyboardAwareScrollView
+                style={fullHeight ? styles.body : undefined}
+                contentContainerStyle={styles.bodyContent}
+                keyboardShouldPersistTaps="handled"
+                bottomOffset={theme.spacing.lg}
+              >
+                {props.children}
+              </KeyboardAwareScrollView>
+              <View style={styles.footer}>{props.footer}</View>
+            </>
+          ) : (
+            <View style={styles.actions}>{props.children}</View>
+          )}
         </Animated.View>
       </View>
     </Modal>
@@ -185,6 +235,13 @@ const styles = StyleSheet.create((theme) => ({
     gap: theme.spacing.md,
     ...theme.shadows.lg,
   },
+  panelMax: {
+    maxHeight: "86%",
+  },
+  panelFull: {
+    height: "92%",
+    maxHeight: "92%",
+  },
   grabber: {
     alignSelf: "center",
     width: theme.spacing["3xl"],
@@ -192,19 +249,50 @@ const styles = StyleSheet.create((theme) => ({
     borderRadius: theme.radii.full,
     backgroundColor: theme.colors.border,
   },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.md,
+  },
   title: {
+    flex: 1,
+    minWidth: 0,
     color: theme.colors.foreground,
     fontSize: theme.typography.lg.fontSize,
     lineHeight: theme.typography.lg.lineHeight,
     fontWeight: "600",
+  },
+  close: {
+    width: theme.hitTarget.min,
+    height: theme.hitTarget.min,
+    borderRadius: theme.radii.full,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.background,
   },
   description: {
     color: theme.colors.mutedForeground,
     fontSize: theme.typography.sm.fontSize,
     lineHeight: theme.typography.sm.lineHeight,
   },
+  body: {
+    flex: 1,
+  },
+  bodyContent: {
+    gap: theme.spacing.lg,
+    paddingBottom: theme.spacing.sm,
+  },
+  footer: {
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+    paddingTop: theme.spacing.md,
+    gap: theme.spacing.sm,
+  },
   actions: {
     gap: theme.spacing.sm,
     paddingTop: theme.spacing.xs,
+  },
+  pressed: {
+    opacity: 0.85,
   },
 }));

@@ -6,6 +6,7 @@
 import { isWireError, moneyToWire, type WireErrorCode } from "@showzy/contract";
 
 import type { QueryFailureKind } from "../../../api/errors";
+import { formatMoneyMinor } from "../../../format/money";
 import {
   formatMajorUnitsFromMinor,
   parseMajorUnitsToMinor,
@@ -273,6 +274,118 @@ export function compactDraft(draft: ProductFormDraft): ProductFormDraft {
       (variant) => !isBlankUnsavedVariant(variant),
     ),
   };
+}
+
+export type VariantSheetDraft = {
+  readonly name: string;
+  readonly customPrice: boolean;
+  readonly priceText: string;
+};
+
+export function variantDraftToSheet(
+  variant: ProductFormVariantDraft | null,
+): VariantSheetDraft {
+  if (variant === null) {
+    return { name: "", customPrice: false, priceText: "" };
+  }
+  return {
+    name: variant.name,
+    customPrice: variant.priceText.trim().length > 0,
+    priceText: variant.priceText,
+  };
+}
+
+export function variantSheetPriceText(draft: VariantSheetDraft): string {
+  return draft.customPrice ? draft.priceText : "";
+}
+
+export function validateVariantSheet(
+  draft: VariantSheetDraft,
+): VariantFieldErrors {
+  return {
+    name: nameError(draft.name),
+    price: draft.customPrice ? productPriceError(draft.priceText) : null,
+  };
+}
+
+export function isVariantSheetValid(errors: VariantFieldErrors): boolean {
+  return errors.name === null && errors.price === null;
+}
+
+export function upsertVariantDraft(
+  draft: ProductFormDraft,
+  args: {
+    readonly key: string | null;
+    readonly name: string;
+    readonly priceText: string;
+  },
+): ProductFormDraft {
+  if (args.key === null) {
+    if (draft.variants.length >= PRODUCT_FORM_MAX_VARIANTS) {
+      return draft;
+    }
+    const added = addVariantRow(draft);
+    const created = added.variants[added.variants.length - 1];
+    if (created === undefined) {
+      return draft;
+    }
+    return patchDraft(added, {
+      variantKey: created.key,
+      variantName: args.name,
+      variantPriceText: args.priceText,
+    });
+  }
+  return patchDraft(draft, {
+    variantKey: args.key,
+    variantName: args.name,
+    variantPriceText: args.priceText,
+  });
+}
+
+export function isProductFormDirty(
+  draft: ProductFormDraft,
+  origin: ProductFormDraft,
+): boolean {
+  if (draft.name !== origin.name || draft.priceText !== origin.priceText) {
+    return true;
+  }
+  const left = compactDraft(draft).variants;
+  const right = compactDraft(origin).variants;
+  if (left.length !== right.length) {
+    return true;
+  }
+  for (let index = 0; index < left.length; index += 1) {
+    const current = left[index];
+    const previous = right[index];
+    if (current === undefined || previous === undefined) {
+      return true;
+    }
+    if (
+      current.key !== previous.key ||
+      current.variantId !== previous.variantId ||
+      current.name !== previous.name ||
+      current.priceText !== previous.priceText
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function productFormFieldChanged(
+  mode: ProductFormMode,
+  current: string,
+  origin: string,
+): boolean {
+  return mode === "edit" && current !== origin;
+}
+
+export function formatProductFormFooterPrice(priceText: string): string {
+  const parsed = parseMajorUnitsToMinor(priceText);
+  if (!parsed.ok) {
+    return formatMoneyMinor("0", PRODUCT_CURRENCY);
+  }
+  return formatMoneyMinor(moneyToWire(parsed.minor), PRODUCT_CURRENCY);
 }
 
 function nameError(name: string): NameErrorKey | null {

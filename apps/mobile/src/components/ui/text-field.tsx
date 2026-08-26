@@ -2,6 +2,8 @@ import { useState, type ReactNode } from "react";
 import { Text, TextInput, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
+import { StatusPill } from "./status-pill";
+
 export function TextField(props: {
   readonly value: string;
   readonly onChangeText: (value: string) => void;
@@ -18,6 +20,9 @@ export function TextField(props: {
   readonly label?: string;
   readonly leading?: ReactNode;
   readonly prefix?: string;
+  readonly suffix?: string;
+  readonly changed?: boolean;
+  readonly changedLabel?: string;
   readonly size?: "default" | "auth";
 }) {
   const { theme, rt } = useUnistyles();
@@ -39,11 +44,24 @@ export function TextField(props: {
         ? "organizationName"
         : "none";
   const tabular = phone || email || decimal;
+  const label =
+    props.label != null && props.label.length > 0 ? props.label : null;
+  const suffix =
+    props.suffix != null && props.suffix.length > 0 ? props.suffix : null;
+  const showChanged =
+    props.changed === true &&
+    props.changedLabel != null &&
+    props.changedLabel.length > 0;
 
   return (
     <View>
-      {props.label != null && props.label.length > 0 ? (
-        <Text style={styles.label}>{props.label}</Text>
+      {label !== null || showChanged ? (
+        <View style={styles.labelRow}>
+          {label !== null ? <Text style={styles.label}>{label}</Text> : null}
+          {showChanged ? (
+            <StatusPill label={props.changedLabel ?? ""} tone="action" />
+          ) : null}
+        </View>
       ) : null}
       <View
         style={[
@@ -85,6 +103,7 @@ export function TextField(props: {
             tabular ? styles.tabular : null,
           ]}
         />
+        {suffix !== null ? <Text style={styles.suffix}>{suffix}</Text> : null}
       </View>
       {hasError ? (
         <Text selectable style={styles.error}>
@@ -96,12 +115,18 @@ export function TextField(props: {
 }
 
 const styles = StyleSheet.create((theme) => ({
+  labelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
+  },
   label: {
     color: theme.colors.mutedForeground,
     fontSize: theme.typography.xs.fontSize,
     lineHeight: theme.typography.xs.lineHeight,
     fontWeight: "500",
-    marginBottom: theme.spacing.sm,
   },
   chrome: {
     minHeight: theme.hitTarget.field,
@@ -130,6 +155,11 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: theme.typography.md.fontSize,
     lineHeight: theme.typography.md.lineHeight,
     fontWeight: "500",
+  },
+  suffix: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.sm.fontSize,
+    lineHeight: theme.typography.sm.lineHeight,
   },
   input: {
     flex: 1,
