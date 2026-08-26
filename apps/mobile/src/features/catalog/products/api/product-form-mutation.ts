@@ -5,7 +5,11 @@
  * actions with a new key each. UI drafts never go on the wire: payloads
  * are typed from `ContractClient` and parsed with the action schemas.
  */
-import { contractModules, type MutationCallOptions } from "@showzy/contract";
+import {
+  contractModules,
+  wireErrorStatus,
+  type MutationCallOptions,
+} from "@showzy/contract";
 
 import type {
   CreateProductPayload,
@@ -41,20 +45,59 @@ export type ProductFormTransport = {
   };
 };
 
+function wireValidationFromIssues(
+  issues: ReadonlyArray<{
+    readonly code: string;
+    readonly path: ReadonlyArray<PropertyKey>;
+    readonly message: string;
+  }>,
+): Error {
+  return Object.assign(new Error("Validation failed"), {
+    code: "VALIDATION" as const,
+    status: wireErrorStatus.VALIDATION,
+    data: {
+      issues: issues.map((issue) => ({
+        code: issue.code,
+        path: issue.path.filter(
+          (part): part is string | number =>
+            typeof part === "string" || typeof part === "number",
+        ),
+        message: issue.message,
+      })),
+    },
+  });
+}
+
 function parseCreateProduct(input: CreateProductPayload): CreateProductPayload {
-  return contractModules.catalog.createProduct.input.parse(input);
+  const parsed = contractModules.catalog.createProduct.input.safeParse(input);
+  if (!parsed.success) {
+    throw wireValidationFromIssues(parsed.error.issues);
+  }
+  return parsed.data;
 }
 
 function parseUpdateProduct(input: UpdateProductPayload): UpdateProductPayload {
-  return contractModules.catalog.updateProduct.input.parse(input);
+  const parsed = contractModules.catalog.updateProduct.input.safeParse(input);
+  if (!parsed.success) {
+    throw wireValidationFromIssues(parsed.error.issues);
+  }
+  return parsed.data;
 }
 
 function parseCreateVariant(input: CreateVariantPayload): CreateVariantPayload {
-  return contractModules.catalog.createVariant.input.parse(input);
+  const parsed = contractModules.catalog.createVariant.input.safeParse(input);
+  if (!parsed.success) {
+    throw wireValidationFromIssues(parsed.error.issues);
+  }
+  return parsed.data;
 }
 
 function parseUpdateVariant(input: UpdateVariantPayload): UpdateVariantPayload {
-  return contractModules.catalog.updateVariant.input.parse(input);
+  const parsed = contractModules.catalog.updateVariant.input.safeParse(input);
+  if (!parsed.success) {
+    throw wireValidationFromIssues(parsed.error.issues);
+  }
+  return parsed.data;
 }
 
 function createProductInput(input: CreateProductPayload): CreateProductPayload {

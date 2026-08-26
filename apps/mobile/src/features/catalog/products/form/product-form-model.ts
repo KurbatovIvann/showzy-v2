@@ -283,6 +283,14 @@ export function variantSheetPriceText(draft: VariantSheetDraft): string {
   return draft.customPrice ? draft.priceText : "";
 }
 
+/** True only on closed→open so a parent re-render does not wipe in-progress edits. */
+export function shouldHydrateVariantSheet(
+  visible: boolean,
+  wasVisible: boolean,
+): boolean {
+  return visible && !wasVisible;
+}
+
 export function validateVariantSheet(
   draft: VariantSheetDraft,
 ): VariantFieldErrors {

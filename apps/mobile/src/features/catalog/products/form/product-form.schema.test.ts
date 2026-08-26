@@ -77,6 +77,17 @@ describe("productFormDraftSchema", () => {
     });
   });
 
+  it("accepts comma major units", () => {
+    expect(
+      productFormDraftSchema.safeParse({
+        name: "Торт",
+        priceText: "123,50",
+        variants: [],
+        nextDraftSerial: 1,
+      }).success,
+    ).toBe(true);
+  });
+
   it("rejects more than CREATE_PRODUCT_MAX_VARIANTS", () => {
     expect(SCHEMA_MAX_VARIANTS).toBe(CREATE_PRODUCT_MAX_VARIANTS);
     const parsed = productFormDraftSchema.safeParse({

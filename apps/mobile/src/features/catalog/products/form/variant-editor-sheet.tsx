@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Controller, useForm } from "react-hook-form";
 
 import type { ProductsFormCopy } from "../../../../i18n/products";
@@ -15,6 +15,7 @@ import {
   variantSheetResolver,
 } from "./product-form.schema";
 import {
+  shouldHydrateVariantSheet,
   variantDraftToSheet,
   variantSheetPriceText,
   type ProductFormVariantDraft,
@@ -45,9 +46,12 @@ export function VariantEditorSheet(props: {
   });
   const customPrice = watch("customPrice");
   const showErrors = formState.isSubmitted;
+  const wasVisible = useRef(false);
 
   useEffect(() => {
-    if (!props.visible) {
+    const opened = shouldHydrateVariantSheet(props.visible, wasVisible.current);
+    wasVisible.current = props.visible;
+    if (!opened) {
       return;
     }
     reset(variantDraftToSheet(props.initial));
