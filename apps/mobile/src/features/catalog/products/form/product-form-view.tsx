@@ -25,7 +25,7 @@ import {
   type ProductFormVariantDraft,
 } from "./product-form-model";
 import { ProductFormVariantRow } from "./product-form-variant-row";
-import { ProductFormVariantSheet } from "./product-form-variant-sheet";
+import { VariantEditorSheet } from "./variant-editor-sheet";
 import {
   ProductImagePicker,
   photoCountLabel,
@@ -82,7 +82,7 @@ export function ProductFormView(model: ProductFormModel) {
           </View>
         </View>
       ) : null}
-      <ProductFormVariantSheet
+      <VariantEditorSheet
         visible={model.variantSheet.kind !== "closed"}
         mode={model.variantSheet.kind === "edit" ? "edit" : "new"}
         initial={model.variantSheetInitial}

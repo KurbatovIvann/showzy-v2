@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import type { MutationCallOptions } from "@showzy/contract";
+import { isWireError, type MutationCallOptions } from "@showzy/contract";
 
+import { describeQueryFailure } from "../../../../api/errors";
 import { createContractMutationController } from "../../../../api/contract-mutation";
-import type { ProductFormWrite } from "../form/product-form-model";
+import {
+  isProductFormRetryable,
+  type ProductFormWrite,
+} from "../form/product-form-model";
 import { bindProductFormMutate } from "./product-form-mutation";
 
 const PRODUCT_ID = "0f0e2d5c-4a1b-4c3d-9e8f-102938475601";
@@ -98,5 +102,53 @@ describe("bindProductFormMutate", () => {
     expect(methods[0]?.startsWith("updateProduct:")).toBe(true);
     expect(methods[1]?.startsWith("createVariant:")).toBe(true);
     expect(methods[0]).not.toBe(methods[1]);
+  });
+
+  it("rejects a write that fails the contract wire schema before calling catalog", async () => {
+    let catalogCalls = 0;
+    const mutate = bindProductFormMutate({
+      client: {
+        catalog: {
+          createProduct: () => {
+            catalogCalls += 1;
+            return Promise.reject(new Error("must-not-call"));
+          },
+          updateProduct: () => {
+            catalogCalls += 1;
+            return Promise.reject(new Error("must-not-call"));
+          },
+          createVariant: () => {
+            catalogCalls += 1;
+            return Promise.reject(new Error("must-not-call"));
+          },
+          updateVariant: () => {
+            catalogCalls += 1;
+            return Promise.reject(new Error("must-not-call"));
+          },
+        },
+      },
+    });
+    const rejection = await mutate(
+      {
+        kind: "createProduct",
+        input: {
+          name: "   ",
+          basePriceMinor: "100",
+          currency: "UAH",
+        },
+        variantKeys: [],
+      },
+      { context: { idempotencyKey: "k-wire" } },
+    ).then(
+      () => null,
+      (error: unknown) => error,
+    );
+    expect(catalogCalls).toBe(0);
+    expect(isWireError(rejection) && rejection.code === "VALIDATION").toBe(
+      true,
+    );
+    const kind = describeQueryFailure(rejection).kind;
+    expect(kind).toBe("validation");
+    expect(isProductFormRetryable(kind)).toBe(false);
   });
 });

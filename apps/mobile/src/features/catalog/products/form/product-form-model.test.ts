@@ -18,6 +18,7 @@ import {
   productFormFieldChanged,
   remainingFormWrites,
   removeVariantRow,
+  shouldHydrateVariantSheet,
   snapshotFromDraft,
   snapshotFromProduct,
   upsertVariantDraft,
@@ -561,6 +562,15 @@ describe("firstVariantFieldError", () => {
         price: "Ціна некоректна",
       }),
     ).toBe("Назва обовʼязкова");
+  });
+});
+
+describe("shouldHydrateVariantSheet", () => {
+  it("hydrates only on closed-to-open, not while the sheet stays open", () => {
+    expect(shouldHydrateVariantSheet(true, false)).toBe(true);
+    expect(shouldHydrateVariantSheet(true, true)).toBe(false);
+    expect(shouldHydrateVariantSheet(false, true)).toBe(false);
+    expect(shouldHydrateVariantSheet(true, false)).toBe(true);
   });
 });
 

@@ -4,7 +4,13 @@
  * write plan are unit-testable.
  */
 import { isWireError, moneyToWire, type WireErrorCode } from "@showzy/contract";
+import {
+  CREATE_PRODUCT_MAX_VARIANTS,
+  DEFAULT_PRODUCT_CURRENCY,
+  PRODUCT_NAME_MAX,
+} from "@showzy/validation/catalog";
 
+import type { ContractClient } from "../../../../api/client";
 import type { QueryFailureKind } from "../../../../api/errors";
 import { formatMoneyMinor } from "../../../../format/money";
 import {
@@ -14,30 +20,58 @@ import {
 import type { ProductsFormCopy } from "../../../../i18n/products";
 import { classifyProductDetail } from "../detail/product-detail-model";
 import type { GetProductOutput } from "../api/product-detail-query";
+import {
+  emptyFieldErrors,
+  fieldErrorsFromDraftSchema,
+  productFormDraftSchema,
+  variantSheetErrorsFromSchema,
+  variantSheetSchema,
+  type NameErrorKey,
+  type PriceErrorKey,
+  type ProductFormFieldErrors,
+  type VariantFieldErrors,
+} from "./product-form.schema";
 
-/** Matches `catalog.createProduct` name cap / companies.create. */
-export const PRODUCT_NAME_MAX = 120;
+export {
+  PRODUCT_NAME_MAX,
+  emptyFieldErrors,
+  type NameErrorKey,
+  type PriceErrorKey,
+  type ProductFormFieldErrors,
+  type VariantFieldErrors,
+};
+export const PRODUCT_FORM_MAX_VARIANTS = CREATE_PRODUCT_MAX_VARIANTS;
+export const PRODUCT_CURRENCY = DEFAULT_PRODUCT_CURRENCY;
 
-/** Line-item-style ceiling copied from `catalog.createProduct`. */
-export const PRODUCT_FORM_MAX_VARIANTS = 100;
-
-export const PRODUCT_CURRENCY = "UAH" as const;
+type CatalogClient = ContractClient["client"]["catalog"];
+export type CreateProductPayload = Parameters<
+  CatalogClient["createProduct"]
+>[0];
+export type UpdateProductPayload = Parameters<
+  CatalogClient["updateProduct"]
+>[0];
+export type CreateVariantPayload = Parameters<
+  CatalogClient["createVariant"]
+>[0];
+export type UpdateVariantPayload = Parameters<
+  CatalogClient["updateVariant"]
+>[0];
 
 export type ProductFormMode = "create" | "edit";
 
 export type ProductFormVariantDraft = {
-  readonly key: string;
-  readonly variantId: string | null;
-  readonly name: string;
-  readonly priceText: string;
-  readonly archived: boolean;
+  key: string;
+  variantId: string | null;
+  name: string;
+  priceText: string;
+  archived: boolean;
 };
 
 export type ProductFormDraft = {
-  readonly name: string;
-  readonly priceText: string;
-  readonly variants: readonly ProductFormVariantDraft[];
-  readonly nextDraftSerial: number;
+  name: string;
+  priceText: string;
+  variants: ProductFormVariantDraft[];
+  nextDraftSerial: number;
 };
 
 export type VariantSnapshot = {
@@ -53,8 +87,6 @@ export type ProductFormSnapshot = {
   readonly variants: readonly VariantSnapshot[];
 };
 
-export type NameErrorKey = "required" | "too_long";
-export type PriceErrorKey = "required" | "invalid";
 export type BannerKey =
   | "validation"
   | "network"
@@ -62,50 +94,6 @@ export type BannerKey =
   | "unavailable"
   | "permission"
   | "too_many_variants";
-
-export type VariantFieldErrors = {
-  readonly name: NameErrorKey | null;
-  readonly price: PriceErrorKey | null;
-};
-
-export type ProductFormFieldErrors = {
-  readonly name: NameErrorKey | null;
-  readonly price: PriceErrorKey | null;
-  readonly variants: Readonly<Record<string, VariantFieldErrors>>;
-};
-
-export type CreateProductPayload = {
-  readonly name: string;
-  readonly basePriceMinor: string;
-  readonly currency: typeof PRODUCT_CURRENCY;
-  readonly variants?: Array<{
-    readonly name: string;
-    readonly basePriceMinor?: string;
-    readonly currency?: typeof PRODUCT_CURRENCY;
-  }>;
-};
-
-export type UpdateProductPayload = {
-  readonly productId: string;
-  readonly name: string;
-  readonly basePriceMinor: string;
-  readonly currency: typeof PRODUCT_CURRENCY;
-};
-
-export type CreateVariantPayload = {
-  readonly productId: string;
-  readonly name: string;
-  readonly basePriceMinor?: string;
-  readonly currency?: typeof PRODUCT_CURRENCY;
-};
-
-export type UpdateVariantPayload = {
-  readonly productId: string;
-  readonly variantId: string;
-  readonly name: string;
-  readonly basePriceMinor?: string;
-  readonly currency?: typeof PRODUCT_CURRENCY;
-};
 
 export type ProductFormWrite =
   | {
@@ -152,10 +140,6 @@ const RETRYABLE_WIRE: ReadonlySet<WireErrorCode> = new Set([
 
 export function emptyProductFormDraft(): ProductFormDraft {
   return { name: "", priceText: "", variants: [], nextDraftSerial: 1 };
-}
-
-export function emptyFieldErrors(): ProductFormFieldErrors {
-  return { name: null, price: null, variants: {} };
 }
 
 export function draftFromProduct(product: GetProductOutput): ProductFormDraft {
@@ -299,13 +283,22 @@ export function variantSheetPriceText(draft: VariantSheetDraft): string {
   return draft.customPrice ? draft.priceText : "";
 }
 
+/** True only on closed→open so a parent re-render does not wipe in-progress edits. */
+export function shouldHydrateVariantSheet(
+  visible: boolean,
+  wasVisible: boolean,
+): boolean {
+  return visible && !wasVisible;
+}
+
 export function validateVariantSheet(
   draft: VariantSheetDraft,
 ): VariantFieldErrors {
-  return {
-    name: nameError(draft.name),
-    price: draft.customPrice ? productPriceError(draft.priceText) : null,
-  };
+  const parsed = variantSheetSchema.safeParse(draft);
+  if (parsed.success) {
+    return { name: null, price: null };
+  }
+  return variantSheetErrorsFromSchema(parsed.error);
 }
 
 export function isVariantSheetValid(errors: VariantFieldErrors): boolean {
@@ -388,50 +381,24 @@ export function formatProductFormFooterPrice(priceText: string): string {
   return formatMoneyMinor(moneyToWire(parsed.minor), PRODUCT_CURRENCY);
 }
 
-function nameError(name: string): NameErrorKey | null {
-  const trimmed = name.trim();
-  if (trimmed.length === 0) {
-    return "required";
-  }
-  if (trimmed.length > PRODUCT_NAME_MAX) {
-    return "too_long";
-  }
-  return null;
-}
-
-function productPriceError(text: string): PriceErrorKey | null {
-  const parsed = parseMajorUnitsToMinor(text);
-  if (!parsed.ok) {
-    return parsed.error === "empty" ? "required" : "invalid";
-  }
-  return null;
-}
-
-function overridePriceError(text: string): PriceErrorKey | null {
-  if (text.trim().length === 0) {
-    return null;
-  }
-  const parsed = parseMajorUnitsToMinor(text);
-  return parsed.ok ? null : "invalid";
-}
-
 export function validateProductForm(
   draft: ProductFormDraft,
 ): ProductFormFieldErrors {
   const compacted = compactDraft(draft);
-  const variants: Record<string, VariantFieldErrors> = {};
-  for (const variant of compacted.variants) {
-    const name = nameError(variant.name);
-    const price = overridePriceError(variant.priceText);
-    if (name !== null || price !== null) {
-      variants[variant.key] = { name, price };
-    }
+  const parsed = productFormDraftSchema.safeParse({
+    ...compacted,
+    variants: compacted.variants.map((variant) => ({
+      key: variant.key,
+      variantId: variant.variantId,
+      name: variant.name,
+      priceText: variant.priceText,
+      archived: variant.archived,
+    })),
+  });
+  if (parsed.success) {
+    return emptyFieldErrors();
   }
-  return {
-    name: nameError(compacted.name),
-    price: productPriceError(compacted.priceText),
-    variants,
-  };
+  return fieldErrorsFromDraftSchema(parsed.error, compacted.variants);
 }
 
 export function isProductFormValid(errors: ProductFormFieldErrors): boolean {

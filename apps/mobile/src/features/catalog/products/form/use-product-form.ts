@@ -1,32 +1,20 @@
-import type { WireErrorCode } from "@showzy/contract";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigation, useRouter } from "expo-router";
-import {
-  usePreventRemove,
-  type NavigationAction,
-} from "expo-router/react-navigation";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import { useFieldArray, useForm } from "react-hook-form";
 
 import { useApiClient } from "../../../../api/api-provider";
-import { useContractMutation } from "../../../../api/contract-mutation";
 import {
   describeQueryFailure,
   describeWireError,
-  type QueryFailureKind,
 } from "../../../../api/errors";
 import { useActiveCompany } from "../../../../api/query-provider";
 import { useResolvedCompany } from "../../../../company-resolution/resolved-company-provider";
 import { detectLocale } from "../../../../i18n/locale";
 import { productsCopy } from "../../../../i18n/products";
-import { presentConfirmDialog } from "../../../../components/ui/present-confirm-dialog";
-import { waitForSheetDismiss } from "../../../../components/ui/sheet-dismiss";
-import { invalidateCatalogAfterStatusWrite } from "../api/product-archive";
 import { productIdFromParam } from "../detail/product-detail-model";
 import { getProductQueryOptions } from "../api/product-detail-query";
 import {
-  applyWriteSuccess,
   classifyProductFormLoad,
-  compactDraft,
   draftFromProduct,
   emptyFieldErrors,
   emptyProductFormDraft,
@@ -34,13 +22,10 @@ import {
   isProductFormDirty,
   mapProductFormFailure,
   mapValidationIssues,
-  patchDraft,
-  planProductFormSave,
-  productFormFieldChanged,
   PRODUCT_FORM_MAX_VARIANTS,
   PRODUCT_NAME_MAX,
+  productFormFieldChanged,
   resolveProductFormCopy,
-  snapshotFromDraft,
   snapshotFromProduct,
   upsertVariantDraft,
   type BannerKey,
@@ -48,14 +33,15 @@ import {
   type ProductFormFieldErrors,
   type ProductFormMode,
   type ProductFormSnapshot,
-  type ProductFormWrite,
 } from "./product-form-model";
-import { bindProductFormMutate } from "../api/product-form-mutation";
+import { productFormResolver } from "./product-form.schema";
 import {
   canCreateProducts,
   canEditProducts,
 } from "../shared/product-permissions";
 import { useProductPhotos } from "../photos/use-product-photos";
+import { useProductSave } from "./use-product-save";
+import { useUnsavedProductGuard } from "./use-unsaved-product-guard";
 
 export type ProductFormModel = ReturnType<typeof useProductForm>;
 
@@ -64,12 +50,20 @@ export type ProductFormVariantSheetState =
   | { readonly kind: "new" }
   | { readonly kind: "edit"; readonly key: string };
 
-type LastFailure = {
-  readonly kind: QueryFailureKind | null;
-  readonly wire: WireErrorCode | null;
-};
-
-const NO_FAILURE: LastFailure = { kind: null, wire: null };
+function toProductFormDraft(values: ProductFormDraft): ProductFormDraft {
+  return {
+    name: values.name,
+    priceText: values.priceText,
+    nextDraftSerial: values.nextDraftSerial,
+    variants: values.variants.map((variant) => ({
+      key: variant.key,
+      variantId: variant.variantId,
+      name: variant.name,
+      priceText: variant.priceText,
+      archived: variant.archived,
+    })),
+  };
+}
 
 export function useProductForm(args: {
   readonly mode: ProductFormMode;
@@ -77,13 +71,8 @@ export function useProductForm(args: {
 }) {
   const copy = productsCopy(detectLocale());
   const apiClient = useApiClient();
-  const apiRef = useRef(apiClient);
-  apiRef.current = apiClient;
   const { activeCompanyId } = useActiveCompany();
   const membership = useResolvedCompany();
-  const router = useRouter();
-  const navigation = useNavigation();
-  const queryClient = useQueryClient();
   const routeProductId =
     args.mode === "edit" ? productIdFromParam(args.idParam) : null;
   const canWrite =
@@ -91,43 +80,32 @@ export function useProductForm(args: {
       ? canCreateProducts(membership.role)
       : canEditProducts(membership.role);
 
-  const [draft, setDraft] = useState<ProductFormDraft>(emptyProductFormDraft);
+  const { reset, setValue, getValues, watch, control } = useForm({
+    defaultValues: emptyProductFormDraft(),
+    resolver: productFormResolver,
+    mode: "onSubmit",
+  });
+  const { append, update } = useFieldArray({ control, name: "variants" });
+  const watched = watch();
+  const draft = toProductFormDraft(watched);
+
   const [origin, setOrigin] = useState<ProductFormDraft>(emptyProductFormDraft);
   const [baseline, setBaseline] = useState<ProductFormSnapshot | null>(null);
   const [clientErrors, setClientErrors] =
     useState<ProductFormFieldErrors>(emptyFieldErrors);
   const [localBanner, setLocalBanner] = useState<BannerKey | null>(null);
-  const [lastWrite, setLastWrite] = useState<ProductFormWrite | null>(null);
-  const [saveBusy, setSaveBusy] = useState(false);
-  const [leaveArmed, setLeaveArmed] = useState(false);
   const [variantSheet, setVariantSheet] =
     useState<ProductFormVariantSheetState>({ kind: "closed" });
 
-  const draftRef = useRef(draft);
-  draftRef.current = draft;
   const baselineRef = useRef(baseline);
   baselineRef.current = baseline;
-  const lastWriteRef = useRef(lastWrite);
-  lastWriteRef.current = lastWrite;
   const variantSheetRef = useRef(variantSheet);
   variantSheetRef.current = variantSheet;
-  const pendingLeaveActionRef = useRef<NavigationAction | null>(null);
-  const leavePromptingRef = useRef(false);
   const productIdRef = useRef(routeProductId);
   if (routeProductId !== null) {
     productIdRef.current = routeProductId;
   }
-  const lastFailureRef = useRef<LastFailure>(NO_FAILURE);
-  const saveBusyRef = useRef(false);
-  const mountedRef = useRef(true);
   const hydratedIdRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
 
   const query = useQuery(
     getProductQueryOptions({
@@ -148,12 +126,11 @@ export function useProductForm(args: {
     hydratedIdRef.current = query.data.id;
     const next = draftFromProduct(query.data);
     const snap = snapshotFromProduct(query.data);
-    draftRef.current = next;
+    reset(next);
     baselineRef.current = snap;
-    setDraft(next);
     setOrigin(next);
     setBaseline(snap);
-  }, [args.mode, query.data]);
+  }, [args.mode, query.data, reset]);
 
   const photos = useProductPhotos({
     productId: routeProductId,
@@ -161,52 +138,6 @@ export function useProductForm(args: {
     requireProduct: args.mode === "edit",
     canWrite,
   });
-  const photosRef = useRef(photos);
-  photosRef.current = photos;
-
-  const mutation = useContractMutation((input: ProductFormWrite, options) => {
-    const current = apiRef.current;
-    if (current === null) {
-      return Promise.reject(new TypeError("Failed to fetch"));
-    }
-    return bindProductFormMutate(current)(input, options);
-  });
-
-  const failure = mutation.isError
-    ? describeQueryFailure(mutation.error)
-    : null;
-  const wire = mutation.isError ? describeWireError(mutation.error) : null;
-  const serverFields = mutation.isError
-    ? mapValidationIssues(mutation.error, lastWrite)
-    : null;
-  const fieldErrors: ProductFormFieldErrors = {
-    name: clientErrors.name ?? serverFields?.name ?? null,
-    price: clientErrors.price ?? serverFields?.price ?? null,
-    variants: { ...serverFields?.variants, ...clientErrors.variants },
-  };
-  const mappedBanner =
-    localBanner ??
-    mapProductFormFailure(failure?.kind ?? null, wire?.code ?? null);
-  const pending = saveBusy || mutation.isPending;
-  const dirty = isProductFormDirty(draft, origin) || photos.dirty;
-
-  usePreventRemove(dirty && !pending && !leaveArmed, ({ data }) => {
-    pendingLeaveActionRef.current = data.action;
-    void promptLeave();
-  });
-
-  useEffect(() => {
-    if (!leaveArmed) {
-      return;
-    }
-    const action = pendingLeaveActionRef.current;
-    pendingLeaveActionRef.current = null;
-    if (action !== null) {
-      navigation.dispatch(action);
-      return;
-    }
-    router.back();
-  }, [leaveArmed, navigation, router]);
 
   const clientReady = apiClient !== null && activeCompanyId !== null;
   const loadState = classifyProductFormLoad({
@@ -217,6 +148,59 @@ export function useProductForm(args: {
     status: query.status,
     failureKind: query.isError ? describeQueryFailure(query.error).kind : null,
   });
+
+  const armLeaveRef = useRef(() => {});
+
+  const saveApi = useProductSave({
+    mode: args.mode,
+    loadKind: loadState.kind,
+    getDraft: () => toProductFormDraft(getValues()),
+    setDraft: (next) => {
+      reset(next);
+    },
+    setOrigin,
+    productIdRef,
+    baselineRef,
+    setBaseline,
+    photos,
+    onSaved: () => {
+      armLeaveRef.current();
+      return Promise.resolve();
+    },
+    setClientErrors,
+    setLocalBanner,
+  });
+
+  const dirty = isProductFormDirty(draft, origin) || photos.dirty;
+  const { armLeave, requestLeave } = useUnsavedProductGuard({
+    dirty,
+    pending: saveApi.pending,
+    copy: copy.form,
+    sheetOpen: variantSheet.kind !== "closed",
+    closeSheet: () => {
+      setVariantSheet({ kind: "closed" });
+    },
+  });
+  armLeaveRef.current = armLeave;
+
+  const failure = saveApi.isMutationError
+    ? describeQueryFailure(saveApi.mutationError)
+    : null;
+  const wire = saveApi.isMutationError
+    ? describeWireError(saveApi.mutationError)
+    : null;
+  const serverFields = saveApi.isMutationError
+    ? mapValidationIssues(saveApi.mutationError, saveApi.lastWrite)
+    : null;
+  const fieldErrors: ProductFormFieldErrors = {
+    name: clientErrors.name ?? serverFields?.name ?? null,
+    price: clientErrors.price ?? serverFields?.price ?? null,
+    variants: { ...serverFields?.variants, ...clientErrors.variants },
+  };
+  const mappedBanner =
+    localBanner ??
+    mapProductFormFailure(failure?.kind ?? null, wire?.code ?? null);
+  const pending = saveApi.pending;
   const resolved = resolveProductFormCopy(copy.form, {
     mode: args.mode,
     nameError: fieldErrors.name,
@@ -230,56 +214,24 @@ export function useProductForm(args: {
   function clearAttempt(): void {
     setClientErrors(emptyFieldErrors());
     setLocalBanner(null);
-    lastFailureRef.current = NO_FAILURE;
-    mutation.reset();
+    saveApi.resetMutation();
   }
 
   function changeName(value: string): void {
-    const next = patchDraft(draftRef.current, { name: value });
-    draftRef.current = next;
-    setDraft(next);
+    setValue("name", value, { shouldDirty: true, shouldValidate: false });
     clearAttempt();
   }
 
   function changePrice(value: string): void {
-    const next = patchDraft(draftRef.current, { priceText: value });
-    draftRef.current = next;
-    setDraft(next);
+    setValue("priceText", value, { shouldDirty: true, shouldValidate: false });
     clearAttempt();
   }
 
-  function requestLeave(): void {
-    router.back();
-  }
-
-  async function promptLeave(): Promise<void> {
-    if (leavePromptingRef.current) {
-      return;
-    }
-    leavePromptingRef.current = true;
-    const hadSheet = variantSheetRef.current.kind !== "closed";
-    setVariantSheet({ kind: "closed" });
-    if (hadSheet) {
-      await waitForSheetDismiss();
-    }
-    const form = copy.form;
-    const choice = await presentConfirmDialog({
-      title: form.leaveTitle,
-      message: form.leaveDescription,
-      confirmLabel: form.leaveConfirm,
-      cancelLabel: form.leaveContinue,
-      tone: "danger",
-    });
-    leavePromptingRef.current = false;
-    if (choice === "confirm") {
-      setLeaveArmed(true);
-      return;
-    }
-    pendingLeaveActionRef.current = null;
-  }
-
   function openNewVariant(): void {
-    if (draftRef.current.variants.length >= PRODUCT_FORM_MAX_VARIANTS) {
+    if (
+      toProductFormDraft(getValues()).variants.length >=
+      PRODUCT_FORM_MAX_VARIANTS
+    ) {
       setLocalBanner("too_many_variants");
       return;
     }
@@ -302,131 +254,37 @@ export function useProductForm(args: {
     if (sheet.kind === "closed") {
       return;
     }
+    const current = toProductFormDraft(getValues());
     if (
       sheet.kind === "new" &&
-      draftRef.current.variants.length >= PRODUCT_FORM_MAX_VARIANTS
+      current.variants.length >= PRODUCT_FORM_MAX_VARIANTS
     ) {
       setLocalBanner("too_many_variants");
       setVariantSheet({ kind: "closed" });
       return;
     }
-    const next = upsertVariantDraft(draftRef.current, {
+    const next = upsertVariantDraft(current, {
       key: sheet.kind === "edit" ? sheet.key : null,
       name: input.name,
       priceText: input.priceText,
     });
-    draftRef.current = next;
-    setDraft(next);
+    if (sheet.kind === "new") {
+      const created = next.variants[next.variants.length - 1];
+      if (created !== undefined) {
+        append(created);
+      }
+    } else {
+      const index = current.variants.findIndex(
+        (variant) => variant.key === sheet.key,
+      );
+      const updated = next.variants[index];
+      if (index >= 0 && updated !== undefined) {
+        update(index, updated);
+      }
+    }
+    setValue("nextDraftSerial", next.nextDraftSerial, { shouldDirty: true });
     setVariantSheet({ kind: "closed" });
     clearAttempt();
-  }
-
-  async function finish(): Promise<void> {
-    await invalidateCatalogAfterStatusWrite({
-      queryClient,
-      companyId: activeCompanyId,
-    });
-    if (mountedRef.current) {
-      setLeaveArmed(true);
-    }
-  }
-
-  async function save(): Promise<void> {
-    if (
-      saveBusyRef.current ||
-      apiClient === null ||
-      loadState.kind !== "ready"
-    ) {
-      return;
-    }
-    saveBusyRef.current = true;
-    setSaveBusy(true);
-    try {
-      for (;;) {
-        const compacted = compactDraft(draftRef.current);
-        if (compacted.variants.length > PRODUCT_FORM_MAX_VARIANTS) {
-          setLocalBanner("too_many_variants");
-          return;
-        }
-        const plan = planProductFormSave({
-          mode:
-            productIdRef.current !== null && args.mode === "create"
-              ? "edit"
-              : args.mode,
-          productId: productIdRef.current,
-          draft: draftRef.current,
-          baseline: baselineRef.current,
-          lastWrite: lastWriteRef.current,
-          lastFailureKind: lastFailureRef.current.kind,
-          lastWireCode: lastFailureRef.current.wire,
-        });
-        if (plan.kind === "invalid") {
-          setClientErrors(plan.errors);
-          return;
-        }
-        if (plan.kind === "noop") {
-          setOrigin(draftRef.current);
-          const photoResult = await photosRef.current.flush();
-          if (photoResult === "commit-failed") {
-            return;
-          }
-          await finish();
-          return;
-        }
-        if (plan.kind === "write") {
-          lastWriteRef.current = plan.write;
-          setLastWrite(plan.write);
-        }
-        const write = lastWriteRef.current;
-        if (write === null) {
-          return;
-        }
-        const result =
-          plan.kind === "retry"
-            ? await mutation.retry()
-            : await mutation.submit(write);
-        lastFailureRef.current = NO_FAILURE;
-        if (write.kind === "createProduct" && result.kind === "product") {
-          productIdRef.current = result.productId;
-          photosRef.current.bindProductId(result.productId);
-        }
-        const applied = applyWriteSuccess({
-          draft: draftRef.current,
-          baseline: baselineRef.current,
-          write,
-          result,
-        });
-        const nextBaseline =
-          write.kind === "createProduct"
-            ? (snapshotFromDraft(compactDraft(applied.draft)) ??
-              applied.baseline)
-            : applied.baseline;
-        draftRef.current = applied.draft;
-        baselineRef.current = nextBaseline;
-        setDraft(applied.draft);
-        setOrigin(applied.draft);
-        setBaseline(nextBaseline);
-        mutation.reset();
-        if (applied.done) {
-          const photoResult = await photosRef.current.flush();
-          if (photoResult === "commit-failed") {
-            return;
-          }
-          await finish();
-          return;
-        }
-      }
-    } catch (error: unknown) {
-      lastFailureRef.current = {
-        kind: describeQueryFailure(error).kind,
-        wire: describeWireError(error)?.code ?? null,
-      };
-    } finally {
-      saveBusyRef.current = false;
-      if (mountedRef.current) {
-        setSaveBusy(false);
-      }
-    }
   }
 
   const headerTitle =
@@ -480,7 +338,7 @@ export function useProductForm(args: {
     changeName,
     changePrice,
     save: () => {
-      void save();
+      void saveApi.save();
     },
   };
 }
