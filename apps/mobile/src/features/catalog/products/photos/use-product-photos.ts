@@ -1,6 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useActor } from "@xstate/react";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useReducer, useRef } from "react";
 
 import { useApiClient } from "../../../../api/api-provider";
 import { useContractMutation } from "../../../../api/contract-mutation";
@@ -38,12 +37,12 @@ import {
   type ProductPhotosRuntime,
 } from "./product-photos-runtime";
 import {
+  dispatchPhotoSession,
+  initialPhotoSessionContext,
   photoSessionDirty,
   photoSessionNeedsCommit,
   photoSessionTiles,
-  productPhotosSessionLogic,
   snapshotFileIdsFromArgs,
-  type PhotoSessionContext,
   type PhotoSessionEvent,
 } from "./product-photos-session";
 
@@ -67,16 +66,23 @@ export function useProductPhotos(args: {
   const canWrite = args.canWrite;
   const snapshotFileIds = snapshotFileIdsFromArgs(args);
 
-  const [snapshot, send, actorRef] = useActor(productPhotosSessionLogic, {
-    input: {
+  const [session, dispatch] = useReducer(
+    dispatchPhotoSession,
+    {
       productId: args.productId,
       requireProduct: args.requireProduct,
       snapshotFileIds,
     },
-  });
-  const actorBox = useRef(actorRef);
-  actorBox.current = actorRef;
-  const session: PhotoSessionContext = snapshot.context;
+    initialPhotoSessionContext,
+  );
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
+  // I/O ports (runtime/commit) read sessionRef in the same tick as send.
+  // Do not switch to dispatch-only: a second commit would miss commitBusy.
+  const send = useCallback((event: PhotoSessionEvent) => {
+    sessionRef.current = dispatchPhotoSession(sessionRef.current, event);
+    dispatch(event);
+  }, []);
 
   const committedIds = session.slots
     .filter((slot) => slot.kind === "committed")
@@ -107,13 +113,15 @@ export function useProductPhotos(args: {
     },
   );
 
+  const sendRef = useRef(send);
+  sendRef.current = send;
   const runtimeRef = useRef<ProductPhotosRuntime | undefined>(undefined);
   const commitRef = useRef<() => Promise<void>>(() => Promise.resolve());
   if (runtimeRef.current === undefined) {
     runtimeRef.current = createProductPhotosRuntime({
-      getContext: () => actorBox.current.getSnapshot().context,
+      getContext: () => sessionRef.current,
       send: (event: PhotoSessionEvent) => {
-        actorBox.current.send(event);
+        sendRef.current(event);
       },
       getClient: () => apiRef.current,
       commitIfNeeded: () => commitRef.current(),
@@ -125,9 +133,9 @@ export function useProductPhotos(args: {
   const runtime = runtimeRef.current;
   commitRef.current = () =>
     runPhotoCommitLoop({
-      getContext: () => actorBox.current.getSnapshot().context,
+      getContext: () => sessionRef.current,
       send: (event: PhotoSessionEvent) => {
-        actorBox.current.send(event);
+        sendRef.current(event);
       },
       submit: mutation.submit,
       retry: mutation.retry,
@@ -195,7 +203,7 @@ export function useProductPhotos(args: {
     if (remainingPhotoSlots(session.slots) > 0) {
       mutation.reset();
     }
-    actorBox.current.send({ type: "openPicker" });
+    send({ type: "openPicker" });
   }
 
   return {
@@ -209,28 +217,28 @@ export function useProductPhotos(args: {
     dirty: photoSessionDirty(session),
     needsCommit: photoSessionNeedsCommit(session),
     bindProductId: (productId: string) => {
-      actorBox.current.send({ type: "bindProductId", productId });
+      send({ type: "bindProductId", productId });
     },
     flush: () =>
       flushPhotoSession({
         kickIdle: runtime.kickIdleUploads,
         waitUntilSettled: runtime.waitUntilSettled,
         commitIfNeeded: () => commitRef.current(),
-        getContext: () => actorBox.current.getSnapshot().context,
+        getContext: () => sessionRef.current,
         send: (event: PhotoSessionEvent) => {
-          actorBox.current.send(event);
+          sendRef.current(event);
         },
       }),
     retry: () => {
       void urlsQuery.refetch();
     },
     retryCommit: () => {
-      actorBox.current.send({ type: "setBanner", key: null });
+      send({ type: "setBanner", key: null });
       void commitRef.current();
     },
     openPicker,
     closePicker: () => {
-      actorBox.current.send({ type: "closePicker" });
+      send({ type: "closePicker" });
     },
     onSourceSheetHidden: runtime.notifySheetHidden,
     pickCamera: () => {
