@@ -12,6 +12,7 @@ import {
   selectPhotoSessionCommitPlan,
   selectPhotoSessionFlushOutcome,
   selectPhotoSessionIdleIds,
+  snapshotFileIdsFromArgs,
   startPhotoSession,
   type PhotoSessionContext,
   type PhotoSessionInput,
@@ -60,6 +61,17 @@ function editInput(
 }
 
 describe("product photo session", () => {
+  it("treats omitted imageFileIds as loading on edit and empty on create", () => {
+    expect(snapshotFileIdsFromArgs({ requireProduct: true })).toBeNull();
+    expect(snapshotFileIdsFromArgs({ requireProduct: false })).toEqual([]);
+    expect(
+      snapshotFileIdsFromArgs({
+        requireProduct: true,
+        imageFileIds: [FILE_A],
+      }),
+    ).toEqual([FILE_A]);
+  });
+
   it("hydrates from imageFileIds without a product query", () => {
     const actor = startPhotoSession(editInput([FILE_A, FILE_B]));
     const context = actor.getSnapshot().context;

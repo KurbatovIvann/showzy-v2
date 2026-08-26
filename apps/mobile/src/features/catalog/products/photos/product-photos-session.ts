@@ -183,6 +183,16 @@ export type PhotoSessionContext = z.infer<typeof photoSessionContextSchema>;
 export type PhotoSessionInput = z.infer<typeof photoSessionInputSchema>;
 export type PhotoSessionEvent = z.infer<typeof photoSessionEventSchema>;
 
+export function snapshotFileIdsFromArgs(args: {
+  readonly imageFileIds?: readonly string[] | undefined;
+  readonly requireProduct: boolean;
+}): string[] | null {
+  if (args.imageFileIds !== undefined) {
+    return [...args.imageFileIds];
+  }
+  return args.requireProduct ? null : [];
+}
+
 function hydrateKey(productId: string | null, requireProduct: boolean): string {
   return requireProduct ? (productId ?? "unknown") : "create";
 }
