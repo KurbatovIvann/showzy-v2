@@ -99,4 +99,31 @@ describe("bindProductFormMutate", () => {
     expect(methods[1]?.startsWith("createVariant:")).toBe(true);
     expect(methods[0]).not.toBe(methods[1]);
   });
+
+  it("rejects a write that fails the contract wire schema before calling catalog", async () => {
+    const mutate = bindProductFormMutate({
+      client: {
+        catalog: {
+          createProduct: () => Promise.reject(new Error("must-not-call")),
+          updateProduct: () => Promise.reject(new Error("must-not-call")),
+          createVariant: () => Promise.reject(new Error("must-not-call")),
+          updateVariant: () => Promise.reject(new Error("must-not-call")),
+        },
+      },
+    });
+    await expect(
+      mutate(
+        {
+          kind: "createProduct",
+          input: {
+            name: "   ",
+            basePriceMinor: "100",
+            currency: "UAH",
+          },
+          variantKeys: [],
+        },
+        { context: { idempotencyKey: "k-wire" } },
+      ),
+    ).rejects.toThrow();
+  });
 });

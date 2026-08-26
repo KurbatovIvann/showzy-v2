@@ -4,20 +4,21 @@ Copy this tree for the next staff module. `src/app/` stays one-line
 re-exports. Feature code lives here, not under
 `src/components/screens/<feature>/`.
 
-The form still uses a draft hook (RHF is SHO-159). Photos is the XState
-v6 session (SHO-158): pin exact `xstate` / `@xstate/react` in
-`apps/mobile/package.json` — no floating `@alpha` tag.
+The form uses RHF for create/edit fields and the variant sheet
+(SHO-159). Pin exact `react-hook-form` / `@hookform/resolvers` in
+`apps/mobile/package.json`. Photos is the XState v6 session (SHO-158):
+pin exact `xstate` / `@xstate/react` — no floating `@alpha` tag.
 
 ## Folders (one role each)
 
-| Folder    | Owns                                                                                    | Does not own                                                             |
-| --------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `api/`    | `product.queries.ts`, mutation binders, `product-cache.ts` invalidation keys            | JSX, RHF, XState                                                         |
-| `list/`   | Screen, view, composer hook, presenter, row, `use-product-thumbnails.ts`                | Writes, photo session                                                    |
-| `detail/` | Detail screen, view, facade hook, sheets                                                | Form field state, photo machine                                          |
-| `form/`   | Create/edit screen, view, draft model, save                                             | List filters; photo session internals                                    |
-| `photos/` | XState v6 session, thin manager hook, commit/runtime I/O, upload runner, native, picker | A second `catalog.getProduct` when the parent already has `imageFileIds` |
-| `shared/` | Permissions, presenters (`variant-count`), sheet chrome used by more than one surface   | Transport                                                                |
+| Folder    | Owns                                                                                          | Does not own                                                             |
+| --------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `api/`    | `product.queries.ts`, mutation binders, `product-cache.ts` invalidation keys                  | JSX, RHF, XState                                                         |
+| `list/`   | Screen, view, composer hook, presenter, row, `use-product-thumbnails.ts`                      | Writes, photo session                                                    |
+| `detail/` | Detail screen, view, facade hook, sheets                                                      | Form field state, photo machine                                          |
+| `form/`   | Create/edit screen, view, UI draft Zod, RHF composer, save loop, unsaved guard, variant sheet | List filters; photo session internals                                    |
+| `photos/` | XState v6 session, thin manager hook, commit/runtime I/O, upload runner, native, picker       | A second `catalog.getProduct` when the parent already has `imageFileIds` |
+| `shared/` | Permissions, presenters (`variant-count`), sheet chrome used by more than one surface         | Transport                                                                |
 
 ## Copy-me rules
 

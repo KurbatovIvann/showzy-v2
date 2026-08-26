@@ -21,7 +21,7 @@ import {
 } from "../../../../components/ui";
 import { PhotoSourceSheet } from "../photos/photo-source-sheet";
 import { ProductActionsSheet } from "./product-actions-sheet";
-import { ProductFormVariantSheet } from "../form/product-form-variant-sheet";
+import { VariantEditorSheet } from "../form/variant-editor-sheet";
 import { ProductImagePicker } from "../photos/product-image-picker";
 import { ProductVariantRow } from "./product-variant-row";
 import { VariantActionsSheet } from "./variant-actions-sheet";
@@ -125,7 +125,7 @@ export function ProductDetailView(model: ProductDetailModel) {
           model.onVariantSheetAction("status");
         }}
       />
-      <ProductFormVariantSheet
+      <VariantEditorSheet
         visible={model.variantEditorVisible}
         mode={model.variantEditorMode}
         initial={model.variantSheetInitial}
