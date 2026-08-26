@@ -77,6 +77,8 @@ export function useProductPhotos(args: {
   );
   const sessionRef = useRef(session);
   sessionRef.current = session;
+  // I/O ports (runtime/commit) read sessionRef in the same tick as send.
+  // Do not switch to dispatch-only: a second commit would miss commitBusy.
   const send = useCallback((event: PhotoSessionEvent) => {
     sessionRef.current = dispatchPhotoSession(sessionRef.current, event);
     dispatch(event);

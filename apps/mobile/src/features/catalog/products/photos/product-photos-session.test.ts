@@ -73,8 +73,8 @@ describe("product photo session", () => {
   });
 
   it("hydrates from imageFileIds without a product query", () => {
-    const actor = createPhotoSessionStore(editInput([FILE_A, FILE_B]));
-    const context = actor.getContext();
+    const session = createPhotoSessionStore(editInput([FILE_A, FILE_B]));
+    const context = session.getContext();
     expect(context.baseline).toEqual([FILE_A, FILE_B]);
     expect(photoSessionTiles(context).map((tile) => tile.fileId)).toEqual([
       FILE_A,
@@ -85,40 +85,42 @@ describe("product photo session", () => {
   });
 
   it("hydrates later when the parent snapshot arrives", () => {
-    const actor = createPhotoSessionStore(editInput(null));
-    expect(actor.getContext().baseline).toBeNull();
-    expect(actor.getContext().hydratedKey).toBeNull();
-    actor.send({
+    const session = createPhotoSessionStore(editInput(null));
+    expect(session.getContext().baseline).toBeNull();
+    expect(session.getContext().hydratedKey).toBeNull();
+    session.send({
       type: "hydrate",
       productId: PRODUCT_ID,
       imageFileIds: [FILE_B],
     });
-    expect(actor.getContext().baseline).toEqual([FILE_B]);
-    actor.send({
+    expect(session.getContext().baseline).toEqual([FILE_B]);
+    session.send({
       type: "hydrate",
       productId: PRODUCT_ID,
       imageFileIds: [FILE_A],
     });
-    expect(actor.getContext().baseline).toEqual([FILE_B]);
+    expect(session.getContext().baseline).toEqual([FILE_B]);
   });
 
   it("adds, removes, and reorders slots up to the validation cap", () => {
     expect(photosCap).toBe(SET_PRODUCT_IMAGES_MAX);
-    const actor = createPhotoSessionStore(editInput([FILE_A]));
-    actor.send({
+    const session = createPhotoSessionStore(editInput([FILE_A]));
+    session.send({
       type: "addPhotos",
       photos: [{ id: "local-1", localUri: "file:///tmp/n.jpg" }],
     });
-    expect(selectPhotoSessionIdleIds(actor.getContext())).toEqual(["local-1"]);
-    actor.send({ type: "movePhoto", id: "local-1", direction: "earlier" });
+    expect(selectPhotoSessionIdleIds(session.getContext())).toEqual([
+      "local-1",
+    ]);
+    session.send({ type: "movePhoto", id: "local-1", direction: "earlier" });
     expect(
-      actor
+      session
         .getContext()
         .slots.map((slot: PhotoSessionContext["slots"][number]) => slot.id),
     ).toEqual(["local-1", FILE_A]);
-    actor.send({ type: "removePhoto", id: FILE_A });
+    session.send({ type: "removePhoto", id: FILE_A });
     expect(
-      actor
+      session
         .getContext()
         .slots.map((slot: PhotoSessionContext["slots"][number]) => slot.id),
     ).toEqual(["local-1"]);
@@ -141,78 +143,78 @@ describe("product photo session", () => {
   });
 
   it("plans commit noop vs write vs retry from session context", () => {
-    const actor = createPhotoSessionStore(editInput([FILE_A, FILE_B]));
-    expect(selectPhotoSessionCommitPlan(actor.getContext())).toEqual({
+    const session = createPhotoSessionStore(editInput([FILE_A, FILE_B]));
+    expect(selectPhotoSessionCommitPlan(session.getContext())).toEqual({
       kind: "noop",
     });
-    actor.send({ type: "movePhoto", id: FILE_B, direction: "earlier" });
-    expect(selectPhotoSessionCommitPlan(actor.getContext())).toEqual({
+    session.send({ type: "movePhoto", id: FILE_B, direction: "earlier" });
+    expect(selectPhotoSessionCommitPlan(session.getContext())).toEqual({
       kind: "write",
       productId: PRODUCT_ID,
       fileIds: [FILE_B, FILE_A],
     });
-    actor.send({ type: "noteWrite", fileIds: [FILE_B, FILE_A] });
-    actor.send({ type: "commitFailed", kind: "network" });
-    actor.send({ type: "setCanRetryAttempt", value: true });
-    expect(selectPhotoSessionCommitPlan(actor.getContext())).toEqual({
+    session.send({ type: "noteWrite", fileIds: [FILE_B, FILE_A] });
+    session.send({ type: "commitFailed", kind: "network" });
+    session.send({ type: "setCanRetryAttempt", value: true });
+    expect(selectPhotoSessionCommitPlan(session.getContext())).toEqual({
       kind: "retry",
     });
   });
 
   it("flush is ok after a matching write and commit-failed after a failed replace", () => {
-    const actor = createPhotoSessionStore({
+    const session = createPhotoSessionStore({
       productId: null,
       requireProduct: false,
       snapshotFileIds: [],
     });
-    actor.send({
+    session.send({
       type: "addPhotos",
       photos: [{ id: "local-1", localUri: "file:///tmp/n.jpg" }],
     });
-    actor.send({
+    session.send({
       type: "patchMachine",
       id: "local-1",
       machine: readyMachine(FILE_C),
     });
-    expect(photoSessionDirty(actor.getContext())).toBe(true);
-    expect(selectPhotoSessionCommitPlan(actor.getContext())).toEqual({
+    expect(photoSessionDirty(session.getContext())).toBe(true);
+    expect(selectPhotoSessionCommitPlan(session.getContext())).toEqual({
       kind: "noop",
     });
-    actor.send({ type: "bindProductId", productId: PRODUCT_ID });
-    expect(selectPhotoSessionCommitPlan(actor.getContext())).toEqual({
+    session.send({ type: "bindProductId", productId: PRODUCT_ID });
+    expect(selectPhotoSessionCommitPlan(session.getContext())).toEqual({
       kind: "write",
       productId: PRODUCT_ID,
       fileIds: [FILE_C],
     });
-    actor.send({ type: "commitFailed", kind: "network" });
-    expect(selectPhotoSessionFlushOutcome(actor.getContext())).toBe(
+    session.send({ type: "commitFailed", kind: "network" });
+    expect(selectPhotoSessionFlushOutcome(session.getContext())).toBe(
       "commit-failed",
     );
-    actor.send({ type: "commitSucceeded", fileIds: [FILE_C] });
-    expect(selectPhotoSessionFlushOutcome(actor.getContext())).toBe("ok");
-    expect(photoSessionNeedsCommit(actor.getContext())).toBe(false);
-    expect(photoSessionDirty(actor.getContext())).toBe(false);
+    session.send({ type: "commitSucceeded", fileIds: [FILE_C] });
+    expect(selectPhotoSessionFlushOutcome(session.getContext())).toBe("ok");
+    expect(photoSessionNeedsCommit(session.getContext())).toBe(false);
+    expect(photoSessionDirty(session.getContext())).toBe(false);
   });
 
   it("cancel drops an in-flight upload so the commit plan does not keep it", () => {
-    const actor = createPhotoSessionStore(editInput([FILE_A]));
-    actor.send({
+    const session = createPhotoSessionStore(editInput([FILE_A]));
+    session.send({
       type: "addPhotos",
       photos: [{ id: "local-1", localUri: "file:///tmp/n.jpg" }],
     });
-    actor.send({
+    session.send({
       type: "patchMachine",
       id: "local-1",
       machine: puttingMachine(),
     });
-    expect(selectPhotoSessionIdleIds(actor.getContext())).toEqual([]);
-    actor.send({ type: "cancelUpload", id: "local-1" });
+    expect(selectPhotoSessionIdleIds(session.getContext())).toEqual([]);
+    session.send({ type: "cancelUpload", id: "local-1" });
     expect(
-      actor
+      session
         .getContext()
         .slots.map((slot: PhotoSessionContext["slots"][number]) => slot.id),
     ).toEqual([FILE_A]);
-    expect(selectPhotoSessionCommitPlan(actor.getContext())).toEqual({
+    expect(selectPhotoSessionCommitPlan(session.getContext())).toEqual({
       kind: "noop",
     });
   });
