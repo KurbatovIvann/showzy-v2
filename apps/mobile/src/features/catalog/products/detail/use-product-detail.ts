@@ -1,6 +1,6 @@
 /**
  * Product detail facade (SHO-160). Composes query, product/variant
- * actions, SHO-158 photos, and the sheet reducer. View stays
+ * actions, the photo session, and the sheet reducer. View stays
  * presentational; no RHF and no XState on this screen.
  */
 import { useReducer, useState } from "react";

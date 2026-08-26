@@ -1,14 +1,11 @@
 /**
- * Product photo session (SHO-158). XState v6 owns picker, slots, the
- * commit queue, and flush planning. Hydrate from parent `imageFileIds`
- * — this module does not call `catalog.getProduct`. Per-image handshake
- * stays `reduceUpload` / `runProductPhotoUpload`.
- *
- * `createLogic` wraps the Zod-typed reducer. `createMachine` +
- * `schemas.events` hits `validator?: ActorLogicValidator` under
- * `exactOptionalPropertyTypes` and leaks `any` into the actor.
+ * Product photo session (SHO-162). `reducePhotoSession` owns picker,
+ * slots, the commit queue, and flush planning. React drives it with
+ * `useReducer`; tests and I/O ports use `createPhotoSessionStore`.
+ * Hydrate from parent `imageFileIds` — this module does not call
+ * `catalog.getProduct`. Per-image handshake stays `reduceUpload` /
+ * `runProductPhotoUpload`.
  */
-import { createActor, createLogic } from "xstate";
 import { z } from "zod";
 
 import {
@@ -200,10 +197,11 @@ function hydrateKey(productId: string | null, requireProduct: boolean): string {
 export function initialPhotoSessionContext(
   input: PhotoSessionInput,
 ): PhotoSessionContext {
-  const snapshot = input.snapshotFileIds;
+  const parsed = photoSessionInputSchema.parse(input);
+  const snapshot = parsed.snapshotFileIds;
   return photoSessionContextSchema.parse({
-    productId: input.productId,
-    requireProduct: input.requireProduct,
+    productId: parsed.productId,
+    requireProduct: parsed.requireProduct,
     slots: snapshot === null ? [] : [...committedSlotsFromFileIds(snapshot)],
     baseline: snapshot === null ? null : [...snapshot],
     lastWrite: null,
@@ -216,7 +214,7 @@ export function initialPhotoSessionContext(
     hydratedKey:
       snapshot === null
         ? null
-        : hydrateKey(input.productId, input.requireProduct),
+        : hydrateKey(parsed.productId, parsed.requireProduct),
   });
 }
 
@@ -342,30 +340,32 @@ export function photoSessionIsBusy(context: PhotoSessionContext): boolean {
   return hasInFlightPhotoUploads(context.slots) || context.commitBusy;
 }
 
-export const productPhotosSessionLogic = createLogic<
-  PhotoSessionContext,
-  unknown,
-  typeof photoSessionInputSchema,
-  PhotoSessionEvent
->({
-  id: "productPhotos",
-  schemas: {
-    input: photoSessionInputSchema,
-  },
-  context: ({ input }) => initialPhotoSessionContext(input),
-  run: ({ context, event }) => {
-    const parsed = photoSessionEventSchema.safeParse(event);
-    if (!parsed.success) {
-      return;
-    }
-    return { context: reducePhotoSession(context, parsed.data) };
-  },
-});
+export function dispatchPhotoSession(
+  context: PhotoSessionContext,
+  event: PhotoSessionEvent,
+): PhotoSessionContext {
+  const parsed = photoSessionEventSchema.safeParse(event);
+  if (!parsed.success) {
+    return context;
+  }
+  return reducePhotoSession(context, parsed.data);
+}
 
-export function startPhotoSession(input: PhotoSessionInput) {
-  const actor = createActor(productPhotosSessionLogic, { input });
-  actor.start();
-  return actor;
+export type PhotoSessionStore = {
+  readonly getContext: () => PhotoSessionContext;
+  readonly send: (event: PhotoSessionEvent) => void;
+};
+
+export function createPhotoSessionStore(
+  input: PhotoSessionInput,
+): PhotoSessionStore {
+  let context = initialPhotoSessionContext(input);
+  return {
+    getContext: () => context,
+    send: (event) => {
+      context = dispatchPhotoSession(context, event);
+    },
+  };
 }
 
 export function photoSessionTiles(context: PhotoSessionContext) {
