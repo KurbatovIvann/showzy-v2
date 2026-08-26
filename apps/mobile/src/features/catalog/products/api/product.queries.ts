@@ -1,7 +1,7 @@
 /**
- * `catalog.listProducts` read bindings (SHO-137). Keys follow SHO-102:
- * `[actionName, companyId, input]`; the page cursor is the infinite
- * query page param, never part of the key.
+ * `catalog.listProducts` read bindings (SHO-137 / SHO-157). Keys follow
+ * SHO-102: `[actionName, companyId, input]`; the page cursor is the
+ * infinite query page param, never part of the key.
  */
 import type { ContractClient } from "../../../../api/client";
 import {

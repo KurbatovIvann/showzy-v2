@@ -1,37 +1,35 @@
-import { useInfiniteQuery, useQueries, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 
 import { useApiClient } from "../../../../api/api-provider";
 import { describeQueryFailure } from "../../../../api/errors";
-import { fileDownloadUrlsQueryOptions } from "../../../../api/file-download-query";
 import { useActiveCompany } from "../../../../api/query-provider";
 import { useResolvedCompany } from "../../../../company-resolution/resolved-company-provider";
 import { detectLocale, interpolate } from "../../../../i18n/locale";
 import { productsCopy } from "../../../../i18n/products";
 import {
+  listProductsInfiniteOptions,
+  productsProbeQueryOptions,
+  type ProductsStatusFilter,
+} from "../api/product.queries";
+import {
   canCreateProducts,
   canFetchFileDownloadUrls,
 } from "../shared/product-permissions";
+import { variantCountLabel } from "../shared/variant-count";
 import {
   classifyProductsList,
   flattenProductPages,
   listProductsPageInput,
-  mergeDownloadUrlPages,
   normalizeProductsSearch,
   productsProbeState,
   toProductRowView,
-  uniquePrimaryImageFileIds,
-  PRODUCTS_SEARCH_MAX_LENGTH,
+  LIST_PRODUCTS_QUERY_MAX_LENGTH,
   type ProductsListState,
-} from "./products-list-model";
-import {
-  listProductsInfiniteOptions,
-  productsProbeQueryOptions,
-  type ProductsStatusFilter,
-} from "../api/products-list-query";
+} from "./products-list.presenter";
 import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from "./use-debounced-value";
-import { variantCountLabel } from "../shared/variant-count";
+import { useProductThumbnails } from "./use-product-thumbnails";
 
 export type ProductsListRow = {
   readonly id: string;
@@ -89,24 +87,14 @@ export function useProductsList() {
 
   const canFetchThumbnails = canFetchFileDownloadUrls(membership.role);
   const listPages = listQuery.data?.pages ?? [];
-  const thumbnailQueries = useQueries({
-    queries: listPages.map((page) => {
-      const fileIds = uniquePrimaryImageFileIds(page.items);
-      const options = fileDownloadUrlsQueryOptions({
-        client: apiClient,
-        companyId: activeCompanyId,
-        fileIds,
-        getActiveCompany,
-      });
-      return {
-        ...options,
-        enabled: options.enabled && canFetchThumbnails,
-      };
-    }),
-  });
-  const thumbnailUrlsByFileId = mergeDownloadUrlPages(
-    thumbnailQueries.map((query) => query.data),
-  );
+  const { urlsByFileId: thumbnailUrlsByFileId, refetch: refetchThumbnails } =
+    useProductThumbnails({
+      client: apiClient,
+      companyId: activeCompanyId,
+      getActiveCompany,
+      pages: listPages,
+      enabled: canFetchThumbnails,
+    });
   const rows = useMemo((): readonly ProductsListRow[] => {
     const pages = listQuery.data?.pages;
     if (pages === undefined) {
@@ -168,7 +156,7 @@ export function useProductsList() {
       count: String(rows.length),
     }),
     searchText,
-    searchMaxLength: PRODUCTS_SEARCH_MAX_LENGTH,
+    searchMaxLength: LIST_PRODUCTS_QUERY_MAX_LENGTH,
     changeSearch: setSearchText,
     resetSearch: () => {
       setSearchText("");
@@ -182,15 +170,11 @@ export function useProductsList() {
     refreshing: listQuery.isRefetching && !listQuery.isFetchingNextPage,
     refresh: () => {
       void listQuery.refetch();
-      for (const query of thumbnailQueries) {
-        void query.refetch();
-      }
+      refetchThumbnails();
     },
     retry: () => {
       void listQuery.refetch();
-      for (const query of thumbnailQueries) {
-        void query.refetch();
-      }
+      refetchThumbnails();
     },
     loadingMore: listQuery.isFetchingNextPage,
     loadMore: () => {
