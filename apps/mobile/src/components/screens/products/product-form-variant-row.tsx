@@ -6,8 +6,8 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { StatusPill } from "../../ui";
 
 /**
- * Canvas editor `VariantRow`: tap opens the variant sheet. Not the
- * detail-row archive control (SHO-152).
+ * Canvas editor `VariantRow`: tap opens the variant sheet. Detail
+ * rows use `ProductVariantRow` + `VariantActionsSheet` (SHO-152).
  */
 export const ProductFormVariantRow = memo(
   function ProductFormVariantRow(props: {

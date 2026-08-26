@@ -62,7 +62,7 @@ describe("products copy", () => {
     expect(uk.detail.title).toBe("Товар");
     expect(uk.detail.variantsTitle).toBe("Варіанти");
     expect(uk.detail.archiveProduct).toBe("Архівувати товар");
-    expect(uk.detail.restoreProduct).toBe("Повернути з архіву");
+    expect(uk.detail.restoreProduct).toBe("Відновити товар");
     expect(uk.detail.confirmArchiveProductTitle).toBe("Архівувати товар?");
     expect(uk.detail.cancel).toBe("Скасувати");
     expect(uk.detail.confirmArchiveVariantDescription).toContain("{{name}}");
@@ -75,6 +75,10 @@ describe("products copy", () => {
       "This product could not be found or is unavailable.",
     );
     expect(uk.detail.photosManageLabel).toBe("Керувати фото");
+    expect(uk.detail.productActionsTitle).toBe("Дії з товаром");
+    expect(uk.detail.factsTitle).toBe("Основне");
+    expect(uk.detail.statusActive).toBe("Активний");
+    expect(uk.detail.variantActionsLabel).toContain("{{name}}");
     expect(uk.photos.title).toBe("Фото");
     expect(uk.photos.addLabel).toBe("Додати фото");
     expect(uk.photos.addCamera).toBe("Камера");
