@@ -1,25 +1,38 @@
 import type { ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
-import { LockIcon, PackageIcon, WifiOffIcon } from "lucide-react-native";
+import {
+  LockIcon,
+  PackageIcon,
+  PlusIcon,
+  WifiOffIcon,
+} from "lucide-react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
+import { interpolate } from "../../../i18n/locale";
 import {
   AppHeader,
   Banner,
   Button,
   EmptyState,
-  StatusPill,
+  Sheet,
   TextField,
 } from "../../ui";
-import type { ProductFormVariantDraft } from "./product-form-model";
+import {
+  firstVariantFieldError,
+  formatProductFormFooterPrice,
+  type ProductFormVariantDraft,
+} from "./product-form-model";
+import { ProductFormVariantRow } from "./product-form-variant-row";
+import { ProductFormVariantSheet } from "./product-form-variant-sheet";
 import type { ProductFormModel } from "./use-product-form";
 
-const UAH_PREFIX = "₴";
+const UAH_SUFFIX = "₴";
 
 export function ProductFormView(model: ProductFormModel) {
   const { copy } = model;
+  const form = copy.form;
 
   return (
     <SafeAreaView
@@ -30,11 +43,75 @@ export function ProductFormView(model: ProductFormModel) {
       <AppHeader
         title={model.headerTitle}
         back={{
-          onPress: model.goBack,
+          onPress: model.requestLeave,
           accessibilityLabel: copy.backLabel,
         }}
       />
       <ProductFormBody model={model} />
+      {model.state.kind === "ready" ? (
+        <View style={styles.footer}>
+          <View style={styles.footerPriceRow}>
+            <Text style={styles.footerPriceLabel}>{form.footerBasePrice}</Text>
+            <Text style={styles.footerPriceValue}>
+              {model.footerPriceLabel}
+            </Text>
+          </View>
+          <View style={styles.footerActions}>
+            <View style={styles.footerButton}>
+              <Button
+                variant="secondary"
+                fullWidth
+                label={form.cancel}
+                disabled={model.pending}
+                onPress={model.requestLeave}
+              />
+            </View>
+            <View style={styles.footerButton}>
+              <Button
+                fullWidth
+                label={model.submitLabel}
+                loading={model.pending}
+                disabled={model.submitDisabled}
+                onPress={model.save}
+              />
+            </View>
+          </View>
+        </View>
+      ) : null}
+      <ProductFormVariantSheet
+        visible={model.variantSheet.kind !== "closed"}
+        mode={model.variantSheet.kind === "edit" ? "edit" : "new"}
+        initial={model.variantSheetInitial}
+        copy={form}
+        nameMaxLength={model.nameMaxLength}
+        editable={model.fieldsEditable}
+        onClose={model.closeVariantSheet}
+        onSave={model.saveVariantFromSheet}
+      />
+      <Sheet
+        visible={model.confirmLeaveVisible}
+        title={form.leaveTitle}
+        closeAccessibilityLabel={form.closeSheet}
+        onClose={model.dismissLeave}
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              fullWidth
+              label={form.leaveContinue}
+              onPress={model.dismissLeave}
+            />
+            <Button
+              variant="danger"
+              fullWidth
+              label={form.leaveConfirm}
+              onPress={model.confirmLeave}
+            />
+          </>
+        }
+      >
+        <Text style={styles.leaveBody}>{form.leaveDescription}</Text>
+      </Sheet>
     </SafeAreaView>
   );
 }
@@ -132,6 +209,7 @@ function ProductFormReady(props: { readonly model: ProductFormModel }) {
   const { copy, draft } = model;
   const form = copy.form;
   const { theme } = useUnistyles();
+  const productPriceLabel = model.footerPriceLabel;
 
   return (
     <KeyboardAwareScrollView
@@ -140,165 +218,114 @@ function ProductFormReady(props: { readonly model: ProductFormModel }) {
       keyboardShouldPersistTaps="handled"
       bottomOffset={theme.spacing.lg}
     >
-      <TextField
-        label={form.nameLabel}
-        value={draft.name}
-        onChangeText={model.changeName}
-        placeholder={form.namePlaceholder}
-        accessibilityLabel={form.nameLabel}
-        keyboardType="default"
-        autoCapitalize="sentences"
-        autoCorrect
-        autoComplete="off"
-        maxLength={model.nameMaxLength}
-        editable={model.fieldsEditable}
-        error={model.nameError}
-      />
-      <TextField
-        label={form.priceLabel}
-        value={draft.priceText}
-        onChangeText={model.changePrice}
-        placeholder={form.pricePlaceholder}
-        accessibilityLabel={form.priceLabel}
-        keyboardType="decimal-pad"
-        autoCapitalize="none"
-        autoCorrect={false}
-        autoComplete="off"
-        editable={model.fieldsEditable}
-        prefix={UAH_PREFIX}
-        error={model.priceError}
-      />
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{form.variantsTitle}</Text>
-        {draft.variants.length === 0 ? (
-          <Text style={styles.muted}>{copy.variants.none}</Text>
-        ) : (
-          <View style={styles.variantList}>
-            {draft.variants.map((variant) => (
-              <ProductFormVariantCard
-                key={variant.key}
-                variant={variant}
-                archivedLabel={copy.archivedBadge}
-                nameLabel={form.variantNameLabel}
-                namePlaceholder={form.variantNamePlaceholder}
-                priceLabel={form.variantPriceLabel}
-                pricePlaceholder={form.variantPricePlaceholder}
-                inheritHint={form.inheritHint}
-                removeLabel={form.removeVariant}
-                nameError={model.variantErrors[variant.key]?.name ?? null}
-                priceError={model.variantErrors[variant.key]?.price ?? null}
-                editable={model.fieldsEditable}
-                nameMaxLength={model.nameMaxLength}
-                onChangeName={model.changeVariantName}
-                onChangePrice={model.changeVariantPrice}
-                onRemove={model.removeVariant}
-              />
-            ))}
-          </View>
-        )}
-        <Button
-          variant="secondary"
-          label={form.addVariant}
-          disabled={!model.canAddVariant}
-          onPress={model.addVariant}
-        />
-      </View>
-      {model.banner !== null && model.banner.length > 0 ? (
-        <Banner message={model.banner} />
-      ) : null}
-      <Button
-        label={model.submitLabel}
-        loading={model.pending}
-        disabled={model.submitDisabled}
-        onPress={model.save}
-      />
-    </KeyboardAwareScrollView>
-  );
-}
-
-function ProductFormVariantCard(props: {
-  readonly variant: ProductFormVariantDraft;
-  readonly archivedLabel: string;
-  readonly nameLabel: string;
-  readonly namePlaceholder: string;
-  readonly priceLabel: string;
-  readonly pricePlaceholder: string;
-  readonly inheritHint: string;
-  readonly removeLabel: string;
-  readonly nameError: string | null;
-  readonly priceError: string | null;
-  readonly editable: boolean;
-  readonly nameMaxLength: number;
-  readonly onChangeName: (key: string, value: string) => void;
-  readonly onChangePrice: (key: string, value: string) => void;
-  readonly onRemove: (key: string) => void;
-}) {
-  const { variant } = props;
-  const canRemove = variant.variantId === null;
-  const showHeader = variant.archived || canRemove;
-
-  return (
-    <View style={styles.variantCard}>
-      {showHeader ? (
-        <View style={styles.variantHeader}>
-          {variant.archived ? (
-            <StatusPill label={props.archivedLabel} tone="neutral" />
-          ) : null}
-          {canRemove ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={props.removeLabel}
-              disabled={!props.editable}
-              onPress={() => {
-                props.onRemove(variant.key);
-              }}
-              style={({ pressed }) => [
-                styles.remove,
-                pressed ? styles.pressed : null,
-              ]}
-            >
-              <Text style={styles.removeLabel}>{props.removeLabel}</Text>
-            </Pressable>
-          ) : null}
-        </View>
-      ) : null}
-      <TextField
-        label={props.nameLabel}
-        value={variant.name}
-        onChangeText={(value) => {
-          props.onChangeName(variant.key, value);
-        }}
-        placeholder={props.namePlaceholder}
-        accessibilityLabel={props.nameLabel}
-        keyboardType="default"
-        autoCapitalize="sentences"
-        autoCorrect
-        autoComplete="off"
-        maxLength={props.nameMaxLength}
-        editable={props.editable}
-        error={props.nameError}
-      />
-      <View>
+      <ProductFormSection title={form.detailsTitle}>
         <TextField
-          label={props.priceLabel}
-          value={variant.priceText}
-          onChangeText={(value) => {
-            props.onChangePrice(variant.key, value);
-          }}
-          placeholder={props.pricePlaceholder}
-          accessibilityLabel={props.priceLabel}
+          label={form.nameLabel}
+          value={draft.name}
+          onChangeText={model.changeName}
+          placeholder={form.namePlaceholder}
+          accessibilityLabel={form.nameLabel}
+          keyboardType="default"
+          autoCapitalize="sentences"
+          autoCorrect
+          autoComplete="off"
+          maxLength={model.nameMaxLength}
+          editable={model.fieldsEditable}
+          error={model.nameError}
+          changed={model.nameChanged}
+          changedLabel={form.changedLabel}
+        />
+      </ProductFormSection>
+      <ProductFormSection title={form.priceSectionTitle}>
+        <TextField
+          label={form.priceLabel}
+          value={draft.priceText}
+          onChangeText={model.changePrice}
+          placeholder={form.pricePlaceholder}
+          accessibilityLabel={form.priceLabel}
           keyboardType="decimal-pad"
           autoCapitalize="none"
           autoCorrect={false}
           autoComplete="off"
-          editable={props.editable}
-          prefix={UAH_PREFIX}
-          error={props.priceError}
+          editable={model.fieldsEditable}
+          suffix={UAH_SUFFIX}
+          error={model.priceError}
+          changed={model.priceChanged}
+          changedLabel={form.changedLabel}
         />
-        {variant.priceText.trim().length === 0 ? (
-          <Text style={styles.hint}>{props.inheritHint}</Text>
-        ) : null}
-      </View>
+        <Text style={styles.hint}>{form.priceHint}</Text>
+      </ProductFormSection>
+      <ProductFormSection title={form.variantsTitle}>
+        {draft.variants.length === 0 ? (
+          <View style={styles.variantsEmpty}>
+            <Text style={styles.variantsEmptyTitle}>
+              {form.variantsEmptyTitle}
+            </Text>
+            <Text style={styles.muted}>{form.variantsEmptyDescription}</Text>
+          </View>
+        ) : (
+          <View style={styles.variantList}>
+            {draft.variants.map((variant) => (
+              <ProductFormVariantRow
+                key={variant.key}
+                id={variant.key}
+                name={variant.name}
+                priceLabel={variantPriceLabel(
+                  form.variantInheritedPrice,
+                  variant,
+                  productPriceLabel,
+                )}
+                archived={variant.archived}
+                archivedLabel={copy.archivedBadge}
+                editLabel={form.variantSheetEditTitle}
+                error={firstVariantFieldError(model.variantErrors[variant.key])}
+                disabled={!model.fieldsEditable}
+                onPress={model.openEditVariant}
+              />
+            ))}
+          </View>
+        )}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={form.addVariant}
+          disabled={!model.canAddVariant}
+          onPress={model.openNewVariant}
+          style={({ pressed }) => [
+            styles.addVariant,
+            pressed && model.canAddVariant ? styles.pressed : null,
+            !model.canAddVariant ? styles.addVariantDisabled : null,
+          ]}
+        >
+          <PlusIcon size={theme.iconSize.sm} color={theme.colors.foreground} />
+          <Text style={styles.addVariantLabel}>{form.addVariant}</Text>
+        </Pressable>
+      </ProductFormSection>
+      {model.banner !== null && model.banner.length > 0 ? (
+        <Banner message={model.banner} />
+      ) : null}
+    </KeyboardAwareScrollView>
+  );
+}
+
+function variantPriceLabel(
+  template: string,
+  variant: ProductFormVariantDraft,
+  productPriceLabel: string,
+): string {
+  if (variant.priceText.trim().length === 0) {
+    return interpolate(template, { price: productPriceLabel });
+  }
+  return formatProductFormFooterPrice(variant.priceText);
+}
+
+function ProductFormSection(props: {
+  readonly title: string;
+  readonly children: ReactNode;
+}) {
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>{props.title}</Text>
+      <View style={styles.sectionCard}>{props.children}</View>
     </View>
   );
 }
@@ -317,63 +344,119 @@ const styles = StyleSheet.create((theme) => ({
   },
   content: {
     paddingHorizontal: theme.spacing.lg,
-    paddingBottom: theme.spacing["3xl"],
+    paddingTop: theme.spacing.sm,
+    paddingBottom: theme.spacing.xl,
     gap: theme.spacing.xl,
   },
   section: {
-    gap: theme.spacing.md,
-  },
-  sectionTitle: {
-    color: theme.colors.foreground,
-    fontSize: theme.typography.base.fontSize,
-    lineHeight: theme.typography.base.lineHeight,
-    fontWeight: "600",
-  },
-  muted: {
-    color: theme.colors.mutedForeground,
-    fontSize: theme.typography.sm.fontSize,
-    lineHeight: theme.typography.sm.lineHeight,
-  },
-  variantList: {
-    gap: theme.spacing.md,
-  },
-  variantCard: {
-    backgroundColor: theme.colors.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radii.xl,
-    ...theme.squircle,
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
-    gap: theme.spacing.md,
-    ...theme.shadows.sm,
-  },
-  variantHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-end",
     gap: theme.spacing.sm,
   },
-  remove: {
-    minHeight: theme.hitTarget.min,
-    marginLeft: "auto",
-    justifyContent: "center",
-    paddingHorizontal: theme.spacing.sm,
-  },
-  removeLabel: {
-    color: theme.colors.destructive,
-    fontSize: theme.typography.sm.fontSize,
-    lineHeight: theme.typography.sm.lineHeight,
-    fontWeight: "600",
-  },
-  pressed: {
-    opacity: 0.85,
-  },
-  hint: {
+  sectionTitle: {
+    paddingHorizontal: theme.spacing.xs,
     color: theme.colors.mutedForeground,
     fontSize: theme.typography.xs.fontSize,
     lineHeight: theme.typography.xs.lineHeight,
-    marginTop: theme.spacing.sm,
+    fontWeight: "600",
+  },
+  sectionCard: {
+    backgroundColor: theme.colors.card,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radii.card,
+    ...theme.squircle,
+    padding: theme.spacing.lg,
+    gap: theme.spacing.md,
+    ...theme.shadows.sm,
+  },
+  hint: {
+    color: theme.colors.icon.muted,
+    fontSize: theme.typography.xs.fontSize,
+    lineHeight: theme.typography.xs.lineHeight,
+  },
+  muted: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.xs.fontSize,
+    lineHeight: theme.typography.xs.lineHeight,
+  },
+  variantsEmpty: {
+    backgroundColor: theme.colors.inputFill,
+    borderRadius: theme.radii.lg,
+    ...theme.squircle,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.lg,
+    gap: theme.spacing.xs,
+  },
+  variantsEmptyTitle: {
+    color: theme.colors.foreground,
+    fontSize: theme.typography.sm.fontSize,
+    lineHeight: theme.typography.sm.lineHeight,
+    fontWeight: "600",
+  },
+  variantList: {
+    gap: theme.spacing.sm,
+  },
+  addVariant: {
+    minHeight: theme.hitTarget.min + theme.spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: theme.spacing.sm,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: theme.colors.icon.muted,
+    borderRadius: theme.radii.lg,
+    ...theme.squircle,
+  },
+  addVariantDisabled: {
+    opacity: 0.5,
+  },
+  addVariantLabel: {
+    color: theme.colors.foreground,
+    fontSize: theme.typography.sm.fontSize,
+    lineHeight: theme.typography.sm.lineHeight,
+    fontWeight: "600",
+  },
+  footer: {
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+    backgroundColor: theme.colors.card,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.md,
+    paddingBottom: theme.spacing.md,
+    gap: theme.spacing.sm,
+  },
+  footerPriceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: theme.spacing.md,
+  },
+  footerPriceLabel: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.sm.fontSize,
+    lineHeight: theme.typography.sm.lineHeight,
+  },
+  footerPriceValue: {
+    color: theme.colors.foreground,
+    fontSize: theme.typography.xl.fontSize,
+    lineHeight: theme.typography.xl.lineHeight,
+    fontWeight: "600",
+    fontVariant: ["tabular-nums"],
+  },
+  footerActions: {
+    flexDirection: "row",
+    gap: theme.spacing.sm,
+  },
+  footerButton: {
+    flex: 1,
+  },
+  leaveBody: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.sm.fontSize,
+    lineHeight: theme.typography.sm.lineHeight,
+  },
+  pressed: {
+    opacity: 0.85,
   },
   centered: {
     flex: 1,

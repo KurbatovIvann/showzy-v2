@@ -130,9 +130,9 @@ System font. No webfont.
 
 | Primitive | Canvas counterpart | Notes |
 | --- | --- | --- |
-| `Button` | `Button` | pill; `size: "auth"` is 54 + `typography.lg`; auth disabled uses faint fill, not opacity |
+| `Button` | `Button` | pill; `size: "auth"` is 54 + `typography.lg`; auth disabled uses faint fill, not opacity; `danger` is `destructiveSoft` / `destructive` (pressed inverts to fill); optional `icon` and `fullWidth` |
 | `Card` | section / `Card` | 22px, `line` border, `surface` fill |
-| `TextField` | `TextField` | 16px radius, canvas fill; optional label / leading / prefix; `size: "auth"` is 54 + 16 tabular-nums + focus `ring` |
+| `TextField` | `TextField` | 16px radius, canvas fill; optional label / leading / prefix / suffix; `changed` chip uses `StatusPill` `action`; `size: "auth"` is 54 + 16 tabular-nums + focus `ring` |
 | `SegmentedTabs` | `AuthModeSwitch` | pill track `muted`, raised `card` with `shadows.sm` |
 | `OtpInput` | `OtpInput` | square cells, gap 8, digits `typography.2xl`; optional inline `error` string |
 | `Banner` | inline error | keep; do not invent a second error strip |
@@ -142,9 +142,11 @@ System font. No webfont.
 | `IconButton` | round icon controls | 44pt circle; `primary` ink fill, `surface` bordered card |
 | `SearchField` | list search | raised capsule, leading search icon; not the squircle `TextField` |
 | `ChoiceField` | `ChoiceField` | horizontal chip row (44pt chips for list filters) — not the same as SegmentedTabs |
-| `Sheet` | confirmation sheet | overlay `colors.overlay`, top radius `radii.sheet`, grabber; host stays mounted and `visible` drives open/close — Modal hides after close timing; sheets not dropdowns |
+| `Sheet` | confirmation / content sheet | overlay `colors.overlay`, top radius `radii.sheet`, grabber; optional description, `footer` (children become the body), `fullHeight` (92%), close control; host stays mounted and `visible` drives open/close — Modal hides after close timing; sheets not dropdowns |
+| `SwitchRow` | `ProductSwitchRow` | label + optional description; 44pt row; success track when on |
 
-**Not shared yet** (add to `ui/` on first screen that needs them): SwitchRow.
+**Not shared yet** (add to `ui/` on first screen that needs them): none
+listed after SwitchRow landed with the product editor.
 
 Feature examples (never in `ui/`): `OrderRow`, `ProductRow`,
 `AssistantSheet`, `BottomNav` (staff shell, not a generic tab primitive).

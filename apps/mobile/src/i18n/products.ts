@@ -9,18 +9,34 @@ export type ProductsVariantForms = {
 };
 
 export type ProductsFormCopy = {
+  readonly detailsTitle: string;
+  readonly priceSectionTitle: string;
   readonly nameLabel: string;
   readonly namePlaceholder: string;
   readonly priceLabel: string;
   readonly pricePlaceholder: string;
+  readonly priceHint: string;
   readonly variantsTitle: string;
+  readonly variantsEmptyTitle: string;
+  readonly variantsEmptyDescription: string;
   readonly addVariant: string;
-  readonly removeVariant: string;
-  readonly variantNameLabel: string;
-  readonly variantNamePlaceholder: string;
-  readonly variantPriceLabel: string;
-  readonly variantPricePlaceholder: string;
-  readonly inheritHint: string;
+  readonly variantInheritedPrice: string;
+  readonly footerBasePrice: string;
+  readonly cancel: string;
+  readonly changedLabel: string;
+  readonly closeSheet: string;
+  readonly leaveTitle: string;
+  readonly leaveDescription: string;
+  readonly leaveContinue: string;
+  readonly leaveConfirm: string;
+  readonly variantSheetNewTitle: string;
+  readonly variantSheetEditTitle: string;
+  readonly variantSheetNameLabel: string;
+  readonly variantSheetNamePlaceholder: string;
+  readonly variantSheetCustomPrice: string;
+  readonly variantSheetCustomPriceDescription: string;
+  readonly variantSheetPriceLabel: string;
+  readonly variantSheetSave: string;
   readonly submitCreate: string;
   readonly submitCreateLoading: string;
   readonly submitEdit: string;
@@ -207,18 +223,36 @@ const en: ProductsCopy = {
     photosTitle: "Photos",
   },
   form: {
-    nameLabel: "Name",
-    namePlaceholder: "Product name",
+    detailsTitle: "Details",
+    priceSectionTitle: "Price",
+    nameLabel: "Product name",
+    namePlaceholder: "For example, Napoleon cake",
     priceLabel: "Base price",
     pricePlaceholder: "0",
+    priceHint: "Base price for variants without their own price. Hryvnia only.",
     variantsTitle: "Variants",
+    variantsEmptyTitle: "No variants yet",
+    variantsEmptyDescription:
+      "Add sizes or flavors when the price or composition differs.",
     addVariant: "Add variant",
-    removeVariant: "Remove",
-    variantNameLabel: "Variant name",
-    variantNamePlaceholder: "For example, 1 kg",
-    variantPriceLabel: "Price",
-    variantPricePlaceholder: "Base price",
-    inheritHint: "Empty price uses the product price",
+    variantInheritedPrice: "same as product · {{price}}",
+    footerBasePrice: "Base price",
+    cancel: "Cancel",
+    changedLabel: "changed",
+    closeSheet: "Close",
+    leaveTitle: "Leave without saving?",
+    leaveDescription: "Your changes will be lost.",
+    leaveContinue: "Keep editing",
+    leaveConfirm: "Leave without saving",
+    variantSheetNewTitle: "New variant",
+    variantSheetEditTitle: "Edit variant",
+    variantSheetNameLabel: "Name",
+    variantSheetNamePlaceholder: "For example, 2 kg or Vanilla",
+    variantSheetCustomPrice: "Different price",
+    variantSheetCustomPriceDescription:
+      "When off, the variant uses the product base price",
+    variantSheetPriceLabel: "Variant price",
+    variantSheetSave: "Save",
     submitCreate: "Create product",
     submitCreateLoading: "Creating…",
     submitEdit: "Save",
@@ -364,22 +398,40 @@ const uk: ProductsCopy = {
   },
   stub: {
     createTitle: "Новий товар",
-    editTitle: "Редагування товару",
+    editTitle: "Редагувати товар",
     photosTitle: "Фото",
   },
   form: {
-    nameLabel: "Назва",
-    namePlaceholder: "Назва товару",
+    detailsTitle: "Деталі",
+    priceSectionTitle: "Ціна",
+    nameLabel: "Назва товару",
+    namePlaceholder: "Наприклад, Торт «Наполеон»",
     priceLabel: "Базова ціна",
     pricePlaceholder: "0",
+    priceHint: "Базова ціна для варіантів без власної ціни. Лише гривня.",
     variantsTitle: "Варіанти",
+    variantsEmptyTitle: "Варіантів ще немає",
+    variantsEmptyDescription:
+      "Додайте розміри чи смаки, якщо ціна або склад відрізняються.",
     addVariant: "Додати варіант",
-    removeVariant: "Видалити",
-    variantNameLabel: "Назва варіанта",
-    variantNamePlaceholder: "Наприклад, 1 кг",
-    variantPriceLabel: "Ціна",
-    variantPricePlaceholder: "Базова ціна",
-    inheritHint: "Порожня ціна — як у товару",
+    variantInheritedPrice: "як у товару · {{price}}",
+    footerBasePrice: "Базова ціна",
+    cancel: "Скасувати",
+    changedLabel: "змінено",
+    closeSheet: "Закрити",
+    leaveTitle: "Вийти без збереження?",
+    leaveDescription: "Внесені зміни буде втрачено.",
+    leaveContinue: "Продовжити редагування",
+    leaveConfirm: "Вийти без збереження",
+    variantSheetNewTitle: "Новий варіант",
+    variantSheetEditTitle: "Редагувати варіант",
+    variantSheetNameLabel: "Назва",
+    variantSheetNamePlaceholder: "Наприклад, 2 кг або Ваніль",
+    variantSheetCustomPrice: "Інша ціна",
+    variantSheetCustomPriceDescription:
+      "Якщо вимкнено — варіант бере базову ціну товару",
+    variantSheetPriceLabel: "Ціна варіанту",
+    variantSheetSave: "Зберегти",
     submitCreate: "Створити товар",
     submitCreateLoading: "Створюємо…",
     submitEdit: "Зберегти",

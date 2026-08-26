@@ -9,14 +9,22 @@ import {
   createProductPayload,
   draftFromProduct,
   emptyProductFormDraft,
+  firstVariantFieldError,
+  formatProductFormFooterPrice,
+  isProductFormDirty,
   mapProductFormFailure,
   mapValidationIssues,
   planProductFormSave,
+  productFormFieldChanged,
   remainingFormWrites,
   removeVariantRow,
   snapshotFromDraft,
   snapshotFromProduct,
+  upsertVariantDraft,
   validateProductForm,
+  validateVariantSheet,
+  variantDraftToSheet,
+  variantSheetPriceText,
   type ProductFormDraft,
   type ProductFormWrite,
 } from "./product-form-model";
@@ -513,5 +521,166 @@ describe("snapshotFromDraft", () => {
     });
     expect(left?.priceMinor).toBe("100");
     expect(left?.priceMinor).toBe(right?.priceMinor);
+  });
+});
+
+describe("isProductFormDirty / productFormFieldChanged", () => {
+  it("is clean for an empty create draft and dirty after typing", () => {
+    const origin = emptyProductFormDraft();
+    expect(isProductFormDirty(origin, origin)).toBe(false);
+    expect(isProductFormDirty({ ...origin, name: "Торт" }, origin)).toBe(true);
+    expect(productFormFieldChanged("create", "Торт", "")).toBe(false);
+  });
+
+  it("is clean for a loaded edit draft and dirty after a variant sheet save", () => {
+    const origin = draftFromProduct(loaded);
+    expect(isProductFormDirty(origin, origin)).toBe(false);
+    expect(isProductFormDirty({ ...origin, name: "Наполеон" }, origin)).toBe(
+      true,
+    );
+    expect(productFormFieldChanged("edit", "Наполеон", origin.name)).toBe(true);
+    const withVariant = upsertVariantDraft(origin, {
+      key: null,
+      name: "Міні",
+      priceText: "",
+    });
+    expect(isProductFormDirty(withVariant, origin)).toBe(true);
+  });
+});
+
+describe("firstVariantFieldError", () => {
+  it("prefers the name message and ignores empty strings", () => {
+    expect(firstVariantFieldError(undefined)).toBeNull();
+    expect(firstVariantFieldError({ name: null, price: null })).toBeNull();
+    expect(firstVariantFieldError({ name: "", price: "Ціна некоректна" })).toBe(
+      "Ціна некоректна",
+    );
+    expect(
+      firstVariantFieldError({
+        name: "Назва обовʼязкова",
+        price: "Ціна некоректна",
+      }),
+    ).toBe("Назва обовʼязкова");
+  });
+});
+
+describe("variant sheet save into the write plan", () => {
+  it("maps inherit vs custom price from the switch", () => {
+    expect(variantDraftToSheet(null)).toEqual({
+      name: "",
+      customPrice: false,
+      priceText: "",
+    });
+    expect(
+      variantDraftToSheet({
+        key: "draft-1",
+        variantId: null,
+        name: "1 кг",
+        priceText: "1800",
+        archived: false,
+      }),
+    ).toEqual({
+      name: "1 кг",
+      customPrice: true,
+      priceText: "1800",
+    });
+    expect(
+      variantSheetPriceText({
+        name: "1 кг",
+        customPrice: false,
+        priceText: "1800",
+      }),
+    ).toBe("");
+    expect(
+      validateVariantSheet({
+        name: "",
+        customPrice: true,
+        priceText: "",
+      }),
+    ).toEqual({ name: "required", price: "required" });
+    expect(
+      validateVariantSheet({
+        name: "Ваніль",
+        customPrice: false,
+        priceText: "",
+      }),
+    ).toEqual({ name: null, price: null });
+  });
+
+  it("upserts a new variant into createProduct variants", () => {
+    const draft = upsertVariantDraft(
+      { ...emptyProductFormDraft(), name: "Торт", priceText: "10" },
+      { key: null, name: "1 кг", priceText: "1800" },
+    );
+    const payload = createProductPayload(draft);
+    expect(payload?.input.variants).toEqual([
+      { name: "1 кг", basePriceMinor: "180000", currency: "UAH" },
+    ]);
+  });
+
+  it("upserts a new inherited variant as createVariant on edit", () => {
+    const origin = draftFromProduct(loaded);
+    const draft = upsertVariantDraft(origin, {
+      key: null,
+      name: "Міні",
+      priceText: "",
+    });
+    const baseline = snapshotFromProduct(loaded);
+    const plan = planProductFormSave({
+      mode: "edit",
+      productId: PRODUCT_ID,
+      draft,
+      baseline,
+      lastWrite: null,
+      lastFailureKind: null,
+    });
+    expect(plan.kind).toBe("write");
+    if (plan.kind !== "write") {
+      return;
+    }
+    expect(plan.write.kind).toBe("createVariant");
+    if (plan.write.kind === "createVariant") {
+      expect(plan.write.input).toEqual({
+        productId: PRODUCT_ID,
+        name: "Міні",
+      });
+    }
+  });
+
+  it("upserts an edited variant as updateVariant", () => {
+    const origin = draftFromProduct(loaded);
+    const draft = upsertVariantDraft(origin, {
+      key: VARIANT_ID,
+      name: "2 кг",
+      priceText: "1800",
+    });
+    const baseline = snapshotFromProduct(loaded);
+    const plan = planProductFormSave({
+      mode: "edit",
+      productId: PRODUCT_ID,
+      draft,
+      baseline,
+      lastWrite: null,
+      lastFailureKind: null,
+    });
+    expect(plan).toEqual({
+      kind: "write",
+      write: {
+        kind: "updateVariant",
+        key: VARIANT_ID,
+        input: {
+          productId: PRODUCT_ID,
+          variantId: VARIANT_ID,
+          name: "2 кг",
+          basePriceMinor: "180000",
+          currency: "UAH",
+        },
+      },
+    });
+  });
+
+  it("formats an empty footer price as zero hryvnia", () => {
+    expect(formatProductFormFooterPrice("")).toMatch(/0/);
+    expect(formatProductFormFooterPrice("10")).toMatch(/10/);
   });
 });
