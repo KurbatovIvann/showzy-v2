@@ -17,12 +17,12 @@ import {
   validateVariantSheet,
   type ProductFormSnapshot,
   type ProductFormVariantDraft,
+  type VariantFieldErrors,
 } from "../form/product-form-draft";
 import {
   remainingFormWrites,
   type ProductFormWrite,
 } from "../form/product-form-plan";
-import type { VariantFieldErrors } from "../form/product-form.schema";
 
 export type DetailVariantWritePlan =
   | { readonly kind: "invalid"; readonly errors: VariantFieldErrors }

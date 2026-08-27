@@ -48,7 +48,7 @@ export function useProductSave(args: {
     readonly flush: () => Promise<"ok" | "commit-failed" | "upload-failed">;
   };
   readonly onSaved: () => Promise<void>;
-  readonly setClientErrors: (errors: ProductFormFieldErrors) => void;
+  readonly setFieldErrors: (errors: ProductFormFieldErrors) => void;
   readonly setLocalBanner: (banner: "too_many_variants" | null) => void;
 }): {
   readonly save: () => Promise<void>;
@@ -124,7 +124,7 @@ export function useProductSave(args: {
         setLastFailure: (failure) => {
           lastFailureRef.current = failure;
         },
-        setClientErrors: current.setClientErrors,
+        setFieldErrors: current.setFieldErrors,
         setTooManyVariants: () => {
           current.setLocalBanner("too_many_variants");
         },

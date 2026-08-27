@@ -25,31 +25,24 @@ import {
 import {
   cloneProductFormDraft,
   draftFromProduct,
-  emptyFieldErrors,
   emptyProductFormDraft,
-  parseProductFormUiDraft,
   snapshotFromProduct,
   upsertVariantDraft,
   type ProductFormDraft,
-  type ProductFormFieldErrors,
   type ProductFormMode,
   type ProductFormSnapshot,
   type ProductFormVariantDraft,
 } from "./product-form-draft";
 import {
+  fieldErrorsFromFormState,
   mapProductFormFailure,
-  mapRhfVariantFieldErrors,
   mapValidationIssues,
-  overlayVariantFieldErrors,
   resolveProductFormCopy,
+  rhfPathsForFieldErrors,
   type BannerKey,
 } from "./product-form-copy";
 import { classifyProductFormLoad } from "./product-form-load";
-import {
-  isNameErrorKey,
-  isPriceErrorKey,
-  productFormResolver,
-} from "./product-form.schema";
+import { productFormResolver } from "./product-form.schema";
 import { useProductSave } from "./use-product-save";
 import { useUnsavedProductGuard } from "./use-unsaved-product-guard";
 
@@ -81,6 +74,7 @@ export function useProductForm(args: {
     getValues,
     setValue,
     handleSubmit,
+    setError,
     clearErrors,
     formState,
   } = useForm<ProductFormDraft>({
@@ -98,8 +92,6 @@ export function useProductForm(args: {
     emptyProductFormDraft,
   );
   const [baseline, setBaseline] = useState<ProductFormSnapshot | null>(null);
-  const [clientErrors, setClientErrors] =
-    useState<ProductFormFieldErrors>(emptyFieldErrors);
   const [localBanner, setLocalBanner] = useState<BannerKey | null>(null);
   const [variantSheet, setVariantSheet] =
     useState<ProductFormVariantSheetState>({ kind: "closed" });
@@ -194,7 +186,14 @@ export function useProductForm(args: {
       armLeaveRef.current();
       return Promise.resolve();
     },
-    setClientErrors,
+    setFieldErrors: (nextFieldErrors) => {
+      for (const entry of rhfPathsForFieldErrors(
+        nextFieldErrors,
+        getValues().variants,
+      )) {
+        setError(entry.name, { type: "validate", message: entry.message });
+      }
+    },
     setLocalBanner,
   });
 
@@ -219,31 +218,14 @@ export function useProductForm(args: {
   const serverFields = saveApi.isMutationError
     ? mapValidationIssues(saveApi.mutationError, saveApi.lastWrite)
     : null;
-  const rhfName = errors.name?.message;
-  const rhfPrice = errors.priceText?.message;
-  const fieldErrors: ProductFormFieldErrors = {
-    name:
-      (isSubmitted && rhfName !== undefined && isNameErrorKey(rhfName)
-        ? rhfName
-        : null) ??
-      clientErrors.name ??
-      serverFields?.name ??
-      null,
-    price:
-      (isSubmitted && rhfPrice !== undefined && isPriceErrorKey(rhfPrice)
-        ? rhfPrice
-        : null) ??
-      clientErrors.price ??
-      serverFields?.price ??
-      null,
-    variants: overlayVariantFieldErrors(
-      serverFields?.variants,
-      clientErrors.variants,
-      isSubmitted
-        ? mapRhfVariantFieldErrors(getValues().variants, errors.variants)
-        : undefined,
-    ),
-  };
+  const fieldErrors = fieldErrorsFromFormState({
+    submitted: isSubmitted,
+    nameMessage: errors.name?.message,
+    priceMessage: errors.priceText?.message,
+    variants: getValues().variants,
+    rhfVariants: errors.variants,
+    server: serverFields,
+  });
   const mappedBanner =
     localBanner ??
     mapProductFormFailure(failure?.kind ?? null, wire?.code ?? null);
@@ -260,7 +242,6 @@ export function useProductForm(args: {
 
   function onFieldEdit(): void {
     clearErrors();
-    setClientErrors(emptyFieldErrors());
     setLocalBanner(null);
     saveApi.resetMutation();
   }
@@ -379,12 +360,7 @@ export function useProductForm(args: {
           void saveApi.save();
         },
         () => {
-          const parsed = parseProductFormUiDraft(
-            cloneProductFormDraft(getValues()),
-          );
-          if (!parsed.ok) {
-            setClientErrors(parsed.errors);
-          }
+          saveApi.resetMutation();
         },
       )();
     },

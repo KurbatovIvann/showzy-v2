@@ -1,6 +1,8 @@
 /**
- * Product form copy keys and server VALIDATION-by-path mapping (SHO-163).
- * Schema `message` values and issue paths are keys, never user-facing text.
+ * Product form copy keys, formState mapping, and server VALIDATION-by-path
+ * mapping (SHO-163 / SHO-168). Schema `message` values and issue paths
+ * are keys, never user-facing text. Field errors live in RHF formState
+ * plus this mapper — not a parallel `clientErrors` store.
  */
 import { isWireError, type WireErrorCode } from "@showzy/contract";
 
@@ -199,6 +201,99 @@ function rhfFieldMessage(
   }
   const message = nested.message;
   return typeof message === "string" ? message : undefined;
+}
+
+/**
+ * Parent + variant-row errors after submit: RHF `formState` copy keys,
+ * then wire `VALIDATION` issues on the same shape. Does not take a
+ * parallel `clientErrors` store.
+ */
+export function fieldErrorsFromFormState(args: {
+  readonly submitted: boolean;
+  readonly nameMessage: unknown;
+  readonly priceMessage: unknown;
+  readonly variants: ReadonlyArray<{ readonly key: string }>;
+  readonly rhfVariants: unknown;
+  readonly server: ProductFormFieldErrors | null;
+}): ProductFormFieldErrors {
+  const name =
+    args.submitted &&
+    typeof args.nameMessage === "string" &&
+    isNameErrorKey(args.nameMessage)
+      ? args.nameMessage
+      : null;
+  const price =
+    args.submitted &&
+    typeof args.priceMessage === "string" &&
+    isPriceErrorKey(args.priceMessage)
+      ? args.priceMessage
+      : null;
+  return {
+    name: name ?? args.server?.name ?? null,
+    price: price ?? args.server?.price ?? null,
+    variants: overlayVariantFieldErrors(
+      args.server?.variants,
+      args.submitted
+        ? mapRhfVariantFieldErrors(args.variants, args.rhfVariants)
+        : undefined,
+    ),
+  };
+}
+
+export type ProductFormRhfErrorEntry = {
+  readonly name:
+    | "name"
+    | "priceText"
+    | `variants.${number}.name`
+    | `variants.${number}.priceText`;
+  readonly message: NameErrorKey | PriceErrorKey;
+};
+
+function variantRhfPath(
+  index: number,
+  field: "name" | "priceText",
+): `variants.${number}.name` | `variants.${number}.priceText` {
+  const indexText = String(index);
+  if (field === "name") {
+    return `variants.${indexText}.name` as `variants.${number}.name`;
+  }
+  return `variants.${indexText}.priceText` as `variants.${number}.priceText`;
+}
+
+/**
+ * Planner `invalid` field errors → RHF `setError` names. Does not import
+ * RHF types. `String(index)` keeps template expressions lint-clean.
+ */
+export function rhfPathsForFieldErrors(
+  errors: ProductFormFieldErrors,
+  variants: ReadonlyArray<{ readonly key: string }>,
+): readonly ProductFormRhfErrorEntry[] {
+  const paths: ProductFormRhfErrorEntry[] = [];
+  if (errors.name !== null) {
+    paths.push({ name: "name", message: errors.name });
+  }
+  if (errors.price !== null) {
+    paths.push({ name: "priceText", message: errors.price });
+  }
+  const indexByKey = new Map(
+    variants.map((variant, index) => [variant.key, index]),
+  );
+  for (const [key, row] of Object.entries(errors.variants)) {
+    const index = indexByKey.get(key);
+    if (index === undefined) {
+      continue;
+    }
+    if (row.name !== null) {
+      paths.push({ name: variantRhfPath(index, "name"), message: row.name });
+    }
+    if (row.price !== null) {
+      paths.push({
+        name: variantRhfPath(index, "priceText"),
+        message: row.price,
+      });
+    }
+  }
+  return paths;
 }
 
 /**

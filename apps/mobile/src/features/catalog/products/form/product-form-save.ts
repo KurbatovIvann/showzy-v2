@@ -1,12 +1,13 @@
 /**
- * Product form save workflow (SHO-159 / SHO-163 / SHO-166). RHF
- * `handleSubmit` / `parseProductFormUiDraft` owns the UI parse; this
- * loop still plans writes with `planProductFormSave` /
- * `applyWriteSuccess`, then `photos.flush()`. Create stamps variant ids
- * from `catalog.createProduct` so a later photo flush failure does not
- * plan duplicate `createVariant` writes (SHO-167). Origin / RHF reset
- * wait until remaining writes and photos flush succeed (SHO-166). Not
- * `handleSubmit` as the only write.
+ * Product form save workflow (SHO-159 / SHO-163 / SHO-166 / SHO-168).
+ * RHF `handleSubmit` / `parseProductFormUiDraft` owns the UI parse;
+ * planner `invalid` reports field errors through `setFieldErrors` (RHF
+ * `setError` in the form hook). This loop still plans writes with
+ * `planProductFormSave` / `applyWriteSuccess`, then `photos.flush()`.
+ * Create stamps variant ids from `catalog.createProduct` so a later
+ * photo flush failure does not plan duplicate `createVariant` writes
+ * (SHO-167). Origin / RHF reset wait until remaining writes and photos
+ * flush succeed (SHO-166). Not `handleSubmit` as the only write.
  */
 import type { WireErrorCode } from "@showzy/contract";
 
@@ -47,7 +48,8 @@ export type ProductFormSavePorts = {
   readonly setLastWrite: (write: ProductFormWrite) => void;
   readonly getLastFailure: () => LastWriteFailure;
   readonly setLastFailure: (failure: LastWriteFailure) => void;
-  readonly setClientErrors: (errors: ProductFormFieldErrors) => void;
+  /** Planner `invalid` — the form hook applies these with RHF `setError`. */
+  readonly setFieldErrors: (errors: ProductFormFieldErrors) => void;
   readonly setTooManyVariants: () => void;
   readonly submit: (
     write: ProductFormWrite,
@@ -89,7 +91,7 @@ export async function runProductFormSave(
       lastWireCode: ports.getLastFailure().wire,
     });
     if (plan.kind === "invalid") {
-      ports.setClientErrors(plan.errors);
+      ports.setFieldErrors(plan.errors);
       return;
     }
     if (plan.kind === "noop") {

@@ -2,13 +2,16 @@ import { ORPCError } from "@orpc/client";
 import { describe, expect, it } from "vitest";
 
 import {
+  fieldErrorsFromFormState,
   firstVariantFieldError,
   mapProductFormFailure,
   mapRhfVariantFieldErrors,
   mapValidationIssues,
   overlayVariantFieldErrors,
+  rhfPathsForFieldErrors,
 } from "./product-form-copy";
 import type { ProductFormWrite } from "./product-form-plan";
+import { productFormResolver } from "./product-form.schema";
 
 describe("mapProductFormFailure / mapValidationIssues", () => {
   it("maps wire kinds without reading error messages", () => {
@@ -94,6 +97,102 @@ describe("overlayVariantFieldErrors", () => {
     ).toEqual({
       "draft-1": { name: "required", price: "invalid" },
     });
+  });
+});
+
+describe("fieldErrorsFromFormState", () => {
+  it("maps empty name/price submit errors from formState without a clientErrors store", async () => {
+    const result = await productFormResolver(
+      {
+        name: "",
+        priceText: "",
+        variants: [],
+        nextDraftSerial: 1,
+      },
+      undefined,
+      { fields: {}, shouldUseNativeValidation: false },
+    );
+    expect(
+      fieldErrorsFromFormState({
+        submitted: true,
+        nameMessage: result.errors.name?.message,
+        priceMessage: result.errors.priceText?.message,
+        variants: [],
+        rhfVariants: result.errors.variants,
+        server: null,
+      }),
+    ).toEqual({
+      name: "required",
+      price: "required",
+      variants: {},
+    });
+  });
+
+  it("ignores resolver messages until submit", () => {
+    expect(
+      fieldErrorsFromFormState({
+        submitted: false,
+        nameMessage: "required",
+        priceMessage: "required",
+        variants: [],
+        rhfVariants: undefined,
+        server: null,
+      }),
+    ).toEqual({ name: null, price: null, variants: {} });
+  });
+
+  it("overlays wire VALIDATION issues onto the same shape", () => {
+    expect(
+      fieldErrorsFromFormState({
+        submitted: true,
+        nameMessage: undefined,
+        priceMessage: undefined,
+        variants: [{ key: "draft-1" }],
+        rhfVariants: undefined,
+        server: {
+          name: "required",
+          price: null,
+          variants: { "draft-1": { name: null, price: "invalid" } },
+        },
+      }),
+    ).toEqual({
+      name: "required",
+      price: null,
+      variants: { "draft-1": { name: null, price: "invalid" } },
+    });
+  });
+
+  it("lets formState win on a field and keeps the other from VALIDATION", () => {
+    expect(
+      fieldErrorsFromFormState({
+        submitted: true,
+        nameMessage: "too_long",
+        priceMessage: undefined,
+        variants: [],
+        rhfVariants: undefined,
+        server: { name: "required", price: "invalid", variants: {} },
+      }),
+    ).toEqual({ name: "too_long", price: "invalid", variants: {} });
+  });
+});
+
+describe("rhfPathsForFieldErrors", () => {
+  it("turns planner invalid field errors into RHF setError names", () => {
+    expect(
+      rhfPathsForFieldErrors(
+        {
+          name: "required",
+          price: "required",
+          variants: { "draft-1": { name: "required", price: "invalid" } },
+        },
+        [{ key: "draft-1" }],
+      ),
+    ).toEqual([
+      { name: "name", message: "required" },
+      { name: "priceText", message: "required" },
+      { name: "variants.0.name", message: "required" },
+      { name: "variants.0.priceText", message: "invalid" },
+    ]);
   });
 });
 
