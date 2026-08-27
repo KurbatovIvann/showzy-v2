@@ -162,8 +162,9 @@ export function useProductForm(args: {
     mode: args.mode,
     loadKind: loadState.kind,
     getDraft: () => cloneProductFormDraft(getValues()),
-    // SHO-166: stamp server ids without RHF reset(); reset + origin
-    // commit only after remaining writes and photos.flush() succeed.
+    // SHO-166: stamp server ids without RHF reset(); field-array update
+    // dirties the row. reset + origin commit only after remaining writes
+    // and photos.flush() succeed.
     setDraft: (next) => {
       const current = getValues();
       next.variants.forEach((variant, index) => {
@@ -173,11 +174,10 @@ export function useProductForm(args: {
           (existing.key !== variant.key ||
             existing.variantId !== variant.variantId)
         ) {
-          setValue(`variants.${index}.key`, variant.key, {
-            shouldDirty: true,
-          });
-          setValue(`variants.${index}.variantId`, variant.variantId, {
-            shouldDirty: true,
+          update(index, {
+            ...existing,
+            key: variant.key,
+            variantId: variant.variantId,
           });
         }
       });
