@@ -45,7 +45,7 @@ export function useProductSave(args: {
   readonly setBaseline: (baseline: ProductFormSnapshot | null) => void;
   readonly photos: {
     readonly bindProductId: (productId: string) => void;
-    readonly flush: () => Promise<"ok" | "commit-failed">;
+    readonly flush: () => Promise<"ok" | "commit-failed" | "upload-failed">;
   };
   readonly onSaved: () => Promise<void>;
   readonly setClientErrors: (errors: ProductFormFieldErrors) => void;

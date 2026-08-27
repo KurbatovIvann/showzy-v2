@@ -134,6 +134,19 @@ export function hasInFlightPhotoUploads(slots: readonly PhotoSlot[]): boolean {
 }
 
 /**
+ * True when a non-dropped upload is failed or still not ready. Flush must
+ * not report success while a picked photo is missing from the ready list.
+ */
+export function hasUnreadyPhotoUploads(slots: readonly PhotoSlot[]): boolean {
+  return slots.some(
+    (slot) =>
+      slot.kind === "upload" &&
+      !isDropped(slot) &&
+      slot.machine.phase !== "ready",
+  );
+}
+
+/**
  * Create/edit leave-guard: local picks, in-flight uploads, or an ordered
  * list that has not been written yet. Edit auto-commit clears this after
  * `setProductImages` succeeds.
@@ -336,15 +349,22 @@ export function planPhotoCommit(args: {
   };
 }
 
+export type PhotoFlushOutcome = "ok" | "commit-failed" | "upload-failed";
+
 /**
- * After `commitIfNeeded`, save may still `flush`. A list that already
- * matches the server is success even if an earlier replace failed —
- * the user may have undone the change.
+ * After `commitIfNeeded`, save may still `flush`. Matching ready ids are
+ * not enough: a failed or otherwise unready pick is `"upload-failed"`.
+ * If the user removed that pick so ready ids match the server, a prior
+ * replace failure may still be `"ok"` (undo).
  */
 export function photoFlushOutcome(args: {
   readonly planKind: PhotoCommitPlan["kind"];
   readonly lastFailureKind: QueryFailureKind | null;
-}): "ok" | "commit-failed" {
+  readonly slots: readonly PhotoSlot[];
+}): PhotoFlushOutcome {
+  if (hasUnreadyPhotoUploads(args.slots)) {
+    return "upload-failed";
+  }
   if (args.planKind === "noop") {
     return "ok";
   }

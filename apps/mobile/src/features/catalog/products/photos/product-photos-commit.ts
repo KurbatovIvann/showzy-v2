@@ -4,6 +4,7 @@
  */
 import { describeQueryFailure } from "../../../../api/errors";
 
+import type { PhotoFlushOutcome } from "./product-photos-model";
 import {
   selectPhotoSessionCommitPlan,
   selectPhotoSessionFlushOutcome,
@@ -11,7 +12,7 @@ import {
   type PhotoSessionEvent,
 } from "./product-photos-session";
 
-export type ProductPhotosFlushResult = "ok" | "commit-failed";
+export type ProductPhotosFlushResult = PhotoFlushOutcome;
 
 export type PhotoCommitPorts = {
   getContext: () => PhotoSessionContext;

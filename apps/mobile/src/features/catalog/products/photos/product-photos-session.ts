@@ -22,6 +22,7 @@ import {
   removePhotoSlot,
   patchUploadMachine,
   toPhotoTiles,
+  type PhotoFlushOutcome,
 } from "./product-photos-model";
 
 const queryFailureKindSchema = z.enum([
@@ -323,10 +324,11 @@ export function selectPhotoSessionCommitPlan(context: PhotoSessionContext) {
 
 export function selectPhotoSessionFlushOutcome(
   context: PhotoSessionContext,
-): "ok" | "commit-failed" {
+): PhotoFlushOutcome {
   return photoFlushOutcome({
     planKind: selectPhotoSessionCommitPlan(context).kind,
     lastFailureKind: context.lastFailureKind,
+    slots: context.slots,
   });
 }
 

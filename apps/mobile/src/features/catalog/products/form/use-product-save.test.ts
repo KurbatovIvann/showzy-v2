@@ -36,6 +36,7 @@ function createPorts(overrides: {
   readonly retry?: () => Promise<ProductFormMutationResult>;
   readonly lastFailure?: LastWriteFailure;
   readonly lastWrite?: ProductFormWrite | null;
+  readonly flushResult?: "ok" | "commit-failed" | "upload-failed";
 }) {
   const calls: string[] = [];
   let draft = overrides.draft ?? validCreateDraft();
@@ -99,7 +100,7 @@ function createPorts(overrides: {
     },
     flushPhotos: () => {
       calls.push("flush");
-      return Promise.resolve("ok" as const);
+      return Promise.resolve(overrides.flushResult ?? "ok");
     },
     finish: () => {
       calls.push("finish");
@@ -131,6 +132,18 @@ describe("runProductFormSave", () => {
       "flush",
       "finish",
     ]);
+  });
+
+  it("does not finish when writes are done and flushPhotos returns upload-failed", async () => {
+    const { ports, calls } = createPorts({ flushResult: "upload-failed" });
+    await runProductFormSave(ports);
+    expect(calls).toEqual([
+      "submit:createProduct",
+      `bind:${PRODUCT_ID}`,
+      "reset",
+      "flush",
+    ]);
+    expect(calls).not.toContain("finish");
   });
 
   it("retries the in-flight write after a network failure", async () => {
