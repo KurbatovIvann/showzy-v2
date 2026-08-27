@@ -104,6 +104,57 @@ describe("bindProductFormMutate", () => {
     expect(methods[0]).not.toBe(methods[1]);
   });
 
+  it("keeps createProduct variant ids from the catalog output", async () => {
+    const mutate = bindProductFormMutate({
+      client: {
+        catalog: {
+          createProduct: () =>
+            Promise.resolve({
+              productId: PRODUCT_ID,
+              variants: [
+                {
+                  variantId: "11111111-1111-4111-8111-111111111111",
+                  name: "1 кг",
+                  basePriceMinor: "180000",
+                  currency: "UAH",
+                },
+              ],
+            }),
+          updateProduct: () => Promise.reject(new Error("unused")),
+          createVariant: () => Promise.reject(new Error("unused")),
+          updateVariant: () => Promise.reject(new Error("unused")),
+        },
+      },
+    });
+    const product = await mutate(
+      {
+        kind: "createProduct",
+        input: {
+          name: "Торт",
+          basePriceMinor: "150000",
+          currency: "UAH",
+          variants: [
+            { name: "1 кг", basePriceMinor: "180000", currency: "UAH" },
+          ],
+        },
+        variantKeys: ["draft-1"],
+      },
+      { context: { idempotencyKey: "k-create" } },
+    );
+    expect(product).toEqual({
+      kind: "product",
+      productId: PRODUCT_ID,
+      variants: [
+        {
+          variantId: "11111111-1111-4111-8111-111111111111",
+          name: "1 кг",
+          basePriceMinor: "180000",
+          currency: "UAH",
+        },
+      ],
+    });
+  });
+
   it("rejects a write that fails the contract wire schema before calling catalog", async () => {
     let catalogCalls = 0;
     const mutate = bindProductFormMutate({

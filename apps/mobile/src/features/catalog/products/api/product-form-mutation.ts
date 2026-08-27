@@ -14,6 +14,7 @@ import {
 import type {
   CreateProductPayload,
   CreateVariantPayload,
+  CreatedProductVariantView,
   ProductFormMutationResult,
   ProductFormWrite,
   UpdateProductPayload,
@@ -24,7 +25,10 @@ type CatalogWrites = {
   readonly createProduct: (
     input: CreateProductPayload,
     options: MutationCallOptions,
-  ) => Promise<{ readonly productId: string }>;
+  ) => Promise<{
+    readonly productId: string;
+    readonly variants: readonly CreatedProductVariantView[];
+  }>;
   readonly updateProduct: (
     input: UpdateProductPayload,
     options: MutationCallOptions,
@@ -142,6 +146,7 @@ export function bindProductFormMutate(client: ProductFormTransport) {
             .then((output) => ({
               kind: "product" as const,
               productId: output.productId,
+              variants: output.variants,
             }));
         case "updateProduct":
           return client.client.catalog
