@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import { emptyFieldErrors } from "./product-form.schema";
 import {
   emptyProductFormDraft,
+  snapshotFromDraft,
   type ProductFormDraft,
   type ProductFormFieldErrors,
+  type ProductFormMode,
   type ProductFormSnapshot,
 } from "./product-form-draft";
 import type {
@@ -30,6 +32,9 @@ function validCreateDraft(): ProductFormDraft {
 
 function createPorts(overrides: {
   readonly draft?: ProductFormDraft;
+  readonly mode?: ProductFormMode;
+  readonly productId?: string | null;
+  readonly baseline?: ProductFormSnapshot | null;
   readonly submit?: (
     write: ProductFormWrite,
   ) => Promise<ProductFormMutationResult>;
@@ -40,14 +45,14 @@ function createPorts(overrides: {
 }) {
   const calls: string[] = [];
   let draft = overrides.draft ?? validCreateDraft();
-  let baseline: ProductFormSnapshot | null = null;
+  let baseline: ProductFormSnapshot | null = overrides.baseline ?? null;
   let lastWrite = overrides.lastWrite ?? null;
   let lastFailure = overrides.lastFailure ?? { kind: null, wire: null };
   let clientErrors: ProductFormFieldErrors = emptyFieldErrors();
-  const productId = { current: null as string | null };
+  const productId = { current: overrides.productId ?? null };
   const ports: ProductFormSavePorts = {
     getDraft: () => draft,
-    getMode: () => "create",
+    getMode: () => overrides.mode ?? "create",
     getProductId: () => productId.current,
     setProductId: (id) => {
       productId.current = id;
@@ -143,6 +148,23 @@ describe("runProductFormSave", () => {
       "reset",
       "flush",
     ]);
+    expect(calls).not.toContain("finish");
+  });
+
+  it("does not finish when form writes are already done and flushPhotos returns upload-failed", async () => {
+    const draft = validCreateDraft();
+    const baseline = snapshotFromDraft(draft);
+    if (baseline === null) {
+      throw new Error("expected a snapshot from a valid draft");
+    }
+    const { ports, calls } = createPorts({
+      mode: "edit",
+      productId: PRODUCT_ID,
+      baseline,
+      flushResult: "upload-failed",
+    });
+    await runProductFormSave(ports);
+    expect(calls).toEqual(["flush"]);
     expect(calls).not.toContain("finish");
   });
 

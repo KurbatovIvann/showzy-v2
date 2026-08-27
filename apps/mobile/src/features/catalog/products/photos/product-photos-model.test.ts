@@ -232,6 +232,28 @@ describe("product photo ordering", () => {
         slots: emptyReady,
       }),
     ).toBe("upload-failed");
+    const idleSlots = [
+      ...committedSlotsFromFileIds([FILE_A]),
+      uploadSlot("local-idle"),
+    ];
+    expect(readyOrderedFileIds(idleSlots)).toEqual([FILE_A]);
+    expect(
+      planPhotoCommit({
+        productId: PRODUCT_ID,
+        slots: idleSlots,
+        lastCommitted: [FILE_A],
+        lastWrite: null,
+        lastFailureKind: null,
+        canRetryAttempt: false,
+      }),
+    ).toEqual({ kind: "noop" });
+    expect(
+      photoFlushOutcome({
+        planKind: "noop",
+        lastFailureKind: null,
+        slots: idleSlots,
+      }),
+    ).toBe("upload-failed");
   });
 
   it("lets create and edit attach, and defers setProductImages until a product id exists", () => {
