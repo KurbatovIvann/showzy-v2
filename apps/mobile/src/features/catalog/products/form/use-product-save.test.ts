@@ -20,6 +20,8 @@ import {
 } from "./product-form-save";
 
 const PRODUCT_ID = "0f0e2d5c-4a1b-4c3d-9e8f-102938475601";
+const VARIANT_A = "11111111-1111-4111-8111-111111111111";
+const VARIANT_B = "22222222-2222-4222-8222-222222222222";
 
 function validCreateDraft(): ProductFormDraft {
   return {
@@ -27,6 +29,54 @@ function validCreateDraft(): ProductFormDraft {
     priceText: "10",
     nextDraftSerial: 1,
     variants: [],
+  };
+}
+
+function originalEditDraft(): ProductFormDraft {
+  return {
+    name: "Торт",
+    priceText: "1500",
+    nextDraftSerial: 1,
+    variants: [
+      {
+        key: VARIANT_A,
+        variantId: VARIANT_A,
+        name: "1 кг",
+        priceText: "1800",
+        archived: false,
+      },
+      {
+        key: VARIANT_B,
+        variantId: VARIANT_B,
+        name: "0.5 кг",
+        priceText: "900",
+        archived: false,
+      },
+    ],
+  };
+}
+
+function dirtyEditDraft(): ProductFormDraft {
+  return {
+    name: "Наполеон",
+    priceText: "1600",
+    nextDraftSerial: 1,
+    variants: [
+      {
+        key: VARIANT_A,
+        variantId: VARIANT_A,
+        name: "2 кг",
+        priceText: "2000",
+        archived: false,
+      },
+      {
+        key: VARIANT_B,
+        variantId: VARIANT_B,
+        name: "1 кг",
+        priceText: "1000",
+        archived: false,
+      },
+    ],
   };
 }
 
@@ -44,6 +94,7 @@ function createPorts(overrides: {
   readonly flushResult?: "ok" | "commit-failed" | "upload-failed";
 }) {
   const calls: string[] = [];
+  const originDrafts: ProductFormDraft[] = [];
   let draft = overrides.draft ?? validCreateDraft();
   let baseline: ProductFormSnapshot | null = overrides.baseline ?? null;
   let lastWrite = overrides.lastWrite ?? null;
@@ -64,7 +115,9 @@ function createPorts(overrides: {
     setBaseline: (next) => {
       baseline = next;
     },
-    setOrigin: () => {},
+    setOrigin: (next) => {
+      originDrafts.push(next);
+    },
     getLastWrite: () => lastWrite,
     setLastWrite: (write) => {
       lastWrite = write;
@@ -112,7 +165,14 @@ function createPorts(overrides: {
       return Promise.resolve();
     },
   };
-  return { ports, calls, productId, getClientErrors: () => clientErrors };
+  return {
+    ports,
+    calls,
+    originDrafts,
+    productId,
+    getBaseline: () => baseline,
+    getClientErrors: () => clientErrors,
+  };
 }
 
 describe("runProductFormSave", () => {
@@ -127,7 +187,7 @@ describe("runProductFormSave", () => {
   });
 
   it("creates, binds the product id, flushes photos, and finishes", async () => {
-    const { ports, calls, productId } = createPorts({});
+    const { ports, calls, originDrafts, productId } = createPorts({});
     await runProductFormSave(ports);
     expect(productId.current).toBe(PRODUCT_ID);
     expect(calls).toEqual([
@@ -137,10 +197,13 @@ describe("runProductFormSave", () => {
       "flush",
       "finish",
     ]);
+    expect(originDrafts).toHaveLength(1);
   });
 
   it("does not finish when writes are done and flushPhotos returns upload-failed", async () => {
-    const { ports, calls } = createPorts({ flushResult: "upload-failed" });
+    const { ports, calls, originDrafts } = createPorts({
+      flushResult: "upload-failed",
+    });
     await runProductFormSave(ports);
     expect(calls).toEqual([
       "submit:createProduct",
@@ -149,6 +212,7 @@ describe("runProductFormSave", () => {
       "flush",
     ]);
     expect(calls).not.toContain("finish");
+    expect(originDrafts).toHaveLength(0);
   });
 
   it("does not finish when form writes are already done and flushPhotos returns upload-failed", async () => {
@@ -157,7 +221,7 @@ describe("runProductFormSave", () => {
     if (baseline === null) {
       throw new Error("expected a snapshot from a valid draft");
     }
-    const { ports, calls } = createPorts({
+    const { ports, calls, originDrafts } = createPorts({
       mode: "edit",
       productId: PRODUCT_ID,
       baseline,
@@ -166,6 +230,7 @@ describe("runProductFormSave", () => {
     await runProductFormSave(ports);
     expect(calls).toEqual(["flush"]);
     expect(calls).not.toContain("finish");
+    expect(originDrafts).toHaveLength(0);
   });
 
   it("retries the in-flight write after a network failure", async () => {
@@ -185,5 +250,58 @@ describe("runProductFormSave", () => {
     await runProductFormSave(ports);
     expect(calls[0]).toBe("retry");
     expect(calls).not.toContain("submit:createProduct");
+  });
+
+  it("keeps origin uncommitted after a mid-loop edit failure and retries remaining writes only", async () => {
+    const baseline = snapshotFromDraft(originalEditDraft());
+    expect(baseline).not.toBeNull();
+    if (baseline === null) {
+      return;
+    }
+    let variantFailures = 0;
+    const { ports, calls, originDrafts, getBaseline } = createPorts({
+      mode: "edit",
+      productId: PRODUCT_ID,
+      draft: dirtyEditDraft(),
+      baseline,
+      submit: (write) => {
+        calls.push(`submit:${write.kind}`);
+        if (write.kind === "updateVariant" && variantFailures === 0) {
+          variantFailures += 1;
+          return Promise.reject(new TypeError("Failed to fetch"));
+        }
+        if (write.kind === "updateVariant") {
+          return Promise.resolve({
+            kind: "variant" as const,
+            variantId: write.input.variantId,
+          });
+        }
+        return Promise.resolve({
+          kind: "product" as const,
+          productId: PRODUCT_ID,
+        });
+      },
+    });
+
+    await expect(runProductFormSave(ports)).rejects.toThrow(/Failed to fetch/);
+    expect(calls.filter((call) => call.startsWith("submit:"))).toEqual([
+      "submit:updateProduct",
+      "submit:updateVariant",
+    ]);
+    expect(originDrafts).toHaveLength(0);
+    expect(calls).not.toContain("finish");
+    expect(calls).not.toContain("flush");
+    expect(getBaseline()?.name).toBe("Наполеон");
+
+    calls.length = 0;
+    await runProductFormSave(ports);
+    expect(calls.filter((call) => call.startsWith("submit:"))).toEqual([
+      "submit:updateVariant",
+      "submit:updateVariant",
+    ]);
+    expect(calls).not.toContain("submit:updateProduct");
+    expect(originDrafts).toHaveLength(1);
+    expect(calls.at(-2)).toBe("flush");
+    expect(calls.at(-1)).toBe("finish");
   });
 });

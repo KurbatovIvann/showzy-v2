@@ -94,7 +94,9 @@ export function useProductForm(args: {
   });
   const { isDirty, errors, isSubmitted } = formState;
 
-  const [origin, setOrigin] = useState<ProductFormDraft>(emptyProductFormDraft);
+  const [origin, setOriginDraft] = useState<ProductFormDraft>(
+    emptyProductFormDraft,
+  );
   const [baseline, setBaseline] = useState<ProductFormSnapshot | null>(null);
   const [clientErrors, setClientErrors] =
     useState<ProductFormFieldErrors>(emptyFieldErrors);
@@ -133,7 +135,7 @@ export function useProductForm(args: {
     const snap = snapshotFromProduct(query.data);
     reset(next);
     baselineRef.current = snap;
-    setOrigin(next);
+    setOriginDraft(next);
     setBaseline(snap);
   }, [args.mode, query.data, reset]);
 
@@ -160,10 +162,30 @@ export function useProductForm(args: {
     mode: args.mode,
     loadKind: loadState.kind,
     getDraft: () => cloneProductFormDraft(getValues()),
+    // SHO-166: stamp server ids without RHF reset(); field-array update
+    // dirties the row. reset + origin commit only after remaining writes
+    // and photos.flush() succeed.
     setDraft: (next) => {
-      reset(next);
+      const current = getValues();
+      next.variants.forEach((variant, index) => {
+        const existing = current.variants[index];
+        if (
+          existing !== undefined &&
+          (existing.key !== variant.key ||
+            existing.variantId !== variant.variantId)
+        ) {
+          update(index, {
+            ...existing,
+            key: variant.key,
+            variantId: variant.variantId,
+          });
+        }
+      });
     },
-    setOrigin,
+    setOrigin: (draft) => {
+      reset(draft);
+      setOriginDraft(draft);
+    },
     productIdRef,
     baselineRef,
     setBaseline,
