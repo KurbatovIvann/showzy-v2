@@ -53,13 +53,13 @@ export type ProductFormSavePorts = {
   readonly retry: () => Promise<ProductFormMutationResult>;
   readonly resetMutation: () => void;
   readonly bindProductId: (productId: string) => void;
-  readonly flushPhotos: () => Promise<"ok" | "commit-failed">;
+  readonly flushPhotos: () => Promise<"ok" | "commit-failed" | "upload-failed">;
   readonly finish: () => Promise<void>;
 };
 
 async function commitSavedForm(ports: ProductFormSavePorts): Promise<void> {
   const photoResult = await ports.flushPhotos();
-  if (photoResult === "commit-failed") {
+  if (photoResult !== "ok") {
     return;
   }
   ports.setOrigin(ports.getDraft());

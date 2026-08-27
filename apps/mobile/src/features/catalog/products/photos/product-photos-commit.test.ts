@@ -5,6 +5,7 @@ import {
   createPhotoSessionStore,
   type PhotoSessionStore,
 } from "./product-photos-session";
+import { initialUploadMachine, reduceUpload } from "./product-photos-upload";
 
 const FILE_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const FILE_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -167,5 +168,38 @@ describe("flushPhotoSession", () => {
     });
     expect(ok).toBe("ok");
     expect(session.getContext().lastFailureKind).toBeNull();
+  });
+
+  it("returns upload-failed when a failed pick remains after a matching ready list", async () => {
+    const session = createPhotoSessionStore({
+      productId: PRODUCT_ID,
+      requireProduct: true,
+      snapshotFileIds: [FILE_A],
+    });
+    session.send({
+      type: "addPhotos",
+      photos: [{ id: "local-1", localUri: "file:///tmp/n.jpg" }],
+    });
+    let failedMachine = initialUploadMachine();
+    failedMachine = reduceUpload(failedMachine, { type: "start" }).state;
+    failedMachine = reduceUpload(failedMachine, {
+      type: "fail",
+      reason: "network",
+    }).state;
+    session.send({
+      type: "patchMachine",
+      id: "local-1",
+      machine: failedMachine,
+    });
+    const send = vi.fn(session.send);
+    const outcome = await flushPhotoSession({
+      kickIdle: () => undefined,
+      waitUntilSettled: () => Promise.resolve(),
+      commitIfNeeded: () => Promise.resolve(),
+      getContext: session.getContext,
+      send,
+    });
+    expect(outcome).toBe("upload-failed");
+    expect(send).not.toHaveBeenCalledWith({ type: "clearFailure" });
   });
 });

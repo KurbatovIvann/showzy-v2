@@ -38,6 +38,12 @@ function readyMachine(fileId: string): UploadMachine {
   return reduceUpload(machine, { type: "finalized" }).state;
 }
 
+function failedMachine(): UploadMachine {
+  let machine = initialUploadMachine();
+  machine = reduceUpload(machine, { type: "start" }).state;
+  return reduceUpload(machine, { type: "fail", reason: "network" }).state;
+}
+
 function puttingMachine(): UploadMachine {
   let machine = initialUploadMachine();
   machine = reduceUpload(machine, { type: "start" }).state;
@@ -194,6 +200,26 @@ describe("product photo session", () => {
     expect(selectPhotoSessionFlushOutcome(session.getContext())).toBe("ok");
     expect(photoSessionNeedsCommit(session.getContext())).toBe(false);
     expect(photoSessionDirty(session.getContext())).toBe(false);
+  });
+
+  it("flush is upload-failed when a committed photo remains and a failed upload is still in the slots", () => {
+    const session = createPhotoSessionStore(editInput([FILE_A]));
+    session.send({
+      type: "addPhotos",
+      photos: [{ id: "local-1", localUri: "file:///tmp/n.jpg" }],
+    });
+    session.send({
+      type: "patchMachine",
+      id: "local-1",
+      machine: failedMachine(),
+    });
+    expect(selectPhotoSessionCommitPlan(session.getContext())).toEqual({
+      kind: "noop",
+    });
+    expect(photoSessionDirty(session.getContext())).toBe(true);
+    expect(selectPhotoSessionFlushOutcome(session.getContext())).toBe(
+      "upload-failed",
+    );
   });
 
   it("cancel drops an in-flight upload so the commit plan does not keep it", () => {

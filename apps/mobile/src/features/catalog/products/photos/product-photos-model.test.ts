@@ -154,22 +154,106 @@ describe("product photo ordering", () => {
     ).toEqual({ kind: "noop" });
     expect(
       photoFlushOutcome({
-        planKind: "noop",
-        lastFailureKind: "network",
-      }),
-    ).toBe("ok");
-    expect(
-      photoFlushOutcome({
         planKind: "write",
         lastFailureKind: "network",
+        slots,
       }),
     ).toBe("commit-failed");
     expect(
       photoFlushOutcome({
         planKind: "retry",
         lastFailureKind: null,
+        slots,
       }),
     ).toBe("ok");
+  });
+
+  it("flush is ok after noop-after-undo when the user removed the failed pick so ready ids match the server", () => {
+    const slots = committedSlotsFromFileIds([FILE_A]);
+    expect(
+      planPhotoCommit({
+        productId: PRODUCT_ID,
+        slots,
+        lastCommitted: [FILE_A],
+        lastWrite: [FILE_A, FILE_B],
+        lastFailureKind: "network",
+        canRetryAttempt: false,
+      }),
+    ).toEqual({ kind: "noop" });
+    expect(
+      photoFlushOutcome({
+        planKind: "noop",
+        lastFailureKind: "network",
+        slots,
+      }),
+    ).toBe("ok");
+  });
+
+  it("flush is not ok when a committed photo remains and a failed upload is still in the slots", () => {
+    const slots = [
+      ...committedSlotsFromFileIds([FILE_A]),
+      uploadSlot("local-1", "failed"),
+    ];
+    expect(readyOrderedFileIds(slots)).toEqual([FILE_A]);
+    expect(
+      planPhotoCommit({
+        productId: PRODUCT_ID,
+        slots,
+        lastCommitted: [FILE_A],
+        lastWrite: null,
+        lastFailureKind: null,
+        canRetryAttempt: false,
+      }),
+    ).toEqual({ kind: "noop" });
+    expect(photosAreDirty(slots, [FILE_A])).toBe(true);
+    expect(
+      photoFlushOutcome({
+        planKind: "noop",
+        lastFailureKind: null,
+        slots,
+      }),
+    ).toBe("upload-failed");
+    const emptyReady = [uploadSlot("local-2", "failed")];
+    expect(readyOrderedFileIds(emptyReady)).toEqual([]);
+    expect(
+      planPhotoCommit({
+        productId: PRODUCT_ID,
+        slots: emptyReady,
+        lastCommitted: [],
+        lastWrite: null,
+        lastFailureKind: null,
+        canRetryAttempt: false,
+      }),
+    ).toEqual({ kind: "noop" });
+    expect(
+      photoFlushOutcome({
+        planKind: "noop",
+        lastFailureKind: null,
+        slots: emptyReady,
+      }),
+    ).toBe("upload-failed");
+    const idleSlots = [
+      ...committedSlotsFromFileIds([FILE_A]),
+      uploadSlot("local-idle"),
+    ];
+    expect(readyOrderedFileIds(idleSlots)).toEqual([FILE_A]);
+    expect(
+      planPhotoCommit({
+        productId: PRODUCT_ID,
+        slots: idleSlots,
+        lastCommitted: [FILE_A],
+        lastWrite: null,
+        lastFailureKind: null,
+        canRetryAttempt: false,
+      }),
+    ).toEqual({ kind: "noop" });
+    expect(
+      photoFlushOutcome({
+        planKind: "noop",
+        lastFailureKind: null,
+        slots: idleSlots,
+      }),
+    ).toBe("upload-failed");
   });
 
   it("lets create and edit attach, and defers setProductImages until a product id exists", () => {

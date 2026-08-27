@@ -91,6 +91,7 @@ function createPorts(overrides: {
   readonly retry?: () => Promise<ProductFormMutationResult>;
   readonly lastFailure?: LastWriteFailure;
   readonly lastWrite?: ProductFormWrite | null;
+  readonly flushResult?: "ok" | "commit-failed" | "upload-failed";
 }) {
   const calls: string[] = [];
   const originDrafts: ProductFormDraft[] = [];
@@ -157,7 +158,7 @@ function createPorts(overrides: {
     },
     flushPhotos: () => {
       calls.push("flush");
-      return Promise.resolve("ok" as const);
+      return Promise.resolve(overrides.flushResult ?? "ok");
     },
     finish: () => {
       calls.push("finish");
@@ -197,6 +198,39 @@ describe("runProductFormSave", () => {
       "finish",
     ]);
     expect(originDrafts).toHaveLength(1);
+  });
+
+  it("does not finish when writes are done and flushPhotos returns upload-failed", async () => {
+    const { ports, calls, originDrafts } = createPorts({
+      flushResult: "upload-failed",
+    });
+    await runProductFormSave(ports);
+    expect(calls).toEqual([
+      "submit:createProduct",
+      `bind:${PRODUCT_ID}`,
+      "reset",
+      "flush",
+    ]);
+    expect(calls).not.toContain("finish");
+    expect(originDrafts).toHaveLength(0);
+  });
+
+  it("does not finish when form writes are already done and flushPhotos returns upload-failed", async () => {
+    const draft = validCreateDraft();
+    const baseline = snapshotFromDraft(draft);
+    if (baseline === null) {
+      throw new Error("expected a snapshot from a valid draft");
+    }
+    const { ports, calls, originDrafts } = createPorts({
+      mode: "edit",
+      productId: PRODUCT_ID,
+      baseline,
+      flushResult: "upload-failed",
+    });
+    await runProductFormSave(ports);
+    expect(calls).toEqual(["flush"]);
+    expect(calls).not.toContain("finish");
+    expect(originDrafts).toHaveLength(0);
   });
 
   it("retries the in-flight write after a network failure", async () => {
