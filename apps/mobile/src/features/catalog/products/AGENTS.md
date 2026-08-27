@@ -29,10 +29,12 @@ RHF sheet for variants (SHO-163). Pin exact `react-hook-form` /
   not `watch()` of the whole form as the render model, and not a parallel
   `useState` per field. After a successful UI parse (`handleSubmit` /
   `parseProductFormUiDraft`), run `planProductFormSave` then
-  `photos.flush()`. After submit, variant row errors come from
-  `formState.errors.variants` mapped onto draft keys (RHF gates the
-  write; compacting a blank unsaved row must not hide remaining
-  variant failures). Photo session belongs in `useReducer` +
+  `photos.flush()`. After submit, parent field and variant row errors
+  come from `formState` (copy keys) mapped onto draft keys, plus wire
+  `VALIDATION` issues on the same shape — not a parallel `clientErrors`
+  store. RHF gates the write; compacting a blank unsaved row must not
+  hide remaining variant failures. `too_many_variants` is a local
+  banner, not a field error. Photo session belongs in `useReducer` +
   `reducePhotoSession`. `use-product-photos.ts` composes the session with
   Query (download URLs) and the commit/runtime drivers — it does not own
   slots or the handshake. List filters and sheet chrome are `useReducer`
@@ -54,10 +56,11 @@ RHF sheet for variants (SHO-163). Pin exact `react-hook-form` /
   `product-photos-mutation.ts` (`setProductImages`), `product-archive.ts`
   — not a fictional `product.commands.ts`. The list presenter is
   `products-list.presenter.ts`. Ids, hrefs, shared caps, and permissions
-  live in `shared/`; `form/` must not import `detail/` and `detail/` must
-  not import `form/` except `VariantEditorSheet` (detail variant writes
-  may reuse `product-form-plan.ts` / `product-form-draft.ts` so they do
-  not fork a second payload).
+  live in `shared/`; `form/` must not import `detail/`. `detail/` may
+  import from `form/` only `VariantEditorSheet`, `product-form-plan.ts`,
+  `product-form-draft.ts`, and `product-form-copy.ts` so detail variant
+  writes do not fork a second payload. Detail must never import the
+  form hook, screen, or view.
 - **Catalog limits** come from `@showzy/validation/catalog` (or
   `ContractClient` types), not a second local number. List search uses
   `LIST_PRODUCTS_QUERY_MAX_LENGTH`. Photos uses `SET_PRODUCT_IMAGES_MAX`.

@@ -123,7 +123,7 @@ function createPorts(overrides: {
   let baseline: ProductFormSnapshot | null = overrides.baseline ?? null;
   let lastWrite = overrides.lastWrite ?? null;
   let lastFailure = overrides.lastFailure ?? { kind: null, wire: null };
-  let clientErrors: ProductFormFieldErrors = emptyFieldErrors();
+  let fieldErrors: ProductFormFieldErrors = emptyFieldErrors();
   const productId = { current: overrides.productId ?? null };
   const ports: ProductFormSavePorts = {
     getDraft: () => draft,
@@ -150,8 +150,8 @@ function createPorts(overrides: {
     setLastFailure: (failure) => {
       lastFailure = failure;
     },
-    setClientErrors: (errors) => {
-      clientErrors = errors;
+    setFieldErrors: (errors) => {
+      fieldErrors = errors;
     },
     setTooManyVariants: () => {
       calls.push("too-many");
@@ -196,19 +196,19 @@ function createPorts(overrides: {
     productId,
     getBaseline: () => baseline,
     getDraft: () => draft,
-    getClientErrors: () => clientErrors,
+    getFieldErrors: () => fieldErrors,
   };
 }
 
 describe("runProductFormSave", () => {
   it("does not submit when the UI draft is invalid", async () => {
-    const { ports, calls, getClientErrors } = createPorts({
+    const { ports, calls, getFieldErrors } = createPorts({
       draft: emptyProductFormDraft(),
     });
     await runProductFormSave(ports);
     expect(calls).toEqual([]);
-    expect(getClientErrors().name).toBe("required");
-    expect(getClientErrors().price).toBe("required");
+    expect(getFieldErrors().name).toBe("required");
+    expect(getFieldErrors().price).toBe("required");
   });
 
   it("creates, binds the product id, flushes photos, and finishes", async () => {
