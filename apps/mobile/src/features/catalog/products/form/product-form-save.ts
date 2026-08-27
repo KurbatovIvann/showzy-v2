@@ -1,8 +1,10 @@
 /**
- * Product form save workflow (SHO-159 / SHO-163). RHF `handleSubmit` /
- * `parseProductFormUiDraft` owns the UI parse; this loop still plans
- * writes with `planProductFormSave` / `applyWriteSuccess`, then
- * `photos.flush()`. Not `handleSubmit` as the only write.
+ * Product form save workflow (SHO-159 / SHO-163 / SHO-166). RHF
+ * `handleSubmit` / `parseProductFormUiDraft` owns the UI parse; this
+ * loop still plans writes with `planProductFormSave` /
+ * `applyWriteSuccess`, then `photos.flush()`. Origin / RHF reset wait
+ * until remaining writes and photos flush succeed (SHO-166). Not
+ * `handleSubmit` as the only write.
  */
 import type { WireErrorCode } from "@showzy/contract";
 
@@ -55,6 +57,15 @@ export type ProductFormSavePorts = {
   readonly finish: () => Promise<void>;
 };
 
+async function commitSavedForm(ports: ProductFormSavePorts): Promise<void> {
+  const photoResult = await ports.flushPhotos();
+  if (photoResult === "commit-failed") {
+    return;
+  }
+  ports.setOrigin(ports.getDraft());
+  await ports.finish();
+}
+
 export async function runProductFormSave(
   ports: ProductFormSavePorts,
 ): Promise<void> {
@@ -80,12 +91,7 @@ export async function runProductFormSave(
       return;
     }
     if (plan.kind === "noop") {
-      ports.setOrigin(ports.getDraft());
-      const photoResult = await ports.flushPhotos();
-      if (photoResult === "commit-failed") {
-        return;
-      }
-      await ports.finish();
+      await commitSavedForm(ports);
       return;
     }
     if (plan.kind === "write") {
@@ -113,15 +119,10 @@ export async function runProductFormSave(
         ? (snapshotFromDraft(compactDraft(applied.draft)) ?? applied.baseline)
         : applied.baseline;
     ports.setDraft(applied.draft);
-    ports.setOrigin(applied.draft);
     ports.setBaseline(nextBaseline);
     ports.resetMutation();
     if (applied.done) {
-      const photoResult = await ports.flushPhotos();
-      if (photoResult === "commit-failed") {
-        return;
-      }
-      await ports.finish();
+      await commitSavedForm(ports);
       return;
     }
   }
