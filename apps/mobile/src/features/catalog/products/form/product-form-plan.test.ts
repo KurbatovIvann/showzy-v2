@@ -290,7 +290,7 @@ describe("applyWriteSuccess", () => {
     };
     expect(
       applyWriteSuccess({
-        draft: validCreateDraft(),
+        draft: emptyProductFormDraft(),
         baseline: null,
         write: createWrite,
         result: { kind: "product", productId: PRODUCT_ID },
@@ -330,6 +330,125 @@ describe("applyWriteSuccess", () => {
           variant.variantId === "33333333-3333-4333-8333-333333333333",
       ),
     ).toBe(true);
+  });
+
+  it("stamps createProduct variant ids so remainingFormWrites is empty", () => {
+    const draft = validCreateDraft();
+    const created = createProductPayload(draft);
+    expect(created).not.toBeNull();
+    if (created === null) {
+      return;
+    }
+    const applied = applyWriteSuccess({
+      draft,
+      baseline: null,
+      write: {
+        kind: "createProduct",
+        input: created.input,
+        variantKeys: created.variantKeys,
+      },
+      result: {
+        kind: "product",
+        productId: PRODUCT_ID,
+        variants: [
+          {
+            variantId: VARIANT_ID,
+            name: "1 кг",
+            basePriceMinor: "180000",
+            currency: "UAH",
+          },
+        ],
+      },
+    });
+    expect(applied.done).toBe(true);
+    expect(
+      applied.draft.variants.find((variant) => variant.name.trim() === "1 кг")
+        ?.variantId,
+    ).toBe(VARIANT_ID);
+    const snapshot = snapshotFromDraft(applied.draft);
+    expect(snapshot).not.toBeNull();
+    expect(applied.baseline).not.toBeNull();
+    if (snapshot === null || applied.baseline === null) {
+      return;
+    }
+    expect(remainingFormWrites(PRODUCT_ID, snapshot, applied.baseline)).toEqual(
+      [],
+    );
+  });
+
+  it("matches created variants by name and price when output order differs", () => {
+    const draft: ProductFormDraft = {
+      name: "Торт",
+      priceText: "10",
+      nextDraftSerial: 3,
+      variants: [
+        {
+          key: "draft-1",
+          variantId: null,
+          name: "1 кг",
+          priceText: "1800",
+          archived: false,
+        },
+        {
+          key: "draft-2",
+          variantId: null,
+          name: "0.5 кг",
+          priceText: "900",
+          archived: false,
+        },
+      ],
+    };
+    const created = createProductPayload(draft);
+    expect(created).not.toBeNull();
+    if (created === null) {
+      return;
+    }
+    const secondId = "22222222-2222-4222-8222-222222222222";
+    const applied = applyWriteSuccess({
+      draft,
+      baseline: null,
+      write: {
+        kind: "createProduct",
+        input: created.input,
+        variantKeys: created.variantKeys,
+      },
+      result: {
+        kind: "product",
+        productId: PRODUCT_ID,
+        variants: [
+          {
+            variantId: secondId,
+            name: "0.5 кг",
+            basePriceMinor: "90000",
+            currency: "UAH",
+          },
+          {
+            variantId: VARIANT_ID,
+            name: "1 кг",
+            basePriceMinor: "180000",
+            currency: "UAH",
+          },
+        ],
+      },
+    });
+    expect(
+      applied.draft.variants.map((variant) => ({
+        name: variant.name,
+        variantId: variant.variantId,
+      })),
+    ).toEqual([
+      { name: "1 кг", variantId: VARIANT_ID },
+      { name: "0.5 кг", variantId: secondId },
+    ]);
+    const snapshot = snapshotFromDraft(applied.draft);
+    expect(snapshot).not.toBeNull();
+    expect(applied.baseline).not.toBeNull();
+    if (snapshot === null || applied.baseline === null) {
+      return;
+    }
+    expect(remainingFormWrites(PRODUCT_ID, snapshot, applied.baseline)).toEqual(
+      [],
+    );
   });
 });
 

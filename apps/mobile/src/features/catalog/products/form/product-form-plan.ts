@@ -61,8 +61,19 @@ export type ProductFormSavePlan =
   | { readonly kind: "noop" }
   | { readonly kind: "write"; readonly write: ProductFormWrite };
 
+export type CreatedProductVariantView = {
+  readonly variantId: string;
+  readonly name: string;
+  readonly basePriceMinor: string | null;
+  readonly currency: string | null;
+};
+
 export type ProductFormMutationResult =
-  | { readonly kind: "product"; readonly productId: string }
+  | {
+      readonly kind: "product";
+      readonly productId: string;
+      readonly variants?: readonly CreatedProductVariantView[];
+    }
   | { readonly kind: "variant"; readonly variantId: string };
 
 const RETRYABLE_FAILURE: ReadonlySet<QueryFailureKind> = new Set([
@@ -309,6 +320,49 @@ function writeProductId(write: ProductFormWrite): string | null {
   }
 }
 
+/**
+ * `catalog.createProduct` returns variants sorted by id, not payload
+ * order. Match each draft key to an unused created row by name + price,
+ * then fall back to the next unused row.
+ */
+function stampCreateProductVariantIds(args: {
+  readonly draft: ProductFormDraft;
+  readonly variantKeys: readonly string[];
+  readonly created: readonly CreatedProductVariantView[];
+}): ProductFormDraft {
+  const snapshot = snapshotFromDraft(args.draft);
+  const remaining = [...args.created];
+  const idByKey = new Map<string, string>();
+  for (const key of args.variantKeys) {
+    const snap = snapshot?.variants.find((variant) => variant.key === key);
+    const matchIndex = remaining.findIndex(
+      (row) =>
+        snap !== undefined &&
+        row.name === snap.name &&
+        row.basePriceMinor === snap.priceMinor,
+    );
+    const matched =
+      matchIndex >= 0 ? remaining.splice(matchIndex, 1)[0] : remaining.shift();
+    if (matched === undefined) {
+      continue;
+    }
+    idByKey.set(key, matched.variantId);
+  }
+  if (idByKey.size === 0) {
+    return args.draft;
+  }
+  return {
+    ...args.draft,
+    variants: args.draft.variants.map((variant) => {
+      const variantId = idByKey.get(variant.key);
+      if (variantId === undefined) {
+        return variant;
+      }
+      return { ...variant, key: variantId, variantId };
+    }),
+  };
+}
+
 export function applyWriteSuccess(args: {
   readonly draft: ProductFormDraft;
   readonly baseline: ProductFormSnapshot | null;
@@ -320,7 +374,18 @@ export function applyWriteSuccess(args: {
   readonly done: boolean;
 } {
   if (args.write.kind === "createProduct") {
-    return { draft: args.draft, baseline: args.baseline, done: true };
+    const created =
+      args.result.kind === "product" ? (args.result.variants ?? []) : [];
+    const draft = stampCreateProductVariantIds({
+      draft: args.draft,
+      variantKeys: args.write.variantKeys,
+      created,
+    });
+    return {
+      draft,
+      baseline: snapshotFromDraft(draft) ?? args.baseline,
+      done: true,
+    };
   }
   const loaded = snapshotFromDraft(args.draft);
   let draft = args.draft;

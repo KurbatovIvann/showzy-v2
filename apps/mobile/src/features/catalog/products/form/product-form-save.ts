@@ -2,8 +2,10 @@
  * Product form save workflow (SHO-159 / SHO-163 / SHO-166). RHF
  * `handleSubmit` / `parseProductFormUiDraft` owns the UI parse; this
  * loop still plans writes with `planProductFormSave` /
- * `applyWriteSuccess`, then `photos.flush()`. Origin / RHF reset wait
- * until remaining writes and photos flush succeed (SHO-166). Not
+ * `applyWriteSuccess`, then `photos.flush()`. Create stamps variant ids
+ * from `catalog.createProduct` so a later photo flush failure does not
+ * plan duplicate `createVariant` writes (SHO-167). Origin / RHF reset
+ * wait until remaining writes and photos flush succeed (SHO-166). Not
  * `handleSubmit` as the only write.
  */
 import type { WireErrorCode } from "@showzy/contract";

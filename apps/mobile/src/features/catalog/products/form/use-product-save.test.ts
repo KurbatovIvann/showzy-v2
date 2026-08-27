@@ -32,6 +32,30 @@ function validCreateDraft(): ProductFormDraft {
   };
 }
 
+function createDraftWithVariants(): ProductFormDraft {
+  return {
+    name: "Торт",
+    priceText: "10",
+    nextDraftSerial: 3,
+    variants: [
+      {
+        key: "draft-1",
+        variantId: null,
+        name: "1 кг",
+        priceText: "1800",
+        archived: false,
+      },
+      {
+        key: "draft-2",
+        variantId: null,
+        name: "0.5 кг",
+        priceText: "900",
+        archived: false,
+      },
+    ],
+  };
+}
+
 function originalEditDraft(): ProductFormDraft {
   return {
     name: "Торт",
@@ -171,6 +195,7 @@ function createPorts(overrides: {
     originDrafts,
     productId,
     getBaseline: () => baseline,
+    getDraft: () => draft,
     getClientErrors: () => clientErrors,
   };
 }
@@ -303,5 +328,75 @@ describe("runProductFormSave", () => {
     expect(originDrafts).toHaveLength(1);
     expect(calls.at(-2)).toBe("flush");
     expect(calls.at(-1)).toBe("finish");
+  });
+
+  it("does not createVariant on retry after create+variants when photo flush fails", async () => {
+    const draft = createDraftWithVariants();
+    const createdVariants = [
+      {
+        variantId: VARIANT_B,
+        name: "0.5 кг",
+        basePriceMinor: "90000",
+        currency: "UAH",
+      },
+      {
+        variantId: VARIANT_A,
+        name: "1 кг",
+        basePriceMinor: "180000",
+        currency: "UAH",
+      },
+    ] as const;
+    const { ports, calls, originDrafts, getDraft } = createPorts({
+      draft,
+      flushResult: "upload-failed",
+      submit: (write) => {
+        calls.push(`submit:${write.kind}`);
+        if (write.kind === "createProduct") {
+          return Promise.resolve({
+            kind: "product" as const,
+            productId: PRODUCT_ID,
+            variants: createdVariants,
+          });
+        }
+        if (write.kind === "createVariant") {
+          return Promise.resolve({
+            kind: "variant" as const,
+            variantId: "33333333-3333-4333-8333-333333333333",
+          });
+        }
+        return Promise.resolve({
+          kind: "product" as const,
+          productId: PRODUCT_ID,
+        });
+      },
+    });
+
+    await runProductFormSave(ports);
+    expect(calls.filter((call) => call.startsWith("submit:"))).toEqual([
+      "submit:createProduct",
+    ]);
+    expect(calls).toContain("flush");
+    expect(calls).not.toContain("finish");
+    expect(originDrafts).toHaveLength(0);
+    expect(
+      getDraft().variants.map((variant) => ({
+        name: variant.name,
+        variantId: variant.variantId,
+      })),
+    ).toEqual([
+      { name: "1 кг", variantId: VARIANT_A },
+      { name: "0.5 кг", variantId: VARIANT_B },
+    ]);
+
+    calls.length = 0;
+    await runProductFormSave(ports);
+    expect(calls.filter((call) => call.startsWith("submit:"))).toEqual([]);
+    expect(calls).not.toContain("submit:createVariant");
+    expect(calls).toEqual(["flush"]);
+    expect(calls).not.toContain("finish");
+    expect(getDraft().variants).toHaveLength(2);
+    expect(
+      new Set(getDraft().variants.map((variant) => variant.variantId)),
+    ).toEqual(new Set([VARIANT_A, VARIANT_B]));
   });
 });
