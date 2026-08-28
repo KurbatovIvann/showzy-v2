@@ -23,20 +23,7 @@ describe("customers.restoreCustomer contract", () => {
     expect(restoreCustomerContract.timeout).toBe(5_000);
     expect(restoreCustomerContract.rateLimit).toBeUndefined();
     expect(restoreCustomerContract.description).toContain("status-only");
-    expect(Object.keys(customerViewSchema.shape).toSorted()).toEqual([
-      "createdAt",
-      "email",
-      "groupId",
-      "id",
-      "linkedCounterpartyCount",
-      "name",
-      "notes",
-      "phone",
-      "priceListId",
-      "status",
-      "updatedAt",
-      "userId",
-    ]);
+    expect(restoreCustomerContract.output).toBe(customerViewSchema);
   });
 
   it("accepts a uuid id and rejects missing, malformed, and extra fields", () => {

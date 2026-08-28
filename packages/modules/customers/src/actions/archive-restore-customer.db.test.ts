@@ -322,6 +322,7 @@ describe("customers archive/restore", () => {
       action: "customers.archiveCustomer",
       companyId: kitIdentities.companies.a,
       actorType: "user",
+      actorId: kitIdentities.users.anna,
       targetType: "customer",
       targetId: fixtures.customerHappy,
       outcome: "ok",
@@ -351,9 +352,9 @@ describe("customers archive/restore", () => {
       status: "active",
       linkedCounterpartyCount: 0,
     });
-    expect((await customerRow(fixtures.customerRestore))?.groupId).toBe(
-      fixtures.groupA,
-    );
+    const restoredRow = await customerRow(fixtures.customerRestore);
+    expect(restoredRow?.status).toBe("active");
+    expect(restoredRow?.groupId).toBe(fixtures.groupA);
 
     const restoreAudit = await kit.db.runtime.db
       .select()
@@ -362,6 +363,8 @@ describe("customers archive/restore", () => {
     expect(restoreAudit).toHaveLength(1);
     expect(restoreAudit[0]).toMatchObject({
       action: "customers.restoreCustomer",
+      actorType: "user",
+      actorId: kitIdentities.users.anna,
       targetType: "customer",
       targetId: fixtures.customerRestore,
       outcome: "ok",
