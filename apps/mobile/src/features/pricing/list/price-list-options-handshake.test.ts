@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it, vi } from "vitest";
 
 import type { ConfirmDialogRequest } from "../../../components/ui/confirm-dialog";
@@ -20,6 +22,11 @@ const DELETE_CONFIRM: ConfirmDialogRequest = {
   cancelLabel: "Cancel",
   tone: "danger",
 };
+
+const HOOK_SOURCE = readFileSync(
+  new URL("./use-price-lists-list.ts", import.meta.url),
+  "utf8",
+);
 
 function deferred(): {
   readonly promise: Promise<void>;
@@ -185,5 +192,27 @@ describe("runPriceListOptionsFollowUp", () => {
     expect(chrome.visible).toBe(false);
     expect(banner).toBe("cannot-deactivate-default");
     expect(submitDeactivate).not.toHaveBeenCalled();
+  });
+});
+
+describe("live hook wiring (SHO-200)", () => {
+  it("stores PriceListOptionsChrome and applies the chrome helpers", () => {
+    expect(HOOK_SOURCE).toContain("PriceListOptionsChrome");
+    expect(HOOK_SOURCE).toContain("openPriceListOptions");
+    expect(HOOK_SOURCE).toContain("hidePriceListOptions");
+    expect(HOOK_SOURCE).toContain("priceListOptionsHidden");
+    expect(HOOK_SOURCE).toContain("optionsHidden.notify()");
+    expect(HOOK_SOURCE).not.toContain("optionsVisibleRef");
+  });
+
+  it("calls the follow-up with live ports, not a bypass then into writes", () => {
+    expect(HOOK_SOURCE).toContain("runPriceListOptionsFollowUp");
+    expect(HOOK_SOURCE).toContain("presentConfirmDialog");
+    expect(HOOK_SOURCE).toContain("setBanner");
+    expect(HOOK_SOURCE).toContain("submitDeactivate");
+    expect(HOOK_SOURCE).not.toContain("runAfterOptionsSheetHidden");
+    expect(HOOK_SOURCE).not.toMatch(
+      /then:\s*\(\)\s*=>\s*writes\.(remove|toggleActive)/,
+    );
   });
 });
