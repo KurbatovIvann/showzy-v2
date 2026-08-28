@@ -41,7 +41,10 @@ import {
   createOrderContract,
   getOrderContract,
 } from "@showzy/orders/contract";
-import { resolveProductPricesContract } from "@showzy/pricing/contract";
+import {
+  listPriceListsContract,
+  resolveProductPricesContract,
+} from "@showzy/pricing/contract";
 
 import {
   buildContractRouter,
@@ -82,6 +85,7 @@ export const contractModules = {
     get: getOrderContract,
   },
   pricing: {
+    listPriceLists: listPriceListsContract,
     resolveProductPrices: resolveProductPricesContract,
   },
 } satisfies ContractModuleMap;

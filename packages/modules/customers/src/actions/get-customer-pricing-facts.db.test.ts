@@ -42,6 +42,7 @@ async function insertPriceList(values: {
   await kit.db.runtime.db.insert(priceLists).values({
     id: values.id,
     companyId: values.companyId,
+    name: "Price list",
   });
 }
 

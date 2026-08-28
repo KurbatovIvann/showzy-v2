@@ -14,6 +14,7 @@ import {
   foreignKey,
   index,
   pgTable,
+  text,
   timestamp,
   unique,
   uniqueIndex,
@@ -25,8 +26,9 @@ import { companies } from "./companies.js";
 import { companyCustomers } from "./customers.js";
 
 /**
- * Named price tiers. At most one default list per company (partial unique);
- * inactive lists are skipped at every resolution level.
+ * Named price tiers (SHO-171 adds `name`). At most one default list per
+ * company (partial unique); inactive lists are skipped at every resolution
+ * level but still returned by the staff list read.
  */
 export const priceLists = pgTable(
   "price_lists",
@@ -35,6 +37,7 @@ export const priceLists = pgTable(
     companyId: uuid("company_id")
       .notNull()
       .references(() => companies.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
     isActive: boolean("is_active").notNull().default(true),
     isDefault: boolean("is_default").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -50,6 +53,10 @@ export const priceLists = pgTable(
     uniqueIndex("price_lists_company_default_uq")
       .on(table.companyId)
       .where(sql`${table.isDefault} = true`),
+    check(
+      "price_lists_name_length_check",
+      sql`char_length(${table.name}) BETWEEN 1 AND 120`,
+    ),
   ],
 );
 

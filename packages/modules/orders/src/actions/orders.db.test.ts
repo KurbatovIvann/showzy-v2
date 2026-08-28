@@ -271,12 +271,13 @@ beforeAll(async () => {
   const companyB = kitIdentities.companies.b;
 
   await kit.db.runtime.db.insert(priceLists).values([
-    { id: fixtures.listCustomer, companyId: companyA },
-    { id: fixtures.listGroup, companyId: companyA },
+    { id: fixtures.listCustomer, companyId: companyA, name: "Customer list" },
+    { id: fixtures.listGroup, companyId: companyA, name: "Group list" },
     {
       id: fixtures.listDefault,
       companyId: companyA,
       isDefault: true,
+      name: "Default",
     },
   ]);
   await kit.db.runtime.db.insert(customerGroups).values({

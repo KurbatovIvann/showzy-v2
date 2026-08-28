@@ -1,8 +1,9 @@
 /**
- * SHO-170: 0024 must widen assignment-only CRM tables from 0008 without
+ * SHO-170: 0025 must widen assignment-only CRM tables from 0012 without
  * failing on existing rows. Empty-DB apply is the harness template
  * (all migrations). This file proves the SQL backfill and a DB that
- * already has pricing-slice customer/group rows.
+ * already has pricing-slice customer/group rows. 0024 (SHO-171) lands
+ * first and only adds price_lists.name.
  */
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -23,7 +24,7 @@ const migrationsFolder = fileURLToPath(
   new URL("../migrations", import.meta.url),
 );
 const crmMigrationSql = readFileSync(
-  path.join(migrationsFolder, "0024_wakeful_adam_destine.sql"),
+  path.join(migrationsFolder, "0025_wakeful_adam_destine.sql"),
   "utf8",
 );
 
@@ -68,7 +69,7 @@ function statementsOf(sql: string): string[] {
     .filter((part) => part.length > 0);
 }
 
-describe("customers CRM migration (0024)", () => {
+describe("customers CRM migration (0025)", () => {
   it("backfills name/slug/contact instead of adding NOT NULL with no default", () => {
     expect(crmMigrationSql).toContain(
       `ALTER TABLE "company_customers" ADD COLUMN "name" text;`,
@@ -155,13 +156,13 @@ describe("customers CRM migration (0024)", () => {
       await control.query(`CREATE DATABASE "${name}"`);
       const priorMigrations = path.join(workspace, "migrations");
       await cp(migrationsFolder, priorMigrations, { recursive: true });
-      await rm(path.join(priorMigrations, "0024_wakeful_adam_destine.sql"));
-      await rm(path.join(priorMigrations, "meta/0024_snapshot.json"));
+      await rm(path.join(priorMigrations, "0025_wakeful_adam_destine.sql"));
+      await rm(path.join(priorMigrations, "meta/0025_snapshot.json"));
       const journalPath = path.join(priorMigrations, "meta/_journal.json");
       const journal = JSON.parse(await readFile(journalPath, "utf8")) as {
         entries: { idx: number }[];
       };
-      journal.entries = journal.entries.filter((entry) => entry.idx < 24);
+      journal.entries = journal.entries.filter((entry) => entry.idx < 25);
       await writeFile(journalPath, `${JSON.stringify(journal, null, 2)}\n`);
 
       migrator = createDbClient({
