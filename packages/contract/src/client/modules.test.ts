@@ -25,8 +25,10 @@ import {
   createGroupContract,
   deleteCustomerContract,
   deleteGroupContract,
+  getCounterpartyContract,
   getCustomerContract,
   getGroupContract,
+  listCounterpartiesContract,
   listCustomersContract,
   listGroupsContract,
   restoreCustomerContract,
@@ -93,8 +95,10 @@ describe("client composition", () => {
         createGroup: createGroupContract,
         deleteCustomer: deleteCustomerContract,
         deleteGroup: deleteGroupContract,
+        getCounterparty: getCounterpartyContract,
         getCustomer: getCustomerContract,
         getGroup: getGroupContract,
+        listCounterparties: listCounterpartiesContract,
         listCustomers: listCustomersContract,
         listGroups: listGroupsContract,
         restoreCustomer: restoreCustomerContract,
@@ -153,8 +157,10 @@ describe("client composition", () => {
     expect(contractRouter.customers.createGroup).toBeDefined();
     expect(contractRouter.customers.deleteCustomer).toBeDefined();
     expect(contractRouter.customers.deleteGroup).toBeDefined();
+    expect(contractRouter.customers.getCounterparty).toBeDefined();
     expect(contractRouter.customers.getCustomer).toBeDefined();
     expect(contractRouter.customers.getGroup).toBeDefined();
+    expect(contractRouter.customers.listCounterparties).toBeDefined();
     expect(contractRouter.customers.listCustomers).toBeDefined();
     expect(contractRouter.customers.listGroups).toBeDefined();
     expect(contractRouter.customers.restoreCustomer).toBeDefined();

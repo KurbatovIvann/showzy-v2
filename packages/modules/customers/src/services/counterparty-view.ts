@@ -1,6 +1,6 @@
 import { NotFoundError } from "@showzy/core/errors";
 import { companyCustomers, counterparties } from "@showzy/db/schema/customers";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import type { z } from "zod";
 
 import type { counterpartyViewSchema } from "../actions/counterparty-view.contract.js";
@@ -125,4 +125,31 @@ export async function requireOwnCustomer(
     throw new NotFoundError();
   }
   return row;
+}
+
+export async function customerNamesByIds(
+  db: CounterpartyCountDb,
+  companyId: string,
+  customerIds: readonly string[],
+): Promise<Map<string, string>> {
+  const result = new Map<string, string>();
+  if (customerIds.length === 0) {
+    return result;
+  }
+  const rows = await db
+    .select({
+      id: companyCustomers.id,
+      name: companyCustomers.name,
+    })
+    .from(companyCustomers)
+    .where(
+      and(
+        eq(companyCustomers.companyId, companyId),
+        inArray(companyCustomers.id, [...customerIds]),
+      ),
+    );
+  for (const row of rows) {
+    result.set(row.id, row.name);
+  }
+  return result;
 }
