@@ -30,11 +30,13 @@ import {
   listMineContract,
 } from "@showzy/companies/contract";
 import {
+  archiveCustomerContract,
   createCustomerContract,
   createGroupContract,
   deleteGroupContract,
   getGroupContract,
   listGroupsContract,
+  restoreCustomerContract,
   updateCustomerContract,
   updateGroupContract,
 } from "@showzy/customers/contract";
@@ -82,11 +84,13 @@ export const contractModules = {
     listMine: listMineContract,
   },
   customers: {
+    archiveCustomer: archiveCustomerContract,
     createCustomer: createCustomerContract,
     createGroup: createGroupContract,
     deleteGroup: deleteGroupContract,
     getGroup: getGroupContract,
     listGroups: listGroupsContract,
+    restoreCustomer: restoreCustomerContract,
     updateCustomer: updateCustomerContract,
     updateGroup: updateGroupContract,
   },

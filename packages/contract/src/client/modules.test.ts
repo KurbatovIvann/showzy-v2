@@ -19,11 +19,13 @@ import {
   listMineContract,
 } from "@showzy/companies/contract";
 import {
+  archiveCustomerContract,
   createCustomerContract,
   createGroupContract,
   deleteGroupContract,
   getGroupContract,
   listGroupsContract,
+  restoreCustomerContract,
   updateCustomerContract,
   updateGroupContract,
 } from "@showzy/customers/contract";
@@ -70,11 +72,13 @@ describe("client composition", () => {
         listMine: listMineContract,
       },
       customers: {
+        archiveCustomer: archiveCustomerContract,
         createCustomer: createCustomerContract,
         createGroup: createGroupContract,
         deleteGroup: deleteGroupContract,
         getGroup: getGroupContract,
         listGroups: listGroupsContract,
+        restoreCustomer: restoreCustomerContract,
         updateCustomer: updateCustomerContract,
         updateGroup: updateGroupContract,
       },
@@ -113,11 +117,13 @@ describe("client composition", () => {
     expect(contractRouter.chat.getOrderCard).toBeDefined();
     expect(contractRouter.companies.create).toBeDefined();
     expect(contractRouter.companies.listMine).toBeDefined();
+    expect(contractRouter.customers.archiveCustomer).toBeDefined();
     expect(contractRouter.customers.createCustomer).toBeDefined();
     expect(contractRouter.customers.createGroup).toBeDefined();
     expect(contractRouter.customers.deleteGroup).toBeDefined();
     expect(contractRouter.customers.getGroup).toBeDefined();
     expect(contractRouter.customers.listGroups).toBeDefined();
+    expect(contractRouter.customers.restoreCustomer).toBeDefined();
     expect(contractRouter.customers.updateCustomer).toBeDefined();
     expect(contractRouter.customers.updateGroup).toBeDefined();
     expect(contractModules.customers).not.toHaveProperty(

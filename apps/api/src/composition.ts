@@ -40,12 +40,14 @@ import { chatSuiteCoverage } from "@showzy/chat/suite-coverage";
 import { createCompany, listMine } from "@showzy/companies";
 import { companiesSuiteCoverage } from "@showzy/companies/suite-coverage";
 import {
+  archiveCustomer,
   createCustomer,
   createGroup,
   deleteGroup,
   getCustomerPricingFacts,
   getGroup,
   listGroups,
+  restoreCustomer,
   updateCustomer,
   updateGroup,
 } from "@showzy/customers";
@@ -212,12 +214,14 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, upsertOrderCard);
   registerAction(registry, createCompany);
   registerAction(registry, listMine);
+  registerAction(registry, archiveCustomer);
   registerAction(registry, createCustomer);
   registerAction(registry, createGroup);
   registerAction(registry, deleteGroup);
   registerAction(registry, getCustomerPricingFacts);
   registerAction(registry, getGroup);
   registerAction(registry, listGroups);
+  registerAction(registry, restoreCustomer);
   registerAction(registry, updateCustomer);
   registerAction(registry, updateGroup);
   registerAction(registry, requestUpload);
