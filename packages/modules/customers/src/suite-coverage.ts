@@ -4,6 +4,7 @@ export const customersSuiteCoverage = {
   isolation: [
     "customers.createCustomer",
     "customers.createGroup",
+    "customers.deleteGroup",
     "customers.getCustomerPricingFacts",
     "customers.updateCustomer",
     "customers.updateGroup",
@@ -15,6 +16,7 @@ export const customersSuiteCoverage = {
   idempotency: [
     "customers.createCustomer",
     "customers.createGroup",
+    "customers.deleteGroup",
     "customers.updateCustomer",
     "customers.updateGroup",
   ],

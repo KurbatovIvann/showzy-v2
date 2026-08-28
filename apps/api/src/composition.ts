@@ -42,6 +42,7 @@ import { companiesSuiteCoverage } from "@showzy/companies/suite-coverage";
 import {
   createCustomer,
   createGroup,
+  deleteGroup,
   getCustomerPricingFacts,
   updateCustomer,
   updateGroup,
@@ -211,6 +212,7 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, listMine);
   registerAction(registry, createCustomer);
   registerAction(registry, createGroup);
+  registerAction(registry, deleteGroup);
   registerAction(registry, getCustomerPricingFacts);
   registerAction(registry, updateCustomer);
   registerAction(registry, updateGroup);
