@@ -2,9 +2,11 @@ import type { SuiteCoverageManifest } from "@showzy/core";
 
 export const customersSuiteCoverage = {
   isolation: [
+    "customers.createCustomer",
     "customers.createGroup",
     "customers.deleteGroup",
     "customers.getCustomerPricingFacts",
+    "customers.updateCustomer",
     "customers.updateGroup",
   ],
   publicProjection: [],
@@ -12,8 +14,10 @@ export const customersSuiteCoverage = {
   accountIsolation: [],
   shareIsolation: [],
   idempotency: [
+    "customers.createCustomer",
     "customers.createGroup",
     "customers.deleteGroup",
+    "customers.updateCustomer",
     "customers.updateGroup",
   ],
   events: [],
