@@ -45,9 +45,11 @@ import {
   getOrderContract,
 } from "@showzy/orders/contract";
 import {
+  createPriceListContract,
   getPriceListContract,
   listPriceListsContract,
   resolveProductPricesContract,
+  updatePriceListContract,
 } from "@showzy/pricing/contract";
 
 import { contractModules, contractRouter } from "./modules.js";
@@ -102,9 +104,11 @@ describe("client composition", () => {
         get: getOrderContract,
       },
       pricing: {
+        createPriceList: createPriceListContract,
         getPriceList: getPriceListContract,
         listPriceLists: listPriceListsContract,
         resolveProductPrices: resolveProductPricesContract,
+        updatePriceList: updatePriceListContract,
       },
     });
     expect(contractRouter.catalog.createProduct).toBeDefined();
@@ -150,8 +154,10 @@ describe("client composition", () => {
     expect(contractRouter.orders.create).toBeDefined();
     expect(contractRouter.orders.confirm).toBeDefined();
     expect(contractRouter.orders.get).toBeDefined();
+    expect(contractRouter.pricing.createPriceList).toBeDefined();
     expect(contractRouter.pricing.getPriceList).toBeDefined();
     expect(contractRouter.pricing.listPriceLists).toBeDefined();
     expect(contractRouter.pricing.resolveProductPrices).toBeDefined();
+    expect(contractRouter.pricing.updatePriceList).toBeDefined();
   });
 });
