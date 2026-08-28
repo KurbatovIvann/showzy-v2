@@ -93,7 +93,9 @@ describe("runAfterOptionsSheetHidden", () => {
         chrome = hidePriceListOptions(chrome);
         events.push("hide");
       },
-      then: () => presentConfirmDialog(),
+      then: async () => {
+        await presentConfirmDialog();
+      },
     });
 
     await Promise.resolve();
