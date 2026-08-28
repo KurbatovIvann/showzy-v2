@@ -1,9 +1,8 @@
 /**
- * Default / active / delete + navigation (SHO-189). Delete is UI confirm
- * then protocol confirmation. Callers must wait for the options sheet
- * `onHidden` before `remove` (Alert) and before the deactivate-default
- * Banner (SHO-198). Deactivating the default is blocked in the UI and
- * never sent.
+ * Default / active / delete + navigation (SHO-189). Delete protocol
+ * submit assumes the options-sheet follow-up already presented the UI
+ * confirm after `onHidden` (SHO-198 / SHO-200). Deactivating the default
+ * is blocked in the UI and never sent; the follow-up sets the Banner.
  */
 import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -13,8 +12,6 @@ import { useApiClient } from "../../../api/api-provider";
 import { useContractMutation } from "../../../api/contract-mutation";
 import { describeQueryFailure } from "../../../api/errors";
 import { useActiveCompany } from "../../../api/query-provider";
-import { presentConfirmDialog } from "../../../components/ui/present-confirm-dialog";
-import { interpolate } from "../../../i18n/locale";
 import type { PricingCopy } from "../../../i18n/pricing";
 import { bindPriceListDeleteMutate } from "../api/price-list-delete";
 import {
@@ -111,6 +108,11 @@ export function usePriceListWrites(args: {
     goBack: () => {
       router.back();
     },
+    setBanner: (message: string) => {
+      statusMutation.reset();
+      deleteMutation.reset();
+      setLocalBanner(message);
+    },
     setDefault: async (list: PriceListWriteTarget) => {
       if (!args.canManage || writeBusyRef.current) {
         return;
@@ -141,9 +143,6 @@ export function usePriceListWrites(args: {
           isActive: list.isActive,
         })
       ) {
-        statusMutation.reset();
-        deleteMutation.reset();
-        setLocalBanner(args.copy.toast.cannotDeactivateDefault);
         return;
       }
       writeBusyRef.current = true;
@@ -163,18 +162,6 @@ export function usePriceListWrites(args: {
     },
     remove: async (list: PriceListWriteTarget) => {
       if (!args.canManage || writeBusyRef.current) {
-        return;
-      }
-      const choice = await presentConfirmDialog({
-        title: args.copy.confirm.deleteTitle,
-        message: interpolate(args.copy.confirm.deleteDescription, {
-          name: list.name,
-        }),
-        confirmLabel: args.copy.confirm.deleteConfirm,
-        cancelLabel: args.copy.confirm.cancel,
-        tone: "danger",
-      });
-      if (choice === "cancel") {
         return;
       }
       writeBusyRef.current = true;

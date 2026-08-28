@@ -1,10 +1,11 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { useApiClient } from "../../../api/api-provider";
 import { describeQueryFailure } from "../../../api/errors";
 import { useActiveCompany } from "../../../api/query-provider";
 import { useResolvedCompany } from "../../../company-resolution/resolved-company-provider";
+import { presentConfirmDialog } from "../../../components/ui/present-confirm-dialog";
 import { detectLocale, interpolate } from "../../../i18n/locale";
 import { pricingCopy } from "../../../i18n/pricing";
 import {
@@ -19,9 +20,13 @@ import {
 } from "../shared/use-debounced-value";
 import { useSheetHiddenWaiter } from "../shared/use-sheet-hidden-waiter";
 import {
-  optionsFollowUpWaitsForHidden,
+  hidePriceListOptions,
+  IDLE_PRICE_LIST_OPTIONS,
+  openPriceListOptions,
   planPriceListOptionsFollowUp,
-  runAfterOptionsSheetHidden,
+  priceListOptionsHidden,
+  runPriceListOptionsFollowUp,
+  type PriceListOptionsChrome,
 } from "./price-list-options-handshake";
 import {
   classifyPriceListsList,
@@ -56,9 +61,9 @@ export function usePriceListsList() {
   const [searchText, setSearchText] = useState("");
   const [availability, setAvailability] =
     useState<PriceListsAvailability>("all");
-  const [optionsListId, setOptionsListId] = useState<string | null>(null);
-  const [optionsVisible, setOptionsVisible] = useState(false);
-  const optionsVisibleRef = useRef(false);
+  const [optionsChrome, setOptionsChrome] = useState<PriceListOptionsChrome>(
+    IDLE_PRICE_LIST_OPTIONS,
+  );
   const optionsHidden = useSheetHiddenWaiter();
   const debouncedSearch = useDebouncedValue(searchText, SEARCH_DEBOUNCE_MS);
   const search = normalizePriceListsSearch(debouncedSearch);
@@ -103,15 +108,11 @@ export function usePriceListsList() {
     hasSearch,
     availability,
   });
-  const optionsList = rows.find((row) => row.id === optionsListId) ?? null;
-
-  function setOptionsOpen(visible: boolean): void {
-    optionsVisibleRef.current = visible;
-    setOptionsVisible(visible);
-  }
+  const optionsList =
+    rows.find((row) => row.id === optionsChrome.listId) ?? null;
 
   function hideOptions(): void {
-    setOptionsOpen(false);
+    setOptionsChrome(hidePriceListOptions);
   }
 
   const showHint =
@@ -140,20 +141,17 @@ export function usePriceListsList() {
     banner: writes.banner,
     writesPending: writes.pending,
     showHint,
-    optionsVisible,
+    optionsVisible: optionsChrome.visible,
     optionsList,
     openOptions: (id: string) => {
-      setOptionsListId(id);
-      setOptionsOpen(true);
+      setOptionsChrome(openPriceListOptions(id));
     },
     closeOptions: () => {
       hideOptions();
     },
     onOptionsHidden: () => {
       optionsHidden.notify();
-      if (!optionsVisibleRef.current) {
-        setOptionsListId(null);
-      }
+      setOptionsChrome(priceListOptionsHidden);
     },
     refreshing: listQuery.isRefetching && !listQuery.isFetchingNextPage,
     refresh: () => {
@@ -189,11 +187,14 @@ export function usePriceListsList() {
         isDefault: list.isDefault,
         isActive: list.isActive,
       });
-      if (optionsFollowUpWaitsForHidden(followUp)) {
-        await runAfterOptionsSheetHidden({
+      if (followUp.kind === "blockDeactivateDefault") {
+        await runPriceListOptionsFollowUp({
+          kind: "blockDeactivateDefault",
           waitHidden: optionsHidden.wait,
           hide: hideOptions,
-          then: () => writes.toggleActive(list),
+          setBanner: writes.setBanner,
+          submitDeactivate: () => writes.toggleActive(list),
+          message: copy.toast.cannotDeactivateDefault,
         });
         return;
       }
@@ -205,11 +206,25 @@ export function usePriceListsList() {
         return;
       }
       const list = optionsList;
-      await runAfterOptionsSheetHidden({
+      const choice = await runPriceListOptionsFollowUp({
+        kind: "delete",
         waitHidden: optionsHidden.wait,
         hide: hideOptions,
-        then: () => writes.remove(list),
+        presentConfirmDialog,
+        confirm: {
+          title: copy.confirm.deleteTitle,
+          message: interpolate(copy.confirm.deleteDescription, {
+            name: list.name,
+          }),
+          confirmLabel: copy.confirm.deleteConfirm,
+          cancelLabel: copy.confirm.cancel,
+          tone: "danger",
+        },
       });
+      if (choice !== "confirm") {
+        return;
+      }
+      await writes.remove(list);
     },
   };
 }

@@ -1,5 +1,8 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it, vi } from "vitest";
 
+import type { ConfirmDialogRequest } from "../../../components/ui/confirm-dialog";
 import {
   hidePriceListOptions,
   IDLE_PRICE_LIST_OPTIONS,
@@ -7,10 +10,34 @@ import {
   optionsFollowUpWaitsForHidden,
   planPriceListOptionsFollowUp,
   priceListOptionsHidden,
-  runAfterOptionsSheetHidden,
+  runPriceListOptionsFollowUp,
 } from "./price-list-options-handshake";
 
 const LIST_ID = "0f0e2d5c-4a1b-4c3d-9e8f-102938475601";
+
+const DELETE_CONFIRM: ConfirmDialogRequest = {
+  title: "Delete this price list?",
+  message: "Really delete Опт?",
+  confirmLabel: "Delete",
+  cancelLabel: "Cancel",
+  tone: "danger",
+};
+
+const HOOK_SOURCE = readFileSync(
+  new URL("./use-price-lists-list.ts", import.meta.url),
+  "utf8",
+);
+
+function deferred(): {
+  readonly promise: Promise<void>;
+  readonly resolve: () => void;
+} {
+  let resolve!: () => void;
+  const promise = new Promise<void>((next) => {
+    resolve = next;
+  });
+  return { promise, resolve };
+}
 
 describe("price-list options chrome", () => {
   it("keeps the selected list while visible becomes false", () => {
@@ -71,29 +98,28 @@ describe("planPriceListOptionsFollowUp", () => {
   });
 });
 
-describe("runAfterOptionsSheetHidden", () => {
+describe("runPriceListOptionsFollowUp", () => {
   it("delete waits for sheet hidden before presentConfirmDialog", async () => {
     let chrome = openPriceListOptions(LIST_ID);
     const events: string[] = [];
-    let release!: () => void;
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
+    const gate = deferred();
     const presentConfirmDialog = vi.fn(() => {
       events.push("presentConfirmDialog");
-      return Promise.resolve();
+      return Promise.resolve("confirm" as const);
     });
 
-    const done = runAfterOptionsSheetHidden({
+    const done = runPriceListOptionsFollowUp({
+      kind: "delete",
       waitHidden: () => {
         events.push("wait");
-        return gate;
+        return gate.promise;
       },
       hide: () => {
         chrome = hidePriceListOptions(chrome);
         events.push("hide");
       },
-      then: () => presentConfirmDialog(),
+      presentConfirmDialog,
+      confirm: DELETE_CONFIRM,
     });
 
     await Promise.resolve();
@@ -102,13 +128,34 @@ describe("runAfterOptionsSheetHidden", () => {
     expect(chrome.listId).toBe(LIST_ID);
     expect(presentConfirmDialog).not.toHaveBeenCalled();
 
-    release();
-    await done;
+    gate.resolve();
+    await expect(done).resolves.toBe("confirm");
     expect(presentConfirmDialog).toHaveBeenCalledOnce();
+    expect(presentConfirmDialog).toHaveBeenCalledWith(DELETE_CONFIRM);
     expect(events).toEqual(["wait", "hide", "presentConfirmDialog"]);
   });
 
-  it("deactivate-default does not show the Banner under an open Modal", async () => {
+  it("delete returns cancel without implying a submit", async () => {
+    const gate = deferred();
+    const presentConfirmDialog = vi.fn(() =>
+      Promise.resolve("cancel" as const),
+    );
+
+    const done = runPriceListOptionsFollowUp({
+      kind: "delete",
+      waitHidden: () => gate.promise,
+      hide: () => undefined,
+      presentConfirmDialog,
+      confirm: DELETE_CONFIRM,
+    });
+
+    expect(presentConfirmDialog).not.toHaveBeenCalled();
+    gate.resolve();
+    await expect(done).resolves.toBe("cancel");
+    expect(presentConfirmDialog).toHaveBeenCalledOnce();
+  });
+
+  it("deactivate-default sets Banner only after hide and never submits", async () => {
     const followUp = planPriceListOptionsFollowUp({
       action: "toggleActive",
       isDefault: true,
@@ -120,19 +167,19 @@ describe("runAfterOptionsSheetHidden", () => {
     let chrome = openPriceListOptions(LIST_ID);
     let banner: string | null = null;
     const submitDeactivate = vi.fn();
-    let release!: () => void;
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
+    const gate = deferred();
 
-    const done = runAfterOptionsSheetHidden({
-      waitHidden: () => gate,
+    const done = runPriceListOptionsFollowUp({
+      kind: "blockDeactivateDefault",
+      waitHidden: () => gate.promise,
       hide: () => {
         chrome = hidePriceListOptions(chrome);
       },
-      then: () => {
-        banner = "cannot-deactivate-default";
+      setBanner: (message) => {
+        banner = message;
       },
+      submitDeactivate,
+      message: "cannot-deactivate-default",
     });
 
     await Promise.resolve();
@@ -140,10 +187,32 @@ describe("runAfterOptionsSheetHidden", () => {
     expect(banner).toBeNull();
     expect(submitDeactivate).not.toHaveBeenCalled();
 
-    release();
+    gate.resolve();
     await done;
     expect(chrome.visible).toBe(false);
     expect(banner).toBe("cannot-deactivate-default");
     expect(submitDeactivate).not.toHaveBeenCalled();
+  });
+});
+
+describe("live hook wiring (SHO-200)", () => {
+  it("stores PriceListOptionsChrome and applies the chrome helpers", () => {
+    expect(HOOK_SOURCE).toContain("PriceListOptionsChrome");
+    expect(HOOK_SOURCE).toContain("openPriceListOptions");
+    expect(HOOK_SOURCE).toContain("hidePriceListOptions");
+    expect(HOOK_SOURCE).toContain("priceListOptionsHidden");
+    expect(HOOK_SOURCE).toContain("optionsHidden.notify()");
+    expect(HOOK_SOURCE).not.toContain("optionsVisibleRef");
+  });
+
+  it("calls the follow-up with live ports, not a bypass then into writes", () => {
+    expect(HOOK_SOURCE).toContain("runPriceListOptionsFollowUp");
+    expect(HOOK_SOURCE).toContain("presentConfirmDialog");
+    expect(HOOK_SOURCE).toContain("setBanner");
+    expect(HOOK_SOURCE).toContain("submitDeactivate");
+    expect(HOOK_SOURCE).not.toContain("runAfterOptionsSheetHidden");
+    expect(HOOK_SOURCE).not.toMatch(
+      /then:\s*\(\)\s*=>\s*writes\.(remove|toggleActive)/,
+    );
   });
 });
