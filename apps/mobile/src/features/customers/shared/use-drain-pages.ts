@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-import { shouldDrainNextPage } from "./customers-home.presenter";
+import { shouldDrainNextPage } from "./drain-pages";
 
 /** Keep fetching lookup pages until the cursor is exhausted. */
 export function useDrainInfinitePages(query: {

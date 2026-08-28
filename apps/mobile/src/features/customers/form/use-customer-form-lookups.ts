@@ -6,22 +6,26 @@ import { useActiveCompany } from "../../../api/query-provider";
 import { listGroupsInfiniteOptions } from "../api/group.queries";
 import { listPriceListsInfiniteOptions } from "../api/price-list.queries";
 import { CUSTOMERS_LOOKUP_PAGE_SIZE } from "../shared/customer-caps";
-import {
-  flattenGroupPages,
-  flattenPriceListPages,
-  nameById,
-} from "./clients-list.presenter";
-import { lookupPagesSettled } from "./customers-home.presenter";
+import type { OptionSelectItem } from "../shared/option-select";
+import { flattenPages, nameById } from "../shared/paged-list";
 import { useDrainInfinitePages } from "../shared/use-drain-pages";
+import { optionSelectItems } from "./customer-form-pickers";
 
 /**
- * Unfiltered groups (chips) and price-list names. Failures degrade to
- * empty maps so the clients list still renders.
+ * Group and price-list picker options for the client form. Keep already
+ * fetched pages on error (same as the list). Does not import `list/`.
  */
-export function useCustomerLookups() {
+export function useCustomerFormLookups(args: { readonly enabled: boolean }): {
+  readonly groupOptions: readonly OptionSelectItem[];
+  readonly priceListOptions: readonly OptionSelectItem[];
+  readonly groupNameById: ReadonlyMap<string, string>;
+  readonly priceListNameById: ReadonlyMap<string, string>;
+  readonly priceListIdByGroupId: ReadonlyMap<string, string | null>;
+} {
   const apiClient = useApiClient();
   const { activeCompanyId } = useActiveCompany();
   const getActiveCompany = () => apiClient?.getActiveCompany() ?? null;
+  const enabled = args.enabled;
 
   const groupsQuery = useInfiniteQuery(
     listGroupsInfiniteOptions({
@@ -29,6 +33,7 @@ export function useCustomerLookups() {
       companyId: activeCompanyId,
       input: { limit: CUSTOMERS_LOOKUP_PAGE_SIZE },
       getActiveCompany,
+      enabled,
     }),
   );
   useDrainInfinitePages({
@@ -44,6 +49,7 @@ export function useCustomerLookups() {
       companyId: activeCompanyId,
       input: { limit: CUSTOMERS_LOOKUP_PAGE_SIZE },
       getActiveCompany,
+      enabled,
     }),
   );
   useDrainInfinitePages({
@@ -57,25 +63,36 @@ export function useCustomerLookups() {
     if (groupsQuery.data === undefined) {
       return [];
     }
-    return flattenGroupPages(groupsQuery.data.pages);
+    return flattenPages(groupsQuery.data.pages);
   }, [groupsQuery.data]);
 
-  const groupsById = useMemo(() => nameById(groups), [groups]);
-  const priceListsById = useMemo(() => {
+  const priceLists = useMemo(() => {
     if (priceListsQuery.data === undefined) {
-      return nameById([]);
+      return [];
     }
-    return nameById(flattenPriceListPages(priceListsQuery.data.pages));
+    return flattenPages(priceListsQuery.data.pages);
   }, [priceListsQuery.data]);
 
+  const groupOptions = useMemo(() => optionSelectItems(groups), [groups]);
+  const priceListOptions = useMemo(
+    () => optionSelectItems(priceLists),
+    [priceLists],
+  );
+  const groupNameById = useMemo(() => nameById(groups), [groups]);
+  const priceListNameById = useMemo(() => nameById(priceLists), [priceLists]);
+  const priceListIdByGroupId = useMemo(() => {
+    const map = new Map<string, string | null>();
+    for (const group of groups) {
+      map.set(group.id, group.priceListId);
+    }
+    return map;
+  }, [groups]);
+
   return {
-    groups,
-    groupsById,
-    priceListsById,
-    groupsLookupSettled: lookupPagesSettled({
-      status: groupsQuery.status,
-      hasNextPage: groupsQuery.hasNextPage,
-      isFetchingNextPage: groupsQuery.isFetchingNextPage,
-    }),
+    groupOptions,
+    priceListOptions,
+    groupNameById,
+    priceListNameById,
+    priceListIdByGroupId,
   };
 }

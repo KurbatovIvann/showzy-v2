@@ -8,10 +8,9 @@ import { AppHeader, EmptyState } from "../../../components/ui";
 import { customersCopy } from "../../../i18n/customers";
 import { detectLocale } from "../../../i18n/locale";
 
-export type CustomerEditorStubKind =
-  "client-create" | "client-edit" | "group-create" | "group-edit";
+export type CustomerEditorStubKind = "group-create" | "group-edit";
 
-/** Placeholder until SHO-180 / SHO-181 land the real forms. */
+/** Placeholder until SHO-181 lands the group form. */
 export function CustomerEditorStubScreen(props: {
   readonly kind: CustomerEditorStubKind;
 }) {
@@ -53,17 +52,11 @@ export function CustomerEditorStubScreen(props: {
 function stubTitle(
   kind: CustomerEditorStubKind,
   copy: {
-    readonly clientCreateTitle: string;
-    readonly clientEditTitle: string;
     readonly groupCreateTitle: string;
     readonly groupEditTitle: string;
   },
 ): string {
   switch (kind) {
-    case "client-create":
-      return copy.clientCreateTitle;
-    case "client-edit":
-      return copy.clientEditTitle;
     case "group-create":
       return copy.groupCreateTitle;
     case "group-edit":

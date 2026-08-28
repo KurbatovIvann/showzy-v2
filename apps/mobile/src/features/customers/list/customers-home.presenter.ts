@@ -50,15 +50,7 @@ export function customersCreateKind(
   return null;
 }
 
-export function shouldDrainNextPage(args: {
-  readonly status: "pending" | "error" | "success";
-  readonly hasNextPage: boolean;
-  readonly isFetchingNextPage: boolean;
-}): boolean {
-  return (
-    args.status === "success" && args.hasNextPage && !args.isFetchingNextPage
-  );
-}
+export { shouldDrainNextPage } from "../shared/drain-pages";
 
 export function lookupPagesSettled(args: {
   readonly status: "pending" | "error" | "success";

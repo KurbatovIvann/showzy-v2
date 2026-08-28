@@ -213,7 +213,9 @@ export function Sheet(props: {
               >
                 {props.children}
               </KeyboardAwareScrollView>
-              <View style={styles.footer}>{props.footer}</View>
+              {props.footer != null ? (
+                <View style={styles.footer}>{props.footer}</View>
+              ) : null}
             </>
           ) : (
             <View style={styles.actions}>{props.children}</View>

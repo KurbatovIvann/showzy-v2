@@ -1,1 +1,1 @@
-export { CustomerCreateStub as default } from "../../../../features/customers/shared/editor-stub-routes";
+export { CustomerCreateScreen as default } from "../../../../features/customers/form/customer-form-screen";
