@@ -282,17 +282,31 @@ beforeAll(async () => {
   await kit.db.runtime.db.insert(customerGroups).values({
     id: fixtures.groupA,
     companyId: companyA,
+    name: "Group A",
+    slug: `group-${fixtures.groupA}`,
     priceListId: fixtures.listGroup,
   });
   await kit.db.runtime.db.insert(companyCustomers).values([
     {
       id: fixtures.customerA,
       companyId: companyA,
+      name: "Customer A",
+      email: `customer-${fixtures.customerA}@example.com`,
       groupId: fixtures.groupA,
       priceListId: fixtures.listCustomer,
     },
-    { id: fixtures.customerBare, companyId: companyA },
-    { id: fixtures.customerB, companyId: companyB },
+    {
+      id: fixtures.customerBare,
+      companyId: companyA,
+      name: "Customer bare",
+      email: `customer-${fixtures.customerBare}@example.com`,
+    },
+    {
+      id: fixtures.customerB,
+      companyId: companyB,
+      name: "Customer B",
+      email: `customer-${fixtures.customerB}@example.com`,
+    },
   ]);
 
   await insertProduct({

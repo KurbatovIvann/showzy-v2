@@ -241,8 +241,18 @@ beforeAll(async () => {
   const companyB = kitIdentities.companies.b;
 
   await kit.db.runtime.db.insert(companyCustomers).values([
-    { id: fixtures.customerA, companyId: companyA },
-    { id: fixtures.customerB, companyId: companyB },
+    {
+      id: fixtures.customerA,
+      companyId: companyA,
+      name: "Customer A",
+      email: `customer-${fixtures.customerA}@example.com`,
+    },
+    {
+      id: fixtures.customerB,
+      companyId: companyB,
+      name: "Customer B",
+      email: `customer-${fixtures.customerB}@example.com`,
+    },
   ]);
   await insertProduct({
     id: fixtures.pBase,

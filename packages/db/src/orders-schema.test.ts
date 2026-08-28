@@ -74,9 +74,15 @@ async function insertCustomer(
   companyId: string,
   overrides: Partial<typeof companyCustomers.$inferInsert> = {},
 ) {
+  sequence += 1;
   const rows = await dbClient.db
     .insert(companyCustomers)
-    .values({ companyId, ...overrides })
+    .values({
+      companyId,
+      name: `Fixture customer ${String(sequence)}`,
+      email: `orders-customer-${String(sequence)}@example.com`,
+      ...overrides,
+    })
     .returning();
   const row = rows[0];
   assert.ok(row);

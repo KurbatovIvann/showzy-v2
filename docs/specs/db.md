@@ -59,8 +59,10 @@ packages/db/
   referencing `companies.id`. Explicit exceptions: the `companies` tenant
   root itself, auth/foundation infrastructure, and genuinely global tables
   justified in the owning spec (delivery dictionaries; KVED/CPV under
-  `reference-data`; `business_categories` under `companies`). Composite
-  indexes on tenant tables lead with `company_id`.
+  `reference-data`; `business_categories` under `companies`;
+  `customer_legal_profiles` under `customers` — account-scoped legal
+  requisites, unique `user_id`, ADR-0028). Composite indexes on tenant
+  tables lead with `company_id`.
 - **Same-tenant FKs (ADR-0025):** every tenant table declares
   `UNIQUE (company_id, id)` named `{table}_company_id_id_uq` as the target
   for intra-tenant FKs. PK remains `id`. A foreign key to another tenant
@@ -129,11 +131,13 @@ packages/db/
     category/publication filters) and module partial indexes on publication
     predicates (used for projection rebuild, not consumer query paths).
   - `account` actions (own-user scope, no `companyId`) access auth/user
-    tables, `companies` for own-user creation/listing, and
-    `company_members` for membership verification. These tables already
-    carry `user_id` indexes (auth tables) or are filtered by
-    `owner_user_id` / membership FK. No cross-tenant composite indexes are
-    required — `account` queries are scoped to a single user's rows.
+    tables, `companies` for own-user creation/listing,
+    `company_members` for membership verification, and
+    `customer_legal_profiles` (ADR-0028; unique `user_id`, no
+    `company_id`). These tables already carry `user_id` indexes (auth
+    tables, legal profiles) or are filtered by `owner_user_id` /
+    membership FK. No cross-tenant composite indexes are required —
+    `account` queries are scoped to a single user's rows.
   - No principal uses RLS as authorization (ADR-0009). Public-global access is
     constrained by the projection grant; consumer/account authorization is
     enforced in action code and by projection/user-scoped access patterns.
@@ -349,6 +353,7 @@ Idempotent (`ON CONFLICT DO NOTHING`) seeds, runnable repeatedly.
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-28 | §3: `customer_legal_profiles` is an account-scoped tenancy exception (no `company_id`) | SHO-170 / ADR-0028 legal requisites are portable across companies | customers-T2 (SHO-170) |
 | 2026-08-20 | §3: later modules reuse the PG15 column-scoped SET NULL custom-migration pattern | SHO-91 orders customer FK cannot null `company_id` | orders-T1 (SHO-91) |
 | 2026-08-19 | §4: recorded `event_deliveries.event_id → domain_events.id ON DELETE RESTRICT`; generated-auth `$onUpdate` / camelCase index exception; §8: kit does not export foundation row factories; §9: local-dev fixture seed deferred to fnd-T29+ | Same-PR patch: tests prove the FK, auth trigger exception, and seed layout (fnd-G1 A12) | scaffold (fnd-G1 A12) |
 | 2026-08-18 | §4/§5: `domain_events` INSERT notifies channel `domain_events` for the worker LISTEN wakeup | fnd-T27 implementation proved the trigger was specified as a primitive but never named | scaffold (fnd-T27) |
