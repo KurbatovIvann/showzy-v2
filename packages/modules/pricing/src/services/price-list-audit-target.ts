@@ -2,7 +2,9 @@ import type { AuditTargetEnv } from "@showzy/core";
 import { z } from "zod";
 
 const priceListIdHolder = z.object({ id: z.string() });
-const priceListIdAliasHolder = z.object({ priceListId: z.string() });
+const priceListIdAliasHolder = z.object({
+  priceListId: z.string().nullable(),
+});
 
 export function priceListAuditTarget(env: AuditTargetEnv): {
   type: string;
@@ -13,7 +15,7 @@ export function priceListAuditTarget(env: AuditTargetEnv): {
     return { type: "price_list", id: fromOutput.data.id };
   }
   const fromOutputAlias = priceListIdAliasHolder.safeParse(env.output);
-  if (fromOutputAlias.success) {
+  if (fromOutputAlias.success && fromOutputAlias.data.priceListId !== null) {
     return { type: "price_list", id: fromOutputAlias.data.priceListId };
   }
   const fromInput = priceListIdHolder.safeParse(env.input);
@@ -21,8 +23,11 @@ export function priceListAuditTarget(env: AuditTargetEnv): {
     return { type: "price_list", id: fromInput.data.id };
   }
   const fromInputAlias = priceListIdAliasHolder.safeParse(env.input);
+  if (!fromInputAlias.success) {
+    return { type: "price_list", id: "uncreated" };
+  }
   return {
     type: "price_list",
-    id: fromInputAlias.success ? fromInputAlias.data.priceListId : "uncreated",
+    id: fromInputAlias.data.priceListId ?? "none",
   };
 }

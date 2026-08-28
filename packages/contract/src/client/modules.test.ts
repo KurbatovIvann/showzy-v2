@@ -45,12 +45,15 @@ import {
   getOrderContract,
 } from "@showzy/orders/contract";
 import {
+  activatePriceListContract,
   createPriceListContract,
+  deactivatePriceListContract,
   getPriceListContract,
   listPriceListEntriesContract,
   listPriceListsContract,
   removePriceListEntriesContract,
   resolveProductPricesContract,
+  setDefaultPriceListContract,
   setPriceListEntriesContract,
   updatePriceListContract,
 } from "@showzy/pricing/contract";
@@ -107,12 +110,15 @@ describe("client composition", () => {
         get: getOrderContract,
       },
       pricing: {
+        activatePriceList: activatePriceListContract,
         createPriceList: createPriceListContract,
+        deactivatePriceList: deactivatePriceListContract,
         getPriceList: getPriceListContract,
         listPriceListEntries: listPriceListEntriesContract,
         listPriceLists: listPriceListsContract,
         removePriceListEntries: removePriceListEntriesContract,
         resolveProductPrices: resolveProductPricesContract,
+        setDefaultPriceList: setDefaultPriceListContract,
         setPriceListEntries: setPriceListEntriesContract,
         updatePriceList: updatePriceListContract,
       },
@@ -160,12 +166,15 @@ describe("client composition", () => {
     expect(contractRouter.orders.create).toBeDefined();
     expect(contractRouter.orders.confirm).toBeDefined();
     expect(contractRouter.orders.get).toBeDefined();
+    expect(contractRouter.pricing.activatePriceList).toBeDefined();
     expect(contractRouter.pricing.createPriceList).toBeDefined();
+    expect(contractRouter.pricing.deactivatePriceList).toBeDefined();
     expect(contractRouter.pricing.getPriceList).toBeDefined();
     expect(contractRouter.pricing.listPriceListEntries).toBeDefined();
     expect(contractRouter.pricing.listPriceLists).toBeDefined();
     expect(contractRouter.pricing.removePriceListEntries).toBeDefined();
     expect(contractRouter.pricing.resolveProductPrices).toBeDefined();
+    expect(contractRouter.pricing.setDefaultPriceList).toBeDefined();
     expect(contractRouter.pricing.setPriceListEntries).toBeDefined();
     expect(contractRouter.pricing.updatePriceList).toBeDefined();
   });
