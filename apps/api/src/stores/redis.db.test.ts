@@ -69,10 +69,13 @@ describe("createRedisConfirmationStore", () => {
     expect(remainingMs).toBeGreaterThan(0);
     expect(remainingMs).toBeLessThanOrEqual(200);
 
+    // Redis can report PTTL 0 while GET/GETDEL still returns the value.
+    // Wait until PTTL === -2 (key gone), not <= 0.
     const deadline = Date.now() + 2_000;
-    while (Date.now() < deadline && (await redis.pttl("confirm:ttl")) > 0) {
+    while (Date.now() < deadline && (await redis.pttl("confirm:ttl")) !== -2) {
       await new Promise((resolve) => setTimeout(resolve, 25));
     }
+    expect(await redis.pttl("confirm:ttl")).toBe(-2);
     expect(await store.getAndDelete("confirm:ttl")).toBeNull();
   });
 });
