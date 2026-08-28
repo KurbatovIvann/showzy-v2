@@ -77,6 +77,7 @@ import {
   activatePriceList,
   createPriceList,
   deactivatePriceList,
+  deletePriceList,
   getPriceList,
   listPriceListEntries,
   listPriceLists,
@@ -259,6 +260,7 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, activatePriceList);
   registerAction(registry, createPriceList);
   registerAction(registry, deactivatePriceList);
+  registerAction(registry, deletePriceList);
   registerAction(registry, getPriceList);
   registerAction(registry, listPriceListEntries);
   registerAction(registry, listPriceLists);
