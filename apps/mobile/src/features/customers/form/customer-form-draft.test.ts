@@ -76,9 +76,9 @@ describe("isCustomerFormDirty", () => {
     expect(isCustomerFormDirty({ ...origin, groupId: null }, origin)).toBe(
       true,
     );
-    expect(
-      isCustomerFormDirty({ ...origin, priceListId: null }, origin),
-    ).toBe(true);
+    expect(isCustomerFormDirty({ ...origin, priceListId: null }, origin)).toBe(
+      true,
+    );
   });
 });
 

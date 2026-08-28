@@ -6,8 +6,6 @@ import { createContractMutationController } from "../../../api/contract-mutation
 import { bindCustomerFormMutate } from "./customer-form-mutation";
 import type { CustomerFormWrite } from "../form/customer-form-plan";
 
-const CUSTOMER_ID = "0f0e2d5c-4a1b-4c3d-9e8f-102938475601";
-
 describe("bindCustomerFormMutate", () => {
   it("calls createCustomer with the attempt options and reuses the key on retry", async () => {
     const calls: Array<{

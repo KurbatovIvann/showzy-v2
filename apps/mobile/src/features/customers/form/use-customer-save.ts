@@ -7,10 +7,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { useApiClient } from "../../../api/api-provider";
 import { useContractMutation } from "../../../api/contract-mutation";
-import {
-  describeQueryFailure,
-  describeWireError,
-} from "../../../api/errors";
+import { describeQueryFailure, describeWireError } from "../../../api/errors";
 import { useActiveCompany } from "../../../api/query-provider";
 import { bindCustomerFormMutate } from "../api/customer-form-mutation";
 import { invalidateCustomersAfterWrite } from "../api/customer-status";

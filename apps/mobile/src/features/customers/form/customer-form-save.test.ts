@@ -9,9 +9,10 @@ import {
   type CustomerFormMode,
   type CustomerFormSnapshot,
 } from "./customer-form-draft";
-import type {
-  CustomerFormMutationResult,
-  CustomerFormWrite,
+import {
+  createCustomerPayload,
+  type CustomerFormMutationResult,
+  type CustomerFormWrite,
 } from "./customer-form-plan";
 import {
   runCustomerFormSave,
@@ -126,9 +127,13 @@ describe("runCustomerFormSave", () => {
   });
 
   it("retries the in-flight write after a network failure", async () => {
+    const input = createCustomerPayload(validCreateDraft());
+    if (input === null) {
+      throw new Error("expected a create payload");
+    }
     const write: CustomerFormWrite = {
       kind: "createCustomer",
-      input: { name: "Марія", phone: "+38067" },
+      input,
     };
     const { ports, calls } = createPorts({
       lastWrite: write,

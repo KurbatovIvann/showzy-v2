@@ -12,11 +12,11 @@ import { StatusPill } from "../../../components/ui";
 export function SelectorRow(props: {
   readonly label: string;
   readonly placeholder: string;
-  readonly value?: string;
-  readonly icon?: ReactNode;
-  readonly error?: string | null;
+  readonly value?: string | undefined;
+  readonly icon?: ReactNode | undefined;
+  readonly error?: string | null | undefined;
   readonly changed?: boolean;
-  readonly changedLabel?: string;
+  readonly changedLabel?: string | undefined;
   readonly disabled?: boolean;
   readonly onPress: () => void;
 }) {

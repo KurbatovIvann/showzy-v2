@@ -3,10 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 
 import { useApiClient } from "../../../api/api-provider";
-import {
-  describeQueryFailure,
-  describeWireError,
-} from "../../../api/errors";
+import { describeQueryFailure, describeWireError } from "../../../api/errors";
 import { useActiveCompany } from "../../../api/query-provider";
 import { useResolvedCompany } from "../../../company-resolution/resolved-company-provider";
 import { customersCopy } from "../../../i18n/customers";
@@ -207,8 +204,10 @@ export function useCustomerForm(args: {
     notesMessage: errors.notes?.message,
     server: serverFields,
   });
-  const mappedBanner =
-    mapCustomerFormFailure(failure?.kind ?? null, wire?.code ?? null);
+  const mappedBanner = mapCustomerFormFailure(
+    failure?.kind ?? null,
+    wire?.code ?? null,
+  );
   const pending = saveApi.pending || lifecycle.pending;
   const resolved = resolveCustomerFormCopy(formCopy, {
     mode: args.mode,

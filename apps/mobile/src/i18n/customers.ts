@@ -301,7 +301,8 @@ const en: CustomersCopy = {
     notesPlaceholder: "Preferences, allergies, delivery details",
     archiveTitle: "Archive",
     archiveActiveHelper: "Archive first, then delete. Orders stay.",
-    archiveArchivedHelper: "This client is archived. Delete is only available here.",
+    archiveArchivedHelper:
+      "This client is archived. Delete is only available here.",
     archiveAction: "Archive",
     restoreAction: "Restore",
     deleteAction: "Delete forever",
@@ -475,7 +476,8 @@ const uk: CustomersCopy = {
     notesLabel: "Для внутрішнього використання",
     notesPlaceholder: "Побажання, алергії, деталі доставки",
     archiveTitle: "Архів",
-    archiveActiveHelper: "Спочатку архів, потім видалення. Замовлення залишаться.",
+    archiveActiveHelper:
+      "Спочатку архів, потім видалення. Замовлення залишаться.",
     archiveArchivedHelper: "Клієнт в архіві. Видалити можна лише звідси.",
     archiveAction: "Архівувати",
     restoreAction: "Відновити",

@@ -137,9 +137,7 @@ export function validateCustomerForm(
   return fieldErrorsFromDraftSchema(parsed.error);
 }
 
-export function isCustomerFormValid(
-  errors: CustomerFormFieldErrors,
-): boolean {
+export function isCustomerFormValid(errors: CustomerFormFieldErrors): boolean {
   return (
     errors.name === null &&
     errors.phone === null &&

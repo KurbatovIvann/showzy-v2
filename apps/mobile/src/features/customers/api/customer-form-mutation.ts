@@ -59,9 +59,8 @@ function wireValidationFromIssues(
 function parseCreateCustomer(
   input: CreateCustomerPayload,
 ): CreateCustomerPayload {
-  const parsed = contractModules.customers.createCustomer.input.safeParse(
-    input,
-  );
+  const parsed =
+    contractModules.customers.createCustomer.input.safeParse(input);
   if (!parsed.success) {
     throw wireValidationFromIssues(parsed.error.issues);
   }
@@ -71,9 +70,8 @@ function parseCreateCustomer(
 function parseUpdateCustomer(
   input: UpdateCustomerPayload,
 ): UpdateCustomerPayload {
-  const parsed = contractModules.customers.updateCustomer.input.safeParse(
-    input,
-  );
+  const parsed =
+    contractModules.customers.updateCustomer.input.safeParse(input);
   if (!parsed.success) {
     throw wireValidationFromIssues(parsed.error.issues);
   }

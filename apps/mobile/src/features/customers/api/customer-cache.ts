@@ -25,7 +25,9 @@ export function customerDetailCacheKey(
   return [GET_CUSTOMER_ACTION, companyQueryScope(companyId)];
 }
 
-export function customersWriteInvalidationKeys(companyId: string): readonly [
+export function customersWriteInvalidationKeys(
+  companyId: string,
+): readonly [
   readonly [string, string],
   readonly [string, string],
   readonly [string, string],

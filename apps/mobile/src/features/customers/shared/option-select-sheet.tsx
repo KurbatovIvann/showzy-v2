@@ -83,7 +83,7 @@ export function OptionSelectSheet(props: {
 
 function OptionRow(props: {
   readonly label: string;
-  readonly description?: string;
+  readonly description?: string | undefined;
   readonly selected: boolean;
   readonly onPress: () => void;
 }) {

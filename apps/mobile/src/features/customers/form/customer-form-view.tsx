@@ -111,10 +111,7 @@ function CustomerFormBody(props: { readonly model: CustomerFormModel }) {
   switch (model.state.kind) {
     case "loading":
       return (
-        <View
-          style={styles.skeletons}
-          accessibilityLabel={form.loadingLabel}
-        >
+        <View style={styles.skeletons} accessibilityLabel={form.loadingLabel}>
           <View style={[styles.skeletonLine, styles.skeletonName]} />
           <View style={[styles.skeletonLine, styles.skeletonPrice]} />
           <View style={styles.skeletonCard} />
@@ -342,7 +339,7 @@ function CustomerFormReady(props: { readonly model: CustomerFormModel }) {
           ) : null}
         </CustomerFormSection>
       ) : null}
-      {(model.banner !== null && model.banner.length > 0) ? (
+      {model.banner !== null && model.banner.length > 0 ? (
         <Banner message={model.banner} />
       ) : null}
     </KeyboardAwareScrollView>

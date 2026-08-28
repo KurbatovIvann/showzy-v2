@@ -20,11 +20,7 @@ import {
 } from "./customer-form.schema";
 
 export type BannerKey =
-  | "validation"
-  | "network"
-  | "offline"
-  | "unavailable"
-  | "permission";
+  "validation" | "network" | "offline" | "unavailable" | "permission";
 
 const RETRYABLE_WIRE: ReadonlySet<WireErrorCode> = new Set([
   "RETRY_IN_PROGRESS",
@@ -256,8 +252,7 @@ export function resolveCustomerFormCopy(
   readonly submitDisabled: boolean;
   readonly fieldsEditable: boolean;
 } {
-  const banner =
-    args.banner === null ? null : copy.errors[args.banner];
+  const banner = args.banner === null ? null : copy.errors[args.banner];
   return {
     nameError: nameErrorCopy(copy, args.nameError),
     phoneError: lengthErrorCopy(copy, "phone", args.phoneError),
