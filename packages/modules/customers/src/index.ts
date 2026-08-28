@@ -1,6 +1,7 @@
 export { archiveCustomer } from "./actions/archive-customer.js";
 export { createCustomer } from "./actions/create-customer.js";
 export { createGroup } from "./actions/create-group.js";
+export { deleteCustomer } from "./actions/delete-customer.js";
 export { deleteGroup } from "./actions/delete-group.js";
 export { getCustomerPricingFacts } from "./actions/get-customer-pricing-facts.js";
 export { getGroup } from "./actions/get-group.js";
