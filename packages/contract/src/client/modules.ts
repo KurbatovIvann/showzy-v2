@@ -31,6 +31,7 @@ import {
 } from "@showzy/companies/contract";
 import {
   createGroupContract,
+  deleteGroupContract,
   updateGroupContract,
 } from "@showzy/customers/contract";
 import {
@@ -78,6 +79,7 @@ export const contractModules = {
   },
   customers: {
     createGroup: createGroupContract,
+    deleteGroup: deleteGroupContract,
     updateGroup: updateGroupContract,
   },
   files: {
