@@ -4,6 +4,7 @@ import {
   LIST_PRICE_LISTS_CURSOR_MAX,
   LIST_PRICE_LISTS_DEFAULT_LIMIT,
   LIST_PRICE_LISTS_MAX_LIMIT,
+  LIST_PRICE_LISTS_QUERY_MAX,
   PRICE_LIST_NAME_MAX,
   formatListPriceListsCursor,
   listPriceListsContract,
@@ -24,11 +25,13 @@ describe("pricing.listPriceLists contract", () => {
     expect(listPriceListsContract.timeout).toBe(5_000);
     expect(LIST_PRICE_LISTS_DEFAULT_LIMIT).toBe(20);
     expect(LIST_PRICE_LISTS_MAX_LIMIT).toBe(50);
+    expect(LIST_PRICE_LISTS_QUERY_MAX).toBe(100);
     expect(PRICE_LIST_NAME_MAX).toBe(120);
     expect(LIST_PRICE_LISTS_CURSOR_MAX).toBe(200);
   });
 
-  it("defaults limit to 20 and rejects a malformed cursor or oversized limit", () => {
+  it("defaults availability to all and limit to 20, and rejects a malformed cursor or oversized limit", () => {
+    expect(listPriceListsContract.input.parse({}).availability).toBe("all");
     expect(listPriceListsContract.input.parse({}).limit).toBe(
       LIST_PRICE_LISTS_DEFAULT_LIMIT,
     );
@@ -43,6 +46,18 @@ describe("pricing.listPriceLists contract", () => {
     expect(listPriceListsContract.input.safeParse({ limit: 0 }).success).toBe(
       false,
     );
+    expect(
+      listPriceListsContract.input.safeParse({ availability: "deleted" })
+        .success,
+    ).toBe(false);
+    expect(
+      listPriceListsContract.input.safeParse({
+        query: "x".repeat(LIST_PRICE_LISTS_QUERY_MAX + 1),
+      }).success,
+    ).toBe(false);
+    expect(
+      listPriceListsContract.input.safeParse({ query: "   " }).success,
+    ).toBe(false);
     expect(parseListPriceListsCursor("nope")).toBeUndefined();
     expect(
       parseListPriceListsCursor(

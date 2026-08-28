@@ -56,6 +56,7 @@ import {
   getOrderContract,
 } from "@showzy/orders/contract";
 import {
+  getPriceListContract,
   listPriceListsContract,
   resolveProductPricesContract,
 } from "@showzy/pricing/contract";
@@ -113,6 +114,7 @@ export const contractModules = {
     get: getOrderContract,
   },
   pricing: {
+    getPriceList: getPriceListContract,
     listPriceLists: listPriceListsContract,
     resolveProductPrices: resolveProductPricesContract,
   },

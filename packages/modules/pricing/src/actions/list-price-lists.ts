@@ -1,18 +1,36 @@
 import { implementAction } from "@showzy/core";
 import { CoreInvariantError } from "@showzy/core/errors";
 import { priceLists } from "@showzy/db/schema/pricing";
-import { and, asc, desc, eq, gt, or } from "drizzle-orm";
+import { and, asc, desc, eq, gt, ilike, or } from "drizzle-orm";
 
+import { countEntriesByPriceListIds } from "../services/count-price-list-entries.js";
 import {
   formatListPriceListsCursor,
   listPriceListsContract,
   parseListPriceListsCursor,
 } from "./list-price-lists.contract.js";
 
+function nameSearchPattern(query: string): string | undefined {
+  const literal = query
+    .replaceAll("\\", "")
+    .replaceAll("%", "")
+    .replaceAll("_", "");
+  if (literal.length === 0) {
+    return undefined;
+  }
+  return `%${literal}%`;
+}
+
 export const listPriceLists = implementAction(listPriceListsContract, {
   handler: async (input, ctx) => {
     if (ctx.principal !== "staff") {
       throw new CoreInvariantError("pricing.listPriceLists expects staff");
+    }
+
+    const searchPattern =
+      input.query === undefined ? undefined : nameSearchPattern(input.query);
+    if (input.query !== undefined && searchPattern === undefined) {
+      return { items: [], nextCursor: null };
     }
 
     const cursor =
@@ -49,7 +67,18 @@ export const listPriceLists = implementAction(listPriceListsContract, {
         isActive: priceLists.isActive,
       })
       .from(priceLists)
-      .where(and(eq(priceLists.companyId, ctx.companyId), cursorPredicate))
+      .where(
+        and(
+          eq(priceLists.companyId, ctx.companyId),
+          input.availability === "all"
+            ? undefined
+            : eq(priceLists.isActive, input.availability === "active"),
+          searchPattern === undefined
+            ? undefined
+            : ilike(priceLists.name, searchPattern),
+          cursorPredicate,
+        ),
+      )
       .orderBy(
         desc(priceLists.isDefault),
         asc(priceLists.name),
@@ -65,12 +94,19 @@ export const listPriceLists = implementAction(listPriceListsContract, {
         ? formatListPriceListsCursor(last.isDefault, last.id, last.name)
         : null;
 
+    const entryCounts = await countEntriesByPriceListIds(
+      ctx.db,
+      ctx.companyId,
+      page.map((row) => row.id),
+    );
+
     return {
       items: page.map((row) => ({
         id: row.id,
         name: row.name,
         isDefault: row.isDefault,
         isActive: row.isActive,
+        entryCount: entryCounts.get(row.id) ?? 0,
       })),
       nextCursor,
     };
