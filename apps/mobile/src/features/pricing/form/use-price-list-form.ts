@@ -397,7 +397,7 @@ export function usePriceListForm(args: {
           nextActive: checked,
         })
       ) {
-        setLocalBanner(copy.toast.cannotDeactivateDefault);
+        setLocalBanner(formCopy.cannotDeactivateDefault);
         return;
       }
       setValue("isActive", checked, { shouldDirty: true });
