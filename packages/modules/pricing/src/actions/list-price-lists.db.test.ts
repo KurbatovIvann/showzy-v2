@@ -207,15 +207,12 @@ describe("pricing.listPriceLists", () => {
       expect(result.items.map((row) => row.id)).toContain(
         fixtures.inactiveMike,
       );
+      expect(result.items.length).toBeGreaterThan(0);
       for (const row of result.items) {
-        expect(row).toEqual(
-          expect.objectContaining({
-            id: expect.any(String),
-            name: expect.any(String),
-            isDefault: expect.any(Boolean),
-            isActive: expect.any(Boolean),
-          }),
-        );
+        expect(typeof row.id).toBe("string");
+        expect(typeof row.name).toBe("string");
+        expect(typeof row.isDefault).toBe("boolean");
+        expect(typeof row.isActive).toBe("boolean");
       }
     }
   });
