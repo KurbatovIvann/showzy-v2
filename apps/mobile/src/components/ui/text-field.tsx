@@ -24,11 +24,15 @@ export function TextField(props: {
   readonly changed?: boolean;
   readonly changedLabel?: string;
   readonly size?: "default" | "auth";
+  readonly multiline?: boolean;
+  readonly numberOfLines?: number;
 }) {
   const { theme, rt } = useUnistyles();
   const [focused, setFocused] = useState(false);
   const size = props.size ?? "default";
   const auth = size === "auth";
+  const multiline = props.multiline === true;
+  const numberOfLines = props.numberOfLines ?? (multiline ? 3 : 1);
   const hasError = props.error != null && props.error.length > 0;
   const keyboardType = props.keyboardType ?? "email-address";
   const phone = keyboardType === "phone-pad";
@@ -67,6 +71,16 @@ export function TextField(props: {
         style={[
           styles.chrome,
           auth ? styles.chromeAuth : null,
+          multiline ? styles.chromeMultiline : null,
+          multiline
+            ? {
+                minHeight: Math.max(
+                  theme.hitTarget.field,
+                  theme.typography.base.lineHeight * numberOfLines +
+                    theme.spacing.md * 2,
+                ),
+              }
+            : null,
           focused && auth && !hasError ? styles.chromeFocused : null,
           hasError ? styles.chromeError : null,
         ]}
@@ -88,6 +102,9 @@ export function TextField(props: {
           autoCorrect={props.autoCorrect ?? false}
           maxLength={props.maxLength}
           editable={props.editable !== false}
+          multiline={multiline}
+          numberOfLines={multiline ? numberOfLines : undefined}
+          textAlignVertical={multiline ? "top" : "center"}
           placeholderTextColor={
             auth ? theme.colors.icon.muted : theme.colors.mutedForeground
           }
@@ -100,7 +117,8 @@ export function TextField(props: {
           style={[
             styles.input,
             auth ? styles.inputAuth : null,
-            tabular ? styles.tabular : null,
+            tabular && !multiline ? styles.tabular : null,
+            multiline ? styles.inputMultiline : null,
           ]}
         />
         {suffix !== null ? <Text style={styles.suffix}>{suffix}</Text> : null}
@@ -144,6 +162,10 @@ const styles = StyleSheet.create((theme) => ({
     minHeight: theme.hitTarget.auth,
     paddingHorizontal: theme.spacing.lg,
   },
+  chromeMultiline: {
+    alignItems: "flex-start",
+    paddingVertical: theme.spacing.md,
+  },
   chromeFocused: {
     borderColor: theme.colors.ring,
   },
@@ -170,6 +192,10 @@ const styles = StyleSheet.create((theme) => ({
   },
   inputAuth: {
     fontSize: theme.typography.md.fontSize,
+  },
+  inputMultiline: {
+    paddingVertical: 0,
+    textAlignVertical: "top",
   },
   tabular: {
     fontVariant: ["tabular-nums"],

@@ -6,6 +6,7 @@ import { createContractMutationController } from "../../../api/contract-mutation
 import { createShowzyQueryClient } from "../../../api/query-client";
 import { contractQueryKey } from "../../../api/query-options";
 import { customersWriteInvalidationKeys } from "./customer-cache";
+import { GET_CUSTOMER_ACTION } from "./customer-detail-query";
 import { LIST_CUSTOMERS_ACTION } from "./customer.queries";
 import { LIST_GROUPS_ACTION } from "./group.queries";
 import {
@@ -69,10 +70,11 @@ describe("bindCustomerStatusMutate", () => {
 });
 
 describe("customersWriteInvalidationKeys", () => {
-  it("targets listCustomers and listGroups for the active company only", () => {
+  it("targets listCustomers, listGroups, and getCustomer for the active company only", () => {
     expect(customersWriteInvalidationKeys("company-a")).toEqual([
       [LIST_CUSTOMERS_ACTION, "company-a"],
       [LIST_GROUPS_ACTION, "company-a"],
+      [GET_CUSTOMER_ACTION, "company-a"],
     ]);
   });
 

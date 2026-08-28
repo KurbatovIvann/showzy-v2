@@ -23,6 +23,8 @@ describe("customers copy", () => {
     );
     expect(Object.keys(uk.mutation)).toEqual(Object.keys(en.mutation));
     expect(Object.keys(uk.editorStub)).toEqual(Object.keys(en.editorStub));
+    expect(Object.keys(uk.form)).toEqual(Object.keys(en.form));
+    expect(Object.keys(uk.form.errors)).toEqual(Object.keys(en.form.errors));
     expect(Object.keys(uk.counterparties)).toEqual(
       Object.keys(en.counterparties),
     );
@@ -58,5 +60,11 @@ describe("customers copy", () => {
     );
     expect(uk.confirm.deleteGroupDescription.many).toContain("{{count}}");
     expect(uk.confirm.deleteGroupDescription.one).toContain("клієнт");
+    expect(uk.form.contactsHelper).toContain("телефон, email");
+    expect(uk.form.counterpartiesTitle).toBe("Юрособи");
+    expect(uk.form.counterpartiesCreateHint).toContain("Збережіть клієнта");
+    expect(uk.form.counterpartiesEmpty).toBe("Немає прив’язаних контрагентів.");
+    expect(uk.form.priceListInheritGroup).toBe("Успадкований від групи");
+    expect(uk.form.leaveTitle).toBe("Вийти без збереження?");
   });
 });
