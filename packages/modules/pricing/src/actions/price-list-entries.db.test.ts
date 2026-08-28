@@ -102,16 +102,16 @@ async function entryRow(entryId: string) {
 }
 
 async function expectSameNotFound(
-  missing: Promise<unknown>,
-  foreign: Promise<unknown>,
+  missing: () => Promise<unknown>,
+  foreign: () => Promise<unknown>,
 ): Promise<void> {
-  const missingError = await missing.then(
+  const missingError = await missing().then(
     () => {
       throw new Error("expected NotFoundError for a missing resource");
     },
     (error: unknown) => error,
   );
-  const foreignError = await foreign.then(
+  const foreignError = await foreign().then(
     () => {
       throw new Error("expected NotFoundError for a foreign resource");
     },
@@ -290,7 +290,7 @@ beforeAll(async () => {
       companyId: companyA,
       userId: clerks.viewOnly,
       role: "employee",
-      permissions: { granted: [], denied: [] },
+      permissions: { granted: ["pricing:view"], denied: [] },
     },
   ]);
 });
@@ -457,8 +457,8 @@ describe("pricing.listPriceListEntries", () => {
 
   it("returns the same not-found for missing and foreign lists", async () => {
     await expectSameNotFound(
-      kit.invoke(listPriceListEntries, { priceListId: randomUUID() }),
-      kit.invoke(listPriceListEntries, { priceListId: fixtures.listB }),
+      () => kit.invoke(listPriceListEntries, { priceListId: randomUUID() }),
+      () => kit.invoke(listPriceListEntries, { priceListId: fixtures.listB }),
     );
   });
 
@@ -579,46 +579,52 @@ describe("pricing.setPriceListEntries", () => {
 
   it("returns the same not-found for missing and foreign lists, products, and variants", async () => {
     await expectSameNotFound(
-      kit.invoke(setPriceListEntries, {
-        priceListId: randomUUID(),
-        entries: [{ productId: fixtures.productA, priceMinor: "1" }],
-      }),
-      kit.invoke(setPriceListEntries, {
-        priceListId: fixtures.listB,
-        entries: [{ productId: fixtures.productA, priceMinor: "1" }],
-      }),
+      () =>
+        kit.invoke(setPriceListEntries, {
+          priceListId: randomUUID(),
+          entries: [{ productId: fixtures.productA, priceMinor: "1" }],
+        }),
+      () =>
+        kit.invoke(setPriceListEntries, {
+          priceListId: fixtures.listB,
+          entries: [{ productId: fixtures.productA, priceMinor: "1" }],
+        }),
     );
     await expectSameNotFound(
-      kit.invoke(setPriceListEntries, {
-        priceListId: fixtures.listWrite,
-        entries: [{ productId: randomUUID(), priceMinor: "1" }],
-      }),
-      kit.invoke(setPriceListEntries, {
-        priceListId: fixtures.listWrite,
-        entries: [{ productId: fixtures.productB, priceMinor: "1" }],
-      }),
+      () =>
+        kit.invoke(setPriceListEntries, {
+          priceListId: fixtures.listWrite,
+          entries: [{ productId: randomUUID(), priceMinor: "1" }],
+        }),
+      () =>
+        kit.invoke(setPriceListEntries, {
+          priceListId: fixtures.listWrite,
+          entries: [{ productId: fixtures.productB, priceMinor: "1" }],
+        }),
     );
     await expectSameNotFound(
-      kit.invoke(setPriceListEntries, {
-        priceListId: fixtures.listWrite,
-        entries: [
-          {
-            productId: fixtures.productA,
-            variantId: randomUUID(),
-            priceMinor: "1",
-          },
-        ],
-      }),
-      kit.invoke(setPriceListEntries, {
-        priceListId: fixtures.listWrite,
-        entries: [
-          {
-            productId: fixtures.productA,
-            variantId: fixtures.variantA2,
-            priceMinor: "1",
-          },
-        ],
-      }),
+      () =>
+        kit.invoke(setPriceListEntries, {
+          priceListId: fixtures.listWrite,
+          entries: [
+            {
+              productId: fixtures.productA,
+              variantId: randomUUID(),
+              priceMinor: "1",
+            },
+          ],
+        }),
+      () =>
+        kit.invoke(setPriceListEntries, {
+          priceListId: fixtures.listWrite,
+          entries: [
+            {
+              productId: fixtures.productA,
+              variantId: fixtures.variantA2,
+              priceMinor: "1",
+            },
+          ],
+        }),
     );
   });
 
@@ -723,14 +729,16 @@ describe("pricing.removePriceListEntries", () => {
 
   it("returns the same not-found for missing and foreign lists", async () => {
     await expectSameNotFound(
-      kit.invoke(removePriceListEntries, {
-        priceListId: randomUUID(),
-        entries: [{ productId: fixtures.productA }],
-      }),
-      kit.invoke(removePriceListEntries, {
-        priceListId: fixtures.listB,
-        entries: [{ productId: fixtures.productA }],
-      }),
+      () =>
+        kit.invoke(removePriceListEntries, {
+          priceListId: randomUUID(),
+          entries: [{ productId: fixtures.productA }],
+        }),
+      () =>
+        kit.invoke(removePriceListEntries, {
+          priceListId: fixtures.listB,
+          entries: [{ productId: fixtures.productA }],
+        }),
     );
   });
 
