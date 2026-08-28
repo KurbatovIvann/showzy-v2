@@ -3,6 +3,7 @@ import type { SuiteCoverageManifest } from "@showzy/core";
 export const customersSuiteCoverage = {
   isolation: [
     "customers.archiveCustomer",
+    "customers.createCounterparty",
     "customers.createCustomer",
     "customers.createGroup",
     "customers.deleteCustomer",
@@ -13,6 +14,7 @@ export const customersSuiteCoverage = {
     "customers.listCustomers",
     "customers.listGroups",
     "customers.restoreCustomer",
+    "customers.updateCounterparty",
     "customers.updateCustomer",
     "customers.updateGroup",
   ],
@@ -22,11 +24,13 @@ export const customersSuiteCoverage = {
   shareIsolation: [],
   idempotency: [
     "customers.archiveCustomer",
+    "customers.createCounterparty",
     "customers.createCustomer",
     "customers.createGroup",
     "customers.deleteCustomer",
     "customers.deleteGroup",
     "customers.restoreCustomer",
+    "customers.updateCounterparty",
     "customers.updateCustomer",
     "customers.updateGroup",
   ],

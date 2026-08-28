@@ -41,6 +41,7 @@ import { createCompany, listMine } from "@showzy/companies";
 import { companiesSuiteCoverage } from "@showzy/companies/suite-coverage";
 import {
   archiveCustomer,
+  createCounterparty,
   createCustomer,
   createGroup,
   deleteCustomer,
@@ -51,6 +52,7 @@ import {
   listCustomers,
   listGroups,
   restoreCustomer,
+  updateCounterparty,
   updateCustomer,
   updateGroup,
 } from "@showzy/customers";
@@ -235,6 +237,7 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, createCompany);
   registerAction(registry, listMine);
   registerAction(registry, archiveCustomer);
+  registerAction(registry, createCounterparty);
   registerAction(registry, createCustomer);
   registerAction(registry, createGroup);
   registerAction(registry, deleteCustomer);
@@ -245,6 +248,7 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, listCustomers);
   registerAction(registry, listGroups);
   registerAction(registry, restoreCustomer);
+  registerAction(registry, updateCounterparty);
   registerAction(registry, updateCustomer);
   registerAction(registry, updateGroup);
   registerAction(registry, requestUpload);
