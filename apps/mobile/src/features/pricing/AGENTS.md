@@ -15,12 +15,12 @@ those routes (placeholder until that ticket).
 
 ## Folders (one role each)
 
-| Folder    | Owns                                                                                                                                                         | Does not own                          |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------- |
-| `api/`    | list binders with `query` + `availability`, status and delete mutations, cache invalidation keys                                                             | JSX, RHF, the customers picker binder |
-| `list/`   | Screen, view, composer hook, presenter, row, options sheet, list writes. Filter chips are `ChoiceField` (not `BottomNav` / `SegmentedTabs`)                  | Editor form fields                    |
-| `editor/` | Placeholder create/edit route until SHO-190                                                                                                                  | Entry grid, bulk %                    |
-| `shared/` | Permissions, hrefs, caps, entry-count labels, protocol-confirm helper, mutation banners, ids, debounce                                                       | Transport                             |
+| Folder    | Owns                                                                                                                                        | Does not own                          |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| `api/`    | list binders with `query` + `availability`, status and delete mutations, cache invalidation keys                                            | JSX, RHF, the customers picker binder |
+| `list/`   | Screen, view, composer hook, presenter, row, options sheet, list writes. Filter chips are `ChoiceField` (not `BottomNav` / `SegmentedTabs`) | Editor form fields                    |
+| `editor/` | Placeholder create/edit route until SHO-190                                                                                                 | Entry grid, bulk %                    |
+| `shared/` | Permissions, hrefs, caps, entry-count labels, protocol-confirm helper, mutation banners, ids, debounce                                      | Transport                             |
 
 Do not import `apps/mobile/src/features/customers/api/price-list.queries.ts`
 from this slice — that binder stays picker-safe (`{}` / `{ limit }`). List

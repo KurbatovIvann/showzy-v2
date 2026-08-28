@@ -146,7 +146,8 @@ const en: PricingCopy = {
     placeholderDescription:
       "Creating lists and filling product prices will land in the next step.",
     notFoundTitle: "Price list not found",
-    notFoundDescription: "This price list could not be found or is unavailable.",
+    notFoundDescription:
+      "This price list could not be found or is unavailable.",
   },
 };
 

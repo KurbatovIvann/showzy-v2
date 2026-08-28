@@ -67,9 +67,9 @@ describe("flattenPriceListPages", () => {
   it("concatenates page items in order", () => {
     const first = item({ id: "11111111-1111-4111-8111-111111111111" });
     const second = item({ id: "22222222-2222-4222-8222-222222222222" });
-    expect(flattenPriceListPages([{ items: [first] }, { items: [second] }])).toEqual(
-      [first, second],
-    );
+    expect(
+      flattenPriceListPages([{ items: [first] }, { items: [second] }]),
+    ).toEqual([first, second]);
   });
 });
 
@@ -139,9 +139,9 @@ describe("classifyPriceListsList", () => {
     expect(
       classifyPriceListsList({ ...base, hasSearch: true, availability: "all" }),
     ).toEqual({ kind: "empty-filtered" });
-    expect(
-      classifyPriceListsList({ ...base, availability: "active" }),
-    ).toEqual({ kind: "empty-filtered" });
+    expect(classifyPriceListsList({ ...base, availability: "active" })).toEqual(
+      { kind: "empty-filtered" },
+    );
     expect(
       classifyPriceListsList({ ...base, availability: "inactive" }),
     ).toEqual({ kind: "empty-filtered" });

@@ -7,9 +7,9 @@ import {
 
 describe("listPriceListsWireInput", () => {
   it("forwards availability and optional name query, and appends the cursor", () => {
-    expect(
-      listPriceListsWireInput({ availability: "all" }, null),
-    ).toEqual({ availability: "all" });
+    expect(listPriceListsWireInput({ availability: "all" }, null)).toEqual({
+      availability: "all",
+    });
     expect(
       listPriceListsWireInput(
         { availability: "active", query: "опт" },

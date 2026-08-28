@@ -50,9 +50,7 @@ export function PriceListEditorPlaceholderView(props: {
               />
             )
           }
-          title={
-            missing ? copy.stub.notFoundTitle : copy.stub.placeholderTitle
-          }
+          title={missing ? copy.stub.notFoundTitle : copy.stub.placeholderTitle}
           description={
             missing
               ? copy.stub.notFoundDescription

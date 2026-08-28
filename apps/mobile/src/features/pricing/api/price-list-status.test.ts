@@ -5,7 +5,10 @@ import type { MutationCallOptions } from "@showzy/contract";
 import { createContractMutationController } from "../../../api/contract-mutation";
 import { createShowzyQueryClient } from "../../../api/query-client";
 import { contractQueryKey } from "../../../api/query-options";
-import { GET_PRICE_LIST_ACTION, priceListsWriteInvalidationKeys } from "./price-list-cache";
+import {
+  GET_PRICE_LIST_ACTION,
+  priceListsWriteInvalidationKeys,
+} from "./price-list-cache";
 import { LIST_PRICE_LISTS_ACTION } from "./price-list.queries";
 import {
   bindPriceListStatusMutate,

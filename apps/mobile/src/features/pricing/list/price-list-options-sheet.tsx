@@ -35,8 +35,7 @@ export function PriceListOptionsSheet(props: {
   const muted = theme.colors.mutedForeground;
   const danger = theme.colors.destructive;
   const icon = theme.iconSize.sm;
-  const showDefault =
-    visibility.showSetDefault || visibility.showClearDefault;
+  const showDefault = visibility.showSetDefault || visibility.showClearDefault;
   const showActive = visibility.showActivate || visibility.showDeactivate;
   const showDelete = visibility.showDelete;
 

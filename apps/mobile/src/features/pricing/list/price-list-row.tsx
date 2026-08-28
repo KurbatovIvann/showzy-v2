@@ -1,10 +1,6 @@
 import { memo } from "react";
 import { Pressable, Text, View } from "react-native";
-import {
-  MoreHorizontalIcon,
-  PencilIcon,
-  TagIcon,
-} from "lucide-react-native";
+import { MoreHorizontalIcon, PencilIcon, TagIcon } from "lucide-react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { Button, StatusPill } from "../../../components/ui";

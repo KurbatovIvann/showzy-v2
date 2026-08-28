@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { pricingCopy } from "../../../i18n/pricing";
-import {
-  mapPricingWriteFailure,
-  pricingWriteBanner,
-} from "./mutation-failure";
+import { mapPricingWriteFailure, pricingWriteBanner } from "./mutation-failure";
 
 describe("mapPricingWriteFailure", () => {
   it("splits offline and permission from other failures", () => {
