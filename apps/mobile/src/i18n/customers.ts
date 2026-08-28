@@ -21,7 +21,7 @@ export type CustomersConfirmCopy = {
   readonly deleteDescription: string;
   readonly deleteConfirm: string;
   readonly deleteGroupTitle: string;
-  readonly deleteGroupDescription: string;
+  readonly deleteGroupDescription: CustomersCountForms;
   readonly deleteGroupDescriptionEmpty: string;
   readonly deleteGroupConfirm: string;
   readonly cancel: string;
@@ -178,8 +178,11 @@ const en: CustomersCopy = {
       "The client will be deleted forever. Counterparties stay unlinked. This cannot be undone.",
     deleteConfirm: "Delete",
     deleteGroupTitle: "Delete this group?",
-    deleteGroupDescription:
-      "{{count}} clients will stay with no group. Their price lists do not change.",
+    deleteGroupDescription: {
+      one: "{{count}} client will stay with no group. Their price lists do not change.",
+      few: "{{count}} clients will stay with no group. Their price lists do not change.",
+      many: "{{count}} clients will stay with no group. Their price lists do not change.",
+    },
     deleteGroupDescriptionEmpty:
       "The group will be deleted. Clients are not removed.",
     deleteGroupConfirm: "Delete group",
@@ -278,8 +281,11 @@ const uk: CustomersCopy = {
       "Клієнта буде видалено назавжди. Контрагенти залишаться без прив’язки. Цю дію не можна скасувати.",
     deleteConfirm: "Видалити",
     deleteGroupTitle: "Видалити групу?",
-    deleteGroupDescription:
-      "{{count}} клієнтів залишаться без групи. Їхні прайс-листи не зміняться.",
+    deleteGroupDescription: {
+      one: "{{count}} клієнт залишиться без групи. Їхні прайс-листи не зміняться.",
+      few: "{{count}} клієнти залишаться без групи. Їхні прайс-листи не зміняться.",
+      many: "{{count}} клієнтів залишаться без групи. Їхні прайс-листи не зміняться.",
+    },
     deleteGroupDescriptionEmpty:
       "Групу буде видалено. Клієнти не постраждають.",
     deleteGroupConfirm: "Видалити групу",

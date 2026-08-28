@@ -43,7 +43,11 @@ export function useGroupsList(args: {
   const { copy, locale } = args;
   const apiClient = useApiClient();
   const { activeCompanyId } = useActiveCompany();
-  const writes = useGroupWrites({ copy, canEdit: args.canEdit });
+  const writes = useGroupWrites({
+    copy,
+    locale,
+    canEdit: args.canEdit,
+  });
 
   const [searchText, setSearchText] = useState("");
   const debouncedSearch = useDebouncedValue(searchText, SEARCH_DEBOUNCE_MS);

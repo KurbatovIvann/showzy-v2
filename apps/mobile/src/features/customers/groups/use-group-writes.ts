@@ -12,7 +12,7 @@ import { describeQueryFailure } from "../../../api/errors";
 import { useActiveCompany } from "../../../api/query-provider";
 import { presentConfirmDialog } from "../../../components/ui/present-confirm-dialog";
 import type { CustomersCopy } from "../../../i18n/customers";
-import { interpolate } from "../../../i18n/locale";
+import type { Locale } from "../../../i18n/locale";
 import { invalidateCustomersAfterWrite } from "../api/customer-status";
 import { bindGroupDeleteMutate } from "../api/group-delete";
 import { groupEditorHref } from "../shared/customer-hrefs";
@@ -21,9 +21,11 @@ import {
   mapCustomersWriteFailure,
 } from "../shared/mutation-failure";
 import { submitWithProtocolConfirmation } from "../shared/protocol-confirm";
+import { deleteGroupConfirmMessage } from "./groups-list.presenter";
 
 export function useGroupWrites(args: {
   readonly copy: CustomersCopy;
+  readonly locale: Locale;
   readonly canEdit: boolean;
 }) {
   const apiClient = useApiClient();
@@ -71,12 +73,11 @@ export function useGroupWrites(args: {
       if (!args.canEdit || writeBusyRef.current) {
         return;
       }
-      const message =
-        memberCount > 0
-          ? interpolate(args.copy.confirm.deleteGroupDescription, {
-              count: String(memberCount),
-            })
-          : args.copy.confirm.deleteGroupDescriptionEmpty;
+      const message = deleteGroupConfirmMessage(
+        memberCount,
+        args.locale,
+        args.copy.confirm,
+      );
       const choice = await presentConfirmDialog({
         title: args.copy.confirm.deleteGroupTitle,
         message,

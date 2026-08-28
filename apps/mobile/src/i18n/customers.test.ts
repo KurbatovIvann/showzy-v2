@@ -18,6 +18,9 @@ describe("customers copy", () => {
     expect(Object.keys(uk.empty)).toEqual(Object.keys(en.empty));
     expect(Object.keys(uk.comingSoon)).toEqual(Object.keys(en.comingSoon));
     expect(Object.keys(uk.confirm)).toEqual(Object.keys(en.confirm));
+    expect(Object.keys(uk.confirm.deleteGroupDescription)).toEqual(
+      Object.keys(en.confirm.deleteGroupDescription),
+    );
     expect(Object.keys(uk.mutation)).toEqual(Object.keys(en.mutation));
     expect(Object.keys(uk.editorStub)).toEqual(Object.keys(en.editorStub));
     expect(Object.keys(uk.counterparties)).toEqual(
@@ -53,6 +56,7 @@ describe("customers copy", () => {
     expect(uk.confirm.deleteDescription).toContain(
       "Контрагенти залишаться без прив’язки",
     );
-    expect(uk.confirm.deleteGroupDescription).toContain("{{count}}");
+    expect(uk.confirm.deleteGroupDescription.many).toContain("{{count}}");
+    expect(uk.confirm.deleteGroupDescription.one).toContain("клієнт");
   });
 });
