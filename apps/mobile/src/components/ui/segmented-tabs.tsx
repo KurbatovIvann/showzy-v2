@@ -32,7 +32,7 @@ export function SegmentedTabs<K extends string>(props: {
         tabs={props.tabs}
         selected={props.selected}
         onSelect={props.onSelect}
-        disabled={props.disabled}
+        disabled={props.disabled === true}
       />
     );
   }
@@ -43,7 +43,7 @@ export function SegmentedTabs<K extends string>(props: {
           key={tab.key}
           label={tab.label}
           selected={tab.key === props.selected}
-          disabled={props.disabled}
+          disabled={props.disabled === true}
           grow
           onPress={() => {
             props.onSelect(tab.key);
@@ -132,7 +132,7 @@ function ScrollableSegmentedTabs<K extends string>(props: {
             key={tab.key}
             label={tab.label}
             selected={tab.key === props.selected}
-            disabled={props.disabled}
+            disabled={props.disabled === true}
             compact
             onLayout={(event) => {
               tabMetrics.current[tab.key] = {
@@ -169,7 +169,7 @@ function SegmentedTab(props: {
       accessibilityRole="tab"
       accessibilityState={{ selected: props.selected }}
       accessibilityLabel={props.label}
-      disabled={props.disabled}
+      disabled={props.disabled === true}
       onLayout={props.onLayout}
       onPress={props.onPress}
       style={({ pressed }) => [
