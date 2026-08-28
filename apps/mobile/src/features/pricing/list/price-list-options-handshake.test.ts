@@ -79,9 +79,9 @@ describe("runAfterOptionsSheetHidden", () => {
     const gate = new Promise<void>((resolve) => {
       release = resolve;
     });
-    const presentConfirmDialog = vi.fn(async () => {
+    const presentConfirmDialog = vi.fn(() => {
       events.push("presentConfirmDialog");
-      return "cancel" as const;
+      return Promise.resolve();
     });
 
     const done = runAfterOptionsSheetHidden({
@@ -93,9 +93,7 @@ describe("runAfterOptionsSheetHidden", () => {
         chrome = hidePriceListOptions(chrome);
         events.push("hide");
       },
-      then: async () => {
-        await presentConfirmDialog();
-      },
+      then: () => presentConfirmDialog(),
     });
 
     await Promise.resolve();
