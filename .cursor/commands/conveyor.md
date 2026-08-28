@@ -119,11 +119,20 @@ parent and halt — do not grind.
    `/review` was launched, its verdict is in.
 
 If Bugbot reports bugs, security-review reports medium+, Actions is
-red, or `/review` is **REQUEST CHANGES** with blockers/majors: **do not
-merge and do not fix it yourself.** Comment Linear. Launch a new cloud
-executor on the **same** branch (`cloud_base_branch` = PR head) with the
-findings. After it pushes, re-run VERIFY-equivalent wait and **re-launch
-`/review`**. Two failed review rounds → ask the human. End the turn.
+red, `/review` is **REQUEST CHANGES** with blockers/majors, or `/review`
+lists **nits**: **do not merge and do not fix it yourself.** Comment
+Linear. Launch a new cloud executor on the **same** branch
+(`cloud_base_branch` = PR head) with the findings. Skip a nit only when
+it contradicts the feature card, golden, or an ADR — say why on Linear.
+
+- **Majors / blockers** — after the fix pushes, wait for CI and
+  **re-launch `/review`**. Two failed review rounds → ask the human.
+- **Nits only** (verdict was APPROVE with nits, or REQUEST CHANGES
+  emptied down to nits) — after the fix pushes, wait for CI, then
+  merge. Do **not** re-launch `/review` for leftover taste. One
+  apply-nits pass is enough.
+
+End the turn.
 
 ## Merge gate (parent squash-merges)
 
@@ -140,12 +149,13 @@ Merge **only** when all of these hold:
 3. Independent Task security-review (if launched): no medium / high /
    critical.
 4. Isolated `/review` **if launched**: verdict is in, and it is
-   **APPROVE** or nits-only. REQUEST CHANGES with blockers/majors is
-   not a merge — same-branch fix (above). Do not merge while `/review`
-   is still running.
+   **APPROVE with no open nits**. REQUEST CHANGES with blockers/majors,
+   or any listed nits, are same-branch fixes (above) — not a merge. Do
+   not merge while `/review` is still running.
 
-`/review` nits are Linear comments. They do not block merge and they
-do not become tickets.
+Nits are **same-branch work before merge**, not Linear comments on a
+Done ticket (nobody reads those). They are not their own tickets on the
+happy path. After a nits-only fix, do not re-launch `/review`.
 
 Not merge blockers:
 
@@ -172,12 +182,12 @@ merged first; that is **not** the rule anymore.
 If a launched `/review` still arrives **after** squash-merge (hung
 agent, dropped notification):
 
-- **APPROVE** or nits → Linear comment only. Do not reopen Done. Do
-  not file nits as tickets.
-- **REQUEST CHANGES** with blockers or majors → **new** Linear child
-  under the same parent. Do not reopen the Done ticket. Put the
-  follow-up on the queue (sequential if it shares files). This is how
-  SHO-189 → SHO-198 happened; treat that as the backup, not the plan.
+- **APPROVE** with no findings → Linear comment only.
+- **Nits** or **REQUEST CHANGES** with blockers/majors → **new** Linear
+  child under the same parent (so the work is not lost in a comment on
+  Done). Do not reopen the Done ticket. Put the follow-up on the queue
+  (sequential if it shares files). This is how SHO-189 → SHO-198
+  happened; treat that as the backup, not the plan.
 
 ## Parent ticket
 

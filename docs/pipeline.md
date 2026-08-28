@@ -72,7 +72,12 @@ Experience Foundation UX gate; backend tickets do not.
 | Isolation | **Default sequential.** Linear `blocked by` empty is not enough (SHO-184/186/185). Parallel only if path sets are disjoint |
 | Merge gate | Seven GitHub Actions jobs (`checks`, `secret-scan`, `dependency-audit`, `contract-check`, `migration-drift`, `bundle-probe`, `e2e-smoke`). Parent Task Bugbot on routine+. Parent Task security-review on `sensitive`. Isolated `/review` **when launched** (`sensitive`, first-slice, UI, or a prior REQUEST CHANGES). GitHub-hosted Cursor Bugbot / Security Reviewer checks are **not** gates (usage limits, `neutral`, late) |
 
-If `/review` is launched, wait for APPROVE or nits-only before squash-merge. REQUEST CHANGES with blockers/majors → same-branch fix, then `/review` again. A late post-merge REQUEST CHANGES (hung agent) → new Linear child as **fallback**; do not reopen Done. Nits → comment only, never a ticket.
+If `/review` is launched, wait for **APPROVE with no open nits** before
+squash-merge. REQUEST CHANGES with blockers/majors **or any nits** →
+same-branch fix. Re-launch `/review` after majors; after a nits-only
+apply, merge on green CI (no extra `/review`). A late post-merge verdict
+(hung agent) → new Linear child as **fallback** (majors and nits); do
+not reopen Done.
 
 ### 3. EXECUTOR — `/ticket SHO-<n>` on a **leaf** (wraps `/implement`)
 

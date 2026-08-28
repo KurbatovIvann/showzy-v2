@@ -69,10 +69,13 @@ Launch isolated `/review` when the lane requires it (`sensitive`,
 first-slice, UI, or a prior REQUEST CHANGES on this feature). Do not
 launch it on mechanical or ordinary routine backend. **If it is
 launched, wait for the verdict before squash-merge.** REQUEST CHANGES
-with blockers/majors is a same-branch fix, then `/review` again. Nits
-are comments and do not block. A REQUEST CHANGES that arrives only
-**after** merge (hung agent, dropped notification) becomes a **new**
-child — fallback, not the happy path.
+with blockers/majors **and nits** are same-branch fixes (parent
+relaunches a cloud executor on that PR). After majors, `/review` again.
+After a nits-only apply, merge on green CI — do not start an infinite
+taste loop. Skip a nit only when it contradicts the card, golden, or an
+ADR. A verdict that arrives only **after** merge (hung agent, dropped
+notification) becomes a **new** child — fallback, not the happy path —
+including leftover nits, so they are not comments on Done.
 
 Nested Task unavailability in cloud executors is **expected**. Children
 must not fail the ticket for it. They self-check `review.md` / `guard.md`
@@ -105,6 +108,9 @@ merge itself.
   after** — how SHO-183 ran; rejected by the owner: majors reached
   `main` (SHO-189 / SHO-190). Wait when `/review` is launched. Post-merge
   children are fallback only.
+- **Leave nits as Linear comments** — rejected by the owner: comments on
+  Done tickets are never seen. Fix nits on the same branch before merge.
+  After merge (fallback), nits get a follow-up child too.
 
 ## Consequences
 
@@ -115,7 +121,8 @@ merge itself.
   sequential; same-branch cloud relaunch for CI/Bugbot fixes.
 - `docs/pipeline.md` describes the optional parent conductor. ADR-0023’s
   four roles stay; this ADR adds who launches them on a whole feature.
-- When `/review` is launched, it is a merge gate. Post-merge REQUEST
-  CHANGES (blockers/majors) is a **new** child only as fallback; never
-  reopen Done. Nits are comments, never tickets.
+- When `/review` is launched, it is a merge gate. Nits are same-branch
+  fixes before merge, not comments and not happy-path tickets. Post-merge
+  findings (majors or nits) become a **new** child only as fallback;
+  never reopen Done.
 - Process-gap tickets like SHO-197 are documentation, not module work.

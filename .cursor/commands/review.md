@@ -11,9 +11,10 @@ lanes).
 
 On a parent conveyor, the **parent** launches this isolated `/review`
 after the child PR exists (ADR-0029) and **waits for the verdict before
-squash-merge**. Cloud executors must not fail the ticket when they
-cannot nest this command. A REQUEST CHANGES that lands only after merge
-is a fallback follow-up child, not the happy path.
+squash-merge**. Nits are same-branch fixes before merge, not comments on
+Done. Cloud executors must not fail the ticket when they cannot nest
+this command. A verdict that lands only after merge is a fallback
+follow-up child (majors and nits), not the happy path.
 
 Do not treat `docs/archive/specs/` as a contract. Do not fail a PR for
 missing a markdown spec.
