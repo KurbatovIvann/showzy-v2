@@ -38,7 +38,7 @@ export function formatListGroupsCursor(
   id: string,
   name: string,
 ): string {
-  return `${sortOrder}|${id}|${name}`;
+  return `${sortOrder.toString(10)}|${id}|${name}`;
 }
 
 export function parseListGroupsCursor(
