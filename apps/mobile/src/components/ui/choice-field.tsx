@@ -25,6 +25,7 @@ export function ChoiceField<K extends string>(props: {
         bounces={false}
         alwaysBounceHorizontal={false}
         overScrollMode="never"
+        fadingEdgeLength={0}
         automaticallyAdjustContentInsets={false}
         contentInsetAdjustmentBehavior="never"
         contentInset={{ left: 0, right: 0 }}

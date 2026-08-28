@@ -1,8 +1,9 @@
 /**
- * Canvas `AuthModeSwitch` / customers tab strip. `layout="equal"` is the
- * two-up auth row. `layout="scroll"` is the overflowing CRM strip: the
- * muted pill track is content-sized and scrolls as one unit (no edge
- * masks, no iOS automatic content insets).
+ * Canvas `AuthModeSwitch` / customers tab strip (`CustomersScreen` tabs,
+ * not `BottomNav`). `layout="equal"` is the two-up auth row.
+ * `layout="scroll"` is the overflowing CRM strip: full-bleed scroller,
+ * content-sized muted track, optional `contentPaddingHorizontal` so the
+ * track lines up with a padded column and still scrolls to the edge.
  */
 import { useEffect, useRef } from "react";
 import {
@@ -24,6 +25,11 @@ export function SegmentedTabs<K extends string>(props: {
   readonly onSelect: (key: K) => void;
   readonly disabled?: boolean;
   readonly layout?: SegmentedTabsLayout;
+  /**
+   * Leading/trailing inset inside the scroller so the track lines up with
+   * a padded column. Scrolls to the screen edge — not a mask.
+   */
+  readonly contentPaddingHorizontal?: number;
 }) {
   const layout = props.layout ?? "equal";
   if (layout === "scroll") {
@@ -33,6 +39,7 @@ export function SegmentedTabs<K extends string>(props: {
         selected={props.selected}
         onSelect={props.onSelect}
         disabled={props.disabled === true}
+        contentPaddingHorizontal={props.contentPaddingHorizontal ?? 0}
       />
     );
   }
@@ -59,9 +66,11 @@ function ScrollableSegmentedTabs<K extends string>(props: {
   readonly selected: K;
   readonly onSelect: (key: K) => void;
   readonly disabled?: boolean;
+  readonly contentPaddingHorizontal: number;
 }) {
   const { theme } = useUnistyles();
-  const gutter = theme.spacing.sm;
+  const edgePadding = props.contentPaddingHorizontal;
+  const gutter = edgePadding > 0 ? edgePadding : theme.spacing.sm;
   const scrollRef = useRef<ScrollView>(null);
   const viewportWidth = useRef(0);
   const contentWidth = useRef(0);
@@ -76,7 +85,7 @@ function ScrollableSegmentedTabs<K extends string>(props: {
     }
     scrollRef.current?.scrollTo({
       x: scrollXToRevealTab({
-        tabX: tab.x,
+        tabX: tab.x + edgePadding,
         tabWidth: tab.width,
         viewportWidth: viewportWidth.current,
         contentWidth: contentWidth.current,
@@ -93,7 +102,7 @@ function ScrollableSegmentedTabs<K extends string>(props: {
     }
     scrollRef.current?.scrollTo({
       x: scrollXToRevealTab({
-        tabX: tab.x,
+        tabX: tab.x + edgePadding,
         tabWidth: tab.width,
         viewportWidth: viewportWidth.current,
         contentWidth: contentWidth.current,
@@ -101,7 +110,7 @@ function ScrollableSegmentedTabs<K extends string>(props: {
       }),
       animated: true,
     });
-  }, [gutter, props.selected]);
+  }, [edgePadding, gutter, props.selected]);
 
   return (
     <ScrollView
@@ -112,21 +121,23 @@ function ScrollableSegmentedTabs<K extends string>(props: {
       bounces={false}
       alwaysBounceHorizontal={false}
       overScrollMode="never"
+      fadingEdgeLength={0}
       automaticallyAdjustContentInsets={false}
       contentInsetAdjustmentBehavior="never"
       contentInset={{ left: 0, right: 0 }}
       style={styles.scroll}
-      contentContainerStyle={styles.scrollContent}
+      contentContainerStyle={[
+        styles.scrollContent,
+        edgePadding > 0 ? { paddingHorizontal: edgePadding } : null,
+      ]}
       onLayout={(event: LayoutChangeEvent) => {
         viewportWidth.current = event.nativeEvent.layout.width;
       }}
+      onContentSizeChange={(width) => {
+        contentWidth.current = width;
+      }}
     >
-      <View
-        style={styles.scrollTrack}
-        onLayout={(event: LayoutChangeEvent) => {
-          contentWidth.current = event.nativeEvent.layout.width;
-        }}
-      >
+      <View style={styles.scrollTrack}>
         {props.tabs.map((tab) => (
           <SegmentedTab
             key={tab.key}

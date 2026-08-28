@@ -44,4 +44,25 @@ describe("scrollXToRevealTab", () => {
       }),
     ).toBe(200);
   });
+
+  it("treats leading column padding as a gutter so the first tab stays at rest", () => {
+    expect(
+      scrollXToRevealTab({
+        tabX: 16,
+        tabWidth: 80,
+        viewportWidth: 390,
+        contentWidth: 520,
+        gutter: 16,
+      }),
+    ).toBe(0);
+    expect(
+      scrollXToRevealTab({
+        tabX: 216,
+        tabWidth: 90,
+        viewportWidth: 390,
+        contentWidth: 600,
+        gutter: 16,
+      }),
+    ).toBe(200);
+  });
 });

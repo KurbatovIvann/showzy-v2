@@ -51,14 +51,16 @@ export function CustomersHomeView(model: CustomersHomeModel) {
         </View>
       ) : null}
       <View style={styles.controls}>
+        {/* Canvas CustomersScreen tabs — not the staff BottomNav. */}
         <SegmentedTabs
           layout="scroll"
+          contentPaddingHorizontal={theme.spacing.lg}
           tabs={customersTabOptions(copy.tabs)}
           selected={model.tab}
           onSelect={model.selectTab}
         />
         {model.tab === "clients" ? (
-          <>
+          <View style={styles.filters}>
             <SearchField
               value={model.clients.searchText}
               onChangeText={model.clients.changeSearch}
@@ -71,16 +73,18 @@ export function CustomersHomeView(model: CustomersHomeModel) {
               selected={model.clients.chipKey}
               onSelect={model.clients.changeChip}
             />
-          </>
+          </View>
         ) : null}
         {model.tab === "groups" ? (
-          <SearchField
-            value={model.groups.searchText}
-            onChangeText={model.groups.changeSearch}
-            placeholder={copy.groupsSearchPlaceholder}
-            accessibilityLabel={copy.searchLabel}
-            maxLength={model.groups.searchMaxLength}
-          />
+          <View style={styles.filters}>
+            <SearchField
+              value={model.groups.searchText}
+              onChangeText={model.groups.changeSearch}
+              placeholder={copy.groupsSearchPlaceholder}
+              accessibilityLabel={copy.searchLabel}
+              maxLength={model.groups.searchMaxLength}
+            />
+          </View>
         ) : null}
       </View>
       <CustomersHomeBody model={model} />
@@ -137,8 +141,11 @@ const styles = StyleSheet.create((theme) => ({
   },
   controls: {
     gap: theme.spacing.md,
-    paddingHorizontal: theme.spacing.lg,
     paddingBottom: theme.spacing.md,
+  },
+  filters: {
+    gap: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
   },
   centered: {
     flex: 1,

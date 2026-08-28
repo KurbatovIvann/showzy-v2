@@ -12,12 +12,12 @@ because archive / restore / delete live on the row.
 
 ## Folders (one role each)
 
-| Folder    | Owns                                                                                                                                            | Does not own                     |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| `api/`    | list/query binders, status and delete mutations, cache invalidation keys                                                                        | JSX, RHF                         |
-| `list/`   | Home screen, view, composer hook, clients presenter/row, `use-client-writes`. Tab chrome is shared `SegmentedTabs` `layout="scroll"`            | Group row internals, form fields |
-| `groups/` | Groups presenter, composer hook, group row, `use-group-writes`                                                                                  | Client filters                   |
-| `shared/` | Permissions, hrefs, caps, initials, count labels, protocol-confirm helper, paged-list helpers, entity card chrome, debounce, editor placeholder | Transport                        |
+| Folder    | Owns                                                                                                                                                               | Does not own                     |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------- |
+| `api/`    | list/query binders, status and delete mutations, cache invalidation keys                                                                                           | JSX, RHF                         |
+| `list/`   | Home screen, view, composer hook, clients presenter/row, `use-client-writes`. Top chrome is shared `SegmentedTabs` `layout="scroll"` (full-bleed; not `BottomNav`) | Group row internals, form fields |
+| `groups/` | Groups presenter, composer hook, group row, `use-group-writes`                                                                                                     | Client filters                   |
+| `shared/` | Permissions, hrefs, caps, initials, count labels, protocol-confirm helper, paged-list helpers, entity card chrome, debounce, editor placeholder                    | Transport                        |
 
 Create/edit forms are SHO-180 / SHO-181. This slice only navigates to
 those routes (placeholder until those tickets land).
