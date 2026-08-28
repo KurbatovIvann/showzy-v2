@@ -68,10 +68,11 @@ Expo skills for backend or module work.
 
 ## Feature conveyor
 
-`/implement SHO-<parent>` (or `/ticket` on a Feature parent) runs the
-autonomous parent orchestrator: isolated cloud `/ticket` per child,
-independent reviews from the parent, squash-merge on green GitHub
-Actions. Playbook: `.cursor/commands/conveyor.md`. ADR-0029. A human
+`/implement SHO-<parent>` (or `/ticket` / `/conveyor` on a Feature
+parent) runs the autonomous parent orchestrator: isolated cloud
+`/ticket` per child, independent reviews from the parent, squash-merge
+on green GitHub Actions. Children on one feature are sequential by
+default. Playbook: `.cursor/commands/conveyor.md`. ADR-0029. A human
 closes the feature parent. Nested Bugbot / `/review` / `security-review`
 inside a cloud child are expected to be unavailable — do not fail the
 child for that.

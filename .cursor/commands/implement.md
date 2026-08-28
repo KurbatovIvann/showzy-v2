@@ -2,13 +2,16 @@
 
 Dispatch once, then stop. Do not recurse.
 
-1. Fetch the issue (include relations).
+1. Fetch the issue (include relations and labels).
 2. **Parent feature** — it has child issues, or label `Feature`:
-   follow `.cursor/commands/conveyor.md`. Do not implement children.
+   follow `.cursor/commands/conveyor.md` only. Do **not** continue this
+   file. Do not implement children.
 3. **Leaf ticket** — if the user invoked `/implement` on a leaf, follow
    `.cursor/commands/ticket.md` (it uses the executor section below and
    must **not** re-enter this dispatch). If you are already in
    `ticket.md` step IMPLEMENT, continue with Setup.
+
+If Dispatch classified this as a Feature parent, stop here.
 
 ---
 

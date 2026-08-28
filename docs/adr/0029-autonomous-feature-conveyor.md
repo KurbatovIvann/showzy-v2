@@ -38,10 +38,25 @@ throws away the run that already shipped SHO-184–SHO-190 and SHO-198–SHO-200
 
 A **parent orchestrator** may run the feature loop for a Linear feature
 parent (`/implement SHO-<parent>` or `/ticket SHO-<parent>` when that
-issue has children or label `Feature`). The parent does not implement.
-It launches one cloud `/ticket` executor per child, attaches independent
-reviews from **its** conversation, and squash-merges when the merge gate
-in `.cursor/commands/conveyor.md` is green.
+issue has children or label `Feature`). The parent does not implement
+and does not edit product code on a child branch. It launches one cloud
+`/ticket` executor per child, attaches independent reviews from **its**
+conversation, and squash-merges when the merge gate in
+`.cursor/commands/conveyor.md` is green.
+
+Children on one feature are **sequential by default**. Linear `blocked
+by` is not a parallel permit: same module, schema, mobile feature folder,
+or i18n namespace overlap (SHO-184 / 186 / 185 were all Todo and still
+had to run one at a time). Parallel only when path sets are disjoint.
+
+If Actions is red or parent Task Bugbot / security-review is blocking,
+the parent relaunches a cloud executor on the **same** PR branch. It
+does not fix the child itself. After merge, wait until `origin/main`
+has the merge SHA before starting the next child.
+
+Process-gap siblings (docs / Improvement with no module label, like
+SHO-197) stay off the product queue unless they **are** the named
+parent.
 
 **Writer ≠ reviewer** is the parent’s independent Task Bugbot,
 security-review, and `/review` — not nested tools inside the child, and
@@ -68,13 +83,20 @@ merge itself.
 - **Block merge on GitHub Cursor Bugbot / Security Reviewer checks** —
   rejected: usage limits and late/neutral checks stalled PRs that already
   had parent Task Bugbot + security-review + green Actions.
+- **Parallelize every Linear-unblocked child** — rejected: SHO-183
+  backend tickets shared `packages/modules/pricing` and would have
+  collided. Default sequential.
+- **Parent implements CI / Bugbot fixes** — rejected: that collapses
+  isolation and makes the conductor the writer. Relaunch a cloud
+  executor on the same branch.
 
 ## Consequences
 
-- Commands: `/implement` and `/ticket` dispatch to
-  `.cursor/commands/conveyor.md` on a feature parent. Leaf path is
-  unchanged except draft PRs, Linear `In Review`, Linear `gitBranchName`
-  + `skip_branch_prefix_check`, and the SHO-197 nested-Task rule.
+- Commands: `/implement`, `/ticket` on a Feature parent, and `/conveyor`
+  all run `.cursor/commands/conveyor.md`. Leaf path is unchanged except
+  draft PRs, Linear `In Review`, Linear `gitBranchName` +
+  `skip_branch_prefix_check`, and the SHO-197 nested-Task rule. Default
+  sequential; same-branch cloud relaunch for CI/Bugbot fixes.
 - `docs/pipeline.md` describes the optional parent conductor. ADR-0023’s
   four roles stay; this ADR adds who launches them on a whole feature.
 - Follow-up from post-merge REQUEST CHANGES (blockers/majors) is a **new**

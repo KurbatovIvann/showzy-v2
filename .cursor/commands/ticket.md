@@ -49,10 +49,12 @@ Run the checks CI will run for this change. All green → push and open a
 **draft** PR (title `SHO-<number> <title>`; description: ticket + feature
 card, tests written, deviations = none or a stop report;
 `skip_branch_prefix_check: true` when the branch is Linear
-`gitBranchName`). Do not bypass or weaken CI. Two failed verify rounds →
-stop and ask the human.
+`gitBranchName`). Do not mark the PR ready. Do not bypass or weaken CI.
+Two failed verify rounds → stop and ask the human.
 
-Move the ticket to **In Review** when the PR is open.
+Comment Linear with the PR URL as soon as the PR exists. Move the ticket
+to **In Review**. Do not leave it In Progress (SHO-184 did; that was
+wrong).
 
 ## 4. GUARD
 
@@ -78,7 +80,7 @@ When those Task tools **are** available in this conversation (interactive
 
 - Post a Linear comment: PR link, what was implemented, test summary,
   self-check verdicts (if any), open questions. Ticket stays **In Review**
-  while the PR is open.
+  while the PR is open. Do not mark Ready; the parent or a human does.
 - **Do not merge.** The parent conveyor squash-merges when the merge gate
   is green (ADR-0029). A human merges a leaf `/ticket` that is not under
   a parent conveyor.

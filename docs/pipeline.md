@@ -69,7 +69,7 @@ Experience Foundation UX gate; backend tickets do not.
 | Input | Approved Linear feature card and ticket graph |
 | Output | Each child squash-merged on green Actions + parent Task reviews. Parent stays In Progress |
 | Done when | Named children and review follow-ups are on `main`. A human closes the parent |
-| Isolation | Sequential when children share files; parallel only if `blocked by` is empty **and** paths cannot overlap |
+| Isolation | **Default sequential.** Linear `blocked by` empty is not enough (SHO-184/186/185). Parallel only if path sets are disjoint |
 | Merge gate | Seven GitHub Actions jobs (`checks`, `secret-scan`, `dependency-audit`, `contract-check`, `migration-drift`, `bundle-probe`, `e2e-smoke`). Parent Task Bugbot on routine+. Parent Task security-review on `sensitive`. GitHub-hosted Cursor Bugbot / Security Reviewer checks are **not** gates (usage limits, `neutral`, late). Isolated `/review` must not block merge |
 
 Follow-ups: post-merge `/review` **REQUEST CHANGES** with blockers/majors → new Linear child, do not reopen Done. Nits → comment only.
@@ -162,8 +162,10 @@ Linear (team **Showzy-v2**, via MCP) is the work ledger. Mapping:
   a `spec` or `scaffold` label for new work.
 - **Statuses**: Backlog (blocked) → Todo (ready) → In Progress (executor
   running) → **In Review** (draft PR open) → Done (merged). Canceled is
-  for dropped tasks. Linear GitHub sync may flip a ticket to In Progress
-  when a PR is marked ready; after squash-merge, set Done again if needed.
+  for dropped tasks. The leaf executor must move the ticket to In Review
+  when the PR exists (not leave it In Progress). Linear GitHub sync may
+  flip a ticket to In Progress when a PR is marked ready; after
+  squash-merge, set Done again if needed.
 
 Day-to-day loop:
 
