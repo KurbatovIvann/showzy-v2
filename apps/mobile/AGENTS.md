@@ -33,9 +33,13 @@ the same directory.
   lives on the More tab. No logic in route files besides layout guards
   and redirects.
 - `src/components/ui/` — **shared** primitives only (Button, Card, TextField,
-  tabs, inputs, later Sheet / StatusPill / EmptyState). Never imports
-  feature code; feature policy values (e.g. OTP length) arrive as props.
-  Before adding a new file here, confirm the canvas piece is actually shared.
+  `SegmentedTabs`, `TabView`, inputs, Sheet / StatusPill / EmptyState). Never
+  imports feature code; feature policy values (e.g. OTP length) arrive as
+  props. Before adding a new file here, confirm the canvas piece is actually
+  shared. In-screen tabs are `SegmentedTabs` + `TabView` only — see the
+  decision table in [`mp-to-mobile.md`](../../docs/design/mapping/mp-to-mobile.md).
+  Do not add a second pill bar, PagerView wrapper, or `react-native-tab-view`.
+  Staff shell tabs stay `BottomNav`. Filter chips stay `ChoiceField`.
 - `src/features/<module>/<surface>/` — golden feature slices. Copy
   `src/features/catalog/products/` (SHO-155): `api/`, `list/`, `detail/`,
   `form/`, `photos/`, `shared/`. Screens take view models and callbacks;

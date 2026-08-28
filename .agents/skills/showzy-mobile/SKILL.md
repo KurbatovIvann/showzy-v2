@@ -50,6 +50,8 @@ cache, or restructure `apps/mobile`. Session transport is Cookie via
 
 Unistyles 3.2.2 at `apps/mobile/src/theme/` is the only theme. Extend it in
 its own idiom. Port screens per `docs/design/mapping/mp-to-mobile.md`.
+In-screen tabs: `SegmentedTabs` + `TabView` only (decision table in that
+doc). Do not add `react-native-tab-view` or a feature-local tab bar.
 
 Corners and shadows (checked against RN 0.86 View style props):
 

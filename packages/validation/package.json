@@ -6,6 +6,7 @@
   "description": "Client-safe shared Zod schemas for action contracts and apps (ADR-0016, contract.md §2). Domain slices are exported as subpaths; this package owns no actions or tables.",
   "exports": {
     "./catalog": "./src/catalog.ts",
+    "./customers": "./src/customers.ts",
     "./slug": "./src/slug.ts"
   },
   "scripts": {

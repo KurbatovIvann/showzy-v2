@@ -22,6 +22,14 @@ export function ChoiceField<K extends string>(props: {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        bounces={false}
+        alwaysBounceHorizontal={false}
+        overScrollMode="never"
+        fadingEdgeLength={0}
+        automaticallyAdjustContentInsets={false}
+        contentInsetAdjustmentBehavior="never"
+        contentInset={{ left: 0, right: 0 }}
+        style={styles.scroll}
         contentContainerStyle={styles.chips}
       >
         {props.options.map((option) => {
@@ -63,11 +71,17 @@ const styles = StyleSheet.create((theme) => ({
     fontWeight: "500",
     marginBottom: theme.spacing.sm,
   },
+  scroll: {
+    flexGrow: 0,
+    backgroundColor: "transparent",
+  },
   chips: {
+    flexGrow: 0,
     flexDirection: "row",
     gap: theme.spacing.sm,
   },
   chip: {
+    flexShrink: 0,
     minHeight: theme.hitTarget.min,
     justifyContent: "center",
     borderRadius: theme.radii.full,
