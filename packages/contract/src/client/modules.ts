@@ -56,12 +56,15 @@ import {
   getOrderContract,
 } from "@showzy/orders/contract";
 import {
+  activatePriceListContract,
   createPriceListContract,
+  deactivatePriceListContract,
   getPriceListContract,
   listPriceListEntriesContract,
   listPriceListsContract,
   removePriceListEntriesContract,
   resolveProductPricesContract,
+  setDefaultPriceListContract,
   setPriceListEntriesContract,
   updatePriceListContract,
 } from "@showzy/pricing/contract";
@@ -119,12 +122,15 @@ export const contractModules = {
     get: getOrderContract,
   },
   pricing: {
+    activatePriceList: activatePriceListContract,
     createPriceList: createPriceListContract,
+    deactivatePriceList: deactivatePriceListContract,
     getPriceList: getPriceListContract,
     listPriceListEntries: listPriceListEntriesContract,
     listPriceLists: listPriceListsContract,
     removePriceListEntries: removePriceListEntriesContract,
     resolveProductPrices: resolveProductPricesContract,
+    setDefaultPriceList: setDefaultPriceListContract,
     setPriceListEntries: setPriceListEntriesContract,
     updatePriceList: updatePriceListContract,
   },
