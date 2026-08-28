@@ -9,6 +9,12 @@ export type MoreCopy = {
   readonly email: string;
   readonly companySelector: string;
   readonly signOut: string;
+  readonly management: string;
+  readonly priceLists: string;
+  readonly priceListsDescription: string;
+  readonly documents: string;
+  readonly documentsDescription: string;
+  readonly documentsDisabledHint: string;
 };
 
 export type PanelCopy = {
@@ -37,6 +43,12 @@ const en: PanelCopy = {
     email: "Email",
     companySelector: "Active company",
     signOut: "Sign Out",
+    management: "Management",
+    priceLists: "Price lists",
+    priceListsDescription: "Different prices for customer groups",
+    documents: "Documents",
+    documentsDescription: "Invoices, acts, and waybills",
+    documentsDisabledHint: "Coming soon",
   },
 };
 
@@ -58,6 +70,12 @@ const uk: PanelCopy = {
     email: "Email",
     companySelector: "Активна компанія",
     signOut: "Вийти",
+    management: "Керування",
+    priceLists: "Прайс-листи",
+    priceListsDescription: "Різні ціни для груп клієнтів",
+    documents: "Документи",
+    documentsDescription: "Рахунки, акти та накладні",
+    documentsDisabledHint: "Незабаром",
   },
 };
 

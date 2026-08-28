@@ -48,6 +48,12 @@ describe("panel copy", () => {
       email: "Email",
       companySelector: "Активна компанія",
       signOut: "Вийти",
+      management: "Керування",
+      priceLists: "Прайс-листи",
+      priceListsDescription: "Різні ціни для груп клієнтів",
+      documents: "Документи",
+      documentsDescription: "Рахунки, акти та накладні",
+      documentsDisabledHint: "Незабаром",
     });
     expect(en.more).toEqual({
       session: "Session",
@@ -56,6 +62,12 @@ describe("panel copy", () => {
       email: "Email",
       companySelector: "Active company",
       signOut: "Sign Out",
+      management: "Management",
+      priceLists: "Price lists",
+      priceListsDescription: "Different prices for customer groups",
+      documents: "Documents",
+      documentsDescription: "Invoices, acts, and waybills",
+      documentsDisabledHint: "Coming soon",
     });
   });
 

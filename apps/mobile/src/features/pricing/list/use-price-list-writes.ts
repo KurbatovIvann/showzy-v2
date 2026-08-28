@@ -1,0 +1,193 @@
+/**
+ * Default / active / delete + navigation (SHO-189). Delete is UI confirm
+ * then protocol confirmation. Deactivating the default is blocked in the
+ * UI with the canvas toast copy (Banner) and never sent.
+ */
+import { useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
+
+import { useApiClient } from "../../../api/api-provider";
+import { useContractMutation } from "../../../api/contract-mutation";
+import { describeQueryFailure } from "../../../api/errors";
+import { useActiveCompany } from "../../../api/query-provider";
+import { presentConfirmDialog } from "../../../components/ui/present-confirm-dialog";
+import { interpolate } from "../../../i18n/locale";
+import type { PricingCopy } from "../../../i18n/pricing";
+import { bindPriceListDeleteMutate } from "../api/price-list-delete";
+import {
+  bindPriceListStatusMutate,
+  invalidatePriceListsAfterWrite,
+  type PriceListStatusWrite,
+} from "../api/price-list-status";
+import {
+  priceListCreateHref,
+  priceListEditorHref,
+} from "../shared/price-list-hrefs";
+import {
+  mapPricingWriteFailure,
+  pricingWriteBanner,
+} from "../shared/mutation-failure";
+import { submitWithProtocolConfirmation } from "../shared/protocol-confirm";
+import { shouldBlockDeactivateDefault } from "./price-lists-list.presenter";
+
+export type PriceListWriteTarget = {
+  readonly id: string;
+  readonly name: string;
+  readonly isDefault: boolean;
+  readonly isActive: boolean;
+};
+
+export function usePriceListWrites(args: {
+  readonly copy: PricingCopy;
+  readonly canManage: boolean;
+}) {
+  const apiClient = useApiClient();
+  const apiRef = useRef(apiClient);
+  apiRef.current = apiClient;
+  const { activeCompanyId } = useActiveCompany();
+  const queryClient = useQueryClient();
+  const router = useRouter();
+  const writeBusyRef = useRef(false);
+  const [localBanner, setLocalBanner] = useState<string | null>(null);
+
+  const statusMutation = useContractMutation(
+    (input: PriceListStatusWrite, options) => {
+      const current = apiRef.current;
+      if (current === null) {
+        return Promise.reject(new TypeError("Failed to fetch"));
+      }
+      return bindPriceListStatusMutate(current)(input, options);
+    },
+  );
+  const deleteMutation = useContractMutation(
+    (input: { id: string }, options) => {
+      const current = apiRef.current;
+      if (current === null) {
+        return Promise.reject(new TypeError("Failed to fetch"));
+      }
+      return bindPriceListDeleteMutate(current)(input, options);
+    },
+  );
+
+  const statusFailure = statusMutation.isError
+    ? describeQueryFailure(statusMutation.error).kind
+    : null;
+  const deleteFailure = deleteMutation.isError
+    ? describeQueryFailure(deleteMutation.error).kind
+    : null;
+  const banner =
+    localBanner ??
+    pricingWriteBanner(
+      mapPricingWriteFailure(deleteFailure),
+      args.copy.mutation,
+    ) ??
+    pricingWriteBanner(
+      mapPricingWriteFailure(statusFailure),
+      args.copy.mutation,
+    );
+
+  async function afterWrite(): Promise<void> {
+    await invalidatePriceListsAfterWrite({
+      queryClient,
+      companyId: activeCompanyId,
+    });
+    statusMutation.reset();
+    deleteMutation.reset();
+    setLocalBanner(null);
+  }
+
+  return {
+    banner,
+    pending: statusMutation.isPending || deleteMutation.isPending,
+    openCreate: () => {
+      router.push(priceListCreateHref());
+    },
+    openEdit: (id: string) => {
+      router.push(priceListEditorHref(id));
+    },
+    goBack: () => {
+      router.back();
+    },
+    setDefault: async (list: PriceListWriteTarget) => {
+      if (!args.canManage || writeBusyRef.current) {
+        return;
+      }
+      writeBusyRef.current = true;
+      setLocalBanner(null);
+      try {
+        await statusMutation.submit(
+          list.isDefault
+            ? { kind: "clearDefault" }
+            : { kind: "setDefault", priceListId: list.id },
+        );
+        await afterWrite();
+      } catch {
+        // Banner is derived from mutation.error.
+      } finally {
+        writeBusyRef.current = false;
+      }
+    },
+    toggleActive: async (list: PriceListWriteTarget) => {
+      if (!args.canManage || writeBusyRef.current) {
+        return;
+      }
+      if (
+        list.isActive &&
+        shouldBlockDeactivateDefault({
+          isDefault: list.isDefault,
+          isActive: list.isActive,
+        })
+      ) {
+        statusMutation.reset();
+        deleteMutation.reset();
+        setLocalBanner(args.copy.toast.cannotDeactivateDefault);
+        return;
+      }
+      writeBusyRef.current = true;
+      setLocalBanner(null);
+      try {
+        await statusMutation.submit(
+          list.isActive
+            ? { kind: "deactivate", id: list.id }
+            : { kind: "activate", id: list.id },
+        );
+        await afterWrite();
+      } catch {
+        // Banner is derived from mutation.error.
+      } finally {
+        writeBusyRef.current = false;
+      }
+    },
+    remove: async (list: PriceListWriteTarget) => {
+      if (!args.canManage || writeBusyRef.current) {
+        return;
+      }
+      const choice = await presentConfirmDialog({
+        title: args.copy.confirm.deleteTitle,
+        message: interpolate(args.copy.confirm.deleteDescription, {
+          name: list.name,
+        }),
+        confirmLabel: args.copy.confirm.deleteConfirm,
+        cancelLabel: args.copy.confirm.cancel,
+        tone: "danger",
+      });
+      if (choice === "cancel") {
+        return;
+      }
+      writeBusyRef.current = true;
+      setLocalBanner(null);
+      try {
+        await submitWithProtocolConfirmation({
+          submit: () => deleteMutation.submit({ id: list.id }),
+          confirm: (challengeId) => deleteMutation.confirm(challengeId),
+        });
+        await afterWrite();
+      } catch {
+        // Banner is derived from mutation.error.
+      } finally {
+        writeBusyRef.current = false;
+      }
+    },
+  };
+}
