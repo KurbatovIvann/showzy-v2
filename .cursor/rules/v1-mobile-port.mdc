@@ -15,8 +15,11 @@ Before writing a screen:
 
 1. Read the Magic Patterns files for that route.
 2. List every visual piece and classify **shared** vs **feature**.
-3. Shared (Button, Card, tabs, input, sheet, badge, empty, header) →
-   reuse or add in `src/components/ui/`. Do not fork a second Button.
+3. Shared (Button, Card, `SegmentedTabs`, `TabView`, input, sheet, badge,
+   empty, header) → reuse or add in `src/components/ui/`. Do not fork a
+   second Button or a second tab primitive. Pill chrome is `SegmentedTabs`;
+   swipeable in-screen scenes are `TabView`. `BottomNav` is staff shell
+   only. Decision table: `docs/design/mapping/mp-to-mobile.md`.
 4. Feature (OrderRow, ProductImagePicker, AssistantSheet) →
    `src/features/<module>/<surface>/` (copy `catalog/products`).
    Do not add new product modules under `src/components/screens/<feature>/`.

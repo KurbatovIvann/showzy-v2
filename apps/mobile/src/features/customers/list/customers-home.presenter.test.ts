@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { indexOfTabKey } from "../../../components/ui/tab-view.model";
 import {
   canShowCustomersCreate,
   customersCreateKind,
@@ -18,14 +19,20 @@ describe("customers home tabs", () => {
   });
 
   it("lists tab options in canvas order", () => {
-    expect(
-      customersTabOptions({
-        clients: "Clients",
-        groups: "Groups",
-        counterparties: "Counterparties",
-        invitations: "Invitations",
-      }).map((tab) => tab.key),
-    ).toEqual(["clients", "groups", "counterparties", "invitations"]);
+    const tabs = customersTabOptions({
+      clients: "Clients",
+      groups: "Groups",
+      counterparties: "Counterparties",
+      invitations: "Invitations",
+    });
+    expect(tabs.map((tab) => tab.key)).toEqual([
+      "clients",
+      "groups",
+      "counterparties",
+      "invitations",
+    ]);
+    expect(indexOfTabKey(tabs, "groups")).toBe(1);
+    expect(indexOfTabKey(tabs, "invitations")).toBe(3);
   });
 
   it("hides + without create (clients) or edit (groups), and on coming-soon tabs", () => {

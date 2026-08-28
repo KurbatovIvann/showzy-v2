@@ -1,3 +1,4 @@
+import { useCallback, useMemo } from "react";
 import { View } from "react-native";
 import { BuildingIcon, MailIcon, PlusIcon } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -9,17 +10,41 @@ import {
   ChoiceField,
   EmptyState,
   IconButton,
+  indexOfTabKey,
   SearchField,
   SegmentedTabs,
+  TabView,
+  type TabBarProps,
 } from "../../../components/ui";
 import { GroupsListPane } from "../groups/groups-list-pane";
 import { ClientsListPane } from "./clients-list-pane";
-import { customersTabOptions } from "./customers-home.presenter";
+import {
+  customersTabOptions,
+  type CustomersTab,
+} from "./customers-home.presenter";
 import type { CustomersHomeModel } from "./use-customers-home";
 
 export function CustomersHomeView(model: CustomersHomeModel) {
   const { theme } = useUnistyles();
   const { copy } = model;
+  const tabs = useMemo(() => customersTabOptions(copy.tabs), [copy.tabs]);
+
+  const onTabChange = useCallback(
+    (_index: number, key: CustomersTab) => {
+      model.selectTab(key);
+    },
+    [model.selectTab],
+  );
+
+  const renderTabBar = useCallback(
+    (bar: TabBarProps<CustomersTab>) => <CustomersTabBar {...bar} />,
+    [],
+  );
+
+  const renderScene = useCallback(
+    (key: CustomersTab) => <CustomersHomeScene tab={key} model={model} />,
+    [model],
+  );
 
   return (
     <SafeAreaView
@@ -50,65 +75,91 @@ export function CustomersHomeView(model: CustomersHomeModel) {
           <Banner message={model.banner} />
         </View>
       ) : null}
-      <View style={styles.controls}>
-        {/* Canvas CustomersScreen tabs — not the staff BottomNav. */}
-        <SegmentedTabs
-          layout="scroll"
-          contentPaddingHorizontal={theme.spacing.lg}
-          tabs={customersTabOptions(copy.tabs)}
-          selected={model.tab}
-          onSelect={model.selectTab}
-        />
-        {model.tab === "clients" ? (
-          <View style={styles.filters}>
-            <SearchField
-              value={model.clients.searchText}
-              onChangeText={model.clients.changeSearch}
-              placeholder={copy.clientsSearchPlaceholder}
-              accessibilityLabel={copy.searchLabel}
-              maxLength={model.clients.searchMaxLength}
-            />
-            <ChoiceField
-              options={model.clients.chipOptions}
-              selected={model.clients.chipKey}
-              onSelect={model.clients.changeChip}
-            />
-          </View>
-        ) : null}
-        {model.tab === "groups" ? (
-          <View style={styles.filters}>
-            <SearchField
-              value={model.groups.searchText}
-              onChangeText={model.groups.changeSearch}
-              placeholder={copy.groupsSearchPlaceholder}
-              accessibilityLabel={copy.searchLabel}
-              maxLength={model.groups.searchMaxLength}
-            />
-          </View>
-        ) : null}
-      </View>
-      <CustomersHomeBody model={model} />
+      <TabView
+        tabs={tabs}
+        renderScene={renderScene}
+        renderTabBar={renderTabBar}
+        onTabChange={onTabChange}
+        lazy
+        swipeEnabled
+        scrollableTabs
+      />
     </SafeAreaView>
   );
 }
 
-function CustomersHomeBody(props: { readonly model: CustomersHomeModel }) {
-  const { model } = props;
+function CustomersTabBar(props: TabBarProps<CustomersTab>) {
+  const { theme } = useUnistyles();
+  const selected = props.tabs[props.selectedIndex];
+  if (selected === undefined) {
+    return null;
+  }
+  return (
+    <View style={styles.tabBar}>
+      {/* Canvas CustomersScreen tabs — not the staff BottomNav. */}
+      <SegmentedTabs
+        layout="scroll"
+        contentPaddingHorizontal={theme.spacing.lg}
+        tabs={props.tabs}
+        selected={selected.key}
+        onSelect={(key) => {
+          const index = indexOfTabKey(props.tabs, key);
+          if (index >= 0) {
+            props.onTabPress(index);
+          }
+        }}
+      />
+    </View>
+  );
+}
+
+function CustomersHomeScene(props: {
+  readonly tab: CustomersTab;
+  readonly model: CustomersHomeModel;
+}) {
+  const { tab, model } = props;
   const { copy } = model;
   const { theme } = useUnistyles();
   const iconColor = theme.colors.mutedForeground;
 
-  if (model.tab === "clients") {
+  if (tab === "clients") {
     return (
-      <ClientsListPane model={model.clients} openCreate={model.openCreate} />
+      <View style={styles.scene}>
+        <View style={styles.filters}>
+          <SearchField
+            value={model.clients.searchText}
+            onChangeText={model.clients.changeSearch}
+            placeholder={copy.clientsSearchPlaceholder}
+            accessibilityLabel={copy.searchLabel}
+            maxLength={model.clients.searchMaxLength}
+          />
+          <ChoiceField
+            options={model.clients.chipOptions}
+            selected={model.clients.chipKey}
+            onSelect={model.clients.changeChip}
+          />
+        </View>
+        <ClientsListPane model={model.clients} openCreate={model.openCreate} />
+      </View>
     );
   }
-  if (model.tab === "groups") {
+  if (tab === "groups") {
     return (
-      <GroupsListPane model={model.groups} openCreate={model.openCreate} />
+      <View style={styles.scene}>
+        <View style={styles.filters}>
+          <SearchField
+            value={model.groups.searchText}
+            onChangeText={model.groups.changeSearch}
+            placeholder={copy.groupsSearchPlaceholder}
+            accessibilityLabel={copy.searchLabel}
+            maxLength={model.groups.searchMaxLength}
+          />
+        </View>
+        <GroupsListPane model={model.groups} openCreate={model.openCreate} />
+      </View>
     );
   }
-  if (model.tab === "counterparties") {
+  if (tab === "counterparties") {
     return (
       <View style={styles.centered}>
         <EmptyState
@@ -139,13 +190,16 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: theme.spacing.lg,
     paddingBottom: theme.spacing.sm,
   },
-  controls: {
-    gap: theme.spacing.md,
+  tabBar: {
     paddingBottom: theme.spacing.md,
+  },
+  scene: {
+    flex: 1,
   },
   filters: {
     gap: theme.spacing.md,
     paddingHorizontal: theme.spacing.lg,
+    paddingBottom: theme.spacing.md,
   },
   centered: {
     flex: 1,

@@ -4,6 +4,8 @@
  * `layout="scroll"` is the overflowing CRM strip: full-bleed scroller,
  * content-sized muted track, optional `contentPaddingHorizontal` so the
  * track lines up with a padded column and still scrolls to the edge.
+ * The selected state is a sliding pill (v1 SegmentedControl), not a
+ * per-tab background.
  */
 import { useEffect, useRef } from "react";
 import {
@@ -13,9 +15,11 @@ import {
   View,
   type LayoutChangeEvent,
 } from "react-native";
+import Animated from "react-native-reanimated";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { scrollXToRevealTab } from "./segmented-tabs.layout";
+import { useSegmentedPill } from "./use-segmented-pill";
 
 export type SegmentedTabsLayout = "equal" | "scroll";
 
@@ -44,19 +48,42 @@ export function SegmentedTabs<K extends string>(props: {
     );
   }
   return (
+    <EqualSegmentedTabs
+      tabs={props.tabs}
+      selected={props.selected}
+      onSelect={props.onSelect}
+      disabled={props.disabled === true}
+    />
+  );
+}
+
+function EqualSegmentedTabs<K extends string>(props: {
+  readonly tabs: ReadonlyArray<{ readonly key: K; readonly label: string }>;
+  readonly selected: K;
+  readonly onSelect: (key: K) => void;
+  readonly disabled: boolean;
+}) {
+  const { onTabLayout, pillStyle } = useSegmentedPill(props.selected);
+  return (
     <View style={styles.equalTrack} accessibilityRole="tablist">
-      {props.tabs.map((tab) => (
-        <SegmentedTab
-          key={tab.key}
-          label={tab.label}
-          selected={tab.key === props.selected}
-          disabled={props.disabled === true}
-          grow
-          onPress={() => {
-            props.onSelect(tab.key);
-          }}
-        />
-      ))}
+      <View collapsable={false} style={styles.equalInner}>
+        <Animated.View pointerEvents="none" style={[styles.pill, pillStyle]} />
+        {props.tabs.map((tab) => (
+          <SegmentedTab
+            key={tab.key}
+            label={tab.label}
+            selected={tab.key === props.selected}
+            disabled={props.disabled}
+            grow
+            onLayout={(event) => {
+              onTabLayout(tab.key, event);
+            }}
+            onPress={() => {
+              props.onSelect(tab.key);
+            }}
+          />
+        ))}
+      </View>
     </View>
   );
 }
@@ -65,7 +92,7 @@ function ScrollableSegmentedTabs<K extends string>(props: {
   readonly tabs: ReadonlyArray<{ readonly key: K; readonly label: string }>;
   readonly selected: K;
   readonly onSelect: (key: K) => void;
-  readonly disabled?: boolean;
+  readonly disabled: boolean;
   readonly contentPaddingHorizontal: number;
 }) {
   const { theme } = useUnistyles();
@@ -77,6 +104,7 @@ function ScrollableSegmentedTabs<K extends string>(props: {
   const tabMetrics = useRef<Partial<Record<K, { x: number; width: number }>>>(
     {},
   );
+  const { onTabLayout, pillStyle } = useSegmentedPill(props.selected);
 
   function reveal(key: K): void {
     const tab = tabMetrics.current[key];
@@ -138,28 +166,35 @@ function ScrollableSegmentedTabs<K extends string>(props: {
       }}
     >
       <View style={styles.scrollTrack}>
-        {props.tabs.map((tab) => (
-          <SegmentedTab
-            key={tab.key}
-            label={tab.label}
-            selected={tab.key === props.selected}
-            disabled={props.disabled === true}
-            compact
-            onLayout={(event) => {
-              tabMetrics.current[tab.key] = {
-                x: event.nativeEvent.layout.x,
-                width: event.nativeEvent.layout.width,
-              };
-              if (tab.key === props.selected) {
-                reveal(tab.key);
-              }
-            }}
-            onPress={() => {
-              props.onSelect(tab.key);
-              reveal(tab.key);
-            }}
+        <View collapsable={false} style={styles.scrollInner}>
+          <Animated.View
+            pointerEvents="none"
+            style={[styles.pill, pillStyle]}
           />
-        ))}
+          {props.tabs.map((tab) => (
+            <SegmentedTab
+              key={tab.key}
+              label={tab.label}
+              selected={tab.key === props.selected}
+              disabled={props.disabled}
+              compact
+              onLayout={(event) => {
+                tabMetrics.current[tab.key] = {
+                  x: event.nativeEvent.layout.x,
+                  width: event.nativeEvent.layout.width,
+                };
+                onTabLayout(tab.key, event);
+                if (tab.key === props.selected) {
+                  reveal(tab.key);
+                }
+              }}
+              onPress={() => {
+                props.onSelect(tab.key);
+                reveal(tab.key);
+              }}
+            />
+          ))}
+        </View>
       </View>
     </ScrollView>
   );
@@ -187,7 +222,6 @@ function SegmentedTab(props: {
         styles.tab,
         props.grow === true ? styles.tabGrow : null,
         compact ? styles.tabCompact : null,
-        props.selected ? styles.tabSelected : null,
         pressed && !props.selected ? styles.pressed : null,
       ]}
     >
@@ -217,6 +251,11 @@ const styles = StyleSheet.create((theme) => ({
     padding: theme.spacing.xs,
     minHeight: theme.hitTarget.field,
   },
+  equalInner: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "stretch",
+  },
   scroll: {
     flexGrow: 0,
     backgroundColor: "transparent",
@@ -230,10 +269,24 @@ const styles = StyleSheet.create((theme) => ({
     alignSelf: "flex-start",
     flexGrow: 0,
     flexShrink: 0,
-    gap: theme.spacing.sm,
     backgroundColor: theme.colors.muted,
     borderRadius: theme.radii.full,
     padding: theme.spacing.xs,
+  },
+  scrollInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexGrow: 0,
+    flexShrink: 0,
+    gap: theme.spacing.sm,
+  },
+  pill: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    borderRadius: theme.radii.full,
+    backgroundColor: theme.colors.card,
+    ...theme.shadows.sm,
   },
   tab: {
     alignItems: "center",
@@ -247,10 +300,6 @@ const styles = StyleSheet.create((theme) => ({
     flexShrink: 0,
     minHeight: theme.hitTarget.min,
     paddingHorizontal: theme.spacing.lg,
-  },
-  tabSelected: {
-    backgroundColor: theme.colors.card,
-    ...theme.shadows.sm,
   },
   pressed: {
     opacity: 0.85,

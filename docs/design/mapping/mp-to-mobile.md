@@ -23,7 +23,7 @@ When work starts on a canvas screen, do this **before writing screen JSX**:
 
    | Kind | Lives in | Examples |
    | --- | --- | --- |
-   | **Shared primitive** | `apps/mobile/src/components/ui/` | Button, Card, TextField, SegmentedTabs, OtpInput, Banner, EmptyState, StatusPill, AppHeader, Sheet |
+   | **Shared primitive** | `apps/mobile/src/components/ui/` | Button, Card, TextField, SegmentedTabs, TabView, OtpInput, Banner, EmptyState, StatusPill, AppHeader, Sheet |
    | **Feature component** | `apps/mobile/src/features/<module>/<surface>/` (golden: `catalog/products`). Unmigrated screens stay under `components/screens/<feature>/` until their own tickets. | OrderRow, ProductImagePicker, AssistantSheet, editor sections |
    | **Route only** | `apps/mobile/src/app/` | one-line re-export |
 
@@ -34,7 +34,8 @@ When work starts on a canvas screen, do this **before writing screen JSX**:
 
 3. **Reuse or create**
    - Shared and already in `components/ui` → restyle/extend that primitive
-     with theme tokens. Do not fork a second Button.
+     with theme tokens. Do not fork a second Button, `SegmentedTabs`, or
+     `TabView`.
    - Shared and missing → add it under `components/ui` in the same PR as
      the first screen that needs it. Bind every value to the theme.
    - Feature → new file under `src/features/<module>/<surface>/` (copy
@@ -135,7 +136,8 @@ System font. No webfont.
 | `Button` | `Button` | pill; `size: "auth"` is 54 + `typography.lg`; auth disabled uses faint fill, not opacity; `danger` is `destructiveSoft` / `destructive` (pressed inverts to fill); optional `icon` and `fullWidth` |
 | `Card` | section / `Card` | 22px, `line` border, `surface` fill |
 | `TextField` | `TextField` | 16px radius, canvas fill; optional label / leading / prefix / suffix; `changed` chip uses `StatusPill` `action`; `size: "auth"` is 54 + 16 tabular-nums + focus `ring` |
-| `SegmentedTabs` | `AuthModeSwitch` / customers tab strip | `layout="equal"` (default): two-up auth row, track `hitTarget.field`. `layout="scroll"`: compact overflowing CRM strip (canvas `CustomersScreen` tabs — not `BottomNav`). Host is full-bleed; `contentPaddingHorizontal` keeps rest alignment with the padded column and scrolls to the screen edge (no overlay masks, `contentInsetAdjustmentBehavior="never"`, `fadingEdgeLength={0}`). Pills `hitTarget.min` / `typography.sm`. Class B: canvas 40/14 → 44/`typography.sm`. Do not put track chrome on `ScrollView` `contentContainerStyle`. |
+| `SegmentedTabs` | `AuthModeSwitch` / customers tab strip | `layout="equal"` (default): two-up auth row, track `hitTarget.field`. `layout="scroll"`: compact overflowing CRM strip (canvas `CustomersScreen` tabs — not `BottomNav`). Host is full-bleed; `contentPaddingHorizontal` keeps rest alignment with the padded column and scrolls to the screen edge (no overlay masks, `contentInsetAdjustmentBehavior="never"`, `fadingEdgeLength={0}`). Pills `hitTarget.min` / `typography.sm`. Class B: canvas 40/14 → 44/`typography.sm`. Do not put track chrome on `ScrollView` `contentContainerStyle`. Selected chrome is a sliding pill (v1 `SegmentedControl` indicator) — `translateX` + `width`, 250ms ease-in-out; snap on first measure, resize, and reduced motion. |
+| `TabView` | swipeable multi-scene pages (v1 PagerView + shared TabView) | Native (`tab-view.native.tsx`) owns `react-native-pager-view` sync with the tab bar (tap → `setPage`, swipe → `onPageSelected`). Web/export (`tab-view.tsx`) keeps the same bar and shows the selected scene only. Default bar is `SegmentedTabs`; CRM uses `renderTabBar` for the full-bleed scroll strip. `lazy` mounts a scene on first visit. Not `BottomNav`. Pill does not interpolate during the swipe (settles on `onPageSelected`, same as v1). |
 | `OtpInput` | `OtpInput` | square cells, gap 8, digits `typography.2xl`; optional inline `error` string |
 | `Banner` | inline error | keep; do not invent a second error strip |
 | `EmptyState` | `EmptyState` | centered icon badge (48 circle on `muted`), `typography.lg` title, `typography.sm` muted description, optional action slot |
@@ -152,6 +154,25 @@ listed after SwitchRow landed with the product editor.
 
 Feature examples (never in `ui/`): `OrderRow`, `ProductRow`,
 `AssistantSheet`, `BottomNav` (staff shell, not a generic tab primitive).
+
+### Tab chrome — reuse, do not fork
+
+In-screen tabs already live in `components/ui`. Do not add a second pill
+bar, a feature-local `*-tabs.tsx`, a new `PagerView` wrapper, or
+`react-native-tab-view` / `@react-navigation/material-top-tabs`.
+`react-native-pager-view` is already in the native kit.
+
+| Need | Use |
+| --- | --- |
+| Pill labels only (auth channel, 2-up) | `SegmentedTabs` `layout="equal"` |
+| Overflowing pill strip (CRM, 3+ Ukrainian labels) | `SegmentedTabs` `layout="scroll"` |
+| Swipe between full scenes under that strip | `TabView` + `SegmentedTabs` as the bar (`renderTabBar` when the strip must bleed) |
+| Filter chips under a list | `ChoiceField` — not tabs |
+| Staff shell Замовлення / Товари / AI / Клієнти / Ще | `BottomNav` — never `TabView` / `SegmentedTabs` |
+
+Copy `src/features/customers/list/customers-home-view.tsx` for the swipe
++ scroll-strip composition. Golden files:
+`src/components/ui/segmented-tabs.tsx`, `src/components/ui/tab-view.tsx`.
 
 ## Product locks (from the canvas)
 
