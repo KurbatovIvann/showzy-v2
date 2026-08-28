@@ -40,8 +40,10 @@ describe("customers copy", () => {
     expect(uk.searchLabel).toBe("Пошук");
     expect(uk.clientsSearchPlaceholder).toBe("Ім’я, телефон або email");
     expect(uk.groupsSearchPlaceholder).toBe("Назва групи");
+    expect(uk.counterpartiesSearchPlaceholder).toBe("Назва або ЄДРПОУ");
     expect(uk.createClientLabel).toBe("Новий клієнт");
     expect(uk.createGroupLabel).toBe("Нова група");
+    expect(uk.createCounterpartyLabel).toBe("Новий контрагент");
     expect(uk.tabs).toEqual({
       clients: "Клієнти",
       groups: "Групи",
@@ -56,6 +58,9 @@ describe("customers copy", () => {
     expect(uk.empty.archivedTitle).toBe("Архів порожній");
     expect(uk.empty.archivedDescription).toContain("Спочатку архів");
     expect(uk.empty.groupsTitle).toBe("Груп ще немає");
+    expect(uk.empty.counterpartiesTitle).toBe("Контрагентів ще немає");
+    expect(uk.empty.counterpartiesDescription).toContain("без клієнта");
+    expect(uk.edrpouBadge).toBe("ЄДРПОУ {{edrpou}}");
     expect(uk.confirm.archiveDescription).toContain(
       "Спочатку архів, потім видалення",
     );
@@ -64,6 +69,10 @@ describe("customers copy", () => {
     );
     expect(uk.confirm.deleteGroupDescription.many).toContain("{{count}}");
     expect(uk.confirm.deleteGroupDescription.one).toContain("клієнт");
+    expect(uk.confirm.deleteCounterpartyTitle).toBe("Видалити контрагента?");
+    expect(uk.confirm.deleteCounterpartyDescription).toContain(
+      "Клієнт (якщо був прив’язаний) залишиться",
+    );
     expect(uk.form.contactsHelper).toContain("телефон, email");
     expect(uk.form.counterpartiesTitle).toBe("Юрособи");
     expect(uk.form.counterpartiesCreateHint).toContain("Збережіть клієнта");
@@ -80,5 +89,9 @@ describe("customers copy", () => {
     expect(uk.groupForm.priceListEmptyOption).toBe("За замовчуванням");
     expect(uk.groupForm.errors.nameRequired).toBe("Вкажіть назву групи");
     expect(uk.groupForm.notFoundTitle).toBe("Групу не знайдено");
+    expect(uk.editorStub.counterpartyCreateTitle).toBe("Новий контрагент");
+    expect(uk.editorStub.counterpartyPlaceholderDescription).toContain(
+      "Форма контрагента",
+    );
   });
 });

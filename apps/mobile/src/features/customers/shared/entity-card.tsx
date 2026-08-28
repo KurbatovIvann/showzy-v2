@@ -6,8 +6,8 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { Button } from "../../../components/ui";
 
 /**
- * Canvas `EntityCard` chrome shared by client and group rows. Not a
- * list-wide Pressable — there is no customer detail ticket.
+ * Canvas `EntityCard` chrome shared by client, group, and counterparty
+ * rows. Not a list-wide Pressable — there is no customer detail ticket.
  */
 export function EntityCard(props: {
   readonly title: string;

@@ -13,3 +13,11 @@ export function groupCreateHref(): string {
 export function groupEditorHref(groupId: string): string {
   return `/customers/groups/${groupId}/edit`;
 }
+
+export function counterpartyCreateHref(): string {
+  return "/customers/counterparties/new";
+}
+
+export function counterpartyEditorHref(counterpartyId: string): string {
+  return `/customers/counterparties/${counterpartyId}/edit`;
+}

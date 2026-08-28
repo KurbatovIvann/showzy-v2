@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { View } from "react-native";
-import { BuildingIcon, MailIcon, PlusIcon } from "lucide-react-native";
+import { MailIcon, PlusIcon } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
@@ -16,6 +16,7 @@ import {
   TabView,
   type TabBarProps,
 } from "../../../components/ui";
+import { CounterpartiesListPane } from "../counterparties/counterparties-list-pane";
 import { GroupsListPane } from "../groups/groups-list-pane";
 import { ClientsListPane } from "./clients-list-pane";
 import {
@@ -161,11 +162,19 @@ function CustomersHomeScene(props: {
   }
   if (tab === "counterparties") {
     return (
-      <View style={styles.centered}>
-        <EmptyState
-          icon={<BuildingIcon size={theme.iconSize.md} color={iconColor} />}
-          title={copy.comingSoon.counterpartiesTitle}
-          description={copy.comingSoon.counterpartiesDescription}
+      <View style={styles.scene}>
+        <View style={styles.filters}>
+          <SearchField
+            value={model.counterparties.searchText}
+            onChangeText={model.counterparties.changeSearch}
+            placeholder={copy.counterpartiesSearchPlaceholder}
+            accessibilityLabel={copy.searchLabel}
+            maxLength={model.counterparties.searchMaxLength}
+          />
+        </View>
+        <CounterpartiesListPane
+          model={model.counterparties}
+          openCreate={model.openCreate}
         />
       </View>
     );

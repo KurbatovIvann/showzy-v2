@@ -1,6 +1,6 @@
 /**
- * Shared list helpers for clients and groups (SHO-179). Lives in
- * `shared/` so `groups/` does not import the clients presenter.
+ * Shared list helpers for clients, groups, and counterparties.
+ * Lives in `shared/` so surface folders do not import each other.
  */
 
 export function normalizeCustomersSearch(

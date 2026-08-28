@@ -11,10 +11,10 @@ import {
 } from "./customers-home.presenter";
 
 describe("customers home tabs", () => {
-  it("treats counterparties and invitations as unimplemented", () => {
+  it("treats invitations as unimplemented and counterparties as live", () => {
     expect(isCustomersTabImplemented("clients")).toBe(true);
     expect(isCustomersTabImplemented("groups")).toBe(true);
-    expect(isCustomersTabImplemented("counterparties")).toBe(false);
+    expect(isCustomersTabImplemented("counterparties")).toBe(true);
     expect(isCustomersTabImplemented("invitations")).toBe(false);
   });
 
@@ -35,7 +35,7 @@ describe("customers home tabs", () => {
     expect(indexOfTabKey(tabs, "invitations")).toBe(3);
   });
 
-  it("hides + without create (clients) or edit (groups), and on coming-soon tabs", () => {
+  it("hides + without create (clients) or edit (groups/counterparties), and on invitations", () => {
     expect(
       canShowCustomersCreate({
         tab: "clients",
@@ -63,9 +63,24 @@ describe("customers home tabs", () => {
         canCreateCustomers: true,
         canEditCustomers: true,
       }),
+    ).toBe(true);
+    expect(
+      canShowCustomersCreate({
+        tab: "counterparties",
+        canCreateCustomers: true,
+        canEditCustomers: false,
+      }),
+    ).toBe(false);
+    expect(
+      canShowCustomersCreate({
+        tab: "invitations",
+        canCreateCustomers: true,
+        canEditCustomers: true,
+      }),
     ).toBe(false);
     expect(customersCreateKind("clients")).toBe("client");
     expect(customersCreateKind("groups")).toBe("group");
+    expect(customersCreateKind("counterparties")).toBe("counterparty");
     expect(customersCreateKind("invitations")).toBeNull();
   });
 });

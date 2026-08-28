@@ -24,6 +24,9 @@ export type CustomersConfirmCopy = {
   readonly deleteGroupDescription: CustomersCountForms;
   readonly deleteGroupDescriptionEmpty: string;
   readonly deleteGroupConfirm: string;
+  readonly deleteCounterpartyTitle: string;
+  readonly deleteCounterpartyDescription: string;
+  readonly deleteCounterpartyConfirm: string;
   readonly cancel: string;
 };
 
@@ -49,11 +52,14 @@ export type CustomersEmptyCopy = {
   readonly groupsSearchTitle: string;
   readonly groupsSearchDescription: string;
   readonly groupsCreate: string;
+  readonly counterpartiesTitle: string;
+  readonly counterpartiesDescription: string;
+  readonly counterpartiesSearchTitle: string;
+  readonly counterpartiesSearchDescription: string;
+  readonly counterpartiesCreate: string;
 };
 
 export type CustomersComingSoonCopy = {
-  readonly counterpartiesTitle: string;
-  readonly counterpartiesDescription: string;
   readonly invitationsTitle: string;
   readonly invitationsDescription: string;
 };
@@ -63,6 +69,10 @@ export type CustomersEditorStubCopy = {
   readonly clientEditTitle: string;
   readonly groupCreateTitle: string;
   readonly groupEditTitle: string;
+  readonly counterpartyCreateTitle: string;
+  readonly counterpartyEditTitle: string;
+  readonly counterpartyPlaceholderTitle: string;
+  readonly counterpartyPlaceholderDescription: string;
 };
 
 export type CustomersFormCopy = {
@@ -182,8 +192,10 @@ export type CustomersCopy = {
   readonly searchLabel: string;
   readonly clientsSearchPlaceholder: string;
   readonly groupsSearchPlaceholder: string;
+  readonly counterpartiesSearchPlaceholder: string;
   readonly createClientLabel: string;
   readonly createGroupLabel: string;
+  readonly createCounterpartyLabel: string;
   readonly backLabel: string;
   readonly tabs: {
     readonly clients: string;
@@ -202,6 +214,7 @@ export type CustomersCopy = {
   readonly restoreLabel: string;
   readonly loadingLabel: string;
   readonly loadingMoreLabel: string;
+  readonly edrpouBadge: string;
   readonly counterparties: CustomersCountForms;
   readonly members: CustomersCountForms;
   readonly empty: CustomersEmptyCopy;
@@ -218,8 +231,10 @@ const en: CustomersCopy = {
   searchLabel: "Search",
   clientsSearchPlaceholder: "Name, phone, or email",
   groupsSearchPlaceholder: "Group name",
+  counterpartiesSearchPlaceholder: "Name or EDRPOU",
   createClientLabel: "New client",
   createGroupLabel: "New group",
+  createCounterpartyLabel: "New counterparty",
   backLabel: "Back",
   tabs: {
     clients: "Clients",
@@ -238,6 +253,7 @@ const en: CustomersCopy = {
   restoreLabel: "Restore",
   loadingLabel: "Loading customers",
   loadingMoreLabel: "Loading more",
+  edrpouBadge: "EDRPOU {{edrpou}}",
   counterparties: {
     one: "{{count}} counterparty",
     few: "{{count}} counterparties",
@@ -272,11 +288,14 @@ const en: CustomersCopy = {
     groupsSearchTitle: "No groups found",
     groupsSearchDescription: "Try a different query.",
     groupsCreate: "New group",
+    counterpartiesTitle: "No counterparties yet",
+    counterpartiesDescription:
+      "A legal face for invoices. It can stand alone — for example a supplier — without a CRM client.",
+    counterpartiesSearchTitle: "No counterparties found",
+    counterpartiesSearchDescription: "Try a different query.",
+    counterpartiesCreate: "New counterparty",
   },
   comingSoon: {
-    counterpartiesTitle: "Coming soon",
-    counterpartiesDescription:
-      "Counterparty records will arrive in a later update.",
     invitationsTitle: "Coming soon",
     invitationsDescription: "Invitations will arrive in a later update.",
   },
@@ -298,6 +317,10 @@ const en: CustomersCopy = {
     deleteGroupDescriptionEmpty:
       "The group will be deleted. Clients are not removed.",
     deleteGroupConfirm: "Delete group",
+    deleteCounterpartyTitle: "Delete this counterparty?",
+    deleteCounterpartyDescription:
+      "The counterparty will be deleted forever. A linked client stays. This cannot be undone.",
+    deleteCounterpartyConfirm: "Delete counterparty",
     cancel: "Cancel",
   },
   mutation: {
@@ -310,6 +333,11 @@ const en: CustomersCopy = {
     clientEditTitle: "Edit client",
     groupCreateTitle: "New group",
     groupEditTitle: "Edit group",
+    counterpartyCreateTitle: "New counterparty",
+    counterpartyEditTitle: "Edit counterparty",
+    counterpartyPlaceholderTitle: "Editor coming next",
+    counterpartyPlaceholderDescription:
+      "The counterparty form arrives in a later update.",
   },
   form: {
     contactsTitle: "Contacts",
@@ -438,8 +466,10 @@ const uk: CustomersCopy = {
   searchLabel: "Пошук",
   clientsSearchPlaceholder: "Ім’я, телефон або email",
   groupsSearchPlaceholder: "Назва групи",
+  counterpartiesSearchPlaceholder: "Назва або ЄДРПОУ",
   createClientLabel: "Новий клієнт",
   createGroupLabel: "Нова група",
+  createCounterpartyLabel: "Новий контрагент",
   backLabel: "Назад",
   tabs: {
     clients: "Клієнти",
@@ -458,6 +488,7 @@ const uk: CustomersCopy = {
   restoreLabel: "Відновити",
   loadingLabel: "Завантаження клієнтів",
   loadingMoreLabel: "Завантаження наступних",
+  edrpouBadge: "ЄДРПОУ {{edrpou}}",
   counterparties: {
     one: "{{count}} контрагент",
     few: "{{count}} контрагенти",
@@ -494,10 +525,14 @@ const uk: CustomersCopy = {
     groupsSearchTitle: "Групи не знайдено",
     groupsSearchDescription: "Спробуйте інший запит.",
     groupsCreate: "Нова група",
+    counterpartiesTitle: "Контрагентів ще немає",
+    counterpartiesDescription:
+      "Юрособа для рахунків і КЕП. Може бути без клієнта — наприклад, постачальник.",
+    counterpartiesSearchTitle: "Контрагентів не знайдено",
+    counterpartiesSearchDescription: "Спробуйте інший запит.",
+    counterpartiesCreate: "Новий контрагент",
   },
   comingSoon: {
-    counterpartiesTitle: "Незабаром",
-    counterpartiesDescription: "Контрагенти з’являться в окремому оновленні.",
     invitationsTitle: "Незабаром",
     invitationsDescription: "Запрошення з’являться в окремому оновленні.",
   },
@@ -519,6 +554,10 @@ const uk: CustomersCopy = {
     deleteGroupDescriptionEmpty:
       "Групу буде видалено. Клієнти не постраждають.",
     deleteGroupConfirm: "Видалити групу",
+    deleteCounterpartyTitle: "Видалити контрагента?",
+    deleteCounterpartyDescription:
+      "Контрагента буде видалено назавжди. Клієнт (якщо був прив’язаний) залишиться. Цю дію не можна скасувати.",
+    deleteCounterpartyConfirm: "Видалити контрагента",
     cancel: "Скасувати",
   },
   mutation: {
@@ -531,6 +570,11 @@ const uk: CustomersCopy = {
     clientEditTitle: "Редагувати клієнта",
     groupCreateTitle: "Нова група",
     groupEditTitle: "Редагувати групу",
+    counterpartyCreateTitle: "Новий контрагент",
+    counterpartyEditTitle: "Редагувати контрагента",
+    counterpartyPlaceholderTitle: "Редактор незабаром",
+    counterpartyPlaceholderDescription:
+      "Форма контрагента з’явиться в окремому оновленні.",
   },
   form: {
     contactsTitle: "Контакти",

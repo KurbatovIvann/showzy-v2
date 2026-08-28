@@ -21,7 +21,7 @@ export function customersTabOptions(labels: {
 }
 
 export function isCustomersTabImplemented(tab: CustomersTab): boolean {
-  return tab === "clients" || tab === "groups";
+  return tab === "clients" || tab === "groups" || tab === "counterparties";
 }
 
 export function canShowCustomersCreate(args: {
@@ -32,7 +32,7 @@ export function canShowCustomersCreate(args: {
   if (args.tab === "clients") {
     return args.canCreateCustomers;
   }
-  if (args.tab === "groups") {
+  if (args.tab === "groups" || args.tab === "counterparties") {
     return args.canEditCustomers;
   }
   return false;
@@ -40,12 +40,15 @@ export function canShowCustomersCreate(args: {
 
 export function customersCreateKind(
   tab: CustomersTab,
-): "client" | "group" | null {
+): "client" | "group" | "counterparty" | null {
   if (tab === "clients") {
     return "client";
   }
   if (tab === "groups") {
     return "group";
+  }
+  if (tab === "counterparties") {
+    return "counterparty";
   }
   return null;
 }

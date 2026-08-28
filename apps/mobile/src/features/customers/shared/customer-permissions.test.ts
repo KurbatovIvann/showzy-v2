@@ -20,7 +20,7 @@ describe("customer permission affordances", () => {
     expect(canCreateCustomers("employee")).toBe(false);
   });
 
-  it("hides archive/restore, edit, and group writes only for employees", () => {
+  it("hides archive/restore, edit, group writes, and counterparty writes only for employees", () => {
     expect(canEditCustomers("owner")).toBe(true);
     expect(canEditCustomers("admin")).toBe(true);
     expect(canEditCustomers("manager")).toBe(true);

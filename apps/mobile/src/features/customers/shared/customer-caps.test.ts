@@ -10,6 +10,7 @@ import {
   GROUP_DESCRIPTION_MAX,
   GROUP_FORM_DESCRIPTION_LINES,
   GROUP_NAME_MAX,
+  LIST_COUNTERPARTIES_SEARCH_MAX,
   LIST_CUSTOMERS_SEARCH_MAX,
   LIST_GROUPS_SEARCH_MAX,
 } from "./customer-caps";
@@ -18,6 +19,7 @@ describe("customer caps", () => {
   it("re-exports list search max and the drained lookup page size", () => {
     expect(LIST_CUSTOMERS_SEARCH_MAX).toBe(100);
     expect(LIST_GROUPS_SEARCH_MAX).toBe(100);
+    expect(LIST_COUNTERPARTIES_SEARCH_MAX).toBe(100);
     expect(CUSTOMERS_LOOKUP_PAGE_SIZE).toBe(50);
     expect(CUSTOMER_FORM_NOTES_LINES).toBe(5);
     expect(GROUP_FORM_DESCRIPTION_LINES).toBe(4);
