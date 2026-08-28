@@ -9,6 +9,13 @@ it for mechanical work. On routine action PRs, run only if the human asks,
 the change is contested, or a prior review failed (`docs/pipeline.md`
 lanes).
 
+On a parent conveyor, the **parent** launches this isolated `/review`
+after the child PR exists (ADR-0029) and **waits for the verdict before
+squash-merge**. Nits are same-branch fixes before merge, not comments on
+Done. Cloud executors must not fail the ticket when they cannot nest
+this command. A verdict that lands only after merge is a fallback
+follow-up child (majors and nits), not the happy path.
+
 Do not treat `docs/archive/specs/` as a contract. Do not fail a PR for
 missing a markdown spec.
 

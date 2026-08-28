@@ -1,8 +1,14 @@
 # Run the conveyor for one Linear ticket
 
 You are the **ticket orchestrator** (Executor) for Showzy 2.0 (ADR-0023).
-The user names a Linear ticket (e.g. `SHO-42`). Lane it, then run only
-that lane. Keep Linear updated via MCP. One ticket = one branch = one PR.
+The user names a Linear ticket (e.g. `SHO-42`).
+
+If that issue has children or the `Feature` label, stop and follow
+`.cursor/commands/conveyor.md` (parent orchestrator). Do not implement
+the feature as one branch.
+
+Otherwise: lane it, then run only that lane. Keep Linear updated via MCP.
+One ticket = one branch = one PR.
 
 ## Lanes (`docs/pipeline.md`)
 
@@ -30,18 +36,37 @@ For **routine** and **sensitive / first-slice**:
 
 ## 2. IMPLEMENT
 
-Follow `.cursor/commands/implement.md` exactly. Use Linear's generated
-`gitBranchName` when present; otherwise `feat/sho-<number>-<slug>`. No
-`packages/core`, no foreign modules, no `docs/specs/` novels.
+Follow **Setup**, **Process**, and **Hard boundaries** in
+`.cursor/commands/implement.md`. Skip that file’s Dispatch section
+(you already decided this is a leaf). Use Linear's generated
+`gitBranchName` when present; otherwise
+`feat/sho-<number>-<slug>`. No `packages/core`, no foreign modules, no
+`docs/specs/` novels.
 
 ## 3. VERIFY
 
-Run the checks CI will run for this change. All green → push and open
-the PR (title `SHO-<number> <title>`; description: ticket + feature card,
-tests written, deviations = none or a stop report). Do not bypass or
-weaken CI. Two failed verify rounds → stop and ask the human.
+Run the checks CI will run for this change. All green → push and open a
+**draft** PR (title `SHO-<number> <title>`; description: ticket + feature
+card, tests written, deviations = none or a stop report;
+`skip_branch_prefix_check: true` when the branch is Linear
+`gitBranchName`). Do not mark the PR ready. Do not bypass or weaken CI.
+Two failed verify rounds → stop and ask the human.
+
+Comment Linear with the PR URL as soon as the PR exists. Move the ticket
+to **In Review**. Do not leave it In Progress (SHO-184 did; that was
+wrong).
 
 ## 4. GUARD
+
+Cloud executors often **cannot** launch nested Task `bugbot`, isolated
+`/review`, or `security-review` (ADR-0029, SHO-197). That is expected.
+Do not fail the ticket. Do not wait. Apply `.cursor/commands/review.md`
+and `.cursor/commands/guard.md` in-process as a **self-check**, report
+those verdicts on Linear as self-check (writer = this agent), and leave
+independent reviews to the parent conveyor or the human.
+
+When those Task tools **are** available in this conversation (interactive
+`/ticket`, not a nested cloud child):
 
 - **mechanical:** skip.
 - **routine:** launch **Bugbot**. Launch `/review` only if the human asks,
@@ -54,8 +79,10 @@ weaken CI. Two failed verify rounds → stop and ask the human.
 ## 5. HANDOFF
 
 - Post a Linear comment: PR link, what was implemented, test summary,
-  review verdicts (if any), open questions. Leave the ticket **In Progress**
-  while the PR is open.
-- **A human merges.** Never merge yourself.
+  self-check verdicts (if any), open questions. Ticket stays **In Review**
+  while the PR is open. Do not mark Ready; the parent or a human does.
+- **Do not merge.** The parent conveyor squash-merges when the merge gate
+  is green (ADR-0029). A human merges a leaf `/ticket` that is not under
+  a parent conveyor.
 - If you stopped (blocker, product fork), the ticket
   goes back to **Todo** with a comment explaining why.
