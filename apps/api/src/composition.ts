@@ -43,6 +43,8 @@ import {
   createGroup,
   deleteGroup,
   getCustomerPricingFacts,
+  getGroup,
+  listGroups,
   updateGroup,
 } from "@showzy/customers";
 import { customersSuiteCoverage } from "@showzy/customers/suite-coverage";
@@ -203,6 +205,8 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, getCustomerPricingFacts);
   registerAction(registry, createGroup);
   registerAction(registry, deleteGroup);
+  registerAction(registry, getGroup);
+  registerAction(registry, listGroups);
   registerAction(registry, updateGroup);
   registerAction(registry, requestUpload);
   registerAction(registry, getUploadUrl);

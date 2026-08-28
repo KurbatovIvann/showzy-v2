@@ -5,6 +5,8 @@ export const customersSuiteCoverage = {
     "customers.createGroup",
     "customers.deleteGroup",
     "customers.getCustomerPricingFacts",
+    "customers.getGroup",
+    "customers.listGroups",
     "customers.updateGroup",
   ],
   publicProjection: [],

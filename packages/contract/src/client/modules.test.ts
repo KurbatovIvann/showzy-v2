@@ -21,6 +21,8 @@ import {
 import {
   createGroupContract,
   deleteGroupContract,
+  getGroupContract,
+  listGroupsContract,
   updateGroupContract,
 } from "@showzy/customers/contract";
 import {
@@ -68,6 +70,8 @@ describe("client composition", () => {
       customers: {
         createGroup: createGroupContract,
         deleteGroup: deleteGroupContract,
+        getGroup: getGroupContract,
+        listGroups: listGroupsContract,
         updateGroup: updateGroupContract,
       },
       files: {
@@ -107,6 +111,8 @@ describe("client composition", () => {
     expect(contractRouter.companies.listMine).toBeDefined();
     expect(contractRouter.customers.createGroup).toBeDefined();
     expect(contractRouter.customers.deleteGroup).toBeDefined();
+    expect(contractRouter.customers.getGroup).toBeDefined();
+    expect(contractRouter.customers.listGroups).toBeDefined();
     expect(contractRouter.customers.updateGroup).toBeDefined();
     expect(contractModules.customers).not.toHaveProperty(
       "getCustomerPricingFacts",
