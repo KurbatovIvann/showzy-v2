@@ -14,8 +14,11 @@ export function groupEditorHref(groupId: string): string {
   return `/customers/groups/${groupId}/edit`;
 }
 
-export function counterpartyCreateHref(): string {
-  return "/customers/counterparties/new";
+export function counterpartyCreateHref(customerId?: string): string {
+  if (customerId === undefined) {
+    return "/customers/counterparties/new";
+  }
+  return `/customers/counterparties/new?customerId=${customerId}`;
 }
 
 export function counterpartyEditorHref(counterpartyId: string): string {

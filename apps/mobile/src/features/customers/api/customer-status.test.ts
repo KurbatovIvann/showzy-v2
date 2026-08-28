@@ -7,6 +7,7 @@ import { createShowzyQueryClient } from "../../../api/query-client";
 import { contractQueryKey } from "../../../api/query-options";
 import { customersWriteInvalidationKeys } from "./customer-cache";
 import { LIST_COUNTERPARTIES_ACTION } from "./counterparty.queries";
+import { GET_COUNTERPARTY_ACTION } from "./counterparty-detail-query";
 import { GET_CUSTOMER_ACTION } from "./customer-detail-query";
 import { LIST_CUSTOMERS_ACTION } from "./customer.queries";
 import { GET_GROUP_ACTION } from "./group-detail-query";
@@ -72,13 +73,14 @@ describe("bindCustomerStatusMutate", () => {
 });
 
 describe("customersWriteInvalidationKeys", () => {
-  it("targets listCustomers, listGroups, listCounterparties, getCustomer, and getGroup for the active company only", () => {
+  it("targets listCustomers, listGroups, listCounterparties, getCustomer, getGroup, and getCounterparty for the active company only", () => {
     expect(customersWriteInvalidationKeys("company-a")).toEqual([
       [LIST_CUSTOMERS_ACTION, "company-a"],
       [LIST_GROUPS_ACTION, "company-a"],
       [LIST_COUNTERPARTIES_ACTION, "company-a"],
       [GET_CUSTOMER_ACTION, "company-a"],
       [GET_GROUP_ACTION, "company-a"],
+      [GET_COUNTERPARTY_ACTION, "company-a"],
     ]);
   });
 

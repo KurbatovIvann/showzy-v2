@@ -63,25 +63,65 @@ describe("inheritedPriceListPlaceholder", () => {
 });
 
 describe("counterpartiesBodyKind", () => {
-  it("is save-first on create and count-or-empty on edit", () => {
-    expect(counterpartiesBodyKind("create", 3)).toBe("create-hint");
-    expect(counterpartiesBodyKind("edit", 0)).toBe("empty");
-    expect(counterpartiesBodyKind("edit", 2)).toBe("count");
+  it("is save-first on create and list-or-empty on edit", () => {
+    expect(
+      counterpartiesBodyKind({
+        mode: "create",
+        status: "success",
+        itemCount: 3,
+      }),
+    ).toBe("create-hint");
+    expect(
+      counterpartiesBodyKind({
+        mode: "edit",
+        status: "pending",
+        itemCount: 0,
+      }),
+    ).toBe("loading");
+    expect(
+      counterpartiesBodyKind({
+        mode: "edit",
+        status: "error",
+        itemCount: 0,
+      }),
+    ).toBe("error");
+    expect(
+      counterpartiesBodyKind({
+        mode: "edit",
+        status: "success",
+        itemCount: 0,
+      }),
+    ).toBe("empty");
+    expect(
+      counterpartiesBodyKind({
+        mode: "edit",
+        status: "success",
+        itemCount: 2,
+      }),
+    ).toBe("list");
     expect(
       counterpartiesBodyCopy({
         kind: "create-hint",
         createHint: "save first",
         empty: "none",
-        countLabel: "2 counterparties",
+        error: "failed",
       }),
     ).toBe("save first");
     expect(
       counterpartiesBodyCopy({
-        kind: "count",
+        kind: "list",
         createHint: "save first",
         empty: "none",
-        countLabel: "2 counterparties",
+        error: "failed",
       }),
-    ).toBe("2 counterparties");
+    ).toBeNull();
+    expect(
+      counterpartiesBodyCopy({
+        kind: "error",
+        createHint: "save first",
+        empty: "none",
+        error: "failed",
+      }),
+    ).toBe("failed");
   });
 });

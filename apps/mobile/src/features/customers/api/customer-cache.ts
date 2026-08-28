@@ -4,6 +4,7 @@
  */
 import { companyQueryScope } from "../../../api/query-options";
 import { LIST_COUNTERPARTIES_ACTION } from "./counterparty.queries";
+import { GET_COUNTERPARTY_ACTION } from "./counterparty-detail-query";
 import { GET_CUSTOMER_ACTION } from "./customer-detail-query";
 import { LIST_CUSTOMERS_ACTION } from "./customer.queries";
 import { GET_GROUP_ACTION } from "./group-detail-query";
@@ -39,9 +40,16 @@ export function groupDetailCacheKey(
   return [GET_GROUP_ACTION, companyQueryScope(companyId)];
 }
 
+export function counterpartyDetailCacheKey(
+  companyId: string,
+): readonly [string, string] {
+  return [GET_COUNTERPARTY_ACTION, companyQueryScope(companyId)];
+}
+
 export function customersWriteInvalidationKeys(
   companyId: string,
 ): readonly [
+  readonly [string, string],
   readonly [string, string],
   readonly [string, string],
   readonly [string, string],
@@ -54,5 +62,6 @@ export function customersWriteInvalidationKeys(
     counterpartiesListCacheKey(companyId),
     customerDetailCacheKey(companyId),
     groupDetailCacheKey(companyId),
+    counterpartyDetailCacheKey(companyId),
   ];
 }

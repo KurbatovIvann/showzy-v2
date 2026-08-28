@@ -24,6 +24,9 @@ describe("customer hrefs", () => {
       `/customers/groups/${GROUP_ID}/edit`,
     );
     expect(counterpartyCreateHref()).toBe("/customers/counterparties/new");
+    expect(counterpartyCreateHref(CUSTOMER_ID)).toBe(
+      `/customers/counterparties/new?customerId=${CUSTOMER_ID}`,
+    );
     expect(counterpartyEditorHref(COUNTERPARTY_ID)).toBe(
       `/customers/counterparties/${COUNTERPARTY_ID}/edit`,
     );

@@ -16,6 +16,7 @@ export type CounterpartyListItem = ListCounterpartiesOutput["items"][number];
 export type ListCounterpartiesPageInput = {
   readonly search?: string;
   readonly limit?: number;
+  readonly customerId?: string;
 };
 
 export function listCounterpartiesInfiniteOptions(args: {

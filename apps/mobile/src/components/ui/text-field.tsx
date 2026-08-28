@@ -10,7 +10,7 @@ export function TextField(props: {
   readonly placeholder: string;
   readonly accessibilityLabel: string;
   readonly keyboardType?:
-    "phone-pad" | "email-address" | "default" | "decimal-pad";
+    "phone-pad" | "email-address" | "default" | "decimal-pad" | "number-pad";
   readonly autoCapitalize?: "none" | "sentences" | "words" | "characters";
   readonly autoCorrect?: boolean;
   readonly autoComplete?: "email" | "tel" | "off" | "organization";
@@ -38,6 +38,7 @@ export function TextField(props: {
   const phone = keyboardType === "phone-pad";
   const email = keyboardType === "email-address";
   const decimal = keyboardType === "decimal-pad";
+  const numberPad = keyboardType === "number-pad";
   const autoComplete =
     props.autoComplete ?? (phone ? "tel" : email ? "email" : "off");
   const textContentType = phone
@@ -47,7 +48,7 @@ export function TextField(props: {
       : autoComplete === "organization"
         ? "organizationName"
         : "none";
-  const tabular = phone || email || decimal;
+  const tabular = phone || email || decimal || numberPad;
   const label =
     props.label != null && props.label.length > 0 ? props.label : null;
   const suffix =

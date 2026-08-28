@@ -23,6 +23,7 @@ export type ListCustomersPageInput = {
   readonly status: CustomersStatusFilter;
   readonly search?: string;
   readonly groupId?: string;
+  readonly limit?: number;
 };
 
 export function listCustomersInfiniteOptions(args: {
@@ -30,6 +31,7 @@ export function listCustomersInfiniteOptions(args: {
   readonly companyId: string | null;
   readonly input: ListCustomersPageInput;
   readonly getActiveCompany: () => string | null;
+  readonly enabled?: boolean;
 }) {
   const client = args.client;
   return {
@@ -49,7 +51,8 @@ export function listCustomersInfiniteOptions(args: {
       },
       nextCursor: (page: ListCustomersOutput) => page.nextCursor,
     }),
-    enabled: client !== null && args.companyId !== null,
+    enabled:
+      (args.enabled ?? true) && client !== null && args.companyId !== null,
   };
 }
 

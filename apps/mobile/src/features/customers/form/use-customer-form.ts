@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 
@@ -7,9 +8,12 @@ import { describeQueryFailure, describeWireError } from "../../../api/errors";
 import { useActiveCompany } from "../../../api/query-provider";
 import { useResolvedCompany } from "../../../company-resolution/resolved-company-provider";
 import { customersCopy } from "../../../i18n/customers";
-import { detectLocale } from "../../../i18n/locale";
+import { detectLocale, interpolate } from "../../../i18n/locale";
 import { getCustomerQueryOptions } from "../api/customer-detail-query";
-import { counterpartyCountLabel } from "../shared/counterparty-count";
+import {
+  counterpartyCreateHref,
+  counterpartyEditorHref,
+} from "../shared/customer-hrefs";
 import { customerIdFromParam } from "../shared/customer-id";
 import {
   canCreateCustomers,
@@ -44,6 +48,7 @@ import {
 import { customerFormResolver } from "./customer-form.schema";
 import { useCustomerFormLifecycle } from "./use-customer-form-lifecycle";
 import { useCustomerFormLookups } from "./use-customer-form-lookups";
+import { useCustomerLinkedCounterparties } from "./use-customer-linked-counterparties";
 import { useCustomerSave } from "./use-customer-save";
 import { useUnsavedCustomerGuard } from "./use-unsaved-customer-guard";
 
@@ -61,6 +66,7 @@ export function useCustomerForm(args: {
   const apiClient = useApiClient();
   const { activeCompanyId } = useActiveCompany();
   const membership = useResolvedCompany();
+  const router = useRouter();
   const routeCustomerId =
     args.mode === "edit" ? customerIdFromParam(args.idParam) : null;
   const canWrite =
@@ -136,6 +142,10 @@ export function useCustomerForm(args: {
 
   const lookups = useCustomerFormLookups({
     enabled: canWrite && clientReady,
+  });
+  const linkedCounterparties = useCustomerLinkedCounterparties({
+    enabled: canWrite && clientReady && args.mode === "edit",
+    customerId: routeCustomerId,
   });
 
   const groupId = useWatch({ control, name: "groupId" }) ?? null;
@@ -227,8 +237,11 @@ export function useCustomerForm(args: {
   }
 
   const archived = query.data?.status === "archived";
-  const linkedCount = query.data?.linkedCounterpartyCount ?? 0;
-  const counterpartiesKind = counterpartiesBodyKind(args.mode, linkedCount);
+  const counterpartiesKind = counterpartiesBodyKind({
+    mode: args.mode,
+    status: linkedCounterparties.status,
+    itemCount: linkedCounterparties.items.length,
+  });
   const groupPriceListId = groupAssignedPriceListId(
     groupId,
     lookups.priceListIdByGroupId,
@@ -296,11 +309,16 @@ export function useCustomerForm(args: {
       kind: counterpartiesKind,
       createHint: formCopy.counterpartiesCreateHint,
       empty: formCopy.counterpartiesEmpty,
-      countLabel:
-        counterpartiesKind === "count"
-          ? counterpartyCountLabel(linkedCount, locale, copy.counterparties)
-          : null,
+      error: copy.empty.errorDescription,
     }),
+    linkedCounterparties: linkedCounterparties.items.map((item) => ({
+      id: item.id,
+      name: item.name,
+      edrpouLabel:
+        item.edrpou != null && item.edrpou.length > 0
+          ? interpolate(copy.edrpouBadge, { edrpou: item.edrpou })
+          : formCopy.counterpartiesEdrpouEmpty,
+    })),
     onFieldEdit,
     requestLeave,
     openGroupPicker: () => {
@@ -325,6 +343,16 @@ export function useCustomerForm(args: {
     remove: lifecycle.remove,
     retry: () => {
       void query.refetch();
+    },
+    retryCounterparties: linkedCounterparties.retry,
+    addCounterparty: () => {
+      if (routeCustomerId === null) {
+        return;
+      }
+      router.push(counterpartyCreateHref(routeCustomerId));
+    },
+    openCounterparty: (id: string) => {
+      router.push(counterpartyEditorHref(id));
     },
     save: () => {
       void handleSubmit(
