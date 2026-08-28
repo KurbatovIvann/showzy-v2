@@ -4,7 +4,8 @@
 - **Date**: 2026-08-17
 - **Deciders**: Human owner
 - **Amends**: ADR-0013 (adds a fifth principal mode)
-- **Amended by**: ADR-0020 (public discovery and social engagement)
+- **Amended by**: ADR-0020 (public discovery and social engagement);
+  ADR-0028 (CRM creation also on invite accept)
 
 ## Context
 
@@ -73,11 +74,14 @@ A CRM `company_customers` record is created **only** by:
 
 - a staff member manually adding the customer; or
 - the checkout/order-creation action atomically linking or creating the
-  record (matching v1 `create_order_secure` phone/email-first logic).
+  record (matching v1 `create_order_secure` phone/email-first logic); or
+- **invite accept**, which creates or enriches the CRM row and applies
+  the token’s group and price-list assignments (ADR-0028).
 
-Discovery, profile browsing, cart interaction, and chat do not create CRM
-records. Chat (`openMyConversation`) sets `company_customer_id` when a CRM
-row already exists; otherwise it remains `null`.
+Discovery, profile browsing, cart interaction, chat, and direct-link
+entry do not create CRM records. Chat (`openMyConversation`) sets
+`company_customer_id` when a CRM row already exists; otherwise it remains
+`null`. Document share / co-sign never create a CRM row (ADR-0022).
 
 ### Publication / visibility
 

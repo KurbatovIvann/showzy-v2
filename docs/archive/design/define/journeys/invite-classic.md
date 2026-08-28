@@ -1,7 +1,8 @@
 # Invite — Classic UI Journey
 
 > Linear: SHO-27 · Context: external intent → Customer company  
-> Also applies: `entry-path-conventions.md`
+> Also applies: `entry-path-conventions.md`  
+> **CRM on accept:** ADR-0028. Step 10 below is the living rule.
 
 ## Purpose and path
 
@@ -17,7 +18,8 @@ account, obtain explicit acceptance, and enter the intended company.
 7. User accepts explicitly.
 8. Server revalidates and atomically consumes/records the invite.
 9. Enter the resolved Customer company context and fetch current data.
-10. Create no CRM row; later checkout links/creates it.
+10. Create or enrich the CRM row from the invite (group and price list
+    from the token). Do not create a counterparty.
 
 ## Classic ↔ AI
 
@@ -32,4 +34,5 @@ unpublished-company states. Deactivated product intent may fall back only to
 an otherwise authorized company destination.
 
 Internally verify install, OTP, restart, account switch, single acceptance,
-company scope only after validation, and no invite-created CRM row.
+company scope only after validation, and that accept creates or enriches
+exactly one CRM row for this user+company (ADR-0028).

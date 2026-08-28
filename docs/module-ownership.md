@@ -2,8 +2,8 @@
 
 > Status: Approved by owner, 2026-08-17.
 > Normative companion to blueprint §5, scope §6, ADR-0011, ADR-0014,
-> ADR-0015, ADR-0020, and ADR-0023. Feature cards refine this map but may
-> not move ownership silently.
+> ADR-0015, ADR-0020, ADR-0023, and ADR-0028. Feature cards refine this
+> map but may not move ownership silently.
 
 ## Rules
 
@@ -28,7 +28,7 @@
 | Module | Owns | Main composition |
 | --- | --- | --- |
 | `companies` | companies, memberships, RBAC roles/overrides, legal requisites, public profile/showcase settings, taxonomy, publication state, company follows/counter | Resolves company targets; exposes public/consumer profile reads and private account follow collections; emits follow/profile events |
-| `customers` | company CRM customer records, customer groups/membership, customer legal profiles | Calls `companies` reads where needed; exposes pricing/order customer facts |
+| `customers` | company CRM customer records, customer groups/membership, company counterparties, customer legal profiles | Calls `companies` reads where needed; exposes pricing/order/document customer facts; invite accept creates or enriches CRM (ADR-0028) |
 | `catalog` | products, variants, categories, media links, publication/active state, fixed-scale product/variant stock balances, product likes/counter, product comments/replies/counter | Resolves product targets; calls `files`; provides declared stock atomic capabilities to orders; exposes public/consumer product reads and private account like collections; emits engagement/catalog events |
 | `pricing` | price lists and entries, personal and group price rules | Calls `catalog` and `customers` reads; exposes resolved immutable price facts to `orders` |
 | `orders` | carts/items, orders/items, order log, fixed `company_statuses` | Calls catalog/customer/pricing reads; emits order lifecycle events; consumes payment/delivery status events |
@@ -40,7 +40,7 @@
 | `delivery` | shipment records and Nova Poshta dictionaries/sync state | Consumes order requests; emits shipment/tracking status |
 | `reference-data` | global KVED/CPV classifiers and import metadata | Read-only actions for companies/customers/documents |
 | `notifications` | notification intents/deliveries/preferences/device registrations | Consumes domain events; launch families are chat/order/document-signing; followed-company product updates are later opt-in |
-| `invites` | invite tokens, redemption/expiry state | Calls companies/customer reads; emits invite lifecycle events |
+| `invites` | invite tokens, redemption/expiry state (customer-entry only; not staff/team) | Calls companies/customer writes on accept so CRM is created or enriched with the token’s group and price list (ADR-0028); emits invite lifecycle events |
 | `files` | attachment metadata, ownership links, upload/finalization state | Object bytes live in S3 (Garage locally, R2 in prod); exposes signed-upload/finalize actions |
 | `feature-flags` | flag definitions and company overrides | Exposes reads; future subscriptions update it through events |
 | `search` | Global FTS/trigram discovery projections for published companies/products and public counters | Consumes events or declared read-model grants from `companies`/`catalog`/`orders`; owns no domain authority or pricing data; exposes declared public-global and consumer reads (ADR-0020) |

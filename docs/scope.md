@@ -29,7 +29,8 @@ are built in customer expansion, not in the first release:
 
 1. **Discovery** — anyone may browse published companies/products; an
    authenticated user can personalize discovery and engage (ADR-0020).
-2. **Invite** — a token/link that creates or enriches a CRM relationship.
+2. **Invite** — a token/link that creates or enriches a CRM relationship
+   on accept (group and price list from the token; ADR-0028).
 3. **Direct link** — a Universal/App Link to a specific company profile.
 
 Owner-first intake is staff (and AI over the same actions): the owner
@@ -60,8 +61,9 @@ confirmation → REDIRECT TO CHAT with an order card
   (see blueprint §2.1, invariant 5).
 - For B2B customers (sole proprietor / legal entity) the same flow + a
   document-workflow add-on: contracts, invoices, delivery notes, QES signing.
-  B2B ≠ a separate flow; it is a customer with a legal profile who gets
-  additional actions.
+  B2B ≠ a separate flow; it is a CRM customer with a legal face
+  (counterparty / legal profile) who gets additional actions
+  (ADR-0028).
 - Two management surfaces **in the destination product**: the company panel
   (owner/staff) and the customer cabinet (own orders, chat, documents).
   **Owner-first launch ships the panel only.** The cabinet is customer
@@ -100,7 +102,7 @@ with the web phase or with a mobile editor after the research spike (see §9).
 | Companies, team, RBAC, legal requisites (sole proprietor / legal entity) | The permission model carries over 1:1 into action permissions |
 | Catalog: products, categories, images, **variants** | ⚠ Variants stay in owner-first launch — a basic catalog need |
 | **Pricing: 5 levels** (personal → client price list → group price list → default price list → base) | Confirmed by the owner on a real case: separate prices for coffee shops, regular and loyal customers. One of the pipeline's two reference slices |
-| Customers (CRM), groups, invites | Staff add/invite customers. Discovery and direct-link intake are customer expansion (ADR-0018) |
+| Customers (CRM), groups, invites | Staff add/invite customers. Invite accept creates CRM. Counterparties are the legal face, linked to a customer when one exists (ADR-0028). Discovery and direct-link intake are customer expansion (ADR-0018) |
 | **Staff orders** | Panel (and AI over the same actions) creates/confirms/gets orders for a CRM customer. Action log. No customer checkout in this release |
 | Documents: default templates, numbering, PDF generation | Puppeteer worker. Template customization — post-launch (§1.2) |
 | **QES signing** (ASiC-E, mobile Nitro + node verify) + pki-proxy | `@showzy/document-signing`: the verified crypto core, tests, and signing vectors carry over unchanged; the integration surface is re-audited against the new architecture |
