@@ -87,7 +87,10 @@ export function mapCustomerWriteError(
   userId: string | null | undefined,
 ): unknown {
   const pg = postgresError(error);
-  if (postgresUniqueConstraint(error) === "company_customers_company_user_uq") {
+  if (
+    pg?.code === "23505" &&
+    pg.constraint === "company_customers_company_user_uq"
+  ) {
     return new ConflictError(LINKED_ACCOUNT_CONFLICT_MESSAGE, {
       internalMessage:
         userId === undefined || userId === null
