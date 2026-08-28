@@ -290,7 +290,7 @@ const en: CustomersCopy = {
     groupsCreate: "New group",
     counterpartiesTitle: "No counterparties yet",
     counterpartiesDescription:
-      "A legal face for invoices. It can stand alone — for example a supplier — without a CRM client.",
+      "A legal face for invoices and QES. It can stand alone — for example a supplier — without a CRM client.",
     counterpartiesSearchTitle: "No counterparties found",
     counterpartiesSearchDescription: "Try a different query.",
     counterpartiesCreate: "New counterparty",

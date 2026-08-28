@@ -38,9 +38,11 @@ export function canShowCustomersCreate(args: {
   return false;
 }
 
+export type CustomersCreateKind = "client" | "group" | "counterparty";
+
 export function customersCreateKind(
   tab: CustomersTab,
-): "client" | "group" | "counterparty" | null {
+): CustomersCreateKind | null {
   if (tab === "clients") {
     return "client";
   }
@@ -51,6 +53,27 @@ export function customersCreateKind(
     return "counterparty";
   }
   return null;
+}
+
+export function customersCreateLabel(
+  kind: CustomersCreateKind | null,
+  labels: {
+    readonly client: string;
+    readonly group: string;
+    readonly counterparty: string;
+  },
+): string {
+  switch (kind) {
+    case "client":
+      return labels.client;
+    case "group":
+      return labels.group;
+    case "counterparty":
+      return labels.counterparty;
+    case null:
+      // Invitations hides +; do not reuse the client label.
+      return "";
+  }
 }
 
 export { shouldDrainNextPage } from "../shared/drain-pages";

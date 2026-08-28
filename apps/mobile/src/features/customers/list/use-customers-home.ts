@@ -19,6 +19,7 @@ import {
 import {
   canShowCustomersCreate,
   customersCreateKind,
+  customersCreateLabel,
   type CustomersTab,
 } from "./customers-home.presenter";
 import { useClientsList } from "./use-clients-list";
@@ -66,12 +67,11 @@ export function useCustomersHome() {
     canEditCustomers: canEdit,
   });
   const createKind = customersCreateKind(tab);
-  const createLabel =
-    createKind === "group"
-      ? copy.createGroupLabel
-      : createKind === "counterparty"
-        ? copy.createCounterpartyLabel
-        : copy.createClientLabel;
+  const createLabel = customersCreateLabel(createKind, {
+    client: copy.createClientLabel,
+    group: copy.createGroupLabel,
+    counterparty: copy.createCounterpartyLabel,
+  });
 
   return {
     copy,

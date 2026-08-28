@@ -94,4 +94,13 @@ describe("customers copy", () => {
       "Форма контрагента",
     );
   });
+
+  it("keeps empty counterparty copy aligned with the form helper QES wording", () => {
+    const uk = customersCopy("uk");
+    const en = customersCopy("en");
+    expect(en.form.counterpartiesHelper).toContain("invoices and QES");
+    expect(en.empty.counterpartiesDescription).toContain("invoices and QES");
+    expect(uk.form.counterpartiesHelper).toContain("рахунків і КЕП");
+    expect(uk.empty.counterpartiesDescription).toContain("рахунків і КЕП");
+  });
 });

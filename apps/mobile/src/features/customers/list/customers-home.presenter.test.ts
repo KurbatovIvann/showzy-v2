@@ -4,6 +4,7 @@ import { indexOfTabKey } from "../../../components/ui/tab-view.model";
 import {
   canShowCustomersCreate,
   customersCreateKind,
+  customersCreateLabel,
   customersTabOptions,
   isCustomersTabImplemented,
   lookupPagesSettled,
@@ -82,6 +83,18 @@ describe("customers home tabs", () => {
     expect(customersCreateKind("groups")).toBe("group");
     expect(customersCreateKind("counterparties")).toBe("counterparty");
     expect(customersCreateKind("invitations")).toBeNull();
+    const labels = {
+      client: "New client",
+      group: "New group",
+      counterparty: "New counterparty",
+    };
+    expect(customersCreateLabel("client", labels)).toBe("New client");
+    expect(customersCreateLabel("group", labels)).toBe("New group");
+    expect(customersCreateLabel("counterparty", labels)).toBe(
+      "New counterparty",
+    );
+    expect(customersCreateLabel(null, labels)).toBe("");
+    expect(customersCreateLabel(null, labels)).not.toBe(labels.client);
   });
 });
 
