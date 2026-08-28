@@ -4,21 +4,27 @@ import {
   useContext,
   useMemo,
   useReducer,
+  useRef,
   type ReactNode,
 } from "react";
 
-import { isAuthClientError } from "../errors";
+import {
+  dispatchOtpSession,
+  resendOtp,
+  submitOtpCode,
+  submitOtpIdentifier,
+  type OtpActionPorts,
+} from "./actions";
 import {
   uaNationalFieldDigits,
   uaPhoneFieldValue,
   type AuthChannel,
 } from "./identifiers";
 import { useSendOtpMutation, useVerifyOtpMutation } from "./mutations";
-import { authPolicy } from "./policy";
 import {
   initialOtpState,
   otpReducer,
-  parseCurrentIdentifier,
+  type OtpAction,
   type OtpState,
 } from "./reducer";
 
@@ -42,105 +48,73 @@ export function OtpProvider({ children }: { readonly children: ReactNode }) {
   const send = useSendOtpMutation();
   const verify = useVerifyOtpMutation();
 
-  const setChannel = useCallback((channel: AuthChannel) => {
-    dispatch({ type: "setChannel", channel });
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const sendRef = useRef(send.mutateAsync);
+  sendRef.current = send.mutateAsync;
+  const verifyRef = useRef(verify.mutateAsync);
+  verifyRef.current = verify.mutateAsync;
+
+  // I/O ports read stateRef in the same tick as send.
+  // Do not switch to dispatch-only: a second submit would miss busy.
+  const dispatchOtp = useCallback((action: OtpAction) => {
+    stateRef.current = dispatchOtpSession(stateRef.current, action);
+    dispatch(action);
   }, []);
 
-  const setPhoneDigits = useCallback((digits: string) => {
-    dispatch({ type: "setPhone", phone: uaPhoneFieldValue(digits) });
-  }, []);
-
-  const setEmail = useCallback((email: string) => {
-    dispatch({ type: "setEmail", email });
-  }, []);
-
-  const setCode = useCallback((code: string) => {
-    dispatch({ type: "setCode", code });
-  }, []);
-
-  const submitIdentifier = useCallback(() => {
-    if (state.step !== "identifier" || state.busy) {
-      return;
-    }
-    const identifier = parseCurrentIdentifier(state);
-    if (identifier === null) {
-      dispatch({ type: "identifierInvalid" });
-      return;
-    }
-    dispatch({ type: "sendStart" });
-    void send
-      .mutateAsync(identifier)
-      .then(() => {
-        dispatch({
-          type: "sendSuccess",
-          identifier,
-          nowMs: Date.now(),
-        });
-      })
-      .catch((error: unknown) => {
-        dispatch({
-          type: "sendFailure",
-          kind: isAuthClientError(error) ? error.kind : "network",
-        });
-      });
-  }, [send, state]);
-
-  const submitCode = useCallback(
-    (codeOverride?: string) => {
-      if (state.step !== "verify" || state.busy) {
-        return;
-      }
-      const code = (codeOverride ?? state.code)
-        .replaceAll(/\D/g, "")
-        .slice(0, authPolicy.otpLength);
-      if (code.length !== authPolicy.otpLength) {
-        dispatch({ type: "verifyCodeInvalid" });
-        return;
-      }
-      if (codeOverride !== undefined) {
-        dispatch({ type: "setCode", code });
-      }
-      const identifier = state.identifier;
-      dispatch({ type: "verifyStart" });
-      void verify.mutateAsync({ identifier, code }).catch((error: unknown) => {
-        dispatch({
-          type: "verifyFailure",
-          kind: isAuthClientError(error) ? error.kind : "network",
-        });
-      });
+  const portsRef = useRef<OtpActionPorts>({
+    getState: () => stateRef.current,
+    dispatch: (action) => {
+      dispatchOtp(action);
     },
-    [state, verify],
+    send: (identifier) => sendRef.current(identifier),
+    verify: (input) => verifyRef.current(input),
+    nowMs: () => Date.now(),
+  });
+
+  const setChannel = useCallback(
+    (channel: AuthChannel) => {
+      dispatchOtp({ type: "setChannel", channel });
+    },
+    [dispatchOtp],
   );
 
+  const setPhoneDigits = useCallback(
+    (digits: string) => {
+      dispatchOtp({ type: "setPhone", phone: uaPhoneFieldValue(digits) });
+    },
+    [dispatchOtp],
+  );
+
+  const setEmail = useCallback(
+    (email: string) => {
+      dispatchOtp({ type: "setEmail", email });
+    },
+    [dispatchOtp],
+  );
+
+  const setCode = useCallback(
+    (code: string) => {
+      dispatchOtp({ type: "setCode", code });
+    },
+    [dispatchOtp],
+  );
+
+  const submitIdentifier = useCallback(() => {
+    void submitOtpIdentifier(portsRef.current);
+  }, []);
+
+  const submitCode = useCallback((code?: string) => {
+    void submitOtpCode(portsRef.current, code);
+  }, []);
+
   const resend = useCallback(() => {
-    if (state.step !== "verify" || state.busy || state.resendBusy) {
-      return;
-    }
-    if (Date.now() < state.resendAvailableAtMs) {
-      return;
-    }
-    const identifier = state.identifier;
-    dispatch({ type: "resendStart" });
-    void send
-      .mutateAsync(identifier)
-      .then(() => {
-        dispatch({
-          type: "sendSuccess",
-          identifier,
-          nowMs: Date.now(),
-        });
-      })
-      .catch((error: unknown) => {
-        dispatch({
-          type: "sendFailure",
-          kind: isAuthClientError(error) ? error.kind : "network",
-        });
-      });
-  }, [send, state]);
+    void resendOtp(portsRef.current);
+  }, []);
 
   const back = useCallback(() => {
-    dispatch({ type: "back" });
-  }, []);
+    dispatchOtp({ type: "back" });
+  }, [dispatchOtp]);
 
   const phoneDigits =
     state.step === "identifier" ? uaNationalFieldDigits(state.phone) : "";
