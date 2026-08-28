@@ -56,9 +56,11 @@ import {
   getOrderContract,
 } from "@showzy/orders/contract";
 import {
+  createPriceListContract,
   getPriceListContract,
   listPriceListsContract,
   resolveProductPricesContract,
+  updatePriceListContract,
 } from "@showzy/pricing/contract";
 
 import {
@@ -114,9 +116,11 @@ export const contractModules = {
     get: getOrderContract,
   },
   pricing: {
+    createPriceList: createPriceListContract,
     getPriceList: getPriceListContract,
     listPriceLists: listPriceListsContract,
     resolveProductPrices: resolveProductPricesContract,
+    updatePriceList: updatePriceListContract,
   },
 } satisfies ContractModuleMap;
 

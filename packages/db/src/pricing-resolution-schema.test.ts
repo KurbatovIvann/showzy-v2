@@ -18,6 +18,7 @@ import {
   it,
 } from "vitest";
 
+import { rolePermissionDefaultRows } from "../seed/role-permission-defaults.js";
 import type { DbClient } from "./client.js";
 import { products, productVariants } from "./schema/catalog.js";
 import { companies } from "./schema/companies.js";
@@ -1060,5 +1061,18 @@ describe("price resolution schema slice", () => {
       .from(priceListEntries)
       .where(isNull(priceListEntries.variantId));
     expect(productLevel.length).toBeGreaterThan(0);
+  });
+
+  it("seeds pricing:manage for admin and manager, view only for employee", () => {
+    const keys = new Set(
+      rolePermissionDefaultRows.map((row) => `${row.role}:${row.permission}`),
+    );
+    for (const role of ["admin", "manager"] as const) {
+      expect(keys.has(`${role}:pricing:view`)).toBe(true);
+      expect(keys.has(`${role}:pricing:manage`)).toBe(true);
+    }
+    expect(keys.has("employee:pricing:view")).toBe(true);
+    expect(keys.has("employee:pricing:manage")).toBe(false);
+    expect(keys.has("owner:pricing:manage")).toBe(false);
   });
 });

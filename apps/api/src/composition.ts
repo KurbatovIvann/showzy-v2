@@ -74,9 +74,11 @@ import {
 } from "@showzy/orders";
 import { ordersSuiteCoverage } from "@showzy/orders/suite-coverage";
 import {
+  createPriceList,
   getPriceList,
   listPriceLists,
   resolveProductPrices,
+  updatePriceList,
 } from "@showzy/pricing";
 import { pricingSuiteCoverage } from "@showzy/pricing/suite-coverage";
 import {
@@ -244,9 +246,11 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, createOrder);
   registerAction(registry, confirmOrder);
   registerAction(registry, getOrder);
+  registerAction(registry, createPriceList);
   registerAction(registry, getPriceList);
   registerAction(registry, listPriceLists);
   registerAction(registry, resolveProductPrices);
+  registerAction(registry, updatePriceList);
   return registry;
 }
 
