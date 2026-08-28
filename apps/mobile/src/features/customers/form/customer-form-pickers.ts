@@ -92,4 +92,3 @@ export function counterpartiesBodyCopy(args: {
       return args.countLabel;
   }
 }
-

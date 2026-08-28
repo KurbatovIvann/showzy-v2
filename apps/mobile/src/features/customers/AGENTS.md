@@ -16,13 +16,13 @@ draft Zod, save planner, unsaved-leave guard. `form/` must not import
 
 ## Folders (one role each)
 
-| Folder    | Owns                                                                                                                                                                                        | Does not own                     |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| `api/`    | list/query binders, status and delete mutations, `getCustomer`, form mutation, cache invalidation keys                                                                                      | JSX, RHF                         |
-| `list/`   | Home screen, view, composer hook, clients presenter/row, `use-client-writes`. Top chrome is shared `TabView` + `SegmentedTabs` `layout="scroll"` (full-bleed swipe scenes; not `BottomNav`) | Group row internals, form fields |
-| `groups/` | Groups presenter, composer hook, group row, `use-group-writes`                                                                                                                              | Client filters                   |
-| `form/`   | Create/edit client screen, view, UI draft Zod, RHF fields, save loop, unsaved guard, picker lookups, archive/restore/delete on the editor                                                   | List filters; group form         |
-| `shared/` | Permissions, hrefs, caps, initials, count labels, protocol-confirm helper, paged-list helpers, lookup drain, entity card chrome, debounce, `OptionSelectSheet`, `SelectorRow`, group editor placeholder   | Transport                        |
+| Folder    | Owns                                                                                                                                                                                                    | Does not own                     |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| `api/`    | list/query binders, status and delete mutations, `getCustomer`, form mutation, cache invalidation keys                                                                                                  | JSX, RHF                         |
+| `list/`   | Home screen, view, composer hook, clients presenter/row, `use-client-writes`. Top chrome is shared `TabView` + `SegmentedTabs` `layout="scroll"` (full-bleed swipe scenes; not `BottomNav`)             | Group row internals, form fields |
+| `groups/` | Groups presenter, composer hook, group row, `use-group-writes`                                                                                                                                          | Client filters                   |
+| `form/`   | Create/edit client screen, view, UI draft Zod, RHF fields, save loop, unsaved guard, picker lookups, archive/restore/delete on the editor                                                               | List filters; group form         |
+| `shared/` | Permissions, hrefs, caps, initials, count labels, protocol-confirm helper, paged-list helpers, lookup drain, entity card chrome, debounce, `OptionSelectSheet`, `SelectorRow`, group editor placeholder | Transport                        |
 
 Do not add a feature-local tab bar. Compose `TabView` + `SegmentedTabs`
 from `src/components/ui/` (decision table in
