@@ -65,6 +65,7 @@ describe("customers copy", () => {
     expect(uk.form.counterpartiesCreateHint).toContain("Збережіть клієнта");
     expect(uk.form.counterpartiesEmpty).toBe("Немає прив’язаних контрагентів.");
     expect(uk.form.priceListInheritGroup).toBe("Успадкований від групи");
+    expect(uk.form.assignmentUnavailable).toBe("Призначено");
     expect(uk.form.leaveTitle).toBe("Вийти без збереження?");
   });
 });

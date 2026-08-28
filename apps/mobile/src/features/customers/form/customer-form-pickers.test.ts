@@ -5,9 +5,8 @@ import {
   counterpartiesBodyKind,
   groupAssignedPriceListId,
   inheritedPriceListPlaceholder,
-  namedLookupValue,
   optionSelectItems,
-  shouldDrainLookupPages,
+  selectorLookupValue,
 } from "./customer-form-pickers";
 
 describe("optionSelectItems", () => {
@@ -24,12 +23,12 @@ describe("optionSelectItems", () => {
   });
 });
 
-describe("namedLookupValue / groupAssignedPriceListId", () => {
-  it("returns undefined when the id is missing from the lookup", () => {
+describe("selectorLookupValue / groupAssignedPriceListId", () => {
+  it("uses inherit (undefined) only for a null id, not an unnamed assignment", () => {
     const names = new Map([["g1", "VIP"]]);
-    expect(namedLookupValue(null, names)).toBeUndefined();
-    expect(namedLookupValue("g1", names)).toBe("VIP");
-    expect(namedLookupValue("missing", names)).toBeUndefined();
+    expect(selectorLookupValue(null, names, "Assigned")).toBeUndefined();
+    expect(selectorLookupValue("g1", names, "Assigned")).toBe("VIP");
+    expect(selectorLookupValue("missing", names, "Assigned")).toBe("Assigned");
   });
 
   it("reads the group's assigned price list for inherit copy", () => {
@@ -84,24 +83,5 @@ describe("counterpartiesBodyKind", () => {
         countLabel: "2 counterparties",
       }),
     ).toBe("2 counterparties");
-  });
-});
-
-describe("shouldDrainLookupPages", () => {
-  it("fetches the next page only after a successful page", () => {
-    expect(
-      shouldDrainLookupPages({
-        status: "success",
-        hasNextPage: true,
-        isFetchingNextPage: false,
-      }),
-    ).toBe(true);
-    expect(
-      shouldDrainLookupPages({
-        status: "error",
-        hasNextPage: true,
-        isFetchingNextPage: false,
-      }),
-    ).toBe(false);
   });
 });

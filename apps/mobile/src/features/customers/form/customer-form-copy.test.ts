@@ -45,6 +45,40 @@ describe("mapCustomerFormFailure / mapValidationIssues", () => {
       contact: null,
     });
   });
+
+  it("maps userId VALIDATION onto contact and leaves assignment paths as banner-only", () => {
+    const write: CustomerFormWrite = {
+      kind: "createCustomer",
+      input: { name: "Марія", phone: "+38067" },
+    };
+    const contactError: unknown = new ORPCError("VALIDATION", {
+      defined: true,
+      status: 400,
+      message: "do-not-match-this",
+      data: {
+        issues: [{ code: "custom", path: ["userId"], message: "secret" }],
+      },
+    });
+    expect(mapValidationIssues(contactError, write)).toEqual({
+      name: null,
+      phone: null,
+      email: null,
+      notes: null,
+      contact: "required",
+    });
+    const assignmentError: unknown = new ORPCError("VALIDATION", {
+      defined: true,
+      status: 400,
+      message: "do-not-match-this",
+      data: {
+        issues: [
+          { code: "custom", path: ["groupId"], message: "secret" },
+          { code: "custom", path: ["priceListId"], message: "secret" },
+        ],
+      },
+    });
+    expect(mapValidationIssues(assignmentError, write)).toBeNull();
+  });
 });
 
 describe("fieldErrorsFromFormState", () => {

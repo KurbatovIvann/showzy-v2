@@ -12,7 +12,7 @@ import {
   nameById,
 } from "./clients-list.presenter";
 import { lookupPagesSettled } from "./customers-home.presenter";
-import { useDrainInfinitePages } from "./use-drain-pages";
+import { useDrainInfinitePages } from "../shared/use-drain-pages";
 
 /**
  * Unfiltered groups (chips) and price-list names. Failures degrade to

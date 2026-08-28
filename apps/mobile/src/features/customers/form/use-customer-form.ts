@@ -39,7 +39,7 @@ import {
   counterpartiesBodyKind,
   groupAssignedPriceListId,
   inheritedPriceListPlaceholder,
-  namedLookupValue,
+  selectorLookupValue,
 } from "./customer-form-pickers";
 import { customerFormResolver } from "./customer-form.schema";
 import { useCustomerFormLifecycle } from "./use-customer-form-lifecycle";
@@ -263,8 +263,16 @@ export function useCustomerForm(args: {
     picker,
     groupId,
     priceListId,
-    groupValue: namedLookupValue(groupId, lookups.groupNameById),
-    priceListValue: namedLookupValue(priceListId, lookups.priceListNameById),
+    groupValue: selectorLookupValue(
+      groupId,
+      lookups.groupNameById,
+      formCopy.assignmentUnavailable,
+    ),
+    priceListValue: selectorLookupValue(
+      priceListId,
+      lookups.priceListNameById,
+      formCopy.assignmentUnavailable,
+    ),
     priceListPlaceholder: inheritedPriceListPlaceholder({
       groupPriceListId,
       inheritGroup: formCopy.priceListInheritGroup,

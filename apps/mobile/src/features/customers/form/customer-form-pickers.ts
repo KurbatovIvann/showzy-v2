@@ -1,7 +1,7 @@
 /**
  * Pure picker / Юрособи decisions for the customer form (SHO-180).
- * Lookups degrade to empty options; names come from
- * `pricing.listPriceLists` / `customers.listGroups` only.
+ * Names come from `pricing.listPriceLists` / `customers.listGroups`
+ * only. Inherit copy is for a null assignment, never an unnamed id.
  */
 import type { OptionSelectItem } from "../shared/option-select";
 import type { CustomerFormMode } from "./customer-form-draft";
@@ -25,14 +25,20 @@ export function optionSelectItems(
   });
 }
 
-export function namedLookupValue(
+/**
+ * Selector display: null id uses the inherit placeholder; a named id
+ * uses the lookup; a still-set unnamed id uses `unnamedFallback` so it
+ * is not shown as inherit.
+ */
+export function selectorLookupValue(
   id: string | null,
   names: ReadonlyMap<string, string>,
+  unnamedFallback: string,
 ): string | undefined {
   if (id === null) {
     return undefined;
   }
-  return names.get(id);
+  return names.get(id) ?? unnamedFallback;
 }
 
 export function groupAssignedPriceListId(
@@ -87,12 +93,3 @@ export function counterpartiesBodyCopy(args: {
   }
 }
 
-export function shouldDrainLookupPages(args: {
-  readonly status: "pending" | "error" | "success";
-  readonly hasNextPage: boolean;
-  readonly isFetchingNextPage: boolean;
-}): boolean {
-  return (
-    args.status === "success" && args.hasNextPage && !args.isFetchingNextPage
-  );
-}

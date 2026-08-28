@@ -15,6 +15,7 @@ import {
   customerFormDraftSchema,
   customerFormResolver,
   fieldErrorsFromDraftSchema,
+  isContactErrorKey,
   isNameErrorKey,
 } from "./customer-form.schema";
 
@@ -42,6 +43,8 @@ describe("customerFormDraftSchema", () => {
       return;
     }
     expect(isNameErrorKey(errors.name)).toBe(true);
+    expect(isContactErrorKey("required")).toBe(true);
+    expect(isContactErrorKey("contact")).toBe(false);
   });
 
   it("accepts phone only, email only, and a kept userId with blank contacts", () => {

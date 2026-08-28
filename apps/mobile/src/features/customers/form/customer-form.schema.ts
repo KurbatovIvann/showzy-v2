@@ -51,7 +51,7 @@ export function isLengthErrorKey(value: string): value is LengthErrorKey {
 }
 
 export function isContactErrorKey(value: string): value is ContactErrorKey {
-  return value === "required" || value === "contact";
+  return value === "required";
 }
 
 function cappedOptional(max: number) {

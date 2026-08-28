@@ -1,5 +1,5 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 
 import { useApiClient } from "../../../api/api-provider";
 import { useActiveCompany } from "../../../api/query-provider";
@@ -8,36 +8,12 @@ import { listPriceListsInfiniteOptions } from "../api/price-list.queries";
 import { CUSTOMERS_LOOKUP_PAGE_SIZE } from "../shared/customer-caps";
 import type { OptionSelectItem } from "../shared/option-select";
 import { flattenPages, nameById } from "../shared/paged-list";
-import {
-  optionSelectItems,
-  shouldDrainLookupPages,
-} from "./customer-form-pickers";
-
-function useDrainLookupPages(query: {
-  readonly status: "pending" | "error" | "success";
-  readonly hasNextPage: boolean;
-  readonly isFetchingNextPage: boolean;
-  readonly fetchNextPage: () => Promise<unknown>;
-}): void {
-  const { status, hasNextPage, isFetchingNextPage, fetchNextPage } = query;
-  useEffect(() => {
-    if (
-      !shouldDrainLookupPages({
-        status,
-        hasNextPage,
-        isFetchingNextPage,
-      })
-    ) {
-      return;
-    }
-    void fetchNextPage();
-  }, [status, hasNextPage, isFetchingNextPage, fetchNextPage]);
-}
+import { useDrainInfinitePages } from "../shared/use-drain-pages";
+import { optionSelectItems } from "./customer-form-pickers";
 
 /**
- * Group and price-list picker options for the client form. Failures
- * degrade to empty lists so the form still saves inherit (NULL).
- * Does not import `list/`.
+ * Group and price-list picker options for the client form. Keep already
+ * fetched pages on error (same as the list). Does not import `list/`.
  */
 export function useCustomerFormLookups(args: { readonly enabled: boolean }): {
   readonly groupOptions: readonly OptionSelectItem[];
@@ -60,7 +36,7 @@ export function useCustomerFormLookups(args: { readonly enabled: boolean }): {
       enabled,
     }),
   );
-  useDrainLookupPages({
+  useDrainInfinitePages({
     status: groupsQuery.status,
     hasNextPage: groupsQuery.hasNextPage,
     isFetchingNextPage: groupsQuery.isFetchingNextPage,
@@ -76,7 +52,7 @@ export function useCustomerFormLookups(args: { readonly enabled: boolean }): {
       enabled,
     }),
   );
-  useDrainLookupPages({
+  useDrainInfinitePages({
     status: priceListsQuery.status,
     hasNextPage: priceListsQuery.hasNextPage,
     isFetchingNextPage: priceListsQuery.isFetchingNextPage,
@@ -84,21 +60,18 @@ export function useCustomerFormLookups(args: { readonly enabled: boolean }): {
   });
 
   const groups = useMemo(() => {
-    if (groupsQuery.status === "error" || groupsQuery.data === undefined) {
+    if (groupsQuery.data === undefined) {
       return [];
     }
     return flattenPages(groupsQuery.data.pages);
-  }, [groupsQuery.data, groupsQuery.status]);
+  }, [groupsQuery.data]);
 
   const priceLists = useMemo(() => {
-    if (
-      priceListsQuery.status === "error" ||
-      priceListsQuery.data === undefined
-    ) {
+    if (priceListsQuery.data === undefined) {
       return [];
     }
     return flattenPages(priceListsQuery.data.pages);
-  }, [priceListsQuery.data, priceListsQuery.status]);
+  }, [priceListsQuery.data]);
 
   const groupOptions = useMemo(() => optionSelectItems(groups), [groups]);
   const priceListOptions = useMemo(

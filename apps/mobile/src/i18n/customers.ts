@@ -82,6 +82,7 @@ export type CustomersFormCopy = {
   readonly groupSheetTitle: string;
   readonly groupEmptyOption: string;
   readonly groupSearchPlaceholder: string;
+  readonly assignmentUnavailable: string;
   readonly priceListLabel: string;
   readonly priceListInheritGroup: string;
   readonly priceListDefault: string;
@@ -285,6 +286,7 @@ const en: CustomersCopy = {
     groupSheetTitle: "Client group",
     groupEmptyOption: "No group",
     groupSearchPlaceholder: "Search groups…",
+    assignmentUnavailable: "Assigned",
     priceListLabel: "Price list",
     priceListInheritGroup: "Inherited from the group",
     priceListDefault: "Retail by default",
@@ -461,6 +463,7 @@ const uk: CustomersCopy = {
     groupSheetTitle: "Група клієнтів",
     groupEmptyOption: "Без групи",
     groupSearchPlaceholder: "Пошук груп…",
+    assignmentUnavailable: "Призначено",
     priceListLabel: "Прайс-лист",
     priceListInheritGroup: "Успадкований від групи",
     priceListDefault: "Роздрібний за замовчуванням",

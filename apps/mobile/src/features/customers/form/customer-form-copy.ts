@@ -70,7 +70,7 @@ function issueField(
   if (field === "notes") {
     return "notes";
   }
-  if (field === "userId" || field === "groupId" || field === "priceListId") {
+  if (field === "userId") {
     return "contact";
   }
   return null;

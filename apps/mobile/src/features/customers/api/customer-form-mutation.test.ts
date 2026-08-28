@@ -70,4 +70,71 @@ describe("bindCustomerFormMutate", () => {
       (error: unknown) => isWireError(error) && error.code === "VALIDATION",
     );
   });
+
+  it("calls updateCustomer with kept userId and inherit nulls, and rejects a bad payload before transport", async () => {
+    const calls: unknown[] = [];
+    const mutate = bindCustomerFormMutate({
+      client: {
+        customers: {
+          createCustomer: () => Promise.reject(new Error("unused")),
+          updateCustomer: (input) => {
+            calls.push(input);
+            return Promise.resolve({ id: input.id });
+          },
+        },
+      },
+    });
+    const customerId = "0f0e2d5c-4a1b-4c3d-9e8f-102938475601";
+    await expect(
+      mutate(
+        {
+          kind: "updateCustomer",
+          input: {
+            id: customerId,
+            name: "Марія",
+            phone: null,
+            email: null,
+            notes: null,
+            userId: "user_invite",
+            groupId: null,
+            priceListId: null,
+          },
+        },
+        { context: { idempotencyKey: "k" } },
+      ),
+    ).resolves.toEqual({ id: customerId });
+    expect(calls).toEqual([
+      {
+        id: customerId,
+        name: "Марія",
+        phone: null,
+        email: null,
+        notes: null,
+        userId: "user_invite",
+        groupId: null,
+        priceListId: null,
+      },
+    ]);
+
+    const rejected = mutate(
+      {
+        kind: "updateCustomer",
+        input: {
+          id: "not-a-uuid",
+          name: "",
+          phone: null,
+          email: null,
+          notes: null,
+          userId: null,
+          groupId: null,
+          priceListId: null,
+        },
+      },
+      { context: { idempotencyKey: "k" } },
+    );
+    await expect(rejected).rejects.toSatisfy(
+      (error: unknown) => isWireError(error) && error.code === "VALIDATION",
+    );
+    expect(calls).toHaveLength(1);
+  });
 });
