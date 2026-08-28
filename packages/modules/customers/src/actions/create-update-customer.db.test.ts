@@ -55,6 +55,7 @@ const clerks = {
 const linkedUsers = {
   first: randomUUID(),
   second: randomUUID(),
+  third: randomUUID(),
 };
 
 const createIsolationInput = {
@@ -201,6 +202,11 @@ beforeAll(async () => {
       id: linkedUsers.second,
       name: "Linked Second",
       email: "linked-second@customers-writes.test",
+    },
+    {
+      id: linkedUsers.third,
+      name: "Linked Third",
+      email: "linked-third@customers-writes.test",
     },
   ]);
   await kit.db.runtime.db.insert(companyMembers).values({
@@ -725,5 +731,30 @@ describe("customers.updateCustomer", () => {
         ValidationError,
       );
     }
+  });
+
+  it("conflicts on a duplicate company userId and not-founds an unknown userId", async () => {
+    await kit.invoke(createCustomer, {
+      name: "Update first link",
+      userId: linkedUsers.third,
+    });
+    const second = await kit.invoke(createCustomer, {
+      name: "Update second",
+      phone: "+380501000060",
+    });
+    await expect(
+      kit.invoke(updateCustomer, {
+        id: second.id,
+        name: "Update second",
+        userId: linkedUsers.third,
+      }),
+    ).rejects.toBeInstanceOf(ConflictError);
+    await expect(
+      kit.invoke(updateCustomer, {
+        id: second.id,
+        name: "Update second",
+        userId: "missing-user-does-not-exist",
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
   });
 });

@@ -73,6 +73,17 @@ describe("customers.createCustomer contract", () => {
         userId: "  user_abc  ",
       }).userId,
     ).toBe("user_abc");
+    expect(
+      createCustomerInputSchema.parse({
+        name: "Blank phone",
+        phone: "   ",
+        email: "a@b.co",
+      }),
+    ).toEqual({
+      name: "Blank phone",
+      phone: "",
+      email: "a@b.co",
+    });
   });
 
   it("rejects blank names, missing contacts, over-max lengths, and identifier extras", () => {

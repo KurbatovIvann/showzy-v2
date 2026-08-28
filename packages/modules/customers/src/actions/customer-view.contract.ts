@@ -29,7 +29,6 @@ export const customerNameSchema = z
 export const customerPhoneSchema = z
   .string()
   .trim()
-  .min(1)
   .max(CUSTOMER_PHONE_MAX)
   .nullable()
   .optional();
@@ -37,7 +36,6 @@ export const customerPhoneSchema = z
 export const customerEmailSchema = z
   .string()
   .trim()
-  .min(1)
   .max(CUSTOMER_EMAIL_MAX)
   .nullable()
   .optional();
@@ -45,7 +43,6 @@ export const customerEmailSchema = z
 export const customerUserIdSchema = z
   .string()
   .trim()
-  .min(1)
   .max(CUSTOMER_USER_ID_MAX)
   .nullable()
   .optional();
