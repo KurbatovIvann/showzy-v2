@@ -51,7 +51,12 @@ tickets; each ticket copies its own golden.
 
 `/spec`, `/plan`, and `/rework-spec` are retired. Commands are `/feature`,
 `/ticket` (Executor + verify loop), `/review` (Verifier), and `/guard`
-(Guardian). A human still merges.
+(Guardian). A leaf `/ticket` still does not merge itself. ADR-0029 adds
+an optional **parent orchestrator**: `/implement` (or `/ticket`) on a
+feature parent launches isolated cloud executors, attaches independent
+reviews from the parent conversation, and squash-merges children when
+the conveyor merge gate is green. A human still closes the feature
+parent.
 
 ## Alternatives considered
 
@@ -83,5 +88,6 @@ tickets; each ticket copies its own golden.
   by a strong model with a Guardian pass. Showzy pattern skills are
   extracted from that code, not from memory. Do not parallelize domain
   modules before it merges.
-- Blueprint §7 and `docs/pipeline.md` describe this loop. A further
-  process change still needs a new ADR.
+- Blueprint §7 and `docs/pipeline.md` describe this loop. ADR-0029
+  records the autonomous parent conveyor. A further process change
+  still needs a new ADR.

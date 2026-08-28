@@ -8,7 +8,9 @@ Run this only when the lane requires it: `sensitive` tickets, the first
 golden backend or UI slice, or the first use of a new principal /
 composition edge. Skip mechanical and ordinary routine work.
 
-On `sensitive` work also launch the security-review agent.
+On `sensitive` work also launch the security-review agent. On a parent
+conveyor, the **parent** launches that agent after the child PR exists
+(ADR-0029). Cloud children must not fail if they cannot nest it.
 
 ## What you check
 

@@ -205,7 +205,7 @@ showzy/
 │  └─ plans/          # historical breakdowns; new work is Linear feature cards
 └─ .cursor/
    ├─ rules/          # rules for agents (conventions, prohibitions, DoD)
-   └─ commands/       # /feature /ticket /implement /review /guard /scaffold
+   └─ commands/       # /feature /ticket /implement /conveyor /review /guard /scaffold
 ```
 
 ### Domain modules (packages/modules/*)
@@ -265,17 +265,24 @@ PLANNER → EXECUTOR → VERIFIER → GUARDIAN (optional)
 (human+agent)  (agent)    (CI + agent)   (sensitive / first slice)
 ```
 
+Optional: `/implement` on a **feature parent** runs a parent orchestrator
+that launches those roles per child (ADR-0029). The parent does not
+implement.
+
 1. **Planner** (`/feature`). Human names a user-visible capability. The
    agent produces a Linear feature card, a ticket graph, and a 5–15 file
    context pack. Contested APIs get a contract-first `*.contract.ts`
    ticket. No `docs/specs/<module>.md`. Product forks stop and ask.
-2. **Executor** (`/ticket` / `/implement`). One agent per ticket, one
-   branch, one PR. Copies the **golden files for that layer**. Runs the
-   verify loop until CI-equivalent checks are green. Tests follow the
-   definition of done — not a red-then-green ritual.
+2. **Executor** (`/ticket` / `/implement` on a **leaf**). One agent per
+   ticket, one branch, one draft PR. Copies the **golden files for that
+   layer**. Runs the verify loop until CI-equivalent checks are green.
+   Tests follow the definition of done — not a red-then-green ritual.
+   Nested Task Bugbot / `/review` / `security-review` are often
+   unavailable in cloud children; that is expected (ADR-0029).
 3. **Verifier.** CI always. Bugbot on routine+. `/review` on sensitive
    and first-slice PRs. Rubric is constitution, ADRs, golden fidelity,
-   feature card, real tests — not an archived spec section.
+   feature card, real tests — not an archived spec section. On a parent
+   conveyor, launch these from the parent conversation.
 4. **Guardian** (`/guard`, optional). Sensitive surfaces, the first
    golden backend or UI slice, first use of a new principal or composition
    edge. Architecture/security pass. ADR deviation is a stop.
@@ -291,7 +298,10 @@ PLANNER → EXECUTOR → VERIFIER → GUARDIAN (optional)
    Postgres) → action/event contract checks (mandatory metadata including
    `principal`/`transport`, pairing, resolver and event definitions) →
    migration drift/safety → e2e smoke, phase-aware: Maestro once mobile
-   screens exist, Playwright only from the web phase.
+   screens exist, Playwright only from the web phase. A parent conveyor
+   squash-merges a child when those Actions jobs are green and
+   parent-launched Task reviews for the lane have no blocking findings.
+   A leaf `/ticket` without a parent still does not merge itself.
 
 Leftover phase 0–1 foundation work may still use `/scaffold` on the
 allowlisted packages. New domain work uses `/feature`.
@@ -309,14 +319,17 @@ Every pipeline role uses **Grok 4.6** while that is the model on this
 Cursor plan. Do not stop a ticket because a named Claude or GPT model is
 unavailable.
 
-Independent review is CI, Bugbot on routine+, and a human merge — not a
-second model family. `/review` and `/guard` still run on Grok when the
-lane requires them. When another family is on the plan, revisit this
+Independent review is CI, Bugbot on routine+, `/review` / `/guard` when
+the lane requires them, and either a human merge (leaf `/ticket`) or a
+parent-conveyor squash-merge (ADR-0029) — not a second model family.
+When another family is on the plan, revisit this
 section; until then do not keep a per-role model matrix.
 
 Practice in Cursor: feature cards — in Plan mode (`/feature`);
-implementation — parallel agents on separate branches (`/ticket`);
-review — Bugbot + `/review`; safety — `/guard` when the lane requires it.
+implementation — `/implement SHO-<parent>` for the whole graph, or
+parallel `/ticket` agents on separate branches for a single leaf;
+review — Bugbot + `/review` from the parent on a conveyor run; safety —
+`/guard` when the lane requires it.
 See `docs/pipeline.md` for the day-to-day workflow including Linear.
 
 ### 7.4 Pipeline health metrics

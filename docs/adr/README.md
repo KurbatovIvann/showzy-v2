@@ -45,3 +45,4 @@ humans) don't relitigate settled questions or silently deviate.
 | [0026](0026-golden-slice-confirm-is-status-only.md) | Golden-slice confirm is status-only | Accepted |
 | [0027](0027-s3-stand-in-is-garage.md) | S3 stand-in is Garage (R2 in prod) | Accepted |
 | [0028](0028-customer-spine-and-invite-crm.md) | Customer is the commercial spine; invite accept creates CRM | Accepted |
+| [0029](0029-autonomous-feature-conveyor.md) | Autonomous parent conveyor (writer ≠ reviewer at the parent) | Accepted |

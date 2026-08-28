@@ -5,18 +5,33 @@ runs in Cursor. The blueprint defines *what* the roles are; this file is
 the day-to-day checklist: which agent, which command, what goes in, what
 comes out, and when a role is done.
 
-**Key fact: there is no automatic orchestrator.** Cursor does not chain
-agents by itself — the human is the conductor. Each role = you launch an
-agent (chat, background, or cloud) and invoke the command. The files in
-`.cursor/commands/` are the role instructions.
+**Two ways to run the loop.** The files in `.cursor/commands/` are the
+role instructions.
+
+1. **Leaf** — you (or an agent) run `/ticket SHO-<n>` on one child. The
+   executor opens a draft PR and does **not** merge. You merge.
+2. **Feature parent** — `/implement SHO-<parent>` (or `/ticket` on an
+   issue with children / label `Feature`) runs the **parent orchestrator**
+   (`.cursor/commands/conveyor.md`, ADR-0029). The parent does not
+   implement. It launches one cloud `/ticket` executor per child, attaches
+   independent Bugbot / `/review` / security-review from **its**
+   conversation, and squash-merges when the conveyor merge gate is green.
+   A human still closes the feature parent.
+
+Cloud child executors cannot launch nested Task Bugbot, isolated
+`/review`, or `security-review` (SHO-197). That is expected. They
+self-check `review.md` / `guard.md`. **Writer ≠ reviewer** is the parent’s
+independent Task tools, not the child.
 
 Working model: **Grok 4.6** for every role. Do not stop a ticket because
-Claude or GPT names in older notes are unavailable. Independent review is
-CI, Bugbot on routine+, and a human merge.
+Claude or GPT names in older notes are unavailable. Independent review on
+the parent-conveyor path is green GitHub Actions, parent Task Bugbot on
+routine+, parent Task security-review on `sensitive`, and isolated
+`/review` (which may finish after merge).
 
 ```
-PLANNER → EXECUTOR → VERIFIER → GUARDIAN (optional)
-(human+agent)  (agent)    (CI + agent)   (sensitive / first slice)
+PLANNER → [parent orchestrator, optional] → EXECUTOR → VERIFIER → GUARDIAN
+(human+agent)   (/implement on feature parent)   (one cloud /ticket per child)
 ```
 
 Constitution stays: blueprint §2–§6, accepted ADRs, `.cursor/rules/`,
@@ -45,21 +60,35 @@ variants”). An epic is a Linear milestone. A ticket is one branch = one
 PR (~300 diff lines is comfort, not a cap). Product screens wait on the
 Experience Foundation UX gate; backend tickets do not.
 
-### 2. EXECUTOR — `/ticket SHO-<n>` (wraps `/implement`)
+### 2. PARENT ORCHESTRATOR — `/implement SHO-<parent>` (optional)
 
 | | |
 | --- | --- |
-| Agent | **One agent per ticket**, parallel where the dependency graph allows |
+| Agent | One parent conversation. Children are isolated cloud Tasks |
+| Command | `/implement` or `/ticket` on a feature parent (children or `Feature` label). Playbook: `.cursor/commands/conveyor.md` |
+| Input | Approved Linear feature card and ticket graph |
+| Output | Each child squash-merged on green Actions + parent Task reviews. Parent stays In Progress |
+| Done when | Named children and review follow-ups are on `main`. A human closes the parent |
+| Isolation | Sequential when children share files; parallel only if `blocked by` is empty **and** paths cannot overlap |
+| Merge gate | Seven GitHub Actions jobs (`checks`, `secret-scan`, `dependency-audit`, `contract-check`, `migration-drift`, `bundle-probe`, `e2e-smoke`). Parent Task Bugbot on routine+. Parent Task security-review on `sensitive`. GitHub-hosted Cursor Bugbot / Security Reviewer checks are **not** gates (usage limits, `neutral`, late). Isolated `/review` must not block merge |
+
+Follow-ups: post-merge `/review` **REQUEST CHANGES** with blockers/majors → new Linear child, do not reopen Done. Nits → comment only.
+
+### 3. EXECUTOR — `/ticket SHO-<n>` on a **leaf** (wraps `/implement`)
+
+| | |
+| --- | --- |
+| Agent | **One agent per ticket**, parallel where the dependency graph **and** file isolation allow |
 | Command | `/ticket` with the Linear ticket id — it lanes the ticket, gates on blockers, implements, and runs the verify loop |
 | Input | The Linear card + ticket, the context pack, the golden files for this layer |
-| Output | A PR with the required tests. Linear stays In Progress |
-| Done when | PR opened with green local checks. Description names the feature card, the tests, and any deviations (there should be none — deviations mean stop) |
+| Output | A **draft** PR with the required tests. Linear **In Review**. Nested Task Bugbot / `/review` / `security-review` often unavailable — self-check only (ADR-0029) |
+| Done when | PR opened with green local checks. Description names the feature card, the tests, and any deviations (there should be none — deviations mean stop). The executor does **not** merge |
 | Escalation | 2 failed verify/review rounds → ask the human; 3 → design review or a new ADR |
 
 The first backend slice becomes the golden API template. Do not start
 catalog/companies (or extract backend skills) until that slice has merged.
 
-### 3. VERIFIER — CI always; `/review` by lane
+### 4. VERIFIER — CI always; `/review` by lane
 
 | Lane | Review |
 | --- | --- |
@@ -72,9 +101,13 @@ catalog/companies (or extract backend skills) until that slice has merged.
 | Agent | `/review` when the lane requires it |
 | Input | The PR diff + the feature card + golden files + `.cursor/rules/` + ADRs |
 | Output | Verdict: approve, or change requests referencing constitution / ADR / golden / DoD — not an archived spec section |
-| Done when | Required reviewers for the lane approve; **a human merges** |
+| Done when | Required reviewers for the lane have run. Leaf `/ticket`: **a human merges**. Parent conveyor: parent squash-merges on the merge gate (ADR-0029) |
 
-### 4. GUARDIAN — `/guard` (optional)
+On the parent-conveyor path, launch Bugbot / `/review` / security-review
+from the **parent** conversation after the child PR exists. Do not expect
+the cloud executor to nest those Task tools.
+
+### 5. GUARDIAN — `/guard` (optional)
 
 Safety and irreversibility, not style. Skip on mechanical and ordinary
 routine work.
@@ -127,20 +160,24 @@ Linear (team **Showzy-v2**, via MCP) is the work ledger. Mapping:
 - **Labels**: the existing child label `<name>` under the `module` group
   (for example `orders`), plus `sensitive` when flagged. Do not invent
   a `spec` or `scaffold` label for new work.
-- **Statuses**: Backlog (blocked) → Todo (ready) → In Progress (conveyor
-  running and PR review) → Done (human merged). The current Showzy-v2
-  workspace has no `In Review` state; PR state + the issue comment is the
-  review signal. Canceled is for dropped tasks.
+- **Statuses**: Backlog (blocked) → Todo (ready) → In Progress (executor
+  running) → **In Review** (draft PR open) → Done (merged). Canceled is
+  for dropped tasks. Linear GitHub sync may flip a ticket to In Progress
+  when a PR is marked ready; after squash-merge, set Done again if needed.
 
 Day-to-day loop:
 
 1. You open a thread in Plan mode and type `/feature <capability>`.
    Approve the card and tickets.
-2. You open a fresh thread per ticket and type `/ticket SHO-<n>`.
-3. The agent implements, runs VERIFY, opens the PR, and runs only that
-   lane's Verifier / Guardian.
-4. **You merge.** Linear's GitHub integration links `SHO-n` in the
-   branch/PR and closes tickets on merge.
+2. **Either** open a fresh thread per leaf and type `/ticket SHO-<n>`
+   (you merge), **or** type `/implement SHO-<parent>` and let the parent
+   orchestrator run the graph (ADR-0029).
+3. The leaf executor implements, runs VERIFY, opens a draft PR, and
+   self-checks `review.md` / `guard.md` when nested Task tools are missing.
+4. Parent conveyor: independent reviews from the parent, then squash-merge
+   on green Actions. Leaf `/ticket` without a parent: **you merge.**
+   Linear's GitHub integration links `SHO-n` in the branch/PR. Do not
+   rely on it to mark Done — the conveyor sets Done after merge.
 
 Gaps that are product forks (new capability, new principal, new table,
 invariant change, “should this exist”) stop the ticket: it returns to
@@ -160,8 +197,11 @@ and is named in the description.
 ## Rules that keep the pipeline honest
 
 1. **Writer ≠ reviewer** when `/review` or `/guard` runs. Do not
-   rubber-stamp your own PR. Independent review is CI, Bugbot, and a
-   human merge. Mechanical PRs do not need `/review`.
+   rubber-stamp your own PR. On the parent conveyor, independent review is
+   green GitHub Actions plus parent-launched Task Bugbot / security-review
+   / `/review` (ADR-0029). A child’s in-process `review.md` is a
+   self-check, not independent review. Mechanical PRs do not need
+   `/review`.
 2. **The contract is TypeScript.** `*.contract.ts` plus DoD tests. Do not
    write `docs/specs/<module>.md` or treat `docs/archive/specs/` as a
    gate. Protocol manuals for frozen packages may be patched in the same

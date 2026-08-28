@@ -70,3 +70,6 @@ Parent the tickets under the feature issue when Linear allows it.
 - Do not create a ticket whose only output is markdown.
 
 Present the card and graph for human approval before creating tickets.
+
+After approval, the human can type `/implement SHO-<parent>` to run the
+autonomous conveyor (`.cursor/commands/conveyor.md`, ADR-0029).

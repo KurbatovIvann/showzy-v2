@@ -66,6 +66,16 @@ When the task touches `apps/mobile`, load
 `.cursor/skills/showzy-mobile/SKILL.md` before writing code. Do not load
 Expo skills for backend or module work.
 
+## Feature conveyor
+
+`/implement SHO-<parent>` (or `/ticket` on a Feature parent) runs the
+autonomous parent orchestrator: isolated cloud `/ticket` per child,
+independent reviews from the parent, squash-merge on green GitHub
+Actions. Playbook: `.cursor/commands/conveyor.md`. ADR-0029. A human
+closes the feature parent. Nested Bugbot / `/review` / `security-review`
+inside a cloud child are expected to be unavailable — do not fail the
+child for that.
+
 ## Legacy reference (Showzy v1)
 
 The previous implementation lives in a separate repository (locally at

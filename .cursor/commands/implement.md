@@ -1,4 +1,18 @@
-# Implement one feature ticket
+# Implement a Linear issue
+
+Dispatch once, then stop. Do not recurse.
+
+1. Fetch the issue (include relations).
+2. **Parent feature** — it has child issues, or label `Feature`:
+   follow `.cursor/commands/conveyor.md`. Do not implement children.
+3. **Leaf ticket** — if the user invoked `/implement` on a leaf, follow
+   `.cursor/commands/ticket.md` (it uses the executor section below and
+   must **not** re-enter this dispatch). If you are already in
+   `ticket.md` step IMPLEMENT, continue with Setup.
+
+---
+
+# Implement one feature ticket (leaf)
 
 You are an **Executor** for Showzy 2.0 (ADR-0023). The user names a Linear
 ticket (or a module + task id). You implement exactly that ticket —
@@ -23,8 +37,9 @@ nothing more. You do not write `docs/specs/` or `docs/plans/`.
    dependencies. Mobile tickets: load
    `.cursor/skills/showzy-mobile/SKILL.md` before writing `apps/mobile`
    code.
-5. Work on the Linear ticket's branch name when available; otherwise
-   `feat/sho-<number>-<slug>`.
+5. Work on the Linear ticket's `gitBranchName` when present; otherwise
+   `feat/sho-<number>-<slug>`. Linear names are not `cursor/` — when
+   opening the PR, set `skip_branch_prefix_check: true`.
 
 ## Process
 
@@ -41,9 +56,10 @@ nothing more. You do not write `docs/specs/` or `docs/plans/`.
    work needs Vitest + contract + migration suite.
    Mechanical edits may use the relevant package filter; CI still has to
    be green.
-4. **Open a PR** titled `SHO-<n> <title>` whose description states: the
-   Linear ticket / feature card, tests written, and any deviations (there
-   should be none — deviations mean you should have stopped).
+4. **Open a draft PR** titled `SHO-<n> <title>` whose description states:
+   the Linear ticket / feature card, tests written, and any deviations
+   (there should be none — deviations mean you should have stopped).
+   Do not merge. A parent conveyor (ADR-0029) or a human merges.
 
 ## Hard boundaries
 
