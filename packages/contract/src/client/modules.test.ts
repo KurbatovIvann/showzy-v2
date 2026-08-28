@@ -19,7 +19,9 @@ import {
   listMineContract,
 } from "@showzy/companies/contract";
 import {
+  createCustomerContract,
   createGroupContract,
+  updateCustomerContract,
   updateGroupContract,
 } from "@showzy/customers/contract";
 import {
@@ -65,7 +67,9 @@ describe("client composition", () => {
         listMine: listMineContract,
       },
       customers: {
+        createCustomer: createCustomerContract,
         createGroup: createGroupContract,
+        updateCustomer: updateCustomerContract,
         updateGroup: updateGroupContract,
       },
       files: {
@@ -103,7 +107,9 @@ describe("client composition", () => {
     expect(contractRouter.chat.getOrderCard).toBeDefined();
     expect(contractRouter.companies.create).toBeDefined();
     expect(contractRouter.companies.listMine).toBeDefined();
+    expect(contractRouter.customers.createCustomer).toBeDefined();
     expect(contractRouter.customers.createGroup).toBeDefined();
+    expect(contractRouter.customers.updateCustomer).toBeDefined();
     expect(contractRouter.customers.updateGroup).toBeDefined();
     expect(contractModules.customers).not.toHaveProperty(
       "getCustomerPricingFacts",
