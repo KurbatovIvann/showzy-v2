@@ -15,6 +15,9 @@ export function mapCustomersWriteFailure(
   if (kind === "permission") {
     return "permission";
   }
+  if (kind === "confirmation") {
+    return null;
+  }
   return "error";
 }
 

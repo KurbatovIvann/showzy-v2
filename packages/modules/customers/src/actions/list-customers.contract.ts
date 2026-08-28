@@ -22,13 +22,15 @@
  *   that protocol, not the mutation idempotency suite.
  */
 import { defineActionContract } from "@showzy/core/contract";
+import { LIST_CUSTOMERS_SEARCH_MAX } from "@showzy/validation/customers";
 import { z } from "zod";
 
 import { customerViewSchema } from "./customer-view.contract.js";
 
+export { LIST_CUSTOMERS_SEARCH_MAX };
+
 export const LIST_CUSTOMERS_DEFAULT_LIMIT = 20;
 export const LIST_CUSTOMERS_MAX_LIMIT = 50;
-export const LIST_CUSTOMERS_SEARCH_MAX = 100;
 export const LIST_CUSTOMERS_CURSOR_MAX = 80;
 
 const listCustomersCursorPayloadSchema = z.object({

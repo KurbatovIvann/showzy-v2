@@ -18,13 +18,15 @@
  *   that protocol, not the mutation idempotency suite.
  */
 import { defineActionContract } from "@showzy/core/contract";
+import { LIST_GROUPS_SEARCH_MAX } from "@showzy/validation/customers";
 import { z } from "zod";
 
 import { GROUP_NAME_MAX, groupViewSchema } from "./group-view.contract.js";
 
+export { LIST_GROUPS_SEARCH_MAX };
+
 export const LIST_GROUPS_DEFAULT_LIMIT = 20;
 export const LIST_GROUPS_MAX_LIMIT = 50;
-export const LIST_GROUPS_SEARCH_MAX = 100;
 export const LIST_GROUPS_CURSOR_MAX = 200;
 
 const listGroupsCursorPayloadSchema = z.object({

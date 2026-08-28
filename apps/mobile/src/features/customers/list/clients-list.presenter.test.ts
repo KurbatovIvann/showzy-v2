@@ -3,15 +3,13 @@ import { describe, expect, it } from "vitest";
 import { LIST_CUSTOMERS_SEARCH_MAX } from "@showzy/validation/customers";
 
 import type { CustomerListItem } from "../api/customer.queries";
+import { nameById } from "../shared/paged-list";
 import {
   classifyClientsList,
   clientRowActions,
   clientsChipKey,
-  flattenPages,
   groupChipOptions,
   listCustomersPageInput,
-  nameById,
-  normalizeCustomersSearch,
   parseClientsChipKey,
   shouldResetMissingGroupFilter,
   toClientRowView,
@@ -37,25 +35,11 @@ function item(overrides: Partial<CustomerListItem> = {}): CustomerListItem {
   };
 }
 
-describe("normalizeCustomersSearch", () => {
-  it("treats empty and whitespace-only input as no search", () => {
-    expect(normalizeCustomersSearch("", 100)).toBeUndefined();
-    expect(normalizeCustomersSearch("   ", 100)).toBeUndefined();
-  });
-
-  it("trims and caps at the validation export, not a local literal", () => {
-    expect(presenterSearchMax).toBe(LIST_CUSTOMERS_SEARCH_MAX);
-    expect(
-      normalizeCustomersSearch("  марія  ", LIST_CUSTOMERS_SEARCH_MAX),
-    ).toBe("марія");
-    const long = "a".repeat(LIST_CUSTOMERS_SEARCH_MAX + 20);
-    expect(
-      normalizeCustomersSearch(long, LIST_CUSTOMERS_SEARCH_MAX),
-    ).toHaveLength(LIST_CUSTOMERS_SEARCH_MAX);
-  });
-});
-
 describe("clients filter chips", () => {
+  it("re-exports the validation search cap", () => {
+    expect(presenterSearchMax).toBe(LIST_CUSTOMERS_SEARCH_MAX);
+  });
+
   it("round-trips all / archived / group keys", () => {
     expect(parseClientsChipKey("all")).toEqual({ kind: "all" });
     expect(parseClientsChipKey("archived")).toEqual({ kind: "archived" });
@@ -125,17 +109,6 @@ describe("toClientRowView", () => {
       linkedCounterpartyCount: 2,
     });
     expect(view).not.toHaveProperty("orderCount");
-  });
-});
-
-describe("flattenPages", () => {
-  it("concatenates page items in order", () => {
-    const first = item({ id: "11111111-1111-4111-8111-111111111111" });
-    const second = item({ id: "22222222-2222-4222-8222-222222222222" });
-    expect(flattenPages([{ items: [first] }, { items: [second] }])).toEqual([
-      first,
-      second,
-    ]);
   });
 });
 

@@ -11,24 +11,19 @@ import type {
 } from "../api/customer.queries";
 import type { GroupListItem } from "../api/group.queries";
 import type { PriceListItem } from "../api/price-list.queries";
+import {
+  flattenPages,
+  nameById,
+  normalizeCustomersSearch,
+} from "../shared/paged-list";
 
 export { LIST_CUSTOMERS_SEARCH_MAX };
+export { flattenPages, nameById, normalizeCustomersSearch };
 
 export type ClientsFilter =
   | { readonly kind: "all" }
   | { readonly kind: "archived" }
   | { readonly kind: "group"; readonly groupId: string };
-
-export function normalizeCustomersSearch(
-  text: string,
-  maxLength: number,
-): string | undefined {
-  const trimmed = text.trim();
-  if (trimmed.length === 0) {
-    return undefined;
-  }
-  return trimmed.slice(0, maxLength);
-}
 
 export function clientsChipKey(filter: ClientsFilter): string {
   if (filter.kind === "group") {
@@ -62,22 +57,6 @@ export function listCustomersPageInput(
     return { status: "active", groupId: filter.groupId, ...searchField };
   }
   return { status: "active", ...searchField };
-}
-
-export function flattenPages<T>(
-  pages: ReadonlyArray<{ readonly items: readonly T[] }>,
-): readonly T[] {
-  return pages.flatMap((page) => page.items);
-}
-
-export function nameById(
-  items: ReadonlyArray<{ readonly id: string; readonly name: string }>,
-): ReadonlyMap<string, string> {
-  const map = new Map<string, string>();
-  for (const item of items) {
-    map.set(item.id, item.name);
-  }
-  return map;
 }
 
 export type ClientRowView = {

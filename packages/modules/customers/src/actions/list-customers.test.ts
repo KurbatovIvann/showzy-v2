@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { LIST_CUSTOMERS_SEARCH_MAX as VALIDATION_SEARCH_MAX } from "@showzy/validation/customers";
+
 import {
   LIST_CUSTOMERS_CURSOR_MAX,
   LIST_CUSTOMERS_DEFAULT_LIMIT,
@@ -25,6 +27,7 @@ describe("customers.listCustomers contract", () => {
     expect(listCustomersContract.rateLimit).toBeUndefined();
     expect(LIST_CUSTOMERS_DEFAULT_LIMIT).toBe(20);
     expect(LIST_CUSTOMERS_MAX_LIMIT).toBe(50);
+    expect(LIST_CUSTOMERS_SEARCH_MAX).toBe(VALIDATION_SEARCH_MAX);
     expect(LIST_CUSTOMERS_SEARCH_MAX).toBe(100);
     expect(LIST_CUSTOMERS_CURSOR_MAX).toBe(80);
   });

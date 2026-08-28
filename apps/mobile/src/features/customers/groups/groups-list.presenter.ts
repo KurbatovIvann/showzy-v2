@@ -6,10 +6,14 @@ import { LIST_GROUPS_SEARCH_MAX } from "@showzy/validation/customers";
 import type { QueryFailureKind } from "../../../api/errors";
 import type { GroupListItem } from "../api/group.queries";
 import type { ListGroupsPageInput } from "../api/group.queries";
-import { flattenPages, nameById } from "../list/clients-list.presenter";
-import { normalizeCustomersSearch } from "../list/clients-list.presenter";
+import {
+  flattenPages,
+  nameById,
+  normalizeCustomersSearch,
+} from "../shared/paged-list";
 
 export { LIST_GROUPS_SEARCH_MAX };
+export { nameById, normalizeCustomersSearch };
 
 export function listGroupsPageInput(
   search: string | undefined,
@@ -78,8 +82,6 @@ export function flattenGroupListPages(
 ): readonly GroupListItem[] {
   return flattenPages(pages);
 }
-
-export { nameById, normalizeCustomersSearch };
 
 export type GroupRowActions = {
   readonly showEdit: boolean;

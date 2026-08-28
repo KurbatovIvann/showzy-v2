@@ -14,6 +14,14 @@ describe("mapCustomersWriteFailure", () => {
     expect(mapCustomersWriteFailure("not_found")).toBe("error");
     expect(mapCustomersWriteFailure("network")).toBe("error");
   });
+
+  it("does not treat protocol confirmation as a user-facing write failure", () => {
+    const copy = customersCopy("uk").mutation;
+    expect(mapCustomersWriteFailure("confirmation")).toBeNull();
+    expect(
+      customersWriteBanner(mapCustomersWriteFailure("confirmation"), copy),
+    ).toBeNull();
+  });
 });
 
 describe("customersWriteBanner", () => {
