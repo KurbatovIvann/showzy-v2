@@ -7,6 +7,7 @@ import { companyQueryScope } from "../../../api/query-options";
 import { LIST_PRICE_LISTS_ACTION } from "./price-list.queries";
 
 export const GET_PRICE_LIST_ACTION = "pricing.getPriceList";
+export const LIST_PRICE_LIST_ENTRIES_ACTION = "pricing.listPriceListEntries";
 
 export function priceListsListCacheKey(
   companyId: string,
@@ -20,11 +21,20 @@ export function priceListDetailCacheKey(
   return [GET_PRICE_LIST_ACTION, companyQueryScope(companyId)];
 }
 
-export function priceListsWriteInvalidationKeys(
+export function priceListEntriesCacheKey(
   companyId: string,
-): readonly [readonly [string, string], readonly [string, string]] {
+): readonly [string, string] {
+  return [LIST_PRICE_LIST_ENTRIES_ACTION, companyQueryScope(companyId)];
+}
+
+export function priceListsWriteInvalidationKeys(companyId: string): readonly [
+  readonly [string, string],
+  readonly [string, string],
+  readonly [string, string],
+] {
   return [
     priceListsListCacheKey(companyId),
     priceListDetailCacheKey(companyId),
+    priceListEntriesCacheKey(companyId),
   ];
 }

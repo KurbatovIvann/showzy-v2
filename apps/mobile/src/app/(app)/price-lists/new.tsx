@@ -1,1 +1,1 @@
-export { PriceListCreatePlaceholderScreen as default } from "../../../features/pricing/editor/price-list-editor-placeholder-screen";
+export { PriceListCreateScreen as default } from "../../../features/pricing/form/price-list-form-screen";

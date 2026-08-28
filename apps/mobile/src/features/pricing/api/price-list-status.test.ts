@@ -69,10 +69,11 @@ describe("bindPriceListStatusMutate", () => {
 });
 
 describe("priceListsWriteInvalidationKeys", () => {
-  it("targets listPriceLists and getPriceList for the active company only", () => {
+  it("targets listPriceLists, getPriceList, and entries for the active company only", () => {
     expect(priceListsWriteInvalidationKeys("company-a")).toEqual([
       [LIST_PRICE_LISTS_ACTION, "company-a"],
       [GET_PRICE_LIST_ACTION, "company-a"],
+      ["pricing.listPriceListEntries", "company-a"],
     ]);
   });
 

@@ -20,7 +20,8 @@ describe("pricing copy", () => {
     expect(Object.keys(uk.confirm)).toEqual(Object.keys(en.confirm));
     expect(Object.keys(uk.toast)).toEqual(Object.keys(en.toast));
     expect(Object.keys(uk.mutation)).toEqual(Object.keys(en.mutation));
-    expect(Object.keys(uk.stub)).toEqual(Object.keys(en.stub));
+    expect(Object.keys(uk.form)).toEqual(Object.keys(en.form));
+    expect(Object.keys(uk.form.errors)).toEqual(Object.keys(en.form.errors));
   });
 
   it("pins canvas price-list copy in uk (name-only search, no assignment line)", () => {
@@ -46,6 +47,12 @@ describe("pricing copy", () => {
     expect(uk.confirm.deleteDescription).not.toMatch(/\d+\s+груп/);
     expect(uk.prices.none).toBe("Без окремих цін");
     expect(uk.hint).toContain("призначеного листа");
+    expect(uk.form.createTitle).toBe("Новий прайс-лист");
+    expect(uk.form.namePlaceholder).toBe("Наприклад, Опт");
+    expect(uk.form.submitCreate).toBe("Створити");
+    expect(uk.form.bulkInvalid).toBe("Введіть знижку від 1 до 100%");
+    expect(uk.form.archivedBadge).toBe("Архівний");
+    expect(uk.form.notFoundTitle).toBe("Прайс-лист не знайдено");
   });
 
   it("keeps the interpolation slot in count and confirm templates", () => {
@@ -53,5 +60,7 @@ describe("pricing copy", () => {
     expect(pricingCopy("en").prices.one).toContain("{{count}}");
     expect(pricingCopy("uk").optionsLabel).toContain("{{name}}");
     expect(pricingCopy("en").confirm.deleteDescription).toContain("{{name}}");
+    expect(pricingCopy("uk").form.bulkApplied).toContain("{{percent}}");
+    expect(pricingCopy("uk").form.catalogBaseLabel).toContain("{{price}}");
   });
 });
