@@ -1,4 +1,5 @@
 export { archiveCustomerContract } from "./actions/archive-customer.contract.js";
+export { createCounterpartyContract } from "./actions/create-counterparty.contract.js";
 export { createCustomerContract } from "./actions/create-customer.contract.js";
 export { createGroupContract } from "./actions/create-group.contract.js";
 export { deleteCustomerContract } from "./actions/delete-customer.contract.js";
@@ -9,5 +10,6 @@ export { getGroupContract } from "./actions/get-group.contract.js";
 export { listCustomersContract } from "./actions/list-customers.contract.js";
 export { listGroupsContract } from "./actions/list-groups.contract.js";
 export { restoreCustomerContract } from "./actions/restore-customer.contract.js";
+export { updateCounterpartyContract } from "./actions/update-counterparty.contract.js";
 export { updateCustomerContract } from "./actions/update-customer.contract.js";
 export { updateGroupContract } from "./actions/update-group.contract.js";

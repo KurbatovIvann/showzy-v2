@@ -20,6 +20,7 @@ import {
 } from "@showzy/companies/contract";
 import {
   archiveCustomerContract,
+  createCounterpartyContract,
   createCustomerContract,
   createGroupContract,
   deleteCustomerContract,
@@ -29,6 +30,7 @@ import {
   listCustomersContract,
   listGroupsContract,
   restoreCustomerContract,
+  updateCounterpartyContract,
   updateCustomerContract,
   updateGroupContract,
 } from "@showzy/customers/contract";
@@ -86,6 +88,7 @@ describe("client composition", () => {
       },
       customers: {
         archiveCustomer: archiveCustomerContract,
+        createCounterparty: createCounterpartyContract,
         createCustomer: createCustomerContract,
         createGroup: createGroupContract,
         deleteCustomer: deleteCustomerContract,
@@ -95,6 +98,7 @@ describe("client composition", () => {
         listCustomers: listCustomersContract,
         listGroups: listGroupsContract,
         restoreCustomer: restoreCustomerContract,
+        updateCounterparty: updateCounterpartyContract,
         updateCustomer: updateCustomerContract,
         updateGroup: updateGroupContract,
       },
@@ -144,6 +148,7 @@ describe("client composition", () => {
     expect(contractRouter.companies.create).toBeDefined();
     expect(contractRouter.companies.listMine).toBeDefined();
     expect(contractRouter.customers.archiveCustomer).toBeDefined();
+    expect(contractRouter.customers.createCounterparty).toBeDefined();
     expect(contractRouter.customers.createCustomer).toBeDefined();
     expect(contractRouter.customers.createGroup).toBeDefined();
     expect(contractRouter.customers.deleteCustomer).toBeDefined();
@@ -153,6 +158,7 @@ describe("client composition", () => {
     expect(contractRouter.customers.listCustomers).toBeDefined();
     expect(contractRouter.customers.listGroups).toBeDefined();
     expect(contractRouter.customers.restoreCustomer).toBeDefined();
+    expect(contractRouter.customers.updateCounterparty).toBeDefined();
     expect(contractRouter.customers.updateCustomer).toBeDefined();
     expect(contractRouter.customers.updateGroup).toBeDefined();
     expect(contractModules.customers).not.toHaveProperty(

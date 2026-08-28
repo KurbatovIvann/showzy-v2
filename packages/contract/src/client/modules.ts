@@ -31,6 +31,7 @@ import {
 } from "@showzy/companies/contract";
 import {
   archiveCustomerContract,
+  createCounterpartyContract,
   createCustomerContract,
   createGroupContract,
   deleteCustomerContract,
@@ -40,6 +41,7 @@ import {
   listCustomersContract,
   listGroupsContract,
   restoreCustomerContract,
+  updateCounterpartyContract,
   updateCustomerContract,
   updateGroupContract,
 } from "@showzy/customers/contract";
@@ -98,6 +100,7 @@ export const contractModules = {
   },
   customers: {
     archiveCustomer: archiveCustomerContract,
+    createCounterparty: createCounterpartyContract,
     createCustomer: createCustomerContract,
     createGroup: createGroupContract,
     deleteCustomer: deleteCustomerContract,
@@ -107,6 +110,7 @@ export const contractModules = {
     listCustomers: listCustomersContract,
     listGroups: listGroupsContract,
     restoreCustomer: restoreCustomerContract,
+    updateCounterparty: updateCounterpartyContract,
     updateCustomer: updateCustomerContract,
     updateGroup: updateGroupContract,
   },
