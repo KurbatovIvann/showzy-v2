@@ -1,5 +1,5 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { useApiClient } from "../../../api/api-provider";
 import { describeQueryFailure } from "../../../api/errors";
@@ -17,6 +17,12 @@ import {
   SEARCH_DEBOUNCE_MS,
   useDebouncedValue,
 } from "../shared/use-debounced-value";
+import { useSheetHiddenWaiter } from "../shared/use-sheet-hidden-waiter";
+import {
+  optionsFollowUpWaitsForHidden,
+  planPriceListOptionsFollowUp,
+  runAfterOptionsSheetHidden,
+} from "./price-list-options-handshake";
 import {
   classifyPriceListsList,
   flattenPriceListPages,
@@ -51,6 +57,9 @@ export function usePriceListsList() {
   const [availability, setAvailability] =
     useState<PriceListsAvailability>("all");
   const [optionsListId, setOptionsListId] = useState<string | null>(null);
+  const [optionsVisible, setOptionsVisible] = useState(false);
+  const optionsVisibleRef = useRef(false);
+  const optionsHidden = useSheetHiddenWaiter();
   const debouncedSearch = useDebouncedValue(searchText, SEARCH_DEBOUNCE_MS);
   const search = normalizePriceListsSearch(debouncedSearch);
   const hasSearch = search !== undefined;
@@ -95,6 +104,16 @@ export function usePriceListsList() {
     availability,
   });
   const optionsList = rows.find((row) => row.id === optionsListId) ?? null;
+
+  function setOptionsOpen(visible: boolean): void {
+    optionsVisibleRef.current = visible;
+    setOptionsVisible(visible);
+  }
+
+  function hideOptions(): void {
+    setOptionsOpen(false);
+  }
+
   const showHint =
     state.kind === "rows" &&
     shouldShowPriceListsHint({
@@ -121,12 +140,20 @@ export function usePriceListsList() {
     banner: writes.banner,
     writesPending: writes.pending,
     showHint,
+    optionsVisible,
     optionsList,
     openOptions: (id: string) => {
       setOptionsListId(id);
+      setOptionsOpen(true);
     },
     closeOptions: () => {
-      setOptionsListId(null);
+      hideOptions();
+    },
+    onOptionsHidden: () => {
+      optionsHidden.notify();
+      if (!optionsVisibleRef.current) {
+        setOptionsListId(null);
+      }
     },
     refreshing: listQuery.isRefetching && !listQuery.isFetchingNextPage,
     refresh: () => {
@@ -148,26 +175,41 @@ export function usePriceListsList() {
       if (optionsList === null) {
         return;
       }
-      setOptionsListId(null);
-      await writes.setDefault(optionsList);
+      const list = optionsList;
+      hideOptions();
+      await writes.setDefault(list);
     },
     toggleActive: async () => {
       if (optionsList === null) {
         return;
       }
-      const blocked = optionsList.isDefault && optionsList.isActive;
-      if (!blocked) {
-        setOptionsListId(null);
+      const list = optionsList;
+      const followUp = planPriceListOptionsFollowUp({
+        action: "toggleActive",
+        isDefault: list.isDefault,
+        isActive: list.isActive,
+      });
+      if (optionsFollowUpWaitsForHidden(followUp)) {
+        await runAfterOptionsSheetHidden({
+          waitHidden: optionsHidden.wait,
+          hide: hideOptions,
+          then: () => writes.toggleActive(list),
+        });
+        return;
       }
-      await writes.toggleActive(optionsList);
+      hideOptions();
+      await writes.toggleActive(list);
     },
     remove: async () => {
       if (optionsList === null) {
         return;
       }
       const list = optionsList;
-      setOptionsListId(null);
-      await writes.remove(list);
+      await runAfterOptionsSheetHidden({
+        waitHidden: optionsHidden.wait,
+        hide: hideOptions,
+        then: () => writes.remove(list),
+      });
     },
   };
 }

@@ -1,7 +1,9 @@
 /**
  * Default / active / delete + navigation (SHO-189). Delete is UI confirm
- * then protocol confirmation. Deactivating the default is blocked in the
- * UI with the canvas toast copy (Banner) and never sent.
+ * then protocol confirmation. Callers must wait for the options sheet
+ * `onHidden` before `remove` (Alert) and before the deactivate-default
+ * Banner (SHO-198). Deactivating the default is blocked in the UI and
+ * never sent.
  */
 import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";

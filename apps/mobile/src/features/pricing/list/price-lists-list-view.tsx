@@ -114,11 +114,12 @@ export function PriceListsListView(model: PriceListsListModel) {
       </View>
       <PriceListsListBody model={model} renderItem={renderItem} />
       <PriceListOptionsSheet
-        visible={model.optionsList !== null}
+        visible={model.optionsVisible}
         list={model.optionsList}
         copy={copy}
         canManage={model.canManage}
         onClose={model.closeOptions}
+        onHidden={model.onOptionsHidden}
         onSetDefault={() => {
           void model.setDefault();
         }}

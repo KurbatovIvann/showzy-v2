@@ -14,6 +14,7 @@ export function PriceListOptionsSheet(props: {
   readonly copy: PricingCopy;
   readonly canManage: boolean;
   readonly onClose: () => void;
+  readonly onHidden: () => void;
   readonly onSetDefault: () => void;
   readonly onToggleActive: () => void;
   readonly onDelete: () => void;
@@ -45,6 +46,7 @@ export function PriceListOptionsSheet(props: {
       title={list?.name ?? props.copy.options.close}
       closeAccessibilityLabel={props.copy.options.close}
       onClose={props.onClose}
+      onHidden={props.onHidden}
     >
       <View style={styles.group}>
         {showDefault ? (
