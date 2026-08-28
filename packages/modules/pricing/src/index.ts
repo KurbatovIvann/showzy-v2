@@ -1,6 +1,7 @@
 export { activatePriceList } from "./actions/activate-price-list.js";
 export { createPriceList } from "./actions/create-price-list.js";
 export { deactivatePriceList } from "./actions/deactivate-price-list.js";
+export { deletePriceList } from "./actions/delete-price-list.js";
 export { getPriceList } from "./actions/get-price-list.js";
 export { listPriceListEntries } from "./actions/list-price-list-entries.js";
 export { listPriceLists } from "./actions/list-price-lists.js";

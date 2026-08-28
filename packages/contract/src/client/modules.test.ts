@@ -48,6 +48,7 @@ import {
   activatePriceListContract,
   createPriceListContract,
   deactivatePriceListContract,
+  deletePriceListContract,
   getPriceListContract,
   listPriceListEntriesContract,
   listPriceListsContract,
@@ -113,6 +114,7 @@ describe("client composition", () => {
         activatePriceList: activatePriceListContract,
         createPriceList: createPriceListContract,
         deactivatePriceList: deactivatePriceListContract,
+        deletePriceList: deletePriceListContract,
         getPriceList: getPriceListContract,
         listPriceListEntries: listPriceListEntriesContract,
         listPriceLists: listPriceListsContract,
@@ -169,6 +171,7 @@ describe("client composition", () => {
     expect(contractRouter.pricing.activatePriceList).toBeDefined();
     expect(contractRouter.pricing.createPriceList).toBeDefined();
     expect(contractRouter.pricing.deactivatePriceList).toBeDefined();
+    expect(contractRouter.pricing.deletePriceList).toBeDefined();
     expect(contractRouter.pricing.getPriceList).toBeDefined();
     expect(contractRouter.pricing.listPriceListEntries).toBeDefined();
     expect(contractRouter.pricing.listPriceLists).toBeDefined();
