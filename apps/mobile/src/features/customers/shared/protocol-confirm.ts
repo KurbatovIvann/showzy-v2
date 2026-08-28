@@ -1,7 +1,8 @@
 import { describeWireError } from "../../../api/errors";
 
 /**
- * High-risk list writes (`deleteCustomer`, `deleteGroup`) declare
+ * High-risk list writes (`deleteCustomer`, `deleteGroup`,
+ * `deleteCounterparty`) declare
  * `requiresConfirmation`. After the UI confirm, the first submit returns
  * `CONFIRMATION_REQUIRED`; this helper re-invokes with the challenge so
  * the protocol is real, not just a local Alert.

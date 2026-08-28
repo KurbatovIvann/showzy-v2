@@ -4,8 +4,13 @@ import { useMemo, useState } from "react";
 import { useResolvedCompany } from "../../../company-resolution/resolved-company-provider";
 import { customersCopy } from "../../../i18n/customers";
 import { detectLocale } from "../../../i18n/locale";
+import { useCounterpartiesList } from "../counterparties/use-counterparties-list";
 import { useGroupsList } from "../groups/use-groups-list";
-import { customerCreateHref, groupCreateHref } from "../shared/customer-hrefs";
+import {
+  counterpartyCreateHref,
+  customerCreateHref,
+  groupCreateHref,
+} from "../shared/customer-hrefs";
 import {
   canCreateCustomers,
   canDeleteCustomers,
@@ -14,6 +19,7 @@ import {
 import {
   canShowCustomersCreate,
   customersCreateKind,
+  customersCreateLabel,
   type CustomersTab,
 } from "./customers-home.presenter";
 import { useClientsList } from "./use-clients-list";
@@ -49,6 +55,11 @@ export function useCustomersHome() {
     canCreate: canEdit,
     canEdit,
   });
+  const counterparties = useCounterpartiesList({
+    copy,
+    canCreate: canEdit,
+    canEdit,
+  });
 
   const canCreate = canShowCustomersCreate({
     tab,
@@ -56,14 +67,18 @@ export function useCustomersHome() {
     canEditCustomers: canEdit,
   });
   const createKind = customersCreateKind(tab);
+  const createLabel = customersCreateLabel(createKind, {
+    client: copy.createClientLabel,
+    group: copy.createGroupLabel,
+    counterparty: copy.createCounterpartyLabel,
+  });
 
   return {
     copy,
     tab,
     selectTab: setTab,
     canCreate,
-    createLabel:
-      createKind === "group" ? copy.createGroupLabel : copy.createClientLabel,
+    createLabel,
     openCreate: () => {
       if (createKind === "client") {
         router.push(customerCreateHref());
@@ -71,10 +86,14 @@ export function useCustomersHome() {
       if (createKind === "group") {
         router.push(groupCreateHref());
       }
+      if (createKind === "counterparty") {
+        router.push(counterpartyCreateHref());
+      }
     },
-    banner: clients.banner ?? groups.banner,
+    banner: clients.banner ?? groups.banner ?? counterparties.banner,
     clients,
     groups,
+    counterparties,
   };
 }
 

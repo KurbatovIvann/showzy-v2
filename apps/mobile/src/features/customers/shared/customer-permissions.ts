@@ -18,7 +18,7 @@ export function canCreateCustomers(role: CompanyRole): boolean {
 
 /**
  * `customers:edit` — hides archive/restore, client edit, group create,
- * group edit, and group delete.
+ * group edit, group delete, and counterparty create/edit/delete.
  */
 export function canEditCustomers(role: CompanyRole): boolean {
   return role !== "employee";
