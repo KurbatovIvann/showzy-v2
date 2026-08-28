@@ -9,10 +9,7 @@ import { customersCopy } from "../../../i18n/customers";
 import { detectLocale } from "../../../i18n/locale";
 
 export type CustomerEditorStubKind =
-  | "client-create"
-  | "client-edit"
-  | "group-create"
-  | "group-edit";
+  "client-create" | "client-edit" | "group-create" | "group-edit";
 
 /** Placeholder until SHO-180 / SHO-181 land the real forms. */
 export function CustomerEditorStubScreen(props: {

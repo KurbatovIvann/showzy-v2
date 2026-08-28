@@ -45,9 +45,9 @@ describe("normalizeCustomersSearch", () => {
 
   it("trims and caps at the validation export, not a local literal", () => {
     expect(presenterSearchMax).toBe(LIST_CUSTOMERS_SEARCH_MAX);
-    expect(normalizeCustomersSearch("  марія  ", LIST_CUSTOMERS_SEARCH_MAX)).toBe(
-      "марія",
-    );
+    expect(
+      normalizeCustomersSearch("  марія  ", LIST_CUSTOMERS_SEARCH_MAX),
+    ).toBe("марія");
     const long = "a".repeat(LIST_CUSTOMERS_SEARCH_MAX + 20);
     expect(
       normalizeCustomersSearch(long, LIST_CUSTOMERS_SEARCH_MAX),
@@ -59,7 +59,9 @@ describe("clients filter chips", () => {
   it("round-trips all / archived / group keys", () => {
     expect(parseClientsChipKey("all")).toEqual({ kind: "all" });
     expect(parseClientsChipKey("archived")).toEqual({ kind: "archived" });
-    expect(parseClientsChipKey("group:11111111-1111-4111-8111-111111111111")).toEqual({
+    expect(
+      parseClientsChipKey("group:11111111-1111-4111-8111-111111111111"),
+    ).toEqual({
       kind: "group",
       groupId: "11111111-1111-4111-8111-111111111111",
     });
@@ -110,9 +112,7 @@ describe("toClientRowView", () => {
     const view = toClientRowView(
       item({ status: "archived", linkedCounterpartyCount: 2 }),
       nameById([{ id: "11111111-1111-4111-8111-111111111111", name: "VIP" }]),
-      nameById([
-        { id: "22222222-2222-4222-8222-222222222222", name: "Опт" },
-      ]),
+      nameById([{ id: "22222222-2222-4222-8222-222222222222", name: "Опт" }]),
     );
     expect(view).toEqual({
       id: "0f0e2d5c-4a1b-4c3d-9e8f-102938475601",
@@ -200,7 +200,11 @@ describe("classifyClientsList", () => {
 
   it("prefers search and group-filter empty states", () => {
     expect(
-      classifyClientsList({ ...base, hasSearch: true, filter: { kind: "archived" } }),
+      classifyClientsList({
+        ...base,
+        hasSearch: true,
+        filter: { kind: "archived" },
+      }),
     ).toEqual({ kind: "empty-search" });
     expect(
       classifyClientsList({

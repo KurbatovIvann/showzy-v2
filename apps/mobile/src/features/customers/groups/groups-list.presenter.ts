@@ -3,7 +3,7 @@
  */
 import { LIST_GROUPS_SEARCH_MAX } from "@showzy/validation/customers";
 
-import type { QueryFailureKind } from "../../../../api/errors";
+import type { QueryFailureKind } from "../../../api/errors";
 import type { GroupListItem } from "../api/group.queries";
 import type { ListGroupsPageInput } from "../api/group.queries";
 import { flattenPages, nameById } from "../list/clients-list.presenter";

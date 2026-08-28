@@ -4,7 +4,7 @@
  */
 import { LIST_CUSTOMERS_SEARCH_MAX } from "@showzy/validation/customers";
 
-import type { QueryFailureKind } from "../../../../api/errors";
+import type { QueryFailureKind } from "../../../api/errors";
 import type {
   CustomerListItem,
   ListCustomersPageInput,
@@ -100,7 +100,8 @@ export function toClientRowView(
     id: item.id,
     name: item.name,
     archived: item.status === "archived",
-    groupName: item.groupId === null ? null : (groups.get(item.groupId) ?? null),
+    groupName:
+      item.groupId === null ? null : (groups.get(item.groupId) ?? null),
     phone: item.phone,
     email: item.email,
     priceListName:

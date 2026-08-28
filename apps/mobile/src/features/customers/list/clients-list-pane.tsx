@@ -9,7 +9,7 @@ import {
 } from "lucide-react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
-import { Button, EmptyState } from "../../../../components/ui";
+import { Button, EmptyState } from "../../../components/ui";
 import { EntityCardSkeleton } from "../shared/entity-card";
 import { ClientRow } from "./client-row";
 import type { ClientsListModel, ClientsListRow } from "./use-clients-list";
@@ -22,6 +22,25 @@ export function ClientsListPane(props: {
 }) {
   const { model, openCreate } = props;
   const { copy } = model;
+
+  const onArchive = useCallback(
+    (id: string) => {
+      void model.archive(id);
+    },
+    [model.archive],
+  );
+  const onRestore = useCallback(
+    (id: string) => {
+      void model.restore(id);
+    },
+    [model.restore],
+  );
+  const onRemove = useCallback(
+    (id: string) => {
+      void model.remove(id);
+    },
+    [model.remove],
+  );
 
   const renderItem: ListRenderItem<ClientsListRow> = useCallback(
     ({ item }) => (
@@ -43,9 +62,9 @@ export function ClientsListPane(props: {
         canDelete={model.canDelete}
         disabled={model.writesPending}
         onEdit={model.openEdit}
-        onArchive={model.archive}
-        onRestore={model.restore}
-        onRemove={model.remove}
+        onArchive={onArchive}
+        onRestore={onRestore}
+        onRemove={onRemove}
       />
     ),
     [
@@ -56,9 +75,9 @@ export function ClientsListPane(props: {
       model.canDelete,
       model.writesPending,
       model.openEdit,
-      model.archive,
-      model.restore,
-      model.remove,
+      onArchive,
+      onRestore,
+      onRemove,
     ],
   );
 
@@ -196,28 +215,28 @@ function ClientsListBody(props: {
       return (
         <View style={styles.rowsPane}>
           <FlashList
-          data={model.rows}
-          style={styles.list}
-          keyExtractor={keyExtractor}
-          renderItem={props.renderItem}
-          ItemSeparatorComponent={RowSeparator}
-          ListFooterComponent={
-            model.loadingMore ? (
-              <ActivityIndicator
-                accessibilityLabel={copy.loadingMoreLabel}
-                color={theme.colors.activityIndicator.onBackground}
-                style={styles.footerSpinner}
-              />
-            ) : null
-          }
-          onEndReached={model.loadMore}
-          onEndReachedThreshold={0.5}
-          refreshing={model.refreshing}
-          onRefresh={model.refresh}
-          keyboardDismissMode="on-drag"
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={styles.listContent}
-        />
+            data={model.rows}
+            style={styles.list}
+            keyExtractor={keyExtractor}
+            renderItem={props.renderItem}
+            ItemSeparatorComponent={RowSeparator}
+            ListFooterComponent={
+              model.loadingMore ? (
+                <ActivityIndicator
+                  accessibilityLabel={copy.loadingMoreLabel}
+                  color={theme.colors.activityIndicator.onBackground}
+                  style={styles.footerSpinner}
+                />
+              ) : null
+            }
+            onEndReached={model.loadMore}
+            onEndReachedThreshold={0.5}
+            refreshing={model.refreshing}
+            onRefresh={model.refresh}
+            keyboardDismissMode="on-drag"
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.listContent}
+          />
         </View>
       );
   }

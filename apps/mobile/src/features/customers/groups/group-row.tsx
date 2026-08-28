@@ -2,7 +2,7 @@ import { memo } from "react";
 import { LayersIcon, TagIcon, UsersIcon } from "lucide-react-native";
 import { useUnistyles } from "react-native-unistyles";
 
-import { StatusPill } from "../../../../components/ui";
+import { StatusPill } from "../../../components/ui";
 import { EntityAvatar, EntityCard } from "../shared/entity-card";
 import { EntityMetaLine } from "../shared/entity-meta-line";
 import { groupRowActions } from "./groups-list.presenter";
@@ -45,7 +45,9 @@ export const GroupRow = memo(function GroupRow(props: {
             </EntityMetaLine>
           ) : null}
           {props.priceListName !== null ? (
-            <EntityMetaLine icon={<TagIcon size={iconSize} color={iconColor} />}>
+            <EntityMetaLine
+              icon={<TagIcon size={iconSize} color={iconColor} />}
+            >
               {props.priceListName}
             </EntityMetaLine>
           ) : null}
@@ -60,7 +62,7 @@ export const GroupRow = memo(function GroupRow(props: {
       removeMode="delete"
       showRemove={actions.showDelete}
       onRemove={() => {
-        void props.onRemove(props.id, props.memberCount);
+        props.onRemove(props.id, props.memberCount);
       }}
       disabled={props.disabled}
     />

@@ -1,5 +1,5 @@
-import type { QueryFailureKind } from "../../../../api/errors";
-import type { CustomersMutationCopy } from "../../../../i18n/customers";
+import type { QueryFailureKind } from "../../../api/errors";
+import type { CustomersMutationCopy } from "../../../i18n/customers";
 
 export type CustomersWriteBannerKey = "offline" | "permission" | "error";
 

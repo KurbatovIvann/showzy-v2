@@ -2,8 +2,8 @@
  * `pricing.listPriceLists` read bindings for card meta (SHO-179).
  * Keys follow SHO-102. The picker CRUD stays on SHO-180 / SHO-181.
  */
-import type { ContractClient } from "../../../../api/client";
-import { contractInfiniteQueryOptions } from "../../../../api/query-options";
+import type { ContractClient } from "../../../api/client";
+import { contractInfiniteQueryOptions } from "../../../api/query-options";
 
 export const LIST_PRICE_LISTS_ACTION = "pricing.listPriceLists";
 

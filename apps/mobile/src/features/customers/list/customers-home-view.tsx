@@ -10,7 +10,7 @@ import {
   EmptyState,
   IconButton,
   SearchField,
-} from "../../../../components/ui";
+} from "../../../components/ui";
 import { GroupsListPane } from "../groups/groups-list-pane";
 import { ClientsListPane } from "./clients-list-pane";
 import { CustomersTabs } from "./customers-tabs";

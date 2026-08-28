@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { customersCopy } from "../../../../i18n/customers";
+import { customersCopy } from "../../../i18n/customers";
 import { memberCountLabel } from "./member-count";
 
 describe("memberCountLabel", () => {

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { MutationCallOptions } from "@showzy/contract";
 
-import { createContractMutationController } from "../../../../api/contract-mutation";
+import { createContractMutationController } from "../../../api/contract-mutation";
 import { bindGroupDeleteMutate } from "./group-delete";
 
 const GROUP_ID = "11111111-1111-4111-8111-111111111111";

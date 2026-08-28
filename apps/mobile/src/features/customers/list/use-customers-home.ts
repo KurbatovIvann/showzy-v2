@@ -1,14 +1,11 @@
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 
-import { useResolvedCompany } from "../../../../company-resolution/resolved-company-provider";
-import { customersCopy } from "../../../../i18n/customers";
-import { detectLocale } from "../../../../i18n/locale";
+import { useResolvedCompany } from "../../../company-resolution/resolved-company-provider";
+import { customersCopy } from "../../../i18n/customers";
+import { detectLocale } from "../../../i18n/locale";
 import { useGroupsList } from "../groups/use-groups-list";
-import {
-  customerCreateHref,
-  groupCreateHref,
-} from "../shared/customer-hrefs";
+import { customerCreateHref, groupCreateHref } from "../shared/customer-hrefs";
 import {
   canCreateCustomers,
   canDeleteCustomers,

@@ -2,10 +2,7 @@
  * Tab chrome decisions for the customers home (SHO-179).
  */
 export type CustomersTab =
-  | "clients"
-  | "groups"
-  | "counterparties"
-  | "invitations";
+  "clients" | "groups" | "counterparties" | "invitations";
 
 export const CUSTOMERS_TABS: readonly CustomersTab[] = [
   "clients",
@@ -50,9 +47,7 @@ export function shouldDrainNextPage(args: {
   readonly isFetchingNextPage: boolean;
 }): boolean {
   return (
-    args.status === "success" &&
-    args.hasNextPage &&
-    !args.isFetchingNextPage
+    args.status === "success" && args.hasNextPage && !args.isFetchingNextPage
   );
 }
 

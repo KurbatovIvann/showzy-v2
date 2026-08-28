@@ -1,11 +1,11 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 
-import { useApiClient } from "../../../../api/api-provider";
-import { describeQueryFailure } from "../../../../api/errors";
-import { useActiveCompany } from "../../../../api/query-provider";
-import type { CustomersCopy } from "../../../../i18n/customers";
-import { interpolate, type Locale } from "../../../../i18n/locale";
+import { useApiClient } from "../../../api/api-provider";
+import { describeQueryFailure } from "../../../api/errors";
+import { useActiveCompany } from "../../../api/query-provider";
+import type { CustomersCopy } from "../../../i18n/customers";
+import { interpolate, type Locale } from "../../../i18n/locale";
 import {
   customersProbeQueryOptions,
   listCustomersInfiniteOptions,
@@ -91,7 +91,7 @@ export function useClientsList(args: {
     listQuery.status === "success" &&
     !hasSearch &&
     filter.kind === "all" &&
-    flattenPages(listQuery.data?.pages ?? []).length === 0;
+    flattenPages(listQuery.data.pages).length === 0;
   const probeQuery = useQuery({
     ...customersProbeQueryOptions({
       client: apiClient,

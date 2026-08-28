@@ -3,11 +3,11 @@
  * SHO-102: `[actionName, companyId, input]`; the page cursor is the
  * infinite query page param, never part of the key.
  */
-import type { ContractClient } from "../../../../api/client";
+import type { ContractClient } from "../../../api/client";
 import {
   contractInfiniteQueryOptions,
   contractQueryOptions,
-} from "../../../../api/query-options";
+} from "../../../api/query-options";
 
 export const LIST_CUSTOMERS_ACTION = "customers.listCustomers";
 

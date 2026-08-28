@@ -17,6 +17,8 @@ describe("customer hrefs", () => {
       `/customers/clients/${CUSTOMER_ID}/edit`,
     );
     expect(groupCreateHref()).toBe("/customers/groups/new");
-    expect(groupEditorHref(GROUP_ID)).toBe(`/customers/groups/${GROUP_ID}/edit`);
+    expect(groupEditorHref(GROUP_ID)).toBe(
+      `/customers/groups/${GROUP_ID}/edit`,
+    );
   });
 });

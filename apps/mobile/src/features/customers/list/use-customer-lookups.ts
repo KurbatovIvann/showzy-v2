@@ -1,8 +1,8 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
-import { useApiClient } from "../../../../api/api-provider";
-import { useActiveCompany } from "../../../../api/query-provider";
+import { useApiClient } from "../../../api/api-provider";
+import { useActiveCompany } from "../../../api/query-provider";
 import { listGroupsInfiniteOptions } from "../api/group.queries";
 import { listPriceListsInfiniteOptions } from "../api/price-list.queries";
 import { CUSTOMERS_LOOKUP_PAGE_SIZE } from "../shared/customer-caps";
@@ -33,7 +33,7 @@ export function useCustomerLookups() {
   );
   useDrainInfinitePages({
     status: groupsQuery.status,
-    hasNextPage: groupsQuery.hasNextPage === true,
+    hasNextPage: groupsQuery.hasNextPage,
     isFetchingNextPage: groupsQuery.isFetchingNextPage,
     fetchNextPage: groupsQuery.fetchNextPage,
   });
@@ -48,7 +48,7 @@ export function useCustomerLookups() {
   );
   useDrainInfinitePages({
     status: priceListsQuery.status,
-    hasNextPage: priceListsQuery.hasNextPage === true,
+    hasNextPage: priceListsQuery.hasNextPage,
     isFetchingNextPage: priceListsQuery.isFetchingNextPage,
     fetchNextPage: priceListsQuery.fetchNextPage,
   });
@@ -74,7 +74,7 @@ export function useCustomerLookups() {
     priceListsById,
     groupsLookupSettled: lookupPagesSettled({
       status: groupsQuery.status,
-      hasNextPage: groupsQuery.hasNextPage === true,
+      hasNextPage: groupsQuery.hasNextPage,
       isFetchingNextPage: groupsQuery.isFetchingNextPage,
     }),
   };

@@ -6,7 +6,9 @@ import {
   submitWithProtocolConfirmation,
 } from "./protocol-confirm";
 
-function confirmationRequired(challengeId: string): ORPCError<
+function confirmationRequired(
+  challengeId: string,
+): ORPCError<
   "CONFIRMATION_REQUIRED",
   { challenge: { challengeId: string; summary: string; expiresAt: string } }
 > {

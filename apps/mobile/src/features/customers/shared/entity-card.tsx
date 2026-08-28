@@ -24,6 +24,7 @@ export function EntityCard(props: {
   readonly extra?: ReactNode;
   readonly disabled?: boolean;
 }) {
+  const disabled = props.disabled === true;
   const showFooter = props.showEdit || props.showRemove;
   return (
     <View style={styles.card}>
@@ -36,14 +37,16 @@ export function EntityCard(props: {
           ) : null}
         </View>
       </View>
-      {props.meta != null ? <View style={styles.meta}>{props.meta}</View> : null}
+      {props.meta != null ? (
+        <View style={styles.meta}>{props.meta}</View>
+      ) : null}
       {showFooter ? (
         <View style={styles.footer}>
           {props.showEdit ? (
             <View style={styles.edit}>
               <Button
                 fullWidth
-                disabled={props.disabled}
+                disabled={disabled}
                 icon={<EditIcon />}
                 label={props.editLabel}
                 onPress={props.onEdit}
@@ -54,13 +57,15 @@ export function EntityCard(props: {
             <RemoveIconButton
               mode={props.removeMode}
               accessibilityLabel={props.removeLabel}
-              disabled={props.disabled}
+              disabled={disabled}
               onPress={props.onRemove}
             />
           ) : null}
         </View>
       ) : null}
-      {props.extra != null ? <View style={styles.extra}>{props.extra}</View> : null}
+      {props.extra != null ? (
+        <View style={styles.extra}>{props.extra}</View>
+      ) : null}
     </View>
   );
 }

@@ -9,7 +9,7 @@ import {
 } from "lucide-react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
-import { Button, EmptyState } from "../../../../components/ui";
+import { Button, EmptyState } from "../../../components/ui";
 import { EntityCardSkeleton } from "../shared/entity-card";
 import { GroupRow } from "./group-row";
 import type { GroupsListModel, GroupsListRow } from "./use-groups-list";
@@ -22,6 +22,13 @@ export function GroupsListPane(props: {
 }) {
   const { model, openCreate } = props;
   const { copy } = model;
+
+  const onRemove = useCallback(
+    (id: string, memberCount: number) => {
+      void model.remove(id, memberCount);
+    },
+    [model.remove],
+  );
 
   const renderItem: ListRenderItem<GroupsListRow> = useCallback(
     ({ item }) => (
@@ -37,7 +44,7 @@ export function GroupsListPane(props: {
         canEdit={model.canEdit}
         disabled={model.writesPending}
         onEdit={model.openEdit}
-        onRemove={model.remove}
+        onRemove={onRemove}
       />
     ),
     [
@@ -45,7 +52,7 @@ export function GroupsListPane(props: {
       model.canEdit,
       model.writesPending,
       model.openEdit,
-      model.remove,
+      onRemove,
     ],
   );
 
@@ -156,28 +163,28 @@ function GroupsListBody(props: {
       return (
         <View style={styles.rowsPane}>
           <FlashList
-          data={model.rows}
-          style={styles.list}
-          keyExtractor={keyExtractor}
-          renderItem={props.renderItem}
-          ItemSeparatorComponent={RowSeparator}
-          ListFooterComponent={
-            model.loadingMore ? (
-              <ActivityIndicator
-                accessibilityLabel={copy.loadingMoreLabel}
-                color={theme.colors.activityIndicator.onBackground}
-                style={styles.footerSpinner}
-              />
-            ) : null
-          }
-          onEndReached={model.loadMore}
-          onEndReachedThreshold={0.5}
-          refreshing={model.refreshing}
-          onRefresh={model.refresh}
-          keyboardDismissMode="on-drag"
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={styles.listContent}
-        />
+            data={model.rows}
+            style={styles.list}
+            keyExtractor={keyExtractor}
+            renderItem={props.renderItem}
+            ItemSeparatorComponent={RowSeparator}
+            ListFooterComponent={
+              model.loadingMore ? (
+                <ActivityIndicator
+                  accessibilityLabel={copy.loadingMoreLabel}
+                  color={theme.colors.activityIndicator.onBackground}
+                  style={styles.footerSpinner}
+                />
+              ) : null
+            }
+            onEndReached={model.loadMore}
+            onEndReachedThreshold={0.5}
+            refreshing={model.refreshing}
+            onRefresh={model.refresh}
+            keyboardDismissMode="on-drag"
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.listContent}
+          />
         </View>
       );
   }

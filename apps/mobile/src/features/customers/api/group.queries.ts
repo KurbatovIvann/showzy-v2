@@ -2,8 +2,8 @@
  * `customers.listGroups` read bindings (SHO-179). Keys follow SHO-102:
  * `[actionName, companyId, input]`.
  */
-import type { ContractClient } from "../../../../api/client";
-import { contractInfiniteQueryOptions } from "../../../../api/query-options";
+import type { ContractClient } from "../../../api/client";
+import { contractInfiniteQueryOptions } from "../../../api/query-options";
 
 export const LIST_GROUPS_ACTION = "customers.listGroups";
 

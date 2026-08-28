@@ -1,11 +1,11 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 
-import { useApiClient } from "../../../../api/api-provider";
-import { describeQueryFailure } from "../../../../api/errors";
-import { useActiveCompany } from "../../../../api/query-provider";
-import type { CustomersCopy } from "../../../../i18n/customers";
-import { interpolate, type Locale } from "../../../../i18n/locale";
+import { useApiClient } from "../../../api/api-provider";
+import { describeQueryFailure } from "../../../api/errors";
+import { useActiveCompany } from "../../../api/query-provider";
+import type { CustomersCopy } from "../../../i18n/customers";
+import { interpolate, type Locale } from "../../../i18n/locale";
 import { listGroupsInfiniteOptions } from "../api/group.queries";
 import { LIST_GROUPS_SEARCH_MAX } from "../shared/customer-caps";
 import { memberCountLabel } from "../shared/member-count";

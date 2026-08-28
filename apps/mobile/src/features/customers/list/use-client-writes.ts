@@ -6,12 +6,12 @@ import { useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 
-import { useApiClient } from "../../../../api/api-provider";
-import { useContractMutation } from "../../../../api/contract-mutation";
-import { describeQueryFailure } from "../../../../api/errors";
-import { useActiveCompany } from "../../../../api/query-provider";
-import { presentConfirmDialog } from "../../../../components/ui/present-confirm-dialog";
-import type { CustomersCopy } from "../../../../i18n/customers";
+import { useApiClient } from "../../../api/api-provider";
+import { useContractMutation } from "../../../api/contract-mutation";
+import { describeQueryFailure } from "../../../api/errors";
+import { useActiveCompany } from "../../../api/query-provider";
+import { presentConfirmDialog } from "../../../components/ui/present-confirm-dialog";
+import type { CustomersCopy } from "../../../i18n/customers";
 import { bindCustomerDeleteMutate } from "../api/customer-delete";
 import {
   bindCustomerStatusMutate,

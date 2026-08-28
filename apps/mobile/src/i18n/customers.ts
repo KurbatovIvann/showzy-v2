@@ -264,8 +264,7 @@ const uk: CustomersCopy = {
   },
   comingSoon: {
     counterpartiesTitle: "Незабаром",
-    counterpartiesDescription:
-      "Контрагенти з’являться в окремому оновленні.",
+    counterpartiesDescription: "Контрагенти з’являться в окремому оновленні.",
     invitationsTitle: "Незабаром",
     invitationsDescription: "Запрошення з’являться в окремому оновленні.",
   },
@@ -297,7 +296,8 @@ const uk: CustomersCopy = {
     groupCreateTitle: "Нова група",
     groupEditTitle: "Редагувати групу",
     title: "Незабаром",
-    description: "Форми створення та редагування з’являться в наступних тікетах.",
+    description:
+      "Форми створення та редагування з’являться в наступних тікетах.",
   },
 };
 

@@ -1,5 +1,5 @@
-import { interpolate, type Locale } from "../../../../i18n/locale";
-import type { CustomersCountForms } from "../../../../i18n/customers";
+import { interpolate, type Locale } from "../../../i18n/locale";
+import type { CustomersCountForms } from "../../../i18n/customers";
 import { countPluralForm } from "./plural";
 
 export function counterpartyCountLabel(

@@ -1,4 +1,4 @@
-import { describeWireError } from "../../../../api/errors";
+import { describeWireError } from "../../../api/errors";
 
 /**
  * High-risk list writes (`deleteCustomer`, `deleteGroup`) declare

@@ -7,7 +7,7 @@
  * and skips doomed requests — the server re-checks every action
  * permission and stays authoritative (ADR-0013).
  */
-import type { CompanyMembership } from "../../../../api/company-membership-query";
+import type { CompanyMembership } from "../../../api/company-membership-query";
 
 export type CompanyRole = CompanyMembership["role"];
 

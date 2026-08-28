@@ -47,7 +47,9 @@ describe("customers copy", () => {
     expect(uk.empty.archivedTitle).toBe("Архів порожній");
     expect(uk.empty.archivedDescription).toContain("Спочатку архів");
     expect(uk.empty.groupsTitle).toBe("Груп ще немає");
-    expect(uk.confirm.archiveDescription).toContain("Спочатку архів, потім видалення");
+    expect(uk.confirm.archiveDescription).toContain(
+      "Спочатку архів, потім видалення",
+    );
     expect(uk.confirm.deleteDescription).toContain(
       "Контрагенти залишаться без прив’язки",
     );

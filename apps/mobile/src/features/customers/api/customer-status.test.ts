@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import type { MutationCallOptions } from "@showzy/contract";
 
-import { createContractMutationController } from "../../../../api/contract-mutation";
-import { createShowzyQueryClient } from "../../../../api/query-client";
-import { contractQueryKey } from "../../../../api/query-options";
+import { createContractMutationController } from "../../../api/contract-mutation";
+import { createShowzyQueryClient } from "../../../api/query-client";
+import { contractQueryKey } from "../../../api/query-options";
 import { customersWriteInvalidationKeys } from "./customer-cache";
 import { LIST_CUSTOMERS_ACTION } from "./customer.queries";
 import { LIST_GROUPS_ACTION } from "./group.queries";

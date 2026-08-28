@@ -3,7 +3,7 @@ import { Text } from "react-native";
 import { MailIcon, PhoneIcon, TagIcon } from "lucide-react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
-import { Button, StatusPill } from "../../../../components/ui";
+import { Button, StatusPill } from "../../../components/ui";
 import { customerInitials } from "../shared/initials";
 import { EntityAvatar, EntityCard } from "../shared/entity-card";
 import { EntityMetaLine } from "../shared/entity-meta-line";
@@ -64,17 +64,23 @@ export const ClientRow = memo(function ClientRow(props: {
       meta={
         <>
           {props.phone !== null ? (
-            <EntityMetaLine icon={<PhoneIcon size={iconSize} color={iconColor} />}>
+            <EntityMetaLine
+              icon={<PhoneIcon size={iconSize} color={iconColor} />}
+            >
               {props.phone}
             </EntityMetaLine>
           ) : null}
           {props.email !== null ? (
-            <EntityMetaLine icon={<MailIcon size={iconSize} color={iconColor} />}>
+            <EntityMetaLine
+              icon={<MailIcon size={iconSize} color={iconColor} />}
+            >
               {props.email}
             </EntityMetaLine>
           ) : null}
           {props.priceListName !== null ? (
-            <EntityMetaLine icon={<TagIcon size={iconSize} color={iconColor} />}>
+            <EntityMetaLine
+              icon={<TagIcon size={iconSize} color={iconColor} />}
+            >
               {props.priceListName}
             </EntityMetaLine>
           ) : null}
@@ -90,10 +96,10 @@ export const ClientRow = memo(function ClientRow(props: {
       showRemove={actions.showArchive || actions.showDelete}
       onRemove={() => {
         if (actions.showDelete) {
-          void props.onRemove(props.id);
+          props.onRemove(props.id);
           return;
         }
-        void props.onArchive(props.id);
+        props.onArchive(props.id);
       }}
       extra={
         actions.showRestore ? (
@@ -102,7 +108,7 @@ export const ClientRow = memo(function ClientRow(props: {
             disabled={props.disabled}
             label={props.restoreLabel}
             onPress={() => {
-              void props.onRestore(props.id);
+              props.onRestore(props.id);
             }}
           />
         ) : undefined

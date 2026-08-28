@@ -1,10 +1,7 @@
 import { Pressable, ScrollView, Text } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
-import {
-  CUSTOMERS_TABS,
-  type CustomersTab,
-} from "./customers-home.presenter";
+import { CUSTOMERS_TABS, type CustomersTab } from "./customers-home.presenter";
 
 /**
  * Canvas customers tab strip: a horizontally scrollable pill track.
