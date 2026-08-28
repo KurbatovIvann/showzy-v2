@@ -44,6 +44,8 @@ import {
   createGroup,
   deleteGroup,
   getCustomerPricingFacts,
+  getGroup,
+  listGroups,
   updateCustomer,
   updateGroup,
 } from "@showzy/customers";
@@ -214,6 +216,8 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, createGroup);
   registerAction(registry, deleteGroup);
   registerAction(registry, getCustomerPricingFacts);
+  registerAction(registry, getGroup);
+  registerAction(registry, listGroups);
   registerAction(registry, updateCustomer);
   registerAction(registry, updateGroup);
   registerAction(registry, requestUpload);

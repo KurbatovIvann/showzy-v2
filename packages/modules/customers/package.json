@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Customers module: staff CRM customer and group writes, and pricing-assignment facts. This package exports actions and events only.",
+  "description": "Customers module: staff CRM customer and group reads/writes, and pricing-assignment facts. This package exports actions and events only.",
   "exports": {
     ".": "./src/index.ts",
     "./contract": "./src/index.contract.ts",
