@@ -10,10 +10,11 @@ import {
   EmptyState,
   IconButton,
   SearchField,
+  SegmentedTabs,
 } from "../../../components/ui";
 import { GroupsListPane } from "../groups/groups-list-pane";
 import { ClientsListPane } from "./clients-list-pane";
-import { CustomersTabs } from "./customers-tabs";
+import { customersTabOptions } from "./customers-home.presenter";
 import type { CustomersHomeModel } from "./use-customers-home";
 
 export function CustomersHomeView(model: CustomersHomeModel) {
@@ -50,8 +51,9 @@ export function CustomersHomeView(model: CustomersHomeModel) {
         </View>
       ) : null}
       <View style={styles.controls}>
-        <CustomersTabs
-          labels={copy.tabs}
+        <SegmentedTabs
+          layout="scroll"
+          tabs={customersTabOptions(copy.tabs)}
           selected={model.tab}
           onSelect={model.selectTab}
         />

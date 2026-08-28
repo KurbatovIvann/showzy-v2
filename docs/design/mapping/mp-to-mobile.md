@@ -135,7 +135,7 @@ System font. No webfont.
 | `Button` | `Button` | pill; `size: "auth"` is 54 + `typography.lg`; auth disabled uses faint fill, not opacity; `danger` is `destructiveSoft` / `destructive` (pressed inverts to fill); optional `icon` and `fullWidth` |
 | `Card` | section / `Card` | 22px, `line` border, `surface` fill |
 | `TextField` | `TextField` | 16px radius, canvas fill; optional label / leading / prefix / suffix; `changed` chip uses `StatusPill` `action`; `size: "auth"` is 54 + 16 tabular-nums + focus `ring` |
-| `SegmentedTabs` | `AuthModeSwitch` | pill track `muted`, raised `card` with `shadows.sm` |
+| `SegmentedTabs` | `AuthModeSwitch` / customers tab strip | `layout="equal"` (default): two-up auth row, track `hitTarget.field`. `layout="scroll"`: compact overflowing strip (canvas `min-w-max` track inside `overflow-x-auto`). Pills `hitTarget.min` / `typography.sm`; muted track hugs content and scrolls as one unit — no edge masks, `contentInsetAdjustmentBehavior="never"`. Class B: canvas 40/14 → 44/`typography.sm`. Do not put track chrome on `ScrollView` `contentContainerStyle`. |
 | `OtpInput` | `OtpInput` | square cells, gap 8, digits `typography.2xl`; optional inline `error` string |
 | `Banner` | inline error | keep; do not invent a second error strip |
 | `EmptyState` | `EmptyState` | centered icon badge (48 circle on `muted`), `typography.lg` title, `typography.sm` muted description, optional action slot |

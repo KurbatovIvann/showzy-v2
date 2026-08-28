@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   canShowCustomersCreate,
   customersCreateKind,
+  customersTabOptions,
   isCustomersTabImplemented,
   lookupPagesSettled,
   shouldDrainNextPage,
@@ -14,6 +15,17 @@ describe("customers home tabs", () => {
     expect(isCustomersTabImplemented("groups")).toBe(true);
     expect(isCustomersTabImplemented("counterparties")).toBe(false);
     expect(isCustomersTabImplemented("invitations")).toBe(false);
+  });
+
+  it("lists tab options in canvas order", () => {
+    expect(
+      customersTabOptions({
+        clients: "Clients",
+        groups: "Groups",
+        counterparties: "Counterparties",
+        invitations: "Invitations",
+      }).map((tab) => tab.key),
+    ).toEqual(["clients", "groups", "counterparties", "invitations"]);
   });
 
   it("hides + without create (clients) or edit (groups), and on coming-soon tabs", () => {

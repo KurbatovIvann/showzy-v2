@@ -11,6 +11,15 @@ export const CUSTOMERS_TABS: readonly CustomersTab[] = [
   "invitations",
 ];
 
+export function customersTabOptions(labels: {
+  readonly clients: string;
+  readonly groups: string;
+  readonly counterparties: string;
+  readonly invitations: string;
+}): ReadonlyArray<{ readonly key: CustomersTab; readonly label: string }> {
+  return CUSTOMERS_TABS.map((key) => ({ key, label: labels[key] }));
+}
+
 export function isCustomersTabImplemented(tab: CustomersTab): boolean {
   return tab === "clients" || tab === "groups";
 }

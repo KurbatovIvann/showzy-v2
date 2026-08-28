@@ -15,7 +15,7 @@ because archive / restore / delete live on the row.
 | Folder    | Owns                                                                                                                                            | Does not own                     |
 | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
 | `api/`    | list/query binders, status and delete mutations, cache invalidation keys                                                                        | JSX, RHF                         |
-| `list/`   | Home screen, view, composer hook, clients presenter/row/tabs, `use-client-writes`                                                               | Group row internals, form fields |
+| `list/`   | Home screen, view, composer hook, clients presenter/row, `use-client-writes`. Tab chrome is shared `SegmentedTabs` `layout="scroll"`            | Group row internals, form fields |
 | `groups/` | Groups presenter, composer hook, group row, `use-group-writes`                                                                                  | Client filters                   |
 | `shared/` | Permissions, hrefs, caps, initials, count labels, protocol-confirm helper, paged-list helpers, entity card chrome, debounce, editor placeholder | Transport                        |
 
