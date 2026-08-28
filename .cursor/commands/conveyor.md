@@ -104,21 +104,26 @@ parent and halt — do not grind.
      `run_in_background: false`, same prompt shape, when the child is
      `sensitive`, first-slice, or tenant money / auth / confirmation.
    - Isolated `/review` — `subagent_type: generalPurpose`,
-     `run_in_background: true`, follow `.cursor/commands/review.md` on
-     that PR. Sensitive / first-slice, or when a prior review on this
-     feature failed. Routine copy-only still gets `/review` if an
-     earlier child on this feature had REQUEST CHANGES.
+     `run_in_background: true` (so it runs in parallel with CI), follow
+     `.cursor/commands/review.md` on that PR. Launch when the lane
+     requires it: `sensitive`, first-slice, **UI** (`apps/mobile`), or a
+     prior `/review` on this feature was REQUEST CHANGES. Do **not**
+     launch on mechanical or ordinary routine backend. **If you launch
+     it, it is a merge gate** — do not merge while it is still running.
 
 3. Subscribe to GitHub CI on the Linear branch. Do not poll.
 4. Comment the child and the parent: PR URL, Bugbot / security verdicts,
-   that `/review` may still be running.
-5. If CI is not green yet, **end the turn** and continue when CI
-   notifies.
+   and that merge waits on `/review` when it was launched.
+5. If CI or `/review` is still pending, **end the turn** and continue
+   when that notification arrives. Merge only when CI is green and, if
+   `/review` was launched, its verdict is in.
 
-If Bugbot reports bugs, security-review reports medium+, or Actions is
-red: **do not merge and do not fix it yourself.** Comment Linear. Launch
-a new cloud executor on the **same** branch (`cloud_base_branch` = PR
-head) with the findings. End the turn.
+If Bugbot reports bugs, security-review reports medium+, Actions is
+red, or `/review` is **REQUEST CHANGES** with blockers/majors: **do not
+merge and do not fix it yourself.** Comment Linear. Launch a new cloud
+executor on the **same** branch (`cloud_base_branch` = PR head) with the
+findings. After it pushes, re-run VERIFY-equivalent wait and **re-launch
+`/review`**. Two failed review rounds → ask the human. End the turn.
 
 ## Merge gate (parent squash-merges)
 
@@ -134,14 +139,20 @@ Merge **only** when all of these hold:
 2. Independent Task Bugbot (if launched): no bugs.
 3. Independent Task security-review (if launched): no medium / high /
    critical.
+4. Isolated `/review` **if launched**: verdict is in, and it is
+   **APPROVE** or nits-only. REQUEST CHANGES with blockers/majors is
+   not a merge — same-branch fix (above). Do not merge while `/review`
+   is still running.
 
-Not merge blockers (seen on SHO-183):
+`/review` nits are Linear comments. They do not block merge and they
+do not become tickets.
+
+Not merge blockers:
 
 - GitHub-hosted Cursor Bugbot check `neutral` or “usage limit reached”.
   The parent Task Bugbot is the independent Bugbot.
 - GitHub “Cursor Security Reviewer” missing or still pending. The parent
   Task security-review is the independent guard.
-- Isolated `/review` still running. It often finishes **after** merge.
 
 Then: mark the draft PR ready (`ManagePullRequest` `update_pr` with
 `draft: false` and `branch_name`), squash-merge via GitHub MCP
@@ -153,14 +164,20 @@ Linear GitHub sync may flip the child to **In Progress** when the PR
 becomes ready. After merge, re-read the issue; if it is not Done, set
 Done again.
 
-## Independent `/review` after merge
+## Late `/review` (fallback only)
 
-- **APPROVE** or nits → Linear comment only. Do not reopen the Done
-  child. Do not implement nits as required follow-ups.
+Happy path: `/review` returns **before** merge. SHO-183 sometimes
+merged first; that is **not** the rule anymore.
+
+If a launched `/review` still arrives **after** squash-merge (hung
+agent, dropped notification):
+
+- **APPROVE** or nits → Linear comment only. Do not reopen Done. Do
+  not file nits as tickets.
 - **REQUEST CHANGES** with blockers or majors → **new** Linear child
   under the same parent. Do not reopen the Done ticket. Put the
-  follow-up on the queue (sequential if it shares files). SHO-189 →
-  SHO-198 → SHO-200; SHO-190 → SHO-199.
+  follow-up on the queue (sequential if it shares files). This is how
+  SHO-189 → SHO-198 happened; treat that as the backup, not the plan.
 
 ## Parent ticket
 

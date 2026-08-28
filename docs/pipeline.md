@@ -27,7 +27,7 @@ Working model: **Grok 4.6** for every role. Do not stop a ticket because
 Claude or GPT names in older notes are unavailable. Independent review on
 the parent-conveyor path is green GitHub Actions, parent Task Bugbot on
 routine+, parent Task security-review on `sensitive`, and isolated
-`/review` (which may finish after merge).
+`/review` when launched (wait for that verdict before merge).
 
 ```
 PLANNER → [parent orchestrator, optional] → EXECUTOR → VERIFIER → GUARDIAN
@@ -70,9 +70,9 @@ Experience Foundation UX gate; backend tickets do not.
 | Output | Each child squash-merged on green Actions + parent Task reviews. Parent stays In Progress |
 | Done when | Named children and review follow-ups are on `main`. A human closes the parent |
 | Isolation | **Default sequential.** Linear `blocked by` empty is not enough (SHO-184/186/185). Parallel only if path sets are disjoint |
-| Merge gate | Seven GitHub Actions jobs (`checks`, `secret-scan`, `dependency-audit`, `contract-check`, `migration-drift`, `bundle-probe`, `e2e-smoke`). Parent Task Bugbot on routine+. Parent Task security-review on `sensitive`. GitHub-hosted Cursor Bugbot / Security Reviewer checks are **not** gates (usage limits, `neutral`, late). Isolated `/review` must not block merge |
+| Merge gate | Seven GitHub Actions jobs (`checks`, `secret-scan`, `dependency-audit`, `contract-check`, `migration-drift`, `bundle-probe`, `e2e-smoke`). Parent Task Bugbot on routine+. Parent Task security-review on `sensitive`. Isolated `/review` **when launched** (`sensitive`, first-slice, UI, or a prior REQUEST CHANGES). GitHub-hosted Cursor Bugbot / Security Reviewer checks are **not** gates (usage limits, `neutral`, late) |
 
-Follow-ups: post-merge `/review` **REQUEST CHANGES** with blockers/majors → new Linear child, do not reopen Done. Nits → comment only.
+If `/review` is launched, wait for APPROVE or nits-only before squash-merge. REQUEST CHANGES with blockers/majors → same-branch fix, then `/review` again. A late post-merge REQUEST CHANGES (hung agent) → new Linear child as **fallback**; do not reopen Done. Nits → comment only, never a ticket.
 
 ### 3. EXECUTOR — `/ticket SHO-<n>` on a **leaf** (wraps `/implement`)
 
@@ -177,7 +177,8 @@ Day-to-day loop:
 3. The leaf executor implements, runs VERIFY, opens a draft PR, and
    self-checks `review.md` / `guard.md` when nested Task tools are missing.
 4. Parent conveyor: independent reviews from the parent, then squash-merge
-   on green Actions. Leaf `/ticket` without a parent: **you merge.**
+   on green Actions **and** the launched `/review` verdict. Leaf
+   `/ticket` without a parent: **you merge.**
    Linear's GitHub integration links `SHO-n` in the branch/PR. Do not
    rely on it to mark Done — the conveyor sets Done after merge.
 
@@ -201,7 +202,8 @@ and is named in the description.
 1. **Writer ≠ reviewer** when `/review` or `/guard` runs. Do not
    rubber-stamp your own PR. On the parent conveyor, independent review is
    green GitHub Actions plus parent-launched Task Bugbot / security-review
-   / `/review` (ADR-0029). A child’s in-process `review.md` is a
+   / `/review` when launched (ADR-0029). Do not merge while a launched
+   `/review` is still running. A child’s in-process `review.md` is a
    self-check, not independent review. Mechanical PRs do not need
    `/review`.
 2. **The contract is TypeScript.** `*.contract.ts` plus DoD tests. Do not

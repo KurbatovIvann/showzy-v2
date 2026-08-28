@@ -300,7 +300,8 @@ implement.
    migration drift/safety → e2e smoke, phase-aware: Maestro once mobile
    screens exist, Playwright only from the web phase. A parent conveyor
    squash-merges a child when those Actions jobs are green and
-   parent-launched Task reviews for the lane have no blocking findings.
+   parent-launched Task reviews for the lane have no blocking findings
+   (isolated `/review`, when launched, waits for APPROVE or nits-only).
    A leaf `/ticket` without a parent still does not merge itself.
 
 Leftover phase 0–1 foundation work may still use `/scaffold` on the

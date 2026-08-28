@@ -14,8 +14,10 @@ The SHO-183 feature run used a **parent** Cloud Agent as orchestrator:
 one isolated cloud `/ticket` executor per child, sequential because
 `pricing` and `apps/mobile` files overlapped, squash-merge when GitHub
 Actions was green. That worked for backend and UI, including `sensitive`
-children, and for follow-ups filed from post-merge `/review`
-(REQUEST CHANGES → new child, Do not reopen Done).
+children. Isolated `/review` often finished **after** squash-merge;
+REQUEST CHANGES then became new children (SHO-198–SHO-200) instead of
+blocking the merge. Majors from SHO-189 / SHO-190 therefore landed on
+`main` first.
 
 Two process facts that run contradicted the old manual:
 
@@ -27,8 +29,9 @@ Two process facts that run contradicted the old manual:
 2. **GitHub-hosted Cursor Bugbot / Security Reviewer checks are not a
    reliable merge gate.** They often land `neutral`, after merge, or as
    “usage limit reached.” The seven GitHub Actions jobs plus parent-launched
-   Task Bugbot / security-review are what actually gated SHO-183 merges.
-   Isolated `/review` often finished **after** squash-merge.
+   Task Bugbot / security-review gated SHO-183 merges. The owner then
+   decided isolated `/review`, **when launched**, must also gate merge
+   (2026-08-28): do not launch a review you are willing to ignore.
 
 Waiting for Cursor to allow nested Task from a cloud child would block
 every autonomous feature run. Requiring a human merge on every child
@@ -62,6 +65,15 @@ parent.
 security-review, and `/review` — not nested tools inside the child, and
 not the child’s in-process self-check.
 
+Launch isolated `/review` when the lane requires it (`sensitive`,
+first-slice, UI, or a prior REQUEST CHANGES on this feature). Do not
+launch it on mechanical or ordinary routine backend. **If it is
+launched, wait for the verdict before squash-merge.** REQUEST CHANGES
+with blockers/majors is a same-branch fix, then `/review` again. Nits
+are comments and do not block. A REQUEST CHANGES that arrives only
+**after** merge (hung agent, dropped notification) becomes a **new**
+child — fallback, not the happy path.
+
 Nested Task unavailability in cloud executors is **expected**. Children
 must not fail the ticket for it. They self-check `review.md` / `guard.md`
 and leave independent review to the parent.
@@ -89,6 +101,10 @@ merge itself.
 - **Parent implements CI / Bugbot fixes** — rejected: that collapses
   isolation and makes the conductor the writer. Relaunch a cloud
   executor on the same branch.
+- **Merge while isolated `/review` is still running; file follow-ups
+  after** — how SHO-183 ran; rejected by the owner: majors reached
+  `main` (SHO-189 / SHO-190). Wait when `/review` is launched. Post-merge
+  children are fallback only.
 
 ## Consequences
 
@@ -99,6 +115,7 @@ merge itself.
   sequential; same-branch cloud relaunch for CI/Bugbot fixes.
 - `docs/pipeline.md` describes the optional parent conductor. ADR-0023’s
   four roles stay; this ADR adds who launches them on a whole feature.
-- Follow-up from post-merge REQUEST CHANGES (blockers/majors) is a **new**
-  child, never reopen Done. Nits are comments.
+- When `/review` is launched, it is a merge gate. Post-merge REQUEST
+  CHANGES (blockers/majors) is a **new** child only as fallback; never
+  reopen Done. Nits are comments, never tickets.
 - Process-gap tickets like SHO-197 are documentation, not module work.
