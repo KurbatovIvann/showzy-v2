@@ -70,10 +70,7 @@ export const PriceEntryRow = memo(function PriceEntryRow(props: {
               <View style={styles.titleRow}>
                 <Text style={styles.name}>{props.name}</Text>
                 {props.archived ? (
-                  <StatusPill
-                    label={props.copy.archivedBadge}
-                    tone="neutral"
-                  />
+                  <StatusPill label={props.copy.archivedBadge} tone="neutral" />
                 ) : null}
               </View>
               <Text style={styles.base}>{baseLabel}</Text>

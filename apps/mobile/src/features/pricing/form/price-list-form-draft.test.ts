@@ -53,9 +53,9 @@ function draftWithPrices(args: {
 describe("price-list form draft", () => {
   it("treats empty vs stored 0 as different dirty states", () => {
     const origin = draftWithPrices({ productPrice: "" });
-    expect(isPriceListFormDirty(draftWithPrices({ productPrice: "" }), origin)).toBe(
-      false,
-    );
+    expect(
+      isPriceListFormDirty(draftWithPrices({ productPrice: "" }), origin),
+    ).toBe(false);
     expect(
       isPriceListFormDirty(draftWithPrices({ productPrice: "0" }), origin),
     ).toBe(true);
@@ -211,7 +211,9 @@ describe("price-list form draft", () => {
       label: "-100%",
       tone: "down",
     });
-    expect(listPriceDiff({ priceText: "110", basePriceMinor: "10000" })).toEqual({
+    expect(
+      listPriceDiff({ priceText: "110", basePriceMinor: "10000" }),
+    ).toEqual({
       label: "+10%",
       tone: "up",
     });

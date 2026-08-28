@@ -203,13 +203,7 @@ export function usePriceListForm(args: {
     originRef.current = next;
     setOriginDraft(next);
     setBaseline(snap);
-  }, [
-    args.mode,
-    catalogQuery.data,
-    entriesQuery.data,
-    listQuery.data,
-    reset,
-  ]);
+  }, [args.mode, catalogQuery.data, entriesQuery.data, listQuery.data, reset]);
 
   useEffect(() => {
     function compute(): boolean {

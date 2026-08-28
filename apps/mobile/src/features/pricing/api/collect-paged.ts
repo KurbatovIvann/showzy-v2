@@ -3,9 +3,7 @@
  * to load every catalog product and every price-list entry (SHO-190).
  */
 export async function collectPagedItems<T>(
-  fetchPage: (
-    cursor: string | null,
-  ) => Promise<{
+  fetchPage: (cursor: string | null) => Promise<{
     readonly items: readonly T[];
     readonly nextCursor: string | null;
   }>,

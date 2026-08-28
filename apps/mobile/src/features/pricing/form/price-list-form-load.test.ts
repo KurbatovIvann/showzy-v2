@@ -46,9 +46,9 @@ describe("classifyPriceListFormLoad", () => {
     expect(
       canSubmitPriceListForm({ canManage: true, loadKind: "permission" }),
     ).toBe(false);
-    expect(
-      canSubmitPriceListForm({ canManage: true, loadKind: "ready" }),
-    ).toBe(true);
+    expect(canSubmitPriceListForm({ canManage: true, loadKind: "ready" })).toBe(
+      true,
+    );
   });
 
   it("maps invalid edit ids to not-found without treating them as ready", () => {

@@ -175,7 +175,8 @@ const enForm: PricingFormCopy = {
   submitEdit: "Save",
   submitEditLoading: "Saving…",
   permissionCreateTitle: "No permission to create",
-  permissionCreateDescription: "You can view price lists but cannot create them.",
+  permissionCreateDescription:
+    "You can view price lists but cannot create them.",
   permissionEditTitle: "No permission to edit",
   permissionEditDescription: "You can view price lists but cannot change them.",
   notFoundTitle: "Price list not found",
@@ -223,8 +224,7 @@ const ukForm: PricingFormCopy = {
   archivedBadge: "Архівний",
   expandVariants: "Показати варіанти",
   collapseVariants: "Сховати варіанти",
-  variantInheritHint:
-    "Порожнє наслідує ціну товару в цьому листі, далі ланцюг",
+  variantInheritHint: "Порожнє наслідує ціну товару в цьому листі, далі ланцюг",
   noProducts: "Товарів не знайдено.",
   pricesLoading: "Завантаження товарів",
   cancel: "Скасувати",
@@ -244,8 +244,7 @@ const ukForm: PricingFormCopy = {
   permissionEditDescription:
     "Можна переглядати прайс-листи, але не змінювати їх.",
   notFoundTitle: "Прайс-лист не знайдено",
-  notFoundDescription:
-    "Можливо, його було видалено або посилання застаріло.",
+  notFoundDescription: "Можливо, його було видалено або посилання застаріло.",
   loadingLabel: "Завантаження прайс-листа",
   errors: {
     nameRequired: "Вкажіть назву прайс-листа",

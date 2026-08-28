@@ -74,11 +74,18 @@ function wireValidationFromIssues(
 }
 
 function parseOrThrow<T>(
-  parsed: { success: true; data: T } | { success: false; error: { issues: ReadonlyArray<{
-    readonly code: string;
-    readonly path: ReadonlyArray<PropertyKey>;
-    readonly message: string;
-  }> } },
+  parsed:
+    | { success: true; data: T }
+    | {
+        success: false;
+        error: {
+          issues: ReadonlyArray<{
+            readonly code: string;
+            readonly path: ReadonlyArray<PropertyKey>;
+            readonly message: string;
+          }>;
+        };
+      },
 ): T {
   if (!parsed.success) {
     throw wireValidationFromIssues(parsed.error.issues);
@@ -117,7 +124,9 @@ export function bindPriceListFormMutate(client: PriceListFormTransport) {
       switch (input.kind) {
         case "createPriceList": {
           const parsed = parseOrThrow(
-            contractModules.pricing.createPriceList.input.safeParse(input.input),
+            contractModules.pricing.createPriceList.input.safeParse(
+              input.input,
+            ),
           );
           return client.client.pricing
             .createPriceList(parsed, options)
@@ -125,7 +134,9 @@ export function bindPriceListFormMutate(client: PriceListFormTransport) {
         }
         case "updatePriceList": {
           const parsed = parseOrThrow(
-            contractModules.pricing.updatePriceList.input.safeParse(input.input),
+            contractModules.pricing.updatePriceList.input.safeParse(
+              input.input,
+            ),
           );
           return client.client.pricing
             .updatePriceList(parsed, options)

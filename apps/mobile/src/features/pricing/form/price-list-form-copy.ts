@@ -18,11 +18,7 @@ import {
 } from "./price-list-form.schema";
 
 export type BannerKey =
-  | "validation"
-  | "network"
-  | "offline"
-  | "unavailable"
-  | "permission";
+  "validation" | "network" | "offline" | "unavailable" | "permission";
 
 const RETRYABLE_WIRE: ReadonlySet<WireErrorCode> = new Set([
   "RETRY_IN_PROGRESS",

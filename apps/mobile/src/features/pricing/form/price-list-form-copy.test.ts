@@ -41,9 +41,10 @@ describe("price-list form copy mapping", () => {
 
   it("maps RHF entry messages by draft key", () => {
     expect(
-      entryMessagesFromRhfRows([{ key: PRODUCT_ID }], [
-        { priceText: { message: "invalid" } },
-      ]),
+      entryMessagesFromRhfRows(
+        [{ key: PRODUCT_ID }],
+        [{ priceText: { message: "invalid" } }],
+      ),
     ).toEqual({ [PRODUCT_ID]: "invalid" });
   });
 });

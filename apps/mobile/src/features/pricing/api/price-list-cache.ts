@@ -27,7 +27,9 @@ export function priceListEntriesCacheKey(
   return [LIST_PRICE_LIST_ENTRIES_ACTION, companyQueryScope(companyId)];
 }
 
-export function priceListsWriteInvalidationKeys(companyId: string): readonly [
+export function priceListsWriteInvalidationKeys(
+  companyId: string,
+): readonly [
   readonly [string, string],
   readonly [string, string],
   readonly [string, string],

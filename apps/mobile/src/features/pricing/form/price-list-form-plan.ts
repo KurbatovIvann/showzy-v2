@@ -119,10 +119,7 @@ export function priceListFormSaveNavigation(
   return { kind: "leave" };
 }
 
-function entryKey(
-  productId: string,
-  variantId: string | null,
-): string {
+function entryKey(productId: string, variantId: string | null): string {
   return variantId === null ? productId : `${productId}:${variantId}`;
 }
 
@@ -286,11 +283,7 @@ export function planPriceListFormSave(args: {
   if (snapshot === null) {
     return { kind: "invalid", errors };
   }
-  const writes = remainingFormWrites(
-    args.priceListId,
-    snapshot,
-    args.baseline,
-  );
+  const writes = remainingFormWrites(args.priceListId, snapshot, args.baseline);
   if (writes.length === 0) {
     return { kind: "noop" };
   }

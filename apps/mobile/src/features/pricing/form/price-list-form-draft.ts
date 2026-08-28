@@ -117,7 +117,10 @@ export function storedEntryMap(
 ): ReadonlyMap<string, string> {
   const map = new Map<string, string>();
   for (const entry of entries) {
-    map.set(priceListEntryKey(entry.productId, entry.variantId), entry.priceMinor);
+    map.set(
+      priceListEntryKey(entry.productId, entry.variantId),
+      entry.priceMinor,
+    );
   }
   return map;
 }
@@ -160,7 +163,10 @@ export function draftFromPriceList(args: {
       variantId: null,
       priceText: priceTextFromStored(args.stored, product.id, null),
     });
-    for (const variantId of storedVariantIdsForProduct(args.stored, product.id)) {
+    for (const variantId of storedVariantIdsForProduct(
+      args.stored,
+      product.id,
+    )) {
       entries.push({
         key: priceListEntryKey(product.id, variantId),
         productId: product.id,
@@ -224,7 +230,11 @@ export function mergeExpandedVariants(args: {
     if (existing.has(key)) {
       continue;
     }
-    const priceText = priceTextFromStored(args.stored, args.productId, variant.id);
+    const priceText = priceTextFromStored(
+      args.stored,
+      args.productId,
+      variant.id,
+    );
     const row: PriceListEntryDraft = {
       key,
       productId: args.productId,

@@ -4,7 +4,10 @@ import { collectPagedItems } from "./collect-paged";
 
 describe("collectPagedItems", () => {
   it("walks cursors until nextCursor is null", async () => {
-    const pages = new Map<string | null, { items: string[]; nextCursor: string | null }>([
+    const pages = new Map<
+      string | null,
+      { items: string[]; nextCursor: string | null }
+    >([
       [null, { items: ["a"], nextCursor: "c1" }],
       ["c1", { items: ["b", "c"], nextCursor: null }],
     ]);

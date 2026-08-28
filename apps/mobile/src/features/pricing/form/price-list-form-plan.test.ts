@@ -294,10 +294,13 @@ describe("remainingFormWrites bulk % and variants", () => {
   });
 
   it("chunks setEntries at SET_PRICE_LIST_ENTRIES_MAX_ITEMS and skips empty batches", () => {
-    const ids = Array.from({ length: SET_PRICE_LIST_ENTRIES_MAX_ITEMS + 1 }, (_, index) => {
-      const n = (index + 1).toString(16).padStart(12, "0");
-      return `aaaaaaaa-bbbb-4ccc-8ddd-${n}`;
-    });
+    const ids = Array.from(
+      { length: SET_PRICE_LIST_ENTRIES_MAX_ITEMS + 1 },
+      (_, index) => {
+        const n = (index + 1).toString(16).padStart(12, "0");
+        return `aaaaaaaa-bbbb-4ccc-8ddd-${n}`;
+      },
+    );
     const empty = namedDraft({
       entries: ids.map((id) => productEntry(id, "")),
     });
@@ -323,7 +326,11 @@ describe("remainingFormWrites bulk % and variants", () => {
 
 describe("status writes", () => {
   it("plans name then setDefault (which forces active) and never deactivates the default", () => {
-    const origin = namedDraft({ name: "Опт", isDefault: false, isActive: false });
+    const origin = namedDraft({
+      name: "Опт",
+      isDefault: false,
+      isActive: false,
+    });
     const baseline = snapshotFromDraft(origin);
     const next = snapshotFromDraft(
       namedDraft({ name: "Партнери", isDefault: true, isActive: false }),

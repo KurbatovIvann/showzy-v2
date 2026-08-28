@@ -80,10 +80,7 @@ function PriceListFormBody(props: { readonly model: PriceListFormModel }) {
   switch (model.state.kind) {
     case "loading":
       return (
-        <View
-          style={styles.skeletons}
-          accessibilityLabel={form.loadingLabel}
-        >
+        <View style={styles.skeletons} accessibilityLabel={form.loadingLabel}>
           <View style={[styles.skeletonLine, styles.skeletonName]} />
           <View style={styles.skeletonCard} />
         </View>
@@ -266,7 +263,9 @@ function PriceListFormReady(props: { readonly model: PriceListFormModel }) {
             <Button
               variant="secondary"
               label={form.bulkApply}
-              disabled={!model.fieldsEditable || model.bulkPercent.trim().length === 0}
+              disabled={
+                !model.fieldsEditable || model.bulkPercent.trim().length === 0
+              }
               onPress={model.applyBulk}
             />
           </View>
