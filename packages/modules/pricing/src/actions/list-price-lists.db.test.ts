@@ -147,6 +147,26 @@ describe("pricing.listPriceLists", () => {
     });
   });
 
+  it("paginates from the default list onto named non-defaults", async () => {
+    const first = await kit.invoke(listPriceLists, { limit: 1 });
+    expect(first.items.map((row) => row.id)).toEqual([fixtures.zuluDefault]);
+    expect(first.nextCursor).toBe(
+      formatListPriceListsCursor(true, fixtures.zuluDefault, "Zulu"),
+    );
+
+    const rest = await kit.invoke(listPriceLists, {
+      limit: 10,
+      cursor: first.nextCursor ?? "",
+    });
+    expect(rest.items.map((row) => row.id)).toEqual([
+      fixtures.alpha,
+      fixtures.beta,
+      fixtures.pipeName,
+      fixtures.inactiveMike,
+    ]);
+    expect(rest.nextCursor).toBeNull();
+  });
+
   it("paginates on isDefault/name/id including a name that contains a pipe", async () => {
     const first = await kit.invoke(listPriceLists, { limit: 2 });
     expect(first.items.map((row) => row.id)).toEqual([
