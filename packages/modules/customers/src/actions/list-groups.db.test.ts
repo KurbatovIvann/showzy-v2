@@ -198,7 +198,7 @@ describe("customers.listGroups", () => {
     });
   });
 
-  it("searches names case-insensitively and ignores archived-only matches on other tenants", async () => {
+  it("searches names case-insensitively", async () => {
     const search = await kit.invoke(listGroups, { search: "aLpHa" });
     expect(search.items.map((row) => row.id)).toEqual([fixtures.alpha]);
     expect(search.items.map((row) => row.id)).not.toContain(fixtures.foreign);
