@@ -50,7 +50,8 @@ the same directory.
   `@better-auth/expo` may be imported **only here**: `client.ts`
   (`createAuthClient` + `expoClient` cookie jar), `errors.ts` (HTTP status
   → kind, never `error.message`), `otp/` (identifiers, UI policy, pure
-  `otpReducer`, `OtpProvider`, TanStack `useMutation` send/verify),
+  `otpReducer` + `createOtpSessionStore` action ports, `OtpProvider`,
+  TanStack `useMutation` send/verify),
   `session-provider.tsx` (`useSession` + `signOut`), `storage.ts` /
   `platform-storage.ts` (memory jar; native hydrates SecureStore; web stays
   in-memory), `use-sign-in.ts` / `use-verify.ts`.
