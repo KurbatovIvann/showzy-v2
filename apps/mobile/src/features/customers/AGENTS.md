@@ -13,11 +13,14 @@ because archive / restore / delete live on the row.
 The client form (SHO-180) copies catalog `form/`: RHF `Controller`, UI
 draft Zod, save planner, unsaved-leave guard. `form/` must not import
 `list/`, `groups/`, or `counterparties/`. The client Юрособи list uses
-`api/` + `shared/` hrefs. Pickers live in `shared/` so the group form
-reuses them. The group form (SHO-181) lives in `groups/` next to the
-list presenter, copying the same RHF / UI Zod / save loop. The
-counterparty form (SHO-196) lives in `counterparties/` next to the list
-presenter.
+`api/` + `shared/` hrefs. Picker chrome (`OptionSelectSheet`,
+`SelectorRow`) lives in `shared/`. `optionSelectItems` and
+`selectorLookupValue` stay in `form/customer-form-pickers.ts` (SHO-181
+golden); group and counterparty forms import them from there — do not
+move those helpers into `shared/`. The group form (SHO-181) lives in
+`groups/` next to the list presenter, copying the same RHF / UI Zod /
+save loop. The counterparty form (SHO-196) lives in `counterparties/`
+next to the list presenter.
 
 ## Folders (one role each)
 

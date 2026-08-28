@@ -32,7 +32,10 @@ import {
   type CounterpartyFormSnapshot,
 } from "./counterparty-form-draft";
 import { classifyCounterpartyFormLoad } from "./counterparty-form-load";
-import { ensureLinkedCustomerOption } from "./counterparty-form-options";
+import {
+  ensureLinkedCustomerOption,
+  linkedCustomerName,
+} from "./counterparty-form-options";
 import { counterpartyFormResolver } from "./counterparty-form.schema";
 import { useCounterpartyFormLifecycle } from "./use-counterparty-form-lifecycle";
 import { useCounterpartyFormLookups } from "./use-counterparty-form-lookups";
@@ -128,6 +131,7 @@ export function useCounterpartyForm(args: {
 
   const lookups = useCounterpartyFormLookups({
     enabled: canWrite && clientReady,
+    prefillCustomerId: createPrefillId,
   });
 
   const customerId = useWatch({ control, name: "customerId" }) ?? null;
@@ -229,10 +233,14 @@ export function useCounterpartyForm(args: {
     args.mode === "create"
       ? copy.editorStub.counterpartyCreateTitle
       : copy.editorStub.counterpartyEditTitle;
+  const linkedName = linkedCustomerName({
+    fromCounterparty: query.data?.customerName,
+    fromPrefillCustomer: lookups.prefillCustomerName,
+  });
   const customerOptions = ensureLinkedCustomerOption({
     options: lookups.customerOptions,
     customerId,
-    customerName: query.data?.customerName ?? null,
+    customerName: linkedName,
     unnamedFallback: formCopy.assignmentUnavailable,
   });
 
@@ -273,7 +281,7 @@ export function useCounterpartyForm(args: {
     customerValue: selectorLookupValue(
       customerId,
       lookups.customerNameById,
-      query.data?.customerName ?? formCopy.assignmentUnavailable,
+      linkedName ?? formCopy.assignmentUnavailable,
     ),
     customerChanged: counterpartyFormFieldChanged(
       args.mode,

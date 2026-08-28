@@ -19,6 +19,16 @@ describe("classifyCounterpartyFormLoad", () => {
     expect(
       classifyCounterpartyFormLoad({
         mode: "create",
+        canWrite: false,
+        counterpartyId: null,
+        clientReady: true,
+        status: "pending",
+        failureKind: null,
+      }),
+    ).toEqual({ kind: "permission" });
+    expect(
+      classifyCounterpartyFormLoad({
+        mode: "create",
         canWrite: true,
         counterpartyId: null,
         clientReady: true,
