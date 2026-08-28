@@ -139,6 +139,9 @@ export const companyCustomers = pgTable(
       "company_customers_status_check",
       sql`${table.status} IN ('active', 'archived')`,
     ),
+    // Application writes still need a contact. User delete SET NULLs
+    // user_id; 0024 stamps a placeholder email first when it is the only
+    // contact so the CHECK and SET NULL can both hold (db.md §7).
     check(
       "company_customers_contact_check",
       sql`${table.phone} IS NOT NULL OR ${table.email} IS NOT NULL OR ${table.userId} IS NOT NULL`,

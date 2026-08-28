@@ -96,6 +96,9 @@ describe("customers CRM migration (0024)", () => {
       `ALTER TABLE "customer_groups" ALTER COLUMN "slug" SET NOT NULL`,
     );
     expect(crmMigrationSql).toContain(`ON DELETE SET NULL ("customer_id")`);
+    expect(crmMigrationSql).toContain(
+      "company_customers_preserve_contact_on_user_delete",
+    );
     expect(crmMigrationSql).not.toMatch(/ADD COLUMN "name" text NOT NULL/);
     expect(crmMigrationSql).not.toMatch(/ADD COLUMN "slug" text NOT NULL/);
   });

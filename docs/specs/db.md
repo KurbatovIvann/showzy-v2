@@ -273,7 +273,10 @@ dropped, recorded in the owning module's spec §7 (v1 migration notes).
    foundation primitives that Drizzle cannot express (`SKIP LOCKED`,
    LISTEN/NOTIFY, transaction advisory locks for per-aggregate delivery, the
    shared `updated_at` trigger, PostgreSQL 15 `ON DELETE SET NULL (column)`
-   on composite tenant FKs — ADR-0025). Each exception carries a
+   on composite tenant FKs — ADR-0025, and the customers `BEFORE DELETE ON
+   "user"` trigger that stamps a placeholder email so
+   `company_customers.user_id` `ON DELETE SET NULL` cannot fail
+   `company_customers_contact_check`). Each exception carries a
    comment referencing ADR-0012, ADR-0025, or this approved spec; domain
    queries remain Drizzle-only.
 
@@ -353,7 +356,7 @@ Idempotent (`ON CONFLICT DO NOTHING`) seeds, runnable repeatedly.
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
-| 2026-08-28 | §3: `customer_legal_profiles` is an account-scoped tenancy exception (no `company_id`) | SHO-170 / ADR-0028 legal requisites are portable across companies | customers-T2 (SHO-170) |
+| 2026-08-28 | §3: `customer_legal_profiles` is an account-scoped tenancy exception (no `company_id`); §7: user-delete contact-preserve trigger | SHO-170 / ADR-0028 legal requisites; SET NULL + contact CHECK coexistence | customers-T2 (SHO-170) |
 | 2026-08-20 | §3: later modules reuse the PG15 column-scoped SET NULL custom-migration pattern | SHO-91 orders customer FK cannot null `company_id` | orders-T1 (SHO-91) |
 | 2026-08-19 | §4: recorded `event_deliveries.event_id → domain_events.id ON DELETE RESTRICT`; generated-auth `$onUpdate` / camelCase index exception; §8: kit does not export foundation row factories; §9: local-dev fixture seed deferred to fnd-T29+ | Same-PR patch: tests prove the FK, auth trigger exception, and seed layout (fnd-G1 A12) | scaffold (fnd-G1 A12) |
 | 2026-08-18 | §4/§5: `domain_events` INSERT notifies channel `domain_events` for the worker LISTEN wakeup | fnd-T27 implementation proved the trigger was specified as a primitive but never named | scaffold (fnd-T27) |

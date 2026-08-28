@@ -559,6 +559,37 @@ describe("customers CRM schema slice", () => {
       .where(eq(companyCustomers.id, customer.id));
     expect(rows[0]?.userId).toBeNull();
     expect(rows[0]?.phone).toBe("+380501112233");
+    expect(rows[0]?.email).toBe(customer.email);
+  });
+
+  it("stamps a placeholder email so user delete can SET NULL the only contact", async () => {
+    const company = await insertCompany();
+    const userId = await insertUser();
+    const customer = await insertCustomer(company.id, {
+      userId,
+      email: null,
+    });
+    expect(customer.email).toBeNull();
+    expect(customer.phone).toBeNull();
+    await dbClient.db.delete(user).where(eq(user.id, userId));
+    const rows = await dbClient.db
+      .select()
+      .from(companyCustomers)
+      .where(eq(companyCustomers.id, customer.id));
+    expect(rows[0]?.userId).toBeNull();
+    expect(rows[0]?.email).toBe(`legacy.${customer.id}@invalid.local`);
+  });
+
+  it("still rejects an update that clears every contact", async () => {
+    const company = await insertCompany();
+    const customer = await insertCustomer(company.id);
+    await expectSqlState(
+      dbClient.db
+        .update(companyCustomers)
+        .set({ email: null, phone: null, userId: null })
+        .where(eq(companyCustomers.id, customer.id)),
+      "23514",
+    );
   });
 
   it("cascades legal profiles when the user is deleted", async () => {

@@ -3,14 +3,21 @@
 -- customer_groups / company_customers rows from the pricing slice are
 -- backfilled before NOT NULL and the contact CHECK: groups get a
 -- deterministic name/slug from id; customers get a placeholder name and a
--- unique `legacy.{id}@invalid.local` email (satisfies CHECK, unique under
--- the checkout-match index). Temporary nullable adds + backfill + SET NOT
--- NULL are the db.md §7 exception (same class as 0012).
+-- distinct `legacy.{id}@invalid.local` email (satisfies CHECK; avoids
+-- collapsing checkout-match lookups onto one email). Nullable adds +
+-- per-row UPDATE + SET NOT NULL are the db.md §7 exception for widening
+-- populated tables (0012 used a temporary DEFAULT for catalog `name`).
 --
 -- Counterparties composite FK uses PostgreSQL 15 `ON DELETE SET NULL
 -- (customer_id)` so a customer delete cannot null NOT NULL company_id
 -- (ADR-0025, db.md §7). Module tables attach the shared updated_at
 -- primitive (db.md §5) here because Drizzle cannot express triggers.
+--
+-- User delete SET NULLs company_customers.user_id. When user_id is the
+-- only contact, that SET NULL would fail company_customers_contact_check
+-- and block account teardown. The BEFORE DELETE trigger on "user" stamps
+-- the same placeholder email first (db.md §7); application UPDATEs that
+-- clear every contact still fail the CHECK.
 CREATE TABLE "counterparties" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"company_id" uuid NOT NULL,
@@ -85,6 +92,21 @@ CREATE INDEX "company_customers_company_email_unlinked_idx" ON "company_customer
 ALTER TABLE "customer_groups" ADD CONSTRAINT "customer_groups_company_slug_uq" UNIQUE("company_id","slug");--> statement-breakpoint
 ALTER TABLE "company_customers" ADD CONSTRAINT "company_customers_status_check" CHECK ("company_customers"."status" IN ('active', 'archived'));--> statement-breakpoint
 ALTER TABLE "company_customers" ADD CONSTRAINT "company_customers_contact_check" CHECK ("company_customers"."phone" IS NOT NULL OR "company_customers"."email" IS NOT NULL OR "company_customers"."user_id" IS NOT NULL);--> statement-breakpoint
+CREATE FUNCTION company_customers_preserve_contact_on_user_delete() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  UPDATE company_customers
+  SET email = 'legacy.' || id::text || '@invalid.local'
+  WHERE user_id = OLD.id
+    AND phone IS NULL
+    AND email IS NULL;
+  RETURN OLD;
+END;
+$$;--> statement-breakpoint
+CREATE TRIGGER company_customers_preserve_contact_on_user_delete
+BEFORE DELETE ON "user"
+FOR EACH ROW EXECUTE FUNCTION company_customers_preserve_contact_on_user_delete();--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION company_customers_preserve_contact_on_user_delete() TO showzy_app;--> statement-breakpoint
 CREATE TRIGGER counterparties_set_updated_at
 BEFORE UPDATE ON counterparties
 FOR EACH ROW EXECUTE FUNCTION set_updated_at();--> statement-breakpoint
