@@ -2,6 +2,7 @@ import { Stack } from "expo-router/stack";
 import { useUnistyles } from "react-native-unistyles";
 
 import { CompanyResolutionBoundary } from "../../../company-resolution/company-resolution-boundary";
+import { hierarchicalStackScreenOptions } from "../../../navigation/hierarchical-stack-options";
 
 /**
  * Product stack sits beside the tab shell on the (app) Stack, so it
@@ -17,6 +18,7 @@ export default function ProductsLayout() {
     <CompanyResolutionBoundary>
       <Stack
         screenOptions={{
+          ...hierarchicalStackScreenOptions,
           headerShown: false,
           contentStyle: { backgroundColor: theme.colors.background },
         }}

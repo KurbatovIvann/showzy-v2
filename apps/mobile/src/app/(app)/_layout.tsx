@@ -4,6 +4,7 @@ import { Stack } from "expo-router/stack";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { useAuthSession } from "../../auth/session-provider";
+import { hierarchicalStackScreenOptions } from "../../navigation/hierarchical-stack-options";
 
 export default function AppLayout() {
   const auth = useAuthSession();
@@ -25,6 +26,7 @@ export default function AppLayout() {
   return (
     <Stack
       screenOptions={{
+        ...hierarchicalStackScreenOptions,
         headerShown: false,
         contentStyle: { backgroundColor: theme.colors.background },
       }}
