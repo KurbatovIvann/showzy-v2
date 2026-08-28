@@ -2,6 +2,7 @@ export { archiveCustomer } from "./actions/archive-customer.js";
 export { createCounterparty } from "./actions/create-counterparty.js";
 export { createCustomer } from "./actions/create-customer.js";
 export { createGroup } from "./actions/create-group.js";
+export { deleteCounterparty } from "./actions/delete-counterparty.js";
 export { deleteCustomer } from "./actions/delete-customer.js";
 export { deleteGroup } from "./actions/delete-group.js";
 export { getCounterparty } from "./actions/get-counterparty.js";
