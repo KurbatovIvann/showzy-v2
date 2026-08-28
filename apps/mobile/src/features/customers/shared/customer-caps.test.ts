@@ -7,6 +7,9 @@ import {
   CUSTOMER_NOTES_MAX,
   CUSTOMER_PHONE_MAX,
   CUSTOMERS_LOOKUP_PAGE_SIZE,
+  GROUP_DESCRIPTION_MAX,
+  GROUP_FORM_DESCRIPTION_LINES,
+  GROUP_NAME_MAX,
   LIST_CUSTOMERS_SEARCH_MAX,
   LIST_GROUPS_SEARCH_MAX,
 } from "./customer-caps";
@@ -17,6 +20,7 @@ describe("customer caps", () => {
     expect(LIST_GROUPS_SEARCH_MAX).toBe(100);
     expect(CUSTOMERS_LOOKUP_PAGE_SIZE).toBe(50);
     expect(CUSTOMER_FORM_NOTES_LINES).toBe(5);
+    expect(GROUP_FORM_DESCRIPTION_LINES).toBe(4);
   });
 
   it("re-exports the form field caps from validation", () => {
@@ -24,5 +28,7 @@ describe("customer caps", () => {
     expect(CUSTOMER_PHONE_MAX).toBe(30);
     expect(CUSTOMER_EMAIL_MAX).toBe(200);
     expect(CUSTOMER_NOTES_MAX).toBe(2000);
+    expect(GROUP_NAME_MAX).toBe(120);
+    expect(GROUP_DESCRIPTION_MAX).toBe(2000);
   });
 });

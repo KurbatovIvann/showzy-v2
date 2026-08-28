@@ -12,21 +12,20 @@ because archive / restore / delete live on the row.
 
 The client form (SHO-180) copies catalog `form/`: RHF `Controller`, UI
 draft Zod, save planner, unsaved-leave guard. `form/` must not import
-`list/`. Pickers live in `shared/` so the group form can reuse them.
+`list/` or `groups/`. Pickers live in `shared/` so the group form reuses
+them. The group form (SHO-181) lives in `groups/` next to the list
+presenter, copying the same RHF / UI Zod / save loop.
 
 ## Folders (one role each)
 
-| Folder    | Owns                                                                                                                                                                                                    | Does not own                     |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| `api/`    | list/query binders, status and delete mutations, `getCustomer`, form mutation, cache invalidation keys                                                                                                  | JSX, RHF                         |
-| `list/`   | Home screen, view, composer hook, clients presenter/row, `use-client-writes`. Top chrome is shared `TabView` + `SegmentedTabs` `layout="scroll"` (full-bleed swipe scenes; not `BottomNav`)             | Group row internals, form fields |
-| `groups/` | Groups presenter, composer hook, group row, `use-group-writes`                                                                                                                                          | Client filters                   |
-| `form/`   | Create/edit client screen, view, UI draft Zod, RHF fields, save loop, unsaved guard, picker lookups, archive/restore/delete on the editor                                                               | List filters; group form         |
-| `shared/` | Permissions, hrefs, caps, initials, count labels, protocol-confirm helper, paged-list helpers, lookup drain, entity card chrome, debounce, `OptionSelectSheet`, `SelectorRow`, group editor placeholder | Transport                        |
+| Folder    | Owns                                                                                                                                                                                        | Does not own                       |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| `api/`    | list/query binders, status and delete mutations, `getCustomer` / `getGroup`, form mutations, cache invalidation keys                                                                        | JSX, RHF                           |
+| `list/`   | Home screen, view, composer hook, clients presenter/row, `use-client-writes`. Top chrome is shared `TabView` + `SegmentedTabs` `layout="scroll"` (full-bleed swipe scenes; not `BottomNav`) | Group row internals, form fields   |
+| `groups/` | Groups presenter, composer hook, group row, `use-group-writes`, create/edit group form (RHF, UI draft Zod, save loop, unsaved guard). Price-list picker reuses `shared/OptionSelectSheet`   | Client filters; client form fields |
+| `form/`   | Create/edit client screen, view, UI draft Zod, RHF fields, save loop, unsaved guard, picker lookups, archive/restore/delete on the editor                                                   | List filters; group form           |
+| `shared/` | Permissions, hrefs, caps, initials, count labels, protocol-confirm helper, paged-list helpers, lookup drain, entity card chrome, debounce, `OptionSelectSheet`, `SelectorRow`               | Transport                          |
 
 Do not add a feature-local tab bar. Compose `TabView` + `SegmentedTabs`
 from `src/components/ui/` (decision table in
 `docs/design/mapping/mp-to-mobile.md`).
-
-Group create/edit forms are SHO-181. This slice only navigates to those
-routes (placeholder until that ticket lands).

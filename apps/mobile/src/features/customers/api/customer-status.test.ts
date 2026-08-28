@@ -8,6 +8,7 @@ import { contractQueryKey } from "../../../api/query-options";
 import { customersWriteInvalidationKeys } from "./customer-cache";
 import { GET_CUSTOMER_ACTION } from "./customer-detail-query";
 import { LIST_CUSTOMERS_ACTION } from "./customer.queries";
+import { GET_GROUP_ACTION } from "./group-detail-query";
 import { LIST_GROUPS_ACTION } from "./group.queries";
 import {
   bindCustomerStatusMutate,
@@ -70,11 +71,12 @@ describe("bindCustomerStatusMutate", () => {
 });
 
 describe("customersWriteInvalidationKeys", () => {
-  it("targets listCustomers, listGroups, and getCustomer for the active company only", () => {
+  it("targets listCustomers, listGroups, getCustomer, and getGroup for the active company only", () => {
     expect(customersWriteInvalidationKeys("company-a")).toEqual([
       [LIST_CUSTOMERS_ACTION, "company-a"],
       [LIST_GROUPS_ACTION, "company-a"],
       [GET_CUSTOMER_ACTION, "company-a"],
+      [GET_GROUP_ACTION, "company-a"],
     ]);
   });
 

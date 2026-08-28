@@ -8,7 +8,7 @@ import { hierarchicalStackScreenOptions } from "../../../navigation/hierarchical
  * Customer stack sits beside the tab shell on the (app) Stack, so it
  * does not inherit the tabs' company-resolution provider. Wrap these
  * routes the same way so `useResolvedCompany` (permission affordances)
- * is defined on the editor stubs. Nested native Stack keeps create/edit
+ * is defined on the editors. Nested native Stack keeps create/edit
  * history (Slot would replace in place).
  */
 export default function CustomersLayout() {

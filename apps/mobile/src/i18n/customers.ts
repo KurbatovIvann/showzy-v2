@@ -63,8 +63,6 @@ export type CustomersEditorStubCopy = {
   readonly clientEditTitle: string;
   readonly groupCreateTitle: string;
   readonly groupEditTitle: string;
-  readonly title: string;
-  readonly description: string;
 };
 
 export type CustomersFormCopy = {
@@ -135,6 +133,50 @@ export type CustomersFormCopy = {
   };
 };
 
+export type CustomersGroupFormCopy = {
+  readonly aboutTitle: string;
+  readonly nameLabel: string;
+  readonly namePlaceholder: string;
+  readonly descriptionLabel: string;
+  readonly descriptionPlaceholder: string;
+  readonly memberHint: string;
+  readonly termsTitle: string;
+  readonly priceListLabel: string;
+  readonly priceListPlaceholder: string;
+  readonly priceListSheetTitle: string;
+  readonly priceListEmptyOption: string;
+  readonly priceListSearchPlaceholder: string;
+  readonly assignmentUnavailable: string;
+  readonly cancel: string;
+  readonly changedLabel: string;
+  readonly closeSheet: string;
+  readonly leaveTitle: string;
+  readonly leaveDescription: string;
+  readonly leaveContinue: string;
+  readonly leaveConfirm: string;
+  readonly submitCreate: string;
+  readonly submitCreateLoading: string;
+  readonly submitEdit: string;
+  readonly submitEditLoading: string;
+  readonly permissionCreateTitle: string;
+  readonly permissionCreateDescription: string;
+  readonly permissionEditTitle: string;
+  readonly permissionEditDescription: string;
+  readonly notFoundTitle: string;
+  readonly notFoundDescription: string;
+  readonly loadingLabel: string;
+  readonly errors: {
+    readonly nameRequired: string;
+    readonly nameTooLong: string;
+    readonly descriptionTooLong: string;
+    readonly validation: string;
+    readonly network: string;
+    readonly offline: string;
+    readonly unavailable: string;
+    readonly permission: string;
+  };
+};
+
 export type CustomersCopy = {
   readonly title: string;
   readonly searchLabel: string;
@@ -168,6 +210,7 @@ export type CustomersCopy = {
   readonly mutation: CustomersMutationCopy;
   readonly editorStub: CustomersEditorStubCopy;
   readonly form: CustomersFormCopy;
+  readonly groupForm: CustomersGroupFormCopy;
 };
 
 const en: CustomersCopy = {
@@ -267,8 +310,6 @@ const en: CustomersCopy = {
     clientEditTitle: "Edit client",
     groupCreateTitle: "New group",
     groupEditTitle: "Edit group",
-    title: "Coming soon",
-    description: "Create and edit forms land in the next tickets.",
   },
   form: {
     contactsTitle: "Contacts",
@@ -336,6 +377,53 @@ const en: CustomersCopy = {
       emailTooLong: "Email is too long.",
       notesTooLong: "Notes are too long.",
       contactRequired: "Phone, email, or a linked account is required",
+      validation: "Check the highlighted fields.",
+      network: "Could not save. Try again.",
+      offline: "No connection. Connect and try again.",
+      unavailable: "Could not save. Try again.",
+      permission: "You do not have permission to change this.",
+    },
+  },
+  groupForm: {
+    aboutTitle: "About the group",
+    nameLabel: "Name",
+    namePlaceholder: "For example, Wholesale buyers",
+    descriptionLabel: "Description (optional)",
+    descriptionPlaceholder: "Who this group is for",
+    memberHint:
+      "The group has {{members}}. Deleting the group only removes this assignment.",
+    termsTitle: "Terms",
+    priceListLabel: "Default price list",
+    priceListPlaceholder: "Retail",
+    priceListSheetTitle: "Price list",
+    priceListEmptyOption: "Default",
+    priceListSearchPlaceholder: "Search price lists…",
+    assignmentUnavailable: "Assigned",
+    cancel: "Cancel",
+    changedLabel: "Changed",
+    closeSheet: "Close",
+    leaveTitle: "Leave without saving?",
+    leaveDescription: "Your changes will be lost.",
+    leaveContinue: "Keep editing",
+    leaveConfirm: "Leave without saving",
+    submitCreate: "Create",
+    submitCreateLoading: "Saving…",
+    submitEdit: "Save",
+    submitEditLoading: "Saving…",
+    permissionCreateTitle: "No permission to create",
+    permissionCreateDescription:
+      "You can view groups, but creating them needs a higher role.",
+    permissionEditTitle: "No permission to edit",
+    permissionEditDescription:
+      "You can view this group, but editing needs a higher role.",
+    notFoundTitle: "Group not found",
+    notFoundDescription:
+      "The group may have been deleted, or the link is out of date.",
+    loadingLabel: "Loading group",
+    errors: {
+      nameRequired: "Enter the group name",
+      nameTooLong: "Name is too long.",
+      descriptionTooLong: "Description is too long.",
       validation: "Check the highlighted fields.",
       network: "Could not save. Try again.",
       offline: "No connection. Connect and try again.",
@@ -443,9 +531,6 @@ const uk: CustomersCopy = {
     clientEditTitle: "Редагувати клієнта",
     groupCreateTitle: "Нова група",
     groupEditTitle: "Редагувати групу",
-    title: "Незабаром",
-    description:
-      "Форми створення та редагування з’являться в наступних тікетах.",
   },
   form: {
     contactsTitle: "Контакти",
@@ -513,6 +598,52 @@ const uk: CustomersCopy = {
       emailTooLong: "Email задовгий.",
       notesTooLong: "Нотатки задовгі.",
       contactRequired: "Потрібен телефон, email або прив’язаний акаунт",
+      validation: "Перевірте виділені поля.",
+      network: "Не вдалося зберегти. Спробуйте ще раз.",
+      offline: "Немає зʼєднання. Підключіться і спробуйте ще раз.",
+      unavailable: "Не вдалося зберегти. Спробуйте ще раз.",
+      permission: "Немає права змінювати цей запис.",
+    },
+  },
+  groupForm: {
+    aboutTitle: "Про групу",
+    nameLabel: "Назва",
+    namePlaceholder: "Наприклад, Оптові покупці",
+    descriptionLabel: "Опис (необовʼязково)",
+    descriptionPlaceholder: "Кому підходить ця група",
+    memberHint:
+      "У групі {{members}}. Видалення групи лише прибере це призначення.",
+    termsTitle: "Умови",
+    priceListLabel: "Прайс-лист за замовчуванням",
+    priceListPlaceholder: "Роздрібний",
+    priceListSheetTitle: "Прайс-лист",
+    priceListEmptyOption: "За замовчуванням",
+    priceListSearchPlaceholder: "Пошук прайс-листів…",
+    assignmentUnavailable: "Призначено",
+    cancel: "Скасувати",
+    changedLabel: "змінено",
+    closeSheet: "Закрити",
+    leaveTitle: "Вийти без збереження?",
+    leaveDescription: "Внесені зміни буде втрачено.",
+    leaveContinue: "Продовжити редагування",
+    leaveConfirm: "Вийти без збереження",
+    submitCreate: "Створити",
+    submitCreateLoading: "Збереження…",
+    submitEdit: "Зберегти",
+    submitEditLoading: "Збереження…",
+    permissionCreateTitle: "Немає права створювати",
+    permissionCreateDescription:
+      "Ви можете переглядати групи, але створення потребує вищої ролі.",
+    permissionEditTitle: "Немає права редагувати",
+    permissionEditDescription:
+      "Ви можете переглядати цю групу, але редагування потребує вищої ролі.",
+    notFoundTitle: "Групу не знайдено",
+    notFoundDescription: "Можливо, її було видалено або посилання застаріло.",
+    loadingLabel: "Завантаження групи",
+    errors: {
+      nameRequired: "Вкажіть назву групи",
+      nameTooLong: "Назва задовга.",
+      descriptionTooLong: "Опис задовгий.",
       validation: "Перевірте виділені поля.",
       network: "Не вдалося зберегти. Спробуйте ще раз.",
       offline: "Немає зʼєднання. Підключіться і спробуйте ще раз.",

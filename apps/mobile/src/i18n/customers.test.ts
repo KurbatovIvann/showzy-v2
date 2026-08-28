@@ -25,6 +25,10 @@ describe("customers copy", () => {
     expect(Object.keys(uk.editorStub)).toEqual(Object.keys(en.editorStub));
     expect(Object.keys(uk.form)).toEqual(Object.keys(en.form));
     expect(Object.keys(uk.form.errors)).toEqual(Object.keys(en.form.errors));
+    expect(Object.keys(uk.groupForm)).toEqual(Object.keys(en.groupForm));
+    expect(Object.keys(uk.groupForm.errors)).toEqual(
+      Object.keys(en.groupForm.errors),
+    );
     expect(Object.keys(uk.counterparties)).toEqual(
       Object.keys(en.counterparties),
     );
@@ -67,5 +71,14 @@ describe("customers copy", () => {
     expect(uk.form.priceListInheritGroup).toBe("Успадкований від групи");
     expect(uk.form.assignmentUnavailable).toBe("Призначено");
     expect(uk.form.leaveTitle).toBe("Вийти без збереження?");
+    expect(uk.groupForm.aboutTitle).toBe("Про групу");
+    expect(uk.groupForm.namePlaceholder).toBe("Наприклад, Оптові покупці");
+    expect(uk.groupForm.descriptionLabel).toBe("Опис (необовʼязково)");
+    expect(uk.groupForm.memberHint).toContain("У групі {{members}}");
+    expect(uk.groupForm.priceListLabel).toBe("Прайс-лист за замовчуванням");
+    expect(uk.groupForm.priceListPlaceholder).toBe("Роздрібний");
+    expect(uk.groupForm.priceListEmptyOption).toBe("За замовчуванням");
+    expect(uk.groupForm.errors.nameRequired).toBe("Вкажіть назву групи");
+    expect(uk.groupForm.notFoundTitle).toBe("Групу не знайдено");
   });
 });
