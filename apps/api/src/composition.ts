@@ -76,8 +76,11 @@ import { ordersSuiteCoverage } from "@showzy/orders/suite-coverage";
 import {
   createPriceList,
   getPriceList,
+  listPriceListEntries,
   listPriceLists,
+  removePriceListEntries,
   resolveProductPrices,
+  setPriceListEntries,
   updatePriceList,
 } from "@showzy/pricing";
 import { pricingSuiteCoverage } from "@showzy/pricing/suite-coverage";
@@ -124,6 +127,10 @@ const callEdges: readonly DeclaredCallEdge[] = [
   },
   {
     caller: "pricing.resolveProductPrices",
+    callee: "catalog.getProductPricingFacts",
+  },
+  {
+    caller: "pricing.setPriceListEntries",
     callee: "catalog.getProductPricingFacts",
   },
   {
@@ -248,8 +255,11 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, getOrder);
   registerAction(registry, createPriceList);
   registerAction(registry, getPriceList);
+  registerAction(registry, listPriceListEntries);
   registerAction(registry, listPriceLists);
+  registerAction(registry, removePriceListEntries);
   registerAction(registry, resolveProductPrices);
+  registerAction(registry, setPriceListEntries);
   registerAction(registry, updatePriceList);
   return registry;
 }
