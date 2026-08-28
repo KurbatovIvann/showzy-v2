@@ -118,7 +118,7 @@ async function insertPriceList(
 ) {
   const rows = await dbClient.db
     .insert(priceLists)
-    .values({ companyId, ...overrides })
+    .values({ companyId, name: "Price list", ...overrides })
     .returning();
   const row = rows[0];
   assert.ok(row);
@@ -251,6 +251,7 @@ describe("price resolution schema slice", () => {
       "is_default",
       "created_at",
       "updated_at",
+      "name",
     ]);
     expect(columns.get("price_list_entries")).toEqual([
       "id",
@@ -274,6 +275,61 @@ describe("price resolution schema slice", () => {
       "created_at",
       "updated_at",
     ]);
+  });
+
+  it("requires a text name on price_lists", async () => {
+    const result = await admin.query<{
+      table_name: string;
+      column_name: string;
+      data_type: string;
+      is_nullable: string;
+      column_default: string | null;
+    }>(
+      `SELECT table_name, column_name, data_type, is_nullable, column_default
+       FROM information_schema.columns
+       WHERE table_schema = 'public'
+         AND table_name = 'price_lists'
+         AND column_name = 'name'`,
+    );
+    expect(result.rows).toEqual([
+      {
+        table_name: "price_lists",
+        column_name: "name",
+        data_type: "text",
+        is_nullable: "NO",
+        column_default: null,
+      },
+    ]);
+    expectTypeOf<
+      (typeof priceLists.$inferInsert)["name"]
+    >().toEqualTypeOf<string>();
+
+    const checks = await admin.query<{
+      conname: string;
+      definition: string;
+    }>(
+      `SELECT con.conname,
+              pg_get_constraintdef(con.oid) AS definition
+       FROM pg_constraint con
+       JOIN pg_class rel ON rel.oid = con.conrelid
+       JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+       WHERE nsp.nspname = 'public'
+         AND con.contype = 'c'
+         AND rel.relname = 'price_lists'
+         AND con.conname = 'price_lists_name_length_check'`,
+    );
+    expect(checks.rows).toHaveLength(1);
+    expect(checks.rows[0]?.definition).toContain("char_length");
+    expect(checks.rows[0]?.definition).toContain("120");
+
+    const company = await insertCompany();
+    await expectSqlState(insertPriceList(company.id, { name: "" }), "23514");
+    await expectSqlState(
+      insertPriceList(company.id, { name: "x".repeat(121) }),
+      "23514",
+    );
+    const max = await insertPriceList(company.id, { name: "x".repeat(120) });
+    expect(max.name).toHaveLength(120);
   });
 
   it("requires a text name on products and product_variants", async () => {
