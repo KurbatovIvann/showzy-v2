@@ -76,6 +76,7 @@ export type PricingFormCopy = {
   readonly leaveDescription: string;
   readonly leaveContinue: string;
   readonly leaveConfirm: string;
+  readonly cannotDeactivateDefault: string;
   readonly submitCreate: string;
   readonly submitCreateLoading: string;
   readonly submitEdit: string;
@@ -167,9 +168,10 @@ const enForm: PricingFormCopy = {
   cancel: "Cancel",
   changedLabel: "changed",
   leaveTitle: "Leave without saving?",
-  leaveDescription: "Unsaved changes will be lost.",
-  leaveContinue: "Stay",
-  leaveConfirm: "Leave",
+  leaveDescription: "Your changes will be lost.",
+  leaveContinue: "Keep editing",
+  leaveConfirm: "Leave without saving",
+  cannotDeactivateDefault: "Turn off “default” first",
   submitCreate: "Create",
   submitCreateLoading: "Creating…",
   submitEdit: "Save",
@@ -230,9 +232,10 @@ const ukForm: PricingFormCopy = {
   cancel: "Скасувати",
   changedLabel: "змінено",
   leaveTitle: "Вийти без збереження?",
-  leaveDescription: "Незбережені зміни буде втрачено.",
-  leaveContinue: "Залишитись",
-  leaveConfirm: "Вийти",
+  leaveDescription: "Внесені зміни буде втрачено.",
+  leaveContinue: "Продовжити редагування",
+  leaveConfirm: "Вийти без збереження",
+  cannotDeactivateDefault: "Спочатку зніміть позначку «основний»",
   submitCreate: "Створити",
   submitCreateLoading: "Створення…",
   submitEdit: "Зберегти",

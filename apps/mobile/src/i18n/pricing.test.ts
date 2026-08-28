@@ -42,6 +42,16 @@ describe("pricing copy", () => {
     expect(uk.toast.cannotDeactivateDefault).toBe(
       "Спочатку призначте інший основний прайс-лист",
     );
+    expect(uk.form.cannotDeactivateDefault).toBe(
+      "Спочатку зніміть позначку «основний»",
+    );
+    expect(uk.form.cannotDeactivateDefault).not.toBe(
+      uk.toast.cannotDeactivateDefault,
+    );
+    expect(uk.form.leaveTitle).toBe("Вийти без збереження?");
+    expect(uk.form.leaveDescription).toBe("Внесені зміни буде втрачено.");
+    expect(uk.form.leaveContinue).toBe("Продовжити редагування");
+    expect(uk.form.leaveConfirm).toBe("Вийти без збереження");
     expect(uk.confirm.deleteTitle).toBe("Видалити прайс-лист?");
     expect(uk.confirm.deleteDescription).toContain("{{name}}");
     expect(uk.confirm.deleteDescription).not.toMatch(/\d+\s+груп/);
@@ -53,6 +63,21 @@ describe("pricing copy", () => {
     expect(uk.form.bulkInvalid).toBe("Введіть знижку від 1 до 100%");
     expect(uk.form.archivedBadge).toBe("Архівний");
     expect(uk.form.notFoundTitle).toBe("Прайс-лист не знайдено");
+  });
+
+  it("pins editor deactivate-default toast and catalog leave copy in en", () => {
+    const en = pricingCopy("en");
+    expect(en.toast.cannotDeactivateDefault).toBe(
+      "Assign another default price list first",
+    );
+    expect(en.form.cannotDeactivateDefault).toBe("Turn off “default” first");
+    expect(en.form.cannotDeactivateDefault).not.toBe(
+      en.toast.cannotDeactivateDefault,
+    );
+    expect(en.form.leaveTitle).toBe("Leave without saving?");
+    expect(en.form.leaveDescription).toBe("Your changes will be lost.");
+    expect(en.form.leaveContinue).toBe("Keep editing");
+    expect(en.form.leaveConfirm).toBe("Leave without saving");
   });
 
   it("keeps the interpolation slot in count and confirm templates", () => {
