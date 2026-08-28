@@ -54,6 +54,8 @@ async function insertGroup(values: {
   await kit.db.runtime.db.insert(customerGroups).values({
     id: values.id,
     companyId: values.companyId,
+    name: `Group ${values.id}`,
+    slug: `group-${values.id}`,
     ...(values.priceListId === undefined
       ? {}
       : { priceListId: values.priceListId }),
@@ -69,6 +71,8 @@ async function insertCustomer(values: {
   await kit.db.runtime.db.insert(companyCustomers).values({
     id: values.id,
     companyId: values.companyId,
+    name: `Customer ${values.id}`,
+    email: `customer-${values.id}@example.com`,
     ...(values.groupId === undefined ? {} : { groupId: values.groupId }),
     ...(values.priceListId === undefined
       ? {}
