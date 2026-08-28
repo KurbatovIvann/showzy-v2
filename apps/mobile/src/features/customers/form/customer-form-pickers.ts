@@ -62,33 +62,44 @@ export function inheritedPriceListPlaceholder(args: {
   return args.retailDefault;
 }
 
-export type CounterpartiesBodyKind = "create-hint" | "empty" | "count";
+export type CounterpartiesBodyKind =
+  "create-hint" | "loading" | "empty" | "list" | "error";
 
-export function counterpartiesBodyKind(
-  mode: CustomerFormMode,
-  linkedCount: number,
-): CounterpartiesBodyKind {
-  if (mode === "create") {
+export function counterpartiesBodyKind(args: {
+  readonly mode: CustomerFormMode;
+  readonly status: "idle" | "pending" | "error" | "success";
+  readonly itemCount: number;
+}): CounterpartiesBodyKind {
+  if (args.mode === "create") {
     return "create-hint";
   }
-  if (linkedCount <= 0) {
+  if (args.status === "pending" || args.status === "idle") {
+    return "loading";
+  }
+  if (args.status === "error") {
+    return "error";
+  }
+  if (args.itemCount <= 0) {
     return "empty";
   }
-  return "count";
+  return "list";
 }
 
 export function counterpartiesBodyCopy(args: {
   readonly kind: CounterpartiesBodyKind;
   readonly createHint: string;
   readonly empty: string;
-  readonly countLabel: string | null;
+  readonly error: string;
 }): string | null {
   switch (args.kind) {
     case "create-hint":
       return args.createHint;
     case "empty":
       return args.empty;
-    case "count":
-      return args.countLabel;
+    case "error":
+      return args.error;
+    case "loading":
+    case "list":
+      return null;
   }
 }

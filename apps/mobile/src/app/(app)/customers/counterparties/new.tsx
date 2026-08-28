@@ -1,1 +1,1 @@
-export { CounterpartyCreatePlaceholderScreen as default } from "../../../../features/customers/counterparties/counterparty-form-placeholder-screen";
+export { CounterpartyCreateScreen as default } from "../../../../features/customers/counterparties/counterparty-form-screen";

@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  COUNTERPARTY_BANK_MFO_MAX,
+  COUNTERPARTY_BANK_NAME_MAX,
+  COUNTERPARTY_EDRPOU_MAX,
+  COUNTERPARTY_EMAIL_MAX,
+  COUNTERPARTY_FORM_ADDRESS_LINES,
+  COUNTERPARTY_FORM_NOTES_LINES,
+  COUNTERPARTY_IBAN_MAX,
+  COUNTERPARTY_LEGAL_ADDRESS_MAX,
+  COUNTERPARTY_NAME_MAX,
+  COUNTERPARTY_NOTES_MAX,
+  COUNTERPARTY_PHONE_MAX,
   CUSTOMER_EMAIL_MAX,
   CUSTOMER_FORM_NOTES_LINES,
   CUSTOMER_NAME_MAX,
@@ -23,6 +34,8 @@ describe("customer caps", () => {
     expect(CUSTOMERS_LOOKUP_PAGE_SIZE).toBe(50);
     expect(CUSTOMER_FORM_NOTES_LINES).toBe(5);
     expect(GROUP_FORM_DESCRIPTION_LINES).toBe(4);
+    expect(COUNTERPARTY_FORM_ADDRESS_LINES).toBe(3);
+    expect(COUNTERPARTY_FORM_NOTES_LINES).toBe(4);
   });
 
   it("re-exports the form field caps from validation", () => {
@@ -32,5 +45,14 @@ describe("customer caps", () => {
     expect(CUSTOMER_NOTES_MAX).toBe(2000);
     expect(GROUP_NAME_MAX).toBe(120);
     expect(GROUP_DESCRIPTION_MAX).toBe(2000);
+    expect(COUNTERPARTY_NAME_MAX).toBe(300);
+    expect(COUNTERPARTY_EDRPOU_MAX).toBe(10);
+    expect(COUNTERPARTY_LEGAL_ADDRESS_MAX).toBe(500);
+    expect(COUNTERPARTY_IBAN_MAX).toBe(34);
+    expect(COUNTERPARTY_BANK_NAME_MAX).toBe(200);
+    expect(COUNTERPARTY_BANK_MFO_MAX).toBe(6);
+    expect(COUNTERPARTY_PHONE_MAX).toBe(30);
+    expect(COUNTERPARTY_EMAIL_MAX).toBe(200);
+    expect(COUNTERPARTY_NOTES_MAX).toBe(2000);
   });
 });

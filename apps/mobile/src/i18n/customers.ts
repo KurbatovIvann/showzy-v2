@@ -71,8 +71,6 @@ export type CustomersEditorStubCopy = {
   readonly groupEditTitle: string;
   readonly counterpartyCreateTitle: string;
   readonly counterpartyEditTitle: string;
-  readonly counterpartyPlaceholderTitle: string;
-  readonly counterpartyPlaceholderDescription: string;
 };
 
 export type CustomersFormCopy = {
@@ -101,6 +99,8 @@ export type CustomersFormCopy = {
   readonly counterpartiesHelper: string;
   readonly counterpartiesCreateHint: string;
   readonly counterpartiesEmpty: string;
+  readonly counterpartiesAdd: string;
+  readonly counterpartiesEdrpouEmpty: string;
   readonly notesTitle: string;
   readonly notesLabel: string;
   readonly notesPlaceholder: string;
@@ -187,6 +187,78 @@ export type CustomersGroupFormCopy = {
   };
 };
 
+export type CustomersCounterpartyFormCopy = {
+  readonly customerTitle: string;
+  readonly customerHelper: string;
+  readonly customerLabel: string;
+  readonly customerPlaceholder: string;
+  readonly customerSheetTitle: string;
+  readonly customerEmptyOption: string;
+  readonly customerSearchPlaceholder: string;
+  readonly openClient: string;
+  readonly assignmentUnavailable: string;
+  readonly requisitesTitle: string;
+  readonly nameLabel: string;
+  readonly namePlaceholder: string;
+  readonly edrpouLabel: string;
+  readonly edrpouPlaceholder: string;
+  readonly legalAddressLabel: string;
+  readonly legalAddressPlaceholder: string;
+  readonly bankTitle: string;
+  readonly ibanLabel: string;
+  readonly ibanPlaceholder: string;
+  readonly bankNameLabel: string;
+  readonly bankNamePlaceholder: string;
+  readonly bankMfoLabel: string;
+  readonly bankMfoPlaceholder: string;
+  readonly contactsTitle: string;
+  readonly phoneLabel: string;
+  readonly phonePlaceholder: string;
+  readonly emailLabel: string;
+  readonly emailPlaceholder: string;
+  readonly notesLabel: string;
+  readonly notesPlaceholder: string;
+  readonly deleteTitle: string;
+  readonly deleteHelper: string;
+  readonly deleteAction: string;
+  readonly cancel: string;
+  readonly changedLabel: string;
+  readonly closeSheet: string;
+  readonly leaveTitle: string;
+  readonly leaveDescription: string;
+  readonly leaveContinue: string;
+  readonly leaveConfirm: string;
+  readonly submitCreate: string;
+  readonly submitCreateLoading: string;
+  readonly submitEdit: string;
+  readonly submitEditLoading: string;
+  readonly permissionCreateTitle: string;
+  readonly permissionCreateDescription: string;
+  readonly permissionEditTitle: string;
+  readonly permissionEditDescription: string;
+  readonly notFoundTitle: string;
+  readonly notFoundDescription: string;
+  readonly loadingLabel: string;
+  readonly errors: {
+    readonly nameRequired: string;
+    readonly nameTooLong: string;
+    readonly edrpouTooLong: string;
+    readonly legalAddressTooLong: string;
+    readonly ibanTooLong: string;
+    readonly bankNameTooLong: string;
+    readonly bankMfoTooLong: string;
+    readonly phoneTooLong: string;
+    readonly emailTooLong: string;
+    readonly notesTooLong: string;
+    readonly validation: string;
+    readonly conflict: string;
+    readonly network: string;
+    readonly offline: string;
+    readonly unavailable: string;
+    readonly permission: string;
+  };
+};
+
 export type CustomersCopy = {
   readonly title: string;
   readonly searchLabel: string;
@@ -224,6 +296,7 @@ export type CustomersCopy = {
   readonly editorStub: CustomersEditorStubCopy;
   readonly form: CustomersFormCopy;
   readonly groupForm: CustomersGroupFormCopy;
+  readonly counterpartyForm: CustomersCounterpartyFormCopy;
 };
 
 const en: CustomersCopy = {
@@ -335,9 +408,6 @@ const en: CustomersCopy = {
     groupEditTitle: "Edit group",
     counterpartyCreateTitle: "New counterparty",
     counterpartyEditTitle: "Edit counterparty",
-    counterpartyPlaceholderTitle: "Editor coming next",
-    counterpartyPlaceholderDescription:
-      "The counterparty form arrives in a later update.",
   },
   form: {
     contactsTitle: "Contacts",
@@ -367,6 +437,8 @@ const en: CustomersCopy = {
       "For invoices and QES. One client can have several FOPs. Groups and price lists stay on the client.",
     counterpartiesCreateHint: "Save the client to add an FOP or LLC.",
     counterpartiesEmpty: "No linked counterparties.",
+    counterpartiesAdd: "Add counterparty",
+    counterpartiesEdrpouEmpty: "No code",
     notesTitle: "Notes",
     notesLabel: "Internal use",
     notesPlaceholder: "Preferences, allergies, delivery details",
@@ -453,6 +525,82 @@ const en: CustomersCopy = {
       nameTooLong: "Name is too long.",
       descriptionTooLong: "Description is too long.",
       validation: "Check the highlighted fields.",
+      network: "Could not save. Try again.",
+      offline: "No connection. Connect and try again.",
+      unavailable: "Could not save. Try again.",
+      permission: "You do not have permission to change this.",
+    },
+  },
+  counterpartyForm: {
+    customerTitle: "Client",
+    customerHelper:
+      "Optional. Without a client the counterparty stays for documents only — for example a supplier.",
+    customerLabel: "CRM client",
+    customerPlaceholder: "No client",
+    customerSheetTitle: "Client",
+    customerEmptyOption: "No client",
+    customerSearchPlaceholder: "Search clients…",
+    openClient: "Open client",
+    assignmentUnavailable: "Assigned",
+    requisitesTitle: "Requisites",
+    nameLabel: "Counterparty name",
+    namePlaceholder: "FOP or LLC",
+    edrpouLabel: "EDRPOU",
+    edrpouPlaceholder: "12345678",
+    legalAddressLabel: "Legal address",
+    legalAddressPlaceholder: "City, street, building",
+    bankTitle: "Bank details",
+    ibanLabel: "IBAN",
+    ibanPlaceholder: "UA00 0000 0000 0000 0000 0000 000",
+    bankNameLabel: "Bank name",
+    bankNamePlaceholder: "JSC CB PrivatBank",
+    bankMfoLabel: "MFO",
+    bankMfoPlaceholder: "322313",
+    contactsTitle: "Contacts",
+    phoneLabel: "Phone",
+    phonePlaceholder: "+380 44 000 00 00",
+    emailLabel: "Email",
+    emailPlaceholder: "office@company.ua",
+    notesLabel: "Notes",
+    notesPlaceholder: "Payment terms, document workflow",
+    deleteTitle: "Delete",
+    deleteHelper:
+      "The counterparty will be deleted forever. A linked client stays. This cannot be undone.",
+    deleteAction: "Delete counterparty",
+    cancel: "Cancel",
+    changedLabel: "Changed",
+    closeSheet: "Close",
+    leaveTitle: "Leave without saving?",
+    leaveDescription: "Your changes will be lost.",
+    leaveContinue: "Keep editing",
+    leaveConfirm: "Leave without saving",
+    submitCreate: "Create",
+    submitCreateLoading: "Saving…",
+    submitEdit: "Save",
+    submitEditLoading: "Saving…",
+    permissionCreateTitle: "No permission to create",
+    permissionCreateDescription:
+      "You can view counterparties, but creating them needs a higher role.",
+    permissionEditTitle: "No permission to edit",
+    permissionEditDescription:
+      "You can view this counterparty, but editing needs a higher role.",
+    notFoundTitle: "Counterparty not found",
+    notFoundDescription:
+      "The record may have been deleted, or the link is out of date.",
+    loadingLabel: "Loading counterparty",
+    errors: {
+      nameRequired: "Enter the counterparty name",
+      nameTooLong: "Name is too long.",
+      edrpouTooLong: "EDRPOU is too long.",
+      legalAddressTooLong: "Legal address is too long.",
+      ibanTooLong: "IBAN is too long.",
+      bankNameTooLong: "Bank name is too long.",
+      bankMfoTooLong: "MFO is too long.",
+      phoneTooLong: "Phone is too long.",
+      emailTooLong: "Email is too long.",
+      notesTooLong: "Notes are too long.",
+      validation: "Check the highlighted fields.",
+      conflict: "A counterparty with this EDRPOU already exists.",
       network: "Could not save. Try again.",
       offline: "No connection. Connect and try again.",
       unavailable: "Could not save. Try again.",
@@ -572,9 +720,6 @@ const uk: CustomersCopy = {
     groupEditTitle: "Редагувати групу",
     counterpartyCreateTitle: "Новий контрагент",
     counterpartyEditTitle: "Редагувати контрагента",
-    counterpartyPlaceholderTitle: "Редактор незабаром",
-    counterpartyPlaceholderDescription:
-      "Форма контрагента з’явиться в окремому оновленні.",
   },
   form: {
     contactsTitle: "Контакти",
@@ -604,6 +749,8 @@ const uk: CustomersCopy = {
       "Для рахунків і КЕП. Один клієнт може мати кілька ФОП. Групи та прайси лишаються на клієнті.",
     counterpartiesCreateHint: "Збережіть клієнта, щоб додати ФОП або ТОВ.",
     counterpartiesEmpty: "Немає прив’язаних контрагентів.",
+    counterpartiesAdd: "Додати контрагента",
+    counterpartiesEdrpouEmpty: "Без коду",
     notesTitle: "Нотатки",
     notesLabel: "Для внутрішнього використання",
     notesPlaceholder: "Побажання, алергії, деталі доставки",
@@ -689,6 +836,82 @@ const uk: CustomersCopy = {
       nameTooLong: "Назва задовга.",
       descriptionTooLong: "Опис задовгий.",
       validation: "Перевірте виділені поля.",
+      network: "Не вдалося зберегти. Спробуйте ще раз.",
+      offline: "Немає зʼєднання. Підключіться і спробуйте ще раз.",
+      unavailable: "Не вдалося зберегти. Спробуйте ще раз.",
+      permission: "Немає права змінювати цей запис.",
+    },
+  },
+  counterpartyForm: {
+    customerTitle: "Клієнт",
+    customerHelper:
+      "Необов’язково. Без клієнта контрагент лишається лише для документів — наприклад, постачальник.",
+    customerLabel: "CRM-клієнт",
+    customerPlaceholder: "Без клієнта",
+    customerSheetTitle: "Клієнт",
+    customerEmptyOption: "Без клієнта",
+    customerSearchPlaceholder: "Пошук клієнтів…",
+    openClient: "Відкрити клієнта",
+    assignmentUnavailable: "Призначено",
+    requisitesTitle: "Реквізити",
+    nameLabel: "Назва контрагента",
+    namePlaceholder: "ФОП або ТОВ",
+    edrpouLabel: "ЄДРПОУ",
+    edrpouPlaceholder: "12345678",
+    legalAddressLabel: "Юридична адреса",
+    legalAddressPlaceholder: "Місто, вулиця, будинок",
+    bankTitle: "Банківські дані",
+    ibanLabel: "IBAN",
+    ibanPlaceholder: "UA00 0000 0000 0000 0000 0000 000",
+    bankNameLabel: "Назва банку",
+    bankNamePlaceholder: "АТ КБ «ПриватБанк»",
+    bankMfoLabel: "МФО",
+    bankMfoPlaceholder: "322313",
+    contactsTitle: "Контакти",
+    phoneLabel: "Телефон",
+    phonePlaceholder: "+380 44 000 00 00",
+    emailLabel: "Email",
+    emailPlaceholder: "office@company.ua",
+    notesLabel: "Примітки",
+    notesPlaceholder: "Умови оплати, особливості документообігу",
+    deleteTitle: "Видалення",
+    deleteHelper:
+      "Контрагента буде видалено назавжди. Клієнт (якщо був прив’язаний) залишиться. Цю дію не можна скасувати.",
+    deleteAction: "Видалити контрагента",
+    cancel: "Скасувати",
+    changedLabel: "змінено",
+    closeSheet: "Закрити",
+    leaveTitle: "Вийти без збереження?",
+    leaveDescription: "Внесені зміни буде втрачено.",
+    leaveContinue: "Продовжити редагування",
+    leaveConfirm: "Вийти без збереження",
+    submitCreate: "Створити",
+    submitCreateLoading: "Збереження…",
+    submitEdit: "Зберегти",
+    submitEditLoading: "Збереження…",
+    permissionCreateTitle: "Немає права створювати",
+    permissionCreateDescription:
+      "Ви можете переглядати контрагентів, але створення потребує вищої ролі.",
+    permissionEditTitle: "Немає права редагувати",
+    permissionEditDescription:
+      "Ви можете переглядати цього контрагента, але редагування потребує вищої ролі.",
+    notFoundTitle: "Контрагента не знайдено",
+    notFoundDescription:
+      "Можливо, запис було видалено або посилання застаріло.",
+    loadingLabel: "Завантаження контрагента",
+    errors: {
+      nameRequired: "Вкажіть назву контрагента",
+      nameTooLong: "Назва задовга.",
+      edrpouTooLong: "ЄДРПОУ задовге.",
+      legalAddressTooLong: "Юридична адреса задовга.",
+      ibanTooLong: "IBAN задовгий.",
+      bankNameTooLong: "Назва банку задовга.",
+      bankMfoTooLong: "МФО задовге.",
+      phoneTooLong: "Телефон задовгий.",
+      emailTooLong: "Email задовгий.",
+      notesTooLong: "Примітки задовгі.",
+      validation: "Перевірте виділені поля.",
+      conflict: "Контрагент з таким ЄДРПОУ уже існує.",
       network: "Не вдалося зберегти. Спробуйте ще раз.",
       offline: "Немає зʼєднання. Підключіться і спробуйте ще раз.",
       unavailable: "Не вдалося зберегти. Спробуйте ще раз.",

@@ -17,3 +17,18 @@ export const CUSTOMER_NOTES_MAX = 2000;
 /** Same 120/2000 caps as `group-view.contract.ts` (SHO-169 / SHO-181). */
 export const GROUP_NAME_MAX = 120;
 export const GROUP_DESCRIPTION_MAX = 2000;
+
+/**
+ * Legal-face caps from feature SHO-191 / `counterparty-view.contract.ts`.
+ * Name is 300 (not CRM 120). Mobile imports these without the module
+ * contract (SHO-196).
+ */
+export const COUNTERPARTY_NAME_MAX = 300;
+export const COUNTERPARTY_EDRPOU_MAX = 10;
+export const COUNTERPARTY_LEGAL_ADDRESS_MAX = 500;
+export const COUNTERPARTY_IBAN_MAX = 34;
+export const COUNTERPARTY_BANK_NAME_MAX = 200;
+export const COUNTERPARTY_BANK_MFO_MAX = 6;
+export const COUNTERPARTY_PHONE_MAX = 30;
+export const COUNTERPARTY_EMAIL_MAX = 200;
+export const COUNTERPARTY_NOTES_MAX = 2000;

@@ -29,6 +29,12 @@ describe("customers copy", () => {
     expect(Object.keys(uk.groupForm.errors)).toEqual(
       Object.keys(en.groupForm.errors),
     );
+    expect(Object.keys(uk.counterpartyForm)).toEqual(
+      Object.keys(en.counterpartyForm),
+    );
+    expect(Object.keys(uk.counterpartyForm.errors)).toEqual(
+      Object.keys(en.counterpartyForm.errors),
+    );
     expect(Object.keys(uk.counterparties)).toEqual(
       Object.keys(en.counterparties),
     );
@@ -77,6 +83,8 @@ describe("customers copy", () => {
     expect(uk.form.counterpartiesTitle).toBe("Юрособи");
     expect(uk.form.counterpartiesCreateHint).toContain("Збережіть клієнта");
     expect(uk.form.counterpartiesEmpty).toBe("Немає прив’язаних контрагентів.");
+    expect(uk.form.counterpartiesAdd).toBe("Додати контрагента");
+    expect(uk.form.counterpartiesEdrpouEmpty).toBe("Без коду");
     expect(uk.form.priceListInheritGroup).toBe("Успадкований від групи");
     expect(uk.form.assignmentUnavailable).toBe("Призначено");
     expect(uk.form.leaveTitle).toBe("Вийти без збереження?");
@@ -90,9 +98,15 @@ describe("customers copy", () => {
     expect(uk.groupForm.errors.nameRequired).toBe("Вкажіть назву групи");
     expect(uk.groupForm.notFoundTitle).toBe("Групу не знайдено");
     expect(uk.editorStub.counterpartyCreateTitle).toBe("Новий контрагент");
-    expect(uk.editorStub.counterpartyPlaceholderDescription).toContain(
-      "Форма контрагента",
+    expect(uk.counterpartyForm.customerHelper).toContain("Необов’язково");
+    expect(uk.counterpartyForm.nameLabel).toBe("Назва контрагента");
+    expect(uk.counterpartyForm.edrpouLabel).toBe("ЄДРПОУ");
+    expect(uk.counterpartyForm.errors.nameRequired).toBe(
+      "Вкажіть назву контрагента",
     );
+    expect(uk.counterpartyForm.errors.conflict).toContain("ЄДРПОУ");
+    expect(uk.counterpartyForm.openClient).toBe("Відкрити клієнта");
+    expect(uk.counterpartyForm.customerEmptyOption).toBe("Без клієнта");
   });
 
   it("keeps empty counterparty copy aligned with the form helper QES wording", () => {

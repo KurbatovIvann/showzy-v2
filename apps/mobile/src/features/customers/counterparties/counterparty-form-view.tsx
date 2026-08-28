@@ -1,41 +1,35 @@
 import type { ReactNode } from "react";
 import { Text, View } from "react-native";
 import {
-  ArchiveIcon,
   BuildingIcon,
-  LayersIcon,
   LockIcon,
-  PlusIcon,
-  RotateCcwIcon,
-  TagIcon,
   Trash2Icon,
-  UserXIcon,
+  UserIcon,
   WifiOffIcon,
 } from "lucide-react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
-import {
-  AppHeader,
-  Banner,
-  Button,
-  EmptyState,
-  StatusPill,
-} from "../../../components/ui";
+import { AppHeader, Banner, Button, EmptyState } from "../../../components/ui";
 import { OptionSelectSheet } from "../shared/option-select-sheet";
 import { SelectorRow } from "../shared/selector-row";
 import {
-  CustomerFormEmailField,
-  CustomerFormNameField,
-  CustomerFormNotesField,
-  CustomerFormPhoneField,
-} from "./customer-form-fields";
-import type { CustomerFormModel } from "./use-customer-form";
+  CounterpartyFormBankMfoField,
+  CounterpartyFormBankNameField,
+  CounterpartyFormEdrpouField,
+  CounterpartyFormEmailField,
+  CounterpartyFormIbanField,
+  CounterpartyFormLegalAddressField,
+  CounterpartyFormNameField,
+  CounterpartyFormNotesField,
+  CounterpartyFormPhoneField,
+} from "./counterparty-form-fields";
+import type { CounterpartyFormModel } from "./use-counterparty-form";
 
-export function CustomerFormView(model: CustomerFormModel) {
+export function CounterpartyFormView(model: CounterpartyFormModel) {
   const { copy } = model;
-  const form = copy.form;
+  const form = copy.counterpartyForm;
 
   return (
     <SafeAreaView
@@ -50,7 +44,7 @@ export function CustomerFormView(model: CustomerFormModel) {
           accessibilityLabel: copy.backLabel,
         }}
       />
-      <CustomerFormBody model={model} />
+      <CounterpartyFormBody model={model} />
       {model.state.kind === "ready" ? (
         <View style={styles.footer}>
           <View style={styles.footerActions}>
@@ -76,39 +70,29 @@ export function CustomerFormView(model: CustomerFormModel) {
         </View>
       ) : null}
       <OptionSelectSheet
-        visible={model.picker === "group"}
-        title={form.groupSheetTitle}
-        emptyOptionLabel={form.groupEmptyOption}
-        searchPlaceholder={form.groupSearchPlaceholder}
+        visible={model.pickerOpen}
+        title={form.customerSheetTitle}
+        emptyOptionLabel={form.customerEmptyOption}
+        searchPlaceholder={form.customerSearchPlaceholder}
         searchLabel={copy.searchLabel}
         closeLabel={form.closeSheet}
-        value={model.groupId}
-        options={model.groupOptions}
+        value={model.customerId}
+        options={model.customerOptions}
         onClose={model.closePicker}
-        onChange={model.selectGroup}
-      />
-      <OptionSelectSheet
-        visible={model.picker === "priceList"}
-        title={form.priceListSheetTitle}
-        emptyOptionLabel={form.priceListEmptyOption}
-        searchPlaceholder={form.priceListSearchPlaceholder}
-        searchLabel={copy.searchLabel}
-        closeLabel={form.closeSheet}
-        value={model.priceListId}
-        options={model.priceListOptions}
-        onClose={model.closePicker}
-        onChange={model.selectPriceList}
+        onChange={model.selectCustomer}
       />
     </SafeAreaView>
   );
 }
 
-function CustomerFormBody(props: { readonly model: CustomerFormModel }) {
+function CounterpartyFormBody(props: {
+  readonly model: CounterpartyFormModel;
+}) {
   const { model } = props;
   const { copy } = model;
   const { theme } = useUnistyles();
   const iconColor = theme.colors.mutedForeground;
-  const form = copy.form;
+  const form = copy.counterpartyForm;
 
   switch (model.state.kind) {
     case "loading":
@@ -159,7 +143,7 @@ function CustomerFormBody(props: { readonly model: CustomerFormModel }) {
       return (
         <CenteredEmpty>
           <EmptyState
-            icon={<UserXIcon size={theme.iconSize.md} color={iconColor} />}
+            icon={<BuildingIcon size={theme.iconSize.md} color={iconColor} />}
             title={form.notFoundTitle}
             description={form.notFoundDescription}
           />
@@ -184,14 +168,16 @@ function CustomerFormBody(props: { readonly model: CustomerFormModel }) {
         </CenteredEmpty>
       );
     case "ready":
-      return <CustomerFormReady model={model} />;
+      return <CounterpartyFormReady model={model} />;
   }
 }
 
-function CustomerFormReady(props: { readonly model: CustomerFormModel }) {
+function CounterpartyFormReady(props: {
+  readonly model: CounterpartyFormModel;
+}) {
   const { model } = props;
   const { copy } = model;
-  const form = copy.form;
+  const form = copy.counterpartyForm;
   const { theme } = useUnistyles();
   const iconColor = theme.colors.mutedForeground;
 
@@ -202,12 +188,30 @@ function CustomerFormReady(props: { readonly model: CustomerFormModel }) {
       keyboardShouldPersistTaps="handled"
       bottomOffset={theme.spacing.lg}
     >
-      {model.archived ? (
-        <StatusPill label={model.archivedLabel} tone="attention" />
-      ) : null}
-      <CustomerFormSection title={form.contactsTitle}>
-        <Text style={styles.hint}>{form.contactsHelper}</Text>
-        <CustomerFormNameField
+      <CounterpartyFormSection title={form.customerTitle}>
+        <Text style={styles.hint}>{form.customerHelper}</Text>
+        <SelectorRow
+          label={form.customerLabel}
+          value={model.customerValue}
+          placeholder={form.customerPlaceholder}
+          icon={<UserIcon size={theme.iconSize.sm} color={iconColor} />}
+          changed={model.customerChanged}
+          changedLabel={form.changedLabel}
+          disabled={!model.fieldsEditable}
+          onPress={model.openCustomerPicker}
+        />
+        {model.showOpenClient ? (
+          <Button
+            variant="secondary"
+            fullWidth
+            label={form.openClient}
+            disabled={model.pending}
+            onPress={model.openClient}
+          />
+        ) : null}
+      </CounterpartyFormSection>
+      <CounterpartyFormSection title={form.requisitesTitle}>
+        <CounterpartyFormNameField
           control={model.control}
           copy={form}
           mode={model.mode}
@@ -216,7 +220,56 @@ function CustomerFormReady(props: { readonly model: CustomerFormModel }) {
           error={model.nameError}
           onFieldEdit={model.onFieldEdit}
         />
-        <CustomerFormPhoneField
+        <CounterpartyFormEdrpouField
+          control={model.control}
+          copy={form}
+          mode={model.mode}
+          originEdrpou={model.originEdrpou}
+          editable={model.fieldsEditable}
+          error={model.edrpouError}
+          onFieldEdit={model.onFieldEdit}
+        />
+        <CounterpartyFormLegalAddressField
+          control={model.control}
+          copy={form}
+          mode={model.mode}
+          originLegalAddress={model.originLegalAddress}
+          editable={model.fieldsEditable}
+          error={model.legalAddressError}
+          onFieldEdit={model.onFieldEdit}
+        />
+      </CounterpartyFormSection>
+      <CounterpartyFormSection title={form.bankTitle}>
+        <CounterpartyFormIbanField
+          control={model.control}
+          copy={form}
+          mode={model.mode}
+          originIban={model.originIban}
+          editable={model.fieldsEditable}
+          error={model.ibanError}
+          onFieldEdit={model.onFieldEdit}
+        />
+        <CounterpartyFormBankNameField
+          control={model.control}
+          copy={form}
+          mode={model.mode}
+          originBankName={model.originBankName}
+          editable={model.fieldsEditable}
+          error={model.bankNameError}
+          onFieldEdit={model.onFieldEdit}
+        />
+        <CounterpartyFormBankMfoField
+          control={model.control}
+          copy={form}
+          mode={model.mode}
+          originBankMfo={model.originBankMfo}
+          editable={model.fieldsEditable}
+          error={model.bankMfoError}
+          onFieldEdit={model.onFieldEdit}
+        />
+      </CounterpartyFormSection>
+      <CounterpartyFormSection title={form.contactsTitle}>
+        <CounterpartyFormPhoneField
           control={model.control}
           copy={form}
           mode={model.mode}
@@ -225,7 +278,7 @@ function CustomerFormReady(props: { readonly model: CustomerFormModel }) {
           error={model.phoneError}
           onFieldEdit={model.onFieldEdit}
         />
-        <CustomerFormEmailField
+        <CounterpartyFormEmailField
           control={model.control}
           copy={form}
           mode={model.mode}
@@ -234,84 +287,7 @@ function CustomerFormReady(props: { readonly model: CustomerFormModel }) {
           error={model.emailError}
           onFieldEdit={model.onFieldEdit}
         />
-      </CustomerFormSection>
-      <CustomerFormSection title={form.termsTitle}>
-        <SelectorRow
-          label={form.groupLabel}
-          value={model.groupValue}
-          placeholder={form.groupPlaceholder}
-          icon={<LayersIcon size={theme.iconSize.sm} color={iconColor} />}
-          changed={model.groupChanged}
-          changedLabel={form.changedLabel}
-          disabled={!model.fieldsEditable}
-          onPress={model.openGroupPicker}
-        />
-        <SelectorRow
-          label={form.priceListLabel}
-          value={model.priceListValue}
-          placeholder={model.priceListPlaceholder}
-          icon={<TagIcon size={theme.iconSize.sm} color={iconColor} />}
-          changed={model.priceListChanged}
-          changedLabel={form.changedLabel}
-          disabled={!model.fieldsEditable}
-          onPress={model.openPriceListPicker}
-        />
-      </CustomerFormSection>
-      <CustomerFormSection title={form.counterpartiesTitle}>
-        <Text style={styles.hint}>{form.counterpartiesHelper}</Text>
-        {model.counterpartiesKind === "loading" ? (
-          <View
-            style={[styles.skeletonLine, styles.skeletonPrice]}
-            accessibilityLabel={form.loadingLabel}
-          />
-        ) : null}
-        {model.counterpartiesBodyText !== null ? (
-          <Text style={styles.hint}>{model.counterpartiesBodyText}</Text>
-        ) : null}
-        {model.counterpartiesKind === "error" ? (
-          <Button
-            variant="secondary"
-            fullWidth
-            label={copy.empty.retry}
-            disabled={model.pending}
-            onPress={model.retryCounterparties}
-          />
-        ) : null}
-        {model.counterpartiesKind === "list"
-          ? model.linkedCounterparties.map((item) => (
-              <SelectorRow
-                key={item.id}
-                label={item.name}
-                value={item.edrpouLabel}
-                placeholder={form.counterpartiesEdrpouEmpty}
-                icon={
-                  <BuildingIcon size={theme.iconSize.sm} color={iconColor} />
-                }
-                disabled={model.pending}
-                onPress={() => {
-                  model.openCounterparty(item.id);
-                }}
-              />
-            ))
-          : null}
-        {model.mode === "edit" ? (
-          <Button
-            variant="secondary"
-            fullWidth
-            label={form.counterpartiesAdd}
-            disabled={!model.fieldsEditable || model.pending}
-            icon={
-              <PlusIcon
-                size={theme.iconSize.sm}
-                color={theme.colors.foreground}
-              />
-            }
-            onPress={model.addCounterparty}
-          />
-        ) : null}
-      </CustomerFormSection>
-      <CustomerFormSection title={form.notesTitle}>
-        <CustomerFormNotesField
+        <CounterpartyFormNotesField
           control={model.control}
           copy={form}
           mode={model.mode}
@@ -320,67 +296,26 @@ function CustomerFormReady(props: { readonly model: CustomerFormModel }) {
           error={model.notesError}
           onFieldEdit={model.onFieldEdit}
         />
-      </CustomerFormSection>
-      {model.mode === "edit" &&
-      (model.showArchive || model.showRestore || model.showDelete) ? (
-        <CustomerFormSection title={form.archiveTitle}>
-          <Text style={styles.hint}>
-            {model.archived
-              ? form.archiveArchivedHelper
-              : form.archiveActiveHelper}
-          </Text>
-          {model.showArchive ? (
-            <Button
-              variant="secondary"
-              fullWidth
-              label={form.archiveAction}
-              disabled={model.pending}
-              icon={
-                <ArchiveIcon
-                  size={theme.iconSize.sm}
-                  color={theme.colors.foreground}
-                />
-              }
-              onPress={() => {
-                void model.archive();
-              }}
-            />
-          ) : null}
-          {model.showRestore ? (
-            <Button
-              variant="secondary"
-              fullWidth
-              label={form.restoreAction}
-              disabled={model.pending}
-              icon={
-                <RotateCcwIcon
-                  size={theme.iconSize.sm}
-                  color={theme.colors.foreground}
-                />
-              }
-              onPress={() => {
-                void model.restore();
-              }}
-            />
-          ) : null}
-          {model.showDelete ? (
-            <Button
-              variant="danger"
-              fullWidth
-              label={form.deleteAction}
-              disabled={model.pending}
-              icon={
-                <Trash2Icon
-                  size={theme.iconSize.sm}
-                  color={theme.colors.destructive}
-                />
-              }
-              onPress={() => {
-                void model.remove();
-              }}
-            />
-          ) : null}
-        </CustomerFormSection>
+      </CounterpartyFormSection>
+      {model.showDelete ? (
+        <CounterpartyFormSection title={form.deleteTitle}>
+          <Text style={styles.hint}>{form.deleteHelper}</Text>
+          <Button
+            variant="danger"
+            fullWidth
+            label={form.deleteAction}
+            disabled={model.pending}
+            icon={
+              <Trash2Icon
+                size={theme.iconSize.sm}
+                color={theme.colors.destructive}
+              />
+            }
+            onPress={() => {
+              void model.remove();
+            }}
+          />
+        </CounterpartyFormSection>
       ) : null}
       {model.banner !== null && model.banner.length > 0 ? (
         <Banner message={model.banner} />
@@ -389,7 +324,7 @@ function CustomerFormReady(props: { readonly model: CustomerFormModel }) {
   );
 }
 
-function CustomerFormSection(props: {
+function CounterpartyFormSection(props: {
   readonly title: string;
   readonly children: ReactNode;
 }) {
