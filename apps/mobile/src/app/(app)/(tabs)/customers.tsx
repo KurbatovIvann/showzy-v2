@@ -1,1 +1,1 @@
-export { CustomersPlaceholderScreen as default } from "../../../components/screens/panel/panel-placeholder-screen";
+export { CustomersHomeScreen as default } from "../../../features/customers/list/customers-home-screen";
