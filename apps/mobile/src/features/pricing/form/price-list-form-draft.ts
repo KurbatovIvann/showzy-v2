@@ -492,9 +492,9 @@ export function formatPriceDiffPercent(diff: number | null): string {
     return "—";
   }
   if (diff > 0) {
-    return `+${diff}%`;
+    return `+${String(diff)}%`;
   }
-  return `${diff}%`;
+  return `${String(diff)}%`;
 }
 
 export type PriceDiffTone = "empty" | "down" | "up" | "same";

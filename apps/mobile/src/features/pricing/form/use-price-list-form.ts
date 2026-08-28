@@ -27,6 +27,7 @@ import {
   mapValidationIssues,
   resolvePriceListFormCopy,
   rhfPathsForFieldErrors,
+  entryPriceRhfPath,
 } from "./price-list-form-copy";
 import {
   applyBulkPercentOff,
@@ -423,7 +424,7 @@ export function usePriceListForm(args: {
         if (entry.variantId !== null) {
           return;
         }
-        setValue(`entries.${index}.priceText`, entry.priceText, {
+        setValue(entryPriceRhfPath(index), entry.priceText, {
           shouldDirty: true,
         });
       });

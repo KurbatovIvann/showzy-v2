@@ -8,6 +8,7 @@ import type { PricingFormCopy } from "../../../i18n/pricing";
 import { formatMoneyMinor } from "../../../format/money";
 import { StatusPill, TextField } from "../../../components/ui";
 import { PRICE_LIST_CURRENCY } from "../shared/price-list-caps";
+import { entryPriceRhfPath } from "./price-list-form-copy";
 import {
   listPriceDiff,
   priceListFormFieldChanged,
@@ -54,7 +55,7 @@ export const PriceEntryRow = memo(function PriceEntryRow(props: {
     <View style={props.kind === "variant" ? styles.variantWrap : null}>
       <Controller
         control={props.control}
-        name={`entries.${props.fieldIndex}.priceText`}
+        name={entryPriceRhfPath(props.fieldIndex)}
         render={({ field }) => {
           const diff = listPriceDiff({
             priceText: field.value,

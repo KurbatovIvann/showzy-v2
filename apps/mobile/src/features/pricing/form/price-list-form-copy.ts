@@ -79,6 +79,12 @@ export type PriceListFormRhfErrorEntry = {
   readonly message: NameErrorKey | PriceErrorKey;
 };
 
+export function entryPriceRhfPath(
+  index: number,
+): `entries.${number}.priceText` {
+  return `entries.${String(index)}.priceText` as `entries.${number}.priceText`;
+}
+
 export function rhfPathsForFieldErrors(
   errors: PriceListFormFieldErrors,
   entries: ReadonlyArray<{ readonly key: string }>,
@@ -93,11 +99,25 @@ export function rhfPathsForFieldErrors(
       continue;
     }
     paths.push({
-      name: `entries.${index}.priceText`,
+      name: entryPriceRhfPath(index),
       message,
     });
   }
   return paths;
+}
+
+function isRhfPriceMessageRow(
+  row: unknown,
+): row is { readonly priceText: { readonly message: unknown } } {
+  if (row === null || typeof row !== "object" || !("priceText" in row)) {
+    return false;
+  }
+  const priceText = row.priceText;
+  return (
+    priceText !== null &&
+    typeof priceText === "object" &&
+    "message" in priceText
+  );
 }
 
 export function entryMessagesFromRhfRows(
@@ -108,26 +128,14 @@ export function entryMessagesFromRhfRows(
   if (!Array.isArray(rhfEntries)) {
     return messages;
   }
+  const rows: readonly unknown[] = rhfEntries;
   for (let index = 0; index < entries.length; index += 1) {
     const entry = entries[index];
-    const row = rhfEntries[index];
-    if (
-      entry === undefined ||
-      row === null ||
-      typeof row !== "object" ||
-      !("priceText" in row)
-    ) {
+    const row = rows[index];
+    if (entry === undefined || !isRhfPriceMessageRow(row)) {
       continue;
     }
-    const priceText = row.priceText;
-    if (
-      priceText === null ||
-      typeof priceText !== "object" ||
-      !("message" in priceText)
-    ) {
-      continue;
-    }
-    messages[entry.key] = priceText.message;
+    messages[entry.key] = row.priceText.message;
   }
   return messages;
 }
