@@ -39,7 +39,11 @@ import {
 import { chatSuiteCoverage } from "@showzy/chat/suite-coverage";
 import { createCompany, listMine } from "@showzy/companies";
 import { companiesSuiteCoverage } from "@showzy/companies/suite-coverage";
-import { getCustomerPricingFacts } from "@showzy/customers";
+import {
+  createGroup,
+  getCustomerPricingFacts,
+  updateGroup,
+} from "@showzy/customers";
 import { customersSuiteCoverage } from "@showzy/customers/suite-coverage";
 import {
   finalizeUpload,
@@ -113,6 +117,14 @@ const callEdges: readonly DeclaredCallEdge[] = [
   {
     caller: "catalog.setProductImages",
     callee: "files.getAttachmentFacts",
+  },
+  {
+    caller: "customers.createGroup",
+    callee: "pricing.listPriceLists",
+  },
+  {
+    caller: "customers.updateGroup",
+    callee: "pricing.listPriceLists",
   },
 ];
 
@@ -188,6 +200,8 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, createCompany);
   registerAction(registry, listMine);
   registerAction(registry, getCustomerPricingFacts);
+  registerAction(registry, createGroup);
+  registerAction(registry, updateGroup);
   registerAction(registry, requestUpload);
   registerAction(registry, getUploadUrl);
   registerAction(registry, finalizeUpload);

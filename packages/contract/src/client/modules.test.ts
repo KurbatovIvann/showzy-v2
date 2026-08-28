@@ -19,6 +19,10 @@ import {
   listMineContract,
 } from "@showzy/companies/contract";
 import {
+  createGroupContract,
+  updateGroupContract,
+} from "@showzy/customers/contract";
+import {
   finalizeUploadContract,
   getDownloadUrlContract,
   getDownloadUrlsContract,
@@ -38,7 +42,7 @@ import {
 import { contractModules, contractRouter } from "./modules.js";
 
 describe("client composition", () => {
-  it("exposes client catalog, chat, companies, files, orders, and pricing actions and no internal facts actions", () => {
+  it("exposes client catalog, chat, companies, customers, files, orders, and pricing actions and no internal facts actions", () => {
     expect(contractModules).toEqual({
       catalog: {
         createProduct: createProductContract,
@@ -59,6 +63,10 @@ describe("client composition", () => {
       companies: {
         create: createCompanyContract,
         listMine: listMineContract,
+      },
+      customers: {
+        createGroup: createGroupContract,
+        updateGroup: updateGroupContract,
       },
       files: {
         requestUpload: requestUploadContract,
@@ -95,6 +103,11 @@ describe("client composition", () => {
     expect(contractRouter.chat.getOrderCard).toBeDefined();
     expect(contractRouter.companies.create).toBeDefined();
     expect(contractRouter.companies.listMine).toBeDefined();
+    expect(contractRouter.customers.createGroup).toBeDefined();
+    expect(contractRouter.customers.updateGroup).toBeDefined();
+    expect(contractModules.customers).not.toHaveProperty(
+      "getCustomerPricingFacts",
+    );
     expect(contractRouter.files.requestUpload).toBeDefined();
     expect(contractRouter.files.getUploadUrl).toBeDefined();
     expect(contractRouter.files.finalizeUpload).toBeDefined();

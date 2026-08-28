@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Customers module: CRM customer pricing facts for price resolution. This package exports actions and events only.",
+  "description": "Customers module: CRM customer pricing facts and staff group writes. This package exports actions and events only.",
   "exports": {
     ".": "./src/index.ts",
     "./contract": "./src/index.contract.ts",
@@ -17,6 +17,7 @@
   "dependencies": {
     "@showzy/core": "workspace:*",
     "@showzy/db": "workspace:*",
+    "@showzy/pricing": "workspace:*",
     "drizzle-orm": "^0.45.2",
     "zod": "^4.4.3"
   },

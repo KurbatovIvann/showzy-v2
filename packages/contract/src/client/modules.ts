@@ -30,6 +30,10 @@ import {
   listMineContract,
 } from "@showzy/companies/contract";
 import {
+  createGroupContract,
+  updateGroupContract,
+} from "@showzy/customers/contract";
+import {
   finalizeUploadContract,
   getDownloadUrlContract,
   getDownloadUrlsContract,
@@ -71,6 +75,10 @@ export const contractModules = {
   companies: {
     create: createCompanyContract,
     listMine: listMineContract,
+  },
+  customers: {
+    createGroup: createGroupContract,
+    updateGroup: updateGroupContract,
   },
   files: {
     requestUpload: requestUploadContract,
