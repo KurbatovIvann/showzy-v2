@@ -1,10 +1,15 @@
 # Spec: customers
 
-> Status: Living.
+> Status: Archived research. Not authority.
+> **Product model (2026-08-28):** ADR-0028 — CRM customer is the commercial
+> spine; counterparties are the legal face (0..N per customer, or
+> standalone); invite accept creates or enriches CRM. Do not follow the
+> §1 “CRM only by staff or checkout” list or the archived invite-journey
+> “no CRM row” rule.
 > Active surface: none.
 > Density beyond the declared slice is intent, not contract; do not treat unimplemented sections as frozen.
 > Written against blueprint §2.1, §4, §5; scope §2, §7;
-> ADR-0013, ADR-0014, ADR-0015, ADR-0016, ADR-0018;
+> ADR-0013, ADR-0014, ADR-0015, ADR-0016, ADR-0018, ADR-0028;
 > `docs/specs/core.md`, `docs/specs/db.md`, `docs/specs/contract.md`,
 > `docs/specs/pricing.md`, `docs/specs/chat.md`;
 > `docs/module-ownership.md`, `docs/reference/v1-migration-matrix.md`.
@@ -33,7 +38,8 @@ a side effect of discovery, profile browsing, cart interaction, or chat
 CRM records are created only by:
 - a staff member manually adding the customer, or
 - the checkout/order-creation action atomically linking or creating the record
-  via the system-principal `customers.ensureCrmRecord` action.
+  via the system-principal `customers.ensureCrmRecord` action, or
+- invite accept, which creates or enriches the CRM row (ADR-0028).
 
 ## 2. Owned tables
 

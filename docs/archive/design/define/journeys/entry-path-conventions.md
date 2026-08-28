@@ -20,14 +20,14 @@
 
 ## CRM boundary
 
-Discovery, profile browsing, cart, chat, direct-link entry, and invite
-acceptance create no CRM row. Checkout/order creation atomically links or
-creates it; staff may create one through an approved staff action.
+Discovery, profile browsing, cart, chat, and direct-link entry create no
+CRM row. Checkout/order creation atomically links or creates it; staff
+may create one through an approved staff action. **Invite accept creates
+or enriches the CRM row** and applies the token’s group and price-list
+assignments (ADR-0028). Accept does not create a counterparty.
 
-ADR-0018's introductory text says an invite “creates or enriches a CRM
-relationship,” while its normative CRM section permits creation only by staff
-or checkout. These journeys follow the normative rule. The ADR wording must be
-reconciled before invite implementation is specified.
+ADR-0018 as amended by ADR-0028 is the living rule. The pre-2026-08-28
+wording that forbade invite-created CRM is superseded.
 
 ## Shared classic ↔ AI rules
 
@@ -73,5 +73,6 @@ reconciled before invite implementation is specified.
 For all six journeys, test installed/not-installed, signed-in/signed-out,
 restart, classic↔AI, offline, stale, unavailable, and retry. Verify the exact
 target survives, current authorization is rechecked, classic/AI share one cart,
-and no pre-checkout CRM row exists. Record findings as
+and no CRM row exists from discovery, direct-link, browse, cart, or chat.
+Invite accept must create or enrich CRM (ADR-0028). Record findings as
 `internal evaluation only`.

@@ -151,7 +151,7 @@ App
 │       ├── Pricing
 │       │   └── Personal / customer / group / default / effective price
 │       ├── Customers
-│       │   └── List / detail / groups / legal profile / invites
+│       │   └── Clients / groups / counterparties / invites (views; ADR-0028)
 │       ├── Documents
 │       │   └── List / detail / generation / QES / PDF / recovery
 │       ├── Simple analytics
@@ -207,9 +207,8 @@ After install/sign-in, the app:
 5. Fetches current state.
 6. Continues or shows a specific safe failure.
 
-Invite acceptance follows the normative ADR-0018 CRM rule: it may establish a
-resolvable company context but creates no CRM row. ADR-0018's contradictory
-introductory wording must be reconciled before invite implementation.
+Invite acceptance creates or enriches the CRM row (ADR-0028). Discovery,
+profile, cart, chat, and direct-link entry still create no CRM row.
 
 ## AI placement and handoffs
 

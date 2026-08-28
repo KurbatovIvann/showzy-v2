@@ -211,7 +211,7 @@ showzy/
 ### Domain modules (packages/modules/*)
 
 **V2 launch:** `companies` (company/team/RBAC/profile/publication, business
-categories, follows) · `customers` (CRM/groups/legal profiles) · `catalog`
+categories, follows) · `customers` (CRM/groups/counterparties/legal profiles) · `catalog`
 (products, variants, categories, likes, comments) · `pricing` (five-level
 rules) · `orders` (carts, snapshots, log, fixed statuses) · `payments`
 (invoice/manual) · `chat` · `documents` · `doc-generation` · `doc-signing` ·

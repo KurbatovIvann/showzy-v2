@@ -42,8 +42,8 @@ assistant conversation (`assistant` — a different surface entirely).
 
 Chat in v2 is **single-channel** (in-app only): Meta/Instagram/messenger
 channels are dropped (scope §5). **Chat never creates CRM records**
-(`company_customers` rows) — CRM creation happens only via staff action or
-atomically at customer checkout (ADR-0018). `orders` does not know chat
+(`company_customers` rows) — CRM creation is staff add, checkout, or
+invite accept (ADR-0018 as amended by ADR-0028). `orders` does not know chat
 exists.
 
 Owner-first launch does not ship conversations. The owner records orders in

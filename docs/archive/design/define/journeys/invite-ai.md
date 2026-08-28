@@ -1,7 +1,8 @@
 # Invite — AI Journey
 
 > Linear: SHO-27 · Context: external intent → Customer-company AI  
-> Also applies: `entry-path-conventions.md`
+> Also applies: `entry-path-conventions.md`  
+> **CRM on accept:** ADR-0028. Step 10 below is the living rule.
 
 ## Purpose and path
 
@@ -17,7 +18,8 @@ account-bound validation and acceptance.
 7. Server revalidates and atomically consumes/records the invite.
 8. Return a verified accepted result and visible company scope.
 9. AI may now invoke only actions resolved for that company/customer context.
-10. Create no CRM row; later checkout links/creates it.
+10. Create or enrich the CRM row from the invite (group and price list
+    from the token). Do not create a counterparty.
 
 ## AI ↔ classic
 
@@ -32,4 +34,5 @@ accepted as separate states. Unknown acceptance outcome refreshes before retry.
 Wrong-account copy reveals no expected identity.
 
 Internally verify state comprehension, arbitrary pasted-link denial, intent
-restoration, one acceptance, and no invite-created CRM row.
+restoration, one acceptance, and that accept creates or enriches exactly
+one CRM row for this user+company (ADR-0028).
