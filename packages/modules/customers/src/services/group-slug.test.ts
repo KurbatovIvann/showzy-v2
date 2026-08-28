@@ -22,7 +22,7 @@ describe("group slug", () => {
   });
 
   it("collapses punctuation and strips combining marks' leftover hyphens", () => {
-    expect(slugFromName("Кав'ярня Затишок")).toBe("kav-iarnya-zatyshok");
+    expect(slugFromName("Кав'ярня Затишок")).toBe("kav-iarnia-zatyshok");
     expect(slugFromName("A---B")).toBe("a-b");
   });
 

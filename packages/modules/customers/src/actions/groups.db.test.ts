@@ -209,6 +209,7 @@ idempotencySuite(
       action: createGroup,
       input: { name: "Idem Create" },
       conflictingInput: { name: "Idem Create Other" },
+      freshInput: () => ({ name: `Idem Concurrent ${randomUUID()}` }),
       readEffect: () => countCompanyGroups(kitIdentities.companies.a),
     },
     {

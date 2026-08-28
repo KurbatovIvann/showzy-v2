@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
 
 import type { ActionCtx } from "@showzy/core";
-import { CoreInvariantError } from "@showzy/core/errors";
+import { ConflictError, CoreInvariantError } from "@showzy/core/errors";
 import { customerGroups } from "@showzy/db/schema/customers";
+import { and, eq } from "drizzle-orm";
 import type { z } from "zod";
 
 import type {
@@ -75,41 +76,77 @@ async function insertGroupWithAllocatedSlug(
   createdAt: Date;
   updatedAt: Date;
 }> {
-  const preferred = slugFromName(values.name);
-  let slug = preferred ?? groupFallbackSlug();
+  // Pick the slug before insert. A unique-violation retry in the same
+  // Postgres transaction would abort the whole handler (25P02).
+  const slug = await pickAvailableSlug(db, values.companyId, values.name);
+  try {
+    const inserted = (
+      await db
+        .insert(customerGroups)
+        .values({
+          id: randomUUID(),
+          companyId: values.companyId,
+          name: values.name,
+          slug,
+          description: values.description,
+          sortOrder: 0,
+          priceListId: values.priceListId,
+        })
+        .returning(groupReturning)
+    )[0];
+    if (inserted === undefined) {
+      throw new CoreInvariantError(
+        "customers.createGroup insert returned no row",
+      );
+    }
+    return inserted;
+  } catch (error) {
+    if (postgresUniqueConstraint(error) === CUSTOMER_GROUPS_COMPANY_SLUG_UQ) {
+      throw new ConflictError("Could not create this group. Retry.", {
+        internalMessage: `slug "${slug}" was taken by a concurrent creation`,
+        cause: error,
+      });
+    }
+    throw error;
+  }
+}
 
+async function pickAvailableSlug(
+  db: WritableStaffDb,
+  companyId: string,
+  name: string,
+): Promise<string> {
+  const preferred = slugFromName(name);
+  if (preferred !== undefined && !(await slugTaken(db, companyId, preferred))) {
+    return preferred;
+  }
   for (let attempt = 0; attempt < SLUG_ALLOCATION_ATTEMPTS; attempt += 1) {
-    const id = randomUUID();
-    try {
-      const inserted = (
-        await db
-          .insert(customerGroups)
-          .values({
-            id,
-            companyId: values.companyId,
-            name: values.name,
-            slug,
-            description: values.description,
-            sortOrder: 0,
-            priceListId: values.priceListId,
-          })
-          .returning(groupReturning)
-      )[0];
-      if (inserted === undefined) {
-        throw new CoreInvariantError(
-          "customers.createGroup insert returned no row",
-        );
-      }
-      return inserted;
-    } catch (error) {
-      if (postgresUniqueConstraint(error) !== CUSTOMER_GROUPS_COMPANY_SLUG_UQ) {
-        throw error;
-      }
-      slug = groupFallbackSlug();
+    const candidate = groupFallbackSlug();
+    if (!(await slugTaken(db, companyId, candidate))) {
+      return candidate;
     }
   }
-
   throw new CoreInvariantError(
     "customers.createGroup exhausted slug allocation attempts",
   );
+}
+
+async function slugTaken(
+  db: WritableStaffDb,
+  companyId: string,
+  slug: string,
+): Promise<boolean> {
+  const row = (
+    await db
+      .select({ id: customerGroups.id })
+      .from(customerGroups)
+      .where(
+        and(
+          eq(customerGroups.companyId, companyId),
+          eq(customerGroups.slug, slug),
+        ),
+      )
+      .limit(1)
+  )[0];
+  return row !== undefined;
 }
