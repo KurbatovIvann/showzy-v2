@@ -44,6 +44,7 @@ import {
   createCounterparty,
   createCustomer,
   createGroup,
+  deleteCounterparty,
   deleteCustomer,
   deleteGroup,
   getCounterparty,
@@ -242,6 +243,7 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, createCounterparty);
   registerAction(registry, createCustomer);
   registerAction(registry, createGroup);
+  registerAction(registry, deleteCounterparty);
   registerAction(registry, deleteCustomer);
   registerAction(registry, deleteGroup);
   registerAction(registry, getCounterparty);

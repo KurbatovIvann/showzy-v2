@@ -2,6 +2,7 @@ export { archiveCustomerContract } from "./actions/archive-customer.contract.js"
 export { createCounterpartyContract } from "./actions/create-counterparty.contract.js";
 export { createCustomerContract } from "./actions/create-customer.contract.js";
 export { createGroupContract } from "./actions/create-group.contract.js";
+export { deleteCounterpartyContract } from "./actions/delete-counterparty.contract.js";
 export { deleteCustomerContract } from "./actions/delete-customer.contract.js";
 export { deleteGroupContract } from "./actions/delete-group.contract.js";
 export { getCounterpartyContract } from "./actions/get-counterparty.contract.js";
