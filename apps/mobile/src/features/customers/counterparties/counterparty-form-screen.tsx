@@ -4,14 +4,12 @@ import { CounterpartyFormView } from "./counterparty-form-view";
 import { useCounterpartyForm } from "./use-counterparty-form";
 
 export function CounterpartyCreateScreen() {
-  const params = useLocalSearchParams<{
+  const { customerId } = useLocalSearchParams<{
     customerId: string | string[];
   }>();
   const model = useCounterpartyForm({
     mode: "create",
-    ...(params.customerId === undefined
-      ? {}
-      : { customerIdParam: params.customerId }),
+    customerIdParam: customerId,
   });
   return <CounterpartyFormView {...model} />;
 }
