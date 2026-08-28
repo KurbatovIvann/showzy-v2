@@ -1,4 +1,4 @@
-/** Price-lists list copy namespace (uk/en). Locale plumbing lives in `./locale`. */
+/** Price-lists list + editor copy namespace (uk/en). Locale plumbing lives in `./locale`. */
 import type { Locale } from "./locale";
 
 export type PricingCountForms = {
@@ -28,13 +28,66 @@ export type PricingEmptyCopy = {
   readonly create: string;
 };
 
-export type PricingEditorStubCopy = {
+export type PricingFormErrorsCopy = {
+  readonly nameRequired: string;
+  readonly nameTooLong: string;
+  readonly priceInvalid: string;
+  readonly validation: string;
+  readonly network: string;
+  readonly offline: string;
+  readonly unavailable: string;
+  readonly permission: string;
+};
+
+export type PricingFormCopy = {
   readonly createTitle: string;
   readonly editTitle: string;
-  readonly placeholderTitle: string;
-  readonly placeholderDescription: string;
+  readonly aboutTitle: string;
+  readonly nameLabel: string;
+  readonly namePlaceholder: string;
+  readonly statusTitle: string;
+  readonly defaultLabel: string;
+  readonly defaultDescription: string;
+  readonly activeLabel: string;
+  readonly inactiveLabel: string;
+  readonly activeDescriptionOn: string;
+  readonly activeDescriptionOff: string;
+  readonly defaultAlwaysActive: string;
+  readonly pricesTitle: string;
+  readonly createPricesHint: string;
+  readonly emptyPriceHint: string;
+  readonly productSearchLabel: string;
+  readonly productSearchPlaceholder: string;
+  readonly bulkLabel: string;
+  readonly bulkPlaceholder: string;
+  readonly bulkApply: string;
+  readonly bulkInvalid: string;
+  readonly bulkApplied: string;
+  readonly catalogBaseLabel: string;
+  readonly archivedBadge: string;
+  readonly expandVariants: string;
+  readonly collapseVariants: string;
+  readonly variantInheritHint: string;
+  readonly noProducts: string;
+  readonly pricesLoading: string;
+  readonly cancel: string;
+  readonly changedLabel: string;
+  readonly leaveTitle: string;
+  readonly leaveDescription: string;
+  readonly leaveContinue: string;
+  readonly leaveConfirm: string;
+  readonly submitCreate: string;
+  readonly submitCreateLoading: string;
+  readonly submitEdit: string;
+  readonly submitEditLoading: string;
+  readonly permissionCreateTitle: string;
+  readonly permissionCreateDescription: string;
+  readonly permissionEditTitle: string;
+  readonly permissionEditDescription: string;
   readonly notFoundTitle: string;
   readonly notFoundDescription: string;
+  readonly loadingLabel: string;
+  readonly errors: PricingFormErrorsCopy;
 };
 
 export type PricingCopy = {
@@ -75,7 +128,134 @@ export type PricingCopy = {
     readonly cannotDeactivateDefault: string;
   };
   readonly mutation: PricingMutationCopy;
-  readonly stub: PricingEditorStubCopy;
+  readonly form: PricingFormCopy;
+};
+
+const enForm: PricingFormCopy = {
+  createTitle: "New price list",
+  editTitle: "Edit price list",
+  aboutTitle: "About the list",
+  nameLabel: "Name",
+  namePlaceholder: "For example, Wholesale",
+  statusTitle: "Status",
+  defaultLabel: "Default price list",
+  defaultDescription: "Used by customers without their own assignment",
+  activeLabel: "Active",
+  inactiveLabel: "Inactive",
+  activeDescriptionOn: "Included when prices are resolved",
+  activeDescriptionOff: "Skipped when prices are resolved",
+  defaultAlwaysActive: "The default list is always active",
+  pricesTitle: "Product prices",
+  createPricesHint:
+    "After creating the list you can set per-product prices. An empty field uses the catalog base price.",
+  emptyPriceHint: "An empty price inherits from the catalog",
+  productSearchLabel: "Search products",
+  productSearchPlaceholder: "Search products…",
+  bulkLabel: "Bulk discount",
+  bulkPlaceholder: "Discount %",
+  bulkApply: "Apply",
+  bulkInvalid: "Enter a discount from 1 to 100%",
+  bulkApplied: "{{percent}}% discount applied to all products",
+  catalogBaseLabel: "Base price {{price}}",
+  archivedBadge: "Archived",
+  expandVariants: "Show variants",
+  collapseVariants: "Hide variants",
+  variantInheritHint:
+    "Empty inherits this list’s product price, then the chain",
+  noProducts: "No products found.",
+  pricesLoading: "Loading products",
+  cancel: "Cancel",
+  changedLabel: "changed",
+  leaveTitle: "Leave without saving?",
+  leaveDescription: "Unsaved changes will be lost.",
+  leaveContinue: "Stay",
+  leaveConfirm: "Leave",
+  submitCreate: "Create",
+  submitCreateLoading: "Creating…",
+  submitEdit: "Save",
+  submitEditLoading: "Saving…",
+  permissionCreateTitle: "No permission to create",
+  permissionCreateDescription:
+    "You can view price lists but cannot create them.",
+  permissionEditTitle: "No permission to edit",
+  permissionEditDescription: "You can view price lists but cannot change them.",
+  notFoundTitle: "Price list not found",
+  notFoundDescription:
+    "This price list could not be found or the link is out of date.",
+  loadingLabel: "Loading price list",
+  errors: {
+    nameRequired: "Enter a price list name",
+    nameTooLong: "Name is too long",
+    priceInvalid: "Check the highlighted prices",
+    validation: "Check the highlighted fields",
+    network: "Could not save. Try again.",
+    offline: "No connection. Try again when you are online.",
+    unavailable: "Could not save. Try again.",
+    permission: "You do not have permission to change price lists.",
+  },
+};
+
+const ukForm: PricingFormCopy = {
+  createTitle: "Новий прайс-лист",
+  editTitle: "Редагувати прайс-лист",
+  aboutTitle: "Про лист",
+  nameLabel: "Назва",
+  namePlaceholder: "Наприклад, Опт",
+  statusTitle: "Статус",
+  defaultLabel: "Основний прайс-лист",
+  defaultDescription: "Ним користуються клієнти без власного призначення",
+  activeLabel: "Активний",
+  inactiveLabel: "Неактивний",
+  activeDescriptionOn: "Бере участь у розрахунку цін",
+  activeDescriptionOff: "Пропускається під час розрахунку цін",
+  defaultAlwaysActive: "Основний лист завжди активний",
+  pricesTitle: "Ціни товарів",
+  createPricesHint:
+    "Після створення ви зможете задати окремі ціни для товарів. Поки поле порожнє — діє базова ціна з каталогу.",
+  emptyPriceHint: "Порожня ціна береться з каталогу",
+  productSearchLabel: "Пошук товарів",
+  productSearchPlaceholder: "Шукати товари…",
+  bulkLabel: "Масова знижка",
+  bulkPlaceholder: "Знижка %",
+  bulkApply: "Застосувати",
+  bulkInvalid: "Введіть знижку від 1 до 100%",
+  bulkApplied: "Знижку {{percent}}% застосовано до всіх товарів",
+  catalogBaseLabel: "Базова ціна {{price}}",
+  archivedBadge: "Архівний",
+  expandVariants: "Показати варіанти",
+  collapseVariants: "Сховати варіанти",
+  variantInheritHint: "Порожнє наслідує ціну товару в цьому листі, далі ланцюг",
+  noProducts: "Товарів не знайдено.",
+  pricesLoading: "Завантаження товарів",
+  cancel: "Скасувати",
+  changedLabel: "змінено",
+  leaveTitle: "Вийти без збереження?",
+  leaveDescription: "Незбережені зміни буде втрачено.",
+  leaveContinue: "Залишитись",
+  leaveConfirm: "Вийти",
+  submitCreate: "Створити",
+  submitCreateLoading: "Створення…",
+  submitEdit: "Зберегти",
+  submitEditLoading: "Збереження…",
+  permissionCreateTitle: "Немає права створювати",
+  permissionCreateDescription:
+    "Можна переглядати прайс-листи, але не створювати їх.",
+  permissionEditTitle: "Немає права редагувати",
+  permissionEditDescription:
+    "Можна переглядати прайс-листи, але не змінювати їх.",
+  notFoundTitle: "Прайс-лист не знайдено",
+  notFoundDescription: "Можливо, його було видалено або посилання застаріло.",
+  loadingLabel: "Завантаження прайс-листа",
+  errors: {
+    nameRequired: "Вкажіть назву прайс-листа",
+    nameTooLong: "Назва занадто довга",
+    priceInvalid: "Перевірте виділені ціни",
+    validation: "Перевірте виділені поля",
+    network: "Не вдалося зберегти. Спробуйте ще раз.",
+    offline: "Немає зʼєднання. Спробуйте, коли зʼявиться мережа.",
+    unavailable: "Не вдалося зберегти. Спробуйте ще раз.",
+    permission: "Немає права змінювати прайс-листи.",
+  },
 };
 
 const en: PricingCopy = {
@@ -139,16 +319,7 @@ const en: PricingCopy = {
     offline: "No connection. Try again when you are online.",
     permission: "You do not have permission to change price lists.",
   },
-  stub: {
-    createTitle: "New price list",
-    editTitle: "Edit price list",
-    placeholderTitle: "Editor coming soon",
-    placeholderDescription:
-      "Creating lists and filling product prices will land in the next step.",
-    notFoundTitle: "Price list not found",
-    notFoundDescription:
-      "This price list could not be found or is unavailable.",
-  },
+  form: enForm,
 };
 
 const uk: PricingCopy = {
@@ -212,16 +383,7 @@ const uk: PricingCopy = {
     offline: "Немає зʼєднання. Спробуйте, коли зʼявиться мережа.",
     permission: "Немає права змінювати прайс-листи.",
   },
-  stub: {
-    createTitle: "Новий прайс-лист",
-    editTitle: "Редагувати прайс-лист",
-    placeholderTitle: "Редактор незабаром",
-    placeholderDescription:
-      "Створення листів і заповнення цін зʼявиться в наступному кроці.",
-    notFoundTitle: "Прайс-лист не знайдено",
-    notFoundDescription:
-      "Не вдалося знайти цей прайс-лист або він недоступний.",
-  },
+  form: ukForm,
 };
 
 export function pricingCopy(locale: Locale): PricingCopy {

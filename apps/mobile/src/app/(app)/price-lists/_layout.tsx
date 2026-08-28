@@ -8,7 +8,7 @@ import { hierarchicalStackScreenOptions } from "../../../navigation/hierarchical
  * Price-list stack sits beside the tab shell on the (app) Stack, so it
  * does not inherit the tabs' company-resolution provider. Wrap these
  * routes the same way so `useResolvedCompany` (permission affordances)
- * is defined on the list and editor placeholder.
+ * is defined on the list and editor.
  */
 export default function PriceListsLayout() {
   const { theme } = useUnistyles();
