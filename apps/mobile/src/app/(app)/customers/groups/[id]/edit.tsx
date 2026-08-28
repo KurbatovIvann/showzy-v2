@@ -1,1 +1,1 @@
-export { GroupEditStub as default } from "../../../../../features/customers/shared/editor-stub-routes";
+export { GroupEditScreen as default } from "../../../../../features/customers/groups/group-form-screen";
