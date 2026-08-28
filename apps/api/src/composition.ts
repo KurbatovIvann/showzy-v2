@@ -45,6 +45,8 @@ import {
   createGroup,
   deleteGroup,
   getCustomerPricingFacts,
+  getGroup,
+  listGroups,
   restoreCustomer,
   updateCustomer,
   updateGroup,
@@ -217,6 +219,8 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, createGroup);
   registerAction(registry, deleteGroup);
   registerAction(registry, getCustomerPricingFacts);
+  registerAction(registry, getGroup);
+  registerAction(registry, listGroups);
   registerAction(registry, restoreCustomer);
   registerAction(registry, updateCustomer);
   registerAction(registry, updateGroup);
