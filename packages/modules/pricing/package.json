@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Pricing module: staff batch price resolution over the five-level chain. This package exports actions and events only.",
+  "description": "Pricing module: staff batch price resolution over the five-level chain and staff price-list listing. This package exports actions and events only.",
   "exports": {
     ".": "./src/index.ts",
     "./contract": "./src/index.contract.ts",

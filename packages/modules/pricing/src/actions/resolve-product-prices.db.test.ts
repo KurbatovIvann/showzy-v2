@@ -124,6 +124,7 @@ async function insertList(values: {
   await kit.db.runtime.db.insert(priceLists).values({
     id: values.id,
     companyId: values.companyId,
+    name: values.isDefault === true ? "Default" : "Price list",
     ...(values.isDefault === undefined ? {} : { isDefault: values.isDefault }),
     ...(values.isActive === undefined ? {} : { isActive: values.isActive }),
   });
