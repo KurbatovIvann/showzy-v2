@@ -40,11 +40,13 @@ import { chatSuiteCoverage } from "@showzy/chat/suite-coverage";
 import { createCompany, listMine } from "@showzy/companies";
 import { companiesSuiteCoverage } from "@showzy/companies/suite-coverage";
 import {
+  createCustomer,
   createGroup,
   deleteGroup,
   getCustomerPricingFacts,
   getGroup,
   listGroups,
+  updateCustomer,
   updateGroup,
 } from "@showzy/customers";
 import { customersSuiteCoverage } from "@showzy/customers/suite-coverage";
@@ -122,7 +124,15 @@ const callEdges: readonly DeclaredCallEdge[] = [
     callee: "files.getAttachmentFacts",
   },
   {
+    caller: "customers.createCustomer",
+    callee: "pricing.listPriceLists",
+  },
+  {
     caller: "customers.createGroup",
+    callee: "pricing.listPriceLists",
+  },
+  {
+    caller: "customers.updateCustomer",
     callee: "pricing.listPriceLists",
   },
   {
@@ -202,11 +212,13 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, upsertOrderCard);
   registerAction(registry, createCompany);
   registerAction(registry, listMine);
-  registerAction(registry, getCustomerPricingFacts);
+  registerAction(registry, createCustomer);
   registerAction(registry, createGroup);
   registerAction(registry, deleteGroup);
+  registerAction(registry, getCustomerPricingFacts);
   registerAction(registry, getGroup);
   registerAction(registry, listGroups);
+  registerAction(registry, updateCustomer);
   registerAction(registry, updateGroup);
   registerAction(registry, requestUpload);
   registerAction(registry, getUploadUrl);
