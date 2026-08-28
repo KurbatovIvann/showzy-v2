@@ -130,7 +130,7 @@ export async function setStaffDefaultPriceList(env: {
       { price_list_id: updated.id },
       "pricing.setDefaultPriceList set company default",
     );
-    return viewOf(ctx, updated);
+    return await viewOf(ctx, updated);
   } catch (error) {
     throw mapDefaultPriceListUniqueViolation(error);
   }
