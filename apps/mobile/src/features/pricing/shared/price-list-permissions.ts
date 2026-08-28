@@ -13,12 +13,13 @@ export type CompanyRole = CompanyMembership["role"];
 
 /** `pricing:view` — seeded for every staff role including employee. */
 export function canViewPriceLists(role: CompanyRole): boolean {
-  return (
-    role === "owner" ||
-    role === "admin" ||
-    role === "manager" ||
-    role === "employee"
-  );
+  switch (role) {
+    case "owner":
+    case "admin":
+    case "manager":
+    case "employee":
+      return true;
+  }
 }
 
 /**

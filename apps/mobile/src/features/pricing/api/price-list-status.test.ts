@@ -30,19 +30,19 @@ describe("bindPriceListStatusMutate", () => {
           pricing: {
             setDefaultPriceList: (input, options: MutationCallOptions) => {
               calls.push(
-                `setDefault:${String(input.priceListId)}:${options.context.idempotencyKey.length > 0}`,
+                `setDefault:${String(input.priceListId)}:${options.context.idempotencyKey.length > 0 ? "true" : "false"}`,
               );
               return Promise.resolve(null);
             },
             activatePriceList: (input, options: MutationCallOptions) => {
               calls.push(
-                `activate:${input.id}:${options.context.idempotencyKey.length > 0}`,
+                `activate:${input.id}:${options.context.idempotencyKey.length > 0 ? "true" : "false"}`,
               );
               return Promise.resolve({ id: input.id });
             },
             deactivatePriceList: (input, options: MutationCallOptions) => {
               calls.push(
-                `deactivate:${input.id}:${options.context.idempotencyKey.length > 0}`,
+                `deactivate:${input.id}:${options.context.idempotencyKey.length > 0 ? "true" : "false"}`,
               );
               return Promise.resolve({ id: input.id });
             },

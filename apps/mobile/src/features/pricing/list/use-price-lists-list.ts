@@ -99,7 +99,7 @@ export function usePriceListsList() {
     state.kind === "rows" &&
     shouldShowPriceListsHint({
       rowCount: rows.length,
-      hasNextPage: listQuery.hasNextPage === true,
+      hasNextPage: listQuery.hasNextPage,
       hasSearch,
       availability,
     });
