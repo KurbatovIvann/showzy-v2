@@ -83,10 +83,12 @@ import {
 } from "@showzy/invites";
 import { invitesSuiteCoverage } from "@showzy/invites/suite-coverage";
 import {
+  cancelOrder,
   confirmOrder,
   createOrder,
   getOrder,
   listOrders,
+  ordersCanceled,
   ordersConfirmed,
   ordersCreated,
 } from "@showzy/orders";
@@ -140,6 +142,7 @@ const moduleSuiteCoverage: readonly SuiteCoverageManifest[] = [
 const events: readonly EventDefinitionRef[] = [
   ordersCreated,
   ordersConfirmed,
+  ordersCanceled,
   invitesAccepted,
   invitesCreated,
   invitesRevoked,
@@ -301,6 +304,7 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, revokeInvite);
   registerAction(registry, createOrder);
   registerAction(registry, confirmOrder);
+  registerAction(registry, cancelOrder);
   registerAction(registry, getOrder);
   registerAction(registry, listOrders);
   registerAction(registry, activatePriceList);
