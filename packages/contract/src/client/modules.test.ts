@@ -39,7 +39,11 @@ import {
   updateCustomerContract,
   updateGroupContract,
 } from "@showzy/customers/contract";
-import { createFromOrderContract } from "@showzy/documents/contract";
+import {
+  createFromOrderContract,
+  getDocumentContract,
+  listDocumentsContract,
+} from "@showzy/documents/contract";
 import {
   finalizeUploadContract,
   getDownloadUrlContract,
@@ -124,6 +128,8 @@ describe("client composition", () => {
       },
       documents: {
         createFromOrder: createFromOrderContract,
+        get: getDocumentContract,
+        list: listDocumentsContract,
       },
       files: {
         requestUpload: requestUploadContract,
@@ -204,6 +210,8 @@ describe("client composition", () => {
     );
     expect(contractModules.customers).not.toHaveProperty("applyInviteCrm");
     expect(contractRouter.documents.createFromOrder).toBeDefined();
+    expect(contractRouter.documents.get).toBeDefined();
+    expect(contractRouter.documents.list).toBeDefined();
     expect(contractRouter.files.requestUpload).toBeDefined();
     expect(contractRouter.files.getUploadUrl).toBeDefined();
     expect(contractRouter.files.finalizeUpload).toBeDefined();

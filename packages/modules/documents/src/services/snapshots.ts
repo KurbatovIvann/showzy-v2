@@ -173,3 +173,13 @@ export function snapshotCustomerBuyer(displayName: string): BuyerDetails {
     displayName,
   };
 }
+
+export function buyerLabelFromSnapshot(buyer: unknown): string {
+  const parsed = buyerDetailsSchema.safeParse(buyer);
+  if (!parsed.success) {
+    throw new CoreInvariantError("documents row has illegal buyer_details");
+  }
+  return parsed.data.kind === "counterparty"
+    ? parsed.data.name
+    : parsed.data.displayName;
+}
