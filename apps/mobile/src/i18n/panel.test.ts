@@ -54,6 +54,9 @@ describe("panel copy", () => {
       documents: "Документи",
       documentsDescription: "Рахунки, акти та накладні",
       documentsDisabledHint: "Незабаром",
+      settings: "Налаштування",
+      companySettings: "Налаштування компанії",
+      companySettingsDescription: "Профіль і юридичні реквізити",
     });
     expect(en.more).toEqual({
       session: "Session",
@@ -68,6 +71,9 @@ describe("panel copy", () => {
       documents: "Documents",
       documentsDescription: "Invoices, acts, and waybills",
       documentsDisabledHint: "Coming soon",
+      settings: "Settings",
+      companySettings: "Company settings",
+      companySettingsDescription: "Profile and legal requisites",
     });
   });
 
