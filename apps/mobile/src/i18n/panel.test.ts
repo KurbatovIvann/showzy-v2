@@ -52,7 +52,7 @@ describe("panel copy", () => {
       priceLists: "Прайс-листи",
       priceListsDescription: "Різні ціни для груп клієнтів",
       documents: "Документи",
-      documentsDescription: "Рахунки, акти та накладні",
+      documentsDescription: "Рахунки та видаткові накладні",
       documentsDisabledHint: "Незабаром",
       settings: "Налаштування",
       companySettings: "Налаштування компанії",
@@ -69,12 +69,14 @@ describe("panel copy", () => {
       priceLists: "Price lists",
       priceListsDescription: "Different prices for customer groups",
       documents: "Documents",
-      documentsDescription: "Invoices, acts, and waybills",
+      documentsDescription: "Invoices and delivery notes",
       documentsDisabledHint: "Coming soon",
       settings: "Settings",
       companySettings: "Company settings",
       companySettingsDescription: "Profile and legal requisites",
     });
+    expect(uk.more.documentsDescription).not.toMatch(/акт/i);
+    expect(en.more.documentsDescription).not.toMatch(/acts/i);
   });
 
   it("pins placeholder copy in uk and en", () => {
