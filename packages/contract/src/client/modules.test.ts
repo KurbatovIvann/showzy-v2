@@ -45,6 +45,12 @@ import {
   requestUploadContract,
 } from "@showzy/files/contract";
 import {
+  createInviteContract,
+  getInviteContract,
+  listInvitesContract,
+  revokeInviteContract,
+} from "@showzy/invites/contract";
+import {
   confirmOrderContract,
   createOrderContract,
   getOrderContract,
@@ -67,7 +73,7 @@ import {
 import { contractModules, contractRouter } from "./modules.js";
 
 describe("client composition", () => {
-  it("exposes client catalog, chat, companies, customers, files, orders, and pricing actions and no internal facts actions", () => {
+  it("exposes client catalog, chat, companies, customers, files, invites, orders, and pricing actions and no internal facts actions", () => {
     expect(contractModules).toEqual({
       catalog: {
         createProduct: createProductContract,
@@ -114,6 +120,12 @@ describe("client composition", () => {
         finalizeUpload: finalizeUploadContract,
         getDownloadUrl: getDownloadUrlContract,
         getDownloadUrls: getDownloadUrlsContract,
+      },
+      invites: {
+        create: createInviteContract,
+        get: getInviteContract,
+        list: listInvitesContract,
+        revoke: revokeInviteContract,
       },
       orders: {
         create: createOrderContract,
@@ -180,6 +192,10 @@ describe("client composition", () => {
     expect(contractRouter.files.getDownloadUrls).toBeDefined();
     expect(contractModules.files).not.toHaveProperty("getAttachmentFacts");
     expect(contractModules.files).not.toHaveProperty("sweepAbandonedUploads");
+    expect(contractRouter.invites.create).toBeDefined();
+    expect(contractRouter.invites.get).toBeDefined();
+    expect(contractRouter.invites.list).toBeDefined();
+    expect(contractRouter.invites.revoke).toBeDefined();
     expect(contractRouter.orders.create).toBeDefined();
     expect(contractRouter.orders.confirm).toBeDefined();
     expect(contractRouter.orders.get).toBeDefined();
