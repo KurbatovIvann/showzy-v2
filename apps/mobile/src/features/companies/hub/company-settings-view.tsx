@@ -24,7 +24,7 @@ export function CompanySettingsView(model: CompanySettingsModel) {
     >
       <AppHeader
         title={copy.title}
-        subtitle={model.identity?.name}
+        {...(model.identity === null ? {} : { subtitle: model.identity.name })}
         back={{
           onPress: model.goBack,
           accessibilityLabel: copy.backLabel,
