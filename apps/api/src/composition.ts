@@ -67,7 +67,12 @@ import {
   updateGroup,
 } from "@showzy/customers";
 import { customersSuiteCoverage } from "@showzy/customers/suite-coverage";
-import { createFromOrder, documentsCreated } from "@showzy/documents";
+import {
+  createFromOrder,
+  documentsCreated,
+  getDocument,
+  listDocuments,
+} from "@showzy/documents";
 import { documentsSuiteCoverage } from "@showzy/documents/suite-coverage";
 import {
   finalizeUpload,
@@ -343,6 +348,8 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, listInvites);
   registerAction(registry, revokeInvite);
   registerAction(registry, createFromOrder);
+  registerAction(registry, getDocument);
+  registerAction(registry, listDocuments);
   registerAction(registry, createOrder);
   registerAction(registry, confirmOrder);
   registerAction(registry, cancelOrder);

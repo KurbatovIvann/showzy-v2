@@ -106,3 +106,19 @@ export const documentViewSchema = z.object({
   createdAt: z.iso.datetime(),
   items: z.array(documentItemViewSchema).min(1),
 });
+
+/**
+ * Generation chip on `documents.get` (SHO-233 returns null; SHO-236 fills
+ * this from `doc-generation.getArtifact`). Status values match the jobs
+ * CHECK (`pending` | `ready` | `failed`).
+ */
+export const documentGenerationStatusSchema = z.enum([
+  "pending",
+  "ready",
+  "failed",
+]);
+
+export const documentGenerationViewSchema = z.object({
+  status: documentGenerationStatusSchema,
+  fileId: z.uuid().nullable(),
+});
