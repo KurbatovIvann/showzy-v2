@@ -10,12 +10,12 @@ describe("mintSharePdfDownload", () => {
     let called = false;
     const minted = await mintSharePdfDownload({
       fileId: null,
-      issueShareDownload: async () => {
+      issueShareDownload: () => {
         called = true;
-        return {
+        return Promise.resolve({
           downloadUrl: "https://files.example/doc.pdf",
           expiresAt: "2026-08-29T12:15:00.000Z",
-        };
+        });
       },
     });
     expect(called).toBe(false);
@@ -28,12 +28,12 @@ describe("mintSharePdfDownload", () => {
   it("persists the issuer URL when the nested call succeeds", async () => {
     const minted = await mintSharePdfDownload({
       fileId,
-      issueShareDownload: async (id) => {
+      issueShareDownload: (id) => {
         expect(id).toBe(fileId);
-        return {
+        return Promise.resolve({
           downloadUrl: "https://files.example/doc.pdf",
           expiresAt: "2026-08-29T12:15:00.000Z",
-        };
+        });
       },
     });
     expect(minted.pdfDownloadUrl).toBe("https://files.example/doc.pdf");
@@ -45,9 +45,7 @@ describe("mintSharePdfDownload", () => {
   it("stores nulls when the issuer reports not-found", async () => {
     const minted = await mintSharePdfDownload({
       fileId,
-      issueShareDownload: async () => {
-        throw new NotFoundError();
-      },
+      issueShareDownload: () => Promise.reject(new NotFoundError()),
     });
     expect(minted).toEqual({
       pdfDownloadUrl: null,
@@ -59,9 +57,8 @@ describe("mintSharePdfDownload", () => {
     await expect(
       mintSharePdfDownload({
         fileId,
-        issueShareDownload: async () => {
-          throw new CoreInvariantError("object store unbound");
-        },
+        issueShareDownload: () =>
+          Promise.reject(new CoreInvariantError("object store unbound")),
       }),
     ).rejects.toBeInstanceOf(CoreInvariantError);
   });

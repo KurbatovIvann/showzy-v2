@@ -1,7 +1,6 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import { ActionRegistry } from "@showzy/core";
-import { getShared } from "@showzy/documents";
 import {
   createTestKit,
   kitIdentities,
@@ -126,15 +125,12 @@ async function insertSeedDocument(values: {
 }
 
 function landingApp() {
-  const registry = new ActionRegistry();
-  registry.registerContract(getShared.contract);
-  registry.registerImplementation(getShared);
   return createApp({
     auth: {
       handler: () => Promise.resolve(new Response(null, { status: 404 })),
       api: { getSession: () => Promise.resolve(null) },
     },
-    registry,
+    registry: new ActionRegistry(),
     contractModules: {},
     pipeline: kit.pipeline,
     trustedProxies: [],

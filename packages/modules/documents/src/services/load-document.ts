@@ -1,5 +1,5 @@
+import type { ActionCtx } from "@showzy/core";
 import { CoreInvariantError, NotFoundError } from "@showzy/core/errors";
-import type { ReadTx } from "@showzy/db";
 import { documentItems, documents } from "@showzy/db/schema/documents";
 import { and, asc, eq } from "drizzle-orm";
 import type { z } from "zod";
@@ -16,6 +16,9 @@ import {
 } from "../actions/document-view.contract.js";
 import { moneyToCanonical } from "./canonical.js";
 
+type ReadableDb =
+  | Extract<ActionCtx, { principal: "staff" }>["db"]
+  | Extract<ActionCtx, { principal: "public"; scope: "target" }>["db"];
 type DocumentView = z.output<typeof documentViewSchema>;
 
 function parseType(value: string): z.output<typeof documentTypeSchema> {
@@ -87,7 +90,7 @@ function parseBuyer(value: unknown): z.output<typeof buyerDetailsSchema> {
 }
 
 export async function loadStaffDocument(env: {
-  readonly db: ReadTx;
+  readonly db: ReadableDb;
   readonly companyId: string;
   readonly documentId: string;
 }): Promise<DocumentView> {

@@ -1,4 +1,4 @@
-import type { ReadTx } from "@showzy/db";
+import type { ActionCtx } from "@showzy/core";
 import { and, eq, isNotNull } from "drizzle-orm";
 import { pgTable, text, uuid } from "drizzle-orm/pg-core";
 
@@ -15,8 +15,10 @@ const documentGenerationJobsRead = pgTable("document_generation_jobs", {
   fileId: uuid("file_id"),
 });
 
+type StaffDb = Extract<ActionCtx, { principal: "staff" }>["db"];
+
 export async function loadReadyShareFileId(env: {
-  readonly db: ReadTx;
+  readonly db: StaffDb;
   readonly companyId: string;
   readonly documentId: string;
 }): Promise<string | null> {
