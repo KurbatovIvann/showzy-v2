@@ -121,12 +121,7 @@ export const companyLegalFormNameSchema = z
   });
 
 export const companyLegalFormDraftSchema = z.object({
-  companyType: z
-    .string()
-    .refine(
-      (value): value is CompanyLegalType => value === "fop" || value === "tov",
-      { message: "invalid" },
-    ),
+  companyType: z.enum(["fop", "tov"], { error: "invalid" }),
   legalName: companyLegalFormNameSchema,
   edrpou: cappedOptional(COMPANY_LEGAL_EDRPOU_MAX),
   legalAddress: cappedOptional(COMPANY_LEGAL_ADDRESS_MAX),
@@ -168,8 +163,8 @@ export function fieldErrorsFromDraftSchema(
       legalName = issue.message;
       continue;
     }
-    if (root === "companyType" && isCompanyTypeErrorKey(issue.message)) {
-      companyType = issue.message;
+    if (root === "companyType") {
+      companyType = "invalid";
       continue;
     }
     if (isLengthField(root) && isLengthErrorKey(issue.message)) {

@@ -10,7 +10,6 @@ import type { CompaniesLegalFormCopy } from "../../../i18n/companies";
 import type { CompanyLegalFormMode } from "./company-legal-form-draft";
 import type { CompanyLegalFormWrite } from "./company-legal-form-plan";
 import {
-  isCompanyTypeErrorKey,
   isLengthErrorKey,
   isNameErrorKey,
   type CompanyLegalFormFieldErrors,
@@ -204,10 +203,8 @@ export function fieldErrorsFromFormState(args: {
       ? args.legalNameMessage
       : null;
   const companyType =
-    args.submitted &&
-    typeof args.companyTypeMessage === "string" &&
-    isCompanyTypeErrorKey(args.companyTypeMessage)
-      ? args.companyTypeMessage
+    args.submitted && typeof args.companyTypeMessage === "string"
+      ? "invalid"
       : null;
   function lengthOf(message: unknown): LengthErrorKey | null {
     if (

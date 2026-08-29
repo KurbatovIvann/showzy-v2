@@ -64,7 +64,17 @@ export function useCompanyLegalForm() {
   const companyType = companyTypeFromWatch(
     useWatch({ control, name: "companyType" }),
   );
-  const emptinessFields = useWatch({
+  const [
+    legalNameValue,
+    edrpouValue,
+    legalAddressValue,
+    ibanValue,
+    bankNameValue,
+    bankMfoValue,
+    bankEdrpouValue,
+    phoneValue,
+    emailValue,
+  ] = useWatch({
     control,
     name: [
       "legalName",
@@ -80,15 +90,15 @@ export function useCompanyLegalForm() {
   });
   const empty = isCompanyLegalDraftEmpty({
     companyType,
-    legalName: emptinessFields?.[0] ?? "",
-    edrpou: emptinessFields?.[1] ?? "",
-    legalAddress: emptinessFields?.[2] ?? "",
-    iban: emptinessFields?.[3] ?? "",
-    bankName: emptinessFields?.[4] ?? "",
-    bankMfo: emptinessFields?.[5] ?? "",
-    bankEdrpou: emptinessFields?.[6] ?? "",
-    phone: emptinessFields?.[7] ?? "",
-    email: emptinessFields?.[8] ?? "",
+    legalName: legalNameValue,
+    edrpou: edrpouValue,
+    legalAddress: legalAddressValue,
+    iban: ibanValue,
+    bankName: bankNameValue,
+    bankMfo: bankMfoValue,
+    bankEdrpou: bankEdrpouValue,
+    phone: phoneValue,
+    email: emailValue,
   });
 
   const [origin, setOriginDraft] = useState<CompanyLegalFormDraft>(() =>

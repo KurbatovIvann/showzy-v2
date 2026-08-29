@@ -92,9 +92,6 @@ export function writesEqual(
   left: CompanyLegalFormWrite,
   right: CompanyLegalFormWrite,
 ): boolean {
-  if (left.kind !== right.kind) {
-    return false;
-  }
   return JSON.stringify(left.input) === JSON.stringify(right.input);
 }
 
