@@ -50,6 +50,7 @@ import {
   updateCustomerContract,
   updateGroupContract,
 } from "@showzy/customers/contract";
+import { createFromOrderContract } from "@showzy/documents/contract";
 import {
   finalizeUploadContract,
   getDownloadUrlContract,
@@ -132,6 +133,9 @@ export const contractModules = {
     updateCounterparty: updateCounterpartyContract,
     updateCustomer: updateCustomerContract,
     updateGroup: updateGroupContract,
+  },
+  documents: {
+    createFromOrder: createFromOrderContract,
   },
   files: {
     requestUpload: requestUploadContract,
