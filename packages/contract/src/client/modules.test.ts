@@ -16,7 +16,9 @@ import {
 import { getOrderCardContract } from "@showzy/chat/contract";
 import {
   createCompanyContract,
+  getCompanyContract,
   listMineContract,
+  updateLegalContract,
 } from "@showzy/companies/contract";
 import {
   archiveCustomerContract,
@@ -96,7 +98,9 @@ describe("client composition", () => {
       },
       companies: {
         create: createCompanyContract,
+        get: getCompanyContract,
         listMine: listMineContract,
+        updateLegal: updateLegalContract,
       },
       customers: {
         archiveCustomer: archiveCustomerContract,
@@ -170,7 +174,9 @@ describe("client composition", () => {
     );
     expect(contractRouter.chat.getOrderCard).toBeDefined();
     expect(contractRouter.companies.create).toBeDefined();
+    expect(contractRouter.companies.get).toBeDefined();
     expect(contractRouter.companies.listMine).toBeDefined();
+    expect(contractRouter.companies.updateLegal).toBeDefined();
     expect(contractRouter.customers.archiveCustomer).toBeDefined();
     expect(contractRouter.customers.createCounterparty).toBeDefined();
     expect(contractRouter.customers.createCustomer).toBeDefined();

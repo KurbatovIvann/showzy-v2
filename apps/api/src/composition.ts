@@ -37,7 +37,12 @@ import {
   upsertOrderCard,
 } from "@showzy/chat";
 import { chatSuiteCoverage } from "@showzy/chat/suite-coverage";
-import { createCompany, listMine } from "@showzy/companies";
+import {
+  createCompany,
+  getCompany,
+  listMine,
+  updateLegal,
+} from "@showzy/companies";
 import { companiesSuiteCoverage } from "@showzy/companies/suite-coverage";
 import {
   applyInviteCrm,
@@ -270,7 +275,9 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, getOrderCard);
   registerAction(registry, upsertOrderCard);
   registerAction(registry, createCompany);
+  registerAction(registry, getCompany);
   registerAction(registry, listMine);
+  registerAction(registry, updateLegal);
   registerAction(registry, applyInviteCrm);
   registerAction(registry, archiveCustomer);
   registerAction(registry, createCounterparty);

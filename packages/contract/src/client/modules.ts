@@ -27,7 +27,9 @@ import {
 import { getOrderCardContract } from "@showzy/chat/contract";
 import {
   createCompanyContract,
+  getCompanyContract,
   listMineContract,
+  updateLegalContract,
 } from "@showzy/companies/contract";
 import {
   archiveCustomerContract,
@@ -108,7 +110,9 @@ export const contractModules = {
   },
   companies: {
     create: createCompanyContract,
+    get: getCompanyContract,
     listMine: listMineContract,
+    updateLegal: updateLegalContract,
   },
   customers: {
     archiveCustomer: archiveCustomerContract,
