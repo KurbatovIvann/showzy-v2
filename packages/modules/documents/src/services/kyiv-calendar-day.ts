@@ -17,8 +17,9 @@ function requirePart(
 
 /**
  * Calendar day in `Europe/Kyiv` as `YYYY-MM-DD`. Instant is `new Date()`
- * (or a test-injected Date). Must not use `getFullYear` / `getUTCFullYear`
- * / SQL `extract(year from now())` / date-fns.
+ * (or a test-injected Date). Uses `Intl.DateTimeFormat` / `formatToParts`
+ * with `timeZone: "Europe/Kyiv"` — not the host timezone and not a UTC
+ * calendar day.
  */
 export function kyivCalendarDay(now: Date): string {
   const parts = new Intl.DateTimeFormat("en-US", {

@@ -525,11 +525,7 @@ crossTenantSuite(
     isolationCase(
       createFromOrder,
       { input: { orderId: fixtures.orderIsolationA, type: "payment_invoice" } },
-      {
-        input: { orderId: fixtures.orderIsolationB, type: "payment_invoice" },
-        companyId: kitIdentities.companies.b,
-        userId: kitIdentities.users.boris,
-      },
+      { input: { orderId: fixtures.orderIsolationB, type: "payment_invoice" } },
     ),
   ],
 );

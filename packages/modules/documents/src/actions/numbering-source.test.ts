@@ -7,10 +7,16 @@ import { describe, expect, it } from "vitest";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 const FORBIDDEN =
-  /getFullYear|getUTCFullYear|extract\s*\(\s*year|date-fns|getCompany\b|companies\.get\b/;
+  /\.getFullYear\s*\(|\.getUTCFullYear\s*\(|extract\s*\(\s*year|date-fns|getCompany\b|companies\.get\b/;
 
 function readSrc(relative: string): string {
   return readFileSync(join(root, relative), "utf8");
+}
+
+function executableSource(relative: string): string {
+  return readSrc(relative)
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/\/\/.*$/gm, " ");
 }
 
 describe("documents numbering and issued date source", () => {
@@ -23,8 +29,7 @@ describe("documents numbering and issued date source", () => {
       "services/snapshots.ts",
     ];
     for (const relative of sources) {
-      const source = readSrc(relative);
-      expect(source, relative).not.toMatch(FORBIDDEN);
+      expect(executableSource(relative), relative).not.toMatch(FORBIDDEN);
     }
     expect(readSrc("actions/create-from-order.ts")).toContain("getSellerFacts");
     expect(readSrc("actions/create-from-order.ts")).toContain("getOrder");

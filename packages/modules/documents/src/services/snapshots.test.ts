@@ -69,9 +69,9 @@ describe("document snapshots", () => {
   it("rejects a counterparty linked to a different customer and allows standalone", () => {
     const orderCustomer = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
     const other = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
-    expect(() =>
-      requireCounterpartyCustomerMatch(other, orderCustomer),
-    ).toThrow(ValidationError);
+    expect(() => {
+      requireCounterpartyCustomerMatch(other, orderCustomer);
+    }).toThrow(ValidationError);
     try {
       requireCounterpartyCustomerMatch(other, orderCustomer);
     } catch (error) {
@@ -82,12 +82,12 @@ describe("document snapshots", () => {
         );
       }
     }
-    expect(() =>
-      requireCounterpartyCustomerMatch(null, orderCustomer),
-    ).not.toThrow();
-    expect(() =>
-      requireCounterpartyCustomerMatch(orderCustomer, orderCustomer),
-    ).not.toThrow();
+    expect(() => {
+      requireCounterpartyCustomerMatch(null, orderCustomer);
+    }).not.toThrow();
+    expect(() => {
+      requireCounterpartyCustomerMatch(orderCustomer, orderCustomer);
+    }).not.toThrow();
     expect(snapshotCustomerBuyer("Customer A")).toEqual({
       kind: "customer",
       displayName: "Customer A",

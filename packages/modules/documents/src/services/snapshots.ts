@@ -31,7 +31,7 @@ const counterpartyCustomerMatchGate = z.object({
 });
 
 type SupplierDetails = z.output<typeof supplierDetailsSchema>;
-type BuyerDetails = z.output<typeof buyerDetailsSchema>;
+export type BuyerDetails = z.output<typeof buyerDetailsSchema>;
 
 export interface SellerLegalFact {
   readonly companyType: string;
