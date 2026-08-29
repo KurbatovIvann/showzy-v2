@@ -456,7 +456,7 @@ beforeAll(async () => {
     companyId: companyA,
     userId: clerks.employee,
     role: "employee",
-    permissions: { granted: [], denied: [] },
+    permissions: { granted: ["customers:view"], denied: [] },
   });
 });
 
