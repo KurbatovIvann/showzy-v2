@@ -17,7 +17,7 @@ import { companyMembers } from "@showzy/db/schema/companies";
 import { files } from "@showzy/db/schema/files";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { catalogObjectKey } from "../services/object-key.js";
+import { catalogObjectKey, documentObjectKey } from "../services/object-key.js";
 import { getAttachmentFacts } from "./get-attachment-facts.js";
 import { ATTACHMENT_FACTS_MAX_IDS } from "./get-attachment-facts.contract.js";
 
@@ -26,12 +26,14 @@ const fixtures = {
   readyAPng: randomUUID(),
   pendingA: randomUUID(),
   readyB: randomUUID(),
+  documentA: randomUUID(),
 };
 
 const checksumA = "11".repeat(32);
 const checksumAPng = "22".repeat(32);
 const checksumB = "33".repeat(32);
 const checksumPending = "44".repeat(32);
+const checksumDocument = "55".repeat(32);
 
 const clerkUserId = randomUUID();
 
@@ -92,6 +94,18 @@ beforeAll(async () => {
     mimeType: "image/jpeg",
     byteSize: 128,
     checksumSha256: checksumB,
+  });
+  await kit.db.runtime.db.insert(files).values({
+    id: fixtures.documentA,
+    companyId: kitIdentities.companies.a,
+    uploadedByUserId: null,
+    purpose: "document",
+    objectKey: documentObjectKey(kitIdentities.companies.a, fixtures.documentA),
+    mimeType: "application/pdf",
+    byteSize: 64n,
+    checksumSha256: checksumDocument,
+    status: "ready",
+    stagingPurgedAt: new Date(),
   });
 
   await kit.db.runtime.db.insert(user).values({
@@ -259,5 +273,16 @@ describe("files.getAttachmentFacts", () => {
       fileIds: [fixtures.readyA],
     });
     expect(stillOwn.files).toHaveLength(1);
+  });
+
+  it("treats a generated document as not-found, not a catalog handshake error", async () => {
+    await expect(
+      kit.invoke(getAttachmentFacts, { fileIds: [fixtures.documentA] }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      kit.invoke(getAttachmentFacts, {
+        fileIds: [fixtures.readyA, fixtures.documentA],
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
   });
 });

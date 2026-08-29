@@ -206,6 +206,11 @@ describe("client composition", () => {
     expect(contractRouter.files.getDownloadUrls).toBeDefined();
     expect(contractModules.files).not.toHaveProperty("getAttachmentFacts");
     expect(contractModules.files).not.toHaveProperty("sweepAbandonedUploads");
+    expect(contractModules.files).not.toHaveProperty("recordGeneratedObject");
+    expect(contractModules.files).not.toHaveProperty(
+      "issueDocumentDownloadUrl",
+    );
+    expect(contractModules.files).not.toHaveProperty("issueShareDownloadUrl");
     expect(contractRouter.invites.accept).toBeDefined();
     expect(contractRouter.invites.create).toBeDefined();
     expect(contractRouter.invites.get).toBeDefined();

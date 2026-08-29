@@ -40,6 +40,7 @@ export const getAttachmentFacts = implementAction(getAttachmentFactsContract, {
         and(
           eq(files.companyId, ctx.companyId),
           eq(files.status, "ready"),
+          eq(files.purpose, "catalog"),
           inArray(files.id, fileIds),
         ),
       );

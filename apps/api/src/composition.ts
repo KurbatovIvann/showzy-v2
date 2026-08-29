@@ -73,6 +73,9 @@ import {
   getDownloadUrl,
   getDownloadUrls,
   getUploadUrl,
+  issueDocumentDownloadUrl,
+  issueShareDownloadUrl,
+  recordGeneratedObject,
   requestUpload,
   sweepAbandonedUploads,
 } from "@showzy/files";
@@ -309,6 +312,9 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, getDownloadUrl);
   registerAction(registry, getDownloadUrls);
   registerAction(registry, getAttachmentFacts);
+  registerAction(registry, issueDocumentDownloadUrl);
+  registerAction(registry, issueShareDownloadUrl);
+  registerAction(registry, recordGeneratedObject);
   registerAction(registry, sweepAbandonedUploads);
   registerAction(registry, acceptInvite);
   registerAction(registry, createInvite);

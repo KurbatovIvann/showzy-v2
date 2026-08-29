@@ -151,7 +151,11 @@ async function loadFileRow(input: {
     .select()
     .from(files)
     .where(
-      and(eq(files.companyId, input.companyId), eq(files.id, input.fileId)),
+      and(
+        eq(files.companyId, input.companyId),
+        eq(files.id, input.fileId),
+        eq(files.purpose, "catalog"),
+      ),
     )
     .limit(1);
   const rows = input.lock ? await query.for("update") : await query;

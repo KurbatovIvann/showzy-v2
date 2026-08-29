@@ -6,6 +6,9 @@ import { z } from "zod";
 
 import {
   checksumSha256Schema,
+  documentByteSizeSchema,
+  documentMimeTypeSchema,
+  documentPurposeSchema,
   fileMimeTypeSchema,
   filePurposeSchema,
   uploadByteSizeSchema,
@@ -17,5 +20,14 @@ export const fileReadyViewSchema = z.object({
   purpose: filePurposeSchema,
   mimeType: fileMimeTypeSchema,
   byteSize: uploadByteSizeSchema,
+  checksumSha256: checksumSha256Schema,
+});
+
+export const documentReadyViewSchema = z.object({
+  fileId: z.uuid(),
+  status: z.literal("ready"),
+  purpose: documentPurposeSchema,
+  mimeType: documentMimeTypeSchema,
+  byteSize: documentByteSizeSchema,
   checksumSha256: checksumSha256Schema,
 });

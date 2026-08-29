@@ -211,6 +211,13 @@
       "when": 1788018921064,
       "tag": "0029_uneven_arclight",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1788020438997,
+      "tag": "0030_magical_deathbird",
+      "breakpoints": true
     }
   ]
 }

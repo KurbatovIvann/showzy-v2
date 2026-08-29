@@ -1,15 +1,19 @@
 /**
- * Private company file metadata (SHO-110 / SHO-111). Owned by the files
- * module (ADR-0014). Object bytes live in S3 (`config.s3.bucket`); this
- * table stores only tenant-scoped metadata. Deliberately absent: public
- * URL, bucket name, extra purposes (`documents` / `chat` / `avatar`),
- * `product_media`.
+ * Private company file metadata (SHO-110 / SHO-111 / SHO-229). Owned by
+ * the files module (ADR-0014). Object bytes live in S3 (`config.s3.bucket`);
+ * this table stores only tenant-scoped metadata. Deliberately absent: public
+ * URL, bucket name, extra purposes (`chat` / `avatar`), `product_media`.
  *
- * `object_key` is server-derived `{companyId}/catalog/{fileId}`. The CHECK
- * is a mechanical carry-over from T1; finalize still verifies the prefix
- * (security-operations.md §3). Handshake PUT uses `{companyId}/uploads/{fileId}`
- * derived in code and is never stored (SHO-113). `staging_purged_at` is the
- * ready leftover GC cursor (SHO-117).
+ * `object_key` is server-derived: `{companyId}/catalog/{fileId}` when
+ * `purpose = catalog`, or `{companyId}/documents/{fileId}` when
+ * `purpose = document`. The CHECK matches prefix to purpose; finalize and
+ * `recordGeneratedObject` still verify the prefix (security-operations.md
+ * §3). Handshake PUT uses `{companyId}/uploads/{fileId}` derived in code
+ * and is never stored (SHO-113). `staging_purged_at` is the ready leftover
+ * GC cursor (SHO-117); generated PDFs set it at insert (no handshake).
+ *
+ * `uploaded_by_user_id` is nullable: catalog `requestUpload` still writes
+ * the staff user; generated PDFs may be null.
  */
 import { sql } from "drizzle-orm";
 import {
@@ -28,12 +32,10 @@ import { userIdColumn } from "./auth-ids.js";
 import { companies } from "./companies.js";
 
 /**
- * One row per uploaded object. `object_key` is server-derived
- * `{companyId}/catalog/{fileId}` and unique per tenant. Handshake PUT targets
+ * One row per uploaded or generated object. Catalog handshake PUT targets
  * `{companyId}/uploads/{fileId}` and is never stored. `pending` rows may
- * have `byte_size = 0` and a null checksum until finalize. `staging_purged_at`
- * is null until leftover `{companyId}/uploads/{fileId}` has been confirmed
- * gone.
+ * have `byte_size = 0` and a null checksum until finalize. Generated
+ * documents are inserted `ready` with a documents-prefix key.
  */
 export const files = pgTable(
   "files",
@@ -42,9 +44,10 @@ export const files = pgTable(
     companyId: uuid("company_id")
       .notNull()
       .references(() => companies.id, { onDelete: "cascade" }),
-    uploadedByUserId: userIdColumn("uploaded_by_user_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "restrict" }),
+    uploadedByUserId: userIdColumn("uploaded_by_user_id").references(
+      () => user.id,
+      { onDelete: "restrict" },
+    ),
     purpose: text("purpose").notNull(),
     objectKey: text("object_key").notNull(),
     mimeType: text("mime_type").notNull(),
@@ -75,7 +78,10 @@ export const files = pgTable(
       .where(
         sql`${table.status} = 'ready' AND ${table.stagingPurgedAt} IS NULL`,
       ),
-    check("files_purpose_check", sql`${table.purpose} IN ('catalog')`),
+    check(
+      "files_purpose_check",
+      sql`${table.purpose} IN ('catalog', 'document')`,
+    ),
     check("files_status_check", sql`${table.status} IN ('pending', 'ready')`),
     check("files_byte_size_check", sql`${table.byteSize} >= 0`),
     check(
@@ -83,8 +89,8 @@ export const files = pgTable(
       sql`${table.checksumSha256} IS NULL OR ${table.checksumSha256} ~ '^[0-9a-f]{64}$'`,
     ),
     check(
-      "files_object_key_catalog_prefix_check",
-      sql`${table.objectKey} = ${table.companyId}::text || '/catalog/' || ${table.id}::text`,
+      "files_object_key_purpose_prefix_check",
+      sql`(${table.purpose} = 'catalog' AND ${table.objectKey} = ${table.companyId}::text || '/catalog/' || ${table.id}::text) OR (${table.purpose} = 'document' AND ${table.objectKey} = ${table.companyId}::text || '/documents/' || ${table.id}::text)`,
     ),
   ],
 );

@@ -9,7 +9,7 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { CoreInvariantError } from "@showzy/core/errors";
 
-import type { FileMimeType } from "../wire.contract.js";
+import type { FileMimeType, StoredObjectMimeType } from "../wire.contract.js";
 
 /** Short-lived signed URL lifetime (mechanical default, 15 minutes). */
 export const SIGNED_URL_TTL_SEC = 15 * 60;
@@ -51,13 +51,13 @@ export interface FilesObjectStore {
   }): Promise<SignedUrl>;
   signGet(input: {
     readonly key: string;
-    readonly mimeType: FileMimeType;
+    readonly mimeType: StoredObjectMimeType;
   }): Promise<SignedUrl>;
   headObject(key: string): Promise<ObjectIdentity | "missing">;
   getObject(key: string): Promise<ObjectBytes | "missing">;
   putObject(input: {
     readonly key: string;
-    readonly mimeType: FileMimeType;
+    readonly mimeType: StoredObjectMimeType;
     readonly bytes: Uint8Array;
   }): Promise<void>;
   deleteObject(key: string): Promise<void>;
@@ -276,9 +276,7 @@ export function createFilesObjectStore(
             Bucket: bucket,
             Key: input.key,
             ResponseContentType: input.mimeType,
-            ResponseContentDisposition: imageDownloadDisposition(
-              input.mimeType,
-            ),
+            ResponseContentDisposition: downloadDisposition(input.mimeType),
           }),
           { expiresIn: SIGNED_URL_TTL_SEC },
         );
@@ -394,7 +392,7 @@ function requireObjectEtag(
   return normalizeObjectEtag(etag);
 }
 
-function downloadFilename(mimeType: FileMimeType): string {
+function downloadFilename(mimeType: StoredObjectMimeType): string {
   switch (mimeType) {
     case "image/jpeg":
       return "catalog.jpg";
@@ -402,14 +400,17 @@ function downloadFilename(mimeType: FileMimeType): string {
       return "catalog.png";
     case "image/webp":
       return "catalog.webp";
+    case "application/pdf":
+      return "document.pdf";
   }
 }
 
 /**
  * Catalog files are images. `inline` lets expo-image render the object.
- * Do not switch a non-image purpose to inline without a contract note.
+ * Generated PDFs also use `inline` so the panel / share landing can open
+ * them (SHO-229 contract note).
  */
-function imageDownloadDisposition(mimeType: FileMimeType): string {
+function downloadDisposition(mimeType: StoredObjectMimeType): string {
   return `inline; filename="${downloadFilename(mimeType)}"`;
 }
 
