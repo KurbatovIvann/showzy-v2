@@ -22,6 +22,14 @@ const CREATE_SAVE = readFileSync(
   new URL("./use-document-save.ts", import.meta.url),
   "utf8",
 );
+const CREATE_HANDOVER = readFileSync(
+  new URL("./document-form-handover.ts", import.meta.url),
+  "utf8",
+);
+const CREATE_HANDOVER_HOOK = readFileSync(
+  new URL("./use-document-form-handover.ts", import.meta.url),
+  "utf8",
+);
 const CREATE_PLAN = readFileSync(
   new URL("./document-form-plan.ts", import.meta.url),
   "utf8",
@@ -47,6 +55,7 @@ const FORM_IMPL_FILES = [
   "document-form-copy.ts",
   "document-form-draft.ts",
   "document-form-fields.tsx",
+  "document-form-handover.ts",
   "document-form-leave.ts",
   "document-form-load.ts",
   "document-form-pickers.ts",
@@ -59,7 +68,9 @@ const FORM_IMPL_FILES = [
   "option-select-sheet.tsx",
   "option-select.ts",
   "selector-row.tsx",
+  "use-document-form-handover.ts",
   "use-document-form-lookups.ts",
+  "use-document-form-pickers.ts",
   "use-document-form.ts",
   "use-document-save.ts",
   "use-drain-pages.ts",
@@ -82,6 +93,21 @@ describe("documents/new and /d/[token] routes", () => {
     expect(CREATE_PLAN).toContain("documents.createFromOrder");
     expect(CREATE_SAVE).toContain("bindDocumentFormMutate");
     expect(CREATE_HOOK).toContain("useDocumentSave");
+    expect(CREATE_HOOK).toContain("useDocumentFormHandover");
+    expect(
+      CREATE_HOOK.slice(CREATE_HOOK.indexOf("\n  return {")),
+    ).not.toContain("control");
+    expect(CREATE_VIEW).not.toContain("model.control");
+    expect(CREATE_HANDOVER).toContain("waitThenReplaceAfterCreateHandover");
+    expect(CREATE_HANDOVER).not.toContain("handoverChrome.visible");
+    expect(CREATE_HANDOVER_HOOK).toContain("useSheetHiddenWaiter");
+    expect(CREATE_HANDOVER_HOOK).toContain(
+      "waitThenReplaceAfterCreateHandover",
+    );
+    expect(CREATE_HANDOVER_HOOK).toContain("isSafeHttpUrl");
+    expect(CREATE_HANDOVER_HOOK).not.toContain(
+      "created && !handoverChrome.visible",
+    );
     expect(CREATE_VIEW).toContain("DocumentTypeCards");
     expect(CREATE_VIEW).not.toContain("ChoiceField");
   });
@@ -108,6 +134,8 @@ describe("documents/new and /d/[token] routes", () => {
     expect(sources).not.toContain("../list/");
     expect(sources).not.toContain("features/orders");
     expect(sources).not.toContain("features/customers");
+    expect(sources).toContain("waitThenReplaceAfterCreateHandover");
+    expect(sources).not.toContain("created && !handoverChrome.visible");
     expect(CREATE_VIEW).not.toContain("date-fns");
     expect(CREATE_HOOK).not.toContain("date-fns");
   });

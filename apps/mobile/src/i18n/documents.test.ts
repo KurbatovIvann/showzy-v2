@@ -62,4 +62,17 @@ describe("documents copy", () => {
     expect(uk.form.orderSearchPlaceholder).toContain("Пошук");
     expect(uk.shared.refresh).toContain("оновити");
   });
+
+  it("uses VALIDATION banner copy that does not assume highlighted fields", () => {
+    const uk = documentsCopy("uk");
+    const en = documentsCopy("en");
+    expect(en.form.errors.validation).toBe(
+      "Could not create the document. Check the seller legal details, customer, and counterparty.",
+    );
+    expect(uk.form.errors.validation).toBe(
+      "Не вдалося створити документ. Перевірте реквізити продавця, клієнта та контрагента.",
+    );
+    expect(en.form.errors.validation).not.toMatch(/highlight/i);
+    expect(uk.form.errors.validation).not.toMatch(/позначен|виділен/i);
+  });
 });

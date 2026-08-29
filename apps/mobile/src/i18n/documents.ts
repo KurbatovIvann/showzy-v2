@@ -256,7 +256,8 @@ const en: DocumentsCopy = {
     loadingLabel: "Loading",
     errors: {
       orderRequired: "Choose an order.",
-      validation: "Check the highlighted fields.",
+      validation:
+        "Could not create the document. Check the seller legal details, customer, and counterparty.",
       network: "Could not create the document. Try again.",
       offline: "No connection. Try again when you are online.",
       unavailable: "Could not create the document. Try again.",
@@ -394,7 +395,8 @@ const uk: DocumentsCopy = {
     loadingLabel: "Завантаження",
     errors: {
       orderRequired: "Оберіть замовлення.",
-      validation: "Перевірте позначені поля.",
+      validation:
+        "Не вдалося створити документ. Перевірте реквізити продавця, клієнта та контрагента.",
       network: "Не вдалося створити документ. Спробуйте ще раз.",
       offline: "Немає з’єднання. Спробуйте, коли з’явиться мережа.",
       unavailable: "Не вдалося створити документ. Спробуйте ще раз.",

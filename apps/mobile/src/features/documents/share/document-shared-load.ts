@@ -3,6 +3,7 @@
  * cabinet. Download only when `pdfDownloadUrl` is a safe http(s) URL.
  */
 import type { QueryFailureKind } from "../../../api/errors";
+import { isSafeHttpUrl } from "../shared/is-safe-http-url";
 
 export type DocumentSharedLoadState =
   | { readonly kind: "loading" }
@@ -10,15 +11,6 @@ export type DocumentSharedLoadState =
   | { readonly kind: "error" }
   | { readonly kind: "not-found" }
   | { readonly kind: "ready"; readonly downloadUrl: string | null };
-
-export function isSafeHttpUrl(value: string): boolean {
-  try {
-    const parsed = new URL(value);
-    return parsed.protocol === "https:" || parsed.protocol === "http:";
-  } catch {
-    return false;
-  }
-}
 
 export function classifyDocumentSharedLoad(args: {
   readonly token: string | null;

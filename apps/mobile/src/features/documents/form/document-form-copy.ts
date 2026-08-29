@@ -141,6 +141,7 @@ export function resolveDocumentFormCopy(
     readonly pending: boolean;
     readonly clientReady: boolean;
     readonly canCreate: boolean;
+    readonly created: boolean;
   },
 ): {
   readonly orderError: string | null;
@@ -150,6 +151,8 @@ export function resolveDocumentFormCopy(
   readonly fieldsEditable: boolean;
   readonly showSubmit: boolean;
 } {
+  const editable =
+    !args.pending && args.clientReady && args.canCreate && !args.created;
   return {
     orderError: orderErrorCopy(copy, args.orderError),
     banner: args.clientReady
@@ -158,8 +161,9 @@ export function resolveDocumentFormCopy(
         : copy.errors[args.banner]
       : copy.errors.unavailable,
     submitLabel: args.pending ? copy.submitCreateLoading : copy.submitCreate,
-    submitDisabled: args.pending || !args.clientReady || !args.canCreate,
-    fieldsEditable: !args.pending && args.clientReady && args.canCreate,
-    showSubmit: args.canCreate,
+    submitDisabled:
+      args.pending || !args.clientReady || !args.canCreate || args.created,
+    fieldsEditable: editable,
+    showSubmit: args.canCreate && !args.created,
   };
 }

@@ -2,6 +2,8 @@
  * `orders.list` for the document create order picker (SHO-238). Keys
  * follow SHO-102: `[actionName, companyId, input]`. Lives in the
  * documents slice so form code does not import `features/orders`.
+ * Confirmed only: canceled orders are ConflictError on create, and the
+ * feature card does not ask for draft (`new`) create-from-order.
  */
 import type { ContractClient } from "../../../api/client";
 import { contractInfiniteQueryOptions } from "../../../api/query-options";
@@ -16,7 +18,7 @@ export type ListOrdersOutput = Awaited<
 export type DocumentOrderListItem = ListOrdersOutput["items"][number];
 
 export const DOCUMENT_ORDERS_LOOKUP_INPUT = {
-  status: "all" as const,
+  status: "confirmed" as const,
   limit: DOCUMENT_LOOKUP_PAGE_SIZE,
 };
 

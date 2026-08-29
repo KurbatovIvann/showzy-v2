@@ -108,6 +108,7 @@ describe("resolveDocumentFormCopy", () => {
       pending: false,
       clientReady: true,
       canCreate: false,
+      created: false,
     });
     expect(denied.showSubmit).toBe(false);
     expect(denied.fieldsEditable).toBe(false);
@@ -117,9 +118,42 @@ describe("resolveDocumentFormCopy", () => {
       pending: false,
       clientReady: true,
       canCreate: true,
+      created: false,
     });
     expect(allowed.showSubmit).toBe(true);
     expect(allowed.orderError).toBe(copy.errors.orderRequired);
     expect(allowed.banner).toBe(copy.errors.conflict);
+  });
+
+  it("locks the editor after create so the draft cannot be submitted again", () => {
+    const copy = documentsCopy("en").form;
+    const locked = resolveDocumentFormCopy(copy, {
+      orderError: null,
+      banner: null,
+      pending: false,
+      clientReady: true,
+      canCreate: true,
+      created: true,
+    });
+    expect(locked.showSubmit).toBe(false);
+    expect(locked.fieldsEditable).toBe(false);
+    expect(locked.submitDisabled).toBe(true);
+  });
+
+  it("uses VALIDATION copy that does not assume highlighted fields", () => {
+    const en = documentsCopy("en").form;
+    const uk = documentsCopy("uk").form;
+    expect(en.errors.validation).not.toMatch(/highlight/i);
+    expect(uk.errors.validation).not.toMatch(/позначен|виділен/i);
+    const resolved = resolveDocumentFormCopy(en, {
+      orderError: null,
+      banner: "validation",
+      pending: false,
+      clientReady: true,
+      canCreate: true,
+      created: false,
+    });
+    expect(resolved.banner).toBe(en.errors.validation);
+    expect(resolved.orderError).toBeNull();
   });
 });
