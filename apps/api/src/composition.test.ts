@@ -11,6 +11,7 @@ import { chatSuiteCoverage } from "@showzy/chat/suite-coverage";
 import { companiesSuiteCoverage } from "@showzy/companies/suite-coverage";
 import { customersSuiteCoverage } from "@showzy/customers/suite-coverage";
 import { filesSuiteCoverage } from "@showzy/files/suite-coverage";
+import { invitesSuiteCoverage } from "@showzy/invites/suite-coverage";
 import { ordersSuiteCoverage } from "@showzy/orders/suite-coverage";
 import { pricingSuiteCoverage } from "@showzy/pricing/suite-coverage";
 import { implementAction, runContractCheck } from "@showzy/core";
@@ -81,6 +82,7 @@ describe("composition root identity", () => {
         companiesSuiteCoverage,
         customersSuiteCoverage,
         filesSuiteCoverage,
+        invitesSuiteCoverage,
         ordersSuiteCoverage,
         pricingSuiteCoverage,
       ]),

@@ -26,6 +26,7 @@
     "@showzy/core": "workspace:*",
     "@showzy/customers": "workspace:*",
     "@showzy/files": "workspace:*",
+    "@showzy/invites": "workspace:*",
     "@showzy/orders": "workspace:*",
     "@showzy/pricing": "workspace:*",
     "zod": "^4.4.3"

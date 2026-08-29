@@ -56,6 +56,12 @@ import {
   requestUploadContract,
 } from "@showzy/files/contract";
 import {
+  createInviteContract,
+  getInviteContract,
+  listInvitesContract,
+  revokeInviteContract,
+} from "@showzy/invites/contract";
+import {
   confirmOrderContract,
   createOrderContract,
   getOrderContract,
@@ -126,6 +132,12 @@ export const contractModules = {
     finalizeUpload: finalizeUploadContract,
     getDownloadUrl: getDownloadUrlContract,
     getDownloadUrls: getDownloadUrlsContract,
+  },
+  invites: {
+    create: createInviteContract,
+    get: getInviteContract,
+    list: listInvitesContract,
+    revoke: revokeInviteContract,
   },
   orders: {
     create: createOrderContract,
