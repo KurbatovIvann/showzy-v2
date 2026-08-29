@@ -268,6 +268,8 @@ function OrdersListBody(props: {
           onEndReachedThreshold={0.5}
           refreshing={model.refreshing}
           onRefresh={model.refresh}
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.listContent}
         />
       );
