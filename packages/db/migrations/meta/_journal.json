@@ -218,6 +218,13 @@
       "when": 1788020438997,
       "tag": "0030_magical_deathbird",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1788023525418,
+      "tag": "0031_steady_sinister_six",
+      "breakpoints": true
     }
   ]
 }
