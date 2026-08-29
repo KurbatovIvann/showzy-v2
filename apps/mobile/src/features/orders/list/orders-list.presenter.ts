@@ -83,6 +83,28 @@ export function hasActiveStatusFilter(
   return selected.length > 0;
 }
 
+/**
+ * Two or more chips fetch `status: "all"` and narrow client-side. Keep
+ * requesting pages while the loaded window has no matches — otherwise
+ * `classifyOrdersList` would treat an incomplete window as filtered-empty
+ * and hide FlashList before later matching rows can load.
+ */
+export function shouldPageThroughClientStatusFilter(args: {
+  readonly selectedCount: number;
+  readonly matchingRowCount: number;
+  readonly status: "pending" | "error" | "success";
+  readonly hasNextPage: boolean;
+  readonly isFetchingNextPage: boolean;
+}): boolean {
+  return (
+    args.selectedCount >= 2 &&
+    args.matchingRowCount === 0 &&
+    args.status === "success" &&
+    args.hasNextPage &&
+    !args.isFetchingNextPage
+  );
+}
+
 const UK_MONTHS = [
   "січ.",
   "лют.",
@@ -258,7 +280,9 @@ export type OrdersListState =
 /**
  * Canvas state machine minus search: skeletons while loading, offline
  * vs error, then filtered-empty vs catalog-empty. No probe query — an
- * unfiltered empty page is "no orders yet".
+ * unfiltered empty page is "no orders yet". A status filter with no
+ * matches on the loaded pages is not terminal while more pages exist
+ * (or a next page is in flight): keep list chrome so pagination works.
  */
 export function classifyOrdersList(args: {
   readonly clientReady: boolean;
@@ -266,6 +290,8 @@ export function classifyOrdersList(args: {
   readonly failureKind: QueryFailureKind | null;
   readonly rowCount: number;
   readonly hasStatusFilter: boolean;
+  readonly hasNextPage: boolean;
+  readonly isFetchingNextPage: boolean;
 }): OrdersListState {
   if (!args.clientReady) {
     return { kind: "error" };
@@ -279,6 +305,9 @@ export function classifyOrdersList(args: {
       : { kind: "error" };
   }
   if (args.rowCount > 0) {
+    return { kind: "rows" };
+  }
+  if (args.hasStatusFilter && (args.hasNextPage || args.isFetchingNextPage)) {
     return { kind: "rows" };
   }
   return args.hasStatusFilter

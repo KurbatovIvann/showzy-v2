@@ -15,6 +15,7 @@ import {
   listOrdersStatusParam,
   orderGroupHeaderLabel,
   orderStatusTone,
+  shouldPageThroughClientStatusFilter,
   stickyHeaderIndices,
   toggleOrderStatusFilter,
   toOrderRowView,
@@ -260,6 +261,8 @@ describe("classifyOrdersList", () => {
     failureKind: null,
     rowCount: 0,
     hasStatusFilter: false,
+    hasNextPage: false,
+    isFetchingNextPage: false,
   };
 
   it("is an error when the client is not ready", () => {
@@ -305,5 +308,69 @@ describe("classifyOrdersList", () => {
     expect(
       classifyOrdersList({ ...base, rowCount: 1, hasStatusFilter: true }),
     ).toEqual({ kind: "rows" });
+  });
+
+  it("keeps list chrome when a filter has no matches yet but more pages exist", () => {
+    expect(
+      classifyOrdersList({
+        ...base,
+        hasStatusFilter: true,
+        hasNextPage: true,
+      }),
+    ).toEqual({ kind: "rows" });
+    expect(
+      classifyOrdersList({
+        ...base,
+        hasStatusFilter: true,
+        isFetchingNextPage: true,
+      }),
+    ).toEqual({ kind: "rows" });
+  });
+});
+
+describe("shouldPageThroughClientStatusFilter", () => {
+  const base = {
+    selectedCount: 2,
+    matchingRowCount: 0,
+    status: "success" as const,
+    hasNextPage: true,
+    isFetchingNextPage: false,
+  };
+
+  it("pages a multi-select client filter while loaded pages have no matches", () => {
+    expect(shouldPageThroughClientStatusFilter(base)).toBe(true);
+    expect(
+      shouldPageThroughClientStatusFilter({ ...base, selectedCount: 3 }),
+    ).toBe(true);
+  });
+
+  it("does not page when a single status is server-filtered or none are selected", () => {
+    expect(
+      shouldPageThroughClientStatusFilter({ ...base, selectedCount: 1 }),
+    ).toBe(false);
+    expect(
+      shouldPageThroughClientStatusFilter({ ...base, selectedCount: 0 }),
+    ).toBe(false);
+  });
+
+  it("stops when matches exist, the cursor ends, or a page is already in flight", () => {
+    expect(
+      shouldPageThroughClientStatusFilter({ ...base, matchingRowCount: 1 }),
+    ).toBe(false);
+    expect(
+      shouldPageThroughClientStatusFilter({ ...base, hasNextPage: false }),
+    ).toBe(false);
+    expect(
+      shouldPageThroughClientStatusFilter({
+        ...base,
+        isFetchingNextPage: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldPageThroughClientStatusFilter({ ...base, status: "pending" }),
+    ).toBe(false);
+    expect(
+      shouldPageThroughClientStatusFilter({ ...base, status: "error" }),
+    ).toBe(false);
   });
 });

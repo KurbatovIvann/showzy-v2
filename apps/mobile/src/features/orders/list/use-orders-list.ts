@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useApiClient } from "../../../api/api-provider";
 import { describeQueryFailure } from "../../../api/errors";
@@ -21,6 +21,7 @@ import {
   groupOrderRows,
   hasActiveStatusFilter,
   listOrdersPageInput,
+  shouldPageThroughClientStatusFilter,
   stickyHeaderIndices,
   toggleOrderStatusFilter,
   toOrderRowView,
@@ -90,13 +91,44 @@ export function useOrdersList() {
     ? describeQueryFailure(listQuery.error).kind
     : null;
   const hasStatusFilter = hasActiveStatusFilter(selectedStatuses);
+  const {
+    status: listStatus,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = listQuery;
   const state: OrdersListState = classifyOrdersList({
     clientReady: apiClient !== null && activeCompanyId !== null,
-    status: listQuery.status,
+    status: listStatus,
     failureKind,
     rowCount: rows.length,
     hasStatusFilter,
+    hasNextPage,
+    isFetchingNextPage,
   });
+
+  useEffect(() => {
+    if (
+      !shouldPageThroughClientStatusFilter({
+        selectedCount: selectedStatuses.length,
+        matchingRowCount: rows.length,
+        status: listStatus,
+        hasNextPage,
+        isFetchingNextPage,
+      })
+    ) {
+      return;
+    }
+    void fetchNextPage();
+  }, [
+    selectedStatuses.length,
+    rows.length,
+    listStatus,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  ]);
+
   const selectedFilterChips: readonly OrdersListChip[] = selectedStatuses.map(
     (status) => ({
       key: status,
