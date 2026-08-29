@@ -37,8 +37,8 @@ export function canCreateOrders(role: CompanyRole): boolean {
 }
 
 /** View-model flag the header and empty CTA consult. */
-export function ordersHeaderActions(args: {
-  readonly canCreate: boolean;
-}): { readonly showCreate: boolean } {
+export function ordersHeaderActions(args: { readonly canCreate: boolean }): {
+  readonly showCreate: boolean;
+} {
   return { showCreate: args.canCreate };
 }

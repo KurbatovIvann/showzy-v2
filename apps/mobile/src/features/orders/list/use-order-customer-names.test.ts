@@ -30,10 +30,7 @@ describe("uniqueCustomerIds", () => {
 
 describe("customerNamesById", () => {
   it("drops pending and blank names", () => {
-    const map = customerNamesById(
-      [FIRST, SECOND],
-      ["  Марія  ", undefined],
-    );
+    const map = customerNamesById([FIRST, SECOND], ["  Марія  ", undefined]);
     expect(map.get(FIRST)).toBe("Марія");
     expect(map.has(SECOND)).toBe(false);
   });

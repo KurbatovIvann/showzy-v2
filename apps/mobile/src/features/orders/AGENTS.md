@@ -14,11 +14,11 @@ backend module.
 
 ## Folders (one role each)
 
-| Folder    | Owns                                                                                          | Does not own                          |
-| --------- | --------------------------------------------------------------------------------------------- | ------------------------------------- |
-| `api/`    | `orders.list` infinite binder, `customers.getCustomer` name hydration                         | JSX, other modules' query files       |
-| `list/`   | Screen, view, composer hook, presenter, row, filter sheet, customer-name queries              | Detail / editor (SHO-212 / SHO-213)   |
-| `shared/` | Permissions, hrefs, item-count labels                                                         | Transport                             |
+| Folder    | Owns                                                                             | Does not own                        |
+| --------- | -------------------------------------------------------------------------------- | ----------------------------------- |
+| `api/`    | `orders.list` infinite binder, `customers.getCustomer` name hydration            | JSX, other modules' query files     |
+| `list/`   | Screen, view, composer hook, presenter, row, filter sheet, customer-name queries | Detail / editor (SHO-212 / SHO-213) |
+| `shared/` | Permissions, hrefs, item-count labels                                            | Transport                           |
 
 `list/` must not grow a combined `*-model.ts`. Query keys are
 `[actionName, companyId, input]` (SHO-102). Empty selected statuses map

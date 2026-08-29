@@ -85,10 +85,7 @@ export function useOrdersList() {
   }, [copy, listItems, locale, namesByCustomerId, selectedStatuses]);
 
   const entries = useMemo(() => groupOrderRows(rows), [rows]);
-  const headerIndices = useMemo(
-    () => stickyHeaderIndices(entries),
-    [entries],
-  );
+  const headerIndices = useMemo(() => stickyHeaderIndices(entries), [entries]);
   const failureKind = listQuery.isError
     ? describeQueryFailure(listQuery.error).kind
     : null;
@@ -123,7 +120,9 @@ export function useOrdersList() {
       setFilterSheetVisible(false);
     },
     toggleStatus: (status: OrderStatusFilter) => {
-      setSelectedStatuses((current) => toggleOrderStatusFilter(current, status));
+      setSelectedStatuses((current) =>
+        toggleOrderStatusFilter(current, status),
+      );
     },
     resetFilters: () => {
       setSelectedStatuses([]);

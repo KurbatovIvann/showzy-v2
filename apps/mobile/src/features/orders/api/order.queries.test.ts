@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { contractQueryKey } from "../../../api/query-options";
-import {
-  LIST_ORDERS_ACTION,
-  listOrdersInfiniteOptions,
-} from "./order.queries";
+import { LIST_ORDERS_ACTION, listOrdersInfiniteOptions } from "./order.queries";
 
 describe("listOrdersInfiniteOptions", () => {
   it("keys [actionName, companyId, input] and keeps cursor out of the key", () => {

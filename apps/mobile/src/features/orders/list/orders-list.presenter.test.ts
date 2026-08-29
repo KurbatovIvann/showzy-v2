@@ -81,9 +81,7 @@ describe("listOrdersStatusParam / listOrdersPageInput", () => {
 
   it("fetches all when two or three statuses are selected", () => {
     expect(listOrdersStatusParam(["new", "canceled"])).toBe("all");
-    expect(listOrdersStatusParam(["new", "confirmed", "canceled"])).toBe(
-      "all",
-    );
+    expect(listOrdersStatusParam(["new", "confirmed", "canceled"])).toBe("all");
   });
 });
 
