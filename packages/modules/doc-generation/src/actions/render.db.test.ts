@@ -399,10 +399,17 @@ const confirmNested = implementAction(
   },
 );
 
-let kit: TestKit;
+let kit: TestKit | undefined;
 let garage: StartedTestContainer | undefined;
 let garageEndpoint: string | undefined;
 const seedOrderNumbers = new Map<string, number>();
+
+function requireKit(): TestKit {
+  if (kit === undefined) {
+    throw new Error("doc-generation test kit was not started");
+  }
+  return kit;
+}
 
 function repoRoot(): string {
   let directory = path.dirname(fileURLToPath(import.meta.url));
@@ -464,18 +471,20 @@ async function insertSeedOrder(values: {
   productId: string;
 }): Promise<void> {
   const unit = 250n;
-  await kit.db.runtime.db.insert(orders).values({
-    id: values.id,
-    companyId: values.companyId,
-    orderNumber: nextSeedOrderNumber(values.companyId),
-    customerId: values.customerId,
-    status: "new",
-    totalNetMinor: unit,
-    totalTaxMinor: 0n,
-    totalGrossMinor: unit,
-    currency: "UAH",
-  });
-  await kit.db.runtime.db.insert(orderItems).values({
+  await requireKit()
+    .db.runtime.db.insert(orders)
+    .values({
+      id: values.id,
+      companyId: values.companyId,
+      orderNumber: nextSeedOrderNumber(values.companyId),
+      customerId: values.customerId,
+      status: "new",
+      totalNetMinor: unit,
+      totalTaxMinor: 0n,
+      totalGrossMinor: unit,
+      currency: "UAH",
+    });
+  await requireKit().db.runtime.db.insert(orderItems).values({
     id: values.itemId,
     companyId: values.companyId,
     orderId: values.id,
@@ -511,25 +520,27 @@ async function insertSeedDocument(values: {
     customerId: values.customerId,
     productId: values.productId,
   });
-  await kit.db.runtime.db.insert(documents).values({
-    id: values.id,
-    companyId: values.companyId,
-    orderId,
-    counterpartyId: null,
-    type,
-    status: "issued",
-    documentNumber: values.documentNumber,
-    issuedOn: "2026-03-15",
-    supplierDetails: sellerSnapshot,
-    buyerDetails: values.buyer ?? customerBuyerSnapshot,
-    totalNetMinor: 250n,
-    totalTaxMinor: 0n,
-    totalGrossMinor: 250n,
-    currency: "UAH",
-    templateSource: "system",
-    templateName: type,
-  });
-  await kit.db.runtime.db.insert(documentItems).values({
+  await requireKit()
+    .db.runtime.db.insert(documents)
+    .values({
+      id: values.id,
+      companyId: values.companyId,
+      orderId,
+      counterpartyId: null,
+      type,
+      status: "issued",
+      documentNumber: values.documentNumber,
+      issuedOn: "2026-03-15",
+      supplierDetails: sellerSnapshot,
+      buyerDetails: values.buyer ?? customerBuyerSnapshot,
+      totalNetMinor: 250n,
+      totalTaxMinor: 0n,
+      totalGrossMinor: 250n,
+      currency: "UAH",
+      templateSource: "system",
+      templateName: type,
+    });
+  await requireKit().db.runtime.db.insert(documentItems).values({
     id: itemId,
     companyId: values.companyId,
     documentId: values.id,
@@ -571,8 +582,8 @@ function createdEnvelope(values: {
 }
 
 async function countReadyJobs(): Promise<number> {
-  const rows = await kit.db.runtime.db
-    .select({ value: count() })
+  const rows = await requireKit()
+    .db.runtime.db.select({ value: count() })
     .from(documentGenerationJobs)
     .where(
       and(
@@ -580,12 +591,12 @@ async function countReadyJobs(): Promise<number> {
         eq(documentGenerationJobs.status, "ready"),
       ),
     );
-  return Number(rows[0]?.value ?? 0);
+  return rows[0]?.value ?? 0;
 }
 
 async function countDocumentFiles(): Promise<number> {
-  const rows = await kit.db.runtime.db
-    .select({ value: count() })
+  const rows = await requireKit()
+    .db.runtime.db.select({ value: count() })
     .from(files)
     .where(
       and(
@@ -593,7 +604,7 @@ async function countDocumentFiles(): Promise<number> {
         eq(files.purpose, "document"),
       ),
     );
-  return Number(rows[0]?.value ?? 0);
+  return rows[0]?.value ?? 0;
 }
 
 function recordInput(documentId: string): {
@@ -653,56 +664,62 @@ beforeAll(async () => {
   const companyA = kitIdentities.companies.a;
   const companyB = kitIdentities.companies.b;
 
-  await kit.db.runtime.db.insert(companyLegalInfo).values([
-    {
-      companyId: companyA,
-      companyType: "tov",
-      legalName: "ТОВ Альфа",
-      edrpou: "12345678",
-      legalAddress: "вул. Хрещатик, 1",
-      iban: sampleIban,
-      bankName: "ПриватБанк",
-      bankMfo: "300001",
-      bankEdrpou: "12345678",
-      phone: "+380501111111",
-      email: "legal@alpha.test",
-    },
-    {
-      companyId: companyB,
-      companyType: "fop",
-      legalName: "ФОП Борис",
-      edrpou: "87654321",
-    },
-  ]);
+  await requireKit()
+    .db.runtime.db.insert(companyLegalInfo)
+    .values([
+      {
+        companyId: companyA,
+        companyType: "tov",
+        legalName: "ТОВ Альфа",
+        edrpou: "12345678",
+        legalAddress: "вул. Хрещатик, 1",
+        iban: sampleIban,
+        bankName: "ПриватБанк",
+        bankMfo: "300001",
+        bankEdrpou: "12345678",
+        phone: "+380501111111",
+        email: "legal@alpha.test",
+      },
+      {
+        companyId: companyB,
+        companyType: "fop",
+        legalName: "ФОП Борис",
+        edrpou: "87654321",
+      },
+    ]);
 
-  await kit.db.runtime.db.insert(companyCustomers).values([
-    {
-      id: fixtures.customerA,
-      companyId: companyA,
-      name: "Customer A",
-      email: `customer-${fixtures.customerA}@example.com`,
-    },
-    {
-      id: fixtures.customerB,
-      companyId: companyB,
-      name: "Customer B",
-      email: `customer-${fixtures.customerB}@example.com`,
-    },
-  ]);
-  await kit.db.runtime.db.insert(products).values([
-    {
-      id: fixtures.productA,
-      companyId: companyA,
-      name: "Cake",
-      basePriceMinor: 250n,
-    },
-    {
-      id: fixtures.productB,
-      companyId: companyB,
-      name: "Foreign cake",
-      basePriceMinor: 100n,
-    },
-  ]);
+  await requireKit()
+    .db.runtime.db.insert(companyCustomers)
+    .values([
+      {
+        id: fixtures.customerA,
+        companyId: companyA,
+        name: "Customer A",
+        email: `customer-${fixtures.customerA}@example.com`,
+      },
+      {
+        id: fixtures.customerB,
+        companyId: companyB,
+        name: "Customer B",
+        email: `customer-${fixtures.customerB}@example.com`,
+      },
+    ]);
+  await requireKit()
+    .db.runtime.db.insert(products)
+    .values([
+      {
+        id: fixtures.productA,
+        companyId: companyA,
+        name: "Cake",
+        basePriceMinor: 250n,
+      },
+      {
+        id: fixtures.productB,
+        companyId: companyB,
+        name: "Foreign cake",
+        basePriceMinor: 100n,
+      },
+    ]);
 
   await insertSeedOrder({
     id: fixtures.orderEvent,
@@ -781,37 +798,41 @@ beforeAll(async () => {
     bytes: dummyPdf,
   });
 
-  await kit.db.runtime.db.insert(user).values([
-    {
-      id: clerks.employee,
-      name: "Employee view",
-      email: "employee-view@doc-gen-kit.test",
-    },
-    {
-      id: clerks.noView,
-      name: "No documents view",
-      email: "noview@doc-gen-kit.test",
-    },
-  ]);
-  await kit.db.runtime.db.insert(companyMembers).values([
-    {
-      companyId: companyA,
-      userId: clerks.employee,
-      role: "employee",
-      permissions: { granted: ["documents:view"], denied: [] },
-    },
-    {
-      companyId: companyA,
-      userId: clerks.noView,
-      role: "employee",
-      permissions: { granted: [], denied: ["documents:view"] },
-    },
-  ]);
+  await requireKit()
+    .db.runtime.db.insert(user)
+    .values([
+      {
+        id: clerks.employee,
+        name: "Employee view",
+        email: "employee-view@doc-gen-kit.test",
+      },
+      {
+        id: clerks.noView,
+        name: "No documents view",
+        email: "noview@doc-gen-kit.test",
+      },
+    ]);
+  await requireKit()
+    .db.runtime.db.insert(companyMembers)
+    .values([
+      {
+        companyId: companyA,
+        userId: clerks.employee,
+        role: "employee",
+        permissions: { granted: ["documents:view"], denied: [] },
+      },
+      {
+        companyId: companyA,
+        userId: clerks.noView,
+        role: "employee",
+        permissions: { granted: [], denied: ["documents:view"] },
+      },
+    ]);
 }, 180_000);
 
 afterAll(async () => {
   if (kit !== undefined) {
-    await kit.db.close();
+    await requireKit().db.close();
   }
   closeFilesObjectStore();
   if (garage !== undefined) {
@@ -819,30 +840,27 @@ afterAll(async () => {
   }
 });
 
-crossTenantSuite(
-  () => kit,
-  [
-    isolationCase(
-      renderPdf,
-      {
-        input: createdEnvelope({
-          documentId: fixtures.isolationA,
-          type: "payment_invoice",
-          documentNumber: "KA-РХ-000901",
-        }),
-      },
-      {
-        input: createdEnvelope({
-          documentId: fixtures.isolationB,
-          type: "payment_invoice",
-          documentNumber: "MB-РХ-000901",
-        }),
-      },
-    ),
-  ],
-);
+crossTenantSuite(requireKit, [
+  isolationCase(
+    renderPdf,
+    {
+      input: createdEnvelope({
+        documentId: fixtures.isolationA,
+        type: "payment_invoice",
+        documentNumber: "KA-РХ-000901",
+      }),
+    },
+    {
+      input: createdEnvelope({
+        documentId: fixtures.isolationB,
+        type: "payment_invoice",
+        documentNumber: "MB-РХ-000901",
+      }),
+    },
+  ),
+]);
 
-eventSuite(() => kit, {
+eventSuite(requireKit, {
   module: "docGeneration",
   emitAction: createFromOrder,
   emitInput: { orderId: fixtures.orderEvent, type: "payment_invoice" },
@@ -853,28 +871,25 @@ eventSuite(() => kit, {
   readProjection: countReadyJobs,
 });
 
-atomicCallSuite(
-  () => kit,
-  [
-    {
-      root: recordThenMaybeFail,
-      successInput: recordInput(fixtures.atomicOk),
-      failureInput: {
-        ...recordInput(fixtures.atomicFail),
-        failAfterCall: true,
-      },
-      readRootEffect: countReadyJobs,
-      readCalleeEffect: countDocumentFiles,
-      undeclared: { action: confirmUndeclared, input: {} },
-      mismatch: { action: confirmMismatch, input: {} },
-      nested: { action: confirmNested, input: {} },
+atomicCallSuite(requireKit, [
+  {
+    root: recordThenMaybeFail,
+    successInput: recordInput(fixtures.atomicOk),
+    failureInput: {
+      ...recordInput(fixtures.atomicFail),
+      failAfterCall: true,
     },
-  ],
-);
+    readRootEffect: countReadyJobs,
+    readCalleeEffect: countDocumentFiles,
+    undeclared: { action: confirmUndeclared, input: {} },
+    mismatch: { action: confirmMismatch, input: {} },
+    nested: { action: confirmNested, input: {} },
+  },
+]);
 
 describe("docGeneration.renderPdf garage", () => {
   it("renders invoice and delivery note to purpose=document files", async () => {
-    const invoice = await kit.invoke(
+    const invoice = await requireKit().invoke(
       renderPdf,
       createdEnvelope({
         documentId: fixtures.invoice,
@@ -882,7 +897,7 @@ describe("docGeneration.renderPdf garage", () => {
         documentNumber: "KA-РХ-000902",
       }),
     );
-    const note = await kit.invoke(
+    const note = await requireKit().invoke(
       renderPdf,
       createdEnvelope({
         documentId: fixtures.note,
@@ -898,12 +913,12 @@ describe("docGeneration.renderPdf garage", () => {
       throw new Error("expected ready file ids");
     }
 
-    const [invoiceFile] = await kit.db.runtime.db
-      .select()
+    const [invoiceFile] = await requireKit()
+      .db.runtime.db.select()
       .from(files)
       .where(eq(files.id, invoice.fileId));
-    const [noteFile] = await kit.db.runtime.db
-      .select()
+    const [noteFile] = await requireKit()
+      .db.runtime.db.select()
       .from(files)
       .where(eq(files.id, note.fileId));
     expect(invoiceFile?.purpose).toBe("document");
@@ -919,7 +934,7 @@ describe("docGeneration.renderPdf garage", () => {
   });
 
   it("retries the same document without a second files row", async () => {
-    const first = await kit.invoke(
+    const first = await requireKit().invoke(
       renderPdf,
       createdEnvelope({
         documentId: fixtures.invoice,
@@ -927,7 +942,7 @@ describe("docGeneration.renderPdf garage", () => {
         documentNumber: "KA-РХ-000902",
       }),
     );
-    const second = await kit.invoke(
+    const second = await requireKit().invoke(
       renderPdf,
       createdEnvelope({
         documentId: fixtures.invoice,
@@ -939,15 +954,15 @@ describe("docGeneration.renderPdf garage", () => {
     if (first.fileId === null) {
       throw new Error("expected a ready file id");
     }
-    const rows = await kit.db.runtime.db
-      .select({ id: files.id })
+    const rows = await requireKit()
+      .db.runtime.db.select({ id: files.id })
       .from(files)
       .where(eq(files.id, first.fileId));
     expect(rows).toHaveLength(1);
   });
 
   it("issues a panel PDF URL for documents:view without files:view", async () => {
-    const panel = await kit.invoke(
+    const panel = await requireKit().invoke(
       getDocument,
       { documentId: fixtures.invoice },
       {
@@ -960,7 +975,7 @@ describe("docGeneration.renderPdf garage", () => {
     expect(panel.pdfDownloadUrl).toMatch(/^https?:\/\//);
 
     await expect(
-      kit.invoke(
+      requireKit().invoke(
         getArtifact,
         { documentId: fixtures.invoice },
         {
@@ -972,13 +987,13 @@ describe("docGeneration.renderPdf garage", () => {
   });
 
   it("share mints when the artifact is ready and stays null when it is not", async () => {
-    const readyShare = await kit.invoke(shareDocument, {
+    const readyShare = await requireKit().invoke(shareDocument, {
       documentId: fixtures.invoice,
     });
     expect(readyShare.url).toMatch(/^https:\/\/documents\.test\/d\//);
 
-    const [readyToken] = await kit.db.runtime.db
-      .select()
+    const [readyToken] = await requireKit()
+      .db.runtime.db.select()
       .from(documentShareTokens)
       .where(
         and(
@@ -988,12 +1003,12 @@ describe("docGeneration.renderPdf garage", () => {
       );
     expect(readyToken?.pdfDownloadUrl).toMatch(/^https?:\/\//);
 
-    const pendingShare = await kit.invoke(shareDocument, {
+    const pendingShare = await requireKit().invoke(shareDocument, {
       documentId: fixtures.pendingShare,
     });
     expect(pendingShare.url).toMatch(/^https:\/\/documents\.test\/d\//);
-    const [pendingToken] = await kit.db.runtime.db
-      .select()
+    const [pendingToken] = await requireKit()
+      .db.runtime.db.select()
       .from(documentShareTokens)
       .where(
         and(
@@ -1008,7 +1023,7 @@ describe("docGeneration.renderPdf garage", () => {
     closeFilesObjectStore();
     const before = await countDocumentFiles();
     try {
-      const result = await kit.invoke(
+      const result = await requireKit().invoke(
         renderPdf,
         createdEnvelope({
           documentId: fixtures.fail,
@@ -1018,14 +1033,14 @@ describe("docGeneration.renderPdf garage", () => {
       );
       expect(result.status).toBe("failed");
       expect(result.fileId).toBeNull();
-      const leftover = await kit.db.runtime.db
-        .select()
+      const leftover = await requireKit()
+        .db.runtime.db.select()
         .from(files)
         .where(eq(files.id, artifactFileId(fixtures.fail)));
       expect(leftover).toHaveLength(0);
       expect(await countDocumentFiles()).toBe(before);
-      const [job] = await kit.db.runtime.db
-        .select()
+      const [job] = await requireKit()
+        .db.runtime.db.select()
         .from(documentGenerationJobs)
         .where(eq(documentGenerationJobs.documentId, fixtures.fail));
       expect(job?.status).toBe("failed");

@@ -38,11 +38,13 @@ export function formatMinorUnits(
 }
 
 function groupThousands(whole: string): string {
-  const chars = [...whole];
   const parts: string[] = [];
-  while (chars.length > 0) {
-    parts.unshift(chars.splice(-3).join(""));
+  let remaining = whole;
+  while (remaining.length > 3) {
+    parts.unshift(remaining.slice(-3));
+    remaining = remaining.slice(0, -3);
   }
+  parts.unshift(remaining);
   return parts.join(" ");
 }
 
