@@ -1,4 +1,4 @@
-# Showzy 2.0 — Architecture Blueprint
+# Shozee 2.0 — Architecture Blueprint
 
 > Final document: architecture, technology stack, and the feature pipeline.
 > Status: approved. Date: August 2026.
@@ -9,7 +9,7 @@
 
 ## 1. Product
 
-Showzy is a business operating platform for small businesses in Ukraine with
+Shozee is a business operating platform for small businesses in Ukraine with
 a public and authenticated consumer discovery surface plus bounded social
 engagement (ADR-0020). It is not a people-discovery network or multi-seller
 checkout marketplace. It replaces the zoo of services a micro-business

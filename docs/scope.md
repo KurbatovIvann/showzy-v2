@@ -1,4 +1,4 @@
-# Showzy 2.0 — Scope and Roadmap
+# Shozee 2.0 — Scope and Roadmap
 
 > Review of the current system's functionality: what we carry over, simplify,
 > defer, and drop. Companion to `blueprint.md`.
@@ -15,13 +15,13 @@
 
 ## 1. Product positioning
 
-**Showzy is a business operating platform with public/authenticated consumer
+**Shozee is a business operating platform with public/authenticated consumer
 discovery and bounded social engagement — not a people-discovery network or
 multi-seller checkout marketplace.**
 
 The product was born from real pain: a home confectionery whose communication
 and management are scattered across Instagram, Telegram, spreadsheets, and
-Taxer. Showzy **replaces this zoo of services** rather than aggregating it.
+Taxer. Shozee **replaces this zoo of services** rather than aggregating it.
 
 ⚠ **Owner-first launch** ships the company panel only. Three entry paths
 into a company remain the **destination** product (ADR-0018, ADR-0020) and
@@ -34,7 +34,7 @@ are built in customer expansion, not in the first release:
 3. **Direct link** — a Universal/App Link to a specific company profile.
 
 Owner-first intake is staff (and AI over the same actions): the owner
-captures an order that arrived outside Showzy (Instagram, Telegram, phone)
+captures an order that arrived outside Shozee (Instagram, Telegram, phone)
 into the panel. Cold-traffic web SEO is not a mobile-launch priority.
 Public user graphs/activity feeds, embeddings, and GPS-radius discovery
 remain dropped.
@@ -68,7 +68,7 @@ confirmation → REDIRECT TO CHAT with an order card
   (owner/staff) and the customer cabinet (own orders, chat, documents).
   **Owner-first launch ships the panel only.** The cabinet is customer
   expansion. Until then, a signed document is handed over by link, QR, or
-  print — the counterparty does not need a Showzy account.
+  print — the counterparty does not need a Shozee account.
 - **Orders require an account** when the customer places them in-app (no
   anonymous checkout — owner's decision: security matters more than
   conversion). Staff-created orders in the panel require a CRM customer.
@@ -106,7 +106,7 @@ with the web phase or with a mobile editor after the research spike (see §9).
 | **Staff orders** | Panel (and AI over the same actions) creates/confirms/gets orders for a CRM customer. Action log. No customer checkout in this release |
 | Documents: default templates, numbering, PDF generation | Puppeteer worker. Template customization — post-launch (§1.2) |
 | **QES signing** (ASiC-E, mobile Nitro + node verify) + pki-proxy | `@showzy/document-signing`: the verified crypto core, tests, and signing vectors carry over unchanged; the integration surface is re-audited against the new architecture |
-| Document share | Owner signs and hands over a link, QR, or print. Counterparty need not have a Showzy account |
+| Document share | Owner signs and hands over a link, QR, or print. Counterparty need not have a Shozee account |
 | **Expo push** | The owner must see a new order in the panel instantly. Finish device registration (unfinished in 1.x). Socket.IO chat realtime is customer expansion |
 | Notifications: in-app + push + email (Resend) + SMS (OTP) | Owner-facing in this release |
 | KVED/CPV classifiers | Static data, needed for legal requisites |

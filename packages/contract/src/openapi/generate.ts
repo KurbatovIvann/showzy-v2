@@ -10,7 +10,7 @@ import type { AnyContractRouter } from "@orpc/contract";
 import { contractRouter } from "../client/modules.js";
 
 export const OPENAPI_INFO = {
-  title: "Showzy API",
+  title: "Shozee API",
   version: "0.0.0",
   description:
     "Generated from the action contract layer. Action descriptions are the OpenAPI summaries (contract.md §5).",

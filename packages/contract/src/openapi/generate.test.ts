@@ -43,7 +43,7 @@ describe("OpenAPI generation", () => {
   it("puts a client action description on the document and omits nothing from an empty composition", async () => {
     const empty = await generateOpenApiDocument();
     const emptyJson = JSON.stringify(empty);
-    expect(emptyJson).toContain("Showzy API");
+    expect(emptyJson).toContain("Shozee API");
     expect(emptyJson).toContain("/api/v1");
 
     const listThings = defineActionContract({
