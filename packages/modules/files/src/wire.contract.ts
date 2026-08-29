@@ -1,10 +1,15 @@
 /**
  * Client-safe file upload primitives shared by the T2 actions. Mechanical
  * ceilings the feature card named: catalog purpose only, 10 MiB, JPEG/PNG/WEBP.
+ *
+ * Generated-document ceilings (SHO-229 / security-operations.md §3): PDF
+ * purpose, 25 MiB. Catalog handshake schemas stay catalog-only.
  */
 import { z } from "zod";
 
 export const FILE_PURPOSE = "catalog" as const;
+
+export const DOCUMENT_PURPOSE = "document" as const;
 
 export const FILE_MIME_TYPES = [
   "image/jpeg",
@@ -12,14 +17,27 @@ export const FILE_MIME_TYPES = [
   "image/webp",
 ] as const;
 
+export const DOCUMENT_MIME_TYPE = "application/pdf" as const;
+
 export type FileMimeType = (typeof FILE_MIME_TYPES)[number];
+
+export type DocumentMimeType = typeof DOCUMENT_MIME_TYPE;
+
+export type StoredObjectMimeType = FileMimeType | DocumentMimeType;
 
 /** 10 MiB — foundation default for images (security-operations.md §3). */
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 
+/** 25 MiB — foundation default for PDF/document files (security-operations.md §3). */
+export const MAX_DOCUMENT_BYTES = 25 * 1024 * 1024;
+
 export const filePurposeSchema = z.literal(FILE_PURPOSE);
 
+export const documentPurposeSchema = z.literal(DOCUMENT_PURPOSE);
+
 export const fileMimeTypeSchema = z.enum(FILE_MIME_TYPES);
+
+export const documentMimeTypeSchema = z.literal(DOCUMENT_MIME_TYPE);
 
 export const checksumSha256Schema = z
   .string()
@@ -33,3 +51,9 @@ export const uploadByteSizeSchema = z
   .int()
   .min(1)
   .max(MAX_UPLOAD_BYTES);
+
+export const documentByteSizeSchema = z
+  .number()
+  .int()
+  .min(1)
+  .max(MAX_DOCUMENT_BYTES);

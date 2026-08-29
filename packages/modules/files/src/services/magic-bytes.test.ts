@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  bytesArePdf,
   detectAllowedImageMime,
   uploadBytesMatchDeclaredMime,
 } from "./magic-bytes.js";
@@ -35,5 +36,13 @@ describe("magic bytes", () => {
     expect(uploadBytesMatchDeclaredMime(jpeg, "image/jpeg")).toBe(true);
     expect(uploadBytesMatchDeclaredMime(jpeg, "image/png")).toBe(false);
     expect(uploadBytesMatchDeclaredMime(png, "image/webp")).toBe(false);
+  });
+
+  it("detects a PDF and rejects executables posing as one", () => {
+    const pdf = new TextEncoder().encode("%PDF-1.4\n%%EOF\n");
+    expect(bytesArePdf(pdf)).toBe(true);
+    expect(bytesArePdf(exe)).toBe(false);
+    expect(bytesArePdf(zip)).toBe(false);
+    expect(bytesArePdf(jpeg)).toBe(false);
   });
 });

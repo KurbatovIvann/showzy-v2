@@ -3,4 +3,7 @@ export { getAttachmentFactsContract } from "./actions/get-attachment-facts.contr
 export { getDownloadUrlContract } from "./actions/get-download-url.contract.js";
 export { getDownloadUrlsContract } from "./actions/get-download-urls.contract.js";
 export { getUploadUrlContract } from "./actions/get-upload-url.contract.js";
+export { issueDocumentDownloadUrlContract } from "./actions/issue-document-download-url.contract.js";
+export { issueShareDownloadUrlContract } from "./actions/issue-share-download-url.contract.js";
+export { recordGeneratedObjectContract } from "./actions/record-generated-object.contract.js";
 export { requestUploadContract } from "./actions/request-upload.contract.js";

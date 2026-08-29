@@ -6,13 +6,17 @@ import type { z } from "zod";
 
 import type { getDownloadUrlInputSchema } from "../actions/get-download-url.contract.js";
 import type { getDownloadUrlsInputSchema } from "../actions/get-download-urls.contract.js";
-import { requireDeclaredMime } from "./file-view.js";
-import { catalogObjectKey } from "./object-key.js";
+import type { issueDocumentDownloadUrlInputSchema } from "../actions/issue-document-download-url.contract.js";
+import { requireDeclaredMime, requireDocumentMime } from "./file-view.js";
+import { catalogObjectKey, documentObjectKey } from "./object-key.js";
 import { getFilesObjectStore } from "./s3-port.js";
 
 type StaffCtx = Extract<ActionCtx, { principal: "staff" }>;
 type DownloadInput = z.output<typeof getDownloadUrlInputSchema>;
 type DownloadUrlsInput = z.output<typeof getDownloadUrlsInputSchema>;
+type DocumentDownloadInput = z.output<
+  typeof issueDocumentDownloadUrlInputSchema
+>;
 
 type SignedDownload = {
   readonly fileId: string;
@@ -58,11 +62,42 @@ async function signReadyCatalogGet(row: ReadyFileRow): Promise<SignedDownload> {
   };
 }
 
+async function signReadyDocumentGet(
+  row: ReadyFileRow,
+): Promise<SignedDownload> {
+  const mimeType = requireDocumentMime(row.mimeType);
+  const signed = await getFilesObjectStore().signGet({
+    key: row.objectKey,
+    mimeType,
+  });
+  if (signed.url.length === 0) {
+    throw new CoreInvariantError(
+      "files object store returned an empty GET URL",
+    );
+  }
+
+  return {
+    fileId: row.id,
+    downloadUrl: signed.url,
+    expiresAt: signed.expiresAt.toISOString(),
+  };
+}
+
 function requireCatalogObjectKey(
   companyId: string,
   row: ReadyFileRow,
 ): ReadyFileRow {
   if (row.objectKey !== catalogObjectKey(companyId, row.id)) {
+    throw new NotFoundError();
+  }
+  return row;
+}
+
+function requireDocumentObjectKey(
+  companyId: string,
+  row: ReadyFileRow,
+): ReadyFileRow {
+  if (row.objectKey !== documentObjectKey(companyId, row.id)) {
     throw new NotFoundError();
   }
   return row;
@@ -80,6 +115,7 @@ export async function getStaffDownloadUrl(input: {
         eq(files.companyId, input.ctx.companyId),
         eq(files.id, input.input.fileId),
         eq(files.status, "ready"),
+        eq(files.purpose, "catalog"),
       ),
     )
     .limit(1);
@@ -103,6 +139,7 @@ export async function getStaffDownloadUrls(input: {
       and(
         eq(files.companyId, input.ctx.companyId),
         eq(files.status, "ready"),
+        eq(files.purpose, "catalog"),
         inArray(files.id, fileIds),
       ),
     );
@@ -128,4 +165,30 @@ export async function getStaffDownloadUrls(input: {
     signed.push(await signReadyCatalogGet(row));
   }
   return { files: signed };
+}
+
+export async function getStaffDocumentDownloadUrl(input: {
+  readonly ctx: StaffCtx;
+  readonly input: DocumentDownloadInput;
+}): Promise<SignedDownload> {
+  const rows = await input.ctx.db
+    .select()
+    .from(files)
+    .where(
+      and(
+        eq(files.companyId, input.ctx.companyId),
+        eq(files.id, input.input.fileId),
+        eq(files.status, "ready"),
+        eq(files.purpose, "document"),
+      ),
+    )
+    .limit(1);
+  const row = rows[0];
+  if (row === undefined) {
+    throw new NotFoundError();
+  }
+
+  return signReadyDocumentGet(
+    requireDocumentObjectKey(input.ctx.companyId, row),
+  );
 }

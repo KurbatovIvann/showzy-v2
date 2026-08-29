@@ -86,3 +86,18 @@ export function uploadBytesMatchDeclaredMime(
   }
   return detectAllowedImageMime(bytes) === declaredMime;
 }
+
+function isPdf(bytes: Uint8Array): boolean {
+  return asciiAt(bytes, 0, 4) === "%PDF";
+}
+
+/**
+ * True when the bytes are a PDF (generated-document path). Catalog
+ * handshake still uses `uploadBytesMatchDeclaredMime` only.
+ */
+export function bytesArePdf(bytes: Uint8Array): boolean {
+  if (isExecutableOrArchive(bytes) || isHeicFamily(bytes)) {
+    return false;
+  }
+  return isPdf(bytes);
+}

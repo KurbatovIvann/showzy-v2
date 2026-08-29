@@ -146,6 +146,10 @@ describe("private company files schema slice", () => {
       (row) => row.column_name === "checksum_sha256",
     );
     expect(checksum?.is_nullable).toBe("YES");
+    const uploadedBy = result.rows.find(
+      (row) => row.column_name === "uploaded_by_user_id",
+    );
+    expect(uploadedBy?.is_nullable).toBe("YES");
     const status = result.rows.find((row) => row.column_name === "status");
     expect(status?.column_default).toContain("pending");
     const stagingPurgedAt = result.rows.find(
@@ -168,7 +172,7 @@ describe("private company files schema slice", () => {
   it("does not create extra purpose tables", async () => {
     // `documents` is owned by the documents module (SHO-228), not a files
     // purpose table. Files still must not grow avatars (or other purpose
-    // tables). Purpose remains `catalog` until files-T14.
+    // tables). Purpose is `catalog` | `document` (SHO-229).
     const result = await admin.query<{ table_name: string }>(
       `SELECT table_name
        FROM information_schema.tables
@@ -178,13 +182,13 @@ describe("private company files schema slice", () => {
     expect(result.rows).toEqual([]);
   });
 
-  it("represents byte_size as bigint and the uploader as the generated user id", () => {
+  it("represents byte_size as bigint and a nullable uploader as the generated user id", () => {
     expectTypeOf<
       (typeof files.$inferSelect)["byteSize"]
     >().toEqualTypeOf<bigint>();
     expectTypeOf<
-      (typeof files.$inferInsert)["uploadedByUserId"]
-    >().toEqualTypeOf<UserId>();
+      (typeof files.$inferSelect)["uploadedByUserId"]
+    >().toEqualTypeOf<UserId | null>();
   });
 
   it("declares UNIQUE (company_id, id), UNIQUE (company_id, object_key), tenant indexes, and sweep indexes", async () => {
@@ -254,7 +258,7 @@ describe("private company files schema slice", () => {
     );
   });
 
-  it("declares the catalog object_key prefix CHECK", async () => {
+  it("declares the purpose-matching object_key prefix CHECK", async () => {
     const result = await admin.query<{
       conname: string;
       definition: string;
@@ -271,12 +275,18 @@ describe("private company files schema slice", () => {
     const defs = new Map(
       result.rows.map((row) => [row.conname, row.definition]),
     );
-    expect(defs.get("files_object_key_catalog_prefix_check")).toContain(
+    expect(defs.get("files_object_key_purpose_prefix_check")).toContain(
       "object_key",
     );
-    expect(defs.get("files_object_key_catalog_prefix_check")).toContain(
+    expect(defs.get("files_object_key_purpose_prefix_check")).toContain(
       "/catalog/",
     );
+    expect(defs.get("files_object_key_purpose_prefix_check")).toContain(
+      "/documents/",
+    );
+    expect(defs.has("files_object_key_catalog_prefix_check")).toBe(false);
+    expect(defs.get("files_purpose_check")).toContain("catalog");
+    expect(defs.get("files_purpose_check")).toContain("document");
   });
 
   it("rejects illegal purpose, status, negative byte_size, and malformed checksums", async () => {
@@ -362,7 +372,7 @@ describe("private company files schema slice", () => {
     expect(ready.stagingPurgedAt).toBeNull();
   });
 
-  it("rejects object_key values that are not {company_id}/catalog/{id}", async () => {
+  it("rejects object_key values that do not match purpose and company/id", async () => {
     const company = await insertCompany();
     const userId = await insertUser();
     const id = randomUUID();
@@ -385,13 +395,52 @@ describe("private company files schema slice", () => {
       }),
       "23514",
     );
+    await expectSqlState(
+      insertFile({
+        id: randomUUID(),
+        companyId: company.id,
+        uploadedByUserId: userId,
+        purpose: "document",
+        mimeType: "application/pdf",
+        objectKey: `${company.id}/catalog/${id}`,
+      }),
+      "23514",
+    );
 
-    const row = await insertFile({
+    const catalog = await insertFile({
       id,
       companyId: company.id,
       uploadedByUserId: userId,
     });
-    expect(row.objectKey).toBe(`${company.id}/catalog/${id}`);
+    expect(catalog.objectKey).toBe(`${company.id}/catalog/${id}`);
+    expect(catalog.uploadedByUserId).toBe(userId);
+
+    const documentId = randomUUID();
+    const document = await insertFile({
+      id: documentId,
+      companyId: company.id,
+      uploadedByUserId: null,
+      purpose: "document",
+      mimeType: "application/pdf",
+      byteSize: 1024n,
+      checksumSha256: "b".repeat(64),
+      status: "ready",
+      objectKey: `${company.id}/documents/${documentId}`,
+    });
+    expect(document.purpose).toBe("document");
+    expect(document.objectKey).toBe(`${company.id}/documents/${documentId}`);
+    expect(document.uploadedByUserId).toBeNull();
+    expect(document.mimeType).toBe("application/pdf");
+
+    const catalogNullUploader = await insertFile({
+      companyId: company.id,
+      uploadedByUserId: null,
+    });
+    expect(catalogNullUploader.purpose).toBe("catalog");
+    expect(catalogNullUploader.uploadedByUserId).toBeNull();
+    expect(catalogNullUploader.objectKey).toBe(
+      `${company.id}/catalog/${catalogNullUploader.id}`,
+    );
   });
 
   it("keeps object keys unique per tenant; other tenants use their own prefix", async () => {

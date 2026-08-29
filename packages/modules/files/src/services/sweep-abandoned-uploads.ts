@@ -40,7 +40,13 @@ export async function runAbandonedUploadSweep(input: {
   const abandoned = await db
     .select()
     .from(files)
-    .where(and(eq(files.status, "pending"), lte(files.createdAt, cutoff)))
+    .where(
+      and(
+        eq(files.status, "pending"),
+        eq(files.purpose, "catalog"),
+        lte(files.createdAt, cutoff),
+      ),
+    )
     .orderBy(asc(files.createdAt), asc(files.id))
     .limit(limit)
     .for("update", { skipLocked: true });
@@ -51,7 +57,13 @@ export async function runAbandonedUploadSweep(input: {
       ? await db
           .select()
           .from(files)
-          .where(and(eq(files.status, "ready"), isNull(files.stagingPurgedAt)))
+          .where(
+            and(
+              eq(files.status, "ready"),
+              eq(files.purpose, "catalog"),
+              isNull(files.stagingPurgedAt),
+            ),
+          )
           .orderBy(asc(files.updatedAt), asc(files.id))
           .limit(remaining)
           .for("update", { skipLocked: true })

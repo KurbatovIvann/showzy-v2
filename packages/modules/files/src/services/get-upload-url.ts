@@ -29,6 +29,7 @@ export async function getStaffUploadUrl(input: {
         eq(files.companyId, input.ctx.companyId),
         eq(files.id, input.input.fileId),
         eq(files.status, "pending"),
+        eq(files.purpose, "catalog"),
       ),
     )
     .limit(1);

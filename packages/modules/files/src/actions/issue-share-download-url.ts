@@ -1,0 +1,19 @@
+import { implementAction } from "@showzy/core";
+import { CoreInvariantError } from "@showzy/core/errors";
+
+import { getStaffDocumentDownloadUrl } from "../services/get-download-url.js";
+import { issueShareDownloadUrlContract } from "./issue-share-download-url.contract.js";
+
+export const issueShareDownloadUrl = implementAction(
+  issueShareDownloadUrlContract,
+  {
+    handler: async (input, ctx) => {
+      if (ctx.principal !== "staff") {
+        throw new CoreInvariantError(
+          "files.issueShareDownloadUrl expects staff",
+        );
+      }
+      return getStaffDocumentDownloadUrl({ ctx, input });
+    },
+  },
+);
