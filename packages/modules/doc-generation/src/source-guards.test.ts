@@ -29,7 +29,7 @@ describe("doc-generation source guards (SHO-236)", () => {
       "services/render-pdf.ts",
       "services/format-pdf-text.ts",
       "templates/document-pdf.tsx",
-      "templates/render-document.ts",
+      "templates/render-document.tsx",
     ];
     for (const relative of sources) {
       expect(executableSource(relative), relative).not.toMatch(

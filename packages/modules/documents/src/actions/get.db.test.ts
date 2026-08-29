@@ -19,7 +19,7 @@ import { companyCustomers, counterparties } from "@showzy/db/schema/customers";
 import { documentGenerationJobs } from "@showzy/db/schema/doc-generation";
 import { documentItems, documents } from "@showzy/db/schema/documents";
 import { orderItems, orders } from "@showzy/db/schema/orders";
-import { getArtifact } from "@showzy/doc-generation";
+import { getArtifact } from "@showzy/doc-generation/get-artifact";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { getForGeneration } from "./get-for-generation.js";

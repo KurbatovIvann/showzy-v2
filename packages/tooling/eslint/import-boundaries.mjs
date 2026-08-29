@@ -232,6 +232,16 @@ function violation(from, spec, typeOnly) {
       ) {
         return null;
       }
+      // SHO-236: documents.get/share nest getArtifact without importing the
+      // doc-generation barrel (that barrel also exports renderPdf, which
+      // imports documents.getForGeneration — ESM + tsc cycle through TSX).
+      if (
+        moduleName === "documents" &&
+        pkg.name === "doc-generation" &&
+        pkg.rest === "get-artifact"
+      ) {
+        return null;
+      }
       return { messageId: "moduleCross" };
     }
     return null;

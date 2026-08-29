@@ -1,6 +1,6 @@
 import { implementAction } from "@showzy/core";
 import { CoreInvariantError, NotFoundError } from "@showzy/core/errors";
-import { getArtifact } from "@showzy/doc-generation";
+import { getArtifact } from "@showzy/doc-generation/get-artifact";
 import { issueDocumentDownloadUrl } from "@showzy/files";
 
 import { getDocumentContract } from "./get.contract.js";

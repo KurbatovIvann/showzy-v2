@@ -2,7 +2,6 @@ import { Readable } from "node:stream";
 
 import { pdf } from "@react-pdf/renderer";
 import { CoreInvariantError } from "@showzy/core/errors";
-import { createElement } from "react";
 
 import { DocumentPdf } from "./document-pdf.js";
 import type { DocumentPdfModel } from "./model.js";
@@ -36,7 +35,7 @@ async function collectPdfBytes(value: unknown): Promise<Uint8Array> {
 export async function renderDocumentPdfBytes(
   model: DocumentPdfModel,
 ): Promise<Uint8Array> {
-  const instance = pdf(createElement(DocumentPdf, { model }));
+  const instance = pdf(<DocumentPdf model={model} />);
   const result: unknown = await instance.toBuffer();
   const bytes = await collectPdfBytes(result);
   if (bytes.byteLength < 5) {

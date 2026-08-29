@@ -3,7 +3,10 @@ import { CoreInvariantError, NotFoundError } from "@showzy/core/errors";
 import { documentGenerationJobs } from "@showzy/db/schema/doc-generation";
 import { and, eq } from "drizzle-orm";
 
-import { getArtifactContract } from "./get-artifact.contract.js";
+import {
+  generationJobStatusSchema,
+  getArtifactContract,
+} from "./get-artifact.contract.js";
 
 export const getArtifact = implementAction(getArtifactContract, {
   handler: async (input, ctx) => {
@@ -27,15 +30,12 @@ export const getArtifact = implementAction(getArtifactContract, {
     if (row === undefined) {
       throw new NotFoundError();
     }
-    if (
-      row.status !== "pending" &&
-      row.status !== "ready" &&
-      row.status !== "failed"
-    ) {
+    const status = generationJobStatusSchema.safeParse(row.status);
+    if (!status.success) {
       throw new CoreInvariantError(
         `document_generation_jobs row has illegal status "${row.status}"`,
       );
     }
-    return { status: row.status, fileId: row.fileId };
+    return { status: status.data, fileId: row.fileId };
   },
 });

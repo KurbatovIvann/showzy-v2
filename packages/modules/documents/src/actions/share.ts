@@ -1,7 +1,7 @@
 import { implementAction, type AuditTargetEnv } from "@showzy/core";
 import { CoreInvariantError, NotFoundError } from "@showzy/core/errors";
 import { documents, documentShareTokens } from "@showzy/db/schema/documents";
-import { getArtifact } from "@showzy/doc-generation";
+import { getArtifact } from "@showzy/doc-generation/get-artifact";
 import { issueShareDownloadUrl } from "@showzy/files";
 import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";

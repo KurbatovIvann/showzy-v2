@@ -66,6 +66,10 @@ test("showzy/import-boundaries", () => {
         code: `import { getFilesObjectStore } from "@showzy/files/storage";`,
       },
       {
+        filename: file("packages/modules/documents/src/actions/get.ts"),
+        code: `import { getArtifact } from "@showzy/doc-generation/get-artifact";`,
+      },
+      {
         filename: file("packages/modules/search/services/index.ts"),
         code: `import { products } from "@showzy/db/schema/catalog";`,
       },

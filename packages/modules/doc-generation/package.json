@@ -8,7 +8,8 @@
     ".": "./src/index.ts",
     "./contract": "./src/index.contract.ts",
     "./suite-coverage": "./src/suite-coverage.ts",
-    "./subscriptions": "./src/events/pdf-renderer.ts"
+    "./subscriptions": "./src/events/pdf-renderer.ts",
+    "./get-artifact": "./src/actions/get-artifact.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
