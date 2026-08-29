@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { ordersCopy } from "../../../i18n/orders";
 import type { OrderListItem } from "../api/order.queries";
+import { LIST_ORDERS_QUERY_MAX as capsQueryMax } from "../shared/order-caps";
 import {
   classifyOrdersList,
   customerNameLabel,
@@ -13,6 +14,7 @@ import {
   isInProgressStatus,
   listOrdersPageInput,
   listOrdersStatusParam,
+  normalizeOrdersSearch,
   orderGroupHeaderLabel,
   orderStatusTone,
   resolveCustomerNameHydration,
@@ -20,6 +22,7 @@ import {
   stickyHeaderIndices,
   toggleOrderStatusFilter,
   toOrderRowView,
+  LIST_ORDERS_QUERY_MAX,
   type OrderRowView,
 } from "./orders-list.presenter";
 
@@ -70,22 +73,45 @@ describe("toggleOrderStatusFilter", () => {
   });
 });
 
+describe("normalizeOrdersSearch", () => {
+  it("treats empty and whitespace-only input as no search", () => {
+    expect(normalizeOrdersSearch("")).toBeUndefined();
+    expect(normalizeOrdersSearch("   ")).toBeUndefined();
+  });
+
+  it("trims and caps at the orders.list query max, not a local literal", () => {
+    expect(LIST_ORDERS_QUERY_MAX).toBe(capsQueryMax);
+    expect(LIST_ORDERS_QUERY_MAX).toBe(100);
+    expect(normalizeOrdersSearch("  1042  ")).toBe("1042");
+    const long = "a".repeat(LIST_ORDERS_QUERY_MAX + 20);
+    expect(normalizeOrdersSearch(long)).toHaveLength(LIST_ORDERS_QUERY_MAX);
+  });
+});
+
 describe("listOrdersStatusParam / listOrdersPageInput", () => {
   it("maps empty selected statuses to all", () => {
     expect(listOrdersStatusParam([])).toBe("all");
-    expect(listOrdersPageInput([])).toEqual({ status: "all" });
+    expect(listOrdersPageInput([], undefined)).toEqual({ status: "all" });
     expect(hasActiveStatusFilter([])).toBe(false);
   });
 
   it("sends a single selected status to the server", () => {
     expect(listOrdersStatusParam(["canceled"])).toBe("canceled");
-    expect(listOrdersPageInput(["new"])).toEqual({ status: "new" });
+    expect(listOrdersPageInput(["new"], undefined)).toEqual({ status: "new" });
     expect(hasActiveStatusFilter(["new"])).toBe(true);
   });
 
   it("fetches all when two or three statuses are selected", () => {
     expect(listOrdersStatusParam(["new", "canceled"])).toBe("all");
     expect(listOrdersStatusParam(["new", "confirmed", "canceled"])).toBe("all");
+  });
+
+  it("omits the query key entirely when there is no search", () => {
+    expect(listOrdersPageInput([], undefined)).toEqual({ status: "all" });
+    expect(listOrdersPageInput(["canceled"], "1042")).toEqual({
+      status: "canceled",
+      query: "1042",
+    });
   });
 });
 
@@ -187,10 +213,11 @@ describe("resolveCustomerNameHydration / customerNameLabel", () => {
 });
 
 describe("toOrderRowView", () => {
-  it("maps a contract row onto primitives without order number or payment", () => {
+  it("maps a contract row onto primitives with #number and without payment", () => {
     const copy = ordersCopy("uk");
     const view = toOrderRowView(
       item({
+        orderNumber: 1042,
         customerId: CUSTOMER_B,
         status: "canceled",
         itemCount: 1,
@@ -203,11 +230,11 @@ describe("toOrderRowView", () => {
     expect(view.status).toBe("canceled");
     expect(view.statusLabel).toBe("Скасовано");
     expect(view.statusTone).toBe("danger");
-    expect(view.metaLabel).toContain("1 позиція");
-    expect(view.metaLabel).toContain("25 серп. 2026");
+    expect(view.metaLabel).toBe("#1042 · 1 позиція · 25 серп. 2026");
     expect(view.totalLabel).toBe("890\u00A0₴");
     expect(JSON.stringify(view)).not.toContain("SHZ-");
     expect(JSON.stringify(view)).not.toContain("Оплачен");
+    expect(JSON.stringify(view)).not.toContain("до ");
   });
 
   it("keeps a hydrated customer name", () => {
@@ -324,6 +351,7 @@ describe("classifyOrdersList", () => {
     failureKind: null,
     rowCount: 0,
     hasStatusFilter: false,
+    hasSearch: false,
     hasNextPage: false,
     isFetchingNextPage: false,
   };
@@ -371,6 +399,32 @@ describe("classifyOrdersList", () => {
     expect(
       classifyOrdersList({ ...base, rowCount: 1, hasStatusFilter: true }),
     ).toEqual({ kind: "rows" });
+  });
+
+  it("classifies search empty vs match without a new empty kind", () => {
+    expect(classifyOrdersList({ ...base, hasSearch: true })).toEqual({
+      kind: "empty-filtered",
+    });
+    expect(
+      classifyOrdersList({ ...base, hasSearch: true, rowCount: 2 }),
+    ).toEqual({ kind: "rows" });
+    expect(
+      classifyOrdersList({
+        ...base,
+        hasSearch: true,
+        hasStatusFilter: true,
+      }),
+    ).toEqual({ kind: "empty-filtered" });
+  });
+
+  it("does not keep list chrome for a server search with no matches", () => {
+    expect(
+      classifyOrdersList({
+        ...base,
+        hasSearch: true,
+        hasNextPage: true,
+      }),
+    ).toEqual({ kind: "empty-filtered" });
   });
 
   it("keeps list chrome when a filter has no matches yet but more pages exist", () => {

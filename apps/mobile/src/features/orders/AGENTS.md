@@ -29,7 +29,8 @@ join customers in the orders backend module.
 `list/` must not grow a combined `*-model.ts` and must not grow into
 `detail/` or `form/`. `form/` must not import `list/` or `detail/`.
 Query keys are `[actionName, companyId, input]` (SHO-102).
-Empty selected statuses map to `orders.list` `status: "all"`. No
-search. No payment filter. Create and detail never call
+Empty selected statuses map to `orders.list` `status: "all"`. List
+search is `orders.list` `query` (debounced); do not filter client-side
+across the cursor. No payment filter. Create and detail never call
 `pricing.resolveProductPrices` or show `basePriceMinor` as the line
 price. Create is `/orders/new` only — no `/orders/[id]/edit`.

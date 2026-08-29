@@ -88,6 +88,8 @@ export type OrdersCreateCopy = {
 export type OrdersCopy = {
   readonly title: string;
   readonly createLabel: string;
+  readonly searchLabel: string;
+  readonly searchPlaceholder: string;
   readonly filterLabel: string;
   readonly filterActiveLabel: string;
   readonly filterTitle: string;
@@ -129,6 +131,8 @@ export type OrdersCopy = {
 const en: OrdersCopy = {
   title: "Orders",
   createLabel: "New order",
+  searchLabel: "Search orders",
+  searchPlaceholder: "Number, customer or phone",
   filterLabel: "Filters",
   filterActiveLabel: "Filters, {{count}} selected",
   filterTitle: "Filters",
@@ -162,8 +166,8 @@ const en: OrdersCopy = {
     errorDescription: "Check your connection and try again.",
     retry: "Retry",
     filteredTitle: "Nothing found",
-    filteredDescription: "Change the filters or reset them.",
-    reset: "Reset filters",
+    filteredDescription: "Change the search or filters, or reset them.",
+    reset: "Reset search and filters",
     catalogTitle: "No orders yet",
     catalogDescription:
       "Create the first order manually or ask the assistant to do it.",
@@ -253,6 +257,8 @@ const en: OrdersCopy = {
 const uk: OrdersCopy = {
   title: "Замовлення",
   createLabel: "Нове замовлення",
+  searchLabel: "Пошук замовлень",
+  searchPlaceholder: "Номер, клієнт або телефон",
   filterLabel: "Фільтри",
   filterActiveLabel: "Фільтри, вибрано {{count}}",
   filterTitle: "Фільтри",
@@ -286,8 +292,8 @@ const uk: OrdersCopy = {
     errorDescription: "Перевірте зʼєднання та спробуйте ще раз.",
     retry: "Повторити",
     filteredTitle: "Нічого не знайдено",
-    filteredDescription: "Спробуйте змінити фільтри або скинути їх.",
-    reset: "Скинути фільтри",
+    filteredDescription: "Спробуйте змінити пошук чи фільтри або скинути їх.",
+    reset: "Скинути пошук і фільтри",
     catalogTitle: "Замовлень ще немає",
     catalogDescription:
       "Створіть перше замовлення вручну або попросіть асистента зробити це за вас.",

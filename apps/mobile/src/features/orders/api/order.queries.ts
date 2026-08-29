@@ -18,6 +18,7 @@ export type OrdersListStatus = "new" | "confirmed" | "canceled" | "all";
 
 export type ListOrdersPageInput = {
   readonly status: OrdersListStatus;
+  readonly query?: string;
 };
 
 export function listOrdersInfiniteOptions(args: {

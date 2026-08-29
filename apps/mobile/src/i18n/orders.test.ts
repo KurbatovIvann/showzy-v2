@@ -27,10 +27,15 @@ describe("orders copy", () => {
     );
   });
 
-  it("pins the canvas orders-list copy in uk without search or payment", () => {
+  it("pins the canvas orders-list copy in uk with search and without payment", () => {
     const uk = ordersCopy("uk");
+    const en = ordersCopy("en");
     expect(uk.title).toBe("Замовлення");
     expect(uk.createLabel).toBe("Нове замовлення");
+    expect(uk.searchLabel).toBe("Пошук замовлень");
+    expect(uk.searchPlaceholder).toBe("Номер, клієнт або телефон");
+    expect(en.searchLabel).toBe("Search orders");
+    expect(en.searchPlaceholder).toBe("Number, customer or phone");
     expect(uk.filterTitle).toBe("Фільтри");
     expect(uk.filterStatus).toBe("Статус замовлення");
     expect(uk.filterReset).toBe("Скинути");
@@ -55,10 +60,15 @@ describe("orders copy", () => {
     expect(uk.empty.errorDescription.includes("\u2019")).toBe(false);
     expect(uk.empty.catalogTitle).toBe("Замовлень ще немає");
     expect(uk.empty.filteredTitle).toBe("Нічого не знайдено");
-    expect(uk.empty.reset).toBe("Скинути фільтри");
+    expect(uk.empty.filteredDescription).toBe(
+      "Спробуйте змінити пошук чи фільтри або скинути їх.",
+    );
+    expect(en.empty.filteredDescription).toBe(
+      "Change the search or filters, or reset them.",
+    );
+    expect(uk.empty.reset).toBe("Скинути пошук і фільтри");
     expect(Object.keys(uk.statuses)).not.toContain("in_progress");
     expect(JSON.stringify(uk)).not.toContain("Оплачен");
-    expect(JSON.stringify({ ...uk, create: undefined })).not.toContain("Пошук");
   });
 
   it("pins the order-detail copy in uk without number, payment, or extra statuses", () => {
