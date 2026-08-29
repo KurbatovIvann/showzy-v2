@@ -18,8 +18,7 @@ import { moneyToCanonical } from "./canonical.js";
 
 type ReadableDb =
   | Extract<ActionCtx, { principal: "staff" }>["db"]
-  | Extract<ActionCtx, { principal: "public"; scope: "target" }>["db"]
-  | Extract<ActionCtx, { principal: "system"; scope: "tenant" }>["db"];
+  | Extract<ActionCtx, { principal: "public"; scope: "target" }>["db"];
 type DocumentView = z.output<typeof documentViewSchema>;
 
 function parseType(value: string): z.output<typeof documentTypeSchema> {
