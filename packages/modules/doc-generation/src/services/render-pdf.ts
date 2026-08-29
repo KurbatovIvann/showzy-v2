@@ -1,4 +1,5 @@
 import type { ActionCtx } from "@showzy/core";
+import { CoreInvariantError } from "@showzy/core/errors";
 import { documentGenerationJobs } from "@showzy/db/schema/doc-generation";
 import { getForGeneration } from "@showzy/documents";
 import { recordGeneratedObject } from "@showzy/files";
@@ -30,7 +31,7 @@ type JobRow = {
   readonly fileId: string | null;
 };
 
-function mapViewToPdfModel(view: {
+export function mapViewToPdfModel(view: {
   readonly type: "payment_invoice" | "delivery_note";
   readonly documentNumber: string;
   readonly issuedOn: string;
@@ -74,11 +75,16 @@ function mapViewToPdfModel(view: {
   readonly totalTaxMinor: string;
   readonly totalGrossMinor: string;
 }): DocumentPdfModel {
+  if (view.currency !== "UAH") {
+    throw new CoreInvariantError(
+      `document money snapshot currency "${view.currency}" is not UAH`,
+    );
+  }
   return {
     type: view.type,
     documentNumber: view.documentNumber,
     issuedOn: view.issuedOn,
-    currency: view.currency,
+    currency: "UAH",
     supplier: {
       name: view.supplierDetails.name,
       legalName: view.supplierDetails.legalName,
