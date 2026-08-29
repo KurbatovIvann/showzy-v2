@@ -1,5 +1,5 @@
 {
-  "id": "79406d7c-68f7-4cd3-961c-cdac08713077",
+  "id": "3cbe855d-1047-4ebe-9cb2-01c9d32cf81c",
   "prevId": "1a022241-8bea-4d46-850c-b09ad717a103",
   "version": "7",
   "dialect": "postgresql",
@@ -3075,8 +3075,8 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "company_customer_invite_redemptions_company_customers_company_fk": {
-          "name": "company_customer_invite_redemptions_company_customers_company_fk",
+        "company_customer_invite_redemptions_customers_company_fk": {
+          "name": "company_customer_invite_redemptions_customers_company_fk",
           "tableFrom": "company_customer_invite_redemptions",
           "tableTo": "company_customers",
           "columnsFrom": [

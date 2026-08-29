@@ -149,8 +149,10 @@ export const companyCustomerInviteRedemptions = pgTable(
         companyCustomerInvites.id,
       ],
     }).onDelete("cascade"),
+    // Name stays under PostgreSQL's 63-byte identifier limit (the
+    // `..._company_customers_company_fk` form truncates).
     foreignKey({
-      name: "company_customer_invite_redemptions_company_customers_company_fk",
+      name: "company_customer_invite_redemptions_customers_company_fk",
       columns: [table.companyId, table.companyCustomerId],
       foreignColumns: [companyCustomers.companyId, companyCustomers.id],
     }).onDelete("cascade"),

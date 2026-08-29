@@ -440,12 +440,13 @@ describe("customer invite schema slice", () => {
       defs.get("company_customer_invite_redemptions_invites_company_fk"),
     ).toContain("ON DELETE CASCADE");
     expect(
-      defs.get(
-        "company_customer_invite_redemptions_company_customers_company_fk",
-      ),
+      defs.get("company_customer_invite_redemptions_customers_company_fk"),
     ).toContain(
       "(company_id, company_customer_id) REFERENCES company_customers(company_id, id)",
     );
+    expect(
+      defs.get("company_customer_invite_redemptions_customers_company_fk"),
+    ).toContain("ON DELETE CASCADE");
     expect(
       defs.get("company_customer_invite_redemptions_user_id_user_id_fk"),
     ).toContain("ON DELETE RESTRICT");
