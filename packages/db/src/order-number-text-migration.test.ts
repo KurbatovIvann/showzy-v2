@@ -88,10 +88,16 @@ describe("orders text order_number migration (0032)", () => {
       "showzy_sho250_obfuscate_seq",
     );
     expect(orderNumberTextMigrationSql).toContain(
-      `FROM "companies" AS c WHERE c."id" = "orders"."company_id"`,
+      `ALTER TABLE "orders" ALTER COLUMN "order_number" SET DATA TYPE text USING ("order_number"::text)`,
     );
     expect(orderNumberTextMigrationSql).toContain(
-      `ALTER TABLE "orders" ALTER COLUMN "order_number" SET DATA TYPE text USING`,
+      `UPDATE "orders" AS o`,
+    );
+    expect(orderNumberTextMigrationSql).toContain(
+      `FROM "companies" AS c`,
+    );
+    expect(orderNumberTextMigrationSql).toContain(
+      `WHERE c."id" = o."company_id"`,
     );
     expect(orderNumberTextMigrationSql).toContain(
       `ADD CONSTRAINT "orders_order_number_shape_check" CHECK ("orders"."order_number" ~ '^[A-Z0-9]+-[0-9A-Z]+$')`,

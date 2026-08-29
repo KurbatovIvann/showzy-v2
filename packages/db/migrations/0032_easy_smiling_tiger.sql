@@ -1,7 +1,11 @@
 -- SHO-250 text order_number + order_number_counters.
 -- Drizzle emits ALTER TYPE text then the shape CHECK, which would leave
 -- existing integer rows as '1' and fail the CHECK. Seed counters from the
--- integer max, rewrite via companies.prefix + v1 obfuscate_seq, then CHECK.
+-- integer max, cast to text, rewrite via UPDATE … FROM companies.prefix
+-- + v1 obfuscate_seq, then CHECK.
+--
+-- Postgres rejects a subquery in ALTER … USING (0A000). Cast first,
+-- then UPDATE … FROM.
 --
 -- Foundation SQL exception (SHO-250 / db.md §7, ADR-0014): Drizzle cannot
 -- express a typed rewrite that joins companies.prefix. Temporary helpers
@@ -58,11 +62,12 @@ BEGIN
 END;
 $$;
 --> statement-breakpoint
-ALTER TABLE "orders" ALTER COLUMN "order_number" SET DATA TYPE text USING (
-	(SELECT c."prefix" FROM "companies" AS c WHERE c."id" = "orders"."company_id")
-	|| '-' ||
-	public.showzy_sho250_obfuscate_seq("order_number"::bigint)
-);
+ALTER TABLE "orders" ALTER COLUMN "order_number" SET DATA TYPE text USING ("order_number"::text);
+--> statement-breakpoint
+UPDATE "orders" AS o
+SET "order_number" = c."prefix" || '-' || public.showzy_sho250_obfuscate_seq(o."order_number"::bigint)
+FROM "companies" AS c
+WHERE c."id" = o."company_id";
 --> statement-breakpoint
 DROP FUNCTION showzy_sho250_obfuscate_seq(bigint);
 --> statement-breakpoint
