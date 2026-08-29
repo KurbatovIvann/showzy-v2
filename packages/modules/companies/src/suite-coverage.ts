@@ -4,6 +4,7 @@ export const companiesSuiteCoverage = {
   isolation: [
     "companies.create",
     "companies.get",
+    "companies.getSellerFacts",
     "companies.listMine",
     "companies.updateLegal",
   ],
