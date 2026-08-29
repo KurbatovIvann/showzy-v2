@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   canCreateOrders,
   canEditOrders,
+  orderCreateScreenActions,
   orderDetailActions,
   ordersHeaderActions,
 } from "./order-permissions";
@@ -27,6 +28,15 @@ describe("order permission affordances", () => {
     });
     expect(ordersHeaderActions({ canCreate: true })).toEqual({
       showCreate: true,
+    });
+  });
+
+  it("hides the create submit when orders:create is not granted", () => {
+    expect(orderCreateScreenActions({ canCreate: false })).toEqual({
+      showSubmit: false,
+    });
+    expect(orderCreateScreenActions({ canCreate: true })).toEqual({
+      showSubmit: true,
     });
   });
 

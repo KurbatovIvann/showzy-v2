@@ -12,7 +12,7 @@ const CREATE_ROUTE = readFileSync(
   "utf8",
 );
 const CREATE_SCREEN = readFileSync(
-  new URL("./order-create-placeholder-screen.tsx", import.meta.url),
+  new URL("./order-create-screen.tsx", import.meta.url),
   "utf8",
 );
 const DETAIL_ROUTE = readFileSync(
@@ -21,19 +21,16 @@ const DETAIL_ROUTE = readFileSync(
 );
 
 describe("orders/new route", () => {
-  it("is the create placeholder, not OrderDetailScreen", () => {
-    expect(CREATE_ROUTE).toContain(
-      "export { OrderCreatePlaceholderScreen as default }",
-    );
-    expect(CREATE_ROUTE).toContain(
-      "features/orders/form/order-create-placeholder-screen",
-    );
+  it("is the create screen, not OrderDetailScreen or the construction placeholder", () => {
+    expect(CREATE_ROUTE).toContain("export { OrderCreateScreen as default }");
+    expect(CREATE_ROUTE).toContain("features/orders/form/order-create-screen");
     expect(CREATE_ROUTE).not.toContain("OrderDetailScreen");
-    expect(CREATE_SCREEN).toContain(
-      "export function OrderCreatePlaceholderScreen",
-    );
+    expect(CREATE_ROUTE).not.toContain("OrderCreatePlaceholderScreen");
+    expect(CREATE_SCREEN).toContain("export function OrderCreateScreen");
     expect(CREATE_SCREEN).not.toContain("OrderDetailScreen");
+    expect(CREATE_SCREEN).not.toContain("EmptyState");
+    expect(CREATE_SCREEN).not.toContain("ConstructionIcon");
     expect(DETAIL_ROUTE).toContain("export { OrderDetailScreen as default }");
-    expect(DETAIL_ROUTE).not.toContain("OrderCreatePlaceholderScreen");
+    expect(DETAIL_ROUTE).not.toContain("OrderCreateScreen");
   });
 });

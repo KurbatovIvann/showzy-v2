@@ -49,6 +49,18 @@ export function ordersHeaderActions(args: { readonly canCreate: boolean }): {
   return { showCreate: args.canCreate };
 }
 
+/**
+ * Affordance-only: create submit hides without `orders:create`. Server
+ * stays authoritative.
+ */
+export function orderCreateScreenActions(args: {
+  readonly canCreate: boolean;
+}): {
+  readonly showSubmit: boolean;
+} {
+  return { showSubmit: args.canCreate };
+}
+
 export type OrderDetailActions = {
   readonly showConfirm: boolean;
   readonly showActions: boolean;

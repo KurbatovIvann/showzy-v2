@@ -19,6 +19,12 @@ describe("orders copy", () => {
     expect(Object.keys(uk.empty)).toEqual(Object.keys(en.empty));
     expect(Object.keys(uk.detail)).toEqual(Object.keys(en.detail));
     expect(Object.keys(uk.create)).toEqual(Object.keys(en.create));
+    expect(Object.keys(uk.create.errors)).toEqual(
+      Object.keys(en.create.errors),
+    );
+    expect(Object.keys(uk.create.variants)).toEqual(
+      Object.keys(en.create.variants),
+    );
   });
 
   it("pins the canvas orders-list copy in uk without search or payment", () => {
@@ -52,7 +58,7 @@ describe("orders copy", () => {
     expect(uk.empty.reset).toBe("Скинути фільтри");
     expect(Object.keys(uk.statuses)).not.toContain("in_progress");
     expect(JSON.stringify(uk)).not.toContain("Оплачен");
-    expect(JSON.stringify(uk)).not.toContain("Пошук");
+    expect(JSON.stringify({ ...uk, create: undefined })).not.toContain("Пошук");
   });
 
   it("pins the order-detail copy in uk without number, payment, or extra statuses", () => {
@@ -81,19 +87,37 @@ describe("orders copy", () => {
     expect(JSON.stringify(uk.detail)).not.toContain("Редагувати");
   });
 
-  it("pins create-placeholder copy without implementing the editor", () => {
+  it("pins create-editor copy without prices, payment, or edit-after-create", () => {
     const uk = ordersCopy("uk");
     const en = ordersCopy("en");
-    expect(uk.create.title).toBe("Нове замовлення");
-    expect(uk.create.backLabel).toBe("Назад");
-    expect(uk.create.placeholderTitle).toBe("Редактор у розробці");
-    expect(uk.create.placeholderDescription).toBe(
-      "Створення замовлення з телефону поки недоступне.",
+    expect(Object.keys(uk.create)).toEqual(Object.keys(en.create));
+    expect(Object.keys(uk.create.errors)).toEqual(
+      Object.keys(en.create.errors),
     );
+    expect(Object.keys(uk.create.variants)).toEqual(
+      Object.keys(en.create.variants),
+    );
+    expect(uk.create.title).toBe("Нове замовлення");
+    expect(uk.create.itemsTitle).toBe("Товари");
+    expect(uk.create.addProductsPlaceholder).toBe(
+      "Додайте товари до замовлення",
+    );
+    expect(uk.create.customerPlaceholder).toBe("Оберіть клієнта");
+    expect(uk.create.commentLabel).toBe("Для внутрішнього використання");
+    expect(uk.create.submitCreate).toBe("Створити");
+    expect(uk.create.leaveTitle).toBe("Вийти без збереження?");
+    expect(uk.create.errors.offline.includes("\u02BC")).toBe(true);
+    expect(uk.create.errors.network.includes("\u02BC")).toBe(true);
+    expect(uk.create.errors.offline.includes("\u2019")).toBe(false);
+    expect(uk.create.errors.network.includes("\u2019")).toBe(false);
     expect(en.create.title).toBe("New order");
-    expect(en.create.placeholderTitle).toBe("Editor in development");
-    expect(JSON.stringify(uk.create)).not.toContain("orders.create");
+    expect(en.create.submitCreate).toBe("Create");
+    expect(JSON.stringify(uk.create)).not.toContain("Редактор у розробці");
+    expect(JSON.stringify(uk.create)).not.toContain("До сплати");
+    expect(JSON.stringify(uk.create)).not.toContain("Оплачен");
+    expect(JSON.stringify(uk.create)).not.toContain("Нова Пошта");
     expect(JSON.stringify(uk.create)).not.toContain("Редагувати");
+    expect(JSON.stringify(uk.create)).not.toContain("basePrice");
   });
 
   it("keeps interpolation slots in both locales", () => {
@@ -102,5 +126,9 @@ describe("orders copy", () => {
     expect(ordersCopy("en").groupCount).toContain("{{count}}");
     expect(ordersCopy("uk").filterActiveLabel).toContain("{{count}}");
     expect(ordersCopy("uk").items.one).toContain("{{count}}");
+    expect(ordersCopy("uk").create.addProductsValue).toContain("{{count}}");
+    expect(ordersCopy("en").create.addProductsValue).toContain("{{count}}");
+    expect(ordersCopy("uk").create.removeLine).toContain("{{name}}");
+    expect(ordersCopy("en").create.removeLine).toContain("{{name}}");
   });
 });

@@ -1,29 +1,35 @@
-# Orders — mobile list + detail (SHO-211 / SHO-212)
+# Orders — mobile list + detail + create (SHO-211 / SHO-212 / SHO-213)
 
 Copy `src/features/catalog/products/` folder roles and customers list
 chrome. `src/app/` stays one-line re-exports. Feature code lives here.
 
 UI state ownership is `.cursor/rules/mobile-ui-state.mdc`. List filters
 and the status-filter sheet are `useState` / local view state, never
-XState. Detail sheet chrome is a `useReducer`. Views take a view-model
-and callbacks. No RHF on list or detail.
+XState. Detail sheet chrome is a `useReducer`. The create form uses RHF
+
+- a UI Zod draft, a write planner, and an unsaved-leave guard. Views take
+  a view-model and callbacks. No RHF on list or detail.
 
 Do not import `src/features/customers/` from this slice. Hydrate names
 with `customers.getCustomer` through `@showzy/contract` (binder in
-`api/customer-name-query.ts`). Do not join customers in the orders
-backend module.
+`api/customer-name-query.ts`). Picker lists use orders-owned binders in
+`api/order-customers-query.ts` and `api/order-catalog-query.ts`. Do not
+join customers in the orders backend module.
 
 ## Folders (one role each)
 
-| Folder    | Owns                                                                                        | Does not own                        |
-| --------- | ------------------------------------------------------------------------------------------- | ----------------------------------- |
-| `api/`    | `orders.list` infinite binder, `orders.get`, confirm/cancel writes, customer-name hydration | JSX, other modules' query files     |
-| `list/`   | Screen, view, composer hook, presenter, row, filter sheet, customer-name queries            | Detail / editor (SHO-212 / SHO-213) |
-| `detail/` | Screen, view, facade, query/actions hooks, sheet reducer, line row, actions sheet           | List filters; editor (SHO-213)      |
-| `shared/` | Permissions, hrefs, item-count labels, order id, load classification, customer-name, status | Transport                           |
+| Folder    | Owns                                                                                                                                                                                               | Does not own                            |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| `api/`    | `orders.list` infinite binder, `orders.get`, confirm/cancel/create writes, customer-name hydration, picker list/get binders                                                                        | JSX, other modules' query files         |
+| `list/`   | Screen, view, composer hook, presenter, row, filter sheet, customer-name queries                                                                                                                   | Detail / editor                         |
+| `detail/` | Screen, view, facade, query/actions hooks, sheet reducer, line row, actions sheet                                                                                                                  | List filters; editor                    |
+| `form/`   | Create-only screen, view, UI draft Zod, RHF sections, save loop, unsaved guard, picker sheets. Pure roles: `order-form-draft.ts`, `order-form-plan.ts`, `order-form-copy.ts`, `order-form-load.ts` | List filters; detail; edit-after-create |
+| `shared/` | Permissions, hrefs, item-count labels, order id, load classification, customer-name, status, create caps                                                                                           | Transport                               |
 
 `list/` must not grow a combined `*-model.ts` and must not grow into
-`detail/`. Query keys are `[actionName, companyId, input]` (SHO-102).
+`detail/` or `form/`. `form/` must not import `list/` or `detail/`.
+Query keys are `[actionName, companyId, input]` (SHO-102).
 Empty selected statuses map to `orders.list` `status: "all"`. No
-search. No payment filter. Detail never calls `pricing.resolveProductPrices`
-or shows `basePriceMinor` as the line price.
+search. No payment filter. Create and detail never call
+`pricing.resolveProductPrices` or show `basePriceMinor` as the line
+price. Create is `/orders/new` only — no `/orders/[id]/edit`.
