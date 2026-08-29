@@ -67,7 +67,7 @@ export function useInvitationForm() {
   });
   const { isDirty, errors, isSubmitted } = formState;
 
-  const [origin, setOriginDraft] = useState<InvitationFormDraft>(() =>
+  const [, setOriginDraft] = useState<InvitationFormDraft>(() =>
     emptyInvitationFormDraft(),
   );
   const [picker, setPicker] = useState<InvitationFormPicker>(null);
@@ -92,8 +92,7 @@ export function useInvitationForm() {
     watchedKind === "reusable" ? "reusable" : "personal";
   const groupId = useWatch({ control, name: "groupId" }) ?? null;
   const priceListId = useWatch({ control, name: "priceListId" }) ?? null;
-  const expiresAt =
-    useWatch({ control, name: "expiresAt" }) ?? origin.expiresAt;
+  const expiresAt = useWatch({ control, name: "expiresAt" });
 
   const armLeaveRef = useRef(() => {});
 

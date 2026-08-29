@@ -41,7 +41,7 @@ function createPorts(overrides: {
 }) {
   const calls: string[] = [];
   const originDrafts: InvitationFormDraft[] = [];
-  let draft = overrides.draft ?? validCreateDraft();
+  const draft = overrides.draft ?? validCreateDraft();
   let created = overrides.created ?? null;
   let lastWrite = overrides.lastWrite ?? null;
   let lastFailure = overrides.lastFailure ?? { kind: null, wire: null };

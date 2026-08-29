@@ -1,8 +1,6 @@
 import type { ReactNode } from "react";
-import { Text, View } from "react-native";
-import DateTimePicker, {
-  type DateTimePickerEvent,
-} from "@react-native-community/datetimepicker";
+import { Platform, Text, View } from "react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import {
   CalendarIcon,
   LayersIcon,
@@ -303,25 +301,12 @@ function InvitationExpiresPicker(props: {
   const { model } = props;
   const form = model.copy.inviteForm;
   const visible = model.picker === "expires";
-  const ios = process.env.EXPO_OS === "ios";
+  const ios = Platform.OS === "ios";
   const now = Date.now();
   const minimumDate = new Date(now + INVITE_EXPIRES_MIN_MS);
   const maximumDate = new Date(now + INVITE_EXPIRES_MAX_MS);
   const value = new Date(model.expiresAt);
   const pickerValue = Number.isFinite(value.getTime()) ? value : minimumDate;
-
-  function onChange(event: DateTimePickerEvent, date?: Date): void {
-    if (event.type === "dismissed") {
-      model.closePicker();
-      return;
-    }
-    if (date !== undefined) {
-      model.selectExpiresDate(date);
-    }
-    if (!ios) {
-      model.closePicker();
-    }
-  }
 
   const picker = visible ? (
     <DateTimePicker
@@ -330,7 +315,15 @@ function InvitationExpiresPicker(props: {
       display={ios ? "spinner" : "default"}
       minimumDate={minimumDate}
       maximumDate={maximumDate}
-      onChange={onChange}
+      onValueChange={(_event, date) => {
+        model.selectExpiresDate(date);
+        if (!ios) {
+          model.closePicker();
+        }
+      }}
+      onDismiss={() => {
+        model.closePicker();
+      }}
     />
   ) : null;
 
