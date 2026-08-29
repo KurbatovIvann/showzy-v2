@@ -85,7 +85,7 @@ function createPorts(overrides: {
   const calls: string[] = [];
   const originDrafts: OrderFormDraft[] = [];
   const finished: string[] = [];
-  let draft = overrides.draft ?? validDraft();
+  const draft = overrides.draft ?? validDraft();
   let lastWrite = overrides.lastWrite ?? null;
   let lastFailure = overrides.lastFailure ?? { kind: null, wire: null };
   let fieldErrors: OrderFormFieldErrors = emptyFieldErrors();
