@@ -31,6 +31,8 @@ export function useOrderDetailActions(args: {
   readonly dispatch: (action: OrderDetailSheetAction) => void;
 }): {
   readonly banner: string | null;
+  readonly confirmPending: boolean;
+  readonly cancelPending: boolean;
   readonly writePending: boolean;
   readonly goBack: () => void;
   readonly openActions: () => void;
@@ -106,6 +108,8 @@ export function useOrderDetailActions(args: {
 
   return {
     banner,
+    confirmPending: confirmMutation.isPending,
+    cancelPending: cancelMutation.isPending,
     writePending: confirmMutation.isPending || cancelMutation.isPending,
     goBack: () => {
       router.back();

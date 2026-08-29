@@ -7,6 +7,7 @@ import {
   formatQuantityMilli,
   mapOrderWriteFailure,
   orderDetailActionsForView,
+  orderDetailConfirmLoading,
   orderDetailHeaderTitle,
   orderDetailWriteChrome,
   orderWriteBanner,
@@ -257,6 +258,41 @@ describe("orderDetailActionsForView", () => {
       showActions: false,
       cancelEnabled: false,
     });
+  });
+});
+
+describe("orderDetailConfirmLoading", () => {
+  it("does not paint Confirm as loading while cancel is in flight", () => {
+    const chrome = orderDetailWriteChrome({
+      stateKind: "ready",
+      hasOrder: true,
+      actionFlags: orderDetailActionsForView({
+        canEdit: true,
+        status: "new",
+      }),
+    });
+    expect(chrome.showConfirm).toBe(true);
+    expect(
+      orderDetailConfirmLoading({
+        confirmPending: false,
+        cancelPending: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("shows Confirm loading only when confirm is in flight", () => {
+    expect(
+      orderDetailConfirmLoading({
+        confirmPending: true,
+        cancelPending: false,
+      }),
+    ).toBe(true);
+    expect(
+      orderDetailConfirmLoading({
+        confirmPending: false,
+        cancelPending: false,
+      }),
+    ).toBe(false);
   });
 });
 

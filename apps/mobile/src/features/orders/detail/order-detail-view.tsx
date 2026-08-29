@@ -59,7 +59,7 @@ export function OrderDetailView(model: OrderDetailModel) {
         <View style={styles.footer}>
           <Button
             fullWidth
-            loading={model.writePending}
+            loading={model.confirmLoading}
             icon={
               <CheckIcon
                 size={theme.iconSize.sm}

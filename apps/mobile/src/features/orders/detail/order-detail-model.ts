@@ -165,6 +165,18 @@ export function orderDetailWriteChrome(args: {
   };
 }
 
+/**
+ * Confirm footer loading is confirm-in-flight only. Cancel pending
+ * belongs to the actions sheet; it must not OR into Confirm (catalog
+ * `product-detail-view` keeps footer independent of sheet pending).
+ */
+export function orderDetailConfirmLoading(args: {
+  readonly confirmPending: boolean;
+  readonly cancelPending: boolean;
+}): boolean {
+  return args.confirmPending;
+}
+
 export type OrderWriteBannerKey = "offline" | "permission" | "error";
 
 export function mapOrderWriteFailure(

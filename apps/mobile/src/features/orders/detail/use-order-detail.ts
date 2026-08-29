@@ -16,6 +16,7 @@ import { getCustomerNameQueryOptions } from "../api/customer-name-query";
 import { resolveCustomerNameHydration } from "../shared/customer-name";
 import { canEditOrders, orderDetailActions } from "../shared/order-permissions";
 import {
+  orderDetailConfirmLoading,
   orderDetailHeaderTitle,
   orderDetailWriteChrome,
   toOrderDetailView,
@@ -38,6 +39,7 @@ export type OrderDetailModel = {
   readonly showActions: boolean;
   readonly cancelEnabled: boolean;
   readonly actionsVisible: boolean;
+  readonly confirmLoading: boolean;
   readonly writePending: boolean;
   readonly statusBanner: string | null;
   readonly headerTitle: string;
@@ -113,6 +115,10 @@ export function useOrderDetail(
     showActions: writeChrome.showActions,
     cancelEnabled: writeChrome.cancelEnabled,
     actionsVisible: chrome.actionsVisible,
+    confirmLoading: orderDetailConfirmLoading({
+      confirmPending: actions.confirmPending,
+      cancelPending: actions.cancelPending,
+    }),
     writePending: actions.writePending,
     statusBanner: actions.banner,
     headerTitle:
