@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import { documentsCopy } from "../../../i18n/documents";
 import type { DocumentListItem } from "../api/document.queries";
 import {
+  classifyDocumentOptionsGet,
   classifyDocumentsList,
   documentOptionVisibility,
+  documentsFilteredEmptyView,
   documentsHeaderActions,
   flattenDocumentPages,
   hasDocumentsListFilter,
@@ -150,10 +152,109 @@ describe("classifyDocumentsList", () => {
     expect(
       hasDocumentsListFilter({ type: "payment_invoice", orderId: null }),
     ).toBe(true);
+    expect(hasDocumentsListFilter({ type: "all", orderId: ORDER_ID })).toBe(
+      true,
+    );
   });
 
   it("maps an unfiltered empty page to catalog-empty", () => {
     expect(classifyDocumentsList(base)).toEqual({ kind: "empty-catalog" });
+  });
+});
+
+describe("documentsFilteredEmptyView", () => {
+  const copy = documentsCopy("en");
+
+  it("hides Reset when nothing is filtered", () => {
+    expect(
+      documentsFilteredEmptyView({ type: "all", orderId: null, copy }),
+    ).toEqual({
+      showReset: false,
+      description: copy.empty.filteredDescription,
+    });
+  });
+
+  it("clears type only when the list is also order-scoped", () => {
+    expect(
+      documentsFilteredEmptyView({
+        type: "payment_invoice",
+        orderId: ORDER_ID,
+        copy,
+      }),
+    ).toEqual({
+      showReset: true,
+      description: copy.empty.filteredTypeAndOrderDescription,
+    });
+  });
+
+  it("keeps Reset for an order-only empty list so navigation can drop orderId", () => {
+    expect(
+      documentsFilteredEmptyView({ type: "all", orderId: ORDER_ID, copy }),
+    ).toEqual({
+      showReset: true,
+      description: copy.empty.filteredOrderDescription,
+    });
+  });
+
+  it("keeps the type-filter copy when only a type chip is set", () => {
+    expect(
+      documentsFilteredEmptyView({
+        type: "delivery_note",
+        orderId: null,
+        copy,
+      }),
+    ).toEqual({
+      showReset: true,
+      description: copy.empty.filteredDescription,
+    });
+  });
+});
+
+describe("classifyDocumentOptionsGet", () => {
+  const base = {
+    documentId: DOCUMENT_ID,
+    clientReady: true,
+    status: "success" as const,
+    failureKind: null,
+  };
+
+  it("is idle when the sheet has no selected document", () => {
+    expect(classifyDocumentOptionsGet({ ...base, documentId: null })).toEqual({
+      kind: "idle",
+    });
+  });
+
+  it("is an error when the client is not ready", () => {
+    expect(classifyDocumentOptionsGet({ ...base, clientReady: false })).toEqual(
+      { kind: "error" },
+    );
+  });
+
+  it("is loading while the get is pending", () => {
+    expect(classifyDocumentOptionsGet({ ...base, status: "pending" })).toEqual({
+      kind: "loading",
+    });
+  });
+
+  it("splits offline from other get failures", () => {
+    expect(
+      classifyDocumentOptionsGet({
+        ...base,
+        status: "error",
+        failureKind: "offline",
+      }),
+    ).toEqual({ kind: "offline" });
+    expect(
+      classifyDocumentOptionsGet({
+        ...base,
+        status: "error",
+        failureKind: "network",
+      }),
+    ).toEqual({ kind: "error" });
+  });
+
+  it("is ready on a successful get", () => {
+    expect(classifyDocumentOptionsGet(base)).toEqual({ kind: "ready" });
   });
 });
 
@@ -169,22 +270,24 @@ describe("documentsHeaderActions", () => {
 });
 
 describe("documentOptionVisibility", () => {
+  const readyPdf = {
+    canView: true,
+    canEdit: false,
+    status: "issued" as const,
+    getLoad: "ready" as const,
+    generationStatus: "ready" as const,
+    pdfDownloadUrl: "https://example.test/pdf",
+  };
+
   it("hides share/QR/print/cancel without documents:edit; open PDF stays on view", () => {
-    expect(
-      documentOptionVisibility({
-        canView: true,
-        canEdit: false,
-        status: "issued",
-        generationStatus: "ready",
-        pdfDownloadUrl: "https://example.test/pdf",
-      }),
-    ).toEqual({
+    expect(documentOptionVisibility(readyPdf)).toEqual({
       showShare: false,
       showQr: false,
       showPrint: false,
       showOpenPdf: true,
       showCancel: false,
       pdfReady: true,
+      openPdfEnabled: true,
     });
   });
 
@@ -194,6 +297,7 @@ describe("documentOptionVisibility", () => {
         canView: true,
         canEdit: true,
         status: "issued",
+        getLoad: "ready",
         generationStatus: "pending",
         pdfDownloadUrl: null,
       }).showCancel,
@@ -203,18 +307,20 @@ describe("documentOptionVisibility", () => {
         canView: true,
         canEdit: true,
         status: "cancelled",
+        getLoad: "ready",
         generationStatus: "ready",
         pdfDownloadUrl: "https://example.test/pdf",
       }).showCancel,
     ).toBe(false);
   });
 
-  it("treats PDF as ready only when generation is ready and a panel URL exists", () => {
+  it("treats PDF as ready only when a successful get has generation ready and a panel URL", () => {
     expect(
       documentOptionVisibility({
         canView: true,
         canEdit: true,
         status: "issued",
+        getLoad: "ready",
         generationStatus: "ready",
         pdfDownloadUrl: null,
       }).pdfReady,
@@ -224,9 +330,68 @@ describe("documentOptionVisibility", () => {
         canView: true,
         canEdit: true,
         status: "issued",
+        getLoad: "ready",
         generationStatus: "failed",
         pdfDownloadUrl: "https://example.test/pdf",
       }).pdfReady,
     ).toBe(false);
+    expect(
+      documentOptionVisibility({
+        canView: true,
+        canEdit: true,
+        status: "issued",
+        getLoad: "ready",
+        generationStatus: "pending",
+        pdfDownloadUrl: null,
+      }).openPdfEnabled,
+    ).toBe(false);
+  });
+
+  it("does not collapse a get error into not-ready PDF with no retry", () => {
+    const failed = documentOptionVisibility({
+      canView: true,
+      canEdit: true,
+      status: "issued",
+      getLoad: "error",
+      generationStatus: null,
+      pdfDownloadUrl: null,
+    });
+    expect(failed.pdfReady).toBe(false);
+    expect(failed.openPdfEnabled).toBe(true);
+    expect(failed.showOpenPdf).toBe(true);
+    const offline = documentOptionVisibility({
+      canView: true,
+      canEdit: true,
+      status: "issued",
+      getLoad: "offline",
+      generationStatus: "pending",
+      pdfDownloadUrl: null,
+    });
+    expect(offline.pdfReady).toBe(false);
+    expect(offline.openPdfEnabled).toBe(true);
+    const employee = documentOptionVisibility({
+      canView: true,
+      canEdit: false,
+      status: "issued",
+      getLoad: "error",
+      generationStatus: null,
+      pdfDownloadUrl: null,
+    });
+    expect(employee.showOpenPdf).toBe(true);
+    expect(employee.openPdfEnabled).toBe(true);
+    expect(employee.pdfReady).toBe(false);
+  });
+
+  it("keeps Print/Open PDF disabled while the get is still loading", () => {
+    const loading = documentOptionVisibility({
+      canView: true,
+      canEdit: true,
+      status: "issued",
+      getLoad: "loading",
+      generationStatus: null,
+      pdfDownloadUrl: null,
+    });
+    expect(loading.pdfReady).toBe(false);
+    expect(loading.openPdfEnabled).toBe(false);
   });
 });

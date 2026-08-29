@@ -15,6 +15,8 @@ export type DocumentsEmptyCopy = {
   readonly retry: string;
   readonly filteredTitle: string;
   readonly filteredDescription: string;
+  readonly filteredOrderDescription: string;
+  readonly filteredTypeAndOrderDescription: string;
   readonly reset: string;
   readonly catalogTitle: string;
   readonly catalogDescription: string;
@@ -47,6 +49,11 @@ export type DocumentsCopy = {
     readonly openPdf: string;
     readonly cancel: string;
     readonly close: string;
+  };
+  readonly optionsGet: {
+    readonly loading: string;
+    readonly offline: string;
+    readonly error: string;
   };
   readonly generation: {
     readonly pending: string;
@@ -103,6 +110,9 @@ const en: DocumentsCopy = {
     retry: "Retry",
     filteredTitle: "Nothing found",
     filteredDescription: "Change the type filter.",
+    filteredOrderDescription: "No documents for this order.",
+    filteredTypeAndOrderDescription:
+      "Change the type filter. Documents stay scoped to this order.",
     reset: "Reset",
     catalogTitle: "No documents yet",
     catalogDescription: "Create the first invoice or delivery note.",
@@ -115,6 +125,11 @@ const en: DocumentsCopy = {
     openPdf: "Open PDF",
     cancel: "Cancel document",
     close: "Close",
+  },
+  optionsGet: {
+    loading: "Loading PDF status",
+    offline: "No connection. Open PDF to retry.",
+    error: "Could not load PDF status. Open PDF to retry.",
   },
   generation: {
     pending: "PDF pending",
@@ -176,6 +191,9 @@ const uk: DocumentsCopy = {
     retry: "Повторити",
     filteredTitle: "Нічого не знайдено",
     filteredDescription: "Змініть фільтр типу.",
+    filteredOrderDescription: "Для цього замовлення документів немає.",
+    filteredTypeAndOrderDescription:
+      "Змініть фільтр типу. Список залишиться в межах цього замовлення.",
     reset: "Скинути",
     catalogTitle: "Документів ще немає",
     catalogDescription: "Створіть перший рахунок або видаткову накладну.",
@@ -188,6 +206,11 @@ const uk: DocumentsCopy = {
     openPdf: "Відкрити PDF",
     cancel: "Скасувати документ",
     close: "Закрити",
+  },
+  optionsGet: {
+    loading: "Завантаження статусу PDF",
+    offline: "Немає з’єднання. Відкрийте PDF, щоб повторити.",
+    error: "Не вдалося завантажити статус PDF. Відкрийте PDF, щоб повторити.",
   },
   generation: {
     pending: "PDF готується",

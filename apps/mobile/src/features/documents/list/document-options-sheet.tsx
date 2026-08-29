@@ -9,10 +9,13 @@ import {
 } from "lucide-react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
-import { Sheet, StatusPill } from "../../../components/ui";
+import { Banner, Sheet, StatusPill } from "../../../components/ui";
 import type { DocumentsCopy } from "../../../i18n/documents";
-import { documentOptionVisibility } from "./documents-list.presenter";
-import type { DocumentsListRow } from "./use-documents-list";
+import {
+  documentOptionVisibility,
+  type DocumentOptionsGetLoadState,
+  type DocumentsListRow,
+} from "./documents-list.presenter";
 
 export function DocumentOptionsSheet(props: {
   readonly visible: boolean;
@@ -20,6 +23,7 @@ export function DocumentOptionsSheet(props: {
   readonly copy: DocumentsCopy;
   readonly canView: boolean;
   readonly canEdit: boolean;
+  readonly getLoad: DocumentOptionsGetLoadState["kind"];
   readonly generationStatus: "pending" | "ready" | "failed" | null;
   readonly pdfDownloadUrl: string | null;
   readonly onClose: () => void;
@@ -38,6 +42,7 @@ export function DocumentOptionsSheet(props: {
           canView: false,
           canEdit: false,
           status: "issued",
+          getLoad: "idle",
           generationStatus: null,
           pdfDownloadUrl: null,
         })
@@ -45,6 +50,7 @@ export function DocumentOptionsSheet(props: {
           canView: props.canView,
           canEdit: props.canEdit,
           status: document.status,
+          getLoad: props.getLoad,
           generationStatus: props.generationStatus,
           pdfDownloadUrl: props.pdfDownloadUrl,
         });
@@ -52,16 +58,23 @@ export function DocumentOptionsSheet(props: {
   const danger = theme.colors.destructive;
   const icon = theme.iconSize.sm;
   const generationLabel =
-    props.generationStatus === null
-      ? null
-      : props.copy.generation[props.generationStatus];
+    props.getLoad === "ready" && props.generationStatus !== null
+      ? props.copy.generation[props.generationStatus]
+      : null;
   const generationTone =
     props.generationStatus === "ready"
       ? "success"
       : props.generationStatus === "failed"
         ? "danger"
         : "attention";
+  const getBanner =
+    props.getLoad === "offline"
+      ? props.copy.optionsGet.offline
+      : props.getLoad === "error"
+        ? props.copy.optionsGet.error
+        : null;
   const pdfEnabled = visibility.pdfReady;
+  const openPdfEnabled = visibility.openPdfEnabled;
   const showShare = visibility.showShare;
   const showQr = visibility.showQr;
   const showPrint = visibility.showPrint;
@@ -76,6 +89,16 @@ export function DocumentOptionsSheet(props: {
       onClose={props.onClose}
       onHidden={props.onHidden}
     >
+      {props.getLoad === "loading" ? (
+        <View style={styles.generation}>
+          <StatusPill label={props.copy.optionsGet.loading} tone="attention" />
+        </View>
+      ) : null}
+      {getBanner !== null ? (
+        <View style={styles.generation}>
+          <Banner message={getBanner} />
+        </View>
+      ) : null}
       {generationLabel !== null ? (
         <View style={styles.generation}>
           <StatusPill label={generationLabel} tone={generationTone} />
@@ -111,7 +134,7 @@ export function DocumentOptionsSheet(props: {
           <OptionRow
             icon={<EyeIcon size={icon} color={muted} />}
             label={props.copy.options.openPdf}
-            disabled={!pdfEnabled}
+            disabled={!openPdfEnabled}
             last={!showCancel}
             onPress={props.onOpenPdf}
           />

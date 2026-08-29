@@ -1,58 +1,36 @@
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 
 import { useApiClient } from "../../../api/api-provider";
 import { describeQueryFailure } from "../../../api/errors";
 import { useActiveCompany } from "../../../api/query-provider";
 import { useResolvedCompany } from "../../../company-resolution/resolved-company-provider";
-import { presentConfirmDialog } from "../../../components/ui/present-confirm-dialog";
 import { documentsCopy } from "../../../i18n/documents";
 import { detectLocale } from "../../../i18n/locale";
-import { getDocumentQueryOptions } from "../api/document-detail-query";
 import {
   listDocumentsInfiniteOptions,
   type DocumentsTypeFilter,
 } from "../api/document.queries";
+import { documentsHref } from "../shared/document-hrefs";
 import {
   canCreateDocuments,
   canEditDocuments,
   canViewDocuments,
 } from "../shared/document-permissions";
-import { useSheetHiddenWaiter } from "../shared/use-sheet-hidden-waiter";
-import {
-  documentHandoverHidden,
-  documentOptionsHidden,
-  hideDocumentHandover,
-  hideDocumentOptions,
-  IDLE_DOCUMENT_HANDOVER,
-  IDLE_DOCUMENT_OPTIONS,
-  openDocumentHandover,
-  openDocumentOptions,
-  waitThenConfirmDocumentCancel,
-  waitThenRunDocumentFollowUp,
-  type DocumentHandoverChrome,
-  type DocumentOptionsChrome,
-} from "./document-options-handshake";
 import {
   classifyDocumentsList,
+  documentsFilteredEmptyView,
   flattenDocumentPages,
   listDocumentsPageInput,
   toDocumentRowView,
+  type DocumentsListRow,
   type DocumentsListState,
 } from "./documents-list.presenter";
+import { useDocumentListOptions } from "./use-document-list-options";
 import { useDocumentWrites } from "./use-document-writes";
 
-export type DocumentsListRow = {
-  readonly id: string;
-  readonly documentNumber: string;
-  readonly typeLabel: string;
-  readonly buyerLabel: string;
-  readonly issuedOnLabel: string;
-  readonly totalLabel: string;
-  readonly cancelled: boolean;
-  readonly status: "issued" | "cancelled";
-  readonly optionsA11y: string;
-};
+export type { DocumentsListRow };
 
 export function useDocumentsList(args: { readonly orderId: string | null }) {
   const locale = detectLocale();
@@ -60,22 +38,13 @@ export function useDocumentsList(args: { readonly orderId: string | null }) {
   const apiClient = useApiClient();
   const { activeCompanyId } = useActiveCompany();
   const membership = useResolvedCompany();
+  const router = useRouter();
   const canView = canViewDocuments(membership.role);
   const canCreate = canCreateDocuments(membership.role);
   const canEdit = canEditDocuments(membership.role);
   const writes = useDocumentWrites({ copy, canCreate, canEdit });
 
   const [type, setType] = useState<DocumentsTypeFilter>("all");
-  const [optionsChrome, setOptionsChrome] = useState<DocumentOptionsChrome>(
-    IDLE_DOCUMENT_OPTIONS,
-  );
-  const [handoverChrome, setHandoverChrome] = useState<DocumentHandoverChrome>(
-    IDLE_DOCUMENT_HANDOVER,
-  );
-  const [copied, setCopied] = useState(false);
-  const [copyFailed, setCopyFailed] = useState(false);
-  const optionsHidden = useSheetHiddenWaiter();
-  const handoverHidden = useSheetHiddenWaiter();
 
   const getActiveCompany = () => apiClient?.getActiveCompany() ?? null;
   const listQuery = useInfiniteQuery(
@@ -83,14 +52,6 @@ export function useDocumentsList(args: { readonly orderId: string | null }) {
       client: apiClient,
       companyId: activeCompanyId,
       input: listDocumentsPageInput(type, args.orderId),
-      getActiveCompany,
-    }),
-  );
-  const detailQuery = useQuery(
-    getDocumentQueryOptions({
-      client: apiClient,
-      companyId: activeCompanyId,
-      documentId: optionsChrome.documentId,
       getActiveCompany,
     }),
   );
@@ -127,39 +88,12 @@ export function useDocumentsList(args: { readonly orderId: string | null }) {
     type,
     orderId: args.orderId,
   });
-  const optionsRow =
-    rows.find((row) => row.id === optionsChrome.documentId) ?? null;
-
-  function hideOptions(): void {
-    setOptionsChrome(hideDocumentOptions);
-  }
-
-  async function mintThen(handover: boolean): Promise<void> {
-    if (optionsRow === null) {
-      return;
-    }
-    const target = optionsRow;
-    await waitThenRunDocumentFollowUp({
-      waitHidden: optionsHidden.wait,
-      hide: hideOptions,
-      run: async () => {
-        const url = await writes.mintShareUrl(target.id);
-        if (url === null) {
-          return;
-        }
-        if (handover) {
-          setHandoverChrome(
-            openDocumentHandover({
-              url,
-              documentNumber: target.documentNumber,
-            }),
-          );
-          return;
-        }
-        await writes.shareUrl(url);
-      },
-    });
-  }
+  const options = useDocumentListOptions({
+    copy,
+    canView,
+    rows,
+    writes,
+  });
 
   return {
     copy,
@@ -168,57 +102,25 @@ export function useDocumentsList(args: { readonly orderId: string | null }) {
     type,
     changeType: setType,
     resetFilters: () => {
-      setType("all");
+      if (type !== "all") {
+        setType("all");
+        return;
+      }
+      if (args.orderId !== null) {
+        router.replace(documentsHref());
+      }
     },
+    filteredEmpty: documentsFilteredEmptyView({
+      type,
+      orderId: args.orderId,
+      copy,
+    }),
     canView,
     canCreate,
     canEdit,
     banner: writes.banner,
     writesPending: writes.pending,
-    optionsVisible: optionsChrome.visible,
-    optionsRow,
-    generationStatus: detailQuery.data?.generation.status ?? null,
-    pdfDownloadUrl: detailQuery.data?.pdfDownloadUrl ?? null,
-    openOptions: (id: string) => {
-      setCopied(false);
-      setCopyFailed(false);
-      setOptionsChrome(openDocumentOptions(id));
-    },
-    closeOptions: () => {
-      hideOptions();
-    },
-    onOptionsHidden: () => {
-      optionsHidden.notify();
-      setOptionsChrome(documentOptionsHidden);
-    },
-    handoverVisible: handoverChrome.visible,
-    handoverUrl: handoverChrome.url,
-    handoverTitle: handoverChrome.documentNumber ?? copy.handover.title,
-    copied,
-    copyFailed,
-    closeHandover: () => {
-      setHandoverChrome(hideDocumentHandover);
-    },
-    onHandoverHidden: () => {
-      handoverHidden.notify();
-      setHandoverChrome(documentHandoverHidden);
-      setCopied(false);
-      setCopyFailed(false);
-    },
-    copyHandover: async () => {
-      if (handoverChrome.url === null) {
-        return;
-      }
-      const result = await writes.copyUrl(handoverChrome.url);
-      setCopied(result === "ok");
-      setCopyFailed(result !== "ok");
-    },
-    shareHandover: async () => {
-      if (handoverChrome.url === null) {
-        return;
-      }
-      await writes.shareUrl(handoverChrome.url);
-    },
+    ...options,
     refreshing: listQuery.isRefetching && !listQuery.isFetchingNextPage,
     refresh: () => {
       void listQuery.refetch();
@@ -234,56 +136,6 @@ export function useDocumentsList(args: { readonly orderId: string | null }) {
     },
     goBack: writes.goBack,
     openCreate: writes.openCreate,
-    share: () => {
-      void mintThen(false);
-    },
-    openQr: () => {
-      void mintThen(true);
-    },
-    openPdf: async () => {
-      if (optionsRow === null) {
-        return;
-      }
-      const id = optionsRow.id;
-      await waitThenRunDocumentFollowUp({
-        waitHidden: optionsHidden.wait,
-        hide: hideOptions,
-        run: () => writes.openPanelPdf(id),
-      });
-    },
-    print: async () => {
-      if (optionsRow === null) {
-        return;
-      }
-      const id = optionsRow.id;
-      await waitThenRunDocumentFollowUp({
-        waitHidden: optionsHidden.wait,
-        hide: hideOptions,
-        run: () => writes.openPanelPdf(id),
-      });
-    },
-    cancel: async () => {
-      if (optionsRow === null) {
-        return;
-      }
-      const target = optionsRow;
-      const choice = await waitThenConfirmDocumentCancel({
-        waitHidden: optionsHidden.wait,
-        hide: hideOptions,
-        presentConfirmDialog,
-        confirm: {
-          title: copy.confirm.cancelTitle,
-          message: copy.confirm.cancelDescription,
-          confirmLabel: copy.confirm.cancelConfirm,
-          cancelLabel: copy.confirm.dismiss,
-          tone: "danger",
-        },
-      });
-      if (choice !== "confirm") {
-        return;
-      }
-      await writes.cancel(target);
-    },
   };
 }
 

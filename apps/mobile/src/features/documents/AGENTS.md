@@ -19,11 +19,11 @@ This ticket is the list only. Do not add `form/` or a create editor
 
 ## Folders (one role each)
 
-| Folder    | Owns                                                                                                                                                        | Does not own            |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| `api/`    | `documents.list` infinite binder, `documents.get`, cancel/share mutations, cache keys                                                                       | JSX, RHF                |
-| `list/`   | Screen, view, composer hook, presenter, row, options sheet, handover sheet, list writes. Filter chips are `ChoiceField` (not `BottomNav` / `SegmentedTabs`) | Create editor (SHO-238) |
-| `shared/` | Permissions, hrefs, ids, issued-on formatting, mutation banners                                                                                             | Transport               |
+| Folder    | Owns                                                                                                                                                                                      | Does not own            |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| `api/`    | `documents.list` infinite binder, `documents.get`, cancel/share mutations, cache keys                                                                                                     | JSX, RHF                |
+| `list/`   | Screen, view, composer hook, options/handover chrome hook, presenter, row, options sheet, handover sheet, list writes. Filter chips are `ChoiceField` (not `BottomNav` / `SegmentedTabs`) | Create editor (SHO-238) |
+| `shared/` | Permissions, hrefs, ids, issued-on formatting, mutation banners                                                                                                                           | Transport               |
 
 `list/` must not grow a combined `*-model.ts`. Query keys are
 `[actionName, companyId, input]` (SHO-102). Type filter maps onto

@@ -44,6 +44,46 @@ export function hasDocumentsListFilter(args: {
   return args.type !== "all" || args.orderId !== null;
 }
 
+export type DocumentsFilteredEmptyView = {
+  readonly showReset: boolean;
+  readonly description: string;
+};
+
+/**
+ * Type chips are local state; `orderId` is a route query. Reset never
+ * pretends a type-only `setType("all")` will clear an order-scoped list.
+ */
+export function documentsFilteredEmptyView(args: {
+  readonly type: DocumentsTypeFilter;
+  readonly orderId: string | null;
+  readonly copy: DocumentsCopy;
+}): DocumentsFilteredEmptyView {
+  const hasType = args.type !== "all";
+  const hasOrder = args.orderId !== null;
+  if (hasType && hasOrder) {
+    return {
+      showReset: true,
+      description: args.copy.empty.filteredTypeAndOrderDescription,
+    };
+  }
+  if (hasType) {
+    return {
+      showReset: true,
+      description: args.copy.empty.filteredDescription,
+    };
+  }
+  if (hasOrder) {
+    return {
+      showReset: true,
+      description: args.copy.empty.filteredOrderDescription,
+    };
+  }
+  return {
+    showReset: false,
+    description: args.copy.empty.filteredDescription,
+  };
+}
+
 export type DocumentStatus = DocumentListItem["status"];
 
 export function isCancelledStatus(status: DocumentStatus): boolean {
@@ -136,6 +176,52 @@ export function documentsHeaderActions(args: {
   return { showCreate: args.canCreate };
 }
 
+export type DocumentsListRow = {
+  readonly id: string;
+  readonly documentNumber: string;
+  readonly typeLabel: string;
+  readonly buyerLabel: string;
+  readonly issuedOnLabel: string;
+  readonly totalLabel: string;
+  readonly cancelled: boolean;
+  readonly status: DocumentStatus;
+  readonly optionsA11y: string;
+};
+
+export type DocumentOptionsGetLoadState =
+  | { readonly kind: "idle" }
+  | { readonly kind: "loading" }
+  | { readonly kind: "offline" }
+  | { readonly kind: "error" }
+  | { readonly kind: "ready" };
+
+/**
+ * Options-sheet `documents.get` — same split as `classifyProductDetail`.
+ * Query failure is not generation pending / not-ready PDF.
+ */
+export function classifyDocumentOptionsGet(args: {
+  readonly documentId: string | null;
+  readonly clientReady: boolean;
+  readonly status: "pending" | "error" | "success";
+  readonly failureKind: QueryFailureKind | null;
+}): DocumentOptionsGetLoadState {
+  if (args.documentId === null) {
+    return { kind: "idle" };
+  }
+  if (!args.clientReady) {
+    return { kind: "error" };
+  }
+  if (args.status === "pending") {
+    return { kind: "loading" };
+  }
+  if (args.status === "error") {
+    return args.failureKind === "offline"
+      ? { kind: "offline" }
+      : { kind: "error" };
+  }
+  return { kind: "ready" };
+}
+
 export type DocumentOptionVisibility = {
   readonly showShare: boolean;
   readonly showQr: boolean;
@@ -143,17 +229,22 @@ export type DocumentOptionVisibility = {
   readonly showOpenPdf: boolean;
   readonly showCancel: boolean;
   readonly pdfReady: boolean;
+  readonly openPdfEnabled: boolean;
 };
 
 export function documentOptionVisibility(args: {
   readonly canView: boolean;
   readonly canEdit: boolean;
   readonly status: DocumentStatus;
+  readonly getLoad: DocumentOptionsGetLoadState["kind"];
   readonly generationStatus: "pending" | "ready" | "failed" | null;
   readonly pdfDownloadUrl: string | null;
 }): DocumentOptionVisibility {
   const pdfReady =
-    args.generationStatus === "ready" && args.pdfDownloadUrl !== null;
+    args.getLoad === "ready" &&
+    args.generationStatus === "ready" &&
+    args.pdfDownloadUrl !== null;
+  const getFailed = args.getLoad === "error" || args.getLoad === "offline";
   return {
     showShare: args.canEdit,
     showQr: args.canEdit,
@@ -161,5 +252,6 @@ export function documentOptionVisibility(args: {
     showOpenPdf: args.canView,
     showCancel: args.canEdit && args.status === "issued",
     pdfReady,
+    openPdfEnabled: args.canView && (pdfReady || getFailed),
   };
 }

@@ -17,6 +17,7 @@ describe("documents copy", () => {
     expect(Object.keys(uk.types)).toEqual(Object.keys(en.types));
     expect(Object.keys(uk.empty)).toEqual(Object.keys(en.empty));
     expect(Object.keys(uk.options)).toEqual(Object.keys(en.options));
+    expect(Object.keys(uk.optionsGet)).toEqual(Object.keys(en.optionsGet));
     expect(Object.keys(uk.generation)).toEqual(Object.keys(en.generation));
     expect(Object.keys(uk.confirm)).toEqual(Object.keys(en.confirm));
     expect(Object.keys(uk.handover)).toEqual(Object.keys(en.handover));
@@ -36,7 +37,15 @@ describe("documents copy", () => {
     expect(uk.cancelledBadge).toBe("Скасовано");
     expect(uk.empty.catalogTitle).toBe("Документів ще немає");
     expect(uk.empty.filteredTitle).toBe("Нічого не знайдено");
+    expect(uk.empty.filteredDescription).toBe("Змініть фільтр типу.");
+    expect(uk.empty.filteredOrderDescription).toBe(
+      "Для цього замовлення документів немає.",
+    );
+    expect(uk.empty.filteredTypeAndOrderDescription).toBe(
+      "Змініть фільтр типу. Список залишиться в межах цього замовлення.",
+    );
     expect(uk.empty.reset).toBe("Скинути");
+    expect(uk.optionsGet.loading).toBe("Завантаження статусу PDF");
     expect(uk.optionsButton).toBe("Опції");
     expect(uk.options.share).toBe("Поділитися");
     expect(uk.options.qr).toBe("QR-код");

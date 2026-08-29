@@ -98,6 +98,7 @@ export function DocumentsListView(model: DocumentsListModel) {
         copy={copy}
         canView={model.canView}
         canEdit={model.canEdit}
+        getLoad={model.getLoad}
         generationStatus={model.generationStatus}
         pdfDownloadUrl={model.pdfDownloadUrl}
         onClose={model.closeOptions}
@@ -196,13 +197,15 @@ function DocumentsListBody(props: {
           <EmptyState
             icon={<FileTextIcon size={theme.iconSize.md} color={iconColor} />}
             title={copy.empty.filteredTitle}
-            description={copy.empty.filteredDescription}
+            description={model.filteredEmpty.description}
             action={
-              <Button
-                variant="secondary"
-                label={copy.empty.reset}
-                onPress={model.resetFilters}
-              />
+              model.filteredEmpty.showReset ? (
+                <Button
+                  variant="secondary"
+                  label={copy.empty.reset}
+                  onPress={model.resetFilters}
+                />
+              ) : undefined
             }
           />
         </CenteredEmpty>

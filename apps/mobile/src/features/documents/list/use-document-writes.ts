@@ -205,3 +205,5 @@ export function useDocumentWrites(args: {
     openPanelPdf,
   };
 }
+
+export type DocumentWritesApi = ReturnType<typeof useDocumentWrites>;
