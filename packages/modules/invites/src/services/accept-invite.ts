@@ -133,6 +133,15 @@ export async function acceptCustomerInvite(env: {
       .limit(1)
   )[0];
 
+  if (existingRedemption !== undefined) {
+    return {
+      inviteId,
+      customerId: existingRedemption.companyCustomerId,
+      created: false,
+      replayed: true,
+    };
+  }
+
   const crm = await ctx.callAtomic(applyInviteCrm, {
     groupId: locked.groupId,
     priceListId: locked.priceListId,
@@ -141,15 +150,6 @@ export async function acceptCustomerInvite(env: {
     email: locked.email,
     matchUnlinkedContact: !locked.isReusable,
   });
-
-  if (existingRedemption !== undefined) {
-    return {
-      inviteId,
-      customerId: crm.customerId,
-      created: crm.created,
-      replayed: true,
-    };
-  }
 
   if (derivedInviteStatus(locked) !== "pending") {
     throw new NotFoundError();

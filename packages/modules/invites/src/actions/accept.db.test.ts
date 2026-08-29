@@ -85,6 +85,7 @@ const acceptors = {
   reusable1: randomUUID(),
   reusable2: randomUUID(),
   archived: randomUUID(),
+  replayArchived: randomUUID(),
   fill: randomUUID(),
   keep: randomUUID(),
   conflict: randomUUID(),
@@ -637,6 +638,77 @@ describe("invites.accept", () => {
     expect(crm?.status).toBe("active");
     expect(crm?.groupId).toBe(fixtures.groupA);
     expect(crm?.priceListId).toBe(fixtures.listA);
+  });
+
+  it("does not restore a staff-archived CRM on same-user accept retry", async () => {
+    const created = await kit.invoke(createInvite, {
+      isReusable: false,
+      expiresAt: futureExpiry,
+      name: "Replay archived",
+      groupId: fixtures.groupA,
+      priceListId: fixtures.listA,
+    });
+
+    const first = await kit.invoke(
+      acceptInvite,
+      { token: created.token },
+      { userId: acceptors.replayArchived },
+    );
+    expect(first.created).toBe(true);
+
+    const afterFirst = await customerByUser(
+      kitIdentities.companies.a,
+      acceptors.replayArchived,
+    );
+    expect(afterFirst?.id).toBe(first.customerId);
+    expect(afterFirst?.status).toBe("active");
+
+    await kit.db.runtime.db
+      .update(companyCustomers)
+      .set({ status: "archived" })
+      .where(eq(companyCustomers.id, first.customerId));
+
+    const usesBeforeRetry = (await inviteRow(created.id))?.usesCount;
+    expect(usesBeforeRetry).toBe(1);
+    const eventsBeforeRetry = await kit.db.runtime.db
+      .select({ id: domainEvents.id })
+      .from(domainEvents)
+      .where(
+        and(
+          eq(domainEvents.name, "invites.accepted"),
+          eq(domainEvents.aggregateId, created.id),
+        ),
+      );
+    expect(eventsBeforeRetry).toHaveLength(1);
+
+    const retry = await kit.invoke(
+      acceptInvite,
+      { token: created.token },
+      { userId: acceptors.replayArchived },
+    );
+    expect(retry.customerId).toBe(first.customerId);
+    expect(retry.created).toBe(false);
+
+    const afterRetry = await customerByUser(
+      kitIdentities.companies.a,
+      acceptors.replayArchived,
+    );
+    expect(afterRetry?.id).toBe(first.customerId);
+    expect(afterRetry?.status).toBe("archived");
+
+    const storedAfterRetry = await inviteRow(created.id);
+    expect(storedAfterRetry?.usesCount).toBe(usesBeforeRetry);
+
+    const eventsAfterRetry = await kit.db.runtime.db
+      .select({ id: domainEvents.id })
+      .from(domainEvents)
+      .where(
+        and(
+          eq(domainEvents.name, "invites.accepted"),
+          eq(domainEvents.aggregateId, created.id),
+        ),
+      );
+    expect(eventsAfterRetry).toHaveLength(eventsBeforeRetry.length);
   });
 
   it("lets a second reusable acceptor get another CRM row and retries without a second use", async () => {
