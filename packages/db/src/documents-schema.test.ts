@@ -457,6 +457,9 @@ describe("documents schema slice", () => {
     expect(indexes.get("documents_company_type_document_number_uq")).toContain(
       "(company_id, type, document_number)",
     );
+    expect(
+      indexes.get("documents_company_type_document_number_uq"),
+    ).not.toMatch(/WHERE/i);
 
     const live = indexes.get("documents_company_order_type_live_uq");
     expect(live).toContain("UNIQUE");
@@ -611,6 +614,22 @@ describe("documents schema slice", () => {
       "23514",
     );
     await expectSqlState(
+      insertDocument({
+        companyId: company.id,
+        orderId: order.id,
+        totalTaxMinor: -1n,
+      }),
+      "23514",
+    );
+    await expectSqlState(
+      insertDocument({
+        companyId: company.id,
+        orderId: order.id,
+        totalGrossMinor: -1n,
+      }),
+      "23514",
+    );
+    await expectSqlState(
       insertItem({
         companyId: company.id,
         documentId: document.id,
@@ -625,6 +644,69 @@ describe("documents schema slice", () => {
         documentId: document.id,
         productId: product.id,
         unitPriceMinor: -1n,
+      }),
+      "23514",
+    );
+    await expectSqlState(
+      insertItem({
+        companyId: company.id,
+        documentId: document.id,
+        productId: product.id,
+        discountAmountMinor: -1n,
+      }),
+      "23514",
+    );
+    await expectSqlState(
+      insertItem({
+        companyId: company.id,
+        documentId: document.id,
+        productId: product.id,
+        taxAmountMinor: -1n,
+      }),
+      "23514",
+    );
+    await expectSqlState(
+      insertItem({
+        companyId: company.id,
+        documentId: document.id,
+        productId: product.id,
+        netAmountMinor: -1n,
+      }),
+      "23514",
+    );
+    await expectSqlState(
+      insertItem({
+        companyId: company.id,
+        documentId: document.id,
+        productId: product.id,
+        grossAmountMinor: -1n,
+      }),
+      "23514",
+    );
+    await expectSqlState(
+      insertItem({
+        companyId: company.id,
+        documentId: document.id,
+        productId: product.id,
+        taxRateBp: -1,
+      }),
+      "23514",
+    );
+    await expectSqlState(
+      insertItem({
+        companyId: company.id,
+        documentId: document.id,
+        productId: product.id,
+        discountKind: "percent",
+      }),
+      "23514",
+    );
+    await expectSqlState(
+      insertItem({
+        companyId: company.id,
+        documentId: document.id,
+        productId: product.id,
+        taxTreatment: "vat",
       }),
       "23514",
     );
@@ -675,6 +757,15 @@ describe("documents schema slice", () => {
       .update(documents)
       .set({ status: "cancelled" })
       .where(eq(documents.orderId, order.id));
+
+    await expectSqlState(
+      insertDocument({
+        companyId: company.id,
+        orderId: otherOrder.id,
+        documentNumber: "RX-000001",
+      }),
+      "23505",
+    );
 
     const replacement = await insertDocument({
       companyId: company.id,
@@ -993,6 +1084,34 @@ describe("documents schema slice", () => {
       documentId: other.id,
     });
     expect(otherToken.documentId).toBe(other.id);
+  });
+
+  it("rejects the same token_hash across two documents", async () => {
+    const company = await insertCompany();
+    const order = await insertOrder({ companyId: company.id });
+    const document = await insertDocument({
+      companyId: company.id,
+      orderId: order.id,
+    });
+    const other = await insertDocument({
+      companyId: company.id,
+      orderId: order.id,
+      type: "delivery_note",
+    });
+    const sharedHash = nextTokenHash();
+    await insertShareToken({
+      companyId: company.id,
+      documentId: document.id,
+      tokenHash: sharedHash,
+    });
+    await expectSqlState(
+      insertShareToken({
+        companyId: company.id,
+        documentId: other.id,
+        tokenHash: sharedHash,
+      }),
+      "23505",
+    );
   });
 
   it("attaches the shared updated_at trigger to documents only", async () => {
