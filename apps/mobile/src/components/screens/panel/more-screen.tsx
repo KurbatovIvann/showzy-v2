@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import {
+  Building2Icon,
   ChevronRightIcon,
   FileTextIcon,
   TagsIcon,
@@ -12,23 +13,24 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { useAuthSession } from "../../../auth/session-provider";
 import { useResolvedCompany } from "../../../company-resolution/resolved-company-provider";
+import { companySettingsHref } from "../../../features/companies/shared/company-hrefs";
 import { priceListsHref } from "../../../features/pricing/shared/price-list-hrefs";
-import { canViewPriceLists } from "../../../features/pricing/shared/price-list-permissions";
 import { detectLocale } from "../../../i18n/locale";
 import { panelCopy } from "../../../i18n/panel";
 import { Button, Card } from "../../ui";
+import { moreRowState } from "./more-rows.presenter";
 
 /**
  * More (Ще) tab: canvas Керування (price lists + disabled documents)
- * plus the existing session / sign-out block. Company/team/user settings
- * are omitted until those slices exist.
+ * plus Налаштування компанії for owner/admin. Team / User stay omitted
+ * (no RBAC this ticket). Session / sign-out stay at the bottom.
  */
 export function MoreScreen() {
   const copy = useMemo(() => panelCopy(detectLocale()), []);
   const auth = useAuthSession();
   const membership = useResolvedCompany();
   const router = useRouter();
-  const showPriceLists = canViewPriceLists(membership.role);
+  const rows = moreRowState(membership.role);
 
   if (auth.session === null) {
     return null;
@@ -48,10 +50,10 @@ export function MoreScreen() {
             label={copy.more.documents}
             description={copy.more.documentsDescription}
             icon={FileTextIcon}
-            disabled
+            disabled={!rows.documentsEnabled}
             accessibilityHint={copy.more.documentsDisabledHint}
           />
-          {showPriceLists ? (
+          {rows.showPriceLists ? (
             <ManagementRow
               label={copy.more.priceLists}
               description={copy.more.priceListsDescription}
@@ -63,6 +65,21 @@ export function MoreScreen() {
             />
           ) : null}
         </View>
+        {rows.showCompanySettings ? (
+          <>
+            <Text style={styles.sectionTitle}>{copy.more.settings}</Text>
+            <View style={styles.group}>
+              <ManagementRow
+                label={copy.more.companySettings}
+                description={copy.more.companySettingsDescription}
+                icon={Building2Icon}
+                onPress={() => {
+                  router.push(companySettingsHref());
+                }}
+              />
+            </View>
+          </>
+        ) : null}
         <Text style={styles.sectionTitle}>{copy.more.session}</Text>
         <Card>
           <IdentityField label={copy.more.userId} value={auth.session.userId} />

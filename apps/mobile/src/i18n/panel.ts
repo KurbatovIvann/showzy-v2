@@ -15,6 +15,9 @@ export type MoreCopy = {
   readonly documents: string;
   readonly documentsDescription: string;
   readonly documentsDisabledHint: string;
+  readonly settings: string;
+  readonly companySettings: string;
+  readonly companySettingsDescription: string;
 };
 
 export type PanelCopy = {
@@ -49,6 +52,9 @@ const en: PanelCopy = {
     documents: "Documents",
     documentsDescription: "Invoices, acts, and waybills",
     documentsDisabledHint: "Coming soon",
+    settings: "Settings",
+    companySettings: "Company settings",
+    companySettingsDescription: "Profile and legal requisites",
   },
 };
 
@@ -76,6 +82,9 @@ const uk: PanelCopy = {
     documents: "Документи",
     documentsDescription: "Рахунки, акти та накладні",
     documentsDisabledHint: "Незабаром",
+    settings: "Налаштування",
+    companySettings: "Налаштування компанії",
+    companySettingsDescription: "Профіль і юридичні реквізити",
   },
 };
 
