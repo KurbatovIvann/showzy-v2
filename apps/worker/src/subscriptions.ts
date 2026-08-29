@@ -5,7 +5,7 @@
  */
 import { orderCardUpdaterSubscriptions } from "@showzy/chat";
 import type { EventSubscription } from "@showzy/core";
-import { pdfRendererSubscriptions } from "@showzy/doc-generation";
+import { pdfRendererSubscriptions } from "@showzy/doc-generation/subscriptions";
 
 export const workerSubscriptions: readonly EventSubscription[] = [
   ...orderCardUpdaterSubscriptions,

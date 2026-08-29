@@ -79,11 +79,8 @@ import {
   shareDocument,
 } from "@showzy/documents";
 import { documentsSuiteCoverage } from "@showzy/documents/suite-coverage";
-import {
-  getArtifact,
-  pdfRendererSubscriptions,
-  renderPdf,
-} from "@showzy/doc-generation";
+import { getArtifact, renderPdf } from "@showzy/doc-generation";
+import { pdfRendererSubscriptions } from "@showzy/doc-generation/subscriptions";
 import { docGenerationSuiteCoverage } from "@showzy/doc-generation/suite-coverage";
 import {
   finalizeUpload,

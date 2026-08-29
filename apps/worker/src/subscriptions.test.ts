@@ -1,5 +1,5 @@
 import { orderCardUpdaterSubscriptions } from "@showzy/chat";
-import { pdfRendererSubscriptions } from "@showzy/doc-generation";
+import { pdfRendererSubscriptions } from "@showzy/doc-generation/subscriptions";
 import { describe, expect, it } from "vitest";
 
 import { workerSubscriptions } from "./subscriptions.js";
