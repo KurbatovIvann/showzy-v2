@@ -13,6 +13,10 @@ describe("companies copy", () => {
     const uk = companiesCopy("uk");
     const en = companiesCopy("en");
     expect(Object.keys(uk)).toEqual(Object.keys(en));
+    expect(Object.keys(uk.legalForm)).toEqual(Object.keys(en.legalForm));
+    expect(Object.keys(uk.legalForm.errors)).toEqual(
+      Object.keys(en.legalForm.errors),
+    );
   });
 
   it("pins canvas hub copy in uk and en", () => {
@@ -40,7 +44,42 @@ describe("companies copy", () => {
     );
     expect(uk.permissionTitle).toBe("Немає права");
     expect(en.permissionTitle).toBe("No permission");
-    expect(uk.legalStubDescription).toBe("Цей розділ незабаром з’явиться.");
-    expect(en.legalStubDescription).toBe("This section is coming soon.");
+  });
+
+  it("pins legal editor field-family copy in uk and en", () => {
+    const uk = companiesCopy("uk").legalForm;
+    const en = companiesCopy("en").legalForm;
+    expect(uk.typeFop).toBe("ФОП");
+    expect(en.typeFop).toBe("FOP");
+    expect(uk.typeTov).toBe("ТОВ");
+    expect(en.typeTov).toBe("LLC");
+    expect(uk.legalNameLabel).toBe("Юридична назва");
+    expect(en.legalNameLabel).toBe("Legal name");
+    expect(uk.edrpouLabel).toBe("ЄДРПОУ / ІПН");
+    expect(en.edrpouLabel).toBe("EDRPOU / TIN");
+    expect(uk.legalAddressLabel).toBe("Юридична адреса");
+    expect(en.legalAddressLabel).toBe("Legal address");
+    expect(uk.ibanLabel).toBe("IBAN");
+    expect(en.ibanLabel).toBe("IBAN");
+    expect(uk.bankNameLabel).toBe("Банк");
+    expect(en.bankNameLabel).toBe("Bank");
+    expect(uk.bankMfoLabel).toBe("МФО");
+    expect(en.bankMfoLabel).toBe("MFO");
+    expect(uk.bankEdrpouLabel).toBe("ЄДРПОУ банку (необовʼязково)");
+    expect(en.bankEdrpouLabel).toBe("Bank EDRPOU (optional)");
+    expect(uk.phoneLabel).toBe("Телефон");
+    expect(en.phoneLabel).toBe("Phone");
+    expect(uk.emailLabel).toBe("Email (необовʼязково)");
+    expect(en.emailLabel).toBe("Email (optional)");
+    expect(uk.submitAdd).toBe("Додати реквізити");
+    expect(en.submitAdd).toBe("Add requisites");
+    expect(uk.submitEdit).toBe("Зберегти");
+    expect(en.submitEdit).toBe("Save");
+    expect(uk.errors.legalNameRequired).toBe("Вкажіть юридичну назву");
+    expect(en.errors.legalNameRequired).toBe("Enter the legal name");
+    expect(uk.errors.validation).toBe("Перевірте виділені поля.");
+    expect(en.errors.validation).toBe("Check the highlighted fields.");
+    expect(uk.contactsHelper).toBe("Можуть відрізнятися від контактів профілю");
+    expect(en.contactsHelper).toBe("May differ from profile contacts");
   });
 });
