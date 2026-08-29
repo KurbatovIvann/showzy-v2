@@ -4,21 +4,20 @@
  * `invitation-form-plan.ts`.
  */
 import {
+  clampInviteExpiresAt,
   emptyFieldErrors,
   expiresAtInRange,
   expiresAtMs,
   fieldErrorsFromDraftSchema,
   invitationFormDraftSchema,
   INVITE_EXPIRES_DEFAULT_MS,
-  INVITE_EXPIRES_MAX_MS,
-  INVITE_EXPIRES_MIN_CLAMP_SLACK_MS,
-  INVITE_EXPIRES_MIN_MS,
   parseInviteMaxUsesInput,
   type InvitationFormFieldErrors,
   type InvitationKind,
 } from "./invitation-form.schema";
 
 export {
+  clampInviteExpiresAt,
   emptyFieldErrors,
   type ExpiresErrorKey,
   type InvitationFormFieldErrors,
@@ -89,21 +88,6 @@ export function emptyToNull(value: string): string | null {
 }
 
 /**
- * Keep the draft's clock time and apply the picker's local calendar
- * date (canvas date field → native date picker), then reclamp into
- * `[now+MIN+slack, now+MAX]`. Slack on the floor so the ISO is not
- * exact min (picker close → Create → server parse all require
- * `expiresMs >= Date.now()+MIN`). Max stays the exact ceiling.
- */
-export function clampInviteExpiresAt(expiresMs: number, nowMs: number): string {
-  const minMs =
-    nowMs + INVITE_EXPIRES_MIN_MS + INVITE_EXPIRES_MIN_CLAMP_SLACK_MS;
-  const maxMs = nowMs + INVITE_EXPIRES_MAX_MS;
-  const clamped = Math.min(maxMs, Math.max(minMs, expiresMs));
-  return new Date(clamped).toISOString();
-}
-
-/**
  * Bump a draft `expiresAt` that has drifted out of the contract window
  * (picker clock vs submit/server `Date.now()`). In-range values are
  * left unchanged so a frozen draft still retries the same write.
@@ -125,6 +109,13 @@ export function reclampInvitationDraftExpiresAt(
   };
 }
 
+/**
+ * Keep the draft's clock time and apply the picker's local calendar
+ * date (canvas date field → native date picker), then reclamp into
+ * `[now+MIN+slack, now+MAX]`. Slack on the floor so the ISO is not
+ * exact min (picker close → Create → server parse all require
+ * `expiresMs >= Date.now()+MIN`). Max stays the exact ceiling.
+ */
 export function applyInviteExpiresDate(
   iso: string,
   pickedLocalDate: Date,

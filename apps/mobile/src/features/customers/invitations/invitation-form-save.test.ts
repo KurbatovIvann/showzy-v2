@@ -4,10 +4,13 @@ import { customersCopy } from "../../../i18n/customers";
 import { resolveInvitationFormCopy } from "./invitation-form-copy";
 import {
   emptyFieldErrors,
+  INVITE_EXPIRES_MIN_CLAMP_SLACK_MS,
   INVITE_EXPIRES_MIN_MS,
+  expiresAtInRange,
 } from "./invitation-form.schema";
 import {
   emptyInvitationFormDraft,
+  reclampInvitationDraftExpiresAt,
   type InvitationFormDraft,
   type InvitationFormFieldErrors,
 } from "./invitation-form-draft";
@@ -163,6 +166,40 @@ describe("runInvitationFormSave", () => {
     const write: InvitationFormWrite = {
       kind: "createInvite",
       input,
+    };
+    const { ports, calls } = createPorts({
+      draft,
+      lastWrite: write,
+      lastFailure: { kind: "network", wire: null },
+    });
+    await runInvitationFormSave(ports);
+    expect(calls[0]).toBe("retry");
+    expect(calls).not.toContain("submit:createInvite");
+  });
+
+  it("retries the frozen lastWrite when min expiry has drifted instead of submitting a new create", async () => {
+    const nowMs = Date.now();
+    const t0 = nowMs - 2 * 60 * 60 * 1000;
+    const expiresAt = new Date(
+      t0 + INVITE_EXPIRES_MIN_MS + INVITE_EXPIRES_MIN_CLAMP_SLACK_MS,
+    ).toISOString();
+    expect(expiresAtInRange(expiresAt, t0)).toBe(true);
+    expect(expiresAtInRange(expiresAt, nowMs)).toBe(false);
+    const draft = { ...validCreateDraft(t0), expiresAt };
+    expect(reclampInvitationDraftExpiresAt(draft, nowMs).expiresAt).not.toBe(
+      expiresAt,
+    );
+    const write: InvitationFormWrite = {
+      kind: "createInvite",
+      input: {
+        isReusable: false,
+        expiresAt,
+        groupId: null,
+        priceListId: null,
+        name: null,
+        phone: null,
+        email: null,
+      },
     };
     const { ports, calls } = createPorts({
       draft,

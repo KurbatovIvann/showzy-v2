@@ -4,6 +4,7 @@ import { customersCopy } from "../../../i18n/customers";
 import {
   emptyInvitationFormDraft,
   parseInvitationFormUiDraft,
+  reclampInvitationDraftExpiresAt,
   validateInvitationForm,
 } from "./invitation-form-draft";
 import { resolveInvitationFormCopy } from "./invitation-form-copy";
@@ -22,6 +23,7 @@ import {
 
 const copy = customersCopy("uk").inviteForm;
 const HOUR_MS = 60 * 60 * 1000;
+const SUBMIT_DELAY_MS = 30_000;
 
 function validDraft() {
   return emptyInvitationFormDraft();
@@ -61,16 +63,30 @@ describe("invitationFormDraftSchema", () => {
     expect(errors.email).toBe("too_long");
   });
 
-  it("rejects expiresAt outside now+1h .. now+365d", () => {
+  it("accepts a stale min expiry the planner would reclamp and still rejects garbage and above max", () => {
     const now = Date.now();
-    const tooSoon = invitationFormDraftSchema.safeParse({
+    const staleMin = new Date(
+      now + INVITE_EXPIRES_MIN_MS - 5_000,
+    ).toISOString();
+    const staleDraft = { ...validDraft(), expiresAt: staleMin };
+    expect(expiresAtInRange(staleMin, now)).toBe(false);
+    const nextIso = reclampInvitationDraftExpiresAt(staleDraft, now).expiresAt;
+    expect(expiresAtInRange(nextIso, now + SUBMIT_DELAY_MS)).toBe(true);
+    const staleParsed = invitationFormDraftSchema.safeParse(staleDraft);
+    expect(staleParsed.success).toBe(true);
+    expect(parseInvitationFormUiDraft(staleDraft).ok).toBe(true);
+
+    const garbage = invitationFormDraftSchema.safeParse({
       ...validDraft(),
-      expiresAt: new Date(now + INVITE_EXPIRES_MIN_MS - 60_000).toISOString(),
+      expiresAt: "not-a-date",
     });
-    expect(tooSoon.success).toBe(false);
-    if (!tooSoon.success) {
-      expect(fieldErrorsFromDraftSchema(tooSoon.error).expiresAt).toBe("range");
+    expect(garbage.success).toBe(false);
+    if (!garbage.success) {
+      expect(fieldErrorsFromDraftSchema(garbage.error).expiresAt).toBe(
+        "invalid",
+      );
     }
+
     const tooFar = invitationFormDraftSchema.safeParse({
       ...validDraft(),
       expiresAt: new Date(now + INVITE_EXPIRES_MAX_MS + HOUR_MS).toISOString(),
@@ -143,6 +159,21 @@ describe("invitationFormResolver copy keys", () => {
     });
     expect(resolved.expiresAtError).toBe(copy.errors.expiresInvalid);
     expect(resolved.nameError).toBe(copy.errors.nameTooLong);
+  });
+
+  it("accepts a stale min ISO so handleSubmit can reach save", async () => {
+    const now = Date.now();
+    const staleMin = new Date(
+      now + INVITE_EXPIRES_MIN_MS - 5_000,
+    ).toISOString();
+    const draft = { ...validDraft(), expiresAt: staleMin };
+    const nextIso = reclampInvitationDraftExpiresAt(draft, now).expiresAt;
+    expect(expiresAtInRange(nextIso, now + SUBMIT_DELAY_MS)).toBe(true);
+    const result = await invitationFormResolver(draft, undefined, {
+      fields: {},
+      shouldUseNativeValidation: false,
+    });
+    expect(result.errors.expiresAt).toBeUndefined();
   });
 });
 

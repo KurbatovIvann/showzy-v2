@@ -106,6 +106,42 @@ export function expiresAtInRange(value: string, nowMs: number): boolean {
   );
 }
 
+/**
+ * Keep the ISO inside `[now+MIN+slack, now+MAX]`. Slack on the floor so
+ * picker close → Create → server `Date.now()` all still see
+ * `expiresMs >= now+MIN`. Max stays the exact ceiling.
+ */
+export function clampInviteExpiresAt(expiresMs: number, nowMs: number): string {
+  const minMs =
+    nowMs + INVITE_EXPIRES_MIN_MS + INVITE_EXPIRES_MIN_CLAMP_SLACK_MS;
+  const maxMs = nowMs + INVITE_EXPIRES_MAX_MS;
+  const clamped = Math.min(maxMs, Math.max(minMs, expiresMs));
+  return new Date(clamped).toISOString();
+}
+
+/**
+ * UI Zod / RHF gate. Garbage → `invalid`. Above max → `range`. A stale
+ * min the planner would bump stays valid so `handleSubmit` can reach
+ * save. In-range values pass. Product window is unchanged.
+ */
+export function expiresAtUiSubmitIssue(
+  value: string,
+  nowMs: number,
+): ExpiresErrorKey | null {
+  const expiresMs = expiresAtMs(value);
+  if (expiresMs === null) {
+    return "invalid";
+  }
+  if (expiresAtInRange(value, nowMs)) {
+    return null;
+  }
+  if (expiresMs > nowMs + INVITE_EXPIRES_MAX_MS) {
+    return "range";
+  }
+  const nextIso = clampInviteExpiresAt(expiresMs, nowMs);
+  return expiresAtInRange(nextIso, nowMs) ? null : "range";
+}
+
 export const invitationFormDraftSchema = z
   .object({
     kind: z.enum(["personal", "reusable"]),
@@ -118,18 +154,12 @@ export const invitationFormDraftSchema = z
     expiresAt: z.string(),
   })
   .superRefine((value, ctx) => {
-    const expiresMs = expiresAtMs(value.expiresAt);
-    if (expiresMs === null) {
+    const expiresIssue = expiresAtUiSubmitIssue(value.expiresAt, Date.now());
+    if (expiresIssue !== null) {
       ctx.addIssue({
         code: "custom",
         path: ["expiresAt"],
-        message: "invalid",
-      });
-    } else if (!expiresAtInRange(value.expiresAt, Date.now())) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["expiresAt"],
-        message: "range",
+        message: expiresIssue,
       });
     }
     if (value.kind === "reusable") {

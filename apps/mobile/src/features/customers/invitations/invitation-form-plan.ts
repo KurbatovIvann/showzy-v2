@@ -4,12 +4,16 @@
  * `invites.create` write. Personal omits `maxUses` (server stores 1).
  * Reusable empty cap is `null` (unlimited). Create-only: noop is the
  * already-created secret screen, not an edit snapshot.
+ *
+ * Retry after a lost/timed-out `invites.create` must reuse the frozen
+ * `lastWrite` (same idempotency key). Reclamp only for a fresh write.
  */
 import type { WireErrorCode } from "@showzy/contract";
 
 import type { ContractClient } from "../../../api/client";
 import type { QueryFailureKind } from "../../../api/errors";
 import {
+  emptyToNull,
   isInvitationFormValid,
   parseInvitationFormUiDraft,
   reclampInvitationDraftExpiresAt,
@@ -19,6 +23,10 @@ import {
   type InvitationFormFieldErrors,
   type InvitationFormSnapshot,
 } from "./invitation-form-draft";
+import {
+  expiresAtInRange,
+  parseInviteMaxUsesInput,
+} from "./invitation-form.schema";
 
 type InvitesClient = ContractClient["client"]["invites"];
 export type CreateInvitePayload = Parameters<InvitesClient["create"]>[0];
@@ -118,6 +126,92 @@ export function isInvitationFormRetryable(
   return kind !== null && RETRYABLE_FAILURE.has(kind);
 }
 
+type CreateIntentWithoutExpires = {
+  readonly isReusable: boolean;
+  readonly maxUses: number | null | "invalid";
+  readonly groupId: string | null;
+  readonly priceListId: string | null;
+  readonly name: string | null;
+  readonly phone: string | null;
+  readonly email: string | null;
+};
+
+function createIntentWithoutExpires(
+  draft: InvitationFormDraft,
+): CreateIntentWithoutExpires {
+  const isReusable = draft.kind === "reusable";
+  const parsedMax = parseInviteMaxUsesInput(draft.maxUses);
+  return {
+    isReusable,
+    maxUses: isReusable
+      ? parsedMax === "invalid"
+        ? "invalid"
+        : parsedMax
+      : null,
+    groupId: draft.groupId,
+    priceListId: draft.priceListId,
+    name: emptyToNull(draft.name),
+    phone: emptyToNull(draft.phone),
+    email: emptyToNull(draft.email),
+  };
+}
+
+function lastWriteIntentWithoutExpires(
+  input: CreateInvitePayload,
+): CreateIntentWithoutExpires {
+  return {
+    isReusable: input.isReusable,
+    maxUses: input.isReusable ? (input.maxUses ?? null) : null,
+    groupId: input.groupId,
+    priceListId: input.priceListId,
+    name: input.name,
+    phone: input.phone,
+    email: input.email,
+  };
+}
+
+function invitationDraftMatchesFrozenWrite(
+  draft: InvitationFormDraft,
+  lastWrite: InvitationFormWrite,
+  nowMs: number,
+): boolean {
+  if (
+    JSON.stringify(createIntentWithoutExpires(draft)) !==
+    JSON.stringify(lastWriteIntentWithoutExpires(lastWrite.input))
+  ) {
+    return false;
+  }
+  if (draft.expiresAt === lastWrite.input.expiresAt) {
+    return true;
+  }
+  // First submit may have reclamped into lastWrite without writing back
+  // to the RHF draft. A different in-range expiry is a user edit.
+  return !expiresAtInRange(draft.expiresAt, nowMs);
+}
+
+function shouldRetryFrozenInviteWrite(args: {
+  readonly draft: InvitationFormDraft;
+  readonly created: InviteCreateSecret | null;
+  readonly lastWrite: InvitationFormWrite | null;
+  readonly lastFailureKind: QueryFailureKind | null;
+  readonly lastWireCode?: WireErrorCode | null;
+  readonly nowMs: number;
+}): boolean {
+  if (args.created !== null || args.lastWrite === null) {
+    return false;
+  }
+  if (
+    !isInvitationFormRetryable(args.lastFailureKind, args.lastWireCode ?? null)
+  ) {
+    return false;
+  }
+  return invitationDraftMatchesFrozenWrite(
+    args.draft,
+    args.lastWrite,
+    args.nowMs,
+  );
+}
+
 export function planInvitationFormSave(args: {
   readonly draft: InvitationFormDraft;
   readonly created: InviteCreateSecret | null;
@@ -130,6 +224,9 @@ export function planInvitationFormSave(args: {
     return { kind: "noop" };
   }
   const nowMs = args.nowMs ?? Date.now();
+  if (shouldRetryFrozenInviteWrite({ ...args, nowMs })) {
+    return { kind: "retry" };
+  }
   const draft = reclampInvitationDraftExpiresAt(args.draft, nowMs);
   const errors = validateInvitationForm(draft);
   if (!isInvitationFormValid(errors)) {
@@ -162,7 +259,13 @@ export function parseThenPlanInvitationFormSave(args: {
   readonly lastWireCode?: WireErrorCode | null;
   readonly nowMs?: number;
 }): InvitationFormSavePlan {
+  if (args.created !== null) {
+    return { kind: "noop" };
+  }
   const nowMs = args.nowMs ?? Date.now();
+  if (shouldRetryFrozenInviteWrite({ ...args, nowMs })) {
+    return { kind: "retry" };
+  }
   const draft = reclampInvitationDraftExpiresAt(args.draft, nowMs);
   const parsed = parseInvitationFormUiDraft(draft);
   if (!parsed.ok) {

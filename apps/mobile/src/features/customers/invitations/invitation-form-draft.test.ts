@@ -161,9 +161,10 @@ describe("reclampInvitationDraftExpiresAt", () => {
 
 describe("snapshotFromDraft", () => {
   it("turns blank identity and assignments into inherit-null", () => {
-    expect(snapshotFromDraft(validCreateDraft())).toEqual({
+    const draft = emptyInvitationFormDraft();
+    expect(snapshotFromDraft(draft)).toEqual({
       isReusable: false,
-      expiresAt: validCreateDraft().expiresAt,
+      expiresAt: draft.expiresAt,
       maxUses: null,
       groupId: null,
       priceListId: null,
@@ -173,7 +174,7 @@ describe("snapshotFromDraft", () => {
     });
     expect(
       snapshotFromDraft({
-        ...validCreateDraft(),
+        ...draft,
         kind: "reusable",
         maxUses: "4",
         groupId: GROUP_ID,
@@ -187,6 +188,6 @@ describe("snapshotFromDraft", () => {
       priceListId: PRICE_LIST_ID,
       name: "Марія",
     });
-    expect(parseInvitationFormUiDraft(validCreateDraft()).ok).toBe(true);
+    expect(parseInvitationFormUiDraft(draft).ok).toBe(true);
   });
 });

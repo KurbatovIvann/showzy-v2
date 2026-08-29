@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   emptyInvitationFormDraft,
+  reclampInvitationDraftExpiresAt,
   type InvitationFormDraft,
 } from "./invitation-form-draft";
 import {
@@ -9,9 +10,11 @@ import {
   parseThenPlanInvitationFormSave,
   planInvitationFormSave,
   secretFromCreateOutput,
+  type InvitationFormWrite,
 } from "./invitation-form-plan";
 import {
   expiresAtInRange,
+  INVITE_EXPIRES_MIN_CLAMP_SLACK_MS,
   INVITE_EXPIRES_MIN_MS,
 } from "./invitation-form.schema";
 
@@ -107,6 +110,50 @@ describe("planInvitationFormSave", () => {
         created: null,
         lastWrite: first.write,
         lastFailureKind: "network",
+      }),
+    ).toEqual({ kind: "retry" });
+  });
+
+  it("retries the frozen lastWrite when min expiry has drifted instead of minting a new invite", () => {
+    const nowMs = Date.now();
+    const t0 = nowMs - 2 * 60 * 60 * 1000;
+    const expiresAt = new Date(
+      t0 + INVITE_EXPIRES_MIN_MS + INVITE_EXPIRES_MIN_CLAMP_SLACK_MS,
+    ).toISOString();
+    expect(expiresAtInRange(expiresAt, t0)).toBe(true);
+    expect(expiresAtInRange(expiresAt, nowMs)).toBe(false);
+    const draft = { ...validCreateDraft(t0), expiresAt };
+    const lastWrite: InvitationFormWrite = {
+      kind: "createInvite",
+      input: {
+        isReusable: false,
+        expiresAt,
+        groupId: null,
+        priceListId: null,
+        name: null,
+        phone: null,
+        email: null,
+      },
+    };
+    const wouldBump = reclampInvitationDraftExpiresAt(draft, nowMs);
+    expect(wouldBump.expiresAt).not.toBe(expiresAt);
+    expect(expiresAtInRange(wouldBump.expiresAt, nowMs)).toBe(true);
+    expect(
+      planInvitationFormSave({
+        draft,
+        created: null,
+        lastWrite,
+        lastFailureKind: "network",
+        nowMs,
+      }),
+    ).toEqual({ kind: "retry" });
+    expect(
+      parseThenPlanInvitationFormSave({
+        draft,
+        created: null,
+        lastWrite,
+        lastFailureKind: "network",
+        nowMs,
       }),
     ).toEqual({ kind: "retry" });
   });
