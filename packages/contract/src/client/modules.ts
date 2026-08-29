@@ -66,6 +66,7 @@ import {
   confirmOrderContract,
   createOrderContract,
   getOrderContract,
+  listOrdersContract,
 } from "@showzy/orders/contract";
 import {
   activatePriceListContract,
@@ -145,6 +146,7 @@ export const contractModules = {
     create: createOrderContract,
     confirm: confirmOrderContract,
     get: getOrderContract,
+    list: listOrdersContract,
   },
   pricing: {
     activatePriceList: activatePriceListContract,

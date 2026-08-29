@@ -55,6 +55,7 @@ import {
   confirmOrderContract,
   createOrderContract,
   getOrderContract,
+  listOrdersContract,
 } from "@showzy/orders/contract";
 import {
   activatePriceListContract,
@@ -133,6 +134,7 @@ describe("client composition", () => {
         create: createOrderContract,
         confirm: confirmOrderContract,
         get: getOrderContract,
+        list: listOrdersContract,
       },
       pricing: {
         activatePriceList: activatePriceListContract,
@@ -203,6 +205,7 @@ describe("client composition", () => {
     expect(contractRouter.orders.create).toBeDefined();
     expect(contractRouter.orders.confirm).toBeDefined();
     expect(contractRouter.orders.get).toBeDefined();
+    expect(contractRouter.orders.list).toBeDefined();
     expect(contractRouter.pricing.activatePriceList).toBeDefined();
     expect(contractRouter.pricing.createPriceList).toBeDefined();
     expect(contractRouter.pricing.deactivatePriceList).toBeDefined();

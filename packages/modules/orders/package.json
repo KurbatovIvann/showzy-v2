@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Orders module: staff create/confirm/get for CRM-customer orders with immutable money snapshots. This package exports actions and events only.",
+  "description": "Orders module: staff create/confirm/get/list for CRM-customer orders with immutable money snapshots. This package exports actions and events only.",
   "exports": {
     ".": "./src/index.ts",
     "./contract": "./src/index.contract.ts",
