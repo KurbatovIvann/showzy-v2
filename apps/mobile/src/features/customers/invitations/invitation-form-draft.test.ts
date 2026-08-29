@@ -9,7 +9,12 @@ import {
   snapshotFromDraft,
   type InvitationFormDraft,
 } from "./invitation-form-draft";
-import { INVITE_EXPIRES_DEFAULT_MS } from "./invitation-form.schema";
+import {
+  expiresAtInRange,
+  INVITE_EXPIRES_DEFAULT_MS,
+  INVITE_EXPIRES_MAX_MS,
+  INVITE_EXPIRES_MIN_MS,
+} from "./invitation-form.schema";
 
 const GROUP_ID = "11111111-1111-4111-8111-111111111111";
 const PRICE_LIST_ID = "22222222-2222-4222-8222-222222222222";
@@ -42,12 +47,75 @@ describe("applyInviteExpiresDate", () => {
     const iso = "2026-09-05T10:00:00.000Z";
     const current = new Date(iso);
     const picked = new Date(2026, 8, 10);
-    const next = new Date(applyInviteExpiresDate(iso, picked));
+    const next = new Date(applyInviteExpiresDate(iso, picked, NOW));
     expect(next.getFullYear()).toBe(2026);
     expect(next.getMonth()).toBe(8);
     expect(next.getDate()).toBe(10);
     expect(next.getHours()).toBe(current.getHours());
     expect(next.getMinutes()).toBe(current.getMinutes());
+  });
+
+  it("reclamps the min picker day when the draft clock falls below now+1h", () => {
+    const nowLocal = new Date(NOW);
+    const iso = new Date(
+      nowLocal.getFullYear(),
+      nowLocal.getMonth(),
+      nowLocal.getDate() + 7,
+      nowLocal.getHours(),
+      nowLocal.getMinutes(),
+      nowLocal.getSeconds(),
+      nowLocal.getMilliseconds(),
+    ).toISOString();
+    const minMs = NOW + INVITE_EXPIRES_MIN_MS;
+    const minBound = new Date(minMs);
+    const picked = new Date(
+      minBound.getFullYear(),
+      minBound.getMonth(),
+      minBound.getDate(),
+    );
+    const unclamped = new Date(picked.getTime());
+    unclamped.setHours(
+      nowLocal.getHours(),
+      nowLocal.getMinutes(),
+      nowLocal.getSeconds(),
+      nowLocal.getMilliseconds(),
+    );
+    expect(unclamped.getTime()).toBeLessThan(minMs);
+    const nextIso = applyInviteExpiresDate(iso, picked, NOW);
+    expect(Date.parse(nextIso)).toBe(minMs);
+    expect(expiresAtInRange(nextIso, NOW)).toBe(true);
+  });
+
+  it("reclamps the max picker day when the draft clock exceeds now+365d", () => {
+    const nowLocal = new Date(NOW);
+    const lateIso = new Date(
+      nowLocal.getFullYear(),
+      nowLocal.getMonth(),
+      nowLocal.getDate() + 7,
+      23,
+      59,
+      59,
+      999,
+    ).toISOString();
+    const maxMs = NOW + INVITE_EXPIRES_MAX_MS;
+    const maxBound = new Date(maxMs);
+    const picked = new Date(
+      maxBound.getFullYear(),
+      maxBound.getMonth(),
+      maxBound.getDate(),
+    );
+    const late = new Date(lateIso);
+    const unclamped = new Date(picked.getTime());
+    unclamped.setHours(
+      late.getHours(),
+      late.getMinutes(),
+      late.getSeconds(),
+      late.getMilliseconds(),
+    );
+    expect(unclamped.getTime()).toBeGreaterThan(maxMs);
+    const nextIso = applyInviteExpiresDate(lateIso, picked, NOW);
+    expect(Date.parse(nextIso)).toBe(maxMs);
+    expect(expiresAtInRange(nextIso, NOW)).toBe(true);
   });
 });
 

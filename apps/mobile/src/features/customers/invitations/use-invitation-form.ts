@@ -94,8 +94,6 @@ export function useInvitationForm() {
   const priceListId = useWatch({ control, name: "priceListId" }) ?? null;
   const expiresAt = useWatch({ control, name: "expiresAt" });
 
-  const armLeaveRef = useRef(() => {});
-
   const saveApi = useInvitationSave({
     loadKind: loadState.kind,
     getDraft: () => cloneInvitationFormDraft(getValues()),
@@ -106,7 +104,9 @@ export function useInvitationForm() {
     createdRef,
     setCreated,
     onSaved: () => {
-      armLeaveRef.current();
+      // Owner decision 1: stay on the once-only token/url screen.
+      // `finish` already invalidates `invites.list`. Do not armLeave —
+      // that would tear the secret down. Dirty is false once created.
       return Promise.resolve();
     },
     setFieldErrors: (nextFieldErrors) => {
@@ -117,7 +117,7 @@ export function useInvitationForm() {
   });
 
   const sheetOpen = picker !== null;
-  const { armLeave, requestLeave } = useUnsavedInvitationGuard({
+  const { requestLeave } = useUnsavedInvitationGuard({
     dirty: isDirty && created === null,
     pending: saveApi.pending,
     copy: formCopy,
@@ -126,7 +126,6 @@ export function useInvitationForm() {
       setPicker(null);
     },
   });
-  armLeaveRef.current = armLeave;
 
   const failure = saveApi.isMutationError
     ? describeQueryFailure(saveApi.mutationError)

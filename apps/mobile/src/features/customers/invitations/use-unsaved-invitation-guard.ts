@@ -1,7 +1,9 @@
 /**
  * Dirty-leave for the invitation create form (SHO-206). Invitation-local:
- * dirty is RHF only. After a successful create the secret screen arms
- * leave so back does not prompt.
+ * dirty is RHF only. After a successful create, dirty is already false
+ * (`created !== null`). `armLeave` only dispatches a pending back
+ * action so a confirmed dirty-leave does not prompt again — never
+ * auto-`router.back()` with none.
  */
 import { useNavigation, useRouter } from "expo-router";
 import {
@@ -13,6 +15,7 @@ import { useEffect, useRef, useState } from "react";
 import { presentConfirmDialog } from "../../../components/ui/present-confirm-dialog";
 import { waitForSheetDismiss } from "../../../components/ui/sheet-dismiss";
 import type { CustomersInviteFormCopy } from "../../../i18n/customers";
+import { resolveArmedInvitationLeave } from "./invitation-form-leave";
 
 export function useUnsavedInvitationGuard(args: {
   readonly dirty: boolean;
@@ -42,14 +45,14 @@ export function useUnsavedInvitationGuard(args: {
     if (!leaveArmed) {
       return;
     }
-    const action = pendingLeaveActionRef.current;
+    const resolved = resolveArmedInvitationLeave(
+      pendingLeaveActionRef.current,
+    );
     pendingLeaveActionRef.current = null;
-    if (action !== null) {
-      navigation.dispatch(action);
-      return;
+    if (resolved.kind === "dispatch") {
+      navigation.dispatch(resolved.action);
     }
-    router.back();
-  }, [leaveArmed, navigation, router]);
+  }, [leaveArmed, navigation]);
 
   async function promptLeave(): Promise<void> {
     if (leavePromptingRef.current) {

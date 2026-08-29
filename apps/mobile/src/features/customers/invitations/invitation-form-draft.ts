@@ -8,6 +8,8 @@ import {
   fieldErrorsFromDraftSchema,
   invitationFormDraftSchema,
   INVITE_EXPIRES_DEFAULT_MS,
+  INVITE_EXPIRES_MAX_MS,
+  INVITE_EXPIRES_MIN_MS,
   parseInviteMaxUsesInput,
   type InvitationFormFieldErrors,
   type InvitationKind,
@@ -85,24 +87,33 @@ export function emptyToNull(value: string): string | null {
 
 /**
  * Keep the draft's clock time and apply the picker's local calendar
- * date (canvas date field → native date picker).
+ * date (canvas date field → native date picker), then reclamp into
+ * `[now+INVITE_EXPIRES_MIN_MS, now+INVITE_EXPIRES_MAX_MS]` so the
+ * earliest/latest picker day cannot miss the contract window.
  */
+export function clampInviteExpiresAt(expiresMs: number, nowMs: number): string {
+  const minMs = nowMs + INVITE_EXPIRES_MIN_MS;
+  const maxMs = nowMs + INVITE_EXPIRES_MAX_MS;
+  const clamped = Math.min(maxMs, Math.max(minMs, expiresMs));
+  return new Date(clamped).toISOString();
+}
+
 export function applyInviteExpiresDate(
   iso: string,
   pickedLocalDate: Date,
+  nowMs: number = Date.now(),
 ): string {
   const current = new Date(iso);
   const next = new Date(pickedLocalDate.getTime());
-  if (!Number.isFinite(current.getTime())) {
-    return next.toISOString();
+  if (Number.isFinite(current.getTime())) {
+    next.setHours(
+      current.getHours(),
+      current.getMinutes(),
+      current.getSeconds(),
+      current.getMilliseconds(),
+    );
   }
-  next.setHours(
-    current.getHours(),
-    current.getMinutes(),
-    current.getSeconds(),
-    current.getMilliseconds(),
-  );
-  return next.toISOString();
+  return clampInviteExpiresAt(next.getTime(), nowMs);
 }
 
 export function isInvitationFormDirty(

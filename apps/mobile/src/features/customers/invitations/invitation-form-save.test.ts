@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 
+import { customersCopy } from "../../../i18n/customers";
+import { resolveInvitationFormCopy } from "./invitation-form-copy";
 import { emptyFieldErrors } from "./invitation-form.schema";
 import {
   emptyInvitationFormDraft,
   type InvitationFormDraft,
   type InvitationFormFieldErrors,
 } from "./invitation-form-draft";
+import { resolveArmedInvitationLeave } from "./invitation-form-leave";
 import {
   createInvitePayload,
   type InvitationFormMutationResult,
@@ -111,6 +114,41 @@ describe("runInvitationFormSave", () => {
     expect(getCreated()).toEqual(SECRET);
     expect(calls).toEqual(["submit:createInvite", "reset", "finish"]);
     expect(originDrafts).toHaveLength(1);
+  });
+
+  it("does not navigate after create; the secret screen stays until Done", async () => {
+    const { ports, calls, getCreated } = createPorts({});
+    await runInvitationFormSave(ports);
+    const created = getCreated();
+    expect(created).toEqual(SECRET);
+    expect(created?.token).toBe("plaintext-once");
+    expect(created?.url).toBe("showzy:invite/plaintext-once");
+    expect(calls).toEqual(["submit:createInvite", "reset", "finish"]);
+    expect(resolveArmedInvitationLeave(null)).toEqual({ kind: "none" });
+    expect(resolveArmedInvitationLeave({ type: "GO_BACK" })).toEqual({
+      kind: "dispatch",
+      action: { type: "GO_BACK" },
+    });
+    const copy = customersCopy("en").inviteForm;
+    const resolved = resolveInvitationFormCopy(copy, {
+      nameError: null,
+      phoneError: null,
+      emailError: null,
+      expiresAtError: null,
+      maxUsesError: null,
+      banner: null,
+      pending: false,
+      clientReady: true,
+      created: true,
+    });
+    expect(resolved.fieldsEditable).toBe(false);
+    expect(copy.createdTitle.length).toBeGreaterThan(0);
+    expect(copy.createdHelper.length).toBeGreaterThan(0);
+    expect(copy.copyUrl.length).toBeGreaterThan(0);
+    expect(copy.copyToken.length).toBeGreaterThan(0);
+    expect(copy.urlLabel.length).toBeGreaterThan(0);
+    expect(copy.tokenLabel.length).toBeGreaterThan(0);
+    expect(copy.done.length).toBeGreaterThan(0);
   });
 
   it("retries the in-flight write after a network failure", async () => {
