@@ -1,8 +1,8 @@
 /**
- * Canvas OrderEditor as create-only (SHO-213).
+ * Canvas OrderEditor as create-only (SHO-242).
  * Shared: AppHeader, Button, TextField, SearchField, Sheet, EmptyState, Banner.
  * Feature: SelectorRow, EditorSection, OrderLineCard, QuantityStepper,
- * OptionSelectSheet (customers sheet shape, no inherit/empty row).
+ * ProductSelectSheet, OptionSelectSheet (customers + variants).
  * Omitted: payment, delivery, due date, status picker, discount, line
  * prices, and «До сплати» (owner decision 2 — footer is line count).
  */
@@ -26,6 +26,7 @@ import { EditorSection } from "./editor-section";
 import { OrderFormCommentField } from "./order-form-fields";
 import { OrderLineCard } from "./order-line-card";
 import { OptionSelectSheet } from "./option-select-sheet";
+import { ProductSelectSheet } from "./product-select-sheet";
 import { SelectorRow } from "./selector-row";
 import type { OrderFormModel } from "./use-order-form";
 
@@ -47,34 +48,34 @@ export function OrderFormView(model: OrderFormModel) {
       />
       <OrderFormBody model={model} />
       {model.state.kind === "ready" && model.showSubmit ? (
-        <View style={styles.footer}>
-          <View style={styles.footerLinesRow}>
+        <View style={styles.footerDock}>
+          <View style={styles.footerCard}>
             <Text style={styles.footerLines}>{model.footerLinesLabel}</Text>
-          </View>
-          <View style={styles.footerActions}>
-            <View style={styles.footerButton}>
-              <Button
-                variant="secondary"
-                fullWidth
-                label={form.cancel}
-                disabled={model.pending}
-                onPress={model.requestLeave}
-              />
-            </View>
-            <View style={styles.footerButton}>
-              <Button
-                fullWidth
-                label={model.submitLabel}
-                loading={model.pending}
-                disabled={model.submitDisabled}
-                onPress={model.save}
-              />
+            <View style={styles.footerActions}>
+              <View style={styles.footerButton}>
+                <Button
+                  variant="secondary"
+                  fullWidth
+                  label={form.cancel}
+                  disabled={model.pending}
+                  onPress={model.requestLeave}
+                />
+              </View>
+              <View style={styles.footerButton}>
+                <Button
+                  fullWidth
+                  label={model.submitLabel}
+                  loading={model.pending}
+                  disabled={model.submitDisabled}
+                  onPress={model.save}
+                />
+              </View>
             </View>
           </View>
         </View>
       ) : null}
       <OptionSelectSheet
-        visible={model.sheet.kind === "customer"}
+        visible={model.customerSheetOpen}
         title={form.customerSheetTitle}
         searchPlaceholder={form.customerSearchPlaceholder}
         searchLabel={form.customerSearchLabel}
@@ -83,24 +84,29 @@ export function OrderFormView(model: OrderFormModel) {
         value={model.selectedCustomerId}
         options={model.customerOptions}
         searchMaxLength={LIST_CUSTOMERS_SEARCH_MAX}
-        onClose={model.closeSheet}
+        leading="user"
+        onClose={model.closeCustomerSheet}
         onChange={model.pickCustomer}
       />
-      <OptionSelectSheet
-        visible={model.sheet.kind === "products"}
+      <ProductSelectSheet
+        visible={model.productSheetOpen}
         title={form.productSheetTitle}
         searchPlaceholder={form.productSearchPlaceholder}
         searchLabel={form.productSearchLabel}
         closeLabel={model.copy.closeSheet}
         emptyLabel={form.emptyProducts}
-        value={null}
-        options={model.productOptions}
+        doneLabel={form.productSheetDone}
+        thumbnailFailedLabel={form.thumbnailUnavailable}
         searchMaxLength={LIST_PRODUCTS_QUERY_MAX_LENGTH}
-        onClose={model.closeSheet}
-        onChange={model.pickProduct}
+        selectedIds={model.selectedProductIds}
+        doneCount={model.productPickCount}
+        products={model.productSelectRows}
+        onClose={model.closeProductSheet}
+        onToggle={model.toggleProduct}
+        onConfirm={model.confirmProductPicks}
       />
       <OptionSelectSheet
-        visible={model.sheet.kind === "variants"}
+        visible={model.variantSheetOpen}
         title={form.variantSheetTitle}
         searchPlaceholder={form.productSearchPlaceholder}
         searchLabel={form.productSearchLabel}
@@ -109,7 +115,7 @@ export function OrderFormView(model: OrderFormModel) {
         value={null}
         options={model.variantOptions}
         searchMaxLength={LIST_PRODUCTS_QUERY_MAX_LENGTH}
-        onClose={model.closeSheet}
+        onClose={model.closeVariantSheet}
         onChange={model.pickVariant}
       />
     </SafeAreaView>
@@ -162,20 +168,26 @@ function OrderFormReady(props: { readonly model: OrderFormModel }) {
     >
       {model.banner !== null ? <Banner message={model.banner} /> : null}
       <EditorSection title={form.itemsTitle}>
-        {model.items.map((item, index) => (
-          <OrderLineCard
-            key={item.key}
-            item={item}
-            copy={form}
-            editable={model.fieldsEditable}
-            onStep={(delta) => {
-              model.stepLine(index, delta);
-            }}
-            onRemove={() => {
-              model.removeLine(index);
-            }}
-          />
-        ))}
+        {model.items.map((item, index) => {
+          const thumbnail = model.lineThumbnail(item.productId);
+          return (
+            <OrderLineCard
+              key={item.key}
+              item={item}
+              copy={form}
+              editable={model.fieldsEditable}
+              thumbnailFileId={thumbnail.fileId}
+              thumbnailUrl={thumbnail.url}
+              thumbnailFailed={thumbnail.failed}
+              onStep={(delta) => {
+                model.stepLine(index, delta);
+              }}
+              onRemove={() => {
+                model.removeLine(index);
+              }}
+            />
+          );
+        })}
         <SelectorRow
           label={form.addProductsLabel}
           value={model.productsValue}
@@ -195,6 +207,7 @@ function OrderFormReady(props: { readonly model: OrderFormModel }) {
         <SelectorRow
           label={form.customerLabel}
           value={model.customerName}
+          subtitle={model.customerPhone}
           placeholder={form.customerPlaceholder}
           icon={
             <UserIcon
@@ -237,19 +250,21 @@ const styles = StyleSheet.create((theme) => ({
     paddingBottom: theme.spacing.lg,
     gap: theme.spacing.lg,
   },
-  footer: {
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-    backgroundColor: theme.colors.card,
+  footerDock: {
+    backgroundColor: theme.colors.background,
     paddingHorizontal: theme.spacing.lg,
     paddingTop: theme.spacing.md,
     paddingBottom: theme.spacing.md,
-    gap: theme.spacing.sm,
   },
-  footerLinesRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+  footerCard: {
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.radii.card,
+    ...theme.squircle,
+    padding: theme.spacing.md,
+    gap: theme.spacing.sm,
+    ...theme.shadows.sm,
   },
   footerLines: {
     color: theme.colors.mutedForeground,

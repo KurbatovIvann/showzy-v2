@@ -74,6 +74,8 @@ export type OrdersCreateCopy = {
   readonly productSearchPlaceholder: string;
   readonly productSearchLabel: string;
   readonly variantSheetTitle: string;
+  readonly productSheetDone: string;
+  readonly thumbnailUnavailable: string;
   readonly qtyDecrease: string;
   readonly qtyIncrease: string;
   readonly removeLine: string;
@@ -227,6 +229,8 @@ const en: OrdersCopy = {
     productSearchPlaceholder: "Search products…",
     productSearchLabel: "Search products",
     variantSheetTitle: "Choose a variant",
+    productSheetDone: "Done · {{count}}",
+    thumbnailUnavailable: "Photo unavailable",
     qtyDecrease: "Decrease quantity",
     qtyIncrease: "Increase quantity",
     removeLine: "Remove {{name}}",
@@ -353,6 +357,8 @@ const uk: OrdersCopy = {
     productSearchPlaceholder: "Пошук товарів…",
     productSearchLabel: "Пошук товарів",
     variantSheetTitle: "Оберіть варіант",
+    productSheetDone: "Готово · {{count}}",
+    thumbnailUnavailable: "Фото недоступне",
     qtyDecrease: "Зменшити кількість",
     qtyIncrease: "Збільшити кількість",
     removeLine: "Видалити {{name}}",

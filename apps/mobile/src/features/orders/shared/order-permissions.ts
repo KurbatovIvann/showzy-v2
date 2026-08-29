@@ -28,6 +28,14 @@ export function canCreateOrders(role: CompanyRole): boolean {
 }
 
 /**
+ * `files:view` — skips `files.getDownloadUrls` calls that would 403.
+ * Employees are not seeded that permission (same as catalog photos).
+ */
+export function canFetchFileDownloadUrls(role: CompanyRole): boolean {
+  return role !== "employee";
+}
+
+/**
  * `orders:edit` — hides confirm and cancel. Every seeded staff role
  * currently holds edit (owner implicit). Prove the hide path with
  * `orderDetailActions({ canEdit: false })`.
