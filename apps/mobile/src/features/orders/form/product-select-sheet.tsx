@@ -7,6 +7,7 @@ import { Button, SearchField, Sheet } from "../../../components/ui";
 import { interpolate } from "../../../i18n/locale";
 import { OrderThumbnail } from "../shared/order-thumbnail";
 import type {
+  ProductSelectLevel,
   ProductSelectRow,
   ProductSelectVariantRow,
   ProductVariantsLoadStatus,
@@ -20,7 +21,7 @@ import type {
 export function ProductSelectSheet(props: {
   readonly visible: boolean;
   readonly sessionOpen: boolean;
-  readonly level: "products" | "variants";
+  readonly level: ProductSelectLevel;
   readonly title: string;
   readonly variantsTitle: string;
   readonly searchPlaceholder: string;

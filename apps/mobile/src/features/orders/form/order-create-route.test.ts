@@ -75,7 +75,7 @@ describe("orders/new route", () => {
   });
 
   it("keeps variant drill-down in one ProductSelectSheet Modal", () => {
-    expect(PRODUCT_SHEET).toContain("level: \"products\" | \"variants\"");
+    expect(PRODUCT_SHEET).toContain("level: ProductSelectLevel");
     expect(PRODUCT_SHEET).toContain("ChevronRightIcon");
     expect(PRODUCT_SHEET).toContain("variantsOpen ? props.variantsTitle");
     expect(PRODUCT_SHEET).toContain("variantsLoadingLabel");

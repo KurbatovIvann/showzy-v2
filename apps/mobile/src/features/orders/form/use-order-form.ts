@@ -45,6 +45,7 @@ import {
 import {
   productPickerParentSelectedNames,
   productPickerParentSubtitle,
+  type ProductSelectLevel,
   type ProductSelectRow,
   type ProductSelectVariantRow,
 } from "./product-select";
@@ -305,6 +306,10 @@ export function useOrderForm() {
     (row) => row.id === customerId,
   );
   const customerPhone = selectedCustomer?.description;
+  const productPickerLevel: ProductSelectLevel =
+    picker.kind === "variants" ? "variants" : "products";
+  const productPickerVariantsTitle =
+    picker.kind === "variants" ? picker.productName : "";
 
   return {
     copy,
@@ -327,9 +332,8 @@ export function useOrderForm() {
     customerSheetOpen,
     productSheetOpen: productPickerOpen(picker),
     productPickerSessionOpen: productPickerOpen(picker),
-    productPickerLevel: picker.kind === "variants" ? "variants" : "products",
-    productPickerVariantsTitle:
-      picker.kind === "variants" ? picker.productName : "",
+    productPickerLevel,
+    productPickerVariantsTitle,
     customerOptions: lookups.customerOptions,
     productSelectRows,
     variantSelectRows,

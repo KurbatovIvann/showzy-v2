@@ -46,7 +46,7 @@ export function Sheet(props: {
   readonly footer?: ReactNode;
   readonly fullHeight?: boolean;
   readonly closeAccessibilityLabel?: string;
-  readonly back?: SheetBack;
+  readonly back?: SheetBack | undefined;
   readonly onHidden?: () => void;
 }) {
   const insets = useSafeAreaInsets();

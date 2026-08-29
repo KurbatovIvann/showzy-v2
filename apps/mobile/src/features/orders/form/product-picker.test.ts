@@ -34,9 +34,9 @@ describe("reduceProductPicker", () => {
     expect(state.kind).toBe("products");
     expect(productPickerOpen(state)).toBe(true);
     expect(productPickerPicks(state)).toHaveLength(1);
-    expect(productPickerSelectedIds(productPickerPicks(state)).has(PRODUCT_A)).toBe(
-      true,
-    );
+    expect(
+      productPickerSelectedIds(productPickerPicks(state)).has(PRODUCT_A),
+    ).toBe(true);
     state = reduceProductPicker(state, {
       type: "toggleSimple",
       productId: PRODUCT_A,

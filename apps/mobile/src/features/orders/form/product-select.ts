@@ -21,6 +21,8 @@ export type ProductSelectVariantRow = {
   readonly name: string;
 };
 
+export type ProductSelectLevel = "products" | "variants";
+
 export type ProductVariantsLoadStatus = "idle" | "loading" | "ready" | "error";
 
 /**
