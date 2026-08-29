@@ -1,1 +1,1 @@
-export { OrdersPlaceholderScreen as default } from "../../../components/screens/panel/panel-placeholder-screen";
+export { OrdersListScreen as default } from "../../../features/orders/list/orders-list-screen";
