@@ -127,7 +127,7 @@ export function formatOrderCreatedAt(iso: string, locale: Locale): string {
   if (monthLabel === undefined) {
     return "";
   }
-  return `${day} ${monthLabel} ${year}`;
+  return `${String(day)} ${monthLabel} ${String(year)}`;
 }
 
 export function customerNameLabel(
