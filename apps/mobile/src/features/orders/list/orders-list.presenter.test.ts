@@ -32,6 +32,7 @@ const ORDER_CANCELED = "2f0e2d5c-4a1b-4c3d-9e8f-102938475603";
 function item(overrides: Partial<OrderListItem> = {}): OrderListItem {
   return {
     orderId: ORDER_NEW,
+    orderNumber: 1,
     customerId: CUSTOMER_A,
     status: "new",
     itemCount: 2,

@@ -28,6 +28,7 @@ let database: TestDatabase;
 let dbClient: DbClient;
 let admin: pg.Client;
 let sequence = 0;
+const nextOrderNumberByCompany = new Map<string, number>();
 
 beforeAll(async () => {
   database = await createTestDatabase();
@@ -126,14 +127,21 @@ async function insertVariant(
   return row;
 }
 
+function nextOrderNumber(companyId: string): number {
+  const next = (nextOrderNumberByCompany.get(companyId) ?? 0) + 1;
+  nextOrderNumberByCompany.set(companyId, next);
+  return next;
+}
+
 async function insertOrder(
   values: Omit<
     typeof orders.$inferInsert,
-    "totalNetMinor" | "totalTaxMinor" | "totalGrossMinor"
+    "totalNetMinor" | "totalTaxMinor" | "totalGrossMinor" | "orderNumber"
   > & {
     totalNetMinor?: bigint;
     totalTaxMinor?: bigint;
     totalGrossMinor?: bigint;
+    orderNumber?: number;
   },
 ) {
   const rows = await dbClient.db
@@ -142,6 +150,7 @@ async function insertOrder(
       totalNetMinor: 10_000n,
       totalTaxMinor: 0n,
       totalGrossMinor: 10_000n,
+      orderNumber: nextOrderNumber(values.companyId),
       ...values,
     })
     .returning();
@@ -214,6 +223,7 @@ describe("staff orders schema slice", () => {
     expect(columns.get("orders")).toEqual([
       "id",
       "company_id",
+      "order_number",
       "customer_id",
       "status",
       "comment",
@@ -254,6 +264,9 @@ describe("staff orders schema slice", () => {
   });
 
   it("represents money and quantity columns as bigint in TypeScript", () => {
+    expectTypeOf<
+      (typeof orders.$inferSelect)["orderNumber"]
+    >().toEqualTypeOf<number>();
     expectTypeOf<
       (typeof orders.$inferSelect)["totalNetMinor"]
     >().toEqualTypeOf<bigint>();
@@ -304,6 +317,12 @@ describe("staff orders schema slice", () => {
       expect(indexes.get(name)).toContain("UNIQUE");
       expect(indexes.get(name)).toContain("(company_id, id)");
     }
+    expect(indexes.get("orders_company_id_order_number_uq")).toContain(
+      "UNIQUE",
+    );
+    expect(indexes.get("orders_company_id_order_number_uq")).toContain(
+      "(company_id, order_number)",
+    );
 
     const createdAt = indexes.get("orders_company_created_at_idx");
     expect(createdAt).toContain("(company_id");
@@ -316,6 +335,36 @@ describe("staff orders schema slice", () => {
     expect(indexes.get("order_items_company_idx")).toContain("(company_id)");
     expect(indexes.get("order_items_product_idx")).toContain("(product_id)");
     expect(indexes.get("order_items_variant_idx")).toContain("(variant_id)");
+  });
+
+  it("enforces UNIQUE (company_id, order_number) and a positive number", async () => {
+    const companyA = await insertCompany();
+    const companyB = await insertCompany();
+    const first = await insertOrder({ companyId: companyA.id, orderNumber: 1 });
+    expect(first.orderNumber).toBe(1);
+    const second = await insertOrder({
+      companyId: companyA.id,
+      orderNumber: 2,
+    });
+    expect(second.orderNumber).toBe(2);
+    const otherTenant = await insertOrder({
+      companyId: companyB.id,
+      orderNumber: 1,
+    });
+    expect(otherTenant.orderNumber).toBe(1);
+
+    await expectSqlState(
+      insertOrder({ companyId: companyA.id, orderNumber: 1 }),
+      "23505",
+    );
+    await expectSqlState(
+      insertOrder({ companyId: companyA.id, orderNumber: 0 }),
+      "23514",
+    );
+    await expectSqlState(
+      insertOrder({ companyId: companyA.id, orderNumber: -1 }),
+      "23514",
+    );
   });
 
   it("declares composite same-tenant foreign keys (ADR-0025)", async () => {

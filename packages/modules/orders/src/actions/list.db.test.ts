@@ -41,6 +41,7 @@ const fixtures = {
 };
 
 const clerkUserId = randomUUID();
+const noCustomersUserId = randomUUID();
 
 const timestamps = {
   orphaned: new Date("2026-01-01T00:00:00.000Z"),
@@ -61,10 +62,12 @@ async function insertOrder(values: {
   status: "new" | "confirmed" | "canceled";
   totalGrossMinor: bigint;
   createdAt: Date;
+  orderNumber: number;
 }): Promise<void> {
   await kit.db.runtime.db.insert(orders).values({
     id: values.id,
     companyId: values.companyId,
+    orderNumber: values.orderNumber,
     customerId: values.customerId,
     status: values.status,
     totalNetMinor: values.totalGrossMinor,
@@ -116,13 +119,15 @@ beforeAll(async () => {
       id: fixtures.customerA,
       companyId: companyA,
       name: "Customer A",
-      email: `customer-${fixtures.customerA}@orders-list.test`,
+      phone: "+380111111111",
+      email: "alpha-orders-list@example.com",
     },
     {
       id: fixtures.customerB,
       companyId: companyB,
       name: "Customer B",
-      email: `customer-${fixtures.customerB}@orders-list.test`,
+      phone: "+380222222222",
+      email: "beta-orders-list@example.com",
     },
   ]);
 
@@ -150,6 +155,7 @@ beforeAll(async () => {
     status: "new",
     totalGrossMinor: 100n,
     createdAt: timestamps.orphaned,
+    orderNumber: 1,
   });
   await insertOrder({
     id: fixtures.canceled,
@@ -160,6 +166,7 @@ beforeAll(async () => {
     status: "canceled",
     totalGrossMinor: 200n,
     createdAt: timestamps.canceled,
+    orderNumber: 2,
   });
   await insertOrder({
     id: fixtures.newestNew,
@@ -170,6 +177,7 @@ beforeAll(async () => {
     status: "new",
     totalGrossMinor: 1500n,
     createdAt: timestamps.newestNew,
+    orderNumber: 3,
   });
   await insertOrder({
     id: fixtures.confirmed,
@@ -180,6 +188,7 @@ beforeAll(async () => {
     status: "confirmed",
     totalGrossMinor: 400n,
     createdAt: timestamps.confirmed,
+    orderNumber: 1042,
   });
   await insertOrder({
     id: fixtures.foreign,
@@ -190,19 +199,35 @@ beforeAll(async () => {
     status: "new",
     totalGrossMinor: 999n,
     createdAt: timestamps.foreign,
+    orderNumber: 9999,
   });
 
-  await kit.db.runtime.db.insert(user).values({
-    id: clerkUserId,
-    name: "Clerk",
-    email: "clerk@orders-list-kit.test",
-  });
-  await kit.db.runtime.db.insert(companyMembers).values({
-    companyId: companyA,
-    userId: clerkUserId,
-    role: "employee",
-    permissions: { granted: [], denied: ["orders:view"] },
-  });
+  await kit.db.runtime.db.insert(user).values([
+    {
+      id: clerkUserId,
+      name: "Clerk",
+      email: "clerk@orders-list-kit.test",
+    },
+    {
+      id: noCustomersUserId,
+      name: "No customers view",
+      email: "nocustomers@orders-list-kit.test",
+    },
+  ]);
+  await kit.db.runtime.db.insert(companyMembers).values([
+    {
+      companyId: companyA,
+      userId: clerkUserId,
+      role: "employee",
+      permissions: { granted: [], denied: ["orders:view"] },
+    },
+    {
+      companyId: companyA,
+      userId: noCustomersUserId,
+      role: "employee",
+      permissions: { granted: [], denied: ["customers:view"] },
+    },
+  ]);
 });
 
 afterAll(async () => {
@@ -244,6 +269,7 @@ describe("orders.list", () => {
     );
     expect(confirmed).toEqual({
       orderId: fixtures.confirmed,
+      orderNumber: 1042,
       customerId: fixtures.customerA,
       status: "confirmed",
       itemCount: 1,
@@ -269,6 +295,7 @@ describe("orders.list", () => {
       "customerId",
       "itemCount",
       "orderId",
+      "orderNumber",
       "status",
       "totalGrossMinor",
     ]);
@@ -369,5 +396,100 @@ describe("orders.list", () => {
     await expect(kit.invoke(listOrders, { limit: 0 })).rejects.toBeInstanceOf(
       ValidationError,
     );
+
+    await expect(
+      kit.invoke(listOrders, { query: "not-a-cursor", cursor: "not-a-cursor" }),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it("matches query by order number, #prefix, customer name, and phone", async () => {
+    const byNumber = await kit.invoke(listOrders, { query: "1042" });
+    expect(byNumber.items.map((row) => row.orderId)).toEqual([
+      fixtures.confirmed,
+    ]);
+    expect(byNumber.items[0]?.orderNumber).toBe(1042);
+
+    const byHash = await kit.invoke(listOrders, { query: "#3" });
+    expect(byHash.items.map((row) => row.orderId)).toEqual([
+      fixtures.newestNew,
+    ]);
+
+    const byName = await kit.invoke(listOrders, { query: "Customer A" });
+    expect(byName.items.map((row) => row.orderId)).toEqual([
+      fixtures.confirmed,
+      fixtures.newestNew,
+      fixtures.canceled,
+    ]);
+
+    const byPhone = await kit.invoke(listOrders, { query: "111111" });
+    expect(byPhone.items.map((row) => row.orderId)).toEqual([
+      fixtures.confirmed,
+      fixtures.newestNew,
+      fixtures.canceled,
+    ]);
+  });
+
+  it("returns an empty page for wildcard-stripped query and keeps status filter", async () => {
+    const wildcards = await kit.invoke(listOrders, { query: "%%" });
+    const escaped = await kit.invoke(listOrders, { query: "\\" });
+    expect(wildcards).toEqual({ items: [], nextCursor: null });
+    expect(escaped).toEqual({ items: [], nextCursor: null });
+
+    const noMatch = await kit.invoke(listOrders, { query: "no-such-order" });
+    expect(noMatch).toEqual({ items: [], nextCursor: null });
+
+    const newOnly = await kit.invoke(listOrders, {
+      query: "Customer A",
+      status: "new",
+    });
+    expect(newOnly.items.map((row) => row.orderId)).toEqual([
+      fixtures.newestNew,
+    ]);
+  });
+
+  it("does not leak another tenant's number, name, or phone through query", async () => {
+    const byForeignNumber = await kit.invoke(listOrders, { query: "9999" });
+    expect(byForeignNumber).toEqual({ items: [], nextCursor: null });
+
+    const byOwnNumberOne = await kit.invoke(listOrders, { query: "#1" });
+    expect(byOwnNumberOne.items.map((row) => row.orderId)).toEqual([
+      fixtures.orphaned,
+    ]);
+
+    const byForeignName = await kit.invoke(listOrders, { query: "Customer B" });
+    expect(byForeignName).toEqual({ items: [], nextCursor: null });
+
+    const byForeignPhone = await kit.invoke(listOrders, { query: "222222" });
+    expect(byForeignPhone).toEqual({ items: [], nextCursor: null });
+  });
+
+  it("fails closed when query needs customers.listCustomers without customers:view", async () => {
+    const listed = await kit.invoke(
+      listOrders,
+      {},
+      { userId: noCustomersUserId, companyId: kitIdentities.companies.a },
+    );
+    expect(listed.items.map((row) => row.orderId)).toEqual([
+      fixtures.confirmed,
+      fixtures.newestNew,
+      fixtures.canceled,
+      fixtures.orphaned,
+    ]);
+
+    await expect(
+      kit.invoke(
+        listOrders,
+        { query: "Customer A" },
+        { userId: noCustomersUserId, companyId: kitIdentities.companies.a },
+      ),
+    ).rejects.toBeInstanceOf(PermissionDeniedError);
+
+    await expect(
+      kit.invoke(
+        listOrders,
+        { query: "1042" },
+        { userId: noCustomersUserId, companyId: kitIdentities.companies.a },
+      ),
+    ).rejects.toBeInstanceOf(PermissionDeniedError);
   });
 });

@@ -1,11 +1,14 @@
-import { implementAction } from "@showzy/core";
+import { listCustomers } from "@showzy/customers";
+import { implementAction, type ActionCtx } from "@showzy/core";
 import { CoreInvariantError } from "@showzy/core/errors";
 import { orderItems, orders } from "@showzy/db/schema/orders";
-import { and, count, desc, eq, inArray, lt, or } from "drizzle-orm";
+import { and, count, desc, eq, inArray, lt, or, type SQL } from "drizzle-orm";
 
 import { moneyToCanonical } from "../services/canonical.js";
 import {
   formatListOrdersCursor,
+  LIST_ORDERS_CUSTOMER_SEARCH_MAX_PAGES,
+  LIST_ORDERS_CUSTOMER_SEARCH_PAGE_SIZE,
   listOrdersContract,
   parseListOrdersCursor,
 } from "./list.contract.js";
@@ -19,10 +22,83 @@ function parseStatus(value: string): "new" | "confirmed" | "canceled" {
   return parsed.data;
 }
 
+function likeLiteral(query: string): string | undefined {
+  const literal = query
+    .replaceAll("\\", "")
+    .replaceAll("%", "")
+    .replaceAll("_", "");
+  if (literal.length === 0) {
+    return undefined;
+  }
+  return literal;
+}
+
+const PG_INTEGER_MAX = 2_147_483_647;
+
+function parseOrderNumberQuery(literal: string): number | undefined {
+  const digits = literal.startsWith("#") ? literal.slice(1) : literal;
+  if (!/^\d+$/.test(digits)) {
+    return undefined;
+  }
+  const value = Number.parseInt(digits, 10);
+  if (!Number.isSafeInteger(value) || value < 1 || value > PG_INTEGER_MAX) {
+    return undefined;
+  }
+  return value;
+}
+
+type StaffCtx = Extract<ActionCtx, { principal: "staff" }>;
+
+async function customerIdsMatchingSearch(
+  ctx: StaffCtx,
+  search: string,
+): Promise<readonly string[]> {
+  const ids: string[] = [];
+  let cursor: string | undefined;
+  for (let page = 0; page < LIST_ORDERS_CUSTOMER_SEARCH_MAX_PAGES; page += 1) {
+    const result = await ctx.call(listCustomers, {
+      status: "all",
+      search,
+      limit: LIST_ORDERS_CUSTOMER_SEARCH_PAGE_SIZE,
+      ...(cursor === undefined ? {} : { cursor }),
+    });
+    for (const item of result.items) {
+      ids.push(item.id);
+    }
+    if (result.nextCursor === null) {
+      return ids;
+    }
+    cursor = result.nextCursor;
+  }
+  return ids;
+}
+
+function searchPredicate(
+  orderNumber: number | undefined,
+  customerIds: readonly string[],
+): SQL | undefined {
+  const numberMatch =
+    orderNumber === undefined ? undefined : eq(orders.orderNumber, orderNumber);
+  const customerMatch =
+    customerIds.length === 0
+      ? undefined
+      : inArray(orders.customerId, [...customerIds]);
+  if (numberMatch !== undefined && customerMatch !== undefined) {
+    return or(numberMatch, customerMatch);
+  }
+  return numberMatch ?? customerMatch;
+}
+
 export const listOrders = implementAction(listOrdersContract, {
   handler: async (input, ctx) => {
     if (ctx.principal !== "staff") {
       throw new CoreInvariantError("orders.list expects staff");
+    }
+
+    const searchLiteral =
+      input.query === undefined ? undefined : likeLiteral(input.query);
+    if (input.query !== undefined && searchLiteral === undefined) {
+      return { items: [], nextCursor: null };
     }
 
     const cursor =
@@ -33,6 +109,22 @@ export const listOrders = implementAction(listOrdersContract, {
       throw new CoreInvariantError(
         "listOrders cursor passed validation but failed to parse",
       );
+    }
+
+    const orderNumber =
+      searchLiteral === undefined
+        ? undefined
+        : parseOrderNumberQuery(searchLiteral);
+    const customerIds =
+      searchLiteral === undefined
+        ? []
+        : await customerIdsMatchingSearch(ctx, searchLiteral);
+    const queryPredicate =
+      searchLiteral === undefined
+        ? undefined
+        : searchPredicate(orderNumber, customerIds);
+    if (searchLiteral !== undefined && queryPredicate === undefined) {
+      return { items: [], nextCursor: null };
     }
 
     const cursorPredicate =
@@ -49,6 +141,7 @@ export const listOrders = implementAction(listOrdersContract, {
     const pageRows = await ctx.db
       .select({
         id: orders.id,
+        orderNumber: orders.orderNumber,
         customerId: orders.customerId,
         status: orders.status,
         totalGrossMinor: orders.totalGrossMinor,
@@ -60,6 +153,7 @@ export const listOrders = implementAction(listOrdersContract, {
         and(
           eq(orders.companyId, ctx.companyId),
           input.status === "all" ? undefined : eq(orders.status, input.status),
+          queryPredicate,
           cursorPredicate,
         ),
       )
@@ -101,6 +195,7 @@ export const listOrders = implementAction(listOrdersContract, {
     return {
       items: page.map((row) => ({
         orderId: row.id,
+        orderNumber: row.orderNumber,
         customerId: row.customerId,
         status: parseStatus(row.status),
         itemCount: itemCountByOrder.get(row.id) ?? 0,

@@ -45,6 +45,7 @@ export const orderItemViewSchema = z.object({
 
 export const orderViewSchema = z.object({
   orderId: z.uuid(),
+  orderNumber: z.number().int().positive(),
   customerId: z.uuid().nullable(),
   status: orderStatusSchema,
   comment: z.string().max(2000).nullable(),

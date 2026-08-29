@@ -34,6 +34,8 @@ export const orders = pgTable(
     companyId: uuid("company_id")
       .notNull()
       .references(() => companies.id, { onDelete: "cascade" }),
+    /** Per-company display sequence (SHO-240). Assigned in `orders.create`. */
+    orderNumber: integer("order_number").notNull(),
     customerId: uuid("customer_id"),
     status: text("status").notNull().default("new"),
     comment: text("comment"),
@@ -51,6 +53,10 @@ export const orders = pgTable(
   },
   (table) => [
     unique("orders_company_id_id_uq").on(table.companyId, table.id),
+    unique("orders_company_id_order_number_uq").on(
+      table.companyId,
+      table.orderNumber,
+    ),
     index("orders_company_created_at_idx").on(
       table.companyId,
       table.createdAt.desc(),
@@ -68,6 +74,7 @@ export const orders = pgTable(
       "orders_status_check",
       sql`${table.status} IN ('new', 'confirmed', 'canceled')`,
     ),
+    check("orders_order_number_positive_check", sql`${table.orderNumber} > 0`),
     check("orders_total_net_minor_check", sql`${table.totalNetMinor} >= 0`),
     check("orders_total_tax_minor_check", sql`${table.totalTaxMinor} >= 0`),
     check("orders_total_gross_minor_check", sql`${table.totalGrossMinor} >= 0`),

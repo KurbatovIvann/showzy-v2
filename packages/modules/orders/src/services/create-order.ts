@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { ActionCtx } from "@showzy/core";
 import { ConflictError, CoreInvariantError } from "@showzy/core/errors";
 import { orderItems, orders } from "@showzy/db/schema/orders";
+import { desc, eq } from "drizzle-orm";
 import type { z } from "zod";
 
 import { createOrderInputSchema } from "../actions/create.contract.js";
@@ -13,6 +14,7 @@ import {
 import { ordersCreated } from "../events/created.js";
 import { moneyToCanonical } from "./canonical.js";
 import { computeExemptNoneLine, titleSnapshot } from "./line-money.js";
+import { mapOrderNumberUniqueViolation } from "./order-number.js";
 import { requireWritable } from "./writable.js";
 
 type StaffCtx = Extract<ActionCtx, { principal: "staff" }>;
@@ -20,6 +22,21 @@ type CreateInput = z.output<typeof createOrderInputSchema>;
 type OrderView = z.output<typeof orderViewSchema>;
 type OrderItemView = OrderView["items"][number];
 type PriceSource = z.output<typeof orderPriceSourceSchema>;
+type WritableStaffDb = ReturnType<typeof requireWritable>;
+
+async function allocateNextOrderNumber(
+  db: WritableStaffDb,
+  companyId: string,
+): Promise<number> {
+  const locked = await db
+    .select({ orderNumber: orders.orderNumber })
+    .from(orders)
+    .where(eq(orders.companyId, companyId))
+    .orderBy(desc(orders.orderNumber))
+    .limit(1)
+    .for("update");
+  return (locked[0]?.orderNumber ?? 0) + 1;
+}
 
 export interface CatalogOrderVariantFact {
   readonly variantId: string;
@@ -204,23 +221,34 @@ export async function createStaffOrder(env: {
 
   const comment = input.comment ?? null;
   const db = requireWritable(ctx.db);
-  const inserted = await db
-    .insert(orders)
-    .values({
-      id: orderId,
-      companyId: ctx.companyId,
-      customerId: input.customerId,
-      status: "new",
-      comment,
-      totalNetMinor,
-      totalTaxMinor,
-      totalGrossMinor,
-      currency,
-    })
-    .returning({ createdAt: orders.createdAt });
-  const header = inserted[0];
-  if (header === undefined) {
-    throw new CoreInvariantError("orders.create insert returned no row");
+  const orderNumber = await allocateNextOrderNumber(db, ctx.companyId);
+  let header: { createdAt: Date; orderNumber: number };
+  try {
+    const inserted = await db
+      .insert(orders)
+      .values({
+        id: orderId,
+        companyId: ctx.companyId,
+        orderNumber,
+        customerId: input.customerId,
+        status: "new",
+        comment,
+        totalNetMinor,
+        totalTaxMinor,
+        totalGrossMinor,
+        currency,
+      })
+      .returning({
+        createdAt: orders.createdAt,
+        orderNumber: orders.orderNumber,
+      });
+    const row = inserted[0];
+    if (row === undefined) {
+      throw new CoreInvariantError("orders.create insert returned no row");
+    }
+    header = row;
+  } catch (error) {
+    throw mapOrderNumberUniqueViolation(error);
   }
 
   await db.insert(orderItems).values(lines.map((line) => line.row));
@@ -238,6 +266,7 @@ export async function createStaffOrder(env: {
 
   return {
     orderId,
+    orderNumber: header.orderNumber,
     customerId: input.customerId,
     status: "new",
     comment,

@@ -163,6 +163,10 @@ const callEdges: readonly DeclaredCallEdge[] = [
     callee: "pricing.resolveProductPrices",
   },
   {
+    caller: "orders.list",
+    callee: "customers.listCustomers",
+  },
+  {
     caller: "pricing.resolveProductPrices",
     callee: "catalog.getProductPricingFacts",
   },
