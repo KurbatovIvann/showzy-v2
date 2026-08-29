@@ -8,6 +8,9 @@ export const filesSuiteCoverage = {
     "files.getDownloadUrl",
     "files.getDownloadUrls",
     "files.getAttachmentFacts",
+    "files.issueDocumentDownloadUrl",
+    "files.issueShareDownloadUrl",
+    "files.recordGeneratedObject",
     "files.sweepAbandonedUploads",
   ],
   publicProjection: [],
@@ -17,6 +20,7 @@ export const filesSuiteCoverage = {
   idempotency: [
     "files.requestUpload",
     "files.finalizeUpload",
+    "files.recordGeneratedObject",
     "files.sweepAbandonedUploads",
   ],
   events: [],

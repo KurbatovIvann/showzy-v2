@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
+  ConflictError,
   CoreInvariantError,
   NotFoundError,
   PermissionDeniedError,
@@ -35,12 +36,19 @@ import { ATTACHMENT_FACTS_MAX_IDS } from "./get-attachment-facts.contract.js";
 import { getDownloadUrl } from "./get-download-url.js";
 import { getDownloadUrls } from "./get-download-urls.js";
 import { getUploadUrl } from "./get-upload-url.js";
+import { issueDocumentDownloadUrl } from "./issue-document-download-url.js";
+import { issueShareDownloadUrl } from "./issue-share-download-url.js";
+import { recordGeneratedObject } from "./record-generated-object.js";
 import { requestUpload } from "./request-upload.js";
 import { sweepAbandonedUploads } from "./sweep-abandoned-uploads.js";
 import { ABANDONED_PENDING_TTL_MS } from "./sweep-abandoned-uploads.contract.js";
 import { sha256Hex } from "../services/checksum.js";
 import type { FileReadyView } from "../services/file-view.js";
-import { catalogObjectKey, stagingObjectKey } from "../services/object-key.js";
+import {
+  catalogObjectKey,
+  documentObjectKey,
+  stagingObjectKey,
+} from "../services/object-key.js";
 import { SIGNED_PUT_SKEW_MARGIN_MS } from "../services/pending-abandon.js";
 import {
   closeFilesObjectStore,
@@ -51,7 +59,11 @@ import {
   SIGNED_URL_TTL_SEC,
 } from "../services/s3-port.js";
 import { waitForObjectVisibility } from "../testing/object-visibility.js";
-import { MAX_UPLOAD_BYTES, type FileMimeType } from "../wire.contract.js";
+import {
+  MAX_UPLOAD_BYTES,
+  type FileMimeType,
+  type StoredObjectMimeType,
+} from "../wire.contract.js";
 
 /** Same pin as docker-compose.yml (ADR-0027). */
 const GARAGE_IMAGE = "dxflrs/garage:v2.3.0";
@@ -81,6 +93,8 @@ const heicBytes = Uint8Array.from([
 
 const jpegChecksum = sha256Hex(jpegBytes);
 const pngChecksum = sha256Hex(pngBytes);
+const pdfBytes = new TextEncoder().encode("%PDF-1.4\n%%EOF\n");
+const pdfChecksum = sha256Hex(pdfBytes);
 
 function sameSizeMutatedJpeg(source: Uint8Array = jpegBytes): Uint8Array {
   const leftoverBytes = Uint8Array.from(source);
@@ -107,6 +121,8 @@ const jpegInput = {
 const clerks = {
   noUpload: randomUUID(),
   noView: randomUUID(),
+  employee: randomUUID(),
+  noDocumentsView: randomUUID(),
 };
 
 const finalizeOwnInput = { fileId: "" };
@@ -119,6 +135,43 @@ const uploadOwnInput = { fileId: "" };
 const uploadForeignInput = { fileId: "" };
 const finalizeIdempotentInput = { fileId: "" };
 const finalizeIdempotentFreshInput = { fileId: "" };
+const recordOwnInput = {
+  fileId: "",
+  purpose: "document" as const,
+  mimeType: "application/pdf" as const,
+  byteSize: pdfBytes.byteLength,
+  checksumSha256: pdfChecksum,
+};
+const recordForeignInput = {
+  fileId: "",
+  purpose: "document" as const,
+  mimeType: "application/pdf" as const,
+  byteSize: pdfBytes.byteLength,
+  checksumSha256: pdfChecksum,
+};
+const recordIdempotentInput = {
+  fileId: "",
+  purpose: "document" as const,
+  mimeType: "application/pdf" as const,
+  byteSize: pdfBytes.byteLength,
+  checksumSha256: pdfChecksum,
+};
+const recordIdempotentFreshInput = {
+  fileId: "",
+  purpose: "document" as const,
+  mimeType: "application/pdf" as const,
+  byteSize: pdfBytes.byteLength,
+  checksumSha256: pdfChecksum,
+};
+const recordIdempotentConflictInput = {
+  fileId: "",
+  purpose: "document" as const,
+  mimeType: "application/pdf" as const,
+  byteSize: pdfBytes.byteLength,
+  checksumSha256: pdfChecksum,
+};
+const docDownloadOwnInput = { fileId: "" };
+const docDownloadForeignInput = { fileId: "" };
 
 let kit: TestKit | undefined;
 let garage: StartedTestContainer | undefined;
@@ -207,6 +260,14 @@ async function countPendingFiles(companyId: string): Promise<number> {
     .db.runtime.db.select({ value: count() })
     .from(files)
     .where(and(eq(files.companyId, companyId), eq(files.status, "pending")));
+  return rows[0]?.value ?? 0;
+}
+
+async function countDocumentFiles(companyId: string): Promise<number> {
+  const rows = await requireKit()
+    .db.runtime.db.select({ value: count() })
+    .from(files)
+    .where(and(eq(files.companyId, companyId), eq(files.purpose, "document")));
   return rows[0]?.value ?? 0;
 }
 
@@ -322,7 +383,7 @@ async function insertFileRow(values: {
 async function putStoreObject(
   key: string,
   bytes: Uint8Array = jpegBytes,
-  mimeType: FileMimeType = "image/jpeg",
+  mimeType: StoredObjectMimeType = "image/jpeg",
 ): Promise<void> {
   const store = getFilesObjectStore();
   await store.putObject({
@@ -331,6 +392,27 @@ async function putStoreObject(
     bytes,
   });
   await waitForObjectVisibility(store, key, "present");
+}
+
+async function putGeneratedPdf(
+  companyId: string,
+  fileId: string,
+): Promise<void> {
+  await putStoreObject(
+    documentObjectKey(companyId, fileId),
+    pdfBytes,
+    "application/pdf",
+  );
+}
+
+function generatedRecordInput(fileId: string): typeof recordOwnInput {
+  return {
+    fileId,
+    purpose: "document",
+    mimeType: "application/pdf",
+    byteSize: pdfBytes.byteLength,
+    checksumSha256: pdfChecksum,
+  };
 }
 
 const sweepEpoch = new Date(0);
@@ -393,6 +475,16 @@ beforeAll(async () => {
         name: "No view",
         email: "noview@files-kit.test",
       },
+      {
+        id: clerks.employee,
+        name: "Employee",
+        email: "employee@files-kit.test",
+      },
+      {
+        id: clerks.noDocumentsView,
+        name: "No documents view",
+        email: "nodocuments@files-kit.test",
+      },
     ]);
   await requireKit()
     .db.runtime.db.insert(companyMembers)
@@ -408,6 +500,18 @@ beforeAll(async () => {
         userId: clerks.noView,
         role: "employee",
         permissions: { granted: [], denied: ["files:view"] },
+      },
+      {
+        companyId: kitIdentities.companies.a,
+        userId: clerks.employee,
+        role: "employee",
+        permissions: { granted: [], denied: [] },
+      },
+      {
+        companyId: kitIdentities.companies.a,
+        userId: clerks.noDocumentsView,
+        role: "employee",
+        permissions: { granted: [], denied: ["documents:view"] },
       },
     ]);
 
@@ -439,6 +543,43 @@ beforeAll(async () => {
   finalizeIdempotentFreshInput.fileId = await requestAndPut(
     jpegBytes,
     "image/jpeg",
+  );
+
+  recordOwnInput.fileId = randomUUID();
+  await putGeneratedPdf(kitIdentities.companies.a, recordOwnInput.fileId);
+  recordForeignInput.fileId = randomUUID();
+  await putGeneratedPdf(kitIdentities.companies.b, recordForeignInput.fileId);
+  recordIdempotentInput.fileId = randomUUID();
+  await putGeneratedPdf(
+    kitIdentities.companies.a,
+    recordIdempotentInput.fileId,
+  );
+  recordIdempotentConflictInput.fileId = randomUUID();
+  await putGeneratedPdf(
+    kitIdentities.companies.a,
+    recordIdempotentConflictInput.fileId,
+  );
+  recordIdempotentFreshInput.fileId = randomUUID();
+  await putGeneratedPdf(
+    kitIdentities.companies.a,
+    recordIdempotentFreshInput.fileId,
+  );
+
+  docDownloadOwnInput.fileId = randomUUID();
+  await putGeneratedPdf(kitIdentities.companies.a, docDownloadOwnInput.fileId);
+  await requireKit().invoke(
+    recordGeneratedObject,
+    generatedRecordInput(docDownloadOwnInput.fileId),
+  );
+  docDownloadForeignInput.fileId = randomUUID();
+  await putGeneratedPdf(
+    kitIdentities.companies.b,
+    docDownloadForeignInput.fileId,
+  );
+  await requireKit().invoke(
+    recordGeneratedObject,
+    generatedRecordInput(docDownloadForeignInput.fileId),
+    { companyId: kitIdentities.companies.b },
   );
 });
 
@@ -526,6 +667,21 @@ crossTenantSuite(requireKit, [
     { input: uploadForeignInput },
   ),
   isolationCase(sweepAbandonedUploads, { input: {} }, { input: {} }),
+  isolationCase(
+    recordGeneratedObject,
+    { input: recordOwnInput },
+    { input: recordForeignInput },
+  ),
+  isolationCase(
+    issueDocumentDownloadUrl,
+    { input: docDownloadOwnInput },
+    { input: docDownloadForeignInput },
+  ),
+  isolationCase(
+    issueShareDownloadUrl,
+    { input: docDownloadOwnInput },
+    { input: docDownloadForeignInput },
+  ),
 ]);
 
 idempotencySuite(requireKit, [
@@ -552,6 +708,13 @@ idempotencySuite(requireKit, [
     input: {},
     conflictingInput: { limit: 1 },
     readEffect: () => countSweepAudits(),
+  },
+  {
+    action: recordGeneratedObject,
+    input: recordIdempotentInput,
+    conflictingInput: recordIdempotentConflictInput,
+    freshInput: () => recordIdempotentFreshInput,
+    readEffect: () => countDocumentFiles(kitIdentities.companies.a),
   },
 ]);
 
@@ -1906,5 +2069,352 @@ describe("files.sweepAbandonedUploads", () => {
     await expect(
       requireKit().invoke(sweepAbandonedUploads, { limit: 21 }),
     ).rejects.toBeInstanceOf(ValidationError);
+  });
+});
+
+describe("files.recordGeneratedObject", () => {
+  const actorCompany = { companyId: kitIdentities.companies.a };
+
+  it("records a worker-PUT PDF as a ready document with a null uploader", async () => {
+    const capturing = createCapturingLogger();
+    const fileId = randomUUID();
+    await putGeneratedPdf(kitIdentities.companies.a, fileId);
+    const sneaky: unknown = {
+      ...generatedRecordInput(fileId),
+      companyId: kitIdentities.companies.b,
+      objectKey: "client-supplied/documents/evil",
+    };
+    const ready = await requireKit().invoke(
+      recordGeneratedObject,
+      sneaky,
+      {},
+      { deps: { ...requireKit().pipeline, logger: capturing.logger } },
+    );
+    expect(ready).toEqual({
+      fileId,
+      status: "ready",
+      purpose: "document",
+      mimeType: "application/pdf",
+      byteSize: pdfBytes.byteLength,
+      checksumSha256: pdfChecksum,
+    });
+
+    const rows = await requireKit()
+      .db.runtime.db.select()
+      .from(files)
+      .where(eq(files.id, fileId));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.uploadedByUserId).toBeNull();
+    expect(rows[0]?.purpose).toBe("document");
+    expect(rows[0]?.objectKey).toBe(
+      documentObjectKey(kitIdentities.companies.a, fileId),
+    );
+    expect(rows[0]?.stagingPurgedAt).not.toBeNull();
+
+    const replay = await requireKit().invoke(
+      recordGeneratedObject,
+      generatedRecordInput(fileId),
+      {},
+      { deps: { ...requireKit().pipeline, logger: capturing.logger } },
+    );
+    expect(replay).toEqual(ready);
+    expect(
+      await requireKit()
+        .db.runtime.db.select({ id: files.id })
+        .from(files)
+        .where(eq(files.id, fileId)),
+    ).toHaveLength(1);
+
+    const blob = JSON.stringify([ready, capturing.entries()]);
+    expect(blob).not.toContain("downloadUrl");
+    expect(blob).not.toContain("objectKey");
+    expect(blob).not.toMatch(/\/documents\//);
+    expect(blob).not.toContain("http");
+  });
+
+  it("rejects catalog purpose, missing objects, and a catalog fileId", async () => {
+    await expect(
+      requireKit().invoke(recordGeneratedObject, {
+        ...generatedRecordInput(randomUUID()),
+        purpose: "catalog",
+      }),
+    ).rejects.toBeInstanceOf(ValidationError);
+
+    await expect(
+      requireKit().invoke(
+        recordGeneratedObject,
+        generatedRecordInput(randomUUID()),
+      ),
+    ).rejects.toBeInstanceOf(NotFoundError);
+
+    await expect(
+      requireKit().invoke(
+        recordGeneratedObject,
+        generatedRecordInput(downloadOwnInput.fileId),
+      ),
+    ).rejects.toBeInstanceOf(ConflictError);
+  });
+
+  it("does not let company B's object satisfy company A's record", async () => {
+    const fileId = randomUUID();
+    await putGeneratedPdf(kitIdentities.companies.b, fileId);
+    await expect(
+      requireKit().invoke(
+        recordGeneratedObject,
+        generatedRecordInput(fileId),
+        actorCompany,
+      ),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    expect(
+      await requireKit()
+        .db.runtime.db.select({ id: files.id })
+        .from(files)
+        .where(eq(files.id, fileId)),
+    ).toHaveLength(0);
+  });
+
+  it("writes an audit row without object keys or URLs", async () => {
+    const fileId = randomUUID();
+    await putGeneratedPdf(kitIdentities.companies.a, fileId);
+    await requireKit().invoke(
+      recordGeneratedObject,
+      generatedRecordInput(fileId),
+    );
+    const audit = await requireKit()
+      .db.runtime.db.select()
+      .from(auditLog)
+      .where(
+        and(
+          eq(auditLog.action, "files.recordGeneratedObject"),
+          eq(auditLog.targetId, fileId),
+        ),
+      );
+    expect(audit.length).toBeGreaterThanOrEqual(1);
+    expect(audit[0]?.targetType).toBe("file");
+    expect(audit[0]?.companyId).toBe(kitIdentities.companies.a);
+    const blob = JSON.stringify(audit[0]);
+    expect(blob).not.toContain("objectKey");
+    expect(blob).not.toContain("object_key");
+    expect(blob).not.toMatch(/\/documents\//);
+    expect(blob).not.toContain("http");
+  });
+});
+
+describe("files.issueDocumentDownloadUrl", () => {
+  const actorCompany = { companyId: kitIdentities.companies.a };
+
+  it("lets an employee with documents:view fetch the PDF without files:view", async () => {
+    const capturing = createCapturingLogger();
+    const signed = await requireKit().invoke(
+      issueDocumentDownloadUrl,
+      { fileId: docDownloadOwnInput.fileId },
+      { ...actorCompany, userId: clerks.employee },
+      { deps: { ...requireKit().pipeline, logger: capturing.logger } },
+    );
+    expect(signed.fileId).toBe(docDownloadOwnInput.fileId);
+    expect(signed.downloadUrl.startsWith("http")).toBe(true);
+    expect(signed.expiresAt).toEqual(expect.any(String));
+
+    const fetched = await fetch(signed.downloadUrl);
+    expect(fetched.ok).toBe(true);
+    const body = new Uint8Array(await fetched.arrayBuffer());
+    expect(sha256Hex(body)).toBe(pdfChecksum);
+    expect(fetched.headers.get("content-type")).toMatch(/^application\/pdf/i);
+    expect(fetched.headers.get("content-disposition")).toContain("inline");
+    expect(fetched.headers.get("content-disposition")).toContain(
+      "document.pdf",
+    );
+
+    const rows = await requireKit()
+      .db.runtime.db.select()
+      .from(files)
+      .where(eq(files.id, docDownloadOwnInput.fileId));
+    expect(JSON.stringify(rows[0])).not.toContain("http");
+    expect(JSON.stringify(rows[0])).not.toContain(signed.downloadUrl);
+
+    const logs = JSON.stringify(capturing.entries());
+    expect(logs).not.toContain(signed.downloadUrl);
+    expect(logs).not.toMatch(/\/documents\//);
+    expect(logs).not.toMatch(/X-Amz-Signature/);
+  });
+
+  it("denies staff without documents:view", async () => {
+    await expect(
+      requireKit().invoke(
+        issueDocumentDownloadUrl,
+        { fileId: docDownloadOwnInput.fileId },
+        { ...actorCompany, userId: clerks.noDocumentsView },
+      ),
+    ).rejects.toBeInstanceOf(PermissionDeniedError);
+  });
+
+  it("treats pending, foreign, catalog, and missing files as the same not-found", async () => {
+    const pendingId = randomUUID();
+    await requireKit()
+      .db.runtime.db.insert(files)
+      .values({
+        id: pendingId,
+        companyId: kitIdentities.companies.a,
+        uploadedByUserId: null,
+        purpose: "document",
+        objectKey: documentObjectKey(kitIdentities.companies.a, pendingId),
+        mimeType: "application/pdf",
+        byteSize: BigInt(pdfBytes.byteLength),
+        checksumSha256: pdfChecksum,
+        status: "pending",
+      });
+
+    const missing = randomUUID();
+    const pendingError = await requireKit()
+      .invoke(issueDocumentDownloadUrl, { fileId: pendingId })
+      .then(
+        () => {
+          throw new Error("expected NotFoundError for a pending document");
+        },
+        (error: unknown) => error,
+      );
+    const foreignError = await requireKit()
+      .invoke(issueDocumentDownloadUrl, {
+        fileId: docDownloadForeignInput.fileId,
+      })
+      .then(
+        () => {
+          throw new Error("expected NotFoundError for a foreign document");
+        },
+        (error: unknown) => error,
+      );
+    const catalogError = await requireKit()
+      .invoke(issueDocumentDownloadUrl, { fileId: downloadOwnInput.fileId })
+      .then(
+        () => {
+          throw new Error("expected NotFoundError for a catalog file");
+        },
+        (error: unknown) => error,
+      );
+    const missingError = await requireKit()
+      .invoke(issueDocumentDownloadUrl, { fileId: missing })
+      .then(
+        () => {
+          throw new Error("expected NotFoundError for a missing file");
+        },
+        (error: unknown) => error,
+      );
+
+    expect(pendingError).toBeInstanceOf(NotFoundError);
+    expect(foreignError).toBeInstanceOf(NotFoundError);
+    expect(catalogError).toBeInstanceOf(NotFoundError);
+    expect(missingError).toBeInstanceOf(NotFoundError);
+    if (
+      pendingError instanceof NotFoundError &&
+      foreignError instanceof NotFoundError &&
+      catalogError instanceof NotFoundError &&
+      missingError instanceof NotFoundError
+    ) {
+      expect(pendingError.clientMessage).toBe(foreignError.clientMessage);
+      expect(foreignError.clientMessage).toBe(catalogError.clientMessage);
+      expect(catalogError.clientMessage).toBe(missingError.clientMessage);
+    }
+
+    await expect(
+      requireKit().invoke(getDownloadUrl, {
+        fileId: docDownloadOwnInput.fileId,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+});
+
+describe("files.issueShareDownloadUrl", () => {
+  const actorCompany = { companyId: kitIdentities.companies.a };
+
+  it("returns the same PDF bytes as the panel issuer", async () => {
+    const capturing = createCapturingLogger();
+    const signed = await requireKit().invoke(
+      issueShareDownloadUrl,
+      { fileId: docDownloadOwnInput.fileId },
+      {},
+      { deps: { ...requireKit().pipeline, logger: capturing.logger } },
+    );
+    expect(signed.fileId).toBe(docDownloadOwnInput.fileId);
+    const fetched = await fetch(signed.downloadUrl);
+    expect(fetched.ok).toBe(true);
+    expect(sha256Hex(new Uint8Array(await fetched.arrayBuffer()))).toBe(
+      pdfChecksum,
+    );
+    expect(fetched.headers.get("content-disposition")).toContain(
+      "document.pdf",
+    );
+
+    const rows = await requireKit()
+      .db.runtime.db.select()
+      .from(files)
+      .where(eq(files.id, docDownloadOwnInput.fileId));
+    expect(JSON.stringify(rows[0])).not.toContain(signed.downloadUrl);
+
+    const logs = JSON.stringify(capturing.entries());
+    expect(logs).not.toContain(signed.downloadUrl);
+    expect(logs).not.toMatch(/\/documents\//);
+    expect(logs).not.toMatch(/X-Amz-Signature/);
+  });
+
+  it("denies staff without files:view, including an employee with documents:view", async () => {
+    await expect(
+      requireKit().invoke(
+        issueShareDownloadUrl,
+        { fileId: docDownloadOwnInput.fileId },
+        { ...actorCompany, userId: clerks.noView },
+      ),
+    ).rejects.toBeInstanceOf(PermissionDeniedError);
+    await expect(
+      requireKit().invoke(
+        issueShareDownloadUrl,
+        { fileId: docDownloadOwnInput.fileId },
+        { ...actorCompany, userId: clerks.employee },
+      ),
+    ).rejects.toBeInstanceOf(PermissionDeniedError);
+  });
+
+  it("treats pending, foreign, catalog, and missing files as the same not-found", async () => {
+    const pending = await requireKit().invoke(requestUpload, jpegInput);
+    const missing = randomUUID();
+    await expect(
+      requireKit().invoke(issueShareDownloadUrl, { fileId: pending.fileId }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      requireKit().invoke(issueShareDownloadUrl, {
+        fileId: docDownloadForeignInput.fileId,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      requireKit().invoke(issueShareDownloadUrl, {
+        fileId: downloadOwnInput.fileId,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      requireKit().invoke(issueShareDownloadUrl, { fileId: missing }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("does not sweep a generated document when catalog leftover GC runs", async () => {
+    const before = await countDocumentFiles(kitIdentities.companies.a);
+    await requireKit().invoke(sweepAbandonedUploads, {});
+    expect(await countDocumentFiles(kitIdentities.companies.a)).toBe(before);
+    const rows = await requireKit()
+      .db.runtime.db.select({
+        id: files.id,
+        purpose: files.purpose,
+        objectKey: files.objectKey,
+      })
+      .from(files)
+      .where(eq(files.id, docDownloadOwnInput.fileId));
+    expect(rows).toEqual([
+      {
+        id: docDownloadOwnInput.fileId,
+        purpose: "document",
+        objectKey: documentObjectKey(
+          kitIdentities.companies.a,
+          docDownloadOwnInput.fileId,
+        ),
+      },
+    ]);
   });
 });
