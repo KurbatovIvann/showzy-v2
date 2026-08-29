@@ -505,7 +505,7 @@ beforeAll(async () => {
         companyId: kitIdentities.companies.a,
         userId: clerks.employee,
         role: "employee",
-        permissions: { granted: [], denied: [] },
+        permissions: { granted: ["documents:view"], denied: [] },
       },
       {
         companyId: kitIdentities.companies.a,
@@ -2226,7 +2226,11 @@ describe("files.issueDocumentDownloadUrl", () => {
     );
 
     const rows = await requireKit()
-      .db.runtime.db.select()
+      .db.runtime.db.select({
+        id: files.id,
+        objectKey: files.objectKey,
+        purpose: files.purpose,
+      })
       .from(files)
       .where(eq(files.id, docDownloadOwnInput.fileId));
     expect(JSON.stringify(rows[0])).not.toContain("http");
@@ -2345,7 +2349,11 @@ describe("files.issueShareDownloadUrl", () => {
     );
 
     const rows = await requireKit()
-      .db.runtime.db.select()
+      .db.runtime.db.select({
+        id: files.id,
+        objectKey: files.objectKey,
+        purpose: files.purpose,
+      })
       .from(files)
       .where(eq(files.id, docDownloadOwnInput.fileId));
     expect(JSON.stringify(rows[0])).not.toContain(signed.downloadUrl);
