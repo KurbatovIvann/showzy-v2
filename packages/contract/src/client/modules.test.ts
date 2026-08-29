@@ -170,7 +170,9 @@ describe("client composition", () => {
     );
     expect(contractRouter.chat.getOrderCard).toBeDefined();
     expect(contractRouter.companies.create).toBeDefined();
+    expect(contractRouter.companies.get).toBeDefined();
     expect(contractRouter.companies.listMine).toBeDefined();
+    expect(contractRouter.companies.updateLegal).toBeDefined();
     expect(contractRouter.customers.archiveCustomer).toBeDefined();
     expect(contractRouter.customers.createCounterparty).toBeDefined();
     expect(contractRouter.customers.createCustomer).toBeDefined();
