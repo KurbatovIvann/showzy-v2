@@ -225,7 +225,10 @@ beforeAll(async () => {
       companyId: companyA,
       userId: noCustomersUserId,
       role: "employee",
-      permissions: { granted: [], denied: ["customers:view"] },
+      permissions: {
+        granted: ["orders:view"],
+        denied: ["customers:view"],
+      },
     },
   ]);
 });

@@ -223,7 +223,6 @@ describe("staff orders schema slice", () => {
     expect(columns.get("orders")).toEqual([
       "id",
       "company_id",
-      "order_number",
       "customer_id",
       "status",
       "comment",
@@ -234,6 +233,9 @@ describe("staff orders schema slice", () => {
       "confirmed_at",
       "created_at",
       "updated_at",
+      // 0028 ADD COLUMN appends after the 0013 table; Drizzle field order
+      // in schema/orders.ts is company_id then order_number.
+      "order_number",
     ]);
     expect(columns.get("order_items")).toEqual([
       "id",
