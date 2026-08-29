@@ -16,6 +16,7 @@ import {
   Button,
   EmptyState,
   IconButton,
+  SearchField,
 } from "../../../components/ui";
 import { interpolate } from "../../../i18n/locale";
 import { OrderRow, OrderRowSkeleton } from "./order-row";
@@ -43,22 +44,26 @@ export function OrdersListView(model: OrdersListModel) {
     ({ item }) => {
       if (item.type === "header") {
         return (
-          <Text accessibilityRole="header" style={styles.groupHeader}>
-            {orderGroupHeaderLabel(item.key, item.count, copy)}
-          </Text>
+          <View style={styles.groupHeader}>
+            <Text accessibilityRole="header" style={styles.groupHeaderLabel}>
+              {orderGroupHeaderLabel(item.key, item.count, copy)}
+            </Text>
+          </View>
         );
       }
       return (
-        <OrderRow
-          id={item.order.id}
-          customerName={item.order.customerName}
-          customerNamePending={item.order.customerNamePending}
-          statusLabel={item.order.statusLabel}
-          statusTone={item.order.statusTone}
-          metaLabel={item.order.metaLabel}
-          totalLabel={item.order.totalLabel}
-          onPress={openOrder}
-        />
+        <View style={styles.rowInset}>
+          <OrderRow
+            id={item.order.id}
+            customerName={item.order.customerName}
+            customerNamePending={item.order.customerNamePending}
+            statusLabel={item.order.statusLabel}
+            statusTone={item.order.statusTone}
+            metaLabel={item.order.metaLabel}
+            totalLabel={item.order.totalLabel}
+            onPress={openOrder}
+          />
+        </View>
       );
     },
     [copy, openOrder],
@@ -72,6 +77,7 @@ export function OrdersListView(model: OrdersListModel) {
     >
       <AppHeader
         title={copy.title}
+        subtitle={model.companyName}
         actions={
           model.showCreate ? (
             <IconButton
@@ -88,6 +94,15 @@ export function OrdersListView(model: OrdersListModel) {
         }
       />
       <View style={styles.controls}>
+        <View style={styles.searchSlot}>
+          <SearchField
+            value={model.searchText}
+            onChangeText={model.changeSearch}
+            placeholder={copy.searchPlaceholder}
+            accessibilityLabel={copy.searchLabel}
+            maxLength={model.searchMaxLength}
+          />
+        </View>
         <View>
           <IconButton
             variant={filterActive ? "primary" : "surface"}
@@ -198,7 +213,7 @@ function OrdersListBody(props: {
               <Button
                 variant="secondary"
                 label={copy.empty.reset}
-                onPress={model.resetFilters}
+                onPress={model.resetSearchAndFilters}
               />
             }
           />
@@ -253,6 +268,8 @@ function OrdersListBody(props: {
           onEndReachedThreshold={0.5}
           refreshing={model.refreshing}
           onRefresh={model.refresh}
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.listContent}
         />
       );
@@ -283,8 +300,13 @@ const styles = StyleSheet.create((theme) => ({
   controls: {
     flexDirection: "row",
     alignItems: "center",
+    gap: theme.spacing.sm,
     paddingHorizontal: theme.spacing.lg,
     paddingBottom: theme.spacing.md,
+  },
+  searchSlot: {
+    flex: 1,
+    minWidth: 0,
   },
   chipRow: {
     flexDirection: "row",
@@ -335,18 +357,25 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
   },
   listContent: {
-    paddingHorizontal: theme.spacing.lg,
     paddingBottom: theme.spacing["2xl"],
   },
   groupHeader: {
-    color: theme.colors.icon.muted,
     backgroundColor: theme.colors.background,
+    paddingHorizontal: theme.spacing.lg,
+    // Class B: canvas py-2.5 (10) → spacing.sm (8). Own horizontal
+    // padding — FlashList sticky headers drop contentContainerStyle.
+    paddingVertical: theme.spacing.sm,
+  },
+  groupHeaderLabel: {
+    color: theme.colors.icon.muted,
     fontSize: theme.typography.xs.fontSize,
     lineHeight: theme.typography.xs.lineHeight,
     fontWeight: "600",
     textTransform: "uppercase",
     letterSpacing: 0.6,
-    paddingVertical: theme.spacing.sm,
+  },
+  rowInset: {
+    paddingHorizontal: theme.spacing.lg,
   },
   separator: {
     height: theme.spacing.md,

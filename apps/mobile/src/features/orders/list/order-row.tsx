@@ -7,9 +7,10 @@ import { StatusPill } from "../../../components/ui";
 import type { OrderStatusTone } from "./orders-list.presenter";
 
 /**
- * Canvas `OrderRow` minus omitted extras (`#number`, due date, payment
- * and delivery chips). Primitive props keep `memo` effective in the
- * virtualized list; the shared `onPress` takes the row id.
+ * Canvas `OrderRow` minus omitted extras (due date, payment and delivery
+ * chips). Meta is `#{orderNumber} · items · createdAt`. Primitive props
+ * keep `memo` effective in the virtualized list; the shared `onPress`
+ * takes the row id.
  */
 export const OrderRow = memo(function OrderRow(props: {
   readonly id: string;

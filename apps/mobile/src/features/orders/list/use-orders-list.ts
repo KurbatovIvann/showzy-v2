@@ -6,6 +6,10 @@ import { useApiClient } from "../../../api/api-provider";
 import { describeQueryFailure } from "../../../api/errors";
 import { useActiveCompany } from "../../../api/query-provider";
 import { useResolvedCompany } from "../../../company-resolution/resolved-company-provider";
+import {
+  SEARCH_DEBOUNCE_MS,
+  useDebouncedValue,
+} from "../../../hooks/use-debounced-value";
 import { detectLocale } from "../../../i18n/locale";
 import { ordersCopy } from "../../../i18n/orders";
 import { listOrdersInfiniteOptions } from "../api/order.queries";
@@ -21,10 +25,12 @@ import {
   groupOrderRows,
   hasActiveStatusFilter,
   listOrdersPageInput,
+  normalizeOrdersSearch,
   shouldPageThroughClientStatusFilter,
   stickyHeaderIndices,
   toggleOrderStatusFilter,
   toOrderRowView,
+  LIST_ORDERS_QUERY_MAX,
   type OrderStatusFilter,
   type OrdersListState,
 } from "./orders-list.presenter";
@@ -48,14 +54,18 @@ export function useOrdersList() {
   const [selectedStatuses, setSelectedStatuses] = useState<
     readonly OrderStatusFilter[]
   >([]);
+  const [searchText, setSearchText] = useState("");
   const [filterSheetVisible, setFilterSheetVisible] = useState(false);
+  const debouncedSearch = useDebouncedValue(searchText, SEARCH_DEBOUNCE_MS);
+  const search = normalizeOrdersSearch(debouncedSearch);
+  const hasSearch = search !== undefined;
 
   const getActiveCompany = () => apiClient?.getActiveCompany() ?? null;
   const listQuery = useInfiniteQuery(
     listOrdersInfiniteOptions({
       client: apiClient,
       companyId: activeCompanyId,
-      input: listOrdersPageInput(selectedStatuses),
+      input: listOrdersPageInput(selectedStatuses, search),
       getActiveCompany,
     }),
   );
@@ -106,6 +116,7 @@ export function useOrdersList() {
     failureKind,
     rowCount: rows.length,
     hasStatusFilter,
+    hasSearch,
     hasNextPage,
     isFetchingNextPage,
   });
@@ -141,9 +152,13 @@ export function useOrdersList() {
 
   return {
     copy,
+    companyName: membership.company.name,
     state,
     entries,
     stickyHeaderIndices: headerIndices,
+    searchText,
+    searchMaxLength: LIST_ORDERS_QUERY_MAX,
+    changeSearch: setSearchText,
     selectedStatuses,
     selectedFilterChips,
     filterCount: selectedStatuses.length,
@@ -160,6 +175,10 @@ export function useOrdersList() {
       );
     },
     resetFilters: () => {
+      setSelectedStatuses([]);
+    },
+    resetSearchAndFilters: () => {
+      setSearchText("");
       setSelectedStatuses([]);
     },
     showCreate,

@@ -1,6 +1,6 @@
 /**
- * Pure view-model logic for the orders list (SHO-211). No React Native
- * imports so the whole decision surface is unit-testable.
+ * Pure view-model logic for the orders list (SHO-211 / SHO-241). No
+ * React Native imports so the whole decision surface is unit-testable.
  */
 import type { QueryFailureKind } from "../../../api/errors";
 import { formatMoneyMinor } from "../../../format/money";
@@ -12,12 +12,15 @@ import {
   type CustomerNameHydration,
 } from "../shared/customer-name";
 import { itemCountLabel } from "../shared/item-count";
+import { LIST_ORDERS_QUERY_MAX } from "../shared/order-caps";
 import { orderStatusTone, type OrderStatusTone } from "../shared/order-status";
 import type {
   ListOrdersPageInput,
   OrderListItem,
   OrdersListStatus,
 } from "../api/order.queries";
+
+export { LIST_ORDERS_QUERY_MAX };
 
 export {
   customerNameLabel,
@@ -74,10 +77,23 @@ export function listOrdersStatusParam(
   return "all";
 }
 
+/** Empty and whitespace-only searches are "no search" — the action rejects them. */
+export function normalizeOrdersSearch(text: string): string | undefined {
+  const trimmed = text.trim();
+  if (trimmed.length === 0) {
+    return undefined;
+  }
+  return trimmed.slice(0, LIST_ORDERS_QUERY_MAX);
+}
+
 export function listOrdersPageInput(
   selected: readonly OrderStatusFilter[],
+  search: string | undefined,
 ): ListOrdersPageInput {
-  return { status: listOrdersStatusParam(selected) };
+  return {
+    status: listOrdersStatusParam(selected),
+    ...(search === undefined ? {} : { query: search }),
+  };
 }
 
 export function filterOrdersBySelectedStatuses<
@@ -194,7 +210,7 @@ export function toOrderRowView(
     status: item.status,
     statusLabel: args.copy.statuses[item.status],
     statusTone: orderStatusTone(item.status),
-    metaLabel: `${itemCountLabel(item.itemCount, args.locale, args.copy.items)} · ${formatOrderCreatedAt(item.createdAt, args.locale)}`,
+    metaLabel: `#${String(item.orderNumber)} · ${itemCountLabel(item.itemCount, args.locale, args.copy.items)} · ${formatOrderCreatedAt(item.createdAt, args.locale)}`,
     totalLabel: formatMoneyMinor(item.totalGrossMinor, item.currency),
   };
 }
@@ -274,11 +290,12 @@ export type OrdersListState =
   | { readonly kind: "rows" };
 
 /**
- * Canvas state machine minus search: skeletons while loading, offline
- * vs error, then filtered-empty vs catalog-empty. No probe query — an
- * unfiltered empty page is "no orders yet". A status filter with no
- * matches on the loaded pages is not terminal while more pages exist
- * (or a next page is in flight): keep list chrome so pagination works.
+ * Canvas state machine: skeletons while loading, offline vs error,
+ * then filtered-empty (status and/or search) vs catalog-empty. No
+ * probe query — an unfiltered empty page is "no orders yet". A status
+ * filter with no matches on the loaded pages is not terminal while
+ * more pages exist (or a next page is in flight): keep list chrome so
+ * pagination works. Search is server-side; an empty page is terminal.
  */
 export function classifyOrdersList(args: {
   readonly clientReady: boolean;
@@ -286,6 +303,7 @@ export function classifyOrdersList(args: {
   readonly failureKind: QueryFailureKind | null;
   readonly rowCount: number;
   readonly hasStatusFilter: boolean;
+  readonly hasSearch: boolean;
   readonly hasNextPage: boolean;
   readonly isFetchingNextPage: boolean;
 }): OrdersListState {
@@ -306,7 +324,7 @@ export function classifyOrdersList(args: {
   if (args.hasStatusFilter && (args.hasNextPage || args.isFetchingNextPage)) {
     return { kind: "rows" };
   }
-  return args.hasStatusFilter
+  return args.hasStatusFilter || args.hasSearch
     ? { kind: "empty-filtered" }
     : { kind: "empty-catalog" };
 }

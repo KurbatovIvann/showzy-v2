@@ -6,6 +6,13 @@
  */
 export const CREATE_ORDER_MAX_ITEMS = 100;
 
+/**
+ * `LIST_ORDERS_QUERY_MAX` on `orders.list` (SHO-240). Same 100 cap as
+ * catalog/customers list search. There is no `@showzy/validation/orders`
+ * export — pin the contract number here.
+ */
+export const LIST_ORDERS_QUERY_MAX = 100;
+
 export const CREATE_ORDER_COMMENT_MAX = 2000;
 
 /** Page size for drained customer/product pickers (contract list max). */
