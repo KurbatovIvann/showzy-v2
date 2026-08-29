@@ -25,12 +25,19 @@ describe("documents numbering and issued date source", () => {
       "actions/create-from-order.ts",
       "actions/cancel.ts",
       "actions/get.ts",
+      "actions/get-shared.ts",
       "actions/list.ts",
+      "actions/share.ts",
       "services/create-from-order.ts",
       "services/document-number.ts",
       "services/kyiv-calendar-day.ts",
       "services/load-document.ts",
+      "services/mint-share-pdf.ts",
+      "services/ready-share-file.ts",
+      "services/share-origin.ts",
+      "services/share-pdf-url.ts",
       "services/snapshots.ts",
+      "services/token-hash.ts",
     ];
     for (const relative of sources) {
       expect(executableSource(relative), relative).not.toMatch(FORBIDDEN);

@@ -8,6 +8,7 @@ import { getConnInfo } from "@hono/node-server/conninfo";
 import type { ServerConfig } from "@showzy/config";
 import { contractModules } from "@showzy/contract";
 import { createDbClient } from "@showzy/db";
+import { configureDocumentShareOrigin } from "@showzy/documents/share-origin";
 import {
   closeFilesObjectStore,
   configureFilesObjectStore,
@@ -51,6 +52,7 @@ function peerAddressFromConnInfo(c: Context): string {
 }
 
 export async function bootApi(config: ServerConfig): Promise<BootedApi> {
+  configureDocumentShareOrigin(config.auth.url);
   configureFilesObjectStore(config.s3);
   try {
     await probeFilesObjectStore();

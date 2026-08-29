@@ -33,6 +33,8 @@ describe("isSensitiveKey", () => {
     expect(isSensitiveKey("upload_url")).toBe(true);
     expect(isSensitiveKey("downloadUrl")).toBe(true);
     expect(isSensitiveKey("download_url")).toBe(true);
+    expect(isSensitiveKey("pdfDownloadUrl")).toBe(true);
+    expect(isSensitiveKey("pdf_download_url")).toBe(true);
     expect(isSensitiveKey("objectKey")).toBe(true);
     expect(isSensitiveKey("object_key")).toBe(true);
   });
@@ -143,23 +145,26 @@ describe("redactUnknown", () => {
     expect(serialized).not.toContain("4444333322221111");
   });
 
-  it("censors uploadUrl, downloadUrl, and objectKey one and two levels down", () => {
+  it("censors uploadUrl, downloadUrl, pdfDownloadUrl, and objectKey one and two levels down", () => {
     const signature =
       "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210";
     const objectKey =
       "11111111-1111-1111-1111-111111111111/catalog/22222222-2222-2222-2222-222222222222";
     const uploadUrl = `https://files.example/showzy/${objectKey}?X-Amz-Signature=${signature}`;
     const downloadUrl = `https://files.example/showzy/${objectKey}?X-Amz-Signature=${signature}`;
+    const pdfDownloadUrl = `https://files.example/showzy/${objectKey}?X-Amz-Signature=${signature}`;
 
     const oneLevel = redactUnknown({
       request_id: "req-files",
       uploadUrl,
       downloadUrl,
+      pdfDownloadUrl,
       objectKey,
     });
     expect(oneLevel.request_id).toBe("req-files");
     expect(oneLevel.uploadUrl).toBe(REDACTED);
     expect(oneLevel.downloadUrl).toBe(REDACTED);
+    expect(oneLevel.pdfDownloadUrl).toBe(REDACTED);
     expect(oneLevel.objectKey).toBe(REDACTED);
 
     const twoLevels = redactUnknown({
@@ -167,6 +172,7 @@ describe("redactUnknown", () => {
         result: {
           uploadUrl,
           download_url: downloadUrl,
+          pdf_download_url: pdfDownloadUrl,
           object_key: objectKey,
           fileId: "22222222-2222-2222-2222-222222222222",
         },
@@ -177,6 +183,7 @@ describe("redactUnknown", () => {
     );
     expect(twoLevels.extra.result.uploadUrl).toBe(REDACTED);
     expect(twoLevels.extra.result.download_url).toBe(REDACTED);
+    expect(twoLevels.extra.result.pdf_download_url).toBe(REDACTED);
     expect(twoLevels.extra.result.object_key).toBe(REDACTED);
 
     const serialized = JSON.stringify({ oneLevel, twoLevels });
@@ -184,6 +191,7 @@ describe("redactUnknown", () => {
     expect(serialized).not.toContain(objectKey);
     expect(serialized).not.toContain(uploadUrl);
     expect(serialized).not.toContain(downloadUrl);
+    expect(serialized).not.toContain(pdfDownloadUrl);
   });
 
   it("redacts credentials inside Error messages without dropping the Error", () => {

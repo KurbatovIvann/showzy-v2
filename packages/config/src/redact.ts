@@ -68,6 +68,7 @@ const SENSITIVE_KEYS = new Set([
   "documentcontent",
   "uploadurl",
   "downloadurl",
+  "pdfdownloadurl",
   "objectkey",
 ]);
 

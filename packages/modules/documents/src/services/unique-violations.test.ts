@@ -1,11 +1,13 @@
-import { ConflictError } from "@showzy/core/errors";
+import { ConcurrentRetryError, ConflictError } from "@showzy/core/errors";
 import { describe, expect, it } from "vitest";
 
 import { postgresUniqueConstraint } from "./postgres-unique.js";
 import {
   DOCUMENTS_LIVE_ORDER_TYPE_UQ,
   DUPLICATE_LIVE_DOCUMENT_MESSAGE,
+  SHARE_ACTIVE_TOKEN_UQ,
   mapLiveDocumentUniqueViolation,
+  mapShareActiveTokenUniqueViolation,
 } from "./unique-violations.js";
 
 describe("mapLiveDocumentUniqueViolation", () => {
@@ -36,5 +38,20 @@ describe("postgresUniqueConstraint", () => {
       }),
     ).toBe(DOCUMENTS_LIVE_ORDER_TYPE_UQ);
     expect(postgresUniqueConstraint(undefined)).toBeUndefined();
+  });
+});
+
+describe("mapShareActiveTokenUniqueViolation", () => {
+  it("maps the active-token unique index to ConcurrentRetryError", () => {
+    const mapped = mapShareActiveTokenUniqueViolation({
+      code: "23505",
+      constraint: SHARE_ACTIVE_TOKEN_UQ,
+    });
+    expect(mapped).toBeInstanceOf(ConcurrentRetryError);
+  });
+
+  it("leaves other errors unchanged", () => {
+    const other = { code: "23505", constraint: "other_uq" };
+    expect(mapShareActiveTokenUniqueViolation(other)).toBe(other);
   });
 });

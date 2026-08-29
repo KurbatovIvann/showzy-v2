@@ -36,6 +36,17 @@ describe("createApp HTTP shell", () => {
     expect(await response.json()).toEqual({ status: "ok" });
   });
 
+  it("GET /d/:token does not require a session (never 401)", async () => {
+    const app = silentApp();
+    const response = await app.request("/d/not-a-session-token");
+    expect(response.status).not.toBe(401);
+    expect(response.headers.get("content-type")).toMatch(/text\/html/);
+    expect(response.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(await response.text()).toContain(
+      '<meta name="referrer" content="no-referrer">',
+    );
+  });
+
   it("echoes a valid x-request-id and mints one when absent", async () => {
     const app = silentApp();
     const echoed = await app.request(HEALTH_PATH, {
