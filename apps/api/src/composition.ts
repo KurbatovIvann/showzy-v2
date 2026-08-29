@@ -67,6 +67,8 @@ import {
   updateGroup,
 } from "@showzy/customers";
 import { customersSuiteCoverage } from "@showzy/customers/suite-coverage";
+import { createFromOrder, documentsCreated } from "@showzy/documents";
+import { documentsSuiteCoverage } from "@showzy/documents/suite-coverage";
 import {
   finalizeUpload,
   getAttachmentFacts,
@@ -139,6 +141,7 @@ const moduleSuiteCoverage: readonly SuiteCoverageManifest[] = [
   chatSuiteCoverage,
   companiesSuiteCoverage,
   customersSuiteCoverage,
+  documentsSuiteCoverage,
   filesSuiteCoverage,
   invitesSuiteCoverage,
   ordersSuiteCoverage,
@@ -149,6 +152,7 @@ const events: readonly EventDefinitionRef[] = [
   ordersCreated,
   ordersConfirmed,
   ordersCanceled,
+  documentsCreated,
   invitesAccepted,
   invitesCreated,
   invitesRevoked,
@@ -207,6 +211,22 @@ const callEdges: readonly DeclaredCallEdge[] = [
     caller: "invites.create",
     callee: "pricing.getPriceList",
   },
+  {
+    caller: "documents.createFromOrder",
+    callee: "orders.get",
+  },
+  {
+    caller: "documents.createFromOrder",
+    callee: "companies.getSellerFacts",
+  },
+  {
+    caller: "documents.createFromOrder",
+    callee: "customers.getCounterparty",
+  },
+  {
+    caller: "documents.createFromOrder",
+    callee: "customers.getCustomer",
+  },
 ];
 
 const readModelGrants: readonly ReadModelGrantRef[] = [
@@ -218,6 +238,7 @@ const schemaImports: readonly SchemaImportRef[] = [
   { importer: "chat", schemaOwner: "chat" },
   { importer: "companies", schemaOwner: "companies" },
   { importer: "customers", schemaOwner: "customers" },
+  { importer: "documents", schemaOwner: "documents" },
   { importer: "files", schemaOwner: "files" },
   { importer: "invites", schemaOwner: "invites" },
   { importer: "orders", schemaOwner: "orders" },
@@ -315,6 +336,7 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, getInvite);
   registerAction(registry, listInvites);
   registerAction(registry, revokeInvite);
+  registerAction(registry, createFromOrder);
   registerAction(registry, createOrder);
   registerAction(registry, confirmOrder);
   registerAction(registry, cancelOrder);

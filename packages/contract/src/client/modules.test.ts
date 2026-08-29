@@ -39,6 +39,7 @@ import {
   updateCustomerContract,
   updateGroupContract,
 } from "@showzy/customers/contract";
+import { createFromOrderContract } from "@showzy/documents/contract";
 import {
   finalizeUploadContract,
   getDownloadUrlContract,
@@ -78,7 +79,7 @@ import {
 import { contractModules, contractRouter } from "./modules.js";
 
 describe("client composition", () => {
-  it("exposes client catalog, chat, companies, customers, files, invites, orders, and pricing actions and no internal facts actions", () => {
+  it("exposes client catalog, chat, companies, customers, documents, files, invites, orders, and pricing actions and no internal facts actions", () => {
     expect(contractModules).toEqual({
       catalog: {
         createProduct: createProductContract,
@@ -120,6 +121,9 @@ describe("client composition", () => {
         updateCounterparty: updateCounterpartyContract,
         updateCustomer: updateCustomerContract,
         updateGroup: updateGroupContract,
+      },
+      documents: {
+        createFromOrder: createFromOrderContract,
       },
       files: {
         requestUpload: requestUploadContract,
@@ -199,6 +203,7 @@ describe("client composition", () => {
       "getCustomerPricingFacts",
     );
     expect(contractModules.customers).not.toHaveProperty("applyInviteCrm");
+    expect(contractRouter.documents.createFromOrder).toBeDefined();
     expect(contractRouter.files.requestUpload).toBeDefined();
     expect(contractRouter.files.getUploadUrl).toBeDefined();
     expect(contractRouter.files.finalizeUpload).toBeDefined();
