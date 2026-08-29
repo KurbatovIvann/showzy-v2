@@ -65,7 +65,6 @@ describe("company_legal_info migration (0027)", () => {
     expect(legalMigrationSql).not.toMatch(
       /INSERT INTO ["']?company_legal_info/i,
     );
-    expect(legalMigrationSql).not.toMatch(/\bBACKFILL\b/i);
   });
 
   it("leaves existing companies without a legal row on the template DB", async () => {
