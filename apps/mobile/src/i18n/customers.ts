@@ -451,7 +451,7 @@ const en: CustomersCopy = {
   form: {
     contactsTitle: "Contacts",
     contactsHelper:
-      "At least one contact is required: phone, email, or a linked Showzy account.",
+      "At least one contact is required: phone, email, or a linked Shozee account.",
     nameLabel: "Name",
     namePlaceholder: "For example, Maria Tkachenko",
     phoneLabel: "Phone",
@@ -784,7 +784,7 @@ const uk: CustomersCopy = {
   form: {
     contactsTitle: "Контакти",
     contactsHelper:
-      "Потрібен хоча б один контакт: телефон, email або прив’язаний акаунт Showzy.",
+      "Потрібен хоча б один контакт: телефон, email або прив’язаний акаунт Шозі.",
     nameLabel: "Ім’я",
     namePlaceholder: "Наприклад, Марія Ткаченко",
     phoneLabel: "Телефон",

@@ -27,8 +27,14 @@ describe("onboarding copy", () => {
     expect(en.nameLabel).toBe("Business name");
     expect(uk.slugLabel).toBe("Публічна адреса");
     expect(en.slugLabel).toBe("Public address");
-    expect(uk.slugHint).toBe("Адреса вашої публічної сторінки на Showzy.");
-    expect(en.slugHint).toBe("The address of your public page on Showzy.");
+    expect(uk.subtitle).toBe(
+      "Основна інформація для створення профілю бізнесу на Шозі.",
+    );
+    expect(en.subtitle).toBe(
+      "Basic information to create your business profile on Shozee.",
+    );
+    expect(uk.slugHint).toBe("Адреса вашої публічної сторінки на Шозі.");
+    expect(en.slugHint).toBe("The address of your public page on Shozee.");
     expect(uk.submit).toBe("Створити профіль бізнесу");
     expect(en.submit).toBe("Create business profile");
     expect(uk.submitLoading).toBe("Створюємо…");

@@ -25,12 +25,12 @@ export type OnboardingCopy = {
 
 const en: OnboardingCopy = {
   title: "About your business",
-  subtitle: "Basic information to create your business profile on Showzy.",
+  subtitle: "Basic information to create your business profile on Shozee.",
   nameLabel: "Business name",
   namePlaceholder: "Business name",
   slugLabel: "Public address",
   slugPlaceholder: "your-business",
-  slugHint: "The address of your public page on Showzy.",
+  slugHint: "The address of your public page on Shozee.",
   submit: "Create business profile",
   submitLoading: "Creating…",
   errors: {
@@ -48,12 +48,12 @@ const en: OnboardingCopy = {
 
 const uk: OnboardingCopy = {
   title: "Про ваш бізнес",
-  subtitle: "Основна інформація для створення профілю бізнесу на Showzy.",
+  subtitle: "Основна інформація для створення профілю бізнесу на Шозі.",
   nameLabel: "Назва бізнесу",
   namePlaceholder: "Назва бізнесу",
   slugLabel: "Публічна адреса",
   slugPlaceholder: "vash-biznes",
-  slugHint: "Адреса вашої публічної сторінки на Showzy.",
+  slugHint: "Адреса вашої публічної сторінки на Шозі.",
   submit: "Створити профіль бізнесу",
   submitLoading: "Створюємо…",
   errors: {

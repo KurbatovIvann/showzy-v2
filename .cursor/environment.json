@@ -1,5 +1,5 @@
 {
-  "name": "Showzy 2.0",
+  "name": "Shozee 2.0",
   "user": "ubuntu",
   "install": "./.cursor/cloud/install.sh",
   "start": "./.cursor/cloud/start.sh",

@@ -1,4 +1,4 @@
-# Showzy 2.0
+# Shozee 2.0
 
 AI-first SaaS platform for small business owners in Ukraine: product catalog
 with dynamic pricing, chat-centric order flow, B2B document workflow with QES

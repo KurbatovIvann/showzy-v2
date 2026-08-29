@@ -1,4 +1,4 @@
-# Showzy 2.0 — Agent Instructions
+# Shozee 2.0 — Agent Instructions
 
 Ground-up rewrite of Showzy v1: a business operating platform for Ukrainian
 small businesses. Classic UI and AI chat execute the same actions.

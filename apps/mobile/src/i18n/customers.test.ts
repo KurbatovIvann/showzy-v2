@@ -86,7 +86,9 @@ describe("customers copy", () => {
     expect(uk.confirm.deleteCounterpartyDescription).toContain(
       "Клієнт (якщо був прив’язаний) залишиться",
     );
-    expect(uk.form.contactsHelper).toContain("телефон, email");
+    expect(uk.form.contactsHelper).toBe(
+      "Потрібен хоча б один контакт: телефон, email або прив’язаний акаунт Шозі.",
+    );
     expect(uk.form.counterpartiesTitle).toBe("Юрособи");
     expect(uk.form.counterpartiesCreateHint).toContain("Збережіть клієнта");
     expect(uk.form.counterpartiesEmpty).toBe("Немає прив’язаних контрагентів.");
@@ -118,6 +120,17 @@ describe("customers copy", () => {
     expect(uk.counterpartyForm.errors.conflict).toContain("ЄДРПОУ");
     expect(uk.counterpartyForm.openClient).toBe("Відкрити клієнта");
     expect(uk.counterpartyForm.customerEmptyOption).toBe("Без клієнта");
+  });
+
+  it("pins linked-account copy with the Shozee product name", () => {
+    const uk = customersCopy("uk");
+    const en = customersCopy("en");
+    expect(en.form.contactsHelper).toBe(
+      "At least one contact is required: phone, email, or a linked Shozee account.",
+    );
+    expect(uk.form.contactsHelper).toBe(
+      "Потрібен хоча б один контакт: телефон, email або прив’язаний акаунт Шозі.",
+    );
   });
 
   it("keeps empty counterparty copy aligned with the form helper QES wording", () => {
