@@ -80,7 +80,7 @@ export function renderShareLandingHtml(page: ShareLandingPage): string {
   );
   const download =
     page.pdfDownloadUrl !== null && isSafeHttpUrl(page.pdfDownloadUrl)
-      ? `<p><a href="${escapeHtml(page.pdfDownloadUrl)}">${SHARE_LANDING_DOWNLOAD_COPY}</a></p>`
+      ? `<p><a href="${escapeHtml(page.pdfDownloadUrl)}" rel="noopener noreferrer">${SHARE_LANDING_DOWNLOAD_COPY}</a></p>`
       : `<p>${SHARE_LANDING_REFRESH_COPY}</p>`;
   return wrapHtml(
     title,
@@ -94,6 +94,7 @@ function wrapHtml(title: string, body: string): string {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
   <title>${escapeHtml(title)}</title>
 </head>
 <body>

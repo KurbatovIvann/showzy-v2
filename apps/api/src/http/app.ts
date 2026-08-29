@@ -238,6 +238,7 @@ export function createApp(options: CreateAppOptions): Hono<AppEnv> {
       clientIp: c.get("clientIp"),
     });
     c.header("Cache-Control", "private, no-store");
+    c.header("Referrer-Policy", "no-referrer");
     if (result.retryAfterSec !== undefined) {
       c.header("Retry-After", String(result.retryAfterSec));
     }

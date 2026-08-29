@@ -196,10 +196,15 @@ describe("GET /d/:token landing", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toMatch(/text\/html/);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(response.headers.get("referrer-policy")).toBe("no-referrer");
     const html = await response.text();
     expect(html).toContain(SHARE_LANDING_DOWNLOAD_COPY);
     expect(html).toContain("https://files.example/ready.pdf");
     expect(html).toContain("KA-РХ-000001");
+    expect(html).toContain('<meta name="referrer" content="no-referrer">');
+    expect(html).toContain(
+      '<a href="https://files.example/ready.pdf" rel="noopener noreferrer">',
+    );
     expect(html).not.toContain(readyToken);
   });
 
@@ -215,6 +220,9 @@ describe("GET /d/:token landing", () => {
     const response = await app.request("/d/unknown-landing-token");
     expect(response.status).toBe(404);
     expect(response.status).not.toBe(401);
-    expect(await response.text()).toContain(SHARE_LANDING_NOT_FOUND_COPY);
+    expect(response.headers.get("referrer-policy")).toBe("no-referrer");
+    const html = await response.text();
+    expect(html).toContain(SHARE_LANDING_NOT_FOUND_COPY);
+    expect(html).toContain('<meta name="referrer" content="no-referrer">');
   });
 });

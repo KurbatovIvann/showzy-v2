@@ -40,6 +40,9 @@ describe("document share landing HTML", () => {
     expect(withFile).toContain(SHARE_LANDING_DOWNLOAD_COPY);
     expect(withFile).toContain('href="https://files.example/doc.pdf"');
     expect(withFile).toContain("2.50 UAH");
+    expect(withFile).toContain(
+      '<a href="https://files.example/doc.pdf" rel="noopener noreferrer">',
+    );
 
     const withoutFile = renderShareLandingHtml({
       status: "ok",
@@ -51,6 +54,25 @@ describe("document share landing HTML", () => {
     });
     expect(withoutFile).toContain(SHARE_LANDING_REFRESH_COPY);
     expect(withoutFile).not.toContain(SHARE_LANDING_DOWNLOAD_COPY);
+  });
+
+  it("isolates the page token from the download Referer (noopener noreferrer + no-referrer)", () => {
+    const withFile = renderShareLandingHtml({
+      status: "ok",
+      type: "delivery_note",
+      documentNumber: "KA-ВН-000001",
+      totalGrossMinor: "250",
+      currency: "UAH",
+      pdfDownloadUrl: "https://files.example/doc.pdf",
+    });
+    expect(withFile).toContain('<meta name="referrer" content="no-referrer">');
+    expect(withFile).toContain('rel="noopener noreferrer"');
+    expect(withFile).not.toContain(
+      `<a href="https://files.example/doc.pdf">${SHARE_LANDING_DOWNLOAD_COPY}</a>`,
+    );
+
+    const notFound = renderShareLandingHtml({ status: "not_found" });
+    expect(notFound).toContain('<meta name="referrer" content="no-referrer">');
   });
 
   it("renders indistinguishable not-found copy", () => {
