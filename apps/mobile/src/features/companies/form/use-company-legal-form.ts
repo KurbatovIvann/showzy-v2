@@ -26,11 +26,13 @@ import {
   isCompanyLegalDraftEmpty,
   snapshotFromCompanyLegal,
   type CompanyLegalFormDraft,
-  type CompanyLegalFormMode,
   type CompanyLegalFormSnapshot,
   type CompanyLegalType,
 } from "./company-legal-form-draft";
-import { classifyCompanyLegalFormLoad } from "./company-legal-form-load";
+import {
+  classifyCompanyLegalFormLoad,
+  companyLegalFormMode,
+} from "./company-legal-form-load";
 import { companyLegalFormResolver } from "./company-legal-form.schema";
 import { useCompanyLegalSave } from "./use-company-legal-save";
 import { useUnsavedCompanyLegalGuard } from "./use-unsaved-company-legal-guard";
@@ -107,6 +109,7 @@ export function useCompanyLegalForm() {
   const [baseline, setBaseline] = useState<CompanyLegalFormSnapshot | null>(
     null,
   );
+  const [appliedCompanyId, setAppliedCompanyId] = useState<string | null>(null);
 
   const baselineRef = useRef(baseline);
   baselineRef.current = baseline;
@@ -135,16 +138,23 @@ export function useCompanyLegalForm() {
     baselineRef.current = snap;
     setOriginDraft(next);
     setBaseline(snap);
+    setAppliedCompanyId(query.data.id);
   }, [query.data, reset]);
 
   const clientReady = apiClient !== null && activeCompanyId !== null;
+  const hydrated =
+    query.data !== undefined && appliedCompanyId === query.data.id;
   const loadState = classifyCompanyLegalFormLoad({
     canView,
     clientReady,
     status: query.status,
     failureKind: query.isError ? describeQueryFailure(query.error).kind : null,
+    hydrated,
   });
-  const mode: CompanyLegalFormMode = baseline !== null ? "edit" : "add";
+  const mode = companyLegalFormMode({
+    legal: query.data?.legal,
+    baseline,
+  });
 
   const armLeaveRef = useRef(() => {});
 
