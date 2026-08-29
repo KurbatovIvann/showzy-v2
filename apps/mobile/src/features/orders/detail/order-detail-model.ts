@@ -122,6 +122,59 @@ export function catalogPrimaryImageFileId(
   return imageFileIds[0] ?? null;
 }
 
+export type OrderLineCatalogImage = {
+  readonly productId: string;
+  readonly primaryImageFileId: string | null;
+};
+
+/**
+ * Join catalog primary images onto unique line product ids. Pure so the
+ * detail thumbnail hook can memoize from `productIds` + `imageFileIds`.
+ */
+export function orderLineCatalogImages(
+  productIds: readonly string[],
+  imageFileIdsByIndex: readonly (readonly string[] | undefined)[],
+): readonly OrderLineCatalogImage[] {
+  return productIds.map((productId, index) => ({
+    productId,
+    primaryImageFileId: catalogPrimaryImageFileId(imageFileIdsByIndex[index]),
+  }));
+}
+
+/** Keep the previous items array when productId/fileId pairs did not change. */
+export function reuseOrderLineCatalogImages(
+  previous: readonly OrderLineCatalogImage[],
+  next: readonly OrderLineCatalogImage[],
+): readonly OrderLineCatalogImage[] {
+  if (previous.length !== next.length) {
+    return next;
+  }
+  for (let index = 0; index < previous.length; index += 1) {
+    const left = previous[index];
+    const right = next[index];
+    if (
+      left === undefined ||
+      right === undefined ||
+      left.productId !== right.productId ||
+      left.primaryImageFileId !== right.primaryImageFileId
+    ) {
+      return next;
+    }
+  }
+  return previous;
+}
+
+/**
+ * Catalog list join (`use-products-list` thumbnailFileId): skip a file
+ * id without `files:view` so the row stays a placeholder.
+ */
+export function orderLineThumbnailFileId(
+  canFetch: boolean,
+  primaryImageFileId: string | null,
+): string | null {
+  return canFetch ? primaryImageFileId : null;
+}
+
 export type OrderDetailLineView = {
   readonly itemId: string;
   readonly productId: string;

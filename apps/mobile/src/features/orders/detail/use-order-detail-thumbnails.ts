@@ -5,7 +5,7 @@
  * download URLs without `files:view`.
  */
 import { useQueries } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 
 import { useApiClient } from "../../../api/api-provider";
 import { useActiveCompany } from "../../../api/query-provider";
@@ -17,7 +17,11 @@ import {
   type OrderThumbnailView,
 } from "../shared/order-thumbnails";
 import { useOrderThumbnails } from "../shared/use-order-thumbnails";
-import { catalogPrimaryImageFileId } from "./order-detail-model";
+import {
+  orderLineCatalogImages,
+  orderLineThumbnailFileId,
+  reuseOrderLineCatalogImages,
+} from "./order-detail-model";
 
 export function useOrderDetailThumbnails(args: {
   readonly productIds: readonly string[];
@@ -45,12 +49,13 @@ export function useOrderDetailThumbnails(args: {
     }),
   });
 
-  const items = productIds.map((productId, index) => ({
-    productId,
-    primaryImageFileId: catalogPrimaryImageFileId(
-      productQueries[index]?.data?.imageFileIds,
-    ),
-  }));
+  const imageFileIdsByIndex = productQueries.map(
+    (query) => query.data?.imageFileIds,
+  );
+  const nextItems = orderLineCatalogImages(productIds, imageFileIdsByIndex);
+  const itemsRef = useRef(nextItems);
+  const items = reuseOrderLineCatalogImages(itemsRef.current, nextItems);
+  itemsRef.current = items;
 
   const { urlsByFileId, failedFileIds } = useOrderThumbnails({
     client: apiClient,
@@ -63,7 +68,10 @@ export function useOrderDetailThumbnails(args: {
   return useMemo(() => {
     const map = new Map<string, OrderThumbnailView>();
     for (const item of items) {
-      const fileId = canFetchThumbnails ? item.primaryImageFileId : null;
+      const fileId = orderLineThumbnailFileId(
+        canFetchThumbnails,
+        item.primaryImageFileId,
+      );
       map.set(
         item.productId,
         orderThumbnailView({

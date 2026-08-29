@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { ordersCopy } from "../../../i18n/orders";
 import type { GetOrderOutput } from "../api/order-detail-query";
+import { orderThumbnailView } from "../shared/order-thumbnails";
 import {
   catalogPrimaryImageFileId,
   commentIfPresent,
@@ -14,8 +15,11 @@ import {
   orderDetailHeaderTitle,
   orderDetailShowsPhoneIcon,
   orderDetailWriteChrome,
+  orderLineCatalogImages,
+  orderLineThumbnailFileId,
   orderWriteBanner,
   planOrderStatusWrite,
+  reuseOrderLineCatalogImages,
   toOrderDetailView,
   uniqueOrderLineProductIds,
   withOrderLineThumbnails,
@@ -231,6 +235,7 @@ describe("orderDetailShowsPhoneIcon", () => {
 
 describe("line thumbnails", () => {
   const FILE_A = "44444444-4444-4444-8444-444444444444";
+  const FILE_B = "66666666-6666-4666-8666-666666666666";
   const PRODUCT_B = "55555555-5555-4555-8555-555555555555";
 
   it("keeps first-seen unique product ids", () => {
@@ -278,6 +283,43 @@ describe("line thumbnails", () => {
     expect(placeholder[0]?.thumbnailFileId).toBeNull();
     expect(placeholder[0]?.thumbnailUrl).toBeNull();
     expect(placeholder[0]?.thumbnailFailed).toBe(false);
+  });
+
+  it("joins catalog imageFileIds onto product ids and reuses the items array", () => {
+    const imageFileIds = [FILE_A];
+    const first = orderLineCatalogImages(
+      [PRODUCT_ID, PRODUCT_B],
+      [imageFileIds, undefined],
+    );
+    expect(first).toEqual([
+      { productId: PRODUCT_ID, primaryImageFileId: FILE_A },
+      { productId: PRODUCT_B, primaryImageFileId: null },
+    ]);
+    const second = orderLineCatalogImages(
+      [PRODUCT_ID, PRODUCT_B],
+      [imageFileIds, []],
+    );
+    expect(reuseOrderLineCatalogImages(first, second)).toBe(first);
+    expect(
+      reuseOrderLineCatalogImages(first, [
+        { productId: PRODUCT_ID, primaryImageFileId: FILE_B },
+        { productId: PRODUCT_B, primaryImageFileId: null },
+      ]),
+    ).not.toBe(first);
+  });
+
+  it("skips a catalog file id without files:view so fileId and url stay null", () => {
+    const skipped = orderLineThumbnailFileId(false, FILE_A);
+    expect(skipped).toBeNull();
+    expect(
+      orderThumbnailView({
+        fileId: skipped,
+        url: "https://example.test/a",
+        downloadFailed: false,
+      }),
+    ).toEqual({ fileId: null, url: null, failed: false });
+    expect(orderLineThumbnailFileId(true, FILE_A)).toBe(FILE_A);
+    expect(orderLineThumbnailFileId(true, null)).toBeNull();
   });
 });
 

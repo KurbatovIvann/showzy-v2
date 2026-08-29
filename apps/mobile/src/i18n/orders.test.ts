@@ -71,7 +71,7 @@ describe("orders copy", () => {
     expect(JSON.stringify(uk)).not.toContain("Оплачен");
   });
 
-  it("pins the order-detail copy in uk without number, payment, or extra statuses", () => {
+  it("pins the order-detail i18n copy in uk without # in strings (header number is formatOrderNumber), payment, or extra statuses", () => {
     const uk = ordersCopy("uk");
     const en = ordersCopy("en");
     expect(uk.detail.title).toBe("Замовлення");

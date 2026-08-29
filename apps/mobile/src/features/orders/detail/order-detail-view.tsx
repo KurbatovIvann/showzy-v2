@@ -207,7 +207,7 @@ function OrderDetailReady(props: { readonly model: OrderDetailModel }) {
                   {order.customerName}
                 </Text>
               )}
-              {order.customerPhone !== null ? (
+              {order.showPhoneIcon ? (
                 <View style={styles.phoneRow}>
                   <View style={styles.phoneIcon} accessibilityElementsHidden>
                     <PhoneIcon
@@ -215,9 +215,11 @@ function OrderDetailReady(props: { readonly model: OrderDetailModel }) {
                       color={theme.colors.icon.muted}
                     />
                   </View>
-                  <Text numberOfLines={1} style={styles.customerPhone}>
-                    {order.customerPhone}
-                  </Text>
+                  {order.customerPhone !== null ? (
+                    <Text numberOfLines={1} style={styles.customerPhone}>
+                      {order.customerPhone}
+                    </Text>
+                  ) : null}
                 </View>
               ) : null}
             </View>
