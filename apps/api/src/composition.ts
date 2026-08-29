@@ -86,6 +86,7 @@ import {
   confirmOrder,
   createOrder,
   getOrder,
+  listOrders,
   ordersConfirmed,
   ordersCreated,
 } from "@showzy/orders";
@@ -301,6 +302,7 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, createOrder);
   registerAction(registry, confirmOrder);
   registerAction(registry, getOrder);
+  registerAction(registry, listOrders);
   registerAction(registry, activatePriceList);
   registerAction(registry, createPriceList);
   registerAction(registry, deactivatePriceList);

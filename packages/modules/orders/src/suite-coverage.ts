@@ -1,7 +1,7 @@
 import type { SuiteCoverageManifest } from "@showzy/core";
 
 export const ordersSuiteCoverage = {
-  isolation: ["orders.create", "orders.confirm", "orders.get"],
+  isolation: ["orders.create", "orders.confirm", "orders.get", "orders.list"],
   publicProjection: [],
   consumerIsolation: [],
   accountIsolation: [],
