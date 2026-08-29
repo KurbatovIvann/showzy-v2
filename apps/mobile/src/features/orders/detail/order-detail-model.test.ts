@@ -46,6 +46,7 @@ const LINE = {
 function order(overrides: Partial<GetOrderOutput> = {}): GetOrderOutput {
   return {
     orderId: ORDER_ID,
+    orderNumber: 1042,
     customerId: CUSTOMER_ID,
     status: "new",
     comment: "Без горіхів",

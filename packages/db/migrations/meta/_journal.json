@@ -204,6 +204,13 @@
       "when": 1788015593181,
       "tag": "0028_marvelous_giant_man",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1788018921064,
+      "tag": "0029_uneven_arclight",
+      "breakpoints": true
     }
   ]
 }

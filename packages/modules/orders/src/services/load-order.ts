@@ -95,6 +95,7 @@ export async function loadStaffOrder(env: {
 
   return {
     orderId: header.id,
+    orderNumber: header.orderNumber,
     customerId: header.customerId,
     status: parseStatus(header.status),
     comment: header.comment,

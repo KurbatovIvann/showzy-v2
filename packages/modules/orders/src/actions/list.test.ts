@@ -4,6 +4,7 @@ import {
   LIST_ORDERS_CURSOR_MAX,
   LIST_ORDERS_DEFAULT_LIMIT,
   LIST_ORDERS_MAX_LIMIT,
+  LIST_ORDERS_QUERY_MAX,
   listOrdersContract,
   listOrdersInputSchema,
   parseListOrdersCursor,
@@ -20,10 +21,11 @@ describe("orders.list contract", () => {
     expect(listOrdersContract.audit).toBe(false);
     expect(listOrdersContract.idempotent).toBe(false);
     expect(listOrdersContract.emits).toEqual([]);
-    expect(listOrdersContract.timeout).toBe(5_000);
+    expect(listOrdersContract.timeout).toBe(10_000);
     expect(LIST_ORDERS_DEFAULT_LIMIT).toBe(20);
     expect(LIST_ORDERS_MAX_LIMIT).toBe(50);
     expect(LIST_ORDERS_CURSOR_MAX).toBe(80);
+    expect(LIST_ORDERS_QUERY_MAX).toBe(100);
   });
 
   it("defaults status to all and rejects a malformed cursor", () => {
@@ -48,8 +50,17 @@ describe("orders.list contract", () => {
     expect(Object.keys(listOrdersInputSchema.shape).toSorted()).toEqual([
       "cursor",
       "limit",
+      "query",
       "status",
     ]);
+    expect(
+      listOrdersContract.input.safeParse({
+        query: "x".repeat(LIST_ORDERS_QUERY_MAX + 1),
+      }).success,
+    ).toBe(false);
+    expect(listOrdersContract.input.safeParse({ query: "   " }).success).toBe(
+      false,
+    );
     expect(parseListOrdersCursor("nope")).toBeUndefined();
   });
 });

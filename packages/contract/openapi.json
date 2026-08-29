@@ -33204,6 +33204,12 @@
                       "type": "string",
                       "format": "uuid"
                     },
+                    "orderNumber": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991,
+                      "exclusiveMinimum": 0
+                    },
                     "customerId": {
                       "anyOf": [
                         {
@@ -33421,6 +33427,7 @@
                   },
                   "required": [
                     "orderId",
+                    "orderNumber",
                     "customerId",
                     "status",
                     "comment",
@@ -35538,6 +35545,12 @@
                       "type": "string",
                       "format": "uuid"
                     },
+                    "orderNumber": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991,
+                      "exclusiveMinimum": 0
+                    },
                     "customerId": {
                       "anyOf": [
                         {
@@ -35755,6 +35768,7 @@
                   },
                   "required": [
                     "orderId",
+                    "orderNumber",
                     "customerId",
                     "status",
                     "comment",
@@ -36421,7 +36435,7 @@
     "/orders/list": {
       "post": {
         "operationId": "orders.list",
-        "summary": "List staff-intake orders in the staff member's active company. Default status all includes new, confirmed, and canceled; pass a CHECK status to filter. Paginate with a created-at/id cursor and a page size of at most 50. Each row includes orderId, nullable customerId, status, itemCount, total gross, currency, and createdAt — not the get view or line snapshots. Company id is never input. Does not search or filter by payment.",
+        "summary": "List staff-intake orders in the staff member's active company. Default status all includes new, confirmed, and canceled; pass a CHECK status to filter. Optional query matches the per-company order number (digits, optional # prefix) or CRM customer name, phone, or email. Paginate with a created-at/id cursor and a page size of at most 50. Each row includes orderId, orderNumber, nullable customerId, status, itemCount, total gross, currency, and createdAt — not the get view or line snapshots. Company id is never input. Does not filter by payment.",
         "requestBody": {
           "required": true,
           "content": {
@@ -36438,6 +36452,11 @@
                     ],
                     "type": "string",
                     "default": "all"
+                  },
+                  "query": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
                   },
                   "limit": {
                     "type": "integer",
@@ -36471,6 +36490,12 @@
                           "orderId": {
                             "type": "string",
                             "format": "uuid"
+                          },
+                          "orderNumber": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "exclusiveMinimum": 0
                           },
                           "customerId": {
                             "anyOf": [
@@ -36512,6 +36537,7 @@
                         },
                         "required": [
                           "orderId",
+                          "orderNumber",
                           "customerId",
                           "status",
                           "itemCount",

@@ -27,6 +27,7 @@ let database: TestDatabase;
 let dbClient: DbClient;
 let admin: pg.Client;
 let sequence = 0;
+const nextOrderNumberByCompany = new Map<string, number>();
 
 beforeAll(async () => {
   database = await createTestDatabase();
@@ -72,19 +73,23 @@ async function insertCompany() {
 async function insertOrder(
   values: Omit<
     typeof orders.$inferInsert,
-    "totalNetMinor" | "totalTaxMinor" | "totalGrossMinor"
+    "totalNetMinor" | "totalTaxMinor" | "totalGrossMinor" | "orderNumber"
   > & {
     totalNetMinor?: bigint;
     totalTaxMinor?: bigint;
     totalGrossMinor?: bigint;
+    orderNumber?: number;
   },
 ) {
+  const next = (nextOrderNumberByCompany.get(values.companyId) ?? 0) + 1;
+  nextOrderNumberByCompany.set(values.companyId, next);
   const rows = await dbClient.db
     .insert(orders)
     .values({
       totalNetMinor: 10_000n,
       totalTaxMinor: 0n,
       totalGrossMinor: 10_000n,
+      orderNumber: next,
       ...values,
     })
     .returning();

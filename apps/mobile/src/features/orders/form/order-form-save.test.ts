@@ -39,6 +39,7 @@ function validDraft(): OrderFormDraft {
 function createdOrder(): CreateOrderResult {
   return {
     orderId: ORDER_ID,
+    orderNumber: 1,
     customerId: CUSTOMER_ID,
     status: "new",
     comment: null,

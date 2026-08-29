@@ -23,6 +23,7 @@ const PRODUCT_ID = "33333333-3333-4333-8333-333333333333";
 function createdOrder(): CreateOrderResult {
   return {
     orderId: ORDER_ID,
+    orderNumber: 1,
     customerId: CUSTOMER_ID,
     status: "new",
     comment: null,

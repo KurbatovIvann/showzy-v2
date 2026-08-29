@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { ActionCtx } from "@showzy/core";
 import { ConflictError, CoreInvariantError } from "@showzy/core/errors";
 import { orderItems, orders } from "@showzy/db/schema/orders";
+import { desc, eq } from "drizzle-orm";
 import type { z } from "zod";
 
 import { createOrderInputSchema } from "../actions/create.contract.js";
@@ -13,6 +14,7 @@ import {
 import { ordersCreated } from "../events/created.js";
 import { moneyToCanonical } from "./canonical.js";
 import { computeExemptNoneLine, titleSnapshot } from "./line-money.js";
+import { mapOrderNumberUniqueViolation } from "./order-number.js";
 import { requireWritable } from "./writable.js";
 
 type StaffCtx = Extract<ActionCtx, { principal: "staff" }>;
@@ -20,6 +22,85 @@ type CreateInput = z.output<typeof createOrderInputSchema>;
 type OrderView = z.output<typeof orderViewSchema>;
 type OrderItemView = OrderView["items"][number];
 type PriceSource = z.output<typeof orderPriceSourceSchema>;
+type WritableStaffDb = ReturnType<typeof requireWritable>;
+
+/** Unique collisions after a phantom max; Postgres 25P02 forbids retry without a savepoint. */
+const ORDER_NUMBER_ALLOCATE_ATTEMPTS = 8;
+
+async function allocateNextOrderNumber(
+  db: WritableStaffDb,
+  companyId: string,
+): Promise<number> {
+  // Lock every tenant order row, not `LIMIT 1`. A max-row-only lock lets a
+  // waiter reuse the old max after the locker inserts the next number.
+  const locked = await db
+    .select({ orderNumber: orders.orderNumber })
+    .from(orders)
+    .where(eq(orders.companyId, companyId))
+    .orderBy(desc(orders.orderNumber))
+    .for("update");
+  return (locked[0]?.orderNumber ?? 0) + 1;
+}
+
+async function insertNumberedHeader(
+  db: WritableStaffDb,
+  values: {
+    readonly id: string;
+    readonly companyId: string;
+    readonly customerId: string;
+    readonly comment: string | null;
+    readonly totalNetMinor: bigint;
+    readonly totalTaxMinor: bigint;
+    readonly totalGrossMinor: bigint;
+    readonly currency: string;
+  },
+): Promise<{ createdAt: Date; orderNumber: number }> {
+  let lastConflict: ConflictError | undefined;
+  for (
+    let attempt = 0;
+    attempt < ORDER_NUMBER_ALLOCATE_ATTEMPTS;
+    attempt += 1
+  ) {
+    try {
+      return await db.transaction(async (tx) => {
+        const orderNumber = await allocateNextOrderNumber(tx, values.companyId);
+        const inserted = await tx
+          .insert(orders)
+          .values({
+            id: values.id,
+            companyId: values.companyId,
+            orderNumber,
+            customerId: values.customerId,
+            status: "new",
+            comment: values.comment,
+            totalNetMinor: values.totalNetMinor,
+            totalTaxMinor: values.totalTaxMinor,
+            totalGrossMinor: values.totalGrossMinor,
+            currency: values.currency,
+          })
+          .returning({
+            createdAt: orders.createdAt,
+            orderNumber: orders.orderNumber,
+          });
+        const row = inserted[0];
+        if (row === undefined) {
+          throw new CoreInvariantError("orders.create insert returned no row");
+        }
+        return row;
+      });
+    } catch (error) {
+      const mapped = mapOrderNumberUniqueViolation(error);
+      if (!(mapped instanceof ConflictError)) {
+        throw mapped;
+      }
+      lastConflict = mapped;
+    }
+  }
+  throw (
+    lastConflict ??
+    new CoreInvariantError("orders.create failed to allocate order_number")
+  );
+}
 
 export interface CatalogOrderVariantFact {
   readonly variantId: string;
@@ -204,24 +285,16 @@ export async function createStaffOrder(env: {
 
   const comment = input.comment ?? null;
   const db = requireWritable(ctx.db);
-  const inserted = await db
-    .insert(orders)
-    .values({
-      id: orderId,
-      companyId: ctx.companyId,
-      customerId: input.customerId,
-      status: "new",
-      comment,
-      totalNetMinor,
-      totalTaxMinor,
-      totalGrossMinor,
-      currency,
-    })
-    .returning({ createdAt: orders.createdAt });
-  const header = inserted[0];
-  if (header === undefined) {
-    throw new CoreInvariantError("orders.create insert returned no row");
-  }
+  const header = await insertNumberedHeader(db, {
+    id: orderId,
+    companyId: ctx.companyId,
+    customerId: input.customerId,
+    comment,
+    totalNetMinor,
+    totalTaxMinor,
+    totalGrossMinor,
+    currency,
+  });
 
   await db.insert(orderItems).values(lines.map((line) => line.row));
 
@@ -238,6 +311,7 @@ export async function createStaffOrder(env: {
 
   return {
     orderId,
+    orderNumber: header.orderNumber,
     customerId: input.customerId,
     status: "new",
     comment,
