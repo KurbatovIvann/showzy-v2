@@ -1,7 +1,7 @@
 /**
  * Format a Kyiv calendar day (`YYYY-MM-DD` `issuedOn`) for the list.
  * The list field is already a calendar day, not an instant. Use `Intl`
- * with `Europe/Kyiv` — never `getFullYear()` / `getUTCFullYear()`.
+ * with `Europe/Kyiv` — never Date year getters.
  */
 import type { Locale } from "../../../i18n/locale";
 
