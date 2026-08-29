@@ -90,6 +90,7 @@ export function OrderFormView(model: OrderFormModel) {
       />
       <ProductSelectSheet
         visible={model.productSheetOpen}
+        sessionOpen={model.productPickerSessionOpen}
         title={form.productSheetTitle}
         searchPlaceholder={form.productSearchPlaceholder}
         searchLabel={form.productSearchLabel}
@@ -112,7 +113,12 @@ export function OrderFormView(model: OrderFormModel) {
         searchLabel={form.productSearchLabel}
         closeLabel={model.copy.closeSheet}
         emptyLabel={model.variantsReady ? form.emptyVariants : ""}
-        value={null}
+        value={
+          model.selectedVariantIds.size === 1
+            ? ([...model.selectedVariantIds][0] ?? null)
+            : null
+        }
+        selectedIds={model.selectedVariantIds}
         options={model.variantOptions}
         searchMaxLength={LIST_PRODUCTS_QUERY_MAX_LENGTH}
         onClose={model.closeVariantSheet}

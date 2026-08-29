@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { emptyOrderFormDraft } from "./order-form-draft";
+import { addOrderLine, emptyOrderFormDraft } from "./order-form-draft";
 import {
   commitProductPickerPicks,
   emptyProductPicker,
   productPickerOpen,
   productPickerPicks,
   productPickerSelectedIds,
+  productPickerSelectedVariantIds,
   reduceProductPicker,
   type ProductPickerState,
 } from "./product-picker";
@@ -52,16 +53,38 @@ describe("reduceProductPicker", () => {
   });
 
   it("discards the in-sheet draft when closing without Готово", () => {
+    const seeded = addOrderLine(emptyOrderFormDraft(), {
+      productId: PRODUCT_A,
+      variantId: null,
+      productName: "Торт",
+      variantName: null,
+    });
+    expect(seeded.ok).toBe(true);
+    if (!seeded.ok) {
+      return;
+    }
+    const draftItems = seeded.draft.items;
     let state = openPicker();
     state = reduceProductPicker(state, {
       type: "toggleSimple",
-      productId: PRODUCT_A,
-      productName: "Торт",
+      productId: PRODUCT_B,
+      productName: "Кенді-бар",
     });
+    expect(productPickerPicks(state)).toHaveLength(1);
     state = reduceProductPicker(state, { type: "close" });
     expect(state).toEqual({ kind: "closed" });
     expect(productPickerPicks(state)).toEqual([]);
-    expect(emptyOrderFormDraft().items).toEqual([]);
+    expect(seeded.draft.items).toBe(draftItems);
+    expect(seeded.draft.items).toEqual([
+      {
+        key: "draft-1",
+        productId: PRODUCT_A,
+        variantId: null,
+        productName: "Торт",
+        variantName: null,
+        quantityMilli: "1000",
+      },
+    ]);
   });
 
   it("returns to the product sheet after a variant pick without losing other picks", () => {
@@ -88,6 +111,7 @@ describe("reduceProductPicker", () => {
       variantName: "1 кг",
     });
     expect(state.kind).toBe("products");
+    expect(productPickerOpen(state)).toBe(true);
     expect(productPickerPicks(state)).toEqual([
       {
         productId: PRODUCT_A,
@@ -102,6 +126,59 @@ describe("reduceProductPicker", () => {
         variantName: "1 кг",
       },
     ]);
+  });
+
+  it("marks a picked variant as selected when the variant sheet reopens", () => {
+    let state = openPicker();
+    state = reduceProductPicker(state, {
+      type: "openVariants",
+      productId: PRODUCT_B,
+      productName: "Букет",
+    });
+    expect(productPickerSelectedVariantIds(state).size).toBe(0);
+    state = reduceProductPicker(state, {
+      type: "pickVariant",
+      variantId: VARIANT_ID,
+      variantName: "1 кг",
+    });
+    expect(state.kind).toBe("products");
+    state = reduceProductPicker(state, {
+      type: "openVariants",
+      productId: PRODUCT_B,
+      productName: "Букет",
+    });
+    expect(state.kind).toBe("variants");
+    expect(productPickerOpen(state)).toBe(true);
+    expect([...productPickerSelectedVariantIds(state)]).toEqual([VARIANT_ID]);
+    state = reduceProductPicker(state, {
+      type: "pickVariant",
+      variantId: VARIANT_ID,
+      variantName: "1 кг",
+    });
+    expect(productPickerPicks(state)).toEqual([]);
+    state = reduceProductPicker(state, {
+      type: "openVariants",
+      productId: PRODUCT_B,
+      productName: "Букет",
+    });
+    expect(productPickerSelectedVariantIds(state).size).toBe(0);
+  });
+
+  it("keeps the product-sheet session open while overlaying variants", () => {
+    let state = openPicker();
+    expect(productPickerOpen(state)).toBe(true);
+    state = reduceProductPicker(state, {
+      type: "openVariants",
+      productId: PRODUCT_B,
+      productName: "Букет",
+    });
+    expect(state.kind).toBe("variants");
+    expect(productPickerOpen(state)).toBe(true);
+    state = reduceProductPicker(state, { type: "closeVariants" });
+    expect(state.kind).toBe("products");
+    expect(productPickerOpen(state)).toBe(true);
+    state = reduceProductPicker(state, { type: "close" });
+    expect(productPickerOpen(state)).toBe(false);
   });
 
   it("keeps the selection set when the variant sheet is closed without a pick", () => {

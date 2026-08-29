@@ -48,6 +48,16 @@ describe("orders/new route", () => {
     expect(CREATE_VIEW).toContain("doneCount={model.productPickCount}");
     expect(CREATE_HOOK).toContain("confirmProductPicks");
     expect(CREATE_HOOK).toContain("reduceProductPicker");
+    expect(CREATE_HOOK).toContain(
+      "productSheetOpen: productPickerOpen(picker)",
+    );
+    expect(CREATE_HOOK).toContain(
+      "productPickerSessionOpen: productPickerOpen(picker)",
+    );
+    expect(CREATE_VIEW).toContain(
+      "sessionOpen={model.productPickerSessionOpen}",
+    );
+    expect(CREATE_VIEW).toContain("selectedIds={model.selectedVariantIds}");
     expect(CREATE_VIEW).not.toContain("features/catalog");
     expect(CREATE_HOOK).not.toContain("features/catalog");
     expect(CREATE_VIEW).not.toContain("basePriceMinor");

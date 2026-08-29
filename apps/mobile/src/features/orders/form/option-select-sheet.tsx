@@ -22,6 +22,7 @@ export function OptionSelectSheet(props: {
   readonly closeLabel: string;
   readonly emptyLabel: string;
   readonly value: string | null;
+  readonly selectedIds?: ReadonlySet<string> | undefined;
   readonly options: readonly OptionSelectItem[];
   readonly searchMaxLength: number;
   readonly leading?: "user" | undefined;
@@ -63,7 +64,11 @@ export function OptionSelectSheet(props: {
               key={option.id}
               label={option.name}
               description={option.description}
-              selected={option.id === props.value}
+              selected={
+                props.selectedIds !== undefined
+                  ? props.selectedIds.has(option.id)
+                  : option.id === props.value
+              }
               leading={props.leading}
               onPress={() => {
                 props.onChange(option.id);

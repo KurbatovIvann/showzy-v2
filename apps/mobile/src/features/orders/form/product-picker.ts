@@ -70,6 +70,22 @@ export function productPickerSelectedIds(
   return ids;
 }
 
+/** In-sheet variant ids for the product whose variant overlay is open. */
+export function productPickerSelectedVariantIds(
+  state: ProductPickerState,
+): ReadonlySet<string> {
+  if (state.kind !== "variants") {
+    return new Set();
+  }
+  const ids = new Set<string>();
+  for (const pick of state.picks) {
+    if (pick.productId === state.productId && pick.variantId !== null) {
+      ids.add(pick.variantId);
+    }
+  }
+  return ids;
+}
+
 function identityOf(pick: ProductPickerPick): string {
   return orderLineIdentityKey(pick.productId, pick.variantId);
 }

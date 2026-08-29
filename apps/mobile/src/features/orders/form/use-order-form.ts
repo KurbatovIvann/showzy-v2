@@ -39,6 +39,7 @@ import {
   productPickerOpen,
   productPickerPicks,
   productPickerSelectedIds,
+  productPickerSelectedVariantIds,
   reduceProductPicker,
 } from "./product-picker";
 import type { ProductSelectRow } from "./product-select";
@@ -304,7 +305,8 @@ export function useOrderForm() {
     productsValue,
     footerLinesLabel: itemCountLabel(items.length, locale, copy.items),
     customerSheetOpen,
-    productSheetOpen: picker.kind === "products",
+    productSheetOpen: productPickerOpen(picker),
+    productPickerSessionOpen: productPickerOpen(picker),
     variantSheetOpen: picker.kind === "variants",
     customerOptions: lookups.customerOptions,
     productSelectRows,
@@ -312,6 +314,7 @@ export function useOrderForm() {
     variantsReady: lookups.variantsReady,
     selectedCustomerId: customerId.length > 0 ? customerId : null,
     selectedProductIds,
+    selectedVariantIds: productPickerSelectedVariantIds(picker),
     productPickCount: picks.length,
     lineThumbnail: (productId: string): OrderThumbnailView =>
       lookups.thumbnailsByProductId.get(productId) ?? EMPTY_THUMBNAIL,

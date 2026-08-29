@@ -15,6 +15,7 @@ import type { ProductSelectRow } from "./product-select";
  */
 export function ProductSelectSheet(props: {
   readonly visible: boolean;
+  readonly sessionOpen: boolean;
   readonly title: string;
   readonly searchPlaceholder: string;
   readonly searchLabel: string;
@@ -32,11 +33,12 @@ export function ProductSelectSheet(props: {
 }) {
   const [query, setQuery] = useState("");
 
+  // Reset search when the picker session ends, not when variants overlay.
   useEffect(() => {
-    if (!props.visible) {
+    if (!props.sessionOpen) {
       setQuery("");
     }
-  }, [props.visible]);
+  }, [props.sessionOpen]);
 
   const normalized = query.trim().toLowerCase();
   const filtered =
