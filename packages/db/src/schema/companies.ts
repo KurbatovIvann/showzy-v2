@@ -1,8 +1,8 @@
 /**
- * Phase-0 tenant and RBAC identity (companies-foundation.md). This file is
- * owned by the companies module even though the scaffold creates it before
- * module actions exist (ADR-0014). Profile, publication, taxonomy, and legal
- * fields belong to the later full companies schema task.
+ * Companies-owned tenant identity, membership/RBAC, and 1:1 seller legal
+ * requisites (companies-foundation.md, SHO-222). This file is owned by the
+ * companies module (ADR-0014). Profile, publication, and taxonomy columns
+ * remain later; do not add them here.
  */
 import { sql } from "drizzle-orm";
 import {
@@ -90,6 +90,46 @@ export const companyMembers = pgTable(
     check(
       "company_members_role_check",
       sql`${table.role} IN ('owner', 'admin', 'manager', 'employee')`,
+    ),
+  ],
+);
+
+/**
+ * Seller legal requisites for documents (SHO-222 / SHO-223). One optional
+ * row per company: absence means legal is not yet filled. Not the public
+ * profile and not the buyer face (`counterparties` /
+ * `customer_legal_profiles`).
+ */
+export const companyLegalInfo = pgTable(
+  "company_legal_info",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    companyType: text("company_type").notNull().default("fop"),
+    legalName: text("legal_name"),
+    edrpou: text("edrpou"),
+    legalAddress: text("legal_address"),
+    iban: text("iban"),
+    bankName: text("bank_name"),
+    bankMfo: text("bank_mfo"),
+    bankEdrpou: text("bank_edrpou"),
+    phone: text("phone"),
+    email: text("email"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique("company_legal_info_company_id_uq").on(table.companyId),
+    unique("company_legal_info_company_id_id_uq").on(table.companyId, table.id),
+    check(
+      "company_legal_info_company_type_check",
+      sql`${table.companyType} IN ('fop', 'tov')`,
     ),
   ],
 );

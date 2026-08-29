@@ -3,9 +3,9 @@ import { rolePermissionDefaults } from "../src/schema/companies.js";
 
 /**
  * Phase-0 defaults carried from the v1 permission model. Catalog, customers,
- * pricing, orders, chat, and files keys land here; later module schema tasks
- * extend the table alongside their actions. Owners are absent because they
- * implicitly hold every known permission.
+ * pricing, orders, chat, files, and settings:payments keys land here; later
+ * module schema tasks extend the table alongside their actions. Owners are
+ * absent because they implicitly hold every known permission.
  */
 export const rolePermissionDefaultRows = [
   { role: "admin", permission: "products:view" },
@@ -25,6 +25,7 @@ export const rolePermissionDefaultRows = [
   { role: "admin", permission: "chat:view" },
   { role: "admin", permission: "files:view" },
   { role: "admin", permission: "files:upload" },
+  { role: "admin", permission: "settings:payments" },
   { role: "manager", permission: "products:view" },
   { role: "manager", permission: "products:create" },
   { role: "manager", permission: "products:edit" },

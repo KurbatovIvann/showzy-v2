@@ -3,14 +3,18 @@
 > Status: Active. Approved by: owner, 2026-08-17.
 > Active surface: entire file.
 > This is a deliberately minimal phase-0 prerequisite, not the full companies
-> module spec. It may create only tenant/RBAC identity required by core tests.
+> module spec. It creates tenant/RBAC identity required by core tests, plus
+> the 1:1 `company_legal_info` table named by SHO-222.
 
 ## 1. Purpose and boundary
 
 This slice gives core a real tenant root and membership/permission model.
-`companies` owns all three tables in `packages/db/src/schema/companies.ts`;
-they never move into `foundation.ts`. Onboarding, profile, legal requisites,
+`companies` owns the tables in `packages/db/src/schema/companies.ts`; they
+never move into `foundation.ts`. Onboarding, profile, taxonomy, publication,
 team-management actions, and UI remain in the later full companies spec.
+Seller legal requisites live in `company_legal_info` in this same file
+(SHO-222 / SHO-223) — not columns on `companies`, and not on
+`counterparties` / `customer_legal_profiles`.
 
 ## 2. Tables
 
@@ -26,10 +30,19 @@ profile/search/geo/counter/embedding columns.
 `(company_id, user_id)`, unique `(company_id, id)` (ADR-0025 FK target).
 Indexes `(user_id, company_id)` and `(company_id, role)`.
 
+`company_legal_info`: 1:1 seller legal face. `id uuid` PK, `company_id uuid`
+FK to companies (`ON DELETE CASCADE`) **UNIQUE** (one row per company),
+unique `(company_id, id)` (ADR-0025), `company_type text NOT NULL` default
+`fop` CHECK (`fop` | `tov`), nullable text `legal_name`, `edrpou`,
+`legal_address`, `iban`, `bank_name`, `bank_mfo`, `bank_edrpou`, `phone`,
+`email`, timestamps. No row is required at company create — absence is
+“legal not yet filled”. No backfill.
+
 `role_permission_defaults`: global seed table, `role text`, `permission text`,
 PK `(role, permission)`. Owner has all known permissions implicitly; explicit
 deny wins, then explicit grant, then role default. Unknown permission keys
-fail the action contract/catalog check.
+fail the action contract/catalog check. Admin is seeded `settings:payments`
+(SHO-223); manager and employee are not.
 
 The invariant “a company has at least one owner” is enforced by later
 companies actions/transactions, not a hidden DB trigger. Test factories may
@@ -39,8 +52,13 @@ insert fixtures directly only under the test harness.
 
 - `companies`: TRANSFORM from
   `20260301000003_companies.sql`; carry only id/name/slug/prefix/timestamps in
-  phase 0. Profile/legal/FTS fields wait for the full spec; embeddings and
-  denormalized social counters drop.
+  phase 0. Profile/FTS fields wait for the full spec; embeddings and
+  denormalized social counters drop. Seller legal is `company_legal_info`,
+  not columns on `companies`.
+- `company_legal_info`: TRANSFORM from
+  `20260320000004_company_legal_info.sql` (SHO-223). RLS policies drop in
+  favor of action permissions. No backfill — v1 seeded from
+  `payment_settings`, which does not exist here.
 - `company_members`, `role_permission_defaults`: TRANSFORM from
   `20260301000005_company_members.sql`; Supabase `users.id` FKs are remapped
   to better-auth IDs. SQL permission helpers/RLS policies drop in favor of
@@ -59,12 +77,13 @@ insert fixtures directly only under the test harness.
       or client bundle can reach these tables.
 - [ ] Schema/migration tests use the generated better-auth ID type without
       casts and reconcile v1 member user IDs through the auth mapping.
-- [ ] Full companies spec can add profile/legal fields without moving or
-      renaming the foundation tables.
+- [ ] Full companies spec can add profile/publication fields without moving
+      or renaming the foundation tables.
 
 ## Changelog
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-08-29 | Named `company_legal_info` in this file; admin `settings:payments` seed | SHO-222 / SHO-223 seller legal face; table the card named | companies-T3 (SHO-223) |
 | 2026-08-20 | `company_members` unique `(company_id, id)` | Match ADR-0025 tenant FK-target convention | Human owner |
 | 2026-08-17 | Initial foundation slice | Unblock staff principal integration without giving core domain ownership | GPT-5.6 Sol |
