@@ -70,8 +70,7 @@ export function companyIdentityView(args: {
 }
 
 export type CompanyLegalStubState =
-  | { readonly kind: "permission" }
-  | { readonly kind: "stub" };
+  { readonly kind: "permission" } | { readonly kind: "stub" };
 
 /**
  * Legal stub (and SHO-225 editor) reuses the hub view-permission gate.
