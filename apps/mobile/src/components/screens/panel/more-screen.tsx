@@ -14,6 +14,7 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useAuthSession } from "../../../auth/session-provider";
 import { useResolvedCompany } from "../../../company-resolution/resolved-company-provider";
 import { companySettingsHref } from "../../../features/companies/shared/company-hrefs";
+import { documentsHref } from "../../../features/documents/shared/document-hrefs";
 import { priceListsHref } from "../../../features/pricing/shared/price-list-hrefs";
 import { detectLocale } from "../../../i18n/locale";
 import { panelCopy } from "../../../i18n/panel";
@@ -21,8 +22,8 @@ import { Button, Card } from "../../ui";
 import { moreRowState } from "./more-rows.presenter";
 
 /**
- * More (Ще) tab: canvas Керування (price lists + disabled documents)
- * plus Налаштування компанії for owner/admin. Team / User stay omitted
+ * More (Ще) tab: canvas Керування (price lists + documents) plus
+ * Налаштування компанії for owner/admin. Team / User stay omitted
  * (no RBAC this ticket). Session / sign-out stay at the bottom.
  */
 export function MoreScreen() {
@@ -51,7 +52,18 @@ export function MoreScreen() {
             description={copy.more.documentsDescription}
             icon={FileTextIcon}
             disabled={!rows.documentsEnabled}
-            accessibilityHint={copy.more.documentsDisabledHint}
+            accessibilityHint={
+              rows.documentsEnabled
+                ? undefined
+                : copy.more.documentsDisabledHint
+            }
+            onPress={
+              rows.documentsEnabled
+                ? () => {
+                    router.push(documentsHref());
+                  }
+                : undefined
+            }
           />
           {rows.showPriceLists ? (
             <ManagementRow

@@ -1,20 +1,22 @@
 import type { CompanyRole } from "../../../features/companies/shared/company-permissions";
 import { canViewCompanySettings } from "../../../features/companies/shared/company-permissions";
+import { canViewDocuments } from "../../../features/documents/shared/document-permissions";
 import { canViewPriceLists } from "../../../features/pricing/shared/price-list-permissions";
 
 export type MoreRowState = {
-  readonly documentsEnabled: false;
+  readonly documentsEnabled: boolean;
   readonly showPriceLists: boolean;
   readonly showCompanySettings: boolean;
 };
 
 /**
- * More-tab row affordances. Documents stay disabled until the documents
- * feature. Company settings hide for roles without `settings:payments`.
+ * More-tab row affordances. Documents open for `documents:view`
+ * (seeded for every staff role, including employee). Company settings
+ * hide for roles without `settings:payments`.
  */
 export function moreRowState(role: CompanyRole): MoreRowState {
   return {
-    documentsEnabled: false,
+    documentsEnabled: canViewDocuments(role),
     showPriceLists: canViewPriceLists(role),
     showCompanySettings: canViewCompanySettings(role),
   };
