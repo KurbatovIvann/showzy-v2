@@ -11,7 +11,7 @@ import { getCustomerNameQueryOptions } from "../api/customer-name-query";
 import {
   resolveCustomerNameHydration,
   type CustomerNameHydration,
-} from "./orders-list.presenter";
+} from "../shared/customer-name";
 
 export function uniqueCustomerIds(
   items: ReadonlyArray<{ readonly customerId: string | null }>,

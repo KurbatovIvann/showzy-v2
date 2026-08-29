@@ -1,8 +1,8 @@
 /**
- * `customers.getCustomer` name hydration for the orders list (SHO-211).
- * Keys follow SHO-102: `[actionName, companyId, input]`. This binder
- * lives in the orders slice so list code does not import
- * `features/customers`.
+ * `customers.getCustomer` hydration for the orders list and detail
+ * (SHO-211 / SHO-212). Keys follow SHO-102: `[actionName, companyId,
+ * input]`. This binder lives in the orders slice so feature code does
+ * not import `features/customers`.
  */
 import type { ContractClient } from "../../../api/client";
 import { contractQueryOptions } from "../../../api/query-options";

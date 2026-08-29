@@ -17,6 +17,8 @@ describe("orders copy", () => {
     expect(Object.keys(uk.groups)).toEqual(Object.keys(en.groups));
     expect(Object.keys(uk.items)).toEqual(Object.keys(en.items));
     expect(Object.keys(uk.empty)).toEqual(Object.keys(en.empty));
+    expect(Object.keys(uk.detail)).toEqual(Object.keys(en.detail));
+    expect(Object.keys(uk.create)).toEqual(Object.keys(en.create));
   });
 
   it("pins the canvas orders-list copy in uk without search or payment", () => {
@@ -51,6 +53,47 @@ describe("orders copy", () => {
     expect(Object.keys(uk.statuses)).not.toContain("in_progress");
     expect(JSON.stringify(uk)).not.toContain("Оплачен");
     expect(JSON.stringify(uk)).not.toContain("Пошук");
+  });
+
+  it("pins the order-detail copy in uk without number, payment, or extra statuses", () => {
+    const uk = ordersCopy("uk");
+    const en = ordersCopy("en");
+    expect(uk.detail.title).toBe("Замовлення");
+    expect(uk.detail.notFoundTitle).toBe("Замовлення не знайдено");
+    expect(uk.detail.customerTitle).toBe("Клієнт");
+    expect(uk.detail.linesTitle).toBe("Позиції");
+    expect(uk.detail.commentTitle).toBe("Коментар");
+    expect(uk.detail.dueLabel).toBe("До сплати");
+    expect(uk.detail.confirmLabel).toBe("Підтвердити");
+    expect(uk.detail.cancelOrder).toBe("Скасувати замовлення");
+    expect(uk.detail.actionsTitle).toBe("Швидкі дії");
+    expect(uk.detail.offlineTitle.includes("\u02BC")).toBe(true);
+    expect(uk.detail.errorDescription.includes("\u02BC")).toBe(true);
+    expect(uk.detail.mutationOffline.includes("\u02BC")).toBe(true);
+    expect(uk.detail.offlineTitle.includes("\u2019")).toBe(false);
+    expect(en.detail.confirmLabel).toBe("Confirm");
+    expect(en.detail.dueLabel).toBe("Due");
+    expect(JSON.stringify(uk.detail)).not.toContain("SHZ-");
+    expect(JSON.stringify(uk.detail)).not.toContain("#");
+    expect(JSON.stringify(uk.detail)).not.toContain("Оплачен");
+    expect(JSON.stringify(uk.detail)).not.toContain("Нова Пошта");
+    expect(JSON.stringify(uk.detail)).not.toContain("Історія");
+    expect(JSON.stringify(uk.detail)).not.toContain("Редагувати");
+  });
+
+  it("pins create-placeholder copy without implementing the editor", () => {
+    const uk = ordersCopy("uk");
+    const en = ordersCopy("en");
+    expect(uk.create.title).toBe("Нове замовлення");
+    expect(uk.create.backLabel).toBe("Назад");
+    expect(uk.create.placeholderTitle).toBe("Редактор у розробці");
+    expect(uk.create.placeholderDescription).toBe(
+      "Створення замовлення з телефону поки недоступне.",
+    );
+    expect(en.create.title).toBe("New order");
+    expect(en.create.placeholderTitle).toBe("Editor in development");
+    expect(JSON.stringify(uk.create)).not.toContain("orders.create");
+    expect(JSON.stringify(uk.create)).not.toContain("Редагувати");
   });
 
   it("keeps interpolation slots in both locales", () => {

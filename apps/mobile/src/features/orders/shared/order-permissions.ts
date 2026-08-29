@@ -3,11 +3,13 @@
  * (`companies.listMine`) to the seeded permission defaults
  * (`packages/db/seed/role-permission-defaults.ts`): owners hold every
  * permission implicitly; admin, manager, and employee are seeded
- * `orders:view` and `orders:create`. This only hides controls — the
- * server re-checks every action permission and stays authoritative
- * (ADR-0013). The list always loads; there is no view-gate affordance.
+ * `orders:view`, `orders:create`, and `orders:edit`. This only hides
+ * controls — the server re-checks every action permission and stays
+ * authoritative (ADR-0013). The list always loads; there is no
+ * view-gate affordance. Confirm/cancel hide without `orders:edit`.
  */
 import type { CompanyMembership } from "../../../api/company-membership-query";
+import type { OrderLifecycleStatus } from "./order-status";
 
 export type CompanyRole = CompanyMembership["role"];
 
@@ -25,9 +27,53 @@ export function canCreateOrders(role: CompanyRole): boolean {
   }
 }
 
+/**
+ * `orders:edit` — hides confirm and cancel. Every seeded staff role
+ * currently holds edit (owner implicit). Prove the hide path with
+ * `orderDetailActions({ canEdit: false })`.
+ */
+export function canEditOrders(role: CompanyRole): boolean {
+  switch (role) {
+    case "owner":
+    case "admin":
+    case "manager":
+    case "employee":
+      return true;
+  }
+}
+
 /** View-model flag the header and empty CTA consult. */
 export function ordersHeaderActions(args: { readonly canCreate: boolean }): {
   readonly showCreate: boolean;
 } {
   return { showCreate: args.canCreate };
+}
+
+export type OrderDetailActions = {
+  readonly showConfirm: boolean;
+  readonly showActions: boolean;
+  readonly cancelEnabled: boolean;
+};
+
+/**
+ * Affordance-only: confirm is the primary CTA on `new`; cancel lives in
+ * the actions sheet for `new` / `confirmed` and is disabled when already
+ * `canceled`. Without `orders:edit` both hide. Server stays authoritative.
+ */
+export function orderDetailActions(args: {
+  readonly canEdit: boolean;
+  readonly status: OrderLifecycleStatus;
+}): OrderDetailActions {
+  if (!args.canEdit) {
+    return {
+      showConfirm: false,
+      showActions: false,
+      cancelEnabled: false,
+    };
+  }
+  return {
+    showConfirm: args.status === "new",
+    showActions: true,
+    cancelEnabled: args.status !== "canceled",
+  };
 }
