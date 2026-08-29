@@ -17,7 +17,7 @@ export { SearchField } from "./search-field";
 export { SegmentedTabs } from "./segmented-tabs";
 export { TabView, type TabBarProps, type TabDefinition } from "./tab-view";
 export { indexOfTabKey } from "./tab-view.model";
-export { Sheet } from "./sheet";
+export { Sheet, type SheetBack } from "./sheet";
 export {
   SHEET_MS,
   sheetDismissWaitMs,

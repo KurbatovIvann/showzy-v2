@@ -28,6 +28,10 @@ const CREATE_HOOK = readFileSync(
   new URL("./use-order-form.ts", import.meta.url),
   "utf8",
 );
+const PRODUCT_SHEET = readFileSync(
+  new URL("./product-select-sheet.tsx", import.meta.url),
+  "utf8",
+);
 
 describe("orders/new route", () => {
   it("is the create screen, not OrderDetailScreen or the construction placeholder", () => {
@@ -57,10 +61,34 @@ describe("orders/new route", () => {
     expect(CREATE_VIEW).toContain(
       "sessionOpen={model.productPickerSessionOpen}",
     );
-    expect(CREATE_VIEW).toContain("selectedIds={model.selectedVariantIds}");
+    expect(CREATE_VIEW).toContain("level={model.productPickerLevel}");
+    expect(CREATE_VIEW).toContain("onBack={model.backFromVariants}");
+    expect(CREATE_VIEW).toContain(
+      "selectedVariantIds={model.selectedVariantIds}",
+    );
+    expect(CREATE_VIEW).not.toContain("variantSheetOpen");
+    expect(CREATE_HOOK).not.toContain("variantSheetOpen");
     expect(CREATE_VIEW).not.toContain("features/catalog");
     expect(CREATE_HOOK).not.toContain("features/catalog");
     expect(CREATE_VIEW).not.toContain("basePriceMinor");
     expect(CREATE_HOOK).not.toContain("basePriceMinor");
+  });
+
+  it("keeps variant drill-down in one ProductSelectSheet Modal", () => {
+    expect(PRODUCT_SHEET).toContain("level: \"products\" | \"variants\"");
+    expect(PRODUCT_SHEET).toContain("ChevronRightIcon");
+    expect(PRODUCT_SHEET).toContain("variantsOpen ? props.variantsTitle");
+    expect(PRODUCT_SHEET).toContain("variantsLoadingLabel");
+    expect(PRODUCT_SHEET).toContain("variantsErrorLabel");
+    expect(PRODUCT_SHEET.match(/<Sheet\b/g)).toEqual(["<Sheet"]);
+    expect(PRODUCT_SHEET).not.toContain("<Modal");
+    expect(PRODUCT_SHEET).not.toContain("OptionSelectSheet");
+    expect(CREATE_VIEW.match(/<OptionSelectSheet\b/g)).toEqual([
+      "<OptionSelectSheet",
+    ]);
+    expect(CREATE_VIEW.match(/<ProductSelectSheet\b/g)).toEqual([
+      "<ProductSelectSheet",
+    ]);
+    expect(CREATE_VIEW).not.toContain("visible={model.variantSheetOpen}");
   });
 });

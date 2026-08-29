@@ -2,7 +2,8 @@
  * Canvas OrderEditor as create-only (SHO-242).
  * Shared: AppHeader, Button, TextField, SearchField, Sheet, EmptyState, Banner.
  * Feature: SelectorRow, EditorSection, OrderLineCard, QuantityStepper,
- * ProductSelectSheet, OptionSelectSheet (customers + variants).
+ * ProductSelectSheet (products + in-sheet variant drill-down),
+ * OptionSelectSheet (customers only — never stacked on the product Modal).
  * Omitted: payment, delivery, due date, status picker, discount, line
  * prices, and «До сплати» (owner decision 2 — footer is line count).
  */
@@ -91,38 +92,31 @@ export function OrderFormView(model: OrderFormModel) {
       <ProductSelectSheet
         visible={model.productSheetOpen}
         sessionOpen={model.productPickerSessionOpen}
+        level={model.productPickerLevel}
         title={form.productSheetTitle}
+        variantsTitle={model.productPickerVariantsTitle}
         searchPlaceholder={form.productSearchPlaceholder}
         searchLabel={form.productSearchLabel}
         closeLabel={model.copy.closeSheet}
+        backLabel={form.variantsBackLabel}
         emptyLabel={form.emptyProducts}
+        variantsLoadingLabel={form.variantsLoading}
+        variantsEmptyLabel={form.emptyVariants}
+        variantsErrorLabel={form.variantsError}
         doneLabel={form.productSheetDone}
         thumbnailFailedLabel={form.thumbnailUnavailable}
         searchMaxLength={LIST_PRODUCTS_QUERY_MAX_LENGTH}
         selectedIds={model.selectedProductIds}
+        selectedVariantIds={model.selectedVariantIds}
         doneCount={model.productPickCount}
         products={model.productSelectRows}
+        variants={model.variantSelectRows}
+        variantsStatus={model.variantsStatus}
         onClose={model.closeProductSheet}
+        onBack={model.backFromVariants}
         onToggle={model.toggleProduct}
+        onToggleVariant={model.pickVariant}
         onConfirm={model.confirmProductPicks}
-      />
-      <OptionSelectSheet
-        visible={model.variantSheetOpen}
-        title={form.variantSheetTitle}
-        searchPlaceholder={form.productSearchPlaceholder}
-        searchLabel={form.productSearchLabel}
-        closeLabel={model.copy.closeSheet}
-        emptyLabel={model.variantsReady ? form.emptyVariants : ""}
-        value={
-          model.selectedVariantIds.size === 1
-            ? ([...model.selectedVariantIds][0] ?? null)
-            : null
-        }
-        selectedIds={model.selectedVariantIds}
-        options={model.variantOptions}
-        searchMaxLength={LIST_PRODUCTS_QUERY_MAX_LENGTH}
-        onClose={model.closeVariantSheet}
-        onChange={model.pickVariant}
       />
     </SafeAreaView>
   );
