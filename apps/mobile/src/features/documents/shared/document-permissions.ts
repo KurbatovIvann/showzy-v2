@@ -37,3 +37,15 @@ export function canCreateDocuments(role: CompanyRole): boolean {
 export function canEditDocuments(role: CompanyRole): boolean {
   return role !== "employee";
 }
+
+/**
+ * Affordance-only: create submit hides without `documents:create`.
+ * Server stays authoritative.
+ */
+export function documentsCreateScreenActions(args: {
+  readonly canCreate: boolean;
+}): {
+  readonly showSubmit: boolean;
+} {
+  return { showSubmit: args.canCreate };
+}

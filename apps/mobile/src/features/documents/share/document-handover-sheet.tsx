@@ -8,6 +8,7 @@ import type { DocumentsCopy } from "../../../i18n/documents";
  * Handover sheet after `documents.share`. Shows the public `/d/{token}`
  * URL plus copy / native share. A scannable QR bitmap is omitted: no QR
  * encoder is in the native kit and new npm dependencies are forbidden.
+ * Optional print opens the panel PDF via `Linking.openURL` (no print lib).
  */
 export function DocumentHandoverSheet(props: {
   readonly visible: boolean;
@@ -20,7 +21,10 @@ export function DocumentHandoverSheet(props: {
   readonly onHidden: () => void;
   readonly onCopy: () => void;
   readonly onShare: () => void;
+  readonly onPrint?: () => void;
 }) {
+  const showPrint = props.onPrint !== undefined;
+
   return (
     <Sheet
       visible={props.visible}
@@ -54,6 +58,14 @@ export function DocumentHandoverSheet(props: {
           label={props.copy.handover.share}
           onPress={props.onShare}
         />
+        {showPrint ? (
+          <Button
+            variant="secondary"
+            fullWidth
+            label={props.copy.options.print}
+            onPress={props.onPrint}
+          />
+        ) : null}
       </View>
     </Sheet>
   );

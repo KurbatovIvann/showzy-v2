@@ -23,6 +23,9 @@ describe("documents copy", () => {
     expect(Object.keys(uk.handover)).toEqual(Object.keys(en.handover));
     expect(Object.keys(uk.toast)).toEqual(Object.keys(en.toast));
     expect(Object.keys(uk.mutation)).toEqual(Object.keys(en.mutation));
+    expect(Object.keys(uk.form)).toEqual(Object.keys(en.form));
+    expect(Object.keys(uk.form.errors)).toEqual(Object.keys(en.form.errors));
+    expect(Object.keys(uk.shared)).toEqual(Object.keys(en.shared));
   });
 
   it("pins canvas list copy in uk (type chips, no search)", () => {
@@ -53,6 +56,10 @@ describe("documents copy", () => {
     expect(uk.options.openPdf).toBe("Відкрити PDF");
     expect(uk.options.cancel).toBe("Скасувати документ");
     expect(uk.confirm.cancelTitle).toBe("Скасувати документ?");
-    expect(JSON.stringify(uk)).not.toMatch(/Пошук/);
+    expect(JSON.stringify(uk.filters)).not.toMatch(/Пошук/);
+    expect(uk.form.typePaymentInvoice).toBe("Рахунок РХ");
+    expect(uk.form.typeDeliveryNote).toBe("Видаткова ВН");
+    expect(uk.form.orderSearchPlaceholder).toContain("Пошук");
+    expect(uk.shared.refresh).toContain("оновити");
   });
 });

@@ -14,16 +14,18 @@ import { getDocumentQueryOptions } from "../api/document-detail-query";
 import { useSheetHiddenWaiter } from "../shared/use-sheet-hidden-waiter";
 import {
   documentHandoverHidden,
-  documentOptionsHidden,
   hideDocumentHandover,
-  hideDocumentOptions,
   IDLE_DOCUMENT_HANDOVER,
-  IDLE_DOCUMENT_OPTIONS,
   openDocumentHandover,
+  type DocumentHandoverChrome,
+} from "../share/document-handover-chrome";
+import {
+  documentOptionsHidden,
+  hideDocumentOptions,
+  IDLE_DOCUMENT_OPTIONS,
   openDocumentOptions,
   waitThenConfirmDocumentCancel,
   waitThenRunDocumentFollowUp,
-  type DocumentHandoverChrome,
   type DocumentOptionsChrome,
 } from "./document-options-handshake";
 import {
