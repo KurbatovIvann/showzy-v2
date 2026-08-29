@@ -1,7 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import type { DocumentPdfModel } from "./model.js";
 import { renderDocumentPdfBytes } from "./render-document.js";
+
+/** First @react-pdf/renderer + Liberation Sans layout is slow on GitHub runners. */
+const PDF_RENDER_TIMEOUT_MS = 30_000;
 
 const invoice: DocumentPdfModel = {
   type: "payment_invoice",
@@ -52,16 +55,24 @@ const delivery: DocumentPdfModel = {
   },
 };
 
-describe("system TSX document templates", () => {
-  it("renders a payment invoice PDF", async () => {
-    const bytes = await renderDocumentPdfBytes(invoice);
-    expect(String.fromCharCode(...bytes.subarray(0, 4))).toBe("%PDF");
-    expect(bytes.byteLength).toBeGreaterThan(100);
-  });
+describe(
+  "system TSX document templates",
+  { timeout: PDF_RENDER_TIMEOUT_MS },
+  () => {
+    beforeAll(async () => {
+      await renderDocumentPdfBytes(invoice);
+    }, PDF_RENDER_TIMEOUT_MS);
 
-  it("renders a delivery note PDF", async () => {
-    const bytes = await renderDocumentPdfBytes(delivery);
-    expect(String.fromCharCode(...bytes.subarray(0, 4))).toBe("%PDF");
-    expect(bytes.byteLength).toBeGreaterThan(100);
-  });
-});
+    it("renders a payment invoice PDF", async () => {
+      const bytes = await renderDocumentPdfBytes(invoice);
+      expect(String.fromCharCode(...bytes.subarray(0, 4))).toBe("%PDF");
+      expect(bytes.byteLength).toBeGreaterThan(100);
+    });
+
+    it("renders a delivery note PDF", async () => {
+      const bytes = await renderDocumentPdfBytes(delivery);
+      expect(String.fromCharCode(...bytes.subarray(0, 4))).toBe("%PDF");
+      expect(bytes.byteLength).toBeGreaterThan(100);
+    });
+  },
+);
