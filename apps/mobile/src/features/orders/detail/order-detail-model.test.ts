@@ -224,30 +224,28 @@ describe("orderDetailActionsForView", () => {
       cancelEnabled: true,
     });
     const cached = { hasOrder: true, actionFlags };
-    expect(
-      orderDetailWriteChrome({ stateKind: "error", ...cached }),
-    ).toEqual({
+    expect(orderDetailWriteChrome({ stateKind: "error", ...cached })).toEqual({
       showConfirm: false,
       showActions: false,
       cancelEnabled: false,
     });
-    expect(
-      orderDetailWriteChrome({ stateKind: "offline", ...cached }),
-    ).toEqual({
-      showConfirm: false,
-      showActions: false,
-      cancelEnabled: false,
-    });
-    expect(
-      orderDetailWriteChrome({ stateKind: "loading", ...cached }),
-    ).toEqual({
-      showConfirm: false,
-      showActions: false,
-      cancelEnabled: false,
-    });
-    expect(
-      orderDetailWriteChrome({ stateKind: "ready", ...cached }),
-    ).toEqual(actionFlags);
+    expect(orderDetailWriteChrome({ stateKind: "offline", ...cached })).toEqual(
+      {
+        showConfirm: false,
+        showActions: false,
+        cancelEnabled: false,
+      },
+    );
+    expect(orderDetailWriteChrome({ stateKind: "loading", ...cached })).toEqual(
+      {
+        showConfirm: false,
+        showActions: false,
+        cancelEnabled: false,
+      },
+    );
+    expect(orderDetailWriteChrome({ stateKind: "ready", ...cached })).toEqual(
+      actionFlags,
+    );
     expect(
       orderDetailWriteChrome({
         stateKind: "ready",

@@ -33,9 +33,7 @@ describe("orders/new route", () => {
       "export function OrderCreatePlaceholderScreen",
     );
     expect(CREATE_SCREEN).not.toContain("OrderDetailScreen");
-    expect(DETAIL_ROUTE).toContain(
-      "export { OrderDetailScreen as default }",
-    );
+    expect(DETAIL_ROUTE).toContain("export { OrderDetailScreen as default }");
     expect(DETAIL_ROUTE).not.toContain("OrderCreatePlaceholderScreen");
   });
 });

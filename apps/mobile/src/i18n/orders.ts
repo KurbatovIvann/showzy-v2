@@ -229,8 +229,7 @@ const uk: OrdersCopy = {
     title: "Нове замовлення",
     backLabel: "Назад",
     placeholderTitle: "Редактор у розробці",
-    placeholderDescription:
-      "Створення замовлення з телефону поки недоступне.",
+    placeholderDescription: "Створення замовлення з телефону поки недоступне.",
   },
 };
 
