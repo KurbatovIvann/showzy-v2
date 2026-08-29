@@ -80,7 +80,6 @@ export type CustomersEditorStubCopy = {
   readonly counterpartyCreateTitle: string;
   readonly counterpartyEditTitle: string;
   readonly invitationCreateTitle: string;
-  readonly invitationCreateDescription: string;
 };
 
 export type CustomersFormCopy = {
@@ -269,6 +268,72 @@ export type CustomersCounterpartyFormCopy = {
   };
 };
 
+export type CustomersInviteFormCopy = {
+  readonly whoTitle: string;
+  readonly whoHelper: string;
+  readonly kindPersonal: string;
+  readonly kindReusable: string;
+  readonly nameLabel: string;
+  readonly namePlaceholder: string;
+  readonly phoneLabel: string;
+  readonly phonePlaceholder: string;
+  readonly emailLabel: string;
+  readonly emailPlaceholder: string;
+  readonly termsTitle: string;
+  readonly groupLabel: string;
+  readonly groupPlaceholder: string;
+  readonly groupSheetTitle: string;
+  readonly groupEmptyOption: string;
+  readonly groupSearchPlaceholder: string;
+  readonly assignmentUnavailable: string;
+  readonly priceListLabel: string;
+  readonly priceListInheritGroup: string;
+  readonly priceListDefault: string;
+  readonly priceListSheetTitle: string;
+  readonly priceListEmptyOption: string;
+  readonly priceListSearchPlaceholder: string;
+  readonly accessTitle: string;
+  readonly maxUsesLabel: string;
+  readonly maxUsesPlaceholder: string;
+  readonly maxUsesHelper: string;
+  readonly expiresLabel: string;
+  readonly expiresSheetTitle: string;
+  readonly createdTitle: string;
+  readonly createdHelper: string;
+  readonly tokenLabel: string;
+  readonly urlLabel: string;
+  readonly copyUrl: string;
+  readonly copyToken: string;
+  readonly copied: string;
+  readonly copyFailed: string;
+  readonly done: string;
+  readonly cancel: string;
+  readonly changedLabel: string;
+  readonly closeSheet: string;
+  readonly leaveTitle: string;
+  readonly leaveDescription: string;
+  readonly leaveContinue: string;
+  readonly leaveConfirm: string;
+  readonly submitCreate: string;
+  readonly submitCreateLoading: string;
+  readonly permissionCreateTitle: string;
+  readonly permissionCreateDescription: string;
+  readonly loadingLabel: string;
+  readonly errors: {
+    readonly nameTooLong: string;
+    readonly phoneTooLong: string;
+    readonly emailTooLong: string;
+    readonly expiresInvalid: string;
+    readonly expiresRange: string;
+    readonly maxUsesInvalid: string;
+    readonly validation: string;
+    readonly network: string;
+    readonly offline: string;
+    readonly unavailable: string;
+    readonly permission: string;
+  };
+};
+
 export type CustomersCopy = {
   readonly title: string;
   readonly searchLabel: string;
@@ -315,6 +380,7 @@ export type CustomersCopy = {
   readonly form: CustomersFormCopy;
   readonly groupForm: CustomersGroupFormCopy;
   readonly counterpartyForm: CustomersCounterpartyFormCopy;
+  readonly inviteForm: CustomersInviteFormCopy;
 };
 
 const en: CustomersCopy = {
@@ -445,8 +511,6 @@ const en: CustomersCopy = {
     counterpartyCreateTitle: "New counterparty",
     counterpartyEditTitle: "Edit counterparty",
     invitationCreateTitle: "Create invitation",
-    invitationCreateDescription:
-      "The create form lands in the next update. You can still list and revoke invites here.",
   },
   form: {
     contactsTitle: "Contacts",
@@ -646,6 +710,74 @@ const en: CustomersCopy = {
       permission: "You do not have permission to change this.",
     },
   },
+  inviteForm: {
+    whoTitle: "Who",
+    whoHelper:
+      "This invite is for customers, not the team. After they accept, a CRM client appears with the group and price list. It does not create a counterparty.",
+    kindPersonal: "Personal",
+    kindReusable: "Reusable",
+    nameLabel: "Name (optional)",
+    namePlaceholder: "Client name",
+    phoneLabel: "Phone (optional)",
+    phonePlaceholder: "+380 67 000 00 00",
+    emailLabel: "Email (optional)",
+    emailPlaceholder: "client@email.com",
+    termsTitle: "CRM terms",
+    groupLabel: "Group after accept",
+    groupPlaceholder: "No group",
+    groupSheetTitle: "Customer group",
+    groupEmptyOption: "No group",
+    groupSearchPlaceholder: "Search groups…",
+    assignmentUnavailable: "Assigned",
+    priceListLabel: "Price list after accept",
+    priceListInheritGroup: "Inherited from the group",
+    priceListDefault: "Retail by default",
+    priceListSheetTitle: "Price list",
+    priceListEmptyOption: "Default",
+    priceListSearchPlaceholder: "Search price lists…",
+    accessTitle: "Access terms",
+    maxUsesLabel: "Use limit",
+    maxUsesPlaceholder: "Unlimited",
+    maxUsesHelper: "Leave empty for unlimited uses.",
+    expiresLabel: "Expires",
+    expiresSheetTitle: "Expires",
+    createdTitle: "Link",
+    createdHelper:
+      "Copy it now. After you leave this screen the secret cannot be shown again.",
+    tokenLabel: "Token",
+    urlLabel: "Link",
+    copyUrl: "Copy link",
+    copyToken: "Copy token",
+    copied: "Copied",
+    copyFailed: "Could not copy. Try again.",
+    done: "Done",
+    cancel: "Cancel",
+    changedLabel: "Changed",
+    closeSheet: "Close",
+    leaveTitle: "Leave without saving?",
+    leaveDescription: "Your changes will be lost.",
+    leaveContinue: "Keep editing",
+    leaveConfirm: "Leave without saving",
+    submitCreate: "Create",
+    submitCreateLoading: "Saving…",
+    permissionCreateTitle: "No permission to invite",
+    permissionCreateDescription:
+      "You can view invitations, but creating them needs a higher role.",
+    loadingLabel: "Loading invitation",
+    errors: {
+      nameTooLong: "Name is too long.",
+      phoneTooLong: "Phone is too long.",
+      emailTooLong: "Email is too long.",
+      expiresInvalid: "Enter a valid expiry date.",
+      expiresRange: "Expiry must be between 1 hour and 365 days from now.",
+      maxUsesInvalid: "Use limit must be a whole number of 1 or more.",
+      validation: "Check the highlighted fields.",
+      network: "Could not save. Try again.",
+      offline: "No connection. Connect and try again.",
+      unavailable: "Could not save. Try again.",
+      permission: "You do not have permission to change this.",
+    },
+  },
 };
 
 const uk: CustomersCopy = {
@@ -778,8 +910,6 @@ const uk: CustomersCopy = {
     counterpartyCreateTitle: "Новий контрагент",
     counterpartyEditTitle: "Редагувати контрагента",
     invitationCreateTitle: "Нове запрошення",
-    invitationCreateDescription:
-      "Форма створення з’явиться в наступному оновленні. Тут можна переглядати та відкликати запрошення.",
   },
   form: {
     contactsTitle: "Контакти",
@@ -972,6 +1102,74 @@ const uk: CustomersCopy = {
       notesTooLong: "Примітки задовгі.",
       validation: "Перевірте виділені поля.",
       conflict: "Контрагент з таким ЄДРПОУ уже існує.",
+      network: "Не вдалося зберегти. Спробуйте ще раз.",
+      offline: "Немає зʼєднання. Підключіться і спробуйте ще раз.",
+      unavailable: "Не вдалося зберегти. Спробуйте ще раз.",
+      permission: "Немає права змінювати цей запис.",
+    },
+  },
+  inviteForm: {
+    whoTitle: "Кому",
+    whoHelper:
+      "Це запрошення для клієнтів, не для команди. Після прийняття з’явиться клієнт у CRM з групою та прайсом. Контрагента не створює.",
+    kindPersonal: "Особисте",
+    kindReusable: "Багаторазове",
+    nameLabel: "Ім’я (необов’язково)",
+    namePlaceholder: "Ім’я клієнта",
+    phoneLabel: "Телефон (необов’язково)",
+    phonePlaceholder: "+380 67 000 00 00",
+    emailLabel: "Email (необов’язково)",
+    emailPlaceholder: "client@email.com",
+    termsTitle: "Умови в CRM",
+    groupLabel: "Група після прийняття",
+    groupPlaceholder: "Без групи",
+    groupSheetTitle: "Група клієнтів",
+    groupEmptyOption: "Без групи",
+    groupSearchPlaceholder: "Пошук груп…",
+    assignmentUnavailable: "Призначено",
+    priceListLabel: "Прайс-лист після прийняття",
+    priceListInheritGroup: "Успадкований від групи",
+    priceListDefault: "Роздрібний за замовчуванням",
+    priceListSheetTitle: "Прайс-лист",
+    priceListEmptyOption: "За замовчуванням",
+    priceListSearchPlaceholder: "Пошук прайс-листів…",
+    accessTitle: "Умови доступу",
+    maxUsesLabel: "Ліміт використань",
+    maxUsesPlaceholder: "Без ліміту",
+    maxUsesHelper: "Порожнє поле — без ліміту використань.",
+    expiresLabel: "Діє до",
+    expiresSheetTitle: "Діє до",
+    createdTitle: "Посилання",
+    createdHelper:
+      "Скопіюйте зараз. Після виходу з екрана секрет більше не буде доступний.",
+    tokenLabel: "Токен",
+    urlLabel: "Посилання",
+    copyUrl: "Копіювати посилання",
+    copyToken: "Копіювати токен",
+    copied: "Скопійовано",
+    copyFailed: "Не вдалося скопіювати. Спробуйте ще раз.",
+    done: "Готово",
+    cancel: "Скасувати",
+    changedLabel: "змінено",
+    closeSheet: "Закрити",
+    leaveTitle: "Вийти без збереження?",
+    leaveDescription: "Внесені зміни буде втрачено.",
+    leaveContinue: "Продовжити редагування",
+    leaveConfirm: "Вийти без збереження",
+    submitCreate: "Створити",
+    submitCreateLoading: "Збереження…",
+    permissionCreateTitle: "Немає права запрошувати",
+    permissionCreateDescription:
+      "Ви можете переглядати запрошення, але створення потребує вищої ролі.",
+    loadingLabel: "Завантаження запрошення",
+    errors: {
+      nameTooLong: "Ім’я задовге.",
+      phoneTooLong: "Телефон задовгий.",
+      emailTooLong: "Email задовгий.",
+      expiresInvalid: "Вкажіть коректну дату закінчення.",
+      expiresRange: "Дата має бути від 1 години до 365 днів від зараз.",
+      maxUsesInvalid: "Ліміт має бути цілим числом від 1.",
+      validation: "Перевірте виділені поля.",
       network: "Не вдалося зберегти. Спробуйте ще раз.",
       offline: "Немає зʼєднання. Підключіться і спробуйте ще раз.",
       unavailable: "Не вдалося зберегти. Спробуйте ще раз.",

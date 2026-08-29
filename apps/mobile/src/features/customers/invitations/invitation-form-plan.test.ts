@@ -1,0 +1,248 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  emptyInvitationFormDraft,
+  reclampInvitationDraftExpiresAt,
+  type InvitationFormDraft,
+} from "./invitation-form-draft";
+import {
+  createInvitePayload,
+  parseThenPlanInvitationFormSave,
+  planInvitationFormSave,
+  secretFromCreateOutput,
+  type InvitationFormWrite,
+} from "./invitation-form-plan";
+import {
+  expiresAtInRange,
+  INVITE_EXPIRES_MIN_CLAMP_SLACK_MS,
+  INVITE_EXPIRES_MIN_MS,
+} from "./invitation-form.schema";
+
+const GROUP_ID = "11111111-1111-4111-8111-111111111111";
+const PRICE_LIST_ID = "22222222-2222-4222-8222-222222222222";
+const INVITE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const SUBMIT_DELAY_MS = 30_000;
+
+function validCreateDraft(nowMs: number = Date.now()): InvitationFormDraft {
+  return emptyInvitationFormDraft(nowMs);
+}
+
+describe("createInvitePayload", () => {
+  it("omits maxUses on personal and sends null assignments", () => {
+    const payload = createInvitePayload(validCreateDraft());
+    expect(payload).toMatchObject({
+      isReusable: false,
+      groupId: null,
+      priceListId: null,
+      name: null,
+      phone: null,
+      email: null,
+    });
+    expect(payload).not.toBeNull();
+    if (payload === null) {
+      return;
+    }
+    expect("maxUses" in payload).toBe(false);
+  });
+
+  it("sends reusable unlimited as maxUses null and a cap as an integer", () => {
+    expect(
+      createInvitePayload({
+        ...validCreateDraft(),
+        kind: "reusable",
+        maxUses: "",
+      }),
+    ).toMatchObject({
+      isReusable: true,
+      maxUses: null,
+    });
+    expect(
+      createInvitePayload({
+        ...validCreateDraft(),
+        kind: "reusable",
+        maxUses: "5",
+        groupId: GROUP_ID,
+        priceListId: PRICE_LIST_ID,
+        name: "  Марія  ",
+      }),
+    ).toMatchObject({
+      isReusable: true,
+      maxUses: 5,
+      groupId: GROUP_ID,
+      priceListId: PRICE_LIST_ID,
+      name: "Марія",
+    });
+  });
+
+  it("reclamps a stale min expiry so the wire ISO stays in range after delay", () => {
+    const now = Date.now();
+    const stale = new Date(now + INVITE_EXPIRES_MIN_MS - 5_000).toISOString();
+    const draft = { ...validCreateDraft(now), expiresAt: stale };
+    expect(expiresAtInRange(stale, now)).toBe(false);
+    const payload = createInvitePayload(draft, now);
+    expect(payload).not.toBeNull();
+    if (payload === null) {
+      return;
+    }
+    expect(expiresAtInRange(payload.expiresAt, now + SUBMIT_DELAY_MS)).toBe(
+      true,
+    );
+  });
+});
+
+describe("planInvitationFormSave", () => {
+  it("submits create and retries the same attempt after a network failure", () => {
+    const draft = validCreateDraft();
+    const first = planInvitationFormSave({
+      draft,
+      created: null,
+      lastWrite: null,
+      lastFailureKind: null,
+    });
+    expect(first.kind).toBe("write");
+    if (first.kind !== "write") {
+      return;
+    }
+    expect(first.write.kind).toBe("createInvite");
+    expect(
+      planInvitationFormSave({
+        draft,
+        created: null,
+        lastWrite: first.write,
+        lastFailureKind: "network",
+      }),
+    ).toEqual({ kind: "retry" });
+  });
+
+  it("retries the frozen lastWrite when min expiry has drifted instead of minting a new invite", () => {
+    const nowMs = Date.now();
+    const t0 = nowMs - 2 * 60 * 60 * 1000;
+    const expiresAt = new Date(
+      t0 + INVITE_EXPIRES_MIN_MS + INVITE_EXPIRES_MIN_CLAMP_SLACK_MS,
+    ).toISOString();
+    expect(expiresAtInRange(expiresAt, t0)).toBe(true);
+    expect(expiresAtInRange(expiresAt, nowMs)).toBe(false);
+    const draft = { ...validCreateDraft(t0), expiresAt };
+    const lastWrite: InvitationFormWrite = {
+      kind: "createInvite",
+      input: {
+        isReusable: false,
+        expiresAt,
+        groupId: null,
+        priceListId: null,
+        name: null,
+        phone: null,
+        email: null,
+      },
+    };
+    const wouldBump = reclampInvitationDraftExpiresAt(draft, nowMs);
+    expect(wouldBump.expiresAt).not.toBe(expiresAt);
+    expect(expiresAtInRange(wouldBump.expiresAt, nowMs)).toBe(true);
+    expect(
+      planInvitationFormSave({
+        draft,
+        created: null,
+        lastWrite,
+        lastFailureKind: "network",
+        nowMs,
+      }),
+    ).toEqual({ kind: "retry" });
+    expect(
+      parseThenPlanInvitationFormSave({
+        draft,
+        created: null,
+        lastWrite,
+        lastFailureKind: "network",
+        nowMs,
+      }),
+    ).toEqual({ kind: "retry" });
+  });
+
+  it("stays invalid without calling transport", () => {
+    expect(
+      planInvitationFormSave({
+        draft: { ...validCreateDraft(), expiresAt: "nope" },
+        created: null,
+        lastWrite: null,
+        lastFailureKind: null,
+      }).kind,
+    ).toBe("invalid");
+  });
+
+  it("noops once the one-time secret is already shown", () => {
+    expect(
+      planInvitationFormSave({
+        draft: validCreateDraft(),
+        created: {
+          id: INVITE_ID,
+          token: "secret-token",
+          url: "showzy:invite/secret-token",
+        },
+        lastWrite: null,
+        lastFailureKind: null,
+      }),
+    ).toEqual({ kind: "noop" });
+  });
+});
+
+describe("parseThenPlanInvitationFormSave", () => {
+  it("gates the planner behind a successful UI parse", () => {
+    expect(
+      parseThenPlanInvitationFormSave({
+        draft: { ...validCreateDraft(), kind: "reusable", maxUses: "0" },
+        created: null,
+        lastWrite: null,
+        lastFailureKind: null,
+      }).kind,
+    ).toBe("invalid");
+  });
+
+  it("parses a stale min expiry as a write after reclamp", () => {
+    const now = Date.now();
+    const stale = new Date(now + INVITE_EXPIRES_MIN_MS - 5_000).toISOString();
+    const planned = parseThenPlanInvitationFormSave({
+      draft: { ...validCreateDraft(now), expiresAt: stale },
+      created: null,
+      lastWrite: null,
+      lastFailureKind: null,
+      nowMs: now,
+    });
+    expect(planned.kind).toBe("write");
+    if (planned.kind !== "write") {
+      return;
+    }
+    expect(
+      expiresAtInRange(planned.write.input.expiresAt, now + SUBMIT_DELAY_MS),
+    ).toBe(true);
+  });
+});
+
+describe("secretFromCreateOutput", () => {
+  it("maps token and url from create output and not from a list row", () => {
+    const secret = secretFromCreateOutput({
+      id: INVITE_ID,
+      isReusable: false,
+      maxUses: 1,
+      usesCount: 0,
+      expiresAt: validCreateDraft().expiresAt,
+      status: "pending",
+      groupId: null,
+      priceListId: null,
+      name: null,
+      phone: null,
+      email: null,
+      invitedBy: "user_1",
+      createdAt: "2026-08-29T00:00:00.000Z",
+      updatedAt: "2026-08-29T00:00:00.000Z",
+      token: "plaintext-once",
+      url: "showzy:invite/plaintext-once",
+    });
+    expect(secret).toEqual({
+      id: INVITE_ID,
+      token: "plaintext-once",
+      url: "showzy:invite/plaintext-once",
+    });
+    expect(JSON.stringify(secret)).toContain("token");
+    expect(JSON.stringify(secret)).toContain("url");
+  });
+});

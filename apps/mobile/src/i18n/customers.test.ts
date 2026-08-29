@@ -34,6 +34,10 @@ describe("customers copy", () => {
     expect(Object.keys(uk.counterpartyForm.errors)).toEqual(
       Object.keys(en.counterpartyForm.errors),
     );
+    expect(Object.keys(uk.inviteForm)).toEqual(Object.keys(en.inviteForm));
+    expect(Object.keys(uk.inviteForm.errors)).toEqual(
+      Object.keys(en.inviteForm.errors),
+    );
     expect(Object.keys(uk.counterparties)).toEqual(
       Object.keys(en.counterparties),
     );
@@ -108,9 +112,12 @@ describe("customers copy", () => {
     expect(uk.groupForm.notFoundTitle).toBe("Групу не знайдено");
     expect(uk.editorStub.counterpartyCreateTitle).toBe("Новий контрагент");
     expect(uk.editorStub.invitationCreateTitle).toBe("Нове запрошення");
-    expect(uk.editorStub.invitationCreateDescription).toContain(
-      "наступному оновленні",
-    );
+    expect(uk.inviteForm.whoTitle).toBe("Кому");
+    expect(uk.inviteForm.whoHelper).toContain("не для команди");
+    expect(uk.inviteForm.createdHelper).toContain("Скопіюйте зараз");
+    expect(uk.inviteForm.expiresLabel).toBe("Діє до");
+    expect(uk.inviteForm.maxUsesLabel).toBe("Ліміт використань");
+    expect(uk.inviteForm.permissionCreateTitle).toBe("Немає права запрошувати");
     expect(uk.counterpartyForm.customerHelper).toContain("Необов’язково");
     expect(uk.counterpartyForm.nameLabel).toBe("Назва контрагента");
     expect(uk.counterpartyForm.edrpouLabel).toBe("ЄДРПОУ");
