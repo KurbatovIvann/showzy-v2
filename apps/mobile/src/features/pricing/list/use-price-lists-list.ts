@@ -17,7 +17,7 @@ import { canManagePriceLists } from "../shared/price-list-permissions";
 import {
   SEARCH_DEBOUNCE_MS,
   useDebouncedValue,
-} from "../shared/use-debounced-value";
+} from "../../../hooks/use-debounced-value";
 import { useSheetHiddenWaiter } from "../shared/use-sheet-hidden-waiter";
 import {
   hidePriceListOptions,

@@ -18,5 +18,20 @@ declare module "node:fs" {
   export function readFileSync(path: string | URL, encoding: "utf8"): string;
 }
 
+/**
+ * Vitest debounce-hook tests (SHO-220) mount with react-dom createRoot +
+ * act. react-dom 19 does not ship types; do not add `@types/react-dom`.
+ */
+declare module "react-dom/client" {
+  import type { ReactNode } from "react";
+
+  export type Root = {
+    render: (children: ReactNode) => void;
+    unmount: () => void;
+  };
+
+  export function createRoot(container: { readonly nodeType: number }): Root;
+}
+
 /** Metro inlines this to `true` in the Expo dev client and `false` in release. */
 declare const __DEV__: boolean;

@@ -12,7 +12,7 @@ import { memberCountLabel } from "../shared/member-count";
 import {
   SEARCH_DEBOUNCE_MS,
   useDebouncedValue,
-} from "../shared/use-debounced-value";
+} from "../../../hooks/use-debounced-value";
 import {
   classifyGroupsList,
   flattenGroupListPages,
