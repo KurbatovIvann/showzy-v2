@@ -71,7 +71,7 @@ pnpm --filter @showzy/api start
 pnpm --filter @showzy/mobile start -- --dev-client
 ```
 
-Open the installed **Showzy** app on the device (same Wi-Fi as the machine)
+Open the installed **Shozee** app on the device (same Wi-Fi as the machine)
 and connect to the bundler. `EXPO_PUBLIC_API_URL` is inlined by Metro at
 bundle time — change it without a new native build. A phone cannot reach
 `localhost` on your computer; use the machine's LAN address

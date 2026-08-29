@@ -86,6 +86,21 @@ describe("mobile native kit", () => {
     }
   });
 
+  it("uses Shozee as the Expo home-screen display name", () => {
+    const resolved = appConfig({
+      config: { extra: {} },
+    } as ConfigContext);
+    expect(resolved.name).toBe("Shozee");
+    expect(resolved.slug).toBe("showzy");
+    expect(resolved.scheme).toBe("showzy");
+    expect(resolved.owner).toBe("showzy-organization");
+    expect(resolved.ios?.bundleIdentifier).toBe("com.showzy.app");
+    expect(resolved.android?.package).toBe("com.showzy.app");
+    expect(resolved.extra).toEqual({
+      eas: { projectId: "0cedd12b-3114-4375-b7bb-b680b24a621f" },
+    });
+  });
+
   it("allows HTTP to a LAN Garage host for signed photo PUT/GET", () => {
     const resolved = appConfig({
       config: { extra: {} },

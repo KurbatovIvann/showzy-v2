@@ -88,7 +88,7 @@ export const expoConfigPlugins = expoConfigPluginsFor();
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: "Showzy",
+  name: "Shozee",
   slug: "showzy",
   owner: "showzy-organization",
   version: "0.0.0",
