@@ -27,6 +27,9 @@ export type CustomersConfirmCopy = {
   readonly deleteCounterpartyTitle: string;
   readonly deleteCounterpartyDescription: string;
   readonly deleteCounterpartyConfirm: string;
+  readonly revokeInviteTitle: string;
+  readonly revokeInviteDescription: string;
+  readonly revokeInviteConfirm: string;
   readonly cancel: string;
 };
 
@@ -57,11 +60,16 @@ export type CustomersEmptyCopy = {
   readonly counterpartiesSearchTitle: string;
   readonly counterpartiesSearchDescription: string;
   readonly counterpartiesCreate: string;
-};
-
-export type CustomersComingSoonCopy = {
   readonly invitationsTitle: string;
   readonly invitationsDescription: string;
+  readonly invitationsCreate: string;
+};
+
+export type CustomersInviteStatusCopy = {
+  readonly pending: string;
+  readonly revoked: string;
+  readonly expired: string;
+  readonly exhausted: string;
 };
 
 export type CustomersEditorStubCopy = {
@@ -71,6 +79,8 @@ export type CustomersEditorStubCopy = {
   readonly groupEditTitle: string;
   readonly counterpartyCreateTitle: string;
   readonly counterpartyEditTitle: string;
+  readonly invitationCreateTitle: string;
+  readonly invitationCreateDescription: string;
 };
 
 export type CustomersFormCopy = {
@@ -268,6 +278,7 @@ export type CustomersCopy = {
   readonly createClientLabel: string;
   readonly createGroupLabel: string;
   readonly createCounterpartyLabel: string;
+  readonly createInviteLabel: string;
   readonly backLabel: string;
   readonly tabs: {
     readonly clients: string;
@@ -284,13 +295,20 @@ export type CustomersCopy = {
   readonly archiveLabel: string;
   readonly deleteLabel: string;
   readonly restoreLabel: string;
+  readonly revokeLabel: string;
   readonly loadingLabel: string;
   readonly loadingMoreLabel: string;
   readonly edrpouBadge: string;
   readonly counterparties: CustomersCountForms;
   readonly members: CustomersCountForms;
+  readonly inviteStatus: CustomersInviteStatusCopy;
+  readonly inviteUses: string;
+  readonly inviteUsesUnlimited: string;
+  readonly inviteExpires: string;
+  readonly inviteExpired: string;
+  readonly inviteUntitledReusable: string;
+  readonly inviteUntitledPersonal: string;
   readonly empty: CustomersEmptyCopy;
-  readonly comingSoon: CustomersComingSoonCopy;
   readonly confirm: CustomersConfirmCopy;
   readonly mutation: CustomersMutationCopy;
   readonly editorStub: CustomersEditorStubCopy;
@@ -308,6 +326,7 @@ const en: CustomersCopy = {
   createClientLabel: "New client",
   createGroupLabel: "New group",
   createCounterpartyLabel: "New counterparty",
+  createInviteLabel: "New invitation",
   backLabel: "Back",
   tabs: {
     clients: "Clients",
@@ -324,6 +343,7 @@ const en: CustomersCopy = {
   archiveLabel: "Archive {{name}}",
   deleteLabel: "Delete {{name}}",
   restoreLabel: "Restore",
+  revokeLabel: "Revoke {{name}}",
   loadingLabel: "Loading customers",
   loadingMoreLabel: "Loading more",
   edrpouBadge: "EDRPOU {{edrpou}}",
@@ -337,6 +357,18 @@ const en: CustomersCopy = {
     few: "{{count}} clients",
     many: "{{count}} clients",
   },
+  inviteStatus: {
+    pending: "Active",
+    revoked: "Revoked",
+    expired: "Expired",
+    exhausted: "Exhausted",
+  },
+  inviteUses: "Used {{used}} of {{max}}",
+  inviteUsesUnlimited: "Used {{used}} (unlimited)",
+  inviteExpires: "Valid until {{date}}",
+  inviteExpired: "Ended {{date}}",
+  inviteUntitledReusable: "Reusable invite",
+  inviteUntitledPersonal: "Invitation",
   empty: {
     offlineTitle: "No connection",
     offlineDescription:
@@ -367,10 +399,10 @@ const en: CustomersCopy = {
     counterpartiesSearchTitle: "No counterparties found",
     counterpartiesSearchDescription: "Try a different query.",
     counterpartiesCreate: "New counterparty",
-  },
-  comingSoon: {
-    invitationsTitle: "Coming soon",
-    invitationsDescription: "Invitations will arrive in a later update.",
+    invitationsTitle: "No invitations yet",
+    invitationsDescription:
+      "Links for customers. After accept, a CRM client appears with the group and price list.",
+    invitationsCreate: "New invitation",
   },
   confirm: {
     archiveTitle: "Archive this client?",
@@ -394,6 +426,10 @@ const en: CustomersCopy = {
     deleteCounterpartyDescription:
       "The counterparty will be deleted forever. A linked client stays. This cannot be undone.",
     deleteCounterpartyConfirm: "Delete counterparty",
+    revokeInviteTitle: "Revoke this invitation?",
+    revokeInviteDescription:
+      "The invite link will stop working. The row stays in invitation history.",
+    revokeInviteConfirm: "Revoke",
     cancel: "Cancel",
   },
   mutation: {
@@ -408,6 +444,9 @@ const en: CustomersCopy = {
     groupEditTitle: "Edit group",
     counterpartyCreateTitle: "New counterparty",
     counterpartyEditTitle: "Edit counterparty",
+    invitationCreateTitle: "Create invitation",
+    invitationCreateDescription:
+      "The create form lands in the next update. You can still list and revoke invites here.",
   },
   form: {
     contactsTitle: "Contacts",
@@ -618,6 +657,7 @@ const uk: CustomersCopy = {
   createClientLabel: "Новий клієнт",
   createGroupLabel: "Нова група",
   createCounterpartyLabel: "Новий контрагент",
+  createInviteLabel: "Нове запрошення",
   backLabel: "Назад",
   tabs: {
     clients: "Клієнти",
@@ -634,6 +674,7 @@ const uk: CustomersCopy = {
   archiveLabel: "Архівувати {{name}}",
   deleteLabel: "Видалити {{name}}",
   restoreLabel: "Відновити",
+  revokeLabel: "Відкликати {{name}}",
   loadingLabel: "Завантаження клієнтів",
   loadingMoreLabel: "Завантаження наступних",
   edrpouBadge: "ЄДРПОУ {{edrpou}}",
@@ -647,6 +688,18 @@ const uk: CustomersCopy = {
     few: "{{count}} клієнти",
     many: "{{count}} клієнтів",
   },
+  inviteStatus: {
+    pending: "Активне",
+    revoked: "Відкликане",
+    expired: "Протерміноване",
+    exhausted: "Вичерпане",
+  },
+  inviteUses: "Використано {{used}} з {{max}}",
+  inviteUsesUnlimited: "Використано {{used}} (без ліміту)",
+  inviteExpires: "Діє до {{date}}",
+  inviteExpired: "Завершилось {{date}}",
+  inviteUntitledReusable: "Спільне посилання",
+  inviteUntitledPersonal: "Запрошення",
   empty: {
     offlineTitle: "Немає зʼєднання",
     offlineDescription:
@@ -679,10 +732,10 @@ const uk: CustomersCopy = {
     counterpartiesSearchTitle: "Контрагентів не знайдено",
     counterpartiesSearchDescription: "Спробуйте інший запит.",
     counterpartiesCreate: "Новий контрагент",
-  },
-  comingSoon: {
-    invitationsTitle: "Незабаром",
-    invitationsDescription: "Запрошення з’являться в окремому оновленні.",
+    invitationsTitle: "Запрошень ще немає",
+    invitationsDescription:
+      "Посилання для клієнтів. Після прийняття з’явиться клієнт у CRM з групою та прайсом.",
+    invitationsCreate: "Нове запрошення",
   },
   confirm: {
     archiveTitle: "Архівувати клієнта?",
@@ -706,6 +759,10 @@ const uk: CustomersCopy = {
     deleteCounterpartyDescription:
       "Контрагента буде видалено назавжди. Клієнт (якщо був прив’язаний) залишиться. Цю дію не можна скасувати.",
     deleteCounterpartyConfirm: "Видалити контрагента",
+    revokeInviteTitle: "Відкликати запрошення?",
+    revokeInviteDescription:
+      "Посилання перестане працювати, але запис залишиться в історії запрошень.",
+    revokeInviteConfirm: "Відкликати",
     cancel: "Скасувати",
   },
   mutation: {
@@ -720,6 +777,9 @@ const uk: CustomersCopy = {
     groupEditTitle: "Редагувати групу",
     counterpartyCreateTitle: "Новий контрагент",
     counterpartyEditTitle: "Редагувати контрагента",
+    invitationCreateTitle: "Нове запрошення",
+    invitationCreateDescription:
+      "Форма створення з’явиться в наступному оновленні. Тут можна переглядати та відкликати запрошення.",
   },
   form: {
     contactsTitle: "Контакти",

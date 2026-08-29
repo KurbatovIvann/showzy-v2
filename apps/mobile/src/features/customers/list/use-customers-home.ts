@@ -6,15 +6,18 @@ import { customersCopy } from "../../../i18n/customers";
 import { detectLocale } from "../../../i18n/locale";
 import { useCounterpartiesList } from "../counterparties/use-counterparties-list";
 import { useGroupsList } from "../groups/use-groups-list";
+import { useInvitationsList } from "../invitations/use-invitations-list";
 import {
   counterpartyCreateHref,
   customerCreateHref,
   groupCreateHref,
+  inviteCreateHref,
 } from "../shared/customer-hrefs";
 import {
   canCreateCustomers,
   canDeleteCustomers,
   canEditCustomers,
+  canInviteCustomers,
 } from "../shared/customer-permissions";
 import {
   canShowCustomersCreate,
@@ -35,6 +38,7 @@ export function useCustomersHome() {
   const canCreateRole = canCreateCustomers(membership.role);
   const canEdit = canEditCustomers(membership.role);
   const canDelete = canDeleteCustomers(membership.role);
+  const canInvite = canInviteCustomers(membership.role);
   const lookups = useCustomerLookups();
 
   const clients = useClientsList({
@@ -60,17 +64,27 @@ export function useCustomersHome() {
     canCreate: canEdit,
     canEdit,
   });
+  const invitations = useInvitationsList({
+    copy,
+    locale,
+    groupsById: lookups.groupsById,
+    priceListsById: lookups.priceListsById,
+    canCreate: canInvite,
+    canInvite,
+  });
 
   const canCreate = canShowCustomersCreate({
     tab,
     canCreateCustomers: canCreateRole,
     canEditCustomers: canEdit,
+    canInviteCustomers: canInvite,
   });
   const createKind = customersCreateKind(tab);
   const createLabel = customersCreateLabel(createKind, {
     client: copy.createClientLabel,
     group: copy.createGroupLabel,
     counterparty: copy.createCounterpartyLabel,
+    invite: copy.createInviteLabel,
   });
 
   return {
@@ -89,11 +103,19 @@ export function useCustomersHome() {
       if (createKind === "counterparty") {
         router.push(counterpartyCreateHref());
       }
+      if (createKind === "invite") {
+        router.push(inviteCreateHref());
+      }
     },
-    banner: clients.banner ?? groups.banner ?? counterparties.banner,
+    banner:
+      clients.banner ??
+      groups.banner ??
+      counterparties.banner ??
+      invitations.banner,
     clients,
     groups,
     counterparties,
+    invitations,
   };
 }
 

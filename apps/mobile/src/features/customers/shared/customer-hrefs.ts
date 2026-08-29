@@ -24,3 +24,7 @@ export function counterpartyCreateHref(customerId?: string): string {
 export function counterpartyEditorHref(counterpartyId: string): string {
   return `/customers/counterparties/${counterpartyId}/edit`;
 }
+
+export function inviteCreateHref(): string {
+  return "/customers/invitations/new";
+}

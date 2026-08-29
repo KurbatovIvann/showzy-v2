@@ -17,6 +17,14 @@ export function canCreateCustomers(role: CompanyRole): boolean {
 }
 
 /**
+ * `customers:invite` — hides invitations-tab create and row revoke.
+ * Seed: owner implicit, admin+manager hold the key, employee does not.
+ */
+export function canInviteCustomers(role: CompanyRole): boolean {
+  return role !== "employee";
+}
+
+/**
  * `customers:edit` — hides archive/restore, client edit, group create,
  * group edit, group delete, and counterparty create/edit/delete.
  */

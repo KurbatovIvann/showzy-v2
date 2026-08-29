@@ -12,11 +12,11 @@ import {
 } from "./customers-home.presenter";
 
 describe("customers home tabs", () => {
-  it("treats invitations as unimplemented and counterparties as live", () => {
+  it("treats invitations as live alongside the other CRM tabs", () => {
     expect(isCustomersTabImplemented("clients")).toBe(true);
     expect(isCustomersTabImplemented("groups")).toBe(true);
     expect(isCustomersTabImplemented("counterparties")).toBe(true);
-    expect(isCustomersTabImplemented("invitations")).toBe(false);
+    expect(isCustomersTabImplemented("invitations")).toBe(true);
   });
 
   it("lists tab options in canvas order", () => {
@@ -36,12 +36,13 @@ describe("customers home tabs", () => {
     expect(indexOfTabKey(tabs, "invitations")).toBe(3);
   });
 
-  it("hides + without create (clients) or edit (groups/counterparties), and on invitations", () => {
+  it("hides + without create (clients), edit (groups/counterparties), or invite (invitations)", () => {
     expect(
       canShowCustomersCreate({
         tab: "clients",
         canCreateCustomers: true,
         canEditCustomers: true,
+        canInviteCustomers: true,
       }),
     ).toBe(true);
     expect(
@@ -49,6 +50,7 @@ describe("customers home tabs", () => {
         tab: "clients",
         canCreateCustomers: false,
         canEditCustomers: true,
+        canInviteCustomers: true,
       }),
     ).toBe(false);
     expect(
@@ -56,6 +58,7 @@ describe("customers home tabs", () => {
         tab: "groups",
         canCreateCustomers: true,
         canEditCustomers: false,
+        canInviteCustomers: true,
       }),
     ).toBe(false);
     expect(
@@ -63,6 +66,7 @@ describe("customers home tabs", () => {
         tab: "counterparties",
         canCreateCustomers: true,
         canEditCustomers: true,
+        canInviteCustomers: true,
       }),
     ).toBe(true);
     expect(
@@ -70,6 +74,7 @@ describe("customers home tabs", () => {
         tab: "counterparties",
         canCreateCustomers: true,
         canEditCustomers: false,
+        canInviteCustomers: true,
       }),
     ).toBe(false);
     expect(
@@ -77,22 +82,33 @@ describe("customers home tabs", () => {
         tab: "invitations",
         canCreateCustomers: true,
         canEditCustomers: true,
+        canInviteCustomers: true,
+      }),
+    ).toBe(true);
+    expect(
+      canShowCustomersCreate({
+        tab: "invitations",
+        canCreateCustomers: true,
+        canEditCustomers: true,
+        canInviteCustomers: false,
       }),
     ).toBe(false);
     expect(customersCreateKind("clients")).toBe("client");
     expect(customersCreateKind("groups")).toBe("group");
     expect(customersCreateKind("counterparties")).toBe("counterparty");
-    expect(customersCreateKind("invitations")).toBeNull();
+    expect(customersCreateKind("invitations")).toBe("invite");
     const labels = {
       client: "New client",
       group: "New group",
       counterparty: "New counterparty",
+      invite: "New invitation",
     };
     expect(customersCreateLabel("client", labels)).toBe("New client");
     expect(customersCreateLabel("group", labels)).toBe("New group");
     expect(customersCreateLabel("counterparty", labels)).toBe(
       "New counterparty",
     );
+    expect(customersCreateLabel("invite", labels)).toBe("New invitation");
     expect(customersCreateLabel(null, labels)).toBe("");
     expect(customersCreateLabel(null, labels)).not.toBe(labels.client);
   });

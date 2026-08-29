@@ -21,13 +21,14 @@ export function customersTabOptions(labels: {
 }
 
 export function isCustomersTabImplemented(tab: CustomersTab): boolean {
-  return tab === "clients" || tab === "groups" || tab === "counterparties";
+  return CUSTOMERS_TABS.includes(tab);
 }
 
 export function canShowCustomersCreate(args: {
   readonly tab: CustomersTab;
   readonly canCreateCustomers: boolean;
   readonly canEditCustomers: boolean;
+  readonly canInviteCustomers: boolean;
 }): boolean {
   if (args.tab === "clients") {
     return args.canCreateCustomers;
@@ -35,14 +36,13 @@ export function canShowCustomersCreate(args: {
   if (args.tab === "groups" || args.tab === "counterparties") {
     return args.canEditCustomers;
   }
-  return false;
+  return args.canInviteCustomers;
 }
 
-export type CustomersCreateKind = "client" | "group" | "counterparty";
+export type CustomersCreateKind =
+  "client" | "group" | "counterparty" | "invite";
 
-export function customersCreateKind(
-  tab: CustomersTab,
-): CustomersCreateKind | null {
+export function customersCreateKind(tab: CustomersTab): CustomersCreateKind {
   if (tab === "clients") {
     return "client";
   }
@@ -52,7 +52,7 @@ export function customersCreateKind(
   if (tab === "counterparties") {
     return "counterparty";
   }
-  return null;
+  return "invite";
 }
 
 export function customersCreateLabel(
@@ -61,6 +61,7 @@ export function customersCreateLabel(
     readonly client: string;
     readonly group: string;
     readonly counterparty: string;
+    readonly invite: string;
   },
 ): string {
   switch (kind) {
@@ -70,8 +71,9 @@ export function customersCreateLabel(
       return labels.group;
     case "counterparty":
       return labels.counterparty;
+    case "invite":
+      return labels.invite;
     case null:
-      // Invitations hides +; do not reuse the client label.
       return "";
   }
 }

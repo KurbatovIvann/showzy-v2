@@ -1,5 +1,5 @@
 /**
- * Shared list helpers for clients, groups, and counterparties.
+ * Shared list helpers for clients, groups, counterparties, and invitations.
  * Lives in `shared/` so surface folders do not import each other.
  */
 
