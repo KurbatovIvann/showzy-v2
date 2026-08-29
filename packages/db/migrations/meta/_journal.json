@@ -197,6 +197,13 @@
       "when": 1788004401344,
       "tag": "0027_parallel_abomination",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1788015593181,
+      "tag": "0028_marvelous_giant_man",
+      "breakpoints": true
     }
   ]
 }
