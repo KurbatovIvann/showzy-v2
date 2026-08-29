@@ -38,8 +38,6 @@ export function OptionSelectSheet(props: {
 
   const filtered = filterOptionSelectItems(props.options, query);
   const emptyOptionLabel = props.emptyOptionLabel;
-  const showEmptyOption =
-    emptyOptionLabel != null && emptyOptionLabel.length > 0;
 
   return (
     <Sheet
@@ -58,7 +56,7 @@ export function OptionSelectSheet(props: {
         maxLength={props.searchMaxLength}
       />
       <View style={styles.list}>
-        {showEmptyOption && emptyOptionLabel !== undefined ? (
+        {emptyOptionLabel != null && emptyOptionLabel.length > 0 ? (
           <OptionRow
             label={emptyOptionLabel}
             selected={props.value === null}
