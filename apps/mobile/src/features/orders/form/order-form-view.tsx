@@ -160,9 +160,7 @@ function OrderFormReady(props: { readonly model: OrderFormModel }) {
       keyboardShouldPersistTaps="handled"
       bottomOffset={theme.spacing.lg}
     >
-      {model.banner !== null ? (
-        <Banner message={model.banner} />
-      ) : null}
+      {model.banner !== null ? <Banner message={model.banner} /> : null}
       <EditorSection title={form.itemsTitle}>
         {model.items.map((item, index) => (
           <OrderLineCard
