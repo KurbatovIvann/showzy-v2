@@ -1,0 +1,33 @@
+{
+  "name": "@showzy/documents",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Documents module: staff issue of invoices and delivery notes from order snapshots, with tenant numbering and requisite snapshots. This package exports actions and events only.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./contract": "./src/index.contract.ts",
+    "./suite-coverage": "./src/suite-coverage.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@showzy/companies": "workspace:*",
+    "@showzy/core": "workspace:*",
+    "@showzy/customers": "workspace:*",
+    "@showzy/db": "workspace:*",
+    "@showzy/orders": "workspace:*",
+    "drizzle-orm": "^0.45.2",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@showzy/tooling": "workspace:*",
+    "@types/node": "^22.20.1",
+    "eslint": "^10.8.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
+  }
+}

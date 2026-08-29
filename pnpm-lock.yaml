@@ -65,6 +65,9 @@ importers:
       '@showzy/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@showzy/documents':
+        specifier: workspace:*
+        version: link:../../packages/modules/documents
       '@showzy/files':
         specifier: workspace:*
         version: link:../../packages/modules/files
@@ -432,6 +435,9 @@ importers:
       '@showzy/customers':
         specifier: workspace:*
         version: link:../modules/customers
+      '@showzy/documents':
+        specifier: workspace:*
+        version: link:../modules/documents
       '@showzy/files':
         specifier: workspace:*
         version: link:../modules/files
@@ -660,6 +666,46 @@ importers:
       '@showzy/validation':
         specifier: workspace:*
         version: link:../../validation
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.23.0)(kysely@0.29.5)(pg@8.23.0)
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@showzy/tooling':
+        specifier: workspace:*
+        version: link:../../tooling
+      '@types/node':
+        specifier: ^22.20.1
+        version: 22.20.1
+      eslint:
+        specifier: ^10.8.1
+        version: 10.8.1(jiti@2.7.0)
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@22.20.1)(vite@8.2.1(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0))
+
+  packages/modules/documents:
+    dependencies:
+      '@showzy/companies':
+        specifier: workspace:*
+        version: link:../companies
+      '@showzy/core':
+        specifier: workspace:*
+        version: link:../../core
+      '@showzy/customers':
+        specifier: workspace:*
+        version: link:../customers
+      '@showzy/db':
+        specifier: workspace:*
+        version: link:../../db
+      '@showzy/orders':
+        specifier: workspace:*
+        version: link:../orders
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.23.0)(kysely@0.29.5)(pg@8.23.0)
@@ -9008,7 +9054,9 @@ snapshots:
       metro-runtime: 0.84.4
     transitivePeerDependencies:
       - '@babel/core'
+      - bufferutil
       - supports-color
+      - utf-8-validate
 
   '@react-native/normalize-colors@0.74.89': {}
 

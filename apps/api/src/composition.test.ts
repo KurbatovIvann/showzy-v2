@@ -10,6 +10,7 @@ import { catalogSuiteCoverage } from "@showzy/catalog/suite-coverage";
 import { chatSuiteCoverage } from "@showzy/chat/suite-coverage";
 import { companiesSuiteCoverage } from "@showzy/companies/suite-coverage";
 import { customersSuiteCoverage } from "@showzy/customers/suite-coverage";
+import { documentsSuiteCoverage } from "@showzy/documents/suite-coverage";
 import { filesSuiteCoverage } from "@showzy/files/suite-coverage";
 import { invitesSuiteCoverage } from "@showzy/invites/suite-coverage";
 import { ordersSuiteCoverage } from "@showzy/orders/suite-coverage";
@@ -81,11 +82,40 @@ describe("composition root identity", () => {
         chatSuiteCoverage,
         companiesSuiteCoverage,
         customersSuiteCoverage,
+        documentsSuiteCoverage,
         filesSuiteCoverage,
         invitesSuiteCoverage,
         ordersSuiteCoverage,
         pricingSuiteCoverage,
       ]),
+    );
+  });
+
+  it("documents.createFromOrder nested reads omit companies.get", () => {
+    const source = readFileSync(
+      join(import.meta.dirname, "composition.ts"),
+      "utf8",
+    );
+    const edges: Array<{ caller: string; callee: string }> = [];
+    const edgeRe = /caller:\s*"([^"]+)",\s*\n\s*callee:\s*"([^"]+)"/g;
+    for (const match of source.matchAll(edgeRe)) {
+      const caller = match[1];
+      const callee = match[2];
+      if (caller !== undefined && callee !== undefined) {
+        edges.push({ caller, callee });
+      }
+    }
+    const fromCreate = edges.filter(
+      (edge) => edge.caller === "documents.createFromOrder",
+    );
+    expect(fromCreate.map((edge) => edge.callee).toSorted()).toEqual([
+      "companies.getSellerFacts",
+      "customers.getCounterparty",
+      "customers.getCustomer",
+      "orders.get",
+    ]);
+    expect(fromCreate.map((edge) => edge.callee)).not.toContain(
+      "companies.get",
     );
   });
 });

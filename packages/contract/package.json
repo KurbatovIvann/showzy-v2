@@ -25,6 +25,7 @@
     "@showzy/companies": "workspace:*",
     "@showzy/core": "workspace:*",
     "@showzy/customers": "workspace:*",
+    "@showzy/documents": "workspace:*",
     "@showzy/files": "workspace:*",
     "@showzy/invites": "workspace:*",
     "@showzy/orders": "workspace:*",
