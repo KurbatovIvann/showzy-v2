@@ -42,7 +42,13 @@ import {
   productPickerSelectedVariantIds,
   reduceProductPicker,
 } from "./product-picker";
-import type { ProductSelectRow } from "./product-select";
+import {
+  productPickerParentSelectedNames,
+  productPickerParentSubtitle,
+  type ProductSelectLevel,
+  type ProductSelectRow,
+  type ProductSelectVariantRow,
+} from "./product-select";
 import { useOrderFormLookups } from "./use-order-form-lookups";
 import { useOrderSave } from "./use-order-save";
 import { useUnsavedOrderGuard } from "./use-unsaved-order-guard";
@@ -191,18 +197,33 @@ export function useOrderForm() {
     lookups.productRows.map((row) => {
       const thumbnail =
         lookups.thumbnailsByProductId.get(row.id) ?? EMPTY_THUMBNAIL;
+      const selectedNames = productPickerParentSelectedNames(picks, row.id);
       return {
         id: row.id,
         name: row.name,
-        variantsLabel:
-          row.variantCount === 0
-            ? formCopy.variantsNone
-            : itemCountLabel(row.variantCount, locale, formCopy.variants),
+        hasVariants: row.variantCount > 0,
+        variantsLabel: productPickerParentSubtitle({
+          variantCount: row.variantCount,
+          selectedNames,
+          noneLabel: formCopy.variantsNone,
+          countLabel: itemCountLabel(
+            row.variantCount,
+            locale,
+            formCopy.variants,
+          ),
+          selectedLabel: formCopy.variantsSelected,
+        }),
         thumbnailFileId: thumbnail.fileId,
         thumbnailUrl: thumbnail.url,
         thumbnailFailed: thumbnail.failed,
       };
     });
+
+  const variantSelectRows: readonly ProductSelectVariantRow[] =
+    lookups.variantOptions.map((option) => ({
+      id: option.id,
+      name: option.name,
+    }));
 
   const productsValue =
     items.length === 0
@@ -285,6 +306,10 @@ export function useOrderForm() {
     (row) => row.id === customerId,
   );
   const customerPhone = selectedCustomer?.description;
+  const productPickerLevel: ProductSelectLevel =
+    picker.kind === "variants" ? "variants" : "products";
+  const productPickerVariantsTitle =
+    picker.kind === "variants" ? picker.productName : "";
 
   return {
     copy,
@@ -307,11 +332,12 @@ export function useOrderForm() {
     customerSheetOpen,
     productSheetOpen: productPickerOpen(picker),
     productPickerSessionOpen: productPickerOpen(picker),
-    variantSheetOpen: picker.kind === "variants",
+    productPickerLevel,
+    productPickerVariantsTitle,
     customerOptions: lookups.customerOptions,
     productSelectRows,
-    variantOptions: lookups.variantOptions,
-    variantsReady: lookups.variantsReady,
+    variantSelectRows,
+    variantsStatus: lookups.variantsStatus,
     selectedCustomerId: customerId.length > 0 ? customerId : null,
     selectedProductIds,
     selectedVariantIds: productPickerSelectedVariantIds(picker),
@@ -334,7 +360,7 @@ export function useOrderForm() {
     closeProductSheet: () => {
       dispatchPicker({ type: "close" });
     },
-    closeVariantSheet: () => {
+    backFromVariants: () => {
       dispatchPicker({ type: "closeVariants" });
     },
     pickCustomer,

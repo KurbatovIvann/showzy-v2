@@ -7,7 +7,7 @@ import {
 } from "react";
 import { Modal, Pressable, Text, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
-import { XIcon } from "lucide-react-native";
+import { ChevronLeftIcon, XIcon } from "lucide-react-native";
 import Animated, {
   Easing,
   interpolate,
@@ -32,6 +32,11 @@ const EASE_SHEET = Easing.bezier(0.32, 0.72, 0, 1);
  * open/close. Drag-to-dismiss is omitted — the close control and Android
  * back (`onRequestClose`) dismiss it.
  */
+export type SheetBack = {
+  readonly onPress: () => void;
+  readonly accessibilityLabel: string;
+};
+
 export function Sheet(props: {
   readonly visible: boolean;
   readonly title: string;
@@ -41,6 +46,7 @@ export function Sheet(props: {
   readonly footer?: ReactNode;
   readonly fullHeight?: boolean;
   readonly closeAccessibilityLabel?: string;
+  readonly back?: SheetBack | undefined;
   readonly onHidden?: () => void;
 }) {
   const insets = useSafeAreaInsets();
@@ -180,7 +186,27 @@ export function Sheet(props: {
         >
           <View style={styles.grabber} />
           <View style={styles.header}>
-            <Text accessibilityRole="header" style={styles.title}>
+            {props.back !== undefined ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={props.back.accessibilityLabel}
+                onPress={props.back.onPress}
+                style={({ pressed }) => [
+                  styles.close,
+                  pressed ? styles.pressed : null,
+                ]}
+              >
+                <ChevronLeftIcon
+                  size={theme.iconSize.sm}
+                  color={theme.colors.mutedForeground}
+                />
+              </Pressable>
+            ) : null}
+            <Text
+              accessibilityRole="header"
+              numberOfLines={1}
+              style={styles.title}
+            >
               {props.title}
             </Text>
             {closeLabel !== null ? (

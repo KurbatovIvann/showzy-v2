@@ -16,6 +16,7 @@ import {
 } from "../shared/order-thumbnails";
 import { useOrderThumbnails } from "../shared/use-order-thumbnails";
 import { flattenPages, optionSelectItems } from "./option-select";
+import type { ProductVariantsLoadStatus } from "./product-select";
 import { useDrainInfinitePages } from "./use-drain-pages";
 
 export type OrderFormProductRow = {
@@ -34,7 +35,7 @@ export function useOrderFormLookups(args: {
   readonly customerOptions: ReturnType<typeof optionSelectItems>;
   readonly productRows: readonly OrderFormProductRow[];
   readonly variantOptions: ReturnType<typeof optionSelectItems>;
-  readonly variantsReady: boolean;
+  readonly variantsStatus: ProductVariantsLoadStatus;
   readonly thumbnailsByProductId: ReadonlyMap<string, OrderFormThumbnail>;
 } {
   const apiClient = useApiClient();
@@ -152,8 +153,14 @@ export function useOrderFormLookups(args: {
     customerOptions,
     productRows,
     variantOptions,
-    variantsReady:
-      args.variantProductId === null || productQuery.status === "success",
+    variantsStatus:
+      args.variantProductId === null
+        ? "idle"
+        : productQuery.status === "pending"
+          ? "loading"
+          : productQuery.status === "error"
+            ? "error"
+            : "ready",
     thumbnailsByProductId,
   };
 }

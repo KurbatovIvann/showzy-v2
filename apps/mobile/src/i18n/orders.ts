@@ -74,7 +74,10 @@ export type OrdersCreateCopy = {
   readonly productSheetTitle: string;
   readonly productSearchPlaceholder: string;
   readonly productSearchLabel: string;
-  readonly variantSheetTitle: string;
+  readonly variantsBackLabel: string;
+  readonly variantsLoading: string;
+  readonly variantsError: string;
+  readonly variantsSelected: string;
   readonly productSheetDone: string;
   readonly thumbnailUnavailable: string;
   readonly qtyDecrease: string;
@@ -230,7 +233,10 @@ const en: OrdersCopy = {
     productSheetTitle: "Choose products",
     productSearchPlaceholder: "Search products…",
     productSearchLabel: "Search products",
-    variantSheetTitle: "Choose a variant",
+    variantsBackLabel: "Back to products",
+    variantsLoading: "Loading variants…",
+    variantsError: "Could not load variants. Try again.",
+    variantsSelected: "{{count}} selected · {{names}}",
     productSheetDone: "Done · {{count}}",
     thumbnailUnavailable: "Photo unavailable",
     qtyDecrease: "Decrease quantity",
@@ -359,7 +365,10 @@ const uk: OrdersCopy = {
     productSheetTitle: "Оберіть товари",
     productSearchPlaceholder: "Пошук товарів…",
     productSearchLabel: "Пошук товарів",
-    variantSheetTitle: "Оберіть варіант",
+    variantsBackLabel: "Назад до товарів",
+    variantsLoading: "Завантажуємо варіанти…",
+    variantsError: "Не вдалося завантажити варіанти. Спробуйте ще раз.",
+    variantsSelected: "{{count}} вибрано · {{names}}",
     productSheetDone: "Готово · {{count}}",
     thumbnailUnavailable: "Фото недоступне",
     qtyDecrease: "Зменшити кількість",

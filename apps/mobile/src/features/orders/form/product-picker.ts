@@ -1,7 +1,9 @@
 /**
- * Product picker session (SHO-242). Confirm-on-Готово: toggles stay in
- * the in-sheet draft; X discards; Готово appends lines. Sheet chrome is
- * a pure reducer — not XState, not RHF.
+ * Product picker session (SHO-242 / SHO-249). Confirm-on-Готово: toggles
+ * stay in the in-sheet draft; X discards; back from variants keeps
+ * picks; Готово appends lines. Sheet chrome is a pure reducer — not
+ * XState, not RHF. Variants are a second level of the same session,
+ * not a second Modal.
  */
 import {
   addOrderLine,
@@ -70,20 +72,50 @@ export function productPickerSelectedIds(
   return ids;
 }
 
-/** In-sheet variant ids for the product whose variant overlay is open. */
+/** In-sheet variant ids for the product whose variant list is open. */
 export function productPickerSelectedVariantIds(
   state: ProductPickerState,
 ): ReadonlySet<string> {
   if (state.kind !== "variants") {
     return new Set();
   }
+  return productPickerVariantIdsForProduct(state.picks, state.productId);
+}
+
+/** Variant picks for one product — used after back to mark the parent row. */
+export function productPickerVariantPicksForProduct(
+  picks: readonly ProductPickerPick[],
+  productId: string,
+): readonly ProductPickerPick[] {
+  return picks.filter(
+    (pick) => pick.productId === productId && pick.variantId !== null,
+  );
+}
+
+export function productPickerVariantIdsForProduct(
+  picks: readonly ProductPickerPick[],
+  productId: string,
+): ReadonlySet<string> {
   const ids = new Set<string>();
-  for (const pick of state.picks) {
-    if (pick.productId === state.productId && pick.variantId !== null) {
+  for (const pick of productPickerVariantPicksForProduct(picks, productId)) {
+    if (pick.variantId !== null) {
       ids.add(pick.variantId);
     }
   }
   return ids;
+}
+
+export function productPickerSelectedVariantNames(
+  picks: readonly ProductPickerPick[],
+  productId: string,
+): readonly string[] {
+  const names: string[] = [];
+  for (const pick of productPickerVariantPicksForProduct(picks, productId)) {
+    if (pick.variantName != null && pick.variantName.length > 0) {
+      names.push(pick.variantName);
+    }
+  }
+  return names;
 }
 
 function identityOf(pick: ProductPickerPick): string {
@@ -154,7 +186,9 @@ export function reduceProductPicker(
         return state;
       }
       return {
-        kind: "products",
+        kind: "variants",
+        productId: state.productId,
+        productName: state.productName,
         picks: togglePick(state.picks, {
           productId: state.productId,
           variantId: event.variantId,

@@ -118,8 +118,16 @@ describe("orders copy", () => {
     expect(uk.create.commentLabel).toBe("Для внутрішнього використання");
     expect(uk.create.submitCreate).toBe("Створити");
     expect(uk.create.productSheetDone).toBe("Готово · {{count}}");
+    expect(uk.create.variantsBackLabel).toBe("Назад до товарів");
+    expect(uk.create.variantsLoading).toBe("Завантажуємо варіанти…");
+    expect(uk.create.variantsError).toBe(
+      "Не вдалося завантажити варіанти. Спробуйте ще раз.",
+    );
+    expect(uk.create.variantsSelected).toBe("{{count}} вибрано · {{names}}");
     expect(uk.create.thumbnailUnavailable).toBe("Фото недоступне");
     expect(en.create.productSheetDone).toBe("Done · {{count}}");
+    expect(en.create.variantsBackLabel).toBe("Back to products");
+    expect(en.create.variantsSelected).toBe("{{count}} selected · {{names}}");
     expect(uk.create.leaveTitle).toBe("Вийти без збереження?");
     expect(uk.create.errors.offline.includes("\u02BC")).toBe(true);
     expect(uk.create.errors.network.includes("\u02BC")).toBe(true);
@@ -145,6 +153,9 @@ describe("orders copy", () => {
     expect(ordersCopy("en").create.addProductsValue).toContain("{{count}}");
     expect(ordersCopy("uk").create.productSheetDone).toContain("{{count}}");
     expect(ordersCopy("en").create.productSheetDone).toContain("{{count}}");
+    expect(ordersCopy("uk").create.variantsSelected).toContain("{{count}}");
+    expect(ordersCopy("uk").create.variantsSelected).toContain("{{names}}");
+    expect(ordersCopy("en").create.variantsSelected).toContain("{{names}}");
     expect(ordersCopy("uk").create.removeLine).toContain("{{name}}");
     expect(ordersCopy("en").create.removeLine).toContain("{{name}}");
   });

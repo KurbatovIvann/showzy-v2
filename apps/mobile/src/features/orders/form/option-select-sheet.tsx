@@ -10,8 +10,9 @@ import {
 } from "./option-select";
 
 /**
- * Canvas picker chrome (customers `ClientSelectSheet` / variant single
- * select). Stays single-select. Products use `ProductSelectSheet`.
+ * Canvas picker chrome (customers `ClientSelectSheet`). Stays
+ * single-select. Products and variants use `ProductSelectSheet` so
+ * variant drill-down never stacks a second Modal.
  * `footer={null}` is content mode without confirm-action chrome.
  */
 export function OptionSelectSheet(props: {
