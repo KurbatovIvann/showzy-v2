@@ -144,11 +144,13 @@ class FakeDocument extends FakeNode {
   }
 }
 
-class HTMLIFrameElement {}
+class FakeHTMLIFrameElement {
+  readonly nodeName = "IFRAME";
+}
 
 Object.assign(globalThis, {
   IS_REACT_ACT_ENVIRONMENT: true,
-  HTMLIFrameElement,
+  HTMLIFrameElement: FakeHTMLIFrameElement,
   document: new FakeDocument(),
   window: globalThis,
 });
