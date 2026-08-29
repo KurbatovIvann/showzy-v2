@@ -28,5 +28,6 @@ export * from "./schema/companies.js";
 export * from "./schema/customers.js";
 export * from "./schema/files.js";
 export * from "./schema/foundation.js";
+export * from "./schema/invites.js";
 export * from "./schema/orders.js";
 export * from "./schema/pricing.js";
