@@ -38,6 +38,8 @@ export function ProductsListView(model: ProductsListModel) {
         variantsLabel={item.variantsLabel}
         thumbnailFileId={item.thumbnailFileId}
         thumbnailUrl={item.thumbnailUrl}
+        thumbnailFailed={item.thumbnailFailed}
+        thumbnailFailedLabel={copy.thumbnailUnavailable}
         onPress={openProduct}
       />
     ),

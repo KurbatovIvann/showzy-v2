@@ -38,6 +38,15 @@ function actionNames(
 }
 
 describe("composition root identity", () => {
+  it("index.ts warns when the S3 signing host is loopback", () => {
+    const indexSource = readFileSync(
+      join(import.meta.dirname, "index.ts"),
+      "utf8",
+    );
+    expect(indexSource).toContain("s3DeviceSigningWarning");
+    expect(indexSource).toContain("S3_LOOPBACK_SIGNING_WARNING");
+  });
+
   it("boot.ts uses createActionRegistry from this module", () => {
     const bootSource = readFileSync(
       join(import.meta.dirname, "boot.ts"),

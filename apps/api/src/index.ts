@@ -3,12 +3,21 @@
  * environment crashes before anything listens.
  */
 import { serve } from "@hono/node-server";
-import { createProcessLogger, loadServerConfig } from "@showzy/config";
+import {
+  createProcessLogger,
+  loadServerConfig,
+  s3DeviceSigningWarning,
+  S3_LOOPBACK_SIGNING_WARNING,
+} from "@showzy/config";
 
 import { bootApi } from "./boot.js";
 
 const config = loadServerConfig();
 const logger = createProcessLogger({ name: "api-boot" });
+const signingWarning = s3DeviceSigningWarning(config);
+if (signingWarning !== null) {
+  logger.warn(signingWarning, S3_LOOPBACK_SIGNING_WARNING);
+}
 const booted = await bootApi(config);
 
 const server = serve(

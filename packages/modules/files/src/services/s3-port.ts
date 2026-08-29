@@ -269,7 +269,6 @@ export function createFilesObjectStore(
 
     async signGet(input) {
       const expiresAt = new Date(Date.now() + SIGNED_URL_TTL_SEC * 1000);
-      const filename = downloadFilename(input.mimeType);
       try {
         const url = await getSignedUrl(
           signClient,
@@ -277,7 +276,9 @@ export function createFilesObjectStore(
             Bucket: bucket,
             Key: input.key,
             ResponseContentType: input.mimeType,
-            ResponseContentDisposition: `attachment; filename="${filename}"`,
+            ResponseContentDisposition: imageDownloadDisposition(
+              input.mimeType,
+            ),
           }),
           { expiresIn: SIGNED_URL_TTL_SEC },
         );
@@ -402,6 +403,14 @@ function downloadFilename(mimeType: FileMimeType): string {
     case "image/webp":
       return "catalog.webp";
   }
+}
+
+/**
+ * Catalog files are images. `inline` lets expo-image render the object.
+ * Do not switch a non-image purpose to inline without a contract note.
+ */
+function imageDownloadDisposition(mimeType: FileMimeType): string {
+  return `inline; filename="${downloadFilename(mimeType)}"`;
 }
 
 function isMissingObject(error: unknown): boolean {

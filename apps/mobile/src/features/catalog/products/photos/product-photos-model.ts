@@ -466,6 +466,29 @@ export function resolvePhotoBanner(
   return copy.errors[key];
 }
 
+/**
+ * Photo-strip banner precedence: local session, then commit mutation,
+ * then `files.getDownloadUrls` (never treat a download error as success
+ * with empty preview URLs).
+ */
+export function resolveProductPhotosBannerKey(args: {
+  readonly localBanner: PhotoBannerKey | null;
+  readonly mutationFailure: QueryFailureKind | null;
+  readonly downloadFailure: QueryFailureKind | null;
+}): PhotoBannerKey | null {
+  if (args.localBanner !== null) {
+    return args.localBanner;
+  }
+  const mutationBanner = mapPhotoFailure(args.mutationFailure);
+  if (mutationBanner !== null) {
+    return mutationBanner;
+  }
+  if (args.mutationFailure !== null) {
+    return "commit";
+  }
+  return mapPhotoFailure(args.downloadFailure);
+}
+
 export function catalogImageStrategy(
   mimeType: string | undefined,
   fileName: string | undefined,

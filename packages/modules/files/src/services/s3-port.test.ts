@@ -109,6 +109,9 @@ describe("createFilesObjectStore signed URL host", () => {
       expect(new URL(got.url).origin).toBe("http://192.168.0.106:3900");
       expect(put.url).not.toContain("127.0.0.1");
       expect(got.url).not.toContain("127.0.0.1");
+      const decodedGet = decodeURIComponent(got.url);
+      expect(decodedGet).toMatch(/response-content-disposition=inline/i);
+      expect(decodedGet).toMatch(/response-content-type=image\/jpeg/i);
     } finally {
       store.close();
     }

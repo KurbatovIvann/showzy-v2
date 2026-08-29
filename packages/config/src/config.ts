@@ -38,9 +38,10 @@ const envSchema = z.object({
   S3_ENDPOINT: z.url({ protocol: /^https?$/ }),
   /**
    * Host clients use for signed PUT/GET URLs. The API/worker keep talking
-   * to `S3_ENDPOINT`. Empty = same as `S3_ENDPOINT`. Set this to the
-   * machine LAN address (`http://192.168.x.x:3900`) when a physical
-   * device uploads to local Garage — phones cannot reach localhost.
+   * to `S3_ENDPOINT`. Empty = same as `S3_ENDPOINT` (device-break when
+   * that host is loopback). Set this to the machine LAN address
+   * (`http://192.168.x.x:3900`) when a physical device uploads to local
+   * Garage — phones cannot reach localhost. API boot warns on loopback.
    */
   S3_PUBLIC_ENDPOINT: z.url({ protocol: /^https?$/ }).optional(),
   S3_REGION: z.string().min(1).default("us-east-1"),
@@ -343,3 +344,46 @@ function mapOtpSms(parsed: ParsedEnv): ServerConfig["otpDelivery"]["sms"] {
   }
   return { transport: "stub", apiUrl: parsed.SMS_FLY_API_URL };
 }
+
+/** Host class of a signed-URL endpoint. Never log the URL itself. */
+export type S3SigningHostClass = "loopback" | "non-loopback";
+
+/**
+ * Classify the host clients will call for signed PUT/GET. Loopback
+ * (`localhost`, `127.0.0.0/8`, `::1`) is the local-dev device-break
+ * shape: phones on the LAN cannot reach the API machine's loopback.
+ */
+export function classifyS3SigningHost(endpoint: string): S3SigningHostClass {
+  let hostname: string;
+  try {
+    hostname = new URL(endpoint).hostname.toLowerCase();
+  } catch {
+    return "non-loopback";
+  }
+  if (hostname.startsWith("[") && hostname.endsWith("]")) {
+    hostname = hostname.slice(1, -1);
+  }
+  if (hostname === "localhost" || hostname === "::1") {
+    return "loopback";
+  }
+  if (hostname.startsWith("127.")) {
+    return "loopback";
+  }
+  return "non-loopback";
+}
+
+/**
+ * Boot-warning payload when signed URLs target loopback. Fields are host
+ * class only — no endpoint, credentials, or object keys.
+ */
+export function s3DeviceSigningWarning(
+  config: Pick<ServerConfig, "s3">,
+): { readonly s3SigningHostClass: "loopback" } | null {
+  if (classifyS3SigningHost(config.s3.publicEndpoint) !== "loopback") {
+    return null;
+  }
+  return { s3SigningHostClass: "loopback" };
+}
+
+export const S3_LOOPBACK_SIGNING_WARNING =
+  "S3 signing host is loopback; LAN devices cannot reach signed PUT/GET URLs. Set S3_PUBLIC_ENDPOINT to a LAN-reachable Garage host.";

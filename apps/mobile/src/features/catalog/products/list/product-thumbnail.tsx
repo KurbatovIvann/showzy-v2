@@ -1,30 +1,37 @@
 import { memo } from "react";
 import { View } from "react-native";
 import { Image } from "expo-image";
-import { PackageIcon } from "lucide-react-native";
+import { ImageOffIcon, PackageIcon } from "lucide-react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 /**
  * Signed thumbnail from a parent-batched `files.getDownloadUrls` query
- * (SHO-140). `fileId: null` or a missing URL (no image, loading, batch
- * failure, or a role that cannot read files) renders the package
- * placeholder without a request. `fileId` is only the expo-image recycle
+ * (SHO-140). `fileId: null` or a missing URL (no image, loading, or a
+ * role that cannot read files) renders the package placeholder without
+ * a request. A download-query failure is a distinct `failed` path — not
+ * success with an empty URL. `fileId` is only the expo-image recycle
  * key — the URL is never persisted.
  */
 export const ProductThumbnail = memo(function ProductThumbnail(props: {
   readonly fileId: string | null;
   readonly url: string | null;
+  readonly failed: boolean;
+  readonly failedLabel: string;
 }) {
   const { theme } = useUnistyles();
   const url = props.url;
+  const failed = props.failed;
+  const iconColor = theme.colors.mutedForeground;
 
   return (
-    <View style={styles.frame}>
-      {url === null ? (
-        <PackageIcon
-          size={theme.iconSize.md}
-          color={theme.colors.mutedForeground}
-        />
+    <View
+      style={styles.frame}
+      accessibilityLabel={failed ? props.failedLabel : undefined}
+    >
+      {failed ? (
+        <ImageOffIcon size={theme.iconSize.md} color={iconColor} />
+      ) : url === null ? (
+        <PackageIcon size={theme.iconSize.md} color={iconColor} />
       ) : (
         <Image
           source={{ uri: url }}

@@ -78,7 +78,13 @@ bundle time — change it without a new native build. A phone cannot reach
 (`http://192.168.x.x:3000`) in `apps/mobile/.env` when talking to a local
 API. Product photo PUT/GET URLs are signed against `S3_PUBLIC_ENDPOINT`
 (empty = `S3_ENDPOINT`); set that to `http://192.168.x.x:3900` so the
-phone can reach local Garage. Restart the API after changing it. If device
+phone can reach local Garage. Restart the API after changing it. Empty
+public endpoint + loopback `S3_ENDPOINT` is the device-break shape — the
+API logs a host-class warning (no URLs or secrets). HTTP Garage also
+needs the native ATS local-networking exception and Android cleartext
+on the **development** / local native binary
+(`apps/mobile/app.config.ts`; rebuild the dev client after changing
+those). Preview and production Android builds stay HTTPS-only. If device
 discovery fails, add `--tunnel`:
 
 ```bash

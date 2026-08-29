@@ -5,8 +5,12 @@ import { describe, expect, it } from "vitest";
 import {
   ConfigValidationError,
   ENV_SCHEMA_KEYS,
+  S3_LOOPBACK_SIGNING_WARNING,
+  classifyS3SigningHost,
   loadServerConfig,
+  s3DeviceSigningWarning,
 } from "./config.js";
+import { createProcessLogger } from "./logger.js";
 
 /** A fully specified, valid environment (mirrors `.env.example`). */
 function validEnv(): Record<string, string> {
@@ -233,6 +237,59 @@ describe("loadServerConfig", () => {
     const config = loadServerConfig(env);
     expect(config.s3.endpoint).toBe("http://localhost:3900");
     expect(config.s3.publicEndpoint).toBe("http://192.168.0.106:3900");
+  });
+
+  it("treats loopback S3_ENDPOINT + unset public endpoint as the device-break shape", () => {
+    const env = validEnv();
+    expect(env["S3_PUBLIC_ENDPOINT"]).toBeUndefined();
+    const config = loadServerConfig(env);
+    expect(config.s3.endpoint).toBe("http://localhost:3900");
+    expect(config.s3.publicEndpoint).toBe(config.s3.endpoint);
+    expect(config.s3.publicEndpoint).toBe("http://localhost:3900");
+    expect(classifyS3SigningHost(config.s3.publicEndpoint)).toBe("loopback");
+    expect(s3DeviceSigningWarning(config)).toEqual({
+      s3SigningHostClass: "loopback",
+    });
+    expect(classifyS3SigningHost("http://127.0.0.1:3900")).toBe("loopback");
+    expect(classifyS3SigningHost("http://[::1]:3900")).toBe("loopback");
+    expect(classifyS3SigningHost("http://192.168.0.106:3900")).toBe(
+      "non-loopback",
+    );
+    const lan = loadServerConfig({
+      ...env,
+      S3_PUBLIC_ENDPOINT: "http://192.168.0.106:3900",
+    });
+    expect(s3DeviceSigningWarning(lan)).toBeNull();
+    expect(classifyS3SigningHost(lan.s3.publicEndpoint)).toBe("non-loopback");
+  });
+
+  it("loopback signing warning names the host class and never the endpoint or secrets", () => {
+    const config = loadServerConfig(validEnv());
+    const warning = s3DeviceSigningWarning(config);
+    expect(warning).toEqual({ s3SigningHostClass: "loopback" });
+    const serialized = JSON.stringify(warning);
+    expect(serialized).toContain("loopback");
+    expect(serialized).not.toContain("localhost");
+    expect(serialized).not.toContain("3900");
+    expect(serialized).not.toContain(config.s3.accessKeyId);
+    expect(serialized).not.toContain(config.s3.secretAccessKey);
+    expect(S3_LOOPBACK_SIGNING_WARNING).not.toContain("http://");
+    expect(S3_LOOPBACK_SIGNING_WARNING).not.toContain("localhost");
+
+    const lines: string[] = [];
+    const logger = createProcessLogger({
+      name: "s3-signing-warning-test",
+      destination: {
+        write(chunk: string) {
+          lines.push(chunk);
+        },
+      },
+    });
+    logger.warn(warning, S3_LOOPBACK_SIGNING_WARNING);
+    const payload = lines.join("\n");
+    expect(payload).toContain("loopback");
+    expect(payload).not.toContain("localhost:3900");
+    expect(payload).not.toContain("showzy-local-secret");
   });
 });
 

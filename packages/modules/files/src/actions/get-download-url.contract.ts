@@ -20,7 +20,7 @@ export const getDownloadUrlOutputSchema = z.object({
 export const getDownloadUrlContract = defineActionContract({
   name: "files.getDownloadUrl",
   description:
-    "Return a short-lived signed GET URL for a ready private catalog file in the active company. Pending, missing, or foreign-company files fail with not-found. The URL uses a disposition-safe attachment filename derived from the stored MIME type; clients never receive or choose the object key as a durable field.",
+    "Return a short-lived signed GET URL for a ready private catalog file in the active company. Pending, missing, or foreign-company files fail with not-found. The URL uses Content-Disposition inline and Content-Type of the stored image MIME (image/jpeg|png|webp) so clients can render the object as an image; the filename is derived from that MIME. Clients never receive or choose the object key as a durable field.",
   principal: "staff",
   transport: "client",
   input: getDownloadUrlInputSchema,

@@ -24,7 +24,7 @@ export const getDownloadUrlsOutputSchema = z.object({
 export const getDownloadUrlsContract = defineActionContract({
   name: "files.getDownloadUrls",
   description:
-    "Return short-lived signed GET URLs for a batch of ready private catalog files in the active company. Input is fileIds (min 1, max 50). Output is { files: [{ fileId, downloadUrl, expiresAt }] } in first-seen unique order. The whole batch fails with not-found when any id is missing, still pending, or outside the company. Each URL uses a disposition-safe attachment filename derived from the stored MIME type; clients never receive or choose the object key as a durable field.",
+    "Return short-lived signed GET URLs for a batch of ready private catalog files in the active company. Input is fileIds (min 1, max 50). Output is { files: [{ fileId, downloadUrl, expiresAt }] } in first-seen unique order. The whole batch fails with not-found when any id is missing, still pending, or outside the company. Each URL uses Content-Disposition inline and Content-Type of the stored image MIME (image/jpeg|png|webp) so clients can render the object as an image; the filename is derived from that MIME. Clients never receive or choose the object key as a durable field.",
   principal: "staff",
   transport: "client",
   input: getDownloadUrlsInputSchema,

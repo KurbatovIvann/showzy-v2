@@ -1,65 +1,90 @@
 import type { ConfigContext, ExpoConfig } from "expo/config";
 
 /**
+ * HTTP to LAN Garage is a local/dev-client need. Preview and production
+ * EAS profiles stay HTTPS-only (R2). Unset profile covers `expo run` /
+ * local prebuild.
+ */
+export function allowLanHttpObjectStore(
+  env: typeof process.env = process.env,
+): boolean {
+  const profile = env.EAS_BUILD_PROFILE;
+  return profile === undefined || profile === "development";
+}
+
+/**
  * Config plugins for the preinstalled native kit. Permission strings live
  * here so the first product screen that uses camera, photos, microphone,
  * files, or push does not force another Expo/dev-client rebuild.
  */
-export const expoConfigPlugins: NonNullable<ExpoConfig["plugins"]> = [
-  "expo-build-properties",
-  "expo-dev-client",
-  "expo-router",
-  "expo-secure-store",
-  "expo-localization",
-  "expo-image",
-  "expo-sharing",
-  "expo-web-browser",
-  "@react-native-community/datetimepicker",
-  [
-    "expo-audio",
-    {
-      microphonePermission: "Allow $(PRODUCT_NAME) to record voice messages.",
-      recordAudioAndroid: true,
-      enableBackgroundPlayback: true,
-      enableBackgroundRecording: false,
-    },
-  ],
-  [
-    "expo-file-system",
-    {
-      supportsOpeningDocumentsInPlace: true,
-      enableFileSharing: true,
-    },
-  ],
-  [
-    "expo-image-picker",
-    {
-      photosPermission:
-        "Allow $(PRODUCT_NAME) to access your photos so you can attach product and document images.",
-      cameraPermission:
-        "Allow $(PRODUCT_NAME) to take photos for products and documents.",
-      microphonePermission: false,
-    },
-  ],
-  [
-    "expo-media-library",
-    {
-      photosPermission:
-        "Allow $(PRODUCT_NAME) to access your photo library for product images and attachments.",
-      savePhotosPermission:
-        "Allow $(PRODUCT_NAME) to save images to your photo library.",
-      isAccessMediaLocationEnabled: false,
-      granularPermissions: ["photo", "video", "audio"],
-    },
-  ],
-  "expo-document-picker",
-  [
-    "expo-notifications",
-    {
-      enableBackgroundRemoteNotifications: true,
-    },
-  ],
-];
+export function expoConfigPluginsFor(
+  env: typeof process.env = process.env,
+): NonNullable<ExpoConfig["plugins"]> {
+  return [
+    [
+      "expo-build-properties",
+      {
+        android: {
+          usesCleartextTraffic: allowLanHttpObjectStore(env),
+        },
+      },
+    ],
+    "expo-dev-client",
+    "expo-router",
+    "expo-secure-store",
+    "expo-localization",
+    "expo-image",
+    "expo-sharing",
+    "expo-web-browser",
+    "@react-native-community/datetimepicker",
+    [
+      "expo-audio",
+      {
+        microphonePermission: "Allow $(PRODUCT_NAME) to record voice messages.",
+        recordAudioAndroid: true,
+        enableBackgroundPlayback: true,
+        enableBackgroundRecording: false,
+      },
+    ],
+    [
+      "expo-file-system",
+      {
+        supportsOpeningDocumentsInPlace: true,
+        enableFileSharing: true,
+      },
+    ],
+    [
+      "expo-image-picker",
+      {
+        photosPermission:
+          "Allow $(PRODUCT_NAME) to access your photos so you can attach product and document images.",
+        cameraPermission:
+          "Allow $(PRODUCT_NAME) to take photos for products and documents.",
+        microphonePermission: false,
+      },
+    ],
+    [
+      "expo-media-library",
+      {
+        photosPermission:
+          "Allow $(PRODUCT_NAME) to access your photo library for product images and attachments.",
+        savePhotosPermission:
+          "Allow $(PRODUCT_NAME) to save images to your photo library.",
+        isAccessMediaLocationEnabled: false,
+        granularPermissions: ["photo", "video", "audio"],
+      },
+    ],
+    "expo-document-picker",
+    [
+      "expo-notifications",
+      {
+        enableBackgroundRemoteNotifications: true,
+      },
+    ],
+  ];
+}
+
+export const expoConfigPlugins = expoConfigPluginsFor();
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
@@ -85,6 +110,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     supportsTablet: true,
     config: {
       usesNonExemptEncryption: false,
+    },
+    infoPlist: {
+      NSAppTransportSecurity: {
+        NSAllowsLocalNetworking: true,
+      },
     },
   },
   android: {
