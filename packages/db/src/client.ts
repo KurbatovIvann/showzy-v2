@@ -8,6 +8,7 @@ import * as companies from "./schema/companies.js";
 import * as customers from "./schema/customers.js";
 import * as files from "./schema/files.js";
 import * as foundation from "./schema/foundation.js";
+import * as invites from "./schema/invites.js";
 import * as orders from "./schema/orders.js";
 import * as pricing from "./schema/pricing.js";
 
@@ -25,6 +26,7 @@ export const schema = {
   ...chat,
   ...customers,
   ...files,
+  ...invites,
   ...orders,
   ...pricing,
 };
