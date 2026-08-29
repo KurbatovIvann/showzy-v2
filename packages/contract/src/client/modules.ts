@@ -56,6 +56,7 @@ import {
   requestUploadContract,
 } from "@showzy/files/contract";
 import {
+  acceptInviteContract,
   createInviteContract,
   getInviteContract,
   listInvitesContract,
@@ -134,6 +135,7 @@ export const contractModules = {
     getDownloadUrls: getDownloadUrlsContract,
   },
   invites: {
+    accept: acceptInviteContract,
     create: createInviteContract,
     get: getInviteContract,
     list: listInvitesContract,

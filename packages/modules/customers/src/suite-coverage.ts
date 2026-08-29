@@ -2,6 +2,7 @@ import type { SuiteCoverageManifest } from "@showzy/core";
 
 export const customersSuiteCoverage = {
   isolation: [
+    "customers.applyInviteCrm",
     "customers.archiveCustomer",
     "customers.createCounterparty",
     "customers.createCustomer",

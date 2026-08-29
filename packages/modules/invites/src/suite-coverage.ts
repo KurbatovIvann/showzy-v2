@@ -2,6 +2,7 @@ import type { SuiteCoverageManifest } from "@showzy/core";
 
 export const invitesSuiteCoverage = {
   isolation: [
+    "invites.accept",
     "invites.create",
     "invites.get",
     "invites.list",
@@ -11,7 +12,7 @@ export const invitesSuiteCoverage = {
   consumerIsolation: [],
   accountIsolation: [],
   shareIsolation: [],
-  idempotency: ["invites.create", "invites.revoke"],
+  idempotency: ["invites.accept", "invites.create", "invites.revoke"],
   events: ["invites"],
-  atomic: [],
+  atomic: [{ caller: "invites.accept", callee: "customers.applyInviteCrm" }],
 } as const satisfies SuiteCoverageManifest;
