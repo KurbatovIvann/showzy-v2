@@ -177,6 +177,7 @@ describe("client composition", () => {
     expect(contractRouter.companies.get).toBeDefined();
     expect(contractRouter.companies.listMine).toBeDefined();
     expect(contractRouter.companies.updateLegal).toBeDefined();
+    expect(contractModules.companies).not.toHaveProperty("getSellerFacts");
     expect(contractRouter.customers.archiveCustomer).toBeDefined();
     expect(contractRouter.customers.createCounterparty).toBeDefined();
     expect(contractRouter.customers.createCustomer).toBeDefined();

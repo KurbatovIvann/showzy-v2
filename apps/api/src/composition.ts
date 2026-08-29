@@ -40,6 +40,7 @@ import { chatSuiteCoverage } from "@showzy/chat/suite-coverage";
 import {
   createCompany,
   getCompany,
+  getSellerFacts,
   listMine,
   updateLegal,
 } from "@showzy/companies";
@@ -276,6 +277,7 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, upsertOrderCard);
   registerAction(registry, createCompany);
   registerAction(registry, getCompany);
+  registerAction(registry, getSellerFacts);
   registerAction(registry, listMine);
   registerAction(registry, updateLegal);
   registerAction(registry, applyInviteCrm);
