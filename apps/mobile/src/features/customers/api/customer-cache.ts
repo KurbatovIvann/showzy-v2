@@ -9,6 +9,7 @@ import { GET_CUSTOMER_ACTION } from "./customer-detail-query";
 import { LIST_CUSTOMERS_ACTION } from "./customer.queries";
 import { GET_GROUP_ACTION } from "./group-detail-query";
 import { LIST_GROUPS_ACTION } from "./group.queries";
+import { LIST_INVITES_ACTION } from "./invite.queries";
 
 export function customersListCacheKey(
   companyId: string,
@@ -44,6 +45,18 @@ export function counterpartyDetailCacheKey(
   companyId: string,
 ): readonly [string, string] {
   return [GET_COUNTERPARTY_ACTION, companyQueryScope(companyId)];
+}
+
+export function invitesListCacheKey(
+  companyId: string,
+): readonly [string, string] {
+  return [LIST_INVITES_ACTION, companyQueryScope(companyId)];
+}
+
+export function invitesWriteInvalidationKeys(
+  companyId: string,
+): readonly [readonly [string, string]] {
+  return [invitesListCacheKey(companyId)];
 }
 
 export function customersWriteInvalidationKeys(

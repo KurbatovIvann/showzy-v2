@@ -4,6 +4,7 @@ import {
   canCreateCustomers,
   canDeleteCustomers,
   canEditCustomers,
+  canInviteCustomers,
 } from "./customer-permissions";
 
 /**
@@ -25,6 +26,13 @@ describe("customer permission affordances", () => {
     expect(canEditCustomers("admin")).toBe(true);
     expect(canEditCustomers("manager")).toBe(true);
     expect(canEditCustomers("employee")).toBe(false);
+  });
+
+  it("hides invite create and revoke only for employees", () => {
+    expect(canInviteCustomers("owner")).toBe(true);
+    expect(canInviteCustomers("admin")).toBe(true);
+    expect(canInviteCustomers("manager")).toBe(true);
+    expect(canInviteCustomers("employee")).toBe(false);
   });
 
   it("hides customer hard-delete for manager and employee", () => {

@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { View } from "react-native";
-import { MailIcon, PlusIcon } from "lucide-react-native";
+import { PlusIcon } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
@@ -8,7 +8,6 @@ import {
   AppHeader,
   Banner,
   ChoiceField,
-  EmptyState,
   IconButton,
   indexOfTabKey,
   SearchField,
@@ -18,6 +17,7 @@ import {
 } from "../../../components/ui";
 import { CounterpartiesListPane } from "../counterparties/counterparties-list-pane";
 import { GroupsListPane } from "../groups/groups-list-pane";
+import { InvitationsListPane } from "../invitations/invitations-list-pane";
 import { ClientsListPane } from "./clients-list-pane";
 import {
   customersTabOptions,
@@ -120,8 +120,6 @@ function CustomersHomeScene(props: {
 }) {
   const { tab, model } = props;
   const { copy } = model;
-  const { theme } = useUnistyles();
-  const iconColor = theme.colors.mutedForeground;
 
   if (tab === "clients") {
     return (
@@ -180,11 +178,10 @@ function CustomersHomeScene(props: {
     );
   }
   return (
-    <View style={styles.centered}>
-      <EmptyState
-        icon={<MailIcon size={theme.iconSize.md} color={iconColor} />}
-        title={copy.comingSoon.invitationsTitle}
-        description={copy.comingSoon.invitationsDescription}
+    <View style={styles.scene}>
+      <InvitationsListPane
+        model={model.invitations}
+        openCreate={model.openCreate}
       />
     </View>
   );
@@ -209,9 +206,5 @@ const styles = StyleSheet.create((theme) => ({
     gap: theme.spacing.md,
     paddingHorizontal: theme.spacing.lg,
     paddingBottom: theme.spacing.md,
-  },
-  centered: {
-    flex: 1,
-    justifyContent: "center",
   },
 }));
