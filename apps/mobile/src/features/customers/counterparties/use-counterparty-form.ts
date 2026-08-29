@@ -10,10 +10,10 @@ import { useResolvedCompany } from "../../../company-resolution/resolved-company
 import { customersCopy } from "../../../i18n/customers";
 import { detectLocale } from "../../../i18n/locale";
 import { getCounterpartyQueryOptions } from "../api/counterparty-detail-query";
-import { selectorLookupValue } from "../form/customer-form-pickers";
 import { customerEditorHref } from "../shared/customer-hrefs";
 import { customerIdFromParam } from "../shared/customer-id";
 import { canEditCustomers } from "../shared/customer-permissions";
+import { selectorLookupValue } from "../shared/option-select";
 import {
   fieldErrorsFromFormState,
   mapCounterpartyFormFailure,

@@ -5,16 +5,18 @@ import { useApiClient } from "../../../api/api-provider";
 import { useActiveCompany } from "../../../api/query-provider";
 import { getCustomerQueryOptions } from "../api/customer-detail-query";
 import { listCustomersInfiniteOptions } from "../api/customer.queries";
-import { optionSelectItems } from "../form/customer-form-pickers";
 import { CUSTOMERS_LOOKUP_PAGE_SIZE } from "../shared/customer-caps";
-import type { OptionSelectItem } from "../shared/option-select";
+import {
+  optionSelectItems,
+  type OptionSelectItem,
+} from "../shared/option-select";
 import { flattenPages, nameById } from "../shared/paged-list";
 import { useDrainInfinitePages } from "../shared/use-drain-pages";
 import { mergePrefillCustomerName } from "./counterparty-form-options";
 
 /**
  * Active-customer picker options for the counterparty form. Keep already
- * fetched pages on error. Does not import `list/`.
+ * fetched pages on error. Does not import `list/` or `form/`.
  *
  * Create-from-client (`prefillCustomerId`) also loads `getCustomer` so
  * the linked name is available before `listCustomers` (`status:

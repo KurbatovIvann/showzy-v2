@@ -20,6 +20,7 @@ import {
   canDeleteCustomers,
   canEditCustomers,
 } from "../shared/customer-permissions";
+import { selectorLookupValue } from "../shared/option-select";
 import {
   fieldErrorsFromFormState,
   mapCustomerFormFailure,
@@ -43,7 +44,6 @@ import {
   counterpartiesBodyKind,
   groupAssignedPriceListId,
   inheritedPriceListPlaceholder,
-  selectorLookupValue,
 } from "./customer-form-pickers";
 import { customerFormResolver } from "./customer-form.schema";
 import { useCustomerFormLifecycle } from "./use-customer-form-lifecycle";

@@ -8,13 +8,15 @@ import { useActiveCompany } from "../../../api/query-provider";
 import { useResolvedCompany } from "../../../company-resolution/resolved-company-provider";
 import { customersCopy } from "../../../i18n/customers";
 import { detectLocale } from "../../../i18n/locale";
+// Invitation create copies client assignment UX (SHO-221). Do not
+// fork these client-form-only inherit/lookup modules into shared/.
 import {
   groupAssignedPriceListId,
   inheritedPriceListPlaceholder,
-  selectorLookupValue,
 } from "../form/customer-form-pickers";
 import { useCustomerFormLookups } from "../form/use-customer-form-lookups";
 import { canInviteCustomers } from "../shared/customer-permissions";
+import { selectorLookupValue } from "../shared/option-select";
 import {
   fieldErrorsFromFormState,
   mapInvitationFormFailure,
