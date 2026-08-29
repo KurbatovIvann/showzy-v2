@@ -1,0 +1,8 @@
+{
+  "extends": "@showzy/tooling/tsconfig/base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "jsx": "react-jsx"
+  },
+  "include": ["src", "vitest.config.ts"]
+}

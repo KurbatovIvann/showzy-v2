@@ -16,10 +16,13 @@ import { user } from "@showzy/db/schema/auth";
 import { products } from "@showzy/db/schema/catalog";
 import { companyMembers } from "@showzy/db/schema/companies";
 import { companyCustomers, counterparties } from "@showzy/db/schema/customers";
+import { documentGenerationJobs } from "@showzy/db/schema/doc-generation";
 import { documentItems, documents } from "@showzy/db/schema/documents";
 import { orderItems, orders } from "@showzy/db/schema/orders";
+import { getArtifact } from "@showzy/doc-generation";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { getForGeneration } from "./get-for-generation.js";
 import { getDocument } from "./get.js";
 
 const fixtures = {
@@ -312,6 +315,13 @@ beforeAll(async () => {
     },
   ]);
 
+  await kit.db.runtime.db.insert(documentGenerationJobs).values({
+    companyId: companyA,
+    documentId: fixtures.docInvoice,
+    status: "pending",
+    fileId: null,
+  });
+
   await kit.db.runtime.db.insert(user).values({
     id: clerkUserId,
     name: "Clerk",
@@ -337,11 +347,21 @@ crossTenantSuite(
       { input: { documentId: fixtures.docInvoice } },
       { input: { documentId: fixtures.docForeign } },
     ),
+    isolationCase(
+      getForGeneration,
+      { input: { documentId: fixtures.docInvoice } },
+      { input: { documentId: fixtures.docForeign } },
+    ),
+    isolationCase(
+      getArtifact,
+      { input: { documentId: fixtures.docInvoice } },
+      { input: { documentId: fixtures.docForeign } },
+    ),
   ],
 );
 
 describe("documents.get", () => {
-  it("returns snapshots, items, and null generation and PDF URL", async () => {
+  it("returns snapshots, items, and a pending generation chip when no job is ready", async () => {
     const result = await kit.invoke(getDocument, {
       documentId: fixtures.docInvoice,
     });
@@ -360,7 +380,7 @@ describe("documents.get", () => {
     expect(result.totalTaxMinor).toBe("0");
     expect(result.totalGrossMinor).toBe("750");
     expect(result.currency).toBe("UAH");
-    expect(result.generation).toBeNull();
+    expect(result.generation).toEqual({ status: "pending", fileId: null });
     expect(result.pdfDownloadUrl).toBeNull();
     expect(result.buyerDetails).toEqual(customerBuyerSnapshot);
     expect(result.supplierDetails).toEqual(sellerSnapshot);
@@ -396,7 +416,7 @@ describe("documents.get", () => {
     expect(result.type).toBe("delivery_note");
     expect(result.counterpartyId).toBe(fixtures.counterpartyA);
     expect(result.buyerDetails).toEqual(counterpartyBuyerSnapshot);
-    expect(result.generation).toBeNull();
+    expect(result.generation).toEqual({ status: "pending", fileId: null });
     expect(result.pdfDownloadUrl).toBeNull();
     expect(JSON.stringify(result)).not.toContain("Live Legal Face");
   });

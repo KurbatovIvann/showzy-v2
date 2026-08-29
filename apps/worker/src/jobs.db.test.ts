@@ -45,6 +45,8 @@ import {
   BULLMQ_PREFIX,
   IDEMPOTENCY_CLEANUP_JOB_NAME,
   MAINTENANCE_QUEUE_NAME,
+  PDF_JOB_NAME,
+  PDF_QUEUE_NAME,
   SWEEP_ABANDONED_UPLOADS_JOB_NAME,
   SWEEP_INTERVAL_MS,
 } from "./policy.js";
@@ -952,6 +954,51 @@ describe("apps/worker sweepAbandonedUploads scheduler (SHO-120)", () => {
       expect(
         requireScheduler(schedulers, SWEEP_ABANDONED_UPLOADS_JOB_NAME).every,
       ).toBe(SWEEP_INTERVAL_MS);
+    } finally {
+      await booted.close();
+    }
+  });
+});
+
+describe("apps/worker pdf queue (SHO-236)", () => {
+  it("starts the pdf queue and the thin processor rejects a non-envelope", async () => {
+    const booted = await bootWorker(testConfig(), {
+      logger: silent,
+      pollIntervalMs: 60_000,
+      cleanupIntervalMs: LONG_INTERVAL_MS,
+      sweepIntervalMs: LONG_INTERVAL_MS,
+    });
+    try {
+      const connection = new Redis(redisUrl, { maxRetriesPerRequest: null });
+      const eventsConnection = new Redis(redisUrl, {
+        maxRetriesPerRequest: null,
+      });
+      const queue = new Queue(PDF_QUEUE_NAME, {
+        connection,
+        prefix: BULLMQ_PREFIX,
+      });
+      const events = new QueueEvents(PDF_QUEUE_NAME, {
+        connection: eventsConnection,
+        prefix: BULLMQ_PREFIX,
+      });
+      await events.waitUntilReady();
+      try {
+        const job = await queue.add(
+          PDF_JOB_NAME,
+          { companyId: kitIdentities.companies.a },
+          {
+            jobId: randomUUID(),
+            removeOnComplete: true,
+            removeOnFail: 50,
+          },
+        );
+        await expect(job.waitUntilFinished(events, 30_000)).rejects.toThrow();
+      } finally {
+        await events.close();
+        await queue.close();
+        await connection.quit();
+        await eventsConnection.quit();
+      }
     } finally {
       await booted.close();
     }

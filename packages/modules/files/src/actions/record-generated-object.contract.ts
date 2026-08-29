@@ -43,7 +43,7 @@ export const recordGeneratedObjectContract = defineActionContract({
   idempotent: true,
   emits: [],
   atomicCalls: [],
-  atomicCallers: [],
+  atomicCallers: ["docGeneration.renderPdf"],
   audit: true,
   timeout: 15_000,
 });

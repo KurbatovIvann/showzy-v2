@@ -10,6 +10,7 @@ import { catalogSuiteCoverage } from "@showzy/catalog/suite-coverage";
 import { chatSuiteCoverage } from "@showzy/chat/suite-coverage";
 import { companiesSuiteCoverage } from "@showzy/companies/suite-coverage";
 import { customersSuiteCoverage } from "@showzy/customers/suite-coverage";
+import { docGenerationSuiteCoverage } from "@showzy/doc-generation/suite-coverage";
 import { documentsSuiteCoverage } from "@showzy/documents/suite-coverage";
 import { filesSuiteCoverage } from "@showzy/files/suite-coverage";
 import { invitesSuiteCoverage } from "@showzy/invites/suite-coverage";
@@ -84,6 +85,7 @@ describe("composition root identity", () => {
         companiesSuiteCoverage,
         customersSuiteCoverage,
         documentsSuiteCoverage,
+        docGenerationSuiteCoverage,
         filesSuiteCoverage,
         invitesSuiteCoverage,
         ordersSuiteCoverage,
@@ -137,8 +139,31 @@ describe("composition root identity", () => {
     expect(
       edges
         .filter((edge) => edge.caller === "documents.share")
-        .map((edge) => edge.callee),
-    ).toEqual(["files.issueShareDownloadUrl"]);
+        .map((edge) => edge.callee)
+        .toSorted(),
+    ).toEqual(["docGeneration.getArtifact", "files.issueShareDownloadUrl"]);
+  });
+
+  it("documents.get nests getArtifact and the documents:view PDF URL", () => {
+    const source = readFileSync(
+      join(import.meta.dirname, "composition.ts"),
+      "utf8",
+    );
+    const edges: Array<{ caller: string; callee: string }> = [];
+    const edgeRe = /caller:\s*"([^"]+)",\s*\n\s*callee:\s*"([^"]+)"/g;
+    for (const match of source.matchAll(edgeRe)) {
+      const caller = match[1];
+      const callee = match[2];
+      if (caller !== undefined && callee !== undefined) {
+        edges.push({ caller, callee });
+      }
+    }
+    expect(
+      edges
+        .filter((edge) => edge.caller === "documents.get")
+        .map((edge) => edge.callee)
+        .toSorted(),
+    ).toEqual(["docGeneration.getArtifact", "files.issueDocumentDownloadUrl"]);
   });
 });
 

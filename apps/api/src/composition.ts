@@ -73,11 +73,18 @@ import {
   documentsCancelled,
   documentsCreated,
   getDocument,
+  getForGeneration,
   getShared,
   listDocuments,
   shareDocument,
 } from "@showzy/documents";
 import { documentsSuiteCoverage } from "@showzy/documents/suite-coverage";
+import {
+  getArtifact,
+  pdfRendererSubscriptions,
+  renderPdf,
+} from "@showzy/doc-generation";
+import { docGenerationSuiteCoverage } from "@showzy/doc-generation/suite-coverage";
 import {
   finalizeUpload,
   getAttachmentFacts,
@@ -154,6 +161,7 @@ const moduleSuiteCoverage: readonly SuiteCoverageManifest[] = [
   companiesSuiteCoverage,
   customersSuiteCoverage,
   documentsSuiteCoverage,
+  docGenerationSuiteCoverage,
   filesSuiteCoverage,
   invitesSuiteCoverage,
   ordersSuiteCoverage,
@@ -242,7 +250,23 @@ const callEdges: readonly DeclaredCallEdge[] = [
   },
   {
     caller: "documents.share",
+    callee: "docGeneration.getArtifact",
+  },
+  {
+    caller: "documents.share",
     callee: "files.issueShareDownloadUrl",
+  },
+  {
+    caller: "documents.get",
+    callee: "docGeneration.getArtifact",
+  },
+  {
+    caller: "documents.get",
+    callee: "files.issueDocumentDownloadUrl",
+  },
+  {
+    caller: "docGeneration.renderPdf",
+    callee: "documents.getForGeneration",
   },
 ];
 
@@ -256,6 +280,7 @@ const schemaImports: readonly SchemaImportRef[] = [
   { importer: "companies", schemaOwner: "companies" },
   { importer: "customers", schemaOwner: "customers" },
   { importer: "documents", schemaOwner: "documents" },
+  { importer: "doc-generation", schemaOwner: "doc-generation" },
   { importer: "files", schemaOwner: "files" },
   { importer: "invites", schemaOwner: "invites" },
   { importer: "orders", schemaOwner: "orders" },
@@ -359,9 +384,12 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, cancelDocument);
   registerAction(registry, createFromOrder);
   registerAction(registry, getDocument);
+  registerAction(registry, getForGeneration);
   registerAction(registry, getShared);
   registerAction(registry, listDocuments);
   registerAction(registry, shareDocument);
+  registerAction(registry, getArtifact);
+  registerAction(registry, renderPdf);
   registerAction(registry, createOrder);
   registerAction(registry, confirmOrder);
   registerAction(registry, cancelOrder);
@@ -390,7 +418,10 @@ export function buildContractCheckInput(): ContractCheckInput {
   return {
     registry: createActionRegistry(),
     events,
-    subscriptions: eventSubscriptionRefs([...orderCardUpdaterSubscriptions]),
+    subscriptions: eventSubscriptionRefs([
+      ...orderCardUpdaterSubscriptions,
+      ...pdfRendererSubscriptions,
+    ]),
     callEdges,
     projectionGrants,
     readModelGrants,

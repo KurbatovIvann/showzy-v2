@@ -21,6 +21,10 @@ describe("files.recordGeneratedObject contract", () => {
     expect(recordGeneratedObjectContract.audit).toBe(true);
     expect(recordGeneratedObjectContract.idempotent).toBe(true);
     expect(recordGeneratedObjectContract.emits).toEqual([]);
+    expect(recordGeneratedObjectContract.atomicCalls).toEqual([]);
+    expect(recordGeneratedObjectContract.atomicCallers).toEqual([
+      "docGeneration.renderPdf",
+    ]);
     expect(recordGeneratedObjectContract.timeout).toBe(15_000);
     expect(MAX_DOCUMENT_BYTES).toBe(25 * 1024 * 1024);
   });

@@ -60,6 +60,12 @@ test("showzy/import-boundaries", () => {
         code: `import { catalogGetFacts } from "@showzy/catalog";`,
       },
       {
+        filename: file(
+          "packages/modules/doc-generation/src/services/put-generated-pdf.ts",
+        ),
+        code: `import { getFilesObjectStore } from "@showzy/files/storage";`,
+      },
+      {
         filename: file("packages/modules/search/services/index.ts"),
         code: `import { products } from "@showzy/db/schema/catalog";`,
       },
@@ -122,6 +128,11 @@ test("showzy/import-boundaries", () => {
       {
         filename: file("packages/modules/orders/actions/create.ts"),
         code: `import { helper } from "@showzy/catalog/services/helper";`,
+        errors: [{ messageId: "moduleCross" }],
+      },
+      {
+        filename: file("packages/modules/orders/actions/create.ts"),
+        code: `import { getFilesObjectStore } from "@showzy/files/storage";`,
         errors: [{ messageId: "moduleCross" }],
       },
       {

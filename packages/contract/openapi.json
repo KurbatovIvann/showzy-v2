@@ -27412,7 +27412,7 @@
     "/documents/get": {
       "post": {
         "operationId": "documents.get",
-        "summary": "Return a staff document, its seller/buyer snapshots, and immutable line copies in the active company. generation and the panel PDF download URL are null until document generation records an artifact. Missing or foreign-company documents fail with not-found. Company id is never input.",
+        "summary": "Return a staff document, its seller/buyer snapshots, and immutable line copies in the active company. generation is the PDF job chip; the panel PDF download URL is issued for a ready artifact via files.issueDocumentDownloadUrl (documents:view, not files:view). Missing or foreign-company documents fail with not-found. Company id is never input.",
         "requestBody": {
           "required": true,
           "content": {
@@ -27861,38 +27861,31 @@
                       }
                     },
                     "generation": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "properties": {
-                            "status": {
-                              "enum": [
-                                "pending",
-                                "ready",
-                                "failed"
-                              ],
-                              "type": "string"
-                            },
-                            "fileId": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "format": "uuid"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            }
-                          },
-                          "required": [
-                            "status",
-                            "fileId"
-                          ]
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "enum": [
+                            "pending",
+                            "ready",
+                            "failed"
+                          ],
+                          "type": "string"
                         },
-                        {
-                          "type": "null"
+                        "fileId": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
+                      },
+                      "required": [
+                        "status",
+                        "fileId"
                       ]
                     },
                     "pdfDownloadUrl": {

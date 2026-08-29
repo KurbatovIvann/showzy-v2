@@ -19,14 +19,18 @@ wakeup, polling fallback, graceful drain, and the job host.
   composes the action pipeline, starts the job host, LISTENs on
   `domain_events`, starts the outbox loop. Close the object store after
   draining jobs.
-- `src/jobs.ts` — BullMQ job host. Prefix `showzy`, one queue
-  `maintenance`. On boot, upserts Job Schedulers for
+- `src/jobs.ts` — BullMQ job host. Prefix `showzy`, queues `maintenance`
+  and `pdf`. On boot, upserts Job Schedulers for
   `cleanupExpiredIdempotencyKeys` (`CLEANUP_INTERVAL_MS`, 1 h) and
   `sweepAbandonedUploads` (`SWEEP_INTERVAL_MS`, 5 min, action batch
   default 20). The sweep processor invokes `files.sweepAbandonedUploads`
-  as system/global with a fresh idempotency key per `job.id`. Do not
-  pre-create pdf / email / push / sms / sync queues. Processors stay thin
-  (no domain SQL, no module service imports).
+  as system/global with a fresh idempotency key per `job.id`. The pdf
+  processor invokes `docGeneration.renderPdf` as system/tenant from the
+  envelope `companyId` (`executeAction` only — no domain SQL). Production
+  `documents.created` delivery still runs through the outbox (chat
+  golden); Redis has no volume, so this host does not enqueue durable
+  one-shot PDF jobs. Do not pre-create email / push / sms / sync queues.
+  Processors stay thin (no domain SQL, no module service imports).
 - `src/loop.ts` — `createOutboxWorker` / `createWorkerLoop`: one tick
   dispatches then executes due deliveries; shutdown waits for in-flight
   work and does not claim further. Executor lookup is keyed by
@@ -43,8 +47,9 @@ wakeup, polling fallback, graceful drain, and the job host.
   stores. Must stay behaviorally identical to `apps/api/src/stores/redis.ts`.
   Never reuse this client as the blocking BullMQ connection.
 - `src/subscriptions.ts` — composition root for event subscriptions.
-  Empty until modules exist; module tasks append their
-  `defineEventHandler` bindings here.
+  Must list the same `defineEventHandler` objects as
+  `apps/api/src/composition.ts` (`eventSubscriptionRefs`). Today:
+  `chat.order-card-updater` and `docGeneration.pdf-renderer`.
 - `src/observability.ts` — `createProcessObservability` (redacting pino
   logger + optional Sentry). Keep in lockstep with
   `apps/api/src/observability.ts`. `flushProcessObservability` drains
@@ -60,7 +65,7 @@ wakeup, polling fallback, graceful drain, and the job host.
 - Do not query `domain_events` / `event_deliveries` directly — go
   through the core libraries.
 - Domain event delivery is not BullMQ (ADR-0007/ADR-0012). BullMQ is the
-  execution job host (maintenance today; PDF, email, push, sync later).
+  execution job host (maintenance and PDF today; email, push, sync later).
   Outbox stays on core libraries.
 - Compose Redis has no volume (db.md §6). This host only runs work that
   is safe to miss and re-run. Re-upsert the scheduler on every boot.
