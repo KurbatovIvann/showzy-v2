@@ -1,45 +1,11 @@
 /**
- * Pure picker / Юрособи decisions for the customer form (SHO-180).
- * Names come from `pricing.listPriceLists` / `customers.listGroups`
- * only. Inherit copy is for a null assignment, never an unnamed id.
+ * Client-form inherit and Юрособи body decisions (SHO-180).
+ * Picker item mapping (`optionSelectItems`, `selectorLookupValue`) lives
+ * in `shared/option-select.ts` (SHO-221). Invitation create may import
+ * these inherit helpers so it copies client assignment UX; do not move
+ * them into `shared/`.
  */
-import type { OptionSelectItem } from "../shared/option-select";
 import type { CustomerFormMode } from "./customer-form-draft";
-
-export function optionSelectItems(
-  items: ReadonlyArray<{
-    readonly id: string;
-    readonly name: string;
-    readonly description?: string | null;
-  }>,
-): readonly OptionSelectItem[] {
-  return items.map((item) => {
-    const description =
-      item.description != null && item.description.length > 0
-        ? item.description
-        : undefined;
-    if (description === undefined) {
-      return { id: item.id, name: item.name };
-    }
-    return { id: item.id, name: item.name, description };
-  });
-}
-
-/**
- * Selector display: null id uses the inherit placeholder; a named id
- * uses the lookup; a still-set unnamed id uses `unnamedFallback` so it
- * is not shown as inherit.
- */
-export function selectorLookupValue(
-  id: string | null,
-  names: ReadonlyMap<string, string>,
-  unnamedFallback: string,
-): string | undefined {
-  if (id === null) {
-    return undefined;
-  }
-  return names.get(id) ?? unnamedFallback;
-}
 
 export function groupAssignedPriceListId(
   groupId: string | null,

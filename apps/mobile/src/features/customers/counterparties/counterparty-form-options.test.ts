@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { selectorLookupValue } from "../form/customer-form-pickers";
+import { selectorLookupValue } from "../shared/option-select";
 import {
   ensureLinkedCustomerOption,
   linkedCustomerName,

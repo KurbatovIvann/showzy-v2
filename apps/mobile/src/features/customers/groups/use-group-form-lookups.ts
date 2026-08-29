@@ -4,16 +4,18 @@ import { useMemo } from "react";
 import { useApiClient } from "../../../api/api-provider";
 import { useActiveCompany } from "../../../api/query-provider";
 import { listPriceListsInfiniteOptions } from "../api/price-list.queries";
-import { optionSelectItems } from "../form/customer-form-pickers";
 import { CUSTOMERS_LOOKUP_PAGE_SIZE } from "../shared/customer-caps";
-import type { OptionSelectItem } from "../shared/option-select";
+import {
+  optionSelectItems,
+  type OptionSelectItem,
+} from "../shared/option-select";
 import { flattenPages, nameById } from "../shared/paged-list";
 import { useDrainInfinitePages } from "../shared/use-drain-pages";
 
 /**
- * Price-list picker options for the group form. Reuses the customer
- * form's `pricing.listPriceLists` drain. Keep already fetched pages on
- * error. Does not import `list/`.
+ * Price-list picker options for the group form. Reuses the picker-safe
+ * `pricing.listPriceLists` drain. Keep already fetched pages on error.
+ * Does not import `list/` or `form/`.
  */
 export function useGroupFormLookups(args: { readonly enabled: boolean }): {
   readonly priceListOptions: readonly OptionSelectItem[];

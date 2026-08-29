@@ -9,9 +9,9 @@ import { useResolvedCompany } from "../../../company-resolution/resolved-company
 import { customersCopy } from "../../../i18n/customers";
 import { detectLocale } from "../../../i18n/locale";
 import { getGroupQueryOptions } from "../api/group-detail-query";
-import { selectorLookupValue } from "../form/customer-form-pickers";
 import { customerIdFromParam } from "../shared/customer-id";
 import { canEditCustomers } from "../shared/customer-permissions";
+import { selectorLookupValue } from "../shared/option-select";
 import {
   fieldErrorsFromFormState,
   groupMemberHint,
