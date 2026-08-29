@@ -1,4 +1,5 @@
 import { getProductOrderFacts } from "@showzy/catalog";
+import { getCompany } from "@showzy/companies";
 import { implementAction, type AuditTargetEnv } from "@showzy/core";
 import { CoreInvariantError } from "@showzy/core/errors";
 import { resolveProductPrices } from "@showzy/pricing";
@@ -28,6 +29,7 @@ export const createOrder = implementAction(createOrderContract, {
       throw new CoreInvariantError("orders.create expects staff");
     }
 
+    const company = await ctx.call(getCompany, {});
     const catalog = await ctx.call(getProductOrderFacts, {
       items: input.items.map((item) => ({
         productId: item.productId,
@@ -45,6 +47,7 @@ export const createOrder = implementAction(createOrderContract, {
     return createStaffOrder({
       ctx,
       input,
+      numberingPrefix: company.prefix,
       products: catalog.products,
       prices: priced.prices,
     });

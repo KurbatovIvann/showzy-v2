@@ -2,8 +2,12 @@ import { randomUUID } from "node:crypto";
 
 import type { ActionCtx } from "@showzy/core";
 import { ConflictError, CoreInvariantError } from "@showzy/core/errors";
-import { orderItems, orders } from "@showzy/db/schema/orders";
-import { desc, eq } from "drizzle-orm";
+import {
+  orderItems,
+  orderNumberCounters,
+  orders,
+} from "@showzy/db/schema/orders";
+import { sql } from "drizzle-orm";
 import type { z } from "zod";
 
 import { createOrderInputSchema } from "../actions/create.contract.js";
@@ -14,6 +18,7 @@ import {
 import { ordersCreated } from "../events/created.js";
 import { moneyToCanonical } from "./canonical.js";
 import { computeExemptNoneLine, titleSnapshot } from "./line-money.js";
+import { formatStaffOrderNumber } from "./order-number-format.js";
 import { mapOrderNumberUniqueViolation } from "./order-number.js";
 import { requireWritable } from "./writable.js";
 
@@ -24,22 +29,39 @@ type OrderItemView = OrderView["items"][number];
 type PriceSource = z.output<typeof orderPriceSourceSchema>;
 type WritableStaffDb = ReturnType<typeof requireWritable>;
 
-/** Unique collisions after a phantom max; Postgres 25P02 forbids retry without a savepoint. */
+/**
+ * Unique backstop: 23505 on `orders_company_id_order_number_uq`.
+ * Counter upsert stays on the outer write tx (not rolled back). INSERT
+ * is a nested `db.transaction` savepoint so Postgres 25P02 does not
+ * abort the action tx; the next loop allocates `last_number + 1`.
+ */
 const ORDER_NUMBER_ALLOCATE_ATTEMPTS = 8;
 
-async function allocateNextOrderNumber(
+async function allocateNextOrderSequence(
   db: WritableStaffDb,
   companyId: string,
-): Promise<number> {
-  // Lock every tenant order row, not `LIMIT 1`. A max-row-only lock lets a
-  // waiter reuse the old max after the locker inserts the next number.
-  const locked = await db
-    .select({ orderNumber: orders.orderNumber })
-    .from(orders)
-    .where(eq(orders.companyId, companyId))
-    .orderBy(desc(orders.orderNumber))
-    .for("update");
-  return (locked[0]?.orderNumber ?? 0) + 1;
+): Promise<bigint> {
+  const allocated = (
+    await db
+      .insert(orderNumberCounters)
+      .values({
+        companyId,
+        lastNumber: 1n,
+      })
+      .onConflictDoUpdate({
+        target: [orderNumberCounters.companyId],
+        set: {
+          lastNumber: sql`${orderNumberCounters.lastNumber} + 1`,
+        },
+      })
+      .returning({ lastNumber: orderNumberCounters.lastNumber })
+  )[0];
+  if (allocated === undefined) {
+    throw new CoreInvariantError(
+      "orders.create counter upsert returned no row",
+    );
+  }
+  return allocated.lastNumber;
 }
 
 async function insertNumberedHeader(
@@ -47,6 +69,7 @@ async function insertNumberedHeader(
   values: {
     readonly id: string;
     readonly companyId: string;
+    readonly numberingPrefix: string;
     readonly customerId: string;
     readonly comment: string | null;
     readonly totalNetMinor: bigint;
@@ -54,16 +77,20 @@ async function insertNumberedHeader(
     readonly totalGrossMinor: bigint;
     readonly currency: string;
   },
-): Promise<{ createdAt: Date; orderNumber: number }> {
+): Promise<{ createdAt: Date; orderNumber: string }> {
   let lastConflict: ConflictError | undefined;
   for (
     let attempt = 0;
     attempt < ORDER_NUMBER_ALLOCATE_ATTEMPTS;
     attempt += 1
   ) {
+    const sequence = await allocateNextOrderSequence(db, values.companyId);
+    const orderNumber = formatStaffOrderNumber(
+      values.numberingPrefix,
+      sequence,
+    );
     try {
       return await db.transaction(async (tx) => {
-        const orderNumber = await allocateNextOrderNumber(tx, values.companyId);
         const inserted = await tx
           .insert(orders)
           .values({
@@ -176,10 +203,11 @@ function variantTitleName(
 export async function createStaffOrder(env: {
   readonly ctx: StaffCtx;
   readonly input: CreateInput;
+  readonly numberingPrefix: string;
   readonly products: readonly CatalogOrderProductFact[];
   readonly prices: readonly ResolvedOrderPrice[];
 }): Promise<OrderView> {
-  const { ctx, input, products, prices } = env;
+  const { ctx, input, numberingPrefix, products, prices } = env;
   if (prices.length !== input.items.length) {
     throw new CoreInvariantError(
       "pricing.resolveProductPrices returned a different item count than create input",
@@ -288,6 +316,7 @@ export async function createStaffOrder(env: {
   const header = await insertNumberedHeader(db, {
     id: orderId,
     companyId: ctx.companyId,
+    numberingPrefix,
     customerId: input.customerId,
     comment,
     totalNetMinor,

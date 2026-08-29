@@ -139,7 +139,7 @@ beforeAll(async () => {
     {
       id: fixtures.orderA,
       companyId: companyA,
-      orderNumber: 1,
+      orderNumber: "T-1",
       customerId: fixtures.customerA,
       status: "new",
       totalNetMinor: 750n,
@@ -150,7 +150,7 @@ beforeAll(async () => {
     {
       id: fixtures.orderB,
       companyId: companyB,
-      orderNumber: 1,
+      orderNumber: "T-1",
       customerId: fixtures.customerB,
       status: "new",
       totalNetMinor: 100n,

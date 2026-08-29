@@ -86,8 +86,8 @@ export function orderDetailShowsPhoneIcon(phone: string | null): boolean {
   return customerPhoneIfPresent(phone) !== null;
 }
 
-export function formatOrderNumber(orderNumber: number): string {
-  return `#${String(orderNumber)}`;
+export function formatOrderNumber(orderNumber: string): string {
+  return `#${orderNumber}`;
 }
 
 /**
@@ -204,7 +204,7 @@ export function withOrderLineThumbnails(
 
 export type OrderDetailViewModel = {
   readonly orderId: string;
-  readonly orderNumber: number;
+  readonly orderNumber: string;
   readonly status: OrderLifecycleStatus;
   readonly statusLabel: string;
   readonly statusTone: OrderStatusTone;
@@ -254,7 +254,7 @@ export function toOrderDetailView(args: {
 }
 
 export function orderDetailHeaderTitle(args: {
-  readonly orderNumber: number | null;
+  readonly orderNumber: string | null;
   readonly fallbackTitle: string;
 }): string {
   if (args.orderNumber === null) {

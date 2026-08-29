@@ -21,7 +21,7 @@ import type { DbClient } from "./client.js";
 import { products, productVariants } from "./schema/catalog.js";
 import { companies } from "./schema/companies.js";
 import { companyCustomers } from "./schema/customers.js";
-import { orderItems, orders } from "./schema/orders.js";
+import { orderItems, orderNumberCounters, orders } from "./schema/orders.js";
 import { createTestDatabase, type TestDatabase } from "./testing/harness.js";
 
 let database: TestDatabase;
@@ -127,10 +127,10 @@ async function insertVariant(
   return row;
 }
 
-function nextOrderNumber(companyId: string): number {
+function nextOrderNumber(companyId: string): string {
   const next = (nextOrderNumberByCompany.get(companyId) ?? 0) + 1;
   nextOrderNumberByCompany.set(companyId, next);
-  return next;
+  return `T-${String(next)}`;
 }
 
 async function insertOrder(
@@ -141,7 +141,7 @@ async function insertOrder(
     totalNetMinor?: bigint;
     totalTaxMinor?: bigint;
     totalGrossMinor?: bigint;
-    orderNumber?: number;
+    orderNumber?: string;
   },
 ) {
   const rows = await dbClient.db
@@ -200,7 +200,7 @@ describe("staff orders schema slice", () => {
       `SELECT table_name, column_name, data_type
        FROM information_schema.columns
        WHERE table_schema = 'public'
-         AND table_name IN ('orders', 'order_items')
+         AND table_name IN ('orders', 'order_items', 'order_number_counters')
        ORDER BY table_name, ordinal_position`,
     );
     const columns = new Map<string, string[]>();
@@ -208,6 +208,9 @@ describe("staff orders schema slice", () => {
       const names = columns.get(row.table_name) ?? [];
       names.push(row.column_name);
       columns.set(row.table_name, names);
+      if (row.column_name === "order_number") {
+        expect(row.data_type).toBe("text");
+      }
       if (row.column_name.endsWith("_at")) {
         expect(row.data_type).toBe("timestamp with time zone");
       }
@@ -263,12 +266,19 @@ describe("staff orders schema slice", () => {
       "created_at",
     ]);
     expect(columns.get("order_items")).not.toContain("updated_at");
+    expect(columns.get("order_number_counters")).toEqual([
+      "company_id",
+      "last_number",
+    ]);
   });
 
   it("represents money and quantity columns as bigint in TypeScript", () => {
     expectTypeOf<
       (typeof orders.$inferSelect)["orderNumber"]
-    >().toEqualTypeOf<number>();
+    >().toEqualTypeOf<string>();
+    expectTypeOf<
+      (typeof orderNumberCounters.$inferSelect)["lastNumber"]
+    >().toEqualTypeOf<bigint>();
     expectTypeOf<
       (typeof orders.$inferSelect)["totalNetMinor"]
     >().toEqualTypeOf<bigint>();
@@ -306,7 +316,7 @@ describe("staff orders schema slice", () => {
       `SELECT indexname, indexdef
        FROM pg_indexes
        WHERE schemaname = 'public'
-         AND tablename IN ('orders', 'order_items')`,
+         AND tablename IN ('orders', 'order_items', 'order_number_counters')`,
     );
     const indexes = new Map(
       result.rows.map((row) => [row.indexname, row.indexdef]),
@@ -337,34 +347,68 @@ describe("staff orders schema slice", () => {
     expect(indexes.get("order_items_company_idx")).toContain("(company_id)");
     expect(indexes.get("order_items_product_idx")).toContain("(product_id)");
     expect(indexes.get("order_items_variant_idx")).toContain("(variant_id)");
+    expect(indexes.get("order_number_counters_pk")).toContain("UNIQUE");
+    expect(indexes.get("order_number_counters_pk")).toContain("(company_id)");
   });
 
-  it("enforces UNIQUE (company_id, order_number) and a positive number", async () => {
+  it("enforces UNIQUE (company_id, order_number) and the prefix-token CHECK", async () => {
     const companyA = await insertCompany();
     const companyB = await insertCompany();
-    const first = await insertOrder({ companyId: companyA.id, orderNumber: 1 });
-    expect(first.orderNumber).toBe(1);
+    const first = await insertOrder({
+      companyId: companyA.id,
+      orderNumber: "KA-17Z992",
+    });
+    expect(first.orderNumber).toBe("KA-17Z992");
     const second = await insertOrder({
       companyId: companyA.id,
-      orderNumber: 2,
+      orderNumber: "KA-2FY8Z7",
     });
-    expect(second.orderNumber).toBe(2);
+    expect(second.orderNumber).toBe("KA-2FY8Z7");
     const otherTenant = await insertOrder({
       companyId: companyB.id,
-      orderNumber: 1,
+      orderNumber: "KA-17Z992",
     });
-    expect(otherTenant.orderNumber).toBe(1);
+    expect(otherTenant.orderNumber).toBe("KA-17Z992");
 
     await expectSqlState(
-      insertOrder({ companyId: companyA.id, orderNumber: 1 }),
+      insertOrder({ companyId: companyA.id, orderNumber: "KA-17Z992" }),
       "23505",
     );
     await expectSqlState(
-      insertOrder({ companyId: companyA.id, orderNumber: 0 }),
+      insertOrder({ companyId: companyA.id, orderNumber: "1" }),
       "23514",
     );
     await expectSqlState(
-      insertOrder({ companyId: companyA.id, orderNumber: -1 }),
+      insertOrder({ companyId: companyA.id, orderNumber: "KA" }),
+      "23514",
+    );
+    await expectSqlState(
+      insertOrder({ companyId: companyA.id, orderNumber: "ka-k7x2" }),
+      "23514",
+    );
+  });
+
+  it("enforces order_number_counters PK and last_number > 0", async () => {
+    const company = await insertCompany();
+    const inserted = await dbClient.db
+      .insert(orderNumberCounters)
+      .values({ companyId: company.id, lastNumber: 1n })
+      .returning();
+    expect(inserted[0]?.lastNumber).toBe(1n);
+
+    await expectSqlState(
+      dbClient.db.insert(orderNumberCounters).values({
+        companyId: company.id,
+        lastNumber: 2n,
+      }),
+      "23505",
+    );
+    const other = await insertCompany();
+    await expectSqlState(
+      dbClient.db.insert(orderNumberCounters).values({
+        companyId: other.id,
+        lastNumber: 0n,
+      }),
       "23514",
     );
   });
@@ -381,7 +425,7 @@ describe("staff orders schema slice", () => {
        JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
        WHERE nsp.nspname = 'public'
          AND con.contype = 'f'
-         AND rel.relname IN ('orders', 'order_items')
+         AND rel.relname IN ('orders', 'order_items', 'order_number_counters')
        ORDER BY con.conname`,
     );
     const defs = new Map(
@@ -412,6 +456,12 @@ describe("staff orders schema slice", () => {
     expect(defs.get("order_items_product_variants_company_fk")).toContain(
       "ON DELETE RESTRICT",
     );
+    expect(
+      defs.get("order_number_counters_company_id_companies_id_fk"),
+    ).toContain("REFERENCES companies(id)");
+    expect(
+      defs.get("order_number_counters_company_id_companies_id_fk"),
+    ).toContain("ON DELETE CASCADE");
   });
 
   it("rejects negative money, zero quantity, and illegal status/discount/source", async () => {
@@ -686,6 +736,10 @@ describe("staff orders schema slice", () => {
       orderId: surviving.id,
       productId: product.id,
     });
+    await dbClient.db.insert(orderNumberCounters).values({
+      companyId: company.id,
+      lastNumber: 1n,
+    });
     await dbClient.db.delete(companies).where(eq(companies.id, company.id));
     expect(
       await dbClient.db
@@ -698,6 +752,12 @@ describe("staff orders schema slice", () => {
         .select()
         .from(orderItems)
         .where(eq(orderItems.companyId, company.id)),
+    ).toEqual([]);
+    expect(
+      await dbClient.db
+        .select()
+        .from(orderNumberCounters)
+        .where(eq(orderNumberCounters.companyId, company.id)),
     ).toEqual([]);
   });
 

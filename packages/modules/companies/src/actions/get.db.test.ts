@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { PermissionDeniedError, ValidationError } from "@showzy/core/errors";
+import { ValidationError } from "@showzy/core/errors";
 import {
   createTestKit,
   crossTenantSuite,
@@ -98,6 +98,12 @@ beforeAll(async () => {
   ]);
   await kit.db.runtime.db.insert(companyMembers).values([
     {
+      companyId: fixtures.companyWithLegal,
+      userId: clerks.manager,
+      role: "manager",
+      permissions: { granted: [], denied: [] },
+    },
+    {
       companyId: kitIdentities.companies.a,
       userId: clerks.manager,
       role: "manager",
@@ -177,24 +183,49 @@ describe("companies.get", () => {
     expect(JSON.stringify(result)).not.toContain(foreignIban);
   });
 
-  it("denies manager and employee without settings:payments and allows owner and admin", async () => {
+  it("allows manager and employee without settings:payments and still returns prefix and legal", async () => {
+    await expect(
+      kit.invoke(
+        getCompany,
+        {},
+        { userId: clerks.manager, companyId: fixtures.companyWithLegal },
+      ),
+    ).resolves.toMatchObject({
+      id: fixtures.companyWithLegal,
+      prefix: "LG",
+      legal: {
+        companyType: "tov",
+        legalName: "ТОВ Альфа",
+        edrpou: sampleEdrpou,
+        iban: fixtureIban,
+      },
+    });
     await expect(
       kit.invoke(
         getCompany,
         {},
         { userId: clerks.manager, companyId: kitIdentities.companies.a },
       ),
-    ).rejects.toBeInstanceOf(PermissionDeniedError);
+    ).resolves.toMatchObject({
+      id: kitIdentities.companies.a,
+      prefix: "KA",
+      legal: null,
+    });
     await expect(
       kit.invoke(
         getCompany,
         {},
         { userId: clerks.employee, companyId: kitIdentities.companies.a },
       ),
-    ).rejects.toBeInstanceOf(PermissionDeniedError);
+    ).resolves.toMatchObject({
+      id: kitIdentities.companies.a,
+      prefix: "KA",
+      legal: null,
+    });
 
     await expect(kit.invoke(getCompany, {})).resolves.toMatchObject({
       id: kitIdentities.companies.a,
+      prefix: "KA",
       legal: null,
     });
     await expect(
@@ -205,6 +236,7 @@ describe("companies.get", () => {
       ),
     ).resolves.toMatchObject({
       id: kitIdentities.companies.a,
+      prefix: "KA",
       legal: null,
     });
   });

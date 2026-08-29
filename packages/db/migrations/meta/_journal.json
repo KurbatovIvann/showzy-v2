@@ -225,6 +225,13 @@
       "when": 1788023525418,
       "tag": "0031_steady_sinister_six",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1788032484849,
+      "tag": "0032_easy_smiling_tiger",
+      "breakpoints": true
     }
   ]
 }

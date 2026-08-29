@@ -1,8 +1,8 @@
 /**
- * Staff-order tables (SHO-91, orders-T1). Owned by the orders module
- * (ADR-0014). Line rows are immutable money snapshots (money.md): no
- * `updated_at`, and pricing provenance ids are stored without FKs so
- * catalog/pricing deletes cannot rewrite history.
+ * Staff-order tables (SHO-91, orders-T1; SHO-250 text order_number).
+ * Owned by the orders module (ADR-0014). Line rows are immutable money
+ * snapshots (money.md): no `updated_at`, and pricing provenance ids are
+ * stored without FKs so catalog/pricing deletes cannot rewrite history.
  */
 import { sql } from "drizzle-orm";
 import {
@@ -13,6 +13,7 @@ import {
   index,
   integer,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   unique,
@@ -34,8 +35,11 @@ export const orders = pgTable(
     companyId: uuid("company_id")
       .notNull()
       .references(() => companies.id, { onDelete: "cascade" }),
-    /** Per-company display sequence (SHO-240). Assigned in `orders.create`. */
-    orderNumber: integer("order_number").notNull(),
+    /**
+     * Per-company display number (SHO-250). Stored as `{prefix}-{token}`
+     * (v1 `obfuscate_seq` / `to_base36`). Assigned in `orders.create`.
+     */
+    orderNumber: text("order_number").notNull(),
     customerId: uuid("customer_id"),
     status: text("status").notNull().default("new"),
     comment: text("comment"),
@@ -74,7 +78,10 @@ export const orders = pgTable(
       "orders_status_check",
       sql`${table.status} IN ('new', 'confirmed', 'canceled')`,
     ),
-    check("orders_order_number_positive_check", sql`${table.orderNumber} > 0`),
+    check(
+      "orders_order_number_shape_check",
+      sql`${table.orderNumber} ~ '^[A-Z0-9]+-[0-9A-Z]+$'`,
+    ),
     check("orders_total_net_minor_check", sql`${table.totalNetMinor} >= 0`),
     check("orders_total_tax_minor_check", sql`${table.totalTaxMinor} >= 0`),
     check("orders_total_gross_minor_check", sql`${table.totalGrossMinor} >= 0`),
@@ -180,6 +187,32 @@ export const orderItems = pgTable(
     check(
       "order_items_price_source_check",
       sql`${table.priceSource} IN ('personal', 'customer_price_list', 'group_price_list', 'default_price_list', 'base')`,
+    ),
+  ],
+);
+
+/**
+ * Monotonic per-company sequence for staff order numbers (SHO-250).
+ * `company_id` is the PK. Handlers upsert this row (documents-style);
+ * they do not lock every order row. `last_number` is the last allocated
+ * integer sequence, not the display token.
+ */
+export const orderNumberCounters = pgTable(
+  "order_number_counters",
+  {
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    lastNumber: bigint("last_number", { mode: "bigint" }).notNull(),
+  },
+  (table) => [
+    primaryKey({
+      name: "order_number_counters_pk",
+      columns: [table.companyId],
+    }),
+    check(
+      "order_number_counters_last_number_check",
+      sql`${table.lastNumber} > 0`,
     ),
   ],
 );

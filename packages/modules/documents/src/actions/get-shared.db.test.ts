@@ -86,10 +86,10 @@ const revokedToken = generateDocumentShareToken();
 const pdfExpiredToken = generateDocumentShareToken();
 const seedOrderNumbers = new Map<string, number>();
 
-function nextSeedOrderNumber(companyId: string): number {
+function nextSeedOrderNumber(companyId: string): string {
   const next = (seedOrderNumbers.get(companyId) ?? 0) + 1;
   seedOrderNumbers.set(companyId, next);
-  return next;
+  return `T-${String(next)}`;
 }
 
 async function insertSeedDocument(values: {

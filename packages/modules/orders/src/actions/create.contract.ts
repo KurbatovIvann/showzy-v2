@@ -1,8 +1,9 @@
 /**
  * Golden write-action contract (SHO-92 / orders-T2). Later Executors copy
  * this file's shape. Mechanical choices the feature card left unnamed:
- * - `timeout: 10000` covers two nested `ctx.call`s (catalog order facts +
- *   pricing resolve, each 5000) sharing the remaining budget.
+ * - `timeout: 15000` covers three nested `ctx.call`s (`companies.get` +
+ *   catalog order facts + pricing resolve, each 5000) sharing the
+ *   remaining budget (SHO-250 mechanical amend).
  * - Output is the created order view (same shape as `orders.get`) so the
  *   client has snapshots without a second round-trip.
  * - `quantityMilli` is a canonical positive integer string (scale 3).
@@ -76,5 +77,5 @@ export const createOrderContract = defineActionContract({
   atomicCalls: [],
   atomicCallers: [],
   audit: true,
-  timeout: 10_000,
+  timeout: 15_000,
 });

@@ -150,7 +150,7 @@ async function insertOrder(values: {
   id: string;
   companyId: string;
   customerId: string;
-  orderNumber: number;
+  orderNumber: string;
 }): Promise<void> {
   await kit.db.runtime.db.insert(orders).values({
     id: values.id,
@@ -272,19 +272,19 @@ beforeAll(async () => {
     id: fixtures.orderIsolationA,
     companyId: companyA,
     customerId: fixtures.customerA,
-    orderNumber: 1,
+    orderNumber: "T-1",
   });
   await insertOrder({
     id: fixtures.orderIsolationB,
     companyId: companyB,
     customerId: fixtures.customerB,
-    orderNumber: 1,
+    orderNumber: "T-1",
   });
   await insertOrder({
     id: fixtures.orderConfirmFirst,
     companyId: companyA,
     customerId: fixtures.customerA,
-    orderNumber: 2,
+    orderNumber: "T-2",
   });
   await kit.db.runtime.db.insert(orderCards).values([
     {

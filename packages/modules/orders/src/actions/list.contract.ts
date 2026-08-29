@@ -12,8 +12,9 @@
  *   cap as catalog/customers list search). LIKE metacharacters `%`, `_`,
  *   and `\\` are stripped so they cannot widen the match; a query that
  *   strips to empty returns no rows.
- * - Search matches `order_number` (digits, optional `#` prefix) OR CRM
- *   name/phone/email via `ctx.call` `customers.listCustomers`.
+ * - Search matches the text `order_number` with a case-insensitive
+ *   contains (optional leading `#` stripped) OR CRM name/phone/email
+ *   via `ctx.call` `customers.listCustomers`.
  * - Customer-id pages drain up to `LIST_ORDERS_CUSTOMER_SEARCH_MAX_PAGES`
  *   of `LIST_ORDERS_CUSTOMER_SEARCH_PAGE_SIZE` (500 ids). Named cap.
  * - List rows are not the get view: header fields plus `itemCount` only.
@@ -87,7 +88,7 @@ export const listOrdersInputSchema = z.object({
 
 export const listOrderRowSchema = z.object({
   orderId: z.uuid(),
-  orderNumber: z.number().int().positive(),
+  orderNumber: z.string().min(1),
   customerId: z.uuid().nullable(),
   status: orderStatusSchema,
   itemCount: z.number().int().nonnegative(),
@@ -104,7 +105,7 @@ export const listOrdersOutputSchema = z.object({
 export const listOrdersContract = defineActionContract({
   name: "orders.list",
   description:
-    "List staff-intake orders in the staff member's active company. Default status all includes new, confirmed, and canceled; pass a CHECK status to filter. Optional query matches the per-company order number (digits, optional # prefix) or CRM customer name, phone, or email. Paginate with a created-at/id cursor and a page size of at most 50. Each row includes orderId, orderNumber, nullable customerId, status, itemCount, total gross, currency, and createdAt — not the get view or line snapshots. Company id is never input. Does not filter by payment.",
+    "List staff-intake orders in the staff member's active company. Default status all includes new, confirmed, and canceled; pass a CHECK status to filter. Optional query matches the text order number with a case-insensitive contains (optional leading #) or CRM customer name, phone, or email. Paginate with a created-at/id cursor and a page size of at most 50. Each row includes orderId, orderNumber, nullable customerId, status, itemCount, total gross, currency, and createdAt — not the get view or line snapshots. Company id is never input. Does not filter by payment.",
   principal: "staff",
   transport: "client",
   input: listOrdersInputSchema,
