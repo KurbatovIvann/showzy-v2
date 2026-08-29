@@ -11,6 +11,7 @@ describe("orderIdFromParam", () => {
     expect(orderIdFromParam(undefined)).toBeNull();
     expect(orderIdFromParam("")).toBeNull();
     expect(orderIdFromParam("not-a-uuid")).toBeNull();
+    expect(orderIdFromParam("new")).toBeNull();
     expect(orderIdFromParam(["", ORDER_ID])).toBeNull();
   });
 });

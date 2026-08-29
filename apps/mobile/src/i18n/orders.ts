@@ -32,6 +32,13 @@ export type OrdersDetailCopy = {
   readonly mutationPermission: string;
 };
 
+export type OrdersCreateCopy = {
+  readonly title: string;
+  readonly backLabel: string;
+  readonly placeholderTitle: string;
+  readonly placeholderDescription: string;
+};
+
 export type OrdersCopy = {
   readonly title: string;
   readonly createLabel: string;
@@ -70,6 +77,7 @@ export type OrdersCopy = {
     readonly create: string;
   };
   readonly detail: OrdersDetailCopy;
+  readonly create: OrdersCreateCopy;
 };
 
 const en: OrdersCopy = {
@@ -140,6 +148,13 @@ const en: OrdersCopy = {
     mutationOffline: "No connection. Connect and try again.",
     mutationPermission: "You do not have permission to change this order.",
   },
+  create: {
+    title: "New order",
+    backLabel: "Back",
+    placeholderTitle: "Editor in development",
+    placeholderDescription:
+      "Creating an order from the phone is not available yet.",
+  },
 };
 
 const uk: OrdersCopy = {
@@ -209,6 +224,13 @@ const uk: OrdersCopy = {
     mutationError: "Не вдалося оновити замовлення. Спробуйте ще раз.",
     mutationOffline: "Немає зʼєднання. Підключіться і спробуйте ще раз.",
     mutationPermission: "Немає дозволу змінювати це замовлення.",
+  },
+  create: {
+    title: "Нове замовлення",
+    backLabel: "Назад",
+    placeholderTitle: "Редактор у розробці",
+    placeholderDescription:
+      "Створення замовлення з телефону поки недоступне.",
   },
 };
 

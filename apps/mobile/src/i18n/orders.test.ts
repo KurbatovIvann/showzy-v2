@@ -18,6 +18,7 @@ describe("orders copy", () => {
     expect(Object.keys(uk.items)).toEqual(Object.keys(en.items));
     expect(Object.keys(uk.empty)).toEqual(Object.keys(en.empty));
     expect(Object.keys(uk.detail)).toEqual(Object.keys(en.detail));
+    expect(Object.keys(uk.create)).toEqual(Object.keys(en.create));
   });
 
   it("pins the canvas orders-list copy in uk without search or payment", () => {
@@ -78,6 +79,21 @@ describe("orders copy", () => {
     expect(JSON.stringify(uk.detail)).not.toContain("Нова Пошта");
     expect(JSON.stringify(uk.detail)).not.toContain("Історія");
     expect(JSON.stringify(uk.detail)).not.toContain("Редагувати");
+  });
+
+  it("pins create-placeholder copy without implementing the editor", () => {
+    const uk = ordersCopy("uk");
+    const en = ordersCopy("en");
+    expect(uk.create.title).toBe("Нове замовлення");
+    expect(uk.create.backLabel).toBe("Назад");
+    expect(uk.create.placeholderTitle).toBe("Редактор у розробці");
+    expect(uk.create.placeholderDescription).toBe(
+      "Створення замовлення з телефону поки недоступне.",
+    );
+    expect(en.create.title).toBe("New order");
+    expect(en.create.placeholderTitle).toBe("Editor in development");
+    expect(JSON.stringify(uk.create)).not.toContain("orders.create");
+    expect(JSON.stringify(uk.create)).not.toContain("Редагувати");
   });
 
   it("keeps interpolation slots in both locales", () => {

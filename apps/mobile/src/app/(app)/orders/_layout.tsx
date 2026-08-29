@@ -8,8 +8,9 @@ import { hierarchicalStackScreenOptions } from "../../../navigation/hierarchical
  * Order stack sits beside the tab shell on the (app) Stack, so it
  * does not inherit the tabs' company-resolution provider. Wrap these
  * routes the same way so `useResolvedCompany` (permission affordances)
- * is defined on detail. Nested native Stack keeps list → detail
- * history (Slot would replace in place).
+ * is defined on detail and create. Nested native Stack keeps list →
+ * detail history (Slot would replace in place). Static `new` sits
+ * beside `[id]` so `/orders/new` is not captured as a detail param.
  */
 export default function OrdersLayout() {
   const { theme } = useUnistyles();
