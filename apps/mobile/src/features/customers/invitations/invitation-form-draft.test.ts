@@ -6,6 +6,7 @@ import {
   emptyInvitationFormDraft,
   isInvitationFormDirty,
   parseInvitationFormUiDraft,
+  reclampInvitationDraftExpiresAt,
   snapshotFromDraft,
   type InvitationFormDraft,
 } from "./invitation-form-draft";
@@ -13,8 +14,12 @@ import {
   expiresAtInRange,
   INVITE_EXPIRES_DEFAULT_MS,
   INVITE_EXPIRES_MAX_MS,
+  INVITE_EXPIRES_MIN_CLAMP_SLACK_MS,
   INVITE_EXPIRES_MIN_MS,
 } from "./invitation-form.schema";
+
+/** Picker close → Create delay. Exact-min ISO fails this; slack must not. */
+const PICKER_TO_SUBMIT_DELAY_MS = 30_000;
 
 const GROUP_ID = "11111111-1111-4111-8111-111111111111";
 const PRICE_LIST_ID = "22222222-2222-4222-8222-222222222222";
@@ -82,8 +87,11 @@ describe("applyInviteExpiresDate", () => {
     );
     expect(unclamped.getTime()).toBeLessThan(minMs);
     const nextIso = applyInviteExpiresDate(iso, picked, NOW);
-    expect(Date.parse(nextIso)).toBe(minMs);
-    expect(expiresAtInRange(nextIso, NOW)).toBe(true);
+    expect(Date.parse(nextIso)).toBeGreaterThan(minMs);
+    expect(Date.parse(nextIso)).toBe(minMs + INVITE_EXPIRES_MIN_CLAMP_SLACK_MS);
+    expect(expiresAtInRange(nextIso, NOW + PICKER_TO_SUBMIT_DELAY_MS)).toBe(
+      true,
+    );
   });
 
   it("reclamps the max picker day when the draft clock exceeds now+365d", () => {
@@ -129,6 +137,25 @@ describe("isInvitationFormDirty", () => {
     expect(
       isInvitationFormDirty({ ...origin, groupId: GROUP_ID }, origin),
     ).toBe(true);
+  });
+});
+
+describe("reclampInvitationDraftExpiresAt", () => {
+  it("leaves an in-range expiry unchanged so retry can reuse the write", () => {
+    const draft = validCreateDraft();
+    expect(reclampInvitationDraftExpiresAt(draft, NOW)).toBe(draft);
+  });
+
+  it("bumps a stale min ISO so a later Date.now() still sees it in range", () => {
+    const now = Date.now();
+    const stale = new Date(now + INVITE_EXPIRES_MIN_MS - 5_000).toISOString();
+    const draft = { ...emptyInvitationFormDraft(now), expiresAt: stale };
+    expect(expiresAtInRange(stale, now)).toBe(false);
+    const next = reclampInvitationDraftExpiresAt(draft, now);
+    expect(
+      expiresAtInRange(next.expiresAt, now + PICKER_TO_SUBMIT_DELAY_MS),
+    ).toBe(true);
+    expect(snapshotFromDraft(draft, now)?.expiresAt).toBe(next.expiresAt);
   });
 });
 

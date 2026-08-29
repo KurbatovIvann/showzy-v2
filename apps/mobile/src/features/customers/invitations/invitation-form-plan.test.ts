@@ -10,10 +10,15 @@ import {
   planInvitationFormSave,
   secretFromCreateOutput,
 } from "./invitation-form-plan";
+import {
+  expiresAtInRange,
+  INVITE_EXPIRES_MIN_MS,
+} from "./invitation-form.schema";
 
 const GROUP_ID = "11111111-1111-4111-8111-111111111111";
 const PRICE_LIST_ID = "22222222-2222-4222-8222-222222222222";
 const INVITE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const SUBMIT_DELAY_MS = 30_000;
 
 function validCreateDraft(nowMs: number = Date.now()): InvitationFormDraft {
   return emptyInvitationFormDraft(nowMs);
@@ -64,6 +69,21 @@ describe("createInvitePayload", () => {
       priceListId: PRICE_LIST_ID,
       name: "Марія",
     });
+  });
+
+  it("reclamps a stale min expiry so the wire ISO stays in range after delay", () => {
+    const now = Date.now();
+    const stale = new Date(now + INVITE_EXPIRES_MIN_MS - 5_000).toISOString();
+    const draft = { ...validCreateDraft(now), expiresAt: stale };
+    expect(expiresAtInRange(stale, now)).toBe(false);
+    const payload = createInvitePayload(draft, now);
+    expect(payload).not.toBeNull();
+    if (payload === null) {
+      return;
+    }
+    expect(expiresAtInRange(payload.expiresAt, now + SUBMIT_DELAY_MS)).toBe(
+      true,
+    );
   });
 });
 
@@ -128,6 +148,25 @@ describe("parseThenPlanInvitationFormSave", () => {
         lastFailureKind: null,
       }).kind,
     ).toBe("invalid");
+  });
+
+  it("parses a stale min expiry as a write after reclamp", () => {
+    const now = Date.now();
+    const stale = new Date(now + INVITE_EXPIRES_MIN_MS - 5_000).toISOString();
+    const planned = parseThenPlanInvitationFormSave({
+      draft: { ...validCreateDraft(now), expiresAt: stale },
+      created: null,
+      lastWrite: null,
+      lastFailureKind: null,
+      nowMs: now,
+    });
+    expect(planned.kind).toBe("write");
+    if (planned.kind !== "write") {
+      return;
+    }
+    expect(
+      expiresAtInRange(planned.write.input.expiresAt, now + SUBMIT_DELAY_MS),
+    ).toBe(true);
   });
 });
 

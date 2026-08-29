@@ -12,6 +12,7 @@ import type { QueryFailureKind } from "../../../api/errors";
 import {
   isInvitationFormValid,
   parseInvitationFormUiDraft,
+  reclampInvitationDraftExpiresAt,
   snapshotFromDraft,
   validateInvitationForm,
   type InvitationFormDraft,
@@ -67,8 +68,9 @@ export function secretFromCreateOutput(
 
 export function createInvitePayload(
   draft: InvitationFormDraft,
+  nowMs: number = Date.now(),
 ): CreateInvitePayload | null {
-  const snapshot = snapshotFromDraft(draft);
+  const snapshot = snapshotFromDraft(draft, nowMs);
   if (snapshot === null) {
     return null;
   }
@@ -122,15 +124,18 @@ export function planInvitationFormSave(args: {
   readonly lastWrite: InvitationFormWrite | null;
   readonly lastFailureKind: QueryFailureKind | null;
   readonly lastWireCode?: WireErrorCode | null;
+  readonly nowMs?: number;
 }): InvitationFormSavePlan {
   if (args.created !== null) {
     return { kind: "noop" };
   }
-  const errors = validateInvitationForm(args.draft);
+  const nowMs = args.nowMs ?? Date.now();
+  const draft = reclampInvitationDraftExpiresAt(args.draft, nowMs);
+  const errors = validateInvitationForm(draft);
   if (!isInvitationFormValid(errors)) {
     return { kind: "invalid", errors };
   }
-  const input = createInvitePayload(args.draft);
+  const input = createInvitePayload(draft, nowMs);
   if (input === null) {
     return { kind: "invalid", errors };
   }
@@ -155,10 +160,13 @@ export function parseThenPlanInvitationFormSave(args: {
   readonly lastWrite: InvitationFormWrite | null;
   readonly lastFailureKind: QueryFailureKind | null;
   readonly lastWireCode?: WireErrorCode | null;
+  readonly nowMs?: number;
 }): InvitationFormSavePlan {
-  const parsed = parseInvitationFormUiDraft(args.draft);
+  const nowMs = args.nowMs ?? Date.now();
+  const draft = reclampInvitationDraftExpiresAt(args.draft, nowMs);
+  const parsed = parseInvitationFormUiDraft(draft);
   if (!parsed.ok) {
     return { kind: "invalid", errors: parsed.errors };
   }
-  return planInvitationFormSave({ ...args, draft: parsed.draft });
+  return planInvitationFormSave({ ...args, draft: parsed.draft, nowMs });
 }

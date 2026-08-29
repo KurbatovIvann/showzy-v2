@@ -5,10 +5,13 @@
  */
 import {
   emptyFieldErrors,
+  expiresAtInRange,
+  expiresAtMs,
   fieldErrorsFromDraftSchema,
   invitationFormDraftSchema,
   INVITE_EXPIRES_DEFAULT_MS,
   INVITE_EXPIRES_MAX_MS,
+  INVITE_EXPIRES_MIN_CLAMP_SLACK_MS,
   INVITE_EXPIRES_MIN_MS,
   parseInviteMaxUsesInput,
   type InvitationFormFieldErrors,
@@ -88,14 +91,38 @@ export function emptyToNull(value: string): string | null {
 /**
  * Keep the draft's clock time and apply the picker's local calendar
  * date (canvas date field → native date picker), then reclamp into
- * `[now+INVITE_EXPIRES_MIN_MS, now+INVITE_EXPIRES_MAX_MS]` so the
- * earliest/latest picker day cannot miss the contract window.
+ * `[now+MIN+slack, now+MAX]`. Slack on the floor so the ISO is not
+ * exact min (picker close → Create → server parse all require
+ * `expiresMs >= Date.now()+MIN`). Max stays the exact ceiling.
  */
 export function clampInviteExpiresAt(expiresMs: number, nowMs: number): string {
-  const minMs = nowMs + INVITE_EXPIRES_MIN_MS;
+  const minMs =
+    nowMs + INVITE_EXPIRES_MIN_MS + INVITE_EXPIRES_MIN_CLAMP_SLACK_MS;
   const maxMs = nowMs + INVITE_EXPIRES_MAX_MS;
   const clamped = Math.min(maxMs, Math.max(minMs, expiresMs));
   return new Date(clamped).toISOString();
+}
+
+/**
+ * Bump a draft `expiresAt` that has drifted out of the contract window
+ * (picker clock vs submit/server `Date.now()`). In-range values are
+ * left unchanged so a frozen draft still retries the same write.
+ */
+export function reclampInvitationDraftExpiresAt(
+  draft: InvitationFormDraft,
+  nowMs: number = Date.now(),
+): InvitationFormDraft {
+  if (expiresAtInRange(draft.expiresAt, nowMs)) {
+    return draft;
+  }
+  const expiresMs = expiresAtMs(draft.expiresAt);
+  if (expiresMs === null) {
+    return draft;
+  }
+  return {
+    ...draft,
+    expiresAt: clampInviteExpiresAt(expiresMs, nowMs),
+  };
 }
 
 export function applyInviteExpiresDate(
@@ -170,21 +197,23 @@ export function parseInvitationFormUiDraft(
 
 export function snapshotFromDraft(
   draft: InvitationFormDraft,
+  nowMs: number = Date.now(),
 ): InvitationFormSnapshot | null {
-  const errors = validateInvitationForm(draft);
+  const next = reclampInvitationDraftExpiresAt(draft, nowMs);
+  const errors = validateInvitationForm(next);
   if (!isInvitationFormValid(errors)) {
     return null;
   }
-  const isReusable = draft.kind === "reusable";
-  const parsedMax = parseInviteMaxUsesInput(draft.maxUses);
+  const isReusable = next.kind === "reusable";
+  const parsedMax = parseInviteMaxUsesInput(next.maxUses);
   return {
     isReusable,
-    expiresAt: draft.expiresAt,
+    expiresAt: next.expiresAt,
     maxUses: isReusable && parsedMax !== "invalid" ? parsedMax : null,
-    groupId: draft.groupId,
-    priceListId: draft.priceListId,
-    name: emptyToNull(draft.name),
-    phone: emptyToNull(draft.phone),
-    email: emptyToNull(draft.email),
+    groupId: next.groupId,
+    priceListId: next.priceListId,
+    name: emptyToNull(next.name),
+    phone: emptyToNull(next.phone),
+    email: emptyToNull(next.email),
   };
 }

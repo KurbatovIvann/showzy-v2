@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import { customersCopy } from "../../../i18n/customers";
 import { resolveInvitationFormCopy } from "./invitation-form-copy";
-import { emptyFieldErrors } from "./invitation-form.schema";
+import {
+  emptyFieldErrors,
+  INVITE_EXPIRES_MIN_MS,
+} from "./invitation-form.schema";
 import {
   emptyInvitationFormDraft,
   type InvitationFormDraft,
@@ -169,6 +172,17 @@ describe("runInvitationFormSave", () => {
     await runInvitationFormSave(ports);
     expect(calls[0]).toBe("retry");
     expect(calls).not.toContain("submit:createInvite");
+  });
+
+  it("submits after reclamping a stale min expiry instead of failing range", async () => {
+    const now = Date.now();
+    const stale = new Date(now + INVITE_EXPIRES_MIN_MS - 5_000).toISOString();
+    const { ports, calls, getFieldErrors } = createPorts({
+      draft: { ...validCreateDraft(now), expiresAt: stale },
+    });
+    await runInvitationFormSave(ports);
+    expect(getFieldErrors().expiresAt).toBeNull();
+    expect(calls).toEqual(["submit:createInvite", "reset", "finish"]);
   });
 
   it("noops after the secret is already shown", async () => {

@@ -21,6 +21,12 @@ export const INVITE_EXPIRES_MIN_MS = 60 * 60 * 1000;
 export const INVITE_EXPIRES_MAX_MS = 365 * 24 * 60 * 60 * 1000;
 /** Owner decision 4: UI default 7 days from now. */
 export const INVITE_EXPIRES_DEFAULT_MS = 7 * 24 * 60 * 60 * 1000;
+/**
+ * Picker/submit min clamp sits this far above `now+MIN` so an ISO that
+ * was valid at picker close still passes UI Zod and `invites.create`
+ * after picker→Create→server `Date.now()` (all `>= now+MIN`).
+ */
+export const INVITE_EXPIRES_MIN_CLAMP_SLACK_MS = 60 * 1000;
 
 export type InvitationKind = "personal" | "reusable";
 
