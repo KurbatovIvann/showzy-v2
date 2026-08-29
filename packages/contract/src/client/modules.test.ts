@@ -45,6 +45,7 @@ import {
   requestUploadContract,
 } from "@showzy/files/contract";
 import {
+  acceptInviteContract,
   createInviteContract,
   getInviteContract,
   listInvitesContract,
@@ -122,6 +123,7 @@ describe("client composition", () => {
         getDownloadUrls: getDownloadUrlsContract,
       },
       invites: {
+        accept: acceptInviteContract,
         create: createInviteContract,
         get: getInviteContract,
         list: listInvitesContract,
@@ -185,6 +187,7 @@ describe("client composition", () => {
     expect(contractModules.customers).not.toHaveProperty(
       "getCustomerPricingFacts",
     );
+    expect(contractModules.customers).not.toHaveProperty("applyInviteCrm");
     expect(contractRouter.files.requestUpload).toBeDefined();
     expect(contractRouter.files.getUploadUrl).toBeDefined();
     expect(contractRouter.files.finalizeUpload).toBeDefined();
@@ -192,6 +195,7 @@ describe("client composition", () => {
     expect(contractRouter.files.getDownloadUrls).toBeDefined();
     expect(contractModules.files).not.toHaveProperty("getAttachmentFacts");
     expect(contractModules.files).not.toHaveProperty("sweepAbandonedUploads");
+    expect(contractRouter.invites.accept).toBeDefined();
     expect(contractRouter.invites.create).toBeDefined();
     expect(contractRouter.invites.get).toBeDefined();
     expect(contractRouter.invites.list).toBeDefined();

@@ -1,3 +1,4 @@
+export { applyInviteCrmContract } from "./actions/apply-invite-crm.contract.js";
 export { archiveCustomerContract } from "./actions/archive-customer.contract.js";
 export { createCounterpartyContract } from "./actions/create-counterparty.contract.js";
 export { createCustomerContract } from "./actions/create-customer.contract.js";

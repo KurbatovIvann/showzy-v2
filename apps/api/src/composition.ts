@@ -40,6 +40,7 @@ import { chatSuiteCoverage } from "@showzy/chat/suite-coverage";
 import { createCompany, listMine } from "@showzy/companies";
 import { companiesSuiteCoverage } from "@showzy/companies/suite-coverage";
 import {
+  applyInviteCrm,
   archiveCustomer,
   createCounterparty,
   createCustomer,
@@ -71,8 +72,10 @@ import {
 } from "@showzy/files";
 import { filesSuiteCoverage } from "@showzy/files/suite-coverage";
 import {
+  acceptInvite,
   createInvite,
   getInvite,
+  invitesAccepted,
   invitesCreated,
   invitesRevoked,
   listInvites,
@@ -136,6 +139,7 @@ const moduleSuiteCoverage: readonly SuiteCoverageManifest[] = [
 const events: readonly EventDefinitionRef[] = [
   ordersCreated,
   ordersConfirmed,
+  invitesAccepted,
   invitesCreated,
   invitesRevoked,
 ];
@@ -263,6 +267,7 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, upsertOrderCard);
   registerAction(registry, createCompany);
   registerAction(registry, listMine);
+  registerAction(registry, applyInviteCrm);
   registerAction(registry, archiveCustomer);
   registerAction(registry, createCounterparty);
   registerAction(registry, createCustomer);
@@ -288,6 +293,7 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, getDownloadUrls);
   registerAction(registry, getAttachmentFacts);
   registerAction(registry, sweepAbandonedUploads);
+  registerAction(registry, acceptInvite);
   registerAction(registry, createInvite);
   registerAction(registry, getInvite);
   registerAction(registry, listInvites);

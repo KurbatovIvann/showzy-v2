@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Invites module: staff customer-entry invite tokens (create/list/get/revoke). This package exports actions and events only.",
+  "description": "Invites module: staff customer-entry invite tokens and customer accept. This package exports actions and events only.",
   "exports": {
     ".": "./src/index.ts",
     "./contract": "./src/index.contract.ts",

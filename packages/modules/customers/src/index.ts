@@ -1,3 +1,4 @@
+export { applyInviteCrm } from "./actions/apply-invite-crm.js";
 export { archiveCustomer } from "./actions/archive-customer.js";
 export { createCounterparty } from "./actions/create-counterparty.js";
 export { createCustomer } from "./actions/create-customer.js";
