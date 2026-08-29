@@ -4,6 +4,7 @@ import {
   canCreateDocuments,
   canEditDocuments,
   canViewDocuments,
+  documentsCreateScreenActions,
 } from "./document-permissions";
 
 /**
@@ -30,5 +31,14 @@ describe("document permission affordances", () => {
     expect(canEditDocuments("admin")).toBe(true);
     expect(canEditDocuments("manager")).toBe(true);
     expect(canEditDocuments("employee")).toBe(false);
+  });
+
+  it("hides the create submit without documents:create", () => {
+    expect(documentsCreateScreenActions({ canCreate: true })).toEqual({
+      showSubmit: true,
+    });
+    expect(documentsCreateScreenActions({ canCreate: false })).toEqual({
+      showSubmit: false,
+    });
   });
 });

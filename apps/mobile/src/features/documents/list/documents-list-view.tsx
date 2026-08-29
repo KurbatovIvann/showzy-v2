@@ -13,7 +13,7 @@ import {
   EmptyState,
   IconButton,
 } from "../../../components/ui";
-import { DocumentHandoverSheet } from "./document-handover-sheet";
+import { DocumentHandoverSheet } from "../share/document-handover-sheet";
 import { DocumentOptionsSheet } from "./document-options-sheet";
 import { DocumentRow, DocumentRowSkeleton } from "./document-row";
 import type {

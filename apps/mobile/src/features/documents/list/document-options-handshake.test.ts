@@ -2,13 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import type { ConfirmDialogRequest } from "../../../components/ui/confirm-dialog";
 import {
-  documentHandoverHidden,
   documentOptionsHidden,
-  hideDocumentHandover,
   hideDocumentOptions,
-  IDLE_DOCUMENT_HANDOVER,
   IDLE_DOCUMENT_OPTIONS,
-  openDocumentHandover,
   openDocumentOptions,
   waitThenConfirmDocumentCancel,
   waitThenRunDocumentFollowUp,
@@ -52,19 +48,6 @@ describe("document options chrome", () => {
   it("does not drop a document that was reopened before a late onHidden", () => {
     const reopened = openDocumentOptions(DOCUMENT_ID);
     expect(documentOptionsHidden(reopened)).toEqual(reopened);
-  });
-});
-
-describe("document handover chrome", () => {
-  it("keeps the url while the sheet closes so the body does not blank mid-animation", () => {
-    const open = openDocumentHandover({
-      url: "https://example.test/d/token",
-      documentNumber: "SHZ-РХ-000001",
-    });
-    const hidden = hideDocumentHandover(open);
-    expect(hidden.visible).toBe(false);
-    expect(hidden.url).toBe("https://example.test/d/token");
-    expect(documentHandoverHidden(hidden)).toEqual(IDLE_DOCUMENT_HANDOVER);
   });
 });
 

@@ -23,6 +23,7 @@ import {
   type DocumentWrite,
 } from "../api/document-writes";
 import { documentsCreateHref } from "../shared/document-hrefs";
+import { isSafeHttpUrl } from "../shared/is-safe-http-url";
 import {
   documentsWriteBanner,
   mapDocumentsWriteFailure,
@@ -140,6 +141,10 @@ export function useDocumentWrites(args: {
       }
       if (view.pdfDownloadUrl === null) {
         setLocalBanner(args.copy.toast.pdfNotReady);
+        return;
+      }
+      if (!isSafeHttpUrl(view.pdfDownloadUrl)) {
+        setLocalBanner(args.copy.toast.pdfOpenFailed);
         return;
       }
       await Linking.openURL(view.pdfDownloadUrl);

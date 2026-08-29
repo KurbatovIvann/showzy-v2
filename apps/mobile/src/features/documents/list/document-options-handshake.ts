@@ -43,48 +43,6 @@ export function documentOptionsHidden(
   return IDLE_DOCUMENT_OPTIONS;
 }
 
-export type DocumentHandoverChrome = {
-  readonly visible: boolean;
-  readonly url: string | null;
-  readonly documentNumber: string | null;
-};
-
-export const IDLE_DOCUMENT_HANDOVER: DocumentHandoverChrome = {
-  visible: false,
-  url: null,
-  documentNumber: null,
-};
-
-export function openDocumentHandover(args: {
-  readonly url: string;
-  readonly documentNumber: string;
-}): DocumentHandoverChrome {
-  return {
-    visible: true,
-    url: args.url,
-    documentNumber: args.documentNumber,
-  };
-}
-
-export function hideDocumentHandover(
-  state: DocumentHandoverChrome,
-): DocumentHandoverChrome {
-  return {
-    visible: false,
-    url: state.url,
-    documentNumber: state.documentNumber,
-  };
-}
-
-export function documentHandoverHidden(
-  state: DocumentHandoverChrome,
-): DocumentHandoverChrome {
-  if (state.visible) {
-    return state;
-  }
-  return IDLE_DOCUMENT_HANDOVER;
-}
-
 type OptionsSheetHiddenPorts = {
   readonly waitHidden: () => Promise<void>;
   readonly hide: () => void;
