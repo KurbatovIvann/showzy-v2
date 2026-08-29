@@ -6,12 +6,25 @@ import type { QueryFailureKind } from "../../../api/errors";
 import { formatMoneyMinor } from "../../../format/money";
 import { interpolate, type Locale } from "../../../i18n/locale";
 import type { OrdersCopy } from "../../../i18n/orders";
+import {
+  customerNameLabel,
+  resolveCustomerNameHydration,
+  type CustomerNameHydration,
+} from "../shared/customer-name";
 import { itemCountLabel } from "../shared/item-count";
+import { orderStatusTone, type OrderStatusTone } from "../shared/order-status";
 import type {
   ListOrdersPageInput,
   OrderListItem,
   OrdersListStatus,
 } from "../api/order.queries";
+
+export {
+  customerNameLabel,
+  resolveCustomerNameHydration,
+  type CustomerNameHydration,
+};
+export { orderStatusTone, type OrderStatusTone };
 
 export type OrderStatusFilter = "new" | "confirmed" | "canceled";
 
@@ -150,54 +163,6 @@ export function formatOrderCreatedAt(iso: string, locale: Locale): string {
     return "";
   }
   return `${String(day)} ${monthLabel} ${String(year)}`;
-}
-
-/**
- * Per-id CRM hydration. Pending and non-NOT_FOUND query failures are
- * not "deleted" — only a null customerId, settled NOT_FOUND, or a
- * blank name maps to missing-customer copy (SHO-211).
- */
-export type CustomerNameHydration =
-  | { readonly kind: "pending" }
-  | { readonly kind: "missing" }
-  | { readonly kind: "ready"; readonly name: string };
-
-export function resolveCustomerNameHydration(args: {
-  readonly customerId: string | null;
-  readonly name: string | undefined;
-  readonly status: "pending" | "error" | "success";
-  readonly notFound: boolean;
-}): CustomerNameHydration {
-  if (args.customerId === null) {
-    return { kind: "missing" };
-  }
-  const name = args.name?.trim();
-  if (name !== undefined && name.length > 0) {
-    return { kind: "ready", name };
-  }
-  if (args.notFound || args.status === "success") {
-    return { kind: "missing" };
-  }
-  return { kind: "pending" };
-}
-
-export function customerNameLabel(
-  hydration: CustomerNameHydration,
-  fallback: string,
-): string {
-  if (hydration.kind === "ready") {
-    return hydration.name;
-  }
-  if (hydration.kind === "missing") {
-    return fallback;
-  }
-  return "";
-}
-
-export type OrderStatusTone = "action" | "danger";
-
-export function orderStatusTone(status: OrderStatusFilter): OrderStatusTone {
-  return status === "canceled" ? "danger" : "action";
 }
 
 export type OrderRowView = {

@@ -7,6 +7,31 @@ export type OrdersCountForms = {
   readonly many: string;
 };
 
+export type OrdersDetailCopy = {
+  readonly title: string;
+  readonly backLabel: string;
+  readonly loadingLabel: string;
+  readonly offlineTitle: string;
+  readonly offlineDescription: string;
+  readonly errorTitle: string;
+  readonly errorDescription: string;
+  readonly retry: string;
+  readonly notFoundTitle: string;
+  readonly notFoundDescription: string;
+  readonly notFoundAction: string;
+  readonly customerTitle: string;
+  readonly linesTitle: string;
+  readonly commentTitle: string;
+  readonly dueLabel: string;
+  readonly confirmLabel: string;
+  readonly cancelOrder: string;
+  readonly actionsTitle: string;
+  readonly actionsLabel: string;
+  readonly mutationError: string;
+  readonly mutationOffline: string;
+  readonly mutationPermission: string;
+};
+
 export type OrdersCopy = {
   readonly title: string;
   readonly createLabel: string;
@@ -44,6 +69,7 @@ export type OrdersCopy = {
     readonly catalogDescription: string;
     readonly create: string;
   };
+  readonly detail: OrdersDetailCopy;
 };
 
 const en: OrdersCopy = {
@@ -89,6 +115,31 @@ const en: OrdersCopy = {
       "Create the first order manually or ask the assistant to do it.",
     create: "New order",
   },
+  detail: {
+    title: "Order",
+    backLabel: "Back",
+    loadingLabel: "Loading order",
+    offlineTitle: "No connection",
+    offlineDescription:
+      "Order details are unavailable offline. Connect and try again.",
+    errorTitle: "Could not load the order",
+    errorDescription: "Check your connection and try again.",
+    retry: "Retry",
+    notFoundTitle: "Order not found",
+    notFoundDescription: "This order could not be found or is unavailable.",
+    notFoundAction: "To the order list",
+    customerTitle: "Customer",
+    linesTitle: "Items",
+    commentTitle: "Comment",
+    dueLabel: "Due",
+    confirmLabel: "Confirm",
+    cancelOrder: "Cancel order",
+    actionsTitle: "Actions",
+    actionsLabel: "Order actions",
+    mutationError: "Could not update the order. Try again.",
+    mutationOffline: "No connection. Connect and try again.",
+    mutationPermission: "You do not have permission to change this order.",
+  },
 };
 
 const uk: OrdersCopy = {
@@ -133,6 +184,31 @@ const uk: OrdersCopy = {
     catalogDescription:
       "Створіть перше замовлення вручну або попросіть асистента зробити це за вас.",
     create: "Нове замовлення",
+  },
+  detail: {
+    title: "Замовлення",
+    backLabel: "Назад",
+    loadingLabel: "Завантаження замовлення",
+    offlineTitle: "Немає зʼєднання",
+    offlineDescription:
+      "Деталі замовлення недоступні офлайн. Підключіться і спробуйте ще раз.",
+    errorTitle: "Не вдалося завантажити замовлення",
+    errorDescription: "Перевірте зʼєднання та спробуйте ще раз.",
+    retry: "Повторити",
+    notFoundTitle: "Замовлення не знайдено",
+    notFoundDescription: "Не вдалося знайти це замовлення або воно недоступне.",
+    notFoundAction: "До списку замовлень",
+    customerTitle: "Клієнт",
+    linesTitle: "Позиції",
+    commentTitle: "Коментар",
+    dueLabel: "До сплати",
+    confirmLabel: "Підтвердити",
+    cancelOrder: "Скасувати замовлення",
+    actionsTitle: "Швидкі дії",
+    actionsLabel: "Дії з замовленням",
+    mutationError: "Не вдалося оновити замовлення. Спробуйте ще раз.",
+    mutationOffline: "Немає зʼєднання. Підключіться і спробуйте ще раз.",
+    mutationPermission: "Немає дозволу змінювати це замовлення.",
   },
 };
 

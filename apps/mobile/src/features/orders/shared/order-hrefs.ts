@@ -1,4 +1,4 @@
-/** Detail and editor routes are owned by SHO-212 / SHO-213. */
+/** Editor route is owned by SHO-213. Detail is `/orders/[id]` (SHO-212). */
 export function orderCreateHref(): string {
   return "/orders/new";
 }
