@@ -5,6 +5,8 @@
 declare const process: {
   readonly env: {
     readonly EXPO_PUBLIC_API_URL?: string;
+    /** Set by EAS Build; unset for local `expo run` / prebuild. */
+    readonly EAS_BUILD_PROFILE?: string;
   };
 };
 

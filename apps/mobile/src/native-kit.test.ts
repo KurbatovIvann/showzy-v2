@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import type { ConfigContext } from "expo/config";
 
 import packageJson from "../package.json" with { type: "json" };
-import appConfig, { expoConfigPlugins } from "../app.config";
+import appConfig, {
+  allowLanHttpObjectStore,
+  expoConfigPlugins,
+  expoConfigPluginsFor,
+} from "../app.config";
 
 /** Packages whose native code must ship in the first custom dev-client binary. */
 const nativeKitPackages = [
@@ -96,6 +100,22 @@ describe("mobile native kit", () => {
     expect(buildProps).toEqual([
       "expo-build-properties",
       { android: { usesCleartextTraffic: true } },
+    ]);
+    expect(allowLanHttpObjectStore({})).toBe(true);
+    expect(allowLanHttpObjectStore({ EAS_BUILD_PROFILE: "development" })).toBe(
+      true,
+    );
+    expect(allowLanHttpObjectStore({ EAS_BUILD_PROFILE: "preview" })).toBe(
+      false,
+    );
+    expect(allowLanHttpObjectStore({ EAS_BUILD_PROFILE: "production" })).toBe(
+      false,
+    );
+    expect(
+      expoConfigPluginsFor({ EAS_BUILD_PROFILE: "production" })[0],
+    ).toEqual([
+      "expo-build-properties",
+      { android: { usesCleartextTraffic: false } },
     ]);
   });
 });

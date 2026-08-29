@@ -81,9 +81,11 @@ API. Product photo PUT/GET URLs are signed against `S3_PUBLIC_ENDPOINT`
 phone can reach local Garage. Restart the API after changing it. Empty
 public endpoint + loopback `S3_ENDPOINT` is the device-break shape — the
 API logs a host-class warning (no URLs or secrets). HTTP Garage also
-needs the native ATS / Android cleartext exceptions in
-`apps/mobile/app.config.ts` (rebuild the dev client after changing
-those). If device discovery fails, add `--tunnel`:
+needs the native ATS local-networking exception and Android cleartext
+on the **development** / local native binary
+(`apps/mobile/app.config.ts`; rebuild the dev client after changing
+those). Preview and production Android builds stay HTTPS-only. If device
+discovery fails, add `--tunnel`:
 
 ```bash
 pnpm --filter @showzy/mobile start -- --dev-client --tunnel
