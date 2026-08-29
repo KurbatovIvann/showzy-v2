@@ -3,9 +3,9 @@ import { rolePermissionDefaults } from "../src/schema/companies.js";
 
 /**
  * Phase-0 defaults carried from the v1 permission model. Catalog, customers,
- * pricing, orders, chat, files, and settings:payments keys land here; later
- * module schema tasks extend the table alongside their actions. Owners are
- * absent because they implicitly hold every known permission.
+ * pricing, orders, documents, chat, files, and settings:payments keys land
+ * here; later module schema tasks extend the table alongside their actions.
+ * Owners are absent because they implicitly hold every known permission.
  */
 export const rolePermissionDefaultRows = [
   { role: "admin", permission: "products:view" },
@@ -22,6 +22,9 @@ export const rolePermissionDefaultRows = [
   { role: "admin", permission: "orders:view" },
   { role: "admin", permission: "orders:create" },
   { role: "admin", permission: "orders:edit" },
+  { role: "admin", permission: "documents:view" },
+  { role: "admin", permission: "documents:create" },
+  { role: "admin", permission: "documents:edit" },
   { role: "admin", permission: "chat:view" },
   { role: "admin", permission: "files:view" },
   { role: "admin", permission: "files:upload" },
@@ -38,6 +41,9 @@ export const rolePermissionDefaultRows = [
   { role: "manager", permission: "orders:view" },
   { role: "manager", permission: "orders:create" },
   { role: "manager", permission: "orders:edit" },
+  { role: "manager", permission: "documents:view" },
+  { role: "manager", permission: "documents:create" },
+  { role: "manager", permission: "documents:edit" },
   { role: "manager", permission: "chat:view" },
   { role: "manager", permission: "files:view" },
   { role: "manager", permission: "files:upload" },
@@ -47,6 +53,7 @@ export const rolePermissionDefaultRows = [
   { role: "employee", permission: "orders:view" },
   { role: "employee", permission: "orders:create" },
   { role: "employee", permission: "orders:edit" },
+  { role: "employee", permission: "documents:view" },
   { role: "employee", permission: "chat:view" },
 ] satisfies readonly (typeof rolePermissionDefaults.$inferInsert)[];
 
