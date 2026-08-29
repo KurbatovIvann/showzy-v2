@@ -4,17 +4,25 @@ import { StyleSheet } from "react-native-unistyles";
 export type StatusPillTone =
   "neutral" | "action" | "success" | "attention" | "danger";
 
+export type StatusPillSize = "sm" | "md";
+
 /**
  * Canvas `StatusPill`: capsule badge with a soft tone fill. Status is
  * never color-only — the label is mandatory (mp-to-mobile.md).
+ * `sm` is list chips (canvas `text-[12px]` → `typography.xs`). `md` is
+ * the order-detail cluster (canvas `px-2.5 py-1 text-[13px]`).
  */
 export function StatusPill(props: {
   readonly label: string;
   readonly tone?: StatusPillTone;
+  readonly size?: StatusPillSize;
 }) {
   const tone = props.tone ?? "neutral";
+  const size = props.size ?? "sm";
   return (
-    <View style={[styles.pill, styles[tone]]}>
+    <View
+      style={[styles.pill, size === "md" ? styles.pillMd : null, styles[tone]]}
+    >
       <Text style={[styles.label, styles[`${tone}Label`]]}>{props.label}</Text>
     </View>
   );
@@ -31,6 +39,10 @@ const styles = StyleSheet.create((theme) => ({
     borderColor: "transparent",
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: theme.spacing["2xs"],
+  },
+  pillMd: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xs,
   },
   label: {
     fontSize: theme.typography.xs.fontSize,

@@ -4,6 +4,7 @@ import {
   CheckIcon,
   FileWarningIcon,
   MoreHorizontalIcon,
+  PhoneIcon,
   UserIcon,
   WifiOffIcon,
 } from "lucide-react-native";
@@ -34,6 +35,7 @@ export function OrderDetailView(model: OrderDetailModel) {
     >
       <AppHeader
         title={model.headerTitle}
+        subtitle={model.headerSubtitle}
         back={{
           onPress: model.goBack,
           accessibilityLabel: copy.detail.backLabel,
@@ -56,19 +58,21 @@ export function OrderDetailView(model: OrderDetailModel) {
       />
       <OrderDetailBody model={model} />
       {model.showConfirm ? (
-        <View style={styles.footer}>
-          <Button
-            fullWidth
-            loading={model.confirmLoading}
-            icon={
-              <CheckIcon
-                size={theme.iconSize.sm}
-                color={theme.colors.primaryForeground}
-              />
-            }
-            label={copy.detail.confirmLabel}
-            onPress={model.confirm}
-          />
+        <View style={styles.footerDock}>
+          <View style={styles.footerCard}>
+            <Button
+              fullWidth
+              loading={model.confirmLoading}
+              icon={
+                <CheckIcon
+                  size={theme.iconSize.sm}
+                  color={theme.colors.primaryForeground}
+                />
+              }
+              label={copy.detail.confirmLabel}
+              onPress={model.confirm}
+            />
+          </View>
         </View>
       ) : null}
       <OrderActionsSheet
@@ -178,8 +182,12 @@ function OrderDetailReady(props: { readonly model: OrderDetailModel }) {
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
-      <View style={styles.statusCard}>
-        <StatusPill label={order.statusLabel} tone={order.statusTone} />
+      <View style={styles.statusRow}>
+        <StatusPill
+          size="md"
+          label={order.statusLabel}
+          tone={order.statusTone}
+        />
       </View>
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>{copy.detail.customerTitle}</Text>
@@ -200,9 +208,17 @@ function OrderDetailReady(props: { readonly model: OrderDetailModel }) {
                 </Text>
               )}
               {order.customerPhone !== null ? (
-                <Text numberOfLines={1} style={styles.customerPhone}>
-                  {order.customerPhone}
-                </Text>
+                <View style={styles.phoneRow}>
+                  <View style={styles.phoneIcon} accessibilityElementsHidden>
+                    <PhoneIcon
+                      size={theme.iconSize.sm}
+                      color={theme.colors.icon.muted}
+                    />
+                  </View>
+                  <Text numberOfLines={1} style={styles.customerPhone}>
+                    {order.customerPhone}
+                  </Text>
+                </View>
               ) : null}
             </View>
           </View>
@@ -218,6 +234,10 @@ function OrderDetailReady(props: { readonly model: OrderDetailModel }) {
                 title={line.title}
                 metaLabel={line.metaLabel}
                 grossLabel={line.grossLabel}
+                thumbnailFileId={line.thumbnailFileId}
+                thumbnailUrl={line.thumbnailUrl}
+                thumbnailFailed={line.thumbnailFailed}
+                thumbnailFailedLabel={copy.detail.thumbnailUnavailable}
               />
             ))}
           </View>
@@ -259,14 +279,11 @@ const styles = StyleSheet.create((theme) => ({
     paddingBottom: theme.spacing.xl,
     gap: theme.spacing.lg,
   },
-  statusCard: {
-    backgroundColor: theme.colors.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radii.card,
-    ...theme.squircle,
-    padding: theme.spacing.lg,
-    ...theme.shadows.sm,
+  statusRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: theme.spacing.sm,
   },
   section: {
     gap: theme.spacing.sm,
@@ -314,9 +331,19 @@ const styles = StyleSheet.create((theme) => ({
     fontWeight: "500",
   },
   customerPhone: {
+    flex: 1,
+    minWidth: 0,
     color: theme.colors.mutedForeground,
     fontSize: theme.typography.xs.fontSize,
     lineHeight: theme.typography.xs.lineHeight,
+  },
+  phoneRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: theme.spacing.sm,
+  },
+  phoneIcon: {
+    marginTop: theme.spacing["2xs"],
   },
   skeletonName: {
     height: theme.typography.base.lineHeight,
@@ -356,13 +383,20 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: theme.spacing.sm,
   },
-  footer: {
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-    backgroundColor: theme.colors.card,
+  footerDock: {
+    backgroundColor: theme.colors.background,
     paddingHorizontal: theme.spacing.lg,
     paddingTop: theme.spacing.md,
     paddingBottom: theme.spacing.md,
+  },
+  footerCard: {
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.card,
+    borderRadius: theme.radii.card,
+    ...theme.squircle,
+    padding: theme.spacing.md,
+    ...theme.shadows.sm,
   },
   centered: {
     flex: 1,

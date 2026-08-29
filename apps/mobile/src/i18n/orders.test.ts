@@ -89,6 +89,8 @@ describe("orders copy", () => {
     expect(uk.detail.offlineTitle.includes("\u2019")).toBe(false);
     expect(en.detail.confirmLabel).toBe("Confirm");
     expect(en.detail.dueLabel).toBe("Due");
+    expect(uk.detail.thumbnailUnavailable).toBe("Фото недоступне");
+    expect(en.detail.thumbnailUnavailable).toBe("Photo unavailable");
     expect(JSON.stringify(uk.detail)).not.toContain("SHZ-");
     expect(JSON.stringify(uk.detail)).not.toContain("#");
     expect(JSON.stringify(uk.detail)).not.toContain("Оплачен");

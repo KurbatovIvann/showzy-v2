@@ -3,16 +3,22 @@ import { describe, expect, it } from "vitest";
 import { ordersCopy } from "../../../i18n/orders";
 import type { GetOrderOutput } from "../api/order-detail-query";
 import {
+  catalogPrimaryImageFileId,
   commentIfPresent,
+  formatOrderNumber,
   formatQuantityMilli,
   mapOrderWriteFailure,
   orderDetailActionsForView,
   orderDetailConfirmLoading,
+  orderDetailHeaderSubtitle,
   orderDetailHeaderTitle,
+  orderDetailShowsPhoneIcon,
   orderDetailWriteChrome,
   orderWriteBanner,
   planOrderStatusWrite,
   toOrderDetailView,
+  uniqueOrderLineProductIds,
+  withOrderLineThumbnails,
 } from "./order-detail-model";
 
 const ORDER_ID = "0f0e2d5c-4a1b-4c3d-9e8f-102938475601";
@@ -92,19 +98,26 @@ describe("toOrderDetailView", () => {
     expect(view.statusTone).toBe("action");
     expect(view.comment).toBe("Без горіхів");
     expect(view.dueLabel).toBe("2\u00A0500\u00A0₴");
+    expect(view.orderNumber).toBe(1042);
     expect(view.lines).toEqual([
       {
         itemId: ITEM_ID,
+        productId: PRODUCT_ID,
         title: "Торт «Київський»",
         metaLabel: "1\u00A0250\u00A0₴ \u00D7 2",
         grossLabel: "2\u00A0500\u00A0₴",
+        thumbnailFileId: null,
+        thumbnailUrl: null,
+        thumbnailFailed: false,
       },
     ]);
     expect(view.customerName).toBe("Марія Ткаченко");
     expect(view.customerNamePending).toBe(false);
     expect(view.customerPhone).toBe("+380501112233");
+    expect(view.showPhoneIcon).toBe(true);
     expect(JSON.stringify(view)).not.toContain("SHZ-");
     expect(JSON.stringify(view)).not.toContain("basePriceMinor");
+    expect(JSON.stringify(view.lines)).not.toContain("https://");
   });
 
   it("maps confirmed and canceled pills and hides empty comments", () => {
@@ -118,6 +131,7 @@ describe("toOrderDetailView", () => {
     expect(confirmed.statusTone).toBe("action");
     expect(confirmed.comment).toBeNull();
     expect(confirmed.customerPhone).toBeNull();
+    expect(confirmed.showPhoneIcon).toBe(false);
 
     const canceled = toOrderDetailView({
       order: order({ status: "canceled", comment: null }),
@@ -129,6 +143,7 @@ describe("toOrderDetailView", () => {
     expect(canceled.statusTone).toBe("danger");
     expect(canceled.customerName).toBe(copy.missingCustomer);
     expect(canceled.comment).toBeNull();
+    expect(canceled.showPhoneIcon).toBe(false);
   });
 
   it("keeps snapshot unit/gross even when they would not match a live unit × qty", () => {
@@ -158,28 +173,111 @@ describe("toOrderDetailView", () => {
 });
 
 describe("orderDetailHeaderTitle", () => {
-  it("uses the customer name, not an order number", () => {
+  it("uses # plus the order number, not the UUID or customer name", () => {
     expect(
       orderDetailHeaderTitle({
-        customer: { kind: "ready", name: "Марія Ткаченко" },
+        orderNumber: 1042,
         fallbackTitle: "Замовлення",
+      }),
+    ).toBe("#1042");
+    expect(formatOrderNumber(1)).toBe("#1");
+    expect(
+      orderDetailHeaderTitle({
+        orderNumber: null,
+        fallbackTitle: "Замовлення",
+      }),
+    ).toBe("Замовлення");
+    expect(
+      orderDetailHeaderTitle({
+        orderNumber: 1042,
+        fallbackTitle: "Замовлення",
+      }),
+    ).not.toBe(ORDER_ID);
+  });
+});
+
+describe("orderDetailHeaderSubtitle", () => {
+  it("uses the customer name, or the missing-customer copy", () => {
+    expect(
+      orderDetailHeaderSubtitle({
+        customer: { kind: "ready", name: "Марія Ткаченко" },
         missingCustomer: "Клієнт видалений",
       }),
     ).toBe("Марія Ткаченко");
     expect(
-      orderDetailHeaderTitle({
+      orderDetailHeaderSubtitle({
         customer: { kind: "missing" },
-        fallbackTitle: "Замовлення",
         missingCustomer: "Клієнт видалений",
       }),
     ).toBe("Клієнт видалений");
     expect(
-      orderDetailHeaderTitle({
+      orderDetailHeaderSubtitle({
         customer: { kind: "pending" },
-        fallbackTitle: "Замовлення",
         missingCustomer: "Клієнт видалений",
       }),
-    ).toBe("Замовлення");
+    ).toBeUndefined();
+  });
+});
+
+describe("orderDetailShowsPhoneIcon", () => {
+  it("is visible only when a phone number is present", () => {
+    expect(orderDetailShowsPhoneIcon("+380501112233")).toBe(true);
+    expect(orderDetailShowsPhoneIcon(" +380501112233 ")).toBe(true);
+    expect(orderDetailShowsPhoneIcon(null)).toBe(false);
+    expect(orderDetailShowsPhoneIcon("")).toBe(false);
+    expect(orderDetailShowsPhoneIcon("   ")).toBe(false);
+  });
+});
+
+describe("line thumbnails", () => {
+  const FILE_A = "44444444-4444-4444-8444-444444444444";
+  const PRODUCT_B = "55555555-5555-4555-8555-555555555555";
+
+  it("keeps first-seen unique product ids", () => {
+    expect(
+      uniqueOrderLineProductIds([
+        { productId: PRODUCT_ID },
+        { productId: PRODUCT_B },
+        { productId: PRODUCT_ID },
+      ]),
+    ).toEqual([PRODUCT_ID, PRODUCT_B]);
+  });
+
+  it("maps a catalog primary file id vs an empty placeholder", () => {
+    expect(catalogPrimaryImageFileId([FILE_A, PRODUCT_B])).toBe(FILE_A);
+    expect(catalogPrimaryImageFileId([])).toBeNull();
+    expect(catalogPrimaryImageFileId(undefined)).toBeNull();
+
+    const snapshot = toOrderDetailView({
+      order: order(),
+      copy: ordersCopy("uk"),
+      customer: { kind: "ready", name: "Марія Ткаченко" },
+      customerPhone: null,
+    });
+    expect(snapshot.lines[0]?.thumbnailFileId).toBeNull();
+    expect(snapshot.showPhoneIcon).toBe(false);
+
+    const withFile = withOrderLineThumbnails(
+      snapshot.lines,
+      new Map([
+        [
+          PRODUCT_ID,
+          {
+            fileId: FILE_A,
+            url: "https://example.test/a",
+            failed: false,
+          },
+        ],
+      ]),
+    );
+    expect(withFile[0]?.thumbnailFileId).toBe(FILE_A);
+    expect(withFile[0]?.thumbnailUrl).toBe("https://example.test/a");
+    expect(withFile[0]?.thumbnailFailed).toBe(false);
+
+    const placeholder = withOrderLineThumbnails(snapshot.lines, new Map());
+    expect(placeholder[0]?.thumbnailFileId).toBeNull();
+    expect(placeholder[0]?.thumbnailUrl).toBeNull();
+    expect(placeholder[0]?.thumbnailFailed).toBe(false);
   });
 });
 
