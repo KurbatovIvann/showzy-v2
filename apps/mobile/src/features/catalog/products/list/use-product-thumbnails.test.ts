@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  failedPrimaryImageFileIds,
   mergeDownloadUrlPages,
+  resolveProductThumbnail,
   uniquePrimaryImageFileIds,
 } from "./use-product-thumbnails";
 
@@ -46,5 +48,52 @@ describe("mergeDownloadUrlPages", () => {
     expect(merged.get(first)).toBe("https://example.test/a2");
     expect(merged.get(second)).toBe("https://example.test/b");
     expect(merged.get("missing")).toBeUndefined();
+  });
+});
+
+describe("failedPrimaryImageFileIds", () => {
+  it("collects ids only from pages whose download query failed", () => {
+    const first = "44444444-4444-4444-8444-444444444444";
+    const second = "55555555-5555-4555-8555-555555555555";
+    expect([
+      ...failedPrimaryImageFileIds(
+        [{ items: [item(first)] }, { items: [item(second), item(null)] }],
+        [false, true],
+      ),
+    ]).toEqual([second]);
+  });
+});
+
+describe("resolveProductThumbnail", () => {
+  it("maps a download-query error to failed, not success with an empty URL", () => {
+    const fileId = "44444444-4444-4444-8444-444444444444";
+    expect(
+      resolveProductThumbnail({
+        fileId,
+        url: undefined,
+        downloadFailed: true,
+      }),
+    ).toEqual({ kind: "failed" });
+    expect(
+      resolveProductThumbnail({
+        fileId,
+        url: undefined,
+        downloadFailed: false,
+      }),
+    ).toEqual({ kind: "empty" });
+    expect(
+      resolveProductThumbnail({
+        fileId,
+        url: "https://example.test/a",
+        downloadFailed: true,
+      }),
+    ).toEqual({ kind: "ready", url: "https://example.test/a" });
+    expect(
+      resolveProductThumbnail({
+        fileId: null,
+        url: undefined,
+        downloadFailed: true,
+      }),
+    ).toEqual({ kind: "empty" });
   });
 });

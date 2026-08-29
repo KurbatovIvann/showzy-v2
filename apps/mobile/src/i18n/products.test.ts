@@ -38,6 +38,8 @@ describe("products copy", () => {
     });
     expect(uk.archivedBadge).toBe("Архівний");
     expect(uk.foundCount).toBe("Знайдено · {{count}}");
+    expect(uk.thumbnailUnavailable).toBe("Фото недоступне");
+    expect(productsCopy("en").thumbnailUnavailable).toBe("Photo unavailable");
     expect(uk.empty.offlineTitle).toBe("Немає зʼєднання");
     expect(uk.empty.errorTitle).toBe("Не вдалося завантажити товари");
     expect(uk.empty.retry).toBe("Повторити");

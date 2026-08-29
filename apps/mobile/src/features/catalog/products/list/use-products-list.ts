@@ -29,7 +29,10 @@ import {
   type ProductsListState,
 } from "./products-list.presenter";
 import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from "./use-debounced-value";
-import { useProductThumbnails } from "./use-product-thumbnails";
+import {
+  resolveProductThumbnail,
+  useProductThumbnails,
+} from "./use-product-thumbnails";
 
 export type ProductsListRow = {
   readonly id: string;
@@ -39,6 +42,7 @@ export type ProductsListRow = {
   readonly variantsLabel: string;
   readonly thumbnailFileId: string | null;
   readonly thumbnailUrl: string | null;
+  readonly thumbnailFailed: boolean;
 };
 
 export function useProductsList() {
@@ -87,14 +91,17 @@ export function useProductsList() {
 
   const canFetchThumbnails = canFetchFileDownloadUrls(membership.role);
   const listPages = listQuery.data?.pages ?? [];
-  const { urlsByFileId: thumbnailUrlsByFileId, refetch: refetchThumbnails } =
-    useProductThumbnails({
-      client: apiClient,
-      companyId: activeCompanyId,
-      getActiveCompany,
-      pages: listPages,
-      enabled: canFetchThumbnails,
-    });
+  const {
+    urlsByFileId: thumbnailUrlsByFileId,
+    failedFileIds: thumbnailFailedFileIds,
+    refetch: refetchThumbnails,
+  } = useProductThumbnails({
+    client: apiClient,
+    companyId: activeCompanyId,
+    getActiveCompany,
+    pages: listPages,
+    enabled: canFetchThumbnails,
+  });
   const rows = useMemo((): readonly ProductsListRow[] => {
     const pages = listQuery.data?.pages;
     if (pages === undefined) {
@@ -105,6 +112,16 @@ export function useProductsList() {
       const thumbnailFileId = canFetchThumbnails
         ? view.primaryImageFileId
         : null;
+      const presentation = resolveProductThumbnail({
+        fileId: thumbnailFileId,
+        url:
+          thumbnailFileId === null
+            ? undefined
+            : thumbnailUrlsByFileId.get(thumbnailFileId),
+        downloadFailed:
+          thumbnailFileId !== null &&
+          thumbnailFailedFileIds.has(thumbnailFileId),
+      });
       return {
         id: view.id,
         name: view.name,
@@ -116,10 +133,8 @@ export function useProductsList() {
           copy.variants,
         ),
         thumbnailFileId,
-        thumbnailUrl:
-          thumbnailFileId === null
-            ? null
-            : (thumbnailUrlsByFileId.get(thumbnailFileId) ?? null),
+        thumbnailUrl: presentation.kind === "ready" ? presentation.url : null,
+        thumbnailFailed: presentation.kind === "failed",
       };
     });
   }, [
@@ -128,6 +143,7 @@ export function useProductsList() {
     copy,
     canFetchThumbnails,
     thumbnailUrlsByFileId,
+    thumbnailFailedFileIds,
   ]);
 
   const failureKind = listQuery.isError

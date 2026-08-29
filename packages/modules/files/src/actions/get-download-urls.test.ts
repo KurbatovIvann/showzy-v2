@@ -16,5 +16,7 @@ describe("files.getDownloadUrls contract", () => {
     expect(getDownloadUrlsContract.emits).toEqual([]);
     expect(getDownloadUrlsContract.timeout).toBe(5_000);
     expect(ATTACHMENT_FACTS_MAX_IDS).toBe(50);
+    expect(getDownloadUrlsContract.description).toContain("inline");
+    expect(getDownloadUrlsContract.description).toContain("image/jpeg");
   });
 });

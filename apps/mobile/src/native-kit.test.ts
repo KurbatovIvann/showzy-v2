@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
+import type { ConfigContext } from "expo/config";
 
 import packageJson from "../package.json" with { type: "json" };
-import { expoConfigPlugins } from "../app.config";
+import appConfig, { expoConfigPlugins } from "../app.config";
 
 /** Packages whose native code must ship in the first custom dev-client binary. */
 const nativeKitPackages = [
@@ -79,5 +80,22 @@ describe("mobile native kit", () => {
     for (const name of requiredPlugins) {
       expect(names, name).toContain(name);
     }
+  });
+
+  it("allows HTTP to a LAN Garage host for signed photo PUT/GET", () => {
+    const resolved = appConfig({
+      config: { extra: {} },
+    } as ConfigContext);
+    const ats = resolved.ios?.infoPlist?.NSAppTransportSecurity as
+      { NSAllowsLocalNetworking?: boolean } | undefined;
+    expect(ats?.NSAllowsLocalNetworking).toBe(true);
+    const buildProps = expoConfigPlugins.find(
+      (plugin) =>
+        Array.isArray(plugin) && plugin[0] === "expo-build-properties",
+    );
+    expect(buildProps).toEqual([
+      "expo-build-properties",
+      { android: { usesCleartextTraffic: true } },
+    ]);
   });
 });

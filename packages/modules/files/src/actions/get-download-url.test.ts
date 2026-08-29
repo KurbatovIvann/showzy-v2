@@ -14,5 +14,7 @@ describe("files.getDownloadUrl contract", () => {
     expect(getDownloadUrlContract.idempotent).toBe(false);
     expect(getDownloadUrlContract.emits).toEqual([]);
     expect(getDownloadUrlContract.timeout).toBe(5_000);
+    expect(getDownloadUrlContract.description).toContain("inline");
+    expect(getDownloadUrlContract.description).toContain("image/jpeg");
   });
 });

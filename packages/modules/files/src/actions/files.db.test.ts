@@ -645,7 +645,8 @@ describe("files signed upload slice", () => {
     expect(fetched.ok).toBe(true);
     const body = new Uint8Array(await fetched.arrayBuffer());
     expect(sha256Hex(body)).toBe(jpegChecksum);
-    expect(fetched.headers.get("content-disposition")).toContain("attachment");
+    expect(fetched.headers.get("content-type")).toMatch(/^image\/jpeg/i);
+    expect(fetched.headers.get("content-disposition")).toContain("inline");
 
     const logs = JSON.stringify(capturing.entries());
     expect(logs).not.toContain(signed.uploadUrl);
@@ -1253,15 +1254,16 @@ describe("files.getDownloadUrls", () => {
     expect(sha256Hex(new Uint8Array(await fetchedPng.arrayBuffer()))).toBe(
       pngChecksum,
     );
-    expect(fetchedPng.headers.get("content-disposition")).toContain(
-      "attachment",
-    );
+    expect(fetchedPng.headers.get("content-type")).toMatch(/^image\/png/i);
+    expect(fetchedPng.headers.get("content-disposition")).toContain("inline");
 
     const fetchedJpeg = await fetch(result.files[1]?.downloadUrl ?? "");
     expect(fetchedJpeg.ok).toBe(true);
     expect(sha256Hex(new Uint8Array(await fetchedJpeg.arrayBuffer()))).toBe(
       jpegChecksum,
     );
+    expect(fetchedJpeg.headers.get("content-type")).toMatch(/^image\/jpeg/i);
+    expect(fetchedJpeg.headers.get("content-disposition")).toContain("inline");
 
     const logs = JSON.stringify(capturing.entries());
     for (const file of result.files) {

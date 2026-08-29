@@ -49,6 +49,55 @@ export function mergeDownloadUrlPages(
   return map;
 }
 
+/** Primary image ids on pages whose `getDownloadUrls` query failed. */
+export function failedPrimaryImageFileIds(
+  pages: ReadonlyArray<{
+    readonly items: ReadonlyArray<{
+      readonly primaryImageFileId: string | null;
+    }>;
+  }>,
+  queryFailed: readonly boolean[],
+): ReadonlySet<string> {
+  const failed = new Set<string>();
+  for (let index = 0; index < pages.length; index += 1) {
+    if (queryFailed[index] !== true) {
+      continue;
+    }
+    const page = pages[index];
+    if (page === undefined) {
+      continue;
+    }
+    for (const id of uniquePrimaryImageFileIds(page.items)) {
+      failed.add(id);
+    }
+  }
+  return failed;
+}
+
+/**
+ * List thumbnail path. A download-query error is `failed`, not
+ * "success with an empty URL" (package placeholder).
+ */
+export function resolveProductThumbnail(args: {
+  readonly fileId: string | null;
+  readonly url: string | undefined;
+  readonly downloadFailed: boolean;
+}):
+  | { readonly kind: "empty" }
+  | { readonly kind: "failed" }
+  | { readonly kind: "ready"; readonly url: string } {
+  if (args.fileId === null) {
+    return { kind: "empty" };
+  }
+  if (args.url !== undefined && args.url.length > 0) {
+    return { kind: "ready", url: args.url };
+  }
+  if (args.downloadFailed) {
+    return { kind: "failed" };
+  }
+  return { kind: "empty" };
+}
+
 export function useProductThumbnails(args: {
   readonly client: ContractClient | null;
   readonly companyId: string | null;
@@ -59,6 +108,7 @@ export function useProductThumbnails(args: {
   readonly enabled: boolean;
 }): {
   readonly urlsByFileId: ReadonlyMap<string, string>;
+  readonly failedFileIds: ReadonlySet<string>;
   readonly refetch: () => void;
 } {
   const thumbnailQueries = useQueries({
@@ -79,9 +129,14 @@ export function useProductThumbnails(args: {
   const urlsByFileId = mergeDownloadUrlPages(
     thumbnailQueries.map((query) => query.data),
   );
+  const failedFileIds = failedPrimaryImageFileIds(
+    args.pages,
+    thumbnailQueries.map((query) => query.isError),
+  );
 
   return {
     urlsByFileId,
+    failedFileIds,
     refetch: () => {
       for (const query of thumbnailQueries) {
         void query.refetch();

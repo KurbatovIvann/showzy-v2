@@ -263,7 +263,7 @@ function ProductDetailReady(props: { readonly model: ProductDetailModel }) {
           canAdd={model.canEdit && model.photos.canAdd}
           readOnly={!model.canEdit}
           showHeading
-          banner={model.canEdit ? model.photos.banner : null}
+          banner={model.canEdit ? model.photos.banner : model.viewerPhotoBanner}
           onAdd={model.photos.openPicker}
           onRemove={model.photos.removePhoto}
           onMoveEarlier={model.photos.moveEarlier}

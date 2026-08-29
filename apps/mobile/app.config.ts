@@ -6,7 +6,14 @@ import type { ConfigContext, ExpoConfig } from "expo/config";
  * files, or push does not force another Expo/dev-client rebuild.
  */
 export const expoConfigPlugins: NonNullable<ExpoConfig["plugins"]> = [
-  "expo-build-properties",
+  [
+    "expo-build-properties",
+    {
+      android: {
+        usesCleartextTraffic: true,
+      },
+    },
+  ],
   "expo-dev-client",
   "expo-router",
   "expo-secure-store",
@@ -85,6 +92,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     supportsTablet: true,
     config: {
       usesNonExemptEncryption: false,
+    },
+    infoPlist: {
+      NSAppTransportSecurity: {
+        NSAllowsLocalNetworking: true,
+      },
     },
   },
   android: {

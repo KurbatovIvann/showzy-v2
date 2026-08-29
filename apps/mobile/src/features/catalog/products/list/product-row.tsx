@@ -21,6 +21,8 @@ export const ProductRow = memo(function ProductRow(props: {
   readonly variantsLabel: string;
   readonly thumbnailFileId: string | null;
   readonly thumbnailUrl: string | null;
+  readonly thumbnailFailed: boolean;
+  readonly thumbnailFailedLabel: string;
   readonly onPress: (id: string) => void;
 }) {
   return (
@@ -35,6 +37,8 @@ export const ProductRow = memo(function ProductRow(props: {
       <ProductThumbnail
         fileId={props.thumbnailFileId}
         url={props.thumbnailUrl}
+        failed={props.thumbnailFailed}
+        failedLabel={props.thumbnailFailedLabel}
       />
       <View style={styles.body}>
         <View style={styles.nameRow}>

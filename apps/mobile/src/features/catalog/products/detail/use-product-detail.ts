@@ -7,6 +7,7 @@ import { useReducer, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { useApiClient } from "../../../../api/api-provider";
+import { describeQueryFailure } from "../../../../api/errors";
 import { fileDownloadUrlsQueryOptions } from "../../../../api/file-download-query";
 import { useActiveCompany } from "../../../../api/query-provider";
 import { useResolvedCompany } from "../../../../company-resolution/resolved-company-provider";
@@ -25,7 +26,11 @@ import {
   useProductPhotos,
   type ProductPhotosModel,
 } from "../photos/use-product-photos";
-import type { PhotoTileView } from "../photos/product-photos-model";
+import {
+  resolvePhotoBanner,
+  resolveProductPhotosBannerKey,
+  type PhotoTileView,
+} from "../photos/product-photos-model";
 import {
   productFacts,
   productHeaderSubtitle,
@@ -62,6 +67,7 @@ export type ProductDetailModel = {
   readonly canAddVariant: boolean;
   readonly photoTiles: readonly PhotoTileView[];
   readonly previewByFileId: ReadonlyMap<string, string>;
+  readonly viewerPhotoBanner: string | null;
   readonly photos: ProductPhotosModel;
   readonly photosFocus: number;
   readonly nameMaxLength: number;
@@ -184,6 +190,17 @@ export function useProductDetail(
     previewByFileId: canEdit
       ? photos.previewByFileId
       : detailViewerPreviewByFileId(urlsQuery.data?.files ?? []),
+    viewerPhotoBanner: resolvePhotoBanner(
+      copy.photos,
+      resolveProductPhotosBannerKey({
+        localBanner: null,
+        mutationFailure: null,
+        downloadFailure:
+          !canEdit && urlsQuery.isError
+            ? describeQueryFailure(urlsQuery.error).kind
+            : null,
+      }),
+    ),
     photos,
     photosFocus,
     nameMaxLength: PRODUCT_NAME_MAX,

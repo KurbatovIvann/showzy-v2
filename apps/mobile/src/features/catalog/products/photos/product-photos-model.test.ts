@@ -11,6 +11,7 @@ import {
   fileIdsEqual,
   hasInFlightPhotoUploads,
   mapDeniedBanner,
+  mapPhotoFailure,
   movePhotoSlot,
   nextPhotoCompressPlan,
   photoFlushOutcome,
@@ -19,6 +20,7 @@ import {
   readyOrderedFileIds,
   remainingPhotoSlots,
   removePhotoSlot,
+  resolveProductPhotosBannerKey,
   toPhotoTiles,
   SET_PRODUCT_IMAGES_MAX,
 } from "./product-photos-model";
@@ -429,6 +431,47 @@ describe("product photo ordering", () => {
     ];
     expect(readyOrderedFileIds(slots)).toEqual([FILE_A]);
     expect(fileIdsEqual([FILE_A], [FILE_A])).toBe(true);
+  });
+});
+
+describe("resolveProductPhotosBannerKey", () => {
+  it("maps a getDownloadUrls failure to a banner, not success with an empty URL", () => {
+    expect(
+      resolveProductPhotosBannerKey({
+        localBanner: null,
+        mutationFailure: null,
+        downloadFailure: "network",
+      }),
+    ).toBe("network");
+    expect(
+      resolveProductPhotosBannerKey({
+        localBanner: null,
+        mutationFailure: null,
+        downloadFailure: "not_found",
+      }),
+    ).toBe("unavailable");
+    expect(
+      resolveProductPhotosBannerKey({
+        localBanner: null,
+        mutationFailure: null,
+        downloadFailure: null,
+      }),
+    ).toBeNull();
+    expect(mapPhotoFailure("network")).toBe("network");
+    expect(
+      resolveProductPhotosBannerKey({
+        localBanner: "too_many",
+        mutationFailure: "network",
+        downloadFailure: "offline",
+      }),
+    ).toBe("too_many");
+    expect(
+      resolveProductPhotosBannerKey({
+        localBanner: null,
+        mutationFailure: "network",
+        downloadFailure: "offline",
+      }),
+    ).toBe("network");
   });
 });
 

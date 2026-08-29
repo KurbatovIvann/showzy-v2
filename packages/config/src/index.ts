@@ -1,8 +1,12 @@
 export {
   ConfigValidationError,
   ENV_SCHEMA_KEYS,
+  S3_LOOPBACK_SIGNING_WARNING,
+  classifyS3SigningHost,
   loadServerConfig,
+  s3DeviceSigningWarning,
   type ConfigIssue,
+  type S3SigningHostClass,
   type ServerConfig,
 } from "./config.js";
 export { createProcessLogger, type ProcessLoggerOptions } from "./logger.js";

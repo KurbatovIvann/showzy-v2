@@ -152,6 +152,7 @@ export type ProductsCopy = {
     readonly archived: string;
   };
   readonly foundCount: string;
+  readonly thumbnailUnavailable: string;
   readonly archivedBadge: string;
   readonly variants: ProductsVariantForms;
   readonly loadingLabel: string;
@@ -196,6 +197,7 @@ const en: ProductsCopy = {
     archived: "Archived",
   },
   foundCount: "Found · {{count}}",
+  thumbnailUnavailable: "Photo unavailable",
   archivedBadge: "Archived",
   variants: {
     none: "No variants",
@@ -386,6 +388,7 @@ const uk: ProductsCopy = {
     archived: "Архівні",
   },
   foundCount: "Знайдено · {{count}}",
+  thumbnailUnavailable: "Фото недоступне",
   archivedBadge: "Архівний",
   variants: {
     none: "Без варіантів",

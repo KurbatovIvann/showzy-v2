@@ -12,10 +12,9 @@ import { productsCopy } from "../../../../i18n/products";
 import { invalidateCatalogAfterStatusWrite } from "../api/product-archive";
 import {
   classifyProductPhotosLoad,
-  mapPhotoFailure,
   remainingPhotoSlots,
   resolvePhotoBanner,
-  type PhotoBannerKey,
+  resolveProductPhotosBannerKey,
 } from "./product-photos-model";
 import {
   bindSetProductImages,
@@ -192,11 +191,17 @@ export function useProductPhotos(args: {
   const mutationFailure = mutation.isError
     ? describeQueryFailure(mutation.error).kind
     : null;
-  const bannerKey: PhotoBannerKey | null =
-    session.localBanner ??
-    mapPhotoFailure(mutationFailure) ??
-    (mutationFailure === null ? null : "commit");
-  const banner = resolvePhotoBanner(copy.photos, bannerKey);
+  const downloadFailure = urlsQuery.isError
+    ? describeQueryFailure(urlsQuery.error).kind
+    : null;
+  const banner = resolvePhotoBanner(
+    copy.photos,
+    resolveProductPhotosBannerKey({
+      localBanner: session.localBanner,
+      mutationFailure,
+      downloadFailure,
+    }),
+  );
   const tiles = photoSessionTiles(session);
 
   function openPicker(): void {
