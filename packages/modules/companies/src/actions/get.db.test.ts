@@ -14,6 +14,7 @@ import {
   companies,
   companyLegalInfo,
   companyMembers,
+  rolePermissionDefaults,
 } from "@showzy/db/schema/companies";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -39,6 +40,11 @@ let kit: TestKit;
 
 beforeAll(async () => {
   kit = await createTestKit();
+
+  await kit.db.runtime.db.insert(rolePermissionDefaults).values({
+    role: "admin",
+    permission: "settings:payments",
+  });
 
   await kit.db.runtime.db.insert(companies).values({
     id: fixtures.companyWithLegal,

@@ -15,6 +15,7 @@ import {
   companies,
   companyLegalInfo,
   companyMembers,
+  rolePermissionDefaults,
 } from "@showzy/db/schema/companies";
 import { count, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -66,6 +67,11 @@ async function legalRow(companyId: string) {
 
 beforeAll(async () => {
   kit = await createTestKit();
+
+  await kit.db.runtime.db.insert(rolePermissionDefaults).values({
+    role: "admin",
+    permission: "settings:payments",
+  });
 
   await kit.db.runtime.db.insert(companyLegalInfo).values({
     companyId: kitIdentities.companies.b,
