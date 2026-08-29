@@ -54,7 +54,9 @@ import {
   cancelDocumentContract,
   createFromOrderContract,
   getDocumentContract,
+  getSharedContract,
   listDocumentsContract,
+  shareDocumentContract,
 } from "@showzy/documents/contract";
 import {
   finalizeUploadContract,
@@ -143,7 +145,9 @@ export const contractModules = {
     cancel: cancelDocumentContract,
     createFromOrder: createFromOrderContract,
     get: getDocumentContract,
+    getShared: getSharedContract,
     list: listDocumentsContract,
+    share: shareDocumentContract,
   },
   files: {
     requestUpload: requestUploadContract,

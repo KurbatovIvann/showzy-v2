@@ -7,7 +7,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./contract": "./src/index.contract.ts",
-    "./suite-coverage": "./src/suite-coverage.ts"
+    "./suite-coverage": "./src/suite-coverage.ts",
+    "./share-origin": "./src/services/share-origin.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -19,6 +20,7 @@
     "@showzy/core": "workspace:*",
     "@showzy/customers": "workspace:*",
     "@showzy/db": "workspace:*",
+    "@showzy/files": "workspace:*",
     "@showzy/orders": "workspace:*",
     "drizzle-orm": "^0.45.2",
     "zod": "^4.4.3"

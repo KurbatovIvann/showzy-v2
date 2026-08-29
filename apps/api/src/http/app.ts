@@ -28,6 +28,10 @@ import type { ActionPrincipal } from "@showzy/core/contract";
 import { Hono, type Context } from "hono";
 
 import { createTrustedProxyMatcher, resolveClientIp } from "./client-ip.js";
+import {
+  DOCUMENT_SHARE_LANDING_ROUTE,
+  executeDocumentShareLanding,
+} from "./document-share-landing.js";
 import { REQUEST_ID_HEADER, resolveRequestId } from "./request-id.js";
 
 /** OpenAPI REST aliases (contract.md §3). Distinct from `/api/auth`. */
@@ -225,6 +229,20 @@ export function createApp(options: CreateAppOptions): Hono<AppEnv> {
   });
 
   app.get(HEALTH_PATH, (c) => c.json({ status: "ok" }));
+
+  app.get(DOCUMENT_SHARE_LANDING_ROUTE, async (c) => {
+    const result = await executeDocumentShareLanding({
+      pipeline: options.pipeline,
+      token: c.req.param("token"),
+      requestId: c.get("requestId"),
+      clientIp: c.get("clientIp"),
+    });
+    c.header("Cache-Control", "private, no-store");
+    if (result.retryAfterSec !== undefined) {
+      c.header("Retry-After", String(result.retryAfterSec));
+    }
+    return c.html(result.html, result.status);
+  });
 
   app.on(["GET", "POST"], `${AUTH_PREFIX}/*`, async (c) => {
     const response = await options.auth.handler(

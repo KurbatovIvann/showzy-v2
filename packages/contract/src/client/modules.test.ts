@@ -43,7 +43,9 @@ import {
   cancelDocumentContract,
   createFromOrderContract,
   getDocumentContract,
+  getSharedContract,
   listDocumentsContract,
+  shareDocumentContract,
 } from "@showzy/documents/contract";
 import {
   finalizeUploadContract,
@@ -131,7 +133,9 @@ describe("client composition", () => {
         cancel: cancelDocumentContract,
         createFromOrder: createFromOrderContract,
         get: getDocumentContract,
+        getShared: getSharedContract,
         list: listDocumentsContract,
+        share: shareDocumentContract,
       },
       files: {
         requestUpload: requestUploadContract,
@@ -214,7 +218,9 @@ describe("client composition", () => {
     expect(contractRouter.documents.cancel).toBeDefined();
     expect(contractRouter.documents.createFromOrder).toBeDefined();
     expect(contractRouter.documents.get).toBeDefined();
+    expect(contractRouter.documents.getShared).toBeDefined();
     expect(contractRouter.documents.list).toBeDefined();
+    expect(contractRouter.documents.share).toBeDefined();
     expect(contractRouter.files.requestUpload).toBeDefined();
     expect(contractRouter.files.getUploadUrl).toBeDefined();
     expect(contractRouter.files.finalizeUpload).toBeDefined();

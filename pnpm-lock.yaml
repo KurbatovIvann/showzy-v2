@@ -703,6 +703,9 @@ importers:
       '@showzy/db':
         specifier: workspace:*
         version: link:../../db
+      '@showzy/files':
+        specifier: workspace:*
+        version: link:../files
       '@showzy/orders':
         specifier: workspace:*
         version: link:../orders
