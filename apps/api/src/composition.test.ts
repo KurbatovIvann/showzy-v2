@@ -61,6 +61,7 @@ describe("composition root identity", () => {
     expect(bootSource).toContain("configureFilesObjectStore");
     expect(bootSource).toContain("probeFilesObjectStore");
     expect(bootSource).toContain("closeFilesObjectStore");
+    expect(bootSource).toContain("configureDocumentShareOrigin");
     expect(bootSource).not.toMatch(/new ActionRegistry\s*\(/);
   });
 
@@ -117,6 +118,27 @@ describe("composition root identity", () => {
     expect(fromCreate.map((edge) => edge.callee)).not.toContain(
       "companies.get",
     );
+  });
+
+  it("documents.share nests files.issueShareDownloadUrl", () => {
+    const source = readFileSync(
+      join(import.meta.dirname, "composition.ts"),
+      "utf8",
+    );
+    const edges: Array<{ caller: string; callee: string }> = [];
+    const edgeRe = /caller:\s*"([^"]+)",\s*\n\s*callee:\s*"([^"]+)"/g;
+    for (const match of source.matchAll(edgeRe)) {
+      const caller = match[1];
+      const callee = match[2];
+      if (caller !== undefined && callee !== undefined) {
+        edges.push({ caller, callee });
+      }
+    }
+    expect(
+      edges
+        .filter((edge) => edge.caller === "documents.share")
+        .map((edge) => edge.callee),
+    ).toEqual(["files.issueShareDownloadUrl"]);
   });
 });
 

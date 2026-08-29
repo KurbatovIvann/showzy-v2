@@ -16,7 +16,9 @@ import {
 } from "../actions/document-view.contract.js";
 import { moneyToCanonical } from "./canonical.js";
 
-type StaffDb = Extract<ActionCtx, { principal: "staff" }>["db"];
+type ReadableDb =
+  | Extract<ActionCtx, { principal: "staff" }>["db"]
+  | Extract<ActionCtx, { principal: "public"; scope: "target" }>["db"];
 type DocumentView = z.output<typeof documentViewSchema>;
 
 function parseType(value: string): z.output<typeof documentTypeSchema> {
@@ -88,7 +90,7 @@ function parseBuyer(value: unknown): z.output<typeof buyerDetailsSchema> {
 }
 
 export async function loadStaffDocument(env: {
-  readonly db: StaffDb;
+  readonly db: ReadableDb;
   readonly companyId: string;
   readonly documentId: string;
 }): Promise<DocumentView> {

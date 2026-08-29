@@ -73,7 +73,9 @@ import {
   documentsCancelled,
   documentsCreated,
   getDocument,
+  getShared,
   listDocuments,
+  shareDocument,
 } from "@showzy/documents";
 import { documentsSuiteCoverage } from "@showzy/documents/suite-coverage";
 import {
@@ -238,6 +240,10 @@ const callEdges: readonly DeclaredCallEdge[] = [
     caller: "documents.createFromOrder",
     callee: "customers.getCustomer",
   },
+  {
+    caller: "documents.share",
+    callee: "files.issueShareDownloadUrl",
+  },
 ];
 
 const readModelGrants: readonly ReadModelGrantRef[] = [
@@ -353,7 +359,9 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, cancelDocument);
   registerAction(registry, createFromOrder);
   registerAction(registry, getDocument);
+  registerAction(registry, getShared);
   registerAction(registry, listDocuments);
+  registerAction(registry, shareDocument);
   registerAction(registry, createOrder);
   registerAction(registry, confirmOrder);
   registerAction(registry, cancelOrder);
