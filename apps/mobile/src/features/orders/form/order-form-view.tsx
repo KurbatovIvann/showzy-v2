@@ -161,7 +161,7 @@ function OrderFormReady(props: { readonly model: OrderFormModel }) {
       bottomOffset={theme.spacing.lg}
     >
       {model.banner !== null ? (
-        <Banner tone="danger" text={model.banner} />
+        <Banner message={model.banner} />
       ) : null}
       <EditorSection title={form.itemsTitle}>
         {model.items.map((item, index) => (
