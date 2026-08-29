@@ -17,6 +17,7 @@ import { resolveCustomerNameHydration } from "../shared/customer-name";
 import { canEditOrders, orderDetailActions } from "../shared/order-permissions";
 import {
   orderDetailHeaderTitle,
+  orderDetailWriteChrome,
   toOrderDetailView,
   type OrderDetailState,
   type OrderDetailViewModel,
@@ -98,14 +99,19 @@ export function useOrderDetail(
     canEdit,
     status: order?.status ?? "canceled",
   });
+  const writeChrome = orderDetailWriteChrome({
+    stateKind: query.state.kind,
+    hasOrder: order !== null,
+    actionFlags,
+  });
 
   return {
     copy,
     state: query.state,
     order,
-    showConfirm: order !== null && actionFlags.showConfirm,
-    showActions: order !== null && actionFlags.showActions,
-    cancelEnabled: order !== null && actionFlags.cancelEnabled,
+    showConfirm: writeChrome.showConfirm,
+    showActions: writeChrome.showActions,
+    cancelEnabled: writeChrome.cancelEnabled,
     actionsVisible: chrome.actionsVisible,
     writePending: actions.writePending,
     statusBanner: actions.banner,

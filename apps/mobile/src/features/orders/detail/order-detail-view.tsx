@@ -72,7 +72,7 @@ export function OrderDetailView(model: OrderDetailModel) {
         </View>
       ) : null}
       <OrderActionsSheet
-        visible={model.actionsVisible}
+        visible={model.actionsVisible && model.state.kind === "ready"}
         copy={copy.detail}
         closeLabel={copy.closeSheet}
         cancelEnabled={model.cancelEnabled}

@@ -147,6 +147,24 @@ export function orderDetailActionsForView(args: {
   return orderDetailActions(args);
 }
 
+/**
+ * Confirm / ⋯ stay hidden unless the query is ready. TanStack keeps
+ * `data` on error/offline after a successful get — a stale VM must not
+ * keep write chrome up (catalog `product-detail-view` gates on ready).
+ */
+export function orderDetailWriteChrome(args: {
+  readonly stateKind: OrderQueryLoadState["kind"];
+  readonly hasOrder: boolean;
+  readonly actionFlags: OrderDetailActions;
+}): OrderDetailActions {
+  const ready = args.stateKind === "ready" && args.hasOrder;
+  return {
+    showConfirm: ready && args.actionFlags.showConfirm,
+    showActions: ready && args.actionFlags.showActions,
+    cancelEnabled: ready && args.actionFlags.cancelEnabled,
+  };
+}
+
 export type OrderWriteBannerKey = "offline" | "permission" | "error";
 
 export function mapOrderWriteFailure(

@@ -8,6 +8,7 @@ import {
   mapOrderWriteFailure,
   orderDetailActionsForView,
   orderDetailHeaderTitle,
+  orderDetailWriteChrome,
   orderWriteBanner,
   planOrderStatusWrite,
   toOrderDetailView,
@@ -205,6 +206,54 @@ describe("orderDetailActionsForView", () => {
     });
     expect(
       orderDetailActionsForView({ canEdit: false, status: "new" }),
+    ).toEqual({
+      showConfirm: false,
+      showActions: false,
+      cancelEnabled: false,
+    });
+  });
+
+  it("hides confirm and actions when a cached order is error or offline", () => {
+    const actionFlags = orderDetailActionsForView({
+      canEdit: true,
+      status: "new",
+    });
+    expect(actionFlags).toEqual({
+      showConfirm: true,
+      showActions: true,
+      cancelEnabled: true,
+    });
+    const cached = { hasOrder: true, actionFlags };
+    expect(
+      orderDetailWriteChrome({ stateKind: "error", ...cached }),
+    ).toEqual({
+      showConfirm: false,
+      showActions: false,
+      cancelEnabled: false,
+    });
+    expect(
+      orderDetailWriteChrome({ stateKind: "offline", ...cached }),
+    ).toEqual({
+      showConfirm: false,
+      showActions: false,
+      cancelEnabled: false,
+    });
+    expect(
+      orderDetailWriteChrome({ stateKind: "loading", ...cached }),
+    ).toEqual({
+      showConfirm: false,
+      showActions: false,
+      cancelEnabled: false,
+    });
+    expect(
+      orderDetailWriteChrome({ stateKind: "ready", ...cached }),
+    ).toEqual(actionFlags);
+    expect(
+      orderDetailWriteChrome({
+        stateKind: "ready",
+        hasOrder: false,
+        actionFlags,
+      }),
     ).toEqual({
       showConfirm: false,
       showActions: false,
