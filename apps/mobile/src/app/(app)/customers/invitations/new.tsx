@@ -1,1 +1,1 @@
-export { InvitationCreateShellScreen as default } from "../../../../features/customers/invitations/invitation-create-shell-screen";
+export { InvitationCreateScreen as default } from "../../../../features/customers/invitations/invitation-form-screen";
