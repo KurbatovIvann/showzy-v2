@@ -41,7 +41,7 @@ describe("document share landing HTML", () => {
     expect(withFile).toContain('href="https://files.example/doc.pdf"');
     expect(withFile).toContain("2.50 UAH");
     expect(withFile).toContain(
-      '<a href="https://files.example/doc.pdf" rel="noopener noreferrer">',
+      '<a href="https://files.example/doc.pdf" rel="noopener noreferrer" referrerpolicy="no-referrer">',
     );
 
     const withoutFile = renderShareLandingHtml({
@@ -67,6 +67,10 @@ describe("document share landing HTML", () => {
     });
     expect(withFile).toContain('<meta name="referrer" content="no-referrer">');
     expect(withFile).toContain('rel="noopener noreferrer"');
+    expect(withFile).toContain('referrerpolicy="no-referrer"');
+    expect(withFile).toContain(
+      '<a href="https://files.example/doc.pdf" rel="noopener noreferrer" referrerpolicy="no-referrer">',
+    );
     expect(withFile).not.toContain(
       `<a href="https://files.example/doc.pdf">${SHARE_LANDING_DOWNLOAD_COPY}</a>`,
     );

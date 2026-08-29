@@ -203,8 +203,9 @@ describe("GET /d/:token landing", () => {
     expect(html).toContain("KA-РХ-000001");
     expect(html).toContain('<meta name="referrer" content="no-referrer">');
     expect(html).toContain(
-      '<a href="https://files.example/ready.pdf" rel="noopener noreferrer">',
+      '<a href="https://files.example/ready.pdf" rel="noopener noreferrer" referrerpolicy="no-referrer">',
     );
+    expect(html).toContain('referrerpolicy="no-referrer"');
     expect(html).not.toContain(readyToken);
   });
 
