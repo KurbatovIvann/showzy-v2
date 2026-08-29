@@ -45,9 +45,7 @@ export function useUnsavedInvitationGuard(args: {
     if (!leaveArmed) {
       return;
     }
-    const resolved = resolveArmedInvitationLeave(
-      pendingLeaveActionRef.current,
-    );
+    const resolved = resolveArmedInvitationLeave(pendingLeaveActionRef.current);
     pendingLeaveActionRef.current = null;
     if (resolved.kind === "dispatch") {
       navigation.dispatch(resolved.action);
