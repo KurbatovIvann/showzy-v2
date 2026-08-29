@@ -20,8 +20,8 @@ export function customersTabOptions(labels: {
   return CUSTOMERS_TABS.map((key) => ({ key, label: labels[key] }));
 }
 
-export function isCustomersTabImplemented(_tab: CustomersTab): boolean {
-  return true;
+export function isCustomersTabImplemented(tab: CustomersTab): boolean {
+  return CUSTOMERS_TABS.includes(tab);
 }
 
 export function canShowCustomersCreate(args: {
