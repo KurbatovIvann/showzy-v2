@@ -6,12 +6,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { useReducer } from "react";
 
-import { useApiClient } from "../../../../api/api-provider";
-import { describeWireError } from "../../../../api/errors";
-import { useActiveCompany } from "../../../../api/query-provider";
-import { useResolvedCompany } from "../../../../company-resolution/resolved-company-provider";
-import { detectLocale } from "../../../../i18n/locale";
-import { ordersCopy } from "../../../../i18n/orders";
+import { useApiClient } from "../../../api/api-provider";
+import { describeWireError } from "../../../api/errors";
+import { useActiveCompany } from "../../../api/query-provider";
+import { useResolvedCompany } from "../../../company-resolution/resolved-company-provider";
+import { detectLocale } from "../../../i18n/locale";
+import { ordersCopy } from "../../../i18n/orders";
 import { getCustomerNameQueryOptions } from "../api/customer-name-query";
 import { resolveCustomerNameHydration } from "../shared/customer-name";
 import { canEditOrders, orderDetailActions } from "../shared/order-permissions";

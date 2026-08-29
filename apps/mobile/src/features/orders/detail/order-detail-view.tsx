@@ -17,7 +17,7 @@ import {
   EmptyState,
   IconButton,
   StatusPill,
-} from "../../../../components/ui";
+} from "../../../components/ui";
 import { OrderActionsSheet } from "./order-actions-sheet";
 import { OrderLineRow } from "./order-line-row";
 import type { OrderDetailModel } from "./use-order-detail";

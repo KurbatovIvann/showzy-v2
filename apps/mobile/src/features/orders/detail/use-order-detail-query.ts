@@ -5,9 +5,9 @@
  */
 import { useQuery } from "@tanstack/react-query";
 
-import { useApiClient } from "../../../../api/api-provider";
-import { describeQueryFailure } from "../../../../api/errors";
-import { useActiveCompany } from "../../../../api/query-provider";
+import { useApiClient } from "../../../api/api-provider";
+import { describeQueryFailure } from "../../../api/errors";
+import { useActiveCompany } from "../../../api/query-provider";
 import {
   getOrderQueryOptions,
   type GetOrderOutput,

@@ -8,11 +8,11 @@ import { useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 
-import { useApiClient } from "../../../../api/api-provider";
-import { useContractMutation } from "../../../../api/contract-mutation";
-import { describeQueryFailure } from "../../../../api/errors";
-import { useActiveCompany } from "../../../../api/query-provider";
-import type { OrdersDetailCopy } from "../../../../i18n/orders";
+import { useApiClient } from "../../../api/api-provider";
+import { useContractMutation } from "../../../api/contract-mutation";
+import { describeQueryFailure } from "../../../api/errors";
+import { useActiveCompany } from "../../../api/query-provider";
+import type { OrdersDetailCopy } from "../../../i18n/orders";
 import {
   bindOrderStatusMutate,
   invalidateOrdersAfterStatusWrite,

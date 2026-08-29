@@ -2,8 +2,8 @@ import { Pressable, Text, View } from "react-native";
 import { BanIcon } from "lucide-react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
-import type { OrdersDetailCopy } from "../../../../i18n/orders";
-import { Sheet } from "../../../../components/ui";
+import type { OrdersDetailCopy } from "../../../i18n/orders";
+import { Sheet } from "../../../components/ui";
 
 /**
  * Canvas `Швидкі дії` minus omitted extras (mark paid / shipped).
