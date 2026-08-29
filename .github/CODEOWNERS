@@ -5,6 +5,7 @@
 /packages/db/src/schema/pricing.ts @KurbatovIvann
 /packages/db/src/schema/orders.ts @KurbatovIvann
 /packages/db/src/schema/documents.ts @KurbatovIvann
+/packages/db/src/schema/doc-generation.ts @KurbatovIvann
 /packages/db/src/schema/chat.ts @KurbatovIvann
 /packages/db/src/schema/files.ts @KurbatovIvann
 /packages/db/src/schema/invites.ts @KurbatovIvann
