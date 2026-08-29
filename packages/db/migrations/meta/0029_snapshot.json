@@ -1,6 +1,6 @@
 {
-  "id": "b06fae04-dc35-4c32-adec-df948548b3cd",
-  "prevId": "c239a57b-0a21-46af-b4dc-967dc1682fc3",
+  "id": "d5082c88-bc46-47e6-a110-b9757792a15b",
+  "prevId": "b06fae04-dc35-4c32-adec-df948548b3cd",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -4704,6 +4704,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "order_number": {
+          "name": "order_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
         "customer_id": {
           "name": "customer_id",
           "type": "uuid",
@@ -4867,6 +4873,14 @@
             "company_id",
             "id"
           ]
+        },
+        "orders_company_id_order_number_uq": {
+          "name": "orders_company_id_order_number_uq",
+          "nullsNotDistinct": false,
+          "columns": [
+            "company_id",
+            "order_number"
+          ]
         }
       },
       "policies": {},
@@ -4874,6 +4888,10 @@
         "orders_status_check": {
           "name": "orders_status_check",
           "value": "\"orders\".\"status\" IN ('new', 'confirmed', 'canceled')"
+        },
+        "orders_order_number_positive_check": {
+          "name": "orders_order_number_positive_check",
+          "value": "\"orders\".\"order_number\" > 0"
         },
         "orders_total_net_minor_check": {
           "name": "orders_total_net_minor_check",

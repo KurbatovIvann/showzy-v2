@@ -1,8 +1,9 @@
 /**
- * SHO-240: 0028 must add `orders.order_number` onto tables that 0013
+ * SHO-240: 0029 must add `orders.order_number` onto tables that 0013
  * created without it. Empty-DB apply is the harness template (all
  * migrations). This file proves the SQL backfill and a DB that already
- * has pre-0028 order rows.
+ * has pre-0029 order rows (documents 0028 applied; this ticket's
+ * migration excluded).
  */
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -23,7 +24,7 @@ const migrationsFolder = fileURLToPath(
   new URL("../migrations", import.meta.url),
 );
 const orderNumberMigrationSql = readFileSync(
-  path.join(migrationsFolder, "0028_lonely_scorpion.sql"),
+  path.join(migrationsFolder, "0029_uneven_arclight.sql"),
   "utf8",
 );
 
@@ -68,7 +69,7 @@ function statementsOf(sql: string): string[] {
     .filter((part) => part.length > 0);
 }
 
-describe("orders order_number migration (0028)", () => {
+describe("orders order_number migration (0029)", () => {
   it("adds order_number nullable, backfills per tenant, then SET NOT NULL", () => {
     expect(orderNumberMigrationSql).toContain(
       `ALTER TABLE "orders" ADD COLUMN "order_number" integer;`,
@@ -106,7 +107,7 @@ describe("orders order_number migration (0028)", () => {
     expect(result.rows).toEqual([{ is_nullable: "NO", column_default: null }]);
   });
 
-  it("backfills contiguous per-tenant numbers on a non-empty pre-0028 table", async () => {
+  it("backfills contiguous per-tenant numbers on a non-empty pre-0029 table", async () => {
     const context = inject("dbHarness");
     const name = `ordernum_migrate_${randomUUID().replaceAll("-", "")}`;
     const control = new pg.Client({
@@ -120,13 +121,13 @@ describe("orders order_number migration (0028)", () => {
       await control.query(`CREATE DATABASE "${name}"`);
       const priorMigrations = path.join(workspace, "migrations");
       await cp(migrationsFolder, priorMigrations, { recursive: true });
-      await rm(path.join(priorMigrations, "0028_lonely_scorpion.sql"));
-      await rm(path.join(priorMigrations, "meta/0028_snapshot.json"));
+      await rm(path.join(priorMigrations, "0029_uneven_arclight.sql"));
+      await rm(path.join(priorMigrations, "meta/0029_snapshot.json"));
       const journalPath = path.join(priorMigrations, "meta/_journal.json");
       const journal = JSON.parse(await readFile(journalPath, "utf8")) as {
         entries: { idx: number }[];
       };
-      journal.entries = journal.entries.filter((entry) => entry.idx < 28);
+      journal.entries = journal.entries.filter((entry) => entry.idx < 29);
       await writeFile(journalPath, `${JSON.stringify(journal, null, 2)}\n`);
 
       migrator = createDbClient({

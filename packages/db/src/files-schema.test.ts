@@ -166,11 +166,14 @@ describe("private company files schema slice", () => {
   });
 
   it("does not create extra purpose tables", async () => {
+    // `documents` is owned by the documents module (SHO-228), not a files
+    // purpose table. Files still must not grow avatars (or other purpose
+    // tables). Purpose remains `catalog` until files-T14.
     const result = await admin.query<{ table_name: string }>(
       `SELECT table_name
        FROM information_schema.tables
        WHERE table_schema = 'public'
-         AND table_name IN ('documents', 'avatars')`,
+         AND table_name IN ('avatars')`,
     );
     expect(result.rows).toEqual([]);
   });

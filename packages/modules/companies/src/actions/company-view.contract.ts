@@ -1,7 +1,7 @@
 /**
  * Shared staff company identity + seller legal-face view (SHO-224 /
- * feature SHO-222). Get and updateLegal import this shape so later
- * documents `ctx.call` does not invent a second projection.
+ * feature SHO-222). Get, updateLegal, and getSellerFacts import this
+ * shape so documents `ctx.call` does not invent a second projection.
  *
  * Caps copied from the counterparty view (SHO-191): edrpou 10, address
  * 500, iban 34, bank name 200, MFO 6, phone 30, email 200. Card-named

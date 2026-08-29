@@ -233,7 +233,7 @@ describe("staff orders schema slice", () => {
       "confirmed_at",
       "created_at",
       "updated_at",
-      // 0028 ADD COLUMN appends after the 0013 table; Drizzle field order
+      // 0029 ADD COLUMN appends after the 0013 table; Drizzle field order
       // in schema/orders.ts is company_id then order_number.
       "order_number",
     ]);
