@@ -68,7 +68,9 @@ import {
 } from "@showzy/customers";
 import { customersSuiteCoverage } from "@showzy/customers/suite-coverage";
 import {
+  cancelDocument,
   createFromOrder,
+  documentsCancelled,
   documentsCreated,
   getDocument,
   listDocuments,
@@ -160,6 +162,7 @@ const events: readonly EventDefinitionRef[] = [
   ordersCreated,
   ordersConfirmed,
   ordersCanceled,
+  documentsCancelled,
   documentsCreated,
   invitesAccepted,
   invitesCreated,
@@ -347,6 +350,7 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, getInvite);
   registerAction(registry, listInvites);
   registerAction(registry, revokeInvite);
+  registerAction(registry, cancelDocument);
   registerAction(registry, createFromOrder);
   registerAction(registry, getDocument);
   registerAction(registry, listDocuments);
