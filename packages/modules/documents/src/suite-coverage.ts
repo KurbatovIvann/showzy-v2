@@ -5,6 +5,7 @@ export const documentsSuiteCoverage = {
     "documents.cancel",
     "documents.createFromOrder",
     "documents.get",
+    "documents.getForGeneration",
     "documents.getShared",
     "documents.list",
     "documents.share",

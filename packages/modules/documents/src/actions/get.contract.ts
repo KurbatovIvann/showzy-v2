@@ -1,14 +1,12 @@
 /**
- * Staff document get (SHO-233 / feature SHO-227). Copy `orders.get`. Output
- * is `documentViewSchema` plus explicit null `generation` and
- * `pdfDownloadUrl` this ticket (mechanical: SHO-236 fills those from
- * nested `doc-generation.getArtifact` + `files.issueDocumentDownloadUrl`;
- * this get must not query jobs or files tables).
+ * Staff document get (SHO-233 / SHO-236 / feature SHO-227). Copy
+ * `orders.get`. Output is `documentViewSchema` plus `generation` from
+ * nested `docGeneration.getArtifact` and the panel PDF URL from
+ * `files.issueDocumentDownloadUrl` (`documents:view`, not `files:view`).
  *
- * Mechanical: `timeout: 2000` — single-row header + lines, no nested
- * calls (same as `orders.get`).
- * Input is a strict object so `companyId` cannot be smuggled in
- * (ADR-0013).
+ * Mechanical: `timeout: 10000` — nested getArtifact (2000) plus
+ * issueDocumentDownloadUrl (5000). Input is a strict object so
+ * `companyId` cannot be smuggled in (ADR-0013).
  */
 import { defineActionContract } from "@showzy/core/contract";
 import { z } from "zod";
@@ -23,14 +21,14 @@ export const getDocumentInputSchema = z.strictObject({
 });
 
 export const getDocumentOutputSchema = documentViewSchema.extend({
-  generation: documentGenerationViewSchema.nullable(),
+  generation: documentGenerationViewSchema,
   pdfDownloadUrl: z.url().nullable(),
 });
 
 export const getDocumentContract = defineActionContract({
   name: "documents.get",
   description:
-    "Return a staff document, its seller/buyer snapshots, and immutable line copies in the active company. generation and the panel PDF download URL are null until document generation records an artifact. Missing or foreign-company documents fail with not-found. Company id is never input.",
+    "Return a staff document, its seller/buyer snapshots, and immutable line copies in the active company. generation is the PDF job chip; the panel PDF download URL is issued for a ready artifact via files.issueDocumentDownloadUrl (documents:view, not files:view). Missing or foreign-company documents fail with not-found. Company id is never input.",
   principal: "staff",
   transport: "client",
   input: getDocumentInputSchema,
@@ -44,5 +42,5 @@ export const getDocumentContract = defineActionContract({
   atomicCalls: [],
   atomicCallers: [],
   audit: false,
-  timeout: 2_000,
+  timeout: 10_000,
 });

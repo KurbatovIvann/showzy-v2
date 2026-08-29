@@ -108,9 +108,9 @@ export const documentViewSchema = z.object({
 });
 
 /**
- * Generation chip on `documents.get` (SHO-233 returns null; SHO-236 fills
- * this from `doc-generation.getArtifact`). Status values match the jobs
- * CHECK (`pending` | `ready` | `failed`).
+ * Generation chip on `documents.get` (SHO-236 fills this from
+ * `docGeneration.getArtifact`). Status values match the jobs CHECK
+ * (`pending` | `ready` | `failed`).
  */
 export const documentGenerationStatusSchema = z.enum([
   "pending",

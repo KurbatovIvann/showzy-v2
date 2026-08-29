@@ -222,6 +222,26 @@ function violation(from, spec, typeOnly) {
       return null;
     }
     if (pkg.rest !== "") {
+      // SHO-236: the process-wide object store is bound at api/worker boot.
+      // doc-generation PUTs generated PDFs through that singleton; the
+      // files package index may export only actions/events (ADR-0015).
+      if (
+        moduleName === "doc-generation" &&
+        pkg.name === "files" &&
+        pkg.rest === "storage"
+      ) {
+        return null;
+      }
+      // SHO-236: documents.get/share nest getArtifact without importing the
+      // doc-generation barrel (that barrel also exports renderPdf, which
+      // imports documents.getForGeneration — ESM + tsc cycle through TSX).
+      if (
+        moduleName === "documents" &&
+        pkg.name === "doc-generation" &&
+        pkg.rest === "get-artifact"
+      ) {
+        return null;
+      }
       return { messageId: "moduleCross" };
     }
     return null;
