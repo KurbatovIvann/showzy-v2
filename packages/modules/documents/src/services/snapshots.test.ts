@@ -8,6 +8,7 @@ import {
   requireCounterpartyCustomerMatch,
   requireOrderCustomerId,
   requireSellerLegal,
+  buyerLabelFromSnapshot,
   snapshotCustomerBuyer,
   snapshotSupplier,
 } from "./snapshots.js";
@@ -92,5 +93,28 @@ describe("document snapshots", () => {
       kind: "customer",
       displayName: "Customer A",
     });
+  });
+
+  it("reads the buyer label from the stored snapshot, not a live CRM join", () => {
+    expect(
+      buyerLabelFromSnapshot({
+        kind: "customer",
+        displayName: "Snapshotted Buyer",
+      }),
+    ).toBe("Snapshotted Buyer");
+    expect(
+      buyerLabelFromSnapshot({
+        kind: "counterparty",
+        name: "Snapshotted Legal",
+        edrpou: null,
+        legalAddress: null,
+        iban: null,
+        bankName: null,
+        bankMfo: null,
+        phone: null,
+        email: null,
+        notes: null,
+      }),
+    ).toBe("Snapshotted Legal");
   });
 });
