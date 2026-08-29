@@ -3,31 +3,46 @@ import { useMemo } from "react";
 
 import { useApiClient } from "../../../api/api-provider";
 import { useActiveCompany } from "../../../api/query-provider";
+import { useResolvedCompany } from "../../../company-resolution/resolved-company-provider";
 import {
   getOrderCatalogProductQueryOptions,
   listOrderProductsInfiniteOptions,
 } from "../api/order-catalog-query";
 import { listOrderCustomersInfiniteOptions } from "../api/order-customers-query";
+import { canFetchFileDownloadUrls } from "../shared/order-permissions";
+import {
+  orderThumbnailView,
+  type OrderThumbnailView,
+} from "../shared/order-thumbnails";
+import { useOrderThumbnails } from "../shared/use-order-thumbnails";
 import { flattenPages, optionSelectItems } from "./option-select";
 import { useDrainInfinitePages } from "./use-drain-pages";
+
+export type OrderFormProductRow = {
+  readonly id: string;
+  readonly name: string;
+  readonly variantCount: number;
+  readonly primaryImageFileId: string | null;
+};
+
+export type OrderFormThumbnail = OrderThumbnailView;
 
 export function useOrderFormLookups(args: {
   readonly enabled: boolean;
   readonly variantProductId: string | null;
 }): {
   readonly customerOptions: ReturnType<typeof optionSelectItems>;
-  readonly productRows: readonly {
-    readonly id: string;
-    readonly name: string;
-    readonly variantCount: number;
-  }[];
+  readonly productRows: readonly OrderFormProductRow[];
   readonly variantOptions: ReturnType<typeof optionSelectItems>;
   readonly variantsReady: boolean;
+  readonly thumbnailsByProductId: ReadonlyMap<string, OrderFormThumbnail>;
 } {
   const apiClient = useApiClient();
   const { activeCompanyId } = useActiveCompany();
+  const membership = useResolvedCompany();
   const getActiveCompany = () => apiClient?.getActiveCompany() ?? null;
   const enabled = args.enabled;
+  const canFetchThumbnails = canFetchFileDownloadUrls(membership.role);
 
   const customersQuery = useInfiniteQuery(
     listOrderCustomersInfiniteOptions({
@@ -68,6 +83,15 @@ export function useOrderFormLookups(args: {
     }),
   );
 
+  const productPages = productsQuery.data?.pages ?? [];
+  const { urlsByFileId, failedFileIds } = useOrderThumbnails({
+    client: apiClient,
+    companyId: activeCompanyId,
+    getActiveCompany,
+    pages: productPages,
+    enabled: enabled && canFetchThumbnails,
+  });
+
   const customerOptions = useMemo(() => {
     if (customersQuery.data === undefined) {
       return [];
@@ -82,7 +106,7 @@ export function useOrderFormLookups(args: {
     );
   }, [customersQuery.data]);
 
-  const productRows = useMemo(() => {
+  const productRows = useMemo((): readonly OrderFormProductRow[] => {
     if (productsQuery.data === undefined) {
       return [];
     }
@@ -90,8 +114,25 @@ export function useOrderFormLookups(args: {
       id: row.id,
       name: row.name,
       variantCount: row.variantCount,
+      primaryImageFileId: row.primaryImageFileId,
     }));
   }, [productsQuery.data]);
+
+  const thumbnailsByProductId = useMemo(() => {
+    const map = new Map<string, OrderFormThumbnail>();
+    for (const row of productRows) {
+      const fileId = canFetchThumbnails ? row.primaryImageFileId : null;
+      map.set(
+        row.id,
+        orderThumbnailView({
+          fileId,
+          url: fileId === null ? undefined : urlsByFileId.get(fileId),
+          downloadFailed: fileId !== null && failedFileIds.has(fileId),
+        }),
+      );
+    }
+    return map;
+  }, [canFetchThumbnails, failedFileIds, productRows, urlsByFileId]);
 
   const variantOptions = useMemo(() => {
     if (productQuery.data === undefined) {
@@ -113,5 +154,6 @@ export function useOrderFormLookups(args: {
     variantOptions,
     variantsReady:
       args.variantProductId === null || productQuery.status === "success",
+    thumbnailsByProductId,
   };
 }

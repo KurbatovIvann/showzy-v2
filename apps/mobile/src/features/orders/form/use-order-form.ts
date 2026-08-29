@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { useRef, useState } from "react";
+import { useReducer, useRef, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 
 import { useApiClient } from "../../../api/api-provider";
@@ -14,6 +14,7 @@ import {
   canCreateOrders,
   orderCreateScreenActions,
 } from "../shared/order-permissions";
+import type { OrderThumbnailView } from "../shared/order-thumbnails";
 import {
   fieldErrorsFromFormState,
   mapOrderFormFailure,
@@ -24,7 +25,6 @@ import {
   type BannerKey,
 } from "./order-form-copy";
 import {
-  addOrderLine,
   cloneOrderFormDraft,
   emptyOrderFormDraft,
   stepQuantityMilli,
@@ -33,22 +33,27 @@ import {
 } from "./order-form-draft";
 import { classifyOrderFormLoad } from "./order-form-load";
 import { orderFormResolver } from "./order-form.schema";
-import { optionSelectItems, type OptionSelectItem } from "./option-select";
+import {
+  commitProductPickerPicks,
+  emptyProductPicker,
+  productPickerOpen,
+  productPickerPicks,
+  productPickerSelectedIds,
+  productPickerSelectedVariantIds,
+  reduceProductPicker,
+} from "./product-picker";
+import type { ProductSelectRow } from "./product-select";
 import { useOrderFormLookups } from "./use-order-form-lookups";
 import { useOrderSave } from "./use-order-save";
 import { useUnsavedOrderGuard } from "./use-unsaved-order-guard";
 
 export type OrderFormModel = ReturnType<typeof useOrderForm>;
 
-export type OrderFormSheetState =
-  | { readonly kind: "closed" }
-  | { readonly kind: "customer" }
-  | { readonly kind: "products" }
-  | {
-      readonly kind: "variants";
-      readonly productId: string;
-      readonly productName: string;
-    };
+const EMPTY_THUMBNAIL: OrderThumbnailView = {
+  fileId: null,
+  url: null,
+  failed: false,
+};
 
 export function useOrderForm() {
   const locale = detectLocale();
@@ -82,9 +87,13 @@ export function useOrderForm() {
   const { isDirty, errors, isSubmitted } = formState;
 
   const [localBanner, setLocalBanner] = useState<BannerKey | null>(null);
-  const [sheet, setSheet] = useState<OrderFormSheetState>({ kind: "closed" });
-  const sheetRef = useRef(sheet);
-  sheetRef.current = sheet;
+  const [customerSheetOpen, setCustomerSheetOpen] = useState(false);
+  const [picker, dispatchPicker] = useReducer(
+    reduceProductPicker,
+    emptyProductPicker(),
+  );
+  const pickerRef = useRef(picker);
+  pickerRef.current = picker;
 
   const clientReady = apiClient !== null && activeCompanyId !== null;
   const loadState = classifyOrderFormLoad({
@@ -94,7 +103,7 @@ export function useOrderForm() {
 
   const lookups = useOrderFormLookups({
     enabled: loadState.kind === "ready",
-    variantProductId: sheet.kind === "variants" ? sheet.productId : null,
+    variantProductId: picker.kind === "variants" ? picker.productId : null,
   });
 
   const armLeaveRef = useRef(() => {});
@@ -117,14 +126,17 @@ export function useOrderForm() {
     },
   });
 
+  function closeAllSheets(): void {
+    setCustomerSheetOpen(false);
+    dispatchPicker({ type: "close" });
+  }
+
   const { armLeave, requestLeave } = useUnsavedOrderGuard({
     dirty: isDirty,
     pending: saveApi.pending,
     copy: formCopy,
-    sheetOpen: sheet.kind !== "closed",
-    closeSheet: () => {
-      setSheet({ kind: "closed" });
-    },
+    sheetOpen: customerSheetOpen || productPickerOpen(picker),
+    closeSheet: closeAllSheets,
   });
   armLeaveRef.current = armLeave;
 
@@ -172,16 +184,25 @@ export function useOrderForm() {
     quantityMilli: field.quantityMilli,
   }));
 
-  const productOptions: readonly OptionSelectItem[] = optionSelectItems(
-    lookups.productRows.map((row) => ({
-      id: row.id,
-      name: row.name,
-      description:
-        row.variantCount === 0
-          ? formCopy.variantsNone
-          : itemCountLabel(row.variantCount, locale, formCopy.variants),
-    })),
-  );
+  const picks = productPickerPicks(picker);
+  const selectedProductIds = productPickerSelectedIds(picks);
+
+  const productSelectRows: readonly ProductSelectRow[] =
+    lookups.productRows.map((row) => {
+      const thumbnail =
+        lookups.thumbnailsByProductId.get(row.id) ?? EMPTY_THUMBNAIL;
+      return {
+        id: row.id,
+        name: row.name,
+        variantsLabel:
+          row.variantCount === 0
+            ? formCopy.variantsNone
+            : itemCountLabel(row.variantCount, locale, formCopy.variants),
+        thumbnailFileId: thumbnail.fileId,
+        thumbnailUrl: thumbnail.url,
+        thumbnailFailed: thumbnail.failed,
+      };
+    });
 
   const productsValue =
     items.length === 0
@@ -196,67 +217,74 @@ export function useOrderForm() {
     saveApi.resetMutation();
   }
 
-  function addPickedLine(input: {
-    readonly productId: string;
-    readonly variantId: string | null;
-    readonly productName: string;
-    readonly variantName: string | null;
-  }): void {
-    const result = addOrderLine(cloneOrderFormDraft(getValues()), input);
-    if (!result.ok) {
-      setLocalBanner(result.reason);
-      setSheet({ kind: "closed" });
-      return;
+  function confirmProductPicks(): void {
+    const result = commitProductPickerPicks(
+      cloneOrderFormDraft(getValues()),
+      productPickerPicks(pickerRef.current),
+    );
+    for (const line of result.lines) {
+      append(line);
     }
-    append(result.line);
-    setValue("nextDraftSerial", result.draft.nextDraftSerial, {
-      shouldDirty: true,
-    });
-    setSheet({ kind: "closed" });
-    onFieldEdit();
+    if (result.lines.length > 0) {
+      setValue("nextDraftSerial", result.draft.nextDraftSerial, {
+        shouldDirty: true,
+      });
+      onFieldEdit();
+    }
+    if (result.rejected !== null) {
+      setLocalBanner(result.rejected);
+    }
+    dispatchPicker({ type: "close" });
   }
 
   function pickCustomer(id: string): void {
     const option = lookups.customerOptions.find((row) => row.id === id);
     setValue("customerId", id, { shouldDirty: true });
     setValue("customerName", option?.name ?? "", { shouldDirty: true });
-    setSheet({ kind: "closed" });
+    setCustomerSheetOpen(false);
     onFieldEdit();
   }
 
-  function pickProduct(id: string): void {
+  function toggleProduct(id: string): void {
     const row = lookups.productRows.find((item) => item.id === id);
     if (row === undefined) {
       return;
     }
     if (row.variantCount > 0) {
-      setSheet({ kind: "variants", productId: row.id, productName: row.name });
+      dispatchPicker({
+        type: "openVariants",
+        productId: row.id,
+        productName: row.name,
+      });
       return;
     }
-    addPickedLine({
+    dispatchPicker({
+      type: "toggleSimple",
       productId: row.id,
-      variantId: null,
       productName: row.name,
-      variantName: null,
     });
   }
 
   function pickVariant(id: string): void {
-    const current = sheetRef.current;
+    const current = pickerRef.current;
     if (current.kind !== "variants") {
       return;
     }
     const option = lookups.variantOptions.find((row) => row.id === id);
-    addPickedLine({
-      productId: current.productId,
+    dispatchPicker({
+      type: "pickVariant",
       variantId: id,
-      productName: current.productName,
-      variantName: option?.name ?? null,
+      variantName:
+        option?.name != null && option.name.length > 0 ? option.name : null,
     });
   }
 
   const customerId = watch("customerId");
   const customerName = watch("customerName");
+  const selectedCustomer = lookups.customerOptions.find(
+    (row) => row.id === customerId,
+  );
+  const customerPhone = selectedCustomer?.description;
 
   return {
     copy,
@@ -273,27 +301,45 @@ export function useOrderForm() {
     fieldsEditable: resolved.fieldsEditable && loadState.kind === "ready",
     showSubmit,
     customerName: customerName.length > 0 ? customerName : undefined,
+    customerPhone,
     productsValue,
     footerLinesLabel: itemCountLabel(items.length, locale, copy.items),
-    sheet,
+    customerSheetOpen,
+    productSheetOpen: productPickerOpen(picker),
+    productPickerSessionOpen: productPickerOpen(picker),
+    variantSheetOpen: picker.kind === "variants",
     customerOptions: lookups.customerOptions,
-    productOptions,
+    productSelectRows,
     variantOptions: lookups.variantOptions,
     variantsReady: lookups.variantsReady,
     selectedCustomerId: customerId.length > 0 ? customerId : null,
+    selectedProductIds,
+    selectedVariantIds: productPickerSelectedVariantIds(picker),
+    productPickCount: picks.length,
+    lineThumbnail: (productId: string): OrderThumbnailView =>
+      lookups.thumbnailsByProductId.get(productId) ?? EMPTY_THUMBNAIL,
     onFieldEdit,
     requestLeave,
     openCustomerSheet: () => {
-      setSheet({ kind: "customer" });
+      dispatchPicker({ type: "close" });
+      setCustomerSheetOpen(true);
     },
     openProductsSheet: () => {
-      setSheet({ kind: "products" });
+      setCustomerSheetOpen(false);
+      dispatchPicker({ type: "open" });
     },
-    closeSheet: () => {
-      setSheet({ kind: "closed" });
+    closeCustomerSheet: () => {
+      setCustomerSheetOpen(false);
+    },
+    closeProductSheet: () => {
+      dispatchPicker({ type: "close" });
+    },
+    closeVariantSheet: () => {
+      dispatchPicker({ type: "closeVariants" });
     },
     pickCustomer,
-    pickProduct,
+    toggleProduct,
+    confirmProductPicks,
     pickVariant,
     stepLine: (index: number, deltaUnits: number) => {
       const current = getValues().items[index];

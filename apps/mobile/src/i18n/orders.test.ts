@@ -115,6 +115,9 @@ describe("orders copy", () => {
     expect(uk.create.customerPlaceholder).toBe("Оберіть клієнта");
     expect(uk.create.commentLabel).toBe("Для внутрішнього використання");
     expect(uk.create.submitCreate).toBe("Створити");
+    expect(uk.create.productSheetDone).toBe("Готово · {{count}}");
+    expect(uk.create.thumbnailUnavailable).toBe("Фото недоступне");
+    expect(en.create.productSheetDone).toBe("Done · {{count}}");
     expect(uk.create.leaveTitle).toBe("Вийти без збереження?");
     expect(uk.create.errors.offline.includes("\u02BC")).toBe(true);
     expect(uk.create.errors.network.includes("\u02BC")).toBe(true);
@@ -138,6 +141,8 @@ describe("orders copy", () => {
     expect(ordersCopy("uk").items.one).toContain("{{count}}");
     expect(ordersCopy("uk").create.addProductsValue).toContain("{{count}}");
     expect(ordersCopy("en").create.addProductsValue).toContain("{{count}}");
+    expect(ordersCopy("uk").create.productSheetDone).toContain("{{count}}");
+    expect(ordersCopy("en").create.productSheetDone).toContain("{{count}}");
     expect(ordersCopy("uk").create.removeLine).toContain("{{name}}");
     expect(ordersCopy("en").create.removeLine).toContain("{{name}}");
   });

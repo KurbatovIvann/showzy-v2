@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   canCreateOrders,
   canEditOrders,
+  canFetchFileDownloadUrls,
   orderCreateScreenActions,
   orderDetailActions,
   ordersHeaderActions,
@@ -20,6 +21,13 @@ describe("order permission affordances", () => {
     expect(canCreateOrders("admin")).toBe(true);
     expect(canCreateOrders("manager")).toBe(true);
     expect(canCreateOrders("employee")).toBe(true);
+  });
+
+  it("skips thumbnail URL fetches without files:view", () => {
+    expect(canFetchFileDownloadUrls("owner")).toBe(true);
+    expect(canFetchFileDownloadUrls("admin")).toBe(true);
+    expect(canFetchFileDownloadUrls("manager")).toBe(true);
+    expect(canFetchFileDownloadUrls("employee")).toBe(false);
   });
 
   it("hides the plus control when orders:create is not granted", () => {

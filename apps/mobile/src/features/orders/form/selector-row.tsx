@@ -11,6 +11,7 @@ export function SelectorRow(props: {
   readonly label: string;
   readonly placeholder: string;
   readonly value?: string | undefined;
+  readonly subtitle?: string | undefined;
   readonly icon?: ReactNode | undefined;
   readonly error?: string | null | undefined;
   readonly disabled?: boolean;
@@ -19,9 +20,16 @@ export function SelectorRow(props: {
   const { theme } = useUnistyles();
   const value =
     props.value != null && props.value.length > 0 ? props.value : null;
+  const subtitle =
+    value !== null && props.subtitle != null && props.subtitle.length > 0
+      ? props.subtitle
+      : null;
   const hasError = props.error != null && props.error.length > 0;
   const disabled = props.disabled === true;
-  const a11yValue = value ?? props.placeholder;
+  const a11yValue =
+    subtitle !== null && value !== null
+      ? `${value}, ${subtitle}`
+      : (value ?? props.placeholder);
 
   return (
     <View>
@@ -49,8 +57,13 @@ export function SelectorRow(props: {
             style={value !== null ? styles.value : styles.placeholder}
             numberOfLines={1}
           >
-            {a11yValue}
+            {value ?? props.placeholder}
           </Text>
+          {subtitle !== null ? (
+            <Text style={styles.subtitle} numberOfLines={1}>
+              {subtitle}
+            </Text>
+          ) : null}
         </View>
         <ChevronRightIcon
           size={theme.iconSize.sm}
@@ -110,6 +123,11 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: theme.typography.base.fontSize,
     lineHeight: theme.typography.base.lineHeight,
     fontWeight: "500",
+  },
+  subtitle: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.xs.fontSize,
+    lineHeight: theme.typography.xs.lineHeight,
   },
   placeholder: {
     color: theme.colors.icon.muted,

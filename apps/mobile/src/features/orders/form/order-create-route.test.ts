@@ -20,6 +20,15 @@ const DETAIL_ROUTE = readFileSync(
   "utf8",
 );
 
+const CREATE_VIEW = readFileSync(
+  new URL("./order-form-view.tsx", import.meta.url),
+  "utf8",
+);
+const CREATE_HOOK = readFileSync(
+  new URL("./use-order-form.ts", import.meta.url),
+  "utf8",
+);
+
 describe("orders/new route", () => {
   it("is the create screen, not OrderDetailScreen or the construction placeholder", () => {
     expect(CREATE_ROUTE).toContain("export { OrderCreateScreen as default }");
@@ -32,5 +41,26 @@ describe("orders/new route", () => {
     expect(CREATE_SCREEN).not.toContain("ConstructionIcon");
     expect(DETAIL_ROUTE).toContain("export { OrderDetailScreen as default }");
     expect(DETAIL_ROUTE).not.toContain("OrderCreateScreen");
+  });
+
+  it("uses a dedicated ProductSelectSheet and does not import catalog", () => {
+    expect(CREATE_VIEW).toContain("ProductSelectSheet");
+    expect(CREATE_VIEW).toContain("doneCount={model.productPickCount}");
+    expect(CREATE_HOOK).toContain("confirmProductPicks");
+    expect(CREATE_HOOK).toContain("reduceProductPicker");
+    expect(CREATE_HOOK).toContain(
+      "productSheetOpen: productPickerOpen(picker)",
+    );
+    expect(CREATE_HOOK).toContain(
+      "productPickerSessionOpen: productPickerOpen(picker)",
+    );
+    expect(CREATE_VIEW).toContain(
+      "sessionOpen={model.productPickerSessionOpen}",
+    );
+    expect(CREATE_VIEW).toContain("selectedIds={model.selectedVariantIds}");
+    expect(CREATE_VIEW).not.toContain("features/catalog");
+    expect(CREATE_HOOK).not.toContain("features/catalog");
+    expect(CREATE_VIEW).not.toContain("basePriceMinor");
+    expect(CREATE_HOOK).not.toContain("basePriceMinor");
   });
 });

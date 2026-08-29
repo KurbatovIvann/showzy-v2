@@ -1,52 +1,69 @@
 import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import { CheckIcon, UserIcon } from "lucide-react-native";
+import { CheckIcon } from "lucide-react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
-import { SearchField, Sheet } from "../../../components/ui";
-import {
-  filterOptionSelectItems,
-  type OptionSelectItem,
-} from "./option-select";
+import { Button, SearchField, Sheet } from "../../../components/ui";
+import { interpolate } from "../../../i18n/locale";
+import { OrderThumbnail } from "../shared/order-thumbnail";
+import type { ProductSelectRow } from "./product-select";
 
 /**
- * Canvas picker chrome (customers `ClientSelectSheet` / variant single
- * select). Stays single-select. Products use `ProductSelectSheet`.
- * `footer={null}` is content mode without confirm-action chrome.
+ * Canvas `ProductSelectSheet`: multi-toggle, ink check, 44×44 thumbnail,
+ * confirm footer. Confirm-on-Готово — the sheet stays open across
+ * toggles; X discards the in-sheet draft.
  */
-export function OptionSelectSheet(props: {
+export function ProductSelectSheet(props: {
   readonly visible: boolean;
+  readonly sessionOpen: boolean;
   readonly title: string;
   readonly searchPlaceholder: string;
   readonly searchLabel: string;
   readonly closeLabel: string;
   readonly emptyLabel: string;
-  readonly value: string | null;
-  readonly selectedIds?: ReadonlySet<string> | undefined;
-  readonly options: readonly OptionSelectItem[];
+  readonly doneLabel: string;
+  readonly thumbnailFailedLabel: string;
   readonly searchMaxLength: number;
-  readonly leading?: "user" | undefined;
+  readonly selectedIds: ReadonlySet<string>;
+  readonly doneCount: number;
+  readonly products: readonly ProductSelectRow[];
   readonly onClose: () => void;
-  readonly onChange: (value: string) => void;
+  readonly onToggle: (productId: string) => void;
+  readonly onConfirm: () => void;
 }) {
   const [query, setQuery] = useState("");
 
+  // Reset search when the picker session ends, not when variants overlay.
   useEffect(() => {
-    if (!props.visible) {
+    if (!props.sessionOpen) {
       setQuery("");
     }
-  }, [props.visible]);
+  }, [props.sessionOpen]);
 
-  const filtered = filterOptionSelectItems(props.options, query);
+  const normalized = query.trim().toLowerCase();
+  const filtered =
+    normalized.length === 0
+      ? props.products
+      : props.products.filter((product) =>
+          product.name.toLowerCase().includes(normalized),
+        );
 
   return (
     <Sheet
       visible={props.visible}
       title={props.title}
       onClose={props.onClose}
-      footer={null}
       fullHeight
       closeAccessibilityLabel={props.closeLabel}
+      footer={
+        <Button
+          fullWidth
+          label={interpolate(props.doneLabel, {
+            count: String(props.doneCount),
+          })}
+          onPress={props.onConfirm}
+        />
+      }
     >
       <SearchField
         value={query}
@@ -59,19 +76,14 @@ export function OptionSelectSheet(props: {
         {filtered.length === 0 ? (
           <Text style={styles.empty}>{props.emptyLabel}</Text>
         ) : (
-          filtered.map((option) => (
-            <OptionRow
-              key={option.id}
-              label={option.name}
-              description={option.description}
-              selected={
-                props.selectedIds !== undefined
-                  ? props.selectedIds.has(option.id)
-                  : option.id === props.value
-              }
-              leading={props.leading}
+          filtered.map((product) => (
+            <ProductPickerRow
+              key={product.id}
+              product={product}
+              selected={props.selectedIds.has(product.id)}
+              failedLabel={props.thumbnailFailedLabel}
               onPress={() => {
-                props.onChange(option.id);
+                props.onToggle(product.id);
               }}
             />
           ))
@@ -81,25 +93,19 @@ export function OptionSelectSheet(props: {
   );
 }
 
-function OptionRow(props: {
-  readonly label: string;
-  readonly description?: string | undefined;
+function ProductPickerRow(props: {
+  readonly product: ProductSelectRow;
   readonly selected: boolean;
-  readonly leading?: "user" | undefined;
+  readonly failedLabel: string;
   readonly onPress: () => void;
 }) {
   const { theme } = useUnistyles();
-  const description =
-    props.description != null && props.description.length > 0
-      ? props.description
-      : null;
-  const a11yLabel =
-    description !== null ? `${props.label}, ${description}` : props.label;
+  const { product } = props;
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={a11yLabel}
+      accessibilityLabel={product.name}
       accessibilityState={{ selected: props.selected }}
       onPress={props.onPress}
       style={({ pressed }) => [
@@ -108,16 +114,15 @@ function OptionRow(props: {
         pressed ? styles.pressed : null,
       ]}
     >
-      {props.leading === "user" ? (
-        <View style={styles.avatar}>
-          <UserIcon size={theme.iconSize.md} color={theme.colors.accent} />
-        </View>
-      ) : null}
+      <OrderThumbnail
+        fileId={product.thumbnailFileId}
+        url={product.thumbnailUrl}
+        failed={product.thumbnailFailed}
+        failedLabel={props.failedLabel}
+      />
       <View style={styles.optionBody}>
-        <Text style={styles.optionLabel}>{props.label}</Text>
-        {description !== null ? (
-          <Text style={styles.optionDescription}>{description}</Text>
-        ) : null}
+        <Text style={styles.optionLabel}>{product.name}</Text>
+        <Text style={styles.optionDescription}>{product.variantsLabel}</Text>
       </View>
       {props.selected ? (
         <View style={styles.check}>
@@ -154,14 +159,6 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.md,
   },
-  avatar: {
-    width: theme.hitTarget.min,
-    height: theme.hitTarget.min,
-    borderRadius: theme.radii.full,
-    backgroundColor: theme.colors.accentSoft,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   optionSelected: {
     borderColor: theme.colors.foreground,
     backgroundColor: theme.colors.inputFill,
@@ -177,6 +174,11 @@ const styles = StyleSheet.create((theme) => ({
     lineHeight: theme.typography.base.lineHeight,
     fontWeight: "600",
   },
+  optionDescription: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.xs.fontSize,
+    lineHeight: theme.typography.xs.lineHeight,
+  },
   check: {
     // Canvas h-7 (28) — Class B from spacing, not a raw pixel.
     width: theme.spacing["2xl"] + theme.spacing.xs,
@@ -185,11 +187,6 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.primary,
     alignItems: "center",
     justifyContent: "center",
-  },
-  optionDescription: {
-    color: theme.colors.mutedForeground,
-    fontSize: theme.typography.xs.fontSize,
-    lineHeight: theme.typography.xs.lineHeight,
   },
   pressed: {
     opacity: 0.85,
