@@ -162,11 +162,11 @@ function lastWriteIntentWithoutExpires(
   return {
     isReusable: input.isReusable,
     maxUses: input.isReusable ? (input.maxUses ?? null) : null,
-    groupId: input.groupId,
-    priceListId: input.priceListId,
-    name: input.name,
-    phone: input.phone,
-    email: input.email,
+    groupId: input.groupId ?? null,
+    priceListId: input.priceListId ?? null,
+    name: input.name ?? null,
+    phone: input.phone ?? null,
+    email: input.email ?? null,
   };
 }
 
