@@ -22,7 +22,7 @@ before any write; the server still re-checks `pricing:manage`.
 | `api/`    | list binders with `query` + `availability`, get/entries/catalog reads, status and delete mutations, form mutation, cache keys                                                                                                    | JSX, RHF, the customers picker binder |
 | `list/`   | Screen, view, composer hook, presenter, row, options sheet, list writes. Filter chips are `ChoiceField` (not `BottomNav` / `SegmentedTabs`)                                                                                      | Editor form fields                    |
 | `form/`   | Create/edit screen, view, UI draft Zod, RHF `Controller` sections, save loop, unsaved guard, price rows. Pure roles: `price-list-form-draft.ts`, `price-list-form-plan.ts`, `price-list-form-copy.ts`, `price-list-form-load.ts` | List filters; a combined `*-model.ts` |
-| `shared/` | Permissions, hrefs, caps, entry-count labels, protocol-confirm helper, mutation banners, ids                                                                                                                                     | Transport                             |
+| `shared/` | Permissions, hrefs, caps, entry-count labels, mutation banners, ids                                                                                                                                                              | Transport                             |
 
 `form/` must not import `list/`. Shared hrefs, permissions, and caps stay
 in `shared/`. Reuse `api/price-list-status.ts` and `api/price-list-cache.ts`.

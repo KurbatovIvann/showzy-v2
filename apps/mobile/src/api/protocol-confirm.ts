@@ -1,12 +1,10 @@
-import { describeWireError } from "../../../api/errors";
-
 /**
- * High-risk list writes (`deleteCustomer`, `deleteGroup`,
- * `deleteCounterparty`) declare
- * `requiresConfirmation`. After the UI confirm, the first submit returns
- * `CONFIRMATION_REQUIRED`; this helper re-invokes with the challenge so
- * the protocol is real, not just a local Alert.
+ * High-risk writes that declare `requiresConfirmation` return
+ * `CONFIRMATION_REQUIRED` after the UI confirm. This helper re-invokes
+ * with the challenge so the protocol is real, not just a local Alert.
  */
+import { describeWireError } from "./errors";
+
 export function confirmationChallengeId(error: unknown): string | null {
   const view = describeWireError(error);
   if (view === null || view.code !== "CONFIRMATION_REQUIRED") {

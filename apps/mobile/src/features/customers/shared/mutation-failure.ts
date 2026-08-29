@@ -1,3 +1,4 @@
+import { classifyWriteFailure } from "../../../api/classify-write-failure";
 import type { QueryFailureKind } from "../../../api/errors";
 import type { CustomersMutationCopy } from "../../../i18n/customers";
 
@@ -6,19 +7,7 @@ export type CustomersWriteBannerKey = "offline" | "permission" | "error";
 export function mapCustomersWriteFailure(
   kind: QueryFailureKind | null,
 ): CustomersWriteBannerKey | null {
-  if (kind === null) {
-    return null;
-  }
-  if (kind === "offline") {
-    return "offline";
-  }
-  if (kind === "permission") {
-    return "permission";
-  }
-  if (kind === "confirmation") {
-    return null;
-  }
-  return "error";
+  return classifyWriteFailure(kind);
 }
 
 export function customersWriteBanner(

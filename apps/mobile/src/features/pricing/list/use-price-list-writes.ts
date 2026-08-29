@@ -11,6 +11,7 @@ import { useRouter } from "expo-router";
 import { useApiClient } from "../../../api/api-provider";
 import { useContractMutation } from "../../../api/contract-mutation";
 import { describeQueryFailure } from "../../../api/errors";
+import { submitWithProtocolConfirmation } from "../../../api/protocol-confirm";
 import { useActiveCompany } from "../../../api/query-provider";
 import type { PricingCopy } from "../../../i18n/pricing";
 import { bindPriceListDeleteMutate } from "../api/price-list-delete";
@@ -27,7 +28,6 @@ import {
   mapPricingWriteFailure,
   pricingWriteBanner,
 } from "../shared/mutation-failure";
-import { submitWithProtocolConfirmation } from "../shared/protocol-confirm";
 import { shouldBlockDeactivateDefault } from "./price-lists-list.presenter";
 
 export type PriceListWriteTarget = {

@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import type { MutationCallOptions } from "@showzy/contract";
 
 import { createContractMutationController } from "../../../api/contract-mutation";
-import { submitWithProtocolConfirmation } from "../shared/protocol-confirm";
+import { submitWithProtocolConfirmation } from "../../../api/protocol-confirm";
 import { bindPriceListDeleteMutate } from "./price-list-delete";
 
 const PRICE_LIST_ID = "0f0e2d5c-4a1b-4c3d-9e8f-102938475601";

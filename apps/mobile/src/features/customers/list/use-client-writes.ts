@@ -9,6 +9,7 @@ import { useRouter } from "expo-router";
 import { useApiClient } from "../../../api/api-provider";
 import { useContractMutation } from "../../../api/contract-mutation";
 import { describeQueryFailure } from "../../../api/errors";
+import { submitWithProtocolConfirmation } from "../../../api/protocol-confirm";
 import { useActiveCompany } from "../../../api/query-provider";
 import { presentConfirmDialog } from "../../../components/ui/present-confirm-dialog";
 import type { CustomersCopy } from "../../../i18n/customers";
@@ -23,7 +24,6 @@ import {
   customersWriteBanner,
   mapCustomersWriteFailure,
 } from "../shared/mutation-failure";
-import { submitWithProtocolConfirmation } from "../shared/protocol-confirm";
 
 export function useClientWrites(args: {
   readonly copy: CustomersCopy;

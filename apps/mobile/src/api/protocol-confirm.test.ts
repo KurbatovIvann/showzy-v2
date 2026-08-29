@@ -26,6 +26,29 @@ function confirmationRequired(
   });
 }
 
+describe("confirmationChallengeId", () => {
+  it("returns the challenge id from CONFIRMATION_REQUIRED", () => {
+    expect(confirmationChallengeId(confirmationRequired("challenge-9"))).toBe(
+      "challenge-9",
+    );
+  });
+
+  it("returns null when the error is not CONFIRMATION_REQUIRED", () => {
+    expect(
+      confirmationChallengeId(new TypeError("Failed to fetch")),
+    ).toBeNull();
+    expect(
+      confirmationChallengeId(
+        new ORPCError("PERMISSION_DENIED", {
+          defined: true,
+          status: 403,
+          message: "Denied.",
+        }),
+      ),
+    ).toBeNull();
+  });
+});
+
 describe("submitWithProtocolConfirmation", () => {
   it("returns the submit result when the server does not challenge", async () => {
     const result = await submitWithProtocolConfirmation({
@@ -54,12 +77,25 @@ describe("submitWithProtocolConfirmation", () => {
     );
   });
 
-  it("rethrows non-confirmation failures", async () => {
+  it("rethrows non-confirmation failures unchanged", async () => {
+    const networkError = new TypeError("Failed to fetch");
     await expect(
       submitWithProtocolConfirmation({
-        submit: () => Promise.reject(new TypeError("Failed to fetch")),
+        submit: () => Promise.reject(networkError),
         confirm: () => Promise.resolve("nope"),
       }),
-    ).rejects.toBeInstanceOf(TypeError);
+    ).rejects.toBe(networkError);
+
+    const permissionError = new ORPCError("PERMISSION_DENIED", {
+      defined: true,
+      status: 403,
+      message: "Denied.",
+    });
+    await expect(
+      submitWithProtocolConfirmation({
+        submit: () => Promise.reject(permissionError),
+        confirm: () => Promise.resolve("nope"),
+      }),
+    ).rejects.toBe(permissionError);
   });
 });
