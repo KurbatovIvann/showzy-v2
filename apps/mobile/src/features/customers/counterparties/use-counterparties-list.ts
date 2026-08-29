@@ -11,7 +11,7 @@ import { LIST_COUNTERPARTIES_SEARCH_MAX } from "../shared/customer-caps";
 import {
   SEARCH_DEBOUNCE_MS,
   useDebouncedValue,
-} from "../shared/use-debounced-value";
+} from "../../../hooks/use-debounced-value";
 import {
   classifyCounterpartiesList,
   flattenCounterpartyListPages,

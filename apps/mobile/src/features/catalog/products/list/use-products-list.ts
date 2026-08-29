@@ -28,7 +28,10 @@ import {
   LIST_PRODUCTS_QUERY_MAX_LENGTH,
   type ProductsListState,
 } from "./products-list.presenter";
-import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from "./use-debounced-value";
+import {
+  SEARCH_DEBOUNCE_MS,
+  useDebouncedValue,
+} from "../../../../hooks/use-debounced-value";
 import {
   resolveProductThumbnail,
   useProductThumbnails,
