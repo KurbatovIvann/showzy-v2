@@ -52,6 +52,7 @@ import {
   revokeInviteContract,
 } from "@showzy/invites/contract";
 import {
+  cancelOrderContract,
   confirmOrderContract,
   createOrderContract,
   getOrderContract,
@@ -133,6 +134,7 @@ describe("client composition", () => {
       orders: {
         create: createOrderContract,
         confirm: confirmOrderContract,
+        cancel: cancelOrderContract,
         get: getOrderContract,
         list: listOrdersContract,
       },
@@ -204,6 +206,7 @@ describe("client composition", () => {
     expect(contractRouter.invites.revoke).toBeDefined();
     expect(contractRouter.orders.create).toBeDefined();
     expect(contractRouter.orders.confirm).toBeDefined();
+    expect(contractRouter.orders.cancel).toBeDefined();
     expect(contractRouter.orders.get).toBeDefined();
     expect(contractRouter.orders.list).toBeDefined();
     expect(contractRouter.pricing.activatePriceList).toBeDefined();

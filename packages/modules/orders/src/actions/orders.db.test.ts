@@ -38,6 +38,7 @@ import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
+import { cancelOrder } from "./cancel.js";
 import { confirmOrder } from "./confirm.js";
 import { createOrder } from "./create.js";
 import { CREATE_ORDER_MAX_ITEMS } from "./create.contract.js";
@@ -73,11 +74,19 @@ const fixtures = {
   orderIdempotency: randomUUID(),
   orderIdempotencyConcurrent: randomUUID(),
   orderCanceled: randomUUID(),
+  orderCancelIsolationA: randomUUID(),
+  orderCancelIsolationB: randomUUID(),
+  orderCancelIdempotency: randomUUID(),
+  orderCancelIdempotencyConcurrent: randomUUID(),
   itemIsolationA: randomUUID(),
   itemIsolationB: randomUUID(),
   itemIdempotency: randomUUID(),
   itemIdempotencyConcurrent: randomUUID(),
   itemCanceled: randomUUID(),
+  itemCancelIsolationA: randomUUID(),
+  itemCancelIsolationB: randomUUID(),
+  itemCancelIdempotency: randomUUID(),
+  itemCancelIdempotencyConcurrent: randomUUID(),
 };
 
 const clerks = {
@@ -244,6 +253,14 @@ async function countConfirmed(companyId: string): Promise<number> {
     .where(
       and(eq(orders.companyId, companyId), eq(orders.status, "confirmed")),
     );
+  return rows.length;
+}
+
+async function countCanceled(companyId: string): Promise<number> {
+  const rows = await kit.db.runtime.db
+    .select({ id: orders.id })
+    .from(orders)
+    .where(and(eq(orders.companyId, companyId), eq(orders.status, "canceled")));
   return rows.length;
 }
 
@@ -445,6 +462,38 @@ beforeAll(async () => {
     productId: fixtures.pBase,
     status: "canceled",
   });
+  await insertSeedOrder({
+    id: fixtures.orderCancelIsolationA,
+    itemId: fixtures.itemCancelIsolationA,
+    companyId: companyA,
+    customerId: fixtures.customerA,
+    productId: fixtures.pBase,
+    status: "new",
+  });
+  await insertSeedOrder({
+    id: fixtures.orderCancelIsolationB,
+    itemId: fixtures.itemCancelIsolationB,
+    companyId: companyB,
+    customerId: fixtures.customerB,
+    productId: fixtures.pB,
+    status: "new",
+  });
+  await insertSeedOrder({
+    id: fixtures.orderCancelIdempotency,
+    itemId: fixtures.itemCancelIdempotency,
+    companyId: companyA,
+    customerId: fixtures.customerA,
+    productId: fixtures.pBase,
+    status: "new",
+  });
+  await insertSeedOrder({
+    id: fixtures.orderCancelIdempotencyConcurrent,
+    itemId: fixtures.itemCancelIdempotencyConcurrent,
+    companyId: companyA,
+    customerId: fixtures.customerA,
+    productId: fixtures.pBase,
+    status: "new",
+  });
 
   await kit.db.runtime.db.insert(user).values([
     {
@@ -533,6 +582,11 @@ crossTenantSuite(
       { input: { orderId: fixtures.orderIsolationB } },
     ),
     isolationCase(
+      cancelOrder,
+      { input: { orderId: fixtures.orderCancelIsolationA } },
+      { input: { orderId: fixtures.orderCancelIsolationB } },
+    ),
+    isolationCase(
       getOrder,
       { input: { orderId: fixtures.orderIsolationA } },
       { input: { orderId: fixtures.orderIsolationB } },
@@ -558,6 +612,15 @@ idempotencySuite(
       conflictingInput: { orderId: fixtures.orderCanceled },
       freshInput: () => ({ orderId: fixtures.orderIdempotencyConcurrent }),
       readEffect: () => countConfirmed(kitIdentities.companies.a),
+    },
+    {
+      action: cancelOrder,
+      input: { orderId: fixtures.orderCancelIdempotency },
+      conflictingInput: { orderId: fixtures.orderCanceled },
+      freshInput: () => ({
+        orderId: fixtures.orderCancelIdempotencyConcurrent,
+      }),
+      readEffect: () => countCanceled(kitIdentities.companies.a),
     },
   ],
 );
@@ -1000,5 +1063,205 @@ describe("orders.create / confirm / get", () => {
       .from(orders)
       .where(eq(orders.id, created.orderId));
     expect(row[0]?.status).toBe("confirmed");
+  });
+});
+
+describe("orders.cancel", () => {
+  it("cancels a new order, writes orders.canceled, and records audit", async () => {
+    const created = await kit.invoke(createOrder, {
+      customerId: fixtures.customerA,
+      items: [{ productId: fixtures.pZero, quantityMilli: "1000" }],
+    });
+    expect(created.status).toBe("new");
+
+    const canceled = await kit.invoke(cancelOrder, {
+      orderId: created.orderId,
+    });
+    expect(canceled).toEqual({
+      orderId: created.orderId,
+      customerId: fixtures.customerA,
+      status: "canceled",
+    });
+
+    const cancelEvents = await kit.db.runtime.db
+      .select()
+      .from(domainEvents)
+      .where(eq(domainEvents.aggregateId, created.orderId));
+    expect(cancelEvents.map((row) => row.name)).toContain("orders.canceled");
+    const canceledEvent = cancelEvents.find(
+      (row) => row.name === "orders.canceled",
+    );
+    expect(canceledEvent?.payload).toEqual({
+      orderId: created.orderId,
+      customerId: fixtures.customerA,
+    });
+    expect(canceledEvent?.aggregateType).toBe("order");
+
+    const cancelAudit = await kit.db.runtime.db
+      .select()
+      .from(auditLog)
+      .where(
+        and(
+          eq(auditLog.action, "orders.cancel"),
+          eq(auditLog.targetId, created.orderId),
+        ),
+      );
+    expect(cancelAudit.length).toBeGreaterThanOrEqual(1);
+    expect(cancelAudit[0]?.inputSnapshot).toBeNull();
+    expect(cancelAudit[0]?.targetType).toBe("order");
+
+    const fetched = await kit.invoke(getOrder, { orderId: created.orderId });
+    expect(fetched.status).toBe("canceled");
+    expect(fetched.items).toHaveLength(1);
+    expect(fetched.totalGrossMinor).toBe(created.totalGrossMinor);
+  });
+
+  it("cancels a confirmed order without clearing confirmed_at", async () => {
+    const created = await kit.invoke(createOrder, {
+      customerId: fixtures.customerA,
+      items: [{ productId: fixtures.pZero, quantityMilli: "1000" }],
+    });
+    const confirmed = await kit.invoke(confirmOrder, {
+      orderId: created.orderId,
+    });
+    const canceled = await kit.invoke(cancelOrder, {
+      orderId: created.orderId,
+    });
+    expect(canceled.status).toBe("canceled");
+    expect(canceled.customerId).toBe(fixtures.customerA);
+
+    const fetched = await kit.invoke(getOrder, { orderId: created.orderId });
+    expect(fetched.status).toBe("canceled");
+    expect(fetched.confirmedAt).toBe(confirmed.confirmedAt);
+  });
+
+  it("conflicts when canceling an already canceled order and when confirming after cancel", async () => {
+    const created = await kit.invoke(createOrder, {
+      customerId: fixtures.customerBare,
+      items: [{ productId: fixtures.pZero, quantityMilli: "1000" }],
+    });
+    await kit.invoke(cancelOrder, { orderId: created.orderId });
+    await expect(
+      kit.invoke(cancelOrder, { orderId: created.orderId }),
+    ).rejects.toBeInstanceOf(ConflictError);
+    await expect(
+      kit.invoke(confirmOrder, { orderId: created.orderId }),
+    ).rejects.toBeInstanceOf(ConflictError);
+    await expect(
+      kit.invoke(cancelOrder, { orderId: fixtures.orderCanceled }),
+    ).rejects.toBeInstanceOf(ConflictError);
+  });
+
+  it("returns NotFound for missing and foreign-company orders without leaking existence", async () => {
+    const missing = randomUUID();
+    const missingOrder = await kit
+      .invoke(cancelOrder, { orderId: missing })
+      .then(
+        () => {
+          throw new Error("expected NotFoundError");
+        },
+        (error: unknown) => error,
+      );
+    const foreignOrder = await kit
+      .invoke(cancelOrder, { orderId: fixtures.orderCancelIsolationB })
+      .then(
+        () => {
+          throw new Error("expected NotFoundError");
+        },
+        (error: unknown) => error,
+      );
+    expect(missingOrder).toBeInstanceOf(NotFoundError);
+    expect(foreignOrder).toBeInstanceOf(NotFoundError);
+    if (
+      missingOrder instanceof NotFoundError &&
+      foreignOrder instanceof NotFoundError
+    ) {
+      expect(missingOrder.clientMessage).toBe(foreignOrder.clientMessage);
+    }
+  });
+
+  it("denies missing orders:edit", async () => {
+    await expect(
+      kit.invoke(
+        cancelOrder,
+        { orderId: fixtures.orderCanceled },
+        {
+          companyId: kitIdentities.companies.a,
+          userId: clerks.noEdit,
+        },
+      ),
+    ).rejects.toBeInstanceOf(PermissionDeniedError);
+  });
+
+  it("rejects a missing idempotency key and a malformed orderId", async () => {
+    await expect(
+      kit.invoke(
+        cancelOrder,
+        { orderId: fixtures.orderCanceled },
+        {},
+        { request: { idempotencyKey: "" } },
+      ),
+    ).rejects.toBeInstanceOf(ValidationError);
+    await expect(
+      kit.invoke(cancelOrder, { orderId: "not-a-uuid" }),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it("emits null customerId when the CRM row was deleted", async () => {
+    const created = await kit.invoke(createOrder, {
+      customerId: fixtures.customerBare,
+      items: [{ productId: fixtures.pZero, quantityMilli: "1000" }],
+    });
+    await kit.db.runtime.db
+      .update(orders)
+      .set({ customerId: null })
+      .where(eq(orders.id, created.orderId));
+
+    const canceled = await kit.invoke(cancelOrder, {
+      orderId: created.orderId,
+    });
+    expect(canceled.customerId).toBeNull();
+
+    const cancelEvents = await kit.db.runtime.db
+      .select()
+      .from(domainEvents)
+      .where(
+        and(
+          eq(domainEvents.aggregateId, created.orderId),
+          eq(domainEvents.name, "orders.canceled"),
+        ),
+      );
+    expect(cancelEvents[0]?.payload).toEqual({
+      orderId: created.orderId,
+      customerId: null,
+    });
+  });
+
+  it("serializes concurrent cancels of the same new order", async () => {
+    const created = await kit.invoke(createOrder, {
+      customerId: fixtures.customerBare,
+      items: [{ productId: fixtures.pZero, quantityMilli: "3000" }],
+    });
+    const results = await Promise.allSettled([
+      kit.invoke(cancelOrder, { orderId: created.orderId }),
+      kit.invoke(cancelOrder, { orderId: created.orderId }),
+    ]);
+    const fulfilled = results.filter((result) => result.status === "fulfilled");
+    const rejected = results.filter((result) => result.status === "rejected");
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    const reason = rejected[0];
+    expect(reason?.status).toBe("rejected");
+    if (reason?.status === "rejected") {
+      expect(
+        reason.reason instanceof ConflictError ||
+          reason.reason instanceof ConcurrentRetryError,
+      ).toBe(true);
+    }
+    const row = await kit.db.runtime.db
+      .select({ status: orders.status })
+      .from(orders)
+      .where(eq(orders.id, created.orderId));
+    expect(row[0]?.status).toBe("canceled");
   });
 });

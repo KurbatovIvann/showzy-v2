@@ -63,6 +63,7 @@ import {
   revokeInviteContract,
 } from "@showzy/invites/contract";
 import {
+  cancelOrderContract,
   confirmOrderContract,
   createOrderContract,
   getOrderContract,
@@ -145,6 +146,7 @@ export const contractModules = {
   orders: {
     create: createOrderContract,
     confirm: confirmOrderContract,
+    cancel: cancelOrderContract,
     get: getOrderContract,
     list: listOrdersContract,
   },

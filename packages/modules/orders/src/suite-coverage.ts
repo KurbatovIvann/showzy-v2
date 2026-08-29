@@ -1,12 +1,18 @@
 import type { SuiteCoverageManifest } from "@showzy/core";
 
 export const ordersSuiteCoverage = {
-  isolation: ["orders.create", "orders.confirm", "orders.get", "orders.list"],
+  isolation: [
+    "orders.create",
+    "orders.confirm",
+    "orders.cancel",
+    "orders.get",
+    "orders.list",
+  ],
   publicProjection: [],
   consumerIsolation: [],
   accountIsolation: [],
   shareIsolation: [],
-  idempotency: ["orders.create", "orders.confirm"],
+  idempotency: ["orders.create", "orders.confirm", "orders.cancel"],
   events: ["orders"],
   atomic: [],
 } as const satisfies SuiteCoverageManifest;
