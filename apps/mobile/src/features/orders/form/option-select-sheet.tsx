@@ -24,7 +24,7 @@ export function OptionSelectSheet(props: {
   readonly value: string | null;
   readonly options: readonly OptionSelectItem[];
   readonly searchMaxLength: number;
-  readonly leading?: "user";
+  readonly leading?: "user" | undefined;
   readonly onClose: () => void;
   readonly onChange: (value: string) => void;
 }) {
@@ -80,7 +80,7 @@ function OptionRow(props: {
   readonly label: string;
   readonly description?: string | undefined;
   readonly selected: boolean;
-  readonly leading?: "user";
+  readonly leading?: "user" | undefined;
   readonly onPress: () => void;
 }) {
   const { theme } = useUnistyles();
