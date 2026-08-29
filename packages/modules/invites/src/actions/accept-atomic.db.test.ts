@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { defineActionContract } from "@showzy/core/contract";
 import { implementAction } from "@showzy/core";
-import { ConflictError, CoreInvariantError } from "@showzy/core/errors";
+import { ConflictError } from "@showzy/core/errors";
 import {
   atomicCallSuite,
   createTestKit,
