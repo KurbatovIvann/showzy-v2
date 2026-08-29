@@ -47,7 +47,7 @@ export type OrderDetailModel = {
   readonly writePending: boolean;
   readonly statusBanner: string | null;
   readonly headerTitle: string;
-  readonly headerSubtitle: string | undefined;
+  readonly headerSubtitle: string;
   readonly goBack: () => void;
   readonly retry: () => void;
   readonly openActions: () => void;
@@ -151,7 +151,7 @@ export function useOrderDetail(
             customer,
             missingCustomer: copy.missingCustomer,
           })
-        : undefined,
+        : "",
     goBack: actions.goBack,
     retry: query.retry,
     openActions: actions.openActions,

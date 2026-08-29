@@ -213,14 +213,14 @@ export function orderDetailHeaderTitle(args: {
 export function orderDetailHeaderSubtitle(args: {
   readonly customer: CustomerNameHydration;
   readonly missingCustomer: string;
-}): string | undefined {
+}): string {
   if (args.customer.kind === "ready") {
     return args.customer.name;
   }
   if (args.customer.kind === "missing") {
     return args.missingCustomer;
   }
-  return undefined;
+  return "";
 }
 
 export function orderDetailActionsForView(args: {

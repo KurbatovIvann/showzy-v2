@@ -215,7 +215,7 @@ describe("orderDetailHeaderSubtitle", () => {
         customer: { kind: "pending" },
         missingCustomer: "Клієнт видалений",
       }),
-    ).toBeUndefined();
+    ).toBe("");
   });
 });
 
