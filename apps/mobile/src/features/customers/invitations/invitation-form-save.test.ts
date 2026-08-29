@@ -28,8 +28,8 @@ const SECRET: InviteCreateSecret = {
   url: "showzy:invite/plaintext-once",
 };
 
-function validCreateDraft(): InvitationFormDraft {
-  return emptyInvitationFormDraft();
+function validCreateDraft(nowMs: number = Date.now()): InvitationFormDraft {
+  return emptyInvitationFormDraft(nowMs);
 }
 
 function createPorts(overrides: {
@@ -152,7 +152,8 @@ describe("runInvitationFormSave", () => {
   });
 
   it("retries the in-flight write after a network failure", async () => {
-    const input = createInvitePayload(validCreateDraft());
+    const draft = validCreateDraft();
+    const input = createInvitePayload(draft);
     if (input === null) {
       throw new Error("expected a create payload");
     }
@@ -161,6 +162,7 @@ describe("runInvitationFormSave", () => {
       input,
     };
     const { ports, calls } = createPorts({
+      draft,
       lastWrite: write,
       lastFailure: { kind: "network", wire: null },
     });

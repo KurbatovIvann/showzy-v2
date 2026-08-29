@@ -15,8 +15,8 @@ const GROUP_ID = "11111111-1111-4111-8111-111111111111";
 const PRICE_LIST_ID = "22222222-2222-4222-8222-222222222222";
 const INVITE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
-function validCreateDraft(): InvitationFormDraft {
-  return emptyInvitationFormDraft();
+function validCreateDraft(nowMs: number = Date.now()): InvitationFormDraft {
+  return emptyInvitationFormDraft(nowMs);
 }
 
 describe("createInvitePayload", () => {
@@ -69,8 +69,9 @@ describe("createInvitePayload", () => {
 
 describe("planInvitationFormSave", () => {
   it("submits create and retries the same attempt after a network failure", () => {
+    const draft = validCreateDraft();
     const first = planInvitationFormSave({
-      draft: validCreateDraft(),
+      draft,
       created: null,
       lastWrite: null,
       lastFailureKind: null,
@@ -82,7 +83,7 @@ describe("planInvitationFormSave", () => {
     expect(first.write.kind).toBe("createInvite");
     expect(
       planInvitationFormSave({
-        draft: validCreateDraft(),
+        draft,
         created: null,
         lastWrite: first.write,
         lastFailureKind: "network",
