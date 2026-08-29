@@ -17,9 +17,12 @@ import { resolveCustomerNameHydration } from "../shared/customer-name";
 import { canEditOrders, orderDetailActions } from "../shared/order-permissions";
 import {
   orderDetailConfirmLoading,
+  orderDetailHeaderSubtitle,
   orderDetailHeaderTitle,
   orderDetailWriteChrome,
   toOrderDetailView,
+  uniqueOrderLineProductIds,
+  withOrderLineThumbnails,
   type OrderDetailState,
   type OrderDetailViewModel,
 } from "./order-detail-model";
@@ -30,6 +33,7 @@ import {
 } from "./order-detail.reducer";
 import { useOrderDetailActions } from "./use-order-detail-actions";
 import { useOrderDetailQuery } from "./use-order-detail-query";
+import { useOrderDetailThumbnails } from "./use-order-detail-thumbnails";
 
 export type OrderDetailModel = {
   readonly copy: ReturnType<typeof ordersCopy>;
@@ -43,6 +47,7 @@ export type OrderDetailModel = {
   readonly writePending: boolean;
   readonly statusBanner: string | null;
   readonly headerTitle: string;
+  readonly headerSubtitle: string;
   readonly goBack: () => void;
   readonly retry: () => void;
   readonly openActions: () => void;
@@ -65,6 +70,11 @@ export function useOrderDetail(
     IDLE_DETAIL_SHEETS,
   );
   const query = useOrderDetailQuery(idParam);
+  const productIds = uniqueOrderLineProductIds(query.order?.items ?? []);
+  const thumbnailsByProductId = useOrderDetailThumbnails({
+    productIds,
+    enabled: query.state.kind === "ready",
+  });
   const customerId = query.order?.customerId ?? null;
   const customerQuery = useQuery(
     getCustomerNameQueryOptions({
@@ -88,7 +98,7 @@ export function useOrderDetail(
     dispatch,
   });
   const chrome = orderDetailSheetChrome(sheets);
-  const order =
+  const snapshot =
     query.order === null
       ? null
       : toOrderDetailView({
@@ -97,6 +107,13 @@ export function useOrderDetail(
           customer,
           customerPhone: customerQuery.data?.phone ?? null,
         });
+  const order =
+    snapshot === null
+      ? null
+      : {
+          ...snapshot,
+          lines: withOrderLineThumbnails(snapshot.lines, thumbnailsByProductId),
+        };
   const actionFlags = orderDetailActions({
     canEdit,
     status: order?.status ?? "canceled",
@@ -124,11 +141,17 @@ export function useOrderDetail(
     headerTitle:
       query.state.kind === "ready"
         ? orderDetailHeaderTitle({
-            customer,
+            orderNumber: order?.orderNumber ?? null,
             fallbackTitle: copy.detail.title,
-            missingCustomer: copy.missingCustomer,
           })
         : copy.detail.title,
+    headerSubtitle:
+      query.state.kind === "ready"
+        ? orderDetailHeaderSubtitle({
+            customer,
+            missingCustomer: copy.missingCustomer,
+          })
+        : "",
     goBack: actions.goBack,
     retry: query.retry,
     openActions: actions.openActions,

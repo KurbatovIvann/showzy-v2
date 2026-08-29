@@ -22,6 +22,10 @@ import {
   type OrderLifecycleStatus,
   type OrderStatusTone,
 } from "../shared/order-status";
+import {
+  EMPTY_ORDER_THUMBNAIL,
+  type OrderThumbnailView,
+} from "../shared/order-thumbnails";
 
 export type { OrderQueryLoadState as OrderDetailState };
 
@@ -77,15 +81,130 @@ export function customerPhoneIfPresent(phone: string | null): string | null {
   return trimmed.length === 0 ? null : trimmed;
 }
 
+/** Canvas PhoneIcon beside the number — visual only, no `tel:`. */
+export function orderDetailShowsPhoneIcon(phone: string | null): boolean {
+  return customerPhoneIfPresent(phone) !== null;
+}
+
+export function formatOrderNumber(orderNumber: number): string {
+  return `#${String(orderNumber)}`;
+}
+
+/**
+ * First-seen unique `productId` values from order lines so detail can
+ * hydrate catalog primary images without a second snapshot field.
+ */
+export function uniqueOrderLineProductIds(
+  items: ReadonlyArray<{ readonly productId: string }>,
+): string[] {
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  for (const item of items) {
+    if (seen.has(item.productId)) {
+      continue;
+    }
+    seen.add(item.productId);
+    ids.push(item.productId);
+  }
+  return ids;
+}
+
+/**
+ * Catalog primary image is the first ordered `imageFileIds` entry
+ * (`listProducts.primaryImageFileId`). Empty → PackageIcon placeholder.
+ */
+export function catalogPrimaryImageFileId(
+  imageFileIds: readonly string[] | undefined,
+): string | null {
+  if (imageFileIds === undefined || imageFileIds.length === 0) {
+    return null;
+  }
+  return imageFileIds[0] ?? null;
+}
+
+export type OrderLineCatalogImage = {
+  readonly productId: string;
+  readonly primaryImageFileId: string | null;
+};
+
+/**
+ * Join catalog primary images onto unique line product ids. Pure so the
+ * detail thumbnail hook can memoize from `productIds` + `imageFileIds`.
+ */
+export function orderLineCatalogImages(
+  productIds: readonly string[],
+  imageFileIdsByIndex: readonly (readonly string[] | undefined)[],
+): readonly OrderLineCatalogImage[] {
+  return productIds.map((productId, index) => ({
+    productId,
+    primaryImageFileId: catalogPrimaryImageFileId(imageFileIdsByIndex[index]),
+  }));
+}
+
+/** Keep the previous items array when productId/fileId pairs did not change. */
+export function reuseOrderLineCatalogImages(
+  previous: readonly OrderLineCatalogImage[],
+  next: readonly OrderLineCatalogImage[],
+): readonly OrderLineCatalogImage[] {
+  if (previous.length !== next.length) {
+    return next;
+  }
+  for (let index = 0; index < previous.length; index += 1) {
+    const left = previous[index];
+    const right = next[index];
+    if (
+      left === undefined ||
+      right === undefined ||
+      left.productId !== right.productId ||
+      left.primaryImageFileId !== right.primaryImageFileId
+    ) {
+      return next;
+    }
+  }
+  return previous;
+}
+
+/**
+ * Catalog list join (`use-products-list` thumbnailFileId): skip a file
+ * id without `files:view` so the row stays a placeholder.
+ */
+export function orderLineThumbnailFileId(
+  canFetch: boolean,
+  primaryImageFileId: string | null,
+): string | null {
+  return canFetch ? primaryImageFileId : null;
+}
+
 export type OrderDetailLineView = {
   readonly itemId: string;
+  readonly productId: string;
   readonly title: string;
   readonly metaLabel: string;
   readonly grossLabel: string;
+  readonly thumbnailFileId: string | null;
+  readonly thumbnailUrl: string | null;
+  readonly thumbnailFailed: boolean;
 };
+
+export function withOrderLineThumbnails(
+  lines: readonly OrderDetailLineView[],
+  thumbnailsByProductId: ReadonlyMap<string, OrderThumbnailView>,
+): readonly OrderDetailLineView[] {
+  return lines.map((line) => {
+    const thumbnail =
+      thumbnailsByProductId.get(line.productId) ?? EMPTY_ORDER_THUMBNAIL;
+    return {
+      ...line,
+      thumbnailFileId: thumbnail.fileId,
+      thumbnailUrl: thumbnail.url,
+      thumbnailFailed: thumbnail.failed,
+    };
+  });
+}
 
 export type OrderDetailViewModel = {
   readonly orderId: string;
+  readonly orderNumber: number;
   readonly status: OrderLifecycleStatus;
   readonly statusLabel: string;
   readonly statusTone: OrderStatusTone;
@@ -95,6 +214,7 @@ export type OrderDetailViewModel = {
   readonly customerName: string;
   readonly customerNamePending: boolean;
   readonly customerPhone: string | null;
+  readonly showPhoneIcon: boolean;
 };
 
 export function toOrderDetailView(args: {
@@ -103,8 +223,10 @@ export function toOrderDetailView(args: {
   readonly customer: CustomerNameHydration;
   readonly customerPhone: string | null;
 }): OrderDetailViewModel {
+  const customerPhone = customerPhoneIfPresent(args.customerPhone);
   return {
     orderId: args.order.orderId,
+    orderNumber: args.order.orderNumber,
     status: args.order.status,
     statusLabel: args.copy.statuses[args.order.status],
     statusTone: orderStatusTone(args.order.status),
@@ -115,20 +237,34 @@ export function toOrderDetailView(args: {
       const qtyLabel = formatQuantityMilli(item.quantityMilli);
       return {
         itemId: item.itemId,
+        productId: item.productId,
         title: item.titleSnapshot,
         metaLabel: `${unitLabel} ${TIMES} ${qtyLabel}`,
         grossLabel: formatMoneyMinor(item.grossAmountMinor, item.currency),
+        thumbnailFileId: null,
+        thumbnailUrl: null,
+        thumbnailFailed: false,
       };
     }),
     customerName: customerNameLabel(args.customer, args.copy.missingCustomer),
     customerNamePending: args.customer.kind === "pending",
-    customerPhone: customerPhoneIfPresent(args.customerPhone),
+    customerPhone,
+    showPhoneIcon: orderDetailShowsPhoneIcon(customerPhone),
   };
 }
 
 export function orderDetailHeaderTitle(args: {
-  readonly customer: CustomerNameHydration;
+  readonly orderNumber: number | null;
   readonly fallbackTitle: string;
+}): string {
+  if (args.orderNumber === null) {
+    return args.fallbackTitle;
+  }
+  return formatOrderNumber(args.orderNumber);
+}
+
+export function orderDetailHeaderSubtitle(args: {
+  readonly customer: CustomerNameHydration;
   readonly missingCustomer: string;
 }): string {
   if (args.customer.kind === "ready") {
@@ -137,7 +273,7 @@ export function orderDetailHeaderTitle(args: {
   if (args.customer.kind === "missing") {
     return args.missingCustomer;
   }
-  return args.fallbackTitle;
+  return "";
 }
 
 export function orderDetailActionsForView(args: {

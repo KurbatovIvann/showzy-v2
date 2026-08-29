@@ -112,3 +112,9 @@ export function orderThumbnailView(args: {
 }
 
 export type OrderThumbnailView = ReturnType<typeof orderThumbnailView>;
+
+export const EMPTY_ORDER_THUMBNAIL: OrderThumbnailView = {
+  fileId: null,
+  url: null,
+  failed: false,
+};

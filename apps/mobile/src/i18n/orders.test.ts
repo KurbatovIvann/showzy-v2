@@ -71,7 +71,7 @@ describe("orders copy", () => {
     expect(JSON.stringify(uk)).not.toContain("Оплачен");
   });
 
-  it("pins the order-detail copy in uk without number, payment, or extra statuses", () => {
+  it("pins the order-detail i18n copy in uk without # in strings (header number is formatOrderNumber), payment, or extra statuses", () => {
     const uk = ordersCopy("uk");
     const en = ordersCopy("en");
     expect(uk.detail.title).toBe("Замовлення");
@@ -89,6 +89,8 @@ describe("orders copy", () => {
     expect(uk.detail.offlineTitle.includes("\u2019")).toBe(false);
     expect(en.detail.confirmLabel).toBe("Confirm");
     expect(en.detail.dueLabel).toBe("Due");
+    expect(uk.detail.thumbnailUnavailable).toBe("Фото недоступне");
+    expect(en.detail.thumbnailUnavailable).toBe("Photo unavailable");
     expect(JSON.stringify(uk.detail)).not.toContain("SHZ-");
     expect(JSON.stringify(uk.detail)).not.toContain("#");
     expect(JSON.stringify(uk.detail)).not.toContain("Оплачен");

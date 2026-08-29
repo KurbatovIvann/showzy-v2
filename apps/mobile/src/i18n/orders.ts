@@ -30,6 +30,7 @@ export type OrdersDetailCopy = {
   readonly mutationError: string;
   readonly mutationOffline: string;
   readonly mutationPermission: string;
+  readonly thumbnailUnavailable: string;
 };
 
 export type OrdersCreateErrorCopy = {
@@ -199,6 +200,7 @@ const en: OrdersCopy = {
     mutationError: "Could not update the order. Try again.",
     mutationOffline: "No connection. Connect and try again.",
     mutationPermission: "You do not have permission to change this order.",
+    thumbnailUnavailable: "Photo unavailable",
   },
   create: {
     title: "New order",
@@ -327,6 +329,7 @@ const uk: OrdersCopy = {
     mutationError: "Не вдалося оновити замовлення. Спробуйте ще раз.",
     mutationOffline: "Немає зʼєднання. Підключіться і спробуйте ще раз.",
     mutationPermission: "Немає дозволу змінювати це замовлення.",
+    thumbnailUnavailable: "Фото недоступне",
   },
   create: {
     title: "Нове замовлення",
