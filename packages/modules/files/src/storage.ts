@@ -1,3 +1,4 @@
+export { documentObjectKey } from "./services/object-key.js";
 export {
   closeFilesObjectStore,
   configureFilesObjectStore,

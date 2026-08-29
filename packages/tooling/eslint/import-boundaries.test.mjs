@@ -63,7 +63,7 @@ test("showzy/import-boundaries", () => {
         filename: file(
           "packages/modules/doc-generation/src/services/put-generated-pdf.ts",
         ),
-        code: `import { getFilesObjectStore } from "@showzy/files/storage";`,
+        code: `import { documentObjectKey, getFilesObjectStore } from "@showzy/files/storage";`,
       },
       {
         filename: file("packages/modules/documents/src/actions/get.ts"),

@@ -38,6 +38,14 @@ describe("doc-generation source guards (SHO-236)", () => {
     }
   });
 
+  it("PUTs generated PDFs with files documentObjectKey, not a local copy", () => {
+    const put = executableSource("services/put-generated-pdf.ts");
+    expect(put).toContain('from "@showzy/files/storage"');
+    expect(put).toMatch(/documentObjectKey/);
+    expect(put).not.toMatch(/function\s+documentObjectKey/);
+    expect(put).not.toMatch(/\$\{companyId\}\/documents\/\$\{fileId\}/);
+  });
+
   it("pins @react-pdf/renderer exactly and does not add Puppeteer", () => {
     const pkg = JSON.parse(
       readFileSync(join(root, "../package.json"), "utf8"),

@@ -1,14 +1,10 @@
 import { CoreInvariantError } from "@showzy/core/errors";
-import { getFilesObjectStore } from "@showzy/files/storage";
+import { documentObjectKey, getFilesObjectStore } from "@showzy/files/storage";
 
 /** Same ceiling as files `MAX_DOCUMENT_BYTES` (security-operations.md §3). */
 export const MAX_DOCUMENT_BYTES = 25 * 1024 * 1024;
 
 export const DOCUMENT_MIME_TYPE = "application/pdf" as const;
-
-export function documentObjectKey(companyId: string, fileId: string): string {
-  return `${companyId}/documents/${fileId}`;
-}
 
 const OBJECT_HEAD_POLL_MS = 25;
 const OBJECT_HEAD_TIMEOUT_MS = 10_000;
