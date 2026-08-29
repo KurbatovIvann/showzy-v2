@@ -80,9 +80,9 @@ describe("waitThenConfirmDocumentCancel", () => {
       hide: () => {
         order.push("hide");
       },
-      presentConfirmDialog: async () => {
+      presentConfirmDialog: () => {
         order.push("confirm");
-        return "confirm";
+        return Promise.resolve("confirm" as const);
       },
       confirm: CANCEL_CONFIRM,
     });

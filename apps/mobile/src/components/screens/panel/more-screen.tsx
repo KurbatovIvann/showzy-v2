@@ -52,18 +52,13 @@ export function MoreScreen() {
             description={copy.more.documentsDescription}
             icon={FileTextIcon}
             disabled={!rows.documentsEnabled}
-            accessibilityHint={
-              rows.documentsEnabled
-                ? undefined
-                : copy.more.documentsDisabledHint
-            }
-            onPress={
-              rows.documentsEnabled
-                ? () => {
+            {...(rows.documentsEnabled
+              ? {
+                  onPress: () => {
                     router.push(documentsHref());
-                  }
-                : undefined
-            }
+                  },
+                }
+              : { accessibilityHint: copy.more.documentsDisabledHint })}
           />
           {rows.showPriceLists ? (
             <ManagementRow

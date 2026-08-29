@@ -103,10 +103,10 @@ export function DocumentsListView(model: DocumentsListModel) {
         onClose={model.closeOptions}
         onHidden={model.onOptionsHidden}
         onShare={() => {
-          void model.share();
+          model.share();
         }}
         onQr={() => {
-          void model.openQr();
+          model.openQr();
         }}
         onPrint={() => {
           void model.print();
