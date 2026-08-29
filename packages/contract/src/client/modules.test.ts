@@ -40,6 +40,7 @@ import {
   updateGroupContract,
 } from "@showzy/customers/contract";
 import {
+  cancelDocumentContract,
   createFromOrderContract,
   getDocumentContract,
   listDocumentsContract,
@@ -127,6 +128,7 @@ describe("client composition", () => {
         updateGroup: updateGroupContract,
       },
       documents: {
+        cancel: cancelDocumentContract,
         createFromOrder: createFromOrderContract,
         get: getDocumentContract,
         list: listDocumentsContract,
@@ -209,6 +211,7 @@ describe("client composition", () => {
       "getCustomerPricingFacts",
     );
     expect(contractModules.customers).not.toHaveProperty("applyInviteCrm");
+    expect(contractRouter.documents.cancel).toBeDefined();
     expect(contractRouter.documents.createFromOrder).toBeDefined();
     expect(contractRouter.documents.get).toBeDefined();
     expect(contractRouter.documents.list).toBeDefined();
