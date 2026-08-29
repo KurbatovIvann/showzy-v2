@@ -64,12 +64,13 @@ export function useOrdersList() {
     () => flattenOrderPages(listQuery.data?.pages ?? []),
     [listQuery.data?.pages],
   );
-  const { namesByCustomerId, refetch: refetchNames } = useOrderCustomerNames({
-    client: apiClient,
-    companyId: activeCompanyId,
-    getActiveCompany,
-    items: listItems,
-  });
+  const { hydrationByCustomerId, refetch: refetchNames } =
+    useOrderCustomerNames({
+      client: apiClient,
+      companyId: activeCompanyId,
+      getActiveCompany,
+      items: listItems,
+    });
 
   const rows = useMemo(() => {
     return filterOrdersBySelectedStatuses(listItems, selectedStatuses).map(
@@ -79,11 +80,13 @@ export function useOrdersList() {
           copy,
           customerName:
             entry.customerId === null
-              ? undefined
-              : namesByCustomerId.get(entry.customerId),
+              ? { kind: "missing" }
+              : (hydrationByCustomerId.get(entry.customerId) ?? {
+                  kind: "pending",
+                }),
         }),
     );
-  }, [copy, listItems, locale, namesByCustomerId, selectedStatuses]);
+  }, [copy, hydrationByCustomerId, listItems, locale, selectedStatuses]);
 
   const entries = useMemo(() => groupOrderRows(rows), [rows]);
   const headerIndices = useMemo(() => stickyHeaderIndices(entries), [entries]);

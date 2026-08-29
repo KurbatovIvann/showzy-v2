@@ -15,6 +15,7 @@ import {
   listOrdersStatusParam,
   orderGroupHeaderLabel,
   orderStatusTone,
+  resolveCustomerNameHydration,
   shouldPageThroughClientStatusFilter,
   stickyHeaderIndices,
   toggleOrderStatusFilter,
@@ -45,6 +46,7 @@ function row(overrides: Partial<OrderRowView> = {}): OrderRowView {
   return {
     id: ORDER_NEW,
     customerName: "Марія Ткаченко",
+    customerNamePending: false,
     status: "new",
     statusLabel: "Новий",
     statusTone: "action",
@@ -120,20 +122,66 @@ describe("flattenOrderPages", () => {
   });
 });
 
-describe("customerNameLabel", () => {
-  it("uses the loaded name and falls back when CRM is missing", () => {
-    expect(customerNameLabel({ name: "  Марія  " }, "Клієнт видалений")).toBe(
-      "Марія",
-    );
-    expect(customerNameLabel({ name: undefined }, "Клієнт видалений")).toBe(
-      "Клієнт видалений",
-    );
-    expect(customerNameLabel({ name: "" }, "Deleted customer")).toBe(
-      "Deleted customer",
-    );
-    expect(customerNameLabel({ name: "   " }, "Deleted customer")).toBe(
-      "Deleted customer",
-    );
+describe("resolveCustomerNameHydration / customerNameLabel", () => {
+  const fallback = "Клієнт видалений";
+
+  it("uses a ready name and treats null CRM as missing copy", () => {
+    expect(
+      customerNameLabel({ kind: "ready", name: "Марія Ткаченко" }, fallback),
+    ).toBe("Марія Ткаченко");
+    expect(customerNameLabel({ kind: "missing" }, fallback)).toBe(fallback);
+    expect(
+      resolveCustomerNameHydration({
+        customerId: null,
+        name: undefined,
+        status: "pending",
+        notFound: false,
+      }),
+    ).toEqual({ kind: "missing" });
+  });
+
+  it("keeps pending and non-NOT_FOUND failures off the deleted copy", () => {
+    expect(customerNameLabel({ kind: "pending" }, fallback)).toBe("");
+    expect(
+      resolveCustomerNameHydration({
+        customerId: CUSTOMER_A,
+        name: undefined,
+        status: "pending",
+        notFound: false,
+      }),
+    ).toEqual({ kind: "pending" });
+    expect(
+      resolveCustomerNameHydration({
+        customerId: CUSTOMER_A,
+        name: undefined,
+        status: "error",
+        notFound: false,
+      }),
+    ).toEqual({ kind: "pending" });
+    expect(
+      resolveCustomerNameHydration({
+        customerId: CUSTOMER_A,
+        name: undefined,
+        status: "error",
+        notFound: true,
+      }),
+    ).toEqual({ kind: "missing" });
+    expect(
+      resolveCustomerNameHydration({
+        customerId: CUSTOMER_A,
+        name: "   ",
+        status: "success",
+        notFound: false,
+      }),
+    ).toEqual({ kind: "missing" });
+    expect(
+      resolveCustomerNameHydration({
+        customerId: CUSTOMER_A,
+        name: "  Марія  ",
+        status: "pending",
+        notFound: false,
+      }),
+    ).toEqual({ kind: "ready", name: "Марія" });
   });
 });
 
@@ -147,9 +195,10 @@ describe("toOrderRowView", () => {
         itemCount: 1,
         totalGrossMinor: "89000",
       }),
-      { locale: "uk", copy, customerName: undefined },
+      { locale: "uk", copy, customerName: { kind: "missing" } },
     );
     expect(view.customerName).toBe(copy.missingCustomer);
+    expect(view.customerNamePending).toBe(false);
     expect(view.status).toBe("canceled");
     expect(view.statusLabel).toBe("Скасовано");
     expect(view.statusTone).toBe("danger");
@@ -164,10 +213,23 @@ describe("toOrderRowView", () => {
     const view = toOrderRowView(item(), {
       locale: "uk",
       copy: ordersCopy("uk"),
-      customerName: "Марія Ткаченко",
+      customerName: { kind: "ready", name: "Марія Ткаченко" },
     });
     expect(view.customerName).toBe("Марія Ткаченко");
+    expect(view.customerNamePending).toBe(false);
     expect(view.statusTone).toBe("action");
+  });
+
+  it("does not print deleted copy while the name query is pending", () => {
+    const copy = ordersCopy("uk");
+    const view = toOrderRowView(item(), {
+      locale: "uk",
+      copy,
+      customerName: { kind: "pending" },
+    });
+    expect(view.customerName).toBe("");
+    expect(view.customerNamePending).toBe(true);
+    expect(view.customerName).not.toBe(copy.missingCustomer);
   });
 });
 

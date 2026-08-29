@@ -37,6 +37,14 @@ describe("orders copy", () => {
       completed: "Завершені",
     });
     expect(uk.missingCustomer).toBe("Клієнт видалений");
+    expect(uk.empty.offlineTitle).toBe("Немає зʼєднання");
+    expect(uk.empty.errorDescription).toBe(
+      "Перевірте зʼєднання та спробуйте ще раз.",
+    );
+    expect(uk.empty.offlineTitle.includes("\u02BC")).toBe(true);
+    expect(uk.empty.errorDescription.includes("\u02BC")).toBe(true);
+    expect(uk.empty.offlineTitle.includes("\u2019")).toBe(false);
+    expect(uk.empty.errorDescription.includes("\u2019")).toBe(false);
     expect(uk.empty.catalogTitle).toBe("Замовлень ще немає");
     expect(uk.empty.filteredTitle).toBe("Нічого не знайдено");
     expect(uk.empty.reset).toBe("Скинути фільтри");

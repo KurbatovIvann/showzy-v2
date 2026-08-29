@@ -5,22 +5,11 @@
  * permission implicitly; admin, manager, and employee are seeded
  * `orders:view` and `orders:create`. This only hides controls — the
  * server re-checks every action permission and stays authoritative
- * (ADR-0013).
+ * (ADR-0013). The list always loads; there is no view-gate affordance.
  */
 import type { CompanyMembership } from "../../../api/company-membership-query";
 
 export type CompanyRole = CompanyMembership["role"];
-
-/** `orders:view` — seeded for every staff role including employee. */
-export function canViewOrders(role: CompanyRole): boolean {
-  switch (role) {
-    case "owner":
-    case "admin":
-    case "manager":
-    case "employee":
-      return true;
-  }
-}
 
 /**
  * `orders:create` — hides the plus control when the role is not granted

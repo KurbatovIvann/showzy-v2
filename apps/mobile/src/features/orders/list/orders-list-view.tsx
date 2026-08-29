@@ -52,6 +52,7 @@ export function OrdersListView(model: OrdersListModel) {
         <OrderRow
           id={item.order.id}
           customerName={item.order.customerName}
+          customerNamePending={item.order.customerNamePending}
           statusLabel={item.order.statusLabel}
           statusTone={item.order.statusTone}
           metaLabel={item.order.metaLabel}
@@ -72,46 +73,46 @@ export function OrdersListView(model: OrdersListModel) {
       <AppHeader
         title={copy.title}
         actions={
-          <>
-            <View>
-              <IconButton
-                variant={filterActive ? "primary" : "surface"}
-                icon={
-                  <SlidersHorizontalIcon
-                    size={theme.iconSize.sm}
-                    color={
-                      filterActive
-                        ? theme.colors.primaryForeground
-                        : theme.colors.foreground
-                    }
-                  />
-                }
-                accessibilityLabel={filterLabel}
-                onPress={model.openFilters}
-              />
-              {filterActive ? (
-                <View style={styles.filterBadge} pointerEvents="none">
-                  <Text style={styles.filterBadgeLabel}>
-                    {String(model.filterCount)}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-            {model.showCreate ? (
-              <IconButton
-                icon={
-                  <PlusIcon
-                    size={theme.iconSize.md}
-                    color={theme.colors.primaryForeground}
-                  />
-                }
-                accessibilityLabel={copy.createLabel}
-                onPress={model.openCreate}
-              />
-            ) : null}
-          </>
+          model.showCreate ? (
+            <IconButton
+              icon={
+                <PlusIcon
+                  size={theme.iconSize.md}
+                  color={theme.colors.primaryForeground}
+                />
+              }
+              accessibilityLabel={copy.createLabel}
+              onPress={model.openCreate}
+            />
+          ) : undefined
         }
       />
+      <View style={styles.controls}>
+        <View>
+          <IconButton
+            variant={filterActive ? "primary" : "surface"}
+            icon={
+              <SlidersHorizontalIcon
+                size={theme.iconSize.sm}
+                color={
+                  filterActive
+                    ? theme.colors.primaryForeground
+                    : theme.colors.foreground
+                }
+              />
+            }
+            accessibilityLabel={filterLabel}
+            onPress={model.openFilters}
+          />
+          {filterActive ? (
+            <View style={styles.filterBadge} pointerEvents="none">
+              <Text style={styles.filterBadgeLabel}>
+                {String(model.filterCount)}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      </View>
       {filterActive ? (
         <View style={styles.chipRow}>
           {model.selectedFilterChips.map((chip) => (
@@ -278,6 +279,12 @@ const styles = StyleSheet.create((theme) => ({
   screen: {
     flex: 1,
     backgroundColor: theme.colors.background,
+  },
+  controls: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: theme.spacing.lg,
+    paddingBottom: theme.spacing.md,
   },
   chipRow: {
     flexDirection: "row",

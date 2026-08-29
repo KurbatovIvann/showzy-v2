@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  customerNamesById,
+  customerNameHydrationById,
   uniqueCustomerIds,
 } from "./use-order-customer-names";
 
@@ -28,10 +28,37 @@ describe("uniqueCustomerIds", () => {
   });
 });
 
-describe("customerNamesById", () => {
-  it("drops pending and blank names", () => {
-    const map = customerNamesById([FIRST, SECOND], ["  Марія  ", undefined]);
-    expect(map.get(FIRST)).toBe("Марія");
-    expect(map.has(SECOND)).toBe(false);
+describe("customerNameHydrationById", () => {
+  it("keeps pending distinct from missing and ready", () => {
+    const map = customerNameHydrationById(
+      [FIRST, SECOND],
+      [
+        {
+          name: "  Марія  ",
+          status: "success",
+          notFound: false,
+        },
+        {
+          name: undefined,
+          status: "pending",
+          notFound: false,
+        },
+      ],
+    );
+    expect(map.get(FIRST)).toEqual({ kind: "ready", name: "Марія" });
+    expect(map.get(SECOND)).toEqual({ kind: "pending" });
+  });
+
+  it("maps settled NOT_FOUND to missing, not other failures", () => {
+    const permission = "33333333-3333-4333-8333-333333333333";
+    const map = customerNameHydrationById(
+      [FIRST, permission],
+      [
+        { name: undefined, status: "error", notFound: true },
+        { name: undefined, status: "error", notFound: false },
+      ],
+    );
+    expect(map.get(FIRST)).toEqual({ kind: "missing" });
+    expect(map.get(permission)).toEqual({ kind: "pending" });
   });
 });
