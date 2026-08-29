@@ -1,1 +1,1 @@
-export { CompanyLegalStubScreen as default } from "../../../../features/companies/hub/company-legal-stub-screen";
+export { CompanyLegalFormScreen as default } from "../../../../features/companies/form/company-legal-form-screen";

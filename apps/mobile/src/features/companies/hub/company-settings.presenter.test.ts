@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { canViewCompanySettings } from "../shared/company-permissions";
 import {
-  classifyCompanyLegalStub,
   classifyCompanySettings,
   companyIdentityView,
   companyLegalRow,
@@ -67,34 +65,6 @@ describe("classifyCompanySettings", () => {
 
   it("is ready on a successful fetch", () => {
     expect(classifyCompanySettings(base)).toEqual({ kind: "ready" });
-  });
-});
-
-describe("classifyCompanyLegalStub", () => {
-  it("shows the stub for owner and admin", () => {
-    expect(
-      classifyCompanyLegalStub({
-        canView: canViewCompanySettings("owner"),
-      }),
-    ).toEqual({ kind: "stub" });
-    expect(
-      classifyCompanyLegalStub({
-        canView: canViewCompanySettings("admin"),
-      }),
-    ).toEqual({ kind: "stub" });
-  });
-
-  it("shows the hub permission empty for manager and employee", () => {
-    expect(
-      classifyCompanyLegalStub({
-        canView: canViewCompanySettings("manager"),
-      }),
-    ).toEqual({ kind: "permission" });
-    expect(
-      classifyCompanyLegalStub({
-        canView: canViewCompanySettings("employee"),
-      }),
-    ).toEqual({ kind: "permission" });
   });
 });
 

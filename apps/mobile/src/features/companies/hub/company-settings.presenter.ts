@@ -69,22 +69,6 @@ export function companyIdentityView(args: {
   };
 }
 
-export type CompanyLegalStubState =
-  { readonly kind: "permission" } | { readonly kind: "stub" };
-
-/**
- * Legal stub (and SHO-225 editor) reuses the hub view-permission gate.
- * No `companies.get` — manager/employee deep-links must not see PII.
- */
-export function classifyCompanyLegalStub(args: {
-  readonly canView: boolean;
-}): CompanyLegalStubState {
-  if (!args.canView) {
-    return { kind: "permission" };
-  }
-  return { kind: "stub" };
-}
-
 /**
  * VoiceOver must hear attention vs legal name — status is never
  * color-only (`docs/design/mapping/mp-to-mobile.md`).

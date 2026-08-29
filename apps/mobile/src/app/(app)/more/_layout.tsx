@@ -8,7 +8,7 @@ import { hierarchicalStackScreenOptions } from "../../../navigation/hierarchical
  * Company settings stack sits beside the tab shell on the (app) Stack,
  * so it does not inherit the tabs' company-resolution provider. Wrap
  * these routes the same way so `useResolvedCompany` is defined on the
- * hub and legal stub.
+ * hub and legal editor.
  */
 export default function MoreCompanyLayout() {
   const { theme } = useUnistyles();
