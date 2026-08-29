@@ -675,6 +675,9 @@ describe("invites.create / list / get / revoke", () => {
     await expect(
       kit.invoke(getInvite, { id: fixtures.getB }),
     ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      kit.invoke(revokeInvite, { id: randomUUID() }),
+    ).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it("revokes a pending invite and treats already-revoked as a no-op", async () => {
