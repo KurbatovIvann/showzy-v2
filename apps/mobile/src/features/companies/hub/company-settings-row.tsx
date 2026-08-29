@@ -3,6 +3,8 @@ import { Pressable, Text, View } from "react-native";
 import { ChevronRightIcon } from "lucide-react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
+import { companySettingsRowAccessibilityLabel } from "./company-settings.presenter";
+
 /**
  * Canvas `CompanySettingsRow`: icon well, label, wrapping description
  * (attention ink when legal is missing), chevron. Feature-local — it
@@ -21,7 +23,10 @@ export function CompanySettingsRow(props: {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={props.label}
+      accessibilityLabel={companySettingsRowAccessibilityLabel({
+        label: props.label,
+        description: props.description,
+      })}
       onPress={props.onPress}
       style={({ pressed }) => [styles.row, pressed ? styles.pressed : null]}
     >

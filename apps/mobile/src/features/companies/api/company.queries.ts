@@ -32,12 +32,13 @@ export function bindGetCompany(client: CompanyGetTransport) {
 }
 
 export function getCompanyQueryOptions(args: {
-  readonly client: ContractClient | null;
+  readonly client: CompanyGetTransport | null;
   readonly companyId: string | null;
   readonly getActiveCompany: () => string | null;
   readonly enabled?: boolean;
 }) {
   const client = args.client;
+  const fetchCompany = client === null ? null : bindGetCompany(client);
   return {
     ...contractQueryOptions({
       actionName: GET_COMPANY_ACTION,
@@ -45,10 +46,10 @@ export function getCompanyQueryOptions(args: {
       input: GET_COMPANY_INPUT,
       getActiveCompany: args.getActiveCompany,
       queryFn: () => {
-        if (client === null) {
+        if (fetchCompany === null) {
           return Promise.reject(new TypeError("Failed to fetch"));
         }
-        return client.client.companies.get(GET_COMPANY_INPUT);
+        return fetchCompany();
       },
     }),
     enabled:

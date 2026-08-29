@@ -1,7 +1,7 @@
 /**
  * Pure view-model logic for the company settings hub (SHO-226). No
- * React Native imports so the attention vs filled legal row and load
- * classification are unit-testable.
+ * React Native imports so permission, attention vs filled legal row,
+ * load classification, and row a11y are unit-testable.
  */
 import type { QueryFailureKind } from "../../../api/errors";
 import { interpolate } from "../../../i18n/locale";
@@ -67,6 +67,37 @@ export function companyIdentityView(args: {
       prefix: args.prefix,
     }),
   };
+}
+
+export type CompanyLegalStubState =
+  | { readonly kind: "permission" }
+  | { readonly kind: "stub" };
+
+/**
+ * Legal stub (and SHO-225 editor) reuses the hub view-permission gate.
+ * No `companies.get` — manager/employee deep-links must not see PII.
+ */
+export function classifyCompanyLegalStub(args: {
+  readonly canView: boolean;
+}): CompanyLegalStubState {
+  if (!args.canView) {
+    return { kind: "permission" };
+  }
+  return { kind: "stub" };
+}
+
+/**
+ * VoiceOver must hear attention vs legal name — status is never
+ * color-only (`docs/design/mapping/mp-to-mobile.md`).
+ */
+export function companySettingsRowAccessibilityLabel(args: {
+  readonly label: string;
+  readonly description: string;
+}): string {
+  if (args.description.length === 0) {
+    return args.label;
+  }
+  return `${args.label}. ${args.description}`;
 }
 
 export type CompanyLegalRowView = {
