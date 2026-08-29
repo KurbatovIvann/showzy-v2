@@ -51,6 +51,7 @@ import {
   updateGroupContract,
 } from "@showzy/customers/contract";
 import {
+  cancelDocumentContract,
   createFromOrderContract,
   getDocumentContract,
   listDocumentsContract,
@@ -139,6 +140,7 @@ export const contractModules = {
     updateGroup: updateGroupContract,
   },
   documents: {
+    cancel: cancelDocumentContract,
     createFromOrder: createFromOrderContract,
     get: getDocumentContract,
     list: listDocumentsContract,

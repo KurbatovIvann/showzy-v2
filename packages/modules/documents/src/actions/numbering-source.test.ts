@@ -23,6 +23,7 @@ describe("documents numbering and issued date source", () => {
   it("does not use getFullYear, UTC year, SQL extract year, date-fns, or companies.get", () => {
     const sources = [
       "actions/create-from-order.ts",
+      "actions/cancel.ts",
       "actions/get.ts",
       "actions/list.ts",
       "services/create-from-order.ts",
