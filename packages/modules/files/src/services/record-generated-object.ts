@@ -81,14 +81,17 @@ export async function recordGeneratedDocumentObject(input: {
   }
 
   const store = getFilesObjectStore();
-  const object = await store.getObject(objectKey);
-  if (object === "missing") {
+  const declaredSize = input.input.byteSize;
+  const head = await store.headObject(objectKey);
+  if (head === "missing") {
     throw new NotFoundError();
   }
-  if (
-    object.byteSize !== input.input.byteSize ||
-    object.byteSize > MAX_DOCUMENT_BYTES
-  ) {
+  if (head.byteSize !== declaredSize || head.byteSize > MAX_DOCUMENT_BYTES) {
+    throw uploadedObjectInvalid();
+  }
+
+  const object = await store.getObject(objectKey);
+  if (object === "missing" || object.byteSize !== declaredSize) {
     throw uploadedObjectInvalid();
   }
   if (!bytesArePdf(object.bytes)) {

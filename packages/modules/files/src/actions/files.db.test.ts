@@ -60,6 +60,7 @@ import {
 } from "../services/s3-port.js";
 import { waitForObjectVisibility } from "../testing/object-visibility.js";
 import {
+  MAX_DOCUMENT_BYTES,
   MAX_UPLOAD_BYTES,
   type FileMimeType,
   type StoredObjectMimeType,
@@ -1052,6 +1053,13 @@ describe("files signed upload slice", () => {
       requireKit().invoke(requestUpload, {
         ...jpegInput,
         purpose: "documents",
+      }),
+    ).rejects.toBeInstanceOf(ValidationError);
+
+    await expect(
+      requireKit().invoke(requestUpload, {
+        ...jpegInput,
+        purpose: "document",
       }),
     ).rejects.toBeInstanceOf(ValidationError);
 
@@ -2130,6 +2138,48 @@ describe("files.recordGeneratedObject", () => {
     expect(blob).not.toContain("objectKey");
     expect(blob).not.toMatch(/\/documents\//);
     expect(blob).not.toContain("http");
+  });
+
+  it("rejects an oversize generated object without buffering it", async () => {
+    const fileId = randomUUID();
+    const objectKey = documentObjectKey(kitIdentities.companies.a, fileId);
+    await putGeneratedPdf(kitIdentities.companies.a, fileId);
+
+    let getCalls = 0;
+    const restore = mapConfiguredFilesObjectStore((inner) => ({
+      ...inner,
+      async headObject(key) {
+        const head = await inner.headObject(key);
+        if (key === objectKey && head !== "missing") {
+          return { byteSize: MAX_DOCUMENT_BYTES + 1, etag: head.etag };
+        }
+        return head;
+      },
+      async getObject(key) {
+        if (key === objectKey) {
+          getCalls += 1;
+        }
+        return inner.getObject(key);
+      },
+    }));
+    try {
+      await expect(
+        requireKit().invoke(
+          recordGeneratedObject,
+          generatedRecordInput(fileId),
+        ),
+      ).rejects.toBeInstanceOf(ValidationError);
+    } finally {
+      restore();
+    }
+
+    expect(getCalls).toBe(0);
+    expect(
+      await requireKit()
+        .db.runtime.db.select({ id: files.id })
+        .from(files)
+        .where(eq(files.id, fileId)),
+    ).toHaveLength(0);
   });
 
   it("rejects catalog purpose, missing objects, and a catalog fileId", async () => {
