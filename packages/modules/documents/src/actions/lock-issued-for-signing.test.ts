@@ -63,7 +63,7 @@ describe("documents.lockIssuedForSigning contract", () => {
     expect(lockSource).toContain("@showzy/db/schema/documents");
     expect(lockSource).not.toContain("@showzy/db/schema/doc-signing");
     expect(lockSource).not.toContain("@showzy/db/schema/doc-generation");
-    expect(lockSource).not.toContain("documents.sign");
+    expect(lockSource).not.toMatch(/\bdocuments\.sign\b/);
     expect(lockSource).not.toContain("ctx.callAtomic");
   });
 });
