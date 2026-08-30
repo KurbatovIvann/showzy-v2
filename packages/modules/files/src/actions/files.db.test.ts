@@ -3469,6 +3469,47 @@ describe("files.recordSigningObject", () => {
     expect(blob).not.toMatch(/\/signing\//);
     expect(blob).not.toContain("http");
   });
+
+  it("records a pending row when staging is gone and the durable object matches", async () => {
+    const pending = await requestSigningPut();
+    const companyId = kitIdentities.companies.a;
+    const store = getFilesObjectStore();
+    const stagingKey = stagingObjectKey(companyId, pending.fileId);
+    const durableKey = signingObjectKey(companyId, pending.fileId);
+    await putStoreObject(durableKey, zipBytes, SIGNING_MIME_TYPE);
+    await store.deleteObject(stagingKey);
+    await waitForObjectVisibility(store, stagingKey, "missing");
+
+    const ready = await requireKit().invoke(
+      recordSigningObject,
+      signingRecordInput(pending.fileId),
+    );
+    expect(ready).toEqual({
+      fileId: pending.fileId,
+      status: "ready",
+      purpose: "signing",
+      mimeType: SIGNING_MIME_TYPE,
+      byteSize: zipBytes.byteLength,
+      checksumSha256: zipChecksum,
+    });
+    const rows = await requireKit()
+      .db.runtime.db.select({
+        status: files.status,
+        objectKey: files.objectKey,
+      })
+      .from(files)
+      .where(eq(files.id, pending.fileId));
+    expect(rows).toEqual([{ status: "ready", objectKey: durableKey }]);
+    expect(await store.headObject(stagingKey)).toBe("missing");
+    const durable = await store.getObject(durableKey);
+    expect(durable).not.toBe("missing");
+    if (durable === "missing") {
+      throw new Error(
+        "expected durable signing object after idempotent promote",
+      );
+    }
+    expect(sha256Hex(durable.bytes)).toBe(zipChecksum);
+  });
 });
 
 describe("files.readPendingSigningObject", () => {
@@ -3487,6 +3528,29 @@ describe("files.readPendingSigningObject", () => {
     expect(sha256Hex(read.bytes)).toBe(zipChecksum);
     expect(read).not.toHaveProperty("objectKey");
     expect(read).not.toHaveProperty("uploadUrl");
+  });
+
+  it("returns durable bytes when staging is gone and the row is still pending", async () => {
+    const pending = await requestSigningPut();
+    const companyId = kitIdentities.companies.a;
+    const store = getFilesObjectStore();
+    const stagingKey = stagingObjectKey(companyId, pending.fileId);
+    const durableKey = signingObjectKey(companyId, pending.fileId);
+    await putStoreObject(durableKey, zipBytes, SIGNING_MIME_TYPE);
+    await store.deleteObject(stagingKey);
+    await waitForObjectVisibility(store, stagingKey, "missing");
+
+    const read = await requireKit().invoke(readPendingSigningObject, {
+      fileId: pending.fileId,
+    });
+    expect(read.fileId).toBe(pending.fileId);
+    expect(read.checksumSha256).toBe(zipChecksum);
+    expect(sha256Hex(read.bytes)).toBe(zipChecksum);
+    const rows = await requireKit()
+      .db.runtime.db.select({ status: files.status })
+      .from(files)
+      .where(eq(files.id, pending.fileId));
+    expect(rows).toEqual([{ status: "pending" }]);
   });
 
   it("denies employees with documents:view only and treats ready, catalog, and foreign ids as not-found", async () => {

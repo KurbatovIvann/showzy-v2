@@ -53,6 +53,7 @@ describe("files.readPendingSigningObject contract", () => {
       }).success,
     ).toBe(false);
     expect(readPendingSigningObjectContract.description).toContain("/uploads/");
+    expect(readPendingSigningObjectContract.description).toContain("/signing/");
     expect(readPendingSigningObjectContract.description).toContain(
       "docSigning.complete",
     );

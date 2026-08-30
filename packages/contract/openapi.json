@@ -32374,7 +32374,7 @@
     "/docSigning/complete": {
       "post": {
         "operationId": "docSigning.complete",
-        "summary": "Verify a handshake-PUT ASiC-E against the frozen payload digest of a pending staff signing request, record the durable signing object, and store the redacted supplier certificate. Replay of the same successful file returns the same view. A second supplier signature on the document fails with conflict. Cancelled documents, expired grants, invalid ASiC, digest mismatch, oversize objects, and foreign file or request ids fail as specified. Company id is never input. Confirmation already ran on documents.requestSign.",
+        "summary": "Verify a handshake-PUT ASiC-E against the frozen payload digest of a pending staff signing request, claim the unique supplier signature, record the durable signing object, and store the redacted supplier certificate. Replay of the same successful file returns the same view without a second promote. A second supplier signature on the document fails with conflict. Cancelled documents, expired grants, invalid ASiC, digest mismatch, oversize objects, and foreign file or request ids fail as specified. Company id is never input. Confirmation already ran on documents.requestSign.",
         "requestBody": {
           "required": true,
           "content": {

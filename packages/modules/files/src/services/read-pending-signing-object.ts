@@ -7,12 +7,40 @@ import type { z } from "zod";
 import type { readPendingSigningObjectInputSchema } from "../actions/read-pending-signing-object.contract.js";
 import { MAX_DOCUMENT_BYTES, SIGNING_MIME_TYPE } from "../wire.contract.js";
 import { sha256Hex } from "./checksum.js";
-import { stagingObjectKey } from "./object-key.js";
+import { signingObjectKey, stagingObjectKey } from "./object-key.js";
 import { getFilesObjectStore } from "./s3-port.js";
 import { uploadedObjectInvalid } from "./uploaded-object.js";
 
 type StaffCtx = Extract<ActionCtx, { principal: "staff" }>;
 type ReadInput = z.output<typeof readPendingSigningObjectInputSchema>;
+type ObjectStore = ReturnType<typeof getFilesObjectStore>;
+
+/**
+ * Prefer staging. If staging is gone after a crashed promote, read the
+ * durable signing object so complete can re-verify a still-pending row.
+ */
+async function readSigningBytes(
+  store: ObjectStore,
+  key: string,
+): Promise<
+  { readonly bytes: Uint8Array; readonly byteSize: number } | "missing"
+> {
+  const head = await store.headObject(key);
+  if (head === "missing") {
+    return "missing";
+  }
+  if (head.byteSize > MAX_DOCUMENT_BYTES) {
+    throw uploadedObjectInvalid();
+  }
+  const object = await store.getObject(key);
+  if (object === "missing" || object.byteSize !== head.byteSize) {
+    throw uploadedObjectInvalid();
+  }
+  if (object.byteSize > MAX_DOCUMENT_BYTES) {
+    throw uploadedObjectInvalid();
+  }
+  return { bytes: object.bytes, byteSize: object.byteSize };
+}
 
 export async function readStaffPendingSigningObject(input: {
   readonly ctx: StaffCtx;
@@ -47,28 +75,23 @@ export async function readStaffPendingSigningObject(input: {
   }
 
   const store = getFilesObjectStore();
-  const stagingKey = stagingObjectKey(companyId, fileId);
-  const head = await store.headObject(stagingKey);
-  if (head === "missing") {
+  const staging = await readSigningBytes(
+    store,
+    stagingObjectKey(companyId, fileId),
+  );
+  const loaded =
+    staging === "missing"
+      ? await readSigningBytes(store, signingObjectKey(companyId, fileId))
+      : staging;
+  if (loaded === "missing") {
     throw new NotFoundError();
-  }
-  if (head.byteSize > MAX_DOCUMENT_BYTES) {
-    throw uploadedObjectInvalid();
-  }
-
-  const object = await store.getObject(stagingKey);
-  if (object === "missing" || object.byteSize !== head.byteSize) {
-    throw uploadedObjectInvalid();
-  }
-  if (object.byteSize > MAX_DOCUMENT_BYTES) {
-    throw uploadedObjectInvalid();
   }
 
   return {
     fileId,
     mimeType: SIGNING_MIME_TYPE,
-    byteSize: object.byteSize,
-    checksumSha256: sha256Hex(object.bytes),
-    bytes: object.bytes,
+    byteSize: loaded.byteSize,
+    checksumSha256: sha256Hex(loaded.bytes),
+    bytes: loaded.bytes,
   };
 }

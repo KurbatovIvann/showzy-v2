@@ -125,6 +125,8 @@ const ids = {
   cancelled: seedIds(),
   grantExpired: seedIds(),
   deny: seedIds(),
+  uniqueRace: seedIds(),
+  promoteRetry: seedIds(),
 };
 
 const sellerSnapshot = {
@@ -202,6 +204,18 @@ const completeThenMaybeFail = implementAction(
       if (ctx.principal !== "staff") {
         throw new CoreInvariantError("docSigning.complete twin expects staff");
       }
+      const db = requireStaffWritable(ctx.db);
+      await db.insert(signingSignatures).values({
+        companyId: ctx.companyId,
+        documentId: input.documentId,
+        signerRole: "supplier",
+        fileId: input.fileId,
+        signerCn: "twin",
+        signerOrg: "",
+        signerTaxId: "",
+        signatureAlg: "twin",
+        signedAt: new Date(),
+      });
       const recorded = await ctx.callAtomic(recordSigningObject, {
         fileId: input.fileId,
         purpose: input.purpose,
@@ -212,18 +226,6 @@ const completeThenMaybeFail = implementAction(
       if (input.failAfterCall) {
         throw new ConflictError("Root failed after the atomic call.");
       }
-      const db = requireStaffWritable(ctx.db);
-      await db.insert(signingSignatures).values({
-        companyId: ctx.companyId,
-        documentId: input.documentId,
-        signerRole: "supplier",
-        fileId: recorded.fileId,
-        signerCn: "twin",
-        signerOrg: "",
-        signerTaxId: "",
-        signatureAlg: "twin",
-        signedAt: new Date(),
-      });
       await db
         .update(signingRequests)
         .set({ status: "completed", updatedAt: new Date() })
@@ -609,6 +611,25 @@ async function prepareComplete(env: {
   return { requestId, ...staged };
 }
 
+async function simulatePostPromoteAbort(env: {
+  readonly fileId: string;
+  readonly bytes: Uint8Array;
+  readonly companyId?: string;
+}): Promise<void> {
+  const companyId = env.companyId ?? kitIdentities.companies.a;
+  const store = getFilesObjectStore();
+  const stagingKey = `${companyId}/uploads/${env.fileId}`;
+  const durableKey = `${companyId}/signing/${env.fileId}`;
+  await store.putObject({
+    key: durableKey,
+    mimeType: SIGNING_MIME,
+    bytes: env.bytes,
+  });
+  await waitForObjectVisibility(store, durableKey, "present");
+  await store.deleteObject(stagingKey);
+  await waitForObjectVisibility(store, stagingKey, "missing");
+}
+
 async function countCompletedRequests(): Promise<number> {
   const rows = await requireKit()
     .db.runtime.db.select({ value: count() })
@@ -846,6 +867,20 @@ beforeAll(async () => {
       ...ids.deny,
       companyId: companyA,
       number: "KA-РХ-000976",
+      status: "issued" as const,
+      grant: grantedAt,
+    },
+    {
+      ...ids.uniqueRace,
+      companyId: companyA,
+      number: "KA-РХ-000977",
+      status: "issued" as const,
+      grant: grantedAt,
+    },
+    {
+      ...ids.promoteRetry,
+      companyId: companyA,
+      number: "KA-РХ-000978",
       status: "issued" as const,
       grant: grantedAt,
     },
@@ -1219,6 +1254,15 @@ describe("docSigning.complete", () => {
     if (conflict instanceof ConflictError) {
       expect(conflict.clientMessage).toBe(ALREADY_SIGNED_MESSAGE);
     }
+    const otherStaging = `${kitIdentities.companies.a}/uploads/${other.fileId}`;
+    await waitForObjectVisibility(
+      getFilesObjectStore(),
+      otherStaging,
+      "present",
+    );
+    expect(await getFilesObjectStore().headObject(otherStaging)).not.toBe(
+      "missing",
+    );
   });
 
   it("rejects a second supplier signature on a document that is already signed", async () => {
@@ -1406,6 +1450,103 @@ describe("docSigning.complete", () => {
         },
       ),
     ).rejects.toBeInstanceOf(PermissionDeniedError);
+  });
+
+  it("does not delete the loser's staging on a unique supplier race with a different fileId", async () => {
+    const prepared = await prepareComplete({
+      ...ids.uniqueRace,
+      companyId: kitIdentities.companies.a,
+      bytes: signedAsic.bytes,
+      payloadSha256: signedAsic.payloadSha256,
+    });
+    const other = await handshakePut(signedAsic.bytes);
+    const outcomes = await Promise.allSettled([
+      requireKit().invoke(completeSigning, {
+        requestId: prepared.requestId,
+        fileId: prepared.fileId,
+      }),
+      requireKit().invoke(completeSigning, {
+        requestId: prepared.requestId,
+        fileId: other.fileId,
+      }),
+    ]);
+    const fulfilled = outcomes.filter((row) => row.status === "fulfilled");
+    const rejected = outcomes.filter((row) => row.status === "rejected");
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    const winner =
+      fulfilled[0]?.status === "fulfilled" ? fulfilled[0].value : undefined;
+    expect(winner).toBeDefined();
+    const loserError =
+      rejected[0]?.status === "rejected" ? rejected[0].reason : undefined;
+    expect(loserError).toBeInstanceOf(ConflictError);
+    if (loserError instanceof ConflictError) {
+      expect(loserError.clientMessage).toBe(ALREADY_SIGNED_MESSAGE);
+    }
+    const winnerFileId = winner?.fileId;
+    expect(
+      winnerFileId === prepared.fileId || winnerFileId === other.fileId,
+    ).toBe(true);
+    const loserFileId =
+      winnerFileId === prepared.fileId ? other.fileId : prepared.fileId;
+    const store = getFilesObjectStore();
+    const loserStaging = `${kitIdentities.companies.a}/uploads/${loserFileId}`;
+    await waitForObjectVisibility(store, loserStaging, "present");
+    expect(await store.headObject(loserStaging)).not.toBe("missing");
+    const [loserFile] = await requireKit()
+      .db.runtime.db.select({ status: files.status })
+      .from(files)
+      .where(eq(files.id, loserFileId));
+    expect(loserFile?.status).toBe("pending");
+    const signatures = await requireKit()
+      .db.runtime.db.select({ fileId: signingSignatures.fileId })
+      .from(signingSignatures)
+      .where(eq(signingSignatures.documentId, ids.uniqueRace.documentId));
+    expect(signatures).toEqual([{ fileId: winnerFileId }]);
+  });
+
+  it("retries complete after a post-promote TX abort when durable exists and staging is gone", async () => {
+    const prepared = await prepareComplete({
+      ...ids.promoteRetry,
+      companyId: kitIdentities.companies.a,
+      bytes: signedAsic.bytes,
+      payloadSha256: signedAsic.payloadSha256,
+    });
+    await simulatePostPromoteAbort({
+      fileId: prepared.fileId,
+      bytes: signedAsic.bytes,
+    });
+    const [pendingFile] = await requireKit()
+      .db.runtime.db.select({ status: files.status })
+      .from(files)
+      .where(eq(files.id, prepared.fileId));
+    expect(pendingFile?.status).toBe("pending");
+    const result = await requireKit().invoke(completeSigning, {
+      requestId: prepared.requestId,
+      fileId: prepared.fileId,
+    });
+    expect(result.fileId).toBe(prepared.fileId);
+    const [readyFile] = await requireKit()
+      .db.runtime.db.select({
+        status: files.status,
+        objectKey: files.objectKey,
+      })
+      .from(files)
+      .where(eq(files.id, prepared.fileId));
+    expect(readyFile?.status).toBe("ready");
+    expect(readyFile?.objectKey).toBe(
+      `${kitIdentities.companies.a}/signing/${prepared.fileId}`,
+    );
+    const store = getFilesObjectStore();
+    await waitForObjectVisibility(
+      store,
+      `${kitIdentities.companies.a}/uploads/${prepared.fileId}`,
+      "missing",
+    );
+    const durable = await store.getObject(
+      `${kitIdentities.companies.a}/signing/${prepared.fileId}`,
+    );
+    expect(durable).not.toBe("missing");
   });
 
   it("rejects companyId on input", async () => {

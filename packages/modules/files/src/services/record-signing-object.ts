@@ -21,6 +21,42 @@ import { requireWritable } from "./writable.js";
 type StaffCtx = Extract<ActionCtx, { principal: "staff" }>;
 type RecordInput = z.output<typeof recordSigningObjectInputSchema>;
 type FileRow = typeof files.$inferSelect;
+type ObjectStore = ReturnType<typeof getFilesObjectStore>;
+
+/**
+ * Staging-or-durable read for a still-pending signing row. Staging is
+ * preferred. When staging is already gone (copy succeeded, root TX
+ * rolled back), the durable `{companyId}/signing/{fileId}` object with
+ * matching size/checksum is enough to finish the ready update.
+ */
+async function verifiedSigningBytes(env: {
+  readonly store: ObjectStore;
+  readonly key: string;
+  readonly declaredSize: number;
+  readonly checksumSha256: string;
+}): Promise<Uint8Array | "missing"> {
+  const head = await env.store.headObject(env.key);
+  if (head === "missing") {
+    return "missing";
+  }
+  if (
+    head.byteSize !== env.declaredSize ||
+    head.byteSize > MAX_DOCUMENT_BYTES
+  ) {
+    throw uploadedObjectInvalid();
+  }
+  const object = await env.store.getObject(env.key);
+  if (object === "missing" || object.byteSize !== env.declaredSize) {
+    throw uploadedObjectInvalid();
+  }
+  if (!bytesAreAsicContainer(object.bytes)) {
+    throw uploadedObjectInvalid();
+  }
+  if (sha256Hex(object.bytes) !== env.checksumSha256) {
+    throw uploadedObjectInvalid();
+  }
+  return object.bytes;
+}
 
 function matchingSigningRow(
   row: FileRow,
@@ -91,30 +127,30 @@ export async function recordStaffSigningObject(input: {
 
   const store = getFilesObjectStore();
   const declaredSize = input.input.byteSize;
-  const head = await store.headObject(stagingKey);
-  if (head === "missing") {
-    throw new NotFoundError();
-  }
-  if (head.byteSize !== declaredSize || head.byteSize > MAX_DOCUMENT_BYTES) {
-    throw uploadedObjectInvalid();
-  }
-
-  const object = await store.getObject(stagingKey);
-  if (object === "missing" || object.byteSize !== declaredSize) {
-    throw uploadedObjectInvalid();
-  }
-  if (!bytesAreAsicContainer(object.bytes)) {
-    throw uploadedObjectInvalid();
-  }
-  if (sha256Hex(object.bytes) !== input.input.checksumSha256) {
-    throw uploadedObjectInvalid();
-  }
-
-  await store.putObject({
-    key: durableKey,
-    mimeType: input.input.mimeType,
-    bytes: object.bytes,
+  const checksumSha256 = input.input.checksumSha256;
+  const stagingBytes = await verifiedSigningBytes({
+    store,
+    key: stagingKey,
+    declaredSize,
+    checksumSha256,
   });
+  if (stagingBytes === "missing") {
+    const durableBytes = await verifiedSigningBytes({
+      store,
+      key: durableKey,
+      declaredSize,
+      checksumSha256,
+    });
+    if (durableBytes === "missing") {
+      throw new NotFoundError();
+    }
+  } else {
+    await store.putObject({
+      key: durableKey,
+      mimeType: input.input.mimeType,
+      bytes: stagingBytes,
+    });
+  }
 
   const updated = await db
     .update(files)

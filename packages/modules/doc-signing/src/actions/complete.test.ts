@@ -101,12 +101,20 @@ describe("docSigning.complete contract", () => {
   });
 
   it("nests lock, pending staging read, and atomic record without foreign schema or finalize", () => {
+    expect(completeSigningContract.description).toContain("unique");
     expect(completeSource).toContain("lockIssuedForSigning");
     expect(completeSource).toContain("readPendingSigningObject");
     expect(completeSource).toContain("recordSigningObject");
     expect(completeSource).toContain("ctx.callAtomic");
     expect(completeSource).toContain("verifyAsicE");
     expect(completeSource).toContain("docSigningRecorded");
+    expect(completeSource).toContain('.for("update")');
+    expect(completeSource.indexOf("insert(signingSignatures)")).toBeGreaterThan(
+      -1,
+    );
+    expect(completeSource.indexOf("insert(signingSignatures)")).toBeLessThan(
+      completeSource.indexOf("callAtomic(recordSigningObject"),
+    );
     expect(completeSource).not.toContain("finalizeUpload");
     expect(completeSource).not.toContain("documents.sign");
     expect(completeSource).not.toContain("attachSignedShare");

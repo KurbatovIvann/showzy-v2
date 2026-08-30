@@ -70,6 +70,11 @@ describe("doc-signing source guards (SHO-254 / SHO-257 / SHO-258)", () => {
     expect(executableSource("actions/complete.ts")).toContain(
       "recordSigningObject",
     );
+    const complete = executableSource("actions/complete.ts");
+    expect(complete).toContain('.for("update")');
+    expect(complete.indexOf("insert(signingSignatures)")).toBeLessThan(
+      complete.indexOf("callAtomic(recordSigningObject"),
+    );
     expect(executableSource("actions/complete.ts")).not.toContain(
       "finalizeUpload",
     );

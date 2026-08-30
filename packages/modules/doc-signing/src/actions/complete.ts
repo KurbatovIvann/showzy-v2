@@ -161,8 +161,9 @@ async function loadRequest(env: {
   readonly db: ReturnType<typeof requireStaffWritable>;
   readonly companyId: string;
   readonly requestId: string;
+  readonly lock?: boolean;
 }): Promise<RequestRow | undefined> {
-  const rows = await env.db
+  const query = env.db
     .select({
       id: signingRequests.id,
       documentId: signingRequests.documentId,
@@ -177,6 +178,7 @@ async function loadRequest(env: {
       ),
     )
     .limit(1);
+  const rows = env.lock === true ? await query.for("update") : await query;
   return rows[0];
 }
 
@@ -301,14 +303,6 @@ export const completeSigning = implementAction(completeSigningContract, {
     }
     requireMatchingDigest(verified.payloadSha256, request.payloadSha256);
 
-    await ctx.callAtomic(recordSigningObject, {
-      fileId: input.fileId,
-      purpose: "signing",
-      mimeType: staging.mimeType,
-      byteSize: staging.byteSize,
-      checksumSha256: staging.checksumSha256,
-    });
-
     const signedAt = new Date(verified.signedAt);
     const signature: SignatureRow = {
       fileId: input.fileId,
@@ -319,10 +313,55 @@ export const completeSigning = implementAction(completeSigningContract, {
       signedAt: Number.isFinite(signedAt.getTime()) ? signedAt : new Date(),
     };
 
+    const locked = await loadRequest({
+      db,
+      companyId: ctx.companyId,
+      requestId: request.id,
+      lock: true,
+    });
+    if (locked === undefined) {
+      throw new NotFoundError();
+    }
+    if (locked.status === "completed") {
+      const existing = await loadSupplierSignature({
+        db,
+        companyId: ctx.companyId,
+        documentId: locked.documentId,
+      });
+      if (existing === undefined) {
+        throw new CoreInvariantError(
+          "docSigning.complete completed request is missing a signature",
+        );
+      }
+      return replayOrConflict({
+        documentId: locked.documentId,
+        requestId: locked.id,
+        fileId: input.fileId,
+        signature: existing,
+      });
+    }
+    if (locked.status !== "pending") {
+      throw new CoreInvariantError("docSigning.complete saw an unknown status");
+    }
+
+    const claimed = await loadSupplierSignature({
+      db,
+      companyId: ctx.companyId,
+      documentId: locked.documentId,
+    });
+    if (claimed !== undefined) {
+      return replayOrConflict({
+        documentId: locked.documentId,
+        requestId: locked.id,
+        fileId: input.fileId,
+        signature: claimed,
+      });
+    }
+
     try {
       await db.insert(signingSignatures).values({
         companyId: ctx.companyId,
-        documentId: request.documentId,
+        documentId: locked.documentId,
         signerRole: "supplier",
         fileId: signature.fileId,
         signerCn: signature.signerCn,
@@ -341,7 +380,7 @@ export const completeSigning = implementAction(completeSigningContract, {
       const raced = await loadSupplierSignature({
         db,
         companyId: ctx.companyId,
-        documentId: request.documentId,
+        documentId: locked.documentId,
       });
       if (raced === undefined) {
         throw new CoreInvariantError(
@@ -349,12 +388,20 @@ export const completeSigning = implementAction(completeSigningContract, {
         );
       }
       return replayOrConflict({
-        documentId: request.documentId,
-        requestId: request.id,
+        documentId: locked.documentId,
+        requestId: locked.id,
         fileId: input.fileId,
         signature: raced,
       });
     }
+
+    await ctx.callAtomic(recordSigningObject, {
+      fileId: input.fileId,
+      purpose: "signing",
+      mimeType: staging.mimeType,
+      byteSize: staging.byteSize,
+      checksumSha256: staging.checksumSha256,
+    });
 
     const updated = await db
       .update(signingRequests)
@@ -365,7 +412,7 @@ export const completeSigning = implementAction(completeSigningContract, {
       .where(
         and(
           eq(signingRequests.companyId, ctx.companyId),
-          eq(signingRequests.id, request.id),
+          eq(signingRequests.id, locked.id),
           eq(signingRequests.status, "pending"),
         ),
       )
@@ -377,22 +424,22 @@ export const completeSigning = implementAction(completeSigningContract, {
     }
 
     ctx.emit(docSigningRecorded, {
-      aggregate: { type: "document", id: request.documentId },
+      aggregate: { type: "document", id: locked.documentId },
       payload: {
-        documentId: request.documentId,
+        documentId: locked.documentId,
         signerRole: "supplier",
         fileId: input.fileId,
       },
     });
 
     stashSnapshot(
-      request.id,
+      locked.id,
       input.fileId,
-      snapshotFromSignature(request.documentId, signature),
+      snapshotFromSignature(locked.documentId, signature),
     );
     return completeOutput({
-      documentId: request.documentId,
-      requestId: request.id,
+      documentId: locked.documentId,
+      requestId: locked.id,
       signature,
     });
   },

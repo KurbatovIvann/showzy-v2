@@ -63,5 +63,8 @@ describe("files.recordSigningObject contract", () => {
     expect(recordSigningObjectContract.description).toContain(
       "docSigning.complete",
     );
+    expect(recordSigningObjectContract.description).toContain(
+      "staging object is already gone",
+    );
   });
 });
