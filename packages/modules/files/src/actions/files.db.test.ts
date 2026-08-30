@@ -2800,7 +2800,7 @@ describe("files.backfillCatalogRenditions", () => {
       mimeType,
       bytes,
       checksumSha256: sha256Hex(bytes),
-      createdAt: input.createdAt,
+      ...(input.createdAt !== undefined ? { createdAt: input.createdAt } : {}),
     });
     await putStoreObject(
       catalogObjectKey(input.companyId, id),

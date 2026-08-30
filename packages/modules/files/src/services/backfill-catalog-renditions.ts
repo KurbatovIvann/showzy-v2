@@ -1,4 +1,5 @@
 import type { ActionCtx } from "@showzy/core";
+import { CoreInvariantError } from "@showzy/core/errors";
 import { files } from "@showzy/db/schema/files";
 import { and, asc, eq, gt, or } from "drizzle-orm";
 import type { z } from "zod";
@@ -31,12 +32,23 @@ export interface BackfillCatalogRenditionsResult {
 type SkipReason = "missing_original" | "undecodable";
 
 type FileOutcome =
-  "filled" | "already_complete" | "missing_original" | "undecodable";
+  | "filled"
+  | "already_complete"
+  | "missing_original"
+  | "undecodable";
 
 interface KeysetCursor {
   readonly createdAt: Date;
   readonly id: string;
 }
+
+interface InspectedCatalogFile {
+  readonly row: FileRow;
+  readonly missing: readonly CatalogRendition[];
+}
+
+/** Concurrent files HeadObject'd per SQL page — enough to pipeline Garage, not a stampede. */
+const HEAD_FILE_CONCURRENCY = 8;
 
 export async function runCatalogRenditionBackfill(input: {
   readonly ctx: SystemGlobalCtx;
@@ -52,16 +64,30 @@ export async function runCatalogRenditionBackfill(input: {
   let skippedUndecodable = 0;
   let cursor: KeysetCursor | undefined;
 
+  // SQL pages are always BACKFILL_BATCH_LIMIT so a tick with `limit: 1`
+  // still walks past already-complete files. Completes do not consume
+  // fill budget — otherwise the oldest 20 ready rows would starve later
+  // legacy files once T15 had filled them. HeadObject for a page runs
+  // concurrently; Get/encode/Put stays per-file so one failure cannot
+  // leave a different file half-written in the same tick.
   while (filled < fillBudget) {
-    const page = await loadReadyCatalogPage({ db, cursor, limit: fillBudget });
+    throwIfAborted(input.ctx);
+    const page = await loadReadyCatalogPage({
+      db,
+      cursor,
+      limit: BACKFILL_BATCH_LIMIT,
+    });
     if (page.length === 0) {
       break;
     }
-    for (const row of page) {
+    const inspected = await inspectCatalogPage({ store, page });
+    for (const item of inspected) {
+      throwIfAborted(input.ctx);
       const outcome = await backfillReadyCatalogFile({
         ctx: input.ctx,
         store,
-        row,
+        row: item.row,
+        missing: item.missing,
       });
       switch (outcome) {
         case "filled":
@@ -77,7 +103,7 @@ export async function runCatalogRenditionBackfill(input: {
           skippedUndecodable += 1;
           break;
       }
-      cursor = { createdAt: row.createdAt, id: row.id };
+      cursor = { createdAt: item.row.createdAt, id: item.row.id };
       if (filled >= fillBudget) {
         break;
       }
@@ -133,17 +159,57 @@ async function loadReadyCatalogPage(input: {
     .limit(input.limit);
 }
 
+async function inspectCatalogPage(input: {
+  readonly store: FilesObjectStore;
+  readonly page: readonly FileRow[];
+}): Promise<readonly InspectedCatalogFile[]> {
+  return mapPool(input.page, HEAD_FILE_CONCURRENCY, async (row) => ({
+    row,
+    missing: await missingCatalogRenditions({
+      store: input.store,
+      companyId: row.companyId,
+      fileId: row.id,
+    }),
+  }));
+}
+
+async function mapPool<T, R>(
+  items: readonly T[],
+  concurrency: number,
+  mapper: (item: T) => Promise<R>,
+): Promise<R[]> {
+  if (items.length === 0) {
+    return [];
+  }
+  const results: R[] = [];
+  let next = 0;
+  const workerCount = Math.min(concurrency, items.length);
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      for (;;) {
+        const index = next;
+        next += 1;
+        if (index >= items.length) {
+          return;
+        }
+        const item = items[index];
+        if (item === undefined) {
+          return;
+        }
+        results[index] = await mapper(item);
+      }
+    }),
+  );
+  return results;
+}
+
 async function backfillReadyCatalogFile(input: {
   readonly ctx: SystemGlobalCtx;
   readonly store: FilesObjectStore;
   readonly row: FileRow;
+  readonly missing: readonly CatalogRendition[];
 }): Promise<FileOutcome> {
-  const missing = await missingCatalogRenditions({
-    store: input.store,
-    companyId: input.row.companyId,
-    fileId: input.row.id,
-  });
-  if (missing.length === 0) {
+  if (input.missing.length === 0) {
     return "already_complete";
   }
 
@@ -161,17 +227,19 @@ async function backfillReadyCatalogFile(input: {
     return "undecodable";
   }
 
-  for (const rendition of missing) {
-    await input.store.putObject({
-      key: catalogRenditionObjectKey(
-        input.row.companyId,
-        input.row.id,
-        rendition,
-      ),
-      mimeType: "image/webp",
-      bytes: encoded[rendition],
-    });
-  }
+  await Promise.all(
+    input.missing.map((rendition) =>
+      input.store.putObject({
+        key: catalogRenditionObjectKey(
+          input.row.companyId,
+          input.row.id,
+          rendition,
+        ),
+        mimeType: "image/webp",
+        bytes: encoded[rendition],
+      }),
+    ),
+  );
   return "filled";
 }
 
@@ -179,17 +247,29 @@ async function missingCatalogRenditions(input: {
   readonly store: FilesObjectStore;
   readonly companyId: string;
   readonly fileId: string;
-}): Promise<CatalogRendition[]> {
-  const missing: CatalogRendition[] = [];
-  for (const rendition of CATALOG_RENDITIONS) {
-    const head = await input.store.headObject(
-      catalogRenditionObjectKey(input.companyId, input.fileId, rendition),
-    );
-    if (head === "missing") {
-      missing.push(rendition);
-    }
+}): Promise<readonly CatalogRendition[]> {
+  const heads = await Promise.all(
+    CATALOG_RENDITIONS.map(async (rendition) => {
+      const head = await input.store.headObject(
+        catalogRenditionObjectKey(input.companyId, input.fileId, rendition),
+      );
+      return { rendition, missing: head === "missing" };
+    }),
+  );
+  return heads
+    .filter((entry) => entry.missing)
+    .map((entry) => entry.rendition);
+}
+
+function throwIfAborted(ctx: SystemGlobalCtx): void {
+  if (!ctx.signal.aborted) {
+    return;
   }
-  return missing;
+  const reason = ctx.signal.reason;
+  if (reason instanceof Error) {
+    throw reason;
+  }
+  throw new CoreInvariantError("files.backfillCatalogRenditions aborted");
 }
 
 function logSkip(ctx: SystemGlobalCtx, skipReason: SkipReason): void {

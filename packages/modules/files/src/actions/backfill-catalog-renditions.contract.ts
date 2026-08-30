@@ -8,10 +8,13 @@
  *
  * Mechanical choices the feature card left unnamed:
  * - `timeout: 30000` covers Head+Get+sharp+Put for a fill batch of 20
- *   on Garage (same ceiling as `files.sweepAbandonedUploads`).
- * - Batch default is 20. Optional `limit` exists so the inherited
- *   idempotency suite can conflict on a different payload; the handler
- *   still caps at this default.
+ *   on Garage (same ceiling as `files.sweepAbandonedUploads`). HeadObject
+ *   for a SQL page of 20 runs concurrently so already-complete files do
+ *   not serialize the tick past the deadline.
+ * - Batch default is 20. Optional `limit` bounds how many files receive
+ *   PutObject work, not how many ready catalog rows are examined. SQL
+ *   pages stay 20 even when `limit` is 1 so a tick walks past completes.
+ *   The inherited idempotency suite conflicts on a different payload.
  * - Already-complete files (all four keys present) are no-ops and do
  *   not consume the fill budget, so a tick can walk past them to files
  *   that still need work. Missing originals and undecodable bytes are
