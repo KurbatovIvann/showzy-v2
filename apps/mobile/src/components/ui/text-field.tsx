@@ -3,6 +3,7 @@ import { Text, TextInput, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { StatusPill } from "./status-pill";
+import { resolveTextFieldContent } from "./text-field-content";
 
 export function TextField(props: {
   readonly value: string;
@@ -41,18 +42,11 @@ export function TextField(props: {
   const decimal = keyboardType === "decimal-pad";
   const numberPad = keyboardType === "number-pad";
   const secure = props.secureTextEntry === true;
-  const autoComplete =
-    props.autoComplete ??
-    (secure ? "password" : phone ? "tel" : email ? "email" : "off");
-  const textContentType = secure
-    ? "password"
-    : phone
-      ? "telephoneNumber"
-      : email
-        ? "emailAddress"
-        : autoComplete === "organization"
-          ? "organizationName"
-          : "none";
+  const { autoComplete, textContentType } = resolveTextFieldContent({
+    secure,
+    autoComplete: props.autoComplete,
+    keyboardType,
+  });
   const tabular = phone || email || decimal || numberPad;
   const label =
     props.label != null && props.label.length > 0 ? props.label : null;

@@ -30,6 +30,7 @@ import {
 } from "./document-options-handshake";
 import type { DocumentSigningTarget } from "../signing/use-document-signing";
 import {
+  canOpenSigningFromRow,
   classifyDocumentOptionsGet,
   type DocumentOptionsGetLoadState,
   type DocumentSigningStatus,
@@ -186,6 +187,14 @@ export function useDocumentListOptions(args: {
         return;
       }
       const target = optionsRow;
+      if (
+        !canOpenSigningFromRow({
+          showSign: target.showSign,
+          signingSheetOpen: false,
+        })
+      ) {
+        return;
+      }
       await waitThenRunDocumentFollowUp({
         waitHidden: optionsHidden.wait,
         hide: hideOptions,

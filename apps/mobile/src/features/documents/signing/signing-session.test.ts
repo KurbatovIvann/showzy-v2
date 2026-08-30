@@ -4,6 +4,7 @@ import {
   createSigningSessionStore,
   IDLE_SIGNING_SESSION,
   reduceSigningSession,
+  signingSessionBlocksNewRequest,
   signingSessionCanSubmit,
   signingSessionIsBusy,
   type SigningSessionContext,
@@ -91,6 +92,9 @@ describe("reduceSigningSession", () => {
     expect(hidden.visible).toBe(false);
     expect(signingSessionIsBusy(hidden)).toBe(true);
     expect(hidden.documentId).toBe(DOCUMENT_ID);
+    expect(signingSessionBlocksNewRequest(hidden)).toBe(true);
+    expect(signingSessionBlocksNewRequest(opened())).toBe(true);
+    expect(signingSessionBlocksNewRequest(IDLE_SIGNING_SESSION)).toBe(false);
   });
 
   it("blocks password edits while the pipeline is busy", () => {

@@ -249,6 +249,13 @@ export function documentListSignVisibility(args: {
   };
 }
 
+export function canOpenSigningFromRow(args: {
+  readonly showSign: boolean;
+  readonly signingSheetOpen: boolean;
+}): boolean {
+  return args.showSign && !args.signingSheetOpen;
+}
+
 export function documentOptionVisibility(args: {
   readonly canView: boolean;
   readonly canEdit: boolean;

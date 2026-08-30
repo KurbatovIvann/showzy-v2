@@ -24,7 +24,9 @@ import {
 } from "./document-signing-device";
 import { createDocumentSigningEngine } from "./document-signing-runtime";
 import { pkiProxyUrl } from "./pki-proxy-url";
+import { wipeKeyBytes } from "./signing-key";
 import {
+  bannerFromQueryKind,
   createDocumentSigningAbort,
   mapSigningFailure,
   raceSigningAbort,
@@ -34,6 +36,7 @@ import {
 import {
   IDLE_SIGNING_SESSION,
   reduceSigningSession,
+  signingSessionBlocksNewRequest,
   signingSessionCanSubmit,
   signingSessionIsBusy,
 } from "./signing-session";
@@ -72,13 +75,18 @@ export function useDocumentSigning(args: {
   );
 
   function clearKey(): void {
+    wipeKeyBytes(keyBytesRef.current);
     keyBytesRef.current = null;
   }
 
   async function requestSignAndOpen(
     target: DocumentSigningTarget,
   ): Promise<void> {
-    if (!args.canEdit || hitlBusyRef.current || signingSessionIsBusy(session)) {
+    if (
+      !args.canEdit ||
+      hitlBusyRef.current ||
+      signingSessionBlocksNewRequest(session)
+    ) {
       return;
     }
     hitlBusyRef.current = true;
@@ -144,15 +152,9 @@ export function useDocumentSigning(args: {
     : null;
   const banner =
     hitlBanner ??
-    (hitlFailure === "permission"
-      ? args.copy.signing.banners.permission
-      : hitlFailure === "offline"
-        ? args.copy.signing.banners.offline
-        : hitlFailure === "network" || hitlFailure === "validation"
-          ? args.copy.signing.banners.network
-          : hitlFailure !== null
-            ? args.copy.signing.banners.unavailable
-            : null);
+    (hitlFailure === null
+      ? null
+      : args.copy.signing.banners[bannerFromQueryKind(hitlFailure)]);
 
   return {
     session,
@@ -204,9 +206,6 @@ export function useDocumentSigning(args: {
           signal,
           onPhase: (phase) => {
             dispatch({ type: "phase", phase });
-          },
-          onCertCommonName: (commonName) => {
-            dispatch({ type: "setCertCommonName", commonName });
           },
         });
         clearKey();

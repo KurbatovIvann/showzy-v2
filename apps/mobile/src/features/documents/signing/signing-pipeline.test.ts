@@ -10,6 +10,7 @@ import { submitWithProtocolConfirmation } from "../../../api/protocol-confirm";
 import { bindDocumentRequestSignMutate } from "../api/document-request-sign";
 import { SIGNING_MIME_TYPE, SIGNING_PURPOSE } from "./signing-limits";
 import {
+  bannerFromQueryKind,
   createDocumentSigningAbort,
   mapSigningFailure,
   runDocumentSigning,
@@ -32,6 +33,14 @@ const PASSWORD = "key-password-once";
 
 const HOOK_SOURCE = readFileSync(
   new URL("./use-document-signing.ts", import.meta.url),
+  "utf8",
+);
+const DEVICE_SOURCE = readFileSync(
+  new URL("./document-signing-device.ts", import.meta.url),
+  "utf8",
+);
+const SHEET_SOURCE = readFileSync(
+  new URL("./document-signing-sheet.tsx", import.meta.url),
   "utf8",
 );
 
@@ -237,14 +246,10 @@ describe("runDocumentSigning", () => {
 
     const { ports, calls, completeInputs } = fakePorts({});
     const phases: SigningPhase[] = [];
-    const names: string[] = [];
     const result: SigningCompleteOutput = await runDocumentSigning({
       ...runArgs(ports, new AbortController().signal),
       onPhase: (phase) => {
         phases.push(phase);
-      },
-      onCertCommonName: (name) => {
-        names.push(name);
       },
     });
 
@@ -277,7 +282,6 @@ describe("runDocumentSigning", () => {
       "uploading",
       "completing",
     ]);
-    expect(names).toEqual(["ФОП Тест"]);
     expect(JSON.stringify(phases)).not.toContain(PAYLOAD_URL);
     expect(JSON.stringify(phases)).not.toContain(PUT_URL);
     expect(JSON.stringify(phases)).not.toContain(PASSWORD);
@@ -366,7 +370,22 @@ describe("sheet close abort wiring", () => {
     expect(HOOK_SOURCE).toMatch(
       /onSheetHidden:\s*\(\)\s*=>\s*\{[^}]*abortHandleRef\.current\.abort\(\)/,
     );
+    expect(HOOK_SOURCE).toContain("wipeKeyBytes");
     expect(HOOK_SOURCE).not.toContain("console.log");
+  });
+
+  it("deletes the Expo cache copy of the key and checks size before read", () => {
+    expect(DEVICE_SOURCE).toContain("copyToCacheDirectory: true");
+    expect(DEVICE_SOURCE).toContain("file.size");
+    expect(DEVICE_SOURCE).toContain("file.delete");
+    expect(DEVICE_SOURCE).toContain("assertSafeSigningUrl");
+    expect(DEVICE_SOURCE).toContain("wrapSigningNetworkFailure");
+  });
+
+  it("does not opt the QES password into iCloud Keychain autofill", () => {
+    expect(SHEET_SOURCE).toContain('autoComplete="off"');
+    expect(SHEET_SOURCE).toContain("secureTextEntry");
+    expect(SHEET_SOURCE).not.toContain('autoComplete="password"');
   });
 });
 
@@ -377,5 +396,7 @@ describe("mapSigningFailure", () => {
     expect(mapSigningFailure(new SigningDigestMismatchError())).toBe(
       "validation",
     );
+    expect(bannerFromQueryKind("validation")).toBe("validation");
+    expect(bannerFromQueryKind("network")).toBe("network");
   });
 });

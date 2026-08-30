@@ -84,7 +84,7 @@ export function DocumentSigningSheet(props: {
         keyboardType="default"
         autoCapitalize="none"
         autoCorrect={false}
-        autoComplete="password"
+        autoComplete="off"
         secureTextEntry
         editable={!busy}
       />

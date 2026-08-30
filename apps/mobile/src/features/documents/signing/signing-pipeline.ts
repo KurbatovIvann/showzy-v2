@@ -120,7 +120,6 @@ export type RunDocumentSigningArgs = {
   readonly ports: DocumentSigningPorts;
   readonly signal: AbortSignal;
   readonly onPhase: (phase: SigningPhase) => void;
-  readonly onCertCommonName?: (commonName: string) => void;
 };
 
 function signingAbortError(signal: AbortSignal): Error {
@@ -244,12 +243,6 @@ export async function runDocumentSigning(
     }),
     args.signal,
   );
-  if (
-    args.onCertCommonName !== undefined &&
-    inspected.certCommonName.length > 0
-  ) {
-    args.onCertCommonName(inspected.certCommonName);
-  }
   const hashOid = hashOidForCertAlgorithm(inspected.certAlgorithm);
   const digestB64 = await raceSigningAbort(
     args.ports.digestPayload(payload, hashOid),

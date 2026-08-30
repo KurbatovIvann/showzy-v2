@@ -20,6 +20,7 @@ import {
 } from "../shared/document-permissions";
 import { useDocumentSigning } from "../signing/use-document-signing";
 import {
+  canOpenSigningFromRow,
   classifyDocumentsList,
   documentListSignVisibility,
   documentsFilteredEmptyView,
@@ -109,7 +110,13 @@ export function useDocumentsList(args: { readonly orderId: string | null }) {
   const signRow = useCallback(
     (id: string) => {
       const row = rows.find((entry) => entry.id === id);
-      if (row === undefined) {
+      if (
+        row === undefined ||
+        !canOpenSigningFromRow({
+          showSign: row.showSign,
+          signingSheetOpen: signing.session.visible,
+        })
+      ) {
         return;
       }
       void signing.requestSignAndOpen({

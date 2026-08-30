@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { documentsCopy } from "../../../i18n/documents";
 import type { DocumentListItem } from "../api/document.queries";
 import {
+  canOpenSigningFromRow,
   classifyDocumentOptionsGet,
   classifyDocumentsList,
   documentListSignVisibility,
@@ -309,6 +310,18 @@ describe("documentListSignVisibility", () => {
         status: "cancelled",
         supplierSigned: false,
       }).showSign,
+    ).toBe(false);
+  });
+
+  it("does not open signing when Sign is hidden or the sheet is already open", () => {
+    expect(
+      canOpenSigningFromRow({ showSign: true, signingSheetOpen: false }),
+    ).toBe(true);
+    expect(
+      canOpenSigningFromRow({ showSign: false, signingSheetOpen: false }),
+    ).toBe(false);
+    expect(
+      canOpenSigningFromRow({ showSign: true, signingSheetOpen: true }),
     ).toBe(false);
   });
 });

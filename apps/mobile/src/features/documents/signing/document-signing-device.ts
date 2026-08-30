@@ -11,6 +11,10 @@ import { isAllowedSigningKeyName, signingKeyFileName } from "./signing-key";
 import { sha256DigestToHex } from "./signing-checksum";
 import { MAX_SIGNING_BYTES, SIGNING_MIME_TYPE } from "./signing-limits";
 import { SigningAsicPackError } from "./signing-asic-pack";
+import {
+  assertSafeSigningUrl,
+  wrapSigningNetworkFailure,
+} from "./signing-network";
 
 export type PickedSigningKey =
   | { readonly kind: "canceled" }
@@ -20,6 +24,16 @@ export type PickedSigningKey =
       readonly fileName: string;
       readonly bytes: Uint8Array;
     };
+
+function deleteCopiedSigningKey(file: File): void {
+  try {
+    if (file.exists) {
+      file.delete();
+    }
+  } catch {
+    // best effort — do not log the path
+  }
+}
 
 export async function pickSigningKey(): Promise<PickedSigningKey> {
   const result = await getDocumentAsync({
@@ -33,34 +47,55 @@ export async function pickSigningKey(): Promise<PickedSigningKey> {
   if (asset === undefined) {
     return { kind: "canceled" };
   }
-  const fileName =
-    signingKeyFileName(asset.name) ?? signingKeyFileName(asset.uri);
-  if (fileName === null || !isAllowedSigningKeyName(fileName)) {
-    return { kind: "invalid" };
-  }
   const file = new File(asset.uri);
-  const buffer = await file.arrayBuffer();
-  const bytes = new Uint8Array(buffer);
-  if (bytes.byteLength < 1 || bytes.byteLength > MAX_SIGNING_BYTES) {
-    return { kind: "invalid" };
+  try {
+    const fileName =
+      signingKeyFileName(asset.name) ?? signingKeyFileName(asset.uri);
+    if (fileName === null || !isAllowedSigningKeyName(fileName)) {
+      return { kind: "invalid" };
+    }
+    let size = 0;
+    try {
+      size = file.size;
+    } catch {
+      return { kind: "invalid" };
+    }
+    if (size < 1 || size > MAX_SIGNING_BYTES) {
+      return { kind: "invalid" };
+    }
+    const buffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    if (bytes.byteLength < 1 || bytes.byteLength > MAX_SIGNING_BYTES) {
+      return { kind: "invalid" };
+    }
+    return { kind: "picked", fileName, bytes };
+  } finally {
+    deleteCopiedSigningKey(file);
   }
-  return { kind: "picked", fileName, bytes };
 }
 
 export async function downloadSigningPayload(
   url: string,
   signal: AbortSignal,
 ): Promise<Uint8Array> {
-  const response = await fetch(url, { signal });
-  if (!response.ok) {
-    throw new TypeError("Failed to fetch");
+  assertSafeSigningUrl(url);
+  try {
+    const response = await fetch(url, { signal });
+    if (!response.ok) {
+      throw new TypeError("Failed to fetch");
+    }
+    const buffer = await response.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    if (bytes.byteLength < 1 || bytes.byteLength > MAX_SIGNING_BYTES) {
+      throw new SigningAsicPackError("payload");
+    }
+    return bytes;
+  } catch (error: unknown) {
+    if (error instanceof SigningAsicPackError) {
+      throw error;
+    }
+    wrapSigningNetworkFailure(error, signal);
   }
-  const buffer = await response.arrayBuffer();
-  const bytes = new Uint8Array(buffer);
-  if (bytes.byteLength < 1 || bytes.byteLength > MAX_SIGNING_BYTES) {
-    throw new SigningAsicPackError("payload");
-  }
-  return bytes;
 }
 
 export async function sha256Hex(bytes: Uint8Array): Promise<string> {
@@ -76,31 +111,30 @@ export async function putSigningAsic(args: {
   readonly mimeType: typeof SIGNING_MIME_TYPE;
   readonly signal: AbortSignal;
 }): Promise<void> {
+  assertSafeSigningUrl(args.uploadUrl);
   const file = new File(
     Paths.cache,
     `document-signing-${String(Date.now())}.asice`,
   );
   file.write(args.bytes);
   try {
-    const task = file.createUploadTask(args.uploadUrl, {
-      httpMethod: "PUT",
-      uploadType: UploadType.BINARY_CONTENT,
-      headers: { "Content-Type": args.mimeType },
-      mimeType: args.mimeType,
-      sessionType: "foreground",
-      signal: args.signal,
-    });
-    const result = await task.uploadAsync();
-    if (result.status < 200 || result.status >= 300) {
-      throw new TypeError("Failed to fetch");
+    try {
+      const task = file.createUploadTask(args.uploadUrl, {
+        httpMethod: "PUT",
+        uploadType: UploadType.BINARY_CONTENT,
+        headers: { "Content-Type": args.mimeType },
+        mimeType: args.mimeType,
+        sessionType: "foreground",
+        signal: args.signal,
+      });
+      const result = await task.uploadAsync();
+      if (result.status < 200 || result.status >= 300) {
+        throw new TypeError("Failed to fetch");
+      }
+    } catch (error: unknown) {
+      wrapSigningNetworkFailure(error, args.signal);
     }
   } finally {
-    try {
-      if (file.exists) {
-        file.delete();
-      }
-    } catch {
-      // best effort — do not log the path
-    }
+    deleteCopiedSigningKey(file);
   }
 }

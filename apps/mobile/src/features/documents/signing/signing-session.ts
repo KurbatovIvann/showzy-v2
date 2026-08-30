@@ -33,9 +33,7 @@ export type SigningSessionContext = {
   readonly fileName: string | null;
   readonly password: string;
   readonly phase: SigningPhase;
-  readonly progress: number;
   readonly banner: SigningBannerKey | null;
-  readonly certCommonName: string | null;
 };
 
 export type SigningSessionEvent =
@@ -51,7 +49,6 @@ export type SigningSessionEvent =
   | { readonly type: "setPassword"; readonly password: string }
   | { readonly type: "begin" }
   | { readonly type: "phase"; readonly phase: SigningPhase }
-  | { readonly type: "setCertCommonName"; readonly commonName: string }
   | { readonly type: "succeed" }
   | { readonly type: "fail"; readonly banner: SigningBannerKey }
   | { readonly type: "clearBanner" };
@@ -63,35 +60,8 @@ export const IDLE_SIGNING_SESSION: SigningSessionContext = {
   fileName: null,
   password: "",
   phase: "idle",
-  progress: 0,
   banner: null,
-  certCommonName: null,
 };
-
-function progressFor(phase: SigningPhase): number {
-  switch (phase) {
-    case "idle":
-      return 0;
-    case "ready":
-      return 0;
-    case "starting":
-      return 0.08;
-    case "downloading":
-      return 0.2;
-    case "digesting":
-      return 0.4;
-    case "signing":
-      return 0.55;
-    case "uploading":
-      return 0.78;
-    case "completing":
-      return 0.92;
-    case "success":
-      return 1;
-    case "failed":
-      return 0;
-  }
-}
 
 function isBusy(phase: SigningPhase): boolean {
   return (
@@ -144,7 +114,6 @@ export function reduceSigningSession(
         ...context,
         fileName: null,
         phase: "idle",
-        certCommonName: null,
       };
     case "setPassword":
       if (!context.visible || isBusy(context.phase)) {
@@ -164,7 +133,6 @@ export function reduceSigningSession(
       return {
         ...context,
         phase: "starting",
-        progress: progressFor("starting"),
         banner: null,
       };
     case "phase":
@@ -174,15 +142,11 @@ export function reduceSigningSession(
       return {
         ...context,
         phase: event.phase,
-        progress: progressFor(event.phase),
       };
-    case "setCertCommonName":
-      return { ...context, certCommonName: event.commonName };
     case "succeed":
       return {
         ...context,
         phase: "success",
-        progress: 1,
         password: "",
         banner: null,
         visible: false,
@@ -191,7 +155,6 @@ export function reduceSigningSession(
       return {
         ...context,
         phase: "failed",
-        progress: 0,
         banner: event.banner,
       };
     case "clearBanner":
@@ -214,6 +177,12 @@ export function signingSessionCanSubmit(
 
 export function signingSessionIsBusy(context: SigningSessionContext): boolean {
   return isBusy(context.phase);
+}
+
+export function signingSessionBlocksNewRequest(
+  context: SigningSessionContext,
+): boolean {
+  return context.visible || isBusy(context.phase);
 }
 
 export function createSigningSessionStore(): {
