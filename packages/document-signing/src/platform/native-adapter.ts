@@ -4,6 +4,7 @@ import { unwrapProxyResponse } from "../pki/proxy.js";
 import type { UapkiEngine } from "../specs/uapki.nitro.js";
 import type { UapkiResponse } from "../types.js";
 import type { AdapterInitOptions, UapkiAdapter } from "./adapter.js";
+import { nativeAdapterHttpPlan } from "./http-init.js";
 
 interface NitroModulesApi {
   createHybridObject(name: string): UapkiEngine;
@@ -64,22 +65,11 @@ export class NativeAdapter implements UapkiAdapter {
     certsDir.create({ idempotent: true });
     crlDir.create({ idempotent: true });
 
-    if (options.corsProxyUrl) {
-      this.engine.setHttpHandler(createHttpHandler(options.corsProxyUrl));
+    const { corsProxyUrl, initRequestJson: initRequest } =
+      nativeAdapterHttpPlan(this.tempDir, options);
+    if (corsProxyUrl !== undefined) {
+      this.engine.setHttpHandler(createHttpHandler(corsProxyUrl));
     }
-
-    const initRequest = JSON.stringify({
-      method: "INIT",
-      parameters: {
-        cmProviders: {
-          dir: "",
-          allowedProviders: [{ lib: "cm-pkcs12" }],
-        },
-        certCache: { path: `${this.tempDir}uapki/certs/` },
-        crlCache: { path: `${this.tempDir}uapki/crl/` },
-        offline: false,
-      },
-    });
 
     let initResult = await this.engine.process(initRequest);
     let parsed = JSON.parse(initResult) as UapkiResponse;

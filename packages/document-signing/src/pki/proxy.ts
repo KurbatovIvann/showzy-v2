@@ -52,8 +52,8 @@ export function unwrapProxyResponse(raw: unknown): ProxyResult {
 
 /**
  * Fetch a URL through the v2 PKI proxy (`POST /pki/proxy`). Used on web
- * where direct cross-origin requests are blocked. On native, corsProxyUrl
- * can be omitted and fetchDirect is used instead.
+ * (CORS) and on native/Node so OCSP/TSP/CRL never fetch target URLs
+ * directly. Callers that sign on-device must pass this proxy URL.
  */
 export async function proxyFetch(
   corsProxyUrl: string,

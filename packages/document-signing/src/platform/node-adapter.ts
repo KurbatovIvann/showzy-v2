@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import type { UapkiResponse } from "../types.js";
 import type { AdapterInitOptions, UapkiAdapter } from "./adapter.js";
+import { applyWasmCorsProxy, nodeAdapterHttpPlan } from "./http-init.js";
 
 const require = createRequire(import.meta.url);
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -64,7 +65,6 @@ export class NodeAdapter implements UapkiAdapter {
   }
 
   async initialize(options: AdapterInitOptions): Promise<void> {
-    void options;
     if (this.module) {
       throw new Error("NodeAdapter already initialized");
     }
@@ -95,6 +95,9 @@ export class NodeAdapter implements UapkiAdapter {
       jsonFreeWrapped(ptr);
     };
 
+    const { corsProxyUrl, initRequest } = nodeAdapterHttpPlan(options);
+    applyWasmCorsProxy(this.module.cwrap, corsProxyUrl);
+
     for (const dir of ["/tmp", "/certs", "/crl"]) {
       try {
         this.module.FS.mkdir(dir);
@@ -103,18 +106,7 @@ export class NodeAdapter implements UapkiAdapter {
       }
     }
 
-    const initResult = this.callRaw({
-      method: "INIT",
-      parameters: {
-        cmProviders: {
-          dir: "",
-          allowedProviders: [{ lib: "cm-pkcs12" }],
-        },
-        certCache: { path: "/certs" },
-        crlCache: { path: "/crl" },
-        offline: false,
-      },
-    });
+    const initResult = this.callRaw(initRequest);
 
     if (initResult.errorCode !== 0) {
       throw new Error(

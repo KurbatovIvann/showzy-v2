@@ -66,7 +66,9 @@ export class DocumentSigner {
    * import { DocumentSigner } from '@showzy/document-signing';
    * import { createNativeAdapter } from '@showzy/document-signing/native';
    *
-   * const signer = await DocumentSigner.create(createNativeAdapter());
+   * const signer = await DocumentSigner.create(createNativeAdapter(), {
+   *   corsProxyUrl: '/pki/proxy',
+   * });
    * ```
    */
   static async create(

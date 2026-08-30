@@ -7,9 +7,15 @@ title = "showzy"
 useDefault = true
 
 [allowlist]
-description = "Vendored UAPKI PKCS#11 names, keywrap offsets, and GOST test PKCS#12 (SHO-252 staging copy — not credentials)"
+description = "UAPKI generic-api-key false positives (PKCS#11 names, keywrap size identifiers) and the immutable GOST test PKCS#12 path (SHO-252 staging copy — not credentials)"
+# Default regexTarget is the extracted secret. These identifiers are not credentials.
+regexes = [
+  '''^CKK_GOST28147$''',
+  '''^CKM_GOST28147_KEY_GEN$''',
+  '''^DSTU7624_WRAP_IV_SIZE$''',
+  '''^GOST28147_WRAP_IV_SIZE$''',
+]
+# Binary PKCS#12 cannot be regex-allowlisted; keep path-only for this fixture.
 paths = [
-  '''packages/document-signing/cpp/common/cryptoki/cryptoki-const-ukr\.h''',
-  '''packages/document-signing/cpp/uapkic/src/keywrap\.c''',
   '''packages/document-signing/cpp/test/data/test-diia\.p12''',
 ]

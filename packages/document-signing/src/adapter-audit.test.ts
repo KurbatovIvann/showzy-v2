@@ -44,4 +44,25 @@ describe("adapter re-audit (SHO-252)", () => {
     }
     expect(hits).toEqual([]);
   });
+
+  it("native adapter does not INIT online without a registered HTTP handler", () => {
+    const text = readFileSync(
+      join(srcRoot, "platform/native-adapter.ts"),
+      "utf8",
+    );
+    expect(text).toContain("nativeAdapterHttpPlan");
+    expect(text).toContain("setHttpHandler");
+    expect(text).not.toMatch(/offline:\s*false/);
+  });
+
+  it("node adapter honors corsProxyUrl and does not INIT online without a proxy", () => {
+    const text = readFileSync(
+      join(srcRoot, "platform/node-adapter.ts"),
+      "utf8",
+    );
+    expect(text).toContain("nodeAdapterHttpPlan");
+    expect(text).toContain("applyWasmCorsProxy");
+    expect(text).not.toMatch(/offline:\s*false/);
+    expect(text).not.toMatch(/void options/);
+  });
 });
