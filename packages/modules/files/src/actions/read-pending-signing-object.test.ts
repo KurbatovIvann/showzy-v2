@@ -57,7 +57,7 @@ describe("files.readPendingSigningObject contract", () => {
       "docSigning.complete",
     );
     expect(readPendingSigningObjectContract.description).toContain(
-      "company id",
+      "Company id",
     );
   });
 });
