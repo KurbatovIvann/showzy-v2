@@ -14,7 +14,8 @@
  *   `displayName`). Do not live-join CRM.
  * - Input is a strict object so `companyId` cannot be smuggled in
  *   (ADR-0013).
- * - `timeout: 5000` matches the golden staff reads.
+ * - `timeout: 10000` covers nested `docSigning.getSupplierSignedFlags`
+ *   (5000) plus the page query.
  * - `idempotent: false` like other staff reads: core.md §5 treats reads as
  *   naturally idempotent (no key, no storage).
  */
@@ -91,6 +92,7 @@ export const listDocumentRowSchema = z.object({
   issuedOn: calendarDaySchema,
   createdAt: z.iso.datetime(),
   buyerLabel: z.string().min(1),
+  supplierSigned: z.boolean(),
 });
 
 export const listDocumentsOutputSchema = z.object({
@@ -101,7 +103,7 @@ export const listDocumentsOutputSchema = z.object({
 export const listDocumentsContract = defineActionContract({
   name: "documents.list",
   description:
-    "List issued and cancelled documents in the staff member's active company. Default type all includes payment invoices and delivery notes; pass a CHECK type to filter. Optional orderId returns an empty page for a missing or foreign order. Paginate with a created-at/id cursor and a page size of at most 50. Each row includes documentId, type, documentNumber, orderId, nullable counterpartyId, status, total gross, currency, issuedOn, createdAt, and buyerLabel from the stored buyer snapshot — not the get view, line snapshots, or live CRM. Company id is never input. Does not search.",
+    "List issued and cancelled documents in the staff member's active company. Default type all includes payment invoices and delivery notes; pass a CHECK type to filter. Optional orderId returns an empty page for a missing or foreign order. Paginate with a created-at/id cursor and a page size of at most 50. Each row includes documentId, type, documentNumber, orderId, nullable counterpartyId, status, total gross, currency, issuedOn, createdAt, buyerLabel from the stored buyer snapshot, and supplierSigned from one nested docSigning.getSupplierSignedFlags call per page — not the get view, line snapshots, or live CRM. Company id is never input. Does not search.",
   principal: "staff",
   transport: "client",
   input: listDocumentsInputSchema,
@@ -115,5 +117,5 @@ export const listDocumentsContract = defineActionContract({
   atomicCalls: [],
   atomicCallers: [],
   audit: false,
-  timeout: 5_000,
+  timeout: 10_000,
 });

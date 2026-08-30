@@ -1,0 +1,131 @@
+import { implementAction, type AuditTargetEnv } from "@showzy/core";
+import {
+  ConflictError,
+  CoreInvariantError,
+  NotFoundError,
+  ValidationError,
+} from "@showzy/core/errors";
+import { documents } from "@showzy/db/schema/documents";
+import { getArtifact } from "@showzy/doc-generation/get-artifact";
+import { getSigning } from "@showzy/doc-signing/get";
+import { and, eq } from "drizzle-orm";
+import { z } from "zod";
+
+import { requestSignContract } from "./request-sign.contract.js";
+import { documentsSignRequested } from "../events/sign-requested.js";
+import {
+  loadGenerationArtifact,
+  readyArtifactFileId,
+} from "../services/load-generation.js";
+import { requireWritable } from "../services/writable.js";
+
+export const CANCELLED_REQUEST_SIGN_MESSAGE =
+  "Cancelled documents cannot be signed.";
+export const ALREADY_SIGNED_MESSAGE = "Document is already signed.";
+export const PDF_NOT_READY_MESSAGE =
+  "The document PDF must be ready before requesting a signature.";
+
+/**
+ * Staff confirmationSummary cannot load the document (core.md §7
+ * `ConfirmationSummaryEnv` is validated input + company id; no handler
+ * `ctx` / tx). Live number would also distinguish missing vs foreign ids
+ * on the challenge. The UI already has the document from list/get when it
+ * shows the dialog. Confirmation does not replace key possession.
+ */
+export const requestSignConfirmationSummary =
+  "Request a qualified electronic signature for this issued document. Confirm the number and type shown in the dialog. You still need the signing key on the device — confirmation does not replace key possession.";
+
+const documentIdHolder = z.object({ documentId: z.string() });
+
+const readyPdfGate = z.object({
+  present: z.literal(true, { error: PDF_NOT_READY_MESSAGE }),
+});
+
+function requestSignAuditTarget(env: AuditTargetEnv): {
+  type: string;
+  id: string;
+} {
+  const parsed = documentIdHolder.safeParse(env.input);
+  return {
+    type: "document",
+    id: parsed.success ? parsed.data.documentId : "unknown",
+  };
+}
+
+function requireReadyPdf(fileId: string | null): void {
+  const parsed = readyPdfGate.safeParse({ present: fileId !== null });
+  if (!parsed.success) {
+    throw new ValidationError(parsed.error.issues, PDF_NOT_READY_MESSAGE);
+  }
+}
+
+export const requestSign = implementAction(requestSignContract, {
+  handler: async (input, ctx) => {
+    if (ctx.principal !== "staff") {
+      throw new CoreInvariantError("documents.requestSign expects staff");
+    }
+
+    const db = requireWritable(ctx.db);
+    const rows = await db
+      .select({
+        status: documents.status,
+      })
+      .from(documents)
+      .where(
+        and(
+          eq(documents.companyId, ctx.companyId),
+          eq(documents.id, input.documentId),
+        ),
+      )
+      .limit(1)
+      .for("update");
+    const row = rows[0];
+    if (row === undefined) {
+      throw new NotFoundError();
+    }
+    if (row.status === "cancelled") {
+      throw new ConflictError(CANCELLED_REQUEST_SIGN_MESSAGE);
+    }
+    if (row.status !== "issued") {
+      throw new ConflictError(CANCELLED_REQUEST_SIGN_MESSAGE);
+    }
+
+    const generation = await loadGenerationArtifact({
+      documentId: input.documentId,
+      getArtifact: (body) => ctx.call(getArtifact, body),
+    });
+    requireReadyPdf(readyArtifactFileId(generation));
+
+    const signing = await ctx.call(getSigning, {
+      documentId: input.documentId,
+    });
+    if (signing.status === "supplier_signed") {
+      throw new ConflictError(ALREADY_SIGNED_MESSAGE);
+    }
+
+    const updated = await db
+      .update(documents)
+      .set({ signRequestedAt: new Date() })
+      .where(
+        and(
+          eq(documents.companyId, ctx.companyId),
+          eq(documents.id, input.documentId),
+        ),
+      )
+      .returning({ id: documents.id });
+    if (updated[0] === undefined) {
+      throw new CoreInvariantError(
+        "documents.requestSign update returned no row",
+      );
+    }
+
+    ctx.emit(documentsSignRequested, {
+      aggregate: { type: "document", id: input.documentId },
+      payload: { documentId: input.documentId },
+    });
+
+    return { documentId: input.documentId };
+  },
+  confirmationSummary: () => requestSignConfirmationSummary,
+  auditTarget: requestSignAuditTarget,
+});

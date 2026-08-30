@@ -20,12 +20,21 @@ import { user } from "@showzy/db/schema/auth";
 import { products } from "@showzy/db/schema/catalog";
 import { companyLegalInfo, companyMembers } from "@showzy/db/schema/companies";
 import { companyCustomers } from "@showzy/db/schema/customers";
+import {
+  signingRequests,
+  signingSignatures,
+} from "@showzy/db/schema/doc-signing";
 import { documentNumberCounters, documents } from "@showzy/db/schema/documents";
+import { files } from "@showzy/db/schema/files";
 import { orderItems, orders } from "@showzy/db/schema/orders";
 import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { cancelDocument, ALREADY_CANCELLED_MESSAGE } from "./cancel.js";
+import {
+  ALREADY_CANCELLED_MESSAGE,
+  cancelDocument,
+  SIGNED_CANNOT_CANCEL_MESSAGE,
+} from "./cancel.js";
 import { createFromOrder } from "./create-from-order.js";
 import { getDocument } from "./get.js";
 
@@ -55,6 +64,16 @@ const fixtures = {
   docIdempotency: randomUUID(),
   docIdempotencyConcurrent: randomUUID(),
   docIdempotencyConflict: randomUUID(),
+  orderSigned: randomUUID(),
+  itemSigned: randomUUID(),
+  docSigned: randomUUID(),
+  asicSigned: randomUUID(),
+  signatureSigned: randomUUID(),
+  orderGrant: randomUUID(),
+  itemGrant: randomUUID(),
+  docGrant: randomUUID(),
+  pdfGrant: randomUUID(),
+  requestGrant: randomUUID(),
 };
 
 const clerks = {
@@ -308,6 +327,20 @@ beforeAll(async () => {
     customerId: fixtures.customerA,
     productId: fixtures.productA,
   });
+  await insertSeedOrder({
+    id: fixtures.orderSigned,
+    itemId: fixtures.itemSigned,
+    companyId: companyA,
+    customerId: fixtures.customerA,
+    productId: fixtures.productA,
+  });
+  await insertSeedOrder({
+    id: fixtures.orderGrant,
+    itemId: fixtures.itemGrant,
+    companyId: companyA,
+    customerId: fixtures.customerA,
+    productId: fixtures.productA,
+  });
 
   await insertSeedDocument({
     id: fixtures.docIsolationA,
@@ -344,6 +377,68 @@ beforeAll(async () => {
     documentNumber: "KA-РХ-000903",
     status: "cancelled",
   });
+  await insertSeedDocument({
+    id: fixtures.docSigned,
+    companyId: companyA,
+    orderId: fixtures.orderSigned,
+    documentNumber: "KA-РХ-000904",
+    status: "issued",
+  });
+  await insertSeedDocument({
+    id: fixtures.docGrant,
+    companyId: companyA,
+    orderId: fixtures.orderGrant,
+    documentNumber: "KA-РХ-000905",
+    status: "issued",
+  });
+
+  await kit.db.runtime.db.insert(files).values({
+    id: fixtures.asicSigned,
+    companyId: companyA,
+    uploadedByUserId: kitIdentities.users.anna,
+    purpose: "signing",
+    mimeType: "application/vnd.etsi.asic-e+zip",
+    byteSize: 2048n,
+    objectKey: `${companyA}/signing/${fixtures.asicSigned}`,
+    status: "ready",
+    checksumSha256: "b".repeat(64),
+    stagingPurgedAt: new Date("2026-08-30T00:00:00.000Z"),
+  });
+  await kit.db.runtime.db.insert(files).values({
+    id: fixtures.pdfGrant,
+    companyId: companyA,
+    purpose: "document",
+    mimeType: "application/pdf",
+    byteSize: 1024n,
+    objectKey: `${companyA}/documents/${fixtures.pdfGrant}`,
+    status: "ready",
+    checksumSha256: "a".repeat(64),
+    stagingPurgedAt: new Date("2026-08-30T00:00:00.000Z"),
+  });
+  await kit.db.runtime.db.insert(signingSignatures).values({
+    id: fixtures.signatureSigned,
+    companyId: companyA,
+    documentId: fixtures.docSigned,
+    signerRole: "supplier",
+    fileId: fixtures.asicSigned,
+    signerCn: "ФОП Fixture",
+    signerOrg: "Fixture Org",
+    signerTaxId: "12345678",
+    signatureAlg: "DSTU4145",
+    signedAt: new Date("2026-08-30T12:00:00.000Z"),
+  });
+  await kit.db.runtime.db.insert(signingRequests).values({
+    id: fixtures.requestGrant,
+    companyId: companyA,
+    documentId: fixtures.docGrant,
+    payloadFileId: fixtures.pdfGrant,
+    payloadSha256: "a".repeat(64),
+    status: "pending",
+  });
+  await kit.db.runtime.db
+    .update(documents)
+    .set({ signRequestedAt: new Date("2026-08-30T11:00:00.000Z") })
+    .where(eq(documents.id, fixtures.docGrant));
 
   await kit.db.runtime.db.insert(user).values({
     id: clerks.noEdit,
@@ -460,6 +555,8 @@ describe("documents.cancel", () => {
     expect(fetched.status).toBe("cancelled");
     expect(fetched.documentNumber).toBe(numberBefore);
     expect(fetched.items).toHaveLength(1);
+    expect(fetched.signing).toEqual({ status: "unsigned" });
+    expect(fetched).toHaveProperty("pdfDownloadUrl");
   });
 
   it("lets createFromOrder issue the same order and type after cancel", async () => {
@@ -566,6 +663,47 @@ describe("documents.cancel", () => {
         },
       ),
     ).rejects.toBeInstanceOf(PermissionDeniedError);
+  });
+
+  it("conflicts when a supplier signature exists via nested signing read", async () => {
+    await expect(
+      kit.invoke(cancelDocument, { documentId: fixtures.docSigned }),
+    ).rejects.toSatisfy((error: unknown) => {
+      return (
+        error instanceof ConflictError &&
+        error.clientMessage === SIGNED_CANNOT_CANCEL_MESSAGE
+      );
+    });
+    const header = await kit.db.runtime.db
+      .select({ status: documents.status })
+      .from(documents)
+      .where(eq(documents.id, fixtures.docSigned));
+    expect(header[0]?.status).toBe("issued");
+  });
+
+  it("clears sign_requested_at on unsigned cancel even when a request is pending", async () => {
+    const before = await kit.db.runtime.db
+      .select({ signRequestedAt: documents.signRequestedAt })
+      .from(documents)
+      .where(eq(documents.id, fixtures.docGrant));
+    expect(before[0]?.signRequestedAt).not.toBeNull();
+    const pendingBefore = await kit.db.runtime.db
+      .select({ id: signingRequests.id })
+      .from(signingRequests)
+      .where(eq(signingRequests.id, fixtures.requestGrant));
+    expect(pendingBefore).toHaveLength(1);
+
+    await kit.invoke(cancelDocument, { documentId: fixtures.docGrant });
+
+    const after = await kit.db.runtime.db
+      .select({
+        status: documents.status,
+        signRequestedAt: documents.signRequestedAt,
+      })
+      .from(documents)
+      .where(eq(documents.id, fixtures.docGrant));
+    expect(after[0]?.status).toBe("cancelled");
+    expect(after[0]?.signRequestedAt).toBeNull();
   });
 
   it("rejects a missing idempotency key and a malformed documentId", async () => {

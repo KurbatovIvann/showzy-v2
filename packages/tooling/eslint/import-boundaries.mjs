@@ -242,6 +242,18 @@ function violation(from, spec, typeOnly) {
       ) {
         return null;
       }
+      // SHO-256: documents.get/list/requestSign/cancel nest signing reads
+      // without importing the doc-signing barrel (that barrel also exports
+      // abandonRequest, which imports the documents barrel — ESM cycle).
+      // Not a schema-join exception (ADR-0014 still forbids
+      // @showzy/db/schema/doc-signing from documents).
+      if (
+        moduleName === "documents" &&
+        pkg.name === "doc-signing" &&
+        (pkg.rest === "get" || pkg.rest === "get-supplier-signed-flags")
+      ) {
+        return null;
+      }
       return { messageId: "moduleCross" };
     }
     return null;

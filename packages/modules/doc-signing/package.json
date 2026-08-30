@@ -9,7 +9,8 @@
     "./contract": "./src/index.contract.ts",
     "./suite-coverage": "./src/suite-coverage.ts",
     "./subscriptions": "./src/events/request-abandoner.ts",
-    "./get": "./src/actions/get.ts"
+    "./get": "./src/actions/get.ts",
+    "./get-supplier-signed-flags": "./src/actions/get-supplier-signed-flags.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

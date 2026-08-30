@@ -17,9 +17,12 @@ import { products } from "@showzy/db/schema/catalog";
 import { companyMembers } from "@showzy/db/schema/companies";
 import { companyCustomers, counterparties } from "@showzy/db/schema/customers";
 import { documentGenerationJobs } from "@showzy/db/schema/doc-generation";
+import { signingSignatures } from "@showzy/db/schema/doc-signing";
 import { documentItems, documents } from "@showzy/db/schema/documents";
+import { files } from "@showzy/db/schema/files";
 import { orderItems, orders } from "@showzy/db/schema/orders";
 import { getArtifact } from "@showzy/doc-generation/get-artifact";
+import { getSigning } from "@showzy/doc-signing/get";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { getForGeneration } from "./get-for-generation.js";
@@ -33,13 +36,18 @@ const fixtures = {
   counterpartyA: randomUUID(),
   counterpartyB: randomUUID(),
   orderA: randomUUID(),
+  orderSigned: randomUUID(),
   orderB: randomUUID(),
   docInvoice: randomUUID(),
   docDelivery: randomUUID(),
+  docSigned: randomUUID(),
   docForeign: randomUUID(),
+  asicSigned: randomUUID(),
+  signatureSigned: randomUUID(),
   itemInvoice1: randomUUID(),
   itemInvoice2: randomUUID(),
   itemDelivery: randomUUID(),
+  itemSigned: randomUUID(),
   itemForeign: randomUUID(),
   orderItemA: randomUUID(),
   orderItemB: randomUUID(),
@@ -151,6 +159,17 @@ beforeAll(async () => {
       currency: "UAH",
     },
     {
+      id: fixtures.orderSigned,
+      companyId: companyA,
+      orderNumber: "T-2",
+      customerId: fixtures.customerA,
+      status: "new",
+      totalNetMinor: 250n,
+      totalTaxMinor: 0n,
+      totalGrossMinor: 250n,
+      currency: "UAH",
+    },
+    {
       id: fixtures.orderB,
       companyId: companyB,
       orderNumber: "T-1",
@@ -235,6 +254,26 @@ beforeAll(async () => {
       updatedAt: createdAt,
     },
     {
+      id: fixtures.docSigned,
+      companyId: companyA,
+      orderId: fixtures.orderSigned,
+      counterpartyId: null,
+      type: "payment_invoice",
+      status: "issued",
+      documentNumber: "KA-РХ-000011",
+      issuedOn: "2026-03-15",
+      supplierDetails: sellerSnapshot,
+      buyerDetails: customerBuyerSnapshot,
+      totalNetMinor: 250n,
+      totalTaxMinor: 0n,
+      totalGrossMinor: 250n,
+      currency: "UAH",
+      templateSource: "system",
+      templateName: "payment_invoice",
+      createdAt,
+      updatedAt: createdAt,
+    },
+    {
       id: fixtures.docForeign,
       companyId: companyB,
       orderId: fixtures.orderB,
@@ -300,6 +339,20 @@ beforeAll(async () => {
       createdAt,
     },
     {
+      id: fixtures.itemSigned,
+      companyId: companyA,
+      documentId: fixtures.docSigned,
+      productId: fixtures.productA,
+      titleSnapshot: "Signed line",
+      quantityMilli: 1000n,
+      unitPriceMinor: 250n,
+      taxTreatment: "exempt",
+      netAmountMinor: 250n,
+      grossAmountMinor: 250n,
+      currency: "UAH",
+      createdAt,
+    },
+    {
       id: fixtures.itemForeign,
       companyId: companyB,
       documentId: fixtures.docForeign,
@@ -320,6 +373,31 @@ beforeAll(async () => {
     documentId: fixtures.docInvoice,
     status: "pending",
     fileId: null,
+  });
+
+  await kit.db.runtime.db.insert(files).values({
+    id: fixtures.asicSigned,
+    companyId: companyA,
+    uploadedByUserId: kitIdentities.users.anna,
+    purpose: "signing",
+    mimeType: "application/vnd.etsi.asic-e+zip",
+    byteSize: 2048n,
+    objectKey: `${companyA}/signing/${fixtures.asicSigned}`,
+    status: "ready",
+    checksumSha256: "b".repeat(64),
+    stagingPurgedAt: new Date("2026-08-30T00:00:00.000Z"),
+  });
+  await kit.db.runtime.db.insert(signingSignatures).values({
+    id: fixtures.signatureSigned,
+    companyId: companyA,
+    documentId: fixtures.docSigned,
+    signerRole: "supplier",
+    fileId: fixtures.asicSigned,
+    signerCn: "ФОП Fixture",
+    signerOrg: "Fixture Org",
+    signerTaxId: "12345678",
+    signatureAlg: "DSTU4145",
+    signedAt: createdAt,
   });
 
   await kit.db.runtime.db.insert(user).values({
@@ -357,6 +435,14 @@ crossTenantSuite(
       { input: { documentId: fixtures.docInvoice } },
       { input: { documentId: fixtures.docForeign } },
     ),
+    isolationCase(
+      getSigning,
+      { input: { documentId: fixtures.docInvoice } },
+      {
+        companyId: kitIdentities.companies.b,
+        input: { documentId: fixtures.docInvoice },
+      },
+    ),
   ],
 );
 
@@ -382,6 +468,7 @@ describe("documents.get", () => {
     expect(result.currency).toBe("UAH");
     expect(result.generation).toEqual({ status: "pending", fileId: null });
     expect(result.pdfDownloadUrl).toBeNull();
+    expect(result.signing).toEqual({ status: "unsigned" });
     expect(result.buyerDetails).toEqual(customerBuyerSnapshot);
     expect(result.supplierDetails).toEqual(sellerSnapshot);
     expect(result.items).toHaveLength(2);
@@ -418,7 +505,29 @@ describe("documents.get", () => {
     expect(result.buyerDetails).toEqual(counterpartyBuyerSnapshot);
     expect(result.generation).toEqual({ status: "pending", fileId: null });
     expect(result.pdfDownloadUrl).toBeNull();
+    expect(result.signing).toEqual({ status: "unsigned" });
     expect(JSON.stringify(result)).not.toContain("Live Legal Face");
+  });
+
+  it("nests the supplier signing chip and keeps unsigned pdfDownloadUrl", async () => {
+    const unsigned = await kit.invoke(getDocument, {
+      documentId: fixtures.docInvoice,
+    });
+    expect(unsigned.signing).toEqual({ status: "unsigned" });
+    expect(unsigned.pdfDownloadUrl).toBeNull();
+    expect(unsigned).toHaveProperty("pdfDownloadUrl");
+    expect(unsigned).not.toHaveProperty("signedDownloadUrl");
+
+    const signed = await kit.invoke(getDocument, {
+      documentId: fixtures.docSigned,
+    });
+    expect(signed.signing).toEqual({
+      status: "supplier_signed",
+      signedFileId: fixtures.asicSigned,
+    });
+    expect(signed.pdfDownloadUrl).toBeNull();
+    expect(signed).toHaveProperty("pdfDownloadUrl");
+    expect(signed).not.toHaveProperty("signedDownloadUrl");
   });
 
   it("denies staff without documents:view", async () => {

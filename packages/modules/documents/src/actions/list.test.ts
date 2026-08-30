@@ -1,3 +1,7 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -12,6 +16,11 @@ import {
 
 const validId = "11111111-1111-4111-8111-111111111111";
 
+const listSource = readFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), "list.ts"),
+  "utf8",
+);
+
 describe("documents.list contract", () => {
   it("is a staff client read with documents:view", () => {
     expect(listDocumentsContract.name).toBe("documents.list");
@@ -25,7 +34,7 @@ describe("documents.list contract", () => {
     expect(listDocumentsContract.emits).toEqual([]);
     expect(listDocumentsContract.atomicCalls).toEqual([]);
     expect(listDocumentsContract.atomicCallers).toEqual([]);
-    expect(listDocumentsContract.timeout).toBe(5_000);
+    expect(listDocumentsContract.timeout).toBe(10_000);
     expect(listDocumentsContract.rateLimit).toBeUndefined();
     expect(LIST_DOCUMENTS_DEFAULT_LIMIT).toBe(20);
     expect(LIST_DOCUMENTS_MAX_LIMIT).toBe(50);
@@ -87,5 +96,15 @@ describe("documents.list contract", () => {
       createdAt: "2026-03-01T00:00:00.000Z",
       id: validId,
     });
+  });
+
+  it("nests one getSupplierSignedFlags call per page without N+1 get or foreign schema", () => {
+    expect(listSource).toContain("getSupplierSignedFlags");
+    expect(listSource).toContain(
+      "@showzy/doc-signing/get-supplier-signed-flags",
+    );
+    expect(listSource.match(/ctx\.call\(/g)?.length).toBe(1);
+    expect(listSource).not.toContain("getSigning");
+    expect(listSource).not.toContain("@showzy/db/schema/doc-signing");
   });
 });

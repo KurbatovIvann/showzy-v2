@@ -542,7 +542,10 @@ crossTenantSuite(
     isolationCase(
       getSigning,
       { input: { documentId: fixtures.docUnsignedA } },
-      { input: { documentId: fixtures.docForeign } },
+      {
+        companyId: kitIdentities.companies.b,
+        input: { documentId: fixtures.docUnsignedA },
+      },
     ),
     isolationCase(
       getSupplierSignedFlags,
@@ -602,32 +605,17 @@ describe("docSigning.get / getSupplierSignedFlags / abandonRequest", () => {
     });
   });
 
-  it("fails missing and foreign documents with the same not-found", async () => {
+  it("reports unsigned for missing and foreign ids without leaking existence or signed files", async () => {
     const missingId = randomUUID();
-    const missingError = await kit
-      .invoke(getSigning, { documentId: missingId })
-      .then(
-        () => {
-          throw new Error("expected NotFoundError for a missing document");
-        },
-        (error: unknown) => error,
-      );
-    const foreignError = await kit
-      .invoke(getSigning, { documentId: fixtures.docForeign })
-      .then(
-        () => {
-          throw new Error("expected NotFoundError for a foreign document");
-        },
-        (error: unknown) => error,
-      );
-    expect(missingError).toBeInstanceOf(NotFoundError);
-    expect(foreignError).toBeInstanceOf(NotFoundError);
-    if (
-      missingError instanceof NotFoundError &&
-      foreignError instanceof NotFoundError
-    ) {
-      expect(missingError.clientMessage).toBe(foreignError.clientMessage);
-    }
+    expect(await kit.invoke(getSigning, { documentId: missingId })).toEqual({
+      status: "unsigned",
+    });
+    expect(
+      await kit.invoke(getSigning, { documentId: fixtures.docForeign }),
+    ).toEqual({ status: "unsigned" });
+    expect(
+      await kit.invoke(getSigning, { documentId: fixtures.docForeignPending }),
+    ).toEqual({ status: "unsigned" });
   });
 
   it("denies staff without documents:view", async () => {

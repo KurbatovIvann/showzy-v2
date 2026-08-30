@@ -2,7 +2,8 @@
  * Documents tables (SHO-228, documents-T1). Owned by the documents module
  * (ADR-0014). Line rows are immutable money snapshots (money.md): no
  * `updated_at`. Deliberately absent: `default_document_templates`, year on
- * the counter, `template_id` FK, `pdf_url`, order status, signature columns.
+ * the counter, `template_id` FK, `pdf_url`, order status, signature columns
+ * (`sign_requested_at` is the HITL grant, not a signature).
  */
 import { sql } from "drizzle-orm";
 import {
@@ -60,6 +61,7 @@ export const documents = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
+    signRequestedAt: timestamp("sign_requested_at", { withTimezone: true }),
   },
   (table) => [
     unique("documents_company_id_id_uq").on(table.companyId, table.id),

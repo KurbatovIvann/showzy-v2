@@ -228,6 +228,7 @@ describe("client composition", () => {
     expect(contractRouter.documents.get).toBeDefined();
     expect(contractRouter.documents.getShared).toBeDefined();
     expect(contractRouter.documents.list).toBeDefined();
+    expect(contractRouter.documents.requestSign).toBeDefined();
     expect(contractRouter.documents.share).toBeDefined();
     expect(contractRouter.docSigning.get).toBeDefined();
     expect(contractModules.docSigning).not.toHaveProperty(

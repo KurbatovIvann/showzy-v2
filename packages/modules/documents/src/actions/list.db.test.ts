@@ -12,8 +12,11 @@ import { user } from "@showzy/db/schema/auth";
 import { products } from "@showzy/db/schema/catalog";
 import { companies, companyMembers } from "@showzy/db/schema/companies";
 import { companyCustomers, counterparties } from "@showzy/db/schema/customers";
+import { signingSignatures } from "@showzy/db/schema/doc-signing";
 import { documentItems, documents } from "@showzy/db/schema/documents";
+import { files } from "@showzy/db/schema/files";
 import { orderItems, orders } from "@showzy/db/schema/orders";
+import { getSupplierSignedFlags } from "@showzy/doc-signing/get-supplier-signed-flags";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { listDocuments } from "./list.js";
@@ -41,6 +44,8 @@ const fixtures = {
   docNewest: randomUUID(),
   docCancelled: randomUUID(),
   docForeign: randomUUID(),
+  asicNewest: randomUUID(),
+  signatureNewest: randomUUID(),
   itemOlder: randomUUID(),
   itemSharedInvoice: randomUUID(),
   itemSharedDelivery: randomUUID(),
@@ -384,6 +389,31 @@ beforeAll(async () => {
     totalGrossMinor: 999n,
   });
 
+  await kit.db.runtime.db.insert(files).values({
+    id: fixtures.asicNewest,
+    companyId: companyA,
+    uploadedByUserId: kitIdentities.users.anna,
+    purpose: "signing",
+    mimeType: "application/vnd.etsi.asic-e+zip",
+    byteSize: 2048n,
+    objectKey: `${companyA}/signing/${fixtures.asicNewest}`,
+    status: "ready",
+    checksumSha256: "b".repeat(64),
+    stagingPurgedAt: new Date("2026-08-30T00:00:00.000Z"),
+  });
+  await kit.db.runtime.db.insert(signingSignatures).values({
+    id: fixtures.signatureNewest,
+    companyId: companyA,
+    documentId: fixtures.docNewest,
+    signerRole: "supplier",
+    fileId: fixtures.asicNewest,
+    signerCn: "ФОП Fixture",
+    signerOrg: "Fixture Org",
+    signerTaxId: "12345678",
+    signatureAlg: "DSTU4145",
+    signedAt: timestamps.newest,
+  });
+
   await kit.db.runtime.db.insert(user).values({
     id: clerkUserId,
     name: "Clerk",
@@ -411,6 +441,14 @@ crossTenantSuite(
         input: {},
         companyId: kitIdentities.companies.b,
         userId: kitIdentities.users.anna,
+      },
+    ),
+    isolationCase(
+      getSupplierSignedFlags,
+      { input: { documentIds: [fixtures.docNewest] } },
+      {
+        companyId: kitIdentities.companies.b,
+        input: { documentIds: [fixtures.docNewest] },
       },
     ),
   ],
@@ -442,7 +480,13 @@ describe("documents.list", () => {
       issuedOn: "2026-04-01",
       createdAt: timestamps.cancelled.toISOString(),
       buyerLabel: "Snapshotted Buyer",
+      supplierSigned: false,
     });
+
+    const newest = result.items.find(
+      (row) => row.documentId === fixtures.docNewest,
+    );
+    expect(newest?.supplierSigned).toBe(true);
 
     const delivery = result.items.find(
       (row) => row.documentId === fixtures.docSharedDelivery,
@@ -454,6 +498,7 @@ describe("documents.list", () => {
       counterpartyId: fixtures.counterpartyA,
       buyerLabel: "Snapshotted Legal",
       totalGrossMinor: "300",
+      supplierSigned: false,
     });
 
     expect(Object.keys(cancelled ?? {}).toSorted()).toEqual([
@@ -466,6 +511,7 @@ describe("documents.list", () => {
       "issuedOn",
       "orderId",
       "status",
+      "supplierSigned",
       "totalGrossMinor",
       "type",
     ]);
