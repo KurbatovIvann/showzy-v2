@@ -6,15 +6,20 @@ import {
   nativeAdapterHttpPlan,
   nodeAdapterHttpPlan,
   resolveAdapterHttpInit,
+  type UapkiCwrap,
 } from "./http-init.js";
 import { createNodeAdapter } from "./node-adapter.js";
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
 function initOffline(request: Record<string, unknown>): boolean {
   const parameters = request.parameters;
-  if (typeof parameters !== "object" || parameters === null) {
+  if (!isRecord(parameters)) {
     throw new Error("INIT request missing parameters");
   }
-  if (!("offline" in parameters) || typeof parameters.offline !== "boolean") {
+  if (typeof parameters.offline !== "boolean") {
     throw new Error("INIT request missing offline boolean");
   }
   return parameters.offline;
@@ -58,20 +63,20 @@ describe("adapter HTTP init contract (SHO-252)", () => {
     );
     expect(corsProxyUrl).toBeUndefined();
     const parsed: unknown = JSON.parse(initRequestJson);
-    expect(parsed).toEqual(
-      expect.objectContaining({
-        method: "INIT",
-        parameters: expect.objectContaining({
-          offline: true,
-          certCache: { path: "/tmp/cache/uapki/certs/" },
-          crlCache: { path: "/tmp/cache/uapki/crl/" },
-        }),
-      }),
-    );
-    if (typeof parsed !== "object" || parsed === null) {
+    if (!isRecord(parsed)) {
       throw new Error("native INIT JSON is not an object");
     }
+    expect(parsed.method).toBe("INIT");
     expect(initOffline(parsed)).toBe(true);
+    if (!isRecord(parsed.parameters)) {
+      throw new Error("native INIT JSON missing parameters");
+    }
+    expect(parsed.parameters.certCache).toEqual({
+      path: "/tmp/cache/uapki/certs/",
+    });
+    expect(parsed.parameters.crlCache).toEqual({
+      path: "/tmp/cache/uapki/crl/",
+    });
   });
 
   it("native INIT JSON is online only together with a proxy URL (handler will be registered)", () => {
@@ -81,7 +86,7 @@ describe("adapter HTTP init contract (SHO-252)", () => {
     );
     expect(corsProxyUrl).toBe(PKI_PROXY_PATH);
     const parsed: unknown = JSON.parse(initRequestJson);
-    if (typeof parsed !== "object" || parsed === null) {
+    if (!isRecord(parsed)) {
       throw new Error("native INIT JSON is not an object");
     }
     expect(initOffline(parsed)).toBe(false);
@@ -103,11 +108,7 @@ describe("adapter HTTP init contract (SHO-252)", () => {
 
   it("applies WASM set_cors_proxy_url only when a proxy is configured", () => {
     const calls: Array<{ name: string; args: unknown[] }> = [];
-    const cwrap = (
-      name: string,
-      _returnType: string,
-      _argTypes: string[],
-    ): ((...args: unknown[]) => unknown) => {
+    const cwrap: UapkiCwrap = (name) => {
       return (...args: unknown[]) => {
         calls.push({ name, args });
         return undefined;
