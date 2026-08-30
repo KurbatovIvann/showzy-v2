@@ -88,6 +88,7 @@ import {
   abandonRequest,
   getSigning,
   getSupplierSignedFlags,
+  startSigning,
 } from "@showzy/doc-signing";
 import { requestAbandonerSubscriptions } from "@showzy/doc-signing/subscriptions";
 import { docSigningSuiteCoverage } from "@showzy/doc-signing/suite-coverage";
@@ -310,6 +311,14 @@ const callEdges: readonly DeclaredCallEdge[] = [
     caller: "docSigning.abandonRequest",
     callee: "documents.getForGeneration",
   },
+  {
+    caller: "docSigning.start",
+    callee: "documents.get",
+  },
+  {
+    caller: "docSigning.start",
+    callee: "files.issueDocumentDownloadUrl",
+  },
 ];
 
 const readModelGrants: readonly ReadModelGrantRef[] = [
@@ -443,6 +452,7 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, getSigning);
   registerAction(registry, getSupplierSignedFlags);
   registerAction(registry, abandonRequest);
+  registerAction(registry, startSigning);
   registerAction(registry, createOrder);
   registerAction(registry, confirmOrder);
   registerAction(registry, cancelOrder);

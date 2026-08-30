@@ -16,12 +16,13 @@ function executableSource(relative: string): string {
     .replace(/\/\/.*$/gm, " ");
 }
 
-describe("doc-signing source guards (SHO-254)", () => {
+describe("doc-signing source guards (SHO-254 / SHO-257)", () => {
   it("does not import foreign documents or files schema (ADR-0014)", () => {
     const sources = [
       "actions/get.ts",
       "actions/get-supplier-signed-flags.ts",
       "actions/abandon-request.ts",
+      "actions/start.ts",
       "events/request-abandoner.ts",
       "index.ts",
     ];
@@ -42,6 +43,14 @@ describe("doc-signing source guards (SHO-254)", () => {
     );
     expect(executableSource("actions/abandon-request.ts")).toContain(
       "@showzy/db/schema/doc-signing",
+    );
+    expect(executableSource("actions/start.ts")).toContain(
+      "@showzy/db/schema/doc-signing",
+    );
+    expect(executableSource("actions/start.ts")).toContain("ctx.call");
+    expect(executableSource("actions/start.ts")).not.toContain("getArtifact");
+    expect(executableSource("actions/start.ts")).not.toContain(
+      "docSigning.complete",
     );
   });
 

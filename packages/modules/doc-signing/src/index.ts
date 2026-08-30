@@ -6,3 +6,4 @@
 export { abandonRequest } from "./actions/abandon-request.js";
 export { getSigning } from "./actions/get.js";
 export { getSupplierSignedFlags } from "./actions/get-supplier-signed-flags.js";
+export { startSigning } from "./actions/start.js";

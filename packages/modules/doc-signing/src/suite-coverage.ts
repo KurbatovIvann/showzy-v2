@@ -1,22 +1,22 @@
 import type { SuiteCoverageManifest } from "@showzy/core";
 
 /**
- * Isolation lists the system abandon write as well as the staff reads
- * because the contract check requires every registered action in
- * crossTenantSuite (core.md §12). Idempotency is omitted: the write is
- * delivery-backed.
+ * Isolation lists every registered action (core.md §12). Abandon is
+ * delivery-backed so it stays off idempotency; start is a client write
+ * with `idempotent: true` and instantiates idempotencySuite.
  */
 export const docSigningSuiteCoverage = {
   isolation: [
     "docSigning.abandonRequest",
     "docSigning.get",
     "docSigning.getSupplierSignedFlags",
+    "docSigning.start",
   ],
   publicProjection: [],
   consumerIsolation: [],
   accountIsolation: [],
   shareIsolation: [],
-  idempotency: [],
+  idempotency: ["docSigning.start"],
   events: ["docSigning"],
   atomic: [],
 } as const satisfies SuiteCoverageManifest;
