@@ -158,9 +158,13 @@ function rewriteDottedIpv4Suffix(address: string): string | null {
   if (octets.some((octet) => octet > 255)) {
     return null;
   }
+  const prefix = match[1];
+  if (prefix === undefined) {
+    return null;
+  }
   const high = ((octets[0] ?? 0) << 8) | (octets[1] ?? 0);
   const low = ((octets[2] ?? 0) << 8) | (octets[3] ?? 0);
-  return `${match[1]}:${high.toString(16)}:${low.toString(16)}`;
+  return `${prefix}:${high.toString(16)}:${low.toString(16)}`;
 }
 
 function parseHexGroups(part: string): number[] | null {
@@ -178,7 +182,7 @@ function parseHexGroups(part: string): number[] | null {
 }
 
 function hextetsToIpv4(high: number, low: number): string {
-  return `${(high >> 8) & 255}.${high & 255}.${(low >> 8) & 255}.${low & 255}`;
+  return [(high >> 8) & 255, high & 255, (low >> 8) & 255, low & 255].join(".");
 }
 
 function addTrustedEntry(list: BlockList, entry: string): void {
