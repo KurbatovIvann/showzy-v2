@@ -123,9 +123,9 @@ export async function recordStaffSigningObject(input: {
       byteSize: BigInt(input.input.byteSize),
       checksumSha256: input.input.checksumSha256,
       uploadedByUserId: userId,
-      // Catalog leftover GC is purpose=catalog only. Generated PDFs set
-      // this at insert; signing handshake leftover is not that sweeper's
-      // job, so mark the cursor here (SHO-253).
+      // Same end state as leftover-sweep / generated PDFs (SHO-117):
+      // staging is gone and the cursor is set. Catalog leftover GC stays
+      // purpose=catalog and never deletes {companyId}/signing/{fileId}.
       stagingPurgedAt: new Date(),
     })
     .where(
@@ -155,6 +155,10 @@ export async function recordStaffSigningObject(input: {
       "This file cannot be recorded as a signing object.",
     );
   }
+
+  // Delete after the ready update so a leftover signed PUT can only
+  // overwrite staging, never the durable signing object (SHO-113).
+  await store.deleteObject(stagingKey);
 
   input.ctx.log.info(
     {

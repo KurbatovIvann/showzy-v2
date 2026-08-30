@@ -25,6 +25,15 @@ describe("files.sweepAbandonedUploads contract", () => {
     expect(sweepAbandonedUploadsContract.timeout).toBe(30_000);
     expect(ABANDONED_PENDING_TTL_MS).toBe(60 * 60 * 1000);
     expect(SWEEP_BATCH_LIMIT).toBe(20);
+    expect(sweepAbandonedUploadsContract.description).toContain(
+      "pending catalog or signing",
+    );
+    expect(sweepAbandonedUploadsContract.description).toContain(
+      "document objects are never deleted",
+    );
+    expect(sweepAbandonedUploadsContract.description).toContain(
+      "unsigned ZIP is never treated as durable",
+    );
   });
 
   it("accepts an optional batch limit and never returns a URL, object key, or file id", () => {
