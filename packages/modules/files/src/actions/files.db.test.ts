@@ -2999,6 +2999,7 @@ describe("files.recordSigningObject", () => {
       signingObjectKey(kitIdentities.companies.a, pending.fileId),
     );
     expect(rows[0]?.objectKey).not.toContain("/uploads/");
+    expect(rows[0]?.stagingPurgedAt).not.toBeNull();
 
     const durable = await getFilesObjectStore().getObject(
       signingObjectKey(kitIdentities.companies.a, pending.fileId),

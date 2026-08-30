@@ -123,6 +123,10 @@ export async function recordStaffSigningObject(input: {
       byteSize: BigInt(input.input.byteSize),
       checksumSha256: input.input.checksumSha256,
       uploadedByUserId: userId,
+      // Catalog leftover GC is purpose=catalog only. Generated PDFs set
+      // this at insert; signing handshake leftover is not that sweeper's
+      // job, so mark the cursor here (SHO-253).
+      stagingPurgedAt: new Date(),
     })
     .where(
       and(

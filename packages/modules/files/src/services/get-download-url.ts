@@ -237,7 +237,7 @@ export async function getStaffDocumentDownloadUrl(input: {
 }
 
 async function getReadySigningDownloadUrl(input: {
-  readonly db: StaffCtx["db"] | SystemTenantCtx["db"];
+  readonly db: StaffCtx["db"];
   readonly companyId: string;
   readonly fileId: string;
 }): Promise<SignedDownload> {
