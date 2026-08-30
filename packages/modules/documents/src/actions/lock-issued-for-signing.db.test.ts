@@ -138,7 +138,7 @@ const callLockIssuedForSigning = implementAction(
     emits: [],
     atomicCalls: [],
     atomicCallers: [],
-    audit: false,
+    audit: true,
     timeout: 10_000,
   }),
   {
@@ -149,6 +149,13 @@ const callLockIssuedForSigning = implementAction(
         );
       }
       return ctx.call(lockIssuedForSigning, input);
+    },
+    auditTarget: (env) => {
+      const parsed = lockIssuedForSigningInputSchema.safeParse(env.input);
+      return {
+        type: "document",
+        id: parsed.success ? parsed.data.documentId : "unknown",
+      };
     },
   },
 );
