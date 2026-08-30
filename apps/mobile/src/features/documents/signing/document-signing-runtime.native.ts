@@ -128,6 +128,14 @@ export async function createDocumentSigningEngine(
     if (error instanceof SigningPasswordError) {
       throw error;
     }
+    if (__DEV__) {
+      // Metro-only: surface why Nitro engine init failed before the error
+      // is collapsed into the generic "native" banner. Never logs key bytes.
+      console.warn("[showzy/signing] engine init failed", {
+        name: error instanceof Error ? error.name : typeof error,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
     throw new SigningUnavailableError();
   }
 }

@@ -57,6 +57,18 @@
 #include <unistd.h>
 #endif
 
+/* Local patch (not upstream UAPKI): upstream jitterentropy must be built
+ * without compiler optimizations — optimized code collapses the timing
+ * jitter of jent_memaccess()/jent_hash_time() and the power-up health test
+ * in jent_time_entropy_init() fails (SELF_TEST_ENTROPY_FAIL). The CocoaPods
+ * / Gradle builds compile every file with the app configuration, so disable
+ * optimization at file scope here. */
+#if defined(__clang__)
+#pragma clang optimize off
+#elif defined(__GNUC__)
+#pragma GCC optimize("O0")
+#endif
+
 #define SHA3_256_SIZE_DIGEST_BITS	256
 #define SHA3_256_SIZE_DIGEST		(SHA3_256_SIZE_DIGEST_BITS >> 3)
 
