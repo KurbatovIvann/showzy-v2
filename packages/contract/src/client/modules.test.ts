@@ -45,6 +45,7 @@ import {
   getDocumentContract,
   getSharedContract,
   listDocumentsContract,
+  requestSignContract,
   shareDocumentContract,
 } from "@showzy/documents/contract";
 import { getSigningContract } from "@showzy/doc-signing/contract";
@@ -138,6 +139,7 @@ describe("client composition", () => {
         get: getDocumentContract,
         getShared: getSharedContract,
         list: listDocumentsContract,
+        requestSign: requestSignContract,
         share: shareDocumentContract,
       },
       docSigning: {

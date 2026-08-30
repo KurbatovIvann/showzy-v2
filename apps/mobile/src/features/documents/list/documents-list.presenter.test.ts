@@ -31,6 +31,7 @@ function item(overrides: Partial<DocumentListItem> = {}): DocumentListItem {
     issuedOn: "2026-08-29",
     createdAt: "2026-08-29T12:00:00.000Z",
     buyerLabel: "ФОП Кековченко І. В.",
+    supplierSigned: false,
     ...overrides,
   };
 }
