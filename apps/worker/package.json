@@ -17,6 +17,7 @@
     "@showzy/core": "workspace:*",
     "@showzy/db": "workspace:*",
     "@showzy/doc-generation": "workspace:*",
+    "@showzy/doc-signing": "workspace:*",
     "@showzy/files": "workspace:*",
     "bullmq": "6.2.0",
     "ioredis": "^6.0.0",
