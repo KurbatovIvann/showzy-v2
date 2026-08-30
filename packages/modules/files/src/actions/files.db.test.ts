@@ -24,6 +24,7 @@ import { user } from "@showzy/db/schema/auth";
 import { companyMembers } from "@showzy/db/schema/companies";
 import { files } from "@showzy/db/schema/files";
 import { and, count, eq, isNull } from "drizzle-orm";
+import sharp from "sharp";
 import {
   GenericContainer,
   Wait,
@@ -53,6 +54,7 @@ import { sha256Hex } from "../services/checksum.js";
 import type { FileReadyView } from "../services/file-view.js";
 import {
   catalogObjectKey,
+  catalogRenditionObjectKey,
   documentObjectKey,
   signingObjectKey,
   stagingObjectKey,
@@ -67,7 +69,9 @@ import {
   SIGNED_URL_TTL_SEC,
 } from "../services/s3-port.js";
 import { waitForObjectVisibility } from "../testing/object-visibility.js";
+import { pngWithIhdrDimensions } from "../testing/png-with-ihdr-dimensions.js";
 import {
+  CATALOG_RENDITIONS,
   MAX_DOCUMENT_BYTES,
   MAX_UPLOAD_BYTES,
   SIGNING_MIME_TYPE,
@@ -81,15 +85,30 @@ const GARAGE_BUCKET = "showzy";
 const GARAGE_ACCESS_KEY = "showzy-local";
 const GARAGE_SECRET_KEY = "showzy-local-secret";
 
-const jpegBytes = Uint8Array.from([
-  0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01,
-  0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0xff, 0xd9,
-]);
-const pngBytes = Uint8Array.from([
-  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49,
-  0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x02,
-  0x00, 0x00, 0x00, 0x90, 0x77, 0x53, 0xde,
-]);
+const jpegBytes = new Uint8Array(
+  await sharp({
+    create: {
+      width: 8,
+      height: 8,
+      channels: 3,
+      background: { r: 220, g: 40, b: 40 },
+    },
+  })
+    .jpeg({ quality: 80 })
+    .toBuffer(),
+);
+const pngBytes = new Uint8Array(
+  await sharp({
+    create: {
+      width: 8,
+      height: 8,
+      channels: 3,
+      background: { r: 40, g: 80, b: 200 },
+    },
+  })
+    .png()
+    .toBuffer(),
+);
 const exeBytes = Uint8Array.from([
   0x4d, 0x5a, 0x90, 0x00, 0x03, 0x00, 0x00, 0x00,
 ]);
@@ -510,6 +529,34 @@ async function putStoreObject(
     bytes,
   });
   await waitForObjectVisibility(store, key, "present");
+}
+
+async function expectCatalogRenditions(
+  companyId: string,
+  fileId: string,
+  expected: "present" | "missing",
+): Promise<void> {
+  const store = getFilesObjectStore();
+  for (const rendition of CATALOG_RENDITIONS) {
+    const key = catalogRenditionObjectKey(companyId, fileId, rendition);
+    if (expected === "present") {
+      await waitForObjectVisibility(store, key, "present");
+    } else {
+      await waitForObjectVisibility(store, key, "missing");
+      expect(await store.headObject(key)).toBe("missing");
+    }
+  }
+}
+
+async function putCatalogRenditionObjects(
+  companyId: string,
+  fileId: string,
+): Promise<void> {
+  for (const rendition of CATALOG_RENDITIONS) {
+    await putStoreObject(
+      catalogRenditionObjectKey(companyId, fileId, rendition),
+    );
+  }
 }
 
 async function putGeneratedPdf(
@@ -1066,6 +1113,16 @@ describe("files signed upload slice", () => {
     });
     expect(again).toEqual(ready);
 
+    const catalogHead = await getFilesObjectStore().headObject(
+      catalogObjectKey(kitIdentities.companies.a, requested.fileId),
+    );
+    expect(catalogHead).not.toBe("missing");
+    await expectCatalogRenditions(
+      kitIdentities.companies.a,
+      requested.fileId,
+      "present",
+    );
+
     const download = await requireKit().invoke(getDownloadUrl, {
       fileId: requested.fileId,
     });
@@ -1286,6 +1343,20 @@ describe("files signed upload slice", () => {
       requireKit().invoke(
         getDownloadUrl,
         { fileId: downloadOwnInput.fileId },
+        { ...actorCompany, userId: clerks.noView },
+      ),
+    ).rejects.toBeInstanceOf(PermissionDeniedError);
+    await expect(
+      requireKit().invoke(
+        getDownloadUrl,
+        { fileId: downloadOwnInput.fileId, rendition: "thumb" },
+        { ...actorCompany, userId: clerks.noView },
+      ),
+    ).rejects.toBeInstanceOf(PermissionDeniedError);
+    await expect(
+      requireKit().invoke(
+        getDownloadUrls,
+        { fileIds: [downloadOwnInput.fileId], rendition: "card" },
         { ...actorCompany, userId: clerks.noView },
       ),
     ).rejects.toBeInstanceOf(PermissionDeniedError);
@@ -1831,6 +1902,247 @@ describe("files.getDownloadUrls", () => {
   });
 });
 
+describe("files catalog renditions", () => {
+  async function solidJpeg(input: {
+    readonly width: number;
+    readonly height: number;
+    readonly orientation?: number;
+  }): Promise<Uint8Array> {
+    let pipeline = sharp({
+      create: {
+        width: input.width,
+        height: input.height,
+        channels: 3,
+        background: { r: 40, g: 120, b: 200 },
+      },
+    }).jpeg({ quality: 80 });
+    if (input.orientation !== undefined) {
+      pipeline = pipeline.withMetadata({ orientation: input.orientation });
+    }
+    return new Uint8Array(await pipeline.toBuffer());
+  }
+
+  it("downloads each named rendition as inline WebP and omits rendition as the original", async () => {
+    const capturing = createCapturingLogger();
+    const fileId = (await requestPutFinalize(jpegBytes, "image/jpeg")).fileId;
+    await expectCatalogRenditions(kitIdentities.companies.a, fileId, "present");
+
+    const original = await requireKit().invoke(
+      getDownloadUrl,
+      { fileId },
+      {},
+      { deps: { ...requireKit().pipeline, logger: capturing.logger } },
+    );
+    const fetchedOriginal = await fetch(original.downloadUrl);
+    expect(fetchedOriginal.ok).toBe(true);
+    expect(sha256Hex(new Uint8Array(await fetchedOriginal.arrayBuffer()))).toBe(
+      jpegChecksum,
+    );
+    expect(fetchedOriginal.headers.get("content-type")).toMatch(
+      /^image\/jpeg/i,
+    );
+
+    for (const rendition of CATALOG_RENDITIONS) {
+      const signed = await requireKit().invoke(
+        getDownloadUrl,
+        { fileId, rendition },
+        {},
+        { deps: { ...requireKit().pipeline, logger: capturing.logger } },
+      );
+      const fetched = await fetch(signed.downloadUrl);
+      expect(fetched.ok).toBe(true);
+      expect(fetched.headers.get("content-type")).toMatch(/^image\/webp/i);
+      expect(fetched.headers.get("content-disposition")).toContain("inline");
+      const body = new Uint8Array(await fetched.arrayBuffer());
+      const meta = await sharp(body).metadata();
+      expect(meta.format).toBe("webp");
+      expect(meta.exif).toBeUndefined();
+      expect(signed.downloadUrl).not.toBe(original.downloadUrl);
+    }
+
+    const logs = JSON.stringify(capturing.entries());
+    expect(logs).not.toContain(original.downloadUrl);
+    expect(logs).not.toMatch(/X-Amz-Signature/);
+    expect(logs).not.toMatch(/\/catalog\//);
+  });
+
+  it("fails the batch when any rendition object is missing and does not fall back", async () => {
+    const first = await requestPutFinalize(jpegBytes, "image/jpeg");
+    const second = await requestPutFinalize(pngBytes, "image/png");
+    const store = getFilesObjectStore();
+    const missingKey = catalogRenditionObjectKey(
+      kitIdentities.companies.a,
+      second.fileId,
+      "thumb",
+    );
+    await store.deleteObject(missingKey);
+    await waitForObjectVisibility(store, missingKey, "missing");
+
+    await expect(
+      requireKit().invoke(getDownloadUrl, {
+        fileId: second.fileId,
+        rendition: "thumb",
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+
+    const omitted = await requireKit().invoke(getDownloadUrl, {
+      fileId: second.fileId,
+    });
+    const fetchedOriginal = await fetch(omitted.downloadUrl);
+    expect(fetchedOriginal.ok).toBe(true);
+    expect(sha256Hex(new Uint8Array(await fetchedOriginal.arrayBuffer()))).toBe(
+      pngChecksum,
+    );
+
+    await expect(
+      requireKit().invoke(getDownloadUrls, {
+        fileIds: [first.fileId, second.fileId],
+        rendition: "thumb",
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+
+    const thumbs = await requireKit().invoke(getDownloadUrls, {
+      fileIds: [first.fileId],
+      rendition: "thumb",
+    });
+    expect(thumbs.files).toHaveLength(1);
+    const fetchedThumb = await fetch(thumbs.files[0]?.downloadUrl ?? "");
+    expect(fetchedThumb.ok).toBe(true);
+    expect(fetchedThumb.headers.get("content-type")).toMatch(/^image\/webp/i);
+  });
+
+  it("treats pending, missing, and foreign rendition downloads as not-found", async () => {
+    const pending = await requireKit().invoke(requestUpload, jpegInput);
+    await expect(
+      requireKit().invoke(getDownloadUrl, {
+        fileId: pending.fileId,
+        rendition: "hero",
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      requireKit().invoke(getDownloadUrl, {
+        fileId: randomUUID(),
+        rendition: "full",
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      requireKit().invoke(getDownloadUrl, {
+        fileId: downloadForeignInput.fileId,
+        rendition: "card",
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      requireKit().invoke(getDownloadUrls, {
+        fileIds: [downloadOwnInput.fileId, downloadForeignInput.fileId],
+        rendition: "thumb",
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("fills missing rendition keys on a second finalize without rewriting the original", async () => {
+    const ready = await requestPutFinalize(jpegBytes, "image/jpeg");
+    const store = getFilesObjectStore();
+    const catalogKey = catalogObjectKey(
+      kitIdentities.companies.a,
+      ready.fileId,
+    );
+    const thumbKey = catalogRenditionObjectKey(
+      kitIdentities.companies.a,
+      ready.fileId,
+      "thumb",
+    );
+    await store.deleteObject(thumbKey);
+    await waitForObjectVisibility(store, thumbKey, "missing");
+
+    const again = await requireKit().invoke(finalizeUpload, {
+      fileId: ready.fileId,
+    });
+    expect(again.checksumSha256).toBe(jpegChecksum);
+    expect(again.byteSize).toBe(jpegBytes.byteLength);
+
+    const catalog = await store.getObject(catalogKey);
+    expect(catalog).not.toBe("missing");
+    if (catalog === "missing") {
+      throw new Error("expected original catalog object after second finalize");
+    }
+    expect(sha256Hex(catalog.bytes)).toBe(jpegChecksum);
+    await expectCatalogRenditions(
+      kitIdentities.companies.a,
+      ready.fileId,
+      "present",
+    );
+  });
+
+  it("keeps an oversized-pixel catalog upload pending", async () => {
+    const over = 8001;
+    const bomb = pngWithIhdrDimensions(over, over);
+    const fileId = await requestAndPut(bomb, "image/png");
+    await expect(
+      requireKit().invoke(finalizeUpload, { fileId }),
+    ).rejects.toBeInstanceOf(ValidationError);
+
+    const rows = await requireKit()
+      .db.runtime.db.select()
+      .from(files)
+      .where(eq(files.id, fileId));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.status).toBe("pending");
+    expect(
+      await getFilesObjectStore().headObject(
+        catalogObjectKey(kitIdentities.companies.a, fileId),
+      ),
+    ).toBe("missing");
+    await expectCatalogRenditions(kitIdentities.companies.a, fileId, "missing");
+  });
+
+  it("bakes EXIF orientation into metadata-free WebP renditions", async () => {
+    const source = await solidJpeg({
+      width: 100,
+      height: 40,
+      orientation: 6,
+    });
+    const fileId = (await requestPutFinalize(source, "image/jpeg")).fileId;
+    const signed = await requireKit().invoke(getDownloadUrl, {
+      fileId,
+      rendition: "full",
+    });
+    const fetched = await fetch(signed.downloadUrl);
+    expect(fetched.ok).toBe(true);
+    const body = new Uint8Array(await fetched.arrayBuffer());
+    const meta = await sharp(body).metadata();
+    expect(meta.format).toBe("webp");
+    expect(meta.width).toBe(40);
+    expect(meta.height).toBe(100);
+    expect(meta.exif).toBeUndefined();
+    expect(meta.icc).toBeUndefined();
+    expect(meta.iptc).toBeUndefined();
+    expect(meta.xmp).toBeUndefined();
+    expect(meta.orientation).toBeUndefined();
+  });
+
+  it("does not upscale a 720px original and still writes all four renditions", async () => {
+    const source = await solidJpeg({ width: 720, height: 400 });
+    const fileId = (await requestPutFinalize(source, "image/jpeg")).fileId;
+    await expectCatalogRenditions(kitIdentities.companies.a, fileId, "present");
+
+    const longEdge = async (rendition: (typeof CATALOG_RENDITIONS)[number]) => {
+      const signed = await requireKit().invoke(getDownloadUrl, {
+        fileId,
+        rendition,
+      });
+      const fetched = await fetch(signed.downloadUrl);
+      const body = new Uint8Array(await fetched.arrayBuffer());
+      const meta = await sharp(body).metadata();
+      return Math.max(meta.width, meta.height);
+    };
+
+    expect(await longEdge("thumb")).toBe(256);
+    expect(await longEdge("card")).toBe(640);
+    expect(await longEdge("hero")).toBe(720);
+    expect(await longEdge("full")).toBe(720);
+  });
+});
+
 describe("files.sweepAbandonedUploads", () => {
   async function ageReadyRows(ids: readonly string[]): Promise<void> {
     for (const id of ids) {
@@ -1981,6 +2293,16 @@ describe("files.sweepAbandonedUploads", () => {
     }
     expect(sha256Hex(catalogA.bytes)).toBe(jpegChecksum);
     expect(sha256Hex(catalogB.bytes)).toBe(pngChecksum);
+    await expectCatalogRenditions(
+      kitIdentities.companies.a,
+      readyA.fileId,
+      "present",
+    );
+    await expectCatalogRenditions(
+      kitIdentities.companies.b,
+      readyB.fileId,
+      "present",
+    );
     expect((await fileCursor(readyA.fileId)).stagingPurgedAt).not.toBeNull();
     expect((await fileCursor(readyB.fileId)).stagingPurgedAt).not.toBeNull();
 
@@ -2083,6 +2405,37 @@ describe("files.sweepAbandonedUploads", () => {
     expect(blob).not.toMatch(/\/catalog\//);
     expect(blob).not.toMatch(/\/uploads\//);
     expect(blob).not.toContain("objectKey");
+  });
+
+  it("deletes leftover catalog renditions with an abandoned pending row", async () => {
+    await drainAbandonedPending();
+    const fileId = randomUUID();
+    const abandonedAt = new Date(Date.now() - ABANDONED_PENDING_TTL_MS - 1_000);
+    await insertFileRow({
+      id: fileId,
+      companyId: kitIdentities.companies.a,
+      uploadedByUserId: kitIdentities.users.anna,
+      status: "pending",
+      createdAt: abandonedAt,
+    });
+    await putStoreObject(stagingObjectKey(kitIdentities.companies.a, fileId));
+    await putStoreObject(catalogObjectKey(kitIdentities.companies.a, fileId));
+    await putCatalogRenditionObjects(kitIdentities.companies.a, fileId);
+
+    const result = await requireKit().invoke(sweepAbandonedUploads, {});
+    expect(result.abandonedPendingDeleted).toBeGreaterThanOrEqual(1);
+
+    const store = getFilesObjectStore();
+    const originalKey = catalogObjectKey(kitIdentities.companies.a, fileId);
+    await waitForObjectVisibility(store, originalKey, "missing");
+    expect(await store.headObject(originalKey)).toBe("missing");
+    await expectCatalogRenditions(kitIdentities.companies.a, fileId, "missing");
+
+    const remaining = await requireKit()
+      .db.runtime.db.select({ id: files.id })
+      .from(files)
+      .where(eq(files.id, fileId));
+    expect(remaining).toHaveLength(0);
   });
 
   it("keeps a ready catalog intact when the same tick deletes another tenant's abandoned objects", async () => {
@@ -2431,6 +2784,16 @@ describe("files.recordGeneratedObject", () => {
     expect(blob).not.toContain("objectKey");
     expect(blob).not.toMatch(/\/documents\//);
     expect(blob).not.toContain("http");
+
+    await expectCatalogRenditions(kitIdentities.companies.a, fileId, "missing");
+    const store = getFilesObjectStore();
+    for (const rendition of CATALOG_RENDITIONS) {
+      expect(
+        await store.headObject(
+          `${kitIdentities.companies.a}/documents/${fileId}/${rendition}`,
+        ),
+      ).toBe("missing");
+    }
   });
 
   it("rejects an oversize generated object without buffering it", async () => {

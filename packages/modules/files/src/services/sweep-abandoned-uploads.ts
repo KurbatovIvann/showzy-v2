@@ -8,8 +8,10 @@ import {
   SWEEP_BATCH_LIMIT,
   type sweepAbandonedUploadsInputSchema,
 } from "../actions/sweep-abandoned-uploads.contract.js";
+import { CATALOG_RENDITIONS } from "../wire.contract.js";
 import {
   catalogObjectKey,
+  catalogRenditionObjectKey,
   signingObjectKey,
   stagingObjectKey,
 } from "./object-key.js";
@@ -131,6 +133,15 @@ async function sweepAbandonedPending(input: {
       input.store,
       catalogObjectKey(input.row.companyId, input.row.id),
     );
+    // Finalize writes thumb/card/hero/full before status=ready. A crash
+    // after those PutObjects leaves derived keys that must not outlive
+    // the pending row (SHO-244: ready means original plus four).
+    for (const rendition of CATALOG_RENDITIONS) {
+      await deleteIfPresent(
+        input.store,
+        catalogRenditionObjectKey(input.row.companyId, input.row.id, rendition),
+      );
+    }
   } else {
     // Failed recordSigningObject can leave bytes on the signing prefix
     // while the row is still pending. Unsigned ZIP staging is never

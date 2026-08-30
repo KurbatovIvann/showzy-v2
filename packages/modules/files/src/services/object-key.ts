@@ -1,6 +1,21 @@
+import type { CatalogRendition } from "../wire.contract.js";
+
 /** Durable catalog object key stored in `files.object_key` (CHECK-preserving). */
 export function catalogObjectKey(companyId: string, fileId: string): string {
   return `${companyId}/catalog/${fileId}`;
+}
+
+/**
+ * Derived catalog WebP key. Never stored in `files.object_key` — the original
+ * CHECK stays `{companyId}/catalog/{fileId}`. `full` is the 2048 derivative,
+ * not the original catalog object (SHO-246).
+ */
+export function catalogRenditionObjectKey(
+  companyId: string,
+  fileId: string,
+  rendition: CatalogRendition,
+): string {
+  return `${companyId}/catalog/${fileId}/${rendition}`;
 }
 
 /**

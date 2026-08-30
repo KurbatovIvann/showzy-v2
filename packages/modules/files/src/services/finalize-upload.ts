@@ -5,7 +5,16 @@ import { and, eq } from "drizzle-orm";
 import type { z } from "zod";
 
 import type { finalizeUploadInputSchema } from "../actions/finalize-upload.contract.js";
-import { MAX_UPLOAD_BYTES, type FileMimeType } from "../wire.contract.js";
+import {
+  CATALOG_RENDITIONS,
+  MAX_UPLOAD_BYTES,
+  type CatalogRendition,
+  type FileMimeType,
+} from "../wire.contract.js";
+import {
+  encodeCatalogRenditions,
+  type CatalogRenditionBuffers,
+} from "./catalog-renditions.js";
 import { sha256Hex } from "./checksum.js";
 import {
   requireDeclaredMime,
@@ -13,7 +22,11 @@ import {
   type FileReadyView,
 } from "./file-view.js";
 import { uploadBytesMatchDeclaredMime } from "./magic-bytes.js";
-import { catalogObjectKey, stagingObjectKey } from "./object-key.js";
+import {
+  catalogObjectKey,
+  catalogRenditionObjectKey,
+  stagingObjectKey,
+} from "./object-key.js";
 import {
   getFilesObjectStore,
   type FilesObjectStore,
@@ -48,6 +61,11 @@ export async function finalizeStaffUpload(input: {
     lock: false,
   });
   if (unlocked.status === "ready") {
+    await fillMissingCatalogRenditions({
+      store: getFilesObjectStore(),
+      companyId,
+      fileId: unlocked.id,
+    });
     return toReadyView(unlocked);
   }
   requirePending(unlocked);
@@ -70,6 +88,11 @@ export async function finalizeStaffUpload(input: {
     lock: true,
   });
   if (locked.status === "ready") {
+    await fillMissingCatalogRenditions({
+      store,
+      companyId,
+      fileId: locked.id,
+    });
     return toReadyView(locked);
   }
   requirePending(locked);
@@ -92,12 +115,26 @@ export async function finalizeStaffUpload(input: {
   }
 
   // Durable catalog bytes are the already-hashed buffer (owner call
-  // 2026-08-22). PutObject runs only while the row is still pending under
-  // FOR UPDATE so a leftover PUT cannot overwrite a ready catalog key.
+  // 2026-08-22). Encode renditions from that buffer first so an
+  // undecodable / over-limit image never writes objects. PutObject of
+  // the original then the four WebP keys runs only while the row is
+  // still pending under FOR UPDATE so a leftover PUT cannot overwrite a
+  // ready catalog key. Ready is written last: ready ⇒ original + four.
+  const encoded = await encodeCatalogRenditions(staged.bytes);
+  if (encoded === "undecodable") {
+    throw uploadedObjectInvalid();
+  }
+
   await store.putObject({
     key: catalogKey,
     mimeType: declared.mimeType,
     bytes: staged.bytes,
+  });
+  await putCatalogRenditionObjects({
+    store,
+    companyId,
+    fileId: locked.id,
+    encoded,
   });
 
   const updated = await db
@@ -220,4 +257,58 @@ async function readValidatedStaging(input: {
     throw uploadedObjectInvalid();
   }
   return object;
+}
+
+async function putCatalogRenditionObjects(input: {
+  readonly store: FilesObjectStore;
+  readonly companyId: string;
+  readonly fileId: string;
+  readonly encoded: CatalogRenditionBuffers;
+}): Promise<void> {
+  for (const rendition of CATALOG_RENDITIONS) {
+    await input.store.putObject({
+      key: catalogRenditionObjectKey(input.companyId, input.fileId, rendition),
+      mimeType: "image/webp",
+      bytes: input.encoded[rendition],
+    });
+  }
+}
+
+async function fillMissingCatalogRenditions(input: {
+  readonly store: FilesObjectStore;
+  readonly companyId: string;
+  readonly fileId: string;
+}): Promise<void> {
+  const missing: CatalogRendition[] = [];
+  for (const rendition of CATALOG_RENDITIONS) {
+    const head = await input.store.headObject(
+      catalogRenditionObjectKey(input.companyId, input.fileId, rendition),
+    );
+    if (head === "missing") {
+      missing.push(rendition);
+    }
+  }
+  if (missing.length === 0) {
+    return;
+  }
+
+  const original = await input.store.getObject(
+    catalogObjectKey(input.companyId, input.fileId),
+  );
+  if (original === "missing") {
+    throw new CoreInvariantError(
+      "files.finalizeUpload missing catalog object on a ready row",
+    );
+  }
+  const encoded = await encodeCatalogRenditions(original.bytes);
+  if (encoded === "undecodable") {
+    throw uploadedObjectInvalid();
+  }
+  for (const rendition of missing) {
+    await input.store.putObject({
+      key: catalogRenditionObjectKey(input.companyId, input.fileId, rendition),
+      mimeType: "image/webp",
+      bytes: encoded[rendition],
+    });
+  }
 }

@@ -14,5 +14,7 @@ describe("files.finalizeUpload contract", () => {
     expect(finalizeUploadContract.idempotent).toBe(true);
     expect(finalizeUploadContract.emits).toEqual([]);
     expect(finalizeUploadContract.timeout).toBe(15_000);
+    expect(finalizeUploadContract.description).toContain("thumb");
+    expect(finalizeUploadContract.description).toContain("rendition");
   });
 });

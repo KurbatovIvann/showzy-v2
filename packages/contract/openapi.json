@@ -35958,7 +35958,7 @@
     "/files/finalizeUpload": {
       "post": {
         "operationId": "files.finalizeUpload",
-        "summary": "Finalize a pending catalog upload in the active company. Reads the handshake staging object, then verifies size, magic bytes against the declared MIME, SHA-256 checksum, and the server-derived key prefix, then writes those already-hashed bytes onto the durable catalog key. A leftover PUT that changes staging after that read fails validation rather than marking the file ready. Executables, archives, and HEIC fail validation even when the declared MIME is an image. Missing or foreign-company files fail with not-found. A second finalize of a ready file returns the same view.",
+        "summary": "Finalize a pending catalog upload in the active company. Reads the handshake staging object, then verifies size, magic bytes against the declared MIME, SHA-256 checksum, and the server-derived key prefix, then writes those already-hashed bytes onto the durable catalog key and four named WebP renditions (thumb/card/hero/full) at derived keys. Undecodable or over-limit pixel images fail validation and stay pending. A leftover PUT that changes staging after that read fails validation rather than marking the file ready. Executables, archives, and HEIC fail validation even when the declared MIME is an image. Missing or foreign-company files fail with not-found. A second finalize of a ready file returns the same view and fills missing rendition objects without rewriting the original bytes or checksum.",
         "requestBody": {
           "required": true,
           "content": {
@@ -36677,7 +36677,7 @@
     "/files/getDownloadUrl": {
       "post": {
         "operationId": "files.getDownloadUrl",
-        "summary": "Return a short-lived signed GET URL for a ready private catalog file in the active company. Pending, missing, or foreign-company files fail with not-found. The URL uses Content-Disposition inline and Content-Type of the stored image MIME (image/jpeg|png|webp) so clients can render the object as an image; the filename is derived from that MIME. Clients never receive or choose the object key as a durable field.",
+        "summary": "Return a short-lived signed GET URL for a ready private catalog file in the active company. Optional rendition (thumb|card|hero|full) signs the derived WebP object with Content-Type image/webp and Content-Disposition inline. Omitted rendition signs the original catalog object with the stored image MIME (image/jpeg|png|webp). A missing rendition object fails with not-found and does not fall back to the original. Pending, missing, or foreign-company files fail with not-found. Clients never receive or choose the object key as a durable field.",
         "requestBody": {
           "required": true,
           "content": {
@@ -36688,6 +36688,15 @@
                   "fileId": {
                     "type": "string",
                     "format": "uuid"
+                  },
+                  "rendition": {
+                    "enum": [
+                      "thumb",
+                      "card",
+                      "hero",
+                      "full"
+                    ],
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -37378,7 +37387,7 @@
     "/files/getDownloadUrls": {
       "post": {
         "operationId": "files.getDownloadUrls",
-        "summary": "Return short-lived signed GET URLs for a batch of ready private catalog files in the active company. Input is fileIds (min 1, max 50). Output is { files: [{ fileId, downloadUrl, expiresAt }] } in first-seen unique order. The whole batch fails with not-found when any id is missing, still pending, or outside the company. Each URL uses Content-Disposition inline and Content-Type of the stored image MIME (image/jpeg|png|webp) so clients can render the object as an image; the filename is derived from that MIME. Clients never receive or choose the object key as a durable field.",
+        "summary": "Return short-lived signed GET URLs for a batch of ready private catalog files in the active company. Input is fileIds (min 1, max 50) and an optional rendition applied to every id. Output is { files: [{ fileId, downloadUrl, expiresAt }] } in first-seen unique order. The whole batch fails with not-found when any id is missing, still pending, or outside the company, or when a requested rendition object is missing. Omitted rendition signs each original with the stored image MIME (image/jpeg|png|webp); a present rendition signs the derived WebP (thumb|card|hero|full) with Content-Type image/webp and Content-Disposition inline. Clients never receive or choose the object key as a durable field.",
         "requestBody": {
           "required": true,
           "content": {
@@ -37394,6 +37403,15 @@
                       "type": "string",
                       "format": "uuid"
                     }
+                  },
+                  "rendition": {
+                    "enum": [
+                      "thumb",
+                      "card",
+                      "hero",
+                      "full"
+                    ],
+                    "type": "string"
                   }
                 },
                 "required": [
