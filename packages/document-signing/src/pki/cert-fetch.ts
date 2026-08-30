@@ -1,3 +1,4 @@
+import { isPkiProxyAllowedHost } from "./allowlist.js";
 import {
   extractCertsFromPkcs7,
   unwrapContentInfo,
@@ -13,6 +14,11 @@ const IIT_HEADER_SIZE = 8;
 /**
  * Fetch user certificates from the given CAs using the IIT CMP protocol.
  * Tries every CA in parallel, returns all discovered certs.
+ *
+ * Every request goes through the SHO-255 proxy, whose static allowlist is
+ * `isPkiProxyAllowedHost`. CMP URLs from the downloaded CZO registry that
+ * fall outside it are skipped up front — the proxy would reject them anyway,
+ * and each attempt logs a "pki proxy blocked" warning on the API.
  */
 export async function fetchUserCerts(
   keyIdsHex: string[],
@@ -21,8 +27,10 @@ export async function fetchUserCerts(
 ): Promise<Uint8Array[]> {
   if (keyIdsHex.length === 0) return [];
 
+  const proxyableUrls = cmpUrls.filter(isProxyableCmpUrl);
+
   const results = await Promise.allSettled(
-    cmpUrls.map((url) => fetchCertsFromCa(url, keyIdsHex, corsProxyUrl)),
+    proxyableUrls.map((url) => fetchCertsFromCa(url, keyIdsHex, corsProxyUrl)),
   );
 
   const allCerts: Uint8Array[] = [];
@@ -33,6 +41,14 @@ export async function fetchUserCerts(
   }
 
   return allCerts;
+}
+
+function isProxyableCmpUrl(cmpUrl: string): boolean {
+  try {
+    return isPkiProxyAllowedHost(new URL(cmpUrl).hostname);
+  } catch {
+    return false;
+  }
 }
 
 async function fetchCertsFromCa(

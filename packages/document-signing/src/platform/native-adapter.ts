@@ -5,7 +5,11 @@ import { unwrapProxyResponse } from "../pki/proxy.js";
 import type { UapkiEngine } from "../specs/uapki.nitro.js";
 import type { UapkiResponse } from "../types.js";
 import type { AdapterInitOptions, UapkiAdapter } from "./adapter.js";
-import { nativeAdapterHttpPlan } from "./http-init.js";
+import {
+  isRepeatInitSelfTestArtifact,
+  nativeAdapterHttpPlan,
+  withSkipSelfTest,
+} from "./http-init.js";
 
 /**
  * React Native platform adapter that calls UAPKI via Nitro Modules.
@@ -59,9 +63,14 @@ export class NativeAdapter implements UapkiAdapter {
       parsed = JSON.parse(initResult) as UapkiResponse;
     }
 
+    if (isRepeatInitSelfTestArtifact(parsed)) {
+      initResult = await this.engine.process(withSkipSelfTest(initRequest));
+      parsed = JSON.parse(initResult) as UapkiResponse;
+    }
+
     if (parsed.errorCode !== 0) {
       throw new Error(
-        `UAPKI INIT failed: ${parsed.error ?? String(parsed.errorCode)}`,
+        `UAPKI INIT failed: ${parsed.error ?? String(parsed.errorCode)}${formatSelfTestStatus(parsed)}`,
       );
     }
   }
@@ -98,6 +107,19 @@ export class NativeAdapter implements UapkiAdapter {
       this.engine = null;
     }
   }
+}
+
+/**
+ * INIT returns `result.selfTestStatus` (a bitmask of failed uapkic crypto
+ * self-tests, see uapkic.h SELF_TEST_*_FAIL) when the power-up self-test
+ * fails. Append it to the error so logs show which primitive broke.
+ */
+function formatSelfTestStatus(response: UapkiResponse): string {
+  const status = response.result?.["selfTestStatus"];
+  if (typeof status !== "number" || status === 0) {
+    return "";
+  }
+  return ` (selfTestStatus=0x${status.toString(16).padStart(8, "0")})`;
 }
 
 /**

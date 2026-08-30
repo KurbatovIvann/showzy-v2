@@ -22,8 +22,13 @@ import { tryCanonicalDestinationIp } from "./client-ip.js";
 
 export { PKI_PROXY_PATH };
 
-/** Unauthenticated HTTP: same 30/min IP-HMAC default as public/share. */
-export const PKI_PROXY_RATE_LIMIT = 30;
+/**
+ * Unauthenticated HTTP, IP-HMAC keyed. Higher than the 30/min public/share
+ * default because one legitimate signing attempt fans CMP requests out to
+ * every QTSP in the CZO registry (~37 hosts) plus registry/bundle fetches —
+ * ~40 requests in a burst. 200/min matches the proven v1 limit.
+ */
+export const PKI_PROXY_RATE_LIMIT = 200;
 export const PKI_PROXY_RATE_WINDOW_SEC = 60;
 
 const PKI_PROXY_TIMEOUT_MS = 10_000;

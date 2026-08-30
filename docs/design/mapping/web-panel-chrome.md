@@ -23,7 +23,17 @@
 > awaiting owner pass (`internal evaluation only`): supplier QES
 > signing flow (HITL confirm → key + password → certificate review →
 > progress → signed), error states (expired grant, verify failure,
-> offline), abandoned-request card on the detail. Templates are T5–T6.
+> offline), abandoned-request card on the detail. T5 Documents (SHO-275)
+> is on the canvas awaiting owner pass (`internal evaluation only`):
+> template list as a Документи list-pane tab (recommended), defaults,
+> preview, create picker, system-only empty, and an annotated Компанія-row
+> alternative (not recommended). T6 Documents (SHO-276) is on the canvas
+> awaiting owner pass (`internal evaluation only`): Plate-style single-pane
+> template editor — A4 page with print-margin hint and page breaks,
+> variable chips with a grouped picker (auto vs fill-at-create), items
+> table with column toggles, signatures block, sample-data preview,
+> read-only system templates («Дублювати, щоб редагувати»), LeaveDialog
+> on unsaved changes; tablet/phone get a read-only preview (SHO-269).
 > Working canvas: [Shozee V2 — Web panel](https://www.magicpatterns.com/c/fdsqxjz1djvww5spay7zey) (SHO-262 Done).
 > Mobile canvas is unchanged: [Showzy V2 mobile](https://www.magicpatterns.com/c/g4fsekajwwkeex3v612gvp)
 > (ADR-0024). Do not add desktop screens to it.
@@ -64,7 +74,8 @@ later polish pass (owner, T2):
 Clicking a list row must not navigate away from the list on ≥768px.
 
 **Single-pane exceptions** (no list column): AI dock/panel, company
-onboarding / wizards, later Plate template editor.
+onboarding / wizards, and the Plate-style template editor (T6 — a
+full-shell takeover with its own back-to-templates header).
 
 Prototype switcher includes viewport frames (Широке / Планшет /
 Телефон). Pane collapse must follow the **shell width** (container),
@@ -121,7 +132,8 @@ with status: **Без підпису** → **Очікує підпис** → **�
 постачальником**. List: **buyer/counterparty name is the row title**
 (ink, 15px semibold); number + type and the absolute date sit under
 it. Search by number/buyer; chips Усі / Рахунки / Накладні /
-Скасовані; groups Виставлені / Скасовані. `+ Новий` opens
+Скасовані; groups Виставлені / Скасовані. Type glyph on the left of
+each row: receipt = рахунок (РХ), truck = видаткова (ВН). `+ Новий` opens
 create-from-order (T2). Empty copy explains documents are created from
 orders.
 
@@ -250,6 +262,69 @@ Seed fix note: the T1 seed had a PDF-generating document also marked
 The pending-signature demo now lives on its own seeded document; the
 generating one is Без підпису.
 
+## Documents templates (T5 canvas lock)
+
+**Шаблони** live as **list-pane tabs** inside Документи (`Документи | Шаблони`).
+Do **not** add a sidebar row. A Компанія list row is an annotated
+alternative only (prototype frame «Шаблони в Компанії», marked
+Не рекомендовано).
+
+List grouped by type (Рахунок на оплату / Видаткова накладна). Rows:
+name, type glyph (receipt = РХ, truck = ВН), Системний vs Власний, Типовий (one default per company+type).
+Actions: set default, duplicate system → custom (the T6 edit entry),
+rename and delete custom; system templates are read-only, with an
+explanation instead of a silent disable. Preview is a sample with
+placeholder tokens — not the Plate editor. Create-from-order step 2
+uses the live catalog: default preselected, source and default badges.
+Empty = only system defaults, invite to duplicate. Groups scale to
+later types (договір, акт); only РХ/ВН appear on the canvas.
+
+## Template editor (T6 canvas lock)
+
+The **single-pane chrome exception**: a full-shell takeover over the
+panel (no nav, no list), its own header — back to the template list,
+template name + type + Системний/Власний/Типовий pills, «Перегляд»
+toggle, ink «Зберегти» (enabled when dirty; saved state shows an
+absolute stamp). Back with unsaved changes reuses the LeaveDialog
+pattern.
+
+- **Page canvas**: A4-proportioned white page on a muted stage,
+  dashed print-margin hint («поле друку», edit mode only), «Сторінка
+  N з M» captions. «Розрив» inserts a page break — a labeled dashed
+  marker between pages, removable in place.
+- **Toolbar**: paragraph/H1/H2, bold/italic, bullet/numbered lists,
+  alignment (apply to the selected text block), then inserts: Змінна,
+  Абзац, Позиції, Підписи, Таблиця, Розрив. Selected blocks get
+  move-up/down/delete controls; text is editable inline (commit on
+  blur).
+- **Variable chips** (`documentVariable`): inline `{Назва}` chips,
+  group-tinted like the v1 catalog — Компанія (action), Контрагент
+  (success), Документ (focus), Замовлення (attention). Solid soft
+  fill = auto-filled; dashed outline + pen glyph = fill-at-create
+  (контрагент, місто). Picker groups the v1 catalog fields (назва,
+  ЄДРПОУ/РНОКПП, адреса, IBAN, банк; номер/дата/місто;
+  номер/дата/сума) with search and «авто» / «при створенні» badges.
+- **Items table** (`itemsTable`): header Назва/К-сть/Ціна/Сума with
+  per-column visibility toggles (min one visible), token row in edit
+  mode + hint that rows come from the order, «Разом» row bound to
+  `{Сума замовлення}`.
+- **Signatures** (`documentSignatures`): supplier/counterparty
+  signature lines rendered in the document body.
+- **Preview**: substitutes sample data (how the generated PDF will
+  look); explicit line that real values are filled at create time.
+- **System templates** are read-only in the editor: banner +
+  «Дублювати, щоб редагувати» (duplicates and reopens the editor on
+  the copy — the same T5 entry point).
+- **Tablet/phone** (<1024px shell width): read-only sample preview
+  with «редагування макета доступне на комп’ютері» (mobile editing is
+  the SHO-269 spike).
+
+Annotated open question for the owner (`internal evaluation only`,
+shown on the canvas): the editor is a близький макет, **not** a
+WYSIWYG guarantee against the shipped `@react-pdf/renderer` layouts.
+Conditional blocks and hint placeholders from v1 are noted as a future
+extension, not designed here.
+
 ## Company (T7 on canvas)
 
 Компанія is a first-class nav item below the hairline. List pane:
@@ -283,7 +358,7 @@ acquiring. Awaiting owner pass.
 | Замовлення, Документи, Товари, Клієнти, Прайс-листи | Daily operations. First-class nav. |
 | Клієнти | Groups, counterparties, invites are **list-pane tabs**, not sidebar rows. |
 | Компанія | Low-frequency. List pane: профіль, реквізити, команда. |
-| Документи | Operational row **above** the hairline, after Замовлення. Phone: Більше → Операції. Not inside Компанія. |
+| Документи | Operational row **above** the hairline, after Замовлення. Phone: Більше → Операції. Not inside Компанія. List-pane tabs: Документи \| Шаблони (T5). |
 | Чати, аналітика, acquiring | Not this panel’s primary nav. |
 | Account menu | User-scoped: theme (mock), own profile, notifications, keyboard, help, sign-out. Not company / team / price lists. |
 

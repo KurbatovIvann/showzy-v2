@@ -223,7 +223,17 @@ int uapki_init (JSON_Object* joParams, JSON_Object* joResult)
 
     if (lib_config->isInitialized()) return RET_UAPKI_ALREADY_INITIALIZED;
 
-    DO(uapkic_init(nullptr, p_selftest_status));
+    //  Local patch (not upstream UAPKI): expose the uapkic_self_test() bitmask
+    //  in the INIT result so clients can report which primitive failed
+    //  instead of the bare "SELF_TEST_FAIL" string.
+    ret = uapkic_init(nullptr, p_selftest_status);
+    if (p_selftest_status && (*p_selftest_status != 0)) {
+        (void)ParsonHelper::jsonObjectSetUint32(joResult, "selfTestStatus", *p_selftest_status);
+    }
+    if (ret != RET_OK) {
+        ERROR_ADD(ret);
+        goto cleanup;
+    }
 
     if (!fn_config.empty()) {
         DO(load_config(json, fn_config));

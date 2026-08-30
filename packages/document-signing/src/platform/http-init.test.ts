@@ -3,10 +3,12 @@ import { afterAll, describe, expect, it } from "vitest";
 import { PKI_PROXY_PATH } from "../pki/proxy.js";
 import {
   applyWasmCorsProxy,
+  isRepeatInitSelfTestArtifact,
   nativeAdapterHttpPlan,
   nodeAdapterHttpPlan,
   resolveAdapterHttpInit,
   type UapkiCwrap,
+  withSkipSelfTest,
 } from "./http-init.js";
 import { createNodeAdapter } from "./node-adapter.js";
 
@@ -104,6 +106,60 @@ describe("adapter HTTP init contract (SHO-252)", () => {
     });
     expect(corsProxyUrl).toBe(PKI_PROXY_PATH);
     expect(initOffline(initRequest)).toBe(false);
+  });
+
+  it("detects the repeat-init DRBG self-test artifact and nothing else", () => {
+    const artifact = {
+      errorCode: 33,
+      error: "SELF_TEST_FAIL",
+      method: "INIT",
+      result: { selfTestStatus: 0x2 },
+    };
+    expect(isRepeatInitSelfTestArtifact(artifact)).toBe(true);
+
+    // Real crypto failures (extra bits set) must never be bypassed.
+    expect(
+      isRepeatInitSelfTestArtifact({
+        ...artifact,
+        result: { selfTestStatus: 0x2 | 0x20 },
+      }),
+    ).toBe(false);
+    expect(
+      isRepeatInitSelfTestArtifact({
+        ...artifact,
+        result: { selfTestStatus: 0x1 },
+      }),
+    ).toBe(false);
+    // Old binaries without the selfTestStatus patch: fail closed.
+    expect(isRepeatInitSelfTestArtifact({ ...artifact, result: {} })).toBe(
+      false,
+    );
+    // Other errors and successes are untouched.
+    expect(
+      isRepeatInitSelfTestArtifact({
+        errorCode: 1,
+        error: "GENERAL_ERROR",
+        result: { selfTestStatus: 0x2 },
+      }),
+    ).toBe(false);
+    expect(
+      isRepeatInitSelfTestArtifact({ errorCode: 0, result: {} }),
+    ).toBe(false);
+  });
+
+  it("withSkipSelfTest adds the flag and keeps the rest of the INIT request", () => {
+    const { initRequestJson } = nativeAdapterHttpPlan("/tmp/cache/", {});
+    const retryJson = withSkipSelfTest(initRequestJson);
+    const parsed: unknown = JSON.parse(retryJson);
+    if (!isRecord(parsed) || !isRecord(parsed.parameters)) {
+      throw new Error("retry INIT JSON missing parameters");
+    }
+    expect(parsed.method).toBe("INIT");
+    expect(parsed.parameters.skipSelfTest).toBe(true);
+    expect(parsed.parameters.certCache).toEqual({
+      path: "/tmp/cache/uapki/certs/",
+    });
+    expect(initOffline(parsed)).toBe(true);
   });
 
   it("applies WASM set_cors_proxy_url only when a proxy is configured", () => {

@@ -68,6 +68,43 @@ export function nativeAdapterHttpPlan(
   };
 }
 
+/** uapkic.h SELF_TEST_DRBG_FAIL bit. */
+const SELF_TEST_DRBG_FAIL = 0x2;
+
+/**
+ * True when an INIT failure is the repeat-init artifact rather than a real
+ * crypto self-test failure.
+ *
+ * uapkic runs its power-up self-test on every INIT, but `drbg_self_test()`
+ * refuses to run (`RET_SELF_TEST_NOT_ALLOWED`) once the process-wide DRBG is
+ * initialized — which the first INIT does permanently. So any re-INIT in the
+ * same OS process (retry after a failed signing attempt, adapter re-creation
+ * after a JS reload) reports SELF_TEST_FAIL with a status of exactly
+ * SELF_TEST_DRBG_FAIL. That is safe to bypass with `skipSelfTest`: the full
+ * self-test already passed on the first INIT of this process, and a real
+ * DRBG (HMAC-SHA-512) breakage would also set the SHA2/HMAC bits.
+ */
+export function isRepeatInitSelfTestArtifact(response: {
+  errorCode: number;
+  error?: string;
+  result?: Record<string, unknown>;
+}): boolean {
+  return (
+    response.errorCode !== 0 &&
+    (response.error ?? "").includes("SELF_TEST_FAIL") &&
+    response.result?.["selfTestStatus"] === SELF_TEST_DRBG_FAIL
+  );
+}
+
+/** The INIT request with the self-test disabled (repeat-init retry). */
+export function withSkipSelfTest(initRequestJson: string): string {
+  const request = JSON.parse(initRequestJson) as {
+    parameters?: Record<string, unknown>;
+  };
+  request.parameters = { ...request.parameters, skipSelfTest: true };
+  return JSON.stringify(request);
+}
+
 export function nodeAdapterHttpPlan(options: AdapterInitOptions): {
   corsProxyUrl: string | undefined;
   initRequest: Record<string, unknown>;
