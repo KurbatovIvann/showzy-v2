@@ -96,9 +96,12 @@ function stringField(
 
 function taxIdFromSubject(subject: Record<string, unknown>): string {
   return (
+    stringField(subject, "SERIALNUMBER") ??
     stringField(subject, "serialNumber") ??
-    stringField(subject, "SN") ??
+    stringField(subject, "OI") ??
+    stringField(subject, "10.20.0.1") ??
     stringField(subject, "10.0.1.4.1") ??
+    stringField(subject, "192.168.0.2.1.1") ??
     ""
   );
 }

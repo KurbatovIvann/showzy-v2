@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { ASIC_E_MIMETYPE, packAsicE } from "./asic-container.js";
+import { ASIC_E_MIMETYPE, packAsicE, unpackAsicE } from "./asic-container.js";
 import { AsicContainerError, VerifyFailedError } from "./errors.js";
 import { createNodeAdapter } from "./platform/node-adapter.js";
 import { createSignedAsicE, sha256Hex, verifyAsicE } from "./verify-asic.js";
@@ -55,13 +55,20 @@ describe("verify ASiC-E (GOST fixture CAdES-BES STRUCT)", () => {
 
   it("rejects a container whose CAdES does not cover the manifest", async () => {
     const signed = await createSignedAsicE(payload, adapter);
-    const tampered = Uint8Array.from(signed.bytes);
-    const flip = tampered.byteLength - 30;
-    const original = tampered.at(flip);
+    const unpacked = unpackAsicE(signed.bytes);
+    const p7s = Uint8Array.from(unpacked.signature.bytes);
+    const flip = Math.floor(p7s.byteLength / 2);
+    const original = p7s.at(flip);
     if (original === undefined) {
-      throw new Error("signed ASiC is too short to tamper");
+      throw new Error("signed ASiC CAdES is too short to tamper");
     }
-    tampered[flip] = original ^ 0xff;
+    p7s[flip] = original ^ 0xff;
+    const tampered = packAsicE([
+      { name: "mimetype", bytes: encoder.encode(ASIC_E_MIMETYPE) },
+      payload,
+      unpacked.manifest,
+      { name: unpacked.signature.name, bytes: p7s },
+    ]);
     await expect(verifyAsicE(tampered, adapter)).rejects.toBeInstanceOf(
       VerifyFailedError,
     );
