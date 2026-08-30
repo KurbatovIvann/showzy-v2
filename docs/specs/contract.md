@@ -67,7 +67,9 @@ Enforcement (CI):
 - ESLint boundaries: `*.contract.ts` may import only Zod,
   `@showzy/core/contract`, and validation;
   `packages/contract` may import only `*.contract.ts`; client apps may
-  import only `packages/contract` (+ validation/ui).
+  import only `packages/contract` (+ validation/ui) and
+  `@showzy/document-signing` (native/web adapters; never `/node`)
+  (SHO-251 / SHO-260 on-device QES).
 - A **bundle probe**: CI builds a minimal client entry that imports the full
   typed client with a bundler configured to fail on Node builtins /
   `packages/db` / `packages/core` server paths (the client-safe

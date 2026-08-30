@@ -2,16 +2,23 @@ import { describe, expect, it } from "vitest";
 
 import { classifyDocumentSharedLoad } from "./document-shared-load";
 
+const base = {
+  token: "token-once",
+  clientReady: true,
+  authLoading: false,
+  status: "success" as const,
+  failureKind: null,
+  pdfDownloadUrl: null as string | null,
+  signedDownloadUrl: null as string | null,
+};
+
 describe("classifyDocumentSharedLoad", () => {
   it("is not-found for a missing token without fetching", () => {
     expect(
       classifyDocumentSharedLoad({
+        ...base,
         token: null,
-        clientReady: true,
-        authLoading: false,
         status: "pending",
-        failureKind: null,
-        pdfDownloadUrl: null,
       }),
     ).toEqual({ kind: "not-found" });
   });
@@ -19,22 +26,18 @@ describe("classifyDocumentSharedLoad", () => {
   it("loads while auth boots and errors when the client never appears", () => {
     expect(
       classifyDocumentSharedLoad({
-        token: "token-once",
+        ...base,
         clientReady: false,
         authLoading: true,
         status: "pending",
-        failureKind: null,
-        pdfDownloadUrl: null,
       }),
     ).toEqual({ kind: "loading" });
     expect(
       classifyDocumentSharedLoad({
-        token: "token-once",
+        ...base,
         clientReady: false,
         authLoading: false,
         status: "pending",
-        failureKind: null,
-        pdfDownloadUrl: null,
       }),
     ).toEqual({ kind: "error" });
   });
@@ -42,69 +45,64 @@ describe("classifyDocumentSharedLoad", () => {
   it("maps query failures onto offline, not-found, and error", () => {
     expect(
       classifyDocumentSharedLoad({
-        token: "token-once",
-        clientReady: true,
-        authLoading: false,
+        ...base,
         status: "error",
         failureKind: "offline",
-        pdfDownloadUrl: null,
       }),
     ).toEqual({ kind: "offline" });
     expect(
       classifyDocumentSharedLoad({
-        token: "token-once",
-        clientReady: true,
-        authLoading: false,
+        ...base,
         status: "error",
         failureKind: "not_found",
-        pdfDownloadUrl: null,
       }),
     ).toEqual({ kind: "not-found" });
     expect(
       classifyDocumentSharedLoad({
-        token: "token-once",
-        clientReady: true,
-        authLoading: false,
+        ...base,
         status: "error",
         failureKind: "internal",
-        pdfDownloadUrl: null,
       }),
     ).toEqual({ kind: "error" });
   });
 
-  it("exposes a download URL only when it is safe http(s)", () => {
+  it("exposes download URLs only when they are safe http(s)", () => {
     expect(
       classifyDocumentSharedLoad({
-        token: "token-once",
-        clientReady: true,
-        authLoading: false,
-        status: "success",
-        failureKind: null,
+        ...base,
         pdfDownloadUrl: "https://files.example/doc.pdf",
       }),
     ).toEqual({
       kind: "ready",
       downloadUrl: "https://files.example/doc.pdf",
+      signedDownloadUrl: null,
+    });
+    expect(classifyDocumentSharedLoad(base)).toEqual({
+      kind: "ready",
+      downloadUrl: null,
+      signedDownloadUrl: null,
     });
     expect(
       classifyDocumentSharedLoad({
-        token: "token-once",
-        clientReady: true,
-        authLoading: false,
-        status: "success",
-        failureKind: null,
-        pdfDownloadUrl: null,
+        ...base,
+        pdfDownloadUrl: "javascript:alert(1)",
+        signedDownloadUrl: "javascript:alert(2)",
       }),
-    ).toEqual({ kind: "ready", downloadUrl: null });
+    ).toEqual({
+      kind: "ready",
+      downloadUrl: null,
+      signedDownloadUrl: null,
+    });
     expect(
       classifyDocumentSharedLoad({
-        token: "token-once",
-        clientReady: true,
-        authLoading: false,
-        status: "success",
-        failureKind: null,
-        pdfDownloadUrl: "javascript:alert(1)",
+        ...base,
+        pdfDownloadUrl: "https://files.example/doc.pdf",
+        signedDownloadUrl: "https://files.example/doc.asice",
       }),
-    ).toEqual({ kind: "ready", downloadUrl: null });
+    ).toEqual({
+      kind: "ready",
+      downloadUrl: "https://files.example/doc.pdf",
+      signedDownloadUrl: "https://files.example/doc.asice",
+    });
   });
 });

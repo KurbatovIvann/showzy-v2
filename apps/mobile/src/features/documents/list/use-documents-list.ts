@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { useApiClient } from "../../../api/api-provider";
 import { describeQueryFailure } from "../../../api/errors";
@@ -18,8 +18,10 @@ import {
   canEditDocuments,
   canViewDocuments,
 } from "../shared/document-permissions";
+import { useDocumentSigning } from "../signing/use-document-signing";
 import {
   classifyDocumentsList,
+  documentListSignVisibility,
   documentsFilteredEmptyView,
   flattenDocumentPages,
   listDocumentsPageInput,
@@ -43,6 +45,7 @@ export function useDocumentsList(args: { readonly orderId: string | null }) {
   const canCreate = canCreateDocuments(membership.role);
   const canEdit = canEditDocuments(membership.role);
   const writes = useDocumentWrites({ copy, canCreate, canEdit });
+  const signing = useDocumentSigning({ copy, canEdit });
 
   const [type, setType] = useState<DocumentsTypeFilter>("all");
 
@@ -63,6 +66,11 @@ export function useDocumentsList(args: { readonly orderId: string | null }) {
     }
     return flattenDocumentPages(pages).map((entry) => {
       const view = toDocumentRowView(entry, { locale, copy });
+      const sign = documentListSignVisibility({
+        canEdit,
+        status: view.status,
+        supplierSigned: entry.supplierSigned,
+      });
       return {
         id: view.id,
         documentNumber: view.documentNumber,
@@ -73,9 +81,11 @@ export function useDocumentsList(args: { readonly orderId: string | null }) {
         cancelled: view.cancelled,
         status: view.status,
         optionsA11y: view.optionsA11y,
+        showSign: sign.showSign,
+        showSignedChip: sign.showSignedChip,
       };
     });
-  }, [listQuery.data?.pages, locale, copy]);
+  }, [listQuery.data?.pages, locale, copy, canEdit]);
 
   const failureKind = listQuery.isError
     ? describeQueryFailure(listQuery.error).kind
@@ -93,7 +103,22 @@ export function useDocumentsList(args: { readonly orderId: string | null }) {
     canView,
     rows,
     writes,
+    onSign: signing.requestSignAndOpen,
   });
+
+  const signRow = useCallback(
+    (id: string) => {
+      const row = rows.find((entry) => entry.id === id);
+      if (row === undefined) {
+        return;
+      }
+      void signing.requestSignAndOpen({
+        id: row.id,
+        documentNumber: row.documentNumber,
+      });
+    },
+    [rows, signing],
+  );
 
   return {
     copy,
@@ -118,8 +143,15 @@ export function useDocumentsList(args: { readonly orderId: string | null }) {
     canView,
     canCreate,
     canEdit,
-    banner: writes.banner,
-    writesPending: writes.pending,
+    banner: writes.banner ?? signing.banner,
+    writesPending: writes.pending || signing.pending,
+    signRow,
+    signingSession: signing.session,
+    closeSigning: signing.closeSheet,
+    onSigningHidden: signing.onSheetHidden,
+    pickSigningKey: signing.pickKey,
+    setSigningPassword: signing.setPassword,
+    submitSigning: signing.submit,
     ...options,
     refreshing: listQuery.isRefetching && !listQuery.isFetchingNextPage,
     refresh: () => {

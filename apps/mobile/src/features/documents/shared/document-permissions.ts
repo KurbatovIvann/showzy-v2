@@ -31,8 +31,8 @@ export function canCreateDocuments(role: CompanyRole): boolean {
 }
 
 /**
- * `documents:edit` — hides share / QR / print / cancel. Open PDF stays
- * on `documents:view`. Employees hold view only.
+ * `documents:edit` — hides share / QR / print / Sign / cancel. Open PDF
+ * stays on `documents:view`. Employees hold view only.
  */
 export function canEditDocuments(role: CompanyRole): boolean {
   return role !== "employee";

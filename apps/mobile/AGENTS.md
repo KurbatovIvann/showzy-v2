@@ -85,7 +85,7 @@ the same directory.
 
 ## Rules
 
-- Client apps may import only `@showzy/contract`, `@showzy/validation`, and `@showzy/ui` (`@showzy/ui` does not exist yet). Never `@showzy/core`, `@showzy/db`, or `@showzy/config`. `better-auth` and `@better-auth/expo` are allowed only under `src/auth/`.
+- Client apps may import only `@showzy/contract`, `@showzy/validation`, `@showzy/ui` (`@showzy/ui` does not exist yet), and `@showzy/document-signing` (native/web adapters for on-device QES; never `/node`). Never `@showzy/core`, `@showzy/db`, or `@showzy/config`. `better-auth` and `@better-auth/expo` are allowed only under `src/auth/`.
 - Config is `EXPO_PUBLIC_API_URL` (Metro-inlined). Empty string is unset. Do not read `process.env` through `@showzy/config`.
 - Mobile session transport is a Cookie header from `@better-auth/expo` (SecureStore). Web export-smoke keeps cookies in memory. Never log tokens, cookies, or OTP codes. Classify auth HTTP failures by status, not message text.
 - Auth is phone/email OTP only (ADR-0006). Google and guest browse are not in this slice.

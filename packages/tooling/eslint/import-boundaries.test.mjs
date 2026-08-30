@@ -104,6 +104,8 @@ test("showzy/import-boundaries", () => {
           import { moneySchema } from "@showzy/validation";
           import { catalogNameSchema } from "@showzy/validation/catalog";
           import { Button } from "@showzy/ui";
+          import { DocumentSigner } from "@showzy/document-signing";
+          import { createNativeAdapter } from "@showzy/document-signing/native";
           import { useState } from "react";
         `,
       },
@@ -185,6 +187,11 @@ test("showzy/import-boundaries", () => {
       {
         filename: file("apps/web/src/app/page.ts"),
         code: `import { users } from "@showzy/db";`,
+        errors: [{ messageId: "clientApp" }],
+      },
+      {
+        filename: file("apps/mobile/src/app/index.ts"),
+        code: `import { verifyAsic } from "@showzy/document-signing/node";`,
         errors: [{ messageId: "clientApp" }],
       },
     ],

@@ -117,6 +117,16 @@ function DocumentSharedBody(props: {
               description={model.copy.refresh}
             />
           )}
+          {model.state.signedDownloadUrl !== null ? (
+            <Button
+              fullWidth
+              variant={
+                model.state.downloadUrl !== null ? "secondary" : "primary"
+              }
+              label={model.copy.downloadSigned}
+              onPress={model.downloadSigned}
+            />
+          ) : null}
         </View>
       );
   }
@@ -139,5 +149,6 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
     justifyContent: "center",
     paddingHorizontal: theme.spacing.lg,
+    gap: theme.spacing.md,
   },
 }));

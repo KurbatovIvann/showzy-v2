@@ -186,6 +186,8 @@ export type DocumentsListRow = {
   readonly cancelled: boolean;
   readonly status: DocumentStatus;
   readonly optionsA11y: string;
+  readonly showSign: boolean;
+  readonly showSignedChip: boolean;
 };
 
 export type DocumentOptionsGetLoadState =
@@ -222,15 +224,30 @@ export function classifyDocumentOptionsGet(args: {
   return { kind: "ready" };
 }
 
+export type DocumentSigningStatus = "unsigned" | "pending" | "supplier_signed";
+
 export type DocumentOptionVisibility = {
   readonly showShare: boolean;
   readonly showQr: boolean;
   readonly showPrint: boolean;
   readonly showOpenPdf: boolean;
+  readonly showSign: boolean;
   readonly showCancel: boolean;
   readonly pdfReady: boolean;
   readonly openPdfEnabled: boolean;
+  readonly signingChip: DocumentSigningStatus | null;
 };
+
+export function documentListSignVisibility(args: {
+  readonly canEdit: boolean;
+  readonly status: DocumentStatus;
+  readonly supplierSigned: boolean;
+}): { readonly showSign: boolean; readonly showSignedChip: boolean } {
+  return {
+    showSign: args.canEdit && args.status === "issued" && !args.supplierSigned,
+    showSignedChip: args.supplierSigned,
+  };
+}
 
 export function documentOptionVisibility(args: {
   readonly canView: boolean;
@@ -239,19 +256,32 @@ export function documentOptionVisibility(args: {
   readonly getLoad: DocumentOptionsGetLoadState["kind"];
   readonly generationStatus: "pending" | "ready" | "failed" | null;
   readonly pdfDownloadUrl: string | null;
+  readonly supplierSigned: boolean;
+  readonly signingStatus: DocumentSigningStatus | null;
 }): DocumentOptionVisibility {
   const pdfReady =
     args.getLoad === "ready" &&
     args.generationStatus === "ready" &&
     args.pdfDownloadUrl !== null;
   const getFailed = args.getLoad === "error" || args.getLoad === "offline";
+  const signed =
+    args.signingStatus === "supplier_signed" ||
+    (args.signingStatus === null && args.supplierSigned);
+  const signingChip =
+    args.getLoad === "ready" &&
+    (args.signingStatus === "supplier_signed" ||
+      args.signingStatus === "pending")
+      ? args.signingStatus
+      : null;
   return {
     showShare: args.canEdit,
     showQr: args.canEdit,
     showPrint: args.canEdit,
     showOpenPdf: args.canView,
+    showSign: args.canEdit && args.status === "issued" && !signed,
     showCancel: args.canEdit && args.status === "issued",
     pdfReady,
     openPdfEnabled: args.canView && (pdfReady || getFailed),
+    signingChip,
   };
 }

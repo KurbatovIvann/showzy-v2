@@ -1,9 +1,13 @@
 import { memo } from "react";
 import { Pressable, Text, View } from "react-native";
-import { FileTextIcon, MoreHorizontalIcon } from "lucide-react-native";
+import {
+  FileTextIcon,
+  MoreHorizontalIcon,
+  PenLineIcon,
+} from "lucide-react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
-import { StatusPill } from "../../../components/ui";
+import { Button, StatusPill } from "../../../components/ui";
 
 export const DocumentRow = memo(function DocumentRow(props: {
   readonly id: string;
@@ -14,9 +18,14 @@ export const DocumentRow = memo(function DocumentRow(props: {
   readonly totalLabel: string;
   readonly cancelled: boolean;
   readonly cancelledBadge: string;
+  readonly signedBadge: string;
+  readonly showSign: boolean;
+  readonly showSignedChip: boolean;
+  readonly signButton: string;
   readonly optionsA11y: string;
   readonly optionsButton: string;
   readonly disabled: boolean;
+  readonly onSign: (id: string) => void;
   readonly onOptions: (id: string) => void;
 }) {
   const { theme } = useUnistyles();
@@ -28,6 +37,9 @@ export const DocumentRow = memo(function DocumentRow(props: {
         <StatusPill label={props.typeLabel} />
         {props.cancelled ? (
           <StatusPill label={props.cancelledBadge} tone="danger" />
+        ) : null}
+        {props.showSignedChip ? (
+          <StatusPill label={props.signedBadge} tone="success" />
         ) : null}
       </View>
       <View style={styles.numberRow}>
@@ -44,6 +56,19 @@ export const DocumentRow = memo(function DocumentRow(props: {
         <Text style={styles.total}>{props.totalLabel}</Text>
       </View>
       <View style={styles.footer}>
+        {props.showSign ? (
+          <View style={styles.sign}>
+            <Button
+              fullWidth
+              disabled={props.disabled}
+              icon={<SignIcon />}
+              label={props.signButton}
+              onPress={() => {
+                props.onSign(props.id);
+              }}
+            />
+          </View>
+        ) : null}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={props.optionsA11y}
@@ -52,7 +77,7 @@ export const DocumentRow = memo(function DocumentRow(props: {
             props.onOptions(props.id);
           }}
           style={({ pressed }) => [
-            styles.options,
+            props.showSign ? styles.optionsCompact : styles.options,
             pressed ? styles.pressed : null,
             props.disabled ? styles.disabled : null,
           ]}
@@ -61,12 +86,24 @@ export const DocumentRow = memo(function DocumentRow(props: {
             size={theme.iconSize.sm}
             color={theme.colors.foreground}
           />
-          <Text style={styles.optionsLabel}>{props.optionsButton}</Text>
+          {props.showSign ? null : (
+            <Text style={styles.optionsLabel}>{props.optionsButton}</Text>
+          )}
         </Pressable>
       </View>
     </View>
   );
 });
+
+function SignIcon() {
+  const { theme } = useUnistyles();
+  return (
+    <PenLineIcon
+      size={theme.iconSize.sm}
+      color={theme.colors.primaryForeground}
+    />
+  );
+}
 
 export function DocumentRowSkeleton() {
   return (
@@ -99,6 +136,7 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "center",
     justifyContent: "space-between",
     gap: theme.spacing.sm,
+    flexWrap: "wrap",
   },
   numberRow: {
     flexDirection: "row",
@@ -139,18 +177,36 @@ const styles = StyleSheet.create((theme) => ({
     fontVariant: ["tabular-nums"],
   },
   footer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.sm,
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
     paddingTop: theme.spacing.md,
     marginTop: theme.spacing.xs,
   },
+  sign: {
+    flex: 1,
+    minWidth: 0,
+  },
   options: {
+    flex: 1,
     minHeight: theme.hitTarget.min,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: theme.spacing.sm,
     borderRadius: theme.radii.full,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.card,
+  },
+  optionsCompact: {
+    width: theme.hitTarget.min,
+    height: theme.hitTarget.min,
+    borderRadius: theme.radii.full,
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.card,

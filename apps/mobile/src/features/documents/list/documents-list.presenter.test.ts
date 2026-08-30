@@ -5,6 +5,7 @@ import type { DocumentListItem } from "../api/document.queries";
 import {
   classifyDocumentOptionsGet,
   classifyDocumentsList,
+  documentListSignVisibility,
   documentOptionVisibility,
   documentsFilteredEmptyView,
   documentsHeaderActions,
@@ -270,6 +271,48 @@ describe("documentsHeaderActions", () => {
   });
 });
 
+describe("documentListSignVisibility", () => {
+  it("shows Sign only when the role can edit, the document is issued, and it is not supplier-signed", () => {
+    expect(
+      documentListSignVisibility({
+        canEdit: true,
+        status: "issued",
+        supplierSigned: false,
+      }),
+    ).toEqual({ showSign: true, showSignedChip: false });
+  });
+
+  it("hides Sign for employees (no documents:edit)", () => {
+    expect(
+      documentListSignVisibility({
+        canEdit: false,
+        status: "issued",
+        supplierSigned: false,
+      }),
+    ).toEqual({ showSign: false, showSignedChip: false });
+  });
+
+  it("hides Sign and shows the signed chip when supplierSigned", () => {
+    expect(
+      documentListSignVisibility({
+        canEdit: true,
+        status: "issued",
+        supplierSigned: true,
+      }),
+    ).toEqual({ showSign: false, showSignedChip: true });
+  });
+
+  it("hides Sign on cancelled rows", () => {
+    expect(
+      documentListSignVisibility({
+        canEdit: true,
+        status: "cancelled",
+        supplierSigned: false,
+      }).showSign,
+    ).toBe(false);
+  });
+});
+
 describe("documentOptionVisibility", () => {
   const readyPdf = {
     canView: true,
@@ -278,18 +321,67 @@ describe("documentOptionVisibility", () => {
     getLoad: "ready" as const,
     generationStatus: "ready" as const,
     pdfDownloadUrl: "https://example.test/pdf",
+    supplierSigned: false,
+    signingStatus: null,
   };
 
-  it("hides share/QR/print/cancel without documents:edit; open PDF stays on view", () => {
+  it("hides share/QR/print/sign/cancel without documents:edit; open PDF stays on view", () => {
     expect(documentOptionVisibility(readyPdf)).toEqual({
       showShare: false,
       showQr: false,
       showPrint: false,
       showOpenPdf: true,
+      showSign: false,
       showCancel: false,
       pdfReady: true,
       openPdfEnabled: true,
+      signingChip: null,
     });
+  });
+
+  it("shows Sign on issued unsigned documents when the role can edit", () => {
+    expect(
+      documentOptionVisibility({
+        canView: true,
+        canEdit: true,
+        status: "issued",
+        getLoad: "ready",
+        generationStatus: "ready",
+        pdfDownloadUrl: "https://example.test/pdf",
+        supplierSigned: false,
+        signingStatus: "unsigned",
+      }).showSign,
+    ).toBe(true);
+  });
+
+  it("hides Sign when documents.get signing is supplier_signed", () => {
+    const signed = documentOptionVisibility({
+      canView: true,
+      canEdit: true,
+      status: "issued",
+      getLoad: "ready",
+      generationStatus: "ready",
+      pdfDownloadUrl: "https://example.test/pdf",
+      supplierSigned: false,
+      signingStatus: "supplier_signed",
+    });
+    expect(signed.showSign).toBe(false);
+    expect(signed.signingChip).toBe("supplier_signed");
+  });
+
+  it("falls back to the list supplierSigned flag when get.signing is not loaded", () => {
+    const fromList = documentOptionVisibility({
+      canView: true,
+      canEdit: true,
+      status: "issued",
+      getLoad: "loading",
+      generationStatus: null,
+      pdfDownloadUrl: null,
+      supplierSigned: true,
+      signingStatus: null,
+    });
+    expect(fromList.showSign).toBe(false);
+    expect(fromList.signingChip).toBeNull();
   });
 
   it("shows cancel only on issued when the role can edit", () => {
@@ -301,6 +393,8 @@ describe("documentOptionVisibility", () => {
         getLoad: "ready",
         generationStatus: "pending",
         pdfDownloadUrl: null,
+        supplierSigned: false,
+        signingStatus: "unsigned",
       }).showCancel,
     ).toBe(true);
     expect(
@@ -311,6 +405,8 @@ describe("documentOptionVisibility", () => {
         getLoad: "ready",
         generationStatus: "ready",
         pdfDownloadUrl: "https://example.test/pdf",
+        supplierSigned: false,
+        signingStatus: "unsigned",
       }).showCancel,
     ).toBe(false);
   });
@@ -324,6 +420,8 @@ describe("documentOptionVisibility", () => {
         getLoad: "ready",
         generationStatus: "ready",
         pdfDownloadUrl: null,
+        supplierSigned: false,
+        signingStatus: "unsigned",
       }).pdfReady,
     ).toBe(false);
     expect(
@@ -334,6 +432,8 @@ describe("documentOptionVisibility", () => {
         getLoad: "ready",
         generationStatus: "failed",
         pdfDownloadUrl: "https://example.test/pdf",
+        supplierSigned: false,
+        signingStatus: "unsigned",
       }).pdfReady,
     ).toBe(false);
     expect(
@@ -344,6 +444,8 @@ describe("documentOptionVisibility", () => {
         getLoad: "ready",
         generationStatus: "pending",
         pdfDownloadUrl: null,
+        supplierSigned: false,
+        signingStatus: "unsigned",
       }).openPdfEnabled,
     ).toBe(false);
   });
@@ -356,6 +458,8 @@ describe("documentOptionVisibility", () => {
       getLoad: "error",
       generationStatus: null,
       pdfDownloadUrl: null,
+      supplierSigned: false,
+      signingStatus: null,
     });
     expect(failed.pdfReady).toBe(false);
     expect(failed.openPdfEnabled).toBe(true);
@@ -367,6 +471,8 @@ describe("documentOptionVisibility", () => {
       getLoad: "offline",
       generationStatus: "pending",
       pdfDownloadUrl: null,
+      supplierSigned: false,
+      signingStatus: null,
     });
     expect(offline.pdfReady).toBe(false);
     expect(offline.openPdfEnabled).toBe(true);
@@ -377,10 +483,13 @@ describe("documentOptionVisibility", () => {
       getLoad: "error",
       generationStatus: null,
       pdfDownloadUrl: null,
+      supplierSigned: false,
+      signingStatus: null,
     });
     expect(employee.showOpenPdf).toBe(true);
     expect(employee.openPdfEnabled).toBe(true);
     expect(employee.pdfReady).toBe(false);
+    expect(employee.showSign).toBe(false);
   });
 
   it("keeps Print/Open PDF disabled while the get is still loading", () => {
@@ -391,8 +500,25 @@ describe("documentOptionVisibility", () => {
       getLoad: "loading",
       generationStatus: null,
       pdfDownloadUrl: null,
+      supplierSigned: false,
+      signingStatus: null,
     });
     expect(loading.pdfReady).toBe(false);
     expect(loading.openPdfEnabled).toBe(false);
+  });
+
+  it("shows a pending chip from documents.get.signing without an N+1 list get", () => {
+    const pending = documentOptionVisibility({
+      canView: true,
+      canEdit: true,
+      status: "issued",
+      getLoad: "ready",
+      generationStatus: "ready",
+      pdfDownloadUrl: "https://example.test/pdf",
+      supplierSigned: false,
+      signingStatus: "pending",
+    });
+    expect(pending.signingChip).toBe("pending");
+    expect(pending.showSign).toBe(true);
   });
 });

@@ -35,6 +35,7 @@ export function useDocumentShared() {
     status: query.status,
     failureKind: query.isError ? describeQueryFailure(query.error).kind : null,
     pdfDownloadUrl: query.data?.pdfDownloadUrl ?? null,
+    signedDownloadUrl: query.data?.signedDownloadUrl ?? null,
   });
 
   return {
@@ -51,6 +52,12 @@ export function useDocumentShared() {
         return;
       }
       void Linking.openURL(state.downloadUrl);
+    },
+    downloadSigned: () => {
+      if (state.kind !== "ready" || state.signedDownloadUrl === null) {
+        return;
+      }
+      void Linking.openURL(state.signedDownloadUrl);
     },
   };
 }

@@ -28,9 +28,11 @@ import {
   waitThenRunDocumentFollowUp,
   type DocumentOptionsChrome,
 } from "./document-options-handshake";
+import type { DocumentSigningTarget } from "../signing/use-document-signing";
 import {
   classifyDocumentOptionsGet,
   type DocumentOptionsGetLoadState,
+  type DocumentSigningStatus,
   type DocumentsListRow,
 } from "./documents-list.presenter";
 import { type DocumentWritesApi } from "./use-document-writes";
@@ -40,6 +42,7 @@ export function useDocumentListOptions(args: {
   readonly canView: boolean;
   readonly rows: readonly DocumentsListRow[];
   readonly writes: DocumentWritesApi;
+  readonly onSign: (target: DocumentSigningTarget) => Promise<void>;
 }) {
   const apiClient = useApiClient();
   const { activeCompanyId } = useActiveCompany();
@@ -76,6 +79,9 @@ export function useDocumentListOptions(args: {
     : null;
   const pdfDownloadUrl = getReady
     ? (detailQuery.data?.pdfDownloadUrl ?? null)
+    : null;
+  const signingStatus: DocumentSigningStatus | null = getReady
+    ? (detailQuery.data?.signing.status ?? null)
     : null;
   const optionsRow =
     args.rows.find((row) => row.id === optionsChrome.documentId) ?? null;
@@ -117,6 +123,7 @@ export function useDocumentListOptions(args: {
     getLoad: getLoad.kind,
     generationStatus,
     pdfDownloadUrl,
+    signingStatus,
     openOptions: (id: string) => {
       setCopied(false);
       setCopyFailed(false);
@@ -172,6 +179,21 @@ export function useDocumentListOptions(args: {
         waitHidden: optionsHidden.wait,
         hide: hideOptions,
         run: () => args.writes.openPanelPdf(id),
+      });
+    },
+    sign: async () => {
+      if (optionsRow === null) {
+        return;
+      }
+      const target = optionsRow;
+      await waitThenRunDocumentFollowUp({
+        waitHidden: optionsHidden.wait,
+        hide: hideOptions,
+        run: () =>
+          args.onSign({
+            id: target.id,
+            documentNumber: target.documentNumber,
+          }),
       });
     },
     print: async () => {
