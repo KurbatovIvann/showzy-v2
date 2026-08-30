@@ -13,7 +13,7 @@ describe("document form pickers", () => {
   it("labels an order as #number plus the list snapshot total", () => {
     const order = {
       orderId: ORDER_ID,
-      orderNumber: 12,
+      orderNumber: "KA-K7X2",
       customerId: ORDER_ID,
       status: "confirmed" as const,
       itemCount: 1,
@@ -21,7 +21,7 @@ describe("document form pickers", () => {
       currency: "UAH",
       createdAt: "2026-08-29T12:00:00.000Z",
     };
-    expect(documentOrderOptionName(order)).toBe("#12");
+    expect(documentOrderOptionName(order)).toBe("#KA-K7X2");
     expect(documentOrderOptionDescription(order)).toContain("₴");
   });
 

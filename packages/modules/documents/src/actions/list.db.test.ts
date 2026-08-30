@@ -102,10 +102,10 @@ const counterpartyBuyerSnapshot = {
 let kit: TestKit;
 const seedOrderNumbers = new Map<string, number>();
 
-function nextOrderNumber(companyId: string): number {
+function nextOrderNumber(companyId: string): string {
   const next = (seedOrderNumbers.get(companyId) ?? 0) + 1;
   seedOrderNumbers.set(companyId, next);
-  return next;
+  return `T-${String(next)}`;
 }
 
 async function insertOrder(values: {

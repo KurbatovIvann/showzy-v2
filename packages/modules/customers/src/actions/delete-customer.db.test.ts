@@ -244,7 +244,7 @@ beforeAll(async () => {
   await kit.db.runtime.db.insert(orders).values({
     id: fixtures.orderKeep,
     companyId: kitIdentities.companies.a,
-    orderNumber: 1,
+    orderNumber: "T-1",
     customerId: fixtures.happyCustomer,
     status: "new",
     totalNetMinor: 100n,

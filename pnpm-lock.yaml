@@ -875,6 +875,9 @@ importers:
       '@showzy/catalog':
         specifier: workspace:*
         version: link:../catalog
+      '@showzy/companies':
+        specifier: workspace:*
+        version: link:../companies
       '@showzy/core':
         specifier: workspace:*
         version: link:../../core
@@ -9280,9 +9283,7 @@ snapshots:
       metro-runtime: 0.84.4
     transitivePeerDependencies:
       - '@babel/core'
-      - bufferutil
       - supports-color
-      - utf-8-validate
 
   '@react-native/normalize-colors@0.74.89': {}
 

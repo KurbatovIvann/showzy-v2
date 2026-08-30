@@ -457,10 +457,10 @@ async function waitForBucket(): Promise<void> {
   throw new Error("Garage bucket did not become ready");
 }
 
-function nextSeedOrderNumber(companyId: string): number {
+function nextSeedOrderNumber(companyId: string): string {
   const next = (seedOrderNumbers.get(companyId) ?? 0) + 1;
   seedOrderNumbers.set(companyId, next);
-  return next;
+  return `T-${String(next)}`;
 }
 
 async function insertSeedOrder(values: {

@@ -56,7 +56,7 @@ const LINE = {
 function order(overrides: Partial<GetOrderOutput> = {}): GetOrderOutput {
   return {
     orderId: ORDER_ID,
-    orderNumber: 1042,
+    orderNumber: "KA-K7X2",
     customerId: CUSTOMER_ID,
     status: "new",
     comment: "Без горіхів",
@@ -102,7 +102,7 @@ describe("toOrderDetailView", () => {
     expect(view.statusTone).toBe("action");
     expect(view.comment).toBe("Без горіхів");
     expect(view.dueLabel).toBe("2\u00A0500\u00A0₴");
-    expect(view.orderNumber).toBe(1042);
+    expect(view.orderNumber).toBe("KA-K7X2");
     expect(view.lines).toEqual([
       {
         itemId: ITEM_ID,
@@ -180,11 +180,11 @@ describe("orderDetailHeaderTitle", () => {
   it("uses # plus the order number, not the UUID or customer name", () => {
     expect(
       orderDetailHeaderTitle({
-        orderNumber: 1042,
+        orderNumber: "KA-K7X2",
         fallbackTitle: "Замовлення",
       }),
-    ).toBe("#1042");
-    expect(formatOrderNumber(1)).toBe("#1");
+    ).toBe("#KA-K7X2");
+    expect(formatOrderNumber("KA-K7X2")).toBe("#KA-K7X2");
     expect(
       orderDetailHeaderTitle({
         orderNumber: null,
@@ -193,7 +193,7 @@ describe("orderDetailHeaderTitle", () => {
     ).toBe("Замовлення");
     expect(
       orderDetailHeaderTitle({
-        orderNumber: 1042,
+        orderNumber: "KA-K7X2",
         fallbackTitle: "Замовлення",
       }),
     ).not.toBe(ORDER_ID);

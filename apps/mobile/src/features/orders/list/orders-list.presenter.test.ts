@@ -35,7 +35,7 @@ const ORDER_CANCELED = "2f0e2d5c-4a1b-4c3d-9e8f-102938475603";
 function item(overrides: Partial<OrderListItem> = {}): OrderListItem {
   return {
     orderId: ORDER_NEW,
-    orderNumber: 1,
+    orderNumber: "KA-1",
     customerId: CUSTOMER_A,
     status: "new",
     itemCount: 2,
@@ -217,7 +217,7 @@ describe("toOrderRowView", () => {
     const copy = ordersCopy("uk");
     const view = toOrderRowView(
       item({
-        orderNumber: 1042,
+        orderNumber: "KA-K7X2",
         customerId: CUSTOMER_B,
         status: "canceled",
         itemCount: 1,
@@ -230,7 +230,7 @@ describe("toOrderRowView", () => {
     expect(view.status).toBe("canceled");
     expect(view.statusLabel).toBe("Скасовано");
     expect(view.statusTone).toBe("danger");
-    expect(view.metaLabel).toBe("#1042 · 1 позиція · 25 серп. 2026");
+    expect(view.metaLabel).toBe("#KA-K7X2 · 1 позиція · 25 серп. 2026");
     expect(view.totalLabel).toBe("890\u00A0₴");
     expect(JSON.stringify(view)).not.toContain("SHZ-");
     expect(JSON.stringify(view)).not.toContain("Оплачен");

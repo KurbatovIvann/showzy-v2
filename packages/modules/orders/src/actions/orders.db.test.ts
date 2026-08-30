@@ -26,7 +26,11 @@ import {
 import { auditLog, domainEvents, eventDeliveries } from "@showzy/db";
 import { user } from "@showzy/db/schema/auth";
 import { products, productVariants } from "@showzy/db/schema/catalog";
-import { companies, companyMembers } from "@showzy/db/schema/companies";
+import {
+  companies,
+  companyMembers,
+  rolePermissionDefaults,
+} from "@showzy/db/schema/companies";
 import { companyCustomers, customerGroups } from "@showzy/db/schema/customers";
 import { orderItems, orders } from "@showzy/db/schema/orders";
 import {
@@ -45,6 +49,7 @@ import { CREATE_ORDER_MAX_ITEMS } from "./create.contract.js";
 import { getOrder } from "./get.js";
 import { listOrders } from "./list.js";
 import { ordersCreated } from "../events/created.js";
+import { formatStaffOrderNumber } from "../services/order-number-format.js";
 
 const TEST_CREATED_CONSUMER = "orders.test-created-noop";
 
@@ -103,6 +108,8 @@ const clerks = {
   noProducts: randomUUID(),
   noPricing: randomUUID(),
   noCustomers: randomUUID(),
+  employee: randomUUID(),
+  noDocuments: randomUUID(),
 };
 
 let kit: TestKit;
@@ -212,10 +219,10 @@ async function insertProduct(values: {
   });
 }
 
-function nextSeedOrderNumber(companyId: string): number {
+function nextSeedOrderNumber(companyId: string): string {
   const next = (seedOrderNumbers.get(companyId) ?? 0) + 1;
   seedOrderNumbers.set(companyId, next);
-  return next;
+  return `T-${String(next)}`;
 }
 
 async function insertSeedOrder(values: {
@@ -301,6 +308,15 @@ beforeAll(async () => {
   kit = await createTestKit();
   const companyA = kitIdentities.companies.a;
   const companyB = kitIdentities.companies.b;
+
+  await kit.db.runtime.db.insert(rolePermissionDefaults).values([
+    { role: "employee", permission: "orders:create" },
+    { role: "employee", permission: "orders:view" },
+    { role: "employee", permission: "products:view" },
+    { role: "employee", permission: "pricing:view" },
+    { role: "employee", permission: "customers:view" },
+    { role: "employee", permission: "documents:view" },
+  ]);
 
   await kit.db.runtime.db.insert(priceLists).values([
     { id: fixtures.listCustomer, companyId: companyA, name: "Customer list" },
@@ -588,6 +604,16 @@ beforeAll(async () => {
       name: "No customers",
       email: "nocustomers@orders-kit.test",
     },
+    {
+      id: clerks.employee,
+      name: "Employee clerk",
+      email: "employee@orders-kit.test",
+    },
+    {
+      id: clerks.noDocuments,
+      name: "No documents view",
+      email: "nodocuments@orders-kit.test",
+    },
   ]);
   await kit.db.runtime.db.insert(companyMembers).values([
     {
@@ -625,6 +651,18 @@ beforeAll(async () => {
       userId: clerks.noCustomers,
       role: "employee",
       permissions: { granted: [], denied: ["customers:view"] },
+    },
+    {
+      companyId: fixtures.numberingA,
+      userId: clerks.employee,
+      role: "employee",
+      permissions: { granted: [], denied: [] },
+    },
+    {
+      companyId: fixtures.numberingA,
+      userId: clerks.noDocuments,
+      role: "employee",
+      permissions: { granted: [], denied: ["documents:view"] },
     },
   ]);
 });
@@ -729,7 +767,7 @@ describe("orders.create / confirm / get", () => {
     });
 
     expect(created.status).toBe("new");
-    expect(created.orderNumber).toBeGreaterThan(0);
+    expect(created.orderNumber).toMatch(/^KA-[0-9A-Z]+$/);
     expect(created.comment).toBe("Staff note");
     expect(created.customerId).toBe(fixtures.customerA);
     expect(created.items).toHaveLength(6);
@@ -912,7 +950,7 @@ describe("orders.create / confirm / get", () => {
     ).rejects.toBeInstanceOf(ConflictError);
   });
 
-  it("assigns per-company order numbers starting at 1 and returns them on get/list", async () => {
+  it("assigns per-company {prefix}-{token} numbers via companies.get and returns them on get/list", async () => {
     const actorA = { companyId: fixtures.numberingA };
     const actorB = { companyId: fixtures.numberingB };
     const firstA = await kit.invoke(
@@ -935,8 +973,9 @@ describe("orders.create / confirm / get", () => {
       },
       actorB,
     );
-    expect(firstA.orderNumber).toBe(1);
-    expect(firstB.orderNumber).toBe(1);
+    expect(firstA.orderNumber).toBe(formatStaffOrderNumber("N4", 1n));
+    expect(firstB.orderNumber).toBe(formatStaffOrderNumber("N5", 1n));
+    expect(firstA.orderNumber).not.toBe(firstB.orderNumber);
 
     const secondA = await kit.invoke(
       createOrder,
@@ -948,22 +987,56 @@ describe("orders.create / confirm / get", () => {
       },
       actorA,
     );
-    expect(secondA.orderNumber).toBe(2);
+    expect(secondA.orderNumber).toBe(formatStaffOrderNumber("N4", 2n));
 
     const fetched = await kit.invoke(
       getOrder,
       { orderId: firstA.orderId },
       actorA,
     );
-    expect(fetched.orderNumber).toBe(1);
+    expect(fetched.orderNumber).toBe(formatStaffOrderNumber("N4", 1n));
 
     const listed = await kit.invoke(listOrders, {}, actorA);
-    expect(listed.items.map((row) => row.orderNumber).toSorted()).toEqual([
-      1, 2,
-    ]);
+    expect(listed.items.map((row) => row.orderNumber).toSorted()).toEqual(
+      [
+        formatStaffOrderNumber("N4", 1n),
+        formatStaffOrderNumber("N4", 2n),
+      ].toSorted(),
+    );
   });
 
-  it("serializes concurrent creates on the locked max order_number", async () => {
+  it("lets an employee without settings:payments create a numbered order", async () => {
+    const created = await kit.invoke(
+      createOrder,
+      {
+        customerId: fixtures.numberingCustomerA,
+        items: [
+          { productId: fixtures.numberingProductA, quantityMilli: "1000" },
+        ],
+      },
+      { userId: clerks.employee, companyId: fixtures.numberingA },
+    );
+    expect(created.orderNumber.startsWith("N4-")).toBe(true);
+    expect(created.orderNumber).toMatch(/^N4-[0-9A-Z]+$/);
+    expect(created.orderNumber).not.toBe("1");
+  });
+
+  it("denies create numbering when the staff caller lacks documents:view", async () => {
+    await expect(
+      kit.invoke(
+        createOrder,
+        {
+          customerId: fixtures.numberingCustomerA,
+          items: [
+            { productId: fixtures.numberingProductA, quantityMilli: "1000" },
+          ],
+        },
+        { userId: clerks.noDocuments, companyId: fixtures.numberingA },
+      ),
+    ).rejects.toBeInstanceOf(PermissionDeniedError);
+  });
+
+  it("does not collide concurrent creates on the same company counter", async () => {
     const actor = { companyId: fixtures.numberingA };
     const [left, right] = await Promise.all([
       kit.invoke(
@@ -987,11 +1060,10 @@ describe("orders.create / confirm / get", () => {
         actor,
       ),
     ]);
-    const numbers = [left.orderNumber, right.orderNumber].toSorted(
-      (a, b) => a - b,
-    );
+    const numbers = [left.orderNumber, right.orderNumber].toSorted();
     expect(new Set(numbers).size).toBe(2);
     expect(left.orderId).not.toBe(right.orderId);
+    expect(numbers.every((value) => value.startsWith("N4-"))).toBe(true);
   });
 
   it("denies missing orders permissions and nested view permissions", async () => {

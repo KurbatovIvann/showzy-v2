@@ -62,7 +62,7 @@ function hashToken(token: string): string {
 async function insertSeedDocument(values: {
   id: string;
   documentNumber: string;
-  orderNumber: number;
+  orderNumber: string;
 }): Promise<void> {
   const orderId = randomUUID();
   const unit = 750n;
@@ -158,12 +158,12 @@ beforeAll(async () => {
   await insertSeedDocument({
     id: fixtures.docReady,
     documentNumber: "KA-РХ-000001",
-    orderNumber: 1,
+    orderNumber: "T-1",
   });
   await insertSeedDocument({
     id: fixtures.docNullPdf,
     documentNumber: "KA-РХ-000002",
-    orderNumber: 2,
+    orderNumber: "T-2",
   });
   await kit.db.runtime.db.insert(documentShareTokens).values([
     {

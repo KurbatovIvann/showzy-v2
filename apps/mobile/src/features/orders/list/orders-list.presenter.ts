@@ -210,7 +210,7 @@ export function toOrderRowView(
     status: item.status,
     statusLabel: args.copy.statuses[item.status],
     statusTone: orderStatusTone(item.status),
-    metaLabel: `#${String(item.orderNumber)} · ${itemCountLabel(item.itemCount, args.locale, args.copy.items)} · ${formatOrderCreatedAt(item.createdAt, args.locale)}`,
+    metaLabel: `#${item.orderNumber} · ${itemCountLabel(item.itemCount, args.locale, args.copy.items)} · ${formatOrderCreatedAt(item.createdAt, args.locale)}`,
     totalLabel: formatMoneyMinor(item.totalGrossMinor, item.currency),
   };
 }

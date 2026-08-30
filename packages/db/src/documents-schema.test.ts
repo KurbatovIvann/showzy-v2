@@ -148,7 +148,7 @@ async function insertOrder(
     totalNetMinor?: bigint;
     totalTaxMinor?: bigint;
     totalGrossMinor?: bigint;
-    orderNumber?: number;
+    orderNumber?: string;
   },
 ) {
   const next = (nextOrderNumberByCompany.get(values.companyId) ?? 0) + 1;
@@ -159,7 +159,7 @@ async function insertOrder(
       totalNetMinor: 10_000n,
       totalTaxMinor: 0n,
       totalGrossMinor: 10_000n,
-      orderNumber: next,
+      orderNumber: `T-${String(next)}`,
       ...values,
     })
     .returning();

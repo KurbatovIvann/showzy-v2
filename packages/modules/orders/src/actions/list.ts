@@ -2,7 +2,17 @@ import { listCustomers } from "@showzy/customers";
 import { implementAction, type ActionCtx } from "@showzy/core";
 import { CoreInvariantError } from "@showzy/core/errors";
 import { orderItems, orders } from "@showzy/db/schema/orders";
-import { and, count, desc, eq, inArray, lt, or, type SQL } from "drizzle-orm";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  lt,
+  or,
+  type SQL,
+} from "drizzle-orm";
 
 import { moneyToCanonical } from "../services/canonical.js";
 import {
@@ -33,18 +43,13 @@ function likeLiteral(query: string): string | undefined {
   return literal;
 }
 
-const PG_INTEGER_MAX = 2_147_483_647;
-
-function parseOrderNumberQuery(literal: string): number | undefined {
-  const digits = literal.startsWith("#") ? literal.slice(1) : literal;
-  if (!/^\d+$/.test(digits)) {
+/** Optional leading `#`; empty after strip is not a number match. */
+function orderNumberSearchLiteral(literal: string): string | undefined {
+  const withoutHash = literal.startsWith("#") ? literal.slice(1) : literal;
+  if (withoutHash.length === 0) {
     return undefined;
   }
-  const value = Number.parseInt(digits, 10);
-  if (!Number.isSafeInteger(value) || value < 1 || value > PG_INTEGER_MAX) {
-    return undefined;
-  }
-  return value;
+  return withoutHash;
 }
 
 type StaffCtx = Extract<ActionCtx, { principal: "staff" }>;
@@ -74,11 +79,13 @@ async function customerIdsMatchingSearch(
 }
 
 function searchPredicate(
-  orderNumber: number | undefined,
+  numberLiteral: string | undefined,
   customerIds: readonly string[],
 ): SQL | undefined {
   const numberMatch =
-    orderNumber === undefined ? undefined : eq(orders.orderNumber, orderNumber);
+    numberLiteral === undefined
+      ? undefined
+      : ilike(orders.orderNumber, `%${numberLiteral}%`);
   const customerMatch =
     customerIds.length === 0
       ? undefined
@@ -111,10 +118,10 @@ export const listOrders = implementAction(listOrdersContract, {
       );
     }
 
-    const orderNumber =
+    const numberLiteral =
       searchLiteral === undefined
         ? undefined
-        : parseOrderNumberQuery(searchLiteral);
+        : orderNumberSearchLiteral(searchLiteral);
     const customerIds =
       searchLiteral === undefined
         ? []
@@ -122,7 +129,7 @@ export const listOrders = implementAction(listOrdersContract, {
     const queryPredicate =
       searchLiteral === undefined
         ? undefined
-        : searchPredicate(orderNumber, customerIds);
+        : searchPredicate(numberLiteral, customerIds);
     if (searchLiteral !== undefined && queryPredicate === undefined) {
       return { items: [], nextCursor: null };
     }

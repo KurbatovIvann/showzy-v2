@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@showzy/catalog": "workspace:*",
+    "@showzy/companies": "workspace:*",
     "@showzy/core": "workspace:*",
     "@showzy/customers": "workspace:*",
     "@showzy/db": "workspace:*",
