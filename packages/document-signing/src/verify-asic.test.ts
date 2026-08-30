@@ -71,4 +71,45 @@ describe("verify ASiC-E (GOST fixture CAdES-BES STRUCT)", () => {
     );
     expect(readFileSync(GOST_P12).byteLength).toBeGreaterThan(0);
   });
+
+  it("rejects intact CAdES with a swapped payload as a manifest digest mismatch, not freeze SHA-256", async () => {
+    const signed = await createSignedAsicE(payload, adapter);
+    const unpacked = unpackAsicE(signed.bytes);
+    const swappedPayload = {
+      name: payload.name,
+      bytes: encoder.encode("%PDF-1.4\nswapped-payload\n%%EOF\n"),
+    };
+    expect(sha256Hex(swappedPayload.bytes)).not.toBe(signed.payloadSha256);
+    const swapped = packAsicE([
+      { name: "mimetype", bytes: encoder.encode(ASIC_E_MIMETYPE) },
+      swappedPayload,
+      unpacked.manifest,
+      unpacked.signature,
+    ]);
+    const error = await verifyAsicE(swapped, adapter).then(
+      () => undefined,
+      (caught: unknown) => caught,
+    );
+    expect(error).toBeInstanceOf(VerifyFailedError);
+    if (error instanceof VerifyFailedError) {
+      expect(error.message).toMatch(/digest|ASiCManifest/i);
+      expect(error.message).not.toMatch(/freeze/i);
+      expect(error.message).not.toMatch(/sha-256/i);
+      expect(error.message).not.toMatch(/payloadSha256/i);
+    }
+  });
+
+  it("does not pass ignoreCertStatus on production VERIFY STRUCT", () => {
+    const source = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "verify-asic.ts"),
+      "utf8",
+    );
+    const verifyFn = source.slice(
+      source.indexOf("export async function verifyAsicE"),
+      source.indexOf("export async function createSignedAsicE"),
+    );
+    expect(verifyFn).toContain('validationType: "STRUCT"');
+    expect(verifyFn).not.toContain("ignoreCertStatus");
+    expect(source).toContain("options: { ignoreCertStatus: true }");
+  });
 });

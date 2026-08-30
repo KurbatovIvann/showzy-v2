@@ -8,6 +8,7 @@ import { VerifyFailedError } from "./errors.js";
 import { base64ToUint8, uint8ToBase64 } from "./pki/encoding.js";
 import {
   OID_GOST34311,
+  hashOidFromDigestUri,
   resolveSignParams,
   xmlDigestUriForHashOid,
 } from "./pki/algorithms.js";
@@ -128,6 +129,93 @@ function isoNow(): string {
   return new Date().toISOString();
 }
 
+function digestB64Equal(declared: string, actual: string): boolean {
+  let left: Uint8Array;
+  let right: Uint8Array;
+  try {
+    left = base64ToUint8(declared);
+    right = base64ToUint8(actual);
+  } catch {
+    return false;
+  }
+  if (left.byteLength !== right.byteLength) {
+    return false;
+  }
+  let diff = 0;
+  for (let i = 0; i < left.byteLength; i += 1) {
+    diff |= (left[i] ?? 0) ^ (right[i] ?? 0);
+  }
+  return diff === 0;
+}
+
+function payloadManifestDigest(
+  xml: string,
+  payloadName: string,
+): { readonly methodUri: string; readonly digestB64: string } {
+  const expected = payloadName.replace(/^\//, "");
+  const blocks = xml.matchAll(
+    /<asic:DataObjectReference\b([^>]*)>([\s\S]*?)<\/asic:DataObjectReference>/gi,
+  );
+  for (const block of blocks) {
+    const attrs = block[1] ?? "";
+    const body = block[2] ?? "";
+    const uriMatch = /\bURI="([^"]+)"/i.exec(attrs);
+    const uri = uriMatch?.[1]?.replace(/^\//, "");
+    if (uri !== expected) {
+      continue;
+    }
+    const methodMatch =
+      /<(?:ds:)?DigestMethod\b[^>]*\bAlgorithm="([^"]+)"/i.exec(body);
+    const valueMatch =
+      /<(?:ds:)?DigestValue>([\s\S]*?)<\/(?:ds:)?DigestValue>/i.exec(body);
+    const methodUri = methodMatch?.[1];
+    const digestB64 = valueMatch?.[1]?.replace(/\s+/g, "");
+    if (
+      methodUri === undefined ||
+      digestB64 === undefined ||
+      digestB64.length === 0
+    ) {
+      throw new VerifyFailedError(
+        "ASiCManifest is missing DigestMethod or DigestValue for the payload",
+      );
+    }
+    return { methodUri, digestB64 };
+  }
+  throw new VerifyFailedError(
+    "ASiCManifest has no DataObjectReference for the payload",
+  );
+}
+
+async function requireManifestPayloadDigest(
+  engine: UapkiAdapter,
+  unpacked: {
+    readonly payload: AsicEntry;
+    readonly manifest: AsicEntry;
+  },
+): Promise<void> {
+  const xml = new TextDecoder().decode(unpacked.manifest.bytes);
+  const declared = payloadManifestDigest(xml, unpacked.payload.name);
+  const digest = await call(engine, "DIGEST", {
+    hashAlgo: hashOidFromDigestUri(declared.methodUri),
+    bytes: uint8ToBase64(unpacked.payload.bytes),
+  });
+  if (digest.errorCode !== 0) {
+    throw new VerifyFailedError(
+      digest.error ?? `DIGEST failed: ${String(digest.errorCode)}`,
+      digest.errorCode,
+    );
+  }
+  const actualB64 = stringField(asRecord(digest.result), "bytes");
+  if (actualB64 === undefined) {
+    throw new VerifyFailedError("DIGEST returned no bytes");
+  }
+  if (!digestB64Equal(declared.digestB64, actualB64)) {
+    throw new VerifyFailedError(
+      "ASiC payload digest does not match ASiCManifest DigestValue",
+    );
+  }
+}
+
 function isoFromUapkiTime(value: unknown): string | undefined {
   if (typeof value !== "string" || value.length === 0) {
     return undefined;
@@ -186,6 +274,8 @@ export async function verifyAsicE(
       `ASiC manifest digest is not VALID (statusMessageDigest=${digestStatus})`,
     );
   }
+
+  await requireManifestPayloadDigest(engine, unpacked);
 
   const certId =
     typeof first.signerCertId === "string" ? first.signerCertId : undefined;
