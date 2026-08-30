@@ -1477,7 +1477,7 @@ describe("docSigning.complete", () => {
     const winner =
       fulfilled[0]?.status === "fulfilled" ? fulfilled[0].value : undefined;
     expect(winner).toBeDefined();
-    const loserError =
+    const loserError: unknown =
       rejected[0]?.status === "rejected" ? rejected[0].reason : undefined;
     expect(loserError).toBeInstanceOf(ConflictError);
     if (loserError instanceof ConflictError) {
