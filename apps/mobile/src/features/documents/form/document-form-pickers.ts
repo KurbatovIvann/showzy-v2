@@ -6,7 +6,7 @@ import { formatMoneyMinor } from "../../../format/money";
 import type { DocumentOrderListItem } from "../api/order-list-query";
 
 export function documentOrderOptionName(order: DocumentOrderListItem): string {
-  return `#${String(order.orderNumber)}`;
+  return `#${order.orderNumber}`;
 }
 
 export function documentOrderOptionDescription(
