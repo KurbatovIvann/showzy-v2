@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -13,7 +13,7 @@ import {
 } from "./pki/algorithms.js";
 import { createNodeAdapter } from "./platform/node-adapter.js";
 import type { UapkiAdapter } from "./platform/adapter.js";
-import type { CertInfo, UapkiResponse } from "./types.js";
+import type { UapkiResponse } from "./types.js";
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const GOST_P12 = join(packageRoot, "cpp/test/data/test-diia.p12");
@@ -163,16 +163,24 @@ export async function verifyAsicE(
     ? (infos[0] as SignatureInfo | undefined)
     : undefined;
   if (first === undefined || first.statusSignature !== "VALID") {
+    const status =
+      typeof first?.statusSignature === "string"
+        ? first.statusSignature
+        : "missing";
     throw new VerifyFailedError(
-      `ASiC signature is not VALID (statusSignature=${String(first?.statusSignature)})`,
+      `ASiC signature is not VALID (statusSignature=${status})`,
     );
   }
   if (
     first.statusMessageDigest !== undefined &&
     first.statusMessageDigest !== "VALID"
   ) {
+    const digestStatus =
+      typeof first.statusMessageDigest === "string"
+        ? first.statusMessageDigest
+        : "invalid";
     throw new VerifyFailedError(
-      `ASiC manifest digest is not VALID (statusMessageDigest=${String(first.statusMessageDigest)})`,
+      `ASiC manifest digest is not VALID (statusMessageDigest=${digestStatus})`,
     );
   }
 
@@ -215,16 +223,27 @@ export async function verifyAsicE(
 
 async function addFixtureCerts(adapter: UapkiAdapter): Promise<void> {
   const certDir = join(packageRoot, "cpp/test/data/certs");
-  for (const name of [
+  const names = [
+    "CAO-05E19E2CD92EA2990100000001000000C1000000.cer",
+    "diia-CA-05E19E2CD92EA2990100000001000000E1000000.cer",
     "diia-test-sign-7775603.cer",
     "diia-test-kep-7775604.cer",
-  ]) {
-    try {
-      await call(adapter, "ADD_CERT", {
-        certificates: [readFileSync(join(certDir, name)).toString("base64")],
-      });
-    } catch {
-      // fixture certs are optional when the tree omitted them
+    "diia-2023-tsp-05E19E2CD92EA29902000000010000004A010000.cer",
+    "diia-ocsp-3ED5083160DBC59B0200000001000000202B0F00.cer",
+  ];
+  for (const name of names) {
+    const certPath = join(certDir, name);
+    if (!existsSync(certPath)) {
+      continue;
+    }
+    const added = await call(adapter, "ADD_CERT", {
+      certificates: [readFileSync(certPath).toString("base64")],
+    });
+    if (added.errorCode !== 0) {
+      throw new VerifyFailedError(
+        added.error ?? `ADD_CERT ${name} failed: ${String(added.errorCode)}`,
+        added.errorCode,
+      );
     }
   }
 }
@@ -314,6 +333,11 @@ export async function createSignedAsicE(
         includeTime: false,
         includeContentTs: false,
       },
+      // Fixture-only: vendored Diia test PKCS#12 is expired as of 2026-08.
+      // UAPKI SIGN validates notAfter unless options.ignoreCertStatus is set
+      // (CAdES-BES; JSON key is "options", not "signOptions").
+      // Production VERIFY STRUCT does not use this option.
+      options: { ignoreCertStatus: true },
       dataTbs: [{ id: "manifest", bytes: uint8ToBase64(manifestBytes) }],
     });
     if (signed.errorCode !== 0) {

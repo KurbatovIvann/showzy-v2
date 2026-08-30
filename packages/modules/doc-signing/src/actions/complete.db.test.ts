@@ -594,10 +594,12 @@ async function prepareComplete(env: {
   readonly byteSize: number;
   readonly checksumSha256: string;
 }> {
-  const staged = await handshakePut(env.bytes, {
-    companyId: env.companyId,
-    userId: env.userId,
-  });
+  const staged = await handshakePut(
+    env.bytes,
+    env.userId === undefined
+      ? { companyId: env.companyId }
+      : { companyId: env.companyId, userId: env.userId },
+  );
   const requestId = await insertPendingRequest({
     documentId: env.documentId,
     pdfId: env.pdfId,
