@@ -1,0 +1,15 @@
+# Secret-scan allowlists. CI uses gitleaks-action (docs/operations/branch-protection.md).
+# gitleaks 8.24.x (typical for gitleaks-action v3) reads global [allowlist]
+# (singular). [[allowlists]] is ignored on that line.
+title = "showzy"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Vendored UAPKI PKCS#11 names, keywrap offsets, and GOST test PKCS#12 (SHO-252 staging copy — not credentials)"
+paths = [
+  '''packages/document-signing/cpp/common/cryptoki/cryptoki-const-ukr\.h''',
+  '''packages/document-signing/cpp/uapkic/src/keywrap\.c''',
+  '''packages/document-signing/cpp/test/data/test-diia\.p12''',
+]
