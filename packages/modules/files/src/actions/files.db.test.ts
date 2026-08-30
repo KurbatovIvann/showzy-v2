@@ -541,8 +541,20 @@ async function expectCatalogRenditions(
     if (expected === "present") {
       await waitForObjectVisibility(store, key, "present");
     } else {
+      await waitForObjectVisibility(store, key, "missing");
       expect(await store.headObject(key)).toBe("missing");
     }
+  }
+}
+
+async function putCatalogRenditionObjects(
+  companyId: string,
+  fileId: string,
+): Promise<void> {
+  for (const rendition of CATALOG_RENDITIONS) {
+    await putStoreObject(
+      catalogRenditionObjectKey(companyId, fileId, rendition),
+    );
   }
 }
 
@@ -2291,6 +2303,16 @@ describe("files.sweepAbandonedUploads", () => {
     }
     expect(sha256Hex(catalogA.bytes)).toBe(jpegChecksum);
     expect(sha256Hex(catalogB.bytes)).toBe(pngChecksum);
+    await expectCatalogRenditions(
+      kitIdentities.companies.a,
+      readyA.fileId,
+      "present",
+    );
+    await expectCatalogRenditions(
+      kitIdentities.companies.b,
+      readyB.fileId,
+      "present",
+    );
     expect((await fileCursor(readyA.fileId)).stagingPurgedAt).not.toBeNull();
     expect((await fileCursor(readyB.fileId)).stagingPurgedAt).not.toBeNull();
 
@@ -2393,6 +2415,37 @@ describe("files.sweepAbandonedUploads", () => {
     expect(blob).not.toMatch(/\/catalog\//);
     expect(blob).not.toMatch(/\/uploads\//);
     expect(blob).not.toContain("objectKey");
+  });
+
+  it("deletes leftover catalog renditions with an abandoned pending row", async () => {
+    await drainAbandonedPending();
+    const fileId = randomUUID();
+    const abandonedAt = new Date(Date.now() - ABANDONED_PENDING_TTL_MS - 1_000);
+    await insertFileRow({
+      id: fileId,
+      companyId: kitIdentities.companies.a,
+      uploadedByUserId: kitIdentities.users.anna,
+      status: "pending",
+      createdAt: abandonedAt,
+    });
+    await putStoreObject(stagingObjectKey(kitIdentities.companies.a, fileId));
+    await putStoreObject(catalogObjectKey(kitIdentities.companies.a, fileId));
+    await putCatalogRenditionObjects(kitIdentities.companies.a, fileId);
+
+    const result = await requireKit().invoke(sweepAbandonedUploads, {});
+    expect(result.abandonedPendingDeleted).toBeGreaterThanOrEqual(1);
+
+    const store = getFilesObjectStore();
+    const originalKey = catalogObjectKey(kitIdentities.companies.a, fileId);
+    await waitForObjectVisibility(store, originalKey, "missing");
+    expect(await store.headObject(originalKey)).toBe("missing");
+    await expectCatalogRenditions(kitIdentities.companies.a, fileId, "missing");
+
+    const remaining = await requireKit()
+      .db.runtime.db.select({ id: files.id })
+      .from(files)
+      .where(eq(files.id, fileId));
+    expect(remaining).toHaveLength(0);
   });
 
   it("keeps a ready catalog intact when the same tick deletes another tenant's abandoned objects", async () => {
