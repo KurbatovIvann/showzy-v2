@@ -142,9 +142,9 @@ describe("adapter HTTP init contract (SHO-252)", () => {
         result: { selfTestStatus: 0x2 },
       }),
     ).toBe(false);
-    expect(
-      isRepeatInitSelfTestArtifact({ errorCode: 0, result: {} }),
-    ).toBe(false);
+    expect(isRepeatInitSelfTestArtifact({ errorCode: 0, result: {} })).toBe(
+      false,
+    );
   });
 
   it("withSkipSelfTest adds the flag and keeps the rest of the INIT request", () => {
