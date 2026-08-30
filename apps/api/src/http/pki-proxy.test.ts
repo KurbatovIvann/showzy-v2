@@ -96,11 +96,35 @@ describe("isBlockedPkiDestinationAddress", () => {
     expect(isBlockedPkiDestinationAddress("fc00::1")).toBe(true);
     expect(isBlockedPkiDestinationAddress("::ffff:127.0.0.1")).toBe(true);
     expect(isBlockedPkiDestinationAddress("::ffff:169.254.169.254")).toBe(true);
+    expect(
+      isBlockedPkiDestinationAddress("0000:0000:0000:0000:0000:ffff:127.0.0.1"),
+    ).toBe(true);
+    expect(isBlockedPkiDestinationAddress("::127.0.0.1")).toBe(true);
+    expect(
+      isBlockedPkiDestinationAddress("0000:0000:0000:0000:0000:0000:127.0.0.1"),
+    ).toBe(true);
+    expect(isBlockedPkiDestinationAddress("::7f00:1")).toBe(true);
+    expect(
+      isBlockedPkiDestinationAddress("0000:0000:0000:0000:0000:ffff:10.0.0.1"),
+    ).toBe(true);
+    expect(isBlockedPkiDestinationAddress("::10.0.0.1")).toBe(true);
+    expect(
+      isBlockedPkiDestinationAddress(
+        "0000:0000:0000:0000:0000:ffff:169.254.169.254",
+      ),
+    ).toBe(true);
+    expect(isBlockedPkiDestinationAddress("::169.254.169.254")).toBe(true);
+    expect(isBlockedPkiDestinationAddress("::ffff:a9fe:a9fe")).toBe(true);
   });
 
   it("allows documentation and public unicast", () => {
     expect(isBlockedPkiDestinationAddress(PUBLIC_IP)).toBe(false);
     expect(isBlockedPkiDestinationAddress("8.8.8.8")).toBe(false);
+    expect(isBlockedPkiDestinationAddress("::ffff:8.8.8.8")).toBe(false);
+    expect(
+      isBlockedPkiDestinationAddress("0000:0000:0000:0000:0000:ffff:8.8.8.8"),
+    ).toBe(false);
+    expect(isBlockedPkiDestinationAddress("::8.8.8.8")).toBe(false);
   });
 });
 
@@ -200,6 +224,18 @@ describe("POST /pki/proxy", () => {
     ["IPv6 link-local", "fe80::1"],
     ["IPv6 unique-local", "fc00::1"],
     ["IPv4-mapped loopback", "::ffff:127.0.0.1"],
+    [
+      "long-form IPv4-mapped loopback",
+      "0000:0000:0000:0000:0000:ffff:127.0.0.1",
+    ],
+    ["IPv4-compatible loopback", "::127.0.0.1"],
+    ["IPv4-compatible private", "::10.1.2.3"],
+    ["IPv4-compatible metadata", "::169.254.169.254"],
+    ["long-form IPv4-mapped private", "0000:0000:0000:0000:0000:ffff:10.1.2.3"],
+    [
+      "long-form IPv4-mapped metadata",
+      "0000:0000:0000:0000:0000:ffff:169.254.169.254",
+    ],
   ])("rejects public-host DNS rebinding to %s", async (_label, address) => {
     const fetches: string[] = [];
     const lookedUp: string[] = [];

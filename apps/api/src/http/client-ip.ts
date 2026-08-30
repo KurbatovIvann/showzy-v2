@@ -76,12 +76,109 @@ function parseForwardedFor(header: string | undefined): string[] {
     .filter((entry) => entry.length > 0);
 }
 
-/** Strip brackets, IPv6 zone ids, and IPv4-mapped IPv6 so BlockList can match. */
+/**
+ * Strip brackets, IPv6 zone ids, and reduce IPv4-mapped / IPv4-compatible
+ * IPv6 (shorthand, long-form, and hex) to IPv4 so BlockList can match.
+ * Native `::` / `::1` stay IPv6.
+ */
 export function normalizeIp(address: string): string {
   const trimmed = address.trim().replace(/^\[/, "").replace(/\]$/, "");
   const withoutZone = trimmed.replace(/%.+$/, "");
-  const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/i.exec(withoutZone);
-  return mapped?.[1] ?? withoutZone;
+  return embeddedIpv4(withoutZone) ?? withoutZone;
+}
+
+const DOTTED_IPV4_SUFFIX = /^(.+):(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+const HEX_GROUP = /^[0-9a-f]{1,4}$/i;
+
+function embeddedIpv4(address: string): string | null {
+  const hextets = parseIpv6Hextets(address);
+  if (hextets === null || hextets.length !== 8) {
+    return null;
+  }
+  const prefixZero =
+    hextets[0] === 0 &&
+    hextets[1] === 0 &&
+    hextets[2] === 0 &&
+    hextets[3] === 0 &&
+    hextets[4] === 0;
+  if (!prefixZero) {
+    return null;
+  }
+  const sixth = hextets[5] ?? 0;
+  const seventh = hextets[6] ?? 0;
+  const eighth = hextets[7] ?? 0;
+  if (sixth === 0xffff) {
+    return hextetsToIpv4(seventh, eighth);
+  }
+  if (sixth === 0) {
+    const ipv4 = hextetsToIpv4(seventh, eighth);
+    if (ipv4 === "0.0.0.0" || ipv4 === "0.0.0.1") {
+      return null;
+    }
+    return ipv4;
+  }
+  return null;
+}
+
+function parseIpv6Hextets(address: string): number[] | null {
+  const rewritten = rewriteDottedIpv4Suffix(address);
+  if (rewritten === null) {
+    return null;
+  }
+  const compressionCount = rewritten.split("::").length - 1;
+  if (compressionCount > 1) {
+    return null;
+  }
+  if (compressionCount === 1) {
+    const parts = rewritten.split("::");
+    const left = parseHexGroups(parts[0] ?? "");
+    const right = parseHexGroups(parts[1] ?? "");
+    if (left === null || right === null) {
+      return null;
+    }
+    const missing = 8 - left.length - right.length;
+    if (missing < 1) {
+      return null;
+    }
+    return [...left, ...Array.from({ length: missing }, () => 0), ...right];
+  }
+  const groups = parseHexGroups(rewritten);
+  if (groups === null || groups.length !== 8) {
+    return null;
+  }
+  return groups;
+}
+
+function rewriteDottedIpv4Suffix(address: string): string | null {
+  const match = DOTTED_IPV4_SUFFIX.exec(address);
+  if (match === null) {
+    return address;
+  }
+  const octets = [match[2], match[3], match[4], match[5]].map(Number);
+  if (octets.some((octet) => octet > 255)) {
+    return null;
+  }
+  const high = ((octets[0] ?? 0) << 8) | (octets[1] ?? 0);
+  const low = ((octets[2] ?? 0) << 8) | (octets[3] ?? 0);
+  return `${match[1]}:${high.toString(16)}:${low.toString(16)}`;
+}
+
+function parseHexGroups(part: string): number[] | null {
+  if (part === "") {
+    return [];
+  }
+  const groups: number[] = [];
+  for (const group of part.split(":")) {
+    if (!HEX_GROUP.test(group)) {
+      return null;
+    }
+    groups.push(Number.parseInt(group, 16));
+  }
+  return groups;
+}
+
+function hextetsToIpv4(high: number, low: number): string {
+  return `${(high >> 8) & 255}.${high & 255}.${(low >> 8) & 255}.${low & 255}`;
 }
 
 function addTrustedEntry(list: BlockList, entry: string): void {

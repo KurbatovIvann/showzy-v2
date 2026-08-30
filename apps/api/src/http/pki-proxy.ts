@@ -84,6 +84,7 @@ function createBlockedDestinationList(): BlockList {
 }
 
 export function isBlockedPkiDestinationAddress(address: string): boolean {
+  // Canonicalize IPv4-mapped / IPv4-compatible DNS answers before the list.
   const normalized = normalizeIp(address);
   if (isIP(normalized) === 0) {
     return true;

@@ -95,6 +95,23 @@ describe("resolveClientIp (security-operations §2)", () => {
     ).toBe(CLIENT);
   });
 
+  it("normalizes long-form mapped and IPv4-compatible peers so a CIDR still matches", () => {
+    expect(
+      resolve({
+        peerAddress: "0000:0000:0000:0000:0000:ffff:10.0.0.1",
+        forwardedFor: CLIENT,
+        trustedProxies: ["10.0.0.0/8"],
+      }),
+    ).toBe(CLIENT);
+    expect(
+      resolve({
+        peerAddress: "::10.0.0.1",
+        forwardedFor: CLIENT,
+        trustedProxies: ["10.0.0.0/8"],
+      }),
+    ).toBe(CLIENT);
+  });
+
   it("reuses one matcher across requests (hoisted BlockList)", () => {
     const isTrusted = createTrustedProxyMatcher([INGRESS, "10.0.0.0/8"]);
     expect(
@@ -118,5 +135,55 @@ describe("resolveClientIp (security-operations §2)", () => {
         isTrusted,
       }),
     ).toBe(PEER);
+  });
+});
+
+describe("normalizeIp", () => {
+  it("keeps IPv4 and native IPv6 loopback/unspecified unchanged", () => {
+    expect(normalizeIp("127.0.0.1")).toBe("127.0.0.1");
+    expect(normalizeIp("10.0.0.1")).toBe("10.0.0.1");
+    expect(normalizeIp("::1")).toBe("::1");
+    expect(normalizeIp("::")).toBe("::");
+    expect(normalizeIp("fe80::1")).toBe("fe80::1");
+  });
+
+  it("reduces shorthand, long-form, and hex IPv4-mapped encodings to IPv4", () => {
+    expect(normalizeIp("::ffff:127.0.0.1")).toBe("127.0.0.1");
+    expect(normalizeIp("::FFFF:127.0.0.1")).toBe("127.0.0.1");
+    expect(normalizeIp("0000:0000:0000:0000:0000:ffff:127.0.0.1")).toBe(
+      "127.0.0.1",
+    );
+    expect(normalizeIp("0:0:0:0:0:ffff:127.0.0.1")).toBe("127.0.0.1");
+    expect(normalizeIp("::ffff:7f00:1")).toBe("127.0.0.1");
+    expect(normalizeIp("::ffff:10.0.0.1")).toBe("10.0.0.1");
+    expect(normalizeIp("0000:0000:0000:0000:0000:ffff:10.0.0.1")).toBe(
+      "10.0.0.1",
+    );
+    expect(normalizeIp("::ffff:169.254.169.254")).toBe("169.254.169.254");
+    expect(normalizeIp("0000:0000:0000:0000:0000:ffff:169.254.169.254")).toBe(
+      "169.254.169.254",
+    );
+    expect(normalizeIp("::ffff:a9fe:a9fe")).toBe("169.254.169.254");
+  });
+
+  it("reduces IPv4-compatible encodings of loopback/private/metadata to IPv4", () => {
+    expect(normalizeIp("::127.0.0.1")).toBe("127.0.0.1");
+    expect(normalizeIp("0000:0000:0000:0000:0000:0000:127.0.0.1")).toBe(
+      "127.0.0.1",
+    );
+    expect(normalizeIp("::7f00:1")).toBe("127.0.0.1");
+    expect(normalizeIp("::10.0.0.1")).toBe("10.0.0.1");
+    expect(normalizeIp("0000:0000:0000:0000:0000:0000:10.0.0.1")).toBe(
+      "10.0.0.1",
+    );
+    expect(normalizeIp("::169.254.169.254")).toBe("169.254.169.254");
+    expect(normalizeIp("::a9fe:a9fe")).toBe("169.254.169.254");
+    expect(normalizeIp("::192.168.1.1")).toBe("192.168.1.1");
+  });
+
+  it("strips brackets and IPv6 zone ids before canonicalizing", () => {
+    expect(normalizeIp("[::ffff:127.0.0.1]")).toBe("127.0.0.1");
+    expect(normalizeIp("::ffff:10.0.0.1%eth0")).toBe("10.0.0.1");
+    expect(normalizeIp("::127.0.0.1%lo")).toBe("127.0.0.1");
   });
 });
