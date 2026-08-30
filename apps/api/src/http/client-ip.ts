@@ -5,7 +5,7 @@
  * ignored. The result is transport-only: rate limiting HMAC-keys it, and
  * it never becomes a domain log or audit field.
  */
-import { BlockList } from "node:net";
+import { BlockList, isIP } from "node:net";
 
 export interface ResolveClientIpInput {
   /** The TCP peer as the process saw it (socket address). */
@@ -77,45 +77,106 @@ function parseForwardedFor(header: string | undefined): string[] {
 }
 
 /**
- * Strip brackets, IPv6 zone ids, and reduce IPv4-mapped / IPv4-compatible
- * IPv6 (shorthand, long-form, and hex) to IPv4 so BlockList can match.
- * Native `::` / `::1` stay IPv6.
+ * Strip brackets, IPv6 zone ids, and reduce IPv4-mapped, IPv4-compatible,
+ * IPv4-translated, NAT64 well-known, and 6to4 encodings to IPv4 so BlockList
+ * can match. Native `::` / `::1` stay IPv6. Unparseable input is returned as
+ * stripped text (callers that must fail closed use
+ * {@link tryCanonicalDestinationIp}).
  */
 export function normalizeIp(address: string): string {
+  const stripped = stripIp(address);
+  return tryCanonicalDestinationIp(address) ?? stripped;
+}
+
+/**
+ * Canonical IPv4 or native IPv6 for destination BlockList checks.
+ * `null` means the address could not be parsed (fail closed).
+ */
+export function tryCanonicalDestinationIp(address: string): string | null {
+  const stripped = stripIp(address);
+  const embedded = embeddedIpv4(stripped);
+  if (embedded !== null) {
+    return embedded;
+  }
+  if (isIP(stripped) === 4) {
+    return stripped;
+  }
+  if (parseIpv6Hextets(stripped) !== null) {
+    return stripped;
+  }
+  return null;
+}
+
+function stripIp(address: string): string {
   const trimmed = address.trim().replace(/^\[/, "").replace(/\]$/, "");
-  const withoutZone = trimmed.replace(/%.+$/, "");
-  return embeddedIpv4(withoutZone) ?? withoutZone;
+  return trimmed.replace(/%.+$/, "");
 }
 
 const DOTTED_IPV4_SUFFIX = /^(.+):(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
 const HEX_GROUP = /^[0-9a-f]{1,4}$/i;
+
+function hextetAt(hextets: readonly number[], index: number): number {
+  return hextets[index] ?? 0;
+}
 
 function embeddedIpv4(address: string): string | null {
   const hextets = parseIpv6Hextets(address);
   if (hextets === null || hextets.length !== 8) {
     return null;
   }
-  const prefixZero =
-    hextets[0] === 0 &&
-    hextets[1] === 0 &&
-    hextets[2] === 0 &&
-    hextets[3] === 0 &&
-    hextets[4] === 0;
-  if (!prefixZero) {
-    return null;
+  const g0 = hextetAt(hextets, 0);
+  const g1 = hextetAt(hextets, 1);
+  const g2 = hextetAt(hextets, 2);
+  const g3 = hextetAt(hextets, 3);
+  const g4 = hextetAt(hextets, 4);
+  const g5 = hextetAt(hextets, 5);
+  const g6 = hextetAt(hextets, 6);
+  const g7 = hextetAt(hextets, 7);
+
+  // IPv4-mapped: ::ffff:a.b.c.d (80 bits 0 + ffff + IPv4)
+  if (
+    g0 === 0 &&
+    g1 === 0 &&
+    g2 === 0 &&
+    g3 === 0 &&
+    g4 === 0 &&
+    g5 === 0xffff
+  ) {
+    return hextetsToIpv4(g6, g7);
   }
-  const sixth = hextets[5] ?? 0;
-  const seventh = hextets[6] ?? 0;
-  const eighth = hextets[7] ?? 0;
-  if (sixth === 0xffff) {
-    return hextetsToIpv4(seventh, eighth);
+  // IPv4-translated: ::ffff:0:a.b.c.d (64 bits 0 + ffff + 0 + IPv4)
+  if (
+    g0 === 0 &&
+    g1 === 0 &&
+    g2 === 0 &&
+    g3 === 0 &&
+    g4 === 0xffff &&
+    g5 === 0
+  ) {
+    return hextetsToIpv4(g6, g7);
   }
-  if (sixth === 0) {
-    const ipv4 = hextetsToIpv4(seventh, eighth);
+  // IPv4-compatible: ::a.b.c.d except native :: / ::1
+  if (g0 === 0 && g1 === 0 && g2 === 0 && g3 === 0 && g4 === 0 && g5 === 0) {
+    const ipv4 = hextetsToIpv4(g6, g7);
     if (ipv4 === "0.0.0.0" || ipv4 === "0.0.0.1") {
       return null;
     }
     return ipv4;
+  }
+  // NAT64 well-known prefix 64:ff9b::/96
+  if (
+    g0 === 0x64 &&
+    g1 === 0xff9b &&
+    g2 === 0 &&
+    g3 === 0 &&
+    g4 === 0 &&
+    g5 === 0
+  ) {
+    return hextetsToIpv4(g6, g7);
+  }
+  // 6to4 2002:aabb:ccdd::/48
+  if (g0 === 0x2002) {
+    return hextetsToIpv4(g1, g2);
   }
   return null;
 }

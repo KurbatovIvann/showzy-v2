@@ -18,7 +18,7 @@ import {
 import type { Logger } from "pino";
 import { z } from "zod";
 
-import { normalizeIp } from "./client-ip.js";
+import { tryCanonicalDestinationIp } from "./client-ip.js";
 
 export { PKI_PROXY_PATH };
 
@@ -84,14 +84,13 @@ function createBlockedDestinationList(): BlockList {
 }
 
 export function isBlockedPkiDestinationAddress(address: string): boolean {
-  // Canonicalize IPv4-mapped / IPv4-compatible DNS answers before the list.
-  const normalized = normalizeIp(address);
-  if (isIP(normalized) === 0) {
+  const canonical = tryCanonicalDestinationIp(address);
+  if (canonical === null) {
     return true;
   }
-  const ipType = normalized.includes(":") ? "ipv6" : "ipv4";
+  const ipType = canonical.includes(":") ? "ipv6" : "ipv4";
   try {
-    return blockedDestinations.check(normalized, ipType);
+    return blockedDestinations.check(canonical, ipType);
   } catch {
     return true;
   }
