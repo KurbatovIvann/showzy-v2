@@ -14,9 +14,14 @@ This directory holds UX and design-system artifacts for Showzy V2.
   inventory the canvas, classify shared vs feature, reuse or create;
   do not paste React/Tailwind.
 - **Web panel chrome (phase 10):** [`mapping/web-panel-chrome.md`](mapping/web-panel-chrome.md)
-  — desktop master–detail (nav | list | detail). Pattern reference only:
+  — master–detail (nav | list | detail), responsive from the start
+  (drawer on tablet, Sophie-style bottom tabs on phone, list XOR detail
+  below `md`), detail as a centered compact card on `md+`. T1–T5 owner-passed
+  (`internal evaluation only`); T7 company on canvas awaiting pass.
+  Pattern reference only:
   [three-pane example](https://www.magicpatterns.com/c/kputdkqv5aa9tguis1yxu3).
-  Do not fork it. Working web canvas lands in SHO-262.
+  Do not fork it. Working canvas:
+  [Shozee V2 — Web panel](https://www.magicpatterns.com/c/fdsqxjz1djvww5spay7zey).
 - **V1 reference:** `E:\showzy\apps\mobile` is read-only domain and
   edge-case reference. Archived V1 inventories live in
   [`docs/archive/design/`](../archive/design/) and are not visual
