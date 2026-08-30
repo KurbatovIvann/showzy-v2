@@ -56,18 +56,17 @@ describe("verify ASiC-E (GOST fixture CAdES-BES STRUCT)", () => {
   it("rejects a container whose CAdES does not cover the manifest", async () => {
     const signed = await createSignedAsicE(payload, adapter);
     const unpacked = unpackAsicE(signed.bytes);
-    const p7s = Uint8Array.from(unpacked.signature.bytes);
-    const flip = Math.floor(p7s.byteLength / 2);
-    const original = p7s.at(flip);
-    if (original === undefined) {
-      throw new Error("signed ASiC CAdES is too short to tamper");
-    }
-    p7s[flip] = original ^ 0xff;
+    const mutatedXml = new TextDecoder()
+      .decode(unpacked.manifest.bytes)
+      .replace("document.pdf", "tampered.pdf");
     const tampered = packAsicE([
       { name: "mimetype", bytes: encoder.encode(ASIC_E_MIMETYPE) },
       payload,
-      unpacked.manifest,
-      { name: unpacked.signature.name, bytes: p7s },
+      {
+        name: unpacked.manifest.name,
+        bytes: new TextEncoder().encode(mutatedXml),
+      },
+      unpacked.signature,
     ]);
     await expect(verifyAsicE(tampered, adapter)).rejects.toBeInstanceOf(
       VerifyFailedError,
