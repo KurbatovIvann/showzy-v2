@@ -16,6 +16,10 @@ export type {
 export type { UapkiAdapter, AdapterInitOptions } from "./platform/adapter.js";
 
 export { PKI_PROXY_PATH } from "./pki/proxy.js";
+export {
+  PKI_PROXY_ALLOWED_HOSTS,
+  isPkiProxyAllowedHost,
+} from "./pki/allowlist.js";
 
 export {
   SigningError,

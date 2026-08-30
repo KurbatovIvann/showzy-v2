@@ -97,11 +97,12 @@ export async function bootApi(config: ServerConfig): Promise<BootedApi> {
     },
   };
 
+  const rateLimitStore = createRedisRateLimitStore(redis);
   const pipeline = createActionPipeline({
     db: db.db,
     logger,
     telemetry,
-    rateLimitStore: createRedisRateLimitStore(redis),
+    rateLimitStore,
     confirmationStore: createRedisConfirmationStore(redis),
     ipHmacSecret: config.rateLimit.ipHmacSecret,
   });
@@ -114,6 +115,10 @@ export async function bootApi(config: ServerConfig): Promise<BootedApi> {
     pipeline,
     trustedProxies: config.trustedProxies,
     getPeerAddress: peerAddressFromConnInfo,
+    pkiProxy: {
+      rateLimitStore,
+      ipHmacSecret: config.rateLimit.ipHmacSecret,
+    },
   });
 
   return {

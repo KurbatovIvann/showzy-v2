@@ -399,6 +399,10 @@ beforeAll(async () => {
     },
     trustedProxies: [INGRESS],
     getPeerAddress: (c) => c.req.header("x-test-peer-address") ?? "127.0.0.1",
+    pkiProxy: {
+      rateLimitStore: createInMemoryRateLimitStore(),
+      ipHmacSecret: "test-pki-proxy-ip-hmac-secret!!",
+    },
   });
 });
 
@@ -947,6 +951,10 @@ describe("OTP over HTTP (security-operations §8)", () => {
       pipeline: kit.pipeline,
       trustedProxies: [INGRESS],
       getPeerAddress: (c) => c.req.header("x-test-peer-address") ?? "127.0.0.1",
+      pkiProxy: {
+        rateLimitStore: createInMemoryRateLimitStore(),
+        ipHmacSecret: "test-pki-proxy-ip-hmac-secret!!",
+      },
     });
     const response = await failApp.request(
       `http://localhost:3000${AUTH_PREFIX}/phone-number/send-otp`,

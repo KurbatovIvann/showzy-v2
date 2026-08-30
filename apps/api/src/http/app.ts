@@ -1,8 +1,9 @@
 /**
  * The Hono HTTP app (ADR-0003, contract.md §3): request-id, trusted-proxy
- * IP, better-auth, oRPC at `/rpc`, OpenAPI REST aliases at `/api/v1`, and
- * a liveness endpoint. Business logic does not live here — every action
- * runs `executeAction` through the contract server router.
+ * IP, better-auth, oRPC at `/rpc`, OpenAPI REST aliases at `/api/v1`,
+ * document-share landing, PKI proxy, and a liveness endpoint. Business
+ * logic does not live here — every action runs `executeAction` through
+ * the contract server router. `POST /pki/proxy` is HTTP, not an action.
  */
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { ORPCError } from "@orpc/server";
@@ -25,6 +26,7 @@ import type {
   SessionPrincipal,
 } from "@showzy/core";
 import type { ActionPrincipal } from "@showzy/core/contract";
+import { CoreInvariantError } from "@showzy/core/errors";
 import { Hono, type Context } from "hono";
 
 import { createTrustedProxyMatcher, resolveClientIp } from "./client-ip.js";
@@ -32,6 +34,11 @@ import {
   DOCUMENT_SHARE_LANDING_ROUTE,
   executeDocumentShareLanding,
 } from "./document-share-landing.js";
+import {
+  executePkiProxy,
+  PKI_PROXY_PATH,
+  type PkiProxyRuntime,
+} from "./pki-proxy.js";
 import { REQUEST_ID_HEADER, resolveRequestId } from "./request-id.js";
 
 /** OpenAPI REST aliases (contract.md §3). Distinct from `/api/auth`. */
@@ -76,6 +83,8 @@ export interface CreateAppOptions {
   readonly trustedProxies: readonly string[];
   /** Socket peer. Tests inject a header-backed function; boot uses getConnInfo. */
   readonly getPeerAddress: (c: Context<AppEnv>) => string;
+  /** SSRF-gated OCSP/TSA proxy (SHO-255). Not an action. */
+  readonly pkiProxy: PkiProxyRuntime;
 }
 
 /**
@@ -192,6 +201,11 @@ function requestWithTrustedIp(request: Request, clientIp: string): Request {
 }
 
 export function createApp(options: CreateAppOptions): Hono<AppEnv> {
+  if (options.pkiProxy.ipHmacSecret.length === 0) {
+    throw new CoreInvariantError(
+      "pki-proxy constructed with an empty ipHmacSecret — config wiring bug",
+    );
+  }
   const serverRouter = buildServerRouter(options.contractModules, {
     registry: options.registry,
     pipeline: options.pipeline,
@@ -229,6 +243,31 @@ export function createApp(options: CreateAppOptions): Hono<AppEnv> {
   });
 
   app.get(HEALTH_PATH, (c) => c.json({ status: "ok" }));
+
+  app.post(PKI_PROXY_PATH, async (c) => {
+    const result = await executePkiProxy({
+      request: c.req.raw,
+      requestId: c.get("requestId"),
+      clientIp: c.get("clientIp"),
+      logger: options.pipeline.logger,
+      rateLimitStore: options.pkiProxy.rateLimitStore,
+      ipHmacSecret: options.pkiProxy.ipHmacSecret,
+      ...(options.pkiProxy.lookup !== undefined
+        ? { lookup: options.pkiProxy.lookup }
+        : {}),
+      ...(options.pkiProxy.fetchImpl !== undefined
+        ? { fetchImpl: options.pkiProxy.fetchImpl }
+        : {}),
+      ...(options.pkiProxy.now !== undefined
+        ? { now: options.pkiProxy.now }
+        : {}),
+    });
+    if (result.retryAfterSec !== undefined) {
+      c.header("Retry-After", String(result.retryAfterSec));
+    }
+    c.header("Cache-Control", "private, no-store");
+    return c.json(result.body, result.status);
+  });
 
   app.get(DOCUMENT_SHARE_LANDING_ROUTE, async (c) => {
     const result = await executeDocumentShareLanding({
