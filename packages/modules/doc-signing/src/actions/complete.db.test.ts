@@ -1161,8 +1161,14 @@ describe("docSigning.complete", () => {
       .db.runtime.db.select()
       .from(auditLog)
       .where(eq(auditLog.requestId, requestId));
-    expect(audits).toHaveLength(1);
-    expect(audits[0]).toMatchObject({
+    expect(audits.map((row) => row.action).toSorted()).toEqual([
+      "docSigning.complete",
+      "files.recordSigningObject",
+    ]);
+    const completeAudit = audits.find(
+      (row) => row.action === "docSigning.complete",
+    );
+    expect(completeAudit).toMatchObject({
       action: "docSigning.complete",
       companyId: kitIdentities.companies.a,
       actorType: "user",
@@ -1171,14 +1177,14 @@ describe("docSigning.complete", () => {
       targetId: ids.happy.documentId,
       outcome: "ok",
     });
-    const snapshot = audits[0]?.inputSnapshot;
+    const snapshot = completeAudit?.inputSnapshot;
     expect(snapshot).toMatchObject({
       signerCn: result.signerCn,
       signerRole: "supplier",
       fileId: prepared.fileId,
       documentId: ids.happy.documentId,
     });
-    const blob = JSON.stringify([result, capturing.entries(), audits[0]]);
+    const blob = JSON.stringify([result, capturing.entries(), audits]);
     expect(blob).not.toMatch(/base64/i);
     expect(blob).not.toContain("payloadDownloadUrl");
     expect(blob).not.toMatch(/[A-Za-z0-9+/]{80,}/);
