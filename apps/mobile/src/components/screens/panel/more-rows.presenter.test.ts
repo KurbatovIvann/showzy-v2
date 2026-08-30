@@ -13,10 +13,10 @@ describe("more row affordances", () => {
     expect(moreRowState("employee").showCompanySettings).toBe(false);
   });
 
-  it("keeps the documents row disabled for every staff role", () => {
-    expect(moreRowState("owner").documentsEnabled).toBe(false);
-    expect(moreRowState("admin").documentsEnabled).toBe(false);
-    expect(moreRowState("manager").documentsEnabled).toBe(false);
-    expect(moreRowState("employee").documentsEnabled).toBe(false);
+  it("enables the documents row for every staff role with documents:view", () => {
+    expect(moreRowState("owner").documentsEnabled).toBe(true);
+    expect(moreRowState("admin").documentsEnabled).toBe(true);
+    expect(moreRowState("manager").documentsEnabled).toBe(true);
+    expect(moreRowState("employee").documentsEnabled).toBe(true);
   });
 });

@@ -1,6 +1,7 @@
 import { implementAction, type AuditTargetEnv } from "@showzy/core";
 import { CoreInvariantError, NotFoundError } from "@showzy/core/errors";
 import { documents, documentShareTokens } from "@showzy/db/schema/documents";
+import { getArtifact } from "@showzy/doc-generation/get-artifact";
 import { issueShareDownloadUrl } from "@showzy/files";
 import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
@@ -11,8 +12,11 @@ import {
   shareDocumentContract,
 } from "./share.contract.js";
 import { loadStaffDocument } from "../services/load-document.js";
+import {
+  loadGenerationArtifact,
+  readyArtifactFileId,
+} from "../services/load-generation.js";
 import { mintSharePdfDownload } from "../services/mint-share-pdf.js";
-import { loadReadyShareFileId } from "../services/ready-share-file.js";
 import { getDocumentShareOrigin } from "../services/share-origin.js";
 import {
   generateDocumentShareToken,
@@ -58,13 +62,12 @@ export const shareDocument = implementAction(shareDocumentContract, {
       companyId: ctx.companyId,
       documentId: input.documentId,
     });
-    const fileId = await loadReadyShareFileId({
-      db: ctx.db,
-      companyId: ctx.companyId,
+    const generation = await loadGenerationArtifact({
       documentId: input.documentId,
+      getArtifact: (body) => ctx.call(getArtifact, body),
     });
     const minted = await mintSharePdfDownload({
-      fileId,
+      fileId: readyArtifactFileId(generation),
       issueShareDownload: (id) =>
         ctx.call(issueShareDownloadUrl, { fileId: id }),
     });

@@ -11,20 +11,41 @@ import {
   MAINTENANCE_LOCK_DURATION_MS,
   MAINTENANCE_QUEUE_NAME,
   MAINTENANCE_SERVICE_NAME,
+  PDF_JOB_NAME,
+  PDF_LOCK_DURATION_MS,
+  PDF_QUEUE_NAME,
+  PDF_SERVICE_NAME,
   SWEEP_ABANDONED_UPLOADS_JOB_NAME,
   SWEEP_INTERVAL_MS,
 } from "./policy.js";
 
-describe("BullMQ job host policy (fnd-T29 / SHO-120)", () => {
-  it("pins the showzy prefix, one maintenance queue, cleanup and sweep intervals", () => {
+describe("BullMQ job host policy (fnd-T29 / SHO-120 / SHO-236)", () => {
+  it("pins the showzy prefix, maintenance and pdf queues, cleanup and sweep intervals", () => {
     expect(BULLMQ_PREFIX).toBe("showzy");
     expect(MAINTENANCE_QUEUE_NAME).toBe("maintenance");
+    expect(PDF_QUEUE_NAME).toBe("pdf");
+    expect(PDF_JOB_NAME).toBe("renderPdf");
+    expect(PDF_SERVICE_NAME).toBe("worker.pdf");
     expect(IDEMPOTENCY_CLEANUP_JOB_NAME).toBe("cleanupExpiredIdempotencyKeys");
     expect(SWEEP_ABANDONED_UPLOADS_JOB_NAME).toBe("sweepAbandonedUploads");
     expect(MAINTENANCE_SERVICE_NAME).toBe("worker.maintenance");
     expect(CLEANUP_INTERVAL_MS).toBe(60 * 60 * 1_000);
     expect(SWEEP_INTERVAL_MS).toBe(5 * 60 * 1_000);
     expect(MAINTENANCE_LOCK_DURATION_MS).toBe(60_000);
+    expect(PDF_LOCK_DURATION_MS).toBe(60_000);
+  });
+
+  it("pdf processor is executeAction(renderPdf) with no domain SQL", () => {
+    const jobsSource = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "jobs.ts"),
+      "utf8",
+    );
+    expect(jobsSource).toContain("executeAction");
+    expect(jobsSource).toContain("renderPdf");
+    expect(jobsSource).toContain("PDF_QUEUE_NAME");
+    expect(jobsSource).not.toContain("documentGenerationJobs");
+    expect(jobsSource).not.toContain("@showzy/db/schema/");
+    expect(jobsSource).not.toContain("drizzle-orm");
   });
 
   it("binds and probes the files object store at worker boot, then closes it", () => {

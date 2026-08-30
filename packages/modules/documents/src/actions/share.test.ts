@@ -59,8 +59,11 @@ describe("documents.share contract", () => {
     );
   });
 
-  it("nests files.issueShareDownloadUrl and does not import testing", () => {
+  it("nests getArtifact then files.issueShareDownloadUrl and does not import testing", () => {
+    expect(shareSource).toContain("getArtifact");
     expect(shareSource).toContain("issueShareDownloadUrl");
+    expect(shareSource).not.toContain("ready-share-file");
+    expect(shareSource).not.toContain("@showzy/db/schema/doc-generation");
     expect(shareSource).not.toContain("@showzy/core/testing");
     expect(shareSource).not.toContain("issueGeneratedDownloadUrl");
   });

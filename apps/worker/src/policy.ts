@@ -26,12 +26,38 @@ export const SWEEP_INTERVAL_MS = 5 * 60 * 1_000;
 
 /**
  * BullMQ Redis key prefix (ADR-0007). Do not set ioredis `keyPrefix` —
- * BullMQ owns prefixing. Do not add pdf/email/push/sms/sync queues here.
+ * BullMQ owns prefixing. Email / push / sms / sync queues stay uncreated.
  */
 export const BULLMQ_PREFIX = "showzy";
 
-/** Sole execution queue in this slice. Outbox delivery is not BullMQ. */
+/** Maintenance execution queue. Outbox delivery is not BullMQ. */
 export const MAINTENANCE_QUEUE_NAME = "maintenance";
+
+/**
+ * PDF execution queue (SHO-236). Production `documents.created` delivery
+ * still invokes `docGeneration.renderPdf` through the outbox (chat
+ * golden). Redis has no volume (db.md §6), so this host does not enqueue
+ * durable one-shot PDF work — the unique `document_generation_jobs` row
+ * plus outbox delivery is the retry target. The processor is the thin
+ * `executeAction(renderPdf)` wrapper for when a job is added (replay /
+ * later persistence policy).
+ */
+export const PDF_QUEUE_NAME = "pdf";
+
+/** Job name the pdf worker executes. */
+export const PDF_JOB_NAME = "renderPdf";
+
+/**
+ * System actor for pdf jobs that invoke `docGeneration.renderPdf`.
+ * Not a new principal — `system` + `systemScope: "tenant"`.
+ */
+export const PDF_SERVICE_NAME = "worker.pdf";
+
+/**
+ * Worker lock longer than `docGeneration.renderPdf` timeout (30s) so a
+ * replica cannot steal an in-flight render.
+ */
+export const PDF_LOCK_DURATION_MS = 60_000;
 
 /**
  * Stable Job Scheduler id and job name. Re-upserted on every boot so a
@@ -41,7 +67,6 @@ export const IDEMPOTENCY_CLEANUP_JOB_NAME = "cleanupExpiredIdempotencyKeys";
 
 /**
  * Second Job Scheduler on the same `maintenance` queue (SHO-120).
- * Do not add a second queue.
  */
 export const SWEEP_ABANDONED_UPLOADS_JOB_NAME = "sweepAbandonedUploads";
 
