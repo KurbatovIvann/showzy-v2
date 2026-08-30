@@ -262,14 +262,11 @@ export async function verifyAsicE(
       `ASiC signature is not VALID (statusSignature=${status})`,
     );
   }
-  if (
-    first.statusMessageDigest !== undefined &&
-    first.statusMessageDigest !== "VALID"
-  ) {
+  if (first.statusMessageDigest !== "VALID") {
     const digestStatus =
       typeof first.statusMessageDigest === "string"
         ? first.statusMessageDigest
-        : "invalid";
+        : "missing";
     throw new VerifyFailedError(
       `ASiC manifest digest is not VALID (statusMessageDigest=${digestStatus})`,
     );

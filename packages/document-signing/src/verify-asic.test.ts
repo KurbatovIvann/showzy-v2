@@ -5,7 +5,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { ASIC_E_MIMETYPE, packAsicE, unpackAsicE } from "./asic-container.js";
 import { AsicContainerError, VerifyFailedError } from "./errors.js";
+import type { UapkiAdapter } from "./platform/adapter.js";
 import { createNodeAdapter } from "./platform/node-adapter.js";
+import type { UapkiResponse } from "./types.js";
 import { createSignedAsicE, sha256Hex, verifyAsicE } from "./verify-asic.js";
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -15,6 +17,75 @@ const payload = {
   name: "document.pdf",
   bytes: encoder.encode("%PDF-1.4\nfixture-payload\n%%EOF\n"),
 };
+
+function requestMethod(jsonRequest: string): string | undefined {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(jsonRequest);
+  } catch {
+    return undefined;
+  }
+  if (typeof parsed !== "object" || parsed === null) {
+    return undefined;
+  }
+  const method = (parsed as Record<string, unknown>).method;
+  return typeof method === "string" ? method : undefined;
+}
+
+function wrapAdapterProcess(
+  adapter: UapkiAdapter,
+  afterProcess: (jsonRequest: string, response: UapkiResponse) => UapkiResponse,
+): UapkiAdapter {
+  return {
+    tempDir: adapter.tempDir,
+    initialize: (options) => adapter.initialize(options),
+    writeFile: (path, data) => adapter.writeFile(path, data),
+    deleteFile: (path) => adapter.deleteFile(path),
+    destroy: () => adapter.destroy(),
+    process: async (jsonRequest) =>
+      afterProcess(jsonRequest, await adapter.process(jsonRequest)),
+  };
+}
+
+function firstSignatureInfo(
+  response: UapkiResponse,
+): Record<string, unknown> | undefined {
+  const infos = response.result?.signatureInfos;
+  if (!Array.isArray(infos) || infos.length === 0) {
+    return undefined;
+  }
+  const first = infos[0];
+  if (typeof first !== "object" || first === null) {
+    return undefined;
+  }
+  return { ...(first as Record<string, unknown>) };
+}
+
+function rewriteFirstSignatureInfo(
+  jsonRequest: string,
+  response: UapkiResponse,
+  rewrite: (first: Record<string, unknown>) => Record<string, unknown>,
+): UapkiResponse {
+  if (requestMethod(jsonRequest) !== "VERIFY") {
+    return response;
+  }
+  const result = response.result;
+  const first = firstSignatureInfo(response);
+  if (result === undefined || first === undefined) {
+    return response;
+  }
+  const infos = result.signatureInfos;
+  if (!Array.isArray(infos)) {
+    return response;
+  }
+  return {
+    ...response,
+    result: {
+      ...result,
+      signatureInfos: [rewrite(first), ...infos.slice(1)],
+    },
+  };
+}
 
 describe("verify ASiC-E (GOST fixture CAdES-BES STRUCT)", () => {
   const adapter = createNodeAdapter();
@@ -96,6 +167,74 @@ describe("verify ASiC-E (GOST fixture CAdES-BES STRUCT)", () => {
       expect(error.message).not.toMatch(/freeze/i);
       expect(error.message).not.toMatch(/sha-256/i);
       expect(error.message).not.toMatch(/payloadSha256/i);
+    }
+  });
+
+  it("rejects VERIFY when statusMessageDigest is omitted", async () => {
+    const signed = await createSignedAsicE(payload, adapter);
+    const wrapping = wrapAdapterProcess(adapter, (jsonRequest, response) =>
+      rewriteFirstSignatureInfo(jsonRequest, response, (first) => {
+        const rest = { ...first };
+        delete rest.statusMessageDigest;
+        return rest;
+      }),
+    );
+    const error = await verifyAsicE(signed.bytes, wrapping).then(
+      () => undefined,
+      (caught: unknown) => caught,
+    );
+    expect(error).toBeInstanceOf(VerifyFailedError);
+    if (error instanceof VerifyFailedError) {
+      expect(error.message).toMatch(/statusMessageDigest=missing/);
+    }
+  });
+
+  it("rejects an unknown DigestMethod Algorithm URI before hashing", async () => {
+    const signed = await createSignedAsicE(payload, adapter);
+    const unpacked = unpackAsicE(signed.bytes);
+    const mutatedXml = new TextDecoder()
+      .decode(unpacked.manifest.bytes)
+      .replace(
+        /Algorithm="[^"]+"/,
+        'Algorithm="http://www.w3.org/2000/09/xmldsig#sha256"',
+      );
+    const tampered = packAsicE([
+      { name: "mimetype", bytes: encoder.encode(ASIC_E_MIMETYPE) },
+      payload,
+      {
+        name: unpacked.manifest.name,
+        bytes: encoder.encode(mutatedXml),
+      },
+      unpacked.signature,
+    ]);
+    const wrapping = wrapAdapterProcess(adapter, (jsonRequest, response) => {
+      if (requestMethod(jsonRequest) !== "VERIFY") {
+        return response;
+      }
+      const first = firstSignatureInfo(response) ?? {};
+      return {
+        errorCode: 0,
+        method: response.method,
+        result: {
+          ...(response.result ?? {}),
+          signatureInfos: [
+            {
+              ...first,
+              statusSignature: "VALID",
+              statusMessageDigest: "VALID",
+            },
+          ],
+        },
+      };
+    });
+    const error = await verifyAsicE(tampered, wrapping).then(
+      () => undefined,
+      (caught: unknown) => caught,
+    );
+    expect(error).toBeInstanceOf(VerifyFailedError);
+    if (error instanceof VerifyFailedError) {
+      expect(error.message).toMatch(/xmldsig#sha256/);
+      expect(error.message).toMatch(/Unsupported ASiC DigestMethod/);
     }
   });
 
