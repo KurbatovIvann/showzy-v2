@@ -26,6 +26,8 @@ export const SHARE_LANDING_REFRESH_COPY =
 
 export const SHARE_LANDING_DOWNLOAD_COPY = "Завантажити PDF";
 
+export const SHARE_LANDING_SIGNED_DOWNLOAD_COPY = "Завантажити підписаний файл";
+
 export function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")
@@ -62,6 +64,7 @@ export type ShareLandingPage =
       readonly totalGrossMinor: string;
       readonly currency: string;
       readonly pdfDownloadUrl: string | null;
+      readonly signedDownloadUrl: string | null;
     }
   | { readonly status: "not_found" }
   | { readonly status: "rate_limited" };
@@ -78,13 +81,17 @@ export function renderShareLandingHtml(page: ShareLandingPage): string {
   const amount = escapeHtml(
     formatMoneyMinor(page.totalGrossMinor, page.currency),
   );
-  const download =
+  const pdfDownload =
     page.pdfDownloadUrl !== null && isSafeHttpUrl(page.pdfDownloadUrl)
       ? `<p><a href="${escapeHtml(page.pdfDownloadUrl)}" rel="noopener noreferrer" referrerpolicy="no-referrer">${SHARE_LANDING_DOWNLOAD_COPY}</a></p>`
       : `<p>${SHARE_LANDING_REFRESH_COPY}</p>`;
+  const signedDownload =
+    page.signedDownloadUrl !== null && isSafeHttpUrl(page.signedDownloadUrl)
+      ? `<p><a href="${escapeHtml(page.signedDownloadUrl)}" rel="noopener noreferrer" referrerpolicy="no-referrer">${SHARE_LANDING_SIGNED_DOWNLOAD_COPY}</a></p>`
+      : "";
   return wrapHtml(
     title,
-    `<h1>${safeTitle}</h1><p>Сума: ${amount}</p>${download}`,
+    `<h1>${safeTitle}</h1><p>Сума: ${amount}</p>${pdfDownload}${signedDownload}`,
   );
 }
 
@@ -136,6 +143,7 @@ export async function executeDocumentShareLanding(options: {
         totalGrossMinor: output.totalGrossMinor,
         currency: output.currency,
         pdfDownloadUrl: output.pdfDownloadUrl,
+        signedDownloadUrl: output.signedDownloadUrl,
       }),
     };
   } catch (error) {

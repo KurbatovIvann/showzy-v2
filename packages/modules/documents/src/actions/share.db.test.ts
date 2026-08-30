@@ -370,6 +370,8 @@ describe("documents.share", () => {
     expect(row.tokenHash).toMatch(/^[0-9a-f]{64}$/);
     expect(row.pdfDownloadUrl).toBeNull();
     expect(row.pdfDownloadExpiresAt).toBeNull();
+    expect(row.signedDownloadUrl).toBeNull();
+    expect(row.signedDownloadExpiresAt).toBeNull();
     expect(
       Math.abs(row.expiresAt.getTime() - (Date.now() + PAGE_TOKEN_TTL_MS)),
     ).toBeLessThan(10_000);
@@ -437,6 +439,8 @@ describe("documents.share", () => {
     const row = await readActiveToken(fixtures.docJob);
     expect(row?.pdfDownloadUrl).toBeNull();
     expect(row?.pdfDownloadExpiresAt).toBeNull();
+    expect(row?.signedDownloadUrl).toBeNull();
+    expect(row?.signedDownloadExpiresAt).toBeNull();
     const actions = capturing
       .entries()
       .map((line) => line["action"])

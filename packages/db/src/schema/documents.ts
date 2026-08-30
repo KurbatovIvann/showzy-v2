@@ -241,7 +241,9 @@ export const documentNumberCounters = pgTable(
 /**
  * Capability page tokens for unauthenticated handover. Raw token is never
  * stored — only the SHA-256 hex. One active (unrevoked) token per document.
- * `pdf_download_url` is a short-lived signature, not the 90-day page TTL.
+ * `pdf_download_url` and `signed_download_url` are short-lived signatures,
+ * not the 90-day page TTL. Signing after share writes the signed columns
+ * on the active row and does not rotate `token_hash`.
  */
 export const documentShareTokens = pgTable(
   "document_share_tokens",
@@ -256,6 +258,10 @@ export const documentShareTokens = pgTable(
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
     pdfDownloadUrl: text("pdf_download_url"),
     pdfDownloadExpiresAt: timestamp("pdf_download_expires_at", {
+      withTimezone: true,
+    }),
+    signedDownloadUrl: text("signed_download_url"),
+    signedDownloadExpiresAt: timestamp("signed_download_expires_at", {
       withTimezone: true,
     }),
     createdAt: timestamp("created_at", { withTimezone: true })

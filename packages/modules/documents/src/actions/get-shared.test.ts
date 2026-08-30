@@ -43,6 +43,7 @@ describe("documents.getShared contract", () => {
       "items",
       "orderId",
       "pdfDownloadUrl",
+      "signedDownloadUrl",
       "status",
       "supplierDetails",
       "templateName",
@@ -72,6 +73,8 @@ describe("documents.getShared contract", () => {
     expect(getSharedSource).not.toContain("ctx.emit");
     expect(getSharedSource).not.toContain("issueGeneratedDownloadUrl");
     expect(getSharedSource).not.toContain("issueShareDownloadUrl");
+    expect(getSharedSource).not.toContain("issueShareSigningDownloadUrl");
+    expect(getSharedSource).not.toContain("issueSystemSigningDownloadUrl");
     expect(getSharedSource).toContain('ctx.principal !== "public"');
   });
 });

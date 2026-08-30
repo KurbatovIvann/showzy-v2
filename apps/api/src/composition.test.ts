@@ -169,7 +169,38 @@ describe("composition root identity", () => {
         .filter((edge) => edge.caller === "documents.share")
         .map((edge) => edge.callee)
         .toSorted(),
-    ).toEqual(["docGeneration.getArtifact", "files.issueShareDownloadUrl"]);
+    ).toEqual([
+      "docGeneration.getArtifact",
+      "docSigning.get",
+      "files.issueShareDownloadUrl",
+      "files.issueShareSigningDownloadUrl",
+    ]);
+  });
+
+  it("documents.attachSignedShare nests files.issueSystemSigningDownloadUrl", () => {
+    const source = readFileSync(
+      join(import.meta.dirname, "composition.ts"),
+      "utf8",
+    );
+    const edges: Array<{ caller: string; callee: string }> = [];
+    const edgeRe = /caller:\s*"([^"]+)",\s*\n\s*callee:\s*"([^"]+)"/g;
+    for (const match of source.matchAll(edgeRe)) {
+      const caller = match[1];
+      const callee = match[2];
+      if (caller !== undefined && callee !== undefined) {
+        edges.push({ caller, callee });
+      }
+    }
+    expect(
+      edges
+        .filter((edge) => edge.caller === "documents.attachSignedShare")
+        .map((edge) => edge.callee),
+    ).toEqual(["files.issueSystemSigningDownloadUrl"]);
+    expect(source).toContain("attachSignedShare");
+    expect(source).toContain("signedShareAttacherSubscriptions");
+    expect(source).not.toContain(
+      "documents.attachSignedShare->files.getDownloadUrl",
+    );
   });
 
   it("documents.get nests getArtifact and the documents:view PDF URL", () => {

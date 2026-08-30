@@ -2,7 +2,11 @@ import { implementAction, type AuditTargetEnv } from "@showzy/core";
 import { CoreInvariantError, NotFoundError } from "@showzy/core/errors";
 import { documents, documentShareTokens } from "@showzy/db/schema/documents";
 import { getArtifact } from "@showzy/doc-generation/get-artifact";
-import { issueShareDownloadUrl } from "@showzy/files";
+import { getSigning } from "@showzy/doc-signing/get";
+import {
+  issueShareDownloadUrl,
+  issueShareSigningDownloadUrl,
+} from "@showzy/files";
 import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 
@@ -16,7 +20,10 @@ import {
   loadGenerationArtifact,
   readyArtifactFileId,
 } from "../services/load-generation.js";
-import { mintSharePdfDownload } from "../services/mint-share-pdf.js";
+import {
+  mintShareDownload,
+  mintSharePdfDownload,
+} from "../services/mint-share-pdf.js";
 import { getDocumentShareOrigin } from "../services/share-origin.js";
 import {
   generateDocumentShareToken,
@@ -71,6 +78,18 @@ export const shareDocument = implementAction(shareDocumentContract, {
       issueShareDownload: (id) =>
         ctx.call(issueShareDownloadUrl, { fileId: id }),
     });
+    const signing = await ctx.call(getSigning, {
+      documentId: input.documentId,
+    });
+    const signedFileId =
+      signing.status === "supplier_signed"
+        ? (signing.signedFileId ?? null)
+        : null;
+    const mintedSigned = await mintShareDownload({
+      fileId: signedFileId,
+      issueShareDownload: (id) =>
+        ctx.call(issueShareSigningDownloadUrl, { fileId: id }),
+    });
     const now = new Date();
     const plaintextToken = generateDocumentShareToken();
     const tokenHash = hashDocumentShareToken(plaintextToken);
@@ -94,6 +113,8 @@ export const shareDocument = implementAction(shareDocumentContract, {
         expiresAt: new Date(now.getTime() + PAGE_TOKEN_TTL_MS),
         pdfDownloadUrl: minted.pdfDownloadUrl,
         pdfDownloadExpiresAt: minted.pdfDownloadExpiresAt,
+        signedDownloadUrl: mintedSigned.downloadUrl,
+        signedDownloadExpiresAt: mintedSigned.downloadExpiresAt,
         createdAt: now,
       });
     } catch (error) {

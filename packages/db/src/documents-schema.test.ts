@@ -386,6 +386,8 @@ describe("documents schema slice", () => {
     expect(columns.get("document_number_counters")).not.toContain("year");
     expect(columns.get("document_number_counters")).not.toContain("id");
 
+    // information_schema ordinal_position: ADD COLUMN appends after
+    // existing created_at (SHO-259).
     expect(columns.get("document_share_tokens")).toEqual([
       "id",
       "company_id",
@@ -396,6 +398,8 @@ describe("documents schema slice", () => {
       "pdf_download_url",
       "pdf_download_expires_at",
       "created_at",
+      "signed_download_url",
+      "signed_download_expires_at",
     ]);
     expect(columns.get("document_share_tokens")).not.toContain("updated_at");
     expect(
@@ -406,6 +410,14 @@ describe("documents schema slice", () => {
     ).toBe("YES");
     expect(
       byTableColumn.get("document_share_tokens.pdf_download_expires_at")
+        ?.is_nullable,
+    ).toBe("YES");
+    expect(
+      byTableColumn.get("document_share_tokens.signed_download_url")
+        ?.is_nullable,
+    ).toBe("YES");
+    expect(
+      byTableColumn.get("document_share_tokens.signed_download_expires_at")
         ?.is_nullable,
     ).toBe("YES");
 

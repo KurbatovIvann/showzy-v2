@@ -1,7 +1,13 @@
 import type { SuiteCoverageManifest } from "@showzy/core";
 
+/**
+ * Isolation lists `documents.attachSignedShare` because the contract check
+ * requires every registered action in crossTenantSuite (core.md §12).
+ * Idempotency is omitted for that write: it is delivery-backed.
+ */
 export const documentsSuiteCoverage = {
   isolation: [
+    "documents.attachSignedShare",
     "documents.cancel",
     "documents.createFromOrder",
     "documents.get",

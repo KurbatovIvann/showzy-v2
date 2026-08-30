@@ -62,9 +62,13 @@ describe("documents.share contract", () => {
   it("nests getArtifact then files.issueShareDownloadUrl and does not import testing", () => {
     expect(shareSource).toContain("getArtifact");
     expect(shareSource).toContain("issueShareDownloadUrl");
+    expect(shareSource).toContain("getSigning");
+    expect(shareSource).toContain("issueShareSigningDownloadUrl");
     expect(shareSource).not.toContain("ready-share-file");
     expect(shareSource).not.toContain("@showzy/db/schema/doc-generation");
+    expect(shareSource).not.toContain("@showzy/db/schema/doc-signing");
     expect(shareSource).not.toContain("@showzy/core/testing");
     expect(shareSource).not.toContain("issueGeneratedDownloadUrl");
+    expect(shareSource).not.toContain("issueSystemSigningDownloadUrl");
   });
 });

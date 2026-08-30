@@ -8,7 +8,8 @@
     ".": "./src/index.ts",
     "./contract": "./src/index.contract.ts",
     "./suite-coverage": "./src/suite-coverage.ts",
-    "./share-origin": "./src/services/share-origin.ts"
+    "./share-origin": "./src/services/share-origin.ts",
+    "./subscriptions": "./src/events/signed-share-attacher.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

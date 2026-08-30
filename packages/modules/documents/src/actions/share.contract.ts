@@ -1,7 +1,9 @@
 /**
  * Staff share (SHO-235 / feature SHO-227). Rotates the active 90-day page
  * token and pre-mints a short-lived PDF GET via nested
- * `files.issueShareDownloadUrl`. Output is the document view plus the
+ * `files.issueShareDownloadUrl`. When a supplier ASiC exists, also
+ * pre-mints `signedDownloadUrl` via nested
+ * `files.issueShareSigningDownloadUrl`. Output is the document view plus the
  * plaintext token once and `https://<origin>/d/{token}`. Raw token and
  * signed URL must not appear in logs or audit.
  *
@@ -36,7 +38,7 @@ export const shareDocumentOutputSchema = documentViewSchema.extend({
 export const shareDocumentContract = defineActionContract({
   name: "documents.share",
   description:
-    "Rotate the active 90-day page token for a staff document in the active company and return the document view, the plaintext token once, and the public /d/{token} URL. Pre-mints a short-lived PDF download URL when a generated artifact exists; otherwise the token row stores null PDF fields. Re-share remints the token and the signature. Missing or foreign-company documents fail with not-found. Company id is never input.",
+    "Rotate the active 90-day page token for a staff document in the active company and return the document view, the plaintext token once, and the public /d/{token} URL. Pre-mints a short-lived PDF download URL when a generated artifact exists; otherwise the token row stores null PDF fields. When a recorded supplier ASiC exists, also pre-mints a short-lived signed download URL beside the unsigned PDF. Re-share remints the token and the signatures. Missing or foreign-company documents fail with not-found. Company id is never input.",
   principal: "staff",
   transport: "client",
   input: shareDocumentInputSchema,

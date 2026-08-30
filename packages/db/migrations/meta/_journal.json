@@ -253,6 +253,13 @@
       "when": 1788093365344,
       "tag": "0035_typical_onslaught",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1788108105632,
+      "tag": "0036_wakeful_johnny_storm",
+      "breakpoints": true
     }
   ]
 }
