@@ -44,6 +44,7 @@ import { issueSigningDownloadUrl } from "./issue-signing-download-url.js";
 import { issueSystemSigningDownloadUrl } from "./issue-system-signing-download-url.js";
 import { recordGeneratedObject } from "./record-generated-object.js";
 import { recordSigningObject } from "./record-signing-object.js";
+import { readPendingSigningObject } from "./read-pending-signing-object.js";
 import { requestSigningUpload } from "./request-signing-upload.js";
 import { requestUpload } from "./request-upload.js";
 import { sweepAbandonedUploads } from "./sweep-abandoned-uploads.js";
@@ -240,6 +241,8 @@ const signingRecordIdempotentConflictInput = {
 };
 const signingDownloadOwnInput = { fileId: "" };
 const signingDownloadForeignInput = { fileId: "" };
+const signingReadOwnInput = { fileId: "" };
+const signingReadForeignInput = { fileId: "" };
 
 let kit: TestKit | undefined;
 let garage: StartedTestContainer | undefined;
@@ -789,6 +792,8 @@ beforeAll(async () => {
   signingDownloadForeignInput.fileId = (
     await requestSigningPutRecord(companyB)
   ).fileId;
+  signingReadOwnInput.fileId = (await requestSigningPut()).fileId;
+  signingReadForeignInput.fileId = (await requestSigningPut(companyB)).fileId;
 });
 
 afterAll(async () => {
@@ -904,6 +909,11 @@ crossTenantSuite(requireKit, [
     recordSigningObject,
     { input: signingRecordOwnInput },
     { input: signingRecordForeignInput },
+  ),
+  isolationCase(
+    readPendingSigningObject,
+    { input: signingReadOwnInput },
+    { input: signingReadForeignInput },
   ),
   isolationCase(
     issueSigningDownloadUrl,
@@ -3458,6 +3468,80 @@ describe("files.recordSigningObject", () => {
     expect(blob).not.toContain("object_key");
     expect(blob).not.toMatch(/\/signing\//);
     expect(blob).not.toContain("http");
+  });
+});
+
+describe("files.readPendingSigningObject", () => {
+  const actorCompany = { companyId: kitIdentities.companies.a };
+
+  it("returns staging bytes for a pending purpose=signing PUT", async () => {
+    const pending = await requestSigningPut();
+    const read = await requireKit().invoke(readPendingSigningObject, {
+      fileId: pending.fileId,
+    });
+    expect(read.fileId).toBe(pending.fileId);
+    expect(read.mimeType).toBe(SIGNING_MIME_TYPE);
+    expect(read.byteSize).toBe(zipBytes.byteLength);
+    expect(read.checksumSha256).toBe(zipChecksum);
+    expect(read.bytes).toBeInstanceOf(Uint8Array);
+    expect(sha256Hex(read.bytes)).toBe(zipChecksum);
+    expect(read).not.toHaveProperty("objectKey");
+    expect(read).not.toHaveProperty("uploadUrl");
+  });
+
+  it("denies employees with documents:view only and treats ready, catalog, and foreign ids as not-found", async () => {
+    await expect(
+      requireKit().invoke(
+        readPendingSigningObject,
+        { fileId: signingReadOwnInput.fileId },
+        { ...actorCompany, userId: clerks.employee },
+      ),
+    ).rejects.toBeInstanceOf(PermissionDeniedError);
+    await expect(
+      requireKit().invoke(readPendingSigningObject, {
+        fileId: signingDownloadOwnInput.fileId,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      requireKit().invoke(readPendingSigningObject, {
+        fileId: downloadOwnInput.fileId,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      requireKit().invoke(readPendingSigningObject, {
+        fileId: signingReadForeignInput.fileId,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      requireKit().invoke(readPendingSigningObject, { fileId: randomUUID() }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("rejects an oversize staging object without treating it as not-found", async () => {
+    const pending = await requestSigningPut();
+    const stagingKey = stagingObjectKey(
+      kitIdentities.companies.a,
+      pending.fileId,
+    );
+    const restore = mapConfiguredFilesObjectStore((inner) => ({
+      ...inner,
+      async headObject(key) {
+        const head = await inner.headObject(key);
+        if (key === stagingKey && head !== "missing") {
+          return { byteSize: MAX_DOCUMENT_BYTES + 1, etag: head.etag };
+        }
+        return head;
+      },
+    }));
+    try {
+      await expect(
+        requireKit().invoke(readPendingSigningObject, {
+          fileId: pending.fileId,
+        }),
+      ).rejects.toBeInstanceOf(ValidationError);
+    } finally {
+      restore();
+    }
   });
 });
 

@@ -16,14 +16,16 @@ function executableSource(relative: string): string {
     .replace(/\/\/.*$/gm, " ");
 }
 
-describe("doc-signing source guards (SHO-254 / SHO-257)", () => {
+describe("doc-signing source guards (SHO-254 / SHO-257 / SHO-258)", () => {
   it("does not import foreign documents or files schema (ADR-0014)", () => {
     const sources = [
       "actions/get.ts",
       "actions/get-supplier-signed-flags.ts",
       "actions/abandon-request.ts",
       "actions/start.ts",
+      "actions/complete.ts",
       "events/request-abandoner.ts",
+      "events/recorded.ts",
       "index.ts",
     ];
     for (const relative of sources) {
@@ -54,6 +56,26 @@ describe("doc-signing source guards (SHO-254 / SHO-257)", () => {
     expect(executableSource("actions/start.ts")).not.toContain("getArtifact");
     expect(executableSource("actions/start.ts")).not.toContain(
       "docSigning.complete",
+    );
+    expect(executableSource("actions/complete.ts")).toContain(
+      "@showzy/db/schema/doc-signing",
+    );
+    expect(executableSource("actions/complete.ts")).toContain("ctx.callAtomic");
+    expect(executableSource("actions/complete.ts")).toContain(
+      "lockIssuedForSigning",
+    );
+    expect(executableSource("actions/complete.ts")).toContain(
+      "readPendingSigningObject",
+    );
+    expect(executableSource("actions/complete.ts")).toContain(
+      "recordSigningObject",
+    );
+    expect(executableSource("actions/complete.ts")).not.toContain(
+      "finalizeUpload",
+    );
+    expect(executableSource("actions/complete.ts")).not.toContain("base64");
+    expect(executableSource("actions/complete.ts")).not.toContain(
+      "getArtifact",
     );
   });
 

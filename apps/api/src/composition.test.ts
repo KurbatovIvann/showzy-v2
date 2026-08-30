@@ -283,6 +283,37 @@ describe("composition root identity", () => {
       "docSigning.start->docGeneration.getArtifact",
     );
   });
+
+  it("docSigning.complete nests the issued-row lock and pending staging read, not finalizeUpload", () => {
+    const source = readFileSync(
+      join(import.meta.dirname, "composition.ts"),
+      "utf8",
+    );
+    const edges: Array<{ caller: string; callee: string }> = [];
+    const edgeRe = /caller:\s*"([^"]+)",\s*\n\s*callee:\s*"([^"]+)"/g;
+    for (const match of source.matchAll(edgeRe)) {
+      const caller = match[1];
+      const callee = match[2];
+      if (caller !== undefined && callee !== undefined) {
+        edges.push({ caller, callee });
+      }
+    }
+    expect(
+      edges
+        .filter((edge) => edge.caller === "docSigning.complete")
+        .map((edge) => edge.callee)
+        .toSorted(),
+    ).toEqual([
+      "documents.lockIssuedForSigning",
+      "files.readPendingSigningObject",
+    ]);
+    expect(edges.map((edge) => `${edge.caller}->${edge.callee}`)).not.toContain(
+      "docSigning.complete->files.finalizeUpload",
+    );
+    expect(source).toContain("completeSigning");
+    expect(source).toContain("readPendingSigningObject");
+    expect(source).toContain("docSigningRecorded");
+  });
 });
 
 describe("composition suiteCoverage gate", () => {

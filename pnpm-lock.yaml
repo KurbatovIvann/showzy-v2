@@ -791,6 +791,9 @@ importers:
       '@showzy/db':
         specifier: workspace:*
         version: link:../../db
+      '@showzy/document-signing':
+        specifier: workspace:*
+        version: link:../../document-signing
       '@showzy/documents':
         specifier: workspace:*
         version: link:../documents
@@ -813,6 +816,9 @@ importers:
       eslint:
         specifier: ^10.8.1
         version: 10.8.1(jiti@2.7.0)
+      testcontainers:
+        specifier: 12.1.0
+        version: 12.1.0
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -9415,7 +9421,9 @@ snapshots:
       metro-runtime: 0.84.4
     transitivePeerDependencies:
       - '@babel/core'
+      - bufferutil
       - supports-color
+      - utf-8-validate
 
   '@react-native/normalize-colors@0.74.89': {}
 

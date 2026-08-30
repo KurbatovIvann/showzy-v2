@@ -9,6 +9,7 @@ import type { SuiteCoverageManifest } from "@showzy/core";
 export const docSigningSuiteCoverage = {
   isolation: [
     "docSigning.abandonRequest",
+    "docSigning.complete",
     "docSigning.get",
     "docSigning.getSupplierSignedFlags",
     "docSigning.start",
@@ -17,7 +18,12 @@ export const docSigningSuiteCoverage = {
   consumerIsolation: [],
   accountIsolation: [],
   shareIsolation: [],
-  idempotency: [],
+  idempotency: ["docSigning.complete"],
   events: ["docSigning"],
-  atomic: [],
+  atomic: [
+    {
+      caller: "docSigning.complete",
+      callee: "files.recordSigningObject",
+    },
+  ],
 } as const satisfies SuiteCoverageManifest;

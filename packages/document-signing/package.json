@@ -8,7 +8,7 @@
     ".": "./src/index.ts",
     "./web": "./src/platform/web-adapter.ts",
     "./native": "./src/platform/native-adapter.ts",
-    "./node": "./src/platform/node-adapter.ts"
+    "./node": "./src/platform/node.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

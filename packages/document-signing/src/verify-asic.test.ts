@@ -1,0 +1,70 @@
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
+import { ASIC_E_MIMETYPE, packAsicE } from "./asic-container.js";
+import { AsicContainerError, VerifyFailedError } from "./errors.js";
+import { createNodeAdapter } from "./platform/node-adapter.js";
+import { createSignedAsicE, sha256Hex, verifyAsicE } from "./verify-asic.js";
+
+const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
+const GOST_P12 = join(packageRoot, "cpp/test/data/test-diia.p12");
+const encoder = new TextEncoder();
+const payload = {
+  name: "document.pdf",
+  bytes: encoder.encode("%PDF-1.4\nfixture-payload\n%%EOF\n"),
+};
+
+describe("verify ASiC-E (GOST fixture CAdES-BES STRUCT)", () => {
+  const adapter = createNodeAdapter();
+
+  beforeAll(async () => {
+    if (!existsSync(GOST_P12)) {
+      throw new Error(`Missing GOST fixture: ${GOST_P12}`);
+    }
+    await adapter.initialize({});
+  });
+
+  afterAll(async () => {
+    await adapter.destroy();
+  });
+
+  it("signs a container and verifies the payload SHA-256 plus redacted cert", async () => {
+    const signed = await createSignedAsicE(payload, adapter);
+    expect(signed.payloadSha256).toBe(sha256Hex(payload.bytes));
+    const verified = await verifyAsicE(signed.bytes, adapter);
+    expect(verified.payloadSha256).toBe(signed.payloadSha256);
+    expect(verified.signerCn.length).toBeGreaterThan(0);
+    expect(verified.signerTaxId.length).toBeGreaterThan(0);
+    expect(verified.signatureAlg.length).toBeGreaterThan(0);
+    expect(verified.signedAt).toEqual(expect.stringMatching(/^\d{4}-/));
+    expect(JSON.stringify(verified)).not.toContain("p7s");
+    expect(JSON.stringify(verified)).not.toMatch(/[A-Za-z0-9+/]{80,}/);
+  });
+
+  it("rejects an unsigned ZIP that only claims the ASiC mimetype", async () => {
+    const unsigned = packAsicE([
+      { name: "mimetype", bytes: encoder.encode(ASIC_E_MIMETYPE) },
+      payload,
+    ]);
+    await expect(verifyAsicE(unsigned, adapter)).rejects.toBeInstanceOf(
+      AsicContainerError,
+    );
+  });
+
+  it("rejects a container whose CAdES does not cover the manifest", async () => {
+    const signed = await createSignedAsicE(payload, adapter);
+    const tampered = Uint8Array.from(signed.bytes);
+    const flip = tampered.byteLength - 30;
+    const original = tampered.at(flip);
+    if (original === undefined) {
+      throw new Error("signed ASiC is too short to tamper");
+    }
+    tampered[flip] = original ^ 0xff;
+    await expect(verifyAsicE(tampered, adapter)).rejects.toBeInstanceOf(
+      VerifyFailedError,
+    );
+    expect(readFileSync(GOST_P12).byteLength).toBeGreaterThan(0);
+  });
+});
