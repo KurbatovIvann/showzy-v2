@@ -29,6 +29,8 @@ export {
   NoKeysFoundError,
   CertExpiredError,
   SignFailedError,
+  AsicContainerError,
+  VerifyFailedError,
 } from "./errors.js";
 
 export type { CaProvider } from "./pki/ca-registry.js";

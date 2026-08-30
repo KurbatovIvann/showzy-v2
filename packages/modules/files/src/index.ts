@@ -9,6 +9,7 @@ export { issueShareDownloadUrl } from "./actions/issue-share-download-url.js";
 export { issueShareSigningDownloadUrl } from "./actions/issue-share-signing-download-url.js";
 export { issueSigningDownloadUrl } from "./actions/issue-signing-download-url.js";
 export { issueSystemSigningDownloadUrl } from "./actions/issue-system-signing-download-url.js";
+export { readPendingSigningObject } from "./actions/read-pending-signing-object.js";
 export { recordGeneratedObject } from "./actions/record-generated-object.js";
 export { recordSigningObject } from "./actions/record-signing-object.js";
 export { requestSigningUpload } from "./actions/request-signing-upload.js";

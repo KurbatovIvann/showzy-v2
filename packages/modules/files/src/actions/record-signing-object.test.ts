@@ -8,7 +8,7 @@ import {
 } from "./record-signing-object.contract.js";
 
 describe("files.recordSigningObject contract", () => {
-  it("is a staff internal write, audited, idempotent, and not an atomic callee yet", () => {
+  it("is a staff internal write, audited, idempotent, and the complete atomic callee", () => {
     expect(recordSigningObjectContract.name).toBe("files.recordSigningObject");
     expect(recordSigningObjectContract.principal).toBe("staff");
     expect(recordSigningObjectContract.transport).toBe("internal");
@@ -19,7 +19,9 @@ describe("files.recordSigningObject contract", () => {
     expect(recordSigningObjectContract.idempotent).toBe(true);
     expect(recordSigningObjectContract.emits).toEqual([]);
     expect(recordSigningObjectContract.atomicCalls).toEqual([]);
-    expect(recordSigningObjectContract.atomicCallers).toEqual([]);
+    expect(recordSigningObjectContract.atomicCallers).toEqual([
+      "docSigning.complete",
+    ]);
     expect(recordSigningObjectContract.timeout).toBe(15_000);
     expect(MAX_DOCUMENT_BYTES).toBe(25 * 1024 * 1024);
   });
@@ -58,8 +60,11 @@ describe("files.recordSigningObject contract", () => {
     ).toBe(false);
     expect(recordSigningObjectContract.description).toContain("/signing/");
     expect(recordSigningObjectContract.description).toContain("company id");
-    expect(recordSigningObjectContract.description).not.toContain(
+    expect(recordSigningObjectContract.description).toContain(
       "docSigning.complete",
+    );
+    expect(recordSigningObjectContract.description).toContain(
+      "staging object is already gone",
     );
   });
 });

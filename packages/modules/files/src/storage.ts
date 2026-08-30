@@ -3,6 +3,7 @@ export {
   closeFilesObjectStore,
   configureFilesObjectStore,
   getFilesObjectStore,
+  mapConfiguredFilesObjectStore,
   probeFilesObjectStore,
   type FilesS3Config,
 } from "./services/s3-port.js";

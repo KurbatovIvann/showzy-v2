@@ -9,6 +9,7 @@ export { issueShareDownloadUrlContract } from "./actions/issue-share-download-ur
 export { issueShareSigningDownloadUrlContract } from "./actions/issue-share-signing-download-url.contract.js";
 export { issueSigningDownloadUrlContract } from "./actions/issue-signing-download-url.contract.js";
 export { issueSystemSigningDownloadUrlContract } from "./actions/issue-system-signing-download-url.contract.js";
+export { readPendingSigningObjectContract } from "./actions/read-pending-signing-object.contract.js";
 export { recordGeneratedObjectContract } from "./actions/record-generated-object.contract.js";
 export { recordSigningObjectContract } from "./actions/record-signing-object.contract.js";
 export { requestSigningUploadContract } from "./actions/request-signing-upload.contract.js";

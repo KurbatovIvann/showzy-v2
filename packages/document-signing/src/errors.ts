@@ -50,3 +50,17 @@ export class SignFailedError extends SigningError {
     this.name = "SignFailedError";
   }
 }
+
+export class AsicContainerError extends SigningError {
+  constructor(message: string) {
+    super(message, "ASIC_INVALID");
+    this.name = "AsicContainerError";
+  }
+}
+
+export class VerifyFailedError extends SigningError {
+  constructor(message: string, uapkiErrorCode?: number) {
+    super(message, "VERIFY_FAILED", uapkiErrorCode);
+    this.name = "VerifyFailedError";
+  }
+}

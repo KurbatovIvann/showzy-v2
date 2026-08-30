@@ -14,6 +14,7 @@ export const filesSuiteCoverage = {
     "files.requestSigningUpload",
     "files.getSigningUploadUrl",
     "files.recordSigningObject",
+    "files.readPendingSigningObject",
     "files.issueSigningDownloadUrl",
     "files.issueShareSigningDownloadUrl",
     "files.issueSystemSigningDownloadUrl",

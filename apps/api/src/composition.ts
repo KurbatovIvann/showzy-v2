@@ -87,6 +87,8 @@ import { pdfRendererSubscriptions } from "@showzy/doc-generation/subscriptions";
 import { docGenerationSuiteCoverage } from "@showzy/doc-generation/suite-coverage";
 import {
   abandonRequest,
+  completeSigning,
+  docSigningRecorded,
   getSigning,
   getSupplierSignedFlags,
   startSigning,
@@ -105,6 +107,7 @@ import {
   issueShareSigningDownloadUrl,
   issueSigningDownloadUrl,
   issueSystemSigningDownloadUrl,
+  readPendingSigningObject,
   recordGeneratedObject,
   recordSigningObject,
   requestSigningUpload,
@@ -190,6 +193,7 @@ const events: readonly EventDefinitionRef[] = [
   documentsCancelled,
   documentsCreated,
   documentsSignRequested,
+  docSigningRecorded,
   invitesAccepted,
   invitesCreated,
   invitesRevoked,
@@ -325,6 +329,14 @@ const callEdges: readonly DeclaredCallEdge[] = [
     callee: "files.issueDocumentDownloadUrl",
   },
   {
+    caller: "docSigning.complete",
+    callee: "documents.lockIssuedForSigning",
+  },
+  {
+    caller: "docSigning.complete",
+    callee: "files.readPendingSigningObject",
+  },
+  {
     caller: "documents.lockIssuedForSigning",
     callee: "docGeneration.getArtifact",
   },
@@ -439,6 +451,7 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, requestSigningUpload);
   registerAction(registry, getSigningUploadUrl);
   registerAction(registry, recordSigningObject);
+  registerAction(registry, readPendingSigningObject);
   registerAction(registry, issueSigningDownloadUrl);
   registerAction(registry, issueShareSigningDownloadUrl);
   registerAction(registry, issueSystemSigningDownloadUrl);
@@ -463,6 +476,7 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, getSupplierSignedFlags);
   registerAction(registry, abandonRequest);
   registerAction(registry, startSigning);
+  registerAction(registry, completeSigning);
   registerAction(registry, createOrder);
   registerAction(registry, confirmOrder);
   registerAction(registry, cancelOrder);

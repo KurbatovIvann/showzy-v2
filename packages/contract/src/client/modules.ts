@@ -60,6 +60,7 @@ import {
   shareDocumentContract,
 } from "@showzy/documents/contract";
 import {
+  completeSigningContract,
   getSigningContract,
   startSigningContract,
 } from "@showzy/doc-signing/contract";
@@ -158,6 +159,7 @@ export const contractModules = {
     share: shareDocumentContract,
   },
   docSigning: {
+    complete: completeSigningContract,
     get: getSigningContract,
     start: startSigningContract,
   },

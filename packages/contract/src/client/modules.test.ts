@@ -49,6 +49,7 @@ import {
   shareDocumentContract,
 } from "@showzy/documents/contract";
 import {
+  completeSigningContract,
   getSigningContract,
   startSigningContract,
 } from "@showzy/doc-signing/contract";
@@ -146,6 +147,7 @@ describe("client composition", () => {
         share: shareDocumentContract,
       },
       docSigning: {
+        complete: completeSigningContract,
         get: getSigningContract,
         start: startSigningContract,
       },
@@ -238,7 +240,9 @@ describe("client composition", () => {
     expect(contractRouter.documents.share).toBeDefined();
     expect(contractRouter.docSigning.get).toBeDefined();
     expect(contractRouter.docSigning.start).toBeDefined();
+    expect(contractRouter.docSigning.complete).toBeDefined();
     expect(contractModules.docSigning.start.aiExposure).toBe("internal");
+    expect(contractModules.docSigning.complete.aiExposure).toBe("internal");
     expect(contractModules.docSigning).not.toHaveProperty(
       "getSupplierSignedFlags",
     );
@@ -254,6 +258,9 @@ describe("client composition", () => {
     expect(contractModules.files).not.toHaveProperty("sweepAbandonedUploads");
     expect(contractModules.files).not.toHaveProperty("recordGeneratedObject");
     expect(contractModules.files).not.toHaveProperty("recordSigningObject");
+    expect(contractModules.files).not.toHaveProperty(
+      "readPendingSigningObject",
+    );
     expect(contractModules.files).not.toHaveProperty(
       "issueDocumentDownloadUrl",
     );
