@@ -71,6 +71,7 @@ const fixtures = {
   asicNoToken: randomUUID(),
   asicExpire: randomUUID(),
   asicEvent: randomUUID(),
+  asicRotate: randomUUID(),
 };
 
 const sellerSnapshot = {
@@ -99,9 +100,9 @@ const seedOrderNumbers = new Map<string, number>();
 
 const emitRecordedThenFail = implementAction(
   defineActionContract({
-    name: "documents.emitRecordedThenFail",
+    name: "docSigning.emitRecordedThenFailDocuments",
     description:
-      "Test-local emitter that fails after buffering docSigning.recorded.",
+      "Test-local emitter that fails after buffering docSigning.recorded (chat golden: orders.emitCreatedThenFailChat).",
     principal: "staff",
     transport: "internal",
     input: z.object({ documentId: z.uuid(), fileId: z.uuid() }),
@@ -144,8 +145,9 @@ const emitRecordedThenFail = implementAction(
 
 const emitRecorded = implementAction(
   defineActionContract({
-    name: "documents.emitRecorded",
-    description: "Test-local emitter of docSigning.recorded.",
+    name: "docSigning.emitRecordedDocuments",
+    description:
+      "Test-local emitter of docSigning.recorded (chat golden: orders.emitCreatedThenFailChat).",
     principal: "staff",
     transport: "internal",
     input: z.object({ documentId: z.uuid(), fileId: z.uuid() }),
@@ -460,6 +462,7 @@ beforeAll(async () => {
   await insertSigningFile(fixtures.asicNoToken, companyA);
   await insertSigningFile(fixtures.asicExpire, companyA);
   await insertSigningFile(fixtures.asicEvent, companyA);
+  await insertSigningFile(fixtures.asicRotate, companyA);
 
   await insertSignature({
     documentId: fixtures.docNoToken,
@@ -633,6 +636,18 @@ describe("documents.attachSignedShare", () => {
     const first = await kit.invoke(shareDocument, {
       documentId: fixtures.docRotate,
     });
+    await kit.invoke(
+      attachSignedShare,
+      recordedEnvelope({
+        documentId: fixtures.docRotate,
+        fileId: fixtures.asicRotate,
+        companyId: kitIdentities.companies.a,
+      }),
+    );
+    const afterAttach = await kit.invoke(getShared, { token: first.token });
+    expect(afterAttach.documentId).toBe(fixtures.docRotate);
+    expect(afterAttach.signedDownloadUrl).toEqual(expect.any(String));
+
     const second = await kit.invoke(shareDocument, {
       documentId: fixtures.docRotate,
     });
