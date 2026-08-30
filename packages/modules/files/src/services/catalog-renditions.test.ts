@@ -1,6 +1,10 @@
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
 
+import {
+  pngIhdrDimensions,
+  pngWithIhdrDimensions,
+} from "../testing/png-with-ihdr-dimensions.js";
 import { CATALOG_RENDITIONS } from "../wire.contract.js";
 import {
   CATALOG_RENDITION_LIMIT_INPUT_PIXELS,
@@ -82,20 +86,11 @@ describe("encodeCatalogRenditions", () => {
   it("rejects an oversized-pixel PNG under the decompression-bomb cap", async () => {
     const over = 8001;
     expect(over * over).toBeGreaterThan(CATALOG_RENDITION_LIMIT_INPUT_PIXELS);
-    const bomb = new Uint8Array(
-      await sharp({
-        create: {
-          width: over,
-          height: over,
-          channels: 3,
-          background: { r: 0, g: 0, b: 0 },
-        },
-      })
-        .png({ compressionLevel: 9 })
-        .toBuffer(),
-    );
+    const bomb = pngWithIhdrDimensions(over, over);
     expect(bomb[0]).toBe(0x89);
     expect(bomb[1]).toBe(0x50);
+    expect(pngIhdrDimensions(bomb)).toEqual({ width: over, height: over });
+    expect(bomb.byteLength).toBeLessThan(128);
 
     const encoded = await encodeCatalogRenditions(bomb);
     expect(encoded).toBe("undecodable");

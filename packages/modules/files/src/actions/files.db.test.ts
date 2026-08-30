@@ -69,6 +69,7 @@ import {
   SIGNED_URL_TTL_SEC,
 } from "../services/s3-port.js";
 import { waitForObjectVisibility } from "../testing/object-visibility.js";
+import { pngWithIhdrDimensions } from "../testing/png-with-ihdr-dimensions.js";
 import {
   CATALOG_RENDITIONS,
   MAX_DOCUMENT_BYTES,
@@ -2074,18 +2075,7 @@ describe("files catalog renditions", () => {
 
   it("keeps an oversized-pixel catalog upload pending", async () => {
     const over = 8001;
-    const bomb = new Uint8Array(
-      await sharp({
-        create: {
-          width: over,
-          height: over,
-          channels: 3,
-          background: { r: 0, g: 0, b: 0 },
-        },
-      })
-        .png({ compressionLevel: 9 })
-        .toBuffer(),
-    );
+    const bomb = pngWithIhdrDimensions(over, over);
     const fileId = await requestAndPut(bomb, "image/png");
     await expect(
       requireKit().invoke(finalizeUpload, { fileId }),
