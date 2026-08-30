@@ -1,9 +1,8 @@
 {
   "extends": "@showzy/tooling/tsconfig/base.json",
   "compilerOptions": {
-    "lib": ["ES2023", "DOM"],
+    "lib": ["ES2023", "DOM", "WebWorker"],
     "types": ["node"]
   },
-  "include": ["src"],
-  "exclude": ["src/platform/worker/uapki-worker.ts"]
+  "include": ["src"]
 }

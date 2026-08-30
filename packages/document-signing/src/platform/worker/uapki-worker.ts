@@ -1,4 +1,3 @@
-/// <reference lib="webworker" />
 import type { UapkiResponse } from "../../types.js";
 import type { WorkerCommand, WorkerResponse } from "./types.js";
 
@@ -44,7 +43,7 @@ function callUapki(request: Record<string, unknown>): UapkiResponse {
   const ptr = wasmModule._malloc(len);
   wasmModule.stringToUTF8(jsonStr, ptr, len);
 
-  const resultPtr = processFunc(ptr) as number;
+  const resultPtr = processFunc(ptr);
   wasmModule._free(ptr);
 
   if (!resultPtr) {
@@ -60,9 +59,11 @@ function callUapki(request: Record<string, unknown>): UapkiResponse {
 async function handleInit(
   cmd: Extract<WorkerCommand, { type: "init" }>,
 ): Promise<UapkiResponse> {
-  const locateFile = cmd.wasmLocateFile
-    ? (path: string) => `${cmd.wasmLocateFile}${path}`
-    : undefined;
+  const wasmLocatePrefix = cmd.wasmLocateFile;
+  const locateFile =
+    wasmLocatePrefix === undefined
+      ? undefined
+      : (path: string) => `${wasmLocatePrefix}${path}`;
 
   const scriptUrl = locateFile ? locateFile("uapki.js") : "/uapki/uapki.js";
   importScripts(scriptUrl);
@@ -71,16 +72,22 @@ async function handleInit(
     locateFile: locateFile ?? ((path: string) => `/uapki/${path}`),
   });
 
-  processFunc = wasmModule.cwrap("process", "number", ["number"]) as (
-    ptr: number,
-  ) => number;
-  jsonFreeFunc = wasmModule.cwrap("json_free", "void", ["number"]) as (
-    ptr: number,
-  ) => void;
+  const processWrapped = wasmModule.cwrap("process", "number", ["number"]);
+  processFunc = (ptr: number) => {
+    const result = processWrapped(ptr);
+    if (typeof result !== "number") {
+      throw new Error("UAPKI process() returned a non-number pointer");
+    }
+    return result;
+  };
+  const jsonFreeWrapped = wasmModule.cwrap("json_free", "void", ["number"]);
+  jsonFreeFunc = (ptr: number) => {
+    jsonFreeWrapped(ptr);
+  };
 
   const setCorsProxyUrl = wasmModule.cwrap("set_cors_proxy_url", "void", [
     "string",
-  ]) as (url: string) => void;
+  ]);
   if (cmd.corsProxyUrl) {
     setCorsProxyUrl(cmd.corsProxyUrl);
   }

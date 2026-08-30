@@ -55,6 +55,23 @@ describe("adapter re-audit (SHO-252)", () => {
     expect(text).not.toMatch(/offline:\s*false/);
   });
 
+  it("native adapter loads Nitro via a static import (Metro-safe)", () => {
+    const text = readFileSync(
+      join(srcRoot, "platform/native-adapter.ts"),
+      "utf8",
+    );
+    expect(text).toContain(
+      'import { NitroModules } from "react-native-nitro-modules"',
+    );
+    expect(text).toContain(
+      'NitroModules.createHybridObject<UapkiEngine>("UapkiEngine")',
+    );
+    expect(text).not.toContain("loadNitroModules");
+    expect(text).not.toContain("NitroModulesApi");
+    expect(text).not.toContain("globalThis");
+    expect(text).not.toMatch(/\brequire\s*\(/);
+  });
+
   it("node adapter honors corsProxyUrl and does not INIT online without a proxy", () => {
     const text = readFileSync(
       join(srcRoot, "platform/node-adapter.ts"),

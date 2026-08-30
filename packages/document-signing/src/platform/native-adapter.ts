@@ -1,34 +1,11 @@
 import { Directory, File, Paths } from "expo-file-system";
+import { NitroModules } from "react-native-nitro-modules";
 
 import { unwrapProxyResponse } from "../pki/proxy.js";
 import type { UapkiEngine } from "../specs/uapki.nitro.js";
 import type { UapkiResponse } from "../types.js";
 import type { AdapterInitOptions, UapkiAdapter } from "./adapter.js";
 import { nativeAdapterHttpPlan } from "./http-init.js";
-
-interface NitroModulesApi {
-  createHybridObject(name: string): UapkiEngine;
-}
-
-function loadNitroModules(): { NitroModules: NitroModulesApi } {
-  const req = (globalThis as { require?: (id: string) => unknown }).require;
-  if (typeof req !== "function") {
-    throw new Error(
-      "Failed to load UapkiEngine Nitro Module. Ensure react-native-nitro-modules and the native UAPKI module are properly installed.",
-    );
-  }
-  const loaded: unknown = req("react-native-nitro-modules");
-  if (
-    typeof loaded !== "object" ||
-    loaded === null ||
-    !("NitroModules" in loaded)
-  ) {
-    throw new Error(
-      "Failed to load UapkiEngine Nitro Module. Ensure react-native-nitro-modules and the native UAPKI module are properly installed.",
-    );
-  }
-  return loaded as { NitroModules: NitroModulesApi };
-}
 
 /**
  * React Native platform adapter that calls UAPKI via Nitro Modules.
@@ -54,8 +31,7 @@ export class NativeAdapter implements UapkiAdapter {
       throw new Error("NativeAdapter already initialized");
     }
 
-    const { NitroModules } = loadNitroModules();
-    this.engine = NitroModules.createHybridObject("UapkiEngine");
+    this.engine = NitroModules.createHybridObject<UapkiEngine>("UapkiEngine");
 
     const uapkiDir = new Directory(Paths.cache, "uapki");
     const certsDir = new Directory(uapkiDir, "certs");

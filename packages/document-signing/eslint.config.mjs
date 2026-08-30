@@ -12,7 +12,6 @@ export default [
       "scripts/**",
       "react-native.config.js",
       "vitest.config.ts",
-      "src/platform/worker/uapki-worker.ts",
     ],
   },
   ...showzyEslintConfig({ tsconfigRootDir: import.meta.dirname }),
