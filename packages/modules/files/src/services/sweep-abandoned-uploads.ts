@@ -1,17 +1,23 @@
 import type { ActionCtx } from "@showzy/core";
 import { CoreInvariantError } from "@showzy/core/errors";
 import { files } from "@showzy/db/schema/files";
-import { and, asc, eq, isNull, lte } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lte } from "drizzle-orm";
 import type { z } from "zod";
 
 import {
   SWEEP_BATCH_LIMIT,
   type sweepAbandonedUploadsInputSchema,
 } from "../actions/sweep-abandoned-uploads.contract.js";
-import { catalogObjectKey, stagingObjectKey } from "./object-key.js";
+import {
+  catalogObjectKey,
+  signingObjectKey,
+  stagingObjectKey,
+} from "./object-key.js";
 import { abandonedPendingCutoff } from "./pending-abandon.js";
 import { getFilesObjectStore, type FilesObjectStore } from "./s3-port.js";
 import { requireWritable } from "./writable.js";
+
+const ABANDONED_PENDING_PURPOSES = ["catalog", "signing"] as const;
 
 type SystemGlobalCtx = Extract<
   ActionCtx,
@@ -35,15 +41,18 @@ export async function runAbandonedUploadSweep(input: {
   const cutoff = abandonedPendingCutoff(new Date());
   const store = getFilesObjectStore();
 
-  // Row age from createdAt. getUploadUrl is risk:read and cannot extend
-  // this lease; it refuses a remint whose PUT would outlive this cutoff.
+  // Row age from createdAt. getUploadUrl / getSigningUploadUrl are
+  // risk:read and cannot extend this lease; they refuse a remint whose
+  // PUT would outlive this cutoff. Signing pending is collected here so
+  // that cutoff has a collector; ready leftover GC stays catalog-only
+  // and never deletes {companyId}/signing/{fileId}.
   const abandoned = await db
     .select()
     .from(files)
     .where(
       and(
         eq(files.status, "pending"),
-        eq(files.purpose, "catalog"),
+        inArray(files.purpose, [...ABANDONED_PENDING_PURPOSES]),
         lte(files.createdAt, cutoff),
       ),
     )
@@ -107,15 +116,30 @@ async function sweepAbandonedPending(input: {
       "files.sweepAbandonedUploads expected a pending row",
     );
   }
+  if (input.row.purpose !== "catalog" && input.row.purpose !== "signing") {
+    throw new CoreInvariantError(
+      "files.sweepAbandonedUploads expected a catalog or signing pending row",
+    );
+  }
 
   await deleteIfPresent(
     input.store,
     stagingObjectKey(input.row.companyId, input.row.id),
   );
-  await deleteIfPresent(
-    input.store,
-    catalogObjectKey(input.row.companyId, input.row.id),
-  );
+  if (input.row.purpose === "catalog") {
+    await deleteIfPresent(
+      input.store,
+      catalogObjectKey(input.row.companyId, input.row.id),
+    );
+  } else {
+    // Failed recordSigningObject can leave bytes on the signing prefix
+    // while the row is still pending. Unsigned ZIP staging is never
+    // copied here as durable.
+    await deleteIfPresent(
+      input.store,
+      signingObjectKey(input.row.companyId, input.row.id),
+    );
+  }
 
   const deleted = await input.db
     .delete(files)

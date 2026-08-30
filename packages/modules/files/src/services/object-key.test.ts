@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   catalogObjectKey,
   documentObjectKey,
+  signingObjectKey,
   stagingObjectKey,
 } from "./object-key.js";
 
@@ -29,6 +30,24 @@ describe("documentObjectKey", () => {
     expect(documentObjectKey(companyId, fileId)).not.toContain("http");
     expect(documentObjectKey(companyId, fileId)).not.toBe(
       catalogObjectKey(companyId, fileId),
+    );
+  });
+});
+
+describe("signingObjectKey", () => {
+  it("is {companyId}/signing/{fileId} and is not client-supplied", () => {
+    expect(signingObjectKey(companyId, fileId)).toBe(
+      `${companyId}/signing/${fileId}`,
+    );
+    expect(signingObjectKey(companyId, fileId)).not.toContain("/catalog/");
+    expect(signingObjectKey(companyId, fileId)).not.toContain("/documents/");
+    expect(signingObjectKey(companyId, fileId)).not.toContain("/uploads/");
+    expect(signingObjectKey(companyId, fileId)).not.toContain("http");
+    expect(signingObjectKey(companyId, fileId)).not.toBe(
+      catalogObjectKey(companyId, fileId),
+    );
+    expect(signingObjectKey(companyId, fileId)).not.toBe(
+      documentObjectKey(companyId, fileId),
     );
   });
 });

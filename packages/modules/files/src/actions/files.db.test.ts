@@ -35,10 +35,16 @@ import { finalizeUpload } from "./finalize-upload.js";
 import { ATTACHMENT_FACTS_MAX_IDS } from "./get-attachment-facts.contract.js";
 import { getDownloadUrl } from "./get-download-url.js";
 import { getDownloadUrls } from "./get-download-urls.js";
+import { getSigningUploadUrl } from "./get-signing-upload-url.js";
 import { getUploadUrl } from "./get-upload-url.js";
 import { issueDocumentDownloadUrl } from "./issue-document-download-url.js";
 import { issueShareDownloadUrl } from "./issue-share-download-url.js";
+import { issueShareSigningDownloadUrl } from "./issue-share-signing-download-url.js";
+import { issueSigningDownloadUrl } from "./issue-signing-download-url.js";
+import { issueSystemSigningDownloadUrl } from "./issue-system-signing-download-url.js";
 import { recordGeneratedObject } from "./record-generated-object.js";
+import { recordSigningObject } from "./record-signing-object.js";
+import { requestSigningUpload } from "./request-signing-upload.js";
 import { requestUpload } from "./request-upload.js";
 import { sweepAbandonedUploads } from "./sweep-abandoned-uploads.js";
 import { ABANDONED_PENDING_TTL_MS } from "./sweep-abandoned-uploads.contract.js";
@@ -47,6 +53,7 @@ import type { FileReadyView } from "../services/file-view.js";
 import {
   catalogObjectKey,
   documentObjectKey,
+  signingObjectKey,
   stagingObjectKey,
 } from "../services/object-key.js";
 import { SIGNED_PUT_SKEW_MARGIN_MS } from "../services/pending-abandon.js";
@@ -62,6 +69,7 @@ import { waitForObjectVisibility } from "../testing/object-visibility.js";
 import {
   MAX_DOCUMENT_BYTES,
   MAX_UPLOAD_BYTES,
+  SIGNING_MIME_TYPE,
   type FileMimeType,
   type StoredObjectMimeType,
 } from "../wire.contract.js";
@@ -108,6 +116,17 @@ function sameSizeMutatedJpeg(source: Uint8Array = jpegBytes): Uint8Array {
   return leftoverBytes;
 }
 
+function sameSizeMutatedZip(source: Uint8Array = zipBytes): Uint8Array {
+  const leftoverBytes = Uint8Array.from(source);
+  const flipIndex = leftoverBytes.byteLength - 1;
+  const originalByte = leftoverBytes.at(flipIndex);
+  if (originalByte === undefined) {
+    throw new Error("zip fixture is too short to mutate");
+  }
+  leftoverBytes[flipIndex] = originalByte ^ 0xff;
+  return leftoverBytes;
+}
+
 const exeChecksum = sha256Hex(exeBytes);
 const zipChecksum = sha256Hex(zipBytes);
 const heicAsJpegChecksum = sha256Hex(heicBytes);
@@ -119,11 +138,20 @@ const jpegInput = {
   checksumSha256: jpegChecksum,
 };
 
+const signingInput = {
+  purpose: "signing" as const,
+  mimeType: SIGNING_MIME_TYPE,
+  byteSize: zipBytes.byteLength,
+  checksumSha256: zipChecksum,
+};
+
 const clerks = {
   noUpload: randomUUID(),
   noView: randomUUID(),
   employee: randomUUID(),
   noDocumentsView: randomUUID(),
+  uploadNoDocumentsEdit: randomUUID(),
+  documentsEditNoUpload: randomUUID(),
 };
 
 const finalizeOwnInput = { fileId: "" };
@@ -173,6 +201,45 @@ const recordIdempotentConflictInput = {
 };
 const docDownloadOwnInput = { fileId: "" };
 const docDownloadForeignInput = { fileId: "" };
+const signingUploadOwnInput = { fileId: "" };
+const signingUploadForeignInput = { fileId: "" };
+const signingRecordOwnInput = {
+  fileId: "",
+  purpose: "signing" as const,
+  mimeType: SIGNING_MIME_TYPE,
+  byteSize: zipBytes.byteLength,
+  checksumSha256: zipChecksum,
+};
+const signingRecordForeignInput = {
+  fileId: "",
+  purpose: "signing" as const,
+  mimeType: SIGNING_MIME_TYPE,
+  byteSize: zipBytes.byteLength,
+  checksumSha256: zipChecksum,
+};
+const signingRecordIdempotentInput = {
+  fileId: "",
+  purpose: "signing" as const,
+  mimeType: SIGNING_MIME_TYPE,
+  byteSize: zipBytes.byteLength,
+  checksumSha256: zipChecksum,
+};
+const signingRecordIdempotentFreshInput = {
+  fileId: "",
+  purpose: "signing" as const,
+  mimeType: SIGNING_MIME_TYPE,
+  byteSize: zipBytes.byteLength,
+  checksumSha256: zipChecksum,
+};
+const signingRecordIdempotentConflictInput = {
+  fileId: "",
+  purpose: "signing" as const,
+  mimeType: SIGNING_MIME_TYPE,
+  byteSize: zipBytes.byteLength,
+  checksumSha256: zipChecksum,
+};
+const signingDownloadOwnInput = { fileId: "" };
+const signingDownloadForeignInput = { fileId: "" };
 
 let kit: TestKit | undefined;
 let garage: StartedTestContainer | undefined;
@@ -269,6 +336,28 @@ async function countDocumentFiles(companyId: string): Promise<number> {
     .db.runtime.db.select({ value: count() })
     .from(files)
     .where(and(eq(files.companyId, companyId), eq(files.purpose, "document")));
+  return rows[0]?.value ?? 0;
+}
+
+async function countSigningFiles(companyId: string): Promise<number> {
+  const rows = await requireKit()
+    .db.runtime.db.select({ value: count() })
+    .from(files)
+    .where(and(eq(files.companyId, companyId), eq(files.purpose, "signing")));
+  return rows[0]?.value ?? 0;
+}
+
+async function countReadySigningFiles(companyId: string): Promise<number> {
+  const rows = await requireKit()
+    .db.runtime.db.select({ value: count() })
+    .from(files)
+    .where(
+      and(
+        eq(files.companyId, companyId),
+        eq(files.purpose, "signing"),
+        eq(files.status, "ready"),
+      ),
+    );
   return rows[0]?.value ?? 0;
 }
 
@@ -381,6 +470,31 @@ async function insertFileRow(values: {
     });
 }
 
+async function insertSigningFileRow(values: {
+  readonly id: string;
+  readonly companyId: string;
+  readonly uploadedByUserId: string;
+  readonly status: "pending" | "ready";
+  readonly createdAt?: Date;
+}): Promise<void> {
+  await requireKit()
+    .db.runtime.db.insert(files)
+    .values({
+      id: values.id,
+      companyId: values.companyId,
+      uploadedByUserId: values.uploadedByUserId,
+      purpose: "signing",
+      objectKey: signingObjectKey(values.companyId, values.id),
+      mimeType: SIGNING_MIME_TYPE,
+      byteSize: BigInt(zipBytes.byteLength),
+      checksumSha256: zipChecksum,
+      status: values.status,
+      ...(values.createdAt !== undefined
+        ? { createdAt: values.createdAt }
+        : {}),
+    });
+}
+
 async function putStoreObject(
   key: string,
   bytes: Uint8Array = jpegBytes,
@@ -414,6 +528,53 @@ function generatedRecordInput(fileId: string): typeof recordOwnInput {
     byteSize: pdfBytes.byteLength,
     checksumSha256: pdfChecksum,
   };
+}
+
+function signingRecordInput(fileId: string): typeof signingRecordOwnInput {
+  return {
+    fileId,
+    purpose: "signing",
+    mimeType: SIGNING_MIME_TYPE,
+    byteSize: zipBytes.byteLength,
+    checksumSha256: zipChecksum,
+  };
+}
+
+async function requestSigningPut(
+  actor: { readonly userId?: string; readonly companyId?: string } = {},
+): Promise<{ readonly fileId: string }> {
+  const requested = await requireKit().invoke(
+    requestSigningUpload,
+    signingInput,
+    actor,
+  );
+  const signed = await requireKit().invoke(
+    getSigningUploadUrl,
+    { fileId: requested.fileId },
+    actor,
+  );
+  await putSigned(
+    signed.uploadUrl,
+    zipBytes,
+    SIGNING_MIME_TYPE,
+    stagingObjectKey(
+      actor.companyId ?? kitIdentities.companies.a,
+      requested.fileId,
+    ),
+  );
+  return { fileId: requested.fileId };
+}
+
+async function requestSigningPutRecord(
+  actor: { readonly userId?: string; readonly companyId?: string } = {},
+): Promise<{ readonly fileId: string }> {
+  const pending = await requestSigningPut(actor);
+  await requireKit().invoke(
+    recordSigningObject,
+    signingRecordInput(pending.fileId),
+    actor,
+  );
+  return pending;
 }
 
 const sweepEpoch = new Date(0);
@@ -486,6 +647,16 @@ beforeAll(async () => {
         name: "No documents view",
         email: "nodocuments@files-kit.test",
       },
+      {
+        id: clerks.uploadNoDocumentsEdit,
+        name: "Upload no documents edit",
+        email: "upload-no-doc-edit@files-kit.test",
+      },
+      {
+        id: clerks.documentsEditNoUpload,
+        name: "Documents edit no upload",
+        email: "doc-edit-no-upload@files-kit.test",
+      },
     ]);
   await requireKit()
     .db.runtime.db.insert(companyMembers)
@@ -513,6 +684,24 @@ beforeAll(async () => {
         userId: clerks.noDocumentsView,
         role: "employee",
         permissions: { granted: [], denied: ["documents:view"] },
+      },
+      {
+        companyId: kitIdentities.companies.a,
+        userId: clerks.uploadNoDocumentsEdit,
+        role: "employee",
+        permissions: {
+          granted: ["files:upload"],
+          denied: ["documents:edit"],
+        },
+      },
+      {
+        companyId: kitIdentities.companies.a,
+        userId: clerks.documentsEditNoUpload,
+        role: "employee",
+        permissions: {
+          granted: ["documents:edit"],
+          denied: ["files:upload"],
+        },
       },
     ]);
 
@@ -582,6 +771,24 @@ beforeAll(async () => {
     generatedRecordInput(docDownloadForeignInput.fileId),
     { companyId: kitIdentities.companies.b },
   );
+
+  signingUploadOwnInput.fileId = (
+    await requireKit().invoke(requestSigningUpload, signingInput)
+  ).fileId;
+  signingUploadForeignInput.fileId = (
+    await requireKit().invoke(requestSigningUpload, signingInput, companyB)
+  ).fileId;
+  signingRecordOwnInput.fileId = (await requestSigningPut()).fileId;
+  signingRecordForeignInput.fileId = (await requestSigningPut(companyB)).fileId;
+  signingRecordIdempotentInput.fileId = (await requestSigningPut()).fileId;
+  signingRecordIdempotentConflictInput.fileId = (
+    await requestSigningPut()
+  ).fileId;
+  signingRecordIdempotentFreshInput.fileId = (await requestSigningPut()).fileId;
+  signingDownloadOwnInput.fileId = (await requestSigningPutRecord()).fileId;
+  signingDownloadForeignInput.fileId = (
+    await requestSigningPutRecord(companyB)
+  ).fileId;
 });
 
 afterAll(async () => {
@@ -683,6 +890,36 @@ crossTenantSuite(requireKit, [
     { input: docDownloadOwnInput },
     { input: docDownloadForeignInput },
   ),
+  isolationCase(
+    requestSigningUpload,
+    { input: signingInput },
+    { input: signingInput, companyId: kitIdentities.companies.b },
+  ),
+  isolationCase(
+    getSigningUploadUrl,
+    { input: signingUploadOwnInput },
+    { input: signingUploadForeignInput },
+  ),
+  isolationCase(
+    recordSigningObject,
+    { input: signingRecordOwnInput },
+    { input: signingRecordForeignInput },
+  ),
+  isolationCase(
+    issueSigningDownloadUrl,
+    { input: signingDownloadOwnInput },
+    { input: signingDownloadForeignInput },
+  ),
+  isolationCase(
+    issueShareSigningDownloadUrl,
+    { input: signingDownloadOwnInput },
+    { input: signingDownloadForeignInput },
+  ),
+  isolationCase(
+    issueSystemSigningDownloadUrl,
+    { input: signingDownloadOwnInput },
+    { input: signingDownloadForeignInput },
+  ),
 ]);
 
 idempotencySuite(requireKit, [
@@ -716,6 +953,23 @@ idempotencySuite(requireKit, [
     conflictingInput: recordIdempotentConflictInput,
     freshInput: () => recordIdempotentFreshInput,
     readEffect: () => countDocumentFiles(kitIdentities.companies.a),
+  },
+  {
+    action: requestSigningUpload,
+    input: signingInput,
+    conflictingInput: {
+      ...signingInput,
+      byteSize: zipBytes.byteLength + 1,
+      checksumSha256: "d".repeat(64),
+    },
+    readEffect: () => countSigningFiles(kitIdentities.companies.a),
+  },
+  {
+    action: recordSigningObject,
+    input: signingRecordIdempotentInput,
+    conflictingInput: signingRecordIdempotentConflictInput,
+    freshInput: () => signingRecordIdempotentFreshInput,
+    readEffect: () => countReadySigningFiles(kitIdentities.companies.a),
   },
 ]);
 
@@ -1063,6 +1317,20 @@ describe("files signed upload slice", () => {
       }),
     ).rejects.toBeInstanceOf(ValidationError);
 
+    await expect(
+      requireKit().invoke(requestUpload, {
+        ...jpegInput,
+        purpose: "signing",
+      }),
+    ).rejects.toBeInstanceOf(ValidationError);
+
+    await expect(
+      requireKit().invoke(requestUpload, {
+        ...jpegInput,
+        mimeType: SIGNING_MIME_TYPE,
+      }),
+    ).rejects.toBeInstanceOf(ValidationError);
+
     const exe = await requireKit().invoke(requestUpload, {
       purpose: "catalog",
       mimeType: "image/jpeg",
@@ -1146,6 +1414,21 @@ describe("files signed upload slice", () => {
     await expect(
       requireKit().invoke(getUploadUrl, {
         fileId: downloadOwnInput.fileId,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      requireKit().invoke(getUploadUrl, {
+        fileId: signingUploadOwnInput.fileId,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      requireKit().invoke(finalizeUpload, {
+        fileId: signingUploadOwnInput.fileId,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      requireKit().invoke(getDownloadUrl, {
+        fileId: signingDownloadOwnInput.fileId,
       }),
     ).rejects.toBeInstanceOf(NotFoundError);
 
@@ -2473,6 +2756,1080 @@ describe("files.issueShareDownloadUrl", () => {
           docDownloadOwnInput.fileId,
         ),
       },
+    ]);
+  });
+});
+
+describe("files.requestSigningUpload / files.getSigningUploadUrl", () => {
+  const actorCompany = { companyId: kitIdentities.companies.a };
+
+  it("creates a pending signing row, mints a staging PUT, and never stores the staging key", async () => {
+    const capturing = createCapturingLogger();
+    const sneaky: unknown = {
+      ...signingInput,
+      objectKey: "client-supplied/signing/evil",
+      companyId: kitIdentities.companies.b,
+    };
+    const requested = await requireKit().invoke(
+      requestSigningUpload,
+      sneaky,
+      {},
+      { deps: { ...requireKit().pipeline, logger: capturing.logger } },
+    );
+    expect(requested).toEqual({ fileId: requested.fileId });
+    expect(requested).not.toHaveProperty("uploadUrl");
+
+    const rows = await requireKit()
+      .db.runtime.db.select()
+      .from(files)
+      .where(eq(files.id, requested.fileId));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.status).toBe("pending");
+    expect(rows[0]?.purpose).toBe("signing");
+    expect(rows[0]?.mimeType).toBe(SIGNING_MIME_TYPE);
+    expect(rows[0]?.uploadedByUserId).toBe(kitIdentities.users.anna);
+    expect(rows[0]?.objectKey).toBe(
+      signingObjectKey(kitIdentities.companies.a, requested.fileId),
+    );
+    expect(rows[0]?.objectKey).not.toContain("/uploads/");
+
+    const signed = await requireKit().invoke(
+      getSigningUploadUrl,
+      { fileId: requested.fileId },
+      {},
+      { deps: { ...requireKit().pipeline, logger: capturing.logger } },
+    );
+    expect(signed.fileId).toBe(requested.fileId);
+    expect(signed.uploadUrl.startsWith("http")).toBe(true);
+    expect(signed.uploadUrl).toContain("/uploads/");
+    expect(signed.uploadUrl).not.toContain("/signing/");
+    expect(signed.uploadUrl).not.toContain("/catalog/");
+    expect(signed.expiresAt).toEqual(expect.any(String));
+
+    await putSigned(
+      signed.uploadUrl,
+      zipBytes,
+      SIGNING_MIME_TYPE,
+      stagingObjectKey(kitIdentities.companies.a, requested.fileId),
+    );
+
+    const store = getFilesObjectStore();
+    expect(
+      await store.getObject(
+        signingObjectKey(kitIdentities.companies.a, requested.fileId),
+      ),
+    ).toBe("missing");
+    const staged = await store.getObject(
+      stagingObjectKey(kitIdentities.companies.a, requested.fileId),
+    );
+    expect(staged).not.toBe("missing");
+    if (staged === "missing") {
+      throw new Error("expected staging object after signing PUT");
+    }
+    expect(sha256Hex(staged.bytes)).toBe(zipChecksum);
+
+    const afterPut = await requireKit()
+      .db.runtime.db.select()
+      .from(files)
+      .where(eq(files.id, requested.fileId));
+    expect(afterPut[0]?.status).toBe("pending");
+    expect(afterPut[0]?.objectKey).toBe(
+      signingObjectKey(kitIdentities.companies.a, requested.fileId),
+    );
+    expect(afterPut[0]?.objectKey).not.toContain("/uploads/");
+
+    await expect(
+      requireKit().invoke(finalizeUpload, { fileId: requested.fileId }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    const stillPending = await requireKit()
+      .db.runtime.db.select({
+        id: files.id,
+        status: files.status,
+        purpose: files.purpose,
+      })
+      .from(files)
+      .where(eq(files.id, requested.fileId));
+    expect(stillPending).toEqual([
+      {
+        id: requested.fileId,
+        status: "pending",
+        purpose: "signing",
+      },
+    ]);
+
+    const logs = JSON.stringify(capturing.entries());
+    expect(logs).not.toContain(signed.uploadUrl);
+    expect(logs).not.toContain(rows[0]?.objectKey ?? "missing-key");
+    expect(logs).not.toMatch(/\/signing\//);
+    expect(logs).not.toMatch(/\/uploads\//);
+  });
+
+  it("requires documents:edit and does not use files:upload", async () => {
+    await expect(
+      requireKit().invoke(requestSigningUpload, signingInput, {
+        ...actorCompany,
+        userId: clerks.uploadNoDocumentsEdit,
+      }),
+    ).rejects.toBeInstanceOf(PermissionDeniedError);
+    await expect(
+      requireKit().invoke(requestSigningUpload, signingInput, {
+        ...actorCompany,
+        userId: clerks.employee,
+      }),
+    ).rejects.toBeInstanceOf(PermissionDeniedError);
+    await expect(
+      requireKit().invoke(
+        getSigningUploadUrl,
+        { fileId: signingUploadOwnInput.fileId },
+        { ...actorCompany, userId: clerks.uploadNoDocumentsEdit },
+      ),
+    ).rejects.toBeInstanceOf(PermissionDeniedError);
+    await expect(
+      requireKit().invoke(
+        getSigningUploadUrl,
+        { fileId: signingUploadOwnInput.fileId },
+        { ...actorCompany, userId: clerks.employee },
+      ),
+    ).rejects.toBeInstanceOf(PermissionDeniedError);
+
+    const allowed = await requireKit().invoke(
+      requestSigningUpload,
+      signingInput,
+      { ...actorCompany, userId: clerks.documentsEditNoUpload },
+    );
+    const signed = await requireKit().invoke(
+      getSigningUploadUrl,
+      { fileId: allowed.fileId },
+      { ...actorCompany, userId: clerks.documentsEditNoUpload },
+    );
+    expect(signed.fileId).toBe(allowed.fileId);
+    expect(signed.uploadUrl).toContain("/uploads/");
+  });
+
+  it("rejects oversize, catalog purpose, and non-ASiC MIME at the handshake", async () => {
+    await expect(
+      requireKit().invoke(requestSigningUpload, {
+        ...signingInput,
+        byteSize: MAX_DOCUMENT_BYTES + 1,
+      }),
+    ).rejects.toBeInstanceOf(ValidationError);
+    await expect(
+      requireKit().invoke(requestSigningUpload, {
+        ...signingInput,
+        purpose: "catalog",
+      }),
+    ).rejects.toBeInstanceOf(ValidationError);
+    await expect(
+      requireKit().invoke(requestSigningUpload, {
+        ...signingInput,
+        mimeType: "application/pdf",
+      }),
+    ).rejects.toBeInstanceOf(ValidationError);
+    await expect(
+      requireKit().invoke(requestSigningUpload, {
+        ...signingInput,
+        mimeType: "image/jpeg",
+      }),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it("treats ready, catalog, document, foreign, and missing fileIds as not-found", async () => {
+    const missing = randomUUID();
+    await expect(
+      requireKit().invoke(getSigningUploadUrl, {
+        fileId: signingDownloadOwnInput.fileId,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      requireKit().invoke(getSigningUploadUrl, {
+        fileId: uploadOwnInput.fileId,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      requireKit().invoke(getSigningUploadUrl, {
+        fileId: docDownloadOwnInput.fileId,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      requireKit().invoke(getSigningUploadUrl, {
+        fileId: signingUploadForeignInput.fileId,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      requireKit().invoke(getSigningUploadUrl, { fileId: missing }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("writes an audit row for requestSigningUpload without URLs or keys", async () => {
+    const requested = await requireKit().invoke(
+      requestSigningUpload,
+      signingInput,
+    );
+    const createAudit = await requireKit()
+      .db.runtime.db.select()
+      .from(auditLog)
+      .where(
+        and(
+          eq(auditLog.action, "files.requestSigningUpload"),
+          eq(auditLog.targetId, requested.fileId),
+        ),
+      );
+    expect(createAudit.length).toBeGreaterThanOrEqual(1);
+    expect(createAudit[0]?.inputSnapshot).toBeNull();
+    expect(createAudit[0]?.targetType).toBe("file");
+    expect(createAudit[0]?.companyId).toBe(kitIdentities.companies.a);
+    const mintAudit = await requireKit()
+      .db.runtime.db.select()
+      .from(auditLog)
+      .where(eq(auditLog.action, "files.getSigningUploadUrl"));
+    expect(mintAudit).toHaveLength(0);
+    const blob = JSON.stringify(createAudit[0]);
+    expect(blob).not.toContain("objectKey");
+    expect(blob).not.toContain("/signing/");
+    expect(blob).not.toContain("/uploads/");
+    expect(blob).not.toContain("http");
+  });
+
+  it("mints a PUT for a pending signing file younger than the remint cutoff without logging the URL", async () => {
+    const fileId = randomUUID();
+    const createdAt = new Date(Date.now() - 20 * 60 * 1000);
+    await insertSigningFileRow({
+      id: fileId,
+      companyId: kitIdentities.companies.a,
+      uploadedByUserId: kitIdentities.users.anna,
+      status: "pending",
+      createdAt,
+    });
+
+    const capturing = createCapturingLogger();
+    const signed = await requireKit().invoke(
+      getSigningUploadUrl,
+      { fileId },
+      {},
+      { deps: { ...requireKit().pipeline, logger: capturing.logger } },
+    );
+    expect(signed.fileId).toBe(fileId);
+    expect(signed.uploadUrl.startsWith("http")).toBe(true);
+    expect(signed.uploadUrl).toContain("/uploads/");
+    expect(signed.uploadUrl).not.toContain("/signing/");
+    const logs = JSON.stringify(capturing.entries());
+    expect(logs).not.toContain(signed.uploadUrl);
+    expect(logs).not.toContain(
+      signingObjectKey(kitIdentities.companies.a, fileId),
+    );
+    expect(logs).not.toMatch(/\/signing\//);
+    expect(logs).not.toMatch(/\/uploads\//);
+  });
+
+  it("refuses getSigningUploadUrl when the PUT would outlive the pending row", async () => {
+    const fileId = randomUUID();
+    const remainingMs =
+      SIGNED_URL_TTL_SEC * 1000 - SIGNED_PUT_SKEW_MARGIN_MS - 1_000;
+    const createdAt = new Date(
+      Date.now() - (ABANDONED_PENDING_TTL_MS - remainingMs),
+    );
+    await insertSigningFileRow({
+      id: fileId,
+      companyId: kitIdentities.companies.a,
+      uploadedByUserId: kitIdentities.users.anna,
+      status: "pending",
+      createdAt,
+    });
+    await putStoreObject(
+      stagingObjectKey(kitIdentities.companies.a, fileId),
+      zipBytes,
+      SIGNING_MIME_TYPE,
+    );
+
+    const capturing = createCapturingLogger();
+    await expect(
+      requireKit().invoke(
+        getSigningUploadUrl,
+        { fileId },
+        {},
+        { deps: { ...requireKit().pipeline, logger: capturing.logger } },
+      ),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      requireKit().invoke(
+        getSigningUploadUrl,
+        { fileId },
+        {
+          userId: kitIdentities.users.boris,
+          companyId: kitIdentities.companies.b,
+        },
+      ),
+    ).rejects.toBeInstanceOf(NotFoundError);
+
+    const logs = JSON.stringify(capturing.entries());
+    expect(logs).not.toMatch(/\/signing\//);
+    expect(logs).not.toMatch(/\/uploads\//);
+
+    await requireKit().invoke(sweepAbandonedUploads, {});
+    const stillPending = await requireKit()
+      .db.runtime.db.select({
+        id: files.id,
+        status: files.status,
+        purpose: files.purpose,
+      })
+      .from(files)
+      .where(eq(files.id, fileId));
+    expect(stillPending).toEqual([
+      { id: fileId, status: "pending", purpose: "signing" },
+    ]);
+    expect(
+      await getFilesObjectStore().headObject(
+        stagingObjectKey(kitIdentities.companies.a, fileId),
+      ),
+    ).not.toBe("missing");
+
+    await requireKit()
+      .db.runtime.db.update(files)
+      .set({
+        createdAt: new Date(Date.now() - ABANDONED_PENDING_TTL_MS - 1_000),
+      })
+      .where(eq(files.id, fileId));
+
+    const swept = await requireKit().invoke(sweepAbandonedUploads, {});
+    expect(swept.abandonedPendingDeleted).toBeGreaterThanOrEqual(1);
+    const gone = await requireKit()
+      .db.runtime.db.select({ id: files.id })
+      .from(files)
+      .where(eq(files.id, fileId));
+    expect(gone).toHaveLength(0);
+    const stagingKey = stagingObjectKey(kitIdentities.companies.a, fileId);
+    const store = getFilesObjectStore();
+    await waitForObjectVisibility(store, stagingKey, "missing");
+    expect(await store.headObject(stagingKey)).toBe("missing");
+  });
+});
+
+describe("files.recordSigningObject", () => {
+  const actorCompany = { companyId: kitIdentities.companies.a };
+
+  it("copies staging onto the signing prefix as ready with the signing staff uploader", async () => {
+    const capturing = createCapturingLogger();
+    const pending = await requestSigningPut({
+      ...actorCompany,
+      userId: clerks.documentsEditNoUpload,
+    });
+    const sneaky: unknown = {
+      ...signingRecordInput(pending.fileId),
+      companyId: kitIdentities.companies.b,
+      objectKey: "client-supplied/signing/evil",
+    };
+    const ready = await requireKit().invoke(
+      recordSigningObject,
+      sneaky,
+      { ...actorCompany, userId: clerks.documentsEditNoUpload },
+      { deps: { ...requireKit().pipeline, logger: capturing.logger } },
+    );
+    expect(ready).toEqual({
+      fileId: pending.fileId,
+      status: "ready",
+      purpose: "signing",
+      mimeType: SIGNING_MIME_TYPE,
+      byteSize: zipBytes.byteLength,
+      checksumSha256: zipChecksum,
+    });
+    expect(ready).not.toHaveProperty("downloadUrl");
+    expect(ready).not.toHaveProperty("objectKey");
+
+    const rows = await requireKit()
+      .db.runtime.db.select()
+      .from(files)
+      .where(eq(files.id, pending.fileId));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.status).toBe("ready");
+    expect(rows[0]?.purpose).toBe("signing");
+    expect(rows[0]?.uploadedByUserId).toBe(clerks.documentsEditNoUpload);
+    expect(rows[0]?.uploadedByUserId).not.toBeNull();
+    expect(rows[0]?.objectKey).toBe(
+      signingObjectKey(kitIdentities.companies.a, pending.fileId),
+    );
+    expect(rows[0]?.objectKey).not.toContain("/uploads/");
+    expect(rows[0]?.stagingPurgedAt).not.toBeNull();
+
+    const durable = await getFilesObjectStore().getObject(
+      signingObjectKey(kitIdentities.companies.a, pending.fileId),
+    );
+    expect(durable).not.toBe("missing");
+    if (durable === "missing") {
+      throw new Error("expected durable signing object after record");
+    }
+    expect(sha256Hex(durable.bytes)).toBe(zipChecksum);
+
+    const stagingKey = stagingObjectKey(
+      kitIdentities.companies.a,
+      pending.fileId,
+    );
+    await waitForObjectVisibility(getFilesObjectStore(), stagingKey, "missing");
+    expect(await getFilesObjectStore().headObject(stagingKey)).toBe("missing");
+
+    const replay = await requireKit().invoke(
+      recordSigningObject,
+      signingRecordInput(pending.fileId),
+      { ...actorCompany, userId: clerks.documentsEditNoUpload },
+      { deps: { ...requireKit().pipeline, logger: capturing.logger } },
+    );
+    expect(replay).toEqual(ready);
+    expect(
+      await requireKit()
+        .db.runtime.db.select({ id: files.id })
+        .from(files)
+        .where(eq(files.id, pending.fileId)),
+    ).toHaveLength(1);
+
+    const blob = JSON.stringify([ready, capturing.entries()]);
+    expect(blob).not.toContain("downloadUrl");
+    expect(blob).not.toContain("objectKey");
+    expect(blob).not.toMatch(/\/signing\//);
+    expect(blob).not.toMatch(/\/uploads\//);
+    expect(blob).not.toContain("http");
+  });
+
+  it("does not let a leftover signed PUT overwrite a ready signing object", async () => {
+    const requested = await requireKit().invoke(
+      requestSigningUpload,
+      signingInput,
+    );
+    const signed = await requireKit().invoke(getSigningUploadUrl, {
+      fileId: requested.fileId,
+    });
+    await putSigned(
+      signed.uploadUrl,
+      zipBytes,
+      SIGNING_MIME_TYPE,
+      stagingObjectKey(kitIdentities.companies.a, requested.fileId),
+    );
+    const ready = await requireKit().invoke(
+      recordSigningObject,
+      signingRecordInput(requested.fileId),
+    );
+    expect(ready.checksumSha256).toBe(zipChecksum);
+
+    const store = getFilesObjectStore();
+    const stagingKey = stagingObjectKey(
+      kitIdentities.companies.a,
+      requested.fileId,
+    );
+    const durableKey = signingObjectKey(
+      kitIdentities.companies.a,
+      requested.fileId,
+    );
+    await waitForObjectVisibility(store, stagingKey, "missing");
+    expect(await store.headObject(stagingKey)).toBe("missing");
+
+    const leftoverBytes = sameSizeMutatedZip();
+    expect(leftoverBytes.byteLength).toBe(zipBytes.byteLength);
+    const leftoverChecksum = sha256Hex(leftoverBytes);
+    expect(leftoverChecksum).not.toBe(zipChecksum);
+
+    await putSigned(
+      signed.uploadUrl,
+      leftoverBytes,
+      SIGNING_MIME_TYPE,
+      stagingKey,
+    );
+
+    const durable = await store.getObject(durableKey);
+    expect(durable).not.toBe("missing");
+    if (durable === "missing") {
+      throw new Error("expected durable signing object after leftover PUT");
+    }
+    expect(sha256Hex(durable.bytes)).toBe(zipChecksum);
+
+    const staging = await store.getObject(stagingKey);
+    expect(staging).not.toBe("missing");
+    if (staging === "missing") {
+      throw new Error("expected staging object after leftover PUT");
+    }
+    expect(sha256Hex(staging.bytes)).toBe(leftoverChecksum);
+
+    const again = await requireKit().invoke(
+      recordSigningObject,
+      signingRecordInput(requested.fileId),
+    );
+    expect(again.checksumSha256).toBe(zipChecksum);
+    expect(again).toEqual(ready);
+
+    const durableAfterReplay = await store.getObject(durableKey);
+    expect(durableAfterReplay).not.toBe("missing");
+    if (durableAfterReplay === "missing") {
+      throw new Error("expected durable signing object after second record");
+    }
+    expect(sha256Hex(durableAfterReplay.bytes)).toBe(zipChecksum);
+
+    const rows = await requireKit()
+      .db.runtime.db.select()
+      .from(files)
+      .where(eq(files.id, requested.fileId));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.status).toBe("ready");
+    expect(rows[0]?.checksumSha256).toBe(zipChecksum);
+    expect(rows[0]?.objectKey).toBe(durableKey);
+    expect(rows[0]?.objectKey).not.toContain("/uploads/");
+  });
+
+  it("rejects a second staff recorder while the row stays pending with the original uploader", async () => {
+    const pending = await requestSigningPut({
+      ...actorCompany,
+      userId: clerks.documentsEditNoUpload,
+    });
+    await expect(
+      requireKit().invoke(
+        recordSigningObject,
+        signingRecordInput(pending.fileId),
+        { ...actorCompany, userId: kitIdentities.users.anna },
+      ),
+    ).rejects.toBeInstanceOf(ConflictError);
+
+    const rows = await requireKit()
+      .db.runtime.db.select({
+        status: files.status,
+        purpose: files.purpose,
+        uploadedByUserId: files.uploadedByUserId,
+      })
+      .from(files)
+      .where(eq(files.id, pending.fileId));
+    expect(rows).toEqual([
+      {
+        status: "pending",
+        purpose: "signing",
+        uploadedByUserId: clerks.documentsEditNoUpload,
+      },
+    ]);
+    expect(
+      await getFilesObjectStore().getObject(
+        signingObjectKey(kitIdentities.companies.a, pending.fileId),
+      ),
+    ).toBe("missing");
+  });
+
+  it("denies files:upload-only staff and employees with documents:view", async () => {
+    await expect(
+      requireKit().invoke(
+        recordSigningObject,
+        signingRecordInput(signingRecordOwnInput.fileId),
+        { ...actorCompany, userId: clerks.uploadNoDocumentsEdit },
+      ),
+    ).rejects.toBeInstanceOf(PermissionDeniedError);
+    await expect(
+      requireKit().invoke(
+        recordSigningObject,
+        signingRecordInput(signingRecordOwnInput.fileId),
+        { ...actorCompany, userId: clerks.employee },
+      ),
+    ).rejects.toBeInstanceOf(PermissionDeniedError);
+  });
+
+  it("treats missing staging, catalog, document, and foreign fileIds as not-found", async () => {
+    const missingStaging = await requireKit().invoke(
+      requestSigningUpload,
+      signingInput,
+    );
+    await expect(
+      requireKit().invoke(
+        recordSigningObject,
+        signingRecordInput(missingStaging.fileId),
+      ),
+    ).rejects.toBeInstanceOf(NotFoundError);
+
+    await expect(
+      requireKit().invoke(
+        recordSigningObject,
+        signingRecordInput(downloadOwnInput.fileId),
+      ),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      requireKit().invoke(
+        recordSigningObject,
+        signingRecordInput(docDownloadOwnInput.fileId),
+      ),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      requireKit().invoke(
+        recordSigningObject,
+        signingRecordInput(signingRecordForeignInput.fileId),
+      ),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      requireKit().invoke(
+        recordSigningObject,
+        signingRecordInput(randomUUID()),
+      ),
+    ).rejects.toBeInstanceOf(NotFoundError);
+
+    const catalogPurpose: unknown = {
+      ...signingRecordInput(signingRecordOwnInput.fileId),
+      purpose: "catalog",
+    };
+    await expect(
+      requireKit().invoke(recordSigningObject, catalogPurpose),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it("rejects a non-ZIP staging object without marking the row ready", async () => {
+    const requested = await requireKit().invoke(requestSigningUpload, {
+      purpose: "signing",
+      mimeType: SIGNING_MIME_TYPE,
+      byteSize: jpegBytes.byteLength,
+      checksumSha256: jpegChecksum,
+    });
+    const signed = await requireKit().invoke(getSigningUploadUrl, {
+      fileId: requested.fileId,
+    });
+    await putSigned(
+      signed.uploadUrl,
+      jpegBytes,
+      SIGNING_MIME_TYPE,
+      stagingObjectKey(kitIdentities.companies.a, requested.fileId),
+    );
+    await expect(
+      requireKit().invoke(recordSigningObject, {
+        fileId: requested.fileId,
+        purpose: "signing",
+        mimeType: SIGNING_MIME_TYPE,
+        byteSize: jpegBytes.byteLength,
+        checksumSha256: jpegChecksum,
+      }),
+    ).rejects.toBeInstanceOf(ValidationError);
+    const rows = await requireKit()
+      .db.runtime.db.select({
+        status: files.status,
+        purpose: files.purpose,
+      })
+      .from(files)
+      .where(eq(files.id, requested.fileId));
+    expect(rows).toEqual([{ status: "pending", purpose: "signing" }]);
+    expect(
+      await getFilesObjectStore().getObject(
+        signingObjectKey(kitIdentities.companies.a, requested.fileId),
+      ),
+    ).toBe("missing");
+  });
+
+  it("does not let company B's staging satisfy company A's record", async () => {
+    const pending = await requestSigningPut({
+      userId: kitIdentities.users.boris,
+      companyId: kitIdentities.companies.b,
+    });
+    await expect(
+      requireKit().invoke(
+        recordSigningObject,
+        signingRecordInput(pending.fileId),
+        actorCompany,
+      ),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    const rows = await requireKit()
+      .db.runtime.db.select({
+        status: files.status,
+        companyId: files.companyId,
+      })
+      .from(files)
+      .where(eq(files.id, pending.fileId));
+    expect(rows).toEqual([
+      { status: "pending", companyId: kitIdentities.companies.b },
+    ]);
+  });
+
+  it("writes an audit row without object keys or URLs", async () => {
+    const pending = await requestSigningPut();
+    await requireKit().invoke(
+      recordSigningObject,
+      signingRecordInput(pending.fileId),
+    );
+    const audit = await requireKit()
+      .db.runtime.db.select()
+      .from(auditLog)
+      .where(
+        and(
+          eq(auditLog.action, "files.recordSigningObject"),
+          eq(auditLog.targetId, pending.fileId),
+        ),
+      );
+    expect(audit.length).toBeGreaterThanOrEqual(1);
+    expect(audit[0]?.targetType).toBe("file");
+    expect(audit[0]?.companyId).toBe(kitIdentities.companies.a);
+    const blob = JSON.stringify(audit[0]);
+    expect(blob).not.toContain("objectKey");
+    expect(blob).not.toContain("object_key");
+    expect(blob).not.toMatch(/\/signing\//);
+    expect(blob).not.toContain("http");
+  });
+});
+
+describe("files.issueSigningDownloadUrl", () => {
+  const actorCompany = { companyId: kitIdentities.companies.a };
+
+  it("lets an employee with documents:view fetch the ASiC as attachment document.asice", async () => {
+    const capturing = createCapturingLogger();
+    const signed = await requireKit().invoke(
+      issueSigningDownloadUrl,
+      { fileId: signingDownloadOwnInput.fileId },
+      { ...actorCompany, userId: clerks.employee },
+      { deps: { ...requireKit().pipeline, logger: capturing.logger } },
+    );
+    expect(signed.fileId).toBe(signingDownloadOwnInput.fileId);
+    expect(signed.downloadUrl.startsWith("http")).toBe(true);
+    expect(signed.expiresAt).toEqual(expect.any(String));
+
+    const fetched = await fetch(signed.downloadUrl);
+    expect(fetched.ok).toBe(true);
+    const body = new Uint8Array(await fetched.arrayBuffer());
+    expect(sha256Hex(body)).toBe(zipChecksum);
+    expect(fetched.headers.get("content-type")).toMatch(
+      /application\/vnd\.etsi\.asic-e\+zip/i,
+    );
+    expect(fetched.headers.get("content-disposition")).toContain("attachment");
+    expect(fetched.headers.get("content-disposition")).toContain(
+      "document.asice",
+    );
+    expect(fetched.headers.get("content-disposition")).not.toContain("inline");
+
+    const rows = await requireKit()
+      .db.runtime.db.select({
+        id: files.id,
+        objectKey: files.objectKey,
+        purpose: files.purpose,
+      })
+      .from(files)
+      .where(eq(files.id, signingDownloadOwnInput.fileId));
+    expect(JSON.stringify(rows[0])).not.toContain("http");
+    expect(JSON.stringify(rows[0])).not.toContain(signed.downloadUrl);
+
+    const logs = JSON.stringify(capturing.entries());
+    expect(logs).not.toContain(signed.downloadUrl);
+    expect(logs).not.toMatch(/\/signing\//);
+    expect(logs).not.toMatch(/X-Amz-Signature/);
+  });
+
+  it("denies staff without documents:view", async () => {
+    await expect(
+      requireKit().invoke(
+        issueSigningDownloadUrl,
+        { fileId: signingDownloadOwnInput.fileId },
+        { ...actorCompany, userId: clerks.noDocumentsView },
+      ),
+    ).rejects.toBeInstanceOf(PermissionDeniedError);
+  });
+
+  it("treats pending, foreign, catalog, document, and missing files as the same not-found", async () => {
+    const pending = await requireKit().invoke(
+      requestSigningUpload,
+      signingInput,
+    );
+    const missing = randomUUID();
+    const pendingError = await requireKit()
+      .invoke(issueSigningDownloadUrl, { fileId: pending.fileId })
+      .then(
+        () => {
+          throw new Error("expected NotFoundError for a pending signing file");
+        },
+        (error: unknown) => error,
+      );
+    const foreignError = await requireKit()
+      .invoke(issueSigningDownloadUrl, {
+        fileId: signingDownloadForeignInput.fileId,
+      })
+      .then(
+        () => {
+          throw new Error("expected NotFoundError for a foreign signing file");
+        },
+        (error: unknown) => error,
+      );
+    const catalogError = await requireKit()
+      .invoke(issueSigningDownloadUrl, { fileId: downloadOwnInput.fileId })
+      .then(
+        () => {
+          throw new Error("expected NotFoundError for a catalog file");
+        },
+        (error: unknown) => error,
+      );
+    const documentError = await requireKit()
+      .invoke(issueSigningDownloadUrl, {
+        fileId: docDownloadOwnInput.fileId,
+      })
+      .then(
+        () => {
+          throw new Error("expected NotFoundError for a document file");
+        },
+        (error: unknown) => error,
+      );
+    const missingError = await requireKit()
+      .invoke(issueSigningDownloadUrl, { fileId: missing })
+      .then(
+        () => {
+          throw new Error("expected NotFoundError for a missing file");
+        },
+        (error: unknown) => error,
+      );
+
+    expect(pendingError).toBeInstanceOf(NotFoundError);
+    expect(foreignError).toBeInstanceOf(NotFoundError);
+    expect(catalogError).toBeInstanceOf(NotFoundError);
+    expect(documentError).toBeInstanceOf(NotFoundError);
+    expect(missingError).toBeInstanceOf(NotFoundError);
+    if (
+      pendingError instanceof NotFoundError &&
+      foreignError instanceof NotFoundError &&
+      catalogError instanceof NotFoundError &&
+      documentError instanceof NotFoundError &&
+      missingError instanceof NotFoundError
+    ) {
+      expect(pendingError.clientMessage).toBe(foreignError.clientMessage);
+      expect(foreignError.clientMessage).toBe(catalogError.clientMessage);
+      expect(catalogError.clientMessage).toBe(documentError.clientMessage);
+      expect(documentError.clientMessage).toBe(missingError.clientMessage);
+    }
+
+    await expect(
+      requireKit().invoke(issueDocumentDownloadUrl, {
+        fileId: signingDownloadOwnInput.fileId,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+});
+
+describe("files.issueShareSigningDownloadUrl", () => {
+  const actorCompany = { companyId: kitIdentities.companies.a };
+
+  it("returns the same ASiC bytes as the panel issuer with attachment disposition", async () => {
+    const capturing = createCapturingLogger();
+    const signed = await requireKit().invoke(
+      issueShareSigningDownloadUrl,
+      { fileId: signingDownloadOwnInput.fileId },
+      {},
+      { deps: { ...requireKit().pipeline, logger: capturing.logger } },
+    );
+    expect(signed.fileId).toBe(signingDownloadOwnInput.fileId);
+    const fetched = await fetch(signed.downloadUrl);
+    expect(fetched.ok).toBe(true);
+    expect(sha256Hex(new Uint8Array(await fetched.arrayBuffer()))).toBe(
+      zipChecksum,
+    );
+    expect(fetched.headers.get("content-disposition")).toContain("attachment");
+    expect(fetched.headers.get("content-disposition")).toContain(
+      "document.asice",
+    );
+
+    const rows = await requireKit()
+      .db.runtime.db.select({
+        id: files.id,
+        objectKey: files.objectKey,
+        purpose: files.purpose,
+      })
+      .from(files)
+      .where(eq(files.id, signingDownloadOwnInput.fileId));
+    expect(JSON.stringify(rows[0])).not.toContain(signed.downloadUrl);
+
+    const logs = JSON.stringify(capturing.entries());
+    expect(logs).not.toContain(signed.downloadUrl);
+    expect(logs).not.toMatch(/\/signing\//);
+    expect(logs).not.toMatch(/X-Amz-Signature/);
+  });
+
+  it("denies staff without files:view, including an employee with documents:view", async () => {
+    await expect(
+      requireKit().invoke(
+        issueShareSigningDownloadUrl,
+        { fileId: signingDownloadOwnInput.fileId },
+        { ...actorCompany, userId: clerks.noView },
+      ),
+    ).rejects.toBeInstanceOf(PermissionDeniedError);
+    await expect(
+      requireKit().invoke(
+        issueShareSigningDownloadUrl,
+        { fileId: signingDownloadOwnInput.fileId },
+        { ...actorCompany, userId: clerks.employee },
+      ),
+    ).rejects.toBeInstanceOf(PermissionDeniedError);
+  });
+
+  it("treats pending, foreign, catalog, document, and missing files as not-found", async () => {
+    const pending = await requireKit().invoke(
+      requestSigningUpload,
+      signingInput,
+    );
+    const missing = randomUUID();
+    await expect(
+      requireKit().invoke(issueShareSigningDownloadUrl, {
+        fileId: pending.fileId,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      requireKit().invoke(issueShareSigningDownloadUrl, {
+        fileId: signingDownloadForeignInput.fileId,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      requireKit().invoke(issueShareSigningDownloadUrl, {
+        fileId: downloadOwnInput.fileId,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      requireKit().invoke(issueShareSigningDownloadUrl, {
+        fileId: docDownloadOwnInput.fileId,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      requireKit().invoke(issueShareSigningDownloadUrl, { fileId: missing }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+});
+
+describe("files.issueSystemSigningDownloadUrl", () => {
+  it("returns attachment document.asice for the enqueuing tenant", async () => {
+    const capturing = createCapturingLogger();
+    const signed = await requireKit().invoke(
+      issueSystemSigningDownloadUrl,
+      { fileId: signingDownloadOwnInput.fileId },
+      {},
+      { deps: { ...requireKit().pipeline, logger: capturing.logger } },
+    );
+    expect(signed.fileId).toBe(signingDownloadOwnInput.fileId);
+    const fetched = await fetch(signed.downloadUrl);
+    expect(fetched.ok).toBe(true);
+    expect(sha256Hex(new Uint8Array(await fetched.arrayBuffer()))).toBe(
+      zipChecksum,
+    );
+    expect(fetched.headers.get("content-disposition")).toContain("attachment");
+    expect(fetched.headers.get("content-disposition")).toContain(
+      "document.asice",
+    );
+    const logs = JSON.stringify(capturing.entries());
+    expect(logs).not.toContain(signed.downloadUrl);
+    expect(logs).not.toMatch(/\/signing\//);
+  });
+
+  it("treats pending, foreign, catalog, and missing files as not-found", async () => {
+    const pending = await requireKit().invoke(
+      requestSigningUpload,
+      signingInput,
+    );
+    await expect(
+      requireKit().invoke(issueSystemSigningDownloadUrl, {
+        fileId: pending.fileId,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      requireKit().invoke(issueSystemSigningDownloadUrl, {
+        fileId: signingDownloadForeignInput.fileId,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      requireKit().invoke(issueSystemSigningDownloadUrl, {
+        fileId: downloadOwnInput.fileId,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      requireKit().invoke(issueSystemSigningDownloadUrl, {
+        fileId: randomUUID(),
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("sweeps abandoned pending signing staging and rows, but not ready durable signing objects", async () => {
+    const pending = await requireKit().invoke(
+      requestSigningUpload,
+      signingInput,
+    );
+    const signed = await requireKit().invoke(getSigningUploadUrl, {
+      fileId: pending.fileId,
+    });
+    await putSigned(
+      signed.uploadUrl,
+      zipBytes,
+      SIGNING_MIME_TYPE,
+      stagingObjectKey(kitIdentities.companies.a, pending.fileId),
+    );
+    await putStoreObject(
+      signingObjectKey(kitIdentities.companies.a, pending.fileId),
+      zipBytes,
+      SIGNING_MIME_TYPE,
+    );
+    await requireKit()
+      .db.runtime.db.update(files)
+      .set({
+        createdAt: new Date(Date.now() - ABANDONED_PENDING_TTL_MS - 1_000),
+      })
+      .where(eq(files.id, pending.fileId));
+
+    const readyDurableKey = signingObjectKey(
+      kitIdentities.companies.a,
+      signingDownloadOwnInput.fileId,
+    );
+    const store = getFilesObjectStore();
+    const readyBefore = await store.getObject(readyDurableKey);
+    expect(readyBefore).not.toBe("missing");
+    if (readyBefore === "missing") {
+      throw new Error("expected ready signing object before sweep");
+    }
+    const readyChecksum = sha256Hex(readyBefore.bytes);
+    const beforeReady = await countReadySigningFiles(kitIdentities.companies.a);
+    const beforeDocuments = await countDocumentFiles(kitIdentities.companies.a);
+
+    const swept = await requireKit().invoke(sweepAbandonedUploads, {});
+    expect(swept.abandonedPendingDeleted).toBeGreaterThanOrEqual(1);
+
+    expect(await countReadySigningFiles(kitIdentities.companies.a)).toBe(
+      beforeReady,
+    );
+    expect(await countDocumentFiles(kitIdentities.companies.a)).toBe(
+      beforeDocuments,
+    );
+    const pendingGone = await requireKit()
+      .db.runtime.db.select({ id: files.id })
+      .from(files)
+      .where(eq(files.id, pending.fileId));
+    expect(pendingGone).toHaveLength(0);
+
+    const pendingStaging = stagingObjectKey(
+      kitIdentities.companies.a,
+      pending.fileId,
+    );
+    const pendingSigning = signingObjectKey(
+      kitIdentities.companies.a,
+      pending.fileId,
+    );
+    await waitForObjectVisibility(store, pendingStaging, "missing");
+    await waitForObjectVisibility(store, pendingSigning, "missing");
+    expect(await store.headObject(pendingStaging)).toBe("missing");
+    expect(await store.headObject(pendingSigning)).toBe("missing");
+
+    const readyRows = await requireKit()
+      .db.runtime.db.select({
+        id: files.id,
+        status: files.status,
+        purpose: files.purpose,
+        objectKey: files.objectKey,
+      })
+      .from(files)
+      .where(eq(files.id, signingDownloadOwnInput.fileId));
+    expect(readyRows).toEqual([
+      {
+        id: signingDownloadOwnInput.fileId,
+        status: "ready",
+        purpose: "signing",
+        objectKey: readyDurableKey,
+      },
+    ]);
+    const readyAfter = await store.getObject(readyDurableKey);
+    expect(readyAfter).not.toBe("missing");
+    if (readyAfter === "missing") {
+      throw new Error("expected ready signing object after sweep");
+    }
+    expect(sha256Hex(readyAfter.bytes)).toBe(readyChecksum);
+
+    const documentRows = await requireKit()
+      .db.runtime.db.select({
+        id: files.id,
+        purpose: files.purpose,
+      })
+      .from(files)
+      .where(eq(files.id, docDownloadOwnInput.fileId));
+    expect(documentRows).toEqual([
+      { id: docDownloadOwnInput.fileId, purpose: "document" },
     ]);
   });
 });

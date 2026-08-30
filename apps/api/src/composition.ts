@@ -87,10 +87,16 @@ import {
   getAttachmentFacts,
   getDownloadUrl,
   getDownloadUrls,
+  getSigningUploadUrl,
   getUploadUrl,
   issueDocumentDownloadUrl,
   issueShareDownloadUrl,
+  issueShareSigningDownloadUrl,
+  issueSigningDownloadUrl,
+  issueSystemSigningDownloadUrl,
   recordGeneratedObject,
+  recordSigningObject,
+  requestSigningUpload,
   requestUpload,
   sweepAbandonedUploads,
 } from "@showzy/files";
@@ -376,6 +382,12 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, issueDocumentDownloadUrl);
   registerAction(registry, issueShareDownloadUrl);
   registerAction(registry, recordGeneratedObject);
+  registerAction(registry, requestSigningUpload);
+  registerAction(registry, getSigningUploadUrl);
+  registerAction(registry, recordSigningObject);
+  registerAction(registry, issueSigningDownloadUrl);
+  registerAction(registry, issueShareSigningDownloadUrl);
+  registerAction(registry, issueSystemSigningDownloadUrl);
   registerAction(registry, sweepAbandonedUploads);
   registerAction(registry, acceptInvite);
   registerAction(registry, createInvite);

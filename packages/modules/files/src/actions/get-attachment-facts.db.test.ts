@@ -17,7 +17,11 @@ import { companyMembers } from "@showzy/db/schema/companies";
 import { files } from "@showzy/db/schema/files";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { catalogObjectKey, documentObjectKey } from "../services/object-key.js";
+import {
+  catalogObjectKey,
+  documentObjectKey,
+  signingObjectKey,
+} from "../services/object-key.js";
 import { getAttachmentFacts } from "./get-attachment-facts.js";
 import { ATTACHMENT_FACTS_MAX_IDS } from "./get-attachment-facts.contract.js";
 
@@ -27,6 +31,7 @@ const fixtures = {
   pendingA: randomUUID(),
   readyB: randomUUID(),
   documentA: randomUUID(),
+  signingA: randomUUID(),
 };
 
 const checksumA = "11".repeat(32);
@@ -34,6 +39,7 @@ const checksumAPng = "22".repeat(32);
 const checksumB = "33".repeat(32);
 const checksumPending = "44".repeat(32);
 const checksumDocument = "55".repeat(32);
+const checksumSigning = "66".repeat(32);
 
 const clerkUserId = randomUUID();
 
@@ -106,6 +112,17 @@ beforeAll(async () => {
     checksumSha256: checksumDocument,
     status: "ready",
     stagingPurgedAt: new Date(),
+  });
+  await kit.db.runtime.db.insert(files).values({
+    id: fixtures.signingA,
+    companyId: kitIdentities.companies.a,
+    uploadedByUserId: kitIdentities.users.anna,
+    purpose: "signing",
+    objectKey: signingObjectKey(kitIdentities.companies.a, fixtures.signingA),
+    mimeType: "application/vnd.etsi.asic-e+zip",
+    byteSize: 64n,
+    checksumSha256: checksumSigning,
+    status: "ready",
   });
 
   await kit.db.runtime.db.insert(user).values({
@@ -282,6 +299,17 @@ describe("files.getAttachmentFacts", () => {
     await expect(
       kit.invoke(getAttachmentFacts, {
         fileIds: [fixtures.readyA, fixtures.documentA],
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("treats a signing object as not-found, not a catalog handshake error", async () => {
+    await expect(
+      kit.invoke(getAttachmentFacts, { fileIds: [fixtures.signingA] }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      kit.invoke(getAttachmentFacts, {
+        fileIds: [fixtures.readyA, fixtures.signingA],
       }),
     ).rejects.toBeInstanceOf(NotFoundError);
   });

@@ -37,7 +37,15 @@ function isHeicFamily(bytes: Uint8Array): boolean {
   return HEIC_BRANDS.has(asciiAt(bytes, 8, 4));
 }
 
-function isExecutableOrArchive(bytes: Uint8Array): boolean {
+function isZipContainer(bytes: Uint8Array): boolean {
+  return (
+    startsWith(bytes, [0x50, 0x4b, 0x03, 0x04]) ||
+    startsWith(bytes, [0x50, 0x4b, 0x05, 0x06]) ||
+    startsWith(bytes, [0x50, 0x4b, 0x07, 0x08])
+  );
+}
+
+function isNonZipExecutableOrArchive(bytes: Uint8Array): boolean {
   return (
     startsWith(bytes, [0x4d, 0x5a]) ||
     startsWith(bytes, [0x7f, 0x45, 0x4c, 0x46]) ||
@@ -47,15 +55,16 @@ function isExecutableOrArchive(bytes: Uint8Array): boolean {
     startsWith(bytes, [0xcf, 0xfa, 0xed, 0xfe]) ||
     startsWith(bytes, [0x23, 0x21]) ||
     startsWith(bytes, [0x00, 0x61, 0x73, 0x6d]) ||
-    startsWith(bytes, [0x50, 0x4b, 0x03, 0x04]) ||
-    startsWith(bytes, [0x50, 0x4b, 0x05, 0x06]) ||
-    startsWith(bytes, [0x50, 0x4b, 0x07, 0x08]) ||
     startsWith(bytes, [0x52, 0x61, 0x72, 0x21]) ||
     startsWith(bytes, [0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c]) ||
     startsWith(bytes, [0x1f, 0x8b]) ||
     startsWith(bytes, [0xfd, 0x37, 0x7a, 0x58, 0x5a, 0x00]) ||
     startsWith(bytes, [0x42, 0x5a, 0x68])
   );
+}
+
+function isExecutableOrArchive(bytes: Uint8Array): boolean {
+  return isNonZipExecutableOrArchive(bytes) || isZipContainer(bytes);
 }
 
 export function detectAllowedImageMime(
@@ -100,4 +109,16 @@ export function bytesArePdf(bytes: Uint8Array): boolean {
     return false;
   }
   return isPdf(bytes);
+}
+
+/**
+ * True when the bytes are a ZIP container (ASiC-E is a ZIP). Catalog and
+ * document paths still deny archives. Full ASiC verify (mimetype file /
+ * package vectors) is `docSigning.complete` (SHO-258).
+ */
+export function bytesAreAsicContainer(bytes: Uint8Array): boolean {
+  if (isNonZipExecutableOrArchive(bytes) || isHeicFamily(bytes)) {
+    return false;
+  }
+  return isZipContainer(bytes);
 }

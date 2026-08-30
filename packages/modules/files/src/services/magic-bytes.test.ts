@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  bytesAreAsicContainer,
   bytesArePdf,
   detectAllowedImageMime,
   uploadBytesMatchDeclaredMime,
@@ -44,5 +45,14 @@ describe("magic bytes", () => {
     expect(bytesArePdf(exe)).toBe(false);
     expect(bytesArePdf(zip)).toBe(false);
     expect(bytesArePdf(jpeg)).toBe(false);
+  });
+
+  it("allows ZIP containers on the signing path and still denies them as images/PDFs", () => {
+    expect(bytesAreAsicContainer(zip)).toBe(true);
+    expect(bytesAreAsicContainer(exe)).toBe(false);
+    expect(bytesAreAsicContainer(jpeg)).toBe(false);
+    expect(bytesAreAsicContainer(heic)).toBe(false);
+    expect(uploadBytesMatchDeclaredMime(zip, "image/png")).toBe(false);
+    expect(bytesArePdf(zip)).toBe(false);
   });
 });

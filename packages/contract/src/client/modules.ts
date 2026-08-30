@@ -62,7 +62,9 @@ import {
   finalizeUploadContract,
   getDownloadUrlContract,
   getDownloadUrlsContract,
+  getSigningUploadUrlContract,
   getUploadUrlContract,
+  requestSigningUploadContract,
   requestUploadContract,
 } from "@showzy/files/contract";
 import {
@@ -155,6 +157,8 @@ export const contractModules = {
     finalizeUpload: finalizeUploadContract,
     getDownloadUrl: getDownloadUrlContract,
     getDownloadUrls: getDownloadUrlsContract,
+    requestSigningUpload: requestSigningUploadContract,
+    getSigningUploadUrl: getSigningUploadUrlContract,
   },
   invites: {
     accept: acceptInviteContract,

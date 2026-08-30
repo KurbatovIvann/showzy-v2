@@ -51,7 +51,9 @@ import {
   finalizeUploadContract,
   getDownloadUrlContract,
   getDownloadUrlsContract,
+  getSigningUploadUrlContract,
   getUploadUrlContract,
+  requestSigningUploadContract,
   requestUploadContract,
 } from "@showzy/files/contract";
 import {
@@ -143,6 +145,8 @@ describe("client composition", () => {
         finalizeUpload: finalizeUploadContract,
         getDownloadUrl: getDownloadUrlContract,
         getDownloadUrls: getDownloadUrlsContract,
+        requestSigningUpload: requestSigningUploadContract,
+        getSigningUploadUrl: getSigningUploadUrlContract,
       },
       invites: {
         accept: acceptInviteContract,
@@ -226,13 +230,23 @@ describe("client composition", () => {
     expect(contractRouter.files.finalizeUpload).toBeDefined();
     expect(contractRouter.files.getDownloadUrl).toBeDefined();
     expect(contractRouter.files.getDownloadUrls).toBeDefined();
+    expect(contractRouter.files.requestSigningUpload).toBeDefined();
+    expect(contractRouter.files.getSigningUploadUrl).toBeDefined();
     expect(contractModules.files).not.toHaveProperty("getAttachmentFacts");
     expect(contractModules.files).not.toHaveProperty("sweepAbandonedUploads");
     expect(contractModules.files).not.toHaveProperty("recordGeneratedObject");
+    expect(contractModules.files).not.toHaveProperty("recordSigningObject");
     expect(contractModules.files).not.toHaveProperty(
       "issueDocumentDownloadUrl",
     );
     expect(contractModules.files).not.toHaveProperty("issueShareDownloadUrl");
+    expect(contractModules.files).not.toHaveProperty("issueSigningDownloadUrl");
+    expect(contractModules.files).not.toHaveProperty(
+      "issueShareSigningDownloadUrl",
+    );
+    expect(contractModules.files).not.toHaveProperty(
+      "issueSystemSigningDownloadUrl",
+    );
     expect(contractRouter.invites.accept).toBeDefined();
     expect(contractRouter.invites.create).toBeDefined();
     expect(contractRouter.invites.get).toBeDefined();

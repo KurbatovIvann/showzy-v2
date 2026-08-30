@@ -9,7 +9,11 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { CoreInvariantError } from "@showzy/core/errors";
 
-import type { FileMimeType, StoredObjectMimeType } from "../wire.contract.js";
+import {
+  SIGNING_MIME_TYPE,
+  type HandshakePutMimeType,
+  type StoredObjectMimeType,
+} from "../wire.contract.js";
 
 /** Short-lived signed URL lifetime (mechanical default, 15 minutes). */
 export const SIGNED_URL_TTL_SEC = 15 * 60;
@@ -46,7 +50,7 @@ export interface ObjectBytes extends ObjectIdentity {
 export interface FilesObjectStore {
   signPut(input: {
     readonly key: string;
-    readonly mimeType: FileMimeType;
+    readonly mimeType: HandshakePutMimeType;
     readonly byteSize: number;
   }): Promise<SignedUrl>;
   signGet(input: {
@@ -402,16 +406,23 @@ function downloadFilename(mimeType: StoredObjectMimeType): string {
       return "catalog.webp";
     case "application/pdf":
       return "document.pdf";
+    case SIGNING_MIME_TYPE:
+      return "document.asice";
   }
 }
 
 /**
  * Catalog files are images. `inline` lets expo-image render the object.
  * Generated PDFs also use `inline` so the panel / share landing can open
- * them (SHO-229 contract note).
+ * them (SHO-229 contract note). ASiC-E downloads are `attachment`
+ * `document.asice` (SHO-253) — never inline.
  */
 function downloadDisposition(mimeType: StoredObjectMimeType): string {
-  return `inline; filename="${downloadFilename(mimeType)}"`;
+  const filename = downloadFilename(mimeType);
+  if (mimeType === SIGNING_MIME_TYPE) {
+    return `attachment; filename="${filename}"`;
+  }
+  return `inline; filename="${filename}"`;
 }
 
 function isMissingObject(error: unknown): boolean {

@@ -11,6 +11,8 @@ import {
   documentPurposeSchema,
   fileMimeTypeSchema,
   filePurposeSchema,
+  signingMimeTypeSchema,
+  signingPurposeSchema,
   uploadByteSizeSchema,
 } from "../wire.contract.js";
 
@@ -28,6 +30,15 @@ export const documentReadyViewSchema = z.object({
   status: z.literal("ready"),
   purpose: documentPurposeSchema,
   mimeType: documentMimeTypeSchema,
+  byteSize: documentByteSizeSchema,
+  checksumSha256: checksumSha256Schema,
+});
+
+export const signingReadyViewSchema = z.object({
+  fileId: z.uuid(),
+  status: z.literal("ready"),
+  purpose: signingPurposeSchema,
+  mimeType: signingMimeTypeSchema,
   byteSize: documentByteSizeSchema,
   checksumSha256: checksumSha256Schema,
 });
