@@ -78,6 +78,9 @@ export type PhotoCommitPlan =
 export type CatalogImageStrategy =
   "keep-jpeg" | "keep-png" | "keep-webp" | "convert-jpeg";
 
+export type CatalogImagePreparePlan =
+  { readonly kind: "keep" } | { readonly kind: "compress" };
+
 export type PhotoCompressPlan =
   | { readonly kind: "ok" }
   | { readonly kind: "again"; readonly edge: number; readonly compress: number }
@@ -522,6 +525,28 @@ export function catalogImageStrategy(
     return "keep-jpeg";
   }
   return "convert-jpeg";
+}
+
+/**
+ * JPEG/PNG/WebP stay as-is only when already in-cap and ≤ PHOTO_MAX_EDGE.
+ * Size ≤ 10 MiB is not enough — camera JPEGs are 3–8 MiB at 4032px.
+ * HEIC / unknown always convert (SHO-245).
+ */
+export function catalogImagePreparePlan(args: {
+  readonly strategy: CatalogImageStrategy;
+  readonly byteSize: number;
+  readonly longEdge: number;
+}): CatalogImagePreparePlan {
+  if (args.strategy === "convert-jpeg") {
+    return { kind: "compress" };
+  }
+  if (args.byteSize < 1 || args.byteSize > MAX_UPLOAD_BYTES) {
+    return { kind: "compress" };
+  }
+  if (args.longEdge > PHOTO_MAX_EDGE) {
+    return { kind: "compress" };
+  }
+  return { kind: "keep" };
 }
 
 export function nextPhotoCompressPlan(args: {

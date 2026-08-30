@@ -5,6 +5,7 @@ import {
   addUploadSlots,
   applyCommitSuccess,
   canAddPhoto,
+  catalogImagePreparePlan,
   catalogImageStrategy,
   committedSlotsFromFileIds,
   classifyProductPhotosLoad,
@@ -498,6 +499,80 @@ describe("catalog image strategy and compress plan", () => {
     expect(catalogImageStrategy("image/jpeg", "a.jpg")).toBe("keep-jpeg");
     expect(catalogImageStrategy("image/webp", "a.webp")).toBe("keep-webp");
     expect(catalogImageStrategy("image/gif", "a.gif")).toBe("convert-jpeg");
+  });
+
+  it("does not keep an in-cap JPEG as-is when the long edge exceeds PHOTO_MAX_EDGE", () => {
+    const cameraJpegBytes = 5 * 1024 * 1024;
+    expect(cameraJpegBytes).toBeLessThan(MAX_UPLOAD_BYTES);
+    expect(
+      catalogImagePreparePlan({
+        strategy: "keep-jpeg",
+        byteSize: cameraJpegBytes,
+        longEdge: 4032,
+      }),
+    ).toEqual({ kind: "compress" });
+    expect(
+      catalogImagePreparePlan({
+        strategy: "keep-png",
+        byteSize: cameraJpegBytes,
+        longEdge: PHOTO_MAX_EDGE + 1,
+      }),
+    ).toEqual({ kind: "compress" });
+    expect(
+      catalogImagePreparePlan({
+        strategy: "keep-webp",
+        byteSize: 800_000,
+        longEdge: 3000,
+      }),
+    ).toEqual({ kind: "compress" });
+  });
+
+  it("keeps an in-cap JPEG/PNG/WebP that is already ≤ PHOTO_MAX_EDGE", () => {
+    expect(
+      catalogImagePreparePlan({
+        strategy: "keep-jpeg",
+        byteSize: 200_000,
+        longEdge: PHOTO_MAX_EDGE,
+      }),
+    ).toEqual({ kind: "keep" });
+    expect(
+      catalogImagePreparePlan({
+        strategy: "keep-jpeg",
+        byteSize: 80_000,
+        longEdge: 1600,
+      }),
+    ).toEqual({ kind: "keep" });
+    expect(
+      catalogImagePreparePlan({
+        strategy: "keep-png",
+        byteSize: 120_000,
+        longEdge: 1024,
+      }),
+    ).toEqual({ kind: "keep" });
+    expect(
+      catalogImagePreparePlan({
+        strategy: "keep-webp",
+        byteSize: 90_000,
+        longEdge: 800,
+      }),
+    ).toEqual({ kind: "keep" });
+  });
+
+  it("still converts HEIC and oversize files even when the long edge is small", () => {
+    expect(
+      catalogImagePreparePlan({
+        strategy: "convert-jpeg",
+        byteSize: 200_000,
+        longEdge: 1600,
+      }),
+    ).toEqual({ kind: "compress" });
+    expect(
+      catalogImagePreparePlan({
+        strategy: "keep-jpeg",
+        byteSize: MAX_UPLOAD_BYTES + 1,
+        longEdge: 1600,
+      }),
+    ).toEqual({ kind: "compress" });
   });
 
   it("stops compressing at the floor instead of looping forever", () => {
