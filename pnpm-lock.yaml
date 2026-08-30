@@ -352,6 +352,9 @@ importers:
       '@showzy/doc-signing':
         specifier: workspace:*
         version: link:../../packages/modules/doc-signing
+      '@showzy/documents':
+        specifier: workspace:*
+        version: link:../../packages/modules/documents
       '@showzy/files':
         specifier: workspace:*
         version: link:../../packages/modules/files

@@ -52,6 +52,8 @@ const fixtures = {
   docExpired: randomUUID(),
   docRevoked: randomUUID(),
   docPdfExpired: randomUUID(),
+  docSignedExpired: randomUUID(),
+  docSignedLive: randomUUID(),
 };
 
 const sellerSnapshot = {
@@ -84,6 +86,8 @@ const ownIsolationInput = { token: "" };
 const expiredToken = generateDocumentShareToken();
 const revokedToken = generateDocumentShareToken();
 const pdfExpiredToken = generateDocumentShareToken();
+const signedExpiredToken = generateDocumentShareToken();
+const signedLiveToken = generateDocumentShareToken();
 const seedOrderNumbers = new Map<string, number>();
 
 function nextSeedOrderNumber(companyId: string): string {
@@ -167,6 +171,8 @@ async function insertTokenRow(values: {
   revokedAt: Date | null;
   pdfDownloadUrl: string | null;
   pdfDownloadExpiresAt: Date | null;
+  signedDownloadUrl?: string | null;
+  signedDownloadExpiresAt?: Date | null;
 }): Promise<void> {
   await kit.db.runtime.db.insert(documentShareTokens).values({
     companyId: values.companyId,
@@ -176,6 +182,8 @@ async function insertTokenRow(values: {
     revokedAt: values.revokedAt,
     pdfDownloadUrl: values.pdfDownloadUrl,
     pdfDownloadExpiresAt: values.pdfDownloadExpiresAt,
+    signedDownloadUrl: values.signedDownloadUrl ?? null,
+    signedDownloadExpiresAt: values.signedDownloadExpiresAt ?? null,
   });
 }
 
@@ -251,6 +259,20 @@ beforeAll(async () => {
     productId: fixtures.productA,
     documentNumber: "KA-РХ-000904",
   });
+  await insertSeedDocument({
+    id: fixtures.docSignedExpired,
+    companyId: companyA,
+    customerId: fixtures.customerA,
+    productId: fixtures.productA,
+    documentNumber: "KA-РХ-000905",
+  });
+  await insertSeedDocument({
+    id: fixtures.docSignedLive,
+    companyId: companyA,
+    customerId: fixtures.customerA,
+    productId: fixtures.productA,
+    documentNumber: "KA-РХ-000906",
+  });
 
   const sharedA = await kit.invoke(shareDocument, {
     documentId: fixtures.docA,
@@ -294,6 +316,28 @@ beforeAll(async () => {
     pdfDownloadUrl: "https://files.example/expired.pdf",
     pdfDownloadExpiresAt: past,
   });
+  await insertTokenRow({
+    documentId: fixtures.docSignedExpired,
+    companyId: companyA,
+    token: signedExpiredToken,
+    expiresAt: future,
+    revokedAt: null,
+    pdfDownloadUrl: "https://files.example/unsigned.pdf",
+    pdfDownloadExpiresAt: future,
+    signedDownloadUrl: "https://files.example/expired.asice",
+    signedDownloadExpiresAt: past,
+  });
+  await insertTokenRow({
+    documentId: fixtures.docSignedLive,
+    companyId: companyA,
+    token: signedLiveToken,
+    expiresAt: future,
+    revokedAt: null,
+    pdfDownloadUrl: "https://files.example/unsigned.pdf",
+    pdfDownloadExpiresAt: future,
+    signedDownloadUrl: "https://files.example/live.asice",
+    signedDownloadExpiresAt: future,
+  });
 });
 
 afterAll(async () => {
@@ -324,6 +368,7 @@ describe("documents.getShared", () => {
     expect(result.documentId).toBe(fixtures.docA);
     expect(result.documentNumber).toBe("KA-РХ-000901");
     expect(result.pdfDownloadUrl).toBeNull();
+    expect(result.signedDownloadUrl).toBeNull();
     expect(JSON.stringify(result)).not.toContain(fixtures.docB);
     expect(JSON.stringify(result)).not.toContain("Live CRM Name");
     expect(JSON.stringify(result)).not.toContain(tokens.a);
@@ -393,6 +438,19 @@ describe("documents.getShared", () => {
     const result = await kit.invoke(getShared, { token: pdfExpiredToken });
     expect(result.documentId).toBe(fixtures.docPdfExpired);
     expect(result.pdfDownloadUrl).toBeNull();
+    expect(result.signedDownloadUrl).toBeNull();
+  });
+
+  it("returns stored signedDownloadUrl beside the unsigned PDF and null when that signature expired", async () => {
+    const live = await kit.invoke(getShared, { token: signedLiveToken });
+    expect(live.documentId).toBe(fixtures.docSignedLive);
+    expect(live.pdfDownloadUrl).toBe("https://files.example/unsigned.pdf");
+    expect(live.signedDownloadUrl).toBe("https://files.example/live.asice");
+
+    const expired = await kit.invoke(getShared, { token: signedExpiredToken });
+    expect(expired.documentId).toBe(fixtures.docSignedExpired);
+    expect(expired.pdfDownloadUrl).toBe("https://files.example/unsigned.pdf");
+    expect(expired.signedDownloadUrl).toBeNull();
   });
 
   it("rejects an empty token", async () => {

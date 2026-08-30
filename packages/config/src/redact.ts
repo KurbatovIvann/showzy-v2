@@ -69,6 +69,7 @@ const SENSITIVE_KEYS = new Set([
   "uploadurl",
   "downloadurl",
   "pdfdownloadurl",
+  "signeddownloadurl",
   "payloaddownloadurl",
   "objectkey",
 ]);

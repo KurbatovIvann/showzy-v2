@@ -21,6 +21,7 @@ import {
   SHARE_LANDING_DOWNLOAD_COPY,
   SHARE_LANDING_NOT_FOUND_COPY,
   SHARE_LANDING_REFRESH_COPY,
+  SHARE_LANDING_SIGNED_DOWNLOAD_COPY,
 } from "./document-share-landing.js";
 
 const fixtures = {
@@ -28,6 +29,7 @@ const fixtures = {
   productA: randomUUID(),
   docReady: randomUUID(),
   docNullPdf: randomUUID(),
+  docBoth: randomUUID(),
 };
 
 const sellerSnapshot = {
@@ -54,6 +56,7 @@ const customerBuyerSnapshot = {
 let kit: TestKit;
 const readyToken = randomBytes(32).toString("base64url");
 const nullPdfToken = randomBytes(32).toString("base64url");
+const bothToken = randomBytes(32).toString("base64url");
 
 function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
@@ -169,6 +172,11 @@ beforeAll(async () => {
     documentNumber: "KA-РХ-000002",
     orderNumber: "T-2",
   });
+  await insertSeedDocument({
+    id: fixtures.docBoth,
+    documentNumber: "KA-РХ-000003",
+    orderNumber: "T-3",
+  });
   await kit.db.runtime.db.insert(documentShareTokens).values([
     {
       companyId: kitIdentities.companies.a,
@@ -185,6 +193,16 @@ beforeAll(async () => {
       expiresAt: future,
       pdfDownloadUrl: null,
       pdfDownloadExpiresAt: null,
+    },
+    {
+      companyId: kitIdentities.companies.a,
+      documentId: fixtures.docBoth,
+      tokenHash: hashToken(bothToken),
+      expiresAt: future,
+      pdfDownloadUrl: "https://files.example/ready.pdf",
+      pdfDownloadExpiresAt: pdfFuture,
+      signedDownloadUrl: "https://files.example/ready.asice",
+      signedDownloadExpiresAt: pdfFuture,
     },
   ]);
 });
@@ -211,13 +229,29 @@ describe("GET /d/:token landing", () => {
     );
     expect(html).toContain('referrerpolicy="no-referrer"');
     expect(html).not.toContain(readyToken);
+    expect(html).not.toContain(SHARE_LANDING_SIGNED_DOWNLOAD_COPY);
   });
 
   it("tells the holder to ask the sender to refresh when pdfDownloadUrl is null", async () => {
     const app = landingApp();
     const response = await app.request(`/d/${nullPdfToken}`);
     expect(response.status).toBe(200);
-    expect(await response.text()).toContain(SHARE_LANDING_REFRESH_COPY);
+    const html = await response.text();
+    expect(html).toContain(SHARE_LANDING_REFRESH_COPY);
+    expect(html).not.toContain(SHARE_LANDING_SIGNED_DOWNLOAD_COPY);
+  });
+
+  it("offers both PDF and signed-file downloads when both stored URLs are live", async () => {
+    const app = landingApp();
+    const response = await app.request(`/d/${bothToken}`);
+    expect(response.status).toBe(200);
+    const html = await response.text();
+    expect(html).toContain(SHARE_LANDING_DOWNLOAD_COPY);
+    expect(html).toContain(SHARE_LANDING_SIGNED_DOWNLOAD_COPY);
+    expect(html).toContain("https://files.example/ready.pdf");
+    expect(html).toContain("https://files.example/ready.asice");
+    expect(html).not.toContain(bothToken);
+    expect(html).not.toContain(SHARE_LANDING_REFRESH_COPY);
   });
 
   it("returns 404 HTML for an unknown token and never 401", async () => {

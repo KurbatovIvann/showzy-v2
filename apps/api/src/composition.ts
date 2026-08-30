@@ -68,6 +68,7 @@ import {
 } from "@showzy/customers";
 import { customersSuiteCoverage } from "@showzy/customers/suite-coverage";
 import {
+  attachSignedShare,
   cancelDocument,
   createFromOrder,
   documentsCancelled,
@@ -82,6 +83,7 @@ import {
   shareDocument,
 } from "@showzy/documents";
 import { documentsSuiteCoverage } from "@showzy/documents/suite-coverage";
+import { signedShareAttacherSubscriptions } from "@showzy/documents/subscriptions";
 import { getArtifact, renderPdf } from "@showzy/doc-generation";
 import { pdfRendererSubscriptions } from "@showzy/doc-generation/subscriptions";
 import { docGenerationSuiteCoverage } from "@showzy/doc-generation/suite-coverage";
@@ -278,7 +280,15 @@ const callEdges: readonly DeclaredCallEdge[] = [
   },
   {
     caller: "documents.share",
+    callee: "docSigning.get",
+  },
+  {
+    caller: "documents.share",
     callee: "files.issueShareDownloadUrl",
+  },
+  {
+    caller: "documents.share",
+    callee: "files.issueShareSigningDownloadUrl",
   },
   {
     caller: "documents.get",
@@ -335,6 +345,10 @@ const callEdges: readonly DeclaredCallEdge[] = [
   {
     caller: "docSigning.complete",
     callee: "files.readPendingSigningObject",
+  },
+  {
+    caller: "documents.attachSignedShare",
+    callee: "files.issueSystemSigningDownloadUrl",
   },
   {
     caller: "documents.lockIssuedForSigning",
@@ -461,6 +475,7 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, getInvite);
   registerAction(registry, listInvites);
   registerAction(registry, revokeInvite);
+  registerAction(registry, attachSignedShare);
   registerAction(registry, cancelDocument);
   registerAction(registry, createFromOrder);
   registerAction(registry, getDocument);
@@ -509,6 +524,7 @@ export function buildContractCheckInput(): ContractCheckInput {
       ...orderCardUpdaterSubscriptions,
       ...pdfRendererSubscriptions,
       ...requestAbandonerSubscriptions,
+      ...signedShareAttacherSubscriptions,
     ]),
     callEdges,
     projectionGrants,

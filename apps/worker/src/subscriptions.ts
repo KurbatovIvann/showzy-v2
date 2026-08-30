@@ -7,9 +7,11 @@ import { orderCardUpdaterSubscriptions } from "@showzy/chat";
 import type { EventSubscription } from "@showzy/core";
 import { pdfRendererSubscriptions } from "@showzy/doc-generation/subscriptions";
 import { requestAbandonerSubscriptions } from "@showzy/doc-signing/subscriptions";
+import { signedShareAttacherSubscriptions } from "@showzy/documents/subscriptions";
 
 export const workerSubscriptions: readonly EventSubscription[] = [
   ...orderCardUpdaterSubscriptions,
   ...pdfRendererSubscriptions,
   ...requestAbandonerSubscriptions,
+  ...signedShareAttacherSubscriptions,
 ];

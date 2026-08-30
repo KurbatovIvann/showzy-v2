@@ -28613,7 +28613,7 @@
     "/documents/getShared": {
       "post": {
         "operationId": "documents.getShared",
-        "summary": "Return the published facts of one document for an unauthenticated page-token holder. The token is a selector, not a company grant. Expired, revoked, or unknown tokens fail with the same not-found. The PDF download URL is the stored short-lived signature; it is null when the PDF is not ready or the signature expired — the page token may still be valid. Company id is never input.",
+        "summary": "Return the published facts of one document for an unauthenticated page-token holder. The token is a selector, not a company grant. Expired, revoked, or unknown tokens fail with the same not-found. The PDF download URL is the stored short-lived unsigned signature; the signed download URL is the stored short-lived ASiC signature. Each is null when that file is not ready or that signature expired — the page token may still be valid. Company id is never input.",
         "requestBody": {
           "required": true,
           "content": {
@@ -29071,6 +29071,17 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "signedDownloadUrl": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -29091,7 +29102,8 @@
                     "templateName",
                     "createdAt",
                     "items",
-                    "pdfDownloadUrl"
+                    "pdfDownloadUrl",
+                    "signedDownloadUrl"
                   ]
                 }
               }
@@ -31241,7 +31253,7 @@
     "/documents/share": {
       "post": {
         "operationId": "documents.share",
-        "summary": "Rotate the active 90-day page token for a staff document in the active company and return the document view, the plaintext token once, and the public /d/{token} URL. Pre-mints a short-lived PDF download URL when a generated artifact exists; otherwise the token row stores null PDF fields. Re-share remints the token and the signature. Missing or foreign-company documents fail with not-found. Company id is never input.",
+        "summary": "Rotate the active 90-day page token for a staff document in the active company and return the document view, the plaintext token once, and the public /d/{token} URL. Pre-mints a short-lived PDF download URL when a generated artifact exists; otherwise the token row stores null PDF fields. When a recorded supplier ASiC exists, also pre-mints a short-lived signed download URL beside the unsigned PDF. Re-share remints the token and the signatures. Missing or foreign-company documents fail with not-found. Company id is never input.",
         "requestBody": {
           "required": true,
           "content": {

@@ -395,6 +395,8 @@ describe("documents schema slice", () => {
       "revoked_at",
       "pdf_download_url",
       "pdf_download_expires_at",
+      "signed_download_url",
+      "signed_download_expires_at",
       "created_at",
     ]);
     expect(columns.get("document_share_tokens")).not.toContain("updated_at");
@@ -406,6 +408,14 @@ describe("documents schema slice", () => {
     ).toBe("YES");
     expect(
       byTableColumn.get("document_share_tokens.pdf_download_expires_at")
+        ?.is_nullable,
+    ).toBe("YES");
+    expect(
+      byTableColumn.get("document_share_tokens.signed_download_url")
+        ?.is_nullable,
+    ).toBe("YES");
+    expect(
+      byTableColumn.get("document_share_tokens.signed_download_expires_at")
         ?.is_nullable,
     ).toBe("YES");
 
