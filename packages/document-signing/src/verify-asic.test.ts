@@ -56,9 +56,7 @@ describe("verify ASiC-E (GOST fixture CAdES-BES STRUCT)", () => {
   it("rejects a container whose CAdES does not cover the manifest", async () => {
     const signed = await createSignedAsicE(payload, adapter);
     const unpacked = unpackAsicE(signed.bytes);
-    const mutatedXml = new TextDecoder()
-      .decode(unpacked.manifest.bytes)
-      .replace("document.pdf", "tampered.pdf");
+    const mutatedXml = `${new TextDecoder().decode(unpacked.manifest.bytes)}\n`;
     const tampered = packAsicE([
       { name: "mimetype", bytes: encoder.encode(ASIC_E_MIMETYPE) },
       payload,
