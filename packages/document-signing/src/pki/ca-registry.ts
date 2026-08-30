@@ -205,3 +205,21 @@ const FALLBACK_CA_PROVIDERS: FallbackCaProvider[] = [
     tsaUrl: "http://czo.gov.ua/services/tsp/",
   },
 ];
+
+/**
+ * Static OCSP/TSA/CMP/cert URLs baked into this package. The HTTP proxy
+ * allowlist (SHO-255) is derived from these hosts only — never from
+ * downloaded CAs.json, which would let a CA registry mint SSRF targets.
+ */
+export function pkiProxySourceUrls(): readonly string[] {
+  return [
+    DEFAULT_CZO_CAS_JSON_URL,
+    DEFAULT_CZO_CA_BUNDLE_URL,
+    ...FALLBACK_CA_PROVIDERS.flatMap((ca) => [
+      ca.cmpUrl,
+      ca.ocspUrl,
+      ca.tsaUrl,
+      ...ca.certUrls,
+    ]),
+  ];
+}

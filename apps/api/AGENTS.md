@@ -18,7 +18,8 @@ Auth policy parameters still live in `src/auth/` (fnd-T6).
   `buildAuthOptions`, composes the action pipeline, returns `createApp`.
 - `src/http/app.ts` — `createApp(composition)`: request-id, trusted-proxy
   IP, better-auth at `/api/auth`, oRPC at `/rpc`, OpenAPI REST at `/api/v1`,
-  `GET /health`. Dependencies are injected; tests never read `process.env`.
+  `GET /health`, `GET /d/:token`, `POST /pki/proxy` (HTTP, not an action).
+  Dependencies are injected; tests never read `process.env`.
 - `src/http/client-ip.ts` — forwarded-IP headers are trusted only when the
   TCP peer is in `TRUSTED_PROXIES`. Spoofed `X-Forwarded-For` is ignored.
   `createTrustedProxyMatcher` builds the `BlockList` once at app construction.

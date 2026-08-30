@@ -1,8 +1,9 @@
-import { ActionRegistry } from "@showzy/core";
+import { ActionRegistry, createInMemoryRateLimitStore } from "@showzy/core";
 import { pino } from "pino";
 import { describe, expect, it } from "vitest";
 
 import { createApp, HEALTH_PATH } from "./app.js";
+import { PKI_PROXY_PATH } from "./pki-proxy.js";
 import { REQUEST_ID_HEADER } from "./request-id.js";
 
 const UUID = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
@@ -25,6 +26,10 @@ function silentApp() {
     },
     trustedProxies: [],
     getPeerAddress: () => "127.0.0.1",
+    pkiProxy: {
+      rateLimitStore: createInMemoryRateLimitStore(),
+      ipHmacSecret: "test-pki-proxy-ip-hmac-secret!!",
+    },
   });
 }
 
@@ -58,5 +63,16 @@ describe("createApp HTTP shell", () => {
     expect(minted.headers.get(REQUEST_ID_HEADER)).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
     );
+  });
+
+  it("POST /pki/proxy is unauthenticated HTTP (never 401)", async () => {
+    const app = silentApp();
+    const response = await app.request(PKI_PROXY_PATH, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ url: "https://example.com" }),
+    });
+    expect(response.status).not.toBe(401);
+    expect(response.status).toBe(400);
   });
 });

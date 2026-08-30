@@ -1,6 +1,6 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 
-import { ActionRegistry } from "@showzy/core";
+import { ActionRegistry, createInMemoryRateLimitStore } from "@showzy/core";
 import {
   createTestKit,
   kitIdentities,
@@ -135,6 +135,10 @@ function landingApp() {
     pipeline: kit.pipeline,
     trustedProxies: [],
     getPeerAddress: () => "203.0.113.10",
+    pkiProxy: {
+      rateLimitStore: createInMemoryRateLimitStore(),
+      ipHmacSecret: "test-pki-proxy-ip-hmac-secret!!",
+    },
   });
 }
 
