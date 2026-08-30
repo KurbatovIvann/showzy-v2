@@ -195,6 +195,14 @@ function violation(from, spec, typeOnly) {
     if (pkg.name === "validation" || pkg.name === "ui") {
       return null;
     }
+    // SHO-251 / SHO-260: on-device QES via Nitro. Native and web adapters
+    // only — never the Node verify path (node:zlib / WASM).
+    if (
+      pkg.name === "document-signing" &&
+      (pkg.rest === "" || pkg.rest === "native" || pkg.rest === "web")
+    ) {
+      return null;
+    }
     return { messageId: "clientApp" };
   }
 
@@ -280,7 +288,7 @@ export const importBoundariesRule = {
       contractModules:
         "packages/contract may import only a module's index.contract.ts barrel (@showzy/<module>/contract) (ADR-0016).",
       clientApp:
-        "Client apps may import only @showzy/contract, @showzy/validation, and @showzy/ui (contract.md §2).",
+        "Client apps may import only @showzy/contract, @showzy/validation, @showzy/ui, and @showzy/document-signing (native/web adapters; never /node) (contract.md §2, SHO-251).",
       contractClient:
         "The contract client layer must not import Node builtins, @showzy/db, core server paths, or @showzy/contract/server (ADR-0016).",
     },

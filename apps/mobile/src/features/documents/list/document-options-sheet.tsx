@@ -3,6 +3,7 @@ import { Pressable, Text, View } from "react-native";
 import {
   BanIcon,
   EyeIcon,
+  PenLineIcon,
   PrinterIcon,
   QrCodeIcon,
   Share2Icon,
@@ -14,6 +15,7 @@ import type { DocumentsCopy } from "../../../i18n/documents";
 import {
   documentOptionVisibility,
   type DocumentOptionsGetLoadState,
+  type DocumentSigningStatus,
   type DocumentsListRow,
 } from "./documents-list.presenter";
 
@@ -26,12 +28,14 @@ export function DocumentOptionsSheet(props: {
   readonly getLoad: DocumentOptionsGetLoadState["kind"];
   readonly generationStatus: "pending" | "ready" | "failed" | null;
   readonly pdfDownloadUrl: string | null;
+  readonly signingStatus: DocumentSigningStatus | null;
   readonly onClose: () => void;
   readonly onHidden: () => void;
   readonly onShare: () => void;
   readonly onQr: () => void;
   readonly onPrint: () => void;
   readonly onOpenPdf: () => void;
+  readonly onSign: () => void;
   readonly onCancel: () => void;
 }) {
   const { theme } = useUnistyles();
@@ -45,6 +49,8 @@ export function DocumentOptionsSheet(props: {
           getLoad: "idle",
           generationStatus: null,
           pdfDownloadUrl: null,
+          supplierSigned: false,
+          signingStatus: null,
         })
       : documentOptionVisibility({
           canView: props.canView,
@@ -53,6 +59,8 @@ export function DocumentOptionsSheet(props: {
           getLoad: props.getLoad,
           generationStatus: props.generationStatus,
           pdfDownloadUrl: props.pdfDownloadUrl,
+          supplierSigned: document.showSignedChip,
+          signingStatus: props.signingStatus,
         });
   const muted = theme.colors.mutedForeground;
   const danger = theme.colors.destructive;
@@ -79,7 +87,9 @@ export function DocumentOptionsSheet(props: {
   const showQr = visibility.showQr;
   const showPrint = visibility.showPrint;
   const showOpenPdf = visibility.showOpenPdf;
+  const showSign = visibility.showSign;
   const showCancel = visibility.showCancel;
+  const signingChip = visibility.signingChip;
 
   return (
     <Sheet
@@ -104,12 +114,27 @@ export function DocumentOptionsSheet(props: {
           <StatusPill label={generationLabel} tone={generationTone} />
         </View>
       ) : null}
+      {signingChip === "supplier_signed" ? (
+        <View style={styles.generation}>
+          <StatusPill label={props.copy.signing.signedBadge} tone="success" />
+        </View>
+      ) : null}
+      {signingChip === "pending" ? (
+        <View style={styles.generation}>
+          <StatusPill
+            label={props.copy.signing.pendingBadge}
+            tone="attention"
+          />
+        </View>
+      ) : null}
       <View style={styles.group}>
         {showShare ? (
           <OptionRow
             icon={<Share2Icon size={icon} color={muted} />}
             label={props.copy.options.share}
-            last={!showQr && !showPrint && !showOpenPdf && !showCancel}
+            last={
+              !showQr && !showPrint && !showOpenPdf && !showSign && !showCancel
+            }
             onPress={props.onShare}
           />
         ) : null}
@@ -117,7 +142,7 @@ export function DocumentOptionsSheet(props: {
           <OptionRow
             icon={<QrCodeIcon size={icon} color={muted} />}
             label={props.copy.options.qr}
-            last={!showPrint && !showOpenPdf && !showCancel}
+            last={!showPrint && !showOpenPdf && !showSign && !showCancel}
             onPress={props.onQr}
           />
         ) : null}
@@ -126,7 +151,7 @@ export function DocumentOptionsSheet(props: {
             icon={<PrinterIcon size={icon} color={muted} />}
             label={props.copy.options.print}
             disabled={!pdfEnabled}
-            last={!showOpenPdf && !showCancel}
+            last={!showOpenPdf && !showSign && !showCancel}
             onPress={props.onPrint}
           />
         ) : null}
@@ -135,8 +160,16 @@ export function DocumentOptionsSheet(props: {
             icon={<EyeIcon size={icon} color={muted} />}
             label={props.copy.options.openPdf}
             disabled={!openPdfEnabled}
-            last={!showCancel}
+            last={!showSign && !showCancel}
             onPress={props.onOpenPdf}
+          />
+        ) : null}
+        {showSign ? (
+          <OptionRow
+            icon={<PenLineIcon size={icon} color={muted} />}
+            label={props.copy.options.sign}
+            last={!showCancel}
+            onPress={props.onSign}
           />
         ) : null}
         {showCancel ? (

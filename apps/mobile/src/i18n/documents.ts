@@ -47,6 +47,7 @@ export type DocumentsSharedCopy = {
   readonly title: string;
   readonly loadingLabel: string;
   readonly download: string;
+  readonly downloadSigned: string;
   readonly refresh: string;
   readonly notFoundTitle: string;
   readonly notFoundDescription: string;
@@ -86,6 +87,8 @@ export type DocumentsCopy = {
   readonly backLabel: string;
   readonly optionsLabel: string;
   readonly optionsButton: string;
+  readonly signButton: string;
+  readonly signedBadge: string;
   readonly loadingLabel: string;
   readonly loadingMoreLabel: string;
   readonly cancelledBadge: string;
@@ -104,6 +107,7 @@ export type DocumentsCopy = {
     readonly qr: string;
     readonly print: string;
     readonly openPdf: string;
+    readonly sign: string;
     readonly cancel: string;
     readonly close: string;
   };
@@ -121,6 +125,9 @@ export type DocumentsCopy = {
     readonly cancelTitle: string;
     readonly cancelDescription: string;
     readonly cancelConfirm: string;
+    readonly signTitle: string;
+    readonly signDescription: string;
+    readonly signConfirm: string;
     readonly dismiss: string;
   };
   readonly handover: {
@@ -137,10 +144,37 @@ export type DocumentsCopy = {
     readonly pdfFailed: string;
     readonly pdfOpenFailed: string;
     readonly shareFailed: string;
+    readonly signFailed: string;
+    readonly keyInvalid: string;
   };
   readonly mutation: DocumentsMutationCopy;
   readonly form: DocumentsFormCopy;
   readonly shared: DocumentsSharedCopy;
+  readonly signing: {
+    readonly title: string;
+    readonly hint: string;
+    readonly lock: string;
+    readonly pickKey: string;
+    readonly pickKeyA11y: string;
+    readonly passwordLabel: string;
+    readonly passwordPlaceholder: string;
+    readonly passwordA11y: string;
+    readonly submit: string;
+    readonly submitBusy: string;
+    readonly close: string;
+    readonly signedBadge: string;
+    readonly pendingBadge: string;
+    readonly banners: {
+      readonly password: string;
+      readonly validation: string;
+      readonly permission: string;
+      readonly network: string;
+      readonly offline: string;
+      readonly unavailable: string;
+      readonly native: string;
+      readonly key: string;
+    };
+  };
 };
 
 const en: DocumentsCopy = {
@@ -149,6 +183,8 @@ const en: DocumentsCopy = {
   backLabel: "Back",
   optionsLabel: "Options for {{number}}",
   optionsButton: "Options",
+  signButton: "Sign",
+  signedBadge: "Signed",
   loadingLabel: "Loading documents",
   loadingMoreLabel: "Loading more documents",
   cancelledBadge: "Cancelled",
@@ -182,6 +218,7 @@ const en: DocumentsCopy = {
     qr: "QR code",
     print: "Print",
     openPdf: "Open PDF",
+    sign: "Sign",
     cancel: "Cancel document",
     close: "Close",
   },
@@ -200,6 +237,10 @@ const en: DocumentsCopy = {
     cancelDescription:
       "The document will move to Cancelled. The number stays consumed.",
     cancelConfirm: "Cancel document",
+    signTitle: "Sign this document?",
+    signDescription:
+      "You will confirm a qualified electronic signature. The key stays on this device — confirmation does not replace key possession.",
+    signConfirm: "Continue",
     dismiss: "Keep",
   },
   handover: {
@@ -216,6 +257,8 @@ const en: DocumentsCopy = {
     pdfFailed: "The PDF could not be generated.",
     pdfOpenFailed: "Could not open the PDF.",
     shareFailed: "Could not create a share link.",
+    signFailed: "Could not sign the document. Try again.",
+    keyInvalid: "Choose a Key-6.dat, .pfx, .p12, .pk8, or .jks file.",
   },
   mutation: {
     error: "Could not update the document. Try again.",
@@ -270,6 +313,7 @@ const en: DocumentsCopy = {
     title: "Document",
     loadingLabel: "Loading document",
     download: "Download PDF",
+    downloadSigned: "Download signed file",
     refresh:
       "The file is not ready or the download expired. Ask the sender to refresh the link.",
     notFoundTitle: "Link is not valid",
@@ -281,6 +325,31 @@ const en: DocumentsCopy = {
     retry: "Retry",
     backLabel: "Back",
   },
+  signing: {
+    title: "Sign document",
+    hint: "Choose a qualified-signature key (Key-6.dat, .pfx, .p12, .pk8, .jks) to sign this document.",
+    lock: "The key is processed only on this device and is never sent to the server.",
+    pickKey: "Choose key file",
+    pickKeyA11y: "Choose key file",
+    passwordLabel: "Key password",
+    passwordPlaceholder: "Enter the key container password",
+    passwordA11y: "Key password",
+    submit: "Sign",
+    submitBusy: "Signing…",
+    close: "Close",
+    signedBadge: "Signed",
+    pendingBadge: "Signature pending",
+    banners: {
+      password: "The key password is incorrect.",
+      validation: "Could not sign this document. Check the PDF and try again.",
+      permission: "You do not have permission to sign documents.",
+      network: "Could not sign the document. Try again.",
+      offline: "No connection. Try again when you are online.",
+      unavailable: "Could not sign the document. Try again.",
+      native: "Signing needs the native app rebuild that includes Nitro.",
+      key: "Choose a Key-6.dat, .pfx, .p12, .pk8, or .jks file.",
+    },
+  },
 };
 
 const uk: DocumentsCopy = {
@@ -289,6 +358,8 @@ const uk: DocumentsCopy = {
   backLabel: "Назад",
   optionsLabel: "Опції для {{number}}",
   optionsButton: "Опції",
+  signButton: "Підписати",
+  signedBadge: "Підписано",
   loadingLabel: "Завантаження документів",
   loadingMoreLabel: "Завантаження наступної сторінки",
   cancelledBadge: "Скасовано",
@@ -322,6 +393,7 @@ const uk: DocumentsCopy = {
     qr: "QR-код",
     print: "Друк",
     openPdf: "Відкрити PDF",
+    sign: "Підписати",
     cancel: "Скасувати документ",
     close: "Закрити",
   },
@@ -340,6 +412,10 @@ const uk: DocumentsCopy = {
     cancelDescription:
       "Документ змінить статус на «Скасовано». Номер залишиться використаним.",
     cancelConfirm: "Скасувати документ",
+    signTitle: "Підписати документ?",
+    signDescription:
+      "Ви підтвердите кваліфікований електронний підпис. Ключ залишиться на цьому пристрої — підтвердження не замінює володіння ключем.",
+    signConfirm: "Продовжити",
     dismiss: "Залишити",
   },
   handover: {
@@ -356,6 +432,8 @@ const uk: DocumentsCopy = {
     pdfFailed: "Не вдалося згенерувати PDF.",
     pdfOpenFailed: "Не вдалося відкрити PDF.",
     shareFailed: "Не вдалося створити посилання.",
+    signFailed: "Не вдалося підписати документ. Спробуйте ще раз.",
+    keyInvalid: "Оберіть файл Key-6.dat, .pfx, .p12, .pk8 або .jks.",
   },
   mutation: {
     error: "Не вдалося оновити документ. Спробуйте ще раз.",
@@ -409,6 +487,7 @@ const uk: DocumentsCopy = {
     title: "Документ",
     loadingLabel: "Завантаження документа",
     download: "Завантажити PDF",
+    downloadSigned: "Завантажити підписаний файл",
     refresh:
       "Файл ще не готовий або строк завантаження минув. Попросіть відправника оновити посилання.",
     notFoundTitle: "Посилання недійсне",
@@ -419,6 +498,32 @@ const uk: DocumentsCopy = {
     errorDescription: "Спробуйте ще раз за мить.",
     retry: "Повторити",
     backLabel: "Назад",
+  },
+  signing: {
+    title: "Підписання документа",
+    hint: "Завантажте ключ електронного підпису (Key-6.dat, .pfx, .p12, .pk8, .jks) для підписання цього документа.",
+    lock: "Ключ обробляється лише на цьому пристрої і ніколи не надсилається на сервер.",
+    pickKey: "Обрати файл ключа",
+    pickKeyA11y: "Обрати файл ключа",
+    passwordLabel: "Пароль ключа",
+    passwordPlaceholder: "Введіть пароль ключового контейнера",
+    passwordA11y: "Пароль ключа",
+    submit: "Підписати",
+    submitBusy: "Підписання…",
+    close: "Закрити",
+    signedBadge: "Підписано",
+    pendingBadge: "Очікує підпис",
+    banners: {
+      password: "Неправильний пароль ключа.",
+      validation:
+        "Не вдалося підписати документ. Перевірте PDF і спробуйте ще раз.",
+      permission: "Немає права підписувати документи.",
+      network: "Не вдалося підписати документ. Спробуйте ще раз.",
+      offline: "Немає з’єднання. Спробуйте, коли з’явиться мережа.",
+      unavailable: "Не вдалося підписати документ. Спробуйте ще раз.",
+      native: "Підписання потребує нативного застосунку з Nitro.",
+      key: "Оберіть файл Key-6.dat, .pfx, .p12, .pk8 або .jks.",
+    },
   },
 };
 

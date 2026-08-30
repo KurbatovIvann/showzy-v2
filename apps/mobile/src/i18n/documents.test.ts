@@ -26,6 +26,10 @@ describe("documents copy", () => {
     expect(Object.keys(uk.form)).toEqual(Object.keys(en.form));
     expect(Object.keys(uk.form.errors)).toEqual(Object.keys(en.form.errors));
     expect(Object.keys(uk.shared)).toEqual(Object.keys(en.shared));
+    expect(Object.keys(uk.signing)).toEqual(Object.keys(en.signing));
+    expect(Object.keys(uk.signing.banners)).toEqual(
+      Object.keys(en.signing.banners),
+    );
   });
 
   it("pins canvas list copy in uk (type chips, no search)", () => {
@@ -54,13 +58,18 @@ describe("documents copy", () => {
     expect(uk.options.qr).toBe("QR-код");
     expect(uk.options.print).toBe("Друк");
     expect(uk.options.openPdf).toBe("Відкрити PDF");
+    expect(uk.options.sign).toBe("Підписати");
     expect(uk.options.cancel).toBe("Скасувати документ");
     expect(uk.confirm.cancelTitle).toBe("Скасувати документ?");
+    expect(uk.signButton).toBe("Підписати");
+    expect(uk.signing.title).toBe("Підписання документа");
+    expect(uk.signing.lock).toContain("цьому пристрої");
     expect(JSON.stringify(uk.filters)).not.toMatch(/Пошук/);
     expect(uk.form.typePaymentInvoice).toBe("Рахунок РХ");
     expect(uk.form.typeDeliveryNote).toBe("Видаткова ВН");
     expect(uk.form.orderSearchPlaceholder).toContain("Пошук");
     expect(uk.shared.refresh).toContain("оновити");
+    expect(uk.shared.downloadSigned).toBe("Завантажити підписаний файл");
   });
 
   it("uses VALIDATION banner copy that does not assume highlighted fields", () => {

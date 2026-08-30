@@ -3,6 +3,7 @@ import { Text, TextInput, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { StatusPill } from "./status-pill";
+import { resolveTextFieldContent } from "./text-field-content";
 
 export function TextField(props: {
   readonly value: string;
@@ -13,7 +14,8 @@ export function TextField(props: {
     "phone-pad" | "email-address" | "default" | "decimal-pad" | "number-pad";
   readonly autoCapitalize?: "none" | "sentences" | "words" | "characters";
   readonly autoCorrect?: boolean;
-  readonly autoComplete?: "email" | "tel" | "off" | "organization";
+  readonly autoComplete?: "email" | "tel" | "off" | "organization" | "password";
+  readonly secureTextEntry?: boolean;
   readonly maxLength?: number;
   readonly error?: string | null;
   readonly editable?: boolean;
@@ -39,15 +41,12 @@ export function TextField(props: {
   const email = keyboardType === "email-address";
   const decimal = keyboardType === "decimal-pad";
   const numberPad = keyboardType === "number-pad";
-  const autoComplete =
-    props.autoComplete ?? (phone ? "tel" : email ? "email" : "off");
-  const textContentType = phone
-    ? "telephoneNumber"
-    : email
-      ? "emailAddress"
-      : autoComplete === "organization"
-        ? "organizationName"
-        : "none";
+  const secure = props.secureTextEntry === true;
+  const { autoComplete, textContentType } = resolveTextFieldContent({
+    secure,
+    autoComplete: props.autoComplete,
+    keyboardType,
+  });
   const tabular = phone || email || decimal || numberPad;
   const label =
     props.label != null && props.label.length > 0 ? props.label : null;
@@ -101,6 +100,7 @@ export function TextField(props: {
           textContentType={textContentType}
           autoCapitalize={props.autoCapitalize ?? "none"}
           autoCorrect={props.autoCorrect ?? false}
+          secureTextEntry={secure}
           maxLength={props.maxLength}
           editable={props.editable !== false}
           multiline={multiline}

@@ -14,6 +14,7 @@ import {
   IconButton,
 } from "../../../components/ui";
 import { DocumentHandoverSheet } from "../share/document-handover-sheet";
+import { DocumentSigningSheet } from "../signing/document-signing-sheet";
 import { DocumentOptionsSheet } from "./document-options-sheet";
 import { DocumentRow, DocumentRowSkeleton } from "./document-row";
 import type {
@@ -25,7 +26,7 @@ const SKELETON_ROWS = [0, 1, 2] as const;
 
 export function DocumentsListView(model: DocumentsListModel) {
   const { theme } = useUnistyles();
-  const { copy, openOptions } = model;
+  const { copy, openOptions, signRow } = model;
 
   const renderItem: ListRenderItem<DocumentsListRow> = useCallback(
     ({ item }) => (
@@ -38,13 +39,26 @@ export function DocumentsListView(model: DocumentsListModel) {
         totalLabel={item.totalLabel}
         cancelled={item.cancelled}
         cancelledBadge={copy.cancelledBadge}
+        signedBadge={copy.signedBadge}
+        showSign={item.showSign}
+        showSignedChip={item.showSignedChip}
+        signButton={copy.signButton}
         optionsA11y={item.optionsA11y}
         optionsButton={copy.optionsButton}
         disabled={model.writesPending}
+        onSign={signRow}
         onOptions={openOptions}
       />
     ),
-    [copy.cancelledBadge, copy.optionsButton, model.writesPending, openOptions],
+    [
+      copy.cancelledBadge,
+      copy.optionsButton,
+      copy.signButton,
+      copy.signedBadge,
+      model.writesPending,
+      openOptions,
+      signRow,
+    ],
   );
 
   return (
@@ -101,6 +115,7 @@ export function DocumentsListView(model: DocumentsListModel) {
         getLoad={model.getLoad}
         generationStatus={model.generationStatus}
         pdfDownloadUrl={model.pdfDownloadUrl}
+        signingStatus={model.signingStatus}
         onClose={model.closeOptions}
         onHidden={model.onOptionsHidden}
         onShare={() => {
@@ -115,8 +130,24 @@ export function DocumentsListView(model: DocumentsListModel) {
         onOpenPdf={() => {
           void model.openPdf();
         }}
+        onSign={() => {
+          void model.sign();
+        }}
         onCancel={() => {
           void model.cancel();
+        }}
+      />
+      <DocumentSigningSheet
+        session={model.signingSession}
+        copy={copy}
+        onClose={model.closeSigning}
+        onHidden={model.onSigningHidden}
+        onPickKey={() => {
+          void model.pickSigningKey();
+        }}
+        onChangePassword={model.setSigningPassword}
+        onSubmit={() => {
+          void model.submitSigning();
         }}
       />
       <DocumentHandoverSheet

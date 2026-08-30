@@ -37,6 +37,8 @@ const nativeKitPackages = [
   "lucide-react-native",
   "react-native-keyboard-controller",
   "react-native-mmkv",
+  "react-native-nitro-modules",
+  "@showzy/document-signing",
   "react-native-pager-view",
   "react-native-svg",
   "react-native-view-shot",
