@@ -47,7 +47,7 @@ describe("doc-signing source guards (SHO-254)", () => {
     expect(source.match(/inArray\(/g)?.length).toBe(1);
     expect(source).toContain(".from(signingSignatures)");
     expect(source.match(/\.from\(signingSignatures\)/g)?.length).toBe(1);
-    expect(source).not.toMatch(/for\s*\([^)]*documentIds/);
+    expect(source.match(/ctx\.db/g)?.length).toBe(1);
     expect(source).not.toContain("ctx.call");
   });
 
