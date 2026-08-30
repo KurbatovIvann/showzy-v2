@@ -1,10 +1,10 @@
 /**
- * BullMQ job host (fnd-T29, ADR-0007 / SHO-120 / SHO-236). One dedicated
- * Redis connection (`maxRetriesPerRequest: null`), prefix `showzy`,
- * queues `maintenance` and `pdf`. Processors stay thin: idempotency
- * cleanup calls the core library; abandoned-upload GC and PDF render
- * invoke registered system actions. Domain event delivery stays on the
- * outbox loop (ADR-0012).
+ * BullMQ job host (fnd-T29, ADR-0007 / SHO-120 / SHO-236 / SHO-248). One
+ * dedicated Redis connection (`maxRetriesPerRequest: null`), prefix
+ * `showzy`, queues `maintenance` and `pdf`. Processors stay thin:
+ * idempotency cleanup calls the core library; abandoned-upload GC,
+ * catalog rendition backfill, and PDF render invoke registered system
+ * actions. Domain event delivery stays on the outbox loop (ADR-0012).
  */
 import { randomUUID } from "node:crypto";
 
@@ -16,12 +16,17 @@ import {
 import { CoreInvariantError } from "@showzy/core/errors";
 import type { Database } from "@showzy/db";
 import { renderPdf } from "@showzy/doc-generation";
-import { sweepAbandonedUploads } from "@showzy/files";
+import {
+  backfillCatalogRenditions,
+  sweepAbandonedUploads,
+} from "@showzy/files";
 import { Queue, Worker, type Job } from "bullmq";
 import { Redis } from "ioredis";
 import type { Logger } from "pino";
 
 import {
+  BACKFILL_CATALOG_RENDITIONS_INTERVAL_MS,
+  BACKFILL_CATALOG_RENDITIONS_JOB_NAME,
   BULLMQ_PREFIX,
   CLEANUP_INTERVAL_MS,
   IDEMPOTENCY_CLEANUP_JOB_NAME,
@@ -41,6 +46,13 @@ export interface SweepTickResult {
   readonly abandonedPendingDeleted: number;
 }
 
+export interface BackfillTickResult {
+  readonly filled: number;
+  readonly alreadyComplete: number;
+  readonly skippedMissingOriginal: number;
+  readonly skippedUndecodable: number;
+}
+
 export interface JobHost {
   start(): Promise<void>;
   close(): Promise<void>;
@@ -53,17 +65,21 @@ export interface CreateJobHostOptions {
   readonly workerId: string;
   readonly cleanupIntervalMs?: number;
   readonly sweepIntervalMs?: number;
+  readonly backfillIntervalMs?: number;
   readonly now?: () => number;
   /**
-   * Required for the default sweep path (`files.sweepAbandonedUploads`)
+   * Required for the default sweep path (`files.sweepAbandonedUploads`),
+   * catalog rendition backfill (`files.backfillCatalogRenditions`),
    * and the pdf processor (`docGeneration.renderPdf`). Tests that stub
-   * `sweep` and never enqueue pdf jobs may omit it.
+   * `sweep` / `backfill` and never enqueue pdf jobs may omit it.
    */
   readonly pipeline?: ActionPipelineDeps;
   /** Test seam to observe or gate a tick; production omits this. */
   cleanup?: () => Promise<number>;
   /** Test seam to observe or gate a sweep tick; production omits this. */
   sweep?: () => Promise<SweepTickResult>;
+  /** Test seam to observe or gate a backfill tick; production omits this. */
+  backfill?: () => Promise<BackfillTickResult>;
 }
 
 type MaintenanceJob = Job<Record<string, never>, number>;
@@ -87,6 +103,8 @@ export function createJobHost(options: CreateJobHostOptions): JobHost {
   });
   const cleanupIntervalMs = options.cleanupIntervalMs ?? CLEANUP_INTERVAL_MS;
   const sweepIntervalMs = options.sweepIntervalMs ?? SWEEP_INTERVAL_MS;
+  const backfillIntervalMs =
+    options.backfillIntervalMs ?? BACKFILL_CATALOG_RENDITIONS_INTERVAL_MS;
   const runCleanup =
     options.cleanup ??
     (() =>
@@ -105,6 +123,32 @@ export function createJobHost(options: CreateJobHostOptions): JobHost {
     }
     return executeAction(options.pipeline, {
       action: sweepAbandonedUploads,
+      input: {},
+      request: {
+        requestId: randomUUID(),
+        correlationId: randomUUID(),
+        channel: "system",
+        idempotencyKey: job.id ?? randomUUID(),
+      },
+      principal: {
+        mode: "system",
+        serviceName: MAINTENANCE_SERVICE_NAME,
+        scope: { scope: "global" },
+      },
+    });
+  }
+
+  async function runBackfill(job: MaintenanceJob): Promise<BackfillTickResult> {
+    if (options.backfill !== undefined) {
+      return options.backfill();
+    }
+    if (options.pipeline === undefined) {
+      throw new CoreInvariantError(
+        "files.backfillCatalogRenditions requires the worker action pipeline",
+      );
+    }
+    return executeAction(options.pipeline, {
+      action: backfillCatalogRenditions,
       input: {},
       request: {
         requestId: randomUUID(),
@@ -143,6 +187,24 @@ export function createJobHost(options: CreateJobHostOptions): JobHost {
           "abandoned uploads swept",
         );
         return swept.leftoverStagingDeleted + swept.abandonedPendingDeleted;
+      }
+      case BACKFILL_CATALOG_RENDITIONS_JOB_NAME: {
+        const backfilled = await runBackfill(job);
+        options.logger.info(
+          {
+            worker_id: options.workerId,
+            filled: backfilled.filled,
+            already_complete: backfilled.alreadyComplete,
+            skipped_missing_original: backfilled.skippedMissingOriginal,
+            skipped_undecodable: backfilled.skippedUndecodable,
+          },
+          "catalog renditions backfilled",
+        );
+        return (
+          backfilled.filled +
+          backfilled.skippedMissingOriginal +
+          backfilled.skippedUndecodable
+        );
       }
       default: {
         options.logger.error(
@@ -289,6 +351,18 @@ export function createJobHost(options: CreateJobHostOptions): JobHost {
           },
         },
       );
+      await queue.upsertJobScheduler(
+        BACKFILL_CATALOG_RENDITIONS_JOB_NAME,
+        { every: backfillIntervalMs },
+        {
+          name: BACKFILL_CATALOG_RENDITIONS_JOB_NAME,
+          data: {},
+          opts: {
+            removeOnComplete: true,
+            removeOnFail: 50,
+          },
+        },
+      );
       await worker.waitUntilReady();
       await pdfWorker.waitUntilReady();
       started = true;
@@ -300,6 +374,7 @@ export function createJobHost(options: CreateJobHostOptions): JobHost {
           prefix: BULLMQ_PREFIX,
           cleanup_interval_ms: cleanupIntervalMs,
           sweep_interval_ms: sweepIntervalMs,
+          backfill_interval_ms: backfillIntervalMs,
         },
         "maintenance job host started",
       );

@@ -21,10 +21,14 @@ wakeup, polling fallback, graceful drain, and the job host.
   draining jobs.
 - `src/jobs.ts` — BullMQ job host. Prefix `showzy`, queues `maintenance`
   and `pdf`. On boot, upserts Job Schedulers for
-  `cleanupExpiredIdempotencyKeys` (`CLEANUP_INTERVAL_MS`, 1 h) and
+  `cleanupExpiredIdempotencyKeys` (`CLEANUP_INTERVAL_MS`, 1 h),
   `sweepAbandonedUploads` (`SWEEP_INTERVAL_MS`, 5 min, action batch
+  default 20), and `backfillCatalogRenditions`
+  (`BACKFILL_CATALOG_RENDITIONS_INTERVAL_MS`, 5 min, action batch
   default 20). The sweep processor invokes `files.sweepAbandonedUploads`
-  as system/global with a fresh idempotency key per `job.id`. The pdf
+  as system/global with a fresh idempotency key per `job.id`. The
+  backfill processor invokes `files.backfillCatalogRenditions` the same
+  way. The pdf
   processor invokes `docGeneration.renderPdf` as system/tenant from the
   envelope `companyId` (`executeAction` only — no domain SQL). Production
   `documents.created` delivery still runs through the outbox (chat
@@ -54,8 +58,8 @@ wakeup, polling fallback, graceful drain, and the job host.
   logger + optional Sentry). Keep in lockstep with
   `apps/api/src/observability.ts`. `flushProcessObservability` drains
   Sentry on shutdown.
-- `src/policy.ts` — poll/cleanup/sweep intervals, notify channel, BullMQ
-  prefix and queue name. Values change only through an ADR or a
+- `src/policy.ts` — poll/cleanup/sweep/backfill intervals, notify channel,
+  BullMQ prefix and queue name. Values change only through an ADR or a
   protocol-manual patch with a proving test.
 
 ## Rules

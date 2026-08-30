@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import {
+  BACKFILL_CATALOG_RENDITIONS_INTERVAL_MS,
+  BACKFILL_CATALOG_RENDITIONS_JOB_NAME,
   BULLMQ_PREFIX,
   CLEANUP_INTERVAL_MS,
   IDEMPOTENCY_CLEANUP_JOB_NAME,
@@ -19,8 +21,8 @@ import {
   SWEEP_INTERVAL_MS,
 } from "./policy.js";
 
-describe("BullMQ job host policy (fnd-T29 / SHO-120 / SHO-236)", () => {
-  it("pins the showzy prefix, maintenance and pdf queues, cleanup and sweep intervals", () => {
+describe("BullMQ job host policy (fnd-T29 / SHO-120 / SHO-236 / SHO-248)", () => {
+  it("pins the showzy prefix, maintenance and pdf queues, cleanup, sweep, and backfill intervals", () => {
     expect(BULLMQ_PREFIX).toBe("showzy");
     expect(MAINTENANCE_QUEUE_NAME).toBe("maintenance");
     expect(PDF_QUEUE_NAME).toBe("pdf");
@@ -28,9 +30,13 @@ describe("BullMQ job host policy (fnd-T29 / SHO-120 / SHO-236)", () => {
     expect(PDF_SERVICE_NAME).toBe("worker.pdf");
     expect(IDEMPOTENCY_CLEANUP_JOB_NAME).toBe("cleanupExpiredIdempotencyKeys");
     expect(SWEEP_ABANDONED_UPLOADS_JOB_NAME).toBe("sweepAbandonedUploads");
+    expect(BACKFILL_CATALOG_RENDITIONS_JOB_NAME).toBe(
+      "backfillCatalogRenditions",
+    );
     expect(MAINTENANCE_SERVICE_NAME).toBe("worker.maintenance");
     expect(CLEANUP_INTERVAL_MS).toBe(60 * 60 * 1_000);
     expect(SWEEP_INTERVAL_MS).toBe(5 * 60 * 1_000);
+    expect(BACKFILL_CATALOG_RENDITIONS_INTERVAL_MS).toBe(5 * 60 * 1_000);
     expect(MAINTENANCE_LOCK_DURATION_MS).toBe(60_000);
     expect(PDF_LOCK_DURATION_MS).toBe(60_000);
   });

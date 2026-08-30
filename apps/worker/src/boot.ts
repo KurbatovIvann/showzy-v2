@@ -38,6 +38,7 @@ export interface BootWorkerOptions {
   readonly pollIntervalMs?: number;
   readonly cleanupIntervalMs?: number;
   readonly sweepIntervalMs?: number;
+  readonly backfillIntervalMs?: number;
   readonly now?: () => number;
 }
 
@@ -80,6 +81,9 @@ export async function bootWorker(
       : {}),
     ...(options.sweepIntervalMs !== undefined
       ? { sweepIntervalMs: options.sweepIntervalMs }
+      : {}),
+    ...(options.backfillIntervalMs !== undefined
+      ? { backfillIntervalMs: options.backfillIntervalMs }
       : {}),
     ...(options.now !== undefined ? { now: options.now } : {}),
   };

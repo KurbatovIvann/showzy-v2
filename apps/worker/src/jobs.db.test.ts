@@ -1,7 +1,8 @@
 /**
- * BullMQ job host (fnd-T29 / SHO-120): maintenance scheduler ticks,
- * abandoned-upload sweep, single-flight across replicas, drain on
- * shutdown, log hygiene, re-upsert after flush.
+ * BullMQ job host (fnd-T29 / SHO-120 / SHO-248): maintenance scheduler
+ * ticks, abandoned-upload sweep, catalog rendition backfill,
+ * single-flight across replicas, drain on shutdown, log hygiene,
+ * re-upsert after flush.
  */
 import { existsSync, readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
@@ -40,8 +41,14 @@ import {
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { bootWorker } from "./boot.js";
-import { createJobHost, type SweepTickResult } from "./jobs.js";
 import {
+  createJobHost,
+  type BackfillTickResult,
+  type SweepTickResult,
+} from "./jobs.js";
+import {
+  BACKFILL_CATALOG_RENDITIONS_INTERVAL_MS,
+  BACKFILL_CATALOG_RENDITIONS_JOB_NAME,
   BULLMQ_PREFIX,
   IDEMPOTENCY_CLEANUP_JOB_NAME,
   MAINTENANCE_QUEUE_NAME,
@@ -197,6 +204,15 @@ function stubSweep(): Promise<SweepTickResult> {
   });
 }
 
+function stubBackfill(): Promise<BackfillTickResult> {
+  return Promise.resolve({
+    filled: 0,
+    alreadyComplete: 0,
+    skippedMissingOriginal: 0,
+    skippedUndecodable: 0,
+  });
+}
+
 async function waitUntil(
   check: () => Promise<boolean>,
   timeoutMs = 10_000,
@@ -324,9 +340,25 @@ function catalogKey(companyId: string, fileId: string): string {
   return `${companyId}/catalog/${fileId}`;
 }
 
+function catalogRenditionKey(
+  companyId: string,
+  fileId: string,
+  rendition: "thumb" | "card" | "hero" | "full",
+): string {
+  return `${companyId}/catalog/${fileId}/${rendition}`;
+}
+
 function stagingKey(companyId: string, fileId: string): string {
   return `${companyId}/uploads/${fileId}`;
 }
+
+/** 1×1 RGB PNG (IHDR + 1-pixel IDAT). Sharp-decodable for backfill ticks. */
+const pngBytes = Uint8Array.from(
+  Buffer.from(
+    "89504e470d0a1a0a0000000d4948445200000001000000010802000000907753de0000000c49444154789c63606060000000040001f61738550000000049454e44ae426082",
+    "hex",
+  ),
+);
 
 async function insertFileRow(values: {
   readonly id: string;
@@ -336,6 +368,8 @@ async function insertFileRow(values: {
   readonly createdAt?: Date;
   readonly updatedAt?: Date;
   readonly stagingPurgedAt?: Date;
+  readonly mimeType?: "image/jpeg" | "image/png";
+  readonly byteSize?: number;
 }): Promise<void> {
   await kit.db.runtime.db.insert(files).values({
     id: values.id,
@@ -343,8 +377,8 @@ async function insertFileRow(values: {
     uploadedByUserId: values.uploadedByUserId,
     purpose: "catalog",
     objectKey: catalogKey(values.companyId, values.id),
-    mimeType: "image/jpeg",
-    byteSize: BigInt(jpegBytes.byteLength),
+    mimeType: values.mimeType ?? "image/jpeg",
+    byteSize: BigInt(values.byteSize ?? jpegBytes.byteLength),
     checksumSha256: "a".repeat(64),
     status: values.status,
     ...(values.createdAt !== undefined ? { createdAt: values.createdAt } : {}),
@@ -355,12 +389,16 @@ async function insertFileRow(values: {
   });
 }
 
-async function putStoreObject(key: string): Promise<void> {
+async function putStoreObject(
+  key: string,
+  bytes: Uint8Array = jpegBytes,
+  mimeType: "image/jpeg" | "image/png" = "image/jpeg",
+): Promise<void> {
   const store = getFilesObjectStore();
   await store.putObject({
     key,
-    mimeType: "image/jpeg",
-    bytes: jpegBytes,
+    mimeType,
+    bytes,
   });
   // Garage can acknowledge PutObject before HeadObject sees the key.
   // Sweep treats a missing HEAD as "already purged" and would skip delete.
@@ -387,24 +425,29 @@ async function fileRow(id: string): Promise<
 }
 
 describe("apps/worker BullMQ job host (fnd-T29)", () => {
-  it("boots, registers both maintenance schedulers, and a tick deletes expired keys only", async () => {
+  it("boots, registers three maintenance schedulers, and a tick deletes expired keys only", async () => {
     const { expiredKey, liveKey } = await insertKeyPair();
     const booted = await bootWorker(testConfig(), {
       logger: silent,
       pollIntervalMs: 60_000,
       cleanupIntervalMs: TICK_INTERVAL_MS,
       sweepIntervalMs: LONG_INTERVAL_MS,
+      backfillIntervalMs: LONG_INTERVAL_MS,
     });
     try {
       const schedulers = await withMaintenanceQueue((queue) =>
         queue.getJobSchedulers(),
       );
-      expect(schedulers).toHaveLength(2);
+      expect(schedulers).toHaveLength(3);
       expect(
         requireScheduler(schedulers, IDEMPOTENCY_CLEANUP_JOB_NAME).every,
       ).toBe(TICK_INTERVAL_MS);
       expect(
         requireScheduler(schedulers, SWEEP_ABANDONED_UPLOADS_JOB_NAME).every,
+      ).toBe(LONG_INTERVAL_MS);
+      expect(
+        requireScheduler(schedulers, BACKFILL_CATALOG_RENDITIONS_JOB_NAME)
+          .every,
       ).toBe(LONG_INTERVAL_MS);
 
       await waitUntil(async () => {
@@ -426,11 +469,13 @@ describe("apps/worker BullMQ job host (fnd-T29)", () => {
       workerId: "jobs-replica-a",
       cleanupIntervalMs: SINGLE_FLIGHT_INTERVAL_MS,
       sweepIntervalMs: LONG_INTERVAL_MS,
+      backfillIntervalMs: LONG_INTERVAL_MS,
       cleanup: () => {
         runs += 1;
         return Promise.resolve(0);
       },
       sweep: stubSweep,
+      backfill: stubBackfill,
     });
     const hostB = createJobHost({
       redisUrl,
@@ -439,11 +484,13 @@ describe("apps/worker BullMQ job host (fnd-T29)", () => {
       workerId: "jobs-replica-b",
       cleanupIntervalMs: SINGLE_FLIGHT_INTERVAL_MS,
       sweepIntervalMs: LONG_INTERVAL_MS,
+      backfillIntervalMs: LONG_INTERVAL_MS,
       cleanup: () => {
         runs += 1;
         return Promise.resolve(0);
       },
       sweep: stubSweep,
+      backfill: stubBackfill,
     });
     await hostA.start();
     await hostB.start();
@@ -451,7 +498,7 @@ describe("apps/worker BullMQ job host (fnd-T29)", () => {
       const schedulers = await withMaintenanceQueue((queue) =>
         queue.getJobSchedulers(),
       );
-      expect(schedulers).toHaveLength(2);
+      expect(schedulers).toHaveLength(3);
       await waitUntil(() => Promise.resolve(runs >= 1), 15_000);
       await hostA.close();
       await hostB.close();
@@ -473,6 +520,7 @@ describe("apps/worker BullMQ job host (fnd-T29)", () => {
       workerId: "jobs-drain",
       cleanupIntervalMs: 60_000,
       sweepIntervalMs: LONG_INTERVAL_MS,
+      backfillIntervalMs: LONG_INTERVAL_MS,
       cleanup: () => {
         entered = true;
         return new Promise((resolve) => {
@@ -482,6 +530,7 @@ describe("apps/worker BullMQ job host (fnd-T29)", () => {
         });
       },
       sweep: stubSweep,
+      backfill: stubBackfill,
     });
     await host.start();
     let closes = 0;
@@ -534,7 +583,9 @@ describe("apps/worker BullMQ job host (fnd-T29)", () => {
       workerId: "jobs-logs",
       cleanupIntervalMs: TICK_INTERVAL_MS,
       sweepIntervalMs: LONG_INTERVAL_MS,
+      backfillIntervalMs: LONG_INTERVAL_MS,
       sweep: stubSweep,
+      backfill: stubBackfill,
     });
     await host.start();
     try {
@@ -551,7 +602,7 @@ describe("apps/worker BullMQ job host (fnd-T29)", () => {
     }
   });
 
-  it("re-upserts both schedulers after flushing BullMQ keys so the next tick still runs", async () => {
+  it("re-upserts three schedulers after flushing BullMQ keys so the next tick still runs", async () => {
     const first = createJobHost({
       redisUrl,
       db: kit.db.runtime.db,
@@ -559,14 +610,16 @@ describe("apps/worker BullMQ job host (fnd-T29)", () => {
       workerId: "jobs-flush-1",
       cleanupIntervalMs: TICK_INTERVAL_MS,
       sweepIntervalMs: LONG_INTERVAL_MS,
+      backfillIntervalMs: LONG_INTERVAL_MS,
       sweep: stubSweep,
+      backfill: stubBackfill,
     });
     await first.start();
     await waitUntil(async () => {
       const schedulers = await withMaintenanceQueue((queue) =>
         queue.getJobSchedulers(),
       );
-      return schedulers.length === 2;
+      return schedulers.length === 3;
     });
     await first.close();
 
@@ -587,20 +640,25 @@ describe("apps/worker BullMQ job host (fnd-T29)", () => {
       workerId: "jobs-flush-2",
       cleanupIntervalMs: TICK_INTERVAL_MS,
       sweepIntervalMs: LONG_INTERVAL_MS,
+      backfillIntervalMs: LONG_INTERVAL_MS,
       sweep: stubSweep,
+      backfill: stubBackfill,
     });
     await second.start();
     try {
       const restored = await withMaintenanceQueue((queue) =>
         queue.getJobSchedulers(),
       );
-      expect(restored).toHaveLength(2);
+      expect(restored).toHaveLength(3);
       expect(
         requireScheduler(restored, IDEMPOTENCY_CLEANUP_JOB_NAME).name,
       ).toBe(IDEMPOTENCY_CLEANUP_JOB_NAME);
       expect(
         requireScheduler(restored, SWEEP_ABANDONED_UPLOADS_JOB_NAME).name,
       ).toBe(SWEEP_ABANDONED_UPLOADS_JOB_NAME);
+      expect(
+        requireScheduler(restored, BACKFILL_CATALOG_RENDITIONS_JOB_NAME).name,
+      ).toBe(BACKFILL_CATALOG_RENDITIONS_JOB_NAME);
       await waitUntil(async () => {
         const remaining = await remainingKeys([expiredKey, liveKey]);
         return remaining.length === 1 && remaining[0] === liveKey;
@@ -618,6 +676,7 @@ describe("apps/worker sweepAbandonedUploads scheduler (SHO-120)", () => {
       pollIntervalMs: 60_000,
       cleanupIntervalMs: LONG_INTERVAL_MS,
       sweepIntervalMs: LONG_INTERVAL_MS,
+      backfillIntervalMs: LONG_INTERVAL_MS,
     });
   }
 
@@ -902,6 +961,7 @@ describe("apps/worker sweepAbandonedUploads scheduler (SHO-120)", () => {
       workerId: "jobs-sweep-replica-a",
       cleanupIntervalMs: LONG_INTERVAL_MS,
       sweepIntervalMs: SINGLE_FLIGHT_INTERVAL_MS,
+      backfillIntervalMs: LONG_INTERVAL_MS,
       cleanup: () => Promise.resolve(0),
       sweep: () => {
         runs += 1;
@@ -910,6 +970,7 @@ describe("apps/worker sweepAbandonedUploads scheduler (SHO-120)", () => {
           abandonedPendingDeleted: 0,
         });
       },
+      backfill: stubBackfill,
     });
     const hostB = createJobHost({
       redisUrl,
@@ -918,6 +979,7 @@ describe("apps/worker sweepAbandonedUploads scheduler (SHO-120)", () => {
       workerId: "jobs-sweep-replica-b",
       cleanupIntervalMs: LONG_INTERVAL_MS,
       sweepIntervalMs: SINGLE_FLIGHT_INTERVAL_MS,
+      backfillIntervalMs: LONG_INTERVAL_MS,
       cleanup: () => Promise.resolve(0),
       sweep: () => {
         runs += 1;
@@ -926,6 +988,7 @@ describe("apps/worker sweepAbandonedUploads scheduler (SHO-120)", () => {
           abandonedPendingDeleted: 0,
         });
       },
+      backfill: stubBackfill,
     });
     await hostA.start();
     await hostB.start();
@@ -941,7 +1004,7 @@ describe("apps/worker sweepAbandonedUploads scheduler (SHO-120)", () => {
     }
   });
 
-  it("keeps the default sweep interval at 5 minutes when boot omits an override", async () => {
+  it("keeps the default sweep and backfill intervals at 5 minutes when boot omits an override", async () => {
     const booted = await bootWorker(testConfig(), {
       logger: silent,
       pollIntervalMs: 60_000,
@@ -954,6 +1017,112 @@ describe("apps/worker sweepAbandonedUploads scheduler (SHO-120)", () => {
       expect(
         requireScheduler(schedulers, SWEEP_ABANDONED_UPLOADS_JOB_NAME).every,
       ).toBe(SWEEP_INTERVAL_MS);
+      expect(
+        requireScheduler(schedulers, BACKFILL_CATALOG_RENDITIONS_JOB_NAME)
+          .every,
+      ).toBe(BACKFILL_CATALOG_RENDITIONS_INTERVAL_MS);
+    } finally {
+      await booted.close();
+    }
+  });
+});
+
+describe("apps/worker backfillCatalogRenditions scheduler (SHO-248)", () => {
+  async function bootBackfillHost(logger: Logger = silent) {
+    return bootWorker(testConfig(), {
+      logger,
+      pollIntervalMs: 60_000,
+      cleanupIntervalMs: LONG_INTERVAL_MS,
+      sweepIntervalMs: LONG_INTERVAL_MS,
+      backfillIntervalMs: LONG_INTERVAL_MS,
+    });
+  }
+
+  it("schedules the job on maintenance and fills missing catalog renditions", async () => {
+    const fileId = randomUUID();
+    await putStoreObject(
+      catalogKey(kitIdentities.companies.a, fileId),
+      pngBytes,
+      "image/png",
+    );
+    await insertFileRow({
+      id: fileId,
+      companyId: kitIdentities.companies.a,
+      uploadedByUserId: kitIdentities.users.anna,
+      status: "ready",
+      mimeType: "image/png",
+      byteSize: pngBytes.byteLength,
+      stagingPurgedAt: new Date(0),
+    });
+    const booted = await bootBackfillHost();
+    try {
+      await enqueueMaintenanceJob(
+        BACKFILL_CATALOG_RENDITIONS_JOB_NAME,
+        randomUUID(),
+      );
+      const store = getFilesObjectStore();
+      for (const rendition of ["thumb", "card", "hero", "full"] as const) {
+        const key = catalogRenditionKey(
+          kitIdentities.companies.a,
+          fileId,
+          rendition,
+        );
+        await waitForObjectVisibility(store, key, "present");
+        expect(await store.headObject(key)).not.toBe("missing");
+      }
+      const original = await store.getObject(
+        catalogKey(kitIdentities.companies.a, fileId),
+      );
+      expect(original).not.toBe("missing");
+      if (original === "missing") {
+        throw new Error("expected original catalog object after backfill");
+      }
+      expect(original.byteSize).toBe(pngBytes.byteLength);
+      expect(original.bytes).toEqual(pngBytes);
+    } finally {
+      await booted.close();
+    }
+  });
+
+  it("logs counts only — no URL, object key, or file id", async () => {
+    const lines: string[] = [];
+    const logger = createProcessLogger({
+      name: "worker-backfill-logs",
+      destination: {
+        write(chunk: string) {
+          lines.push(chunk);
+        },
+      },
+    });
+    const fileId = randomUUID();
+    await putStoreObject(
+      catalogKey(kitIdentities.companies.a, fileId),
+      pngBytes,
+      "image/png",
+    );
+    await insertFileRow({
+      id: fileId,
+      companyId: kitIdentities.companies.a,
+      uploadedByUserId: kitIdentities.users.anna,
+      status: "ready",
+      mimeType: "image/png",
+      byteSize: pngBytes.byteLength,
+      stagingPurgedAt: new Date(0),
+    });
+    const booted = await bootBackfillHost(logger);
+    try {
+      await enqueueMaintenanceJob(
+        BACKFILL_CATALOG_RENDITIONS_JOB_NAME,
+        randomUUID(),
+      );
+      const payload = lines.join("\n");
+      expect(payload).toContain("catalog renditions backfilled");
+      expect(payload).toContain("filled");
+      expect(payload).toContain("already_complete");
+      expect(payload).not.toContain(fileId);
+      expect(payload).not.toMatch(/\/catalog\//);
+      expect(payload).not.toContain(garageEndpoint);
+      expect(payload).not.toContain(GARAGE_SECRET_KEY);
     } finally {
       await booted.close();
     }
@@ -967,6 +1136,7 @@ describe("apps/worker pdf queue (SHO-236)", () => {
       pollIntervalMs: 60_000,
       cleanupIntervalMs: LONG_INTERVAL_MS,
       sweepIntervalMs: LONG_INTERVAL_MS,
+      backfillIntervalMs: LONG_INTERVAL_MS,
     });
     try {
       const connection = new Redis(redisUrl, { maxRetriesPerRequest: null });
