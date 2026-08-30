@@ -27,6 +27,7 @@ export * from "./schema/chat.js";
 export * from "./schema/companies.js";
 export * from "./schema/customers.js";
 export * from "./schema/doc-generation.js";
+export * from "./schema/doc-signing.js";
 export * from "./schema/documents.js";
 export * from "./schema/files.js";
 export * from "./schema/foundation.js";

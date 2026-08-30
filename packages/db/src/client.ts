@@ -7,6 +7,7 @@ import * as chat from "./schema/chat.js";
 import * as companies from "./schema/companies.js";
 import * as customers from "./schema/customers.js";
 import * as docGeneration from "./schema/doc-generation.js";
+import * as docSigning from "./schema/doc-signing.js";
 import * as documents from "./schema/documents.js";
 import * as files from "./schema/files.js";
 import * as foundation from "./schema/foundation.js";
@@ -28,6 +29,7 @@ export const schema = {
   ...chat,
   ...customers,
   ...docGeneration,
+  ...docSigning,
   ...documents,
   ...files,
   ...invites,
