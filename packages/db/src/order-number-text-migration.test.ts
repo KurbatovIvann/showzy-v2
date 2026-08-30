@@ -90,12 +90,8 @@ describe("orders text order_number migration (0032)", () => {
     expect(orderNumberTextMigrationSql).toContain(
       `ALTER TABLE "orders" ALTER COLUMN "order_number" SET DATA TYPE text USING ("order_number"::text)`,
     );
-    expect(orderNumberTextMigrationSql).toContain(
-      `UPDATE "orders" AS o`,
-    );
-    expect(orderNumberTextMigrationSql).toContain(
-      `FROM "companies" AS c`,
-    );
+    expect(orderNumberTextMigrationSql).toContain(`UPDATE "orders" AS o`);
+    expect(orderNumberTextMigrationSql).toContain(`FROM "companies" AS c`);
     expect(orderNumberTextMigrationSql).toContain(
       `WHERE c."id" = o."company_id"`,
     );
