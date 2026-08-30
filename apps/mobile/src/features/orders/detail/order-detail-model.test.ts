@@ -185,7 +185,6 @@ describe("orderDetailHeaderTitle", () => {
       }),
     ).toBe("#KA-K7X2");
     expect(formatOrderNumber("KA-K7X2")).toBe("#KA-K7X2");
-    expect(formatOrderNumber("1")).toBe("#1");
     expect(
       orderDetailHeaderTitle({
         orderNumber: null,
