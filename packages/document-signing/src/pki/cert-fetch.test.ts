@@ -5,7 +5,7 @@ import { fetchUserCerts } from "./cert-fetch.js";
 const PROXY_URL = "https://api.example.test/pki/proxy";
 
 function stubFetch(): ReturnType<typeof vi.fn> {
-  const fetchMock = vi.fn().mockResolvedValue({ ok: false } as Response);
+  const fetchMock = vi.fn().mockResolvedValue({ ok: false });
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
 }
