@@ -13,8 +13,10 @@
  *   not serialize the tick past the deadline.
  * - Batch default is 20. Optional `limit` bounds how many files receive
  *   PutObject work, not how many ready catalog rows are examined. SQL
- *   pages stay 20 even when `limit` is 1 so a tick walks past completes.
- *   The inherited idempotency suite conflicts on a different payload.
+ *   pages stay 20 even when `limit` is 1 so a tick walks past completes
+ *   (OFFSET, not a timestamptz keyset — JS Date drops microseconds and
+ *   would livelock on the last row). The inherited idempotency suite
+ *   conflicts on a different payload.
  * - Already-complete files (all four keys present) are no-ops and do
  *   not consume the fill budget, so a tick can walk past them to files
  *   that still need work. Missing originals and undecodable bytes are
@@ -26,7 +28,7 @@
 import { defineActionContract } from "@showzy/core/contract";
 import { z } from "zod";
 
-/** Bounded fill size; a later tick continues via createdAt/id keyset. */
+/** Bounded fill size; a later tick walks past completes with OFFSET pages. */
 export const BACKFILL_BATCH_LIMIT = 20;
 
 export const backfillCatalogRenditionsInputSchema = z.object({

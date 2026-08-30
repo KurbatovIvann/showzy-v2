@@ -1,7 +1,7 @@
 import type { ActionCtx } from "@showzy/core";
 import { CoreInvariantError } from "@showzy/core/errors";
 import { files } from "@showzy/db/schema/files";
-import { and, asc, eq, gt, or } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import type { z } from "zod";
 
 import {
@@ -37,11 +37,6 @@ type FileOutcome =
   | "missing_original"
   | "undecodable";
 
-interface KeysetCursor {
-  readonly createdAt: Date;
-  readonly id: string;
-}
-
 interface InspectedCatalogFile {
   readonly row: FileRow;
   readonly missing: readonly CatalogRendition[];
@@ -62,24 +57,28 @@ export async function runCatalogRenditionBackfill(input: {
   let alreadyComplete = 0;
   let skippedMissingOriginal = 0;
   let skippedUndecodable = 0;
-  let cursor: KeysetCursor | undefined;
+  let offset = 0;
 
   // SQL pages are always BACKFILL_BATCH_LIMIT so a tick with `limit: 1`
   // still walks past already-complete files. Completes do not consume
   // fill budget — otherwise the oldest 20 ready rows would starve later
-  // legacy files once T15 had filled them. HeadObject for a page runs
-  // concurrently; Get/encode/Put stays per-file so one failure cannot
-  // leave a different file half-written in the same tick.
+  // legacy files once T15 had filled them. Offset paging is required
+  // inside a tick: JS Date drops timestamptz microseconds, so a
+  // `(createdAt, id)` keyset re-selects the last row forever and the
+  // 30s pipeline deadline fires. HeadObject for a page runs concurrently;
+  // Get/encode/Put stays per-file so one failure cannot leave a different
+  // file half-written in the same tick.
   while (filled < fillBudget) {
     throwIfAborted(input.ctx);
     const page = await loadReadyCatalogPage({
       db,
-      cursor,
+      offset,
       limit: BACKFILL_BATCH_LIMIT,
     });
     if (page.length === 0) {
       break;
     }
+    offset += page.length;
     const inspected = await inspectCatalogPage({ store, page });
     for (const item of inspected) {
       throwIfAborted(input.ctx);
@@ -103,7 +102,6 @@ export async function runCatalogRenditionBackfill(input: {
           skippedUndecodable += 1;
           break;
       }
-      cursor = { createdAt: item.row.createdAt, id: item.row.id };
       if (filled >= fillBudget) {
         break;
       }
@@ -130,33 +128,16 @@ export async function runCatalogRenditionBackfill(input: {
 
 async function loadReadyCatalogPage(input: {
   readonly db: WritableDb;
-  readonly cursor: KeysetCursor | undefined;
+  readonly offset: number;
   readonly limit: number;
 }): Promise<readonly FileRow[]> {
-  const readyCatalog = and(
-    eq(files.status, "ready"),
-    eq(files.purpose, "catalog"),
-  );
-  const where =
-    input.cursor === undefined
-      ? readyCatalog
-      : and(
-          readyCatalog,
-          or(
-            gt(files.createdAt, input.cursor.createdAt),
-            and(
-              eq(files.createdAt, input.cursor.createdAt),
-              gt(files.id, input.cursor.id),
-            ),
-          ),
-        );
-
   return input.db
     .select()
     .from(files)
-    .where(where)
+    .where(and(eq(files.status, "ready"), eq(files.purpose, "catalog")))
     .orderBy(asc(files.createdAt), asc(files.id))
-    .limit(input.limit);
+    .limit(input.limit)
+    .offset(input.offset);
 }
 
 async function inspectCatalogPage(input: {
