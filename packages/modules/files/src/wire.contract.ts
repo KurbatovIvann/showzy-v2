@@ -4,12 +4,17 @@
  *
  * Generated-document ceilings (SHO-229 / security-operations.md §3): PDF
  * purpose, 25 MiB. Catalog handshake schemas stay catalog-only.
+ *
+ * Signing ceilings (SHO-253 / SHO-251): ASiC-E purpose, same 25 MiB
+ * document class. Signing handshake schemas stay signing-only.
  */
 import { z } from "zod";
 
 export const FILE_PURPOSE = "catalog" as const;
 
 export const DOCUMENT_PURPOSE = "document" as const;
+
+export const SIGNING_PURPOSE = "signing" as const;
 
 export const FILE_MIME_TYPES = [
   "image/jpeg",
@@ -19,11 +24,18 @@ export const FILE_MIME_TYPES = [
 
 export const DOCUMENT_MIME_TYPE = "application/pdf" as const;
 
+export const SIGNING_MIME_TYPE = "application/vnd.etsi.asic-e+zip" as const;
+
 export type FileMimeType = (typeof FILE_MIME_TYPES)[number];
 
 export type DocumentMimeType = typeof DOCUMENT_MIME_TYPE;
 
-export type StoredObjectMimeType = FileMimeType | DocumentMimeType;
+export type SigningMimeType = typeof SIGNING_MIME_TYPE;
+
+export type HandshakePutMimeType = FileMimeType | SigningMimeType;
+
+export type StoredObjectMimeType =
+  FileMimeType | DocumentMimeType | SigningMimeType;
 
 /** 10 MiB — foundation default for images (security-operations.md §3). */
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
@@ -35,9 +47,13 @@ export const filePurposeSchema = z.literal(FILE_PURPOSE);
 
 export const documentPurposeSchema = z.literal(DOCUMENT_PURPOSE);
 
+export const signingPurposeSchema = z.literal(SIGNING_PURPOSE);
+
 export const fileMimeTypeSchema = z.enum(FILE_MIME_TYPES);
 
 export const documentMimeTypeSchema = z.literal(DOCUMENT_MIME_TYPE);
+
+export const signingMimeTypeSchema = z.literal(SIGNING_MIME_TYPE);
 
 export const checksumSha256Schema = z
   .string()

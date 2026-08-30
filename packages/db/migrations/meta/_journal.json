@@ -232,6 +232,13 @@
       "when": 1788032484849,
       "tag": "0032_easy_smiling_tiger",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1788082386566,
+      "tag": "0033_faithful_timeslip",
+      "breakpoints": true
     }
   ]
 }

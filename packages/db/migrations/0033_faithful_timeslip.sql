@@ -1,0 +1,5 @@
+-- SHO-253 files-T15: purpose catalog|document|signing and signing object-key prefix.
+ALTER TABLE "files" DROP CONSTRAINT "files_purpose_check";--> statement-breakpoint
+ALTER TABLE "files" DROP CONSTRAINT "files_object_key_purpose_prefix_check";--> statement-breakpoint
+ALTER TABLE "files" ADD CONSTRAINT "files_purpose_check" CHECK ("files"."purpose" IN ('catalog', 'document', 'signing'));--> statement-breakpoint
+ALTER TABLE "files" ADD CONSTRAINT "files_object_key_purpose_prefix_check" CHECK (("files"."purpose" = 'catalog' AND "files"."object_key" = "files"."company_id"::text || '/catalog/' || "files"."id"::text) OR ("files"."purpose" = 'document' AND "files"."object_key" = "files"."company_id"::text || '/documents/' || "files"."id"::text) OR ("files"."purpose" = 'signing' AND "files"."object_key" = "files"."company_id"::text || '/signing/' || "files"."id"::text));

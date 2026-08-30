@@ -172,7 +172,7 @@ describe("private company files schema slice", () => {
   it("does not create extra purpose tables", async () => {
     // `documents` is owned by the documents module (SHO-228), not a files
     // purpose table. Files still must not grow avatars (or other purpose
-    // tables). Purpose is `catalog` | `document` (SHO-229).
+    // tables). Purpose is `catalog` | `document` | `signing` (SHO-253).
     const result = await admin.query<{ table_name: string }>(
       `SELECT table_name
        FROM information_schema.tables
@@ -284,9 +284,13 @@ describe("private company files schema slice", () => {
     expect(defs.get("files_object_key_purpose_prefix_check")).toContain(
       "/documents/",
     );
+    expect(defs.get("files_object_key_purpose_prefix_check")).toContain(
+      "/signing/",
+    );
     expect(defs.has("files_object_key_catalog_prefix_check")).toBe(false);
     expect(defs.get("files_purpose_check")).toContain("catalog");
     expect(defs.get("files_purpose_check")).toContain("document");
+    expect(defs.get("files_purpose_check")).toContain("signing");
   });
 
   it("rejects illegal purpose, status, negative byte_size, and malformed checksums", async () => {
@@ -431,6 +435,44 @@ describe("private company files schema slice", () => {
     expect(document.objectKey).toBe(`${company.id}/documents/${documentId}`);
     expect(document.uploadedByUserId).toBeNull();
     expect(document.mimeType).toBe("application/pdf");
+
+    const signingId = randomUUID();
+    await expectSqlState(
+      insertFile({
+        id: signingId,
+        companyId: company.id,
+        uploadedByUserId: userId,
+        purpose: "signing",
+        mimeType: "application/vnd.etsi.asic-e+zip",
+        objectKey: `${company.id}/catalog/${signingId}`,
+      }),
+      "23514",
+    );
+    await expectSqlState(
+      insertFile({
+        id: signingId,
+        companyId: company.id,
+        uploadedByUserId: userId,
+        purpose: "catalog",
+        objectKey: `${company.id}/signing/${signingId}`,
+      }),
+      "23514",
+    );
+    const signing = await insertFile({
+      id: signingId,
+      companyId: company.id,
+      uploadedByUserId: userId,
+      purpose: "signing",
+      mimeType: "application/vnd.etsi.asic-e+zip",
+      byteSize: 2048n,
+      checksumSha256: "c".repeat(64),
+      status: "pending",
+      objectKey: `${company.id}/signing/${signingId}`,
+    });
+    expect(signing.purpose).toBe("signing");
+    expect(signing.objectKey).toBe(`${company.id}/signing/${signingId}`);
+    expect(signing.uploadedByUserId).toBe(userId);
+    expect(signing.mimeType).toBe("application/vnd.etsi.asic-e+zip");
 
     const catalogNullUploader = await insertFile({
       companyId: company.id,

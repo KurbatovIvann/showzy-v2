@@ -112,6 +112,16 @@ describe("createFilesObjectStore signed URL host", () => {
       const decodedGet = decodeURIComponent(got.url);
       expect(decodedGet).toMatch(/response-content-disposition=inline/i);
       expect(decodedGet).toMatch(/response-content-type=image\/jpeg/i);
+      const asice = await store.signGet({
+        key: "company/signing/file",
+        mimeType: "application/vnd.etsi.asic-e+zip",
+      });
+      const decodedAsice = decodeURIComponent(asice.url);
+      expect(decodedAsice).toMatch(/response-content-disposition=attachment/i);
+      expect(decodedAsice).toMatch(/document\.asice/);
+      expect(decodedAsice).toMatch(
+        /response-content-type=application\/vnd\.etsi\.asic-e\+zip/i,
+      );
     } finally {
       store.close();
     }
