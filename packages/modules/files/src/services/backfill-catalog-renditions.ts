@@ -32,10 +32,7 @@ export interface BackfillCatalogRenditionsResult {
 type SkipReason = "missing_original" | "undecodable";
 
 type FileOutcome =
-  | "filled"
-  | "already_complete"
-  | "missing_original"
-  | "undecodable";
+  "filled" | "already_complete" | "missing_original" | "undecodable";
 
 interface InspectedCatalogFile {
   readonly row: FileRow;
@@ -237,9 +234,7 @@ async function missingCatalogRenditions(input: {
       return { rendition, missing: head === "missing" };
     }),
   );
-  return heads
-    .filter((entry) => entry.missing)
-    .map((entry) => entry.rendition);
+  return heads.filter((entry) => entry.missing).map((entry) => entry.rendition);
 }
 
 function throwIfAborted(ctx: SystemGlobalCtx): void {
