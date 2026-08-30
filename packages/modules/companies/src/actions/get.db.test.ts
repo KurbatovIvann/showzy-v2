@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { ValidationError } from "@showzy/core/errors";
+import { PermissionDeniedError, ValidationError } from "@showzy/core/errors";
 import {
   createTestKit,
   crossTenantSuite,
@@ -25,6 +25,7 @@ const clerks = {
   manager: randomUUID(),
   employee: randomUUID(),
   admin: randomUUID(),
+  denied: randomUUID(),
 };
 
 const fixtures = {
@@ -41,10 +42,11 @@ let kit: TestKit;
 beforeAll(async () => {
   kit = await createTestKit();
 
-  await kit.db.runtime.db.insert(rolePermissionDefaults).values({
-    role: "admin",
-    permission: "settings:payments",
-  });
+  await kit.db.runtime.db.insert(rolePermissionDefaults).values([
+    { role: "admin", permission: "documents:view" },
+    { role: "manager", permission: "documents:view" },
+    { role: "employee", permission: "documents:view" },
+  ]);
 
   await kit.db.runtime.db.insert(companies).values({
     id: fixtures.companyWithLegal,
@@ -95,6 +97,11 @@ beforeAll(async () => {
       name: "Admin",
       email: "admin@companies-get.test",
     },
+    {
+      id: clerks.denied,
+      name: "Denied employee",
+      email: "denied@companies-get.test",
+    },
   ]);
   await kit.db.runtime.db.insert(companyMembers).values([
     {
@@ -120,6 +127,12 @@ beforeAll(async () => {
       userId: clerks.admin,
       role: "admin",
       permissions: { granted: [], denied: [] },
+    },
+    {
+      companyId: kitIdentities.companies.a,
+      userId: clerks.denied,
+      role: "employee",
+      permissions: { granted: [], denied: ["documents:view"] },
     },
   ]);
 });
@@ -183,7 +196,7 @@ describe("companies.get", () => {
     expect(JSON.stringify(result)).not.toContain(foreignIban);
   });
 
-  it("allows manager and employee without settings:payments and still returns prefix and legal", async () => {
+  it("allows manager and employee with documents:view without settings:payments", async () => {
     await expect(
       kit.invoke(
         getCompany,
@@ -239,6 +252,16 @@ describe("companies.get", () => {
       prefix: "KA",
       legal: null,
     });
+  });
+
+  it("denies staff whose membership lacks documents:view", async () => {
+    await expect(
+      kit.invoke(
+        getCompany,
+        {},
+        { userId: clerks.denied, companyId: kitIdentities.companies.a },
+      ),
+    ).rejects.toBeInstanceOf(PermissionDeniedError);
   });
 
   it("rejects any input identifier — the input is a strict empty object", async () => {

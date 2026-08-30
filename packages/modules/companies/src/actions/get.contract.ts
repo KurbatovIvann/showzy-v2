@@ -6,8 +6,8 @@
  *   foreign membership is core permission denial.
  * - Output is identity from `companies` plus `legal` (null when no
  *   `company_legal_info` row). Unchanged in SHO-250.
- * - `permissions: []` — any staff member of the active company
- *   (owner decision 2026-08-29 option 2). IBAN / ЄДРПОУ are
+ * - `permissions: ["documents:view"]` — same key as
+ *   `companies.getSellerFacts` (owner 2026-08-30). IBAN / ЄДРПОУ are
  *   financial/legal requisites, not secrets; `settings:payments` stays
  *   on `companies.updateLegal` only.
  * - `timeout: 5000` matches the golden staff reads.
@@ -27,12 +27,12 @@ export const getCompanyOutputSchema = companyViewSchema;
 export const getCompanyContract = defineActionContract({
   name: "companies.get",
   description:
-    "Return the staff member's active company identity (id, trade name, slug, numbering prefix) and seller legal requisites. Any staff member of the active company may call this; legal is null when the company has no legal-info row yet. Company id is never input; missing and foreign membership fail with the same permission denial and do not leak another company's legal row.",
+    "Return the staff member's active company identity (id, trade name, slug, numbering prefix) and seller legal requisites. Staff of the active company who can view documents may call this; legal is null when the company has no legal-info row yet. Company id is never input; missing documents:view, missing membership, and foreign membership fail with the same permission denial and do not leak another company's legal row.",
   principal: "staff",
   transport: "client",
   input: getCompanyInputSchema,
   output: getCompanyOutputSchema,
-  permissions: [],
+  permissions: ["documents:view"],
   aiExposure: "exposed",
   risk: "read",
   requiresConfirmation: false,

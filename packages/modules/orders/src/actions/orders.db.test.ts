@@ -26,7 +26,11 @@ import {
 import { auditLog, domainEvents, eventDeliveries } from "@showzy/db";
 import { user } from "@showzy/db/schema/auth";
 import { products, productVariants } from "@showzy/db/schema/catalog";
-import { companies, companyMembers } from "@showzy/db/schema/companies";
+import {
+  companies,
+  companyMembers,
+  rolePermissionDefaults,
+} from "@showzy/db/schema/companies";
 import { companyCustomers, customerGroups } from "@showzy/db/schema/customers";
 import { orderItems, orders } from "@showzy/db/schema/orders";
 import {
@@ -105,6 +109,7 @@ const clerks = {
   noPricing: randomUUID(),
   noCustomers: randomUUID(),
   employee: randomUUID(),
+  noDocuments: randomUUID(),
 };
 
 let kit: TestKit;
@@ -303,6 +308,15 @@ beforeAll(async () => {
   kit = await createTestKit();
   const companyA = kitIdentities.companies.a;
   const companyB = kitIdentities.companies.b;
+
+  await kit.db.runtime.db.insert(rolePermissionDefaults).values([
+    { role: "employee", permission: "orders:create" },
+    { role: "employee", permission: "orders:view" },
+    { role: "employee", permission: "products:view" },
+    { role: "employee", permission: "pricing:view" },
+    { role: "employee", permission: "customers:view" },
+    { role: "employee", permission: "documents:view" },
+  ]);
 
   await kit.db.runtime.db.insert(priceLists).values([
     { id: fixtures.listCustomer, companyId: companyA, name: "Customer list" },
@@ -595,6 +609,11 @@ beforeAll(async () => {
       name: "Employee clerk",
       email: "employee@orders-kit.test",
     },
+    {
+      id: clerks.noDocuments,
+      name: "No documents view",
+      email: "nodocuments@orders-kit.test",
+    },
   ]);
   await kit.db.runtime.db.insert(companyMembers).values([
     {
@@ -638,6 +657,12 @@ beforeAll(async () => {
       userId: clerks.employee,
       role: "employee",
       permissions: { granted: [], denied: [] },
+    },
+    {
+      companyId: fixtures.numberingA,
+      userId: clerks.noDocuments,
+      role: "employee",
+      permissions: { granted: [], denied: ["documents:view"] },
     },
   ]);
 });
@@ -994,6 +1019,21 @@ describe("orders.create / confirm / get", () => {
     expect(created.orderNumber.startsWith("N4-")).toBe(true);
     expect(created.orderNumber).toMatch(/^N4-[0-9A-Z]+$/);
     expect(created.orderNumber).not.toBe("1");
+  });
+
+  it("denies create numbering when the staff caller lacks documents:view", async () => {
+    await expect(
+      kit.invoke(
+        createOrder,
+        {
+          customerId: fixtures.numberingCustomerA,
+          items: [
+            { productId: fixtures.numberingProductA, quantityMilli: "1000" },
+          ],
+        },
+        { userId: clerks.noDocuments, companyId: fixtures.numberingA },
+      ),
+    ).rejects.toBeInstanceOf(PermissionDeniedError);
   });
 
   it("does not collide concurrent creates on the same company counter", async () => {
