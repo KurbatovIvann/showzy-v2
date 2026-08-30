@@ -79,8 +79,7 @@ export type CatalogImageStrategy =
   "keep-jpeg" | "keep-png" | "keep-webp" | "convert-jpeg";
 
 export type CatalogImagePreparePlan =
-  | { readonly kind: "keep" }
-  | { readonly kind: "compress" };
+  { readonly kind: "keep" } | { readonly kind: "compress" };
 
 export type PhotoCompressPlan =
   | { readonly kind: "ok" }
