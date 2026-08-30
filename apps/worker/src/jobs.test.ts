@@ -41,6 +41,20 @@ describe("BullMQ job host policy (fnd-T29 / SHO-120 / SHO-236 / SHO-248)", () =>
     expect(PDF_LOCK_DURATION_MS).toBe(60_000);
   });
 
+  it("keeps the files inspect-slot interval equal to the worker scheduler", () => {
+    const filesBackfill = readFileSync(
+      join(
+        dirname(fileURLToPath(import.meta.url)),
+        "../../../packages/modules/files/src/services/backfill-catalog-renditions.ts",
+      ),
+      "utf8",
+    );
+    expect(filesBackfill).toContain(
+      "BACKFILL_CATALOG_RENDITIONS_INTERVAL_MS = 5 * 60 * 1_000",
+    );
+    expect(BACKFILL_CATALOG_RENDITIONS_INTERVAL_MS).toBe(5 * 60 * 1_000);
+  });
+
   it("pdf processor is executeAction(renderPdf) with no domain SQL", () => {
     const jobsSource = readFileSync(
       join(dirname(fileURLToPath(import.meta.url)), "jobs.ts"),

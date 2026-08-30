@@ -1,7 +1,7 @@
 import type { ActionCtx } from "@showzy/core";
 import { CoreInvariantError } from "@showzy/core/errors";
 import { files } from "@showzy/db/schema/files";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, count, eq } from "drizzle-orm";
 import type { z } from "zod";
 
 import {
@@ -13,6 +13,39 @@ import { encodeCatalogRenditions } from "./catalog-renditions.js";
 import { catalogObjectKey, catalogRenditionObjectKey } from "./object-key.js";
 import { getFilesObjectStore, type FilesObjectStore } from "./s3-port.js";
 import { requireWritable } from "./writable.js";
+
+/**
+ * Same 5-minute cadence as the worker Job Scheduler
+ * (`BACKFILL_CATALOG_RENDITIONS_INTERVAL_MS` in `apps/worker`). Duplicated
+ * here so this module does not import `apps/worker`.
+ */
+export const BACKFILL_CATALOG_RENDITIONS_INTERVAL_MS = 5 * 60 * 1_000;
+
+let nowMsForTest: number | undefined;
+
+/** Garage-test clock. Production never sets this. */
+export function setCatalogRenditionBackfillNowMsForTest(
+  nowMs: number | undefined,
+): void {
+  nowMsForTest = nowMs;
+}
+
+/**
+ * SQL OFFSET for one inspect page. `pageCount = max(1, ceil(total / pageSize))`;
+ * `offset = (floor(nowMs / intervalMs) % pageCount) * pageSize`. Completes
+ * on the chosen page must not load a second page in the same tick.
+ */
+export function inspectOffset(input: {
+  readonly total: number;
+  readonly pageSize: number;
+  readonly nowMs: number;
+  readonly intervalMs: number;
+}): number {
+  const pageCount = Math.max(1, Math.ceil(input.total / input.pageSize));
+  const slot = Math.floor(input.nowMs / input.intervalMs);
+  const pageIndex = ((slot % pageCount) + pageCount) % pageCount;
+  return pageIndex * input.pageSize;
+}
 
 type SystemGlobalCtx = Extract<
   ActionCtx,
@@ -45,6 +78,8 @@ const HEAD_FILE_CONCURRENCY = 8;
 export async function runCatalogRenditionBackfill(input: {
   readonly ctx: SystemGlobalCtx;
   readonly input: BackfillInput;
+  /** Test seam. Production omits this and uses `Date.now()`. */
+  readonly nowMs?: number;
 }): Promise<BackfillCatalogRenditionsResult> {
   const db = requireWritable(input.ctx.db);
   const fillBudget = input.input.limit ?? BACKFILL_BATCH_LIMIT;
@@ -58,15 +93,22 @@ export async function runCatalogRenditionBackfill(input: {
   // One SQL inspect page per invocation (files.sweepAbandonedUploads
   // golden: one bounded batch, then return). Completes in this page are
   // no-ops and do not consume fill budget; they must not trigger another
-  // page in the same tick. OFFSET 0 every tick keeps HeadObject work
-  // O(page), not O(catalog). A later fillable row in this same page is
-  // picked up on a subsequent tick after the fill budget is spent.
-  // HeadObject for the page runs concurrently; Get/encode/Put stays
-  // per-file so one failure cannot leave a different file half-written.
+  // page in the same tick. The OFFSET rotates by scheduler interval so
+  // later ready catalog rows are not starved after the first page of
+  // completes. HeadObject for the page runs concurrently; Get/encode/Put
+  // stays per-file so one failure cannot leave a different file half-written.
   throwIfAborted(input.ctx);
+  const total = await countReadyCatalogFiles(db);
+  const offset = inspectOffset({
+    total,
+    pageSize: BACKFILL_BATCH_LIMIT,
+    nowMs: input.nowMs ?? nowMsForTest ?? Date.now(),
+    intervalMs: BACKFILL_CATALOG_RENDITIONS_INTERVAL_MS,
+  });
   const page = await loadReadyCatalogPage({
     db,
     limit: BACKFILL_BATCH_LIMIT,
+    offset,
   });
   const inspected = await inspectCatalogPage({ store, page });
   for (const item of inspected) {
@@ -114,16 +156,31 @@ export async function runCatalogRenditionBackfill(input: {
   };
 }
 
+const readyCatalogPredicate = and(
+  eq(files.status, "ready"),
+  eq(files.purpose, "catalog"),
+);
+
+async function countReadyCatalogFiles(db: WritableDb): Promise<number> {
+  const rows = await db
+    .select({ value: count() })
+    .from(files)
+    .where(readyCatalogPredicate);
+  return rows[0]?.value ?? 0;
+}
+
 async function loadReadyCatalogPage(input: {
   readonly db: WritableDb;
   readonly limit: number;
+  readonly offset: number;
 }): Promise<readonly FileRow[]> {
   return input.db
     .select()
     .from(files)
-    .where(and(eq(files.status, "ready"), eq(files.purpose, "catalog")))
+    .where(readyCatalogPredicate)
     .orderBy(asc(files.createdAt), asc(files.id))
-    .limit(input.limit);
+    .limit(input.limit)
+    .offset(input.offset);
 }
 
 async function inspectCatalogPage(input: {

@@ -31,7 +31,15 @@ import {
   Wait,
   type StartedTestContainer,
 } from "testcontainers";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from "vitest";
 
 import { BACKFILL_BATCH_LIMIT } from "./backfill-catalog-renditions.contract.js";
 import { backfillCatalogRenditions } from "./backfill-catalog-renditions.js";
@@ -53,6 +61,11 @@ import { requestSigningUpload } from "./request-signing-upload.js";
 import { requestUpload } from "./request-upload.js";
 import { sweepAbandonedUploads } from "./sweep-abandoned-uploads.js";
 import { ABANDONED_PENDING_TTL_MS } from "./sweep-abandoned-uploads.contract.js";
+import {
+  BACKFILL_CATALOG_RENDITIONS_INTERVAL_MS,
+  runCatalogRenditionBackfill,
+  setCatalogRenditionBackfillNowMsForTest,
+} from "../services/backfill-catalog-renditions.js";
 import { sha256Hex } from "../services/checksum.js";
 import type { FileReadyView } from "../services/file-view.js";
 import {
@@ -2750,6 +2763,13 @@ describe("files.sweepAbandonedUploads", () => {
 });
 
 describe("files.backfillCatalogRenditions", () => {
+  beforeEach(() => {
+    setCatalogRenditionBackfillNowMsForTest(0);
+  });
+  afterEach(() => {
+    setCatalogRenditionBackfillNowMsForTest(undefined);
+  });
+
   async function catalogRow(id: string): Promise<{
     readonly status: string;
     readonly byteSize: bigint;
@@ -2782,6 +2802,46 @@ describe("files.backfillCatalogRenditions", () => {
 
   async function drainInspectPage(): Promise<void> {
     await requireKit().invoke(backfillCatalogRenditions, {});
+  }
+
+  async function runBackfillAt(nowMs: number) {
+    const ctx = await requireKit().buildTestContext("system", {
+      systemScope: { scope: "global" },
+      request: {
+        action: "files.backfillCatalogRenditions",
+        channel: "system",
+      },
+    });
+    if (ctx.principal !== "system" || ctx.scope !== "global") {
+      throw new Error("expected global system context");
+    }
+    return runCatalogRenditionBackfill({ ctx, input: {}, nowMs });
+  }
+
+  async function seedCompleteFrontPageThenLaterOriginal(): Promise<string> {
+    const laterCreatedAt = createdAtAtInspectFront();
+    const completeCreatedAt = Array.from(
+      { length: BACKFILL_BATCH_LIMIT + 1 },
+      () => createdAtAtInspectFront(),
+    );
+    await Promise.all(
+      completeCreatedAt.map(async (createdAt) => {
+        const fileId = randomUUID();
+        await insertFileRow({
+          id: fileId,
+          companyId: kitIdentities.companies.a,
+          uploadedByUserId: kitIdentities.users.anna,
+          status: "ready",
+          createdAt,
+        });
+        await putCatalogRenditionObjects(kitIdentities.companies.a, fileId);
+      }),
+    );
+    return seedReadyCatalogOriginal({
+      companyId: kitIdentities.companies.a,
+      uploadedByUserId: kitIdentities.users.anna,
+      createdAt: laterCreatedAt,
+    });
   }
 
   async function seedReadyCatalogOriginal(input: {
@@ -3130,29 +3190,7 @@ describe("files.backfillCatalogRenditions", () => {
 
   it("does not inspect past the first SQL page in one tick", async () => {
     await drainInspectPage();
-    const laterCreatedAt = createdAtAtInspectFront();
-    const completeCreatedAt = Array.from(
-      { length: BACKFILL_BATCH_LIMIT + 1 },
-      () => createdAtAtInspectFront(),
-    );
-    await Promise.all(
-      completeCreatedAt.map(async (createdAt) => {
-        const fileId = randomUUID();
-        await insertFileRow({
-          id: fileId,
-          companyId: kitIdentities.companies.a,
-          uploadedByUserId: kitIdentities.users.anna,
-          status: "ready",
-          createdAt,
-        });
-        await putCatalogRenditionObjects(kitIdentities.companies.a, fileId);
-      }),
-    );
-    const laterId = await seedReadyCatalogOriginal({
-      companyId: kitIdentities.companies.a,
-      uploadedByUserId: kitIdentities.users.anna,
-      createdAt: laterCreatedAt,
-    });
+    const laterId = await seedCompleteFrontPageThenLaterOriginal();
 
     const result = await requireKit().invoke(backfillCatalogRenditions, {});
     expect(result.filled).toBe(0);
@@ -3162,6 +3200,29 @@ describe("files.backfillCatalogRenditions", () => {
       laterId,
       "missing",
     );
+  });
+
+  it("fills the later file on the next inspect slot without rewriting the original", async () => {
+    await drainInspectPage();
+    const laterId = await seedCompleteFrontPageThenLaterOriginal();
+
+    const result = await runBackfillAt(BACKFILL_CATALOG_RENDITIONS_INTERVAL_MS);
+    expect(result.filled).toBeGreaterThanOrEqual(1);
+    await expectCatalogRenditions(
+      kitIdentities.companies.a,
+      laterId,
+      "present",
+    );
+    const original = await getFilesObjectStore().getObject(
+      catalogObjectKey(kitIdentities.companies.a, laterId),
+    );
+    if (original === "missing") {
+      throw new Error("expected original after second-slot backfill");
+    }
+    expect(sha256Hex(original.bytes)).toBe(jpegChecksum);
+    const row = await catalogRow(laterId);
+    expect(row.status).toBe("ready");
+    expect(row.checksumSha256).toBe(jpegChecksum);
   });
 
   it("skips an undecodable original and still fills the rest of the page", async () => {

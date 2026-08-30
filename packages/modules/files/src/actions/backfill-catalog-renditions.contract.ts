@@ -1,8 +1,9 @@
 /**
  * System backfill of named catalog WebP renditions (SHO-248 / files-T16).
  * Global system write, internal, audited, idempotent. Empty input inspects
- * one page of ready `purpose=catalog` files whose derived keys are missing;
- * `limit` only bounds how many files receive PutObject work in that page.
+ * one rotating page of ready `purpose=catalog` files whose derived keys
+ * are missing; `limit` only bounds how many files receive PutObject work
+ * in that page.
  * Keys are derived from each row's `companyId`, never from input.
  * `companyId` is not an input field.
  *
@@ -11,12 +12,14 @@
  *   on Garage (same ceiling as `files.sweepAbandonedUploads`). HeadObject
  *   for a SQL page of 20 runs concurrently so already-complete files do
  *   not serialize the tick past the deadline.
- * - Each invocation inspects one SQL page of 20 (OFFSET 0) and returns —
- *   the sweep golden. Completes in that page do not consume fill budget
- *   and must not scan further pages in the same tick. Optional `limit`
- *   bounds PutObject fills within that page (idempotency conflict payload).
- *   A later fillable row still inside the page is picked up on a
- *   subsequent tick.
+ * - Each invocation inspects one SQL page of 20 and returns — the sweep
+ *   golden. Completes in that page do not consume fill budget and must
+ *   not scan further pages in the same tick. Which page is
+ *   `inspectOffset` of COUNT(ready catalog) by the 5-minute worker
+ *   interval (duplicated in the files module; files does not import
+ *   `apps/worker`). Optional `limit` bounds PutObject fills within that
+ *   page (idempotency conflict payload). A later fillable row still
+ *   inside the page is picked up on a subsequent tick.
  * - Missing originals and undecodable bytes are skipped and logged
  *   without consuming the fill budget, so one bad file cannot starve
  *   the rest of the inspected page.
