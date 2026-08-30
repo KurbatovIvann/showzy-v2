@@ -1,6 +1,7 @@
 import { implementAction } from "@showzy/core";
 import { CoreInvariantError, NotFoundError } from "@showzy/core/errors";
 import { getArtifact } from "@showzy/doc-generation/get-artifact";
+import { getSigning } from "@showzy/doc-signing/get";
 import { issueDocumentDownloadUrl } from "@showzy/files";
 
 import { getDocumentContract } from "./get.contract.js";
@@ -36,10 +37,14 @@ export const getDocument = implementAction(getDocumentContract, {
         }
       }
     }
+    const signing = await ctx.call(getSigning, {
+      documentId: input.documentId,
+    });
     return {
       ...view,
       generation,
       pdfDownloadUrl,
+      signing,
     };
   },
 });

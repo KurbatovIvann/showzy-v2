@@ -33,6 +33,10 @@ describe("doc-signing source guards (SHO-254)", () => {
     expect(executableSource("actions/get.ts")).toContain(
       "@showzy/db/schema/doc-signing",
     );
+    expect(executableSource("actions/get.ts")).not.toContain("ctx.call");
+    expect(executableSource("actions/get.ts")).not.toContain(
+      "@showzy/documents",
+    );
     expect(executableSource("actions/get-supplier-signed-flags.ts")).toContain(
       "@showzy/db/schema/doc-signing",
     );

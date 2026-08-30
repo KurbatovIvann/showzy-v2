@@ -4,7 +4,6 @@ import {
   signingRequests,
   signingSignatures,
 } from "@showzy/db/schema/doc-signing";
-import { getDocument } from "@showzy/documents";
 import { and, eq } from "drizzle-orm";
 
 import { getSigningContract } from "./get.contract.js";
@@ -50,10 +49,8 @@ export const getSigning = implementAction(getSigningContract, {
       return { status: "pending" as const, requestId: pending.id };
     }
 
-    // Existence without importing documents schema (ADR-0014). SHO-256
-    // nests this action from documents.get and must drop this reverse
-    // call — otherwise the declared graph and ESM graph cycle.
-    await ctx.call(getDocument, { documentId: input.documentId });
+    // Signing-owned state only. Missing and foreign document ids are
+    // unsigned here (no existence leak). Existence stays on documents.get.
     return { status: "unsigned" as const };
   },
 });

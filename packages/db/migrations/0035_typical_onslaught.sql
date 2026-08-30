@@ -1,0 +1,1 @@
+ALTER TABLE "documents" ADD COLUMN "sign_requested_at" timestamp with time zone;

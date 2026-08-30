@@ -191,7 +191,63 @@ describe("composition root identity", () => {
         .filter((edge) => edge.caller === "documents.get")
         .map((edge) => edge.callee)
         .toSorted(),
-    ).toEqual(["docGeneration.getArtifact", "files.issueDocumentDownloadUrl"]);
+    ).toEqual([
+      "docGeneration.getArtifact",
+      "docSigning.get",
+      "files.issueDocumentDownloadUrl",
+    ]);
+  });
+
+  it("documents.list nests one supplierSigned flags read", () => {
+    const source = readFileSync(
+      join(import.meta.dirname, "composition.ts"),
+      "utf8",
+    );
+    const edges: Array<{ caller: string; callee: string }> = [];
+    const edgeRe = /caller:\s*"([^"]+)",\s*\n\s*callee:\s*"([^"]+)"/g;
+    for (const match of source.matchAll(edgeRe)) {
+      const caller = match[1];
+      const callee = match[2];
+      if (caller !== undefined && callee !== undefined) {
+        edges.push({ caller, callee });
+      }
+    }
+    expect(
+      edges
+        .filter((edge) => edge.caller === "documents.list")
+        .map((edge) => edge.callee)
+        .toSorted(),
+    ).toEqual(["docSigning.getSupplierSignedFlags"]);
+  });
+
+  it("documents.requestSign and cancel nest signing reads without a reverse get", () => {
+    const source = readFileSync(
+      join(import.meta.dirname, "composition.ts"),
+      "utf8",
+    );
+    const edges: Array<{ caller: string; callee: string }> = [];
+    const edgeRe = /caller:\s*"([^"]+)",\s*\n\s*callee:\s*"([^"]+)"/g;
+    for (const match of source.matchAll(edgeRe)) {
+      const caller = match[1];
+      const callee = match[2];
+      if (caller !== undefined && callee !== undefined) {
+        edges.push({ caller, callee });
+      }
+    }
+    expect(
+      edges
+        .filter((edge) => edge.caller === "documents.requestSign")
+        .map((edge) => edge.callee)
+        .toSorted(),
+    ).toEqual(["docGeneration.getArtifact", "docSigning.get"]);
+    expect(
+      edges
+        .filter((edge) => edge.caller === "documents.cancel")
+        .map((edge) => edge.callee),
+    ).toEqual(["docSigning.get"]);
+    expect(edges.map((edge) => `${edge.caller}->${edge.callee}`)).not.toContain(
+      "docSigning.get->documents.get",
+    );
   });
 });
 

@@ -30,7 +30,7 @@ describe("documents.cancel contract", () => {
     expect(cancelDocumentContract.emits).toEqual(["documents.cancelled"]);
     expect(cancelDocumentContract.atomicCalls).toEqual([]);
     expect(cancelDocumentContract.atomicCallers).toEqual([]);
-    expect(cancelDocumentContract.timeout).toBe(5_000);
+    expect(cancelDocumentContract.timeout).toBe(10_000);
   });
 
   it("accepts documentId and rejects companyId", () => {
@@ -59,5 +59,8 @@ describe("documents.cancel contract", () => {
     expect(cancelSource).not.toContain("lastNumber");
     expect(cancelSource).not.toContain("last_number");
     expect(cancelSource).toContain('.for("update")');
+    expect(cancelSource).toContain("getSigning");
+    expect(cancelSource).toContain("@showzy/doc-signing/get");
+    expect(cancelSource).not.toContain("@showzy/db/schema/doc-signing");
   });
 });

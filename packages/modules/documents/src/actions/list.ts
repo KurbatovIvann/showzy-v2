@@ -1,6 +1,7 @@
 import { implementAction } from "@showzy/core";
 import { CoreInvariantError } from "@showzy/core/errors";
 import { documents } from "@showzy/db/schema/documents";
+import { getSupplierSignedFlags } from "@showzy/doc-signing/get-supplier-signed-flags";
 import { and, desc, eq, lt, or } from "drizzle-orm";
 import type { z } from "zod";
 
@@ -95,6 +96,13 @@ export const listDocuments = implementAction(listDocumentsContract, {
         ? formatListDocumentsCursor(last.createdAt, last.id)
         : null;
 
+    const flags = await ctx.call(getSupplierSignedFlags, {
+      documentIds: page.map((row) => row.id),
+    });
+    const signed = new Map(
+      flags.flags.map((flag) => [flag.documentId, flag.supplierSigned]),
+    );
+
     return {
       items: page.map((row) => ({
         documentId: row.id,
@@ -108,6 +116,7 @@ export const listDocuments = implementAction(listDocumentsContract, {
         issuedOn: row.issuedOn,
         createdAt: row.createdAt.toISOString(),
         buyerLabel: buyerLabelFromSnapshot(row.buyerDetails),
+        supplierSigned: signed.get(row.id) === true,
       })),
       nextCursor,
     };

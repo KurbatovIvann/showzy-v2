@@ -122,3 +122,20 @@ export const documentGenerationViewSchema = z.object({
   status: documentGenerationStatusSchema,
   fileId: z.uuid().nullable(),
 });
+
+/**
+ * Signing chip on `documents.get` (SHO-256 fills this from
+ * `docSigning.get`). Status values match the signing-owned projection
+ * (`unsigned` | `pending` | `supplier_signed`).
+ */
+export const documentSigningStatusSchema = z.enum([
+  "unsigned",
+  "pending",
+  "supplier_signed",
+]);
+
+export const documentSigningViewSchema = z.object({
+  status: documentSigningStatusSchema,
+  requestId: z.uuid().optional(),
+  signedFileId: z.uuid().optional(),
+});

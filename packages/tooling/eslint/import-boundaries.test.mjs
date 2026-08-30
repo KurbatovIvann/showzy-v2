@@ -70,6 +70,14 @@ test("showzy/import-boundaries", () => {
         code: `import { getArtifact } from "@showzy/doc-generation/get-artifact";`,
       },
       {
+        filename: file("packages/modules/documents/src/actions/get.ts"),
+        code: `import { getSigning } from "@showzy/doc-signing/get";`,
+      },
+      {
+        filename: file("packages/modules/documents/src/actions/list.ts"),
+        code: `import { getSupplierSignedFlags } from "@showzy/doc-signing/get-supplier-signed-flags";`,
+      },
+      {
         filename: file("packages/modules/search/services/index.ts"),
         code: `import { products } from "@showzy/db/schema/catalog";`,
       },
@@ -122,6 +130,11 @@ test("showzy/import-boundaries", () => {
       {
         filename: file("packages/modules/orders/actions/create.ts"),
         code: `import { products } from "@showzy/db/schema/catalog";`,
+        errors: [{ messageId: "moduleSchema" }],
+      },
+      {
+        filename: file("packages/modules/documents/src/actions/list.ts"),
+        code: `import { signingSignatures } from "@showzy/db/schema/doc-signing";`,
         errors: [{ messageId: "moduleSchema" }],
       },
       {

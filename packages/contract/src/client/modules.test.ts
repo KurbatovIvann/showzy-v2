@@ -45,6 +45,7 @@ import {
   getDocumentContract,
   getSharedContract,
   listDocumentsContract,
+  requestSignContract,
   shareDocumentContract,
 } from "@showzy/documents/contract";
 import { getSigningContract } from "@showzy/doc-signing/contract";
@@ -138,6 +139,7 @@ describe("client composition", () => {
         get: getDocumentContract,
         getShared: getSharedContract,
         list: listDocumentsContract,
+        requestSign: requestSignContract,
         share: shareDocumentContract,
       },
       docSigning: {
@@ -228,6 +230,7 @@ describe("client composition", () => {
     expect(contractRouter.documents.get).toBeDefined();
     expect(contractRouter.documents.getShared).toBeDefined();
     expect(contractRouter.documents.list).toBeDefined();
+    expect(contractRouter.documents.requestSign).toBeDefined();
     expect(contractRouter.documents.share).toBeDefined();
     expect(contractRouter.docSigning.get).toBeDefined();
     expect(contractModules.docSigning).not.toHaveProperty(

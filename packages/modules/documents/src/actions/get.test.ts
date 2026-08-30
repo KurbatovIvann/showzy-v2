@@ -34,7 +34,7 @@ describe("documents.get contract", () => {
     expect(getDocumentContract.emits).toEqual([]);
     expect(getDocumentContract.atomicCalls).toEqual([]);
     expect(getDocumentContract.atomicCallers).toEqual([]);
-    expect(getDocumentContract.timeout).toBe(10_000);
+    expect(getDocumentContract.timeout).toBe(15_000);
     expect(getDocumentContract.rateLimit).toBeUndefined();
     expect(Object.keys(getDocumentOutputSchema.shape).toSorted()).toEqual([
       "buyerDetails",
@@ -48,6 +48,7 @@ describe("documents.get contract", () => {
       "items",
       "orderId",
       "pdfDownloadUrl",
+      "signing",
       "status",
       "supplierDetails",
       "templateName",
@@ -79,16 +80,20 @@ describe("documents.get contract", () => {
     }
   });
 
-  it("nests getArtifact and issueDocumentDownloadUrl without querying jobs or files tables", () => {
+  it("nests getArtifact, issueDocumentDownloadUrl, and getSigning without querying jobs, files, or signing tables", () => {
     const sources = `${getSource}\n${loadSource}`;
     expect(getSource).toContain("getArtifact");
     expect(getSource).toContain("issueDocumentDownloadUrl");
     expect(getSource).toContain("@showzy/files");
     expect(getSource).toContain("loadGenerationArtifact");
+    expect(getSource).toContain("getSigning");
+    expect(getSource).toContain("@showzy/doc-signing/get");
+    expect(getSource).not.toContain('@showzy/doc-signing"');
     expect(sources).not.toContain("documentGenerationJobs");
     expect(sources).not.toContain("document_generation_jobs");
     expect(sources).not.toContain("@showzy/db/schema/files");
     expect(sources).not.toContain("@showzy/db/schema/doc-generation");
+    expect(sources).not.toContain("@showzy/db/schema/doc-signing");
     expect(getSource).not.toContain("generation: null");
   });
 });

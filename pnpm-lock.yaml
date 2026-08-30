@@ -834,6 +834,9 @@ importers:
       '@showzy/doc-generation':
         specifier: workspace:*
         version: link:../doc-generation
+      '@showzy/doc-signing':
+        specifier: workspace:*
+        version: link:../doc-signing
       '@showzy/files':
         specifier: workspace:*
         version: link:../files

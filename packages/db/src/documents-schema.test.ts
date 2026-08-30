@@ -319,7 +319,14 @@ describe("documents schema slice", () => {
       "template_name",
       "created_at",
       "updated_at",
+      "sign_requested_at",
     ]);
+    expect(byTableColumn.get("documents.sign_requested_at")?.data_type).toBe(
+      "timestamp with time zone",
+    );
+    expect(byTableColumn.get("documents.sign_requested_at")?.is_nullable).toBe(
+      "YES",
+    );
     for (const forbidden of [
       "template_id",
       "pdf_url",
@@ -423,6 +430,9 @@ describe("documents schema slice", () => {
     expectTypeOf<
       (typeof documents.$inferSelect)["issuedOn"]
     >().toEqualTypeOf<string>();
+    expectTypeOf<
+      (typeof documents.$inferSelect)["signRequestedAt"]
+    >().toEqualTypeOf<Date | null>();
     expectTypeOf<
       (typeof documentItems.$inferSelect)["quantityMilli"]
     >().toEqualTypeOf<bigint>();

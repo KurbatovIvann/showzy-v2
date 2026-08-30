@@ -1,7 +1,7 @@
 /**
  * Document signing requests and supplier signatures (SHO-254 / feature
  * SHO-251). Owned by the doc-signing module (ADR-0014). Deliberately
- * absent: `sign_requested_at` (documents HITL, later ticket), share
+ * absent: `sign_requested_at` (documents-owned HITL grant), share
  * signed-URL columns, raw key material, signature bytes, a second
  * `signer_role` besides `supplier`, and `supplier_signed` on
  * `documents.status`.

@@ -5,6 +5,7 @@ import {
   NotFoundError,
 } from "@showzy/core/errors";
 import { documents } from "@showzy/db/schema/documents";
+import { getSigning } from "@showzy/doc-signing/get";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 
@@ -14,6 +15,8 @@ import { cancelDocumentContract } from "./cancel.contract.js";
 
 export const ALREADY_CANCELLED_MESSAGE = "Document is already cancelled.";
 export const CANNOT_CANCEL_MESSAGE = "Document cannot be cancelled.";
+export const SIGNED_CANNOT_CANCEL_MESSAGE =
+  "A signed document cannot be cancelled.";
 
 const documentIdHolder = z.object({ documentId: z.string() });
 
@@ -60,9 +63,16 @@ export const cancelDocument = implementAction(cancelDocumentContract, {
       throw new ConflictError(CANNOT_CANCEL_MESSAGE);
     }
 
+    const signing = await ctx.call(getSigning, {
+      documentId: input.documentId,
+    });
+    if (signing.status === "supplier_signed") {
+      throw new ConflictError(SIGNED_CANNOT_CANCEL_MESSAGE);
+    }
+
     const updated = await db
       .update(documents)
-      .set({ status: "cancelled" })
+      .set({ status: "cancelled", signRequestedAt: null })
       .where(
         and(
           eq(documents.companyId, ctx.companyId),

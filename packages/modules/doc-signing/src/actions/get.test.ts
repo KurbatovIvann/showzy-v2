@@ -21,7 +21,7 @@ describe("docSigning.get contract", () => {
     expect(getSigningContract.emits).toEqual([]);
     expect(getSigningContract.atomicCalls).toEqual([]);
     expect(getSigningContract.atomicCallers).toEqual([]);
-    expect(getSigningContract.timeout).toBe(15_000);
+    expect(getSigningContract.timeout).toBe(5_000);
     expect(Object.keys(getSigningOutputSchema.shape).toSorted()).toEqual([
       "requestId",
       "signedFileId",

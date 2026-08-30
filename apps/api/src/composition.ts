@@ -72,10 +72,12 @@ import {
   createFromOrder,
   documentsCancelled,
   documentsCreated,
+  documentsSignRequested,
   getDocument,
   getForGeneration,
   getShared,
   listDocuments,
+  requestSign,
   shareDocument,
 } from "@showzy/documents";
 import { documentsSuiteCoverage } from "@showzy/documents/suite-coverage";
@@ -185,6 +187,7 @@ const events: readonly EventDefinitionRef[] = [
   ordersCanceled,
   documentsCancelled,
   documentsCreated,
+  documentsSignRequested,
   invitesAccepted,
   invitesCreated,
   invitesRevoked,
@@ -280,12 +283,28 @@ const callEdges: readonly DeclaredCallEdge[] = [
     callee: "files.issueDocumentDownloadUrl",
   },
   {
-    caller: "docGeneration.renderPdf",
-    callee: "documents.getForGeneration",
+    caller: "documents.get",
+    callee: "docSigning.get",
   },
   {
-    caller: "docSigning.get",
-    callee: "documents.get",
+    caller: "documents.list",
+    callee: "docSigning.getSupplierSignedFlags",
+  },
+  {
+    caller: "documents.requestSign",
+    callee: "docGeneration.getArtifact",
+  },
+  {
+    caller: "documents.requestSign",
+    callee: "docSigning.get",
+  },
+  {
+    caller: "documents.cancel",
+    callee: "docSigning.get",
+  },
+  {
+    caller: "docGeneration.renderPdf",
+    callee: "documents.getForGeneration",
   },
   {
     caller: "docSigning.abandonRequest",
@@ -417,6 +436,7 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, getForGeneration);
   registerAction(registry, getShared);
   registerAction(registry, listDocuments);
+  registerAction(registry, requestSign);
   registerAction(registry, shareDocument);
   registerAction(registry, getArtifact);
   registerAction(registry, renderPdf);

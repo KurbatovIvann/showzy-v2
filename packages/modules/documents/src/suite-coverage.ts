@@ -8,6 +8,7 @@ export const documentsSuiteCoverage = {
     "documents.getForGeneration",
     "documents.getShared",
     "documents.list",
+    "documents.requestSign",
     "documents.share",
   ],
   publicProjection: [],
@@ -17,6 +18,7 @@ export const documentsSuiteCoverage = {
   idempotency: [
     "documents.cancel",
     "documents.createFromOrder",
+    "documents.requestSign",
     "documents.share",
   ],
   events: ["documents"],

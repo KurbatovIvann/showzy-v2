@@ -21,6 +21,7 @@
     "@showzy/customers": "workspace:*",
     "@showzy/db": "workspace:*",
     "@showzy/doc-generation": "workspace:*",
+    "@showzy/doc-signing": "workspace:*",
     "@showzy/files": "workspace:*",
     "@showzy/orders": "workspace:*",
     "drizzle-orm": "^0.45.2",
