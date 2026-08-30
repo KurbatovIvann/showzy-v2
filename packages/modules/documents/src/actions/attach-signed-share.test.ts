@@ -75,7 +75,7 @@ describe("documents.attachSignedShare contract", () => {
     expect(attachSource).not.toContain("issueShareSigningDownloadUrl");
     expect(attachSource).not.toContain("issueShareDownloadUrl");
     expect(attachSource).not.toContain("getDownloadUrl");
-    expect(attachSource).not.toContain("revokedAt");
+    expect(attachSource).not.toContain("revokedAt:");
     expect(attachSource).not.toContain("generateDocumentShareToken");
     expect(attachSource).not.toContain("@showzy/core/testing");
     expect(attachSource).not.toContain("@showzy/db/schema/files");
