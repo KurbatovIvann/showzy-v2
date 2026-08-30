@@ -42,4 +42,15 @@ describe("wipeKeyBytes", () => {
     expect(bytes).toEqual(new Uint8Array([0, 0, 0]));
     wipeKeyBytes(null);
   });
+
+  it("zeros the previous key buffer when a second file is held", () => {
+    const first = new Uint8Array([0x30, 0x82, 0x01]);
+    const held: { current: Uint8Array | null } = { current: first };
+    const second = new Uint8Array([0xaa, 0xbb]);
+    wipeKeyBytes(held.current);
+    held.current = second;
+    expect(first).toEqual(new Uint8Array([0, 0, 0]));
+    expect(held.current).toBe(second);
+    expect(second).toEqual(new Uint8Array([0xaa, 0xbb]));
+  });
 });

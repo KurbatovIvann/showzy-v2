@@ -374,6 +374,12 @@ describe("sheet close abort wiring", () => {
     expect(HOOK_SOURCE).not.toContain("console.log");
   });
 
+  it("pickKey wipes the previous key before holding another file", () => {
+    expect(HOOK_SOURCE).toMatch(
+      /wipeKeyBytes\(keyBytesRef\.current\);\s*keyBytesRef\.current = picked\.bytes/,
+    );
+  });
+
   it("deletes the Expo cache copy of the key and checks size before read", () => {
     expect(DEVICE_SOURCE).toContain("copyToCacheDirectory: true");
     expect(DEVICE_SOURCE).toContain("file.size");

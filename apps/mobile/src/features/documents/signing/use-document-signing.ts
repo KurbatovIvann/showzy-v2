@@ -179,6 +179,7 @@ export function useDocumentSigning(args: {
         dispatch({ type: "fail", banner: "key" });
         return;
       }
+      wipeKeyBytes(keyBytesRef.current);
       keyBytesRef.current = picked.bytes;
       dispatch({ type: "setFileName", fileName: picked.fileName });
     },
