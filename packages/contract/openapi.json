@@ -33078,7 +33078,7 @@
     "/docSigning/start": {
       "post": {
         "operationId": "docSigning.start",
-        "summary": "Start a pending qualified-signature request for an issued staff document whose HITL grant is unexpired and whose PDF is ready. Freezes the payload SHA-256 digest and returns a short-lived payload download URL. Replay while pending returns the same request id and frozen digest. Cancelled or already supplier-signed documents fail with conflict. Missing grant, expired grant, or PDF-not-ready fail with validation. Missing or foreign-company documents fail with not-found. Company id is never input. Confirmation already ran on documents.requestSign and does not replace this grant check or key possession.",
+        "summary": "Start a pending qualified-signature request for an issued staff document whose HITL grant is unexpired and whose PDF is ready. Freezes the payload SHA-256 digest and returns a short-lived payload download URL. Replay of a live pending row returns the same request id and frozen digest with a newly issued URL. Cancelled or already supplier-signed documents fail with conflict. Missing grant, expired grant, or PDF-not-ready fail with validation. Missing or foreign-company documents fail with not-found. Company id is never input. Confirmation already ran on documents.requestSign and does not replace this grant check or key possession.",
         "requestBody": {
           "required": true,
           "content": {

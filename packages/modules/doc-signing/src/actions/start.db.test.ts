@@ -168,7 +168,7 @@ async function waitForUngrantedLock(): Promise<void> {
     const result = await kit.db.admin.query<{ n: number }>(
       "SELECT COUNT(*)::int AS n FROM pg_locks WHERE NOT granted",
     );
-    if (Number(result.rows[0]?.n ?? 0) > 0) {
+    if ((result.rows[0]?.n ?? 0) > 0) {
       return;
     }
     await sleep(20);
@@ -806,14 +806,11 @@ describe("docSigning.start", () => {
         ),
       );
     const startOutcome = results[0];
-    if (startOutcome?.status === "fulfilled") {
+    if (startOutcome.status === "fulfilled") {
       expect(pending).toHaveLength(1);
     } else {
-      expect(startOutcome?.status).toBe("rejected");
       expect(pending).toHaveLength(0);
-      if (startOutcome?.status === "rejected") {
-        expect(startOutcome.reason).toBeInstanceOf(ConflictError);
-      }
+      expect(startOutcome.reason).toBeInstanceOf(ConflictError);
     }
     expect(await countPending(kitIdentities.companies.a)).toBe(
       pendingBefore + pending.length,
