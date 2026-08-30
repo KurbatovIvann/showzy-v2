@@ -98,6 +98,7 @@ import {
 import { requestAbandonerSubscriptions } from "@showzy/doc-signing/subscriptions";
 import { docSigningSuiteCoverage } from "@showzy/doc-signing/suite-coverage";
 import {
+  backfillCatalogRenditions,
   finalizeUpload,
   getAttachmentFacts,
   getDownloadUrl,
@@ -470,6 +471,7 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, issueShareSigningDownloadUrl);
   registerAction(registry, issueSystemSigningDownloadUrl);
   registerAction(registry, sweepAbandonedUploads);
+  registerAction(registry, backfillCatalogRenditions);
   registerAction(registry, acceptInvite);
   registerAction(registry, createInvite);
   registerAction(registry, getInvite);

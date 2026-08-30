@@ -25,6 +25,14 @@ export const CLEANUP_INTERVAL_MS = 60 * 60 * 1_000;
 export const SWEEP_INTERVAL_MS = 5 * 60 * 1_000;
 
 /**
+ * How often the maintenance Job Scheduler runs
+ * `files.backfillCatalogRenditions` (SHO-248). Same 5-minute cadence as
+ * the abandoned-upload sweep. Batch size stays the action default (20).
+ * BullMQ, not `setInterval`.
+ */
+export const BACKFILL_CATALOG_RENDITIONS_INTERVAL_MS = 5 * 60 * 1_000;
+
+/**
  * BullMQ Redis key prefix (ADR-0007). Do not set ioredis `keyPrefix` —
  * BullMQ owns prefixing. Email / push / sms / sync queues stay uncreated.
  */
@@ -71,14 +79,20 @@ export const IDEMPOTENCY_CLEANUP_JOB_NAME = "cleanupExpiredIdempotencyKeys";
 export const SWEEP_ABANDONED_UPLOADS_JOB_NAME = "sweepAbandonedUploads";
 
 /**
+ * Third Job Scheduler on the same `maintenance` queue (SHO-248).
+ */
+export const BACKFILL_CATALOG_RENDITIONS_JOB_NAME = "backfillCatalogRenditions";
+
+/**
  * System actor for maintenance jobs that invoke registered actions.
  * Not a new principal — `system` + `systemScope: "global"`.
  */
 export const MAINTENANCE_SERVICE_NAME = "worker.maintenance";
 
 /**
- * Worker lock longer than `files.sweepAbandonedUploads` timeout (30s)
- * so a replica cannot steal an in-flight sweep.
+ * Worker lock longer than `files.sweepAbandonedUploads` and
+ * `files.backfillCatalogRenditions` timeout (30s) so a replica cannot
+ * steal an in-flight maintenance job.
  */
 export const MAINTENANCE_LOCK_DURATION_MS = 60_000;
 

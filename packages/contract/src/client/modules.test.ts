@@ -256,6 +256,9 @@ describe("client composition", () => {
     expect(contractRouter.files.getSigningUploadUrl).toBeDefined();
     expect(contractModules.files).not.toHaveProperty("getAttachmentFacts");
     expect(contractModules.files).not.toHaveProperty("sweepAbandonedUploads");
+    expect(contractModules.files).not.toHaveProperty(
+      "backfillCatalogRenditions",
+    );
     expect(contractModules.files).not.toHaveProperty("recordGeneratedObject");
     expect(contractModules.files).not.toHaveProperty("recordSigningObject");
     expect(contractModules.files).not.toHaveProperty(

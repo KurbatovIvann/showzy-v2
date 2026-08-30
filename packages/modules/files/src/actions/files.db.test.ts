@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { executeAction } from "@showzy/core";
 import {
   ConflictError,
   CoreInvariantError,
@@ -30,8 +31,18 @@ import {
   Wait,
   type StartedTestContainer,
 } from "testcontainers";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from "vitest";
 
+import { BACKFILL_BATCH_LIMIT } from "./backfill-catalog-renditions.contract.js";
+import { backfillCatalogRenditions } from "./backfill-catalog-renditions.js";
 import { finalizeUpload } from "./finalize-upload.js";
 import { ATTACHMENT_FACTS_MAX_IDS } from "./get-attachment-facts.contract.js";
 import { getDownloadUrl } from "./get-download-url.js";
@@ -50,6 +61,11 @@ import { requestSigningUpload } from "./request-signing-upload.js";
 import { requestUpload } from "./request-upload.js";
 import { sweepAbandonedUploads } from "./sweep-abandoned-uploads.js";
 import { ABANDONED_PENDING_TTL_MS } from "./sweep-abandoned-uploads.contract.js";
+import {
+  BACKFILL_CATALOG_RENDITIONS_INTERVAL_MS,
+  runCatalogRenditionBackfill,
+  setCatalogRenditionBackfillNowMsForTest,
+} from "../services/backfill-catalog-renditions.js";
 import { sha256Hex } from "../services/checksum.js";
 import type { FileReadyView } from "../services/file-view.js";
 import {
@@ -331,6 +347,19 @@ async function countSweepAudits(): Promise<number> {
     .where(
       and(
         eq(auditLog.action, "files.sweepAbandonedUploads"),
+        eq(auditLog.outcome, "ok"),
+      ),
+    );
+  return rows[0]?.value ?? 0;
+}
+
+async function countBackfillAudits(): Promise<number> {
+  const rows = await requireKit()
+    .db.runtime.db.select({ value: count() })
+    .from(auditLog)
+    .where(
+      and(
+        eq(auditLog.action, "files.backfillCatalogRenditions"),
         eq(auditLog.outcome, "ok"),
       ),
     );
@@ -927,6 +956,7 @@ crossTenantSuite(requireKit, [
     { input: uploadForeignInput },
   ),
   isolationCase(sweepAbandonedUploads, { input: {} }, { input: {} }),
+  isolationCase(backfillCatalogRenditions, { input: {} }, { input: {} }),
   isolationCase(
     recordGeneratedObject,
     { input: recordOwnInput },
@@ -1003,6 +1033,12 @@ idempotencySuite(requireKit, [
     input: {},
     conflictingInput: { limit: 1 },
     readEffect: () => countSweepAudits(),
+  },
+  {
+    action: backfillCatalogRenditions,
+    input: {},
+    conflictingInput: { limit: 1 },
+    readEffect: () => countBackfillAudits(),
   },
   {
     action: recordGeneratedObject,
@@ -2723,6 +2759,577 @@ describe("files.sweepAbandonedUploads", () => {
     await expect(
       requireKit().invoke(sweepAbandonedUploads, { limit: 21 }),
     ).rejects.toBeInstanceOf(ValidationError);
+  });
+});
+
+describe("files.backfillCatalogRenditions", () => {
+  beforeEach(() => {
+    setCatalogRenditionBackfillNowMsForTest(0);
+  });
+  afterEach(() => {
+    setCatalogRenditionBackfillNowMsForTest(undefined);
+  });
+
+  async function catalogRow(id: string): Promise<{
+    readonly status: string;
+    readonly byteSize: bigint;
+    readonly checksumSha256: string | null;
+    readonly objectKey: string;
+  }> {
+    const rows = await requireKit()
+      .db.runtime.db.select({
+        status: files.status,
+        byteSize: files.byteSize,
+        checksumSha256: files.checksumSha256,
+        objectKey: files.objectKey,
+      })
+      .from(files)
+      .where(eq(files.id, id));
+    const row = rows[0];
+    if (row === undefined) {
+      throw new Error(`expected file row ${id}`);
+    }
+    return row;
+  }
+
+  // Each call is 1s older than the last so a newly seeded row sorts into
+  // the OFFSET-0 inspect page ahead of leftover ready catalog files.
+  let inspectFrontSeq = 0;
+  function createdAtAtInspectFront(): Date {
+    inspectFrontSeq += 1;
+    return new Date(Date.UTC(1900, 0, 1) - inspectFrontSeq * 1000);
+  }
+
+  async function drainInspectPage(): Promise<void> {
+    await requireKit().invoke(backfillCatalogRenditions, {});
+  }
+
+  async function runBackfillAt(nowMs: number) {
+    const ctx = await requireKit().buildTestContext("system", {
+      systemScope: { scope: "global" },
+      request: {
+        action: "files.backfillCatalogRenditions",
+        channel: "system",
+      },
+    });
+    if (ctx.principal !== "system" || ctx.scope !== "global") {
+      throw new Error("expected global system context");
+    }
+    return runCatalogRenditionBackfill({ ctx, input: {}, nowMs });
+  }
+
+  async function seedCompleteFrontPageThenLaterOriginal(): Promise<string> {
+    const laterCreatedAt = createdAtAtInspectFront();
+    const completeCreatedAt = Array.from(
+      { length: BACKFILL_BATCH_LIMIT + 1 },
+      () => createdAtAtInspectFront(),
+    );
+    await Promise.all(
+      completeCreatedAt.map(async (createdAt) => {
+        const fileId = randomUUID();
+        await insertFileRow({
+          id: fileId,
+          companyId: kitIdentities.companies.a,
+          uploadedByUserId: kitIdentities.users.anna,
+          status: "ready",
+          createdAt,
+        });
+        await putCatalogRenditionObjects(kitIdentities.companies.a, fileId);
+      }),
+    );
+    return seedReadyCatalogOriginal({
+      companyId: kitIdentities.companies.a,
+      uploadedByUserId: kitIdentities.users.anna,
+      createdAt: laterCreatedAt,
+    });
+  }
+
+  async function seedReadyCatalogOriginal(input: {
+    readonly companyId: string;
+    readonly uploadedByUserId: string;
+    readonly bytes?: Uint8Array;
+    readonly mimeType?: FileMimeType;
+    readonly createdAt?: Date;
+  }): Promise<string> {
+    const id = randomUUID();
+    const bytes = input.bytes ?? jpegBytes;
+    const mimeType = input.mimeType ?? "image/jpeg";
+    await insertFileRow({
+      id,
+      companyId: input.companyId,
+      uploadedByUserId: input.uploadedByUserId,
+      status: "ready",
+      mimeType,
+      bytes,
+      checksumSha256: sha256Hex(bytes),
+      createdAt: input.createdAt ?? createdAtAtInspectFront(),
+    });
+    await putStoreObject(
+      catalogObjectKey(input.companyId, id),
+      bytes,
+      mimeType,
+    );
+    return id;
+  }
+
+  async function renditionBytes(
+    companyId: string,
+    fileId: string,
+    rendition: (typeof CATALOG_RENDITIONS)[number],
+  ): Promise<Uint8Array> {
+    const object = await getFilesObjectStore().getObject(
+      catalogRenditionObjectKey(companyId, fileId, rendition),
+    );
+    if (object === "missing") {
+      throw new Error(`expected ${rendition} rendition for ${fileId}`);
+    }
+    return object.bytes;
+  }
+
+  it("fills four renditions for a ready catalog file and leaves the original unchanged", async () => {
+    await drainInspectPage();
+    const fileId = await seedReadyCatalogOriginal({
+      companyId: kitIdentities.companies.a,
+      uploadedByUserId: kitIdentities.users.anna,
+    });
+    const before = await catalogRow(fileId);
+    const capturing = createCapturingLogger();
+    const result = await requireKit().invoke(
+      backfillCatalogRenditions,
+      {},
+      {},
+      { deps: { ...requireKit().pipeline, logger: capturing.logger } },
+    );
+    expect(result.filled).toBe(1);
+    expect(result.skippedMissingOriginal).toBe(0);
+    expect(result.skippedUndecodable).toBe(0);
+    expect(Object.keys(result).toSorted()).toEqual([
+      "alreadyComplete",
+      "filled",
+      "skippedMissingOriginal",
+      "skippedUndecodable",
+    ]);
+
+    await expectCatalogRenditions(kitIdentities.companies.a, fileId, "present");
+    const original = await getFilesObjectStore().getObject(
+      catalogObjectKey(kitIdentities.companies.a, fileId),
+    );
+    expect(original).not.toBe("missing");
+    if (original === "missing") {
+      throw new Error("expected original after backfill");
+    }
+    expect(sha256Hex(original.bytes)).toBe(jpegChecksum);
+    expect(await catalogRow(fileId)).toEqual(before);
+
+    const logs = JSON.stringify(capturing.entries());
+    expect(logs).not.toMatch(/\/catalog\//);
+    expect(logs).not.toMatch(/\/uploads\//);
+    expect(logs).not.toContain("http");
+    expect(logs).not.toContain(fileId);
+    expect(logs).not.toContain(before.objectKey);
+  });
+
+  it("is a no-op when all four keys already exist and does not rewrite bytes", async () => {
+    await drainInspectPage();
+    const fileId = await seedReadyCatalogOriginal({
+      companyId: kitIdentities.companies.a,
+      uploadedByUserId: kitIdentities.users.anna,
+    });
+    await putCatalogRenditionObjects(kitIdentities.companies.a, fileId);
+    const originalBefore = await getFilesObjectStore().getObject(
+      catalogObjectKey(kitIdentities.companies.a, fileId),
+    );
+    if (originalBefore === "missing") {
+      throw new Error("expected original before no-op backfill");
+    }
+    const renditionHashes = {
+      thumb: sha256Hex(
+        await renditionBytes(kitIdentities.companies.a, fileId, "thumb"),
+      ),
+      card: sha256Hex(
+        await renditionBytes(kitIdentities.companies.a, fileId, "card"),
+      ),
+      hero: sha256Hex(
+        await renditionBytes(kitIdentities.companies.a, fileId, "hero"),
+      ),
+      full: sha256Hex(
+        await renditionBytes(kitIdentities.companies.a, fileId, "full"),
+      ),
+    };
+    const rowBefore = await catalogRow(fileId);
+
+    const result = await requireKit().invoke(backfillCatalogRenditions, {});
+    expect(result.filled).toBe(0);
+
+    const originalAfter = await getFilesObjectStore().getObject(
+      catalogObjectKey(kitIdentities.companies.a, fileId),
+    );
+    if (originalAfter === "missing") {
+      throw new Error("expected original after no-op backfill");
+    }
+    expect(sha256Hex(originalAfter.bytes)).toBe(
+      sha256Hex(originalBefore.bytes),
+    );
+    expect(
+      sha256Hex(
+        await renditionBytes(kitIdentities.companies.a, fileId, "thumb"),
+      ),
+    ).toBe(renditionHashes.thumb);
+    expect(
+      sha256Hex(
+        await renditionBytes(kitIdentities.companies.a, fileId, "card"),
+      ),
+    ).toBe(renditionHashes.card);
+    expect(
+      sha256Hex(
+        await renditionBytes(kitIdentities.companies.a, fileId, "hero"),
+      ),
+    ).toBe(renditionHashes.hero);
+    expect(
+      sha256Hex(
+        await renditionBytes(kitIdentities.companies.a, fileId, "full"),
+      ),
+    ).toBe(renditionHashes.full);
+    expect(await catalogRow(fileId)).toEqual(rowBefore);
+  });
+
+  it("fills missing renditions on a partial set without rewriting thumb or original", async () => {
+    await drainInspectPage();
+    const fileId = await seedReadyCatalogOriginal({
+      companyId: kitIdentities.companies.a,
+      uploadedByUserId: kitIdentities.users.anna,
+    });
+    const thumbKey = catalogRenditionObjectKey(
+      kitIdentities.companies.a,
+      fileId,
+      "thumb",
+    );
+    const marker = sameSizeMutatedJpeg();
+    await putStoreObject(thumbKey, marker, "image/jpeg");
+    const originalBefore = await catalogRow(fileId);
+
+    const result = await requireKit().invoke(backfillCatalogRenditions, {});
+    expect(result.filled).toBe(1);
+
+    const thumb = await getFilesObjectStore().getObject(thumbKey);
+    if (thumb === "missing") {
+      throw new Error("expected preserved thumb");
+    }
+    expect(sha256Hex(thumb.bytes)).toBe(sha256Hex(marker));
+    await expectCatalogRenditions(kitIdentities.companies.a, fileId, "present");
+    const original = await getFilesObjectStore().getObject(
+      catalogObjectKey(kitIdentities.companies.a, fileId),
+    );
+    if (original === "missing") {
+      throw new Error("expected original after partial backfill");
+    }
+    expect(sha256Hex(original.bytes)).toBe(jpegChecksum);
+    expect(await catalogRow(fileId)).toEqual(originalBefore);
+  });
+
+  it("skips document-purpose files and does not write catalog or document renditions", async () => {
+    const fileId = randomUUID();
+    await requireKit()
+      .db.runtime.db.insert(files)
+      .values({
+        id: fileId,
+        companyId: kitIdentities.companies.a,
+        uploadedByUserId: kitIdentities.users.anna,
+        purpose: "document",
+        objectKey: documentObjectKey(kitIdentities.companies.a, fileId),
+        mimeType: "application/pdf",
+        byteSize: BigInt(pdfBytes.byteLength),
+        checksumSha256: pdfChecksum,
+        status: "ready",
+        stagingPurgedAt: new Date(0),
+      });
+    await putGeneratedPdf(kitIdentities.companies.a, fileId);
+
+    await requireKit().invoke(backfillCatalogRenditions, {});
+
+    await expectCatalogRenditions(kitIdentities.companies.a, fileId, "missing");
+    const store = getFilesObjectStore();
+    for (const rendition of CATALOG_RENDITIONS) {
+      expect(
+        await store.headObject(
+          `${kitIdentities.companies.a}/documents/${fileId}/${rendition}`,
+        ),
+      ).toBe("missing");
+    }
+    expect(
+      await store.headObject(
+        documentObjectKey(kitIdentities.companies.a, fileId),
+      ),
+    ).not.toBe("missing");
+  });
+
+  it("writes rendition keys under each row company prefix, never into the other tenant", async () => {
+    await drainInspectPage();
+    const fileA = await seedReadyCatalogOriginal({
+      companyId: kitIdentities.companies.a,
+      uploadedByUserId: kitIdentities.users.anna,
+    });
+    const fileB = await seedReadyCatalogOriginal({
+      companyId: kitIdentities.companies.b,
+      uploadedByUserId: kitIdentities.users.boris,
+    });
+
+    const result = await requireKit().invoke(backfillCatalogRenditions, {});
+    expect(result.filled).toBe(2);
+
+    await expectCatalogRenditions(kitIdentities.companies.a, fileA, "present");
+    await expectCatalogRenditions(kitIdentities.companies.b, fileB, "present");
+    const store = getFilesObjectStore();
+    for (const rendition of CATALOG_RENDITIONS) {
+      expect(
+        await store.headObject(
+          catalogRenditionObjectKey(
+            kitIdentities.companies.b,
+            fileA,
+            rendition,
+          ),
+        ),
+      ).toBe("missing");
+      expect(
+        await store.headObject(
+          catalogRenditionObjectKey(
+            kitIdentities.companies.a,
+            fileB,
+            rendition,
+          ),
+        ),
+      ).toBe("missing");
+    }
+    const originalA = await store.getObject(
+      catalogObjectKey(kitIdentities.companies.a, fileA),
+    );
+    if (originalA === "missing") {
+      throw new Error("expected company A original");
+    }
+    expect(sha256Hex(originalA.bytes)).toBe(jpegChecksum);
+  });
+
+  it("replays the same idempotency key without rewriting objects", async () => {
+    await drainInspectPage();
+    const fileId = await seedReadyCatalogOriginal({
+      companyId: kitIdentities.companies.a,
+      uploadedByUserId: kitIdentities.users.anna,
+    });
+    const key = randomUUID();
+    const first = await requireKit().invoke(
+      backfillCatalogRenditions,
+      {},
+      {},
+      { request: { idempotencyKey: key } },
+    );
+    expect(first.filled).toBe(1);
+    const thumbHash = sha256Hex(
+      await renditionBytes(kitIdentities.companies.a, fileId, "thumb"),
+    );
+    const replay = await requireKit().invoke(
+      backfillCatalogRenditions,
+      {},
+      {},
+      { request: { idempotencyKey: key } },
+    );
+    expect(replay).toEqual(first);
+    expect(
+      sha256Hex(
+        await renditionBytes(kitIdentities.companies.a, fileId, "thumb"),
+      ),
+    ).toBe(thumbHash);
+    const original = await getFilesObjectStore().getObject(
+      catalogObjectKey(kitIdentities.companies.a, fileId),
+    );
+    expect(original).not.toBe("missing");
+    if (original === "missing") {
+      throw new Error("expected original after idempotent replay");
+    }
+    expect(sha256Hex(original.bytes)).toBe(jpegChecksum);
+  });
+
+  it("rejects an out-of-range batch limit", async () => {
+    await expect(
+      requireKit().invoke(backfillCatalogRenditions, { limit: 0 }),
+    ).rejects.toBeInstanceOf(ValidationError);
+    await expect(
+      requireKit().invoke(backfillCatalogRenditions, {
+        limit: BACKFILL_BATCH_LIMIT + 1,
+      }),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it("fills one file per fill budget and continues on the next tick", async () => {
+    await drainInspectPage();
+    const newerCreatedAt = createdAtAtInspectFront();
+    const olderCreatedAt = createdAtAtInspectFront();
+    const older = await seedReadyCatalogOriginal({
+      companyId: kitIdentities.companies.a,
+      uploadedByUserId: kitIdentities.users.anna,
+      createdAt: olderCreatedAt,
+    });
+    const newer = await seedReadyCatalogOriginal({
+      companyId: kitIdentities.companies.a,
+      uploadedByUserId: kitIdentities.users.anna,
+      createdAt: newerCreatedAt,
+    });
+
+    const first = await requireKit().invoke(backfillCatalogRenditions, {
+      limit: 1,
+    });
+    expect(first.filled).toBe(1);
+    await expectCatalogRenditions(kitIdentities.companies.a, older, "present");
+    await expectCatalogRenditions(kitIdentities.companies.a, newer, "missing");
+
+    const second = await requireKit().invoke(backfillCatalogRenditions, {
+      limit: 1,
+    });
+    expect(second.filled).toBe(1);
+    await expectCatalogRenditions(kitIdentities.companies.a, newer, "present");
+  });
+
+  it("does not inspect past the first SQL page in one tick", async () => {
+    await drainInspectPage();
+    const laterId = await seedCompleteFrontPageThenLaterOriginal();
+
+    const result = await requireKit().invoke(backfillCatalogRenditions, {});
+    expect(result.filled).toBe(0);
+    expect(result.alreadyComplete).toBe(BACKFILL_BATCH_LIMIT);
+    await expectCatalogRenditions(
+      kitIdentities.companies.a,
+      laterId,
+      "missing",
+    );
+  });
+
+  it("fills the later file on the next inspect slot without rewriting the original", async () => {
+    await drainInspectPage();
+    const laterId = await seedCompleteFrontPageThenLaterOriginal();
+
+    const result = await runBackfillAt(BACKFILL_CATALOG_RENDITIONS_INTERVAL_MS);
+    expect(result.filled).toBeGreaterThanOrEqual(1);
+    await expectCatalogRenditions(
+      kitIdentities.companies.a,
+      laterId,
+      "present",
+    );
+    const original = await getFilesObjectStore().getObject(
+      catalogObjectKey(kitIdentities.companies.a, laterId),
+    );
+    if (original === "missing") {
+      throw new Error("expected original after second-slot backfill");
+    }
+    expect(sha256Hex(original.bytes)).toBe(jpegChecksum);
+    const row = await catalogRow(laterId);
+    expect(row.status).toBe("ready");
+    expect(row.checksumSha256).toBe(jpegChecksum);
+  });
+
+  it("skips an undecodable original and still fills the rest of the page", async () => {
+    await drainInspectPage();
+    const over = 8001;
+    const bomb = pngWithIhdrDimensions(over, over);
+    const badId = await seedReadyCatalogOriginal({
+      companyId: kitIdentities.companies.a,
+      uploadedByUserId: kitIdentities.users.anna,
+      bytes: bomb,
+      mimeType: "image/png",
+    });
+    const goodId = await seedReadyCatalogOriginal({
+      companyId: kitIdentities.companies.a,
+      uploadedByUserId: kitIdentities.users.anna,
+    });
+    const capturing = createCapturingLogger();
+    const result = await requireKit().invoke(
+      backfillCatalogRenditions,
+      {},
+      {},
+      { deps: { ...requireKit().pipeline, logger: capturing.logger } },
+    );
+    expect(result.filled).toBe(1);
+    expect(result.skippedUndecodable).toBe(1);
+    await expectCatalogRenditions(kitIdentities.companies.a, goodId, "present");
+    await expectCatalogRenditions(kitIdentities.companies.a, badId, "missing");
+    expect(await catalogRow(badId)).toMatchObject({
+      status: "ready",
+      checksumSha256: sha256Hex(bomb),
+    });
+    const logs = JSON.stringify(capturing.entries());
+    expect(logs).toContain("undecodable");
+    expect(logs).toContain("files.backfillCatalogRenditions skipped file");
+    expect(logs).not.toContain(badId);
+    expect(logs).not.toMatch(/\/catalog\//);
+  });
+
+  it("skips a missing original without writing a half-complete rendition set", async () => {
+    await drainInspectPage();
+    const fileId = randomUUID();
+    await insertFileRow({
+      id: fileId,
+      companyId: kitIdentities.companies.a,
+      uploadedByUserId: kitIdentities.users.anna,
+      status: "ready",
+      createdAt: createdAtAtInspectFront(),
+    });
+    const goodId = await seedReadyCatalogOriginal({
+      companyId: kitIdentities.companies.a,
+      uploadedByUserId: kitIdentities.users.anna,
+    });
+    const capturing = createCapturingLogger();
+    const result = await requireKit().invoke(
+      backfillCatalogRenditions,
+      {},
+      {},
+      { deps: { ...requireKit().pipeline, logger: capturing.logger } },
+    );
+    expect(result.filled).toBe(1);
+    expect(result.skippedMissingOriginal).toBe(1);
+    await expectCatalogRenditions(kitIdentities.companies.a, fileId, "missing");
+    await expectCatalogRenditions(kitIdentities.companies.a, goodId, "present");
+    expect(await catalogRow(fileId)).toMatchObject({ status: "ready" });
+    const logs = JSON.stringify(capturing.entries());
+    expect(logs).toContain("missing_original");
+    expect(logs).not.toContain(fileId);
+    expect(logs).not.toMatch(/\/catalog\//);
+  });
+
+  it("denies a non-system principal and a tenant-scoped system enqueue", async () => {
+    const request = {
+      requestId: randomUUID(),
+      correlationId: randomUUID(),
+      channel: "ui" as const,
+    };
+    await expect(
+      executeAction(requireKit().pipeline, {
+        action: backfillCatalogRenditions,
+        input: {},
+        request,
+        principal: {
+          mode: "staff",
+          session: { userId: kitIdentities.users.anna },
+          companySelector: kitIdentities.companies.a,
+        },
+      }),
+    ).rejects.toBeInstanceOf(CoreInvariantError);
+    await expect(
+      executeAction(requireKit().pipeline, {
+        action: backfillCatalogRenditions,
+        input: {},
+        request: {
+          requestId: randomUUID(),
+          correlationId: randomUUID(),
+          channel: "system",
+        },
+        principal: {
+          mode: "system",
+          serviceName: "test.backfill",
+          scope: {
+            scope: "tenant",
+            companyId: kitIdentities.companies.a,
+          },
+        },
+      }),
+    ).rejects.toBeInstanceOf(CoreInvariantError);
   });
 });
 
