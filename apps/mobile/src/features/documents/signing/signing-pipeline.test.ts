@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it, vi } from "vitest";
 
 import { createMutationAttempt } from "@showzy/contract";
@@ -8,6 +10,7 @@ import { submitWithProtocolConfirmation } from "../../../api/protocol-confirm";
 import { bindDocumentRequestSignMutate } from "../api/document-request-sign";
 import { SIGNING_MIME_TYPE, SIGNING_PURPOSE } from "./signing-limits";
 import {
+  createDocumentSigningAbort,
   mapSigningFailure,
   runDocumentSigning,
   SigningDigestMismatchError,
@@ -27,8 +30,19 @@ const PAYLOAD_URL = "https://files.example.invalid/payload.pdf?token=secret";
 const PUT_URL = "https://files.example.invalid/uploads/pending?token=put";
 const PASSWORD = "key-password-once";
 
+const HOOK_SOURCE = readFileSync(
+  new URL("./use-document-signing.ts", import.meta.url),
+  "utf8",
+);
+
 function payloadBytes(): Uint8Array {
   return new TextEncoder().encode("%PDF-1.4 fixture");
+}
+
+function neverSettle<T>(): Promise<T> {
+  return new Promise<T>(() => {
+    return;
+  });
 }
 
 function fakePorts(args: {
@@ -41,6 +55,7 @@ function fakePorts(args: {
     | "request"
     | "put"
     | "complete";
+  readonly hangAt?: "download" | "digest" | "sign" | "put";
   readonly digestMismatch?: boolean;
 }): {
   readonly ports: DocumentSigningPorts;
@@ -74,6 +89,9 @@ function fakePorts(args: {
       if (args.failAt === "download") {
         return Promise.reject(new TypeError("Failed to fetch"));
       }
+      if (args.hangAt === "download") {
+        return neverSettle();
+      }
       return Promise.resolve(payload);
     },
     sha256Hex: (bytes) => {
@@ -97,6 +115,9 @@ function fakePorts(args: {
       if (args.failAt === "digest") {
         return Promise.reject(new TypeError("Failed to fetch"));
       }
+      if (args.hangAt === "digest") {
+        return neverSettle();
+      }
       return Promise.resolve("ZGlnZXN0");
     },
     signManifest: ({ manifest }) => {
@@ -104,6 +125,9 @@ function fakePorts(args: {
       expect(manifest.byteLength).toBeGreaterThan(0);
       if (args.failAt === "sign") {
         return Promise.reject(new TypeError("Failed to fetch"));
+      }
+      if (args.hangAt === "sign") {
+        return neverSettle();
       }
       return Promise.resolve(new Uint8Array([0x30, 0x82, 0x01]));
     },
@@ -127,6 +151,9 @@ function fakePorts(args: {
       if (args.failAt === "put") {
         return Promise.reject(new TypeError("Failed to fetch"));
       }
+      if (args.hangAt === "put") {
+        return neverSettle();
+      }
       return Promise.resolve();
     },
     complete: (input) => {
@@ -144,6 +171,22 @@ function fakePorts(args: {
     createAttempt: () => createMutationAttempt(() => crypto.randomUUID()),
   };
   return { ports, calls, completeInputs };
+}
+
+function runArgs(
+  ports: DocumentSigningPorts,
+  signal: AbortSignal,
+): Parameters<typeof runDocumentSigning>[0] {
+  return {
+    documentId: DOCUMENT_ID,
+    keyBytes: new Uint8Array([0x30, 0x82]),
+    password: PASSWORD,
+    ports,
+    signal,
+    onPhase: () => {
+      return;
+    },
+  };
 }
 
 describe("runDocumentSigning", () => {
@@ -196,11 +239,7 @@ describe("runDocumentSigning", () => {
     const phases: SigningPhase[] = [];
     const names: string[] = [];
     const result: SigningCompleteOutput = await runDocumentSigning({
-      documentId: DOCUMENT_ID,
-      keyBytes: new Uint8Array([0x30, 0x82]),
-      password: PASSWORD,
-      ports,
-      signal: new AbortController().signal,
+      ...runArgs(ports, new AbortController().signal),
       onPhase: (phase) => {
         phases.push(phase);
       },
@@ -249,17 +288,85 @@ describe("runDocumentSigning", () => {
   it("rejects a payload whose SHA-256 does not match the frozen digest", async () => {
     const { ports } = fakePorts({ digestMismatch: true });
     await expect(
-      runDocumentSigning({
-        documentId: DOCUMENT_ID,
-        keyBytes: new Uint8Array([1]),
-        password: PASSWORD,
-        ports,
-        signal: new AbortController().signal,
-        onPhase: () => {
-          return;
-        },
-      }),
+      runDocumentSigning(runArgs(ports, new AbortController().signal)),
     ).rejects.toBeInstanceOf(SigningDigestMismatchError);
+  });
+
+  it("abort before complete never invokes complete", async () => {
+    const abort = new AbortController();
+    const { ports, calls, completeInputs } = fakePorts({ hangAt: "digest" });
+    const running = runDocumentSigning(runArgs(ports, abort.signal));
+    await vi.waitFor(() => {
+      expect(calls).toContain("digest");
+    });
+    abort.abort();
+    await expect(running).rejects.toMatchObject({ name: "AbortError" });
+    expect(calls).not.toContain("complete");
+    expect(calls).not.toContain("sign");
+    expect(completeInputs).toEqual([]);
+  });
+
+  it("abort during PUT does not complete", async () => {
+    const abort = new AbortController();
+    const { ports, calls, completeInputs } = fakePorts({ hangAt: "put" });
+    const running = runDocumentSigning(runArgs(ports, abort.signal));
+    await vi.waitFor(() => {
+      expect(calls).toContain("put");
+    });
+    abort.abort();
+    await expect(running).rejects.toMatchObject({ name: "AbortError" });
+    expect(calls).toContain("put");
+    expect(calls).not.toContain("complete");
+    expect(completeInputs).toEqual([]);
+  });
+
+  it("does not invoke complete when abort wins after PUT resolves", async () => {
+    const abort = new AbortController();
+    const base = fakePorts({});
+    const ports: DocumentSigningPorts = {
+      ...base.ports,
+      putAsic: async (putArgs) => {
+        await base.ports.putAsic(putArgs);
+        abort.abort();
+      },
+    };
+    await expect(
+      runDocumentSigning(runArgs(ports, abort.signal)),
+    ).rejects.toMatchObject({ name: "AbortError" });
+    expect(base.calls).toContain("put");
+    expect(base.calls).not.toContain("complete");
+    expect(base.completeInputs).toEqual([]);
+  });
+
+  it("closing the sheet aborts in-flight work", async () => {
+    const handle = createDocumentSigningAbort();
+    const signal = handle.begin();
+    const { ports, calls, completeInputs } = fakePorts({
+      hangAt: "download",
+    });
+    const running = runDocumentSigning(runArgs(ports, signal));
+    await vi.waitFor(() => {
+      expect(calls).toContain("download");
+    });
+    handle.abort();
+    await expect(running).rejects.toMatchObject({ name: "AbortError" });
+    expect(signal.aborted).toBe(true);
+    expect(calls).not.toContain("complete");
+    expect(calls).not.toContain("inspect");
+    expect(completeInputs).toEqual([]);
+  });
+});
+
+describe("sheet close abort wiring", () => {
+  it("closeSheet and onSheetHidden abort the handle the pipeline runs on", () => {
+    expect(HOOK_SOURCE).toContain("createDocumentSigningAbort");
+    expect(HOOK_SOURCE).toMatch(
+      /closeSheet:\s*\(\)\s*=>\s*\{[^}]*abortHandleRef\.current\.abort\(\)/,
+    );
+    expect(HOOK_SOURCE).toMatch(
+      /onSheetHidden:\s*\(\)\s*=>\s*\{[^}]*abortHandleRef\.current\.abort\(\)/,
+    );
+    expect(HOOK_SOURCE).not.toContain("console.log");
   });
 });
 

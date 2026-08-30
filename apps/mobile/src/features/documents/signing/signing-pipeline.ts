@@ -1,8 +1,10 @@
 /**
  * On-device QES pipeline (SHO-260). Ports keep Nitro / fetch / PUT out of
- * Vitest. Complete input is `{ requestId, fileId }` only — never ASiC
- * bytes or base64. Signed URLs, key bytes, and passwords never live on
- * returned state.
+ * Vitest. AbortSignal is honored on download, digest, Nitro sign/pack,
+ * handshake PUT, and immediately before `docSigning.complete` — dismiss
+ * must not sign in the background. Complete input is `{ requestId, fileId }`
+ * only — never ASiC bytes or base64. Signed URLs, key bytes, and passwords
+ * never live on returned state.
  */
 import type { MutationAttempt, MutationCallOptions } from "@showzy/contract";
 
@@ -65,7 +67,10 @@ export type DocumentSigningPorts = {
     input: { readonly documentId: string },
     options: MutationCallOptions,
   ) => Promise<SigningStartOutput>;
-  readonly downloadPayload: (url: string) => Promise<Uint8Array>;
+  readonly downloadPayload: (
+    url: string,
+    signal: AbortSignal,
+  ) => Promise<Uint8Array>;
   readonly sha256Hex: (bytes: Uint8Array) => Promise<string>;
   readonly inspectKey: (args: {
     readonly keyBytes: Uint8Array;
@@ -118,6 +123,61 @@ export type RunDocumentSigningArgs = {
   readonly onCertCommonName?: (commonName: string) => void;
 };
 
+function signingAbortError(signal: AbortSignal): Error {
+  const reason = signal.reason;
+  if (reason instanceof Error) {
+    return reason;
+  }
+  const error = new Error("aborted");
+  error.name = "AbortError";
+  return error;
+}
+
+export function throwIfSigningAborted(signal: AbortSignal): void {
+  if (signal.aborted) {
+    throw signingAbortError(signal);
+  }
+}
+
+export async function raceSigningAbort<T>(
+  promise: Promise<T>,
+  signal: AbortSignal,
+): Promise<T> {
+  throwIfSigningAborted(signal);
+  let onAbort: (() => void) | undefined;
+  try {
+    const value = await new Promise<T>((resolve, reject) => {
+      onAbort = () => {
+        reject(signingAbortError(signal));
+      };
+      signal.addEventListener("abort", onAbort);
+      promise.then(resolve, reject);
+    });
+    throwIfSigningAborted(signal);
+    return value;
+  } finally {
+    if (onAbort !== undefined) {
+      signal.removeEventListener("abort", onAbort);
+    }
+  }
+}
+
+export function createDocumentSigningAbort(): {
+  readonly begin: () => AbortSignal;
+  readonly abort: () => void;
+} {
+  let controller: AbortController | null = null;
+  return {
+    begin: () => {
+      controller = new AbortController();
+      return controller.signal;
+    },
+    abort: () => {
+      controller?.abort();
+    },
+  };
+}
+
 export function mapSigningFailure(error: unknown): SigningBannerKey {
   if (error instanceof SigningPasswordError) {
     return "password";
@@ -152,28 +212,38 @@ export function bannerFromQueryKind(kind: QueryFailureKind): SigningBannerKey {
 export async function runDocumentSigning(
   args: RunDocumentSigningArgs,
 ): Promise<SigningCompleteOutput> {
+  throwIfSigningAborted(args.signal);
   args.onPhase("starting");
   const startAttempt = args.ports.createAttempt();
-  const started = await args.ports.start(
-    { documentId: args.documentId },
-    startAttempt.options,
+  const started = await raceSigningAbort(
+    args.ports.start({ documentId: args.documentId }, startAttempt.options),
+    args.signal,
   );
 
   args.onPhase("downloading");
-  const payload = await args.ports.downloadPayload(started.payloadDownloadUrl);
+  const payload = await raceSigningAbort(
+    args.ports.downloadPayload(started.payloadDownloadUrl, args.signal),
+    args.signal,
+  );
   if (payload.byteLength < 1 || payload.byteLength > MAX_SIGNING_BYTES) {
     throw new SigningAsicPackError("payload");
   }
-  const actualDigest = await args.ports.sha256Hex(payload);
+  const actualDigest = await raceSigningAbort(
+    args.ports.sha256Hex(payload),
+    args.signal,
+  );
   if (actualDigest !== started.payloadSha256) {
     throw new SigningDigestMismatchError();
   }
 
   args.onPhase("digesting");
-  const inspected = await args.ports.inspectKey({
-    keyBytes: args.keyBytes,
-    password: args.password,
-  });
+  const inspected = await raceSigningAbort(
+    args.ports.inspectKey({
+      keyBytes: args.keyBytes,
+      password: args.password,
+    }),
+    args.signal,
+  );
   if (
     args.onCertCommonName !== undefined &&
     inspected.certCommonName.length > 0
@@ -181,7 +251,10 @@ export async function runDocumentSigning(
     args.onCertCommonName(inspected.certCommonName);
   }
   const hashOid = hashOidForCertAlgorithm(inspected.certAlgorithm);
-  const digestB64 = await args.ports.digestPayload(payload, hashOid);
+  const digestB64 = await raceSigningAbort(
+    args.ports.digestPayload(payload, hashOid),
+    args.signal,
+  );
   const digestUri = xmlDigestUriForHashOid(hashOid);
 
   args.onPhase("signing");
@@ -192,43 +265,62 @@ export async function runDocumentSigning(
       digestB64,
     }),
   );
-  const signature = await args.ports.signManifest({
-    keyBytes: args.keyBytes,
-    password: args.password,
-    manifest: manifestBytes,
-  });
+  const signature = await raceSigningAbort(
+    args.ports.signManifest({
+      keyBytes: args.keyBytes,
+      password: args.password,
+      manifest: manifestBytes,
+    }),
+    args.signal,
+  );
 
+  throwIfSigningAborted(args.signal);
   const asic = packSignedAsicE({
     payload,
     digestUri,
     digestB64,
     signature,
   });
-  const checksumSha256 = await args.ports.sha256Hex(asic);
+  const checksumSha256 = await raceSigningAbort(
+    args.ports.sha256Hex(asic),
+    args.signal,
+  );
 
   args.onPhase("uploading");
   const uploadAttempt = args.ports.createAttempt();
-  const requested = await args.ports.requestSigningUpload(
-    {
-      purpose: SIGNING_PURPOSE,
-      mimeType: SIGNING_MIME_TYPE,
-      byteSize: asic.byteLength,
-      checksumSha256,
-    },
-    uploadAttempt.options,
+  const requested = await raceSigningAbort(
+    args.ports.requestSigningUpload(
+      {
+        purpose: SIGNING_PURPOSE,
+        mimeType: SIGNING_MIME_TYPE,
+        byteSize: asic.byteLength,
+        checksumSha256,
+      },
+      uploadAttempt.options,
+    ),
+    args.signal,
   );
-  const signedPut = await args.ports.getSigningUploadUrl({
-    fileId: requested.fileId,
-  });
-  await args.ports.putAsic({
-    bytes: asic,
-    uploadUrl: signedPut.uploadUrl,
-    mimeType: SIGNING_MIME_TYPE,
-    signal: args.signal,
-  });
+  const signedPut = await raceSigningAbort(
+    args.ports.getSigningUploadUrl({
+      fileId: requested.fileId,
+    }),
+    args.signal,
+  );
+  await raceSigningAbort(
+    args.ports.putAsic({
+      bytes: asic,
+      uploadUrl: signedPut.uploadUrl,
+      mimeType: SIGNING_MIME_TYPE,
+      signal: args.signal,
+    }),
+    args.signal,
+  );
 
+  throwIfSigningAborted(args.signal);
   args.onPhase("completing");
+  throwIfSigningAborted(args.signal);
   const completeAttempt = args.ports.createAttempt();
+  throwIfSigningAborted(args.signal);
   return args.ports.complete(
     { requestId: started.requestId, fileId: requested.fileId },
     completeAttempt.options,

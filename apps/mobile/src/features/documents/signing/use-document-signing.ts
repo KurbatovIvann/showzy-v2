@@ -25,7 +25,9 @@ import {
 import { createDocumentSigningEngine } from "./document-signing-runtime";
 import { pkiProxyUrl } from "./pki-proxy-url";
 import {
+  createDocumentSigningAbort,
   mapSigningFailure,
+  raceSigningAbort,
   runDocumentSigning,
   type DocumentSigningPorts,
 } from "./signing-pipeline";
@@ -55,7 +57,7 @@ export function useDocumentSigning(args: {
     IDLE_SIGNING_SESSION,
   );
   const keyBytesRef = useRef<Uint8Array | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
+  const abortHandleRef = useRef(createDocumentSigningAbort());
   const hitlBusyRef = useRef(false);
   const [hitlBanner, setHitlBanner] = useState<string | null>(null);
 
@@ -158,11 +160,11 @@ export function useDocumentSigning(args: {
     pending: requestSignMutation.isPending || signingSessionIsBusy(session),
     requestSignAndOpen,
     closeSheet: () => {
-      abortRef.current?.abort();
+      abortHandleRef.current.abort();
       dispatch({ type: "hide" });
     },
     onSheetHidden: () => {
-      abortRef.current?.abort();
+      abortHandleRef.current.abort();
       clearKey();
       dispatch({ type: "hidden" });
     },
@@ -191,16 +193,15 @@ export function useDocumentSigning(args: {
         return;
       }
       dispatch({ type: "begin" });
-      const abort = new AbortController();
-      abortRef.current = abort;
+      const signal = abortHandleRef.current.begin();
       try {
-        const ports = await portsFor();
+        const ports = await raceSigningAbort(portsFor(), signal);
         await runDocumentSigning({
           documentId: session.documentId,
           keyBytes,
           password: session.password,
           ports,
-          signal: abort.signal,
+          signal,
           onPhase: (phase) => {
             dispatch({ type: "phase", phase });
           },
@@ -215,7 +216,7 @@ export function useDocumentSigning(args: {
           companyId: activeCompanyId,
         });
       } catch (error: unknown) {
-        if (abort.signal.aborted) {
+        if (signal.aborted) {
           return;
         }
         dispatch({ type: "fail", banner: mapSigningFailure(error) });

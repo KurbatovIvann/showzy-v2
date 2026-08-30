@@ -47,8 +47,11 @@ export async function pickSigningKey(): Promise<PickedSigningKey> {
   return { kind: "picked", fileName, bytes };
 }
 
-export async function downloadSigningPayload(url: string): Promise<Uint8Array> {
-  const response = await fetch(url);
+export async function downloadSigningPayload(
+  url: string,
+  signal: AbortSignal,
+): Promise<Uint8Array> {
+  const response = await fetch(url, { signal });
   if (!response.ok) {
     throw new TypeError("Failed to fetch");
   }

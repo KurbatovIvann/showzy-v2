@@ -5,6 +5,7 @@ import {
   IDLE_SIGNING_SESSION,
   reduceSigningSession,
   signingSessionCanSubmit,
+  signingSessionIsBusy,
   type SigningSessionContext,
 } from "./signing-session";
 
@@ -72,6 +73,24 @@ describe("reduceSigningSession", () => {
     expect(store.getContext().visible).toBe(false);
     expect(JSON.stringify(store.getContext())).not.toContain("secret-once");
     expect(store.getContext()).not.toHaveProperty("keyBytes");
+  });
+
+  it("hides while the pipeline is busy so the sheet can abort in-flight work", () => {
+    let state = opened();
+    state = reduceSigningSession(state, {
+      type: "setFileName",
+      fileName: "owner.p12",
+    });
+    state = reduceSigningSession(state, {
+      type: "setPassword",
+      password: "one",
+    });
+    state = reduceSigningSession(state, { type: "begin" });
+    expect(signingSessionIsBusy(state)).toBe(true);
+    const hidden = reduceSigningSession(state, { type: "hide" });
+    expect(hidden.visible).toBe(false);
+    expect(signingSessionIsBusy(hidden)).toBe(true);
+    expect(hidden.documentId).toBe(DOCUMENT_ID);
   });
 
   it("blocks password edits while the pipeline is busy", () => {
