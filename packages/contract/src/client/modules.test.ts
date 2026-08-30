@@ -47,6 +47,7 @@ import {
   listDocumentsContract,
   shareDocumentContract,
 } from "@showzy/documents/contract";
+import { getSigningContract } from "@showzy/doc-signing/contract";
 import {
   finalizeUploadContract,
   getDownloadUrlContract,
@@ -88,7 +89,7 @@ import {
 import { contractModules, contractRouter } from "./modules.js";
 
 describe("client composition", () => {
-  it("exposes client catalog, chat, companies, customers, documents, files, invites, orders, and pricing actions and no internal facts actions", () => {
+  it("exposes client catalog, chat, companies, customers, documents, docSigning, files, invites, orders, and pricing actions and no internal facts actions", () => {
     expect(contractModules).toEqual({
       catalog: {
         createProduct: createProductContract,
@@ -138,6 +139,9 @@ describe("client composition", () => {
         getShared: getSharedContract,
         list: listDocumentsContract,
         share: shareDocumentContract,
+      },
+      docSigning: {
+        get: getSigningContract,
       },
       files: {
         requestUpload: requestUploadContract,
@@ -225,6 +229,11 @@ describe("client composition", () => {
     expect(contractRouter.documents.getShared).toBeDefined();
     expect(contractRouter.documents.list).toBeDefined();
     expect(contractRouter.documents.share).toBeDefined();
+    expect(contractRouter.docSigning.get).toBeDefined();
+    expect(contractModules.docSigning).not.toHaveProperty(
+      "getSupplierSignedFlags",
+    );
+    expect(contractModules.docSigning).not.toHaveProperty("abandonRequest");
     expect(contractRouter.files.requestUpload).toBeDefined();
     expect(contractRouter.files.getUploadUrl).toBeDefined();
     expect(contractRouter.files.finalizeUpload).toBeDefined();
