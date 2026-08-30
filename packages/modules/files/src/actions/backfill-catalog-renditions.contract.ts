@@ -1,34 +1,32 @@
 /**
  * System backfill of named catalog WebP renditions (SHO-248 / files-T16).
- * Global system write, internal, audited, idempotent. Empty input pages
- * ready `purpose=catalog` files whose derived keys are missing; `limit`
- * only bounds how many files receive PutObject work per tick. Keys are
- * derived from each row's `companyId`, never from input. `companyId` is
- * not an input field.
+ * Global system write, internal, audited, idempotent. Empty input inspects
+ * one page of ready `purpose=catalog` files whose derived keys are missing;
+ * `limit` only bounds how many files receive PutObject work in that page.
+ * Keys are derived from each row's `companyId`, never from input.
+ * `companyId` is not an input field.
  *
  * Mechanical choices the feature card left unnamed:
  * - `timeout: 30000` covers Head+Get+sharp+Put for a fill batch of 20
  *   on Garage (same ceiling as `files.sweepAbandonedUploads`). HeadObject
  *   for a SQL page of 20 runs concurrently so already-complete files do
  *   not serialize the tick past the deadline.
- * - Batch default is 20. Optional `limit` bounds how many files receive
- *   PutObject work, not how many ready catalog rows are examined. SQL
- *   pages stay 20 even when `limit` is 1 so a tick walks past completes
- *   (OFFSET, not a timestamptz keyset — JS Date drops microseconds and
- *   would livelock on the last row). The inherited idempotency suite
- *   conflicts on a different payload.
- * - Already-complete files (all four keys present) are no-ops and do
- *   not consume the fill budget, so a tick can walk past them to files
- *   that still need work. Missing originals and undecodable bytes are
- *   skipped and logged without consuming the fill budget, so one bad
- *   file cannot starve the rest of the catalog.
+ * - Each invocation inspects one SQL page of 20 (OFFSET 0) and returns —
+ *   the sweep golden. Completes in that page do not consume fill budget
+ *   and must not scan further pages in the same tick. Optional `limit`
+ *   bounds PutObject fills within that page (idempotency conflict payload).
+ *   A later fillable row still inside the page is picked up on a
+ *   subsequent tick.
+ * - Missing originals and undecodable bytes are skipped and logged
+ *   without consuming the fill budget, so one bad file cannot starve
+ *   the rest of the inspected page.
  * - Output is counts. Object keys, URLs, and file ids are omitted
  *   (security-operations.md §3).
  */
 import { defineActionContract } from "@showzy/core/contract";
 import { z } from "zod";
 
-/** Bounded fill size; a later tick walks past completes with OFFSET pages. */
+/** Inspect page and default fill size; one page per invocation. */
 export const BACKFILL_BATCH_LIMIT = 20;
 
 export const backfillCatalogRenditionsInputSchema = z.object({
@@ -45,7 +43,7 @@ export const backfillCatalogRenditionsOutputSchema = z.object({
 export const backfillCatalogRenditionsContract = defineActionContract({
   name: "files.backfillCatalogRenditions",
   description:
-    "Backfill named catalog WebP renditions for ready purpose=catalog files whose derived keys are missing. Discovers ready catalog rows across companies in one bounded fill batch. Reuses the finalize encode pipeline (pixel cap, EXIF bake, no upscale, metadata stripping). Puts only missing {companyId}/catalog/{fileId}/{thumb|card|hero|full} objects. Does not rewrite originals, checksums, byte_size, object_key, or status. Skips purpose=document. Missing originals and undecodable bytes are skipped and logged so the rest of the page still completes. Object keys and URLs are never returned.",
+    "Backfill named catalog WebP renditions for ready purpose=catalog files whose derived keys are missing. Inspects one bounded page of ready catalog rows across companies per invocation and returns. Reuses the finalize encode pipeline (pixel cap, EXIF bake, no upscale, metadata stripping). Puts only missing {companyId}/catalog/{fileId}/{thumb|card|hero|full} objects. Does not rewrite originals, checksums, byte_size, object_key, or status. Skips purpose=document. Missing originals and undecodable bytes are skipped and logged so the rest of the page still completes. Object keys and URLs are never returned.",
   principal: "system",
   systemScope: "global",
   transport: "internal",

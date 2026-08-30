@@ -32,6 +32,9 @@ describe("files.backfillCatalogRenditions contract", () => {
     expect(backfillCatalogRenditionsContract.description).toContain(
       "Does not rewrite originals",
     );
+    expect(backfillCatalogRenditionsContract.description).toContain(
+      "one bounded page",
+    );
   });
 
   it("accepts an optional batch limit and never returns a URL, object key, or file id", () => {

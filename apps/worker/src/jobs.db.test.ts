@@ -1053,6 +1053,7 @@ describe("apps/worker backfillCatalogRenditions scheduler (SHO-248)", () => {
       mimeType: "image/png",
       byteSize: pngBytes.byteLength,
       stagingPurgedAt: new Date(0),
+      createdAt: new Date("1900-01-01T00:00:00.000Z"),
     });
     const booted = await bootBackfillHost();
     try {
@@ -1108,6 +1109,7 @@ describe("apps/worker backfillCatalogRenditions scheduler (SHO-248)", () => {
       mimeType: "image/png",
       byteSize: pngBytes.byteLength,
       stagingPurgedAt: new Date(0),
+      createdAt: new Date("1900-01-01T00:00:00.000Z"),
     });
     const booted = await bootBackfillHost(logger);
     try {

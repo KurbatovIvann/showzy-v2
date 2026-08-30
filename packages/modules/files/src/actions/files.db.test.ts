@@ -2772,14 +2772,16 @@ describe("files.backfillCatalogRenditions", () => {
     return row;
   }
 
-  async function drainFillableCatalogRenditions(): Promise<void> {
-    for (let attempt = 0; attempt < 50; attempt += 1) {
-      const result = await requireKit().invoke(backfillCatalogRenditions, {});
-      if (result.filled === 0) {
-        return;
-      }
-    }
-    throw new Error("catalog rendition backfill drain did not empty the batch");
+  // Each call is 1s older than the last so a newly seeded row sorts into
+  // the OFFSET-0 inspect page ahead of leftover ready catalog files.
+  let inspectFrontSeq = 0;
+  function createdAtAtInspectFront(): Date {
+    inspectFrontSeq += 1;
+    return new Date(Date.UTC(1900, 0, 1) - inspectFrontSeq * 1000);
+  }
+
+  async function drainInspectPage(): Promise<void> {
+    await requireKit().invoke(backfillCatalogRenditions, {});
   }
 
   async function seedReadyCatalogOriginal(input: {
@@ -2800,7 +2802,7 @@ describe("files.backfillCatalogRenditions", () => {
       mimeType,
       bytes,
       checksumSha256: sha256Hex(bytes),
-      ...(input.createdAt !== undefined ? { createdAt: input.createdAt } : {}),
+      createdAt: input.createdAt ?? createdAtAtInspectFront(),
     });
     await putStoreObject(
       catalogObjectKey(input.companyId, id),
@@ -2825,7 +2827,7 @@ describe("files.backfillCatalogRenditions", () => {
   }
 
   it("fills four renditions for a ready catalog file and leaves the original unchanged", async () => {
-    await drainFillableCatalogRenditions();
+    await drainInspectPage();
     const fileId = await seedReadyCatalogOriginal({
       companyId: kitIdentities.companies.a,
       uploadedByUserId: kitIdentities.users.anna,
@@ -2868,35 +2870,39 @@ describe("files.backfillCatalogRenditions", () => {
   });
 
   it("is a no-op when all four keys already exist and does not rewrite bytes", async () => {
-    await drainFillableCatalogRenditions();
-    const ready = await requestPutFinalize(jpegBytes, "image/jpeg");
+    await drainInspectPage();
+    const fileId = await seedReadyCatalogOriginal({
+      companyId: kitIdentities.companies.a,
+      uploadedByUserId: kitIdentities.users.anna,
+    });
+    await putCatalogRenditionObjects(kitIdentities.companies.a, fileId);
     const originalBefore = await getFilesObjectStore().getObject(
-      catalogObjectKey(kitIdentities.companies.a, ready.fileId),
+      catalogObjectKey(kitIdentities.companies.a, fileId),
     );
     if (originalBefore === "missing") {
       throw new Error("expected original before no-op backfill");
     }
     const renditionHashes = {
       thumb: sha256Hex(
-        await renditionBytes(kitIdentities.companies.a, ready.fileId, "thumb"),
+        await renditionBytes(kitIdentities.companies.a, fileId, "thumb"),
       ),
       card: sha256Hex(
-        await renditionBytes(kitIdentities.companies.a, ready.fileId, "card"),
+        await renditionBytes(kitIdentities.companies.a, fileId, "card"),
       ),
       hero: sha256Hex(
-        await renditionBytes(kitIdentities.companies.a, ready.fileId, "hero"),
+        await renditionBytes(kitIdentities.companies.a, fileId, "hero"),
       ),
       full: sha256Hex(
-        await renditionBytes(kitIdentities.companies.a, ready.fileId, "full"),
+        await renditionBytes(kitIdentities.companies.a, fileId, "full"),
       ),
     };
-    const rowBefore = await catalogRow(ready.fileId);
+    const rowBefore = await catalogRow(fileId);
 
     const result = await requireKit().invoke(backfillCatalogRenditions, {});
     expect(result.filled).toBe(0);
 
     const originalAfter = await getFilesObjectStore().getObject(
-      catalogObjectKey(kitIdentities.companies.a, ready.fileId),
+      catalogObjectKey(kitIdentities.companies.a, fileId),
     );
     if (originalAfter === "missing") {
       throw new Error("expected original after no-op backfill");
@@ -2906,29 +2912,29 @@ describe("files.backfillCatalogRenditions", () => {
     );
     expect(
       sha256Hex(
-        await renditionBytes(kitIdentities.companies.a, ready.fileId, "thumb"),
+        await renditionBytes(kitIdentities.companies.a, fileId, "thumb"),
       ),
     ).toBe(renditionHashes.thumb);
     expect(
       sha256Hex(
-        await renditionBytes(kitIdentities.companies.a, ready.fileId, "card"),
+        await renditionBytes(kitIdentities.companies.a, fileId, "card"),
       ),
     ).toBe(renditionHashes.card);
     expect(
       sha256Hex(
-        await renditionBytes(kitIdentities.companies.a, ready.fileId, "hero"),
+        await renditionBytes(kitIdentities.companies.a, fileId, "hero"),
       ),
     ).toBe(renditionHashes.hero);
     expect(
       sha256Hex(
-        await renditionBytes(kitIdentities.companies.a, ready.fileId, "full"),
+        await renditionBytes(kitIdentities.companies.a, fileId, "full"),
       ),
     ).toBe(renditionHashes.full);
-    expect(await catalogRow(ready.fileId)).toEqual(rowBefore);
+    expect(await catalogRow(fileId)).toEqual(rowBefore);
   });
 
   it("fills missing renditions on a partial set without rewriting thumb or original", async () => {
-    await drainFillableCatalogRenditions();
+    await drainInspectPage();
     const fileId = await seedReadyCatalogOriginal({
       companyId: kitIdentities.companies.a,
       uploadedByUserId: kitIdentities.users.anna,
@@ -2998,7 +3004,7 @@ describe("files.backfillCatalogRenditions", () => {
   });
 
   it("writes rendition keys under each row company prefix, never into the other tenant", async () => {
-    await drainFillableCatalogRenditions();
+    await drainInspectPage();
     const fileA = await seedReadyCatalogOriginal({
       companyId: kitIdentities.companies.a,
       uploadedByUserId: kitIdentities.users.anna,
@@ -3044,7 +3050,7 @@ describe("files.backfillCatalogRenditions", () => {
   });
 
   it("replays the same idempotency key without rewriting objects", async () => {
-    await drainFillableCatalogRenditions();
+    await drainInspectPage();
     const fileId = await seedReadyCatalogOriginal({
       companyId: kitIdentities.companies.a,
       uploadedByUserId: kitIdentities.users.anna,
@@ -3093,17 +3099,19 @@ describe("files.backfillCatalogRenditions", () => {
     ).rejects.toBeInstanceOf(ValidationError);
   });
 
-  it("fills one file per bounded page and continues on the next tick", async () => {
-    await drainFillableCatalogRenditions();
+  it("fills one file per fill budget and continues on the next tick", async () => {
+    await drainInspectPage();
+    const newerCreatedAt = createdAtAtInspectFront();
+    const olderCreatedAt = createdAtAtInspectFront();
     const older = await seedReadyCatalogOriginal({
       companyId: kitIdentities.companies.a,
       uploadedByUserId: kitIdentities.users.anna,
-      createdAt: new Date("2020-01-01T00:00:00.000Z"),
+      createdAt: olderCreatedAt,
     });
     const newer = await seedReadyCatalogOriginal({
       companyId: kitIdentities.companies.a,
       uploadedByUserId: kitIdentities.users.anna,
-      createdAt: new Date("2020-01-02T00:00:00.000Z"),
+      createdAt: newerCreatedAt,
     });
 
     const first = await requireKit().invoke(backfillCatalogRenditions, {
@@ -3120,8 +3128,44 @@ describe("files.backfillCatalogRenditions", () => {
     await expectCatalogRenditions(kitIdentities.companies.a, newer, "present");
   });
 
+  it("does not inspect past the first SQL page in one tick", async () => {
+    await drainInspectPage();
+    const laterCreatedAt = createdAtAtInspectFront();
+    const completeCreatedAt = Array.from(
+      { length: BACKFILL_BATCH_LIMIT + 1 },
+      () => createdAtAtInspectFront(),
+    );
+    await Promise.all(
+      completeCreatedAt.map(async (createdAt) => {
+        const fileId = randomUUID();
+        await insertFileRow({
+          id: fileId,
+          companyId: kitIdentities.companies.a,
+          uploadedByUserId: kitIdentities.users.anna,
+          status: "ready",
+          createdAt,
+        });
+        await putCatalogRenditionObjects(kitIdentities.companies.a, fileId);
+      }),
+    );
+    const laterId = await seedReadyCatalogOriginal({
+      companyId: kitIdentities.companies.a,
+      uploadedByUserId: kitIdentities.users.anna,
+      createdAt: laterCreatedAt,
+    });
+
+    const result = await requireKit().invoke(backfillCatalogRenditions, {});
+    expect(result.filled).toBe(0);
+    expect(result.alreadyComplete).toBe(BACKFILL_BATCH_LIMIT);
+    await expectCatalogRenditions(
+      kitIdentities.companies.a,
+      laterId,
+      "missing",
+    );
+  });
+
   it("skips an undecodable original and still fills the rest of the page", async () => {
-    await drainFillableCatalogRenditions();
+    await drainInspectPage();
     const over = 8001;
     const bomb = pngWithIhdrDimensions(over, over);
     const badId = await seedReadyCatalogOriginal({
@@ -3129,12 +3173,10 @@ describe("files.backfillCatalogRenditions", () => {
       uploadedByUserId: kitIdentities.users.anna,
       bytes: bomb,
       mimeType: "image/png",
-      createdAt: new Date("2019-01-01T00:00:00.000Z"),
     });
     const goodId = await seedReadyCatalogOriginal({
       companyId: kitIdentities.companies.a,
       uploadedByUserId: kitIdentities.users.anna,
-      createdAt: new Date("2019-01-02T00:00:00.000Z"),
     });
     const capturing = createCapturingLogger();
     const result = await requireKit().invoke(
@@ -3159,19 +3201,18 @@ describe("files.backfillCatalogRenditions", () => {
   });
 
   it("skips a missing original without writing a half-complete rendition set", async () => {
-    await drainFillableCatalogRenditions();
+    await drainInspectPage();
     const fileId = randomUUID();
     await insertFileRow({
       id: fileId,
       companyId: kitIdentities.companies.a,
       uploadedByUserId: kitIdentities.users.anna,
       status: "ready",
-      createdAt: new Date("2018-01-01T00:00:00.000Z"),
+      createdAt: createdAtAtInspectFront(),
     });
     const goodId = await seedReadyCatalogOriginal({
       companyId: kitIdentities.companies.a,
       uploadedByUserId: kitIdentities.users.anna,
-      createdAt: new Date("2018-01-02T00:00:00.000Z"),
     });
     const capturing = createCapturingLogger();
     const result = await requireKit().invoke(

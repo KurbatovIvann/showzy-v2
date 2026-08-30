@@ -54,54 +54,45 @@ export async function runCatalogRenditionBackfill(input: {
   let alreadyComplete = 0;
   let skippedMissingOriginal = 0;
   let skippedUndecodable = 0;
-  let offset = 0;
 
-  // SQL pages are always BACKFILL_BATCH_LIMIT so a tick with `limit: 1`
-  // still walks past already-complete files. Completes do not consume
-  // fill budget — otherwise the oldest 20 ready rows would starve later
-  // legacy files once T15 had filled them. Offset paging is required
-  // inside a tick: JS Date drops timestamptz microseconds, so a
-  // `(createdAt, id)` keyset re-selects the last row forever and the
-  // 30s pipeline deadline fires. HeadObject for a page runs concurrently;
-  // Get/encode/Put stays per-file so one failure cannot leave a different
-  // file half-written in the same tick.
-  while (filled < fillBudget) {
+  // One SQL inspect page per invocation (files.sweepAbandonedUploads
+  // golden: one bounded batch, then return). Completes in this page are
+  // no-ops and do not consume fill budget; they must not trigger another
+  // page in the same tick. OFFSET 0 every tick keeps HeadObject work
+  // O(page), not O(catalog). A later fillable row in this same page is
+  // picked up on a subsequent tick after the fill budget is spent.
+  // HeadObject for the page runs concurrently; Get/encode/Put stays
+  // per-file so one failure cannot leave a different file half-written.
+  throwIfAborted(input.ctx);
+  const page = await loadReadyCatalogPage({
+    db,
+    limit: BACKFILL_BATCH_LIMIT,
+  });
+  const inspected = await inspectCatalogPage({ store, page });
+  for (const item of inspected) {
     throwIfAborted(input.ctx);
-    const page = await loadReadyCatalogPage({
-      db,
-      offset,
-      limit: BACKFILL_BATCH_LIMIT,
+    const outcome = await backfillReadyCatalogFile({
+      ctx: input.ctx,
+      store,
+      row: item.row,
+      missing: item.missing,
     });
-    if (page.length === 0) {
-      break;
-    }
-    offset += page.length;
-    const inspected = await inspectCatalogPage({ store, page });
-    for (const item of inspected) {
-      throwIfAborted(input.ctx);
-      const outcome = await backfillReadyCatalogFile({
-        ctx: input.ctx,
-        store,
-        row: item.row,
-        missing: item.missing,
-      });
-      switch (outcome) {
-        case "filled":
-          filled += 1;
-          break;
-        case "already_complete":
-          alreadyComplete += 1;
-          break;
-        case "missing_original":
-          skippedMissingOriginal += 1;
-          break;
-        case "undecodable":
-          skippedUndecodable += 1;
-          break;
-      }
-      if (filled >= fillBudget) {
+    switch (outcome) {
+      case "filled":
+        filled += 1;
         break;
-      }
+      case "already_complete":
+        alreadyComplete += 1;
+        break;
+      case "missing_original":
+        skippedMissingOriginal += 1;
+        break;
+      case "undecodable":
+        skippedUndecodable += 1;
+        break;
+    }
+    if (filled >= fillBudget) {
+      break;
     }
   }
 
@@ -125,7 +116,6 @@ export async function runCatalogRenditionBackfill(input: {
 
 async function loadReadyCatalogPage(input: {
   readonly db: WritableDb;
-  readonly offset: number;
   readonly limit: number;
 }): Promise<readonly FileRow[]> {
   return input.db
@@ -133,8 +123,7 @@ async function loadReadyCatalogPage(input: {
     .from(files)
     .where(and(eq(files.status, "ready"), eq(files.purpose, "catalog")))
     .orderBy(asc(files.createdAt), asc(files.id))
-    .limit(input.limit)
-    .offset(input.offset);
+    .limit(input.limit);
 }
 
 async function inspectCatalogPage(input: {
