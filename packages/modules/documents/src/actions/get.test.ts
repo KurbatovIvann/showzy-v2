@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
+import { documentViewSchema } from "./document-view.contract.js";
 import {
   getDocumentContract,
   getDocumentInputSchema,
@@ -48,6 +49,7 @@ describe("documents.get contract", () => {
       "items",
       "orderId",
       "pdfDownloadUrl",
+      "signRequestedAt",
       "signing",
       "status",
       "supplierDetails",
@@ -58,6 +60,9 @@ describe("documents.get contract", () => {
       "totalTaxMinor",
       "type",
     ]);
+    expect(Object.keys(documentViewSchema.shape)).not.toContain(
+      "signRequestedAt",
+    );
   });
 
   it("accepts documentId and rejects companyId and extra identifiers", () => {

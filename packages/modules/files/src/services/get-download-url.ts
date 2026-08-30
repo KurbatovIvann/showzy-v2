@@ -12,6 +12,7 @@ import {
   requireDeclaredMime,
   requireDocumentMime,
   requireSigningMime,
+  toDocumentReadyView,
 } from "./file-view.js";
 import {
   catalogObjectKey,
@@ -36,6 +37,10 @@ type SignedDownload = {
   readonly fileId: string;
   readonly downloadUrl: string;
   readonly expiresAt: string;
+};
+
+type DocumentSignedDownload = SignedDownload & {
+  readonly checksumSha256: string;
 };
 
 type ReadyFileRow = {
@@ -213,7 +218,7 @@ export async function getStaffDownloadUrls(input: {
 export async function getStaffDocumentDownloadUrl(input: {
   readonly ctx: StaffCtx;
   readonly input: DocumentDownloadInput;
-}): Promise<SignedDownload> {
+}): Promise<DocumentSignedDownload> {
   const rows = await input.ctx.db
     .select()
     .from(files)
@@ -231,9 +236,11 @@ export async function getStaffDocumentDownloadUrl(input: {
     throw new NotFoundError();
   }
 
-  return signReadyDocumentGet(
+  const checksumSha256 = toDocumentReadyView(row).checksumSha256;
+  const signed = await signReadyDocumentGet(
     requireDocumentObjectKey(input.ctx.companyId, row),
   );
+  return { ...signed, checksumSha256 };
 }
 
 async function getReadySigningDownloadUrl(input: {

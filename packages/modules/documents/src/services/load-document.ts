@@ -21,6 +21,11 @@ type ReadableDb =
   | Extract<ActionCtx, { principal: "public"; scope: "target" }>["db"];
 type DocumentView = z.output<typeof documentViewSchema>;
 
+export type StaffDocumentRecord = {
+  readonly view: DocumentView;
+  readonly signRequestedAt: string | null;
+};
+
 function parseType(value: string): z.output<typeof documentTypeSchema> {
   const parsed = documentTypeSchema.safeParse(value);
   if (!parsed.success) {
@@ -89,11 +94,11 @@ function parseBuyer(value: unknown): z.output<typeof buyerDetailsSchema> {
   return parsed.data;
 }
 
-export async function loadStaffDocument(env: {
+async function loadStaffDocumentRecord(env: {
   readonly db: ReadableDb;
   readonly companyId: string;
   readonly documentId: string;
-}): Promise<DocumentView> {
+}): Promise<StaffDocumentRecord> {
   const headerRows = await env.db
     .select()
     .from(documents)
@@ -127,38 +132,65 @@ export async function loadStaffDocument(env: {
   }
 
   return {
-    documentId: header.id,
-    orderId: header.orderId,
-    counterpartyId: header.counterpartyId,
-    type: parseType(header.type),
-    status: parseStatus(header.status),
-    documentNumber: header.documentNumber,
-    issuedOn: header.issuedOn,
-    supplierDetails: parseSupplier(header.supplierDetails),
-    buyerDetails: parseBuyer(header.buyerDetails),
-    totalNetMinor: moneyToCanonical(header.totalNetMinor),
-    totalTaxMinor: moneyToCanonical(header.totalTaxMinor),
-    totalGrossMinor: moneyToCanonical(header.totalGrossMinor),
-    currency: header.currency,
-    templateSource: parseTemplateSource(header.templateSource),
-    templateName: header.templateName,
-    createdAt: header.createdAt.toISOString(),
-    items: lineRows.map((row) => ({
-      itemId: row.id,
-      productId: row.productId,
-      variantId: row.variantId,
-      titleSnapshot: row.titleSnapshot,
-      quantityMilli: moneyToCanonical(row.quantityMilli),
-      unitPriceMinor: moneyToCanonical(row.unitPriceMinor),
-      discountKind: parseDiscountKind(row.discountKind),
-      discountValue: moneyToCanonical(row.discountValue),
-      discountAmountMinor: moneyToCanonical(row.discountAmountMinor),
-      taxTreatment: parseTaxTreatment(row.taxTreatment),
-      taxRateBp: row.taxRateBp,
-      taxAmountMinor: moneyToCanonical(row.taxAmountMinor),
-      netAmountMinor: moneyToCanonical(row.netAmountMinor),
-      grossAmountMinor: moneyToCanonical(row.grossAmountMinor),
-      currency: row.currency,
-    })),
+    view: {
+      documentId: header.id,
+      orderId: header.orderId,
+      counterpartyId: header.counterpartyId,
+      type: parseType(header.type),
+      status: parseStatus(header.status),
+      documentNumber: header.documentNumber,
+      issuedOn: header.issuedOn,
+      supplierDetails: parseSupplier(header.supplierDetails),
+      buyerDetails: parseBuyer(header.buyerDetails),
+      totalNetMinor: moneyToCanonical(header.totalNetMinor),
+      totalTaxMinor: moneyToCanonical(header.totalTaxMinor),
+      totalGrossMinor: moneyToCanonical(header.totalGrossMinor),
+      currency: header.currency,
+      templateSource: parseTemplateSource(header.templateSource),
+      templateName: header.templateName,
+      createdAt: header.createdAt.toISOString(),
+      items: lineRows.map((row) => ({
+        itemId: row.id,
+        productId: row.productId,
+        variantId: row.variantId,
+        titleSnapshot: row.titleSnapshot,
+        quantityMilli: moneyToCanonical(row.quantityMilli),
+        unitPriceMinor: moneyToCanonical(row.unitPriceMinor),
+        discountKind: parseDiscountKind(row.discountKind),
+        discountValue: moneyToCanonical(row.discountValue),
+        discountAmountMinor: moneyToCanonical(row.discountAmountMinor),
+        taxTreatment: parseTaxTreatment(row.taxTreatment),
+        taxRateBp: row.taxRateBp,
+        taxAmountMinor: moneyToCanonical(row.taxAmountMinor),
+        netAmountMinor: moneyToCanonical(row.netAmountMinor),
+        grossAmountMinor: moneyToCanonical(row.grossAmountMinor),
+        currency: row.currency,
+      })),
+    },
+    signRequestedAt:
+      header.signRequestedAt === null
+        ? null
+        : header.signRequestedAt.toISOString(),
   };
+}
+
+export async function loadStaffDocument(env: {
+  readonly db: ReadableDb;
+  readonly companyId: string;
+  readonly documentId: string;
+}): Promise<DocumentView> {
+  const loaded = await loadStaffDocumentRecord(env);
+  return loaded.view;
+}
+
+/**
+ * Staff get (SHO-257) needs the HITL grant timestamp without putting it
+ * on the shared `documentViewSchema` used by create/list/share.
+ */
+export async function loadStaffDocumentWithGrant(env: {
+  readonly db: ReadableDb;
+  readonly companyId: string;
+  readonly documentId: string;
+}): Promise<StaffDocumentRecord> {
+  return loadStaffDocumentRecord(env);
 }

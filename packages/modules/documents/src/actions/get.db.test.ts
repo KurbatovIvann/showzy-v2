@@ -23,6 +23,7 @@ import { files } from "@showzy/db/schema/files";
 import { orderItems, orders } from "@showzy/db/schema/orders";
 import { getArtifact } from "@showzy/doc-generation/get-artifact";
 import { getSigning } from "@showzy/doc-signing/get";
+import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { getForGeneration } from "./get-for-generation.js";
@@ -469,6 +470,7 @@ describe("documents.get", () => {
     expect(result.generation).toEqual({ status: "pending", fileId: null });
     expect(result.pdfDownloadUrl).toBeNull();
     expect(result.signing).toEqual({ status: "unsigned" });
+    expect(result.signRequestedAt).toBeNull();
     expect(result.buyerDetails).toEqual(customerBuyerSnapshot);
     expect(result.supplierDetails).toEqual(sellerSnapshot);
     expect(result.items).toHaveLength(2);
@@ -528,6 +530,19 @@ describe("documents.get", () => {
     expect(signed.pdfDownloadUrl).toBeNull();
     expect(signed).toHaveProperty("pdfDownloadUrl");
     expect(signed).not.toHaveProperty("signedDownloadUrl");
+    expect(signed.signRequestedAt).toBeNull();
+  });
+
+  it("returns signRequestedAt only on get, as an ISO timestamp when granted", async () => {
+    const grantedAt = new Date("2026-08-30T12:30:00.000Z");
+    await kit.db.runtime.db
+      .update(documents)
+      .set({ signRequestedAt: grantedAt })
+      .where(eq(documents.id, fixtures.docInvoice));
+    const result = await kit.invoke(getDocument, {
+      documentId: fixtures.docInvoice,
+    });
+    expect(result.signRequestedAt).toBe(grantedAt.toISOString());
   });
 
   it("denies staff without documents:view", async () => {
