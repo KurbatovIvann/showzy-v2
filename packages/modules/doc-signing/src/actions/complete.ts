@@ -55,18 +55,15 @@ type CertSnapshot = {
   readonly signerRole: "supplier";
 };
 
-const auditSnapshots = new Map<string, CertSnapshot>();
+/**
+ * Request-scoped: execute-action passes the same validated `input` object
+ * to the handler and to `auditSnapshot`. WeakMap keys that object so
+ * concurrent completes cannot collide and nothing is process-global.
+ */
+const auditSnapshots = new WeakMap<object, CertSnapshot>();
 
-function snapshotKey(requestId: string, fileId: string): string {
-  return `${requestId}:${fileId}`;
-}
-
-function stashSnapshot(
-  requestId: string,
-  fileId: string,
-  snap: CertSnapshot,
-): void {
-  auditSnapshots.set(snapshotKey(requestId, fileId), snap);
+function stashSnapshot(input: object, snap: CertSnapshot): void {
+  auditSnapshots.set(input, snap);
 }
 
 function completeAuditTarget(env: AuditTargetEnv): {
@@ -84,12 +81,11 @@ function completeAuditSnapshot(input: {
   readonly requestId: string;
   readonly fileId: string;
 }): CertSnapshot | { readonly requestId: string; readonly fileId: string } {
-  const key = snapshotKey(input.requestId, input.fileId);
-  const snap = auditSnapshots.get(key);
-  auditSnapshots.delete(key);
+  const snap = auditSnapshots.get(input);
   if (snap === undefined) {
     return { requestId: input.requestId, fileId: input.fileId };
   }
+  auditSnapshots.delete(input);
   return snap;
 }
 
@@ -209,6 +205,7 @@ async function loadSupplierSignature(env: {
 }
 
 function replayOrConflict(env: {
+  readonly input: { readonly requestId: string; readonly fileId: string };
   readonly documentId: string;
   readonly requestId: string;
   readonly fileId: string;
@@ -218,8 +215,7 @@ function replayOrConflict(env: {
     throw new ConflictError(DIFFERENT_FILE_MESSAGE);
   }
   stashSnapshot(
-    env.requestId,
-    env.fileId,
+    env.input,
     snapshotFromSignature(env.documentId, env.signature),
   );
   return completeOutput({
@@ -257,6 +253,7 @@ export const completeSigning = implementAction(completeSigningContract, {
         );
       }
       return replayOrConflict({
+        input,
         documentId: request.documentId,
         requestId: request.id,
         fileId: input.fileId,
@@ -274,6 +271,7 @@ export const completeSigning = implementAction(completeSigningContract, {
     });
     if (already !== undefined) {
       return replayOrConflict({
+        input,
         documentId: request.documentId,
         requestId: request.id,
         fileId: input.fileId,
@@ -334,6 +332,7 @@ export const completeSigning = implementAction(completeSigningContract, {
         );
       }
       return replayOrConflict({
+        input,
         documentId: locked.documentId,
         requestId: locked.id,
         fileId: input.fileId,
@@ -351,6 +350,7 @@ export const completeSigning = implementAction(completeSigningContract, {
     });
     if (claimed !== undefined) {
       return replayOrConflict({
+        input,
         documentId: locked.documentId,
         requestId: locked.id,
         fileId: input.fileId,
@@ -388,6 +388,7 @@ export const completeSigning = implementAction(completeSigningContract, {
         );
       }
       return replayOrConflict({
+        input,
         documentId: locked.documentId,
         requestId: locked.id,
         fileId: input.fileId,
@@ -432,11 +433,7 @@ export const completeSigning = implementAction(completeSigningContract, {
       },
     });
 
-    stashSnapshot(
-      locked.id,
-      input.fileId,
-      snapshotFromSignature(locked.documentId, signature),
-    );
+    stashSnapshot(input, snapshotFromSignature(locked.documentId, signature));
     return completeOutput({
       documentId: locked.documentId,
       requestId: locked.id,

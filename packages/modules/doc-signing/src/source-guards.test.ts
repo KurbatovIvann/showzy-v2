@@ -82,6 +82,8 @@ describe("doc-signing source guards (SHO-254 / SHO-257 / SHO-258)", () => {
     expect(executableSource("actions/complete.ts")).not.toContain(
       "getArtifact",
     );
+    expect(complete).toContain("WeakMap");
+    expect(complete).not.toContain("new Map");
   });
 
   it("loads supplier flags with one inArray query, not a per-id loop", () => {

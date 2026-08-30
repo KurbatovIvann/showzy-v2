@@ -121,5 +121,7 @@ describe("docSigning.complete contract", () => {
     expect(completeSource).not.toContain("@showzy/db/schema/documents");
     expect(completeSource).not.toContain("@showzy/db/schema/files");
     expect(completeSource).not.toContain("payloadDownloadUrl");
+    expect(completeSource).toContain("WeakMap");
+    expect(completeSource).not.toContain("new Map");
   });
 });
