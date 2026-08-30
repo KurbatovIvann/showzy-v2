@@ -265,7 +265,7 @@ function throwIfAborted(ctx: SystemGlobalCtx): void {
   if (!ctx.signal.aborted) {
     return;
   }
-  const reason = ctx.signal.reason;
+  const reason: unknown = ctx.signal.reason;
   if (reason instanceof Error) {
     throw reason;
   }
