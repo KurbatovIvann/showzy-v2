@@ -18,6 +18,17 @@ const payload = {
   bytes: encoder.encode("%PDF-1.4\nfixture-payload\n%%EOF\n"),
 };
 
+function isUnknownArray(value: unknown): value is readonly unknown[] {
+  return Array.isArray(value);
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  if (typeof value !== "object" || value === null) {
+    return undefined;
+  }
+  return value as Record<string, unknown>;
+}
+
 function requestMethod(jsonRequest: string): string | undefined {
   let parsed: unknown;
   try {
@@ -25,10 +36,8 @@ function requestMethod(jsonRequest: string): string | undefined {
   } catch {
     return undefined;
   }
-  if (typeof parsed !== "object" || parsed === null) {
-    return undefined;
-  }
-  const method = (parsed as Record<string, unknown>).method;
+  const record = asRecord(parsed);
+  const method = record?.method;
   return typeof method === "string" ? method : undefined;
 }
 
@@ -51,14 +60,11 @@ function firstSignatureInfo(
   response: UapkiResponse,
 ): Record<string, unknown> | undefined {
   const infos = response.result?.signatureInfos;
-  if (!Array.isArray(infos) || infos.length === 0) {
+  if (!isUnknownArray(infos) || infos.length === 0) {
     return undefined;
   }
-  const first = infos[0];
-  if (typeof first !== "object" || first === null) {
-    return undefined;
-  }
-  return { ...(first as Record<string, unknown>) };
+  const first = asRecord(infos[0]);
+  return first === undefined ? undefined : { ...first };
 }
 
 function rewriteFirstSignatureInfo(
@@ -75,7 +81,7 @@ function rewriteFirstSignatureInfo(
     return response;
   }
   const infos = result.signatureInfos;
-  if (!Array.isArray(infos)) {
+  if (!isUnknownArray(infos)) {
     return response;
   }
   return {
