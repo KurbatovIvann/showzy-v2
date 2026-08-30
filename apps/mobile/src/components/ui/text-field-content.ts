@@ -14,7 +14,7 @@ export type TextFieldContentType =
 
 export function resolveTextFieldContent(args: {
   readonly secure: boolean;
-  readonly autoComplete?: TextFieldAutoComplete;
+  readonly autoComplete?: TextFieldAutoComplete | undefined;
   readonly keyboardType: TextFieldKeyboardType;
 }): {
   readonly autoComplete: TextFieldAutoComplete;
@@ -34,8 +34,6 @@ export function resolveTextFieldContent(args: {
           ? "telephoneNumber"
           : autoComplete === "email"
             ? "emailAddress"
-            : autoComplete === "organization"
-              ? "organizationName"
-              : "none";
+            : "organizationName";
   return { autoComplete, textContentType };
 }

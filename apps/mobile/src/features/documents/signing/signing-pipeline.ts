@@ -123,7 +123,7 @@ export type RunDocumentSigningArgs = {
 };
 
 function signingAbortError(signal: AbortSignal): Error {
-  const reason = signal.reason;
+  const reason: unknown = signal.reason;
   if (reason instanceof Error) {
     return reason;
   }
