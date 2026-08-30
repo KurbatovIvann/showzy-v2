@@ -1,0 +1,140 @@
+{
+  "comment": "Generate PKCS7/CAdES-signature",
+  "commentUsage": "uapki sign-pkcs12-memory.json",
+  "tasks": [
+    {
+      "method": "VERSION"
+    },
+    {
+      "comment": "Ініціалізація бібліотеки",
+      "method": "INIT",
+      "parameters": {
+        "cmProviders": {
+          "dir": "", // full path
+          "allowedProviders": [
+            {
+              "lib": "cm-pkcs12"
+            }
+          ]
+        },
+        "certCache": {
+          "path": "certs/", // full path
+          "trustedCerts": []
+        },
+        "crlCache": {
+          "path": "crls/" // full path
+        },
+        "offline": false
+      }
+    },
+    {
+      "comment": "Відкриття носія ключів із пам'яті (файл: test-diia.p12)",
+      "method": "OPEN",
+      "parameters": {
+        "provider": "PKCS12", // Опціональний, по замовчанню PKCS12
+        "storage": "file://memory", // Для PKCS12-provider обов'язковий, шлях до контейнера PKCS#8,PKCS#12,JKS,IIT. Якщо контейнер ключів зберігається у пам'яті, то використовуються значення "file://memory".
+        "password": "testpassword", // Для PKCS12 обов'язковий, пароль
+        "mode": "RO", // Опціональний, RO - тільки читання, RW - читання/запис, CREATE - створення
+        "openParams": {
+          "bytes": "MIIE4wIBAzCCBIAGCSqGSIb3DQEHAaCCBHEEggRtMIIEaTCCBGUGCSqGSIb3DQEHAaCCBFYEggRSMIIETjCCAfIGCyqGSIb3DQEMCgECoIIBrjCCAaowgbAGCSqGSIb3DQEFDTCBojBDBgkqhkiG9w0BBQwwNgQg8onEwuXgBzU9vOV4xAdkFQPbrjUoAqlkrCCNINMSZ2QCAicQMA4GCiqGJAIBAQEBAQIFADBbBgsqhiQCAQEBAQEBAzBMBAjl++qfhVudNARAqdbrRfE8cIKAxJZ7Ix9erfZY66TANykdONlr8CXKThf46XINxhW0OiiXXwvB3qNkOLVk6iwXn9ASPm24+sV5BASB9A1Ql+mjjWbR/cUgexrnRkjrGYnjQmRvjKTycJmmYrSC+s8Oc7CH6suZmdI2MCf6bFqt1t8KHQP63QRVawfENeyxNsVUTtckmVhTTbj9K5TdXpjUm6fdR5elAphw0juEqwuRhK5EZfPCd3GqN/QhqEVlw+FNayYbcPBCy3GoznDjvpGQopeZnKjbFm6LU8xSEnYXry9Cs12eoCLE9iToxUjVpAUm1BkllEX3vzzX6uWabwCztNPXMjlhbBUi/JY+CitKer0LACwntJQV2ExUB7JnRRpi/VCQf4/kc+/O4Ms+57Gsjzj5Lz1/10DHA2+19qDJlcYxMTAvBgkqhkiG9w0BCRUxIgQgW8bAbuHgDBcA6Sqnqa11+C08t6m2bjqYAjIJskUTMVwwggJUBgsqhkiG9w0BDAoBAqCCAhAwggIMMIGwBgkqhkiG9w0BBQ0wgaIwQwYJKoZIhvcNAQUMMDYEILhXkg6YGQ4BrfauMDi8GwQUgLtt2OJQgoX49sp2+z1tAgInEDAOBgoqhiQCAQEBAQECBQAwWwYLKoYkAgEBAQEBAQMwTAQI5VsBILoMDqQEQKnW60XxPHCCgMSWeyMfXq32WOukwDcpHTjZa/Alyk4X+OlyDcYVtDool18Lwd6jZDi1ZOosF5/QEj5tuPrFeQQEggFVCdS79oZ5VwWJoglnyr2Jx7kcFvXjGm5MaB7T+sWy7oTgZvsU18BPxgmy4nt9uYSXIaAZ8xgU6LxsuRSWn9h1zvO+eFAb3gCLVErB4AYlJ+ajS2+8aCcvVKeAf5KeIFNc9WzO6sepnt2DGx445WXSmttCSDKi+dFxCHU27mO5ucT8bScswYGlts+wb7Fk5GM5aWTmbNsn4fCYMMez9jf4OiKSeHDNddmmmqaGeO08obymDXQNVIAKNzQrhei3F38t4I9sfEt00eF1A9pyJ5lEINe+SGVQXbBhnkTHQzPer9y4k7lqs179+5LnsyYGbMcWsVsCGqesAKqC+LVAf8JLQiyIKk/Uoc+Mt4irsW1HUrJFAPy3hkA5i+6RlbmFmBwy9Dr1rLv3k0/H92yvrVWAYTkRCwggyTZZnlDqpPplf9qPKDOH4bHVPK1lsyCVJHcbVEGj7hMxMTAvBgkqhkiG9w0BCRUxIgQgaxt3wNGhtgRzqY3W1P5TAnQq7eEB2qIfLIOmfM3tt4IwWjAyMA4GCiqGJAIBAQEBAgEFAAQgRksMSDei8GRdFaanSX4NMiyGGtVcL83NP5LRrI0Ci4sEIEDj9AVY5NLjH85Rjanpa5JzsL6o23IKuMmUI3U2U+soAgInEA=="
+        }
+      }
+    },
+    {
+      "comment": "Отримання переліку ключів на відкритому носії",
+      "method": "KEYS"
+    },
+    {
+      "comment": "Обрання ключа з переліку ключів на носії (та отримання його сертифікату)",
+      "method": "SELECT_KEY",
+      "parameters": {
+        "id": "5BC6C06EE1E00C1700E92AA7A9AD75F82D3CB7A9B66E3A98023209B24513315C"
+      }
+    },
+    {
+      "comment": "формування підпису. Параметри наступні: CAdES-BES, attached data",
+      "method": "SIGN",
+      "parameters": {
+        "signParams": {
+          "signatureFormat": "CAdES-BES", // Обов'язковий. Підтримує формати CAdES-BES/CAdES-T/CAdES-C/CAdES-XL/CAdES-A/CMS/RAW.
+          "signAlgo": "1.2.804.2.1.1.1.1.3.1.1", // Опціональний, якщо не вказаний, то використовується перший алгоритм підпису із списку signAlgo для ключа
+          //"digestAlgo": "1.2.804.2.1.1.1.1.2.1", // Опціональний
+          "detachedData": false, // Опціональний, по замовчанню true (дані не інкапсулюються)
+          "includeCert": true, // Опціональний, по замовчанню false (додати до підпису сертифікат)
+          "includeTime": true, // Опціональний, по замовчанню false (додати до підпису час хосту (не довірений))
+          "includeContentTS": false // Опціональний, по замовчанню false (додати до підпису TSP від даних)
+        },
+        "dataTbs": [
+          {
+            "id": "doc-0", // Обов'язковий, ідентифікатор даних
+            "bytes": "VGhlIHF1aWNrIGJyb3duIGZveCBqdW1wcyBvdmVyIHRoZSBsYXp5IGRvZw==" // обов'язковий, дані для підпису у кодировці base64
+          }
+        ],
+        "options": {
+          "ignoreCertStatus": false
+        }
+      },
+      "skip": false
+    },
+    {
+      "comment": "формування підпису. Параметри наступні: CAdES-BES, detached data",
+      "method": "SIGN",
+      "parameters": {
+        "signParams": {
+          "signatureFormat": "CAdES-BES", // Обов'язковий. Підтримує формати CAdES-BES/CAdES-T/CAdES-C/CAdES-XL/CAdES-A/CMS/RAW.
+          "signAlgo": "1.2.804.2.1.1.1.1.3.1.1", // Опціональний, якщо не вказаний, то використовується перший алгоритм підпису із списку signAlgo для ключа
+          //"digestAlgo": "1.2.804.2.1.1.1.1.2.1", // Опціональний
+          "detachedData": true, // Опціональний, по замовчанню true (дані не інкапсулюються)
+          "includeCert": true, // Опціональний, по замовчанню false (додати до підпису сертифікат)
+          "includeTime": true, // Опціональний, по замовчанню false (додати до підпису час хосту (не довірений))
+          "includeContentTS": false // Опціональний, по замовчанню false (додати до підпису TSP від даних)
+        },
+        "dataTbs": [
+          {
+            "id": "doc-0", // Обов'язковий, ідентифікатор даних
+            "bytes": "VGhlIHF1aWNrIGJyb3duIGZveCBqdW1wcyBvdmVyIHRoZSBsYXp5IGRvZw==" // обов'язковий, дані для підпису у кодировці base64
+          },
+          {
+            "id": "doc-1-file", // Обов'язковий, ідентифікатор даних
+            "file": "test-fox.txt" // обов'язковий, дані для підпису у кодировці base64
+          }
+        ],
+        "options": {
+          "ignoreCertStatus": false
+        }
+      },
+      "skip": false
+    },
+    {
+      "comment": "формування підпису. Параметри наступні: CAdES-T, attached data",
+      "method": "SIGN",
+      "parameters": {
+        "signParams": {
+          "signatureFormat": "CAdES-T", // Обов'язковий. Підтримує формати CAdES-BES/CAdES-T/CAdES-C/CAdES-XL/CAdES-A/CMS/RAW.
+          "signAlgo": "1.2.804.2.1.1.1.1.3.1.1", // Опціональний, якщо не вказаний, то використовується перший алгоритм підпису із списку signAlgo для ключа
+          //"digestAlgo": "1.2.804.2.1.1.1.1.2.1", // Опціональний
+          "detachedData": false, // Опціональний, по замовчанню true (дані не інкапсулюються)
+          "includeCert": true, // Опціональний, по замовчанню false (додати до підпису сертифікат)
+          "includeTime": true, // Опціональний, по замовчанню false (додати до підпису час хосту (не довірений))
+          "includeContentTS": false // Опціональний, по замовчанню false (додати до підпису TSP від даних)
+        },
+        "dataTbs": [
+          {
+            "id": "doc-0", // Обов'язковий, ідентифікатор даних
+            "bytes": "VGhlIHF1aWNrIGJyb3duIGZveCBqdW1wcyBvdmVyIHRoZSBsYXp5IGRvZw==" // обов'язковий, дані для підпису у кодировці base64
+          }
+        ],
+        "options": {
+          "ignoreCertStatus": false
+        }
+      },
+      "skip": false
+    },
+    {
+      "method": "CLOSE"
+    },
+    {
+      "method": "DEINIT"
+    }
+  ]
+}

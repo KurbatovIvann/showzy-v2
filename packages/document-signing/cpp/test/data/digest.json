@@ -1,0 +1,79 @@
+{
+  "comment": "Hashing data",
+  "commentUsage": "uapki digest.json",
+  "tasks": [
+    {
+      "method": "VERSION"
+    },
+    {
+      "comment": "Hashing data ('The quick brown fox jumps over the lazy dog') by hashAlgo SHA2-256",
+      "commentExpectedResult": "Message digest, hex: d7a8fbb307d7809469ca9abcb0082e4f8d5651e46d3cdb762d02d0bf37c9e592",
+      "method": "DIGEST",
+      "parameters": {
+        "hashAlgo": "2.16.840.1.101.3.4.2.1",
+        "bytes": "VGhlIHF1aWNrIGJyb3duIGZveCBqdW1wcyBvdmVyIHRoZSBsYXp5IGRvZw=="
+      },
+      "skip": false
+    },
+    {
+      "comment": "Hashing data ('The quick brown fox jumps over the lazy dog') by hashAlgo SHA2-384",
+      "commentExpectedResult": "Message digest, hex: ca737f1014a48f4c0b6dd43cb177b0afd9e5169367544c494011e3317dbf9a509cb1e5dc1e85a941bbee3d7f2afbc9b1",
+      "method": "DIGEST",
+      "parameters": {
+        "hashAlgo": "2.16.840.1.101.3.4.2.2",
+        "bytes": "VGhlIHF1aWNrIGJyb3duIGZveCBqdW1wcyBvdmVyIHRoZSBsYXp5IGRvZw=="
+      },
+      "skip": false
+    },
+    {
+      "comment": "Hashing data ('The quick brown fox jumps over the lazy dog') by hashAlgo SHA2-512",
+      "commentExpectedResult": "Message digest, hex: 07e547d9586f6a73f73fbac0435ed76951218fb7d0c8d788a309d785436bbb642e93a252a954f23912547d1e8a3b5ed6e1bfd7097821233fa0538f3db854fee6",
+      "method": "DIGEST",
+      "parameters": {
+        "hashAlgo": "2.16.840.1.101.3.4.2.3",
+        "bytes": "VGhlIHF1aWNrIGJyb3duIGZveCBqdW1wcyBvdmVyIHRoZSBsYXp5IGRvZw=="
+      },
+      "skip": false
+    },
+    {
+      "comment": "Hashing data ('The quick brown fox jumps over the lazy dog') by signAlgo",
+      "commentExpectedResult": "Message digest (hashAlgo: '2.16.840.1.101.3.4.2.1'), hex: d7a8fbb307d7809469ca9abcb0082e4f8d5651e46d3cdb762d02d0bf37c9e592",
+      "method": "DIGEST",
+      "parameters": {
+        "signAlgo": "1.2.840.10045.4.3.2",
+        "bytes": "VGhlIHF1aWNrIGJyb3duIGZveCBqdW1wcyBvdmVyIHRoZSBsYXp5IGRvZw=="
+      },
+      "skip": false
+    },
+    {
+      "comment": "Hashing data ('The quick brown fox jumps over the lazy dog') by hashAlgo GOST-34311",
+      "commentExpectedResult": "Message digest, hex: 0f1355130b4a820a1e4e3f6474f6bdecc718a4a73345595edc1c1809832b2333",
+      "method": "DIGEST",
+      "parameters": {
+        "hashAlgo": "1.2.804.2.1.1.1.1.2.1",
+        "bytes": "VGhlIHF1aWNrIGJyb3duIGZveCBqdW1wcyBvdmVyIHRoZSBsYXp5IGRvZw=="
+      },
+      "skip": false
+    },
+    {
+      "comment": "Hashing data (ptr) by hashAlgo SHA2-256",
+      "commentExpectedResult": "Message digest, hex: d7a8fbb307d7809469ca9abcb0082e4f8d5651e46d3cdb762d02d0bf37c9e592",
+      "method": "_DIGEST",
+      "parameters": {
+        "hashAlgo": "2.16.840.1.101.3.4.2.1",
+        "contentText": "The quick brown fox jumps over the lazy dog"
+      },
+      "skip": false
+    },
+    {
+      "comment": "Hashing data from file by hashAlgo SHA2-256",
+      "commentExpectedResult": "Message digest, hex: d7a8fbb307d7809469ca9abcb0082e4f8d5651e46d3cdb762d02d0bf37c9e592",
+      "method": "DIGEST",
+      "parameters": {
+        "hashAlgo": "2.16.840.1.101.3.4.2.1",
+        "file": "test-fox.txt"
+      },
+      "skip": false
+    }
+  ]
+}

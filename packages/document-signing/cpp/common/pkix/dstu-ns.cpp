@@ -1,0 +1,224 @@
+/*
+ * Copyright (c) 2021, The UAPKI Project Authors.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ * notice, this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright
+ * notice, this list of conditions and the following disclaimer in the
+ * documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
+ * IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+ * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+ * PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
+ * TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+ * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+ * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+#define FILE_MARKER "common/pkix/dstu-ns.cpp"
+
+#include "dstu-ns.h"
+#include "macros-internal.h"
+#include "oid-utils.h"
+#include "uapki-errors.h"
+#include "uapki-ns-util.h"
+
+
+using namespace std;
+using namespace UapkiNS;
+
+
+constexpr size_t SIZE_DSTU4145_PARAM_M257_PB = 119;
+constexpr size_t SIZE_DSTU4145_PARAM_M431_PB = 191;
+
+static const char* SHEX_DSTU4145_PARAM_M257_PB =
+                "307530070202010102010C020100042110BEE3DB6AEA9E1F86578C45C12594FF942394A7D738F9187E6515017294F4CE0102"
+                "2100800000000000000000000000000000006759213AF182E987D3E17714907D470D0421B60FD2D8DCE8A93423C6101BCA91"
+                "C47A007E6C300B26CD556C9B0E7D20EF292A00";
+
+static const char* SHEX_DSTU4145_PARAM_M431_PB =
+                "3081BC300F020201AF30090201010201030201050201010436F3CA40C669A4DA173149CA12C32DAE186B53AC6BC6365997DE"
+                "AEAE8AD2D888F9BFD53401694EF9C4273D8CFE6DC28F706A0F4910CE0302363FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"
+                "FFFFFFFFFFFFFFFFBA3175458009A8C0A724F02F81AA8A1FCBAF80D90C7A95110504CF04367C857C94C5433BFD991E17C226"
+                "84065850A9A249ED7BC249AE5A4E878689F872EF7AD524082EC3038E9AEDE7BA6BA13381D979BA621A";
+
+
+int DstuNS::ba2BitStringEncapOctet (
+        const ByteArray* baData,
+        BIT_STRING_t* bsEncapOctet
+)
+{
+    int ret = RET_OK;
+    SmartBA sba_encap;
+
+    CHECK_PARAM(baData != nullptr);
+    CHECK_PARAM(bsEncapOctet != nullptr);
+
+    DO(Util::encodeOctetString(baData, &sba_encap));
+
+    bsEncapOctet->bits_unused = 0;
+    DO(asn_ba2BITSTRING(sba_encap.get(), bsEncapOctet));
+
+cleanup:
+    return ret;
+}
+
+int DstuNS::calcKeyId (
+        const ByteArray* baPublicKey,
+        ByteArray** baKeyId
+)
+{
+    int ret = RET_OK;
+    SmartBA sba_encappubkey;
+
+    CHECK_PARAM(baPublicKey != nullptr);
+    CHECK_PARAM(baKeyId != nullptr);
+
+    DO(Util::encodeOctetString(baPublicKey, &sba_encappubkey));
+
+    DO(::hash(HASH_ALG_GOST34311, sba_encappubkey.get(), baKeyId));
+
+cleanup:
+    return ret;
+}
+
+int DstuNS::calcKeyId (
+        const bool useKupyna,
+        const ByteArray* baPublicKey,
+        ByteArray** baKeyId
+)
+{
+    int ret = RET_OK;
+    SmartBA sba_encappubkey;
+
+    CHECK_PARAM(baPublicKey != nullptr);
+    CHECK_PARAM(baKeyId != nullptr);
+
+    DO(Util::encodeOctetString(baPublicKey, &sba_encappubkey));
+
+    DO(::hash(useKupyna ? HASH_ALG_DSTU7564_256 : HASH_ALG_GOST34311, sba_encappubkey.get(), baKeyId));
+
+cleanup:
+    return ret;
+}
+
+int DstuNS::calcKeyId (
+        const ByteArray* baPublicKey,
+        ByteArray** baKeyId,
+        ByteArray** baKeyId2
+)
+{
+    int ret = RET_OK;
+    SmartBA sba_encappubkey;
+
+    CHECK_PARAM(baPublicKey != nullptr);
+    CHECK_PARAM(baKeyId != nullptr);
+    CHECK_PARAM(baKeyId2 != nullptr);
+
+    DO(Util::encodeOctetString(baPublicKey, &sba_encappubkey));
+
+    DO(::hash(HASH_ALG_GOST34311,    sba_encappubkey.get(), baKeyId ));
+    DO(::hash(HASH_ALG_DSTU7564_256, sba_encappubkey.get(), baKeyId2));
+
+cleanup:
+    return ret;
+}
+
+bool DstuNS::isDstu4145family (
+        const char* algo
+)
+{
+    return (algo && (oid_is_parent(OID_DSTU4145_WITH_DSTU7564, algo) || oid_is_parent(OID_DSTU4145_WITH_GOST3411, algo)));
+}
+
+bool DstuNS::isDstu4145family (
+        const string& algo
+)
+{
+    return isDstu4145family(algo.c_str());
+}
+
+int DstuNS::Dstu4145::decodeParams (
+        const ByteArray* baEncoded,
+        string& oidNamedCurve
+)
+{
+    int ret = RET_OK;
+    DSTU4145Params_t* params = nullptr;
+    SmartBA sba_ecbinary, sba_pattern;
+
+    CHECK_PARAM(baEncoded != nullptr);
+
+    CHECK_NOT_NULL(params = (DSTU4145Params_t*)asn_decode_ba_with_alloc(get_DSTU4145Params_desc(), baEncoded));
+
+    if (params->ellipticCurve.present == DSTUEllipticCurve_PR_namedCurve) {
+        DO(Util::oidFromAsn1(&params->ellipticCurve.choice.namedCurve, oidNamedCurve));
+    }
+    else if (params->ellipticCurve.present == DSTUEllipticCurve_PR_ecbinary) {
+        DO(asn_encode_ba(get_ECBinary_desc(), &params->ellipticCurve.choice.ecbinary, &sba_ecbinary));
+
+        switch (sba_ecbinary.size()) {
+        case SIZE_DSTU4145_PARAM_M257_PB:
+            oidNamedCurve = string(OID_DSTU4145_PARAM_M257_PB);
+            sba_pattern.set(ba_alloc_from_hex(SHEX_DSTU4145_PARAM_M257_PB));
+            break;
+        case SIZE_DSTU4145_PARAM_M431_PB:
+            oidNamedCurve = string(OID_DSTU4145_PARAM_M431_PB);
+            sba_pattern.set(ba_alloc_from_hex(SHEX_DSTU4145_PARAM_M431_PB));
+            break;
+        }
+
+        if (sba_pattern.empty()) {
+            SET_ERROR(RET_UAPKI_GENERAL_ERROR);
+        }
+
+        ret = ba_cmp(sba_ecbinary.get(), sba_pattern.get());
+        if (ret != RET_OK) {
+            oidNamedCurve.clear();
+            SET_ERROR(RET_UAPKI_INVALID_PARAMETER);
+        }
+    }
+    else {
+        SET_ERROR(RET_UAPKI_INVALID_PARAMETER);
+    }
+
+cleanup:
+    asn_free(get_DSTU4145Params_desc(), params);
+    return ret;
+}
+
+int DstuNS::Dstu4145::encodeParams (
+        const string& oidNamedCurve,
+        const ByteArray* baDKE,
+        ByteArray** baEncoded
+)
+{
+    int ret = RET_OK;
+    DSTU4145Params_t* params = nullptr;
+
+    ASN_ALLOC_TYPE(params, DSTU4145Params_t);
+
+    params->ellipticCurve.present = DSTUEllipticCurve_PR_namedCurve;
+    DO(asn_set_oid_from_text(oidNamedCurve.c_str(), &params->ellipticCurve.choice.namedCurve));
+
+    if (baDKE) {
+        ASN_ALLOC_TYPE(params->dke, OCTET_STRING_t);
+        DO(asn_ba2OCTSTRING(baDKE, params->dke));
+    }
+
+    DO(asn_encode_ba(get_DSTU4145Params_desc(), params, baEncoded));
+
+cleanup:
+    asn_free(get_DSTU4145Params_desc(), params);
+    return ret;
+}
