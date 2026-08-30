@@ -12,6 +12,10 @@ apps/mobile/ios/
 apps/mobile/android/
 *.tsbuildinfo
 
+# Committed Emscripten UAPKI glue (SHO-252). `dist/` above would drop it.
+!/packages/document-signing/wasm/dist/
+!/packages/document-signing/wasm/dist/**
+
 # Environment
 .env
 .env.*

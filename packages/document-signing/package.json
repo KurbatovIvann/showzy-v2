@@ -1,0 +1,44 @@
+{
+  "name": "@showzy/document-signing",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Ukrainian PKI document signing for Web (WASM) and React Native (Nitro Modules). Crypto core carried from v1 staging (ADR-0012); adapters target v2 POST /pki/proxy.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./web": "./src/platform/web-adapter.ts",
+    "./native": "./src/platform/native-adapter.ts",
+    "./node": "./src/platform/node-adapter.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "codegen": "nitrogen",
+    "build:wasm": "bash wasm/build.sh",
+    "build:wasm:docker": "docker run --rm -v \"$(cd ../.. && pwd)/packages/document-signing/cpp:/wasm/cpp\" -v \"$(cd ../.. && pwd)/packages/document-signing/wasm:/wasm/wasm\" -w /wasm/wasm emscripten/emsdk:3.1.56 bash build.sh",
+    "clean:wasm": "rm -rf wasm/build wasm/dist"
+  },
+  "peerDependencies": {
+    "expo-file-system": ">=55.0.0",
+    "react-native-nitro-modules": ">=0.33.0"
+  },
+  "peerDependenciesMeta": {
+    "expo-file-system": {
+      "optional": true
+    },
+    "react-native-nitro-modules": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@showzy/tooling": "workspace:*",
+    "@types/node": "^22.20.1",
+    "eslint": "^10.8.1",
+    "expo-file-system": "~57.0.5",
+    "nitrogen": "^0.35.4",
+    "react-native-nitro-modules": "0.33.9",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
+  }
+}

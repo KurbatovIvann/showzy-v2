@@ -1,0 +1,426 @@
+/*
+ * Copyright (c) 2021, The UAPKI Project Authors.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ * notice, this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright
+ * notice, this list of conditions and the following disclaimer in the
+ * documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
+ * IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+ * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+ * PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
+ * TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+ * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+ * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+#include "cm-api.h"
+#include "cm-errors.h"
+#include "cm-pkcs12.h"
+#include "cm-pkcs12-ctx.h"
+#include "key-wrap.h"
+#include "oid-utils.h"
+#include "parson-helper.h"
+#include "private-key.h"
+#include "uapki-ns.h"
+#include "cm-pkcs12-debug.h"
+
+
+#define DEBUG_OUTPUT(msg)
+#ifndef DEBUG_OUTPUT
+DEBUG_OUTPUT_FUNC
+#define DEBUG_OUTPUT(msg) debug_output(DEBUG_OUTSTREAM_DEFAULT, msg);
+#endif
+
+
+using namespace std;
+using namespace UapkiNS;
+
+
+static const uint8_t DER_ALGOID_ECDSA_P256[] = {
+    0x30, 0x13, 0x06, 0x07, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x02, 0x01, 0x06, 0x08, 0x2A, 0x86, 0x48,
+    0xCE, 0x3D, 0x03, 0x01, 0x07
+};
+static const uint8_t DER_ALGOID_ECDSA_P384[] = {
+    0x30, 0x10, 0x06, 0x07, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x02, 0x01, 0x06, 0x05, 0x2B, 0x81, 0x04,
+    0x00, 0x22
+};
+static const uint8_t DER_ALGOID_ECDSA_P521[] = {
+    0x30, 0x10, 0x06, 0x07, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x02, 0x01, 0x06, 0x05, 0x2B, 0x81, 0x04,
+    0x00, 0x23
+};
+static const uint8_t DER_ALGOID_RSA_NULL[] = {
+    0x30, 0x0D, 0x06, 0x09, 0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x01, 0x05, 0x00
+};
+
+
+static bool substitute_algoid (
+        const string& algo,
+        const string& param,
+        SmartBA& sbaAlgoId
+) {
+    const uint8_t* pbuf_substitution = nullptr;
+    size_t len_substitution = 0;
+
+    if (algo == string(OID_EC_KEY)) {
+#ifndef CM_PKCS12_SKIP_SUBSTITUTE_ALGOID
+        //  if param is not a named curve then substitute it
+        if ((param == string(OID_NIST_P256)) && (sbaAlgoId.size() != sizeof(DER_ALGOID_ECDSA_P256))) {
+            pbuf_substitution = DER_ALGOID_ECDSA_P256;
+            len_substitution = sizeof(DER_ALGOID_ECDSA_P256);
+        }
+        else if ((param == string(OID_NIST_P384)) && (sbaAlgoId.size() != sizeof(DER_ALGOID_ECDSA_P384))) {
+            pbuf_substitution = DER_ALGOID_ECDSA_P384;
+            len_substitution = sizeof(DER_ALGOID_ECDSA_P384);
+        }
+        else if ((param == string(OID_NIST_P521)) && (sbaAlgoId.size() != sizeof(DER_ALGOID_ECDSA_P521))) {
+            pbuf_substitution = DER_ALGOID_ECDSA_P521;
+            len_substitution = sizeof(DER_ALGOID_ECDSA_P521);
+        }
+#endif
+    }
+    else if ((algo == string(OID_RSA)) && (sbaAlgoId.size() != sizeof(DER_ALGOID_RSA_NULL))) {
+        //  when PFX and RSA-key was created in IIT-EU - possible AlgorithmIdentifier RSA without NULL (stored in BAG)
+        pbuf_substitution = DER_ALGOID_RSA_NULL;
+        len_substitution = sizeof(DER_ALGOID_RSA_NULL);
+    }
+
+    if (pbuf_substitution) {
+        sbaAlgoId.clear();
+        if (!sbaAlgoId.set(ba_alloc_from_uint8(pbuf_substitution, len_substitution))) return false;
+    }
+
+    return true;
+}   //  substitute_algoid
+
+static CM_ERROR cm_key_get_info (
+        CM_SESSION_API* session,
+        CM_JSON_PCHAR* keyInfo,
+        CM_BYTEARRAY** baKeyId
+)
+{
+    DEBUG_OUTPUT("cm_key_get_info()");
+    if (!session) return RET_CM_NO_SESSION;
+    if (!keyInfo && !baKeyId) return RET_CM_INVALID_PARAMETER;
+
+    SessionPkcs12Context* ss_ctx = (SessionPkcs12Context*)session->ctx;
+    if (!ss_ctx) return RET_CM_NO_SESSION;
+
+    FileStorage& storage = ss_ctx->fileStorage;
+    if (!storage.isOpen()) return RET_CM_NOT_AUTHORIZED;
+
+    StoreBag* selected_key = storage.selectedKey();
+    if (!selected_key) return RET_CM_KEY_NOT_SELECTED;
+
+    //  Set returned info in keyInfo
+    if (keyInfo) {
+        StoreKeyInfo key_info;
+        if (!selected_key->getKeyInfo(key_info)) return RET_CM_GENERAL_ERROR;
+
+        ParsonHelper json;
+        if (!json.create()) return RET_CM_GENERAL_ERROR;
+
+        const CM_ERROR cm_err = CmPkcs12::keyInfoToJson(key_info, json.rootObject());
+        if (cm_err != RET_OK) return cm_err;
+
+        if (!json.serialize((char**)keyInfo)) return RET_CM_GENERAL_ERROR;
+    }
+
+    //  Set returned info in keyInfo
+    if (baKeyId) {
+        *baKeyId = (CM_BYTEARRAY*)ba_copy_with_alloc(selected_key->keyId(), 0, 0);
+    }
+
+    return RET_OK;
+}   //  cm_key_get_info
+
+static CM_ERROR cm_key_get_public_key (
+        CM_SESSION_API* session,
+        CM_BYTEARRAY** baAlgorithmIdentifier,
+        CM_BYTEARRAY** baPublicKey
+)
+{
+    DEBUG_OUTPUT("cm_key_get_public_key()");
+    if (!session) return RET_CM_NO_SESSION;
+    if (!baAlgorithmIdentifier && !baPublicKey) return RET_CM_INVALID_PARAMETER;
+
+    SessionPkcs12Context* ss_ctx = (SessionPkcs12Context*)session->ctx;
+    if (!ss_ctx) return RET_CM_NO_SESSION;
+
+    FileStorage& storage = ss_ctx->fileStorage;
+    if (!storage.isOpen()) return RET_CM_NOT_AUTHORIZED;
+
+    StoreBag* selected_key = storage.selectedKey();
+    if (!selected_key) return RET_CM_KEY_NOT_SELECTED;
+
+    SmartBA sba_algoid, sba_publickey;
+    const int ret = spki_by_privkeyinfo(
+        selected_key->bagValue(),
+        &sba_algoid,
+        &sba_publickey
+    );
+    if (ret != RET_OK) return ret;
+
+    if (!substitute_algoid(
+        selected_key->mechanismId().c_str(),
+        selected_key->parameterId().c_str(),
+        sba_algoid)
+    ) return RET_CM_GENERAL_ERROR;
+
+    if (baAlgorithmIdentifier) {
+        *baAlgorithmIdentifier = (CM_BYTEARRAY*)sba_algoid.pop();
+    }
+    if (baPublicKey) {
+        *baPublicKey = (CM_BYTEARRAY*)sba_publickey.pop();
+    }
+    return RET_OK;
+}   //  cm_key_get_public_key
+
+static CM_ERROR cm_key_sign (
+        CM_SESSION_API* session,
+        const CM_UTF8_CHAR* signAlgo,
+        const CM_BYTEARRAY* baSignAlgoParams,
+        const uint32_t count,
+        const CM_BYTEARRAY** abaHashes,
+        CM_BYTEARRAY*** abaSignatures
+)
+{
+    DEBUG_OUTPUT("cm_key_sign()");
+    if (!session) return RET_CM_NO_SESSION;
+    if ((count == 0) || !abaHashes || !abaSignatures) return RET_CM_INVALID_PARAMETER;
+
+    SessionPkcs12Context* ss_ctx = (SessionPkcs12Context*)session->ctx;
+    if (!ss_ctx) return RET_CM_NO_SESSION;
+
+    FileStorage& storage = ss_ctx->fileStorage;
+    if (!storage.isOpen()) return RET_CM_NOT_AUTHORIZED;
+
+    StoreBag* selected_key = storage.selectedKey();
+    if (!selected_key) return RET_CM_KEY_NOT_SELECTED;
+
+    const int ret = private_key_sign(
+        selected_key->bagValue(),
+        (const ByteArray**) abaHashes,
+        count,
+        (const char*) signAlgo,
+        (const ByteArray*) baSignAlgoParams,
+        (ByteArray***) abaSignatures
+    );
+    return ret;
+}   //  cm_key_sign
+
+static CM_ERROR cm_key_sign_init (
+        CM_SESSION_API* session,
+        const CM_UTF8_CHAR* signAlgo,
+        const CM_BYTEARRAY* baSignAlgoParams
+)
+{
+    DEBUG_OUTPUT("cm_key_sign_init()");
+    if (!session) return RET_CM_NO_SESSION;
+    if (!signAlgo) return RET_CM_INVALID_PARAMETER;
+
+    SessionPkcs12Context* ss_ctx = (SessionPkcs12Context*)session->ctx;
+    if (!ss_ctx) return RET_CM_NO_SESSION;
+
+    FileStorage& storage = ss_ctx->fileStorage;
+    if (!storage.isOpen()) return RET_CM_NOT_AUTHORIZED;
+
+    StoreBag* selected_key = storage.selectedKey();
+    if (!selected_key) return RET_CM_KEY_NOT_SELECTED;
+
+    ss_ctx->resetSignLong();
+
+    HashAlg hash_algo = HASH_ALG_UNDEFINED;
+    const int ret = private_key_sign_check(
+        selected_key->bagValue(),
+        (const char*) signAlgo,
+        (const ByteArray*) baSignAlgoParams,
+        &hash_algo
+    );
+    if (ret != RET_OK) return ret;
+
+    ss_ctx->ctxHash = hash_alloc(hash_algo);
+    if (!ss_ctx->ctxHash) return RET_UNSUPPORTED;
+
+    ss_ctx->hashAlgo = hash_algo;
+    ss_ctx->aidSignAlgo.algorithm = string((const char*)signAlgo);
+    ss_ctx->aidSignAlgo.baParameters = ba_copy_with_alloc((const ByteArray*) baSignAlgoParams, 0, 0);
+    ss_ctx->activeBag = selected_key;
+    return RET_OK;
+}   //  cm_key_sign_init
+
+static CM_ERROR cm_key_sign_update (
+        CM_SESSION_API* session,
+        const CM_BYTEARRAY* baData
+)
+{
+    DEBUG_OUTPUT("cm_key_sign_update()");
+    if (!session) return RET_CM_NO_SESSION;
+    if (!baData) return RET_CM_INVALID_PARAMETER;
+
+    SessionPkcs12Context* ss_ctx = (SessionPkcs12Context*)session->ctx;
+    if (!ss_ctx) return RET_CM_NO_SESSION;
+
+    FileStorage& storage = ss_ctx->fileStorage;
+    if (!storage.isOpen()) return RET_CM_NOT_AUTHORIZED;
+
+    StoreBag* selected_key = storage.selectedKey();
+    if (!selected_key || !ss_ctx->activeBag || !ss_ctx->ctxHash) return RET_CM_KEY_NOT_SELECTED;
+
+    const int ret = hash_update(ss_ctx->ctxHash, (const ByteArray*)baData);
+    return ret;
+}   //  cm_key_sign_update
+
+static CM_ERROR cm_key_sign_final (
+        CM_SESSION_API* session,
+        CM_BYTEARRAY** baSignature
+)
+{
+    DEBUG_OUTPUT("cm_key_sign_final()");
+    if (!session) return RET_CM_NO_SESSION;
+    if (!baSignature) return RET_CM_INVALID_PARAMETER;
+
+    SessionPkcs12Context* ss_ctx = (SessionPkcs12Context*)session->ctx;
+    if (!ss_ctx) return RET_CM_NO_SESSION;
+
+    FileStorage& storage = ss_ctx->fileStorage;
+    if (!storage.isOpen()) return RET_CM_NOT_AUTHORIZED;
+
+    StoreBag* selected_key = storage.selectedKey();
+    if (!selected_key || !ss_ctx->activeBag || !ss_ctx->ctxHash) return RET_CM_KEY_NOT_SELECTED;
+
+    SmartBA sba_hash;
+    int ret = hash_final(ss_ctx->ctxHash, &sba_hash);
+    if (ret == RET_OK) {
+        ret = private_key_sign_single(
+            ss_ctx->activeBag->bagValue(),
+            (const char*)ss_ctx->aidSignAlgo.algorithm.c_str(),
+            ss_ctx->aidSignAlgo.baParameters,
+            sba_hash.get(),
+            (ByteArray**) baSignature
+        );
+    }
+    ss_ctx->resetSignLong();
+    return ret;
+}   //  cm_key_sign_final
+
+static CM_ERROR cm_key_dh_wrap_key (
+        CM_SESSION_API* session,
+        const CM_UTF8_CHAR* kdfOid,
+        const CM_UTF8_CHAR* wrapAlgOid,
+        const uint32_t count,
+        const CM_BYTEARRAY** abaPubkeys,
+        const CM_BYTEARRAY** abaSessionKeys,
+        CM_BYTEARRAY*** abaSalts,
+        CM_BYTEARRAY*** abaWrappedKeys
+)
+{
+    DEBUG_OUTPUT("cm_key_dh_wrap_key()");
+    if (!session) return RET_CM_NO_SESSION;
+    if (
+        !kdfOid || !wrapAlgOid || (count == 0) ||
+        !abaPubkeys || !abaSessionKeys || !abaWrappedKeys
+    ) return RET_CM_INVALID_PARAMETER;
+
+    SessionPkcs12Context* ss_ctx = (SessionPkcs12Context*)session->ctx;
+    if (!ss_ctx) return RET_CM_NO_SESSION;
+
+    FileStorage& storage = ss_ctx->fileStorage;
+    if (!storage.isOpen()) return RET_CM_NOT_AUTHORIZED;
+
+    StoreBag* selected_key = storage.selectedKey();
+    if (!selected_key) return RET_CM_KEY_NOT_SELECTED;
+
+    ByteArray** aba_stubsalts = nullptr;
+    const int ret = key_wrap(
+        selected_key->bagValue(),
+        (abaSalts),
+        (const char*)kdfOid,
+        (const char*)wrapAlgOid,
+        count,
+        (const ByteArray**)abaPubkeys,
+        (const ByteArray**)abaSessionKeys,
+        (abaSalts) ? ((ByteArray***)abaSalts) : &aba_stubsalts,
+        (ByteArray***)abaWrappedKeys
+    );
+    return ret;
+}   //  cm_key_dh_wrap_key
+
+static CM_ERROR cm_key_dh_unwrap_key (
+        CM_SESSION_API* session,
+        const CM_UTF8_CHAR* kdfOid,
+        const CM_UTF8_CHAR* wrapAlgOid,
+        const uint32_t count,
+        const CM_BYTEARRAY** abaPubkeys,
+        const CM_BYTEARRAY** abaSalts,
+        const CM_BYTEARRAY** abaWrappedKeys,
+        CM_BYTEARRAY*** abaSessionKeys
+)
+{
+    DEBUG_OUTPUT("cm_key_dh_unwrap_key()");
+    if (!session) return RET_CM_NO_SESSION;
+    if (!
+        kdfOid || !wrapAlgOid || (count == 0) ||
+        !abaPubkeys || !abaWrappedKeys || !abaSessionKeys
+    ) return RET_CM_INVALID_PARAMETER;
+
+    SessionPkcs12Context* ss_ctx = (SessionPkcs12Context*)session->ctx;
+    if (!ss_ctx) return RET_CM_NO_SESSION;
+
+    FileStorage& storage = ss_ctx->fileStorage;
+    if (!storage.isOpen()) return RET_CM_NOT_AUTHORIZED;
+
+    StoreBag* selected_key = storage.selectedKey();
+    if (!selected_key) return RET_CM_KEY_NOT_SELECTED;
+
+    int ret = key_unwrap(
+        selected_key->bagValue(),
+        (const char*)kdfOid,
+        (const char*)wrapAlgOid,
+        count,
+        (const ByteArray**)abaPubkeys,
+        (const ByteArray**)abaSalts,
+        (const ByteArray**)abaWrappedKeys,
+        (ByteArray***)abaSessionKeys
+    );
+    if (ret != RET_OK) {
+        ret = (ret == RET_INVALID_MAC) ? RET_CM_INVALID_WRAPPED_KEY : RET_CM_GENERAL_ERROR;
+    }
+    return ret;
+}   //  cm_key_dh_unwrap_key
+
+
+void CmPkcs12::assignKeyFunc (
+        CM_KEY_API& key
+)
+{
+    key.getInfo         = cm_key_get_info;
+    key.getPublicKey    = cm_key_get_public_key;
+    key.initKeyUsage    = nullptr;
+    key.setOtp          = nullptr;
+    key.sign            = cm_key_sign;
+    key.signInit        = cm_key_sign_init;
+    key.signUpdate      = cm_key_sign_update;
+    key.signFinal       = cm_key_sign_final;
+    key.getCertificates = nullptr;
+    key.addCertificate  = nullptr;
+    key.getCsr          = nullptr;
+    key.dh              = nullptr;
+    key.dhWrapKey       = cm_key_dh_wrap_key;
+    key.dhUnwrapKey     = cm_key_dh_unwrap_key;
+    key.decrypt         = nullptr;
+    key.encrypt         = nullptr;
+    key.setInfo         = nullptr;
+    key.exportKey       = nullptr;
+}   //  CmPkcs12::assignKeyFunc

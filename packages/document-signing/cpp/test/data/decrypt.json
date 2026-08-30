@@ -1,0 +1,76 @@
+{
+  "comment": "Decrypt enveloped data",
+  "commentUsage": "uapki decrypt.json",
+  "tasks": [
+    {
+      "method": "VERSION"
+    },
+    {
+      "comment": "Ініціалізація бібліотеки",
+      "method": "INIT",
+      "parameters": {
+        "cmProviders": {
+          "allowedProviders": [
+            {
+              "lib": "cm-pkcs12"
+            }
+          ]
+        },
+        "certCache": {
+          "path": "certs/",
+          "trustedCerts": []
+        }
+      }
+    },
+    {
+      "comment": "Отримання переліку провайдерів підпису (типів носіів ключів: файли, токени, смарт-картки, хмарні криптомодулі та ін.)",
+      "method": "PROVIDERS"
+    },
+    {
+      "comment": "Відкриття носія ключів із пам'яті (файл: test-diia.p12)",
+      "method": "OPEN",
+      "parameters": {
+        "provider": "PKCS12", // Опціональний, по замовчанню PKCS12
+        "storage": "file://memory", // Для PKCS12-provider обов'язковий, шлях до контейнера PKCS#8,PKCS#12,JKS,IIT. Якщо контейнер ключів зберігається у пам'яті, то використовуються значення "file://memory".
+        "password": "testpassword", // Для PKCS12 обов'язковий, пароль
+        "mode": "RO", // Опціональний, RO - тільки читання, RW - читання/запис, CREATE - створення
+        "openParams": {
+          "bytes": "MIIE4wIBAzCCBIAGCSqGSIb3DQEHAaCCBHEEggRtMIIEaTCCBGUGCSqGSIb3DQEHAaCCBFYEggRSMIIETjCCAfIGCyqGSIb3DQEMCgECoIIBrjCCAaowgbAGCSqGSIb3DQEFDTCBojBDBgkqhkiG9w0BBQwwNgQg8onEwuXgBzU9vOV4xAdkFQPbrjUoAqlkrCCNINMSZ2QCAicQMA4GCiqGJAIBAQEBAQIFADBbBgsqhiQCAQEBAQEBAzBMBAjl++qfhVudNARAqdbrRfE8cIKAxJZ7Ix9erfZY66TANykdONlr8CXKThf46XINxhW0OiiXXwvB3qNkOLVk6iwXn9ASPm24+sV5BASB9A1Ql+mjjWbR/cUgexrnRkjrGYnjQmRvjKTycJmmYrSC+s8Oc7CH6suZmdI2MCf6bFqt1t8KHQP63QRVawfENeyxNsVUTtckmVhTTbj9K5TdXpjUm6fdR5elAphw0juEqwuRhK5EZfPCd3GqN/QhqEVlw+FNayYbcPBCy3GoznDjvpGQopeZnKjbFm6LU8xSEnYXry9Cs12eoCLE9iToxUjVpAUm1BkllEX3vzzX6uWabwCztNPXMjlhbBUi/JY+CitKer0LACwntJQV2ExUB7JnRRpi/VCQf4/kc+/O4Ms+57Gsjzj5Lz1/10DHA2+19qDJlcYxMTAvBgkqhkiG9w0BCRUxIgQgW8bAbuHgDBcA6Sqnqa11+C08t6m2bjqYAjIJskUTMVwwggJUBgsqhkiG9w0BDAoBAqCCAhAwggIMMIGwBgkqhkiG9w0BBQ0wgaIwQwYJKoZIhvcNAQUMMDYEILhXkg6YGQ4BrfauMDi8GwQUgLtt2OJQgoX49sp2+z1tAgInEDAOBgoqhiQCAQEBAQECBQAwWwYLKoYkAgEBAQEBAQMwTAQI5VsBILoMDqQEQKnW60XxPHCCgMSWeyMfXq32WOukwDcpHTjZa/Alyk4X+OlyDcYVtDool18Lwd6jZDi1ZOosF5/QEj5tuPrFeQQEggFVCdS79oZ5VwWJoglnyr2Jx7kcFvXjGm5MaB7T+sWy7oTgZvsU18BPxgmy4nt9uYSXIaAZ8xgU6LxsuRSWn9h1zvO+eFAb3gCLVErB4AYlJ+ajS2+8aCcvVKeAf5KeIFNc9WzO6sepnt2DGx445WXSmttCSDKi+dFxCHU27mO5ucT8bScswYGlts+wb7Fk5GM5aWTmbNsn4fCYMMez9jf4OiKSeHDNddmmmqaGeO08obymDXQNVIAKNzQrhei3F38t4I9sfEt00eF1A9pyJ5lEINe+SGVQXbBhnkTHQzPer9y4k7lqs179+5LnsyYGbMcWsVsCGqesAKqC+LVAf8JLQiyIKk/Uoc+Mt4irsW1HUrJFAPy3hkA5i+6RlbmFmBwy9Dr1rLv3k0/H92yvrVWAYTkRCwggyTZZnlDqpPplf9qPKDOH4bHVPK1lsyCVJHcbVEGj7hMxMTAvBgkqhkiG9w0BCRUxIgQgaxt3wNGhtgRzqY3W1P5TAnQq7eEB2qIfLIOmfM3tt4IwWjAyMA4GCiqGJAIBAQEBAgEFAAQgRksMSDei8GRdFaanSX4NMiyGGtVcL83NP5LRrI0Ci4sEIEDj9AVY5NLjH85Rjanpa5JzsL6o23IKuMmUI3U2U+soAgInEA=="
+        }
+      }
+    },
+    {
+      "comment": "Отримання переліку ключів на відкритому носії",
+      "method": "KEYS"
+    },
+    {
+      "comment": "Обрання ключа з переліку ключів на носії",
+      "method": "SELECT_KEY",
+      "parameters": {
+        "id": "6B1B77C0D1A1B60473A98DD6D4FE5302742AEDE101DAA21F2C83A67CCDEDB782"
+      }
+    },
+    {
+      "comment": "Розшифрування envelopedData",
+      "method": "DECRYPT",
+      "parameters": {
+        "bytes": "MIICJwYJKoZIhvcNAQcDoIICGDCCAhQCAQIxggG4oYIBtAIBA6BdoVswHgYLKoYkAgEBAQEDAQEwDwYNKoYkAgEBAQEDAQECCQM5AAQ2chSjGSZgpURVXLxnoVxODijIHC/z3eTZ4hCiDGtUgH/tlL8jSp94yClPjTCrY6mvDRsXMRYYMB0GCiqGJAIBAQEBAwQwDwYLKoYkAgEBAQEBAQUFADCCAS8wggErMIH6MIHhMRYwFAYDVQQKDA3QlNCfICLQlNCG0K8iMXMwcQYDVQQDDGoi0JTRltGPIi4g0JrQstCw0LvRltGE0ZbQutC+0LLQsNC90LjQuSDQvdCw0LTQsNCy0LDRhyDQtdC70LXQutGC0YDQvtC90L3QuNGFINC00L7QstGW0YDRh9C40YUg0L/QvtGB0LvRg9CzMRkwFwYDVQQFExBVQS00MzM5NTAzMy0xMDAwMQswCQYDVQQGEwJVQTERMA8GA1UEBwwI0JrQuNGX0LIxFzAVBgNVBGEMDk5UUlVBLTQzMzk1MDMzAhQ+1QgxYNvFmwQAAACpHgYAdKV2AAQscawPwDM9bgfyQmJnON56FLPDARG0+O4VrHKTAd0BD8jR/K6UA+exwO37oREwUwYJKoZIhvcNAQcBMBkGCyqGJAIBAQEBAQEDMAoECHpkyygpJjDYgCvh4utjSkG+Fe5SXHa9g2sazlG+Wt0gQYAzZe/vx+qEBR/MhUoE9cT3AGhY"
+      },
+      "skip": false
+    },
+    {
+      "comment": "Розшифрування envelopedData, файл: test-fox.txt.p7e",
+      "method": "DECRYPT",
+      "parameters": {
+        "bytes": "MIIDTwYJKoZIhvcNAQcDoIIDQDCCAzwCAQIxggKdoYICmQIBA6CB/TCB+jCB4TEWMBQGA1UECgwN0JTQnyAi0JTQhtCvIjFzMHEGA1UEAwxqItCU0ZbRjyIuINCa0LLQsNC70ZbRhNGW0LrQvtCy0LDQvdC40Lkg0L3QsNC00LDQstCw0Ycg0LXQu9C10LrRgtGA0L7QvdC90LjRhSDQtNC+0LLRltGA0YfQuNGFINC/0L7RgdC70YPQszEZMBcGA1UEBRMQVUEtNDMzOTUwMzMtMTAwMDELMAkGA1UEBhMCVUExETAPBgNVBAcMCNCa0LjRl9CyMRcwFQYDVQRhDA5OVFJVQS00MzM5NTAzMwIUPtUIMWDbxZsEAAAAqR4GAHSldgChQgRA5tq2pjTWXBzZwbvYewYD8U7ZVpKkq5HLerSY018O/aVTcZBF5gzFb1NBpd4j7b0ssIdcaIRd1p8GyzsAIUGdjTAdBgoqhiQCAQEBAQMEMA8GCyqGJAIBAQEBAQEFBQAwggEvMIIBKzCB+jCB4TEWMBQGA1UECgwN0JTQnyAi0JTQhtCvIjFzMHEGA1UEAwxqItCU0ZbRjyIuINCa0LLQsNC70ZbRhNGW0LrQvtCy0LDQvdC40Lkg0L3QsNC00LDQstCw0Ycg0LXQu9C10LrRgtGA0L7QvdC90LjRhSDQtNC+0LLRltGA0YfQuNGFINC/0L7RgdC70YPQszEZMBcGA1UEBRMQVUEtNDMzOTUwMzMtMTAwMDELMAkGA1UEBhMCVUExETAPBgNVBAcMCNCa0LjRl9CyMRcwFQYDVQRhDA5OVFJVQS00MzM5NTAzMwIUPtUIMWDbxZsEAAAAqR4GAHSldgAELFUsWd3hFhIaOL2jX5xhuK7c8dtrAtVv8yytM5sV65BdZ1Tcn60cXneHkuadMIGVBgkqhkiG9w0BBwEwWwYLKoYkAgEBAQEBAQMwTAQIyE4BcSWPc9YEQKnW60XxPHCCgMSWeyMfXq32WOukwDcpHTjZa/Alyk4X+OlyDcYVtDool18Lwd6jZDi1ZOosF5/QEj5tuPrFeQSAK9avS6dRn6MoBqIMrGK8nUp/W6YOMk5/9WGEF58RH/+4q+YjNBPU2y7lM/4="
+      },
+      "skip": false
+    },
+    {
+      "method": "CLOSE"
+    },
+    {
+      "method": "DEINIT"
+    }
+  ]
+}

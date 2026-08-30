@@ -16,3 +16,11 @@ packages/contract/openapi.json
 docs/
 .cursor/
 .agents/
+
+# Vendored UAPKI / WASM / Nitro codegen — not Prettier's (SHO-252).
+packages/document-signing/cpp/
+packages/document-signing/wasm/
+packages/document-signing/nitrogen/
+packages/document-signing/android/
+packages/document-signing/ios/
+packages/document-signing/cpp-bridge/

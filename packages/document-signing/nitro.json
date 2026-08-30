@@ -1,0 +1,23 @@
+{
+  "$schema": "https://raw.githubusercontent.com/mrousavy/nitro/main/packages/nitrogen/nitro.schema.json",
+  "cxxNamespace": ["showzy", "signing"],
+  "ios": {
+    "iosModuleName": "DocumentSigning"
+  },
+  "android": {
+    "androidNamespace": ["com", "showzy", "signing"],
+    "androidCxxLibName": "DocumentSigning"
+  },
+  "autolinking": {
+    "UapkiEngine": {
+      "ios": {
+        "language": "c++",
+        "implementationClassName": "HybridUapkiEngine"
+      },
+      "android": {
+        "language": "c++",
+        "implementationClassName": "HybridUapkiEngine"
+      }
+    }
+  }
+}

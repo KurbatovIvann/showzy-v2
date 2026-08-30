@@ -1,0 +1,121 @@
+{
+  "comment": "Test create DSTU key-storage",
+  "commentUsage": "uapki create-dstu-key.json",
+  "tasks": [
+    {
+      "method": "VERSION"
+    },
+    {
+      "comment": "Ініціалізація бібліотеки",
+      "method": "INIT",
+      "parameters": {
+        "cmProviders": {
+          "dir": "", // full path
+          "allowedProviders": [
+            {
+              "lib": "cm-pkcs12",
+              "config": { // optional parameters
+                "createPfx": { // specific cm-provider parameters
+                  "bagCipher": "1.2.804.2.1.1.1.1.1.1.3", // gost28147-CFB
+                  "bagKdf": "1.2.804.2.1.1.1.1.1.2", // hmacGost34311
+                  "iterations": 10000,
+                  "macAlgo": "1.2.804.2.1.1.1.1.2.1" // gost34311
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "comment": "Отримання переліку провайдерів підпису (типів носіів ключів: файли, токени, смарт-картки, хмарні криптомодулі та ін.)",
+      "method": "PROVIDERS",
+      "skip": false
+    },
+    {
+      "comment": "Отримання переліку носіїв ключів для заданого провайдера та їх властивостей",
+      "method": "STORAGES",
+      "parameters": {
+        "provider": "PKCS12" // Обов'язкове (ідентифікатор провайдера зі списку що повертає метод PROVIDERS)
+      },
+      "skip": false
+    },
+    {
+      "comment": "Отримання переліку носіїв ключів для заданого провайдера та їх властивостей",
+      "method": "STORAGE_INFO",
+      "parameters": {
+        "provider": "PKCS12", // Опціональне, по замовчанню PKCS12
+        "storage": "storage-id" // Для PKCS12-provider обов'язкове, шлях до контейнера PKCS#8,PKCS#12,JKS,IIT
+      },
+      "skip": false
+    },
+    {
+      "comment": "Створення нового сховища ключів",
+      "method": "OPEN",
+      "parameters": {
+        "provider": "PKCS12",
+        "storage": "new-dstu.p12",
+        "password": "testpassword",
+        "openParams": {
+          "createPfx": { // specific cm-provider parameters
+            "bagCipher": "1.2.804.2.1.1.1.1.1.1.3", // gost28147-CFB
+            "bagKdf": "1.2.804.2.1.1.1.1.1.2", // hmacGost34311
+            "iterations": 10000,
+            "macAlgo": "1.2.804.2.1.1.1.1.2.1" // gost34311
+          }
+        },
+        "mode": "CREATE"
+      }
+    },
+    {
+      "comment": "Створення нового ключа за алгоритмом DSTU-4145 with GOST34311 (OID='1.2.804.2.1.1.1.1.3.1.1') з параметром M257_PB (OID='1.2.804.2.1.1.1.1.3.1.1.2.6')",
+      "method": "CREATE_KEY",
+      "parameters": {
+        "mechanismId": "1.2.804.2.1.1.1.1.3.1.1",
+        "parameterId": "1.2.804.2.1.1.1.1.3.1.1.2.6",
+        "label": "Key-1 DSTU-4145 M257_PB"
+      }
+    },
+    {
+      "comment": "Отримання переліку ключів на відкритому носії",
+      "method": "KEYS"
+    },
+    {
+      "comment": "Отримання запиту на сертифікат для поточного ключа",
+      "method": "GET_CSR",
+      "parameters": {
+        "signAlgo": "1.2.804.2.1.1.1.1.3.1.1"
+      },
+      "skip": false
+    },
+    {
+      "comment": "Створення нового ключа за алгоритмом DSTU-4145 with GOST34311 (OID='1.2.804.2.1.1.1.1.3.1.1') з параметром M431_PB (OID='1.2.804.2.1.1.1.1.3.1.1.2.9')",
+      "method": "CREATE_KEY",
+      "parameters": {
+        "mechanismId": "1.2.804.2.1.1.1.1.3.1.1",
+        "parameterId": "1.2.804.2.1.1.1.1.3.1.1.2.9",
+        "label": "Key-2 DSTU-4145 M431_PB"
+      },
+      "skip": false
+    },
+    {
+      "comment": "Отримання переліку ключів на відкритому носії",
+      "method": "KEYS",
+      "skip": false
+    },
+    {
+      "comment": "Отримання запиту на сертифікат для поточного ключа",
+      "method": "GET_CSR",
+      "parameters": {
+        "signAlgo": "1.2.804.2.1.1.1.1.3.1.1"
+      },
+      "skip": false
+    },
+    {
+      "method": "CLOSE"
+    },
+    {
+      "method": "DEINIT"
+    }
+  ]
+}
