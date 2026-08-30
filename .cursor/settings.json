@@ -3,10 +3,10 @@
     "linear": {
       "enabled": true
     },
-    "figma": {
+    "magic-patterns": {
       "enabled": true
     },
-    "magic-patterns": {
+    "github": {
       "enabled": true
     }
   }

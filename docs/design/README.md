@@ -10,9 +10,13 @@ This directory holds UX and design-system artifacts for Showzy V2.
 - **Prototype:** [Magic Patterns canvas](https://www.magicpatterns.com/c/g4fsekajwwkeex3v612gvp).
 - **Design system:** Unistyles in `apps/mobile/src/theme/` and shared
   primitives in `apps/mobile/src/components/ui/`.
-- **Port rule:** [`mapping/mp-to-mobile.md`](mapping/mp-to-mobile.md) —
+- **Port rule (mobile):** [`mapping/mp-to-mobile.md`](mapping/mp-to-mobile.md) —
   inventory the canvas, classify shared vs feature, reuse or create;
   do not paste React/Tailwind.
+- **Web panel chrome (phase 10):** [`mapping/web-panel-chrome.md`](mapping/web-panel-chrome.md)
+  — desktop master–detail (nav | list | detail). Pattern reference only:
+  [three-pane example](https://www.magicpatterns.com/c/kputdkqv5aa9tguis1yxu3).
+  Do not fork it. Working web canvas lands in SHO-262.
 - **V1 reference:** `E:\showzy\apps\mobile` is read-only domain and
   edge-case reference. Archived V1 inventories live in
   [`docs/archive/design/`](../archive/design/) and are not visual
