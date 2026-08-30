@@ -46,6 +46,22 @@ export type DocumentSigningTarget = {
   readonly documentNumber: string;
 };
 
+/**
+ * Metro-only breadcrumb mirroring `[showzy/rpc]`. Never logs key bytes,
+ * passwords, or signed URLs — only the phase and the error name/message
+ * (network errors are already stripped to "Failed to fetch").
+ */
+function logSigningFailure(phase: string, error: unknown): void {
+  if (!__DEV__) {
+    return;
+  }
+  console.warn("[showzy/signing]", {
+    phase,
+    name: error instanceof Error ? error.name : typeof error,
+    message: error instanceof Error ? error.message : String(error),
+  });
+}
+
 export function useDocumentSigning(args: {
   readonly copy: DocumentsCopy;
   readonly canEdit: boolean;
@@ -114,6 +130,7 @@ export function useDocumentSigning(args: {
         documentNumber: target.documentNumber,
       });
     } catch (error: unknown) {
+      logSigningFailure("hitl", error);
       setHitlBanner(args.copy.signing.banners[mapSigningFailure(error)]);
     } finally {
       hitlBusyRef.current = false;
@@ -197,6 +214,7 @@ export function useDocumentSigning(args: {
       }
       dispatch({ type: "begin" });
       const signal = abortHandleRef.current.begin();
+      let lastPhase = "starting";
       try {
         const ports = await raceSigningAbort(portsFor(), signal);
         await runDocumentSigning({
@@ -206,6 +224,7 @@ export function useDocumentSigning(args: {
           ports,
           signal,
           onPhase: (phase) => {
+            lastPhase = phase;
             dispatch({ type: "phase", phase });
           },
         });
@@ -219,6 +238,7 @@ export function useDocumentSigning(args: {
         if (signal.aborted) {
           return;
         }
+        logSigningFailure(lastPhase, error);
         dispatch({ type: "fail", banner: mapSigningFailure(error) });
       }
     },

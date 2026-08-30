@@ -28,7 +28,10 @@
 
 #define FILE_MARKER "uapkif/struct/Hash.c"
 
-#include "Hash.h"
+/* Path-relative include: plain "Hash.h" goes through the Xcode header map,
+ * which is case-insensitive on APFS and resolves to uapkic's crypto hash.h
+ * instead of this ASN.1 header (see DocumentSigning.podspec). */
+#include "../../include/Hash.h"
 
 #include "asn_internal.h"
 
