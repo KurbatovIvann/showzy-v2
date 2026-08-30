@@ -72,6 +72,12 @@ describe("doc-signing source guards (SHO-254 / SHO-257 / SHO-258)", () => {
     );
     const complete = executableSource("actions/complete.ts");
     expect(complete).toContain('.for("update")');
+    expect(complete.indexOf("verifyAsicE(")).toBeLessThan(
+      complete.indexOf("call(lockIssuedForSigning"),
+    );
+    expect(complete.indexOf("call(lockIssuedForSigning")).toBeLessThan(
+      complete.indexOf("insert(signingSignatures)"),
+    );
     expect(complete.indexOf("insert(signingSignatures)")).toBeLessThan(
       complete.indexOf("callAtomic(recordSigningObject"),
     );

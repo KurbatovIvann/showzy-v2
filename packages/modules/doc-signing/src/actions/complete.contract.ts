@@ -2,10 +2,12 @@
  * Staff client complete of a pending QES request (SHO-258 / feature SHO-251).
  * Input is `{ requestId, fileId }` only — the client already PUT the ASiC
  * via the signing handshake. Server reads staging, verifies with
- * `@showzy/document-signing` against the frozen payload digest, claims
- * the unique supplier signature (and `FOR UPDATE`s the pending request)
- * then `ctx.callAtomic(files.recordSigningObject)`. A unique Conflict
- * must not have copied S3 yet. Same-file replay does not promote again.
+ * `@showzy/document-signing` against the frozen payload digest, re-asserts
+ * issued + unexpired grant (`documents.lockIssuedForSigning`) after verify
+ * and immediately before claiming the unique supplier signature (and
+ * `FOR UPDATE`s the pending request), then `ctx.callAtomic(files.recordSigningObject)`.
+ * The documents row is not held across verify. A unique Conflict must not
+ * have copied S3 yet. Same-file replay does not promote again.
  *
  * Mechanical: `timeout: 30000` is card-named. Nested remaining budgets
  * share one wall-clock deadline (lockIssuedForSigning 5000, readPending

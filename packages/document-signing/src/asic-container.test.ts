@@ -2,7 +2,13 @@ import { crc32, deflateRawSync } from "node:zlib";
 
 import { describe, expect, it } from "vitest";
 
-import { ASIC_E_MIMETYPE, packAsicE, unpackAsicE } from "./asic-container.js";
+import {
+  ASIC_E_MIMETYPE,
+  MAX_ASIC_ENTRIES,
+  MAX_ASIC_ENTRY_UNCOMPRESSED_BYTES,
+  packAsicE,
+  unpackAsicE,
+} from "./asic-container.js";
 import { AsicContainerError } from "./errors.js";
 
 const encoder = new TextEncoder();
@@ -43,6 +49,7 @@ function packZip(
     readonly name: string;
     readonly bytes: Uint8Array;
     readonly method: 0 | 8;
+    readonly declaredUncompressed?: number;
   }[],
 ): Uint8Array {
   const locals: Uint8Array[] = [];
@@ -51,7 +58,7 @@ function packZip(
   for (const entry of entries) {
     const nameBytes = encoder.encode(entry.name);
     const crc = crc32(entry.bytes) >>> 0;
-    const uncompressed = entry.bytes.byteLength;
+    const uncompressed = entry.declaredUncompressed ?? entry.bytes.byteLength;
     const payload =
       entry.method === DEFLATE
         ? new Uint8Array(deflateRawSync(entry.bytes))
@@ -206,5 +213,72 @@ describe("ASiC-E pack/unpack", () => {
     expect(() => unpackAsicE(encoder.encode("not-a-zip"))).toThrow(
       AsicContainerError,
     );
+  });
+
+  it("rejects a small DEFLATE blob that declares more than 25 MiB uncompressed without allocating it", () => {
+    const packed = packZip([
+      { name: "mimetype", bytes: asicParts.mimetype, method: STORED },
+      {
+        name: "document.pdf",
+        bytes: encoder.encode("tiny"),
+        method: DEFLATE,
+        declaredUncompressed: MAX_ASIC_ENTRY_UNCOMPRESSED_BYTES + 1,
+      },
+      {
+        name: "META-INF/ASiCManifest001.xml",
+        bytes: asicParts.manifest,
+        method: STORED,
+      },
+      {
+        name: "META-INF/signature001.p7s",
+        bytes: asicParts.signature,
+        method: STORED,
+      },
+    ]);
+    expect(packed.byteLength).toBeLessThan(4 * 1024);
+    const heapBefore = process.memoryUsage().heapUsed;
+    expect(() => unpackAsicE(packed)).toThrow(AsicContainerError);
+    expect(() => unpackAsicE(packed)).toThrow(/uncompressed size budget/);
+    const heapDelta = process.memoryUsage().heapUsed - heapBefore;
+    expect(heapDelta).toBeLessThan(2 * 1024 * 1024);
+  });
+
+  it("rejects a DEFLATE stream that expands past the declared uncompressed size", () => {
+    const zeros = new Uint8Array(64 * 1024);
+    const packed = packZip([
+      { name: "mimetype", bytes: asicParts.mimetype, method: STORED },
+      {
+        name: "document.pdf",
+        bytes: zeros,
+        method: DEFLATE,
+        declaredUncompressed: 32,
+      },
+      {
+        name: "META-INF/ASiCManifest001.xml",
+        bytes: asicParts.manifest,
+        method: STORED,
+      },
+      {
+        name: "META-INF/signature001.p7s",
+        bytes: asicParts.signature,
+        method: STORED,
+      },
+    ]);
+    expect(packed.byteLength).toBeLessThan(4 * 1024);
+    expect(() => unpackAsicE(packed)).toThrow(AsicContainerError);
+  });
+
+  it("rejects a container with more than the ASiC entry cap", () => {
+    const extras = Array.from({ length: MAX_ASIC_ENTRIES }, (_, index) => ({
+      name: `extra-${String(index)}.bin`,
+      bytes: encoder.encode("x"),
+      method: STORED as const,
+    }));
+    const packed = packZip([
+      { name: "mimetype", bytes: asicParts.mimetype, method: STORED },
+      ...extras,
+    ]);
+    expect(() => unpackAsicE(packed)).toThrow(AsicContainerError);
+    expect(() => unpackAsicE(packed)).toThrow(/too many entries/);
   });
 });

@@ -35,6 +35,7 @@ import {
 import { documentItems, documents } from "@showzy/db/schema/documents";
 import { files } from "@showzy/db/schema/files";
 import { orderItems, orders } from "@showzy/db/schema/orders";
+import { cancelDocument } from "@showzy/documents";
 import {
   ASIC_E_MIMETYPE,
   createSignedAsicE,
@@ -127,6 +128,8 @@ const ids = {
   deny: seedIds(),
   uniqueRace: seedIds(),
   promoteRetry: seedIds(),
+  cancelRace: seedIds(),
+  cancelConcurrent: seedIds(),
 };
 
 const sellerSnapshot = {
@@ -657,6 +660,28 @@ async function countReadySigningFiles(): Promise<number> {
   return rows[0]?.value ?? 0;
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function waitForUngrantedLock(): Promise<void> {
+  const deadline = Date.now() + 25_000;
+  while (Date.now() < deadline) {
+    const result = await requireKit().db.admin.query<{ n: number }>(
+      "SELECT COUNT(*)::int AS n FROM pg_locks WHERE NOT granted",
+    );
+    if ((result.rows[0]?.n ?? 0) > 0) {
+      return;
+    }
+    await sleep(20);
+  }
+  throw new Error(
+    "timed out waiting for complete to wait on the document row lock",
+  );
+}
+
 beforeAll(async () => {
   const garageToml = readFileSync(
     path.join(repoRoot(), "docker/garage/garage.toml"),
@@ -881,6 +906,20 @@ beforeAll(async () => {
       ...ids.promoteRetry,
       companyId: companyA,
       number: "KA-РХ-000978",
+      status: "issued" as const,
+      grant: grantedAt,
+    },
+    {
+      ...ids.cancelRace,
+      companyId: companyA,
+      number: "KA-РХ-000979",
+      status: "issued" as const,
+      grant: grantedAt,
+    },
+    {
+      ...ids.cancelConcurrent,
+      companyId: companyA,
+      number: "KA-РХ-000980",
       status: "issued" as const,
       grant: grantedAt,
     },
@@ -1430,6 +1469,103 @@ describe("docSigning.complete", () => {
     expect(expiredError).toBeInstanceOf(ValidationError);
     if (expiredError instanceof ValidationError) {
       expect(expiredError.clientMessage).toBe(GRANT_EXPIRED_MESSAGE);
+    }
+  });
+
+  it("does not record a signature when cancel commits while complete waits on the re-lock after verify", async () => {
+    const prepared = await prepareComplete({
+      ...ids.cancelRace,
+      companyId: kitIdentities.companies.a,
+      bytes: signedAsic.bytes,
+      payloadSha256: signedAsic.payloadSha256,
+    });
+    let completePromise: Promise<unknown> | undefined;
+    await requireKit().db.runtime.db.transaction(async (tx) => {
+      const locked = await tx
+        .select({ id: documents.id })
+        .from(documents)
+        .where(
+          and(
+            eq(documents.companyId, kitIdentities.companies.a),
+            eq(documents.id, ids.cancelRace.documentId),
+          ),
+        )
+        .limit(1)
+        .for("update");
+      expect(locked).toHaveLength(1);
+
+      completePromise = requireKit()
+        .invoke(completeSigning, {
+          requestId: prepared.requestId,
+          fileId: prepared.fileId,
+        })
+        .catch((error: unknown) => error);
+      await waitForUngrantedLock();
+
+      await tx
+        .update(documents)
+        .set({ status: "cancelled", signRequestedAt: null })
+        .where(
+          and(
+            eq(documents.companyId, kitIdentities.companies.a),
+            eq(documents.id, ids.cancelRace.documentId),
+          ),
+        );
+    });
+
+    if (completePromise === undefined) {
+      throw new Error("complete was not invoked under the held document lock");
+    }
+    const completed = await completePromise;
+    expect(completed).toBeInstanceOf(ConflictError);
+    const signatures = await requireKit()
+      .db.runtime.db.select({ id: signingSignatures.id })
+      .from(signingSignatures)
+      .where(eq(signingSignatures.documentId, ids.cancelRace.documentId));
+    expect(signatures).toHaveLength(0);
+    const [header] = await requireKit()
+      .db.runtime.db.select({
+        status: documents.status,
+        signRequestedAt: documents.signRequestedAt,
+      })
+      .from(documents)
+      .where(eq(documents.id, ids.cancelRace.documentId));
+    expect(header).toEqual({ status: "cancelled", signRequestedAt: null });
+  });
+
+  it("serializes concurrent complete and cancel so a cancelled document has no supplier signature", async () => {
+    const prepared = await prepareComplete({
+      ...ids.cancelConcurrent,
+      companyId: kitIdentities.companies.a,
+      bytes: signedAsic.bytes,
+      payloadSha256: signedAsic.payloadSha256,
+    });
+    await Promise.allSettled([
+      requireKit().invoke(completeSigning, {
+        requestId: prepared.requestId,
+        fileId: prepared.fileId,
+      }),
+      requireKit().invoke(cancelDocument, {
+        documentId: ids.cancelConcurrent.documentId,
+      }),
+    ]);
+    const [header] = await requireKit()
+      .db.runtime.db.select({
+        status: documents.status,
+        signRequestedAt: documents.signRequestedAt,
+      })
+      .from(documents)
+      .where(eq(documents.id, ids.cancelConcurrent.documentId));
+    const signatures = await requireKit()
+      .db.runtime.db.select({ id: signingSignatures.id })
+      .from(signingSignatures)
+      .where(eq(signingSignatures.documentId, ids.cancelConcurrent.documentId));
+    if (header?.status === "cancelled") {
+      expect(signatures).toHaveLength(0);
+      expect(header.signRequestedAt).toBeNull();
+    } else {
+      expect(header?.status).toBe("issued");
+      expect(signatures).toHaveLength(1);
     }
   });
 

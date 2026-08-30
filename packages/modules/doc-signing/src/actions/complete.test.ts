@@ -112,6 +112,13 @@ describe("docSigning.complete contract", () => {
     expect(completeSource.indexOf("insert(signingSignatures)")).toBeGreaterThan(
       -1,
     );
+    expect(completeSource.indexOf("verifyAsicE(")).toBeGreaterThan(-1);
+    expect(completeSource.indexOf("verifyAsicE(")).toBeLessThan(
+      completeSource.indexOf("call(lockIssuedForSigning"),
+    );
+    expect(completeSource.indexOf("call(lockIssuedForSigning")).toBeLessThan(
+      completeSource.indexOf("insert(signingSignatures)"),
+    );
     expect(completeSource.indexOf("insert(signingSignatures)")).toBeLessThan(
       completeSource.indexOf("callAtomic(recordSigningObject"),
     );

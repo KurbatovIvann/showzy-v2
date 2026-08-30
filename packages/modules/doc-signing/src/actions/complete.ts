@@ -279,10 +279,6 @@ export const completeSigning = implementAction(completeSigningContract, {
       });
     }
 
-    await ctx.call(lockIssuedForSigning, {
-      documentId: request.documentId,
-    });
-
     const staging = await ctx.call(readPendingSigningObject, {
       fileId: input.fileId,
     });
@@ -310,6 +306,16 @@ export const completeSigning = implementAction(completeSigningContract, {
       signatureAlg: verified.signatureAlg,
       signedAt: Number.isFinite(signedAt.getTime()) ? signedAt : new Date(),
     };
+
+    // Re-assert issued + unexpired grant AFTER verify and immediately
+    // before the unique supplier insert. Nesting lockIssuedForSigning
+    // before S3 GET + UAPKI VERIFY would hold the documents row FOR
+    // UPDATE across complete's 30s budget (blocking cancel). Cancel
+    // that commits in that window fails this re-lock; a signature is
+    // never recorded on a cancelled document.
+    await ctx.call(lockIssuedForSigning, {
+      documentId: request.documentId,
+    });
 
     const locked = await loadRequest({
       db,

@@ -3,12 +3,32 @@
  * `mimetype` entry stays uncompressed with an empty extra field
  * (ETSI TS 102 918). The unpacker inflates method 8 (raw DEFLATE) on
  * non-mimetype entries. It does not reimplement UAPKI.
+ *
+ * Uncompressed budgets match files `MAX_DOCUMENT_BYTES` (25 MiB). A
+ * DEFLATE entry whose declared size exceeds that is rejected before
+ * inflate; `inflateRawSync` is also capped so a lying header cannot
+ * allocate a huge buffer. Total uncompressed across entries is 4× that
+ * ceiling (mimetype + payload + manifest + signatures).
  */
 import { crc32, inflateRawSync } from "node:zlib";
 
 import { AsicContainerError } from "./errors.js";
 
 export const ASIC_E_MIMETYPE = "application/vnd.etsi.asic-e+zip";
+
+/** Same ceiling as files `MAX_DOCUMENT_BYTES` (security-operations.md §3). */
+export const MAX_ASIC_ENTRY_UNCOMPRESSED_BYTES = 25 * 1024 * 1024;
+
+/**
+ * One ASiC-E is mimetype + payload + manifest + signatures. Cap the sum
+ * at four times the files read ceiling so a DEFLATE bomb cannot allocate
+ * unbounded RAM even when each entry is under the per-entry cap.
+ */
+export const MAX_ASIC_TOTAL_UNCOMPRESSED_BYTES =
+  MAX_ASIC_ENTRY_UNCOMPRESSED_BYTES * 4;
+
+/** ASiC-E is a handful of META-INF files plus one payload. */
+export const MAX_ASIC_ENTRIES = 16;
 
 const LOCAL_SIG = 0x04034b50;
 const CENTRAL_SIG = 0x02014b50;
@@ -90,11 +110,23 @@ function crcOf(bytes: Uint8Array): number {
 }
 
 /** ZIP method 8 is raw DEFLATE (RFC 1951) — node:zlib `inflateRaw`. */
-function inflateRaw(compressed: Uint8Array): Uint8Array {
+function inflateRaw(
+  compressed: Uint8Array,
+  maxOutputLength: number,
+): Uint8Array {
   try {
-    const inflated = inflateRawSync(compressed);
+    const inflated = inflateRawSync(compressed, { maxOutputLength });
     return new Uint8Array(inflated);
-  } catch {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (
+      error instanceof RangeError ||
+      /too (?:large|small)|maxOutputLength/i.test(message)
+    ) {
+      throw new AsicContainerError(
+        "ASiC ZIP uncompressed size exceeds the budget",
+      );
+    }
     throw new AsicContainerError("ASiC ZIP deflate stream is corrupt");
   }
 }
@@ -225,12 +257,16 @@ function parseCentralEntries(bytes: Uint8Array): AsicEntry[] {
   const entryCount = readU16(bytes, eocd + 10);
   const cdSize = readU32(bytes, eocd + 12);
   const cdOffset = readU32(bytes, eocd + 16);
+  if (entryCount > MAX_ASIC_ENTRIES) {
+    throw new AsicContainerError("ASiC ZIP has too many entries");
+  }
   if (cdOffset + cdSize > bytes.byteLength) {
     throw new AsicContainerError("ASiC ZIP central directory is truncated");
   }
 
   const entries: AsicEntry[] = [];
   let cursor = cdOffset;
+  let totalUncompressed = 0;
   for (let i = 0; i < entryCount; i += 1) {
     if (readU32(bytes, cursor) !== CENTRAL_SIG) {
       throw new AsicContainerError("ASiC ZIP central directory is corrupt");
@@ -262,6 +298,17 @@ function parseCentralEntries(bytes: Uint8Array): AsicEntry[] {
     if (method === STORED && compressed !== uncompressed) {
       throw new AsicContainerError("ASiC ZIP stored size mismatch");
     }
+    if (uncompressed > MAX_ASIC_ENTRY_UNCOMPRESSED_BYTES) {
+      throw new AsicContainerError(
+        "ASiC ZIP entry exceeds the uncompressed size budget",
+      );
+    }
+    totalUncompressed += uncompressed;
+    if (totalUncompressed > MAX_ASIC_TOTAL_UNCOMPRESSED_BYTES) {
+      throw new AsicContainerError(
+        "ASiC ZIP uncompressed size exceeds the budget",
+      );
+    }
     if (readU32(bytes, localOffset) !== LOCAL_SIG) {
       throw new AsicContainerError("ASiC ZIP local header is corrupt");
     }
@@ -273,8 +320,11 @@ function parseCentralEntries(bytes: Uint8Array): AsicEntry[] {
       throw new AsicContainerError("ASiC ZIP file data is truncated");
     }
     const stored = bytes.subarray(dataStart, dataEnd);
+    const inflateBudget = uncompressed > 0 ? uncompressed : 1;
     const fileBytes =
-      method === DEFLATE ? inflateRaw(stored) : new Uint8Array(stored);
+      method === DEFLATE
+        ? inflateRaw(stored, inflateBudget)
+        : new Uint8Array(stored);
     if (fileBytes.byteLength !== uncompressed) {
       throw new AsicContainerError("ASiC ZIP uncompressed size mismatch");
     }
