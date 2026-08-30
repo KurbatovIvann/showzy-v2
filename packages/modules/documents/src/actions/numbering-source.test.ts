@@ -28,6 +28,7 @@ describe("documents numbering and issued date source", () => {
       "actions/get-shared.ts",
       "actions/list.ts",
       "actions/request-sign.ts",
+      "actions/lock-issued-for-signing.ts",
       "actions/share.ts",
       "actions/get-for-generation.ts",
       "services/create-from-order.ts",

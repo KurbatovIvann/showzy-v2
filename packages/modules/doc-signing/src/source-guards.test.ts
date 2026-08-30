@@ -48,6 +48,9 @@ describe("doc-signing source guards (SHO-254 / SHO-257)", () => {
       "@showzy/db/schema/doc-signing",
     );
     expect(executableSource("actions/start.ts")).toContain("ctx.call");
+    expect(executableSource("actions/start.ts")).toContain(
+      "lockIssuedForSigning",
+    );
     expect(executableSource("actions/start.ts")).not.toContain("getArtifact");
     expect(executableSource("actions/start.ts")).not.toContain(
       "docSigning.complete",

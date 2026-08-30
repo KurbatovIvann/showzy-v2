@@ -4,6 +4,7 @@ export { createFromOrder } from "./actions/create-from-order.js";
 export { getDocument } from "./actions/get.js";
 export { getShared } from "./actions/get-shared.js";
 export { listDocuments } from "./actions/list.js";
+export { lockIssuedForSigning } from "./actions/lock-issued-for-signing.js";
 export { requestSign } from "./actions/request-sign.js";
 export { shareDocument } from "./actions/share.js";
 export { documentsCancelled } from "./events/cancelled.js";

@@ -10,12 +10,11 @@ import {
   createCapturingLogger,
   createTestKit,
   crossTenantSuite,
-  idempotencySuite,
   isolationCase,
   kitIdentities,
   type TestKit,
 } from "@showzy/core/testing";
-import { auditLog } from "@showzy/db";
+import { auditLog, domainEvents } from "@showzy/db";
 import { user } from "@showzy/db/schema/auth";
 import { products } from "@showzy/db/schema/catalog";
 import { companyMembers } from "@showzy/db/schema/companies";
@@ -28,6 +27,7 @@ import {
 import { documentItems, documents } from "@showzy/db/schema/documents";
 import { files } from "@showzy/db/schema/files";
 import { orderItems, orders } from "@showzy/db/schema/orders";
+import { cancelDocument } from "@showzy/documents";
 import {
   closeFilesObjectStore,
   configureFilesObjectStore,
@@ -57,6 +57,7 @@ const fixtures = {
   orderIsolationB: randomUUID(),
   orderIdem: randomUUID(),
   orderConcurrent: randomUUID(),
+  orderRace: randomUUID(),
   orderHappy: randomUUID(),
   orderReplay: randomUUID(),
   orderCancelled: randomUUID(),
@@ -69,6 +70,7 @@ const fixtures = {
   itemIsolationB: randomUUID(),
   itemIdem: randomUUID(),
   itemConcurrent: randomUUID(),
+  itemRace: randomUUID(),
   itemHappy: randomUUID(),
   itemReplay: randomUUID(),
   itemCancelled: randomUUID(),
@@ -81,6 +83,7 @@ const fixtures = {
   docIsolationB: randomUUID(),
   docIdem: randomUUID(),
   docConcurrent: randomUUID(),
+  docRace: randomUUID(),
   docHappy: randomUUID(),
   docReplay: randomUUID(),
   docCancelled: randomUUID(),
@@ -93,8 +96,10 @@ const fixtures = {
   pdfIsolationB: randomUUID(),
   pdfIdem: randomUUID(),
   pdfConcurrent: randomUUID(),
+  pdfRace: randomUUID(),
   pdfHappy: randomUUID(),
   pdfReplay: randomUUID(),
+  pdfReplayAlt: randomUUID(),
   pdfCancelled: randomUUID(),
   pdfSigned: randomUUID(),
   pdfGrantMissing: randomUUID(),
@@ -149,6 +154,28 @@ async function countPending(companyId: string): Promise<number> {
       ),
     );
   return rows.length;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function waitForUngrantedLock(): Promise<void> {
+  const deadline = Date.now() + 8_000;
+  while (Date.now() < deadline) {
+    const result = await kit.db.admin.query<{ n: number }>(
+      "SELECT COUNT(*)::int AS n FROM pg_locks WHERE NOT granted",
+    );
+    if (Number(result.rows[0]?.n ?? 0) > 0) {
+      return;
+    }
+    await sleep(20);
+  }
+  throw new Error(
+    "timed out waiting for start to wait on the document row lock",
+  );
 }
 
 async function insertDocumentFile(
@@ -265,6 +292,16 @@ beforeAll(async () => {
       number: "KA-РХ-000942",
       status: "issued" as const,
       pdfId: fixtures.pdfConcurrent,
+      grant: grantedAt,
+    },
+    {
+      documentId: fixtures.docRace,
+      orderId: fixtures.orderRace,
+      orderItemId: fixtures.itemRace,
+      companyId: companyA,
+      number: "KA-РХ-000951",
+      status: "issued" as const,
+      pdfId: fixtures.pdfRace,
       grant: grantedAt,
     },
     {
@@ -430,6 +467,18 @@ beforeAll(async () => {
   }
 
   await kit.db.runtime.db.insert(files).values({
+    id: fixtures.pdfReplayAlt,
+    companyId: companyA,
+    purpose: "document",
+    mimeType: "application/pdf",
+    byteSize: 1024n,
+    objectKey: `${companyA}/documents/${fixtures.pdfReplayAlt}`,
+    status: "ready",
+    checksumSha256: "c".repeat(64),
+    stagingPurgedAt: new Date("2026-08-30T00:00:00.000Z"),
+  });
+
+  await kit.db.runtime.db.insert(files).values({
     id: fixtures.asicSigned,
     companyId: companyA,
     uploadedByUserId: kitIdentities.users.anna,
@@ -480,19 +529,6 @@ crossTenantSuite(
       { input: { documentId: fixtures.docIsolationA } },
       { input: { documentId: fixtures.docIsolationB } },
     ),
-  ],
-);
-
-idempotencySuite(
-  () => kit,
-  [
-    {
-      action: startSigning,
-      input: { documentId: fixtures.docIdem },
-      conflictingInput: { documentId: fixtures.docIsolationB },
-      freshInput: () => ({ documentId: fixtures.docConcurrent }),
-      readEffect: () => countPending(kitIdentities.companies.a),
-    },
   ],
 );
 
@@ -555,17 +591,23 @@ describe("docSigning.start", () => {
     expect(logs).not.toMatch(/X-Amz-Signature/);
   });
 
-  it("replays the same pending request id and frozen digest", async () => {
+  it("replays the same pending request id and frozen digest with a newly issued URL", async () => {
     const first = await kit.invoke(startSigning, {
       documentId: fixtures.docReplay,
     });
+    await sleep(50);
     const second = await kit.invoke(startSigning, {
       documentId: fixtures.docReplay,
     });
     expect(second.requestId).toBe(first.requestId);
     expect(second.payloadSha256).toBe(first.payloadSha256);
     expect(second.payloadFileId).toBe(first.payloadFileId);
+    expect(second.payloadFileId).toBe(fixtures.pdfReplay);
     expect(second.payloadDownloadUrl.startsWith("http")).toBe(true);
+    expect(second.payloadDownloadUrl).toContain(fixtures.pdfReplay);
+    expect(second.payloadDownloadExpiresAt).not.toBe(
+      first.payloadDownloadExpiresAt,
+    );
     expect(
       await kit.db.runtime.db
         .select({ id: signingRequests.id })
@@ -577,6 +619,25 @@ describe("docSigning.start", () => {
           ),
         ),
     ).toHaveLength(1);
+  });
+
+  it("re-issues the pending URL for the stored payloadFileId, not the current generation file", async () => {
+    const first = await kit.invoke(startSigning, {
+      documentId: fixtures.docReplay,
+    });
+    await kit.db.runtime.db
+      .update(documentGenerationJobs)
+      .set({ fileId: fixtures.pdfReplayAlt })
+      .where(eq(documentGenerationJobs.documentId, fixtures.docReplay));
+
+    const second = await kit.invoke(startSigning, {
+      documentId: fixtures.docReplay,
+    });
+    expect(second.requestId).toBe(first.requestId);
+    expect(second.payloadFileId).toBe(fixtures.pdfReplay);
+    expect(second.payloadSha256).toBe(payloadSha256);
+    expect(second.payloadDownloadUrl).toContain(fixtures.pdfReplay);
+    expect(second.payloadDownloadUrl).not.toContain(fixtures.pdfReplayAlt);
   });
 
   it("rejects a missing grant and an expired grant", async () => {
@@ -664,5 +725,127 @@ describe("docSigning.start", () => {
         companyId: kitIdentities.companies.a,
       }),
     ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it("does not leave a pending request when cancel commits while start waits on the row lock", async () => {
+    let startPromise: Promise<unknown> | undefined;
+    await kit.db.runtime.db.transaction(async (tx) => {
+      const locked = await tx
+        .select({ id: documents.id })
+        .from(documents)
+        .where(
+          and(
+            eq(documents.companyId, kitIdentities.companies.a),
+            eq(documents.id, fixtures.docRace),
+          ),
+        )
+        .limit(1)
+        .for("update");
+      expect(locked).toHaveLength(1);
+
+      startPromise = kit
+        .invoke(startSigning, { documentId: fixtures.docRace })
+        .catch((error: unknown) => error);
+      await waitForUngrantedLock();
+
+      await tx
+        .update(documents)
+        .set({ status: "cancelled", signRequestedAt: null })
+        .where(
+          and(
+            eq(documents.companyId, kitIdentities.companies.a),
+            eq(documents.id, fixtures.docRace),
+          ),
+        );
+    });
+
+    if (startPromise === undefined) {
+      throw new Error("start was not invoked under the held document lock");
+    }
+    const started = await startPromise;
+    expect(started).toBeInstanceOf(ConflictError);
+    if (started instanceof ConflictError) {
+      expect(started.clientMessage).toBe(CANCELLED_START_MESSAGE);
+    }
+    expect(
+      await kit.db.runtime.db
+        .select({ id: signingRequests.id })
+        .from(signingRequests)
+        .where(
+          and(
+            eq(signingRequests.documentId, fixtures.docRace),
+            eq(signingRequests.status, "pending"),
+          ),
+        ),
+    ).toHaveLength(0);
+  });
+
+  it("serializes concurrent start and cancel so a cancelled document cannot keep a live pending request after a failed start", async () => {
+    const pendingBefore = await countPending(kitIdentities.companies.a);
+    const results = await Promise.allSettled([
+      kit.invoke(startSigning, { documentId: fixtures.docConcurrent }),
+      kit.invoke(cancelDocument, { documentId: fixtures.docConcurrent }),
+    ]);
+
+    const header = await kit.db.runtime.db
+      .select({
+        status: documents.status,
+        signRequestedAt: documents.signRequestedAt,
+      })
+      .from(documents)
+      .where(eq(documents.id, fixtures.docConcurrent));
+    expect(header).toEqual([{ status: "cancelled", signRequestedAt: null }]);
+
+    const pending = await kit.db.runtime.db
+      .select({ id: signingRequests.id })
+      .from(signingRequests)
+      .where(
+        and(
+          eq(signingRequests.documentId, fixtures.docConcurrent),
+          eq(signingRequests.status, "pending"),
+        ),
+      );
+    const startOutcome = results[0];
+    if (startOutcome?.status === "fulfilled") {
+      expect(pending).toHaveLength(1);
+    } else {
+      expect(startOutcome?.status).toBe("rejected");
+      expect(pending).toHaveLength(0);
+      if (startOutcome?.status === "rejected") {
+        expect(startOutcome.reason).toBeInstanceOf(ConflictError);
+      }
+    }
+    expect(await countPending(kitIdentities.companies.a)).toBe(
+      pendingBefore + pending.length,
+    );
+  });
+
+  it("clears the HITL grant and emits documents.cancelled after start so abandonRequest still runs", async () => {
+    const started = await kit.invoke(startSigning, {
+      documentId: fixtures.docIdem,
+    });
+    await kit.invoke(cancelDocument, { documentId: fixtures.docIdem });
+
+    const header = await kit.db.runtime.db
+      .select({
+        status: documents.status,
+        signRequestedAt: documents.signRequestedAt,
+      })
+      .from(documents)
+      .where(eq(documents.id, fixtures.docIdem));
+    expect(header).toEqual([{ status: "cancelled", signRequestedAt: null }]);
+
+    const events = await kit.db.runtime.db
+      .select({ name: domainEvents.name })
+      .from(domainEvents)
+      .where(eq(domainEvents.aggregateId, fixtures.docIdem));
+    expect(events.map((row) => row.name)).toContain("documents.cancelled");
+
+    expect(
+      await kit.db.runtime.db
+        .select({ id: signingRequests.id, status: signingRequests.status })
+        .from(signingRequests)
+        .where(eq(signingRequests.id, started.requestId)),
+    ).toEqual([{ id: started.requestId, status: "pending" }]);
   });
 });

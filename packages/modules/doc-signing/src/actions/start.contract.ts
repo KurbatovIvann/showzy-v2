@@ -2,14 +2,19 @@
  * Staff client start of a pending QES request (SHO-257 / feature SHO-251).
  * Requires an unexpired `documents.requestSign` HITL grant (TTL 15
  * minutes). Confirmation on requestSign does not replace this check and
- * does not replace key possession. Nested reads: `documents.get` and
- * `files.issueDocumentDownloadUrl`. `documents.get.generation` already
- * supplies the ready `fileId`, so start does not double-call
- * `docGeneration.getArtifact`.
+ * does not replace key possession. Nested reads: `documents.get`,
+ * `documents.lockIssuedForSigning`, and `files.issueDocumentDownloadUrl`.
+ * `documents.get.generation` supplies the ready `fileId` for a first
+ * insert; pending replay issues the URL for the stored `payloadFileId`.
+ * Start does not double-call `docGeneration.getArtifact`.
  *
- * Mechanical: `timeout: 25000` is greater than the sequential remaining
- * callee budgets documents.get (15000) + getArtifact (2000, covered by
- * get.generation) + issueDocumentDownloadUrl (5000). Input is
+ * Ticket "idempotent" is domain replay of the live pending row (same
+ * requestId + frozen digest, fresh URL). Metadata `idempotent: false`
+ * so the protocol cache cannot freeze the short-lived URL.
+ *
+ * Mechanical: `timeout: 30000` is greater than the sequential remaining
+ * callee budgets documents.get (15000) + lockIssuedForSigning (5000,
+ * nested getArtifact 2000) + issueDocumentDownloadUrl (5000). Input is
  * `{ documentId }` only. Company id is never input. `emits: []` — the
  * card did not name an event. `requiresConfirmation: false` — HITL
  * already ran on requestSign.
@@ -19,7 +24,7 @@ import { z } from "zod";
 
 export const SIGN_REQUEST_TTL_MS = 15 * 60 * 1000;
 
-export const START_SIGNING_TIMEOUT_MS = 25_000;
+export const START_SIGNING_TIMEOUT_MS = 30_000;
 
 export const payloadSha256Schema = z
   .string()
@@ -45,7 +50,7 @@ export const startSigningOutputSchema = z.strictObject({
 export const startSigningContract = defineActionContract({
   name: "docSigning.start",
   description:
-    "Start a pending qualified-signature request for an issued staff document whose HITL grant is unexpired and whose PDF is ready. Freezes the payload SHA-256 digest and returns a short-lived payload download URL. Replay while pending returns the same request id and frozen digest. Cancelled or already supplier-signed documents fail with conflict. Missing grant, expired grant, or PDF-not-ready fail with validation. Missing or foreign-company documents fail with not-found. Company id is never input. Confirmation already ran on documents.requestSign and does not replace this grant check or key possession.",
+    "Start a pending qualified-signature request for an issued staff document whose HITL grant is unexpired and whose PDF is ready. Freezes the payload SHA-256 digest and returns a short-lived payload download URL. Replay of a live pending row returns the same request id and frozen digest with a newly issued URL. Cancelled or already supplier-signed documents fail with conflict. Missing grant, expired grant, or PDF-not-ready fail with validation. Missing or foreign-company documents fail with not-found. Company id is never input. Confirmation already ran on documents.requestSign and does not replace this grant check or key possession.",
   principal: "staff",
   transport: "client",
   input: startSigningInputSchema,
@@ -54,7 +59,7 @@ export const startSigningContract = defineActionContract({
   aiExposure: "internal",
   risk: "write",
   requiresConfirmation: false,
-  idempotent: true,
+  idempotent: false,
   emits: [],
   atomicCalls: [],
   atomicCallers: [],

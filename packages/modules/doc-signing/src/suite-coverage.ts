@@ -2,8 +2,9 @@ import type { SuiteCoverageManifest } from "@showzy/core";
 
 /**
  * Isolation lists every registered action (core.md §12). Abandon is
- * delivery-backed so it stays off idempotency; start is a client write
- * with `idempotent: true` and instantiates idempotencySuite.
+ * delivery-backed so it stays off idempotency. Start is a client write
+ * with domain pending-row replay; metadata `idempotent: false` so the
+ * protocol cache cannot freeze the short-lived URL.
  */
 export const docSigningSuiteCoverage = {
   isolation: [
@@ -16,7 +17,7 @@ export const docSigningSuiteCoverage = {
   consumerIsolation: [],
   accountIsolation: [],
   shareIsolation: [],
-  idempotency: ["docSigning.start"],
+  idempotency: [],
   events: ["docSigning"],
   atomic: [],
 } as const satisfies SuiteCoverageManifest;

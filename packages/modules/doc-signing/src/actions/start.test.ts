@@ -21,7 +21,7 @@ const startSource = readFileSync(
 );
 
 describe("docSigning.start contract", () => {
-  it("is a staff client write with documents:edit, internal AI, idempotent, and audited", () => {
+  it("is a staff client write with documents:edit, internal AI, non-protocol-idempotent, and audited", () => {
     expect(startSigningContract.name).toBe("docSigning.start");
     expect(startSigningContract.principal).toBe("staff");
     expect(startSigningContract.transport).toBe("client");
@@ -29,15 +29,15 @@ describe("docSigning.start contract", () => {
     expect(startSigningContract.permissions).toEqual(["documents:edit"]);
     expect(startSigningContract.aiExposure).toBe("internal");
     expect(startSigningContract.requiresConfirmation).toBe(false);
-    expect(startSigningContract.idempotent).toBe(true);
+    expect(startSigningContract.idempotent).toBe(false);
     expect(startSigningContract.audit).toBe(true);
     expect(startSigningContract.emits).toEqual([]);
     expect(startSigningContract.atomicCalls).toEqual([]);
     expect(startSigningContract.atomicCallers).toEqual([]);
     expect(startSigningContract.timeout).toBe(START_SIGNING_TIMEOUT_MS);
-    expect(startSigningContract.timeout).toBe(25_000);
+    expect(startSigningContract.timeout).toBe(30_000);
     expect(startSigningContract.timeout).toBeGreaterThan(
-      15_000 + 2_000 + 5_000,
+      15_000 + 5_000 + 5_000,
     );
     expect(SIGN_REQUEST_TTL_MS).toBe(15 * 60 * 1000);
     expect(startSigningContract.rateLimit).toBeUndefined();
@@ -90,10 +90,12 @@ describe("docSigning.start contract", () => {
     ).toBe(false);
   });
 
-  it("nests documents.get and issueDocumentDownloadUrl without foreign schema or complete", () => {
+  it("nests documents.get, lockIssuedForSigning, and issueDocumentDownloadUrl without foreign schema or complete", () => {
     expect(startSource).toContain("getDocument");
+    expect(startSource).toContain("lockIssuedForSigning");
     expect(startSource).toContain('from "@showzy/documents"');
     expect(startSource).toContain("issueDocumentDownloadUrl");
+    expect(startSource).toContain("existing.payloadFileId");
     expect(startSource).toContain('from "@showzy/files"');
     expect(startSource).toContain("ctx.call");
     expect(startSource).not.toContain("getArtifact");

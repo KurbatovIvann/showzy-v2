@@ -5,7 +5,7 @@ import {
   ValidationError,
 } from "@showzy/core/errors";
 import { signingRequests } from "@showzy/db/schema/doc-signing";
-import { getDocument } from "@showzy/documents";
+import { getDocument, lockIssuedForSigning } from "@showzy/documents";
 import { issueDocumentDownloadUrl } from "@showzy/files";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
@@ -79,6 +79,12 @@ type PendingRequest = {
   readonly payloadSha256: string;
 };
 
+type IssuedDownload = {
+  readonly downloadUrl: string;
+  readonly expiresAt: string;
+  readonly checksumSha256: string;
+};
+
 async function loadPendingRequest(env: {
   readonly db: ReturnType<typeof requireStaffWritable>;
   readonly companyId: string;
@@ -102,6 +108,22 @@ async function loadPendingRequest(env: {
   return rows[0];
 }
 
+function startOutput(env: {
+  readonly request: PendingRequest;
+  readonly documentId: string;
+  readonly issued: IssuedDownload;
+}) {
+  return {
+    requestId: env.request.id,
+    documentId: env.documentId,
+    payloadFileId: env.request.payloadFileId,
+    payloadSha256: env.request.payloadSha256,
+    payloadDigestAlgorithm: "sha256" as const,
+    payloadDownloadUrl: env.issued.downloadUrl,
+    payloadDownloadExpiresAt: env.issued.expiresAt,
+  };
+}
+
 export const startSigning = implementAction(startSigningContract, {
   handler: async (input, ctx) => {
     if (ctx.principal !== "staff") {
@@ -118,15 +140,11 @@ export const startSigning = implementAction(startSigningContract, {
     if (document.signing.status === "supplier_signed") {
       throw new ConflictError(ALREADY_SIGNED_MESSAGE);
     }
-    const payloadFileId =
+    const generationFileId =
       document.generation.status === "ready"
         ? document.generation.fileId
         : null;
-    requireReadyPdf(payloadFileId);
-
-    const issued = await ctx.call(issueDocumentDownloadUrl, {
-      fileId: payloadFileId,
-    });
+    requireReadyPdf(generationFileId);
 
     const db = requireStaffWritable(ctx.db);
     const existing = await loadPendingRequest({
@@ -135,16 +153,25 @@ export const startSigning = implementAction(startSigningContract, {
       documentId: input.documentId,
     });
     if (existing !== undefined) {
-      return {
-        requestId: existing.id,
+      await ctx.call(lockIssuedForSigning, {
         documentId: input.documentId,
-        payloadFileId: existing.payloadFileId,
-        payloadSha256: existing.payloadSha256,
-        payloadDigestAlgorithm: "sha256" as const,
-        payloadDownloadUrl: issued.downloadUrl,
-        payloadDownloadExpiresAt: issued.expiresAt,
-      };
+      });
+      const issued = await ctx.call(issueDocumentDownloadUrl, {
+        fileId: existing.payloadFileId,
+      });
+      return startOutput({
+        request: existing,
+        documentId: input.documentId,
+        issued,
+      });
     }
+
+    await ctx.call(lockIssuedForSigning, {
+      documentId: input.documentId,
+    });
+    const issued = await ctx.call(issueDocumentDownloadUrl, {
+      fileId: generationFileId,
+    });
 
     try {
       const inserted = await db
@@ -152,7 +179,7 @@ export const startSigning = implementAction(startSigningContract, {
         .values({
           companyId: ctx.companyId,
           documentId: input.documentId,
-          payloadFileId,
+          payloadFileId: generationFileId,
           payloadSha256: issued.checksumSha256,
           payloadDigestAlgorithm: "sha256",
           status: "pending",
@@ -166,15 +193,11 @@ export const startSigning = implementAction(startSigningContract, {
       if (row === undefined) {
         throw new CoreInvariantError("docSigning.start insert returned no row");
       }
-      return {
-        requestId: row.id,
+      return startOutput({
+        request: row,
         documentId: input.documentId,
-        payloadFileId: row.payloadFileId,
-        payloadSha256: row.payloadSha256,
-        payloadDigestAlgorithm: "sha256" as const,
-        payloadDownloadUrl: issued.downloadUrl,
-        payloadDownloadExpiresAt: issued.expiresAt,
-      };
+        issued,
+      });
     } catch (error) {
       if (
         postgresUniqueConstraint(error) !== SIGNING_REQUESTS_DOCUMENT_PENDING_UQ
@@ -191,15 +214,14 @@ export const startSigning = implementAction(startSigningContract, {
           "docSigning.start unique race lost a pending request",
         );
       }
-      return {
-        requestId: raced.id,
+      const racedIssued = await ctx.call(issueDocumentDownloadUrl, {
+        fileId: raced.payloadFileId,
+      });
+      return startOutput({
+        request: raced,
         documentId: input.documentId,
-        payloadFileId: raced.payloadFileId,
-        payloadSha256: raced.payloadSha256,
-        payloadDigestAlgorithm: "sha256" as const,
-        payloadDownloadUrl: issued.downloadUrl,
-        payloadDownloadExpiresAt: issued.expiresAt,
-      };
+        issued: racedIssued,
+      });
     }
   },
   auditTarget: startAuditTarget,

@@ -77,6 +77,7 @@ import {
   getForGeneration,
   getShared,
   listDocuments,
+  lockIssuedForSigning,
   requestSign,
   shareDocument,
 } from "@showzy/documents";
@@ -317,7 +318,15 @@ const callEdges: readonly DeclaredCallEdge[] = [
   },
   {
     caller: "docSigning.start",
+    callee: "documents.lockIssuedForSigning",
+  },
+  {
+    caller: "docSigning.start",
     callee: "files.issueDocumentDownloadUrl",
+  },
+  {
+    caller: "documents.lockIssuedForSigning",
+    callee: "docGeneration.getArtifact",
   },
 ];
 
@@ -445,6 +454,7 @@ export function createActionRegistry(): ActionRegistry {
   registerAction(registry, getForGeneration);
   registerAction(registry, getShared);
   registerAction(registry, listDocuments);
+  registerAction(registry, lockIssuedForSigning);
   registerAction(registry, requestSign);
   registerAction(registry, shareDocument);
   registerAction(registry, getArtifact);
