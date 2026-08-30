@@ -21,6 +21,7 @@ import {
   type CatalogImageMime,
 } from "./product-photos-limits";
 import {
+  catalogImagePreparePlan,
   catalogImageStrategy,
   nextPhotoCompressPlan,
 } from "./product-photos-model";
@@ -106,13 +107,6 @@ async function compressCatalogImage(args: {
 }): Promise<PreparedCatalogImage> {
   const strategy = catalogImageStrategy(args.mimeType, args.fileName);
   const original = new File(args.uri);
-  if (
-    strategy !== "convert-jpeg" &&
-    original.size >= 1 &&
-    original.size <= MAX_UPLOAD_BYTES
-  ) {
-    return hashFile(original, mimeForStrategy(strategy));
-  }
   let uri = args.uri;
   let edge = PHOTO_MAX_EDGE;
   let compress = PHOTO_START_COMPRESS;
@@ -122,6 +116,16 @@ async function compressCatalogImage(args: {
   for (let attempt = 0; attempt < 8; attempt += 1) {
     const rendered = await ImageManipulator.manipulate(uri).renderAsync();
     const longEdge = Math.max(rendered.width, rendered.height);
+    if (
+      attempt === 0 &&
+      catalogImagePreparePlan({
+        strategy,
+        byteSize: original.size,
+        longEdge,
+      }).kind === "keep"
+    ) {
+      return hashFile(original, mime);
+    }
     const resized =
       longEdge > edge
         ? await ImageManipulator.manipulate(uri)
