@@ -7,6 +7,7 @@ import {
   ValidationError,
 } from "@showzy/core/errors";
 import {
+  createCapturingLogger,
   createTestKit,
   crossTenantSuite,
   idempotencySuite,
@@ -498,11 +499,15 @@ idempotencySuite(
 describe("docSigning.start", () => {
   it("freezes the payload digest and returns a payload download URL", async () => {
     const requestId = randomUUID();
+    const capturing = createCapturingLogger();
     const result = await kit.invoke(
       startSigning,
       { documentId: fixtures.docHappy },
       {},
-      { request: { requestId } },
+      {
+        request: { requestId },
+        deps: { ...kit.pipeline, logger: capturing.logger },
+      },
     );
     expect(result.documentId).toBe(fixtures.docHappy);
     expect(result.payloadFileId).toBe(fixtures.pdfHappy);
@@ -545,6 +550,9 @@ describe("docSigning.start", () => {
       outcome: "ok",
     });
     expect(JSON.stringify(audits[0])).not.toContain(result.payloadDownloadUrl);
+    const logs = JSON.stringify(capturing.entries());
+    expect(logs).not.toContain(result.payloadDownloadUrl);
+    expect(logs).not.toMatch(/X-Amz-Signature/);
   });
 
   it("replays the same pending request id and frozen digest", async () => {
