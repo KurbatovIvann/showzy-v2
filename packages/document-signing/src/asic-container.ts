@@ -1,9 +1,10 @@
 /**
- * ASiC-E is a ZIP. This packer/unpacker is STORED-only (no deflate) so
- * the mandatory first `mimetype` entry stays uncompressed with an empty
- * extra field (ETSI TS 102 918). It does not reimplement UAPKI.
+ * ASiC-E is a ZIP. The packer is STORED-only so the mandatory first
+ * `mimetype` entry stays uncompressed with an empty extra field
+ * (ETSI TS 102 918). The unpacker inflates method 8 (raw DEFLATE) on
+ * non-mimetype entries. It does not reimplement UAPKI.
  */
-import { crc32 } from "node:zlib";
+import { crc32, inflateRawSync } from "node:zlib";
 
 import { AsicContainerError } from "./errors.js";
 
@@ -13,6 +14,7 @@ const LOCAL_SIG = 0x04034b50;
 const CENTRAL_SIG = 0x02014b50;
 const EOCD_SIG = 0x06054b50;
 const STORED = 0;
+const DEFLATE = 8;
 const ZIP_VERSION = 20;
 
 export type AsicEntry = {
@@ -85,6 +87,42 @@ function decodeName(bytes: Uint8Array): string {
 
 function crcOf(bytes: Uint8Array): number {
   return crc32(bytes) >>> 0;
+}
+
+/** ZIP method 8 is raw DEFLATE (RFC 1951) — node:zlib `inflateRaw`. */
+function inflateRaw(compressed: Uint8Array): Uint8Array {
+  try {
+    const inflated = inflateRawSync(compressed);
+    return new Uint8Array(inflated);
+  } catch {
+    throw new AsicContainerError("ASiC ZIP deflate stream is corrupt");
+  }
+}
+
+function requireOnDiskMimetypeFirst(bytes: Uint8Array): void {
+  if (bytes.byteLength < 30 || readU32(bytes, 0) !== LOCAL_SIG) {
+    throw new AsicContainerError("Bytes are not a ZIP/ASiC container");
+  }
+  const flags = readU16(bytes, 6);
+  const method = readU16(bytes, 8);
+  const nameLen = readU16(bytes, 26);
+  const extraLen = readU16(bytes, 28);
+  if (30 + nameLen > bytes.byteLength) {
+    throw new AsicContainerError("ASiC ZIP local header is truncated");
+  }
+  const name = decodeName(bytes.subarray(30, 30 + nameLen));
+  if (name !== "mimetype") {
+    throw new AsicContainerError("ASiC-E mimetype must be the first ZIP entry");
+  }
+  if (method !== STORED) {
+    throw new AsicContainerError("ASiC-E mimetype must be stored uncompressed");
+  }
+  if (extraLen !== 0) {
+    throw new AsicContainerError("ASiC-E mimetype extra field must be empty");
+  }
+  if ((flags & 0x08) !== 0) {
+    throw new AsicContainerError("ASiC ZIP data descriptors are not supported");
+  }
 }
 
 function requireMimetypeFirst(entries: readonly AsicEntry[]): AsicEntry[] {
@@ -211,12 +249,17 @@ function parseCentralEntries(bytes: Uint8Array): AsicEntry[] {
         "ASiC ZIP data descriptors are not supported",
       );
     }
-    if (method !== STORED) {
+    if (method !== STORED && method !== DEFLATE) {
       throw new AsicContainerError(
-        "ASiC ZIP entries must be stored uncompressed",
+        `ASiC ZIP compression method ${String(method)} is not supported`,
       );
     }
-    if (compressed !== uncompressed) {
+    if (name === "mimetype" && method !== STORED) {
+      throw new AsicContainerError(
+        "ASiC-E mimetype must be stored uncompressed",
+      );
+    }
+    if (method === STORED && compressed !== uncompressed) {
       throw new AsicContainerError("ASiC ZIP stored size mismatch");
     }
     if (readU32(bytes, localOffset) !== LOCAL_SIG) {
@@ -225,11 +268,21 @@ function parseCentralEntries(bytes: Uint8Array): AsicEntry[] {
     const localNameLen = readU16(bytes, localOffset + 26);
     const localExtraLen = readU16(bytes, localOffset + 28);
     const dataStart = localOffset + 30 + localNameLen + localExtraLen;
-    const dataEnd = dataStart + uncompressed;
+    const dataEnd = dataStart + compressed;
     if (dataEnd > bytes.byteLength) {
       throw new AsicContainerError("ASiC ZIP file data is truncated");
     }
-    entries.push({ name, bytes: bytes.subarray(dataStart, dataEnd) });
+    const stored = bytes.subarray(dataStart, dataEnd);
+    const fileBytes =
+      method === DEFLATE ? inflateRaw(stored) : new Uint8Array(stored);
+    if (fileBytes.byteLength !== uncompressed) {
+      throw new AsicContainerError("ASiC ZIP uncompressed size mismatch");
+    }
+    const crc = readU32(bytes, cursor + 16);
+    if (crcOf(fileBytes) !== crc) {
+      throw new AsicContainerError("ASiC ZIP CRC mismatch");
+    }
+    entries.push({ name, bytes: fileBytes });
     cursor += 46 + nameLen + extraLen + commentLen;
   }
   return entries;
@@ -254,9 +307,7 @@ function payloadUriFromManifest(manifestXml: string): string | undefined {
 }
 
 export function unpackAsicE(bytes: Uint8Array): UnpackedAsic {
-  if (bytes.byteLength < 4 || readU32(bytes, 0) !== LOCAL_SIG) {
-    throw new AsicContainerError("Bytes are not a ZIP/ASiC container");
-  }
+  requireOnDiskMimetypeFirst(bytes);
   const entries = requireMimetypeFirst(parseCentralEntries(bytes));
   const first = entries[0];
   if (first === undefined || first.name !== "mimetype") {
