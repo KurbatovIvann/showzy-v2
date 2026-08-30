@@ -8,6 +8,7 @@ import type { getDownloadUrlInputSchema } from "../actions/get-download-url.cont
 import type { getDownloadUrlsInputSchema } from "../actions/get-download-urls.contract.js";
 import type { issueDocumentDownloadUrlInputSchema } from "../actions/issue-document-download-url.contract.js";
 import type { issueSigningDownloadUrlInputSchema } from "../actions/issue-signing-download-url.contract.js";
+import type { CatalogRendition, FileMimeType } from "../wire.contract.js";
 import {
   requireDeclaredMime,
   requireDocumentMime,
@@ -16,6 +17,7 @@ import {
 } from "./file-view.js";
 import {
   catalogObjectKey,
+  catalogRenditionObjectKey,
   documentObjectKey,
   signingObjectKey,
 } from "./object-key.js";
@@ -62,10 +64,31 @@ function uniqueFileIds(fileIds: readonly string[]): string[] {
   return ids;
 }
 
-async function signReadyCatalogGet(row: ReadyFileRow): Promise<SignedDownload> {
-  const mimeType = requireDeclaredMime(row.mimeType);
+async function signReadyCatalogGet(
+  companyId: string,
+  row: ReadyFileRow,
+  rendition: CatalogRendition | undefined,
+): Promise<SignedDownload> {
+  if (rendition === undefined) {
+    const mimeType = requireDeclaredMime(row.mimeType);
+    return signStoredGet(row.id, row.objectKey, mimeType);
+  }
+
+  const key = catalogRenditionObjectKey(companyId, row.id, rendition);
+  const head = await getFilesObjectStore().headObject(key);
+  if (head === "missing") {
+    throw new NotFoundError();
+  }
+  return signStoredGet(row.id, key, "image/webp");
+}
+
+async function signStoredGet(
+  fileId: string,
+  key: string,
+  mimeType: FileMimeType,
+): Promise<SignedDownload> {
   const signed = await getFilesObjectStore().signGet({
-    key: row.objectKey,
+    key,
     mimeType,
   });
   if (signed.url.length === 0) {
@@ -75,7 +98,7 @@ async function signReadyCatalogGet(row: ReadyFileRow): Promise<SignedDownload> {
   }
 
   return {
-    fileId: row.id,
+    fileId,
     downloadUrl: signed.url,
     expiresAt: signed.expiresAt.toISOString(),
   };
@@ -172,7 +195,11 @@ export async function getStaffDownloadUrl(input: {
     throw new NotFoundError();
   }
 
-  return signReadyCatalogGet(requireCatalogObjectKey(input.ctx.companyId, row));
+  return signReadyCatalogGet(
+    input.ctx.companyId,
+    requireCatalogObjectKey(input.ctx.companyId, row),
+    input.input.rendition,
+  );
 }
 
 export async function getStaffDownloadUrls(input: {
@@ -210,7 +237,13 @@ export async function getStaffDownloadUrls(input: {
 
   const signed: SignedDownload[] = [];
   for (const row of ordered) {
-    signed.push(await signReadyCatalogGet(row));
+    signed.push(
+      await signReadyCatalogGet(
+        input.ctx.companyId,
+        row,
+        input.input.rendition,
+      ),
+    );
   }
   return { files: signed };
 }

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
+import { CATALOG_RENDITIONS } from "../wire.contract.js";
 import {
   catalogObjectKey,
+  catalogRenditionObjectKey,
   documentObjectKey,
   signingObjectKey,
   stagingObjectKey,
@@ -48,6 +50,28 @@ describe("signingObjectKey", () => {
     );
     expect(signingObjectKey(companyId, fileId)).not.toBe(
       documentObjectKey(companyId, fileId),
+    );
+  });
+});
+
+describe("catalogRenditionObjectKey", () => {
+  it("is {companyId}/catalog/{fileId}/{rendition} and is not the original key", () => {
+    for (const rendition of CATALOG_RENDITIONS) {
+      expect(catalogRenditionObjectKey(companyId, fileId, rendition)).toBe(
+        `${companyId}/catalog/${fileId}/${rendition}`,
+      );
+      expect(catalogRenditionObjectKey(companyId, fileId, rendition)).not.toBe(
+        catalogObjectKey(companyId, fileId),
+      );
+      expect(
+        catalogRenditionObjectKey(companyId, fileId, rendition),
+      ).not.toContain("/uploads/");
+      expect(
+        catalogRenditionObjectKey(companyId, fileId, rendition),
+      ).not.toContain("http");
+    }
+    expect(catalogRenditionObjectKey(companyId, fileId, "full")).not.toBe(
+      catalogObjectKey(companyId, fileId),
     );
   });
 });

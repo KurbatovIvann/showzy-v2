@@ -22,6 +22,14 @@ export const FILE_MIME_TYPES = [
   "image/webp",
 ] as const;
 
+/**
+ * Named catalog derivations (SHO-244 / SHO-246). Not stored in
+ * `files.object_key`. `full` is the 2048 WebP, not the original.
+ */
+export const CATALOG_RENDITIONS = ["thumb", "card", "hero", "full"] as const;
+
+export type CatalogRendition = (typeof CATALOG_RENDITIONS)[number];
+
 export const DOCUMENT_MIME_TYPE = "application/pdf" as const;
 
 export const SIGNING_MIME_TYPE = "application/vnd.etsi.asic-e+zip" as const;
@@ -50,6 +58,8 @@ export const documentPurposeSchema = z.literal(DOCUMENT_PURPOSE);
 export const signingPurposeSchema = z.literal(SIGNING_PURPOSE);
 
 export const fileMimeTypeSchema = z.enum(FILE_MIME_TYPES);
+
+export const catalogRenditionSchema = z.enum(CATALOG_RENDITIONS);
 
 export const documentMimeTypeSchema = z.literal(DOCUMENT_MIME_TYPE);
 
