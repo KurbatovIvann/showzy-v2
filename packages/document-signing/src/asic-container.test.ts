@@ -269,10 +269,14 @@ describe("ASiC-E pack/unpack", () => {
   });
 
   it("rejects a container with more than the ASiC entry cap", () => {
-    const extras = Array.from({ length: MAX_ASIC_ENTRIES }, (_, index) => ({
+    const extras: Array<{
+      readonly name: string;
+      readonly bytes: Uint8Array;
+      readonly method: 0 | 8;
+    }> = Array.from({ length: MAX_ASIC_ENTRIES }, (_, index) => ({
       name: `extra-${String(index)}.bin`,
       bytes: encoder.encode("x"),
-      method: STORED as const,
+      method: STORED,
     }));
     const packed = packZip([
       { name: "mimetype", bytes: asicParts.mimetype, method: STORED },
