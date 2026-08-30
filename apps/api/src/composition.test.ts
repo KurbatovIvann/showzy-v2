@@ -249,6 +249,40 @@ describe("composition root identity", () => {
       "docSigning.get->documents.get",
     );
   });
+
+  it("docSigning.start nests documents.get, the issued-row lock, and the panel PDF issuer, not getArtifact", () => {
+    const source = readFileSync(
+      join(import.meta.dirname, "composition.ts"),
+      "utf8",
+    );
+    const edges: Array<{ caller: string; callee: string }> = [];
+    const edgeRe = /caller:\s*"([^"]+)",\s*\n\s*callee:\s*"([^"]+)"/g;
+    for (const match of source.matchAll(edgeRe)) {
+      const caller = match[1];
+      const callee = match[2];
+      if (caller !== undefined && callee !== undefined) {
+        edges.push({ caller, callee });
+      }
+    }
+    expect(
+      edges
+        .filter((edge) => edge.caller === "docSigning.start")
+        .map((edge) => edge.callee)
+        .toSorted(),
+    ).toEqual([
+      "documents.get",
+      "documents.lockIssuedForSigning",
+      "files.issueDocumentDownloadUrl",
+    ]);
+    expect(
+      edges
+        .filter((edge) => edge.caller === "documents.lockIssuedForSigning")
+        .map((edge) => edge.callee),
+    ).toEqual(["docGeneration.getArtifact"]);
+    expect(edges.map((edge) => `${edge.caller}->${edge.callee}`)).not.toContain(
+      "docSigning.start->docGeneration.getArtifact",
+    );
+  });
 });
 
 describe("composition suiteCoverage gate", () => {

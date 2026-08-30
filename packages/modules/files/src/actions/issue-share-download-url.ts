@@ -13,7 +13,12 @@ export const issueShareDownloadUrl = implementAction(
           "files.issueShareDownloadUrl expects staff",
         );
       }
-      return getStaffDocumentDownloadUrl({ ctx, input });
+      const issued = await getStaffDocumentDownloadUrl({ ctx, input });
+      return {
+        fileId: issued.fileId,
+        downloadUrl: issued.downloadUrl,
+        expiresAt: issued.expiresAt,
+      };
     },
   },
 );

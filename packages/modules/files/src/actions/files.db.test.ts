@@ -2545,6 +2545,7 @@ describe("files.issueDocumentDownloadUrl", () => {
       { deps: { ...requireKit().pipeline, logger: capturing.logger } },
     );
     expect(signed.fileId).toBe(docDownloadOwnInput.fileId);
+    expect(signed.checksumSha256).toBe(pdfChecksum);
     expect(signed.downloadUrl.startsWith("http")).toBe(true);
     expect(signed.expiresAt).toEqual(expect.any(String));
 
@@ -2672,6 +2673,7 @@ describe("files.issueShareDownloadUrl", () => {
       { deps: { ...requireKit().pipeline, logger: capturing.logger } },
     );
     expect(signed.fileId).toBe(docDownloadOwnInput.fileId);
+    expect(signed).not.toHaveProperty("checksumSha256");
     const fetched = await fetch(signed.downloadUrl);
     expect(fetched.ok).toBe(true);
     expect(sha256Hex(new Uint8Array(await fetched.arrayBuffer()))).toBe(

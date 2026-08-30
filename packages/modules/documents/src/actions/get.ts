@@ -9,14 +9,14 @@ import {
   loadGenerationArtifact,
   readyArtifactFileId,
 } from "../services/load-generation.js";
-import { loadStaffDocument } from "../services/load-document.js";
+import { loadStaffDocumentWithGrant } from "../services/load-document.js";
 
 export const getDocument = implementAction(getDocumentContract, {
   handler: async (input, ctx) => {
     if (ctx.principal !== "staff") {
       throw new CoreInvariantError("documents.get expects staff");
     }
-    const view = await loadStaffDocument({
+    const { view, signRequestedAt } = await loadStaffDocumentWithGrant({
       db: ctx.db,
       companyId: ctx.companyId,
       documentId: input.documentId,
@@ -45,6 +45,7 @@ export const getDocument = implementAction(getDocumentContract, {
       generation,
       pdfDownloadUrl,
       signing,
+      signRequestedAt,
     };
   },
 });

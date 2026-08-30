@@ -8,6 +8,7 @@ export const documentsSuiteCoverage = {
     "documents.getForGeneration",
     "documents.getShared",
     "documents.list",
+    "documents.lockIssuedForSigning",
     "documents.requestSign",
     "documents.share",
   ],

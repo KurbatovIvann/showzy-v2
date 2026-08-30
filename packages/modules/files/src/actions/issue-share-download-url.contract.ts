@@ -8,16 +8,13 @@
  */
 import { defineActionContract } from "@showzy/core/contract";
 
-import {
-  issueDocumentDownloadUrlInputSchema,
-  issueDocumentDownloadUrlOutputSchema,
-} from "./issue-document-download-url.contract.js";
+import { getDownloadUrlOutputSchema } from "./get-download-url.contract.js";
+import { issueDocumentDownloadUrlInputSchema } from "./issue-document-download-url.contract.js";
 
 export const issueShareDownloadUrlInputSchema =
   issueDocumentDownloadUrlInputSchema;
 
-export const issueShareDownloadUrlOutputSchema =
-  issueDocumentDownloadUrlOutputSchema;
+export const issueShareDownloadUrlOutputSchema = getDownloadUrlOutputSchema;
 
 export const issueShareDownloadUrlContract = defineActionContract({
   name: "files.issueShareDownloadUrl",

@@ -48,7 +48,10 @@ import {
   requestSignContract,
   shareDocumentContract,
 } from "@showzy/documents/contract";
-import { getSigningContract } from "@showzy/doc-signing/contract";
+import {
+  getSigningContract,
+  startSigningContract,
+} from "@showzy/doc-signing/contract";
 import {
   finalizeUploadContract,
   getDownloadUrlContract,
@@ -144,6 +147,7 @@ describe("client composition", () => {
       },
       docSigning: {
         get: getSigningContract,
+        start: startSigningContract,
       },
       files: {
         requestUpload: requestUploadContract,
@@ -233,6 +237,8 @@ describe("client composition", () => {
     expect(contractRouter.documents.requestSign).toBeDefined();
     expect(contractRouter.documents.share).toBeDefined();
     expect(contractRouter.docSigning.get).toBeDefined();
+    expect(contractRouter.docSigning.start).toBeDefined();
+    expect(contractModules.docSigning.start.aiExposure).toBe("internal");
     expect(contractModules.docSigning).not.toHaveProperty(
       "getSupplierSignedFlags",
     );

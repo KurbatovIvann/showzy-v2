@@ -40,6 +40,6 @@ describe("files.issueDocumentDownloadUrl contract", () => {
     ).toEqual(["fileId"]);
     expect(
       Object.keys(issueDocumentDownloadUrlOutputSchema.shape).toSorted(),
-    ).toEqual(["downloadUrl", "expiresAt", "fileId"]);
+    ).toEqual(["checksumSha256", "downloadUrl", "expiresAt", "fileId"]);
   });
 });
