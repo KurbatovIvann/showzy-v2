@@ -1,17 +1,7 @@
 /**
- * Event subscriptions this worker delivers. Must list the same
- * `defineEventHandler` objects `apps/api/src/composition.ts` passes
- * through `eventSubscriptionRefs`.
+ * Event subscriptions this worker delivers — the exact array the API
+ * composition registers for contract-check (`@showzy/api/subscriptions`,
+ * SHO-279). Single source: a subscription registered there is delivered
+ * here by construction; there is no second hand-maintained list to forget.
  */
-import { orderCardUpdaterSubscriptions } from "@showzy/chat";
-import type { EventSubscription } from "@showzy/core";
-import { pdfRendererSubscriptions } from "@showzy/doc-generation/subscriptions";
-import { requestAbandonerSubscriptions } from "@showzy/doc-signing/subscriptions";
-import { signedShareAttacherSubscriptions } from "@showzy/documents/subscriptions";
-
-export const workerSubscriptions: readonly EventSubscription[] = [
-  ...orderCardUpdaterSubscriptions,
-  ...pdfRendererSubscriptions,
-  ...requestAbandonerSubscriptions,
-  ...signedShareAttacherSubscriptions,
-];
+export { registeredEventSubscriptions as workerSubscriptions } from "@showzy/api/subscriptions";

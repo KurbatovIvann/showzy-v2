@@ -12,6 +12,23 @@ export const OUTBOX_NOTIFY_CHANNEL = "domain_events";
 export const POLL_INTERVAL_MS = 1_000;
 
 /**
+ * Bounded concurrent delivery executions per tick (SHO-279). Small on
+ * purpose: enough that one slow consumer (a 30 s PDF render) does not
+ * head-of-line block the batch, small enough that a burst cannot starve
+ * the pool. Per-aggregate ordering stays with core's claim logic
+ * (advisory lock + earliest-first defer).
+ */
+export const DELIVERY_CONCURRENCY = 4;
+
+/**
+ * Cap for the exponential tick-failure backoff (SHO-279): a transient
+ * dispatch/findDue error logs and skips ticks for
+ * `pollInterval * 2^(failures-1)` up to this cap, instead of crashing the
+ * process with an unhandled rejection.
+ */
+export const TICK_FAILURE_BACKOFF_MAX_MS = 30_000;
+
+/**
  * How often the maintenance Job Scheduler runs idempotency-key expiry
  * (core.md §5, 48h TTL). BullMQ, not `setInterval`.
  */

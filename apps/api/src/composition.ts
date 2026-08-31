@@ -31,11 +31,7 @@ import {
   updateVariant,
 } from "@showzy/catalog";
 import { catalogSuiteCoverage } from "@showzy/catalog/suite-coverage";
-import {
-  getOrderCard,
-  orderCardUpdaterSubscriptions,
-  upsertOrderCard,
-} from "@showzy/chat";
+import { getOrderCard, upsertOrderCard } from "@showzy/chat";
 import { chatSuiteCoverage } from "@showzy/chat/suite-coverage";
 import {
   createCompany,
@@ -83,9 +79,7 @@ import {
   shareDocument,
 } from "@showzy/documents";
 import { documentsSuiteCoverage } from "@showzy/documents/suite-coverage";
-import { signedShareAttacherSubscriptions } from "@showzy/documents/subscriptions";
 import { getArtifact, renderPdf } from "@showzy/doc-generation";
-import { pdfRendererSubscriptions } from "@showzy/doc-generation/subscriptions";
 import { docGenerationSuiteCoverage } from "@showzy/doc-generation/suite-coverage";
 import {
   abandonRequest,
@@ -95,7 +89,6 @@ import {
   getSupplierSignedFlags,
   startSigning,
 } from "@showzy/doc-signing";
-import { requestAbandonerSubscriptions } from "@showzy/doc-signing/subscriptions";
 import { docSigningSuiteCoverage } from "@showzy/doc-signing/suite-coverage";
 import {
   backfillCatalogRenditions,
@@ -169,6 +162,7 @@ import {
 } from "@showzy/core";
 import { projectionGrants } from "@showzy/db";
 import type { z } from "zod";
+import { registeredEventSubscriptions } from "./subscriptions.js";
 
 /**
  * Per-module inherited-suite declarations (core.md §12). Module tasks
@@ -522,12 +516,7 @@ export function buildContractCheckInput(): ContractCheckInput {
   return {
     registry: createActionRegistry(),
     events,
-    subscriptions: eventSubscriptionRefs([
-      ...orderCardUpdaterSubscriptions,
-      ...pdfRendererSubscriptions,
-      ...requestAbandonerSubscriptions,
-      ...signedShareAttacherSubscriptions,
-    ]),
+    subscriptions: eventSubscriptionRefs([...registeredEventSubscriptions]),
     callEdges,
     projectionGrants,
     readModelGrants,

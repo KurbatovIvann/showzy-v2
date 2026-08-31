@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@sentry/node": "^10.70.0",
+    "@showzy/api": "workspace:*",
     "@showzy/chat": "workspace:*",
     "@showzy/config": "workspace:*",
     "@showzy/core": "workspace:*",

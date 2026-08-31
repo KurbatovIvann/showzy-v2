@@ -23,8 +23,10 @@ if (command.kind === "replay") {
     await db.pool.end();
   }
 } else {
-  const logger = createProcessLogger({ name: "worker-boot" });
+  // One process logger identity: boot creates it (with Sentry redaction)
+  // and the entrypoint reuses it instead of constructing a second one.
   const booted = await bootWorker(config);
+  const logger = booted.logger;
   logger.info({ worker_id: booted.loop.workerId }, "worker running");
 
   const shutdown = createProcessShutdown({

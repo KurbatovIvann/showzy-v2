@@ -29,6 +29,7 @@ import {
   mergeSuiteCoverage,
   registerAction,
 } from "./composition.js";
+import { registeredEventSubscriptions } from "./subscriptions.js";
 
 const io = z.object({});
 
@@ -197,7 +198,11 @@ describe("composition root identity", () => {
         .map((edge) => edge.callee),
     ).toEqual(["files.issueSystemSigningDownloadUrl"]);
     expect(source).toContain("attachSignedShare");
-    expect(source).toContain("signedShareAttacherSubscriptions");
+    // The subscription list moved to `./subscriptions.ts` (SHO-279) —
+    // assert the registered composition, not the source text.
+    expect(registeredEventSubscriptions.map((row) => row.consumer)).toContain(
+      "documents.signed-share-attacher",
+    );
     expect(source).not.toContain(
       "documents.attachSignedShare->files.getDownloadUrl",
     );
