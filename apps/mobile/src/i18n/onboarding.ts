@@ -1,4 +1,5 @@
 /** Company onboarding copy namespace (uk/en). Locale plumbing lives in `./locale`. */
+import { selectCopy } from "./copy";
 import type { Locale } from "./locale";
 
 export type OnboardingCopy = {
@@ -69,5 +70,5 @@ const uk: OnboardingCopy = {
 };
 
 export function onboardingCopy(locale: Locale): OnboardingCopy {
-  return locale === "uk" ? uk : en;
+  return selectCopy(locale, { uk, en });
 }

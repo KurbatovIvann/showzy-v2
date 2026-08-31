@@ -1,7 +1,19 @@
 /** Company settings hub + legal editor copy namespace (uk/en). Locale plumbing lives in `./locale`. */
+import {
+  formChromeEn,
+  formChromeUk,
+  selectCopy,
+  writeErrorsEn,
+  writeErrorsUk,
+  type FormChromeCopy,
+  type WriteErrorsCopy,
+} from "./copy";
 import type { Locale } from "./locale";
 
-export type CompaniesLegalFormCopy = {
+export type CompaniesLegalFormCopy = Omit<
+  FormChromeCopy,
+  "closeSheet" | "submitCreate" | "submitCreateLoading"
+> & {
   readonly typeLabel: string;
   readonly typeFop: string;
   readonly typeTov: string;
@@ -27,16 +39,8 @@ export type CompaniesLegalFormCopy = {
   readonly phonePlaceholder: string;
   readonly emailLabel: string;
   readonly emailPlaceholder: string;
-  readonly cancel: string;
-  readonly changedLabel: string;
-  readonly leaveTitle: string;
-  readonly leaveDescription: string;
-  readonly leaveContinue: string;
-  readonly leaveConfirm: string;
   readonly submitAdd: string;
   readonly submitAddLoading: string;
-  readonly submitEdit: string;
-  readonly submitEditLoading: string;
   readonly loadingLabel: string;
   readonly errors: {
     readonly legalNameRequired: string;
@@ -49,13 +53,8 @@ export type CompaniesLegalFormCopy = {
     readonly bankEdrpouTooLong: string;
     readonly phoneTooLong: string;
     readonly emailTooLong: string;
-    readonly validation: string;
     readonly conflict: string;
-    readonly network: string;
-    readonly offline: string;
-    readonly unavailable: string;
-    readonly permission: string;
-  };
+  } & WriteErrorsCopy;
 };
 
 export type CompaniesCopy = {
@@ -104,16 +103,9 @@ const enLegalForm: CompaniesLegalFormCopy = {
   phonePlaceholder: "+380 44 000 00 00",
   emailLabel: "Email (optional)",
   emailPlaceholder: "documents@company.ua",
-  cancel: "Cancel",
-  changedLabel: "Changed",
-  leaveTitle: "Leave without saving?",
-  leaveDescription: "Your changes will be lost.",
-  leaveContinue: "Keep editing",
-  leaveConfirm: "Leave without saving",
+  ...formChromeEn,
   submitAdd: "Add requisites",
   submitAddLoading: "Saving…",
-  submitEdit: "Save",
-  submitEditLoading: "Saving…",
   loadingLabel: "Loading legal requisites",
   errors: {
     legalNameRequired: "Enter the legal name",
@@ -126,12 +118,8 @@ const enLegalForm: CompaniesLegalFormCopy = {
     bankEdrpouTooLong: "Bank EDRPOU is too long.",
     phoneTooLong: "Phone is too long.",
     emailTooLong: "Email is too long.",
-    validation: "Check the highlighted fields.",
     conflict: "Could not save. Try again.",
-    network: "Could not save. Try again.",
-    offline: "No connection. Connect and try again.",
-    unavailable: "Could not save. Try again.",
-    permission: "You do not have permission to change this.",
+    ...writeErrorsEn,
   },
 };
 
@@ -161,16 +149,9 @@ const ukLegalForm: CompaniesLegalFormCopy = {
   phonePlaceholder: "+380 44 000 00 00",
   emailLabel: "Email (необовʼязково)",
   emailPlaceholder: "documents@company.ua",
-  cancel: "Скасувати",
-  changedLabel: "змінено",
-  leaveTitle: "Вийти без збереження?",
-  leaveDescription: "Внесені зміни буде втрачено.",
-  leaveContinue: "Продовжити редагування",
-  leaveConfirm: "Вийти без збереження",
+  ...formChromeUk,
   submitAdd: "Додати реквізити",
   submitAddLoading: "Збереження…",
-  submitEdit: "Зберегти",
-  submitEditLoading: "Збереження…",
   loadingLabel: "Завантаження реквізитів",
   errors: {
     legalNameRequired: "Вкажіть юридичну назву",
@@ -183,12 +164,8 @@ const ukLegalForm: CompaniesLegalFormCopy = {
     bankEdrpouTooLong: "ЄДРПОУ банку задовге.",
     phoneTooLong: "Телефон задовгий.",
     emailTooLong: "Email задовгий.",
-    validation: "Перевірте виділені поля.",
     conflict: "Не вдалося зберегти. Спробуйте ще раз.",
-    network: "Не вдалося зберегти. Спробуйте ще раз.",
-    offline: "Немає зʼєднання. Підключіться і спробуйте ще раз.",
-    unavailable: "Не вдалося зберегти. Спробуйте ще раз.",
-    permission: "Немає права змінювати цей запис.",
+    ...writeErrorsUk,
   },
 };
 
@@ -239,5 +216,5 @@ const uk: CompaniesCopy = {
 };
 
 export function companiesCopy(locale: Locale): CompaniesCopy {
-  return locale === "uk" ? uk : en;
+  return selectCopy(locale, { uk, en });
 }

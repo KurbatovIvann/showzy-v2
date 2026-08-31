@@ -1,5 +1,6 @@
 /** Panel shell copy namespace (uk/en). Locale plumbing lives in `./locale`. */
 import type { PanelTab } from "../components/screens/panel/panel-tabs";
+import { selectCopy } from "./copy";
 import type { Locale } from "./locale";
 
 export type MoreCopy = {
@@ -89,5 +90,5 @@ const uk: PanelCopy = {
 };
 
 export function panelCopy(locale: Locale): PanelCopy {
-  return locale === "uk" ? uk : en;
+  return selectCopy(locale, { uk, en });
 }

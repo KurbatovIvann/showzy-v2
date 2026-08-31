@@ -67,9 +67,16 @@ the same directory.
 - `src/prefs/` — device preferences (theme + last staff company selector).
   Native = MMKV (`platform-storage.native.ts`); web + tests = memory
   (`platform-storage.ts`). Never cookies, never the query cache.
-- `src/i18n/` — `locale.ts` (detection + interpolation) plus one copy
-  namespace per feature (`auth.ts`). uk/en, matching V1's namespace split.
-  New features add a namespace here instead of a local `copy.ts`.
+- `src/i18n/` — `locale.ts` (pure `detectLocale(tag)` + interpolation) plus
+  `device-locale.ts` / `install-locale.ts` (read `getLocales()` once at app
+  start so no-argument `detectLocale()` follows the device; Ukrainian is
+  still the default before init and for non-`en*` tags). Shared chrome lives
+  in `copy.ts` (`CountForms`, `WriteErrorsCopy`, `FormChromeCopy`,
+  `selectCopy`). Ukrainian one/few/many rules live in `plural.ts` — do not
+  copy mod-10/mod-100 into a feature. One copy namespace per feature
+  (`auth.ts`, `customers.ts` composing `customers/`). uk/en, matching V1's
+  namespace split. New features add a namespace here instead of a local
+  `copy.ts`.
 - `src/api/client.ts` — `createShowzyClient` wraps `createContractClient`
   with the env-driven API origin. Mobile passes `getCookie` from the Expo
   plugin; Bearer is optional for other clients.

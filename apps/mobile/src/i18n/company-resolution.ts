@@ -1,3 +1,4 @@
+import { selectCopy } from "./copy";
 import type { Locale } from "./locale";
 
 export type CompanyResolutionCopy = {
@@ -35,5 +36,5 @@ const uk: CompanyResolutionCopy = {
 };
 
 export function companyResolutionCopy(locale: Locale): CompanyResolutionCopy {
-  return locale === "uk" ? uk : en;
+  return selectCopy(locale, { uk, en });
 }
