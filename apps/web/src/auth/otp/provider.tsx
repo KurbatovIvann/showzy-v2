@@ -3,30 +3,20 @@ import {
   useCallback,
   useContext,
   useMemo,
-  useReducer,
   useRef,
+  useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 
-import {
-  dispatchOtpSession,
-  resendOtp,
-  submitOtpCode,
-  submitOtpIdentifier,
-  type OtpActionPorts,
-} from "./actions";
+import { createOtpSessionStore } from "./actions";
 import {
   uaNationalFieldDigits,
   uaPhoneFieldValue,
   type AuthChannel,
 } from "./identifiers";
 import { useSendOtpMutation, useVerifyOtpMutation } from "./mutations";
-import {
-  initialOtpState,
-  otpReducer,
-  type OtpAction,
-  type OtpState,
-} from "./reducer";
+import type { OtpState } from "./reducer";
 
 export type OtpContextValue = {
   readonly state: OtpState;
@@ -44,77 +34,73 @@ export type OtpContextValue = {
 const OtpContext = createContext<OtpContextValue | null>(null);
 
 export function OtpProvider({ children }: { readonly children: ReactNode }) {
-  const [state, dispatch] = useReducer(otpReducer, undefined, initialOtpState);
   const send = useSendOtpMutation();
   const verify = useVerifyOtpMutation();
-
-  const stateRef = useRef(state);
-  stateRef.current = state;
   const sendRef = useRef(send.mutateAsync);
   sendRef.current = send.mutateAsync;
   const verifyRef = useRef(verify.mutateAsync);
   verifyRef.current = verify.mutateAsync;
 
-  // I/O ports read stateRef in the same tick as send.
-  // Do not switch to dispatch-only: a second submit would miss busy.
-  const dispatchOtp = useCallback((action: OtpAction) => {
-    stateRef.current = dispatchOtpSession(stateRef.current, action);
-    dispatch(action);
-  }, []);
+  const [store] = useState(() =>
+    createOtpSessionStore({
+      send: (identifier) => sendRef.current(identifier),
+      verify: (input) => verifyRef.current(input),
+      nowMs: () => Date.now(),
+    }),
+  );
 
-  const portsRef = useRef<OtpActionPorts>({
-    getState: () => stateRef.current,
-    dispatch: (action) => {
-      dispatchOtp(action);
-    },
-    send: (identifier) => sendRef.current(identifier),
-    verify: (input) => verifyRef.current(input),
-    nowMs: () => Date.now(),
-  });
+  const state = useSyncExternalStore(
+    store.subscribe,
+    store.getState,
+    store.getState,
+  );
 
   const setChannel = useCallback(
     (channel: AuthChannel) => {
-      dispatchOtp({ type: "setChannel", channel });
+      store.dispatch({ type: "setChannel", channel });
     },
-    [dispatchOtp],
+    [store],
   );
 
   const setPhoneDigits = useCallback(
     (digits: string) => {
-      dispatchOtp({ type: "setPhone", phone: uaPhoneFieldValue(digits) });
+      store.dispatch({ type: "setPhone", phone: uaPhoneFieldValue(digits) });
     },
-    [dispatchOtp],
+    [store],
   );
 
   const setEmail = useCallback(
     (email: string) => {
-      dispatchOtp({ type: "setEmail", email });
+      store.dispatch({ type: "setEmail", email });
     },
-    [dispatchOtp],
+    [store],
   );
 
   const setCode = useCallback(
     (code: string) => {
-      dispatchOtp({ type: "setCode", code });
+      store.dispatch({ type: "setCode", code });
     },
-    [dispatchOtp],
+    [store],
   );
 
   const submitIdentifier = useCallback(() => {
-    void submitOtpIdentifier(portsRef.current);
-  }, []);
+    void store.submitIdentifier();
+  }, [store]);
 
-  const submitCode = useCallback((code?: string) => {
-    void submitOtpCode(portsRef.current, code);
-  }, []);
+  const submitCode = useCallback(
+    (code?: string) => {
+      void store.submitCode(code);
+    },
+    [store],
+  );
 
   const resend = useCallback(() => {
-    void resendOtp(portsRef.current);
-  }, []);
+    void store.resend();
+  }, [store]);
 
   const back = useCallback(() => {
-    dispatchOtp({ type: "back" });
-  }, [dispatchOtp]);
+    store.dispatch({ type: "back" });
+  }, [store]);
 
   const phoneDigits =
     state.step === "identifier" ? uaNationalFieldDigits(state.phone) : "";

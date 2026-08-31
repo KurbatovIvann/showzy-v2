@@ -5,7 +5,6 @@ import { interpolate, type Locale } from "./locale";
 
 export type AuthCopy = {
   readonly welcome: string;
-  readonly welcomeMessage: string;
   readonly tagline: string;
   readonly phone: string;
   readonly email: string;
@@ -26,12 +25,12 @@ export type AuthCopy = {
   readonly wrongEmail: string;
   readonly loading: string;
   readonly retry: string;
+  readonly otpDigit: string;
   readonly errors: Record<AuthErrorKind, string>;
 };
 
 const en: AuthCopy = {
   welcome: "Welcome",
-  welcomeMessage: "Discover amazing products and companies",
   tagline: "Manage orders easily and confidently",
   phone: "Phone",
   email: "Email",
@@ -52,6 +51,7 @@ const en: AuthCopy = {
   wrongEmail: "Change email",
   loading: "Loading",
   retry: "Retry",
+  otpDigit: "Digit {{n}}",
   errors: {
     invalid_identifier: "Enter a valid phone number or email.",
     invalid_otp: "Invalid code. Check the digits and try again.",
@@ -65,7 +65,6 @@ const en: AuthCopy = {
 
 const uk: AuthCopy = {
   welcome: "Ласкаво просимо",
-  welcomeMessage: "Відкривайте чудові товари та компанії",
   tagline: "Керуйте замовленнями легко та впевнено",
   phone: "Телефон",
   email: "Email",
@@ -86,6 +85,7 @@ const uk: AuthCopy = {
   wrongEmail: "Змінити email",
   loading: "Завантаження",
   retry: "Повторити",
+  otpDigit: "Цифра {{n}}",
   errors: {
     invalid_identifier: "Введіть коректний номер телефону або email.",
     invalid_otp: "Невірний код. Перевірте цифри та спробуйте ще раз.",

@@ -21,9 +21,7 @@ export function VerifyScreen() {
         {model.copy.verifyTitle}
       </h1>
       <p className="mt-3 text-[15px] leading-relaxed text-muted">
-        {model.messageBefore}
-        <span className="font-medium text-ink">{model.destination}</span>
-        {model.messageAfter}
+        {model.message}
       </p>
       <form
         className="mt-8"
@@ -38,6 +36,7 @@ export function VerifyScreen() {
           disabled={model.busy || model.locked}
           error={model.otpError ?? false}
           labelledBy="verify-title"
+          digitLabel={model.digitLabel}
           onChange={(code) => {
             model.setCode(code);
             if (code.length === model.otpLength) {

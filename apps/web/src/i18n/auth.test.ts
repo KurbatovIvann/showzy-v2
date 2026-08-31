@@ -44,6 +44,8 @@ describe("auth copy", () => {
     expect(en.resendCode).toBe("Resend code");
     expect(uk.resendCodeIn).toBe("Надіслати повторно через {{seconds}} с");
     expect(en.resendCodeIn).toBe("Resend in {{seconds}}s");
+    expect(uk.otpDigit).toBe("Цифра {{n}}");
+    expect(en.otpDigit).toBe("Digit {{n}}");
     expect(uk.continueLoading).toBe("Зачекайте…");
     expect(en.continueLoading).toBe("Please wait…");
     expect(uk.verifyLoading).toBe("Перевіряємо…");

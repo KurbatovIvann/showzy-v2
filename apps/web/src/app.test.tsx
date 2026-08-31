@@ -96,7 +96,7 @@ describe("OTP request and verify (SHO-312)", () => {
     fireEvent.change(phone, { target: { value: "671112233" } });
     fireEvent.click(screen.getByRole("button", { name: "Продовжити" }));
     await screen.findByRole("heading", { name: "Підтвердження входу" });
-    fireEvent.change(screen.getByLabelText("Digit 1"), {
+    fireEvent.change(screen.getByLabelText("Цифра 1"), {
       target: { value: DUMMY_OTP },
     });
     await waitFor(() => {
@@ -118,7 +118,7 @@ describe("OTP request and verify (SHO-312)", () => {
     fireEvent.change(phone, { target: { value: "671112233" } });
     fireEvent.click(screen.getByRole("button", { name: "Продовжити" }));
     await screen.findByRole("heading", { name: "Підтвердження входу" });
-    fireEvent.change(screen.getByLabelText("Digit 1"), {
+    fireEvent.change(screen.getByLabelText("Цифра 1"), {
       target: { value: DUMMY_OTP },
     });
     expect(

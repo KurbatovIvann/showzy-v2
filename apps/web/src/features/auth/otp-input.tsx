@@ -21,6 +21,7 @@ export function OtpInput({
   disabled,
   error,
   labelledBy,
+  digitLabel,
 }: {
   readonly value: string;
   readonly length: number;
@@ -28,6 +29,7 @@ export function OtpInput({
   readonly disabled?: boolean;
   readonly error?: boolean | string;
   readonly labelledBy?: string;
+  readonly digitLabel: (index: number) => string;
 }) {
   const inputs = useRef<Array<HTMLInputElement | null>>([]);
   const digits = Array.from({ length }, (_, index) => value[index] ?? "");
@@ -59,7 +61,11 @@ export function OtpInput({
 
   return (
     <div>
-      <div className="flex w-full gap-1.5 sm:gap-2">
+      <div
+        role="group"
+        aria-labelledby={labelledBy}
+        className="flex w-full gap-1.5 sm:gap-2"
+      >
         {digits.map((digit, index) => (
           <input
             key={index}
@@ -69,8 +75,7 @@ export function OtpInput({
             value={digit}
             inputMode="numeric"
             autoComplete={index === 0 ? "one-time-code" : "off"}
-            aria-label={`Digit ${String(index + 1)}`}
-            aria-labelledby={labelledBy}
+            aria-label={digitLabel(index + 1)}
             aria-invalid={hasError ? "true" : undefined}
             disabled={isDisabled}
             onChange={(event) => {

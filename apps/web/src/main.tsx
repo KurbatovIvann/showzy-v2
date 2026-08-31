@@ -18,7 +18,7 @@ if (rootElement === null) {
 createRoot(rootElement).render(
   <StrictMode>
     <AppProviders authClient={authClient}>
-      <RouterProvider router={router} context={{ authClient }} />
+      <RouterProvider router={router} />
     </AppProviders>
   </StrictMode>,
 );

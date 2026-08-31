@@ -4,8 +4,6 @@ import {
   AuthClientError,
   authErrorFromUnknown,
   classifyAuthHttpStatus,
-  parseRetryAfterSec,
-  toAuthClientError,
 } from "./errors";
 
 describe("auth HTTP errors (status, not message text)", () => {
@@ -35,7 +33,10 @@ describe("auth HTTP errors (status, not message text)", () => {
   });
 
   it("treats unknown throws as network and never copies their text", () => {
-    const mapped = toAuthClientError(new Error("otp=123456 leaked"));
+    const mapped = authErrorFromUnknown(
+      new Error("otp=123456 leaked"),
+      "session",
+    );
     expect(mapped.kind).toBe("network");
     expect(mapped.message).toBe("network");
     expect(mapped.message).not.toContain("123456");
@@ -52,15 +53,5 @@ describe("auth HTTP errors (status, not message text)", () => {
     expect(
       authErrorFromUnknown({ status: 429, message: "slow down" }, "send").kind,
     ).toBe("resend_limited");
-  });
-
-  it("parses Retry-After delta-seconds and ignores junk", () => {
-    expect(parseRetryAfterSec(new Headers({ "retry-after": "12" }))).toBe(12);
-    expect(
-      parseRetryAfterSec(new Headers({ "retry-after": "0" })),
-    ).toBeUndefined();
-    expect(
-      parseRetryAfterSec(new Headers({ "retry-after": "Wed, 21 Oct 2015" })),
-    ).toBeUndefined();
   });
 });

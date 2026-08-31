@@ -18,7 +18,7 @@ export function renderApp(path: string) {
   });
   render(
     <AppProviders authClient={authClient}>
-      <RouterProvider router={router} context={{ authClient }} />
+      <RouterProvider router={router} />
     </AppProviders>,
   );
   return { authClient, router };

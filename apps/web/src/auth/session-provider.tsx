@@ -9,7 +9,7 @@ import {
 import { authCopy, type AuthCopy } from "../i18n/auth";
 import { detectLocale } from "../i18n/locale";
 import type { ShowzyAuthClient } from "./client";
-import { isAuthClientError, type AuthErrorKind } from "./errors";
+import { authErrorFromUnknown, type AuthErrorKind } from "./errors";
 import { userFromSession, type AuthSessionUser } from "./session-user";
 
 export type AuthStatus = "loading" | "anonymous" | "authenticated";
@@ -77,16 +77,7 @@ function mapSessionError(error: unknown): AuthErrorKind | null {
   if (error === null || error === undefined) {
     return null;
   }
-  if (isAuthClientError(error)) {
-    return error.kind;
-  }
-  if (typeof error === "object" && "status" in error) {
-    const status = error.status;
-    if (typeof status === "number" && status === 401) {
-      return "unauthenticated";
-    }
-  }
-  return "network";
+  return authErrorFromUnknown(error, "session").kind;
 }
 
 export function useAuthSession(): AuthSessionValue {

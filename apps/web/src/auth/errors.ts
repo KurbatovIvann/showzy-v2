@@ -55,13 +55,6 @@ export function classifyAuthHttpStatus(
   return "unavailable";
 }
 
-export function toAuthClientError(error: unknown): AuthClientError {
-  if (error instanceof AuthClientError) {
-    return error;
-  }
-  return new AuthClientError("network");
-}
-
 /**
  * Map a better-auth client error by HTTP status only. Never copy
  * `error.message` — it can contain OTP codes or enumeration hints.
@@ -80,7 +73,7 @@ export function authErrorFromUnknown(
   return new AuthClientError(classifyAuthHttpStatus(status, operation));
 }
 
-function statusFromUnknown(error: unknown): number | undefined {
+export function statusFromUnknown(error: unknown): number | undefined {
   if (typeof error !== "object" || error === null) {
     return undefined;
   }
@@ -92,16 +85,4 @@ function statusFromUnknown(error: unknown): number | undefined {
     return undefined;
   }
   return status;
-}
-
-export function parseRetryAfterSec(headers: Headers): number | undefined {
-  const raw = headers.get("retry-after");
-  if (raw === null || raw === "") {
-    return undefined;
-  }
-  const seconds = Number.parseInt(raw, 10);
-  if (!Number.isFinite(seconds) || seconds < 1) {
-    return undefined;
-  }
-  return seconds;
 }

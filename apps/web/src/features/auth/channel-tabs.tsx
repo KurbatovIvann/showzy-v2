@@ -1,3 +1,5 @@
+import { useId } from "react";
+
 import { cx } from "../../components/ui/cx";
 
 export function ChannelTabs<K extends string>({
@@ -13,37 +15,42 @@ export function ChannelTabs<K extends string>({
   readonly disabled?: boolean;
   readonly label: string;
 }) {
+  const name = useId();
   return (
     <div
-      role="tablist"
+      role="radiogroup"
       aria-label={label}
       className="mt-8 flex rounded-full bg-canvas p-1"
     >
       {tabs.map((tab) => {
         const isSelected = selected === tab.key;
         return (
-          <button
+          <label
             key={tab.key}
-            type="button"
-            role="tab"
-            aria-selected={isSelected}
-            disabled={disabled}
-            onClick={() => {
-              onSelect(tab.key);
-            }}
             className={cx(
-              "flex-1 rounded-full px-4 py-2.5 text-[15px] font-medium",
+              "flex-1 cursor-pointer rounded-full px-4 py-2.5 text-center",
+              "text-[15px] font-medium",
               "transition-colors duration-150 ease-soft",
-              "focus:outline-none focus-visible:ring-2 focus-visible:ring-action",
-              "focus-visible:ring-offset-2 focus-visible:ring-offset-canvas",
-              "disabled:opacity-40",
-              isSelected
-                ? "bg-surface text-ink shadow-card"
-                : "text-muted hover:enabled:text-ink",
+              "has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-action",
+              "has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-canvas",
+              disabled === true ? "cursor-not-allowed opacity-40" : false,
+              isSelected ? "bg-surface text-ink shadow-card" : "text-muted",
+              disabled !== true && !isSelected ? "hover:text-ink" : false,
             )}
           >
+            <input
+              type="radio"
+              name={name}
+              value={tab.key}
+              checked={isSelected}
+              disabled={disabled}
+              onChange={() => {
+                onSelect(tab.key);
+              }}
+              className="sr-only"
+            />
             {tab.label}
-          </button>
+          </label>
         );
       })}
     </div>

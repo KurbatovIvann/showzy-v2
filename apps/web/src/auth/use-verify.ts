@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { errorCopy } from "../i18n/auth";
+import { errorCopy, verifyMessage } from "../i18n/auth";
 import { interpolate } from "../i18n/locale";
 import { identifierDestination } from "./otp/identifiers";
 import { authPolicy } from "./otp/policy";
@@ -11,6 +11,8 @@ import { useAuthSession } from "./session-provider";
 export function useVerifyScreen() {
   const auth = useAuthSession();
   const otp = useOtp();
+  // Re-render once a second so `resendSecondsRemaining` is recomputed
+  // without putting `Date.now()` in a reactive store.
   const [, setTick] = useState(0);
 
   const remaining = resendSecondsRemaining(otp.state, Date.now());
@@ -42,38 +44,35 @@ export function useVerifyScreen() {
     otp.state.bannerError === null
       ? null
       : errorCopy(auth.copy, otp.state.bannerError);
-  const messageTemplate =
-    otp.state.identifier.channel === "phone"
-      ? auth.copy.verifyPhoneMessage
-      : auth.copy.verifyEmailMessage;
-  const [messageBefore, messageAfter = ""] =
-    messageTemplate.split("{{destination}}");
   const backLabel =
     otp.state.identifier.channel === "phone"
       ? auth.copy.wrongNumber
       : auth.copy.wrongEmail;
-  const remainingNow = remaining;
 
   return {
     kind: "form" as const,
     copy: auth.copy,
-    destination,
-    messageBefore,
-    messageAfter,
+    message: verifyMessage(
+      auth.copy,
+      otp.state.identifier.channel,
+      destination,
+    ),
     backLabel,
     code: otp.state.code,
     otpLength: authPolicy.otpLength,
+    digitLabel: (n: number) =>
+      interpolate(auth.copy.otpDigit, { n: String(n) }),
     busy: otp.state.busy,
     locked,
     otpError,
     banner,
     submitDisabled: otp.state.code.length === 0 || otp.state.busy || locked,
-    remaining: remainingNow,
+    remaining,
     resendBusy: otp.state.resendBusy,
     resendWaitLabel:
-      remainingNow > 0
+      remaining > 0
         ? interpolate(auth.copy.resendCodeIn, {
-            seconds: String(remainingNow),
+            seconds: String(remaining),
           })
         : null,
     setCode: otp.setCode,

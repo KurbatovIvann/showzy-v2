@@ -1,5 +1,6 @@
 import { Navigate } from "@tanstack/react-router";
 
+import { authPolicy } from "../../auth/otp/policy";
 import { useSignInScreen } from "../../auth/use-sign-in";
 import { Button } from "../../components/ui/button";
 import { cx } from "../../components/ui/cx";
@@ -57,7 +58,9 @@ export function SignInScreen() {
                   : "border-line focus-within:border-action",
               )}
             >
-              <span className="text-[17px] text-ink">+380</span>
+              <span className="text-[17px] text-ink">
+                {authPolicy.defaultPhonePrefix}
+              </span>
               <span aria-hidden className="h-6 w-px bg-line" />
               <input
                 id="sign-in-phone"
