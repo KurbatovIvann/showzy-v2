@@ -3,9 +3,7 @@ import type { z } from "zod";
 
 import { orderStatusSchema } from "../actions/order-view.contract.js";
 
-export function parseStatus(
-  value: string,
-): z.output<typeof orderStatusSchema> {
+export function parseStatus(value: string): z.output<typeof orderStatusSchema> {
   return parseDbEnum(
     orderStatusSchema,
     value,
