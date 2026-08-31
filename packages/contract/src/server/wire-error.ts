@@ -34,8 +34,15 @@ import { wireErrorStatus } from "../client/wire-errors.js";
  * for `CoreInvariantError` it is the fixed generic string, so INTERNAL
  * sends no details on the wire by construction.
  */
+type WireExtras =
+  | { readonly issues: ValidationError["issues"] }
+  | { readonly retryAfterSec: number }
+  | { readonly challenge: ConfirmationRequiredError["challenge"] };
+
 const WIRE_EXTRAS: {
-  readonly [Code in CoreErrorCode]?: (error: CoreError) => unknown | undefined;
+  readonly [Code in CoreErrorCode]?: (
+    error: CoreError,
+  ) => WireExtras | undefined;
 } = {
   VALIDATION: (error) =>
     error instanceof ValidationError ? { issues: error.issues } : undefined,
