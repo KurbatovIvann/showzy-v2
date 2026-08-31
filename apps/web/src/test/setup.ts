@@ -1,6 +1,9 @@
-import { afterEach, beforeAll } from "vitest";
+import { configure } from "@testing-library/react";
+import { afterEach, beforeAll, beforeEach } from "vitest";
 
 import { ensureAuthServer, resetAuthMocks, server } from "./msw";
+
+configure({ asyncUtilTimeout: 5_000 });
 
 if (typeof navigator !== "undefined") {
   Object.defineProperty(navigator, "language", {
@@ -11,6 +14,11 @@ if (typeof navigator !== "undefined") {
 
 beforeAll(() => {
   ensureAuthServer();
+});
+
+beforeEach(() => {
+  resetAuthMocks();
+  server.resetHandlers();
 });
 
 afterEach(() => {
