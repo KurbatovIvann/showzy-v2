@@ -1,0 +1,45 @@
+/*
+ * Detail stage chrome, ported from the web canvas `index.css` (SHO-311).
+ *
+ * The detail pane is a stage, not a stretched form: record content sits in
+ * a centered card (~34rem) on wide shells and goes full-bleed on narrow
+ * ones. Breakpoints follow the panel **shell width** (container query),
+ * not the browser viewport — the panel shell (web-T6) declares the `panel`
+ * container via `.panel-shell`; until then the narrow styles apply.
+ */
+@layer components {
+  .panel-shell {
+    container-type: inline-size;
+    container-name: panel;
+  }
+
+  .detail-stage-inner {
+    width: 100%;
+    max-width: none;
+    padding: 0;
+  }
+
+  .detail-card {
+    /* `clip` instead of `hidden`: keeps rounded-corner clipping without
+       breaking `position: sticky` footers inside the card. */
+    overflow: clip;
+    border-radius: 0;
+    border-width: 0;
+    background: var(--color-surface);
+  }
+
+  @container panel (min-width: 768px) {
+    .detail-stage-inner {
+      max-width: 34rem;
+      margin-left: auto;
+      margin-right: auto;
+      padding: 1.5rem 1.25rem;
+    }
+
+    .detail-card {
+      border-radius: var(--radius-panel);
+      border: 1px solid var(--color-line);
+      box-shadow: var(--shadow-card);
+    }
+  }
+}

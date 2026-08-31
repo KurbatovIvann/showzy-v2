@@ -35,7 +35,8 @@ Magic Patterns tokens (`canvas`, `surface`, `ink`, `muted`, `faint`, `line`,
 `action`, `focus`, `danger`, soft variants) are the single theme source,
 declared as CSS variables and mapped onto shadcn's semantic slots
 (`canvas → background`, `surface → card`/`popover`, `ink → foreground`,
-`line → border`, `action → primary`, `danger → destructive`). Vendored
+`line → border`, `ink → primary`, `action → ring`, `danger → destructive`).
+Vendored
 shadcn components are reskinned to canvas classes on arrival; simple visual
 components (buttons, status pills, nav rows, cards, form wrappers) are
 ported from the canvas markup directly, without shadcn. Components are

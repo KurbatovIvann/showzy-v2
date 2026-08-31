@@ -1,2 +1,4 @@
-/* Tailwind CSS v4 entry. Canvas theme tokens land in web-T3 (SHO-308). */
+/* Tailwind CSS v4 entry. Canvas theme tokens: see src/theme/tokens.css (SHO-311). */
 @import "tailwindcss";
+@import "./theme/tokens.css";
+@import "./components/ui/detail-stage.css";
