@@ -1,13 +1,12 @@
 import type { ActionCtx } from "@showzy/core";
-import { CoreInvariantError, NotFoundError } from "@showzy/core/errors";
 import { counterparties } from "@showzy/db/schema/customers";
-import { and, eq } from "drizzle-orm";
 import type { z } from "zod";
 
 import type {
   deleteCounterpartyInputSchema,
   deleteCounterpartyOutputSchema,
 } from "../actions/delete-counterparty.contract.js";
+import { deleteTenantRow, lockTenantRow } from "./tenant-row.js";
 import { requireWritable } from "./writable.js";
 
 type StaffCtx = Extract<ActionCtx, { principal: "staff" }>;
@@ -21,39 +20,17 @@ export async function deleteStaffCounterparty(env: {
   const { ctx, input } = env;
   const db = requireWritable(ctx.db);
 
-  const existing = (
-    await db
-      .select({ id: counterparties.id })
-      .from(counterparties)
-      .where(
-        and(
-          eq(counterparties.companyId, ctx.companyId),
-          eq(counterparties.id, input.id),
-        ),
-      )
-      .limit(1)
-      .for("update")
-  )[0];
-  if (existing === undefined) {
-    throw new NotFoundError();
-  }
+  await lockTenantRow(db, counterparties, {
+    companyId: ctx.companyId,
+    id: input.id,
+    columns: { id: counterparties.id },
+  });
 
-  const deleted = (
-    await db
-      .delete(counterparties)
-      .where(
-        and(
-          eq(counterparties.companyId, ctx.companyId),
-          eq(counterparties.id, input.id),
-        ),
-      )
-      .returning({ id: counterparties.id })
-  )[0];
-  if (deleted === undefined) {
-    throw new CoreInvariantError(
-      "customers.deleteCounterparty delete returned no row",
-    );
-  }
+  const deleted = await deleteTenantRow(db, counterparties, {
+    companyId: ctx.companyId,
+    id: input.id,
+    lostRowMessage: "customers.deleteCounterparty delete returned no row",
+  });
 
   ctx.log.info(
     { counterparty_id: deleted.id },

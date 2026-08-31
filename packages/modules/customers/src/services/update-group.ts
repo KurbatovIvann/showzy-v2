@@ -1,5 +1,5 @@
 import type { ActionCtx } from "@showzy/core";
-import { CoreInvariantError, NotFoundError } from "@showzy/core/errors";
+import { CoreInvariantError } from "@showzy/core/errors";
 import { customerGroups } from "@showzy/db/schema/customers";
 import { and, eq } from "drizzle-orm";
 import type { z } from "zod";
@@ -15,6 +15,7 @@ import {
   toGroupView,
 } from "./group-view.js";
 import { resolveGroupPriceListId } from "./resolve-price-list.js";
+import { lockTenantRow } from "./tenant-row.js";
 import { requireWritable } from "./writable.js";
 
 type StaffCtx = Extract<ActionCtx, { principal: "staff" }>;
@@ -28,22 +29,11 @@ export async function updateStaffGroup(env: {
   const { ctx, input } = env;
   const db = requireWritable(ctx.db);
 
-  const existing = (
-    await db
-      .select({ id: customerGroups.id })
-      .from(customerGroups)
-      .where(
-        and(
-          eq(customerGroups.companyId, ctx.companyId),
-          eq(customerGroups.id, input.id),
-        ),
-      )
-      .limit(1)
-      .for("update")
-  )[0];
-  if (existing === undefined) {
-    throw new NotFoundError();
-  }
+  await lockTenantRow(db, customerGroups, {
+    companyId: ctx.companyId,
+    id: input.id,
+    columns: { id: customerGroups.id },
+  });
 
   const priceListId = await resolveGroupPriceListId(ctx, input.priceListId);
 

@@ -1,47 +1,17 @@
-import { CoreInvariantError, NotFoundError } from "@showzy/core/errors";
-import { companyCustomers, counterparties } from "@showzy/db/schema/customers";
-import { and, count, eq } from "drizzle-orm";
+import { CoreInvariantError } from "@showzy/core/errors";
+import { companyCustomers } from "@showzy/db/schema/customers";
+import { and, eq } from "drizzle-orm";
 import type { z } from "zod";
 
 import type { customerViewSchema } from "../actions/customer-view.contract.js";
-import { toCustomerView } from "./customer-view.js";
+import { countLinkedCounterparties } from "./count-linked-counterparties.js";
+import { customerColumns, toCustomerView } from "./customer-view.js";
+import { lockTenantRow } from "./tenant-row.js";
 import type { WritableStaffDb } from "./writable.js";
 
 type CustomerView = z.output<typeof customerViewSchema>;
 
 export type CustomerLifecycleStatus = "active" | "archived";
-
-const customerViewColumns = {
-  id: companyCustomers.id,
-  name: companyCustomers.name,
-  phone: companyCustomers.phone,
-  email: companyCustomers.email,
-  userId: companyCustomers.userId,
-  notes: companyCustomers.notes,
-  groupId: companyCustomers.groupId,
-  priceListId: companyCustomers.priceListId,
-  status: companyCustomers.status,
-  createdAt: companyCustomers.createdAt,
-  updatedAt: companyCustomers.updatedAt,
-};
-
-async function countLinkedCounterparties(
-  db: WritableStaffDb,
-  args: { companyId: string; customerId: string },
-): Promise<number> {
-  const linked = (
-    await db
-      .select({ value: count() })
-      .from(counterparties)
-      .where(
-        and(
-          eq(counterparties.companyId, args.companyId),
-          eq(counterparties.customerId, args.customerId),
-        ),
-      )
-  )[0];
-  return linked?.value ?? 0;
-}
 
 export async function setCustomerStatus(
   db: WritableStaffDb,
@@ -51,26 +21,13 @@ export async function setCustomerStatus(
     status: CustomerLifecycleStatus;
   },
 ): Promise<CustomerView> {
-  const rows = await db
-    .select(customerViewColumns)
-    .from(companyCustomers)
-    .where(
-      and(
-        eq(companyCustomers.companyId, args.companyId),
-        eq(companyCustomers.id, args.customerId),
-      ),
-    )
-    .limit(1)
-    .for("update");
-  const row = rows[0];
-  if (row === undefined) {
-    throw new NotFoundError();
-  }
-
-  const linked = await countLinkedCounterparties(db, {
+  const row = await lockTenantRow(db, companyCustomers, {
     companyId: args.companyId,
-    customerId: row.id,
+    id: args.customerId,
+    columns: customerColumns,
   });
+
+  const linked = await countLinkedCounterparties(db, args.companyId, row.id);
   if (row.status === args.status) {
     return toCustomerView(row, linked);
   }
@@ -85,7 +42,7 @@ export async function setCustomerStatus(
           eq(companyCustomers.id, args.customerId),
         ),
       )
-      .returning(customerViewColumns)
+      .returning(customerColumns)
   )[0];
   if (updated === undefined) {
     throw new CoreInvariantError(

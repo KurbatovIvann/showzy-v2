@@ -1,3 +1,7 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -5,6 +9,14 @@ import {
   applyInviteCrmInputSchema,
 } from "./apply-invite-crm.contract.js";
 import { CUSTOMER_NAME_MAX } from "./customer-view.contract.js";
+
+const applyInviteCrmSource = readFileSync(
+  join(
+    dirname(fileURLToPath(import.meta.url)),
+    "../services/apply-invite-crm.ts",
+  ),
+  "utf8",
+);
 
 describe("customers.applyInviteCrm contract", () => {
   it("is an internal customer write that only invites.accept may call", () => {
@@ -49,5 +61,13 @@ describe("customers.applyInviteCrm contract", () => {
       }).success,
     ).toBe(false);
     expect(applyInviteCrmInputSchema.safeParse({}).success).toBe(false);
+  });
+
+  it("caps unlinked contact match locks at two rows", () => {
+    const matchFn = applyInviteCrmSource.slice(
+      applyInviteCrmSource.indexOf("async function findUnlinkedContactMatches"),
+    );
+    expect(matchFn).toContain(".limit(2)");
+    expect(matchFn).toContain('.for("update")');
   });
 });

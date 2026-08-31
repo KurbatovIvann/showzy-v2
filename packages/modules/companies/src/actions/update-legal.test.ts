@@ -1,3 +1,7 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -21,6 +25,11 @@ const validUpdate = {
   companyType: "fop" as const,
   legalName: "ФОП Коваленко",
 };
+
+const updateLegalSource = readFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), "../services/update-legal.ts"),
+  "utf8",
+);
 
 describe("companies.updateLegal contract", () => {
   it("is an idempotent audited staff client write with settings:payments and no events", () => {
@@ -190,5 +199,12 @@ describe("companies.updateLegal contract", () => {
         updateLegalInputSchema.safeParse({ ...validUpdate, ...extra }).success,
       ).toBe(false);
     }
+  });
+
+  it("composes identity plus RETURNING legal without a second legal read", () => {
+    expect(updateLegalSource).toContain("returning(legalReturning)");
+    expect(updateLegalSource).toContain("companyIdentityReturning");
+    expect(updateLegalSource).toContain("toCompanyView(company, upserted)");
+    expect(updateLegalSource).not.toContain("loadCompanyView");
   });
 });

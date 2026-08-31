@@ -32,7 +32,7 @@ export type AcceptInviteTarget = {
   readonly email: string | null;
 };
 
-const acceptInviteColumns = {
+export const acceptInviteColumns = {
   id: companyCustomerInvites.id,
   companyId: companyCustomerInvites.companyId,
   isReusable: companyCustomerInvites.isReusable,
@@ -142,6 +142,10 @@ export async function acceptCustomerInvite(env: {
     };
   }
 
+  if (derivedInviteStatus(locked) !== "pending") {
+    throw new NotFoundError();
+  }
+
   const crm = await ctx.callAtomic(applyInviteCrm, {
     groupId: locked.groupId,
     priceListId: locked.priceListId,
@@ -150,10 +154,6 @@ export async function acceptCustomerInvite(env: {
     email: locked.email,
     matchUnlinkedContact: !locked.isReusable,
   });
-
-  if (derivedInviteStatus(locked) !== "pending") {
-    throw new NotFoundError();
-  }
 
   const incremented = (
     await db

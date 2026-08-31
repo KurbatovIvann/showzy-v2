@@ -16,7 +16,11 @@ import type {
   applyInviteCrmOutputSchema,
 } from "../actions/apply-invite-crm.contract.js";
 import { mapCustomerWriteError } from "./create-customer.js";
-import { nullableText } from "./customer-view.js";
+import {
+  customerColumns,
+  nullableText,
+  type CustomerRow,
+} from "./customer-view.js";
 import { requireCustomerWritable } from "./writable.js";
 
 type CustomerCtx = Extract<ActionCtx, { principal: "customer" }>;
@@ -27,34 +31,6 @@ export const INVITE_CRM_PLACEHOLDER_NAME = "Invited customer";
 
 const UNLINKED_CONTACT_CONFLICT_MESSAGE =
   "Multiple unlinked customers match this invite.";
-
-const customerWriteColumns = {
-  id: companyCustomers.id,
-  name: companyCustomers.name,
-  phone: companyCustomers.phone,
-  email: companyCustomers.email,
-  userId: companyCustomers.userId,
-  notes: companyCustomers.notes,
-  groupId: companyCustomers.groupId,
-  priceListId: companyCustomers.priceListId,
-  status: companyCustomers.status,
-  createdAt: companyCustomers.createdAt,
-  updatedAt: companyCustomers.updatedAt,
-};
-
-type CustomerWriteRow = {
-  readonly id: string;
-  readonly name: string;
-  readonly phone: string | null;
-  readonly email: string | null;
-  readonly userId: string | null;
-  readonly notes: string | null;
-  readonly groupId: string | null;
-  readonly priceListId: string | null;
-  readonly status: string;
-  readonly createdAt: Date;
-  readonly updatedAt: Date;
-};
 
 export async function applyInviteCrmRecord(env: {
   readonly ctx: CustomerCtx;
@@ -72,7 +48,7 @@ export async function applyInviteCrmRecord(env: {
 
   const linked = (
     await db
-      .select(customerWriteColumns)
+      .select(customerColumns)
       .from(companyCustomers)
       .where(
         and(
@@ -167,7 +143,7 @@ async function findUnlinkedContactMatches(
     readonly phone: string | null;
     readonly email: string | null;
   },
-): Promise<CustomerWriteRow[]> {
+): Promise<CustomerRow[]> {
   const contactClause =
     args.phone !== null && args.email !== null
       ? or(
@@ -184,7 +160,7 @@ async function findUnlinkedContactMatches(
   }
 
   return db
-    .select(customerWriteColumns)
+    .select(customerColumns)
     .from(companyCustomers)
     .where(
       and(
@@ -193,6 +169,7 @@ async function findUnlinkedContactMatches(
         contactClause,
       ),
     )
+    .limit(2)
     .for("update");
 }
 
@@ -200,7 +177,7 @@ async function enrichInviteCrmRow(
   db: ReturnType<typeof requireCustomerWritable>,
   args: {
     readonly companyId: string;
-    readonly row: CustomerWriteRow;
+    readonly row: CustomerRow;
     readonly userId: string;
     readonly groupId: string | null;
     readonly priceListId: string | null;
