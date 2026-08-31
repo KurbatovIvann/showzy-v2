@@ -7,7 +7,10 @@ import {
   orderNumberCounters,
   orders,
 } from "@showzy/db/schema/orders";
-import { moneyToCanonical } from "@showzy/module-kit/canonical";
+import {
+  moneyFromCanonical,
+  moneyToCanonical,
+} from "@showzy/module-kit/canonical";
 import { parseDbEnum } from "@showzy/module-kit/parse-db-enum";
 import { sql } from "drizzle-orm";
 import type { z } from "zod";
@@ -25,6 +28,7 @@ import { requireWritable } from "./writable.js";
 
 type StaffCtx = Extract<ActionCtx, { principal: "staff" }>;
 type CreateInput = z.output<typeof createOrderInputSchema>;
+type CreateLine = CreateInput["items"][number];
 type OrderView = z.output<typeof orderViewSchema>;
 type OrderItemView = OrderView["items"][number];
 type PriceSource = z.output<typeof orderPriceSourceSchema>;
@@ -199,6 +203,95 @@ function variantTitleName(
   return match.name;
 }
 
+function validatePriceAlignment(
+  item: CreateLine,
+  price: ResolvedOrderPrice,
+  index: number,
+): void {
+  const expectedVariantId = item.variantId ?? null;
+  if (
+    price.productId !== item.productId ||
+    price.variantId !== expectedVariantId
+  ) {
+    throw new CoreInvariantError(
+      `pricing.resolveProductPrices row ${String(index)} does not match the create line`,
+    );
+  }
+}
+
+function orderItemInsertFromView(
+  view: OrderItemView,
+  companyId: string,
+  orderId: string,
+): typeof orderItems.$inferInsert {
+  return {
+    id: view.itemId,
+    companyId,
+    orderId,
+    productId: view.productId,
+    variantId: view.variantId,
+    titleSnapshot: view.titleSnapshot,
+    quantityMilli: moneyFromCanonical(view.quantityMilli),
+    unitPriceMinor: moneyFromCanonical(view.unitPriceMinor),
+    discountKind: view.discountKind,
+    discountValue: moneyFromCanonical(view.discountValue),
+    discountAmountMinor: moneyFromCanonical(view.discountAmountMinor),
+    taxTreatment: view.taxTreatment,
+    taxRateBp: view.taxRateBp,
+    taxAmountMinor: moneyFromCanonical(view.taxAmountMinor),
+    netAmountMinor: moneyFromCanonical(view.netAmountMinor),
+    grossAmountMinor: moneyFromCanonical(view.grossAmountMinor),
+    currency: view.currency,
+    priceSource: view.priceSource,
+    personalPriceId: view.personalPriceId,
+    priceListId: view.priceListId,
+    priceListEntryId: view.priceListEntryId,
+    resolverVersion: view.resolverVersion,
+  };
+}
+
+function buildOrderLine(args: {
+  readonly item: CreateLine;
+  readonly price: ResolvedOrderPrice;
+  readonly fact: CatalogOrderProductFact;
+  readonly companyId: string;
+  readonly orderId: string;
+}): PersistedLine {
+  const amounts = computeExemptNoneLine(
+    BigInt(args.price.unitPriceMinor),
+    BigInt(args.item.quantityMilli),
+  );
+  const view: OrderItemView = {
+    itemId: randomUUID(),
+    productId: args.item.productId,
+    variantId: args.item.variantId ?? null,
+    titleSnapshot: titleSnapshot(
+      args.fact.name,
+      variantTitleName(args.fact, args.item.variantId),
+    ),
+    quantityMilli: args.item.quantityMilli,
+    unitPriceMinor: args.price.unitPriceMinor,
+    discountKind: amounts.discountKind,
+    discountValue: moneyToCanonical(amounts.discountValue),
+    discountAmountMinor: moneyToCanonical(amounts.discountAmountMinor),
+    taxTreatment: amounts.taxTreatment,
+    taxRateBp: amounts.taxRateBp,
+    taxAmountMinor: moneyToCanonical(amounts.taxAmountMinor),
+    netAmountMinor: moneyToCanonical(amounts.netAmountMinor),
+    grossAmountMinor: moneyToCanonical(amounts.grossAmountMinor),
+    currency: args.price.currency,
+    priceSource: requirePriceSource(args.price.source),
+    personalPriceId: args.price.sourceIds.personalPriceId ?? null,
+    priceListId: args.price.sourceIds.priceListId ?? null,
+    priceListEntryId: args.price.sourceIds.entryId ?? null,
+    resolverVersion: args.price.resolverVersion,
+  };
+  return {
+    view,
+    row: orderItemInsertFromView(view, args.companyId, args.orderId),
+  };
+}
+
 export async function createStaffOrder(env: {
   readonly ctx: StaffCtx;
   readonly input: CreateInput;
@@ -238,76 +331,18 @@ export async function createStaffOrder(env: {
     if (item === undefined || price === undefined) {
       throw new CoreInvariantError("create line zip went out of range");
     }
-    const expectedVariantId = item.variantId ?? null;
-    if (
-      price.productId !== item.productId ||
-      price.variantId !== expectedVariantId
-    ) {
-      throw new CoreInvariantError(
-        `pricing.resolveProductPrices row ${String(index)} does not match the create line`,
-      );
-    }
-    const fact = productFact(products, item.productId);
-    const unitPriceMinor = BigInt(price.unitPriceMinor);
-    const quantityMilli = BigInt(item.quantityMilli);
-    const amounts = computeExemptNoneLine(unitPriceMinor, quantityMilli);
-    const itemId = randomUUID();
-    const variantId = item.variantId ?? null;
-    const view: OrderItemView = {
-      itemId,
-      productId: item.productId,
-      variantId,
-      titleSnapshot: titleSnapshot(
-        fact.name,
-        variantTitleName(fact, item.variantId),
-      ),
-      quantityMilli: item.quantityMilli,
-      unitPriceMinor: price.unitPriceMinor,
-      discountKind: amounts.discountKind,
-      discountValue: moneyToCanonical(amounts.discountValue),
-      discountAmountMinor: moneyToCanonical(amounts.discountAmountMinor),
-      taxTreatment: amounts.taxTreatment,
-      taxRateBp: amounts.taxRateBp,
-      taxAmountMinor: moneyToCanonical(amounts.taxAmountMinor),
-      netAmountMinor: moneyToCanonical(amounts.netAmountMinor),
-      grossAmountMinor: moneyToCanonical(amounts.grossAmountMinor),
-      currency: price.currency,
-      priceSource: requirePriceSource(price.source),
-      personalPriceId: price.sourceIds.personalPriceId ?? null,
-      priceListId: price.sourceIds.priceListId ?? null,
-      priceListEntryId: price.sourceIds.entryId ?? null,
-      resolverVersion: price.resolverVersion,
-    };
-    lines.push({
-      view,
-      row: {
-        id: itemId,
-        companyId: ctx.companyId,
-        orderId,
-        productId: item.productId,
-        variantId,
-        titleSnapshot: view.titleSnapshot,
-        quantityMilli,
-        unitPriceMinor,
-        discountKind: amounts.discountKind,
-        discountValue: amounts.discountValue,
-        discountAmountMinor: amounts.discountAmountMinor,
-        taxTreatment: amounts.taxTreatment,
-        taxRateBp: amounts.taxRateBp,
-        taxAmountMinor: amounts.taxAmountMinor,
-        netAmountMinor: amounts.netAmountMinor,
-        grossAmountMinor: amounts.grossAmountMinor,
-        currency: price.currency,
-        priceSource: view.priceSource,
-        personalPriceId: view.personalPriceId,
-        priceListId: view.priceListId,
-        priceListEntryId: view.priceListEntryId,
-        resolverVersion: view.resolverVersion,
-      },
+    validatePriceAlignment(item, price, index);
+    const line = buildOrderLine({
+      item,
+      price,
+      fact: productFact(products, item.productId),
+      companyId: ctx.companyId,
+      orderId,
     });
-    totalNetMinor += amounts.netAmountMinor;
-    totalTaxMinor += amounts.taxAmountMinor;
-    totalGrossMinor += amounts.grossAmountMinor;
+    lines.push(line);
+    totalNetMinor += moneyFromCanonical(line.view.netAmountMinor);
+    totalTaxMinor += moneyFromCanonical(line.view.taxAmountMinor);
+    totalGrossMinor += moneyFromCanonical(line.view.grossAmountMinor);
   }
 
   const comment = input.comment ?? null;

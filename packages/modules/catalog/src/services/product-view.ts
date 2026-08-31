@@ -1,5 +1,8 @@
-import { CoreInvariantError } from "@showzy/core/errors";
-import { moneyToCanonical } from "@showzy/module-kit/canonical";
+import {
+  moneyToCanonical,
+  requireUah,
+  requireUahOrNull,
+} from "@showzy/module-kit/canonical";
 import type { z } from "zod";
 
 import type { productViewSchema } from "../actions/product-view.contract.js";
@@ -14,22 +17,6 @@ export function compareVariantId(left: string, right: string): number {
     return 1;
   }
   return 0;
-}
-
-function requireUah(currency: string): "UAH" {
-  if (currency !== "UAH") {
-    throw new CoreInvariantError(
-      "catalog write view expected UAH (db.md §11 UAH-only MVP)",
-    );
-  }
-  return "UAH";
-}
-
-function requireUahOrNull(currency: string | null): "UAH" | null {
-  if (currency === null) {
-    return null;
-  }
-  return requireUah(currency);
 }
 
 export function toProductView(

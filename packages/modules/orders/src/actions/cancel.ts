@@ -27,7 +27,7 @@ export const cancelOrder = implementAction(cancelOrderContract, {
 
     const db = requireWritable(ctx.db);
     const rows = await db
-      .select()
+      .select({ id: orders.id, status: orders.status })
       .from(orders)
       .where(
         and(eq(orders.companyId, ctx.companyId), eq(orders.id, input.orderId)),

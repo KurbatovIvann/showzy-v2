@@ -1,6 +1,12 @@
+import { CoreInvariantError } from "@showzy/core/errors";
 import { describe, expect, it } from "vitest";
 
-import { moneyFromCanonical, moneyToCanonical } from "./canonical.js";
+import {
+  moneyFromCanonical,
+  moneyToCanonical,
+  requireUah,
+  requireUahOrNull,
+} from "./canonical.js";
 
 describe("canonical money", () => {
   it("round-trips signed int64-range values as decimal strings", () => {
@@ -16,5 +22,14 @@ describe("canonical money", () => {
       expect(encoded).toBe(minor.toString(10));
       expect(moneyFromCanonical(encoded)).toBe(minor);
     }
+  });
+});
+
+describe("requireUah", () => {
+  it("accepts UAH and rejects other ISO codes", () => {
+    expect(requireUah("UAH")).toBe("UAH");
+    expect(() => requireUah("USD")).toThrow(CoreInvariantError);
+    expect(requireUahOrNull(null)).toBeNull();
+    expect(requireUahOrNull("UAH")).toBe("UAH");
   });
 });

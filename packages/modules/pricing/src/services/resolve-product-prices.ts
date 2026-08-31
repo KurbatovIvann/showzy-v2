@@ -7,7 +7,7 @@ import {
 } from "@showzy/db/schema/pricing";
 import { moneyToCanonical } from "@showzy/module-kit/canonical";
 import { uniqueIds } from "@showzy/module-kit/unique-ids";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import type { z } from "zod";
 
 import {
@@ -167,14 +167,18 @@ async function loadActiveListHits(
   tx: StaffDb,
   companyId: string,
   productIds: readonly string[],
-  selector:
-    | { readonly kind: "id"; readonly priceListId: string }
-    | { readonly kind: "default" },
-): Promise<LevelIndex> {
+  listIds: readonly string[],
+): Promise<{
+  readonly byListId: ReadonlyMap<string, LevelIndex>;
+  readonly defaultList: LevelIndex;
+}> {
   const listMatch =
-    selector.kind === "id"
-      ? eq(priceListEntries.priceListId, selector.priceListId)
-      : eq(priceLists.isDefault, true);
+    listIds.length === 0
+      ? eq(priceLists.isDefault, true)
+      : or(
+          inArray(priceListEntries.priceListId, [...listIds]),
+          eq(priceLists.isDefault, true),
+        );
   const rows = await tx
     .select({
       id: priceListEntries.id,
@@ -183,6 +187,7 @@ async function loadActiveListHits(
       variantId: priceListEntries.variantId,
       priceMinor: priceListEntries.priceMinor,
       currency: priceListEntries.currency,
+      isDefault: priceLists.isDefault,
     })
     .from(priceListEntries)
     .innerJoin(
@@ -200,7 +205,37 @@ async function loadActiveListHits(
         inArray(priceListEntries.productId, [...productIds]),
       ),
     );
-  return indexHits(rows);
+
+  const rowsByListId = new Map<string, PriceRow[]>();
+  const defaultRows: PriceRow[] = [];
+  for (const row of rows) {
+    const priceRow: PriceRow = {
+      id: row.id,
+      productId: row.productId,
+      variantId: row.variantId,
+      priceMinor: row.priceMinor,
+      currency: row.currency,
+      priceListId: row.priceListId,
+    };
+    const existing = rowsByListId.get(row.priceListId);
+    if (existing === undefined) {
+      rowsByListId.set(row.priceListId, [priceRow]);
+    } else {
+      existing.push(priceRow);
+    }
+    if (row.isDefault) {
+      defaultRows.push(priceRow);
+    }
+  }
+
+  const byListId = new Map<string, LevelIndex>();
+  for (const listId of listIds) {
+    byListId.set(listId, indexHits(rowsByListId.get(listId) ?? []));
+  }
+  return {
+    byListId,
+    defaultList: indexHits(defaultRows),
+  };
 }
 
 function resolveBase(product: CatalogProductFact, item: ResolveItem): LevelHit {
@@ -230,9 +265,10 @@ function resolveBase(product: CatalogProductFact, item: ResolveItem): LevelHit {
 
 /**
  * Five-level resolution for one company: personal → customer list → group
- * list → company default list → catalog base. One query per applicable
- * level (no per-item queries). Inactive lists are skipped by the list
- * joins. Level priority is absolute over match level.
+ * list → company default list → catalog base. Personal hits stay their
+ * own query; customer / group / default list hits share one query and
+ * are partitioned in code (no per-item queries). Inactive lists are
+ * skipped by the list join. Level priority is absolute over match level.
  */
 export async function resolveProductPricesForCompany(args: {
   readonly tx: StaffDb;
@@ -255,28 +291,22 @@ export async function resolveProductPricesForCompany(args: {
           args.customer.customerId,
           productIds,
         );
-  const customerList =
-    args.customer?.priceListId === undefined ||
-    args.customer.priceListId === null
-      ? undefined
-      : await loadActiveListHits(args.tx, args.companyId, productIds, {
-          kind: "id",
-          priceListId: args.customer.priceListId,
-        });
-  const groupList =
-    args.customer?.groupPriceListId === undefined ||
-    args.customer.groupPriceListId === null
-      ? undefined
-      : await loadActiveListHits(args.tx, args.companyId, productIds, {
-          kind: "id",
-          priceListId: args.customer.groupPriceListId,
-        });
-  const defaultList = await loadActiveListHits(
+  const customerListId = args.customer?.priceListId ?? null;
+  const groupListId = args.customer?.groupPriceListId ?? null;
+  const listIds = uniqueIds(
+    [customerListId, groupListId].filter((id): id is string => id !== null),
+  );
+  const listHits = await loadActiveListHits(
     args.tx,
     args.companyId,
     productIds,
-    { kind: "default" },
+    listIds,
   );
+  const customerList =
+    customerListId === null ? undefined : listHits.byListId.get(customerListId);
+  const groupList =
+    groupListId === null ? undefined : listHits.byListId.get(groupListId);
+  const defaultList = listHits.defaultList;
 
   return args.items.map((item) => {
     const product = productById.get(item.productId);

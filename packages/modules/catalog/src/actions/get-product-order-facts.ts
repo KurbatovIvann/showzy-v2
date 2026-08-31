@@ -1,20 +1,8 @@
 import { implementAction } from "@showzy/core";
-import { CoreInvariantError, NotFoundError } from "@showzy/core/errors";
-import { products, productVariants } from "@showzy/db/schema/catalog";
-import { uniqueIds } from "@showzy/module-kit/unique-ids";
-import { and, eq, inArray } from "drizzle-orm";
+import { CoreInvariantError } from "@showzy/core/errors";
 
+import { loadProductFacts } from "../services/load-product-facts.js";
 import { getProductOrderFactsContract } from "./get-product-order-facts.contract.js";
-
-function compareVariantId(left: string, right: string): number {
-  if (left < right) {
-    return -1;
-  }
-  if (left > right) {
-    return 1;
-  }
-  return 0;
-}
 
 export const getProductOrderFacts = implementAction(
   getProductOrderFactsContract,
@@ -26,79 +14,20 @@ export const getProductOrderFacts = implementAction(
         );
       }
 
-      const productIds = uniqueIds(input.items.map((item) => item.productId));
-      const productRows = await ctx.db
-        .select({
-          id: products.id,
-          name: products.name,
-        })
-        .from(products)
-        .where(
-          and(
-            eq(products.companyId, ctx.companyId),
-            inArray(products.id, productIds),
-          ),
-        );
-
-      if (productRows.length !== productIds.length) {
-        throw new NotFoundError();
-      }
-
-      const variantRows = await ctx.db
-        .select({
-          id: productVariants.id,
-          productId: productVariants.productId,
-          name: productVariants.name,
-        })
-        .from(productVariants)
-        .where(
-          and(
-            eq(productVariants.companyId, ctx.companyId),
-            inArray(productVariants.productId, productIds),
-          ),
-        );
-
-      const variantsByProduct = new Map<string, typeof variantRows>();
-      for (const row of variantRows) {
-        const existing = variantsByProduct.get(row.productId);
-        if (existing === undefined) {
-          variantsByProduct.set(row.productId, [row]);
-        } else {
-          existing.push(row);
-        }
-      }
-
-      for (const item of input.items) {
-        if (item.variantId === undefined) {
-          continue;
-        }
-        const owned = variantsByProduct.get(item.productId) ?? [];
-        if (!owned.some((variant) => variant.id === item.variantId)) {
-          throw new NotFoundError();
-        }
-      }
-
-      const productById = new Map(productRows.map((row) => [row.id, row]));
+      const facts = await loadProductFacts({
+        db: ctx.db,
+        companyId: ctx.companyId,
+        items: input.items,
+      });
       return {
-        products: productIds.map((productId) => {
-          const row = productById.get(productId);
-          if (row === undefined) {
-            throw new CoreInvariantError(
-              "product row missing after the existence check",
-            );
-          }
-          const variants = [...(variantsByProduct.get(productId) ?? [])].sort(
-            (left, right) => compareVariantId(left.id, right.id),
-          );
-          return {
-            productId: row.id,
-            name: row.name,
-            variants: variants.map((variant) => ({
-              variantId: variant.id,
-              name: variant.name,
-            })),
-          };
-        }),
+        products: facts.map((product) => ({
+          productId: product.productId,
+          name: product.name,
+          variants: product.variants.map((variant) => ({
+            variantId: variant.variantId,
+            name: variant.name,
+          })),
+        })),
       };
     },
   },
