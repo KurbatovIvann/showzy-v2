@@ -3,7 +3,10 @@ import { useCallback, useEffect, useReducer, useRef } from "react";
 
 import { useApiClient } from "../../../../api/api-provider";
 import { useContractMutation } from "../../../../api/contract-mutation";
-import { describeQueryFailure } from "../../../../api/errors";
+import {
+  describeQueryFailure,
+  requireReadyClient,
+} from "../../../../api/errors";
 import { useActiveCompany } from "../../../../api/query-provider";
 import { useResolvedCompany } from "../../../../company-resolution/resolved-company-provider";
 import { detectLocale } from "../../../../i18n/locale";
@@ -103,10 +106,7 @@ export function useProductPhotos(args: {
 
   const mutation = useContractMutation(
     (input: SetProductImagesInput, options) => {
-      const current = apiRef.current;
-      if (current === null) {
-        return Promise.reject(new TypeError("Failed to fetch"));
-      }
+      const current = requireReadyClient(apiRef.current);
       return bindSetProductImages(current)(input, options);
     },
   );

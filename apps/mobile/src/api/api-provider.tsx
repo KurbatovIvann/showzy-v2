@@ -7,25 +7,21 @@ import {
 } from "react";
 
 import { useAuthSession } from "../auth/session-provider";
-import {
-  applySessionHydrateToCompanySelector,
-  bindCompanySelectorPersistence,
-} from "../prefs/device-prefs";
+import { applySessionHydrateToCompanySelector } from "../prefs/device-prefs";
 import { createPlatformDevicePrefs } from "../prefs/platform-storage";
-import { createShowzyClient, type ContractClient } from "./client";
+import { createShowzyClient, type ShowzyClient } from "./client";
 import { apiUrlFromEnv } from "./config";
 
-const ApiClientContext = createContext<ContractClient | null>(null);
+const ApiClientContext = createContext<ShowzyClient | null>(null);
 
 /**
  * Contract client with the Expo session cookie. Must sit inside
  * `SessionProvider`. Fetch uses `credentials: "omit"` so the Cookie
  * header from `getCookie()` is not overwritten.
  *
- * Company-selector persistence (SHO-103) binds here: the last staff
- * selector restores only after a live session hydrate. An unsigned
- * hydrate clears it so the next sign-in cannot inherit another user's
- * company. Network hydrate failures do not touch the stored selector.
+ * Last-company restore runs here after a live session hydrate (SHO-103).
+ * Persistence of the selector and tenant-cache isolation subscribe to
+ * `onActiveCompanyChange` from `QueryRuntimeProvider` (SHO-297).
  */
 export function ApiProvider({ children }: { readonly children: ReactNode }) {
   const auth = useAuthSession();
@@ -36,16 +32,14 @@ export function ApiProvider({ children }: { readonly children: ReactNode }) {
     }
     const authClient = auth.authClient;
     try {
-      const created = createShowzyClient({
+      return createShowzyClient({
         apiUrl: apiUrlFromEnv(),
         getCookie: () => authClient.getCookie(),
       });
-      bindCompanySelectorPersistence(created, prefs);
-      return created;
     } catch {
       return null;
     }
-  }, [auth.authClient, prefs]);
+  }, [auth.authClient]);
 
   const sessionUserId = auth.session?.userId ?? null;
 
@@ -70,6 +64,6 @@ export function ApiProvider({ children }: { readonly children: ReactNode }) {
   );
 }
 
-export function useApiClient(): ContractClient | null {
+export function useApiClient(): ShowzyClient | null {
   return useContext(ApiClientContext);
 }

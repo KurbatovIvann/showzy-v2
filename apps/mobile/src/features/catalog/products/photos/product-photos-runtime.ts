@@ -5,6 +5,7 @@
 import type { MutationAttempt } from "@showzy/contract";
 
 import type { ContractClient } from "../../../../api/client";
+import { requireReadyClient } from "../../../../api/errors";
 import { waitForSheetHidden } from "../../../../components/ui/sheet-dismiss";
 import { createMobileMutationAttempt } from "../../../../crypto/create-attempt";
 import { mapUploadBanner, remainingPhotoSlots } from "./product-photos-model";
@@ -66,10 +67,7 @@ export type ProductPhotosRuntimeDeps = {
 };
 
 function requireClient(client: ContractClient | null): ContractClient {
-  if (client === null) {
-    throw new TypeError("Failed to fetch");
-  }
-  return client;
+  return requireReadyClient(client);
 }
 
 export function createProductPhotosRuntime(

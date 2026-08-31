@@ -93,4 +93,24 @@ describe("createShowzyClient (contract.md §3)", () => {
       attempt.key,
     );
   });
+
+  it("notifies every onActiveCompanyChange listener and honors unsubscribe", () => {
+    const created = createShowzyClient({ apiUrl: "http://api.test" });
+    const first: string[] = [];
+    const second: string[] = [];
+    const unsubscribeFirst = created.onActiveCompanyChange((companyId) => {
+      first.push(companyId ?? "null");
+    });
+    created.onActiveCompanyChange((companyId) => {
+      second.push(companyId ?? "null");
+    });
+
+    created.setActiveCompany("company-a");
+    unsubscribeFirst();
+    created.setActiveCompany("company-b");
+    created.setActiveCompany(null);
+
+    expect(first).toEqual(["company-a"]);
+    expect(second).toEqual(["company-a", "company-b", "null"]);
+  });
 });

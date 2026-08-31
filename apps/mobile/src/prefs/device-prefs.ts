@@ -23,6 +23,9 @@ export interface DevicePrefs {
 export type CompanySelectorClient = {
   setActiveCompany(companyId: string | null): void;
   getActiveCompany(): string | null;
+  onActiveCompanyChange(
+    listener: (companyId: string | null) => void,
+  ): () => void;
 };
 
 export function createDevicePrefs(kv: PrefsKvStore): DevicePrefs {
@@ -65,19 +68,17 @@ export function asThemePreferenceStore(
  * Persist the staff selector on every `setActiveCompany`. Sign-out and
  * session-loss already call `setActiveCompany(null)` (SHO-102); that
  * clears the stored selector and leaves theme untouched.
+ *
+ * Subscribes via `onActiveCompanyChange` — do not monkey-patch
+ * `setActiveCompany` (SHO-297).
  */
 export function bindCompanySelectorPersistence(
-  client: CompanySelectorClient,
+  client: Pick<CompanySelectorClient, "onActiveCompanyChange">,
   prefs: Pick<DevicePrefs, "setLastCompanyId">,
 ): () => void {
-  const original = client.setActiveCompany.bind(client);
-  client.setActiveCompany = (companyId: string | null): void => {
-    original(companyId);
+  return client.onActiveCompanyChange((companyId) => {
     prefs.setLastCompanyId(companyId);
-  };
-  return (): void => {
-    client.setActiveCompany = original;
-  };
+  });
 }
 
 /**

@@ -9,12 +9,11 @@ import { Platform } from "react-native";
 
 import {
   AUTH_COOKIE_KEY,
-  AUTH_STORAGE_PREFIX,
+  AUTH_SESSION_CACHE_KEY,
   createMemoryAuthStorage,
   type ExpoAuthStorage,
 } from "./storage";
 
-const SESSION_CACHE_KEY = `${AUTH_STORAGE_PREFIX}_session_data`;
 /** Matches `@better-auth/expo` storageAdapter chunk marker. */
 const CHUNK_MARKER = "\u0001ba-chunks:";
 
@@ -28,7 +27,7 @@ export async function createPlatformAuthStorage(): Promise<ExpoAuthStorage> {
   }
   const memory = createMemoryAuthStorage();
   await hydrateNativeKey(memory, AUTH_COOKIE_KEY);
-  await hydrateNativeKey(memory, SESSION_CACHE_KEY);
+  await hydrateNativeKey(memory, AUTH_SESSION_CACHE_KEY);
   return {
     getItem: memory.getItem,
     setItem: (key, value) => {

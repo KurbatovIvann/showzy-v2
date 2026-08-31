@@ -7,6 +7,7 @@ import type { MutationAttempt, MutationCallOptions } from "@showzy/contract";
 
 import {
   describeQueryFailure,
+  InternalInvariantError,
   type QueryFailureKind,
 } from "../../../../api/errors";
 import { FILE_PURPOSE, type CatalogImageMime } from "./product-photos-limits";
@@ -426,7 +427,7 @@ export async function runProductPhotoUpload(args: {
           const image = requirePrepared(prepared);
           const url = uploadUrl;
           if (url === null) {
-            throw new TypeError("Failed to fetch");
+            throw new InternalInvariantError("upload URL missing before PUT");
           }
           await args.ports.put({
             uri: image.uri,
@@ -487,14 +488,14 @@ function requirePrepared(
   prepared: PreparedCatalogImage | null,
 ): PreparedCatalogImage {
   if (prepared === null) {
-    throw new TypeError("Failed to fetch");
+    throw new InternalInvariantError("upload image missing after prepare");
   }
   return prepared;
 }
 
 function requireFileId(fileId: string | null): string {
   if (fileId === null) {
-    throw new TypeError("Failed to fetch");
+    throw new InternalInvariantError("upload file id missing");
   }
   return fileId;
 }

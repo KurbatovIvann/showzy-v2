@@ -4,6 +4,7 @@
  * infinite query page param, never part of the key.
  */
 import type { ContractClient } from "../../../../api/client";
+import { requireReadyClient } from "../../../../api/errors";
 import {
   contractInfiniteQueryOptions,
   contractQueryOptions,
@@ -37,15 +38,11 @@ export function listProductsInfiniteOptions(args: {
       companyId: args.companyId,
       input: args.input,
       getActiveCompany: args.getActiveCompany,
-      queryFn: (cursor: string | null) => {
-        if (client === null) {
-          return Promise.reject(new TypeError("Failed to fetch"));
-        }
-        return client.client.catalog.listProducts({
+      queryFn: (cursor: string | null) =>
+        requireReadyClient(client).client.catalog.listProducts({
           ...args.input,
           ...(cursor === null ? {} : { cursor }),
-        });
-      },
+        }),
       nextCursor: (page: ListProductsOutput) => page.nextCursor,
     }),
     enabled: client !== null && args.companyId !== null,
@@ -73,11 +70,9 @@ export function productsProbeQueryOptions(args: {
     companyId: args.companyId,
     input: PRODUCTS_PROBE_INPUT,
     getActiveCompany: args.getActiveCompany,
-    queryFn: () => {
-      if (client === null) {
-        return Promise.reject(new TypeError("Failed to fetch"));
-      }
-      return client.client.catalog.listProducts(PRODUCTS_PROBE_INPUT);
-    },
+    queryFn: () =>
+      requireReadyClient(client).client.catalog.listProducts(
+        PRODUCTS_PROBE_INPUT,
+      ),
   });
 }

@@ -8,8 +8,13 @@ import { MutationObserver, QueryObserver } from "@tanstack/react-query";
 
 import { createShowzyClient } from "./client";
 import {
+  ClientUnavailableError,
+  InternalInvariantError,
+} from "./errors";
+import {
   bindActiveCompanyQueryIsolation,
   createShowzyQueryClient,
+  createUnauthenticatedCleanupLatch,
   handleUnauthenticatedQueryError,
   hasLocalSession,
   isolateCacheOnSessionLoss,
@@ -167,6 +172,8 @@ describe("createShowzyQueryClient retry policy", () => {
       QUERY_RETRY_LIMIT + 1,
     );
     expect(queryRetryDelay(0, rateLimited(12))).toBe(12_000);
+    expect(queryRetryDelay(0, rateLimited(3_600))).toBe(60_000);
+    expect(queryRetryDelay(0, rateLimited(-5))).toBe(0);
   });
 
   it("does not retry client wire codes", async () => {
@@ -176,6 +183,8 @@ describe("createShowzyQueryClient retry policy", () => {
     expect(await countQueryAttempts(unauthenticated())).toBe(1);
     expect(await countQueryAttempts(confirmationRequired())).toBe(1);
     expect(await countQueryAttempts(new StaleCompanyQueryError())).toBe(1);
+    expect(await countQueryAttempts(new ClientUnavailableError())).toBe(1);
+    expect(await countQueryAttempts(new InternalInvariantError())).toBe(1);
   });
 
   it("does not retry mutations", async () => {
@@ -344,6 +353,46 @@ describe("UNAUTHENTICATED query handling", () => {
       .catch(() => undefined);
     expect(onUnauthenticated).toHaveBeenCalledTimes(1);
     queryClient.clear();
+  });
+
+  it("collapses N unauthenticated failures to one cleanup", async () => {
+    const onUnauthenticated = vi.fn(
+      () =>
+        new Promise<void>(() => {
+          // Stay in-flight so later 401s share this cleanup.
+        }),
+    );
+    const queryClient = createShowzyQueryClient({
+      onUnauthenticated,
+      retryDelay: () => 0,
+    });
+    await Promise.all(
+      ["a", "b", "c"].map((key) =>
+        queryClient
+          .fetchQuery({
+            queryKey: ["unauthenticated", key],
+            queryFn: () => Promise.reject(unauthenticated()),
+            retry: false,
+          })
+          .catch(() => undefined),
+      ),
+    );
+    expect(onUnauthenticated).toHaveBeenCalledTimes(1);
+    queryClient.clear();
+  });
+
+  it("createUnauthenticatedCleanupLatch ignores re-entry while in flight", async () => {
+    const cleanup = vi.fn(
+      () =>
+        new Promise<void>(() => {
+          // never settles
+        }),
+    );
+    const latch = createUnauthenticatedCleanupLatch(cleanup);
+    latch();
+    latch();
+    latch();
+    expect(cleanup).toHaveBeenCalledTimes(1);
   });
 
   it("does not 401-gate anonymous public/share work", () => {

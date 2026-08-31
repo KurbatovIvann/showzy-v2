@@ -13,6 +13,7 @@ import {
   requestMediaLibraryPermissionsAsync,
 } from "expo-image-picker";
 
+import { HttpStatusError } from "../../../../api/errors";
 import { sha256DigestToHex } from "./product-photos-checksum";
 import {
   MAX_UPLOAD_BYTES,
@@ -180,7 +181,7 @@ export async function putCatalogBytes(args: {
   });
   const result = await task.uploadAsync();
   if (result.status < 200 || result.status >= 300) {
-    throw new TypeError("Failed to fetch");
+    throw new HttpStatusError(result.status);
   }
 }
 

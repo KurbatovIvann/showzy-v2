@@ -3,6 +3,7 @@
  * `[actionName, companyId, input]`.
  */
 import type { ContractClient } from "../../../../api/client";
+import { requireReadyClient } from "../../../../api/errors";
 import { contractQueryOptions } from "../../../../api/query-options";
 
 export const GET_PRODUCT_ACTION = "catalog.getProduct";
@@ -27,12 +28,8 @@ export function getProductQueryOptions(args: {
       companyId: args.companyId,
       input: { productId },
       getActiveCompany: args.getActiveCompany,
-      queryFn: () => {
-        if (client === null) {
-          return Promise.reject(new TypeError("Failed to fetch"));
-        }
-        return client.client.catalog.getProduct({ productId });
-      },
+      queryFn: () =>
+        requireReadyClient(client).client.catalog.getProduct({ productId }),
     }),
     enabled:
       client !== null && args.companyId !== null && args.productId !== null,

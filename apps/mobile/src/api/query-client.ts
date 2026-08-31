@@ -12,8 +12,16 @@ import {
 } from "@tanstack/react-query";
 import { isWireError, type ContractClient } from "@showzy/contract";
 
-import { StaleCompanyQueryError } from "./query-options";
-import { NULL_COMPANY_QUERY_SCOPE } from "./query-options";
+import type { ActiveCompanyListenerHost } from "./client";
+import {
+  ClientUnavailableError,
+  HttpStatusError,
+  InternalInvariantError,
+} from "./errors";
+import {
+  NULL_COMPANY_QUERY_SCOPE,
+  StaleCompanyQueryError,
+} from "./query-options";
 
 /** V1 `staleTime` — keep reads warm for a minute unless a test proves otherwise. */
 export const QUERY_STALE_TIME_MS = 60_000;
@@ -30,8 +38,15 @@ export type QueryRetryDelay = NonNullable<
 const RETRYABLE_WIRE_CODES = new Set(["TIMEOUT", "RATE_LIMITED"]);
 
 export function isRetryableQueryFailure(error: unknown): boolean {
-  if (error instanceof StaleCompanyQueryError) {
+  if (
+    error instanceof StaleCompanyQueryError ||
+    error instanceof ClientUnavailableError ||
+    error instanceof InternalInvariantError
+  ) {
     return false;
+  }
+  if (error instanceof HttpStatusError) {
+    return error.status === 429 || error.status === 408 || error.status >= 500;
   }
   if (isWireError(error)) {
     return RETRYABLE_WIRE_CODES.has(error.code);
@@ -46,9 +61,19 @@ export function shouldRetryQuery(
   return failureCount < QUERY_RETRY_LIMIT && isRetryableQueryFailure(error);
 }
 
+/** Ceiling for server-provided RATE_LIMITED `retryAfterSec` (SHO-297). */
+export const QUERY_RETRY_AFTER_MAX_SEC = 60;
+
+export function clampRetryAfterSec(retryAfterSec: number): number {
+  if (!Number.isFinite(retryAfterSec) || retryAfterSec < 0) {
+    return 0;
+  }
+  return Math.min(retryAfterSec, QUERY_RETRY_AFTER_MAX_SEC);
+}
+
 export function queryRetryDelay(attemptIndex: number, error: unknown): number {
   if (isWireError(error) && error.code === "RATE_LIMITED") {
-    return error.data.retryAfterSec * 1000;
+    return clampRetryAfterSec(error.data.retryAfterSec) * 1000;
   }
   return Math.min(1_000 * 2 ** attemptIndex, 30_000);
 }
@@ -107,41 +132,82 @@ export function isolateCacheOnSessionLoss(
  */
 export function handleUnauthenticatedQueryError(input: {
   readonly hadSession: boolean;
-  readonly clearSession: () => void;
+  readonly clearSession: () => void | Promise<void>;
   readonly clearCache: () => void;
-}): void {
+}): void | Promise<void> {
   if (!input.hadSession) {
     return;
   }
-  input.clearSession();
+  const session = input.clearSession();
   input.clearCache();
+  return session;
+}
+
+function isThenable(value: unknown): value is Promise<unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "then" in value &&
+    typeof value.then === "function"
+  );
+}
+
+/**
+ * Collapse a 401 storm: N failing queries start one cleanup. The latch
+ * stays set while cleanup is in flight (and for the rest of a sync turn
+ * when cleanup is synchronous).
+ */
+export function createUnauthenticatedCleanupLatch(
+  cleanup: () => void | Promise<void>,
+): () => void | Promise<void> {
+  let inFlight = false;
+  return () => {
+    if (inFlight) {
+      return;
+    }
+    inFlight = true;
+    try {
+      const result = cleanup();
+      if (isThenable(result)) {
+        return result
+          .catch(() => undefined)
+          .finally(() => {
+            inFlight = false;
+          });
+      }
+    } catch {
+      // Cleanup must not reject into QueryCache.
+    }
+    queueMicrotask(() => {
+      inFlight = false;
+    });
+    return;
+  };
 }
 
 export function bindActiveCompanyQueryIsolation(
-  client: Pick<ContractClient, "setActiveCompany">,
+  client: ActiveCompanyListenerHost,
   queryClient: QueryClient,
   hooks: {
     readonly onCompanyId?: (companyId: string | null) => void;
   } = {},
 ): () => void {
-  const original = client.setActiveCompany.bind(client);
-  client.setActiveCompany = (companyId: string | null): void => {
-    original(companyId);
+  return client.onActiveCompanyChange((companyId) => {
     hooks.onCompanyId?.(companyId);
     clearCachedTenantQueries(queryClient);
-  };
-  return (): void => {
-    client.setActiveCompany = original;
-  };
+  });
 }
 
 export function createShowzyQueryClient(
   options: {
-    readonly onUnauthenticated?: () => void;
+    readonly onUnauthenticated?: () => void | Promise<void>;
     readonly retryDelay?: QueryRetryDelay;
   } = {},
 ): QueryClient {
-  const onUnauthenticated = options.onUnauthenticated;
+  const onUnauthenticated =
+    options.onUnauthenticated === undefined
+      ? undefined
+      : createUnauthenticatedCleanupLatch(options.onUnauthenticated);
   const retryDelay = options.retryDelay ?? queryRetryDelay;
 
   function notifyIfUnauthenticated(error: unknown): void {

@@ -11,6 +11,7 @@
  * Catalog surfaces must pass a named size (SHO-244).
  */
 import type { ContractClient } from "./client";
+import { requireReadyClient } from "./errors";
 import { contractQueryOptions } from "./query-options";
 
 export const GET_DOWNLOAD_URL_ACTION = "files.getDownloadUrl";
@@ -108,12 +109,8 @@ export function fileDownloadUrlQueryOptions(args: {
       companyId: args.companyId,
       input,
       getActiveCompany: args.getActiveCompany,
-      queryFn: () => {
-        if (client === null) {
-          return Promise.reject(new TypeError("Failed to fetch"));
-        }
-        return client.client.files.getDownloadUrl(input);
-      },
+      queryFn: () =>
+        requireReadyClient(client).client.files.getDownloadUrl(input),
     }),
     staleTime: (query: {
       readonly state: { readonly data: DownloadUrlOutput | undefined };
@@ -143,12 +140,8 @@ export function fileDownloadUrlsQueryOptions(args: {
       companyId: args.companyId,
       input,
       getActiveCompany: args.getActiveCompany,
-      queryFn: () => {
-        if (client === null) {
-          return Promise.reject(new TypeError("Failed to fetch"));
-        }
-        return client.client.files.getDownloadUrls(input);
-      },
+      queryFn: () =>
+        requireReadyClient(client).client.files.getDownloadUrls(input),
     }),
     staleTime: (query: {
       readonly state: { readonly data: DownloadUrlsOutput | undefined };

@@ -69,6 +69,15 @@ export function accountContractQueryOptions<TInput, TOutput>(args: {
   });
 }
 
+export function assertCompanyStillActive(
+  getActiveCompany: () => string | null,
+  companyId: string | null,
+): void {
+  if (companyQueryScope(getActiveCompany()) !== companyQueryScope(companyId)) {
+    throw new StaleCompanyQueryError();
+  }
+}
+
 export function contractQueryOptions<TInput, TOutput>(args: {
   readonly actionName: string;
   readonly companyId: string | null;
@@ -80,12 +89,7 @@ export function contractQueryOptions<TInput, TOutput>(args: {
   return queryOptions({
     queryKey: contractQueryKey(args.actionName, args.companyId, args.input),
     queryFn: async () => {
-      if (
-        companyQueryScope(args.getActiveCompany()) !==
-        companyQueryScope(args.companyId)
-      ) {
-        throw new StaleCompanyQueryError();
-      }
+      assertCompanyStillActive(args.getActiveCompany, args.companyId);
       return args.queryFn();
     },
   });
@@ -111,12 +115,7 @@ export function contractInfiniteQueryOptions<TInput, TPage>(args: {
     queryKey: contractQueryKey(args.actionName, args.companyId, args.input),
     initialPageParam: null as string | null,
     queryFn: async ({ pageParam }) => {
-      if (
-        companyQueryScope(args.getActiveCompany()) !==
-        companyQueryScope(args.companyId)
-      ) {
-        throw new StaleCompanyQueryError();
-      }
+      assertCompanyStillActive(args.getActiveCompany, args.companyId);
       return args.queryFn(pageParam);
     },
     getNextPageParam: (lastPage) => args.nextCursor(lastPage),

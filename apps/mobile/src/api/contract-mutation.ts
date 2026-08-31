@@ -40,6 +40,7 @@ export interface ContractMutationController<TInput, TOutput> {
   retry(): Promise<TOutput>;
   confirm(challengeId: string): Promise<TOutput>;
   attemptKey(): string | null;
+  reset(): void;
 }
 
 export function createContractMutationController<TInput, TOutput>(deps: {
@@ -81,6 +82,10 @@ export function createContractMutationController<TInput, TOutput>(deps: {
       );
     },
     attemptKey: () => attempt?.key ?? null,
+    reset() {
+      attempt = null;
+      lastInput = undefined;
+    },
   };
 }
 
@@ -132,6 +137,9 @@ export function useContractMutation<TInput, TOutput>(
     data: mutation.data,
     isPending: mutation.isPending,
     isError: mutation.isError,
-    reset: mutation.reset,
+    reset: () => {
+      controller.reset();
+      mutation.reset();
+    },
   };
 }
