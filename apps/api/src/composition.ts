@@ -286,9 +286,9 @@ export function registerAction<
   registry.registerImplementation(action);
 }
 
-function registerActions(
+function registerActions<TTarget>(
   registry: ActionRegistry,
-  actions: readonly ImplementedAction[],
+  actions: readonly ImplementedAction<z.ZodType, z.ZodType, TTarget>[],
 ): void {
   for (const action of actions) {
     registerAction(registry, action);

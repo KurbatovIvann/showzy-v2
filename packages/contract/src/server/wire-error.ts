@@ -56,10 +56,17 @@ const WIRE_EXTRAS: {
 export function toWireError(error: unknown): ORPCError<CoreErrorCode, unknown> {
   if (error instanceof CoreError) {
     const extras = WIRE_EXTRAS[error.code]?.(error);
+    if (extras !== undefined) {
+      return new ORPCError(error.code, {
+        status: wireErrorStatus[error.code],
+        message: error.clientMessage,
+        data: extras,
+        cause: error,
+      });
+    }
     return new ORPCError(error.code, {
       status: wireErrorStatus[error.code],
       message: error.clientMessage,
-      ...(extras !== undefined ? { data: extras } : {}),
       cause: error,
     });
   }
