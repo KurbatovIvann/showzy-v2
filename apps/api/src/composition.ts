@@ -231,19 +231,19 @@ const callEdges: readonly DeclaredCallEdge[] = [
   },
   {
     caller: "customers.createCustomer",
-    callee: "pricing.listPriceLists",
+    callee: "pricing.getPriceList",
   },
   {
     caller: "customers.createGroup",
-    callee: "pricing.listPriceLists",
+    callee: "pricing.getPriceList",
   },
   {
     caller: "customers.updateCustomer",
-    callee: "pricing.listPriceLists",
+    callee: "pricing.getPriceList",
   },
   {
     caller: "customers.updateGroup",
-    callee: "pricing.listPriceLists",
+    callee: "pricing.getPriceList",
   },
   {
     caller: "invites.create",
