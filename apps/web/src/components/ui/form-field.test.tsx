@@ -53,18 +53,26 @@ describe("InputField (SHO-311)", () => {
     expect(input.className).toContain("border-danger");
     expect(input.className).not.toContain("border-line");
     expect(input.getAttribute("aria-invalid")).toBe("true");
-    expect(screen.getByText("Вкажіть ім’я клієнта").className).toContain(
-      "text-danger",
-    );
+    const message = screen.getByText("Вкажіть ім’я клієнта");
+    expect(message.className).toContain("text-danger");
+    // The control references the message so screen readers announce it.
+    expect(message.id).toBe("client-name-message");
+    expect(input.getAttribute("aria-describedby")).toBe("client-name-message");
     // The hint yields to the error message.
     expect(screen.queryByText("Підказка")).toBeNull();
   });
 
   it("shows the faint hint when there is no error", () => {
-    renderInput({ hint: "Потрібен хоча б один контакт" });
-    expect(
-      screen.getByText("Потрібен хоча б один контакт").className,
-    ).toContain("text-faint");
+    const input = renderInput({ hint: "Потрібен хоча б один контакт" });
+    const hint = screen.getByText("Потрібен хоча б один контакт");
+    expect(hint.className).toContain("text-faint");
+    expect(hint.id).toBe("client-name-message");
+    expect(input.getAttribute("aria-describedby")).toBe("client-name-message");
+  });
+
+  it("omits aria-describedby without an error or hint", () => {
+    const input = renderInput();
+    expect(input.getAttribute("aria-describedby")).toBeNull();
   });
 });
 

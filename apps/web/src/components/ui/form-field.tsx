@@ -16,6 +16,23 @@ type FieldShellProps = {
   readonly children: ReactNode;
 };
 
+/**
+ * Id of the message element (error or hint — only one renders at a time)
+ * shown under the control with the given `id`. The control references it
+ * via `aria-describedby` so screen readers announce it with the field.
+ */
+function fieldMessageId(id: string): string {
+  return `${id}-message`;
+}
+
+function fieldDescribedBy(
+  id: string,
+  error: string | null | undefined,
+  hint: string | undefined,
+): string | undefined {
+  return error || hint ? fieldMessageId(id) : undefined;
+}
+
 function FieldShell({ id, label, error, hint, children }: FieldShellProps) {
   return (
     <div>
@@ -23,9 +40,15 @@ function FieldShell({ id, label, error, hint, children }: FieldShellProps) {
         {label}
       </label>
       {children}
-      {error ? <p className="mt-1 text-[12px] text-danger">{error}</p> : null}
+      {error ? (
+        <p id={fieldMessageId(id)} className="mt-1 text-[12px] text-danger">
+          {error}
+        </p>
+      ) : null}
       {!error && hint ? (
-        <p className="mt-1.5 text-[12px] text-faint">{hint}</p>
+        <p id={fieldMessageId(id)} className="mt-1.5 text-[12px] text-faint">
+          {hint}
+        </p>
       ) : null}
     </div>
   );
@@ -69,6 +92,7 @@ export function InputField({
         maxLength={maxLength}
         placeholder={placeholder}
         aria-invalid={error ? "true" : undefined}
+        aria-describedby={fieldDescribedBy(id, error, hint)}
         onChange={(event) => {
           onChange(event.target.value);
         }}

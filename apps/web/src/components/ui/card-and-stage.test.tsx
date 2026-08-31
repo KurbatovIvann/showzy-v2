@@ -50,4 +50,22 @@ describe("DetailStage (SHO-311)", () => {
     expect(screen.getByText("Оберіть елемент")).toBeDefined();
     expect(screen.queryByText("Основний вміст")).toBeNull();
   });
+
+  it("renders children when the overlay is absent", () => {
+    render(
+      <DetailStage label="Стан">
+        <p>Основний вміст</p>
+      </DetailStage>,
+    );
+    expect(screen.getByText("Основний вміст")).toBeDefined();
+  });
+
+  it("renders children when the overlay is false (`condition && node`)", () => {
+    render(
+      <DetailStage label="Стан" overlay={false}>
+        <p>Основний вміст</p>
+      </DetailStage>,
+    );
+    expect(screen.getByText("Основний вміст")).toBeDefined();
+  });
 });
