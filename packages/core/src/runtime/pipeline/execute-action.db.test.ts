@@ -126,7 +126,7 @@ const noopRateLimit: RateLimitHook = {
 function defaultHooks(): PipelineHooks {
   return {
     rateLimit: noopRateLimit,
-    audit: createAuditHook({ db: db.runtime.db }),
+    audit: createAuditHook({ db: db.runtime.db, logger: silentLogger }),
     idempotency: createIdempotencyHook({ db: db.runtime.db }),
   };
 }

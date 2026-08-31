@@ -55,11 +55,12 @@ export type ReadTx = Pick<
 >;
 
 /**
- * Wraps a transaction in the read-only facade. The returned object carries
- * only the read members — a runtime escape to `insert`/`update`/`delete`/
- * `execute` is impossible because they simply do not exist on it.
+ * Wraps any read-capable handle (a `Tx`, the root database, or another
+ * facade) in the read-only view. The returned object carries only the read
+ * members — a runtime escape to `insert`/`update`/`delete`/`execute` is
+ * impossible because they simply do not exist on it.
  */
-export function createReadTx(tx: Tx): ReadTx {
+export function createReadTx(tx: ReadTx): ReadTx {
   return {
     select: tx.select.bind(tx),
     selectDistinct: tx.selectDistinct.bind(tx),

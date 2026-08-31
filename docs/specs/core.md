@@ -486,6 +486,16 @@ by default (hash-only); it is populated only when the action binds an
 - **No raw input by default** — only the hash. An action may opt in to a
   redacted input snapshot via `auditSnapshot: (input) => SafeJson`; storing
   unredacted input is forbidden (prohibitions: no PII/secrets in logs).
+- **Handler-derived snapshot data:** `auditSnapshot` receives only the
+  validated input, but some snapshots need data the handler computed (e.g.
+  a certificate identity resolved during signing). The sanctioned pattern
+  is a module-private `WeakMap` keyed by the validated `input` object: the
+  pipeline passes the same object to the handler and to `auditSnapshot`,
+  so the handler stashes the derived value and the snapshot callback reads
+  it back — request-scoped by construction, no process-global state, and
+  concurrent executions cannot collide (first used by `doc-signing`
+  `complete`). A typed core accessor may replace this if a third module
+  needs it.
 - **Audited reads** run in a database read-only transaction to preserve
   the `risk: read` write-prevention guarantee; the audit row is written in a
   separate short transaction after the read-only transaction commits. This is

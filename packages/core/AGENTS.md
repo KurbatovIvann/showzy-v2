@@ -158,10 +158,12 @@ Four export subpaths exist:
   hashing. Deterministic key ordering, ES `Number.toString` formatting,
   rejection of non-JSON values. Exported for reuse by fnd-T15 (idempotency
   `requestHash`).
-- `create-audit-hook.ts` — `createAuditHook({ db })` returns the
+- `create-audit-hook.ts` — `createAuditHook({ db, logger })` returns the
   `AuditHook` the pipeline consumes. `recordSuccess` inserts the audit row
   using the transaction it receives (handler tx for mutations, a post-commit
-  tx for audited reads). `recordFailure` opens its own short transaction.
+  tx for audited reads). `recordFailure` opens its own short transaction;
+  a failing `auditTarget` callback there is logged at error level and the
+  row falls back to a synthetic target.
   `inputHash` is always the canonical-JSON SHA-256 of the validated input;
   `inputSnapshot` is populated only when the action binds `auditSnapshot`.
   Failures before successful input validation write no row (`input` is

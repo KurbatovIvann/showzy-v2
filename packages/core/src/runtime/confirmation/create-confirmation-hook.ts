@@ -24,10 +24,7 @@ import {
   CoreError,
   CoreInvariantError,
 } from "../../errors/index.js";
-import {
-  canonicalJsonSha256,
-  type JsonSerializable,
-} from "../audit/canonical-json.js";
+import { canonicalJsonSha256OfUnknown } from "../audit/canonical-json.js";
 import { principalKeyFor, requireIdempotencyKey } from "../idempotency/keys.js";
 import type {
   ConfirmationGrant,
@@ -73,7 +70,7 @@ export function createConfirmationHook(
       const idempotencyKey = requireIdempotencyKey(env);
       const principalKey = principalKeyFor(env);
       const companyId = env.authorization.companyId;
-      const inputHash = canonicalJsonSha256(env.input as JsonSerializable);
+      const inputHash = canonicalJsonSha256OfUnknown(env.input);
       const challengeId = env.request.confirmationChallengeId;
       const bindings = {
         inputHash,

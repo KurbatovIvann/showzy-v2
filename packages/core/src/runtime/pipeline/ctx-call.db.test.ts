@@ -140,7 +140,7 @@ function depsFor(
     ...overrides,
     hooks: {
       rateLimit: { enforce: () => Promise.resolve() },
-      audit: createAuditHook({ db: db.runtime.db }),
+      audit: createAuditHook({ db: db.runtime.db, logger: silentLogger }),
       ...overrides.hooks,
     },
   };

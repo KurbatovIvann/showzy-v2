@@ -124,7 +124,7 @@ const KIT_IP_HMAC_SECRET = "test-kit-ip-hmac-secret";
 
 function kitProtocolHooks(database: TestDatabase): PipelineHooks {
   return {
-    audit: createAuditHook({ db: database.runtime.db }),
+    audit: createAuditHook({ db: database.runtime.db, logger: silentLogger }),
     idempotency: createIdempotencyHook({ db: database.runtime.db }),
     rateLimit: createRateLimitHook({
       store: createInMemoryRateLimitStore(),

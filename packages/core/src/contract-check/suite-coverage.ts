@@ -60,7 +60,10 @@ export function collectSuiteCoverageProblems(
   subscriptions: readonly { readonly action: string }[],
   problems: string[],
 ): void {
-  const names = new Set(contracts.map((contract) => contract.name));
+  const contractsByName = new Map(
+    contracts.map((contract) => [contract.name, contract]),
+  );
+  const names = new Set(contractsByName.keys());
   const isolation = uniqueSet(
     coverage.isolation,
     "suiteCoverage.isolation",
@@ -190,7 +193,7 @@ export function collectSuiteCoverageProblems(
     }
   }
   for (const edge of coverage.atomic) {
-    const caller = contracts.find((contract) => contract.name === edge.caller);
+    const caller = contractsByName.get(edge.caller);
     if (caller === undefined || !caller.atomicCalls.includes(edge.callee)) {
       problems.push(
         `suiteCoverage.atomic "${edge.caller}" → "${edge.callee}" is not a declared atomic edge (core.md §12)`,

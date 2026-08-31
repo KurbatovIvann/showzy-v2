@@ -147,7 +147,7 @@ function deps(hook?: IdempotencyHook): ActionPipelineDeps {
     logger: silentLogger,
     hooks: {
       rateLimit,
-      audit: createAuditHook({ db: database.runtime.db }),
+      audit: createAuditHook({ db: database.runtime.db, logger: silentLogger }),
       idempotency: hook ?? createIdempotencyHook({ db: database.runtime.db }),
     },
   };

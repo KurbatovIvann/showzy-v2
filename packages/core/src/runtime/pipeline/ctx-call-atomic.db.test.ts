@@ -150,7 +150,7 @@ function depsFor(
     logger: silentLogger,
     hooks: {
       rateLimit: { enforce: () => Promise.resolve() },
-      audit: createAuditHook({ db: db.runtime.db }),
+      audit: createAuditHook({ db: db.runtime.db, logger: silentLogger }),
       idempotency: createIdempotencyHook({ db: db.runtime.db }),
     },
     ...overrides,

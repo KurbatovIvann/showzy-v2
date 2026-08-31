@@ -6,13 +6,12 @@
 import type { Logger } from "pino";
 import { z } from "zod";
 
+import { CONSUMER_NAME_PATTERN } from "../patterns.js";
 import {
   replayDeadDeliveries,
   type DeliveryReplayDeps,
   type DeliveryReplayResult,
 } from "./replay-dead-deliveries.js";
-
-const consumerPattern = /^[a-z][a-zA-Z0-9]*\.[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 
 export class DeliveryReplayCliError extends Error {
   constructor(message: string) {
@@ -82,7 +81,7 @@ export function parseDeliveryReplayArgs(argv: readonly string[]): {
   if (consumer === undefined) {
     throw new DeliveryReplayCliError("--consumer is required");
   }
-  if (!consumerPattern.test(consumer)) {
+  if (!CONSUMER_NAME_PATTERN.test(consumer)) {
     throw new DeliveryReplayCliError(
       `consumer "${consumer}" must be a stable <module>.<kebab-name> id`,
     );
