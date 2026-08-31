@@ -66,7 +66,9 @@ export function OptionSelectSheet(props: {
         onChangeText={setQuery}
         placeholder={props.searchPlaceholder}
         accessibilityLabel={props.searchLabel}
-        maxLength={props.searchMaxLength}
+        {...(typeof props.searchMaxLength === "number"
+          ? { maxLength: props.searchMaxLength }
+          : {})}
       />
       <View style={styles.list}>
         {emptyOptionLabel != null && emptyOptionLabel.length > 0 ? (

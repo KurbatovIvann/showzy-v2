@@ -35,10 +35,10 @@ describe("OptionSelectSheet prop union", () => {
   });
 
   it("includes description in the row a11y label", () => {
+    expect(SOURCE).toContain("`${props.label}, ${description}` : props.label");
     expect(SOURCE).toContain(
-      "`${props.label}, ${description}` : props.label",
+      "accessibilityState={{ selected: props.selected }}",
     );
-    expect(SOURCE).toContain("accessibilityState={{ selected: props.selected }}");
   });
 
   it("always passes closeAccessibilityLabel into Sheet", () => {

@@ -44,7 +44,10 @@ describe("SelectorRow a11y label parity at feature call sites", () => {
       "utf8",
     );
     const orders = readFileSync(
-      new URL("../../features/orders/form/order-form-view.tsx", import.meta.url),
+      new URL(
+        "../../features/orders/form/order-form-view.tsx",
+        import.meta.url,
+      ),
       "utf8",
     );
     const customers = readFileSync(
