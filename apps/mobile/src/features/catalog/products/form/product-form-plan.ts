@@ -205,8 +205,7 @@ function sameCreateProductVariants(
     return (
       other !== undefined &&
       item.name === other.name &&
-      sameOptionalString(item.basePriceMinor, other.basePriceMinor) &&
-      sameOptionalString(item.currency, other.currency)
+      sameOptionalString(item.basePriceMinor, other.basePriceMinor)
     );
   });
 }
@@ -234,7 +233,6 @@ export function writesEqual(
         right.kind === "createProduct" &&
         left.input.name === right.input.name &&
         left.input.basePriceMinor === right.input.basePriceMinor &&
-        left.input.currency === right.input.currency &&
         sameCreateProductVariants(left.input.variants, right.input.variants) &&
         sameStringList(left.variantKeys, right.variantKeys)
       );
@@ -243,8 +241,7 @@ export function writesEqual(
         right.kind === "updateProduct" &&
         left.input.productId === right.input.productId &&
         left.input.name === right.input.name &&
-        left.input.basePriceMinor === right.input.basePriceMinor &&
-        left.input.currency === right.input.currency
+        left.input.basePriceMinor === right.input.basePriceMinor
       );
     case "createVariant":
       return (
@@ -255,8 +252,7 @@ export function writesEqual(
         sameOptionalString(
           left.input.basePriceMinor,
           right.input.basePriceMinor,
-        ) &&
-        sameOptionalString(left.input.currency, right.input.currency)
+        )
       );
     case "updateVariant":
       return (
@@ -268,8 +264,7 @@ export function writesEqual(
         sameOptionalString(
           left.input.basePriceMinor,
           right.input.basePriceMinor,
-        ) &&
-        sameOptionalString(left.input.currency, right.input.currency)
+        )
       );
   }
 }
