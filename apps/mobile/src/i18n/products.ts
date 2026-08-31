@@ -1,14 +1,19 @@
 /** Products list + detail copy namespace (uk/en). Locale plumbing lives in `./locale`. */
+import {
+  formChromeEn,
+  formChromeUk,
+  selectCopy,
+  type CountForms,
+  type FormChromeCopy,
+  type WriteErrorsCopy,
+} from "./copy";
 import type { Locale } from "./locale";
 
-export type ProductsVariantForms = {
+export type ProductsVariantForms = CountForms & {
   readonly none: string;
-  readonly one: string;
-  readonly few: string;
-  readonly many: string;
 };
 
-export type ProductsFormCopy = {
+export type ProductsFormCopy = FormChromeCopy & {
   readonly detailsTitle: string;
   readonly priceSectionTitle: string;
   readonly nameLabel: string;
@@ -22,13 +27,6 @@ export type ProductsFormCopy = {
   readonly addVariant: string;
   readonly variantInheritedPrice: string;
   readonly footerBasePrice: string;
-  readonly cancel: string;
-  readonly changedLabel: string;
-  readonly closeSheet: string;
-  readonly leaveTitle: string;
-  readonly leaveDescription: string;
-  readonly leaveContinue: string;
-  readonly leaveConfirm: string;
   readonly variantSheetNewTitle: string;
   readonly variantSheetEditTitle: string;
   readonly variantSheetNameLabel: string;
@@ -37,10 +35,6 @@ export type ProductsFormCopy = {
   readonly variantSheetCustomPriceDescription: string;
   readonly variantSheetPriceLabel: string;
   readonly variantSheetSave: string;
-  readonly submitCreate: string;
-  readonly submitCreateLoading: string;
-  readonly submitEdit: string;
-  readonly submitEditLoading: string;
   readonly permissionCreateTitle: string;
   readonly permissionCreateDescription: string;
   readonly permissionEditTitle: string;
@@ -50,13 +44,8 @@ export type ProductsFormCopy = {
     readonly nameTooLong: string;
     readonly priceRequired: string;
     readonly priceInvalid: string;
-    readonly validation: string;
-    readonly network: string;
-    readonly offline: string;
-    readonly unavailable: string;
-    readonly permission: string;
     readonly tooManyVariants: string;
-  };
+  } & WriteErrorsCopy;
 };
 
 export type ProductsDetailCopy = {
@@ -249,13 +238,8 @@ const en: ProductsCopy = {
     addVariant: "Add variant",
     variantInheritedPrice: "same as product · {{price}}",
     footerBasePrice: "Base price",
-    cancel: "Cancel",
+    ...formChromeEn,
     changedLabel: "changed",
-    closeSheet: "Close",
-    leaveTitle: "Leave without saving?",
-    leaveDescription: "Your changes will be lost.",
-    leaveContinue: "Keep editing",
-    leaveConfirm: "Leave without saving",
     variantSheetNewTitle: "New variant",
     variantSheetEditTitle: "Edit variant",
     variantSheetNameLabel: "Name",
@@ -267,8 +251,6 @@ const en: ProductsCopy = {
     variantSheetSave: "Save",
     submitCreate: "Create product",
     submitCreateLoading: "Creating…",
-    submitEdit: "Save",
-    submitEditLoading: "Saving…",
     permissionCreateTitle: "No permission",
     permissionCreateDescription:
       "You do not have permission to create products.",
@@ -439,13 +421,7 @@ const uk: ProductsCopy = {
     addVariant: "Додати варіант",
     variantInheritedPrice: "як у товару · {{price}}",
     footerBasePrice: "Базова ціна",
-    cancel: "Скасувати",
-    changedLabel: "змінено",
-    closeSheet: "Закрити",
-    leaveTitle: "Вийти без збереження?",
-    leaveDescription: "Внесені зміни буде втрачено.",
-    leaveContinue: "Продовжити редагування",
-    leaveConfirm: "Вийти без збереження",
+    ...formChromeUk,
     variantSheetNewTitle: "Новий варіант",
     variantSheetEditTitle: "Редагувати варіант",
     variantSheetNameLabel: "Назва",
@@ -457,7 +433,6 @@ const uk: ProductsCopy = {
     variantSheetSave: "Зберегти",
     submitCreate: "Створити товар",
     submitCreateLoading: "Створюємо…",
-    submitEdit: "Зберегти",
     submitEditLoading: "Зберігаємо…",
     permissionCreateTitle: "Немає права",
     permissionCreateDescription: "Немає права створювати товари.",
@@ -565,5 +540,5 @@ const uk: ProductsCopy = {
 };
 
 export function productsCopy(locale: Locale): ProductsCopy {
-  return locale === "uk" ? uk : en;
+  return selectCopy(locale, { uk, en });
 }

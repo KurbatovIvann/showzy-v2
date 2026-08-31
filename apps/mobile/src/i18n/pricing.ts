@@ -1,11 +1,18 @@
 /** Price-lists list + editor copy namespace (uk/en). Locale plumbing lives in `./locale`. */
+import {
+  formChromeEn,
+  formChromeUk,
+  selectCopy,
+  writeErrorsEn,
+  writeErrorsUk,
+  type CountForms,
+  type FormChromeCopy,
+  type WriteErrorsCopy,
+} from "./copy";
 import type { Locale } from "./locale";
 
-export type PricingCountForms = {
+export type PricingCountForms = CountForms & {
   readonly none: string;
-  readonly one: string;
-  readonly few: string;
-  readonly many: string;
 };
 
 export type PricingMutationCopy = {
@@ -32,14 +39,9 @@ export type PricingFormErrorsCopy = {
   readonly nameRequired: string;
   readonly nameTooLong: string;
   readonly priceInvalid: string;
-  readonly validation: string;
-  readonly network: string;
-  readonly offline: string;
-  readonly unavailable: string;
-  readonly permission: string;
-};
+} & WriteErrorsCopy;
 
-export type PricingFormCopy = {
+export type PricingFormCopy = Omit<FormChromeCopy, "closeSheet"> & {
   readonly createTitle: string;
   readonly editTitle: string;
   readonly aboutTitle: string;
@@ -70,17 +72,7 @@ export type PricingFormCopy = {
   readonly variantInheritHint: string;
   readonly noProducts: string;
   readonly pricesLoading: string;
-  readonly cancel: string;
-  readonly changedLabel: string;
-  readonly leaveTitle: string;
-  readonly leaveDescription: string;
-  readonly leaveContinue: string;
-  readonly leaveConfirm: string;
   readonly cannotDeactivateDefault: string;
-  readonly submitCreate: string;
-  readonly submitCreateLoading: string;
-  readonly submitEdit: string;
-  readonly submitEditLoading: string;
   readonly permissionCreateTitle: string;
   readonly permissionCreateDescription: string;
   readonly permissionEditTitle: string;
@@ -165,17 +157,10 @@ const enForm: PricingFormCopy = {
     "Empty inherits this list’s product price, then the chain",
   noProducts: "No products found.",
   pricesLoading: "Loading products",
-  cancel: "Cancel",
+  ...formChromeEn,
   changedLabel: "changed",
-  leaveTitle: "Leave without saving?",
-  leaveDescription: "Your changes will be lost.",
-  leaveContinue: "Keep editing",
-  leaveConfirm: "Leave without saving",
   cannotDeactivateDefault: "Turn off “default” first",
-  submitCreate: "Create",
   submitCreateLoading: "Creating…",
-  submitEdit: "Save",
-  submitEditLoading: "Saving…",
   permissionCreateTitle: "No permission to create",
   permissionCreateDescription:
     "You can view price lists but cannot create them.",
@@ -189,10 +174,9 @@ const enForm: PricingFormCopy = {
     nameRequired: "Enter a price list name",
     nameTooLong: "Name is too long",
     priceInvalid: "Check the highlighted prices",
+    ...writeErrorsEn,
     validation: "Check the highlighted fields",
-    network: "Could not save. Try again.",
     offline: "No connection. Try again when you are online.",
-    unavailable: "Could not save. Try again.",
     permission: "You do not have permission to change price lists.",
   },
 };
@@ -229,17 +213,9 @@ const ukForm: PricingFormCopy = {
   variantInheritHint: "Порожнє наслідує ціну товару в цьому листі, далі ланцюг",
   noProducts: "Товарів не знайдено.",
   pricesLoading: "Завантаження товарів",
-  cancel: "Скасувати",
-  changedLabel: "змінено",
-  leaveTitle: "Вийти без збереження?",
-  leaveDescription: "Внесені зміни буде втрачено.",
-  leaveContinue: "Продовжити редагування",
-  leaveConfirm: "Вийти без збереження",
+  ...formChromeUk,
   cannotDeactivateDefault: "Спочатку зніміть позначку «основний»",
-  submitCreate: "Створити",
   submitCreateLoading: "Створення…",
-  submitEdit: "Зберегти",
-  submitEditLoading: "Збереження…",
   permissionCreateTitle: "Немає права створювати",
   permissionCreateDescription:
     "Можна переглядати прайс-листи, але не створювати їх.",
@@ -253,10 +229,9 @@ const ukForm: PricingFormCopy = {
     nameRequired: "Вкажіть назву прайс-листа",
     nameTooLong: "Назва занадто довга",
     priceInvalid: "Перевірте виділені ціни",
+    ...writeErrorsUk,
     validation: "Перевірте виділені поля",
-    network: "Не вдалося зберегти. Спробуйте ще раз.",
     offline: "Немає зʼєднання. Спробуйте, коли зʼявиться мережа.",
-    unavailable: "Не вдалося зберегти. Спробуйте ще раз.",
     permission: "Немає права змінювати прайс-листи.",
   },
 };
@@ -390,5 +365,5 @@ const uk: PricingCopy = {
 };
 
 export function pricingCopy(locale: Locale): PricingCopy {
-  return locale === "uk" ? uk : en;
+  return selectCopy(locale, { uk, en });
 }

@@ -1,11 +1,15 @@
 /** Orders list copy namespace (uk/en). Locale plumbing lives in `./locale`. */
+import {
+  formChromeEn,
+  formChromeUk,
+  selectCopy,
+  type CountForms,
+  type FormChromeCopy,
+  type WriteErrorsCopy,
+} from "./copy";
 import type { Locale } from "./locale";
 
-export type OrdersCountForms = {
-  readonly one: string;
-  readonly few: string;
-  readonly many: string;
-};
+export type OrdersCountForms = CountForms;
 
 export type OrdersDetailCopy = {
   readonly title: string;
@@ -39,14 +43,12 @@ export type OrdersCreateErrorCopy = {
   readonly itemsDuplicate: string;
   readonly itemsTooMany: string;
   readonly commentTooLong: string;
-  readonly validation: string;
-  readonly network: string;
-  readonly offline: string;
-  readonly unavailable: string;
-  readonly permission: string;
-};
+} & WriteErrorsCopy;
 
-export type OrdersCreateCopy = {
+export type OrdersCreateCopy = Omit<
+  FormChromeCopy,
+  "changedLabel" | "closeSheet" | "submitEdit" | "submitEditLoading"
+> & {
   readonly title: string;
   readonly backLabel: string;
   readonly itemsTitle: string;
@@ -59,15 +61,8 @@ export type OrdersCreateCopy = {
   readonly commentTitle: string;
   readonly commentLabel: string;
   readonly commentPlaceholder: string;
-  readonly cancel: string;
-  readonly submitCreate: string;
-  readonly submitCreateLoading: string;
   readonly permissionTitle: string;
   readonly permissionDescription: string;
-  readonly leaveTitle: string;
-  readonly leaveDescription: string;
-  readonly leaveContinue: string;
-  readonly leaveConfirm: string;
   readonly customerSheetTitle: string;
   readonly customerSearchPlaceholder: string;
   readonly customerSearchLabel: string;
@@ -218,15 +213,10 @@ const en: OrdersCopy = {
     commentTitle: "Comment",
     commentLabel: "For internal use",
     commentPlaceholder: "Customer requests, decoration details, and so on",
-    cancel: "Cancel",
-    submitCreate: "Create",
+    ...formChromeEn,
     submitCreateLoading: "Creating…",
     permissionTitle: "No permission",
     permissionDescription: "You do not have permission to create orders.",
-    leaveTitle: "Leave without saving?",
-    leaveDescription: "Your changes will be lost.",
-    leaveContinue: "Keep editing",
-    leaveConfirm: "Leave without saving",
     customerSheetTitle: "Choose a customer",
     customerSearchPlaceholder: "Search customers…",
     customerSearchLabel: "Search customers",
@@ -350,15 +340,10 @@ const uk: OrdersCopy = {
     commentTitle: "Коментар",
     commentLabel: "Для внутрішнього використання",
     commentPlaceholder: "Побажання клієнта, деталі декору тощо",
-    cancel: "Скасувати",
-    submitCreate: "Створити",
+    ...formChromeUk,
     submitCreateLoading: "Створюємо…",
     permissionTitle: "Немає права",
     permissionDescription: "Немає права створювати замовлення.",
-    leaveTitle: "Вийти без збереження?",
-    leaveDescription: "Внесені зміни буде втрачено.",
-    leaveContinue: "Продовжити редагування",
-    leaveConfirm: "Вийти без збереження",
     customerSheetTitle: "Оберіть клієнта",
     customerSearchPlaceholder: "Пошук клієнтів…",
     customerSearchLabel: "Пошук клієнтів",
@@ -399,5 +384,5 @@ const uk: OrdersCopy = {
 };
 
 export function ordersCopy(locale: Locale): OrdersCopy {
-  return locale === "uk" ? uk : en;
+  return selectCopy(locale, { uk, en });
 }

@@ -1,6 +1,7 @@
 /** Auth copy namespace (uk/en). Locale plumbing lives in `./locale`. */
 import type { AuthErrorKind } from "../auth/errors";
 import type { AuthChannel } from "../auth/otp/identifiers";
+import { selectCopy } from "./copy";
 import { interpolate, type Locale } from "./locale";
 
 export type AuthCopy = {
@@ -98,7 +99,7 @@ const uk: AuthCopy = {
 };
 
 export function authCopy(locale: Locale): AuthCopy {
-  return locale === "uk" ? uk : en;
+  return selectCopy(locale, { uk, en });
 }
 
 export function verifyMessage(

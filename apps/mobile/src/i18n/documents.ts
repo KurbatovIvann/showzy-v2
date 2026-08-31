@@ -1,7 +1,17 @@
 /** Documents list + create + public-token copy (uk/en). Locale plumbing lives in `./locale`. */
+import {
+  formChromeEn,
+  formChromeUk,
+  selectCopy,
+  type FormChromeCopy,
+  type WriteErrorsCopy,
+} from "./copy";
 import type { Locale } from "./locale";
 
-export type DocumentsFormCopy = {
+export type DocumentsFormCopy = Omit<
+  FormChromeCopy,
+  "changedLabel" | "submitEdit" | "submitEditLoading"
+> & {
   readonly typeSectionTitle: string;
   readonly orderSectionTitle: string;
   readonly counterpartySectionTitle: string;
@@ -21,26 +31,13 @@ export type DocumentsFormCopy = {
   readonly counterpartySearchLabel: string;
   readonly counterpartyEmptyOption: string;
   readonly counterpartyEmpty: string;
-  readonly closeSheet: string;
-  readonly cancel: string;
-  readonly submitCreate: string;
-  readonly submitCreateLoading: string;
-  readonly leaveTitle: string;
-  readonly leaveDescription: string;
-  readonly leaveContinue: string;
-  readonly leaveConfirm: string;
   readonly permissionCreateTitle: string;
   readonly permissionCreateDescription: string;
   readonly loadingLabel: string;
   readonly errors: {
     readonly orderRequired: string;
-    readonly validation: string;
-    readonly network: string;
-    readonly offline: string;
-    readonly unavailable: string;
-    readonly permission: string;
     readonly conflict: string;
-  };
+  } & WriteErrorsCopy;
 };
 
 export type DocumentsSharedCopy = {
@@ -285,14 +282,9 @@ const en: DocumentsCopy = {
     counterpartySearchLabel: "Search counterparties",
     counterpartyEmptyOption: "Customer name only",
     counterpartyEmpty: "No counterparties for this customer.",
-    closeSheet: "Close",
-    cancel: "Cancel",
+    ...formChromeEn,
     submitCreate: "Create document",
     submitCreateLoading: "Creating…",
-    leaveTitle: "Leave without saving?",
-    leaveDescription: "Your changes will be lost.",
-    leaveContinue: "Keep editing",
-    leaveConfirm: "Leave without saving",
     permissionCreateTitle: "No permission",
     permissionCreateDescription:
       "You do not have permission to create documents.",
@@ -460,14 +452,9 @@ const uk: DocumentsCopy = {
     counterpartySearchLabel: "Пошук контрагентів",
     counterpartyEmptyOption: "Лише ім’я клієнта",
     counterpartyEmpty: "Для цього клієнта немає контрагентів.",
-    closeSheet: "Закрити",
-    cancel: "Скасувати",
+    ...formChromeUk,
     submitCreate: "Створити документ",
     submitCreateLoading: "Створення…",
-    leaveTitle: "Вийти без збереження?",
-    leaveDescription: "Внесені зміни буде втрачено.",
-    leaveContinue: "Продовжити редагування",
-    leaveConfirm: "Вийти без збереження",
     permissionCreateTitle: "Немає права",
     permissionCreateDescription: "Немає права створювати документи.",
     loadingLabel: "Завантаження",
@@ -528,5 +515,5 @@ const uk: DocumentsCopy = {
 };
 
 export function documentsCopy(locale: Locale): DocumentsCopy {
-  return locale === "uk" ? uk : en;
+  return selectCopy(locale, { uk, en });
 }

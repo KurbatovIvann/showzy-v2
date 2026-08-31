@@ -1,4 +1,5 @@
 import "../theme/unistyles";
+import "../i18n/install-locale";
 
 import { useEffect } from "react";
 import { Stack } from "expo-router/stack";
