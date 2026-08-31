@@ -182,7 +182,7 @@ async function sweepReadyLeftoverStaging(input: {
   // DeleteObject is idempotent. Do not HEAD first: a HEAD-gated skip
   // leaves leftover staging when Garage misses HeadObject after PutObject
   // (SHO-143). leftoverStagingDeleted counts leftover rows processed
-  // (DELETE issued + cursor set), not “HEAD said present”.
+  // (DELETE issued + cursor set), not "HEAD said present".
   await deleteObjectIdempotent(
     input.store,
     stagingObjectKey(input.row.companyId, input.row.id),

@@ -31,7 +31,8 @@ describe("isObjectStorePreconditionFailed", () => {
     expect(
       isObjectStorePreconditionFailed({
         name: "PreconditionFailed",
-        message: "At least one of the pre-conditions you specified did not hold",
+        message:
+          "At least one of the pre-conditions you specified did not hold",
         $metadata: { httpStatusCode: 412 },
       }),
     ).toBe(true);
