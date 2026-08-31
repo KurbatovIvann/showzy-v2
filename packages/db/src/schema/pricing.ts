@@ -104,6 +104,10 @@ export const priceListEntries = pgTable(
       "price_list_entries_price_minor_check",
       sql`${table.priceMinor} >= 0`,
     ),
+    check(
+      "price_list_entries_currency_check",
+      sql`${table.currency} ~ '^[A-Z]{3}$'`,
+    ),
   ],
 );
 
@@ -159,5 +163,9 @@ export const personalPrices = pgTable(
       .on(table.customerId, table.productId, table.variantId)
       .where(sql`${table.variantId} IS NOT NULL`),
     check("personal_prices_price_minor_check", sql`${table.priceMinor} >= 0`),
+    check(
+      "personal_prices_currency_check",
+      sql`${table.currency} ~ '^[A-Z]{3}$'`,
+    ),
   ],
 );

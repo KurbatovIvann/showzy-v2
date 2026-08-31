@@ -48,6 +48,11 @@ export const companies = pgTable(
   (table) => [
     uniqueIndex("companies_slug_uq").on(table.slug),
     uniqueIndex("companies_prefix_uq").on(table.prefix),
+    check(
+      "companies_slug_check",
+      sql`${table.slug} ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$' AND char_length(${table.slug}) BETWEEN 3 AND 48`,
+    ),
+    check("companies_prefix_check", sql`${table.prefix} ~ '^[A-Z0-9]+$'`),
   ],
 );
 

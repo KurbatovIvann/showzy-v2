@@ -107,6 +107,7 @@ export const documents = pgTable(
       "documents_template_source_check",
       sql`${table.templateSource} IN ('system')`,
     ),
+    check("documents_currency_check", sql`${table.currency} ~ '^[A-Z]{3}$'`),
   ],
 );
 
@@ -198,6 +199,10 @@ export const documentItems = pgTable(
     check(
       "document_items_gross_amount_minor_check",
       sql`${table.grossAmountMinor} >= 0`,
+    ),
+    check(
+      "document_items_currency_check",
+      sql`${table.currency} ~ '^[A-Z]{3}$'`,
     ),
   ],
 );

@@ -50,6 +50,7 @@ export const products = pgTable(
       "products_status_check",
       sql`${table.status} IN ('active', 'archived')`,
     ),
+    check("products_currency_check", sql`${table.currency} ~ '^[A-Z]{3}$'`),
   ],
 );
 
@@ -86,6 +87,10 @@ export const productVariants = pgTable(
     check(
       "product_variants_price_currency_check",
       sql`(${table.basePriceMinor} IS NULL) = (${table.currency} IS NULL)`,
+    ),
+    check(
+      "product_variants_currency_check",
+      sql`${table.currency} IS NULL OR ${table.currency} ~ '^[A-Z]{3}$'`,
     ),
     check(
       "product_variants_status_check",

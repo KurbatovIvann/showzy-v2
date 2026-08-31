@@ -47,6 +47,7 @@ export const customerGroups = pgTable(
   (table) => [
     tenantRowUnique("customer_groups_company_id_id_uq", table),
     unique("customer_groups_company_slug_uq").on(table.companyId, table.slug),
+    check("customer_groups_sort_order_check", sql`${table.sortOrder} >= 0`),
     index("customer_groups_price_list_idx").on(table.priceListId),
     // Getter defers the customers ↔ pricing import cycle (ADR-0025).
     // ON DELETE SET NULL is scoped to price_list_id in 0011 (db.md §7).

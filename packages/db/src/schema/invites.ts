@@ -102,6 +102,10 @@ export const companyCustomerInvites = pgTable(
       "company_customer_invites_max_uses_check",
       sql`${table.maxUses} IS NULL OR ${table.maxUses} >= 1`,
     ),
+    check(
+      "company_customer_invites_uses_within_max_check",
+      sql`${table.maxUses} IS NULL OR ${table.usesCount} <= ${table.maxUses}`,
+    ),
     // Personal: is_reusable = false AND max_uses = 1. Reusable may have
     // max_uses NULL or >= 1 (enforced with max_uses_check). `max_uses = 1`
     // is NULL when the column is NULL, which would pass a CHECK — require

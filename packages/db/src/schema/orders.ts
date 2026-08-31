@@ -77,12 +77,21 @@ export const orders = pgTable(
       sql`${table.status} IN ('new', 'confirmed', 'canceled')`,
     ),
     check(
+      "orders_confirmed_requires_confirmed_at_check",
+      sql`${table.status} <> 'confirmed' OR ${table.confirmedAt} IS NOT NULL`,
+    ),
+    check(
+      "orders_new_forbids_confirmed_at_check",
+      sql`${table.status} <> 'new' OR ${table.confirmedAt} IS NULL`,
+    ),
+    check(
       "orders_order_number_shape_check",
       sql`${table.orderNumber} ~ '^[A-Z0-9]+-[0-9A-Z]+$'`,
     ),
     check("orders_total_net_minor_check", sql`${table.totalNetMinor} >= 0`),
     check("orders_total_tax_minor_check", sql`${table.totalTaxMinor} >= 0`),
     check("orders_total_gross_minor_check", sql`${table.totalGrossMinor} >= 0`),
+    check("orders_currency_check", sql`${table.currency} ~ '^[A-Z]{3}$'`),
   ],
 );
 
@@ -183,6 +192,7 @@ export const orderItems = pgTable(
       "order_items_price_source_check",
       sql`${table.priceSource} IN ('personal', 'customer_price_list', 'group_price_list', 'default_price_list', 'base')`,
     ),
+    check("order_items_currency_check", sql`${table.currency} ~ '^[A-Z]{3}$'`),
   ],
 );
 
