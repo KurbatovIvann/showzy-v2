@@ -1,6 +1,7 @@
 import type { ActionCtx } from "@showzy/core";
 import { CoreInvariantError, NotFoundError } from "@showzy/core/errors";
 import { files } from "@showzy/db/schema/files";
+import { sha256Hex } from "@showzy/module-kit/sha256";
 import { and, eq } from "drizzle-orm";
 import type { z } from "zod";
 
@@ -15,7 +16,6 @@ import {
   encodeCatalogRenditions,
   type CatalogRenditionBuffers,
 } from "./catalog-renditions.js";
-import { sha256Hex } from "./checksum.js";
 import {
   requireDeclaredMime,
   toReadyView,

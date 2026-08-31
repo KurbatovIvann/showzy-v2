@@ -2,6 +2,7 @@ import type { ActionCtx } from "@showzy/core";
 import { CoreInvariantError, NotFoundError } from "@showzy/core/errors";
 import { orderItems, orders } from "@showzy/db/schema/orders";
 import { moneyToCanonical } from "@showzy/module-kit/canonical";
+import { parseDbEnum } from "@showzy/module-kit/parse-db-enum";
 import { and, asc, eq } from "drizzle-orm";
 import type { z } from "zod";
 
@@ -17,35 +18,31 @@ type StaffDb = Extract<ActionCtx, { principal: "staff" }>["db"];
 type OrderView = z.output<typeof orderViewSchema>;
 
 function parseStatus(value: string): z.output<typeof orderStatusSchema> {
-  const parsed = orderStatusSchema.safeParse(value);
-  if (!parsed.success) {
-    throw new CoreInvariantError(`orders row has illegal status "${value}"`);
-  }
-  return parsed.data;
+  return parseDbEnum(
+    orderStatusSchema,
+    value,
+    `orders row has illegal status "${value}"`,
+  );
 }
 
 function parseDiscountKind(
   value: string,
 ): z.output<typeof orderDiscountKindSchema> {
-  const parsed = orderDiscountKindSchema.safeParse(value);
-  if (!parsed.success) {
-    throw new CoreInvariantError(
-      `order_items row has illegal discount_kind "${value}"`,
-    );
-  }
-  return parsed.data;
+  return parseDbEnum(
+    orderDiscountKindSchema,
+    value,
+    `order_items row has illegal discount_kind "${value}"`,
+  );
 }
 
 function parseTaxTreatment(
   value: string,
 ): z.output<typeof orderTaxTreatmentSchema> {
-  const parsed = orderTaxTreatmentSchema.safeParse(value);
-  if (!parsed.success) {
-    throw new CoreInvariantError(
-      `order_items row has illegal tax_treatment "${value}"`,
-    );
-  }
-  return parsed.data;
+  return parseDbEnum(
+    orderTaxTreatmentSchema,
+    value,
+    `order_items row has illegal tax_treatment "${value}"`,
+  );
 }
 
 function parsePriceSource(
@@ -54,13 +51,11 @@ function parsePriceSource(
   if (value === null) {
     throw new CoreInvariantError("order_items row is missing price_source");
   }
-  const parsed = orderPriceSourceSchema.safeParse(value);
-  if (!parsed.success) {
-    throw new CoreInvariantError(
-      `order_items row has illegal price_source "${value}"`,
-    );
-  }
-  return parsed.data;
+  return parseDbEnum(
+    orderPriceSourceSchema,
+    value,
+    `order_items row has illegal price_source "${value}"`,
+  );
 }
 
 export async function loadStaffOrder(env: {

@@ -1,23 +1,11 @@
 import { implementAction } from "@showzy/core";
 import { CoreInvariantError, NotFoundError } from "@showzy/core/errors";
 import { files } from "@showzy/db/schema/files";
+import { uniqueIds } from "@showzy/module-kit/unique-ids";
 import { and, eq, inArray } from "drizzle-orm";
 
 import { toReadyView } from "../services/file-view.js";
 import { getAttachmentFactsContract } from "./get-attachment-facts.contract.js";
-
-function uniqueFileIds(fileIds: readonly string[]): string[] {
-  const ids: string[] = [];
-  const seen = new Set<string>();
-  for (const fileId of fileIds) {
-    if (seen.has(fileId)) {
-      continue;
-    }
-    seen.add(fileId);
-    ids.push(fileId);
-  }
-  return ids;
-}
 
 export const getAttachmentFacts = implementAction(getAttachmentFactsContract, {
   handler: async (input, ctx) => {
@@ -25,7 +13,7 @@ export const getAttachmentFacts = implementAction(getAttachmentFactsContract, {
       throw new CoreInvariantError("files.getAttachmentFacts expects staff");
     }
 
-    const fileIds = uniqueFileIds(input.fileIds);
+    const fileIds = uniqueIds(input.fileIds);
     const rows = await ctx.db
       .select({
         id: files.id,

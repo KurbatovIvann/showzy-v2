@@ -3,10 +3,10 @@ import {
   ConflictError,
   CoreInvariantError,
   NotFoundError,
-  ValidationError,
 } from "@showzy/core/errors";
 import { documents } from "@showzy/db/schema/documents";
 import { getArtifact } from "@showzy/doc-generation/get-artifact";
+import { requireOrValidationError } from "@showzy/module-kit/require";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 
@@ -41,28 +41,29 @@ const readyPdfGate = z.object({
 });
 
 function requireUnexpiredGrant(signRequestedAt: Date | null): void {
-  const present = grantPresentGate.safeParse({
-    present: signRequestedAt !== null,
-  });
-  if (!present.success) {
-    throw new ValidationError(present.error.issues, GRANT_MISSING_MESSAGE);
-  }
+  requireOrValidationError(
+    grantPresentGate,
+    { present: signRequestedAt !== null },
+    GRANT_MISSING_MESSAGE,
+  );
   const requestedAtMs = signRequestedAt?.getTime() ?? Number.NaN;
-  const fresh = grantFreshGate.safeParse({
-    fresh:
-      Number.isFinite(requestedAtMs) &&
-      Date.now() - requestedAtMs < SIGN_REQUEST_GRANT_TTL_MS,
-  });
-  if (!fresh.success) {
-    throw new ValidationError(fresh.error.issues, GRANT_EXPIRED_MESSAGE);
-  }
+  requireOrValidationError(
+    grantFreshGate,
+    {
+      fresh:
+        Number.isFinite(requestedAtMs) &&
+        Date.now() - requestedAtMs < SIGN_REQUEST_GRANT_TTL_MS,
+    },
+    GRANT_EXPIRED_MESSAGE,
+  );
 }
 
 function requireReadyPdf(fileId: string | null): void {
-  const parsed = readyPdfGate.safeParse({ present: fileId !== null });
-  if (!parsed.success) {
-    throw new ValidationError(parsed.error.issues, PDF_NOT_READY_MESSAGE);
-  }
+  requireOrValidationError(
+    readyPdfGate,
+    { present: fileId !== null },
+    PDF_NOT_READY_MESSAGE,
+  );
 }
 
 export const lockIssuedForSigning = implementAction(

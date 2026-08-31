@@ -1,10 +1,11 @@
 import { NotFoundError } from "@showzy/core/errors";
 import { companyCustomers, counterparties } from "@showzy/db/schema/customers";
+import { optionalNullableUuid } from "@showzy/module-kit/optional-nullable-uuid";
 import { and, eq, inArray } from "drizzle-orm";
 import type { z } from "zod";
 
 import type { counterpartyViewSchema } from "../actions/counterparty-view.contract.js";
-import { nullableText, nullableUuid } from "./customer-view.js";
+import { nullableText } from "./customer-view.js";
 import type { WritableStaffDb } from "./writable.js";
 
 type CounterpartyView = z.output<typeof counterpartyViewSchema>;
@@ -75,7 +76,7 @@ export function storedCounterpartyFields(input: {
     phone: nullableText(input.phone),
     email: nullableText(input.email),
     notes: nullableText(input.notes),
-    customerId: nullableUuid(input.customerId),
+    customerId: optionalNullableUuid(input.customerId),
   };
 }
 

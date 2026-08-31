@@ -7,6 +7,7 @@ import {
   NotFoundError,
 } from "@showzy/core/errors";
 import { companyCustomers } from "@showzy/db/schema/customers";
+import { optionalNullableUuid } from "@showzy/module-kit/optional-nullable-uuid";
 import { postgresError } from "@showzy/module-kit/postgres-unique";
 import type { z } from "zod";
 
@@ -15,7 +16,7 @@ import type {
   createCustomerOutputSchema,
 } from "../actions/create-customer.contract.js";
 import { assertCustomerAssignments } from "./assignments.js";
-import { nullableText, nullableUuid, toCustomerView } from "./customer-view.js";
+import { nullableText, toCustomerView } from "./customer-view.js";
 import { requireWritable } from "./writable.js";
 
 type StaffCtx = Extract<ActionCtx, { principal: "staff" }>;
@@ -31,8 +32,8 @@ export async function createStaffCustomer(env: {
 }): Promise<CustomerView> {
   const { ctx, input } = env;
   const db = requireWritable(ctx.db);
-  const groupId = nullableUuid(input.groupId);
-  const priceListId = nullableUuid(input.priceListId);
+  const groupId = optionalNullableUuid(input.groupId);
+  const priceListId = optionalNullableUuid(input.priceListId);
 
   await assertCustomerAssignments({ ctx, groupId, priceListId });
 

@@ -8,6 +8,7 @@ import {
   orders,
 } from "@showzy/db/schema/orders";
 import { moneyToCanonical } from "@showzy/module-kit/canonical";
+import { parseDbEnum } from "@showzy/module-kit/parse-db-enum";
 import { sql } from "drizzle-orm";
 import type { z } from "zod";
 
@@ -160,13 +161,11 @@ interface PersistedLine {
 }
 
 function requirePriceSource(value: string): PriceSource {
-  const parsed = orderPriceSourceSchema.safeParse(value);
-  if (!parsed.success) {
-    throw new CoreInvariantError(
-      `resolved price source "${value}" is not a snapshot provenance value`,
-    );
-  }
-  return parsed.data;
+  return parseDbEnum(
+    orderPriceSourceSchema,
+    value,
+    `resolved price source "${value}" is not a snapshot provenance value`,
+  );
 }
 
 function productFact(

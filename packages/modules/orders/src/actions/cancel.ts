@@ -1,26 +1,23 @@
-import { implementAction, type AuditTargetEnv } from "@showzy/core";
+import { implementAction } from "@showzy/core";
 import {
   ConflictError,
   CoreInvariantError,
   NotFoundError,
 } from "@showzy/core/errors";
 import { orders } from "@showzy/db/schema/orders";
+import { holderAuditTarget } from "@showzy/module-kit/audit-target";
 import { and, eq } from "drizzle-orm";
-import { z } from "zod";
 
 import { ordersCanceled } from "../events/canceled.js";
 import { requireWritable } from "../services/writable.js";
 import { cancelOrderContract } from "./cancel.contract.js";
 
-const orderIdHolder = z.object({ orderId: z.string() });
-
-function cancelAuditTarget(env: AuditTargetEnv): { type: string; id: string } {
-  const parsed = orderIdHolder.safeParse(env.input);
-  return {
-    type: "order",
-    id: parsed.success ? parsed.data.orderId : "unknown",
-  };
-}
+const cancelAuditTarget = holderAuditTarget({
+  type: "order",
+  field: "orderId",
+  fallback: "unknown",
+  sources: ["input"],
+});
 
 export const cancelOrder = implementAction(cancelOrderContract, {
   handler: async (input, ctx) => {

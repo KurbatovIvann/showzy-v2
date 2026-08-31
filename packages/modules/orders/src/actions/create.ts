@@ -1,27 +1,30 @@
 import { getProductOrderFacts } from "@showzy/catalog";
 import { getCompany } from "@showzy/companies";
-import { implementAction, type AuditTargetEnv } from "@showzy/core";
+import { implementAction } from "@showzy/core";
 import { CoreInvariantError } from "@showzy/core/errors";
+import { createAuditTarget, pickString } from "@showzy/module-kit/audit-target";
 import { resolveProductPrices } from "@showzy/pricing";
 import { z } from "zod";
 
 import { createStaffOrder } from "../services/create-order.js";
 import { createOrderContract } from "./create.contract.js";
 
-const orderIdHolder = z.object({ orderId: z.string() });
-const customerIdHolder = z.object({ customerId: z.string() });
-
-function createAuditTarget(env: AuditTargetEnv): { type: string; id: string } {
-  const fromOutput = orderIdHolder.safeParse(env.output);
-  if (fromOutput.success) {
-    return { type: "order", id: fromOutput.data.orderId };
-  }
-  const fromInput = customerIdHolder.safeParse(env.input);
-  return {
-    type: "order",
-    id: fromInput.success ? fromInput.data.customerId : "uncreated",
-  };
-}
+const createOrderAuditTarget = createAuditTarget({
+  type: "order",
+  fallback: "uncreated",
+  steps: [
+    {
+      source: "output",
+      schema: z.object({ orderId: z.string() }),
+      pick: (data) => pickString("orderId", data),
+    },
+    {
+      source: "input",
+      schema: z.object({ customerId: z.string() }),
+      pick: (data) => pickString("customerId", data),
+    },
+  ],
+});
 
 export const createOrder = implementAction(createOrderContract, {
   handler: async (input, ctx) => {
@@ -52,5 +55,5 @@ export const createOrder = implementAction(createOrderContract, {
       prices: priced.prices,
     });
   },
-  auditTarget: createAuditTarget,
+  auditTarget: createOrderAuditTarget,
 });

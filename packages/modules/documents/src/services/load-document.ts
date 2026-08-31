@@ -2,6 +2,7 @@ import type { ActionCtx } from "@showzy/core";
 import { CoreInvariantError, NotFoundError } from "@showzy/core/errors";
 import { documentItems, documents } from "@showzy/db/schema/documents";
 import { moneyToCanonical } from "@showzy/module-kit/canonical";
+import { parseDbEnum } from "@showzy/module-kit/parse-db-enum";
 import { and, asc, eq } from "drizzle-orm";
 import type { z } from "zod";
 
@@ -27,71 +28,65 @@ export type StaffDocumentRecord = {
 };
 
 function parseType(value: string): z.output<typeof documentTypeSchema> {
-  const parsed = documentTypeSchema.safeParse(value);
-  if (!parsed.success) {
-    throw new CoreInvariantError(`documents row has illegal type "${value}"`);
-  }
-  return parsed.data;
+  return parseDbEnum(
+    documentTypeSchema,
+    value,
+    `documents row has illegal type "${value}"`,
+  );
 }
 
 function parseStatus(value: string): z.output<typeof documentStatusSchema> {
-  const parsed = documentStatusSchema.safeParse(value);
-  if (!parsed.success) {
-    throw new CoreInvariantError(`documents row has illegal status "${value}"`);
-  }
-  return parsed.data;
+  return parseDbEnum(
+    documentStatusSchema,
+    value,
+    `documents row has illegal status "${value}"`,
+  );
 }
 
 function parseDiscountKind(
   value: string,
 ): z.output<typeof documentDiscountKindSchema> {
-  const parsed = documentDiscountKindSchema.safeParse(value);
-  if (!parsed.success) {
-    throw new CoreInvariantError(
-      `document_items row has illegal discount_kind "${value}"`,
-    );
-  }
-  return parsed.data;
+  return parseDbEnum(
+    documentDiscountKindSchema,
+    value,
+    `document_items row has illegal discount_kind "${value}"`,
+  );
 }
 
 function parseTaxTreatment(
   value: string,
 ): z.output<typeof documentTaxTreatmentSchema> {
-  const parsed = documentTaxTreatmentSchema.safeParse(value);
-  if (!parsed.success) {
-    throw new CoreInvariantError(
-      `document_items row has illegal tax_treatment "${value}"`,
-    );
-  }
-  return parsed.data;
+  return parseDbEnum(
+    documentTaxTreatmentSchema,
+    value,
+    `document_items row has illegal tax_treatment "${value}"`,
+  );
 }
 
 function parseTemplateSource(
   value: string,
 ): z.output<typeof documentTemplateSourceSchema> {
-  const parsed = documentTemplateSourceSchema.safeParse(value);
-  if (!parsed.success) {
-    throw new CoreInvariantError(
-      `documents row has illegal template_source "${value}"`,
-    );
-  }
-  return parsed.data;
+  return parseDbEnum(
+    documentTemplateSourceSchema,
+    value,
+    `documents row has illegal template_source "${value}"`,
+  );
 }
 
 function parseSupplier(value: unknown): z.output<typeof supplierDetailsSchema> {
-  const parsed = supplierDetailsSchema.safeParse(value);
-  if (!parsed.success) {
-    throw new CoreInvariantError("documents row has illegal supplier_details");
-  }
-  return parsed.data;
+  return parseDbEnum(
+    supplierDetailsSchema,
+    value,
+    "documents row has illegal supplier_details",
+  );
 }
 
 function parseBuyer(value: unknown): z.output<typeof buyerDetailsSchema> {
-  const parsed = buyerDetailsSchema.safeParse(value);
-  if (!parsed.success) {
-    throw new CoreInvariantError("documents row has illegal buyer_details");
-  }
-  return parsed.data;
+  return parseDbEnum(
+    buyerDetailsSchema,
+    value,
+    "documents row has illegal buyer_details",
+  );
 }
 
 async function loadStaffDocumentRecord(env: {

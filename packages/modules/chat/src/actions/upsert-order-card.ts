@@ -1,26 +1,34 @@
-import { implementAction, type AuditTargetEnv } from "@showzy/core";
+import { implementAction } from "@showzy/core";
 import { CoreInvariantError } from "@showzy/core/errors";
+import { createAuditTarget, pickString } from "@showzy/module-kit/audit-target";
 import { z } from "zod";
 
-import { upsertOrderCardContract } from "./upsert-order-card.contract.js";
 import { upsertTenantOrderCard } from "../services/upsert-order-card.js";
+import { upsertOrderCardContract } from "./upsert-order-card.contract.js";
 
-const orderCardIdHolder = z.object({ orderCardId: z.string() });
 const envelopeOrderIdHolder = z.object({
   payload: z.object({ orderId: z.string() }),
 });
 
-function upsertAuditTarget(env: AuditTargetEnv): { type: string; id: string } {
-  const fromOutput = orderCardIdHolder.safeParse(env.output);
-  if (fromOutput.success) {
-    return { type: "order-card", id: fromOutput.data.orderCardId };
-  }
-  const fromInput = envelopeOrderIdHolder.safeParse(env.input);
-  return {
-    type: "order-card",
-    id: fromInput.success ? fromInput.data.payload.orderId : "unknown",
-  };
-}
+const upsertAuditTarget = createAuditTarget({
+  type: "order-card",
+  fallback: "unknown",
+  steps: [
+    {
+      source: "output",
+      schema: z.object({ orderCardId: z.string() }),
+      pick: (data) => pickString("orderCardId", data),
+    },
+    {
+      source: "input",
+      schema: envelopeOrderIdHolder,
+      pick: (data) => {
+        const parsed = envelopeOrderIdHolder.safeParse(data);
+        return parsed.success ? parsed.data.payload.orderId : undefined;
+      },
+    },
+  ],
+});
 
 export const upsertOrderCard = implementAction(upsertOrderCardContract, {
   handler: async (input, ctx) => {

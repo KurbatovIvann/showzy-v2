@@ -24,6 +24,7 @@ import { auditLog, idempotencyKeys } from "@showzy/db";
 import { user } from "@showzy/db/schema/auth";
 import { companyMembers } from "@showzy/db/schema/companies";
 import { files } from "@showzy/db/schema/files";
+import { sha256Hex } from "@showzy/module-kit/sha256";
 import { and, count, eq, isNull } from "drizzle-orm";
 import sharp from "sharp";
 import {
@@ -66,7 +67,6 @@ import {
   runCatalogRenditionBackfill,
   setCatalogRenditionBackfillNowMsForTest,
 } from "../services/backfill-catalog-renditions.js";
-import { sha256Hex } from "../services/checksum.js";
 import type { FileReadyView } from "../services/file-view.js";
 import {
   catalogObjectKey,

@@ -1,19 +1,11 @@
-import type { AuditTargetEnv } from "@showzy/core";
-import { z } from "zod";
+import {
+  PRODUCT_AUDIT_TYPE,
+  holderAuditTarget,
+} from "@showzy/module-kit/audit-target";
 
-const productIdHolder = z.object({ productId: z.string() });
-
-export function productAuditTarget(env: AuditTargetEnv): {
-  type: string;
-  id: string;
-} {
-  const fromOutput = productIdHolder.safeParse(env.output);
-  if (fromOutput.success) {
-    return { type: "product", id: fromOutput.data.productId };
-  }
-  const fromInput = productIdHolder.safeParse(env.input);
-  return {
-    type: "product",
-    id: fromInput.success ? fromInput.data.productId : "uncreated",
-  };
-}
+export const productAuditTarget = holderAuditTarget({
+  type: PRODUCT_AUDIT_TYPE,
+  field: "productId",
+  fallback: "uncreated",
+  sources: ["output", "input"],
+});

@@ -3,21 +3,21 @@ import {
   ConflictError,
   CoreInvariantError,
   NotFoundError,
-  ValidationError,
 } from "@showzy/core/errors";
 import { documents } from "@showzy/db/schema/documents";
 import { getArtifact } from "@showzy/doc-generation/get-artifact";
 import { getSigning } from "@showzy/doc-signing/get";
+import { requireOrValidationError } from "@showzy/module-kit/require";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 
-import { requestSignContract } from "./request-sign.contract.js";
 import { documentsSignRequested } from "../events/sign-requested.js";
 import {
   loadGenerationArtifact,
   readyArtifactFileId,
 } from "../services/load-generation.js";
 import { requireWritable } from "../services/writable.js";
+import { requestSignContract } from "./request-sign.contract.js";
 
 export const CANCELLED_REQUEST_SIGN_MESSAGE =
   "Cancelled documents cannot be signed.";
@@ -53,10 +53,11 @@ function requestSignAuditTarget(env: AuditTargetEnv): {
 }
 
 function requireReadyPdf(fileId: string | null): void {
-  const parsed = readyPdfGate.safeParse({ present: fileId !== null });
-  if (!parsed.success) {
-    throw new ValidationError(parsed.error.issues, PDF_NOT_READY_MESSAGE);
-  }
+  requireOrValidationError(
+    readyPdfGate,
+    { present: fileId !== null },
+    PDF_NOT_READY_MESSAGE,
+  );
 }
 
 export const requestSign = implementAction(requestSignContract, {

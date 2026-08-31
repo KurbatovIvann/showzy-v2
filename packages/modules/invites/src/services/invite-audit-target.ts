@@ -1,19 +1,8 @@
-import type { AuditTargetEnv } from "@showzy/core";
-import { z } from "zod";
+import { holderAuditTarget } from "@showzy/module-kit/audit-target";
 
-const inviteIdHolder = z.object({ id: z.string() });
-
-export function inviteAuditTarget(env: AuditTargetEnv): {
-  type: string;
-  id: string;
-} {
-  const fromOutput = inviteIdHolder.safeParse(env.output);
-  if (fromOutput.success) {
-    return { type: "invite", id: fromOutput.data.id };
-  }
-  const fromInput = inviteIdHolder.safeParse(env.input);
-  return {
-    type: "invite",
-    id: fromInput.success ? fromInput.data.id : "uncreated",
-  };
-}
+export const inviteAuditTarget = holderAuditTarget({
+  type: "invite",
+  field: "id",
+  fallback: "uncreated",
+  sources: ["output", "input"],
+});

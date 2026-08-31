@@ -6,17 +6,18 @@ import {
   productVariants,
 } from "@showzy/db/schema/catalog";
 import { moneyToCanonical } from "@showzy/module-kit/canonical";
+import { parseDbEnum } from "@showzy/module-kit/parse-db-enum";
 import { and, asc, eq } from "drizzle-orm";
 
 import { productStatusSchema } from "../wire.contract.js";
 import { getProductContract } from "./get-product.contract.js";
 
 function parseProductStatus(value: string): "active" | "archived" {
-  const parsed = productStatusSchema.safeParse(value);
-  if (!parsed.success) {
-    throw new CoreInvariantError(`catalog row has illegal status "${value}"`);
-  }
-  return parsed.data;
+  return parseDbEnum(
+    productStatusSchema,
+    value,
+    `catalog row has illegal status "${value}"`,
+  );
 }
 
 export const getProduct = implementAction(getProductContract, {

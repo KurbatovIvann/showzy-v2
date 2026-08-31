@@ -6,6 +6,7 @@ import {
   priceLists,
 } from "@showzy/db/schema/pricing";
 import { moneyToCanonical } from "@showzy/module-kit/canonical";
+import { uniqueIds } from "@showzy/module-kit/unique-ids";
 import { and, eq, inArray } from "drizzle-orm";
 import type { z } from "zod";
 
@@ -67,19 +68,6 @@ interface PriceRow {
   readonly currency: string;
   readonly personalPriceId?: string;
   readonly priceListId?: string;
-}
-
-function uniqueProductIds(items: readonly ResolveItem[]): string[] {
-  const ids: string[] = [];
-  const seen = new Set<string>();
-  for (const item of items) {
-    if (seen.has(item.productId)) {
-      continue;
-    }
-    seen.add(item.productId);
-    ids.push(item.productId);
-  }
-  return ids;
 }
 
 function variantKey(productId: string, variantId: string): string {
@@ -253,7 +241,7 @@ export async function resolveProductPricesForCompany(args: {
   readonly products: readonly CatalogProductFact[];
   readonly customer: CustomerPricingAssignment | null;
 }): Promise<ResolvedPrice[]> {
-  const productIds = uniqueProductIds(args.items);
+  const productIds = uniqueIds(args.items.map((item) => item.productId));
   const productById = new Map(
     args.products.map((product) => [product.productId, product]),
   );

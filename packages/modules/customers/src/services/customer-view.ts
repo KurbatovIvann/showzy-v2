@@ -1,4 +1,4 @@
-import { CoreInvariantError } from "@showzy/core/errors";
+import { parseDbEnum } from "@showzy/module-kit/parse-db-enum";
 import type { z } from "zod";
 
 import {
@@ -15,18 +15,12 @@ export function nullableText(value: string | null | undefined): string | null {
   return value;
 }
 
-export function nullableUuid(value: string | null | undefined): string | null {
-  return value ?? null;
-}
-
 function parseCustomerStatus(value: string): "active" | "archived" {
-  const parsed = customerStatusSchema.safeParse(value);
-  if (!parsed.success) {
-    throw new CoreInvariantError(
-      `company_customers row has illegal status "${value}"`,
-    );
-  }
-  return parsed.data;
+  return parseDbEnum(
+    customerStatusSchema,
+    value,
+    `company_customers row has illegal status "${value}"`,
+  );
 }
 
 export function toCustomerView(
