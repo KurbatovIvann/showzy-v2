@@ -197,7 +197,7 @@ describe("composition root identity", () => {
         .filter((edge) => edge.caller === "documents.attachSignedShare")
         .map((edge) => edge.callee),
     ).toEqual(["files.issueSystemSigningDownloadUrl"]);
-    expect(source).toContain("attachSignedShare");
+    expect(source).toContain("documentsActions");
     // The subscription list moved to `./subscriptions.ts` (SHO-279) —
     // assert the registered composition, not the source text.
     expect(registeredEventSubscriptions.map((row) => row.consumer)).toContain(
@@ -346,8 +346,8 @@ describe("composition root identity", () => {
     expect(edges.map((edge) => `${edge.caller}->${edge.callee}`)).not.toContain(
       "docSigning.complete->files.finalizeUpload",
     );
-    expect(source).toContain("completeSigning");
-    expect(source).toContain("readPendingSigningObject");
+    expect(source).toContain("docSigningActions");
+    expect(source).toContain("filesActions");
     expect(source).toContain("docSigningRecorded");
   });
 });

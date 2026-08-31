@@ -286,6 +286,9 @@ function register(
   registry.registerImplementation(action);
 }
 
+/** Incremented by the transport `getSession` wrapper — public/share must not bump this. */
+let sessionStoreLookups = 0;
+
 function toAuthInstance(auth: {
   handler: AuthInstance["handler"];
   api: {
@@ -298,6 +301,7 @@ function toAuthInstance(auth: {
     handler: (request) => auth.handler(request),
     api: {
       async getSession({ headers }) {
+        sessionStoreLookups += 1;
         const result = await auth.api.getSession({ headers });
         if (result === null || result === undefined) {
           return null;
@@ -602,6 +606,7 @@ describe("contract.md §7 principal dispatch over HTTP", () => {
 
   it("a present session and x-company-id are ignored on share — no user actor, no extra company", async () => {
     const token = await insertBearer(kit, kitIdentities.users.anna);
+    const before = sessionStoreLookups;
     await expect(
       rpcClient({
         token,
@@ -615,6 +620,7 @@ describe("contract.md §7 principal dispatch over HTTP", () => {
       actorType: "anonymous",
       actorId: "anonymous",
     });
+    expect(sessionStoreLookups).toBe(before);
   });
 
   it("x-share-token is not consumed — the capability token is action input only", async () => {
@@ -676,6 +682,51 @@ describe("contract.md §7 principal dispatch over HTTP", () => {
       companyId: kitIdentities.companies.a,
       actorType: "anonymous",
     });
+  });
+
+  it("public and share dispatch do not touch the session store on /rpc or /api/v1", async () => {
+    const before = sessionStoreLookups;
+    await expect(rpcClient({}).sample.discover({})).resolves.toMatchObject({
+      companyId: null,
+    });
+    await expect(
+      rpcClient({}).sample.getShared({
+        token: SHARE.tokenA,
+        documentId: SHARE.documentA,
+      }),
+    ).resolves.toMatchObject({
+      companyId: kitIdentities.companies.a,
+      actorType: "anonymous",
+    });
+    const publicRest = await app.request(
+      `http://localhost:3000${REST_PREFIX}/sample/discover`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      },
+    );
+    expect(publicRest.status).toBe(200);
+    const shareRest = await app.request(
+      `http://localhost:3000${REST_PREFIX}/sample/getShared`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          token: SHARE.tokenA,
+          documentId: SHARE.documentA,
+        }),
+      },
+    );
+    expect(shareRest.status).toBe(200);
+    expect(sessionStoreLookups).toBe(before);
+  });
+
+  it("staff dispatch still looks up the session store", async () => {
+    const before = sessionStoreLookups;
+    const error = await expectOrpcError(rpcClient({}).sample.plan({}));
+    expect(isWireError(error)).toBe(true);
+    expect(sessionStoreLookups).toBe(before + 1);
   });
 
   it("no session on a staff REST alias → 401 UNAUTHENTICATED", async () => {

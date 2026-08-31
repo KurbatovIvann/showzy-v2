@@ -11,6 +11,8 @@ import {
 } from "@showzy/config";
 
 import { bootApi } from "./boot.js";
+import { flushProcessObservability } from "./observability.js";
+import { createProcessShutdown } from "./shutdown.js";
 
 const config = loadServerConfig();
 const logger = createProcessLogger({ name: "api-boot" });
@@ -27,14 +29,30 @@ const server = serve(
   },
 );
 
-async function shutdown(): Promise<void> {
-  server.close();
-  await booted.close();
+function closeHttpServer(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    server.close((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    });
+  });
 }
 
+const shutdown = createProcessShutdown({
+  logger,
+  close: async () => {
+    await closeHttpServer();
+    await booted.close();
+  },
+  flush: () => flushProcessObservability(),
+});
+
 process.on("SIGINT", () => {
-  void shutdown();
+  void shutdown.run();
 });
 process.on("SIGTERM", () => {
-  void shutdown();
+  void shutdown.run();
 });

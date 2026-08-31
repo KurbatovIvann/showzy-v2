@@ -16,6 +16,10 @@ export function createProcessLogger(options: ProcessLoggerOptions): Logger {
   return pino(
     {
       name: options.name,
+      // Defense in depth (SHO-293): `redact.paths` covers known structured
+      // keys (`LOG_REDACT_PATHS`); `logMethod` still runs `redactUnknown`
+      // for nested objects and free-text the path list cannot see. Do not
+      // drop either layer — secrets must never appear in logs.
       redact: { paths: [...LOG_REDACT_PATHS], censor: REDACTED },
       hooks: {
         logMethod(args, method) {

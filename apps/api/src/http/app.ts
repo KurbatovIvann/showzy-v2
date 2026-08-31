@@ -113,16 +113,17 @@ function sessionGate(registry: ActionRegistry) {
     path: readonly string[];
   }): Promise<unknown> => {
     const contract = registry.getContract(options.path.join("."));
-    if (
-      contract !== undefined &&
-      requiresSession(contract.principal) &&
-      options.context.session === null
-    ) {
-      throw new ORPCError("UNAUTHENTICATED", {
-        defined: true,
-        status: 401,
-        message: "Authentication required.",
-      });
+    if (contract !== undefined && requiresSession(contract.principal)) {
+      const resolve = readSessionThunk(options.context);
+      const session = resolve === undefined ? null : await resolve();
+      assignSession(options.context, session);
+      if (session === null) {
+        throw new ORPCError("UNAUTHENTICATED", {
+          defined: true,
+          status: 401,
+          message: "Authentication required.",
+        });
+      }
     }
     return options.next();
   };
@@ -137,6 +138,53 @@ async function resolveSession(
     return null;
   }
   return { userId: result.user.id };
+}
+
+/**
+ * oRPC client interceptors receive `path` + `context` but not headers
+ * (`ProcedureClientInterceptorOptions`). Stash a thunk on the context
+ * object (not a call) so `sessionGate` can `getSession` only when the
+ * dispatched principal requires one. Public/share never touch the store.
+ *
+ * StrictGetMethodPlugin spreads context into a new object, so a WeakMap
+ * keyed by identity misses. An enumerable symbol survives `{...context}`
+ * and is not a published client-contract field (JSON ignores symbols).
+ */
+const SESSION_THUNK = Symbol("showzy.pendingSession");
+
+function isSessionThunk(
+  value: unknown,
+): value is () => Promise<SessionPrincipal | null> {
+  return typeof value === "function";
+}
+
+function readSessionThunk(
+  context: TransportInvocationContext,
+): (() => Promise<SessionPrincipal | null>) | undefined {
+  const descriptor = Object.getOwnPropertyDescriptor(context, SESSION_THUNK);
+  if (descriptor === undefined) {
+    return undefined;
+  }
+  const value: unknown = descriptor.value as unknown;
+  return isSessionThunk(value) ? value : undefined;
+}
+
+function stashSessionThunk(
+  context: TransportInvocationContext,
+  resolve: () => Promise<SessionPrincipal | null>,
+): void {
+  Object.defineProperty(context, SESSION_THUNK, {
+    value: resolve,
+    enumerable: true,
+    configurable: true,
+  });
+}
+
+function assignSession(
+  context: TransportInvocationContext,
+  session: SessionPrincipal | null,
+): void {
+  Object.assign(context, { session });
 }
 
 function headerOrNull(headers: Headers, name: string): string | null {
@@ -154,21 +202,20 @@ interface TransportRequest {
   get(key: "requestId" | "clientIp"): string;
 }
 
-async function buildTransportContext(
+function buildTransportContext(
   c: TransportRequest,
   auth: AuthInstance,
-): Promise<TransportInvocationContext> {
+): TransportInvocationContext {
   const headers = c.req.raw.headers;
-  const session = await resolveSession(auth, headers);
   const idempotencyKey = optionalHeader(headers, IDEMPOTENCY_KEY_HEADER);
   const confirmationChallengeId = optionalHeader(
     headers,
     CONFIRMATION_CHALLENGE_HEADER,
   );
-  return {
+  const context: TransportInvocationContext = {
     requestId: c.get("requestId"),
     channel: HTTP_INVOCATION_CHANNEL,
-    session,
+    session: null,
     companySelector: headerOrNull(headers, COMPANY_SELECTOR_HEADER),
     clientIp: c.get("clientIp"),
     ...(idempotencyKey !== undefined ? { idempotencyKey } : {}),
@@ -176,6 +223,8 @@ async function buildTransportContext(
       ? { confirmationChallengeId }
       : {}),
   };
+  stashSessionThunk(context, () => resolveSession(auth, headers));
+  return context;
 }
 
 function withRequestId(response: Response, requestId: string): Response {
@@ -206,6 +255,12 @@ export function createApp(options: CreateAppOptions): Hono<AppEnv> {
       "pki-proxy constructed with an empty ipHmacSecret — config wiring bug",
     );
   }
+  // Two procedure constructions at boot (SHO-277 owner decision: accepted,
+  // why-comment only). `contractModules` is the client exposure record
+  // (`buildContractRouter` / `toContractProcedure` for the published
+  // typed client). `buildServerRouter` then `implement(toContractProcedure)`
+  // pairs each descriptor with `executeAction`. They are different layers,
+  // not duplicate work to collapse — do not delete `contractRouter`.
   const serverRouter = buildServerRouter(options.contractModules, {
     registry: options.registry,
     pipeline: options.pipeline,
@@ -292,7 +347,7 @@ export function createApp(options: CreateAppOptions): Hono<AppEnv> {
   });
 
   app.use(`${RPC_PREFIX}/*`, async (c) => {
-    const context = await buildTransportContext(c, options.auth);
+    const context = buildTransportContext(c, options.auth);
     const result = await rpcHandler.handle(c.req.raw, {
       prefix: RPC_PREFIX,
       context,
@@ -304,7 +359,7 @@ export function createApp(options: CreateAppOptions): Hono<AppEnv> {
   });
 
   app.use(`${REST_PREFIX}/*`, async (c) => {
-    const context = await buildTransportContext(c, options.auth);
+    const context = buildTransportContext(c, options.auth);
     const result = await openApiHandler.handle(c.req.raw, {
       prefix: REST_PREFIX,
       context,

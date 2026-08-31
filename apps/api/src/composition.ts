@@ -15,138 +15,42 @@
  * and must list the same `defineEventHandler` objects this file passes
  * through `eventSubscriptionRefs`.
  */
-import {
-  archiveProduct,
-  archiveVariant,
-  createProduct,
-  createVariant,
-  getProduct,
-  getProductOrderFacts,
-  getProductPricingFacts,
-  listProducts,
-  restoreProduct,
-  restoreVariant,
-  setProductImages,
-  updateProduct,
-  updateVariant,
-} from "@showzy/catalog";
+import { catalogActions } from "@showzy/catalog";
 import { catalogSuiteCoverage } from "@showzy/catalog/suite-coverage";
-import { getOrderCard, upsertOrderCard } from "@showzy/chat";
+import { chatActions } from "@showzy/chat";
 import { chatSuiteCoverage } from "@showzy/chat/suite-coverage";
-import {
-  createCompany,
-  getCompany,
-  getSellerFacts,
-  listMine,
-  updateLegal,
-} from "@showzy/companies";
+import { companiesActions } from "@showzy/companies";
 import { companiesSuiteCoverage } from "@showzy/companies/suite-coverage";
-import {
-  applyInviteCrm,
-  archiveCustomer,
-  createCounterparty,
-  createCustomer,
-  createGroup,
-  deleteCounterparty,
-  deleteCustomer,
-  deleteGroup,
-  getCounterparty,
-  getCustomer,
-  getCustomerPricingFacts,
-  getGroup,
-  listCounterparties,
-  listCustomers,
-  listGroups,
-  restoreCustomer,
-  updateCounterparty,
-  updateCustomer,
-  updateGroup,
-} from "@showzy/customers";
+import { customersActions } from "@showzy/customers";
 import { customersSuiteCoverage } from "@showzy/customers/suite-coverage";
 import {
-  attachSignedShare,
-  cancelDocument,
-  createFromOrder,
+  documentsActions,
   documentsCancelled,
   documentsCreated,
   documentsSignRequested,
-  getDocument,
-  getForGeneration,
-  getShared,
-  listDocuments,
-  lockIssuedForSigning,
-  requestSign,
-  shareDocument,
 } from "@showzy/documents";
 import { documentsSuiteCoverage } from "@showzy/documents/suite-coverage";
-import { getArtifact, renderPdf } from "@showzy/doc-generation";
+import { docGenerationActions } from "@showzy/doc-generation";
 import { docGenerationSuiteCoverage } from "@showzy/doc-generation/suite-coverage";
-import {
-  abandonRequest,
-  completeSigning,
-  docSigningRecorded,
-  getSigning,
-  getSupplierSignedFlags,
-  startSigning,
-} from "@showzy/doc-signing";
+import { docSigningActions, docSigningRecorded } from "@showzy/doc-signing";
 import { docSigningSuiteCoverage } from "@showzy/doc-signing/suite-coverage";
-import {
-  backfillCatalogRenditions,
-  finalizeUpload,
-  getAttachmentFacts,
-  getDownloadUrl,
-  getDownloadUrls,
-  getSigningUploadUrl,
-  getUploadUrl,
-  issueDocumentDownloadUrl,
-  issueShareDownloadUrl,
-  issueShareSigningDownloadUrl,
-  issueSigningDownloadUrl,
-  issueSystemSigningDownloadUrl,
-  readPendingSigningObject,
-  recordGeneratedObject,
-  recordSigningObject,
-  requestSigningUpload,
-  requestUpload,
-  sweepAbandonedUploads,
-} from "@showzy/files";
+import { filesActions } from "@showzy/files";
 import { filesSuiteCoverage } from "@showzy/files/suite-coverage";
 import {
-  acceptInvite,
-  createInvite,
-  getInvite,
+  invitesActions,
   invitesAccepted,
   invitesCreated,
   invitesRevoked,
-  listInvites,
-  revokeInvite,
 } from "@showzy/invites";
 import { invitesSuiteCoverage } from "@showzy/invites/suite-coverage";
 import {
-  cancelOrder,
-  confirmOrder,
-  createOrder,
-  getOrder,
-  listOrders,
+  ordersActions,
   ordersCanceled,
   ordersConfirmed,
   ordersCreated,
 } from "@showzy/orders";
 import { ordersSuiteCoverage } from "@showzy/orders/suite-coverage";
-import {
-  activatePriceList,
-  createPriceList,
-  deactivatePriceList,
-  deletePriceList,
-  getPriceList,
-  listPriceListEntries,
-  listPriceLists,
-  removePriceListEntries,
-  resolveProductPrices,
-  setDefaultPriceList,
-  setPriceListEntries,
-  updatePriceList,
-} from "@showzy/pricing";
+import { pricingActions } from "@showzy/pricing";
 import { pricingSuiteCoverage } from "@showzy/pricing/suite-coverage";
 import {
   ActionRegistry,
@@ -382,6 +286,15 @@ export function registerAction<
   registry.registerImplementation(action);
 }
 
+function registerActions<TTarget>(
+  registry: ActionRegistry,
+  actions: readonly ImplementedAction<z.ZodType, z.ZodType, TTarget>[],
+): void {
+  for (const action of actions) {
+    registerAction(registry, action);
+  }
+}
+
 export function mergeSuiteCoverage(
   manifests: readonly SuiteCoverageManifest[],
 ): SuiteCoverageManifest {
@@ -409,102 +322,17 @@ export function mergeSuiteCoverage(
 /** The boot registry — same builder the contract-check stage walks. */
 export function createActionRegistry(): ActionRegistry {
   const registry = new ActionRegistry();
-  registerAction(registry, createProduct);
-  registerAction(registry, createVariant);
-  registerAction(registry, getProduct);
-  registerAction(registry, getProductOrderFacts);
-  registerAction(registry, getProductPricingFacts);
-  registerAction(registry, listProducts);
-  registerAction(registry, updateProduct);
-  registerAction(registry, updateVariant);
-  registerAction(registry, archiveProduct);
-  registerAction(registry, restoreProduct);
-  registerAction(registry, archiveVariant);
-  registerAction(registry, restoreVariant);
-  registerAction(registry, setProductImages);
-  registerAction(registry, getOrderCard);
-  registerAction(registry, upsertOrderCard);
-  registerAction(registry, createCompany);
-  registerAction(registry, getCompany);
-  registerAction(registry, getSellerFacts);
-  registerAction(registry, listMine);
-  registerAction(registry, updateLegal);
-  registerAction(registry, applyInviteCrm);
-  registerAction(registry, archiveCustomer);
-  registerAction(registry, createCounterparty);
-  registerAction(registry, createCustomer);
-  registerAction(registry, createGroup);
-  registerAction(registry, deleteCounterparty);
-  registerAction(registry, deleteCustomer);
-  registerAction(registry, deleteGroup);
-  registerAction(registry, getCounterparty);
-  registerAction(registry, getCustomer);
-  registerAction(registry, getCustomerPricingFacts);
-  registerAction(registry, getGroup);
-  registerAction(registry, listCounterparties);
-  registerAction(registry, listCustomers);
-  registerAction(registry, listGroups);
-  registerAction(registry, restoreCustomer);
-  registerAction(registry, updateCounterparty);
-  registerAction(registry, updateCustomer);
-  registerAction(registry, updateGroup);
-  registerAction(registry, requestUpload);
-  registerAction(registry, getUploadUrl);
-  registerAction(registry, finalizeUpload);
-  registerAction(registry, getDownloadUrl);
-  registerAction(registry, getDownloadUrls);
-  registerAction(registry, getAttachmentFacts);
-  registerAction(registry, issueDocumentDownloadUrl);
-  registerAction(registry, issueShareDownloadUrl);
-  registerAction(registry, recordGeneratedObject);
-  registerAction(registry, requestSigningUpload);
-  registerAction(registry, getSigningUploadUrl);
-  registerAction(registry, recordSigningObject);
-  registerAction(registry, readPendingSigningObject);
-  registerAction(registry, issueSigningDownloadUrl);
-  registerAction(registry, issueShareSigningDownloadUrl);
-  registerAction(registry, issueSystemSigningDownloadUrl);
-  registerAction(registry, sweepAbandonedUploads);
-  registerAction(registry, backfillCatalogRenditions);
-  registerAction(registry, acceptInvite);
-  registerAction(registry, createInvite);
-  registerAction(registry, getInvite);
-  registerAction(registry, listInvites);
-  registerAction(registry, revokeInvite);
-  registerAction(registry, attachSignedShare);
-  registerAction(registry, cancelDocument);
-  registerAction(registry, createFromOrder);
-  registerAction(registry, getDocument);
-  registerAction(registry, getForGeneration);
-  registerAction(registry, getShared);
-  registerAction(registry, listDocuments);
-  registerAction(registry, lockIssuedForSigning);
-  registerAction(registry, requestSign);
-  registerAction(registry, shareDocument);
-  registerAction(registry, getArtifact);
-  registerAction(registry, renderPdf);
-  registerAction(registry, getSigning);
-  registerAction(registry, getSupplierSignedFlags);
-  registerAction(registry, abandonRequest);
-  registerAction(registry, startSigning);
-  registerAction(registry, completeSigning);
-  registerAction(registry, createOrder);
-  registerAction(registry, confirmOrder);
-  registerAction(registry, cancelOrder);
-  registerAction(registry, getOrder);
-  registerAction(registry, listOrders);
-  registerAction(registry, activatePriceList);
-  registerAction(registry, createPriceList);
-  registerAction(registry, deactivatePriceList);
-  registerAction(registry, deletePriceList);
-  registerAction(registry, getPriceList);
-  registerAction(registry, listPriceListEntries);
-  registerAction(registry, listPriceLists);
-  registerAction(registry, removePriceListEntries);
-  registerAction(registry, resolveProductPrices);
-  registerAction(registry, setDefaultPriceList);
-  registerAction(registry, setPriceListEntries);
-  registerAction(registry, updatePriceList);
+  registerActions(registry, catalogActions);
+  registerActions(registry, chatActions);
+  registerActions(registry, companiesActions);
+  registerActions(registry, customersActions);
+  registerActions(registry, filesActions);
+  registerActions(registry, invitesActions);
+  registerActions(registry, documentsActions);
+  registerActions(registry, docGenerationActions);
+  registerActions(registry, docSigningActions);
+  registerActions(registry, ordersActions);
+  registerActions(registry, pricingActions);
   return registry;
 }
 

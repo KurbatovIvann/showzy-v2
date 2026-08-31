@@ -4,5 +4,10 @@
  * evaluating `defineEventHandler` while `renderPdf` is still initializing
  * (ESM cycle: getArtifact ← documents.get ← getForGeneration ← renderPdf).
  */
-export { getArtifact } from "./actions/get-artifact.js";
-export { renderPdf } from "./actions/render-pdf.js";
+import { getArtifact } from "./actions/get-artifact.js";
+import { renderPdf } from "./actions/render-pdf.js";
+
+export { getArtifact };
+export { renderPdf };
+
+export const docGenerationActions = [getArtifact, renderPdf] as const;

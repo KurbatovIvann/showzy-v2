@@ -1,13 +1,43 @@
-export { archiveProduct } from "./actions/archive-product.js";
-export { archiveVariant } from "./actions/archive-variant.js";
-export { createProduct } from "./actions/create-product.js";
-export { createVariant } from "./actions/create-variant.js";
-export { getProduct } from "./actions/get-product.js";
-export { getProductOrderFacts } from "./actions/get-product-order-facts.js";
-export { getProductPricingFacts } from "./actions/get-product-pricing-facts.js";
-export { listProducts } from "./actions/list-products.js";
-export { restoreProduct } from "./actions/restore-product.js";
-export { restoreVariant } from "./actions/restore-variant.js";
-export { setProductImages } from "./actions/set-product-images.js";
-export { updateProduct } from "./actions/update-product.js";
-export { updateVariant } from "./actions/update-variant.js";
+import { archiveProduct } from "./actions/archive-product.js";
+import { archiveVariant } from "./actions/archive-variant.js";
+import { createProduct } from "./actions/create-product.js";
+import { createVariant } from "./actions/create-variant.js";
+import { getProduct } from "./actions/get-product.js";
+import { getProductOrderFacts } from "./actions/get-product-order-facts.js";
+import { getProductPricingFacts } from "./actions/get-product-pricing-facts.js";
+import { listProducts } from "./actions/list-products.js";
+import { restoreProduct } from "./actions/restore-product.js";
+import { restoreVariant } from "./actions/restore-variant.js";
+import { setProductImages } from "./actions/set-product-images.js";
+import { updateProduct } from "./actions/update-product.js";
+import { updateVariant } from "./actions/update-variant.js";
+
+export { archiveProduct };
+export { archiveVariant };
+export { createProduct };
+export { createVariant };
+export { getProduct };
+export { getProductOrderFacts };
+export { getProductPricingFacts };
+export { listProducts };
+export { restoreProduct };
+export { restoreVariant };
+export { setProductImages };
+export { updateProduct };
+export { updateVariant };
+
+export const catalogActions = [
+  createProduct,
+  createVariant,
+  getProduct,
+  getProductOrderFacts,
+  getProductPricingFacts,
+  listProducts,
+  updateProduct,
+  updateVariant,
+  archiveProduct,
+  restoreProduct,
+  archiveVariant,
+  restoreVariant,
+  setProductImages,
+] as const;
