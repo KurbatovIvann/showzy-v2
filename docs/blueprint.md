@@ -87,8 +87,9 @@ tests before any domain module is built:
 | Validation | **Zod v4** | One schema: form → API → AI tool → DB boundary |
 | AI | **Vercel AI SDK v6** | Tool calling, streaming, generative UI; provider-agnostic (Anthropic/OpenAI) |
 | Mobile | **Expo + expo-router + Unistyles** — **primary client** | Mobile-first: all V2 functionality (panel + customer cabinet + AI chat) in the app |
-| Web | **Next.js (App Router)** — post-launch phase | Storefront by link (SEO), cabinet in the browser, desktop template editor; universal links into the app |
-| Web UI | **shadcn/ui + Tailwind 4 + react-hook-form** | Carried over (in the web phase) |
+| Web panel | **Vite SPA + TanStack Router** (`apps/web`) — ADR-0030 | Staff panel per the web canvas: typed multi-level routing, static deploy behind a same-origin proxy to `/rpc` + `/api/auth` |
+| Web storefront | Separate later app (framework chosen in that phase) — ADR-0030 | Storefront by link (SEO/SSR), consumer cabinet; needs the `consumer`/`search` API surface first |
+| Web UI | **Tailwind 4 + react-hook-form** + selectively vendored shadcn/ui (Radix) primitives | Magic Patterns tokens are the theme source; shadcn only for behavior-heavy primitives (ADR-0030) |
 | QES | **`@showzy/document-signing`** (UAPKI: WASM web/node, Nitro native) | The verified crypto core carries over unchanged (bindings, ASiC-E, tests, signing vectors); the integration surface (storage, auth context, module wiring) is re-audited against the new architecture |
 | PDF | **Puppeteer** + React SSR of Plate documents | Carried over |
 | Logs / tracing | **pino + OpenTelemetry + Sentry** | Structured logs with request-id from day one |
@@ -186,7 +187,7 @@ showzy/
 │  ├─ api/            # Hono: mounts the oRPC router + webhooks + SSE + Socket.IO
 │  ├─ worker/         # BullMQ processors, outbox poller, cron (separate process)
 │  ├─ mobile/         # Expo — primary client (V2 launch)
-│  └─ web/            # Next.js — phase 10 (post-launch)
+│  └─ web/            # Vite SPA + TanStack Router — staff panel (ADR-0030)
 ├─ packages/
 │  ├─ core/           # defineAction, registry, context, event bus, outbox client
 │  ├─ db/             # Drizzle schema (source of types), migrations, seed
@@ -359,7 +360,7 @@ Condensed view (owner-first first; numbered expansion phases are not first-relea
 | **9. AI experience** | `packages/ai` over the action registry; classic/AI parity in the panel | AI performs the same actions as the UI |
 | **🚀 Owner-first production** | Clean-database bootstrap, panel parity, internal rollout → stores | The owner starts on V2 without V1 data migration |
 | **3–4, 5b, 6–7. Customer expansion** | Presence, discovery, customer checkout, chat platform, order collaboration | The §1 destination flow; see `docs/scope.md` §7 |
-| **10. Web** | Next.js: storefront (SEO), cabinet, full panel, Plate template editor | Orders without the app |
+| **10. Web** | `apps/web` panel SPA (ADR-0030): full panel + Plate template editor; storefront (SEO) + cabinet follow as a separate SSR app | Orders without the app |
 | **11. Acquiring** | `acquiring` on top of the ready payment abstraction | Online payment |
 | **12. Bank + accounting** | `banking`: statements, matching; income ledger on real transactions (Taxer replacement) | Ledger from bank transactions; tax filing is later |
 
