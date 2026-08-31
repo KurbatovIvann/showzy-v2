@@ -21,9 +21,12 @@ code lives here — only configuration.
   map (blueprint §5). The allowed-dependency matrix is `boundaries/dependencies`
   (v7 successor of `element-types`) plus `showzy/import-boundaries` for
   specifier rules that cannot depend on pnpm resolving workspace packages:
-  `*.contract.ts` allowlist, own-schema (ADR-0014), module index-only
+  `*.contract.ts` allowlist (zod, `@showzy/core/contract`, `@showzy/validation`
+  only — never `@showzy/module-kit`), own-schema (ADR-0014), module index-only
   cross-imports, `packages/contract` → `index.contract.ts` only, client apps
-  → `@showzy/contract` + validation/ui. The contract-client layer currently
+  → `@showzy/contract` + validation/ui/document-signing (never module-kit).
+  `@showzy/module-kit` is a platform package (ADR-0031): module server code
+  may import it. The contract-client layer currently
   permits any non-`@showzy` npm package (today: `zod`, `@orpc/*`). Tighten
   to an explicit external allowlist when that set grows — do not add
   ad-hoc boundary rules in individual packages.
