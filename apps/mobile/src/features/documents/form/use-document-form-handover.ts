@@ -12,6 +12,7 @@ import * as Clipboard from "expo-clipboard";
 import { useApiClient } from "../../../api/api-provider";
 import { useContractMutation } from "../../../api/contract-mutation";
 import { useActiveCompany } from "../../../api/query-provider";
+import { useSheetHiddenWaiter } from "../../../hooks/use-sheet-hidden-waiter";
 import type { DocumentsCopy } from "../../../i18n/documents";
 import { getDocumentQueryOptions } from "../api/document-detail-query";
 import {
@@ -21,7 +22,6 @@ import {
 } from "../api/document-writes";
 import { documentsHref } from "../shared/document-hrefs";
 import { isSafeHttpUrl } from "../shared/is-safe-http-url";
-import { useSheetHiddenWaiter } from "../shared/use-sheet-hidden-waiter";
 import {
   documentHandoverHidden,
   hideDocumentHandover,

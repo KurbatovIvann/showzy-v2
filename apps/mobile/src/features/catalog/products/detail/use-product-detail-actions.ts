@@ -3,7 +3,6 @@
  * used by variant archive/restore (one mutation so a failed confirm
  * retries the in-flight attempt — SHO-138 / SHO-160).
  */
-import { useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 
@@ -11,7 +10,7 @@ import { describeQueryFailure } from "../../../../api/errors";
 import { useActiveCompany } from "../../../../api/query-provider";
 import { useBoundContractMutation } from "../../../../api/use-bound-contract-mutation";
 import { presentConfirmDialog } from "../../../../components/ui/present-confirm-dialog";
-import { waitForSheetHidden } from "../../../../components/ui/sheet-dismiss";
+import { useSheetHiddenWaiter } from "../../../../hooks/use-sheet-hidden-waiter";
 import type { ProductsDetailCopy } from "../../../../i18n/products";
 import {
   bindCatalogStatusMutate,
@@ -40,28 +39,6 @@ export type DetailStatusWrite = {
     readonly waitHidden: () => Promise<void>;
   }) => Promise<void>;
 };
-
-export function useSheetHiddenWaiter(): {
-  readonly notify: () => void;
-  readonly wait: () => Promise<void>;
-} {
-  const waitersRef = useRef<Array<() => void>>([]);
-  return {
-    notify: () => {
-      const waiters = waitersRef.current;
-      waitersRef.current = [];
-      for (const waiter of waiters) {
-        waiter();
-      }
-    },
-    wait: () =>
-      waitForSheetHidden(
-        new Promise<void>((resolve) => {
-          waitersRef.current.push(resolve);
-        }),
-      ),
-  };
-}
 
 export function useDetailStatusWrite(args: {
   readonly productId: string | null;

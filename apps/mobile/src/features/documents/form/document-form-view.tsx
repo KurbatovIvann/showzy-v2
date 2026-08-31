@@ -1,7 +1,8 @@
 /**
  * Canvas DocumentEditor as create-only (SHO-238).
- * Shared: AppHeader, Button, Banner, EmptyState, Sheet, SearchField.
- * Feature: SelectorRow, EditorSection, DocumentTypeCards, OptionSelectSheet.
+ * Shared: AppHeader, Button, Banner, EmptyState, Sheet, SearchField,
+ * OptionSelectSheet, SelectorRow.
+ * Feature: EditorSection, DocumentTypeCards.
  * Omitted: template picker, agreement, city, dates, QES, four types.
  */
 import type { ReactNode } from "react";
@@ -16,7 +17,14 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
-import { AppHeader, Banner, Button, EmptyState } from "../../../components/ui";
+import {
+  AppHeader,
+  Banner,
+  Button,
+  EmptyState,
+  OptionSelectSheet,
+  SelectorRow,
+} from "../../../components/ui";
 import {
   LIST_COUNTERPARTIES_SEARCH_MAX,
   LIST_ORDERS_QUERY_MAX,
@@ -24,8 +32,6 @@ import {
 import { DocumentHandoverSheet } from "../share/document-handover-sheet";
 import { DocumentTypeCards } from "./document-form-fields";
 import { EditorSection } from "./editor-section";
-import { OptionSelectSheet } from "./option-select-sheet";
-import { SelectorRow } from "./selector-row";
 import type { DocumentFormModel } from "./use-document-form";
 
 export function DocumentFormView(model: DocumentFormModel) {

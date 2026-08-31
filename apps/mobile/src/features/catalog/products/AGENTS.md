@@ -7,7 +7,10 @@ one-line re-exports. Feature code lives here, not under
 
 **Compose shared kits; do not clone this tree's form stack.** Save,
 guard, scaffold, and `Controller`+`TextField` chrome live in
-`src/components/form-kit` (SHO-300). Shared pickers land in SHO-301.
+`src/components/form-kit` (SHO-300). Picker chrome
+(`OptionSelectSheet`, `SelectorRow`, `option-select.ts`) lives in
+`src/components/ui/`; `useDrainInfinitePages` and `useSheetHiddenWaiter`
+live in `src/hooks/` (SHO-301).
 Copy only what is product-specific: draft/plan/schema/copy/load, the
 photos `useReducer` session, the variant sheet, and the multi-write
 save loop (`photos.flush`, `too_many_variants`).

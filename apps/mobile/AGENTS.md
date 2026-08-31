@@ -40,24 +40,32 @@ the same directory.
   stay excluded.
 - `src/components/ui/` — **shared** primitives only (Button, Card, TextField,
   `SegmentedTabs`, `TabView`, inputs, Sheet / StatusPill / EmptyState /
-  `CenteredSpinner`). Never imports feature code; feature policy values
-  (e.g. OTP length) arrive as props. Before adding a new file here, confirm
-  the canvas piece is actually shared. In-screen tabs are `SegmentedTabs` +
-  `TabView` only — see the decision table in
+  `CenteredSpinner`, `OptionSelectSheet`, `SelectorRow`). Never imports
+  feature code; feature policy values (e.g. OTP length, search caps, copy)
+  arrive as props. Before adding a new file here, confirm the canvas piece
+  is actually shared. In-screen tabs are `SegmentedTabs` + `TabView` only —
+  see the decision table in
   [`mp-to-mobile.md`](../../docs/design/mapping/mp-to-mobile.md).
   Do not add a second pill bar, PagerView wrapper, or `react-native-tab-view`.
   Staff shell tabs stay `BottomNav`. Filter chips stay `ChoiceField`.
+  Do not fork a second `OptionSelectSheet` or `SelectorRow` in a feature
+  folder — compose these and pass policy via props.
+- `src/hooks/` — shared hooks (`useDebouncedValue`, `useDrainInfinitePages`,
+  `useSheetHiddenWaiter`) and the pure `shouldDrainNextPage` predicate.
+  Do not copy these into a feature folder.
 - `src/components/form-kit/` — **shared form stack** (SHO-300): `runFormSave`,
   `useFormSave` (on `useBoundContractMutation`), `useUnsavedGuard`,
   `FormScreenScaffold`, `FormTextField`. Import and compose. Do not clone
   `catalog/products/form` save/guard/view chrome. Feature folders keep
-  draft/plan/schema/copy/load and feature-only fields. Shared pickers land
-  in SHO-301 — do not invent a second picker home here.
+  draft/plan/schema/copy/load and feature-only fields. Picker chrome lives
+  in `components/ui` (`OptionSelectSheet`, `SelectorRow`) — do not invent
+  a second picker home here.
 - `src/features/<module>/<surface>/` — feature slices. Folder roles follow
   `src/features/catalog/products/` (`api/`, `list/`, `detail/`, `form/`,
   `photos/`, `shared/`). Screens take view models and callbacks; they do
   not own transport. Compose `components/ui` and `components/form-kit`; do
-  not duplicate button/card chrome or the form save/guard/scaffold. Read
+  not duplicate button/card chrome, picker chrome, or the form
+  save/guard/scaffold. Read
   that folder's `AGENTS.md` and `.cursor/rules/mobile-ui-state.mdc` before
   adding files. Do not add XState unless a later feature card names a
   protocol statechart.

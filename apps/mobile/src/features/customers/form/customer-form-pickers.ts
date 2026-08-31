@@ -1,7 +1,8 @@
 /**
  * Client-form inherit and Юрособи body decisions (SHO-180).
  * Picker item mapping (`optionSelectItems`, `selectorLookupValue`) lives
- * in `shared/option-select.ts` (SHO-221). Invitation create may import
+ * in `shared/option-select.ts` (`optionSelectItems` re-exports the shared
+ * helper). Invitation create may import
  * these inherit helpers so it copies client assignment UX; do not move
  * them into `shared/`.
  */

@@ -65,15 +65,11 @@ const FORM_IMPL_FILES = [
   "document-form-view.tsx",
   "document-form.schema.ts",
   "editor-section.tsx",
-  "option-select-sheet.tsx",
-  "option-select.ts",
-  "selector-row.tsx",
   "use-document-form-handover.ts",
   "use-document-form-lookups.ts",
   "use-document-form-pickers.ts",
   "use-document-form.ts",
   "use-document-save.ts",
-  "use-drain-pages.ts",
   "use-unsaved-document-guard.ts",
 ] as const;
 
@@ -110,6 +106,11 @@ describe("documents/new and /d/[token] routes", () => {
     );
     expect(CREATE_VIEW).toContain("DocumentTypeCards");
     expect(CREATE_VIEW).not.toContain("ChoiceField");
+    expect(CREATE_VIEW).toContain("OptionSelectSheet");
+    expect(CREATE_VIEW).toContain("SelectorRow");
+    expect(CREATE_VIEW).toContain('from "../../../components/ui"');
+    expect(CREATE_VIEW).not.toContain("./option-select-sheet");
+    expect(CREATE_VIEW).not.toContain("./selector-row");
   });
 
   it("keeps the public token route outside (app) and does not send companyId", () => {

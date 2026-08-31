@@ -1,10 +1,6 @@
-/**
- * Copied from pricing `useSheetHiddenWaiter`. Documents must not import
- * pricing list hooks.
- */
 import { useRef } from "react";
 
-import { waitForSheetHidden } from "../../../components/ui/sheet-dismiss";
+import { waitForSheetHidden } from "../components/ui/sheet-dismiss";
 
 export function useSheetHiddenWaiter(): {
   readonly notify: () => void;

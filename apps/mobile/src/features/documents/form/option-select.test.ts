@@ -4,8 +4,8 @@ import {
   filterOptionSelectItems,
   flattenPages,
   optionSelectItems,
-  shouldDrainNextPage,
-} from "./option-select";
+} from "../../../components/ui/option-select";
+import { shouldDrainNextPage } from "../../../hooks/drain-pages";
 
 describe("optionSelectItems / filterOptionSelectItems", () => {
   it("maps names and filters by name or description", () => {

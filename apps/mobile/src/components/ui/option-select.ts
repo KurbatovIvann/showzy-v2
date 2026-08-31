@@ -1,8 +1,3 @@
-/**
- * Picker option shape copied from orders `option-select.ts` (SHO-238).
- * Lives in documents `form/` so this slice does not import the orders
- * or customers feature folders.
- */
 export type OptionSelectItem = {
   readonly id: string;
   readonly name: string;
@@ -52,14 +47,4 @@ export function flattenPages<T>(
   pages: ReadonlyArray<{ readonly items: readonly T[] }>,
 ): readonly T[] {
   return pages.flatMap((page) => page.items);
-}
-
-export function shouldDrainNextPage(args: {
-  readonly status: "pending" | "error" | "success";
-  readonly hasNextPage: boolean;
-  readonly isFetchingNextPage: boolean;
-}): boolean {
-  return (
-    args.status === "success" && args.hasNextPage && !args.isFetchingNextPage
-  );
 }

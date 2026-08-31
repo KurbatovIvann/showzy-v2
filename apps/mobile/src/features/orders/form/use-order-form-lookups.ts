@@ -4,6 +4,8 @@ import { useMemo } from "react";
 import { useApiClient } from "../../../api/api-provider";
 import { useActiveCompany } from "../../../api/query-provider";
 import { useResolvedCompany } from "../../../company-resolution/resolved-company-provider";
+import { flattenPages, optionSelectItems } from "../../../components/ui";
+import { useDrainInfinitePages } from "../../../hooks/use-drain-pages";
 import {
   getOrderCatalogProductQueryOptions,
   listOrderProductsInfiniteOptions,
@@ -15,9 +17,7 @@ import {
   type OrderThumbnailView,
 } from "../shared/order-thumbnails";
 import { useOrderThumbnails } from "../shared/use-order-thumbnails";
-import { flattenPages, optionSelectItems } from "./option-select";
 import type { ProductVariantsLoadStatus } from "./product-select";
-import { useDrainInfinitePages } from "./use-drain-pages";
 
 export type OrderFormProductRow = {
   readonly id: string;

@@ -18,7 +18,7 @@ import {
   SEARCH_DEBOUNCE_MS,
   useDebouncedValue,
 } from "../../../hooks/use-debounced-value";
-import { useSheetHiddenWaiter } from "../shared/use-sheet-hidden-waiter";
+import { useSheetHiddenWaiter } from "../../../hooks/use-sheet-hidden-waiter";
 import {
   hidePriceListOptions,
   IDLE_PRICE_LIST_OPTIONS,

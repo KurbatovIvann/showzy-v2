@@ -1,0 +1,48 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  filterOptionSelectItems,
+  flattenPages,
+  optionSelectItems,
+} from "./option-select";
+
+describe("optionSelectItems", () => {
+  it("drops blank descriptions", () => {
+    expect(
+      optionSelectItems([
+        { id: "a", name: "Опт", description: "Для гурту" },
+        { id: "b", name: "VIP", description: null },
+      ]),
+    ).toEqual([
+      { id: "a", name: "Опт", description: "Для гурту" },
+      { id: "b", name: "VIP" },
+    ]);
+  });
+});
+
+describe("filterOptionSelectItems", () => {
+  const options = optionSelectItems([
+    { id: "a", name: "Марія", description: "+38067" },
+    { id: "b", name: "Олег", description: null },
+    { id: "c", name: "#12", description: "1 200 ₴" },
+  ]);
+
+  it("returns every option when the query is blank", () => {
+    expect(filterOptionSelectItems(options, "  ")).toEqual(options);
+  });
+
+  it("matches name or description case-insensitively", () => {
+    expect(filterOptionSelectItems(options, "мар")).toEqual([options[0]]);
+    expect(filterOptionSelectItems(options, "380")).toEqual([options[0]]);
+    expect(filterOptionSelectItems(options, "12")).toEqual([options[2]]);
+    expect(filterOptionSelectItems(options, "200")).toEqual([options[2]]);
+  });
+});
+
+describe("flattenPages", () => {
+  it("concatenates page items", () => {
+    expect(flattenPages([{ items: [1, 2] }, { items: [3] }])).toEqual([
+      1, 2, 3,
+    ]);
+  });
+});

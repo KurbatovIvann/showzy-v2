@@ -15,6 +15,7 @@ export type CustomersCounterpartyFormCopy = FormChromeCopy & {
   readonly customerPlaceholder: string;
   readonly customerSheetTitle: string;
   readonly customerEmptyOption: string;
+  readonly customerEmpty: string;
   readonly customerSearchPlaceholder: string;
   readonly openClient: string;
   readonly assignmentUnavailable: string;
@@ -72,6 +73,7 @@ export const en: CustomersCounterpartyFormCopy = {
   customerPlaceholder: "No client",
   customerSheetTitle: "Client",
   customerEmptyOption: "No client",
+  customerEmpty: "No clients found.",
   customerSearchPlaceholder: "Search clients…",
   openClient: "Open client",
   assignmentUnavailable: "Assigned",
@@ -135,6 +137,7 @@ export const uk: CustomersCounterpartyFormCopy = {
   customerPlaceholder: "Без клієнта",
   customerSheetTitle: "Клієнт",
   customerEmptyOption: "Без клієнта",
+  customerEmpty: "Клієнтів не знайдено.",
   customerSearchPlaceholder: "Пошук клієнтів…",
   openClient: "Відкрити клієнта",
   assignmentUnavailable: "Призначено",

@@ -20,6 +20,7 @@ export type CustomersGroupFormCopy = FormChromeCopy & {
   readonly priceListPlaceholder: string;
   readonly priceListSheetTitle: string;
   readonly priceListEmptyOption: string;
+  readonly priceListEmpty: string;
   readonly priceListSearchPlaceholder: string;
   readonly assignmentUnavailable: string;
   readonly permissionCreateTitle: string;
@@ -49,6 +50,7 @@ export const en: CustomersGroupFormCopy = {
   priceListPlaceholder: "Retail",
   priceListSheetTitle: "Price list",
   priceListEmptyOption: "Default",
+  priceListEmpty: "No price lists found.",
   priceListSearchPlaceholder: "Search price lists…",
   assignmentUnavailable: "Assigned",
   ...formChromeEn,
@@ -83,6 +85,7 @@ export const uk: CustomersGroupFormCopy = {
   priceListPlaceholder: "Роздрібний",
   priceListSheetTitle: "Прайс-лист",
   priceListEmptyOption: "За замовчуванням",
+  priceListEmpty: "Прайс-листів не знайдено.",
   priceListSearchPlaceholder: "Пошук прайс-листів…",
   assignmentUnavailable: "Призначено",
   ...formChromeUk,

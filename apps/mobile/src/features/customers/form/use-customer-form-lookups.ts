@@ -3,6 +3,7 @@ import { useMemo } from "react";
 
 import { useApiClient } from "../../../api/api-provider";
 import { useActiveCompany } from "../../../api/query-provider";
+import { useDrainInfinitePages } from "../../../hooks/use-drain-pages";
 import { listGroupsInfiniteOptions } from "../api/group.queries";
 import { listPriceListsInfiniteOptions } from "../api/price-list.queries";
 import { CUSTOMERS_LOOKUP_PAGE_SIZE } from "../shared/customer-caps";
@@ -11,7 +12,6 @@ import {
   type OptionSelectItem,
 } from "../shared/option-select";
 import { flattenPages, nameById } from "../shared/paged-list";
-import { useDrainInfinitePages } from "../shared/use-drain-pages";
 
 /**
  * Group and price-list picker options for the client form. Keep already
