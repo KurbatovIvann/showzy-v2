@@ -1,5 +1,5 @@
 import type { ActionCtx } from "@showzy/core";
-import { CoreInvariantError, NotFoundError } from "@showzy/core/errors";
+import { CoreInvariantError } from "@showzy/core/errors";
 import { priceLists } from "@showzy/db/schema/pricing";
 import { and, eq } from "drizzle-orm";
 import type { z } from "zod";
@@ -8,6 +8,7 @@ import type {
   deletePriceListInputSchema,
   deletePriceListOutputSchema,
 } from "../actions/delete-price-list.contract.js";
+import { requireLockedPriceListId } from "./locked-price-list.js";
 import { requireWritable } from "./writable.js";
 
 type StaffCtx = Extract<ActionCtx, { principal: "staff" }>;
@@ -21,22 +22,7 @@ export async function deleteStaffPriceList(env: {
   const { ctx, input } = env;
   const db = requireWritable(ctx.db);
 
-  const existing = (
-    await db
-      .select({ id: priceLists.id })
-      .from(priceLists)
-      .where(
-        and(
-          eq(priceLists.companyId, ctx.companyId),
-          eq(priceLists.id, input.id),
-        ),
-      )
-      .limit(1)
-      .for("update")
-  )[0];
-  if (existing === undefined) {
-    throw new NotFoundError();
-  }
+  await requireLockedPriceListId(db, ctx.companyId, input.id);
 
   const deleted = (
     await db

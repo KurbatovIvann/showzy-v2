@@ -768,6 +768,226 @@ describe("pricing.removePriceListEntries", () => {
   });
 });
 
+describe("pricing set/remove at the 200-entry cap", () => {
+  const cap = SET_PRICE_LIST_ENTRIES_MAX_ITEMS;
+  const listBatch = randomUUID();
+  const catalog = Array.from({ length: cap }, () => ({
+    productId: randomUUID(),
+    variantId: randomUUID(),
+  }));
+  const existingProductEntryIds = Array.from({ length: 50 }, () =>
+    randomUUID(),
+  );
+  const existingVariantEntryIds = Array.from({ length: 50 }, () =>
+    randomUUID(),
+  );
+
+  function catalogAt(index: number): {
+    productId: string;
+    variantId: string;
+  } {
+    const row = catalog[index];
+    if (row === undefined) {
+      throw new Error(`cap catalog missing index ${String(index)}`);
+    }
+    return row;
+  }
+
+  function existingProductEntryId(index: number): string {
+    const id = existingProductEntryIds[index];
+    if (id === undefined) {
+      throw new Error(`cap product entry id missing ${String(index)}`);
+    }
+    return id;
+  }
+
+  function existingVariantEntryId(index: number): string {
+    const id = existingVariantEntryIds[index];
+    if (id === undefined) {
+      throw new Error(`cap variant entry id missing ${String(index)}`);
+    }
+    return id;
+  }
+
+  beforeAll(async () => {
+    const companyA = kitIdentities.companies.a;
+    await kit.db.runtime.db.insert(priceLists).values({
+      id: listBatch,
+      companyId: companyA,
+      name: "List Batch Cap",
+    });
+    await kit.db.runtime.db.insert(products).values(
+      catalog.map((item, index) => ({
+        id: item.productId,
+        companyId: companyA,
+        name: `Batch ${String(index).padStart(3, "0")}`,
+        basePriceMinor: 100n,
+      })),
+    );
+    await kit.db.runtime.db.insert(productVariants).values(
+      catalog.map((item, index) => ({
+        id: item.variantId,
+        companyId: companyA,
+        productId: item.productId,
+        name: `Batch variant ${String(index).padStart(3, "0")}`,
+      })),
+    );
+    await kit.db.runtime.db.insert(priceListEntries).values([
+      ...existingProductEntryIds.map((id, index) => ({
+        id,
+        companyId: companyA,
+        priceListId: listBatch,
+        productId: catalogAt(index).productId,
+        priceMinor: 1000n + BigInt(index),
+      })),
+      ...existingVariantEntryIds.map((id, index) => ({
+        id,
+        companyId: companyA,
+        priceListId: listBatch,
+        productId: catalogAt(50 + index).productId,
+        variantId: catalogAt(50 + index).variantId,
+        priceMinor: 2000n + BigInt(index),
+      })),
+    ]);
+  });
+
+  it("upserts 200 mixed insert+update rows, then deletes those 200 keys", async () => {
+    const setEntries = [
+      ...Array.from({ length: 50 }, (_, index) => ({
+        productId: catalogAt(index).productId,
+        priceMinor: String(10_000 + index),
+      })),
+      ...Array.from({ length: 50 }, (_, index) => ({
+        productId: catalogAt(50 + index).productId,
+        variantId: catalogAt(50 + index).variantId,
+        priceMinor: String(20_000 + index),
+      })),
+      ...Array.from({ length: 50 }, (_, index) => ({
+        productId: catalogAt(100 + index).productId,
+        priceMinor: String(30_000 + index),
+      })),
+      ...Array.from({ length: 50 }, (_, index) => ({
+        productId: catalogAt(150 + index).productId,
+        variantId: catalogAt(150 + index).variantId,
+        priceMinor: String(40_000 + index),
+      })),
+    ];
+    expect(setEntries).toHaveLength(cap);
+
+    const created = await kit.invoke(setPriceListEntries, {
+      priceListId: listBatch,
+      entries: setEntries,
+    });
+    expect(created.items).toHaveLength(cap);
+
+    const sortedItems = [...created.items].toSorted((left, right) => {
+      if (left.productId !== right.productId) {
+        return left.productId < right.productId ? -1 : 1;
+      }
+      const leftVariant = left.variantId ?? "";
+      const rightVariant = right.variantId ?? "";
+      if (leftVariant === rightVariant) {
+        return 0;
+      }
+      return leftVariant < rightVariant ? -1 : 1;
+    });
+    expect(created.items).toEqual(sortedItems);
+
+    const byKey = new Map(
+      created.items.map((row) => [
+        `${row.productId}|${row.variantId ?? ""}`,
+        row,
+      ]),
+    );
+
+    for (let index = 0; index < 50; index += 1) {
+      expect(byKey.get(`${catalogAt(index).productId}|`)).toEqual({
+        id: existingProductEntryId(index),
+        priceListId: listBatch,
+        productId: catalogAt(index).productId,
+        variantId: null,
+        priceMinor: String(10_000 + index),
+        currency: "UAH",
+      });
+      expect(
+        byKey.get(
+          `${catalogAt(50 + index).productId}|${catalogAt(50 + index).variantId}`,
+        ),
+      ).toEqual({
+        id: existingVariantEntryId(index),
+        priceListId: listBatch,
+        productId: catalogAt(50 + index).productId,
+        variantId: catalogAt(50 + index).variantId,
+        priceMinor: String(20_000 + index),
+        currency: "UAH",
+      });
+      const insertedProduct = byKey.get(`${catalogAt(100 + index).productId}|`);
+      expect(insertedProduct).toMatchObject({
+        priceListId: listBatch,
+        productId: catalogAt(100 + index).productId,
+        variantId: null,
+        priceMinor: String(30_000 + index),
+        currency: "UAH",
+      });
+      expect(insertedProduct?.id).toEqual(expect.any(String));
+      const insertedVariant = byKey.get(
+        `${catalogAt(150 + index).productId}|${catalogAt(150 + index).variantId}`,
+      );
+      expect(insertedVariant).toMatchObject({
+        priceListId: listBatch,
+        productId: catalogAt(150 + index).productId,
+        variantId: catalogAt(150 + index).variantId,
+        priceMinor: String(40_000 + index),
+        currency: "UAH",
+      });
+      expect(insertedVariant?.id).toEqual(expect.any(String));
+    }
+
+    const stored = await kit.db.runtime.db
+      .select({
+        id: priceListEntries.id,
+        productId: priceListEntries.productId,
+        variantId: priceListEntries.variantId,
+        priceMinor: priceListEntries.priceMinor,
+        currency: priceListEntries.currency,
+      })
+      .from(priceListEntries)
+      .where(eq(priceListEntries.priceListId, listBatch));
+    expect(stored).toHaveLength(cap);
+    expect(
+      stored.map((row) => `${row.productId}|${row.variantId ?? ""}`).toSorted(),
+    ).toEqual(
+      created.items
+        .map((row) => `${row.productId}|${row.variantId ?? ""}`)
+        .toSorted(),
+    );
+    const storedById = new Map(stored.map((row) => [row.id, row]));
+    for (const item of created.items) {
+      expect(storedById.get(item.id)).toEqual({
+        id: item.id,
+        productId: item.productId,
+        variantId: item.variantId,
+        priceMinor: BigInt(item.priceMinor),
+        currency: item.currency,
+      });
+    }
+
+    const removeKeys = setEntries.map((entry) =>
+      "variantId" in entry
+        ? { productId: entry.productId, variantId: entry.variantId }
+        : { productId: entry.productId },
+    );
+    expect(removeKeys).toHaveLength(cap);
+
+    const removed = await kit.invoke(removePriceListEntries, {
+      priceListId: listBatch,
+      entries: removeKeys,
+    });
+    expect(removed).toEqual({ priceListId: listBatch });
+    expect(await countEntries(listBatch)).toBe(0);
+  });
+});
+
 describe("price-list entries and resolveProductPrices", () => {
   it("prefers the variant entry then falls through to the product entry after remove", async () => {
     await kit.invoke(setPriceListEntries, {

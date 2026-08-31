@@ -1,11 +1,15 @@
 import type { ActionCtx } from "@showzy/core";
-import { CoreInvariantError, NotFoundError } from "@showzy/core/errors";
+import { CoreInvariantError } from "@showzy/core/errors";
 import { priceLists } from "@showzy/db/schema/pricing";
 import { and, eq } from "drizzle-orm";
 import type { z } from "zod";
 
 import type { updatePriceListInputSchema } from "../actions/update-price-list.contract.js";
 import { countPriceListEntries } from "./count-price-list-entries.js";
+import {
+  priceListViewColumns,
+  requireLockedPriceListId,
+} from "./locked-price-list.js";
 import { toPriceListView, type PriceListView } from "./price-list-view.js";
 import { requireWritable } from "./writable.js";
 
@@ -19,22 +23,7 @@ export async function updateStaffPriceList(env: {
   const { ctx, input } = env;
   const db = requireWritable(ctx.db);
 
-  const existing = (
-    await db
-      .select({ id: priceLists.id })
-      .from(priceLists)
-      .where(
-        and(
-          eq(priceLists.companyId, ctx.companyId),
-          eq(priceLists.id, input.id),
-        ),
-      )
-      .limit(1)
-      .for("update")
-  )[0];
-  if (existing === undefined) {
-    throw new NotFoundError();
-  }
+  await requireLockedPriceListId(db, ctx.companyId, input.id);
 
   const updated = (
     await db
@@ -46,14 +35,7 @@ export async function updateStaffPriceList(env: {
           eq(priceLists.id, input.id),
         ),
       )
-      .returning({
-        id: priceLists.id,
-        name: priceLists.name,
-        isDefault: priceLists.isDefault,
-        isActive: priceLists.isActive,
-        createdAt: priceLists.createdAt,
-        updatedAt: priceLists.updatedAt,
-      })
+      .returning(priceListViewColumns)
   )[0];
   if (updated === undefined) {
     throw new CoreInvariantError(

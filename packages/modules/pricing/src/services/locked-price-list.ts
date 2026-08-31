@@ -38,3 +38,13 @@ export async function requireLockedPriceList(
   }
   return row;
 }
+
+/** Lock the list row and return only its id (callers that do not need the view). */
+export async function requireLockedPriceListId(
+  db: WritableStaffDb,
+  companyId: string,
+  id: string,
+): Promise<string> {
+  const row = await requireLockedPriceList(db, companyId, id);
+  return row.id;
+}

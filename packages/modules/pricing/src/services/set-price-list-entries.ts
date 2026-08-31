@@ -1,13 +1,15 @@
 import { randomUUID } from "node:crypto";
 
 import type { ActionCtx } from "@showzy/core";
-import { CoreInvariantError, NotFoundError } from "@showzy/core/errors";
-import { priceListEntries, priceLists } from "@showzy/db/schema/pricing";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { CoreInvariantError } from "@showzy/core/errors";
+import { priceListEntries } from "@showzy/db/schema/pricing";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import type { z } from "zod";
 
 import type { setPriceListEntriesInputSchema } from "../actions/set-price-list-entries.contract.js";
 import { moneyFromCanonical } from "./canonical.js";
+import { comparePriceListEntryKeys, entryKey } from "./entry-keys.js";
+import { requireLockedPriceListId } from "./locked-price-list.js";
 import {
   toPriceListEntryView,
   type PriceListEntryView,
@@ -27,36 +29,46 @@ const entryReturning = {
   currency: priceListEntries.currency,
 } as const;
 
-function entryKey(productId: string, variantId: string | null): string {
-  return variantId === null ? `${productId}|` : `${productId}|${variantId}`;
-}
+type EntryReturning = {
+  readonly id: string;
+  readonly priceListId: string;
+  readonly productId: string;
+  readonly variantId: string | null;
+  readonly priceMinor: bigint;
+  readonly currency: string;
+};
 
-function compareEntryKeys(
-  left: { readonly productId: string; readonly variantId: string | null },
-  right: { readonly productId: string; readonly variantId: string | null },
-): number {
-  if (left.productId !== right.productId) {
-    return left.productId < right.productId ? -1 : 1;
-  }
-  const leftVariant = left.variantId ?? "";
-  const rightVariant = right.variantId ?? "";
-  if (leftVariant === rightVariant) {
-    return 0;
-  }
-  return leftVariant < rightVariant ? -1 : 1;
-}
+type PreparedEntry = {
+  readonly entry: SetEntry;
+  readonly variantId: string | null;
+  readonly priceMinor: bigint;
+  readonly existingId: string | undefined;
+};
 
 function lastWriteWins(entries: readonly SetEntry[]): SetEntry[] {
   const byKey = new Map<string, SetEntry>();
   for (const entry of entries) {
     byKey.set(entryKey(entry.productId, entry.variantId ?? null), entry);
   }
-  return [...byKey.values()].toSorted((left, right) =>
-    compareEntryKeys(
-      { productId: left.productId, variantId: left.variantId ?? null },
-      { productId: right.productId, variantId: right.variantId ?? null },
-    ),
-  );
+  return [...byKey.values()].toSorted(comparePriceListEntryKeys);
+}
+
+function caseBigintByEntryId(
+  rows: readonly { readonly id: string; readonly value: bigint }[],
+) {
+  return sql<bigint>`case ${priceListEntries.id} ${sql.join(
+    rows.map((row) => sql`when ${row.id} then ${row.value}`),
+    sql` `,
+  )} end`;
+}
+
+function caseTextByEntryId(
+  rows: readonly { readonly id: string; readonly value: string }[],
+) {
+  return sql<string>`case ${priceListEntries.id} ${sql.join(
+    rows.map((row) => sql`when ${row.id} then ${row.value}`),
+    sql` `,
+  )} end`;
 }
 
 export async function setStaffPriceListEntries(env: {
@@ -66,22 +78,7 @@ export async function setStaffPriceListEntries(env: {
   const { ctx, input } = env;
   const db = requireWritable(ctx.db);
 
-  const list = (
-    await db
-      .select({ id: priceLists.id })
-      .from(priceLists)
-      .where(
-        and(
-          eq(priceLists.companyId, ctx.companyId),
-          eq(priceLists.id, input.priceListId),
-        ),
-      )
-      .limit(1)
-      .for("update")
-  )[0];
-  if (list === undefined) {
-    throw new NotFoundError();
-  }
+  await requireLockedPriceListId(db, ctx.companyId, input.priceListId);
 
   const entries = lastWriteWins(input.entries);
   const productIds = [...new Set(entries.map((entry) => entry.productId))];
@@ -106,57 +103,100 @@ export async function setStaffPriceListEntries(env: {
     existingRows.map((row) => [entryKey(row.productId, row.variantId), row.id]),
   );
 
-  const items: PriceListEntryView[] = [];
-  for (const entry of entries) {
+  const prepared: PreparedEntry[] = entries.map((entry) => {
     const variantId = entry.variantId ?? null;
-    const existingId = existingByKey.get(entryKey(entry.productId, variantId));
-    const priceMinor = moneyFromCanonical(entry.priceMinor);
-    if (existingId === undefined) {
-      const inserted = (
-        await db
-          .insert(priceListEntries)
-          .values({
-            id: randomUUID(),
-            companyId: ctx.companyId,
-            priceListId: input.priceListId,
-            productId: entry.productId,
-            variantId,
-            priceMinor,
-            currency: entry.currency,
-          })
-          .returning(entryReturning)
-      )[0];
-      if (inserted === undefined) {
-        throw new CoreInvariantError(
-          "pricing.setPriceListEntries insert returned no row",
-        );
-      }
-      items.push(toPriceListEntryView(inserted));
-      continue;
-    }
+    return {
+      entry,
+      variantId,
+      priceMinor: moneyFromCanonical(entry.priceMinor),
+      existingId: existingByKey.get(entryKey(entry.productId, variantId)),
+    };
+  });
 
-    const updated = (
-      await db
-        .update(priceListEntries)
-        .set({
-          priceMinor,
-          currency: entry.currency,
-        })
-        .where(
-          and(
-            eq(priceListEntries.companyId, ctx.companyId),
-            eq(priceListEntries.id, existingId),
-          ),
-        )
-        .returning(entryReturning)
-    )[0];
-    if (updated === undefined) {
+  const toInsert = prepared.filter((row) => row.existingId === undefined);
+  const toUpdate = prepared.flatMap((row) => {
+    if (row.existingId === undefined) {
+      return [];
+    }
+    return [{ ...row, existingId: row.existingId }];
+  });
+
+  const returnedByKey = new Map<string, EntryReturning>();
+
+  if (toInsert.length > 0) {
+    const inserted = await db
+      .insert(priceListEntries)
+      .values(
+        toInsert.map((row) => ({
+          id: randomUUID(),
+          companyId: ctx.companyId,
+          priceListId: input.priceListId,
+          productId: row.entry.productId,
+          variantId: row.variantId,
+          priceMinor: row.priceMinor,
+          currency: row.entry.currency,
+        })),
+      )
+      .returning(entryReturning);
+    if (inserted.length !== toInsert.length) {
       throw new CoreInvariantError(
-        "pricing.setPriceListEntries update returned no row",
+        "pricing.setPriceListEntries insert returned the wrong number of rows",
       );
     }
-    items.push(toPriceListEntryView(updated));
+    for (const row of inserted) {
+      returnedByKey.set(entryKey(row.productId, row.variantId), row);
+    }
   }
+
+  // Partial unique indexes cannot be a single ON CONFLICT target (SHO-280).
+  if (toUpdate.length > 0) {
+    const updated = await db
+      .update(priceListEntries)
+      .set({
+        priceMinor: caseBigintByEntryId(
+          toUpdate.map((row) => ({
+            id: row.existingId,
+            value: row.priceMinor,
+          })),
+        ),
+        currency: caseTextByEntryId(
+          toUpdate.map((row) => ({
+            id: row.existingId,
+            value: row.entry.currency,
+          })),
+        ),
+      })
+      .where(
+        and(
+          eq(priceListEntries.companyId, ctx.companyId),
+          inArray(
+            priceListEntries.id,
+            toUpdate.map((row) => row.existingId),
+          ),
+        ),
+      )
+      .returning(entryReturning);
+    if (updated.length !== toUpdate.length) {
+      throw new CoreInvariantError(
+        "pricing.setPriceListEntries update returned the wrong number of rows",
+      );
+    }
+    for (const row of updated) {
+      returnedByKey.set(entryKey(row.productId, row.variantId), row);
+    }
+  }
+
+  const items = prepared.map((row) => {
+    const returned = returnedByKey.get(
+      entryKey(row.entry.productId, row.variantId),
+    );
+    if (returned === undefined) {
+      throw new CoreInvariantError(
+        "pricing.setPriceListEntries missing returned row",
+      );
+    }
+    return toPriceListEntryView(returned);
+  });
 
   ctx.log.info(
     {
