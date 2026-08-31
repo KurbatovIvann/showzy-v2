@@ -2,6 +2,7 @@ import { implementAction } from "@showzy/core";
 import { CoreInvariantError } from "@showzy/core/errors";
 import { documents } from "@showzy/db/schema/documents";
 import { getSupplierSignedFlags } from "@showzy/doc-signing/get-supplier-signed-flags";
+import { paginate } from "@showzy/validation/pagination";
 import { and, desc, eq, lt, or } from "drizzle-orm";
 import type { z } from "zod";
 
@@ -88,13 +89,9 @@ export const listDocuments = implementAction(listDocumentsContract, {
       .orderBy(desc(documents.createdAt), desc(documents.id))
       .limit(input.limit + 1);
 
-    const hasMore = pageRows.length > input.limit;
-    const page = hasMore ? pageRows.slice(0, input.limit) : pageRows;
-    const last = page[page.length - 1];
-    const nextCursor =
-      hasMore && last !== undefined
-        ? formatListDocumentsCursor(last.createdAt, last.id)
-        : null;
+    const { page, nextCursor } = paginate(pageRows, input.limit, (last) =>
+      formatListDocumentsCursor(last.createdAt, last.id),
+    );
 
     const flags = await ctx.call(getSupplierSignedFlags, {
       documentIds: page.map((row) => row.id),

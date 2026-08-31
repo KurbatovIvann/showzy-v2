@@ -7,6 +7,7 @@ import {
   LIST_ORDERS_QUERY_MAX,
   listOrdersContract,
   listOrdersInputSchema,
+  listOrderRowSchema,
   parseListOrdersCursor,
 } from "./list.contract.js";
 
@@ -62,5 +63,22 @@ describe("orders.list contract", () => {
       false,
     );
     expect(parseListOrdersCursor("nope")).toBeUndefined();
+  });
+
+  it("rejects an oversized list-row total as Zod failure (SHO-284 int64 bound)", () => {
+    const row = {
+      orderId: "11111111-1111-4111-8111-111111111111",
+      orderNumber: "A-1",
+      customerId: null,
+      status: "new" as const,
+      itemCount: 1,
+      totalGrossMinor: "9223372036854775808",
+      currency: "UAH",
+      createdAt: "2026-03-01T00:00:00.000Z",
+    };
+    expect(listOrderRowSchema.safeParse(row).success).toBe(false);
+    expect(
+      listOrderRowSchema.safeParse({ ...row, totalGrossMinor: "199" }).success,
+    ).toBe(true);
   });
 });

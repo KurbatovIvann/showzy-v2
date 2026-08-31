@@ -25,7 +25,7 @@ import {
   normalizeProductsSearch,
   productsProbeState,
   toProductRowView,
-  LIST_PRODUCTS_QUERY_MAX_LENGTH,
+  LIST_PRODUCTS_QUERY_MAX,
   type ProductsListState,
 } from "./products-list.presenter";
 import {
@@ -175,7 +175,7 @@ export function useProductsList() {
       count: String(rows.length),
     }),
     searchText,
-    searchMaxLength: LIST_PRODUCTS_QUERY_MAX_LENGTH,
+    searchMaxLength: LIST_PRODUCTS_QUERY_MAX,
     changeSearch: setSearchText,
     resetSearch: () => {
       setSearchText("");

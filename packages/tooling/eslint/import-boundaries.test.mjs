@@ -91,6 +91,7 @@ test("showzy/import-boundaries", () => {
           import { createORPCClient } from "@orpc/client";
           import { defineActionContract } from "@showzy/core/contract";
           import { listThings } from "@showzy/orders/contract";
+          import { moneyWireSchema } from "@showzy/validation/money";
         `,
       },
       {

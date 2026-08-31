@@ -3,7 +3,7 @@ import { useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 
-import { LIST_PRODUCTS_QUERY_MAX_LENGTH } from "@showzy/validation/catalog";
+import { LIST_PRODUCTS_QUERY_MAX } from "@showzy/validation/catalog";
 
 import { useApiClient } from "../../../api/api-provider";
 import { describeQueryFailure, describeWireError } from "../../../api/errors";
@@ -357,7 +357,7 @@ export function usePriceListForm(args: {
     originName: origin.name,
     isDefault,
     productSearch,
-    productSearchMaxLength: LIST_PRODUCTS_QUERY_MAX_LENGTH,
+    productSearchMaxLength: LIST_PRODUCTS_QUERY_MAX,
     bulkPercent,
     bulkNote,
     priceRows,

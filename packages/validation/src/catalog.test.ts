@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   CREATE_PRODUCT_MAX_VARIANTS,
   DEFAULT_PRODUCT_CURRENCY,
-  LIST_PRODUCTS_QUERY_MAX_LENGTH,
+  LIST_PRODUCTS_QUERY_MAX,
   PRODUCT_NAME_MAX,
   SET_PRODUCT_IMAGES_MAX,
   catalogNameSchema,
@@ -14,7 +14,7 @@ describe("@showzy/validation/catalog", () => {
   it("exports the catalog caps and UAH literal previously copied in contracts", () => {
     expect(PRODUCT_NAME_MAX).toBe(120);
     expect(CREATE_PRODUCT_MAX_VARIANTS).toBe(100);
-    expect(LIST_PRODUCTS_QUERY_MAX_LENGTH).toBe(100);
+    expect(LIST_PRODUCTS_QUERY_MAX).toBe(100);
     expect(SET_PRODUCT_IMAGES_MAX).toBe(10);
     expect(DEFAULT_PRODUCT_CURRENCY).toBe("UAH");
   });

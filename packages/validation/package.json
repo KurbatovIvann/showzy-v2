@@ -7,6 +7,8 @@
   "exports": {
     "./catalog": "./src/catalog.ts",
     "./customers": "./src/customers.ts",
+    "./money": "./src/money.ts",
+    "./pagination": "./src/pagination.ts",
     "./slug": "./src/slug.ts"
   },
   "scripts": {

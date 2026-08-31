@@ -20,6 +20,11 @@
  *   naturally idempotent (no key, no storage).
  */
 import { defineActionContract } from "@showzy/core/contract";
+import {
+  createCursorCodec,
+  listCursorInput,
+  listLimitInput,
+} from "@showzy/validation/pagination";
 import { z } from "zod";
 
 import { calendarDaySchema, moneyWireSchema } from "../wire.contract.js";
@@ -32,27 +37,25 @@ export const LIST_DOCUMENTS_DEFAULT_LIMIT = 20;
 export const LIST_DOCUMENTS_MAX_LIMIT = 50;
 export const LIST_DOCUMENTS_CURSOR_MAX = 80;
 
-const listDocumentsCursorPayloadSchema = z.object({
-  createdAt: z.iso.datetime(),
-  id: z.uuid(),
+const listDocumentsCursor = createCursorCodec({
+  payload: z.object({
+    createdAt: z.iso.datetime(),
+    id: z.uuid(),
+  }),
+  fields: [
+    { key: "createdAt", kind: "isoDatetime" },
+    { key: "id", kind: "uuid" },
+  ],
 });
 
 export function formatListDocumentsCursor(createdAt: Date, id: string): string {
-  return `${createdAt.toISOString()}|${id}`;
+  return listDocumentsCursor.encode({ createdAt, id });
 }
 
 export function parseListDocumentsCursor(
   cursor: string,
-): z.output<typeof listDocumentsCursorPayloadSchema> | undefined {
-  const separator = cursor.indexOf("|");
-  if (separator <= 0 || separator !== cursor.lastIndexOf("|")) {
-    return undefined;
-  }
-  const parsed = listDocumentsCursorPayloadSchema.safeParse({
-    createdAt: cursor.slice(0, separator),
-    id: cursor.slice(separator + 1),
-  });
-  return parsed.success ? parsed.data : undefined;
+): { createdAt: string; id: string } | undefined {
+  return listDocumentsCursor.decode(cursor);
 }
 
 export const listDocumentsTypeFilterSchema = z.enum([
@@ -64,20 +67,8 @@ export const listDocumentsTypeFilterSchema = z.enum([
 export const listDocumentsInputSchema = z.strictObject({
   type: listDocumentsTypeFilterSchema.default("all"),
   orderId: z.uuid().optional(),
-  limit: z
-    .number()
-    .int()
-    .min(1)
-    .max(LIST_DOCUMENTS_MAX_LIMIT)
-    .default(LIST_DOCUMENTS_DEFAULT_LIMIT),
-  cursor: z
-    .string()
-    .min(1)
-    .max(LIST_DOCUMENTS_CURSOR_MAX)
-    .refine((value) => parseListDocumentsCursor(value) !== undefined, {
-      message: "Invalid cursor",
-    })
-    .optional(),
+  limit: listLimitInput(LIST_DOCUMENTS_MAX_LIMIT, LIST_DOCUMENTS_DEFAULT_LIMIT),
+  cursor: listCursorInput(parseListDocumentsCursor, LIST_DOCUMENTS_CURSOR_MAX),
 });
 
 export const listDocumentRowSchema = z.object({

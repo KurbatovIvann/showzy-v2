@@ -5,6 +5,7 @@ import {
   products,
   productVariants,
 } from "@showzy/db/schema/catalog";
+import { likeContainsPattern, paginate } from "@showzy/validation/pagination";
 import { and, count, desc, eq, ilike, inArray, lt, or } from "drizzle-orm";
 
 import { productStatusSchema } from "../wire.contract.js";
@@ -24,17 +25,6 @@ function parseProductStatus(value: string): "active" | "archived" {
     throw new CoreInvariantError(`products row has illegal status "${value}"`);
   }
   return parsed.data;
-}
-
-function nameSearchPattern(query: string): string | undefined {
-  const literal = query
-    .replaceAll("\\", "")
-    .replaceAll("%", "")
-    .replaceAll("_", "");
-  if (literal.length === 0) {
-    return undefined;
-  }
-  return `%${literal}%`;
 }
 
 function compareMediaPosition(
@@ -60,7 +50,7 @@ export const listProducts = implementAction(listProductsContract, {
     }
 
     const searchPattern =
-      input.query === undefined ? undefined : nameSearchPattern(input.query);
+      input.query === undefined ? undefined : likeContainsPattern(input.query);
     if (input.query !== undefined && searchPattern === undefined) {
       return { items: [], nextCursor: null };
     }
@@ -112,13 +102,9 @@ export const listProducts = implementAction(listProductsContract, {
       .orderBy(desc(products.createdAt), desc(products.id))
       .limit(input.limit + 1);
 
-    const hasMore = pageRows.length > input.limit;
-    const page = hasMore ? pageRows.slice(0, input.limit) : pageRows;
-    const last = page[page.length - 1];
-    const nextCursor =
-      hasMore && last !== undefined
-        ? formatListProductsCursor(last.createdAt, last.id)
-        : null;
+    const { page, nextCursor } = paginate(pageRows, input.limit, (last) =>
+      formatListProductsCursor(last.createdAt, last.id),
+    );
 
     if (page.length === 0) {
       return { items: [], nextCursor: null };

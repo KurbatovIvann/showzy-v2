@@ -22,6 +22,12 @@
  */
 import { defineActionContract } from "@showzy/core/contract";
 import { LIST_COUNTERPARTIES_SEARCH_MAX } from "@showzy/validation/customers";
+import {
+  createCursorCodec,
+  listCursorInput,
+  listLimitInput,
+  listSearchInput,
+} from "@showzy/validation/pagination";
 import { z } from "zod";
 
 import { counterpartyViewSchema } from "./counterparty-view.contract.js";
@@ -32,54 +38,41 @@ export const LIST_COUNTERPARTIES_DEFAULT_LIMIT = 20;
 export const LIST_COUNTERPARTIES_MAX_LIMIT = 50;
 export const LIST_COUNTERPARTIES_CURSOR_MAX = 80;
 
-const listCounterpartiesCursorPayloadSchema = z.object({
-  updatedAt: z.iso.datetime(),
-  id: z.uuid(),
+const listCounterpartiesCursor = createCursorCodec({
+  payload: z.object({
+    updatedAt: z.iso.datetime(),
+    id: z.uuid(),
+  }),
+  fields: [
+    { key: "updatedAt", kind: "isoDatetime" },
+    { key: "id", kind: "uuid" },
+  ],
 });
 
 export function formatListCounterpartiesCursor(
   updatedAt: Date,
   id: string,
 ): string {
-  return `${updatedAt.toISOString()}|${id}`;
+  return listCounterpartiesCursor.encode({ updatedAt, id });
 }
 
 export function parseListCounterpartiesCursor(
   cursor: string,
-): z.output<typeof listCounterpartiesCursorPayloadSchema> | undefined {
-  const separator = cursor.indexOf("|");
-  if (separator <= 0 || separator !== cursor.lastIndexOf("|")) {
-    return undefined;
-  }
-  const parsed = listCounterpartiesCursorPayloadSchema.safeParse({
-    updatedAt: cursor.slice(0, separator),
-    id: cursor.slice(separator + 1),
-  });
-  return parsed.success ? parsed.data : undefined;
+): { updatedAt: string; id: string } | undefined {
+  return listCounterpartiesCursor.decode(cursor);
 }
 
 export const listCounterpartiesInputSchema = z.object({
-  search: z
-    .string()
-    .trim()
-    .min(1)
-    .max(LIST_COUNTERPARTIES_SEARCH_MAX)
-    .optional(),
+  search: listSearchInput(LIST_COUNTERPARTIES_SEARCH_MAX),
   customerId: z.uuid().optional(),
-  limit: z
-    .number()
-    .int()
-    .min(1)
-    .max(LIST_COUNTERPARTIES_MAX_LIMIT)
-    .default(LIST_COUNTERPARTIES_DEFAULT_LIMIT),
-  cursor: z
-    .string()
-    .min(1)
-    .max(LIST_COUNTERPARTIES_CURSOR_MAX)
-    .refine((value) => parseListCounterpartiesCursor(value) !== undefined, {
-      message: "Invalid cursor",
-    })
-    .optional(),
+  limit: listLimitInput(
+    LIST_COUNTERPARTIES_MAX_LIMIT,
+    LIST_COUNTERPARTIES_DEFAULT_LIMIT,
+  ),
+  cursor: listCursorInput(
+    parseListCounterpartiesCursor,
+    LIST_COUNTERPARTIES_CURSOR_MAX,
+  ),
 });
 
 export const listCounterpartiesOutputSchema = z.object({

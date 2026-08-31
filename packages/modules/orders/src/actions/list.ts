@@ -2,6 +2,7 @@ import { listCustomers } from "@showzy/customers";
 import { implementAction, type ActionCtx } from "@showzy/core";
 import { CoreInvariantError } from "@showzy/core/errors";
 import { orderItems, orders } from "@showzy/db/schema/orders";
+import { paginate, sanitizeLikeLiteral } from "@showzy/validation/pagination";
 import {
   and,
   count,
@@ -30,17 +31,6 @@ function parseStatus(value: string): "new" | "confirmed" | "canceled" {
     throw new CoreInvariantError(`orders row has illegal status "${value}"`);
   }
   return parsed.data;
-}
-
-function likeLiteral(query: string): string | undefined {
-  const literal = query
-    .replaceAll("\\", "")
-    .replaceAll("%", "")
-    .replaceAll("_", "");
-  if (literal.length === 0) {
-    return undefined;
-  }
-  return literal;
 }
 
 /** Optional leading `#`; empty after strip is not a number match. */
@@ -103,7 +93,7 @@ export const listOrders = implementAction(listOrdersContract, {
     }
 
     const searchLiteral =
-      input.query === undefined ? undefined : likeLiteral(input.query);
+      input.query === undefined ? undefined : sanitizeLikeLiteral(input.query);
     if (input.query !== undefined && searchLiteral === undefined) {
       return { items: [], nextCursor: null };
     }
@@ -167,13 +157,9 @@ export const listOrders = implementAction(listOrdersContract, {
       .orderBy(desc(orders.createdAt), desc(orders.id))
       .limit(input.limit + 1);
 
-    const hasMore = pageRows.length > input.limit;
-    const page = hasMore ? pageRows.slice(0, input.limit) : pageRows;
-    const last = page[page.length - 1];
-    const nextCursor =
-      hasMore && last !== undefined
-        ? formatListOrdersCursor(last.createdAt, last.id)
-        : null;
+    const { page, nextCursor } = paginate(pageRows, input.limit, (last) =>
+      formatListOrdersCursor(last.createdAt, last.id),
+    );
 
     if (page.length === 0) {
       return { items: [], nextCursor: null };

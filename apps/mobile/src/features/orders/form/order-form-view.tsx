@@ -19,7 +19,7 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
-import { LIST_PRODUCTS_QUERY_MAX_LENGTH } from "@showzy/validation/catalog";
+import { LIST_PRODUCTS_QUERY_MAX } from "@showzy/validation/catalog";
 import { LIST_CUSTOMERS_SEARCH_MAX } from "@showzy/validation/customers";
 
 import { AppHeader, Banner, Button, EmptyState } from "../../../components/ui";
@@ -105,7 +105,7 @@ export function OrderFormView(model: OrderFormModel) {
         variantsErrorLabel={form.variantsError}
         doneLabel={form.productSheetDone}
         thumbnailFailedLabel={form.thumbnailUnavailable}
-        searchMaxLength={LIST_PRODUCTS_QUERY_MAX_LENGTH}
+        searchMaxLength={LIST_PRODUCTS_QUERY_MAX}
         selectedIds={model.selectedProductIds}
         selectedVariantIds={model.selectedVariantIds}
         doneCount={model.productPickCount}

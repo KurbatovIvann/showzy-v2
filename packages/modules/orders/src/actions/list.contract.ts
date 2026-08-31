@@ -23,6 +23,12 @@
  * - Company id is never input.
  */
 import { defineActionContract } from "@showzy/core/contract";
+import {
+  createCursorCodec,
+  listCursorInput,
+  listLimitInput,
+  listSearchInput,
+} from "@showzy/validation/pagination";
 import { z } from "zod";
 
 import { moneyWireSchema } from "../wire.contract.js";
@@ -37,27 +43,25 @@ export const LIST_ORDERS_QUERY_MAX = 100;
 export const LIST_ORDERS_CUSTOMER_SEARCH_PAGE_SIZE = 50;
 export const LIST_ORDERS_CUSTOMER_SEARCH_MAX_PAGES = 10;
 
-const listOrdersCursorPayloadSchema = z.object({
-  createdAt: z.iso.datetime(),
-  id: z.uuid(),
+const listOrdersCursor = createCursorCodec({
+  payload: z.object({
+    createdAt: z.iso.datetime(),
+    id: z.uuid(),
+  }),
+  fields: [
+    { key: "createdAt", kind: "isoDatetime" },
+    { key: "id", kind: "uuid" },
+  ],
 });
 
 export function formatListOrdersCursor(createdAt: Date, id: string): string {
-  return `${createdAt.toISOString()}|${id}`;
+  return listOrdersCursor.encode({ createdAt, id });
 }
 
 export function parseListOrdersCursor(
   cursor: string,
-): z.output<typeof listOrdersCursorPayloadSchema> | undefined {
-  const separator = cursor.indexOf("|");
-  if (separator <= 0 || separator !== cursor.lastIndexOf("|")) {
-    return undefined;
-  }
-  const parsed = listOrdersCursorPayloadSchema.safeParse({
-    createdAt: cursor.slice(0, separator),
-    id: cursor.slice(separator + 1),
-  });
-  return parsed.success ? parsed.data : undefined;
+): { createdAt: string; id: string } | undefined {
+  return listOrdersCursor.decode(cursor);
 }
 
 export const listOrdersStatusFilterSchema = z.enum([
@@ -69,21 +73,9 @@ export const listOrdersStatusFilterSchema = z.enum([
 
 export const listOrdersInputSchema = z.object({
   status: listOrdersStatusFilterSchema.default("all"),
-  query: z.string().trim().min(1).max(LIST_ORDERS_QUERY_MAX).optional(),
-  limit: z
-    .number()
-    .int()
-    .min(1)
-    .max(LIST_ORDERS_MAX_LIMIT)
-    .default(LIST_ORDERS_DEFAULT_LIMIT),
-  cursor: z
-    .string()
-    .min(1)
-    .max(LIST_ORDERS_CURSOR_MAX)
-    .refine((value) => parseListOrdersCursor(value) !== undefined, {
-      message: "Invalid cursor",
-    })
-    .optional(),
+  query: listSearchInput(LIST_ORDERS_QUERY_MAX),
+  limit: listLimitInput(LIST_ORDERS_MAX_LIMIT, LIST_ORDERS_DEFAULT_LIMIT),
+  cursor: listCursorInput(parseListOrdersCursor, LIST_ORDERS_CURSOR_MAX),
 });
 
 export const listOrderRowSchema = z.object({

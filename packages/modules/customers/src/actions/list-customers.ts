@@ -1,6 +1,7 @@
 import { implementAction } from "@showzy/core";
 import { CoreInvariantError } from "@showzy/core/errors";
 import { companyCustomers } from "@showzy/db/schema/customers";
+import { likeContainsPattern, paginate } from "@showzy/validation/pagination";
 import { and, desc, eq, ilike, lt, or } from "drizzle-orm";
 
 import { countLinkedCounterpartiesByCustomerIds } from "../services/count-linked-counterparties.js";
@@ -10,17 +11,6 @@ import {
   listCustomersContract,
   parseListCustomersCursor,
 } from "./list-customers.contract.js";
-
-function contactSearchPattern(query: string): string | undefined {
-  const literal = query
-    .replaceAll("\\", "")
-    .replaceAll("%", "")
-    .replaceAll("_", "");
-  if (literal.length === 0) {
-    return undefined;
-  }
-  return `%${literal}%`;
-}
 
 const customerListColumns = {
   id: companyCustomers.id,
@@ -45,7 +35,7 @@ export const listCustomers = implementAction(listCustomersContract, {
     const searchPattern =
       input.search === undefined
         ? undefined
-        : contactSearchPattern(input.search);
+        : likeContainsPattern(input.search);
     if (input.search !== undefined && searchPattern === undefined) {
       return { items: [], nextCursor: null };
     }
@@ -99,13 +89,9 @@ export const listCustomers = implementAction(listCustomersContract, {
       .orderBy(desc(companyCustomers.updatedAt), desc(companyCustomers.id))
       .limit(input.limit + 1);
 
-    const hasMore = pageRows.length > input.limit;
-    const page = hasMore ? pageRows.slice(0, input.limit) : pageRows;
-    const last = page[page.length - 1];
-    const nextCursor =
-      hasMore && last !== undefined
-        ? formatListCustomersCursor(last.updatedAt, last.id)
-        : null;
+    const { page, nextCursor } = paginate(pageRows, input.limit, (last) =>
+      formatListCustomersCursor(last.updatedAt, last.id),
+    );
 
     const linkedByCustomer = await countLinkedCounterpartiesByCustomerIds(
       ctx.db,

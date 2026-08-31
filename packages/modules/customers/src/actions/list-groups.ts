@@ -1,6 +1,7 @@
 import { implementAction } from "@showzy/core";
 import { CoreInvariantError } from "@showzy/core/errors";
 import { customerGroups } from "@showzy/db/schema/customers";
+import { likeContainsPattern, paginate } from "@showzy/validation/pagination";
 import { and, asc, eq, gt, ilike, or } from "drizzle-orm";
 
 import { countActiveMembersByGroupIds } from "../services/count-active-members.js";
@@ -11,17 +12,6 @@ import {
   parseListGroupsCursor,
 } from "./list-groups.contract.js";
 
-function nameSearchPattern(query: string): string | undefined {
-  const literal = query
-    .replaceAll("\\", "")
-    .replaceAll("%", "")
-    .replaceAll("_", "");
-  if (literal.length === 0) {
-    return undefined;
-  }
-  return `%${literal}%`;
-}
-
 export const listGroups = implementAction(listGroupsContract, {
   handler: async (input, ctx) => {
     if (ctx.principal !== "staff") {
@@ -29,7 +19,9 @@ export const listGroups = implementAction(listGroupsContract, {
     }
 
     const searchPattern =
-      input.search === undefined ? undefined : nameSearchPattern(input.search);
+      input.search === undefined
+        ? undefined
+        : likeContainsPattern(input.search);
     if (input.search !== undefined && searchPattern === undefined) {
       return { items: [], nextCursor: null };
     }
@@ -88,13 +80,9 @@ export const listGroups = implementAction(listGroupsContract, {
       )
       .limit(input.limit + 1);
 
-    const hasMore = pageRows.length > input.limit;
-    const page = hasMore ? pageRows.slice(0, input.limit) : pageRows;
-    const last = page[page.length - 1];
-    const nextCursor =
-      hasMore && last !== undefined
-        ? formatListGroupsCursor(last.sortOrder, last.id, last.name)
-        : null;
+    const { page, nextCursor } = paginate(pageRows, input.limit, (last) =>
+      formatListGroupsCursor(last.sortOrder, last.id, last.name),
+    );
 
     const memberCountByGroup = await countActiveMembersByGroupIds(
       ctx.db,

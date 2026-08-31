@@ -11,26 +11,15 @@
  *   Facts still return every variant of each product.
  * - Output is `{ products: [...] }` (unique products, first-seen order), not
  *   per-item. Pricing maps this dictionary back to resolve rows.
- * - Money refine is local: `*.contract.ts` cannot import `@showzy/contract`,
- *   and `packages/validation` does not exist yet. Keep the regex in lockstep
- *   with `packages/contract/src/client/money-wire.ts` until validation owns it.
+ * - Money wire is `@showzy/validation/money` via `wire.contract.ts`.
  */
 import { defineActionContract } from "@showzy/core/contract";
 import { z } from "zod";
 
+import { moneyWireSchema } from "../wire.contract.js";
+
 /** Batch ceiling shared with `pricing.resolveProductPrices` (feature card). */
 export const PRODUCT_PRICING_FACTS_MAX_ITEMS = 200;
-
-/**
- * Canonical signed integer minor units (money.md / contract.md §3): `0` or a
- * non-zero value without a leading plus, leading zeros, decimal, or exponent.
- */
-const moneyWireSchema = z
-  .string()
-  .regex(
-    /^(0|-?[1-9][0-9]*)$/,
-    "Expected a canonical signed int64 decimal string",
-  );
 
 const productPricingFactsItemSchema = z.object({
   productId: z.uuid(),

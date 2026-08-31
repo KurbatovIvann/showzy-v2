@@ -13,6 +13,11 @@
  *   naturally idempotent (no key, no storage).
  */
 import { defineActionContract } from "@showzy/core/contract";
+import {
+  createCursorCodec,
+  listCursorInput,
+  listLimitInput,
+} from "@showzy/validation/pagination";
 import { z } from "zod";
 
 import { inviteViewSchema } from "./invite-view.contract.js";
@@ -21,44 +26,30 @@ export const LIST_INVITES_DEFAULT_LIMIT = 20;
 export const LIST_INVITES_MAX_LIMIT = 50;
 export const LIST_INVITES_CURSOR_MAX = 80;
 
-const listInvitesCursorPayloadSchema = z.object({
-  updatedAt: z.iso.datetime(),
-  id: z.uuid(),
+const listInvitesCursor = createCursorCodec({
+  payload: z.object({
+    updatedAt: z.iso.datetime(),
+    id: z.uuid(),
+  }),
+  fields: [
+    { key: "updatedAt", kind: "isoDatetime" },
+    { key: "id", kind: "uuid" },
+  ],
 });
 
 export function formatListInvitesCursor(updatedAt: Date, id: string): string {
-  return `${updatedAt.toISOString()}|${id}`;
+  return listInvitesCursor.encode({ updatedAt, id });
 }
 
 export function parseListInvitesCursor(
   cursor: string,
-): z.output<typeof listInvitesCursorPayloadSchema> | undefined {
-  const separator = cursor.indexOf("|");
-  if (separator <= 0 || separator !== cursor.lastIndexOf("|")) {
-    return undefined;
-  }
-  const parsed = listInvitesCursorPayloadSchema.safeParse({
-    updatedAt: cursor.slice(0, separator),
-    id: cursor.slice(separator + 1),
-  });
-  return parsed.success ? parsed.data : undefined;
+): { updatedAt: string; id: string } | undefined {
+  return listInvitesCursor.decode(cursor);
 }
 
 export const listInvitesInputSchema = z.object({
-  limit: z
-    .number()
-    .int()
-    .min(1)
-    .max(LIST_INVITES_MAX_LIMIT)
-    .default(LIST_INVITES_DEFAULT_LIMIT),
-  cursor: z
-    .string()
-    .min(1)
-    .max(LIST_INVITES_CURSOR_MAX)
-    .refine((value) => parseListInvitesCursor(value) !== undefined, {
-      message: "Invalid cursor",
-    })
-    .optional(),
+  limit: listLimitInput(LIST_INVITES_MAX_LIMIT, LIST_INVITES_DEFAULT_LIMIT),
+  cursor: listCursorInput(parseListInvitesCursor, LIST_INVITES_CURSOR_MAX),
 });
 
 export const listInvitesOutputSchema = z.object({

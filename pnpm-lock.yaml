@@ -535,6 +535,9 @@ importers:
       '@showzy/pricing':
         specifier: workspace:*
         version: link:../modules/pricing
+      '@showzy/validation':
+        specifier: workspace:*
+        version: link:../validation
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -923,6 +926,9 @@ importers:
       '@showzy/orders':
         specifier: workspace:*
         version: link:../orders
+      '@showzy/validation':
+        specifier: workspace:*
+        version: link:../../validation
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.23.0)(kysely@0.29.5)(pg@8.23.0)
@@ -1049,6 +1055,9 @@ importers:
       '@showzy/pricing':
         specifier: workspace:*
         version: link:../pricing
+      '@showzy/validation':
+        specifier: workspace:*
+        version: link:../../validation
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.23.0)(kysely@0.29.5)(pg@8.23.0)
@@ -1086,6 +1095,9 @@ importers:
       '@showzy/db':
         specifier: workspace:*
         version: link:../../db
+      '@showzy/validation':
+        specifier: workspace:*
+        version: link:../../validation
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.23.0)(kysely@0.29.5)(pg@8.23.0)
@@ -10330,7 +10342,9 @@ snapshots:
       metro-runtime: 0.84.4
     transitivePeerDependencies:
       - '@babel/core'
+      - bufferutil
       - supports-color
+      - utf-8-validate
 
   '@react-native/normalize-colors@0.74.89': {}
 
