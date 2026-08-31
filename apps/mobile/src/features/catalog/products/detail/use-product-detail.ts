@@ -16,30 +16,16 @@ import {
   PRODUCT_FORM_MAX_VARIANTS,
   PRODUCT_NAME_MAX,
 } from "../shared/product-caps";
-import { type ProductFormVariantDraft } from "../form/product-form-draft";
 import {
   canEditProducts,
   canFetchFileDownloadUrls,
 } from "../shared/product-permissions";
-import {
-  useProductPhotos,
-  type ProductPhotosModel,
-} from "../photos/use-product-photos";
+import { useProductPhotos } from "../photos/use-product-photos";
 import {
   resolvePhotoBanner,
   resolveProductPhotosBannerKey,
-  type PhotoTileView,
-} from "../photos/product-photos-model";
-import {
-  productFacts,
-  productHeaderSubtitle,
-  type ProductDetailState,
-  type ProductDetailViewModel,
-  type ProductFacts,
-  type ProductSheetActionId,
-  type ProductVariantView,
-  type VariantSheetActionId,
-} from "./product-detail-model";
+} from "../photos/product-photos-banners";
+import { productFacts, productHeaderSubtitle } from "./product-detail-model";
 import {
   photoManagerInputFromDetailQuery,
   productDetailViewerDownloadQueryOptions,
@@ -64,56 +50,7 @@ const EMPTY_DOWNLOAD_FILES: ReadonlyArray<{
   readonly downloadUrl: string;
 }> = [];
 
-export type ProductDetailModel = {
-  readonly copy: ReturnType<typeof productsCopy>;
-  readonly state: ProductDetailState;
-  readonly product: ProductDetailViewModel | null;
-  readonly facts: ProductFacts | null;
-  readonly canEdit: boolean;
-  readonly canAddVariant: boolean;
-  readonly photoTiles: readonly PhotoTileView[];
-  readonly previewByFileId: ReadonlyMap<string, string>;
-  readonly viewerPhotoBanner: string | null;
-  readonly photos: ProductPhotosModel;
-  readonly photosFocus: number;
-  readonly nameMaxLength: number;
-  readonly headerTitle: string;
-  readonly headerSubtitle: string;
-  readonly productActionsVisible: boolean;
-  readonly variantActionsVisible: boolean;
-  readonly variantActionsTitle: string;
-  readonly variantActionsArchived: boolean;
-  readonly variantEditorVisible: boolean;
-  readonly variantEditorMode: "new" | "edit";
-  readonly variantSheetInitial: ProductFormVariantDraft | null;
-  readonly variantBanner: string | null;
-  readonly variantPending: boolean;
-  readonly statusBanner: string | null;
-  readonly goBack: () => void;
-  readonly retry: () => void;
-  readonly openEdit: () => void;
-  readonly openPhotos: () => void;
-  readonly onProductActionsHidden: () => void;
-  readonly onVariantActionsHidden: () => void;
-  readonly openProductActions: () => void;
-  readonly closeProductActions: () => void;
-  readonly onProductSheetAction: (action: ProductSheetActionId) => void;
-  readonly openVariantActions: (id: string) => void;
-  readonly closeVariantActions: () => void;
-  readonly onVariantSheetAction: (action: VariantSheetActionId) => void;
-  readonly openNewVariant: () => void;
-  readonly closeVariantEditor: () => void;
-  readonly saveVariantFromSheet: (input: {
-    readonly name: string;
-    readonly priceText: string;
-  }) => void;
-  readonly variantPriceLabel: (variant: ProductVariantView) => string;
-  readonly variantAccessibilityLabel: (variant: ProductVariantView) => string;
-};
-
-export function useProductDetail(
-  idParam: string | string[] | undefined,
-): ProductDetailModel {
+export function useProductDetail(idParam: string | string[] | undefined) {
   const locale = detectLocale();
   const copy = useMemo(() => productsCopy(locale), [locale]);
   const apiClient = useApiClient();
@@ -263,3 +200,5 @@ export function useProductDetail(
     variantAccessibilityLabel: variantActions.variantAccessibilityLabel,
   };
 }
+
+export type ProductDetailModel = ReturnType<typeof useProductDetail>;

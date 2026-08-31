@@ -1,10 +1,8 @@
 import { SET_PRODUCT_IMAGES_MAX } from "@showzy/validation/catalog";
 import { describe, expect, it } from "vitest";
 
-import {
-  SET_PRODUCT_IMAGES_MAX as photosCap,
-  remainingPhotoSlots,
-} from "./product-photos-model";
+import { SET_PRODUCT_IMAGES_MAX as photosCap } from "./product-photos-limits";
+import { remainingPhotoSlots } from "./product-photos-slots";
 import {
   createPhotoSessionStore,
   photoSessionDirty,

@@ -8,7 +8,8 @@ import type { ContractClient } from "../../../../api/client";
 import { requireReadyClient } from "../../../../api/errors";
 import { waitForSheetHidden } from "../../../../components/ui/sheet-dismiss";
 import { createMobileMutationAttempt } from "../../../../crypto/create-attempt";
-import { mapUploadBanner, remainingPhotoSlots } from "./product-photos-model";
+import { mapUploadBanner } from "./product-photos-banners";
+import { remainingPhotoSlots } from "./product-photos-slots";
 import type {
   PickedPhoto,
   PickProductPhotosResult,

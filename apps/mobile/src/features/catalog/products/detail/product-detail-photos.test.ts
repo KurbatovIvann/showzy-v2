@@ -10,7 +10,7 @@ import {
   canEditProducts,
   canFetchFileDownloadUrls,
 } from "../shared/product-permissions";
-import { PRODUCT_PHOTOS_STRIP_RENDITION } from "../photos/product-photos-model";
+import { PRODUCT_PHOTOS_STRIP_RENDITION } from "../photos/product-photos-queries";
 import {
   detailViewerPhotoTiles,
   imageFileIdsFromGetProduct,

@@ -25,7 +25,7 @@ import {
   catalogImagePreparePlan,
   catalogImageStrategy,
   nextPhotoCompressPlan,
-} from "./product-photos-model";
+} from "./product-photos-prepare";
 import {
   CatalogImagePrepareError,
   type PreparedCatalogImage,

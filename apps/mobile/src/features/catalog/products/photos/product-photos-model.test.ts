@@ -11,38 +11,43 @@ import {
   canFetchFileDownloadUrls,
 } from "../shared/product-permissions";
 import { productEditorHref, productPhotoHref } from "../shared/product-hrefs";
+import { classifyProductPhotosLoad } from "../shared/classify-product-load";
+import {
+  mapDeniedBanner,
+  mapPhotoFailure,
+  resolveProductPhotosBannerKey,
+} from "./product-photos-banners";
+import { photoFlushOutcome, planPhotoCommit } from "./product-photos-plan";
+import {
+  catalogImagePreparePlan,
+  catalogImageStrategy,
+  nextPhotoCompressPlan,
+} from "./product-photos-prepare";
+import {
+  PRODUCT_PHOTOS_STRIP_RENDITION,
+  productPhotosStripDownloadInput,
+  productPhotosStripQueryOptions,
+} from "./product-photos-queries";
 import {
   addUploadSlots,
   applyCommitSuccess,
   canAddPhoto,
-  catalogImagePreparePlan,
-  catalogImageStrategy,
   committedSlotsFromFileIds,
-  classifyProductPhotosLoad,
   fileIdsEqual,
   hasInFlightPhotoUploads,
-  mapDeniedBanner,
-  mapPhotoFailure,
   movePhotoSlot,
-  nextPhotoCompressPlan,
-  photoFlushOutcome,
   photosAreDirty,
-  planPhotoCommit,
-  productPhotosStripDownloadInput,
-  productPhotosStripQueryOptions,
   readyOrderedFileIds,
   remainingPhotoSlots,
   removePhotoSlot,
-  resolveProductPhotosBannerKey,
   toPhotoTiles,
-  PRODUCT_PHOTOS_STRIP_RENDITION,
-  SET_PRODUCT_IMAGES_MAX,
-} from "./product-photos-model";
+} from "./product-photos-slots";
 import {
   MAX_UPLOAD_BYTES,
   PHOTO_MAX_EDGE,
   PHOTO_MIN_COMPRESS,
   PHOTO_MIN_EDGE,
+  SET_PRODUCT_IMAGES_MAX,
 } from "./product-photos-limits";
 import { initialUploadMachine, reduceUpload } from "./product-photos-upload";
 
