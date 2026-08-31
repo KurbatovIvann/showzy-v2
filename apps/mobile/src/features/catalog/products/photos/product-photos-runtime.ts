@@ -87,6 +87,9 @@ export function createProductPhotosRuntime(
   const pickMeta = new Map<string, PickedPhoto>();
   let nextLocal = 1;
   let mounted = true;
+  function isMounted(): boolean {
+    return mounted;
+  }
   let settleWaiters: Array<() => void> = [];
   let sheetHiddenWaiters: Array<() => void> = [];
 
@@ -141,7 +144,7 @@ export function createProductPhotosRuntime(
     id: string,
     trigger: "start" | "retry",
   ): Promise<void> {
-    if (!mounted) {
+    if (!isMounted()) {
       return;
     }
     if (running.has(id)) {
@@ -200,7 +203,7 @@ export function createProductPhotosRuntime(
       if (result.machine.phase === "ready") {
         await deps.commitIfNeeded();
       }
-      if (result.machine.phase === "failed" && mounted) {
+      if (result.machine.phase === "failed" && isMounted()) {
         deps.send({
           type: "setBanner",
           key: mapUploadBanner(result.machine.failure),
@@ -214,7 +217,7 @@ export function createProductPhotosRuntime(
   }
 
   function kickIdleUploads(): void {
-    if (!mounted) {
+    if (!isMounted()) {
       return;
     }
     for (const id of selectPhotoSessionIdleIds(deps.getContext())) {
