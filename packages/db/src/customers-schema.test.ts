@@ -666,9 +666,6 @@ describe("customers CRM schema slice", () => {
 
   it("rejects a negative customer_groups.sort_order", async () => {
     const company = await insertCompany();
-    await expectSqlState(
-      insertGroup(company.id, { sortOrder: -1 }),
-      "23514",
-    );
+    await expectSqlState(insertGroup(company.id, { sortOrder: -1 }), "23514");
   });
 });
