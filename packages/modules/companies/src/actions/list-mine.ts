@@ -1,6 +1,7 @@
 import { implementAction } from "@showzy/core";
 import { CoreInvariantError } from "@showzy/core/errors";
 import { companies, companyMembers } from "@showzy/db/schema/companies";
+import { parseDbEnum } from "@showzy/module-kit/parse-db-enum";
 import { asc, eq } from "drizzle-orm";
 import type { z } from "zod";
 
@@ -10,13 +11,11 @@ import {
 } from "./list-mine.contract.js";
 
 function parseRole(value: string): z.output<typeof companyMemberRoleSchema> {
-  const parsed = companyMemberRoleSchema.safeParse(value);
-  if (!parsed.success) {
-    throw new CoreInvariantError(
-      `company_members row has illegal role "${value}"`,
-    );
-  }
-  return parsed.data;
+  return parseDbEnum(
+    companyMemberRoleSchema,
+    value,
+    `company_members row has illegal role "${value}"`,
+  );
 }
 
 export const listMine = implementAction(listMineContract, {

@@ -13,7 +13,7 @@
 import { defineActionContract } from "@showzy/core/contract";
 import { z } from "zod";
 
-export const SIGN_REQUEST_GRANT_TTL_MS = 15 * 60 * 1000;
+export { SIGN_REQUEST_GRANT_TTL_MS } from "@showzy/validation/signing";
 
 export const lockIssuedForSigningInputSchema = z.strictObject({
   documentId: z.uuid(),

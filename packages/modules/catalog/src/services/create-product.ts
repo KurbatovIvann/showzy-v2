@@ -3,13 +3,13 @@ import { randomUUID } from "node:crypto";
 import type { ActionCtx } from "@showzy/core";
 import { CoreInvariantError } from "@showzy/core/errors";
 import { products, productVariants } from "@showzy/db/schema/catalog";
+import { moneyFromCanonical } from "@showzy/module-kit/canonical";
 import type { z } from "zod";
 
 import type {
   createProductInputSchema,
   createProductOutputSchema,
 } from "../actions/create-product.contract.js";
-import { moneyFromCanonical } from "./canonical.js";
 import { toProductView } from "./product-view.js";
 import { requireWritable } from "./writable.js";
 

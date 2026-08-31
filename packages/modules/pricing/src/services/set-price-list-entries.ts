@@ -3,11 +3,11 @@ import { randomUUID } from "node:crypto";
 import type { ActionCtx } from "@showzy/core";
 import { CoreInvariantError } from "@showzy/core/errors";
 import { priceListEntries } from "@showzy/db/schema/pricing";
+import { moneyFromCanonical } from "@showzy/module-kit/canonical";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import type { z } from "zod";
 
 import type { setPriceListEntriesInputSchema } from "../actions/set-price-list-entries.contract.js";
-import { moneyFromCanonical } from "./canonical.js";
 import { comparePriceListEntryKeys, entryKey } from "./entry-keys.js";
 import { requireLockedPriceListId } from "./locked-price-list.js";
 import {

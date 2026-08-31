@@ -20,9 +20,12 @@
   "dependencies": {
     "@showzy/core": "workspace:*",
     "@showzy/db": "workspace:*",
+    "@showzy/doc-generation": "workspace:*",
     "@showzy/documents": "workspace:*",
     "@showzy/document-signing": "workspace:*",
     "@showzy/files": "workspace:*",
+    "@showzy/module-kit": "workspace:*",
+    "@showzy/validation": "workspace:*",
     "drizzle-orm": "^0.45.2",
     "zod": "^4.4.3"
   },

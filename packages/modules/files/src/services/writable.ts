@@ -1,13 +1,10 @@
 import type { ActionCtx } from "@showzy/core";
-import { CoreInvariantError } from "@showzy/core/errors";
+import { requireWritable as requireWritableTx } from "@showzy/module-kit/writable";
 
 type MutationCtx = Extract<ActionCtx, { principal: "staff" | "system" }>;
 type MutationDb = MutationCtx["db"];
 type WritableDb = Extract<MutationDb, { insert: unknown }>;
 
 export function requireWritable(db: MutationDb): WritableDb {
-  if (!("insert" in db)) {
-    throw new CoreInvariantError("files expected the writable transaction");
-  }
-  return db;
+  return requireWritableTx(db, "files");
 }

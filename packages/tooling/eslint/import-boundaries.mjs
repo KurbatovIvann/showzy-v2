@@ -24,6 +24,7 @@ const PLATFORM_PACKAGES = new Set([
   "db",
   "document-signing",
   "money",
+  "module-kit",
   "tooling",
   "ui",
   "validation",
@@ -248,6 +249,16 @@ function violation(from, spec, typeOnly) {
       // imports documents.getForGeneration — ESM + tsc cycle through TSX).
       if (
         moduleName === "documents" &&
+        pkg.name === "doc-generation" &&
+        pkg.rest === "get-artifact"
+      ) {
+        return null;
+      }
+      // SHO-286: docSigning.start nests getArtifact for the payload fileId
+      // without importing the doc-generation barrel (renderPdf →
+      // documents.getForGeneration — ESM cycle).
+      if (
+        moduleName === "doc-signing" &&
         pkg.name === "doc-generation" &&
         pkg.rest === "get-artifact"
       ) {

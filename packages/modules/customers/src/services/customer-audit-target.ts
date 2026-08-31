@@ -1,19 +1,8 @@
-import type { AuditTargetEnv } from "@showzy/core";
-import { z } from "zod";
+import { holderAuditTarget } from "@showzy/module-kit/audit-target";
 
-const customerIdHolder = z.object({ id: z.string() });
-
-export function customerAuditTarget(env: AuditTargetEnv): {
-  type: string;
-  id: string;
-} {
-  const fromOutput = customerIdHolder.safeParse(env.output);
-  if (fromOutput.success) {
-    return { type: "customer", id: fromOutput.data.id };
-  }
-  const fromInput = customerIdHolder.safeParse(env.input);
-  return {
-    type: "customer",
-    id: fromInput.success ? fromInput.data.id : "uncreated",
-  };
-}
+export const customerAuditTarget = holderAuditTarget({
+  type: "customer",
+  field: "id",
+  fallback: "uncreated",
+  sources: ["output", "input"],
+});

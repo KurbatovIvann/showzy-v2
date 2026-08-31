@@ -1,6 +1,7 @@
 import type { ActionCtx } from "@showzy/core";
 import { CoreInvariantError, NotFoundError } from "@showzy/core/errors";
 import { files } from "@showzy/db/schema/files";
+import { uniqueIds } from "@showzy/module-kit/unique-ids";
 import { and, eq, inArray } from "drizzle-orm";
 import type { z } from "zod";
 
@@ -50,19 +51,6 @@ type ReadyFileRow = {
   readonly objectKey: string;
   readonly mimeType: string;
 };
-
-function uniqueFileIds(fileIds: readonly string[]): string[] {
-  const ids: string[] = [];
-  const seen = new Set<string>();
-  for (const fileId of fileIds) {
-    if (seen.has(fileId)) {
-      continue;
-    }
-    seen.add(fileId);
-    ids.push(fileId);
-  }
-  return ids;
-}
 
 async function signReadyCatalogGet(
   companyId: string,
@@ -206,7 +194,7 @@ export async function getStaffDownloadUrls(input: {
   readonly ctx: StaffCtx;
   readonly input: DownloadUrlsInput;
 }): Promise<{ files: SignedDownload[] }> {
-  const fileIds = uniqueFileIds(input.input.fileIds);
+  const fileIds = uniqueIds(input.input.fileIds);
   const rows = await input.ctx.db
     .select()
     .from(files)

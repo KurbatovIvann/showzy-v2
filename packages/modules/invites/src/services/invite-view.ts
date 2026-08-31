@@ -1,5 +1,5 @@
-import { CoreInvariantError } from "@showzy/core/errors";
 import { companyCustomerInvites } from "@showzy/db/schema/invites";
+import { parseDbEnum } from "@showzy/module-kit/parse-db-enum";
 
 import {
   inviteStoredStatusSchema,
@@ -48,18 +48,12 @@ export function nullableText(value: string | null | undefined): string | null {
   return value;
 }
 
-export function nullableUuid(value: string | null | undefined): string | null {
-  return value ?? null;
-}
-
 function parseStoredStatus(value: string): "pending" | "revoked" {
-  const parsed = inviteStoredStatusSchema.safeParse(value);
-  if (!parsed.success) {
-    throw new CoreInvariantError(
-      `company_customer_invites row has illegal status "${value}"`,
-    );
-  }
-  return parsed.data;
+  return parseDbEnum(
+    inviteStoredStatusSchema,
+    value,
+    `company_customer_invites row has illegal status "${value}"`,
+  );
 }
 
 export function derivedInviteStatus(

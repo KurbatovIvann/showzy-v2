@@ -5,12 +5,12 @@ import {
   NotFoundError,
 } from "@showzy/core/errors";
 import { files } from "@showzy/db/schema/files";
+import { sha256Hex } from "@showzy/module-kit/sha256";
 import { and, eq } from "drizzle-orm";
 import type { z } from "zod";
 
 import type { recordSigningObjectInputSchema } from "../actions/record-signing-object.contract.js";
 import { MAX_DOCUMENT_BYTES } from "../wire.contract.js";
-import { sha256Hex } from "./checksum.js";
 import { toSigningReadyView, type SigningReadyView } from "./file-view.js";
 import { bytesAreAsicContainer } from "./magic-bytes.js";
 import { signingObjectKey, stagingObjectKey } from "./object-key.js";

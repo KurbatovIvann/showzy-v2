@@ -1,0 +1,34 @@
+{
+  "name": "@showzy/module-kit",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Server-only micro-utilities shared by domain modules (ADR-0031). This package owns no actions, tables, or client Zod schemas.",
+  "exports": {
+    "./audit-target": "./src/audit-target.ts",
+    "./canonical": "./src/canonical.ts",
+    "./optional-nullable-uuid": "./src/optional-nullable-uuid.ts",
+    "./parse-db-enum": "./src/parse-db-enum.ts",
+    "./postgres-unique": "./src/postgres-unique.ts",
+    "./require": "./src/require.ts",
+    "./sha256": "./src/sha256.ts",
+    "./unique-ids": "./src/unique-ids.ts",
+    "./writable": "./src/writable.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@showzy/core": "workspace:*",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@showzy/tooling": "workspace:*",
+    "@types/node": "^22.20.1",
+    "eslint": "^10.8.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
+  }
+}

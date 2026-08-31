@@ -5,10 +5,23 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import {
+  ALREADY_SIGNED_MESSAGE,
+  CANCELLED_DOCUMENT_SIGN_MESSAGE,
+  CANCELLED_REQUEST_SIGN_MESSAGE,
+  CANCELLED_START_MESSAGE,
+  PDF_NOT_READY_MESSAGE,
+} from "@showzy/validation/signing";
+
+import {
   requestSignContract,
   requestSignInputSchema,
 } from "./request-sign.contract.js";
-import { requestSignConfirmationSummary } from "./request-sign.js";
+import {
+  ALREADY_SIGNED_MESSAGE as REQUEST_SIGN_ALREADY_SIGNED_MESSAGE,
+  CANCELLED_REQUEST_SIGN_MESSAGE as REQUEST_SIGN_CANCELLED_MESSAGE,
+  PDF_NOT_READY_MESSAGE as REQUEST_SIGN_PDF_NOT_READY_MESSAGE,
+  requestSignConfirmationSummary,
+} from "./request-sign.js";
 
 const validId = "11111111-1111-4111-8111-111111111111";
 
@@ -59,6 +72,16 @@ describe("documents.requestSign contract", () => {
     expect(requestSignConfirmationSummary).not.toMatch(/\d{6}/);
     expect(requestSignConfirmationSummary).not.toContain("@");
     expect(requestSignConfirmationSummary).not.toContain("+380");
+  });
+
+  it("emits the shared signing-gate clientMessages also used by docSigning.start", () => {
+    expect(REQUEST_SIGN_CANCELLED_MESSAGE).toBe(CANCELLED_REQUEST_SIGN_MESSAGE);
+    expect(REQUEST_SIGN_CANCELLED_MESSAGE).toBe(CANCELLED_START_MESSAGE);
+    expect(REQUEST_SIGN_CANCELLED_MESSAGE).toBe(
+      CANCELLED_DOCUMENT_SIGN_MESSAGE,
+    );
+    expect(REQUEST_SIGN_ALREADY_SIGNED_MESSAGE).toBe(ALREADY_SIGNED_MESSAGE);
+    expect(REQUEST_SIGN_PDF_NOT_READY_MESSAGE).toBe(PDF_NOT_READY_MESSAGE);
   });
 
   it("nests getArtifact and getSigning without foreign schema joins", () => {

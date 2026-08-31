@@ -2,37 +2,17 @@ import { implementAction } from "@showzy/core";
 import { CoreInvariantError } from "@showzy/core/errors";
 import { documents } from "@showzy/db/schema/documents";
 import { getSupplierSignedFlags } from "@showzy/doc-signing/get-supplier-signed-flags";
+import { moneyToCanonical } from "@showzy/module-kit/canonical";
 import { paginate } from "@showzy/validation/pagination";
 import { and, desc, eq, lt, or } from "drizzle-orm";
-import type { z } from "zod";
 
-import { moneyToCanonical } from "../services/canonical.js";
+import { parseStatus, parseType } from "../services/parse-document.js";
 import { buyerLabelFromSnapshot } from "../services/snapshots.js";
-import {
-  documentStatusSchema,
-  documentTypeSchema,
-} from "./document-view.contract.js";
 import {
   formatListDocumentsCursor,
   listDocumentsContract,
   parseListDocumentsCursor,
 } from "./list.contract.js";
-
-function parseType(value: string): z.output<typeof documentTypeSchema> {
-  const parsed = documentTypeSchema.safeParse(value);
-  if (!parsed.success) {
-    throw new CoreInvariantError(`documents row has illegal type "${value}"`);
-  }
-  return parsed.data;
-}
-
-function parseStatus(value: string): z.output<typeof documentStatusSchema> {
-  const parsed = documentStatusSchema.safeParse(value);
-  if (!parsed.success) {
-    throw new CoreInvariantError(`documents row has illegal status "${value}"`);
-  }
-  return parsed.data;
-}
 
 export const listDocuments = implementAction(listDocumentsContract, {
   handler: async (input, ctx) => {

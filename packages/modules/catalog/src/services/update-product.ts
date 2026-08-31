@@ -1,6 +1,7 @@
 import type { ActionCtx } from "@showzy/core";
 import { CoreInvariantError, NotFoundError } from "@showzy/core/errors";
 import { products, productVariants } from "@showzy/db/schema/catalog";
+import { moneyFromCanonical } from "@showzy/module-kit/canonical";
 import { and, eq } from "drizzle-orm";
 import type { z } from "zod";
 
@@ -8,7 +9,6 @@ import type {
   updateProductInputSchema,
   updateProductOutputSchema,
 } from "../actions/update-product.contract.js";
-import { moneyFromCanonical } from "./canonical.js";
 import { toProductView } from "./product-view.js";
 import { requireWritable } from "./writable.js";
 

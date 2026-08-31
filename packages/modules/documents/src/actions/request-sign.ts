@@ -3,27 +3,32 @@ import {
   ConflictError,
   CoreInvariantError,
   NotFoundError,
-  ValidationError,
 } from "@showzy/core/errors";
 import { documents } from "@showzy/db/schema/documents";
 import { getArtifact } from "@showzy/doc-generation/get-artifact";
 import { getSigning } from "@showzy/doc-signing/get";
+import {
+  ALREADY_SIGNED_MESSAGE,
+  CANCELLED_REQUEST_SIGN_MESSAGE,
+  PDF_NOT_READY_MESSAGE,
+} from "@showzy/validation/signing";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 
-import { requestSignContract } from "./request-sign.contract.js";
 import { documentsSignRequested } from "../events/sign-requested.js";
 import {
   loadGenerationArtifact,
   readyArtifactFileId,
 } from "../services/load-generation.js";
+import { requireReadyPdf } from "../services/signing-gates.js";
 import { requireWritable } from "../services/writable.js";
+import { requestSignContract } from "./request-sign.contract.js";
 
-export const CANCELLED_REQUEST_SIGN_MESSAGE =
-  "Cancelled documents cannot be signed.";
-export const ALREADY_SIGNED_MESSAGE = "Document is already signed.";
-export const PDF_NOT_READY_MESSAGE =
-  "The document PDF must be ready before requesting a signature.";
+export {
+  ALREADY_SIGNED_MESSAGE,
+  CANCELLED_REQUEST_SIGN_MESSAGE,
+  PDF_NOT_READY_MESSAGE,
+};
 
 /**
  * Staff confirmationSummary cannot load the document (core.md §7
@@ -37,10 +42,6 @@ export const requestSignConfirmationSummary =
 
 const documentIdHolder = z.object({ documentId: z.string() });
 
-const readyPdfGate = z.object({
-  present: z.literal(true, { error: PDF_NOT_READY_MESSAGE }),
-});
-
 function requestSignAuditTarget(env: AuditTargetEnv): {
   type: string;
   id: string;
@@ -50,13 +51,6 @@ function requestSignAuditTarget(env: AuditTargetEnv): {
     type: "document",
     id: parsed.success ? parsed.data.documentId : "unknown",
   };
-}
-
-function requireReadyPdf(fileId: string | null): void {
-  const parsed = readyPdfGate.safeParse({ present: fileId !== null });
-  if (!parsed.success) {
-    throw new ValidationError(parsed.error.issues, PDF_NOT_READY_MESSAGE);
-  }
 }
 
 export const requestSign = implementAction(requestSignContract, {

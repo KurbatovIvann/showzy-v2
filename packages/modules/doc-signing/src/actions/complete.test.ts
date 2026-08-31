@@ -130,5 +130,6 @@ describe("docSigning.complete contract", () => {
     expect(completeSource).not.toContain("payloadDownloadUrl");
     expect(completeSource).toContain("WeakMap");
     expect(completeSource).not.toContain("new Map");
+    expect(completeSource).toContain("resolveExistingSignature");
   });
 });

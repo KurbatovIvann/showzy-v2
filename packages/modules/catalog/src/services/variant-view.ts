@@ -1,8 +1,11 @@
 import { CoreInvariantError } from "@showzy/core/errors";
+import {
+  moneyFromCanonical,
+  moneyToCanonical,
+} from "@showzy/module-kit/canonical";
 import type { z } from "zod";
 
 import type { variantViewSchema } from "../actions/variant-view.contract.js";
-import { moneyFromCanonical, moneyToCanonical } from "./canonical.js";
 
 type VariantView = z.output<typeof variantViewSchema>;
 

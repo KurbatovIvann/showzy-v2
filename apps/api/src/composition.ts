@@ -323,11 +323,11 @@ const callEdges: readonly DeclaredCallEdge[] = [
   },
   {
     caller: "docSigning.start",
-    callee: "documents.get",
+    callee: "documents.lockIssuedForSigning",
   },
   {
     caller: "docSigning.start",
-    callee: "documents.lockIssuedForSigning",
+    callee: "docGeneration.getArtifact",
   },
   {
     caller: "docSigning.start",

@@ -1,6 +1,5 @@
 import { implementAction, type AuditTargetEnv } from "@showzy/core";
 import {
-  ConflictError,
   CoreInvariantError,
   NotFoundError,
   ValidationError,
@@ -16,17 +15,24 @@ import {
   verifyAsicE,
 } from "@showzy/document-signing/node";
 import { readPendingSigningObject, recordSigningObject } from "@showzy/files";
+import { postgresUniqueConstraint } from "@showzy/module-kit/postgres-unique";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { completeSigningContract } from "./complete.contract.js";
-import { ALREADY_SIGNED_MESSAGE } from "./start.js";
 import { docSigningRecorded } from "../events/recorded.js";
-import { postgresUniqueConstraint } from "../services/postgres-unique.js";
+import {
+  type CertSnapshot,
+  type CompleteSigningView,
+  completeSigningView,
+  loadSupplierSignature,
+  resolveExistingSignature,
+  snapshotFromSignature,
+} from "../services/resolve-existing-signature.js";
 import { requireStaffWritable } from "../services/writable.js";
 
-export { ALREADY_SIGNED_MESSAGE };
-export const DIFFERENT_FILE_MESSAGE = ALREADY_SIGNED_MESSAGE;
+export { ALREADY_SIGNED_MESSAGE } from "@showzy/validation/signing";
+export { DIFFERENT_FILE_MESSAGE } from "../services/resolve-existing-signature.js";
 export const INVALID_ASIC_MESSAGE =
   "The uploaded file is not a valid signed ASiC-E container.";
 export const PAYLOAD_MISMATCH_MESSAGE =
@@ -44,16 +50,6 @@ const asicValidGate = z.object({
 const digestMatchGate = z.object({
   match: z.literal(true, { error: PAYLOAD_MISMATCH_MESSAGE }),
 });
-
-type CertSnapshot = {
-  readonly signerCn: string;
-  readonly signerOrg: string;
-  readonly signerTaxId: string;
-  readonly signatureAlg: string;
-  readonly documentId: string;
-  readonly fileId: string;
-  readonly signerRole: "supplier";
-};
 
 /**
  * Request-scoped: execute-action passes the same validated `input` object
@@ -111,46 +107,15 @@ type RequestRow = {
   readonly status: string;
 };
 
-type SignatureRow = {
-  readonly fileId: string;
-  readonly signerCn: string;
-  readonly signerOrg: string;
-  readonly signerTaxId: string;
-  readonly signatureAlg: string;
-  readonly signedAt: Date;
-};
-
-function completeOutput(env: {
-  readonly documentId: string;
-  readonly requestId: string;
-  readonly signature: SignatureRow;
-}) {
-  return {
-    documentId: env.documentId,
-    requestId: env.requestId,
-    fileId: env.signature.fileId,
-    signerRole: "supplier" as const,
-    signerCn: env.signature.signerCn,
-    signerOrg: env.signature.signerOrg,
-    signerTaxId: env.signature.signerTaxId,
-    signatureAlg: env.signature.signatureAlg,
-    signedAt: env.signature.signedAt.toISOString(),
-  };
-}
-
-function snapshotFromSignature(
-  documentId: string,
-  signature: SignatureRow,
-): CertSnapshot {
-  return {
-    signerCn: signature.signerCn,
-    signerOrg: signature.signerOrg,
-    signerTaxId: signature.signerTaxId,
-    signatureAlg: signature.signatureAlg,
-    documentId,
-    fileId: signature.fileId,
-    signerRole: "supplier",
-  };
+function replayResolved(
+  input: object,
+  resolved: {
+    readonly output: CompleteSigningView;
+    readonly snapshot: CertSnapshot;
+  },
+): CompleteSigningView {
+  stashSnapshot(input, resolved.snapshot);
+  return resolved.output;
 }
 
 async function loadRequest(env: {
@@ -176,53 +141,6 @@ async function loadRequest(env: {
     .limit(1);
   const rows = env.lock === true ? await query.for("update") : await query;
   return rows[0];
-}
-
-async function loadSupplierSignature(env: {
-  readonly db: ReturnType<typeof requireStaffWritable>;
-  readonly companyId: string;
-  readonly documentId: string;
-}): Promise<SignatureRow | undefined> {
-  const rows = await env.db
-    .select({
-      fileId: signingSignatures.fileId,
-      signerCn: signingSignatures.signerCn,
-      signerOrg: signingSignatures.signerOrg,
-      signerTaxId: signingSignatures.signerTaxId,
-      signatureAlg: signingSignatures.signatureAlg,
-      signedAt: signingSignatures.signedAt,
-    })
-    .from(signingSignatures)
-    .where(
-      and(
-        eq(signingSignatures.companyId, env.companyId),
-        eq(signingSignatures.documentId, env.documentId),
-        eq(signingSignatures.signerRole, "supplier"),
-      ),
-    )
-    .limit(1);
-  return rows[0];
-}
-
-function replayOrConflict(env: {
-  readonly input: { readonly requestId: string; readonly fileId: string };
-  readonly documentId: string;
-  readonly requestId: string;
-  readonly fileId: string;
-  readonly signature: SignatureRow;
-}) {
-  if (env.signature.fileId !== env.fileId) {
-    throw new ConflictError(DIFFERENT_FILE_MESSAGE);
-  }
-  stashSnapshot(
-    env.input,
-    snapshotFromSignature(env.documentId, env.signature),
-  );
-  return completeOutput({
-    documentId: env.documentId,
-    requestId: env.requestId,
-    signature: env.signature,
-  });
 }
 
 export const completeSigning = implementAction(completeSigningContract, {
@@ -252,13 +170,15 @@ export const completeSigning = implementAction(completeSigningContract, {
           "docSigning.complete completed request is missing a signature",
         );
       }
-      return replayOrConflict({
+      return replayResolved(
         input,
-        documentId: request.documentId,
-        requestId: request.id,
-        fileId: input.fileId,
-        signature: existing,
-      });
+        resolveExistingSignature({
+          signature: existing,
+          fileId: input.fileId,
+          documentId: request.documentId,
+          requestId: request.id,
+        }),
+      );
     }
     if (request.status !== "pending") {
       throw new CoreInvariantError("docSigning.complete saw an unknown status");
@@ -270,13 +190,15 @@ export const completeSigning = implementAction(completeSigningContract, {
       documentId: request.documentId,
     });
     if (already !== undefined) {
-      return replayOrConflict({
+      return replayResolved(
         input,
-        documentId: request.documentId,
-        requestId: request.id,
-        fileId: input.fileId,
-        signature: already,
-      });
+        resolveExistingSignature({
+          signature: already,
+          fileId: input.fileId,
+          documentId: request.documentId,
+          requestId: request.id,
+        }),
+      );
     }
 
     const staging = await ctx.call(readPendingSigningObject, {
@@ -298,7 +220,7 @@ export const completeSigning = implementAction(completeSigningContract, {
     requireMatchingDigest(verified.payloadSha256, request.payloadSha256);
 
     const signedAt = new Date(verified.signedAt);
-    const signature: SignatureRow = {
+    const signature = {
       fileId: input.fileId,
       signerCn: verified.signerCn.length > 0 ? verified.signerCn : "unknown",
       signerOrg: verified.signerOrg,
@@ -337,13 +259,15 @@ export const completeSigning = implementAction(completeSigningContract, {
           "docSigning.complete completed request is missing a signature",
         );
       }
-      return replayOrConflict({
+      return replayResolved(
         input,
-        documentId: locked.documentId,
-        requestId: locked.id,
-        fileId: input.fileId,
-        signature: existing,
-      });
+        resolveExistingSignature({
+          signature: existing,
+          fileId: input.fileId,
+          documentId: locked.documentId,
+          requestId: locked.id,
+        }),
+      );
     }
     if (locked.status !== "pending") {
       throw new CoreInvariantError("docSigning.complete saw an unknown status");
@@ -355,13 +279,15 @@ export const completeSigning = implementAction(completeSigningContract, {
       documentId: locked.documentId,
     });
     if (claimed !== undefined) {
-      return replayOrConflict({
+      return replayResolved(
         input,
-        documentId: locked.documentId,
-        requestId: locked.id,
-        fileId: input.fileId,
-        signature: claimed,
-      });
+        resolveExistingSignature({
+          signature: claimed,
+          fileId: input.fileId,
+          documentId: locked.documentId,
+          requestId: locked.id,
+        }),
+      );
     }
 
     try {
@@ -393,13 +319,15 @@ export const completeSigning = implementAction(completeSigningContract, {
           "docSigning.complete unique race lost a signature",
         );
       }
-      return replayOrConflict({
+      return replayResolved(
         input,
-        documentId: locked.documentId,
-        requestId: locked.id,
-        fileId: input.fileId,
-        signature: raced,
-      });
+        resolveExistingSignature({
+          signature: raced,
+          fileId: input.fileId,
+          documentId: locked.documentId,
+          requestId: locked.id,
+        }),
+      );
     }
 
     await ctx.callAtomic(recordSigningObject, {
@@ -440,7 +368,7 @@ export const completeSigning = implementAction(completeSigningContract, {
     });
 
     stashSnapshot(input, snapshotFromSignature(locked.documentId, signature));
-    return completeOutput({
+    return completeSigningView({
       documentId: locked.documentId,
       requestId: locked.id,
       signature,

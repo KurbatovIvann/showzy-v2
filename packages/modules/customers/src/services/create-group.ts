@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { ActionCtx } from "@showzy/core";
 import { ConflictError, CoreInvariantError } from "@showzy/core/errors";
 import { customerGroups } from "@showzy/db/schema/customers";
+import { postgresUniqueConstraint } from "@showzy/module-kit/postgres-unique";
 import { and, eq } from "drizzle-orm";
 import type { z } from "zod";
 
@@ -20,7 +21,6 @@ import {
   storedPriceListId,
   toGroupView,
 } from "./group-view.js";
-import { postgresUniqueConstraint } from "./postgres-unique.js";
 import { resolveGroupPriceListId } from "./resolve-price-list.js";
 import { requireWritable, type WritableStaffDb } from "./writable.js";
 
