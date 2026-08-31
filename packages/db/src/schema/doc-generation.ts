@@ -15,14 +15,17 @@ import {
   index,
   pgTable,
   text,
-  timestamp,
   unique,
   uuid,
 } from "drizzle-orm/pg-core";
 
-import { companies } from "./companies.js";
 import { documents } from "./documents.js";
 import { files } from "./files.js";
+import {
+  tenantCompanyId,
+  tenantRowUnique,
+  timestampColumns,
+} from "./tenant-columns.js";
 
 /**
  * One generation job per tenant document. `file_id` is null until the
@@ -32,24 +35,14 @@ export const documentGenerationJobs = pgTable(
   "document_generation_jobs",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id")
-      .notNull()
-      .references(() => companies.id, { onDelete: "cascade" }),
+    companyId: tenantCompanyId(),
     documentId: uuid("document_id").notNull(),
     status: text("status").notNull().default("pending"),
     fileId: uuid("file_id"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    ...timestampColumns(),
   },
   (table) => [
-    unique("document_generation_jobs_company_id_id_uq").on(
-      table.companyId,
-      table.id,
-    ),
+    tenantRowUnique("document_generation_jobs_company_id_id_uq", table),
     unique("document_generation_jobs_document_id_uq").on(table.documentId),
     index("document_generation_jobs_file_idx").on(table.fileId),
     foreignKey({

@@ -13,7 +13,6 @@ import {
   integer,
   pgTable,
   text,
-  timestamp,
   unique,
   uniqueIndex,
   uuid,
@@ -21,8 +20,12 @@ import {
 
 import { userIdColumn } from "./auth-ids.js";
 import { user } from "./auth.js";
-import { companies } from "./companies.js";
 import { priceLists } from "./pricing.js";
+import {
+  tenantCompanyId,
+  tenantRowUnique,
+  timestampColumns,
+} from "./tenant-columns.js";
 
 /**
  * Customer segmentation groups carrying the level-3 price-list assignment.
@@ -33,23 +36,16 @@ export const customerGroups = pgTable(
   "customer_groups",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id")
-      .notNull()
-      .references(() => companies.id, { onDelete: "cascade" }),
+    companyId: tenantCompanyId(),
     name: text("name").notNull(),
     slug: text("slug").notNull(),
     description: text("description"),
     sortOrder: integer("sort_order").notNull().default(0),
     priceListId: uuid("price_list_id"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    ...timestampColumns(),
   },
   (table) => [
-    unique("customer_groups_company_id_id_uq").on(table.companyId, table.id),
+    tenantRowUnique("customer_groups_company_id_id_uq", table),
     unique("customer_groups_company_slug_uq").on(table.companyId, table.slug),
     index("customer_groups_price_list_idx").on(table.priceListId),
     // Getter defers the customers ↔ pricing import cycle (ADR-0025).
@@ -76,9 +72,7 @@ export const companyCustomers = pgTable(
   "company_customers",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id")
-      .notNull()
-      .references(() => companies.id, { onDelete: "cascade" }),
+    companyId: tenantCompanyId(),
     name: text("name").notNull(),
     phone: text("phone"),
     email: text("email"),
@@ -89,15 +83,10 @@ export const companyCustomers = pgTable(
     status: text("status").notNull().default("active"),
     groupId: uuid("group_id"),
     priceListId: uuid("price_list_id"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    ...timestampColumns(),
   },
   (table) => [
-    unique("company_customers_company_id_id_uq").on(table.companyId, table.id),
+    tenantRowUnique("company_customers_company_id_id_uq", table),
     uniqueIndex("company_customers_company_user_uq")
       .on(table.companyId, table.userId)
       .where(sql`${table.userId} IS NOT NULL`),
@@ -160,9 +149,7 @@ export const counterparties = pgTable(
   "counterparties",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id")
-      .notNull()
-      .references(() => companies.id, { onDelete: "cascade" }),
+    companyId: tenantCompanyId(),
     customerId: uuid("customer_id"),
     name: text("name").notNull(),
     edrpou: text("edrpou"),
@@ -173,15 +160,10 @@ export const counterparties = pgTable(
     phone: text("phone"),
     email: text("email"),
     notes: text("notes"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    ...timestampColumns(),
   },
   (table) => [
-    unique("counterparties_company_id_id_uq").on(table.companyId, table.id),
+    tenantRowUnique("counterparties_company_id_id_uq", table),
     uniqueIndex("counterparties_company_edrpou_uq")
       .on(table.companyId, table.edrpou)
       .where(sql`${table.edrpou} IS NOT NULL`),
@@ -223,12 +205,7 @@ export const customerLegalProfiles = pgTable(
     bankMfo: text("bank_mfo"),
     phone: text("phone"),
     email: text("email"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    ...timestampColumns(),
   },
   (table) => [
     unique("customer_legal_profiles_user_id_uq").on(table.userId),

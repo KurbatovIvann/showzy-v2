@@ -25,9 +25,13 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { products, productVariants } from "./catalog.js";
-import { companies } from "./companies.js";
 import { counterparties } from "./customers.js";
 import { orders } from "./orders.js";
+import {
+  tenantCompanyId,
+  tenantRowUnique,
+  timestampColumns,
+} from "./tenant-columns.js";
 
 /**
  * Tenant document header. Totals are sums of persisted line snapshots.
@@ -38,9 +42,7 @@ export const documents = pgTable(
   "documents",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id")
-      .notNull()
-      .references(() => companies.id, { onDelete: "cascade" }),
+    companyId: tenantCompanyId(),
     orderId: uuid("order_id").notNull(),
     counterpartyId: uuid("counterparty_id"),
     type: text("type").notNull(),
@@ -55,16 +57,11 @@ export const documents = pgTable(
     currency: char("currency", { length: 3 }).notNull().default("UAH"),
     templateSource: text("template_source").notNull().default("system"),
     templateName: text("template_name").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    ...timestampColumns(),
     signRequestedAt: timestamp("sign_requested_at", { withTimezone: true }),
   },
   (table) => [
-    unique("documents_company_id_id_uq").on(table.companyId, table.id),
+    tenantRowUnique("documents_company_id_id_uq", table),
     unique("documents_company_type_document_number_uq").on(
       table.companyId,
       table.type,
@@ -121,9 +118,7 @@ export const documentItems = pgTable(
   "document_items",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id")
-      .notNull()
-      .references(() => companies.id, { onDelete: "cascade" }),
+    companyId: tenantCompanyId(),
     documentId: uuid("document_id").notNull(),
     productId: uuid("product_id").notNull(),
     variantId: uuid("variant_id"),
@@ -152,7 +147,7 @@ export const documentItems = pgTable(
       .defaultNow(),
   },
   (table) => [
-    unique("document_items_company_id_id_uq").on(table.companyId, table.id),
+    tenantRowUnique("document_items_company_id_id_uq", table),
     index("document_items_document_idx").on(table.documentId),
     index("document_items_product_idx").on(table.productId),
     index("document_items_variant_idx").on(table.variantId),
@@ -214,9 +209,7 @@ export const documentItems = pgTable(
 export const documentNumberCounters = pgTable(
   "document_number_counters",
   {
-    companyId: uuid("company_id")
-      .notNull()
-      .references(() => companies.id, { onDelete: "cascade" }),
+    companyId: tenantCompanyId(),
     type: text("type").notNull(),
     lastNumber: bigint("last_number", { mode: "bigint" })
       .notNull()
@@ -249,9 +242,7 @@ export const documentShareTokens = pgTable(
   "document_share_tokens",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id")
-      .notNull()
-      .references(() => companies.id, { onDelete: "cascade" }),
+    companyId: tenantCompanyId(),
     documentId: uuid("document_id").notNull(),
     tokenHash: text("token_hash").notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
@@ -269,10 +260,7 @@ export const documentShareTokens = pgTable(
       .defaultNow(),
   },
   (table) => [
-    unique("document_share_tokens_company_id_id_uq").on(
-      table.companyId,
-      table.id,
-    ),
+    tenantRowUnique("document_share_tokens_company_id_id_uq", table),
     unique("document_share_tokens_token_hash_uq").on(table.tokenHash),
     uniqueIndex("document_share_tokens_document_id_active_uq")
       .on(table.documentId)

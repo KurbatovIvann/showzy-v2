@@ -15,15 +15,17 @@ import {
   index,
   pgTable,
   text,
-  timestamp,
-  unique,
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
 import { products, productVariants } from "./catalog.js";
-import { companies } from "./companies.js";
 import { companyCustomers } from "./customers.js";
+import {
+  tenantCompanyId,
+  tenantRowUnique,
+  timestampColumns,
+} from "./tenant-columns.js";
 
 /**
  * Named price tiers (SHO-171 adds `name`). At most one default list per
@@ -34,21 +36,14 @@ export const priceLists = pgTable(
   "price_lists",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id")
-      .notNull()
-      .references(() => companies.id, { onDelete: "cascade" }),
+    companyId: tenantCompanyId(),
     name: text("name").notNull(),
     isActive: boolean("is_active").notNull().default(true),
     isDefault: boolean("is_default").notNull().default(false),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    ...timestampColumns(),
   },
   (table) => [
-    unique("price_lists_company_id_id_uq").on(table.companyId, table.id),
+    tenantRowUnique("price_lists_company_id_id_uq", table),
     uniqueIndex("price_lists_company_default_uq")
       .on(table.companyId)
       .where(sql`${table.isDefault} = true`),
@@ -71,23 +66,16 @@ export const priceListEntries = pgTable(
   "price_list_entries",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id")
-      .notNull()
-      .references(() => companies.id, { onDelete: "cascade" }),
+    companyId: tenantCompanyId(),
     priceListId: uuid("price_list_id").notNull(),
     productId: uuid("product_id").notNull(),
     variantId: uuid("variant_id"),
     priceMinor: bigint("price_minor", { mode: "bigint" }).notNull(),
     currency: char("currency", { length: 3 }).notNull().default("UAH"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    ...timestampColumns(),
   },
   (table) => [
-    unique("price_list_entries_company_id_id_uq").on(table.companyId, table.id),
+    tenantRowUnique("price_list_entries_company_id_id_uq", table),
     index("price_list_entries_price_list_idx").on(table.priceListId),
     index("price_list_entries_product_idx").on(table.productId),
     index("price_list_entries_variant_idx").on(table.variantId),
@@ -130,23 +118,16 @@ export const personalPrices = pgTable(
   "personal_prices",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id")
-      .notNull()
-      .references(() => companies.id, { onDelete: "cascade" }),
+    companyId: tenantCompanyId(),
     customerId: uuid("customer_id").notNull(),
     productId: uuid("product_id").notNull(),
     variantId: uuid("variant_id"),
     priceMinor: bigint("price_minor", { mode: "bigint" }).notNull(),
     currency: char("currency", { length: 3 }).notNull().default("UAH"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    ...timestampColumns(),
   },
   (table) => [
-    unique("personal_prices_company_id_id_uq").on(table.companyId, table.id),
+    tenantRowUnique("personal_prices_company_id_id_uq", table),
     index("personal_prices_customer_idx").on(table.customerId),
     index("personal_prices_product_idx").on(table.productId),
     index("personal_prices_variant_idx").on(table.variantId),

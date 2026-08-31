@@ -33,7 +33,11 @@ import {
 
 import { user } from "./auth.js";
 import { userIdColumn } from "./auth-ids.js";
-import { companies } from "./companies.js";
+import {
+  tenantCompanyId,
+  tenantRowUnique,
+  timestampColumns,
+} from "./tenant-columns.js";
 
 /**
  * One row per uploaded or generated object. Catalog and signing handshake
@@ -47,9 +51,7 @@ export const files = pgTable(
   "files",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id")
-      .notNull()
-      .references(() => companies.id, { onDelete: "cascade" }),
+    companyId: tenantCompanyId(),
     uploadedByUserId: userIdColumn("uploaded_by_user_id").references(
       () => user.id,
       { onDelete: "restrict" },
@@ -60,16 +62,11 @@ export const files = pgTable(
     byteSize: bigint("byte_size", { mode: "bigint" }).notNull(),
     checksumSha256: text("checksum_sha256"),
     status: text("status").notNull().default("pending"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    ...timestampColumns(),
     stagingPurgedAt: timestamp("staging_purged_at", { withTimezone: true }),
   },
   (table) => [
-    unique("files_company_id_id_uq").on(table.companyId, table.id),
+    tenantRowUnique("files_company_id_id_uq", table),
     unique("files_company_object_key_uq").on(table.companyId, table.objectKey),
     index("files_company_status_idx").on(table.companyId, table.status),
     index("files_uploaded_by_user_idx").on(table.uploadedByUserId),

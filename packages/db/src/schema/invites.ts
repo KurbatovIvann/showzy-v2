@@ -22,9 +22,13 @@ import {
 
 import { userIdColumn } from "./auth-ids.js";
 import { user } from "./auth.js";
-import { companies } from "./companies.js";
 import { companyCustomers, customerGroups } from "./customers.js";
 import { priceLists } from "./pricing.js";
+import {
+  tenantCompanyId,
+  tenantRowUnique,
+  timestampColumns,
+} from "./tenant-columns.js";
 
 /**
  * Staff-created customer-entry invite. Lookup is by globally unique
@@ -36,9 +40,7 @@ export const companyCustomerInvites = pgTable(
   "company_customer_invites",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id")
-      .notNull()
-      .references(() => companies.id, { onDelete: "cascade" }),
+    companyId: tenantCompanyId(),
     invitedBy: userIdColumn("invited_by")
       .notNull()
       .references(() => user.id, { onDelete: "restrict" }),
@@ -53,18 +55,10 @@ export const companyCustomerInvites = pgTable(
     name: text("name"),
     phone: text("phone"),
     email: text("email"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    ...timestampColumns(),
   },
   (table) => [
-    unique("company_customer_invites_company_id_id_uq").on(
-      table.companyId,
-      table.id,
-    ),
+    tenantRowUnique("company_customer_invites_company_id_id_uq", table),
     unique("company_customer_invites_token_hash_uq").on(table.tokenHash),
     index("company_customer_invites_company_updated_at_id_idx").on(
       table.companyId,
@@ -129,9 +123,7 @@ export const companyCustomerInviteRedemptions = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     inviteId: uuid("invite_id").notNull(),
-    companyId: uuid("company_id")
-      .notNull()
-      .references(() => companies.id, { onDelete: "cascade" }),
+    companyId: tenantCompanyId(),
     userId: userIdColumn("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "restrict" }),
@@ -139,9 +131,9 @@ export const companyCustomerInviteRedemptions = pgTable(
     acceptedAt: timestamp("accepted_at", { withTimezone: true }).notNull(),
   },
   (table) => [
-    unique("company_customer_invite_redemptions_company_id_id_uq").on(
-      table.companyId,
-      table.id,
+    tenantRowUnique(
+      "company_customer_invite_redemptions_company_id_id_uq",
+      table,
     ),
     unique("company_customer_invite_redemptions_invite_user_uq").on(
       table.inviteId,

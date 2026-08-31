@@ -21,8 +21,12 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { products, productVariants } from "./catalog.js";
-import { companies } from "./companies.js";
 import { companyCustomers } from "./customers.js";
+import {
+  tenantCompanyId,
+  tenantRowUnique,
+  timestampColumns,
+} from "./tenant-columns.js";
 
 /**
  * Tenant order header. `canceled` is declared for forward-compat; this
@@ -32,9 +36,7 @@ export const orders = pgTable(
   "orders",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id")
-      .notNull()
-      .references(() => companies.id, { onDelete: "cascade" }),
+    companyId: tenantCompanyId(),
     /**
      * Per-company display number (SHO-250). Stored as `{prefix}-{token}`
      * (v1 `obfuscate_seq` / `to_base36`). Assigned in `orders.create`.
@@ -48,15 +50,10 @@ export const orders = pgTable(
     totalGrossMinor: bigint("total_gross_minor", { mode: "bigint" }).notNull(),
     currency: char("currency", { length: 3 }).notNull().default("UAH"),
     confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    ...timestampColumns(),
   },
   (table) => [
-    unique("orders_company_id_id_uq").on(table.companyId, table.id),
+    tenantRowUnique("orders_company_id_id_uq", table),
     unique("orders_company_id_order_number_uq").on(
       table.companyId,
       table.orderNumber,
@@ -99,9 +96,7 @@ export const orderItems = pgTable(
   "order_items",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id")
-      .notNull()
-      .references(() => companies.id, { onDelete: "cascade" }),
+    companyId: tenantCompanyId(),
     orderId: uuid("order_id").notNull(),
     productId: uuid("product_id").notNull(),
     variantId: uuid("variant_id"),
@@ -135,7 +130,7 @@ export const orderItems = pgTable(
       .defaultNow(),
   },
   (table) => [
-    unique("order_items_company_id_id_uq").on(table.companyId, table.id),
+    tenantRowUnique("order_items_company_id_id_uq", table),
     index("order_items_order_idx").on(table.orderId),
     index("order_items_product_idx").on(table.productId),
     index("order_items_variant_idx").on(table.variantId),
@@ -200,9 +195,7 @@ export const orderItems = pgTable(
 export const orderNumberCounters = pgTable(
   "order_number_counters",
   {
-    companyId: uuid("company_id")
-      .notNull()
-      .references(() => companies.id, { onDelete: "cascade" }),
+    companyId: tenantCompanyId(),
     lastNumber: bigint("last_number", { mode: "bigint" }).notNull(),
   },
   (table) => [
