@@ -6,8 +6,12 @@ export const MAX_DOCUMENT_BYTES = 25 * 1024 * 1024;
 
 export const DOCUMENT_MIME_TYPE = "application/pdf" as const;
 
+/** Immediate first HeadObject, then 25ms × 2^n. */
 const OBJECT_HEAD_POLL_MS = 25;
-const OBJECT_HEAD_TIMEOUT_MS = 10_000;
+/** Never sleep a fixed 500ms+ visibility delay (SHO-290). */
+const OBJECT_HEAD_POLL_MAX_MS = 200;
+/** Tighter than the previous 10_000ms tight loop (SHO-290 mechanical default). */
+const OBJECT_HEAD_TIMEOUT_MS = 4_000;
 
 /**
  * Garage Head-after-Put can lag. Poll until the object is visible, then
@@ -19,6 +23,7 @@ export async function waitForGeneratedObject(
 ): Promise<void> {
   const store = getFilesObjectStore();
   const started = Date.now();
+  let delayMs = OBJECT_HEAD_POLL_MS;
   for (;;) {
     const head = await store.headObject(key);
     if (head !== "missing") {
@@ -30,8 +35,9 @@ export async function waitForGeneratedObject(
       );
     }
     await new Promise<void>((resolve) => {
-      setTimeout(resolve, OBJECT_HEAD_POLL_MS);
+      setTimeout(resolve, delayMs);
     });
+    delayMs = Math.min(delayMs * 2, OBJECT_HEAD_POLL_MAX_MS);
   }
 }
 
