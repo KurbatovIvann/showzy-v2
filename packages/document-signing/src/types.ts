@@ -10,11 +10,11 @@ export interface CertInfo {
 
 export interface KeyInfo {
   id: string;
-  mechanismId?: string;
-  parameterId?: string;
-  label?: string;
-  application?: string;
-  signAlgo?: string[];
+  mechanismId?: string | undefined;
+  parameterId?: string | undefined;
+  label?: string | undefined;
+  application?: string | undefined;
+  signAlgo?: string[] | undefined;
 }
 
 export interface ValidateKeyResult {

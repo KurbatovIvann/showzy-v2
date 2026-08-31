@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import type { AdapterInitOptions } from "./adapter.js";
 
 /**
@@ -96,11 +98,13 @@ export function isRepeatInitSelfTestArtifact(response: {
   );
 }
 
+const initRequestSchema = z.looseObject({
+  parameters: z.record(z.string(), z.unknown()).optional(),
+});
+
 /** The INIT request with the self-test disabled (repeat-init retry). */
 export function withSkipSelfTest(initRequestJson: string): string {
-  const request = JSON.parse(initRequestJson) as {
-    parameters?: Record<string, unknown>;
-  };
+  const request = initRequestSchema.parse(JSON.parse(initRequestJson));
   request.parameters = { ...request.parameters, skipSelfTest: true };
   return JSON.stringify(request);
 }

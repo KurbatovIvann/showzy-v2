@@ -1,3 +1,5 @@
+import { uint8ToBase64 } from "../pki/encoding.js";
+import { parseUapkiResponseValue } from "../pki/uapki-json.js";
 import type { UapkiResponse } from "../types.js";
 import type { AdapterInitOptions, UapkiAdapter } from "./adapter.js";
 import type { WorkerCommand, WorkerResponse } from "./worker/types.js";
@@ -61,11 +63,7 @@ export class WebAdapter implements UapkiAdapter {
   }
 
   async writeFile(path: string, data: Uint8Array): Promise<void> {
-    let binary = "";
-    for (let i = 0; i < data.length; i++) {
-      binary += String.fromCharCode(data[i] ?? 0);
-    }
-    const dataBase64 = btoa(binary);
+    const dataBase64 = uint8ToBase64(data);
     await this.send({ type: "writeFile", path, dataBase64 });
   }
 
@@ -112,7 +110,15 @@ export class WebAdapter implements UapkiAdapter {
     this.pending.delete(msg.id);
 
     if (msg.type === "result") {
-      pending.resolve(msg.data);
+      // The worker forwards raw UAPKI JSON; validate the envelope here so a
+      // malformed engine response is a typed failure (SHO-282).
+      try {
+        pending.resolve(parseUapkiResponseValue(msg.data, "web-adapter"));
+      } catch (error) {
+        pending.reject(
+          error instanceof Error ? error : new Error(String(error)),
+        );
+      }
       return;
     }
     pending.reject(new Error(msg.message));

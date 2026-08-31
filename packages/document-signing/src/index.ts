@@ -30,8 +30,11 @@ export {
   CertExpiredError,
   SignFailedError,
   AsicContainerError,
+  UapkiProtocolError,
   VerifyFailedError,
 } from "./errors.js";
+
+export { setPkiDebugLog, type PkiDebugLog } from "./pki/debug-log.js";
 
 export type { CaProvider } from "./pki/ca-registry.js";
 

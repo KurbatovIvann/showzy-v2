@@ -1,7 +1,10 @@
 import { Directory, File, Paths } from "expo-file-system";
 import { NitroModules } from "react-native-nitro-modules";
+import { z } from "zod";
 
+import { pkiDebugLog } from "../pki/debug-log.js";
 import { unwrapProxyResponse } from "../pki/proxy.js";
+import { parseUapkiResponseJson } from "../pki/uapki-json.js";
 import type { UapkiEngine } from "../specs/uapki.nitro.js";
 import type { UapkiResponse } from "../types.js";
 import type { AdapterInitOptions, UapkiAdapter } from "./adapter.js";
@@ -52,7 +55,7 @@ export class NativeAdapter implements UapkiAdapter {
     }
 
     let initResult = await this.engine.process(initRequest);
-    let parsed = JSON.parse(initResult) as UapkiResponse;
+    let parsed = parseUapkiResponseJson(initResult, "native-adapter INIT");
 
     if (
       parsed.errorCode !== 0 &&
@@ -60,12 +63,12 @@ export class NativeAdapter implements UapkiAdapter {
     ) {
       await this.engine.process(JSON.stringify({ method: "DEINIT" }));
       initResult = await this.engine.process(initRequest);
-      parsed = JSON.parse(initResult) as UapkiResponse;
+      parsed = parseUapkiResponseJson(initResult, "native-adapter INIT");
     }
 
     if (isRepeatInitSelfTestArtifact(parsed)) {
       initResult = await this.engine.process(withSkipSelfTest(initRequest));
-      parsed = JSON.parse(initResult) as UapkiResponse;
+      parsed = parseUapkiResponseJson(initResult, "native-adapter INIT");
     }
 
     if (parsed.errorCode !== 0) {
@@ -80,7 +83,7 @@ export class NativeAdapter implements UapkiAdapter {
       throw new Error("NativeAdapter not initialized");
     }
     const resultJson = await this.engine.process(jsonRequest);
-    return JSON.parse(resultJson) as UapkiResponse;
+    return parseUapkiResponseJson(resultJson, "native-adapter");
   }
 
   writeFile(path: string, data: Uint8Array): Promise<void> {
@@ -95,8 +98,9 @@ export class NativeAdapter implements UapkiAdapter {
       if (file.exists) {
         file.delete();
       }
-    } catch {
+    } catch (error) {
       // best effort
+      pkiDebugLog(`native-adapter: delete failed (${path})`, error);
     }
     return Promise.resolve();
   }
@@ -134,15 +138,17 @@ function formatSelfTestStatus(response: UapkiResponse): string {
  *   C++ sends:  {"method":"GET"|"POST","url":"...","contentType":"...","bodyBase64":"..."}
  *   JS returns: {"status":200,"bodyBase64":"..."}
  */
+const engineHttpRequestSchema = z.looseObject({
+  method: z.string(),
+  url: z.string(),
+  contentType: z.string().optional(),
+  bodyBase64: z.string().optional(),
+});
+
 function createHttpHandler(corsProxyUrl: string) {
   return async (jsonRequest: string): Promise<string> => {
     try {
-      const req = JSON.parse(jsonRequest) as {
-        method: string;
-        url: string;
-        contentType?: string;
-        bodyBase64?: string;
-      };
+      const req = engineHttpRequestSchema.parse(JSON.parse(jsonRequest));
 
       const proxyBody: { url: string; contentType?: string; body?: string } = {
         url: req.url,
@@ -170,7 +176,8 @@ function createHttpHandler(corsProxyUrl: string) {
         status: payload.status,
         bodyBase64: payload.bodyBase64 ?? "",
       });
-    } catch {
+    } catch (error) {
+      pkiDebugLog("native-adapter: engine HTTP callback failed", error);
       return JSON.stringify({ status: 0, bodyBase64: "" });
     }
   };

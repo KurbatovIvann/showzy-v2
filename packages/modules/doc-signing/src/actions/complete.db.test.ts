@@ -38,11 +38,11 @@ import { orderItems, orders } from "@showzy/db/schema/orders";
 import { cancelDocument } from "@showzy/documents";
 import {
   ASIC_E_MIMETYPE,
-  createSignedAsicE,
   getSharedNodeAdapter,
   packAsicE,
   sha256Hex,
 } from "@showzy/document-signing/node";
+import { createSignedAsicE } from "@showzy/document-signing/testing";
 import {
   getSigningUploadUrl,
   recordSigningObject,

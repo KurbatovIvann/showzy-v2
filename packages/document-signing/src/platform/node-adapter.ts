@@ -3,6 +3,8 @@ import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { pkiDebugLog } from "../pki/debug-log.js";
+import { parseUapkiResponseJson } from "../pki/uapki-json.js";
 import type { UapkiResponse } from "../types.js";
 import type { AdapterInitOptions, UapkiAdapter } from "./adapter.js";
 import { applyWasmCorsProxy, nodeAdapterHttpPlan } from "./http-init.js";
@@ -116,7 +118,11 @@ export class NodeAdapter implements UapkiAdapter {
   }
 
   process(jsonRequest: string): Promise<UapkiResponse> {
-    const request = JSON.parse(jsonRequest) as Record<string, unknown>;
+    // The request JSON is produced by this package's own callers.
+    const request: unknown = JSON.parse(jsonRequest);
+    if (typeof request !== "object" || request === null) {
+      throw new Error("UAPKI request must be a JSON object");
+    }
     return Promise.resolve(this.callRaw(request));
   }
 
@@ -130,8 +136,9 @@ export class NodeAdapter implements UapkiAdapter {
     if (!this.module) throw new Error("NodeAdapter not initialized");
     try {
       this.module.FS.unlink(path);
-    } catch {
+    } catch (error) {
       // best effort
+      pkiDebugLog(`node-adapter: unlink failed (${path})`, error);
     }
     return Promise.resolve();
   }
@@ -146,7 +153,7 @@ export class NodeAdapter implements UapkiAdapter {
     return Promise.resolve();
   }
 
-  private callRaw(request: Record<string, unknown>): UapkiResponse {
+  private callRaw(request: object): UapkiResponse {
     if (!this.module || !this.processFunc || !this.jsonFreeFunc) {
       throw new Error("WASM module not initialized");
     }
@@ -166,7 +173,7 @@ export class NodeAdapter implements UapkiAdapter {
     const resultStr = this.module.UTF8ToString(resultPtr);
     this.jsonFreeFunc(resultPtr);
 
-    return JSON.parse(resultStr) as UapkiResponse;
+    return parseUapkiResponseJson(resultStr, "node-adapter");
   }
 }
 

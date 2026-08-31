@@ -16,7 +16,15 @@ import {
   loadCaRegistry,
 } from "./pki/ca-registry.js";
 import { fetchUserCerts } from "./pki/cert-fetch.js";
+import { pkiDebugLog } from "./pki/debug-log.js";
 import { uint8ToBase64 } from "./pki/encoding.js";
+import {
+  certInfoResultSchema,
+  keysResultSchema,
+  parseUapkiResult,
+  selectKeyResultSchema,
+  signResultSchema,
+} from "./pki/uapki-json.js";
 import type {
   CertInfo,
   DocumentSignerOptions,
@@ -104,7 +112,11 @@ export class DocumentSigner {
       const selectResult = await this.callMethod("SELECT_KEY", {
         id: signingKey.id,
       });
-      let certBase64 = selectResult.result?.certificate as string | undefined;
+      let certBase64 = parseUapkiResult(
+        selectKeyResultSchema,
+        "SELECT_KEY",
+        selectResult.result,
+      ).certificate;
 
       if (certBase64) {
         const certInfo = await this.getCertInfo(certBase64);
@@ -118,7 +130,11 @@ export class DocumentSigner {
       const retryResult = await this.callMethod("SELECT_KEY", {
         id: signingKey.id,
       });
-      certBase64 = retryResult.result?.certificate as string | undefined;
+      certBase64 = parseUapkiResult(
+        selectKeyResultSchema,
+        "SELECT_KEY",
+        retryResult.result,
+      ).certificate;
       if (!certBase64) {
         throw new StorageError("SELECT_KEY did not return a certificate");
       }
@@ -161,7 +177,11 @@ export class DocumentSigner {
       const selectResult = await this.callMethod("SELECT_KEY", {
         id: signingKey.id,
       });
-      const certBase64 = selectResult.result?.certificate as string | undefined;
+      const certBase64 = parseUapkiResult(
+        selectKeyResultSchema,
+        "SELECT_KEY",
+        selectResult.result,
+      ).certificate;
       if (!certBase64) {
         throw new StorageError("SELECT_KEY did not return a certificate");
       }
@@ -200,8 +220,11 @@ export class DocumentSigner {
         );
       }
 
-      const signatures = signResult.result?.signatures as
-        Array<{ bytes: string }> | undefined;
+      const signatures = parseUapkiResult(
+        signResultSchema,
+        "SIGN",
+        signResult.result,
+      ).signatures;
       const p7sBase64 = signatures?.[0]?.bytes ?? "";
 
       if (!p7sBase64) {
@@ -255,8 +278,9 @@ export class DocumentSigner {
           await loadCaRegistry(this.options.corsProxyUrl);
         }
         await this.loadCaCerts(this.options.corsProxyUrl);
-      } catch {
+      } catch (error) {
         // CA cert loading is best-effort; signing may work with limited validation
+        pkiDebugLog("document-signer: CA registry/cert load failed", error);
       }
     }
   }
@@ -320,14 +344,15 @@ export class DocumentSigner {
         resp.errorCode,
       );
     }
-    return (resp.result?.keys as KeyInfo[] | undefined) ?? [];
+    return parseUapkiResult(keysResultSchema, "KEYS", resp.result).keys ?? [];
   }
 
   private async closeStorage(): Promise<void> {
     try {
       await this.callMethod("CLOSE");
-    } catch {
+    } catch (error) {
       // best effort
+      pkiDebugLog("document-signer: CLOSE failed", error);
     }
     await this.adapter.deleteFile(this.keyPath);
   }
@@ -352,8 +377,9 @@ export class DocumentSigner {
           certificates: [uint8ToBase64(certBytes)],
         });
       }
-    } catch {
+    } catch (error) {
       // CMP fetch is best-effort; signing may still succeed
+      pkiDebugLog("document-signer: CMP user-cert fetch failed", error);
     }
   }
 
@@ -382,24 +408,27 @@ function findSigningKey(keys: KeyInfo[]): KeyInfo | undefined {
   );
 }
 
-function parseCertInfo(certResult: Record<string, unknown>): CertInfo {
-  const subject = certResult.subject as Record<string, string> | undefined;
-  const issuer = certResult.issuer as Record<string, string> | undefined;
-  const validity = certResult.validity as
-    { notBefore?: string; notAfter?: string } | undefined;
-  const spki = certResult.subjectPublicKeyInfo as
-    { algorithm?: string } | undefined;
+function nameField(
+  record: Record<string, unknown> | undefined,
+  key: string,
+): string {
+  const value = record?.[key];
+  return typeof value === "string" ? value : "";
+}
 
+function parseCertInfo(certResult: Record<string, unknown>): CertInfo {
+  const parsed = parseUapkiResult(
+    certInfoResultSchema,
+    "CERT_INFO",
+    certResult,
+  );
   return {
-    commonName: subject?.CN ?? "",
-    organization: subject?.O ?? "",
-    issuer: issuer?.CN ?? "",
-    serialNumber:
-      typeof certResult.serialNumber === "string"
-        ? certResult.serialNumber
-        : "",
-    validFrom: validity?.notBefore ?? "",
-    validUntil: validity?.notAfter ?? "",
-    algorithm: spki?.algorithm ?? "",
+    commonName: nameField(parsed.subject, "CN"),
+    organization: nameField(parsed.subject, "O"),
+    issuer: nameField(parsed.issuer, "CN"),
+    serialNumber: parsed.serialNumber ?? "",
+    validFrom: parsed.validity?.notBefore ?? "",
+    validUntil: parsed.validity?.notAfter ?? "",
+    algorithm: parsed.subjectPublicKeyInfo?.algorithm ?? "",
   };
 }
