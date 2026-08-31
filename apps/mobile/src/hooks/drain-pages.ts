@@ -1,6 +1,6 @@
 /**
- * Shared infinite-query drain predicate for group and price-list
- * lookups (list chips and form pickers).
+ * Shared infinite-query drain predicate for lookup pickers and list
+ * chips. Feature slices must not copy this helper.
  */
 export function shouldDrainNextPage(args: {
   readonly status: "pending" | "error" | "success";

@@ -22,6 +22,7 @@ export type CustomersFormCopy = FormChromeCopy & {
   readonly groupPlaceholder: string;
   readonly groupSheetTitle: string;
   readonly groupEmptyOption: string;
+  readonly groupEmpty: string;
   readonly groupSearchPlaceholder: string;
   readonly assignmentUnavailable: string;
   readonly priceListLabel: string;
@@ -29,6 +30,7 @@ export type CustomersFormCopy = FormChromeCopy & {
   readonly priceListDefault: string;
   readonly priceListSheetTitle: string;
   readonly priceListEmptyOption: string;
+  readonly priceListEmpty: string;
   readonly priceListSearchPlaceholder: string;
   readonly counterpartiesTitle: string;
   readonly counterpartiesHelper: string;
@@ -77,6 +79,7 @@ export const en: CustomersFormCopy = {
   groupPlaceholder: "No group",
   groupSheetTitle: "Client group",
   groupEmptyOption: "No group",
+  groupEmpty: "No groups found.",
   groupSearchPlaceholder: "Search groups…",
   assignmentUnavailable: "Assigned",
   priceListLabel: "Price list",
@@ -84,6 +87,7 @@ export const en: CustomersFormCopy = {
   priceListDefault: "Retail by default",
   priceListSheetTitle: "Price list",
   priceListEmptyOption: "Default",
+  priceListEmpty: "No price lists found.",
   priceListSearchPlaceholder: "Search price lists…",
   counterpartiesTitle: "Legal entities",
   counterpartiesHelper:
@@ -139,6 +143,7 @@ export const uk: CustomersFormCopy = {
   groupPlaceholder: "Без групи",
   groupSheetTitle: "Група клієнтів",
   groupEmptyOption: "Без групи",
+  groupEmpty: "Груп не знайдено.",
   groupSearchPlaceholder: "Пошук груп…",
   assignmentUnavailable: "Призначено",
   priceListLabel: "Прайс-лист",
@@ -146,6 +151,7 @@ export const uk: CustomersFormCopy = {
   priceListDefault: "Роздрібний за замовчуванням",
   priceListSheetTitle: "Прайс-лист",
   priceListEmptyOption: "За замовчуванням",
+  priceListEmpty: "Прайс-листів не знайдено.",
   priceListSearchPlaceholder: "Пошук прайс-листів…",
   counterpartiesTitle: "Юрособи",
   counterpartiesHelper:

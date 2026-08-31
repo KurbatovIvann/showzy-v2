@@ -1,9 +1,10 @@
 /**
  * Canvas OrderEditor as create-only (SHO-242).
- * Shared: AppHeader, Button, TextField, SearchField, Sheet, EmptyState, Banner.
- * Feature: SelectorRow, EditorSection, OrderLineCard, QuantityStepper,
- * ProductSelectSheet (products + in-sheet variant drill-down),
- * OptionSelectSheet (customers only — never stacked on the product Modal).
+ * Shared: AppHeader, Button, TextField, SearchField, Sheet, EmptyState, Banner,
+ * OptionSelectSheet, SelectorRow.
+ * Feature: EditorSection, OrderLineCard, QuantityStepper,
+ * ProductSelectSheet (products + in-sheet variant drill-down).
+ * OptionSelectSheet is customers only — never stacked on the product Modal.
  * Omitted: payment, delivery, due date, status picker, discount, line
  * prices, and «До сплати» (owner decision 2 — footer is line count).
  */
@@ -22,13 +23,18 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { LIST_PRODUCTS_QUERY_MAX } from "@showzy/validation/catalog";
 import { LIST_CUSTOMERS_SEARCH_MAX } from "@showzy/validation/customers";
 
-import { AppHeader, Banner, Button, EmptyState } from "../../../components/ui";
+import {
+  AppHeader,
+  Banner,
+  Button,
+  EmptyState,
+  OptionSelectSheet,
+  SelectorRow,
+} from "../../../components/ui";
 import { EditorSection } from "./editor-section";
 import { OrderFormCommentField } from "./order-form-fields";
 import { OrderLineCard } from "./order-line-card";
-import { OptionSelectSheet } from "./option-select-sheet";
 import { ProductSelectSheet } from "./product-select-sheet";
-import { SelectorRow } from "./selector-row";
 import type { OrderFormModel } from "./use-order-form";
 
 export function OrderFormView(model: OrderFormModel) {
@@ -87,7 +93,11 @@ export function OrderFormView(model: OrderFormModel) {
         searchMaxLength={LIST_CUSTOMERS_SEARCH_MAX}
         leading="user"
         onClose={model.closeCustomerSheet}
-        onChange={model.pickCustomer}
+        onChange={(id) => {
+          if (id !== null) {
+            model.pickCustomer(id);
+          }
+        }}
       />
       <ProductSelectSheet
         visible={model.productSheetOpen}

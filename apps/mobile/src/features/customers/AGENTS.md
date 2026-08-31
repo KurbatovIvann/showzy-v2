@@ -30,10 +30,12 @@ feature subdomain. `form/` must not import list/group/counterparty/
 invitation **UI**. Cross-subdomain imports must be a deliberate reusable
 primitive, not convenience reach-through.
 
-Picker chrome (`OptionSelectSheet`, `SelectorRow`) and the pure picker
-helpers `optionSelectItems` / `selectorLookupValue` live in `shared/`
-(consumed by `form/`, `groups/`, `counterparties/`, and `invitations/`).
-Do not put those helpers back in `form/`.
+Picker chrome (`OptionSelectSheet`, `SelectorRow`) and
+`optionSelectItems` / `filterOptionSelectItems` / `flattenPages` live in
+`src/components/ui/`. Lookup drain (`useDrainInfinitePages`) lives in
+`src/hooks/`. Consume those; do not copy them into this slice.
+`selectorLookupValue` (CRM inherit display) stays in `shared/option-select.ts`
+and re-exports `optionSelectItems` for lookup hooks.
 
 Client-form inherit / Юрособи helpers (`groupAssignedPriceListId`,
 `inheritedPriceListPlaceholder`, counterparties body kind) stay in
@@ -67,11 +69,11 @@ false-positive:
 | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
 | `api/`            | list/query binders, status and delete mutations, `getCustomer` / `getGroup` / `getCounterparty`, `listCounterparties` / `deleteCounterparty`, `invites.list` / `invites.revoke` / `invites.create`, form mutations, cache invalidation keys                                                   | JSX, RHF, screens, views                                          |
 | `list/`           | Home screen, view, composer hook, clients presenter/row, `use-client-writes`. Top chrome is shared `TabView` + `SegmentedTabs` `layout="scroll"` (full-bleed swipe scenes; not `BottomNav`)                                                                                                   | Group/counterparty/invitation row internals, form fields          |
-| `groups/`         | Groups presenter, composer hook, group row, `use-group-writes`, create/edit group form (RHF, UI draft Zod, save loop, unsaved guard). Price-list picker reuses `shared/OptionSelectSheet`                                                                                                     | Client filters; client form fields; counterparties; invitations   |
+| `groups/`         | Groups presenter, composer hook, group row, `use-group-writes`, create/edit group form (RHF, UI draft Zod, save loop, unsaved guard). Price-list picker reuses shared `OptionSelectSheet`                                                                                                     | Client filters; client form fields; counterparties; invitations   |
 | `counterparties/` | Counterparties presenter, composer hook, row, `use-counterparty-writes`, create/edit form (RHF, UI draft Zod, save loop, unsaved guard). Search is name/EDRPOU. Delete is protocol confirmation (`customers:edit`)                                                                            | Client filters; invitations; client form fields                   |
 | `invitations/`    | Invitations presenter, composer hook, row, `use-invite-writes` (UI confirm revoke), create form (RHF, UI draft Zod, save loop, unsaved guard, once-only token/url). List is `invites.list`; create is `invites.create`; revoke is `invites.revoke`. No recopy from the list, no accept screen | Client filters; group/counterparty form fields; `list/` internals |
 | `form/`           | Create/edit client screen, view, UI draft Zod, RHF fields, save loop, unsaved guard, picker lookups, archive/restore/delete on the editor, Юрособи list via `api/`, client inherit helpers                                                                                                    | List filters; group/counterparty/invitation UI                    |
-| `shared/`         | Permissions, hrefs, caps, initials, count labels, paged-list helpers, lookup drain, entity card chrome, `OptionSelectSheet`, `SelectorRow`, `optionSelectItems`, `selectorLookupValue`                                                                                                        | Transport; feature subdomain imports                              |
+| `shared/`         | Permissions, hrefs, caps, initials, count labels, paged-list helpers, entity card chrome, `selectorLookupValue` (re-exports `optionSelectItems`)                                                                                                                                              | Transport; feature subdomain imports; picker chrome               |
 
 Do not add a feature-local tab bar. Compose `TabView` + `SegmentedTabs`
 from `src/components/ui/` (decision table in

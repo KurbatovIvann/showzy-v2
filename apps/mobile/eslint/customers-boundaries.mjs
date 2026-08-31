@@ -59,7 +59,7 @@ export const customersGroupsImportRestriction = {
     {
       regex: subdomainFrom(["form", "list", "counterparties", "invitations"]),
       message:
-        "customers/groups must not import form/list/counterparty/invitation UI (SHO-221). Picker helpers live in shared/option-select.ts.",
+        "customers/groups must not import form/list/counterparty/invitation UI (SHO-221). CRM inherit lookup stays in shared/option-select.ts; picker chrome is components/ui.",
     },
   ],
 };
@@ -69,7 +69,7 @@ export const customersCounterpartiesImportRestriction = {
     {
       regex: subdomainFrom(["form", "list", "groups", "invitations"]),
       message:
-        "customers/counterparties must not import form/list/group/invitation UI (SHO-221). Picker helpers live in shared/option-select.ts.",
+        "customers/counterparties must not import form/list/group/invitation UI (SHO-221). CRM inherit lookup stays in shared/option-select.ts; picker chrome is components/ui.",
     },
   ],
 };

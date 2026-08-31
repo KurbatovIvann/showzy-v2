@@ -18,11 +18,12 @@ import {
   Banner,
   Button,
   EmptyState,
+  OptionSelectSheet,
   SegmentedTabs,
+  SelectorRow,
   Sheet,
 } from "../../../components/ui";
-import { OptionSelectSheet } from "../shared/option-select-sheet";
-import { SelectorRow } from "../shared/selector-row";
+import { LIST_GROUPS_SEARCH_MAX } from "../shared/customer-caps";
 import {
   InvitationFormEmailField,
   InvitationFormMaxUsesField,
@@ -85,11 +86,13 @@ export function InvitationFormView(model: InvitationFormModel) {
         visible={model.picker === "group"}
         title={form.groupSheetTitle}
         emptyOptionLabel={form.groupEmptyOption}
+        emptyLabel={form.groupEmpty}
         searchPlaceholder={form.groupSearchPlaceholder}
         searchLabel={copy.searchLabel}
         closeLabel={form.closeSheet}
         value={model.groupId}
         options={model.groupOptions}
+        searchMaxLength={LIST_GROUPS_SEARCH_MAX}
         onClose={model.closePicker}
         onChange={model.selectGroup}
       />
@@ -97,11 +100,13 @@ export function InvitationFormView(model: InvitationFormModel) {
         visible={model.picker === "priceList"}
         title={form.priceListSheetTitle}
         emptyOptionLabel={form.priceListEmptyOption}
+        emptyLabel={form.priceListEmpty}
         searchPlaceholder={form.priceListSearchPlaceholder}
         searchLabel={copy.searchLabel}
         closeLabel={form.closeSheet}
         value={model.priceListId}
         options={model.priceListOptions}
+        searchMaxLength={LIST_GROUPS_SEARCH_MAX}
         onClose={model.closePicker}
         onChange={model.selectPriceList}
       />

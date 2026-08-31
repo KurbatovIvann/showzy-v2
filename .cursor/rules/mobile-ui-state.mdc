@@ -54,4 +54,6 @@ Compose `apps/mobile/src/components/form-kit` (`runFormSave`,
 `useFormSave`, `useUnsavedGuard`, `FormScreenScaffold`, `FormTextField`).
 Do not clone `catalog/products/form` save/guard/view chrome. Copy only
 the feature-specific slices: draft, plan, schema, copy, load, and
-fields that are not a `FormTextField`. Shared pickers are SHO-301.
+fields that are not a `FormTextField`. Picker chrome
+(`OptionSelectSheet`, `SelectorRow`) lives in `src/components/ui`;
+lookup drain and sheet-hidden waiters live in `src/hooks`.

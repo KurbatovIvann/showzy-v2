@@ -9,9 +9,9 @@ import { useApiClient } from "../../../api/api-provider";
 import { describeQueryFailure } from "../../../api/errors";
 import { useActiveCompany } from "../../../api/query-provider";
 import { presentConfirmDialog } from "../../../components/ui/present-confirm-dialog";
+import { useSheetHiddenWaiter } from "../../../hooks/use-sheet-hidden-waiter";
 import type { DocumentsCopy } from "../../../i18n/documents";
 import { getDocumentQueryOptions } from "../api/document-detail-query";
-import { useSheetHiddenWaiter } from "../shared/use-sheet-hidden-waiter";
 import {
   documentHandoverHidden,
   hideDocumentHandover,

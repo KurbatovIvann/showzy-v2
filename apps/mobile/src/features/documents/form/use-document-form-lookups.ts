@@ -3,6 +3,12 @@ import { useMemo } from "react";
 
 import { useApiClient } from "../../../api/api-provider";
 import { useActiveCompany } from "../../../api/query-provider";
+import {
+  flattenPages,
+  optionSelectItems,
+  type OptionSelectItem,
+} from "../../../components/ui";
+import { useDrainInfinitePages } from "../../../hooks/use-drain-pages";
 import { listDocumentCounterpartiesInfiniteOptions } from "../api/counterparty-list-query";
 import { listDocumentOrdersInfiniteOptions } from "../api/order-list-query";
 import {
@@ -10,12 +16,6 @@ import {
   documentOrderOptionDescription,
   documentOrderOptionName,
 } from "./document-form-pickers";
-import {
-  flattenPages,
-  optionSelectItems,
-  type OptionSelectItem,
-} from "./option-select";
-import { useDrainInfinitePages } from "./use-drain-pages";
 
 export type DocumentFormOrderRow = {
   readonly id: string;

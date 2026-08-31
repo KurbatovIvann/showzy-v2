@@ -10,9 +10,15 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
-import { AppHeader, Banner, Button, EmptyState } from "../../../components/ui";
-import { OptionSelectSheet } from "../shared/option-select-sheet";
-import { SelectorRow } from "../shared/selector-row";
+import {
+  AppHeader,
+  Banner,
+  Button,
+  EmptyState,
+  OptionSelectSheet,
+  SelectorRow,
+} from "../../../components/ui";
+import { LIST_GROUPS_SEARCH_MAX } from "../shared/customer-caps";
 import {
   GroupFormDescriptionField,
   GroupFormNameField,
@@ -65,11 +71,13 @@ export function GroupFormView(model: GroupFormModel) {
         visible={model.pickerOpen}
         title={form.priceListSheetTitle}
         emptyOptionLabel={form.priceListEmptyOption}
+        emptyLabel={form.priceListEmpty}
         searchPlaceholder={form.priceListSearchPlaceholder}
         searchLabel={copy.searchLabel}
         closeLabel={form.closeSheet}
         value={model.priceListId}
         options={model.priceListOptions}
+        searchMaxLength={LIST_GROUPS_SEARCH_MAX}
         onClose={model.closePicker}
         onChange={model.selectPriceList}
       />

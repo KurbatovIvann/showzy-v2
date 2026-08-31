@@ -13,6 +13,7 @@ import {
   requireReadyClient,
 } from "../../../../api/errors";
 import { useActiveCompany } from "../../../../api/query-provider";
+import { useSheetHiddenWaiter } from "../../../../hooks/use-sheet-hidden-waiter";
 import type { ProductsCopy } from "../../../../i18n/products";
 import { invalidateCatalogAfterStatusWrite } from "../api/product-archive";
 import { bindProductFormMutate } from "../api/product-form-mutation";
@@ -35,10 +36,7 @@ import {
   detailVariantToDraft,
   planDetailVariantWrite,
 } from "./product-detail-variant-write";
-import {
-  useSheetHiddenWaiter,
-  type DetailStatusWrite,
-} from "./use-product-detail-actions";
+import type { DetailStatusWrite } from "./use-product-detail-actions";
 import type {
   DetailSheets,
   ProductDetailSheetAction,

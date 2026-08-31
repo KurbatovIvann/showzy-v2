@@ -3,10 +3,10 @@ import { useMemo } from "react";
 
 import { useApiClient } from "../../../api/api-provider";
 import { useActiveCompany } from "../../../api/query-provider";
+import { useDrainInfinitePages } from "../../../hooks/use-drain-pages";
 import { listCounterpartiesInfiniteOptions } from "../api/counterparty.queries";
 import { CUSTOMERS_LOOKUP_PAGE_SIZE } from "../shared/customer-caps";
 import { flattenPages } from "../shared/paged-list";
-import { useDrainInfinitePages } from "../shared/use-drain-pages";
 
 export type LinkedCounterpartyRow = {
   readonly id: string;

@@ -15,8 +15,9 @@ XState. Detail sheet chrome is a `useReducer`. The create form uses RHF
 Do not import `src/features/customers/` from this slice. Hydrate names
 with `customers.getCustomer` through `@showzy/contract` (binder in
 `api/customer-name-query.ts`). Picker lists use orders-owned binders in
-`api/order-customers-query.ts` and `api/order-catalog-query.ts`. Do not
-join customers in the orders backend module.
+`api/order-customers-query.ts` and `api/order-catalog-query.ts`. Compose
+`OptionSelectSheet` / `SelectorRow` from `src/components/ui/` — do not
+copy picker chrome. Do not join customers in the orders backend module.
 
 ## Folders (one role each)
 

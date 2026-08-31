@@ -108,6 +108,9 @@ describe("customers copy", () => {
     expect(uk.groupForm.priceListLabel).toBe("Прайс-лист за замовчуванням");
     expect(uk.groupForm.priceListPlaceholder).toBe("Роздрібний");
     expect(uk.groupForm.priceListEmptyOption).toBe("За замовчуванням");
+    expect(uk.form.groupEmpty).toBe("Груп не знайдено.");
+    expect(uk.form.priceListEmpty).toBe("Прайс-листів не знайдено.");
+    expect(uk.counterpartyForm.customerEmpty).toBe("Клієнтів не знайдено.");
     expect(uk.groupForm.errors.nameRequired).toBe("Вкажіть назву групи");
     expect(uk.groupForm.notFoundTitle).toBe("Групу не знайдено");
     expect(uk.editorStub.counterpartyCreateTitle).toBe("Новий контрагент");

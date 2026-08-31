@@ -1,18 +1,20 @@
 import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import { CheckIcon } from "lucide-react-native";
+import { CheckIcon, UserIcon } from "lucide-react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
-import { SearchField, Sheet } from "../../../components/ui";
+import { SearchField } from "./search-field";
+import { Sheet } from "./sheet";
 import {
   filterOptionSelectItems,
   type OptionSelectItem,
 } from "./option-select";
 
 /**
- * Canvas picker chrome copied from orders / customers. Optional empty
- * inherit row is for the counterparty picker ("customer name only").
+ * Canvas `OptionSelectSheet`: full-height search + optional empty inherit
+ * row, empty state, leading avatar, and multi-highlight via `selectedIds`.
  * `mode="content"` is the scrollable picker body without confirm-action chrome.
+ * Feature policy (caps, copy, close-on-select callers) arrives via props.
  */
 export function OptionSelectSheet(props: {
   readonly visible: boolean;
@@ -20,13 +22,15 @@ export function OptionSelectSheet(props: {
   readonly searchPlaceholder: string;
   readonly searchLabel: string;
   readonly closeLabel: string;
-  readonly emptyLabel: string;
-  readonly emptyOptionLabel?: string | undefined;
   readonly value: string | null;
   readonly options: readonly OptionSelectItem[];
-  readonly searchMaxLength: number;
   readonly onClose: () => void;
   readonly onChange: (value: string | null) => void;
+  readonly emptyOptionLabel?: string | undefined;
+  readonly emptyLabel?: string | undefined;
+  readonly searchMaxLength?: number | undefined;
+  readonly selectedIds?: ReadonlySet<string> | undefined;
+  readonly leading?: "user" | undefined;
 }) {
   const [query, setQuery] = useState("");
 
@@ -38,6 +42,15 @@ export function OptionSelectSheet(props: {
 
   const filtered = filterOptionSelectItems(props.options, query);
   const emptyOptionLabel = props.emptyOptionLabel;
+  const emptyLabel =
+    props.emptyLabel != null && props.emptyLabel.length > 0
+      ? props.emptyLabel
+      : null;
+
+  function choose(next: string | null): void {
+    props.onChange(next);
+    props.onClose();
+  }
 
   return (
     <Sheet
@@ -53,7 +66,9 @@ export function OptionSelectSheet(props: {
         onChangeText={setQuery}
         placeholder={props.searchPlaceholder}
         accessibilityLabel={props.searchLabel}
-        maxLength={props.searchMaxLength}
+        {...(typeof props.searchMaxLength === "number"
+          ? { maxLength: props.searchMaxLength }
+          : {})}
       />
       <View style={styles.list}>
         {emptyOptionLabel != null && emptyOptionLabel.length > 0 ? (
@@ -61,21 +76,28 @@ export function OptionSelectSheet(props: {
             label={emptyOptionLabel}
             selected={props.value === null}
             onPress={() => {
-              props.onChange(null);
+              choose(null);
             }}
           />
         ) : null}
         {filtered.length === 0 ? (
-          <Text style={styles.empty}>{props.emptyLabel}</Text>
+          emptyLabel !== null ? (
+            <Text style={styles.empty}>{emptyLabel}</Text>
+          ) : null
         ) : (
           filtered.map((option) => (
             <OptionRow
               key={option.id}
               label={option.name}
               description={option.description}
-              selected={option.id === props.value}
+              selected={
+                props.selectedIds !== undefined
+                  ? props.selectedIds.has(option.id)
+                  : option.id === props.value
+              }
+              leading={props.leading}
               onPress={() => {
-                props.onChange(option.id);
+                choose(option.id);
               }}
             />
           ))
@@ -89,6 +111,7 @@ function OptionRow(props: {
   readonly label: string;
   readonly description?: string | undefined;
   readonly selected: boolean;
+  readonly leading?: "user" | undefined;
   readonly onPress: () => void;
 }) {
   const { theme } = useUnistyles();
@@ -111,6 +134,11 @@ function OptionRow(props: {
         pressed ? styles.pressed : null,
       ]}
     >
+      {props.leading === "user" ? (
+        <View style={styles.avatar}>
+          <UserIcon size={theme.iconSize.md} color={theme.colors.accent} />
+        </View>
+      ) : null}
       <View style={styles.optionBody}>
         <Text style={styles.optionLabel}>{props.label}</Text>
         {description !== null ? (
@@ -152,6 +180,14 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.md,
   },
+  avatar: {
+    width: theme.hitTarget.min,
+    height: theme.hitTarget.min,
+    borderRadius: theme.radii.full,
+    backgroundColor: theme.colors.accentSoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   optionSelected: {
     borderColor: theme.colors.foreground,
     backgroundColor: theme.colors.inputFill,
@@ -168,6 +204,7 @@ const styles = StyleSheet.create((theme) => ({
     fontWeight: "600",
   },
   check: {
+    // Canvas h-7 (28) — Class B from spacing, not a raw pixel.
     width: theme.spacing["2xl"] + theme.spacing.xs,
     height: theme.spacing["2xl"] + theme.spacing.xs,
     borderRadius: theme.radii.full,

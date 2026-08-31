@@ -23,7 +23,7 @@ When work starts on a canvas screen, do this **before writing screen JSX**:
 
    | Kind | Lives in | Examples |
    | --- | --- | --- |
-   | **Shared primitive** | `apps/mobile/src/components/ui/` | Button, Card, TextField, SegmentedTabs, TabView, OtpInput, Banner, EmptyState, StatusPill, AppHeader, Sheet |
+   | **Shared primitive** | `apps/mobile/src/components/ui/` | Button, Card, TextField, SegmentedTabs, TabView, OtpInput, Banner, EmptyState, StatusPill, AppHeader, Sheet, OptionSelectSheet, SelectorRow |
    | **Shared form stack** | `apps/mobile/src/components/form-kit/` | `runFormSave`, `useFormSave`, `useUnsavedGuard`, `FormScreenScaffold`, `FormTextField` |
    | **Feature component** | `apps/mobile/src/features/<module>/<surface>/` (folder roles: `catalog/products`). Unmigrated screens stay under `components/screens/<feature>/` until their own tickets. | OrderRow, ProductImagePicker, AssistantSheet, editor sections |
    | **Route only** | `apps/mobile/src/app/` | one-line re-export |
@@ -36,15 +36,15 @@ When work starts on a canvas screen, do this **before writing screen JSX**:
 3. **Reuse or create**
    - Shared and already in `components/ui` → restyle/extend that primitive
      with theme tokens. Do not fork a second Button, `SegmentedTabs`, or
-     `TabView`.
+     `TabView`. Do not fork a second `OptionSelectSheet` or `SelectorRow`.
    - Shared and missing → add it under `components/ui` in the same PR as
      the first screen that needs it. Bind every value to the theme.
    - Feature → new file under `src/features/<module>/<surface>/` (folder
      roles follow `catalog/products`). Compose `components/ui` and
      `components/form-kit`; copy only feature-specific draft/plan/schema/
-     copy/load/views. It must not duplicate primitive chrome or the form
-     save/guard/scaffold. Do not add new product modules under
-     `components/screens/`.
+     copy/load/views. It must not duplicate primitive chrome, picker
+     chrome, or the form save/guard/scaffold. Do not add new product
+     modules under `components/screens/`.
 4. **Wire the screen** to a contract view-model and callbacks. Replace
    mock data. Drop Google / demo-mode (ADR-0006).
 5. If the canvas introduces a **new token** (hex, radius, type size), add

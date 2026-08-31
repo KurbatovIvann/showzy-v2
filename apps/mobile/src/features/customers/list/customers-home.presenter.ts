@@ -78,7 +78,7 @@ export function customersCreateLabel(
   }
 }
 
-export { shouldDrainNextPage } from "../shared/drain-pages";
+export { shouldDrainNextPage } from "../../../hooks/drain-pages";
 
 export function lookupPagesSettled(args: {
   readonly status: "pending" | "error" | "success";

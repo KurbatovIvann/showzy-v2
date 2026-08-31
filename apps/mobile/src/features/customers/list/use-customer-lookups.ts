@@ -3,6 +3,7 @@ import { useMemo } from "react";
 
 import { useApiClient } from "../../../api/api-provider";
 import { useActiveCompany } from "../../../api/query-provider";
+import { useDrainInfinitePages } from "../../../hooks/use-drain-pages";
 import { listGroupsInfiniteOptions } from "../api/group.queries";
 import { listPriceListsInfiniteOptions } from "../api/price-list.queries";
 import { CUSTOMERS_LOOKUP_PAGE_SIZE } from "../shared/customer-caps";
@@ -12,7 +13,6 @@ import {
   nameById,
 } from "./clients-list.presenter";
 import { lookupPagesSettled } from "./customers-home.presenter";
-import { useDrainInfinitePages } from "../shared/use-drain-pages";
 
 /**
  * Unfiltered groups (chips) and price-list names. Failures degrade to

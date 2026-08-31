@@ -27,6 +27,7 @@ export type CustomersInviteFormCopy = Omit<
   readonly groupPlaceholder: string;
   readonly groupSheetTitle: string;
   readonly groupEmptyOption: string;
+  readonly groupEmpty: string;
   readonly groupSearchPlaceholder: string;
   readonly assignmentUnavailable: string;
   readonly priceListLabel: string;
@@ -34,6 +35,7 @@ export type CustomersInviteFormCopy = Omit<
   readonly priceListDefault: string;
   readonly priceListSheetTitle: string;
   readonly priceListEmptyOption: string;
+  readonly priceListEmpty: string;
   readonly priceListSearchPlaceholder: string;
   readonly accessTitle: string;
   readonly maxUsesLabel: string;
@@ -80,6 +82,7 @@ export const en: CustomersInviteFormCopy = {
   groupPlaceholder: "No group",
   groupSheetTitle: "Customer group",
   groupEmptyOption: "No group",
+  groupEmpty: "No groups found.",
   groupSearchPlaceholder: "Search groups…",
   assignmentUnavailable: "Assigned",
   priceListLabel: "Price list after accept",
@@ -87,6 +90,7 @@ export const en: CustomersInviteFormCopy = {
   priceListDefault: "Retail by default",
   priceListSheetTitle: "Price list",
   priceListEmptyOption: "Default",
+  priceListEmpty: "No price lists found.",
   priceListSearchPlaceholder: "Search price lists…",
   accessTitle: "Access terms",
   maxUsesLabel: "Use limit",
@@ -137,6 +141,7 @@ export const uk: CustomersInviteFormCopy = {
   groupPlaceholder: "Без групи",
   groupSheetTitle: "Група клієнтів",
   groupEmptyOption: "Без групи",
+  groupEmpty: "Груп не знайдено.",
   groupSearchPlaceholder: "Пошук груп…",
   assignmentUnavailable: "Призначено",
   priceListLabel: "Прайс-лист після прийняття",
@@ -144,6 +149,7 @@ export const uk: CustomersInviteFormCopy = {
   priceListDefault: "Роздрібний за замовчуванням",
   priceListSheetTitle: "Прайс-лист",
   priceListEmptyOption: "За замовчуванням",
+  priceListEmpty: "Прайс-листів не знайдено.",
   priceListSearchPlaceholder: "Пошук прайс-листів…",
   accessTitle: "Умови доступу",
   maxUsesLabel: "Ліміт використань",

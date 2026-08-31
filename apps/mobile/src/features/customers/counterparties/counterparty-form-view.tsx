@@ -11,9 +11,15 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
-import { AppHeader, Banner, Button, EmptyState } from "../../../components/ui";
-import { OptionSelectSheet } from "../shared/option-select-sheet";
-import { SelectorRow } from "../shared/selector-row";
+import {
+  AppHeader,
+  Banner,
+  Button,
+  EmptyState,
+  OptionSelectSheet,
+  SelectorRow,
+} from "../../../components/ui";
+import { LIST_GROUPS_SEARCH_MAX } from "../shared/customer-caps";
 import {
   CounterpartyFormBankMfoField,
   CounterpartyFormBankNameField,
@@ -73,11 +79,13 @@ export function CounterpartyFormView(model: CounterpartyFormModel) {
         visible={model.pickerOpen}
         title={form.customerSheetTitle}
         emptyOptionLabel={form.customerEmptyOption}
+        emptyLabel={form.customerEmpty}
         searchPlaceholder={form.customerSearchPlaceholder}
         searchLabel={copy.searchLabel}
         closeLabel={form.closeSheet}
         value={model.customerId}
         options={model.customerOptions}
+        searchMaxLength={LIST_GROUPS_SEARCH_MAX}
         onClose={model.closePicker}
         onChange={model.selectCustomer}
       />

@@ -48,8 +48,10 @@ Options signing chip uses nested `documents.get.signing`.
 
 **`form/` must not import `list/`.** **`signing/` must not import `list/`.**
 Shared hrefs, permissions, and handover helpers live in `shared/` or
-`share/`. Copy picker chrome into `form/` — do not import
-`features/orders` or `features/customers`.
+`share/`. Compose `OptionSelectSheet` / `SelectorRow` from
+`src/components/ui/` and `useDrainInfinitePages` /
+`useSheetHiddenWaiter` from `src/hooks/` — do not copy picker chrome
+into `form/` and do not import `features/orders` or `features/customers`.
 
 Do not import `@showzy/db` or `@showzy/core`. Domain reads and writes go
 through `@showzy/contract`.

@@ -21,10 +21,11 @@ import {
   Banner,
   Button,
   EmptyState,
+  OptionSelectSheet,
+  SelectorRow,
   StatusPill,
 } from "../../../components/ui";
-import { OptionSelectSheet } from "../shared/option-select-sheet";
-import { SelectorRow } from "../shared/selector-row";
+import { LIST_GROUPS_SEARCH_MAX } from "../shared/customer-caps";
 import {
   CustomerFormEmailField,
   CustomerFormNameField,
@@ -79,11 +80,13 @@ export function CustomerFormView(model: CustomerFormModel) {
         visible={model.picker === "group"}
         title={form.groupSheetTitle}
         emptyOptionLabel={form.groupEmptyOption}
+        emptyLabel={form.groupEmpty}
         searchPlaceholder={form.groupSearchPlaceholder}
         searchLabel={copy.searchLabel}
         closeLabel={form.closeSheet}
         value={model.groupId}
         options={model.groupOptions}
+        searchMaxLength={LIST_GROUPS_SEARCH_MAX}
         onClose={model.closePicker}
         onChange={model.selectGroup}
       />
@@ -91,11 +94,13 @@ export function CustomerFormView(model: CustomerFormModel) {
         visible={model.picker === "priceList"}
         title={form.priceListSheetTitle}
         emptyOptionLabel={form.priceListEmptyOption}
+        emptyLabel={form.priceListEmpty}
         searchPlaceholder={form.priceListSearchPlaceholder}
         searchLabel={copy.searchLabel}
         closeLabel={form.closeSheet}
         value={model.priceListId}
         options={model.priceListOptions}
+        searchMaxLength={LIST_GROUPS_SEARCH_MAX}
         onClose={model.closePicker}
         onChange={model.selectPriceList}
       />
