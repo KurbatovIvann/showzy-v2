@@ -1,4 +1,5 @@
 import { useOtp } from "./otp/provider";
+import { signInSubmitDisabled } from "./auth-submit";
 import { useAuthSession } from "./session-provider";
 import { errorCopy } from "../i18n/auth";
 import type { AuthChannel } from "./otp/identifiers";
@@ -19,10 +20,6 @@ export function useSignInScreen() {
     otp.state.bannerError === null
       ? null
       : errorCopy(auth.copy, otp.state.bannerError);
-  const identifierEmpty =
-    otp.state.channel === "phone"
-      ? otp.phoneDigits.length === 0
-      : otp.state.email.trim().length === 0;
 
   const channels: ReadonlyArray<{ key: AuthChannel; label: string }> = [
     { key: "phone", label: auth.copy.phone },
@@ -39,7 +36,12 @@ export function useSignInScreen() {
     busy: otp.state.busy,
     fieldError,
     banner,
-    submitDisabled: identifierEmpty || otp.state.busy,
+    submitDisabled: signInSubmitDisabled({
+      channel: otp.state.channel,
+      phoneDigits: otp.phoneDigits,
+      email: otp.state.email,
+      busy: otp.state.busy,
+    }),
     setChannel: otp.setChannel,
     setPhoneDigits: otp.setPhoneDigits,
     setEmail: otp.setEmail,

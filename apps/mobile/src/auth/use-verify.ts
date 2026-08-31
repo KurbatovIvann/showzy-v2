@@ -1,32 +1,18 @@
-import { useEffect, useState } from "react";
-
-import { errorCopy } from "../i18n/auth";
+import { errorCopy, verifyMessageParts } from "../i18n/auth";
 import { interpolate } from "../i18n/locale";
+import { verifySubmitDisabled } from "./auth-submit";
 import { identifierDestination } from "./otp/identifiers";
 import { authPolicy } from "./otp/policy";
 import { useOtp } from "./otp/provider";
-import { resendSecondsRemaining } from "./otp/reducer";
 import { useAuthSession } from "./session-provider";
+import { useCountdown } from "./use-countdown";
 
 export function useVerifyScreen() {
   const auth = useAuthSession();
   const otp = useOtp();
-  const [, setTick] = useState(0);
-
-  const remaining = resendSecondsRemaining(otp.state, Date.now());
-  const countdownActive = otp.state.step === "verify" && remaining > 0;
-
-  useEffect(() => {
-    if (!countdownActive) {
-      return;
-    }
-    const id = setInterval(() => {
-      setTick((value) => value + 1);
-    }, 1000);
-    return () => {
-      clearInterval(id);
-    };
-  }, [countdownActive]);
+  const targetMs =
+    otp.state.step === "verify" ? otp.state.resendAvailableAtMs : null;
+  const remaining = useCountdown(targetMs);
 
   if (otp.state.step !== "verify") {
     return { kind: "redirect-sign-in" as const };
@@ -46,13 +32,12 @@ export function useVerifyScreen() {
     otp.state.identifier.channel === "phone"
       ? auth.copy.verifyPhoneMessage
       : auth.copy.verifyEmailMessage;
-  const [messageBefore, messageAfter = ""] =
-    messageTemplate.split("{{destination}}");
+  const { before: messageBefore, after: messageAfter } =
+    verifyMessageParts(messageTemplate);
   const backLabel =
     otp.state.identifier.channel === "phone"
       ? auth.copy.wrongNumber
       : auth.copy.wrongEmail;
-  const remainingNow = remaining;
 
   return {
     kind: "form" as const,
@@ -67,13 +52,17 @@ export function useVerifyScreen() {
     locked,
     otpError,
     banner,
-    submitDisabled: otp.state.code.length === 0 || otp.state.busy || locked,
-    remaining: remainingNow,
+    submitDisabled: verifySubmitDisabled({
+      code: otp.state.code,
+      busy: otp.state.busy,
+      locked,
+    }),
+    remaining,
     resendBusy: otp.state.resendBusy,
     resendWaitLabel:
-      remainingNow > 0
+      remaining > 0
         ? interpolate(auth.copy.resendCodeIn, {
-            seconds: String(remainingNow),
+            seconds: String(remaining),
           })
         : null,
     setCode: otp.setCode,
