@@ -3,7 +3,7 @@
  * wiring stays in `use-product-photos-query.ts`; the composer owns
  * hydrate / bind / retry effects.
  */
-import { useEffect, useRef, type MutableRefObject } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import type { QueryClient } from "@tanstack/react-query";
 
 import type { ContractClient } from "../../../../api/client";
@@ -29,7 +29,7 @@ import type {
 } from "./product-photos-session";
 
 export function useProductPhotosRuntime(args: {
-  readonly sessionRef: MutableRefObject<PhotoSessionContext>;
+  readonly sessionRef: RefObject<PhotoSessionContext>;
   readonly send: (event: PhotoSessionEvent) => void;
   readonly getClient: () => ContractClient | null;
   readonly mutation: Pick<PhotoCommitPorts, "submit" | "retry" | "reset">;

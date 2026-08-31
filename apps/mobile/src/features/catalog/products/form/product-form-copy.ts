@@ -366,7 +366,7 @@ export function resolveProductFormPresentation(args: {
   readonly variants: ReadonlyArray<{ readonly key: string }>;
   readonly rhfVariants: unknown;
   readonly localBanner: BannerKey | null;
-  readonly mutationError: unknown | null;
+  readonly mutationError: unknown;
   readonly lastWrite: ProductFormWrite | null;
   readonly pending: boolean;
   readonly clientReady: boolean;
