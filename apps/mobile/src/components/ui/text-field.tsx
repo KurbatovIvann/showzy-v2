@@ -2,8 +2,13 @@ import { useState, type ReactNode } from "react";
 import { Text, TextInput, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
+import { keyboardAppearance } from "../../theme/tokens";
+import { fieldErrorTextStyle } from "./field-error-text";
 import { StatusPill } from "./status-pill";
-import { resolveTextFieldContent } from "./text-field-content";
+import {
+  TEXT_FIELD_DEFAULT_KEYBOARD_TYPE,
+  resolveTextFieldContent,
+} from "./text-field-content";
 
 export function TextField(props: {
   readonly value: string;
@@ -25,18 +30,18 @@ export function TextField(props: {
   readonly suffix?: string;
   readonly changed?: boolean;
   readonly changedLabel?: string;
-  readonly size?: "default" | "auth";
+  readonly size?: "default" | "lg";
   readonly multiline?: boolean;
   readonly numberOfLines?: number;
 }) {
   const { theme, rt } = useUnistyles();
   const [focused, setFocused] = useState(false);
   const size = props.size ?? "default";
-  const auth = size === "auth";
+  const large = size === "lg";
   const multiline = props.multiline === true;
   const numberOfLines = props.numberOfLines ?? (multiline ? 3 : 1);
   const hasError = props.error != null && props.error.length > 0;
-  const keyboardType = props.keyboardType ?? "email-address";
+  const keyboardType = props.keyboardType ?? TEXT_FIELD_DEFAULT_KEYBOARD_TYPE;
   const phone = keyboardType === "phone-pad";
   const email = keyboardType === "email-address";
   const decimal = keyboardType === "decimal-pad";
@@ -70,7 +75,7 @@ export function TextField(props: {
       <View
         style={[
           styles.chrome,
-          auth ? styles.chromeAuth : null,
+          large ? styles.chromeLg : null,
           multiline ? styles.chromeMultiline : null,
           multiline
             ? {
@@ -81,7 +86,7 @@ export function TextField(props: {
                 ),
               }
             : null,
-          focused && auth && !hasError ? styles.chromeFocused : null,
+          focused && large && !hasError ? styles.chromeFocused : null,
           hasError ? styles.chromeError : null,
         ]}
       >
@@ -95,7 +100,7 @@ export function TextField(props: {
           placeholder={props.placeholder}
           accessibilityLabel={props.accessibilityLabel}
           keyboardType={keyboardType}
-          keyboardAppearance={rt.themeName === "dark" ? "dark" : "light"}
+          keyboardAppearance={keyboardAppearance(rt.themeName)}
           autoComplete={autoComplete}
           textContentType={textContentType}
           autoCapitalize={props.autoCapitalize ?? "none"}
@@ -107,7 +112,7 @@ export function TextField(props: {
           numberOfLines={multiline ? numberOfLines : undefined}
           textAlignVertical={multiline ? "top" : "center"}
           placeholderTextColor={
-            auth ? theme.colors.icon.muted : theme.colors.mutedForeground
+            large ? theme.colors.icon.muted : theme.colors.mutedForeground
           }
           onFocus={() => {
             setFocused(true);
@@ -117,7 +122,7 @@ export function TextField(props: {
           }}
           style={[
             styles.input,
-            auth ? styles.inputAuth : null,
+            large ? styles.inputLg : null,
             tabular && !multiline ? styles.tabular : null,
             multiline ? styles.inputMultiline : null,
           ]}
@@ -159,8 +164,8 @@ const styles = StyleSheet.create((theme) => ({
     ...theme.squircle,
     paddingHorizontal: theme.spacing.md,
   },
-  chromeAuth: {
-    minHeight: theme.hitTarget.auth,
+  chromeLg: {
+    minHeight: theme.hitTarget.lg,
     paddingHorizontal: theme.spacing.lg,
   },
   chromeMultiline: {
@@ -191,7 +196,7 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: theme.typography.base.fontSize,
     paddingVertical: 0,
   },
-  inputAuth: {
+  inputLg: {
     fontSize: theme.typography.md.fontSize,
   },
   inputMultiline: {
@@ -201,11 +206,5 @@ const styles = StyleSheet.create((theme) => ({
   tabular: {
     fontVariant: ["tabular-nums"],
   },
-  error: {
-    color: theme.colors.destructive,
-    fontSize: theme.typography.sm.fontSize,
-    lineHeight: theme.typography.sm.lineHeight,
-    fontWeight: "500",
-    textAlign: "center",
-  },
+  error: fieldErrorTextStyle(theme),
 }));

@@ -90,6 +90,7 @@ export function VariantEditorSheet(props: {
       fullHeight
       closeAccessibilityLabel={copy.closeSheet}
       onClose={props.onClose}
+      mode="content"
       footer={
         <Button
           fullWidth

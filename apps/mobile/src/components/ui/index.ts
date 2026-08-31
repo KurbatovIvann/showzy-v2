@@ -2,6 +2,7 @@ export { AppHeader } from "./app-header";
 export { Banner } from "./banner";
 export { Button } from "./button";
 export { Card } from "./card";
+export { CenteredSpinner } from "./centered-spinner";
 export { ChoiceField } from "./choice-field";
 export {
   confirmDialogAlertButtons,
@@ -17,7 +18,7 @@ export { SearchField } from "./search-field";
 export { SegmentedTabs } from "./segmented-tabs";
 export { TabView, type TabBarProps, type TabDefinition } from "./tab-view";
 export { indexOfTabKey } from "./tab-view.model";
-export { Sheet, type SheetBack } from "./sheet";
+export { Sheet, SheetHeader, type SheetBack, type SheetMode } from "./sheet";
 export {
   SHEET_MS,
   sheetDismissWaitMs,

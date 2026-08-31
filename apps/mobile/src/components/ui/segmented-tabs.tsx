@@ -7,7 +7,7 @@
  * The selected state is a sliding pill (v1 SegmentedControl), not a
  * per-tab background.
  */
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import {
   Pressable,
   ScrollView,
@@ -18,6 +18,7 @@ import {
 import Animated from "react-native-reanimated";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
+import { inertHorizontalScrollProps } from "./inert-horizontal-scroll";
 import { scrollXToRevealTab } from "./segmented-tabs.layout";
 import { useSegmentedPill } from "./use-segmented-pill";
 
@@ -106,53 +107,35 @@ function ScrollableSegmentedTabs<K extends string>(props: {
   );
   const { onTabLayout, pillStyle } = useSegmentedPill(props.selected);
 
-  function reveal(key: K): void {
-    const tab = tabMetrics.current[key];
-    if (tab === undefined) {
-      return;
-    }
-    scrollRef.current?.scrollTo({
-      x: scrollXToRevealTab({
-        tabX: tab.x + edgePadding,
-        tabWidth: tab.width,
-        viewportWidth: viewportWidth.current,
-        contentWidth: contentWidth.current,
-        gutter,
-      }),
-      animated: true,
-    });
-  }
+  const reveal = useCallback(
+    (key: K): void => {
+      const tab = tabMetrics.current[key];
+      if (tab === undefined) {
+        return;
+      }
+      scrollRef.current?.scrollTo({
+        x: scrollXToRevealTab({
+          tabX: tab.x + edgePadding,
+          tabWidth: tab.width,
+          viewportWidth: viewportWidth.current,
+          contentWidth: contentWidth.current,
+          gutter,
+        }),
+        animated: true,
+      });
+    },
+    [edgePadding, gutter],
+  );
 
   useEffect(() => {
-    const tab = tabMetrics.current[props.selected];
-    if (tab === undefined) {
-      return;
-    }
-    scrollRef.current?.scrollTo({
-      x: scrollXToRevealTab({
-        tabX: tab.x + edgePadding,
-        tabWidth: tab.width,
-        viewportWidth: viewportWidth.current,
-        contentWidth: contentWidth.current,
-        gutter,
-      }),
-      animated: true,
-    });
-  }, [edgePadding, gutter, props.selected]);
+    reveal(props.selected);
+  }, [props.selected, reveal]);
 
   return (
     <ScrollView
       ref={scrollRef}
-      horizontal
+      {...inertHorizontalScrollProps}
       accessibilityRole="tablist"
-      showsHorizontalScrollIndicator={false}
-      bounces={false}
-      alwaysBounceHorizontal={false}
-      overScrollMode="never"
-      fadingEdgeLength={0}
-      automaticallyAdjustContentInsets={false}
-      contentInsetAdjustmentBehavior="never"
-      contentInset={{ left: 0, right: 0 }}
       style={styles.scroll}
       contentContainerStyle={[
         styles.scrollContent,
@@ -302,7 +285,7 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: theme.spacing.lg,
   },
   pressed: {
-    opacity: 0.85,
+    opacity: theme.pressedOpacity,
   },
   label: {
     color: theme.colors.mutedForeground,

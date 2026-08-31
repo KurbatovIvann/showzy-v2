@@ -33,7 +33,7 @@ export function SignInScreen() {
           />
           {model.channel === "phone" ? (
             <TextField
-              size="auth"
+              size="lg"
               label={model.copy.phoneLabel}
               leading={<Phone size={theme.iconSize.sm} color={iconColor} />}
               prefix="+380"
@@ -47,7 +47,7 @@ export function SignInScreen() {
             />
           ) : (
             <TextField
-              size="auth"
+              size="lg"
               label={model.copy.emailLabel}
               leading={<AtSign size={theme.iconSize.sm} color={iconColor} />}
               value={model.email}
@@ -61,7 +61,7 @@ export function SignInScreen() {
           )}
           {model.banner ? <Banner message={model.banner} /> : null}
           <Button
-            size="auth"
+            size="lg"
             label={
               model.busy ? model.copy.continueLoading : model.copy.continue
             }

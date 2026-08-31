@@ -46,7 +46,8 @@ export function VerifyScreen() {
           value={model.code}
           length={model.otpLength}
           disabled={model.busy || model.locked}
-          error={model.otpError ?? false}
+          error={model.otpError != null}
+          errorText={model.otpError ?? undefined}
           accessibilityLabel={model.copy.verifyCode}
           onChange={(code) => {
             model.setCode(code);
@@ -58,7 +59,7 @@ export function VerifyScreen() {
         {model.banner ? <Banner message={model.banner} /> : null}
         <View style={styles.actions}>
           <Button
-            size="auth"
+            size="lg"
             label={
               model.busy ? model.copy.verifyLoading : model.copy.verifyCode
             }

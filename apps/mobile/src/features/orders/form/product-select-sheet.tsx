@@ -70,6 +70,7 @@ export function ProductSelectSheet(props: {
       visible={props.visible}
       title={variantsOpen ? props.variantsTitle : props.title}
       onClose={props.onClose}
+      mode="content"
       fullHeight
       closeAccessibilityLabel={props.closeLabel}
       back={

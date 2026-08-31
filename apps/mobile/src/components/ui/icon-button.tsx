@@ -4,15 +4,16 @@ import { StyleSheet } from "react-native-unistyles";
 
 /**
  * Canvas round icon control (header back chevron, header plus): a 44pt
- * circle. `primary` is the ink fill; `surface` is the bordered card fill.
- * Callers size and color the icon (`theme.colors.primaryForeground` on
- * primary, `theme.colors.foreground` on surface).
+ * circle. `primary` is the ink fill; `secondary` is the bordered card
+ * fill (same visual role as Button secondary). Callers size and color
+ * the icon (`theme.colors.primaryForeground` on primary,
+ * `theme.colors.foreground` on secondary).
  */
 export function IconButton(props: {
   readonly icon: ReactNode;
   readonly accessibilityLabel: string;
   readonly onPress: () => void;
-  readonly variant?: "primary" | "surface";
+  readonly variant?: "primary" | "secondary";
   readonly disabled?: boolean;
 }) {
   const variant = props.variant ?? "primary";
@@ -24,7 +25,7 @@ export function IconButton(props: {
       onPress={props.onPress}
       style={({ pressed }) => [
         styles.button,
-        variant === "primary" ? styles.primary : styles.surface,
+        VARIANT_CHROME[variant],
         pressed ? styles.pressed : null,
       ]}
     >
@@ -44,13 +45,18 @@ const styles = StyleSheet.create((theme) => ({
   primary: {
     backgroundColor: theme.colors.primary,
   },
-  surface: {
+  secondary: {
     backgroundColor: theme.colors.card,
     borderWidth: 1,
     borderColor: theme.colors.border,
     ...theme.shadows.sm,
   },
   pressed: {
-    opacity: 0.85,
+    opacity: theme.pressedOpacity,
   },
 }));
+
+const VARIANT_CHROME = {
+  primary: styles.primary,
+  secondary: styles.secondary,
+} as const;

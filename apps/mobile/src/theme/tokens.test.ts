@@ -8,9 +8,12 @@ import {
   darkPalette,
   hitTarget,
   iconSize,
+  keyboardAppearance,
   lightGlassFallback,
   lightGlassFallbackDense,
   lightPalette,
+  otpCellMaxWidth,
+  pressedOpacity,
   radii,
   shadows,
   spacing,
@@ -23,10 +26,8 @@ describe("canvas token map (ADR-0024)", () => {
     expect(lightPalette.background).toBe("#F7F6F2");
     expect(lightPalette.foreground).toBe("#1C1C1A");
     expect(lightPalette.card).toBe("#FFFFFF");
-    expect(lightPalette.popover).toBe("#FFFFFF");
     expect(lightPalette.primary).toBe("#1C1C1A");
     expect(lightPalette.primaryForeground).toBe("#FFFFFF");
-    expect(lightPalette.secondary).toBe("#E5E2DA");
     expect(lightPalette.muted).toBe("#E5E2DA");
     expect(lightPalette.mutedForeground).toBe("#6E6A61");
     expect(lightPalette.accent).toBe("#2F6FED");
@@ -67,12 +68,11 @@ describe("canvas token map (ADR-0024)", () => {
       xl: 20,
       card: 22,
       nav: 24,
-      pill: 25,
-      authPanel: 28,
+      lgPanel: 28,
       sheet: 30,
       full: 9999,
     });
-    expect(hitTarget).toEqual({ min: 44, field: 64, auth: 54, row: 88 });
+    expect(hitTarget).toEqual({ min: 44, field: 64, lg: 54, row: 88 });
     expect(iconSize).toEqual({ sm: 18, md: 20 });
     expect(squircle).toEqual({ borderCurve: "continuous" });
     expect(typography["2xs"]).toEqual({ fontSize: 11, lineHeight: 14 });
@@ -91,8 +91,10 @@ describe("canvas token map (ADR-0024)", () => {
     expect(shadows.sm.boxShadow).toBe("0 1px 2px rgba(28, 28, 26, 0.05)");
   });
 
-  it("pins the auth panel shadow from the canvas (0 14px 40px / 10%)", () => {
-    expect(shadows.auth.boxShadow).toBe("0 14px 40px rgba(28, 28, 26, 0.10)");
+  it("pins the lg panel shadow from the canvas (0 14px 40px / 10%)", () => {
+    expect(shadows.lgPanel.boxShadow).toBe(
+      "0 14px 40px rgba(28, 28, 26, 0.10)",
+    );
   });
 
   it("pins the nav cluster and AI control shadows from the canvas", () => {
@@ -123,5 +125,33 @@ describe("canvas token map (ADR-0024)", () => {
     expect(lightTheme.typography).toBe(typography);
     expect(darkTheme.colors).toBe(darkPalette);
     expect(lightTheme.colors).toBe(lightPalette);
+    expect(lightTheme.pressedOpacity).toBe(pressedOpacity);
+    expect(lightTheme.otpCellMaxWidth).toBe(otpCellMaxWidth);
+    expect(darkTheme.pressedOpacity).toBe(pressedOpacity);
+  });
+
+  it("deletes dead palette / geometry tokens (SHO-299)", () => {
+    expect("status" in lightPalette).toBe(false);
+    expect("status" in darkPalette).toBe(false);
+    expect("popover" in lightPalette).toBe(false);
+    expect("popoverForeground" in lightPalette).toBe(false);
+    expect("secondary" in lightPalette).toBe(false);
+    expect("secondaryForeground" in lightPalette).toBe(false);
+    expect("white" in lightPalette).toBe(false);
+    expect("black" in lightPalette).toBe(false);
+    expect("pill" in radii).toBe(false);
+    expect("authPanel" in radii).toBe(false);
+    expect("md" in shadows).toBe(false);
+    expect("xl" in shadows).toBe(false);
+    expect("auth" in shadows).toBe(false);
+    expect("auth" in hitTarget).toBe(false);
+  });
+
+  it("pins pressed opacity, OTP cell width, and keyboard appearance", () => {
+    expect(pressedOpacity).toBe(0.85);
+    expect(otpCellMaxWidth).toBe(56);
+    expect(keyboardAppearance("dark")).toBe("dark");
+    expect(keyboardAppearance("light")).toBe("light");
+    expect(keyboardAppearance("system")).toBe("light");
   });
 });

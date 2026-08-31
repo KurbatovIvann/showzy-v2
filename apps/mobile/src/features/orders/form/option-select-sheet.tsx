@@ -13,7 +13,7 @@ import {
  * Canvas picker chrome (customers `ClientSelectSheet`). Stays
  * single-select. Products and variants use `ProductSelectSheet` so
  * variant drill-down never stacks a second Modal.
- * `footer={null}` is content mode without confirm-action chrome.
+ * `mode="content"` is the scrollable picker body without confirm-action chrome.
  */
 export function OptionSelectSheet(props: {
   readonly visible: boolean;
@@ -45,7 +45,7 @@ export function OptionSelectSheet(props: {
       visible={props.visible}
       title={props.title}
       onClose={props.onClose}
-      footer={null}
+      mode="content"
       fullHeight
       closeAccessibilityLabel={props.closeLabel}
     >

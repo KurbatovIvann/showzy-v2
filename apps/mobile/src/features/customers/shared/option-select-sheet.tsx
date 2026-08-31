@@ -12,7 +12,7 @@ import {
 
 /**
  * Canvas `OptionSelectSheet`: full-height search + empty inherit row.
- * `footer={null}` is content mode without confirm-action chrome.
+ * `mode="content"` is the scrollable picker body without confirm-action chrome.
  */
 export function OptionSelectSheet(props: {
   readonly visible: boolean;
@@ -46,7 +46,7 @@ export function OptionSelectSheet(props: {
       visible={props.visible}
       title={props.title}
       onClose={props.onClose}
-      footer={null}
+      mode="content"
       fullHeight
       closeAccessibilityLabel={props.closeLabel}
     >

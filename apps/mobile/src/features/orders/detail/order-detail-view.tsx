@@ -43,7 +43,7 @@ export function OrderDetailView(model: OrderDetailModel) {
         actions={
           model.showActions ? (
             <IconButton
-              variant="surface"
+              variant="secondary"
               icon={
                 <MoreHorizontalIcon
                   size={theme.iconSize.md}

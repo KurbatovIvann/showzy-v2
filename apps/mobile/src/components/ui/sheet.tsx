@@ -1,164 +1,59 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import type { ReactNode } from "react";
 import { Modal, Pressable, Text, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { ChevronLeftIcon, XIcon } from "lucide-react-native";
-import Animated, {
-  Easing,
-  interpolate,
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withTiming,
-} from "react-native-reanimated";
-import { scheduleOnRN } from "react-native-worklets";
+import Animated from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
-import { SHEET_MS, sheetDismissTimeoutMs } from "./sheet-dismiss";
-
-const EASE_SHEET = Easing.bezier(0.32, 0.72, 0, 1);
+import { useSheetPresentation } from "./use-sheet-presentation";
 
 /**
  * Canvas sheet: dim overlay (`colors.overlay`) and a bottom card with
- * `radii.sheet`. Confirmation callers keep `children` as actions.
- * Content callers pass `footer` (and optional `fullHeight`) so children
- * become the scrollable body. Host stays mounted; `visible` drives
- * open/close. Drag-to-dismiss is omitted — the close control and Android
- * back (`onRequestClose`) dismiss it.
+ * `radii.sheet`. Confirmation callers keep `mode="actions"` (default).
+ * Content callers pass `mode="content"` so children become the
+ * scrollable body, with an optional `footer`. Host stays mounted;
+ * `visible` drives open/close. Drag-to-dismiss is omitted — the close
+ * control and Android back (`onRequestClose`) dismiss it.
  */
 export type SheetBack = {
   readonly onPress: () => void;
   readonly accessibilityLabel: string;
 };
 
+export type SheetMode = "actions" | "content";
+
 export function Sheet(props: {
   readonly visible: boolean;
   readonly title: string;
   readonly onClose: () => void;
   readonly children: ReactNode;
+  readonly closeAccessibilityLabel: string;
   readonly description?: string;
+  readonly mode?: SheetMode;
   readonly footer?: ReactNode;
   readonly fullHeight?: boolean;
-  readonly closeAccessibilityLabel?: string;
   readonly back?: SheetBack | undefined;
   readonly onHidden?: () => void;
 }) {
   const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
-  const reduceMotion = useReducedMotion();
-  const progress = useSharedValue(0);
-  const panelHeight = useSharedValue(0);
-  const [presented, setPresented] = useState(false);
-  const presentedRef = useRef(false);
-  const closeGenerationRef = useRef(0);
-  const onHiddenRef = useRef(props.onHidden);
-  onHiddenRef.current = props.onHidden;
-  const hideModal = useCallback(() => {
-    presentedRef.current = false;
-    setPresented(false);
-  }, []);
-  const hideModalIfCurrent = useCallback(
-    (generation: number) => {
-      if (closeGenerationRef.current !== generation) {
-        return;
-      }
-      hideModal();
-    },
-    [hideModal],
-  );
-
-  useEffect(() => {
-    if (props.visible) {
-      closeGenerationRef.current += 1;
-      presentedRef.current = true;
-      setPresented(true);
-      if (reduceMotion) {
-        progress.set(1);
-        return;
-      }
-      progress.set(
-        withTiming(1, {
-          duration: SHEET_MS,
-          easing: EASE_SHEET,
-        }),
-      );
-      return;
-    }
-    if (!presentedRef.current) {
-      progress.set(0);
-      return;
-    }
-    if (reduceMotion) {
-      progress.set(0);
-      hideModal();
-      return;
-    }
-    const generation = closeGenerationRef.current;
-    progress.set(
-      withTiming(
-        0,
-        {
-          duration: SHEET_MS,
-          easing: EASE_SHEET,
-        },
-        () => {
-          // Always hide — an interrupted close (`finished === false`)
-          // used to leave the iOS Modal window mounted, which eats taps
-          // until the app is relaunched. Worklet: do not read React refs.
-          scheduleOnRN(hideModalIfCurrent, generation);
-        },
-      ),
-    );
-    const timeout = setTimeout(() => {
-      hideModalIfCurrent(generation);
-    }, sheetDismissTimeoutMs());
-    return () => {
-      clearTimeout(timeout);
-    };
-  }, [hideModal, hideModalIfCurrent, progress, props.visible, reduceMotion]);
-
-  const fallbackTravel = theme.hitTarget.field;
-  const overlayStyle = useAnimatedStyle(() => ({
-    opacity: progress.get(),
-  }));
-  const panelStyle = useAnimatedStyle(() => {
-    const measured = panelHeight.get();
-    const travel = measured > 0 ? measured : fallbackTravel;
-    return {
-      transform: [
-        {
-          translateY: interpolate(progress.get(), [0, 1], [travel, 0]),
-        },
-      ],
-    };
-  });
+  const presentation = useSheetPresentation(props.visible, props.onHidden);
   const description =
     props.description != null && props.description.length > 0
       ? props.description
       : null;
-  const closeLabel =
-    props.closeAccessibilityLabel != null &&
-    props.closeAccessibilityLabel.length > 0
-      ? props.closeAccessibilityLabel
-      : null;
-  const contentMode = props.footer !== undefined;
+  const mode = props.mode ?? "actions";
+  const contentMode = mode === "content";
   const fullHeight = props.fullHeight === true;
 
   return (
     <Modal
-      visible={presented}
+      visible={presentation.presented}
       transparent
       animationType="none"
       onRequestClose={props.onClose}
-      onDismiss={() => {
-        onHiddenRef.current?.();
-      }}
+      onDismiss={presentation.onModalDismiss}
       statusBarTranslucent
     >
       <View
@@ -170,62 +65,27 @@ export function Sheet(props: {
           onPress={props.onClose}
           style={styles.overlayHit}
         >
-          <Animated.View style={[styles.overlay, overlayStyle]} />
+          <Animated.View
+            style={[styles.overlay, presentation.overlayStyle]}
+          />
         </Pressable>
         <Animated.View
           accessibilityViewIsModal
-          onLayout={(event) => {
-            panelHeight.set(event.nativeEvent.layout.height);
-          }}
+          onLayout={presentation.onPanelLayout}
           style={[
             styles.panel,
             fullHeight ? styles.panelFull : styles.panelMax,
             { paddingBottom: Math.max(insets.bottom, theme.spacing.lg) },
-            panelStyle,
+            presentation.panelStyle,
           ]}
         >
           <View style={styles.grabber} />
-          <View style={styles.header}>
-            {props.back !== undefined ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={props.back.accessibilityLabel}
-                onPress={props.back.onPress}
-                style={({ pressed }) => [
-                  styles.close,
-                  pressed ? styles.pressed : null,
-                ]}
-              >
-                <ChevronLeftIcon
-                  size={theme.iconSize.sm}
-                  color={theme.colors.mutedForeground}
-                />
-              </Pressable>
-            ) : null}
-            <Text
-              accessibilityRole="header"
-              numberOfLines={1}
-              style={styles.title}
-            >
-              {props.title}
-            </Text>
-            {closeLabel !== null ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={closeLabel}
-                onPress={props.onClose}
-                style={({ pressed }) => [
-                  styles.close,
-                  pressed ? styles.pressed : null,
-                ]}
-              >
-                <XIcon
-                  size={theme.iconSize.sm}
-                  color={theme.colors.mutedForeground}
-                />
-              </Pressable>
-            ) : null}
-          </View>
+          <SheetHeader
+            title={props.title}
+            closeAccessibilityLabel={props.closeAccessibilityLabel}
+            onClose={props.onClose}
+            back={props.back}
+          />
           {description !== null ? (
             <Text style={styles.description}>{description}</Text>
           ) : null}
@@ -249,6 +109,49 @@ export function Sheet(props: {
         </Animated.View>
       </View>
     </Modal>
+  );
+}
+
+export function SheetHeader(props: {
+  readonly title: string;
+  readonly closeAccessibilityLabel: string;
+  readonly onClose: () => void;
+  readonly back?: SheetBack | undefined;
+}) {
+  const { theme } = useUnistyles();
+  return (
+    <View style={styles.header}>
+      {props.back !== undefined ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={props.back.accessibilityLabel}
+          onPress={props.back.onPress}
+          style={({ pressed }) => [
+            styles.close,
+            pressed ? styles.pressed : null,
+          ]}
+        >
+          <ChevronLeftIcon
+            size={theme.iconSize.sm}
+            color={theme.colors.mutedForeground}
+          />
+        </Pressable>
+      ) : null}
+      <Text accessibilityRole="header" numberOfLines={1} style={styles.title}>
+        {props.title}
+      </Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={props.closeAccessibilityLabel}
+        onPress={props.onClose}
+        style={({ pressed }) => [styles.close, pressed ? styles.pressed : null]}
+      >
+        <XIcon
+          size={theme.iconSize.sm}
+          color={theme.colors.mutedForeground}
+        />
+      </Pressable>
+    </View>
   );
 }
 
@@ -336,6 +239,6 @@ const styles = StyleSheet.create((theme) => ({
     paddingTop: theme.spacing.xs,
   },
   pressed: {
-    opacity: 0.85,
+    opacity: theme.pressedOpacity,
   },
 }));
