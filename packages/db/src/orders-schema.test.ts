@@ -339,12 +339,13 @@ describe("staff orders schema slice", () => {
     const createdAt = indexes.get("orders_company_created_at_idx");
     expect(createdAt).toContain("(company_id");
     expect(createdAt).toMatch(/created_at.*DESC/i);
+    expect(createdAt).toMatch(/id.*DESC/i);
     expect(indexes.get("orders_company_status_idx")).toContain(
       "(company_id, status)",
     );
     expect(indexes.get("orders_customer_idx")).toContain("(customer_id)");
     expect(indexes.get("order_items_order_idx")).toContain("(order_id)");
-    expect(indexes.get("order_items_company_idx")).toContain("(company_id)");
+    expect(indexes.has("order_items_company_idx")).toBe(false);
     expect(indexes.get("order_items_product_idx")).toContain("(product_id)");
     expect(indexes.get("order_items_variant_idx")).toContain("(variant_id)");
     expect(indexes.get("order_number_counters_pk")).toContain("UNIQUE");

@@ -71,7 +71,6 @@ export const files = pgTable(
   (table) => [
     unique("files_company_id_id_uq").on(table.companyId, table.id),
     unique("files_company_object_key_uq").on(table.companyId, table.objectKey),
-    index("files_company_idx").on(table.companyId),
     index("files_company_status_idx").on(table.companyId, table.status),
     index("files_uploaded_by_user_idx").on(table.uploadedByUserId),
     index("files_status_created_at_id_idx").on(

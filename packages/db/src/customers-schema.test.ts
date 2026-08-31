@@ -333,12 +333,28 @@ describe("customers CRM schema slice", () => {
     expect(indexDefs.get("company_customers_company_status_idx")).toContain(
       "(company_id, status)",
     );
+    const customersUpdatedAt = indexDefs.get(
+      "company_customers_company_updated_at_id_idx",
+    );
+    expect(customersUpdatedAt).toContain("(company_id");
+    expect(customersUpdatedAt).toMatch(/updated_at.*DESC/i);
+    expect(customersUpdatedAt).toMatch(/id.*DESC/i);
     expect(indexDefs.get("company_customers_company_group_idx")).toContain(
       "(company_id, group_id)",
     );
     expect(indexDefs.get("company_customers_company_group_idx")).toContain(
       "WHERE (group_id IS NOT NULL)",
     );
+    expect(indexDefs.has("company_customers_group_idx")).toBe(false);
+    expect(indexDefs.has("company_customers_company_idx")).toBe(false);
+    expect(indexDefs.has("customer_groups_company_idx")).toBe(false);
+    expect(indexDefs.has("counterparties_company_idx")).toBe(false);
+    const counterpartiesUpdatedAt = indexDefs.get(
+      "counterparties_company_updated_at_id_idx",
+    );
+    expect(counterpartiesUpdatedAt).toContain("(company_id");
+    expect(counterpartiesUpdatedAt).toMatch(/updated_at.*DESC/i);
+    expect(counterpartiesUpdatedAt).toMatch(/id.*DESC/i);
     expect(
       indexDefs.get("company_customers_company_phone_unlinked_idx"),
     ).toContain("(company_id, phone)");

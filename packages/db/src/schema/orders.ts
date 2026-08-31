@@ -64,6 +64,7 @@ export const orders = pgTable(
     index("orders_company_created_at_idx").on(
       table.companyId,
       table.createdAt.desc(),
+      table.id.desc(),
     ),
     index("orders_company_status_idx").on(table.companyId, table.status),
     index("orders_customer_idx").on(table.customerId),
@@ -136,7 +137,6 @@ export const orderItems = pgTable(
   (table) => [
     unique("order_items_company_id_id_uq").on(table.companyId, table.id),
     index("order_items_order_idx").on(table.orderId),
-    index("order_items_company_idx").on(table.companyId),
     index("order_items_product_idx").on(table.productId),
     index("order_items_variant_idx").on(table.variantId),
     foreignKey({

@@ -76,6 +76,7 @@ export const documents = pgTable(
     index("documents_company_created_at_idx").on(
       table.companyId,
       table.createdAt.desc(),
+      table.id.desc(),
     ),
     index("documents_company_status_idx").on(table.companyId, table.status),
     index("documents_company_type_idx").on(table.companyId, table.type),
@@ -153,7 +154,6 @@ export const documentItems = pgTable(
   (table) => [
     unique("document_items_company_id_id_uq").on(table.companyId, table.id),
     index("document_items_document_idx").on(table.documentId),
-    index("document_items_company_idx").on(table.companyId),
     index("document_items_product_idx").on(table.productId),
     index("document_items_variant_idx").on(table.variantId),
     foreignKey({

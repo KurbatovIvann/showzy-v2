@@ -496,6 +496,8 @@ describe("documents schema slice", () => {
     const createdAt = indexes.get("documents_company_created_at_idx");
     expect(createdAt).toContain("(company_id");
     expect(createdAt).toMatch(/created_at.*DESC/i);
+    expect(createdAt).toMatch(/id.*DESC/i);
+    expect(indexes.has("document_items_company_idx")).toBe(false);
     expect(indexes.get("documents_company_status_idx")).toContain(
       "(company_id, status)",
     );

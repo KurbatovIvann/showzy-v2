@@ -66,11 +66,21 @@ export const companyCustomerInvites = pgTable(
       table.id,
     ),
     unique("company_customer_invites_token_hash_uq").on(table.tokenHash),
-    index("company_customer_invites_company_idx").on(table.companyId),
+    index("company_customer_invites_company_updated_at_id_idx").on(
+      table.companyId,
+      table.updatedAt.desc(),
+      table.id.desc(),
+    ),
     index("company_customer_invites_company_status_idx").on(
       table.companyId,
       table.status,
     ),
+    index("company_customer_invites_company_group_idx")
+      .on(table.companyId, table.groupId)
+      .where(sql`${table.groupId} IS NOT NULL`),
+    index("company_customer_invites_company_price_list_idx")
+      .on(table.companyId, table.priceListId)
+      .where(sql`${table.priceListId} IS NOT NULL`),
     index("company_customer_invites_pending_expires_at_idx")
       .on(table.expiresAt)
       .where(sql`${table.status} = 'pending'`),
