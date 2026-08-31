@@ -20,19 +20,26 @@ function pseudoRandomBytes(length: number): Uint8Array {
   return bytes;
 }
 
+/** Native memcmp — vitest's deep `toEqual` on multi-MiB arrays is O(minutes) on slow CI runners. */
+function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  return Buffer.from(a.buffer, a.byteOffset, a.byteLength).equals(
+    Buffer.from(b.buffer, b.byteOffset, b.byteLength),
+  );
+}
+
 describe("base64 encoding (SHO-282 hot path)", () => {
   it("round-trips a multi-MiB buffer through the Buffer fast path", () => {
     const bytes = pseudoRandomBytes(3 * 1024 * 1024 + 7);
     const b64 = uint8ToBase64(bytes);
     expect(b64).toBe(Buffer.from(bytes).toString("base64"));
-    expect(base64ToUint8(b64)).toEqual(bytes);
+    expect(sameBytes(base64ToUint8(b64), bytes)).toBe(true);
   });
 
   it("round-trips a multi-MiB buffer through the chunked fallback path", () => {
     const bytes = pseudoRandomBytes(2 * 1024 * 1024 + 3);
     const b64 = uint8ToBase64Chunked(bytes);
     expect(b64).toBe(Buffer.from(bytes).toString("base64"));
-    expect(base64ToUint8Chunked(b64)).toEqual(bytes);
+    expect(sameBytes(base64ToUint8Chunked(b64), bytes)).toBe(true);
   });
 
   it("fast and fallback paths agree on edge sizes", () => {
