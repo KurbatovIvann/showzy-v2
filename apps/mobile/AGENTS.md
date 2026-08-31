@@ -8,13 +8,13 @@ Reanimated on 4.5.1 with worklets 0.10.1 — do not float Unistyles to 3.3
 
 ## Sources of truth
 
-| Concern              | Source                                                                                                                                                                                       |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Visual language      | Unistyles `src/theme/` mapped from the Magic Patterns canvas ([`mp-to-mobile.md`](../../docs/design/mapping/mp-to-mobile.md))                                                                |
-| How to port a screen | Inventory the canvas → classify shared vs feature → reuse/create in `components/ui` or `src/features/<module>/` — [`mp-to-mobile.md`](../../docs/design/mapping/mp-to-mobile.md)             |
-| Domain behavior      | The Linear feature card, `@showzy/contract`, and the golden UI slice when it exists                                                                                                          |
-| UI state             | [`.cursor/rules/mobile-ui-state.mdc`](../../.cursor/rules/mobile-ui-state.mdc) — Query vs RHF vs `useReducer` vs view. Copy `src/features/catalog/products/` (photos = `useReducer` session) |
-| Auth / sessions      | better-auth over `/api/auth` (ADR-0006, security-operations §2). Expo cookies via `@better-auth/expo` in SecureStore.                                                                        |
+| Concern              | Source                                                                                                                                                                                                           |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Visual language      | Unistyles `src/theme/` mapped from the Magic Patterns canvas ([`mp-to-mobile.md`](../../docs/design/mapping/mp-to-mobile.md))                                                                                    |
+| How to port a screen | Inventory the canvas → classify shared vs feature → reuse/create in `components/ui`, `components/form-kit`, or `src/features/<module>/` — [`mp-to-mobile.md`](../../docs/design/mapping/mp-to-mobile.md)         |
+| Domain behavior      | The Linear feature card, `@showzy/contract`, and the golden UI slice when it exists                                                                                                                              |
+| UI state             | [`.cursor/rules/mobile-ui-state.mdc`](../../.cursor/rules/mobile-ui-state.mdc) — Query vs RHF vs `useReducer` vs view. Compose `src/components/form-kit` for save/guard/scaffold (photos = `useReducer` session) |
+| Auth / sessions      | better-auth over `/api/auth` (ADR-0006, security-operations §2). Expo cookies via `@better-auth/expo` in SecureStore.                                                                                            |
 
 Figma is not a source of spacing, color, or components. Never modify the
 V1 repository (`E:\showzy`). Do not paste Magic Patterns React/Tailwind
@@ -47,13 +47,20 @@ the same directory.
   [`mp-to-mobile.md`](../../docs/design/mapping/mp-to-mobile.md).
   Do not add a second pill bar, PagerView wrapper, or `react-native-tab-view`.
   Staff shell tabs stay `BottomNav`. Filter chips stay `ChoiceField`.
-- `src/features/<module>/<surface>/` — golden feature slices. Copy
-  `src/features/catalog/products/` (SHO-155): `api/`, `list/`, `detail/`,
-  `form/`, `photos/`, `shared/`. Screens take view models and callbacks;
-  they do not own transport. Compose `components/ui`; do not duplicate
-  button/card chrome. Read that folder's `AGENTS.md` and
-  `.cursor/rules/mobile-ui-state.mdc` before adding files. Do not add
-  XState unless a later feature card names a protocol statechart.
+- `src/components/form-kit/` — **shared form stack** (SHO-300): `runFormSave`,
+  `useFormSave` (on `useBoundContractMutation`), `useUnsavedGuard`,
+  `FormScreenScaffold`, `FormTextField`. Import and compose. Do not clone
+  `catalog/products/form` save/guard/view chrome. Feature folders keep
+  draft/plan/schema/copy/load and feature-only fields. Shared pickers land
+  in SHO-301 — do not invent a second picker home here.
+- `src/features/<module>/<surface>/` — feature slices. Folder roles follow
+  `src/features/catalog/products/` (`api/`, `list/`, `detail/`, `form/`,
+  `photos/`, `shared/`). Screens take view models and callbacks; they do
+  not own transport. Compose `components/ui` and `components/form-kit`; do
+  not duplicate button/card chrome or the form save/guard/scaffold. Read
+  that folder's `AGENTS.md` and `.cursor/rules/mobile-ui-state.mdc` before
+  adding files. Do not add XState unless a later feature card names a
+  protocol statechart.
 - `src/components/screens/<feature>/` — unmigrated feature screens (auth,
   panel, onboarding, company-resolution). Do not add new product modules
   here.

@@ -21,8 +21,11 @@ Before writing a screen:
    swipeable in-screen scenes are `TabView`. `BottomNav` is staff shell
    only. Decision table: `docs/design/mapping/mp-to-mobile.md`.
 4. Feature (OrderRow, ProductImagePicker, AssistantSheet) →
-   `src/features/<module>/<surface>/` (copy `catalog/products`).
-   Do not add new product modules under `src/components/screens/<feature>/`.
+   `src/features/<module>/<surface>/` (folder roles follow
+   `catalog/products`). Compose `src/components/form-kit` for save/guard/
+   scaffold/`FormTextField`. Copy only feature-specific draft/plan/schema/
+   copy/load. Do not add new product modules under
+   `src/components/screens/<feature>/`.
 5. Bind color/space/radius/type to `src/theme/`. No hardcoded hex.
 
 Do not paste Tailwind, `div`, `react-router-dom`, `framer-motion`, or

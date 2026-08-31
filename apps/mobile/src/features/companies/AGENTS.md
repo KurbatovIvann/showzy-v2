@@ -1,14 +1,15 @@
 # Companies — mobile settings hub + legal editor (SHO-226 / SHO-225)
 
-Copy `src/features/catalog/products/` folder roles. `src/app/` stays
-one-line re-exports. Feature code lives here, not under
-`src/components/screens/`.
+Folder roles follow `src/features/catalog/products/` (`api/`, `hub/`,
+`form/`, `shared/`). `src/app/` stays one-line re-exports. Feature code
+lives here, not under `src/components/screens/`.
 
 The More → Налаштування компанії hub binds `companies.get` (read). The
 legal editor (`form/`) binds `companies.get` to hydrate and
-`companies.updateLegal` to save. Copy counterparty form chrome: RHF, UI
-Zod, save planner, unsaved-leave. Do not call `companies.get` when
-`canViewCompanySettings` is false.
+`companies.updateLegal` to save. Compose `src/components/form-kit`
+(`runFormSave` / `useFormSave` / `useUnsavedGuard` / `FormScreenScaffold`
+/ `FormTextField`). Keep draft/plan/schema/copy/load here. Do not call
+`companies.get` when `canViewCompanySettings` is false.
 
 UI state ownership is `.cursor/rules/mobile-ui-state.mdc`. Hub load
 classification is a pure presenter. Form fields are RHF + UI Zod. No

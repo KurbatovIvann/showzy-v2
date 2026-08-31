@@ -1,8 +1,16 @@
 # Catalog products — golden mobile slice
 
-Copy this tree for the next staff module. `src/app/` stays one-line
-re-exports. Feature code lives here, not under
+Folder roles here (`api/`, `list/`, `detail/`, `form/`, `photos/`,
+`shared/`) are the layout for the next staff module. `src/app/` stays
+one-line re-exports. Feature code lives here, not under
 `src/components/screens/<feature>/`.
+
+**Compose shared kits; do not clone this tree's form stack.** Save,
+guard, scaffold, and `Controller`+`TextField` chrome live in
+`src/components/form-kit` (SHO-300). Shared pickers land in SHO-301.
+Copy only what is product-specific: draft/plan/schema/copy/load, the
+photos `useReducer` session, the variant sheet, and the multi-write
+save loop (`photos.flush`, `too_many_variants`).
 
 UI state ownership is `.cursor/rules/mobile-ui-state.mdc`. The form uses
 RHF `Controller` for create/edit scalar fields (name, price) and a nested
@@ -21,15 +29,15 @@ RHF sheet for variants (SHO-163). Pin exact `react-hook-form` /
 | `photos/` | `useReducer` session, thin manager hook, commit/runtime I/O, upload runner, native, picker                                                                                                                              | A second `catalog.getProduct` when the parent already has `imageFileIds` |
 | `shared/` | Permissions, presenters (`variant-count`), `product-id.ts`, `product-hrefs.ts`, `product-caps.ts`, `classify-product-load.ts`, sheet chrome used by more than one surface                                               | Transport                                                                |
 
-## Copy-me rules
+## Compose-me rules
 
 - **Query vs RHF vs `useReducer` vs view.** TanStack Query stays in
   `api/` and surface hooks. Form fields belong in RHF `Controller` (or
-  section components that take `control`) — not the detail/list hooks,
-  not `watch()` of the whole form as the render model, and not a parallel
-  `useState` per field. After a successful UI parse (`handleSubmit` /
-  `parseProductFormUiDraft`), run `planProductFormSave` then
-  `photos.flush()`. After submit, parent field and variant row errors
+  `FormTextField` / section components that take `control`) — not the
+  detail/list hooks, not `watch()` of the whole form as the render model,
+  and not a parallel `useState` per field. After a successful UI parse
+  (`handleSubmit` / `parseProductFormUiDraft`), run `planProductFormSave`
+  then `photos.flush()`. After submit, parent field and variant row errors
   come from `formState` (copy keys) mapped onto draft keys, plus wire
   `VALIDATION` issues on the same shape — not a parallel `clientErrors`
   store. RHF gates the write; compacting a blank unsaved row must not
@@ -70,3 +78,9 @@ RHF sheet for variants (SHO-163). Pin exact `react-hook-form` /
 - **Screens do not own transport.** Routes re-export a screen. Screens
   compose a hook + view. Hooks call `api/` binders. Never import
   `@showzy/core`.
+- **Form stack.** New forms import `src/components/form-kit`
+  (`runFormSave`, `useFormSave`, `useUnsavedGuard`, `FormScreenScaffold`,
+  `FormTextField`). Do not copy `product-form-save.ts`,
+  `use-product-save.ts`, `use-unsaved-product-guard.ts`, or the view
+  StyleSheet. This slice still owns the product multi-write loop and
+  photos flush until a later ticket adopts the kit.

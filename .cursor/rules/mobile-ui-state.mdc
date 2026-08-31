@@ -47,3 +47,11 @@ Copy this split. Do not invent a fourth store.
 When a later screen grows (description, specs, inventory): add a
 **section** that takes `control`, extend the UI draft schema, keep the
 planner. Do not add a new `useState` field pile.
+
+## Form stack
+
+Compose `apps/mobile/src/components/form-kit` (`runFormSave`,
+`useFormSave`, `useUnsavedGuard`, `FormScreenScaffold`, `FormTextField`).
+Do not clone `catalog/products/form` save/guard/view chrome. Copy only
+the feature-specific slices: draft, plan, schema, copy, load, and
+fields that are not a `FormTextField`. Shared pickers are SHO-301.

@@ -1,10 +1,11 @@
 # Documents — mobile list + create + public token + QES (SHO-237 / SHO-238 / SHO-260)
 
-Copy `src/features/catalog/products/` folder roles and customers list
-chrome. Options-sheet **writes** copy `src/features/pricing/list/`
-(catalog list does not own writes). Create copies product/customer form
-(RHF + UI Zod + planner + unsaved-leave) and orders picker chrome.
-`src/app/` stays one-line re-exports. Feature code lives here, not under
+Folder roles follow `src/features/catalog/products/` (`api/`, `list/`,
+`form/`, `shared/`). Options-sheet **writes** follow
+`src/features/pricing/list/` (catalog list does not own writes). Create
+composes the shared form-kit (`src/components/form-kit` — adoption is
+SHO-306) plus feature draft/plan/schema/copy. `src/app/` stays one-line
+re-exports. Feature code lives here, not under
 `src/components/screens/`.
 
 UI state ownership is `.cursor/rules/mobile-ui-state.mdc`. List filters
