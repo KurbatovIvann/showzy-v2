@@ -6,12 +6,8 @@ import type { z } from "zod";
 
 import type { getSigningUploadUrlInputSchema } from "../actions/get-signing-upload-url.contract.js";
 import type { getUploadUrlInputSchema } from "../actions/get-upload-url.contract.js";
-import { requireDeclaredMime, requireSigningMime } from "./file-view.js";
-import {
-  catalogObjectKey,
-  signingObjectKey,
-  stagingObjectKey,
-} from "./object-key.js";
+import { catalogFilePurpose, signingFilePurpose } from "./file-purpose.js";
+import { stagingObjectKey } from "./object-key.js";
 import { signedPutWouldOutlivePending } from "./pending-abandon.js";
 import { getFilesObjectStore } from "./s3-port.js";
 
@@ -19,9 +15,13 @@ type StaffCtx = Extract<ActionCtx, { principal: "staff" }>;
 type UploadUrlInput = z.output<typeof getUploadUrlInputSchema>;
 type SigningUploadUrlInput = z.output<typeof getSigningUploadUrlInputSchema>;
 
-export async function getStaffUploadUrl(input: {
+type HandshakeUploadPurpose =
+  typeof catalogFilePurpose | typeof signingFilePurpose;
+
+async function getStaffHandshakeUploadUrl(input: {
   readonly ctx: StaffCtx;
-  readonly input: UploadUrlInput;
+  readonly fileId: string;
+  readonly purpose: HandshakeUploadPurpose;
 }): Promise<{
   readonly fileId: string;
   readonly uploadUrl: string;
@@ -33,9 +33,9 @@ export async function getStaffUploadUrl(input: {
     .where(
       and(
         eq(files.companyId, input.ctx.companyId),
-        eq(files.id, input.input.fileId),
+        eq(files.id, input.fileId),
         eq(files.status, "pending"),
-        eq(files.purpose, "catalog"),
+        eq(files.purpose, input.purpose.purpose),
       ),
     )
     .limit(1);
@@ -44,17 +44,15 @@ export async function getStaffUploadUrl(input: {
     throw new NotFoundError();
   }
 
-  const expectedKey = catalogObjectKey(input.ctx.companyId, row.id);
+  const expectedKey = input.purpose.objectKey(input.ctx.companyId, row.id);
   if (row.objectKey !== expectedKey) {
     throw new NotFoundError();
   }
 
-  const mimeType = requireDeclaredMime(row.mimeType);
+  const mimeType = input.purpose.requireMime(row.mimeType);
   const byteSize = Number(row.byteSize);
   if (!Number.isSafeInteger(byteSize) || byteSize < 1) {
-    throw new CoreInvariantError(
-      "files pending row has a non-positive declared size",
-    );
+    throw new CoreInvariantError(input.purpose.pendingSizeInvariant);
   }
 
   if (
@@ -84,6 +82,21 @@ export async function getStaffUploadUrl(input: {
   };
 }
 
+export async function getStaffUploadUrl(input: {
+  readonly ctx: StaffCtx;
+  readonly input: UploadUrlInput;
+}): Promise<{
+  readonly fileId: string;
+  readonly uploadUrl: string;
+  readonly expiresAt: string;
+}> {
+  return getStaffHandshakeUploadUrl({
+    ctx: input.ctx,
+    fileId: input.input.fileId,
+    purpose: catalogFilePurpose,
+  });
+}
+
 export async function getStaffSigningUploadUrl(input: {
   readonly ctx: StaffCtx;
   readonly input: SigningUploadUrlInput;
@@ -92,59 +105,9 @@ export async function getStaffSigningUploadUrl(input: {
   readonly uploadUrl: string;
   readonly expiresAt: string;
 }> {
-  const rows = await input.ctx.db
-    .select()
-    .from(files)
-    .where(
-      and(
-        eq(files.companyId, input.ctx.companyId),
-        eq(files.id, input.input.fileId),
-        eq(files.status, "pending"),
-        eq(files.purpose, "signing"),
-      ),
-    )
-    .limit(1);
-  const row = rows[0];
-  if (row === undefined) {
-    throw new NotFoundError();
-  }
-
-  const expectedKey = signingObjectKey(input.ctx.companyId, row.id);
-  if (row.objectKey !== expectedKey) {
-    throw new NotFoundError();
-  }
-
-  const mimeType = requireSigningMime(row.mimeType);
-  const byteSize = Number(row.byteSize);
-  if (!Number.isSafeInteger(byteSize) || byteSize < 1) {
-    throw new CoreInvariantError(
-      "files pending signing row has a non-positive declared size",
-    );
-  }
-
-  if (
-    signedPutWouldOutlivePending({
-      createdAt: row.createdAt,
-      now: new Date(),
-    })
-  ) {
-    throw new NotFoundError();
-  }
-
-  const signed = await getFilesObjectStore().signPut({
-    key: stagingObjectKey(input.ctx.companyId, row.id),
-    mimeType,
-    byteSize,
+  return getStaffHandshakeUploadUrl({
+    ctx: input.ctx,
+    fileId: input.input.fileId,
+    purpose: signingFilePurpose,
   });
-  if (signed.url.length === 0) {
-    throw new CoreInvariantError(
-      "files object store returned an empty PUT URL",
-    );
-  }
-
-  return {
-    fileId: row.id,
-    uploadUrl: signed.url,
-    expiresAt: signed.expiresAt.toISOString(),
-  };
 }

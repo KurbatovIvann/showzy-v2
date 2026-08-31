@@ -1,4 +1,5 @@
 import {
+  CopyObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   HeadBucketCommand,
@@ -64,6 +65,16 @@ export interface FilesObjectStore {
     readonly mimeType: StoredObjectMimeType;
     readonly bytes: Uint8Array;
   }): Promise<void>;
+  /**
+   * Server-side copy. Keys are caller-derived (verified `ctx.companyId`);
+   * this port does not parse tenant from the key. 412 If-Match miss is
+   * `precondition-failed`, not a 500.
+   */
+  copyObject(input: {
+    readonly sourceKey: string;
+    readonly destinationKey: string;
+    readonly sourceEtag: string;
+  }): Promise<"copied" | "precondition-failed">;
   deleteObject(key: string): Promise<void>;
   probeBucket(): Promise<void>;
   close(): void;
@@ -112,6 +123,22 @@ export function normalizeObjectEtag(etag: string): string {
     return value.slice(1, -1);
   }
   return value;
+}
+
+/** AWS `CopySourceIfMatch` / `If-Match` wants a quoted strong ETag. */
+export function quotedObjectEtag(etag: string): string {
+  return `"${normalizeObjectEtag(etag)}"`;
+}
+
+/** 412 PreconditionFailed from CopyObject If-Match (not a generic 500). */
+export function isObjectStorePreconditionFailed(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) {
+    return false;
+  }
+  if (readHttpStatus(error) === 412) {
+    return true;
+  }
+  return readErrorToken(error) === "PreconditionFailed";
 }
 
 export interface FilesObjectStoreErrorCause {
@@ -354,6 +381,25 @@ export function createFilesObjectStore(
       }
     },
 
+    async copyObject(input) {
+      try {
+        await dataClient.send(
+          new CopyObjectCommand({
+            Bucket: bucket,
+            Key: input.destinationKey,
+            CopySource: encodeCopySource(bucket, input.sourceKey),
+            CopySourceIfMatch: quotedObjectEtag(input.sourceEtag),
+          }),
+        );
+        return "copied";
+      } catch (error) {
+        if (isObjectStorePreconditionFailed(error)) {
+          return "precondition-failed";
+        }
+        rethrowObjectStoreFailure("CopyObject", error);
+      }
+    },
+
     async deleteObject(key) {
       try {
         await dataClient.send(
@@ -423,6 +469,13 @@ function downloadDisposition(mimeType: StoredObjectMimeType): string {
     return `attachment; filename="${filename}"`;
   }
   return `inline; filename="${filename}"`;
+}
+
+function encodeCopySource(bucket: string, key: string): string {
+  return `${encodeURIComponent(bucket)}/${key
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/")}`;
 }
 
 function isMissingObject(error: unknown): boolean {

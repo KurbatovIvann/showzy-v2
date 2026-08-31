@@ -929,6 +929,50 @@ describe("files object store probe", () => {
   });
 });
 
+describe("files object store copyObject", () => {
+  it("copies with CopySourceIfMatch and treats a stale ETag as precondition-failed", async () => {
+    const store = getFilesObjectStore();
+    const sourceKey = stagingObjectKey(kitIdentities.companies.a, randomUUID());
+    const destinationKey = signingObjectKey(
+      kitIdentities.companies.a,
+      randomUUID(),
+    );
+    await putStoreObject(sourceKey, zipBytes, SIGNING_MIME_TYPE);
+    const source = await store.getObject(sourceKey);
+    expect(source).not.toBe("missing");
+    if (source === "missing") {
+      throw new Error("expected staging object before copy");
+    }
+
+    const copied = await store.copyObject({
+      sourceKey,
+      destinationKey,
+      sourceEtag: source.etag,
+    });
+    expect(copied).toBe("copied");
+    await waitForObjectVisibility(store, destinationKey, "present");
+    const destination = await store.getObject(destinationKey);
+    expect(destination).not.toBe("missing");
+    if (destination === "missing") {
+      throw new Error("expected durable object after copy");
+    }
+    expect(sha256Hex(destination.bytes)).toBe(zipChecksum);
+
+    const stale = await store.copyObject({
+      sourceKey,
+      destinationKey,
+      sourceEtag: "deadbeefstaleetag",
+    });
+    expect(stale).toBe("precondition-failed");
+    const afterStale = await store.getObject(destinationKey);
+    expect(afterStale).not.toBe("missing");
+    if (afterStale === "missing") {
+      throw new Error("stale If-Match must not replace the durable object");
+    }
+    expect(sha256Hex(afterStale.bytes)).toBe(zipChecksum);
+  });
+});
+
 crossTenantSuite(requireKit, [
   isolationCase(
     requestUpload,
@@ -2578,7 +2622,7 @@ describe("files.sweepAbandonedUploads", () => {
     ).toHaveLength(0);
   });
 
-  it("marks a ready HEAD miss so a later tick skips the row", async () => {
+  it("marks a ready leftover so a later tick skips the row", async () => {
     await drainUnpurgedReady();
     const cleanedId = randomUUID();
     const leftoverId = randomUUID();
@@ -2600,7 +2644,7 @@ describe("files.sweepAbandonedUploads", () => {
       {},
       { deps: { ...requireKit().pipeline, logger: capturing.logger } },
     );
-    expect(first.leftoverStagingDeleted).toBe(0);
+    expect(first.leftoverStagingDeleted).toBe(1);
     const afterFirst = await fileCursor(cleanedId);
     expect(afterFirst.stagingPurgedAt).not.toBeNull();
     expect(
@@ -2657,7 +2701,7 @@ describe("files.sweepAbandonedUploads", () => {
     expect((await fileCursor(leftoverId)).stagingPurgedAt).not.toBeNull();
   });
 
-  it("deletes leftover staging when HeadObject still misses after PutObject", async () => {
+  it("deletes leftover staging without a prior HeadObject", async () => {
     await drainUnpurgedReady();
     const leftoverId = randomUUID();
     await insertFileRow({
@@ -2679,7 +2723,9 @@ describe("files.sweepAbandonedUploads", () => {
       ...inner,
       headObject(key) {
         if (key === stagingKey) {
-          return Promise.resolve("missing" as const);
+          throw new Error(
+            "sweep must DeleteObject leftover staging without HeadObject",
+          );
         }
         return inner.headObject(key);
       },
@@ -2688,7 +2734,7 @@ describe("files.sweepAbandonedUploads", () => {
       const result = await requireKit().invoke(sweepAbandonedUploads, {
         limit: 1,
       });
-      expect(result.leftoverStagingDeleted).toBe(0);
+      expect(result.leftoverStagingDeleted).toBe(1);
       expect((await fileCursor(leftoverId)).stagingPurgedAt).not.toBeNull();
     } finally {
       restore();
@@ -4168,6 +4214,106 @@ describe("files.recordSigningObject", () => {
     expect(blob).not.toMatch(/\/signing\//);
     expect(blob).not.toMatch(/\/uploads\//);
     expect(blob).not.toContain("http");
+  });
+
+  it("copies staging onto the signing prefix without PutObject of the GET bytes", async () => {
+    const pending = await requestSigningPut();
+    const companyId = kitIdentities.companies.a;
+    const stagingKey = stagingObjectKey(companyId, pending.fileId);
+    const durableKey = signingObjectKey(companyId, pending.fileId);
+    let copies = 0;
+    const restore = mapConfiguredFilesObjectStore((inner) => ({
+      ...inner,
+      async putObject(input) {
+        if (input.key === durableKey) {
+          throw new Error(
+            "recordSigningObject must CopyObject, not PutObject, onto the signing prefix",
+          );
+        }
+        return inner.putObject(input);
+      },
+      async copyObject(input) {
+        expect(input.sourceKey).toBe(stagingKey);
+        expect(input.destinationKey).toBe(durableKey);
+        expect(input.sourceEtag.length).toBeGreaterThan(0);
+        copies += 1;
+        return inner.copyObject(input);
+      },
+    }));
+    try {
+      const ready = await requireKit().invoke(
+        recordSigningObject,
+        signingRecordInput(pending.fileId),
+      );
+      expect(ready.checksumSha256).toBe(zipChecksum);
+      expect(copies).toBe(1);
+    } finally {
+      restore();
+    }
+
+    const durable = await getFilesObjectStore().getObject(durableKey);
+    expect(durable).not.toBe("missing");
+    if (durable === "missing") {
+      throw new Error("expected durable signing object after copy");
+    }
+    expect(sha256Hex(durable.bytes)).toBe(zipChecksum);
+  });
+
+  it("rejects record when staging changes after GetObject (CopyObject If-Match)", async () => {
+    const pending = await requestSigningPut();
+    const companyId = kitIdentities.companies.a;
+    const stagingKey = stagingObjectKey(companyId, pending.fileId);
+    const durableKey = signingObjectKey(companyId, pending.fileId);
+    const leftoverBytes = sameSizeMutatedZip();
+    expect(sha256Hex(leftoverBytes)).not.toBe(zipChecksum);
+
+    const restore = mapConfiguredFilesObjectStore((inner) => ({
+      ...inner,
+      async getObject(key) {
+        const object = await inner.getObject(key);
+        if (key === stagingKey && object !== "missing") {
+          await inner.putObject({
+            key,
+            mimeType: SIGNING_MIME_TYPE,
+            bytes: leftoverBytes,
+          });
+          const started = Date.now();
+          for (;;) {
+            const head = await inner.headObject(key);
+            if (head !== "missing" && head.etag !== object.etag) {
+              break;
+            }
+            if (Date.now() - started > 10_000) {
+              throw new Error("mutated staging ETag did not become visible");
+            }
+            await new Promise<void>((resolve) => {
+              setTimeout(resolve, 25);
+            });
+          }
+        }
+        return object;
+      },
+    }));
+    try {
+      await expect(
+        requireKit().invoke(
+          recordSigningObject,
+          signingRecordInput(pending.fileId),
+        ),
+      ).rejects.toBeInstanceOf(ValidationError);
+    } finally {
+      restore();
+    }
+
+    const rows = await requireKit()
+      .db.runtime.db.select({
+        status: files.status,
+        purpose: files.purpose,
+      })
+      .from(files)
+      .where(eq(files.id, pending.fileId));
+    expect(rows).toEqual([{ status: "pending", purpose: "signing" }]);
+    expect(await getFilesObjectStore().getObject(durableKey)).toBe("missing");
   });
 
   it("does not let a leftover signed PUT overwrite a ready signing object", async () => {
