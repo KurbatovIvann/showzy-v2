@@ -189,7 +189,9 @@ export function useProductDetail(
   );
   const viewerPreview = useMemo(
     () =>
-      detailViewerPreviewByFileId(urlsQuery.data?.files ?? EMPTY_DOWNLOAD_FILES),
+      detailViewerPreviewByFileId(
+        urlsQuery.data?.files ?? EMPTY_DOWNLOAD_FILES,
+      ),
     [urlsQuery.data?.files],
   );
 

@@ -682,9 +682,7 @@ describe("writesEqual", () => {
         name: "Торт",
         basePriceMinor: "100",
         currency: "UAH",
-        variants: [
-          { name: "1 кг", basePriceMinor: "180000", currency: "UAH" },
-        ],
+        variants: [{ name: "1 кг", basePriceMinor: "180000", currency: "UAH" }],
       },
       variantKeys: ["draft-1"],
     };

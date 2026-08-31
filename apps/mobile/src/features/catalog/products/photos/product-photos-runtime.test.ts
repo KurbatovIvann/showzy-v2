@@ -284,29 +284,27 @@ describe("createProductPhotosRuntime", () => {
       checksumSha256: "ab",
     };
     let calls = 0;
-    const runUpload = vi.fn(
-      (args: { readonly prepared: unknown }) => {
-        calls += 1;
-        if (calls === 1) {
-          return Promise.resolve({
-            machine: reduceUpload(
-              reduceUpload(initialUploadMachine(), { type: "start" }).state,
-              { type: "fail", reason: "network" as const },
-            ).state,
-            prepared,
-            requestAttempt: null,
-            finalizeAttempt: null,
-          });
-        }
-        expect(args.prepared).toBe(prepared);
+    const runUpload = vi.fn((args: { readonly prepared: unknown }) => {
+      calls += 1;
+      if (calls === 1) {
         return Promise.resolve({
-          machine: readyMachine(FILE_C),
+          machine: reduceUpload(
+            reduceUpload(initialUploadMachine(), { type: "start" }).state,
+            { type: "fail", reason: "network" as const },
+          ).state,
           prepared,
           requestAttempt: null,
           finalizeAttempt: null,
         });
-      },
-    );
+      }
+      expect(args.prepared).toBe(prepared);
+      return Promise.resolve({
+        machine: readyMachine(FILE_C),
+        prepared,
+        requestAttempt: null,
+        finalizeAttempt: null,
+      });
+    });
     const runtime = createProductPhotosRuntime({
       getContext: session.getContext,
       send: session.send,

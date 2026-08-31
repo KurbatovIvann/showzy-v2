@@ -5,7 +5,10 @@
 import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
-import { describeQueryFailure, describeWireError } from "../../../../api/errors";
+import {
+  describeQueryFailure,
+  describeWireError,
+} from "../../../../api/errors";
 import { useActiveCompany } from "../../../../api/query-provider";
 import { useBoundContractMutation } from "../../../../api/use-bound-contract-mutation";
 import { useSheetHiddenWaiter } from "../../../../hooks/use-sheet-hidden-waiter";

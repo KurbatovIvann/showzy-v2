@@ -5,7 +5,10 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 
-import { describeQueryFailure, describeWireError } from "../../../../api/errors";
+import {
+  describeQueryFailure,
+  describeWireError,
+} from "../../../../api/errors";
 import { useActiveCompany } from "../../../../api/query-provider";
 import { useBoundContractMutation } from "../../../../api/use-bound-contract-mutation";
 import { invalidateCatalogAfterStatusWrite } from "../api/product-archive";
