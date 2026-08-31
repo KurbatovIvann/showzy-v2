@@ -11,8 +11,9 @@ export default defineConfig({
   schema: "./src/schema/*.ts",
   out: "./migrations",
   dbCredentials: {
-    // Migrations run under the migration role (db.md §6); local dev may point
-    // both URLs at the compose superuser.
+    // Migrations run under the migration role (db.md §6). Local-dev
+    // `DATABASE_MIGRATE_URL` may point at the compose superuser as a CLI
+    // convenience — that URL is not a password embedded in SQL.
     url: process.env.DATABASE_MIGRATE_URL ?? process.env.DATABASE_URL ?? "",
   },
 });

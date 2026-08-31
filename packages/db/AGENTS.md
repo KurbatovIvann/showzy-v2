@@ -65,6 +65,18 @@ comment naming its approval. The outbox notify trigger is
 Drizzle schema. Domain
 queries are Drizzle-only, inside action handlers/services (prohibitions.mdc).
 
+The single sanctioned `updated_at` trigger-DDL convention (db.md §5) is
+the function in `migrations/0001_foundation_primitives.sql` plus per-table
+attachments as in `migrations/0004_companies_updated_at_triggers.sql`:
+
+```
+CREATE TRIGGER <table>_set_updated_at BEFORE UPDATE ON <table>
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+```
+
+Do not invent a second trigger pattern. Do not re-express notify / SET NULL
+/ extension DDL here.
+
 ## Roles (db.md §6)
 
 Created as NOLOGIN privilege containers by the roles migration; environments
