@@ -286,7 +286,7 @@ describe("composition root identity", () => {
     );
   });
 
-  it("docSigning.start nests documents.get, the issued-row lock, and the panel PDF issuer, not getArtifact", () => {
+  it("docSigning.start nests the issued-row lock, getArtifact, and the panel PDF issuer, not documents.get", () => {
     const source = readFileSync(
       join(import.meta.dirname, "composition.ts"),
       "utf8",
@@ -306,7 +306,7 @@ describe("composition root identity", () => {
         .map((edge) => edge.callee)
         .toSorted(),
     ).toEqual([
-      "documents.get",
+      "docGeneration.getArtifact",
       "documents.lockIssuedForSigning",
       "files.issueDocumentDownloadUrl",
     ]);
@@ -316,7 +316,7 @@ describe("composition root identity", () => {
         .map((edge) => edge.callee),
     ).toEqual(["docGeneration.getArtifact"]);
     expect(edges.map((edge) => `${edge.caller}->${edge.callee}`)).not.toContain(
-      "docSigning.start->docGeneration.getArtifact",
+      "docSigning.start->documents.get",
     );
   });
 

@@ -53,7 +53,11 @@ describe("doc-signing source guards (SHO-254 / SHO-257 / SHO-258)", () => {
     expect(executableSource("actions/start.ts")).toContain(
       "lockIssuedForSigning",
     );
-    expect(executableSource("actions/start.ts")).not.toContain("getArtifact");
+    expect(executableSource("actions/start.ts")).toContain("getArtifact");
+    expect(executableSource("actions/start.ts")).not.toContain("getDocument");
+    expect(executableSource("actions/start.ts")).not.toContain(
+      "getForGeneration",
+    );
     expect(executableSource("actions/start.ts")).not.toContain(
       "docSigning.complete",
     );
@@ -87,6 +91,9 @@ describe("doc-signing source guards (SHO-254 / SHO-257 / SHO-258)", () => {
     expect(executableSource("actions/complete.ts")).not.toContain("base64");
     expect(executableSource("actions/complete.ts")).not.toContain(
       "getArtifact",
+    );
+    expect(executableSource("actions/complete.ts")).toContain(
+      "resolveExistingSignature",
     );
     expect(complete).toContain("WeakMap");
     expect(complete).not.toContain("new Map");

@@ -9,6 +9,7 @@
     "./customers": "./src/customers.ts",
     "./money": "./src/money.ts",
     "./pagination": "./src/pagination.ts",
+    "./signing": "./src/signing.ts",
     "./slug": "./src/slug.ts"
   },
   "scripts": {

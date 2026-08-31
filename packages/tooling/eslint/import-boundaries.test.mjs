@@ -74,6 +74,10 @@ test("showzy/import-boundaries", () => {
         code: `import { getArtifact } from "@showzy/doc-generation/get-artifact";`,
       },
       {
+        filename: file("packages/modules/doc-signing/src/actions/start.ts"),
+        code: `import { getArtifact } from "@showzy/doc-generation/get-artifact";`,
+      },
+      {
         filename: file("packages/modules/documents/src/actions/get.ts"),
         code: `import { getSigning } from "@showzy/doc-signing/get";`,
       },

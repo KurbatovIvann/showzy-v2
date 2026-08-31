@@ -6,65 +6,23 @@ import {
 } from "@showzy/core/errors";
 import { documents } from "@showzy/db/schema/documents";
 import { getArtifact } from "@showzy/doc-generation/get-artifact";
-import { requireOrValidationError } from "@showzy/module-kit/require";
+import { CANCELLED_REQUEST_SIGN_MESSAGE } from "@showzy/validation/signing";
 import { and, eq } from "drizzle-orm";
-import { z } from "zod";
 
-import {
-  SIGN_REQUEST_GRANT_TTL_MS,
-  lockIssuedForSigningContract,
-} from "./lock-issued-for-signing.contract.js";
-import {
-  CANCELLED_REQUEST_SIGN_MESSAGE,
-  PDF_NOT_READY_MESSAGE,
-} from "./request-sign.js";
+import { lockIssuedForSigningContract } from "./lock-issued-for-signing.contract.js";
 import {
   loadGenerationArtifact,
   readyArtifactFileId,
 } from "../services/load-generation.js";
+import {
+  requireReadyPdf,
+  requireUnexpiredGrant,
+} from "../services/signing-gates.js";
 
-export const GRANT_MISSING_MESSAGE =
-  "A signature request grant is required. Call documents.requestSign again.";
-export const GRANT_EXPIRED_MESSAGE =
-  "The signature request grant has expired. Call documents.requestSign again.";
-
-const grantPresentGate = z.object({
-  present: z.literal(true, { error: GRANT_MISSING_MESSAGE }),
-});
-
-const grantFreshGate = z.object({
-  fresh: z.literal(true, { error: GRANT_EXPIRED_MESSAGE }),
-});
-
-const readyPdfGate = z.object({
-  present: z.literal(true, { error: PDF_NOT_READY_MESSAGE }),
-});
-
-function requireUnexpiredGrant(signRequestedAt: Date | null): void {
-  requireOrValidationError(
-    grantPresentGate,
-    { present: signRequestedAt !== null },
-    GRANT_MISSING_MESSAGE,
-  );
-  const requestedAtMs = signRequestedAt?.getTime() ?? Number.NaN;
-  requireOrValidationError(
-    grantFreshGate,
-    {
-      fresh:
-        Number.isFinite(requestedAtMs) &&
-        Date.now() - requestedAtMs < SIGN_REQUEST_GRANT_TTL_MS,
-    },
-    GRANT_EXPIRED_MESSAGE,
-  );
-}
-
-function requireReadyPdf(fileId: string | null): void {
-  requireOrValidationError(
-    readyPdfGate,
-    { present: fileId !== null },
-    PDF_NOT_READY_MESSAGE,
-  );
-}
+export {
+  GRANT_EXPIRED_MESSAGE,
+  GRANT_MISSING_MESSAGE,
+} from "@showzy/validation/signing";
 
 export const lockIssuedForSigning = implementAction(
   lockIssuedForSigningContract,
