@@ -9,6 +9,7 @@ import {
   hmacBetterAuthConsumeKey,
   requireAuthIpHmacSecret,
 } from "./auth-ip-hmac.js";
+import { withKeyLock } from "./with-key-lock.js";
 
 export interface SecondaryStorage {
   get(key: string): Promise<string | null>;
@@ -82,26 +83,6 @@ export function createMemorySecondaryStorage(options?: {
       return Promise.resolve(value);
     },
   };
-}
-
-function withKeyLock<T>(
-  tails: Map<string, Promise<void>>,
-  key: string,
-  work: () => Promise<T>,
-): Promise<T> {
-  const previous = tails.get(key) ?? Promise.resolve();
-  let release!: () => void;
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  tails.set(
-    key,
-    previous.then(
-      () => gate,
-      () => gate,
-    ),
-  );
-  return previous.then(work, work).finally(release);
 }
 
 interface FixedWindowState {
