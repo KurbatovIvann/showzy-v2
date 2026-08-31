@@ -10,7 +10,6 @@ import { promises as dns } from "node:dns";
 import { BlockList, isIP } from "node:net";
 
 import { IP_HMAC_ROTATION_MS, type RateLimitStore } from "@showzy/core";
-import { CoreInvariantError } from "@showzy/core/errors";
 import {
   isPkiProxyAllowedHost,
   PKI_PROXY_PATH,
@@ -101,12 +100,37 @@ export function isBlockedPkiDestinationAddress(address: string): boolean {
   }
 }
 
-function requireIpHmacSecret(secret: string): void {
-  if (secret.length === 0) {
-    throw new CoreInvariantError(
-      "pki-proxy constructed with an empty ipHmacSecret — config wiring bug",
-    );
+function normalizeHostname(hostname: string): string {
+  return hostname.toLowerCase().replace(/\.$/, "");
+}
+
+function tryParseHttpUrl(raw: string): URL | null {
+  try {
+    return new URL(raw);
+  } catch {
+    return null;
   }
+}
+
+function asAllowedTarget(parsed: URL): URL | null {
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    return null;
+  }
+  if (parsed.username !== "" || parsed.password !== "") {
+    return null;
+  }
+  if (!isDefaultPort(parsed)) {
+    return null;
+  }
+  const host = normalizeHostname(parsed.hostname);
+  if (host.length === 0 || isIP(host) !== 0) {
+    return null;
+  }
+  if (!isPkiProxyAllowedHost(host)) {
+    return null;
+  }
+  parsed.hostname = host;
+  return parsed;
 }
 
 function pkiProxyRateLimitKey(
@@ -125,33 +149,6 @@ function pkiProxyRateLimitKey(
 async function defaultLookup(hostname: string): Promise<readonly string[]> {
   const records = await dns.lookup(hostname, { all: true, verbatim: true });
   return records.map((record) => record.address);
-}
-
-function parseTargetUrl(raw: string): URL | null {
-  let parsed: URL;
-  try {
-    parsed = new URL(raw);
-  } catch {
-    return null;
-  }
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    return null;
-  }
-  if (parsed.username !== "" || parsed.password !== "") {
-    return null;
-  }
-  if (!isDefaultPort(parsed)) {
-    return null;
-  }
-  const host = parsed.hostname.toLowerCase().replace(/\.$/, "");
-  if (host.length === 0 || isIP(host) !== 0) {
-    return null;
-  }
-  if (!isPkiProxyAllowedHost(host)) {
-    return null;
-  }
-  parsed.hostname = host;
-  return parsed;
 }
 
 function isDefaultPort(url: URL): boolean {
@@ -203,7 +200,6 @@ export async function executePkiProxy(options: {
   readonly fetchImpl?: PkiProxyFetch;
   readonly now?: () => number;
 }): Promise<PkiProxyResult> {
-  requireIpHmacSecret(options.ipHmacSecret);
   const now = options.now ?? Date.now;
 
   let decision;
@@ -243,16 +239,10 @@ export async function executePkiProxy(options: {
     return invalidRequest();
   }
 
-  let logHost: string | undefined;
-  try {
-    logHost = new URL(parsed.data.url).hostname
-      .toLowerCase()
-      .replace(/\.$/, "");
-  } catch {
-    logHost = undefined;
-  }
-
-  const target = parseTargetUrl(parsed.data.url);
+  const parsedUrl = tryParseHttpUrl(parsed.data.url);
+  const logHost =
+    parsedUrl === null ? undefined : normalizeHostname(parsedUrl.hostname);
+  const target = parsedUrl === null ? null : asAllowedTarget(parsedUrl);
   if (target === null) {
     logBlocked(options.logger, options.requestId, logHost, "allowlist");
     return notAllowed();
