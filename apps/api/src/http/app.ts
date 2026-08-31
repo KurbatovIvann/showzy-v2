@@ -114,7 +114,7 @@ function sessionGate(registry: ActionRegistry) {
   }): Promise<unknown> => {
     const contract = registry.getContract(options.path.join("."));
     if (contract !== undefined && requiresSession(contract.principal)) {
-      const resolve = pendingSession.get(options.context);
+      const resolve = readSessionThunk(options.context);
       const session = resolve === undefined ? null : await resolve();
       assignSession(options.context, session);
       if (session === null) {
@@ -145,11 +145,36 @@ async function resolveSession(
  * (`ProcedureClientInterceptorOptions`). Stash a thunk on the context
  * object (not a call) so `sessionGate` can `getSession` only when the
  * dispatched principal requires one. Public/share never touch the store.
+ *
+ * StrictGetMethodPlugin spreads context into a new object, so a WeakMap
+ * keyed by identity misses. An enumerable symbol survives `{...context}`
+ * and is not a published client-contract field (JSON ignores symbols).
  */
-const pendingSession = new WeakMap<
-  TransportInvocationContext,
-  () => Promise<SessionPrincipal | null>
->();
+const SESSION_THUNK = Symbol("showzy.pendingSession");
+
+function isSessionThunk(
+  value: unknown,
+): value is () => Promise<SessionPrincipal | null> {
+  return typeof value === "function";
+}
+
+function readSessionThunk(
+  context: TransportInvocationContext,
+): (() => Promise<SessionPrincipal | null>) | undefined {
+  const value = Reflect.get(context, SESSION_THUNK);
+  return isSessionThunk(value) ? value : undefined;
+}
+
+function stashSessionThunk(
+  context: TransportInvocationContext,
+  resolve: () => Promise<SessionPrincipal | null>,
+): void {
+  Object.defineProperty(context, SESSION_THUNK, {
+    value: resolve,
+    enumerable: true,
+    configurable: true,
+  });
+}
 
 function assignSession(
   context: TransportInvocationContext,
@@ -194,7 +219,7 @@ function buildTransportContext(
       ? { confirmationChallengeId }
       : {}),
   };
-  pendingSession.set(context, () => resolveSession(auth, headers));
+  stashSessionThunk(context, () => resolveSession(auth, headers));
   return context;
 }
 
