@@ -68,18 +68,23 @@ export async function bootWorker(
       closeFilesObjectStore();
     });
     await probeFilesObjectStore();
-    const db = createDbClient({ databaseUrl: config.database.url });
+    const { logger: processLogger, telemetry } = createProcessObservability({
+      name: "worker",
+      sentryDsn: config.sentry.dsn,
+    });
+    const logger = options.logger ?? processLogger;
+    const db = createDbClient({
+      databaseUrl: config.database.url,
+      onPoolError: (error) => {
+        logger.error({ err: error }, "idle postgres pool client error");
+      },
+    });
     releases.push(() => db.pool.end());
     const redis = new Redis(config.redis.url);
     releases.push(async () => {
       await redis.quit();
     });
     await redis.ping();
-    const { logger: processLogger, telemetry } = createProcessObservability({
-      name: "worker",
-      sentryDsn: config.sentry.dsn,
-    });
-    const logger = options.logger ?? processLogger;
     const workerId = options.workerId ?? randomUUID();
     const pipeline = createActionPipeline({
       db: db.db,

@@ -60,13 +60,18 @@ export async function bootApi(config: ServerConfig): Promise<BootedApi> {
     closeFilesObjectStore();
     throw error;
   }
-  const db = createDbClient({ databaseUrl: config.database.url });
-  const redis = new Redis(config.redis.url);
-  await redis.ping();
   const { logger, telemetry } = createProcessObservability({
     name: "api",
     sentryDsn: config.sentry.dsn,
   });
+  const db = createDbClient({
+    databaseUrl: config.database.url,
+    onPoolError: (error) => {
+      logger.error({ err: error }, "idle postgres pool client error");
+    },
+  });
+  const redis = new Redis(config.redis.url);
+  await redis.ping();
   const secondary = createRedisSecondaryStorage(redis);
   const otpSenders = otpSendersFromConfig(config.otpDelivery, { logger });
 
