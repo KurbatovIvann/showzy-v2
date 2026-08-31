@@ -68,8 +68,8 @@ export const companyCustomerInvites = pgTable(
     unique("company_customer_invites_token_hash_uq").on(table.tokenHash),
     index("company_customer_invites_company_updated_at_id_idx").on(
       table.companyId,
-      table.updatedAt.desc(),
-      table.id.desc(),
+      table.updatedAt.desc().nullsFirst(),
+      table.id.desc().nullsFirst(),
     ),
     index("company_customer_invites_company_status_idx").on(
       table.companyId,

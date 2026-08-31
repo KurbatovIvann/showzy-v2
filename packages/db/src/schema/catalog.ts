@@ -44,8 +44,8 @@ export const products = pgTable(
     unique("products_company_id_id_uq").on(table.companyId, table.id),
     index("products_company_created_at_id_idx").on(
       table.companyId,
-      table.createdAt.desc(),
-      table.id.desc(),
+      table.createdAt.desc().nullsFirst(),
+      table.id.desc().nullsFirst(),
     ),
     index("products_company_status_idx").on(table.companyId, table.status),
     check("products_base_price_minor_check", sql`${table.basePriceMinor} >= 0`),

@@ -103,8 +103,8 @@ export const companyCustomers = pgTable(
       .where(sql`${table.userId} IS NOT NULL`),
     index("company_customers_company_updated_at_id_idx").on(
       table.companyId,
-      table.updatedAt.desc(),
-      table.id.desc(),
+      table.updatedAt.desc().nullsFirst(),
+      table.id.desc().nullsFirst(),
     ),
     index("company_customers_company_status_idx").on(
       table.companyId,
@@ -187,8 +187,8 @@ export const counterparties = pgTable(
       .where(sql`${table.edrpou} IS NOT NULL`),
     index("counterparties_company_updated_at_id_idx").on(
       table.companyId,
-      table.updatedAt.desc(),
-      table.id.desc(),
+      table.updatedAt.desc().nullsFirst(),
+      table.id.desc().nullsFirst(),
     ),
     index("counterparties_company_customer_idx").on(
       table.companyId,

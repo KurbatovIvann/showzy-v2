@@ -75,8 +75,8 @@ export const documents = pgTable(
       .where(sql`${table.status} <> 'cancelled'`),
     index("documents_company_created_at_idx").on(
       table.companyId,
-      table.createdAt.desc(),
-      table.id.desc(),
+      table.createdAt.desc().nullsFirst(),
+      table.id.desc().nullsFirst(),
     ),
     index("documents_company_status_idx").on(table.companyId, table.status),
     index("documents_company_type_idx").on(table.companyId, table.type),

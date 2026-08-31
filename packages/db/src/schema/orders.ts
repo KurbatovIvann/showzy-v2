@@ -63,8 +63,8 @@ export const orders = pgTable(
     ),
     index("orders_company_created_at_idx").on(
       table.companyId,
-      table.createdAt.desc(),
-      table.id.desc(),
+      table.createdAt.desc().nullsFirst(),
+      table.id.desc().nullsFirst(),
     ),
     index("orders_company_status_idx").on(table.companyId, table.status),
     index("orders_customer_idx").on(table.customerId),
