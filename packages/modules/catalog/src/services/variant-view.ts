@@ -2,28 +2,13 @@ import { CoreInvariantError } from "@showzy/core/errors";
 import {
   moneyFromCanonical,
   moneyToCanonical,
+  requireUahOrNull,
 } from "@showzy/module-kit/canonical";
 import type { z } from "zod";
 
 import type { variantViewSchema } from "../actions/variant-view.contract.js";
 
 type VariantView = z.output<typeof variantViewSchema>;
-
-function requireUah(currency: string): "UAH" {
-  if (currency !== "UAH") {
-    throw new CoreInvariantError(
-      "catalog write view expected UAH (db.md §11 UAH-only MVP)",
-    );
-  }
-  return "UAH";
-}
-
-function requireUahOrNull(currency: string | null): "UAH" | null {
-  if (currency === null) {
-    return null;
-  }
-  return requireUah(currency);
-}
 
 export function variantPriceFields(fields: {
   readonly basePriceMinor?: string | undefined;
