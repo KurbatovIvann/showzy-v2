@@ -356,6 +356,7 @@ beforeAll(async () => {
     buildAuthOptions({
       database: drizzleAdapter(kit.db.runtime.db, { provider: "pg" }),
       baseUrl: "http://localhost:3000",
+      webOrigins: [],
       secret: "test-only-secret-0123456789abcdef-0000",
       sendPhoneOtp: (data) => {
         sentPhone.push(data);
@@ -929,6 +930,7 @@ describe("OTP over HTTP (security-operations §8)", () => {
       buildAuthOptions({
         database: drizzleAdapter(kit.db.runtime.db, { provider: "pg" }),
         baseUrl: "http://localhost:3000",
+        webOrigins: [],
         secret: "test-only-secret-0123456789abcdef-0000",
         sendPhoneOtp: (data) => {
           failSent.push(data);

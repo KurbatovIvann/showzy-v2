@@ -42,6 +42,12 @@ export interface AuthComposition {
   readonly database: DBAdapterInstance;
   /** From validated config (`BETTER_AUTH_URL`); never read from process.env here. */
   readonly baseUrl: string;
+  /**
+   * Browser origins of the web panel joining `trustedOrigins` (web-T2,
+   * ADR-0030). From validated config (`WEB_APP_ORIGINS`); empty in
+   * environments without a web panel. Origin checks only — never a grant.
+   */
+  readonly webOrigins: readonly string[];
   /** From validated config (`BETTER_AUTH_SECRET`). */
   readonly secret: string;
   /** Delivers a phone OTP (SMS provider at runtime). Never log the code. */
@@ -116,7 +122,11 @@ export function buildAuthOptions(composition: AuthComposition) {
     baseURL: composition.baseUrl,
     secret: composition.secret,
     database: composition.database,
-    trustedOrigins: [composition.baseUrl, expoClientPolicy.origin],
+    trustedOrigins: [
+      composition.baseUrl,
+      expoClientPolicy.origin,
+      ...composition.webOrigins,
+    ],
     // OTP codes live here (TTL'd), never in Postgres.
     secondaryStorage: composition.secondaryStorage,
     session: {

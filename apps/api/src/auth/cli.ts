@@ -35,6 +35,8 @@ export const auth = betterAuth(
   buildAuthOptions({
     database: drizzleAdapter(db, { provider: "pg" }),
     baseUrl: "http://localhost:3000",
+    // trustedOrigins never affect the generated schema; keep the CLI inert.
+    webOrigins: [],
     secret: "schema-generation-only-not-a-secret-0000",
     sendPhoneOtp: () => Promise.reject(new SchemaGenerationOnlyError()),
     sendEmailOtp: () => Promise.reject(new SchemaGenerationOnlyError()),

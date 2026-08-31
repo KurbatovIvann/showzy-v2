@@ -28,6 +28,7 @@ function validEnv(): Record<string, string> {
     S3_BUCKET: "showzy",
     BETTER_AUTH_SECRET: "dev-only-secret-change-me-0000000000",
     BETTER_AUTH_URL: "http://localhost:3000",
+    WEB_APP_ORIGINS: "http://localhost:5173",
     IP_HMAC_SECRET: "dev-only-ip-hmac-secret-change-me-00",
     TRUSTED_PROXIES: "10.0.0.1, 172.16.0.0/12",
     SENTRY_DSN: "https://key@sentry.example.com/42",
@@ -52,6 +53,7 @@ describe("loadServerConfig", () => {
     expect(config.s3.bucket).toBe("showzy");
     expect(config.s3).not.toHaveProperty("buckets");
     expect(config.auth.url).toBe("http://localhost:3000");
+    expect(config.auth.webOrigins).toEqual(["http://localhost:5173"]);
     expect(config.rateLimit.ipHmacSecret).toBe(
       "dev-only-ip-hmac-secret-change-me-00",
     );
@@ -76,6 +78,7 @@ describe("loadServerConfig", () => {
     delete env["TRUSTED_PROXIES"];
     delete env["SENTRY_DSN"];
     delete env["API_PORT"];
+    delete env["WEB_APP_ORIGINS"];
 
     const config = loadServerConfig(env);
 
@@ -87,6 +90,7 @@ describe("loadServerConfig", () => {
     expect(config.s3.bucket).toBe("showzy");
     expect(config.s3.publicEndpoint).toBe(config.s3.endpoint);
     expect(config.trustedProxies).toEqual([]);
+    expect(config.auth.webOrigins).toEqual([]);
     expect(config.sentry.dsn).toBeUndefined();
     expect(config.otpDelivery.email.transport).toBe("stub");
     expect(config.otpDelivery.sms).toEqual({
@@ -229,6 +233,54 @@ describe("loadServerConfig", () => {
     expect(everything).not.toContain("SENTINEL");
     expect(everything).toContain("S3_ENDPOINT");
     expect(everything).not.toContain("S3_SECRET_ACCESS_KEY_SENTINEL");
+  });
+
+  it("parses WEB_APP_ORIGINS as a comma-separated origin list", () => {
+    const env = validEnv();
+    env["WEB_APP_ORIGINS"] = "http://localhost:5173, https://panel.example.com";
+    const config = loadServerConfig(env);
+    expect(config.auth.webOrigins).toEqual([
+      "http://localhost:5173",
+      "https://panel.example.com",
+    ]);
+  });
+
+  it("normalizes WEB_APP_ORIGINS entries to their origin (no path, no slash)", () => {
+    const env = validEnv();
+    env["WEB_APP_ORIGINS"] =
+      "https://panel.example.com/, https://panel.example.com/sign-in";
+    // Better-auth compares the request Origin header against the list, so a
+    // trailing slash or path would silently never match. Entries that
+    // normalize to the same origin collapse into one.
+    expect(loadServerConfig(env).auth.webOrigins).toEqual([
+      "https://panel.example.com",
+    ]);
+  });
+
+  it("dedupes WEB_APP_ORIGINS entries that normalize to the same origin", () => {
+    const env = validEnv();
+    env["WEB_APP_ORIGINS"] =
+      "https://panel.example.com, https://panel.example.com/, https://panel.example.com/sign-in, http://localhost:5173";
+    // First occurrence wins; distinct origins keep their relative order.
+    expect(loadServerConfig(env).auth.webOrigins).toEqual([
+      "https://panel.example.com",
+      "http://localhost:5173",
+    ]);
+  });
+
+  it("rejects WEB_APP_ORIGINS entries that are not http(s) URLs", () => {
+    for (const value of ["not-a-url", "showzy://", "ftp://panel.example.com"]) {
+      const env = validEnv();
+      env["WEB_APP_ORIGINS"] = value;
+      expect(() => loadServerConfig(env)).toThrow(ConfigValidationError);
+      try {
+        loadServerConfig(env);
+      } catch (error) {
+        expect((error as ConfigValidationError).message).toContain(
+          "WEB_APP_ORIGINS",
+        );
+      }
+    }
   });
 
   it("signs client URLs against S3_PUBLIC_ENDPOINT when it is set", () => {
