@@ -10,11 +10,13 @@ export {
   type UnpackedAsic,
 } from "../asic-container.js";
 export {
-  createSignedAsicE,
   getSharedNodeAdapter,
   sha256Hex,
   verifyAsicE,
   type AsicVerifyResult,
-  type SignedAsic,
 } from "../verify-asic.js";
-export { AsicContainerError, VerifyFailedError } from "../errors.js";
+export {
+  AsicContainerError,
+  UapkiProtocolError,
+  VerifyFailedError,
+} from "../errors.js";

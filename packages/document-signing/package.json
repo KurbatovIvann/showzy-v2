@@ -8,7 +8,8 @@
     ".": "./src/index.ts",
     "./web": "./src/platform/web-adapter.ts",
     "./native": "./src/platform/native-adapter.ts",
-    "./node": "./src/platform/node.ts"
+    "./node": "./src/platform/node.ts",
+    "./testing": "./src/testing/signed-asic-fixture.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -18,6 +19,9 @@
     "build:wasm": "bash wasm/build.sh",
     "build:wasm:docker": "docker run --rm -v \"$(cd ../.. && pwd)/packages/document-signing/cpp:/wasm/cpp\" -v \"$(cd ../.. && pwd)/packages/document-signing/wasm:/wasm/wasm\" -w /wasm/wasm emscripten/emsdk:3.1.56 bash build.sh",
     "clean:wasm": "rm -rf wasm/build wasm/dist"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
   },
   "peerDependencies": {
     "expo-file-system": ">=55.0.0",

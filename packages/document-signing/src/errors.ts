@@ -64,3 +64,15 @@ export class VerifyFailedError extends SigningError {
     this.name = "VerifyFailedError";
   }
 }
+
+/**
+ * The UAPKI engine (or its transport) returned JSON that does not match
+ * the documented response shape (SHO-282). A malformed response is a typed
+ * failure at the boundary, never a downstream TypeError.
+ */
+export class UapkiProtocolError extends SigningError {
+  constructor(message: string) {
+    super(message, "UAPKI_PROTOCOL");
+    this.name = "UapkiProtocolError";
+  }
+}

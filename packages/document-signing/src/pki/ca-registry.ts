@@ -1,4 +1,7 @@
+import { z } from "zod";
+
 import { extractCertsFromPkcs7 } from "./asn1.js";
+import { pkiDebugLog } from "./debug-log.js";
 import { base64ToUint8 } from "./encoding.js";
 import { proxyFetch } from "./proxy.js";
 
@@ -11,17 +14,20 @@ export interface CaProvider {
   tsaUrl: string;
 }
 
-interface CzoJsonEntry {
-  issuerCNs: string[];
-  address: string;
-  ocspAccessPointAddress: string;
-  ocspAccessPointPort: string;
-  cmpAddress: string;
-  tspAddress: string;
-  tspAddressPort: string;
-  directAccess?: boolean;
-  codeEDRPOU?: string;
-}
+/**
+ * Downloaded CZO registry entry (SHO-282 boundary). Only the fields this
+ * package reads are validated; entries that fail parse are skipped instead
+ * of silently producing broken providers.
+ */
+const czoJsonEntrySchema = z.looseObject({
+  issuerCNs: z.array(z.string()).optional(),
+  address: z.string(),
+  ocspAccessPointAddress: z.string().optional(),
+  cmpAddress: z.string().optional(),
+  tspAddress: z.string().optional(),
+});
+
+type CzoJsonEntry = z.infer<typeof czoJsonEntrySchema>;
 
 const DEFAULT_CZO_CAS_JSON_URL =
   "https://czo.gov.ua/download/certificates/CAs.json";
@@ -32,13 +38,14 @@ let cachedProviders: CaProvider[] | null = null;
 
 function mapCzoEntry(entry: CzoJsonEntry): CaProvider {
   const cmpHost = entry.cmpAddress || entry.address;
+  const issuerCNs = entry.issuerCNs ?? [];
   return {
     id: entry.address,
-    name: entry.issuerCNs[0] ?? entry.address,
-    issuerCNs: entry.issuerCNs,
+    name: issuerCNs[0] ?? entry.address,
+    issuerCNs,
     cmpUrl: `http://${cmpHost}/services/cmp/`,
-    ocspUrl: `http://${entry.ocspAccessPointAddress}`,
-    tsaUrl: `http://${entry.tspAddress}/services/tsp/`,
+    ocspUrl: `http://${entry.ocspAccessPointAddress ?? ""}`,
+    tsaUrl: `http://${entry.tspAddress ?? ""}/services/tsp/`,
   };
 }
 
@@ -61,9 +68,25 @@ export async function loadCaRegistry(
     if (!Array.isArray(parsed)) {
       throw new Error("CAs.json is not an array");
     }
-    cachedProviders = parsed.map((entry) => mapCzoEntry(entry as CzoJsonEntry));
+    const providers: CaProvider[] = [];
+    for (const rawEntry of parsed) {
+      const entry = czoJsonEntrySchema.safeParse(rawEntry);
+      if (entry.success) {
+        providers.push(mapCzoEntry(entry.data));
+      } else {
+        pkiDebugLog(
+          "ca-registry: skipped malformed CAs.json entry",
+          entry.error,
+        );
+      }
+    }
+    if (providers.length === 0) {
+      throw new Error("CAs.json contained no usable entries");
+    }
+    cachedProviders = providers;
     return cachedProviders;
-  } catch {
+  } catch (error) {
+    pkiDebugLog("ca-registry: CAs.json load failed, using fallback", error);
     cachedProviders = FALLBACK_CA_PROVIDERS;
     return cachedProviders;
   }
@@ -96,8 +119,8 @@ export async function fetchCaCertBundle(
     if (proxyData.status === 200 && proxyData.bodyBase64) {
       return proxyData.bodyBase64;
     }
-  } catch {
-    /* fall through */
+  } catch (error) {
+    pkiDebugLog("ca-registry: CA bundle fetch failed", error);
   }
   return null;
 }
@@ -116,7 +139,8 @@ export async function fetchCaCerts(
     const certs = extractCertsFromPkcs7(bytes);
     if (certs.length > 0) return certs;
     throw new Error("No certs extracted from p7b");
-  } catch {
+  } catch (error) {
+    pkiDebugLog("ca-registry: p7b bundle failed, fetching per-CA certs", error);
     return fetchFallbackCaCerts(corsProxyUrl);
   }
 }
@@ -132,8 +156,9 @@ async function fetchFallbackCaCerts(
       const proxyData = await proxyFetch(corsProxyUrl, url);
       if (proxyData.status !== 200 || !proxyData.bodyBase64) continue;
       results.push(base64ToUint8(proxyData.bodyBase64));
-    } catch {
+    } catch (error) {
       // best-effort
+      pkiDebugLog(`ca-registry: fallback cert fetch failed (${url})`, error);
     }
   }
 

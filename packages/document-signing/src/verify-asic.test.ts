@@ -8,7 +8,8 @@ import { AsicContainerError, VerifyFailedError } from "./errors.js";
 import type { UapkiAdapter } from "./platform/adapter.js";
 import { createNodeAdapter } from "./platform/node-adapter.js";
 import type { UapkiResponse } from "./types.js";
-import { createSignedAsicE, sha256Hex, verifyAsicE } from "./verify-asic.js";
+import { createSignedAsicE } from "./testing/signed-asic-fixture.js";
+import { sha256Hex, verifyAsicE } from "./verify-asic.js";
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const GOST_P12 = join(packageRoot, "cpp/test/data/test-diia.p12");
@@ -245,16 +246,22 @@ describe("verify ASiC-E (GOST fixture CAdES-BES STRUCT)", () => {
   });
 
   it("does not pass ignoreCertStatus on production VERIFY STRUCT", () => {
+    // The fixture signer (which legitimately uses ignoreCertStatus for the
+    // expired vendored PKCS#12) lives in testing/, out of the prod path
+    // (SHO-282). Production verify-asic.ts must never mention it.
     const source = readFileSync(
       join(dirname(fileURLToPath(import.meta.url)), "verify-asic.ts"),
       "utf8",
     );
-    const verifyFn = source.slice(
-      source.indexOf("export async function verifyAsicE"),
-      source.indexOf("export async function createSignedAsicE"),
+    expect(source).toContain('validationType: "STRUCT"');
+    expect(source).not.toContain("ignoreCertStatus");
+    const fixtureSource = readFileSync(
+      join(
+        dirname(fileURLToPath(import.meta.url)),
+        "testing/signed-asic-fixture.ts",
+      ),
+      "utf8",
     );
-    expect(verifyFn).toContain('validationType: "STRUCT"');
-    expect(verifyFn).not.toContain("ignoreCertStatus");
-    expect(source).toContain("options: { ignoreCertStatus: true }");
+    expect(fixtureSource).toContain("options: { ignoreCertStatus: true }");
   });
 });
