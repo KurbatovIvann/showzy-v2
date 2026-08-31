@@ -75,29 +75,52 @@ export async function upsertTenantOrderCard(env: {
   }
 
   try {
-    const inserted = await db
-      .insert(orderCards)
-      .values({
-        companyId,
-        orderId: env.orderId,
-        revision: 1,
-      })
-      .returning({
-        id: orderCards.id,
-        revision: orderCards.revision,
-      });
-    const created = inserted[0];
-    if (created === undefined) {
-      throw new CoreInvariantError(
-        "chat.upsertOrderCard insert returned no row",
-      );
-    }
-    return {
-      orderCardId: created.id,
-      revision: created.revision,
-      applied: true,
-    };
+    // Nested savepoint so 23505 does not abort the action tx (25P02).
+    // `order_cards_order_id_uq` is global: same-tenant unique race vs a
+    // foreign company colliding on order_id. Re-read after the savepoint
+    // classifies; this is not an insert retry.
+    return await db.transaction(async (tx) => {
+      const inserted = await tx
+        .insert(orderCards)
+        .values({
+          companyId,
+          orderId: env.orderId,
+          revision: 1,
+        })
+        .returning({
+          id: orderCards.id,
+          revision: orderCards.revision,
+        });
+      const created = inserted[0];
+      if (created === undefined) {
+        throw new CoreInvariantError(
+          "chat.upsertOrderCard insert returned no row",
+        );
+      }
+      return {
+        orderCardId: created.id,
+        revision: created.revision,
+        applied: true as const,
+      };
+    });
   } catch (error) {
-    throw mapOrderCardInsertViolation(error);
+    const mapped = mapOrderCardInsertViolation(error);
+    if (!(mapped instanceof ConflictError)) {
+      throw mapped;
+    }
+    const raced = await db
+      .select({ id: orderCards.id })
+      .from(orderCards)
+      .where(
+        and(
+          eq(orderCards.companyId, companyId),
+          eq(orderCards.orderId, env.orderId),
+        ),
+      )
+      .limit(1);
+    if (raced[0] !== undefined) {
+      throw mapped;
+    }
+    throw new NotFoundError();
   }
 }
