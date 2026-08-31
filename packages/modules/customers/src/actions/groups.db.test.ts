@@ -297,7 +297,7 @@ describe("customers.createGroup", () => {
     expect(row?.description).toBe("Walk-in");
   });
 
-  it("assigns an inactive price list listed by pricing.listPriceLists", async () => {
+  it("assigns an inactive price list", async () => {
     const result = await kit.invoke(createGroup, {
       name: "Legacy list group",
       priceListId: fixtures.listAInactive,
