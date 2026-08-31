@@ -26,6 +26,7 @@ export function VariantActionsSheet(props: {
     <Sheet
       visible={props.visible}
       title={props.title}
+      closeAccessibilityLabel={props.copy.cancel}
       onClose={props.onClose}
       onHidden={props.onHidden}
     >

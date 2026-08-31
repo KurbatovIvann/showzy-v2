@@ -47,7 +47,7 @@ export function ProductDetailView(model: ProductDetailModel) {
         actions={
           model.canEdit && model.state.kind === "ready" ? (
             <IconButton
-              variant="surface"
+              variant="secondary"
               icon={
                 <MoreHorizontalIcon
                   size={theme.iconSize.md}

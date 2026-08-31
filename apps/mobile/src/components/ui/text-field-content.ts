@@ -9,6 +9,9 @@ export type TextFieldAutoComplete =
 export type TextFieldKeyboardType =
   "phone-pad" | "email-address" | "default" | "decimal-pad" | "number-pad";
 
+export const TEXT_FIELD_DEFAULT_KEYBOARD_TYPE =
+  "default" satisfies TextFieldKeyboardType;
+
 export type TextFieldContentType =
   "password" | "telephoneNumber" | "emailAddress" | "organizationName" | "none";
 

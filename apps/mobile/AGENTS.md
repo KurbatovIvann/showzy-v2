@@ -31,17 +31,20 @@ the same directory.
   signed-in routes live in `(app)` under the `(tabs)` shell. `/session`
   redirects into the tabs (SHO-122, owner decision 1); session identity
   lives on the More tab. No logic in route files besides layout guards
-  and redirects. Hierarchical stacks (not auth, root, or tabs) spread
-  `hierarchicalStackScreenOptions` so pushed screens keep V1 full-screen
-  swipe-back.
-- `src/navigation/` — shared native-stack screen options for hierarchical
-  pushes. Auth / root / tabs stay excluded.
+  and redirects. Company-scoped hierarchical stacks (customers, documents,
+  more, orders, price-lists, products) re-export `HierarchicalCompanyStack`.
+  Auth / root / tabs stay excluded. Guard-layout loading uses
+  `CenteredSpinner`.
+- `src/navigation/` — shared native-stack screen options and
+  `HierarchicalCompanyStack` for hierarchical pushes. Auth / root / tabs
+  stay excluded.
 - `src/components/ui/` — **shared** primitives only (Button, Card, TextField,
-  `SegmentedTabs`, `TabView`, inputs, Sheet / StatusPill / EmptyState). Never
-  imports feature code; feature policy values (e.g. OTP length) arrive as
-  props. Before adding a new file here, confirm the canvas piece is actually
-  shared. In-screen tabs are `SegmentedTabs` + `TabView` only — see the
-  decision table in [`mp-to-mobile.md`](../../docs/design/mapping/mp-to-mobile.md).
+  `SegmentedTabs`, `TabView`, inputs, Sheet / StatusPill / EmptyState /
+  `CenteredSpinner`). Never imports feature code; feature policy values
+  (e.g. OTP length) arrive as props. Before adding a new file here, confirm
+  the canvas piece is actually shared. In-screen tabs are `SegmentedTabs` +
+  `TabView` only — see the decision table in
+  [`mp-to-mobile.md`](../../docs/design/mapping/mp-to-mobile.md).
   Do not add a second pill bar, PagerView wrapper, or `react-native-tab-view`.
   Staff shell tabs stay `BottomNav`. Filter chips stay `ChoiceField`.
 - `src/features/<module>/<surface>/` — golden feature slices. Copy

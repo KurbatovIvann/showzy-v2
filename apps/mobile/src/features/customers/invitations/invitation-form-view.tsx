@@ -336,7 +336,7 @@ function InvitationExpiresPicker(props: {
       visible={visible}
       title={form.expiresSheetTitle}
       onClose={model.closePicker}
-      footer={null}
+      mode="content"
       closeAccessibilityLabel={form.closeSheet}
     >
       {picker}

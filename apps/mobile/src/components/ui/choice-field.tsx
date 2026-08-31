@@ -1,6 +1,8 @@
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
+import { inertHorizontalScrollProps } from "./inert-horizontal-scroll";
+
 /**
  * Canvas `ChoiceField`: a horizontally scrollable chip row for a single
  * choice. Not the same as `SegmentedTabs` (pill track): chips are
@@ -20,15 +22,7 @@ export function ChoiceField<K extends string>(props: {
         <Text style={styles.label}>{props.label}</Text>
       ) : null}
       <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        bounces={false}
-        alwaysBounceHorizontal={false}
-        overScrollMode="never"
-        fadingEdgeLength={0}
-        automaticallyAdjustContentInsets={false}
-        contentInsetAdjustmentBehavior="never"
-        contentInset={{ left: 0, right: 0 }}
+        {...inertHorizontalScrollProps}
         style={styles.scroll}
         contentContainerStyle={styles.chips}
       >
@@ -95,7 +89,7 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.primary,
   },
   pressed: {
-    opacity: 0.85,
+    opacity: theme.pressedOpacity,
   },
   chipLabel: {
     color: theme.colors.foreground,

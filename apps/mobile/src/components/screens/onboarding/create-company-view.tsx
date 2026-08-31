@@ -18,7 +18,7 @@ export function CreateCompanyView(model: ReturnType<typeof useCreateCompany>) {
       <AuthPanel>
         <View style={styles.form}>
           <TextField
-            size="auth"
+            size="lg"
             label={model.copy.nameLabel}
             value={model.name}
             onChangeText={model.changeName}
@@ -34,7 +34,7 @@ export function CreateCompanyView(model: ReturnType<typeof useCreateCompany>) {
           />
           <View>
             <TextField
-              size="auth"
+              size="lg"
               label={model.copy.slugLabel}
               value={model.slug}
               onChangeText={model.changeSlug}
@@ -56,7 +56,7 @@ export function CreateCompanyView(model: ReturnType<typeof useCreateCompany>) {
             <Banner message={model.banner} />
           ) : null}
           <Button
-            size="auth"
+            size="lg"
             label={model.submitLabel}
             loading={model.pending}
             disabled={model.submitDisabled}

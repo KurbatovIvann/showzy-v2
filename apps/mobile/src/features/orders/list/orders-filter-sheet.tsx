@@ -26,6 +26,7 @@ export function OrdersFilterSheet(props: {
       title={props.copy.filterTitle}
       closeAccessibilityLabel={props.copy.closeSheet}
       onClose={props.onClose}
+      mode="content"
       footer={
         <View style={styles.footer}>
           <Button

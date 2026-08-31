@@ -1,6 +1,8 @@
 import { Text } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
+import { fieldErrorTextStyle } from "./field-error-text";
+
 export function Banner({ message }: { readonly message: string }) {
   return (
     <Text selectable accessibilityRole="alert" style={styles.error}>
@@ -10,11 +12,5 @@ export function Banner({ message }: { readonly message: string }) {
 }
 
 const styles = StyleSheet.create((theme) => ({
-  error: {
-    color: theme.colors.destructive,
-    fontSize: theme.typography.sm.fontSize,
-    lineHeight: theme.typography.sm.lineHeight,
-    fontWeight: "500",
-    textAlign: "center",
-  },
+  error: fieldErrorTextStyle(theme),
 }));

@@ -2,13 +2,7 @@ import { useLayoutEffect, useRef } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
-function otpHasError(error: boolean | string | undefined): boolean {
-  return error === true || (typeof error === "string" && error.length > 0);
-}
-
-function otpErrorText(error: boolean | string | undefined): string | null {
-  return typeof error === "string" && error.length > 0 ? error : null;
-}
+import { keyboardAppearance } from "../../theme/tokens";
 
 /** Generic one-time-code boxes. The code length arrives as a prop so this
  * component stays independent of any feature policy. */
@@ -17,14 +11,18 @@ export function OtpInput(props: {
   readonly length: number;
   readonly onChange: (value: string) => void;
   readonly disabled?: boolean;
-  readonly error?: boolean | string;
+  readonly error?: boolean;
+  readonly errorText?: string;
   readonly accessibilityLabel: string;
 }) {
   const { rt } = useUnistyles();
   const inputRef = useRef<TextInput>(null);
   const disabled = props.disabled === true;
-  const hasError = otpHasError(props.error);
-  const errorText = otpErrorText(props.error);
+  const errorText =
+    props.errorText != null && props.errorText.length > 0
+      ? props.errorText
+      : null;
+  const hasError = props.error === true || errorText !== null;
 
   function focusInput(): void {
     if (disabled) {
@@ -48,6 +46,9 @@ export function OtpInput(props: {
     return (
       <View
         key={index}
+        accessible={false}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
         pointerEvents="none"
         style={[
           styles.cell,
@@ -60,7 +61,9 @@ export function OtpInput(props: {
                 : styles.cellIdle,
         ]}
       >
-        <Text style={styles.digit}>{props.value[index] ?? ""}</Text>
+        <Text accessible={false} style={styles.digit}>
+          {props.value[index] ?? ""}
+        </Text>
       </View>
     );
   });
@@ -84,7 +87,7 @@ export function OtpInput(props: {
           }}
           keyboardType="number-pad"
           inputMode="numeric"
-          keyboardAppearance={rt.themeName === "dark" ? "dark" : "light"}
+          keyboardAppearance={keyboardAppearance(rt.themeName)}
           maxLength={props.length}
           autoComplete="one-time-code"
           textContentType="oneTimeCode"
@@ -117,7 +120,7 @@ const styles = StyleSheet.create((theme) => ({
   cell: {
     flex: 1,
     aspectRatio: 1,
-    maxWidth: 56,
+    maxWidth: theme.otpCellMaxWidth,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: theme.radii.lg,

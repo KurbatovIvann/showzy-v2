@@ -33,6 +33,7 @@ export function ProductActionsSheet(props: {
     <Sheet
       visible={props.visible}
       title={copy.productActionsTitle}
+      closeAccessibilityLabel={copy.cancel}
       onClose={props.onClose}
       onHidden={props.onHidden}
     >

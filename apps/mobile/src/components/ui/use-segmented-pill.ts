@@ -78,6 +78,9 @@ export function useSegmentedPill<K extends string>(selected: K) {
     moveTo(selected, "select");
   }, [moveTo, selected]);
 
+  // Absolute childless pill: animating `width` is the measured trade-off
+  // (expo-animation exception — out of flow, no sibling Yoga). `scaleX`
+  // would smear `radii.full`. Pixel-identical to the canvas sliding pill.
   const pillStyle = useAnimatedStyle(() => ({
     opacity: visible.get(),
     transform: [{ translateX: translateX.get() }],

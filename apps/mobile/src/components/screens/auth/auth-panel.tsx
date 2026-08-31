@@ -12,10 +12,10 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.card,
     borderColor: theme.colors.border,
     borderWidth: 1,
-    borderRadius: theme.radii.authPanel,
+    borderRadius: theme.radii.lgPanel,
     ...theme.squircle,
     padding: theme.spacing.xl,
     gap: theme.spacing.xl,
-    ...theme.shadows.auth,
+    ...theme.shadows.lgPanel,
   },
 }));

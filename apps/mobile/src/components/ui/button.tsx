@@ -8,21 +8,22 @@ export function Button(props: {
   readonly loading?: boolean;
   readonly disabled?: boolean;
   readonly variant?: "primary" | "secondary" | "ghost" | "danger";
-  readonly size?: "default" | "auth";
+  readonly size?: "default" | "lg";
   readonly fullWidth?: boolean;
   readonly icon?: ReactNode;
 }) {
   const variant = props.variant ?? "primary";
   const size = props.size ?? "default";
   const disabled = props.disabled === true || props.loading === true;
-  const authDisabled = disabled && size === "auth" && variant === "primary";
+  const lgDisabled = disabled && size === "lg" && variant === "primary";
   const { theme } = useUnistyles();
-  const indicatorColor =
-    variant === "primary"
-      ? theme.colors.activityIndicator.onPrimary
-      : variant === "danger"
-        ? theme.colors.destructive
-        : theme.colors.activityIndicator.onBackground;
+  const indicatorByVariant = {
+    primary: theme.colors.activityIndicator.onPrimary,
+    danger: theme.colors.destructive,
+    secondary: theme.colors.activityIndicator.onBackground,
+    ghost: theme.colors.activityIndicator.onBackground,
+  } as const;
+  const indicatorColor = indicatorByVariant[variant];
 
   return (
     <Pressable
@@ -32,19 +33,13 @@ export function Button(props: {
       onPress={props.onPress}
       style={({ pressed }) => [
         styles.button,
-        size === "auth" ? styles.buttonAuth : null,
+        SIZE_CHROME[size],
         props.fullWidth === true ? styles.fullWidth : null,
-        variant === "ghost"
-          ? styles.ghost
-          : variant === "secondary"
-            ? styles.secondary
-            : variant === "danger"
-              ? styles.danger
-              : styles.primary,
-        authDisabled ? styles.disabledAuth : disabled ? styles.disabled : null,
-        pressed && !disabled && variant === "danger"
+        VARIANT_CHROME[variant],
+        variant === "danger" && pressed && !disabled
           ? styles.dangerPressed
           : null,
+        lgDisabled ? styles.disabledLg : disabled ? styles.disabled : null,
         pressed && !disabled && variant !== "danger" ? styles.pressed : null,
       ]}
     >
@@ -54,21 +49,7 @@ export function Button(props: {
         ) : (
           <View style={styles.content}>
             {props.icon}
-            <Text
-              style={
-                variant === "ghost"
-                  ? styles.ghostLabel
-                  : variant === "secondary"
-                    ? styles.secondaryLabel
-                    : variant === "danger"
-                      ? pressed && !disabled
-                        ? styles.dangerPressedLabel
-                        : styles.dangerLabel
-                      : size === "auth"
-                        ? styles.authLabel
-                        : styles.label
-              }
-            >
+            <Text style={buttonLabelStyle(variant, size, pressed && !disabled)}>
               {props.label}
             </Text>
           </View>
@@ -86,8 +67,8 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: "center",
     paddingHorizontal: theme.spacing.lg,
   },
-  buttonAuth: {
-    minHeight: theme.hitTarget.auth,
+  buttonLg: {
+    minHeight: theme.hitTarget.lg,
   },
   fullWidth: {
     width: "100%",
@@ -119,11 +100,11 @@ const styles = StyleSheet.create((theme) => ({
   disabled: {
     opacity: 0.5,
   },
-  disabledAuth: {
+  disabledLg: {
     backgroundColor: theme.colors.icon.muted,
   },
   pressed: {
-    opacity: 0.85,
+    opacity: theme.pressedOpacity,
   },
   label: {
     color: theme.colors.primaryForeground,
@@ -137,7 +118,7 @@ const styles = StyleSheet.create((theme) => ({
     lineHeight: theme.typography.md.lineHeight,
     fontWeight: "600",
   },
-  authLabel: {
+  lgLabel: {
     color: theme.colors.primaryForeground,
     fontSize: theme.typography.lg.fontSize,
     lineHeight: theme.typography.lg.lineHeight,
@@ -162,3 +143,41 @@ const styles = StyleSheet.create((theme) => ({
     fontWeight: "600",
   },
 }));
+
+const VARIANT_CHROME = {
+  primary: styles.primary,
+  secondary: styles.secondary,
+  ghost: styles.ghost,
+  danger: styles.danger,
+} as const;
+
+const VARIANT_LABEL = {
+  primary: styles.label,
+  secondary: styles.secondaryLabel,
+  ghost: styles.ghostLabel,
+  danger: styles.dangerLabel,
+} as const;
+
+const PRIMARY_LABEL = {
+  default: styles.label,
+  lg: styles.lgLabel,
+} as const;
+
+const SIZE_CHROME = {
+  default: null,
+  lg: styles.buttonLg,
+} as const;
+
+function buttonLabelStyle(
+  variant: "primary" | "secondary" | "ghost" | "danger",
+  size: "default" | "lg",
+  dangerPressed: boolean,
+) {
+  if (variant === "danger" && dangerPressed) {
+    return styles.dangerPressedLabel;
+  }
+  if (variant === "primary") {
+    return PRIMARY_LABEL[size];
+  }
+  return VARIANT_LABEL[variant];
+}

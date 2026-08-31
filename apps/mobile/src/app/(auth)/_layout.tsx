@@ -1,10 +1,10 @@
-import { ActivityIndicator, View } from "react-native";
 import { Redirect } from "expo-router";
 import { Stack } from "expo-router/stack";
-import { StyleSheet, useUnistyles } from "react-native-unistyles";
+import { useUnistyles } from "react-native-unistyles";
 
 import { OtpProvider } from "../../auth/otp/provider";
 import { useAuthSession } from "../../auth/session-provider";
+import { CenteredSpinner } from "../../components/ui";
 
 export default function AuthLayout() {
   const auth = useAuthSession();
@@ -14,13 +14,7 @@ export default function AuthLayout() {
     return <Redirect href="/" />;
   }
   if (auth.status === "loading") {
-    return (
-      <View style={styles.center} accessibilityLabel={auth.copy.loading}>
-        <ActivityIndicator
-          color={theme.colors.activityIndicator.onBackground}
-        />
-      </View>
-    );
+    return <CenteredSpinner accessibilityLabel={auth.copy.loading} />;
   }
   if (auth.status === "authenticated") {
     return <Redirect href="/session" />;
@@ -41,12 +35,3 @@ export default function AuthLayout() {
     </OtpProvider>
   );
 }
-
-const styles = StyleSheet.create((theme) => ({
-  center: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: theme.colors.background,
-  },
-}));

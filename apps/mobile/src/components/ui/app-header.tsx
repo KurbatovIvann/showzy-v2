@@ -27,7 +27,7 @@ export function AppHeader(props: {
     <View style={styles.row}>
       {props.back !== undefined ? (
         <IconButton
-          variant="surface"
+          variant="secondary"
           icon={
             <ChevronLeftIcon
               size={theme.iconSize.md}

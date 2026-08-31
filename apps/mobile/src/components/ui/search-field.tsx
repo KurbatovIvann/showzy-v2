@@ -2,6 +2,8 @@ import { TextInput, View } from "react-native";
 import { SearchIcon } from "lucide-react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
+import { keyboardAppearance } from "../../theme/tokens";
+
 /**
  * Canvas list search: a raised capsule with a leading search icon.
  * Distinct from `TextField` (squircle form field) — do not merge them.
@@ -24,7 +26,7 @@ export function SearchField(props: {
         accessibilityLabel={props.accessibilityLabel}
         accessibilityRole="search"
         placeholderTextColor={theme.colors.icon.muted}
-        keyboardAppearance={rt.themeName === "dark" ? "dark" : "light"}
+        keyboardAppearance={keyboardAppearance(rt.themeName)}
         autoCapitalize="none"
         autoCorrect={false}
         maxLength={props.maxLength}

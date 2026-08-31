@@ -74,7 +74,7 @@ roles, not a second product.
 | Role | Canvas | Light Unistyles | Dark Unistyles |
 | --- | --- | --- | --- |
 | Page | `canvas` `#F7F6F2` | `colors.background` | `#161410` |
-| Card / sheet | `surface` `#FFFFFF` | `colors.card` / `popover` | `#211F1A` |
+| Card / sheet | `surface` `#FFFFFF` | `colors.card` | `#211F1A` |
 | Ink / primary fill | `ink` `#1C1C1A` | `colors.primary` / `foreground` | inverted fill `#EDEBE6` |
 | Muted text | `muted` `#6E6A61` | `colors.mutedForeground` | `#9B968B` |
 | Faint text | `faint` `#9B968B` | `colors.icon.muted` | `#7A7570` |
@@ -114,15 +114,15 @@ System font. No webfont.
 | Field radius | 16 | `radii.lg` |
 | Card | 22 | `radii.card` |
 | Nav cluster | 24 | `radii.nav` |
-| Auth panel | 28 | `radii.authPanel` |
+| Auth panel | 28 | `radii.lgPanel` |
 | Sheet top | 30 | `radii.sheet` |
 | Button / search / icon | pill | `radii.full` |
-| Hit target | 44 / field 48 / auth 54 | `hitTarget.min` / `hitTarget.field` / `hitTarget.auth` |
+| Hit target | 44 / field 48 / lg 54 | `hitTarget.min` / `hitTarget.field` / `hitTarget.lg` |
 | List row | min 88 | `hitTarget.row` |
 | Pill inset | 2 | `spacing.2xs` |
 | Lucide | 18 / 20 | `iconSize.sm` / `iconSize.md` |
 | Card shadow | `0 1px 2px rgba(28,28,26,0.05)` | `shadows.sm` (`boxShadow`; New Architecture) |
-| Auth panel shadow | `0 14px 40px rgba(28,28,26,0.10)` | `shadows.auth` (`boxShadow`; New Architecture) |
+| Auth panel shadow | `0 14px 40px rgba(28,28,26,0.10)` | `shadows.lgPanel` (`boxShadow`; New Architecture) |
 | Nav cluster shadow | `0 8px 24px rgba(28,28,26,0.10)` | `shadows.nav` (`boxShadow`; New Architecture) |
 | AI control glow | `0 6px 16px rgba(47,111,237,0.28)` | `shadows.accent` (`boxShadow`; New Architecture) |
 | iOS squircle | `CACornerCurve.continuous` | `theme.squircle` (`borderCurve: "continuous"`). Current on RN 0.86 — not deprecated. Android ignores it. Skip on `radii.full` capsules. |
@@ -133,21 +133,22 @@ System font. No webfont.
 
 | Primitive | Canvas counterpart | Notes |
 | --- | --- | --- |
-| `Button` | `Button` | pill; `size: "auth"` is 54 + `typography.lg`; auth disabled uses faint fill, not opacity; `danger` is `destructiveSoft` / `destructive` (pressed inverts to fill); optional `icon` and `fullWidth` |
+| `Button` | `Button` | pill; `size: "lg"` is 54 + `typography.lg`; lg disabled uses faint fill, not opacity; `danger` is `destructiveSoft` / `destructive` (pressed inverts to fill); optional `icon` and `fullWidth` |
 | `Card` | section / `Card` | 22px, `line` border, `surface` fill |
-| `TextField` | `TextField` | 16px radius, canvas fill; optional label / leading / prefix / suffix; `changed` chip uses `StatusPill` `action`; `size: "auth"` is 54 + 16 tabular-nums + focus `ring` |
-| `SegmentedTabs` | `AuthModeSwitch` / customers tab strip | `layout="equal"` (default): two-up auth row, track `hitTarget.field`. `layout="scroll"`: compact overflowing CRM strip (canvas `CustomersScreen` tabs — not `BottomNav`). Host is full-bleed; `contentPaddingHorizontal` keeps rest alignment with the padded column and scrolls to the screen edge (no overlay masks, `contentInsetAdjustmentBehavior="never"`, `fadingEdgeLength={0}`). Pills `hitTarget.min` / `typography.sm`. Class B: canvas 40/14 → 44/`typography.sm`. Do not put track chrome on `ScrollView` `contentContainerStyle`. Selected chrome is a sliding pill (v1 `SegmentedControl` indicator) — `translateX` + `width`, 250ms ease-in-out; snap on first measure, resize, and reduced motion. |
+| `TextField` | `TextField` | 16px radius, canvas fill; optional label / leading / prefix / suffix; `changed` chip uses `StatusPill` `action`; `size: "lg"` is 54 + 16 tabular-nums + focus `ring`; default `keyboardType` is `"default"` |
+| `SegmentedTabs` | `AuthModeSwitch` / customers tab strip | `layout="equal"` (default): two-up auth row, track `hitTarget.field`. `layout="scroll"`: compact overflowing CRM strip (canvas `CustomersScreen` tabs — not `BottomNav`). Host is full-bleed; `contentPaddingHorizontal` keeps rest alignment with the padded column and scrolls to the screen edge (no overlay masks, `contentInsetAdjustmentBehavior="never"`, `fadingEdgeLength={0}`). Pills `hitTarget.min` / `typography.sm`. Class B: canvas 40/14 → 44/`typography.sm`. Do not put track chrome on `ScrollView` `contentContainerStyle`. Selected chrome is a sliding pill (v1 `SegmentedControl` indicator) — `translateX` + `width`, 250ms ease-in-out; snap on first measure, resize, and reduced motion. Animating `width` is the measured trade-off: the pill is absolutely positioned with no children, so Yoga does not re-layout siblings; `scaleX` would smear `radii.full`. |
 | `TabView` | swipeable multi-scene pages (v1 PagerView + shared TabView) | Native (`tab-view.native.tsx`) owns `react-native-pager-view` sync with the tab bar (tap → `setPage`, swipe → `onPageSelected`). Web/export (`tab-view.tsx`) keeps the same bar and shows the selected scene only. Default bar is `SegmentedTabs`; CRM uses `renderTabBar` for the full-bleed scroll strip. `lazy` mounts a scene on first visit. Not `BottomNav`. Pill does not interpolate during the swipe (settles on `onPageSelected`, same as v1). |
-| `OtpInput` | `OtpInput` | square cells, gap 8, digits `typography.2xl`; optional inline `error` string |
+| `OtpInput` | `OtpInput` | square cells, gap 8, digits `typography.2xl`; `error` styles cells, `errorText` is the optional caption |
 | `Banner` | inline error | keep; do not invent a second error strip |
 | `EmptyState` | `EmptyState` | centered icon badge (48 circle on `muted`), `typography.lg` title, `typography.sm` muted description, optional action slot |
 | `StatusPill` | `StatusPill` | soft tone capsule (neutral/action/success/attention/danger); status is never color-only |
 | `AppHeader` | `AppHeader` | title/subtitle row with paired back control (`{ onPress, accessibilityLabel }`) and actions slot; screens own the safe-area inset |
-| `IconButton` | round icon controls | 44pt circle; `primary` ink fill, `surface` bordered card |
+| `IconButton` | round icon controls | 44pt circle; `primary` ink fill, `secondary` bordered card |
 | `SearchField` | list search | raised capsule, leading search icon; not the squircle `TextField` |
 | `ChoiceField` | `ChoiceField` | horizontal chip row (44pt chips for list filters) — not the same as SegmentedTabs |
-| `Sheet` | confirmation / content sheet | overlay `colors.overlay`, top radius `radii.sheet`, grabber; optional description, `footer` (children become the body), `fullHeight` (92%), close control; host stays mounted and `visible` drives open/close — Modal hides after close timing; sheets not dropdowns |
+| `Sheet` | confirmation / content sheet | overlay `colors.overlay`, top radius `radii.sheet`, grabber; optional description; `mode="actions"` (default) vs `mode="content"` (scrollable body, optional `footer`); `fullHeight` (92%); close control is always present (`closeAccessibilityLabel` required); host stays mounted and `visible` drives open/close — Modal hides after close timing; sheets not dropdowns |
 | `SwitchRow` | `ProductSwitchRow` | label + optional description; 44pt row; success track when on |
+| `CenteredSpinner` | guard-layout loading | full-screen centered `ActivityIndicator`; auth / signed-in shells |
 
 **Not shared yet** (add to `ui/` on first screen that needs them): none
 listed after SwitchRow landed with the product editor.

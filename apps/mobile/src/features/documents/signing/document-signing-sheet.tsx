@@ -34,6 +34,7 @@ export function DocumentSigningSheet(props: {
       closeAccessibilityLabel={copy.close}
       onClose={props.onClose}
       onHidden={props.onHidden}
+      mode="content"
       footer={
         <Button
           fullWidth
@@ -133,7 +134,7 @@ const styles = StyleSheet.create((theme) => ({
     marginBottom: theme.spacing.sm,
   },
   picker: {
-    minHeight: theme.hitTarget.auth,
+    minHeight: theme.hitTarget.lg,
     alignItems: "center",
     justifyContent: "center",
     gap: theme.spacing.sm,
