@@ -10,11 +10,12 @@ export function renderApp(path: string) {
   const router = createAppRouter({
     authClient,
     history: createMemoryHistory({ initialEntries: [path] }),
+    // Router hides pending UI for defaultPendingMs (1s). That window
+    // matches Testing Library's default findBy timeout, so a cold
+    // getSession + redirect assertion sees an empty <div />.
+    defaultPendingMs: 0,
+    defaultPendingMinMs: 0,
   });
-  // Router hides pending UI for defaultPendingMs (1s). That window
-  // matches Testing Library's default findBy timeout, so a cold
-  // getSession + redirect assertion sees an empty <div />.
-  router.update({ defaultPendingMs: 0, defaultPendingMinMs: 0 });
   render(
     <AppProviders authClient={authClient}>
       <RouterProvider router={router} context={{ authClient }} />

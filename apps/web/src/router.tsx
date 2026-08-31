@@ -10,11 +10,19 @@ export type AppRouterContext = {
 export function createAppRouter(options: {
   readonly authClient: ShowzyAuthClient;
   readonly history?: RouterHistory;
+  readonly defaultPendingMs?: number;
+  readonly defaultPendingMinMs?: number;
 }) {
   return createRouter({
     routeTree,
     context: { authClient: options.authClient },
     ...(options.history === undefined ? {} : { history: options.history }),
+    ...(options.defaultPendingMs === undefined
+      ? {}
+      : { defaultPendingMs: options.defaultPendingMs }),
+    ...(options.defaultPendingMinMs === undefined
+      ? {}
+      : { defaultPendingMinMs: options.defaultPendingMinMs }),
   });
 }
 
