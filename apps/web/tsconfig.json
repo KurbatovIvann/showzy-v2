@@ -1,0 +1,11 @@
+{
+  "extends": "@showzy/tooling/tsconfig/base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["react", "react-dom", "vite/client"]
+  },
+  "include": ["src", "vite.config.ts", "vitest.config.ts", "package.json"]
+}
