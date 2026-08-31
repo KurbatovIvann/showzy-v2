@@ -267,6 +267,78 @@ describe("createProductPhotosRuntime", () => {
     });
   });
 
+  it("does not start leftover idle uploads after unmount abort", async () => {
+    expect(PHOTO_UPLOAD_MAX_IN_FLIGHT).toBe(2);
+    const session = createPhotoSessionStore({
+      productId: PRODUCT_ID,
+      requireProduct: true,
+      snapshotFileIds: [FILE_A],
+    });
+    session.send({
+      type: "addPhotos",
+      photos: [
+        { id: "local-1", localUri: "file:///tmp/1.jpg" },
+        { id: "local-2", localUri: "file:///tmp/2.jpg" },
+        { id: "local-3", localUri: "file:///tmp/3.jpg" },
+      ],
+    });
+    const gates: Array<
+      (value: {
+        readonly machine: UploadMachine;
+        readonly prepared: null;
+        readonly requestAttempt: null;
+        readonly finalizeAttempt: null;
+      }) => void
+    > = [];
+    const runUpload = vi.fn(
+      () =>
+        new Promise<{
+          readonly machine: UploadMachine;
+          readonly prepared: null;
+          readonly requestAttempt: null;
+          readonly finalizeAttempt: null;
+        }>((resolve) => {
+          gates.push(resolve);
+        }),
+    );
+    const commitIfNeeded = vi.fn(() => Promise.resolve());
+    const runtime = createProductPhotosRuntime({
+      getContext: session.getContext,
+      send: session.send,
+      getClient: () => null,
+      commitIfNeeded,
+      pickPhotos: unusedIo().pickPhotos,
+      prepareImage: unusedIo().prepareImage,
+      putBytes: unusedIo().putBytes,
+      runUpload,
+    });
+    runtime.kickIdleUploads();
+    await vi.waitFor(() => {
+      expect(runUpload).toHaveBeenCalledTimes(PHOTO_UPLOAD_MAX_IN_FLIGHT);
+    });
+    runtime.setMounted(false);
+    runtime.abortAll();
+    for (const resolve of gates) {
+      resolve({
+        machine: cancelledMachine(),
+        prepared: null,
+        requestAttempt: null,
+        finalizeAttempt: null,
+      });
+    }
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 0);
+    });
+    expect(runUpload).toHaveBeenCalledTimes(PHOTO_UPLOAD_MAX_IN_FLIGHT);
+    const leftover = session
+      .getContext()
+      .slots.find((slot) => slot.id === "local-3");
+    expect(
+      leftover?.kind === "upload" && leftover.machine.phase === "idle",
+    ).toBe(true);
+    expect(commitIfNeeded).not.toHaveBeenCalled();
+  });
+
   it("retries with the live handshake prepared from the previous run", async () => {
     const session = createPhotoSessionStore({
       productId: PRODUCT_ID,

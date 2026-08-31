@@ -141,6 +141,9 @@ export function createProductPhotosRuntime(
     id: string,
     trigger: "start" | "retry",
   ): Promise<void> {
+    if (!mounted) {
+      return;
+    }
     if (running.has(id)) {
       return;
     }
@@ -211,6 +214,9 @@ export function createProductPhotosRuntime(
   }
 
   function kickIdleUploads(): void {
+    if (!mounted) {
+      return;
+    }
     for (const id of selectPhotoSessionIdleIds(deps.getContext())) {
       if (running.size >= PHOTO_UPLOAD_MAX_IN_FLIGHT) {
         break;
