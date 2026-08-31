@@ -19,6 +19,12 @@
  */
 import { defineActionContract } from "@showzy/core/contract";
 import { LIST_GROUPS_SEARCH_MAX } from "@showzy/validation/customers";
+import {
+  createCursorCodec,
+  listCursorInput,
+  listLimitInput,
+  listSearchInput,
+} from "@showzy/validation/pagination";
 import { z } from "zod";
 
 import { GROUP_NAME_MAX, groupViewSchema } from "./group-view.contract.js";
@@ -29,10 +35,17 @@ export const LIST_GROUPS_DEFAULT_LIMIT = 20;
 export const LIST_GROUPS_MAX_LIMIT = 50;
 export const LIST_GROUPS_CURSOR_MAX = 200;
 
-const listGroupsCursorPayloadSchema = z.object({
-  sortOrder: z.number().int(),
-  id: z.uuid(),
-  name: z.string().min(1).max(GROUP_NAME_MAX),
+const listGroupsCursor = createCursorCodec({
+  payload: z.object({
+    sortOrder: z.number().int(),
+    id: z.uuid(),
+    name: z.string().min(1).max(GROUP_NAME_MAX),
+  }),
+  fields: [
+    { key: "sortOrder", kind: "int" },
+    { key: "id", kind: "uuid" },
+    { key: "name", kind: "remainder" },
+  ],
 });
 
 export function formatListGroupsCursor(
@@ -40,45 +53,19 @@ export function formatListGroupsCursor(
   id: string,
   name: string,
 ): string {
-  return `${sortOrder.toString(10)}|${id}|${name}`;
+  return listGroupsCursor.encode({ sortOrder, id, name });
 }
 
 export function parseListGroupsCursor(
   cursor: string,
-): z.output<typeof listGroupsCursorPayloadSchema> | undefined {
-  const first = cursor.indexOf("|");
-  const second = cursor.indexOf("|", first + 1);
-  if (first <= 0 || second <= first + 1) {
-    return undefined;
-  }
-  const sortOrderRaw = cursor.slice(0, first);
-  if (!/^-?\d+$/.test(sortOrderRaw)) {
-    return undefined;
-  }
-  const parsed = listGroupsCursorPayloadSchema.safeParse({
-    sortOrder: Number.parseInt(sortOrderRaw, 10),
-    id: cursor.slice(first + 1, second),
-    name: cursor.slice(second + 1),
-  });
-  return parsed.success ? parsed.data : undefined;
+): { sortOrder: number; id: string; name: string } | undefined {
+  return listGroupsCursor.decode(cursor);
 }
 
 export const listGroupsInputSchema = z.object({
-  search: z.string().trim().min(1).max(LIST_GROUPS_SEARCH_MAX).optional(),
-  limit: z
-    .number()
-    .int()
-    .min(1)
-    .max(LIST_GROUPS_MAX_LIMIT)
-    .default(LIST_GROUPS_DEFAULT_LIMIT),
-  cursor: z
-    .string()
-    .min(1)
-    .max(LIST_GROUPS_CURSOR_MAX)
-    .refine((value) => parseListGroupsCursor(value) !== undefined, {
-      message: "Invalid cursor",
-    })
-    .optional(),
+  search: listSearchInput(LIST_GROUPS_SEARCH_MAX),
+  limit: listLimitInput(LIST_GROUPS_MAX_LIMIT, LIST_GROUPS_DEFAULT_LIMIT),
+  cursor: listCursorInput(parseListGroupsCursor, LIST_GROUPS_CURSOR_MAX),
 });
 
 export const listGroupsOutputSchema = z.object({

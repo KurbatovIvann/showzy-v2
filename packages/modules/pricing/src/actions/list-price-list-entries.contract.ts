@@ -14,6 +14,11 @@
  *   naturally idempotent (no key, no storage).
  */
 import { defineActionContract } from "@showzy/core/contract";
+import {
+  createCursorCodec,
+  listCursorInput,
+  listLimitInput,
+} from "@showzy/validation/pagination";
 import { z } from "zod";
 
 import {
@@ -25,49 +30,41 @@ export const LIST_PRICE_LIST_ENTRIES_DEFAULT_LIMIT = 20;
 export const LIST_PRICE_LIST_ENTRIES_MAX_LIMIT = 50;
 export const LIST_PRICE_LIST_ENTRIES_CURSOR_MAX = 80;
 
-const listPriceListEntriesCursorPayloadSchema = z.object({
-  createdAt: z.iso.datetime(),
-  id: z.uuid(),
+const listPriceListEntriesCursor = createCursorCodec({
+  payload: z.object({
+    createdAt: z.iso.datetime(),
+    id: z.uuid(),
+  }),
+  fields: [
+    { key: "createdAt", kind: "isoDatetime" },
+    { key: "id", kind: "uuid" },
+  ],
 });
 
 export function formatListPriceListEntriesCursor(
   createdAt: Date,
   id: string,
 ): string {
-  return `${createdAt.toISOString()}|${id}`;
+  return listPriceListEntriesCursor.encode({ createdAt, id });
 }
 
 export function parseListPriceListEntriesCursor(
   cursor: string,
-): z.output<typeof listPriceListEntriesCursorPayloadSchema> | undefined {
-  const separator = cursor.indexOf("|");
-  if (separator <= 0 || separator !== cursor.lastIndexOf("|")) {
-    return undefined;
-  }
-  const parsed = listPriceListEntriesCursorPayloadSchema.safeParse({
-    createdAt: cursor.slice(0, separator),
-    id: cursor.slice(separator + 1),
-  });
-  return parsed.success ? parsed.data : undefined;
+): { createdAt: string; id: string } | undefined {
+  return listPriceListEntriesCursor.decode(cursor);
 }
 
 export const listPriceListEntriesInputSchema = z.object({
   priceListId: z.uuid(),
   productId: z.uuid().optional(),
-  limit: z
-    .number()
-    .int()
-    .min(1)
-    .max(LIST_PRICE_LIST_ENTRIES_MAX_LIMIT)
-    .default(LIST_PRICE_LIST_ENTRIES_DEFAULT_LIMIT),
-  cursor: z
-    .string()
-    .min(1)
-    .max(LIST_PRICE_LIST_ENTRIES_CURSOR_MAX)
-    .refine((value) => parseListPriceListEntriesCursor(value) !== undefined, {
-      message: "Invalid cursor",
-    })
-    .optional(),
+  limit: listLimitInput(
+    LIST_PRICE_LIST_ENTRIES_MAX_LIMIT,
+    LIST_PRICE_LIST_ENTRIES_DEFAULT_LIMIT,
+  ),
+  cursor: listCursorInput(
+    parseListPriceListEntriesCursor,
+    LIST_PRICE_LIST_ENTRIES_CURSOR_MAX,
+  ),
 });
 
 export const priceListEntryRowSchema = z.object({

@@ -165,6 +165,9 @@ function violation(from, spec, typeOnly) {
     if (pkg.name === "core" && pkg.rest === "errors" && typeOnly) {
       return null;
     }
+    if (pkg.name === "validation") {
+      return null;
+    }
     if (pkg.name === "contract" && (pkg.rest === "" || pkg.rest === "server")) {
       return pkg.rest === "server" ? { messageId: "contractClient" } : null;
     }

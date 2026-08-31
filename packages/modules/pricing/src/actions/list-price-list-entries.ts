@@ -1,6 +1,7 @@
 import { implementAction } from "@showzy/core";
 import { CoreInvariantError, NotFoundError } from "@showzy/core/errors";
 import { priceListEntries, priceLists } from "@showzy/db/schema/pricing";
+import { paginate } from "@showzy/validation/pagination";
 import { and, desc, eq, lt, or } from "drizzle-orm";
 
 import { toPriceListEntryView } from "../services/price-list-entry-view.js";
@@ -81,13 +82,9 @@ export const listPriceListEntries = implementAction(
         .orderBy(desc(priceListEntries.createdAt), desc(priceListEntries.id))
         .limit(input.limit + 1);
 
-      const hasMore = pageRows.length > input.limit;
-      const page = hasMore ? pageRows.slice(0, input.limit) : pageRows;
-      const last = page[page.length - 1];
-      const nextCursor =
-        hasMore && last !== undefined
-          ? formatListPriceListEntriesCursor(last.createdAt, last.id)
-          : null;
+      const { page, nextCursor } = paginate(pageRows, input.limit, (last) =>
+        formatListPriceListEntriesCursor(last.createdAt, last.id),
+      );
 
       return {
         items: page.map((row) => toPriceListEntryView(row)),

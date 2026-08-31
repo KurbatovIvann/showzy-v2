@@ -23,6 +23,12 @@
  */
 import { defineActionContract } from "@showzy/core/contract";
 import { LIST_CUSTOMERS_SEARCH_MAX } from "@showzy/validation/customers";
+import {
+  createCursorCodec,
+  listCursorInput,
+  listLimitInput,
+  listSearchInput,
+} from "@showzy/validation/pagination";
 import { z } from "zod";
 
 import { customerViewSchema } from "./customer-view.contract.js";
@@ -33,27 +39,25 @@ export const LIST_CUSTOMERS_DEFAULT_LIMIT = 20;
 export const LIST_CUSTOMERS_MAX_LIMIT = 50;
 export const LIST_CUSTOMERS_CURSOR_MAX = 80;
 
-const listCustomersCursorPayloadSchema = z.object({
-  updatedAt: z.iso.datetime(),
-  id: z.uuid(),
+const listCustomersCursor = createCursorCodec({
+  payload: z.object({
+    updatedAt: z.iso.datetime(),
+    id: z.uuid(),
+  }),
+  fields: [
+    { key: "updatedAt", kind: "isoDatetime" },
+    { key: "id", kind: "uuid" },
+  ],
 });
 
 export function formatListCustomersCursor(updatedAt: Date, id: string): string {
-  return `${updatedAt.toISOString()}|${id}`;
+  return listCustomersCursor.encode({ updatedAt, id });
 }
 
 export function parseListCustomersCursor(
   cursor: string,
-): z.output<typeof listCustomersCursorPayloadSchema> | undefined {
-  const separator = cursor.indexOf("|");
-  if (separator <= 0 || separator !== cursor.lastIndexOf("|")) {
-    return undefined;
-  }
-  const parsed = listCustomersCursorPayloadSchema.safeParse({
-    updatedAt: cursor.slice(0, separator),
-    id: cursor.slice(separator + 1),
-  });
-  return parsed.success ? parsed.data : undefined;
+): { updatedAt: string; id: string } | undefined {
+  return listCustomersCursor.decode(cursor);
 }
 
 export const listCustomersStatusFilterSchema = z.enum([
@@ -64,22 +68,10 @@ export const listCustomersStatusFilterSchema = z.enum([
 
 export const listCustomersInputSchema = z.object({
   status: listCustomersStatusFilterSchema.default("active"),
-  search: z.string().trim().min(1).max(LIST_CUSTOMERS_SEARCH_MAX).optional(),
+  search: listSearchInput(LIST_CUSTOMERS_SEARCH_MAX),
   groupId: z.uuid().optional(),
-  limit: z
-    .number()
-    .int()
-    .min(1)
-    .max(LIST_CUSTOMERS_MAX_LIMIT)
-    .default(LIST_CUSTOMERS_DEFAULT_LIMIT),
-  cursor: z
-    .string()
-    .min(1)
-    .max(LIST_CUSTOMERS_CURSOR_MAX)
-    .refine((value) => parseListCustomersCursor(value) !== undefined, {
-      message: "Invalid cursor",
-    })
-    .optional(),
+  limit: listLimitInput(LIST_CUSTOMERS_MAX_LIMIT, LIST_CUSTOMERS_DEFAULT_LIMIT),
+  cursor: listCursorInput(parseListCustomersCursor, LIST_CUSTOMERS_CURSOR_MAX),
 });
 
 export const listCustomersOutputSchema = z.object({

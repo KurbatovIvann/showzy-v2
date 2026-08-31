@@ -11,41 +11,45 @@
  * - Primary image is lowest `position`, then media id (same as
  *   `getProduct.imageFileIds[0]`).
  * - `timeout: 5000` matches the golden catalog reads.
- * - Money refine is local: keep the regex in lockstep with
- *   `packages/contract/src/client/money-wire.ts` until validation owns it.
+ * - Money wire is `@showzy/validation/money` via `wire.contract.ts`.
  */
 import { defineActionContract } from "@showzy/core/contract";
-import { LIST_PRODUCTS_QUERY_MAX_LENGTH } from "@showzy/validation/catalog";
+import { LIST_PRODUCTS_QUERY_MAX } from "@showzy/validation/catalog";
+import {
+  createCursorCodec,
+  listCursorInput,
+  listLimitInput,
+  listSearchInput,
+} from "@showzy/validation/pagination";
 import { z } from "zod";
 
 import { moneyWireSchema, productStatusSchema } from "../wire.contract.js";
 
-export { LIST_PRODUCTS_QUERY_MAX_LENGTH };
+export { LIST_PRODUCTS_QUERY_MAX };
 
 export const LIST_PRODUCTS_DEFAULT_LIMIT = 20;
 export const LIST_PRODUCTS_MAX_LIMIT = 50;
+export const LIST_PRODUCTS_CURSOR_MAX = 80;
 
-const listProductsCursorPayloadSchema = z.object({
-  createdAt: z.iso.datetime(),
-  id: z.uuid(),
+const listProductsCursor = createCursorCodec({
+  payload: z.object({
+    createdAt: z.iso.datetime(),
+    id: z.uuid(),
+  }),
+  fields: [
+    { key: "createdAt", kind: "isoDatetime" },
+    { key: "id", kind: "uuid" },
+  ],
 });
 
 export function formatListProductsCursor(createdAt: Date, id: string): string {
-  return `${createdAt.toISOString()}|${id}`;
+  return listProductsCursor.encode({ createdAt, id });
 }
 
 export function parseListProductsCursor(
   cursor: string,
-): z.output<typeof listProductsCursorPayloadSchema> | undefined {
-  const separator = cursor.indexOf("|");
-  if (separator <= 0 || separator !== cursor.lastIndexOf("|")) {
-    return undefined;
-  }
-  const parsed = listProductsCursorPayloadSchema.safeParse({
-    createdAt: cursor.slice(0, separator),
-    id: cursor.slice(separator + 1),
-  });
-  return parsed.success ? parsed.data : undefined;
+): { createdAt: string; id: string } | undefined {
+  return listProductsCursor.decode(cursor);
 }
 
 export const listProductsStatusFilterSchema = z.enum([
@@ -56,26 +60,9 @@ export const listProductsStatusFilterSchema = z.enum([
 
 export const listProductsInputSchema = z.object({
   status: listProductsStatusFilterSchema.default("active"),
-  query: z
-    .string()
-    .trim()
-    .min(1)
-    .max(LIST_PRODUCTS_QUERY_MAX_LENGTH)
-    .optional(),
-  limit: z
-    .number()
-    .int()
-    .min(1)
-    .max(LIST_PRODUCTS_MAX_LIMIT)
-    .default(LIST_PRODUCTS_DEFAULT_LIMIT),
-  cursor: z
-    .string()
-    .min(1)
-    .max(80)
-    .refine((value) => parseListProductsCursor(value) !== undefined, {
-      message: "Invalid cursor",
-    })
-    .optional(),
+  query: listSearchInput(LIST_PRODUCTS_QUERY_MAX),
+  limit: listLimitInput(LIST_PRODUCTS_MAX_LIMIT, LIST_PRODUCTS_DEFAULT_LIMIT),
+  cursor: listCursorInput(parseListProductsCursor, LIST_PRODUCTS_CURSOR_MAX),
 });
 
 export const listProductRowSchema = z.object({

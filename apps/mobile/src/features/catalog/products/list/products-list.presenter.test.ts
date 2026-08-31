@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { LIST_PRODUCTS_QUERY_MAX_LENGTH } from "@showzy/validation/catalog";
+import { LIST_PRODUCTS_QUERY_MAX } from "@showzy/validation/catalog";
 
 import type { ProductListItem } from "../api/product.queries";
 import {
@@ -10,7 +10,7 @@ import {
   normalizeProductsSearch,
   productsProbeState,
   toProductRowView,
-  LIST_PRODUCTS_QUERY_MAX_LENGTH as presenterSearchMax,
+  LIST_PRODUCTS_QUERY_MAX as presenterSearchMax,
 } from "./products-list.presenter";
 
 function item(overrides: Partial<ProductListItem> = {}): ProductListItem {
@@ -35,12 +35,10 @@ describe("normalizeProductsSearch", () => {
   });
 
   it("trims and caps at the validation catalog export, not a local literal", () => {
-    expect(presenterSearchMax).toBe(LIST_PRODUCTS_QUERY_MAX_LENGTH);
+    expect(presenterSearchMax).toBe(LIST_PRODUCTS_QUERY_MAX);
     expect(normalizeProductsSearch("  торт  ")).toBe("торт");
-    const long = "a".repeat(LIST_PRODUCTS_QUERY_MAX_LENGTH + 20);
-    expect(normalizeProductsSearch(long)).toHaveLength(
-      LIST_PRODUCTS_QUERY_MAX_LENGTH,
-    );
+    const long = "a".repeat(LIST_PRODUCTS_QUERY_MAX + 20);
+    expect(normalizeProductsSearch(long)).toHaveLength(LIST_PRODUCTS_QUERY_MAX);
   });
 });
 

@@ -1,6 +1,7 @@
 import { implementAction } from "@showzy/core";
 import { CoreInvariantError } from "@showzy/core/errors";
 import { priceLists } from "@showzy/db/schema/pricing";
+import { likeContainsPattern, paginate } from "@showzy/validation/pagination";
 import { and, asc, desc, eq, gt, ilike, or } from "drizzle-orm";
 
 import { countEntriesByPriceListIds } from "../services/count-price-list-entries.js";
@@ -10,17 +11,6 @@ import {
   parseListPriceListsCursor,
 } from "./list-price-lists.contract.js";
 
-function nameSearchPattern(query: string): string | undefined {
-  const literal = query
-    .replaceAll("\\", "")
-    .replaceAll("%", "")
-    .replaceAll("_", "");
-  if (literal.length === 0) {
-    return undefined;
-  }
-  return `%${literal}%`;
-}
-
 export const listPriceLists = implementAction(listPriceListsContract, {
   handler: async (input, ctx) => {
     if (ctx.principal !== "staff") {
@@ -28,7 +18,7 @@ export const listPriceLists = implementAction(listPriceListsContract, {
     }
 
     const searchPattern =
-      input.query === undefined ? undefined : nameSearchPattern(input.query);
+      input.query === undefined ? undefined : likeContainsPattern(input.query);
     if (input.query !== undefined && searchPattern === undefined) {
       return { items: [], nextCursor: null };
     }
@@ -86,13 +76,9 @@ export const listPriceLists = implementAction(listPriceListsContract, {
       )
       .limit(input.limit + 1);
 
-    const hasMore = pageRows.length > input.limit;
-    const page = hasMore ? pageRows.slice(0, input.limit) : pageRows;
-    const last = page[page.length - 1];
-    const nextCursor =
-      hasMore && last !== undefined
-        ? formatListPriceListsCursor(last.isDefault, last.id, last.name)
-        : null;
+    const { page, nextCursor } = paginate(pageRows, input.limit, (last) =>
+      formatListPriceListsCursor(last.isDefault, last.id, last.name),
+    );
 
     const entryCounts = await countEntriesByPriceListIds(
       ctx.db,

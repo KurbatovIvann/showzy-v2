@@ -1,6 +1,7 @@
 import { implementAction } from "@showzy/core";
 import { CoreInvariantError } from "@showzy/core/errors";
 import { companyCustomerInvites } from "@showzy/db/schema/invites";
+import { paginate } from "@showzy/validation/pagination";
 import { and, desc, eq, lt, or } from "drizzle-orm";
 
 import { inviteRowColumns, toInviteView } from "../services/invite-view.js";
@@ -52,13 +53,9 @@ export const listInvites = implementAction(listInvitesContract, {
       )
       .limit(input.limit + 1);
 
-    const hasMore = pageRows.length > input.limit;
-    const page = hasMore ? pageRows.slice(0, input.limit) : pageRows;
-    const last = page[page.length - 1];
-    const nextCursor =
-      hasMore && last !== undefined
-        ? formatListInvitesCursor(last.updatedAt, last.id)
-        : null;
+    const { page, nextCursor } = paginate(pageRows, input.limit, (last) =>
+      formatListInvitesCursor(last.updatedAt, last.id),
+    );
 
     return {
       items: page.map((row) => toInviteView(row)),

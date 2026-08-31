@@ -2,7 +2,7 @@
  * Pure view-model logic for the products list (SHO-137 / SHO-157). No
  * React Native imports so the whole decision surface is unit-testable.
  */
-import { LIST_PRODUCTS_QUERY_MAX_LENGTH } from "@showzy/validation/catalog";
+import { LIST_PRODUCTS_QUERY_MAX } from "@showzy/validation/catalog";
 
 import type { QueryFailureKind } from "../../../../api/errors";
 import { formatMoneyMinor } from "../../../../format/money";
@@ -12,7 +12,7 @@ import type {
   ProductsStatusFilter,
 } from "../api/product.queries";
 
-export { LIST_PRODUCTS_QUERY_MAX_LENGTH };
+export { LIST_PRODUCTS_QUERY_MAX };
 
 /** Empty and whitespace-only searches are "no search" — the action rejects them. */
 export function normalizeProductsSearch(text: string): string | undefined {
@@ -20,7 +20,7 @@ export function normalizeProductsSearch(text: string): string | undefined {
   if (trimmed.length === 0) {
     return undefined;
   }
-  return trimmed.slice(0, LIST_PRODUCTS_QUERY_MAX_LENGTH);
+  return trimmed.slice(0, LIST_PRODUCTS_QUERY_MAX);
 }
 
 export function listProductsPageInput(

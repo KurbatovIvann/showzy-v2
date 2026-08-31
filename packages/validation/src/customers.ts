@@ -1,7 +1,7 @@
 /**
  * Client-safe CRM caps (SHO-179 / SHO-180 / SHO-181 / SHO-194 / features
  * SHO-169 and SHO-191). Module contracts re-export list search the way
- * `catalog.listProducts` re-exports `LIST_PRODUCTS_QUERY_MAX_LENGTH`.
+ * `catalog.listProducts` re-exports `LIST_PRODUCTS_QUERY_MAX`.
  * Form caps match `customer-view.contract.ts` / `group-view.contract.ts`
  * so mobile can import the same numbers without the module contract.
  */

@@ -7,30 +7,19 @@
  * - `sourceIds` names the provenance the card called "source ids":
  *   personal rows use `personalPriceId`; list hits use `priceListId` +
  *   `entryId`; base is an empty object.
- * - Money refine is local: `*.contract.ts` cannot import `@showzy/contract`,
- *   and `packages/validation` does not exist yet. Keep the regex in lockstep
- *   with `packages/contract/src/client/money-wire.ts` until validation owns it.
+ * - Money wire is `@showzy/validation/money` via `wire.contract.ts`.
  * - `resolverVersion` is the compile-time constant `1`.
  */
 import { defineActionContract } from "@showzy/core/contract";
 import { z } from "zod";
+
+import { moneyWireSchema } from "../wire.contract.js";
 
 /** Batch ceiling shared with catalog facts (feature card). */
 export const RESOLVE_PRODUCT_PRICES_MAX_ITEMS = 200;
 
 /** Compile-time resolver algorithm version (feature card). */
 export const PRICING_RESOLVER_VERSION = 1;
-
-/**
- * Canonical signed integer minor units (money.md / contract.md §3): `0` or a
- * non-zero value without a leading plus, leading zeros, decimal, or exponent.
- */
-const moneyWireSchema = z
-  .string()
-  .regex(
-    /^(0|-?[1-9][0-9]*)$/,
-    "Expected a canonical signed int64 decimal string",
-  );
 
 const resolveProductPricesItemSchema = z.object({
   productId: z.uuid(),

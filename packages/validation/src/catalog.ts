@@ -15,7 +15,7 @@ export const catalogNameSchema = z
 /** Line-item-style ceiling copied from `orders.create` (mechanical). */
 export const CREATE_PRODUCT_MAX_VARIANTS = 100;
 
-export const LIST_PRODUCTS_QUERY_MAX_LENGTH = 100;
+export const LIST_PRODUCTS_QUERY_MAX = 100;
 
 /** Ticket ceiling for `catalog.setProductImages` ("max ~10"). */
 export const SET_PRODUCT_IMAGES_MAX = 10;

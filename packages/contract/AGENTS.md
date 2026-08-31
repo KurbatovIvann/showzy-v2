@@ -34,7 +34,8 @@ the OpenAPI artifact.
 
 ## Client-safe root (`src/client/`)
 
-- Import graph may reach **Zod**, `@orpc/client`, `@orpc/contract`, and
+- Import graph may reach **Zod**, `@orpc/client`, `@orpc/contract`,
+  `@showzy/validation` (canonical money wire schema), and
   `@showzy/core/contract` (plus a type-only pin to `@showzy/core/errors`
   so the wire table cannot drift from the §11 vocabulary). No core
   runtime, `packages/db`, Node builtins, logging, Redis, or workers.

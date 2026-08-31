@@ -19,6 +19,7 @@
     "@showzy/core": "workspace:*",
     "@showzy/customers": "workspace:*",
     "@showzy/db": "workspace:*",
+    "@showzy/validation": "workspace:*",
     "drizzle-orm": "^0.45.2",
     "zod": "^4.4.3"
   },

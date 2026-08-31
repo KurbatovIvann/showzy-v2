@@ -63,7 +63,7 @@ RHF sheet for variants (SHO-163). Pin exact `react-hook-form` /
   form hook, screen, or view.
 - **Catalog limits** come from `@showzy/validation/catalog` (or
   `ContractClient` types), not a second local number. List search uses
-  `LIST_PRODUCTS_QUERY_MAX_LENGTH`. Photos uses `SET_PRODUCT_IMAGES_MAX`.
+  `LIST_PRODUCTS_QUERY_MAX`. Photos uses `SET_PRODUCT_IMAGES_MAX`.
   Form/detail share `PRODUCT_FORM_MAX_VARIANTS` / `PRODUCT_NAME_MAX` from
   `shared/product-caps.ts`. Thumbnail URLs go through
   `src/api/file-download-query.ts`.

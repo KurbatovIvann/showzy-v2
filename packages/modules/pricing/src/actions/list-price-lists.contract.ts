@@ -22,6 +22,12 @@
  *   that protocol, not the mutation idempotency suite.
  */
 import { defineActionContract } from "@showzy/core/contract";
+import {
+  createCursorCodec,
+  listCursorInput,
+  listLimitInput,
+  listSearchInput,
+} from "@showzy/validation/pagination";
 import { z } from "zod";
 
 export const LIST_PRICE_LISTS_DEFAULT_LIMIT = 20;
@@ -30,10 +36,17 @@ export const LIST_PRICE_LISTS_QUERY_MAX = 100;
 export const PRICE_LIST_NAME_MAX = 120;
 export const LIST_PRICE_LISTS_CURSOR_MAX = 200;
 
-const listPriceListsCursorPayloadSchema = z.object({
-  isDefault: z.boolean(),
-  id: z.uuid(),
-  name: z.string().min(1).max(PRICE_LIST_NAME_MAX),
+const listPriceListsCursor = createCursorCodec({
+  payload: z.object({
+    isDefault: z.boolean(),
+    id: z.uuid(),
+    name: z.string().min(1).max(PRICE_LIST_NAME_MAX),
+  }),
+  fields: [
+    { key: "isDefault", kind: "booleanFlag" },
+    { key: "id", kind: "uuid" },
+    { key: "name", kind: "remainder" },
+  ],
 });
 
 export function formatListPriceListsCursor(
@@ -41,27 +54,13 @@ export function formatListPriceListsCursor(
   id: string,
   name: string,
 ): string {
-  return `${isDefault ? "1" : "0"}|${id}|${name}`;
+  return listPriceListsCursor.encode({ isDefault, id, name });
 }
 
 export function parseListPriceListsCursor(
   cursor: string,
-): z.output<typeof listPriceListsCursorPayloadSchema> | undefined {
-  const first = cursor.indexOf("|");
-  const second = cursor.indexOf("|", first + 1);
-  if (first !== 1 || second <= first + 1) {
-    return undefined;
-  }
-  const flag = cursor.slice(0, first);
-  if (flag !== "0" && flag !== "1") {
-    return undefined;
-  }
-  const parsed = listPriceListsCursorPayloadSchema.safeParse({
-    isDefault: flag === "1",
-    id: cursor.slice(first + 1, second),
-    name: cursor.slice(second + 1),
-  });
-  return parsed.success ? parsed.data : undefined;
+): { isDefault: boolean; id: string; name: string } | undefined {
+  return listPriceListsCursor.decode(cursor);
 }
 
 export const listPriceListsAvailabilitySchema = z.enum([
@@ -71,22 +70,16 @@ export const listPriceListsAvailabilitySchema = z.enum([
 ]);
 
 export const listPriceListsInputSchema = z.object({
-  query: z.string().trim().min(1).max(LIST_PRICE_LISTS_QUERY_MAX).optional(),
+  query: listSearchInput(LIST_PRICE_LISTS_QUERY_MAX),
   availability: listPriceListsAvailabilitySchema.default("all"),
-  limit: z
-    .number()
-    .int()
-    .min(1)
-    .max(LIST_PRICE_LISTS_MAX_LIMIT)
-    .default(LIST_PRICE_LISTS_DEFAULT_LIMIT),
-  cursor: z
-    .string()
-    .min(1)
-    .max(LIST_PRICE_LISTS_CURSOR_MAX)
-    .refine((value) => parseListPriceListsCursor(value) !== undefined, {
-      message: "Invalid cursor",
-    })
-    .optional(),
+  limit: listLimitInput(
+    LIST_PRICE_LISTS_MAX_LIMIT,
+    LIST_PRICE_LISTS_DEFAULT_LIMIT,
+  ),
+  cursor: listCursorInput(
+    parseListPriceListsCursor,
+    LIST_PRICE_LISTS_CURSOR_MAX,
+  ),
 });
 
 export const listPriceListRowSchema = z.object({
