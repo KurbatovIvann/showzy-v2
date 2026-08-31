@@ -15,14 +15,20 @@ export function panelOrigin(): string {
   return window.location.origin;
 }
 
-export function createShowzyAuthClient(
-  options: {
-    readonly baseURL?: string;
-  } = {},
-) {
+type ShowzyAuthClientOptions = {
+  readonly baseURL?: string;
+  readonly sessionOptions?: {
+    readonly refetchOnWindowFocus?: boolean;
+  };
+};
+
+export function createShowzyAuthClient(options: ShowzyAuthClientOptions = {}) {
   return createAuthClient({
     baseURL: options.baseURL ?? panelOrigin(),
     plugins: [phoneNumberClient(), emailOTPClient()],
+    ...(options.sessionOptions === undefined
+      ? {}
+      : { sessionOptions: options.sessionOptions }),
   });
 }
 

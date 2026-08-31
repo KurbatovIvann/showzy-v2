@@ -14,11 +14,33 @@ afterEach(cleanup);
 
 const DUMMY_OTP = "123456";
 
+async function expectSignInLanding(
+  router: Awaited<ReturnType<typeof renderApp>>["router"],
+): Promise<void> {
+  await waitFor(() => {
+    expect(router.state.location.pathname).toBe("/sign-in");
+  });
+  expect(await screen.findByRole("heading", { name: "ШОЗІ" })).toBeDefined();
+  expect(screen.getByRole("button", { name: "Продовжити" })).toBeDefined();
+}
+
 describe("session guard (SHO-312)", () => {
   it("sends an unauthenticated visitor at / to /sign-in", async () => {
-    renderApp("/");
-    expect(await screen.findByRole("heading", { name: "ШОЗІ" })).toBeDefined();
-    expect(screen.getByRole("button", { name: "Продовжити" })).toBeDefined();
+    const { router } = await renderApp("/");
+    await expectSignInLanding(router);
+  });
+
+  it("sends an unauthenticated visitor at / to /sign-in when get-session is delayed", async () => {
+    server.use(
+      http.get(`${PANEL_ORIGIN}/api/auth/get-session`, async () => {
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, 300);
+        });
+        return HttpResponse.json(null);
+      }),
+    );
+    const { router } = await renderApp("/");
+    await expectSignInLanding(router);
   });
 
   it("sends an authenticated visitor at /sign-in to /", async () => {
@@ -27,7 +49,10 @@ describe("session guard (SHO-312)", () => {
       email: "owner@example.com",
       phoneNumber: null,
     };
-    renderApp("/sign-in");
+    const { router } = await renderApp("/sign-in");
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/");
+    });
     expect(
       await screen.findByRole("heading", { name: "Showzy" }),
     ).toBeDefined();
@@ -35,8 +60,8 @@ describe("session guard (SHO-312)", () => {
   });
 
   it("keeps an unauthenticated /$companySlug off the placeholder", async () => {
-    renderApp("/kviti-lviv");
-    expect(await screen.findByRole("heading", { name: "ШОЗІ" })).toBeDefined();
+    const { router } = await renderApp("/kviti-lviv");
+    await expectSignInLanding(router);
     expect(screen.queryByText("Компанія: kviti-lviv")).toBeNull();
   });
 
@@ -46,19 +71,19 @@ describe("session guard (SHO-312)", () => {
       email: "owner@example.com",
       phoneNumber: null,
     };
-    const { authClient } = renderApp("/");
+    const { authClient, router } = await renderApp("/");
     expect(
       await screen.findByRole("heading", { name: "Showzy" }),
     ).toBeDefined();
     await authClient.signOut();
-    expect(await screen.findByRole("heading", { name: "ШОЗІ" })).toBeDefined();
+    await expectSignInLanding(router);
     expect(screen.queryByText("Панель у розробці")).toBeNull();
   });
 });
 
 describe("OTP request and verify (SHO-312)", () => {
   it("requests a phone OTP and lands on verify", async () => {
-    renderApp("/sign-in");
+    await renderApp("/sign-in");
     const phone = await screen.findByLabelText("Номер телефону");
     fireEvent.change(phone, { target: { value: "671112233" } });
     fireEvent.click(screen.getByRole("button", { name: "Продовжити" }));
@@ -69,7 +94,7 @@ describe("OTP request and verify (SHO-312)", () => {
   });
 
   it("renders invalid_identifier on the field without calling a leaked message", async () => {
-    renderApp("/sign-in");
+    await renderApp("/sign-in");
     const phone = await screen.findByLabelText("Номер телефону");
     fireEvent.change(phone, { target: { value: "67" } });
     fireEvent.click(screen.getByRole("button", { name: "Продовжити" }));
@@ -94,7 +119,7 @@ describe("OTP request and verify (SHO-312)", () => {
         { once: true },
       ),
     );
-    renderApp("/sign-in");
+    await renderApp("/sign-in");
     const phone = await screen.findByLabelText("Номер телефону");
     fireEvent.change(phone, { target: { value: "671112233" } });
     fireEvent.click(screen.getByRole("button", { name: "Продовжити" }));
@@ -106,7 +131,7 @@ describe("OTP request and verify (SHO-312)", () => {
   });
 
   it("verifies a phone OTP and lands in the panel", async () => {
-    renderApp("/sign-in");
+    await renderApp("/sign-in");
     const phone = await screen.findByLabelText("Номер телефону");
     fireEvent.change(phone, { target: { value: "671112233" } });
     fireEvent.click(screen.getByRole("button", { name: "Продовжити" }));
@@ -128,7 +153,7 @@ describe("OTP request and verify (SHO-312)", () => {
         );
       }),
     );
-    renderApp("/sign-in");
+    await renderApp("/sign-in");
     const phone = await screen.findByLabelText("Номер телефону");
     fireEvent.change(phone, { target: { value: "671112233" } });
     fireEvent.click(screen.getByRole("button", { name: "Продовжити" }));
