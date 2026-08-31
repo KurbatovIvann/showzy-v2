@@ -4,7 +4,7 @@
  * confirm after `onHidden` (SHO-198 / SHO-200). Deactivating the default
  * is blocked in the UI and never sent; the follow-up sets the Banner.
  */
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 
@@ -96,18 +96,25 @@ export function usePriceListWrites(args: {
     setLocalBanner(null);
   }
 
+  const openCreate = useCallback(() => {
+    router.push(priceListCreateHref());
+  }, [router]);
+  const openEdit = useCallback(
+    (id: string) => {
+      router.push(priceListEditorHref(id));
+    },
+    [router],
+  );
+  const goBack = useCallback(() => {
+    router.back();
+  }, [router]);
+
   return {
     banner,
     pending: statusMutation.isPending || deleteMutation.isPending,
-    openCreate: () => {
-      router.push(priceListCreateHref());
-    },
-    openEdit: (id: string) => {
-      router.push(priceListEditorHref(id));
-    },
-    goBack: () => {
-      router.back();
-    },
+    openCreate,
+    openEdit,
+    goBack,
     setBanner: (message: string) => {
       statusMutation.reset();
       deleteMutation.reset();

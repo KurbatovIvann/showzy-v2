@@ -9,10 +9,9 @@ import { formatMoneyMinor } from "../../../format/money";
 import { StatusPill, TextField } from "../../../components/ui";
 import { PRICE_LIST_CURRENCY } from "../shared/price-list-caps";
 import { entryPriceRhfPath } from "./price-list-form-copy";
+import { listPriceDiff, type PriceDiffTone } from "./price-list-form-diff";
 import {
-  listPriceDiff,
   priceListFormFieldChanged,
-  type PriceDiffTone,
   type PriceListFormDraft,
   type PriceListFormMode,
 } from "./price-list-form-draft";

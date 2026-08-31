@@ -52,7 +52,7 @@ function createPorts(overrides: {
 }) {
   const calls: string[] = [];
   const originDrafts: PriceListFormDraft[] = [];
-  let draft = overrides.draft ?? validCreateDraft();
+  const draft = overrides.draft ?? validCreateDraft();
   let baseline: PriceListFormSnapshot | null = overrides.baseline ?? null;
   let lastWrite = overrides.lastWrite ?? null;
   let lastFailure = overrides.lastFailure ?? { kind: null, wire: null };
@@ -66,9 +66,6 @@ function createPorts(overrides: {
       priceListId.current = id;
     },
     getBaseline: () => baseline,
-    setDraft: (next) => {
-      draft = next;
-    },
     setBaseline: (next) => {
       baseline = next;
     },

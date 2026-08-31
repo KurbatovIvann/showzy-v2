@@ -103,11 +103,7 @@ export function PriceListsListView(model: PriceListsListModel) {
           maxLength={model.searchMaxLength}
         />
         <ChoiceField
-          options={[
-            { key: "all", label: copy.filters.all },
-            { key: "active", label: copy.filters.active },
-            { key: "inactive", label: copy.filters.inactive },
-          ]}
+          options={model.availabilityOptions}
           selected={model.availability}
           onSelect={model.changeAvailability}
         />

@@ -1,172 +1,159 @@
-import type { ReactNode } from "react";
-import { Text, View } from "react-native";
-import {
-  LockIcon,
-  PercentIcon,
-  SearchIcon,
-  TagsIcon,
-  WifiOffIcon,
-} from "lucide-react-native";
+import { useCallback, type ReactNode } from "react";
+import { Text, View, type ScrollViewProps } from "react-native";
+import { FlashList, type ListRenderItem } from "@shopify/flash-list";
+import { PercentIcon, SearchIcon, TagsIcon } from "lucide-react-native";
 import { Controller } from "react-hook-form";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
-import {
-  AppHeader,
-  Banner,
-  Button,
-  EmptyState,
-  SwitchRow,
-  TextField,
-} from "../../../components/ui";
+import { Banner, Button, SwitchRow, TextField } from "../../../components/ui";
+import { FormScreenScaffold } from "../../../components/form-kit";
 import { PriceEntryRow } from "./price-entry-row";
 import { PriceListFormNameField } from "./price-list-form-fields";
+import type { PresentedPriceEntry } from "./price-list-form.presenter";
 import type { PriceListFormModel } from "./use-price-list-form";
 
 export function PriceListFormView(model: PriceListFormModel) {
   const { copy } = model;
   const form = copy.form;
+  const { theme } = useUnistyles();
 
   return (
-    <SafeAreaView
-      edges={["top", "bottom"]}
+    <FormScreenScaffold
+      title={model.headerTitle}
       accessibilityLabel={model.headerTitle}
-      style={styles.screen}
+      backLabel={copy.backLabel}
+      onBack={model.requestLeave}
+      loadKind={model.state.kind}
+      loadingLabel={form.loadingLabel}
+      empty={{
+        offlineTitle: copy.empty.offlineTitle,
+        offlineDescription: copy.empty.offlineDescription,
+        errorTitle: copy.empty.errorTitle,
+        errorDescription: copy.empty.errorDescription,
+        permissionTitle:
+          model.mode === "create"
+            ? form.permissionCreateTitle
+            : form.permissionEditTitle,
+        permissionDescription:
+          model.mode === "create"
+            ? form.permissionCreateDescription
+            : form.permissionEditDescription,
+        retryLabel: copy.empty.retry,
+        notFoundTitle: form.notFoundTitle,
+        notFoundDescription: form.notFoundDescription,
+        notFoundIcon: (
+          <TagsIcon
+            size={theme.iconSize.md}
+            color={theme.colors.mutedForeground}
+          />
+        ),
+      }}
+      onRetry={model.retry}
+      {...(model.state.kind === "ready"
+        ? {
+            footer: {
+              cancelLabel: form.cancel,
+              submitLabel: model.submitLabel,
+              pending: model.pending,
+              submitDisabled: model.submitDisabled,
+              onCancel: model.requestLeave,
+              onSubmit: model.save,
+            },
+          }
+        : {})}
     >
-      <AppHeader
-        title={model.headerTitle}
-        back={{
-          onPress: model.requestLeave,
-          accessibilityLabel: copy.backLabel,
-        }}
-      />
-      <PriceListFormBody model={model} />
-      {model.state.kind === "ready" ? (
-        <View style={styles.footer}>
-          <View style={styles.footerActions}>
-            <View style={styles.footerButton}>
-              <Button
-                variant="secondary"
-                fullWidth
-                label={form.cancel}
-                disabled={model.pending}
-                onPress={model.requestLeave}
-              />
-            </View>
-            <View style={styles.footerButton}>
-              <Button
-                fullWidth
-                label={model.submitLabel}
-                loading={model.pending}
-                disabled={model.submitDisabled}
-                onPress={model.save}
-              />
-            </View>
-          </View>
-        </View>
-      ) : null}
-    </SafeAreaView>
+      <PriceListFormReady model={model} />
+    </FormScreenScaffold>
   );
-}
-
-function PriceListFormBody(props: { readonly model: PriceListFormModel }) {
-  const { model } = props;
-  const { copy } = model;
-  const { theme } = useUnistyles();
-  const iconColor = theme.colors.mutedForeground;
-  const form = copy.form;
-
-  switch (model.state.kind) {
-    case "loading":
-      return (
-        <View style={styles.skeletons} accessibilityLabel={form.loadingLabel}>
-          <View style={[styles.skeletonLine, styles.skeletonName]} />
-          <View style={styles.skeletonCard} />
-        </View>
-      );
-    case "offline":
-      return (
-        <CenteredEmpty>
-          <EmptyState
-            icon={<WifiOffIcon size={theme.iconSize.md} color={iconColor} />}
-            title={copy.empty.offlineTitle}
-            description={copy.empty.offlineDescription}
-            action={
-              <Button
-                variant="secondary"
-                label={copy.empty.retry}
-                onPress={model.retry}
-              />
-            }
-          />
-        </CenteredEmpty>
-      );
-    case "error":
-      return (
-        <CenteredEmpty>
-          <EmptyState
-            icon={<WifiOffIcon size={theme.iconSize.md} color={iconColor} />}
-            title={copy.empty.errorTitle}
-            description={copy.empty.errorDescription}
-            action={
-              model.mode === "edit" ? (
-                <Button
-                  variant="secondary"
-                  label={copy.empty.retry}
-                  onPress={model.retry}
-                />
-              ) : undefined
-            }
-          />
-        </CenteredEmpty>
-      );
-    case "not-found":
-      return (
-        <CenteredEmpty>
-          <EmptyState
-            icon={<TagsIcon size={theme.iconSize.md} color={iconColor} />}
-            title={form.notFoundTitle}
-            description={form.notFoundDescription}
-          />
-        </CenteredEmpty>
-      );
-    case "permission":
-      return (
-        <CenteredEmpty>
-          <EmptyState
-            icon={<LockIcon size={theme.iconSize.md} color={iconColor} />}
-            title={
-              model.mode === "create"
-                ? form.permissionCreateTitle
-                : form.permissionEditTitle
-            }
-            description={
-              model.mode === "create"
-                ? form.permissionCreateDescription
-                : form.permissionEditDescription
-            }
-          />
-        </CenteredEmpty>
-      );
-    case "ready":
-      return <PriceListFormReady model={model} />;
-  }
 }
 
 function PriceListFormReady(props: { readonly model: PriceListFormModel }) {
   const { model } = props;
+  const { copy, onFieldEdit, toggleExpand } = model;
+  const form = copy.form;
+  const { theme } = useUnistyles();
+
+  const renderItem: ListRenderItem<PresentedPriceEntry> = useCallback(
+    ({ item }) => (
+      <PriceEntryRow
+        control={model.control}
+        fieldIndex={item.fieldIndex}
+        copy={form}
+        mode={model.mode}
+        name={item.name}
+        archived={item.archived}
+        kind={item.kind}
+        basePriceMinor={item.basePriceMinor}
+        originPriceText={item.originPriceText}
+        editable={model.fieldsEditable}
+        error={item.error}
+        expanded={item.expanded}
+        expanding={item.expanding}
+        showExpand={item.showExpand}
+        onFieldEdit={onFieldEdit}
+        onToggleExpand={toggleExpand}
+        productId={item.productId}
+      />
+    ),
+    [
+      form,
+      model.control,
+      model.fieldsEditable,
+      model.mode,
+      onFieldEdit,
+      toggleExpand,
+    ],
+  );
+
+  if (model.mode === "create") {
+    return (
+      <KeyboardAwareScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        bottomOffset={theme.spacing.lg}
+      >
+        <PriceListFormHeader model={model} />
+        <Text style={styles.hint}>{form.createPricesHint}</Text>
+        {model.banner !== null && model.banner.length > 0 ? (
+          <Banner message={model.banner} />
+        ) : null}
+      </KeyboardAwareScrollView>
+    );
+  }
+
+  return (
+    <FlashList
+      data={model.priceRows}
+      style={styles.scroll}
+      renderScrollComponent={PriceListEditorScroll}
+      keyExtractor={priceEntryKeyExtractor}
+      getItemType={priceEntryItemType}
+      renderItem={renderItem}
+      ItemSeparatorComponent={PriceRowSeparator}
+      ListHeaderComponent={<PriceListFormHeader model={model} />}
+      ListFooterComponent={
+        model.banner !== null && model.banner.length > 0 ? (
+          <Banner message={model.banner} />
+        ) : null
+      }
+      extraData={model.fieldsEditable}
+      keyboardDismissMode="on-drag"
+      keyboardShouldPersistTaps="handled"
+      contentContainerStyle={styles.listContent}
+    />
+  );
+}
+
+function PriceListFormHeader(props: { readonly model: PriceListFormModel }) {
+  const { model } = props;
   const { copy } = model;
   const form = copy.form;
   const { theme } = useUnistyles();
 
   return (
-    <KeyboardAwareScrollView
-      style={styles.scroll}
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
-      bottomOffset={theme.spacing.lg}
-    >
+    <View style={styles.header}>
       <PriceListFormSection title={form.aboutTitle}>
         <PriceListFormNameField
           control={model.control}
@@ -189,9 +176,7 @@ function PriceListFormReady(props: { readonly model: PriceListFormModel }) {
               description={form.defaultDescription}
               checked={field.value}
               disabled={!model.fieldsEditable}
-              onChange={(checked) => {
-                model.onDefaultChange(checked);
-              }}
+              onChange={model.onDefaultChange}
             />
           )}
         />
@@ -210,16 +195,12 @@ function PriceListFormReady(props: { readonly model: PriceListFormModel }) {
               }
               checked={field.value}
               disabled={!model.fieldsEditable}
-              onChange={(checked) => {
-                model.onActiveChange(checked);
-              }}
+              onChange={model.onActiveChange}
             />
           )}
         />
       </PriceListFormSection>
-      {model.mode === "create" ? (
-        <Text style={styles.hint}>{form.createPricesHint}</Text>
-      ) : (
+      {model.mode === "edit" ? (
         <PriceListFormSection title={form.pricesTitle}>
           <TextField
             value={model.productSearch}
@@ -274,38 +255,21 @@ function PriceListFormReady(props: { readonly model: PriceListFormModel }) {
           ) : null}
           {model.priceRows.length === 0 ? (
             <Text style={styles.emptyPrices}>{form.noProducts}</Text>
-          ) : (
-            <View style={styles.priceList}>
-              {model.priceRows.map((row) => (
-                <PriceEntryRow
-                  key={row.entryKey}
-                  control={model.control}
-                  fieldIndex={row.fieldIndex}
-                  copy={form}
-                  mode={model.mode}
-                  name={row.name}
-                  archived={row.archived}
-                  kind={row.kind}
-                  basePriceMinor={row.basePriceMinor}
-                  originPriceText={model.originPriceText(row.entryKey)}
-                  editable={model.fieldsEditable}
-                  error={model.entryError(row.entryKey)}
-                  expanded={row.expanded}
-                  expanding={row.expanding}
-                  showExpand={row.showExpand}
-                  onFieldEdit={model.onFieldEdit}
-                  onToggleExpand={model.toggleExpand}
-                  productId={row.productId}
-                />
-              ))}
-            </View>
-          )}
+          ) : null}
         </PriceListFormSection>
-      )}
-      {model.banner !== null && model.banner.length > 0 ? (
-        <Banner message={model.banner} />
       ) : null}
-    </KeyboardAwareScrollView>
+    </View>
+  );
+}
+
+function PriceListEditorScroll(props: ScrollViewProps) {
+  const { theme } = useUnistyles();
+  return (
+    <KeyboardAwareScrollView
+      {...props}
+      keyboardShouldPersistTaps="handled"
+      bottomOffset={theme.spacing.lg}
+    />
   );
 }
 
@@ -321,15 +285,19 @@ function PriceListFormSection(props: {
   );
 }
 
-function CenteredEmpty({ children }: { readonly children: ReactNode }) {
-  return <View style={styles.centered}>{children}</View>;
+function priceEntryKeyExtractor(row: PresentedPriceEntry): string {
+  return row.entryKey;
+}
+
+function priceEntryItemType(row: PresentedPriceEntry): string {
+  return row.kind;
+}
+
+function PriceRowSeparator() {
+  return <View style={styles.rowSeparator} />;
 }
 
 const styles = StyleSheet.create((theme) => ({
-  screen: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
   scroll: {
     flex: 1,
   },
@@ -338,6 +306,15 @@ const styles = StyleSheet.create((theme) => ({
     paddingTop: theme.spacing.sm,
     paddingBottom: theme.spacing.xl,
     gap: theme.spacing.xl,
+  },
+  listContent: {
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.sm,
+    paddingBottom: theme.spacing.xl,
+  },
+  header: {
+    gap: theme.spacing.xl,
+    paddingBottom: theme.spacing.lg,
   },
   section: {
     gap: theme.spacing.sm,
@@ -373,9 +350,6 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
     minWidth: 0,
   },
-  priceList: {
-    gap: theme.spacing.sm,
-  },
   emptyPrices: {
     color: theme.colors.mutedForeground,
     fontSize: theme.typography.sm.fontSize,
@@ -383,42 +357,7 @@ const styles = StyleSheet.create((theme) => ({
     textAlign: "center",
     paddingVertical: theme.spacing.lg,
   },
-  footer: {
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-    backgroundColor: theme.colors.card,
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.md,
-    paddingBottom: theme.spacing.md,
-  },
-  footerActions: {
-    flexDirection: "row",
-    gap: theme.spacing.sm,
-  },
-  footerButton: {
-    flex: 1,
-  },
-  centered: {
-    flex: 1,
-    justifyContent: "center",
-  },
-  skeletons: {
-    gap: theme.spacing.md,
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.sm,
-  },
-  skeletonLine: {
-    borderRadius: theme.radii.full,
-    backgroundColor: theme.colors.skeleton,
-  },
-  skeletonName: {
-    height: theme.hitTarget.field,
-    width: "100%",
-  },
-  skeletonCard: {
-    height: theme.hitTarget.row,
-    borderRadius: theme.radii.xl,
-    ...theme.squircle,
-    backgroundColor: theme.colors.skeleton,
+  rowSeparator: {
+    height: theme.spacing.sm,
   },
 }));

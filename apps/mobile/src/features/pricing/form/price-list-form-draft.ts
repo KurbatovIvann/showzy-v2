@@ -1,7 +1,8 @@
 /**
- * Price-list form draft, snapshot, dirty detection, bulk %, and variant
- * expand (SHO-190). UI Zod lives in `price-list-form.schema.ts`; write
- * planning is `price-list-form-plan.ts`.
+ * Price-list form draft, snapshot, dirty detection, and variant expand
+ * (SHO-190). Display % lives in `price-list-form-diff.ts`; bulk % in
+ * `price-list-form-bulk.ts`. UI Zod is `price-list-form.schema.ts`;
+ * write planning is `price-list-form-plan.ts`.
  */
 import { moneyToWire } from "@showzy/contract";
 
@@ -51,6 +52,17 @@ export type PriceListFormSnapshot = {
   readonly isDefault: boolean;
   readonly isActive: boolean;
   readonly entries: readonly PriceListEntrySnapshot[];
+};
+
+/**
+ * Keyed origin for dirty + "changed" chrome. Not RHF defaults and not
+ * the live draft — commit on hydrate / save / variant merge only.
+ */
+export type PriceListFormOrigin = {
+  readonly name: string;
+  readonly isDefault: boolean;
+  readonly isActive: boolean;
+  readonly prices: ReadonlyMap<string, string>;
 };
 
 export type PriceListStoredEntry = {
@@ -284,91 +296,139 @@ export function mergeExpandedVariants(args: {
   };
 }
 
-const BULK_PERCENT_PATTERN = /^(100|[1-9]\d?)$/;
-
-export function parseBulkPercent(
-  text: string,
-): { readonly ok: true; readonly percent: number } | { readonly ok: false } {
-  const trimmed = text.trim().replace(",", ".");
-  if (!BULK_PERCENT_PATTERN.test(trimmed)) {
-    return { ok: false };
-  }
-  return { ok: true, percent: Number(trimmed) };
-}
-
-/**
- * Integer percent off catalog **product** base. Round half-up in minor
- * units so it matches canvas `Math.round` on major units.
- */
-export function applyPercentOffMinor(
-  baseMinor: bigint,
-  percent: number,
-): bigint {
-  const numerator = baseMinor * (100n - BigInt(percent));
-  return (numerator + 50n) / 100n;
-}
-
-/**
- * UI-only bulk %: writes product-level price texts only. Variant rows
- * are left untouched (not a promo engine).
- */
-export function applyBulkPercentOff(args: {
-  readonly draft: PriceListFormDraft;
-  readonly percent: number;
-  readonly basePriceMinorByProductId: ReadonlyMap<string, string>;
-}): PriceListFormDraft {
+export function originFromDraft(
+  draft: PriceListFormDraft,
+): PriceListFormOrigin {
   return {
-    ...args.draft,
-    entries: args.draft.entries.map((entry) => {
-      if (entry.variantId !== null) {
-        return entry;
-      }
-      const base = args.basePriceMinorByProductId.get(entry.productId);
-      if (base === undefined) {
-        return entry;
-      }
-      const next = applyPercentOffMinor(BigInt(base), args.percent);
-      return {
-        ...entry,
-        priceText: formatMajorUnitsFromMinor(moneyToWire(next)),
-      };
-    }),
+    name: draft.name,
+    isDefault: draft.isDefault,
+    isActive: draft.isActive,
+    prices: new Map(draft.entries.map((entry) => [entry.key, entry.priceText])),
   };
+}
+
+export function originPriceTextByKey(
+  origin: PriceListFormDraft | PriceListFormOrigin,
+): ReadonlyMap<string, string> {
+  return pricesOfOrigin(origin);
+}
+
+function isKeyedOrigin(
+  origin: PriceListFormDraft | PriceListFormOrigin,
+): origin is PriceListFormOrigin {
+  return !("entries" in origin);
+}
+
+function pricesOfOrigin(
+  origin: PriceListFormDraft | PriceListFormOrigin,
+): ReadonlyMap<string, string> {
+  if (isKeyedOrigin(origin)) {
+    return origin.prices;
+  }
+  return new Map(origin.entries.map((entry) => [entry.key, entry.priceText]));
+}
+
+/**
+ * Empty text vs a missing origin row is not dirty; a stored `0` is.
+ * Does not clone or mutate either side.
+ */
+export function isPriceListEntryDirty(
+  priceText: string,
+  originPriceText: string | undefined,
+): boolean {
+  if (originPriceText === undefined) {
+    return priceText.trim().length > 0;
+  }
+  return priceText !== originPriceText;
+}
+
+function isPriceListHeaderDirty(
+  draft: PriceListFormDraft,
+  origin: PriceListFormDraft | PriceListFormOrigin,
+): boolean {
+  return (
+    draft.name !== origin.name ||
+    draft.isDefault !== origin.isDefault ||
+    draft.isActive !== origin.isActive
+  );
+}
+
+function scanDirtyEntryKeys(
+  draft: PriceListFormDraft,
+  originPrices: ReadonlyMap<string, string>,
+): Set<string> {
+  const dirtyKeys = new Set<string>();
+  const draftKeys = new Set<string>();
+  for (const entry of draft.entries) {
+    draftKeys.add(entry.key);
+    if (isPriceListEntryDirty(entry.priceText, originPrices.get(entry.key))) {
+      dirtyKeys.add(entry.key);
+    }
+  }
+  for (const [key, priceText] of originPrices) {
+    if (!draftKeys.has(key) && priceText.trim().length > 0) {
+      dirtyKeys.add(key);
+    }
+  }
+  return dirtyKeys;
 }
 
 export function isPriceListFormDirty(
   draft: PriceListFormDraft,
-  origin: PriceListFormDraft,
+  origin: PriceListFormDraft | PriceListFormOrigin,
 ): boolean {
-  if (
-    draft.name !== origin.name ||
-    draft.isDefault !== origin.isDefault ||
-    draft.isActive !== origin.isActive
-  ) {
+  if (isPriceListHeaderDirty(draft, origin)) {
     return true;
   }
-  const originByKey = new Map(
-    origin.entries.map((entry) => [entry.key, entry.priceText]),
-  );
-  const draftKeys = new Set(draft.entries.map((entry) => entry.key));
-  for (const entry of draft.entries) {
-    const previous = originByKey.get(entry.key);
-    if (previous === undefined) {
-      if (entry.priceText.trim().length > 0) {
-        return true;
-      }
-      continue;
-    }
-    if (entry.priceText !== previous) {
-      return true;
-    }
+  return scanDirtyEntryKeys(draft, pricesOfOrigin(origin)).size > 0;
+}
+
+const ENTRY_PRICE_PATH = /^entries\.(\d+)\.priceText$/;
+
+/**
+ * Per-changed-path dirty against a keyed origin map. Full scan when the
+ * path is missing (reset / field-array). Does not clone the draft.
+ */
+export function reconcilePriceListFormDirty(args: {
+  readonly values: PriceListFormDraft;
+  readonly origin: PriceListFormOrigin;
+  readonly changedPath: string | undefined;
+  readonly dirtyKeys: ReadonlySet<string>;
+}): { readonly dirty: boolean; readonly dirtyKeys: ReadonlySet<string> } {
+  const headerDirty = isPriceListHeaderDirty(args.values, args.origin);
+  const entryMatch =
+    args.changedPath === undefined
+      ? null
+      : ENTRY_PRICE_PATH.exec(args.changedPath);
+  if (
+    args.changedPath === "name" ||
+    args.changedPath === "isDefault" ||
+    args.changedPath === "isActive"
+  ) {
+    return {
+      dirty: headerDirty || args.dirtyKeys.size > 0,
+      dirtyKeys: args.dirtyKeys,
+    };
   }
-  for (const entry of origin.entries) {
-    if (!draftKeys.has(entry.key) && entry.priceText.trim().length > 0) {
-      return true;
+  if (entryMatch !== null) {
+    const index = Number(entryMatch[1]);
+    const entry = args.values.entries[index];
+    if (entry === undefined) {
+      const dirtyKeys = scanDirtyEntryKeys(args.values, args.origin.prices);
+      return { dirty: headerDirty || dirtyKeys.size > 0, dirtyKeys };
     }
+    const dirtyKeys = new Set(args.dirtyKeys);
+    if (
+      isPriceListEntryDirty(entry.priceText, args.origin.prices.get(entry.key))
+    ) {
+      dirtyKeys.add(entry.key);
+    } else {
+      dirtyKeys.delete(entry.key);
+    }
+    return { dirty: headerDirty || dirtyKeys.size > 0, dirtyKeys };
   }
-  return false;
+  const dirtyKeys = scanDirtyEntryKeys(args.values, args.origin.prices);
+  return { dirty: headerDirty || dirtyKeys.size > 0, dirtyKeys };
 }
 
 export function shouldPreventPriceListLeave(args: {
@@ -464,74 +524,4 @@ export function filterCatalogProducts<T extends { readonly name: string }>(
   return products.filter((product) =>
     product.name.toLowerCase().includes(normalized),
   );
-}
-
-/**
- * Display-only percent vs catalog base. Null when there is no entered
- * price or the catalog base is zero.
- */
-export function priceDiffPercent(
-  listMinor: bigint,
-  baseMinor: bigint,
-): number | null {
-  if (baseMinor <= 0n) {
-    return null;
-  }
-  const numerator = (listMinor - baseMinor) * 1000n;
-  const half = baseMinor / 2n;
-  const scaled =
-    numerator >= 0n
-      ? (numerator + half) / baseMinor
-      : (numerator - half) / baseMinor;
-  const rounded = scaled >= 0n ? (scaled + 5n) / 10n : (scaled - 5n) / 10n;
-  return Number(rounded);
-}
-
-export function formatPriceDiffPercent(diff: number | null): string {
-  if (diff === null) {
-    return "—";
-  }
-  if (diff > 0) {
-    return `+${String(diff)}%`;
-  }
-  return `${String(diff)}%`;
-}
-
-export type PriceDiffTone = "empty" | "down" | "up" | "same";
-
-export function priceDiffTone(diff: number | null): PriceDiffTone {
-  if (diff === null) {
-    return "empty";
-  }
-  if (diff < 0) {
-    return "down";
-  }
-  if (diff > 0) {
-    return "up";
-  }
-  return "same";
-}
-
-export function listPriceDiff(args: {
-  readonly priceText: string;
-  readonly basePriceMinor: string;
-}): { readonly label: string; readonly tone: PriceDiffTone } {
-  if (args.priceText.trim().length === 0) {
-    return { label: "—", tone: "empty" };
-  }
-  const parsed = parseMajorUnitsToMinor(args.priceText);
-  if (!parsed.ok) {
-    return { label: "—", tone: "empty" };
-  }
-  const diff = priceDiffPercent(parsed.minor, BigInt(args.basePriceMinor));
-  return {
-    label: formatPriceDiffPercent(diff),
-    tone: priceDiffTone(diff),
-  };
-}
-
-export function originPriceTextByKey(
-  origin: PriceListFormDraft,
-): ReadonlyMap<string, string> {
-  return new Map(origin.entries.map((entry) => [entry.key, entry.priceText]));
 }

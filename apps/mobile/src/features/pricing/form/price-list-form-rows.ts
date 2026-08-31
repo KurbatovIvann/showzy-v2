@@ -87,14 +87,36 @@ export function variantsFromGetProduct(
   }));
 }
 
-function fieldIndexFor(
+export function fieldIndexByKey(
   fields: readonly PriceListFormFieldRow[],
-  productId: string,
-  variantId: string | null,
-): number {
-  return fields.findIndex(
-    (field) => field.productId === productId && field.variantId === variantId,
-  );
+): ReadonlyMap<string, number> {
+  const map = new Map<string, number>();
+  for (let index = 0; index < fields.length; index += 1) {
+    const field = fields[index];
+    if (field !== undefined) {
+      map.set(field.key, index);
+    }
+  }
+  return map;
+}
+
+function variantIndexesByProductId(
+  fields: readonly PriceListFormFieldRow[],
+): ReadonlyMap<string, readonly number[]> {
+  const map = new Map<string, number[]>();
+  for (let index = 0; index < fields.length; index += 1) {
+    const field = fields[index];
+    if (field === undefined || field.variantId === null) {
+      continue;
+    }
+    const list = map.get(field.productId);
+    if (list === undefined) {
+      map.set(field.productId, [index]);
+    } else {
+      list.push(index);
+    }
+  }
+  return map;
 }
 
 export function visiblePriceEntries(args: {
@@ -106,10 +128,12 @@ export function visiblePriceEntries(args: {
   readonly variantMeta: ReadonlyMap<string, PriceListVariantMeta>;
 }): readonly VisiblePriceEntry[] {
   const visibleProducts = filterCatalogProducts(args.products, args.query);
+  const indexByKey = fieldIndexByKey(args.fields);
+  const variantIndexes = variantIndexesByProductId(args.fields);
   const rows: VisiblePriceEntry[] = [];
   for (const product of visibleProducts) {
-    const productIndex = fieldIndexFor(args.fields, product.id, null);
-    if (productIndex < 0) {
+    const productIndex = indexByKey.get(product.id);
+    if (productIndex === undefined) {
       continue;
     }
     const expanded = args.expandedProductIds.has(product.id);
@@ -131,13 +155,10 @@ export function visiblePriceEntries(args: {
     if (!expanded) {
       continue;
     }
-    for (let index = 0; index < args.fields.length; index += 1) {
+    const variantFieldIndexes = variantIndexes.get(product.id) ?? [];
+    for (const index of variantFieldIndexes) {
       const field = args.fields[index];
-      if (
-        field === undefined ||
-        field.productId !== product.id ||
-        field.variantId === null
-      ) {
+      if (field === undefined || field.variantId === null) {
         continue;
       }
       const meta = args.variantMeta.get(field.variantId);

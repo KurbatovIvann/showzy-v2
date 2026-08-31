@@ -166,7 +166,6 @@ describe("runPriceListOptionsFollowUp", () => {
 
     let chrome = openPriceListOptions(LIST_ID);
     let banner: string | null = null;
-    const submitDeactivate = vi.fn();
     const gate = deferred();
 
     const done = runPriceListOptionsFollowUp({
@@ -178,20 +177,17 @@ describe("runPriceListOptionsFollowUp", () => {
       setBanner: (message) => {
         banner = message;
       },
-      submitDeactivate,
       message: "cannot-deactivate-default",
     });
 
     await Promise.resolve();
     expect(chrome.visible).toBe(false);
     expect(banner).toBeNull();
-    expect(submitDeactivate).not.toHaveBeenCalled();
 
     gate.resolve();
     await done;
     expect(chrome.visible).toBe(false);
     expect(banner).toBe("cannot-deactivate-default");
-    expect(submitDeactivate).not.toHaveBeenCalled();
   });
 });
 
@@ -209,10 +205,22 @@ describe("live hook wiring (SHO-200)", () => {
     expect(HOOK_SOURCE).toContain("runPriceListOptionsFollowUp");
     expect(HOOK_SOURCE).toContain("presentConfirmDialog");
     expect(HOOK_SOURCE).toContain("setBanner");
-    expect(HOOK_SOURCE).toContain("submitDeactivate");
+    expect(HOOK_SOURCE).not.toContain("submitDeactivate");
+    expect(HOOK_SOURCE).toContain("const openOptions = useCallback");
     expect(HOOK_SOURCE).not.toContain("runAfterOptionsSheetHidden");
     expect(HOOK_SOURCE).not.toMatch(
       /then:\s*\(\)\s*=>\s*writes\.(remove|toggleActive)/,
     );
+  });
+});
+
+describe("list write callback stability (SHO-304)", () => {
+  it("stabilizes openEdit with useCallback", () => {
+    const writes = readFileSync(
+      new URL("./use-price-list-writes.ts", import.meta.url),
+      "utf8",
+    );
+    expect(writes).toContain("const openEdit = useCallback");
+    expect(writes).toContain("const openCreate = useCallback");
   });
 });
