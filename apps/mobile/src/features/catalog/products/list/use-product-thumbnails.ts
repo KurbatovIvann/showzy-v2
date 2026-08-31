@@ -1,13 +1,51 @@
 /**
- * Batched list thumbnails (SHO-140 / SHO-157). Download URLs come from
- * `apps/mobile/src/api/file-download-query.ts` — do not duplicate that
- * handshake here.
+ * Batched list thumbnails (SHO-140 / SHO-157 / SHO-247). Download URLs
+ * come from `apps/mobile/src/api/file-download-query.ts` — do not
+ * duplicate that handshake here. List cells request the named `thumb`
+ * rendition (SHO-244); they never sign the original.
  */
 import { useQueries } from "@tanstack/react-query";
 
 import type { ContractClient } from "../../../../api/client";
-import { fileDownloadUrlsQueryOptions } from "../../../../api/file-download-query";
+import {
+  fileDownloadUrlsQueryOptions,
+  type FileDownloadClient,
+} from "../../../../api/file-download-query";
 import type { ProductListItem } from "../api/product.queries";
+
+/** Named catalog size for product list cells (SHO-244). */
+export const PRODUCT_LIST_RENDITION = "thumb" as const;
+
+export function productListDownloadInput(fileIds: readonly string[]): {
+  readonly fileIds: string[];
+  readonly rendition: typeof PRODUCT_LIST_RENDITION;
+} {
+  return { fileIds: [...fileIds], rendition: PRODUCT_LIST_RENDITION };
+}
+
+/**
+ * Live list thumbnail query (SHO-140 / SHO-247). `enabled` is the
+ * `files:view` affordance from the list composer; roles without it skip
+ * the download. Rendition is always `thumb`.
+ */
+export function productListThumbnailQueryOptions(args: {
+  readonly client: FileDownloadClient | null;
+  readonly companyId: string | null;
+  readonly getActiveCompany: () => string | null;
+  readonly fileIds: readonly string[];
+  readonly enabled: boolean;
+}) {
+  const options = fileDownloadUrlsQueryOptions({
+    client: args.client,
+    companyId: args.companyId,
+    getActiveCompany: args.getActiveCompany,
+    ...productListDownloadInput(args.fileIds),
+  });
+  return {
+    ...options,
+    enabled: options.enabled && args.enabled,
+  };
+}
 
 /** First-seen unique `primaryImageFileId` values for one list page. */
 export function uniquePrimaryImageFileIds(
@@ -112,19 +150,15 @@ export function useProductThumbnails(args: {
   readonly refetch: () => void;
 } {
   const thumbnailQueries = useQueries({
-    queries: args.pages.map((page) => {
-      const fileIds = uniquePrimaryImageFileIds(page.items);
-      const options = fileDownloadUrlsQueryOptions({
+    queries: args.pages.map((page) =>
+      productListThumbnailQueryOptions({
         client: args.client,
         companyId: args.companyId,
-        fileIds,
         getActiveCompany: args.getActiveCompany,
-      });
-      return {
-        ...options,
-        enabled: options.enabled && args.enabled,
-      };
-    }),
+        fileIds: uniquePrimaryImageFileIds(page.items),
+        enabled: args.enabled,
+      }),
+    ),
   });
   const urlsByFileId = mergeDownloadUrlPages(
     thumbnailQueries.map((query) => query.data),

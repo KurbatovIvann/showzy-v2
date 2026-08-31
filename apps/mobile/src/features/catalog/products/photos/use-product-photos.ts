@@ -4,7 +4,6 @@ import { useCallback, useEffect, useReducer, useRef } from "react";
 import { useApiClient } from "../../../../api/api-provider";
 import { useContractMutation } from "../../../../api/contract-mutation";
 import { describeQueryFailure } from "../../../../api/errors";
-import { fileDownloadUrlsQueryOptions } from "../../../../api/file-download-query";
 import { useActiveCompany } from "../../../../api/query-provider";
 import { useResolvedCompany } from "../../../../company-resolution/resolved-company-provider";
 import { detectLocale } from "../../../../i18n/locale";
@@ -12,6 +11,7 @@ import { productsCopy } from "../../../../i18n/products";
 import { invalidateCatalogAfterStatusWrite } from "../api/product-archive";
 import {
   classifyProductPhotosLoad,
+  productPhotosStripQueryOptions,
   remainingPhotoSlots,
   resolvePhotoBanner,
   resolveProductPhotosBannerKey,
@@ -87,14 +87,13 @@ export function useProductPhotos(args: {
     .filter((slot) => slot.kind === "committed")
     .map((slot) => slot.fileId);
   const urlsQuery = useQuery(
-    fileDownloadUrlsQueryOptions({
-      client:
-        canWrite && canFetchFileDownloadUrls(membership.role)
-          ? apiClient
-          : null,
+    productPhotosStripQueryOptions({
+      client: apiClient,
       companyId: activeCompanyId,
-      fileIds: committedIds,
       getActiveCompany: () => apiClient?.getActiveCompany() ?? null,
+      fileIds: committedIds,
+      canWrite,
+      canFetchImages: canFetchFileDownloadUrls(membership.role),
     }),
   );
   const previewByFileId = new Map<string, string>();

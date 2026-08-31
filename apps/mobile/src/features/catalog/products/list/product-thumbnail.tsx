@@ -6,11 +6,12 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 /**
  * Signed thumbnail from a parent-batched `files.getDownloadUrls` query
- * (SHO-140). `fileId: null` or a missing URL (no image, loading, or a
- * role that cannot read files) renders the package placeholder without
- * a request. A download-query failure is a distinct `failed` path — not
- * success with an empty URL. `fileId` is only the expo-image recycle
- * key — the URL is never persisted.
+ * (SHO-140 / SHO-247). The parent requests the named `thumb` rendition;
+ * this cell never asks for width/height. `fileId: null` or a missing URL
+ * (no image, loading, or a role that cannot read files) renders the
+ * package placeholder without a request. A download-query failure is a
+ * distinct `failed` path — not success with an empty URL. `fileId` is
+ * only the expo-image recycle key — the URL is never persisted.
  */
 export const ProductThumbnail = memo(function ProductThumbnail(props: {
   readonly fileId: string | null;

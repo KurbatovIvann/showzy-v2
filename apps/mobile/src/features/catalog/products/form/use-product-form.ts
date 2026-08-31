@@ -131,6 +131,8 @@ export function useProductForm(args: {
     setBaseline(snap);
   }, [args.mode, query.data, reset]);
 
+  // Form photos are the 160px ProductImagePicker strip (`card`). There
+  // is no separate hero download on this screen (SHO-247 amendment).
   const photos = useProductPhotos({
     productId: routeProductId,
     imageFileIds: query.data?.imageFileIds,

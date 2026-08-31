@@ -35,6 +35,12 @@ describe("product permission affordances", () => {
     expect(canFetchFileDownloadUrls("employee")).toBe(false);
   });
 
+  it("keeps canEditProducts identical to canFetchFileDownloadUrls for every seeded role", () => {
+    for (const role of ["owner", "admin", "manager", "employee"] as const) {
+      expect(canEditProducts(role)).toBe(canFetchFileDownloadUrls(role));
+    }
+  });
+
   it("hides the photo attach handshake only for employees", () => {
     expect(canUploadFiles("owner")).toBe(true);
     expect(canUploadFiles("admin")).toBe(true);
