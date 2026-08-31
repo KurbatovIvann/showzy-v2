@@ -20,7 +20,10 @@ $$;
 
 -- Roles (db.md §6), created as NOLOGIN privilege containers. Environments
 -- attach LOGIN users/credentials outside the repo (test harness does this
--- for CI) — a migration must never carry a password. Roles are
+-- for CI) — a migration must never carry a password. The test harness
+-- CREATE ROLE … LOGIN PASSWORD uses a per-run randomUUID(); that is not
+-- the Testcontainers/compose superuser password and is not stored in the
+-- repo. Roles are
 -- cluster-level, so creation is guarded for template-database copies and
 -- reruns against the same cluster.
 DO $$

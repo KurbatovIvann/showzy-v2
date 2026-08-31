@@ -18,30 +18,27 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
-import { companies } from "./companies.js";
 import { files } from "./files.js";
+import {
+  tenantCompanyId,
+  tenantRowUnique,
+  timestampColumns,
+} from "./tenant-columns.js";
 
 /** Products carry the display name and the level-5 base price. */
 export const products = pgTable(
   "products",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id")
-      .notNull()
-      .references(() => companies.id, { onDelete: "cascade" }),
+    companyId: tenantCompanyId(),
     name: text("name").notNull(),
     basePriceMinor: bigint("base_price_minor", { mode: "bigint" }).notNull(),
     currency: char("currency", { length: 3 }).notNull().default("UAH"),
     status: text("status").notNull().default("active"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    ...timestampColumns(),
   },
   (table) => [
-    unique("products_company_id_id_uq").on(table.companyId, table.id),
+    tenantRowUnique("products_company_id_id_uq", table),
     index("products_company_created_at_id_idx").on(
       table.companyId,
       table.createdAt.desc().nullsFirst(),
@@ -53,6 +50,7 @@ export const products = pgTable(
       "products_status_check",
       sql`${table.status} IN ('active', 'archived')`,
     ),
+    check("products_currency_check", sql`${table.currency} ~ '^[A-Z]{3}$'`),
   ],
 );
 
@@ -65,24 +63,17 @@ export const productVariants = pgTable(
   "product_variants",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id")
-      .notNull()
-      .references(() => companies.id, { onDelete: "cascade" }),
+    companyId: tenantCompanyId(),
     // Same-module ownership: a product deletion removes its variants.
     productId: uuid("product_id").notNull(),
     name: text("name").notNull(),
     basePriceMinor: bigint("base_price_minor", { mode: "bigint" }),
     currency: char("currency", { length: 3 }),
     status: text("status").notNull().default("active"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    ...timestampColumns(),
   },
   (table) => [
-    unique("product_variants_company_id_id_uq").on(table.companyId, table.id),
+    tenantRowUnique("product_variants_company_id_id_uq", table),
     index("product_variants_product_idx").on(table.productId),
     foreignKey({
       name: "product_variants_products_company_fk",
@@ -96,6 +87,10 @@ export const productVariants = pgTable(
     check(
       "product_variants_price_currency_check",
       sql`(${table.basePriceMinor} IS NULL) = (${table.currency} IS NULL)`,
+    ),
+    check(
+      "product_variants_currency_check",
+      sql`${table.currency} IS NULL OR ${table.currency} ~ '^[A-Z]{3}$'`,
     ),
     check(
       "product_variants_status_check",
@@ -113,9 +108,7 @@ export const productMedia = pgTable(
   "product_media",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id")
-      .notNull()
-      .references(() => companies.id, { onDelete: "cascade" }),
+    companyId: tenantCompanyId(),
     productId: uuid("product_id").notNull(),
     fileId: uuid("file_id").notNull(),
     position: integer("position").notNull(),
@@ -124,7 +117,7 @@ export const productMedia = pgTable(
       .defaultNow(),
   },
   (table) => [
-    unique("product_media_company_id_id_uq").on(table.companyId, table.id),
+    tenantRowUnique("product_media_company_id_id_uq", table),
     unique("product_media_product_file_uq").on(
       table.companyId,
       table.productId,

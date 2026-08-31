@@ -54,6 +54,8 @@ export async function createTestDatabase(): Promise<TestDatabase> {
   const runtime = createDbClient({
     databaseUrl: databaseUrl(context.adminUrl, name, {
       user: context.runtimeRole,
+      // Per-run randomUUID from global-setup — not the compose superuser
+      // password and not a value stored in the repo.
       password: context.runtimePassword,
     }),
   });

@@ -167,7 +167,7 @@ describe("companies foundation schema", () => {
   it("enforces unique company slugs and prefixes", async () => {
     const company = await insertCompany();
     await expectSqlState(
-      insertCompany({ slug: company.slug, prefix: "UNIQUE-PREFIX" }),
+      insertCompany({ slug: company.slug, prefix: "UNIQUEPREFIX" }),
       "23505",
     );
     await expectSqlState(
@@ -311,5 +311,12 @@ describe("role permission defaults seed", () => {
         rolePermissionDefaultRows.map((row) => `${row.role}:${row.permission}`),
       ),
     );
+  });
+
+  it("rejects company slugs and prefixes that fail the shape CHECKs", async () => {
+    await expectSqlState(insertCompany({ slug: "ab" }), "23514");
+    await expectSqlState(insertCompany({ slug: "ABC" }), "23514");
+    await expectSqlState(insertCompany({ slug: "-abc" }), "23514");
+    await expectSqlState(insertCompany({ prefix: "co" }), "23514");
   });
 });

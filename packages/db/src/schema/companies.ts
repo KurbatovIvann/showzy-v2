@@ -12,7 +12,6 @@ import {
   pgTable,
   primaryKey,
   text,
-  timestamp,
   unique,
   uniqueIndex,
   uuid,
@@ -20,6 +19,11 @@ import {
 
 import { userIdColumn } from "./auth-ids.js";
 import { user } from "./auth.js";
+import {
+  tenantCompanyId,
+  tenantRowUnique,
+  timestampColumns,
+} from "./tenant-columns.js";
 
 export interface CompanyMemberPermissions {
   granted: string[];
@@ -39,16 +43,16 @@ export const companies = pgTable(
     name: text("name").notNull(),
     slug: text("slug").notNull(),
     prefix: text("prefix").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    ...timestampColumns(),
   },
   (table) => [
     uniqueIndex("companies_slug_uq").on(table.slug),
     uniqueIndex("companies_prefix_uq").on(table.prefix),
+    check(
+      "companies_slug_check",
+      sql`${table.slug} ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$' AND char_length(${table.slug}) BETWEEN 3 AND 48`,
+    ),
+    check("companies_prefix_check", sql`${table.prefix} ~ '^[A-Z0-9]+$'`),
   ],
 );
 
@@ -61,9 +65,7 @@ export const companyMembers = pgTable(
   "company_members",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id")
-      .notNull()
-      .references(() => companies.id, { onDelete: "cascade" }),
+    companyId: tenantCompanyId(),
     userId: userIdColumn("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "restrict" }),
@@ -72,15 +74,10 @@ export const companyMembers = pgTable(
       .$type<CompanyMemberPermissions>()
       .notNull()
       .default(emptyPermissions),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    ...timestampColumns(),
   },
   (table) => [
-    unique("company_members_company_id_id_uq").on(table.companyId, table.id),
+    tenantRowUnique("company_members_company_id_id_uq", table),
     uniqueIndex("company_members_company_user_uq").on(
       table.companyId,
       table.userId,
@@ -104,9 +101,7 @@ export const companyLegalInfo = pgTable(
   "company_legal_info",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id")
-      .notNull()
-      .references(() => companies.id, { onDelete: "cascade" }),
+    companyId: tenantCompanyId(),
     companyType: text("company_type").notNull().default("fop"),
     legalName: text("legal_name"),
     edrpou: text("edrpou"),
@@ -117,16 +112,11 @@ export const companyLegalInfo = pgTable(
     bankEdrpou: text("bank_edrpou"),
     phone: text("phone"),
     email: text("email"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    ...timestampColumns(),
   },
   (table) => [
     unique("company_legal_info_company_id_uq").on(table.companyId),
-    unique("company_legal_info_company_id_id_uq").on(table.companyId, table.id),
+    tenantRowUnique("company_legal_info_company_id_id_uq", table),
     check(
       "company_legal_info_company_type_check",
       sql`${table.companyType} IN ('fop', 'tov')`,

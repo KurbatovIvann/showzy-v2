@@ -74,6 +74,7 @@ async function insertOrder(values: {
     totalTaxMinor: 0n,
     totalGrossMinor: values.totalGrossMinor,
     currency: "UAH",
+    confirmedAt: values.status === "confirmed" ? values.createdAt : undefined,
     createdAt: values.createdAt,
     updatedAt: values.createdAt,
   });

@@ -525,4 +525,38 @@ describe("catalog status and product_media schema slice", () => {
         .where(eq(productMedia.companyId, company.id)),
     ).toEqual([]);
   });
+
+  it("rejects non-ISO currency and allows a null variant currency with a null price", async () => {
+    const company = await insertCompany();
+    const product = await insertProduct(company.id);
+
+    await expectSqlState(
+      insertProduct(company.id, { currency: "uah" }),
+      "23514",
+    );
+    await expectSqlState(
+      insertProduct(company.id, { currency: "US" }),
+      "23514",
+    );
+    await expectSqlState(
+      insertProduct(company.id, { currency: "UA1" }),
+      "23514",
+    );
+    await expectSqlState(
+      insertProduct(company.id, { currency: "UAH1" }),
+      "22001",
+    );
+
+    const withoutOverride = await insertVariant(company.id, product.id);
+    expect(withoutOverride.currency).toBeNull();
+    expect(withoutOverride.basePriceMinor).toBeNull();
+
+    await expectSqlState(
+      insertVariant(company.id, product.id, {
+        basePriceMinor: 1_000n,
+        currency: "uah",
+      }),
+      "23514",
+    );
+  });
 });

@@ -70,7 +70,7 @@ describe("company_legal_info migration (0027)", () => {
   it("leaves existing companies without a legal row on the template DB", async () => {
     const company = await admin.query<{ id: string }>(
       `INSERT INTO companies (name, slug, prefix)
-       VALUES ('Template Co', 'template-legal-${database.name.slice(-8)}', 'T${database.name.slice(-4)}')
+       VALUES ('Template Co', 'template-legal-${database.name.slice(-8)}', 'T${database.name.slice(-4).toUpperCase()}')
        RETURNING id`,
     );
     const companyId = company.rows[0]?.id;
@@ -119,7 +119,7 @@ describe("company_legal_info migration (0027)", () => {
 
       const company = await probe.query<{ id: string }>(
         `INSERT INTO companies (name, slug, prefix)
-         VALUES ('Migrate Co', 'migrate-legal-${name.slice(-8)}', 'M${name.slice(-4)}')
+         VALUES ('Migrate Co', 'migrate-legal-${name.slice(-8)}', 'M${name.slice(-4).toUpperCase()}')
          RETURNING id`,
       );
       const companyId = company.rows[0]?.id;

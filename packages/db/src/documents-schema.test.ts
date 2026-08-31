@@ -1204,4 +1204,41 @@ describe("documents schema slice", () => {
     expect(keys.has("manager:documents:manage")).toBe(false);
     expect(keys.has("owner:documents:view")).toBe(false);
   });
+
+  it("rejects non-ISO document currency", async () => {
+    const company = await insertCompany();
+    const product = await insertProduct(company.id);
+    const headerOrder = await insertOrder({ companyId: company.id });
+    const itemOrder = await insertOrder({ companyId: company.id });
+    const document = await insertDocument({
+      companyId: company.id,
+      orderId: itemOrder.id,
+    });
+
+    await expectSqlState(
+      insertDocument({
+        companyId: company.id,
+        orderId: headerOrder.id,
+        currency: "uah",
+      }),
+      "23514",
+    );
+    await expectSqlState(
+      insertDocument({
+        companyId: company.id,
+        orderId: headerOrder.id,
+        currency: "US",
+      }),
+      "23514",
+    );
+    await expectSqlState(
+      insertItem({
+        companyId: company.id,
+        documentId: document.id,
+        productId: product.id,
+        currency: "uah",
+      }),
+      "23514",
+    );
+  });
 });

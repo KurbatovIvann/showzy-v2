@@ -54,6 +54,9 @@ export default async function setup(project: TestProject) {
     }
 
     const runtimePassword = randomUUID();
+    // Per-run LOGIN password for the template-DB app role. Distinct from
+    // migration-role NOLOGIN (0001 never embeds a password) and from the
+    // Testcontainers/compose superuser URL. Not stored in the repo.
     await control.query(
       `CREATE ROLE "${runtimeRole}" LOGIN PASSWORD '${runtimePassword}' IN ROLE showzy_app`,
     );

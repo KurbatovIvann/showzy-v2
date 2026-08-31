@@ -755,4 +755,25 @@ describe("customer invite schema slice", () => {
     expect(keys.has("admin:invites:create")).toBe(false);
     expect(keys.has("manager:invites:create")).toBe(false);
   });
+
+  it("rejects uses_count above max_uses", async () => {
+    const company = await insertCompany();
+    await expectSqlState(
+      insertInvite({
+        companyId: company.id,
+        isReusable: true,
+        maxUses: 1,
+        usesCount: 2,
+      }),
+      "23514",
+    );
+    const unlimited = await insertInvite({
+      companyId: company.id,
+      isReusable: true,
+      maxUses: null,
+      usesCount: 99,
+    });
+    expect(unlimited.maxUses).toBeNull();
+    expect(unlimited.usesCount).toBe(99);
+  });
 });

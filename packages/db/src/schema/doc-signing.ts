@@ -25,9 +25,13 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
-import { companies } from "./companies.js";
 import { documents } from "./documents.js";
 import { files } from "./files.js";
+import {
+  tenantCompanyId,
+  tenantRowUnique,
+  timestampColumns,
+} from "./tenant-columns.js";
 
 /**
  * One live pending request per tenant document (partial unique). Digest
@@ -37,9 +41,7 @@ export const signingRequests = pgTable(
   "signing_requests",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id")
-      .notNull()
-      .references(() => companies.id, { onDelete: "cascade" }),
+    companyId: tenantCompanyId(),
     documentId: uuid("document_id").notNull(),
     payloadFileId: uuid("payload_file_id").notNull(),
     payloadSha256: text("payload_sha256").notNull(),
@@ -47,15 +49,10 @@ export const signingRequests = pgTable(
       .notNull()
       .default("sha256"),
     status: text("status").notNull().default("pending"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    ...timestampColumns(),
   },
   (table) => [
-    unique("signing_requests_company_id_id_uq").on(table.companyId, table.id),
+    tenantRowUnique("signing_requests_company_id_id_uq", table),
     uniqueIndex("signing_requests_document_id_pending_uq")
       .on(table.documentId)
       .where(sql`${table.status} = 'pending'`),
@@ -98,9 +95,7 @@ export const signingSignatures = pgTable(
   "signing_signatures",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id")
-      .notNull()
-      .references(() => companies.id, { onDelete: "cascade" }),
+    companyId: tenantCompanyId(),
     documentId: uuid("document_id").notNull(),
     signerRole: text("signer_role").notNull(),
     fileId: uuid("file_id").notNull(),
@@ -114,7 +109,7 @@ export const signingSignatures = pgTable(
       .defaultNow(),
   },
   (table) => [
-    unique("signing_signatures_company_id_id_uq").on(table.companyId, table.id),
+    tenantRowUnique("signing_signatures_company_id_id_uq", table),
     unique("signing_signatures_document_id_signer_role_uq").on(
       table.documentId,
       table.signerRole,

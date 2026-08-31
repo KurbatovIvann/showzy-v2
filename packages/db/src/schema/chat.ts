@@ -9,13 +9,16 @@ import {
   index,
   integer,
   pgTable,
-  timestamp,
   unique,
   uuid,
 } from "drizzle-orm/pg-core";
 
-import { companies } from "./companies.js";
 import { orders } from "./orders.js";
+import {
+  tenantCompanyId,
+  tenantRowUnique,
+  timestampColumns,
+} from "./tenant-columns.js";
 
 /**
  * One projection row per order. `revision` is bumped by the later upsert
@@ -25,20 +28,13 @@ export const orderCards = pgTable(
   "order_cards",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id")
-      .notNull()
-      .references(() => companies.id, { onDelete: "cascade" }),
+    companyId: tenantCompanyId(),
     orderId: uuid("order_id").notNull(),
     revision: integer("revision").notNull().default(1),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    ...timestampColumns(),
   },
   (table) => [
-    unique("order_cards_company_id_id_uq").on(table.companyId, table.id),
+    tenantRowUnique("order_cards_company_id_id_uq", table),
     unique("order_cards_order_id_uq").on(table.orderId),
     index("order_cards_company_updated_at_idx").on(
       table.companyId,
