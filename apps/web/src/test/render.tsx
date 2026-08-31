@@ -1,8 +1,12 @@
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
-import { act, render } from "@testing-library/react";
+import { act, cleanup, render } from "@testing-library/react";
+import { onTestFinished } from "vitest";
 
 import { AppProviders } from "../app-providers";
-import { createShowzyAuthClient } from "../auth/client";
+import {
+  createShowzyAuthClient,
+  disposeShowzyAuthClient,
+} from "../auth/client";
 import { createAppRouter } from "../router";
 
 export async function renderApp(path: string) {
@@ -14,6 +18,12 @@ export async function renderApp(path: string) {
     // appears behind BootScreen — colliding with Vitest's 5s timeout
     // (SHO-316).
     sessionOptions: { refetchOnWindowFocus: false },
+  });
+  // After RTL unmount, nanostores still holds a 1000ms delayed destroy
+  // that touches `window`. Run it here, while jsdom is alive (SHO-317).
+  onTestFinished(() => {
+    cleanup();
+    disposeShowzyAuthClient(authClient);
   });
   const router = createAppRouter({
     authClient,
