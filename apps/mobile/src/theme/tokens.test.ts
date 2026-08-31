@@ -153,5 +153,6 @@ describe("canvas token map (ADR-0024)", () => {
     expect(keyboardAppearance("dark")).toBe("dark");
     expect(keyboardAppearance("light")).toBe("light");
     expect(keyboardAppearance("system")).toBe("light");
+    expect(keyboardAppearance(undefined)).toBe("light");
   });
 });

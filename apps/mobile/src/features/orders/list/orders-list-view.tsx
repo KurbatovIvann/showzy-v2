@@ -105,7 +105,7 @@ export function OrdersListView(model: OrdersListModel) {
         </View>
         <View>
           <IconButton
-            variant={filterActive ? "primary" : "surface"}
+            variant={filterActive ? "primary" : "secondary"}
             icon={
               <SlidersHorizontalIcon
                 size={theme.iconSize.sm}

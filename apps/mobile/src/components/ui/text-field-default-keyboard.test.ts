@@ -1,6 +1,4 @@
 import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
@@ -10,7 +8,7 @@ import {
 } from "./text-field-content";
 
 const TEXT_FIELD = readFileSync(
-  join(dirname(fileURLToPath(import.meta.url)), "text-field.tsx"),
+  new URL("./text-field.tsx", import.meta.url),
   "utf8",
 );
 

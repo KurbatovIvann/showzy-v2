@@ -47,7 +47,7 @@ export function VerifyScreen() {
           length={model.otpLength}
           disabled={model.busy || model.locked}
           error={model.otpError != null}
-          errorText={model.otpError ?? undefined}
+          errorText={model.otpError ?? ""}
           accessibilityLabel={model.copy.verifyCode}
           onChange={(code) => {
             model.setCode(code);

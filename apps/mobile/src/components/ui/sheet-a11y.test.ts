@@ -1,55 +1,52 @@
-import { readdirSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
-const UI_DIR = dirname(fileURLToPath(import.meta.url));
-const SRC_DIR = join(UI_DIR, "../..");
+const SHEET_SOURCE = readFileSync(
+  new URL("./sheet.tsx", import.meta.url),
+  "utf8",
+);
 
-function listTsx(dir: string): string[] {
-  const entries = readdirSync(dir, { withFileTypes: true });
-  const files: string[] = [];
-  for (const entry of entries) {
-    const path = join(dir, entry.name);
-    if (entry.isDirectory()) {
-      files.push(...listTsx(path));
-      continue;
-    }
-    if (entry.name.endsWith(".tsx")) {
-      files.push(path);
-    }
-  }
-  return files;
-}
+/**
+ * Known `<Sheet` call sites. Vitest is node-only with a `readFileSync`
+ * stub (no `readdirSync`); pin the current set so a missing close label
+ * fails this test instead of walking the tree.
+ */
+const SHEET_CALL_SITES = [
+  "../../features/catalog/products/detail/product-actions-sheet.tsx",
+  "../../features/catalog/products/detail/variant-actions-sheet.tsx",
+  "../../features/catalog/products/form/variant-editor-sheet.tsx",
+  "../../features/catalog/products/photos/photo-source-sheet.tsx",
+  "../../features/customers/invitations/invitation-form-view.tsx",
+  "../../features/customers/shared/option-select-sheet.tsx",
+  "../../features/documents/form/option-select-sheet.tsx",
+  "../../features/documents/list/document-options-sheet.tsx",
+  "../../features/documents/share/document-handover-sheet.tsx",
+  "../../features/documents/signing/document-signing-sheet.tsx",
+  "../../features/orders/detail/order-actions-sheet.tsx",
+  "../../features/orders/form/option-select-sheet.tsx",
+  "../../features/orders/form/product-select-sheet.tsx",
+  "../../features/orders/list/orders-filter-sheet.tsx",
+  "../../features/pricing/list/price-list-options-sheet.tsx",
+] as const;
 
 describe("Sheet always exposes a dismiss control", () => {
   it("renders the close Pressable without gating on an optional label", () => {
-    const source = readFileSync(join(UI_DIR, "sheet.tsx"), "utf8");
-    expect(source).toContain("closeAccessibilityLabel: string");
-    expect(source).not.toContain("closeAccessibilityLabel?:");
-    expect(source).toContain("<SheetHeader");
-    expect(source).toContain("useSheetPresentation(");
-    expect(source).toContain(
+    expect(SHEET_SOURCE).toContain("closeAccessibilityLabel: string");
+    expect(SHEET_SOURCE).not.toContain("closeAccessibilityLabel?:");
+    expect(SHEET_SOURCE).toContain("<SheetHeader");
+    expect(SHEET_SOURCE).toContain("useSheetPresentation(");
+    expect(SHEET_SOURCE).toContain(
       "accessibilityLabel={props.closeAccessibilityLabel}",
     );
-    expect(source).not.toContain("closeLabel !== null");
+    expect(SHEET_SOURCE).not.toContain("closeLabel !== null");
   });
 
   it("passes closeAccessibilityLabel at every Sheet call site", () => {
-    const missing: string[] = [];
-    for (const file of listTsx(SRC_DIR)) {
-      if (file.endsWith(`${join("components", "ui", "sheet.tsx")}`)) {
-        continue;
-      }
-      const source = readFileSync(file, "utf8");
-      if (!/<Sheet\b/.test(source)) {
-        continue;
-      }
-      if (!source.includes("closeAccessibilityLabel=")) {
-        missing.push(file);
-      }
+    for (const relative of SHEET_CALL_SITES) {
+      const source = readFileSync(new URL(relative, import.meta.url), "utf8");
+      expect(source).toMatch(/<Sheet\b/);
+      expect(source).toContain("closeAccessibilityLabel=");
     }
-    expect(missing).toEqual([]);
   });
 });
