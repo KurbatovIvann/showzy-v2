@@ -16,9 +16,9 @@ export function allowLanHttpObjectStore(
  * iOS ATS local-network exception — same gate as Android cleartext
  * (dev / unset EAS profile only).
  */
-export function iosInfoPlistFor(
-  env: typeof process.env = process.env,
-): NonNullable<ExpoConfig["ios"]>["infoPlist"] {
+export function iosInfoPlistFor(env: typeof process.env = process.env): {
+  readonly NSAppTransportSecurity?: { readonly NSAllowsLocalNetworking: true };
+} {
   if (!allowLanHttpObjectStore(env)) {
     return {};
   }

@@ -212,7 +212,7 @@ export function createShowzyQueryClient(
 
   function notifyIfUnauthenticated(error: unknown): void {
     if (isUnauthenticatedWireError(error)) {
-      onUnauthenticated?.();
+      void onUnauthenticated?.();
     }
   }
 

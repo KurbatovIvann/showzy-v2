@@ -108,9 +108,9 @@ describe("mobile native kit", () => {
     const resolved = appConfig({
       config: { extra: {} },
     } as ConfigContext);
-    const ats = resolved.ios?.infoPlist?.NSAppTransportSecurity as
-      { NSAllowsLocalNetworking?: boolean } | undefined;
-    expect(ats?.NSAllowsLocalNetworking).toBe(true);
+    expect(resolved.ios?.infoPlist).toEqual({
+      NSAppTransportSecurity: { NSAllowsLocalNetworking: true },
+    });
     const buildProps = expoConfigPlugins.find(
       (plugin) =>
         Array.isArray(plugin) && plugin[0] === "expo-build-properties",
@@ -135,15 +135,15 @@ describe("mobile native kit", () => {
       "expo-build-properties",
       { android: { usesCleartextTraffic: false } },
     ]);
-    expect(iosInfoPlistFor({})?.NSAppTransportSecurity).toEqual({
+    expect(iosInfoPlistFor({}).NSAppTransportSecurity).toEqual({
       NSAllowsLocalNetworking: true,
     });
     expect(
-      iosInfoPlistFor({ EAS_BUILD_PROFILE: "preview" })?.NSAppTransportSecurity,
+      iosInfoPlistFor({ EAS_BUILD_PROFILE: "preview" }).NSAppTransportSecurity,
     ).toBeUndefined();
     expect(
       iosInfoPlistFor({ EAS_BUILD_PROFILE: "production" })
-        ?.NSAppTransportSecurity,
+        .NSAppTransportSecurity,
     ).toBeUndefined();
   });
 });

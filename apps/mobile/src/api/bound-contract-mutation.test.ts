@@ -28,9 +28,9 @@ describe("boundContractMutate", () => {
     const seen: string[] = [];
     const mutate = boundContractMutate(
       () => ({ id: "client" }),
-      (client) => async (input: { note: string }) => {
+      (client) => (input: { note: string }) => {
         seen.push(`${client.id}:${input.note}`);
-        return { receiptId: "r-1" };
+        return Promise.resolve({ receiptId: "r-1" });
       },
     );
     await expect(mutate({ note: "ready" }, emptyOptions)).resolves.toEqual({

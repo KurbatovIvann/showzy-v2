@@ -26,7 +26,7 @@ export function bindActiveCompanyRuntime(args: {
   const unbindIsolation = bindActiveCompanyQueryIsolation(
     args.client,
     args.queryClient,
-    { onCompanyId: args.onCompanyId },
+    args.onCompanyId === undefined ? {} : { onCompanyId: args.onCompanyId },
   );
   return () => {
     unbindPersistence();

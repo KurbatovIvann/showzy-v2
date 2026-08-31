@@ -378,7 +378,7 @@ describe("UNAUTHENTICATED query handling", () => {
     queryClient.clear();
   });
 
-  it("createUnauthenticatedCleanupLatch ignores re-entry while in flight", async () => {
+  it("createUnauthenticatedCleanupLatch ignores re-entry while in flight", () => {
     const cleanup = vi.fn(
       () =>
         new Promise<void>(() => {
@@ -386,16 +386,16 @@ describe("UNAUTHENTICATED query handling", () => {
         }),
     );
     const latch = createUnauthenticatedCleanupLatch(cleanup);
-    latch();
-    latch();
-    latch();
+    void latch();
+    void latch();
+    void latch();
     expect(cleanup).toHaveBeenCalledTimes(1);
   });
 
   it("does not 401-gate anonymous public/share work", () => {
     const clearSession = vi.fn();
     const clearCache = vi.fn();
-    handleUnauthenticatedQueryError({
+    void handleUnauthenticatedQueryError({
       hadSession: hasLocalSession(null),
       clearSession,
       clearCache,
@@ -403,7 +403,7 @@ describe("UNAUTHENTICATED query handling", () => {
     expect(clearSession).not.toHaveBeenCalled();
     expect(clearCache).not.toHaveBeenCalled();
 
-    handleUnauthenticatedQueryError({
+    void handleUnauthenticatedQueryError({
       hadSession: hasLocalSession("better-auth.session_token=abc"),
       clearSession,
       clearCache,
@@ -425,7 +425,7 @@ describe("UNAUTHENTICATED query handling", () => {
     });
     queryClient.setQueryData(priceKey, { orderId: "o-3", totalMinor: "1" });
 
-    handleUnauthenticatedQueryError({
+    void handleUnauthenticatedQueryError({
       hadSession: hasLocalSession(cookie),
       clearSession: () => {
         cookie = "";

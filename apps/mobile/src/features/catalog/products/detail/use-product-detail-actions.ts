@@ -7,9 +7,9 @@ import { useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 
-import { useBoundContractMutation } from "../../../../api/bound-contract-mutation";
 import { describeQueryFailure } from "../../../../api/errors";
 import { useActiveCompany } from "../../../../api/query-provider";
+import { useBoundContractMutation } from "../../../../api/use-bound-contract-mutation";
 import { presentConfirmDialog } from "../../../../components/ui/present-confirm-dialog";
 import { waitForSheetHidden } from "../../../../components/ui/sheet-dismiss";
 import type { ProductsDetailCopy } from "../../../../i18n/products";
