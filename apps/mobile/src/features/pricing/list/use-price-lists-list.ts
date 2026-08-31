@@ -1,5 +1,5 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { useApiClient } from "../../../api/api-provider";
 import { describeQueryFailure } from "../../../api/errors";
@@ -33,6 +33,7 @@ import {
   flattenPriceListPages,
   listPriceListsPageInput,
   normalizePriceListsSearch,
+  priceListsAvailabilityOptions,
   shouldShowPriceListsHint,
   toPriceListRowView,
   LIST_PRICE_LISTS_QUERY_MAX,
@@ -123,6 +124,13 @@ export function usePriceListsList() {
       hasSearch,
       availability,
     });
+  const availabilityOptions = useMemo(
+    () => priceListsAvailabilityOptions(copy.filters),
+    [copy.filters],
+  );
+  const openOptions = useCallback((id: string) => {
+    setOptionsChrome(openPriceListOptions(id));
+  }, []);
 
   return {
     copy,
@@ -136,6 +144,7 @@ export function usePriceListsList() {
       setAvailability("all");
     },
     availability,
+    availabilityOptions,
     changeAvailability: setAvailability,
     canManage,
     banner: writes.banner,
@@ -143,9 +152,7 @@ export function usePriceListsList() {
     showHint,
     optionsVisible: optionsChrome.visible,
     optionsList,
-    openOptions: (id: string) => {
-      setOptionsChrome(openPriceListOptions(id));
-    },
+    openOptions,
     closeOptions: () => {
       hideOptions();
     },
@@ -193,7 +200,6 @@ export function usePriceListsList() {
           waitHidden: optionsHidden.wait,
           hide: hideOptions,
           setBanner: writes.setBanner,
-          submitDeactivate: () => writes.toggleActive(list),
           message: copy.toast.cannotDeactivateDefault,
         });
         return;

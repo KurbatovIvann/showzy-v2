@@ -1,7 +1,7 @@
-import { Controller, type Control } from "react-hook-form";
+import type { Control } from "react-hook-form";
 
 import type { PricingFormCopy } from "../../../i18n/pricing";
-import { TextField } from "../../../components/ui";
+import { FormTextField } from "../../../components/form-kit";
 import { PRICE_LIST_NAME_MAX } from "../shared/price-list-caps";
 import {
   priceListFormFieldChanged,
@@ -19,34 +19,19 @@ export function PriceListFormNameField(props: {
   readonly onFieldEdit: () => void;
 }) {
   return (
-    <Controller
+    <FormTextField
       control={props.control}
       name="name"
-      render={({ field }) => (
-        <TextField
-          label={props.copy.nameLabel}
-          value={field.value}
-          onChangeText={(value) => {
-            field.onChange(value);
-            props.onFieldEdit();
-          }}
-          placeholder={props.copy.namePlaceholder}
-          accessibilityLabel={props.copy.nameLabel}
-          keyboardType="default"
-          autoCapitalize="sentences"
-          autoCorrect
-          autoComplete="off"
-          maxLength={PRICE_LIST_NAME_MAX}
-          editable={props.editable}
-          error={props.error}
-          changed={priceListFormFieldChanged(
-            props.mode,
-            field.value,
-            props.originName,
-          )}
-          changedLabel={props.copy.changedLabel}
-        />
-      )}
+      label={props.copy.nameLabel}
+      placeholder={props.copy.namePlaceholder}
+      error={props.error}
+      editable={props.editable}
+      onFieldEdit={props.onFieldEdit}
+      changed={(value) =>
+        priceListFormFieldChanged(props.mode, value, props.originName)
+      }
+      changedLabel={props.copy.changedLabel}
+      maxLength={PRICE_LIST_NAME_MAX}
     />
   );
 }

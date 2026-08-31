@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { priceListEntryKey } from "./price-list-form-draft";
 import {
   catalogProductsForForm,
+  fieldIndexByKey,
   variantsFromGetProduct,
   visiblePriceEntries,
 } from "./price-list-form-rows";
@@ -109,5 +110,12 @@ describe("visiblePriceEntries", () => {
       variantId: VARIANT_A,
       basePriceMinor: "180000",
     });
+  });
+
+  it("looks up field indexes in O(1) from a prebuilt key map", () => {
+    const indexByKey = fieldIndexByKey(fields);
+    expect(indexByKey.get(priceListEntryKey(PRODUCT_A, null))).toBe(0);
+    expect(indexByKey.get(priceListEntryKey(PRODUCT_A, VARIANT_A))).toBe(1);
+    expect(indexByKey.get(priceListEntryKey(PRODUCT_B, null))).toBe(2);
   });
 });

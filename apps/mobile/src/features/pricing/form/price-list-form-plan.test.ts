@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { SET_PRICE_LIST_ENTRIES_MAX_ITEMS } from "../shared/price-list-caps";
 import { priceListEditorHref } from "../shared/price-list-hrefs";
+import { applyBulkPercentOff } from "./price-list-form-bulk";
 import {
-  applyBulkPercentOff,
   emptyPriceListFormDraft,
   mergeExpandedVariants,
   priceListEntryKey,

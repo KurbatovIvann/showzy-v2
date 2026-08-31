@@ -158,3 +158,18 @@ export function shouldShowPriceListsHint(args: {
     !args.hasNextPage
   );
 }
+
+export function priceListsAvailabilityOptions(filters: {
+  readonly all: string;
+  readonly active: string;
+  readonly inactive: string;
+}): ReadonlyArray<{
+  readonly key: PriceListsAvailability;
+  readonly label: string;
+}> {
+  return [
+    { key: "all", label: filters.all },
+    { key: "active", label: filters.active },
+    { key: "inactive", label: filters.inactive },
+  ];
+}

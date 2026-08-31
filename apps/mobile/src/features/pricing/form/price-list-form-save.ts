@@ -35,7 +35,6 @@ export type PriceListFormSavePorts = {
   readonly getPriceListId: () => string | null;
   readonly setPriceListId: (priceListId: string) => void;
   readonly getBaseline: () => PriceListFormSnapshot | null;
-  readonly setDraft: (draft: PriceListFormDraft) => void;
   readonly setBaseline: (baseline: PriceListFormSnapshot | null) => void;
   readonly setOrigin: (draft: PriceListFormDraft) => void;
   readonly getLastWrite: () => PriceListFormWrite | null;
@@ -94,7 +93,6 @@ export async function runPriceListFormSave(
       write,
     });
     const nextId = ports.getPriceListId() ?? applied.priceListId;
-    ports.setDraft(applied.draft);
     ports.setBaseline(applied.baseline);
     ports.resetMutation();
     if (applied.done || write.kind === "createPriceList") {

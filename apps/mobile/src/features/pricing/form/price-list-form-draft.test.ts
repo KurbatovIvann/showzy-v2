@@ -4,22 +4,27 @@ import { moneyToWire } from "@showzy/contract";
 
 import { formatMajorUnitsFromMinor } from "../../../format/money-input";
 import {
-  applyBulkPercentOff,
-  applyPercentOffMinor,
   blocksDeactivateWhenDefault,
   draftFromPriceList,
   emptyPriceListFormDraft,
+  isPriceListEntryDirty,
   isPriceListFormDirty,
   mergeExpandedVariants,
-  listPriceDiff,
-  parseBulkPercent,
+  originFromDraft,
   parsePriceListFormUiDraft,
   priceListEntryKey,
+  reconcilePriceListFormDirty,
   shouldPreventPriceListLeave,
   snapshotFromDraft,
   storedEntryMap,
   type PriceListFormDraft,
 } from "./price-list-form-draft";
+import {
+  applyBulkPercentOff,
+  applyPercentOffMinor,
+  parseBulkPercent,
+} from "./price-list-form-bulk";
+import { listPriceDiff } from "./price-list-form-diff";
 
 const PRODUCT_A = "11111111-1111-4111-8111-111111111111";
 const PRODUCT_B = "22222222-2222-4222-8222-222222222222";
@@ -53,16 +58,47 @@ function draftWithPrices(args: {
 describe("price-list form draft", () => {
   it("treats empty vs stored 0 as different dirty states", () => {
     const origin = draftWithPrices({ productPrice: "" });
+    const originObject = origin.entries[0];
     expect(
       isPriceListFormDirty(draftWithPrices({ productPrice: "" }), origin),
     ).toBe(false);
     expect(
       isPriceListFormDirty(draftWithPrices({ productPrice: "0" }), origin),
     ).toBe(true);
+    expect(origin.entries[0]).toBe(originObject);
     const fromZero = snapshotFromDraft(draftWithPrices({ productPrice: "0" }));
     expect(fromZero?.entries[0]?.priceMinor).toBe("0");
     const fromEmpty = snapshotFromDraft(draftWithPrices({ productPrice: "" }));
     expect(fromEmpty?.entries[0]?.priceMinor).toBeNull();
+  });
+
+  it("reconciles per-entry dirty against a keyed origin without cloning", () => {
+    const originDraft = draftWithPrices({ productPrice: "" });
+    const origin = originFromDraft(originDraft);
+    const empty = draftWithPrices({ productPrice: "" });
+    const filled = draftWithPrices({ productPrice: "0" });
+    expect(isPriceListEntryDirty("", undefined)).toBe(false);
+    expect(isPriceListEntryDirty("0", undefined)).toBe(true);
+    expect(isPriceListEntryDirty("", "")).toBe(false);
+    expect(isPriceListFormDirty(empty, origin)).toBe(false);
+    expect(isPriceListFormDirty(filled, origin)).toBe(true);
+    const first = reconcilePriceListFormDirty({
+      values: filled,
+      origin,
+      changedPath: "entries.0.priceText",
+      dirtyKeys: new Set(),
+    });
+    expect(first.dirty).toBe(true);
+    expect(first.dirtyKeys.has(priceListEntryKey(PRODUCT_A, null))).toBe(true);
+    const filledEntry = filled.entries[0];
+    expect(filled.entries[0]).toBe(filledEntry);
+    const cleared = reconcilePriceListFormDirty({
+      values: empty,
+      origin,
+      changedPath: "entries.0.priceText",
+      dirtyKeys: first.dirtyKeys,
+    });
+    expect(cleared.dirty).toBe(false);
   });
 
   it("blocks leave only when dirty, not pending, and not already armed", () => {

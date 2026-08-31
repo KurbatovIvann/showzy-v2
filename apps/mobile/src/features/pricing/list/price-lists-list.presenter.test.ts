@@ -9,6 +9,7 @@ import {
   normalizePriceListsSearch,
   priceListOptionVisibility,
   priceListRowActions,
+  priceListsAvailabilityOptions,
   shouldBlockDeactivateDefault,
   shouldShowPriceListsHint,
   toPriceListRowView,
@@ -302,5 +303,21 @@ describe("shouldShowPriceListsHint", () => {
         availability: "active",
       }),
     ).toBe(false);
+  });
+});
+
+describe("priceListsAvailabilityOptions", () => {
+  it("hoists filter chips off the view's render path", () => {
+    expect(
+      priceListsAvailabilityOptions({
+        all: "All",
+        active: "Active",
+        inactive: "Inactive",
+      }),
+    ).toEqual([
+      { key: "all", label: "All" },
+      { key: "active", label: "Active" },
+      { key: "inactive", label: "Inactive" },
+    ]);
   });
 });

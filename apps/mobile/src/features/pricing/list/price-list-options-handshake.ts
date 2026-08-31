@@ -99,7 +99,6 @@ export type PriceListDeleteFollowUpPorts = OptionsSheetHiddenPorts & {
 export type PriceListBlockDeactivateFollowUpPorts = OptionsSheetHiddenPorts & {
   readonly kind: "blockDeactivateDefault";
   readonly setBanner: (message: string) => void;
-  readonly submitDeactivate: () => Promise<void> | void;
   readonly message: string;
 };
 
