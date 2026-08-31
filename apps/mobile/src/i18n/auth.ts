@@ -1,8 +1,7 @@
 /** Auth copy namespace (uk/en). Locale plumbing lives in `./locale`. */
 import type { AuthErrorKind } from "../auth/errors";
-import type { AuthChannel } from "../auth/otp/identifiers";
 import { selectCopy } from "./copy";
-import { interpolate, type Locale } from "./locale";
+import type { Locale } from "./locale";
 
 export type AuthCopy = {
   readonly welcome: string;
@@ -102,14 +101,27 @@ export function authCopy(locale: Locale): AuthCopy {
   return selectCopy(locale, { uk, en });
 }
 
-export function verifyMessage(
-  copy: AuthCopy,
-  channel: AuthChannel,
-  destination: string,
-): string {
-  const template =
-    channel === "phone" ? copy.verifyPhoneMessage : copy.verifyEmailMessage;
-  return interpolate(template, { destination });
+export type VerifyMessageParts = {
+  readonly before: string;
+  readonly after: string;
+};
+
+const DESTINATION_PLACEHOLDER = "{{destination}}";
+
+/**
+ * Split a verify template around the first `{{destination}}` so the screen
+ * can render the destination as a nested selectable `Text`. Extra
+ * occurrences stay in `after` (`.split` would drop the tail).
+ */
+export function verifyMessageParts(template: string): VerifyMessageParts {
+  const index = template.indexOf(DESTINATION_PLACEHOLDER);
+  if (index === -1) {
+    return { before: template, after: "" };
+  }
+  return {
+    before: template.slice(0, index),
+    after: template.slice(index + DESTINATION_PLACEHOLDER.length),
+  };
 }
 
 export function errorCopy(copy: AuthCopy, kind: AuthErrorKind): string {

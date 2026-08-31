@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { authCopy, errorCopy, verifyMessage } from "./auth";
+import { authCopy, errorCopy, verifyMessageParts } from "./auth";
 import { detectLocale, interpolate } from "./locale";
 
 describe("auth copy", () => {
@@ -14,11 +14,26 @@ describe("auth copy", () => {
     expect(authCopy("en").welcome).toBe("Welcome");
   });
 
-  it("interpolates destination without treating the code as copy", () => {
+  it("splits verify templates around the first destination placeholder", () => {
     expect(interpolate("Resend in {{seconds}}s", { seconds: "12" })).toBe(
       "Resend in 12s",
     );
-    expect(verifyMessage(authCopy("en"), "phone", "+380671112233")).toContain(
+    expect(verifyMessageParts("code with no destination")).toEqual({
+      before: "code with no destination",
+      after: "",
+    });
+    expect(verifyMessageParts("We've sent a code to {{destination}}")).toEqual({
+      before: "We've sent a code to ",
+      after: "",
+    });
+    expect(
+      verifyMessageParts("to {{destination}} and {{destination}} again"),
+    ).toEqual({
+      before: "to ",
+      after: " and {{destination}} again",
+    });
+    const enPhone = verifyMessageParts(authCopy("en").verifyPhoneMessage);
+    expect(`${enPhone.before}+380671112233${enPhone.after}`).toContain(
       "+380671112233",
     );
     expect(errorCopy(authCopy("en"), "invalid_otp")).toBe(

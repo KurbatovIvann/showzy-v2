@@ -14,31 +14,16 @@ import { authCopy, type AuthCopy } from "../i18n/auth";
 import { detectLocale } from "../i18n/locale";
 import { createShowzyAuthClient, type ShowzyAuthClient } from "./client";
 import { isAuthClientError, type AuthErrorKind } from "./errors";
-import { isPlaceholderEmail } from "./otp/identifiers";
 import { createPlatformAuthStorage } from "./platform-storage";
-import { signOutClearingLocalJar } from "./sign-out";
 import type { ExpoAuthStorage } from "./storage";
+import {
+  useBootAuthSessionValue,
+  useReadyAuthSessionValue,
+  type AuthSessionValue,
+} from "./use-auth-session-value";
 
-export type AuthStatus = "loading" | "anonymous" | "authenticated";
-
-export type AuthSessionUser = {
-  readonly userId: string;
-  readonly email: string | null;
-  readonly phoneNumber: string | null;
-};
-
-export type AuthSessionValue = {
-  readonly status: AuthStatus;
-  readonly session: AuthSessionUser | null;
-  readonly bootError: AuthErrorKind | null;
-  readonly configError: boolean;
-  readonly copy: AuthCopy;
-  readonly retryHydrate: () => Promise<void>;
-  readonly signOut: () => Promise<void>;
-  readonly clearDeadSession: () => Promise<void>;
-  readonly getCookie: () => string;
-  readonly authClient: ShowzyAuthClient | null;
-};
+export type { AuthSessionUser } from "./session-user";
+export type { AuthSessionValue, AuthStatus } from "./use-auth-session-value";
 
 const AuthSessionContext = createContext<AuthSessionValue | null>(null);
 
@@ -97,21 +82,16 @@ export function SessionProvider({
     return Promise.resolve();
   }, []);
 
+  const bootValue = useBootAuthSessionValue({
+    kind: boot.kind === "ready" ? "loading" : boot.kind,
+    bootError,
+    copy,
+    retryHydrate,
+  });
+
   if (boot.kind !== "ready") {
-    const value: AuthSessionValue = {
-      status: boot.kind === "loading" ? "loading" : "anonymous",
-      session: null,
-      bootError: boot.kind === "hydrate-error" ? bootError : null,
-      configError: boot.kind === "config-error",
-      copy,
-      retryHydrate,
-      signOut: () => Promise.resolve(),
-      clearDeadSession: () => Promise.resolve(),
-      getCookie: () => "",
-      authClient: null,
-    };
     return (
-      <AuthSessionContext.Provider value={value}>
+      <AuthSessionContext.Provider value={bootValue}>
         {children}
       </AuthSessionContext.Provider>
     );
@@ -157,81 +137,22 @@ function SessionFromSdk({
     };
   }, [refetch]);
 
-  const signOut = useCallback(async () => {
-    await signOutClearingLocalJar({
-      signOutRemote: () => authClient.signOut(),
-      storage,
-    });
-    void refetch();
-  }, [authClient, refetch, storage]);
-
-  const session = userFromSession(sessionQuery.data);
-  const status: AuthStatus = sessionQuery.isPending
-    ? "loading"
-    : session === null
-      ? "anonymous"
-      : "authenticated";
-
-  const value: AuthSessionValue = {
-    status,
-    session,
-    bootError:
-      status === "anonymous" ? mapSessionError(sessionQuery.error) : null,
-    configError: false,
+  const value = useReadyAuthSessionValue({
+    data: sessionQuery.data,
+    isPending: sessionQuery.isPending,
+    error: sessionQuery.error,
     copy,
     retryHydrate,
-    signOut,
-    clearDeadSession: signOut,
-    getCookie: () => authClient.getCookie(),
     authClient,
-  };
+    storage,
+    refetch,
+  });
 
   return (
     <AuthSessionContext.Provider value={value}>
       {children}
     </AuthSessionContext.Provider>
   );
-}
-
-function mapSessionError(error: unknown): AuthErrorKind | null {
-  if (error === null || error === undefined) {
-    return null;
-  }
-  if (isAuthClientError(error)) {
-    return error.kind;
-  }
-  if (typeof error === "object" && "status" in error) {
-    const status = error.status;
-    if (typeof status === "number" && status === 401) {
-      return "unauthenticated";
-    }
-  }
-  return "network";
-}
-
-function userFromSession(data: unknown): AuthSessionUser | null {
-  if (typeof data !== "object" || data === null || !("user" in data)) {
-    return null;
-  }
-  const user = data.user;
-  if (typeof user !== "object" || user === null || !("id" in user)) {
-    return null;
-  }
-  if (typeof user.id !== "string" || user.id === "") {
-    return null;
-  }
-  const emailRaw =
-    "email" in user && typeof user.email === "string" ? user.email : null;
-  const email = emailRaw === "" ? null : emailRaw;
-  const phoneRaw =
-    "phoneNumber" in user && typeof user.phoneNumber === "string"
-      ? user.phoneNumber
-      : null;
-  return {
-    userId: user.id,
-    email: isPlaceholderEmail(email) ? null : email,
-    phoneNumber: phoneRaw === "" ? null : phoneRaw,
-  };
 }
 
 export function useAuthSession(): AuthSessionValue {
