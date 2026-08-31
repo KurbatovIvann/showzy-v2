@@ -22,7 +22,10 @@ afterAll(async () => {
   await database.close();
 });
 
-async function explain(sql: string, params: readonly string[]): Promise<string> {
+async function explain(
+  sql: string,
+  params: readonly string[],
+): Promise<string> {
   await admin.query("BEGIN");
   try {
     await admin.query("SET LOCAL enable_seqscan = off");
@@ -108,9 +111,6 @@ describe("list access indexes (SHO-283)", () => {
        LIMIT 21`,
       [companyId],
     );
-    expectIndexOnlyPaginatedPath(
-      documents,
-      "documents_company_created_at_idx",
-    );
+    expectIndexOnlyPaginatedPath(documents, "documents_company_created_at_idx");
   });
 });
