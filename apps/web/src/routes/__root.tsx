@@ -1,7 +1,11 @@
-import { createRootRoute, Outlet } from "@tanstack/react-router";
+import { createRootRouteWithContext, Outlet } from "@tanstack/react-router";
 
-export const Route = createRootRoute({
+import type { AppRouterContext } from "../router";
+import { BootScreen } from "../features/auth/boot-screen";
+
+export const Route = createRootRouteWithContext<AppRouterContext>()({
   component: RootLayout,
+  pendingComponent: BootScreen,
 });
 
 function RootLayout() {

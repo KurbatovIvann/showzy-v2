@@ -2,11 +2,13 @@ import { RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
-import { QueryProvider } from "./api/query-provider";
+import { AppProviders } from "./app-providers";
+import { createShowzyAuthClient } from "./auth/client";
 import { createAppRouter } from "./router";
 import "./styles.css";
 
-const router = createAppRouter();
+const authClient = createShowzyAuthClient();
+const router = createAppRouter({ authClient });
 
 const rootElement = document.getElementById("root");
 if (rootElement === null) {
@@ -15,8 +17,8 @@ if (rootElement === null) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <QueryProvider>
-      <RouterProvider router={router} />
-    </QueryProvider>
+    <AppProviders authClient={authClient}>
+      <RouterProvider router={router} context={{ authClient }} />
+    </AppProviders>
   </StrictMode>,
 );

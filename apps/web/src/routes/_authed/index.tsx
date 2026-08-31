@@ -1,13 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Store } from "lucide-react";
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/_authed/")({
   component: RootPlaceholder,
 });
 
 /**
  * Placeholder root (SHO-309). The real route redirects to the last
- * company or the company picker once auth + company scope land.
+ * company or the company picker once company scope lands (SHO-313).
  */
 function RootPlaceholder() {
   return (
