@@ -9,104 +9,158 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as CompanySlugRouteImport } from './routes/$companySlug'
-import { Route as SignInRouteImport } from './routes/sign-in'
-import { Route as VerifyRouteImport } from './routes/verify'
+import { Route as AuthRouteImport } from './routes/_auth'
+import { Route as AuthedRouteImport } from './routes/_authed'
+import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
+import { Route as AuthVerifyRouteImport } from './routes/_auth/verify'
+import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
+import { Route as AuthedCompanySlugRouteImport } from './routes/_authed/$companySlug'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AuthRoute = AuthRouteImport.update({
+  id: '/_auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CompanySlugRoute = CompanySlugRouteImport.update({
-  id: '/$companySlug',
-  path: '/$companySlug',
+const AuthedRoute = AuthedRouteImport.update({
+  id: '/_authed',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SignInRoute = SignInRouteImport.update({
+const AuthSignInRoute = AuthSignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthRoute,
 } as any)
-const VerifyRoute = VerifyRouteImport.update({
+const AuthVerifyRoute = AuthVerifyRouteImport.update({
   id: '/verify',
   path: '/verify',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthedIndexRoute = AuthedIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedCompanySlugRoute = AuthedCompanySlugRouteImport.update({
+  id: '/$companySlug',
+  path: '/$companySlug',
+  getParentRoute: () => AuthedRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/$companySlug': typeof CompanySlugRoute
-  '/sign-in': typeof SignInRoute
-  '/verify': typeof VerifyRoute
+  '/': typeof AuthedIndexRoute
+  '/sign-in': typeof AuthSignInRoute
+  '/verify': typeof AuthVerifyRoute
+  '/$companySlug': typeof AuthedCompanySlugRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/$companySlug': typeof CompanySlugRoute
-  '/sign-in': typeof SignInRoute
-  '/verify': typeof VerifyRoute
+  '/': typeof AuthedIndexRoute
+  '/sign-in': typeof AuthSignInRoute
+  '/verify': typeof AuthVerifyRoute
+  '/$companySlug': typeof AuthedCompanySlugRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/$companySlug': typeof CompanySlugRoute
-  '/sign-in': typeof SignInRoute
-  '/verify': typeof VerifyRoute
+  '/_auth': typeof AuthRouteWithChildren
+  '/_authed': typeof AuthedRouteWithChildren
+  '/_auth/sign-in': typeof AuthSignInRoute
+  '/_auth/verify': typeof AuthVerifyRoute
+  '/_authed/$companySlug': typeof AuthedCompanySlugRoute
+  '/_authed/': typeof AuthedIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/$companySlug' | '/sign-in' | '/verify'
+  fullPaths: '/' | '/sign-in' | '/verify' | '/$companySlug'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/$companySlug' | '/sign-in' | '/verify'
-  id: '__root__' | '/' | '/$companySlug' | '/sign-in' | '/verify'
+  to: '/' | '/sign-in' | '/verify' | '/$companySlug'
+  id:
+    | '__root__'
+    | '/_auth'
+    | '/_authed'
+    | '/_auth/sign-in'
+    | '/_auth/verify'
+    | '/_authed/$companySlug'
+    | '/_authed/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  CompanySlugRoute: typeof CompanySlugRoute
-  SignInRoute: typeof SignInRoute
-  VerifyRoute: typeof VerifyRoute
+  AuthRoute: typeof AuthRouteWithChildren
+  AuthedRoute: typeof AuthedRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
+    '/_auth': {
+      id: '/_auth'
+      path: ''
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/$companySlug': {
-      id: '/$companySlug'
-      path: '/$companySlug'
-      fullPath: '/$companySlug'
-      preLoaderRoute: typeof CompanySlugRouteImport
+    '/_authed': {
+      id: '/_authed'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthedRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/sign-in': {
-      id: '/sign-in'
+    '/_auth/sign-in': {
+      id: '/_auth/sign-in'
       path: '/sign-in'
       fullPath: '/sign-in'
-      preLoaderRoute: typeof SignInRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AuthSignInRouteImport
+      parentRoute: typeof AuthRoute
     }
-    '/verify': {
-      id: '/verify'
+    '/_auth/verify': {
+      id: '/_auth/verify'
       path: '/verify'
       fullPath: '/verify'
-      preLoaderRoute: typeof VerifyRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AuthVerifyRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_authed/': {
+      id: '/_authed/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof AuthedIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/$companySlug': {
+      id: '/_authed/$companySlug'
+      path: '/$companySlug'
+      fullPath: '/$companySlug'
+      preLoaderRoute: typeof AuthedCompanySlugRouteImport
+      parentRoute: typeof AuthedRoute
     }
   }
 }
 
+interface AuthRouteChildren {
+  AuthSignInRoute: typeof AuthSignInRoute
+  AuthVerifyRoute: typeof AuthVerifyRoute
+}
+
+const AuthRouteChildren: AuthRouteChildren = {
+  AuthSignInRoute: AuthSignInRoute,
+  AuthVerifyRoute: AuthVerifyRoute,
+}
+
+const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
+
+interface AuthedRouteChildren {
+  AuthedCompanySlugRoute: typeof AuthedCompanySlugRoute
+  AuthedIndexRoute: typeof AuthedIndexRoute
+}
+
+const AuthedRouteChildren: AuthedRouteChildren = {
+  AuthedCompanySlugRoute: AuthedCompanySlugRoute,
+  AuthedIndexRoute: AuthedIndexRoute,
+}
+
+const AuthedRouteWithChildren =
+  AuthedRoute._addFileChildren(AuthedRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  CompanySlugRoute: CompanySlugRoute,
-  SignInRoute: SignInRoute,
-  VerifyRoute: VerifyRoute,
+  AuthRoute: AuthRouteWithChildren,
+  AuthedRoute: AuthedRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

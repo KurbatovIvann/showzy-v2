@@ -5,6 +5,19 @@
     "jsx": "react-jsx",
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "paths": {
+      "@showzy/validation/catalog": [
+        "../../packages/validation/src/catalog.ts"
+      ],
+      "@showzy/validation/customers": [
+        "../../packages/validation/src/customers.ts"
+      ],
+      "@showzy/validation/money": ["../../packages/validation/src/money.ts"],
+      "@showzy/validation/pagination": [
+        "../../packages/validation/src/pagination.ts"
+      ],
+      "@showzy/validation/slug": ["../../packages/validation/src/slug.ts"]
+    },
     "types": ["react", "react-dom", "vite/client"]
   },
   "include": ["src", "vite.config.ts", "vitest.config.ts"]

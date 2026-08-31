@@ -1,7 +1,3 @@
-/**
- * Root QueryClient provider skeleton (SHO-309). Session/company-aware
- * cache isolation joins in the auth + company-scope web tickets.
- */
 import { QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 

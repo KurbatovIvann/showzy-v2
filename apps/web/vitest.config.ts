@@ -1,8 +1,14 @@
-import { defineConfig } from "vitest/config";
+import { defineConfig, mergeConfig } from "vitest/config";
 
-export default defineConfig({
-  test: {
-    environment: "jsdom",
-    include: ["src/**/*.test.{ts,tsx}", "eslint/**/*.test.mjs"],
-  },
-});
+import viteConfig from "./vite.config";
+
+export default mergeConfig(
+  viteConfig,
+  defineConfig({
+    test: {
+      environment: "jsdom",
+      include: ["src/**/*.test.{ts,tsx}", "eslint/**/*.test.mjs"],
+      setupFiles: ["./src/test/setup.ts"],
+    },
+  }),
+);
