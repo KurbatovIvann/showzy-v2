@@ -5,9 +5,12 @@
  * Hydrate from parent `imageFileIds` — this module does not call
  * `catalog.getProduct`. Per-image handshake stays `reduceUpload` /
  * `runProductPhotoUpload`.
+ *
+ * Events are typed TypeScript unions (SHO-302). Do not Zod-parse
+ * internal reducer events: a schema miss used to `safeParse` and
+ * silently drop the event. Validation belongs at a real I/O boundary.
  */
-import { z } from "zod";
-
+import type { QueryFailureKind } from "../../../../api/errors";
 import {
   addUploadSlots,
   applyCommitSuccess,
@@ -22,164 +25,77 @@ import {
   removePhotoSlot,
   patchUploadMachine,
   toPhotoTiles,
+  type PhotoBannerKey,
   type PhotoFlushOutcome,
+  type PhotoSlot,
 } from "./product-photos-model";
+import type { UploadMachine } from "./product-photos-upload";
 
-const queryFailureKindSchema = z.enum([
-  "validation",
-  "unauthenticated",
-  "permission",
-  "not_found",
-  "conflict",
-  "confirmation",
-  "rate_limited",
-  "timeout",
-  "internal",
-  "network",
-  "offline",
-]);
+export type PhotoSessionContext = {
+  readonly productId: string | null;
+  readonly requireProduct: boolean;
+  readonly slots: readonly PhotoSlot[];
+  readonly baseline: readonly string[] | null;
+  readonly lastWrite: readonly string[] | null;
+  readonly lastFailureKind: QueryFailureKind | null;
+  readonly canRetryAttempt: boolean;
+  readonly localBanner: PhotoBannerKey | null;
+  readonly pickerOpen: boolean;
+  readonly commitBusy: boolean;
+  readonly commitQueued: boolean;
+  readonly hydratedKey: string | null;
+};
 
-const photoBannerKeySchema = z.enum([
-  "network",
-  "offline",
-  "unavailable",
-  "permission",
-  "denied",
-  "validation",
-  "too_many",
-  "commit",
-]);
+export type PhotoSessionInput = {
+  readonly productId: string | null;
+  readonly requireProduct: boolean;
+  readonly snapshotFileIds: readonly string[] | null;
+};
 
-const uploadMachineSchema = z.object({
-  phase: z.enum([
-    "idle",
-    "preparing",
-    "requesting",
-    "signing",
-    "putting",
-    "finalizing",
-    "ready",
-    "failed",
-    "cancelled",
-  ]),
-  checkpoint: z.enum(["none", "prepared", "requested", "put"]),
-  fileId: z.string().nullable(),
-  progress: z.number(),
-  failure: z
-    .enum([
-      "network",
-      "offline",
-      "validation",
-      "permission",
-      "not_found",
-      "unavailable",
-    ])
-    .nullable(),
-  reuseRequestOnRetry: z.boolean(),
-});
-
-const photoSlotSchema = z.discriminatedUnion("kind", [
-  z.object({
-    kind: z.literal("committed"),
-    id: z.string(),
-    fileId: z.string(),
-    localUri: z.string().nullable(),
-  }),
-  z.object({
-    kind: z.literal("upload"),
-    id: z.string(),
-    localUri: z.string(),
-    machine: uploadMachineSchema,
-  }),
-]);
-
-const photoSessionContextSchema = z.object({
-  productId: z.string().nullable(),
-  requireProduct: z.boolean(),
-  slots: z.array(photoSlotSchema),
-  baseline: z.array(z.string()).nullable(),
-  lastWrite: z.array(z.string()).nullable(),
-  lastFailureKind: queryFailureKindSchema.nullable(),
-  canRetryAttempt: z.boolean(),
-  localBanner: photoBannerKeySchema.nullable(),
-  pickerOpen: z.boolean(),
-  commitBusy: z.boolean(),
-  commitQueued: z.boolean(),
-  hydratedKey: z.string().nullable(),
-});
-
-const photoSessionInputSchema = z.object({
-  productId: z.string().nullable(),
-  requireProduct: z.boolean(),
-  snapshotFileIds: z.array(z.string()).nullable(),
-});
-
-const photoSessionEventSchema = z.discriminatedUnion("type", [
-  z.object({
-    type: z.literal("hydrate"),
-    productId: z.string().nullable(),
-    imageFileIds: z.array(z.string()),
-  }),
-  z.object({
-    type: z.literal("bindProductId"),
-    productId: z.string(),
-  }),
-  z.object({ type: z.literal("openPicker") }),
-  z.object({ type: z.literal("closePicker") }),
-  z.object({ type: z.literal("pickDenied") }),
-  z.object({ type: z.literal("pickCanceled") }),
-  z.object({
-    type: z.literal("addPhotos"),
-    photos: z.array(
-      z.object({
-        id: z.string(),
-        localUri: z.string(),
-      }),
-    ),
-  }),
-  z.object({ type: z.literal("removePhoto"), id: z.string() }),
-  z.object({ type: z.literal("cancelUpload"), id: z.string() }),
-  z.object({
-    type: z.literal("movePhoto"),
-    id: z.string(),
-    direction: z.enum(["earlier", "later"]),
-  }),
-  z.object({
-    type: z.literal("patchMachine"),
-    id: z.string(),
-    machine: uploadMachineSchema,
-  }),
-  z.object({
-    type: z.literal("setBanner"),
-    key: photoBannerKeySchema.nullable(),
-  }),
-  z.object({
-    type: z.literal("setCanRetryAttempt"),
-    value: z.boolean(),
-  }),
-  z.object({ type: z.literal("beginCommit") }),
-  z.object({ type: z.literal("queueCommit") }),
-  z.object({ type: z.literal("clearCommitQueue") }),
-  z.object({
-    type: z.literal("noteWrite"),
-    fileIds: z.array(z.string()),
-  }),
-  z.object({ type: z.literal("commitNoop") }),
-  z.object({
-    type: z.literal("commitSucceeded"),
-    fileIds: z.array(z.string()),
-  }),
-  z.object({
-    type: z.literal("commitFailed"),
-    kind: queryFailureKindSchema,
-  }),
-  z.object({ type: z.literal("finishCommit") }),
-  z.object({ type: z.literal("clearFailure") }),
-]);
-
-export type PhotoSessionContext = z.infer<typeof photoSessionContextSchema>;
-export type PhotoSessionInput = z.infer<typeof photoSessionInputSchema>;
-export type PhotoSessionEvent = z.infer<typeof photoSessionEventSchema>;
+export type PhotoSessionEvent =
+  | {
+      readonly type: "hydrate";
+      readonly productId: string | null;
+      readonly imageFileIds: readonly string[];
+    }
+  | { readonly type: "bindProductId"; readonly productId: string }
+  | { readonly type: "openPicker" }
+  | { readonly type: "closePicker" }
+  | { readonly type: "pickDenied" }
+  | { readonly type: "pickCanceled" }
+  | {
+      readonly type: "addPhotos";
+      readonly photos: ReadonlyArray<{
+        readonly id: string;
+        readonly localUri: string;
+      }>;
+    }
+  | { readonly type: "removePhoto"; readonly id: string }
+  | { readonly type: "cancelUpload"; readonly id: string }
+  | {
+      readonly type: "movePhoto";
+      readonly id: string;
+      readonly direction: "earlier" | "later";
+    }
+  | {
+      readonly type: "patchMachine";
+      readonly id: string;
+      readonly machine: UploadMachine;
+    }
+  | { readonly type: "setBanner"; readonly key: PhotoBannerKey | null }
+  | { readonly type: "setCanRetryAttempt"; readonly value: boolean }
+  | { readonly type: "beginCommit" }
+  | { readonly type: "queueCommit" }
+  | { readonly type: "clearCommitQueue" }
+  | { readonly type: "noteWrite"; readonly fileIds: readonly string[] }
+  | { readonly type: "commitNoop" }
+  | {
+      readonly type: "commitSucceeded";
+      readonly fileIds: readonly string[];
+    }
+  | { readonly type: "commitFailed"; readonly kind: QueryFailureKind }
+  | { readonly type: "finishCommit" }
+  | { readonly type: "clearFailure" };
 
 export function snapshotFileIdsFromArgs(args: {
   readonly imageFileIds?: readonly string[] | undefined;
@@ -195,14 +111,23 @@ function hydrateKey(productId: string | null, requireProduct: boolean): string {
   return requireProduct ? (productId ?? "unknown") : "create";
 }
 
+function sameFileIdList(
+  left: readonly string[] | null,
+  right: readonly string[],
+): boolean {
+  if (left === null || left.length !== right.length) {
+    return false;
+  }
+  return left.every((id, index) => id === right[index]);
+}
+
 export function initialPhotoSessionContext(
   input: PhotoSessionInput,
 ): PhotoSessionContext {
-  const parsed = photoSessionInputSchema.parse(input);
-  const snapshot = parsed.snapshotFileIds;
-  return photoSessionContextSchema.parse({
-    productId: parsed.productId,
-    requireProduct: parsed.requireProduct,
+  const snapshot = input.snapshotFileIds;
+  return {
+    productId: input.productId,
+    requireProduct: input.requireProduct,
     slots: snapshot === null ? [] : [...committedSlotsFromFileIds(snapshot)],
     baseline: snapshot === null ? null : [...snapshot],
     lastWrite: null,
@@ -215,8 +140,8 @@ export function initialPhotoSessionContext(
     hydratedKey:
       snapshot === null
         ? null
-        : hydrateKey(parsed.productId, parsed.requireProduct),
-  });
+        : hydrateKey(input.productId, input.requireProduct),
+  };
 }
 
 export function reducePhotoSession(
@@ -226,8 +151,21 @@ export function reducePhotoSession(
   switch (event.type) {
     case "hydrate": {
       const key = hydrateKey(event.productId, context.requireProduct);
+      /**
+       * Single-device "session owns truth" (SHO-295 owner decision 5).
+       * After the first hydrate for this product, in-progress local
+       * edits are not overwritten by a later parent snapshot (another
+       * device, or getProduct refetching while the user is rearranging
+       * tiles). When the session is clean, adopt server ids that
+       * differ so our own commit invalidation can refresh the strip.
+       */
       if (context.hydratedKey === key) {
-        return context;
+        if (photosAreDirty(context.slots, context.baseline)) {
+          return context;
+        }
+        if (sameFileIdList(context.baseline, event.imageFileIds)) {
+          return context;
+        }
       }
       return {
         ...context,
@@ -342,17 +280,6 @@ export function photoSessionIsBusy(context: PhotoSessionContext): boolean {
   return hasInFlightPhotoUploads(context.slots) || context.commitBusy;
 }
 
-export function dispatchPhotoSession(
-  context: PhotoSessionContext,
-  event: PhotoSessionEvent,
-): PhotoSessionContext {
-  const parsed = photoSessionEventSchema.safeParse(event);
-  if (!parsed.success) {
-    return context;
-  }
-  return reducePhotoSession(context, parsed.data);
-}
-
 export type PhotoSessionStore = {
   readonly getContext: () => PhotoSessionContext;
   readonly send: (event: PhotoSessionEvent) => void;
@@ -365,7 +292,7 @@ export function createPhotoSessionStore(
   return {
     getContext: () => context,
     send: (event) => {
-      context = dispatchPhotoSession(context, event);
+      context = reducePhotoSession(context, event);
     },
   };
 }

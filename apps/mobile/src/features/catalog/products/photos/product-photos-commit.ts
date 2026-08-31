@@ -38,34 +38,38 @@ export async function runPhotoCommitLoop(
   try {
     do {
       ports.send({ type: "clearCommitQueue" });
-      const plan = selectPhotoSessionCommitPlan(ports.getContext());
-      if (plan.kind === "noop") {
-        ports.send({ type: "commitNoop" });
+      try {
+        const plan = selectPhotoSessionCommitPlan(ports.getContext());
+        if (plan.kind === "noop") {
+          ports.send({ type: "commitNoop" });
+          ports.reset();
+          continue;
+        }
+        if (plan.kind === "write") {
+          ports.send({ type: "noteWrite", fileIds: [...plan.fileIds] });
+        }
+        const output =
+          plan.kind === "write"
+            ? await ports.submit({
+                productId: plan.productId,
+                fileIds: plan.fileIds,
+              })
+            : await ports.retry();
+        ports.send({
+          type: "commitSucceeded",
+          fileIds: [...output.fileIds],
+        });
         ports.reset();
-        return;
+        await ports.invalidate();
+      } catch (error: unknown) {
+        // A queued follow-up must still run: an exception used to
+        // leave `commitQueued` stale and drop the next write (SHO-302).
+        ports.send({
+          type: "commitFailed",
+          kind: describeQueryFailure(error).kind,
+        });
       }
-      if (plan.kind === "write") {
-        ports.send({ type: "noteWrite", fileIds: [...plan.fileIds] });
-      }
-      const output =
-        plan.kind === "write"
-          ? await ports.submit({
-              productId: plan.productId,
-              fileIds: plan.fileIds,
-            })
-          : await ports.retry();
-      ports.send({
-        type: "commitSucceeded",
-        fileIds: [...output.fileIds],
-      });
-      ports.reset();
-      await ports.invalidate();
     } while (ports.getContext().commitQueued);
-  } catch (error: unknown) {
-    ports.send({
-      type: "commitFailed",
-      kind: describeQueryFailure(error).kind,
-    });
   } finally {
     ports.send({ type: "finishCommit" });
     ports.onSettled();

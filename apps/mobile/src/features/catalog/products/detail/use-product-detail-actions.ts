@@ -36,6 +36,8 @@ export type DetailStatusWrite = {
   readonly promptConfirm: (args: {
     readonly target: ConfirmTarget;
     readonly variantActionId: string | null;
+    readonly variantActionName: string;
+    readonly variantActionArchived: boolean;
     readonly waitHidden: () => Promise<void>;
   }) => Promise<void>;
 };
@@ -83,7 +85,13 @@ export function useDetailStatusWrite(args: {
       mapStatusWriteFailure(mutationFailure),
       args.copy,
     ),
-    promptConfirm: async ({ target, variantActionId, waitHidden }) => {
+    promptConfirm: async ({
+      target,
+      variantActionId,
+      variantActionName,
+      variantActionArchived,
+      waitHidden,
+    }) => {
       const hidden = waitHidden();
       args.dispatch({ type: "closeAll" });
       await hidden;
@@ -105,6 +113,8 @@ export function useDetailStatusWrite(args: {
               ? "variantActions"
               : "idle",
           variantActionId,
+          variantActionName,
+          variantActionArchived,
         });
         return;
       }
@@ -178,6 +188,8 @@ export function useProductDetailActions(args: {
       void args.status.promptConfirm({
         target: result.target,
         variantActionId: null,
+        variantActionName: "",
+        variantActionArchived: false,
         waitHidden: actionsHidden.wait,
       });
     },

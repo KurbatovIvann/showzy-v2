@@ -20,6 +20,7 @@ import {
   parseThenPlanProductFormSave,
   planProductFormSave,
   remainingFormWrites,
+  writesEqual,
   type ProductFormWrite,
 } from "./product-form-plan";
 import { productFormResolver } from "./product-form.schema";
@@ -670,5 +671,89 @@ describe("parseThenPlanProductFormSave", () => {
       return;
     }
     expect(planned.errors.variants["draft-1"]?.name).toBe("required");
+  });
+});
+
+describe("writesEqual", () => {
+  it("compares writes field-wise instead of by JSON snapshot", () => {
+    const create: ProductFormWrite = {
+      kind: "createProduct",
+      input: {
+        name: "Торт",
+        basePriceMinor: "100",
+        currency: "UAH",
+        variants: [
+          { name: "1 кг", basePriceMinor: "180000", currency: "UAH" },
+        ],
+      },
+      variantKeys: ["draft-1"],
+    };
+    expect(writesEqual(create, { ...create, variantKeys: ["draft-1"] })).toBe(
+      true,
+    );
+    expect(writesEqual(create, { ...create, variantKeys: ["draft-2"] })).toBe(
+      false,
+    );
+    expect(
+      writesEqual(create, {
+        ...create,
+        input: { ...create.input, name: "Наполеон" },
+      }),
+    ).toBe(false);
+
+    const update: ProductFormWrite = {
+      kind: "updateProduct",
+      input: {
+        productId: PRODUCT_ID,
+        name: "Торт",
+        basePriceMinor: "150000",
+        currency: "UAH",
+      },
+    };
+    expect(writesEqual(update, { ...update })).toBe(true);
+    expect(writesEqual(update, create)).toBe(false);
+
+    const createVariant: ProductFormWrite = {
+      kind: "createVariant",
+      key: "draft-1",
+      input: { productId: PRODUCT_ID, name: "Міні" },
+    };
+    expect(
+      writesEqual(createVariant, {
+        kind: "createVariant",
+        key: "draft-1",
+        input: { productId: PRODUCT_ID, name: "Міні" },
+      }),
+    ).toBe(true);
+    expect(
+      writesEqual(createVariant, {
+        ...createVariant,
+        input: {
+          productId: PRODUCT_ID,
+          name: "Міні",
+          basePriceMinor: "100",
+          currency: "UAH",
+        },
+      }),
+    ).toBe(false);
+
+    const updateVariant: ProductFormWrite = {
+      kind: "updateVariant",
+      key: VARIANT_ID,
+      input: {
+        productId: PRODUCT_ID,
+        variantId: VARIANT_ID,
+        name: "2 кг",
+        basePriceMinor: "180000",
+        currency: "UAH",
+      },
+    };
+    expect(writesEqual(updateVariant, { ...updateVariant })).toBe(true);
+    expect(
+      writesEqual(updateVariant, {
+        ...updateVariant,
+        input: { ...updateVariant.input, name: "3 кг" },
+      }),
+    ).toBe(false);
   });
 });

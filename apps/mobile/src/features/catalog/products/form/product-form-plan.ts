@@ -180,6 +180,47 @@ export function remainingFormWrites(
   return writes;
 }
 
+function sameOptionalString(
+  left: string | undefined,
+  right: string | undefined,
+): boolean {
+  return left === right;
+}
+
+function sameCreateProductVariants(
+  left: CreateProductPayload["variants"],
+  right: CreateProductPayload["variants"],
+): boolean {
+  if (left === undefined && right === undefined) {
+    return true;
+  }
+  if (left === undefined || right === undefined) {
+    return false;
+  }
+  if (left.length !== right.length) {
+    return false;
+  }
+  return left.every((item, index) => {
+    const other = right[index];
+    return (
+      other !== undefined &&
+      item.name === other.name &&
+      sameOptionalString(item.basePriceMinor, other.basePriceMinor) &&
+      sameOptionalString(item.currency, other.currency)
+    );
+  });
+}
+
+function sameStringList(
+  left: readonly string[],
+  right: readonly string[],
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every((value, index) => value === right[index])
+  );
+}
+
 export function writesEqual(
   left: ProductFormWrite,
   right: ProductFormWrite,
@@ -191,24 +232,44 @@ export function writesEqual(
     case "createProduct":
       return (
         right.kind === "createProduct" &&
-        JSON.stringify(left.input) === JSON.stringify(right.input)
+        left.input.name === right.input.name &&
+        left.input.basePriceMinor === right.input.basePriceMinor &&
+        left.input.currency === right.input.currency &&
+        sameCreateProductVariants(left.input.variants, right.input.variants) &&
+        sameStringList(left.variantKeys, right.variantKeys)
       );
     case "updateProduct":
       return (
         right.kind === "updateProduct" &&
-        JSON.stringify(left.input) === JSON.stringify(right.input)
+        left.input.productId === right.input.productId &&
+        left.input.name === right.input.name &&
+        left.input.basePriceMinor === right.input.basePriceMinor &&
+        left.input.currency === right.input.currency
       );
     case "createVariant":
       return (
         right.kind === "createVariant" &&
         left.key === right.key &&
-        JSON.stringify(left.input) === JSON.stringify(right.input)
+        left.input.productId === right.input.productId &&
+        left.input.name === right.input.name &&
+        sameOptionalString(
+          left.input.basePriceMinor,
+          right.input.basePriceMinor,
+        ) &&
+        sameOptionalString(left.input.currency, right.input.currency)
       );
     case "updateVariant":
       return (
         right.kind === "updateVariant" &&
         left.key === right.key &&
-        JSON.stringify(left.input) === JSON.stringify(right.input)
+        left.input.productId === right.input.productId &&
+        left.input.variantId === right.input.variantId &&
+        left.input.name === right.input.name &&
+        sameOptionalString(
+          left.input.basePriceMinor,
+          right.input.basePriceMinor,
+        ) &&
+        sameOptionalString(left.input.currency, right.input.currency)
       );
   }
 }

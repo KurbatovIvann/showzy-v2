@@ -2,10 +2,21 @@
  * Product-detail sheet chrome (SHO-160). Local reducer, not XState:
  * product ⋯, variant ⋯, and the variant editor are mutually exclusive
  * except edit-mode, which keeps the variant id so close restores ⋯.
+ *
+ * Variant ⋯ chrome (`name` / `archived`) is captured at open time
+ * (SHO-302). Do not write a render-phase ref for the last selected row.
  */
+export type VariantActionChrome = {
+  readonly id: string;
+  readonly name: string;
+  readonly archived: boolean;
+};
+
 export type DetailSheets = {
   readonly productActions: boolean;
   readonly variantActionId: string | null;
+  readonly variantActionName: string;
+  readonly variantActionArchived: boolean;
   readonly variantEditor:
     | { readonly mode: "new" }
     | { readonly mode: "edit"; readonly variantId: string }
@@ -15,12 +26,19 @@ export type DetailSheets = {
 export const IDLE_DETAIL_SHEETS: DetailSheets = {
   productActions: false,
   variantActionId: null,
+  variantActionName: "",
+  variantActionArchived: false,
   variantEditor: null,
 };
 
 export type ProductDetailSheetAction =
   | { readonly type: "openProductActions" }
-  | { readonly type: "openVariantActions"; readonly variantId: string }
+  | {
+      readonly type: "openVariantActions";
+      readonly variantId: string;
+      readonly name: string;
+      readonly archived: boolean;
+    }
   | { readonly type: "openNewVariant" }
   | { readonly type: "openVariantEditor"; readonly variantId: string }
   | { readonly type: "closeVariantEditor" }
@@ -29,6 +47,8 @@ export type ProductDetailSheetAction =
       readonly type: "cancelStatusConfirm";
       readonly restore: "idle" | "variantActions";
       readonly variantActionId: string | null;
+      readonly variantActionName: string;
+      readonly variantActionArchived: boolean;
     };
 
 export function reduceProductDetailSheets(
@@ -39,13 +59,20 @@ export function reduceProductDetailSheets(
     case "openProductActions":
       return { ...IDLE_DETAIL_SHEETS, productActions: true };
     case "openVariantActions":
-      return { ...IDLE_DETAIL_SHEETS, variantActionId: action.variantId };
+      return {
+        ...IDLE_DETAIL_SHEETS,
+        variantActionId: action.variantId,
+        variantActionName: action.name,
+        variantActionArchived: action.archived,
+      };
     case "openNewVariant":
       return { ...IDLE_DETAIL_SHEETS, variantEditor: { mode: "new" } };
     case "openVariantEditor":
       return {
         productActions: false,
         variantActionId: action.variantId,
+        variantActionName: state.variantActionName,
+        variantActionArchived: state.variantActionArchived,
         variantEditor: { mode: "edit", variantId: action.variantId },
       };
     case "closeVariantEditor": {
@@ -54,6 +81,8 @@ export function reduceProductDetailSheets(
         return {
           ...IDLE_DETAIL_SHEETS,
           variantActionId: editor.variantId,
+          variantActionName: state.variantActionName,
+          variantActionArchived: state.variantActionArchived,
         };
       }
       return IDLE_DETAIL_SHEETS;
@@ -68,6 +97,8 @@ export function reduceProductDetailSheets(
         return {
           ...IDLE_DETAIL_SHEETS,
           variantActionId: action.variantActionId,
+          variantActionName: action.variantActionName,
+          variantActionArchived: action.variantActionArchived,
         };
       }
       return IDLE_DETAIL_SHEETS;
@@ -80,10 +111,15 @@ export function sheetsOpenProductActions(): DetailSheets {
   });
 }
 
-export function sheetsOpenVariantActions(variantId: string): DetailSheets {
+export function sheetsOpenVariantActions(
+  variantId: string,
+  chrome: { readonly name?: string; readonly archived?: boolean } = {},
+): DetailSheets {
   return reduceProductDetailSheets(IDLE_DETAIL_SHEETS, {
     type: "openVariantActions",
     variantId,
+    name: chrome.name ?? "",
+    archived: chrome.archived ?? false,
   });
 }
 

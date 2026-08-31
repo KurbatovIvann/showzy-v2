@@ -25,6 +25,9 @@ import {
   type ProductPhotoUploadPorts,
 } from "./product-photos-upload";
 
+/** Low-end Android: cap native decode + hash buffers in flight (SHO-302). */
+export const PHOTO_UPLOAD_MAX_IN_FLIGHT = 2;
+
 type Handshake = {
   prepared: PreparedCatalogImage | null;
   requestAttempt: MutationAttempt | null;
@@ -166,7 +169,9 @@ export function createProductPhotosRuntime(
         requestAttempt: handshake.requestAttempt,
         finalizeAttempt: handshake.finalizeAttempt,
         onState: (machine) => {
-          handshakes.set(id, { ...handshake, abort });
+          // Keep the live handshake object in the map. Spreading here
+          // used to stash a dead copy whose prepared/attempt fields
+          // never received the post-run assignments (SHO-302).
           deps.send({ type: "patchMachine", id, machine });
         },
       });
@@ -177,10 +182,17 @@ export function createProductPhotosRuntime(
         .getContext()
         .slots.some((item) => item.kind === "upload" && item.id === id);
       if (stillPresent) {
-        handshakes.set(id, handshake);
         deps.send({ type: "patchMachine", id, machine: result.machine });
-      } else {
+      }
+      const dropHandshake =
+        !stillPresent ||
+        result.machine.phase === "ready" ||
+        result.machine.phase === "cancelled";
+      if (dropHandshake) {
         handshakes.delete(id);
+        pickMeta.delete(id);
+      } else {
+        handshakes.set(id, handshake);
       }
       if (result.machine.phase === "ready") {
         await deps.commitIfNeeded();
@@ -193,12 +205,16 @@ export function createProductPhotosRuntime(
       }
     } finally {
       running.delete(id);
+      kickIdleUploads();
       notifySettled();
     }
   }
 
   function kickIdleUploads(): void {
     for (const id of selectPhotoSessionIdleIds(deps.getContext())) {
+      if (running.size >= PHOTO_UPLOAD_MAX_IN_FLIGHT) {
+        break;
+      }
       void runSlot(id, "start");
     }
   }
@@ -275,7 +291,6 @@ export function createProductPhotosRuntime(
     deps.send({ type: "setBanner", key: null });
     const slot = deps.getContext().slots.find((item) => item.id === id);
     if (slot?.kind === "upload") {
-      deps.send({ type: "patchMachine", id, machine: slot.machine });
       void runSlot(id, "retry");
     }
   }

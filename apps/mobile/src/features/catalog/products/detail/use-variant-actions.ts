@@ -5,14 +5,9 @@
 import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
-import { useApiClient } from "../../../../api/api-provider";
-import { useContractMutation } from "../../../../api/contract-mutation";
-import {
-  describeQueryFailure,
-  describeWireError,
-  requireReadyClient,
-} from "../../../../api/errors";
+import { describeQueryFailure, describeWireError } from "../../../../api/errors";
 import { useActiveCompany } from "../../../../api/query-provider";
+import { useBoundContractMutation } from "../../../../api/use-bound-contract-mutation";
 import { useSheetHiddenWaiter } from "../../../../hooks/use-sheet-hidden-waiter";
 import type { ProductsCopy } from "../../../../i18n/products";
 import { invalidateCatalogAfterStatusWrite } from "../api/product-archive";
@@ -69,70 +64,63 @@ export function useVariantActions(args: {
   readonly variantPriceLabel: (variant: ProductVariantView) => string;
   readonly variantAccessibilityLabel: (variant: ProductVariantView) => string;
 } {
-  const apiClient = useApiClient();
-  const apiRef = useRef(apiClient);
-  apiRef.current = apiClient;
   const { activeCompanyId } = useActiveCompany();
   const queryClient = useQueryClient();
-  const lastVariantRef = useRef<ProductVariantView | null>(null);
   const lastVariantWriteRef = useRef<ProductFormWrite | null>(null);
-  const variantBusyRef = useRef(false);
   const [variantBusy, setVariantBusy] = useState(false);
   const [variantBannerKey, setVariantBannerKey] =
     useState<ReturnType<typeof mapProductFormFailure>>(null);
   const variantHidden = useSheetHiddenWaiter();
-  const variantMutation = useContractMutation(
-    (input: ProductFormWrite, options) => {
-      const current = requireReadyClient(apiRef.current);
-      return bindProductFormMutate(current)(input, options);
-    },
+  const variantMutation = useBoundContractMutation((client) =>
+    bindProductFormMutate(client),
   );
 
   const selectedVariant = resolveSelectedVariant(
     args.product,
     args.sheets.variantActionId,
   );
-  if (selectedVariant !== null) {
-    lastVariantRef.current = selectedVariant;
-  }
-  const variantForChrome = selectedVariant ?? lastVariantRef.current;
+  const variantForChrome =
+    args.sheets.variantActionId === null
+      ? null
+      : {
+          id: args.sheets.variantActionId,
+          name: args.sheets.variantActionName,
+          archived: args.sheets.variantActionArchived,
+        };
 
   async function submitVariantWrite(write: ProductFormWrite): Promise<void> {
-    if (variantBusyRef.current || variantMutation.isPending) {
-      return;
-    }
-    variantBusyRef.current = true;
-    setVariantBusy(true);
-    setVariantBannerKey(null);
-    try {
-      const reuse =
-        variantMutation.isError &&
-        lastVariantWriteRef.current !== null &&
-        writesEqual(lastVariantWriteRef.current, write);
-      if (reuse) {
-        await variantMutation.retry();
-      } else {
-        lastVariantWriteRef.current = write;
-        await variantMutation.submit(write);
+    await variantMutation.runGuarded(async () => {
+      setVariantBusy(true);
+      setVariantBannerKey(null);
+      try {
+        const reuse =
+          variantMutation.isError &&
+          lastVariantWriteRef.current !== null &&
+          writesEqual(lastVariantWriteRef.current, write);
+        if (reuse) {
+          await variantMutation.retry();
+        } else {
+          lastVariantWriteRef.current = write;
+          await variantMutation.submit(write);
+        }
+        await invalidateCatalogAfterStatusWrite({
+          queryClient,
+          companyId: activeCompanyId,
+        });
+        args.dispatch({ type: "closeAll" });
+        variantMutation.reset();
+        lastVariantWriteRef.current = null;
+      } catch (error) {
+        setVariantBannerKey(
+          mapProductFormFailure(
+            describeQueryFailure(error).kind,
+            describeWireError(error)?.code ?? null,
+          ),
+        );
+      } finally {
+        setVariantBusy(false);
       }
-      await invalidateCatalogAfterStatusWrite({
-        queryClient,
-        companyId: activeCompanyId,
-      });
-      args.dispatch({ type: "closeAll" });
-      variantMutation.reset();
-      lastVariantWriteRef.current = null;
-    } catch (error) {
-      setVariantBannerKey(
-        mapProductFormFailure(
-          describeQueryFailure(error).kind,
-          describeWireError(error)?.code ?? null,
-        ),
-      );
-    } finally {
-      variantBusyRef.current = false;
-      setVariantBusy(false);
-    }
+    });
   }
 
   return {
@@ -141,7 +129,7 @@ export function useVariantActions(args: {
     variantEditorMode: args.sheets.variantEditor?.mode ?? "new",
     variantSheetInitial:
       args.sheets.variantEditor?.mode === "edit"
-        ? detailVariantToDraft(variantForChrome)
+        ? detailVariantToDraft(selectedVariant)
         : null,
     variantBanner: detailVariantBanner(variantBannerKey, args.copy.form),
     variantPending: isConfirmWriteBusy({
@@ -150,7 +138,13 @@ export function useVariantActions(args: {
     }),
     onVariantActionsHidden: variantHidden.notify,
     openVariantActions: (id) => {
-      args.dispatch({ type: "openVariantActions", variantId: id });
+      const variant = args.product?.variants.find((item) => item.id === id);
+      args.dispatch({
+        type: "openVariantActions",
+        variantId: id,
+        name: variant?.name ?? "",
+        archived: variant?.archived === true,
+      });
     },
     closeVariantActions: () => {
       args.dispatch({ type: "closeAll" });
@@ -177,6 +171,8 @@ export function useVariantActions(args: {
       void args.status.promptConfirm({
         target: result.target,
         variantActionId: variantForChrome.id,
+        variantActionName: variantForChrome.name,
+        variantActionArchived: variantForChrome.archived,
         waitHidden: variantHidden.wait,
       });
     },

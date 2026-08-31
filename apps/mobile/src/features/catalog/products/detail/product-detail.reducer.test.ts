@@ -29,6 +29,8 @@ describe("reduceProductDetailSheets", () => {
     const open = reduceProductDetailSheets(IDLE_DETAIL_SHEETS, {
       type: "openVariantActions",
       variantId: VARIANT_ID,
+      name: "",
+      archived: false,
     });
     expect(open).toEqual(sheetsOpenVariantActions(VARIANT_ID));
     expect(productDetailSheetChrome(open).variantActionsVisible).toBe(true);
@@ -42,6 +44,8 @@ describe("reduceProductDetailSheets", () => {
     const variantOpen = reduceProductDetailSheets(IDLE_DETAIL_SHEETS, {
       type: "openVariantActions",
       variantId: VARIANT_ID,
+      name: "",
+      archived: false,
     });
     expect(
       reduceProductDetailSheets(variantOpen, { type: "openProductActions" }),
@@ -52,6 +56,8 @@ describe("reduceProductDetailSheets", () => {
       reduceProductDetailSheets(productOpen, {
         type: "openVariantActions",
         variantId: VARIANT_ID,
+        name: "",
+        archived: false,
       }),
     ).toEqual(sheetsOpenVariantActions(VARIANT_ID));
     expect(
@@ -76,6 +82,8 @@ describe("reduceProductDetailSheets", () => {
     expect(editing).toEqual({
       productActions: false,
       variantActionId: VARIANT_ID,
+      variantActionName: "",
+      variantActionArchived: false,
       variantEditor: { mode: "edit", variantId: VARIANT_ID },
     });
     expect(productDetailSheetChrome(editing).variantActionsVisible).toBe(false);
@@ -94,6 +102,8 @@ describe("reduceProductDetailSheets", () => {
         type: "cancelStatusConfirm",
         restore: "variantActions",
         variantActionId: VARIANT_ID,
+        variantActionName: "",
+        variantActionArchived: false,
       }),
     ).toEqual(sheetsOpenVariantActions(VARIANT_ID));
     expect(
@@ -101,6 +111,8 @@ describe("reduceProductDetailSheets", () => {
         type: "cancelStatusConfirm",
         restore: "idle",
         variantActionId: null,
+        variantActionName: "",
+        variantActionArchived: false,
       }),
     ).toEqual(IDLE_DETAIL_SHEETS);
     expect(
@@ -108,6 +120,8 @@ describe("reduceProductDetailSheets", () => {
         type: "cancelStatusConfirm",
         restore: "variantActions",
         variantActionId: null,
+        variantActionName: "",
+        variantActionArchived: false,
       }),
     ).toEqual(IDLE_DETAIL_SHEETS);
   });
@@ -118,7 +132,41 @@ describe("reduceProductDetailSheets", () => {
       reduceProductDetailSheets(first, {
         type: "openVariantActions",
         variantId: OTHER_VARIANT_ID,
+        name: "",
+        archived: false,
       }),
     ).toEqual(sheetsOpenVariantActions(OTHER_VARIANT_ID));
+  });
+
+  it("captures variant name and archived at open and restores them after cancel", () => {
+    const open = reduceProductDetailSheets(IDLE_DETAIL_SHEETS, {
+      type: "openVariantActions",
+      variantId: VARIANT_ID,
+      name: "1 кг",
+      archived: true,
+    });
+    expect(open).toEqual(
+      sheetsOpenVariantActions(VARIANT_ID, { name: "1 кг", archived: true }),
+    );
+    const editing = reduceProductDetailSheets(open, {
+      type: "openVariantEditor",
+      variantId: VARIANT_ID,
+    });
+    expect(editing.variantActionName).toBe("1 кг");
+    expect(editing.variantActionArchived).toBe(true);
+    expect(sheetsAfterCloseVariantEditor(editing)).toEqual(
+      sheetsOpenVariantActions(VARIANT_ID, { name: "1 кг", archived: true }),
+    );
+    expect(
+      reduceProductDetailSheets(IDLE_DETAIL_SHEETS, {
+        type: "cancelStatusConfirm",
+        restore: "variantActions",
+        variantActionId: VARIANT_ID,
+        variantActionName: "1 кг",
+        variantActionArchived: true,
+      }),
+    ).toEqual(
+      sheetsOpenVariantActions(VARIANT_ID, { name: "1 кг", archived: true }),
+    );
   });
 });
