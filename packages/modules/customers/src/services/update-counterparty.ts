@@ -1,5 +1,5 @@
 import type { ActionCtx } from "@showzy/core";
-import { CoreInvariantError, NotFoundError } from "@showzy/core/errors";
+import { CoreInvariantError } from "@showzy/core/errors";
 import { counterparties } from "@showzy/db/schema/customers";
 import { and, eq } from "drizzle-orm";
 import type { z } from "zod";
@@ -15,6 +15,7 @@ import {
   storedCounterpartyFields,
   toCounterpartyView,
 } from "./counterparty-view.js";
+import { lockTenantRow } from "./tenant-row.js";
 import { requireWritable } from "./writable.js";
 
 type StaffCtx = Extract<ActionCtx, { principal: "staff" }>;
@@ -29,22 +30,11 @@ export async function updateStaffCounterparty(env: {
   const db = requireWritable(ctx.db);
   const fields = storedCounterpartyFields(input);
 
-  const existing = (
-    await db
-      .select({ id: counterparties.id })
-      .from(counterparties)
-      .where(
-        and(
-          eq(counterparties.companyId, ctx.companyId),
-          eq(counterparties.id, input.id),
-        ),
-      )
-      .limit(1)
-      .for("update")
-  )[0];
-  if (existing === undefined) {
-    throw new NotFoundError();
-  }
+  await lockTenantRow(db, counterparties, {
+    companyId: ctx.companyId,
+    id: input.id,
+    columns: { id: counterparties.id },
+  });
 
   const linkedCustomer =
     fields.customerId === null

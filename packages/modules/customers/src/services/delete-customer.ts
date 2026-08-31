@@ -1,17 +1,13 @@
 import type { ActionCtx } from "@showzy/core";
-import {
-  CoreInvariantError,
-  NotFoundError,
-  ValidationError,
-} from "@showzy/core/errors";
+import { ValidationError } from "@showzy/core/errors";
 import { companyCustomers } from "@showzy/db/schema/customers";
-import { and, eq } from "drizzle-orm";
-import { z } from "zod";
+import type { z } from "zod";
 
 import type {
   deleteCustomerInputSchema,
   deleteCustomerOutputSchema,
 } from "../actions/delete-customer.contract.js";
+import { deleteTenantRow, lockTenantRow } from "./tenant-row.js";
 import { requireWritable } from "./writable.js";
 
 type StaffCtx = Extract<ActionCtx, { principal: "staff" }>;
@@ -21,20 +17,18 @@ type DeleteOutput = z.output<typeof deleteCustomerOutputSchema>;
 export const ACTIVE_CUSTOMER_DELETE_MESSAGE =
   "The customer must be archived before it can be deleted.";
 
-const archivedCustomerGate = z.object({
-  status: z.literal("archived", {
-    error: ACTIVE_CUSTOMER_DELETE_MESSAGE,
-  }),
-});
-
 function requireArchivedStatus(status: string): void {
-  const parsed = archivedCustomerGate.safeParse({ status });
-  if (!parsed.success) {
-    throw new ValidationError(
-      parsed.error.issues,
-      ACTIVE_CUSTOMER_DELETE_MESSAGE,
-    );
+  if (status === "archived") {
+    return;
   }
+  const issue: z.core.$ZodIssue = {
+    code: "invalid_value",
+    path: ["status"],
+    message: ACTIVE_CUSTOMER_DELETE_MESSAGE,
+    input: status,
+    values: ["archived"],
+  };
+  throw new ValidationError([issue], ACTIVE_CUSTOMER_DELETE_MESSAGE);
 }
 
 export async function deleteStaffCustomer(env: {
@@ -44,43 +38,21 @@ export async function deleteStaffCustomer(env: {
   const { ctx, input } = env;
   const db = requireWritable(ctx.db);
 
-  const existing = (
-    await db
-      .select({
-        id: companyCustomers.id,
-        status: companyCustomers.status,
-      })
-      .from(companyCustomers)
-      .where(
-        and(
-          eq(companyCustomers.companyId, ctx.companyId),
-          eq(companyCustomers.id, input.id),
-        ),
-      )
-      .limit(1)
-      .for("update")
-  )[0];
-  if (existing === undefined) {
-    throw new NotFoundError();
-  }
+  const existing = await lockTenantRow(db, companyCustomers, {
+    companyId: ctx.companyId,
+    id: input.id,
+    columns: {
+      id: companyCustomers.id,
+      status: companyCustomers.status,
+    },
+  });
   requireArchivedStatus(existing.status);
 
-  const deleted = (
-    await db
-      .delete(companyCustomers)
-      .where(
-        and(
-          eq(companyCustomers.companyId, ctx.companyId),
-          eq(companyCustomers.id, input.id),
-        ),
-      )
-      .returning({ id: companyCustomers.id })
-  )[0];
-  if (deleted === undefined) {
-    throw new CoreInvariantError(
-      "customers.deleteCustomer delete returned no row",
-    );
-  }
+  const deleted = await deleteTenantRow(db, companyCustomers, {
+    companyId: ctx.companyId,
+    id: input.id,
+    lostRowMessage: "customers.deleteCustomer delete returned no row",
+  });
 
   ctx.log.info(
     { customer_id: deleted.id },

@@ -1,8 +1,8 @@
 import type { ActionCtx } from "@showzy/core";
-import { CoreInvariantError, NotFoundError } from "@showzy/core/errors";
-import { companyCustomers, counterparties } from "@showzy/db/schema/customers";
+import { CoreInvariantError } from "@showzy/core/errors";
+import { companyCustomers } from "@showzy/db/schema/customers";
 import { optionalNullableUuid } from "@showzy/module-kit/optional-nullable-uuid";
-import { and, count, eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { z } from "zod";
 
 import type {
@@ -10,12 +10,14 @@ import type {
   updateCustomerOutputSchema,
 } from "../actions/update-customer.contract.js";
 import { assertCustomerAssignments } from "./assignments.js";
+import { countLinkedCounterparties } from "./count-linked-counterparties.js";
 import { mapCustomerWriteError } from "./create-customer.js";
 import {
   customerColumns,
   nullableText,
   toCustomerView,
 } from "./customer-view.js";
+import { lockTenantRow } from "./tenant-row.js";
 import { requireWritable } from "./writable.js";
 
 type StaffCtx = Extract<ActionCtx, { principal: "staff" }>;
@@ -31,22 +33,11 @@ export async function updateStaffCustomer(env: {
   const groupId = optionalNullableUuid(input.groupId);
   const priceListId = optionalNullableUuid(input.priceListId);
 
-  const existing = (
-    await db
-      .select({ id: companyCustomers.id })
-      .from(companyCustomers)
-      .where(
-        and(
-          eq(companyCustomers.companyId, ctx.companyId),
-          eq(companyCustomers.id, input.id),
-        ),
-      )
-      .limit(1)
-      .for("update")
-  )[0];
-  if (existing === undefined) {
-    throw new NotFoundError();
-  }
+  await lockTenantRow(db, companyCustomers, {
+    companyId: ctx.companyId,
+    id: input.id,
+    columns: { id: companyCustomers.id },
+  });
 
   await assertCustomerAssignments({ ctx, groupId, priceListId });
 
@@ -77,23 +68,17 @@ export async function updateStaffCustomer(env: {
       );
     }
 
-    const linked = (
-      await db
-        .select({ value: count() })
-        .from(counterparties)
-        .where(
-          and(
-            eq(counterparties.companyId, ctx.companyId),
-            eq(counterparties.customerId, updated.id),
-          ),
-        )
-    )[0];
+    const linked = await countLinkedCounterparties(
+      db,
+      ctx.companyId,
+      updated.id,
+    );
 
     ctx.log.info(
       { customer_id: updated.id },
       "customers.updateCustomer updated customer",
     );
-    return toCustomerView(updated, linked?.value ?? 0);
+    return toCustomerView(updated, linked);
   } catch (error) {
     throw mapCustomerWriteError(error, input.userId);
   }
