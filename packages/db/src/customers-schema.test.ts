@@ -663,4 +663,12 @@ describe("customers CRM schema slice", () => {
     expect(keys.has("employee:customers:delete")).toBe(false);
     expect(keys.has("owner:customers:create")).toBe(false);
   });
+
+  it("rejects a negative customer_groups.sort_order", async () => {
+    const company = await insertCompany();
+    await expectSqlState(
+      insertGroup(company.id, { sortOrder: -1 }),
+      "23514",
+    );
+  });
 });

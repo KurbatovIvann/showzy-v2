@@ -1071,4 +1071,39 @@ describe("price resolution schema slice", () => {
     expect(keys.has("employee:pricing:manage")).toBe(false);
     expect(keys.has("owner:pricing:manage")).toBe(false);
   });
+
+  it("rejects non-ISO stored currency on entries and personal prices", async () => {
+    const company = await insertCompany();
+    const product = await insertProduct(company.id);
+    const list = await insertPriceList(company.id);
+    const customer = await insertCustomer(company.id);
+
+    await expectSqlState(
+      insertEntry({
+        companyId: company.id,
+        priceListId: list.id,
+        productId: product.id,
+        currency: "uah",
+      }),
+      "23514",
+    );
+    await expectSqlState(
+      insertEntry({
+        companyId: company.id,
+        priceListId: list.id,
+        productId: product.id,
+        currency: "US",
+      }),
+      "23514",
+    );
+    await expectSqlState(
+      insertPersonalPrice({
+        companyId: company.id,
+        customerId: customer.id,
+        productId: product.id,
+        currency: "uah",
+      }),
+      "23514",
+    );
+  });
 });

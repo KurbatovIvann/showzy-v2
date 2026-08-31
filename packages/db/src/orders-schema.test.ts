@@ -805,4 +805,69 @@ describe("staff orders schema slice", () => {
     }
     expect(keys.has("owner:orders:view")).toBe(false);
   });
+
+  it("ties confirmed_at to status without requiring it after cancel", async () => {
+    const company = await insertCompany();
+
+    await expectSqlState(
+      insertOrder({ companyId: company.id, status: "confirmed" }),
+      "23514",
+    );
+    await expectSqlState(
+      insertOrder({
+        companyId: company.id,
+        status: "new",
+        confirmedAt: new Date(),
+      }),
+      "23514",
+    );
+
+    const confirmed = await insertOrder({
+      companyId: company.id,
+      status: "confirmed",
+      confirmedAt: new Date(),
+    });
+    expect(confirmed.confirmedAt).not.toBeNull();
+
+    const canceledFromConfirmed = await insertOrder({
+      companyId: company.id,
+      status: "canceled",
+      confirmedAt: new Date(),
+    });
+    expect(canceledFromConfirmed.confirmedAt).not.toBeNull();
+
+    const canceledFromNew = await insertOrder({
+      companyId: company.id,
+      status: "canceled",
+    });
+    expect(canceledFromNew.confirmedAt).toBeNull();
+  });
+
+  it("rejects non-ISO order currency", async () => {
+    const company = await insertCompany();
+    const product = await insertProduct(company.id);
+    const order = await insertOrder({ companyId: company.id });
+
+    await expectSqlState(
+      insertOrder({ companyId: company.id, currency: "uah" }),
+      "23514",
+    );
+    await expectSqlState(
+      insertOrder({ companyId: company.id, currency: "US" }),
+      "23514",
+    );
+    await expectSqlState(
+      insertOrder({ companyId: company.id, currency: "UA1" }),
+      "23514",
+    );
+    await expectSqlState(
+      insertItem({
+        companyId: company.id,
+        orderId: order.id,
+        productId: product.id,
+        currency: "uah",
+      }),
+      "23514",
+    );
+  });
 });
