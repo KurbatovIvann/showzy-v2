@@ -9,21 +9,13 @@ import type { z } from "zod";
 import {
   orderDiscountKindSchema,
   orderPriceSourceSchema,
-  orderStatusSchema,
   orderTaxTreatmentSchema,
   orderViewSchema,
 } from "../actions/order-view.contract.js";
+import { parseStatus } from "./parse-status.js";
 
 type StaffDb = Extract<ActionCtx, { principal: "staff" }>["db"];
 type OrderView = z.output<typeof orderViewSchema>;
-
-function parseStatus(value: string): z.output<typeof orderStatusSchema> {
-  return parseDbEnum(
-    orderStatusSchema,
-    value,
-    `orders row has illegal status "${value}"`,
-  );
-}
 
 function parseDiscountKind(
   value: string,
