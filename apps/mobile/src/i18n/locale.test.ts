@@ -72,6 +72,9 @@ describe("device locale wiring", () => {
     detectLocale();
     expect(getLocales).toHaveBeenCalledTimes(1);
     expect(detectLocale("uk-UA")).toBe("uk");
+
+    expect(initAppLocale()).toBe("en");
+    expect(getLocales).toHaveBeenCalledTimes(1);
   });
 
   it("keeps the Ukrainian default when the device tag is not en*", () => {

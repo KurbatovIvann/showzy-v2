@@ -25,6 +25,11 @@ export function bindResolvedLanguageTag(tag: string): void {
   resolvedLanguageTag = tag;
 }
 
+/** True after `initAppLocale` (or a test bind). Used to skip a second read. */
+export function isLanguageTagBound(): boolean {
+  return resolvedLanguageTag !== undefined;
+}
+
 /** Restore the pre-init Ukrainian default. Tests only. */
 export function resetResolvedLanguageTagForTests(): void {
   resolvedLanguageTag = undefined;

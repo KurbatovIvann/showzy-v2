@@ -5,7 +5,12 @@
  */
 import { getLocales } from "expo-localization";
 
-import { bindResolvedLanguageTag, detectLocale, type Locale } from "./locale";
+import {
+  bindResolvedLanguageTag,
+  detectLocale,
+  isLanguageTagBound,
+  type Locale,
+} from "./locale";
 
 const DEFAULT_LANGUAGE_TAG = "uk";
 
@@ -22,6 +27,9 @@ export function readDeviceLanguageTag(): string {
 }
 
 export function initAppLocale(): Locale {
+  if (isLanguageTagBound()) {
+    return detectLocale();
+  }
   const tag = readDeviceLanguageTag();
   bindResolvedLanguageTag(tag);
   return detectLocale(tag);
