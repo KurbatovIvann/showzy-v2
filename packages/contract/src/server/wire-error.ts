@@ -28,47 +28,38 @@ import {
 
 import { wireErrorStatus } from "../client/wire-errors.js";
 
+/**
+ * Typed extras keyed by wire code. Remaining `CoreError` classes carry
+ * none — `clientMessage` is the only serializable text (core.md §11);
+ * for `CoreInvariantError` it is the fixed generic string, so INTERNAL
+ * sends no details on the wire by construction.
+ */
+const WIRE_EXTRAS: {
+  readonly [Code in CoreErrorCode]?: (error: CoreError) => unknown | undefined;
+} = {
+  VALIDATION: (error) =>
+    error instanceof ValidationError ? { issues: error.issues } : undefined,
+  RETRY_IN_PROGRESS: (error) =>
+    error instanceof ConcurrentRetryError
+      ? { retryAfterSec: error.retryAfterSec }
+      : undefined,
+  CONFIRMATION_REQUIRED: (error) =>
+    error instanceof ConfirmationRequiredError
+      ? { challenge: error.challenge }
+      : undefined,
+  RATE_LIMITED: (error) =>
+    error instanceof RateLimitError
+      ? { retryAfterSec: error.retryAfterSec }
+      : undefined,
+};
+
 export function toWireError(error: unknown): ORPCError<CoreErrorCode, unknown> {
-  if (error instanceof ValidationError) {
-    return new ORPCError("VALIDATION", {
-      status: wireErrorStatus.VALIDATION,
-      message: error.clientMessage,
-      data: { issues: error.issues },
-      cause: error,
-    });
-  }
-  if (error instanceof ConcurrentRetryError) {
-    return new ORPCError("RETRY_IN_PROGRESS", {
-      status: wireErrorStatus.RETRY_IN_PROGRESS,
-      message: error.clientMessage,
-      data: { retryAfterSec: error.retryAfterSec },
-      cause: error,
-    });
-  }
-  if (error instanceof ConfirmationRequiredError) {
-    return new ORPCError("CONFIRMATION_REQUIRED", {
-      status: wireErrorStatus.CONFIRMATION_REQUIRED,
-      message: error.clientMessage,
-      data: { challenge: error.challenge },
-      cause: error,
-    });
-  }
-  if (error instanceof RateLimitError) {
-    return new ORPCError("RATE_LIMITED", {
-      status: wireErrorStatus.RATE_LIMITED,
-      message: error.clientMessage,
-      data: { retryAfterSec: error.retryAfterSec },
-      cause: error,
-    });
-  }
   if (error instanceof CoreError) {
-    // The remaining classes carry no typed extras. `clientMessage` is the
-    // only serializable text (core.md §11); for `CoreInvariantError` it is
-    // the fixed generic string, so INTERNAL sends no details on the wire
-    // by construction.
+    const extras = WIRE_EXTRAS[error.code]?.(error);
     return new ORPCError(error.code, {
       status: wireErrorStatus[error.code],
       message: error.clientMessage,
+      ...(extras !== undefined ? { data: extras } : {}),
       cause: error,
     });
   }

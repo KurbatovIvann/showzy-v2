@@ -39,6 +39,13 @@ export interface ServerRouterDeps {
  * are erased here — end-to-end typing belongs to the *client* contract
  * router; the transport handler only needs matching paths and runtime
  * schemas, both of which derive from the same descriptor.
+ *
+ * Two constructions at boot are accepted (SHO-277 owner decision): the
+ * client exposure record (`buildContractRouter` / `toContractProcedure`
+ * on `contractModules`) is the published typed client. This function
+ * then `implement(toContractProcedure(contract))` to pair each descriptor
+ * with `executeAction`. They are different layers — do not delete
+ * `contractRouter` to "dedupe" them.
  */
 function toServerProcedure(
   contract: AnyActionContract,
