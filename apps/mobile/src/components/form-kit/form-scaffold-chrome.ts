@@ -1,8 +1,18 @@
 export type FormScaffoldLoadKind =
-  "loading" | "offline" | "error" | "permission" | "ready";
+  | "loading"
+  | "offline"
+  | "error"
+  | "permission"
+  | "not-found"
+  | "ready";
 
 export type FormScaffoldBody =
-  "skeleton" | "offline" | "error" | "permission" | "ready";
+  | "skeleton"
+  | "offline"
+  | "error"
+  | "permission"
+  | "not-found"
+  | "ready";
 
 export function formScaffoldBody(kind: FormScaffoldLoadKind): FormScaffoldBody {
   return kind === "loading" ? "skeleton" : kind;

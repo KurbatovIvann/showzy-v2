@@ -19,6 +19,7 @@ export type FormScreenScaffoldFooter = {
   readonly submitDisabled: boolean;
   readonly onCancel: () => void;
   readonly onSubmit: () => void;
+  readonly footerLeading?: ReactNode;
 };
 
 export type FormScreenScaffoldEmpty = {
@@ -29,6 +30,9 @@ export type FormScreenScaffoldEmpty = {
   readonly permissionTitle: string;
   readonly permissionDescription: string;
   readonly retryLabel: string;
+  readonly notFoundTitle?: string;
+  readonly notFoundDescription?: string;
+  readonly notFoundIcon?: ReactNode;
 };
 
 export function FormScreenScaffold(props: {
@@ -151,6 +155,16 @@ function FormScaffoldBody(props: {
           />
         </CenteredEmpty>
       );
+    case "not-found":
+      return (
+        <CenteredEmpty>
+          <EmptyState
+            icon={props.empty.notFoundIcon ?? null}
+            title={props.empty.notFoundTitle ?? ""}
+            description={props.empty.notFoundDescription ?? ""}
+          />
+        </CenteredEmpty>
+      );
     case "ready":
       return <>{props.children}</>;
   }
@@ -162,6 +176,7 @@ function FormScaffoldFooter(props: {
   const { footer } = props;
   return (
     <View style={styles.footer}>
+      {footer.footerLeading}
       <View style={styles.footerActions}>
         <View style={styles.footerButton}>
           <Button
@@ -202,6 +217,7 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: theme.spacing.lg,
     paddingTop: theme.spacing.md,
     paddingBottom: theme.spacing.md,
+    gap: theme.spacing.sm,
   },
   footerActions: {
     flexDirection: "row",

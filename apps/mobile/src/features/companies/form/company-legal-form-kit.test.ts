@@ -23,7 +23,14 @@ describe("companies form adopts form-kit", () => {
     expect(hook).not.toContain("useUnsavedCompanyLegalGuard");
     expect(view).toContain("FormScreenScaffold");
     expect(view).not.toContain("SafeAreaView");
+    expect(view).not.toContain("footerLeading");
+    expect(view).not.toContain("notFoundTitle");
+    expect(view).not.toContain("notFoundIcon");
     expect(fields).toContain("FormTextField");
     expect(fields).not.toContain("<Controller");
+    expect(fields).not.toContain("suffix=");
+    expect(fields).not.toContain("leading=");
+    expect(fields).not.toContain("prefix=");
+    expect(fields).not.toContain("size=");
   });
 });

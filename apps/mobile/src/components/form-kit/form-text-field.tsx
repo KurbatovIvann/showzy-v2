@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import {
   Controller,
   type Control,
@@ -48,6 +49,10 @@ export function FormTextField<
   readonly multiline?: boolean;
   readonly numberOfLines?: number;
   readonly secureTextEntry?: boolean;
+  readonly leading?: ReactNode;
+  readonly prefix?: string;
+  readonly suffix?: string;
+  readonly size?: "default" | "lg";
 }) {
   return (
     <Controller
@@ -81,6 +86,10 @@ export function FormTextField<
             {...(props.maxLength !== undefined
               ? { maxLength: props.maxLength }
               : {})}
+            {...(props.leading !== undefined ? { leading: props.leading } : {})}
+            {...(props.prefix !== undefined ? { prefix: props.prefix } : {})}
+            {...(props.suffix !== undefined ? { suffix: props.suffix } : {})}
+            {...(props.size !== undefined ? { size: props.size } : {})}
             {...(props.multiline === true && props.numberOfLines !== undefined
               ? { numberOfLines: props.numberOfLines }
               : {})}

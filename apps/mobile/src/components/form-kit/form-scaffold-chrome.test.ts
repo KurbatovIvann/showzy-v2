@@ -14,6 +14,7 @@ const KINDS: readonly FormScaffoldLoadKind[] = [
   "offline",
   "error",
   "permission",
+  "not-found",
   "ready",
 ];
 
@@ -23,6 +24,7 @@ describe("formScaffoldBody", () => {
     expect(formScaffoldBody("offline")).toBe("offline");
     expect(formScaffoldBody("error")).toBe("error");
     expect(formScaffoldBody("permission")).toBe("permission");
+    expect(formScaffoldBody("not-found")).toBe("not-found");
     expect(formScaffoldBody("ready")).toBe("ready");
   });
 });
@@ -47,10 +49,11 @@ describe("formScaffoldShowsFooter", () => {
 });
 
 describe("formScaffoldShowsRetry", () => {
-  it("offers retry on offline and error, not permission or ready", () => {
+  it("offers retry on offline and error, not permission, not-found, or ready", () => {
     expect(formScaffoldShowsRetry("offline")).toBe(true);
     expect(formScaffoldShowsRetry("error")).toBe(true);
     expect(formScaffoldShowsRetry("permission")).toBe(false);
+    expect(formScaffoldShowsRetry("not-found")).toBe(false);
     expect(formScaffoldShowsRetry("loading")).toBe(false);
     expect(formScaffoldShowsRetry("ready")).toBe(false);
   });
@@ -67,5 +70,11 @@ describe("FormScreenScaffold", () => {
     expect(source).toContain("formScaffoldShowsRetry(");
     expect(source).toContain("AppHeader");
     expect(source).toContain("EmptyState");
+    expect(source).toContain('case "not-found"');
+    expect(source).toContain("notFoundTitle");
+    expect(source).toContain("notFoundDescription");
+    expect(source).toContain("notFoundIcon");
+    expect(source).toContain("footerLeading");
+    expect(source).toContain("{footer.footerLeading}");
   });
 });
