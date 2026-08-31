@@ -102,8 +102,12 @@ export function isSensitiveKey(key: string): boolean {
   return SENSITIVE_SUFFIXES.some((suffix) => normalized.endsWith(suffix));
 }
 
-function redactUriUserinfo(value: string, protocol: string): string {
-  const pattern = new RegExp(`(${protocol}):\\/\\/([^@/\\s]+)@`, "gi");
+const POSTGRES_URI_USERINFO = /(postgres(?:ql)?):\/\/([^@/\s]+)@/gi;
+const REDIS_URI_USERINFO = /(rediss?):\/\/([^@/\s]+)@/gi;
+const HTTP_URI_USERINFO = /(https?):\/\/([^@/\s]+)@/gi;
+
+function redactUriUserinfo(value: string, pattern: RegExp): string {
+  pattern.lastIndex = 0;
   return value.replaceAll(
     pattern,
     (_match, proto: string, userinfo: string) => {
@@ -136,9 +140,9 @@ function redactPresignedQuery(value: string): string {
  */
 export function redactText(value: string): string {
   let next = value;
-  next = redactUriUserinfo(next, "postgres(?:ql)?");
-  next = redactUriUserinfo(next, "rediss?");
-  next = redactUriUserinfo(next, "https?");
+  next = redactUriUserinfo(next, POSTGRES_URI_USERINFO);
+  next = redactUriUserinfo(next, REDIS_URI_USERINFO);
+  next = redactUriUserinfo(next, HTTP_URI_USERINFO);
   next = next.replaceAll(
     /Bearer\s+[A-Za-z0-9._~+/-]+=*/gi,
     `Bearer ${REDACTED}`,

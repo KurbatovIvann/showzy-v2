@@ -429,6 +429,15 @@ describe("OTP delivery config", () => {
       expect(configError.message).toContain("production requires resend");
       expect(configError.message).toContain("OTP_SMS_TRANSPORT");
       expect(configError.message).toContain("production requires sms-fly");
+      expect(configError.issues).toEqual(
+        expect.arrayContaining([
+          {
+            key: "OTP_EMAIL_TRANSPORT",
+            message: "production requires resend",
+          },
+          { key: "OTP_SMS_TRANSPORT", message: "production requires sms-fly" },
+        ]),
+      );
     }
   });
 
@@ -445,6 +454,13 @@ describe("OTP delivery config", () => {
       expect(configError.message).toContain("RESEND_FROM_EMAIL");
       expect(configError.message).toContain("RESEND_FROM_NAME");
       expect(configError.message).toContain("missing required value");
+      expect(configError.issues).toEqual(
+        expect.arrayContaining([
+          { key: "RESEND_API_KEY", message: "missing required value" },
+          { key: "RESEND_FROM_EMAIL", message: "missing required value" },
+          { key: "RESEND_FROM_NAME", message: "missing required value" },
+        ]),
+      );
     }
   });
 
@@ -460,6 +476,12 @@ describe("OTP delivery config", () => {
       expect(configError.message).toContain("SMS_FLY_API_KEY");
       expect(configError.message).toContain("SMS_FLY_SENDER");
       expect(configError.message).toContain("missing required value");
+      expect(configError.issues).toEqual(
+        expect.arrayContaining([
+          { key: "SMS_FLY_API_KEY", message: "missing required value" },
+          { key: "SMS_FLY_SENDER", message: "missing required value" },
+        ]),
+      );
     }
   });
 

@@ -23,7 +23,7 @@ const DEFAULT_SMS_FLY_API_URL = "https://sms-fly.ua/api/v2/api.php";
 
 const trustedProxyEntry = z.union([z.ipv4(), z.ipv6(), z.cidrv4(), z.cidrv6()]);
 
-const envSchema = z.object({
+const envObjectSchema = z.object({
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),
@@ -128,11 +128,71 @@ const envSchema = z.object({
   SMS_FLY_SENDER: z.string().min(1).optional(),
 });
 
+const envSchema = envObjectSchema.superRefine((parsed, ctx) => {
+  if (parsed.NODE_ENV === "production") {
+    if (parsed.OTP_EMAIL_TRANSPORT !== "resend") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["OTP_EMAIL_TRANSPORT"],
+        message: "production requires resend",
+      });
+    }
+    if (parsed.OTP_SMS_TRANSPORT !== "sms-fly") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["OTP_SMS_TRANSPORT"],
+        message: "production requires sms-fly",
+      });
+    }
+  }
+
+  if (parsed.OTP_EMAIL_TRANSPORT === "resend") {
+    if (parsed.RESEND_API_KEY === undefined) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["RESEND_API_KEY"],
+        message: "missing required value",
+      });
+    }
+    if (parsed.RESEND_FROM_EMAIL === undefined) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["RESEND_FROM_EMAIL"],
+        message: "missing required value",
+      });
+    }
+    if (parsed.RESEND_FROM_NAME === undefined) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["RESEND_FROM_NAME"],
+        message: "missing required value",
+      });
+    }
+  }
+
+  if (parsed.OTP_SMS_TRANSPORT === "sms-fly") {
+    if (parsed.SMS_FLY_API_KEY === undefined) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["SMS_FLY_API_KEY"],
+        message: "missing required value",
+      });
+    }
+    if (parsed.SMS_FLY_SENDER === undefined) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["SMS_FLY_SENDER"],
+        message: "missing required value",
+      });
+    }
+  }
+});
+
 type ParsedEnv = z.infer<typeof envSchema>;
 
 /** Keys the Zod env schema accepts — `.env.example` must list the same set. */
 export const ENV_SCHEMA_KEYS: readonly string[] = Object.freeze(
-  Object.keys(envSchema.shape),
+  Object.keys(envObjectSchema.shape),
 );
 
 /** Validated runtime configuration, grouped by concern. */
@@ -227,6 +287,12 @@ export function loadServerConfig(
     throw new ConfigValidationError(
       result.error.issues.map((issue) => {
         const key = String(issue.path[0] ?? "(root)");
+        // OTP transport rules live on the schema (`superRefine`). Keep those
+        // custom messages even when the key was omitted from `present`
+        // (`OTP_EMAIL_TRANSPORT` defaults to stub, then production rejects it).
+        if (issue.code === "custom") {
+          return { key, message: issue.message };
+        }
         if (!(key in present)) {
           return { key, message: "missing required value" };
         }
@@ -271,104 +337,49 @@ export function loadServerConfig(
   };
 }
 
-function otpDeliveryIssues(parsed: ParsedEnv): ConfigIssue[] {
-  const issues: ConfigIssue[] = [];
-
-  if (parsed.NODE_ENV === "production") {
-    if (parsed.OTP_EMAIL_TRANSPORT !== "resend") {
-      issues.push({
-        key: "OTP_EMAIL_TRANSPORT",
-        message: "production requires resend",
-      });
-    }
-    if (parsed.OTP_SMS_TRANSPORT !== "sms-fly") {
-      issues.push({
-        key: "OTP_SMS_TRANSPORT",
-        message: "production requires sms-fly",
-      });
-    }
-  }
-
-  if (parsed.OTP_EMAIL_TRANSPORT === "resend") {
-    if (parsed.RESEND_API_KEY === undefined) {
-      issues.push({
-        key: "RESEND_API_KEY",
-        message: "missing required value",
-      });
-    }
-    if (parsed.RESEND_FROM_EMAIL === undefined) {
-      issues.push({
-        key: "RESEND_FROM_EMAIL",
-        message: "missing required value",
-      });
-    }
-    if (parsed.RESEND_FROM_NAME === undefined) {
-      issues.push({
-        key: "RESEND_FROM_NAME",
-        message: "missing required value",
-      });
-    }
-  }
-
-  if (parsed.OTP_SMS_TRANSPORT === "sms-fly") {
-    if (parsed.SMS_FLY_API_KEY === undefined) {
-      issues.push({
-        key: "SMS_FLY_API_KEY",
-        message: "missing required value",
-      });
-    }
-    if (parsed.SMS_FLY_SENDER === undefined) {
-      issues.push({
-        key: "SMS_FLY_SENDER",
-        message: "missing required value",
-      });
-    }
-  }
-
-  return issues;
-}
-
 function mapOtpDelivery(parsed: ParsedEnv): ServerConfig["otpDelivery"] {
-  const issues = otpDeliveryIssues(parsed);
-  if (issues.length > 0) {
-    throw new ConfigValidationError(issues);
-  }
-
   return {
     email: mapOtpEmail(parsed),
     sms: mapOtpSms(parsed),
   };
 }
 
+/**
+ * superRefine already rejected the missing-key shapes. TypeScript does not
+ * narrow optional env fields from custom issues, so this is the mapping
+ * gate — same message as parse-time, unreachable after a successful parse.
+ */
+function requireOtpString(value: string | undefined, key: string): string {
+  if (value === undefined) {
+    throw new ConfigValidationError([
+      { key, message: "missing required value" },
+    ]);
+  }
+  return value;
+}
+
 function mapOtpEmail(parsed: ParsedEnv): ServerConfig["otpDelivery"]["email"] {
   if (parsed.OTP_EMAIL_TRANSPORT === "resend") {
-    const apiKey = parsed.RESEND_API_KEY;
-    const fromEmail = parsed.RESEND_FROM_EMAIL;
-    const fromName = parsed.RESEND_FROM_NAME;
-    if (
-      apiKey === undefined ||
-      fromEmail === undefined ||
-      fromName === undefined
-    ) {
-      throw new ConfigValidationError(otpDeliveryIssues(parsed));
-    }
-    return { transport: "resend", apiKey, fromEmail, fromName };
+    return {
+      transport: "resend",
+      apiKey: requireOtpString(parsed.RESEND_API_KEY, "RESEND_API_KEY"),
+      fromEmail: requireOtpString(
+        parsed.RESEND_FROM_EMAIL,
+        "RESEND_FROM_EMAIL",
+      ),
+      fromName: requireOtpString(parsed.RESEND_FROM_NAME, "RESEND_FROM_NAME"),
+    };
   }
   return { transport: "stub" };
 }
 
 function mapOtpSms(parsed: ParsedEnv): ServerConfig["otpDelivery"]["sms"] {
   if (parsed.OTP_SMS_TRANSPORT === "sms-fly") {
-    const apiKey = parsed.SMS_FLY_API_KEY;
-    const sender = parsed.SMS_FLY_SENDER;
-    if (apiKey === undefined || sender === undefined) {
-      throw new ConfigValidationError(otpDeliveryIssues(parsed));
-    }
     return {
       transport: "sms-fly",
-      apiKey,
+      apiKey: requireOtpString(parsed.SMS_FLY_API_KEY, "SMS_FLY_API_KEY"),
       apiUrl: parsed.SMS_FLY_API_URL,
-      sender,
+      sender: requireOtpString(parsed.SMS_FLY_SENDER, "SMS_FLY_SENDER"),
     };
   }
   return { transport: "stub", apiUrl: parsed.SMS_FLY_API_URL };
