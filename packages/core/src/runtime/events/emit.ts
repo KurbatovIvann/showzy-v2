@@ -30,11 +30,9 @@ import {
   type ActionCtx,
   type CtxEmit,
 } from "../context/types.js";
+import { UUID_PATTERN } from "../patterns.js";
 import type { EventAggregateRef, EventDefinition } from "./define-event.js";
 import { uuidv7 } from "./uuidv7.js";
-
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** One validated `ctx.emit` call, waiting for the step-9 flush. */
 interface BufferedEmission {
@@ -133,37 +131,81 @@ export function createEmitBuffer(options: {
           `"${contract.name}" flushed events with an anonymous actor — event envelopes accept user/system actors only (core.md §2)`,
         );
       }
-      for (const emission of buffered) {
-        const companyId = resolveEventCompanyId(
-          contract.name,
-          emission.definition,
-          ctx,
-        );
-        const sequence = await nextAggregateSequence(
+      // Group by aggregate in first-emission order (which also fixes the
+      // sequence-row lock order): one upsert advances each aggregate's
+      // sequence by the whole group size, then one multi-row insert writes
+      // every outbox row — 2 round trips per aggregate + 1, instead of 2N.
+      const groups = groupByAggregate(contract.name, buffered, ctx);
+      const rows: (typeof domainEvents.$inferInsert)[] = [];
+      for (const group of groups) {
+        const lastSequence = await advanceAggregateSequence(
           tx,
-          emission.aggregate,
-          companyId,
+          group.aggregate,
+          group.companyId,
+          BigInt(group.emissions.length),
         );
-        await tx.insert(domainEvents).values({
-          id: emission.eventId,
-          name: emission.definition.name,
-          version: emission.definition.version,
-          occurredAt: emission.occurredAt,
-          companyId,
-          aggregateType: emission.aggregate.type,
-          aggregateId: emission.aggregate.id,
-          aggregateSequence: sequence,
-          actorType: actor.type,
-          actorId: actor.id,
-          channel: ctx.channel,
-          requestId: ctx.requestId,
-          correlationId: ctx.correlationId,
-          causationId,
-          payload: emission.payload,
-        });
+        let sequence = lastSequence - BigInt(group.emissions.length);
+        for (const emission of group.emissions) {
+          sequence += 1n;
+          rows.push({
+            id: emission.eventId,
+            name: emission.definition.name,
+            version: emission.definition.version,
+            occurredAt: emission.occurredAt,
+            companyId: emission.companyId,
+            aggregateType: emission.aggregate.type,
+            aggregateId: emission.aggregate.id,
+            aggregateSequence: sequence,
+            actorType: actor.type,
+            actorId: actor.id,
+            channel: ctx.channel,
+            requestId: ctx.requestId,
+            correlationId: ctx.correlationId,
+            causationId,
+            payload: emission.payload,
+          });
+        }
       }
+      await tx.insert(domainEvents).values(rows);
     },
   };
+}
+
+interface AggregateGroup {
+  readonly aggregate: EventAggregateRef;
+  /** The first emission's envelope company — the sequence-row insert value. */
+  readonly companyId: string | null;
+  readonly emissions: (BufferedEmission & {
+    readonly companyId: string | null;
+  })[];
+}
+
+/**
+ * Buckets the buffer by `(aggregateType, aggregateId)`, preserving both
+ * emission order within a group and first-occurrence order across groups,
+ * and resolves each emission's envelope company scope up front.
+ */
+function groupByAggregate(
+  actionName: string,
+  buffered: readonly BufferedEmission[],
+  ctx: ActionCtx,
+): AggregateGroup[] {
+  const groups = new Map<string, AggregateGroup>();
+  for (const emission of buffered) {
+    const companyId = resolveEventCompanyId(
+      actionName,
+      emission.definition,
+      ctx,
+    );
+    const key = `${emission.aggregate.type}\0${emission.aggregate.id}`;
+    let group = groups.get(key);
+    if (group === undefined) {
+      group = { aggregate: emission.aggregate, companyId, emissions: [] };
+      groups.set(key, group);
+    }
+    group.emissions.push({ ...emission, companyId });
+  }
+  return [...groups.values()];
 }
 
 /**
@@ -189,15 +231,18 @@ function resolveEventCompanyId(
 }
 
 /**
- * Increments the per-aggregate sequence row in the flushing transaction
- * (core.md §6 ordering). The upsert takes the row lock, so concurrent
- * emitters for one aggregate serialize on it and sequences stay strictly
- * monotonic; the increments roll back with the transaction.
+ * Advances the per-aggregate sequence row by the whole group size in the
+ * flushing transaction (core.md §6 ordering). The upsert takes the row
+ * lock, so concurrent emitters for one aggregate serialize on it and
+ * sequences stay strictly monotonic; the increments roll back with the
+ * transaction. Returns the new `lastSequence` — the group occupies
+ * `lastSequence - count + 1 … lastSequence`.
  */
-async function nextAggregateSequence(
+async function advanceAggregateSequence(
   tx: Tx,
   aggregate: EventAggregateRef,
   companyId: string | null,
+  count: bigint,
 ): Promise<bigint> {
   const rows = await tx
     .insert(eventAggregateSequences)
@@ -205,7 +250,7 @@ async function nextAggregateSequence(
       aggregateType: aggregate.type,
       aggregateId: aggregate.id,
       companyId,
-      lastSequence: 1n,
+      lastSequence: count,
     })
     .onConflictDoUpdate({
       target: [
@@ -213,7 +258,7 @@ async function nextAggregateSequence(
         eventAggregateSequences.aggregateId,
       ],
       set: {
-        lastSequence: sql`${eventAggregateSequences.lastSequence} + 1`,
+        lastSequence: sql`${eventAggregateSequences.lastSequence} + ${count}`,
       },
     })
     .returning({ lastSequence: eventAggregateSequences.lastSequence });

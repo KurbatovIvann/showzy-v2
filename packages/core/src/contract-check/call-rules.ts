@@ -7,12 +7,10 @@
  * invocation). One rule list with two enforcement points, so CI and
  * runtime cannot drift.
  */
+import { moduleOf } from "../contract/module-of.js";
 import type { ActionContract } from "../contract/types.js";
 
-/** `<module>.<verb>` → `<module>` (conventions.mdc naming). */
-export function moduleOf(qualifiedName: string): string {
-  return qualifiedName.split(".", 1)[0] ?? qualifiedName;
-}
+export { moduleOf };
 
 export function describePrincipal(contract: ActionContract): string {
   if (contract.principal === "system") {

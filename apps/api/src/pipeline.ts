@@ -51,7 +51,7 @@ export function createActionPipeline(
         db: options.db,
         ...clock,
       }),
-      audit: createAuditHook({ db: options.db }),
+      audit: createAuditHook({ db: options.db, logger: options.logger }),
     },
     ...clock,
   };

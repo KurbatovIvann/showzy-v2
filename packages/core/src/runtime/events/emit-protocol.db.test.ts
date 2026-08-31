@@ -216,7 +216,9 @@ function deps(auditHook?: AuditHook): ActionPipelineDeps {
     logger: silentLogger,
     hooks: {
       rateLimit,
-      audit: auditHook ?? createAuditHook({ db: database.runtime.db }),
+      audit:
+        auditHook ??
+        createAuditHook({ db: database.runtime.db, logger: silentLogger }),
     },
   };
 }
@@ -365,6 +367,61 @@ describe("ctx.emit — per-aggregate ordering (core.md §6)", () => {
     expect(rows[1]?.version).toBe(2);
     const [sequenceRow] = await sequenceRowsFor(noteId);
     expect(sequenceRow?.lastSequence).toBe(2n);
+  });
+
+  it("flushes many events for interleaved aggregates in emit order with one sequence row per aggregate", async () => {
+    const noteA = randomUUID();
+    const noteB = randomUUID();
+    const emitted = 5;
+
+    await executeAction(deps(), {
+      action: staffAction((_input, ctx) => {
+        for (let i = 0; i < emitted; i += 1) {
+          ctx.emit(noteCreated, {
+            aggregate: { type: "note", id: noteA },
+            payload: { noteId: noteA, title: `A ${String(i + 1)}` },
+          });
+          // Interleave a second aggregate so the batched flush has to
+          // bucket the buffer, not just count it.
+          if (i < 2) {
+            ctx.emit(noteCreated, {
+              aggregate: { type: "note", id: noteB },
+              payload: { noteId: noteB, title: `B ${String(i + 1)}` },
+            });
+          }
+        }
+        return Promise.resolve({ resultId: randomUUID() });
+      }),
+      input: {},
+      request: requestMeta(),
+      principal: staffPrincipal,
+    });
+
+    const rowsA = await eventRowsFor(noteA);
+    expect(rowsA.map((row) => row.aggregateSequence)).toEqual([
+      1n,
+      2n,
+      3n,
+      4n,
+      5n,
+    ]);
+    expect(rowsA.map((row) => row.payload)).toEqual(
+      [1, 2, 3, 4, 5].map((i) => ({
+        noteId: noteA,
+        title: `A ${String(i)}`,
+        flagged: false,
+      })),
+    );
+
+    const rowsB = await eventRowsFor(noteB);
+    expect(rowsB.map((row) => row.aggregateSequence)).toEqual([1n, 2n]);
+
+    const sequenceRowsA = await sequenceRowsFor(noteA);
+    expect(sequenceRowsA).toHaveLength(1);
+    expect(sequenceRowsA[0]?.lastSequence).toBe(5n);
+    const sequenceRowsB = await sequenceRowsFor(noteB);
+    expect(sequenceRowsB).toHaveLength(1);
+    expect(sequenceRowsB[0]?.lastSequence).toBe(2n);
   });
 
   it("continues the sequence across invocations", async () => {

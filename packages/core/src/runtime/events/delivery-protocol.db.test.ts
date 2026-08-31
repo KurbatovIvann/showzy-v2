@@ -356,7 +356,7 @@ function deps(
     ...(overrides.now === undefined ? {} : { now: overrides.now }),
     hooks: {
       rateLimit: { enforce: () => Promise.resolve() },
-      audit: createAuditHook({ db: database.runtime.db }),
+      audit: createAuditHook({ db: database.runtime.db, logger: silentLogger }),
     },
   };
 }

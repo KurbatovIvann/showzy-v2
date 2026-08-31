@@ -39,10 +39,7 @@ import {
   CoreInvariantError,
   IdempotencyConflictError,
 } from "../../errors/index.js";
-import {
-  canonicalJsonSha256,
-  type JsonSerializable,
-} from "../audit/canonical-json.js";
+import { canonicalJsonSha256OfUnknown } from "../audit/canonical-json.js";
 import type {
   ConfirmationGrant,
   IdempotencyHook,
@@ -69,14 +66,35 @@ export interface IdempotencyHookDeps {
   readonly now?: () => number;
 }
 
+/**
+ * Brand distinguishing this hook's reservations from any other object the
+ * pipeline could hand back — `finalize`/`markFailed` verify it instead of
+ * blindly casting.
+ */
+const RESERVATION_BRAND = Symbol("idempotency-reservation");
+
 /** The opaque reservation handed back to `finalize`/`markFailed`. */
 interface IdempotencyReservation {
+  readonly [RESERVATION_BRAND]: true;
   readonly principalKey: string;
   readonly scopeKey: string;
   readonly action: string;
   readonly key: string;
   readonly attemptId: string;
   readonly leaseMs: number;
+}
+
+function requireReservation(reservation: unknown): IdempotencyReservation {
+  if (
+    typeof reservation !== "object" ||
+    reservation === null ||
+    !(RESERVATION_BRAND in reservation)
+  ) {
+    throw new CoreInvariantError(
+      "idempotency finalize/markFailed received a reservation this hook did not issue — pipeline composition bug",
+    );
+  }
+  return reservation as IdempotencyReservation;
 }
 
 export function createIdempotencyHook(
@@ -218,7 +236,7 @@ export function createIdempotencyHook(
     },
 
     async finalize({ tx, reservation, output }) {
-      const r = reservation as IdempotencyReservation;
+      const r = requireReservation(reservation);
       const updated = await tx
         .update(idempotencyKeys)
         .set({ status: "completed", response: output })
@@ -241,7 +259,7 @@ export function createIdempotencyHook(
     },
 
     async markFailed({ reservation }) {
-      const r = reservation as IdempotencyReservation;
+      const r = requireReservation(reservation);
       // A separate short transaction (single statement) after rollback. Zero
       // rows is fine: a takeover already owns the key.
       await deps.db
@@ -291,9 +309,12 @@ function pkWhere(identity: RowIdentity): ReturnType<typeof and> {
 }
 
 function execute(
-  reservation: IdempotencyReservation,
+  reservation: Omit<IdempotencyReservation, typeof RESERVATION_BRAND>,
 ): IdempotencyReserveResult {
-  return { kind: "execute", reservation };
+  return {
+    kind: "execute",
+    reservation: { ...reservation, [RESERVATION_BRAND]: true },
+  };
 }
 
 /**
@@ -352,8 +373,8 @@ function requestHashOf(
   principalKey: string,
   scopeKey: string,
 ): string {
-  return canonicalJsonSha256({
-    input: env.input as JsonSerializable,
+  return canonicalJsonSha256OfUnknown({
+    input: env.input,
     principalKey,
     scopeKey,
   });

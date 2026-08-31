@@ -23,7 +23,7 @@ import {
 import { user } from "@showzy/db/schema/auth";
 import { createTestDatabase, type TestDatabase } from "@showzy/db/testing";
 import { eq } from "drizzle-orm";
-import { pino } from "pino";
+import { pino, type Logger } from "pino";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -52,6 +52,29 @@ const users = {
 const companyA = randomUUID();
 
 const silentLogger = pino({ enabled: false });
+
+function captureLogger(): {
+  logger: Logger;
+  entries: () => Record<string, unknown>[];
+} {
+  const lines: string[] = [];
+  const logger = pino(
+    { base: null },
+    {
+      write(chunk: string) {
+        lines.push(chunk);
+      },
+    },
+  );
+  return {
+    logger,
+    entries: () =>
+      lines
+        .flatMap((chunk) => chunk.split("\n"))
+        .filter((line) => line !== "")
+        .map((line) => JSON.parse(line) as Record<string, unknown>),
+  };
+}
 
 beforeAll(async () => {
   database = await createTestDatabase();
@@ -115,7 +138,7 @@ function depsWithAudit(
 ): ActionPipelineDeps {
   const hooks: PipelineHooks = {
     rateLimit: { enforce: () => Promise.resolve() },
-    audit: createAuditHook({ db: database.runtime.db }),
+    audit: createAuditHook({ db: database.runtime.db, logger: silentLogger }),
     ...overrides.hooks,
   };
   return {
@@ -368,7 +391,7 @@ describe("audit protocol — transactionality", () => {
     const req = requestMeta();
 
     const hooks: PipelineHooks = {
-      audit: createAuditHook({ db: database.runtime.db }),
+      audit: createAuditHook({ db: database.runtime.db, logger: silentLogger }),
       idempotency: {
         probe: () => Promise.resolve({ kind: "fresh" as const }),
         reserve: () => Promise.resolve({ kind: "execute", reservation: "r" }),
@@ -445,8 +468,50 @@ describe("audit protocol — transactionality", () => {
     expect(rows[0]?.action).toBe("auditFixture.read");
   });
 
+  it("logs at error level and falls back to a synthetic target when auditTarget fails during failure recording", async () => {
+    const { logger, entries } = captureLogger();
+    const hook = createAuditHook({ db: database.runtime.db, logger });
+    const request = { ...requestMeta(), action: writeContract.name };
+
+    await hook.recordFailure({
+      contract: writeContract,
+      request,
+      principal: {
+        mode: "staff",
+        session: { userId: users.anna },
+        companySelector: companyA,
+      },
+      input: { orderId: randomUUID(), note: "broken target builder" },
+      error: new ConflictError("unused"),
+      authorization: {
+        actor: { type: "user", id: users.anna },
+        companyId: companyA,
+      },
+      durationMs: 1,
+      auditTarget: () => {
+        throw new Error("target builder exploded");
+      },
+    });
+
+    // The audit row is still written, with the synthetic fallback target.
+    const rows = await auditRows(request.requestId);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.targetType).toBe("unknown");
+    expect(rows[0]?.targetId).toBe("unknown");
+    expect(rows[0]?.outcome).toBe("CONFLICT");
+
+    // The broken auditTarget builder is visible in the logs.
+    const errorLogs = entries().filter((entry) => entry.level === 50);
+    expect(errorLogs).toHaveLength(1);
+    expect(errorLogs[0]?.action).toBe(writeContract.name);
+    expect(errorLogs[0]?.request_id).toBe(request.requestId);
+  });
+
   it("refuses to write an audit row for an anonymous actor", async () => {
-    const hook = createAuditHook({ db: database.runtime.db });
+    const hook = createAuditHook({
+      db: database.runtime.db,
+      logger: silentLogger,
+    });
     await expect(
       hook.recordFailure({
         contract: writeContract,

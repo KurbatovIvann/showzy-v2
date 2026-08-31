@@ -16,6 +16,7 @@ import {
   companyMembers,
   rolePermissionDefaults,
   createProjectionReadTx,
+  createReadTx,
   type ProjectionGrant,
   type ReadTx,
 } from "@showzy/db";
@@ -26,6 +27,7 @@ import {
   CoreInvariantError,
   PermissionDeniedError,
 } from "../../errors/index.js";
+import { UUID_PATTERN } from "../patterns.js";
 import type { ResolvedTarget, TargetResolutionEnv } from "../types.js";
 import { isCompanyRole, resolveEffectivePermissions } from "./permissions.js";
 import type {
@@ -82,9 +84,6 @@ export interface ContextRuntime<TDb> {
   readonly callAtomic: CtxCallAtomic;
 }
 
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 function requireSession(
   session: SessionPrincipal | null,
   mode: string,
@@ -111,17 +110,22 @@ function requireClientIp(request: ActionRequestMeta, mode: string): string {
 }
 
 /**
- * Read-only facade over whatever capability the runtime carries. Target
- * resolvers always get this view — even when the execution transaction is
- * writable, a resolver cannot compile or execute a mutation (core.md §2).
+ * A nested resolver crossing tenants is a server bug (core.md §9), never a
+ * user error — every resolver-backed factory asserts this the same way.
  */
-function readOnlyView(db: ReadTx): ReadTx {
-  return {
-    select: db.select.bind(db),
-    selectDistinct: db.selectDistinct.bind(db),
-    selectDistinctOn: db.selectDistinctOn.bind(db),
-    $count: db.$count.bind(db),
-  };
+function assertInheritedCompany(
+  action: string,
+  resolvedCompanyId: string,
+  inheritedCompanyId: string | undefined,
+): void {
+  if (
+    inheritedCompanyId !== undefined &&
+    resolvedCompanyId !== inheritedCompanyId
+  ) {
+    throw new CoreInvariantError(
+      `nested resolver of "${action}" resolved company ${resolvedCompanyId}, expected inherited company ${inheritedCompanyId}`,
+    );
+  }
 }
 
 /**
@@ -205,19 +209,26 @@ export async function createStaffContext<TDb extends ReadTx>(options: {
     });
   }
 
+  // One round trip for membership + role defaults: the LEFT JOIN keeps
+  // the membership row even when the role has no default permissions, so
+  // the denial and unknown-role branches behave exactly as before.
   const membershipRows = await runtime.db
     .select({
       role: companyMembers.role,
       permissions: companyMembers.permissions,
+      defaultPermission: rolePermissionDefaults.permission,
     })
     .from(companyMembers)
+    .leftJoin(
+      rolePermissionDefaults,
+      eq(rolePermissionDefaults.role, companyMembers.role),
+    )
     .where(
       and(
         eq(companyMembers.companyId, selector),
         eq(companyMembers.userId, session.userId),
       ),
-    )
-    .limit(1);
+    );
   const membershipRow = membershipRows[0];
   if (membershipRow === undefined) {
     // Same message whether the company is foreign or nonexistent — a
@@ -235,15 +246,13 @@ export async function createStaffContext<TDb extends ReadTx>(options: {
     );
   }
 
-  const defaultRows = await runtime.db
-    .select({ permission: rolePermissionDefaults.permission })
-    .from(rolePermissionDefaults)
-    .where(eq(rolePermissionDefaults.role, membershipRow.role));
   const membership: StaffMembership = {
     role: membershipRow.role,
     permissions: resolveEffectivePermissions(
       membershipRow.permissions,
-      defaultRows.map((row) => row.permission),
+      membershipRows.flatMap((row) =>
+        row.defaultPermission === null ? [] : [row.defaultPermission],
+      ),
     ),
   };
 
@@ -289,22 +298,17 @@ export async function createCustomerContext<
   const session = requireSession(options.session, "customer");
 
   const target = await options.resolveTarget(options.input, {
-    tx: readOnlyView(runtime.db),
+    tx: createReadTx(runtime.db),
     principal: { mode: "customer", userId: session.userId },
     ...(options.inheritedCompanyId !== undefined
       ? { inheritedCompanyId: options.inheritedCompanyId }
       : {}),
   });
-  if (
-    options.inheritedCompanyId !== undefined &&
-    target.companyId !== options.inheritedCompanyId
-  ) {
-    // A nested resolver crossing tenants is a server bug (core.md §9),
-    // never a user error.
-    throw new CoreInvariantError(
-      `nested resolver of "${request.action}" resolved company ${target.companyId}, expected inherited company ${options.inheritedCompanyId}`,
-    );
-  }
+  assertInheritedCompany(
+    request.action,
+    target.companyId,
+    options.inheritedCompanyId,
+  );
 
   const actor: ActionActor = { type: "user", id: session.userId };
   return Object.freeze({
@@ -392,26 +396,23 @@ export async function createPublicContext<
   }
 
   const target = await options.resolveTarget(options.input, {
-    tx: readOnlyView(runtime.db),
+    tx: createReadTx(runtime.db),
     principal: { mode: "public" },
     ...(options.inheritedCompanyId !== undefined
       ? { inheritedCompanyId: options.inheritedCompanyId }
       : {}),
   });
-  if (
-    options.inheritedCompanyId !== undefined &&
-    target.companyId !== options.inheritedCompanyId
-  ) {
-    throw new CoreInvariantError(
-      `nested resolver of "${request.action}" resolved company ${target.companyId}, expected inherited company ${options.inheritedCompanyId}`,
-    );
-  }
+  assertInheritedCompany(
+    request.action,
+    target.companyId,
+    options.inheritedCompanyId,
+  );
 
   return Object.freeze({
     ...buildBase({
       request,
       runtime,
-      db: readOnlyView(runtime.db),
+      db: createReadTx(runtime.db),
       actor: ANONYMOUS_ACTOR,
       companyId: target.companyId,
     }),
@@ -497,7 +498,7 @@ export function createConsumerContext(options: {
     ...buildBase({
       request,
       runtime,
-      db: readOnlyView(runtime.db),
+      db: createReadTx(runtime.db),
       actor,
       companyId: null,
     }),
@@ -562,20 +563,17 @@ export async function createShareContext<
   const clientIp = requireClientIp(request, "share");
 
   const resolved = await options.resolveTarget(options.input, {
-    tx: readOnlyView(runtime.db),
+    tx: createReadTx(runtime.db),
     principal: { mode: "share" },
     ...(options.inheritedCompanyId !== undefined
       ? { inheritedCompanyId: options.inheritedCompanyId }
       : {}),
   });
-  if (
-    options.inheritedCompanyId !== undefined &&
-    resolved.companyId !== options.inheritedCompanyId
-  ) {
-    throw new CoreInvariantError(
-      `nested resolver of "${request.action}" resolved company ${resolved.companyId}, expected inherited company ${options.inheritedCompanyId}`,
-    );
-  }
+  assertInheritedCompany(
+    request.action,
+    resolved.companyId,
+    options.inheritedCompanyId,
+  );
   const tokenHash = resolved.tokenHash;
   if (tokenHash === undefined || tokenHash === "") {
     throw new CoreInvariantError(

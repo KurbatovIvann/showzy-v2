@@ -169,7 +169,7 @@ function deps(
     logger: silentLogger,
     hooks: {
       rateLimit,
-      audit: createAuditHook({ db: database.runtime.db }),
+      audit: createAuditHook({ db: database.runtime.db, logger: silentLogger }),
       idempotency: createIdempotencyHook({
         db: database.runtime.db,
         ...clock,

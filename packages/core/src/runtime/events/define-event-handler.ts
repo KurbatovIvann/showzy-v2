@@ -20,6 +20,7 @@ import type {
 import type { EventSubscriptionRef } from "../../contract-check/contract-check.js";
 import type { AnyActionContract } from "../action-registry.js";
 import type { ImplementedAction } from "../implement-action.js";
+import { CONSUMER_NAME_PATTERN } from "../patterns.js";
 import { executeAction } from "../pipeline/execute-action.js";
 import type { EventDefinition } from "./define-event.js";
 import type { z } from "zod";
@@ -94,14 +95,6 @@ export type EventSubscription = {
   /** @internal Runs the bound action through the pipeline (delivery.ts). */
   readonly invoke: EventSubscriptionInvoke;
 } & { readonly [eventSubscriptionBrand]: true };
-
-/**
- * `<module>.<kebab-name>` — the module segment matches action/event
- * naming; the consumer segment is lower-case kebab (core.md §6 example:
- * "chat.order-card-updater").
- */
-const CONSUMER_NAME_PATTERN =
-  /^[a-z][a-zA-Z0-9]*\.[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 
 /**
  * Validates and freezes an event subscription. Throws

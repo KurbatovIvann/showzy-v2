@@ -8,6 +8,7 @@
  */
 import { z } from "zod";
 
+import { moduleOf } from "./module-of.js";
 import type {
   ActionContract,
   ActionContractDefinition,
@@ -400,8 +401,4 @@ function validateAtomicEdges(
 
 function hasDuplicates(values: readonly string[]): boolean {
   return new Set(values).size !== values.length;
-}
-
-function moduleOf(qualifiedName: string): string {
-  return qualifiedName.split(".", 1)[0] ?? qualifiedName;
 }

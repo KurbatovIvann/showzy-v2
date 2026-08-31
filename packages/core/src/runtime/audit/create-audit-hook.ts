@@ -15,6 +15,7 @@
  * an `auditSnapshot` callback (hash-only is the default).
  */
 import { auditLog, type Database, type Tx } from "@showzy/db";
+import type { Logger } from "pino";
 
 import { CoreInvariantError } from "../../errors/index.js";
 import { effectiveCompanyId } from "../context/factories.js";
@@ -29,13 +30,12 @@ import type {
   PreflightAuthorization,
   PrincipalInvocation,
 } from "../pipeline/types.js";
-import {
-  canonicalJsonSha256,
-  type JsonSerializable,
-} from "./canonical-json.js";
+import { canonicalJsonSha256OfUnknown } from "./canonical-json.js";
 
 export interface AuditHookDeps {
   readonly db: Database;
+  /** Process logger — audit-target callback failures are logged, never swallowed. */
+  readonly logger: Logger;
 }
 
 export function createAuditHook(deps: AuditHookDeps): AuditHook {
@@ -86,9 +86,18 @@ export function createAuditHook(deps: AuditHookDeps): AuditHook {
         try {
           const targetEnv: AuditTargetEnv = { input: env.input };
           target = await env.auditTarget(targetEnv);
-        } catch {
-          // If the target callback fails during failure recording, we still
-          // need the audit row — use a synthetic target.
+        } catch (targetError) {
+          // The audit row must still be written — fall back to a synthetic
+          // target, but a broken auditTarget builder is a server bug and
+          // must be visible in the logs.
+          deps.logger.error(
+            {
+              action: env.contract.name,
+              request_id: env.request.requestId,
+              err: targetError,
+            },
+            "auditTarget callback failed during failure recording — audit row falls back to a synthetic target",
+          );
         }
       }
 
@@ -154,7 +163,7 @@ async function insertAuditRow(tx: Tx, row: AuditRowInput): Promise<void> {
 }
 
 function hashInput(input: unknown): string {
-  return canonicalJsonSha256(input as JsonSerializable);
+  return canonicalJsonSha256OfUnknown(input);
 }
 
 function resolveFailureIdentity(

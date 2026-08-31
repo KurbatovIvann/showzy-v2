@@ -81,3 +81,13 @@ export function canonicalJsonSha256(value: JsonSerializable): string {
   const canonical = canonicalJson(value);
   return createHash("sha256").update(canonical, "utf8").digest("hex");
 }
+
+/**
+ * `canonicalJsonSha256` for values the pipeline holds as `unknown` (the
+ * step-1 Zod-validated input). The serializer itself rejects anything that
+ * is not JSON, so this is the one sanctioned cast site — callers keep
+ * `unknown` in their signatures instead of casting per call site.
+ */
+export function canonicalJsonSha256OfUnknown(value: unknown): string {
+  return canonicalJsonSha256(value as JsonSerializable);
+}

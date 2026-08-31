@@ -515,7 +515,9 @@ function collectSchemaOwnershipProblems(
   schemaImports: readonly SchemaImportRef[],
   problems: string[],
 ): void {
+  const grantedEdges = new Set<string>();
   for (const grant of readModelGrants) {
+    grantedEdges.add(`${grant.owner}\0${grant.grantee}`);
     if (!PROJECTION_MODULES.has(grant.grantee)) {
       problems.push(
         `read-model grant "${grant.owner}" → "${grant.grantee}": grantee is not a cross-cutting projection module (ADR-0015 §3 names search and analytics only)`,
@@ -526,10 +528,8 @@ function collectSchemaOwnershipProblems(
     if (schemaImport.importer === schemaImport.schemaOwner) {
       continue;
     }
-    const granted = readModelGrants.some(
-      (grant) =>
-        grant.owner === schemaImport.schemaOwner &&
-        grant.grantee === schemaImport.importer,
+    const granted = grantedEdges.has(
+      `${schemaImport.schemaOwner}\0${schemaImport.importer}`,
     );
     if (!granted) {
       problems.push(
