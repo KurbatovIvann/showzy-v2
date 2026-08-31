@@ -13,9 +13,7 @@ import { NULL_COMPANY_QUERY_SCOPE } from "./query-options";
 describe("listMineQueryOptions", () => {
   it("uses the missing-session sentinel and stays disabled without a session", () => {
     const options = listMineQueryOptions(null, null);
-    expect(options.queryKey).toEqual(
-      listMineQueryKey("missing-session"),
-    );
+    expect(options.queryKey).toEqual(listMineQueryKey("missing-session"));
     expect(options.queryKey[1]).toBe(NULL_COMPANY_QUERY_SCOPE);
     expect(options.enabled).toBe(false);
     expect(LIST_MINE_ACTION).toBe("companies.listMine");

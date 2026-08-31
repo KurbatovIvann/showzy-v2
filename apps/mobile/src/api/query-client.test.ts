@@ -7,10 +7,7 @@ import { defineActionContract } from "@showzy/core/contract";
 import { MutationObserver, QueryObserver } from "@tanstack/react-query";
 
 import { createShowzyClient } from "./client";
-import {
-  ClientUnavailableError,
-  InternalInvariantError,
-} from "./errors";
+import { ClientUnavailableError, InternalInvariantError } from "./errors";
 import {
   bindActiveCompanyQueryIsolation,
   createShowzyQueryClient,

@@ -27,8 +27,7 @@ export function listMineQueryOptions(
       actionName: LIST_MINE_ACTION,
       sessionUserId: querySession,
       input: {},
-      queryFn: () =>
-        requireReadyClient(client).client.companies.listMine({}),
+      queryFn: () => requireReadyClient(client).client.companies.listMine({}),
     }),
     enabled: client !== null && sessionUserId !== null,
   };

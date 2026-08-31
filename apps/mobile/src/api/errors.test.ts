@@ -133,7 +133,9 @@ describe("describeQueryFailure", () => {
     expect(describeQueryFailure(new HttpStatusError(429)).kind).toBe(
       "rate_limited",
     );
-    expect(describeQueryFailure(new HttpStatusError(503)).kind).toBe("internal");
+    expect(describeQueryFailure(new HttpStatusError(503)).kind).toBe(
+      "internal",
+    );
     expect(describeQueryFailure(new HttpStatusError(418)).kind).toBe("network");
   });
 

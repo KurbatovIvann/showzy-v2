@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  clearLocalAuthJar,
-  signOutClearingLocalJar,
-} from "./sign-out";
+import { clearLocalAuthJar, signOutClearingLocalJar } from "./sign-out";
 import {
   AUTH_COOKIE_KEY,
   AUTH_SESSION_CACHE_KEY,
