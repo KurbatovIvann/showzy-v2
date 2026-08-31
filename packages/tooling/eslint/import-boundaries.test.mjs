@@ -60,6 +60,10 @@ test("showzy/import-boundaries", () => {
         code: `import { catalogGetFacts } from "@showzy/catalog";`,
       },
       {
+        filename: file("packages/modules/orders/src/services/create-order.ts"),
+        code: `import { postgresUniqueConstraint } from "@showzy/module-kit/postgres-unique";`,
+      },
+      {
         filename: file(
           "packages/modules/doc-generation/src/services/put-generated-pdf.ts",
         ),
@@ -129,6 +133,21 @@ test("showzy/import-boundaries", () => {
         filename: file("packages/modules/orders/actions/create.contract.ts"),
         code: `import { implementAction } from "@showzy/core";`,
         errors: [{ messageId: "actionContract" }],
+      },
+      {
+        filename: file("packages/modules/orders/actions/create.contract.ts"),
+        code: `import { uniqueIds } from "@showzy/module-kit/unique-ids";`,
+        errors: [{ messageId: "actionContract" }],
+      },
+      {
+        filename: file("apps/mobile/src/app/index.ts"),
+        code: `import { sha256Hex } from "@showzy/module-kit/sha256";`,
+        errors: [{ messageId: "clientApp" }],
+      },
+      {
+        filename: file("apps/web/src/app/page.ts"),
+        code: `import { requireWritable } from "@showzy/module-kit/writable";`,
+        errors: [{ messageId: "clientApp" }],
       },
       {
         filename: file("packages/modules/orders/actions/create.ts"),

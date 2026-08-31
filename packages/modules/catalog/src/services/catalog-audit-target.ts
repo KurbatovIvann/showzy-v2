@@ -1,27 +1,19 @@
-import type { AuditTargetEnv } from "@showzy/core";
-import { z } from "zod";
+import {
+  PRODUCT_AUDIT_TYPE,
+  VARIANT_AUDIT_TYPE,
+  holderAuditTarget,
+} from "@showzy/module-kit/audit-target";
 
-const productIdHolder = z.object({ productId: z.string() });
-const variantIdHolder = z.object({ variantId: z.string() });
+export const productAuditTarget = holderAuditTarget({
+  type: PRODUCT_AUDIT_TYPE,
+  field: "productId",
+  fallback: "unknown",
+  sources: ["input"],
+});
 
-export function productAuditTarget(env: AuditTargetEnv): {
-  type: string;
-  id: string;
-} {
-  const parsed = productIdHolder.safeParse(env.input);
-  return {
-    type: "product",
-    id: parsed.success ? parsed.data.productId : "unknown",
-  };
-}
-
-export function variantAuditTarget(env: AuditTargetEnv): {
-  type: string;
-  id: string;
-} {
-  const parsed = variantIdHolder.safeParse(env.input);
-  return {
-    type: "product_variant",
-    id: parsed.success ? parsed.data.variantId : "unknown",
-  };
-}
+export const variantAuditTarget = holderAuditTarget({
+  type: VARIANT_AUDIT_TYPE,
+  field: "variantId",
+  fallback: "unknown",
+  sources: ["input"],
+});

@@ -1,22 +1,10 @@
 import { implementAction } from "@showzy/core";
 import { CoreInvariantError } from "@showzy/core/errors";
 import { signingSignatures } from "@showzy/db/schema/doc-signing";
+import { uniqueIds } from "@showzy/module-kit/unique-ids";
 import { and, eq, inArray } from "drizzle-orm";
 
 import { getSupplierSignedFlagsContract } from "./get-supplier-signed-flags.contract.js";
-
-function uniqueDocumentIds(documentIds: readonly string[]): string[] {
-  const ids: string[] = [];
-  const seen = new Set<string>();
-  for (const documentId of documentIds) {
-    if (seen.has(documentId)) {
-      continue;
-    }
-    seen.add(documentId);
-    ids.push(documentId);
-  }
-  return ids;
-}
 
 export const getSupplierSignedFlags = implementAction(
   getSupplierSignedFlagsContract,
@@ -28,7 +16,7 @@ export const getSupplierSignedFlags = implementAction(
         );
       }
 
-      const documentIds = uniqueDocumentIds(input.documentIds);
+      const documentIds = uniqueIds(input.documentIds);
       if (documentIds.length === 0) {
         return { flags: [] };
       }

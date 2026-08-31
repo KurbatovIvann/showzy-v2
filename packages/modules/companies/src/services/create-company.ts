@@ -8,6 +8,7 @@ import { randomUUID } from "node:crypto";
 import type { ActionCtx } from "@showzy/core";
 import { ConflictError } from "@showzy/core/errors";
 import { companies, companyMembers } from "@showzy/db/schema/companies";
+import { postgresUniqueConstraint } from "@showzy/module-kit/postgres-unique";
 import { and, eq, like } from "drizzle-orm";
 import type { z } from "zod";
 
@@ -15,7 +16,6 @@ import type {
   createCompanyInputSchema,
   createCompanyOutputSchema,
 } from "../actions/create.contract.js";
-import { postgresUniqueConstraint } from "./postgres-unique.js";
 import { derivePrefixBase, pickAvailablePrefix } from "./prefix.js";
 import { requireWritable, type WritableAccountDb } from "./writable.js";
 

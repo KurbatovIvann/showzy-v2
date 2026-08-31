@@ -3,6 +3,8 @@ import { randomUUID } from "node:crypto";
 import type { ActionCtx } from "@showzy/core";
 import { ConflictError, CoreInvariantError } from "@showzy/core/errors";
 import { documentItems, documents } from "@showzy/db/schema/documents";
+import { moneyToCanonical } from "@showzy/module-kit/canonical";
+import { parseDbEnum } from "@showzy/module-kit/parse-db-enum";
 import { and, eq, ne } from "drizzle-orm";
 import type { z } from "zod";
 
@@ -13,7 +15,6 @@ import {
   type documentTypeSchema,
 } from "../actions/document-view.contract.js";
 import { documentsCreated } from "../events/created.js";
-import { moneyToCanonical } from "./canonical.js";
 import {
   allocateNextDocumentNumber,
   formatDocumentNumber,
@@ -61,13 +62,11 @@ export interface OrderSnapshot {
 function parseTaxTreatment(
   value: string,
 ): z.output<typeof documentTaxTreatmentSchema> {
-  const parsed = documentTaxTreatmentSchema.safeParse(value);
-  if (!parsed.success) {
-    throw new CoreInvariantError(
-      `order line tax_treatment "${value}" is not a document snapshot value`,
-    );
-  }
-  return parsed.data;
+  return parseDbEnum(
+    documentTaxTreatmentSchema,
+    value,
+    `order line tax_treatment "${value}" is not a document snapshot value`,
+  );
 }
 
 export function assertOrderNotCanceled(status: string): void {

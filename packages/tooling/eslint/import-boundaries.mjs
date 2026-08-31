@@ -24,6 +24,7 @@ const PLATFORM_PACKAGES = new Set([
   "db",
   "document-signing",
   "money",
+  "module-kit",
   "tooling",
   "ui",
   "validation",

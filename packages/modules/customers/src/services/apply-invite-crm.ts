@@ -7,6 +7,7 @@ import {
   NotFoundError,
 } from "@showzy/core/errors";
 import { companyCustomers, customerGroups } from "@showzy/db/schema/customers";
+import { optionalNullableUuid } from "@showzy/module-kit/optional-nullable-uuid";
 import { and, eq, isNull, or } from "drizzle-orm";
 import type { z } from "zod";
 
@@ -15,7 +16,7 @@ import type {
   applyInviteCrmOutputSchema,
 } from "../actions/apply-invite-crm.contract.js";
 import { mapCustomerWriteError } from "./create-customer.js";
-import { nullableText, nullableUuid } from "./customer-view.js";
+import { nullableText } from "./customer-view.js";
 import { requireCustomerWritable } from "./writable.js";
 
 type CustomerCtx = Extract<ActionCtx, { principal: "customer" }>;
@@ -63,8 +64,8 @@ export async function applyInviteCrmRecord(env: {
   const db = requireCustomerWritable(ctx.db);
   const companyId = ctx.target.companyId;
   const userId = ctx.userId;
-  const groupId = nullableUuid(input.groupId);
-  const priceListId = nullableUuid(input.priceListId);
+  const groupId = optionalNullableUuid(input.groupId);
+  const priceListId = optionalNullableUuid(input.priceListId);
   const inviteName = nullableText(input.name);
   const invitePhone = nullableText(input.phone);
   const inviteEmail = nullableText(input.email);
@@ -259,7 +260,7 @@ export async function resolveApplyInviteCrmCompany(
     };
   }
 
-  const groupId = nullableUuid(input.groupId);
+  const groupId = optionalNullableUuid(input.groupId);
   if (groupId === null) {
     throw new NotFoundError();
   }

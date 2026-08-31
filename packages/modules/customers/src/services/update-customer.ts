@@ -1,6 +1,7 @@
 import type { ActionCtx } from "@showzy/core";
 import { CoreInvariantError, NotFoundError } from "@showzy/core/errors";
 import { companyCustomers, counterparties } from "@showzy/db/schema/customers";
+import { optionalNullableUuid } from "@showzy/module-kit/optional-nullable-uuid";
 import { and, count, eq } from "drizzle-orm";
 import type { z } from "zod";
 
@@ -10,7 +11,7 @@ import type {
 } from "../actions/update-customer.contract.js";
 import { assertCustomerAssignments } from "./assignments.js";
 import { mapCustomerWriteError } from "./create-customer.js";
-import { nullableText, nullableUuid, toCustomerView } from "./customer-view.js";
+import { nullableText, toCustomerView } from "./customer-view.js";
 import { requireWritable } from "./writable.js";
 
 type StaffCtx = Extract<ActionCtx, { principal: "staff" }>;
@@ -23,8 +24,8 @@ export async function updateStaffCustomer(env: {
 }): Promise<CustomerView> {
   const { ctx, input } = env;
   const db = requireWritable(ctx.db);
-  const groupId = nullableUuid(input.groupId);
-  const priceListId = nullableUuid(input.priceListId);
+  const groupId = optionalNullableUuid(input.groupId);
+  const priceListId = optionalNullableUuid(input.priceListId);
 
   const existing = (
     await db

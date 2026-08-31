@@ -1,8 +1,8 @@
 import { CoreInvariantError } from "@showzy/core/errors";
+import { moneyToCanonical } from "@showzy/module-kit/canonical";
 import type { z } from "zod";
 
 import type { priceListEntryRowSchema } from "../actions/list-price-list-entries.contract.js";
-import { moneyToCanonical } from "./canonical.js";
 
 export type PriceListEntryView = z.output<typeof priceListEntryRowSchema>;
 

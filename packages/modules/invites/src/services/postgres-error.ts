@@ -1,26 +1,5 @@
 import { CoreInvariantError, NotFoundError } from "@showzy/core/errors";
-
-function postgresError(error: unknown):
-  | {
-      readonly code: string;
-      readonly constraint: string | undefined;
-    }
-  | undefined {
-  if (typeof error !== "object" || error === null) {
-    return undefined;
-  }
-  if ("code" in error && typeof error.code === "string") {
-    const constraint =
-      "constraint" in error && typeof error.constraint === "string"
-        ? error.constraint
-        : undefined;
-    return { code: error.code, constraint };
-  }
-  if ("cause" in error) {
-    return postgresError(error.cause);
-  }
-  return undefined;
-}
+import { postgresError } from "@showzy/module-kit/postgres-unique";
 
 export function mapInviteWriteError(error: unknown): unknown {
   const pg = postgresError(error);

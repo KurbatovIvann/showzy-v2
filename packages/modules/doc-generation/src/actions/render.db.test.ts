@@ -44,6 +44,7 @@ import {
   configureFilesObjectStore,
   getFilesObjectStore,
 } from "@showzy/files/storage";
+import { sha256Hex } from "@showzy/module-kit/sha256";
 import { and, count, eq, isNull } from "drizzle-orm";
 import {
   GenericContainer,
@@ -58,7 +59,6 @@ import { renderPdf } from "./render-pdf.js";
 import type { renderPdfInputSchema } from "./render-pdf.contract.js";
 import { pdfRendererCreated } from "../events/pdf-renderer.js";
 import { artifactFileId } from "../services/artifact-file-id.js";
-import { sha256Hex } from "../services/checksum.js";
 import { putGeneratedPdf } from "../services/put-generated-pdf.js";
 import { requireWritable } from "../services/writable.js";
 

@@ -3,11 +3,11 @@ import { CoreInvariantError } from "@showzy/core/errors";
 import { documentGenerationJobs } from "@showzy/db/schema/doc-generation";
 import { getForGeneration } from "@showzy/documents";
 import { recordGeneratedObject } from "@showzy/files";
+import { postgresUniqueConstraint } from "@showzy/module-kit/postgres-unique";
+import { sha256Hex } from "@showzy/module-kit/sha256";
 import { and, eq } from "drizzle-orm";
 
 import { artifactFileId } from "./artifact-file-id.js";
-import { sha256Hex } from "./checksum.js";
-import { postgresUniqueConstraint } from "./postgres-unique.js";
 import { DOCUMENT_MIME_TYPE, putGeneratedPdf } from "./put-generated-pdf.js";
 import { requireWritable } from "./writable.js";
 import type { DocumentPdfModel } from "../templates/model.js";

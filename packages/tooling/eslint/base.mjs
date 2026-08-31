@@ -45,6 +45,7 @@ const boundaryElements = [
   { type: "money", pattern: "packages/money" },
   { type: "config", pattern: "packages/config" },
   { type: "validation", pattern: "packages/validation" },
+  { type: "module-kit", pattern: "packages/module-kit" },
   { type: "tooling", pattern: "packages/tooling" },
 ];
 

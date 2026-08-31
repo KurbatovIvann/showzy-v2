@@ -1,6 +1,5 @@
 import { ConflictError } from "@showzy/core/errors";
-
-import { postgresUniqueConstraint } from "./postgres-unique.js";
+import { postgresUniqueConstraint } from "@showzy/module-kit/postgres-unique";
 
 export const ORDERS_COMPANY_ORDER_NUMBER_UQ =
   "orders_company_id_order_number_uq";

@@ -1,5 +1,5 @@
 import type { ActionCtx } from "@showzy/core";
-import { CoreInvariantError } from "@showzy/core/errors";
+import { requireWritable as requireWritableTx } from "@showzy/module-kit/writable";
 
 type StaffDb = Extract<ActionCtx, { principal: "staff" }>["db"];
 type CustomerDb = Extract<ActionCtx, { principal: "customer" }>["db"];
@@ -7,17 +7,9 @@ export type WritableStaffDb = Extract<StaffDb, { insert: unknown }>;
 export type WritableCustomerDb = Extract<CustomerDb, { insert: unknown }>;
 
 export function requireWritable(db: StaffDb): WritableStaffDb {
-  if (!("insert" in db)) {
-    throw new CoreInvariantError("invites expected the writable transaction");
-  }
-  return db;
+  return requireWritableTx(db, "invites");
 }
 
 export function requireCustomerWritable(db: CustomerDb): WritableCustomerDb {
-  if (!("insert" in db)) {
-    throw new CoreInvariantError(
-      "invites.accept expected the writable transaction",
-    );
-  }
-  return db;
+  return requireWritableTx(db, "invites.accept");
 }

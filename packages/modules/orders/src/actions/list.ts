@@ -2,6 +2,8 @@ import { listCustomers } from "@showzy/customers";
 import { implementAction, type ActionCtx } from "@showzy/core";
 import { CoreInvariantError } from "@showzy/core/errors";
 import { orderItems, orders } from "@showzy/db/schema/orders";
+import { moneyToCanonical } from "@showzy/module-kit/canonical";
+import { parseDbEnum } from "@showzy/module-kit/parse-db-enum";
 import { paginate, sanitizeLikeLiteral } from "@showzy/validation/pagination";
 import {
   and,
@@ -15,7 +17,6 @@ import {
   type SQL,
 } from "drizzle-orm";
 
-import { moneyToCanonical } from "../services/canonical.js";
 import {
   formatListOrdersCursor,
   LIST_ORDERS_CUSTOMER_SEARCH_MAX_PAGES,
@@ -26,11 +27,11 @@ import {
 import { orderStatusSchema } from "./order-view.contract.js";
 
 function parseStatus(value: string): "new" | "confirmed" | "canceled" {
-  const parsed = orderStatusSchema.safeParse(value);
-  if (!parsed.success) {
-    throw new CoreInvariantError(`orders row has illegal status "${value}"`);
-  }
-  return parsed.data;
+  return parseDbEnum(
+    orderStatusSchema,
+    value,
+    `orders row has illegal status "${value}"`,
+  );
 }
 
 /** Optional leading `#`; empty after strip is not a number match. */

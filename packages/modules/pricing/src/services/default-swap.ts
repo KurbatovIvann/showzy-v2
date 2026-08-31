@@ -1,8 +1,8 @@
 import { ConflictError } from "@showzy/core/errors";
 import { priceLists } from "@showzy/db/schema/pricing";
+import { postgresUniqueConstraint } from "@showzy/module-kit/postgres-unique";
 import { and, eq } from "drizzle-orm";
 
-import { postgresUniqueConstraint } from "./postgres-unique.js";
 import type { WritableStaffDb } from "./writable.js";
 
 /** Partial unique `(company_id) WHERE is_default = true`. */

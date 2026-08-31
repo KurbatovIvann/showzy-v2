@@ -1,22 +1,10 @@
 import { implementAction } from "@showzy/core";
 import { CoreInvariantError, NotFoundError } from "@showzy/core/errors";
 import { products, productVariants } from "@showzy/db/schema/catalog";
+import { uniqueIds } from "@showzy/module-kit/unique-ids";
 import { and, eq, inArray } from "drizzle-orm";
 
 import { getProductOrderFactsContract } from "./get-product-order-facts.contract.js";
-
-function uniqueProductIds(items: readonly { productId: string }[]): string[] {
-  const ids: string[] = [];
-  const seen = new Set<string>();
-  for (const item of items) {
-    if (seen.has(item.productId)) {
-      continue;
-    }
-    seen.add(item.productId);
-    ids.push(item.productId);
-  }
-  return ids;
-}
 
 function compareVariantId(left: string, right: string): number {
   if (left < right) {
@@ -38,7 +26,7 @@ export const getProductOrderFacts = implementAction(
         );
       }
 
-      const productIds = uniqueProductIds(input.items);
+      const productIds = uniqueIds(input.items.map((item) => item.productId));
       const productRows = await ctx.db
         .select({
           id: products.id,

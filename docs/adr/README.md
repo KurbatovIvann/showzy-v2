@@ -47,3 +47,4 @@ humans) don't relitigate settled questions or silently deviate.
 | [0028](0028-customer-spine-and-invite-crm.md) | Customer is the commercial spine; invite accept creates CRM | Accepted |
 | [0029](0029-autonomous-feature-conveyor.md) | Autonomous parent conveyor (writer ≠ reviewer at the parent) | Accepted |
 | [0030](0030-web-panel-spa-and-deferred-storefront.md) | Web panel is a Vite SPA; storefront is a separate later app | Accepted |
+| [0031](0031-module-kit-server-micro-utilities.md) | Server module micro-utilities live in `@showzy/module-kit` | Accepted |

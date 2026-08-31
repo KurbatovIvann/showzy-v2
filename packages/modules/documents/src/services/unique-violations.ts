@@ -1,6 +1,5 @@
 import { ConcurrentRetryError, ConflictError } from "@showzy/core/errors";
-
-import { postgresUniqueConstraint } from "./postgres-unique.js";
+import { postgresUniqueConstraint } from "@showzy/module-kit/postgres-unique";
 
 export const DOCUMENTS_LIVE_ORDER_TYPE_UQ =
   "documents_company_order_type_live_uq";

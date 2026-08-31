@@ -5,6 +5,8 @@ import {
   products,
   productVariants,
 } from "@showzy/db/schema/catalog";
+import { moneyToCanonical } from "@showzy/module-kit/canonical";
+import { parseDbEnum } from "@showzy/module-kit/parse-db-enum";
 import { likeContainsPattern, paginate } from "@showzy/validation/pagination";
 import { and, count, desc, eq, ilike, inArray, lt, or } from "drizzle-orm";
 
@@ -15,16 +17,12 @@ import {
   parseListProductsCursor,
 } from "./list-products.contract.js";
 
-function moneyToCanonical(minor: bigint): string {
-  return minor.toString(10);
-}
-
 function parseProductStatus(value: string): "active" | "archived" {
-  const parsed = productStatusSchema.safeParse(value);
-  if (!parsed.success) {
-    throw new CoreInvariantError(`products row has illegal status "${value}"`);
-  }
-  return parsed.data;
+  return parseDbEnum(
+    productStatusSchema,
+    value,
+    `products row has illegal status "${value}"`,
+  );
 }
 
 function compareMediaPosition(

@@ -1,12 +1,12 @@
 import type { ActionCtx } from "@showzy/core";
 import { NotFoundError } from "@showzy/core/errors";
 import { files } from "@showzy/db/schema/files";
+import { sha256Hex } from "@showzy/module-kit/sha256";
 import { and, eq } from "drizzle-orm";
 import type { z } from "zod";
 
 import type { readPendingSigningObjectInputSchema } from "../actions/read-pending-signing-object.contract.js";
 import { MAX_DOCUMENT_BYTES, SIGNING_MIME_TYPE } from "../wire.contract.js";
-import { sha256Hex } from "./checksum.js";
 import { signingObjectKey, stagingObjectKey } from "./object-key.js";
 import { getFilesObjectStore } from "./s3-port.js";
 import { uploadedObjectInvalid } from "./uploaded-object.js";

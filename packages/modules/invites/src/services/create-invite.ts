@@ -4,6 +4,7 @@ import type { ActionCtx } from "@showzy/core";
 import { CoreInvariantError } from "@showzy/core/errors";
 import { getGroup } from "@showzy/customers";
 import { companyCustomerInvites } from "@showzy/db/schema/invites";
+import { optionalNullableUuid } from "@showzy/module-kit/optional-nullable-uuid";
 import { getPriceList } from "@showzy/pricing";
 import type { z } from "zod";
 
@@ -13,7 +14,7 @@ import {
   inviteCopyUrl,
 } from "../actions/create.contract.js";
 import { invitesCreated } from "../events/created.js";
-import { nullableText, nullableUuid, toInviteView } from "./invite-view.js";
+import { nullableText, toInviteView } from "./invite-view.js";
 import { mapInviteWriteError } from "./postgres-error.js";
 import { generateInviteToken, hashInviteToken } from "./token-hash.js";
 import { requireWritable } from "./writable.js";
@@ -28,8 +29,8 @@ export async function createStaffInvite(env: {
 }): Promise<CreateOutput> {
   const { ctx, input } = env;
   const db = requireWritable(ctx.db);
-  const groupId = nullableUuid(input.groupId);
-  const priceListId = nullableUuid(input.priceListId);
+  const groupId = optionalNullableUuid(input.groupId);
+  const priceListId = optionalNullableUuid(input.priceListId);
 
   if (groupId !== null) {
     await ctx.call(getGroup, { id: groupId });

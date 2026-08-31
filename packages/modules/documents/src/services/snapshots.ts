@@ -1,4 +1,6 @@
-import { CoreInvariantError, ValidationError } from "@showzy/core/errors";
+import { CoreInvariantError } from "@showzy/core/errors";
+import { parseDbEnum } from "@showzy/module-kit/parse-db-enum";
+import { requireOrValidationError } from "@showzy/module-kit/require";
 import { z } from "zod";
 
 import {
@@ -69,15 +71,11 @@ export interface CounterpartyFact {
 export function requireSellerLegal(
   legal: SellerLegalFact | null,
 ): SellerLegalFact {
-  const parsed = sellerLegalPresentGate.safeParse({
-    present: legal !== null,
-  });
-  if (!parsed.success) {
-    throw new ValidationError(
-      parsed.error.issues,
-      MISSING_SELLER_LEGAL_MESSAGE,
-    );
-  }
+  requireOrValidationError(
+    sellerLegalPresentGate,
+    { present: legal !== null },
+    MISSING_SELLER_LEGAL_MESSAGE,
+  );
   if (legal === null) {
     throw new CoreInvariantError(
       "seller legal gate passed with a null legal face",
@@ -87,12 +85,11 @@ export function requireSellerLegal(
 }
 
 export function requireOrderCustomerId(customerId: string | null): string {
-  const parsed = orderCustomerPresentGate.safeParse({
-    present: customerId !== null,
-  });
-  if (!parsed.success) {
-    throw new ValidationError(parsed.error.issues, MISSING_BUYER_MESSAGE);
-  }
+  requireOrValidationError(
+    orderCustomerPresentGate,
+    { present: customerId !== null },
+    MISSING_BUYER_MESSAGE,
+  );
   if (customerId === null) {
     throw new CoreInvariantError(
       "order customer gate passed with a null customer id",
@@ -108,27 +105,21 @@ export function requireCounterpartyCustomerMatch(
   if (linkedCustomerId === null) {
     return;
   }
-  const parsed = counterpartyCustomerMatchGate.safeParse({
-    matches: linkedCustomerId === orderCustomerId,
-  });
-  if (!parsed.success) {
-    throw new ValidationError(
-      parsed.error.issues,
-      COUNTERPARTY_CUSTOMER_MISMATCH_MESSAGE,
-    );
-  }
+  requireOrValidationError(
+    counterpartyCustomerMatchGate,
+    { matches: linkedCustomerId === orderCustomerId },
+    COUNTERPARTY_CUSTOMER_MISMATCH_MESSAGE,
+  );
 }
 
 function parseCompanyType(
   value: string,
 ): z.output<typeof documentCompanyTypeSchema> {
-  const parsed = documentCompanyTypeSchema.safeParse(value);
-  if (!parsed.success) {
-    throw new CoreInvariantError(
-      `seller legal company_type "${value}" is not a snapshot value`,
-    );
-  }
-  return parsed.data;
+  return parseDbEnum(
+    documentCompanyTypeSchema,
+    value,
+    `seller legal company_type "${value}" is not a snapshot value`,
+  );
 }
 
 export function snapshotSupplier(seller: SellerFacts): SupplierDetails {
@@ -175,11 +166,10 @@ export function snapshotCustomerBuyer(displayName: string): BuyerDetails {
 }
 
 export function buyerLabelFromSnapshot(buyer: unknown): string {
-  const parsed = buyerDetailsSchema.safeParse(buyer);
-  if (!parsed.success) {
-    throw new CoreInvariantError("documents row has illegal buyer_details");
-  }
-  return parsed.data.kind === "counterparty"
-    ? parsed.data.name
-    : parsed.data.displayName;
+  const parsed = parseDbEnum(
+    buyerDetailsSchema,
+    buyer,
+    "documents row has illegal buyer_details",
+  );
+  return parsed.kind === "counterparty" ? parsed.name : parsed.displayName;
 }

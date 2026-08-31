@@ -1,6 +1,7 @@
 import type { ActionCtx } from "@showzy/core";
 import { CoreInvariantError } from "@showzy/core/errors";
 import { companies, companyLegalInfo } from "@showzy/db/schema/companies";
+import { parseDbEnum } from "@showzy/module-kit/parse-db-enum";
 import { eq } from "drizzle-orm";
 import type { z } from "zod";
 
@@ -64,13 +65,11 @@ function nullableText(value: string | null | undefined): string | null {
 function parseCompanyType(
   value: string,
 ): z.output<typeof companyLegalTypeSchema> {
-  const parsed = companyLegalTypeSchema.safeParse(value);
-  if (!parsed.success) {
-    throw new CoreInvariantError(
-      `company_legal_info row has illegal company_type "${value}"`,
-    );
-  }
-  return parsed.data;
+  return parseDbEnum(
+    companyLegalTypeSchema,
+    value,
+    `company_legal_info row has illegal company_type "${value}"`,
+  );
 }
 
 export function storedLegalFields(input: UpdateLegalInput): {
