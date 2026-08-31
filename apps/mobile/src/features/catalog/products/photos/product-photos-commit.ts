@@ -4,7 +4,7 @@
  */
 import { describeQueryFailure } from "../../../../api/errors";
 
-import type { PhotoFlushOutcome } from "./product-photos-model";
+import type { PhotoFlushOutcome } from "./product-photos-plan";
 import {
   selectPhotoSessionCommitPlan,
   selectPhotoSessionFlushOutcome,

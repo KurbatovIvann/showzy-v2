@@ -6,7 +6,11 @@
  */
 import { isWireError, type WireErrorCode } from "@showzy/contract";
 
-import type { QueryFailureKind } from "../../../../api/errors";
+import {
+  describeQueryFailure,
+  describeWireError,
+  type QueryFailureKind,
+} from "../../../../api/errors";
 import type { ProductsFormCopy } from "../../../../i18n/products";
 import type { ProductFormMode } from "./product-form-draft";
 import type { ProductFormWrite } from "./product-form-plan";
@@ -345,6 +349,57 @@ function priceErrorCopy(
     return copy.errors.priceInvalid;
   }
   return null;
+}
+
+export type ProductFormResolvedCopy = ReturnType<typeof resolveProductFormCopy>;
+
+/**
+ * fieldErrorsFromFormState → banner map → resolveProductFormCopy.
+ * Composer stays a thin caller (SHO-303).
+ */
+export function resolveProductFormPresentation(args: {
+  readonly copy: ProductsFormCopy;
+  readonly mode: ProductFormMode;
+  readonly submitted: boolean;
+  readonly nameMessage: unknown;
+  readonly priceMessage: unknown;
+  readonly variants: ReadonlyArray<{ readonly key: string }>;
+  readonly rhfVariants: unknown;
+  readonly localBanner: BannerKey | null;
+  readonly mutationError: unknown | null;
+  readonly lastWrite: ProductFormWrite | null;
+  readonly pending: boolean;
+  readonly clientReady: boolean;
+}): ProductFormResolvedCopy {
+  const server =
+    args.mutationError === null
+      ? null
+      : mapValidationIssues(args.mutationError, args.lastWrite);
+  const failureKind =
+    args.mutationError === null
+      ? null
+      : describeQueryFailure(args.mutationError).kind;
+  const wireCode =
+    args.mutationError === null
+      ? null
+      : (describeWireError(args.mutationError)?.code ?? null);
+  const fieldErrors = fieldErrorsFromFormState({
+    submitted: args.submitted,
+    nameMessage: args.nameMessage,
+    priceMessage: args.priceMessage,
+    variants: args.variants,
+    rhfVariants: args.rhfVariants,
+    server,
+  });
+  return resolveProductFormCopy(args.copy, {
+    mode: args.mode,
+    nameError: fieldErrors.name,
+    priceError: fieldErrors.price,
+    variantErrors: fieldErrors.variants,
+    banner: args.localBanner ?? mapProductFormFailure(failureKind, wireCode),
+    pending: args.pending,
+    clientReady: args.clientReady,
+  });
 }
 
 export function resolveProductFormCopy(

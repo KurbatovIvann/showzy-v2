@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 
 import { useBoundContractMutation } from "../../../../api/use-bound-contract-mutation";
@@ -7,30 +7,15 @@ import { useActiveCompany } from "../../../../api/query-provider";
 import { useResolvedCompany } from "../../../../company-resolution/resolved-company-provider";
 import { detectLocale } from "../../../../i18n/locale";
 import { productsCopy } from "../../../../i18n/products";
-import { invalidateCatalogAfterStatusWrite } from "../api/product-archive";
+import { bindSetProductImages } from "../api/product-photos-mutation";
+import { classifyProductPhotosLoad } from "../shared/classify-product-load";
+import { canFetchFileDownloadUrls } from "../shared/product-permissions";
+import type { ProductPhotosFlushResult } from "./product-photos-commit";
 import {
-  classifyProductPhotosLoad,
-  productPhotosStripQueryOptions,
-  remainingPhotoSlots,
   resolvePhotoBanner,
   resolveProductPhotosBannerKey,
-} from "./product-photos-model";
-import { bindSetProductImages } from "../api/product-photos-mutation";
-import { canFetchFileDownloadUrls } from "../shared/product-permissions";
-import {
-  pickProductPhotos,
-  prepareCatalogImage,
-  putCatalogBytes,
-} from "./product-photos-native";
-import {
-  flushPhotoSession,
-  runPhotoCommitLoop,
-  type ProductPhotosFlushResult,
-} from "./product-photos-commit";
-import {
-  createProductPhotosRuntime,
-  type ProductPhotosRuntime,
-} from "./product-photos-runtime";
+} from "./product-photos-banners";
+import { remainingPhotoSlots } from "./product-photos-slots";
 import {
   reducePhotoSession,
   initialPhotoSessionContext,
@@ -40,6 +25,8 @@ import {
   snapshotFileIdsFromArgs,
   type PhotoSessionEvent,
 } from "./product-photos-session";
+import { useProductPhotosQuery } from "./use-product-photos-query";
+import { useProductPhotosRuntime } from "./use-product-photos-runtime";
 
 export type { ProductPhotosFlushResult };
 
@@ -83,73 +70,22 @@ export function useProductPhotos(args: {
     dispatch(event);
   }, []);
 
-  const committedIds = useMemo(
-    () =>
-      session.slots
-        .filter((slot) => slot.kind === "committed")
-        .map((slot) => slot.fileId),
-    [session.slots],
-  );
-  const urlsQuery = useQuery(
-    productPhotosStripQueryOptions({
-      client: apiClient,
-      companyId: activeCompanyId,
-      getActiveCompany: () => apiClient?.getActiveCompany() ?? null,
-      fileIds: committedIds,
-      canWrite,
-      canFetchImages: canFetchFileDownloadUrls(membership.role),
-    }),
-  );
-  const previewByFileId = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const file of urlsQuery.data?.files ?? []) {
-      map.set(file.fileId, file.downloadUrl);
-    }
-    return map;
-  }, [urlsQuery.data?.files]);
-
-  const sendRef = useRef(send);
-  sendRef.current = send;
-  const runtimeRef = useRef<ProductPhotosRuntime | undefined>(undefined);
-  const commitRef = useRef<() => Promise<void>>(() => Promise.resolve());
-  if (runtimeRef.current === undefined) {
-    runtimeRef.current = createProductPhotosRuntime({
-      getContext: () => sessionRef.current,
-      send: (event: PhotoSessionEvent) => {
-        sendRef.current(event);
-      },
-      getClient: () => apiClientRef.current,
-      commitIfNeeded: () => commitRef.current(),
-      pickPhotos: pickProductPhotos,
-      prepareImage: prepareCatalogImage,
-      putBytes: putCatalogBytes,
-    });
-  }
-  const runtime = runtimeRef.current;
-  commitRef.current = () =>
-    runPhotoCommitLoop({
-      getContext: () => sessionRef.current,
-      send: (event: PhotoSessionEvent) => {
-        sendRef.current(event);
-      },
-      submit: mutation.submit,
-      retry: mutation.retry,
-      reset: mutation.reset,
-      invalidate: () =>
-        invalidateCatalogAfterStatusWrite({
-          queryClient,
-          companyId: activeCompanyId,
-        }),
-      onSettled: runtime.notifySettled,
-    });
-
-  useEffect(() => {
-    runtime.setMounted(true);
-    return () => {
-      runtime.setMounted(false);
-      runtime.abortAll();
-    };
-  }, [runtime]);
+  const urls = useProductPhotosQuery({
+    client: apiClient,
+    companyId: activeCompanyId,
+    getActiveCompany: () => apiClient?.getActiveCompany() ?? null,
+    slots: session.slots,
+    canWrite,
+    canFetchImages: canFetchFileDownloadUrls(membership.role),
+  });
+  const { runtime, commitIfNeeded, flush } = useProductPhotosRuntime({
+    sessionRef,
+    send,
+    getClient: () => apiClientRef.current,
+    mutation,
+    queryClient,
+    activeCompanyId,
+  });
 
   useEffect(() => {
     if (args.imageFileIds === undefined && args.requireProduct) {
@@ -187,15 +123,12 @@ export function useProductPhotos(args: {
   const mutationFailure = mutation.isError
     ? describeQueryFailure(mutation.error).kind
     : null;
-  const downloadFailure = urlsQuery.isError
-    ? describeQueryFailure(urlsQuery.error).kind
-    : null;
   const banner = resolvePhotoBanner(
     copy.photos,
     resolveProductPhotosBannerKey({
       localBanner: session.localBanner,
       mutationFailure,
-      downloadFailure,
+      downloadFailure: urls.downloadFailure,
     }),
   );
   const tiles = photoSessionTiles(session);
@@ -209,7 +142,7 @@ export function useProductPhotos(args: {
 
   return {
     tiles,
-    previewByFileId,
+    previewByFileId: urls.previewByFileId,
     banner,
     pickerOpen: session.pickerOpen,
     canAdd: remainingPhotoSlots(session.slots) > 0 && state.kind === "ready",
@@ -220,22 +153,11 @@ export function useProductPhotos(args: {
     bindProductId: (productId: string) => {
       send({ type: "bindProductId", productId });
     },
-    flush: () =>
-      flushPhotoSession({
-        kickIdle: runtime.kickIdleUploads,
-        waitUntilSettled: runtime.waitUntilSettled,
-        commitIfNeeded: () => commitRef.current(),
-        getContext: () => sessionRef.current,
-        send: (event: PhotoSessionEvent) => {
-          sendRef.current(event);
-        },
-      }),
-    retry: () => {
-      void urlsQuery.refetch();
-    },
+    flush,
+    retry: urls.refetch,
     retryCommit: () => {
       send({ type: "setBanner", key: null });
-      void commitRef.current();
+      void commitIfNeeded();
     },
     openPicker,
     closePicker: () => {

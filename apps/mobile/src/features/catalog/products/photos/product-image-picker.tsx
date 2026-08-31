@@ -19,7 +19,7 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { interpolate } from "../../../../i18n/locale";
 import type { ProductsPhotosCopy } from "../../../../i18n/products";
 import { Banner } from "../../../../components/ui";
-import type { PhotoTileView } from "./product-photos-model";
+import type { PhotoTileView } from "./product-photos-slots";
 
 /** Canvas `h-40 w-40` product photo tile. Feature size, not a theme token. */
 const PHOTO_TILE = 160;

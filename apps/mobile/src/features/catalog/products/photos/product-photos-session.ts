@@ -18,17 +18,19 @@ import {
   hasInFlightPhotoUploads,
   idleUploadSlots,
   movePhotoSlot,
-  photoFlushOutcome,
   photosAreDirty,
-  planPhotoCommit,
   remainingPhotoSlots,
   removePhotoSlot,
   patchUploadMachine,
   toPhotoTiles,
-  type PhotoBannerKey,
-  type PhotoFlushOutcome,
   type PhotoSlot,
-} from "./product-photos-model";
+} from "./product-photos-slots";
+import {
+  photoFlushOutcome,
+  planPhotoCommit,
+  type PhotoFlushOutcome,
+} from "./product-photos-plan";
+import type { PhotoBannerKey } from "./product-photos-banners";
 import type { UploadMachine } from "./product-photos-upload";
 
 export type PhotoSessionContext = {

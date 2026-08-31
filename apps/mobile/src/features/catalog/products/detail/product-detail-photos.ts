@@ -16,10 +16,10 @@ import {
 } from "../../../../api/file-download-query";
 import {
   committedSlotsFromFileIds,
-  productPhotosStripDownloadInput,
   toPhotoTiles,
   type PhotoTileView,
-} from "../photos/product-photos-model";
+} from "../photos/product-photos-slots";
+import { productPhotosStripDownloadInput } from "../photos/product-photos-queries";
 
 export type ProductDetailPhotoManagerInput = {
   readonly productId: string | null;

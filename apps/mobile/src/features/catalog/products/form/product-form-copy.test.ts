@@ -1,6 +1,7 @@
 import { ORPCError } from "@orpc/client";
 import { describe, expect, it } from "vitest";
 
+import { productsCopy } from "../../../../i18n/products";
 import {
   fieldErrorsFromFormState,
   firstVariantFieldError,
@@ -8,6 +9,8 @@ import {
   mapRhfVariantFieldErrors,
   mapValidationIssues,
   overlayVariantFieldErrors,
+  resolveProductFormCopy,
+  resolveProductFormPresentation,
   rhfPathsForFieldErrors,
 } from "./product-form-copy";
 import type { ProductFormWrite } from "./product-form-plan";
@@ -193,6 +196,45 @@ describe("rhfPathsForFieldErrors", () => {
       { name: "variants.0.name", message: "required" },
       { name: "variants.0.priceText", message: "invalid" },
     ]);
+  });
+});
+
+describe("resolveProductFormPresentation", () => {
+  it("chains fieldErrorsFromFormState into resolveProductFormCopy", () => {
+    const copy = productsCopy("uk").form;
+    const presented = resolveProductFormPresentation({
+      copy,
+      mode: "create",
+      submitted: true,
+      nameMessage: "required",
+      priceMessage: undefined,
+      variants: [],
+      rhfVariants: undefined,
+      localBanner: null,
+      mutationError: null,
+      lastWrite: null,
+      pending: false,
+      clientReady: true,
+    });
+    const fieldErrors = fieldErrorsFromFormState({
+      submitted: true,
+      nameMessage: "required",
+      priceMessage: undefined,
+      variants: [],
+      rhfVariants: undefined,
+      server: null,
+    });
+    const resolved = resolveProductFormCopy(copy, {
+      mode: "create",
+      nameError: fieldErrors.name,
+      priceError: fieldErrors.price,
+      variantErrors: fieldErrors.variants,
+      banner: null,
+      pending: false,
+      clientReady: true,
+    });
+    expect(presented).toEqual(resolved);
+    expect(presented.nameError).toBe(copy.errors.nameRequired);
   });
 });
 
