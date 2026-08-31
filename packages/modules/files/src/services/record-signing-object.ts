@@ -14,7 +14,7 @@ import { MAX_DOCUMENT_BYTES } from "../wire.contract.js";
 import { toSigningReadyView, type SigningReadyView } from "./file-view.js";
 import { bytesAreAsicContainer } from "./magic-bytes.js";
 import { signingObjectKey, stagingObjectKey } from "./object-key.js";
-import { getFilesObjectStore } from "./s3-port.js";
+import { getFilesObjectStore, type ObjectBytes } from "./s3-port.js";
 import { uploadedObjectInvalid } from "./uploaded-object.js";
 import { requireWritable } from "./writable.js";
 
@@ -29,12 +29,12 @@ type ObjectStore = ReturnType<typeof getFilesObjectStore>;
  * rolled back), the durable `{companyId}/signing/{fileId}` object with
  * matching size/checksum is enough to finish the ready update.
  */
-async function verifiedSigningBytes(env: {
+async function verifiedSigningObject(env: {
   readonly store: ObjectStore;
   readonly key: string;
   readonly declaredSize: number;
   readonly checksumSha256: string;
-}): Promise<Uint8Array | "missing"> {
+}): Promise<ObjectBytes | "missing"> {
   const head = await env.store.headObject(env.key);
   if (head === "missing") {
     return "missing";
@@ -55,7 +55,7 @@ async function verifiedSigningBytes(env: {
   if (sha256Hex(object.bytes) !== env.checksumSha256) {
     throw uploadedObjectInvalid();
   }
-  return object.bytes;
+  return object;
 }
 
 function matchingSigningRow(
@@ -128,28 +128,34 @@ export async function recordStaffSigningObject(input: {
   const store = getFilesObjectStore();
   const declaredSize = input.input.byteSize;
   const checksumSha256 = input.input.checksumSha256;
-  const stagingBytes = await verifiedSigningBytes({
+  const stagingObject = await verifiedSigningObject({
     store,
     key: stagingKey,
     declaredSize,
     checksumSha256,
   });
-  if (stagingBytes === "missing") {
-    const durableBytes = await verifiedSigningBytes({
+  if (stagingObject === "missing") {
+    const durableObject = await verifiedSigningObject({
       store,
       key: durableKey,
       declaredSize,
       checksumSha256,
     });
-    if (durableBytes === "missing") {
+    if (durableObject === "missing") {
       throw new NotFoundError();
     }
   } else {
-    await store.putObject({
-      key: durableKey,
-      mimeType: input.input.mimeType,
-      bytes: stagingBytes,
+    // Tenant keys come from verified ctx.companyId (signingObjectKey /
+    // stagingObjectKey), never from action input. CopyObject + GetObject
+    // ETag If-Match; 412 is the same invalid-object path as checksum miss.
+    const copied = await store.copyObject({
+      sourceKey: stagingKey,
+      destinationKey: durableKey,
+      sourceEtag: stagingObject.etag,
     });
+    if (copied === "precondition-failed") {
+      throw uploadedObjectInvalid();
+    }
   }
 
   const updated = await db

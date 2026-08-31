@@ -4,7 +4,9 @@ import { describe, expect, it } from "vitest";
 import {
   createFilesObjectStore,
   filesObjectStoreErrorCause,
+  isObjectStorePreconditionFailed,
   normalizeObjectEtag,
+  quotedObjectEtag,
 } from "./s3-port.js";
 
 describe("normalizeObjectEtag", () => {
@@ -13,6 +15,35 @@ describe("normalizeObjectEtag", () => {
     expect(normalizeObjectEtag('W/"abc"')).toBe("abc");
     expect(normalizeObjectEtag('w/"abc"')).toBe("abc");
     expect(normalizeObjectEtag("abc")).toBe("abc");
+  });
+});
+
+describe("quotedObjectEtag", () => {
+  it("emits a quoted strong ETag for CopySourceIfMatch", () => {
+    expect(quotedObjectEtag("abc")).toBe('"abc"');
+    expect(quotedObjectEtag('"abc"')).toBe('"abc"');
+    expect(quotedObjectEtag('W/"abc"')).toBe('"abc"');
+  });
+});
+
+describe("isObjectStorePreconditionFailed", () => {
+  it("treats 412 PreconditionFailed as If-Match miss, not a timeout or checksum", () => {
+    expect(
+      isObjectStorePreconditionFailed({
+        name: "PreconditionFailed",
+        message: "At least one of the pre-conditions you specified did not hold",
+        $metadata: { httpStatusCode: 412 },
+      }),
+    ).toBe(true);
+    expect(
+      isObjectStorePreconditionFailed({
+        name: "AccessDenied",
+        $metadata: { httpStatusCode: 403 },
+      }),
+    ).toBe(false);
+    expect(isObjectStorePreconditionFailed({ name: "TimeoutError" })).toBe(
+      false,
+    );
   });
 });
 
@@ -48,6 +79,16 @@ describe("filesObjectStoreErrorCause", () => {
     expect(checksum).toEqual({
       code: "ChecksumMismatch",
       httpStatusCode: 400,
+    });
+
+    const precondition = filesObjectStoreErrorCause({
+      name: "PreconditionFailed",
+      message: leakingMessage,
+      $metadata: { httpStatusCode: 412 },
+    });
+    expect(precondition).toEqual({
+      code: "PreconditionFailed",
+      httpStatusCode: 412,
     });
 
     const wrapped = new CoreInvariantError(
