@@ -57,7 +57,7 @@ function caseBigintByEntryId(
   rows: readonly { readonly id: string; readonly value: bigint }[],
 ) {
   return sql<bigint>`case ${priceListEntries.id} ${sql.join(
-    rows.map((row) => sql`when ${row.id} then ${row.value}`),
+    rows.map((row) => sql`when ${row.id} then ${row.value}::bigint`),
     sql` `,
   )} end`;
 }
