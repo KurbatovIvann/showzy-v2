@@ -1,0 +1,81 @@
+/**
+ * Canvas theme tokens (SHO-311).
+ *
+ * Single theme source for the staff panel. Values come verbatim from the
+ * web canvas `tailwind.config.js` (Magic Patterns, ADR-0024) as extracted
+ * in `docs/design/mapping/web-panel-chrome.md` §Visual language and
+ * `docs/design/mapping/mp-to-mobile.md` (token roles). Tailwind v4 turns
+ * every `@theme` entry into a `:root` CSS variable plus the matching
+ * utilities (`bg-canvas`, `text-ink`, `ring-action`, …), so ported canvas
+ * markup keeps its class names as-is.
+ *
+ * System font only — no webfont (visual-language lock).
+ */
+@theme {
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Helvetica Neue",
+    Arial, sans-serif;
+
+  /* Canvas palette */
+  --color-canvas: #f7f6f2;
+  --color-surface: #ffffff;
+  --color-ink: #1c1c1a;
+  --color-muted: #6e6a61;
+  --color-faint: #9b968b;
+  --color-line: #e5e2da;
+  --color-action: #2f6fed;
+  --color-actionSoft: #e8f0ff;
+  --color-focus: #5b4bdb;
+  --color-focusSoft: #eeebff;
+  --color-attention: #a65a16;
+  --color-attentionSoft: #fbefe1;
+  --color-success: #237a4b;
+  --color-successSoft: #e6f2ea;
+  --color-danger: #c0392b;
+  --color-dangerSoft: #fbeae7;
+
+  /* Radii (canvas: field 16, card 22, panel 28; buttons/pills are `rounded-full`) */
+  --radius-field: 16px;
+  --radius-card: 22px;
+  --radius-panel: 28px;
+
+  /* Shadows */
+  --shadow-card: 0 1px 2px rgba(28, 28, 26, 0.05);
+  --shadow-auth: 0 14px 40px rgba(28, 28, 26, 0.1);
+  --shadow-ai: 0 6px 16px rgba(47, 111, 237, 0.28);
+
+  /* Motion */
+  --ease-soft: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/*
+ * shadcn semantic slots, aliased onto the canvas palette so later vendored
+ * behavior-heavy primitives (Dialog, DropdownMenu, …) consume the same
+ * variables. Role mapping follows `mp-to-mobile.md`: primary is **ink**
+ * (primary buttons are ink, pill radius — never action blue); `action` is
+ * the focus ring / accent. `line` covers border, input, and the muted
+ * track fill; `muted` (#6E6A61) is muted *text*, hence `muted-foreground`.
+ */
+@theme inline {
+  --color-background: var(--color-canvas);
+  --color-foreground: var(--color-ink);
+  --color-card: var(--color-surface);
+  --color-card-foreground: var(--color-ink);
+  --color-popover: var(--color-surface);
+  --color-popover-foreground: var(--color-ink);
+  --color-border: var(--color-line);
+  --color-input: var(--color-line);
+  --color-muted-foreground: var(--color-muted);
+  --color-primary: var(--color-ink);
+  --color-primary-foreground: var(--color-surface);
+  --color-destructive: var(--color-danger);
+  --color-destructive-foreground: var(--color-surface);
+  --color-ring: var(--color-action);
+}
+
+@layer base {
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+  }
+}
