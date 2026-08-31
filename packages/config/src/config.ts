@@ -59,6 +59,30 @@ const envSchema = z.object({
   BETTER_AUTH_URL: z.url({ protocol: /^https?$/ }),
 
   /**
+   * Comma-separated browser origins of the web panel (ADR-0030). Each entry
+   * joins better-auth `trustedOrigins`; empty means "no web panel" (the API
+   * origin and the Expo scheme are always trusted). Entries are normalized
+   * to their origin (`scheme://host[:port]`) — better-auth compares the
+   * request `Origin` header against the list, so paths would never match.
+   */
+  WEB_APP_ORIGINS: z
+    .string()
+    .default("")
+    .transform((value) =>
+      value
+        .split(",")
+        .map((entry) => entry.trim())
+        .filter((entry) => entry.length > 0),
+    )
+    .pipe(
+      z.array(
+        z
+          .url({ protocol: /^https?$/ })
+          .transform((entry) => new URL(entry).origin),
+      ),
+    ),
+
+  /**
    * HMAC secret for public rate-limit bucket keys (core.md §10). Rotating
    * IP HMACs must not be derivable from data; this value is injected into
    * `createRateLimitHook` at API boot (fnd-T26).
@@ -130,6 +154,8 @@ export interface ServerConfig {
   readonly auth: {
     readonly secret: string;
     readonly url: string;
+    /** Web panel origins joining better-auth `trustedOrigins` (ADR-0030). */
+    readonly webOrigins: readonly string[];
   };
   readonly rateLimit: { readonly ipHmacSecret: string };
   readonly http: { readonly port: number };
@@ -233,6 +259,7 @@ export function loadServerConfig(
     auth: {
       secret: parsed.BETTER_AUTH_SECRET,
       url: parsed.BETTER_AUTH_URL,
+      webOrigins: parsed.WEB_APP_ORIGINS,
     },
     rateLimit: { ipHmacSecret: parsed.IP_HMAC_SECRET },
     http: { port: parsed.API_PORT },

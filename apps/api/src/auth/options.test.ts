@@ -18,7 +18,7 @@ import { expoClientPolicy, otpPolicy, sessionPolicy } from "./policy.js";
 
 const PHONE = "+380671112233";
 
-function createFixture() {
+function createFixture(overrides?: { webOrigins?: readonly string[] }) {
   const db: MemoryDB = {
     user: [],
     session: [],
@@ -36,6 +36,9 @@ function createFixture() {
   const options = buildAuthOptions({
     database: memoryAdapter(db),
     baseUrl: "http://localhost:3000",
+    // Web-panel origins from validated config (`WEB_APP_ORIGINS`, web-T2);
+    // empty mirrors an environment without a web panel.
+    webOrigins: overrides?.webOrigins ?? [],
     secret: "test-only-secret-0123456789abcdef-0000",
     sendPhoneOtp: (data) => {
       sentPhone.push(data);
@@ -143,9 +146,23 @@ describe("buildAuthOptions — §2 parameter wiring", () => {
   it("pins session lifetime and trusts the Expo app origin", () => {
     expect(options.session.expiresIn).toBe(sessionPolicy.expiresInSeconds);
     expect(options.session.updateAge).toBe(sessionPolicy.updateAgeSeconds);
+    // No web origins configured → exactly the pre-web-T2 list, nothing else.
     expect(options.trustedOrigins).toEqual([
       "http://localhost:3000",
       expoClientPolicy.origin,
+    ]);
+  });
+
+  it("appends configured web origins to trustedOrigins without touching the existing ones (web-T2)", () => {
+    const webOrigins = [
+      "http://localhost:5173",
+      "https://panel.example.com",
+    ] as const;
+    const { options: withWeb } = createFixture({ webOrigins: [...webOrigins] });
+    expect(withWeb.trustedOrigins).toEqual([
+      "http://localhost:3000",
+      expoClientPolicy.origin,
+      ...webOrigins,
     ]);
   });
 

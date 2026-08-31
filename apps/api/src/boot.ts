@@ -79,6 +79,7 @@ export async function bootApi(config: ServerConfig): Promise<BootedApi> {
     buildAuthOptions({
       database: drizzleAdapter(db.db, { provider: "pg" }),
       baseUrl: config.auth.url,
+      webOrigins: config.auth.webOrigins,
       secret: config.auth.secret,
       sendPhoneOtp: otpSenders.sendPhoneOtp,
       sendEmailOtp: otpSenders.sendEmailOtp,

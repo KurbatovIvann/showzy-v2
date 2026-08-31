@@ -67,6 +67,21 @@ Static files behind a reverse proxy that also forwards `/rpc` and
 `SameSite=Lax` session cookies work unchanged. Dev uses the Vite proxy.
 API-side prerequisite: the web origin joins better-auth `trustedOrigins`.
 
+Concretely (web-T2):
+
+- **Prod/staging**: `apps/web/deploy/compose.yml` (Coolify) builds
+  `apps/web/Dockerfile` — Caddy serves the SPA bundle (unknown paths fall
+  back to `index.html`) and proxies `/rpc` + `/api/auth` to `API_UPSTREAM`
+  (the API service on the same deployment network). TLS terminates at the
+  platform ingress. No CORS headers anywhere — adding CORS instead of this
+  proxy is a stop-condition (ADR-0030).
+- **Dev**: the Vite proxy in `apps/web/vite.config.ts` mirrors the same
+  rules against the local API.
+- **API side**: the panel origin(s) come from validated env —
+  `WEB_APP_ORIGINS` (comma-separated, `packages/config`) — and join
+  better-auth `trustedOrigins` in `apps/api/src/auth/options.ts`. Origin
+  checks only; never an access grant.
+
 ## Routing
 
 The three-pane chrome maps onto nested routes: the list route renders the

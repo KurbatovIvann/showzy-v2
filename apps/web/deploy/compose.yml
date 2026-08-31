@@ -1,0 +1,26 @@
+# Coolify compose for the web panel static app (web-T2, ADR-0030).
+# One service: Caddy serving the built SPA and proxying /rpc + /api/auth to
+# the API service on the same Coolify network (same-origin — no CORS).
+# Point the Coolify resource at this file; the public domain attaches to the
+# `web` service via the platform ingress (Traefik), which terminates TLS.
+#
+# Environment (set in Coolify, not here):
+#   API_UPSTREAM — API service origin inside the deployment network,
+#                  e.g. http://api:3000. Never a public URL.
+#   WEB_PORT    — container listen port (defaults to 8080).
+#
+# API-side pair of this topology: the public panel origin (the domain routed
+# to this service) must be listed in the API's WEB_APP_ORIGINS so better-auth
+# trusts it (packages/config, apps/api/src/auth/options.ts).
+
+services:
+  web:
+    build:
+      context: ../../..
+      dockerfile: apps/web/Dockerfile
+    environment:
+      API_UPSTREAM: ${API_UPSTREAM:-http://api:3000}
+      WEB_PORT: ${WEB_PORT:-8080}
+    expose:
+      - "8080"
+    restart: unless-stopped
