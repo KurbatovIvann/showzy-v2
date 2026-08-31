@@ -1,13 +1,10 @@
 import { implementAction } from "@showzy/core";
 import { CoreInvariantError, NotFoundError } from "@showzy/core/errors";
 import { products, productVariants } from "@showzy/db/schema/catalog";
+import { moneyToCanonical } from "@showzy/module-kit/canonical";
 import { and, eq, inArray } from "drizzle-orm";
 
 import { getProductPricingFactsContract } from "./get-product-pricing-facts.contract.js";
-
-function moneyToCanonical(minor: bigint): string {
-  return minor.toString(10);
-}
 
 function uniqueProductIds(items: readonly { productId: string }[]): string[] {
   const ids: string[] = [];

@@ -5,7 +5,6 @@ import {
   mapOrderNumberUniqueViolation,
   ORDERS_COMPANY_ORDER_NUMBER_UQ,
 } from "./order-number.js";
-import { postgresUniqueConstraint } from "./postgres-unique.js";
 
 describe("mapOrderNumberUniqueViolation", () => {
   it("maps orders_company_id_order_number_uq (SQLSTATE 23505) to ConflictError", () => {
@@ -21,16 +20,5 @@ describe("mapOrderNumberUniqueViolation", () => {
     expect(mapOrderNumberUniqueViolation(other)).toBe(other);
     const plain = new Error("nope");
     expect(mapOrderNumberUniqueViolation(plain)).toBe(plain);
-  });
-});
-
-describe("postgresUniqueConstraint", () => {
-  it("walks a wrapped cause chain", () => {
-    expect(
-      postgresUniqueConstraint({
-        cause: { code: "23505", constraint: ORDERS_COMPANY_ORDER_NUMBER_UQ },
-      }),
-    ).toBe(ORDERS_COMPANY_ORDER_NUMBER_UQ);
-    expect(postgresUniqueConstraint(undefined)).toBeUndefined();
   });
 });

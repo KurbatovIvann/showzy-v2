@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { ActionCtx } from "@showzy/core";
 import { ConflictError, CoreInvariantError } from "@showzy/core/errors";
 import { documentItems, documents } from "@showzy/db/schema/documents";
+import { moneyToCanonical } from "@showzy/module-kit/canonical";
 import { and, eq, ne } from "drizzle-orm";
 import type { z } from "zod";
 
@@ -13,7 +14,6 @@ import {
   type documentTypeSchema,
 } from "../actions/document-view.contract.js";
 import { documentsCreated } from "../events/created.js";
-import { moneyToCanonical } from "./canonical.js";
 import {
   allocateNextDocumentNumber,
   formatDocumentNumber,

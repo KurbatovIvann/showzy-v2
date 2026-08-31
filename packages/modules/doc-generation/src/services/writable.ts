@@ -1,14 +1,9 @@
 import type { ActionCtx } from "@showzy/core";
-import { CoreInvariantError } from "@showzy/core/errors";
+import { requireWritable as requireWritableTx } from "@showzy/module-kit/writable";
 
 type SystemDb = Extract<ActionCtx, { principal: "system" }>["db"];
 type WritableSystemDb = Extract<SystemDb, { insert: unknown }>;
 
 export function requireWritable(db: SystemDb): WritableSystemDb {
-  if (!("insert" in db)) {
-    throw new CoreInvariantError(
-      "doc-generation expected the writable transaction",
-    );
-  }
-  return db;
+  return requireWritableTx(db, "doc-generation");
 }

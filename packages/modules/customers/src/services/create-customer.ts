@@ -7,6 +7,7 @@ import {
   NotFoundError,
 } from "@showzy/core/errors";
 import { companyCustomers } from "@showzy/db/schema/customers";
+import { postgresError } from "@showzy/module-kit/postgres-unique";
 import type { z } from "zod";
 
 import type {
@@ -15,7 +16,6 @@ import type {
 } from "../actions/create-customer.contract.js";
 import { assertCustomerAssignments } from "./assignments.js";
 import { nullableText, nullableUuid, toCustomerView } from "./customer-view.js";
-import { postgresError } from "./postgres-unique.js";
 import { requireWritable } from "./writable.js";
 
 type StaffCtx = Extract<ActionCtx, { principal: "staff" }>;

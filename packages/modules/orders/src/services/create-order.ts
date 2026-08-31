@@ -7,6 +7,7 @@ import {
   orderNumberCounters,
   orders,
 } from "@showzy/db/schema/orders";
+import { moneyToCanonical } from "@showzy/module-kit/canonical";
 import { sql } from "drizzle-orm";
 import type { z } from "zod";
 
@@ -16,7 +17,6 @@ import {
   orderViewSchema,
 } from "../actions/order-view.contract.js";
 import { ordersCreated } from "../events/created.js";
-import { moneyToCanonical } from "./canonical.js";
 import { computeExemptNoneLine, titleSnapshot } from "./line-money.js";
 import { formatStaffOrderNumber } from "./order-number-format.js";
 import { mapOrderNumberUniqueViolation } from "./order-number.js";

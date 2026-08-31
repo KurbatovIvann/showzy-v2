@@ -5,6 +5,7 @@ import {
   priceListEntries,
   priceLists,
 } from "@showzy/db/schema/pricing";
+import { moneyToCanonical } from "@showzy/module-kit/canonical";
 import { and, eq, inArray } from "drizzle-orm";
 import type { z } from "zod";
 
@@ -66,10 +67,6 @@ interface PriceRow {
   readonly currency: string;
   readonly personalPriceId?: string;
   readonly priceListId?: string;
-}
-
-function moneyToCanonical(minor: bigint): string {
-  return minor.toString(10);
 }
 
 function uniqueProductIds(items: readonly ResolveItem[]): string[] {

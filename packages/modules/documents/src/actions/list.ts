@@ -3,10 +3,10 @@ import { CoreInvariantError } from "@showzy/core/errors";
 import { documents } from "@showzy/db/schema/documents";
 import { getSupplierSignedFlags } from "@showzy/doc-signing/get-supplier-signed-flags";
 import { paginate } from "@showzy/validation/pagination";
+import { moneyToCanonical } from "@showzy/module-kit/canonical";
 import { and, desc, eq, lt, or } from "drizzle-orm";
 import type { z } from "zod";
 
-import { moneyToCanonical } from "../services/canonical.js";
 import { buyerLabelFromSnapshot } from "../services/snapshots.js";
 import {
   documentStatusSchema,

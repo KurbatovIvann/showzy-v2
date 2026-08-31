@@ -1,7 +1,6 @@
 import { ConcurrentRetryError, ConflictError } from "@showzy/core/errors";
 import { describe, expect, it } from "vitest";
 
-import { postgresUniqueConstraint } from "./postgres-unique.js";
 import {
   DOCUMENTS_LIVE_ORDER_TYPE_UQ,
   DUPLICATE_LIVE_DOCUMENT_MESSAGE,
@@ -27,17 +26,6 @@ describe("mapLiveDocumentUniqueViolation", () => {
     expect(mapLiveDocumentUniqueViolation(other)).toBe(other);
     const plain = new Error("nope");
     expect(mapLiveDocumentUniqueViolation(plain)).toBe(plain);
-  });
-});
-
-describe("postgresUniqueConstraint", () => {
-  it("walks a wrapped cause chain", () => {
-    expect(
-      postgresUniqueConstraint({
-        cause: { code: "23505", constraint: DOCUMENTS_LIVE_ORDER_TYPE_UQ },
-      }),
-    ).toBe(DOCUMENTS_LIVE_ORDER_TYPE_UQ);
-    expect(postgresUniqueConstraint(undefined)).toBeUndefined();
   });
 });
 

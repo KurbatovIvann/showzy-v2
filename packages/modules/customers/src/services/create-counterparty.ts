@@ -7,6 +7,7 @@ import {
   NotFoundError,
 } from "@showzy/core/errors";
 import { counterparties } from "@showzy/db/schema/customers";
+import { postgresError } from "@showzy/module-kit/postgres-unique";
 import type { z } from "zod";
 
 import type {
@@ -19,7 +20,6 @@ import {
   storedCounterpartyFields,
   toCounterpartyView,
 } from "./counterparty-view.js";
-import { postgresError } from "./postgres-unique.js";
 import { requireWritable } from "./writable.js";
 
 type StaffCtx = Extract<ActionCtx, { principal: "staff" }>;

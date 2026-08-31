@@ -3,6 +3,7 @@ import { implementAction, type ActionCtx } from "@showzy/core";
 import { CoreInvariantError } from "@showzy/core/errors";
 import { orderItems, orders } from "@showzy/db/schema/orders";
 import { paginate, sanitizeLikeLiteral } from "@showzy/validation/pagination";
+import { moneyToCanonical } from "@showzy/module-kit/canonical";
 import {
   and,
   count,
@@ -15,7 +16,6 @@ import {
   type SQL,
 } from "drizzle-orm";
 
-import { moneyToCanonical } from "../services/canonical.js";
 import {
   formatListOrdersCursor,
   LIST_ORDERS_CUSTOMER_SEARCH_MAX_PAGES,

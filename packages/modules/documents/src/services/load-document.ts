@@ -1,6 +1,7 @@
 import type { ActionCtx } from "@showzy/core";
 import { CoreInvariantError, NotFoundError } from "@showzy/core/errors";
 import { documentItems, documents } from "@showzy/db/schema/documents";
+import { moneyToCanonical } from "@showzy/module-kit/canonical";
 import { and, asc, eq } from "drizzle-orm";
 import type { z } from "zod";
 
@@ -14,7 +15,6 @@ import {
   buyerDetailsSchema,
   supplierDetailsSchema,
 } from "../actions/document-view.contract.js";
-import { moneyToCanonical } from "./canonical.js";
 
 type ReadableDb =
   | Extract<ActionCtx, { principal: "staff" }>["db"]

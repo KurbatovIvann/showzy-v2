@@ -6,6 +6,7 @@ import {
   productVariants,
 } from "@showzy/db/schema/catalog";
 import { likeContainsPattern, paginate } from "@showzy/validation/pagination";
+import { moneyToCanonical } from "@showzy/module-kit/canonical";
 import { and, count, desc, eq, ilike, inArray, lt, or } from "drizzle-orm";
 
 import { productStatusSchema } from "../wire.contract.js";
@@ -14,10 +15,6 @@ import {
   listProductsContract,
   parseListProductsCursor,
 } from "./list-products.contract.js";
-
-function moneyToCanonical(minor: bigint): string {
-  return minor.toString(10);
-}
 
 function parseProductStatus(value: string): "active" | "archived" {
   const parsed = productStatusSchema.safeParse(value);

@@ -1,6 +1,7 @@
 import type { ActionCtx } from "@showzy/core";
 import { CoreInvariantError, NotFoundError } from "@showzy/core/errors";
 import { orderItems, orders } from "@showzy/db/schema/orders";
+import { moneyToCanonical } from "@showzy/module-kit/canonical";
 import { and, asc, eq } from "drizzle-orm";
 import type { z } from "zod";
 
@@ -11,7 +12,6 @@ import {
   orderTaxTreatmentSchema,
   orderViewSchema,
 } from "../actions/order-view.contract.js";
-import { moneyToCanonical } from "./canonical.js";
 
 type StaffDb = Extract<ActionCtx, { principal: "staff" }>["db"];
 type OrderView = z.output<typeof orderViewSchema>;

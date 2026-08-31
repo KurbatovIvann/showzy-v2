@@ -7,11 +7,11 @@ import {
 import { signingRequests } from "@showzy/db/schema/doc-signing";
 import { getDocument, lockIssuedForSigning } from "@showzy/documents";
 import { issueDocumentDownloadUrl } from "@showzy/files";
+import { postgresUniqueConstraint } from "@showzy/module-kit/postgres-unique";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { SIGN_REQUEST_TTL_MS, startSigningContract } from "./start.contract.js";
-import { postgresUniqueConstraint } from "../services/postgres-unique.js";
 import { requireStaffWritable } from "../services/writable.js";
 
 export const CANCELLED_START_MESSAGE = "Cancelled documents cannot be signed.";

@@ -17,6 +17,7 @@
   "dependencies": {
     "@showzy/core": "workspace:*",
     "@showzy/db": "workspace:*",
+    "@showzy/module-kit": "workspace:*",
     "@showzy/pricing": "workspace:*",
     "@showzy/validation": "workspace:*",
     "drizzle-orm": "^0.45.2",

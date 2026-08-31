@@ -16,13 +16,13 @@ import {
   verifyAsicE,
 } from "@showzy/document-signing/node";
 import { readPendingSigningObject, recordSigningObject } from "@showzy/files";
+import { postgresUniqueConstraint } from "@showzy/module-kit/postgres-unique";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { completeSigningContract } from "./complete.contract.js";
 import { ALREADY_SIGNED_MESSAGE } from "./start.js";
 import { docSigningRecorded } from "../events/recorded.js";
-import { postgresUniqueConstraint } from "../services/postgres-unique.js";
 import { requireStaffWritable } from "../services/writable.js";
 
 export { ALREADY_SIGNED_MESSAGE };

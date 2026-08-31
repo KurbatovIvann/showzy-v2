@@ -5,14 +5,11 @@ import {
   products,
   productVariants,
 } from "@showzy/db/schema/catalog";
+import { moneyToCanonical } from "@showzy/module-kit/canonical";
 import { and, asc, eq } from "drizzle-orm";
 
 import { productStatusSchema } from "../wire.contract.js";
 import { getProductContract } from "./get-product.contract.js";
-
-function moneyToCanonical(minor: bigint): string {
-  return minor.toString(10);
-}
 
 function parseProductStatus(value: string): "active" | "archived" {
   const parsed = productStatusSchema.safeParse(value);
