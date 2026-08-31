@@ -5,7 +5,9 @@ import {
 } from "@showzy/core";
 import { CoreInvariantError, NotFoundError } from "@showzy/core/errors";
 import { documentShareTokens } from "@showzy/db/schema/documents";
+import { parseDbEnum } from "@showzy/module-kit/parse-db-enum";
 import { eq } from "drizzle-orm";
+import { z } from "zod";
 
 import { getSharedContract } from "./get-shared.contract.js";
 import { loadStaffDocument } from "../services/load-document.js";
@@ -15,56 +17,15 @@ import {
 } from "../services/share-pdf-url.js";
 import { hashDocumentShareToken } from "../services/token-hash.js";
 
-export interface SharedTokenResource {
-  readonly documentId: string;
-  readonly pdfDownloadUrl: string | null;
-  readonly pdfDownloadExpiresAt: Date | null;
-  readonly signedDownloadUrl: string | null;
-  readonly signedDownloadExpiresAt: Date | null;
-}
+export const sharedTokenResourceSchema = z.object({
+  documentId: z.string().min(1),
+  pdfDownloadUrl: z.string().nullable(),
+  pdfDownloadExpiresAt: z.date().nullable(),
+  signedDownloadUrl: z.string().nullable(),
+  signedDownloadExpiresAt: z.date().nullable(),
+});
 
-function isSharedTokenResource(value: unknown): value is SharedTokenResource {
-  if (typeof value !== "object" || value === null) {
-    return false;
-  }
-  if (!("documentId" in value) || typeof value.documentId !== "string") {
-    return false;
-  }
-  if (!("pdfDownloadUrl" in value)) {
-    return false;
-  }
-  if (
-    value.pdfDownloadUrl !== null &&
-    typeof value.pdfDownloadUrl !== "string"
-  ) {
-    return false;
-  }
-  if (!("pdfDownloadExpiresAt" in value)) {
-    return false;
-  }
-  if (
-    value.pdfDownloadExpiresAt !== null &&
-    !(value.pdfDownloadExpiresAt instanceof Date)
-  ) {
-    return false;
-  }
-  if (!("signedDownloadUrl" in value)) {
-    return false;
-  }
-  if (
-    value.signedDownloadUrl !== null &&
-    typeof value.signedDownloadUrl !== "string"
-  ) {
-    return false;
-  }
-  if (!("signedDownloadExpiresAt" in value)) {
-    return false;
-  }
-  return (
-    value.signedDownloadExpiresAt === null ||
-    value.signedDownloadExpiresAt instanceof Date
-  );
-}
+export type SharedTokenResource = z.output<typeof sharedTokenResourceSchema>;
 
 async function resolveSharedDocument(
   input: { token: string },
@@ -115,12 +76,11 @@ export const getShared = implementAction(getSharedContract, {
     if (ctx.principal !== "public" || ctx.scope !== "target") {
       throw new CoreInvariantError("documents.getShared expects public-target");
     }
-    const resource = ctx.target.resource;
-    if (!isSharedTokenResource(resource)) {
-      throw new CoreInvariantError(
-        "documents.getShared resolver must return a share-token resource",
-      );
-    }
+    const resource = parseDbEnum(
+      sharedTokenResourceSchema,
+      ctx.target.resource,
+      "documents.getShared resolver must return a share-token resource",
+    );
     const view = await loadStaffDocument({
       db: ctx.db,
       companyId: ctx.target.companyId,

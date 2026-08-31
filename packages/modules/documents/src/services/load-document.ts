@@ -8,14 +8,13 @@ import type { z } from "zod";
 
 import {
   documentDiscountKindSchema,
-  documentStatusSchema,
   documentTaxTreatmentSchema,
   documentTemplateSourceSchema,
-  documentTypeSchema,
   documentViewSchema,
   buyerDetailsSchema,
   supplierDetailsSchema,
 } from "../actions/document-view.contract.js";
+import { parseStatus, parseType } from "./parse-document.js";
 
 type ReadableDb =
   | Extract<ActionCtx, { principal: "staff" }>["db"]
@@ -26,22 +25,6 @@ export type StaffDocumentRecord = {
   readonly view: DocumentView;
   readonly signRequestedAt: string | null;
 };
-
-function parseType(value: string): z.output<typeof documentTypeSchema> {
-  return parseDbEnum(
-    documentTypeSchema,
-    value,
-    `documents row has illegal type "${value}"`,
-  );
-}
-
-function parseStatus(value: string): z.output<typeof documentStatusSchema> {
-  return parseDbEnum(
-    documentStatusSchema,
-    value,
-    `documents row has illegal status "${value}"`,
-  );
-}
 
 function parseDiscountKind(
   value: string,

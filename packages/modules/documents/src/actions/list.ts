@@ -3,37 +3,16 @@ import { CoreInvariantError } from "@showzy/core/errors";
 import { documents } from "@showzy/db/schema/documents";
 import { getSupplierSignedFlags } from "@showzy/doc-signing/get-supplier-signed-flags";
 import { moneyToCanonical } from "@showzy/module-kit/canonical";
-import { parseDbEnum } from "@showzy/module-kit/parse-db-enum";
 import { paginate } from "@showzy/validation/pagination";
 import { and, desc, eq, lt, or } from "drizzle-orm";
-import type { z } from "zod";
 
+import { parseStatus, parseType } from "../services/parse-document.js";
 import { buyerLabelFromSnapshot } from "../services/snapshots.js";
-import {
-  documentStatusSchema,
-  documentTypeSchema,
-} from "./document-view.contract.js";
 import {
   formatListDocumentsCursor,
   listDocumentsContract,
   parseListDocumentsCursor,
 } from "./list.contract.js";
-
-function parseType(value: string): z.output<typeof documentTypeSchema> {
-  return parseDbEnum(
-    documentTypeSchema,
-    value,
-    `documents row has illegal type "${value}"`,
-  );
-}
-
-function parseStatus(value: string): z.output<typeof documentStatusSchema> {
-  return parseDbEnum(
-    documentStatusSchema,
-    value,
-    `documents row has illegal status "${value}"`,
-  );
-}
 
 export const listDocuments = implementAction(listDocumentsContract, {
   handler: async (input, ctx) => {
