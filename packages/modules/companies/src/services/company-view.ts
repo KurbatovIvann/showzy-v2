@@ -116,6 +116,24 @@ export function toLegalView(row: LegalRow): LegalView {
   };
 }
 
+export function toCompanyView(
+  company: {
+    readonly id: string;
+    readonly name: string;
+    readonly slug: string;
+    readonly prefix: string;
+  },
+  legal: LegalRow | undefined,
+): CompanyView {
+  return {
+    id: company.id,
+    name: company.name,
+    slug: company.slug,
+    prefix: company.prefix,
+    legal: legal === undefined ? null : toLegalView(legal),
+  };
+}
+
 export async function loadCompanyView(
   db: CompanyDb,
   companyId: string,
@@ -139,11 +157,5 @@ export async function loadCompanyView(
       .limit(1)
   )[0];
 
-  return {
-    id: company.id,
-    name: company.name,
-    slug: company.slug,
-    prefix: company.prefix,
-    legal: legal === undefined ? null : toLegalView(legal),
-  };
+  return toCompanyView(company, legal);
 }

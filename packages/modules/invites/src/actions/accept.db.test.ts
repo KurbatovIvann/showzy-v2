@@ -42,6 +42,11 @@ import { z } from "zod";
 import { acceptInvite } from "./accept.js";
 import { createInvite } from "./create.js";
 import { invitesAccepted } from "../events/accepted.js";
+import {
+  acceptCustomerInvite,
+  acceptInviteColumns,
+  assertCustomerAcceptCtx,
+} from "../services/accept-invite.js";
 import { hashInviteToken } from "../services/token-hash.js";
 
 const TEST_ACCEPTED_CONSUMER = "invites.test-accepted-noop";
@@ -91,6 +96,7 @@ const acceptors = {
   conflict: randomUUID(),
   tenant: randomUUID(),
   nameless: randomUUID(),
+  guardNonPending: randomUUID(),
 };
 
 let kit: TestKit;
@@ -245,6 +251,62 @@ const acceptedNoop = defineEventHandler({
   consumer: TEST_ACCEPTED_CONSUMER,
   action: projectAcceptedTest,
 });
+
+const acceptNonPendingDirect = implementAction(
+  defineActionContract({
+    name: "invites.acceptNonPendingDirect",
+    description:
+      "Test-local accept that resolves a token even when derived status is not pending, so the handler pending-guard can be proven before CRM.",
+    principal: "customer",
+    transport: "internal",
+    input: z.strictObject({ token: z.string().min(1) }),
+    output: z.strictObject({
+      inviteId: z.uuid(),
+      customerId: z.uuid(),
+      created: z.boolean(),
+    }),
+    permissions: [],
+    aiExposure: "internal",
+    risk: "write",
+    requiresConfirmation: false,
+    idempotent: true,
+    emits: [],
+    atomicCalls: [],
+    atomicCallers: [],
+    audit: true,
+    timeout: 10_000,
+  }),
+  {
+    resolveTarget: async (input, env) => {
+      if (env.principal.mode !== "customer") {
+        throw new NotFoundError();
+      }
+      const row = (
+        await env.tx
+          .select(acceptInviteColumns)
+          .from(companyCustomerInvites)
+          .where(
+            eq(companyCustomerInvites.tokenHash, hashInviteToken(input.token)),
+          )
+          .limit(1)
+      )[0];
+      if (row === undefined) {
+        throw new NotFoundError();
+      }
+      return { companyId: row.companyId, resource: row };
+    },
+    handler: async (_input, ctx) => {
+      assertCustomerAcceptCtx(ctx);
+      const result = await acceptCustomerInvite({ ctx });
+      return {
+        inviteId: result.inviteId,
+        customerId: result.customerId,
+        created: result.created,
+      };
+    },
+    auditTarget: () => ({ type: "invite", id: "test-non-pending-direct" }),
+  },
+);
 
 async function insertInvite(values: {
   readonly id: string;
@@ -876,5 +938,52 @@ describe("invites.accept", () => {
         companyId: kitIdentities.companies.a,
       }),
     ).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it("fails a non-pending invite before any CRM write", async () => {
+    const customersBefore = await kit.db.runtime.db
+      .select({ id: companyCustomers.id })
+      .from(companyCustomers)
+      .where(
+        and(
+          eq(companyCustomers.companyId, kitIdentities.companies.a),
+          eq(companyCustomers.userId, acceptors.guardNonPending),
+        ),
+      );
+    expect(customersBefore).toHaveLength(0);
+
+    const { logger, entries } = createCapturingLogger();
+    const error = await kit
+      .invoke(
+        acceptNonPendingDirect,
+        { token: invitePlaintext(fixtures.revoked) },
+        { userId: acceptors.guardNonPending },
+        { deps: { ...kit.pipeline, logger } },
+      )
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(NotFoundError);
+    expect((error as NotFoundError).clientMessage).toBe(NOT_FOUND_MESSAGE);
+    expect(JSON.stringify(entries())).not.toContain("applyInviteCrm");
+
+    const crm = await customerByUser(
+      kitIdentities.companies.a,
+      acceptors.guardNonPending,
+    );
+    expect(crm).toBeUndefined();
+
+    const redemptions = await kit.db.runtime.db
+      .select({ id: companyCustomerInviteRedemptions.id })
+      .from(companyCustomerInviteRedemptions)
+      .where(
+        and(
+          eq(companyCustomerInviteRedemptions.inviteId, fixtures.revoked),
+          eq(
+            companyCustomerInviteRedemptions.userId,
+            acceptors.guardNonPending,
+          ),
+        ),
+      );
+    expect(redemptions).toHaveLength(0);
   });
 });

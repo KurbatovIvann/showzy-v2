@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 
 import type { ActionCtx } from "@showzy/core";
 import { CoreInvariantError } from "@showzy/core/errors";
-import { companyLegalInfo } from "@showzy/db/schema/companies";
+import { companies, companyLegalInfo } from "@showzy/db/schema/companies";
+import { eq } from "drizzle-orm";
 import type { z } from "zod";
 
 import type {
@@ -10,9 +11,10 @@ import type {
   updateLegalOutputSchema,
 } from "../actions/update-legal.contract.js";
 import {
+  companyIdentityReturning,
   legalReturning,
-  loadCompanyView,
   storedLegalFields,
+  toCompanyView,
 } from "./company-view.js";
 import { requireStaffWritable } from "./writable.js";
 
@@ -52,5 +54,16 @@ export async function updateStaffLegal(env: {
     { company_id: ctx.companyId },
     "companies.updateLegal upserted legal info",
   );
-  return loadCompanyView(db, ctx.companyId);
+
+  const company = (
+    await db
+      .select(companyIdentityReturning)
+      .from(companies)
+      .where(eq(companies.id, ctx.companyId))
+      .limit(1)
+  )[0];
+  if (company === undefined) {
+    throw new CoreInvariantError("companies expected the staff company row");
+  }
+  return toCompanyView(company, upserted);
 }

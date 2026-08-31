@@ -1,9 +1,18 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { describe, expect, it } from "vitest";
 
 import {
   acceptInviteContract,
   acceptInviteInputSchema,
 } from "./accept.contract.js";
+
+const acceptInviteSource = readFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), "../services/accept-invite.ts"),
+  "utf8",
+);
 
 describe("invites.accept contract", () => {
   it("is an idempotent audited customer client write with internal AI and one atomic edge", () => {
@@ -38,5 +47,17 @@ describe("invites.accept contract", () => {
         companyId: "11111111-1111-4111-8111-111111111111",
       }).success,
     ).toBe(false);
+  });
+
+  it("checks pending status before the CRM atomic write", () => {
+    const pendingGuard = acceptInviteSource.indexOf(
+      'derivedInviteStatus(locked) !== "pending"',
+    );
+    const crmWrite = acceptInviteSource.indexOf(
+      "ctx.callAtomic(applyInviteCrm",
+    );
+    expect(pendingGuard).toBeGreaterThan(-1);
+    expect(crmWrite).toBeGreaterThan(-1);
+    expect(pendingGuard).toBeLessThan(crmWrite);
   });
 });

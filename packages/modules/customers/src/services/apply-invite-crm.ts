@@ -169,6 +169,7 @@ async function findUnlinkedContactMatches(
         contactClause,
       ),
     )
+    .limit(2)
     .for("update");
 }
 
