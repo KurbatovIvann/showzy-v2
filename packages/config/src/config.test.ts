@@ -250,10 +250,21 @@ describe("loadServerConfig", () => {
     env["WEB_APP_ORIGINS"] =
       "https://panel.example.com/, https://panel.example.com/sign-in";
     // Better-auth compares the request Origin header against the list, so a
-    // trailing slash or path would silently never match.
+    // trailing slash or path would silently never match. Entries that
+    // normalize to the same origin collapse into one.
     expect(loadServerConfig(env).auth.webOrigins).toEqual([
       "https://panel.example.com",
+    ]);
+  });
+
+  it("dedupes WEB_APP_ORIGINS entries that normalize to the same origin", () => {
+    const env = validEnv();
+    env["WEB_APP_ORIGINS"] =
+      "https://panel.example.com, https://panel.example.com/, https://panel.example.com/sign-in, http://localhost:5173";
+    // First occurrence wins; distinct origins keep their relative order.
+    expect(loadServerConfig(env).auth.webOrigins).toEqual([
       "https://panel.example.com",
+      "http://localhost:5173",
     ]);
   });
 

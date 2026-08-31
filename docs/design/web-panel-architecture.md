@@ -81,6 +81,15 @@ Concretely (web-T2):
   `WEB_APP_ORIGINS` (comma-separated, `packages/config`) — and join
   better-auth `trustedOrigins` in `apps/api/src/auth/options.ts`. Origin
   checks only; never an access grant.
+- **Client IP across two proxies**: requests cross ingress (Traefik, TLS
+  termination) → Caddy → API. Caddy trusts the ingress via
+  `trusted_proxies` in the Caddyfile (so it forwards the ingress-provided
+  `X-Forwarded-For`/`-Proto` instead of overwriting them), and the API's
+  `TRUSTED_PROXIES` must include the web/Caddy hop address (or the Coolify
+  overlay network CIDR) so Hono accepts the forwarded chain
+  (`docs/specs/security-operations.md` §2). Either hop alone still loses
+  the client IP, collapsing per-client rate limits (e.g. OTP send) into
+  one shared proxy-IP bucket.
 
 ## Routing
 

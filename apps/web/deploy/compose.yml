@@ -9,9 +9,18 @@
 #                  e.g. http://api:3000. Never a public URL.
 #   WEB_PORT    — container listen port (defaults to 8080).
 #
-# API-side pair of this topology: the public panel origin (the domain routed
-# to this service) must be listed in the API's WEB_APP_ORIGINS so better-auth
-# trusts it (packages/config, apps/api/src/auth/options.ts).
+# API-side pair of this topology (two settings, both required):
+#   1. The public panel origin (the domain routed to this service) must be
+#      listed in the API's WEB_APP_ORIGINS so better-auth trusts it
+#      (packages/config, apps/api/src/auth/options.ts).
+#   2. The API's TRUSTED_PROXIES must include this web/Caddy hop's address
+#      (or the Coolify overlay network CIDR). The client-IP chain crosses
+#      two proxies — ingress (Traefik) → Caddy → API — and Hono only trusts
+#      X-Forwarded-* from TRUSTED_PROXIES (security-operations §2). Caddy
+#      forwards the ingress-provided chain (trusted_proxies in the
+#      Caddyfile), but if the API does not trust the Caddy hop it falls
+#      back to the socket peer and every panel client shares one OTP
+#      rate-limit bucket. Either hop alone still loses the client IP.
 
 services:
   web:
@@ -22,5 +31,6 @@ services:
       API_UPSTREAM: ${API_UPSTREAM:-http://api:3000}
       WEB_PORT: ${WEB_PORT:-8080}
     expose:
-      - "8080"
+      # Must match the Caddyfile listen port; both default WEB_PORT to 8080.
+      - "${WEB_PORT:-8080}"
     restart: unless-stopped

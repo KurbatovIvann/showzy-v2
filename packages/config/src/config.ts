@@ -63,7 +63,8 @@ const envSchema = z.object({
    * joins better-auth `trustedOrigins`; empty means "no web panel" (the API
    * origin and the Expo scheme are always trusted). Entries are normalized
    * to their origin (`scheme://host[:port]`) — better-auth compares the
-   * request `Origin` header against the list, so paths would never match.
+   * request `Origin` header against the list, so paths would never match —
+   * and entries that normalize to the same origin collapse to one.
    */
   WEB_APP_ORIGINS: z
     .string()
@@ -80,7 +81,8 @@ const envSchema = z.object({
           .url({ protocol: /^https?$/ })
           .transform((entry) => new URL(entry).origin),
       ),
-    ),
+    )
+    .transform((origins) => [...new Set(origins)]),
 
   /**
    * HMAC secret for public rate-limit bucket keys (core.md §10). Rotating

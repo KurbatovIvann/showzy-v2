@@ -8,6 +8,16 @@
 {
 	admin off
 	auto_https off
+
+	# The ingress sets X-Forwarded-For/-Proto for the real client. Caddy's
+	# reverse_proxy only forwards (instead of overwriting) those headers
+	# when the immediate peer is a trusted proxy; the ingress reaches us
+	# over the private deployment network. Without this, every panel
+	# client would hit the API as the ingress IP over "http" and share
+	# one OTP rate-limit bucket (docs/specs/security-operations.md §2).
+	servers {
+		trusted_proxies static private_ranges
+	}
 }
 
 :{$WEB_PORT:8080} {
@@ -16,10 +26,10 @@
 	# API_UPSTREAM is the API service address inside the deployment network
 	# (e.g. http://api:3000). Forward the paths verbatim — the API mounts
 	# better-auth at /api/auth and oRPC at /rpc (apps/api/src/http/app.ts).
-	handle /rpc/* {
-		reverse_proxy {$API_UPSTREAM}
-	}
-	handle /api/auth/* {
+	# Match the exact prefixes and their subpaths, mirroring the Vite dev
+	# proxy (apps/web/vite.config.ts).
+	@api path /rpc /rpc/* /api/auth /api/auth/*
+	handle @api {
 		reverse_proxy {$API_UPSTREAM}
 	}
 
