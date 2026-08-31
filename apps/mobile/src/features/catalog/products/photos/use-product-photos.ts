@@ -12,6 +12,7 @@ import { productsCopy } from "../../../../i18n/products";
 import { invalidateCatalogAfterStatusWrite } from "../api/product-archive";
 import {
   classifyProductPhotosLoad,
+  productPhotosStripDownloadInput,
   remainingPhotoSlots,
   resolvePhotoBanner,
   resolveProductPhotosBannerKey,
@@ -93,8 +94,8 @@ export function useProductPhotos(args: {
           ? apiClient
           : null,
       companyId: activeCompanyId,
-      fileIds: committedIds,
       getActiveCompany: () => apiClient?.getActiveCompany() ?? null,
+      ...productPhotosStripDownloadInput(committedIds),
     }),
   );
   const previewByFileId = new Map<string, string>();

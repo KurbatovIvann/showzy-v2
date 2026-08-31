@@ -470,6 +470,19 @@ export function resolvePhotoBanner(
 }
 
 /**
+ * Named catalog size for photo-strip / picker previews (SHO-244).
+ * Detail display uses `hero` in `product-detail-photos.ts`, not this.
+ */
+export const PRODUCT_PHOTOS_STRIP_RENDITION = "card" as const;
+
+export function productPhotosStripDownloadInput(fileIds: readonly string[]): {
+  readonly fileIds: string[];
+  readonly rendition: typeof PRODUCT_PHOTOS_STRIP_RENDITION;
+} {
+  return { fileIds: [...fileIds], rendition: PRODUCT_PHOTOS_STRIP_RENDITION };
+}
+
+/**
  * Photo-strip banner precedence: local session, then commit mutation,
  * then `files.getDownloadUrls` (never treat a download error as success
  * with empty preview URLs).

@@ -4,6 +4,8 @@ import {
   detailViewerPhotoTiles,
   imageFileIdsFromGetProduct,
   photoManagerInputFromDetailQuery,
+  PRODUCT_DETAIL_DISPLAY_RENDITION,
+  productDetailDisplayDownloadInput,
 } from "./product-detail-photos";
 
 const PRODUCT_ID = "0f0e2d5c-4a1b-4c3d-9e8f-102938475601";
@@ -57,6 +59,17 @@ describe("photoManagerInputFromDetailQuery", () => {
         canWrite: false,
       }).imageFileIds,
     ).toEqual([]);
+  });
+});
+
+describe("productDetailDisplayDownloadInput", () => {
+  it("requests hero for product-page display and does not invent a lightbox full size (SHO-244)", () => {
+    expect(PRODUCT_DETAIL_DISPLAY_RENDITION).toBe("hero");
+    expect(PRODUCT_DETAIL_DISPLAY_RENDITION).not.toBe("full");
+    expect(productDetailDisplayDownloadInput([FILE_A, FILE_B])).toEqual({
+      fileIds: [FILE_A, FILE_B],
+      rendition: "hero",
+    });
   });
 });
 

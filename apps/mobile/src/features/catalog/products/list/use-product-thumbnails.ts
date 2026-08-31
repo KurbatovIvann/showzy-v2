@@ -1,13 +1,24 @@
 /**
- * Batched list thumbnails (SHO-140 / SHO-157). Download URLs come from
- * `apps/mobile/src/api/file-download-query.ts` — do not duplicate that
- * handshake here.
+ * Batched list thumbnails (SHO-140 / SHO-157 / SHO-247). Download URLs
+ * come from `apps/mobile/src/api/file-download-query.ts` — do not
+ * duplicate that handshake here. List cells request the named `thumb`
+ * rendition (SHO-244); they never sign the original.
  */
 import { useQueries } from "@tanstack/react-query";
 
 import type { ContractClient } from "../../../../api/client";
 import { fileDownloadUrlsQueryOptions } from "../../../../api/file-download-query";
 import type { ProductListItem } from "../api/product.queries";
+
+/** Named catalog size for product list cells (SHO-244). */
+export const PRODUCT_LIST_RENDITION = "thumb" as const;
+
+export function productListDownloadInput(fileIds: readonly string[]): {
+  readonly fileIds: string[];
+  readonly rendition: typeof PRODUCT_LIST_RENDITION;
+} {
+  return { fileIds: [...fileIds], rendition: PRODUCT_LIST_RENDITION };
+}
 
 /** First-seen unique `primaryImageFileId` values for one list page. */
 export function uniquePrimaryImageFileIds(
@@ -117,8 +128,8 @@ export function useProductThumbnails(args: {
       const options = fileDownloadUrlsQueryOptions({
         client: args.client,
         companyId: args.companyId,
-        fileIds,
         getActiveCompany: args.getActiveCompany,
+        ...productListDownloadInput(fileIds),
       });
       return {
         ...options,

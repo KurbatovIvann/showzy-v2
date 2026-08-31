@@ -18,11 +18,13 @@ import {
   photoFlushOutcome,
   photosAreDirty,
   planPhotoCommit,
+  productPhotosStripDownloadInput,
   readyOrderedFileIds,
   remainingPhotoSlots,
   removePhotoSlot,
   resolveProductPhotosBannerKey,
   toPhotoTiles,
+  PRODUCT_PHOTOS_STRIP_RENDITION,
   SET_PRODUCT_IMAGES_MAX,
 } from "./product-photos-model";
 import {
@@ -432,6 +434,16 @@ describe("product photo ordering", () => {
     ];
     expect(readyOrderedFileIds(slots)).toEqual([FILE_A]);
     expect(fileIdsEqual([FILE_A], [FILE_A])).toBe(true);
+  });
+});
+
+describe("productPhotosStripDownloadInput", () => {
+  it("requests the card rendition for strip and picker previews (SHO-244)", () => {
+    expect(PRODUCT_PHOTOS_STRIP_RENDITION).toBe("card");
+    expect(productPhotosStripDownloadInput([FILE_A, FILE_B])).toEqual({
+      fileIds: [FILE_A, FILE_B],
+      rendition: "card",
+    });
   });
 });
 

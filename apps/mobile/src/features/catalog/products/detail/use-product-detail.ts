@@ -43,6 +43,7 @@ import {
 } from "./product-detail-model";
 import {
   photoManagerInputFromDetailQuery,
+  productDetailDisplayDownloadInput,
   detailViewerPhotoTiles,
   detailViewerPreviewByFileId,
 } from "./product-detail-photos";
@@ -134,8 +135,8 @@ export function useProductDetail(
     fileDownloadUrlsQueryOptions({
       client: !canEdit && canFetchImages ? apiClient : null,
       companyId: activeCompanyId,
-      fileIds: canEdit ? [] : photoFileIds,
       getActiveCompany: () => apiClient?.getActiveCompany() ?? null,
+      ...productDetailDisplayDownloadInput(canEdit ? [] : photoFileIds),
     }),
   );
   const status = useDetailStatusWrite({

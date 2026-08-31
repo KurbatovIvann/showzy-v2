@@ -1,6 +1,9 @@
 /**
- * Detail → photo-manager wiring (SHO-160). Pass `imageFileIds` from
- * `catalog.getProduct`; the manager must not start a second getProduct.
+ * Detail → photo-manager wiring (SHO-160 / SHO-247). Pass `imageFileIds`
+ * from `catalog.getProduct`; the manager must not start a second
+ * getProduct. Read-only product-page display requests the named `hero`
+ * rendition. There is no lightbox/zoom surface, so this slice does not
+ * request `full`.
  */
 import {
   committedSlotsFromFileIds,
@@ -14,6 +17,16 @@ export type ProductDetailPhotoManagerInput = {
   readonly requireProduct: true;
   readonly canWrite: boolean;
 };
+
+/** Named catalog size for product-page display (SHO-244). */
+export const PRODUCT_DETAIL_DISPLAY_RENDITION = "hero" as const;
+
+export function productDetailDisplayDownloadInput(fileIds: readonly string[]): {
+  readonly fileIds: string[];
+  readonly rendition: typeof PRODUCT_DETAIL_DISPLAY_RENDITION;
+} {
+  return { fileIds: [...fileIds], rendition: PRODUCT_DETAIL_DISPLAY_RENDITION };
+}
 
 export function imageFileIdsFromGetProduct(
   data: { readonly imageFileIds: readonly string[] } | undefined,
