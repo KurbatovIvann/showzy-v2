@@ -16,6 +16,9 @@ export {
 } from "./capabilities.js";
 export {
   createDbClient,
+  DEFAULT_POOL_CONNECTION_TIMEOUT_MS,
+  DEFAULT_POOL_IDLE_TIMEOUT_MS,
+  DEFAULT_POOL_MAX,
   schema,
   type CreateDbClientOptions,
   type Database,

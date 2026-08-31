@@ -15,8 +15,13 @@ const command = parseWorkerCommand(process.argv.slice(2));
 const config = loadServerConfig();
 
 if (command.kind === "replay") {
-  const db = createDbClient({ databaseUrl: config.database.url });
   const logger = createProcessLogger({ name: "worker-replay" });
+  const db = createDbClient({
+    databaseUrl: config.database.url,
+    onPoolError: (error) => {
+      logger.error({ err: error }, "idle postgres pool client error");
+    },
+  });
   try {
     await runDeliveryReplayCli({ db: db.db, logger }, command.args);
   } finally {
