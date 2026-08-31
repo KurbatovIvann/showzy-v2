@@ -4,26 +4,12 @@ import { and, count, eq } from "drizzle-orm";
 import type { z } from "zod";
 
 import type { customerViewSchema } from "../actions/customer-view.contract.js";
-import { toCustomerView } from "./customer-view.js";
+import { customerColumns, toCustomerView } from "./customer-view.js";
 import type { WritableStaffDb } from "./writable.js";
 
 type CustomerView = z.output<typeof customerViewSchema>;
 
 export type CustomerLifecycleStatus = "active" | "archived";
-
-const customerViewColumns = {
-  id: companyCustomers.id,
-  name: companyCustomers.name,
-  phone: companyCustomers.phone,
-  email: companyCustomers.email,
-  userId: companyCustomers.userId,
-  notes: companyCustomers.notes,
-  groupId: companyCustomers.groupId,
-  priceListId: companyCustomers.priceListId,
-  status: companyCustomers.status,
-  createdAt: companyCustomers.createdAt,
-  updatedAt: companyCustomers.updatedAt,
-};
 
 async function countLinkedCounterparties(
   db: WritableStaffDb,
@@ -52,7 +38,7 @@ export async function setCustomerStatus(
   },
 ): Promise<CustomerView> {
   const rows = await db
-    .select(customerViewColumns)
+    .select(customerColumns)
     .from(companyCustomers)
     .where(
       and(
@@ -85,7 +71,7 @@ export async function setCustomerStatus(
           eq(companyCustomers.id, args.customerId),
         ),
       )
-      .returning(customerViewColumns)
+      .returning(customerColumns)
   )[0];
   if (updated === undefined) {
     throw new CoreInvariantError(

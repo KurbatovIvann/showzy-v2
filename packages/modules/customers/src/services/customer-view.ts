@@ -1,4 +1,6 @@
+import { companyCustomers } from "@showzy/db/schema/customers";
 import { parseDbEnum } from "@showzy/module-kit/parse-db-enum";
+import type { InferColumnsDataTypes } from "drizzle-orm";
 import type { z } from "zod";
 
 import {
@@ -7,6 +9,22 @@ import {
 } from "../actions/customer-view.contract.js";
 
 type CustomerView = z.output<typeof customerViewSchema>;
+
+export const customerColumns = {
+  id: companyCustomers.id,
+  name: companyCustomers.name,
+  phone: companyCustomers.phone,
+  email: companyCustomers.email,
+  userId: companyCustomers.userId,
+  notes: companyCustomers.notes,
+  groupId: companyCustomers.groupId,
+  priceListId: companyCustomers.priceListId,
+  status: companyCustomers.status,
+  createdAt: companyCustomers.createdAt,
+  updatedAt: companyCustomers.updatedAt,
+};
+
+export type CustomerRow = InferColumnsDataTypes<typeof customerColumns>;
 
 export function nullableText(value: string | null | undefined): string | null {
   if (value === undefined || value === null || value === "") {
@@ -24,19 +42,7 @@ function parseCustomerStatus(value: string): "active" | "archived" {
 }
 
 export function toCustomerView(
-  row: {
-    readonly id: string;
-    readonly name: string;
-    readonly phone: string | null;
-    readonly email: string | null;
-    readonly userId: string | null;
-    readonly notes: string | null;
-    readonly groupId: string | null;
-    readonly priceListId: string | null;
-    readonly status: string;
-    readonly createdAt: Date;
-    readonly updatedAt: Date;
-  },
+  row: CustomerRow,
   linkedCounterpartyCount: number,
 ): CustomerView {
   return {

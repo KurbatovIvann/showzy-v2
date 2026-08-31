@@ -11,7 +11,11 @@ import type {
 } from "../actions/update-customer.contract.js";
 import { assertCustomerAssignments } from "./assignments.js";
 import { mapCustomerWriteError } from "./create-customer.js";
-import { nullableText, toCustomerView } from "./customer-view.js";
+import {
+  customerColumns,
+  nullableText,
+  toCustomerView,
+} from "./customer-view.js";
 import { requireWritable } from "./writable.js";
 
 type StaffCtx = Extract<ActionCtx, { principal: "staff" }>;
@@ -65,19 +69,7 @@ export async function updateStaffCustomer(env: {
             eq(companyCustomers.id, input.id),
           ),
         )
-        .returning({
-          id: companyCustomers.id,
-          name: companyCustomers.name,
-          phone: companyCustomers.phone,
-          email: companyCustomers.email,
-          userId: companyCustomers.userId,
-          notes: companyCustomers.notes,
-          groupId: companyCustomers.groupId,
-          priceListId: companyCustomers.priceListId,
-          status: companyCustomers.status,
-          createdAt: companyCustomers.createdAt,
-          updatedAt: companyCustomers.updatedAt,
-        })
+        .returning(customerColumns)
     )[0];
     if (updated === undefined) {
       throw new CoreInvariantError(

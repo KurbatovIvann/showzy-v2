@@ -4,7 +4,7 @@ import { companyCustomers } from "@showzy/db/schema/customers";
 import { and, eq } from "drizzle-orm";
 
 import { countLinkedCounterparties } from "../services/count-linked-counterparties.js";
-import { toCustomerView } from "../services/customer-view.js";
+import { customerColumns, toCustomerView } from "../services/customer-view.js";
 import { getCustomerContract } from "./get-customer.contract.js";
 
 export const getCustomer = implementAction(getCustomerContract, {
@@ -15,19 +15,7 @@ export const getCustomer = implementAction(getCustomerContract, {
 
     const row = (
       await ctx.db
-        .select({
-          id: companyCustomers.id,
-          name: companyCustomers.name,
-          phone: companyCustomers.phone,
-          email: companyCustomers.email,
-          userId: companyCustomers.userId,
-          notes: companyCustomers.notes,
-          groupId: companyCustomers.groupId,
-          priceListId: companyCustomers.priceListId,
-          status: companyCustomers.status,
-          createdAt: companyCustomers.createdAt,
-          updatedAt: companyCustomers.updatedAt,
-        })
+        .select(customerColumns)
         .from(companyCustomers)
         .where(
           and(

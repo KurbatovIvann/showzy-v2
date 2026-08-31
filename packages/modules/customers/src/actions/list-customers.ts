@@ -5,26 +5,12 @@ import { likeContainsPattern, paginate } from "@showzy/validation/pagination";
 import { and, desc, eq, ilike, lt, or } from "drizzle-orm";
 
 import { countLinkedCounterpartiesByCustomerIds } from "../services/count-linked-counterparties.js";
-import { toCustomerView } from "../services/customer-view.js";
+import { customerColumns, toCustomerView } from "../services/customer-view.js";
 import {
   formatListCustomersCursor,
   listCustomersContract,
   parseListCustomersCursor,
 } from "./list-customers.contract.js";
-
-const customerListColumns = {
-  id: companyCustomers.id,
-  name: companyCustomers.name,
-  phone: companyCustomers.phone,
-  email: companyCustomers.email,
-  userId: companyCustomers.userId,
-  notes: companyCustomers.notes,
-  groupId: companyCustomers.groupId,
-  priceListId: companyCustomers.priceListId,
-  status: companyCustomers.status,
-  createdAt: companyCustomers.createdAt,
-  updatedAt: companyCustomers.updatedAt,
-};
 
 export const listCustomers = implementAction(listCustomersContract, {
   handler: async (input, ctx) => {
@@ -71,7 +57,7 @@ export const listCustomers = implementAction(listCustomersContract, {
           );
 
     const pageRows = await ctx.db
-      .select(customerListColumns)
+      .select(customerColumns)
       .from(companyCustomers)
       .where(
         and(
