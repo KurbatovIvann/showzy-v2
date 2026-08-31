@@ -1,18 +1,10 @@
 import type { ReactNode } from "react";
 import { Text, View } from "react-native";
-import { LockIcon, WifiOffIcon } from "lucide-react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
-import {
-  AppHeader,
-  Banner,
-  Button,
-  EmptyState,
-  SegmentedTabs,
-  StatusPill,
-} from "../../../components/ui";
+import { Banner, SegmentedTabs, StatusPill } from "../../../components/ui";
+import { FormScreenScaffold } from "../../../components/form-kit";
 import {
   CompanyLegalFormBankEdrpouField,
   CompanyLegalFormBankMfoField,
@@ -31,112 +23,39 @@ export function CompanyLegalFormView(model: CompanyLegalFormModel) {
   const form = copy.legalForm;
 
   return (
-    <SafeAreaView
-      edges={["top", "bottom"]}
+    <FormScreenScaffold
+      title={copy.legalLabel}
       accessibilityLabel={copy.legalLabel}
-      style={styles.screen}
+      backLabel={copy.backLabel}
+      onBack={model.requestLeave}
+      loadKind={model.state.kind}
+      loadingLabel={form.loadingLabel}
+      empty={{
+        offlineTitle: copy.offlineTitle,
+        offlineDescription: copy.offlineDescription,
+        errorTitle: copy.errorTitle,
+        errorDescription: copy.errorDescription,
+        permissionTitle: copy.permissionTitle,
+        permissionDescription: copy.permissionDescription,
+        retryLabel: copy.retry,
+      }}
+      onRetry={model.retry}
+      {...(model.state.kind === "ready"
+        ? {
+            footer: {
+              cancelLabel: form.cancel,
+              submitLabel: model.submitLabel,
+              pending: model.pending,
+              submitDisabled: model.submitDisabled,
+              onCancel: model.requestLeave,
+              onSubmit: model.save,
+            },
+          }
+        : {})}
     >
-      <AppHeader
-        title={copy.legalLabel}
-        back={{
-          onPress: model.requestLeave,
-          accessibilityLabel: copy.backLabel,
-        }}
-      />
-      <CompanyLegalFormBody model={model} />
-      {model.state.kind === "ready" ? (
-        <View style={styles.footer}>
-          <View style={styles.footerActions}>
-            <View style={styles.footerButton}>
-              <Button
-                variant="secondary"
-                fullWidth
-                label={form.cancel}
-                disabled={model.pending}
-                onPress={model.requestLeave}
-              />
-            </View>
-            <View style={styles.footerButton}>
-              <Button
-                fullWidth
-                label={model.submitLabel}
-                loading={model.pending}
-                disabled={model.submitDisabled}
-                onPress={model.save}
-              />
-            </View>
-          </View>
-        </View>
-      ) : null}
-    </SafeAreaView>
+      <CompanyLegalFormReady model={model} />
+    </FormScreenScaffold>
   );
-}
-
-function CompanyLegalFormBody(props: {
-  readonly model: CompanyLegalFormModel;
-}) {
-  const { model } = props;
-  const { copy } = model;
-  const { theme } = useUnistyles();
-  const iconColor = theme.colors.mutedForeground;
-  const form = copy.legalForm;
-
-  switch (model.state.kind) {
-    case "loading":
-      return (
-        <View style={styles.skeletons} accessibilityLabel={form.loadingLabel}>
-          <View style={[styles.skeletonLine, styles.skeletonName]} />
-          <View style={[styles.skeletonLine, styles.skeletonPrice]} />
-          <View style={styles.skeletonCard} />
-        </View>
-      );
-    case "offline":
-      return (
-        <CenteredEmpty>
-          <EmptyState
-            icon={<WifiOffIcon size={theme.iconSize.md} color={iconColor} />}
-            title={copy.offlineTitle}
-            description={copy.offlineDescription}
-            action={
-              <Button
-                variant="secondary"
-                label={copy.retry}
-                onPress={model.retry}
-              />
-            }
-          />
-        </CenteredEmpty>
-      );
-    case "error":
-      return (
-        <CenteredEmpty>
-          <EmptyState
-            icon={<WifiOffIcon size={theme.iconSize.md} color={iconColor} />}
-            title={copy.errorTitle}
-            description={copy.errorDescription}
-            action={
-              <Button
-                variant="secondary"
-                label={copy.retry}
-                onPress={model.retry}
-              />
-            }
-          />
-        </CenteredEmpty>
-      );
-    case "permission":
-      return (
-        <CenteredEmpty>
-          <EmptyState
-            icon={<LockIcon size={theme.iconSize.md} color={iconColor} />}
-            title={copy.permissionTitle}
-            description={copy.permissionDescription}
-          />
-        </CenteredEmpty>
-      );
-    case "ready":
-      return <CompanyLegalFormReady model={model} />;
-  }
 }
 
 function CompanyLegalFormReady(props: {
@@ -285,15 +204,7 @@ function CompanyLegalFormSection(props: {
   );
 }
 
-function CenteredEmpty({ children }: { readonly children: ReactNode }) {
-  return <View style={styles.centered}>{children}</View>;
-}
-
 const styles = StyleSheet.create((theme) => ({
-  screen: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
   scroll: {
     flex: 1,
   },
@@ -334,47 +245,5 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.mutedForeground,
     fontSize: theme.typography.xs.fontSize,
     lineHeight: theme.typography.xs.lineHeight,
-  },
-  footer: {
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-    backgroundColor: theme.colors.card,
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.md,
-    paddingBottom: theme.spacing.md,
-  },
-  footerActions: {
-    flexDirection: "row",
-    gap: theme.spacing.sm,
-  },
-  footerButton: {
-    flex: 1,
-  },
-  centered: {
-    flex: 1,
-    justifyContent: "center",
-  },
-  skeletons: {
-    gap: theme.spacing.md,
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.sm,
-  },
-  skeletonLine: {
-    borderRadius: theme.radii.full,
-    backgroundColor: theme.colors.skeleton,
-  },
-  skeletonName: {
-    height: theme.hitTarget.field,
-    width: "100%",
-  },
-  skeletonPrice: {
-    height: theme.hitTarget.field,
-    width: "60%",
-  },
-  skeletonCard: {
-    height: theme.hitTarget.row,
-    borderRadius: theme.radii.xl,
-    ...theme.squircle,
-    backgroundColor: theme.colors.skeleton,
   },
 }));

@@ -1,13 +1,18 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
+import type { MutationCallOptions } from "@showzy/contract";
 
 import { useApiClient } from "../../../api/api-provider";
+import type { ContractClient } from "../../../api/client";
 import { describeQueryFailure, describeWireError } from "../../../api/errors";
 import { useActiveCompany } from "../../../api/query-provider";
+import { useFormSave, useUnsavedGuard } from "../../../components/form-kit";
 import { useResolvedCompany } from "../../../company-resolution/resolved-company-provider";
 import { companiesCopy } from "../../../i18n/companies";
 import { detectLocale } from "../../../i18n/locale";
+import { invalidateCompanyAfterWrite } from "../api/company-cache";
+import { bindCompanyLegalFormMutate } from "../api/company-legal-form-mutation";
 import { getCompanyQueryOptions } from "../api/company.queries";
 import { canViewCompanySettings } from "../shared/company-permissions";
 import {
@@ -26,6 +31,7 @@ import {
   isCompanyLegalDraftEmpty,
   snapshotFromCompanyLegal,
   type CompanyLegalFormDraft,
+  type CompanyLegalFormFieldErrors,
   type CompanyLegalFormSnapshot,
   type CompanyLegalType,
 } from "./company-legal-form-draft";
@@ -33,9 +39,22 @@ import {
   classifyCompanyLegalFormLoad,
   companyLegalFormMode,
 } from "./company-legal-form-load";
+import {
+  applyWriteSuccess,
+  parseThenPlanCompanyLegalFormSave,
+  type CompanyLegalFormMutationResult,
+  type CompanyLegalFormWrite,
+} from "./company-legal-form-plan";
 import { companyLegalFormResolver } from "./company-legal-form.schema";
-import { useCompanyLegalSave } from "./use-company-legal-save";
-import { useUnsavedCompanyLegalGuard } from "./use-unsaved-company-legal-guard";
+
+function bindCompanyLegalSave(
+  client: ContractClient,
+): (
+  input: CompanyLegalFormWrite,
+  options: MutationCallOptions,
+) => Promise<CompanyLegalFormMutationResult> {
+  return bindCompanyLegalFormMutate(client);
+}
 
 export type CompanyLegalFormModel = ReturnType<typeof useCompanyLegalForm>;
 
@@ -45,6 +64,7 @@ export function useCompanyLegalForm() {
   const formCopy = copy.legalForm;
   const apiClient = useApiClient();
   const { activeCompanyId } = useActiveCompany();
+  const queryClient = useQueryClient();
   const membership = useResolvedCompany();
   const canView = canViewCompanySettings(membership.role);
 
@@ -158,31 +178,50 @@ export function useCompanyLegalForm() {
 
   const armLeaveRef = useRef(() => {});
 
-  const saveApi = useCompanyLegalSave({
-    mode,
-    loadKind: loadState.kind,
+  const saveApi = useFormSave<
+    CompanyLegalFormDraft,
+    CompanyLegalFormWrite,
+    CompanyLegalFormMutationResult,
+    CompanyLegalFormFieldErrors
+  >({
+    bindMutate: bindCompanyLegalSave,
+    invalidate: () =>
+      invalidateCompanyAfterWrite({
+        queryClient,
+        companyId: activeCompanyId,
+      }),
+    ready: loadState.kind === "ready",
     getDraft: () => cloneCompanyLegalFormDraft(getValues()),
-    setDraft: (next) => {
-      reset(next);
-    },
     setOrigin: (draft) => {
       reset(draft);
       setOriginDraft(draft);
-    },
-    baselineRef,
-    setBaseline,
-    onSaved: () => {
-      armLeaveRef.current();
-      return Promise.resolve();
     },
     setFieldErrors: (nextFieldErrors) => {
       for (const entry of rhfPathsForFieldErrors(nextFieldErrors)) {
         setError(entry.name, { type: "validate", message: entry.message });
       }
     },
+    plan: ({ lastWrite, lastFailure }) =>
+      parseThenPlanCompanyLegalFormSave({
+        mode,
+        draft: cloneCompanyLegalFormDraft(getValues()),
+        baseline: baselineRef.current,
+        lastWrite,
+        lastFailureKind: lastFailure.kind,
+        lastWireCode: lastFailure.wire,
+      }),
+    applySuccess: ({ draft }) => {
+      const applied = applyWriteSuccess({ draft });
+      reset(applied.draft);
+      baselineRef.current = applied.baseline;
+      setBaseline(applied.baseline);
+    },
+    onSaved: async () => {
+      armLeaveRef.current();
+    },
   });
 
-  const { armLeave, requestLeave } = useUnsavedCompanyLegalGuard({
+  const { armLeave, requestLeave } = useUnsavedGuard({
     dirty: isDirty,
     pending: saveApi.pending,
     copy: formCopy,

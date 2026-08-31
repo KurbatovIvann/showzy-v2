@@ -1,7 +1,9 @@
 # Pricing — mobile price-list slice (SHO-189 / SHO-190)
 
-Copy `src/features/catalog/products/` folder roles and customers list
+Folder roles follow `src/features/catalog/products/` and customers list
 chrome. `src/app/` stays one-line re-exports. Feature code lives here.
+Form-kit adoption is SHO-304 (`src/components/form-kit`) — do not clone
+the catalog form stack.
 
 UI state ownership is `.cursor/rules/mobile-ui-state.mdc`. List filters
 and options-sheet chrome are `useState` / local view state, never XState.
@@ -10,10 +12,10 @@ Delete is UI confirm (`presentConfirmDialog`) then protocol confirmation
 (`submitWithProtocolConfirmation`). Catalog list does not own writes; this
 slice does, because default/active/delete live on the options sheet.
 
-The editor is RHF `Controller` + UI draft Zod + a save planner (copy
-catalog `form/`). Create saves the list then navigates to edit to fill
-prices. Employees (`pricing:view` only) are gated with `canManagePriceLists`
-before any write; the server still re-checks `pricing:manage`.
+The editor is RHF `Controller` + UI draft Zod + a save planner. Create
+saves the list then navigates to edit to fill prices. Employees
+(`pricing:view` only) are gated with `canManagePriceLists` before any
+write; the server still re-checks `pricing:manage`.
 
 ## Folders (one role each)
 

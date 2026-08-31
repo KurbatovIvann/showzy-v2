@@ -1,7 +1,9 @@
 # Orders — mobile list + detail + create (SHO-211 / SHO-212 / SHO-213)
 
-Copy `src/features/catalog/products/` folder roles and customers list
+Folder roles follow `src/features/catalog/products/` and customers list
 chrome. `src/app/` stays one-line re-exports. Feature code lives here.
+Form-kit adoption is later (`src/components/form-kit`) — do not clone
+the catalog form stack.
 
 UI state ownership is `.cursor/rules/mobile-ui-state.mdc`. List filters
 and the status-filter sheet are `useState` / local view state, never

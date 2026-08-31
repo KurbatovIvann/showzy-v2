@@ -1,7 +1,9 @@
 # Customers — mobile CRM slice
 
-Copy `src/features/catalog/products/` folder roles. `src/app/` stays
-one-line re-exports. Feature code lives here.
+Folder roles follow `src/features/catalog/products/`. `src/app/` stays
+one-line re-exports. Feature code lives here. Form save/guard/scaffold
+adoption is SHO-307 via `src/components/form-kit` — do not clone the
+catalog form stack.
 
 UI state ownership is `.cursor/rules/mobile-ui-state.mdc`. List filters
 and tab chrome are `useState` / local view state, never XState. Writes
@@ -10,12 +12,12 @@ Delete re-invokes with the confirmation challenge (protocol). Archive
 is a UI confirm only. Catalog list does not own writes; this slice does,
 because archive / restore / delete live on the row.
 
-The client form (SHO-180) copies catalog `form/`: RHF `Controller`, UI
-draft Zod, save planner, unsaved-leave guard. The group form (SHO-181)
-lives in `groups/` next to the list presenter. The counterparty form
-(SHO-196) lives in `counterparties/` next to the list presenter. The
-invitation create form (SHO-206) lives in `invitations/` next to the list
-presenter.
+The client form (SHO-180) uses RHF `Controller`, UI draft Zod, a save
+planner, and an unsaved-leave guard (compose form-kit in SHO-307). The
+group form (SHO-181) lives in `groups/` next to the list presenter. The
+counterparty form (SHO-196) lives in `counterparties/` next to the list
+presenter. The invitation create form (SHO-206) lives in `invitations/`
+next to the list presenter.
 
 Debounce is `src/hooks/use-debounced-value.ts` and protocol confirmation is
 `src/api/protocol-confirm.ts` (SHO-219 / SHO-220). They do not live under
