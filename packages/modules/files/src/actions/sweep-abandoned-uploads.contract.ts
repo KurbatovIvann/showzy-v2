@@ -6,7 +6,7 @@
  * `companyId`, never from input. `companyId` is not an input field.
  *
  * Mechanical choices the feature card left unnamed:
- * - `timeout: 30000` covers Head+Delete for a batch of 20 on Garage.
+ * - `timeout: 30000` covers DeleteObject for a batch of 20 on Garage.
  * - Abandoned pending TTL is 1 hour (4× the 15-minute PUT TTL) so an
  *   in-flight first handshake is not swept. `files.getUploadUrl` and
  *   `files.getSigningUploadUrl` are reads and cannot bump row age; they

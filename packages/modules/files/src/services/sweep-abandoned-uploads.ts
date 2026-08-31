@@ -91,10 +91,8 @@ export async function runAbandonedUploadSweep(input: {
   }
 
   for (const row of ready) {
-    const deletedStaging = await sweepReadyLeftoverStaging({ db, store, row });
-    if (deletedStaging) {
-      leftoverStagingDeleted += 1;
-    }
+    await sweepReadyLeftoverStaging({ db, store, row });
+    leftoverStagingDeleted += 1;
   }
 
   input.ctx.log.info(
@@ -124,12 +122,12 @@ async function sweepAbandonedPending(input: {
     );
   }
 
-  await deleteIfPresent(
+  await deleteObjectIdempotent(
     input.store,
     stagingObjectKey(input.row.companyId, input.row.id),
   );
   if (input.row.purpose === "catalog") {
-    await deleteIfPresent(
+    await deleteObjectIdempotent(
       input.store,
       catalogObjectKey(input.row.companyId, input.row.id),
     );
@@ -137,7 +135,7 @@ async function sweepAbandonedPending(input: {
     // after those PutObjects leaves derived keys that must not outlive
     // the pending row (SHO-244: ready means original plus four).
     for (const rendition of CATALOG_RENDITIONS) {
-      await deleteIfPresent(
+      await deleteObjectIdempotent(
         input.store,
         catalogRenditionObjectKey(input.row.companyId, input.row.id, rendition),
       );
@@ -146,7 +144,7 @@ async function sweepAbandonedPending(input: {
     // Failed recordSigningObject can leave bytes on the signing prefix
     // while the row is still pending. Unsigned ZIP staging is never
     // copied here as durable.
-    await deleteIfPresent(
+    await deleteObjectIdempotent(
       input.store,
       signingObjectKey(input.row.companyId, input.row.id),
     );
@@ -174,14 +172,18 @@ async function sweepReadyLeftoverStaging(input: {
   readonly db: WritableDb;
   readonly store: FilesObjectStore;
   readonly row: FileRow;
-}): Promise<boolean> {
+}): Promise<void> {
   if (input.row.status !== "ready") {
     throw new CoreInvariantError(
       "files.sweepAbandonedUploads expected a ready row",
     );
   }
 
-  const deletedStaging = await deleteIfPresent(
+  // DeleteObject is idempotent. Do not HEAD first: a HEAD-gated skip
+  // leaves leftover staging when Garage misses HeadObject after PutObject
+  // (SHO-143). leftoverStagingDeleted counts leftover rows processed
+  // (DELETE issued + cursor set), not “HEAD said present”.
+  await deleteObjectIdempotent(
     input.store,
     stagingObjectKey(input.row.companyId, input.row.id),
   );
@@ -202,16 +204,11 @@ async function sweepReadyLeftoverStaging(input: {
       "files.sweepAbandonedUploads lost the ready leftover row",
     );
   }
-  return deletedStaging;
 }
 
-async function deleteIfPresent(
+async function deleteObjectIdempotent(
   store: FilesObjectStore,
   key: string,
-): Promise<boolean> {
-  const head = await store.headObject(key);
-  // DeleteObject is idempotent. Garage can miss HeadObject after PutObject;
-  // a HEAD-gated skip leaves leftover staging (SHO-143 CI leftover sweep).
+): Promise<void> {
   await store.deleteObject(key);
-  return head !== "missing";
 }

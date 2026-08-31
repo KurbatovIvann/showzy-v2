@@ -2622,7 +2622,7 @@ describe("files.sweepAbandonedUploads", () => {
     ).toHaveLength(0);
   });
 
-  it("marks a ready HEAD miss so a later tick skips the row", async () => {
+  it("marks a ready leftover so a later tick skips the row", async () => {
     await drainUnpurgedReady();
     const cleanedId = randomUUID();
     const leftoverId = randomUUID();
@@ -2644,7 +2644,7 @@ describe("files.sweepAbandonedUploads", () => {
       {},
       { deps: { ...requireKit().pipeline, logger: capturing.logger } },
     );
-    expect(first.leftoverStagingDeleted).toBe(0);
+    expect(first.leftoverStagingDeleted).toBe(1);
     const afterFirst = await fileCursor(cleanedId);
     expect(afterFirst.stagingPurgedAt).not.toBeNull();
     expect(
@@ -2701,7 +2701,7 @@ describe("files.sweepAbandonedUploads", () => {
     expect((await fileCursor(leftoverId)).stagingPurgedAt).not.toBeNull();
   });
 
-  it("deletes leftover staging when HeadObject still misses after PutObject", async () => {
+  it("deletes leftover staging without a prior HeadObject", async () => {
     await drainUnpurgedReady();
     const leftoverId = randomUUID();
     await insertFileRow({
@@ -2723,7 +2723,9 @@ describe("files.sweepAbandonedUploads", () => {
       ...inner,
       headObject(key) {
         if (key === stagingKey) {
-          return Promise.resolve("missing" as const);
+          throw new Error(
+            "sweep must DeleteObject leftover staging without HeadObject",
+          );
         }
         return inner.headObject(key);
       },
@@ -2732,7 +2734,7 @@ describe("files.sweepAbandonedUploads", () => {
       const result = await requireKit().invoke(sweepAbandonedUploads, {
         limit: 1,
       });
-      expect(result.leftoverStagingDeleted).toBe(0);
+      expect(result.leftoverStagingDeleted).toBe(1);
       expect((await fileCursor(leftoverId)).stagingPurgedAt).not.toBeNull();
     } finally {
       restore();
