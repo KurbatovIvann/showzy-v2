@@ -1,0 +1,37 @@
+{
+  "name": "@showzy/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Staff panel SPA: Vite + TanStack Router + Tailwind v4 scaffold with placeholder routes and a TanStack Query provider skeleton (SHO-309, ADR-0030). No product screens yet.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "5.101.4",
+    "@tanstack/react-router": "1.170.32",
+    "lucide-react": "1.38.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
+  },
+  "devDependencies": {
+    "@showzy/tooling": "workspace:*",
+    "@tailwindcss/vite": "4.3.3",
+    "@tanstack/router-plugin": "1.168.35",
+    "@testing-library/react": "16.3.3",
+    "@types/react": "^19.1.17",
+    "@types/react-dom": "19.1.11",
+    "@vitejs/plugin-react": "6.1.1",
+    "eslint": "^10.8.1",
+    "jsdom": "30.0.1",
+    "tailwindcss": "4.3.3",
+    "typescript": "^6.0.3",
+    "vite": "8.2.2",
+    "vitest": "^4.1.10"
+  }
+}
