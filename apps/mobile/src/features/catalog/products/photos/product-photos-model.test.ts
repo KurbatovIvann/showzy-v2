@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
 
+import { createShowzyQueryClient } from "../../../../api/query-client";
+import { contractQueryKey } from "../../../../api/query-options";
+import {
+  GET_DOWNLOAD_URLS_ACTION,
+  type FileDownloadClient,
+} from "../../../../api/file-download-query";
+import {
+  canEditProducts,
+  canFetchFileDownloadUrls,
+} from "../shared/product-permissions";
 import { productEditorHref, productPhotoHref } from "../shared/product-hrefs";
 import {
   addUploadSlots,
@@ -19,6 +29,7 @@ import {
   photosAreDirty,
   planPhotoCommit,
   productPhotosStripDownloadInput,
+  productPhotosStripQueryOptions,
   readyOrderedFileIds,
   remainingPhotoSlots,
   removePhotoSlot,
@@ -437,13 +448,72 @@ describe("product photo ordering", () => {
   });
 });
 
-describe("productPhotosStripDownloadInput", () => {
-  it("requests the card rendition for strip and picker previews (SHO-244)", () => {
+describe("productPhotosStripQueryOptions", () => {
+  const COMPANY_ID = "company-a";
+
+  function unusedDownloadUrl(): never {
+    throw new TypeError("getDownloadUrl should not run");
+  }
+
+  function stubDownloadUrlsClient(
+    onGetDownloadUrls: FileDownloadClient["client"]["files"]["getDownloadUrls"],
+  ): FileDownloadClient {
+    return {
+      client: {
+        files: {
+          getDownloadUrl: unusedDownloadUrl,
+          getDownloadUrls: onGetDownloadUrls,
+        },
+      },
+    };
+  }
+
+  it("requests card on the live strip/form/editable-detail query when the editor can write and fetch files (SHO-244)", async () => {
     expect(PRODUCT_PHOTOS_STRIP_RENDITION).toBe("card");
     expect(productPhotosStripDownloadInput([FILE_A, FILE_B])).toEqual({
       fileIds: [FILE_A, FILE_B],
       rendition: "card",
     });
+
+    const seen: unknown[] = [];
+    const client = stubDownloadUrlsClient((input) => {
+      seen.push(input);
+      return Promise.resolve({ files: [] });
+    });
+    const options = productPhotosStripQueryOptions({
+      client,
+      companyId: COMPANY_ID,
+      getActiveCompany: () => COMPANY_ID,
+      fileIds: [FILE_A, FILE_B],
+      canWrite: canEditProducts("owner"),
+      canFetchImages: canFetchFileDownloadUrls("owner"),
+    });
+    expect(options.enabled).toBe(true);
+    expect(options.queryKey).toEqual(
+      contractQueryKey(GET_DOWNLOAD_URLS_ACTION, COMPANY_ID, {
+        fileIds: [FILE_A, FILE_B],
+        rendition: "card",
+      }),
+    );
+
+    const queryClient = createShowzyQueryClient({ retryDelay: () => 0 });
+    await queryClient.fetchQuery({ ...options, retry: false });
+    expect(seen).toEqual([{ fileIds: [FILE_A, FILE_B], rendition: "card" }]);
+    queryClient.clear();
+  });
+
+  it("stays disabled without files:view so employees skip the strip download", () => {
+    const options = productPhotosStripQueryOptions({
+      client: stubDownloadUrlsClient(() => {
+        throw new TypeError("getDownloadUrls should not run");
+      }),
+      companyId: COMPANY_ID,
+      getActiveCompany: () => COMPANY_ID,
+      fileIds: [FILE_A],
+      canWrite: canEditProducts("employee"),
+      canFetchImages: canFetchFileDownloadUrls("employee"),
+    });
+    expect(options.enabled).toBe(false);
   });
 });
 

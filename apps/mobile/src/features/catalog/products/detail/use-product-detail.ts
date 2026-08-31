@@ -8,7 +8,6 @@ import { useQuery } from "@tanstack/react-query";
 
 import { useApiClient } from "../../../../api/api-provider";
 import { describeQueryFailure } from "../../../../api/errors";
-import { fileDownloadUrlsQueryOptions } from "../../../../api/file-download-query";
 import { useActiveCompany } from "../../../../api/query-provider";
 import { useResolvedCompany } from "../../../../company-resolution/resolved-company-provider";
 import { detectLocale } from "../../../../i18n/locale";
@@ -43,7 +42,7 @@ import {
 } from "./product-detail-model";
 import {
   photoManagerInputFromDetailQuery,
-  productDetailDisplayDownloadInput,
+  productDetailViewerDownloadQueryOptions,
   detailViewerPhotoTiles,
   detailViewerPreviewByFileId,
 } from "./product-detail-photos";
@@ -132,11 +131,13 @@ export function useProductDetail(
   const { openPicker } = photos;
   const photoFileIds = query.product?.imageFileIds ?? [];
   const urlsQuery = useQuery(
-    fileDownloadUrlsQueryOptions({
-      client: !canEdit && canFetchImages ? apiClient : null,
+    productDetailViewerDownloadQueryOptions({
+      client: apiClient,
       companyId: activeCompanyId,
       getActiveCompany: () => apiClient?.getActiveCompany() ?? null,
-      ...productDetailDisplayDownloadInput(canEdit ? [] : photoFileIds),
+      imageFileIds: photoFileIds,
+      canEdit,
+      canFetchImages,
     }),
   );
   const status = useDetailStatusWrite({
