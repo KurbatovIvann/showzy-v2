@@ -40,15 +40,9 @@ import type { Tx } from "@showzy/db";
 import type { z } from "zod";
 
 import { atomicCallTargetProblems } from "../../contract-check/call-rules.js";
-import {
-  CoreError,
-  CoreInvariantError,
-  TimeoutError,
-  ValidationError,
-} from "../../errors/index.js";
+import { CoreInvariantError } from "../../errors/index.js";
 import type { AnyActionContract } from "../action-registry.js";
 import {
-  effectiveCompanyId,
   type ActionRequestMeta,
   type ContextRuntime,
 } from "../context/factories.js";
@@ -60,6 +54,15 @@ import {
   createCtxCall,
   rejectNestedCallAtomic,
 } from "./ctx-call.js";
+import {
+  ATOMIC_CALL,
+  assertNestedDeadline,
+  requireNestedAuditTarget,
+  startNestedInvocation,
+  toNestedInvocationError,
+  validateNestedInput,
+  validateNestedOutput,
+} from "./nested-invocation.js";
 import type { ActionPipelineDeps } from "./types.js";
 
 /** What one root invocation's `callAtomic` closure needs. */
@@ -130,77 +133,32 @@ export function createCtxCallAtomic(env: CtxCallAtomicEnv): CtxCallAtomic {
     }
     used = true;
 
-    // Shared timeout budget: a root at/past its deadline cannot start the
-    // atomic write; the abort signal and the root's transaction-local
-    // statement timeout bound whatever is already running.
-    if (env.signal.aborted || env.deadline - env.now() <= 0) {
-      throw new TimeoutError(undefined, {
-        internalMessage: `ctx.callAtomic ${chain} attempted after the shared deadline was exhausted`,
-      });
-    }
-
-    // Callee input validation — the same rule as pipeline step 1. Roots
-    // may pass user-derived values through, so a mismatch stays a
-    // client-safe ValidationError, not an invariant failure.
-    const parsedInput = await action.contract.input.safeParseAsync(input);
-    if (!parsedInput.success) {
-      throw new ValidationError(
-        parsedInput.error.issues,
-        "Input validation failed.",
-        {
-          internalMessage: `input of atomic call ${chain} failed the callee's declared input schema`,
-        },
-      );
-    }
-
-    // Correlation-nested logs/spans: same request/correlation ids, the
-    // callee's action name, and the root for attribution.
-    const startedAt = env.now();
-    const request: ActionRequestMeta = { ...env.request, action: callee.name };
-    const log = env.deps.logger.child({
-      request_id: request.requestId,
-      correlation_id: request.correlationId,
-      action: callee.name,
-      caller_action: caller.name,
-      channel: request.channel,
+    assertNestedDeadline({
+      kind: ATOMIC_CALL,
+      chain,
+      signal: env.signal,
+      deadline: env.deadline,
+      now: env.now,
     });
-    const span = env.deps.telemetry?.startSpan({
-      requestId: request.requestId,
-      correlationId: request.correlationId,
-      action: callee.name,
-      channel: request.channel,
-      ...(request.aiTraceId !== undefined
-        ? { aiTraceId: request.aiTraceId }
-        : {}),
-      ...(request.toolCallId !== undefined
-        ? { toolCallId: request.toolCallId }
-        : {}),
+
+    const parsedInput = await validateNestedInput({
+      kind: ATOMIC_CALL,
+      schema: action.contract.input,
+      input,
+      chain,
     });
-    log.info("atomic call started");
+
+    const invocation = startNestedInvocation({
+      kind: ATOMIC_CALL,
+      deps: env.deps,
+      callerRequest: env.request,
+      callerName: caller.name,
+      calleeName: callee.name,
+      now: env.now,
+    });
+    const { request } = invocation;
 
     let calleeCtx: ActionCtx | undefined;
-    const finish = (outcome: string): void => {
-      const durationMs = env.now() - startedAt;
-      const identity = {
-        actorType: calleeCtx?.actor.type ?? null,
-        actorId: calleeCtx?.actor.id ?? null,
-        companyId:
-          calleeCtx !== undefined ? effectiveCompanyId(calleeCtx) : null,
-      };
-      const fields = {
-        actor_type: identity.actorType,
-        actor_id: identity.actorId,
-        company_id: identity.companyId,
-        outcome,
-        duration_ms: durationMs,
-      };
-      if (outcome === "INTERNAL") {
-        log.error(fields, "atomic call finished");
-      } else {
-        log.info(fields, "atomic call finished");
-      }
-      span?.end({ outcome, ...identity, durationMs });
-    };
 
     try {
       // The callee's own emission buffer: it declares its own `emits`
@@ -237,19 +195,19 @@ export function createCtxCallAtomic(env: CtxCallAtomicEnv): CtxCallAtomic {
       const ctx = await constructCalleeContext({
         callerCtx: execution.ctx,
         action,
-        input: parsedInput.data,
+        input: parsedInput,
         request,
         runtime,
       });
       calleeCtx = ctx;
 
-      const raw = await action.handler(parsedInput.data, ctx);
-      const parsedOutput = await action.contract.output.safeParseAsync(raw);
-      if (!parsedOutput.success) {
-        throw new CoreInvariantError(
-          `output of atomic call "${callee.name}" failed the declared output schema: ${JSON.stringify(parsedOutput.error.issues)}`,
-        );
-      }
+      const raw = await action.handler(parsedInput, ctx);
+      const parsedOutput = await validateNestedOutput({
+        kind: ATOMIC_CALL,
+        schema: action.contract.output,
+        calleeName: callee.name,
+        raw,
+      });
 
       // The callee's events flush into the root transaction now — a later
       // root failure rolls them back together with both modules' writes.
@@ -266,46 +224,30 @@ export function createCtxCallAtomic(env: CtxCallAtomicEnv): CtxCallAtomic {
       // only with the root).
       const auditHook = env.deps.hooks?.audit;
       if (callee.audit && auditHook !== undefined) {
-        const auditTarget = action.auditTarget;
-        if (auditTarget === undefined) {
-          throw new CoreInvariantError(
-            `atomic call target "${callee.name}" declares audit: true but binds no auditTarget — implementAction should have rejected this pairing`,
-          );
-        }
+        const auditTarget = requireNestedAuditTarget(ATOMIC_CALL, action);
         await auditHook.recordSuccess({
           tx: execution.tx,
           ctx,
           contract: callee,
-          input: parsedInput.data,
-          output: parsedOutput.data,
-          durationMs: env.now() - startedAt,
+          input: parsedInput,
+          output: parsedOutput,
+          durationMs: env.now() - invocation.startedAt,
           auditTarget,
           auditSnapshot: action.auditSnapshot,
         });
       }
 
-      finish("ok");
-      return parsedOutput.data;
+      invocation.finish("ok", calleeCtx);
+      return parsedOutput;
     } catch (error) {
-      const coreError = toAtomicCoreError(error, callee.name);
-      span?.recordError(coreError);
-      finish(coreError.code);
+      const coreError = toNestedInvocationError(
+        ATOMIC_CALL,
+        error,
+        callee.name,
+      );
+      invocation.recordError(coreError);
+      invocation.finish(coreError.code, calleeCtx);
       throw coreError;
     }
   };
-}
-
-/**
- * Everything leaving an atomic call is a typed core error (§11),
- * attributed to the callee so the log trail names the module that broke
- * the rule.
- */
-function toAtomicCoreError(error: unknown, calleeName: string): CoreError {
-  if (error instanceof CoreError) {
-    return error;
-  }
-  return new CoreInvariantError(
-    `atomic call target "${calleeName}" threw outside the typed error vocabulary`,
-    { cause: error },
-  );
 }
