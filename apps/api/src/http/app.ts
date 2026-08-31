@@ -161,7 +161,11 @@ function isSessionThunk(
 function readSessionThunk(
   context: TransportInvocationContext,
 ): (() => Promise<SessionPrincipal | null>) | undefined {
-  const value = Reflect.get(context, SESSION_THUNK);
+  const descriptor = Object.getOwnPropertyDescriptor(context, SESSION_THUNK);
+  if (descriptor === undefined) {
+    return undefined;
+  }
+  const value: unknown = descriptor.value as unknown;
   return isSessionThunk(value) ? value : undefined;
 }
 
