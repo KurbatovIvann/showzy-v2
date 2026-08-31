@@ -216,8 +216,9 @@ export function useCompanyLegalForm() {
       baselineRef.current = applied.baseline;
       setBaseline(applied.baseline);
     },
-    onSaved: async () => {
+    onSaved: () => {
       armLeaveRef.current();
+      return Promise.resolve();
     },
   });
 
