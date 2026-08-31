@@ -263,7 +263,12 @@ export async function executeAction<
     }
 
     // 6. Idempotency reserve (slot — fnd-T15), after the confirmation gate.
-    const reserve = await runIdempotencyReserve(env, hookEnv, state, gate.grant);
+    const reserve = await runIdempotencyReserve(
+      env,
+      hookEnv,
+      state,
+      gate.grant,
+    );
     if (reserve.kind === "replay") {
       state.replayed = true;
       finish("ok");
@@ -432,9 +437,7 @@ function resolveIdentity(
         actorType: "system",
         actorId: principal.serviceName,
         companyId:
-          principal.scope.scope === "tenant"
-            ? principal.scope.companyId
-            : null,
+          principal.scope.scope === "tenant" ? principal.scope.companyId : null,
       };
     case "public":
     case "share":
@@ -494,7 +497,10 @@ async function runConfirmationGate<
   if (!contract.requiresConfirmation) {
     return { kind: "execute", grant: undefined };
   }
-  const confirmedAuth = requireAuthorization(state.authorization, contract.name);
+  const confirmedAuth = requireAuthorization(
+    state.authorization,
+    contract.name,
+  );
   if (deps.hooks?.confirmation === undefined) {
     throw new CoreInvariantError(
       `"${contract.name}" requires confirmation but no confirmation hook is composed — high-risk execution cannot proceed`,
@@ -647,7 +653,10 @@ async function runExecutionTransaction<
           auditSnapshot: env.action.auditSnapshot,
         });
       }
-      if (state.reserved !== undefined && deps.hooks?.idempotency !== undefined) {
+      if (
+        state.reserved !== undefined &&
+        deps.hooks?.idempotency !== undefined
+      ) {
         await deps.hooks.idempotency.finalize({
           tx,
           reservation: state.reserved.reservation,
@@ -736,7 +745,10 @@ async function recordFailureOutcome(options: {
         error: options.error,
       });
     } catch (hookError) {
-      options.log.error({ err: hookError }, "idempotency markFailed hook failed");
+      options.log.error(
+        { err: hookError },
+        "idempotency markFailed hook failed",
+      );
     }
   }
   if (options.contract.audit && deps.hooks?.audit !== undefined) {
