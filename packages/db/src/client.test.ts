@@ -30,10 +30,7 @@ async function waitUntil(
   }
 }
 
-function requireConnectionString(pool: {
-  options: { connectionString?: string };
-}): string {
-  const connectionString = pool.options.connectionString;
+function requireConnectionString(connectionString: string | undefined): string {
   if (connectionString === undefined || connectionString === "") {
     throw new Error("expected pool connectionString");
   }
@@ -138,7 +135,9 @@ describe("createDbClient idle backend terminate", () => {
     process.on("uncaughtException", onUncaught);
 
     const client = createDbClient({
-      databaseUrl: requireConnectionString(database.runtime.pool),
+      databaseUrl: requireConnectionString(
+        database.runtime.pool.options.connectionString,
+      ),
       max: 1,
       onPoolError: (error) => {
         seen.push(error);
