@@ -318,12 +318,28 @@ describe("customer invite schema slice", () => {
     expect(indexes.get("company_customer_invites_token_hash_uq")).toContain(
       "(token_hash)",
     );
-    expect(indexes.get("company_customer_invites_company_idx")).toContain(
-      "(company_id)",
+    expect(indexes.has("company_customer_invites_company_idx")).toBe(false);
+    const invitesUpdatedAt = indexes.get(
+      "company_customer_invites_company_updated_at_id_idx",
     );
+    expect(invitesUpdatedAt).toContain("(company_id");
+    expect(invitesUpdatedAt).toMatch(/updated_at.*DESC/i);
+    expect(invitesUpdatedAt).toMatch(/id.*DESC/i);
     expect(
       indexes.get("company_customer_invites_company_status_idx"),
     ).toContain("(company_id, status)");
+    expect(indexes.get("company_customer_invites_company_group_idx")).toContain(
+      "(company_id, group_id)",
+    );
+    expect(indexes.get("company_customer_invites_company_group_idx")).toContain(
+      "WHERE (group_id IS NOT NULL)",
+    );
+    expect(
+      indexes.get("company_customer_invites_company_price_list_idx"),
+    ).toContain("(company_id, price_list_id)");
+    expect(
+      indexes.get("company_customer_invites_company_price_list_idx"),
+    ).toContain("WHERE (price_list_id IS NOT NULL)");
     const pendingExpiry = indexes.get(
       "company_customer_invites_pending_expires_at_idx",
     );

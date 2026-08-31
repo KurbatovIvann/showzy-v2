@@ -208,7 +208,7 @@ describe("private company files schema slice", () => {
     expect(indexes.get("files_company_object_key_uq")).toContain(
       "(company_id, object_key)",
     );
-    expect(indexes.get("files_company_idx")).toContain("(company_id)");
+    expect(indexes.has("files_company_idx")).toBe(false);
     expect(indexes.get("files_company_status_idx")).toContain(
       "(company_id, status)",
     );

@@ -51,7 +51,6 @@ export const customerGroups = pgTable(
   (table) => [
     unique("customer_groups_company_id_id_uq").on(table.companyId, table.id),
     unique("customer_groups_company_slug_uq").on(table.companyId, table.slug),
-    index("customer_groups_company_idx").on(table.companyId),
     index("customer_groups_price_list_idx").on(table.priceListId),
     // Getter defers the customers ↔ pricing import cycle (ADR-0025).
     // ON DELETE SET NULL is scoped to price_list_id in 0011 (db.md §7).
@@ -102,12 +101,15 @@ export const companyCustomers = pgTable(
     uniqueIndex("company_customers_company_user_uq")
       .on(table.companyId, table.userId)
       .where(sql`${table.userId} IS NOT NULL`),
-    index("company_customers_company_idx").on(table.companyId),
+    index("company_customers_company_updated_at_id_idx").on(
+      table.companyId,
+      table.updatedAt.desc().nullsFirst(),
+      table.id.desc().nullsFirst(),
+    ),
     index("company_customers_company_status_idx").on(
       table.companyId,
       table.status,
     ),
-    index("company_customers_group_idx").on(table.groupId),
     index("company_customers_company_group_idx")
       .on(table.companyId, table.groupId)
       .where(sql`${table.groupId} IS NOT NULL`),
@@ -183,7 +185,11 @@ export const counterparties = pgTable(
     uniqueIndex("counterparties_company_edrpou_uq")
       .on(table.companyId, table.edrpou)
       .where(sql`${table.edrpou} IS NOT NULL`),
-    index("counterparties_company_idx").on(table.companyId),
+    index("counterparties_company_updated_at_id_idx").on(
+      table.companyId,
+      table.updatedAt.desc().nullsFirst(),
+      table.id.desc().nullsFirst(),
+    ),
     index("counterparties_company_customer_idx").on(
       table.companyId,
       table.customerId,

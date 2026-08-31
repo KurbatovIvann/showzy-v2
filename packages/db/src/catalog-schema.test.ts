@@ -265,7 +265,8 @@ describe("catalog status and product_media schema slice", () => {
       `SELECT indexname, indexdef
        FROM pg_indexes
        WHERE schemaname = 'public'
-         AND tablename IN ('products', 'product_media')`,
+         AND tablename IN
+           ('products', 'product_variants', 'product_media')`,
     );
     const indexDefs = new Map(
       indexes.rows.map((row) => [row.indexname, row.indexdef]),
@@ -273,6 +274,15 @@ describe("catalog status and product_media schema slice", () => {
     expect(indexDefs.get("products_company_status_idx")).toContain(
       "(company_id, status)",
     );
+    const productsCreatedAt = indexDefs.get(
+      "products_company_created_at_id_idx",
+    );
+    expect(productsCreatedAt).toContain("(company_id");
+    expect(productsCreatedAt).toMatch(/created_at.*DESC/i);
+    expect(productsCreatedAt).toMatch(/id.*DESC/i);
+    expect(indexDefs.has("products_company_idx")).toBe(false);
+    expect(indexDefs.has("product_variants_company_idx")).toBe(false);
+    expect(indexDefs.has("product_media_company_idx")).toBe(false);
     expect(indexDefs.get("product_media_company_id_id_uq")).toContain("UNIQUE");
     expect(indexDefs.get("product_media_company_id_id_uq")).toContain(
       "(company_id, id)",

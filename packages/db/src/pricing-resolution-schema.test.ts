@@ -622,16 +622,12 @@ describe("price resolution schema slice", () => {
     );
     expect(customerVariantUq).toContain("WHERE (variant_id IS NOT NULL)");
 
-    expect(indexes.get("price_lists_company_idx")).toContain("(company_id)");
-    expect(indexes.get("price_list_entries_company_idx")).toContain(
-      "(company_id)",
-    );
+    expect(indexes.has("price_lists_company_idx")).toBe(false);
+    expect(indexes.has("price_list_entries_company_idx")).toBe(false);
     expect(indexes.get("price_list_entries_price_list_idx")).toContain(
       "(price_list_id)",
     );
-    expect(indexes.get("personal_prices_company_idx")).toContain(
-      "(company_id)",
-    );
+    expect(indexes.has("personal_prices_company_idx")).toBe(false);
     expect(indexes.get("personal_prices_customer_idx")).toContain(
       "(customer_id)",
     );

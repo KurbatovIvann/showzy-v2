@@ -42,7 +42,11 @@ export const products = pgTable(
   },
   (table) => [
     unique("products_company_id_id_uq").on(table.companyId, table.id),
-    index("products_company_idx").on(table.companyId),
+    index("products_company_created_at_id_idx").on(
+      table.companyId,
+      table.createdAt.desc().nullsFirst(),
+      table.id.desc().nullsFirst(),
+    ),
     index("products_company_status_idx").on(table.companyId, table.status),
     check("products_base_price_minor_check", sql`${table.basePriceMinor} >= 0`),
     check(
@@ -79,7 +83,6 @@ export const productVariants = pgTable(
   },
   (table) => [
     unique("product_variants_company_id_id_uq").on(table.companyId, table.id),
-    index("product_variants_company_idx").on(table.companyId),
     index("product_variants_product_idx").on(table.productId),
     foreignKey({
       name: "product_variants_products_company_fk",
@@ -127,7 +130,6 @@ export const productMedia = pgTable(
       table.productId,
       table.fileId,
     ),
-    index("product_media_company_idx").on(table.companyId),
     index("product_media_product_idx").on(
       table.companyId,
       table.productId,
