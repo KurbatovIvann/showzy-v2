@@ -1,9 +1,13 @@
 import type { ActionCtx } from "@showzy/core";
-import { CoreInvariantError, NotFoundError } from "@showzy/core/errors";
+import {
+  ConflictError,
+  CoreInvariantError,
+  NotFoundError,
+} from "@showzy/core/errors";
 import { orderCards } from "@showzy/db/schema/chat";
+import { postgresError } from "@showzy/module-kit/postgres-unique";
 import { and, eq } from "drizzle-orm";
 
-import { postgresSqlState } from "./postgres-sql-state.js";
 import { requireWritable } from "./writable.js";
 
 type UpsertResult = {
@@ -11,6 +15,17 @@ type UpsertResult = {
   readonly revision: number;
   readonly applied: true;
 };
+
+export function mapOrderCardInsertViolation(error: unknown): unknown {
+  const pg = postgresError(error);
+  if (pg?.code === "23503") {
+    return new NotFoundError();
+  }
+  if (pg?.code === "23505") {
+    return new ConflictError("Order card already exists.");
+  }
+  return error;
+}
 
 export async function upsertTenantOrderCard(env: {
   readonly ctx: Extract<ActionCtx, { principal: "system" }>;
@@ -83,10 +98,6 @@ export async function upsertTenantOrderCard(env: {
       applied: true,
     };
   } catch (error) {
-    const sqlState = postgresSqlState(error);
-    if (sqlState === "23503" || sqlState === "23505") {
-      throw new NotFoundError();
-    }
-    throw error;
+    throw mapOrderCardInsertViolation(error);
   }
 }
