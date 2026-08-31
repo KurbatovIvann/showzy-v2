@@ -9,6 +9,86 @@ import {
   type WireErrorCode,
 } from "@showzy/contract";
 
+/** Contract client is null — not a network failure. */
+export class ClientUnavailableError extends Error {
+  constructor() {
+    super("client unavailable");
+    this.name = "ClientUnavailableError";
+  }
+}
+
+/** Programmer invariant (e.g. upload handshake missing a required step). */
+export class InternalInvariantError extends Error {
+  constructor(message = "internal invariant") {
+    super(message);
+    this.name = "InternalInvariantError";
+  }
+}
+
+/** Non-2xx HTTP status from a raw fetch/PUT (not an oRPC wire error). */
+export class HttpStatusError extends Error {
+  readonly status: number;
+
+  constructor(status: number) {
+    super("http status");
+    this.name = "HttpStatusError";
+    this.status = status;
+  }
+}
+
+export function requireReadyClient<T>(client: T | null): T {
+  if (client === null) {
+    throw new ClientUnavailableError();
+  }
+  return client;
+}
+
+export function isClientUnavailableError(
+  error: unknown,
+): error is ClientUnavailableError {
+  return error instanceof ClientUnavailableError;
+}
+
+export function isInternalInvariantError(
+  error: unknown,
+): error is InternalInvariantError {
+  return error instanceof InternalInvariantError;
+}
+
+export function isHttpStatusError(error: unknown): error is HttpStatusError {
+  return error instanceof HttpStatusError;
+}
+
+export function queryFailureKindFromHttpStatus(
+  status: number,
+): QueryFailureKind {
+  if (status === 401) {
+    return "unauthenticated";
+  }
+  if (status === 403) {
+    return "permission";
+  }
+  if (status === 404) {
+    return "not_found";
+  }
+  if (status === 409) {
+    return "conflict";
+  }
+  if (status === 429) {
+    return "rate_limited";
+  }
+  if (status === 400 || status === 422) {
+    return "validation";
+  }
+  if (status === 408 || status === 504) {
+    return "timeout";
+  }
+  if (status >= 500 && status <= 599) {
+    return "internal";
+  }
+  return "network";
+}
+
 export type WireErrorView = {
   readonly code: WireErrorCode;
   readonly message: string;
@@ -61,6 +141,15 @@ export function describeQueryFailure(
         ? {}
         : { challengeId: view.challengeId }),
       ...(view.summary === undefined ? {} : { summary: view.summary }),
+    };
+  }
+  if (isClientUnavailableError(error) || isInternalInvariantError(error)) {
+    return { kind: "internal", message: error.message };
+  }
+  if (isHttpStatusError(error)) {
+    return {
+      kind: queryFailureKindFromHttpStatus(error.status),
+      message: "http",
     };
   }
   const online = options.online ?? onlineManager.isOnline();

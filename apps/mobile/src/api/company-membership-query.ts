@@ -1,4 +1,5 @@
 import type { ContractClient } from "./client";
+import { requireReadyClient } from "./errors";
 import {
   accountContractQueryKey,
   accountContractQueryOptions,
@@ -26,12 +27,7 @@ export function listMineQueryOptions(
       actionName: LIST_MINE_ACTION,
       sessionUserId: querySession,
       input: {},
-      queryFn: () => {
-        if (client === null) {
-          return Promise.reject(new TypeError("Failed to fetch"));
-        }
-        return client.client.companies.listMine({});
-      },
+      queryFn: () => requireReadyClient(client).client.companies.listMine({}),
     }),
     enabled: client !== null && sessionUserId !== null,
   };

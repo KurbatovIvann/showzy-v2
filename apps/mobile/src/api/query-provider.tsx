@@ -11,9 +11,10 @@ import {
 } from "react";
 
 import { useAuthSession } from "../auth/session-provider";
+import { createPlatformDevicePrefs } from "../prefs/platform-storage";
+import { bindActiveCompanyRuntime } from "./active-company-runtime";
 import { useApiClient } from "./api-provider";
 import {
-  bindActiveCompanyQueryIsolation,
   createShowzyQueryClient,
   handleUnauthenticatedQueryError,
   hasLocalSession,
@@ -62,11 +63,9 @@ export function QueryRuntimeProvider({
         if (current === null) {
           return;
         }
-        handleUnauthenticatedQueryError({
+        return handleUnauthenticatedQueryError({
           hadSession: hasLocalSession(authRef.current.getCookie()),
-          clearSession: () => {
-            void authRef.current.clearDeadSession();
-          },
+          clearSession: () => authRef.current.clearDeadSession(),
           clearCache: () => {
             resetTenantQueryState({
               client: apiRef.current,
@@ -86,7 +85,10 @@ export function QueryRuntimeProvider({
     if (apiClient === null) {
       return;
     }
-    return bindActiveCompanyQueryIsolation(apiClient, queryClient, {
+    return bindActiveCompanyRuntime({
+      client: apiClient,
+      prefs: createPlatformDevicePrefs(),
+      queryClient,
       onCompanyId: setActiveCompanyId,
     });
   }, [apiClient, queryClient]);

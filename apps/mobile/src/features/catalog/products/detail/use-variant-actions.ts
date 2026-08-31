@@ -10,6 +10,7 @@ import { useContractMutation } from "../../../../api/contract-mutation";
 import {
   describeQueryFailure,
   describeWireError,
+  requireReadyClient,
 } from "../../../../api/errors";
 import { useActiveCompany } from "../../../../api/query-provider";
 import type { ProductsCopy } from "../../../../i18n/products";
@@ -84,10 +85,7 @@ export function useVariantActions(args: {
   const variantHidden = useSheetHiddenWaiter();
   const variantMutation = useContractMutation(
     (input: ProductFormWrite, options) => {
-      const current = apiRef.current;
-      if (current === null) {
-        return Promise.reject(new TypeError("Failed to fetch"));
-      }
+      const current = requireReadyClient(apiRef.current);
       return bindProductFormMutate(current)(input, options);
     },
   );

@@ -16,6 +16,8 @@ import { createShowzyAuthClient, type ShowzyAuthClient } from "./client";
 import { isAuthClientError, type AuthErrorKind } from "./errors";
 import { isPlaceholderEmail } from "./otp/identifiers";
 import { createPlatformAuthStorage } from "./platform-storage";
+import { signOutClearingLocalJar } from "./sign-out";
+import type { ExpoAuthStorage } from "./storage";
 
 export type AuthStatus = "loading" | "anonymous" | "authenticated";
 
@@ -44,7 +46,11 @@ type BootState =
   | { readonly kind: "loading" }
   | { readonly kind: "config-error" }
   | { readonly kind: "hydrate-error" }
-  | { readonly kind: "ready"; readonly client: ShowzyAuthClient };
+  | {
+      readonly kind: "ready";
+      readonly client: ShowzyAuthClient;
+      readonly storage: ExpoAuthStorage;
+    };
 
 export function SessionProvider({
   children,
@@ -65,7 +71,7 @@ export function SessionProvider({
         const storage = await createPlatformAuthStorage();
         const client = createShowzyAuthClient({ baseURL, storage });
         if (!cancelled) {
-          setBoot({ kind: "ready", client });
+          setBoot({ kind: "ready", client, storage });
         }
       } catch (error) {
         if (cancelled) {
@@ -114,6 +120,7 @@ export function SessionProvider({
   return (
     <SessionFromSdk
       authClient={boot.client}
+      storage={boot.storage}
       copy={copy}
       retryHydrate={retryHydrate}
     >
@@ -124,11 +131,13 @@ export function SessionProvider({
 
 function SessionFromSdk({
   authClient,
+  storage,
   copy,
   retryHydrate,
   children,
 }: {
   readonly authClient: ShowzyAuthClient;
+  readonly storage: ExpoAuthStorage;
   readonly copy: AuthCopy;
   readonly retryHydrate: () => Promise<void>;
   readonly children: ReactNode;
@@ -149,8 +158,12 @@ function SessionFromSdk({
   }, [refetch]);
 
   const signOut = useCallback(async () => {
-    await authClient.signOut();
-  }, [authClient]);
+    await signOutClearingLocalJar({
+      signOutRemote: () => authClient.signOut(),
+      storage,
+    });
+    void refetch();
+  }, [authClient, refetch, storage]);
 
   const session = userFromSession(sessionQuery.data);
   const status: AuthStatus = sessionQuery.isPending

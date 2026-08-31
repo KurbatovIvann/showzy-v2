@@ -9,6 +9,7 @@ import { createShowzyQueryClient } from "./query-client";
 import {
   accountContractQueryKey,
   accountContractQueryOptions,
+  assertCompanyStillActive,
   contractInfiniteQueryOptions,
   contractQueryKey,
   contractQueryOptions,
@@ -197,5 +198,16 @@ describe("accountContractQueryOptions", () => {
     });
     expect(queryFn).toHaveBeenCalledOnce();
     queryClient.clear();
+  });
+});
+
+describe("assertCompanyStillActive", () => {
+  it("throws StaleCompanyQueryError when the live selector drifted", () => {
+    expect(() => {
+      assertCompanyStillActive(() => "company-b", "company-a");
+    }).toThrow(StaleCompanyQueryError);
+    expect(() => {
+      assertCompanyStillActive(() => "company-a", "company-a");
+    }).not.toThrow();
   });
 });

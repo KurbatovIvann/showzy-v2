@@ -1,7 +1,13 @@
 import { ORPCError } from "@orpc/client";
 import { describe, expect, it } from "vitest";
 
-import { describeQueryFailure, describeWireError } from "./errors";
+import {
+  ClientUnavailableError,
+  describeQueryFailure,
+  describeWireError,
+  HttpStatusError,
+  InternalInvariantError,
+} from "./errors";
 
 describe("describeWireError (contract.md §4)", () => {
   it("narrows by code, not by message text", () => {
@@ -101,6 +107,36 @@ describe("describeQueryFailure", () => {
         online: false,
       }).kind,
     ).toBe("offline");
+  });
+
+  it("classifies ClientUnavailableError and InternalInvariantError as internal", () => {
+    expect(describeQueryFailure(new ClientUnavailableError())).toEqual({
+      kind: "internal",
+      message: "client unavailable",
+    });
+    expect(describeQueryFailure(new InternalInvariantError("broken"))).toEqual({
+      kind: "internal",
+      message: "broken",
+    });
+  });
+
+  it("maps HttpStatusError by status, not as network", () => {
+    expect(describeQueryFailure(new HttpStatusError(401)).kind).toBe(
+      "unauthenticated",
+    );
+    expect(describeQueryFailure(new HttpStatusError(403)).kind).toBe(
+      "permission",
+    );
+    expect(describeQueryFailure(new HttpStatusError(404)).kind).toBe(
+      "not_found",
+    );
+    expect(describeQueryFailure(new HttpStatusError(429)).kind).toBe(
+      "rate_limited",
+    );
+    expect(describeQueryFailure(new HttpStatusError(503)).kind).toBe(
+      "internal",
+    );
+    expect(describeQueryFailure(new HttpStatusError(418)).kind).toBe("network");
   });
 
   it("maps a duck-typed 401 to unauthenticated, not network", () => {

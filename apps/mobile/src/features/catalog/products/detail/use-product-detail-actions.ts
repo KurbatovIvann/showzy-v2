@@ -7,17 +7,15 @@ import { useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 
-import { useApiClient } from "../../../../api/api-provider";
-import { useContractMutation } from "../../../../api/contract-mutation";
 import { describeQueryFailure } from "../../../../api/errors";
 import { useActiveCompany } from "../../../../api/query-provider";
+import { useBoundContractMutation } from "../../../../api/use-bound-contract-mutation";
 import { presentConfirmDialog } from "../../../../components/ui/present-confirm-dialog";
 import { waitForSheetHidden } from "../../../../components/ui/sheet-dismiss";
 import type { ProductsDetailCopy } from "../../../../i18n/products";
 import {
   bindCatalogStatusMutate,
   invalidateCatalogAfterStatusWrite,
-  type CatalogStatusWrite,
 } from "../api/product-archive";
 import { productEditorHref } from "../shared/product-hrefs";
 import {
@@ -70,45 +68,37 @@ export function useDetailStatusWrite(args: {
   readonly copy: ProductsDetailCopy;
   readonly dispatch: (action: ProductDetailSheetAction) => void;
 }): DetailStatusWrite {
-  const apiClient = useApiClient();
-  const apiRef = useRef(apiClient);
-  apiRef.current = apiClient;
   const { activeCompanyId } = useActiveCompany();
   const queryClient = useQueryClient();
-  const writeBusyRef = useRef(false);
-  const mutation = useContractMutation((input: CatalogStatusWrite, options) => {
-    const current = apiRef.current;
-    if (current === null) {
-      return Promise.reject(new TypeError("Failed to fetch"));
-    }
-    return bindCatalogStatusMutate(current)(input, options);
-  });
+  const mutation = useBoundContractMutation((client) =>
+    bindCatalogStatusMutate(client),
+  );
   const mutationFailure = mutation.isError
     ? describeQueryFailure(mutation.error).kind
     : null;
 
   async function submitConfirm(target: ConfirmTarget): Promise<void> {
-    if (args.productId === null || writeBusyRef.current || mutation.isPending) {
+    if (args.productId === null) {
       return;
     }
-    writeBusyRef.current = true;
-    try {
-      if (planConfirmStatusWrite(mutation.isError) === "retry") {
-        await mutation.retry();
-      } else {
-        await mutation.submit(statusWriteForConfirm(target, args.productId));
+    const productId = args.productId;
+    await mutation.runGuarded(async () => {
+      try {
+        if (planConfirmStatusWrite(mutation.isError) === "retry") {
+          await mutation.retry();
+        } else {
+          await mutation.submit(statusWriteForConfirm(target, productId));
+        }
+        await invalidateCatalogAfterStatusWrite({
+          queryClient,
+          companyId: activeCompanyId,
+        });
+        args.dispatch({ type: "closeAll" });
+        mutation.reset();
+      } catch {
+        // Banner is derived from mutation.error.
       }
-      await invalidateCatalogAfterStatusWrite({
-        queryClient,
-        companyId: activeCompanyId,
-      });
-      args.dispatch({ type: "closeAll" });
-      mutation.reset();
-    } catch {
-      // Banner is derived from mutation.error.
-    } finally {
-      writeBusyRef.current = false;
-    }
+    });
   }
 
   return {

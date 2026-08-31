@@ -13,6 +13,23 @@ export function allowLanHttpObjectStore(
 }
 
 /**
+ * iOS ATS local-network exception — same gate as Android cleartext
+ * (dev / unset EAS profile only).
+ */
+export function iosInfoPlistFor(env: typeof process.env = process.env): {
+  readonly NSAppTransportSecurity?: { readonly NSAllowsLocalNetworking: true };
+} {
+  if (!allowLanHttpObjectStore(env)) {
+    return {};
+  }
+  return {
+    NSAppTransportSecurity: {
+      NSAllowsLocalNetworking: true,
+    },
+  };
+}
+
+/**
  * Config plugins for the preinstalled native kit. Permission strings live
  * here so the first product screen that uses camera, photos, microphone,
  * files, or push does not force another Expo/dev-client rebuild.
@@ -111,11 +128,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     config: {
       usesNonExemptEncryption: false,
     },
-    infoPlist: {
-      NSAppTransportSecurity: {
-        NSAllowsLocalNetworking: true,
-      },
-    },
+    infoPlist: iosInfoPlistFor(),
   },
   android: {
     package: "com.showzy.app",

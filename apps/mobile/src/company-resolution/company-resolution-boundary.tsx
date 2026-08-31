@@ -72,7 +72,7 @@ export function CompanyResolutionBoundary(props: {
       <MultipleCompaniesStub
         copy={copy}
         onSignOut={() => {
-          void auth.signOut();
+          void auth.signOut().catch(() => undefined);
         }}
       />
     );

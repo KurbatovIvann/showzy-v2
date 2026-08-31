@@ -76,6 +76,27 @@ describe("createContractMutationController", () => {
     expect(secondKey).not.toBe(firstKey);
   });
 
+  it("clears the in-flight attempt so retry after reset has no key", async () => {
+    const created = createShowzyClient<SampleRouter>({
+      apiUrl: "http://api.test",
+      fetch: () => Promise.resolve(new Response(null, { status: 599 })),
+    });
+    const controller = createContractMutationController<
+      { note: string },
+      unknown
+    >({
+      mutate: (input, options) => created.client.sample.submit(input, options),
+    });
+
+    await ignoreRpcFailure(controller.submit({ note: "one" }));
+    expect(controller.attemptKey()).not.toBeNull();
+    controller.reset();
+    expect(controller.attemptKey()).toBeNull();
+    await expect(controller.retry()).rejects.toThrow(
+      "contract mutation has no in-flight submit",
+    );
+  });
+
   it("keeps the attempt key and sets challenge meta on confirmation re-invoke", async () => {
     const requests: Request[] = [];
     const created = createShowzyClient<SampleRouter>({
