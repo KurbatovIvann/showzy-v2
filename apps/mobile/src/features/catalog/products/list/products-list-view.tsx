@@ -43,7 +43,7 @@ export function ProductsListView(model: ProductsListModel) {
         onPress={openProduct}
       />
     ),
-    [copy.archivedBadge, openProduct],
+    [copy.archivedBadge, copy.thumbnailUnavailable, openProduct],
   );
 
   return (

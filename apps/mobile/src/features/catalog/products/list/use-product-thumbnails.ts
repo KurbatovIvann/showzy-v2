@@ -5,6 +5,7 @@
  * rendition (SHO-244); they never sign the original.
  */
 import { useQueries } from "@tanstack/react-query";
+import { useCallback, useRef } from "react";
 
 import type { ContractClient } from "../../../../api/client";
 import {
@@ -87,6 +88,58 @@ export function mergeDownloadUrlPages(
   return map;
 }
 
+export function stringMapsEqual(
+  left: ReadonlyMap<string, string>,
+  right: ReadonlyMap<string, string>,
+): boolean {
+  if (left.size !== right.size) {
+    return false;
+  }
+  for (const [key, value] of right) {
+    if (left.get(key) !== value) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export function stringSetsEqual(
+  left: ReadonlySet<string>,
+  right: ReadonlySet<string>,
+): boolean {
+  if (left.size !== right.size) {
+    return false;
+  }
+  for (const value of right) {
+    if (!left.has(value)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/** Keep the previous Map when contents match so list `useMemo` can bail. */
+export function retainStringMap(
+  previous: ReadonlyMap<string, string> | undefined,
+  next: ReadonlyMap<string, string>,
+): ReadonlyMap<string, string> {
+  if (previous !== undefined && stringMapsEqual(previous, next)) {
+    return previous;
+  }
+  return next;
+}
+
+/** Keep the previous Set when contents match so list `useMemo` can bail. */
+export function retainStringSet(
+  previous: ReadonlySet<string> | undefined,
+  next: ReadonlySet<string>,
+): ReadonlySet<string> {
+  if (previous !== undefined && stringSetsEqual(previous, next)) {
+    return previous;
+  }
+  return next;
+}
+
 /** Primary image ids on pages whose `getDownloadUrls` query failed. */
 export function failedPrimaryImageFileIds(
   pages: ReadonlyArray<{
@@ -160,21 +213,30 @@ export function useProductThumbnails(args: {
       }),
     ),
   });
-  const urlsByFileId = mergeDownloadUrlPages(
+  const nextUrls = mergeDownloadUrlPages(
     thumbnailQueries.map((query) => query.data),
   );
-  const failedFileIds = failedPrimaryImageFileIds(
+  const nextFailed = failedPrimaryImageFileIds(
     args.pages,
     thumbnailQueries.map((query) => query.isError),
   );
+  const urlsRef = useRef<ReadonlyMap<string, string> | undefined>(undefined);
+  const failedRef = useRef<ReadonlySet<string> | undefined>(undefined);
+  const urlsByFileId = retainStringMap(urlsRef.current, nextUrls);
+  const failedFileIds = retainStringSet(failedRef.current, nextFailed);
+  urlsRef.current = urlsByFileId;
+  failedRef.current = failedFileIds;
+  const thumbnailQueriesRef = useRef(thumbnailQueries);
+  thumbnailQueriesRef.current = thumbnailQueries;
+  const refetch = useCallback(() => {
+    for (const query of thumbnailQueriesRef.current) {
+      void query.refetch();
+    }
+  }, []);
 
   return {
     urlsByFileId,
     failedFileIds,
-    refetch: () => {
-      for (const query of thumbnailQueries) {
-        void query.refetch();
-      }
-    },
+    refetch,
   };
 }

@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { useApiClient } from "../../../../api/api-provider";
 import { describeQueryFailure } from "../../../../api/errors";
@@ -62,7 +62,10 @@ export function useProductsList() {
   const search = normalizeProductsSearch(debouncedSearch);
   const hasSearch = search !== undefined;
 
-  const getActiveCompany = () => apiClient?.getActiveCompany() ?? null;
+  const getActiveCompany = useCallback(
+    () => apiClient?.getActiveCompany() ?? null,
+    [apiClient],
+  );
   const listQuery = useInfiniteQuery(
     listProductsInfiniteOptions({
       client: apiClient,
@@ -166,47 +169,63 @@ export function useProductsList() {
     }),
   });
 
+  const foundCountLabel = interpolate(copy.foundCount, {
+    count: String(rows.length),
+  });
+  const resetSearch = useCallback(() => {
+    setSearchText("");
+  }, []);
+  const showAll = useCallback(() => {
+    setFilter("all");
+  }, []);
+  const listRefetch = listQuery.refetch;
+  const fetchNextPage = listQuery.fetchNextPage;
+  const hasNextPage = listQuery.hasNextPage;
+  const isFetchingNextPage = listQuery.isFetchingNextPage;
+  const refresh = useCallback(() => {
+    void listRefetch();
+    refetchThumbnails();
+  }, [listRefetch, refetchThumbnails]);
+  const retry = useCallback(() => {
+    void listRefetch();
+    refetchThumbnails();
+  }, [listRefetch, refetchThumbnails]);
+  const loadMore = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) {
+      void fetchNextPage();
+    }
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
+  const openProduct = useCallback(
+    (id: string) => {
+      router.push(`/products/${id}`);
+    },
+    [router],
+  );
+  const openCreate = useCallback(() => {
+    router.push("/products/new");
+  }, [router]);
+
   return {
     copy,
     state,
     rows,
     // Loaded-page size only (SHO-149 owner: no catalog.listProducts activeCount).
-    foundCountLabel: interpolate(copy.foundCount, {
-      count: String(rows.length),
-    }),
+    foundCountLabel,
     searchText,
     searchMaxLength: LIST_PRODUCTS_QUERY_MAX,
     changeSearch: setSearchText,
-    resetSearch: () => {
-      setSearchText("");
-    },
+    resetSearch,
     filter,
     changeFilter: setFilter,
-    showAll: () => {
-      setFilter("all");
-    },
+    showAll,
     canCreate: canCreateProducts(membership.role),
     refreshing: listQuery.isRefetching && !listQuery.isFetchingNextPage,
-    refresh: () => {
-      void listQuery.refetch();
-      refetchThumbnails();
-    },
-    retry: () => {
-      void listQuery.refetch();
-      refetchThumbnails();
-    },
+    refresh,
+    retry,
     loadingMore: listQuery.isFetchingNextPage,
-    loadMore: () => {
-      if (listQuery.hasNextPage && !listQuery.isFetchingNextPage) {
-        void listQuery.fetchNextPage();
-      }
-    },
-    openProduct: (id: string) => {
-      router.push(`/products/${id}`);
-    },
-    openCreate: () => {
-      router.push("/products/new");
-    },
+    loadMore,
+    openProduct,
+    openCreate,
   };
 }
 

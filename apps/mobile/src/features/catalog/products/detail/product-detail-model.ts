@@ -314,6 +314,8 @@ export function confirmIsDestructive(target: ConfirmTarget): boolean {
 export function sheetsAfterCancelStatusConfirm(args: {
   readonly target: ConfirmTarget;
   readonly variantActionId: string | null;
+  readonly variantActionName?: string;
+  readonly variantActionArchived?: boolean;
 }): DetailSheets {
   return reduceProductDetailSheets(IDLE_DETAIL_SHEETS, {
     type: "cancelStatusConfirm",
@@ -323,6 +325,8 @@ export function sheetsAfterCancelStatusConfirm(args: {
         ? "variantActions"
         : "idle",
     variantActionId: args.variantActionId,
+    variantActionName: args.variantActionName ?? "",
+    variantActionArchived: args.variantActionArchived ?? false,
   });
 }
 

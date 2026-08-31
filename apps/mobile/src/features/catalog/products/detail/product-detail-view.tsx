@@ -337,6 +337,11 @@ function ProductDetailReady(props: { readonly model: ProductDetailModel }) {
             </View>
           ) : (
             <View style={styles.variantList}>
+              {/*
+                Capped at PRODUCT_FORM_MAX_VARIANTS (catalog create cap).
+                Mapping the full list in ScrollView is intentional: the
+                count cannot grow into FlashList territory.
+              */}
               {product.variants.map((variant) => (
                 <ProductVariantRow
                   key={variant.id}

@@ -139,6 +139,33 @@ describe("runPhotoCommitLoop", () => {
     expect(submit).toHaveBeenCalledOnce();
     expect(session.getContext().commitQueued).toBe(false);
   });
+
+  it("still runs a queued commit after the in-flight write fails", async () => {
+    const session = createPhotoSessionStore({
+      productId: PRODUCT_ID,
+      requireProduct: true,
+      snapshotFileIds: [FILE_A, FILE_B],
+    });
+    session.send({ type: "movePhoto", id: FILE_B, direction: "earlier" });
+    const submit = vi
+      .fn((input: { readonly fileIds: readonly string[] }) =>
+        Promise.resolve({ fileIds: [...input.fileIds] }),
+      )
+      .mockImplementationOnce(() => {
+        session.send({ type: "queueCommit" });
+        return Promise.reject(new TypeError("Failed to fetch"));
+      });
+    await runPhotoCommitLoop(sessionPorts(session, { submit }));
+    expect(submit).toHaveBeenCalledTimes(2);
+    expect(submit).toHaveBeenNthCalledWith(2, {
+      productId: PRODUCT_ID,
+      fileIds: [FILE_B, FILE_A],
+    });
+    expect(session.getContext().commitQueued).toBe(false);
+    expect(session.getContext().commitBusy).toBe(false);
+    expect(session.getContext().baseline).toEqual([FILE_B, FILE_A]);
+    expect(session.getContext().lastFailureKind).toBeNull();
+  });
 });
 
 describe("flushPhotoSession", () => {

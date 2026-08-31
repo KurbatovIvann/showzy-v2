@@ -100,12 +100,34 @@ describe("product photo session", () => {
       imageFileIds: [FILE_B],
     });
     expect(session.getContext().baseline).toEqual([FILE_B]);
+    const clean = session.getContext();
+    session.send({
+      type: "hydrate",
+      productId: PRODUCT_ID,
+      imageFileIds: [FILE_B],
+    });
+    expect(session.getContext()).toBe(clean);
     session.send({
       type: "hydrate",
       productId: PRODUCT_ID,
       imageFileIds: [FILE_A],
     });
-    expect(session.getContext().baseline).toEqual([FILE_B]);
+    expect(session.getContext().baseline).toEqual([FILE_A]);
+  });
+
+  it("keeps local truth while dirty and adopts server ids only when clean", () => {
+    const session = createPhotoSessionStore(editInput([FILE_A]));
+    session.send({ type: "removePhoto", id: FILE_A });
+    expect(photoSessionDirty(session.getContext())).toBe(true);
+    const dirty = session.getContext();
+    session.send({
+      type: "hydrate",
+      productId: PRODUCT_ID,
+      imageFileIds: [FILE_B],
+    });
+    expect(session.getContext()).toBe(dirty);
+    expect(session.getContext().baseline).toEqual([FILE_A]);
+    expect(session.getContext().slots).toEqual([]);
   });
 
   it("adds, removes, and reorders slots up to the validation cap", () => {

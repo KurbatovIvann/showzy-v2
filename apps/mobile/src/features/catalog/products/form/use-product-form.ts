@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 
 import { useApiClient } from "../../../../api/api-provider";
@@ -57,7 +57,8 @@ export function useProductForm(args: {
   readonly mode: ProductFormMode;
   readonly idParam?: string | string[];
 }) {
-  const copy = productsCopy(detectLocale());
+  const locale = detectLocale();
+  const copy = useMemo(() => productsCopy(locale), [locale]);
   const apiClient = useApiClient();
   const { activeCompanyId } = useActiveCompany();
   const membership = useResolvedCompany();

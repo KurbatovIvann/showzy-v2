@@ -3,7 +3,7 @@
  * actions, the photo session, and the sheet reducer. View stays
  * presentational; no RHF and no XState on this screen.
  */
-import { useReducer, useState } from "react";
+import { useReducer, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { useApiClient } from "../../../../api/api-provider";
@@ -58,6 +58,12 @@ import {
 import { useProductDetailQuery } from "./use-product-detail-query";
 import { useVariantActions } from "./use-variant-actions";
 
+const EMPTY_FILE_IDS: readonly string[] = [];
+const EMPTY_DOWNLOAD_FILES: ReadonlyArray<{
+  readonly fileId: string;
+  readonly downloadUrl: string;
+}> = [];
+
 export type ProductDetailModel = {
   readonly copy: ReturnType<typeof productsCopy>;
   readonly state: ProductDetailState;
@@ -109,7 +115,7 @@ export function useProductDetail(
   idParam: string | string[] | undefined,
 ): ProductDetailModel {
   const locale = detectLocale();
-  const copy = productsCopy(locale);
+  const copy = useMemo(() => productsCopy(locale), [locale]);
   const apiClient = useApiClient();
   const { activeCompanyId } = useActiveCompany();
   const membership = useResolvedCompany();
@@ -129,7 +135,7 @@ export function useProductDetail(
     }),
   );
   const { openPicker } = photos;
-  const photoFileIds = query.product?.imageFileIds ?? [];
+  const photoFileIds = query.product?.imageFileIds ?? EMPTY_FILE_IDS;
   const urlsQuery = useQuery(
     productDetailViewerDownloadQueryOptions({
       client: apiClient,
@@ -177,6 +183,17 @@ export function useProductDetail(
           locale,
           variantForms: copy.variants,
         });
+  const viewerTiles = useMemo(
+    () => detailViewerPhotoTiles(photoFileIds),
+    [photoFileIds],
+  );
+  const viewerPreview = useMemo(
+    () =>
+      detailViewerPreviewByFileId(
+        urlsQuery.data?.files ?? EMPTY_DOWNLOAD_FILES,
+      ),
+    [urlsQuery.data?.files],
+  );
 
   return {
     copy,
@@ -188,10 +205,8 @@ export function useProductDetail(
       canEdit &&
       product !== null &&
       product.variants.length < PRODUCT_FORM_MAX_VARIANTS,
-    photoTiles: canEdit ? photos.tiles : detailViewerPhotoTiles(photoFileIds),
-    previewByFileId: canEdit
-      ? photos.previewByFileId
-      : detailViewerPreviewByFileId(urlsQuery.data?.files ?? []),
+    photoTiles: canEdit ? photos.tiles : viewerTiles,
+    previewByFileId: canEdit ? photos.previewByFileId : viewerPreview,
     viewerPhotoBanner: resolvePhotoBanner(
       copy.photos,
       resolveProductPhotosBannerKey({

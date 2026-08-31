@@ -1,12 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useReducer, useRef } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 
-import { useApiClient } from "../../../../api/api-provider";
-import { useContractMutation } from "../../../../api/contract-mutation";
-import {
-  describeQueryFailure,
-  requireReadyClient,
-} from "../../../../api/errors";
+import { useBoundContractMutation } from "../../../../api/use-bound-contract-mutation";
+import { describeQueryFailure } from "../../../../api/errors";
 import { useActiveCompany } from "../../../../api/query-provider";
 import { useResolvedCompany } from "../../../../company-resolution/resolved-company-provider";
 import { detectLocale } from "../../../../i18n/locale";
@@ -19,10 +15,7 @@ import {
   resolvePhotoBanner,
   resolveProductPhotosBannerKey,
 } from "./product-photos-model";
-import {
-  bindSetProductImages,
-  type SetProductImagesInput,
-} from "../api/product-photos-mutation";
+import { bindSetProductImages } from "../api/product-photos-mutation";
 import { canFetchFileDownloadUrls } from "../shared/product-permissions";
 import {
   pickProductPhotos,
@@ -39,7 +32,7 @@ import {
   type ProductPhotosRuntime,
 } from "./product-photos-runtime";
 import {
-  dispatchPhotoSession,
+  reducePhotoSession,
   initialPhotoSessionContext,
   photoSessionDirty,
   photoSessionNeedsCommit,
@@ -58,10 +51,14 @@ export function useProductPhotos(args: {
   readonly requireProduct: boolean;
   readonly canWrite: boolean;
 }) {
-  const copy = productsCopy(detectLocale());
-  const apiClient = useApiClient();
-  const apiRef = useRef(apiClient);
-  apiRef.current = apiClient;
+  const locale = detectLocale();
+  const copy = useMemo(() => productsCopy(locale), [locale]);
+  const mutation = useBoundContractMutation((client) =>
+    bindSetProductImages(client),
+  );
+  const apiClient = mutation.apiClient;
+  const apiClientRef = useRef(apiClient);
+  apiClientRef.current = apiClient;
   const { activeCompanyId } = useActiveCompany();
   const membership = useResolvedCompany();
   const queryClient = useQueryClient();
@@ -69,7 +66,7 @@ export function useProductPhotos(args: {
   const snapshotFileIds = snapshotFileIdsFromArgs(args);
 
   const [session, dispatch] = useReducer(
-    dispatchPhotoSession,
+    reducePhotoSession,
     {
       productId: args.productId,
       requireProduct: args.requireProduct,
@@ -82,13 +79,17 @@ export function useProductPhotos(args: {
   // I/O ports (runtime/commit) read sessionRef in the same tick as send.
   // Do not switch to dispatch-only: a second commit would miss commitBusy.
   const send = useCallback((event: PhotoSessionEvent) => {
-    sessionRef.current = dispatchPhotoSession(sessionRef.current, event);
+    sessionRef.current = reducePhotoSession(sessionRef.current, event);
     dispatch(event);
   }, []);
 
-  const committedIds = session.slots
-    .filter((slot) => slot.kind === "committed")
-    .map((slot) => slot.fileId);
+  const committedIds = useMemo(
+    () =>
+      session.slots
+        .filter((slot) => slot.kind === "committed")
+        .map((slot) => slot.fileId),
+    [session.slots],
+  );
   const urlsQuery = useQuery(
     productPhotosStripQueryOptions({
       client: apiClient,
@@ -99,17 +100,13 @@ export function useProductPhotos(args: {
       canFetchImages: canFetchFileDownloadUrls(membership.role),
     }),
   );
-  const previewByFileId = new Map<string, string>();
-  for (const file of urlsQuery.data?.files ?? []) {
-    previewByFileId.set(file.fileId, file.downloadUrl);
-  }
-
-  const mutation = useContractMutation(
-    (input: SetProductImagesInput, options) => {
-      const current = requireReadyClient(apiRef.current);
-      return bindSetProductImages(current)(input, options);
-    },
-  );
+  const previewByFileId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const file of urlsQuery.data?.files ?? []) {
+      map.set(file.fileId, file.downloadUrl);
+    }
+    return map;
+  }, [urlsQuery.data?.files]);
 
   const sendRef = useRef(send);
   sendRef.current = send;
@@ -121,7 +118,7 @@ export function useProductPhotos(args: {
       send: (event: PhotoSessionEvent) => {
         sendRef.current(event);
       },
-      getClient: () => apiRef.current,
+      getClient: () => apiClientRef.current,
       commitIfNeeded: () => commitRef.current(),
       pickPhotos: pickProductPhotos,
       prepareImage: prepareCatalogImage,

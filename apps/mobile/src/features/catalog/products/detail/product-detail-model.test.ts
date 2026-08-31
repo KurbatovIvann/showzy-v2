@@ -322,8 +322,9 @@ describe("⋯ sheet and variant action destinations", () => {
           variantName: "1 кг",
         },
         variantActionId: VARIANT_ID,
+        variantActionName: "1 кг",
       }),
-    ).toEqual(sheetsOpenVariantActions(VARIANT_ID));
+    ).toEqual(sheetsOpenVariantActions(VARIANT_ID, { name: "1 кг" }));
     expect(
       sheetsAfterCancelStatusConfirm({
         target: { kind: "archive-product" },
