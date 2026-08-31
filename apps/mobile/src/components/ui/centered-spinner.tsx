@@ -8,9 +8,7 @@ export function CenteredSpinner(props: {
   const { theme } = useUnistyles();
   return (
     <View style={styles.center} accessibilityLabel={props.accessibilityLabel}>
-      <ActivityIndicator
-        color={theme.colors.activityIndicator.onBackground}
-      />
+      <ActivityIndicator color={theme.colors.activityIndicator.onBackground} />
     </View>
   );
 }

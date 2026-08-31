@@ -49,9 +49,7 @@ export function Button(props: {
         ) : (
           <View style={styles.content}>
             {props.icon}
-            <Text
-              style={buttonLabelStyle(variant, size, pressed && !disabled)}
-            >
+            <Text style={buttonLabelStyle(variant, size, pressed && !disabled)}>
               {props.label}
             </Text>
           </View>

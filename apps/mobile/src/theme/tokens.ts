@@ -158,9 +158,7 @@ export const pressedOpacity = 0.85;
 /** OTP digit cell max width (canvas square boxes). */
 export const otpCellMaxWidth = 56;
 
-export function keyboardAppearance(
-  themeName: string,
-): "light" | "dark" {
+export function keyboardAppearance(themeName: string): "light" | "dark" {
   return themeName === "dark" ? "dark" : "light";
 }
 

@@ -65,9 +65,7 @@ export function Sheet(props: {
           onPress={props.onClose}
           style={styles.overlayHit}
         >
-          <Animated.View
-            style={[styles.overlay, presentation.overlayStyle]}
-          />
+          <Animated.View style={[styles.overlay, presentation.overlayStyle]} />
         </Pressable>
         <Animated.View
           accessibilityViewIsModal
@@ -146,10 +144,7 @@ export function SheetHeader(props: {
         onPress={props.onClose}
         style={({ pressed }) => [styles.close, pressed ? styles.pressed : null]}
       >
-        <XIcon
-          size={theme.iconSize.sm}
-          color={theme.colors.mutedForeground}
-        />
+        <XIcon size={theme.iconSize.sm} color={theme.colors.mutedForeground} />
       </Pressable>
     </View>
   );
