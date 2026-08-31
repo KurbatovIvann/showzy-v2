@@ -2,27 +2,29 @@
  * Staff client start of a pending QES request (SHO-257 / feature SHO-251).
  * Requires an unexpired `documents.requestSign` HITL grant (TTL 15
  * minutes). Confirmation on requestSign does not replace this check and
- * does not replace key possession. Nested reads: `documents.get`,
- * `documents.lockIssuedForSigning`, and `files.issueDocumentDownloadUrl`.
- * `documents.get.generation` supplies the ready `fileId` for a first
- * insert; pending replay issues the URL for the stored `payloadFileId`.
- * Start does not double-call `docGeneration.getArtifact`.
+ * does not replace key possession. Nested reads:
+ * `documents.lockIssuedForSigning` (issued + grant + PDF authority),
+ * `docGeneration.getArtifact` (payload `fileId` without a discarded URL),
+ * and `files.issueDocumentDownloadUrl`. Pending replay issues the URL for
+ * the stored `payloadFileId`. Already-supplier-signed is a local
+ * `signing_signatures` query.
  *
  * Ticket "idempotent" is domain replay of the live pending row (same
  * requestId + frozen digest, fresh URL). Metadata `idempotent: false`
  * so the protocol cache cannot freeze the short-lived URL.
  *
  * Mechanical: `timeout: 30000` is greater than the sequential remaining
- * callee budgets documents.get (15000) + lockIssuedForSigning (5000,
- * nested getArtifact 2000) + issueDocumentDownloadUrl (5000). Input is
+ * callee budgets lockIssuedForSigning (5000, nested getArtifact 2000) +
+ * getArtifact (2000) + issueDocumentDownloadUrl (5000). Input is
  * `{ documentId }` only. Company id is never input. `emits: []` — the
  * card did not name an event. `requiresConfirmation: false` — HITL
  * already ran on requestSign.
  */
 import { defineActionContract } from "@showzy/core/contract";
+import { SIGN_REQUEST_TTL_MS } from "@showzy/validation/signing";
 import { z } from "zod";
 
-export const SIGN_REQUEST_TTL_MS = 15 * 60 * 1000;
+export { SIGN_REQUEST_TTL_MS };
 
 export const START_SIGNING_TIMEOUT_MS = 30_000;
 

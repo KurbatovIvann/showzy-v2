@@ -254,6 +254,16 @@ function violation(from, spec, typeOnly) {
       ) {
         return null;
       }
+      // SHO-286: docSigning.start nests getArtifact for the payload fileId
+      // without importing the doc-generation barrel (renderPdf →
+      // documents.getForGeneration — ESM cycle).
+      if (
+        moduleName === "doc-signing" &&
+        pkg.name === "doc-generation" &&
+        pkg.rest === "get-artifact"
+      ) {
+        return null;
+      }
       // SHO-256: documents.get/list/requestSign/cancel nest signing reads
       // without importing the doc-signing barrel (that barrel also exports
       // abandonRequest, which imports the documents barrel — ESM cycle).
