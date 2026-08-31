@@ -17,15 +17,11 @@ export type AuthHttpOperation = "send" | "verify" | "session";
 
 export class AuthClientError extends Error {
   readonly kind: AuthErrorKind;
-  readonly retryAfterSec?: number;
 
-  constructor(kind: AuthErrorKind, retryAfterSec?: number) {
+  constructor(kind: AuthErrorKind) {
     super(kind);
     this.name = "AuthClientError";
     this.kind = kind;
-    if (retryAfterSec !== undefined) {
-      this.retryAfterSec = retryAfterSec;
-    }
   }
 }
 

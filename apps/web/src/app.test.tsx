@@ -39,6 +39,21 @@ describe("session guard (SHO-312)", () => {
     expect(await screen.findByRole("heading", { name: "ШОЗІ" })).toBeDefined();
     expect(screen.queryByText("Компанія: kviti-lviv")).toBeNull();
   });
+
+  it("sends the visitor to /sign-in after signOut without a route click", async () => {
+    sessionState.user = {
+      id: "user-1",
+      email: "owner@example.com",
+      phoneNumber: null,
+    };
+    const { authClient } = renderApp("/");
+    expect(
+      await screen.findByRole("heading", { name: "Showzy" }),
+    ).toBeDefined();
+    await authClient.signOut();
+    expect(await screen.findByRole("heading", { name: "ШОЗІ" })).toBeDefined();
+    expect(screen.queryByText("Панель у розробці")).toBeNull();
+  });
 });
 
 describe("OTP request and verify (SHO-312)", () => {

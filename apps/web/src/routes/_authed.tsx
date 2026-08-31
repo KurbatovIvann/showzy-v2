@@ -1,5 +1,11 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Navigate,
+  Outlet,
+  redirect,
+} from "@tanstack/react-router";
 
+import { useAuthSession } from "../auth/session-provider";
 import { userFromSessionResult } from "../auth/session-user";
 import { BootScreen } from "../features/auth/boot-screen";
 
@@ -17,5 +23,12 @@ export const Route = createFileRoute("/_authed")({
 });
 
 function AuthedLayout() {
+  const auth = useAuthSession();
+  if (auth.status === "loading") {
+    return <BootScreen />;
+  }
+  if (auth.status === "anonymous") {
+    return <Navigate to="/sign-in" />;
+  }
   return <Outlet />;
 }

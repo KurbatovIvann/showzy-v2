@@ -94,6 +94,10 @@ function authHandlers(sessionState: SessionState) {
     http.post(`${PANEL_ORIGIN}/api/auth/phone-number/send-otp`, () => {
       return HttpResponse.json({ status: true });
     }),
+    http.post(`${PANEL_ORIGIN}/api/auth/sign-out`, () => {
+      sessionState.user = null;
+      return HttpResponse.json({ success: true });
+    }),
     http.post(`${PANEL_ORIGIN}/api/auth/phone-number/verify`, () => {
       sessionState.user = {
         id: "user-1",

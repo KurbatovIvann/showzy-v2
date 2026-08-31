@@ -21,8 +21,7 @@ describe("auth HTTP errors (status, not message text)", () => {
   it("maps send 429 to resend_limited for any retry copy", () => {
     expect(classifyAuthHttpStatus(429, "send")).toBe("resend_limited");
     expect(classifyAuthHttpStatus(429, "verify")).toBe("resend_limited");
-    const error = new AuthClientError("resend_limited", 60);
-    expect(error.retryAfterSec).toBe(60);
+    const error = new AuthClientError("resend_limited");
     expect(error.message).toBe("resend_limited");
   });
 
