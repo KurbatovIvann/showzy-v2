@@ -34,12 +34,7 @@ import { createReadTx, type ReadTx, type Tx } from "@showzy/db";
 import type { z } from "zod";
 
 import { callTargetProblems } from "../../contract-check/call-rules.js";
-import {
-  CoreError,
-  CoreInvariantError,
-  TimeoutError,
-  ValidationError,
-} from "../../errors/index.js";
+import { CoreInvariantError } from "../../errors/index.js";
 import type { AnyActionContract } from "../action-registry.js";
 import {
   createAccountContext,
@@ -49,7 +44,6 @@ import {
   createShareContext,
   createStaffContext,
   createSystemContext,
-  effectiveCompanyId,
   type ActionRequestMeta,
   type ContextRuntime,
 } from "../context/factories.js";
@@ -58,6 +52,15 @@ import type { ActionCtx, CtxCall, CtxCallAtomic } from "../context/types.js";
 import { createEmitBuffer } from "../events/emit.js";
 import type { ImplementedAction } from "../implement-action.js";
 import type { TargetResolver } from "../types.js";
+import {
+  assertNestedDeadline,
+  NESTED_CALL,
+  requireNestedAuditTarget,
+  startNestedInvocation,
+  toNestedInvocationError,
+  validateNestedInput,
+  validateNestedOutput,
+} from "./nested-invocation.js";
 import type { ActionPipelineDeps } from "./types.js";
 
 /** Max nested `ctx.call` levels below the root action (core.md §9). */
@@ -144,78 +147,32 @@ export function createCtxCall(env: CtxCallEnv): CtxCall {
       );
     }
 
-    // Shared timeout budget: a caller at/past its deadline cannot start
-    // nested work; the abort signal and the caller's statement timeout
-    // bound whatever is already running.
-    if (env.signal.aborted || env.deadline - env.now() <= 0) {
-      throw new TimeoutError(undefined, {
-        internalMessage: `ctx.call ${chain} attempted after the shared deadline was exhausted`,
-      });
-    }
-
-    // Callee input validation — the same rule as pipeline step 1. Callers
-    // may pass user-derived values through, so a mismatch stays a
-    // client-safe ValidationError, not an invariant failure. (Parsed via
-    // `action.contract` to keep the schema generics `callee` erases.)
-    const parsedInput = await action.contract.input.safeParseAsync(input);
-    if (!parsedInput.success) {
-      throw new ValidationError(
-        parsedInput.error.issues,
-        "Input validation failed.",
-        {
-          internalMessage: `input of nested call ${chain} failed the callee's declared input schema`,
-        },
-      );
-    }
-
-    // Correlation-nested logs/spans (§9): same request/correlation ids,
-    // the callee's action name, and the caller for attribution.
-    const startedAt = env.now();
-    const request: ActionRequestMeta = { ...env.request, action: callee.name };
-    const log = env.deps.logger.child({
-      request_id: request.requestId,
-      correlation_id: request.correlationId,
-      action: callee.name,
-      caller_action: caller.name,
-      channel: request.channel,
+    assertNestedDeadline({
+      kind: NESTED_CALL,
+      chain,
+      signal: env.signal,
+      deadline: env.deadline,
+      now: env.now,
     });
-    const span = env.deps.telemetry?.startSpan({
-      requestId: request.requestId,
-      correlationId: request.correlationId,
-      action: callee.name,
-      channel: request.channel,
-      ...(request.aiTraceId !== undefined
-        ? { aiTraceId: request.aiTraceId }
-        : {}),
-      ...(request.toolCallId !== undefined
-        ? { toolCallId: request.toolCallId }
-        : {}),
+
+    const parsedInput = await validateNestedInput({
+      kind: NESTED_CALL,
+      schema: action.contract.input,
+      input,
+      chain,
     });
-    log.info("nested call started");
+
+    const invocation = startNestedInvocation({
+      kind: NESTED_CALL,
+      deps: env.deps,
+      callerRequest: env.request,
+      callerName: caller.name,
+      calleeName: callee.name,
+      now: env.now,
+    });
+    const { request } = invocation;
 
     let calleeCtx: ActionCtx | undefined;
-    const finish = (outcome: string): void => {
-      const durationMs = env.now() - startedAt;
-      const identity = {
-        actorType: calleeCtx?.actor.type ?? null,
-        actorId: calleeCtx?.actor.id ?? null,
-        companyId:
-          calleeCtx !== undefined ? effectiveCompanyId(calleeCtx) : null,
-      };
-      const fields = {
-        actor_type: identity.actorType,
-        actor_id: identity.actorId,
-        company_id: identity.companyId,
-        outcome,
-        duration_ms: durationMs,
-      };
-      if (outcome === "INTERNAL") {
-        log.error(fields, "nested call finished");
-      } else {
-        log.info(fields, "nested call finished");
-      }
-      span?.end({ outcome, ...identity, durationMs });
-    };
 
     try {
       // The callee sees only the ReadTx facade over the caller's
@@ -243,19 +200,19 @@ export function createCtxCall(env: CtxCallEnv): CtxCall {
       const ctx = await constructCalleeContext({
         callerCtx: execution.ctx,
         action,
-        input: parsedInput.data,
+        input: parsedInput,
         request,
         runtime,
       });
       calleeCtx = ctx;
 
-      const raw = await action.handler(parsedInput.data, ctx);
-      const parsedOutput = await action.contract.output.safeParseAsync(raw);
-      if (!parsedOutput.success) {
-        throw new CoreInvariantError(
-          `output of nested call "${callee.name}" failed the declared output schema: ${JSON.stringify(parsedOutput.error.issues)}`,
-        );
-      }
+      const raw = await action.handler(parsedInput, ctx);
+      const parsedOutput = await validateNestedOutput({
+        kind: NESTED_CALL,
+        schema: action.contract.output,
+        calleeName: callee.name,
+        raw,
+      });
 
       // §9: audit gets a child entry only when the callee itself declares
       // audit: true. Callable targets are reads, so §8's audited-read rule
@@ -263,36 +220,35 @@ export function createCtxCall(env: CtxCallEnv): CtxCall {
       // the result. (The read happened even if the caller rolls back.)
       const auditHook = env.deps.hooks?.audit;
       if (callee.audit && auditHook !== undefined) {
-        const auditTarget = action.auditTarget;
-        if (auditTarget === undefined) {
-          throw new CoreInvariantError(
-            `nested call target "${callee.name}" declares audit: true but binds no auditTarget — implementAction should have rejected this pairing`,
-          );
-        }
+        const auditTarget = requireNestedAuditTarget(NESTED_CALL, action);
         try {
           await env.deps.db.transaction(async (auditTx) => {
             await auditHook.recordSuccess({
               tx: auditTx,
               ctx,
               contract: callee,
-              input: parsedInput.data,
-              output: parsedOutput.data,
-              durationMs: env.now() - startedAt,
+              input: parsedInput,
+              output: parsedOutput,
+              durationMs: env.now() - invocation.startedAt,
               auditTarget,
               auditSnapshot: action.auditSnapshot,
             });
           });
         } catch (auditError) {
-          log.error({ err: auditError }, "nested call audit failed");
+          invocation.log.error({ err: auditError }, "nested call audit failed");
         }
       }
 
-      finish("ok");
-      return parsedOutput.data;
+      invocation.finish("ok", calleeCtx);
+      return parsedOutput;
     } catch (error) {
-      const coreError = toNestedCoreError(error, callee.name);
-      span?.recordError(coreError);
-      finish(coreError.code);
+      const coreError = toNestedInvocationError(
+        NESTED_CALL,
+        error,
+        callee.name,
+      );
+      invocation.recordError(coreError);
+      invocation.finish(coreError.code, calleeCtx);
       throw coreError;
     }
   };
@@ -424,18 +380,4 @@ function requireNestedResolver<
     );
   }
   return resolver;
-}
-
-/**
- * Everything leaving a nested call is a typed core error (§11), attributed
- * to the callee so the log trail names the module that broke the rule.
- */
-function toNestedCoreError(error: unknown, calleeName: string): CoreError {
-  if (error instanceof CoreError) {
-    return error;
-  }
-  return new CoreInvariantError(
-    `nested call target "${calleeName}" threw outside the typed error vocabulary`,
-    { cause: error },
-  );
 }
