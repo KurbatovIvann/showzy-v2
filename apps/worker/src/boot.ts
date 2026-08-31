@@ -29,6 +29,8 @@ import { workerSubscriptions } from "./subscriptions.js";
 export interface BootedWorker {
   readonly loop: WorkerLoop;
   readonly jobs: JobHost;
+  /** The single process logger — the entrypoint reuses it (one identity). */
+  readonly logger: Logger;
   close(): Promise<void>;
 }
 
@@ -46,74 +48,98 @@ export async function bootWorker(
   config: ServerConfig,
   options: BootWorkerOptions = {},
 ): Promise<BootedWorker> {
-  configureFilesObjectStore(config.s3);
+  // Every acquired resource registers its release; a failing later boot
+  // step unwinds in reverse so nothing leaks (SHO-279).
+  const releases: (() => Promise<void> | void)[] = [];
+  async function unwind(): Promise<void> {
+    for (const release of releases.reverse()) {
+      try {
+        await release();
+      } catch {
+        // Best-effort teardown of a failed boot — the original boot error
+        // is what the caller must see.
+      }
+    }
+  }
+
   try {
+    configureFilesObjectStore(config.s3);
+    releases.push(() => {
+      closeFilesObjectStore();
+    });
     await probeFilesObjectStore();
+    const db = createDbClient({ databaseUrl: config.database.url });
+    releases.push(() => db.pool.end());
+    const redis = new Redis(config.redis.url);
+    releases.push(async () => {
+      await redis.quit();
+    });
+    await redis.ping();
+    const { logger: processLogger, telemetry } = createProcessObservability({
+      name: "worker",
+      sentryDsn: config.sentry.dsn,
+    });
+    const logger = options.logger ?? processLogger;
+    const workerId = options.workerId ?? randomUUID();
+    const pipeline = createActionPipeline({
+      db: db.db,
+      logger,
+      telemetry,
+      rateLimitStore: createRedisRateLimitStore(redis),
+      confirmationStore: createRedisConfirmationStore(redis),
+      ipHmacSecret: config.rateLimit.ipHmacSecret,
+    });
+    const jobHostOptions = {
+      redisUrl: config.redis.url,
+      db: db.db,
+      logger,
+      workerId,
+      pipeline,
+      ...(options.cleanupIntervalMs !== undefined
+        ? { cleanupIntervalMs: options.cleanupIntervalMs }
+        : {}),
+      ...(options.sweepIntervalMs !== undefined
+        ? { sweepIntervalMs: options.sweepIntervalMs }
+        : {}),
+      ...(options.backfillIntervalMs !== undefined
+        ? { backfillIntervalMs: options.backfillIntervalMs }
+        : {}),
+      ...(options.now !== undefined ? { now: options.now } : {}),
+    };
+    const jobs = createJobHost(jobHostOptions);
+    releases.push(() => jobs.close());
+    const loop = createOutboxWorker({
+      db: db.db,
+      pipeline,
+      subscriptions: workerSubscriptions,
+      workerId,
+      logger,
+      listen: createOutboxListener({
+        connectionString: config.database.url,
+        logger,
+      }),
+      ...(options.pollIntervalMs !== undefined
+        ? { pollIntervalMs: options.pollIntervalMs }
+        : {}),
+      ...(options.now !== undefined ? { now: options.now } : {}),
+    });
+    releases.push(() => loop.stop());
+    await jobs.start();
+    await loop.start();
+    return {
+      loop,
+      jobs,
+      logger,
+      async close() {
+        await jobs.close();
+        await loop.stop();
+        closeFilesObjectStore();
+        await redis.quit();
+        await db.pool.end();
+      },
+    };
   } catch (error) {
-    closeFilesObjectStore();
+    await unwind();
     throw error;
   }
-  const db = createDbClient({ databaseUrl: config.database.url });
-  const redis = new Redis(config.redis.url);
-  await redis.ping();
-  const { logger: processLogger, telemetry } = createProcessObservability({
-    name: "worker",
-    sentryDsn: config.sentry.dsn,
-  });
-  const logger = options.logger ?? processLogger;
-  const workerId = options.workerId ?? randomUUID();
-  const pipeline = createActionPipeline({
-    db: db.db,
-    logger,
-    telemetry,
-    rateLimitStore: createRedisRateLimitStore(redis),
-    confirmationStore: createRedisConfirmationStore(redis),
-    ipHmacSecret: config.rateLimit.ipHmacSecret,
-  });
-  const jobHostOptions = {
-    redisUrl: config.redis.url,
-    db: db.db,
-    logger,
-    workerId,
-    pipeline,
-    ...(options.cleanupIntervalMs !== undefined
-      ? { cleanupIntervalMs: options.cleanupIntervalMs }
-      : {}),
-    ...(options.sweepIntervalMs !== undefined
-      ? { sweepIntervalMs: options.sweepIntervalMs }
-      : {}),
-    ...(options.backfillIntervalMs !== undefined
-      ? { backfillIntervalMs: options.backfillIntervalMs }
-      : {}),
-    ...(options.now !== undefined ? { now: options.now } : {}),
-  };
-  const jobs = createJobHost(jobHostOptions);
-  const loop = createOutboxWorker({
-    db: db.db,
-    pipeline,
-    subscriptions: workerSubscriptions,
-    workerId,
-    logger,
-    listen: createOutboxListener({
-      connectionString: config.database.url,
-      logger,
-    }),
-    ...(options.pollIntervalMs !== undefined
-      ? { pollIntervalMs: options.pollIntervalMs }
-      : {}),
-    ...(options.now !== undefined ? { now: options.now } : {}),
-  });
-  await jobs.start();
-  await loop.start();
-  return {
-    loop,
-    jobs,
-    async close() {
-      await jobs.close();
-      await loop.stop();
-      closeFilesObjectStore();
-      await redis.quit();
-      await db.pool.end();
-    },
-  };
 }

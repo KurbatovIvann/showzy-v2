@@ -266,124 +266,141 @@ export function createJobHost(options: CreateJobHostOptions): JobHost {
   let pdfWorker: Worker<Record<string, unknown>> | undefined;
   let started = false;
   let closed = false;
+  /** In-flight start, so close() cannot tear down mid-initialization. */
+  let starting: Promise<void> | undefined;
+
+  async function startOnce(): Promise<void> {
+    await connection.ping();
+    queue = new Queue(MAINTENANCE_QUEUE_NAME, {
+      connection,
+      prefix: BULLMQ_PREFIX,
+    });
+    worker = new Worker(MAINTENANCE_QUEUE_NAME, processMaintenanceJob, {
+      connection,
+      prefix: BULLMQ_PREFIX,
+      concurrency: 1,
+      lockDuration: MAINTENANCE_LOCK_DURATION_MS,
+    });
+    worker.on("error", (error) => {
+      options.logger.error(
+        { err: error, worker_id: options.workerId },
+        "maintenance worker error",
+      );
+    });
+    worker.on("failed", (job, error) => {
+      options.logger.error(
+        {
+          err: error,
+          worker_id: options.workerId,
+          job_id: job?.id,
+          job_name: job?.name,
+        },
+        "maintenance job failed",
+      );
+    });
+    pdfQueue = new Queue(PDF_QUEUE_NAME, {
+      connection,
+      prefix: BULLMQ_PREFIX,
+    });
+    pdfWorker = new Worker(PDF_QUEUE_NAME, processPdfJob, {
+      connection,
+      prefix: BULLMQ_PREFIX,
+      concurrency: 1,
+      lockDuration: PDF_LOCK_DURATION_MS,
+    });
+    pdfWorker.on("error", (error) => {
+      options.logger.error(
+        { err: error, worker_id: options.workerId },
+        "pdf worker error",
+      );
+    });
+    pdfWorker.on("failed", (job, error) => {
+      options.logger.error(
+        {
+          err: error,
+          worker_id: options.workerId,
+          job_id: job?.id,
+          job_name: job?.name,
+        },
+        "pdf job failed",
+      );
+    });
+    await queue.upsertJobScheduler(
+      IDEMPOTENCY_CLEANUP_JOB_NAME,
+      { every: cleanupIntervalMs },
+      {
+        name: IDEMPOTENCY_CLEANUP_JOB_NAME,
+        data: {},
+        opts: {
+          removeOnComplete: true,
+          removeOnFail: 50,
+        },
+      },
+    );
+    await queue.upsertJobScheduler(
+      SWEEP_ABANDONED_UPLOADS_JOB_NAME,
+      { every: sweepIntervalMs },
+      {
+        name: SWEEP_ABANDONED_UPLOADS_JOB_NAME,
+        data: {},
+        opts: {
+          removeOnComplete: true,
+          removeOnFail: 50,
+        },
+      },
+    );
+    await queue.upsertJobScheduler(
+      BACKFILL_CATALOG_RENDITIONS_JOB_NAME,
+      { every: backfillIntervalMs },
+      {
+        name: BACKFILL_CATALOG_RENDITIONS_JOB_NAME,
+        data: {},
+        opts: {
+          removeOnComplete: true,
+          removeOnFail: 50,
+        },
+      },
+    );
+    await worker.waitUntilReady();
+    await pdfWorker.waitUntilReady();
+    started = true;
+    options.logger.info(
+      {
+        worker_id: options.workerId,
+        queue: MAINTENANCE_QUEUE_NAME,
+        pdf_queue: PDF_QUEUE_NAME,
+        prefix: BULLMQ_PREFIX,
+        cleanup_interval_ms: cleanupIntervalMs,
+        sweep_interval_ms: sweepIntervalMs,
+        backfill_interval_ms: backfillIntervalMs,
+      },
+      "maintenance job host started",
+    );
+  }
 
   return {
     async start() {
       if (started || closed) {
         return;
       }
-      await connection.ping();
-      queue = new Queue(MAINTENANCE_QUEUE_NAME, {
-        connection,
-        prefix: BULLMQ_PREFIX,
-      });
-      worker = new Worker(MAINTENANCE_QUEUE_NAME, processMaintenanceJob, {
-        connection,
-        prefix: BULLMQ_PREFIX,
-        concurrency: 1,
-        lockDuration: MAINTENANCE_LOCK_DURATION_MS,
-      });
-      worker.on("error", (error) => {
-        options.logger.error(
-          { err: error, worker_id: options.workerId },
-          "maintenance worker error",
-        );
-      });
-      worker.on("failed", (job, error) => {
-        options.logger.error(
-          {
-            err: error,
-            worker_id: options.workerId,
-            job_id: job?.id,
-            job_name: job?.name,
-          },
-          "maintenance job failed",
-        );
-      });
-      pdfQueue = new Queue(PDF_QUEUE_NAME, {
-        connection,
-        prefix: BULLMQ_PREFIX,
-      });
-      pdfWorker = new Worker(PDF_QUEUE_NAME, processPdfJob, {
-        connection,
-        prefix: BULLMQ_PREFIX,
-        concurrency: 1,
-        lockDuration: PDF_LOCK_DURATION_MS,
-      });
-      pdfWorker.on("error", (error) => {
-        options.logger.error(
-          { err: error, worker_id: options.workerId },
-          "pdf worker error",
-        );
-      });
-      pdfWorker.on("failed", (job, error) => {
-        options.logger.error(
-          {
-            err: error,
-            worker_id: options.workerId,
-            job_id: job?.id,
-            job_name: job?.name,
-          },
-          "pdf job failed",
-        );
-      });
-      await queue.upsertJobScheduler(
-        IDEMPOTENCY_CLEANUP_JOB_NAME,
-        { every: cleanupIntervalMs },
-        {
-          name: IDEMPOTENCY_CLEANUP_JOB_NAME,
-          data: {},
-          opts: {
-            removeOnComplete: true,
-            removeOnFail: 50,
-          },
-        },
-      );
-      await queue.upsertJobScheduler(
-        SWEEP_ABANDONED_UPLOADS_JOB_NAME,
-        { every: sweepIntervalMs },
-        {
-          name: SWEEP_ABANDONED_UPLOADS_JOB_NAME,
-          data: {},
-          opts: {
-            removeOnComplete: true,
-            removeOnFail: 50,
-          },
-        },
-      );
-      await queue.upsertJobScheduler(
-        BACKFILL_CATALOG_RENDITIONS_JOB_NAME,
-        { every: backfillIntervalMs },
-        {
-          name: BACKFILL_CATALOG_RENDITIONS_JOB_NAME,
-          data: {},
-          opts: {
-            removeOnComplete: true,
-            removeOnFail: 50,
-          },
-        },
-      );
-      await worker.waitUntilReady();
-      await pdfWorker.waitUntilReady();
-      started = true;
-      options.logger.info(
-        {
-          worker_id: options.workerId,
-          queue: MAINTENANCE_QUEUE_NAME,
-          pdf_queue: PDF_QUEUE_NAME,
-          prefix: BULLMQ_PREFIX,
-          cleanup_interval_ms: cleanupIntervalMs,
-          sweep_interval_ms: sweepIntervalMs,
-          backfill_interval_ms: backfillIntervalMs,
-        },
-        "maintenance job host started",
-      );
+      starting ??= startOnce();
+      await starting;
     },
     async close() {
       if (closed) {
         return;
       }
       closed = true;
+      if (starting !== undefined) {
+        // Wait for an in-flight start so teardown never races registration
+        // (queues/workers created after close began would leak). A failed
+        // start still leaves partial resources — close them below.
+        try {
+          await starting;
+        } catch {
+          // start()'s caller already received the failure.
+        }
+      }
       if (pdfWorker !== undefined) {
         await pdfWorker.close();
       }
