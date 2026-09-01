@@ -18,17 +18,24 @@ export { StaffAssistantNotConfiguredError } from "./errors.js";
 export { filterStaffAiTools } from "./filter-staff-tools.js";
 export { createStaffLanguageModel } from "./language-model.js";
 export type { LanguageModel } from "ai";
+export { attemptKey, type StaffAssistantAttemptKind } from "./attempt-key.js";
 export {
-  lastStaffAssistantUserText,
-  pausedActionNameForChallenge,
+  lastStaffAssistantUserMessage,
+  pausedToolAttemptForChallenge,
+  pausedToolAttemptFromToolRuns,
+  resolvePausedToolAttempt,
   staffAssistantChatBodySchema,
   staffAssistantChatMessageSchema,
   staffAssistantModelMessages,
   STAFF_ASSISTANT_CHAT_MESSAGES_MAX,
   STAFF_ASSISTANT_CHAT_MESSAGE_TEXT_MAX,
   STAFF_ASSISTANT_CHAT_PARTS_MAX,
+  type PausedToolAttempt,
+  type PausedToolAttemptResolution,
   type StaffAssistantChatBody,
   type StaffAssistantChatMessage,
+  type StaffAssistantToolRunRef,
+  type StaffUserMessageAttempt,
 } from "./messages.js";
 export {
   extractUuidResultIds,

@@ -5,9 +5,11 @@
 import { randomBytes, randomUUID } from "node:crypto";
 
 import {
+  attemptKey,
   isStaffAssistantConfirmationOutput,
   toProviderToolName,
   type LanguageModel,
+  type StaffAssistantConfirmationOutput,
 } from "@showzy/ai";
 import {
   MockLanguageModelV3,
@@ -44,7 +46,7 @@ import {
   createGroup,
   getCustomer,
 } from "@showzy/customers";
-import { auditLog } from "@showzy/db";
+import { auditLog, idempotencyKeys } from "@showzy/db";
 import { session } from "@showzy/db/schema/auth";
 import {
   assistantMessages,
@@ -113,7 +115,48 @@ async function insertBearer(kit: TestKit, userId: string): Promise<string> {
   return token;
 }
 
-function userChatBody(conversationId: string, text: string) {
+function userChatBody(
+  conversationId: string,
+  text: string,
+  messageId: string = randomUUID(),
+) {
+  return {
+    conversationId,
+    messages: [
+      {
+        id: messageId,
+        role: "user" as const,
+        parts: [{ type: "text" as const, text }],
+      },
+    ],
+  };
+}
+
+function confirmationFromSsePayloads(
+  payloads: unknown[],
+): StaffAssistantConfirmationOutput | undefined {
+  for (const payload of payloads) {
+    if (
+      typeof payload !== "object" ||
+      payload === null ||
+      !("type" in payload) ||
+      payload.type !== "data-confirmation" ||
+      !("data" in payload)
+    ) {
+      continue;
+    }
+    if (isStaffAssistantConfirmationOutput(payload.data)) {
+      return payload.data;
+    }
+  }
+  return undefined;
+}
+
+function resumeBodyWithConfirmation(
+  conversationId: string,
+  text: string,
+  confirmation: StaffAssistantConfirmationOutput,
+) {
   return {
     conversationId,
     messages: [
@@ -122,8 +165,25 @@ function userChatBody(conversationId: string, text: string) {
         role: "user" as const,
         parts: [{ type: "text" as const, text }],
       },
+      {
+        id: randomUUID(),
+        role: "assistant" as const,
+        parts: [
+          {
+            type: "data-confirmation" as const,
+            data: confirmation,
+          },
+        ],
+      },
     ],
   };
+}
+
+async function userMessageCount(conversationId: string): Promise<number> {
+  const rows = await kit.db.runtime.db.select().from(assistantMessages);
+  return rows.filter(
+    (row) => row.conversationId === conversationId && row.role === "user",
+  ).length;
 }
 
 async function waitFor(
@@ -487,25 +547,13 @@ describe("POST /assistant/chat mock-model parity", () => {
     });
     expect(pause.status).toBe(200);
     const pausePayloads = await readUiMessageSsePayloads(pause);
-    const confirmation = pausePayloads
-      .map((payload) => {
-        if (
-          typeof payload === "object" &&
-          payload !== null &&
-          "type" in payload &&
-          payload.type === "data-confirmation" &&
-          "data" in payload
-        ) {
-          return payload.data;
-        }
-        return undefined;
-      })
-      .find((data) => isStaffAssistantConfirmationOutput(data));
+    const confirmation = confirmationFromSsePayloads(pausePayloads);
     expect(confirmation).toBeDefined();
     if (!isStaffAssistantConfirmationOutput(confirmation)) {
       expect.unreachable("expected confirmation part");
     }
     expect(confirmation.summary).toContain("Delete this archived customer");
+    expect(confirmation.toolCallId).toBe("call-delete");
     expect(JSON.stringify(pausePayloads)).not.toContain(
       "The customer was deleted.",
     );
@@ -515,11 +563,20 @@ describe("POST /assistant/chat mock-model parity", () => {
     ).filter((row) => row.id === customer.id);
     expect(stillThere).toHaveLength(1);
 
+    const resumeRequestId = randomUUID();
+    const resumeBody = userChatBody(
+      conversation.id,
+      "Delete the archived customer",
+    );
+    expect(
+      JSON.stringify(resumeBody.messages).includes("data-confirmation"),
+    ).toBe(false);
     const resume = await postChat(app, {
       token,
       companyId: kitIdentities.companies.a,
-      body: userChatBody(conversation.id, "Delete the archived customer"),
+      body: resumeBody,
       challengeId: confirmation.challengeId,
+      extraHeaders: { [REQUEST_ID_HEADER]: resumeRequestId },
     });
     expect(resume.status).toBe(200);
     await readUiMessageSsePayloads(resume);
@@ -532,6 +589,25 @@ describe("POST /assistant/chat mock-model parity", () => {
     await expect(
       staffInvoke(getCustomer, { id: customer.id }),
     ).rejects.toBeInstanceOf(NotFoundError);
+
+    const audit = await kit.db.runtime.db.select().from(auditLog);
+    const resumeAudit = audit.find(
+      (row) =>
+        row.action === "customers.deleteCustomer" &&
+        row.requestId === resumeRequestId &&
+        row.outcome === "ok",
+    );
+    expect(resumeAudit).toMatchObject({
+      channel: ASSISTANT_INVOCATION_CHANNEL,
+      toolCallId: "call-delete-resume",
+    });
+    const keys = await kit.db.runtime.db.select().from(idempotencyKeys);
+    const pausedKey = keys.find(
+      (row) =>
+        row.action === "customers.deleteCustomer" &&
+        row.key === attemptKey("tool", conversation.id, "call-delete"),
+    );
+    expect(pausedKey?.status).toBe("completed");
   });
 
   it("does not bind a resume challenge to a different high-risk tool", async () => {
@@ -578,20 +654,7 @@ describe("POST /assistant/chat mock-model parity", () => {
     });
     expect(pause.status).toBe(200);
     const pausePayloads = await readUiMessageSsePayloads(pause);
-    const confirmation = pausePayloads
-      .map((payload) => {
-        if (
-          typeof payload === "object" &&
-          payload !== null &&
-          "type" in payload &&
-          payload.type === "data-confirmation" &&
-          "data" in payload
-        ) {
-          return payload.data;
-        }
-        return undefined;
-      })
-      .find((data) => isStaffAssistantConfirmationOutput(data));
+    const confirmation = confirmationFromSsePayloads(pausePayloads);
     expect(confirmation).toBeDefined();
     if (!isStaffAssistantConfirmationOutput(confirmation)) {
       expect.unreachable("expected confirmation part");
@@ -606,20 +669,8 @@ describe("POST /assistant/chat mock-model parity", () => {
     });
     expect(mismatched.status).toBe(200);
     const mismatchedPayloads = await readUiMessageSsePayloads(mismatched);
-    const mismatchedConfirmation = mismatchedPayloads
-      .map((payload) => {
-        if (
-          typeof payload === "object" &&
-          payload !== null &&
-          "type" in payload &&
-          payload.type === "data-confirmation" &&
-          "data" in payload
-        ) {
-          return payload.data;
-        }
-        return undefined;
-      })
-      .find((data) => isStaffAssistantConfirmationOutput(data));
+    const mismatchedConfirmation =
+      confirmationFromSsePayloads(mismatchedPayloads);
     expect(mismatchedConfirmation).toBeDefined();
     if (!isStaffAssistantConfirmationOutput(mismatchedConfirmation)) {
       expect.unreachable("expected a new confirmation for the other tool");
@@ -656,6 +707,362 @@ describe("POST /assistant/chat mock-model parity", () => {
       await kit.db.runtime.db.select().from(customerGroups)
     ).filter((row) => row.id === group.id);
     expect(groupAfter).toHaveLength(1);
+  });
+});
+
+describe("POST /assistant/chat attempt identity", () => {
+  it("inserts two user rows for the same text with different message ids, and replays the same id", async () => {
+    const app = chatApp(
+      new MockLanguageModelV3({
+        doStream: [
+          mockTextStream("ok"),
+          mockTextStream("ok"),
+          mockTextStream("ok"),
+        ],
+      }),
+    );
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Так",
+    });
+    const firstId = randomUUID();
+    const secondId = randomUUID();
+    const first = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "так", firstId),
+    });
+    expect(first.status).toBe(200);
+    await readUiMessageSsePayloads(first);
+    expect(await userMessageCount(conversation.id)).toBe(1);
+
+    const second = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "так", secondId),
+    });
+    expect(second.status).toBe(200);
+    await readUiMessageSsePayloads(second);
+    expect(await userMessageCount(conversation.id)).toBe(2);
+
+    const replay = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "так", firstId),
+    });
+    expect(replay.status).toBe(200);
+    await readUiMessageSsePayloads(replay);
+    expect(await userMessageCount(conversation.id)).toBe(2);
+  });
+
+  it("conflicts when the same message id is retried with different text", async () => {
+    const app = chatApp(
+      new MockLanguageModelV3({
+        doStream: [mockTextStream("ok")],
+      }),
+    );
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Conflict",
+    });
+    const messageId = randomUUID();
+    const first = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "так", messageId),
+    });
+    expect(first.status).toBe(200);
+    await readUiMessageSsePayloads(first);
+    expect(await userMessageCount(conversation.id)).toBe(1);
+
+    const conflict = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "ні", messageId),
+    });
+    expect(conflict.status).toBe(409);
+    expect(await conflict.json()).toMatchObject({
+      code: "IDEMPOTENCY_CONFLICT",
+      status: 409,
+    });
+    expect(await userMessageCount(conversation.id)).toBe(1);
+  });
+
+  it("creates two orders for the same input with different tool ids, and replays the same tool id", async () => {
+    const customer = await staffInvoke(createCustomer, {
+      name: "AI Attempt Buyer",
+      phone: "+380671110004",
+    });
+    const product = await staffInvoke(createProduct, {
+      name: "AI Attempt Cake",
+      basePriceMinor: "15000",
+    });
+    const createInput = JSON.stringify({
+      customerId: customer.id,
+      items: [{ productId: product.productId, quantityMilli: "1000" }],
+    });
+    const app = chatApp(
+      new MockLanguageModelV3({
+        doStream: [
+          mockToolCallStream(
+            "call-create-a",
+            toProviderToolName("orders.create"),
+            createInput,
+          ),
+          mockTextStream("Order A."),
+          mockToolCallStream(
+            "call-create-b",
+            toProviderToolName("orders.create"),
+            createInput,
+          ),
+          mockTextStream("Order B."),
+          mockToolCallStream(
+            "call-create-a",
+            toProviderToolName("orders.create"),
+            createInput,
+          ),
+          mockTextStream("Order A again."),
+        ],
+      }),
+    );
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Two creates",
+    });
+
+    async function createViaChat(text: string): Promise<void> {
+      const response = await postChat(app, {
+        token,
+        companyId: kitIdentities.companies.a,
+        body: userChatBody(conversation.id, text),
+      });
+      expect(response.status).toBe(200);
+      await readUiMessageSsePayloads(response);
+    }
+
+    await createViaChat("Create order A");
+    await createViaChat("Create order B");
+    await waitFor(async () => {
+      const rows = await kit.db.runtime.db.select().from(orders);
+      return (
+        rows.filter(
+          (row) =>
+            row.companyId === kitIdentities.companies.a &&
+            row.customerId === customer.id,
+        ).length === 2
+      );
+    }, "two orders");
+
+    await createViaChat("Create order A again");
+    const afterReplay = (await kit.db.runtime.db.select().from(orders)).filter(
+      (row) =>
+        row.companyId === kitIdentities.companies.a &&
+        row.customerId === customer.id,
+    );
+    expect(afterReplay).toHaveLength(2);
+
+    const keys = await kit.db.runtime.db.select().from(idempotencyKeys);
+    expect(
+      keys.some(
+        (row) =>
+          row.action === "orders.create" &&
+          row.key === attemptKey("tool", conversation.id, "call-create-a") &&
+          row.status === "completed",
+      ),
+    ).toBe(true);
+    expect(
+      keys.some(
+        (row) =>
+          row.action === "orders.create" &&
+          row.key === attemptKey("tool", conversation.id, "call-create-b") &&
+          row.status === "completed",
+      ),
+    ).toBe(true);
+  });
+
+  it("uses only the first matching resume call as the paused attempt", async () => {
+    const customer = await staffInvoke(createCustomer, {
+      name: "AI One Shot",
+      phone: "+380671110005",
+    });
+    await staffInvoke(archiveCustomer, { id: customer.id });
+    const deleteInput = JSON.stringify({ id: customer.id });
+    const app = chatApp(
+      new MockLanguageModelV3({
+        doStream: [
+          mockToolCallStream(
+            "call-delete",
+            toProviderToolName("customers.deleteCustomer"),
+            deleteInput,
+          ),
+          mockToolCallStream(
+            "call-resume-b",
+            toProviderToolName("customers.deleteCustomer"),
+            deleteInput,
+          ),
+          mockToolCallStream(
+            "call-resume-c",
+            toProviderToolName("customers.deleteCustomer"),
+            deleteInput,
+          ),
+        ],
+      }),
+    );
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "One-shot claim",
+    });
+    const pause = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "Delete the archived customer"),
+    });
+    expect(pause.status).toBe(200);
+    const confirmation = confirmationFromSsePayloads(
+      await readUiMessageSsePayloads(pause),
+    );
+    expect(confirmation).toBeDefined();
+    if (!isStaffAssistantConfirmationOutput(confirmation)) {
+      expect.unreachable("expected confirmation part");
+    }
+
+    const resume = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "Delete the archived customer"),
+      challengeId: confirmation.challengeId,
+    });
+    expect(resume.status).toBe(200);
+    const resumePayloads = await readUiMessageSsePayloads(resume);
+    const secondConfirmation = confirmationFromSsePayloads(resumePayloads);
+    expect(secondConfirmation).toBeDefined();
+    if (!isStaffAssistantConfirmationOutput(secondConfirmation)) {
+      expect.unreachable("expected a new confirmation for the second call");
+    }
+    expect(secondConfirmation.actionName).toBe("customers.deleteCustomer");
+    expect(secondConfirmation.toolCallId).toBe("call-resume-c");
+    expect(secondConfirmation.challengeId).not.toBe(confirmation.challengeId);
+
+    await waitFor(async () => {
+      const rows = await kit.db.runtime.db.select().from(companyCustomers);
+      return !rows.some((row) => row.id === customer.id);
+    }, "deleted customer after first matching resume");
+
+    const keys = await kit.db.runtime.db.select().from(idempotencyKeys);
+    expect(
+      keys.some(
+        (row) =>
+          row.action === "customers.deleteCustomer" &&
+          row.key === attemptKey("tool", conversation.id, "call-delete") &&
+          row.status === "completed",
+      ),
+    ).toBe(true);
+    expect(
+      keys.some(
+        (row) =>
+          row.action === "customers.deleteCustomer" &&
+          row.key === attemptKey("tool", conversation.id, "call-resume-c"),
+      ),
+    ).toBe(false);
+  });
+
+  it("rejects a persisted vs client confirmation mismatch before consuming the challenge", async () => {
+    const customer = await staffInvoke(createCustomer, {
+      name: "AI Mismatch",
+      phone: "+380671110006",
+    });
+    await staffInvoke(archiveCustomer, { id: customer.id });
+    const deleteInput = JSON.stringify({ id: customer.id });
+    const app = chatApp(
+      new MockLanguageModelV3({
+        doStream: [
+          mockToolCallStream(
+            "call-delete",
+            toProviderToolName("customers.deleteCustomer"),
+            deleteInput,
+          ),
+          mockToolCallStream(
+            "call-delete-resume",
+            toProviderToolName("customers.deleteCustomer"),
+            deleteInput,
+          ),
+          mockTextStream("The customer was deleted."),
+        ],
+      }),
+    );
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Mismatch",
+    });
+    const pause = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "Delete the archived customer"),
+    });
+    expect(pause.status).toBe(200);
+    const confirmation = confirmationFromSsePayloads(
+      await readUiMessageSsePayloads(pause),
+    );
+    expect(confirmation).toBeDefined();
+    if (!isStaffAssistantConfirmationOutput(confirmation)) {
+      expect.unreachable("expected confirmation part");
+    }
+
+    const forged = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: resumeBodyWithConfirmation(
+        conversation.id,
+        "Delete the archived customer",
+        { ...confirmation, toolCallId: "forged-tool-call" },
+      ),
+      challengeId: confirmation.challengeId,
+    });
+    expect(forged.status).toBe(400);
+    expect(await forged.json()).toMatchObject({
+      code: "VALIDATION",
+      status: 400,
+    });
+    const stillThere = (
+      await kit.db.runtime.db.select().from(companyCustomers)
+    ).filter((row) => row.id === customer.id);
+    expect(stillThere).toHaveLength(1);
+
+    const resume = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "Delete the archived customer"),
+      challengeId: confirmation.challengeId,
+    });
+    expect(resume.status).toBe(200);
+    await readUiMessageSsePayloads(resume);
+    await waitFor(async () => {
+      const rows = await kit.db.runtime.db.select().from(companyCustomers);
+      return !rows.some((row) => row.id === customer.id);
+    }, "deleted customer after mismatch reject");
+  });
+
+  it("rejects a confirmation resume with no paused attempt before starting the model", async () => {
+    const app = chatApp(
+      new MockLanguageModelV3({
+        doStream: [mockTextStream("should not run")],
+      }),
+    );
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Missing pause",
+    });
+    const response = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "так"),
+      challengeId: randomUUID(),
+    });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      code: "VALIDATION",
+      status: 400,
+    });
   });
 });
 

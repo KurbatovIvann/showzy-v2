@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  lastStaffAssistantUserText,
-  pausedActionNameForChallenge,
+  lastStaffAssistantUserMessage,
+  pausedToolAttemptForChallenge,
+  pausedToolAttemptFromToolRuns,
+  resolvePausedToolAttempt,
   staffAssistantChatBodySchema,
   staffAssistantModelMessages,
   STAFF_ASSISTANT_CHAT_MESSAGES_MAX,
@@ -89,10 +91,10 @@ describe("staffAssistantModelMessages", () => {
   });
 });
 
-describe("lastStaffAssistantUserText", () => {
-  it("returns the latest non-empty user text", () => {
+describe("lastStaffAssistantUserMessage", () => {
+  it("returns the latest non-empty user id and text", () => {
     expect(
-      lastStaffAssistantUserText([
+      lastStaffAssistantUserMessage([
         {
           id: "u1",
           role: "user",
@@ -109,42 +111,41 @@ describe("lastStaffAssistantUserText", () => {
           parts: [{ type: "text", text: "Delete the customer" }],
         },
       ]),
-    ).toBe("Delete the customer");
+    ).toEqual({ id: "u2", text: "Delete the customer" });
   });
 });
 
-describe("pausedActionNameForChallenge", () => {
-  it("returns the actionName from a matching data-confirmation part", () => {
+const confirmationPart = {
+  type: "data-confirmation" as const,
+  data: {
+    status: "confirmation_required" as const,
+    challengeId,
+    summary: "Delete this archived customer.",
+    expiresAt: "2026-09-01T12:00:00.000Z",
+    actionName: "customers.deleteCustomer",
+    toolCallId: "call-delete",
+  },
+};
+
+describe("pausedToolAttemptForChallenge", () => {
+  it("returns actionName and toolCallId from a matching data-confirmation part", () => {
     expect(
-      pausedActionNameForChallenge(
+      pausedToolAttemptForChallenge(
         [
           userMessage("Delete the customer"),
-          {
-            id: "a",
-            role: "assistant",
-            parts: [
-              {
-                type: "data-confirmation",
-                data: {
-                  status: "confirmation_required",
-                  challengeId,
-                  summary: "Delete this archived customer.",
-                  expiresAt: "2026-09-01T12:00:00.000Z",
-                  actionName: "customers.deleteCustomer",
-                  toolCallId: "call-delete",
-                },
-              },
-            ],
-          },
+          { id: "a", role: "assistant", parts: [confirmationPart] },
         ],
         challengeId,
       ),
-    ).toBe("customers.deleteCustomer");
+    ).toEqual({
+      actionName: "customers.deleteCustomer",
+      toolCallId: "call-delete",
+    });
   });
 
   it("ignores a confirmation part for a different challenge", () => {
     expect(
-      pausedActionNameForChallenge(
+      pausedToolAttemptForChallenge(
         [
           {
             id: "a",
@@ -167,5 +168,101 @@ describe("pausedActionNameForChallenge", () => {
         challengeId,
       ),
     ).toBeUndefined();
+  });
+});
+
+describe("pausedToolAttemptFromToolRuns", () => {
+  it("returns the last confirmation_required run for the challenge, including toolCallId", () => {
+    expect(
+      pausedToolAttemptFromToolRuns(
+        [
+          {
+            actionName: "orders.create",
+            toolCallId: "call-create",
+            challengeId: null,
+            outcome: "success",
+          },
+          {
+            actionName: "customers.deleteCustomer",
+            toolCallId: "call-delete",
+            challengeId,
+            outcome: "confirmation_required",
+          },
+        ],
+        challengeId,
+      ),
+    ).toEqual({
+      actionName: "customers.deleteCustomer",
+      toolCallId: "call-delete",
+    });
+  });
+
+  it("ignores a matching challenge on a non-paused outcome", () => {
+    expect(
+      pausedToolAttemptFromToolRuns(
+        [
+          {
+            actionName: "customers.deleteCustomer",
+            toolCallId: "call-delete",
+            challengeId,
+            outcome: "success",
+          },
+        ],
+        challengeId,
+      ),
+    ).toBeUndefined();
+  });
+});
+
+describe("resolvePausedToolAttempt", () => {
+  const persisted = {
+    actionName: "customers.deleteCustomer",
+    toolCallId: "call-a",
+  };
+  const client = {
+    actionName: "customers.deleteCustomer",
+    toolCallId: "call-a",
+  };
+
+  it("uses persisted when only the tool-run exists", () => {
+    expect(resolvePausedToolAttempt(persisted, undefined)).toEqual({
+      status: "ok",
+      attempt: persisted,
+    });
+  });
+
+  it("uses the client envelope when persist has not finished", () => {
+    expect(resolvePausedToolAttempt(undefined, client)).toEqual({
+      status: "ok",
+      attempt: client,
+    });
+  });
+
+  it("uses persisted when both agree", () => {
+    expect(resolvePausedToolAttempt(persisted, client)).toEqual({
+      status: "ok",
+      attempt: persisted,
+    });
+  });
+
+  it("reports mismatch when actionName or toolCallId disagree", () => {
+    expect(
+      resolvePausedToolAttempt(persisted, {
+        actionName: "customers.deleteCustomer",
+        toolCallId: "forged",
+      }),
+    ).toEqual({ status: "mismatch" });
+    expect(
+      resolvePausedToolAttempt(persisted, {
+        actionName: "customers.deleteGroup",
+        toolCallId: "call-a",
+      }),
+    ).toEqual({ status: "mismatch" });
+  });
+
+  it("reports missing when neither source exists", () => {
+    expect(resolvePausedToolAttempt(undefined, undefined)).toEqual({
+      status: "missing",
+    });
   });
 });

@@ -9,15 +9,19 @@
  * the process still boots.
  */
 import {
+  attemptKey,
   createStaffLanguageModel,
   filterStaffAiTools,
-  lastStaffAssistantUserText,
-  pausedActionNameForChallenge,
+  lastStaffAssistantUserMessage,
+  pausedToolAttemptForChallenge,
+  pausedToolAttemptFromToolRuns,
+  resolvePausedToolAttempt,
   StaffAssistantNotConfiguredError,
   staffAssistantChatBodySchema,
   staffAssistantModelMessages,
   streamStaffAssistantChat,
   type LanguageModel,
+  type PausedToolAttempt,
   type StaffAssistantChatMessage,
   type StaffAssistantTurnResult,
 } from "@showzy/ai";
@@ -33,12 +37,10 @@ import {
 } from "@showzy/contract";
 import { toWireError } from "@showzy/contract/server";
 import {
-  canonicalJsonSha256,
   executeAction,
   type ActionPipelineDeps,
   type ActionRegistry,
   type ImplementedAction,
-  type JsonSerializable,
   type SessionPrincipal,
 } from "@showzy/core";
 import {
@@ -183,25 +185,15 @@ function requireImplementation(
   return implementation as ImplementedAction<z.ZodType, z.ZodType, unknown>;
 }
 
-function pausedActionNameFromToolRuns(
-  toolRuns: readonly {
-    readonly actionName: string;
-    readonly challengeId: string | null;
-    readonly outcome: string;
-  }[],
-  challengeId: string,
-): string | undefined {
-  for (let index = toolRuns.length - 1; index >= 0; index -= 1) {
-    const run = toolRuns[index];
-    if (
-      run !== undefined &&
-      run.outcome === "confirmation_required" &&
-      run.challengeId === challengeId
-    ) {
-      return run.actionName;
-    }
-  }
-  return undefined;
+function confirmationResumeIssue(message: string): ValidationError {
+  return new ValidationError([
+    {
+      code: "custom",
+      path: ["messages"],
+      message,
+      input: undefined,
+    },
+  ]);
 }
 
 async function parseChatBody(request: Request): Promise<{
@@ -294,10 +286,9 @@ export async function executeStaffAssistantChat(
       principal: staffPrincipal,
     });
 
-    const model = resolveLanguageModel(options.assistant);
     const body = await parseChatBody(options.request);
-    const userText = lastStaffAssistantUserText(body.messages);
-    if (userText === undefined && confirmationChallengeId === undefined) {
+    const userMessage = lastStaffAssistantUserMessage(body.messages);
+    if (userMessage === undefined && confirmationChallengeId === undefined) {
       throw new ValidationError([
         {
           code: "custom",
@@ -320,51 +311,84 @@ export async function executeStaffAssistantChat(
       ]);
     }
 
-    if (userText !== undefined) {
-      await executeAction(options.pipeline, {
-        action: appendUserMessage,
-        input: {
-          conversationId: body.conversationId,
-          body: userText,
-        },
-        request: staffRequest({
-          requestId: options.requestId,
-          clientIp: options.clientIp,
-          aiTraceId,
-          idempotencyKey: canonicalJsonSha256({
-            kind: "assistant.appendUserMessage",
-            conversationId: body.conversationId,
-            body: userText,
-          }),
-        }),
-        principal: staffPrincipal,
-      });
-    }
-
-    let pausedActionName =
-      confirmationChallengeId !== undefined
-        ? pausedActionNameForChallenge(body.messages, confirmationChallengeId)
-        : undefined;
-    if (
-      confirmationChallengeId !== undefined &&
-      pausedActionName === undefined
-    ) {
+    let pausedAttempt: PausedToolAttempt | undefined;
+    if (confirmationChallengeId !== undefined) {
+      const clientAttempt = pausedToolAttemptForChallenge(
+        body.messages,
+        confirmationChallengeId,
+      );
       const conversation = await executeAction(options.pipeline, {
         action: getConversation,
         input: { conversationId: body.conversationId },
         request: baseRequest,
         principal: staffPrincipal,
       });
-      pausedActionName = pausedActionNameFromToolRuns(
+      const persistedAttempt = pausedToolAttemptFromToolRuns(
         conversation.toolRuns,
         confirmationChallengeId,
       );
+      const resolved = resolvePausedToolAttempt(
+        persistedAttempt,
+        clientAttempt,
+      );
+      if (resolved.status === "missing") {
+        throw confirmationResumeIssue(
+          "A paused tool attempt is required to resume confirmation.",
+        );
+      }
+      if (resolved.status === "mismatch") {
+        throw confirmationResumeIssue(
+          "Confirmation context does not match the paused tool attempt.",
+        );
+      }
+      pausedAttempt = resolved.attempt;
+    }
+
+    const model = resolveLanguageModel(options.assistant);
+
+    if (userMessage !== undefined) {
+      await executeAction(options.pipeline, {
+        action: appendUserMessage,
+        input: {
+          conversationId: body.conversationId,
+          body: userMessage.text,
+        },
+        request: staffRequest({
+          requestId: options.requestId,
+          clientIp: options.clientIp,
+          aiTraceId,
+          idempotencyKey: attemptKey(
+            "message",
+            body.conversationId,
+            userMessage.id,
+          ),
+        }),
+        principal: staffPrincipal,
+      });
     }
 
     const contracts = filterStaffAiTools(options.registry.contracts(), {
       role: actor.role,
       permissions: actor.permissions,
     });
+
+    let confirmationClaimed = false;
+    function claimPausedAttempt(
+      actionName: string,
+      requiresConfirmation: boolean,
+    ): PausedToolAttempt | undefined {
+      if (
+        confirmationClaimed ||
+        confirmationChallengeId === undefined ||
+        pausedAttempt === undefined ||
+        !requiresConfirmation ||
+        actionName !== pausedAttempt.actionName
+      ) {
+        return undefined;
+      }
+      confirmationClaimed = true;
+      return pausedAttempt;
+    }
 
     const { response } = streamStaffAssistantChat({
       model,
@@ -377,19 +401,15 @@ export async function executeStaffAssistantChat(
       },
       execute: (actionName, input, toolOptions) => {
         const action = requireImplementation(options.registry, actionName);
+        const resumedAttempt = claimPausedAttempt(
+          action.contract.name,
+          action.contract.requiresConfirmation,
+        );
+        const logicalToolCallId =
+          resumedAttempt?.toolCallId ?? toolOptions.toolCallId;
         const idempotencyKey = action.contract.idempotent
-          ? canonicalJsonSha256({
-              kind: "assistant.tool",
-              conversationId: body.conversationId,
-              actionName,
-              input: input as JsonSerializable,
-            })
+          ? attemptKey("tool", body.conversationId, logicalToolCallId)
           : undefined;
-        const bindConfirmation =
-          confirmationChallengeId !== undefined &&
-          pausedActionName !== undefined &&
-          action.contract.requiresConfirmation &&
-          action.contract.name === pausedActionName;
         return executeAction(options.pipeline, {
           action,
           input,
@@ -399,7 +419,10 @@ export async function executeStaffAssistantChat(
             aiTraceId,
             toolCallId: toolOptions.toolCallId,
             ...(idempotencyKey !== undefined ? { idempotencyKey } : {}),
-            ...(bindConfirmation ? { confirmationChallengeId } : {}),
+            ...(resumedAttempt !== undefined &&
+            confirmationChallengeId !== undefined
+              ? { confirmationChallengeId }
+              : {}),
           }),
           principal: staffPrincipal,
         });
@@ -465,11 +488,11 @@ async function persistAssistantTurn(options: {
       requestId: options.requestId,
       clientIp: options.clientIp,
       aiTraceId: options.aiTraceId,
-      idempotencyKey: canonicalJsonSha256({
-        kind: "assistant.recordAssistantTurn",
-        conversationId: options.conversationId,
-        requestId: options.requestId,
-      }),
+      idempotencyKey: attemptKey(
+        "turn",
+        options.conversationId,
+        options.requestId,
+      ),
     }),
     principal: options.principal,
   });
