@@ -6,6 +6,7 @@ export { getProductContract } from "./actions/get-product.contract.js";
 export { getProductOrderFactsContract } from "./actions/get-product-order-facts.contract.js";
 export { getProductPricingFactsContract } from "./actions/get-product-pricing-facts.contract.js";
 export { listProductsContract } from "./actions/list-products.contract.js";
+export { resolveLineReferencesContract } from "./actions/resolve-line-references.contract.js";
 export { restoreProductContract } from "./actions/restore-product.contract.js";
 export { restoreVariantContract } from "./actions/restore-variant.contract.js";
 export { setProductImagesContract } from "./actions/set-product-images.contract.js";

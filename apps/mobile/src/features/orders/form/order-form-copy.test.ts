@@ -31,8 +31,13 @@ describe("mapOrderFormFailure / mapValidationIssues", () => {
     const write: OrderFormWrite = {
       kind: "createOrder",
       input: {
-        customerId: CUSTOMER_ID,
-        items: [{ productId: PRODUCT_ID, quantityMilli: "1000" }],
+        customer: { by: "id", id: CUSTOMER_ID },
+        items: [
+          {
+            product: { by: "id", id: PRODUCT_ID },
+            quantity: { milli: "1000" },
+          },
+        ],
       },
     };
     const error: unknown = new ORPCError("VALIDATION", {
@@ -41,7 +46,7 @@ describe("mapOrderFormFailure / mapValidationIssues", () => {
       message: "do-not-match-this",
       data: {
         issues: [
-          { code: "too_small", path: ["customerId"], message: "secret" },
+          { code: "too_small", path: ["customer"], message: "secret" },
           { code: "too_small", path: ["items"], message: "secret" },
           { code: "too_big", path: ["comment"], message: "secret" },
         ],

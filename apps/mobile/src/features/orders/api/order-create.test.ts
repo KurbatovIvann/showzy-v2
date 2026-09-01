@@ -24,39 +24,17 @@ function createdOrder(): CreateOrderResult {
   return {
     orderId: ORDER_ID,
     orderNumber: "KA-17Z992",
-    customerId: CUSTOMER_ID,
+    customer: {
+      nameSnapshot: "Марія",
+      linkedCustomerId: CUSTOMER_ID,
+    },
     status: "new",
-    comment: null,
+    itemCount: 1,
     totalNetMinor: "1000",
     totalTaxMinor: "0",
     totalGrossMinor: "1000",
     currency: "UAH",
-    confirmedAt: null,
     createdAt: "2026-08-29T12:00:00.000Z",
-    items: [
-      {
-        itemId: "22222222-2222-4222-8222-222222222222",
-        productId: PRODUCT_ID,
-        variantId: null,
-        titleSnapshot: "Торт",
-        quantityMilli: "1000",
-        unitPriceMinor: "1000",
-        discountKind: "none",
-        discountValue: "0",
-        discountAmountMinor: "0",
-        taxTreatment: "exempt",
-        taxRateBp: 0,
-        taxAmountMinor: "0",
-        netAmountMinor: "1000",
-        grossAmountMinor: "1000",
-        currency: "UAH",
-        priceSource: "base",
-        personalPriceId: null,
-        priceListId: null,
-        priceListEntryId: null,
-        resolverVersion: 1,
-      },
-    ],
   };
 }
 
@@ -69,8 +47,13 @@ describe("bindOrderCreateMutate", () => {
     const write: OrderFormWrite = {
       kind: "createOrder",
       input: {
-        customerId: CUSTOMER_ID,
-        items: [{ productId: PRODUCT_ID, quantityMilli: "1000" }],
+        customer: { by: "id", id: CUSTOMER_ID },
+        items: [
+          {
+            product: { by: "id", id: PRODUCT_ID },
+            quantity: { milli: "1000" },
+          },
+        ],
       },
     };
     const controller = createContractMutationController({

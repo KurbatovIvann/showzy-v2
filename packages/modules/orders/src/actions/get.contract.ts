@@ -4,7 +4,8 @@
  * `orderId` and fetches here (ADR-0011).
  *
  * Mechanical: `timeout: 2000` — single-row header + lines, no nested calls.
- * Output shape is shared with `orders.create`.
+ * Output is the full snapshot. Compact create summaries live on
+ * `orders.create`; this action remains the detail read.
  */
 import { defineActionContract } from "@showzy/core/contract";
 import { z } from "zod";

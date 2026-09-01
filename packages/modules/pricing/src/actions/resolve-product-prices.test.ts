@@ -12,10 +12,10 @@ describe("pricing.resolveProductPrices contract", () => {
       "pricing.resolveProductPrices",
     );
     expect(resolveProductPricesContract.principal).toBe("staff");
-    expect(resolveProductPricesContract.transport).toBe("client");
+    expect(resolveProductPricesContract.transport).toBe("internal");
     expect(resolveProductPricesContract.risk).toBe("read");
     expect(resolveProductPricesContract.permissions).toEqual(["pricing:view"]);
-    expect(resolveProductPricesContract.aiExposure).toBe("exposed");
+    expect(resolveProductPricesContract.aiExposure).toBe("internal");
     expect(resolveProductPricesContract.audit).toBe(false);
     expect(resolveProductPricesContract.emits).toEqual([]);
     expect(resolveProductPricesContract.timeout).toBe(5_000);

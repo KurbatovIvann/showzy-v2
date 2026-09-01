@@ -10,6 +10,7 @@ export const catalogSuiteCoverage = {
     "catalog.getProductOrderFacts",
     "catalog.getProductPricingFacts",
     "catalog.listProducts",
+    "catalog.resolveLineReferences",
     "catalog.restoreProduct",
     "catalog.restoreVariant",
     "catalog.setProductImages",

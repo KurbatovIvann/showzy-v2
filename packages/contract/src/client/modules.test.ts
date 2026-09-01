@@ -91,7 +91,6 @@ import {
   listPriceListEntriesContract,
   listPriceListsContract,
   removePriceListEntriesContract,
-  resolveProductPricesContract,
   setDefaultPriceListContract,
   setPriceListEntriesContract,
   updatePriceListContract,
@@ -196,7 +195,6 @@ describe("client composition", () => {
         listPriceListEntries: listPriceListEntriesContract,
         listPriceLists: listPriceListsContract,
         removePriceListEntries: removePriceListEntriesContract,
-        resolveProductPrices: resolveProductPricesContract,
         setDefaultPriceList: setDefaultPriceListContract,
         setPriceListEntries: setPriceListEntriesContract,
         updatePriceList: updatePriceListContract,
@@ -217,6 +215,7 @@ describe("client composition", () => {
     expect(contractModules.catalog).not.toHaveProperty(
       "getProductPricingFacts",
     );
+    expect(contractModules.catalog).not.toHaveProperty("resolveLineReferences");
     expect(contractRouter.chat.getOrderCard).toBeDefined();
     expect(contractRouter.companies.create).toBeDefined();
     expect(contractRouter.companies.get).toBeDefined();
@@ -245,6 +244,9 @@ describe("client composition", () => {
     );
     expect(contractModules.customers).not.toHaveProperty("listMatchingIds");
     expect(contractModules.customers).not.toHaveProperty("applyInviteCrm");
+    expect(contractModules.customers).not.toHaveProperty(
+      "resolveCustomerReference",
+    );
     expect(contractRouter.documents.cancel).toBeDefined();
     expect(contractRouter.documents.createFromOrder).toBeDefined();
     expect(contractRouter.documents.get).toBeDefined();
@@ -307,7 +309,7 @@ describe("client composition", () => {
     expect(contractRouter.pricing.listPriceListEntries).toBeDefined();
     expect(contractRouter.pricing.listPriceLists).toBeDefined();
     expect(contractRouter.pricing.removePriceListEntries).toBeDefined();
-    expect(contractRouter.pricing.resolveProductPrices).toBeDefined();
+    expect(contractModules.pricing).not.toHaveProperty("resolveProductPrices");
     expect(contractRouter.pricing.setDefaultPriceList).toBeDefined();
     expect(contractRouter.pricing.setPriceListEntries).toBeDefined();
     expect(contractRouter.pricing.updatePriceList).toBeDefined();

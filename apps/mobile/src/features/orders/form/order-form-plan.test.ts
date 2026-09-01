@@ -33,16 +33,21 @@ function validDraft(overrides: Partial<OrderFormDraft> = {}): OrderFormDraft {
 }
 
 describe("createOrderPayload", () => {
-  it("emits wire { customerId, items } only — no prices, payment, or delivery", () => {
+  it("emits wire { customer: { by: id }, items } only — no prices, payment, or delivery", () => {
     const payload = createOrderPayload(validDraft());
     expect(payload).toEqual({
-      customerId: CUSTOMER_ID,
-      items: [{ productId: PRODUCT_ID, quantityMilli: "2000" }],
+      customer: { by: "id", id: CUSTOMER_ID },
+      items: [
+        {
+          product: { by: "id", id: PRODUCT_ID },
+          quantity: { milli: "2000" },
+        },
+      ],
     });
-    expect(Object.keys(payload ?? {}).sort()).toEqual(["customerId", "items"]);
+    expect(Object.keys(payload ?? {}).sort()).toEqual(["customer", "items"]);
     expect(Object.keys(payload?.items[0] ?? {}).sort()).toEqual([
-      "productId",
-      "quantityMilli",
+      "product",
+      "quantity",
     ]);
     const serialized = JSON.stringify(payload);
     expect(serialized).not.toContain("basePrice");
@@ -54,6 +59,9 @@ describe("createOrderPayload", () => {
     expect(serialized).not.toContain("discount");
     expect(serialized).not.toContain("customerName");
     expect(serialized).not.toContain("productName");
+    expect(serialized).not.toContain("customerId");
+    expect(serialized).not.toContain("productId");
+    expect(serialized).not.toContain("quantityMilli");
   });
 
   it("includes optional variantId and trimmed comment only when set", () => {
@@ -73,29 +81,34 @@ describe("createOrderPayload", () => {
       }),
     );
     expect(withVariant).toEqual({
-      customerId: CUSTOMER_ID,
+      customer: { by: "id", id: CUSTOMER_ID },
       items: [
         {
-          productId: PRODUCT_ID,
-          variantId: VARIANT_ID,
-          quantityMilli: "1000",
+          product: { by: "id", id: PRODUCT_ID },
+          variant: { by: "id", id: VARIANT_ID },
+          quantity: { milli: "1000" },
         },
       ],
       comment: "Без горіхів",
     });
     expect(Object.keys(withVariant ?? {}).sort()).toEqual([
       "comment",
-      "customerId",
+      "customer",
       "items",
     ]);
     expect(Object.keys(withVariant?.items[0] ?? {}).sort()).toEqual([
-      "productId",
-      "quantityMilli",
-      "variantId",
+      "product",
+      "quantity",
+      "variant",
     ]);
     expect(createOrderPayload(validDraft({ comment: "   " }))).toEqual({
-      customerId: CUSTOMER_ID,
-      items: [{ productId: PRODUCT_ID, quantityMilli: "2000" }],
+      customer: { by: "id", id: CUSTOMER_ID },
+      items: [
+        {
+          product: { by: "id", id: PRODUCT_ID },
+          quantity: { milli: "2000" },
+        },
+      ],
     });
   });
 });
@@ -142,8 +155,13 @@ describe("planOrderFormSave", () => {
     const lastWrite: OrderFormWrite = {
       kind: "createOrder",
       input: {
-        customerId: CUSTOMER_ID,
-        items: [{ productId: PRODUCT_ID, quantityMilli: "1000" }],
+        customer: { by: "id", id: CUSTOMER_ID },
+        items: [
+          {
+            product: { by: "id", id: PRODUCT_ID },
+            quantity: { milli: "1000" },
+          },
+        ],
       },
     };
     const planned = planOrderFormSave({

@@ -14,6 +14,7 @@ import { listCounterparties } from "./actions/list-counterparties.js";
 import { listCustomers } from "./actions/list-customers.js";
 import { listGroups } from "./actions/list-groups.js";
 import { listMatchingIds } from "./actions/list-matching-ids.js";
+import { resolveCustomerReference } from "./actions/resolve-customer-reference.js";
 import { restoreCustomer } from "./actions/restore-customer.js";
 import { updateCounterparty } from "./actions/update-counterparty.js";
 import { updateCustomer } from "./actions/update-customer.js";
@@ -35,6 +36,7 @@ export { listCounterparties };
 export { listCustomers };
 export { listGroups };
 export { listMatchingIds };
+export { resolveCustomerReference };
 export { restoreCustomer };
 export { updateCounterparty };
 export { updateCustomer };
@@ -57,6 +59,7 @@ export const customersActions = [
   listCustomers,
   listGroups,
   listMatchingIds,
+  resolveCustomerReference,
   restoreCustomer,
   updateCounterparty,
   updateCustomer,

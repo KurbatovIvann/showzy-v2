@@ -45,7 +45,10 @@ import { z } from "zod";
 import { cancelOrder } from "./cancel.js";
 import { confirmOrder } from "./confirm.js";
 import { createOrder } from "./create.js";
-import { CREATE_ORDER_MAX_ITEMS } from "./create.contract.js";
+import {
+  CREATE_ORDER_MAX_ITEMS,
+  DUPLICATE_ORDER_LINE_MESSAGE,
+} from "./create.contract.js";
 import { getOrder } from "./get.js";
 import { listOrders } from "./list.js";
 import { ordersCreated } from "../events/created.js";
@@ -99,6 +102,10 @@ const fixtures = {
   numberingCustomerB: randomUUID(),
   numberingProductA: randomUUID(),
   numberingProductB: randomUUID(),
+  customerArchived: randomUUID(),
+  customerTwinA: randomUUID(),
+  customerTwinB: randomUUID(),
+  pArchived: randomUUID(),
 };
 
 const clerks = {
@@ -209,6 +216,7 @@ async function insertProduct(values: {
   name: string;
   basePriceMinor: bigint;
   currency?: string;
+  status?: "active" | "archived";
 }): Promise<void> {
   await kit.db.runtime.db.insert(products).values({
     id: values.id,
@@ -216,7 +224,30 @@ async function insertProduct(values: {
     name: values.name,
     basePriceMinor: values.basePriceMinor,
     ...(values.currency === undefined ? {} : { currency: values.currency }),
+    ...(values.status === undefined ? {} : { status: values.status }),
   });
+}
+
+function createById(
+  customerId: string,
+  items: readonly {
+    readonly productId: string;
+    readonly variantId?: string;
+    readonly quantityMilli?: string;
+  }[],
+  comment?: string,
+) {
+  return {
+    customer: { by: "id" as const, id: customerId },
+    items: items.map((item) => ({
+      product: { by: "id" as const, id: item.productId },
+      ...(item.variantId === undefined
+        ? {}
+        : { variant: { by: "id" as const, id: item.variantId } }),
+      quantity: { milli: item.quantityMilli ?? "1000" },
+    })),
+    ...(comment === undefined ? {} : { comment }),
+  };
 }
 
 function nextSeedOrderNumber(companyId: string): string {
@@ -299,10 +330,9 @@ async function processedCreatedDeliveries(): Promise<number> {
   return rows.length;
 }
 
-const baseCreateInput = {
-  customerId: fixtures.customerA,
-  items: [{ productId: fixtures.pBase, quantityMilli: "1000" }],
-};
+const baseCreateInput = createById(fixtures.customerA, [
+  { productId: fixtures.pBase },
+]);
 
 beforeAll(async () => {
   kit = await createTestKit();
@@ -355,6 +385,27 @@ beforeAll(async () => {
       companyId: companyB,
       name: "Customer B",
       email: `customer-${fixtures.customerB}@example.com`,
+    },
+    {
+      id: fixtures.customerArchived,
+      companyId: companyA,
+      name: "Archived Buyer",
+      phone: "+380501234567",
+      status: "archived",
+    },
+    {
+      id: fixtures.customerTwinA,
+      companyId: companyA,
+      name: "Twin Buyer",
+      phone: "+380501112233",
+      email: "twin-a@orders-kit.test",
+    },
+    {
+      id: fixtures.customerTwinB,
+      companyId: companyA,
+      name: "Twin Buyer",
+      phone: "+380504445566",
+      email: "twin-b@orders-kit.test",
     },
   ]);
 
@@ -412,6 +463,13 @@ beforeAll(async () => {
     companyId: companyB,
     name: "Foreign",
     basePriceMinor: 100n,
+  });
+  await insertProduct({
+    id: fixtures.pArchived,
+    companyId: companyA,
+    name: "Archived Widget",
+    basePriceMinor: 50n,
+    status: "archived",
   });
 
   await kit.db.runtime.db.insert(companies).values([
@@ -678,10 +736,7 @@ crossTenantSuite(
       createOrder,
       { input: baseCreateInput },
       {
-        input: {
-          customerId: fixtures.customerB,
-          items: [{ productId: fixtures.pB, quantityMilli: "1000" }],
-        },
+        input: createById(fixtures.customerB, [{ productId: fixtures.pB }]),
       },
     ),
     isolationCase(
@@ -708,10 +763,9 @@ idempotencySuite(
     {
       action: createOrder,
       input: baseCreateInput,
-      conflictingInput: {
-        customerId: fixtures.customerA,
-        items: [{ productId: fixtures.pZero, quantityMilli: "1000" }],
-      },
+      conflictingInput: createById(fixtures.customerA, [
+        { productId: fixtures.pZero },
+      ]),
       readEffect: () => countCompanyOrders(kitIdentities.companies.a),
     },
     {
@@ -736,10 +790,9 @@ idempotencySuite(
 eventSuite(() => kit, {
   module: "orders",
   emitAction: createOrder,
-  emitInput: {
-    customerId: fixtures.customerA,
-    items: [{ productId: fixtures.pZero, quantityMilli: "2000" }],
-  },
+  emitInput: createById(fixtures.customerA, [
+    { productId: fixtures.pZero, quantityMilli: "2000" },
+  ]),
   failingEmitAction: emitCreatedThenFail,
   failingEmitInput: { orderId: randomUUID() },
   eventName: "orders.created",
@@ -749,31 +802,40 @@ eventSuite(() => kit, {
 
 describe("orders.create / confirm / get", () => {
   it("snapshots five-level provenance, titles, money identity, then confirm and get", async () => {
-    const created = await kit.invoke(createOrder, {
-      customerId: fixtures.customerA,
-      comment: "Staff note",
-      items: [
-        { productId: fixtures.pPersonal, quantityMilli: "1000" },
-        { productId: fixtures.pCustomerList, quantityMilli: "1000" },
-        { productId: fixtures.pGroupList, quantityMilli: "1000" },
-        { productId: fixtures.pDefault, quantityMilli: "1000" },
-        { productId: fixtures.pBase, quantityMilli: "1000" },
-        {
-          productId: fixtures.pVariant,
-          variantId: fixtures.vNamed,
-          quantityMilli: "500",
-        },
-      ],
-    });
+    const created = await kit.invoke(
+      createOrder,
+      createById(
+        fixtures.customerA,
+        [
+          { productId: fixtures.pPersonal },
+          { productId: fixtures.pCustomerList },
+          { productId: fixtures.pGroupList },
+          { productId: fixtures.pDefault },
+          { productId: fixtures.pBase },
+          {
+            productId: fixtures.pVariant,
+            variantId: fixtures.vNamed,
+            quantityMilli: "500",
+          },
+        ],
+        "Staff note",
+      ),
+    );
 
     expect(created.status).toBe("new");
     expect(created.orderNumber).toMatch(/^KA-[0-9A-Z]+$/);
-    expect(created.comment).toBe("Staff note");
-    expect(created.customerId).toBe(fixtures.customerA);
-    expect(created.items).toHaveLength(6);
-    expect(
-      Object.prototype.hasOwnProperty.call(created, "customerNameSnapshot"),
-    ).toBe(false);
+    expect(created.itemCount).toBe(6);
+    expect(created.customer.linkedCustomerId).toBe(fixtures.customerA);
+    expect(created.customer.nameSnapshot).toBe("Customer A");
+    expect(Object.prototype.hasOwnProperty.call(created, "items")).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(created, "comment")).toBe(
+      false,
+    );
+
+    const snapshot = await kit.invoke(getOrder, { orderId: created.orderId });
+    expect(snapshot.comment).toBe("Staff note");
+    expect(snapshot.customerId).toBe(fixtures.customerA);
+    expect(snapshot.items).toHaveLength(6);
 
     const [header] = await kit.db.runtime.db
       .select({ snapshot: orders.customerNameSnapshot })
@@ -782,7 +844,7 @@ describe("orders.create / confirm / get", () => {
     expect(header?.snapshot).toBe("Customer A");
 
     const byProduct = new Map(
-      created.items.map((item) => [item.productId, item]),
+      snapshot.items.map((item) => [item.productId, item]),
     );
     expect(byProduct.get(fixtures.pPersonal)).toMatchObject({
       titleSnapshot: "Personal",
@@ -827,15 +889,15 @@ describe("orders.create / confirm / get", () => {
       grossAmountMinor: "450",
     });
 
-    const lineNet = created.items.reduce(
+    const lineNet = snapshot.items.reduce(
       (sum, item) => sum + BigInt(item.netAmountMinor),
       0n,
     );
-    const lineTax = created.items.reduce(
+    const lineTax = snapshot.items.reduce(
       (sum, item) => sum + BigInt(item.taxAmountMinor),
       0n,
     );
-    const lineGross = created.items.reduce(
+    const lineGross = snapshot.items.reduce(
       (sum, item) => sum + BigInt(item.grossAmountMinor),
       0n,
     );
@@ -919,16 +981,19 @@ describe("orders.create / confirm / get", () => {
     expect(fetched.totalGrossMinor).toBe(created.totalGrossMinor);
     expect(fetched.items).toHaveLength(6);
     expect(fetched.items.map((item) => item.unitPriceMinor).sort()).toEqual(
-      created.items.map((item) => item.unitPriceMinor).sort(),
+      snapshot.items.map((item) => item.unitPriceMinor).sort(),
     );
   });
 
   it("keeps snapshots after a later catalog price change", async () => {
-    const created = await kit.invoke(createOrder, {
-      customerId: fixtures.customerBare,
-      items: [{ productId: fixtures.pBase, quantityMilli: "1000" }],
+    const created = await kit.invoke(
+      createOrder,
+      createById(fixtures.customerBare, [{ productId: fixtures.pBase }]),
+    );
+    const beforeChange = await kit.invoke(getOrder, {
+      orderId: created.orderId,
     });
-    expect(created.items[0]?.unitPriceMinor).toBe("500");
+    expect(beforeChange.items[0]?.unitPriceMinor).toBe("500");
 
     await kit.db.runtime.db
       .update(products)
@@ -949,13 +1014,13 @@ describe("orders.create / confirm / get", () => {
 
   it("rejects mixed currencies", async () => {
     await expect(
-      kit.invoke(createOrder, {
-        customerId: fixtures.customerBare,
-        items: [
+      kit.invoke(
+        createOrder,
+        createById(fixtures.customerBare, [
           { productId: fixtures.pBase, quantityMilli: "1000" },
           { productId: fixtures.pEur, quantityMilli: "1000" },
-        ],
-      }),
+        ]),
+      ),
     ).rejects.toBeInstanceOf(ConflictError);
   });
 
@@ -964,22 +1029,16 @@ describe("orders.create / confirm / get", () => {
     const actorB = { companyId: fixtures.numberingB };
     const firstA = await kit.invoke(
       createOrder,
-      {
-        customerId: fixtures.numberingCustomerA,
-        items: [
-          { productId: fixtures.numberingProductA, quantityMilli: "1000" },
-        ],
-      },
+      createById(fixtures.numberingCustomerA, [
+        { productId: fixtures.numberingProductA, quantityMilli: "1000" },
+      ]),
       actorA,
     );
     const firstB = await kit.invoke(
       createOrder,
-      {
-        customerId: fixtures.numberingCustomerB,
-        items: [
-          { productId: fixtures.numberingProductB, quantityMilli: "1000" },
-        ],
-      },
+      createById(fixtures.numberingCustomerB, [
+        { productId: fixtures.numberingProductB, quantityMilli: "1000" },
+      ]),
       actorB,
     );
     expect(firstA.orderNumber).toBe(formatStaffOrderNumber("N4", 1n));
@@ -988,12 +1047,9 @@ describe("orders.create / confirm / get", () => {
 
     const secondA = await kit.invoke(
       createOrder,
-      {
-        customerId: fixtures.numberingCustomerA,
-        items: [
-          { productId: fixtures.numberingProductA, quantityMilli: "1000" },
-        ],
-      },
+      createById(fixtures.numberingCustomerA, [
+        { productId: fixtures.numberingProductA, quantityMilli: "1000" },
+      ]),
       actorA,
     );
     expect(secondA.orderNumber).toBe(formatStaffOrderNumber("N4", 2n));
@@ -1025,12 +1081,9 @@ describe("orders.create / confirm / get", () => {
   it("lets an employee without settings:payments create a numbered order", async () => {
     const created = await kit.invoke(
       createOrder,
-      {
-        customerId: fixtures.numberingCustomerA,
-        items: [
-          { productId: fixtures.numberingProductA, quantityMilli: "1000" },
-        ],
-      },
+      createById(fixtures.numberingCustomerA, [
+        { productId: fixtures.numberingProductA, quantityMilli: "1000" },
+      ]),
       { userId: clerks.employee, companyId: fixtures.numberingA },
     );
     expect(created.orderNumber.startsWith("N4-")).toBe(true);
@@ -1042,12 +1095,9 @@ describe("orders.create / confirm / get", () => {
     await expect(
       kit.invoke(
         createOrder,
-        {
-          customerId: fixtures.numberingCustomerA,
-          items: [
-            { productId: fixtures.numberingProductA, quantityMilli: "1000" },
-          ],
-        },
+        createById(fixtures.numberingCustomerA, [
+          { productId: fixtures.numberingProductA, quantityMilli: "1000" },
+        ]),
         { userId: clerks.noDocuments, companyId: fixtures.numberingA },
       ),
     ).rejects.toBeInstanceOf(PermissionDeniedError);
@@ -1058,22 +1108,16 @@ describe("orders.create / confirm / get", () => {
     const [left, right] = await Promise.all([
       kit.invoke(
         createOrder,
-        {
-          customerId: fixtures.numberingCustomerA,
-          items: [
-            { productId: fixtures.numberingProductA, quantityMilli: "1000" },
-          ],
-        },
+        createById(fixtures.numberingCustomerA, [
+          { productId: fixtures.numberingProductA, quantityMilli: "1000" },
+        ]),
         actor,
       ),
       kit.invoke(
         createOrder,
-        {
-          customerId: fixtures.numberingCustomerA,
-          items: [
-            { productId: fixtures.numberingProductA, quantityMilli: "1000" },
-          ],
-        },
+        createById(fixtures.numberingCustomerA, [
+          { productId: fixtures.numberingProductA, quantityMilli: "1000" },
+        ]),
         actor,
       ),
     ]);
@@ -1128,50 +1172,58 @@ describe("orders.create / confirm / get", () => {
   it("rejects empty, duplicate, oversized, and malformed lines", async () => {
     await expect(
       kit.invoke(createOrder, {
-        customerId: fixtures.customerA,
+        customer: { by: "id", id: fixtures.customerA },
         items: [],
       }),
     ).rejects.toBeInstanceOf(ValidationError);
 
     await expect(
-      kit.invoke(createOrder, {
-        customerId: fixtures.customerA,
-        items: [
+      kit.invoke(
+        createOrder,
+        createById(fixtures.customerA, [
           { productId: fixtures.pBase, quantityMilli: "1000" },
           { productId: fixtures.pBase, quantityMilli: "2000" },
-        ],
-      }),
+        ]),
+      ),
     ).rejects.toBeInstanceOf(ValidationError);
 
     const oversized = Array.from(
       { length: CREATE_ORDER_MAX_ITEMS + 1 },
       () => ({
-        productId: randomUUID(),
-        quantityMilli: "1000",
+        product: { by: "id" as const, id: randomUUID() },
+        quantity: { milli: "1000" },
       }),
     );
     await expect(
       kit.invoke(createOrder, {
-        customerId: fixtures.customerA,
+        customer: { by: "id", id: fixtures.customerA },
         items: oversized,
       }),
     ).rejects.toBeInstanceOf(ValidationError);
 
-    for (const quantityMilli of ["0", "-1", "01", "1.5"]) {
+    for (const milli of ["0", "-1", "01", "1.5"]) {
       await expect(
         kit.invoke(createOrder, {
-          customerId: fixtures.customerA,
-          items: [{ productId: fixtures.pBase, quantityMilli }],
+          customer: { by: "id", id: fixtures.customerA },
+          items: [
+            {
+              product: { by: "id", id: fixtures.pBase },
+              quantity: { milli },
+            },
+          ],
         }),
       ).rejects.toBeInstanceOf(ValidationError);
     }
 
     await expect(
-      kit.invoke(createOrder, {
-        customerId: fixtures.customerA,
-        comment: "x".repeat(2001),
-        items: [{ productId: fixtures.pBase, quantityMilli: "1000" }],
-      }),
+      kit.invoke(
+        createOrder,
+        createById(
+          fixtures.customerA,
+          [{ productId: fixtures.pBase }],
+          "x".repeat(2001),
+        ),
+      ),
     ).rejects.toBeInstanceOf(ValidationError);
   });
 
@@ -1199,10 +1251,12 @@ describe("orders.create / confirm / get", () => {
   it("returns NotFound for foreign or missing customers, products, and orders", async () => {
     const missing = randomUUID();
     const missingCustomer = await kit
-      .invoke(createOrder, {
-        customerId: missing,
-        items: [{ productId: fixtures.pBase, quantityMilli: "1000" }],
-      })
+      .invoke(
+        createOrder,
+        createById(missing, [
+          { productId: fixtures.pBase, quantityMilli: "1000" },
+        ]),
+      )
       .then(
         () => {
           throw new Error("expected NotFoundError");
@@ -1210,10 +1264,12 @@ describe("orders.create / confirm / get", () => {
         (error: unknown) => error,
       );
     const foreignCustomer = await kit
-      .invoke(createOrder, {
-        customerId: fixtures.customerB,
-        items: [{ productId: fixtures.pBase, quantityMilli: "1000" }],
-      })
+      .invoke(
+        createOrder,
+        createById(fixtures.customerB, [
+          { productId: fixtures.pBase, quantityMilli: "1000" },
+        ]),
+      )
       .then(
         () => {
           throw new Error("expected NotFoundError");
@@ -1230,16 +1286,20 @@ describe("orders.create / confirm / get", () => {
     }
 
     await expect(
-      kit.invoke(createOrder, {
-        customerId: fixtures.customerA,
-        items: [{ productId: missing, quantityMilli: "1000" }],
-      }),
+      kit.invoke(
+        createOrder,
+        createById(fixtures.customerA, [
+          { productId: missing, quantityMilli: "1000" },
+        ]),
+      ),
     ).rejects.toBeInstanceOf(NotFoundError);
     await expect(
-      kit.invoke(createOrder, {
-        customerId: fixtures.customerA,
-        items: [{ productId: fixtures.pB, quantityMilli: "1000" }],
-      }),
+      kit.invoke(
+        createOrder,
+        createById(fixtures.customerA, [
+          { productId: fixtures.pB, quantityMilli: "1000" },
+        ]),
+      ),
     ).rejects.toBeInstanceOf(NotFoundError);
 
     const missingOrder = await kit.invoke(getOrder, { orderId: missing }).then(
@@ -1267,10 +1327,12 @@ describe("orders.create / confirm / get", () => {
   });
 
   it("conflicts when confirming a non-new order", async () => {
-    const created = await kit.invoke(createOrder, {
-      customerId: fixtures.customerBare,
-      items: [{ productId: fixtures.pZero, quantityMilli: "1000" }],
-    });
+    const created = await kit.invoke(
+      createOrder,
+      createById(fixtures.customerBare, [
+        { productId: fixtures.pZero, quantityMilli: "1000" },
+      ]),
+    );
     await kit.invoke(confirmOrder, { orderId: created.orderId });
     await expect(
       kit.invoke(confirmOrder, { orderId: created.orderId }),
@@ -1281,10 +1343,12 @@ describe("orders.create / confirm / get", () => {
   });
 
   it("serializes concurrent confirms of the same new order", async () => {
-    const created = await kit.invoke(createOrder, {
-      customerId: fixtures.customerBare,
-      items: [{ productId: fixtures.pZero, quantityMilli: "3000" }],
-    });
+    const created = await kit.invoke(
+      createOrder,
+      createById(fixtures.customerBare, [
+        { productId: fixtures.pZero, quantityMilli: "3000" },
+      ]),
+    );
     const results = await Promise.allSettled([
       kit.invoke(confirmOrder, { orderId: created.orderId }),
       kit.invoke(confirmOrder, { orderId: created.orderId }),
@@ -1309,12 +1373,256 @@ describe("orders.create / confirm / get", () => {
   });
 });
 
+describe("orders.create reference resolve (SHO-352)", () => {
+  it("id-path and unique query-path create the same compact summary", async () => {
+    const byId = await kit.invoke(
+      createOrder,
+      createById(fixtures.customerA, [{ productId: fixtures.pZero }]),
+    );
+    const byQuery = await kit.invoke(createOrder, {
+      customer: { by: "query", value: "  Customer   A " },
+      items: [
+        {
+          product: { by: "query", value: "Zero" },
+          quantity: { decimal: "1" },
+        },
+      ],
+    });
+    expect(byId.customer).toEqual({
+      nameSnapshot: "Customer A",
+      linkedCustomerId: fixtures.customerA,
+    });
+    expect(byQuery.customer).toEqual(byId.customer);
+    expect(byId.itemCount).toBe(1);
+    expect(byQuery.itemCount).toBe(1);
+    expect(byId.status).toBe("new");
+    expect(Object.prototype.hasOwnProperty.call(byId, "items")).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(byId, "comment")).toBe(false);
+
+    const snapshot = await kit.invoke(getOrder, { orderId: byQuery.orderId });
+    expect(snapshot.items[0]?.quantityMilli).toBe("1000");
+    expect(snapshot.customerId).toBe(fixtures.customerA);
+  });
+
+  it("eval 3: unique customer and product names issue one orders.create", async () => {
+    const before = await countCompanyOrders(kitIdentities.companies.a);
+    const created = await kit.invoke(createOrder, {
+      customer: { by: "query", value: "Customer A" },
+      items: [
+        {
+          product: { by: "query", value: "Zero" },
+          quantity: { decimal: "2" },
+        },
+      ],
+    });
+    expect(created.orderId).toEqual(expect.any(String));
+    expect(created.customer.linkedCustomerId).toBe(fixtures.customerA);
+    const after = await countCompanyOrders(kitIdentities.companies.a);
+    expect(after).toBe(before + 1);
+    const snapshot = await kit.invoke(getOrder, { orderId: created.orderId });
+    expect(snapshot.items[0]?.quantityMilli).toBe("2000");
+  });
+
+  it("eval 4: ambiguous name is CONFLICT and does not write", async () => {
+    const before = await countCompanyOrders(kitIdentities.companies.a);
+    const error = await kit
+      .invoke(createOrder, {
+        customer: { by: "query", value: "Twin Buyer" },
+        items: [
+          {
+            product: { by: "query", value: "Zero" },
+            quantity: { milli: "1000" },
+          },
+        ],
+      })
+      .then(
+        () => {
+          throw new Error("expected ConflictError");
+        },
+        (caught: unknown) => caught,
+      );
+    expect(error).toBeInstanceOf(ConflictError);
+    if (!(error instanceof ConflictError)) {
+      return;
+    }
+    expect(error.clientMessage).toContain("…2233");
+    expect(error.clientMessage).toContain("…5566");
+    expect(error.clientMessage).not.toContain(fixtures.customerTwinA);
+    expect(await countCompanyOrders(kitIdentities.companies.a)).toBe(before);
+  });
+
+  it("conflicts on zero/ambiguous product refs with at most five labels", async () => {
+    await expect(
+      kit.invoke(createOrder, {
+        customer: { by: "query", value: "Nobody Here" },
+        items: [
+          {
+            product: { by: "query", value: "Zero" },
+            quantity: { milli: "1000" },
+          },
+        ],
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    await expect(
+      kit.invoke(createOrder, {
+        customer: { by: "id", id: fixtures.customerA },
+        items: [
+          {
+            product: { by: "query", value: "list" },
+            quantity: { milli: "1000" },
+          },
+        ],
+      }),
+    ).rejects.toBeInstanceOf(ConflictError);
+
+    await kit.db.runtime.db.insert(companyCustomers).values(
+      Array.from({ length: 6 }, (_, index) => ({
+        id: randomUUID(),
+        companyId: kitIdentities.companies.a,
+        name: `CapLabel ${String(index)}`,
+        email: `caplabel-${String(index)}@orders-kit.test`,
+        status: "active" as const,
+      })),
+    );
+    const error = await kit
+      .invoke(createOrder, {
+        customer: { by: "query", value: "CapLabel" },
+        items: [
+          {
+            product: { by: "query", value: "Zero" },
+            quantity: { milli: "1000" },
+          },
+        ],
+      })
+      .then(
+        () => {
+          throw new Error("expected ConflictError");
+        },
+        (caught: unknown) => caught,
+      );
+    expect(error).toBeInstanceOf(ConflictError);
+    if (!(error instanceof ConflictError)) {
+      return;
+    }
+    const labels = [...error.clientMessage.matchAll(/CapLabel \d/g)];
+    expect(labels.length).toBe(5);
+    expect(error.clientMessage).not.toContain("CapLabel 5");
+  });
+
+  it("rejects duplicate product/variant after canonical resolve", async () => {
+    const error = await kit
+      .invoke(createOrder, {
+        customer: { by: "id", id: fixtures.customerA },
+        items: [
+          {
+            product: { by: "query", value: "Base" },
+            quantity: { milli: "1000" },
+          },
+          {
+            product: { by: "id", id: fixtures.pBase },
+            quantity: { milli: "2000" },
+          },
+        ],
+      })
+      .then(
+        () => {
+          throw new Error("expected ValidationError");
+        },
+        (caught: unknown) => caught,
+      );
+    expect(error).toBeInstanceOf(ValidationError);
+    if (!(error instanceof ValidationError)) {
+      return;
+    }
+    expect(error.clientMessage).toBe(DUPLICATE_ORDER_LINE_MESSAGE);
+  });
+
+  it("lets id-path target archived CRM/catalog rows and rejects the same names on query-path", async () => {
+    const archivedCustomer = await kit.invoke(
+      createOrder,
+      createById(fixtures.customerArchived, [{ productId: fixtures.pZero }]),
+    );
+    expect(archivedCustomer.customer.linkedCustomerId).toBe(
+      fixtures.customerArchived,
+    );
+    expect(archivedCustomer.customer.nameSnapshot).toBe("Archived Buyer");
+    await expect(
+      kit.invoke(createOrder, {
+        customer: { by: "query", value: "Archived Buyer" },
+        items: [
+          {
+            product: { by: "query", value: "Zero" },
+            quantity: { milli: "1000" },
+          },
+        ],
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+
+    const archivedProduct = await kit.invoke(
+      createOrder,
+      createById(fixtures.customerBare, [{ productId: fixtures.pArchived }]),
+    );
+    const snapshot = await kit.invoke(getOrder, {
+      orderId: archivedProduct.orderId,
+    });
+    expect(snapshot.items[0]?.productId).toBe(fixtures.pArchived);
+    await expect(
+      kit.invoke(createOrder, {
+        customer: { by: "id", id: fixtures.customerBare },
+        items: [
+          {
+            product: { by: "query", value: "Archived Widget" },
+            quantity: { milli: "1000" },
+          },
+        ],
+      }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("audits and emits orders.created on the resolved canonical customer id", async () => {
+    const created = await kit.invoke(createOrder, {
+      customer: { by: "query", value: "Customer A" },
+      items: [
+        {
+          product: { by: "query", value: "Zero" },
+          quantity: { milli: "1000" },
+        },
+      ],
+    });
+    const createdEvents = await kit.db.runtime.db
+      .select()
+      .from(domainEvents)
+      .where(eq(domainEvents.aggregateId, created.orderId));
+    const createdEvent = createdEvents.find(
+      (row) => row.name === "orders.created",
+    );
+    expect(createdEvent?.payload).toMatchObject({
+      orderId: created.orderId,
+      customerId: fixtures.customerA,
+      itemCount: 1,
+    });
+    const createAudit = await kit.db.runtime.db
+      .select()
+      .from(auditLog)
+      .where(
+        and(
+          eq(auditLog.action, "orders.create"),
+          eq(auditLog.targetId, created.orderId),
+        ),
+      );
+    expect(createAudit[0]?.targetId).toBe(created.orderId);
+    expect(createAudit[0]?.targetType).toBe("order");
+  });
+});
+
 describe("orders.cancel", () => {
   it("cancels a new order, writes orders.canceled, and records audit", async () => {
-    const created = await kit.invoke(createOrder, {
-      customerId: fixtures.customerA,
-      items: [{ productId: fixtures.pZero, quantityMilli: "1000" }],
-    });
+    const created = await kit.invoke(
+      createOrder,
+      createById(fixtures.customerA, [
+        { productId: fixtures.pZero, quantityMilli: "1000" },
+      ]),
+    );
     expect(created.status).toBe("new");
 
     const canceled = await kit.invoke(cancelOrder, {
@@ -1360,10 +1668,12 @@ describe("orders.cancel", () => {
   });
 
   it("cancels a confirmed order without clearing confirmed_at", async () => {
-    const created = await kit.invoke(createOrder, {
-      customerId: fixtures.customerA,
-      items: [{ productId: fixtures.pZero, quantityMilli: "1000" }],
-    });
+    const created = await kit.invoke(
+      createOrder,
+      createById(fixtures.customerA, [
+        { productId: fixtures.pZero, quantityMilli: "1000" },
+      ]),
+    );
     const confirmed = await kit.invoke(confirmOrder, {
       orderId: created.orderId,
     });
@@ -1379,10 +1689,12 @@ describe("orders.cancel", () => {
   });
 
   it("conflicts when canceling an already canceled order and when confirming after cancel", async () => {
-    const created = await kit.invoke(createOrder, {
-      customerId: fixtures.customerBare,
-      items: [{ productId: fixtures.pZero, quantityMilli: "1000" }],
-    });
+    const created = await kit.invoke(
+      createOrder,
+      createById(fixtures.customerBare, [
+        { productId: fixtures.pZero, quantityMilli: "1000" },
+      ]),
+    );
     await kit.invoke(cancelOrder, { orderId: created.orderId });
     await expect(
       kit.invoke(cancelOrder, { orderId: created.orderId }),
@@ -1451,10 +1763,12 @@ describe("orders.cancel", () => {
   });
 
   it("emits null customerId when the CRM row was deleted", async () => {
-    const created = await kit.invoke(createOrder, {
-      customerId: fixtures.customerBare,
-      items: [{ productId: fixtures.pZero, quantityMilli: "1000" }],
-    });
+    const created = await kit.invoke(
+      createOrder,
+      createById(fixtures.customerBare, [
+        { productId: fixtures.pZero, quantityMilli: "1000" },
+      ]),
+    );
     await kit.db.runtime.db
       .update(orders)
       .set({ customerId: null })
@@ -1481,10 +1795,12 @@ describe("orders.cancel", () => {
   });
 
   it("serializes concurrent cancels of the same new order", async () => {
-    const created = await kit.invoke(createOrder, {
-      customerId: fixtures.customerBare,
-      items: [{ productId: fixtures.pZero, quantityMilli: "3000" }],
-    });
+    const created = await kit.invoke(
+      createOrder,
+      createById(fixtures.customerBare, [
+        { productId: fixtures.pZero, quantityMilli: "3000" },
+      ]),
+    );
     const results = await Promise.allSettled([
       kit.invoke(cancelOrder, { orderId: created.orderId }),
       kit.invoke(cancelOrder, { orderId: created.orderId }),
