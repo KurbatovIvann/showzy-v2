@@ -67,6 +67,8 @@ describe("loadServerConfig", () => {
         apiUrl: "https://sms-fly.ua/api/v2/api.php",
       },
     });
+    expect(config.ai.anthropicApiKey).toBeUndefined();
+    expect(config.ai.model).toBe("claude-sonnet-4-6");
   });
 
   it("applies defaults for optional keys", () => {
@@ -97,6 +99,8 @@ describe("loadServerConfig", () => {
       transport: "stub",
       apiUrl: "https://sms-fly.ua/api/v2/api.php",
     });
+    expect(config.ai.anthropicApiKey).toBeUndefined();
+    expect(config.ai.model).toBe("claude-sonnet-4-6");
   });
 
   it("fails fast on missing required keys and reports every one of them", () => {
@@ -158,6 +162,7 @@ describe("loadServerConfig", () => {
     env["RESEND_FROM_EMAIL"] = "not-an-email";
     env["OTP_SMS_TRANSPORT"] = "sms-fly";
     env["SMS_FLY_API_KEY"] = "SMS_FLY_API_KEY_SENTINEL";
+    env["ANTHROPIC_API_KEY"] = "ANTHROPIC_API_KEY_SENTINEL";
 
     let thrown: unknown;
     try {
@@ -342,6 +347,53 @@ describe("loadServerConfig", () => {
     expect(payload).toContain("loopback");
     expect(payload).not.toContain("localhost:3900");
     expect(payload).not.toContain("showzy-local-secret");
+  });
+
+  it("allows a missing ANTHROPIC_API_KEY in test and maps AI_MODEL when set", () => {
+    const missing = validEnv();
+    expect(missing["ANTHROPIC_API_KEY"]).toBeUndefined();
+    const withoutKey = loadServerConfig(missing);
+    expect(withoutKey.ai.anthropicApiKey).toBeUndefined();
+    expect(withoutKey.ai.model).toBe("claude-sonnet-4-6");
+
+    const env = validEnv();
+    env["ANTHROPIC_API_KEY"] = "sk-ant-test-not-a-real-key";
+    env["AI_MODEL"] = "claude-opus-4-6";
+    const withKey = loadServerConfig(env);
+    expect(withKey.ai.anthropicApiKey).toBe("sk-ant-test-not-a-real-key");
+    expect(withKey.ai.model).toBe("claude-opus-4-6");
+  });
+
+  it("treats an empty ANTHROPIC_API_KEY as unset", () => {
+    const env = validEnv();
+    env["ANTHROPIC_API_KEY"] = "";
+    expect(loadServerConfig(env).ai.anthropicApiKey).toBeUndefined();
+  });
+
+  it("never echoes ANTHROPIC_API_KEY in ConfigValidationError", () => {
+    const env = validEnv();
+    env["ANTHROPIC_API_KEY"] = "ANTHROPIC_API_KEY_SENTINEL";
+    env["NODE_ENV"] = "staging";
+
+    let thrown: unknown;
+    try {
+      loadServerConfig(env);
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(ConfigValidationError);
+    const configError = thrown as ConfigValidationError;
+    expect(configError.message).toContain("NODE_ENV");
+    const everything = JSON.stringify({
+      message: configError.message,
+      issues: configError.issues,
+      stack: configError.stack,
+      cause: configError.cause,
+    });
+    expect(everything).not.toContain("SENTINEL");
+    expect(everything).not.toContain("ANTHROPIC_API_KEY_SENTINEL");
+    expect(everything).not.toContain("sk-ant-");
   });
 });
 

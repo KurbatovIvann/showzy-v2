@@ -227,6 +227,9 @@ function violation(from, spec, typeOnly) {
       }
       return { messageId: "moduleSchema", data: { module: moduleName } };
     }
+    if (pkg.name === "ai") {
+      return { messageId: "moduleAi" };
+    }
     if (pkg.name === "contract") {
       return { messageId: "moduleCross" };
     }
@@ -299,6 +302,8 @@ export const importBoundariesRule = {
         'Module "{{module}}" may import only @showzy/db/schema/{{module}} (ADR-0014). Projection modules (search/analytics) may import foreign schemas; the contract check enforces the matching read-model grant.',
       moduleCross:
         "Modules may import other modules only through their package index.ts; packages/contract is not a module dependency (ADR-0015, ADR-0016).",
+      moduleAi:
+        "Domain modules may not import @showzy/ai (ADR-0032). The API composition root mounts the AI loop.",
       contractModules:
         "packages/contract may import only a module's index.contract.ts barrel (@showzy/<module>/contract) (ADR-0016).",
       clientApp:

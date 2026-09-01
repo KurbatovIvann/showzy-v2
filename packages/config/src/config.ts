@@ -17,6 +17,7 @@ const SECRET_ENV_KEYS: ReadonlySet<string> = new Set([
   "SENTRY_DSN",
   "RESEND_API_KEY",
   "SMS_FLY_API_KEY",
+  "ANTHROPIC_API_KEY",
 ]);
 
 const DEFAULT_SMS_FLY_API_URL = "https://sms-fly.ua/api/v2/api.php";
@@ -126,6 +127,19 @@ const envObjectSchema = z.object({
     .url({ protocol: /^https?$/ })
     .default(DEFAULT_SMS_FLY_API_URL),
   SMS_FLY_SENDER: z.string().min(1).optional(),
+
+  /**
+   * Anthropic API key for the staff-panel AI loop (`packages/ai`, ADR-0032).
+   * Optional in every environment so development/test (and CI) boot without
+   * a paid key. The SSE mount fails typed when it is unset — do not read
+   * this from `process.env` outside this package.
+   */
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
+  /**
+   * Staff-panel model id. Provider choice is config, not a runtime swap
+   * (ADR-0032). Default matches the SHO-318 pin.
+   */
+  AI_MODEL: z.string().min(1).default("claude-sonnet-4-6"),
 });
 
 const envSchema = envObjectSchema.superRefine((parsed, ctx) => {
@@ -241,6 +255,10 @@ export interface ServerConfig {
           readonly sender: string;
         };
   };
+  readonly ai: {
+    readonly anthropicApiKey: string | undefined;
+    readonly model: string;
+  };
 }
 
 /** One redacted, operator-facing validation problem. */
@@ -334,6 +352,10 @@ export function loadServerConfig(
     trustedProxies: parsed.TRUSTED_PROXIES,
     sentry: { dsn: parsed.SENTRY_DSN },
     otpDelivery: mapOtpDelivery(parsed),
+    ai: {
+      anthropicApiKey: parsed.ANTHROPIC_API_KEY,
+      model: parsed.AI_MODEL,
+    },
   };
 }
 

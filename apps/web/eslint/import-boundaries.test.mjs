@@ -34,6 +34,7 @@ const probeFiles = {
   "platform-core.ts": `import { anything } from "@showzy/core";\n`,
   "platform-db.ts": `import { anything } from "@showzy/db";\n`,
   "platform-config.ts": `import { anything } from "@showzy/config";\n`,
+  "platform-ai.ts": `import { anything } from "@showzy/ai";\n`,
   "client-allowlist.ts": `
     import { createContractClient } from "@showzy/contract";
     import { moneySchema } from "@showzy/validation";
@@ -111,6 +112,7 @@ describe("apps/web clientApp import boundary (SHO-309)", () => {
       "platform-core.ts",
       "platform-db.ts",
       "platform-config.ts",
+      "platform-ai.ts",
     ]) {
       expect(boundaryErrors(probeName)).toHaveLength(1);
     }
