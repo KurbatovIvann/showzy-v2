@@ -274,6 +274,13 @@
       "when": 1788191171704,
       "tag": "0038_perfect_reptil",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1788245668118,
+      "tag": "0039_friendly_crusher_hogan",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,131 @@
+/**
+ * Staff assistant persistence (SHO-320 / feature SHO-318). Owned by the
+ * assistant module (ADR-0014). Conversations, user/assistant text, and
+ * tool-run traces (action names, tool-call ids, challenge ids, result
+ * ids, outcome). Deliberately absent: FKs to orders/documents, order or
+ * document status snapshots, prompts in audit/logs, SSE/session columns.
+ *
+ * ON DELETE: `user_id → user` is RESTRICT (files/chat staff-user
+ * convention). Composite FKs to conversations are CASCADE so deleting a
+ * conversation removes its messages and tool runs. `company_id →
+ * companies` stays CASCADE for tenant wipe.
+ */
+import { sql } from "drizzle-orm";
+import {
+  check,
+  foreignKey,
+  index,
+  pgTable,
+  text,
+  uuid,
+} from "drizzle-orm/pg-core";
+
+import { userIdColumn } from "./auth-ids.js";
+import { user } from "./auth.js";
+import {
+  tenantCompanyId,
+  tenantRowUnique,
+  timestampColumns,
+} from "./tenant-columns.js";
+
+/**
+ * One staff conversation per row. List surface is company-scoped
+ * (`assistant.listConversations`); `user_id` is the creating staff user.
+ */
+export const assistantConversations = pgTable(
+  "assistant_conversations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: tenantCompanyId(),
+    userId: userIdColumn("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "restrict" }),
+    title: text("title"),
+    ...timestampColumns(),
+  },
+  (table) => [
+    tenantRowUnique("assistant_conversations_company_id_id_uq", table),
+    index("assistant_conversations_company_updated_at_idx").on(
+      table.companyId,
+      table.updatedAt.desc(),
+    ),
+  ],
+);
+
+/**
+ * User/assistant text for a conversation. Role is forced by later write
+ * actions; the CHECK is the closed set. Tool results live on
+ * `assistant_tool_runs`, not here.
+ */
+export const assistantMessages = pgTable(
+  "assistant_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: tenantCompanyId(),
+    conversationId: uuid("conversation_id").notNull(),
+    role: text("role").notNull(),
+    body: text("body").notNull(),
+    ...timestampColumns(),
+  },
+  (table) => [
+    tenantRowUnique("assistant_messages_company_id_id_uq", table),
+    index("assistant_messages_company_conversation_idx").on(
+      table.companyId,
+      table.conversationId,
+    ),
+    foreignKey({
+      name: "assistant_messages_conversations_company_fk",
+      columns: [table.companyId, table.conversationId],
+      foreignColumns: [
+        assistantConversations.companyId,
+        assistantConversations.id,
+      ],
+    }).onDelete("cascade"),
+    check(
+      "assistant_messages_role_check",
+      sql`${table.role} IN ('user', 'assistant')`,
+    ),
+  ],
+);
+
+/**
+ * One tool invocation inside a conversation. `result_ids` is a uuid array
+ * of produced resource ids (traces, not projections). Outcome is the
+ * closed HITL/tool set T3/T4 persist — never order/document status.
+ */
+export const assistantToolRuns = pgTable(
+  "assistant_tool_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: tenantCompanyId(),
+    conversationId: uuid("conversation_id").notNull(),
+    actionName: text("action_name").notNull(),
+    toolCallId: text("tool_call_id").notNull(),
+    challengeId: uuid("challenge_id"),
+    resultIds: uuid("result_ids")
+      .array()
+      .notNull()
+      .default(sql`'{}'::uuid[]`),
+    outcome: text("outcome").notNull(),
+    ...timestampColumns(),
+  },
+  (table) => [
+    tenantRowUnique("assistant_tool_runs_company_id_id_uq", table),
+    index("assistant_tool_runs_company_conversation_idx").on(
+      table.companyId,
+      table.conversationId,
+    ),
+    foreignKey({
+      name: "assistant_tool_runs_conversations_company_fk",
+      columns: [table.companyId, table.conversationId],
+      foreignColumns: [
+        assistantConversations.companyId,
+        assistantConversations.id,
+      ],
+    }).onDelete("cascade"),
+    check(
+      "assistant_tool_runs_outcome_check",
+      sql`${table.outcome} IN ('success', 'error', 'confirmation_required')`,
+    ),
+  ],
+);

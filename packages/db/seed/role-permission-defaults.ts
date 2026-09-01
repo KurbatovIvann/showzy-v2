@@ -3,8 +3,9 @@ import { rolePermissionDefaults } from "../src/schema/companies.js";
 
 /**
  * Phase-0 defaults carried from the v1 permission model. Catalog, customers,
- * pricing, orders, documents, chat, files, and settings:payments keys land
- * here; later module schema tasks extend the table alongside their actions.
+ * pricing, orders, documents, chat, files, assistant, and settings:payments
+ * keys land here; later module schema tasks extend the table alongside their
+ * actions.
  * Owners are absent because they implicitly hold every known permission.
  */
 export const rolePermissionDefaultRows = [
@@ -26,6 +27,7 @@ export const rolePermissionDefaultRows = [
   { role: "admin", permission: "documents:create" },
   { role: "admin", permission: "documents:edit" },
   { role: "admin", permission: "chat:view" },
+  { role: "admin", permission: "assistant:use" },
   { role: "admin", permission: "files:view" },
   { role: "admin", permission: "files:upload" },
   { role: "admin", permission: "settings:payments" },
@@ -45,6 +47,7 @@ export const rolePermissionDefaultRows = [
   { role: "manager", permission: "documents:create" },
   { role: "manager", permission: "documents:edit" },
   { role: "manager", permission: "chat:view" },
+  { role: "manager", permission: "assistant:use" },
   { role: "manager", permission: "files:view" },
   { role: "manager", permission: "files:upload" },
   { role: "employee", permission: "products:view" },
@@ -55,6 +58,7 @@ export const rolePermissionDefaultRows = [
   { role: "employee", permission: "orders:edit" },
   { role: "employee", permission: "documents:view" },
   { role: "employee", permission: "chat:view" },
+  { role: "employee", permission: "assistant:use" },
 ] satisfies readonly (typeof rolePermissionDefaults.$inferInsert)[];
 
 /** Inserts missing defaults and leaves existing rows unchanged. */

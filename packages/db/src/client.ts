@@ -1,6 +1,7 @@
 import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import pg from "pg";
 
+import * as assistant from "./schema/assistant.js";
 import * as auth from "./schema/auth.js";
 import * as catalog from "./schema/catalog.js";
 import * as chat from "./schema/chat.js";
@@ -24,6 +25,7 @@ import * as pricing from "./schema/pricing.js";
 export const schema = {
   ...foundation,
   ...auth,
+  ...assistant,
   ...companies,
   ...catalog,
   ...chat,
