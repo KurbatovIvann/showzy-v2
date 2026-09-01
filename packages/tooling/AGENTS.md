@@ -1,7 +1,8 @@
 # @showzy/tooling — Agent Instructions
 
-Shared tooling presets consumed by every package in the monorepo. No runtime
-code lives here — only configuration.
+Shared tooling presets consumed by every package in the monorepo. No product
+runtime code lives here — only configuration, plus the CI gate aggregator
+scripts under `ci/` used by `.github/workflows/ci.yml` (SHO-334).
 
 ## Exports
 

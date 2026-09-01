@@ -5,7 +5,9 @@
 # Job names are stable identifiers: branch protection requires them by name
 # (docs/operations/branch-protection.md). `e2e-smoke` is the Playwright
 # smoke against the built `apps/web` bundle (SHO-331). Maestro mobile e2e
-# remains a later phase (fnd-T51).
+# remains a later phase (fnd-T51). SHO-334 split the former serial `checks`
+# body into independent jobs; the job named `checks` is now the fail-closed
+# aggregator and must keep that name.
 #
 # All third-party actions are pinned to full commit SHAs (verified against the
 # official repos' tags) because this workflow is itself the merge gate.
@@ -34,57 +36,113 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  # Format → typecheck → ESLint → Vitest, in the blueprint §7.1(6) gate order.
-  checks:
+  format:
     runs-on: ubuntu-latest
     steps:
+      - name: Record job start
+        run: echo "JOB_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-
-      - name: Set up pnpm (version from packageManager field)
-        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
-
-      - name: Set up Node 22
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
-        with:
-          node-version: "22"
-          cache: pnpm
-
-      - name: Install dependencies (frozen lockfile)
-        run: pnpm install --frozen-lockfile
-
+      - name: Setup CI workspace
+        uses: ./.github/actions/setup-ci-workspace
       - name: Format check
-        run: pnpm format:check
+        run: time -p pnpm format:check
+      - name: Publish job timing
+        if: always()
+        env:
+          JOB_RESULT: ${{ job.status }}
+        run: bash packages/tooling/ci/publish-job-timing.sh
 
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Record job start
+        run: echo "JOB_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Setup CI workspace
+        uses: ./.github/actions/setup-ci-workspace
       - name: Typecheck (tsc --noEmit)
-        run: pnpm typecheck
+        run: time -p pnpm typecheck
+      - name: Publish job timing
+        if: always()
+        env:
+          JOB_RESULT: ${{ job.status }}
+        run: bash packages/tooling/ci/publish-job-timing.sh
 
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Record job start
+        run: echo "JOB_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Setup CI workspace
+        uses: ./.github/actions/setup-ci-workspace
       - name: ESLint
-        run: pnpm lint
+        run: time -p pnpm lint
+      - name: Publish job timing
+        if: always()
+        env:
+          JOB_RESULT: ${{ job.status }}
+        run: bash packages/tooling/ci/publish-job-timing.sh
 
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Record job start
+        run: echo "JOB_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Setup CI workspace
+        uses: ./.github/actions/setup-ci-workspace
       - name: Vitest
-        run: pnpm test
+        run: time -p pnpm test
+      - name: Publish job timing
+        if: always()
+        env:
+          JOB_RESULT: ${{ job.status }}
+        run: bash packages/tooling/ci/publish-job-timing.sh
 
+  build-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Record job start
+        run: echo "JOB_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Setup CI workspace
+        uses: ./.github/actions/setup-ci-workspace
       - name: Expo export smoke (fnd-T48)
-        run: pnpm --filter @showzy/mobile export:web
+        run: time -p pnpm --filter @showzy/mobile export:web
         env:
           EXPO_NO_TELEMETRY: "1"
-
       - name: Web build smoke (SHO-309)
-        run: pnpm --filter @showzy/web build
+        run: time -p pnpm --filter @showzy/web build
+      - name: Publish job timing
+        if: always()
+        env:
+          JOB_RESULT: ${{ job.status }}
+        run: bash packages/tooling/ci/publish-job-timing.sh
 
   secret-scan:
     runs-on: ubuntu-latest
     steps:
+      - name: Record job start
+        run: echo "JOB_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
       - name: Checkout (full history — gitleaks scans commits)
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           fetch-depth: 0
-
       - name: Gitleaks
         uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish job timing
+        if: always()
+        env:
+          JOB_RESULT: ${{ job.status }}
+        run: bash packages/tooling/ci/publish-job-timing.sh
 
   # Dependency gate. GitHub's dependency-review-action is unavailable here
   # (private user-owned repo; it requires a public repo or an organization
@@ -94,129 +152,103 @@ jobs:
   dependency-audit:
     runs-on: ubuntu-latest
     steps:
+      - name: Record job start
+        run: echo "JOB_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-
       - name: Set up pnpm (version from packageManager field)
         uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
-
       - name: Set up Node 22
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: "22"
-
       - name: pnpm audit (fail on high/critical advisories)
-        run: pnpm audit --audit-level high
-
-  # Job names are final. `e2e-smoke` is the Playwright web smoke (SHO-331);
-  # `bundle-probe` is live (fnd-T25).
+        run: time -p pnpm audit --audit-level high
+      - name: Publish job timing
+        if: always()
+        env:
+          JOB_RESULT: ${{ job.status }}
+        run: bash packages/tooling/ci/publish-job-timing.sh
 
   contract-check:
     runs-on: ubuntu-latest
     steps:
+      - name: Record job start
+        run: echo "JOB_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-
-      - name: Set up pnpm (version from packageManager field)
-        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
-
-      - name: Set up Node 22
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
-        with:
-          node-version: "22"
-          cache: pnpm
-
-      - name: Install dependencies (frozen lockfile)
-        run: pnpm install --frozen-lockfile
-
+      - name: Setup CI workspace
+        uses: ./.github/actions/setup-ci-workspace
       - name: Action/event contract check (core.md §2, fnd-T10)
         # Walks apps/api composition: importing it executes define/implement
         # time validation for every registered action, then runContractCheck
         # (core library) enforces the registry-wide rule matrix. Module tasks
         # register here — never in packages/core.
-        run: pnpm --filter @showzy/api contract:check
+        run: time -p pnpm --filter @showzy/api contract:check
+      - name: Publish job timing
+        if: always()
+        env:
+          JOB_RESULT: ${{ job.status }}
+        run: bash packages/tooling/ci/publish-job-timing.sh
 
   migration-drift:
     runs-on: ubuntu-latest
     steps:
+      - name: Record job start
+        run: echo "JOB_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-
-      - name: Set up pnpm (version from packageManager field)
-        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
-
-      - name: Set up Node 22
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
-        with:
-          node-version: "22"
-          cache: pnpm
-
-      - name: Install dependencies (frozen lockfile)
-        run: pnpm install --frozen-lockfile
-
+      - name: Setup CI workspace
+        uses: ./.github/actions/setup-ci-workspace
       - name: Auth schema regeneration reproducibility (fnd-T6)
         # Re-runs the better-auth CLI generation and fails when the committed
         # packages/db/src/schema/auth.ts differs — the generated schema can
         # never drift from the configured better-auth plugin set.
-        run: pnpm --filter @showzy/api auth:check
-
+        run: time -p pnpm --filter @showzy/api auth:check
       - name: Migration drift and money schema checks
-        run: pnpm --filter @showzy/db db:check
-
+        run: time -p pnpm --filter @showzy/db db:check
       - name: Runtime database grant integration
-        run: pnpm --filter @showzy/db exec vitest run src/foundation.test.ts
-
+        run: time -p pnpm --filter @showzy/db exec vitest run src/foundation.test.ts
       - name: Backup verify dry-run (fnd-T28, db.md §6)
-        run: pnpm --filter @showzy/db backup:verify -- --dry-run
+        run: time -p pnpm --filter @showzy/db backup:verify -- --dry-run
+      - name: Publish job timing
+        if: always()
+        env:
+          JOB_RESULT: ${{ job.status }}
+        run: bash packages/tooling/ci/publish-job-timing.sh
 
   bundle-probe:
     runs-on: ubuntu-latest
     steps:
+      - name: Record job start
+        run: echo "JOB_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-
-      - name: Set up pnpm (version from packageManager field)
-        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
-
-      - name: Set up Node 22
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
-        with:
-          node-version: "22"
-          cache: pnpm
-
-      - name: Install dependencies (frozen lockfile)
-        run: pnpm install --frozen-lockfile
-
+      - name: Setup CI workspace
+        uses: ./.github/actions/setup-ci-workspace
       - name: Client bundle probe (contract.md §2, ADR-0016, fnd-T25)
-        run: pnpm --filter @showzy/contract bundle:probe
-
+        run: time -p pnpm --filter @showzy/contract bundle:probe
       - name: OpenAPI drift check (contract.md §5, fnd-T25)
-        run: pnpm --filter @showzy/contract openapi:check
+        run: time -p pnpm --filter @showzy/contract openapi:check
+      - name: Publish job timing
+        if: always()
+        env:
+          JOB_RESULT: ${{ job.status }}
+        run: bash packages/tooling/ci/publish-job-timing.sh
 
   e2e-smoke:
     runs-on: ubuntu-latest
     steps:
+      - name: Record job start
+        run: echo "JOB_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-
-      - name: Set up pnpm (version from packageManager field)
-        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
-
-      - name: Set up Node 22
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
-        with:
-          node-version: "22"
-          cache: pnpm
-
-      - name: Install dependencies (frozen lockfile)
-        run: pnpm install --frozen-lockfile
-
+      - name: Setup CI workspace
+        uses: ./.github/actions/setup-ci-workspace
       - name: Install Playwright Chromium
-        run: pnpm --filter @showzy/web exec playwright install --with-deps chromium
-
+        run: time -p pnpm --filter @showzy/web exec playwright install --with-deps chromium
       - name: Web Playwright smoke (SHO-331)
-        run: pnpm turbo run e2e-smoke --filter=@showzy/web
-
+        run: time -p pnpm turbo run e2e-smoke --filter=@showzy/web
       - name: Upload Playwright artifacts
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -227,3 +259,51 @@ jobs:
             apps/web/test-results/
           if-no-files-found: ignore
           retention-days: 7
+      - name: Publish job timing
+        if: always()
+        env:
+          JOB_RESULT: ${{ job.status }}
+        run: bash packages/tooling/ci/publish-job-timing.sh
+
+  # Stable branch-protection check name. Succeeds only when every required
+  # worker is success. Failure, cancellation, or skip of a needed job cannot
+  # produce a green aggregate (if: always() + fail-closed script).
+  checks:
+    if: always()
+    needs:
+      - format
+      - typecheck
+      - lint
+      - test
+      - build-smoke
+      - secret-scan
+      - dependency-audit
+      - contract-check
+      - migration-drift
+      - bundle-probe
+      - e2e-smoke
+    runs-on: ubuntu-latest
+    steps:
+      - name: Record job start
+        run: echo "JOB_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Aggregate required gates (fail closed)
+        run: >
+          node packages/tooling/ci/aggregate-required-gates.mjs
+          format=${{ needs.format.result }}
+          typecheck=${{ needs.typecheck.result }}
+          lint=${{ needs.lint.result }}
+          test=${{ needs.test.result }}
+          build-smoke=${{ needs.build-smoke.result }}
+          secret-scan=${{ needs.secret-scan.result }}
+          dependency-audit=${{ needs.dependency-audit.result }}
+          contract-check=${{ needs.contract-check.result }}
+          migration-drift=${{ needs.migration-drift.result }}
+          bundle-probe=${{ needs.bundle-probe.result }}
+          e2e-smoke=${{ needs.e2e-smoke.result }}
+      - name: Publish job timing
+        if: always()
+        env:
+          JOB_RESULT: ${{ job.status }}
+        run: bash packages/tooling/ci/publish-job-timing.sh

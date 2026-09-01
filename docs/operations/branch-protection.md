@@ -50,7 +50,9 @@ verification steps.
      (arrives with fnd-T7).
 2. **Require status checks to pass** with **"Require branches to be up to
    date before merging"** enabled. Required checks (exact job names):
-   - `checks` — format → typecheck → ESLint → Vitest
+   - `checks` — fail-closed aggregator over format, typecheck, lint, test,
+     build-smoke, and the other required jobs below (SHO-334). The job name
+     is the stable branch-protection check; workers report independently.
    - `secret-scan` — gitleaks
    - `dependency-audit` — pnpm audit over the committed lockfile
    - `contract-check` — action/event contract check (fnd-T10)

@@ -31,6 +31,20 @@ function readRepo(relative: string): string {
   return readFileSync(join(repoRoot, relative), "utf8");
 }
 
+/**
+ * Copy of `extractJob` from `packages/tooling/ci/workflow-graph.test.mjs`.
+ * Kept local so this web test does not import tooling internals.
+ */
+function extractJob(source: string, name: string): string {
+  const start = source.search(new RegExp(`^ {2}${name}:\\s*$`, "m"));
+  if (start < 0) {
+    throw new Error(`missing job ${name}`);
+  }
+  const rest = source.slice(start);
+  const next = rest.slice(1).search(/^ {2}[a-z][a-z0-9-]*:\s*$/m);
+  return next < 0 ? rest : rest.slice(0, next + 1);
+}
+
 const rootAgents = readRepo("AGENTS.md");
 const webAgents = readRepo("apps/web/AGENTS.md");
 const architecture = readRepo("docs/design/web-panel-architecture.md");
@@ -222,10 +236,20 @@ describe("CI smoke contract (SHO-331)", () => {
     expect(playwrightConfig).toContain('testDir: "./e2e"');
     expect(playwrightConfig).toContain('testMatch: "**/*.spec.ts"');
     expect(playwrightConfig).toContain("retries: 0");
-    expect(ci).toContain("turbo run e2e-smoke");
-    expect(ci).toContain("playwright install");
-    expect(ci).not.toMatch(/echo/);
-    expect(ci).not.toMatch(/Placeholder — phase-aware e2e/);
+
+    // Inspect the e2e-smoke job body. Whole-file `/echo/` is too broad:
+    // T1 records JOB_START_EPOCH with echo on every job, including this one.
+    const e2eSmoke = extractJob(ci, "e2e-smoke");
+    expect(e2eSmoke).toContain("turbo run e2e-smoke");
+    expect(e2eSmoke).toContain("playwright install");
+    expect(e2eSmoke).not.toMatch(/Placeholder — phase-aware e2e/);
+    const smokeCommand = e2eSmoke
+      .split("\n")
+      .find((line) => /run:/.test(line) && /e2e-smoke/.test(line));
+    expect(smokeCommand).toBeDefined();
+    expect(smokeCommand).toMatch(/turbo run e2e-smoke/);
+    expect(smokeCommand).not.toMatch(/echo/);
+
     expect(protection).not.toMatch(/placeholder until fnd-T51/);
     expect(protection).toContain("Playwright");
     expect(webAgents).toContain("Playwright");

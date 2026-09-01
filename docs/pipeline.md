@@ -70,7 +70,7 @@ Experience Foundation UX gate; backend tickets do not.
 | Output | Each child squash-merged on green Actions + parent Task reviews. Parent stays In Progress |
 | Done when | Named children and review follow-ups are on `main`. A human closes the parent |
 | Isolation | **Default sequential.** Linear `blocked by` empty is not enough (SHO-184/186/185). Parallel only if path sets are disjoint |
-| Merge gate | Seven GitHub Actions jobs (`checks`, `secret-scan`, `dependency-audit`, `contract-check`, `migration-drift`, `bundle-probe`, `e2e-smoke`). Parent Task Bugbot on routine+. Parent Task security-review on `sensitive`. Isolated `/review` **when launched** (`sensitive`, first-slice, UI, or a prior REQUEST CHANGES). GitHub-hosted Cursor Bugbot / Security Reviewer checks are **not** gates (usage limits, `neutral`, late) |
+| Merge gate | Seven GitHub Actions jobs (`checks`, `secret-scan`, `dependency-audit`, `contract-check`, `migration-drift`, `bundle-probe`, `e2e-smoke`). `checks` is the fail-closed aggregator (SHO-334); format/typecheck/lint/test/build-smoke run as independent workers. Parent Task Bugbot on routine+. Parent Task security-review on `sensitive`. Isolated `/review` **when launched** (`sensitive`, first-slice, UI, or a prior REQUEST CHANGES). GitHub-hosted Cursor Bugbot / Security Reviewer checks are **not** gates (usage limits, `neutral`, late) |
 
 If `/review` is launched, wait for **APPROVE with no open nits** before
 squash-merge. REQUEST CHANGES with blockers/majors **or any nits** →
