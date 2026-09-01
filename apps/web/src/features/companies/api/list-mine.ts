@@ -1,7 +1,13 @@
-import { queryOptions } from "@tanstack/react-query";
-
+/**
+ * Account-scoped `companies.listMine`. Route loaders and
+ * `useListMine` share `listMineQueryOptions` so hydrate/navigation
+ * reuse one cache entry.
+ */
 import type { ShowzyClient } from "../../../api/client";
-import { contractQueryKey } from "../../../api/query-options";
+import {
+  accountContractQueryKey,
+  accountContractQueryOptions,
+} from "../../../api/query-options";
 
 export const LIST_MINE_ACTION = "companies.listMine";
 export const LIST_MINE_INPUT = {} as const;
@@ -12,16 +18,25 @@ export type ListMineOutput = Awaited<
 >;
 export type CompanyMembership = ListMineOutput["memberships"][number];
 
-export function listMineQueryKey() {
-  return contractQueryKey(LIST_MINE_ACTION, null, LIST_MINE_INPUT);
+export function listMineQueryKey(sessionUserId: string) {
+  return accountContractQueryKey(
+    LIST_MINE_ACTION,
+    sessionUserId,
+    LIST_MINE_INPUT,
+  );
 }
 
-export function listMineQueryOptions(client: ShowzyClient, enabled: boolean) {
+export function listMineQueryOptions(
+  client: ShowzyClient,
+  sessionUserId: string | null,
+) {
   return {
-    ...queryOptions({
-      queryKey: listMineQueryKey(),
+    ...accountContractQueryOptions({
+      actionName: LIST_MINE_ACTION,
+      sessionUserId: sessionUserId ?? "",
+      input: LIST_MINE_INPUT,
       queryFn: () => client.client.companies.listMine(LIST_MINE_INPUT),
     }),
-    enabled,
+    enabled: sessionUserId !== null,
   };
 }

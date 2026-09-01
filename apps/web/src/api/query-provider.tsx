@@ -18,10 +18,7 @@ import { useAuthSession } from "../auth/session-provider";
 import { createBrowserCompanyPrefs } from "../prefs/companies/company-prefs";
 import { bindActiveCompanyRuntime } from "./active-company-runtime";
 import { useApiClient } from "./api-provider";
-import {
-  createWebQueryClient,
-  isolateCacheOnSessionLoss,
-} from "./query-client";
+import { isolateCacheOnSessionLoss } from "./query-client";
 
 export type QueryRuntimeValue = {
   readonly activeCompanyId: string | null;
@@ -35,11 +32,12 @@ export function QueryProvider({
   queryClient,
 }: {
   readonly children: ReactNode;
-  readonly queryClient?: QueryClient;
+  /** Required — a fallback `createWebQueryClient()` would fork loader prefetch. */
+  readonly queryClient: QueryClient;
 }) {
-  const [created] = useState(() => createWebQueryClient());
-  const client = queryClient ?? created;
-  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  return (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
 }
 
 /**

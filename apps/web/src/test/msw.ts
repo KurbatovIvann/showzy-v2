@@ -1,5 +1,6 @@
 import {
   COMPANY_SELECTOR_HEADER,
+  CONFIRMATION_CHALLENGE_HEADER,
   IDEMPOTENCY_KEY_HEADER,
 } from "@showzy/contract";
 import { http, HttpResponse } from "msw";
@@ -25,6 +26,7 @@ export type MutationRpcCall = {
   readonly path: string;
   readonly companyId: string | null;
   readonly idempotencyKey: string | null;
+  readonly confirmationChallengeId: string | null;
   readonly input: unknown;
 };
 
@@ -34,6 +36,8 @@ type RpcState = {
   memberships: CompanyMembership[];
   occupiedSlugs: string[];
   createNetworkFailuresRemaining: number;
+  createConfirmationsRemaining: number;
+  confirmationChallengeId: string;
   calls: RpcCall[];
   mutationCalls: MutationRpcCall[];
 };
@@ -81,6 +85,8 @@ function authMsw(): AuthMsw {
     memberships: [],
     occupiedSlugs: [],
     createNetworkFailuresRemaining: 0,
+    createConfirmationsRemaining: 0,
+    confirmationChallengeId: "challenge-1",
     calls: [],
     mutationCalls: [],
   };
@@ -251,11 +257,29 @@ function allHandlers(sessionState: SessionState, rpcState: RpcState) {
         path: new URL(request.url).pathname,
         companyId: request.headers.get(COMPANY_SELECTOR_HEADER),
         idempotencyKey: request.headers.get(IDEMPOTENCY_KEY_HEADER),
+        confirmationChallengeId: request.headers.get(
+          CONFIRMATION_CHALLENGE_HEADER,
+        ),
         input,
       });
       if (rpcState.createNetworkFailuresRemaining > 0) {
         rpcState.createNetworkFailuresRemaining -= 1;
         return HttpResponse.error();
+      }
+      if (rpcState.createConfirmationsRemaining > 0) {
+        rpcState.createConfirmationsRemaining -= 1;
+        return rpcError(
+          "CONFIRMATION_REQUIRED",
+          409,
+          "Confirmation required.",
+          {
+            challenge: {
+              challengeId: rpcState.confirmationChallengeId,
+              summary: "Create this company",
+              expiresAt: new Date(Date.now() + 300_000).toISOString(),
+            },
+          },
+        );
       }
       const record = jsonObject(input);
       const name = typeof record?.name === "string" ? record.name.trim() : "";
@@ -298,6 +322,9 @@ function allHandlers(sessionState: SessionState, rpcState: RpcState) {
           path: new URL(request.url).pathname,
           companyId,
           idempotencyKey: request.headers.get(IDEMPOTENCY_KEY_HEADER),
+          confirmationChallengeId: request.headers.get(
+            CONFIRMATION_CHALLENGE_HEADER,
+          ),
           input,
         });
         const current = rpcState.memberships.find(
@@ -343,6 +370,8 @@ export function resetAuthMocks(): void {
   listMineState.memberships = [];
   listMineState.occupiedSlugs = [];
   listMineState.createNetworkFailuresRemaining = 0;
+  listMineState.createConfirmationsRemaining = 0;
+  listMineState.confirmationChallengeId = "challenge-1";
   listMineState.calls = [];
   listMineState.mutationCalls = [];
 }

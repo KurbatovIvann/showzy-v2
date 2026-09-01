@@ -26,6 +26,27 @@ export function describeWireCode(error: unknown): WireErrorCode | null {
   return isWireError(error) ? error.code : null;
 }
 
+export type ConfirmationChallenge = {
+  readonly challengeId: string;
+  readonly summary: string;
+};
+
+/**
+ * `CONFIRMATION_REQUIRED` extras. Feature copy maps `kind`, never
+ * `error.message`.
+ */
+export function confirmationFromError(
+  error: unknown,
+): ConfirmationChallenge | null {
+  if (!isWireError(error) || error.code !== "CONFIRMATION_REQUIRED") {
+    return null;
+  }
+  return {
+    challengeId: error.data.challenge.challengeId,
+    summary: error.data.challenge.summary,
+  };
+}
+
 export function describeQueryFailure(error: unknown): QueryFailure {
   const code = describeWireCode(error);
   if (code !== null) {

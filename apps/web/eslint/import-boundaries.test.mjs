@@ -63,6 +63,8 @@ const probeFiles = {
   "features/companies/__boundary-probe__/companies-forbidden-auth-internal.ts": `import { OtpInput } from "../../auth/otp-input";\n`,
   "features/companies/__boundary-probe__/companies-forbidden-layout.ts": `import { PanelChrome } from "../../../layouts/panel/panel-chrome";\n`,
   "features/companies/__boundary-probe__/companies-forbidden-app.ts": `import { createAppRuntime } from "../../../app/runtime";\n`,
+  "features/companies/__boundary-probe__/view-forbidden-client.ts": `import { createShowzyClient } from "../../../api/client";\n`,
+  "features/companies/api/__boundary-probe__/api-allowed-client.ts": `import type { ShowzyClient } from "../../../../api/client";\n`,
   "features/auth/__boundary-probe__/auth-forbidden-companies.ts": `import { planCreateCompanySubmit } from "../../companies/onboarding/create-company-form";\n`,
   "layouts/panel/__boundary-probe__/layout-allowed-companies.ts": `import { CompanySwitcher } from "../../../features/companies/scope/company-switcher";\n`,
   "layouts/panel/__boundary-probe__/layout-allowed-companies-api.ts": `import type { CompanyMembership } from "../../../features/companies/api/list-mine";\n`,
@@ -76,6 +78,7 @@ const probeDirectories = [
   path.join(srcRoot, "components", "ui", "__boundary-probe__"),
   path.join(srcRoot, "api", "__boundary-probe__"),
   path.join(srcRoot, "features", "companies", "__boundary-probe__"),
+  path.join(srcRoot, "features", "companies", "api", "__boundary-probe__"),
   path.join(srcRoot, "features", "auth", "__boundary-probe__"),
   path.join(srcRoot, "layouts", "panel", "__boundary-probe__"),
 ];
@@ -217,6 +220,11 @@ describe("apps/web layer import direction (SHO-329)", () => {
   it("rejects a feature importing layouts or app", () => {
     expect(layerErrors("companies-forbidden-layout.ts")).toHaveLength(1);
     expect(layerErrors("companies-forbidden-app.ts")).toHaveLength(1);
+  });
+
+  it("rejects a view importing the contract client and allows feature api adapters", () => {
+    expect(layerErrors("view-forbidden-client.ts")).toHaveLength(1);
+    expect(layerErrors("api-allowed-client.ts")).toHaveLength(0);
   });
 
   it("allows the panel layout to compose companies scope/api and rejects other domains", () => {

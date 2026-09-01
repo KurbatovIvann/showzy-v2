@@ -160,18 +160,23 @@ One data path:
   `setActiveCompany` → `x-company-id`. The slug is not an access grant
   (ADR-0013).
 - Reads: `contractQueryOptions` / `contractQueryKey` /
-  `accountContractQueryOptions`. Pass live `useActiveCompany().activeCompanyId`
-  (and `getActiveCompany`) so a switch re-renders keys. Copy
-  `features/companies/api/list-mine.ts`.
+  `accountContractQueryOptions`. Company-scoped **keys** include
+  `useActiveCompany().activeCompanyId` (React state, so a switch
+  re-renders). Account reads (copy `features/companies/api/list-mine.ts`)
+  include the session user id. The **assert** is
+  `() => client.getActiveCompany()` (live `x-company-id`), never a
+  render-closed React id. Golden `companyGetQueryOptions({ client, companyId })`
+  binds that getter; do not pass `() => activeCompanyId`.
 - Prefetch: route `loader` reuses those options (`ensureQueryData`).
-  Do not invent a second cache.
+  `_authed` prefetches `listMineQueryOptions` so the picker/scope hooks
+  do not issue a second `/rpc`. Do not invent a second cache.
 - Mutations: `useContractMutation` / `createContractMutationController`.
   One `createMutationAttempt()` per logical submit; `retry()` reuses
   `attempt.options`. A new submit mints a new key.
-- Confirmation: `CONFIRMATION_REQUIRED` → same attempt
-  `withChallenge(challengeId)` (contract.md §3). Do not put the
-  challenge in action input. Add a web helper when the first confirmed
-  write lands — do not copy the entire mobile `api/` tree.
+- Confirmation: `CONFIRMATION_REQUIRED` → `confirm(challengeId)` on the
+  same attempt (`withChallenge`, contract.md §3). Do not put the
+  challenge in action input. `confirmationFromError` reads wire extras
+  by `error.code`.
 - Errors: `describeQueryFailure` / `describeWireCode` on `error.code`,
   never message text.
 - Invalidation: invalidate or `setQueryData` only the keys that write

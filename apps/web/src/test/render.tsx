@@ -55,7 +55,12 @@ function hookDisposeOnTestFinished(): void {
   });
 }
 
-export async function renderApp(path: string): Promise<RenderedApp> {
+export async function renderApp(
+  path: string,
+  options: {
+    readonly afterLoad?: (app: RenderedApp) => void | Promise<void>;
+  } = {},
+): Promise<RenderedApp> {
   disposeRenderedApp();
   hookDisposeOnTestFinished();
   const authClient = createShowzyAuthClient({
@@ -71,6 +76,8 @@ export async function renderApp(path: string): Promise<RenderedApp> {
   const apiClient = createShowzyClient();
   const router = createAppRouter({
     authClient,
+    queryClient,
+    apiClient,
     history: createMemoryHistory({ initialEntries: [path] }),
     // Router hides pending UI for defaultPendingMs (1s). That window
     // matches Testing Library's default findBy timeout, so a cold
@@ -89,6 +96,7 @@ export async function renderApp(path: string): Promise<RenderedApp> {
   // with the session `setTimeout(0)` can deadlock under CI load and
   // leave RouterProvider as an empty `<div />` (SHO-332).
   await router.load();
+  await options.afterLoad?.(rendered);
   await act(async () => {
     render(
       <AppProviders

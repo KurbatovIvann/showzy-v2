@@ -7,8 +7,12 @@ import { createAppRouter } from "./router";
 import { createAppRuntime } from "./runtime";
 import "../styles.css";
 
-const { authClient } = createAppRuntime();
-const router = createAppRouter({ authClient });
+const runtime = createAppRuntime();
+const router = createAppRouter({
+  authClient: runtime.authClient,
+  queryClient: runtime.queryClient,
+  apiClient: runtime.apiClient,
+});
 
 const rootElement = document.getElementById("root");
 if (rootElement === null) {
@@ -17,7 +21,11 @@ if (rootElement === null) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <AppProviders authClient={authClient}>
+    <AppProviders
+      authClient={runtime.authClient}
+      client={runtime.apiClient}
+      queryClient={runtime.queryClient}
+    >
       <RouterProvider router={router} />
     </AppProviders>
   </StrictMode>,

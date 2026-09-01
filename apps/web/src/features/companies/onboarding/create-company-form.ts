@@ -215,21 +215,23 @@ export function resolveCreateCompanyCopy(
  */
 export function applyCreatedCompany(args: {
   readonly membership: CompanyMembership;
+  readonly sessionUserId: string;
   readonly setActiveCompany: (companyId: string | null) => void;
   readonly rememberSlug: (slug: string) => void;
   readonly queryClient: QueryClient;
 }): void {
   args.setActiveCompany(args.membership.company.id);
   args.rememberSlug(args.membership.company.slug);
+  const key = listMineQueryKey(args.sessionUserId);
   const current = args.queryClient.getQueryData<{
     readonly memberships: readonly CompanyMembership[];
-  }>(listMineQueryKey());
+  }>(key);
   const existing = current?.memberships ?? [];
   const already = existing.some(
     (membership) => membership.company.id === args.membership.company.id,
   );
-  args.queryClient.setQueryData(listMineQueryKey(), {
+  args.queryClient.setQueryData(key, {
     memberships: already ? existing : [...existing, args.membership],
   });
-  void args.queryClient.invalidateQueries({ queryKey: listMineQueryKey() });
+  void args.queryClient.invalidateQueries({ queryKey: key });
 }

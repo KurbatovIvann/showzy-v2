@@ -36,14 +36,18 @@ export function createWebQueryClient(
 }
 
 export function clearCachedContractQueries(queryClient: QueryClient): void {
-  void queryClient.cancelQueries();
+  void queryClient.cancelQueries().catch(() => {
+    // Cancelled in-flight queries must not become unhandled rejections.
+  });
   queryClient.clear();
 }
 
 export function clearCachedTenantQueries(queryClient: QueryClient): void {
   const isTenantScoped = (query: { readonly queryKey: readonly unknown[] }) =>
     query.queryKey[1] !== NULL_COMPANY_QUERY_SCOPE;
-  void queryClient.cancelQueries({ predicate: isTenantScoped });
+  void queryClient.cancelQueries({ predicate: isTenantScoped }).catch(() => {
+    // Cancelled in-flight tenant queries must not become unhandled rejections.
+  });
   queryClient.removeQueries({ predicate: isTenantScoped });
 }
 

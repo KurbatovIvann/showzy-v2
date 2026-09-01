@@ -157,16 +157,20 @@ describe("applyCreatedCompany", () => {
     const rememberSlug = vi.fn((slug: string) => {
       void slug;
     });
-    queryClient.setQueryData(listMineQueryKey(), { memberships: [] });
+    const sessionUserId = "user-1";
+    const key = listMineQueryKey(sessionUserId);
+    queryClient.setQueryData(key, { memberships: [] });
 
     applyCreatedCompany({
       membership,
+      sessionUserId,
       setActiveCompany,
       rememberSlug,
       queryClient,
     });
     applyCreatedCompany({
       membership,
+      sessionUserId,
       setActiveCompany,
       rememberSlug,
       queryClient,
@@ -174,8 +178,11 @@ describe("applyCreatedCompany", () => {
 
     expect(setActiveCompany).toHaveBeenCalledWith(membership.company.id);
     expect(rememberSlug).toHaveBeenCalledWith(membership.company.slug);
-    expect(queryClient.getQueryData(listMineQueryKey())).toEqual({
+    expect(queryClient.getQueryData(key)).toEqual({
       memberships: [membership],
     });
+    expect(queryClient.getQueryData(listMineQueryKey("user-other"))).toBe(
+      undefined,
+    );
   });
 });

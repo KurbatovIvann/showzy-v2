@@ -5,6 +5,7 @@ import { useApiClient } from "../../../api/api-provider";
 import { useContractMutation } from "../../../api/contract-mutation";
 import { describeQueryFailure, describeWireCode } from "../../../api/errors";
 import { useActiveCompany } from "../../../api/query-provider";
+import { useAuthSession } from "../../../auth/session-provider";
 import { createBrowserCompanyPrefs } from "../../../prefs/companies/company-prefs";
 import type { CompanyMembership } from "../api/list-mine";
 import {
@@ -29,6 +30,7 @@ export function useCreateCompanyStep(args: {
   const apiClient = useApiClient();
   const apiRef = useRef(apiClient);
   apiRef.current = apiClient;
+  const auth = useAuthSession();
   const { setActiveCompany } = useActiveCompany();
   const queryClient = useQueryClient();
   const onCreatedRef = useRef(args.onCreated);
@@ -101,14 +103,18 @@ export function useCreateCompanyStep(args: {
           ? await mutation.retry()
           : await mutation.submit(plan.input);
       onCreatedRef.current(membership);
-      applyCreatedCompany({
-        membership,
-        setActiveCompany,
-        rememberSlug: (nextSlug) => {
-          createBrowserCompanyPrefs().setLastCompanySlug(nextSlug);
-        },
-        queryClient,
-      });
+      const sessionUserId = auth.session?.userId;
+      if (sessionUserId !== undefined) {
+        applyCreatedCompany({
+          membership,
+          sessionUserId,
+          setActiveCompany,
+          rememberSlug: (nextSlug) => {
+            createBrowserCompanyPrefs().setLastCompanySlug(nextSlug);
+          },
+          queryClient,
+        });
+      }
     } catch {
       // Field/banner mapping comes from mutation.error.
     }
