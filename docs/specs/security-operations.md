@@ -170,10 +170,9 @@ tool result. Zod validation is necessary but never grants tenant access.
   idempotency or reconciliation.
 - **Invocation `channel` (phase 0):** every HTTP transport invocation —
   oRPC at `/rpc` and OpenAPI REST aliases at `/api/v1` — is labeled
-  `channel: "ui"`. Webhooks and workers set `system` / `webhook` when
-  those mounts exist. Revisit when external API consumers or the AI mount
-  need a distinct channel (`ai` / a dedicated external value) so REST
-  aliases and model-initiated calls are not attributed as UI.
+  `channel: "ui"`. `POST /assistant/chat` uses `channel: "ai"`. Webhooks
+  and workers set `system` / `webhook` when those mounts exist. Do not add
+  a client-spoofable `x-channel` header on `/rpc`.
 
 ## 5. Environments, database, and release safety
 
@@ -277,6 +276,7 @@ review. A critical/high unresolved finding blocks merge.
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-09-01 | §4: `POST /assistant/chat` uses `channel: "ai"`; `/rpc` and `/api/v1` stay `ui` | Staff AI SSE mount (SHO-322 / SHO-318) | SHO-322 |
 | 2026-08-25 | §2: OTP IP cap remains 20/hour per trusted-proxy IP; Redis stores HMAC-SHA256 of the Better Auth consume key (32 hex chars, no 24h rotation) | Variant A (SHO-147): Redis must not retain client IPs of OTP senders; rotation would reset the 20-send bucket | SHO-147 |
 | 2026-08-21 | Session TTL 7d / sliding 1d; Expo cookie origin `showzy://`; bearer kept for non-RN | Pin better-auth defaults; mobile uses `@better-auth/expo` cookies | owner |
 | 2026-08-19 | Seventh principal `share` (ADR-0022): matrix column, 30/min IP-HMAC fail-closed, access-log `anonymous` vs audit/event `system`/`share` | Unauthenticated capability-token writes for owner-first dual-sign; core.md and contract.md already amended | owner via `/rework-spec security-operations.md` |

@@ -1,0 +1,73 @@
+/**
+ * Test-only AI SDK helpers. Production code imports `@showzy/ai`, not this
+ * subpath. HTTP tests inject MockLanguageModelV3 — no live LLM in CI.
+ */
+import { convertArrayToReadableStream, MockLanguageModelV3 } from "ai/test";
+
+export { convertArrayToReadableStream, MockLanguageModelV3 };
+
+export const MOCK_LANGUAGE_MODEL_USAGE = {
+  inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+  outputTokens: { total: 1, text: 1, reasoning: 0 },
+};
+
+export function mockTextStream(text: string) {
+  return {
+    stream: convertArrayToReadableStream([
+      { type: "stream-start" as const, warnings: [] },
+      { type: "text-start" as const, id: "t" },
+      { type: "text-delta" as const, id: "t", delta: text },
+      { type: "text-end" as const, id: "t" },
+      {
+        type: "finish" as const,
+        finishReason: { unified: "stop" as const, raw: undefined },
+        usage: MOCK_LANGUAGE_MODEL_USAGE,
+      },
+    ]),
+  };
+}
+
+export function mockToolCallStream(
+  toolCallId: string,
+  toolName: string,
+  input: string,
+) {
+  return {
+    stream: convertArrayToReadableStream([
+      { type: "stream-start" as const, warnings: [] },
+      { type: "tool-input-start" as const, id: toolCallId, toolName },
+      { type: "tool-input-delta" as const, id: toolCallId, delta: input },
+      { type: "tool-input-end" as const, id: toolCallId },
+      {
+        type: "tool-call" as const,
+        toolCallId,
+        toolName,
+        input,
+      },
+      {
+        type: "finish" as const,
+        finishReason: { unified: "tool-calls" as const, raw: undefined },
+        usage: MOCK_LANGUAGE_MODEL_USAGE,
+      },
+    ]),
+  };
+}
+
+export async function readUiMessageSsePayloads(
+  response: Response,
+): Promise<unknown[]> {
+  const text = await response.text();
+  const payloads: unknown[] = [];
+  for (const block of text.split("\n\n")) {
+    const line = block.split("\n").find((entry) => entry.startsWith("data: "));
+    if (line === undefined) {
+      continue;
+    }
+    const data = line.slice("data: ".length);
+    if (data === "[DONE]") {
+      continue;
+    }
+    payloads.push(JSON.parse(data) as unknown);
+  }
+  return payloads;
+}

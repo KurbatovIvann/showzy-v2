@@ -18,8 +18,12 @@ Auth policy parameters still live in `src/auth/` (fnd-T6).
   `buildAuthOptions`, composes the action pipeline, returns `createApp`.
 - `src/http/app.ts` — `createApp(composition)`: request-id, trusted-proxy
   IP, better-auth at `/api/auth`, oRPC at `/rpc`, OpenAPI REST at `/api/v1`,
-  `GET /health`, `GET /d/:token`, `POST /pki/proxy` (HTTP, not an action).
-  Dependencies are injected; tests never read `process.env`.
+  `GET /health`, `GET /d/:token`, `POST /pki/proxy` (HTTP, not an action),
+  `POST /assistant/chat` (staff AI SSE, `channel: "ai"`). Dependencies are
+  injected; tests never read `process.env`.
+- `src/http/assistant-chat.ts` — staff AI mount. Session required;
+  membership via `executeAction` (`assistant.getStaffActor`). Tools run
+  `executeAction` with `channel: "ai"`; the adapter never calls `/rpc`.
 - `src/http/client-ip.ts` — forwarded-IP headers are trusted only when the
   TCP peer is in `TRUSTED_PROXIES`. Spoofed `X-Forwarded-For` is ignored.
   `createTrustedProxyMatcher` builds the `BlockList` once at app construction.
@@ -64,13 +68,14 @@ pnpm --filter @showzy/api auth:check      # CI: regenerate + fail on diff
 - The 401 gate is this package's job: authenticated principals without a
   session never reach `executeAction` (core's `PermissionDeniedError` is
   defense in depth, 403). Public and share require no session
-  (share without a session must not 401).
+  (share without a session must not 401). `POST /assistant/chat` uses the
+  same 401 gate, then verifies staff membership through `executeAction`.
 - Selectors (`x-company-id`) are never authority. Consumer/account/public/
   share dispatch ignores them. Share tokens are action input, not a
   header. Staff membership is verified by core.
-- Phase-0 invocation `channel` is `"ui"` for every HTTP call, including
-  `/api/v1` REST aliases (security-operations §4). Revisit when external
-  consumers or the AI mount send a distinct channel.
+- Invocation `channel` is `"ui"` for `/rpc` and `/api/v1` REST aliases.
+  `POST /assistant/chat` uses `channel: "ai"` (security-operations §4).
+  There is no client-spoofable `x-channel` header.
 - Residual accepted risk: phone OTP codes are plaintext inside the TTL'd
   secondary store for their 5-minute lifetime (the phone plugin has no
   `storeOTP`; they never reach Postgres) — see

@@ -3,9 +3,37 @@ import { asSchema } from "ai";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import { actionContractToTool } from "./action-tool.js";
+import {
+  actionContractToTool,
+  fromProviderToolName,
+  PROVIDER_TOOL_NAME_PATTERN,
+  staffAssistantTools,
+  toProviderToolName,
+} from "./action-tool.js";
 
 const customerId = "11111111-1111-4111-8111-111111111111";
+
+const listOrders = defineActionContract({
+  name: "orders.list",
+  description: "List orders in the active company.",
+  principal: "staff",
+  transport: "client",
+  aiExposure: "exposed",
+  permissions: ["orders:view"],
+  risk: "read",
+  requiresConfirmation: false,
+  idempotent: false,
+  emits: [],
+  atomicCalls: [],
+  atomicCallers: [],
+  audit: false,
+  timeout: 5_000,
+  input: z.object({}).default({}),
+  output: z.object({
+    items: z.array(z.object({ orderId: z.uuid() })),
+    nextCursor: z.string().nullable(),
+  }),
+});
 
 const deleteCustomer = defineActionContract({
   name: "customers.deleteCustomer",
@@ -24,6 +52,25 @@ const deleteCustomer = defineActionContract({
   timeout: 5_000,
   input: z.object({ id: z.uuid() }),
   output: z.object({ id: z.uuid() }),
+});
+
+describe("toProviderToolName", () => {
+  it("maps dotted action names onto Anthropic-safe keys and round-trips", () => {
+    expect(toProviderToolName("orders.list")).toBe("orders_list");
+    expect(toProviderToolName("customers.deleteCustomer")).toBe(
+      "customers_deleteCustomer",
+    );
+    expect(toProviderToolName("orders.list")).toMatch(
+      PROVIDER_TOOL_NAME_PATTERN,
+    );
+    expect(fromProviderToolName("orders_list")).toBe("orders.list");
+    expect(fromProviderToolName("customers_deleteCustomer")).toBe(
+      "customers.deleteCustomer",
+    );
+    expect(
+      fromProviderToolName(toProviderToolName("customers.deleteCustomer")),
+    ).toBe("customers.deleteCustomer");
+  });
 });
 
 describe("actionContractToTool", () => {
@@ -49,9 +96,11 @@ describe("actionContractToTool", () => {
     );
 
     expect(execute).toHaveBeenCalledOnce();
-    expect(execute).toHaveBeenCalledWith("customers.deleteCustomer", {
-      id: customerId,
-    });
+    expect(execute).toHaveBeenCalledWith(
+      "customers.deleteCustomer",
+      { id: customerId },
+      { toolCallId: "tool-1" },
+    );
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
   });
@@ -83,5 +132,32 @@ describe("actionContractToTool", () => {
       ),
     ).rejects.toThrow();
     expect(execute).not.toHaveBeenCalled();
+  });
+});
+
+describe("staffAssistantTools", () => {
+  it("keys the ToolSet with provider-safe names and dispatches to orders.list", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockRejectedValue(new Error("network must not run"));
+    const execute = vi.fn(() => Promise.resolve({ items: [] }));
+    const tools = staffAssistantTools([listOrders, deleteCustomer], execute);
+    const names = Object.keys(tools);
+    expect(names).toEqual(["orders_list", "customers_deleteCustomer"]);
+    for (const name of names) {
+      expect(name).toMatch(PROVIDER_TOOL_NAME_PATTERN);
+      expect(name).not.toContain(".");
+    }
+    await tools["orders_list"]?.execute?.(
+      {},
+      { toolCallId: "call-1", messages: [], context: undefined },
+    );
+    expect(execute).toHaveBeenCalledWith(
+      "orders.list",
+      {},
+      { toolCallId: "call-1" },
+    );
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
   });
 });
