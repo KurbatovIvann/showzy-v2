@@ -109,12 +109,18 @@ export function prepareStaffAssistantSendMessagesRequest(args: {
 }): {
   readonly body: StaffAssistantChatBody;
   readonly credentials: "omit";
-  readonly headers: HeadersInit | undefined;
+  readonly headers?: HeadersInit;
 } {
   const prepared = prepareStaffAssistantChatRequest({
     conversationId: args.conversationId,
     messages: args.messages,
   });
+  if (args.headers === undefined) {
+    return {
+      body: prepared.body,
+      credentials: "omit",
+    };
+  }
   return {
     body: prepared.body,
     credentials: "omit",

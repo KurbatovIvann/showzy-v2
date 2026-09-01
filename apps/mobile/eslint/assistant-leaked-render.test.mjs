@@ -1,11 +1,19 @@
-import { Linter } from "eslint";
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { ESLint, Linter } from "eslint";
 import { describe, expect, it } from "vitest";
-import tseslint from "typescript-eslint";
 
 import {
   assistantJsxNoLeakedRender,
   assistantRestrictedSyntax,
 } from "./assistant-leaked-render.mjs";
+
+const here = dirname(fileURLToPath(import.meta.url));
+const toolingRequire = createRequire(
+  join(here, "../../../packages/tooling/package.json"),
+);
+const tseslint = toolingRequire("typescript-eslint");
 
 /**
  * @param {string} code
@@ -27,7 +35,7 @@ function lintJsx(code) {
 /**
  * @param {string} code
  */
-function lintTsx(code) {
+function lintAssistantTsx(code) {
   const linter = new Linter({ configType: "flat" });
   return linter.verify(code, {
     languageOptions: {
@@ -62,7 +70,7 @@ describe("assistant jsx-no-leaked-render", () => {
   });
 
   it("still rejects as unknown as in assistant TSX", () => {
-    const messages = lintTsx(
+    const messages = lintAssistantTsx(
       `export function Row(props: { n: number }) { const x = props as unknown as { n: string }; return <View>{x.n ? <Text>{x.n}</Text> : null}</View>; }`,
     );
     const restricted = messages.filter(
@@ -84,5 +92,27 @@ describe("assistantRestrictedSyntax", () => {
       "TSAsExpression > TSAsExpression",
     );
     expect(assistantRestrictedSyntax[1]).toEqual(assistantJsxNoLeakedRender);
+  });
+
+  it("wires both selectors into the assistant TSX ESLint override", async () => {
+    const eslint = new ESLint({ cwd: join(here, "..") });
+    const config = await eslint.calculateConfigForFile(
+      join(here, "../src/features/assistant/sheet/confirmation-card.tsx"),
+    );
+    const rule = config.rules["no-restricted-syntax"];
+    expect(Array.isArray(rule)).toBe(true);
+    const selectors = Array.isArray(rule)
+      ? rule
+          .slice(1)
+          .map((entry) =>
+            typeof entry === "object" && entry !== null && "selector" in entry
+              ? entry.selector
+              : null,
+          )
+      : [];
+    expect(selectors).toContain("TSAsExpression > TSAsExpression");
+    expect(selectors).toContain(
+      "JSXExpressionContainer > LogicalExpression[operator='&&']",
+    );
   });
 });
