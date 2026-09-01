@@ -256,7 +256,8 @@ function resolveVariantRef(
 /**
  * Bounded reads: at most one product-id SELECT, one active exact-name
  * SELECT, one capped active contains SELECT, and one variant SELECT for
- * the resolved product ids. Never one SELECT per line and never ctx.call.
+ * the resolved product ids. Never one SELECT per input line and never a
+ * nested action call.
  */
 export async function resolveCatalogLineReferences(args: {
   readonly db: StaffDb;

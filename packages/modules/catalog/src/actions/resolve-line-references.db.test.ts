@@ -353,7 +353,7 @@ describe("catalog.resolveLineReferences", () => {
       new URL("../services/resolve-line-references.ts", import.meta.url),
       "utf8",
     );
-    expect(source).not.toMatch(/ctx\.call/);
+    expect(source).not.toMatch(/ctx\.call\(/);
     // id + exact-name + capped contains + variants for resolved products
     expect(source.match(/\.from\(/g)?.length).toBe(4);
   });
