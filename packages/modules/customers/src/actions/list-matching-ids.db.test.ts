@@ -159,7 +159,7 @@ describe("customers.listMatchingIds", () => {
       { query: "Alpha" },
       {
         companyId: kitIdentities.companies.b,
-        userId: kitIdentities.users.anna,
+        userId: kitIdentities.users.boris,
       },
     );
     expect(otherTenant.ids).toEqual([fixtures.foreign]);
@@ -202,6 +202,7 @@ describe("customers.listMatchingIds", () => {
         id: randomUUID(),
         companyId: kitIdentities.companies.a,
         name: `MatchCap ${String(index)}`,
+        email: `matchcap-${String(index)}@kit.test`,
         status: "active" as const,
       })),
     );

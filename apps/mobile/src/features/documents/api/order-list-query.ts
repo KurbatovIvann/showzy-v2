@@ -21,9 +21,15 @@ export type ListOrdersSummaryPage = Extract<
 >;
 export type DocumentOrderListItem = ListOrdersSummaryPage["items"][number];
 
-export const DOCUMENT_ORDERS_LOOKUP_INPUT = {
-  kind: "page.summary" as const,
-  filter: { statuses: ["confirmed"] as const },
+export const DOCUMENT_ORDERS_LOOKUP_INPUT: {
+  readonly kind: "page.summary";
+  readonly filter: {
+    readonly statuses: Array<"new" | "confirmed" | "canceled">;
+  };
+  readonly limit: number;
+} = {
+  kind: "page.summary",
+  filter: { statuses: ["confirmed"] },
   limit: DOCUMENT_LOOKUP_PAGE_SIZE,
 };
 

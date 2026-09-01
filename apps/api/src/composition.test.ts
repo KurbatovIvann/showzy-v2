@@ -121,6 +121,7 @@ describe("composition root identity", () => {
     ).toEqual([
       "catalog.getProductOrderFacts",
       "companies.get",
+      "customers.getCustomer",
       "pricing.resolveProductPrices",
     ]);
   });

@@ -1104,6 +1104,7 @@ describe("orders.list", () => {
         id: randomUUID(),
         companyId: kitIdentities.companies.a,
         name: `MatchCap ${String(index)}`,
+        email: `matchcap-orders-${String(index)}@kit.test`,
         status: "active" as const,
       })),
     );

@@ -23,7 +23,7 @@ export type OrderStatusFilter = "new" | "confirmed" | "canceled";
 export type ListOrdersPageInput = {
   readonly kind: "page.summary";
   readonly filter?: {
-    readonly statuses?: readonly OrderStatusFilter[];
+    readonly statuses?: OrderStatusFilter[];
     readonly query?: string;
   };
 };
