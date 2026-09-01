@@ -7,6 +7,16 @@ import { generateText, Output, type LanguageModel } from "ai";
 import { z } from "zod";
 
 import { STAFF_ASSISTANT_ANTHROPIC_PROVIDER_OPTIONS } from "./anthropic-options.js";
+import {
+  EMPTY_STAFF_ASSISTANT_TURN_USAGE,
+  staffAssistantTurnUsageFromUnknown,
+  type StaffAssistantTurnUsage,
+} from "./usage.js";
+
+export interface StaffAssistantGateResult {
+  readonly operational: boolean;
+  readonly usage: StaffAssistantTurnUsage;
+}
 
 export const staffAssistantGateOutputSchema = z.object({
   operational: z.boolean(),
@@ -23,10 +33,10 @@ export async function classifyStaffAssistantTurn(options: {
   readonly model: LanguageModel;
   readonly lastUserText: string;
   readonly abortSignal?: AbortSignal;
-}): Promise<{ operational: boolean }> {
+}): Promise<StaffAssistantGateResult> {
   const trimmed = options.lastUserText.trim();
   if (trimmed === "") {
-    return { operational: true };
+    return { operational: true, usage: EMPTY_STAFF_ASSISTANT_TURN_USAGE };
   }
   try {
     const result = await generateText({
@@ -41,8 +51,11 @@ export async function classifyStaffAssistantTurn(options: {
         ? { abortSignal: options.abortSignal }
         : {}),
     });
-    return { operational: result.output.operational };
+    return {
+      operational: result.output.operational,
+      usage: staffAssistantTurnUsageFromUnknown(result.usage),
+    };
   } catch {
-    return { operational: true };
+    return { operational: true, usage: EMPTY_STAFF_ASSISTANT_TURN_USAGE };
   }
 }

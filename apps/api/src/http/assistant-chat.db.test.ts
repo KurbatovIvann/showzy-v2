@@ -1137,6 +1137,20 @@ describe("POST /assistant/chat logs and /rpc channel", () => {
     expect(typeof usage?.["output_tokens"]).toBe("number");
     expect(typeof usage?.["cache_read_tokens"]).toBe("number");
     expect(typeof usage?.["cache_write_tokens"]).toBe("number");
+    expect(usage?.["gate_input_tokens"]).toBe(0);
+    expect(usage?.["gate_output_tokens"]).toBe(0);
+    expect(typeof usage?.["model_steps"]).toBe("number");
+    expect(usage?.["tool_count"]).toBe(0);
+    expect(usage?.["tool_names"]).toEqual([]);
+    expect(typeof usage?.["uncached_input_tokens"]).toBe("number");
+    expect(typeof usage?.["cache_hit_ratio"]).toBe("number");
+    expect(typeof usage?.["history_message_count"]).toBe("number");
+    expect(typeof usage?.["history_chars"]).toBe("number");
+    expect(typeof usage?.["tool_result_bytes_in"]).toBe("number");
+    expect(typeof usage?.["tool_result_bytes_out"]).toBe("number");
+    expect(typeof usage?.["toolset_hash"]).toBe("string");
+    expect(typeof usage?.["estimated_cost_usd"]).toBe("number");
+    expect(Number.isFinite(usage?.["estimated_cost_usd"])).toBe(true);
     expect(JSON.stringify(usage)).not.toContain(prompt);
     expect(JSON.stringify(usage)).not.toContain(
       "ASSISTANT_BODY_SENTINEL_never_log",
@@ -1145,6 +1159,97 @@ describe("POST /assistant/chat logs and /rpc channel", () => {
     expect(usage).not.toHaveProperty("body");
     expect(usage).not.toHaveProperty("prompt");
     expect(usage).not.toHaveProperty("messages");
+  });
+
+  it("maps gate generateText usage onto the turn usage line", async () => {
+    const capturing = createCapturingLogger();
+    const app = createApp({
+      auth,
+      registry,
+      contractModules,
+      pipeline: { ...pipeline, logger: capturing.logger },
+      trustedProxies: [],
+      getPeerAddress: () => REAL_CLIENT,
+      pkiProxy: {
+        rateLimitStore: createInMemoryRateLimitStore(),
+        ipHmacSecret: "test-pki-proxy-ip-hmac-secret!!",
+      },
+      assistant: {
+        model: "mock",
+        gateModel: "mock-gate",
+        languageModel: new MockLanguageModelV3({
+          doStream: [mockTextStream("You have no orders.")],
+        }),
+        gateLanguageModel: new MockLanguageModelV3({
+          doGenerate: mockOperationalGateGenerate(true),
+        }),
+      },
+    });
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Gate usage",
+    });
+    const response = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "List orders"),
+    });
+    expect(response.status).toBe(200);
+    await readUiMessageSsePayloads(response);
+    const usage = capturing
+      .entries()
+      .find((entry) => entry["msg"] === "staff assistant turn usage");
+    expect(usage?.["gate_model"]).toBe("mock-gate");
+    expect(usage?.["gate_input_tokens"]).toBe(1);
+    expect(usage?.["gate_output_tokens"]).toBe(1);
+    expect(typeof usage?.["estimated_cost_usd"]).toBe("number");
+    expect(JSON.stringify(usage)).not.toContain("List orders");
+  });
+
+  it("logs zero gate tokens when classify throws and still fail-opens", async () => {
+    const capturing = createCapturingLogger();
+    const streamModel = new MockLanguageModelV3({
+      doStream: [mockTextStream("You have no orders.")],
+    });
+    const app = createApp({
+      auth,
+      registry,
+      contractModules,
+      pipeline: { ...pipeline, logger: capturing.logger },
+      trustedProxies: [],
+      getPeerAddress: () => REAL_CLIENT,
+      pkiProxy: {
+        rateLimitStore: createInMemoryRateLimitStore(),
+        ipHmacSecret: "test-pki-proxy-ip-hmac-secret!!",
+      },
+      assistant: {
+        model: "mock",
+        gateModel: "mock-gate",
+        languageModel: streamModel,
+        gateLanguageModel: new MockLanguageModelV3({
+          doGenerate: () => Promise.reject(new Error("gate down")),
+        }),
+      },
+    });
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Gate throw",
+    });
+    const response = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "List orders"),
+    });
+    expect(response.status).toBe(200);
+    await readUiMessageSsePayloads(response);
+    expect(streamModel.doStreamCalls.length).toBeGreaterThan(0);
+    const usage = capturing
+      .entries()
+      .find((entry) => entry["msg"] === "staff assistant turn usage");
+    expect(usage?.["gate_model"]).toBe("mock-gate");
+    expect(usage?.["gate_input_tokens"]).toBe(0);
+    expect(usage?.["gate_output_tokens"]).toBe(0);
+    expect(usage?.["tools_attached"]).toBe(true);
   });
 
   it("keeps /rpc labeled ui while the AI mount uses ai", async () => {

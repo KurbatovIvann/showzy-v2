@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   EMPTY_STAFF_ASSISTANT_TURN_USAGE,
+  staffAssistantCacheHitRatio,
   staffAssistantTurnUsageFromTotal,
   staffAssistantTurnUsageFromUnknown,
+  staffAssistantUncachedInputTokens,
 } from "./usage.js";
 
 describe("staffAssistantTurnUsageFromUnknown", () => {
@@ -62,5 +64,42 @@ describe("staffAssistantTurnUsageFromTotal", () => {
     await expect(
       staffAssistantTurnUsageFromTotal(Promise.reject(new Error("stream"))),
     ).resolves.toEqual(EMPTY_STAFF_ASSISTANT_TURN_USAGE);
+  });
+});
+
+describe("staffAssistantUncachedInputTokens", () => {
+  it("subtracts cache reads and never goes negative", () => {
+    expect(
+      staffAssistantUncachedInputTokens({
+        inputTokens: 26_000,
+        outputTokens: 80,
+        cacheReadTokens: 24_000,
+        cacheWriteTokens: 1_200,
+      }),
+    ).toBe(2_000);
+    expect(
+      staffAssistantUncachedInputTokens({
+        inputTokens: 10,
+        outputTokens: 1,
+        cacheReadTokens: 40,
+        cacheWriteTokens: 0,
+      }),
+    ).toBe(0);
+  });
+});
+
+describe("staffAssistantCacheHitRatio", () => {
+  it("is cache_read / input, or 0 when input is 0", () => {
+    expect(
+      staffAssistantCacheHitRatio({
+        inputTokens: 100,
+        outputTokens: 1,
+        cacheReadTokens: 80,
+        cacheWriteTokens: 10,
+      }),
+    ).toBe(0.8);
+    expect(
+      staffAssistantCacheHitRatio(EMPTY_STAFF_ASSISTANT_TURN_USAGE),
+    ).toBe(0);
   });
 });

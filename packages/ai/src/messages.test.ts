@@ -6,6 +6,7 @@ import {
   pausedToolAttemptFromToolRuns,
   resolvePausedToolAttempt,
   staffAssistantChatBodySchema,
+  staffAssistantHistoryStats,
   staffAssistantModelMessages,
   STAFF_ASSISTANT_CHAT_MESSAGES_MAX,
   STAFF_ASSISTANT_CHAT_MESSAGE_TEXT_MAX,
@@ -88,6 +89,10 @@ describe("staffAssistantModelMessages", () => {
       { role: "user", content: "List orders" },
       { role: "assistant", content: "You have no orders." },
     ]);
+    expect(staffAssistantHistoryStats(messages)).toEqual({
+      messageCount: 2,
+      chars: "List orders".length + "You have no orders.".length,
+    });
   });
 });
 

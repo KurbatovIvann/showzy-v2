@@ -12,16 +12,21 @@ import {
   attemptKey,
   classifyStaffAssistantTurn,
   createStaffLanguageModel,
+  EMPTY_STAFF_ASSISTANT_TURN_USAGE,
+  estimateStaffAssistantTurnCostUsd,
   filterStaffAiTools,
   lastStaffAssistantUserMessage,
   pausedToolAttemptForChallenge,
   pausedToolAttemptFromToolRuns,
   resolvePausedToolAttempt,
   StaffAssistantNotConfiguredError,
+  staffAssistantCacheHitRatio,
   staffAssistantChatBodySchema,
   staffAssistantModelMessages,
+  staffAssistantUncachedInputTokens,
   streamStaffAssistantChat,
   STAFF_ASSISTANT_THINKING_DISABLED,
+  STAFF_ASSISTANT_TOOL_RUNS_MAX,
   type LanguageModel,
   type PausedToolAttempt,
   type StaffAssistantChatMessage,
@@ -152,8 +157,17 @@ function logTurnUsage(options: {
   readonly actorId: string;
   readonly model: string;
   readonly gateModel?: string;
+  readonly gateUsage: StaffAssistantTurnUsage;
   readonly toolsAttached: boolean;
   readonly usage: StaffAssistantTurnUsage;
+  readonly modelSteps: number;
+  readonly toolNames: readonly string[];
+  readonly historyMessageCount: number;
+  readonly historyChars: number;
+  readonly toolResultBytesIn: number;
+  readonly toolResultBytesOut: number;
+  readonly toolsetHash: string;
+  readonly estimatedCostUsd: number;
 }): void {
   options.logger.info(
     {
@@ -167,10 +181,23 @@ function logTurnUsage(options: {
         : {}),
       thinking: STAFF_ASSISTANT_THINKING_DISABLED,
       tools_attached: options.toolsAttached,
+      gate_input_tokens: options.gateUsage.inputTokens,
+      gate_output_tokens: options.gateUsage.outputTokens,
+      model_steps: options.modelSteps,
+      tool_count: options.toolNames.length,
+      tool_names: [...options.toolNames],
       input_tokens: options.usage.inputTokens,
       output_tokens: options.usage.outputTokens,
       cache_read_tokens: options.usage.cacheReadTokens,
       cache_write_tokens: options.usage.cacheWriteTokens,
+      uncached_input_tokens: staffAssistantUncachedInputTokens(options.usage),
+      cache_hit_ratio: staffAssistantCacheHitRatio(options.usage),
+      history_message_count: options.historyMessageCount,
+      history_chars: options.historyChars,
+      tool_result_bytes_in: options.toolResultBytesIn,
+      tool_result_bytes_out: options.toolResultBytesOut,
+      toolset_hash: options.toolsetHash,
+      estimated_cost_usd: options.estimatedCostUsd,
     },
     "staff assistant turn usage",
   );
@@ -421,6 +448,7 @@ export async function executeStaffAssistantChat(
     const confirmationResume = confirmationChallengeId !== undefined;
     let operational = true;
     let gateRan = false;
+    let gateUsage = EMPTY_STAFF_ASSISTANT_TURN_USAGE;
 
     if (!confirmationResume && gateLanguageModel !== undefined) {
       const lastUserText = userMessage?.text ?? "";
@@ -431,6 +459,7 @@ export async function executeStaffAssistantChat(
           abortSignal: options.request.signal,
         });
         operational = classified.operational;
+        gateUsage = classified.usage;
         gateRan = true;
         logTurnGate({
           logger: options.pipeline.logger,
@@ -544,8 +573,27 @@ export async function executeStaffAssistantChat(
           ...(gateRan && options.assistant?.gateModel !== undefined
             ? { gateModel: options.assistant.gateModel }
             : {}),
+          gateUsage,
           toolsAttached: turn.toolsAttached,
           usage: turn.usage,
+          modelSteps: turn.modelSteps,
+          toolNames: turn.toolRuns
+            .slice(0, STAFF_ASSISTANT_TOOL_RUNS_MAX)
+            .map((run) => run.actionName),
+          historyMessageCount: turn.historyMessageCount,
+          historyChars: turn.historyChars,
+          toolResultBytesIn: turn.toolResultBytesIn,
+          toolResultBytesOut: turn.toolResultBytesOut,
+          toolsetHash: turn.toolsetHash,
+          estimatedCostUsd: estimateStaffAssistantTurnCostUsd({
+            reply: turn.usage,
+            replyModelId,
+            gate: gateUsage,
+            gateModelId:
+              options.assistant?.gateModel ??
+              options.assistant?.model ??
+              "unconfigured",
+          }),
         });
         try {
           await persistAssistantTurn({

@@ -88,6 +88,30 @@ export function staffAssistantModelMessages(
   return modelMessages;
 }
 
+function modelContentChars(content: ModelMessage["content"]): number {
+  if (typeof content === "string") {
+    return content.length;
+  }
+  let chars = 0;
+  for (const part of content) {
+    if (part.type === "text") {
+      chars += part.text.length;
+    }
+  }
+  return chars;
+}
+
+/** Count and character length of model messages (text parts only). */
+export function staffAssistantHistoryStats(
+  messages: readonly ModelMessage[],
+): { readonly messageCount: number; readonly chars: number } {
+  let chars = 0;
+  for (const message of messages) {
+    chars += modelContentChars(message.content);
+  }
+  return { messageCount: messages.length, chars };
+}
+
 export interface StaffUserMessageAttempt {
   readonly id: string;
   readonly text: string;

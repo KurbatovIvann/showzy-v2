@@ -6,6 +6,14 @@ import {
   mockGenerateObjectResult,
   mockOperationalGateGenerate,
 } from "./test.js";
+import { EMPTY_STAFF_ASSISTANT_TURN_USAGE } from "./usage.js";
+
+const mockGateUsage = {
+  inputTokens: 1,
+  outputTokens: 1,
+  cacheReadTokens: 0,
+  cacheWriteTokens: 0,
+};
 
 describe("classifyStaffAssistantTurn", () => {
   it("returns operational false without calling tools", async () => {
@@ -20,7 +28,7 @@ describe("classifyStaffAssistantTurn", () => {
         model,
         lastUserText: "What's the weather in Kyiv?",
       }),
-    ).resolves.toEqual({ operational: false });
+    ).resolves.toEqual({ operational: false, usage: mockGateUsage });
     expect(model.doGenerateCalls.length).toBe(1);
     expect(model.doGenerateCalls[0]?.tools).toBeUndefined();
     expect(fetchSpy).not.toHaveBeenCalled();
@@ -36,7 +44,7 @@ describe("classifyStaffAssistantTurn", () => {
         model,
         lastUserText: "Create a customer named Леха",
       }),
-    ).resolves.toEqual({ operational: true });
+    ).resolves.toEqual({ operational: true, usage: mockGateUsage });
   });
 
   it("skips the model and fail-opens on empty last user text", async () => {
@@ -45,7 +53,10 @@ describe("classifyStaffAssistantTurn", () => {
     });
     await expect(
       classifyStaffAssistantTurn({ model, lastUserText: "   " }),
-    ).resolves.toEqual({ operational: true });
+    ).resolves.toEqual({
+      operational: true,
+      usage: EMPTY_STAFF_ASSISTANT_TURN_USAGE,
+    });
     expect(model.doGenerateCalls).toHaveLength(0);
   });
 
@@ -58,7 +69,10 @@ describe("classifyStaffAssistantTurn", () => {
         model: throwing,
         lastUserText: "List orders",
       }),
-    ).resolves.toEqual({ operational: true });
+    ).resolves.toEqual({
+      operational: true,
+      usage: EMPTY_STAFF_ASSISTANT_TURN_USAGE,
+    });
 
     const invalid = new MockLanguageModelV3({
       doGenerate: mockGenerateObjectResult("not-json"),
@@ -68,6 +82,9 @@ describe("classifyStaffAssistantTurn", () => {
         model: invalid,
         lastUserText: "List orders",
       }),
-    ).resolves.toEqual({ operational: true });
+    ).resolves.toEqual({
+      operational: true,
+      usage: EMPTY_STAFF_ASSISTANT_TURN_USAGE,
+    });
   });
 });

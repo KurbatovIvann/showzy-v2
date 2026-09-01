@@ -99,3 +99,18 @@ export async function staffAssistantTurnUsageFromTotal(
     return EMPTY_STAFF_ASSISTANT_TURN_USAGE;
   }
 }
+
+export function staffAssistantUncachedInputTokens(
+  usage: StaffAssistantTurnUsage,
+): number {
+  return Math.max(0, usage.inputTokens - usage.cacheReadTokens);
+}
+
+export function staffAssistantCacheHitRatio(
+  usage: StaffAssistantTurnUsage,
+): number {
+  if (usage.inputTokens <= 0) {
+    return 0;
+  }
+  return usage.cacheReadTokens / usage.inputTokens;
+}

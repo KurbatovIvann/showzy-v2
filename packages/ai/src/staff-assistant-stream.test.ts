@@ -20,6 +20,7 @@ import {
   extractUuidResultIds,
   streamStaffAssistantChat,
 } from "./staff-assistant-stream.js";
+import { STAFF_ASSISTANT_EMPTY_TOOLSET_HASH } from "./toolset-hash.js";
 import {
   MockLanguageModelV3,
   mockTextStream,
@@ -170,6 +171,12 @@ describe("streamStaffAssistantChat", () => {
     expect(turn.usage.outputTokens).toEqual(expect.any(Number));
     expect(turn.usage.cacheReadTokens).toEqual(expect.any(Number));
     expect(turn.usage.cacheWriteTokens).toEqual(expect.any(Number));
+    expect(turn.modelSteps).toBeGreaterThanOrEqual(1);
+    expect(turn.historyMessageCount).toBe(1);
+    expect(turn.historyChars).toBe("List orders".length);
+    expect(turn.toolsetHash).not.toBe(STAFF_ASSISTANT_EMPTY_TOOLSET_HASH);
+    expect(turn.toolResultBytesIn).toBeGreaterThan(0);
+    expect(turn.toolResultBytesOut).toBe(turn.toolResultBytesIn);
     expect(JSON.stringify(payloads)).toContain("You have no orders.");
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
@@ -238,6 +245,7 @@ describe("streamStaffAssistantChat", () => {
     await readUiMessageSsePayloads(response);
     const turn = await completion;
     expect(turn.toolsAttached).toBe(false);
+    expect(turn.toolsetHash).toBe(STAFF_ASSISTANT_EMPTY_TOOLSET_HASH);
     expect(execute).not.toHaveBeenCalled();
     expect(model.doStreamCalls[0]?.tools ?? []).toEqual([]);
   });
@@ -279,6 +287,30 @@ describe("streamStaffAssistantChat", () => {
     expect(secondStep).toContain(keptId);
     expect(secondStep).not.toContain(droppedId);
     expect(secondStep).toContain(STAFF_ASSISTANT_CLIPPED_STATUS);
+    expect(turn.toolResultBytesIn).toBeGreaterThan(turn.toolResultBytesOut);
+  });
+
+  it("changes toolsetHash when the attached contract set changes", async () => {
+    async function hashFor(
+      contracts: Parameters<typeof streamStaffAssistantChat>[0]["contracts"],
+    ): Promise<string> {
+      const model = new MockLanguageModelV3({
+        doStream: [mockTextStream("ok")],
+      });
+      const { response, completion } = streamStaffAssistantChat({
+        model,
+        messages: [{ role: "user", content: "Hi" }],
+        contracts,
+        execute: () => Promise.resolve({}),
+      });
+      await readUiMessageSsePayloads(response);
+      return (await completion).toolsetHash;
+    }
+
+    const listOnly = await hashFor([listOrders]);
+    const both = await hashFor([listOrders, deleteCustomer]);
+    expect(listOnly).not.toBe(STAFF_ASSISTANT_EMPTY_TOOLSET_HASH);
+    expect(both).not.toBe(listOnly);
   });
 
   it("pauses on ConfirmationRequiredError and streams a redacted confirmation part", async () => {

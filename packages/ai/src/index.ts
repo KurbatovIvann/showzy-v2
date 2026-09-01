@@ -26,6 +26,7 @@ export {
   classifyStaffAssistantTurn,
   STAFF_ASSISTANT_GATE_SYSTEM,
   staffAssistantGateOutputSchema,
+  type StaffAssistantGateResult,
 } from "./gate.js";
 export { filterStaffAiTools } from "./filter-staff-tools.js";
 export { createStaffLanguageModel } from "./language-model.js";
@@ -39,9 +40,21 @@ export {
 } from "./anthropic-options.js";
 export {
   EMPTY_STAFF_ASSISTANT_TURN_USAGE,
+  staffAssistantCacheHitRatio,
   staffAssistantTurnUsageFromUnknown,
+  staffAssistantUncachedInputTokens,
   type StaffAssistantTurnUsage,
 } from "./usage.js";
+export {
+  estimateStaffAssistantCostUsd,
+  estimateStaffAssistantTurnCostUsd,
+  staffAssistantAnthropicRateTier,
+  STAFF_ASSISTANT_ANTHROPIC_RATES_USD_PER_MTOK,
+} from "./cost.js";
+export {
+  staffAssistantToolsetHash,
+  STAFF_ASSISTANT_EMPTY_TOOLSET_HASH,
+} from "./toolset-hash.js";
 export { attemptKey, type StaffAssistantAttemptKind } from "./attempt-key.js";
 export {
   lastStaffAssistantUserMessage,
@@ -50,6 +63,7 @@ export {
   resolvePausedToolAttempt,
   staffAssistantChatBodySchema,
   staffAssistantChatMessageSchema,
+  staffAssistantHistoryStats,
   staffAssistantModelMessages,
   STAFF_ASSISTANT_CHAT_MESSAGES_MAX,
   STAFF_ASSISTANT_CHAT_MESSAGE_TEXT_MAX,
