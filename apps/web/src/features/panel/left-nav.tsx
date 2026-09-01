@@ -2,7 +2,6 @@ import { useState, type ReactNode } from "react";
 import {
   Box,
   Building2,
-  ChevronDown,
   FileText,
   MailPlus,
   ShoppingBag,
@@ -38,10 +37,10 @@ export function LeftNav({
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const active = panelSectionFromPathname(pathname, chrome.companySlug);
   const [shozikOpen, setShozikOpen] = useState(false);
-  const customersExpanded =
-    active === "customers" ||
-    active === "customer-groups" ||
-    active === "counterparties";
+  const navActive: PanelSectionId =
+    active === "customer-groups" || active === "counterparties"
+      ? "customers"
+      : active;
 
   return (
     <>
@@ -59,7 +58,7 @@ export function LeftNav({
             id="orders"
             label={copy.orders}
             Icon={ShoppingBag}
-            active={active}
+            active={navActive}
             companySlug={chrome.companySlug}
             onNavigate={chrome.closeNav}
           />
@@ -67,7 +66,7 @@ export function LeftNav({
             id="documents"
             label={copy.documents}
             Icon={FileText}
-            active={active}
+            active={navActive}
             companySlug={chrome.companySlug}
             onNavigate={chrome.closeNav}
           />
@@ -75,58 +74,23 @@ export function LeftNav({
             id="products"
             label={copy.products}
             Icon={Box}
-            active={active}
+            active={navActive}
             companySlug={chrome.companySlug}
             onNavigate={chrome.closeNav}
           />
-          <li>
-            <Link
-              aria-current={active === "customers" ? "page" : undefined}
-              aria-expanded={customersExpanded}
-              params={{ companySlug: chrome.companySlug }}
-              to="/$companySlug/customers"
-              onClick={chrome.closeNav}
-              className={navRowClass(active === "customers")}
-            >
-              <Users
-                size={19}
-                aria-hidden
-                className={active === "customers" ? "text-ink" : "text-faint"}
-              />
-              <span className="flex-1 text-left">{copy.customers}</span>
-              <ChevronDown
-                size={16}
-                aria-hidden
-                className={cx(
-                  "shrink-0 text-faint transition-transform duration-150 ease-soft",
-                  customersExpanded ? "rotate-180" : "",
-                )}
-              />
-            </Link>
-            {customersExpanded ? (
-              <ul className="mt-1 space-y-0.5">
-                <ChildRow
-                  id="customer-groups"
-                  label={copy.customerGroupsShort}
-                  active={active}
-                  companySlug={chrome.companySlug}
-                  onNavigate={chrome.closeNav}
-                />
-                <ChildRow
-                  id="counterparties"
-                  label={copy.counterparties}
-                  active={active}
-                  companySlug={chrome.companySlug}
-                  onNavigate={chrome.closeNav}
-                />
-              </ul>
-            ) : null}
-          </li>
+          <NavRow
+            id="customers"
+            label={copy.customers}
+            Icon={Users}
+            active={navActive}
+            companySlug={chrome.companySlug}
+            onNavigate={chrome.closeNav}
+          />
           <NavRow
             id="invites"
             label={copy.invites}
             Icon={MailPlus}
-            active={active}
+            active={navActive}
             companySlug={chrome.companySlug}
             onNavigate={chrome.closeNav}
           />
@@ -134,7 +98,7 @@ export function LeftNav({
             id="pricing"
             label={copy.pricing}
             Icon={Tags}
-            active={active}
+            active={navActive}
             companySlug={chrome.companySlug}
             onNavigate={chrome.closeNav}
           />
@@ -145,7 +109,7 @@ export function LeftNav({
             id="company"
             label={copy.company}
             Icon={Building2}
-            active={active}
+            active={navActive}
             companySlug={chrome.companySlug}
             onNavigate={chrome.closeNav}
           />
@@ -226,42 +190,6 @@ function NavRow({
           aria-hidden
           className={selected ? "text-ink" : "text-faint"}
         />
-        {label}
-      </Link>
-    </li>
-  );
-}
-
-function ChildRow({
-  id,
-  label,
-  active,
-  companySlug,
-  onNavigate,
-}: {
-  readonly id: PanelSectionId;
-  readonly label: string;
-  readonly active: PanelSectionId;
-  readonly companySlug: string;
-  readonly onNavigate: () => void;
-}) {
-  const selected = active === id;
-  return (
-    <li>
-      <Link
-        aria-current={selected ? "page" : undefined}
-        params={{ companySlug }}
-        to={SECTION_LIST_PATH[id]}
-        onClick={onNavigate}
-        className={cx(
-          "flex w-full items-center rounded-full py-2 pl-11 pr-3 text-[14px]",
-          "transition-colors duration-150 ease-soft",
-          "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action",
-          selected
-            ? "bg-canvas font-semibold text-ink"
-            : "font-medium text-muted hover:bg-canvas/70 hover:text-ink",
-        )}
-      >
         {label}
       </Link>
     </li>

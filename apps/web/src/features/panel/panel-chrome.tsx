@@ -24,6 +24,9 @@ export function PanelChrome({
   const shellRef = useRef<HTMLDivElement>(null);
   const mode = usePanelShellMode(shellRef);
   const [navOpen, setNavOpen] = useState(false);
+  if (mode !== "tablet" && navOpen) {
+    setNavOpen(false);
+  }
   const chromeCopy = usePanelChromeCopy();
   const switcherCopy = useCompanyScopeCopy();
   const auth = useAuthSession();

@@ -8,6 +8,7 @@ import {
   fireEvent,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -127,6 +128,32 @@ describe("panel chrome breakpoints (SHO-314)", () => {
     ).toBeDefined();
   });
 
+  it("does not reopen the tablet drawer after leaving tablet and returning", async () => {
+    signInWithFlowers();
+    await renderApp("/kviti-lviv");
+    await screen.findByRole("heading", { name: "Квіти Львів" });
+    setShellWidth(800);
+    fireEvent.click(screen.getByRole("button", { name: "Меню" }));
+    expect(
+      screen.getByRole("navigation", { name: "Основна навігація" }),
+    ).toBeDefined();
+    setShellWidth(1280);
+    expect(
+      document.querySelector(".panel-shell")?.getAttribute("data-shell"),
+    ).toBe("desktop");
+    expect(
+      screen.getByRole("navigation", { name: "Основна навігація" }),
+    ).toBeDefined();
+    setShellWidth(800);
+    expect(
+      document.querySelector(".panel-shell")?.getAttribute("data-shell"),
+    ).toBe("tablet");
+    expect(
+      screen.queryByRole("navigation", { name: "Основна навігація" }),
+    ).toBeNull();
+    expect(screen.getByRole("button", { name: "Меню" })).toBeDefined();
+  });
+
   it("XORs list and detail and shows bottom tabs at phone shell width (<768)", async () => {
     signInWithFlowers();
     const { router } = await renderApp("/kviti-lviv");
@@ -171,6 +198,7 @@ describe("panel chrome breakpoints (SHO-314)", () => {
     expect(
       screen.queryByRole("heading", { name: "Модуль у розробці" }),
     ).toBeNull();
+    expect(screen.getByRole("region", { name: "Замовлення" })).toBeDefined();
   });
 });
 
@@ -192,6 +220,26 @@ describe("panel chrome nav (SHO-314)", () => {
         .getByRole("link", { name: "Замовлення" })
         .getAttribute("aria-current"),
     ).toBeNull();
+  });
+
+  it("keeps sidebar rows flat: no nested Групи/Контрагенти; Запрошення is first-class", async () => {
+    signInWithFlowers();
+    const { router } = await renderApp("/kviti-lviv");
+    await screen.findByRole("heading", { name: "Квіти Львів" });
+    setShellWidth(1280);
+    const nav = screen.getByRole("navigation", { name: "Основна навігація" });
+    expect(within(nav).getByRole("link", { name: "Клієнти" })).toBeDefined();
+    expect(within(nav).getByRole("link", { name: "Запрошення" })).toBeDefined();
+    expect(within(nav).queryByRole("link", { name: "Групи" })).toBeNull();
+    expect(within(nav).queryByRole("link", { name: "Контрагенти" })).toBeNull();
+    fireEvent.click(within(nav).getByRole("link", { name: "Клієнти" }));
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/kviti-lviv/customers");
+    });
+    expect(screen.getByRole("link", { name: "Групи" })).toBeDefined();
+    expect(screen.getByRole("link", { name: "Контрагенти" })).toBeDefined();
+    expect(within(nav).queryByRole("link", { name: "Групи" })).toBeNull();
+    expect(within(nav).queryByRole("link", { name: "Контрагенти" })).toBeNull();
   });
 });
 

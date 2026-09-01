@@ -37,7 +37,7 @@ export function SectionWorkspace({
       <section
         aria-label={sectionTitle(section, copy)}
         hidden={!listVisible}
-        className={listPaneClass(listVisible)}
+        className={listPaneClass()}
       >
         <PaneHeader
           title={sectionTitle(section, copy)}
@@ -62,7 +62,7 @@ export function SectionWorkspace({
           <CompanyRows companySlug={chrome.companySlug} pathname={pathname} />
         ) : null}
       </section>
-      <div hidden={!detailVisible} className={detailPaneClass(detailVisible)}>
+      <div hidden={!detailVisible} className={detailPaneClass()}>
         {children}
       </div>
     </>
