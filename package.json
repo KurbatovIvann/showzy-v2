@@ -8,7 +8,9 @@
   "scripts": {
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
-    "test": "turbo run test",
+    "test": "pnpm test:unit && pnpm test:db",
+    "test:unit": "turbo run test:unit",
+    "test:db": "pnpm --filter @showzy/db exec vitest run --config vitest.db.config.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

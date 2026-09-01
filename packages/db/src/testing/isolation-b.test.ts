@@ -15,6 +15,7 @@ afterAll(async () => {
 });
 
 it("isolates test file B in its own template clone", async () => {
+  expect(database.name).toMatch(/^showzy_test_[0-9a-f]+$/);
   await database.runtime.pool.query(
     `INSERT INTO audit_log
       (request_id, correlation_id, action, actor_type, actor_id, channel,

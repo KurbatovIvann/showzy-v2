@@ -24,7 +24,8 @@ const PARALLEL_CHECK_JOBS = [
   "format",
   "typecheck",
   "lint",
-  "test",
+  "test-unit",
+  "test-db",
   "build-smoke",
 ];
 
@@ -83,7 +84,7 @@ const turboCacheActionPath = path.join(
   ".github/actions/turbo-local-cache/action.yml",
 );
 
-const TURBO_TASK_JOBS = ["typecheck", "lint", "test", "build-smoke"];
+const TURBO_TASK_JOBS = ["typecheck", "lint", "test-unit", "build-smoke"];
 
 const workflow = fs.readFileSync(workflowPath, "utf8");
 const setupAction = fs.readFileSync(setupActionPath, "utf8");
@@ -99,7 +100,7 @@ test("CI workflow keeps concurrency cancellation and has no retries", () => {
   assert.doesNotMatch(workflow, /continue-on-error:\s*true/);
 });
 
-test("format, typecheck, lint, test, and build-smoke are independent jobs", () => {
+test("format, typecheck, lint, test-unit, test-db, and build-smoke are independent jobs", () => {
   for (const name of PARALLEL_CHECK_JOBS) {
     const block = extractJob(workflow, name);
     assert.deepEqual(
@@ -116,7 +117,16 @@ test("format, typecheck, lint, test, and build-smoke are independent jobs", () =
   assert.match(extractJob(workflow, "format"), /pnpm format:check/);
   assert.match(extractJob(workflow, "typecheck"), /run-turbo\.mjs typecheck/);
   assert.match(extractJob(workflow, "lint"), /run-turbo\.mjs lint/);
-  assert.match(extractJob(workflow, "test"), /run-turbo\.mjs test/);
+  const testUnit = extractJob(workflow, "test-unit");
+  assert.match(testUnit, /run-turbo\.mjs test:unit/);
+  assert.doesNotMatch(testUnit, /pnpm test:db/);
+  const testDb = extractJob(workflow, "test-db");
+  assert.match(testDb, /pnpm test:db/);
+  assert.match(testDb, /assert-shared-db-runtime\.mjs/);
+  assert.doesNotMatch(testDb, /run-turbo\.mjs/);
+  assert.doesNotMatch(testDb, /turbo-local-cache/);
+  assert.doesNotMatch(testDb, /--shard/);
+  assert.doesNotMatch(workflow, /^ {2}test:\s*$/m);
 
   const buildSmoke = extractJob(workflow, "build-smoke");
   assert.match(
@@ -129,7 +139,7 @@ test("format, typecheck, lint, test, and build-smoke are independent jobs", () =
   assert.doesNotMatch(serialChecks, /pnpm format:check/);
   assert.doesNotMatch(serialChecks, /pnpm typecheck/);
   assert.doesNotMatch(serialChecks, /pnpm lint/);
-  assert.doesNotMatch(serialChecks, /pnpm test/);
+  assert.doesNotMatch(serialChecks, /pnpm test[^\n-]/);
 });
 
 test("secret-scan and the other named gates remain independent workers", () => {

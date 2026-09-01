@@ -16,6 +16,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:db": "vitest run --project db",
+    "test:unit": "vitest run --project unit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:check-money": "node scripts/check-money-schema.mjs src/schema",

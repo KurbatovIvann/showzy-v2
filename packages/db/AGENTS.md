@@ -111,7 +111,12 @@ helpers from the package root — modules never call them.
 
 ## Testing
 
-`vitest run` boots Testcontainers Postgres 17 (Docker required). Structure
-tests live next to what they verify; the shared template-DB harness for
-module integration tests arrives in `src/testing/` (fnd-T5) — reuse it, do
-not hand-roll containers per module.
+`pnpm --filter @showzy/db test:unit` is Docker-free (schema lint, backup-verify
+CLI, harness probe helpers).
+
+`pnpm --filter @showzy/db test:db` and the workspace `pnpm test:db` boot
+**one** Testcontainers Postgres 17 (Docker required), migrate template
+`showzy_template` once, and clone `showzy_test_<uuid>` per file via
+`createTestDatabase()`. Structure tests live next to what they verify; module
+integration tests reuse this harness (fnd-T5) — do not hand-roll containers
+per module. CI asserts a single global-setup per `test-db` job.

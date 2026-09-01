@@ -10,6 +10,7 @@ import pg from "pg";
 import type { TestProject } from "vitest/node";
 
 import { createDbClient } from "../client.js";
+import { recordHarnessSetupCount } from "./ci-probe.js";
 import type { DbHarnessContext } from "./context.js";
 
 const templateDatabase = "showzy_template";
@@ -33,6 +34,7 @@ function databaseUrl(
 }
 
 export default async function setup(project: TestProject) {
+  recordHarnessSetupCount();
   const container: StartedPostgreSqlContainer = await new PostgreSqlContainer(
     "postgres:17-alpine",
   ).start();
@@ -78,7 +80,20 @@ export default async function setup(project: TestProject) {
     await control.end();
   }
 
-  return async () => {
+  let stopped = false;
+  const teardown = async () => {
+    if (stopped) {
+      return;
+    }
+    stopped = true;
     await container.stop();
   };
+  process.once("SIGINT", () => {
+    void teardown();
+  });
+  process.once("SIGTERM", () => {
+    void teardown();
+  });
+
+  return teardown;
 }

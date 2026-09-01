@@ -4,6 +4,7 @@ import pg from "pg";
 import { inject } from "vitest";
 
 import { createDbClient, type DbClient } from "../client.js";
+import { recordHarnessDatabaseName } from "./ci-probe.js";
 import type { DbHarnessContext } from "./context.js";
 
 export interface TestDatabase {
@@ -46,11 +47,11 @@ export async function createTestDatabase(): Promise<TestDatabase> {
   } finally {
     await control.end();
   }
+  recordHarnessDatabaseName(name);
 
   const admin = new pg.Client({
     connectionString: databaseUrl(context.adminUrl, name),
   });
-  await admin.connect();
   const runtime = createDbClient({
     databaseUrl: databaseUrl(context.adminUrl, name, {
       user: context.runtimeRole,
@@ -61,6 +62,28 @@ export async function createTestDatabase(): Promise<TestDatabase> {
   });
   let closed = false;
 
+  const dropClone = async () => {
+    const cleanup = new pg.Client({
+      connectionString: databaseUrl(context.adminUrl, "postgres"),
+    });
+    await cleanup.connect();
+    try {
+      // WITH (FORCE) is a test-harness primitive (db.md §8) so aborted
+      // files cannot leave a clone that blocks DROP DATABASE.
+      await cleanup.query(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`);
+    } finally {
+      await cleanup.end();
+    }
+  };
+
+  try {
+    await admin.connect();
+  } catch (error) {
+    await runtime.pool.end();
+    await dropClone();
+    throw error;
+  }
+
   return {
     name,
     admin,
@@ -70,16 +93,7 @@ export async function createTestDatabase(): Promise<TestDatabase> {
       closed = true;
       await runtime.pool.end();
       await admin.end();
-
-      const cleanup = new pg.Client({
-        connectionString: databaseUrl(context.adminUrl, "postgres"),
-      });
-      await cleanup.connect();
-      try {
-        await cleanup.query(`DROP DATABASE "${name}"`);
-      } finally {
-        await cleanup.end();
-      }
+      await dropClone();
     },
   };
 }

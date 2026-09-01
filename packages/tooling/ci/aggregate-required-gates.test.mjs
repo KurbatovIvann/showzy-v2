@@ -34,10 +34,13 @@ test("evaluateRequiredGates fails closed on failure, cancelled, skipped, empty, 
     ok: false,
     failures: [{ name: "lint", result: "failure" }],
   });
-  assert.deepEqual(evaluateRequiredGates({ ...base, test: "cancelled" }), {
-    ok: false,
-    failures: [{ name: "test", result: "cancelled" }],
-  });
+  assert.deepEqual(
+    evaluateRequiredGates({ ...base, "test-unit": "cancelled" }),
+    {
+      ok: false,
+      failures: [{ name: "test-unit", result: "cancelled" }],
+    },
+  );
   assert.deepEqual(evaluateRequiredGates({ ...base, format: "skipped" }), {
     ok: false,
     failures: [{ name: "format", result: "skipped" }],

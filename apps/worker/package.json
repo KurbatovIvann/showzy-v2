@@ -8,6 +8,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:unit": "vitest run --project unit",
     "start": "node --experimental-strip-types --import ../../packages/db/scripts/ts-resolve-register.mjs --env-file=../../.env src/index.ts"
   },
   "dependencies": {

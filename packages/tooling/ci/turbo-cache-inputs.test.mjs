@@ -38,8 +38,15 @@ test("turbo.json hashes lockfile, manifests, and shared tooling configs", () => 
   assert.equal(turbo.tasks["e2e-smoke"].cache, false);
 });
 
-test("typecheck, lint, test, and builds declare inputs so config changes miss cache", () => {
-  for (const name of ["typecheck", "lint", "test", "build", "export:web"]) {
+test("typecheck, lint, test, test:unit, and builds declare inputs so config changes miss cache", () => {
+  for (const name of [
+    "typecheck",
+    "lint",
+    "test",
+    "test:unit",
+    "build",
+    "export:web",
+  ]) {
     const inputs = turbo.tasks[name].inputs;
     assert.ok(
       Array.isArray(inputs) && inputs.includes("$TURBO_DEFAULT$"),
@@ -49,6 +56,7 @@ test("typecheck, lint, test, and builds declare inputs so config changes miss ca
   assert.ok(turbo.tasks.typecheck.inputs.includes("tsconfig.json"));
   assert.ok(turbo.tasks.lint.inputs.includes("eslint.config.*"));
   assert.ok(turbo.tasks.test.inputs.includes("vitest.config.*"));
+  assert.ok(turbo.tasks["test:unit"].inputs.includes("vitest.config.*"));
   assert.deepEqual(turbo.tasks.build.outputs, ["dist/**"]);
   assert.deepEqual(turbo.tasks["export:web"].outputs, ["dist/**"]);
 });
@@ -71,7 +79,14 @@ test("turbo.json has no synthetic topo task and no dependsOn topo edges", () => 
       `${name} must not depend on topo`,
     );
   }
-  for (const name of ["typecheck", "lint", "test", "build", "export:web"]) {
+  for (const name of [
+    "typecheck",
+    "lint",
+    "test",
+    "test:unit",
+    "build",
+    "export:web",
+  ]) {
     const deps = turbo.tasks[name].dependsOn ?? [];
     assert.equal(
       deps.filter((dep) => dep.startsWith("^")).length,
@@ -92,8 +107,8 @@ function turboDryRun(args) {
   });
 }
 
-test("turbo typecheck and test dry-run exit 0 despite circular package warnings", () => {
-  for (const task of ["typecheck", "test"]) {
+test("turbo typecheck, test, and test:unit dry-run exit 0 despite circular package warnings", () => {
+  for (const task of ["typecheck", "test", "test:unit"]) {
     const result = turboDryRun(["run", task, "--dry-run", "--cache=local:rw"]);
     const output = `${result.stdout}\n${result.stderr}`;
     assert.equal(result.status, 0, `${task} dry-run failed:\n${output}`);
