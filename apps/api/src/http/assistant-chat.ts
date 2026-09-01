@@ -23,6 +23,7 @@ import {
   staffAssistantCacheHitRatio,
   staffAssistantChatBodySchema,
   staffAssistantModelMessages,
+  staffAssistantShouldSkipOperationalGate,
   staffAssistantUncachedInputTokens,
   staffAssistantWorkingSetAddendum,
   streamStaffAssistantChat,
@@ -31,6 +32,7 @@ import {
   type LanguageModel,
   type PausedToolAttempt,
   type StaffAssistantChatMessage,
+  type StaffAssistantGateSkipReason,
   type StaffAssistantTurnResult,
   type StaffAssistantTurnUsage,
 } from "@showzy/ai";
@@ -158,6 +160,7 @@ function logTurnUsage(options: {
   readonly actorId: string;
   readonly model: string;
   readonly gateModel?: string;
+  readonly gateSkip?: StaffAssistantGateSkipReason;
   readonly gateUsage: StaffAssistantTurnUsage;
   readonly toolsAttached: boolean;
   readonly usage: StaffAssistantTurnUsage;
@@ -182,6 +185,7 @@ function logTurnUsage(options: {
         : {}),
       thinking: STAFF_ASSISTANT_THINKING_DISABLED,
       tools_attached: options.toolsAttached,
+      ...(options.gateSkip !== undefined ? { gate_skip: options.gateSkip } : {}),
       gate_input_tokens: options.gateUsage.inputTokens,
       gate_output_tokens: options.gateUsage.outputTokens,
       model_steps: options.modelSteps,
@@ -209,12 +213,14 @@ function logTurnGate(options: {
   readonly requestId: string;
   readonly gateModel: string;
   readonly operational: boolean;
+  readonly skip?: StaffAssistantGateSkipReason;
 }): void {
   options.logger.info(
     {
       request_id: options.requestId,
       gate_model: options.gateModel,
       operational: options.operational,
+      ...(options.skip !== undefined ? { gate_skip: options.skip } : {}),
     },
     "staff assistant turn gate",
   );
@@ -453,25 +459,43 @@ export async function executeStaffAssistantChat(
     const confirmationResume = confirmationChallengeId !== undefined;
     let operational = true;
     let gateRan = false;
+    let gateSkip: StaffAssistantGateSkipReason | undefined;
     let gateUsage = EMPTY_STAFF_ASSISTANT_TURN_USAGE;
 
     if (!confirmationResume && gateLanguageModel !== undefined) {
       const lastUserText = userMessage?.text ?? "";
       if (lastUserText.trim() !== "") {
-        const classified = await classifyStaffAssistantTurn({
-          model: gateLanguageModel,
-          lastUserText,
-          abortSignal: options.request.signal,
-        });
-        operational = classified.operational;
-        gateUsage = classified.usage;
-        gateRan = true;
-        logTurnGate({
-          logger: options.pipeline.logger,
-          requestId: options.requestId,
-          gateModel: options.assistant?.gateModel ?? "unconfigured",
-          operational,
-        });
+        if (
+          staffAssistantShouldSkipOperationalGate({
+            lastUserText,
+            toolRunCount: conversation.toolRuns.length,
+          })
+        ) {
+          operational = true;
+          gateSkip = "continuation_ack";
+          logTurnGate({
+            logger: options.pipeline.logger,
+            requestId: options.requestId,
+            gateModel: options.assistant?.gateModel ?? "unconfigured",
+            operational: true,
+            skip: "continuation_ack",
+          });
+        } else {
+          const classified = await classifyStaffAssistantTurn({
+            model: gateLanguageModel,
+            lastUserText,
+            abortSignal: options.request.signal,
+          });
+          operational = classified.operational;
+          gateUsage = classified.usage;
+          gateRan = true;
+          logTurnGate({
+            logger: options.pipeline.logger,
+            requestId: options.requestId,
+            gateModel: options.assistant?.gateModel ?? "unconfigured",
+            operational,
+          });
+        }
       }
     }
 
@@ -578,6 +602,15 @@ export async function executeStaffAssistantChat(
           model: replyModelId,
           ...(gateRan && options.assistant?.gateModel !== undefined
             ? { gateModel: options.assistant.gateModel }
+            : {}),
+          ...(gateSkip !== undefined
+            ? {
+                gateModel:
+                  options.assistant?.gateModel ??
+                  options.assistant?.model ??
+                  "unconfigured",
+                gateSkip,
+              }
             : {}),
           gateUsage,
           toolsAttached: turn.toolsAttached,
