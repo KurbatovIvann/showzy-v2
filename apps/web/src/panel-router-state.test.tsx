@@ -323,6 +323,67 @@ describe("typed Link tabs and nav (SHO-328)", () => {
     ).toBeNull();
   });
 
+  it("keeps the issued documents tab current on a document detail and create", async () => {
+    signInWithFlowers();
+    const cases = [
+      "/kviti-lviv/documents/doc-1",
+      "/kviti-lviv/documents/new",
+    ] as const;
+    for (const [index, path] of cases.entries()) {
+      if (index > 0) {
+        cleanup();
+        signInWithFlowers();
+      }
+      await renderApp(path);
+      await waitForRegion("Документи");
+      setShellWidth(1280);
+      const region = screen.getByRole("region", { name: "Документи" });
+      expect(
+        within(region)
+          .getByRole("link", { name: "Документи" })
+          .getAttribute("aria-current"),
+      ).toBe("page");
+      expect(
+        within(region)
+          .getByRole("link", { name: "Шаблони" })
+          .getAttribute("aria-current"),
+      ).toBeNull();
+    }
+  });
+
+  it("keeps the clients tab current on a customer detail and create", async () => {
+    signInWithFlowers();
+    const cases = [
+      "/kviti-lviv/customers/c-1",
+      "/kviti-lviv/customers/new",
+    ] as const;
+    for (const [index, path] of cases.entries()) {
+      if (index > 0) {
+        cleanup();
+        signInWithFlowers();
+      }
+      await renderApp(path);
+      await waitForRegion("Клієнти");
+      setShellWidth(1280);
+      const region = screen.getByRole("region", { name: "Клієнти" });
+      expect(
+        within(region)
+          .getByRole("link", { name: "Клієнти" })
+          .getAttribute("aria-current"),
+      ).toBe("page");
+      expect(
+        within(region)
+          .getByRole("link", { name: "Групи" })
+          .getAttribute("aria-current"),
+      ).toBeNull();
+      expect(
+        within(region)
+          .getByRole("link", { name: "Контрагенти" })
+          .getAttribute("aria-current"),
+      ).toBeNull();
+    }
+  });
+
   it("keeps the orders nav current on the company home URL", async () => {
     signInWithFlowers();
     await renderApp("/kviti-lviv");

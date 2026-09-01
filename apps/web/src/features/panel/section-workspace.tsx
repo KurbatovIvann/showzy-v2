@@ -207,17 +207,19 @@ export function FullShellPlaceholderPage({
 
 function DocumentsTabs({ companySlug }: { readonly companySlug: string }) {
   const copy = usePanelChromeCopy();
+  const { listTo } = useRequiredPanelState();
   return (
     <div className="flex gap-2 overflow-x-auto px-4 pb-4 pt-3 sm:px-5">
       <TabLink
         label={copy.documentsTab}
         params={{ companySlug }}
-        exact
+        current={listTo === "/$companySlug/documents"}
         to="/$companySlug/documents"
       />
       <TabLink
         label={copy.templatesTab}
         params={{ companySlug }}
+        current={listTo === "/$companySlug/documents/templates"}
         to="/$companySlug/documents/templates"
       />
     </div>
@@ -226,22 +228,25 @@ function DocumentsTabs({ companySlug }: { readonly companySlug: string }) {
 
 function CustomersTabs({ companySlug }: { readonly companySlug: string }) {
   const copy = usePanelChromeCopy();
+  const { listTo } = useRequiredPanelState();
   return (
     <div className="flex gap-2 overflow-x-auto px-4 pb-4 pt-3 sm:px-5">
       <TabLink
         label={copy.customers}
         params={{ companySlug }}
-        exact
+        current={listTo === "/$companySlug/customers"}
         to="/$companySlug/customers"
       />
       <TabLink
         label={copy.customerGroupsShort}
         params={{ companySlug }}
+        current={listTo === "/$companySlug/customers/groups"}
         to="/$companySlug/customers/groups"
       />
       <TabLink
         label={copy.counterparties}
         params={{ companySlug }}
+        current={listTo === "/$companySlug/customers/counterparties"}
         to="/$companySlug/customers/counterparties"
       />
     </div>
@@ -275,10 +280,10 @@ function TabLink({
   label,
   to,
   params,
-  exact = false,
+  current,
 }: {
   readonly label: string;
-  readonly exact?: boolean;
+  readonly current: boolean;
   readonly to:
     | "/$companySlug/documents"
     | "/$companySlug/documents/templates"
@@ -287,11 +292,20 @@ function TabLink({
     | "/$companySlug/customers/counterparties";
   readonly params: { readonly companySlug: string };
 }) {
+  // Current tab is `listTo === to` from matched staticData (document
+  // detail keeps issued `listTo`; templates layout overrides it). The
+  // current tab keeps default fuzzy Link matching so its own records
+  // stay current. Sibling trees pass `exact` so a parent `to` cannot
+  // stay active on templates / groups / counterparties.
   return (
     <Link
       params={params}
       to={to}
-      activeOptions={{ exact, includeSearch: false }}
+      activeOptions={
+        current
+          ? { includeSearch: false }
+          : { exact: true, includeSearch: false }
+      }
       activeProps={TAB_ACTIVE_PROPS}
       inactiveProps={TAB_INACTIVE_PROPS}
       className={TAB_BASE_CLASS}
