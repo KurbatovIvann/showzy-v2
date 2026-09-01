@@ -423,7 +423,7 @@ describe("phone list/detail and back (SHO-328)", () => {
     expect(
       screen.getByRole("heading", { name: "Модуль у розробці" }),
     ).toBeDefined();
-    await act(() => {
+    act(() => {
       router.history.back();
     });
     await waitFor(() => {
