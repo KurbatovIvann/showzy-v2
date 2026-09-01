@@ -20,10 +20,12 @@ import {
   staffAssistantChatBodySchema,
   staffAssistantModelMessages,
   streamStaffAssistantChat,
+  STAFF_ASSISTANT_THINKING_DISABLED,
   type LanguageModel,
   type PausedToolAttempt,
   type StaffAssistantChatMessage,
   type StaffAssistantTurnResult,
+  type StaffAssistantTurnUsage,
 } from "@showzy/ai";
 import {
   appendUserMessage,
@@ -137,6 +139,34 @@ function wireResponse(error: unknown, requestId: string): Response {
 
 function logFailure(logger: Logger, requestId: string, code: string): void {
   logger.error({ request_id: requestId, code }, "staff assistant chat failed");
+}
+
+function logTurnUsage(options: {
+  readonly logger: Logger;
+  readonly requestId: string;
+  readonly conversationId: string;
+  readonly companyId: string | null;
+  readonly actorId: string;
+  readonly model: string;
+  readonly toolsAttached: boolean;
+  readonly usage: StaffAssistantTurnUsage;
+}): void {
+  options.logger.info(
+    {
+      request_id: options.requestId,
+      conversation_id: options.conversationId,
+      company_id: options.companyId,
+      actor_id: options.actorId,
+      model: options.model,
+      thinking: STAFF_ASSISTANT_THINKING_DISABLED,
+      tools_attached: options.toolsAttached,
+      input_tokens: options.usage.inputTokens,
+      output_tokens: options.usage.outputTokens,
+      cache_read_tokens: options.usage.cacheReadTokens,
+      cache_write_tokens: options.usage.cacheWriteTokens,
+    },
+    "staff assistant turn usage",
+  );
 }
 
 function failureCode(error: unknown): string {
@@ -428,6 +458,16 @@ export async function executeStaffAssistantChat(
         });
       },
       onTurn: async (turn) => {
+        logTurnUsage({
+          logger: options.pipeline.logger,
+          requestId: options.requestId,
+          conversationId: body.conversationId,
+          companyId: companySelector,
+          actorId: session.userId,
+          model: options.assistant?.model ?? "unconfigured",
+          toolsAttached: turn.toolsAttached,
+          usage: turn.usage,
+        });
         try {
           await persistAssistantTurn({
             pipeline: options.pipeline,

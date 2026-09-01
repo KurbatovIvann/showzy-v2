@@ -14,12 +14,17 @@ import {
 import { z } from "zod";
 
 import { staffAssistantTools, type ActionToolExecute } from "./action-tool.js";
+import { STAFF_ASSISTANT_ANTHROPIC_PROVIDER_OPTIONS } from "./anthropic-options.js";
 import {
   isStaffAssistantConfirmationOutput,
   STAFF_ASSISTANT_CONFIRMATION_FALLBACK_TEXT,
   type StaffAssistantConfirmationOutput,
 } from "./confirmation.js";
 import { staffAssistantSystemPrompt } from "./system-prompt.js";
+import {
+  staffAssistantTurnUsageFromTotal,
+  type StaffAssistantTurnUsage,
+} from "./usage.js";
 
 export const STAFF_ASSISTANT_TOOL_RUNS_MAX = 50;
 export const STAFF_ASSISTANT_RESULT_IDS_MAX = 50;
@@ -54,6 +59,8 @@ export interface StaffAssistantToolRun {
 export interface StaffAssistantTurnResult {
   readonly text: string;
   readonly toolRuns: readonly StaffAssistantToolRun[];
+  readonly usage: StaffAssistantTurnUsage;
+  readonly toolsAttached: boolean;
 }
 
 export type StaffAssistantUIMessage = UIMessage<
@@ -230,6 +237,9 @@ export function streamStaffAssistantChat(options: {
         system: staffAssistantSystemPrompt,
         messages: options.messages,
         tools,
+        providerOptions: {
+          anthropic: STAFF_ASSISTANT_ANTHROPIC_PROVIDER_OPTIONS,
+        },
         ...(options.abortSignal !== undefined
           ? { abortSignal: options.abortSignal }
           : {}),
@@ -263,6 +273,8 @@ export function streamStaffAssistantChat(options: {
       const turn: StaffAssistantTurnResult = {
         text: turnText(text, runs),
         toolRuns: runs.slice(0, STAFF_ASSISTANT_TOOL_RUNS_MAX),
+        usage: await staffAssistantTurnUsageFromTotal(result.usage),
+        toolsAttached: options.contracts.length > 0,
       };
       resolveCompletion(turn);
       if (options.onTurn !== undefined) {

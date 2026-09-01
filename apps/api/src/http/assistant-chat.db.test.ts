@@ -1083,7 +1083,7 @@ describe("POST /assistant/chat logs and /rpc channel", () => {
       assistant: {
         model: "mock",
         languageModel: new MockLanguageModelV3({
-          doStream: [mockTextStream("ok")],
+          doStream: [mockTextStream("ASSISTANT_BODY_SENTINEL_never_log")],
         }),
       },
     });
@@ -1113,10 +1113,35 @@ describe("POST /assistant/chat logs and /rpc channel", () => {
 
     const blob = JSON.stringify(capturing.entries());
     expect(blob).not.toContain(prompt);
+    expect(blob).not.toContain("ASSISTANT_BODY_SENTINEL_never_log");
     expect(blob).not.toContain("COOKIESECRET_sho322");
     expect(blob).not.toContain("sk-ant-TESTKEY-never-log");
     expect(blob).not.toContain("111222");
     expect(blob).not.toContain("ANTHROPIC_API_KEY");
+
+    const usage = capturing
+      .entries()
+      .find((entry) => entry["msg"] === "staff assistant turn usage");
+    expect(usage).toBeDefined();
+    expect(typeof usage?.["request_id"]).toBe("string");
+    expect(usage?.["conversation_id"]).toBe(conversation.id);
+    expect(usage?.["company_id"]).toBe(kitIdentities.companies.a);
+    expect(usage?.["actor_id"]).toBe(kitIdentities.users.anna);
+    expect(usage?.["model"]).toBe("mock");
+    expect(usage?.["thinking"]).toBe("disabled");
+    expect(usage?.["tools_attached"]).toBe(true);
+    expect(typeof usage?.["input_tokens"]).toBe("number");
+    expect(typeof usage?.["output_tokens"]).toBe("number");
+    expect(typeof usage?.["cache_read_tokens"]).toBe("number");
+    expect(typeof usage?.["cache_write_tokens"]).toBe("number");
+    expect(JSON.stringify(usage)).not.toContain(prompt);
+    expect(JSON.stringify(usage)).not.toContain(
+      "ASSISTANT_BODY_SENTINEL_never_log",
+    );
+    expect(usage).not.toHaveProperty("text");
+    expect(usage).not.toHaveProperty("body");
+    expect(usage).not.toHaveProperty("prompt");
+    expect(usage).not.toHaveProperty("messages");
   });
 
   it("keeps /rpc labeled ui while the AI mount uses ai", async () => {

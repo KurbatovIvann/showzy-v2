@@ -18,6 +18,16 @@ export { StaffAssistantNotConfiguredError } from "./errors.js";
 export { filterStaffAiTools } from "./filter-staff-tools.js";
 export { createStaffLanguageModel } from "./language-model.js";
 export type { LanguageModel } from "ai";
+export {
+  STAFF_ASSISTANT_ANTHROPIC_PROVIDER_OPTIONS,
+  STAFF_ASSISTANT_ANTHROPIC_THINKING,
+  STAFF_ASSISTANT_THINKING_DISABLED,
+} from "./anthropic-options.js";
+export {
+  EMPTY_STAFF_ASSISTANT_TURN_USAGE,
+  staffAssistantTurnUsageFromUnknown,
+  type StaffAssistantTurnUsage,
+} from "./usage.js";
 export { attemptKey, type StaffAssistantAttemptKind } from "./attempt-key.js";
 export {
   lastStaffAssistantUserMessage,

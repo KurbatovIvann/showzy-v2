@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { staffAssistantTools, toProviderToolName } from "./action-tool.js";
+import { STAFF_ASSISTANT_THINKING_DISABLED } from "./anthropic-options.js";
 import {
   isStaffAssistantConfirmationOutput,
   STAFF_ASSISTANT_CONFIRMATION_FALLBACK_TEXT,
@@ -142,9 +143,33 @@ describe("streamStaffAssistantChat", () => {
       },
     ]);
     expect(turn.text).toContain("You have no orders.");
+    expect(turn.toolsAttached).toBe(true);
+    expect(turn.usage.inputTokens).toEqual(expect.any(Number));
+    expect(turn.usage.outputTokens).toEqual(expect.any(Number));
+    expect(turn.usage.cacheReadTokens).toEqual(expect.any(Number));
+    expect(turn.usage.cacheWriteTokens).toEqual(expect.any(Number));
     expect(JSON.stringify(payloads)).toContain("You have no orders.");
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
+  });
+
+  it("pins Anthropic thinking to disabled on every streamText call", async () => {
+    const model = new MockLanguageModelV3({
+      doStream: [mockTextStream("ok")],
+    });
+    const { response } = streamStaffAssistantChat({
+      model,
+      messages: [{ role: "user", content: "Hello" }],
+      contracts: [listOrders],
+      execute: () => Promise.resolve({ items: [], nextCursor: null }),
+    });
+    await readUiMessageSsePayloads(response);
+    expect(model.doStreamCalls.length).toBeGreaterThan(0);
+    for (const call of model.doStreamCalls) {
+      expect(call.providerOptions?.["anthropic"]).toMatchObject({
+        thinking: { type: STAFF_ASSISTANT_THINKING_DISABLED },
+      });
+    }
   });
 
   it("pauses on ConfirmationRequiredError and streams a redacted confirmation part", async () => {
