@@ -1,6 +1,7 @@
 /**
  * Map SSE-mount HTTP failures onto assistant copy. DefaultChatTransport
- * throws `Error` with the JSON body text — never log cookies or OTP.
+ * throws `Error` with the JSON body text; fetch failures are TypeError
+ * or `Failed to fetch`. Never log cookies or OTP.
  */
 import type { QueryFailureKind } from "../../../api/errors";
 import type { AssistantCopy } from "../../../i18n/assistant";
@@ -18,9 +19,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function isSseNetworkTransportError(error: Error): boolean {
+  return error instanceof TypeError || error.message === "Failed to fetch";
+}
+
 export function assistantChatErrorKind(error: unknown): AssistantChatErrorKind {
   if (!(error instanceof Error)) {
     return "unavailable";
+  }
+  if (isSseNetworkTransportError(error)) {
+    return "network";
   }
   let parsed: unknown;
   try {

@@ -21,8 +21,23 @@ describe("assistantChatErrorKind", () => {
     ).toBe("The assistant is not configured.");
   });
 
-  it("does not treat a non-JSON throw as a cookie leak surface", () => {
+  it("maps TypeError and failed-fetch transport throws to network", () => {
+    expect(assistantChatErrorKind(new TypeError("Failed to fetch"))).toBe(
+      "network",
+    );
     expect(assistantChatErrorKind(new Error("Failed to fetch"))).toBe(
+      "network",
+    );
+    expect(assistantChatErrorMessage("network", assistantCopy("en"))).toBe(
+      "Could not reach the assistant. Try again.",
+    );
+    expect(assistantChatErrorMessage("network", assistantCopy("uk"))).toBe(
+      "Не вдалося звʼязатися з асистентом. Спробуйте ще раз.",
+    );
+  });
+
+  it("does not treat other non-JSON throws as a cookie leak surface", () => {
+    expect(assistantChatErrorKind(new Error("stream interrupted"))).toBe(
       "unavailable",
     );
   });
