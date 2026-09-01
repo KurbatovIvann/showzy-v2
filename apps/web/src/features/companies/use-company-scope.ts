@@ -18,9 +18,11 @@ export function useCompanyScope(companySlug: string) {
     if (match === undefined) {
       return;
     }
-    setActiveCompany(match.company.id);
+    if (activeCompanyId !== match.company.id) {
+      setActiveCompany(match.company.id);
+    }
     createBrowserCompanyPrefs().setLastCompanySlug(match.company.slug);
-  }, [match, setActiveCompany]);
+  }, [activeCompanyId, match, setActiveCompany]);
 
   return {
     listMine,

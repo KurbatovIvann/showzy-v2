@@ -7,6 +7,7 @@ import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { listMineQueryKey } from "./api/company-membership-query";
 import { contractQueryKey } from "./api/query-options";
 import { DEVICE_PREF_LAST_COMPANY_SLUG_KEY } from "./prefs/storage";
 import {
@@ -137,6 +138,24 @@ describe("company switch (SHO-313)", () => {
     expect(window.localStorage.getItem(DEVICE_PREF_LAST_COMPANY_SLUG_KEY)).toBe(
       "pekarnya",
     );
+  });
+
+  it("keeps tenant cache when listMine refetches the same company", async () => {
+    signInWith([FLOWERS_MEMBERSHIP]);
+    const { apiClient, queryClient } = await renderApp("/kviti-lviv");
+    expect(
+      await screen.findByRole("heading", { name: "Квіти Львів" }),
+    ).toBeDefined();
+    const tenantKey = contractQueryKey("companies.get", FLOWERS_COMPANY_ID, {});
+    queryClient.setQueryData(tenantKey, { id: FLOWERS_COMPANY_ID });
+    await queryClient.invalidateQueries({ queryKey: listMineQueryKey() });
+    await waitFor(() => {
+      expect(queryClient.getQueryData(listMineQueryKey())).toBeDefined();
+    });
+    expect(queryClient.getQueryData(tenantKey)).toEqual({
+      id: FLOWERS_COMPANY_ID,
+    });
+    expect(apiClient.getActiveCompany()).toBe(FLOWERS_COMPANY_ID);
   });
 });
 
