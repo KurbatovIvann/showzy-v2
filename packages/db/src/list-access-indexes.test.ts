@@ -16,7 +16,7 @@ import { companies } from "./schema/companies.js";
 import { companyCustomers, counterparties } from "./schema/customers.js";
 import { documents } from "./schema/documents.js";
 import { companyCustomerInvites } from "./schema/invites.js";
-import { orders } from "./schema/orders.js";
+import { orderItems, orders } from "./schema/orders.js";
 import { createTestDatabase, type TestDatabase } from "./testing/harness.js";
 
 const PAGE_LIMIT = 21;
@@ -36,7 +36,7 @@ beforeAll(async () => {
   companyId = await seedListTables();
   await admin.query(
     `ANALYZE company_customers, counterparties, company_customer_invites,
-            products, orders, documents`,
+            products, orders, order_items, documents`,
   );
 });
 
@@ -97,18 +97,52 @@ async function seedListTables(): Promise<string> {
     })),
   );
 
+  const customerRows = await dbClient.db
+    .select({ id: companyCustomers.id })
+    .from(companyCustomers);
+  const productRows = await dbClient.db
+    .select({ id: products.id })
+    .from(products);
+
+  assert.equal(customerRows.length, SEED_ROWS);
+  assert.equal(productRows.length, SEED_ROWS);
+
   const orderRows = await dbClient.db
     .insert(orders)
     .values(
-      Array.from({ length: SEED_ROWS }, (_, index) => ({
-        companyId: company.id,
-        orderNumber: `LI-${index.toString(36).toUpperCase()}`,
-        totalNetMinor: 10_000n,
-        totalTaxMinor: 0n,
-        totalGrossMinor: 10_000n,
-      })),
+      Array.from({ length: SEED_ROWS }, (_, index) => {
+        const customer = customerRows[index];
+        assert.ok(customer);
+        return {
+          companyId: company.id,
+          orderNumber: `LI-${index.toString(36).toUpperCase()}`,
+          customerId: customer.id,
+          totalNetMinor: 10_000n,
+          totalTaxMinor: 0n,
+          totalGrossMinor: 10_000n,
+        };
+      }),
     )
     .returning({ id: orders.id });
+
+  await dbClient.db.insert(orderItems).values(
+    orderRows.map((order, index) => {
+      const product = productRows[index];
+      assert.ok(product);
+      return {
+        companyId: company.id,
+        orderId: order.id,
+        productId: product.id,
+        titleSnapshot: "List seed",
+        quantityMilli: 1000n,
+        unitPriceMinor: 10_000n,
+        taxTreatment: "exempt" as const,
+        netAmountMinor: 10_000n,
+        grossAmountMinor: 10_000n,
+        resolverVersion: 1,
+      };
+    }),
+  );
 
   await dbClient.db.insert(documents).values(
     orderRows.map((order, index) => ({
@@ -211,6 +245,49 @@ describe("list access indexes (SHO-283)", () => {
       [companyId],
     );
     expectIndexOnlyPaginatedPath(ordersPlan, "orders_company_created_at_idx");
+
+    const ordersStatusPlan = await explain(
+      `EXPLAIN SELECT id FROM orders
+       WHERE company_id = $1 AND status = 'new'
+       ORDER BY created_at DESC, id DESC
+       LIMIT ${String(PAGE_LIMIT)}`,
+      [companyId],
+    );
+    expectIndexOnlyPaginatedPath(
+      ordersStatusPlan,
+      "orders_company_status_created_at_id_idx",
+    );
+
+    const customerId = (
+      await dbClient.db
+        .select({ id: companyCustomers.id })
+        .from(companyCustomers)
+        .limit(1)
+    )[0]?.id;
+    assert.ok(customerId);
+    const ordersCustomerPlan = await explain(
+      `EXPLAIN SELECT id FROM orders
+       WHERE company_id = $1 AND customer_id = $2
+       ORDER BY created_at DESC, id DESC
+       LIMIT ${String(PAGE_LIMIT)}`,
+      [companyId, customerId],
+    );
+    expectIndexOnlyPaginatedPath(
+      ordersCustomerPlan,
+      "orders_company_customer_id_created_at_id_idx",
+    );
+
+    const orderId = (
+      await dbClient.db.select({ id: orders.id }).from(orders).limit(1)
+    )[0]?.id;
+    assert.ok(orderId);
+    const orderItemsPlan = await explain(
+      `EXPLAIN SELECT id FROM order_items
+       WHERE company_id = $1 AND order_id = $2`,
+      [companyId, orderId],
+    );
+    expect(orderItemsPlan).toContain("order_items_company_order_id_idx");
+    expect(orderItemsPlan).not.toMatch(/\bSeq Scan\b/);
 
     const documentsPlan = await explain(
       `EXPLAIN SELECT id FROM documents

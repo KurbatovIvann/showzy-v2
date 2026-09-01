@@ -2,6 +2,7 @@ import { getProductOrderFacts } from "@showzy/catalog";
 import { getCompany } from "@showzy/companies";
 import { implementAction } from "@showzy/core";
 import { CoreInvariantError } from "@showzy/core/errors";
+import { getCustomer } from "@showzy/customers";
 import { createAuditTarget, pickString } from "@showzy/module-kit/audit-target";
 import { resolveProductPrices } from "@showzy/pricing";
 import { z } from "zod";
@@ -33,6 +34,7 @@ export const createOrder = implementAction(createOrderContract, {
     }
 
     const company = await ctx.call(getCompany, {});
+    const customer = await ctx.call(getCustomer, { id: input.customerId });
     const catalog = await ctx.call(getProductOrderFacts, {
       items: input.items.map((item) => ({
         productId: item.productId,
@@ -47,10 +49,18 @@ export const createOrder = implementAction(createOrderContract, {
       customerId: input.customerId,
     });
 
+    const customerNameSnapshot = customer.name.trim();
+    if (customerNameSnapshot.length === 0) {
+      throw new CoreInvariantError(
+        "orders.create customer name snapshot is empty",
+      );
+    }
+
     return createStaffOrder({
       ctx,
       input,
       numberingPrefix: company.prefix,
+      customerNameSnapshot,
       products: catalog.products,
       prices: priced.prices,
     });

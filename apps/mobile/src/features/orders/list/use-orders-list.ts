@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { useApiClient } from "../../../api/api-provider";
 import { describeQueryFailure } from "../../../api/errors";
@@ -23,13 +23,11 @@ import {
 import { orderCreateHref, orderDetailHref } from "../shared/order-hrefs";
 import {
   classifyOrdersList,
-  filterOrdersBySelectedStatuses,
   flattenOrderPages,
   groupOrderRows,
   hasActiveStatusFilter,
   listOrdersPageInput,
   normalizeOrdersSearch,
-  shouldPageThroughClientStatusFilter,
   stickyHeaderIndices,
   toggleOrderStatusFilter,
   toOrderRowView,
@@ -37,7 +35,6 @@ import {
   type OrderStatusFilter,
   type OrdersListState,
 } from "./orders-list.presenter";
-import { useOrderCustomerNames } from "./use-order-customer-names";
 
 const EMPTY_ORDER_PAGES: ReadonlyArray<{
   readonly items: readonly OrderListItem[];
@@ -84,29 +81,15 @@ export function useOrdersList() {
     () => flattenOrderPages(listQuery.data?.pages ?? EMPTY_ORDER_PAGES),
     [listQuery.data?.pages],
   );
-  const { hydrationByCustomerId, refetch: refetchNames } =
-    useOrderCustomerNames({
-      client: apiClient,
-      companyId: activeCompanyId,
-      getActiveCompany,
-      items: listItems,
-    });
 
   const rows = useMemo(() => {
-    return filterOrdersBySelectedStatuses(listItems, selectedStatuses).map(
-      (entry) =>
-        toOrderRowView(entry, {
-          locale,
-          copy,
-          customerName:
-            entry.customerId === null
-              ? { kind: "missing" }
-              : (hydrationByCustomerId.get(entry.customerId) ?? {
-                  kind: "pending",
-                }),
-        }),
+    return listItems.map((entry) =>
+      toOrderRowView(entry, {
+        locale,
+        copy,
+      }),
     );
-  }, [copy, hydrationByCustomerId, listItems, locale, selectedStatuses]);
+  }, [copy, listItems, locale]);
 
   const entries = useMemo(() => groupOrderRows(rows), [rows]);
   const headerIndices = useMemo(() => stickyHeaderIndices(entries), [entries]);
@@ -130,28 +113,6 @@ export function useOrdersList() {
     hasNextPage,
     isFetchingNextPage,
   });
-
-  useEffect(() => {
-    if (
-      !shouldPageThroughClientStatusFilter({
-        selectedCount: selectedStatuses.length,
-        matchingRowCount: rows.length,
-        status: listStatus,
-        hasNextPage,
-        isFetchingNextPage,
-      })
-    ) {
-      return;
-    }
-    void fetchNextPage();
-  }, [
-    selectedStatuses.length,
-    rows.length,
-    listStatus,
-    hasNextPage,
-    isFetchingNextPage,
-    fetchNextPage,
-  ]);
 
   const selectedFilterChips: readonly OrdersListChip[] = selectedStatuses.map(
     (status) => ({
@@ -178,12 +139,10 @@ export function useOrdersList() {
   }, []);
   const refresh = useCallback(() => {
     void listRefetch();
-    refetchNames();
-  }, [listRefetch, refetchNames]);
+  }, [listRefetch]);
   const retry = useCallback(() => {
     void listRefetch();
-    refetchNames();
-  }, [listRefetch, refetchNames]);
+  }, [listRefetch]);
   const loadMore = useCallback(() => {
     if (hasNextPage && !isFetchingNextPage) {
       void fetchNextPage();

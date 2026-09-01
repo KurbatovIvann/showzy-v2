@@ -39,8 +39,8 @@ nothing more. You do not write `docs/specs/` or `docs/plans/`.
 4. Read only the context pack on the ticket. Study the **golden files for
    this layer**. Copy **protocol** (tenant, pagination helpers, errors,
    permissions, folders). Do not copy a screen-shaped list/write input
-   that ADR-0033 retires. After SHO-350 merges, staff lists copy
-   `orders.list`. Do not invent folders, layers, or dependencies. Mobile
+   that ADR-0033 retires. Staff lists copy `orders.list` (SHO-351). Do
+   not invent folders, layers, or dependencies. Mobile
    tickets: load `.cursor/skills/showzy-mobile/SKILL.md` before writing
    `apps/mobile` code.
 5. Work on the Linear ticket's `gitBranchName` when present; otherwise

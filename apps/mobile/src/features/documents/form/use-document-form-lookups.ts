@@ -59,7 +59,7 @@ export function useDocumentFormLookups(args: {
     }
     return flattenPages(ordersQuery.data.pages).map((row) => ({
       id: row.orderId,
-      customerId: row.customerId,
+      customerId: row.customer.linkedCustomerId,
       name: documentOrderOptionName(row),
       description: documentOrderOptionDescription(row),
     }));

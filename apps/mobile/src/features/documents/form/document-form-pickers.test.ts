@@ -14,7 +14,10 @@ describe("document form pickers", () => {
     const order = {
       orderId: ORDER_ID,
       orderNumber: "KA-K7X2",
-      customerId: ORDER_ID,
+      customer: {
+        nameSnapshot: "Customer A",
+        linkedCustomerId: ORDER_ID,
+      },
       status: "confirmed" as const,
       itemCount: 1,
       totalGrossMinor: "123456",

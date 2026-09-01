@@ -243,6 +243,7 @@ describe("client composition", () => {
     expect(contractModules.customers).not.toHaveProperty(
       "getCustomerPricingFacts",
     );
+    expect(contractModules.customers).not.toHaveProperty("listMatchingIds");
     expect(contractModules.customers).not.toHaveProperty("applyInviteCrm");
     expect(contractRouter.documents.cancel).toBeDefined();
     expect(contractRouter.documents.createFromOrder).toBeDefined();
