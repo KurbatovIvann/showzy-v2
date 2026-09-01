@@ -145,6 +145,13 @@ test("format, typecheck, lint, test-unit, test-db, and build-smoke are independe
   assert.match(testDb, /pnpm test:db/);
   assert.match(testDb, /assert-shared-db-runtime\.mjs/);
   assert.match(testDb, /assert-test-suite-collection\.mjs/);
+  const collectAt = testDb.indexOf("assert-test-suite-collection.mjs");
+  const runAt = testDb.indexOf("pnpm test:db");
+  const probeAt = testDb.indexOf("assert-shared-db-runtime.mjs");
+  assert.ok(
+    collectAt >= 0 && collectAt < runAt && runAt < probeAt,
+    "test-db must collect, then run one suite, then assert one template",
+  );
   assert.doesNotMatch(testDb, /run-turbo\.mjs/);
   assert.doesNotMatch(testDb, /turbo-local-cache/);
   assert.doesNotMatch(testDb, /--shard/);

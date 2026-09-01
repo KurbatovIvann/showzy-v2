@@ -11,7 +11,8 @@ const repoRoot = path.resolve(
 /**
  * Workspace DB suite (SHO-336): one Vitest process, one globalSetup, one
  * PostgreSQL template. Include/exclude must match
- * `packages/tooling/ci/test-suite-files.mjs`.
+ * `packages/tooling/ci/test-suite-files.mjs`. CI collection lists this
+ * config with `--filesOnly --staticParse` so globalSetup does not run.
  */
 export default defineConfig({
   root: repoRoot,

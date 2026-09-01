@@ -2,7 +2,12 @@
 /**
  * Compare on-disk DB test files to `vitest list` for the workspace DB
  * config (SHO-336). Run from the test-db job so unit CI does not pay
- * for collection. Does not start PostgreSQL (list only).
+ * for collection.
+ *
+ * `vitest list` without `--filesOnly` / `--staticParse` calls
+ * `collectTests()` → `initializeGlobalSetup()`, which starts PostgreSQL
+ * and increments the shared-runtime probe. Collection must glob (or
+ * statically parse) only.
  */
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -11,6 +16,28 @@ import { pathToFileURL } from "node:url";
 import { listClassifiedTestFiles, repoRoot } from "./test-suite-files.mjs";
 
 const TEST_PATH_RE = /\.test\.(tsx|ts|mjs)/;
+
+export const DB_HARNESS_SETUP_COUNT_FILE_ENV =
+  "SHOWZY_DB_HARNESS_SETUP_COUNT_FILE";
+export const DB_HARNESS_DB_NAMES_FILE_ENV = "SHOWZY_DB_HARNESS_DB_NAMES_FILE";
+
+export const DB_SUITE_LIST_CWD = path.join(repoRoot, "packages/db");
+
+/**
+ * `pnpm exec vitest list` arguments. `--filesOnly` skips collect/globalSetup;
+ * `--staticParse` is the fallback if `--filesOnly` is dropped (AST collect,
+ * still no globalSetup). Do not add `--shard`.
+ */
+export const DB_SUITE_LIST_ARGS = Object.freeze([
+  "exec",
+  "vitest",
+  "list",
+  "--config",
+  "vitest.db.config.ts",
+  "--filesOnly",
+  "--staticParse",
+  "--no-color",
+]);
 
 /**
  * @param {string} stdout
@@ -38,20 +65,52 @@ export function parseVitestListPaths(stdout) {
 }
 
 /**
+ * `vitest list --filesOnly` prints paths relative to `packages/db`.
+ * @param {string} filePath
+ * @returns {string}
+ */
+export function toRepoRelativeListedPath(filePath) {
+  const withForwardSlashes = filePath.replaceAll("\\", "/");
+  if (path.isAbsolute(filePath)) {
+    return path.relative(repoRoot, filePath).replaceAll("\\", "/");
+  }
+  if (
+    withForwardSlashes.startsWith("packages/") ||
+    withForwardSlashes.startsWith("apps/")
+  ) {
+    return withForwardSlashes;
+  }
+  return path
+    .relative(repoRoot, path.resolve(DB_SUITE_LIST_CWD, filePath))
+    .replaceAll("\\", "/");
+}
+
+/**
+ * Probe env on the parent must not reach `vitest list`. Unsetting is
+ * defense in depth — flags must still skip globalSetup (a second
+ * container would otherwise be silent).
+ * @param {NodeJS.ProcessEnv} [env]
+ * @returns {NodeJS.ProcessEnv}
+ */
+export function dbSuiteCollectionChildEnv(env = process.env) {
+  const child = { ...env, CI: "1" };
+  delete child[DB_HARNESS_SETUP_COUNT_FILE_ENV];
+  delete child[DB_HARNESS_DB_NAMES_FILE_ENV];
+  return child;
+}
+
+/**
+ * @param {NodeJS.ProcessEnv} [env]
  * @returns {{ ok: boolean, reason?: string, expected: string[], collected: string[] }}
  */
-export function compareDbSuiteCollection() {
+export function compareDbSuiteCollection(env = process.env) {
   const { db: expected } = listClassifiedTestFiles();
-  const listed = spawnSync(
-    "pnpm",
-    ["exec", "vitest", "list", "--config", "vitest.db.config.ts"],
-    {
-      cwd: path.join(repoRoot, "packages/db"),
-      encoding: "utf8",
-      timeout: 120_000,
-      env: { ...process.env, CI: "1" },
-    },
-  );
+  const listed = spawnSync("pnpm", [...DB_SUITE_LIST_ARGS], {
+    cwd: DB_SUITE_LIST_CWD,
+    encoding: "utf8",
+    timeout: 120_000,
+    env: dbSuiteCollectionChildEnv(env),
+  });
   const output = `${listed.stdout}\n${listed.stderr}`;
   if (listed.status !== 0) {
     return {
@@ -61,7 +120,9 @@ export function compareDbSuiteCollection() {
       collected: [],
     };
   }
-  const collected = parseVitestListPaths(output);
+  const collected = [
+    ...new Set(parseVitestListPaths(output).map(toRepoRelativeListedPath)),
+  ].sort();
   if (collected.join("\n") !== expected.join("\n")) {
     const missing = expected.filter((file) => !collected.includes(file));
     const extra = collected.filter((file) => !expected.includes(file));
