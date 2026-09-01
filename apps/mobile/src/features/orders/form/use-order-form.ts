@@ -1,12 +1,13 @@
 import { useRouter } from "expo-router";
-import { useReducer, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 
 import { useApiClient } from "../../../api/api-provider";
 import { describeQueryFailure, describeWireError } from "../../../api/errors";
 import { useActiveCompany } from "../../../api/query-provider";
+import { useUnsavedGuard } from "../../../components/form-kit";
 import { useResolvedCompany } from "../../../company-resolution/resolved-company-provider";
-import { detectLocale, interpolate } from "../../../i18n/locale";
+import { detectLocale } from "../../../i18n/locale";
 import { ordersCopy } from "../../../i18n/orders";
 import { itemCountLabel } from "../shared/item-count";
 import { orderDetailHref } from "../shared/order-hrefs";
@@ -14,13 +15,9 @@ import {
   canCreateOrders,
   orderCreateScreenActions,
 } from "../shared/order-permissions";
-import type { OrderThumbnailView } from "../shared/order-thumbnails";
+import { EMPTY_ORDER_THUMBNAIL } from "../shared/order-thumbnails";
 import {
-  fieldErrorsFromFormState,
-  mapOrderFormFailure,
   mapValidationIssues,
-  resolveOrderFormCopy,
-  rhfItemsMessage,
   rhfPathsForFieldErrors,
   type BannerKey,
 } from "./order-form-copy";
@@ -29,41 +26,26 @@ import {
   emptyOrderFormDraft,
   stepQuantityMilli,
   type OrderFormDraft,
-  type OrderFormLineDraft,
 } from "./order-form-draft";
 import { classifyOrderFormLoad } from "./order-form-load";
+import {
+  presentOrderFormCopy,
+  presentOrderFormItems,
+  presentProductsValue,
+  presentProductSelectRows,
+  presentVariantSelectRows,
+} from "./order-form.presenter";
 import { orderFormResolver } from "./order-form.schema";
-import {
-  commitProductPickerPicks,
-  emptyProductPicker,
-  productPickerOpen,
-  productPickerPicks,
-  productPickerSelectedIds,
-  productPickerSelectedVariantIds,
-  reduceProductPicker,
-} from "./product-picker";
-import {
-  productPickerParentSelectedNames,
-  productPickerParentSubtitle,
-  type ProductSelectLevel,
-  type ProductSelectRow,
-  type ProductSelectVariantRow,
-} from "./product-select";
+import { commitProductPickerPicks, productPickerPicks } from "./product-picker";
 import { useOrderFormLookups } from "./use-order-form-lookups";
+import { useOrderFormSheets } from "./use-order-form-sheets";
 import { useOrderSave } from "./use-order-save";
-import { useUnsavedOrderGuard } from "./use-unsaved-order-guard";
 
 export type OrderFormModel = ReturnType<typeof useOrderForm>;
 
-const EMPTY_THUMBNAIL: OrderThumbnailView = {
-  fileId: null,
-  url: null,
-  failed: false,
-};
-
 export function useOrderForm() {
   const locale = detectLocale();
-  const copy = ordersCopy(locale);
+  const copy = useMemo(() => ordersCopy(locale), [locale]);
   const formCopy = copy.create;
   const router = useRouter();
   const apiClient = useApiClient();
@@ -91,29 +73,16 @@ export function useOrderForm() {
     name: "items",
   });
   const { isDirty, errors, isSubmitted } = formState;
-
   const [localBanner, setLocalBanner] = useState<BannerKey | null>(null);
-  const [customerSheetOpen, setCustomerSheetOpen] = useState(false);
-  const [picker, dispatchPicker] = useReducer(
-    reduceProductPicker,
-    emptyProductPicker(),
-  );
-  const pickerRef = useRef(picker);
-  pickerRef.current = picker;
-
+  const sheets = useOrderFormSheets();
   const clientReady = apiClient !== null && activeCompanyId !== null;
-  const loadState = classifyOrderFormLoad({
-    canCreate,
-    clientReady,
-  });
-
+  const loadState = classifyOrderFormLoad({ canCreate, clientReady });
   const lookups = useOrderFormLookups({
     enabled: loadState.kind === "ready",
-    variantProductId: picker.kind === "variants" ? picker.productId : null,
+    variantProductId:
+      sheets.picker.kind === "variants" ? sheets.picker.productId : null,
   });
-
   const armLeaveRef = useRef(() => {});
-
   const saveApi = useOrderSave({
     loadKind: loadState.kind,
     getDraft: () => cloneOrderFormDraft(getValues()),
@@ -131,18 +100,12 @@ export function useOrderForm() {
       }
     },
   });
-
-  function closeAllSheets(): void {
-    setCustomerSheetOpen(false);
-    dispatchPicker({ type: "close" });
-  }
-
-  const { armLeave, requestLeave } = useUnsavedOrderGuard({
+  const { armLeave, requestLeave } = useUnsavedGuard({
     dirty: isDirty,
     pending: saveApi.pending,
     copy: formCopy,
-    sheetOpen: customerSheetOpen || productPickerOpen(picker),
-    closeSheet: closeAllSheets,
+    sheetOpen: sheets.customerSheetOpen || sheets.productSheetOpen,
+    closeSheet: sheets.closeAllSheets,
   });
   armLeaveRef.current = armLeave;
 
@@ -155,23 +118,17 @@ export function useOrderForm() {
   const serverFields = saveApi.isMutationError
     ? mapValidationIssues(saveApi.mutationError, saveApi.lastWrite)
     : null;
-  const itemsMessage = rhfItemsMessage(errors.items);
-  const fieldErrors = fieldErrorsFromFormState({
+  const pending = saveApi.pending;
+  const resolved = presentOrderFormCopy({
+    formCopy,
     submitted: isSubmitted,
     customerMessage: errors.customerId?.message,
-    itemsMessage,
+    itemsError: errors.items,
     commentMessage: errors.comment?.message,
-    server: serverFields,
-  });
-  const mappedBanner =
-    localBanner ??
-    mapOrderFormFailure(failure?.kind ?? null, wire?.code ?? null);
-  const pending = saveApi.pending;
-  const resolved = resolveOrderFormCopy(formCopy, {
-    customerError: fieldErrors.customer,
-    itemsError: fieldErrors.items,
-    commentError: fieldErrors.comment,
-    banner: mappedBanner,
+    serverFields,
+    localBanner,
+    failureKind: failure?.kind ?? null,
+    wireCode: wire?.code ?? null,
     pending,
     clientReady,
     canCreate,
@@ -181,56 +138,30 @@ export function useOrderForm() {
     resolved.showSubmit &&
     loadState.kind === "ready";
 
-  const items: OrderFormLineDraft[] = fields.map((field) => ({
-    key: field.key,
-    productId: field.productId,
-    variantId: field.variantId,
-    productName: field.productName,
-    variantName: field.variantName,
-    quantityMilli: field.quantityMilli,
-  }));
-
-  const picks = productPickerPicks(picker);
-  const selectedProductIds = productPickerSelectedIds(picks);
-
-  const productSelectRows: readonly ProductSelectRow[] =
-    lookups.productRows.map((row) => {
-      const thumbnail =
-        lookups.thumbnailsByProductId.get(row.id) ?? EMPTY_THUMBNAIL;
-      const selectedNames = productPickerParentSelectedNames(picks, row.id);
-      return {
-        id: row.id,
-        name: row.name,
-        hasVariants: row.variantCount > 0,
-        variantsLabel: productPickerParentSubtitle({
-          variantCount: row.variantCount,
-          selectedNames,
-          noneLabel: formCopy.variantsNone,
-          countLabel: itemCountLabel(
-            row.variantCount,
-            locale,
-            formCopy.variants,
-          ),
-          selectedLabel: formCopy.variantsSelected,
-        }),
-        thumbnailFileId: thumbnail.fileId,
-        thumbnailUrl: thumbnail.url,
-        thumbnailFailed: thumbnail.failed,
-      };
-    });
-
-  const variantSelectRows: readonly ProductSelectVariantRow[] =
-    lookups.variantOptions.map((option) => ({
-      id: option.id,
-      name: option.name,
-    }));
-
-  const productsValue =
-    items.length === 0
-      ? undefined
-      : interpolate(formCopy.addProductsValue, {
-          count: String(items.length),
-        });
+  const items = useMemo(() => presentOrderFormItems(fields), [fields]);
+  const picks = productPickerPicks(sheets.picker);
+  const productSelectRows = useMemo(
+    () =>
+      presentProductSelectRows({
+        productRows: lookups.productRows,
+        thumbnailsByProductId: lookups.thumbnailsByProductId,
+        picks,
+        formCopy,
+        locale,
+      }),
+    [
+      formCopy,
+      locale,
+      lookups.productRows,
+      lookups.thumbnailsByProductId,
+      picks,
+    ],
+  );
+  const variantSelectRows = useMemo(
+    () => presentVariantSelectRows(lookups.variantOptions),
+    [lookups.variantOptions],
+  );
+  const dispatchPicker = sheets.dispatchPicker;
 
   function onFieldEdit(): void {
     clearErrors();
@@ -241,7 +172,7 @@ export function useOrderForm() {
   function confirmProductPicks(): void {
     const result = commitProductPickerPicks(
       cloneOrderFormDraft(getValues()),
-      productPickerPicks(pickerRef.current),
+      productPickerPicks(sheets.pickerRef.current),
     );
     for (const line of result.lines) {
       append(line);
@@ -262,54 +193,55 @@ export function useOrderForm() {
     const option = lookups.customerOptions.find((row) => row.id === id);
     setValue("customerId", id, { shouldDirty: true });
     setValue("customerName", option?.name ?? "", { shouldDirty: true });
-    setCustomerSheetOpen(false);
+    sheets.closeCustomerSheet();
     onFieldEdit();
   }
 
-  function toggleProduct(id: string): void {
-    const row = lookups.productRows.find((item) => item.id === id);
-    if (row === undefined) {
-      return;
-    }
-    if (row.variantCount > 0) {
+  const toggleProduct = useCallback(
+    (id: string) => {
+      const row = lookups.productRows.find((item) => item.id === id);
+      if (row === undefined) {
+        return;
+      }
+      if (row.variantCount > 0) {
+        dispatchPicker({
+          type: "openVariants",
+          productId: row.id,
+          productName: row.name,
+        });
+        return;
+      }
       dispatchPicker({
-        type: "openVariants",
+        type: "toggleSimple",
         productId: row.id,
         productName: row.name,
       });
-      return;
-    }
-    dispatchPicker({
-      type: "toggleSimple",
-      productId: row.id,
-      productName: row.name,
-    });
-  }
+    },
+    [dispatchPicker, lookups.productRows],
+  );
 
-  function pickVariant(id: string): void {
-    const current = pickerRef.current;
-    if (current.kind !== "variants") {
-      return;
-    }
-    const option = lookups.variantOptions.find((row) => row.id === id);
-    dispatchPicker({
-      type: "pickVariant",
-      variantId: id,
-      variantName:
-        option?.name != null && option.name.length > 0 ? option.name : null,
-    });
-  }
+  const pickVariant = useCallback(
+    (id: string) => {
+      const current = sheets.pickerRef.current;
+      if (current.kind !== "variants") {
+        return;
+      }
+      const option = lookups.variantOptions.find((row) => row.id === id);
+      dispatchPicker({
+        type: "pickVariant",
+        variantId: id,
+        variantName:
+          option?.name != null && option.name.length > 0 ? option.name : null,
+      });
+    },
+    [dispatchPicker, lookups.variantOptions, sheets.pickerRef],
+  );
 
   const customerId = watch("customerId");
   const customerName = watch("customerName");
   const selectedCustomer = lookups.customerOptions.find(
     (row) => row.id === customerId,
   );
-  const customerPhone = selectedCustomer?.description;
-  const productPickerLevel: ProductSelectLevel =
-    picker.kind === "variants" ? "variants" : "products";
-  const productPickerVariantsTitle =
-    picker.kind === "variants" ? picker.productName : "";
 
   return {
     copy,
@@ -326,43 +258,34 @@ export function useOrderForm() {
     fieldsEditable: resolved.fieldsEditable && loadState.kind === "ready",
     showSubmit,
     customerName: customerName.length > 0 ? customerName : undefined,
-    customerPhone,
-    productsValue,
+    customerPhone: selectedCustomer?.description,
+    productsValue: presentProductsValue(
+      items.length,
+      formCopy.addProductsValue,
+    ),
     footerLinesLabel: itemCountLabel(items.length, locale, copy.items),
-    customerSheetOpen,
-    productSheetOpen: productPickerOpen(picker),
-    productPickerSessionOpen: productPickerOpen(picker),
-    productPickerLevel,
-    productPickerVariantsTitle,
+    customerSheetOpen: sheets.customerSheetOpen,
+    productSheetOpen: sheets.productSheetOpen,
+    productPickerSessionOpen: sheets.productPickerSessionOpen,
+    productPickerLevel: sheets.productPickerLevel,
+    productPickerVariantsTitle: sheets.productPickerVariantsTitle,
     customerOptions: lookups.customerOptions,
     productSelectRows,
     variantSelectRows,
     variantsStatus: lookups.variantsStatus,
     selectedCustomerId: customerId.length > 0 ? customerId : null,
-    selectedProductIds,
-    selectedVariantIds: productPickerSelectedVariantIds(picker),
-    productPickCount: picks.length,
-    lineThumbnail: (productId: string): OrderThumbnailView =>
-      lookups.thumbnailsByProductId.get(productId) ?? EMPTY_THUMBNAIL,
+    selectedProductIds: sheets.selectedProductIds,
+    selectedVariantIds: sheets.selectedVariantIds,
+    productPickCount: sheets.productPickCount,
+    lineThumbnail: (productId: string) =>
+      lookups.thumbnailsByProductId.get(productId) ?? EMPTY_ORDER_THUMBNAIL,
     onFieldEdit,
     requestLeave,
-    openCustomerSheet: () => {
-      dispatchPicker({ type: "close" });
-      setCustomerSheetOpen(true);
-    },
-    openProductsSheet: () => {
-      setCustomerSheetOpen(false);
-      dispatchPicker({ type: "open" });
-    },
-    closeCustomerSheet: () => {
-      setCustomerSheetOpen(false);
-    },
-    closeProductSheet: () => {
-      dispatchPicker({ type: "close" });
-    },
-    backFromVariants: () => {
-      dispatchPicker({ type: "closeVariants" });
-    },
+    openCustomerSheet: sheets.openCustomerSheet,
+    openProductsSheet: sheets.openProductsSheet,
+    closeCustomerSheet: sheets.closeCustomerSheet,
+    closeProductSheet: sheets.closeProductSheet,
+    backFromVariants: sheets.backFromVariants,
     pickCustomer,
     toggleProduct,
     confirmProductPicks,

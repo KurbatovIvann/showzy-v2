@@ -49,6 +49,9 @@ export function emptyProductPicker(): ProductPickerState {
   return { kind: "closed" };
 }
 
+const EMPTY_PICKS: readonly ProductPickerPick[] = [];
+const EMPTY_ID_SET: ReadonlySet<string> = new Set();
+
 export function productPickerOpen(state: ProductPickerState): boolean {
   return state.kind !== "closed";
 }
@@ -57,7 +60,7 @@ export function productPickerPicks(
   state: ProductPickerState,
 ): readonly ProductPickerPick[] {
   if (state.kind === "closed") {
-    return [];
+    return EMPTY_PICKS;
   }
   return state.picks;
 }
@@ -77,7 +80,7 @@ export function productPickerSelectedVariantIds(
   state: ProductPickerState,
 ): ReadonlySet<string> {
   if (state.kind !== "variants") {
-    return new Set();
+    return EMPTY_ID_SET;
   }
   return productPickerVariantIdsForProduct(state.picks, state.productId);
 }

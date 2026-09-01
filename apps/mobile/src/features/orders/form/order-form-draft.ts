@@ -6,6 +6,7 @@
 import {
   CREATE_ORDER_MAX_ITEMS,
   DEFAULT_LINE_QUANTITY_MILLI,
+  MAX_LINE_QUANTITY_UNITS,
   QUANTITY_MILLI_PER_UNIT,
 } from "../shared/order-caps";
 import {
@@ -71,28 +72,41 @@ export function cloneOrderFormDraft(values: OrderFormDraft): OrderFormDraft {
   };
 }
 
-export function quantityMilliFromUnits(units: number): string {
+function clampLineQuantityUnits(units: number): number {
   if (!Number.isInteger(units) || units < 1) {
-    return DEFAULT_LINE_QUANTITY_MILLI;
+    return 1;
   }
-  return (BigInt(units) * QUANTITY_MILLI_PER_UNIT).toString(10);
+  return Math.min(MAX_LINE_QUANTITY_UNITS, units);
 }
 
+export function quantityMilliFromUnits(units: number): string {
+  return (
+    BigInt(clampLineQuantityUnits(units)) * QUANTITY_MILLI_PER_UNIT
+  ).toString(10);
+}
+
+/**
+ * Whole-unit view of `quantityMilli`. Remainder ≥ 0.5 units rounds up
+ * so hydrating `1500` (1.5) does not silently become 1.
+ */
 export function unitsFromQuantityMilli(wire: string): number {
   if (!QUANTITY_WIRE.test(wire)) {
     return 1;
   }
-  const units = BigInt(wire) / QUANTITY_MILLI_PER_UNIT;
-  if (units < 1n) {
+  const milli = BigInt(wire);
+  const rounded =
+    (milli + QUANTITY_MILLI_PER_UNIT / 2n) / QUANTITY_MILLI_PER_UNIT;
+  if (rounded < 1n) {
     return 1;
   }
-  return Number(units);
+  if (rounded > BigInt(MAX_LINE_QUANTITY_UNITS)) {
+    return MAX_LINE_QUANTITY_UNITS;
+  }
+  return Number(rounded);
 }
 
 export function stepQuantityMilli(wire: string, deltaUnits: number): string {
-  return quantityMilliFromUnits(
-    Math.max(1, unitsFromQuantityMilli(wire) + deltaUnits),
-  );
+  return quantityMilliFromUnits(unitsFromQuantityMilli(wire) + deltaUnits);
 }
 
 export function formatOrderLineQuantity(wire: string): string {

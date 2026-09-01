@@ -25,6 +25,29 @@ export type ProductSelectLevel = "products" | "variants";
 
 export type ProductVariantsLoadStatus = "idle" | "loading" | "ready" | "error";
 
+const EMPTY_PRODUCT_SELECT_ROWS: readonly ProductSelectRow[] = [];
+
+/**
+ * Product-sheet search. Closed sessions return a stable empty array
+ * without walking the catalog (the sheet stays mounted in the form).
+ */
+export function filterProductSelectRows(
+  products: readonly ProductSelectRow[],
+  query: string,
+  sessionOpen: boolean,
+): readonly ProductSelectRow[] {
+  if (!sessionOpen) {
+    return EMPTY_PRODUCT_SELECT_ROWS;
+  }
+  const normalized = query.trim().toLowerCase();
+  if (normalized.length === 0) {
+    return products;
+  }
+  return products.filter((product) =>
+    product.name.toLowerCase().includes(normalized),
+  );
+}
+
 /**
  * Parent-row subtitle: variant count until the session has picks for
  * this product, then selected count · names (uk/en templates).

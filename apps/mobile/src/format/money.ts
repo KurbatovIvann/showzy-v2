@@ -14,7 +14,8 @@ import { moneyFromWire } from "@showzy/contract";
 const GROUP_SEPARATOR = "\u00A0";
 const UAH_SYMBOL = "₴";
 
-function groupDigits(digits: string): string {
+/** Groups of three from the right, no-break space separators. */
+export function groupDigits(digits: string): string {
   let grouped = "";
   for (let index = 0; index < digits.length; index += 1) {
     const fromEnd = digits.length - index;

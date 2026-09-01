@@ -4,7 +4,7 @@
  * presentational; no RHF and no XState on this screen.
  */
 import { useQuery } from "@tanstack/react-query";
-import { useReducer } from "react";
+import { useMemo, useReducer } from "react";
 
 import { useApiClient } from "../../../api/api-provider";
 import { describeWireError } from "../../../api/errors";
@@ -60,7 +60,7 @@ export function useOrderDetail(
   idParam: string | string[] | undefined,
 ): OrderDetailModel {
   const locale = detectLocale();
-  const copy = ordersCopy(locale);
+  const copy = useMemo(() => ordersCopy(locale), [locale]);
   const apiClient = useApiClient();
   const { activeCompanyId } = useActiveCompany();
   const membership = useResolvedCompany();
@@ -70,7 +70,10 @@ export function useOrderDetail(
     IDLE_DETAIL_SHEETS,
   );
   const query = useOrderDetailQuery(idParam);
-  const productIds = uniqueOrderLineProductIds(query.order?.items ?? []);
+  const productIds = useMemo(
+    () => uniqueOrderLineProductIds(query.order?.items ?? []),
+    [query.order?.items],
+  );
   const thumbnailsByProductId = useOrderDetailThumbnails({
     productIds,
     enabled: query.state.kind === "ready",
@@ -84,36 +87,48 @@ export function useOrderDetail(
       getActiveCompany: () => apiClient?.getActiveCompany() ?? null,
     }),
   );
-  const customer = resolveCustomerNameHydration({
-    customerId,
-    name: customerQuery.data?.name,
-    status: customerQuery.status,
-    notFound:
-      customerQuery.isError &&
-      describeWireError(customerQuery.error)?.code === "NOT_FOUND",
-  });
+  const customerName = customerQuery.data?.name;
+  const customerStatus = customerQuery.status;
+  const customerNotFound =
+    customerQuery.isError &&
+    describeWireError(customerQuery.error)?.code === "NOT_FOUND";
+  const customerPhoneRaw = customerQuery.data?.phone ?? null;
+  const customer = useMemo(
+    () =>
+      resolveCustomerNameHydration({
+        customerId,
+        name: customerName,
+        status: customerStatus,
+        notFound: customerNotFound,
+      }),
+    [customerId, customerName, customerNotFound, customerStatus],
+  );
   const actions = useOrderDetailActions({
     orderId: query.orderId,
     copy: copy.detail,
     dispatch,
   });
   const chrome = orderDetailSheetChrome(sheets);
-  const snapshot =
-    query.order === null
-      ? null
-      : toOrderDetailView({
-          order: query.order,
-          copy,
-          customer,
-          customerPhone: customerQuery.data?.phone ?? null,
-        });
-  const order =
-    snapshot === null
-      ? null
-      : {
-          ...snapshot,
-          lines: withOrderLineThumbnails(snapshot.lines, thumbnailsByProductId),
-        };
+  const snapshot = useMemo(() => {
+    if (query.order === null) {
+      return null;
+    }
+    return toOrderDetailView({
+      order: query.order,
+      copy,
+      customer,
+      customerPhone: customerPhoneRaw,
+    });
+  }, [copy, customer, customerPhoneRaw, query.order]);
+  const order = useMemo(() => {
+    if (snapshot === null) {
+      return null;
+    }
+    return {
+      ...snapshot,
+      lines: withOrderLineThumbnails(snapshot.lines, thumbnailsByProductId),
+    };
+  }, [snapshot, thumbnailsByProductId]);
   const actionFlags = orderDetailActions({
     canEdit,
     status: order?.status ?? "canceled",

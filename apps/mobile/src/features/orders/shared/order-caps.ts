@@ -23,5 +23,13 @@ export const QUANTITY_MILLI_PER_UNIT = 1000n;
 
 export const DEFAULT_LINE_QUANTITY_MILLI = "1000";
 
+/**
+ * Whole-unit stepper ceiling (SHO-305). `quantityMilli` stays a
+ * canonical positive integer whose unit conversion fits JS number.
+ * 999_999_999 units → 12-digit milli, matching the archived create
+ * wire `^[1-9][0-9]{0,11}$` length.
+ */
+export const MAX_LINE_QUANTITY_UNITS = 999_999_999;
+
 /** Canvas comment textarea — Class B via TextField multiline. */
 export const ORDER_COMMENT_LINES = 4;

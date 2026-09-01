@@ -5,6 +5,8 @@ import {
   mergeDownloadUrlPages,
   orderThumbnailView,
   resolveOrderThumbnail,
+  retainStringMap,
+  retainStringSet,
   uniquePrimaryImageFileIds,
 } from "./order-thumbnails";
 
@@ -59,6 +61,50 @@ describe("failedPrimaryImageFileIds", () => {
         [false, true],
       ),
     ]).toEqual([FILE_B]);
+  });
+});
+
+describe("retainStringMap / retainStringSet", () => {
+  it("keeps the previous collection when contents match so thumbnail memos can bail", () => {
+    const urls = mergeDownloadUrlPages([
+      {
+        files: [{ fileId: FILE_A, downloadUrl: "https://example.test/a" }],
+      },
+    ]);
+    const sameUrls = mergeDownloadUrlPages([
+      {
+        files: [{ fileId: FILE_A, downloadUrl: "https://example.test/a" }],
+      },
+    ]);
+    expect(sameUrls).not.toBe(urls);
+    expect(retainStringMap(urls, sameUrls)).toBe(urls);
+    expect(
+      retainStringMap(
+        urls,
+        mergeDownloadUrlPages([
+          {
+            files: [{ fileId: FILE_A, downloadUrl: "https://example.test/b" }],
+          },
+        ]),
+      ),
+    ).not.toBe(urls);
+
+    const failed = failedPrimaryImageFileIds(
+      [{ items: [item(FILE_A)] }],
+      [true],
+    );
+    const sameFailed = failedPrimaryImageFileIds(
+      [{ items: [item(FILE_A)] }],
+      [true],
+    );
+    expect(sameFailed).not.toBe(failed);
+    expect(retainStringSet(failed, sameFailed)).toBe(failed);
+    expect(
+      retainStringSet(
+        failed,
+        failedPrimaryImageFileIds([{ items: [item(FILE_B)] }], [true]),
+      ),
+    ).not.toBe(failed);
   });
 });
 

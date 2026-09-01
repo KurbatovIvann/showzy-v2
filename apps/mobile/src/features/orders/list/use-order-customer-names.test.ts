@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   customerNameHydrationById,
+  retainCustomerNameHydrationMap,
   uniqueCustomerIds,
 } from "./use-order-customer-names";
 
@@ -60,5 +61,25 @@ describe("customerNameHydrationById", () => {
     );
     expect(map.get(FIRST)).toEqual({ kind: "missing" });
     expect(map.get(permission)).toEqual({ kind: "pending" });
+  });
+});
+
+describe("retainCustomerNameHydrationMap", () => {
+  it("keeps the previous map when contents match so list rows can bail", () => {
+    const first = customerNameHydrationById(
+      [FIRST],
+      [{ name: "Марія", status: "success", notFound: false }],
+    );
+    const second = customerNameHydrationById(
+      [FIRST],
+      [{ name: "Марія", status: "success", notFound: false }],
+    );
+    expect(second).not.toBe(first);
+    expect(retainCustomerNameHydrationMap(first, second)).toBe(first);
+    const renamed = customerNameHydrationById(
+      [FIRST],
+      [{ name: "Олег", status: "success", notFound: false }],
+    );
+    expect(retainCustomerNameHydrationMap(first, renamed)).toBe(renamed);
   });
 });

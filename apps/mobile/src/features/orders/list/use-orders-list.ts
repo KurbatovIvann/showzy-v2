@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useApiClient } from "../../../api/api-provider";
 import { describeQueryFailure } from "../../../api/errors";
@@ -12,7 +12,10 @@ import {
 } from "../../../hooks/use-debounced-value";
 import { detectLocale } from "../../../i18n/locale";
 import { ordersCopy } from "../../../i18n/orders";
-import { listOrdersInfiniteOptions } from "../api/order.queries";
+import {
+  listOrdersInfiniteOptions,
+  type OrderListItem,
+} from "../api/order.queries";
 import {
   canCreateOrders,
   ordersHeaderActions,
@@ -35,6 +38,10 @@ import {
   type OrdersListState,
 } from "./orders-list.presenter";
 import { useOrderCustomerNames } from "./use-order-customer-names";
+
+const EMPTY_ORDER_PAGES: ReadonlyArray<{
+  readonly items: readonly OrderListItem[];
+}> = [];
 
 export type OrdersListChip = {
   readonly key: OrderStatusFilter;
@@ -60,7 +67,10 @@ export function useOrdersList() {
   const search = normalizeOrdersSearch(debouncedSearch);
   const hasSearch = search !== undefined;
 
-  const getActiveCompany = () => apiClient?.getActiveCompany() ?? null;
+  const getActiveCompany = useCallback(
+    () => apiClient?.getActiveCompany() ?? null,
+    [apiClient],
+  );
   const listQuery = useInfiniteQuery(
     listOrdersInfiniteOptions({
       client: apiClient,
@@ -71,7 +81,7 @@ export function useOrdersList() {
   );
 
   const listItems = useMemo(
-    () => flattenOrderPages(listQuery.data?.pages ?? []),
+    () => flattenOrderPages(listQuery.data?.pages ?? EMPTY_ORDER_PAGES),
     [listQuery.data?.pages],
   );
   const { hydrationByCustomerId, refetch: refetchNames } =
@@ -149,6 +159,45 @@ export function useOrdersList() {
       label: copy.statuses[status],
     }),
   );
+  const listRefetch = listQuery.refetch;
+  const openFilters = useCallback(() => {
+    setFilterSheetVisible(true);
+  }, []);
+  const closeFilters = useCallback(() => {
+    setFilterSheetVisible(false);
+  }, []);
+  const toggleStatus = useCallback((status: OrderStatusFilter) => {
+    setSelectedStatuses((current) => toggleOrderStatusFilter(current, status));
+  }, []);
+  const resetFilters = useCallback(() => {
+    setSelectedStatuses([]);
+  }, []);
+  const resetSearchAndFilters = useCallback(() => {
+    setSearchText("");
+    setSelectedStatuses([]);
+  }, []);
+  const refresh = useCallback(() => {
+    void listRefetch();
+    refetchNames();
+  }, [listRefetch, refetchNames]);
+  const retry = useCallback(() => {
+    void listRefetch();
+    refetchNames();
+  }, [listRefetch, refetchNames]);
+  const loadMore = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) {
+      void fetchNextPage();
+    }
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
+  const openOrder = useCallback(
+    (id: string) => {
+      router.push(orderDetailHref(id));
+    },
+    [router],
+  );
+  const openCreate = useCallback(() => {
+    router.push(orderCreateHref());
+  }, [router]);
 
   return {
     copy,
@@ -163,46 +212,19 @@ export function useOrdersList() {
     selectedFilterChips,
     filterCount: selectedStatuses.length,
     filterSheetVisible,
-    openFilters: () => {
-      setFilterSheetVisible(true);
-    },
-    closeFilters: () => {
-      setFilterSheetVisible(false);
-    },
-    toggleStatus: (status: OrderStatusFilter) => {
-      setSelectedStatuses((current) =>
-        toggleOrderStatusFilter(current, status),
-      );
-    },
-    resetFilters: () => {
-      setSelectedStatuses([]);
-    },
-    resetSearchAndFilters: () => {
-      setSearchText("");
-      setSelectedStatuses([]);
-    },
+    openFilters,
+    closeFilters,
+    toggleStatus,
+    resetFilters,
+    resetSearchAndFilters,
     showCreate,
     refreshing: listQuery.isRefetching && !listQuery.isFetchingNextPage,
-    refresh: () => {
-      void listQuery.refetch();
-      refetchNames();
-    },
-    retry: () => {
-      void listQuery.refetch();
-      refetchNames();
-    },
+    refresh,
+    retry,
     loadingMore: listQuery.isFetchingNextPage,
-    loadMore: () => {
-      if (listQuery.hasNextPage && !listQuery.isFetchingNextPage) {
-        void listQuery.fetchNextPage();
-      }
-    },
-    openOrder: (id: string) => {
-      router.push(orderDetailHref(id));
-    },
-    openCreate: () => {
-      router.push(orderCreateHref());
-    },
+    loadMore,
+    openOrder,
+    openCreate,
   };
 }
 
