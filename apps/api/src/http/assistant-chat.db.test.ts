@@ -449,27 +449,21 @@ describe("POST /assistant/chat mock-model parity", () => {
     });
     await staffInvoke(archiveCustomer, { id: customer.id });
     const deleteInput = JSON.stringify({ id: customer.id });
-    let streamCalls = 0;
     const app = chatApp(
       new MockLanguageModelV3({
-        doStream: () => {
-          streamCalls += 1;
-          if (streamCalls === 1) {
-            return mockToolCallStream(
-              "call-delete",
-              "customers.deleteCustomer",
-              deleteInput,
-            );
-          }
-          if (streamCalls === 2) {
-            return mockToolCallStream(
-              "call-delete-resume",
-              "customers.deleteCustomer",
-              deleteInput,
-            );
-          }
-          return mockTextStream("The customer was deleted.");
-        },
+        doStream: [
+          mockToolCallStream(
+            "call-delete",
+            "customers.deleteCustomer",
+            deleteInput,
+          ),
+          mockToolCallStream(
+            "call-delete-resume",
+            "customers.deleteCustomer",
+            deleteInput,
+          ),
+          mockTextStream("The customer was deleted."),
+        ],
       }),
     );
     const token = await insertBearer(kit, kitIdentities.users.anna);
