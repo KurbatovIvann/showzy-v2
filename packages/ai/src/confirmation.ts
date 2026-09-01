@@ -22,5 +22,25 @@ export function isStaffAssistantConfirmationOutput(
   return staffAssistantConfirmationOutputSchema.safeParse(value).success;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Accept the streamed `data-confirmation` envelope or a flattened
+ * confirmation object that a client echoes back in `messages[].parts`.
+ */
+export function confirmationFromChatPart(
+  part: unknown,
+): StaffAssistantConfirmationOutput | undefined {
+  if (isStaffAssistantConfirmationOutput(part)) {
+    return part;
+  }
+  if (!isRecord(part)) {
+    return undefined;
+  }
+  return isStaffAssistantConfirmationOutput(part.data) ? part.data : undefined;
+}
+
 export const STAFF_ASSISTANT_CONFIRMATION_FALLBACK_TEXT =
   "Confirmation required.";

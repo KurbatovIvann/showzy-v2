@@ -206,6 +206,8 @@ export function streamStaffAssistantChat(options: {
   readonly execute: ActionToolExecute;
   readonly abortSignal?: AbortSignal;
   readonly responseHeaders?: Record<string, string>;
+  /** Awaited inside the UI-message stream after `result.text`. A throw fails the stream. */
+  readonly onTurn?: (turn: StaffAssistantTurnResult) => Promise<void>;
 }): {
   readonly response: Response;
   readonly completion: Promise<StaffAssistantTurnResult>;
@@ -222,7 +224,7 @@ export function streamStaffAssistantChat(options: {
   });
 
   const stream = createUIMessageStream<StaffAssistantUIMessage>({
-    execute: ({ writer }) => {
+    execute: async ({ writer }) => {
       const result = streamText({
         model: options.model,
         system: staffAssistantSystemPrompt,
@@ -252,20 +254,20 @@ export function streamStaffAssistantChat(options: {
           tools,
         }),
       );
-      void result.text.then(
-        (text) => {
-          resolveCompletion({
-            text: turnText(text, runs),
-            toolRuns: runs.slice(0, STAFF_ASSISTANT_TOOL_RUNS_MAX),
-          });
-        },
-        () => {
-          resolveCompletion({
-            text: "The assistant could not complete this turn.",
-            toolRuns: runs.slice(0, STAFF_ASSISTANT_TOOL_RUNS_MAX),
-          });
-        },
-      );
+      let text: string;
+      try {
+        text = await result.text;
+      } catch {
+        text = "The assistant could not complete this turn.";
+      }
+      const turn: StaffAssistantTurnResult = {
+        text: turnText(text, runs),
+        toolRuns: runs.slice(0, STAFF_ASSISTANT_TOOL_RUNS_MAX),
+      };
+      resolveCompletion(turn);
+      if (options.onTurn !== undefined) {
+        await options.onTurn(turn);
+      }
     },
     onError: () => "The assistant could not complete this turn.",
   });

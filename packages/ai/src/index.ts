@@ -1,9 +1,13 @@
 export {
   actionContractToTool,
+  fromProviderToolName,
   staffAssistantTools,
+  toProviderToolName,
+  PROVIDER_TOOL_NAME_PATTERN,
   type ActionToolExecute,
 } from "./action-tool.js";
 export {
+  confirmationFromChatPart,
   isStaffAssistantConfirmationOutput,
   staffAssistantConfirmationOutputSchema,
   STAFF_ASSISTANT_CONFIRMATION_FALLBACK_TEXT,
@@ -16,9 +20,13 @@ export { createStaffLanguageModel } from "./language-model.js";
 export type { LanguageModel } from "ai";
 export {
   lastStaffAssistantUserText,
+  pausedActionNameForChallenge,
   staffAssistantChatBodySchema,
   staffAssistantChatMessageSchema,
   staffAssistantModelMessages,
+  STAFF_ASSISTANT_CHAT_MESSAGES_MAX,
+  STAFF_ASSISTANT_CHAT_MESSAGE_TEXT_MAX,
+  STAFF_ASSISTANT_CHAT_PARTS_MAX,
   type StaffAssistantChatBody,
   type StaffAssistantChatMessage,
 } from "./messages.js";

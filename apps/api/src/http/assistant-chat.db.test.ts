@@ -6,6 +6,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 
 import {
   isStaffAssistantConfirmationOutput,
+  toProviderToolName,
   type LanguageModel,
 } from "@showzy/ai";
 import {
@@ -40,6 +41,7 @@ import {
 import {
   archiveCustomer,
   createCustomer,
+  createGroup,
   getCustomer,
 } from "@showzy/customers";
 import { auditLog } from "@showzy/db";
@@ -48,7 +50,7 @@ import {
   assistantMessages,
   assistantToolRuns,
 } from "@showzy/db/schema/assistant";
-import { companyCustomers } from "@showzy/db/schema/customers";
+import { companyCustomers, customerGroups } from "@showzy/db/schema/customers";
 import { orders } from "@showzy/db/schema/orders";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -353,7 +355,11 @@ describe("POST /assistant/chat mock-model parity", () => {
     const app = chatApp(
       new MockLanguageModelV3({
         doStream: [
-          mockToolCallStream("call-list", "orders.list", "{}"),
+          mockToolCallStream(
+            "call-list",
+            toProviderToolName("orders.list"),
+            "{}",
+          ),
           mockTextStream("You have no orders."),
         ],
       }),
@@ -399,7 +405,11 @@ describe("POST /assistant/chat mock-model parity", () => {
     const app = chatApp(
       new MockLanguageModelV3({
         doStream: [
-          mockToolCallStream("call-create", "orders.create", createInput),
+          mockToolCallStream(
+            "call-create",
+            toProviderToolName("orders.create"),
+            createInput,
+          ),
           mockTextStream("Order created."),
         ],
       }),
@@ -454,12 +464,12 @@ describe("POST /assistant/chat mock-model parity", () => {
         doStream: [
           mockToolCallStream(
             "call-delete",
-            "customers.deleteCustomer",
+            toProviderToolName("customers.deleteCustomer"),
             deleteInput,
           ),
           mockToolCallStream(
             "call-delete-resume",
-            "customers.deleteCustomer",
+            toProviderToolName("customers.deleteCustomer"),
             deleteInput,
           ),
           mockTextStream("The customer was deleted."),
@@ -522,6 +532,130 @@ describe("POST /assistant/chat mock-model parity", () => {
     await expect(
       staffInvoke(getCustomer, { id: customer.id }),
     ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("does not bind a resume challenge to a different high-risk tool", async () => {
+    const customer = await staffInvoke(createCustomer, {
+      name: "AI Challenge Scope",
+      phone: "+380671110003",
+    });
+    await staffInvoke(archiveCustomer, { id: customer.id });
+    const group = await staffInvoke(createGroup, {
+      name: "AI Challenge Group",
+    });
+    const deleteCustomerInput = JSON.stringify({ id: customer.id });
+    const deleteGroupInput = JSON.stringify({ id: group.id });
+    const app = chatApp(
+      new MockLanguageModelV3({
+        doStream: [
+          mockToolCallStream(
+            "call-delete",
+            toProviderToolName("customers.deleteCustomer"),
+            deleteCustomerInput,
+          ),
+          mockToolCallStream(
+            "call-wrong",
+            toProviderToolName("customers.deleteGroup"),
+            deleteGroupInput,
+          ),
+          mockToolCallStream(
+            "call-delete-resume",
+            toProviderToolName("customers.deleteCustomer"),
+            deleteCustomerInput,
+          ),
+          mockTextStream("The customer was deleted."),
+        ],
+      }),
+    );
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Challenge scope",
+    });
+    const pause = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "Delete the archived customer"),
+    });
+    expect(pause.status).toBe(200);
+    const pausePayloads = await readUiMessageSsePayloads(pause);
+    const confirmation = pausePayloads
+      .map((payload) => {
+        if (
+          typeof payload === "object" &&
+          payload !== null &&
+          "type" in payload &&
+          payload.type === "data-confirmation" &&
+          "data" in payload
+        ) {
+          return payload.data;
+        }
+        return undefined;
+      })
+      .find((data) => isStaffAssistantConfirmationOutput(data));
+    expect(confirmation).toBeDefined();
+    if (!isStaffAssistantConfirmationOutput(confirmation)) {
+      expect.unreachable("expected confirmation part");
+    }
+    expect(confirmation.actionName).toBe("customers.deleteCustomer");
+
+    const mismatched = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "Delete the archived customer"),
+      challengeId: confirmation.challengeId,
+    });
+    expect(mismatched.status).toBe(200);
+    const mismatchedPayloads = await readUiMessageSsePayloads(mismatched);
+    const mismatchedConfirmation = mismatchedPayloads
+      .map((payload) => {
+        if (
+          typeof payload === "object" &&
+          payload !== null &&
+          "type" in payload &&
+          payload.type === "data-confirmation" &&
+          "data" in payload
+        ) {
+          return payload.data;
+        }
+        return undefined;
+      })
+      .find((data) => isStaffAssistantConfirmationOutput(data));
+    expect(mismatchedConfirmation).toBeDefined();
+    if (!isStaffAssistantConfirmationOutput(mismatchedConfirmation)) {
+      expect.unreachable("expected a new confirmation for the other tool");
+    }
+    expect(mismatchedConfirmation.actionName).toBe("customers.deleteGroup");
+    expect(mismatchedConfirmation.challengeId).not.toBe(
+      confirmation.challengeId,
+    );
+
+    const stillCustomer = (
+      await kit.db.runtime.db.select().from(companyCustomers)
+    ).filter((row) => row.id === customer.id);
+    expect(stillCustomer).toHaveLength(1);
+    const stillGroup = (
+      await kit.db.runtime.db.select().from(customerGroups)
+    ).filter((row) => row.id === group.id);
+    expect(stillGroup).toHaveLength(1);
+
+    const resume = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "Delete the archived customer"),
+      challengeId: confirmation.challengeId,
+    });
+    expect(resume.status).toBe(200);
+    await readUiMessageSsePayloads(resume);
+
+    await waitFor(async () => {
+      const rows = await kit.db.runtime.db.select().from(companyCustomers);
+      return !rows.some((row) => row.id === customer.id);
+    }, "deleted customer after scoped resume");
+
+    const groupAfter = (
+      await kit.db.runtime.db.select().from(customerGroups)
+    ).filter((row) => row.id === group.id);
+    expect(groupAfter).toHaveLength(1);
   });
 });
 

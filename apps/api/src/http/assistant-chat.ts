@@ -12,6 +12,7 @@ import {
   createStaffLanguageModel,
   filterStaffAiTools,
   lastStaffAssistantUserText,
+  pausedActionNameForChallenge,
   StaffAssistantNotConfiguredError,
   staffAssistantChatBodySchema,
   staffAssistantModelMessages,
@@ -22,6 +23,7 @@ import {
 } from "@showzy/ai";
 import {
   appendUserMessage,
+  getConversation,
   getStaffActor,
   recordAssistantTurn,
 } from "@showzy/assistant";
@@ -174,7 +176,32 @@ function requireImplementation(
       `staff assistant tool "${name}" is not registered`,
     );
   }
+  // The registry erases callback generics so a stored implementation
+  // cannot be invoked without pipeline validation (fnd-T9). The
+  // pipeline is exactly what runs here, and every registry entry is an
+  // `implementAction` output, so restoring the erased shape is sound.
   return implementation as ImplementedAction<z.ZodType, z.ZodType, unknown>;
+}
+
+function pausedActionNameFromToolRuns(
+  toolRuns: readonly {
+    readonly actionName: string;
+    readonly challengeId: string | null;
+    readonly outcome: string;
+  }[],
+  challengeId: string,
+): string | undefined {
+  for (let index = toolRuns.length - 1; index >= 0; index -= 1) {
+    const run = toolRuns[index];
+    if (
+      run !== undefined &&
+      run.outcome === "confirmation_required" &&
+      run.challengeId === challengeId
+    ) {
+      return run.actionName;
+    }
+  }
+  return undefined;
 }
 
 async function parseChatBody(request: Request): Promise<{
@@ -314,12 +341,32 @@ export async function executeStaffAssistantChat(
       });
     }
 
+    let pausedActionName =
+      confirmationChallengeId !== undefined
+        ? pausedActionNameForChallenge(body.messages, confirmationChallengeId)
+        : undefined;
+    if (
+      confirmationChallengeId !== undefined &&
+      pausedActionName === undefined
+    ) {
+      const conversation = await executeAction(options.pipeline, {
+        action: getConversation,
+        input: { conversationId: body.conversationId },
+        request: baseRequest,
+        principal: staffPrincipal,
+      });
+      pausedActionName = pausedActionNameFromToolRuns(
+        conversation.toolRuns,
+        confirmationChallengeId,
+      );
+    }
+
     const contracts = filterStaffAiTools(options.registry.contracts(), {
       role: actor.role,
       permissions: actor.permissions,
     });
 
-    const { response, completion } = streamStaffAssistantChat({
+    const { response } = streamStaffAssistantChat({
       model,
       messages: modelMessages,
       contracts,
@@ -338,6 +385,11 @@ export async function executeStaffAssistantChat(
               input: input as JsonSerializable,
             })
           : undefined;
+        const bindConfirmation =
+          confirmationChallengeId !== undefined &&
+          pausedActionName !== undefined &&
+          action.contract.requiresConfirmation &&
+          action.contract.name === pausedActionName;
         return executeAction(options.pipeline, {
           action,
           input,
@@ -347,32 +399,32 @@ export async function executeStaffAssistantChat(
             aiTraceId,
             toolCallId: toolOptions.toolCallId,
             ...(idempotencyKey !== undefined ? { idempotencyKey } : {}),
-            ...(confirmationChallengeId !== undefined
-              ? { confirmationChallengeId }
-              : {}),
+            ...(bindConfirmation ? { confirmationChallengeId } : {}),
           }),
           principal: staffPrincipal,
         });
       },
+      onTurn: async (turn) => {
+        try {
+          await persistAssistantTurn({
+            pipeline: options.pipeline,
+            conversationId: body.conversationId,
+            requestId: options.requestId,
+            clientIp: options.clientIp,
+            aiTraceId,
+            principal: staffPrincipal,
+            turn,
+          });
+        } catch (error: unknown) {
+          logFailure(
+            options.pipeline.logger,
+            options.requestId,
+            failureCode(error),
+          );
+          throw error;
+        }
+      },
     });
-
-    void completion.then((turn) =>
-      persistAssistantTurn({
-        pipeline: options.pipeline,
-        conversationId: body.conversationId,
-        requestId: options.requestId,
-        clientIp: options.clientIp,
-        aiTraceId,
-        principal: staffPrincipal,
-        turn,
-      }).catch((error: unknown) => {
-        logFailure(
-          options.pipeline.logger,
-          options.requestId,
-          failureCode(error),
-        );
-      }),
-    );
 
     return response;
   } catch (error) {

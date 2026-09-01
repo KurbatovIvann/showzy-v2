@@ -3,7 +3,7 @@ import { defineActionContract } from "@showzy/core/contract";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import { staffAssistantTools } from "./action-tool.js";
+import { staffAssistantTools, toProviderToolName } from "./action-tool.js";
 import {
   isStaffAssistantConfirmationOutput,
   STAFF_ASSISTANT_CONFIRMATION_FALLBACK_TEXT,
@@ -77,14 +77,14 @@ describe("extractUuidResultIds", () => {
 });
 
 describe("staffAssistantTools", () => {
-  it("keys tools by action name and never calls fetch", async () => {
+  it("keys tools by provider-safe name and never calls fetch", async () => {
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
       .mockRejectedValue(new Error("network must not run"));
     const execute = vi.fn(() => Promise.resolve({ items: [] }));
     const tools = staffAssistantTools([listOrders], execute);
-    expect(Object.keys(tools)).toEqual(["orders.list"]);
-    await tools["orders.list"]?.execute?.(
+    expect(Object.keys(tools)).toEqual(["orders_list"]);
+    await tools["orders_list"]?.execute?.(
       {},
       { toolCallId: "call-1", messages: [], context: undefined },
     );
@@ -108,7 +108,11 @@ describe("streamStaffAssistantChat", () => {
     );
     const model = new MockLanguageModelV3({
       doStream: [
-        mockToolCallStream("call-list", "orders.list", "{}"),
+        mockToolCallStream(
+          "call-list",
+          toProviderToolName("orders.list"),
+          "{}",
+        ),
         mockTextStream("You have no orders."),
       ],
     });
@@ -162,7 +166,7 @@ describe("streamStaffAssistantChat", () => {
       doStream: [
         mockToolCallStream(
           "call-delete",
-          "customers.deleteCustomer",
+          toProviderToolName("customers.deleteCustomer"),
           JSON.stringify({ id: customerId }),
         ),
         mockTextStream("should not auto-confirm"),
@@ -224,5 +228,27 @@ describe("streamStaffAssistantChat", () => {
     ).toBe(true);
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
+  });
+
+  it("awaits onTurn after text and fails the stream when persist fails", async () => {
+    const onTurn = vi.fn(() => Promise.reject(new Error("persist failed")));
+    const model = new MockLanguageModelV3({
+      doStream: [mockTextStream("You have no orders.")],
+    });
+    const { response, completion } = streamStaffAssistantChat({
+      model,
+      messages: [{ role: "user", content: "List orders" }],
+      contracts: [listOrders],
+      execute: () => Promise.resolve({ items: [], nextCursor: null }),
+      onTurn,
+    });
+    const payloads = await readUiMessageSsePayloads(response);
+    const turn = await completion;
+    expect(turn.text).toContain("You have no orders.");
+    expect(onTurn).toHaveBeenCalledOnce();
+    expect(onTurn).toHaveBeenCalledWith(turn);
+    expect(JSON.stringify(payloads)).toContain(
+      "The assistant could not complete this turn.",
+    );
   });
 });
