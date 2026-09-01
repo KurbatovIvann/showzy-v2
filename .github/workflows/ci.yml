@@ -140,12 +140,16 @@ jobs:
 
   test-db:
     runs-on: ubuntu-latest
-    env:
-      SHOWZY_DB_HARNESS_SETUP_COUNT_FILE: ${{ runner.temp }}/showzy-db-setup-count
-      SHOWZY_DB_HARNESS_DB_NAMES_FILE: ${{ runner.temp }}/showzy-db-names
     steps:
       - name: Record job start
         run: echo "JOB_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
+      - name: Export DB harness probe paths
+        env:
+          SHOWZY_DB_HARNESS_SETUP_COUNT_FILE: "${{ runner.temp }}/showzy-db-setup-count"
+          SHOWZY_DB_HARNESS_DB_NAMES_FILE: "${{ runner.temp }}/showzy-db-names"
+        run: |
+          echo "SHOWZY_DB_HARNESS_SETUP_COUNT_FILE=$SHOWZY_DB_HARNESS_SETUP_COUNT_FILE" >> "$GITHUB_ENV"
+          echo "SHOWZY_DB_HARNESS_DB_NAMES_FILE=$SHOWZY_DB_HARNESS_DB_NAMES_FILE" >> "$GITHUB_ENV"
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: Setup CI workspace

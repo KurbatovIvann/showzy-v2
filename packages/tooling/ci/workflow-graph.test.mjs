@@ -79,6 +79,27 @@ function jobIf(block) {
   return match ? match[1].trim() : undefined;
 }
 
+/**
+ * Job header is the YAML before `steps:`. GitHub evaluates
+ * `jobs.<id>.env` without the `runner` context (parse failure).
+ * @param {string} block
+ */
+function jobHeader(block) {
+  return block.split(/^ {4}steps:/m)[0] ?? "";
+}
+
+/**
+ * @param {string} source
+ * @returns {string[]}
+ */
+function jobIds(source) {
+  const jobsStart = source.search(/^jobs:\s*$/m);
+  const jobsSource = jobsStart < 0 ? source : source.slice(jobsStart);
+  return [...jobsSource.matchAll(/^ {2}([a-z][a-z0-9-]*):\s*$/gm)].map(
+    (match) => match[1],
+  );
+}
+
 const turboCacheActionPath = path.join(
   repoRoot,
   ".github/actions/turbo-local-cache/action.yml",
@@ -168,6 +189,38 @@ test("secret-scan and the other named gates remain independent workers", () => {
   assert.match(e2eSmoke, /playwright install --with-deps chromium/);
   assert.match(e2eSmoke, /e2e-smoke --filter=@showzy\/web/);
   assert.doesNotMatch(e2eSmoke, /Placeholder/);
+});
+
+test("job-header scan rejects the GitHub parse failure of runner in jobs.env", () => {
+  const invalidJob = `  test-db:
+    runs-on: ubuntu-latest
+    env:
+      SHOWZY_DB_HARNESS_SETUP_COUNT_FILE: \${{ runner.temp }}/showzy-db-setup-count
+    steps:
+      - run: echo ok
+`;
+  assert.match(jobHeader(invalidJob), /\$\{\{\s*runner\./);
+});
+
+test("job-level env cannot use the runner context", () => {
+  const ids = jobIds(workflow);
+  assert.ok(ids.includes("test-db"), "test-db job must exist");
+  for (const name of ids) {
+    const header = jobHeader(extractJob(workflow, name));
+    assert.doesNotMatch(
+      header,
+      /\$\{\{\s*runner\./,
+      `${name}: runner is invalid in jobs.<id>.env (GitHub parse failure)`,
+    );
+  }
+
+  const testDb = extractJob(workflow, "test-db");
+  const header = jobHeader(testDb);
+  assert.doesNotMatch(header, /SHOWZY_DB_HARNESS_/);
+  assert.match(testDb, /SHOWZY_DB_HARNESS_SETUP_COUNT_FILE/);
+  assert.match(testDb, /SHOWZY_DB_HARNESS_DB_NAMES_FILE/);
+  assert.match(testDb, /GITHUB_ENV/);
+  assert.match(testDb, /\$\{\{\s*runner\.temp\s*\}\}/);
 });
 
 test("checks is a fail-closed aggregator over every required quality job", () => {
