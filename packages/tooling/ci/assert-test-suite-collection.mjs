@@ -93,9 +93,17 @@ export function toRepoRelativeListedPath(filePath) {
  * @returns {NodeJS.ProcessEnv}
  */
 export function dbSuiteCollectionChildEnv(env = process.env) {
-  const child = { ...env, CI: "1" };
-  delete child[DB_HARNESS_SETUP_COUNT_FILE_ENV];
-  delete child[DB_HARNESS_DB_NAMES_FILE_ENV];
+  /** @type {NodeJS.ProcessEnv} */
+  const child = { CI: "1" };
+  for (const [key, value] of Object.entries(env)) {
+    if (
+      key === DB_HARNESS_SETUP_COUNT_FILE_ENV ||
+      key === DB_HARNESS_DB_NAMES_FILE_ENV
+    ) {
+      continue;
+    }
+    child[key] = value;
+  }
   return child;
 }
 
