@@ -206,11 +206,11 @@ describe("panel chrome breakpoints (SHO-314)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Назад до списку" }));
     await waitFor(() => {
       expect(router.state.location.pathname).toBe("/kviti-lviv/orders");
+      expect(
+        screen.queryByRole("heading", { name: "Модуль у розробці" }),
+      ).toBeNull();
+      expect(screen.getByRole("region", { name: "Замовлення" })).toBeDefined();
     });
-    expect(
-      screen.queryByRole("heading", { name: "Модуль у розробці" }),
-    ).toBeNull();
-    expect(screen.getByRole("region", { name: "Замовлення" })).toBeDefined();
   });
 });
 
@@ -223,15 +223,17 @@ describe("panel chrome nav (SHO-314)", () => {
     fireEvent.click(screen.getByRole("link", { name: "Товари" }));
     await waitFor(() => {
       expect(router.state.location.pathname).toBe("/kviti-lviv/products");
+      expect(
+        screen
+          .getByRole("link", { name: "Товари" })
+          .getAttribute("aria-current"),
+      ).toBe("page");
+      expect(
+        screen
+          .getByRole("link", { name: "Замовлення" })
+          .getAttribute("aria-current"),
+      ).toBeNull();
     });
-    expect(
-      screen.getByRole("link", { name: "Товари" }).getAttribute("aria-current"),
-    ).toBe("page");
-    expect(
-      screen
-        .getByRole("link", { name: "Замовлення" })
-        .getAttribute("aria-current"),
-    ).toBeNull();
   });
 
   it("keeps sidebar rows flat: no nested Групи/Контрагенти; Запрошення is first-class", async () => {
@@ -247,8 +249,14 @@ describe("panel chrome nav (SHO-314)", () => {
     fireEvent.click(within(nav).getByRole("link", { name: "Клієнти" }));
     await waitFor(() => {
       expect(router.state.location.pathname).toBe("/kviti-lviv/customers");
+      expect(screen.getByRole("region", { name: "Клієнти" })).toBeDefined();
+      expect(
+        within(nav)
+          .getByRole("link", { name: "Клієнти" })
+          .getAttribute("aria-current"),
+      ).toBe("page");
+      expect(screen.getByRole("link", { name: "Групи" })).toBeDefined();
     });
-    expect(screen.getByRole("link", { name: "Групи" })).toBeDefined();
     expect(screen.getByRole("link", { name: "Контрагенти" })).toBeDefined();
     expect(within(nav).queryByRole("link", { name: "Групи" })).toBeNull();
     expect(within(nav).queryByRole("link", { name: "Контрагенти" })).toBeNull();

@@ -14,15 +14,12 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useNavigate, useRouterState } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 
 import { cx } from "../../components/ui/cx";
 import { usePanelChrome } from "./panel-chrome-context";
-import {
-  panelSectionFromPathname,
-  SECTION_LIST_PATH,
-  type PanelSectionId,
-} from "./section-path";
+import { useResolvedPanelState } from "./panel-route-state";
+import { SECTION_LIST_PATH, type PanelSectionId } from "./panel-section";
 import { ShozikDialog } from "./shozik-dialog";
 import { usePanelChromeCopy } from "./use-panel-chrome-copy";
 
@@ -45,8 +42,8 @@ export function MobileTabBar({
   const copy = usePanelChromeCopy();
   const chrome = usePanelChrome();
   const navigate = useNavigate();
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const active = panelSectionFromPathname(pathname, chrome.companySlug);
+  const panel = useResolvedPanelState();
+  const active = panel?.panelSection;
   const [moreOpen, setMoreOpen] = useState(false);
   const [shozikOpen, setShozikOpen] = useState(false);
 

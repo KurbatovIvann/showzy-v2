@@ -247,6 +247,6 @@ Halt and ask; do not invent a workaround:
 
 1. `renderApp(path)` from `src/test/render.tsx`.
 2. Seed `sessionState` / RPC via MSW in `src/test/msw.ts`.
-3. Assert URL + visible heading. Do not import `section-path.ts` to
+3. Assert URL + visible heading. Do not parse pathname prefixes to
    decide what the user should see.
 4. Deep-link reload: `renderApp("/{slug}/orders/{id}")` shows detail.
