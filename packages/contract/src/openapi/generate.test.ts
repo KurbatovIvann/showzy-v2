@@ -33,6 +33,16 @@ describe("OpenAPI generation", () => {
     assertOpenApiMatches(committed, generated);
   });
 
+  it("includes assistant client actions and omits internal persistence actions", async () => {
+    const json = JSON.stringify(await generateOpenApiDocument());
+    expect(json).toContain("/assistant/createConversation");
+    expect(json).toContain("/assistant/listConversations");
+    expect(json).toContain("/assistant/getConversation");
+    expect(json).toContain("/assistant/appendUserMessage");
+    expect(json).not.toContain("recordAssistantTurn");
+    expect(json).not.toContain("getStaffActor");
+  });
+
   it("fails when the committed artifact does not match generation", async () => {
     const generated = renderOpenApiJson(await generateOpenApiDocument());
     expect(() => {

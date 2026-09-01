@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  appendUserMessageContract,
+  createConversationContract,
+  getConversationContract,
+  listConversationsContract,
+} from "@showzy/assistant/contract";
+import {
   archiveProductContract,
   archiveVariantContract,
   createProductContract,
@@ -91,11 +97,18 @@ import {
   updatePriceListContract,
 } from "@showzy/pricing/contract";
 
+import { deriveAiToolSources } from "./ai-manifest.js";
 import { contractModules, contractRouter } from "./modules.js";
 
 describe("client composition", () => {
-  it("exposes client catalog, chat, companies, customers, documents, docSigning, files, invites, orders, and pricing actions and no internal facts actions", () => {
+  it("exposes client catalog, chat, companies, customers, documents, docSigning, files, invites, orders, pricing, and assistant actions and no internal facts actions", () => {
     expect(contractModules).toEqual({
+      assistant: {
+        createConversation: createConversationContract,
+        listConversations: listConversationsContract,
+        getConversation: getConversationContract,
+        appendUserMessage: appendUserMessageContract,
+      },
       catalog: {
         createProduct: createProductContract,
         createVariant: createVariantContract,
@@ -297,5 +310,22 @@ describe("client composition", () => {
     expect(contractRouter.pricing.setDefaultPriceList).toBeDefined();
     expect(contractRouter.pricing.setPriceListEntries).toBeDefined();
     expect(contractRouter.pricing.updatePriceList).toBeDefined();
+    expect(contractRouter.assistant.createConversation).toBeDefined();
+    expect(contractRouter.assistant.listConversations).toBeDefined();
+    expect(contractRouter.assistant.getConversation).toBeDefined();
+    expect(contractRouter.assistant.appendUserMessage).toBeDefined();
+    expect(contractModules.assistant).not.toHaveProperty("recordAssistantTurn");
+    expect(contractModules.assistant).not.toHaveProperty("getStaffActor");
+  });
+
+  it("keeps assistant persistence actions off the AI tool manifest", () => {
+    const contracts = Object.values(contractModules).flatMap((module) =>
+      Object.values(module),
+    );
+    expect(
+      deriveAiToolSources(contracts)
+        .map((contract) => contract.name)
+        .filter((name) => name.startsWith("assistant.")),
+    ).toEqual([]);
   });
 });

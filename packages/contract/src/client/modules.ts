@@ -12,6 +12,12 @@
  * missing here, or an entry here that is not registered, fails boot.
  */
 import {
+  appendUserMessageContract,
+  createConversationContract,
+  getConversationContract,
+  listConversationsContract,
+} from "@showzy/assistant/contract";
+import {
   archiveProductContract,
   archiveVariantContract,
   createProductContract,
@@ -108,6 +114,12 @@ import {
 } from "./contract-router.js";
 
 export const contractModules = {
+  assistant: {
+    createConversation: createConversationContract,
+    listConversations: listConversationsContract,
+    getConversation: getConversationContract,
+    appendUserMessage: appendUserMessageContract,
+  },
   catalog: {
     createProduct: createProductContract,
     createVariant: createVariantContract,
