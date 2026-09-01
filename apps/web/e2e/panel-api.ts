@@ -6,16 +6,77 @@ import type { Page, Route } from "@playwright/test";
 
 import type { CompanyMembership } from "../src/features/companies/api/list-mine";
 import {
+  COMPANY_SELECTOR_HEADER,
   FLOWERS_MEMBERSHIP,
   signedInOwner,
 } from "../src/test/company-fixtures";
-
-const COMPANY_SELECTOR_HEADER = "x-company-id";
 
 export type PanelApiMockOptions = {
   readonly signedIn?: boolean;
   readonly memberships?: readonly CompanyMembership[];
 };
+
+export const UNMOCKED_RPC_NOT_FOUND = {
+  defined: true,
+  code: "NOT_FOUND",
+  status: 404,
+  message: "unmocked rpc",
+} as const;
+
+const UNMOCKED_AUTH_NOT_FOUND = {
+  defined: true,
+  code: "NOT_FOUND",
+  status: 404,
+  message: "unmocked auth",
+} as const;
+
+type CompanyGetJson = {
+  readonly id: string;
+  readonly name: string;
+  readonly slug: string;
+  readonly prefix: string;
+  readonly legal: null;
+};
+
+export type CompaniesGetFulfillment =
+  | { readonly status: 200; readonly body: { readonly json: CompanyGetJson } }
+  | { readonly status: 404; readonly body: typeof UNMOCKED_RPC_NOT_FOUND };
+
+export function isAuthGetSessionPath(pathname: string): boolean {
+  return pathname.endsWith("/get-session") || pathname.includes("/get-session");
+}
+
+/**
+ * Public `companies.get` boundary: only a membership match returns a
+ * company. Missing or foreign `x-company-id` is the same NOT_FOUND as
+ * the unmocked `/rpc` catch-all — never a synthetic tenant.
+ */
+export function fulfillCompaniesGet(
+  memberships: readonly CompanyMembership[],
+  companyId: string | undefined,
+): CompaniesGetFulfillment {
+  if (companyId === undefined || companyId === "") {
+    return { status: 404, body: UNMOCKED_RPC_NOT_FOUND };
+  }
+  const company = memberships.find(
+    (membership) => membership.company.id === companyId,
+  )?.company;
+  if (company === undefined) {
+    return { status: 404, body: UNMOCKED_RPC_NOT_FOUND };
+  }
+  return {
+    status: 200,
+    body: {
+      json: {
+        id: company.id,
+        name: company.name,
+        slug: company.slug,
+        prefix: company.prefix,
+        legal: null,
+      },
+    },
+  };
+}
 
 function jsonHeaders(): Record<string, string> {
   return { "content-type": "application/json" };
@@ -78,24 +139,15 @@ export async function installPanelApiMocks(
       return;
     }
     const path = new URL(route.request().url()).pathname;
-    if (path.endsWith("/get-session") || path.includes("/get-session")) {
+    if (isAuthGetSessionPath(path)) {
       await fulfillJson(route, signedIn ? sessionPayload() : null);
       return;
     }
-    await fulfillJson(route, {});
+    await fulfillJson(route, UNMOCKED_AUTH_NOT_FOUND, 404);
   });
 
   await page.route("**/rpc/**", async (route) => {
-    await fulfillJson(
-      route,
-      {
-        defined: true,
-        code: "NOT_FOUND",
-        status: 404,
-        message: "unmocked rpc",
-      },
-      404,
-    );
+    await fulfillJson(route, UNMOCKED_RPC_NOT_FOUND, 404);
   });
 
   await page.route("**/rpc/companies/listMine", async (route) => {
@@ -103,19 +155,10 @@ export async function installPanelApiMocks(
   });
 
   await page.route("**/rpc/companies/get", async (route) => {
-    const companyId = route.request().headers()[COMPANY_SELECTOR_HEADER];
-    const current = memberships.find(
-      (membership) => membership.company.id === companyId,
-    )?.company;
-    await fulfillJson(
-      route,
-      rpcEnvelope({
-        id: current?.id ?? "c0c0c0c0-0000-4000-8000-000000000099",
-        name: current?.name ?? "unknown",
-        slug: current?.slug ?? "unknown",
-        prefix: current?.prefix ?? "XX",
-        legal: null,
-      }),
+    const fulfillment = fulfillCompaniesGet(
+      memberships,
+      route.request().headers()[COMPANY_SELECTOR_HEADER],
     );
+    await fulfillJson(route, fulfillment.body, fulfillment.status);
   });
 }
