@@ -276,4 +276,36 @@ describe("customers.resolveCustomerReference", () => {
     expect(labels.length).toBe(5);
     expect(error.clientMessage).not.toContain("MatchCap 5");
   });
+
+  it("resolves a unique query-path name when the contains scan is capped", async () => {
+    const uniqueName = "ZzzExactBuyer";
+    const uniqueId = randomUUID();
+    await kit.db.runtime.db.insert(companyCustomers).values({
+      id: uniqueId,
+      companyId: kitIdentities.companies.a,
+      name: uniqueName,
+      email: `exact-${uniqueId}@kit.test`,
+      status: "active",
+    });
+    await kit.db.runtime.db.insert(companyCustomers).values(
+      Array.from({ length: 101 }, (_, index) => ({
+        id: randomUUID(),
+        companyId: kitIdentities.companies.a,
+        name: `Aaa${uniqueName} ${String(index).padStart(3, "0")}`,
+        email: `flood-${String(index)}-${uniqueId}@kit.test`,
+        status: "active" as const,
+      })),
+    );
+
+    const byQuery = await kit.invoke(resolveCustomerReference, {
+      by: "query",
+      value: uniqueName,
+    });
+    const byId = await kit.invoke(resolveCustomerReference, {
+      by: "id",
+      id: uniqueId,
+    });
+    expect(byQuery).toEqual({ customerId: uniqueId, name: uniqueName });
+    expect(byQuery).toEqual(byId);
+  });
 });

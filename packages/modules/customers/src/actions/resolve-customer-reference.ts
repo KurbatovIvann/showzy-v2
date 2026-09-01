@@ -12,8 +12,11 @@ import {
   pickUniqueNormalizedMatch,
   REFERENCE_CONFLICT_LABELS_MAX,
 } from "@showzy/validation/entity-ref";
-import { likeContainsPattern } from "@showzy/validation/pagination";
-import { and, desc, eq, ilike, or } from "drizzle-orm";
+import {
+  likeContainsPattern,
+  sanitizeLikeLiteral,
+} from "@showzy/validation/pagination";
+import { and, desc, eq, ilike, or, type SQL } from "drizzle-orm";
 
 import { resolveCustomerReferenceContract } from "./resolve-customer-reference.contract.js";
 
@@ -70,6 +73,34 @@ function conflictFromCandidates(
   return new ConflictError(formatReferenceConflictMessage(query, labels));
 }
 
+function fieldMatch(pattern: string): SQL {
+  const clause = or(
+    ilike(companyCustomers.name, pattern),
+    ilike(companyCustomers.phone, pattern),
+    ilike(companyCustomers.email, pattern),
+  );
+  if (clause === undefined) {
+    throw new CoreInvariantError(
+      "customers.resolveCustomerReference field match is empty",
+    );
+  }
+  return clause;
+}
+
+function mergeCustomerCandidates(
+  primary: readonly CustomerCandidate[],
+  extra: readonly CustomerCandidate[],
+): CustomerCandidate[] {
+  const byId = new Map<string, CustomerCandidate>();
+  for (const row of primary) {
+    byId.set(row.id, row);
+  }
+  for (const row of extra) {
+    byId.set(row.id, row);
+  }
+  return [...byId.values()];
+}
+
 export const resolveCustomerReference = implementAction(
   resolveCustomerReferenceContract,
   {
@@ -105,27 +136,30 @@ export const resolveCustomerReference = implementAction(
         return { customerId: row.id, name };
       }
 
-      const pattern = likeContainsPattern(normalizeReferenceQuery(input.value));
-      if (pattern === undefined) {
+      const normalized = normalizeReferenceQuery(input.value);
+      const exactPattern = sanitizeLikeLiteral(normalized);
+      const containsPattern = likeContainsPattern(normalized);
+      if (exactPattern === undefined || containsPattern === undefined) {
         throw new NotFoundError();
       }
 
-      const candidates = await ctx.db
-        .select(candidateColumns)
-        .from(companyCustomers)
-        .where(
-          and(
-            eq(companyCustomers.companyId, ctx.companyId),
-            eq(companyCustomers.status, "active"),
-            or(
-              ilike(companyCustomers.name, pattern),
-              ilike(companyCustomers.phone, pattern),
-              ilike(companyCustomers.email, pattern),
-            ),
-          ),
-        )
-        .orderBy(desc(companyCustomers.updatedAt), desc(companyCustomers.id))
-        .limit(RESOLVE_CUSTOMER_CANDIDATE_MAX);
+      const activeInCompany = and(
+        eq(companyCustomers.companyId, ctx.companyId),
+        eq(companyCustomers.status, "active"),
+      );
+      const [exactRows, containsRows] = await Promise.all([
+        ctx.db
+          .select(candidateColumns)
+          .from(companyCustomers)
+          .where(and(activeInCompany, fieldMatch(exactPattern))),
+        ctx.db
+          .select(candidateColumns)
+          .from(companyCustomers)
+          .where(and(activeInCompany, fieldMatch(containsPattern)))
+          .orderBy(desc(companyCustomers.updatedAt), desc(companyCustomers.id))
+          .limit(RESOLVE_CUSTOMER_CANDIDATE_MAX),
+      ]);
+      const candidates = mergeCustomerCandidates(exactRows, containsRows);
 
       const scoped = candidatesContainingQuery(
         input.value,

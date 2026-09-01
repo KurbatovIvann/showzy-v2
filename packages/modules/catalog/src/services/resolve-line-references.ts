@@ -10,8 +10,11 @@ import {
   REFERENCE_CONFLICT_LABELS_MAX,
   type EntityRef,
 } from "@showzy/validation/entity-ref";
-import { likeContainsPattern } from "@showzy/validation/pagination";
-import { and, eq, ilike, inArray, or, type SQL } from "drizzle-orm";
+import {
+  likeContainsPattern,
+  sanitizeLikeLiteral,
+} from "@showzy/validation/pagination";
+import { and, asc, eq, ilike, inArray, or, type SQL } from "drizzle-orm";
 
 type StaffDb = Extract<ActionCtx, { principal: "staff" }>["db"];
 
@@ -43,13 +46,14 @@ type VariantCandidate = {
   readonly status: string;
 };
 
-function orContains(
+function orIlike(
   column: typeof products.name,
   queries: readonly string[],
+  patternOf: (normalized: string) => string | undefined,
 ): SQL | undefined {
   const parts: SQL[] = [];
   for (const query of queries) {
-    const pattern = likeContainsPattern(normalizeReferenceQuery(query));
+    const pattern = patternOf(normalizeReferenceQuery(query));
     if (pattern !== undefined) {
       parts.push(ilike(column, pattern));
     }
@@ -65,6 +69,20 @@ function orContains(
     return first;
   }
   return or(...parts);
+}
+
+function mergeProductCandidates(
+  primary: readonly ProductCandidate[],
+  extra: readonly ProductCandidate[],
+): ProductCandidate[] {
+  const byId = new Map<string, ProductCandidate>();
+  for (const row of primary) {
+    byId.set(row.id, row);
+  }
+  for (const row of extra) {
+    byId.set(row.id, row);
+  }
+  return [...byId.values()];
 }
 
 function productLabel(row: ProductCandidate): string {
@@ -83,6 +101,13 @@ function conflictLabels<T>(
   return new ConflictError(formatReferenceConflictMessage(query, labels));
 }
 
+const productCandidateColumns = {
+  id: products.id,
+  name: products.name,
+  status: products.status,
+  currency: products.currency,
+} as const;
+
 async function loadProductsById(
   db: StaffDb,
   companyId: string,
@@ -92,32 +117,48 @@ async function loadProductsById(
     return [];
   }
   return db
-    .select({
-      id: products.id,
-      name: products.name,
-      status: products.status,
-      currency: products.currency,
-    })
+    .select(productCandidateColumns)
     .from(products)
     .where(and(eq(products.companyId, companyId), inArray(products.id, ids)));
 }
 
-async function loadActiveProductsByQuery(
+/**
+ * Equality ILIKE (no `%` wrap) for every unique query string. No scan cap:
+ * different query strings cannot crowd each other out, and duplicate exact
+ * names are the natural CONFLICT set rather than a contains bag.
+ */
+async function loadActiveProductsByExactQuery(
   db: StaffDb,
   companyId: string,
   queries: readonly string[],
 ): Promise<ProductCandidate[]> {
-  const contains = orContains(products.name, queries);
+  const exact = orIlike(products.name, queries, sanitizeLikeLiteral);
+  if (exact === undefined) {
+    return [];
+  }
+  return db
+    .select(productCandidateColumns)
+    .from(products)
+    .where(
+      and(
+        eq(products.companyId, companyId),
+        eq(products.status, "active"),
+        exact,
+      ),
+    );
+}
+
+async function loadActiveProductsByContainsQuery(
+  db: StaffDb,
+  companyId: string,
+  queries: readonly string[],
+): Promise<ProductCandidate[]> {
+  const contains = orIlike(products.name, queries, likeContainsPattern);
   if (contains === undefined) {
     return [];
   }
   return db
-    .select({
-      id: products.id,
-      name: products.name,
-      status: products.status,
-      currency: products.currency,
-    })
+    .select(productCandidateColumns)
     .from(products)
     .where(
       and(
@@ -126,6 +167,7 @@ async function loadActiveProductsByQuery(
         contains,
       ),
     )
+    .orderBy(asc(products.name), asc(products.id))
     .limit(RESOLVE_LINE_CANDIDATE_MAX);
 }
 
@@ -212,8 +254,9 @@ function resolveVariantRef(
 }
 
 /**
- * Bounded reads: at most one product-id SELECT, one active product-query
- * SELECT, and one variant SELECT for the resolved product ids.
+ * Bounded reads: at most one product-id SELECT, one active exact-name
+ * SELECT, one capped active contains SELECT, and one variant SELECT for
+ * the resolved product ids. Never one SELECT per line and never ctx.call.
  */
 export async function resolveCatalogLineReferences(args: {
   readonly db: StaffDb;
@@ -233,11 +276,13 @@ export async function resolveCatalogLineReferences(args: {
     ),
   );
 
-  const [idRows, queryRows] = await Promise.all([
+  const [idRows, exactRows, containsRows] = await Promise.all([
     loadProductsById(args.db, args.companyId, productIds),
-    loadActiveProductsByQuery(args.db, args.companyId, productQueries),
+    loadActiveProductsByExactQuery(args.db, args.companyId, productQueries),
+    loadActiveProductsByContainsQuery(args.db, args.companyId, productQueries),
   ]);
   const byId = new Map(idRows.map((row) => [row.id, row]));
+  const queryRows = mergeProductCandidates(exactRows, containsRows);
 
   const resolvedProducts: ProductCandidate[] = [];
   for (const line of args.lines) {

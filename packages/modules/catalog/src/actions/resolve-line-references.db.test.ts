@@ -354,7 +354,57 @@ describe("catalog.resolveLineReferences", () => {
       "utf8",
     );
     expect(source).not.toMatch(/ctx\.call/);
-    expect(source.match(/\.from\(/g)?.length).toBe(3);
+    // id + exact-name + capped contains + variants for resolved products
+    expect(source.match(/\.from\(/g)?.length).toBe(4);
+  });
+
+  it("resolves a unique query-path product when the combined contains scan is capped", async () => {
+    const uniqueName = "ZzzExactSurvivor";
+    const uniqueId = randomUUID();
+    const otherUniqueName = "ZzzOtherSurvivor";
+    const otherUniqueId = randomUUID();
+    await insertProduct({
+      id: uniqueId,
+      companyId: kitIdentities.companies.a,
+      name: uniqueName,
+      basePriceMinor: 10n,
+    });
+    await insertProduct({
+      id: otherUniqueId,
+      companyId: kitIdentities.companies.a,
+      name: otherUniqueName,
+      basePriceMinor: 10n,
+    });
+    await kit.db.runtime.db.insert(products).values(
+      Array.from({ length: 101 }, (_, index) => ({
+        id: randomUUID(),
+        companyId: kitIdentities.companies.a,
+        name: `Aaa${uniqueName} ${String(index).padStart(3, "0")}`,
+        basePriceMinor: 10n,
+        status: "active" as const,
+      })),
+    );
+
+    const resolved = await kit.invoke(resolveLineReferences, {
+      lines: [
+        { product: { by: "query", value: uniqueName } },
+        { product: { by: "query", value: otherUniqueName } },
+      ],
+    });
+    expect(resolved.lines).toEqual([
+      {
+        productId: uniqueId,
+        productName: uniqueName,
+        variantId: null,
+        variantName: null,
+      },
+      {
+        productId: otherUniqueId,
+        productName: otherUniqueName,
+        variantId: null,
+        variantName: null,
+      },
+    ]);
   });
 
   it("lists at most five conflict labels when more products contain the query", async () => {

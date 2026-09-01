@@ -299,6 +299,19 @@ async function countCompanyOrders(companyId: string): Promise<number> {
   return rows.length;
 }
 
+async function countCreatedEvents(companyId: string): Promise<number> {
+  const rows = await kit.db.runtime.db
+    .select({ id: domainEvents.id })
+    .from(domainEvents)
+    .where(
+      and(
+        eq(domainEvents.companyId, companyId),
+        eq(domainEvents.name, "orders.created"),
+      ),
+    );
+  return rows.length;
+}
+
 async function countConfirmed(companyId: string): Promise<number> {
   const rows = await kit.db.runtime.db
     .select({ id: orders.id })
@@ -1423,8 +1436,66 @@ describe("orders.create reference resolve (SHO-352)", () => {
     expect(snapshot.items[0]?.quantityMilli).toBe("2000");
   });
 
+  it("creates from unique query names when contains scans are capped", async () => {
+    const customerName = "ZzzExactBuyer";
+    const customerId = randomUUID();
+    const productName = "ZzzExactWidget";
+    const productId = randomUUID();
+    await kit.db.runtime.db.insert(companyCustomers).values({
+      id: customerId,
+      companyId: kitIdentities.companies.a,
+      name: customerName,
+      email: `exact-buyer-${customerId}@orders-kit.test`,
+      status: "active",
+    });
+    await insertProduct({
+      id: productId,
+      companyId: kitIdentities.companies.a,
+      name: productName,
+      basePriceMinor: 10n,
+    });
+    await kit.db.runtime.db.insert(companyCustomers).values(
+      Array.from({ length: 101 }, (_, index) => ({
+        id: randomUUID(),
+        companyId: kitIdentities.companies.a,
+        name: `Aaa${customerName} ${String(index).padStart(3, "0")}`,
+        email: `flood-buyer-${String(index)}-${customerId}@orders-kit.test`,
+        status: "active" as const,
+      })),
+    );
+    await kit.db.runtime.db.insert(products).values(
+      Array.from({ length: 101 }, (_, index) => ({
+        id: randomUUID(),
+        companyId: kitIdentities.companies.a,
+        name: `Aaa${productName} ${String(index).padStart(3, "0")}`,
+        basePriceMinor: 10n,
+        status: "active" as const,
+      })),
+    );
+
+    const before = await countCompanyOrders(kitIdentities.companies.a);
+    const created = await kit.invoke(createOrder, {
+      customer: { by: "query", value: customerName },
+      items: [
+        {
+          product: { by: "query", value: productName },
+          quantity: { milli: "1000" },
+        },
+      ],
+    });
+    expect(created.customer.linkedCustomerId).toBe(customerId);
+    expect(created.itemCount).toBe(1);
+    expect(await countCompanyOrders(kitIdentities.companies.a)).toBe(
+      before + 1,
+    );
+    const snapshot = await kit.invoke(getOrder, { orderId: created.orderId });
+    expect(snapshot.customerId).toBe(customerId);
+    expect(snapshot.items[0]?.productId).toBe(productId);
+  });
+
   it("eval 4: ambiguous name is CONFLICT and does not write", async () => {
     const before = await countCompanyOrders(kitIdentities.companies.a);
+    const eventsBefore = await countCreatedEvents(kitIdentities.companies.a);
     const error = await kit
       .invoke(createOrder, {
         customer: { by: "query", value: "Twin Buyer" },
@@ -1449,6 +1520,9 @@ describe("orders.create reference resolve (SHO-352)", () => {
     expect(error.clientMessage).toContain("…5566");
     expect(error.clientMessage).not.toContain(fixtures.customerTwinA);
     expect(await countCompanyOrders(kitIdentities.companies.a)).toBe(before);
+    expect(await countCreatedEvents(kitIdentities.companies.a)).toBe(
+      eventsBefore,
+    );
   });
 
   it("conflicts on zero/ambiguous product refs with at most five labels", async () => {
