@@ -29,7 +29,9 @@ const eslintConfig = readRepo("apps/web/eslint.config.mjs");
 describe("web architecture contract discovery (SHO-326)", () => {
   it("root AGENTS.md requires loading the web skill and apps/web/AGENTS.md", () => {
     expect(rootAgents).toContain(".cursor/skills/showzy-mobile/SKILL.md");
-    expect(rootAgents).toContain("Do not load\nExpo skills for backend or module work.");
+    expect(rootAgents).toContain(
+      "Do not load\nExpo skills for backend or module work.",
+    );
     expect(rootAgents).toContain(".cursor/skills/showzy-web/SKILL.md");
     expect(rootAgents).toContain("apps/web/AGENTS.md");
     expect(rootAgents).toContain("Do not load Expo skills for web work");

@@ -11,15 +11,15 @@ ADRs, and this file win.
 
 ## Sources of truth
 
-| Concern | Source |
-| --- | --- |
-| Visual language | Canvas tokens in `src/theme/` and [`web-panel-chrome.md`](../../docs/design/mapping/web-panel-chrome.md) |
-| Directory / route / data conventions | [`web-panel-architecture.md`](../../docs/design/web-panel-architecture.md) |
-| Stack / cookies / slug vs UUID | [ADR-0030](../../docs/adr/0030-web-panel-spa-and-deferred-storefront.md) |
-| Domain behavior | Linear feature card + `@showzy/contract` |
-| Query keys / mutations | `src/api/query-options.ts`, `src/api/contract-mutation.ts` |
-| Golden feature slice | `src/features/companies/` (api, onboarding form, company scope) |
-| Auth / sessions | better-auth over `/api/auth` (ADR-0006). Browser cookies, same-origin. |
+| Concern                              | Source                                                                                                   |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| Visual language                      | Canvas tokens in `src/theme/` and [`web-panel-chrome.md`](../../docs/design/mapping/web-panel-chrome.md) |
+| Directory / route / data conventions | [`web-panel-architecture.md`](../../docs/design/web-panel-architecture.md)                               |
+| Stack / cookies / slug vs UUID       | [ADR-0030](../../docs/adr/0030-web-panel-spa-and-deferred-storefront.md)                                 |
+| Domain behavior                      | Linear feature card + `@showzy/contract`                                                                 |
+| Query keys / mutations               | `src/api/query-options.ts`, `src/api/contract-mutation.ts`                                               |
+| Golden feature slice                 | `src/features/companies/` (api, onboarding form, company scope)                                          |
+| Auth / sessions                      | better-auth over `/api/auth` (ADR-0006). Browser cookies, same-origin.                                   |
 
 Figma is not a source of spacing or color. Never modify the V1
 repository. Do not paste Magic Patterns React/Tailwind as-is.
@@ -65,19 +65,19 @@ uses today's location.
 
 ## Ownership
 
-| Area | Owns | Does not own |
-| --- | --- | --- |
-| `app/` | Bootstrap, router construction, provider composition, `runtime.ts` wiring of existing lifecycle (`bindActiveCompanyRuntime`, auth client). Not a state store. | Screens, chrome, contract calls |
-| `routes/` | Params/search validation, optional prefetch with the same query options the page uses, render a feature page or layout `<Outlet />` | Workflows, forms, `fetch`, pathname regex |
-| `layouts/` | Cross-feature page shells. Panel is a **layout**. | Domain lists/details/forms |
-| `features/` | User-facing capabilities and screen behavior | Generated route tree, generic UI kit |
-| `features/auth` | Auth screens | better-auth client (that stays in `auth/`) |
-| `api/` | `createShowzyClient`, `contractQueryOptions`, `useContractMutation`, wire-error mapping | Feature view-models |
-| `components/ui/` | Domain-neutral Button, Field, Dialog primitives | Panel CSS, section titles, company switcher |
-| `auth/` | Session, OTP reducer, HTTP status → kind | Screens |
-| `prefs/` | Last company slug, theme preference (localStorage) | Server cache, cookies |
-| `theme/` | Canvas CSS variables | Components |
-| `test/` | Shared MSW, `renderApp`, fixtures, cross-feature integration | Feature-local unit tests (those colocate) |
+| Area             | Owns                                                                                                                                                          | Does not own                                |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `app/`           | Bootstrap, router construction, provider composition, `runtime.ts` wiring of existing lifecycle (`bindActiveCompanyRuntime`, auth client). Not a state store. | Screens, chrome, contract calls             |
+| `routes/`        | Params/search validation, optional prefetch with the same query options the page uses, render a feature page or layout `<Outlet />`                           | Workflows, forms, `fetch`, pathname regex   |
+| `layouts/`       | Cross-feature page shells. Panel is a **layout**.                                                                                                             | Domain lists/details/forms                  |
+| `features/`      | User-facing capabilities and screen behavior                                                                                                                  | Generated route tree, generic UI kit        |
+| `features/auth`  | Auth screens                                                                                                                                                  | better-auth client (that stays in `auth/`)  |
+| `api/`           | `createShowzyClient`, `contractQueryOptions`, `useContractMutation`, wire-error mapping                                                                       | Feature view-models                         |
+| `components/ui/` | Domain-neutral Button, Field, Dialog primitives                                                                                                               | Panel CSS, section titles, company switcher |
+| `auth/`          | Session, OTP reducer, HTTP status → kind                                                                                                                      | Screens                                     |
+| `prefs/`         | Last company slug, theme preference (localStorage)                                                                                                            | Server cache, cookies                       |
+| `theme/`         | Canvas CSS variables                                                                                                                                          | Components                                  |
+| `test/`          | Shared MSW, `renderApp`, fixtures, cross-feature integration                                                                                                  | Feature-local unit tests (those colocate)   |
 
 Feature subfolders (`api/`, `list/`, `detail/`, `form/`, `shared/`,
 `testing/`) are created **when the first real file needs them**. Do
@@ -134,12 +134,12 @@ SHO-327 fixes.
 
 No global store (no Zustand, no copied server state). Four owners:
 
-| Owner | What |
-| --- | --- |
-| Router URL / search | Navigation, selected record, list tabs, filters, dialog flags |
-| TanStack Query | Server state. Keys always include action name, company/account scope, and semantic input. Do not persist the cache. |
-| React Hook Form | Form fields (ADR-0030). Install the already-approved package when the first product form needs it. Today's onboarding planner in `features/companies/onboarding/` is allowed until that screen adopts RHF. |
-| Local `useState` / `useReducer` | Ephemeral UI (dialogs, OTP session, tab chrome that is not a route) |
+| Owner                           | What                                                                                                                                                                                                       |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Router URL / search             | Navigation, selected record, list tabs, filters, dialog flags                                                                                                                                              |
+| TanStack Query                  | Server state. Keys always include action name, company/account scope, and semantic input. Do not persist the cache.                                                                                        |
+| React Hook Form                 | Form fields (ADR-0030). Install the already-approved package when the first product form needs it. Today's onboarding planner in `features/companies/onboarding/` is allowed until that screen adopts RHF. |
+| Local `useState` / `useReducer` | Ephemeral UI (dialogs, OTP session, tab chrome that is not a route)                                                                                                                                        |
 
 Do not keep a parallel `clientErrors` pile when RHF `formState` exists.
 Do not put selection ids in React state when they belong in the URL.
