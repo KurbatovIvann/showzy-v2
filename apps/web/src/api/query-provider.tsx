@@ -16,7 +16,7 @@ import {
 
 import { useAuthSession } from "../auth/session-provider";
 import { createBrowserCompanyPrefs } from "../prefs/companies/company-prefs";
-import { bindActiveCompanyRuntime } from "./companies/active-company-runtime";
+import { bindActiveCompanyRuntime } from "./active-company-runtime";
 import { useApiClient } from "./api-provider";
 import {
   createWebQueryClient,

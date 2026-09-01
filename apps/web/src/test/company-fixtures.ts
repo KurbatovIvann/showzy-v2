@@ -1,6 +1,6 @@
 import { COMPANY_SELECTOR_HEADER } from "@showzy/contract";
 
-import type { CompanyMembership } from "../api/companies/company-membership-query";
+import type { CompanyMembership } from "../features/companies/api/list-mine";
 
 export const FLOWERS_COMPANY_ID = "c0c0c0c0-0000-4000-8000-000000000001";
 export const BAKERY_COMPANY_ID = "c0c0c0c0-0000-4000-8000-000000000002";

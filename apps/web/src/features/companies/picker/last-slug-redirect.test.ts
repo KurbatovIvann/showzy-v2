@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { CompanyMembership } from "../../../api/companies/company-membership-query";
-import {
-  lastVisitedSlugToRedirect,
-  matchMembershipBySlug,
-} from "./resolve-company";
+import type { CompanyMembership } from "../api/list-mine";
+import { lastVisitedSlugToRedirect } from "./last-slug-redirect";
 
 const flowers: CompanyMembership = {
   membershipId: "c0c0c0c0-0000-4000-8000-000000000011",
@@ -28,14 +25,7 @@ const bakery: CompanyMembership = {
   },
 };
 
-describe("resolve company slug", () => {
-  it("matches a membership by slug and ignores unknown slugs", () => {
-    expect(matchMembershipBySlug([flowers, bakery], "pekarnya")).toEqual(
-      bakery,
-    );
-    expect(matchMembershipBySlug([flowers], "missing")).toBeUndefined();
-  });
-
+describe("lastVisitedSlugToRedirect", () => {
   it("redirects to the last visited slug only when it is still a membership", () => {
     expect(lastVisitedSlugToRedirect([flowers, bakery], "kviti-lviv")).toBe(
       "kviti-lviv",

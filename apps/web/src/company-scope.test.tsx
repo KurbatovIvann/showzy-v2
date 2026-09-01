@@ -7,7 +7,7 @@ import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { listMineQueryKey } from "./api/companies/company-membership-query";
+import { listMineQueryKey } from "./features/companies/api/list-mine";
 import { contractQueryKey } from "./api/query-options";
 import { DEVICE_PREF_LAST_COMPANY_SLUG_KEY } from "./prefs/storage";
 import {

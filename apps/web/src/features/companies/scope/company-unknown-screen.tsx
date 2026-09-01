@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 
-import { Card } from "../../components/ui/card";
-import { useCompanyScopeCopy } from "./hooks/use-company-scope-copy";
+import { Card } from "../../../components/ui/card";
+import { useCompanyScopeCopy } from "./use-company-scope-copy";
 
 const PRIMARY_LINK_CLASS =
   "mt-5 inline-flex items-center justify-center rounded-full bg-ink px-5 py-3 " +

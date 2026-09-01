@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { LIST_MINE_ACTION, listMineQueryKey } from "./company-membership-query";
-import { NULL_COMPANY_QUERY_SCOPE } from "../query-options";
+import { NULL_COMPANY_QUERY_SCOPE } from "../../../api/query-options";
+import { LIST_MINE_ACTION, listMineQueryKey } from "./list-mine";
 
 describe("listMine query key (SHO-313)", () => {
   it("is [actionName, null-company, input]", () => {

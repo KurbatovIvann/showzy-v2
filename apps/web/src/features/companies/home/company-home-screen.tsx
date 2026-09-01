@@ -1,5 +1,5 @@
-import { useListMine } from "./hooks/use-list-mine";
-import { matchMembershipBySlug } from "./shared/resolve-company";
+import { useListMine } from "../api/use-list-mine";
+import { matchMembershipBySlug } from "../scope/match-membership";
 
 export function CompanyHomeScreen({
   companySlug,

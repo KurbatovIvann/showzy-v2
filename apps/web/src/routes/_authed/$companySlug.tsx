@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { CompanyLayout } from "../../features/companies/company-layout";
+import { CompanyLayout } from "../../features/companies/scope/company-layout";
 
 export const Route = createFileRoute("/_authed/$companySlug")({
   component: CompanySlugLayout,

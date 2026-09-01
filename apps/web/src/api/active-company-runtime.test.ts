@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { createCompanyPrefs } from "../../prefs/companies/company-prefs";
-import { createMemoryPrefsStore } from "../../prefs/storage";
+import { createCompanyPrefs } from "../prefs/companies/company-prefs";
+import { createMemoryPrefsStore } from "../prefs/storage";
 import { bindActiveCompanyRuntime } from "./active-company-runtime";
-import { createShowzyClient } from "../client";
-import { createWebQueryClient } from "../query-client";
-import { contractQueryKey } from "../query-options";
+import { createShowzyClient } from "./client";
+import { createWebQueryClient } from "./query-client";
+import { contractQueryKey } from "./query-options";
 
 describe("bindActiveCompanyRuntime", () => {
   it("clears tenant queries and drops the stored slug when the selector is null", () => {
