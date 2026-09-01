@@ -467,18 +467,17 @@ export async function executeStaffAssistantChat(
       if (lastUserText.trim() !== "") {
         if (
           staffAssistantShouldSkipOperationalGate({
-            lastUserText,
             toolRunCount: conversation.toolRuns.length,
           })
         ) {
           operational = true;
-          gateSkip = "continuation_ack";
+          gateSkip = "sticky_session";
           logTurnGate({
             logger: options.pipeline.logger,
             requestId: options.requestId,
             gateModel: options.assistant?.gateModel ?? "unconfigured",
             operational: true,
-            skip: "continuation_ack",
+            skip: "sticky_session",
           });
         } else {
           const classified = await classifyStaffAssistantTurn({

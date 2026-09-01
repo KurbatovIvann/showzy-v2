@@ -1636,7 +1636,7 @@ describe("POST /assistant/chat operational gate", () => {
     expect(resumeNames).toContain(toProviderToolName("customers.deleteCustomer"));
   });
 
-  it("skips the gate on a short ack after a tool-using turn", async () => {
+  it("skips the gate on any follow-up after a tool-using turn", async () => {
     const capturing = createCapturingLogger();
     const streamModel = new MockLanguageModelV3({
       doStream: [
@@ -1677,7 +1677,7 @@ describe("POST /assistant/chat operational gate", () => {
     });
     const token = await insertBearer(kit, kitIdentities.users.anna);
     const conversation = await staffInvoke(createConversation, {
-      title: "Continuation ack",
+      title: "Sticky session",
     });
     const first = await postChat(app, {
       token,
@@ -1694,16 +1694,16 @@ describe("POST /assistant/chat operational gate", () => {
           run.actionName === "orders.list" &&
           run.outcome === "success",
       );
-    }, "orders.list before continuation ack");
+    }, "orders.list before sticky follow-up");
     expect(gateModel.doGenerateCalls).toHaveLength(1);
 
-    const ack = await postChat(app, {
+    const followUp = await postChat(app, {
       token,
       companyId: kitIdentities.companies.a,
-      body: userChatBody(conversation.id, "Все вірно"),
+      body: userChatBody(conversation.id, "Продовжуй"),
     });
-    expect(ack.status).toBe(200);
-    const payloads = await readUiMessageSsePayloads(ack);
+    expect(followUp.status).toBe(200);
+    const payloads = await readUiMessageSsePayloads(followUp);
     expect(JSON.stringify(payloads)).toContain("Creating the price list.");
     expect(gateModel.doGenerateCalls).toHaveLength(1);
     expect(gateModel.doStreamCalls).toHaveLength(0);
@@ -1716,19 +1716,19 @@ describe("POST /assistant/chat operational gate", () => {
       .find(
         (entry) =>
           entry["msg"] === "staff assistant turn gate" &&
-          entry["gate_skip"] === "continuation_ack",
+          entry["gate_skip"] === "sticky_session",
       );
     expect(skipGate?.["operational"]).toBe(true);
-    const ackUsage = capturing
+    const followUpUsage = capturing
       .entries()
       .filter((entry) => entry["msg"] === "staff assistant turn usage")
       .at(-1);
-    expect(ackUsage?.["gate_skip"]).toBe("continuation_ack");
-    expect(ackUsage?.["tools_attached"]).toBe(true);
-    expect(JSON.stringify(ackUsage)).not.toContain("Все вірно");
+    expect(followUpUsage?.["gate_skip"]).toBe("sticky_session");
+    expect(followUpUsage?.["tools_attached"]).toBe(true);
+    expect(JSON.stringify(followUpUsage)).not.toContain("Продовжуй");
   });
 
-  it("still gates weather after a tool-using turn", async () => {
+  it("keeps tools attached for weather after a tool-using turn", async () => {
     const streamModel = new MockLanguageModelV3({
       doStream: [
         mockToolCallStream(
@@ -1737,6 +1737,7 @@ describe("POST /assistant/chat operational gate", () => {
           "{}",
         ),
         mockTextStream("You have no orders."),
+        mockTextStream("I only help with this company."),
       ],
     });
     let gateCalls = 0;
@@ -1745,7 +1746,7 @@ describe("POST /assistant/chat operational gate", () => {
         gateCalls += 1;
         return Promise.resolve(mockOperationalGateGenerate(gateCalls === 1));
       },
-      doStream: [mockTextStream("I only help with this company.")],
+      doStream: [mockTextStream("should not reply as gate")],
     });
     const app = chatApp(streamModel, gateModel);
     const token = await insertBearer(kit, kitIdentities.users.anna);
@@ -1777,9 +1778,10 @@ describe("POST /assistant/chat operational gate", () => {
     expect(weather.status).toBe(200);
     const payloads = await readUiMessageSsePayloads(weather);
     expect(JSON.stringify(payloads)).toContain("I only help with this company.");
-    expect(gateModel.doGenerateCalls).toHaveLength(2);
-    expect(streamModel.doStreamCalls).toHaveLength(2);
-    expect(streamToolsLength(gateModel)).toBe(0);
+    expect(gateModel.doGenerateCalls).toHaveLength(1);
+    expect(gateModel.doStreamCalls).toHaveLength(0);
+    expect(streamModel.doStreamCalls).toHaveLength(3);
+    expect(streamToolsLength(streamModel)).toBeGreaterThan(0);
   });
 
   it("still classifies a short ack when the conversation has no tool runs", async () => {
