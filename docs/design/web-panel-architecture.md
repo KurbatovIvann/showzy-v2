@@ -56,16 +56,18 @@ The only data path is the typed oRPC client:
   selector — the server verifies membership (ADR-0013).
 - **Queries**: key shape `[actionName, companyScope, input]` from
   `contractQueryKey` / `contractQueryOptions`. Account reads use
-  `accountContractQueryKey` (`null-company` + session user id). Pass
-  live `useActiveCompany().activeCompanyId` into options so a
+  `accountContractQueryKey` (`null-company` + session user id) — copy
+  `features/companies/api/list-mine.ts`. Pass live
+  `useActiveCompany().activeCompanyId` into company-scoped options so a
   selector change re-renders keys. Loaders must reuse these options
-  (`ensureQueryData`) — one cache.
+  (`ensureQueryData` on `_authed` for `listMineQueryOptions`) — one cache.
 - **Mutations**: one `createMutationAttempt()` per logical submit
   (`useContractMutation`); retry reuses `attempt.options`. A new
   submit mints a new key (contract.md §3).
 - **Confirmation**: `CONFIRMATION_REQUIRED` is handled with
-  `attempt.withChallenge(challengeId)` on the **same** attempt. The
-  challenge is meta, never action input.
+  `confirm(challengeId)` / `attempt.withChallenge(challengeId)` on the
+  **same** attempt (`useContractMutation`). The challenge is meta, never
+  action input.
 - **Errors**: discriminate on wire `error.code` via `isWireError` /
   `describeQueryFailure` / `describeWireCode`, never on message text.
 - **Invalidation**: `invalidateQueries` / `setQueryData` only the
@@ -424,7 +426,7 @@ compile. Copy `features/companies/` and `src/api/`.
 ### List page
 
 ```tsx
-// features/orders/api/list.ts — copy list-mine.ts
+// features/orders/api/list.ts — copy list-mine.ts / get.ts
 export function ordersListQueryOptions(args: {
   readonly actionName: "orders.list";
   readonly companyId: string;
@@ -435,6 +437,7 @@ export function ordersListQueryOptions(args: {
   return contractQueryOptions(args);
 }
 
+// routes/_authed.tsx already ensureQueryData(listMineQueryOptions)
 // routes/_authed/$companySlug/_panel/orders/route.tsx
 function OrdersLayout() {
   return (
@@ -482,7 +485,7 @@ const mutation = useContractMutation((input, options) =>
 const plan = planCreateCompanySubmit({ name, slug, lastSubmitted, lastFailureKind });
 if (plan.kind === "retry") await mutation.retry();
 else if (plan.kind === "submit") await mutation.submit(plan.input);
-// CONFIRMATION_REQUIRED → same attempt.withChallenge(id)
+// CONFIRMATION_REQUIRED → mutation.confirm(id) / attempt.withChallenge(id)
 ```
 
 Copy `create-company-mutation.ts` + `create-company-form.ts`. Map

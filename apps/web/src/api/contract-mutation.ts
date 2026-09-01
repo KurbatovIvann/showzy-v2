@@ -1,6 +1,7 @@
 /**
  * One `createMutationAttempt()` per logical submit. Retry reuses
- * `attempt.options`; a new submit mints a new key (contract.md §3).
+ * `attempt.options`; a new submit mints a new key; confirmation
+ * re-invokes with `attempt.withChallenge(id)` (contract.md §3).
  */
 import {
   createMutationAttempt,
@@ -10,9 +11,12 @@ import {
 import { useMutation } from "@tanstack/react-query";
 import { useRef } from "react";
 
+import { confirmationFromError } from "./errors";
+
 export interface ContractMutationController<TInput, TOutput> {
   submit(input: TInput): Promise<TOutput>;
   retry(): Promise<TOutput>;
+  confirm(challengeId: string): Promise<TOutput>;
   attemptKey(): string | null;
   reset(): void;
 }
@@ -48,6 +52,13 @@ export function createContractMutationController<TInput, TOutput>(deps: {
       const current = requireInFlight();
       return deps.mutate(current.input, current.attempt.options);
     },
+    async confirm(challengeId) {
+      const current = requireInFlight();
+      return deps.mutate(
+        current.input,
+        current.attempt.withChallenge(challengeId),
+      );
+    },
     attemptKey: () => attempt?.key ?? null,
     reset() {
       attempt = null;
@@ -58,7 +69,8 @@ export function createContractMutationController<TInput, TOutput>(deps: {
 
 type MutationRequest<TInput> =
   | { readonly kind: "submit"; readonly input: TInput }
-  | { readonly kind: "retry" };
+  | { readonly kind: "retry" }
+  | { readonly kind: "confirm"; readonly challengeId: string };
 
 export function useContractMutation<TInput, TOutput>(
   mutate: (input: TInput, options: MutationCallOptions) => Promise<TOutput>,
@@ -83,6 +95,8 @@ export function useContractMutation<TInput, TOutput>(
           return controller.submit(request.input);
         case "retry":
           return controller.retry();
+        case "confirm":
+          return controller.confirm(request.challengeId);
       }
     },
     retry: 0,
@@ -91,6 +105,9 @@ export function useContractMutation<TInput, TOutput>(
   return {
     submit: (input: TInput) => mutation.mutateAsync({ kind: "submit", input }),
     retry: () => mutation.mutateAsync({ kind: "retry" }),
+    confirm: (challengeId: string) =>
+      mutation.mutateAsync({ kind: "confirm", challengeId }),
+    confirmation: confirmationFromError(mutation.error),
     attemptKey: controller.attemptKey(),
     error: mutation.error,
     isPending: mutation.isPending,

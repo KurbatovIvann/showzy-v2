@@ -112,6 +112,15 @@ function isFeatureShared(rel) {
 }
 
 /**
+ * Feature `api/` adapters may import `src/api/client`. Views may not.
+ *
+ * @param {string} rel
+ */
+function isFeatureApiFile(rel) {
+  return /^features\/[^/]+\/api\//.test(stripExt(rel));
+}
+
+/**
  * Prefetch helpers only — not the oRPC client or mutation runtime.
  *
  * @param {string} rel
@@ -184,9 +193,10 @@ function resolveImported(importerFile, spec) {
 /**
  * @param {{ kind: string, area?: string }} from
  * @param {{ kind: "package", spec: string } | { kind: "src", rel: string }} imported
+ * @param {string} fromRel
  * @returns {string | null}
  */
-function violation(from, imported) {
+function violation(from, imported, fromRel) {
   if (from.kind === "app") {
     return null;
   }
@@ -255,6 +265,9 @@ function violation(from, imported) {
   }
 
   if (from.kind === "feature") {
+    if (isApiClient(imported.rel) && !isFeatureApiFile(fromRel)) {
+      return "viewContractClient";
+    }
     const other = featureArea(imported.rel);
     if (
       other !== undefined &&
@@ -323,6 +336,8 @@ export const webLayerBoundariesRule = {
         "Feature internals may not import another domain's internals, routes, layouts, or `app/` (use that domain's `shared/` entry when one exists).",
       layoutsForeignFeature:
         "Layouts may compose `features/companies` switcher/scope (`scope/` and `api/`) and UI/auth/i18n — not onboarding/picker, other domains, routes, or `api/client`.",
+      viewContractClient:
+        "Views, screens, and form composers may not import `src/api/client`. Feature `api/` adapters own the typed client.",
     },
   },
   create(context) {
@@ -354,7 +369,7 @@ export const webLayerBoundariesRule = {
       if (imported === null) {
         return;
       }
-      const messageId = violation(from, imported);
+      const messageId = violation(from, imported, src.rel);
       if (messageId !== null) {
         context.report({ node, messageId });
       }

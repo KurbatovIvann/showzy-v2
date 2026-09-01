@@ -39,6 +39,32 @@ describe("contractQueryOptions", () => {
     expect(queryFn).toHaveBeenCalledOnce();
     queryClient.clear();
   });
+
+  it("does not write another company's payload when the selector drifted mid-flight", async () => {
+    let active: string | null = "company-a";
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const queryFn = vi.fn(async () => {
+      await gate;
+      return { id: "company-a", secret: "tenant-a" };
+    });
+    const queryClient = createWebQueryClient({ retryQueries: false });
+    const options = contractQueryOptions({
+      actionName: "companies.get",
+      companyId: "company-a",
+      input: {},
+      getActiveCompany: () => active,
+      queryFn,
+    });
+    const pending = queryClient.fetchQuery(options);
+    active = "company-b";
+    release?.();
+    await expect(pending).rejects.toBeInstanceOf(StaleCompanyQueryError);
+    expect(queryClient.getQueryData(options.queryKey)).toBeUndefined();
+    queryClient.clear();
+  });
 });
 
 describe("accountContractQueryOptions", () => {

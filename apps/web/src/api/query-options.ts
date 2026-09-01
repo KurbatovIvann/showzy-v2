@@ -3,6 +3,13 @@
  * do not put oRPC context in the query key; include `companyId` here
  * from `useActiveCompany()` (React state), not a one-shot
  * `client.getActiveCompany()` that will not re-render.
+ *
+ * Route `loader`s must pass the same `contractQueryOptions` /
+ * `accountContractQueryOptions` object into `ensureQueryData` that the
+ * page hook uses — one cache, no extra `/rpc` after hydrate.
+ *
+ * `assertCompanyStillActive` runs before and after `queryFn` so a
+ * mid-flight company switch cannot commit another tenant's payload.
  */
 import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
 
@@ -90,7 +97,9 @@ export function contractQueryOptions<TInput, TOutput>(args: {
     queryKey: contractQueryKey(args.actionName, args.companyId, args.input),
     queryFn: async () => {
       assertCompanyStillActive(args.getActiveCompany, args.companyId);
-      return args.queryFn();
+      const output = await args.queryFn();
+      assertCompanyStillActive(args.getActiveCompany, args.companyId);
+      return output;
     },
   });
 }
@@ -116,7 +125,9 @@ export function contractInfiniteQueryOptions<TInput, TPage>(args: {
     initialPageParam: null as string | null,
     queryFn: async ({ pageParam }) => {
       assertCompanyStillActive(args.getActiveCompany, args.companyId);
-      return args.queryFn(pageParam);
+      const page = await args.queryFn(pageParam);
+      assertCompanyStillActive(args.getActiveCompany, args.companyId);
+      return page;
     },
     getNextPageParam: (lastPage) => args.nextCursor(lastPage),
   });

@@ -117,7 +117,7 @@ describe("company switch (SHO-313)", () => {
     ).toBeDefined();
 
     const tenantKey = contractQueryKey("companies.get", FLOWERS_COMPANY_ID, {});
-    const accountKey = contractQueryKey("companies.listMine", null, {});
+    const accountKey = listMineQueryKey(signedInOwner().id);
     queryClient.setQueryData(tenantKey, { id: FLOWERS_COMPANY_ID });
     expect(queryClient.getQueryData(accountKey)).toBeDefined();
     expect(queryClient.getQueryData(tenantKey)).toEqual({
@@ -147,9 +147,13 @@ describe("company switch (SHO-313)", () => {
     ).toBeDefined();
     const tenantKey = contractQueryKey("companies.get", FLOWERS_COMPANY_ID, {});
     queryClient.setQueryData(tenantKey, { id: FLOWERS_COMPANY_ID });
-    await queryClient.invalidateQueries({ queryKey: listMineQueryKey() });
+    await queryClient.invalidateQueries({
+      queryKey: listMineQueryKey(signedInOwner().id),
+    });
     await waitFor(() => {
-      expect(queryClient.getQueryData(listMineQueryKey())).toBeDefined();
+      expect(
+        queryClient.getQueryData(listMineQueryKey(signedInOwner().id)),
+      ).toBeDefined();
     });
     expect(queryClient.getQueryData(tenantKey)).toEqual({
       id: FLOWERS_COMPANY_ID,

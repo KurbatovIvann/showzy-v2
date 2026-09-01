@@ -74,5 +74,38 @@ to match the diagram.
 - Never hand-edit `src/routeTree.gen.ts`.
 - Test public behavior; mock `/rpc` (MSW) or a feature `api/` boundary.
 
+## Golden data path (list / detail / form)
+
+One request path: feature `api/` adapter → `createShowzyClient` → `/rpc`.
+Views never import `src/api/client`. Loaders and hooks share the same
+options factory (`ensureQueryData` + `useQuery`).
+
+```ts
+// features/companies/api/list-mine.ts — account-scoped
+listMineQueryOptions(client, sessionUserId)
+// key: [actionName, null-company, sessionUserId, input]
+
+// features/companies/api/get.ts — company-scoped
+companyGetQueryOptions({ client, companyId, getActiveCompany })
+// key: [actionName, companyId, input]
+
+// routes/_authed.tsx — same factory as useListMine
+loader: ({ context }) =>
+  context.queryClient.ensureQueryData(
+    listMineQueryOptions(context.apiClient, context.session.userId),
+  )
+
+// form — one createMutationAttempt per submit
+const mutation = useContractMutation(bindCreateCompanyMutate(client))
+await mutation.submit(input)          // new attempt
+await mutation.retry()                // same attempt.options
+await mutation.confirm(challengeId)  // same attempt.withChallenge(id)
+applyCreatedCompany({ queryClient, sessionUserId, ... })
+// invalidateQueries({ queryKey: listMineQueryKey(sessionUserId) })
+```
+
+Copy `features/companies/api/` and `features/companies/onboarding/`.
+Do not add a repository/service layer.
+
 Copies also live under `.agents/skills/showzy-web`. Prefer
 `.cursor/skills/`.

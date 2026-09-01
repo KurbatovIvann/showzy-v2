@@ -6,7 +6,11 @@ import {
   createWebQueryClient,
   isolateCacheOnSessionLoss,
 } from "./query-client";
-import { contractQueryKey, NULL_COMPANY_QUERY_SCOPE } from "./query-options";
+import {
+  accountContractQueryKey,
+  contractQueryKey,
+  NULL_COMPANY_QUERY_SCOPE,
+} from "./query-options";
 
 describe("query cache isolation", () => {
   it("clears tenant rows but preserves null-company rows on setActiveCompany", () => {
@@ -15,7 +19,11 @@ describe("query cache isolation", () => {
     bindActiveCompanyQueryIsolation(created, queryClient);
 
     const companyAKey = contractQueryKey("companies.get", "company-a", {});
-    const membershipsKey = contractQueryKey("companies.listMine", null, {});
+    const membershipsKey = accountContractQueryKey(
+      "companies.listMine",
+      "user-a",
+      {},
+    );
     queryClient.setQueryData(companyAKey, { id: "company-a" });
     queryClient.setQueryData(membershipsKey, { memberships: [] });
 
@@ -35,7 +43,11 @@ describe("query cache isolation", () => {
     });
     bindActiveCompanyQueryIsolation(created, queryClient);
     const priceKey = contractQueryKey("companies.get", "company-a", {});
-    const membershipsKey = contractQueryKey("companies.listMine", null, {});
+    const membershipsKey = accountContractQueryKey(
+      "companies.listMine",
+      "user-a",
+      {},
+    );
     queryClient.setQueryData(priceKey, { id: "company-a" });
     queryClient.setQueryData(membershipsKey, { memberships: [] });
 
