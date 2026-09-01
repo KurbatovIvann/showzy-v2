@@ -15,7 +15,6 @@ import { sectionTitle } from "./left-nav";
 import { usePanelChrome } from "./panel-chrome-context";
 import {
   isDocumentsTemplatesPath,
-  isFullShellPath,
   isSectionDetailPath,
   listPathForPathname,
   panelSectionFromPathname,
@@ -118,10 +117,14 @@ export function SectionDetailPlaceholder({
   );
 }
 
-export function SectionWorkspacePage() {
+function useSectionFromLocation(): PanelSectionId {
   const chrome = usePanelChrome();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const section = panelSectionFromPathname(pathname, chrome.companySlug);
+  return panelSectionFromPathname(pathname, chrome.companySlug);
+}
+
+export function SectionWorkspacePage() {
+  const section = useSectionFromLocation();
   return (
     <SectionWorkspace section={section}>
       <SectionDetailPlaceholder section={section} />
@@ -129,22 +132,20 @@ export function SectionWorkspacePage() {
   );
 }
 
-/**
- * Documents layout parents (`documents`, `templates`, `$templateId`) must
- * not mount `usePanelChrome` consumers on the template-editor path:
- * CompanyLayout skips PanelChrome there, and the edit leaf has to mount
- * through `<Outlet />` (`docs/design/web-panel-architecture.md`).
- */
-export function DocumentsSectionLayout({
-  companySlug,
-}: {
-  readonly companySlug: string;
-}) {
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
-  if (isFullShellPath(pathname, companySlug)) {
-    return <Outlet />;
-  }
-  return <SectionWorkspacePage />;
+/** Section parent: list pane stays mounted; children fill the detail pane. */
+export function SectionWorkspaceLayout() {
+  const section = useSectionFromLocation();
+  return (
+    <SectionWorkspace section={section}>
+      <Outlet />
+    </SectionWorkspace>
+  );
+}
+
+/** Exact index / detail / create / edit leaf inside a section layout. */
+export function SectionDetailRoutePage() {
+  const section = useSectionFromLocation();
+  return <SectionDetailPlaceholder section={section} />;
 }
 
 export function FullShellPlaceholderPage({
