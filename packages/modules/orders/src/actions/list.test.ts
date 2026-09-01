@@ -49,9 +49,10 @@ describe("orders.list contract", () => {
       kind: "aggregate",
       groupBy: "none",
     });
-    expect(
-      listOrdersContract.input.parse({ kind: "page.withLines" }).limit,
-    ).toBe(LIST_ORDERS_WITH_LINES_MAX_LIMIT);
+    expect(listOrdersContract.input.parse({ kind: "page.withLines" })).toEqual({
+      kind: "page.withLines",
+      limit: LIST_ORDERS_WITH_LINES_MAX_LIMIT,
+    });
   });
 
   it("rejects screen-shaped status, active/all aliases, and kind-mismatched fields", () => {

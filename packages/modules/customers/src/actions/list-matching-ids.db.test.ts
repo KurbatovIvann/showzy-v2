@@ -188,9 +188,9 @@ describe("customers.listMatchingIds", () => {
   });
 
   it("rejects a missing or blank query", async () => {
-    await expect(
-      kit.invoke(listMatchingIds, {} as { query: string }),
-    ).rejects.toBeInstanceOf(ValidationError);
+    await expect(kit.invoke(listMatchingIds, {})).rejects.toBeInstanceOf(
+      ValidationError,
+    );
     await expect(
       kit.invoke(listMatchingIds, { query: "   " }),
     ).rejects.toBeInstanceOf(ValidationError);

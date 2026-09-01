@@ -629,9 +629,9 @@ describe("orders.list", () => {
   });
 
   it("rejects missing kind, a bad cursor, and an oversized limit", async () => {
-    await expect(
-      kit.invoke(listOrders, {} as { kind: "page.summary" }),
-    ).rejects.toBeInstanceOf(ValidationError);
+    await expect(kit.invoke(listOrders, {})).rejects.toBeInstanceOf(
+      ValidationError,
+    );
 
     await expect(
       kit.invoke(listOrders, {
