@@ -150,6 +150,8 @@ jobs:
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: Setup CI workspace
         uses: ./.github/actions/setup-ci-workspace
+      - name: Assert DB suite collects every on-disk DB test
+        run: time -p node packages/tooling/ci/assert-test-suite-collection.mjs
       - name: Vitest DB (one PostgreSQL template)
         run: time -p pnpm test:db
       - name: Assert one PostgreSQL template for this job

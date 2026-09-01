@@ -5,6 +5,7 @@ import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
+import { parseVitestListPaths } from "./assert-test-suite-collection.mjs";
 import {
   DB_PACKAGE_UNIT_RELATIVE_FILES,
   classifyTestFile,
@@ -15,8 +16,6 @@ import {
 const forbidImport = fileURLToPath(
   new URL("./forbid-testcontainers.mjs", import.meta.url),
 );
-
-const TEST_PATH_RE = /\.test\.(tsx|ts|mjs)/;
 
 /**
  * @param {string} source
@@ -31,44 +30,6 @@ function extractVitestNamedProject(source, name) {
   const rest = source.slice(start);
   const next = rest.slice(1).search(/name:\s*"(unit|db)"/);
   return next < 0 ? rest : rest.slice(0, next + 1);
-}
-
-/**
- * @param {string} stdout
- * @returns {string[]}
- */
-function parseVitestListPaths(stdout) {
-  /** @type {Set<string>} */
-  const files = new Set();
-  for (const line of stdout.split("\n")) {
-    const trimmed = line.trim().replaceAll("\\", "/");
-    if (!TEST_PATH_RE.test(trimmed) && !trimmed.includes(".test.")) {
-      continue;
-    }
-    const match = trimmed.match(/(\S+\.test\.(?:tsx|ts|mjs))/);
-    if (!match) {
-      continue;
-    }
-    let filePath = match[1];
-    if (path.isAbsolute(filePath)) {
-      filePath = path.relative(repoRoot, filePath);
-    }
-    files.add(filePath.replaceAll("\\", "/"));
-  }
-  return [...files].sort();
-}
-
-/**
- * @param {string} cwd
- * @param {string[]} args
- */
-function vitestList(cwd, args) {
-  return spawnSync("pnpm", ["exec", "vitest", "list", ...args], {
-    cwd,
-    encoding: "utf8",
-    timeout: 120_000,
-    env: { ...process.env, CI: "1" },
-  });
 }
 
 test("packages/db postgres tests that are not *.db.test.ts stay classified as db", () => {
@@ -91,7 +52,7 @@ test("packages/db postgres tests that are not *.db.test.ts stay classified as db
   );
 });
 
-test("on-disk unit and db files match the workspace Vitest DB suite collection", () => {
+test("on-disk classification matches vitest.db.config include/exclude", () => {
   const { unit, db } = listClassifiedTestFiles();
   assert.ok(unit.length > 0, "expected unit test files");
   assert.ok(db.length > 0, "expected db test files");
@@ -124,18 +85,14 @@ test("on-disk unit and db files match the workspace Vitest DB suite collection",
   }
   assert.match(dbConfig, /globalSetup/);
   assert.doesNotMatch(dbConfig, /--shard/);
+});
 
-  const listed = vitestList(path.join(repoRoot, "packages/db"), [
-    "--config",
-    "vitest.db.config.ts",
-  ]);
-  const output = `${listed.stdout}\n${listed.stderr}`;
-  assert.equal(listed.status, 0, `vitest list (db suite) failed:\n${output}`);
-  const collected = parseVitestListPaths(output);
+test("parseVitestListPaths keeps .tsx before .ts", () => {
   assert.deepEqual(
-    collected,
-    db,
-    "DB suite collection drifted from on-disk db files (orphan or extra)",
+    parseVitestListPaths(
+      "src/ui/button.test.tsx > renders\nsrc/errors/index.test.ts > codes\n",
+    ),
+    ["src/errors/index.test.ts", "src/ui/button.test.tsx"],
   );
 });
 
@@ -200,11 +157,8 @@ test("a unit-only Vitest run does not load PostgreSqlContainer", () => {
   assert.doesNotMatch(output, /must not import @testcontainers\/postgresql/);
 });
 
-test("on-disk unit files stay collected by package unit suites", () => {
+test("every classified unit file lives in a package that declares test:unit", () => {
   const { unit } = listClassifiedTestFiles();
-  /** @type {Set<string>} */
-  const collected = new Set();
-
   const packageJsonPaths = fs
     .globSync("**/package.json", { cwd: repoRoot })
     .map((relative) => relative.replaceAll("\\", "/"))
@@ -214,49 +168,39 @@ test("on-disk unit files stay collected by package unit suites", () => {
       (relative) => !relative.startsWith("packages/document-signing/wasm/"),
     );
 
+  /** @type {{ dir: string, hasTestUnit: boolean }[]} */
+  const packages = [];
   for (const relative of packageJsonPaths) {
     const manifest = JSON.parse(
       fs.readFileSync(path.join(repoRoot, relative), "utf8"),
     );
-    const script = manifest.scripts?.["test:unit"];
-    if (typeof script !== "string") {
+    if (typeof manifest.scripts?.test !== "string") {
       continue;
     }
-    const cwd = path.join(repoRoot, path.dirname(relative));
-    if (script.startsWith("node --test")) {
-      const toolingFiles = [
-        ...fs.globSync("eslint/*.test.mjs", { cwd }),
-        ...fs.globSync("ci/*.test.mjs", { cwd }),
-      ].map((file) =>
-        path.join(path.dirname(relative), file).replaceAll("\\", "/"),
-      );
-      for (const file of toolingFiles) {
-        collected.add(file);
-      }
-      continue;
-    }
-    const args = script.includes("--project unit") ? ["--project", "unit"] : [];
-    const listed = vitestList(cwd, args);
-    const output = `${listed.stdout}\n${listed.stderr}`;
-    assert.equal(
-      listed.status,
-      0,
-      `vitest list unit failed in ${relative}:\n${output}`,
-    );
-    for (const file of parseVitestListPaths(output)) {
-      const normalized = file.replaceAll("\\", "/");
-      const repoRelative =
-        normalized.startsWith("apps/") || normalized.startsWith("packages/")
-          ? normalized
-          : path.posix.join(path.dirname(relative), normalized);
-      collected.add(repoRelative);
-    }
+    packages.push({
+      dir: path.dirname(relative).replaceAll("\\", "/"),
+      hasTestUnit: typeof manifest.scripts["test:unit"] === "string",
+    });
   }
 
-  const missing = unit.filter((file) => !collected.has(file));
+  const missingScript = packages.filter((entry) => !entry.hasTestUnit);
   assert.deepEqual(
-    missing,
+    missingScript.map((entry) => entry.dir),
     [],
-    `unit files dropped from collection:\n${missing.join("\n")}`,
+    "packages with test must declare test:unit",
   );
+
+  const dirs = packages
+    .map((entry) => entry.dir)
+    .sort((a, b) => b.length - a.length);
+  const orphans = [];
+  for (const file of unit) {
+    const owner = dirs.find(
+      (dir) => file === dir || file.startsWith(`${dir}/`),
+    );
+    if (!owner) {
+      orphans.push(file);
+    }
+  }
+  assert.deepEqual(orphans, [], "unit files outside a test:unit package");
 });

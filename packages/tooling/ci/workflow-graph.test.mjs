@@ -123,6 +123,7 @@ test("format, typecheck, lint, test-unit, test-db, and build-smoke are independe
   const testDb = extractJob(workflow, "test-db");
   assert.match(testDb, /pnpm test:db/);
   assert.match(testDb, /assert-shared-db-runtime\.mjs/);
+  assert.match(testDb, /assert-test-suite-collection\.mjs/);
   assert.doesNotMatch(testDb, /run-turbo\.mjs/);
   assert.doesNotMatch(testDb, /turbo-local-cache/);
   assert.doesNotMatch(testDb, /--shard/);
