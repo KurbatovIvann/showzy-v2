@@ -69,14 +69,14 @@ describe("staff AI tool manifest (SHO-322)", () => {
     }
     expect(names).toContain(toProviderToolName("orders.list"));
     expect(names).not.toContain("orders.list");
-    await tools[toProviderToolName("orders.list")]?.execute?.(
+    const listTool = tools[toProviderToolName("orders.list")];
+    expect(listTool).toBeDefined();
+    await listTool?.execute?.(
       {},
       { toolCallId: "call-list", messages: [], context: undefined },
     );
-    expect(execute).toHaveBeenCalledWith(
-      "orders.list",
-      {},
-      { toolCallId: "call-list" },
-    );
+    expect(execute).toHaveBeenCalledOnce();
+    expect(execute.mock.calls[0]?.[0]).toBe("orders.list");
+    expect(execute.mock.calls[0]?.[2]).toEqual({ toolCallId: "call-list" });
   });
 });
