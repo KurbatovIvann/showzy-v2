@@ -5,6 +5,7 @@ import {
   canShowCustomersCreate,
   customersCreateKind,
   customersCreateLabel,
+  customersHomeBanner,
   customersTabOptions,
   isCustomersTabImplemented,
   lookupPagesSettled,
@@ -111,6 +112,21 @@ describe("customers home tabs", () => {
     expect(customersCreateLabel("invite", labels)).toBe("New invitation");
     expect(customersCreateLabel(null, labels)).toBe("");
     expect(customersCreateLabel(null, labels)).not.toBe(labels.client);
+  });
+});
+
+describe("customers home banner", () => {
+  it("shows the visible tab's banner instead of first-non-null coalescing", () => {
+    const banners = {
+      clients: "client failed",
+      groups: "group failed",
+      counterparties: null,
+      invitations: "invite failed",
+    };
+    expect(customersHomeBanner("clients", banners)).toBe("client failed");
+    expect(customersHomeBanner("groups", banners)).toBe("group failed");
+    expect(customersHomeBanner("counterparties", banners)).toBeNull();
+    expect(customersHomeBanner("invitations", banners)).toBe("invite failed");
   });
 });
 

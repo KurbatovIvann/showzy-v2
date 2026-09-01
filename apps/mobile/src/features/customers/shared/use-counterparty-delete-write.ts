@@ -1,7 +1,7 @@
 /**
- * Invite revoke from the list (SHO-205 / SHO-307). UI confirm only —
- * revoke has no protocol challenge. Permission is `customers:invite`.
- * Callbacks are ref-stable so pane `useCallback([model.revoke])` bails.
+ * Counterparty delete mutations (SHO-195 / SHO-307). List and editor
+ * share this so confirm+protocol-delete+busy is not forked. Callbacks
+ * are ref-stable so pane `useCallback([model.remove])` bails.
  */
 import { useCallback, useMemo, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -9,23 +9,27 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../../../api/api-provider";
 import { useContractMutation } from "../../../api/contract-mutation";
 import { describeQueryFailure } from "../../../api/errors";
+import { submitWithProtocolConfirmation } from "../../../api/protocol-confirm";
 import { useActiveCompany } from "../../../api/query-provider";
 import { presentConfirmDialog } from "../../../components/ui/present-confirm-dialog";
 import type { CustomersCopy } from "../../../i18n/customers";
-import {
-  bindInviteRevokeMutate,
-  invalidateInvitesAfterWrite,
-} from "../api/invite-revoke";
-import { runConfirmedWrite } from "../shared/confirmed-write";
+import { bindCounterpartyDeleteMutate } from "../api/counterparty-delete";
+import { invalidateCustomersAfterWrite } from "../api/customer-status";
+import { runConfirmedWrite } from "./confirmed-write";
 import {
   customersWriteBanner,
   mapCustomersWriteFailure,
-} from "../shared/mutation-failure";
+} from "./mutation-failure";
 
-export function useInviteWrites(args: {
+export function useCounterpartyDeleteWrite(args: {
   readonly copy: CustomersCopy;
-  readonly canInvite: boolean;
-}) {
+  readonly canEdit: boolean;
+  readonly afterSuccess?: () => void;
+}): {
+  readonly banner: string | null;
+  readonly pending: boolean;
+  readonly remove: (id: string) => Promise<void>;
+} {
   const apiClient = useApiClient();
   const apiRef = useRef(apiClient);
   apiRef.current = apiClient;
@@ -39,51 +43,56 @@ export function useInviteWrites(args: {
   const queryClientRef = useRef(queryClient);
   queryClientRef.current = queryClient;
 
-  const revokeMutation = useContractMutation(
+  const deleteMutation = useContractMutation(
     (input: { id: string }, options) => {
       const current = apiRef.current;
       if (current === null) {
         return Promise.reject(new TypeError("Failed to fetch"));
       }
-      return bindInviteRevokeMutate(current)(input, options);
+      return bindCounterpartyDeleteMutate(current)(input, options);
     },
   );
-  const revokeMutationRef = useRef(revokeMutation);
-  revokeMutationRef.current = revokeMutation;
+  const deleteMutationRef = useRef(deleteMutation);
+  deleteMutationRef.current = deleteMutation;
 
   const banner = customersWriteBanner(
     mapCustomersWriteFailure(
-      revokeMutation.isError
-        ? describeQueryFailure(revokeMutation.error).kind
+      deleteMutation.isError
+        ? describeQueryFailure(deleteMutation.error).kind
         : null,
     ),
     args.copy.mutation,
   );
 
   const afterWrite = useCallback(async (): Promise<void> => {
-    await invalidateInvitesAfterWrite({
+    await invalidateCustomersAfterWrite({
       queryClient: queryClientRef.current,
       companyId: companyIdRef.current,
     });
-    revokeMutationRef.current.reset();
+    deleteMutationRef.current.reset();
+    argsRef.current.afterSuccess?.();
   }, []);
 
-  const revoke = useCallback(
+  const remove = useCallback(
     async (id: string) => {
       const current = argsRef.current;
       await runConfirmedWrite({
         busyRef: writeBusyRef,
-        allowed: current.canInvite,
+        allowed: current.canEdit,
         confirm: {
-          title: current.copy.confirm.revokeInviteTitle,
-          message: current.copy.confirm.revokeInviteDescription,
-          confirmLabel: current.copy.confirm.revokeInviteConfirm,
+          title: current.copy.confirm.deleteCounterpartyTitle,
+          message: current.copy.confirm.deleteCounterpartyDescription,
+          confirmLabel: current.copy.confirm.deleteCounterpartyConfirm,
           cancelLabel: current.copy.confirm.cancel,
           tone: "danger",
         },
         present: presentConfirmDialog,
         run: async () => {
-          await revokeMutationRef.current.submit({ id });
+          await submitWithProtocolConfirmation({
+            submit: () => deleteMutationRef.current.submit({ id }),
+            confirm: (challengeId) =>
+              deleteMutationRef.current.confirm(challengeId),
+          });
           await afterWrite();
         },
       });
@@ -94,9 +103,9 @@ export function useInviteWrites(args: {
   return useMemo(
     () => ({
       banner,
-      pending: revokeMutation.isPending,
-      revoke,
+      pending: deleteMutation.isPending,
+      remove,
     }),
-    [banner, revokeMutation.isPending, revoke],
+    [banner, deleteMutation.isPending, remove],
   );
 }

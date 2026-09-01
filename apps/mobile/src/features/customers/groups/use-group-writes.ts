@@ -1,8 +1,9 @@
 /**
- * Group delete + edit navigation (SHO-179). Delete is UI confirm then
- * protocol confirmation. Permission is `customers:edit`.
+ * Group delete + edit navigation (SHO-179 / SHO-307). Delete is UI
+ * confirm then protocol confirmation. Callbacks are ref-stable so pane
+ * `useCallback([model.remove])` and row `memo` bail.
  */
-import { useRef } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 
@@ -16,6 +17,7 @@ import type { CustomersCopy } from "../../../i18n/customers";
 import type { Locale } from "../../../i18n/locale";
 import { invalidateCustomersAfterWrite } from "../api/customer-status";
 import { bindGroupDeleteMutate } from "../api/group-delete";
+import { runConfirmedWrite } from "../shared/confirmed-write";
 import { groupEditorHref } from "../shared/customer-hrefs";
 import {
   customersWriteBanner,
@@ -35,6 +37,14 @@ export function useGroupWrites(args: {
   const queryClient = useQueryClient();
   const router = useRouter();
   const writeBusyRef = useRef(false);
+  const argsRef = useRef(args);
+  argsRef.current = args;
+  const companyIdRef = useRef(activeCompanyId);
+  companyIdRef.current = activeCompanyId;
+  const queryClientRef = useRef(queryClient);
+  queryClientRef.current = queryClient;
+  const routerRef = useRef(router);
+  routerRef.current = router;
 
   const deleteMutation = useContractMutation(
     (input: { id: string }, options) => {
@@ -45,6 +55,8 @@ export function useGroupWrites(args: {
       return bindGroupDeleteMutate(current)(input, options);
     },
   );
+  const deleteMutationRef = useRef(deleteMutation);
+  deleteMutationRef.current = deleteMutation;
 
   const banner = customersWriteBanner(
     mapCustomersWriteFailure(
@@ -55,51 +67,57 @@ export function useGroupWrites(args: {
     args.copy.mutation,
   );
 
-  async function afterWrite(): Promise<void> {
+  const afterWrite = useCallback(async (): Promise<void> => {
     await invalidateCustomersAfterWrite({
-      queryClient,
-      companyId: activeCompanyId,
+      queryClient: queryClientRef.current,
+      companyId: companyIdRef.current,
     });
-    deleteMutation.reset();
-  }
+    deleteMutationRef.current.reset();
+  }, []);
 
-  return {
-    banner,
-    pending: deleteMutation.isPending,
-    openEdit: (id: string) => {
-      router.push(groupEditorHref(id));
-    },
-    remove: async (id: string, memberCount: number) => {
-      if (!args.canEdit || writeBusyRef.current) {
-        return;
-      }
+  const openEdit = useCallback((id: string) => {
+    routerRef.current.push(groupEditorHref(id));
+  }, []);
+
+  const remove = useCallback(
+    async (id: string, memberCount: number) => {
+      const current = argsRef.current;
       const message = deleteGroupConfirmMessage(
         memberCount,
-        args.locale,
-        args.copy.confirm,
+        current.locale,
+        current.copy.confirm,
       );
-      const choice = await presentConfirmDialog({
-        title: args.copy.confirm.deleteGroupTitle,
-        message,
-        confirmLabel: args.copy.confirm.deleteGroupConfirm,
-        cancelLabel: args.copy.confirm.cancel,
-        tone: "danger",
+      await runConfirmedWrite({
+        busyRef: writeBusyRef,
+        allowed: current.canEdit,
+        confirm: {
+          title: current.copy.confirm.deleteGroupTitle,
+          message,
+          confirmLabel: current.copy.confirm.deleteGroupConfirm,
+          cancelLabel: current.copy.confirm.cancel,
+          tone: "danger",
+        },
+        present: presentConfirmDialog,
+        run: async () => {
+          await submitWithProtocolConfirmation({
+            submit: () => deleteMutationRef.current.submit({ id }),
+            confirm: (challengeId) =>
+              deleteMutationRef.current.confirm(challengeId),
+          });
+          await afterWrite();
+        },
       });
-      if (choice === "cancel") {
-        return;
-      }
-      writeBusyRef.current = true;
-      try {
-        await submitWithProtocolConfirmation({
-          submit: () => deleteMutation.submit({ id }),
-          confirm: (challengeId) => deleteMutation.confirm(challengeId),
-        });
-        await afterWrite();
-      } catch {
-        // Banner is derived from mutation.error.
-      } finally {
-        writeBusyRef.current = false;
-      }
     },
-  };
+    [afterWrite],
+  );
+
+  return useMemo(
+    () => ({
+      banner,
+      pending: deleteMutation.isPending,
+      openEdit,
+      remove,
+    }),
+    [banner, deleteMutation.isPending, openEdit, remove],
+  );
 }

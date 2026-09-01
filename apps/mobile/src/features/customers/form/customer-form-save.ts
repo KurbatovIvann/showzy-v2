@@ -1,12 +1,12 @@
 /**
- * Customer form save workflow (SHO-180). RHF `handleSubmit` /
- * `parseCustomerFormUiDraft` owns the UI parse; planner `invalid`
- * reports field errors through `setFieldErrors`. Not `handleSubmit` as
- * the only write.
+ * Customer form save workflow (SHO-180 / SHO-307). Delegates to form-kit
+ * `runFormSave`; create still stamps `customerId` in `applySuccess`.
  */
-import type { WireErrorCode } from "@showzy/contract";
-
-import type { QueryFailureKind } from "../../../api/errors";
+import {
+  NO_SAVE_FAILURE,
+  type LastWriteFailure,
+} from "../../../components/form-kit/last-write-failure";
+import { runFormSave } from "../../../components/form-kit/run-form-save";
 import {
   type CustomerFormDraft,
   type CustomerFormFieldErrors,
@@ -20,12 +20,7 @@ import {
   type CustomerFormWrite,
 } from "./customer-form-plan";
 
-export type LastWriteFailure = {
-  readonly kind: QueryFailureKind | null;
-  readonly wire: WireErrorCode | null;
-};
-
-export const NO_SAVE_FAILURE: LastWriteFailure = { kind: null, wire: null };
+export { NO_SAVE_FAILURE, type LastWriteFailure };
 
 export type CustomerFormSavePorts = {
   readonly getDraft: () => CustomerFormDraft;
@@ -52,46 +47,47 @@ export type CustomerFormSavePorts = {
 export async function runCustomerFormSave(
   ports: CustomerFormSavePorts,
 ): Promise<void> {
-  const mode = ports.getMode();
-  const customerId = ports.getCustomerId();
-  const plan = parseThenPlanCustomerFormSave({
-    mode: customerId !== null && mode === "create" ? "edit" : mode,
-    customerId,
-    draft: ports.getDraft(),
-    baseline: ports.getBaseline(),
-    lastWrite: ports.getLastWrite(),
-    lastFailureKind: ports.getLastFailure().kind,
-    lastWireCode: ports.getLastFailure().wire,
+  await runFormSave<
+    CustomerFormDraft,
+    CustomerFormWrite,
+    CustomerFormMutationResult,
+    CustomerFormFieldErrors
+  >({
+    plan: () => {
+      const mode = ports.getMode();
+      const customerId = ports.getCustomerId();
+      return parseThenPlanCustomerFormSave({
+        mode: customerId !== null && mode === "create" ? "edit" : mode,
+        customerId,
+        draft: ports.getDraft(),
+        baseline: ports.getBaseline(),
+        lastWrite: ports.getLastWrite(),
+        lastFailureKind: ports.getLastFailure().kind,
+        lastWireCode: ports.getLastFailure().wire,
+      });
+    },
+    getDraft: ports.getDraft,
+    setOrigin: ports.setOrigin,
+    getLastWrite: ports.getLastWrite,
+    setLastWrite: ports.setLastWrite,
+    setLastFailure: ports.setLastFailure,
+    setFieldErrors: ports.setFieldErrors,
+    submit: ports.submit,
+    retry: ports.retry,
+    resetMutation: ports.resetMutation,
+    applySuccess: ({ draft, write, result }) => {
+      if (write.kind === "createCustomer") {
+        ports.setCustomerId(result.id);
+      }
+      const applied = applyWriteSuccess({
+        draft,
+        write,
+      });
+      ports.setDraft(applied.draft);
+      ports.setBaseline(applied.baseline);
+    },
+    finish: async () => {
+      await ports.finish();
+    },
   });
-  if (plan.kind === "invalid") {
-    ports.setFieldErrors(plan.errors);
-    return;
-  }
-  if (plan.kind === "noop") {
-    ports.setOrigin(ports.getDraft());
-    await ports.finish();
-    return;
-  }
-  if (plan.kind === "write") {
-    ports.setLastWrite(plan.write);
-  }
-  const write = ports.getLastWrite();
-  if (write === null) {
-    return;
-  }
-  const result =
-    plan.kind === "retry" ? await ports.retry() : await ports.submit(write);
-  ports.setLastFailure(NO_SAVE_FAILURE);
-  if (write.kind === "createCustomer") {
-    ports.setCustomerId(result.id);
-  }
-  const applied = applyWriteSuccess({
-    draft: ports.getDraft(),
-    write,
-  });
-  ports.setDraft(applied.draft);
-  ports.setBaseline(applied.baseline);
-  ports.resetMutation();
-  ports.setOrigin(ports.getDraft());
-  await ports.finish();
 }

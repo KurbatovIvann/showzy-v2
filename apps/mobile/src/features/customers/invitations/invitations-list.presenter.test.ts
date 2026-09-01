@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import { customersCopy } from "../../../i18n/customers";
@@ -144,6 +146,17 @@ describe("invite labels", () => {
     ).toBe("Used 3 (unlimited)");
     expect(formatInviteExpiry("2026-09-05T12:00:00.000Z", "en")).toMatch(
       /2026/,
+    );
+    const source = readFileSync(
+      new URL("./invitations-list.presenter.ts", import.meta.url),
+      "utf8",
+    );
+    expect(source.indexOf("const expiryFormatters")).toBeGreaterThan(-1);
+    expect(source.indexOf("const expiryFormatters")).toBeLessThan(
+      source.indexOf("export function formatInviteExpiry"),
+    );
+    expect(source).not.toMatch(
+      /function formatInviteExpiry[\s\S]*new Intl\.DateTimeFormat/,
     );
     expect(
       inviteExpiryLabel("2026-09-05T12:00:00.000Z", "pending", "en", {

@@ -12,12 +12,18 @@ Delete re-invokes with the confirmation challenge (protocol). Archive
 is a UI confirm only. Catalog list does not own writes; this slice does,
 because archive / restore / delete live on the row.
 
-The client form (SHO-180) uses RHF `Controller`, UI draft Zod, a save
-planner, and an unsaved-leave guard (compose form-kit in SHO-307). The
-group form (SHO-181) lives in `groups/` next to the list presenter. The
-counterparty form (SHO-196) lives in `counterparties/` next to the list
-presenter. The invitation create form (SHO-206) lives in `invitations/`
-next to the list presenter.
+The client form (SHO-180 / SHO-307) composes `src/components/form-kit`
+(`runFormSave` / `useFormSave` / `useUnsavedGuard` / `FormScreenScaffold`
+/ `FormTextField`). Each CRM form is a single create/update write, so
+`useFormSave` fits (unlike SHO-304's multi-write price-list loop). View
+models live in `*-form.presenter.ts`; leftover composer glue above ~150
+lines is Query + RHF + save wiring (same waiver as SHO-303/304/305).
+The group form (SHO-181) lives in `groups/` next to the list presenter.
+The counterparty form (SHO-196) lives in `counterparties/` next to the
+list presenter. The invitation create form (SHO-206) lives in
+`invitations/` next to the list presenter. Invitation leave is form-kit
+`armedLeave: "dispatch-only"` so the once-only token/url stay until
+Done. Do not log invite secrets.
 
 Debounce is `src/hooks/use-debounced-value.ts` and protocol confirmation is
 `src/api/protocol-confirm.ts` (SHO-219 / SHO-220). They do not live under
@@ -65,15 +71,15 @@ false-positive:
 
 ## Folders (one role each)
 
-| Folder            | Owns                                                                                                                                                                                                                                                                                          | Does not own                                                      |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| `api/`            | list/query binders, status and delete mutations, `getCustomer` / `getGroup` / `getCounterparty`, `listCounterparties` / `deleteCounterparty`, `invites.list` / `invites.revoke` / `invites.create`, form mutations, cache invalidation keys                                                   | JSX, RHF, screens, views                                          |
-| `list/`           | Home screen, view, composer hook, clients presenter/row, `use-client-writes`. Top chrome is shared `TabView` + `SegmentedTabs` `layout="scroll"` (full-bleed swipe scenes; not `BottomNav`)                                                                                                   | Group/counterparty/invitation row internals, form fields          |
-| `groups/`         | Groups presenter, composer hook, group row, `use-group-writes`, create/edit group form (RHF, UI draft Zod, save loop, unsaved guard). Price-list picker reuses shared `OptionSelectSheet`                                                                                                     | Client filters; client form fields; counterparties; invitations   |
-| `counterparties/` | Counterparties presenter, composer hook, row, `use-counterparty-writes`, create/edit form (RHF, UI draft Zod, save loop, unsaved guard). Search is name/EDRPOU. Delete is protocol confirmation (`customers:edit`)                                                                            | Client filters; invitations; client form fields                   |
-| `invitations/`    | Invitations presenter, composer hook, row, `use-invite-writes` (UI confirm revoke), create form (RHF, UI draft Zod, save loop, unsaved guard, once-only token/url). List is `invites.list`; create is `invites.create`; revoke is `invites.revoke`. No recopy from the list, no accept screen | Client filters; group/counterparty form fields; `list/` internals |
-| `form/`           | Create/edit client screen, view, UI draft Zod, RHF fields, save loop, unsaved guard, picker lookups, archive/restore/delete on the editor, Юрособи list via `api/`, client inherit helpers                                                                                                    | List filters; group/counterparty/invitation UI                    |
-| `shared/`         | Permissions, hrefs, caps, initials, count labels, paged-list helpers, entity card chrome, `selectorLookupValue` (re-exports `optionSelectItems`)                                                                                                                                              | Transport; feature subdomain imports; picker chrome               |
+| Folder            | Owns                                                                                                                                                                                                                                                                                                             | Does not own                                                      |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `api/`            | list/query binders, status and delete mutations, `getCustomer` / `getGroup` / `getCounterparty`, `listCounterparties` / `deleteCounterparty`, `invites.list` / `invites.revoke` / `invites.create`, form mutations, cache invalidation keys                                                                      | JSX, RHF, screens, views                                          |
+| `list/`           | Home screen, view, composer hook, clients presenter/row, `use-client-writes`. Top chrome is shared `TabView` + `SegmentedTabs` `layout="scroll"` (full-bleed swipe scenes; not `BottomNav`)                                                                                                                      | Group/counterparty/invitation row internals, form fields          |
+| `groups/`         | Groups presenter, composer hook, group row, `use-group-writes`, create/edit group form (RHF, UI Zod, form-kit save/guard/scaffold, `group-form.presenter.ts`). Price-list picker reuses shared `OptionSelectSheet`                                                                                               | Client filters; client form fields; counterparties; invitations   |
+| `counterparties/` | Counterparties presenter, composer hook, row, `use-counterparty-writes`, create/edit form (RHF, UI Zod, form-kit save/guard/scaffold, `counterparty-form.presenter.ts`). Search is name/EDRPOU. Delete is protocol confirmation (`customers:edit`)                                                               | Client filters; invitations; client form fields                   |
+| `invitations/`    | Invitations presenter, composer hook, row, `use-invite-writes` (UI confirm revoke), create form (RHF, UI Zod, form-kit save/guard/scaffold, dispatch-only leave, once-only token/url). List is `invites.list`; create is `invites.create`; revoke is `invites.revoke`. No recopy from the list, no accept screen | Client filters; group/counterparty form fields; `list/` internals |
+| `form/`           | Create/edit client screen, view, UI draft Zod, form-kit fields/save/guard/scaffold, `customer-form.presenter.ts`, picker lookups, archive/restore/delete on the editor, Юрособи list via `api/`, client inherit helpers                                                                                          | List filters; group/counterparty/invitation UI                    |
+| `shared/`         | Permissions, hrefs, caps, initials, count labels, paged-list helpers, entity card chrome, `selectorLookupValue` (re-exports `optionSelectItems`), confirmed-write helper, shared client status writes                                                                                                            | Transport; feature subdomain imports; picker chrome               |
 
 Do not add a feature-local tab bar. Compose `TabView` + `SegmentedTabs`
 from `src/components/ui/` (decision table in

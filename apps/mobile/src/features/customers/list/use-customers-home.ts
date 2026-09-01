@@ -23,6 +23,7 @@ import {
   canShowCustomersCreate,
   customersCreateKind,
   customersCreateLabel,
+  customersHomeBanner,
   type CustomersTab,
 } from "./customers-home.presenter";
 import { useClientsList } from "./use-clients-list";
@@ -41,6 +42,9 @@ export function useCustomersHome() {
   const canInvite = canInviteCustomers(membership.role);
   const lookups = useCustomerLookups();
 
+  // SHO-295 owner decision 5 / SHO-307: all four tab infinite queries
+  // mount on home so a swipe is a cache hit, not a first fetch. Prefetch
+  // intent is confirmed — do not `enabled`-gate hidden tabs on first focus.
   const clients = useClientsList({
     copy,
     locale,
@@ -107,11 +111,12 @@ export function useCustomersHome() {
         router.push(inviteCreateHref());
       }
     },
-    banner:
-      clients.banner ??
-      groups.banner ??
-      counterparties.banner ??
-      invitations.banner,
+    banner: customersHomeBanner(tab, {
+      clients: clients.banner,
+      groups: groups.banner,
+      counterparties: counterparties.banner,
+      invitations: invitations.banner,
+    }),
     clients,
     groups,
     counterparties,

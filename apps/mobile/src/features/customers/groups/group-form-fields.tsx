@@ -1,7 +1,7 @@
-import { Controller, type Control } from "react-hook-form";
+import type { Control } from "react-hook-form";
 
 import type { CustomersGroupFormCopy } from "../../../i18n/customers";
-import { TextField } from "../../../components/ui";
+import { FormTextField } from "../../../components/form-kit";
 import {
   GROUP_DESCRIPTION_MAX,
   GROUP_FORM_DESCRIPTION_LINES,
@@ -23,34 +23,20 @@ export function GroupFormNameField(props: {
   readonly onFieldEdit: () => void;
 }) {
   return (
-    <Controller
+    <FormTextField
       control={props.control}
       name="name"
-      render={({ field }) => (
-        <TextField
-          label={props.copy.nameLabel}
-          value={field.value}
-          onChangeText={(value) => {
-            field.onChange(value);
-            props.onFieldEdit();
-          }}
-          placeholder={props.copy.namePlaceholder}
-          accessibilityLabel={props.copy.nameLabel}
-          keyboardType="default"
-          autoCapitalize="words"
-          autoCorrect
-          autoComplete="off"
-          maxLength={GROUP_NAME_MAX}
-          editable={props.editable}
-          error={props.error}
-          changed={groupFormFieldChanged(
-            props.mode,
-            field.value,
-            props.originName,
-          )}
-          changedLabel={props.copy.changedLabel}
-        />
-      )}
+      label={props.copy.nameLabel}
+      placeholder={props.copy.namePlaceholder}
+      error={props.error}
+      editable={props.editable}
+      onFieldEdit={props.onFieldEdit}
+      changed={(value) =>
+        groupFormFieldChanged(props.mode, value, props.originName)
+      }
+      changedLabel={props.copy.changedLabel}
+      maxLength={GROUP_NAME_MAX}
+      autoCapitalize="words"
     />
   );
 }
@@ -65,36 +51,21 @@ export function GroupFormDescriptionField(props: {
   readonly onFieldEdit: () => void;
 }) {
   return (
-    <Controller
+    <FormTextField
       control={props.control}
       name="description"
-      render={({ field }) => (
-        <TextField
-          label={props.copy.descriptionLabel}
-          value={field.value}
-          onChangeText={(value) => {
-            field.onChange(value);
-            props.onFieldEdit();
-          }}
-          placeholder={props.copy.descriptionPlaceholder}
-          accessibilityLabel={props.copy.descriptionLabel}
-          keyboardType="default"
-          autoCapitalize="sentences"
-          autoCorrect
-          autoComplete="off"
-          maxLength={GROUP_DESCRIPTION_MAX}
-          multiline
-          numberOfLines={GROUP_FORM_DESCRIPTION_LINES}
-          editable={props.editable}
-          error={props.error}
-          changed={groupFormFieldChanged(
-            props.mode,
-            field.value,
-            props.originDescription,
-          )}
-          changedLabel={props.copy.changedLabel}
-        />
-      )}
+      label={props.copy.descriptionLabel}
+      placeholder={props.copy.descriptionPlaceholder}
+      error={props.error}
+      editable={props.editable}
+      onFieldEdit={props.onFieldEdit}
+      changed={(value) =>
+        groupFormFieldChanged(props.mode, value, props.originDescription)
+      }
+      changedLabel={props.copy.changedLabel}
+      maxLength={GROUP_DESCRIPTION_MAX}
+      multiline
+      numberOfLines={GROUP_FORM_DESCRIPTION_LINES}
     />
   );
 }

@@ -1,15 +1,13 @@
 /**
- * Counterparty form save hook (SHO-196). Wraps `runCounterpartyFormSave`
- * with `useContractMutation` and customers invalidation + leave-arm
- * callbacks.
+ * Counterparty form save hook (SHO-196 / SHO-307). Single create/update
+ * write — form-kit `useFormSave` / `runFormSave` fits.
  */
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import type { MutationCallOptions } from "@showzy/contract";
 
-import { useApiClient } from "../../../api/api-provider";
-import { useContractMutation } from "../../../api/contract-mutation";
-import { describeQueryFailure, describeWireError } from "../../../api/errors";
+import type { ContractClient } from "../../../api/client";
 import { useActiveCompany } from "../../../api/query-provider";
+import { useFormSave } from "../../../components/form-kit";
 import { bindCounterpartyFormMutate } from "../api/counterparty-form-mutation";
 import { invalidateCustomersAfterWrite } from "../api/customer-status";
 import type {
@@ -19,18 +17,27 @@ import type {
   CounterpartyFormSnapshot,
 } from "./counterparty-form-draft";
 import type { CounterpartyFormLoadState } from "./counterparty-form-load";
-import type { CounterpartyFormWrite } from "./counterparty-form-plan";
 import {
-  NO_SAVE_FAILURE,
-  runCounterpartyFormSave,
-  type LastWriteFailure,
-} from "./counterparty-form-save";
+  applyWriteSuccess,
+  parseThenPlanCounterpartyFormSave,
+  type CounterpartyFormMutationResult,
+  type CounterpartyFormWrite,
+} from "./counterparty-form-plan";
 
 export { runCounterpartyFormSave } from "./counterparty-form-save";
 export type {
   LastWriteFailure,
   CounterpartyFormSavePorts,
 } from "./counterparty-form-save";
+
+function bindCounterpartySave(
+  client: ContractClient,
+): (
+  input: CounterpartyFormWrite,
+  options: MutationCallOptions,
+) => Promise<CounterpartyFormMutationResult> {
+  return bindCounterpartyFormMutate(client);
+}
 
 export function useCounterpartySave(args: {
   readonly mode: CounterpartyFormMode;
@@ -51,108 +58,49 @@ export function useCounterpartySave(args: {
   readonly isMutationError: boolean;
   readonly resetMutation: () => void;
 } {
-  const apiClient = useApiClient();
-  const apiRef = useRef(apiClient);
-  apiRef.current = apiClient;
   const { activeCompanyId } = useActiveCompany();
   const queryClient = useQueryClient();
-  const [saveBusy, setSaveBusy] = useState(false);
-  const [lastWrite, setLastWrite] = useState<CounterpartyFormWrite | null>(
-    null,
-  );
-  const saveBusyRef = useRef(false);
-  const lastWriteRef = useRef<CounterpartyFormWrite | null>(null);
-  const lastFailureRef = useRef<LastWriteFailure>(NO_SAVE_FAILURE);
-  const mountedRef = useRef(true);
-  const argsRef = useRef(args);
-  argsRef.current = args;
 
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
-
-  const mutation = useContractMutation(
-    (input: CounterpartyFormWrite, options) => {
-      const current = apiRef.current;
-      if (current === null) {
-        return Promise.reject(new TypeError("Failed to fetch"));
-      }
-      return bindCounterpartyFormMutate(current)(input, options);
-    },
-  );
-
-  async function save(): Promise<void> {
-    const current = argsRef.current;
-    if (
-      saveBusyRef.current ||
-      apiClient === null ||
-      current.loadKind !== "ready"
-    ) {
-      return;
-    }
-    saveBusyRef.current = true;
-    setSaveBusy(true);
-    try {
-      await runCounterpartyFormSave({
-        getDraft: current.getDraft,
-        getMode: () => current.mode,
-        getCounterpartyId: () => current.counterpartyIdRef.current,
-        setCounterpartyId: (counterpartyId) => {
-          current.counterpartyIdRef.current = counterpartyId;
-        },
-        getBaseline: () => current.baselineRef.current,
-        setDraft: current.setDraft,
-        setBaseline: (baseline) => {
-          current.baselineRef.current = baseline;
-          current.setBaseline(baseline);
-        },
-        setOrigin: current.setOrigin,
-        getLastWrite: () => lastWriteRef.current,
-        setLastWrite: (write) => {
-          lastWriteRef.current = write;
-          setLastWrite(write);
-        },
-        getLastFailure: () => lastFailureRef.current,
-        setLastFailure: (failure) => {
-          lastFailureRef.current = failure;
-        },
-        setFieldErrors: current.setFieldErrors,
-        submit: mutation.submit,
-        retry: mutation.retry,
-        resetMutation: mutation.reset,
-        finish: async () => {
-          await invalidateCustomersAfterWrite({
-            queryClient,
-            companyId: activeCompanyId,
-          });
-          await current.onSaved();
-        },
+  return useFormSave<
+    CounterpartyFormDraft,
+    CounterpartyFormWrite,
+    CounterpartyFormMutationResult,
+    CounterpartyFormFieldErrors
+  >({
+    bindMutate: bindCounterpartySave,
+    invalidate: () =>
+      invalidateCustomersAfterWrite({
+        queryClient,
+        companyId: activeCompanyId,
+      }),
+    ready: args.loadKind === "ready",
+    getDraft: args.getDraft,
+    setOrigin: args.setOrigin,
+    setFieldErrors: args.setFieldErrors,
+    plan: ({ lastWrite, lastFailure }) => {
+      const counterpartyId = args.counterpartyIdRef.current;
+      return parseThenPlanCounterpartyFormSave({
+        mode:
+          counterpartyId !== null && args.mode === "create"
+            ? "edit"
+            : args.mode,
+        counterpartyId,
+        draft: args.getDraft(),
+        baseline: args.baselineRef.current,
+        lastWrite,
+        lastFailureKind: lastFailure.kind,
+        lastWireCode: lastFailure.wire,
       });
-    } catch (error: unknown) {
-      lastFailureRef.current = {
-        kind: describeQueryFailure(error).kind,
-        wire: describeWireError(error)?.code ?? null,
-      };
-    } finally {
-      saveBusyRef.current = false;
-      if (mountedRef.current) {
-        setSaveBusy(false);
-      }
-    }
-  }
-
-  return {
-    save,
-    pending: saveBusy || mutation.isPending,
-    lastWrite,
-    mutationError: mutation.error,
-    isMutationError: mutation.isError,
-    resetMutation: () => {
-      lastFailureRef.current = NO_SAVE_FAILURE;
-      mutation.reset();
     },
-  };
+    applySuccess: ({ draft, write, result }) => {
+      if (write.kind === "createCounterparty") {
+        args.counterpartyIdRef.current = result.id;
+      }
+      const applied = applyWriteSuccess({ draft, write });
+      args.setDraft(applied.draft);
+      args.baselineRef.current = applied.baseline;
+      args.setBaseline(applied.baseline);
+    },
+    onSaved: () => args.onSaved(),
+  });
 }

@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 
 import { useApiClient } from "../../../api/api-provider";
-import { describeQueryFailure, describeWireError } from "../../../api/errors";
+import { describeQueryFailure } from "../../../api/errors";
 import { useActiveCompany } from "../../../api/query-provider";
+import { useUnsavedGuard } from "../../../components/form-kit";
 import { useResolvedCompany } from "../../../company-resolution/resolved-company-provider";
 import { customersCopy } from "../../../i18n/customers";
 import { detectLocale } from "../../../i18n/locale";
@@ -13,17 +14,9 @@ import { getCounterpartyQueryOptions } from "../api/counterparty-detail-query";
 import { customerEditorHref } from "../shared/customer-hrefs";
 import { customerIdFromParam } from "../shared/customer-id";
 import { canEditCustomers } from "../shared/customer-permissions";
-import { selectorLookupValue } from "../shared/option-select";
-import {
-  fieldErrorsFromFormState,
-  mapCounterpartyFormFailure,
-  mapValidationIssues,
-  resolveCounterpartyFormCopy,
-  rhfPathsForFieldErrors,
-} from "./counterparty-form-copy";
+import { rhfPathsForFieldErrors } from "./counterparty-form-copy";
 import {
   cloneCounterpartyFormDraft,
-  counterpartyFormFieldChanged,
   draftFromCounterparty,
   emptyCounterpartyFormDraft,
   snapshotFromCounterparty,
@@ -33,14 +26,13 @@ import {
 } from "./counterparty-form-draft";
 import { classifyCounterpartyFormLoad } from "./counterparty-form-load";
 import {
-  ensureLinkedCustomerOption,
-  linkedCustomerName,
-} from "./counterparty-form-options";
+  presentCounterpartyFormCopy,
+  presentCounterpartyFormView,
+} from "./counterparty-form.presenter";
 import { counterpartyFormResolver } from "./counterparty-form.schema";
 import { useCounterpartyFormLifecycle } from "./use-counterparty-form-lifecycle";
 import { useCounterpartyFormLookups } from "./use-counterparty-form-lookups";
 import { useCounterpartySave } from "./use-counterparty-save";
-import { useUnsavedCounterpartyGuard } from "./use-unsaved-counterparty-guard";
 
 export type CounterpartyFormModel = ReturnType<typeof useCounterpartyForm>;
 
@@ -163,7 +155,7 @@ export function useCounterpartyForm(args: {
     },
   });
 
-  const { armLeave, requestLeave } = useUnsavedCounterpartyGuard({
+  const { armLeave, requestLeave } = useUnsavedGuard({
     dirty: isDirty,
     pending: saveApi.pending,
     copy: formCopy,
@@ -181,16 +173,10 @@ export function useCounterpartyForm(args: {
     armLeave,
   });
 
-  const failure = saveApi.isMutationError
-    ? describeQueryFailure(saveApi.mutationError)
-    : null;
-  const wire = saveApi.isMutationError
-    ? describeWireError(saveApi.mutationError)
-    : null;
-  const serverFields = saveApi.isMutationError
-    ? mapValidationIssues(saveApi.mutationError, saveApi.lastWrite)
-    : null;
-  const fieldErrors = fieldErrorsFromFormState({
+  const pending = saveApi.pending || lifecycle.pending;
+  const resolved = presentCounterpartyFormCopy({
+    formCopy,
+    mode: args.mode,
     submitted: isSubmitted,
     nameMessage: errors.name?.message,
     edrpouMessage: errors.edrpou?.message,
@@ -201,25 +187,9 @@ export function useCounterpartyForm(args: {
     phoneMessage: errors.phone?.message,
     emailMessage: errors.email?.message,
     notesMessage: errors.notes?.message,
-    server: serverFields,
-  });
-  const mappedBanner = mapCounterpartyFormFailure(
-    failure?.kind ?? null,
-    wire?.code ?? null,
-  );
-  const pending = saveApi.pending || lifecycle.pending;
-  const resolved = resolveCounterpartyFormCopy(formCopy, {
-    mode: args.mode,
-    nameError: fieldErrors.name,
-    edrpouError: fieldErrors.edrpou,
-    legalAddressError: fieldErrors.legalAddress,
-    ibanError: fieldErrors.iban,
-    bankNameError: fieldErrors.bankName,
-    bankMfoError: fieldErrors.bankMfo,
-    phoneError: fieldErrors.phone,
-    emailError: fieldErrors.email,
-    notesError: fieldErrors.notes,
-    banner: mappedBanner,
+    mutationError: saveApi.mutationError,
+    lastWrite: saveApi.lastWrite,
+    isMutationError: saveApi.isMutationError,
     pending,
     clientReady,
   });
@@ -229,68 +199,27 @@ export function useCounterpartyForm(args: {
     saveApi.resetMutation();
   }
 
-  const headerTitle =
-    args.mode === "create"
-      ? copy.editorStub.counterpartyCreateTitle
-      : copy.editorStub.counterpartyEditTitle;
-  const linkedName = linkedCustomerName({
-    fromCounterparty: query.data?.customerName,
-    fromPrefillCustomer: lookups.prefillCustomerName,
-  });
-  const customerOptions = ensureLinkedCustomerOption({
-    options: lookups.customerOptions,
+  const presented = presentCounterpartyFormView({
+    copy,
+    mode: args.mode,
+    origin,
+    loadState,
+    resolved,
+    pending,
+    isDirty,
+    pickerOpen,
     customerId,
-    customerName: linkedName,
-    unnamedFallback: formCopy.assignmentUnavailable,
+    canWrite,
+    lookups,
+    counterpartyCustomerName: query.data?.customerName,
+    lifecycleBanner: lifecycle.banner,
   });
 
   return {
     copy,
     mode: args.mode,
     control,
-    originName: origin.name,
-    originEdrpou: origin.edrpou,
-    originLegalAddress: origin.legalAddress,
-    originIban: origin.iban,
-    originBankName: origin.bankName,
-    originBankMfo: origin.bankMfo,
-    originPhone: origin.phone,
-    originEmail: origin.email,
-    originNotes: origin.notes,
-    state: loadState,
-    nameError: resolved.nameError,
-    edrpouError: resolved.edrpouError,
-    legalAddressError: resolved.legalAddressError,
-    ibanError: resolved.ibanError,
-    bankNameError: resolved.bankNameError,
-    bankMfoError: resolved.bankMfoError,
-    phoneError: resolved.phoneError,
-    emailError: resolved.emailError,
-    notesError: resolved.notesError,
-    banner: lifecycle.banner ?? resolved.banner,
-    pending,
-    submitDisabled:
-      resolved.submitDisabled ||
-      loadState.kind !== "ready" ||
-      (args.mode === "edit" && !isDirty),
-    submitLabel: resolved.submitLabel,
-    fieldsEditable: resolved.fieldsEditable && loadState.kind === "ready",
-    headerTitle,
-    pickerOpen,
-    customerId,
-    customerValue: selectorLookupValue(
-      customerId,
-      lookups.customerNameById,
-      linkedName ?? formCopy.assignmentUnavailable,
-    ),
-    customerChanged: counterpartyFormFieldChanged(
-      args.mode,
-      customerId,
-      origin.customerId,
-    ),
-    customerOptions,
-    showOpenClient: customerId !== null,
-    showDelete: args.mode === "edit" && canWrite,
+    ...presented,
     onFieldEdit,
     requestLeave,
     openCustomerPicker: () => {

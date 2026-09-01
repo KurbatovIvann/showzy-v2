@@ -1,29 +1,16 @@
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import * as Clipboard from "expo-clipboard";
 
 import { useApiClient } from "../../../api/api-provider";
-import { describeQueryFailure, describeWireError } from "../../../api/errors";
 import { useActiveCompany } from "../../../api/query-provider";
+import { useUnsavedGuard } from "../../../components/form-kit";
 import { useResolvedCompany } from "../../../company-resolution/resolved-company-provider";
 import { customersCopy } from "../../../i18n/customers";
 import { detectLocale } from "../../../i18n/locale";
-// Invitation create copies client assignment UX (SHO-221). Do not
-// fork these client-form-only inherit/lookup modules into shared/.
-import {
-  groupAssignedPriceListId,
-  inheritedPriceListPlaceholder,
-} from "../form/customer-form-pickers";
 import { useCustomerFormLookups } from "../form/use-customer-form-lookups";
 import { canInviteCustomers } from "../shared/customer-permissions";
-import { selectorLookupValue } from "../shared/option-select";
-import {
-  fieldErrorsFromFormState,
-  mapInvitationFormFailure,
-  mapValidationIssues,
-  resolveInvitationFormCopy,
-  rhfPathsForFieldErrors,
-} from "./invitation-form-copy";
+import { rhfPathsForFieldErrors } from "./invitation-form-copy";
 import {
   applyInviteExpiresDate,
   cloneInvitationFormDraft,
@@ -33,14 +20,16 @@ import {
 } from "./invitation-form-draft";
 import { classifyInvitationFormLoad } from "./invitation-form-load";
 import type { InviteCreateSecret } from "./invitation-form-plan";
+import {
+  presentInvitationFormCopy,
+  presentInvitationFormView,
+  type InvitationCopiedField,
+  type InvitationFormPicker,
+} from "./invitation-form.presenter";
 import { invitationFormResolver } from "./invitation-form.schema";
-import { formatInviteExpiry } from "./invitations-list.presenter";
 import { useInvitationSave } from "./use-invitation-save";
-import { useUnsavedInvitationGuard } from "./use-unsaved-invitation-guard";
 
-export type InvitationFormPicker = "group" | "priceList" | "expires" | null;
-
-export type InvitationCopiedField = "url" | "token" | null;
+export type { InvitationCopiedField, InvitationFormPicker };
 
 export type InvitationFormModel = ReturnType<typeof useInvitationForm>;
 
@@ -119,7 +108,7 @@ export function useInvitationForm() {
   });
 
   const sheetOpen = picker !== null;
-  const { requestLeave } = useUnsavedInvitationGuard({
+  const { requestLeave } = useUnsavedGuard({
     dirty: isDirty && created === null,
     pending: saveApi.pending,
     copy: formCopy,
@@ -127,38 +116,21 @@ export function useInvitationForm() {
     closeSheet: () => {
       setPicker(null);
     },
+    armedLeave: "dispatch-only",
   });
 
-  const failure = saveApi.isMutationError
-    ? describeQueryFailure(saveApi.mutationError)
-    : null;
-  const wire = saveApi.isMutationError
-    ? describeWireError(saveApi.mutationError)
-    : null;
-  const serverFields = saveApi.isMutationError
-    ? mapValidationIssues(saveApi.mutationError, saveApi.lastWrite)
-    : null;
-  const fieldErrors = fieldErrorsFromFormState({
+  const pending = saveApi.pending;
+  const resolved = presentInvitationFormCopy({
+    formCopy,
     submitted: isSubmitted,
     nameMessage: errors.name?.message,
     phoneMessage: errors.phone?.message,
     emailMessage: errors.email?.message,
     expiresAtMessage: errors.expiresAt?.message,
     maxUsesMessage: errors.maxUses?.message,
-    server: serverFields,
-  });
-  const mappedBanner = mapInvitationFormFailure(
-    failure?.kind ?? null,
-    wire?.code ?? null,
-  );
-  const pending = saveApi.pending;
-  const resolved = resolveInvitationFormCopy(formCopy, {
-    nameError: fieldErrors.name,
-    phoneError: fieldErrors.phone,
-    emailError: fieldErrors.email,
-    expiresAtError: fieldErrors.expiresAt,
-    maxUsesError: fieldErrors.maxUses,
-    banner: mappedBanner,
+    mutationError: saveApi.mutationError,
+    lastWrite: saveApi.lastWrite,
+    isMutationError: saveApi.isMutationError,
     pending,
     clientReady,
     created: created !== null,
@@ -171,21 +143,22 @@ export function useInvitationForm() {
     setCopyFailed(false);
   }
 
-  const kindTabs: ReadonlyArray<{
-    readonly key: InvitationKind;
-    readonly label: string;
-  }> = useMemo(
-    () => [
-      { key: "personal", label: formCopy.kindPersonal },
-      { key: "reusable", label: formCopy.kindReusable },
-    ],
-    [formCopy.kindPersonal, formCopy.kindReusable],
-  );
-
-  const groupPriceListId = groupAssignedPriceListId(
+  const presented = presentInvitationFormView({
+    copy,
+    locale,
+    loadState,
+    resolved,
+    pending,
+    picker,
+    kind,
     groupId,
-    lookups.priceListIdByGroupId,
-  );
+    priceListId,
+    expiresAt,
+    lookups,
+    created,
+    copied,
+    copyFailed,
+  });
 
   async function copyField(
     field: Exclude<InvitationCopiedField, null>,
@@ -207,45 +180,7 @@ export function useInvitationForm() {
   return {
     copy,
     control,
-    state: loadState,
-    kind,
-    kindTabs,
-    nameError: resolved.nameError,
-    phoneError: resolved.phoneError,
-    emailError: resolved.emailError,
-    expiresAtError: resolved.expiresAtError,
-    maxUsesError: resolved.maxUsesError,
-    banner: resolved.banner,
-    pending,
-    submitDisabled: resolved.submitDisabled || loadState.kind !== "ready",
-    submitLabel: resolved.submitLabel,
-    fieldsEditable: resolved.fieldsEditable && loadState.kind === "ready",
-    headerTitle: copy.editorStub.invitationCreateTitle,
-    picker,
-    groupId,
-    priceListId,
-    expiresAt,
-    expiresValue: formatInviteExpiry(expiresAt, locale),
-    groupValue: selectorLookupValue(
-      groupId,
-      lookups.groupNameById,
-      formCopy.assignmentUnavailable,
-    ),
-    priceListValue: selectorLookupValue(
-      priceListId,
-      lookups.priceListNameById,
-      formCopy.assignmentUnavailable,
-    ),
-    priceListPlaceholder: inheritedPriceListPlaceholder({
-      groupPriceListId,
-      inheritGroup: formCopy.priceListInheritGroup,
-      retailDefault: formCopy.priceListDefault,
-    }),
-    groupOptions: lookups.groupOptions,
-    priceListOptions: lookups.priceListOptions,
-    created,
-    copied,
-    copyFailed: copyFailed ? formCopy.copyFailed : null,
+    ...presented,
     onFieldEdit,
     requestLeave,
     selectKind: (next: InvitationKind) => {
