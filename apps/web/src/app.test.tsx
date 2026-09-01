@@ -51,12 +51,12 @@ describe("session guard (SHO-312)", () => {
     };
     const { router } = await renderApp("/sign-in");
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe("/");
+      expect(router.state.location.pathname).toBe("/onboarding");
     });
     expect(
-      await screen.findByRole("heading", { name: "Оберіть компанію" }),
+      await screen.findByRole("heading", { name: "Про ваш бізнес" }),
     ).toBeDefined();
-    expect(screen.getByText("Немає компаній")).toBeDefined();
+    expect(screen.queryByText("Немає компаній")).toBeNull();
   });
 
   it("keeps an unauthenticated /$companySlug off the placeholder", async () => {
@@ -73,11 +73,11 @@ describe("session guard (SHO-312)", () => {
     };
     const { authClient, router } = await renderApp("/");
     expect(
-      await screen.findByRole("heading", { name: "Оберіть компанію" }),
+      await screen.findByRole("heading", { name: "Про ваш бізнес" }),
     ).toBeDefined();
     await authClient.signOut();
     await expectSignInLanding(router);
-    expect(screen.queryByText("Оберіть компанію")).toBeNull();
+    expect(screen.queryByText("Про ваш бізнес")).toBeNull();
   });
 });
 
@@ -157,7 +157,7 @@ describe("OTP request and verify (SHO-312)", () => {
     });
     await waitFor(() => {
       expect(
-        screen.getByRole("heading", { name: "Оберіть компанію" }),
+        screen.getByRole("heading", { name: "Про ваш бізнес" }),
       ).toBeDefined();
     });
   });

@@ -1,4 +1,7 @@
-import { COMPANY_SELECTOR_HEADER } from "@showzy/contract";
+import {
+  COMPANY_SELECTOR_HEADER,
+  IDEMPOTENCY_KEY_HEADER,
+} from "@showzy/contract";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 
@@ -18,11 +21,20 @@ export type RpcCall = {
   readonly companyId: string | null;
 };
 
+export type MutationRpcCall = {
+  readonly path: string;
+  readonly companyId: string | null;
+  readonly idempotencyKey: string | null;
+  readonly input: unknown;
+};
+
 type SessionState = { user: MockSessionUser | null };
 
 type RpcState = {
   memberships: CompanyMembership[];
+  occupiedSlugs: string[];
   calls: RpcCall[];
+  mutationCalls: MutationRpcCall[];
 };
 
 type SessionJson = {
@@ -64,7 +76,12 @@ function authMsw(): AuthMsw {
     return existing;
   }
   const sessionState: SessionState = { user: null };
-  const rpcState: RpcState = { memberships: [], calls: [] };
+  const rpcState: RpcState = {
+    memberships: [],
+    occupiedSlugs: [],
+    calls: [],
+    mutationCalls: [],
+  };
   const created: AuthMsw = {
     sessionState,
     rpcState,
@@ -111,6 +128,65 @@ function recordRpc(rpcState: RpcState, request: Request): void {
     path: new URL(request.url).pathname,
     companyId: request.headers.get(COMPANY_SELECTOR_HEADER),
   });
+}
+
+function rpcError(
+  code: string,
+  status: number,
+  message: string,
+  data?: unknown,
+): Response {
+  const payload: {
+    defined: true;
+    code: string;
+    status: number;
+    message: string;
+    data?: unknown;
+  } = {
+    defined: true,
+    code,
+    status,
+    message,
+  };
+  if (data !== undefined) {
+    payload.data = data;
+  }
+  return HttpResponse.json({ json: payload }, { status });
+}
+
+function jsonObject(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function envelopeInput(body: unknown): unknown {
+  const record = jsonObject(body);
+  if (record === null) {
+    return undefined;
+  }
+  return "json" in record ? record.json : body;
+}
+
+function prefixFromSlug(slug: string): string {
+  const letters = slug
+    .replace(/[^a-z]/g, "")
+    .slice(0, 2)
+    .toUpperCase();
+  return `${letters}XX`.slice(0, 2);
+}
+
+function membershipFromCreate(name: string, slug: string): CompanyMembership {
+  return {
+    membershipId: crypto.randomUUID(),
+    role: "owner",
+    company: {
+      id: crypto.randomUUID(),
+      name,
+      slug,
+      prefix: prefixFromSlug(slug),
+    },
+  };
 }
 
 function allHandlers(sessionState: SessionState, rpcState: RpcState) {
@@ -165,6 +241,88 @@ function allHandlers(sessionState: SessionState, rpcState: RpcState) {
         legal: null,
       });
     }),
+    http.post(`${PANEL_ORIGIN}/rpc/companies/create`, async ({ request }) => {
+      recordRpc(rpcState, request);
+      const body: unknown = await request.json();
+      const input = envelopeInput(body);
+      rpcState.mutationCalls.push({
+        path: new URL(request.url).pathname,
+        companyId: request.headers.get(COMPANY_SELECTOR_HEADER),
+        idempotencyKey: request.headers.get(IDEMPOTENCY_KEY_HEADER),
+        input,
+      });
+      const record = jsonObject(input);
+      const name = typeof record?.name === "string" ? record.name.trim() : "";
+      const slug = typeof record?.slug === "string" ? record.slug : "";
+      if (name.length === 0 || slug.length === 0) {
+        return rpcError("VALIDATION", 400, "Invalid.", { issues: [] });
+      }
+      const existing = rpcState.memberships.find(
+        (membership) => membership.company.slug === slug,
+      );
+      if (existing !== undefined) {
+        if (existing.company.name === name) {
+          return rpcJson(existing);
+        }
+        return rpcError(
+          "CONFLICT",
+          409,
+          "This company address is already taken.",
+        );
+      }
+      if (rpcState.occupiedSlugs.includes(slug)) {
+        return rpcError(
+          "CONFLICT",
+          409,
+          "This company address is already taken.",
+        );
+      }
+      const created = membershipFromCreate(name, slug);
+      rpcState.memberships = [...rpcState.memberships, created];
+      return rpcJson(created);
+    }),
+    http.post(
+      `${PANEL_ORIGIN}/rpc/companies/updateLegal`,
+      async ({ request }) => {
+        recordRpc(rpcState, request);
+        const body: unknown = await request.json();
+        const input = envelopeInput(body);
+        const companyId = request.headers.get(COMPANY_SELECTOR_HEADER);
+        rpcState.mutationCalls.push({
+          path: new URL(request.url).pathname,
+          companyId,
+          idempotencyKey: request.headers.get(IDEMPOTENCY_KEY_HEADER),
+          input,
+        });
+        const current = rpcState.memberships.find(
+          (membership) => membership.company.id === companyId,
+        )?.company;
+        const record = jsonObject(input);
+        const now = new Date().toISOString();
+        return rpcJson({
+          id: current?.id ?? "c0c0c0c0-0000-4000-8000-000000000099",
+          name: current?.name ?? "unknown",
+          slug: current?.slug ?? "unknown",
+          prefix: current?.prefix ?? "XX",
+          legal: {
+            id: crypto.randomUUID(),
+            companyType: record?.companyType ?? "fop",
+            legalName:
+              typeof record?.legalName === "string" ? record.legalName : null,
+            edrpou: record?.edrpou ?? null,
+            legalAddress: record?.legalAddress ?? null,
+            iban: record?.iban ?? null,
+            bankName: record?.bankName ?? null,
+            bankMfo: record?.bankMfo ?? null,
+            bankEdrpou: record?.bankEdrpou ?? null,
+            phone: record?.phone ?? null,
+            email: record?.email ?? null,
+            createdAt: now,
+            updatedAt: now,
+          },
+        });
+      },
+    ),
   ];
 }
 
@@ -177,7 +335,9 @@ export const server = msw.server;
 export function resetAuthMocks(): void {
   sessionState.user = null;
   listMineState.memberships = [];
+  listMineState.occupiedSlugs = [];
   listMineState.calls = [];
+  listMineState.mutationCalls = [];
 }
 
 export function ensureAuthServer(): void {

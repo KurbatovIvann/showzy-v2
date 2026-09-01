@@ -30,7 +30,7 @@ export function CompanyLayout({
     );
   }
   if (scope.memberships.length === 0) {
-    return <Navigate replace to="/" />;
+    return <Navigate replace to="/onboarding" />;
   }
   if (scope.match === undefined) {
     return <CompanyUnknownScreen />;
