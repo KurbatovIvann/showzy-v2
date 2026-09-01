@@ -28,7 +28,10 @@ class FakeResizeObserver implements ResizeObserver {
   }
 
   observe(): void {
-    this.callback([], this);
+    // Real ResizeObserver notifies asynchronously. Firing the callback
+    // here re-enters `useLayoutEffect` sync work inside React `act()`
+    // and can keep the first paint open until Vitest's 15s timeout
+    // (SHO-343). Width is applied only through `setShellWidth`.
   }
 
   unobserve(): void {}
@@ -79,14 +82,18 @@ function setShellWidth(width: number): void {
  * T6 chrome ready signal. Company name is in the LeftNav switcher
  * (desktop / open tablet drawer), not a page heading. Waiting on that
  * heading never resolves when the unmeasured shell is phone or tablet.
+ *
+ * Shell and list region share one `waitFor`. A sequential `waitFor` +
+ * `findByRole` each consume `asyncUtilTimeout` (8s) and together exceed
+ * Vitest `testTimeout` (15s) under CI load — Vitest then reports
+ * "Test timed out in 15000ms" instead of "Unable to find" (SHO-343,
+ * same class as SHO-316).
  */
 async function waitForPanelChrome(): Promise<void> {
   await waitFor(() => {
     expect(document.querySelector(".panel-shell")).not.toBeNull();
+    expect(screen.getByRole("region", { name: "Замовлення" })).toBeDefined();
   });
-  expect(
-    await screen.findByRole("region", { name: "Замовлення" }),
-  ).toBeDefined();
 }
 
 describe("panel chrome breakpoints (SHO-314)", () => {
