@@ -57,7 +57,9 @@ verification steps.
    - `migration-drift` — schema regeneration + money lint + grants (fnd-T5/T6)
      plus backup-verify `--dry-run` (fnd-T28)
    - `bundle-probe` — client bundle probe + OpenAPI drift (fnd-T25)
-   - `e2e-smoke` — placeholder until fnd-T51
+   - `e2e-smoke` — Playwright smoke against the built `apps/web` bundle
+     (SHO-331). Auth/RPC are intercepted in the browser; no production
+     credentials. Maestro mobile e2e remains a later phase (fnd-T51).
 3. **Require conversation resolution before merging.**
 4. **Block force pushes** and **restrict deletions** on `main`.
 5. **No bypass actors.** The gate applies to administrators too

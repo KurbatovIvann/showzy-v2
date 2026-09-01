@@ -299,8 +299,8 @@ implement.
    cross-module imports) → Vitest (unit + integration with Testcontainers
    Postgres) → action/event contract checks (mandatory metadata including
    `principal`/`transport`, pairing, resolver and event definitions) →
-   migration drift/safety → e2e smoke, phase-aware: Maestro once mobile
-   screens exist, Playwright only from the web phase. A parent conveyor
+   migration drift/safety → e2e smoke: Playwright against the built web
+   panel (SHO-331); Maestro once mobile screens exist. A parent conveyor
    squash-merges a child when those Actions jobs are green and
    parent-launched Task reviews for the lane have no blocking findings
    (isolated `/review`, when launched, waits for APPROVE with nits

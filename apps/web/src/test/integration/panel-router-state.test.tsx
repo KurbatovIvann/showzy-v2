@@ -381,7 +381,7 @@ describe("typed Link tabs and nav (SHO-328)", () => {
   });
 });
 
-describe("phone list/detail and back (SHO-328)", () => {
+describe("phone list/detail and history (SHO-328)", () => {
   it("returns from a group detail to the groups list, not clients", async () => {
     signInWithFlowers();
     const { router } = await renderApp("/kviti-lviv/customers/groups");
@@ -451,7 +451,7 @@ describe("phone list/detail and back (SHO-328)", () => {
     ).toBe("page");
   });
 
-  it("restores the orders list on browser back from a detail", async () => {
+  it("restores the orders list on browser back and the detail on forward", async () => {
     signInWithFlowers();
     const { router } = await renderApp("/kviti-lviv/orders");
     await waitForRegion("Замовлення");
@@ -478,6 +478,37 @@ describe("phone list/detail and back (SHO-328)", () => {
         screen.queryByRole("heading", { name: "Модуль у розробці" }),
       ).toBeNull();
     });
+    act(() => {
+      router.history.forward();
+    });
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/kviti-lviv/orders/ord-1");
+      expect(
+        screen.getByRole("heading", { name: "Модуль у розробці" }),
+      ).toBeDefined();
+      expect(screen.queryByRole("region", { name: "Замовлення" })).toBeNull();
+    });
+  });
+
+});
+
+describe("desktop list+detail (SHO-331)", () => {
+  it("keeps list and detail both visible on a detail URL at desktop width", async () => {
+    signInWithFlowers();
+    await renderApp("/kviti-lviv/orders/ord-1");
+    await waitForRegion("Замовлення");
+    setShellWidth(1280);
+    expect(
+      document.querySelector(".panel-shell")?.getAttribute("data-shell"),
+    ).toBe("desktop");
+    expect(screen.getByRole("region", { name: "Замовлення" })).toBeDefined();
+    expect(
+      screen.getByRole("heading", { name: "Модуль у розробці" }),
+    ).toBeDefined();
+    expect(
+      screen.getByRole("navigation", { name: "Основна навігація" }),
+    ).toBeDefined();
+    expect(screen.queryByRole("button", { name: "Назад до списку" })).toBeNull();
   });
 });
 

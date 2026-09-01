@@ -23,6 +23,9 @@ apps/mobile/android/
 
 # Testing
 coverage/
+apps/web/playwright-report/
+apps/web/test-results/
+apps/web/blob-report/
 
 # OS / editor
 .DS_Store

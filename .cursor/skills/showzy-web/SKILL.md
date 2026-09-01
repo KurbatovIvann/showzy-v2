@@ -57,6 +57,8 @@ skills. The public storefront is a later app (ADR-0030).
 - Auth infrastructure → `src/auth/`. Auth screens → `features/auth/`.
 - Tests: colocated with the owner, or `src/test/` for shared MSW /
   `renderApp` / cross-feature integration (`src/test/integration`).
+  Playwright smoke (`e2e/`) intercepts `/rpc` and `/api/auth` against the
+  built SPA; it is the `e2e-smoke` CI job, not a domain E2E suite.
 
 Feature subfolders are demand-driven. Do not create empty directories
 to match the diagram.

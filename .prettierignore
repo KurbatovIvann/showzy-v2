@@ -21,6 +21,10 @@ docs/
 # emits (SHO-309); the router plugin rewrites it on every dev/build run.
 apps/web/src/routeTree.gen.ts
 
+# Playwright HTML/trace output (SHO-331).
+apps/web/playwright-report/
+apps/web/test-results/
+
 # Vendored UAPKI / WASM / Nitro codegen — not Prettier's (SHO-252).
 packages/document-signing/cpp/
 packages/document-signing/wasm/
