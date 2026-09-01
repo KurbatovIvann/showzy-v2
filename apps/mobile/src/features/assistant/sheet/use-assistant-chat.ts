@@ -16,6 +16,7 @@ import { bindCreateConversationMutate } from "../api/create-conversation";
 import {
   ensureAssistantConversation,
   resetAssistantTenantSession,
+  sendEnsuredAssistantMessage,
 } from "../shared/assistant-session";
 import {
   queryFailureToAssistantKind,
@@ -123,40 +124,38 @@ export function useAssistantChat(): {
     if (activeCompanyId === null) {
       return;
     }
-    void createConversation
-      .submit({})
-      .then((created) => {
-        if (companyEpochRef.current !== epoch) {
-          return;
-        }
-        conversationIdRef.current = created.id;
-      })
-      .catch(() => undefined);
-  }, [activeCompanyId, createConversation, setMessages]);
-
-  const ensureConversation = useCallback(async (): Promise<string> => {
-    return ensureAssistantConversation({
+    void ensureAssistantConversation({
       conversationIdRef,
+      companyEpochRef,
+      epoch,
       create: () => createConversation.submit({}),
-    });
-  }, [createConversation]);
+    }).catch(() => undefined);
+  }, [activeCompanyId, createConversation, setMessages]);
 
   const send = useCallback(() => {
     const text = clipAssistantInput(input);
     if (text.length === 0 || sendBusy) {
       return;
     }
+    const epoch = companyEpochRef.current;
     setInput("");
     clearError();
     void (async () => {
       try {
-        await ensureConversation();
-        await sendMessage({ text });
+        await sendEnsuredAssistantMessage({
+          conversationIdRef,
+          companyEpochRef,
+          create: () => createConversation.submit({}),
+          sendMessage: (payload) => sendMessage(payload),
+          text,
+        });
       } catch {
-        setInput(text);
+        if (companyEpochRef.current === epoch) {
+          setInput(text);
+        }
       }
     })();
-  }, [clearError, ensureConversation, input, sendBusy, sendMessage]);
+  }, [clearError, createConversation, input, sendBusy, sendMessage]);
 
   const createErrorKind = createConversation.isError
     ? queryFailureToAssistantKind(
