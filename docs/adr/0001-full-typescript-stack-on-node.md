@@ -2,6 +2,8 @@
 
 - **Status**: Accepted
 - **Date**: 2026-08-16
+- **Amended**: 2026-09-01 — AI loop major and harness boundary: ADR-0032
+  (AI SDK 7). This ADR remains the language/runtime decision.
 
 ## Context
 

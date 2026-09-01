@@ -85,7 +85,7 @@ tests before any domain module is built:
 | Realtime | **Socket.IO + Redis adapter** | Carried over from the current system almost unchanged |
 | Reliable events | **Transactional outbox** (`domain_events` + `FOR UPDATE SKIP LOCKED` + LISTEN/NOTIFY) | Already implemented correctly — carried over |
 | Validation | **Zod v4** | One schema: form → API → AI tool → DB boundary |
-| AI | **Vercel AI SDK v6** | Tool calling, streaming, generative UI; provider-agnostic (Anthropic/OpenAI) |
+| AI | **Vercel AI SDK 7** (`ai` + one `@ai-sdk/<provider>`) — ADR-0032 | Thin model/stream/tool loop over the action registry. Provider-agnostic. Not a coding harness |
 | Mobile | **Expo + expo-router + Unistyles** — **primary client** | Mobile-first: all V2 functionality (panel + customer cabinet + AI chat) in the app |
 | Web panel | **Vite SPA + TanStack Router** (`apps/web`) — ADR-0030 | Staff panel per the web canvas: typed multi-level routing, static deploy behind a same-origin proxy to `/rpc` + `/api/auth` |
 | Web storefront | Separate later app (framework chosen in that phase) — ADR-0030 | Storefront by link (SEO/SSR), consumer cabinet; needs the `consumer`/`search` API surface first |
@@ -104,6 +104,7 @@ tests before any domain module is built:
 - **tRPC** — oRPC gives the same + OpenAPI for external consumers.
 - **RLS** — authorization only in code (`defineAction.permissions`); the `has_company_permission` model is carried over conceptually 1:1.
 - **Microservices, GraphQL, event sourcing** — needless complexity for a team of agents.
+- **Coding / agent harnesses** (DeepSeek Harness, Claude Agent SDK, Google ADK, Mastra as a second runtime) — the model’s environment is the staff action registry, not a shell or filesystem (ADR-0032). Vercel AI Gateway is not a required path; keys stay in `packages/config`.
 
 ---
 
@@ -193,7 +194,7 @@ showzy/
 │  ├─ db/             # Drizzle schema (source of types), migrations, seed
 │  ├─ contract/       # oRPC router generated from the action registry
 │  ├─ modules/        # domain modules (see §6) — actions + services + events
-│  ├─ ai/             # agent, system prompts, UI tools, generative component mappings
+│  ├─ ai/             # AI SDK 7 loop, system prompts, UI tools, generative mappings (ADR-0032)
 │  ├─ document-signing/  # UAPKI (crypto core carried over; integration re-audited)
 │  ├─ validation/     # shared Zod schemas (carried over, extended)
 │  ├─ ui/             # shared design tokens/types for web+mobile
@@ -357,7 +358,7 @@ Condensed view (owner-first first; numbered expansion phases are not first-relea
 | **2. Company operating core** | `companies`, `catalog` (with variants), `customers`/groups, `invites`, `pricing` full UI + mobile **panel** screens | Company and catalog created from a phone |
 | **5a. Staff commerce** | Staff `orders.create`/`confirm`/`get`, push, no customer checkout | The owner records an order in the panel |
 | **8. Documents + QES** | `documents`, `doc-generation`, `doc-signing` + share (link/QR/print) + mobile-editing spike | Owner generates, signs, and hands over a document |
-| **9. AI experience** | `packages/ai` over the action registry; classic/AI parity in the panel | AI performs the same actions as the UI |
+| **9. AI experience** | `packages/ai` (AI SDK 7, ADR-0032) over the action registry; classic/AI parity in the panel | AI performs the same actions as the UI |
 | **🚀 Owner-first production** | Clean-database bootstrap, panel parity, internal rollout → stores | The owner starts on V2 without V1 data migration |
 | **3–4, 5b, 6–7. Customer expansion** | Presence, discovery, customer checkout, chat platform, order collaboration | The §1 destination flow; see `docs/scope.md` §7 |
 | **10. Web** | `apps/web` panel SPA (ADR-0030): full panel + Plate template editor; storefront (SEO) + cabinet follow as a separate SSR app | Orders without the app |

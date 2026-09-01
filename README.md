@@ -94,7 +94,7 @@ pnpm --filter @showzy/mobile start -- --dev-client --tunnel
 ## Stack (summary)
 
 Node.js 22 + TypeScript strict · Hono + oRPC · PostgreSQL 17 + Drizzle ·
-better-auth · BullMQ + Redis · Socket.IO · Zod v4 · Vercel AI SDK v6 ·
+better-auth · BullMQ + Redis · Socket.IO · Zod v4 · Vercel AI SDK 7 ·
 Expo (primary client) · Next.js (post-MVP) · Turborepo + pnpm.
 
 See `docs/blueprint.md` §3 for the full table with rationale.
