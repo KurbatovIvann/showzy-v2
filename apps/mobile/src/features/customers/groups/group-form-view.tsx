@@ -46,9 +46,7 @@ export function GroupFormView(model: GroupFormModel) {
         retryLabel: copy.empty.retry,
         notFoundTitle: form.notFoundTitle,
         notFoundDescription: form.notFoundDescription,
-        notFoundIcon: (
-          <LayersIcon size={theme.iconSize.md} color={iconColor} />
-        ),
+        notFoundIcon: <LayersIcon size={theme.iconSize.md} color={iconColor} />,
       }}
       {...(retryEdit ? { onRetry: model.retry } : {})}
       {...(model.state.kind === "ready"

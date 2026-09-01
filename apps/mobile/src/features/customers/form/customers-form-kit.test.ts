@@ -17,9 +17,7 @@ describe("customers forms adopt form-kit", () => {
     const groupView = read("../groups/group-form-view.tsx");
     const groupFields = read("../groups/group-form-fields.tsx");
     const counterpartyHook = read("../counterparties/use-counterparty-form.ts");
-    const counterpartySave = read(
-      "../counterparties/use-counterparty-save.ts",
-    );
+    const counterpartySave = read("../counterparties/use-counterparty-save.ts");
     const counterpartyView = read(
       "../counterparties/counterparty-form-view.tsx",
     );

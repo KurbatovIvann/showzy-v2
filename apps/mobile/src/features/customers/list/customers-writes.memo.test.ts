@@ -33,7 +33,10 @@ describe("customers writes-hook referential stability", () => {
       "utf8",
     );
     const counterpartiesPane = readFileSync(
-      new URL("../counterparties/counterparties-list-pane.tsx", import.meta.url),
+      new URL(
+        "../counterparties/counterparties-list-pane.tsx",
+        import.meta.url,
+      ),
       "utf8",
     );
     const invitationsPane = readFileSync(

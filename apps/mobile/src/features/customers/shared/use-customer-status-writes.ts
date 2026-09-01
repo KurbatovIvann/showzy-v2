@@ -98,59 +98,74 @@ export function useCustomerStatusWrites(args: {
     argsRef.current.afterSuccess?.();
   }, []);
 
-  const archive = useCallback(async (id: string) => {
-    const current = argsRef.current;
-    await runConfirmedWrite({
-      busyRef: writeBusyRef,
-      allowed: current.canEdit,
-      confirm: {
-        title: current.copy.confirm.archiveTitle,
-        message: current.copy.confirm.archiveDescription,
-        confirmLabel: current.copy.confirm.archiveConfirm,
-        cancelLabel: current.copy.confirm.cancel,
-        tone: "default",
-      },
-      run: async () => {
-        await statusMutationRef.current.submit({ kind: "archiveCustomer", id });
-        await afterWrite();
-      },
-    });
-  }, [afterWrite]);
+  const archive = useCallback(
+    async (id: string) => {
+      const current = argsRef.current;
+      await runConfirmedWrite({
+        busyRef: writeBusyRef,
+        allowed: current.canEdit,
+        confirm: {
+          title: current.copy.confirm.archiveTitle,
+          message: current.copy.confirm.archiveDescription,
+          confirmLabel: current.copy.confirm.archiveConfirm,
+          cancelLabel: current.copy.confirm.cancel,
+          tone: "default",
+        },
+        run: async () => {
+          await statusMutationRef.current.submit({
+            kind: "archiveCustomer",
+            id,
+          });
+          await afterWrite();
+        },
+      });
+    },
+    [afterWrite],
+  );
 
-  const restore = useCallback(async (id: string) => {
-    const current = argsRef.current;
-    await runConfirmedWrite({
-      busyRef: writeBusyRef,
-      allowed: current.canEdit,
-      run: async () => {
-        await statusMutationRef.current.submit({ kind: "restoreCustomer", id });
-        await afterWrite();
-      },
-    });
-  }, [afterWrite]);
+  const restore = useCallback(
+    async (id: string) => {
+      const current = argsRef.current;
+      await runConfirmedWrite({
+        busyRef: writeBusyRef,
+        allowed: current.canEdit,
+        run: async () => {
+          await statusMutationRef.current.submit({
+            kind: "restoreCustomer",
+            id,
+          });
+          await afterWrite();
+        },
+      });
+    },
+    [afterWrite],
+  );
 
-  const remove = useCallback(async (id: string) => {
-    const current = argsRef.current;
-    await runConfirmedWrite({
-      busyRef: writeBusyRef,
-      allowed: current.canDelete,
-      confirm: {
-        title: current.copy.confirm.deleteTitle,
-        message: current.copy.confirm.deleteDescription,
-        confirmLabel: current.copy.confirm.deleteConfirm,
-        cancelLabel: current.copy.confirm.cancel,
-        tone: "danger",
-      },
-      run: async () => {
-        await submitWithProtocolConfirmation({
-          submit: () => deleteMutationRef.current.submit({ id }),
-          confirm: (challengeId) =>
-            deleteMutationRef.current.confirm(challengeId),
-        });
-        await afterWrite();
-      },
-    });
-  }, [afterWrite]);
+  const remove = useCallback(
+    async (id: string) => {
+      const current = argsRef.current;
+      await runConfirmedWrite({
+        busyRef: writeBusyRef,
+        allowed: current.canDelete,
+        confirm: {
+          title: current.copy.confirm.deleteTitle,
+          message: current.copy.confirm.deleteDescription,
+          confirmLabel: current.copy.confirm.deleteConfirm,
+          cancelLabel: current.copy.confirm.cancel,
+          tone: "danger",
+        },
+        run: async () => {
+          await submitWithProtocolConfirmation({
+            submit: () => deleteMutationRef.current.submit({ id }),
+            confirm: (challengeId) =>
+              deleteMutationRef.current.confirm(challengeId),
+          });
+          await afterWrite();
+        },
+      });
+    },
+    [afterWrite],
+  );
 
   const pending = statusMutation.isPending || deleteMutation.isPending;
   return useMemo(

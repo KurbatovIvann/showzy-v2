@@ -71,7 +71,11 @@ export function InvitationFormView(model: InvitationFormModel) {
         <>
           {model.state.kind === "ready" && created ? (
             <View style={styles.createdFooter}>
-              <Button fullWidth label={form.done} onPress={model.requestLeave} />
+              <Button
+                fullWidth
+                label={form.done}
+                onPress={model.requestLeave}
+              />
             </View>
           ) : null}
           <OptionSelectSheet

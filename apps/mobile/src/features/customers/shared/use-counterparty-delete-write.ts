@@ -72,28 +72,31 @@ export function useCounterpartyDeleteWrite(args: {
     argsRef.current.afterSuccess?.();
   }, []);
 
-  const remove = useCallback(async (id: string) => {
-    const current = argsRef.current;
-    await runConfirmedWrite({
-      busyRef: writeBusyRef,
-      allowed: current.canEdit,
-      confirm: {
-        title: current.copy.confirm.deleteCounterpartyTitle,
-        message: current.copy.confirm.deleteCounterpartyDescription,
-        confirmLabel: current.copy.confirm.deleteCounterpartyConfirm,
-        cancelLabel: current.copy.confirm.cancel,
-        tone: "danger",
-      },
-      run: async () => {
-        await submitWithProtocolConfirmation({
-          submit: () => deleteMutationRef.current.submit({ id }),
-          confirm: (challengeId) =>
-            deleteMutationRef.current.confirm(challengeId),
-        });
-        await afterWrite();
-      },
-    });
-  }, [afterWrite]);
+  const remove = useCallback(
+    async (id: string) => {
+      const current = argsRef.current;
+      await runConfirmedWrite({
+        busyRef: writeBusyRef,
+        allowed: current.canEdit,
+        confirm: {
+          title: current.copy.confirm.deleteCounterpartyTitle,
+          message: current.copy.confirm.deleteCounterpartyDescription,
+          confirmLabel: current.copy.confirm.deleteCounterpartyConfirm,
+          cancelLabel: current.copy.confirm.cancel,
+          tone: "danger",
+        },
+        run: async () => {
+          await submitWithProtocolConfirmation({
+            submit: () => deleteMutationRef.current.submit({ id }),
+            confirm: (challengeId) =>
+              deleteMutationRef.current.confirm(challengeId),
+          });
+          await afterWrite();
+        },
+      });
+    },
+    [afterWrite],
+  );
 
   return useMemo(
     () => ({

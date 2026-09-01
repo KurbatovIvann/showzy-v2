@@ -67,24 +67,27 @@ export function useInviteWrites(args: {
     revokeMutationRef.current.reset();
   }, []);
 
-  const revoke = useCallback(async (id: string) => {
-    const current = argsRef.current;
-    await runConfirmedWrite({
-      busyRef: writeBusyRef,
-      allowed: current.canInvite,
-      confirm: {
-        title: current.copy.confirm.revokeInviteTitle,
-        message: current.copy.confirm.revokeInviteDescription,
-        confirmLabel: current.copy.confirm.revokeInviteConfirm,
-        cancelLabel: current.copy.confirm.cancel,
-        tone: "danger",
-      },
-      run: async () => {
-        await revokeMutationRef.current.submit({ id });
-        await afterWrite();
-      },
-    });
-  }, [afterWrite]);
+  const revoke = useCallback(
+    async (id: string) => {
+      const current = argsRef.current;
+      await runConfirmedWrite({
+        busyRef: writeBusyRef,
+        allowed: current.canInvite,
+        confirm: {
+          title: current.copy.confirm.revokeInviteTitle,
+          message: current.copy.confirm.revokeInviteDescription,
+          confirmLabel: current.copy.confirm.revokeInviteConfirm,
+          cancelLabel: current.copy.confirm.cancel,
+          tone: "danger",
+        },
+        run: async () => {
+          await revokeMutationRef.current.submit({ id });
+          await afterWrite();
+        },
+      });
+    },
+    [afterWrite],
+  );
 
   return useMemo(
     () => ({
