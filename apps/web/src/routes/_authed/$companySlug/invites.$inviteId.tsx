@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { SectionWorkspacePage } from "../../../features/panel/section-workspace";
 
-export const Route = createFileRoute("/_authed/$companySlug/invites/$inviteId")({
-  component: SectionWorkspacePage,
-});
+export const Route = createFileRoute("/_authed/$companySlug/invites/$inviteId")(
+  {
+    component: SectionWorkspacePage,
+  },
+);

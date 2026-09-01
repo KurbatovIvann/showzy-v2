@@ -56,10 +56,7 @@ export function SectionWorkspace({
         {section === "customers" ||
         section === "customer-groups" ||
         section === "counterparties" ? (
-          <CustomersTabs
-            companySlug={chrome.companySlug}
-            section={section}
-          />
+          <CustomersTabs companySlug={chrome.companySlug} section={section} />
         ) : null}
         {section === "company" ? (
           <CompanyRows companySlug={chrome.companySlug} pathname={pathname} />

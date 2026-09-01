@@ -28,6 +28,9 @@ export function usePanelShellMode(
       setMode((current) => (current === next ? current : next));
     };
     sync();
+    if (typeof ResizeObserver === "undefined") {
+      return;
+    }
     const observer = new ResizeObserver(sync);
     observer.observe(node);
     return () => {

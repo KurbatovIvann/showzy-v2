@@ -1,9 +1,4 @@
-import {
-  useEffect,
-  useId,
-  useRef,
-  useState,
-} from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import {
   Bell,
   ChevronDown,
@@ -27,11 +22,7 @@ type MockPageId = "account" | "alerts" | "keys" | "help";
  * a one-click control (`web-panel-chrome.md` Pattern lock). Hand-rolled
  * (T3 primitives, no new Radix dependency).
  */
-export function AccountMenu({
-  onSignOut,
-}: {
-  readonly onSignOut: () => void;
-}) {
+export function AccountMenu({ onSignOut }: { readonly onSignOut: () => void }) {
   const copy = usePanelChromeCopy();
   const auth = useAuthSession();
   const [open, setOpen] = useState(false);

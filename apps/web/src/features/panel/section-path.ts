@@ -91,10 +91,7 @@ export function isSectionDetailPath(
   if (rest === "" || rest === "/") {
     return false;
   }
-  if (
-    rest === "/documents/templates" ||
-    rest === "/documents/templates/"
-  ) {
+  if (rest === "/documents/templates" || rest === "/documents/templates/") {
     return false;
   }
   const section = panelSectionFromPathname(pathname, companySlug);
@@ -102,12 +99,19 @@ export function isSectionDetailPath(
     "/$companySlug",
     `/${companySlug}`,
   );
-  const normalizedList = listPath.endsWith("/") ? listPath.slice(0, -1) : listPath;
-  const normalizedFull = pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
+  const normalizedList = listPath.endsWith("/")
+    ? listPath.slice(0, -1)
+    : listPath;
+  const normalizedFull = pathname.endsWith("/")
+    ? pathname.slice(0, -1)
+    : pathname;
   return normalizedFull !== normalizedList;
 }
 
-export function isFullShellPath(pathname: string, companySlug: string): boolean {
+export function isFullShellPath(
+  pathname: string,
+  companySlug: string,
+): boolean {
   const rest = restAfterSlug(pathname, companySlug);
   return /^\/documents\/templates\/[^/]+\/edit\/?$/.test(rest);
 }

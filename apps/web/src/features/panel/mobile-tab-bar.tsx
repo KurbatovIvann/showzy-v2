@@ -165,7 +165,10 @@ export function MobileTabBar({
           </div>
         ) : null}
 
-        <nav aria-label={copy.mobileNav} className="flex h-16 items-stretch justify-around px-1">
+        <nav
+          aria-label={copy.mobileNav}
+          className="flex h-16 items-stretch justify-around px-1"
+        >
           {tabs.map((item) => {
             const selected = active === item.id;
             const Icon = item.Icon;

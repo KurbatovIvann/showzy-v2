@@ -2,7 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { FullShellPlaceholderPage } from "../../../features/panel/section-workspace";
 
-export const Route = createFileRoute("/_authed/$companySlug/documents/templates/$templateId/edit")({
+export const Route = createFileRoute(
+  "/_authed/$companySlug/documents/templates/$templateId/edit",
+)({
   component: TemplateEditorRoute,
 });
 

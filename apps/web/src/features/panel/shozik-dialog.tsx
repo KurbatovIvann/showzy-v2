@@ -4,11 +4,7 @@ import { Button } from "../../components/ui/button";
 import { usePanelChromeCopy } from "./use-panel-chrome-copy";
 
 /** Shared AI-assistant stub dialog for the sidebar and the mobile tab bar. */
-export function ShozikDialog({
-  onClose,
-}: {
-  readonly onClose: () => void;
-}) {
+export function ShozikDialog({ onClose }: { readonly onClose: () => void }) {
   const copy = usePanelChromeCopy();
 
   useEffect(() => {
@@ -41,7 +37,13 @@ export function ShozikDialog({
           {copy.aiName}
         </h2>
         <p className="mt-2 text-[15px] leading-6 text-muted">{copy.aiHint}</p>
-        <Button type="button" autoFocus className="mt-6" onClick={onClose} size="sm">
+        <Button
+          type="button"
+          autoFocus
+          className="mt-6"
+          onClick={onClose}
+          size="sm"
+        >
           {copy.close}
         </Button>
       </section>

@@ -63,7 +63,9 @@ export function PaneHeader({
           {title}
         </div>
         {subtitle ? (
-          <div className="mt-0.5 truncate text-[13px] text-muted">{subtitle}</div>
+          <div className="mt-0.5 truncate text-[13px] text-muted">
+            {subtitle}
+          </div>
         ) : null}
       </div>
       {trailing ? <div className="shrink-0 pt-0.5">{trailing}</div> : null}

@@ -14,7 +14,9 @@ describe("panelSectionFromPathname", () => {
     expect(panelSectionFromPathname(`/${SLUG}`, SLUG)).toBe("orders");
     expect(panelSectionFromPathname(`/${SLUG}/`, SLUG)).toBe("orders");
     expect(panelSectionFromPathname(`/${SLUG}/orders`, SLUG)).toBe("orders");
-    expect(panelSectionFromPathname(`/${SLUG}/orders/new`, SLUG)).toBe("orders");
+    expect(panelSectionFromPathname(`/${SLUG}/orders/new`, SLUG)).toBe(
+      "orders",
+    );
     expect(
       panelSectionFromPathname(`/${SLUG}/documents/templates/t1/edit`, SLUG),
     ).toBe("documents");
