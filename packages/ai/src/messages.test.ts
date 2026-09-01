@@ -34,7 +34,7 @@ describe("staffAssistantChatBodySchema", () => {
   it("rejects more messages than the request cap", () => {
     const messages = Array.from(
       { length: STAFF_ASSISTANT_CHAT_MESSAGES_MAX + 1 },
-      (_, index) => userMessage("List orders", `m${index}`),
+      (_, index) => userMessage("List orders", `m${String(index)}`),
     );
     expect(
       staffAssistantChatBodySchema.safeParse({ conversationId, messages })

@@ -18,7 +18,7 @@ const chatPartSchema = z.looseObject({
 });
 
 function textFromParts(
-  parts: readonly { type: string; text?: string },
+  parts: ReadonlyArray<{ type: string; text?: string | undefined }>,
 ): string {
   const chunks: string[] = [];
   for (const part of parts) {
@@ -46,7 +46,7 @@ export const staffAssistantChatMessageSchema = z
       ctx.addIssue({
         code: "custom",
         path: ["parts"],
-        message: `Message text must be at most ${STAFF_ASSISTANT_CHAT_MESSAGE_TEXT_MAX} characters.`,
+        message: `Message text must be at most ${String(STAFF_ASSISTANT_CHAT_MESSAGE_TEXT_MAX)} characters.`,
       });
     }
   });
