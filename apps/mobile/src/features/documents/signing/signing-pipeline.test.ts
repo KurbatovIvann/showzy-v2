@@ -31,6 +31,10 @@ const PAYLOAD_URL = "https://files.example.invalid/payload.pdf?token=secret";
 const PUT_URL = "https://files.example.invalid/uploads/pending?token=put";
 const PASSWORD = "key-password-once";
 
+const PIPELINE_SOURCE = readFileSync(
+  new URL("./signing-pipeline.ts", import.meta.url),
+  "utf8",
+);
 const HOOK_SOURCE = readFileSync(
   new URL("./use-document-signing.ts", import.meta.url),
   "utf8",
@@ -386,6 +390,23 @@ describe("sheet close abort wiring", () => {
     expect(DEVICE_SOURCE).toContain("file.delete");
     expect(DEVICE_SOURCE).toContain("assertSafeSigningUrl");
     expect(DEVICE_SOURCE).toContain("wrapSigningNetworkFailure");
+    expect(DEVICE_SOURCE).toContain('phase: "temp-key-delete"');
+    expect(DEVICE_SOURCE).toContain("__DEV__");
+    expect(DEVICE_SOURCE).not.toContain("console.log");
+    expect(DEVICE_SOURCE).not.toContain("file.uri");
+  });
+
+  it("does not race abort on complete once the ASiC PUT has landed", () => {
+    expect(HOOK_SOURCE).toContain("complete() is not raced against abort");
+    expect(PIPELINE_SOURCE).toContain(
+      "complete() is deliberately not wrapped in raceSigningAbort",
+    );
+    expect(PIPELINE_SOURCE).toMatch(
+      /return args\.ports\.complete\(\s*\{ requestId: started\.requestId, fileId: requested\.fileId \}/,
+    );
+    expect(PIPELINE_SOURCE).not.toMatch(
+      /raceSigningAbort\(\s*args\.ports\.complete/,
+    );
   });
 
   it("does not opt the QES password into iCloud Keychain autofill", () => {

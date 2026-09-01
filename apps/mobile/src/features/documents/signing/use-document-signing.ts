@@ -158,6 +158,10 @@ export function useDocumentSigning(args: {
       getSigningUploadUrl: (input) =>
         current.client.files.getSigningUploadUrl(input),
       putAsic: putSigningAsic,
+      // complete() is not raced against abort here. After PUT the ASiC
+      // is already on the server; wrapping complete in raceSigningAbort
+      // would drop a late abort and strand signing state. The pipeline
+      // still skip-starts complete if abort won before this call.
       complete: (input, options) =>
         current.client.docSigning.complete(input, options),
       createAttempt: createMobileMutationAttempt,

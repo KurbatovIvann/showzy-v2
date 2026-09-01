@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import { useApiClient } from "../../../api/api-provider";
 import { describeQueryFailure } from "../../../api/errors";
@@ -107,25 +107,29 @@ export function useDocumentsList(args: { readonly orderId: string | null }) {
     onSign: signing.requestSignAndOpen,
   });
 
-  const signRow = useCallback(
-    (id: string) => {
-      const row = rows.find((entry) => entry.id === id);
-      if (
-        row === undefined ||
-        !canOpenSigningFromRow({
-          showSign: row.showSign,
-          signingSheetOpen: signing.session.visible,
-        })
-      ) {
-        return;
-      }
-      void signing.requestSignAndOpen({
-        id: row.id,
-        documentNumber: row.documentNumber,
-      });
-    },
-    [rows, signing],
-  );
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
+  const requestSignRef = useRef(signing.requestSignAndOpen);
+  requestSignRef.current = signing.requestSignAndOpen;
+  const signingVisibleRef = useRef(signing.session.visible);
+  signingVisibleRef.current = signing.session.visible;
+
+  const signRow = useCallback((id: string) => {
+    const row = rowsRef.current.find((entry) => entry.id === id);
+    if (
+      row === undefined ||
+      !canOpenSigningFromRow({
+        showSign: row.showSign,
+        signingSheetOpen: signingVisibleRef.current,
+      })
+    ) {
+      return;
+    }
+    void requestSignRef.current({
+      id: row.id,
+      documentNumber: row.documentNumber,
+    });
+  }, []);
 
   return {
     copy,

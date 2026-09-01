@@ -314,6 +314,11 @@ export async function runDocumentSigning(
   throwIfSigningAborted(args.signal);
   const completeAttempt = args.ports.createAttempt();
   throwIfSigningAborted(args.signal);
+  // complete() is deliberately not wrapped in raceSigningAbort. The
+  // ASiC PUT already landed; aborting the complete RPC would leave
+  // server signing half-applied. throwIfSigningAborted above still
+  // skips the call when the sheet closed first. Do not "fix" this by
+  // racing abort on complete.
   return args.ports.complete(
     { requestId: started.requestId, fileId: requested.fileId },
     completeAttempt.options,

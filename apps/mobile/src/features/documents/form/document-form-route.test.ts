@@ -63,6 +63,7 @@ const FORM_IMPL_FILES = [
   "document-form-save.ts",
   "document-form-screen.tsx",
   "document-form-view.tsx",
+  "document-form.presenter.ts",
   "document-form.schema.ts",
   "editor-section.tsx",
   "use-document-form-handover.ts",
@@ -70,7 +71,6 @@ const FORM_IMPL_FILES = [
   "use-document-form-pickers.ts",
   "use-document-form.ts",
   "use-document-save.ts",
-  "use-unsaved-document-guard.ts",
 ] as const;
 
 function formSources(): string {
@@ -90,6 +90,9 @@ describe("documents/new and /d/[token] routes", () => {
     expect(CREATE_SAVE).toContain("bindDocumentFormMutate");
     expect(CREATE_HOOK).toContain("useDocumentSave");
     expect(CREATE_HOOK).toContain("useDocumentFormHandover");
+    expect(CREATE_HOOK).toContain("useUnsavedGuard");
+    expect(CREATE_SAVE).toContain("useFormSave");
+    expect(CREATE_VIEW).toContain("FormScreenScaffold");
     expect(
       CREATE_HOOK.slice(CREATE_HOOK.indexOf("\n  return {")),
     ).not.toContain("control");

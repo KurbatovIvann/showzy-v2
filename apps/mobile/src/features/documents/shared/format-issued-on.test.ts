@@ -10,6 +10,21 @@ const SOURCE = readFileSync(
 );
 
 describe("formatIssuedOn", () => {
+  it("hoists Intl.DateTimeFormat at module scope, not per row", () => {
+    expect(SOURCE).toContain("Record<Locale, Intl.DateTimeFormat>");
+    expect(SOURCE.indexOf("const issuedOnFormatters")).toBeLessThan(
+      SOURCE.indexOf("export function formatIssuedOn"),
+    );
+    expect(SOURCE).toContain("issuedOnFormatters[locale].formatToParts");
+    const formatterCtor = "new Intl.DateTimeFormat";
+    const first = SOURCE.indexOf(formatterCtor);
+    const second = SOURCE.indexOf(formatterCtor, first + 1);
+    const third = SOURCE.indexOf(formatterCtor, second + 1);
+    expect(first).toBeGreaterThan(-1);
+    expect(second).toBeGreaterThan(first);
+    expect(third).toBe(-1);
+  });
+
   it("formats a Kyiv calendar day with Intl, not getFullYear", () => {
     expect(SOURCE).not.toContain("getFullYear");
     expect(SOURCE).not.toContain("getUTCFullYear");

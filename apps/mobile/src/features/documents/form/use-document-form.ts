@@ -2,23 +2,16 @@ import { useRef } from "react";
 import { useForm, useWatch } from "react-hook-form";
 
 import { useApiClient } from "../../../api/api-provider";
-import { describeQueryFailure, describeWireError } from "../../../api/errors";
 import { useActiveCompany } from "../../../api/query-provider";
+import { useUnsavedGuard } from "../../../components/form-kit";
 import { useResolvedCompany } from "../../../company-resolution/resolved-company-provider";
 import { documentsCopy } from "../../../i18n/documents";
 import { detectLocale } from "../../../i18n/locale";
 import {
   canCreateDocuments,
   canEditDocuments,
-  documentsCreateScreenActions,
 } from "../shared/document-permissions";
-import {
-  fieldErrorsFromFormState,
-  mapDocumentFormFailure,
-  mapValidationIssues,
-  resolveDocumentFormCopy,
-  rhfPathsForFieldErrors,
-} from "./document-form-copy";
+import { rhfPathsForFieldErrors } from "./document-form-copy";
 import {
   cloneDocumentFormDraft,
   emptyDocumentFormDraft,
@@ -26,12 +19,15 @@ import {
 } from "./document-form-draft";
 import { classifyDocumentFormLoad } from "./document-form-load";
 import { counterpartyPickerEnabled } from "./document-form-pickers";
+import {
+  presentDocumentFormCopy,
+  presentDocumentFormView,
+} from "./document-form.presenter";
 import { documentFormResolver } from "./document-form.schema";
 import { useDocumentFormHandover } from "./use-document-form-handover";
 import { useDocumentFormLookups } from "./use-document-form-lookups";
 import { useDocumentFormPickers } from "./use-document-form-pickers";
 import { useDocumentSave } from "./use-document-save";
-import { useUnsavedDocumentGuard } from "./use-unsaved-document-guard";
 
 export type DocumentFormModel = ReturnType<typeof useDocumentForm>;
 
@@ -46,14 +42,14 @@ export function useDocumentForm() {
   const canEdit = canEditDocuments(membership.role);
 
   const {
-    control,
-    reset,
     getValues,
     setValue,
     handleSubmit,
     setError,
     clearErrors,
     formState,
+    control,
+    reset,
   } = useForm<DocumentFormDraft>({
     defaultValues: emptyDocumentFormDraft(),
     resolver: documentFormResolver,
@@ -111,65 +107,50 @@ export function useDocumentForm() {
     setValue,
     onFieldEdit,
   });
-  const { armLeave, requestLeave } = useUnsavedDocumentGuard({
+  const { armLeave, requestLeave } = useUnsavedGuard({
     dirty: isDirty && !handover.created,
     pending: saveApi.pending,
     copy: formCopy,
     sheetOpen: pickers.sheetOpen || handover.visible,
     closeSheet: pickers.closeSheets,
+    armedLeave: "dispatch-only",
   });
   armLeaveRef.current = armLeave;
 
-  const failure = saveApi.isMutationError
-    ? describeQueryFailure(saveApi.mutationError)
-    : null;
-  const wire = saveApi.isMutationError
-    ? describeWireError(saveApi.mutationError)
-    : null;
-  const serverFields = saveApi.isMutationError
-    ? mapValidationIssues(saveApi.mutationError, saveApi.lastWrite)
-    : null;
-  const fieldErrors = fieldErrorsFromFormState({
+  const pending = saveApi.pending || handover.pending;
+  const resolved = presentDocumentFormCopy({
+    formCopy,
     submitted: isSubmitted,
     orderMessage: errors.orderId?.message,
-    server: serverFields,
-  });
-  const pending = saveApi.pending || handover.pending;
-  const resolved = resolveDocumentFormCopy(formCopy, {
-    orderError: fieldErrors.order,
-    banner: mapDocumentFormFailure(failure?.kind ?? null, wire?.code ?? null),
+    mutationError: saveApi.mutationError,
+    lastWrite: saveApi.lastWrite,
+    isMutationError: saveApi.isMutationError,
     pending,
     clientReady,
     canCreate,
     created: handover.created,
   });
-  const showSubmit =
-    documentsCreateScreenActions({ canCreate }).showSubmit &&
-    resolved.showSubmit &&
-    loadState.kind === "ready";
+  const presented = presentDocumentFormView({
+    copy,
+    loadState,
+    resolved,
+    type,
+    pending,
+    canCreate,
+    selectedOrder,
+    selectedCounterparty,
+    counterpartyEnabled,
+    orderId,
+    counterpartyId,
+    orderSheetOpen: pickers.orderSheetOpen,
+    counterpartySheetOpen: pickers.counterpartySheetOpen,
+  });
 
   return {
     copy,
-    state: loadState,
-    type,
-    orderError: resolved.orderError,
-    banner: resolved.banner,
-    pending,
-    submitDisabled: resolved.submitDisabled || loadState.kind !== "ready",
-    submitLabel: resolved.submitLabel,
-    fieldsEditable: resolved.fieldsEditable && loadState.kind === "ready",
-    showSubmit,
-    orderValue: selectedOrder?.name,
-    orderSubtitle: selectedOrder?.description,
-    counterpartyValue: selectedCounterparty?.name,
-    counterpartySubtitle: selectedCounterparty?.description,
-    counterpartyEnabled,
-    orderSheetOpen: pickers.orderSheetOpen,
-    counterpartySheetOpen: pickers.counterpartySheetOpen,
+    ...presented,
     orderOptions: lookups.orderOptions,
     counterpartyOptions: lookups.counterpartyOptions,
-    selectedOrderId: orderId.length > 0 ? orderId : null,
-    selectedCounterpartyId: counterpartyId.length > 0 ? counterpartyId : null,
     handoverVisible: handover.visible,
     handoverUrl: handover.url,
     handoverTitle: handover.title,
