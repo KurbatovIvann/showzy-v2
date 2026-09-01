@@ -7,6 +7,5 @@ export const Route = createFileRoute("/_authed/$companySlug/")({
 });
 
 function CompanyHomeRoute() {
-  const { companySlug } = Route.useParams();
-  return <CompanyHomeScreen companySlug={companySlug} />;
+  return <CompanyHomeScreen />;
 }

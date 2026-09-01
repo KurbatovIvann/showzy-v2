@@ -16,6 +16,17 @@ if (typeof navigator !== "undefined") {
   });
 }
 
+if (typeof globalThis.ResizeObserver === "undefined") {
+  globalThis.ResizeObserver = class ResizeObserverStub {
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+    takeRecords(): ResizeObserverEntry[] {
+      return [];
+    }
+  };
+}
+
 beforeAll(() => {
   ensureAuthServer();
 });

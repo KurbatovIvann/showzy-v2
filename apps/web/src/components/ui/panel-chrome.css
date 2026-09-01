@@ -1,0 +1,35 @@
+/*
+ * Panel chrome layout (SHO-314). Pane collapse is driven by `data-shell`
+ * from ResizeObserver on `.panel-shell` — not the viewport. `hidden` on
+ * nav/panes/tabs is set in JS so jsdom tests can assert visibility.
+ */
+@layer components {
+  .panel-shell {
+    container-type: inline-size;
+    container-name: panel;
+  }
+
+  .pane-list,
+  .pane-detail {
+    display: flex;
+  }
+
+  .panel-shell[data-shell="tablet"] .pane-list,
+  .panel-shell[data-shell="desktop"] .pane-list {
+    border-right: 1px solid var(--color-line);
+  }
+}
+
+/*
+ * `flex-1` on `.pane-list` is a Tailwind utility (wins over `@layer
+ * components`). Pin the list at ~320px on wide shells in this layer so
+ * it cannot grow beside the detail pane.
+ */
+@layer utilities {
+  .panel-shell[data-shell="tablet"] .pane-list,
+  .panel-shell[data-shell="desktop"] .pane-list {
+    width: 320px;
+    max-width: 320px;
+    flex: 0 0 320px;
+  }
+}

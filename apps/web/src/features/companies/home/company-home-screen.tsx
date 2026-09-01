@@ -1,20 +1,6 @@
-import { useListMine } from "../api/use-list-mine";
-import { matchMembershipBySlug } from "../scope/match-membership";
+import { SectionWorkspacePage } from "../../panel/section-workspace";
 
-export function CompanyHomeScreen({
-  companySlug,
-}: {
-  readonly companySlug: string;
-}) {
-  const listMine = useListMine();
-  const match = matchMembershipBySlug(
-    listMine.data?.memberships ?? [],
-    companySlug,
-  );
-  const name = match?.company.name ?? companySlug;
-  return (
-    <main className="px-4 py-6">
-      <h1 className="text-lg font-semibold text-ink">{name}</h1>
-    </main>
-  );
+/** Company index keeps `/$companySlug` (T5 pathname) and shows orders chrome. */
+export function CompanyHomeScreen() {
+  return <SectionWorkspacePage />;
 }
