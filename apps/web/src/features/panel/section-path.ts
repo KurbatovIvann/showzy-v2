@@ -108,14 +108,6 @@ export function isSectionDetailPath(
   return normalizedFull !== normalizedList;
 }
 
-export function isFullShellPath(
-  pathname: string,
-  companySlug: string,
-): boolean {
-  const rest = restAfterSlug(pathname, companySlug);
-  return /^\/documents\/templates\/[^/]+\/edit\/?$/.test(rest);
-}
-
 export function isDocumentsTemplatesPath(
   pathname: string,
   companySlug: string,
