@@ -4,7 +4,10 @@ import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { staffAssistantTools, toProviderToolName } from "./action-tool.js";
-import { STAFF_ASSISTANT_THINKING_DISABLED } from "./anthropic-options.js";
+import {
+  STAFF_ASSISTANT_CACHE_CONTROL,
+  STAFF_ASSISTANT_THINKING_DISABLED,
+} from "./anthropic-options.js";
 import {
   isStaffAssistantConfirmationOutput,
   STAFF_ASSISTANT_CONFIRMATION_FALLBACK_TEXT,
@@ -19,6 +22,21 @@ import {
   mockToolCallStream,
   readUiMessageSsePayloads,
 } from "./test.js";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function anthropicCacheControl(value: unknown): unknown {
+  if (!isRecord(value) || !isRecord(value["providerOptions"])) {
+    return undefined;
+  }
+  const anthropic = value["providerOptions"]["anthropic"];
+  if (!isRecord(anthropic)) {
+    return undefined;
+  }
+  return anthropic["cacheControl"];
+}
 
 const listOrders = defineActionContract({
   name: "orders.list",
@@ -170,6 +188,36 @@ describe("streamStaffAssistantChat", () => {
         thinking: { type: STAFF_ASSISTANT_THINKING_DISABLED },
       });
     }
+  });
+
+  it("sets Anthropic cache breakpoints on the system message and last tool", async () => {
+    const model = new MockLanguageModelV3({
+      doStream: [mockTextStream("ok")],
+    });
+    const { response } = streamStaffAssistantChat({
+      model,
+      messages: [{ role: "user", content: "Hello" }],
+      contracts: [listOrders, deleteCustomer],
+      execute: () => Promise.resolve({ items: [], nextCursor: null }),
+    });
+    await readUiMessageSsePayloads(response);
+    const call = model.doStreamCalls[0];
+    expect(call).toBeDefined();
+    const systemMessages = (call?.prompt ?? []).filter(
+      (part) => part.role === "system",
+    );
+    expect(systemMessages.length).toBeGreaterThan(0);
+    for (const message of systemMessages) {
+      expect(anthropicCacheControl(message)).toEqual(
+        STAFF_ASSISTANT_CACHE_CONTROL,
+      );
+    }
+    const tools = call?.tools ?? [];
+    expect(tools.length).toBe(2);
+    expect(anthropicCacheControl(tools[0])).toBeUndefined();
+    expect(anthropicCacheControl(tools[1])).toEqual(
+      STAFF_ASSISTANT_CACHE_CONTROL,
+    );
   });
 
   it("pauses on ConfirmationRequiredError and streams a redacted confirmation part", async () => {

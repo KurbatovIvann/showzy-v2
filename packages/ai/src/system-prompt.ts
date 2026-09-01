@@ -4,6 +4,10 @@
  * The model is a channel, not a principal. Confirmation is core.md §7
  * (human step); this string must never be written to audit or process logs.
  */
+import type { SystemModelMessage } from "ai";
+
+import { STAFF_ASSISTANT_CACHE_PROVIDER_OPTIONS } from "./anthropic-options.js";
+
 export const staffAssistantSystemPrompt = `You are Shozik, the staff-panel assistant for a Showzy company.
 
 Language: reply in Ukrainian or English, matching the staff member's latest message.
@@ -22,3 +26,12 @@ Never ask for, accept, or repeat:
 If a staff member pastes a secret, tell them to stop and rotate it; do not put it in a tool call.
 
 Do not include prompts, secrets, cookies, OTP codes, or document bytes in any tool input.`;
+
+/** System message with the Anthropic prompt-cache breakpoint on the stable prefix. */
+export function staffAssistantSystemMessage(): SystemModelMessage {
+  return {
+    role: "system",
+    content: staffAssistantSystemPrompt,
+    providerOptions: STAFF_ASSISTANT_CACHE_PROVIDER_OPTIONS,
+  };
+}

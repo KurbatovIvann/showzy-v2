@@ -10,6 +10,7 @@ import {
   staffAssistantTools,
   toProviderToolName,
 } from "./action-tool.js";
+import { STAFF_ASSISTANT_CACHE_CONTROL } from "./anthropic-options.js";
 
 const customerId = "11111111-1111-4111-8111-111111111111";
 
@@ -159,5 +160,15 @@ describe("staffAssistantTools", () => {
     );
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
+  });
+
+  it("marks only the last tool definition with Anthropic cache control", () => {
+    const tools = staffAssistantTools([listOrders, deleteCustomer], () =>
+      Promise.resolve({ items: [] }),
+    );
+    expect(tools["orders_list"]?.providerOptions).toBeUndefined();
+    expect(tools["customers_deleteCustomer"]?.providerOptions).toEqual({
+      anthropic: { cacheControl: STAFF_ASSISTANT_CACHE_CONTROL },
+    });
   });
 });

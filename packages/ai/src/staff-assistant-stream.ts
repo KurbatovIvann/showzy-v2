@@ -20,7 +20,7 @@ import {
   STAFF_ASSISTANT_CONFIRMATION_FALLBACK_TEXT,
   type StaffAssistantConfirmationOutput,
 } from "./confirmation.js";
-import { staffAssistantSystemPrompt } from "./system-prompt.js";
+import { staffAssistantSystemMessage } from "./system-prompt.js";
 import {
   staffAssistantTurnUsageFromTotal,
   type StaffAssistantTurnUsage,
@@ -234,7 +234,7 @@ export function streamStaffAssistantChat(options: {
     execute: async ({ writer }) => {
       const result = streamText({
         model: options.model,
-        system: staffAssistantSystemPrompt,
+        system: staffAssistantSystemMessage(),
         messages: options.messages,
         tools,
         providerOptions: {

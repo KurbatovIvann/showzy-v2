@@ -2,6 +2,8 @@ import { CoreInvariantError } from "@showzy/core/errors";
 import type { ActionContract } from "@showzy/core/contract";
 import { tool, type Tool, type ToolSet } from "ai";
 
+import { STAFF_ASSISTANT_CACHE_PROVIDER_OPTIONS } from "./anthropic-options.js";
+
 /**
  * Anthropic custom tool names (`@ai-sdk/anthropic` sends `tool.name`
  * unchanged) must match `^[a-zA-Z0-9_-]{1,128}$`. Action contracts keep
@@ -82,5 +84,25 @@ export function staffAssistantTools(
     }
     tools[providerName] = actionContractToTool(contract, execute);
   }
+  markLastToolCacheBreakpoint(tools);
   return tools;
+}
+
+function markLastToolCacheBreakpoint(tools: ToolSet): void {
+  const names = Object.keys(tools);
+  const lastName = names.at(-1);
+  if (lastName === undefined) {
+    return;
+  }
+  const lastTool = tools[lastName];
+  if (lastTool === undefined) {
+    return;
+  }
+  tools[lastName] = {
+    ...lastTool,
+    providerOptions: {
+      ...lastTool.providerOptions,
+      ...STAFF_ASSISTANT_CACHE_PROVIDER_OPTIONS,
+    },
+  };
 }

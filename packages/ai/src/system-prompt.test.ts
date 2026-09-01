@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { staffAssistantSystemPrompt } from "./system-prompt.js";
+import { STAFF_ASSISTANT_CACHE_CONTROL } from "./anthropic-options.js";
+import {
+  staffAssistantSystemMessage,
+  staffAssistantSystemPrompt,
+} from "./system-prompt.js";
 
 describe("staffAssistantSystemPrompt", () => {
   it("identifies the staff-panel channel and bilingual replies", () => {
@@ -23,5 +27,18 @@ describe("staffAssistantSystemPrompt", () => {
     expect(staffAssistantSystemPrompt).toContain("Human-in-the-loop");
     expect(staffAssistantSystemPrompt).toContain("Do not auto-confirm");
     expect(staffAssistantSystemPrompt).toContain("human step");
+  });
+
+  it("marks the system message with a 5-minute ephemeral cache breakpoint", () => {
+    const message = staffAssistantSystemMessage();
+    expect(message.role).toBe("system");
+    expect(message.content).toBe(staffAssistantSystemPrompt);
+    expect(message.providerOptions).toEqual({
+      anthropic: { cacheControl: STAFF_ASSISTANT_CACHE_CONTROL },
+    });
+    expect(STAFF_ASSISTANT_CACHE_CONTROL).toEqual({
+      type: "ephemeral",
+      ttl: "5m",
+    });
   });
 });

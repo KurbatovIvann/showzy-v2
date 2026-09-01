@@ -21,6 +21,8 @@ export type { LanguageModel } from "ai";
 export {
   STAFF_ASSISTANT_ANTHROPIC_PROVIDER_OPTIONS,
   STAFF_ASSISTANT_ANTHROPIC_THINKING,
+  STAFF_ASSISTANT_CACHE_CONTROL,
+  STAFF_ASSISTANT_CACHE_PROVIDER_OPTIONS,
   STAFF_ASSISTANT_THINKING_DISABLED,
 } from "./anthropic-options.js";
 export {
@@ -58,4 +60,7 @@ export {
   type StaffAssistantTurnResult,
   type StaffAssistantUIMessage,
 } from "./staff-assistant-stream.js";
-export { staffAssistantSystemPrompt } from "./system-prompt.js";
+export {
+  staffAssistantSystemMessage,
+  staffAssistantSystemPrompt,
+} from "./system-prompt.js";
