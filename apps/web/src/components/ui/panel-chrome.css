@@ -1,0 +1,23 @@
+/*
+ * Panel chrome layout (SHO-314). Pane collapse is driven by `data-shell`
+ * from ResizeObserver on `.panel-shell` — not the viewport. `hidden` on
+ * nav/panes/tabs is set in JS so jsdom tests can assert visibility.
+ */
+@layer components {
+  .panel-shell {
+    container-type: inline-size;
+    container-name: panel;
+  }
+
+  .pane-list,
+  .pane-detail {
+    display: flex;
+  }
+
+  .panel-shell[data-shell="tablet"] .pane-list,
+  .panel-shell[data-shell="desktop"] .pane-list {
+    width: 320px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--color-line);
+  }
+}
