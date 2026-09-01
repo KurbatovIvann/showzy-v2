@@ -15,6 +15,7 @@ import { z } from "zod";
 
 import { staffAssistantTools, type ActionToolExecute } from "./action-tool.js";
 import { STAFF_ASSISTANT_ANTHROPIC_PROVIDER_OPTIONS } from "./anthropic-options.js";
+import { clipStaffAssistantToolResult } from "./clip-tool-result.js";
 import {
   isStaffAssistantConfirmationOutput,
   STAFF_ASSISTANT_CONFIRMATION_FALLBACK_TEXT,
@@ -155,7 +156,7 @@ function wrapExecute(
         resultIds: extractUuidResultIds(output),
         outcome: "success",
       });
-      return output;
+      return clipStaffAssistantToolResult(output);
     } catch (error) {
       if (error instanceof ConfirmationRequiredError) {
         const confirmation = confirmationFromError(

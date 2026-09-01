@@ -16,6 +16,13 @@ export {
 } from "./confirmation.js";
 export { StaffAssistantNotConfiguredError } from "./errors.js";
 export {
+  clipStaffAssistantToolResult,
+  STAFF_ASSISTANT_CLIPPED_STATUS,
+  STAFF_ASSISTANT_CLIP_ARRAY_MAX,
+  STAFF_ASSISTANT_CLIP_JSON_MAX,
+  type StaffAssistantClippedResult,
+} from "./clip-tool-result.js";
+export {
   classifyStaffAssistantTurn,
   STAFF_ASSISTANT_GATE_SYSTEM,
   staffAssistantGateOutputSchema,

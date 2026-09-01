@@ -9,6 +9,10 @@ import {
   STAFF_ASSISTANT_THINKING_DISABLED,
 } from "./anthropic-options.js";
 import {
+  STAFF_ASSISTANT_CLIPPED_STATUS,
+  STAFF_ASSISTANT_CLIP_ARRAY_MAX,
+} from "./clip-tool-result.js";
+import {
   isStaffAssistantConfirmationOutput,
   STAFF_ASSISTANT_CONFIRMATION_FALLBACK_TEXT,
 } from "./confirmation.js";
@@ -236,6 +240,45 @@ describe("streamStaffAssistantChat", () => {
     expect(turn.toolsAttached).toBe(false);
     expect(execute).not.toHaveBeenCalled();
     expect(model.doStreamCalls[0]?.tools ?? []).toEqual([]);
+  });
+
+  it("clips a large list tool result before the second model step", async () => {
+    function rowId(index: number): string {
+      return `33333333-3333-4333-8333-${index.toString(16).padStart(12, "0")}`;
+    }
+    const items = Array.from(
+      { length: STAFF_ASSISTANT_CLIP_ARRAY_MAX + 12 },
+      (_, index) => ({ orderId: rowId(index) }),
+    );
+    const keptId = items[0]?.orderId;
+    const droppedId = items[STAFF_ASSISTANT_CLIP_ARRAY_MAX]?.orderId;
+    expect(keptId).toBeDefined();
+    expect(droppedId).toBeDefined();
+    const execute = vi.fn(() => Promise.resolve({ items, nextCursor: null }));
+    const model = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream(
+          "call-list",
+          toProviderToolName("orders.list"),
+          "{}",
+        ),
+        mockTextStream("Here is a preview of the orders."),
+      ],
+    });
+    const { response, completion } = streamStaffAssistantChat({
+      model,
+      messages: [{ role: "user", content: "List orders" }],
+      contracts: [listOrders],
+      execute,
+    });
+    await readUiMessageSsePayloads(response);
+    const turn = await completion;
+    expect(turn.toolRuns[0]?.resultIds).toEqual([]);
+    expect(model.doStreamCalls.length).toBeGreaterThanOrEqual(2);
+    const secondStep = JSON.stringify(model.doStreamCalls[1]);
+    expect(secondStep).toContain(keptId);
+    expect(secondStep).not.toContain(droppedId);
+    expect(secondStep).toContain(STAFF_ASSISTANT_CLIPPED_STATUS);
   });
 
   it("pauses on ConfirmationRequiredError and streams a redacted confirmation part", async () => {
