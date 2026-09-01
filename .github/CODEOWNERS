@@ -7,6 +7,7 @@
 /packages/db/src/schema/documents.ts @KurbatovIvann
 /packages/db/src/schema/doc-generation.ts @KurbatovIvann
 /packages/db/src/schema/doc-signing.ts @KurbatovIvann
+/packages/db/src/schema/assistant.ts @KurbatovIvann
 /packages/db/src/schema/chat.ts @KurbatovIvann
 /packages/db/src/schema/files.ts @KurbatovIvann
 /packages/db/src/schema/invites.ts @KurbatovIvann
