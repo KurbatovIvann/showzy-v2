@@ -3,7 +3,7 @@
  * `invites.create` the once-only token/url stays until Done / Back.
  * Form-kit `dispatch-only` is the same stay-on-screen handover.
  */
-import { resolveArmedFormLeave } from "../../../components/form-kit";
+import { resolveArmedFormLeave } from "../../../components/form-kit/unsaved-guard";
 
 export function resolveArmedInvitationLeave<TAction>(
   pendingAction: TAction | null,

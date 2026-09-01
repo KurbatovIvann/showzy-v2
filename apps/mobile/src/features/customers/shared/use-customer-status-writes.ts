@@ -11,6 +11,7 @@ import { useContractMutation } from "../../../api/contract-mutation";
 import { describeQueryFailure } from "../../../api/errors";
 import { submitWithProtocolConfirmation } from "../../../api/protocol-confirm";
 import { useActiveCompany } from "../../../api/query-provider";
+import { presentConfirmDialog } from "../../../components/ui/present-confirm-dialog";
 import type { CustomersCopy } from "../../../i18n/customers";
 import { bindCustomerDeleteMutate } from "../api/customer-delete";
 import {
@@ -111,6 +112,7 @@ export function useCustomerStatusWrites(args: {
           cancelLabel: current.copy.confirm.cancel,
           tone: "default",
         },
+        present: presentConfirmDialog,
         run: async () => {
           await statusMutationRef.current.submit({
             kind: "archiveCustomer",
@@ -154,6 +156,7 @@ export function useCustomerStatusWrites(args: {
           cancelLabel: current.copy.confirm.cancel,
           tone: "danger",
         },
+        present: presentConfirmDialog,
         run: async () => {
           await submitWithProtocolConfirmation({
             submit: () => deleteMutationRef.current.submit({ id }),

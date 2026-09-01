@@ -10,6 +10,7 @@ import { useApiClient } from "../../../api/api-provider";
 import { useContractMutation } from "../../../api/contract-mutation";
 import { describeQueryFailure } from "../../../api/errors";
 import { useActiveCompany } from "../../../api/query-provider";
+import { presentConfirmDialog } from "../../../components/ui/present-confirm-dialog";
 import type { CustomersCopy } from "../../../i18n/customers";
 import {
   bindInviteRevokeMutate,
@@ -80,6 +81,7 @@ export function useInviteWrites(args: {
           cancelLabel: current.copy.confirm.cancel,
           tone: "danger",
         },
+        present: presentConfirmDialog,
         run: async () => {
           await revokeMutationRef.current.submit({ id });
           await afterWrite();

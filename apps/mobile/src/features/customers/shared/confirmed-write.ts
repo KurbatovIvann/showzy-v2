@@ -1,29 +1,36 @@
 /**
  * Confirm-then-mutate busy guard shared by list and editor writes
  * (SHO-307). Restore skips `confirm`. Catch leaves the banner to
- * `mutation.error`.
+ * `mutation.error`. RN `Alert` stays in the hook via `present`.
  */
 import {
   type ConfirmDialogChoice,
   type ConfirmDialogRequest,
 } from "../../../components/ui/confirm-dialog";
-import { presentConfirmDialog } from "../../../components/ui/present-confirm-dialog";
 
-export async function runConfirmedWrite(args: {
-  readonly busyRef: { current: boolean };
-  readonly allowed: boolean;
-  readonly confirm?: ConfirmDialogRequest;
-  readonly run: () => Promise<void>;
-  readonly present?: (
-    request: ConfirmDialogRequest,
-  ) => Promise<ConfirmDialogChoice>;
-}): Promise<void> {
+export async function runConfirmedWrite(
+  args: {
+    readonly busyRef: { current: boolean };
+    readonly allowed: boolean;
+    readonly run: () => Promise<void>;
+  } & (
+    | {
+        readonly confirm: ConfirmDialogRequest;
+        readonly present: (
+          request: ConfirmDialogRequest,
+        ) => Promise<ConfirmDialogChoice>;
+      }
+    | {
+        readonly confirm?: undefined;
+        readonly present?: undefined;
+      }
+  ),
+): Promise<void> {
   if (!args.allowed || args.busyRef.current) {
     return;
   }
   if (args.confirm !== undefined) {
-    const present = args.present ?? presentConfirmDialog;
-    const choice = await present(args.confirm);
+    const choice = await args.present(args.confirm);
     if (choice === "cancel") {
       return;
     }
