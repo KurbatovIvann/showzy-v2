@@ -1,9 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { SectionWorkspacePage } from "../../../features/panel/section-workspace";
+import { DocumentsSectionLayout } from "../../../features/panel/section-workspace";
 
 export const Route = createFileRoute(
   "/_authed/$companySlug/documents/templates",
 )({
-  component: SectionWorkspacePage,
+  component: DocumentsTemplatesRoute,
 });
+
+function DocumentsTemplatesRoute() {
+  const { companySlug } = Route.useParams();
+  return <DocumentsSectionLayout companySlug={companySlug} />;
+}

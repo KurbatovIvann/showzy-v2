@@ -1,5 +1,10 @@
 import { Layers } from "lucide-react";
-import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import {
+  Link,
+  Outlet,
+  useNavigate,
+  useRouterState,
+} from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
 import { cx } from "../../components/ui/cx";
@@ -10,6 +15,7 @@ import { sectionTitle } from "./left-nav";
 import { usePanelChrome } from "./panel-chrome-context";
 import {
   isDocumentsTemplatesPath,
+  isFullShellPath,
   isSectionDetailPath,
   listPathForPathname,
   panelSectionFromPathname,
@@ -121,6 +127,24 @@ export function SectionWorkspacePage() {
       <SectionDetailPlaceholder section={section} />
     </SectionWorkspace>
   );
+}
+
+/**
+ * Documents layout parents (`documents`, `templates`, `$templateId`) must
+ * not mount `usePanelChrome` consumers on the template-editor path:
+ * CompanyLayout skips PanelChrome there, and the edit leaf has to mount
+ * through `<Outlet />` (`docs/design/web-panel-architecture.md`).
+ */
+export function DocumentsSectionLayout({
+  companySlug,
+}: {
+  readonly companySlug: string;
+}) {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  if (isFullShellPath(pathname, companySlug)) {
+    return <Outlet />;
+  }
+  return <SectionWorkspacePage />;
 }
 
 export function FullShellPlaceholderPage({

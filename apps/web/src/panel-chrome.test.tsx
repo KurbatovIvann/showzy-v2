@@ -260,6 +260,59 @@ describe("panel chrome account menu (SHO-314)", () => {
   });
 });
 
+describe("full-shell template editor (SHO-314)", () => {
+  it("keeps three-pane chrome on non-edit documents routes", async () => {
+    signInWithFlowers();
+    const { router } = await renderApp("/kviti-lviv/documents");
+    expect(
+      await screen.findByRole("region", { name: "Документи" }),
+    ).toBeDefined();
+    expect(
+      screen.getByRole("navigation", { name: "Основна навігація" }),
+    ).toBeDefined();
+    expect(
+      screen.getByRole("heading", { name: "Модуль у розробці" }),
+    ).toBeDefined();
+    expect(router.state.location.pathname).toBe("/kviti-lviv/documents");
+  });
+
+  it("renders the editor placeholder outside panel chrome; back returns to templates", async () => {
+    signInWithFlowers();
+    const { router } = await renderApp(
+      "/kviti-lviv/documents/templates/tmpl-1/edit",
+    );
+    expect(
+      await screen.findByRole("heading", { name: "Модуль у розробці" }),
+    ).toBeDefined();
+    expect(router.state.location.pathname).toBe(
+      "/kviti-lviv/documents/templates/tmpl-1/edit",
+    );
+    expect(document.querySelector(".panel-shell")).toBeNull();
+    expect(
+      screen.queryByRole("navigation", { name: "Основна навігація" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("navigation", { name: "Мобільна навігація" }),
+    ).toBeNull();
+    expect(screen.queryByRole("region", { name: "Документи" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Більше" })).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Назад до списку" }),
+    ).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: "Назад до списку" }));
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe(
+        "/kviti-lviv/documents/templates",
+      );
+    });
+    expect(screen.getByRole("region", { name: "Документи" })).toBeDefined();
+    expect(
+      screen.getByRole("navigation", { name: "Основна навігація" }),
+    ).toBeDefined();
+  });
+});
+
 describe("panel chrome mobile more sheet (SHO-314)", () => {
   it("renders Більше groups Операції / Клієнти / Налаштування", async () => {
     signInWithFlowers();
