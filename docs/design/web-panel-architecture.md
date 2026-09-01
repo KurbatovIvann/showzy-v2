@@ -58,9 +58,13 @@ The only data path is the typed oRPC client:
   `contractQueryKey` / `contractQueryOptions`. Account reads use
   `accountContractQueryKey` (`null-company` + session user id) — copy
   `features/companies/api/list-mine.ts`. Pass live
-  `useActiveCompany().activeCompanyId` into company-scoped options so a
-  selector change re-renders keys. Loaders must reuse these options
-  (`ensureQueryData` on `_authed` for `listMineQueryOptions`) — one cache.
+  `useActiveCompany().activeCompanyId` into company-scoped **keys** so a
+  selector change re-renders. The **assert** is
+  `() => client.getActiveCompany()` (copy `companyGetQueryOptions`); a
+  render-closed React id makes isolation a no-op. Loaders must reuse
+  these options (`ensureQueryData` on `_authed` for
+  `listMineQueryOptions`) — one cache. `queryClient` and the contract
+  `client` are required on providers (no fallback that forks the cache).
 - **Mutations**: one `createMutationAttempt()` per logical submit
   (`useContractMutation`); retry reuses `attempt.options`. A new
   submit mints a new key (contract.md §3).

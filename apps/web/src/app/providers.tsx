@@ -15,13 +15,13 @@ export function AppProviders({
 }: {
   readonly authClient: ShowzyAuthClient;
   readonly children: ReactNode;
-  readonly client?: ShowzyClient;
-  readonly queryClient?: QueryClient;
+  readonly client: ShowzyClient;
+  readonly queryClient: QueryClient;
 }) {
   return (
-    <QueryProvider {...(queryClient === undefined ? {} : { queryClient })}>
+    <QueryProvider queryClient={queryClient}>
       <SessionProvider authClient={authClient}>
-        <ApiProvider {...(client === undefined ? {} : { client })}>
+        <ApiProvider client={client}>
           <QueryRuntimeProvider>{children}</QueryRuntimeProvider>
         </ApiProvider>
       </SessionProvider>

@@ -1,8 +1,15 @@
 /**
  * Contract read helpers. Copy this factory style in product screens —
- * do not put oRPC context in the query key; include `companyId` here
- * from `useActiveCompany()` (React state), not a one-shot
- * `client.getActiveCompany()` that will not re-render.
+ * do not put oRPC context in the query key.
+ *
+ * **Key:** `companyId` from `useActiveCompany()` (React state) so a
+ * selector change re-renders. A one-shot `client.getActiveCompany()`
+ * will not.
+ *
+ * **Assert:** `getActiveCompany` must be `() => client.getActiveCompany()`
+ * (live `x-company-id`), never a render-closed React id. A closed
+ * `() => activeCompanyId` makes before/after `assertCompanyStillActive`
+ * a no-op while the RPC still follows the live header.
  *
  * Route `loader`s must pass the same `contractQueryOptions` /
  * `accountContractQueryOptions` object into `ensureQueryData` that the
@@ -10,6 +17,8 @@
  *
  * `assertCompanyStillActive` runs before and after `queryFn` so a
  * mid-flight company switch cannot commit another tenant's payload.
+ * `StaleCompanyQueryError` is not retried — a retry can re-insert a
+ * tenant key after `removeQueries`.
  */
 import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
 
@@ -85,12 +94,26 @@ export function assertCompanyStillActive(
   }
 }
 
+/** Production default is 3; never retry a tenant-isolation abort. */
+export function shouldRetryContractQuery(
+  failureCount: number,
+  error: unknown,
+): boolean {
+  if (error instanceof StaleCompanyQueryError) {
+    return false;
+  }
+  return failureCount < 3;
+}
+
 export function contractQueryOptions<TInput, TOutput>(args: {
   readonly actionName: string;
   readonly companyId: string | null;
   readonly input: TInput;
   readonly queryFn: () => Promise<TOutput>;
-  /** Live selector; mismatch must not write another tenant under this key. */
+  /**
+   * Live selector (`() => client.getActiveCompany()`). Do not pass a
+   * render-closed React id — mismatch must not write another tenant.
+   */
   readonly getActiveCompany: () => string | null;
 }) {
   return queryOptions({
@@ -101,6 +124,7 @@ export function contractQueryOptions<TInput, TOutput>(args: {
       assertCompanyStillActive(args.getActiveCompany, args.companyId);
       return output;
     },
+    retry: shouldRetryContractQuery,
   });
 }
 
@@ -115,7 +139,10 @@ export function contractInfiniteQueryOptions<TInput, TPage>(args: {
   readonly companyId: string | null;
   readonly input: TInput;
   readonly queryFn: (cursor: string | null) => Promise<TPage>;
-  /** Live selector; mismatch must not write another tenant under this key. */
+  /**
+   * Live selector (`() => client.getActiveCompany()`). Do not pass a
+   * render-closed React id — mismatch must not write another tenant.
+   */
   readonly getActiveCompany: () => string | null;
   /** `null` when the server reports no further page. */
   readonly nextCursor: (page: TPage) => string | null;
@@ -130,5 +157,6 @@ export function contractInfiniteQueryOptions<TInput, TPage>(args: {
       return page;
     },
     getNextPageParam: (lastPage) => args.nextCursor(lastPage),
+    retry: shouldRetryContractQuery,
   });
 }

@@ -86,8 +86,9 @@ listMineQueryOptions(client, sessionUserId)
 // key: [actionName, null-company, sessionUserId, input]
 
 // features/companies/api/get.ts — company-scoped
-companyGetQueryOptions({ client, companyId, getActiveCompany })
-// key: [actionName, companyId, input]
+companyGetQueryOptions({ client, companyId })
+// key: [actionName, companyId, input] — companyId from React state
+// assert: () => client.getActiveCompany() (live x-company-id)
 
 // routes/_authed.tsx — same factory as useListMine
 loader: ({ context }) =>

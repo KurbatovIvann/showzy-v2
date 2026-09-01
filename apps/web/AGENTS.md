@@ -160,10 +160,13 @@ One data path:
   `setActiveCompany` → `x-company-id`. The slug is not an access grant
   (ADR-0013).
 - Reads: `contractQueryOptions` / `contractQueryKey` /
-  `accountContractQueryOptions`. Company-scoped keys include the live
-  `useActiveCompany().activeCompanyId`; account reads (copy
-  `features/companies/api/list-mine.ts`) include the session user id.
-  Pass `getActiveCompany` so a switch cannot write another tenant.
+  `accountContractQueryOptions`. Company-scoped **keys** include
+  `useActiveCompany().activeCompanyId` (React state, so a switch
+  re-renders). Account reads (copy `features/companies/api/list-mine.ts`)
+  include the session user id. The **assert** is
+  `() => client.getActiveCompany()` (live `x-company-id`), never a
+  render-closed React id. Golden `companyGetQueryOptions({ client, companyId })`
+  binds that getter; do not pass `() => activeCompanyId`.
 - Prefetch: route `loader` reuses those options (`ensureQueryData`).
   `_authed` prefetches `listMineQueryOptions` so the picker/scope hooks
   do not issue a second `/rpc`. Do not invent a second cache.

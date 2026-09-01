@@ -1,6 +1,9 @@
 /**
- * Company-scoped `companies.get`. Keys always include the live selector
- * (`contractQueryKey`); loaders and hooks must share this factory.
+ * Company-scoped `companies.get`. The **key** uses `companyId` from
+ * React state (`useActiveCompany().activeCompanyId`). The **assert**
+ * binds `() => client.getActiveCompany()` so a render-closed id cannot
+ * skip isolation while `x-company-id` already moved. Loaders and hooks
+ * must share this factory.
  */
 import type { ShowzyClient } from "../../../api/client";
 import {
@@ -23,13 +26,12 @@ export function companyGetQueryKey(companyId: string) {
 export function companyGetQueryOptions(args: {
   readonly client: ShowzyClient;
   readonly companyId: string;
-  readonly getActiveCompany: () => string | null;
 }) {
   return contractQueryOptions({
     actionName: GET_COMPANY_ACTION,
     companyId: args.companyId,
     input: GET_COMPANY_INPUT,
-    getActiveCompany: args.getActiveCompany,
+    getActiveCompany: () => args.client.getActiveCompany(),
     queryFn: () => args.client.client.companies.get(GET_COMPANY_INPUT),
   });
 }

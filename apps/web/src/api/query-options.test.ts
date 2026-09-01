@@ -7,6 +7,7 @@ import {
   contractQueryKey,
   contractQueryOptions,
   NULL_COMPANY_QUERY_SCOPE,
+  shouldRetryContractQuery,
   StaleCompanyQueryError,
 } from "./query-options";
 import { createWebQueryClient } from "./query-client";
@@ -41,31 +42,51 @@ describe("contractQueryOptions", () => {
   });
 
   it("does not write another company's payload when the selector drifted mid-flight", async () => {
-    let active: string | null = "company-a";
-    let release: (() => void) | undefined;
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    const queryFn = vi.fn(async () => {
-      await gate;
-      return { id: "company-a", secret: "tenant-a" };
-    });
-    const queryClient = createWebQueryClient({ retryQueries: false });
-    const options = contractQueryOptions({
-      actionName: "companies.get",
-      companyId: "company-a",
-      input: {},
-      getActiveCompany: () => active,
-      queryFn,
-    });
-    const pending = queryClient.fetchQuery(options);
-    active = "company-b";
-    release?.();
-    await expect(pending).rejects.toBeInstanceOf(StaleCompanyQueryError);
-    expect(queryClient.getQueryData(options.queryKey)).toBeUndefined();
-    queryClient.clear();
+    await expectNoWriteOnMidFlightDrift(
+      createWebQueryClient({ retryQueries: false }),
+    );
+  });
+
+  it("does not retry StaleCompanyQueryError on the default client", async () => {
+    await expectNoWriteOnMidFlightDrift(createWebQueryClient());
   });
 });
+
+async function expectNoWriteOnMidFlightDrift(
+  queryClient: ReturnType<typeof createWebQueryClient>,
+): Promise<void> {
+  let active: string | null = "company-a";
+  let selectorReads = 0;
+  let release: (() => void) | undefined;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const queryFn = vi.fn(async () => {
+    await gate;
+    return { id: "company-a", secret: "tenant-a" };
+  });
+  const options = contractQueryOptions({
+    actionName: "companies.get",
+    companyId: "company-a",
+    input: {},
+    getActiveCompany: () => {
+      selectorReads += 1;
+      return active;
+    },
+    queryFn,
+  });
+  const pending = queryClient.fetchQuery(options);
+  await vi.waitFor(() => {
+    expect(queryFn).toHaveBeenCalledOnce();
+  });
+  active = "company-b";
+  release?.();
+  await expect(pending).rejects.toBeInstanceOf(StaleCompanyQueryError);
+  expect(queryFn).toHaveBeenCalledOnce();
+  expect(selectorReads).toBe(2);
+  expect(queryClient.getQueryData(options.queryKey)).toBeUndefined();
+  queryClient.clear();
+}
 
 describe("accountContractQueryOptions", () => {
   it("isolates null-company cache entries by authenticated session", () => {
@@ -105,5 +126,19 @@ describe("assertCompanyStillActive", () => {
     expect(() => {
       assertCompanyStillActive(() => "company-a", "company-a");
     }).not.toThrow();
+  });
+});
+
+describe("shouldRetryContractQuery", () => {
+  it("never retries StaleCompanyQueryError and keeps the default limit otherwise", () => {
+    expect(shouldRetryContractQuery(0, new StaleCompanyQueryError())).toBe(
+      false,
+    );
+    expect(shouldRetryContractQuery(2, new StaleCompanyQueryError())).toBe(
+      false,
+    );
+    expect(shouldRetryContractQuery(0, new Error("timeout"))).toBe(true);
+    expect(shouldRetryContractQuery(2, new Error("timeout"))).toBe(true);
+    expect(shouldRetryContractQuery(3, new Error("timeout"))).toBe(false);
   });
 });

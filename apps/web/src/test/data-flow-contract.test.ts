@@ -60,11 +60,7 @@ describe("web contract data path (SHO-330)", () => {
       );
     });
     expect(constructors.sort()).toEqual(
-      [
-        join(webSrc, "api/api-provider.tsx"),
-        join(webSrc, "api/client.ts"),
-        join(webSrc, "app/runtime.ts"),
-      ].sort(),
+      [join(webSrc, "api/client.ts"), join(webSrc, "app/runtime.ts")].sort(),
     );
   });
 

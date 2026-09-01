@@ -92,7 +92,6 @@ describe("company switch isolation (SHO-330)", () => {
       companyGetQueryOptions({
         client: apiClient,
         companyId: FLOWERS_COMPANY_ID,
-        getActiveCompany: () => apiClient.getActiveCompany(),
       }),
     );
     expect(
@@ -154,7 +153,6 @@ describe("company switch isolation (SHO-330)", () => {
         companyGetQueryOptions({
           client: apiClient,
           companyId: FLOWERS_COMPANY_ID,
-          getActiveCompany: () => apiClient.getActiveCompany(),
         }),
       )
       .then(
