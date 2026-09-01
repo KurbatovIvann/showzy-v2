@@ -49,18 +49,25 @@ const probeFiles = {
   `,
   "routes/__boundary-probe__/route-allowed-page.ts": `import { SignInScreen } from "../../features/auth/sign-in-screen";\n`,
   "routes/__boundary-probe__/route-allowed-prefetch.ts": `import { contractQueryOptions } from "../../api/query-options";\n`,
+  "routes/__boundary-probe__/route-allowed-layout.ts": `import { PanelChromeLayout } from "../../layouts/panel/panel-layout";\n`,
   "routes/__boundary-probe__/route-forbidden-client.ts": `import { createShowzyClient } from "../../api/client";\n`,
   "routes/__boundary-probe__/route-forbidden-contract.ts": `import { createContractClient } from "@showzy/contract";\n`,
+  "routes/__boundary-probe__/route-forbidden-contract-subpath.ts": `import { buildServerRouter } from "@showzy/contract/server";\n`,
   "routes/__boundary-probe__/route-forbidden-internal.ts": `import { planCreateCompanySubmit } from "../../features/companies/onboarding/create-company-form";\n`,
   "components/ui/__boundary-probe__/ui-allowed-cx.ts": `import { cx } from "../cx";\n`,
   "components/ui/__boundary-probe__/ui-forbidden-feature.ts": `import { useListMine } from "../../../features/companies/api/use-list-mine";\n`,
+  "components/ui/__boundary-probe__/ui-forbidden-api.ts": `import { createShowzyClient } from "../../../api/client";\n`,
   "api/__boundary-probe__/api-allowed-auth.ts": `import { useAuthSession } from "../../auth/session-provider";\n`,
   "api/__boundary-probe__/api-forbidden-ui.ts": `import { Button } from "../../components/ui/button";\n`,
   "features/companies/__boundary-probe__/companies-allowed-auth-shared.ts": `import { Banner } from "../../auth/shared/banner";\n`,
   "features/companies/__boundary-probe__/companies-forbidden-auth-internal.ts": `import { OtpInput } from "../../auth/otp-input";\n`,
+  "features/companies/__boundary-probe__/companies-forbidden-layout.ts": `import { PanelChrome } from "../../../layouts/panel/panel-chrome";\n`,
+  "features/companies/__boundary-probe__/companies-forbidden-app.ts": `import { createAppRuntime } from "../../../app/runtime";\n`,
   "features/auth/__boundary-probe__/auth-forbidden-companies.ts": `import { planCreateCompanySubmit } from "../../companies/onboarding/create-company-form";\n`,
   "layouts/panel/__boundary-probe__/layout-allowed-companies.ts": `import { CompanySwitcher } from "../../../features/companies/scope/company-switcher";\n`,
+  "layouts/panel/__boundary-probe__/layout-allowed-companies-api.ts": `import type { CompanyMembership } from "../../../features/companies/api/list-mine";\n`,
   "layouts/panel/__boundary-probe__/layout-forbidden-auth-screen.ts": `import { SignInScreen } from "../../../features/auth/sign-in-screen";\n`,
+  "layouts/panel/__boundary-probe__/layout-forbidden-onboarding.ts": `import { planCreateCompanySubmit } from "../../../features/companies/onboarding/create-company-form";\n`,
 };
 
 const probeDirectories = [
@@ -177,20 +184,23 @@ describe("apps/web layer import direction (SHO-329)", () => {
     expect(wired).toBe(true);
   });
 
-  it("allows a route to import a feature page and query-options prefetch", () => {
+  it("allows a route to import a feature page, query-options prefetch, and layouts", () => {
     expect(layerErrors("route-allowed-page.ts")).toHaveLength(0);
     expect(layerErrors("route-allowed-prefetch.ts")).toHaveLength(0);
+    expect(layerErrors("route-allowed-layout.ts")).toHaveLength(0);
   });
 
   it("rejects a route importing the contract client or feature internals", () => {
     expect(layerErrors("route-forbidden-client.ts")).toHaveLength(1);
     expect(layerErrors("route-forbidden-contract.ts")).toHaveLength(1);
+    expect(layerErrors("route-forbidden-contract-subpath.ts")).toHaveLength(1);
     expect(layerErrors("route-forbidden-internal.ts")).toHaveLength(1);
   });
 
-  it("allows generic UI to import another UI primitive and rejects features", () => {
+  it("allows generic UI to import another UI primitive and rejects features and API", () => {
     expect(layerErrors("ui-allowed-cx.ts")).toHaveLength(0);
     expect(layerErrors("ui-forbidden-feature.ts")).toHaveLength(1);
+    expect(layerErrors("ui-forbidden-api.ts")).toHaveLength(1);
   });
 
   it("allows shared API to import auth and rejects UI", () => {
@@ -204,8 +214,15 @@ describe("apps/web layer import direction (SHO-329)", () => {
     expect(layerErrors("auth-forbidden-companies.ts")).toHaveLength(1);
   });
 
-  it("allows the panel layout to compose companies and rejects other domains", () => {
+  it("rejects a feature importing layouts or app", () => {
+    expect(layerErrors("companies-forbidden-layout.ts")).toHaveLength(1);
+    expect(layerErrors("companies-forbidden-app.ts")).toHaveLength(1);
+  });
+
+  it("allows the panel layout to compose companies scope/api and rejects other domains", () => {
     expect(layerErrors("layout-allowed-companies.ts")).toHaveLength(0);
+    expect(layerErrors("layout-allowed-companies-api.ts")).toHaveLength(0);
     expect(layerErrors("layout-forbidden-auth-screen.ts")).toHaveLength(1);
+    expect(layerErrors("layout-forbidden-onboarding.ts")).toHaveLength(1);
   });
 });

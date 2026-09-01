@@ -129,6 +129,19 @@ function isApiClient(rel) {
 }
 
 /**
+ * Layouts may compose companies switcher/scope, not onboarding or picker.
+ *
+ * @param {string} rel
+ */
+function isLayoutAllowedCompanies(rel) {
+  const file = stripExt(rel);
+  return (
+    file.startsWith("features/companies/scope/") ||
+    file.startsWith("features/companies/api/")
+  );
+}
+
+/**
  * @param {import("estree").Node} node
  * @returns {string | null}
  */
@@ -179,7 +192,10 @@ function violation(from, imported) {
   }
 
   if (imported.kind === "package") {
-    if (from.kind === "routes" && imported.spec === "@showzy/contract") {
+    if (
+      from.kind === "routes" &&
+      imported.spec.startsWith("@showzy/contract")
+    ) {
       return "routesContractClient";
     }
     if (from.kind === "ui" && imported.spec.startsWith("@showzy/contract")) {
@@ -247,7 +263,11 @@ function violation(from, imported) {
     ) {
       return "featureForeignInternal";
     }
-    if (target.kind === "routes") {
+    if (
+      target.kind === "routes" ||
+      target.kind === "layouts" ||
+      target.kind === "app"
+    ) {
       return "featureForeignInternal";
     }
     return null;
@@ -257,10 +277,7 @@ function violation(from, imported) {
     if (isApiClient(imported.rel)) {
       return "layoutsForeignFeature";
     }
-    if (
-      target.kind === "feature" &&
-      featureArea(imported.rel) !== "companies"
-    ) {
+    if (target.kind === "feature" && !isLayoutAllowedCompanies(imported.rel)) {
       return "layoutsForeignFeature";
     }
     if (target.kind === "routes" || target.kind === "app") {
@@ -303,9 +320,9 @@ export const webLayerBoundariesRule = {
       apiFeatureOrUi:
         "Shared `src/api` may not import features, UI, routes, layouts, or `app/`.",
       featureForeignInternal:
-        "Feature internals may not import another domain's internals (use that domain's `shared/` entry when one exists).",
+        "Feature internals may not import another domain's internals, routes, layouts, or `app/` (use that domain's `shared/` entry when one exists).",
       layoutsForeignFeature:
-        "Layouts may compose `features/companies` (switcher/scope) and UI/auth/i18n — not other domains, routes, or `api/client`.",
+        "Layouts may compose `features/companies` switcher/scope (`scope/` and `api/`) and UI/auth/i18n — not onboarding/picker, other domains, routes, or `api/client`.",
     },
   },
   create(context) {

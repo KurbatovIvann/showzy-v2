@@ -331,7 +331,7 @@ apps/web/src/
     main.tsx
     router.tsx
     providers.tsx
-    runtime.ts                     # wires existing lifecycle; not a store
+    runtime.ts                     # constructs the auth client; not a store
   routes/
   api/
   auth/
@@ -362,7 +362,7 @@ apps/web/src/
 
 | Path | Responsibility |
 | --- | --- |
-| `app/` | Composition root. `runtime.ts` composes existing services (`bindActiveCompanyRuntime`, auth client). It must not become a global store. |
+| `app/` | Composition root. `runtime.ts` constructs the auth client. `QueryRuntimeProvider` binds active-company lifecycle. It must not become a global store. |
 | `routes/` | Thin adapters. Validate, prefetch, render. |
 | `layouts/` | Reusable cross-feature shells. **Panel is a layout, not a product feature.** Production `features/panel` must not remain. |
 | `features/` | User-facing capabilities. Auth **screens** → `features/auth`. Better Auth / session → `auth/`. |
