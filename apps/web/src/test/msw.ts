@@ -2,7 +2,7 @@ import { COMPANY_SELECTOR_HEADER } from "@showzy/contract";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 
-import type { CompanyMembership } from "../api/company-membership-query";
+import type { CompanyMembership } from "../api/companies/company-membership-query";
 
 /** jsdom document origin — same-origin `/api/auth` and `/rpc`. */
 export const PANEL_ORIGIN = "http://localhost:3000";

@@ -1,11 +1,14 @@
 import { Link, Navigate } from "@tanstack/react-router";
 
 import { Card } from "../../components/ui/card";
-import { createBrowserCompanyPrefs } from "../../prefs/company-prefs";
-import { lastVisitedSlugToRedirect } from "./resolve-company";
-import { CompanyScopeError, CompanyScopeLoading } from "./company-scope-status";
-import { useCompanyScopeCopy } from "./use-company-scope-copy";
-import { useListMine } from "./use-list-mine";
+import { createBrowserCompanyPrefs } from "../../prefs/companies/company-prefs";
+import {
+  CompanyScopeError,
+  CompanyScopeLoading,
+} from "./components/company-scope-status";
+import { useCompanyScopeCopy } from "./hooks/use-company-scope-copy";
+import { useListMine } from "./hooks/use-list-mine";
+import { lastVisitedSlugToRedirect } from "./shared/resolve-company";
 
 const PICKER_LINK_CLASS =
   "inline-flex w-full items-center justify-center rounded-full border border-line " +

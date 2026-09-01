@@ -1,4 +1,4 @@
-import type { CompanyMembership } from "../../api/company-membership-query";
+import type { CompanyMembership } from "../../../api/companies/company-membership-query";
 
 export function matchMembershipBySlug(
   memberships: readonly CompanyMembership[],

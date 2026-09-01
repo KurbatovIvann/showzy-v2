@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { CompanyMembership } from "../../api/company-membership-query";
+import type { CompanyMembership } from "../../../api/companies/company-membership-query";
 import {
   lastVisitedSlugToRedirect,
   matchMembershipBySlug,

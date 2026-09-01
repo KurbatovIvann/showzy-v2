@@ -1,8 +1,8 @@
 import { useLayoutEffect, useMemo } from "react";
 
-import { useActiveCompany } from "../../api/query-provider";
-import { createBrowserCompanyPrefs } from "../../prefs/company-prefs";
-import { matchMembershipBySlug } from "./resolve-company";
+import { useActiveCompany } from "../../../api/query-provider";
+import { createBrowserCompanyPrefs } from "../../../prefs/companies/company-prefs";
+import { matchMembershipBySlug } from "../shared/resolve-company";
 import { useListMine } from "./use-list-mine";
 
 export function useCompanyScope(companySlug: string) {

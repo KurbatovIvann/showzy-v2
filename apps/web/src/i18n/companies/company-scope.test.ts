@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { companyScopeCopy } from "./company-scope";
-import { detectLocale } from "./locale";
+import { detectLocale } from "../locale";
 
 describe("company-scope copy", () => {
   it("defaults to Ukrainian and picks English only from an en locale", () => {

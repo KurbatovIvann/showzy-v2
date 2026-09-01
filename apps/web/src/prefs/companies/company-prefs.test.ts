@@ -4,7 +4,7 @@ import { createCompanyPrefs } from "./company-prefs";
 import {
   createMemoryPrefsStore,
   DEVICE_PREF_LAST_COMPANY_SLUG_KEY,
-} from "./storage";
+} from "../storage";
 
 describe("company prefs (last slug)", () => {
   it("persists a slug and treats blank as cleared", () => {

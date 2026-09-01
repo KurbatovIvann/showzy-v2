@@ -1,5 +1,5 @@
-import { Button } from "../../components/ui/button";
-import type { CompanyScopeCopy } from "../../i18n/company-scope";
+import { Button } from "../../../components/ui/button";
+import type { CompanyScopeCopy } from "../../../i18n/companies/company-scope";
 
 export function CompanyScopeLoading(props: { readonly label: string }) {
   return (

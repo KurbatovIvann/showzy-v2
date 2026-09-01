@@ -7,9 +7,9 @@
  */
 import type { QueryClient } from "@tanstack/react-query";
 
-import type { CompanyPrefs } from "../prefs/company-prefs";
-import type { ActiveCompanyListenerHost } from "./client";
-import { bindActiveCompanyQueryIsolation } from "./query-client";
+import type { CompanyPrefs } from "../../prefs/companies/company-prefs";
+import type { ActiveCompanyListenerHost } from "../client";
+import { bindActiveCompanyQueryIsolation } from "../query-client";
 
 export function bindActiveCompanyRuntime(args: {
   readonly client: ActiveCompanyListenerHost;

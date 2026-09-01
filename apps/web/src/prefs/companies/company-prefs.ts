@@ -2,11 +2,11 @@
  * Last visited company slug. UX only — never an access grant (ADR-0013).
  * The URL slug is the source of truth; this is the `/` redirect hint.
  */
-import { createLocalStoragePrefsStore } from "./local-storage";
+import { createLocalStoragePrefsStore } from "../local-storage";
 import {
   DEVICE_PREF_LAST_COMPANY_SLUG_KEY,
   type PrefsKvStore,
-} from "./storage";
+} from "../storage";
 
 export interface CompanyPrefs {
   getLastCompanySlug(): string | null;

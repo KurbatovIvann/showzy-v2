@@ -1,7 +1,7 @@
 import { queryOptions } from "@tanstack/react-query";
 
-import type { ShowzyClient } from "./client";
-import { contractQueryKey } from "./query-options";
+import type { ShowzyClient } from "../client";
+import { contractQueryKey } from "../query-options";
 
 export const LIST_MINE_ACTION = "companies.listMine";
 export const LIST_MINE_INPUT = {} as const;

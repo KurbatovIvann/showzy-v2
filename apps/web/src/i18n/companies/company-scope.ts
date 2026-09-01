@@ -1,5 +1,5 @@
-/** Company-scope copy namespace (uk/en). Locale plumbing lives in `./locale`. */
-import type { Locale } from "./locale";
+/** Company-scope copy namespace (uk/en). Locale plumbing lives in `../locale`. */
+import type { Locale } from "../locale";
 
 export type CompanyScopeCopy = {
   readonly loading: string;

@@ -1,8 +1,8 @@
 import { Link } from "@tanstack/react-router";
 
-import type { CompanyMembership } from "../../api/company-membership-query";
-import { cx } from "../../components/ui/cx";
-import type { CompanyScopeCopy } from "../../i18n/company-scope";
+import type { CompanyMembership } from "../../../api/companies/company-membership-query";
+import { cx } from "../../../components/ui/cx";
+import type { CompanyScopeCopy } from "../../../i18n/companies/company-scope";
 
 export function CompanySwitcher(props: {
   readonly copy: CompanyScopeCopy;

@@ -1,10 +1,13 @@
 import { Navigate, Outlet } from "@tanstack/react-router";
 
-import { CompanyScopeError, CompanyScopeLoading } from "./company-scope-status";
-import { CompanySwitcher } from "./company-switcher";
+import {
+  CompanyScopeError,
+  CompanyScopeLoading,
+} from "./components/company-scope-status";
+import { CompanySwitcher } from "./components/company-switcher";
 import { CompanyUnknownScreen } from "./company-unknown-screen";
-import { useCompanyScope } from "./use-company-scope";
-import { useCompanyScopeCopy } from "./use-company-scope-copy";
+import { useCompanyScope } from "./hooks/use-company-scope";
+import { useCompanyScopeCopy } from "./hooks/use-company-scope-copy";
 
 export function CompanyLayout({
   companySlug,
