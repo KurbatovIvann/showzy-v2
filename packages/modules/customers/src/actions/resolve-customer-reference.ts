@@ -6,7 +6,9 @@ import {
 } from "@showzy/core/errors";
 import { companyCustomers } from "@showzy/db/schema/customers";
 import {
+  candidatesContainingQuery,
   formatReferenceConflictMessage,
+  normalizeReferenceQuery,
   pickUniqueNormalizedMatch,
   REFERENCE_CONFLICT_LABELS_MAX,
 } from "@showzy/validation/entity-ref";
@@ -103,7 +105,7 @@ export const resolveCustomerReference = implementAction(
         return { customerId: row.id, name };
       }
 
-      const pattern = likeContainsPattern(input.value);
+      const pattern = likeContainsPattern(normalizeReferenceQuery(input.value));
       if (pattern === undefined) {
         throw new NotFoundError();
       }
@@ -125,9 +127,14 @@ export const resolveCustomerReference = implementAction(
         .orderBy(desc(companyCustomers.updatedAt), desc(companyCustomers.id))
         .limit(RESOLVE_CUSTOMER_CANDIDATE_MAX);
 
-      const picked = pickUniqueNormalizedMatch(
+      const scoped = candidatesContainingQuery(
         input.value,
         candidates,
+        customerMatchFields,
+      );
+      const picked = pickUniqueNormalizedMatch(
+        input.value,
+        scoped,
         customerMatchFields,
       );
       if (picked.kind === "none") {

@@ -22,8 +22,13 @@ export const entityRefSchema = z.discriminatedUnion("by", [
 
 export type EntityRef = z.output<typeof entityRefSchema>;
 
+/** NFC, trim, collapse internal whitespace. SQL ILIKE uses this (case via ILIKE). */
+export function normalizeReferenceQuery(query: string): string {
+  return query.normalize("NFC").trim().replace(/\s+/g, " ");
+}
+
 export function normalizeUniqueMatchQuery(query: string): string {
-  return query.normalize("NFC").trim().replace(/\s+/g, " ").toLowerCase();
+  return normalizeReferenceQuery(query).toLowerCase();
 }
 
 export type UniqueMatchResult<T> =

@@ -5,6 +5,7 @@ import { uniqueIds } from "@showzy/module-kit/unique-ids";
 import {
   candidatesContainingQuery,
   formatReferenceConflictMessage,
+  normalizeReferenceQuery,
   pickUniqueNormalizedMatch,
   REFERENCE_CONFLICT_LABELS_MAX,
   type EntityRef,
@@ -48,7 +49,7 @@ function orContains(
 ): SQL | undefined {
   const parts: SQL[] = [];
   for (const query of queries) {
-    const pattern = likeContainsPattern(query);
+    const pattern = likeContainsPattern(normalizeReferenceQuery(query));
     if (pattern !== undefined) {
       parts.push(ilike(column, pattern));
     }
@@ -70,10 +71,10 @@ function productLabel(row: ProductCandidate): string {
   return `${row.name} (${row.currency})`;
 }
 
-function conflictLabels(
+function conflictLabels<T>(
   query: string,
-  rows: readonly { readonly name: string }[],
-  labelOf: (row: { readonly name: string }) => string,
+  rows: readonly T[],
+  labelOf: (row: T) => string,
 ): ConflictError {
   const labels = [...rows]
     .map(labelOf)
@@ -226,7 +227,9 @@ export async function resolveCatalogLineReferences(args: {
   );
   const productQueries = uniqueIds(
     args.lines.flatMap((line) =>
-      line.product.by === "query" ? [line.product.value] : [],
+      line.product.by === "query"
+        ? [normalizeReferenceQuery(line.product.value)]
+        : [],
     ),
   );
 

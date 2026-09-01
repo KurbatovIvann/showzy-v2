@@ -6,6 +6,7 @@ import {
   candidatesContainingQuery,
   entityRefSchema,
   formatReferenceConflictMessage,
+  normalizeReferenceQuery,
   normalizeUniqueMatchQuery,
   pickUniqueNormalizedMatch,
 } from "./entity-ref.js";
@@ -45,6 +46,7 @@ describe("@showzy/validation/entity-ref", () => {
   });
 
   it("normalizes NFC, trim, collapsed whitespace, and case-fold", () => {
+    expect(normalizeReferenceQuery("  Cafe\u0301   Cake ")).toBe("Café Cake");
     expect(normalizeUniqueMatchQuery("  Cafe\u0301   Cake ")).toBe("café cake");
     expect(normalizeUniqueMatchQuery("KATYA")).toBe("katya");
   });

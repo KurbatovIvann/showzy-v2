@@ -257,8 +257,9 @@ function buildOrderLine(args: {
 }
 
 /**
- * Persistence accepts only canonical UUIDs + milli (never EntityRef or
- * decimal). Names come from `catalog.resolveLineReferences`.
+ * Persistence accepts only canonical UUIDs + milli (never a human
+ * reference or decimal quantity). Names come from
+ * `catalog.resolveLineReferences`.
  */
 export async function createStaffOrder(env: {
   readonly ctx: StaffCtx;
