@@ -125,10 +125,12 @@ Rules:
   ESLint ignores it).
 
 Copy today's thin adapters: `src/routes/_auth/sign-in.tsx`,
-`src/routes/_authed/$companySlug.tsx` (layout + `<Outlet />` via
-`CompanyLayout`). Do not copy `orders.tsx`-style siblings that remount
-the whole workspace instead of nesting an outlet — that is the gap
-SHO-327 fixes.
+`src/routes/_authed/$companySlug/route.tsx` (company scope +
+`<Outlet />` via `CompanyLayout`),
+`src/routes/_authed/$companySlug/_panel/route.tsx` (pathless panel
+chrome), and a section folder such as
+`src/routes/_authed/$companySlug/_panel/orders/` (`route.tsx` list
+layout + `index.tsx` exact list). Template editor lives under `_full`.
 
 ## State ownership
 
@@ -245,6 +247,6 @@ Halt and ask; do not invent a workaround:
 
 1. `renderApp(path)` from `src/test/render.tsx`.
 2. Seed `sessionState` / RPC via MSW in `src/test/msw.ts`.
-3. Assert URL + visible heading. Do not import `section-path.ts` to
+3. Assert URL + visible heading. Do not parse pathname prefixes to
    decide what the user should see.
 4. Deep-link reload: `renderApp("/{slug}/orders/{id}")` shows detail.

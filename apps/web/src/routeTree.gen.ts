@@ -14,41 +14,55 @@ import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
 import { Route as AuthVerifyRouteImport } from './routes/_auth/verify'
 import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
-import { Route as AuthedCompanySlugRouteImport } from './routes/_authed/$companySlug'
+import { Route as AuthedCompanySlugRouteRouteImport } from './routes/_authed/$companySlug/route'
 import { Route as AuthedOnboardingRouteImport } from './routes/_authed/onboarding'
-import { Route as AuthedCompanySlugIndexRouteImport } from './routes/_authed/$companySlug/index'
-import { Route as AuthedCompanySlugCompanyRouteImport } from './routes/_authed/$companySlug/company'
-import { Route as AuthedCompanySlugCustomersRouteImport } from './routes/_authed/$companySlug/customers'
-import { Route as AuthedCompanySlugDocumentsRouteImport } from './routes/_authed/$companySlug/documents'
-import { Route as AuthedCompanySlugInvitesRouteImport } from './routes/_authed/$companySlug/invites'
-import { Route as AuthedCompanySlugOrdersRouteImport } from './routes/_authed/$companySlug/orders'
-import { Route as AuthedCompanySlugPricingRouteImport } from './routes/_authed/$companySlug/pricing'
-import { Route as AuthedCompanySlugProductsRouteImport } from './routes/_authed/$companySlug/products'
-import { Route as AuthedCompanySlugCompanyLegalRouteImport } from './routes/_authed/$companySlug/company.legal'
-import { Route as AuthedCompanySlugCompanyTeamRouteImport } from './routes/_authed/$companySlug/company.team'
-import { Route as AuthedCompanySlugCustomersCustomerIdRouteImport } from './routes/_authed/$companySlug/customers.$customerId'
-import { Route as AuthedCompanySlugCustomersCounterpartiesRouteImport } from './routes/_authed/$companySlug/customers.counterparties'
-import { Route as AuthedCompanySlugCustomersGroupsRouteImport } from './routes/_authed/$companySlug/customers.groups'
-import { Route as AuthedCompanySlugCustomersNewRouteImport } from './routes/_authed/$companySlug/customers.new'
-import { Route as AuthedCompanySlugDocumentsDocumentIdRouteImport } from './routes/_authed/$companySlug/documents.$documentId'
-import { Route as AuthedCompanySlugDocumentsNewRouteImport } from './routes/_authed/$companySlug/documents.new'
-import { Route as AuthedCompanySlugDocumentsTemplatesRouteImport } from './routes/_authed/$companySlug/documents.templates'
-import { Route as AuthedCompanySlugInvitesInviteIdRouteImport } from './routes/_authed/$companySlug/invites.$inviteId'
-import { Route as AuthedCompanySlugInvitesNewRouteImport } from './routes/_authed/$companySlug/invites.new'
-import { Route as AuthedCompanySlugOrdersOrderIdRouteImport } from './routes/_authed/$companySlug/orders.$orderId'
-import { Route as AuthedCompanySlugOrdersNewRouteImport } from './routes/_authed/$companySlug/orders.new'
-import { Route as AuthedCompanySlugPricingPriceListIdRouteImport } from './routes/_authed/$companySlug/pricing.$priceListId'
-import { Route as AuthedCompanySlugPricingNewRouteImport } from './routes/_authed/$companySlug/pricing.new'
-import { Route as AuthedCompanySlugProductsProductIdRouteImport } from './routes/_authed/$companySlug/products.$productId'
-import { Route as AuthedCompanySlugProductsNewRouteImport } from './routes/_authed/$companySlug/products.new'
-import { Route as AuthedCompanySlugCustomersCounterpartiesCounterpartyIdRouteImport } from './routes/_authed/$companySlug/customers.counterparties.$counterpartyId'
-import { Route as AuthedCompanySlugCustomersCounterpartiesNewRouteImport } from './routes/_authed/$companySlug/customers.counterparties.new'
-import { Route as AuthedCompanySlugCustomersGroupsGroupIdRouteImport } from './routes/_authed/$companySlug/customers.groups.$groupId'
-import { Route as AuthedCompanySlugCustomersGroupsNewRouteImport } from './routes/_authed/$companySlug/customers.groups.new'
-import { Route as AuthedCompanySlugDocumentsTemplatesTemplateIdRouteImport } from './routes/_authed/$companySlug/documents.templates.$templateId'
-import { Route as AuthedCompanySlugPricingPriceListIdEditRouteImport } from './routes/_authed/$companySlug/pricing.$priceListId.edit'
-import { Route as AuthedCompanySlugProductsProductIdEditRouteImport } from './routes/_authed/$companySlug/products.$productId.edit'
-import { Route as AuthedCompanySlugDocumentsTemplatesTemplateIdEditRouteImport } from './routes/_authed/$companySlug/documents.templates.$templateId.edit'
+import { Route as AuthedCompanySlugFullRouteRouteImport } from './routes/_authed/$companySlug/_full/route'
+import { Route as AuthedCompanySlugPanelRouteRouteImport } from './routes/_authed/$companySlug/_panel/route'
+import { Route as AuthedCompanySlugPanelIndexRouteImport } from './routes/_authed/$companySlug/_panel/index'
+import { Route as AuthedCompanySlugPanelCompanyRouteRouteImport } from './routes/_authed/$companySlug/_panel/company/route'
+import { Route as AuthedCompanySlugPanelCustomersRouteRouteImport } from './routes/_authed/$companySlug/_panel/customers/route'
+import { Route as AuthedCompanySlugPanelDocumentsRouteRouteImport } from './routes/_authed/$companySlug/_panel/documents/route'
+import { Route as AuthedCompanySlugPanelInvitesRouteRouteImport } from './routes/_authed/$companySlug/_panel/invites/route'
+import { Route as AuthedCompanySlugPanelOrdersRouteRouteImport } from './routes/_authed/$companySlug/_panel/orders/route'
+import { Route as AuthedCompanySlugPanelPricingRouteRouteImport } from './routes/_authed/$companySlug/_panel/pricing/route'
+import { Route as AuthedCompanySlugPanelProductsRouteRouteImport } from './routes/_authed/$companySlug/_panel/products/route'
+import { Route as AuthedCompanySlugPanelCompanyIndexRouteImport } from './routes/_authed/$companySlug/_panel/company/index'
+import { Route as AuthedCompanySlugPanelCompanyLegalRouteImport } from './routes/_authed/$companySlug/_panel/company/legal'
+import { Route as AuthedCompanySlugPanelCompanyTeamRouteImport } from './routes/_authed/$companySlug/_panel/company/team'
+import { Route as AuthedCompanySlugPanelCustomersIndexRouteImport } from './routes/_authed/$companySlug/_panel/customers/index'
+import { Route as AuthedCompanySlugPanelCustomersCustomerIdRouteImport } from './routes/_authed/$companySlug/_panel/customers/$customerId'
+import { Route as AuthedCompanySlugPanelCustomersCounterpartiesRouteRouteImport } from './routes/_authed/$companySlug/_panel/customers/counterparties/route'
+import { Route as AuthedCompanySlugPanelCustomersGroupsRouteRouteImport } from './routes/_authed/$companySlug/_panel/customers/groups/route'
+import { Route as AuthedCompanySlugPanelCustomersNewRouteImport } from './routes/_authed/$companySlug/_panel/customers/new'
+import { Route as AuthedCompanySlugPanelDocumentsIndexRouteImport } from './routes/_authed/$companySlug/_panel/documents/index'
+import { Route as AuthedCompanySlugPanelDocumentsDocumentIdRouteImport } from './routes/_authed/$companySlug/_panel/documents/$documentId'
+import { Route as AuthedCompanySlugPanelDocumentsNewRouteImport } from './routes/_authed/$companySlug/_panel/documents/new'
+import { Route as AuthedCompanySlugPanelDocumentsTemplatesRouteRouteImport } from './routes/_authed/$companySlug/_panel/documents/templates/route'
+import { Route as AuthedCompanySlugPanelInvitesIndexRouteImport } from './routes/_authed/$companySlug/_panel/invites/index'
+import { Route as AuthedCompanySlugPanelInvitesInviteIdRouteImport } from './routes/_authed/$companySlug/_panel/invites/$inviteId'
+import { Route as AuthedCompanySlugPanelInvitesNewRouteImport } from './routes/_authed/$companySlug/_panel/invites/new'
+import { Route as AuthedCompanySlugPanelOrdersIndexRouteImport } from './routes/_authed/$companySlug/_panel/orders/index'
+import { Route as AuthedCompanySlugPanelOrdersOrderIdRouteImport } from './routes/_authed/$companySlug/_panel/orders/$orderId'
+import { Route as AuthedCompanySlugPanelOrdersNewRouteImport } from './routes/_authed/$companySlug/_panel/orders/new'
+import { Route as AuthedCompanySlugPanelPricingIndexRouteImport } from './routes/_authed/$companySlug/_panel/pricing/index'
+import { Route as AuthedCompanySlugPanelPricingPriceListIdRouteRouteImport } from './routes/_authed/$companySlug/_panel/pricing/$priceListId/route'
+import { Route as AuthedCompanySlugPanelPricingNewRouteImport } from './routes/_authed/$companySlug/_panel/pricing/new'
+import { Route as AuthedCompanySlugPanelProductsIndexRouteImport } from './routes/_authed/$companySlug/_panel/products/index'
+import { Route as AuthedCompanySlugPanelProductsProductIdRouteRouteImport } from './routes/_authed/$companySlug/_panel/products/$productId/route'
+import { Route as AuthedCompanySlugPanelProductsNewRouteImport } from './routes/_authed/$companySlug/_panel/products/new'
+import { Route as AuthedCompanySlugPanelCustomersCounterpartiesIndexRouteImport } from './routes/_authed/$companySlug/_panel/customers/counterparties/index'
+import { Route as AuthedCompanySlugPanelCustomersCounterpartiesCounterpartyIdRouteImport } from './routes/_authed/$companySlug/_panel/customers/counterparties/$counterpartyId'
+import { Route as AuthedCompanySlugPanelCustomersCounterpartiesNewRouteImport } from './routes/_authed/$companySlug/_panel/customers/counterparties/new'
+import { Route as AuthedCompanySlugPanelCustomersGroupsIndexRouteImport } from './routes/_authed/$companySlug/_panel/customers/groups/index'
+import { Route as AuthedCompanySlugPanelCustomersGroupsGroupIdRouteImport } from './routes/_authed/$companySlug/_panel/customers/groups/$groupId'
+import { Route as AuthedCompanySlugPanelCustomersGroupsNewRouteImport } from './routes/_authed/$companySlug/_panel/customers/groups/new'
+import { Route as AuthedCompanySlugPanelDocumentsTemplatesIndexRouteImport } from './routes/_authed/$companySlug/_panel/documents/templates/index'
+import { Route as AuthedCompanySlugPanelDocumentsTemplatesTemplateIdRouteImport } from './routes/_authed/$companySlug/_panel/documents/templates/$templateId'
+import { Route as AuthedCompanySlugPanelPricingPriceListIdIndexRouteImport } from './routes/_authed/$companySlug/_panel/pricing/$priceListId/index'
+import { Route as AuthedCompanySlugPanelPricingPriceListIdEditRouteImport } from './routes/_authed/$companySlug/_panel/pricing/$priceListId/edit'
+import { Route as AuthedCompanySlugPanelProductsProductIdIndexRouteImport } from './routes/_authed/$companySlug/_panel/products/$productId/index'
+import { Route as AuthedCompanySlugPanelProductsProductIdEditRouteImport } from './routes/_authed/$companySlug/_panel/products/$productId/edit'
+import { Route as AuthedCompanySlugFullDocumentsTemplatesTemplateIdEditRouteImport } from './routes/_authed/$companySlug/_full/documents/templates/$templateId/edit'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/_auth',
@@ -73,7 +87,7 @@ const AuthedIndexRoute = AuthedIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedCompanySlugRoute = AuthedCompanySlugRouteImport.update({
+const AuthedCompanySlugRouteRoute = AuthedCompanySlugRouteRouteImport.update({
   id: '/$companySlug',
   path: '/$companySlug',
   getParentRoute: () => AuthedRoute,
@@ -83,332 +97,447 @@ const AuthedOnboardingRoute = AuthedOnboardingRouteImport.update({
   path: '/onboarding',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedCompanySlugIndexRoute = AuthedCompanySlugIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AuthedCompanySlugRoute,
-} as any)
-const AuthedCompanySlugCompanyRoute =
-  AuthedCompanySlugCompanyRouteImport.update({
+const AuthedCompanySlugFullRouteRoute =
+  AuthedCompanySlugFullRouteRouteImport.update({
+    id: '/_full',
+    getParentRoute: () => AuthedCompanySlugRouteRoute,
+  } as any)
+const AuthedCompanySlugPanelRouteRoute =
+  AuthedCompanySlugPanelRouteRouteImport.update({
+    id: '/_panel',
+    getParentRoute: () => AuthedCompanySlugRouteRoute,
+  } as any)
+const AuthedCompanySlugPanelIndexRoute =
+  AuthedCompanySlugPanelIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthedCompanySlugPanelRouteRoute,
+  } as any)
+const AuthedCompanySlugPanelCompanyRouteRoute =
+  AuthedCompanySlugPanelCompanyRouteRouteImport.update({
     id: '/company',
     path: '/company',
-    getParentRoute: () => AuthedCompanySlugRoute,
+    getParentRoute: () => AuthedCompanySlugPanelRouteRoute,
   } as any)
-const AuthedCompanySlugCustomersRoute =
-  AuthedCompanySlugCustomersRouteImport.update({
+const AuthedCompanySlugPanelCustomersRouteRoute =
+  AuthedCompanySlugPanelCustomersRouteRouteImport.update({
     id: '/customers',
     path: '/customers',
-    getParentRoute: () => AuthedCompanySlugRoute,
+    getParentRoute: () => AuthedCompanySlugPanelRouteRoute,
   } as any)
-const AuthedCompanySlugDocumentsRoute =
-  AuthedCompanySlugDocumentsRouteImport.update({
+const AuthedCompanySlugPanelDocumentsRouteRoute =
+  AuthedCompanySlugPanelDocumentsRouteRouteImport.update({
     id: '/documents',
     path: '/documents',
-    getParentRoute: () => AuthedCompanySlugRoute,
+    getParentRoute: () => AuthedCompanySlugPanelRouteRoute,
   } as any)
-const AuthedCompanySlugInvitesRoute =
-  AuthedCompanySlugInvitesRouteImport.update({
+const AuthedCompanySlugPanelInvitesRouteRoute =
+  AuthedCompanySlugPanelInvitesRouteRouteImport.update({
     id: '/invites',
     path: '/invites',
-    getParentRoute: () => AuthedCompanySlugRoute,
+    getParentRoute: () => AuthedCompanySlugPanelRouteRoute,
   } as any)
-const AuthedCompanySlugOrdersRoute = AuthedCompanySlugOrdersRouteImport.update({
-  id: '/orders',
-  path: '/orders',
-  getParentRoute: () => AuthedCompanySlugRoute,
-} as any)
-const AuthedCompanySlugPricingRoute =
-  AuthedCompanySlugPricingRouteImport.update({
+const AuthedCompanySlugPanelOrdersRouteRoute =
+  AuthedCompanySlugPanelOrdersRouteRouteImport.update({
+    id: '/orders',
+    path: '/orders',
+    getParentRoute: () => AuthedCompanySlugPanelRouteRoute,
+  } as any)
+const AuthedCompanySlugPanelPricingRouteRoute =
+  AuthedCompanySlugPanelPricingRouteRouteImport.update({
     id: '/pricing',
     path: '/pricing',
-    getParentRoute: () => AuthedCompanySlugRoute,
+    getParentRoute: () => AuthedCompanySlugPanelRouteRoute,
   } as any)
-const AuthedCompanySlugProductsRoute =
-  AuthedCompanySlugProductsRouteImport.update({
+const AuthedCompanySlugPanelProductsRouteRoute =
+  AuthedCompanySlugPanelProductsRouteRouteImport.update({
     id: '/products',
     path: '/products',
-    getParentRoute: () => AuthedCompanySlugRoute,
+    getParentRoute: () => AuthedCompanySlugPanelRouteRoute,
   } as any)
-const AuthedCompanySlugCompanyLegalRoute =
-  AuthedCompanySlugCompanyLegalRouteImport.update({
+const AuthedCompanySlugPanelCompanyIndexRoute =
+  AuthedCompanySlugPanelCompanyIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthedCompanySlugPanelCompanyRouteRoute,
+  } as any)
+const AuthedCompanySlugPanelCompanyLegalRoute =
+  AuthedCompanySlugPanelCompanyLegalRouteImport.update({
     id: '/legal',
     path: '/legal',
-    getParentRoute: () => AuthedCompanySlugCompanyRoute,
+    getParentRoute: () => AuthedCompanySlugPanelCompanyRouteRoute,
   } as any)
-const AuthedCompanySlugCompanyTeamRoute =
-  AuthedCompanySlugCompanyTeamRouteImport.update({
+const AuthedCompanySlugPanelCompanyTeamRoute =
+  AuthedCompanySlugPanelCompanyTeamRouteImport.update({
     id: '/team',
     path: '/team',
-    getParentRoute: () => AuthedCompanySlugCompanyRoute,
+    getParentRoute: () => AuthedCompanySlugPanelCompanyRouteRoute,
   } as any)
-const AuthedCompanySlugCustomersCustomerIdRoute =
-  AuthedCompanySlugCustomersCustomerIdRouteImport.update({
+const AuthedCompanySlugPanelCustomersIndexRoute =
+  AuthedCompanySlugPanelCustomersIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthedCompanySlugPanelCustomersRouteRoute,
+  } as any)
+const AuthedCompanySlugPanelCustomersCustomerIdRoute =
+  AuthedCompanySlugPanelCustomersCustomerIdRouteImport.update({
     id: '/$customerId',
     path: '/$customerId',
-    getParentRoute: () => AuthedCompanySlugCustomersRoute,
+    getParentRoute: () => AuthedCompanySlugPanelCustomersRouteRoute,
   } as any)
-const AuthedCompanySlugCustomersCounterpartiesRoute =
-  AuthedCompanySlugCustomersCounterpartiesRouteImport.update({
+const AuthedCompanySlugPanelCustomersCounterpartiesRouteRoute =
+  AuthedCompanySlugPanelCustomersCounterpartiesRouteRouteImport.update({
     id: '/counterparties',
     path: '/counterparties',
-    getParentRoute: () => AuthedCompanySlugCustomersRoute,
+    getParentRoute: () => AuthedCompanySlugPanelCustomersRouteRoute,
   } as any)
-const AuthedCompanySlugCustomersGroupsRoute =
-  AuthedCompanySlugCustomersGroupsRouteImport.update({
+const AuthedCompanySlugPanelCustomersGroupsRouteRoute =
+  AuthedCompanySlugPanelCustomersGroupsRouteRouteImport.update({
     id: '/groups',
     path: '/groups',
-    getParentRoute: () => AuthedCompanySlugCustomersRoute,
+    getParentRoute: () => AuthedCompanySlugPanelCustomersRouteRoute,
   } as any)
-const AuthedCompanySlugCustomersNewRoute =
-  AuthedCompanySlugCustomersNewRouteImport.update({
+const AuthedCompanySlugPanelCustomersNewRoute =
+  AuthedCompanySlugPanelCustomersNewRouteImport.update({
     id: '/new',
     path: '/new',
-    getParentRoute: () => AuthedCompanySlugCustomersRoute,
+    getParentRoute: () => AuthedCompanySlugPanelCustomersRouteRoute,
   } as any)
-const AuthedCompanySlugDocumentsDocumentIdRoute =
-  AuthedCompanySlugDocumentsDocumentIdRouteImport.update({
+const AuthedCompanySlugPanelDocumentsIndexRoute =
+  AuthedCompanySlugPanelDocumentsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthedCompanySlugPanelDocumentsRouteRoute,
+  } as any)
+const AuthedCompanySlugPanelDocumentsDocumentIdRoute =
+  AuthedCompanySlugPanelDocumentsDocumentIdRouteImport.update({
     id: '/$documentId',
     path: '/$documentId',
-    getParentRoute: () => AuthedCompanySlugDocumentsRoute,
+    getParentRoute: () => AuthedCompanySlugPanelDocumentsRouteRoute,
   } as any)
-const AuthedCompanySlugDocumentsNewRoute =
-  AuthedCompanySlugDocumentsNewRouteImport.update({
+const AuthedCompanySlugPanelDocumentsNewRoute =
+  AuthedCompanySlugPanelDocumentsNewRouteImport.update({
     id: '/new',
     path: '/new',
-    getParentRoute: () => AuthedCompanySlugDocumentsRoute,
+    getParentRoute: () => AuthedCompanySlugPanelDocumentsRouteRoute,
   } as any)
-const AuthedCompanySlugDocumentsTemplatesRoute =
-  AuthedCompanySlugDocumentsTemplatesRouteImport.update({
+const AuthedCompanySlugPanelDocumentsTemplatesRouteRoute =
+  AuthedCompanySlugPanelDocumentsTemplatesRouteRouteImport.update({
     id: '/templates',
     path: '/templates',
-    getParentRoute: () => AuthedCompanySlugDocumentsRoute,
+    getParentRoute: () => AuthedCompanySlugPanelDocumentsRouteRoute,
   } as any)
-const AuthedCompanySlugInvitesInviteIdRoute =
-  AuthedCompanySlugInvitesInviteIdRouteImport.update({
+const AuthedCompanySlugPanelInvitesIndexRoute =
+  AuthedCompanySlugPanelInvitesIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthedCompanySlugPanelInvitesRouteRoute,
+  } as any)
+const AuthedCompanySlugPanelInvitesInviteIdRoute =
+  AuthedCompanySlugPanelInvitesInviteIdRouteImport.update({
     id: '/$inviteId',
     path: '/$inviteId',
-    getParentRoute: () => AuthedCompanySlugInvitesRoute,
+    getParentRoute: () => AuthedCompanySlugPanelInvitesRouteRoute,
   } as any)
-const AuthedCompanySlugInvitesNewRoute =
-  AuthedCompanySlugInvitesNewRouteImport.update({
+const AuthedCompanySlugPanelInvitesNewRoute =
+  AuthedCompanySlugPanelInvitesNewRouteImport.update({
     id: '/new',
     path: '/new',
-    getParentRoute: () => AuthedCompanySlugInvitesRoute,
+    getParentRoute: () => AuthedCompanySlugPanelInvitesRouteRoute,
   } as any)
-const AuthedCompanySlugOrdersOrderIdRoute =
-  AuthedCompanySlugOrdersOrderIdRouteImport.update({
+const AuthedCompanySlugPanelOrdersIndexRoute =
+  AuthedCompanySlugPanelOrdersIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthedCompanySlugPanelOrdersRouteRoute,
+  } as any)
+const AuthedCompanySlugPanelOrdersOrderIdRoute =
+  AuthedCompanySlugPanelOrdersOrderIdRouteImport.update({
     id: '/$orderId',
     path: '/$orderId',
-    getParentRoute: () => AuthedCompanySlugOrdersRoute,
+    getParentRoute: () => AuthedCompanySlugPanelOrdersRouteRoute,
   } as any)
-const AuthedCompanySlugOrdersNewRoute =
-  AuthedCompanySlugOrdersNewRouteImport.update({
+const AuthedCompanySlugPanelOrdersNewRoute =
+  AuthedCompanySlugPanelOrdersNewRouteImport.update({
     id: '/new',
     path: '/new',
-    getParentRoute: () => AuthedCompanySlugOrdersRoute,
+    getParentRoute: () => AuthedCompanySlugPanelOrdersRouteRoute,
   } as any)
-const AuthedCompanySlugPricingPriceListIdRoute =
-  AuthedCompanySlugPricingPriceListIdRouteImport.update({
+const AuthedCompanySlugPanelPricingIndexRoute =
+  AuthedCompanySlugPanelPricingIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthedCompanySlugPanelPricingRouteRoute,
+  } as any)
+const AuthedCompanySlugPanelPricingPriceListIdRouteRoute =
+  AuthedCompanySlugPanelPricingPriceListIdRouteRouteImport.update({
     id: '/$priceListId',
     path: '/$priceListId',
-    getParentRoute: () => AuthedCompanySlugPricingRoute,
+    getParentRoute: () => AuthedCompanySlugPanelPricingRouteRoute,
   } as any)
-const AuthedCompanySlugPricingNewRoute =
-  AuthedCompanySlugPricingNewRouteImport.update({
+const AuthedCompanySlugPanelPricingNewRoute =
+  AuthedCompanySlugPanelPricingNewRouteImport.update({
     id: '/new',
     path: '/new',
-    getParentRoute: () => AuthedCompanySlugPricingRoute,
+    getParentRoute: () => AuthedCompanySlugPanelPricingRouteRoute,
   } as any)
-const AuthedCompanySlugProductsProductIdRoute =
-  AuthedCompanySlugProductsProductIdRouteImport.update({
+const AuthedCompanySlugPanelProductsIndexRoute =
+  AuthedCompanySlugPanelProductsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthedCompanySlugPanelProductsRouteRoute,
+  } as any)
+const AuthedCompanySlugPanelProductsProductIdRouteRoute =
+  AuthedCompanySlugPanelProductsProductIdRouteRouteImport.update({
     id: '/$productId',
     path: '/$productId',
-    getParentRoute: () => AuthedCompanySlugProductsRoute,
+    getParentRoute: () => AuthedCompanySlugPanelProductsRouteRoute,
   } as any)
-const AuthedCompanySlugProductsNewRoute =
-  AuthedCompanySlugProductsNewRouteImport.update({
+const AuthedCompanySlugPanelProductsNewRoute =
+  AuthedCompanySlugPanelProductsNewRouteImport.update({
     id: '/new',
     path: '/new',
-    getParentRoute: () => AuthedCompanySlugProductsRoute,
+    getParentRoute: () => AuthedCompanySlugPanelProductsRouteRoute,
   } as any)
-const AuthedCompanySlugCustomersCounterpartiesCounterpartyIdRoute =
-  AuthedCompanySlugCustomersCounterpartiesCounterpartyIdRouteImport.update({
-    id: '/$counterpartyId',
-    path: '/$counterpartyId',
-    getParentRoute: () => AuthedCompanySlugCustomersCounterpartiesRoute,
+const AuthedCompanySlugPanelCustomersCounterpartiesIndexRoute =
+  AuthedCompanySlugPanelCustomersCounterpartiesIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () =>
+      AuthedCompanySlugPanelCustomersCounterpartiesRouteRoute,
   } as any)
-const AuthedCompanySlugCustomersCounterpartiesNewRoute =
-  AuthedCompanySlugCustomersCounterpartiesNewRouteImport.update({
+const AuthedCompanySlugPanelCustomersCounterpartiesCounterpartyIdRoute =
+  AuthedCompanySlugPanelCustomersCounterpartiesCounterpartyIdRouteImport.update(
+    {
+      id: '/$counterpartyId',
+      path: '/$counterpartyId',
+      getParentRoute: () =>
+        AuthedCompanySlugPanelCustomersCounterpartiesRouteRoute,
+    } as any,
+  )
+const AuthedCompanySlugPanelCustomersCounterpartiesNewRoute =
+  AuthedCompanySlugPanelCustomersCounterpartiesNewRouteImport.update({
     id: '/new',
     path: '/new',
-    getParentRoute: () => AuthedCompanySlugCustomersCounterpartiesRoute,
+    getParentRoute: () =>
+      AuthedCompanySlugPanelCustomersCounterpartiesRouteRoute,
   } as any)
-const AuthedCompanySlugCustomersGroupsGroupIdRoute =
-  AuthedCompanySlugCustomersGroupsGroupIdRouteImport.update({
+const AuthedCompanySlugPanelCustomersGroupsIndexRoute =
+  AuthedCompanySlugPanelCustomersGroupsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthedCompanySlugPanelCustomersGroupsRouteRoute,
+  } as any)
+const AuthedCompanySlugPanelCustomersGroupsGroupIdRoute =
+  AuthedCompanySlugPanelCustomersGroupsGroupIdRouteImport.update({
     id: '/$groupId',
     path: '/$groupId',
-    getParentRoute: () => AuthedCompanySlugCustomersGroupsRoute,
+    getParentRoute: () => AuthedCompanySlugPanelCustomersGroupsRouteRoute,
   } as any)
-const AuthedCompanySlugCustomersGroupsNewRoute =
-  AuthedCompanySlugCustomersGroupsNewRouteImport.update({
+const AuthedCompanySlugPanelCustomersGroupsNewRoute =
+  AuthedCompanySlugPanelCustomersGroupsNewRouteImport.update({
     id: '/new',
     path: '/new',
-    getParentRoute: () => AuthedCompanySlugCustomersGroupsRoute,
+    getParentRoute: () => AuthedCompanySlugPanelCustomersGroupsRouteRoute,
   } as any)
-const AuthedCompanySlugDocumentsTemplatesTemplateIdRoute =
-  AuthedCompanySlugDocumentsTemplatesTemplateIdRouteImport.update({
+const AuthedCompanySlugPanelDocumentsTemplatesIndexRoute =
+  AuthedCompanySlugPanelDocumentsTemplatesIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthedCompanySlugPanelDocumentsTemplatesRouteRoute,
+  } as any)
+const AuthedCompanySlugPanelDocumentsTemplatesTemplateIdRoute =
+  AuthedCompanySlugPanelDocumentsTemplatesTemplateIdRouteImport.update({
     id: '/$templateId',
     path: '/$templateId',
-    getParentRoute: () => AuthedCompanySlugDocumentsTemplatesRoute,
+    getParentRoute: () => AuthedCompanySlugPanelDocumentsTemplatesRouteRoute,
   } as any)
-const AuthedCompanySlugPricingPriceListIdEditRoute =
-  AuthedCompanySlugPricingPriceListIdEditRouteImport.update({
+const AuthedCompanySlugPanelPricingPriceListIdIndexRoute =
+  AuthedCompanySlugPanelPricingPriceListIdIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthedCompanySlugPanelPricingPriceListIdRouteRoute,
+  } as any)
+const AuthedCompanySlugPanelPricingPriceListIdEditRoute =
+  AuthedCompanySlugPanelPricingPriceListIdEditRouteImport.update({
     id: '/edit',
     path: '/edit',
-    getParentRoute: () => AuthedCompanySlugPricingPriceListIdRoute,
+    getParentRoute: () => AuthedCompanySlugPanelPricingPriceListIdRouteRoute,
   } as any)
-const AuthedCompanySlugProductsProductIdEditRoute =
-  AuthedCompanySlugProductsProductIdEditRouteImport.update({
+const AuthedCompanySlugPanelProductsProductIdIndexRoute =
+  AuthedCompanySlugPanelProductsProductIdIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthedCompanySlugPanelProductsProductIdRouteRoute,
+  } as any)
+const AuthedCompanySlugPanelProductsProductIdEditRoute =
+  AuthedCompanySlugPanelProductsProductIdEditRouteImport.update({
     id: '/edit',
     path: '/edit',
-    getParentRoute: () => AuthedCompanySlugProductsProductIdRoute,
+    getParentRoute: () => AuthedCompanySlugPanelProductsProductIdRouteRoute,
   } as any)
-const AuthedCompanySlugDocumentsTemplatesTemplateIdEditRoute =
-  AuthedCompanySlugDocumentsTemplatesTemplateIdEditRouteImport.update({
-    id: '/edit',
-    path: '/edit',
-    getParentRoute: () => AuthedCompanySlugDocumentsTemplatesTemplateIdRoute,
+const AuthedCompanySlugFullDocumentsTemplatesTemplateIdEditRoute =
+  AuthedCompanySlugFullDocumentsTemplatesTemplateIdEditRouteImport.update({
+    id: '/documents/templates/$templateId/edit',
+    path: '/documents/templates/$templateId/edit',
+    getParentRoute: () => AuthedCompanySlugFullRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthedIndexRoute
+  '/$companySlug': typeof AuthedCompanySlugRouteRouteWithChildren
   '/sign-in': typeof AuthSignInRoute
   '/verify': typeof AuthVerifyRoute
-  '/$companySlug': typeof AuthedCompanySlugRouteWithChildren
   '/onboarding': typeof AuthedOnboardingRoute
-  '/$companySlug/company': typeof AuthedCompanySlugCompanyRouteWithChildren
-  '/$companySlug/customers': typeof AuthedCompanySlugCustomersRouteWithChildren
-  '/$companySlug/documents': typeof AuthedCompanySlugDocumentsRouteWithChildren
-  '/$companySlug/invites': typeof AuthedCompanySlugInvitesRouteWithChildren
-  '/$companySlug/orders': typeof AuthedCompanySlugOrdersRouteWithChildren
-  '/$companySlug/pricing': typeof AuthedCompanySlugPricingRouteWithChildren
-  '/$companySlug/products': typeof AuthedCompanySlugProductsRouteWithChildren
-  '/$companySlug/': typeof AuthedCompanySlugIndexRoute
-  '/$companySlug/company/legal': typeof AuthedCompanySlugCompanyLegalRoute
-  '/$companySlug/company/team': typeof AuthedCompanySlugCompanyTeamRoute
-  '/$companySlug/customers/$customerId': typeof AuthedCompanySlugCustomersCustomerIdRoute
-  '/$companySlug/customers/counterparties': typeof AuthedCompanySlugCustomersCounterpartiesRouteWithChildren
-  '/$companySlug/customers/groups': typeof AuthedCompanySlugCustomersGroupsRouteWithChildren
-  '/$companySlug/customers/new': typeof AuthedCompanySlugCustomersNewRoute
-  '/$companySlug/documents/$documentId': typeof AuthedCompanySlugDocumentsDocumentIdRoute
-  '/$companySlug/documents/new': typeof AuthedCompanySlugDocumentsNewRoute
-  '/$companySlug/documents/templates': typeof AuthedCompanySlugDocumentsTemplatesRouteWithChildren
-  '/$companySlug/invites/$inviteId': typeof AuthedCompanySlugInvitesInviteIdRoute
-  '/$companySlug/invites/new': typeof AuthedCompanySlugInvitesNewRoute
-  '/$companySlug/orders/$orderId': typeof AuthedCompanySlugOrdersOrderIdRoute
-  '/$companySlug/orders/new': typeof AuthedCompanySlugOrdersNewRoute
-  '/$companySlug/pricing/$priceListId': typeof AuthedCompanySlugPricingPriceListIdRouteWithChildren
-  '/$companySlug/pricing/new': typeof AuthedCompanySlugPricingNewRoute
-  '/$companySlug/products/$productId': typeof AuthedCompanySlugProductsProductIdRouteWithChildren
-  '/$companySlug/products/new': typeof AuthedCompanySlugProductsNewRoute
-  '/$companySlug/customers/counterparties/$counterpartyId': typeof AuthedCompanySlugCustomersCounterpartiesCounterpartyIdRoute
-  '/$companySlug/customers/counterparties/new': typeof AuthedCompanySlugCustomersCounterpartiesNewRoute
-  '/$companySlug/customers/groups/$groupId': typeof AuthedCompanySlugCustomersGroupsGroupIdRoute
-  '/$companySlug/customers/groups/new': typeof AuthedCompanySlugCustomersGroupsNewRoute
-  '/$companySlug/documents/templates/$templateId': typeof AuthedCompanySlugDocumentsTemplatesTemplateIdRouteWithChildren
-  '/$companySlug/pricing/$priceListId/edit': typeof AuthedCompanySlugPricingPriceListIdEditRoute
-  '/$companySlug/products/$productId/edit': typeof AuthedCompanySlugProductsProductIdEditRoute
-  '/$companySlug/documents/templates/$templateId/edit': typeof AuthedCompanySlugDocumentsTemplatesTemplateIdEditRoute
+  '/$companySlug/company': typeof AuthedCompanySlugPanelCompanyRouteRouteWithChildren
+  '/$companySlug/customers': typeof AuthedCompanySlugPanelCustomersRouteRouteWithChildren
+  '/$companySlug/documents': typeof AuthedCompanySlugPanelDocumentsRouteRouteWithChildren
+  '/$companySlug/invites': typeof AuthedCompanySlugPanelInvitesRouteRouteWithChildren
+  '/$companySlug/orders': typeof AuthedCompanySlugPanelOrdersRouteRouteWithChildren
+  '/$companySlug/pricing': typeof AuthedCompanySlugPanelPricingRouteRouteWithChildren
+  '/$companySlug/products': typeof AuthedCompanySlugPanelProductsRouteRouteWithChildren
+  '/$companySlug/': typeof AuthedCompanySlugPanelIndexRoute
+  '/$companySlug/customers/counterparties': typeof AuthedCompanySlugPanelCustomersCounterpartiesRouteRouteWithChildren
+  '/$companySlug/customers/groups': typeof AuthedCompanySlugPanelCustomersGroupsRouteRouteWithChildren
+  '/$companySlug/documents/templates': typeof AuthedCompanySlugPanelDocumentsTemplatesRouteRouteWithChildren
+  '/$companySlug/pricing/$priceListId': typeof AuthedCompanySlugPanelPricingPriceListIdRouteRouteWithChildren
+  '/$companySlug/products/$productId': typeof AuthedCompanySlugPanelProductsProductIdRouteRouteWithChildren
+  '/$companySlug/company/legal': typeof AuthedCompanySlugPanelCompanyLegalRoute
+  '/$companySlug/company/team': typeof AuthedCompanySlugPanelCompanyTeamRoute
+  '/$companySlug/customers/$customerId': typeof AuthedCompanySlugPanelCustomersCustomerIdRoute
+  '/$companySlug/customers/new': typeof AuthedCompanySlugPanelCustomersNewRoute
+  '/$companySlug/documents/$documentId': typeof AuthedCompanySlugPanelDocumentsDocumentIdRoute
+  '/$companySlug/documents/new': typeof AuthedCompanySlugPanelDocumentsNewRoute
+  '/$companySlug/invites/$inviteId': typeof AuthedCompanySlugPanelInvitesInviteIdRoute
+  '/$companySlug/invites/new': typeof AuthedCompanySlugPanelInvitesNewRoute
+  '/$companySlug/orders/$orderId': typeof AuthedCompanySlugPanelOrdersOrderIdRoute
+  '/$companySlug/orders/new': typeof AuthedCompanySlugPanelOrdersNewRoute
+  '/$companySlug/pricing/new': typeof AuthedCompanySlugPanelPricingNewRoute
+  '/$companySlug/products/new': typeof AuthedCompanySlugPanelProductsNewRoute
+  '/$companySlug/company/': typeof AuthedCompanySlugPanelCompanyIndexRoute
+  '/$companySlug/customers/': typeof AuthedCompanySlugPanelCustomersIndexRoute
+  '/$companySlug/documents/': typeof AuthedCompanySlugPanelDocumentsIndexRoute
+  '/$companySlug/invites/': typeof AuthedCompanySlugPanelInvitesIndexRoute
+  '/$companySlug/orders/': typeof AuthedCompanySlugPanelOrdersIndexRoute
+  '/$companySlug/pricing/': typeof AuthedCompanySlugPanelPricingIndexRoute
+  '/$companySlug/products/': typeof AuthedCompanySlugPanelProductsIndexRoute
+  '/$companySlug/customers/counterparties/$counterpartyId': typeof AuthedCompanySlugPanelCustomersCounterpartiesCounterpartyIdRoute
+  '/$companySlug/customers/counterparties/new': typeof AuthedCompanySlugPanelCustomersCounterpartiesNewRoute
+  '/$companySlug/customers/groups/$groupId': typeof AuthedCompanySlugPanelCustomersGroupsGroupIdRoute
+  '/$companySlug/customers/groups/new': typeof AuthedCompanySlugPanelCustomersGroupsNewRoute
+  '/$companySlug/documents/templates/$templateId': typeof AuthedCompanySlugPanelDocumentsTemplatesTemplateIdRoute
+  '/$companySlug/pricing/$priceListId/edit': typeof AuthedCompanySlugPanelPricingPriceListIdEditRoute
+  '/$companySlug/products/$productId/edit': typeof AuthedCompanySlugPanelProductsProductIdEditRoute
+  '/$companySlug/customers/counterparties/': typeof AuthedCompanySlugPanelCustomersCounterpartiesIndexRoute
+  '/$companySlug/customers/groups/': typeof AuthedCompanySlugPanelCustomersGroupsIndexRoute
+  '/$companySlug/documents/templates/': typeof AuthedCompanySlugPanelDocumentsTemplatesIndexRoute
+  '/$companySlug/pricing/$priceListId/': typeof AuthedCompanySlugPanelPricingPriceListIdIndexRoute
+  '/$companySlug/products/$productId/': typeof AuthedCompanySlugPanelProductsProductIdIndexRoute
+  '/$companySlug/documents/templates/$templateId/edit': typeof AuthedCompanySlugFullDocumentsTemplatesTemplateIdEditRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AuthedIndexRoute
+  '/$companySlug': typeof AuthedCompanySlugPanelIndexRoute
   '/sign-in': typeof AuthSignInRoute
   '/verify': typeof AuthVerifyRoute
   '/onboarding': typeof AuthedOnboardingRoute
-  '/$companySlug/company': typeof AuthedCompanySlugCompanyRouteWithChildren
-  '/$companySlug/customers': typeof AuthedCompanySlugCustomersRouteWithChildren
-  '/$companySlug/documents': typeof AuthedCompanySlugDocumentsRouteWithChildren
-  '/$companySlug/invites': typeof AuthedCompanySlugInvitesRouteWithChildren
-  '/$companySlug/orders': typeof AuthedCompanySlugOrdersRouteWithChildren
-  '/$companySlug/pricing': typeof AuthedCompanySlugPricingRouteWithChildren
-  '/$companySlug/products': typeof AuthedCompanySlugProductsRouteWithChildren
-  '/$companySlug': typeof AuthedCompanySlugIndexRoute
-  '/$companySlug/company/legal': typeof AuthedCompanySlugCompanyLegalRoute
-  '/$companySlug/company/team': typeof AuthedCompanySlugCompanyTeamRoute
-  '/$companySlug/customers/$customerId': typeof AuthedCompanySlugCustomersCustomerIdRoute
-  '/$companySlug/customers/counterparties': typeof AuthedCompanySlugCustomersCounterpartiesRouteWithChildren
-  '/$companySlug/customers/groups': typeof AuthedCompanySlugCustomersGroupsRouteWithChildren
-  '/$companySlug/customers/new': typeof AuthedCompanySlugCustomersNewRoute
-  '/$companySlug/documents/$documentId': typeof AuthedCompanySlugDocumentsDocumentIdRoute
-  '/$companySlug/documents/new': typeof AuthedCompanySlugDocumentsNewRoute
-  '/$companySlug/documents/templates': typeof AuthedCompanySlugDocumentsTemplatesRouteWithChildren
-  '/$companySlug/invites/$inviteId': typeof AuthedCompanySlugInvitesInviteIdRoute
-  '/$companySlug/invites/new': typeof AuthedCompanySlugInvitesNewRoute
-  '/$companySlug/orders/$orderId': typeof AuthedCompanySlugOrdersOrderIdRoute
-  '/$companySlug/orders/new': typeof AuthedCompanySlugOrdersNewRoute
-  '/$companySlug/pricing/$priceListId': typeof AuthedCompanySlugPricingPriceListIdRouteWithChildren
-  '/$companySlug/pricing/new': typeof AuthedCompanySlugPricingNewRoute
-  '/$companySlug/products/$productId': typeof AuthedCompanySlugProductsProductIdRouteWithChildren
-  '/$companySlug/products/new': typeof AuthedCompanySlugProductsNewRoute
-  '/$companySlug/customers/counterparties/$counterpartyId': typeof AuthedCompanySlugCustomersCounterpartiesCounterpartyIdRoute
-  '/$companySlug/customers/counterparties/new': typeof AuthedCompanySlugCustomersCounterpartiesNewRoute
-  '/$companySlug/customers/groups/$groupId': typeof AuthedCompanySlugCustomersGroupsGroupIdRoute
-  '/$companySlug/customers/groups/new': typeof AuthedCompanySlugCustomersGroupsNewRoute
-  '/$companySlug/documents/templates/$templateId': typeof AuthedCompanySlugDocumentsTemplatesTemplateIdRouteWithChildren
-  '/$companySlug/pricing/$priceListId/edit': typeof AuthedCompanySlugPricingPriceListIdEditRoute
-  '/$companySlug/products/$productId/edit': typeof AuthedCompanySlugProductsProductIdEditRoute
-  '/$companySlug/documents/templates/$templateId/edit': typeof AuthedCompanySlugDocumentsTemplatesTemplateIdEditRoute
+  '/$companySlug/company/legal': typeof AuthedCompanySlugPanelCompanyLegalRoute
+  '/$companySlug/company/team': typeof AuthedCompanySlugPanelCompanyTeamRoute
+  '/$companySlug/customers/$customerId': typeof AuthedCompanySlugPanelCustomersCustomerIdRoute
+  '/$companySlug/customers/new': typeof AuthedCompanySlugPanelCustomersNewRoute
+  '/$companySlug/documents/$documentId': typeof AuthedCompanySlugPanelDocumentsDocumentIdRoute
+  '/$companySlug/documents/new': typeof AuthedCompanySlugPanelDocumentsNewRoute
+  '/$companySlug/invites/$inviteId': typeof AuthedCompanySlugPanelInvitesInviteIdRoute
+  '/$companySlug/invites/new': typeof AuthedCompanySlugPanelInvitesNewRoute
+  '/$companySlug/orders/$orderId': typeof AuthedCompanySlugPanelOrdersOrderIdRoute
+  '/$companySlug/orders/new': typeof AuthedCompanySlugPanelOrdersNewRoute
+  '/$companySlug/pricing/new': typeof AuthedCompanySlugPanelPricingNewRoute
+  '/$companySlug/products/new': typeof AuthedCompanySlugPanelProductsNewRoute
+  '/$companySlug/company': typeof AuthedCompanySlugPanelCompanyIndexRoute
+  '/$companySlug/customers': typeof AuthedCompanySlugPanelCustomersIndexRoute
+  '/$companySlug/documents': typeof AuthedCompanySlugPanelDocumentsIndexRoute
+  '/$companySlug/invites': typeof AuthedCompanySlugPanelInvitesIndexRoute
+  '/$companySlug/orders': typeof AuthedCompanySlugPanelOrdersIndexRoute
+  '/$companySlug/pricing': typeof AuthedCompanySlugPanelPricingIndexRoute
+  '/$companySlug/products': typeof AuthedCompanySlugPanelProductsIndexRoute
+  '/$companySlug/customers/counterparties/$counterpartyId': typeof AuthedCompanySlugPanelCustomersCounterpartiesCounterpartyIdRoute
+  '/$companySlug/customers/counterparties/new': typeof AuthedCompanySlugPanelCustomersCounterpartiesNewRoute
+  '/$companySlug/customers/groups/$groupId': typeof AuthedCompanySlugPanelCustomersGroupsGroupIdRoute
+  '/$companySlug/customers/groups/new': typeof AuthedCompanySlugPanelCustomersGroupsNewRoute
+  '/$companySlug/documents/templates/$templateId': typeof AuthedCompanySlugPanelDocumentsTemplatesTemplateIdRoute
+  '/$companySlug/pricing/$priceListId/edit': typeof AuthedCompanySlugPanelPricingPriceListIdEditRoute
+  '/$companySlug/products/$productId/edit': typeof AuthedCompanySlugPanelProductsProductIdEditRoute
+  '/$companySlug/customers/counterparties': typeof AuthedCompanySlugPanelCustomersCounterpartiesIndexRoute
+  '/$companySlug/customers/groups': typeof AuthedCompanySlugPanelCustomersGroupsIndexRoute
+  '/$companySlug/documents/templates': typeof AuthedCompanySlugPanelDocumentsTemplatesIndexRoute
+  '/$companySlug/pricing/$priceListId': typeof AuthedCompanySlugPanelPricingPriceListIdIndexRoute
+  '/$companySlug/products/$productId': typeof AuthedCompanySlugPanelProductsProductIdIndexRoute
+  '/$companySlug/documents/templates/$templateId/edit': typeof AuthedCompanySlugFullDocumentsTemplatesTemplateIdEditRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_auth': typeof AuthRouteWithChildren
   '/_authed': typeof AuthedRouteWithChildren
+  '/_authed/$companySlug': typeof AuthedCompanySlugRouteRouteWithChildren
   '/_auth/sign-in': typeof AuthSignInRoute
   '/_auth/verify': typeof AuthVerifyRoute
-  '/_authed/$companySlug': typeof AuthedCompanySlugRouteWithChildren
   '/_authed/onboarding': typeof AuthedOnboardingRoute
   '/_authed/': typeof AuthedIndexRoute
-  '/_authed/$companySlug/company': typeof AuthedCompanySlugCompanyRouteWithChildren
-  '/_authed/$companySlug/customers': typeof AuthedCompanySlugCustomersRouteWithChildren
-  '/_authed/$companySlug/documents': typeof AuthedCompanySlugDocumentsRouteWithChildren
-  '/_authed/$companySlug/invites': typeof AuthedCompanySlugInvitesRouteWithChildren
-  '/_authed/$companySlug/orders': typeof AuthedCompanySlugOrdersRouteWithChildren
-  '/_authed/$companySlug/pricing': typeof AuthedCompanySlugPricingRouteWithChildren
-  '/_authed/$companySlug/products': typeof AuthedCompanySlugProductsRouteWithChildren
-  '/_authed/$companySlug/': typeof AuthedCompanySlugIndexRoute
-  '/_authed/$companySlug/company/legal': typeof AuthedCompanySlugCompanyLegalRoute
-  '/_authed/$companySlug/company/team': typeof AuthedCompanySlugCompanyTeamRoute
-  '/_authed/$companySlug/customers/$customerId': typeof AuthedCompanySlugCustomersCustomerIdRoute
-  '/_authed/$companySlug/customers/counterparties': typeof AuthedCompanySlugCustomersCounterpartiesRouteWithChildren
-  '/_authed/$companySlug/customers/groups': typeof AuthedCompanySlugCustomersGroupsRouteWithChildren
-  '/_authed/$companySlug/customers/new': typeof AuthedCompanySlugCustomersNewRoute
-  '/_authed/$companySlug/documents/$documentId': typeof AuthedCompanySlugDocumentsDocumentIdRoute
-  '/_authed/$companySlug/documents/new': typeof AuthedCompanySlugDocumentsNewRoute
-  '/_authed/$companySlug/documents/templates': typeof AuthedCompanySlugDocumentsTemplatesRouteWithChildren
-  '/_authed/$companySlug/invites/$inviteId': typeof AuthedCompanySlugInvitesInviteIdRoute
-  '/_authed/$companySlug/invites/new': typeof AuthedCompanySlugInvitesNewRoute
-  '/_authed/$companySlug/orders/$orderId': typeof AuthedCompanySlugOrdersOrderIdRoute
-  '/_authed/$companySlug/orders/new': typeof AuthedCompanySlugOrdersNewRoute
-  '/_authed/$companySlug/pricing/$priceListId': typeof AuthedCompanySlugPricingPriceListIdRouteWithChildren
-  '/_authed/$companySlug/pricing/new': typeof AuthedCompanySlugPricingNewRoute
-  '/_authed/$companySlug/products/$productId': typeof AuthedCompanySlugProductsProductIdRouteWithChildren
-  '/_authed/$companySlug/products/new': typeof AuthedCompanySlugProductsNewRoute
-  '/_authed/$companySlug/customers/counterparties/$counterpartyId': typeof AuthedCompanySlugCustomersCounterpartiesCounterpartyIdRoute
-  '/_authed/$companySlug/customers/counterparties/new': typeof AuthedCompanySlugCustomersCounterpartiesNewRoute
-  '/_authed/$companySlug/customers/groups/$groupId': typeof AuthedCompanySlugCustomersGroupsGroupIdRoute
-  '/_authed/$companySlug/customers/groups/new': typeof AuthedCompanySlugCustomersGroupsNewRoute
-  '/_authed/$companySlug/documents/templates/$templateId': typeof AuthedCompanySlugDocumentsTemplatesTemplateIdRouteWithChildren
-  '/_authed/$companySlug/pricing/$priceListId/edit': typeof AuthedCompanySlugPricingPriceListIdEditRoute
-  '/_authed/$companySlug/products/$productId/edit': typeof AuthedCompanySlugProductsProductIdEditRoute
-  '/_authed/$companySlug/documents/templates/$templateId/edit': typeof AuthedCompanySlugDocumentsTemplatesTemplateIdEditRoute
+  '/_authed/$companySlug/_full': typeof AuthedCompanySlugFullRouteRouteWithChildren
+  '/_authed/$companySlug/_panel': typeof AuthedCompanySlugPanelRouteRouteWithChildren
+  '/_authed/$companySlug/_panel/company': typeof AuthedCompanySlugPanelCompanyRouteRouteWithChildren
+  '/_authed/$companySlug/_panel/customers': typeof AuthedCompanySlugPanelCustomersRouteRouteWithChildren
+  '/_authed/$companySlug/_panel/documents': typeof AuthedCompanySlugPanelDocumentsRouteRouteWithChildren
+  '/_authed/$companySlug/_panel/invites': typeof AuthedCompanySlugPanelInvitesRouteRouteWithChildren
+  '/_authed/$companySlug/_panel/orders': typeof AuthedCompanySlugPanelOrdersRouteRouteWithChildren
+  '/_authed/$companySlug/_panel/pricing': typeof AuthedCompanySlugPanelPricingRouteRouteWithChildren
+  '/_authed/$companySlug/_panel/products': typeof AuthedCompanySlugPanelProductsRouteRouteWithChildren
+  '/_authed/$companySlug/_panel/': typeof AuthedCompanySlugPanelIndexRoute
+  '/_authed/$companySlug/_panel/customers/counterparties': typeof AuthedCompanySlugPanelCustomersCounterpartiesRouteRouteWithChildren
+  '/_authed/$companySlug/_panel/customers/groups': typeof AuthedCompanySlugPanelCustomersGroupsRouteRouteWithChildren
+  '/_authed/$companySlug/_panel/documents/templates': typeof AuthedCompanySlugPanelDocumentsTemplatesRouteRouteWithChildren
+  '/_authed/$companySlug/_panel/pricing/$priceListId': typeof AuthedCompanySlugPanelPricingPriceListIdRouteRouteWithChildren
+  '/_authed/$companySlug/_panel/products/$productId': typeof AuthedCompanySlugPanelProductsProductIdRouteRouteWithChildren
+  '/_authed/$companySlug/_panel/company/legal': typeof AuthedCompanySlugPanelCompanyLegalRoute
+  '/_authed/$companySlug/_panel/company/team': typeof AuthedCompanySlugPanelCompanyTeamRoute
+  '/_authed/$companySlug/_panel/customers/$customerId': typeof AuthedCompanySlugPanelCustomersCustomerIdRoute
+  '/_authed/$companySlug/_panel/customers/new': typeof AuthedCompanySlugPanelCustomersNewRoute
+  '/_authed/$companySlug/_panel/documents/$documentId': typeof AuthedCompanySlugPanelDocumentsDocumentIdRoute
+  '/_authed/$companySlug/_panel/documents/new': typeof AuthedCompanySlugPanelDocumentsNewRoute
+  '/_authed/$companySlug/_panel/invites/$inviteId': typeof AuthedCompanySlugPanelInvitesInviteIdRoute
+  '/_authed/$companySlug/_panel/invites/new': typeof AuthedCompanySlugPanelInvitesNewRoute
+  '/_authed/$companySlug/_panel/orders/$orderId': typeof AuthedCompanySlugPanelOrdersOrderIdRoute
+  '/_authed/$companySlug/_panel/orders/new': typeof AuthedCompanySlugPanelOrdersNewRoute
+  '/_authed/$companySlug/_panel/pricing/new': typeof AuthedCompanySlugPanelPricingNewRoute
+  '/_authed/$companySlug/_panel/products/new': typeof AuthedCompanySlugPanelProductsNewRoute
+  '/_authed/$companySlug/_panel/company/': typeof AuthedCompanySlugPanelCompanyIndexRoute
+  '/_authed/$companySlug/_panel/customers/': typeof AuthedCompanySlugPanelCustomersIndexRoute
+  '/_authed/$companySlug/_panel/documents/': typeof AuthedCompanySlugPanelDocumentsIndexRoute
+  '/_authed/$companySlug/_panel/invites/': typeof AuthedCompanySlugPanelInvitesIndexRoute
+  '/_authed/$companySlug/_panel/orders/': typeof AuthedCompanySlugPanelOrdersIndexRoute
+  '/_authed/$companySlug/_panel/pricing/': typeof AuthedCompanySlugPanelPricingIndexRoute
+  '/_authed/$companySlug/_panel/products/': typeof AuthedCompanySlugPanelProductsIndexRoute
+  '/_authed/$companySlug/_panel/customers/counterparties/$counterpartyId': typeof AuthedCompanySlugPanelCustomersCounterpartiesCounterpartyIdRoute
+  '/_authed/$companySlug/_panel/customers/counterparties/new': typeof AuthedCompanySlugPanelCustomersCounterpartiesNewRoute
+  '/_authed/$companySlug/_panel/customers/groups/$groupId': typeof AuthedCompanySlugPanelCustomersGroupsGroupIdRoute
+  '/_authed/$companySlug/_panel/customers/groups/new': typeof AuthedCompanySlugPanelCustomersGroupsNewRoute
+  '/_authed/$companySlug/_panel/documents/templates/$templateId': typeof AuthedCompanySlugPanelDocumentsTemplatesTemplateIdRoute
+  '/_authed/$companySlug/_panel/pricing/$priceListId/edit': typeof AuthedCompanySlugPanelPricingPriceListIdEditRoute
+  '/_authed/$companySlug/_panel/products/$productId/edit': typeof AuthedCompanySlugPanelProductsProductIdEditRoute
+  '/_authed/$companySlug/_panel/customers/counterparties/': typeof AuthedCompanySlugPanelCustomersCounterpartiesIndexRoute
+  '/_authed/$companySlug/_panel/customers/groups/': typeof AuthedCompanySlugPanelCustomersGroupsIndexRoute
+  '/_authed/$companySlug/_panel/documents/templates/': typeof AuthedCompanySlugPanelDocumentsTemplatesIndexRoute
+  '/_authed/$companySlug/_panel/pricing/$priceListId/': typeof AuthedCompanySlugPanelPricingPriceListIdIndexRoute
+  '/_authed/$companySlug/_panel/products/$productId/': typeof AuthedCompanySlugPanelProductsProductIdIndexRoute
+  '/_authed/$companySlug/_full/documents/templates/$templateId/edit': typeof AuthedCompanySlugFullDocumentsTemplatesTemplateIdEditRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/$companySlug'
     | '/sign-in'
     | '/verify'
-    | '/$companySlug'
     | '/onboarding'
     | '/$companySlug/company'
     | '/$companySlug/customers'
@@ -418,23 +547,30 @@ export interface FileRouteTypes {
     | '/$companySlug/pricing'
     | '/$companySlug/products'
     | '/$companySlug/'
+    | '/$companySlug/customers/counterparties'
+    | '/$companySlug/customers/groups'
+    | '/$companySlug/documents/templates'
+    | '/$companySlug/pricing/$priceListId'
+    | '/$companySlug/products/$productId'
     | '/$companySlug/company/legal'
     | '/$companySlug/company/team'
     | '/$companySlug/customers/$customerId'
-    | '/$companySlug/customers/counterparties'
-    | '/$companySlug/customers/groups'
     | '/$companySlug/customers/new'
     | '/$companySlug/documents/$documentId'
     | '/$companySlug/documents/new'
-    | '/$companySlug/documents/templates'
     | '/$companySlug/invites/$inviteId'
     | '/$companySlug/invites/new'
     | '/$companySlug/orders/$orderId'
     | '/$companySlug/orders/new'
-    | '/$companySlug/pricing/$priceListId'
     | '/$companySlug/pricing/new'
-    | '/$companySlug/products/$productId'
     | '/$companySlug/products/new'
+    | '/$companySlug/company/'
+    | '/$companySlug/customers/'
+    | '/$companySlug/documents/'
+    | '/$companySlug/invites/'
+    | '/$companySlug/orders/'
+    | '/$companySlug/pricing/'
+    | '/$companySlug/products/'
     | '/$companySlug/customers/counterparties/$counterpartyId'
     | '/$companySlug/customers/counterparties/new'
     | '/$companySlug/customers/groups/$groupId'
@@ -442,13 +578,31 @@ export interface FileRouteTypes {
     | '/$companySlug/documents/templates/$templateId'
     | '/$companySlug/pricing/$priceListId/edit'
     | '/$companySlug/products/$productId/edit'
+    | '/$companySlug/customers/counterparties/'
+    | '/$companySlug/customers/groups/'
+    | '/$companySlug/documents/templates/'
+    | '/$companySlug/pricing/$priceListId/'
+    | '/$companySlug/products/$productId/'
     | '/$companySlug/documents/templates/$templateId/edit'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/$companySlug'
     | '/sign-in'
     | '/verify'
     | '/onboarding'
+    | '/$companySlug/company/legal'
+    | '/$companySlug/company/team'
+    | '/$companySlug/customers/$customerId'
+    | '/$companySlug/customers/new'
+    | '/$companySlug/documents/$documentId'
+    | '/$companySlug/documents/new'
+    | '/$companySlug/invites/$inviteId'
+    | '/$companySlug/invites/new'
+    | '/$companySlug/orders/$orderId'
+    | '/$companySlug/orders/new'
+    | '/$companySlug/pricing/new'
+    | '/$companySlug/products/new'
     | '/$companySlug/company'
     | '/$companySlug/customers'
     | '/$companySlug/documents'
@@ -456,24 +610,6 @@ export interface FileRouteTypes {
     | '/$companySlug/orders'
     | '/$companySlug/pricing'
     | '/$companySlug/products'
-    | '/$companySlug'
-    | '/$companySlug/company/legal'
-    | '/$companySlug/company/team'
-    | '/$companySlug/customers/$customerId'
-    | '/$companySlug/customers/counterparties'
-    | '/$companySlug/customers/groups'
-    | '/$companySlug/customers/new'
-    | '/$companySlug/documents/$documentId'
-    | '/$companySlug/documents/new'
-    | '/$companySlug/documents/templates'
-    | '/$companySlug/invites/$inviteId'
-    | '/$companySlug/invites/new'
-    | '/$companySlug/orders/$orderId'
-    | '/$companySlug/orders/new'
-    | '/$companySlug/pricing/$priceListId'
-    | '/$companySlug/pricing/new'
-    | '/$companySlug/products/$productId'
-    | '/$companySlug/products/new'
     | '/$companySlug/customers/counterparties/$counterpartyId'
     | '/$companySlug/customers/counterparties/new'
     | '/$companySlug/customers/groups/$groupId'
@@ -481,49 +617,68 @@ export interface FileRouteTypes {
     | '/$companySlug/documents/templates/$templateId'
     | '/$companySlug/pricing/$priceListId/edit'
     | '/$companySlug/products/$productId/edit'
+    | '/$companySlug/customers/counterparties'
+    | '/$companySlug/customers/groups'
+    | '/$companySlug/documents/templates'
+    | '/$companySlug/pricing/$priceListId'
+    | '/$companySlug/products/$productId'
     | '/$companySlug/documents/templates/$templateId/edit'
   id:
     | '__root__'
     | '/_auth'
     | '/_authed'
+    | '/_authed/$companySlug'
     | '/_auth/sign-in'
     | '/_auth/verify'
-    | '/_authed/$companySlug'
     | '/_authed/onboarding'
     | '/_authed/'
-    | '/_authed/$companySlug/company'
-    | '/_authed/$companySlug/customers'
-    | '/_authed/$companySlug/documents'
-    | '/_authed/$companySlug/invites'
-    | '/_authed/$companySlug/orders'
-    | '/_authed/$companySlug/pricing'
-    | '/_authed/$companySlug/products'
-    | '/_authed/$companySlug/'
-    | '/_authed/$companySlug/company/legal'
-    | '/_authed/$companySlug/company/team'
-    | '/_authed/$companySlug/customers/$customerId'
-    | '/_authed/$companySlug/customers/counterparties'
-    | '/_authed/$companySlug/customers/groups'
-    | '/_authed/$companySlug/customers/new'
-    | '/_authed/$companySlug/documents/$documentId'
-    | '/_authed/$companySlug/documents/new'
-    | '/_authed/$companySlug/documents/templates'
-    | '/_authed/$companySlug/invites/$inviteId'
-    | '/_authed/$companySlug/invites/new'
-    | '/_authed/$companySlug/orders/$orderId'
-    | '/_authed/$companySlug/orders/new'
-    | '/_authed/$companySlug/pricing/$priceListId'
-    | '/_authed/$companySlug/pricing/new'
-    | '/_authed/$companySlug/products/$productId'
-    | '/_authed/$companySlug/products/new'
-    | '/_authed/$companySlug/customers/counterparties/$counterpartyId'
-    | '/_authed/$companySlug/customers/counterparties/new'
-    | '/_authed/$companySlug/customers/groups/$groupId'
-    | '/_authed/$companySlug/customers/groups/new'
-    | '/_authed/$companySlug/documents/templates/$templateId'
-    | '/_authed/$companySlug/pricing/$priceListId/edit'
-    | '/_authed/$companySlug/products/$productId/edit'
-    | '/_authed/$companySlug/documents/templates/$templateId/edit'
+    | '/_authed/$companySlug/_full'
+    | '/_authed/$companySlug/_panel'
+    | '/_authed/$companySlug/_panel/company'
+    | '/_authed/$companySlug/_panel/customers'
+    | '/_authed/$companySlug/_panel/documents'
+    | '/_authed/$companySlug/_panel/invites'
+    | '/_authed/$companySlug/_panel/orders'
+    | '/_authed/$companySlug/_panel/pricing'
+    | '/_authed/$companySlug/_panel/products'
+    | '/_authed/$companySlug/_panel/'
+    | '/_authed/$companySlug/_panel/customers/counterparties'
+    | '/_authed/$companySlug/_panel/customers/groups'
+    | '/_authed/$companySlug/_panel/documents/templates'
+    | '/_authed/$companySlug/_panel/pricing/$priceListId'
+    | '/_authed/$companySlug/_panel/products/$productId'
+    | '/_authed/$companySlug/_panel/company/legal'
+    | '/_authed/$companySlug/_panel/company/team'
+    | '/_authed/$companySlug/_panel/customers/$customerId'
+    | '/_authed/$companySlug/_panel/customers/new'
+    | '/_authed/$companySlug/_panel/documents/$documentId'
+    | '/_authed/$companySlug/_panel/documents/new'
+    | '/_authed/$companySlug/_panel/invites/$inviteId'
+    | '/_authed/$companySlug/_panel/invites/new'
+    | '/_authed/$companySlug/_panel/orders/$orderId'
+    | '/_authed/$companySlug/_panel/orders/new'
+    | '/_authed/$companySlug/_panel/pricing/new'
+    | '/_authed/$companySlug/_panel/products/new'
+    | '/_authed/$companySlug/_panel/company/'
+    | '/_authed/$companySlug/_panel/customers/'
+    | '/_authed/$companySlug/_panel/documents/'
+    | '/_authed/$companySlug/_panel/invites/'
+    | '/_authed/$companySlug/_panel/orders/'
+    | '/_authed/$companySlug/_panel/pricing/'
+    | '/_authed/$companySlug/_panel/products/'
+    | '/_authed/$companySlug/_panel/customers/counterparties/$counterpartyId'
+    | '/_authed/$companySlug/_panel/customers/counterparties/new'
+    | '/_authed/$companySlug/_panel/customers/groups/$groupId'
+    | '/_authed/$companySlug/_panel/customers/groups/new'
+    | '/_authed/$companySlug/_panel/documents/templates/$templateId'
+    | '/_authed/$companySlug/_panel/pricing/$priceListId/edit'
+    | '/_authed/$companySlug/_panel/products/$productId/edit'
+    | '/_authed/$companySlug/_panel/customers/counterparties/'
+    | '/_authed/$companySlug/_panel/customers/groups/'
+    | '/_authed/$companySlug/_panel/documents/templates/'
+    | '/_authed/$companySlug/_panel/pricing/$priceListId/'
+    | '/_authed/$companySlug/_panel/products/$productId/'
+    | '/_authed/$companySlug/_full/documents/templates/$templateId/edit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -572,7 +727,7 @@ declare module '@tanstack/react-router' {
       id: '/_authed/$companySlug'
       path: '/$companySlug'
       fullPath: '/$companySlug'
-      preLoaderRoute: typeof AuthedCompanySlugRouteImport
+      preLoaderRoute: typeof AuthedCompanySlugRouteRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/onboarding': {
@@ -582,236 +737,334 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedOnboardingRouteImport
       parentRoute: typeof AuthedRoute
     }
-    '/_authed/$companySlug/': {
-      id: '/_authed/$companySlug/'
+    '/_authed/$companySlug/_full': {
+      id: '/_authed/$companySlug/_full'
+      path: ''
+      fullPath: '/$companySlug'
+      preLoaderRoute: typeof AuthedCompanySlugFullRouteRouteImport
+      parentRoute: typeof AuthedCompanySlugRouteRoute
+    }
+    '/_authed/$companySlug/_panel': {
+      id: '/_authed/$companySlug/_panel'
+      path: ''
+      fullPath: '/$companySlug'
+      preLoaderRoute: typeof AuthedCompanySlugPanelRouteRouteImport
+      parentRoute: typeof AuthedCompanySlugRouteRoute
+    }
+    '/_authed/$companySlug/_panel/': {
+      id: '/_authed/$companySlug/_panel/'
       path: '/'
       fullPath: '/$companySlug/'
-      preLoaderRoute: typeof AuthedCompanySlugIndexRouteImport
-      parentRoute: typeof AuthedCompanySlugRoute
+      preLoaderRoute: typeof AuthedCompanySlugPanelIndexRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelRouteRoute
     }
-    '/_authed/$companySlug/company': {
-      id: '/_authed/$companySlug/company'
+    '/_authed/$companySlug/_panel/company': {
+      id: '/_authed/$companySlug/_panel/company'
       path: '/company'
       fullPath: '/$companySlug/company'
-      preLoaderRoute: typeof AuthedCompanySlugCompanyRouteImport
-      parentRoute: typeof AuthedCompanySlugRoute
+      preLoaderRoute: typeof AuthedCompanySlugPanelCompanyRouteRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelRouteRoute
     }
-    '/_authed/$companySlug/customers': {
-      id: '/_authed/$companySlug/customers'
+    '/_authed/$companySlug/_panel/customers': {
+      id: '/_authed/$companySlug/_panel/customers'
       path: '/customers'
       fullPath: '/$companySlug/customers'
-      preLoaderRoute: typeof AuthedCompanySlugCustomersRouteImport
-      parentRoute: typeof AuthedCompanySlugRoute
+      preLoaderRoute: typeof AuthedCompanySlugPanelCustomersRouteRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelRouteRoute
     }
-    '/_authed/$companySlug/documents': {
-      id: '/_authed/$companySlug/documents'
+    '/_authed/$companySlug/_panel/documents': {
+      id: '/_authed/$companySlug/_panel/documents'
       path: '/documents'
       fullPath: '/$companySlug/documents'
-      preLoaderRoute: typeof AuthedCompanySlugDocumentsRouteImport
-      parentRoute: typeof AuthedCompanySlugRoute
+      preLoaderRoute: typeof AuthedCompanySlugPanelDocumentsRouteRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelRouteRoute
     }
-    '/_authed/$companySlug/invites': {
-      id: '/_authed/$companySlug/invites'
+    '/_authed/$companySlug/_panel/invites': {
+      id: '/_authed/$companySlug/_panel/invites'
       path: '/invites'
       fullPath: '/$companySlug/invites'
-      preLoaderRoute: typeof AuthedCompanySlugInvitesRouteImport
-      parentRoute: typeof AuthedCompanySlugRoute
+      preLoaderRoute: typeof AuthedCompanySlugPanelInvitesRouteRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelRouteRoute
     }
-    '/_authed/$companySlug/orders': {
-      id: '/_authed/$companySlug/orders'
+    '/_authed/$companySlug/_panel/orders': {
+      id: '/_authed/$companySlug/_panel/orders'
       path: '/orders'
       fullPath: '/$companySlug/orders'
-      preLoaderRoute: typeof AuthedCompanySlugOrdersRouteImport
-      parentRoute: typeof AuthedCompanySlugRoute
+      preLoaderRoute: typeof AuthedCompanySlugPanelOrdersRouteRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelRouteRoute
     }
-    '/_authed/$companySlug/pricing': {
-      id: '/_authed/$companySlug/pricing'
+    '/_authed/$companySlug/_panel/pricing': {
+      id: '/_authed/$companySlug/_panel/pricing'
       path: '/pricing'
       fullPath: '/$companySlug/pricing'
-      preLoaderRoute: typeof AuthedCompanySlugPricingRouteImport
-      parentRoute: typeof AuthedCompanySlugRoute
+      preLoaderRoute: typeof AuthedCompanySlugPanelPricingRouteRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelRouteRoute
     }
-    '/_authed/$companySlug/products': {
-      id: '/_authed/$companySlug/products'
+    '/_authed/$companySlug/_panel/products': {
+      id: '/_authed/$companySlug/_panel/products'
       path: '/products'
       fullPath: '/$companySlug/products'
-      preLoaderRoute: typeof AuthedCompanySlugProductsRouteImport
-      parentRoute: typeof AuthedCompanySlugRoute
+      preLoaderRoute: typeof AuthedCompanySlugPanelProductsRouteRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelRouteRoute
     }
-    '/_authed/$companySlug/company/legal': {
-      id: '/_authed/$companySlug/company/legal'
+    '/_authed/$companySlug/_panel/company/': {
+      id: '/_authed/$companySlug/_panel/company/'
+      path: '/'
+      fullPath: '/$companySlug/company/'
+      preLoaderRoute: typeof AuthedCompanySlugPanelCompanyIndexRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelCompanyRouteRoute
+    }
+    '/_authed/$companySlug/_panel/company/legal': {
+      id: '/_authed/$companySlug/_panel/company/legal'
       path: '/legal'
       fullPath: '/$companySlug/company/legal'
-      preLoaderRoute: typeof AuthedCompanySlugCompanyLegalRouteImport
-      parentRoute: typeof AuthedCompanySlugCompanyRoute
+      preLoaderRoute: typeof AuthedCompanySlugPanelCompanyLegalRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelCompanyRouteRoute
     }
-    '/_authed/$companySlug/company/team': {
-      id: '/_authed/$companySlug/company/team'
+    '/_authed/$companySlug/_panel/company/team': {
+      id: '/_authed/$companySlug/_panel/company/team'
       path: '/team'
       fullPath: '/$companySlug/company/team'
-      preLoaderRoute: typeof AuthedCompanySlugCompanyTeamRouteImport
-      parentRoute: typeof AuthedCompanySlugCompanyRoute
+      preLoaderRoute: typeof AuthedCompanySlugPanelCompanyTeamRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelCompanyRouteRoute
     }
-    '/_authed/$companySlug/customers/$customerId': {
-      id: '/_authed/$companySlug/customers/$customerId'
+    '/_authed/$companySlug/_panel/customers/': {
+      id: '/_authed/$companySlug/_panel/customers/'
+      path: '/'
+      fullPath: '/$companySlug/customers/'
+      preLoaderRoute: typeof AuthedCompanySlugPanelCustomersIndexRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelCustomersRouteRoute
+    }
+    '/_authed/$companySlug/_panel/customers/$customerId': {
+      id: '/_authed/$companySlug/_panel/customers/$customerId'
       path: '/$customerId'
       fullPath: '/$companySlug/customers/$customerId'
-      preLoaderRoute: typeof AuthedCompanySlugCustomersCustomerIdRouteImport
-      parentRoute: typeof AuthedCompanySlugCustomersRoute
+      preLoaderRoute: typeof AuthedCompanySlugPanelCustomersCustomerIdRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelCustomersRouteRoute
     }
-    '/_authed/$companySlug/customers/counterparties': {
-      id: '/_authed/$companySlug/customers/counterparties'
+    '/_authed/$companySlug/_panel/customers/counterparties': {
+      id: '/_authed/$companySlug/_panel/customers/counterparties'
       path: '/counterparties'
       fullPath: '/$companySlug/customers/counterparties'
-      preLoaderRoute: typeof AuthedCompanySlugCustomersCounterpartiesRouteImport
-      parentRoute: typeof AuthedCompanySlugCustomersRoute
+      preLoaderRoute: typeof AuthedCompanySlugPanelCustomersCounterpartiesRouteRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelCustomersRouteRoute
     }
-    '/_authed/$companySlug/customers/groups': {
-      id: '/_authed/$companySlug/customers/groups'
+    '/_authed/$companySlug/_panel/customers/groups': {
+      id: '/_authed/$companySlug/_panel/customers/groups'
       path: '/groups'
       fullPath: '/$companySlug/customers/groups'
-      preLoaderRoute: typeof AuthedCompanySlugCustomersGroupsRouteImport
-      parentRoute: typeof AuthedCompanySlugCustomersRoute
+      preLoaderRoute: typeof AuthedCompanySlugPanelCustomersGroupsRouteRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelCustomersRouteRoute
     }
-    '/_authed/$companySlug/customers/new': {
-      id: '/_authed/$companySlug/customers/new'
+    '/_authed/$companySlug/_panel/customers/new': {
+      id: '/_authed/$companySlug/_panel/customers/new'
       path: '/new'
       fullPath: '/$companySlug/customers/new'
-      preLoaderRoute: typeof AuthedCompanySlugCustomersNewRouteImport
-      parentRoute: typeof AuthedCompanySlugCustomersRoute
+      preLoaderRoute: typeof AuthedCompanySlugPanelCustomersNewRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelCustomersRouteRoute
     }
-    '/_authed/$companySlug/documents/$documentId': {
-      id: '/_authed/$companySlug/documents/$documentId'
+    '/_authed/$companySlug/_panel/documents/': {
+      id: '/_authed/$companySlug/_panel/documents/'
+      path: '/'
+      fullPath: '/$companySlug/documents/'
+      preLoaderRoute: typeof AuthedCompanySlugPanelDocumentsIndexRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelDocumentsRouteRoute
+    }
+    '/_authed/$companySlug/_panel/documents/$documentId': {
+      id: '/_authed/$companySlug/_panel/documents/$documentId'
       path: '/$documentId'
       fullPath: '/$companySlug/documents/$documentId'
-      preLoaderRoute: typeof AuthedCompanySlugDocumentsDocumentIdRouteImport
-      parentRoute: typeof AuthedCompanySlugDocumentsRoute
+      preLoaderRoute: typeof AuthedCompanySlugPanelDocumentsDocumentIdRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelDocumentsRouteRoute
     }
-    '/_authed/$companySlug/documents/new': {
-      id: '/_authed/$companySlug/documents/new'
+    '/_authed/$companySlug/_panel/documents/new': {
+      id: '/_authed/$companySlug/_panel/documents/new'
       path: '/new'
       fullPath: '/$companySlug/documents/new'
-      preLoaderRoute: typeof AuthedCompanySlugDocumentsNewRouteImport
-      parentRoute: typeof AuthedCompanySlugDocumentsRoute
+      preLoaderRoute: typeof AuthedCompanySlugPanelDocumentsNewRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelDocumentsRouteRoute
     }
-    '/_authed/$companySlug/documents/templates': {
-      id: '/_authed/$companySlug/documents/templates'
+    '/_authed/$companySlug/_panel/documents/templates': {
+      id: '/_authed/$companySlug/_panel/documents/templates'
       path: '/templates'
       fullPath: '/$companySlug/documents/templates'
-      preLoaderRoute: typeof AuthedCompanySlugDocumentsTemplatesRouteImport
-      parentRoute: typeof AuthedCompanySlugDocumentsRoute
+      preLoaderRoute: typeof AuthedCompanySlugPanelDocumentsTemplatesRouteRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelDocumentsRouteRoute
     }
-    '/_authed/$companySlug/invites/$inviteId': {
-      id: '/_authed/$companySlug/invites/$inviteId'
+    '/_authed/$companySlug/_panel/invites/': {
+      id: '/_authed/$companySlug/_panel/invites/'
+      path: '/'
+      fullPath: '/$companySlug/invites/'
+      preLoaderRoute: typeof AuthedCompanySlugPanelInvitesIndexRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelInvitesRouteRoute
+    }
+    '/_authed/$companySlug/_panel/invites/$inviteId': {
+      id: '/_authed/$companySlug/_panel/invites/$inviteId'
       path: '/$inviteId'
       fullPath: '/$companySlug/invites/$inviteId'
-      preLoaderRoute: typeof AuthedCompanySlugInvitesInviteIdRouteImport
-      parentRoute: typeof AuthedCompanySlugInvitesRoute
+      preLoaderRoute: typeof AuthedCompanySlugPanelInvitesInviteIdRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelInvitesRouteRoute
     }
-    '/_authed/$companySlug/invites/new': {
-      id: '/_authed/$companySlug/invites/new'
+    '/_authed/$companySlug/_panel/invites/new': {
+      id: '/_authed/$companySlug/_panel/invites/new'
       path: '/new'
       fullPath: '/$companySlug/invites/new'
-      preLoaderRoute: typeof AuthedCompanySlugInvitesNewRouteImport
-      parentRoute: typeof AuthedCompanySlugInvitesRoute
+      preLoaderRoute: typeof AuthedCompanySlugPanelInvitesNewRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelInvitesRouteRoute
     }
-    '/_authed/$companySlug/orders/$orderId': {
-      id: '/_authed/$companySlug/orders/$orderId'
+    '/_authed/$companySlug/_panel/orders/': {
+      id: '/_authed/$companySlug/_panel/orders/'
+      path: '/'
+      fullPath: '/$companySlug/orders/'
+      preLoaderRoute: typeof AuthedCompanySlugPanelOrdersIndexRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelOrdersRouteRoute
+    }
+    '/_authed/$companySlug/_panel/orders/$orderId': {
+      id: '/_authed/$companySlug/_panel/orders/$orderId'
       path: '/$orderId'
       fullPath: '/$companySlug/orders/$orderId'
-      preLoaderRoute: typeof AuthedCompanySlugOrdersOrderIdRouteImport
-      parentRoute: typeof AuthedCompanySlugOrdersRoute
+      preLoaderRoute: typeof AuthedCompanySlugPanelOrdersOrderIdRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelOrdersRouteRoute
     }
-    '/_authed/$companySlug/orders/new': {
-      id: '/_authed/$companySlug/orders/new'
+    '/_authed/$companySlug/_panel/orders/new': {
+      id: '/_authed/$companySlug/_panel/orders/new'
       path: '/new'
       fullPath: '/$companySlug/orders/new'
-      preLoaderRoute: typeof AuthedCompanySlugOrdersNewRouteImport
-      parentRoute: typeof AuthedCompanySlugOrdersRoute
+      preLoaderRoute: typeof AuthedCompanySlugPanelOrdersNewRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelOrdersRouteRoute
     }
-    '/_authed/$companySlug/pricing/$priceListId': {
-      id: '/_authed/$companySlug/pricing/$priceListId'
+    '/_authed/$companySlug/_panel/pricing/': {
+      id: '/_authed/$companySlug/_panel/pricing/'
+      path: '/'
+      fullPath: '/$companySlug/pricing/'
+      preLoaderRoute: typeof AuthedCompanySlugPanelPricingIndexRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelPricingRouteRoute
+    }
+    '/_authed/$companySlug/_panel/pricing/$priceListId': {
+      id: '/_authed/$companySlug/_panel/pricing/$priceListId'
       path: '/$priceListId'
       fullPath: '/$companySlug/pricing/$priceListId'
-      preLoaderRoute: typeof AuthedCompanySlugPricingPriceListIdRouteImport
-      parentRoute: typeof AuthedCompanySlugPricingRoute
+      preLoaderRoute: typeof AuthedCompanySlugPanelPricingPriceListIdRouteRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelPricingRouteRoute
     }
-    '/_authed/$companySlug/pricing/new': {
-      id: '/_authed/$companySlug/pricing/new'
+    '/_authed/$companySlug/_panel/pricing/new': {
+      id: '/_authed/$companySlug/_panel/pricing/new'
       path: '/new'
       fullPath: '/$companySlug/pricing/new'
-      preLoaderRoute: typeof AuthedCompanySlugPricingNewRouteImport
-      parentRoute: typeof AuthedCompanySlugPricingRoute
+      preLoaderRoute: typeof AuthedCompanySlugPanelPricingNewRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelPricingRouteRoute
     }
-    '/_authed/$companySlug/products/$productId': {
-      id: '/_authed/$companySlug/products/$productId'
+    '/_authed/$companySlug/_panel/products/': {
+      id: '/_authed/$companySlug/_panel/products/'
+      path: '/'
+      fullPath: '/$companySlug/products/'
+      preLoaderRoute: typeof AuthedCompanySlugPanelProductsIndexRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelProductsRouteRoute
+    }
+    '/_authed/$companySlug/_panel/products/$productId': {
+      id: '/_authed/$companySlug/_panel/products/$productId'
       path: '/$productId'
       fullPath: '/$companySlug/products/$productId'
-      preLoaderRoute: typeof AuthedCompanySlugProductsProductIdRouteImport
-      parentRoute: typeof AuthedCompanySlugProductsRoute
+      preLoaderRoute: typeof AuthedCompanySlugPanelProductsProductIdRouteRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelProductsRouteRoute
     }
-    '/_authed/$companySlug/products/new': {
-      id: '/_authed/$companySlug/products/new'
+    '/_authed/$companySlug/_panel/products/new': {
+      id: '/_authed/$companySlug/_panel/products/new'
       path: '/new'
       fullPath: '/$companySlug/products/new'
-      preLoaderRoute: typeof AuthedCompanySlugProductsNewRouteImport
-      parentRoute: typeof AuthedCompanySlugProductsRoute
+      preLoaderRoute: typeof AuthedCompanySlugPanelProductsNewRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelProductsRouteRoute
     }
-    '/_authed/$companySlug/customers/counterparties/$counterpartyId': {
-      id: '/_authed/$companySlug/customers/counterparties/$counterpartyId'
+    '/_authed/$companySlug/_panel/customers/counterparties/': {
+      id: '/_authed/$companySlug/_panel/customers/counterparties/'
+      path: '/'
+      fullPath: '/$companySlug/customers/counterparties/'
+      preLoaderRoute: typeof AuthedCompanySlugPanelCustomersCounterpartiesIndexRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelCustomersCounterpartiesRouteRoute
+    }
+    '/_authed/$companySlug/_panel/customers/counterparties/$counterpartyId': {
+      id: '/_authed/$companySlug/_panel/customers/counterparties/$counterpartyId'
       path: '/$counterpartyId'
       fullPath: '/$companySlug/customers/counterparties/$counterpartyId'
-      preLoaderRoute: typeof AuthedCompanySlugCustomersCounterpartiesCounterpartyIdRouteImport
-      parentRoute: typeof AuthedCompanySlugCustomersCounterpartiesRoute
+      preLoaderRoute: typeof AuthedCompanySlugPanelCustomersCounterpartiesCounterpartyIdRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelCustomersCounterpartiesRouteRoute
     }
-    '/_authed/$companySlug/customers/counterparties/new': {
-      id: '/_authed/$companySlug/customers/counterparties/new'
+    '/_authed/$companySlug/_panel/customers/counterparties/new': {
+      id: '/_authed/$companySlug/_panel/customers/counterparties/new'
       path: '/new'
       fullPath: '/$companySlug/customers/counterparties/new'
-      preLoaderRoute: typeof AuthedCompanySlugCustomersCounterpartiesNewRouteImport
-      parentRoute: typeof AuthedCompanySlugCustomersCounterpartiesRoute
+      preLoaderRoute: typeof AuthedCompanySlugPanelCustomersCounterpartiesNewRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelCustomersCounterpartiesRouteRoute
     }
-    '/_authed/$companySlug/customers/groups/$groupId': {
-      id: '/_authed/$companySlug/customers/groups/$groupId'
+    '/_authed/$companySlug/_panel/customers/groups/': {
+      id: '/_authed/$companySlug/_panel/customers/groups/'
+      path: '/'
+      fullPath: '/$companySlug/customers/groups/'
+      preLoaderRoute: typeof AuthedCompanySlugPanelCustomersGroupsIndexRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelCustomersGroupsRouteRoute
+    }
+    '/_authed/$companySlug/_panel/customers/groups/$groupId': {
+      id: '/_authed/$companySlug/_panel/customers/groups/$groupId'
       path: '/$groupId'
       fullPath: '/$companySlug/customers/groups/$groupId'
-      preLoaderRoute: typeof AuthedCompanySlugCustomersGroupsGroupIdRouteImport
-      parentRoute: typeof AuthedCompanySlugCustomersGroupsRoute
+      preLoaderRoute: typeof AuthedCompanySlugPanelCustomersGroupsGroupIdRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelCustomersGroupsRouteRoute
     }
-    '/_authed/$companySlug/customers/groups/new': {
-      id: '/_authed/$companySlug/customers/groups/new'
+    '/_authed/$companySlug/_panel/customers/groups/new': {
+      id: '/_authed/$companySlug/_panel/customers/groups/new'
       path: '/new'
       fullPath: '/$companySlug/customers/groups/new'
-      preLoaderRoute: typeof AuthedCompanySlugCustomersGroupsNewRouteImport
-      parentRoute: typeof AuthedCompanySlugCustomersGroupsRoute
+      preLoaderRoute: typeof AuthedCompanySlugPanelCustomersGroupsNewRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelCustomersGroupsRouteRoute
     }
-    '/_authed/$companySlug/documents/templates/$templateId': {
-      id: '/_authed/$companySlug/documents/templates/$templateId'
+    '/_authed/$companySlug/_panel/documents/templates/': {
+      id: '/_authed/$companySlug/_panel/documents/templates/'
+      path: '/'
+      fullPath: '/$companySlug/documents/templates/'
+      preLoaderRoute: typeof AuthedCompanySlugPanelDocumentsTemplatesIndexRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelDocumentsTemplatesRouteRoute
+    }
+    '/_authed/$companySlug/_panel/documents/templates/$templateId': {
+      id: '/_authed/$companySlug/_panel/documents/templates/$templateId'
       path: '/$templateId'
       fullPath: '/$companySlug/documents/templates/$templateId'
-      preLoaderRoute: typeof AuthedCompanySlugDocumentsTemplatesTemplateIdRouteImport
-      parentRoute: typeof AuthedCompanySlugDocumentsTemplatesRoute
+      preLoaderRoute: typeof AuthedCompanySlugPanelDocumentsTemplatesTemplateIdRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelDocumentsTemplatesRouteRoute
     }
-    '/_authed/$companySlug/pricing/$priceListId/edit': {
-      id: '/_authed/$companySlug/pricing/$priceListId/edit'
+    '/_authed/$companySlug/_panel/pricing/$priceListId/': {
+      id: '/_authed/$companySlug/_panel/pricing/$priceListId/'
+      path: '/'
+      fullPath: '/$companySlug/pricing/$priceListId/'
+      preLoaderRoute: typeof AuthedCompanySlugPanelPricingPriceListIdIndexRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelPricingPriceListIdRouteRoute
+    }
+    '/_authed/$companySlug/_panel/pricing/$priceListId/edit': {
+      id: '/_authed/$companySlug/_panel/pricing/$priceListId/edit'
       path: '/edit'
       fullPath: '/$companySlug/pricing/$priceListId/edit'
-      preLoaderRoute: typeof AuthedCompanySlugPricingPriceListIdEditRouteImport
-      parentRoute: typeof AuthedCompanySlugPricingPriceListIdRoute
+      preLoaderRoute: typeof AuthedCompanySlugPanelPricingPriceListIdEditRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelPricingPriceListIdRouteRoute
     }
-    '/_authed/$companySlug/products/$productId/edit': {
-      id: '/_authed/$companySlug/products/$productId/edit'
+    '/_authed/$companySlug/_panel/products/$productId/': {
+      id: '/_authed/$companySlug/_panel/products/$productId/'
+      path: '/'
+      fullPath: '/$companySlug/products/$productId/'
+      preLoaderRoute: typeof AuthedCompanySlugPanelProductsProductIdIndexRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelProductsProductIdRouteRoute
+    }
+    '/_authed/$companySlug/_panel/products/$productId/edit': {
+      id: '/_authed/$companySlug/_panel/products/$productId/edit'
       path: '/edit'
       fullPath: '/$companySlug/products/$productId/edit'
-      preLoaderRoute: typeof AuthedCompanySlugProductsProductIdEditRouteImport
-      parentRoute: typeof AuthedCompanySlugProductsProductIdRoute
+      preLoaderRoute: typeof AuthedCompanySlugPanelProductsProductIdEditRouteImport
+      parentRoute: typeof AuthedCompanySlugPanelProductsProductIdRouteRoute
     }
-    '/_authed/$companySlug/documents/templates/$templateId/edit': {
-      id: '/_authed/$companySlug/documents/templates/$templateId/edit'
-      path: '/edit'
+    '/_authed/$companySlug/_full/documents/templates/$templateId/edit': {
+      id: '/_authed/$companySlug/_full/documents/templates/$templateId/edit'
+      path: '/documents/templates/$templateId/edit'
       fullPath: '/$companySlug/documents/templates/$templateId/edit'
-      preLoaderRoute: typeof AuthedCompanySlugDocumentsTemplatesTemplateIdEditRouteImport
-      parentRoute: typeof AuthedCompanySlugDocumentsTemplatesTemplateIdRoute
+      preLoaderRoute: typeof AuthedCompanySlugFullDocumentsTemplatesTemplateIdEditRouteImport
+      parentRoute: typeof AuthedCompanySlugFullRouteRoute
     }
   }
 }
@@ -828,261 +1081,333 @@ const AuthRouteChildren: AuthRouteChildren = {
 
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
-interface AuthedCompanySlugCompanyRouteChildren {
-  AuthedCompanySlugCompanyLegalRoute: typeof AuthedCompanySlugCompanyLegalRoute
-  AuthedCompanySlugCompanyTeamRoute: typeof AuthedCompanySlugCompanyTeamRoute
+interface AuthedCompanySlugFullRouteRouteChildren {
+  AuthedCompanySlugFullDocumentsTemplatesTemplateIdEditRoute: typeof AuthedCompanySlugFullDocumentsTemplatesTemplateIdEditRoute
 }
 
-const AuthedCompanySlugCompanyRouteChildren: AuthedCompanySlugCompanyRouteChildren =
+const AuthedCompanySlugFullRouteRouteChildren: AuthedCompanySlugFullRouteRouteChildren =
   {
-    AuthedCompanySlugCompanyLegalRoute: AuthedCompanySlugCompanyLegalRoute,
-    AuthedCompanySlugCompanyTeamRoute: AuthedCompanySlugCompanyTeamRoute,
+    AuthedCompanySlugFullDocumentsTemplatesTemplateIdEditRoute:
+      AuthedCompanySlugFullDocumentsTemplatesTemplateIdEditRoute,
   }
 
-const AuthedCompanySlugCompanyRouteWithChildren =
-  AuthedCompanySlugCompanyRoute._addFileChildren(
-    AuthedCompanySlugCompanyRouteChildren,
+const AuthedCompanySlugFullRouteRouteWithChildren =
+  AuthedCompanySlugFullRouteRoute._addFileChildren(
+    AuthedCompanySlugFullRouteRouteChildren,
   )
 
-interface AuthedCompanySlugCustomersCounterpartiesRouteChildren {
-  AuthedCompanySlugCustomersCounterpartiesCounterpartyIdRoute: typeof AuthedCompanySlugCustomersCounterpartiesCounterpartyIdRoute
-  AuthedCompanySlugCustomersCounterpartiesNewRoute: typeof AuthedCompanySlugCustomersCounterpartiesNewRoute
+interface AuthedCompanySlugPanelCompanyRouteRouteChildren {
+  AuthedCompanySlugPanelCompanyLegalRoute: typeof AuthedCompanySlugPanelCompanyLegalRoute
+  AuthedCompanySlugPanelCompanyTeamRoute: typeof AuthedCompanySlugPanelCompanyTeamRoute
+  AuthedCompanySlugPanelCompanyIndexRoute: typeof AuthedCompanySlugPanelCompanyIndexRoute
 }
 
-const AuthedCompanySlugCustomersCounterpartiesRouteChildren: AuthedCompanySlugCustomersCounterpartiesRouteChildren =
+const AuthedCompanySlugPanelCompanyRouteRouteChildren: AuthedCompanySlugPanelCompanyRouteRouteChildren =
   {
-    AuthedCompanySlugCustomersCounterpartiesCounterpartyIdRoute:
-      AuthedCompanySlugCustomersCounterpartiesCounterpartyIdRoute,
-    AuthedCompanySlugCustomersCounterpartiesNewRoute:
-      AuthedCompanySlugCustomersCounterpartiesNewRoute,
+    AuthedCompanySlugPanelCompanyLegalRoute:
+      AuthedCompanySlugPanelCompanyLegalRoute,
+    AuthedCompanySlugPanelCompanyTeamRoute:
+      AuthedCompanySlugPanelCompanyTeamRoute,
+    AuthedCompanySlugPanelCompanyIndexRoute:
+      AuthedCompanySlugPanelCompanyIndexRoute,
   }
 
-const AuthedCompanySlugCustomersCounterpartiesRouteWithChildren =
-  AuthedCompanySlugCustomersCounterpartiesRoute._addFileChildren(
-    AuthedCompanySlugCustomersCounterpartiesRouteChildren,
+const AuthedCompanySlugPanelCompanyRouteRouteWithChildren =
+  AuthedCompanySlugPanelCompanyRouteRoute._addFileChildren(
+    AuthedCompanySlugPanelCompanyRouteRouteChildren,
   )
 
-interface AuthedCompanySlugCustomersGroupsRouteChildren {
-  AuthedCompanySlugCustomersGroupsGroupIdRoute: typeof AuthedCompanySlugCustomersGroupsGroupIdRoute
-  AuthedCompanySlugCustomersGroupsNewRoute: typeof AuthedCompanySlugCustomersGroupsNewRoute
+interface AuthedCompanySlugPanelCustomersCounterpartiesRouteRouteChildren {
+  AuthedCompanySlugPanelCustomersCounterpartiesCounterpartyIdRoute: typeof AuthedCompanySlugPanelCustomersCounterpartiesCounterpartyIdRoute
+  AuthedCompanySlugPanelCustomersCounterpartiesNewRoute: typeof AuthedCompanySlugPanelCustomersCounterpartiesNewRoute
+  AuthedCompanySlugPanelCustomersCounterpartiesIndexRoute: typeof AuthedCompanySlugPanelCustomersCounterpartiesIndexRoute
 }
 
-const AuthedCompanySlugCustomersGroupsRouteChildren: AuthedCompanySlugCustomersGroupsRouteChildren =
+const AuthedCompanySlugPanelCustomersCounterpartiesRouteRouteChildren: AuthedCompanySlugPanelCustomersCounterpartiesRouteRouteChildren =
   {
-    AuthedCompanySlugCustomersGroupsGroupIdRoute:
-      AuthedCompanySlugCustomersGroupsGroupIdRoute,
-    AuthedCompanySlugCustomersGroupsNewRoute:
-      AuthedCompanySlugCustomersGroupsNewRoute,
+    AuthedCompanySlugPanelCustomersCounterpartiesCounterpartyIdRoute:
+      AuthedCompanySlugPanelCustomersCounterpartiesCounterpartyIdRoute,
+    AuthedCompanySlugPanelCustomersCounterpartiesNewRoute:
+      AuthedCompanySlugPanelCustomersCounterpartiesNewRoute,
+    AuthedCompanySlugPanelCustomersCounterpartiesIndexRoute:
+      AuthedCompanySlugPanelCustomersCounterpartiesIndexRoute,
   }
 
-const AuthedCompanySlugCustomersGroupsRouteWithChildren =
-  AuthedCompanySlugCustomersGroupsRoute._addFileChildren(
-    AuthedCompanySlugCustomersGroupsRouteChildren,
+const AuthedCompanySlugPanelCustomersCounterpartiesRouteRouteWithChildren =
+  AuthedCompanySlugPanelCustomersCounterpartiesRouteRoute._addFileChildren(
+    AuthedCompanySlugPanelCustomersCounterpartiesRouteRouteChildren,
   )
 
-interface AuthedCompanySlugCustomersRouteChildren {
-  AuthedCompanySlugCustomersCustomerIdRoute: typeof AuthedCompanySlugCustomersCustomerIdRoute
-  AuthedCompanySlugCustomersCounterpartiesRoute: typeof AuthedCompanySlugCustomersCounterpartiesRouteWithChildren
-  AuthedCompanySlugCustomersGroupsRoute: typeof AuthedCompanySlugCustomersGroupsRouteWithChildren
-  AuthedCompanySlugCustomersNewRoute: typeof AuthedCompanySlugCustomersNewRoute
+interface AuthedCompanySlugPanelCustomersGroupsRouteRouteChildren {
+  AuthedCompanySlugPanelCustomersGroupsGroupIdRoute: typeof AuthedCompanySlugPanelCustomersGroupsGroupIdRoute
+  AuthedCompanySlugPanelCustomersGroupsNewRoute: typeof AuthedCompanySlugPanelCustomersGroupsNewRoute
+  AuthedCompanySlugPanelCustomersGroupsIndexRoute: typeof AuthedCompanySlugPanelCustomersGroupsIndexRoute
 }
 
-const AuthedCompanySlugCustomersRouteChildren: AuthedCompanySlugCustomersRouteChildren =
+const AuthedCompanySlugPanelCustomersGroupsRouteRouteChildren: AuthedCompanySlugPanelCustomersGroupsRouteRouteChildren =
   {
-    AuthedCompanySlugCustomersCustomerIdRoute:
-      AuthedCompanySlugCustomersCustomerIdRoute,
-    AuthedCompanySlugCustomersCounterpartiesRoute:
-      AuthedCompanySlugCustomersCounterpartiesRouteWithChildren,
-    AuthedCompanySlugCustomersGroupsRoute:
-      AuthedCompanySlugCustomersGroupsRouteWithChildren,
-    AuthedCompanySlugCustomersNewRoute: AuthedCompanySlugCustomersNewRoute,
+    AuthedCompanySlugPanelCustomersGroupsGroupIdRoute:
+      AuthedCompanySlugPanelCustomersGroupsGroupIdRoute,
+    AuthedCompanySlugPanelCustomersGroupsNewRoute:
+      AuthedCompanySlugPanelCustomersGroupsNewRoute,
+    AuthedCompanySlugPanelCustomersGroupsIndexRoute:
+      AuthedCompanySlugPanelCustomersGroupsIndexRoute,
   }
 
-const AuthedCompanySlugCustomersRouteWithChildren =
-  AuthedCompanySlugCustomersRoute._addFileChildren(
-    AuthedCompanySlugCustomersRouteChildren,
+const AuthedCompanySlugPanelCustomersGroupsRouteRouteWithChildren =
+  AuthedCompanySlugPanelCustomersGroupsRouteRoute._addFileChildren(
+    AuthedCompanySlugPanelCustomersGroupsRouteRouteChildren,
   )
 
-interface AuthedCompanySlugDocumentsTemplatesTemplateIdRouteChildren {
-  AuthedCompanySlugDocumentsTemplatesTemplateIdEditRoute: typeof AuthedCompanySlugDocumentsTemplatesTemplateIdEditRoute
+interface AuthedCompanySlugPanelCustomersRouteRouteChildren {
+  AuthedCompanySlugPanelCustomersCounterpartiesRouteRoute: typeof AuthedCompanySlugPanelCustomersCounterpartiesRouteRouteWithChildren
+  AuthedCompanySlugPanelCustomersGroupsRouteRoute: typeof AuthedCompanySlugPanelCustomersGroupsRouteRouteWithChildren
+  AuthedCompanySlugPanelCustomersCustomerIdRoute: typeof AuthedCompanySlugPanelCustomersCustomerIdRoute
+  AuthedCompanySlugPanelCustomersNewRoute: typeof AuthedCompanySlugPanelCustomersNewRoute
+  AuthedCompanySlugPanelCustomersIndexRoute: typeof AuthedCompanySlugPanelCustomersIndexRoute
 }
 
-const AuthedCompanySlugDocumentsTemplatesTemplateIdRouteChildren: AuthedCompanySlugDocumentsTemplatesTemplateIdRouteChildren =
+const AuthedCompanySlugPanelCustomersRouteRouteChildren: AuthedCompanySlugPanelCustomersRouteRouteChildren =
   {
-    AuthedCompanySlugDocumentsTemplatesTemplateIdEditRoute:
-      AuthedCompanySlugDocumentsTemplatesTemplateIdEditRoute,
+    AuthedCompanySlugPanelCustomersCounterpartiesRouteRoute:
+      AuthedCompanySlugPanelCustomersCounterpartiesRouteRouteWithChildren,
+    AuthedCompanySlugPanelCustomersGroupsRouteRoute:
+      AuthedCompanySlugPanelCustomersGroupsRouteRouteWithChildren,
+    AuthedCompanySlugPanelCustomersCustomerIdRoute:
+      AuthedCompanySlugPanelCustomersCustomerIdRoute,
+    AuthedCompanySlugPanelCustomersNewRoute:
+      AuthedCompanySlugPanelCustomersNewRoute,
+    AuthedCompanySlugPanelCustomersIndexRoute:
+      AuthedCompanySlugPanelCustomersIndexRoute,
   }
 
-const AuthedCompanySlugDocumentsTemplatesTemplateIdRouteWithChildren =
-  AuthedCompanySlugDocumentsTemplatesTemplateIdRoute._addFileChildren(
-    AuthedCompanySlugDocumentsTemplatesTemplateIdRouteChildren,
+const AuthedCompanySlugPanelCustomersRouteRouteWithChildren =
+  AuthedCompanySlugPanelCustomersRouteRoute._addFileChildren(
+    AuthedCompanySlugPanelCustomersRouteRouteChildren,
   )
 
-interface AuthedCompanySlugDocumentsTemplatesRouteChildren {
-  AuthedCompanySlugDocumentsTemplatesTemplateIdRoute: typeof AuthedCompanySlugDocumentsTemplatesTemplateIdRouteWithChildren
+interface AuthedCompanySlugPanelDocumentsTemplatesRouteRouteChildren {
+  AuthedCompanySlugPanelDocumentsTemplatesTemplateIdRoute: typeof AuthedCompanySlugPanelDocumentsTemplatesTemplateIdRoute
+  AuthedCompanySlugPanelDocumentsTemplatesIndexRoute: typeof AuthedCompanySlugPanelDocumentsTemplatesIndexRoute
 }
 
-const AuthedCompanySlugDocumentsTemplatesRouteChildren: AuthedCompanySlugDocumentsTemplatesRouteChildren =
+const AuthedCompanySlugPanelDocumentsTemplatesRouteRouteChildren: AuthedCompanySlugPanelDocumentsTemplatesRouteRouteChildren =
   {
-    AuthedCompanySlugDocumentsTemplatesTemplateIdRoute:
-      AuthedCompanySlugDocumentsTemplatesTemplateIdRouteWithChildren,
+    AuthedCompanySlugPanelDocumentsTemplatesTemplateIdRoute:
+      AuthedCompanySlugPanelDocumentsTemplatesTemplateIdRoute,
+    AuthedCompanySlugPanelDocumentsTemplatesIndexRoute:
+      AuthedCompanySlugPanelDocumentsTemplatesIndexRoute,
   }
 
-const AuthedCompanySlugDocumentsTemplatesRouteWithChildren =
-  AuthedCompanySlugDocumentsTemplatesRoute._addFileChildren(
-    AuthedCompanySlugDocumentsTemplatesRouteChildren,
+const AuthedCompanySlugPanelDocumentsTemplatesRouteRouteWithChildren =
+  AuthedCompanySlugPanelDocumentsTemplatesRouteRoute._addFileChildren(
+    AuthedCompanySlugPanelDocumentsTemplatesRouteRouteChildren,
   )
 
-interface AuthedCompanySlugDocumentsRouteChildren {
-  AuthedCompanySlugDocumentsDocumentIdRoute: typeof AuthedCompanySlugDocumentsDocumentIdRoute
-  AuthedCompanySlugDocumentsNewRoute: typeof AuthedCompanySlugDocumentsNewRoute
-  AuthedCompanySlugDocumentsTemplatesRoute: typeof AuthedCompanySlugDocumentsTemplatesRouteWithChildren
+interface AuthedCompanySlugPanelDocumentsRouteRouteChildren {
+  AuthedCompanySlugPanelDocumentsTemplatesRouteRoute: typeof AuthedCompanySlugPanelDocumentsTemplatesRouteRouteWithChildren
+  AuthedCompanySlugPanelDocumentsDocumentIdRoute: typeof AuthedCompanySlugPanelDocumentsDocumentIdRoute
+  AuthedCompanySlugPanelDocumentsNewRoute: typeof AuthedCompanySlugPanelDocumentsNewRoute
+  AuthedCompanySlugPanelDocumentsIndexRoute: typeof AuthedCompanySlugPanelDocumentsIndexRoute
 }
 
-const AuthedCompanySlugDocumentsRouteChildren: AuthedCompanySlugDocumentsRouteChildren =
+const AuthedCompanySlugPanelDocumentsRouteRouteChildren: AuthedCompanySlugPanelDocumentsRouteRouteChildren =
   {
-    AuthedCompanySlugDocumentsDocumentIdRoute:
-      AuthedCompanySlugDocumentsDocumentIdRoute,
-    AuthedCompanySlugDocumentsNewRoute: AuthedCompanySlugDocumentsNewRoute,
-    AuthedCompanySlugDocumentsTemplatesRoute:
-      AuthedCompanySlugDocumentsTemplatesRouteWithChildren,
+    AuthedCompanySlugPanelDocumentsTemplatesRouteRoute:
+      AuthedCompanySlugPanelDocumentsTemplatesRouteRouteWithChildren,
+    AuthedCompanySlugPanelDocumentsDocumentIdRoute:
+      AuthedCompanySlugPanelDocumentsDocumentIdRoute,
+    AuthedCompanySlugPanelDocumentsNewRoute:
+      AuthedCompanySlugPanelDocumentsNewRoute,
+    AuthedCompanySlugPanelDocumentsIndexRoute:
+      AuthedCompanySlugPanelDocumentsIndexRoute,
   }
 
-const AuthedCompanySlugDocumentsRouteWithChildren =
-  AuthedCompanySlugDocumentsRoute._addFileChildren(
-    AuthedCompanySlugDocumentsRouteChildren,
+const AuthedCompanySlugPanelDocumentsRouteRouteWithChildren =
+  AuthedCompanySlugPanelDocumentsRouteRoute._addFileChildren(
+    AuthedCompanySlugPanelDocumentsRouteRouteChildren,
   )
 
-interface AuthedCompanySlugInvitesRouteChildren {
-  AuthedCompanySlugInvitesInviteIdRoute: typeof AuthedCompanySlugInvitesInviteIdRoute
-  AuthedCompanySlugInvitesNewRoute: typeof AuthedCompanySlugInvitesNewRoute
+interface AuthedCompanySlugPanelInvitesRouteRouteChildren {
+  AuthedCompanySlugPanelInvitesInviteIdRoute: typeof AuthedCompanySlugPanelInvitesInviteIdRoute
+  AuthedCompanySlugPanelInvitesNewRoute: typeof AuthedCompanySlugPanelInvitesNewRoute
+  AuthedCompanySlugPanelInvitesIndexRoute: typeof AuthedCompanySlugPanelInvitesIndexRoute
 }
 
-const AuthedCompanySlugInvitesRouteChildren: AuthedCompanySlugInvitesRouteChildren =
+const AuthedCompanySlugPanelInvitesRouteRouteChildren: AuthedCompanySlugPanelInvitesRouteRouteChildren =
   {
-    AuthedCompanySlugInvitesInviteIdRoute:
-      AuthedCompanySlugInvitesInviteIdRoute,
-    AuthedCompanySlugInvitesNewRoute: AuthedCompanySlugInvitesNewRoute,
+    AuthedCompanySlugPanelInvitesInviteIdRoute:
+      AuthedCompanySlugPanelInvitesInviteIdRoute,
+    AuthedCompanySlugPanelInvitesNewRoute:
+      AuthedCompanySlugPanelInvitesNewRoute,
+    AuthedCompanySlugPanelInvitesIndexRoute:
+      AuthedCompanySlugPanelInvitesIndexRoute,
   }
 
-const AuthedCompanySlugInvitesRouteWithChildren =
-  AuthedCompanySlugInvitesRoute._addFileChildren(
-    AuthedCompanySlugInvitesRouteChildren,
+const AuthedCompanySlugPanelInvitesRouteRouteWithChildren =
+  AuthedCompanySlugPanelInvitesRouteRoute._addFileChildren(
+    AuthedCompanySlugPanelInvitesRouteRouteChildren,
   )
 
-interface AuthedCompanySlugOrdersRouteChildren {
-  AuthedCompanySlugOrdersOrderIdRoute: typeof AuthedCompanySlugOrdersOrderIdRoute
-  AuthedCompanySlugOrdersNewRoute: typeof AuthedCompanySlugOrdersNewRoute
+interface AuthedCompanySlugPanelOrdersRouteRouteChildren {
+  AuthedCompanySlugPanelOrdersOrderIdRoute: typeof AuthedCompanySlugPanelOrdersOrderIdRoute
+  AuthedCompanySlugPanelOrdersNewRoute: typeof AuthedCompanySlugPanelOrdersNewRoute
+  AuthedCompanySlugPanelOrdersIndexRoute: typeof AuthedCompanySlugPanelOrdersIndexRoute
 }
 
-const AuthedCompanySlugOrdersRouteChildren: AuthedCompanySlugOrdersRouteChildren =
+const AuthedCompanySlugPanelOrdersRouteRouteChildren: AuthedCompanySlugPanelOrdersRouteRouteChildren =
   {
-    AuthedCompanySlugOrdersOrderIdRoute: AuthedCompanySlugOrdersOrderIdRoute,
-    AuthedCompanySlugOrdersNewRoute: AuthedCompanySlugOrdersNewRoute,
+    AuthedCompanySlugPanelOrdersOrderIdRoute:
+      AuthedCompanySlugPanelOrdersOrderIdRoute,
+    AuthedCompanySlugPanelOrdersNewRoute: AuthedCompanySlugPanelOrdersNewRoute,
+    AuthedCompanySlugPanelOrdersIndexRoute:
+      AuthedCompanySlugPanelOrdersIndexRoute,
   }
 
-const AuthedCompanySlugOrdersRouteWithChildren =
-  AuthedCompanySlugOrdersRoute._addFileChildren(
-    AuthedCompanySlugOrdersRouteChildren,
+const AuthedCompanySlugPanelOrdersRouteRouteWithChildren =
+  AuthedCompanySlugPanelOrdersRouteRoute._addFileChildren(
+    AuthedCompanySlugPanelOrdersRouteRouteChildren,
   )
 
-interface AuthedCompanySlugPricingPriceListIdRouteChildren {
-  AuthedCompanySlugPricingPriceListIdEditRoute: typeof AuthedCompanySlugPricingPriceListIdEditRoute
+interface AuthedCompanySlugPanelPricingPriceListIdRouteRouteChildren {
+  AuthedCompanySlugPanelPricingPriceListIdEditRoute: typeof AuthedCompanySlugPanelPricingPriceListIdEditRoute
+  AuthedCompanySlugPanelPricingPriceListIdIndexRoute: typeof AuthedCompanySlugPanelPricingPriceListIdIndexRoute
 }
 
-const AuthedCompanySlugPricingPriceListIdRouteChildren: AuthedCompanySlugPricingPriceListIdRouteChildren =
+const AuthedCompanySlugPanelPricingPriceListIdRouteRouteChildren: AuthedCompanySlugPanelPricingPriceListIdRouteRouteChildren =
   {
-    AuthedCompanySlugPricingPriceListIdEditRoute:
-      AuthedCompanySlugPricingPriceListIdEditRoute,
+    AuthedCompanySlugPanelPricingPriceListIdEditRoute:
+      AuthedCompanySlugPanelPricingPriceListIdEditRoute,
+    AuthedCompanySlugPanelPricingPriceListIdIndexRoute:
+      AuthedCompanySlugPanelPricingPriceListIdIndexRoute,
   }
 
-const AuthedCompanySlugPricingPriceListIdRouteWithChildren =
-  AuthedCompanySlugPricingPriceListIdRoute._addFileChildren(
-    AuthedCompanySlugPricingPriceListIdRouteChildren,
+const AuthedCompanySlugPanelPricingPriceListIdRouteRouteWithChildren =
+  AuthedCompanySlugPanelPricingPriceListIdRouteRoute._addFileChildren(
+    AuthedCompanySlugPanelPricingPriceListIdRouteRouteChildren,
   )
 
-interface AuthedCompanySlugPricingRouteChildren {
-  AuthedCompanySlugPricingPriceListIdRoute: typeof AuthedCompanySlugPricingPriceListIdRouteWithChildren
-  AuthedCompanySlugPricingNewRoute: typeof AuthedCompanySlugPricingNewRoute
+interface AuthedCompanySlugPanelPricingRouteRouteChildren {
+  AuthedCompanySlugPanelPricingPriceListIdRouteRoute: typeof AuthedCompanySlugPanelPricingPriceListIdRouteRouteWithChildren
+  AuthedCompanySlugPanelPricingNewRoute: typeof AuthedCompanySlugPanelPricingNewRoute
+  AuthedCompanySlugPanelPricingIndexRoute: typeof AuthedCompanySlugPanelPricingIndexRoute
 }
 
-const AuthedCompanySlugPricingRouteChildren: AuthedCompanySlugPricingRouteChildren =
+const AuthedCompanySlugPanelPricingRouteRouteChildren: AuthedCompanySlugPanelPricingRouteRouteChildren =
   {
-    AuthedCompanySlugPricingPriceListIdRoute:
-      AuthedCompanySlugPricingPriceListIdRouteWithChildren,
-    AuthedCompanySlugPricingNewRoute: AuthedCompanySlugPricingNewRoute,
+    AuthedCompanySlugPanelPricingPriceListIdRouteRoute:
+      AuthedCompanySlugPanelPricingPriceListIdRouteRouteWithChildren,
+    AuthedCompanySlugPanelPricingNewRoute:
+      AuthedCompanySlugPanelPricingNewRoute,
+    AuthedCompanySlugPanelPricingIndexRoute:
+      AuthedCompanySlugPanelPricingIndexRoute,
   }
 
-const AuthedCompanySlugPricingRouteWithChildren =
-  AuthedCompanySlugPricingRoute._addFileChildren(
-    AuthedCompanySlugPricingRouteChildren,
+const AuthedCompanySlugPanelPricingRouteRouteWithChildren =
+  AuthedCompanySlugPanelPricingRouteRoute._addFileChildren(
+    AuthedCompanySlugPanelPricingRouteRouteChildren,
   )
 
-interface AuthedCompanySlugProductsProductIdRouteChildren {
-  AuthedCompanySlugProductsProductIdEditRoute: typeof AuthedCompanySlugProductsProductIdEditRoute
+interface AuthedCompanySlugPanelProductsProductIdRouteRouteChildren {
+  AuthedCompanySlugPanelProductsProductIdEditRoute: typeof AuthedCompanySlugPanelProductsProductIdEditRoute
+  AuthedCompanySlugPanelProductsProductIdIndexRoute: typeof AuthedCompanySlugPanelProductsProductIdIndexRoute
 }
 
-const AuthedCompanySlugProductsProductIdRouteChildren: AuthedCompanySlugProductsProductIdRouteChildren =
+const AuthedCompanySlugPanelProductsProductIdRouteRouteChildren: AuthedCompanySlugPanelProductsProductIdRouteRouteChildren =
   {
-    AuthedCompanySlugProductsProductIdEditRoute:
-      AuthedCompanySlugProductsProductIdEditRoute,
+    AuthedCompanySlugPanelProductsProductIdEditRoute:
+      AuthedCompanySlugPanelProductsProductIdEditRoute,
+    AuthedCompanySlugPanelProductsProductIdIndexRoute:
+      AuthedCompanySlugPanelProductsProductIdIndexRoute,
   }
 
-const AuthedCompanySlugProductsProductIdRouteWithChildren =
-  AuthedCompanySlugProductsProductIdRoute._addFileChildren(
-    AuthedCompanySlugProductsProductIdRouteChildren,
+const AuthedCompanySlugPanelProductsProductIdRouteRouteWithChildren =
+  AuthedCompanySlugPanelProductsProductIdRouteRoute._addFileChildren(
+    AuthedCompanySlugPanelProductsProductIdRouteRouteChildren,
   )
 
-interface AuthedCompanySlugProductsRouteChildren {
-  AuthedCompanySlugProductsProductIdRoute: typeof AuthedCompanySlugProductsProductIdRouteWithChildren
-  AuthedCompanySlugProductsNewRoute: typeof AuthedCompanySlugProductsNewRoute
+interface AuthedCompanySlugPanelProductsRouteRouteChildren {
+  AuthedCompanySlugPanelProductsProductIdRouteRoute: typeof AuthedCompanySlugPanelProductsProductIdRouteRouteWithChildren
+  AuthedCompanySlugPanelProductsNewRoute: typeof AuthedCompanySlugPanelProductsNewRoute
+  AuthedCompanySlugPanelProductsIndexRoute: typeof AuthedCompanySlugPanelProductsIndexRoute
 }
 
-const AuthedCompanySlugProductsRouteChildren: AuthedCompanySlugProductsRouteChildren =
+const AuthedCompanySlugPanelProductsRouteRouteChildren: AuthedCompanySlugPanelProductsRouteRouteChildren =
   {
-    AuthedCompanySlugProductsProductIdRoute:
-      AuthedCompanySlugProductsProductIdRouteWithChildren,
-    AuthedCompanySlugProductsNewRoute: AuthedCompanySlugProductsNewRoute,
+    AuthedCompanySlugPanelProductsProductIdRouteRoute:
+      AuthedCompanySlugPanelProductsProductIdRouteRouteWithChildren,
+    AuthedCompanySlugPanelProductsNewRoute:
+      AuthedCompanySlugPanelProductsNewRoute,
+    AuthedCompanySlugPanelProductsIndexRoute:
+      AuthedCompanySlugPanelProductsIndexRoute,
   }
 
-const AuthedCompanySlugProductsRouteWithChildren =
-  AuthedCompanySlugProductsRoute._addFileChildren(
-    AuthedCompanySlugProductsRouteChildren,
+const AuthedCompanySlugPanelProductsRouteRouteWithChildren =
+  AuthedCompanySlugPanelProductsRouteRoute._addFileChildren(
+    AuthedCompanySlugPanelProductsRouteRouteChildren,
   )
 
-interface AuthedCompanySlugRouteChildren {
-  AuthedCompanySlugCompanyRoute: typeof AuthedCompanySlugCompanyRouteWithChildren
-  AuthedCompanySlugCustomersRoute: typeof AuthedCompanySlugCustomersRouteWithChildren
-  AuthedCompanySlugDocumentsRoute: typeof AuthedCompanySlugDocumentsRouteWithChildren
-  AuthedCompanySlugInvitesRoute: typeof AuthedCompanySlugInvitesRouteWithChildren
-  AuthedCompanySlugOrdersRoute: typeof AuthedCompanySlugOrdersRouteWithChildren
-  AuthedCompanySlugPricingRoute: typeof AuthedCompanySlugPricingRouteWithChildren
-  AuthedCompanySlugProductsRoute: typeof AuthedCompanySlugProductsRouteWithChildren
-  AuthedCompanySlugIndexRoute: typeof AuthedCompanySlugIndexRoute
+interface AuthedCompanySlugPanelRouteRouteChildren {
+  AuthedCompanySlugPanelCompanyRouteRoute: typeof AuthedCompanySlugPanelCompanyRouteRouteWithChildren
+  AuthedCompanySlugPanelCustomersRouteRoute: typeof AuthedCompanySlugPanelCustomersRouteRouteWithChildren
+  AuthedCompanySlugPanelDocumentsRouteRoute: typeof AuthedCompanySlugPanelDocumentsRouteRouteWithChildren
+  AuthedCompanySlugPanelInvitesRouteRoute: typeof AuthedCompanySlugPanelInvitesRouteRouteWithChildren
+  AuthedCompanySlugPanelOrdersRouteRoute: typeof AuthedCompanySlugPanelOrdersRouteRouteWithChildren
+  AuthedCompanySlugPanelPricingRouteRoute: typeof AuthedCompanySlugPanelPricingRouteRouteWithChildren
+  AuthedCompanySlugPanelProductsRouteRoute: typeof AuthedCompanySlugPanelProductsRouteRouteWithChildren
+  AuthedCompanySlugPanelIndexRoute: typeof AuthedCompanySlugPanelIndexRoute
 }
 
-const AuthedCompanySlugRouteChildren: AuthedCompanySlugRouteChildren = {
-  AuthedCompanySlugCompanyRoute: AuthedCompanySlugCompanyRouteWithChildren,
-  AuthedCompanySlugCustomersRoute: AuthedCompanySlugCustomersRouteWithChildren,
-  AuthedCompanySlugDocumentsRoute: AuthedCompanySlugDocumentsRouteWithChildren,
-  AuthedCompanySlugInvitesRoute: AuthedCompanySlugInvitesRouteWithChildren,
-  AuthedCompanySlugOrdersRoute: AuthedCompanySlugOrdersRouteWithChildren,
-  AuthedCompanySlugPricingRoute: AuthedCompanySlugPricingRouteWithChildren,
-  AuthedCompanySlugProductsRoute: AuthedCompanySlugProductsRouteWithChildren,
-  AuthedCompanySlugIndexRoute: AuthedCompanySlugIndexRoute,
+const AuthedCompanySlugPanelRouteRouteChildren: AuthedCompanySlugPanelRouteRouteChildren =
+  {
+    AuthedCompanySlugPanelCompanyRouteRoute:
+      AuthedCompanySlugPanelCompanyRouteRouteWithChildren,
+    AuthedCompanySlugPanelCustomersRouteRoute:
+      AuthedCompanySlugPanelCustomersRouteRouteWithChildren,
+    AuthedCompanySlugPanelDocumentsRouteRoute:
+      AuthedCompanySlugPanelDocumentsRouteRouteWithChildren,
+    AuthedCompanySlugPanelInvitesRouteRoute:
+      AuthedCompanySlugPanelInvitesRouteRouteWithChildren,
+    AuthedCompanySlugPanelOrdersRouteRoute:
+      AuthedCompanySlugPanelOrdersRouteRouteWithChildren,
+    AuthedCompanySlugPanelPricingRouteRoute:
+      AuthedCompanySlugPanelPricingRouteRouteWithChildren,
+    AuthedCompanySlugPanelProductsRouteRoute:
+      AuthedCompanySlugPanelProductsRouteRouteWithChildren,
+    AuthedCompanySlugPanelIndexRoute: AuthedCompanySlugPanelIndexRoute,
+  }
+
+const AuthedCompanySlugPanelRouteRouteWithChildren =
+  AuthedCompanySlugPanelRouteRoute._addFileChildren(
+    AuthedCompanySlugPanelRouteRouteChildren,
+  )
+
+interface AuthedCompanySlugRouteRouteChildren {
+  AuthedCompanySlugFullRouteRoute: typeof AuthedCompanySlugFullRouteRouteWithChildren
+  AuthedCompanySlugPanelRouteRoute: typeof AuthedCompanySlugPanelRouteRouteWithChildren
 }
 
-const AuthedCompanySlugRouteWithChildren =
-  AuthedCompanySlugRoute._addFileChildren(AuthedCompanySlugRouteChildren)
+const AuthedCompanySlugRouteRouteChildren: AuthedCompanySlugRouteRouteChildren =
+  {
+    AuthedCompanySlugFullRouteRoute:
+      AuthedCompanySlugFullRouteRouteWithChildren,
+    AuthedCompanySlugPanelRouteRoute:
+      AuthedCompanySlugPanelRouteRouteWithChildren,
+  }
+
+const AuthedCompanySlugRouteRouteWithChildren =
+  AuthedCompanySlugRouteRoute._addFileChildren(
+    AuthedCompanySlugRouteRouteChildren,
+  )
 
 interface AuthedRouteChildren {
-  AuthedCompanySlugRoute: typeof AuthedCompanySlugRouteWithChildren
+  AuthedCompanySlugRouteRoute: typeof AuthedCompanySlugRouteRouteWithChildren
   AuthedOnboardingRoute: typeof AuthedOnboardingRoute
   AuthedIndexRoute: typeof AuthedIndexRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
-  AuthedCompanySlugRoute: AuthedCompanySlugRouteWithChildren,
+  AuthedCompanySlugRouteRoute: AuthedCompanySlugRouteRouteWithChildren,
   AuthedOnboardingRoute: AuthedOnboardingRoute,
   AuthedIndexRoute: AuthedIndexRoute,
 }

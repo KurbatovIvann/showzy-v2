@@ -1,10 +1,5 @@
 import { Layers } from "lucide-react";
-import {
-  Link,
-  Outlet,
-  useNavigate,
-  useRouterState,
-} from "@tanstack/react-router";
+import { Link, Outlet, useNavigate } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
 import { cx } from "../../components/ui/cx";
@@ -13,30 +8,51 @@ import { detailPaneClass, listPaneClass } from "../../components/ui/pane-class";
 import { PaneHeader } from "../../components/ui/pane-header";
 import { sectionTitle } from "./left-nav";
 import { usePanelChrome } from "./panel-chrome-context";
-import {
-  isDocumentsTemplatesPath,
-  isFullShellPath,
-  isSectionDetailPath,
-  listPathForPathname,
-  panelSectionFromPathname,
-  type PanelSectionId,
-} from "./section-path";
+import { useRequiredPanelState, type PanelPaneMode } from "./panel-route-state";
+import type { CompanySlugPath, PanelSectionId } from "./panel-section";
 import { usePanelChromeCopy } from "./use-panel-chrome-copy";
+
+const TAB_BASE_CLASS = cx(
+  "shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] font-medium",
+  "transition-colors duration-150 ease-soft",
+  "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action",
+);
+const TAB_ACTIVE_CLASS = "bg-actionSoft text-action";
+const TAB_INACTIVE_CLASS = "border border-line text-muted hover:text-ink";
+
+const COMPANY_ROW_BASE_CLASS = cx(
+  "mb-1 flex w-full items-center gap-3 rounded-field px-3 py-3.5 text-left",
+  "transition-colors duration-150 ease-soft",
+  "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action",
+);
+const COMPANY_ROW_ACTIVE_CLASS = "bg-actionSoft";
+const COMPANY_ROW_INACTIVE_CLASS = "hover:bg-canvas";
+
+const TAB_ACTIVE_PROPS = {
+  className: TAB_ACTIVE_CLASS,
+  "aria-current": "page" as const,
+};
+const TAB_INACTIVE_PROPS = { className: TAB_INACTIVE_CLASS };
+const COMPANY_ROW_ACTIVE_PROPS = {
+  className: COMPANY_ROW_ACTIVE_CLASS,
+  "aria-current": "page" as const,
+};
+const COMPANY_ROW_INACTIVE_PROPS = { className: COMPANY_ROW_INACTIVE_CLASS };
 
 export function SectionWorkspace({
   section,
+  pane,
   children,
 }: {
   readonly section: PanelSectionId;
+  readonly pane: PanelPaneMode;
   readonly children: ReactNode;
 }) {
   const copy = usePanelChromeCopy();
   const chrome = usePanelChrome();
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const detailOpen = isSectionDetailPath(pathname, chrome.companySlug);
   const phone = chrome.mode === "phone";
-  const listVisible = !phone || !detailOpen;
-  const detailVisible = !phone || detailOpen;
+  const listVisible = !phone || pane === "list";
+  const detailVisible = !phone || pane === "detail";
 
   return (
     <>
@@ -54,18 +70,15 @@ export function SectionWorkspace({
           showBack={false}
         />
         {section === "documents" ? (
-          <DocumentsTabs
-            companySlug={chrome.companySlug}
-            templates={isDocumentsTemplatesPath(pathname, chrome.companySlug)}
-          />
+          <DocumentsTabs companySlug={chrome.companySlug} />
         ) : null}
         {section === "customers" ||
         section === "customer-groups" ||
         section === "counterparties" ? (
-          <CustomersTabs companySlug={chrome.companySlug} section={section} />
+          <CustomersTabs companySlug={chrome.companySlug} />
         ) : null}
         {section === "company" ? (
-          <CompanyRows companySlug={chrome.companySlug} pathname={pathname} />
+          <CompanyRows companySlug={chrome.companySlug} />
         ) : null}
       </section>
       <div hidden={!detailVisible} className={detailPaneClass()}>
@@ -77,15 +90,17 @@ export function SectionWorkspace({
 
 export function SectionDetailPlaceholder({
   section,
+  listTo,
+  pane,
 }: {
   readonly section: PanelSectionId;
+  readonly listTo: CompanySlugPath;
+  readonly pane: PanelPaneMode;
 }) {
   const copy = usePanelChromeCopy();
   const chrome = usePanelChrome();
   const navigate = useNavigate();
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
   const phone = chrome.mode === "phone";
-  const detailOpen = isSectionDetailPath(pathname, chrome.companySlug);
 
   return (
     <DetailStage label={copy.detailLabel} className="flex h-full flex-col">
@@ -96,12 +111,12 @@ export function SectionDetailPlaceholder({
         onOpenNav={chrome.openNav}
         onBack={() => {
           void navigate({
-            to: listPathForPathname(pathname, chrome.companySlug),
+            to: listTo,
             params: { companySlug: chrome.companySlug },
           });
         }}
         showMenu={false}
-        showBack={phone && detailOpen}
+        showBack={phone && pane === "detail"}
       />
       <div className="px-6 py-14 text-center">
         <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-canvas">
@@ -119,32 +134,38 @@ export function SectionDetailPlaceholder({
 }
 
 export function SectionWorkspacePage() {
-  const chrome = usePanelChrome();
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const section = panelSectionFromPathname(pathname, chrome.companySlug);
+  const panel = useRequiredPanelState();
   return (
-    <SectionWorkspace section={section}>
-      <SectionDetailPlaceholder section={section} />
+    <SectionWorkspace section={panel.panelSection} pane={panel.pane}>
+      <SectionDetailPlaceholder
+        section={panel.panelSection}
+        listTo={panel.listTo}
+        pane={panel.pane}
+      />
     </SectionWorkspace>
   );
 }
 
-/**
- * Documents layout parents (`documents`, `templates`, `$templateId`) must
- * not mount `usePanelChrome` consumers on the template-editor path:
- * CompanyLayout skips PanelChrome there, and the edit leaf has to mount
- * through `<Outlet />` (`docs/design/web-panel-architecture.md`).
- */
-export function DocumentsSectionLayout({
-  companySlug,
-}: {
-  readonly companySlug: string;
-}) {
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
-  if (isFullShellPath(pathname, companySlug)) {
-    return <Outlet />;
-  }
-  return <SectionWorkspacePage />;
+/** Section parent: list pane stays mounted; children fill the detail pane. */
+export function SectionWorkspaceLayout() {
+  const panel = useRequiredPanelState();
+  return (
+    <SectionWorkspace section={panel.panelSection} pane={panel.pane}>
+      <Outlet />
+    </SectionWorkspace>
+  );
+}
+
+/** Exact index / detail / create / edit leaf inside a section layout. */
+export function SectionDetailRoutePage() {
+  const panel = useRequiredPanelState();
+  return (
+    <SectionDetailPlaceholder
+      section={panel.panelSection}
+      listTo={panel.listTo}
+      pane={panel.pane}
+    />
+  );
 }
 
 export function FullShellPlaceholderPage({
@@ -184,92 +205,70 @@ export function FullShellPlaceholderPage({
   );
 }
 
-function DocumentsTabs({
-  companySlug,
-  templates,
-}: {
-  readonly companySlug: string;
-  readonly templates: boolean;
-}) {
+function DocumentsTabs({ companySlug }: { readonly companySlug: string }) {
   const copy = usePanelChromeCopy();
+  const { listTo } = useRequiredPanelState();
   return (
     <div className="flex gap-2 overflow-x-auto px-4 pb-4 pt-3 sm:px-5">
       <TabLink
         label={copy.documentsTab}
-        selected={!templates}
         params={{ companySlug }}
+        current={listTo === "/$companySlug/documents"}
         to="/$companySlug/documents"
       />
       <TabLink
         label={copy.templatesTab}
-        selected={templates}
         params={{ companySlug }}
+        current={listTo === "/$companySlug/documents/templates"}
         to="/$companySlug/documents/templates"
       />
     </div>
   );
 }
 
-function CustomersTabs({
-  companySlug,
-  section,
-}: {
-  readonly companySlug: string;
-  readonly section: PanelSectionId;
-}) {
+function CustomersTabs({ companySlug }: { readonly companySlug: string }) {
   const copy = usePanelChromeCopy();
+  const { listTo } = useRequiredPanelState();
   return (
     <div className="flex gap-2 overflow-x-auto px-4 pb-4 pt-3 sm:px-5">
       <TabLink
         label={copy.customers}
-        selected={section === "customers"}
         params={{ companySlug }}
+        current={listTo === "/$companySlug/customers"}
         to="/$companySlug/customers"
       />
       <TabLink
         label={copy.customerGroupsShort}
-        selected={section === "customer-groups"}
         params={{ companySlug }}
+        current={listTo === "/$companySlug/customers/groups"}
         to="/$companySlug/customers/groups"
       />
       <TabLink
         label={copy.counterparties}
-        selected={section === "counterparties"}
         params={{ companySlug }}
+        current={listTo === "/$companySlug/customers/counterparties"}
         to="/$companySlug/customers/counterparties"
       />
     </div>
   );
 }
 
-function CompanyRows({
-  companySlug,
-  pathname,
-}: {
-  readonly companySlug: string;
-  readonly pathname: string;
-}) {
+function CompanyRows({ companySlug }: { readonly companySlug: string }) {
   const copy = usePanelChromeCopy();
-  const legal = pathname.includes("/company/legal");
-  const team = pathname.includes("/company/team");
-  const profile = !legal && !team;
   return (
     <ul className="flex-1 overflow-y-auto px-3 pb-4">
       <CompanyRow
         label={copy.companyProfile}
-        selected={profile}
         params={{ companySlug }}
         to="/$companySlug/company"
       />
       <CompanyRow
         label={copy.companyLegal}
-        selected={legal}
         params={{ companySlug }}
         to="/$companySlug/company/legal"
       />
       <CompanyRow
         label={copy.companyTeam}
-        selected={team}
         params={{ companySlug }}
         to="/$companySlug/company/team"
       />
@@ -279,12 +278,12 @@ function CompanyRows({
 
 function TabLink({
   label,
-  selected,
   to,
   params,
+  current,
 }: {
   readonly label: string;
-  readonly selected: boolean;
+  readonly current: boolean;
   readonly to:
     | "/$companySlug/documents"
     | "/$companySlug/documents/templates"
@@ -293,19 +292,23 @@ function TabLink({
     | "/$companySlug/customers/counterparties";
   readonly params: { readonly companySlug: string };
 }) {
+  // Current tab is `listTo === to` from matched staticData (document
+  // detail keeps issued `listTo`; templates layout overrides it). The
+  // current tab keeps default fuzzy Link matching so its own records
+  // stay current. Sibling trees pass `exact` so a parent `to` cannot
+  // stay active on templates / groups / counterparties.
   return (
     <Link
-      aria-current={selected ? "page" : undefined}
       params={params}
       to={to}
-      className={cx(
-        "shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] font-medium",
-        "transition-colors duration-150 ease-soft",
-        "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action",
-        selected
-          ? "bg-actionSoft text-action"
-          : "border border-line text-muted hover:text-ink",
-      )}
+      activeOptions={
+        current
+          ? { includeSearch: false }
+          : { exact: true, includeSearch: false }
+      }
+      activeProps={TAB_ACTIVE_PROPS}
+      inactiveProps={TAB_INACTIVE_PROPS}
+      className={TAB_BASE_CLASS}
     >
       {label}
     </Link>
@@ -314,12 +317,10 @@ function TabLink({
 
 function CompanyRow({
   label,
-  selected,
   to,
   params,
 }: {
   readonly label: string;
-  readonly selected: boolean;
   readonly to:
     | "/$companySlug/company"
     | "/$companySlug/company/legal"
@@ -329,15 +330,12 @@ function CompanyRow({
   return (
     <li>
       <Link
-        aria-current={selected ? "page" : undefined}
         params={params}
         to={to}
-        className={cx(
-          "mb-1 flex w-full items-center gap-3 rounded-field px-3 py-3.5 text-left",
-          "transition-colors duration-150 ease-soft",
-          "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action",
-          selected ? "bg-actionSoft" : "hover:bg-canvas",
-        )}
+        activeOptions={{ exact: true, includeSearch: false }}
+        activeProps={COMPANY_ROW_ACTIVE_PROPS}
+        inactiveProps={COMPANY_ROW_INACTIVE_PROPS}
+        className={COMPANY_ROW_BASE_CLASS}
       >
         <span className="block truncate text-[15px] font-medium text-ink">
           {label}
