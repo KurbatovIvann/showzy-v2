@@ -6,6 +6,7 @@ import {
   emptyLegalDraft,
   parseUpdateLegalInput,
   planOnboardingLegalSubmit,
+  sameUpdateLegalInput,
   updateLegalPayload,
   validateOnboardingLegal,
 } from "./legal-form";
@@ -70,5 +71,35 @@ describe("planOnboardingLegalSubmit", () => {
       }),
     ).toEqual({ kind: "retry" });
     expect(onboardingCopy("uk").legalSkip.length).toBeGreaterThan(0);
+  });
+
+  it("compares legal fields explicitly instead of serialized identity", () => {
+    const draft = { ...emptyLegalDraft(), legalName: "ФОП Іваненко" };
+    const first = planOnboardingLegalSubmit({
+      draft,
+      lastSubmitted: null,
+      lastFailureKind: null,
+    });
+    expect(first.kind).toBe("submit");
+    if (first.kind !== "submit") {
+      return;
+    }
+    const replayed = updateLegalPayload(draft);
+    expect(replayed).not.toBe(first.input);
+    expect(sameUpdateLegalInput(first.input, replayed)).toBe(true);
+    expect(
+      planOnboardingLegalSubmit({
+        draft,
+        lastSubmitted: replayed,
+        lastFailureKind: "network",
+      }),
+    ).toEqual({ kind: "retry" });
+    expect(
+      planOnboardingLegalSubmit({
+        draft: { ...draft, legalName: "ФОП Петренко" },
+        lastSubmitted: first.input,
+        lastFailureKind: "network",
+      }).kind,
+    ).toBe("submit");
   });
 });

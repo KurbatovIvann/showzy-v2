@@ -48,6 +48,31 @@ describe("validateCreateCompanyForm", () => {
       validateCreateCompanyForm("x".repeat(COMPANY_NAME_MAX + 1), "cafe").name,
     ).toBe("too_long");
   });
+
+  it("treats panel-route slugs as occupied so they cannot shadow static paths", () => {
+    expect(validateCreateCompanyForm("Onboarding", "onboarding").slug).toBe(
+      "occupied",
+    );
+    expect(validateCreateCompanyForm("Sign In", "sign-in").slug).toBe(
+      "occupied",
+    );
+    expect(validateCreateCompanyForm("Verify", "verify").slug).toBe("occupied");
+    expect(validateCreateCompanyForm("Cafe", "cafe").slug).toBeNull();
+    expect(validateCreateCompanyForm("Onboarding", "Onboarding").slug).toBe(
+      "invalid",
+    );
+    expect(
+      planCreateCompanySubmit({
+        name: "Onboarding",
+        slug: "onboarding",
+        lastSubmitted: null,
+        lastFailureKind: null,
+      }),
+    ).toEqual({
+      kind: "invalid",
+      errors: { name: null, slug: "occupied" },
+    });
+  });
 });
 
 describe("planCreateCompanySubmit", () => {

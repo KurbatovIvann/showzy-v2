@@ -12,6 +12,18 @@ export const COMPANY_SLUG_MAX = 48;
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
+/**
+ * Static panel paths that sit as siblings of `/$companySlug`. TanStack
+ * ranks them first, so a created company with one of these slugs can
+ * never open as `/{slug}` (wizard stay / last-visited redirect loop).
+ * Client-only: `companies.create` is unchanged (SHO-324 review).
+ */
+export const RESERVED_PANEL_SLUGS: ReadonlySet<string> = new Set([
+  "onboarding",
+  "sign-in",
+  "verify",
+]);
+
 export type CreateCompanyInput = {
   readonly name: string;
   readonly slug: string;
@@ -72,12 +84,15 @@ export function validateCreateCompanyForm(
       : trimmed.length > COMPANY_NAME_MAX
         ? "too_long"
         : null;
-  const slugError: SlugErrorKey | null =
+  let slugError: SlugErrorKey | null =
     SLUG_PATTERN.test(slug) &&
     slug.length >= COMPANY_SLUG_MIN &&
     slug.length <= COMPANY_SLUG_MAX
       ? null
       : "invalid";
+  if (slugError === null && RESERVED_PANEL_SLUGS.has(slug)) {
+    slugError = "occupied";
+  }
   return { name: nameError, slug: slugError };
 }
 

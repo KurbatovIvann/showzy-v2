@@ -5,8 +5,6 @@ export type CompanyScopeCopy = {
   readonly loading: string;
   readonly pickerTitle: string;
   readonly pickerHint: string;
-  readonly emptyTitle: string;
-  readonly emptyDescription: string;
   readonly unknownTitle: string;
   readonly unknownDescription: string;
   readonly backToPicker: string;
@@ -20,8 +18,6 @@ const en: CompanyScopeCopy = {
   loading: "Loading your company",
   pickerTitle: "Choose a company",
   pickerHint: "Pick the company you want to work in.",
-  emptyTitle: "No companies",
-  emptyDescription: "This account does not belong to any company yet.",
   unknownTitle: "Company not found",
   unknownDescription: "This address does not match any company you belong to.",
   backToPicker: "Back to companies",
@@ -35,8 +31,6 @@ const uk: CompanyScopeCopy = {
   loading: "Завантаження вашої компанії",
   pickerTitle: "Оберіть компанію",
   pickerHint: "Оберіть компанію, з якою хочете працювати.",
-  emptyTitle: "Немає компаній",
-  emptyDescription: "Цей акаунт ще не належить до жодної компанії.",
   unknownTitle: "Компанію не знайдено",
   unknownDescription: "Ця адреса не збігається з вашими компаніями.",
   backToPicker: "До списку компаній",

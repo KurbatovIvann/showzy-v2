@@ -33,6 +33,7 @@ type SessionState = { user: MockSessionUser | null };
 type RpcState = {
   memberships: CompanyMembership[];
   occupiedSlugs: string[];
+  createNetworkFailuresRemaining: number;
   calls: RpcCall[];
   mutationCalls: MutationRpcCall[];
 };
@@ -79,6 +80,7 @@ function authMsw(): AuthMsw {
   const rpcState: RpcState = {
     memberships: [],
     occupiedSlugs: [],
+    createNetworkFailuresRemaining: 0,
     calls: [],
     mutationCalls: [],
   };
@@ -251,6 +253,10 @@ function allHandlers(sessionState: SessionState, rpcState: RpcState) {
         idempotencyKey: request.headers.get(IDEMPOTENCY_KEY_HEADER),
         input,
       });
+      if (rpcState.createNetworkFailuresRemaining > 0) {
+        rpcState.createNetworkFailuresRemaining -= 1;
+        return HttpResponse.error();
+      }
       const record = jsonObject(input);
       const name = typeof record?.name === "string" ? record.name.trim() : "";
       const slug = typeof record?.slug === "string" ? record.slug : "";
@@ -336,6 +342,7 @@ export function resetAuthMocks(): void {
   sessionState.user = null;
   listMineState.memberships = [];
   listMineState.occupiedSlugs = [];
+  listMineState.createNetworkFailuresRemaining = 0;
   listMineState.calls = [];
   listMineState.mutationCalls = [];
 }

@@ -38,7 +38,9 @@ export function OnboardingLegalStep({
           model.submit();
         }}
       >
+        {/* Shell already wraps children with `mt-7`; OTP keeps default `mt-8`. */}
         <ChannelTabs
+          className=""
           label={model.copy.typeLabel}
           tabs={[
             { key: "fop", label: model.copy.typeFop },

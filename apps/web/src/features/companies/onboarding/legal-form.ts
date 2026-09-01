@@ -159,6 +159,24 @@ export function isLegalRetryable(
   return kind !== null && RETRYABLE_FAILURE.has(kind);
 }
 
+export function sameUpdateLegalInput(
+  left: UpdateLegalInput,
+  right: UpdateLegalInput,
+): boolean {
+  return (
+    left.companyType === right.companyType &&
+    left.legalName === right.legalName &&
+    left.edrpou === right.edrpou &&
+    left.legalAddress === right.legalAddress &&
+    left.iban === right.iban &&
+    left.bankName === right.bankName &&
+    left.bankMfo === right.bankMfo &&
+    left.bankEdrpou === right.bankEdrpou &&
+    left.phone === right.phone &&
+    left.email === right.email
+  );
+}
+
 export function planOnboardingLegalSubmit(args: {
   readonly draft: OnboardingLegalDraft;
   readonly lastSubmitted: UpdateLegalInput | null;
@@ -172,7 +190,7 @@ export function planOnboardingLegalSubmit(args: {
   const input = updateLegalPayload(args.draft);
   if (
     args.lastSubmitted !== null &&
-    JSON.stringify(args.lastSubmitted) === JSON.stringify(input) &&
+    sameUpdateLegalInput(args.lastSubmitted, input) &&
     isLegalRetryable(args.lastFailureKind, args.lastWireCode ?? null)
   ) {
     return { kind: "retry" };

@@ -53,7 +53,6 @@ describe("onboarding routing (SHO-324)", () => {
       await screen.findByRole("heading", { name: "Про ваш бізнес" }),
     ).toBeDefined();
     expect(router.state.location.pathname).toBe("/onboarding");
-    expect(screen.queryByText("Немає компаній")).toBeNull();
     expect(
       screen.queryByRole("heading", { name: "Оберіть компанію" }),
     ).toBeNull();
@@ -196,25 +195,56 @@ describe("create company (SHO-324)", () => {
     expect(listMineState.memberships).toHaveLength(0);
   });
 
-  it("replays the same name+slug without a second membership", async () => {
+  it("does not create when the name slugs to a reserved panel path", async () => {
     signInEmpty();
-    const { apiClient } = await renderApp("/onboarding");
+    const { router, apiClient } = await renderApp("/onboarding");
+    await typeBusinessName("Onboarding");
+    expect(screen.getByText("shozee.com.ua/onboarding")).toBeDefined();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Створити профіль бізнесу" }),
+    );
+    expect(
+      await screen.findByText("Ця адреса вже зайнята. Оберіть іншу."),
+    ).toBeDefined();
+    expect(createCalls()).toHaveLength(0);
+    expect(listMineState.memberships).toHaveLength(0);
+    expect(apiClient.getActiveCompany()).toBeNull();
+    expect(router.state.location.pathname).toBe("/onboarding");
+    expect(
+      screen.getByRole("heading", { name: "Про ваш бізнес" }),
+    ).toBeDefined();
+    expect(screen.queryByRole("heading", { name: "Юридичні дані" })).toBeNull();
+  });
+
+  it("retries the same create attempt after a network failure", async () => {
+    signInEmpty();
+    listMineState.createNetworkFailuresRemaining = 1;
+    await renderApp("/onboarding");
     await typeBusinessName("Cafe");
     fireEvent.click(
       screen.getByRole("button", { name: "Створити профіль бізнесу" }),
     );
-    await screen.findByRole("heading", { name: "Юридичні дані" });
-    expect(listMineState.memberships).toHaveLength(1);
-    const first = listMineState.memberships[0];
-    if (first === undefined) {
-      throw new Error("expected a created membership");
-    }
-    const attempt = apiClient.createMutationAttempt();
-    const replayed = await apiClient.client.companies.create(
-      { name: "Cafe", slug: "cafe" },
-      attempt.options,
+    expect(
+      await screen.findByText("Помилка мережі. Перевірте з’єднання."),
+    ).toBeDefined();
+    expect(createCalls()).toHaveLength(1);
+    expect(listMineState.memberships).toHaveLength(0);
+    const firstKey = createCalls()[0]?.idempotencyKey;
+    expect(firstKey?.length).toBeGreaterThan(0);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Створити профіль бізнесу" }),
     );
-    expect(replayed.company.id).toBe(first.company.id);
+    expect(
+      await screen.findByRole("heading", { name: "Юридичні дані" }),
+    ).toBeDefined();
+    const created = createCalls();
+    expect(created).toHaveLength(2);
+    expect(created[0]?.idempotencyKey).toBe(created[1]?.idempotencyKey);
+    expect(created[0]?.input).toEqual({ name: "Cafe", slug: "cafe" });
+    expect(created[1]?.input).toEqual({ name: "Cafe", slug: "cafe" });
+    expect(created[0]?.companyId).toBeNull();
+    expect(created[1]?.companyId).toBeNull();
     expect(listMineState.memberships).toHaveLength(1);
     expect(listMineState.memberships[0]?.company.slug).toBe("cafe");
   });

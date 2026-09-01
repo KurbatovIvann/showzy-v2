@@ -56,7 +56,6 @@ describe("session guard (SHO-312)", () => {
     expect(
       await screen.findByRole("heading", { name: "Про ваш бізнес" }),
     ).toBeDefined();
-    expect(screen.queryByText("Немає компаній")).toBeNull();
   });
 
   it("keeps an unauthenticated /$companySlug off the placeholder", async () => {

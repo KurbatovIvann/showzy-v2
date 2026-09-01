@@ -69,7 +69,6 @@ describe("company slug resolve (SHO-313)", () => {
     expect(
       await screen.findByRole("heading", { name: "Про ваш бізнес" }),
     ).toBeDefined();
-    expect(screen.queryByText("Немає компаній")).toBeNull();
     expect(router.state.location.pathname).toBe("/onboarding");
   });
 
