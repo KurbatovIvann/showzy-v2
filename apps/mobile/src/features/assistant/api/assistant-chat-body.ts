@@ -98,6 +98,30 @@ export function prepareStaffAssistantChatRequest(args: {
   };
 }
 
+/**
+ * Keep `headers` (cookie, `x-company-id`, optional challenge) so a later
+ * `prepareSendMessagesRequest` cannot drop `x-confirmation-challenge-id`.
+ */
+export function prepareStaffAssistantSendMessagesRequest(args: {
+  readonly conversationId: string | null;
+  readonly messages: readonly StaffChatUiMessage[];
+  readonly headers: HeadersInit | undefined;
+}): {
+  readonly body: StaffAssistantChatBody;
+  readonly credentials: "omit";
+  readonly headers: HeadersInit | undefined;
+} {
+  const prepared = prepareStaffAssistantChatRequest({
+    conversationId: args.conversationId,
+    messages: args.messages,
+  });
+  return {
+    body: prepared.body,
+    credentials: "omit",
+    headers: args.headers,
+  };
+}
+
 export function clipAssistantInput(text: string): string {
   return text.trim().slice(0, STAFF_ASSISTANT_CHAT_MESSAGE_TEXT_MAX);
 }

@@ -8,7 +8,7 @@ import { fetch as expoFetch } from "expo/fetch";
 
 import {
   assistantChatUrl,
-  prepareStaffAssistantChatRequest,
+  prepareStaffAssistantSendMessagesRequest,
 } from "./assistant-chat-body";
 import { staffAssistantChatHeaders } from "./assistant-chat-headers";
 
@@ -45,15 +45,12 @@ export function createStaffAssistantTransport(options: {
         cookie: options.getCookie(),
         companyId: options.getCompanyId(),
       }),
-    prepareSendMessagesRequest: ({ messages }) => {
-      const prepared = prepareStaffAssistantChatRequest({
+    prepareSendMessagesRequest: ({ messages, headers }) => {
+      return prepareStaffAssistantSendMessagesRequest({
         conversationId: options.getConversationId(),
         messages,
+        headers,
       });
-      return {
-        body: prepared.body,
-        credentials: "omit",
-      };
     },
   });
 }

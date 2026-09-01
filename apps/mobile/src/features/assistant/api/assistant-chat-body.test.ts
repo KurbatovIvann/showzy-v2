@@ -5,6 +5,7 @@ import {
   assistantChatUrl,
   clipAssistantInput,
   prepareStaffAssistantChatRequest,
+  prepareStaffAssistantSendMessagesRequest,
   staffChatWireMessages,
   STAFF_ASSISTANT_CHAT_MESSAGE_TEXT_MAX,
 } from "./assistant-chat-body";
@@ -109,6 +110,30 @@ describe("prepareStaffAssistantChatRequest", () => {
         messages: [],
       }),
     ).toThrow(AssistantConversationMissingError);
+  });
+});
+
+describe("prepareStaffAssistantSendMessagesRequest", () => {
+  it("returns the request headers including the confirmation challenge", () => {
+    const headers = {
+      cookie: "better-auth.session_token=abc",
+      "x-company-id": "company-a",
+      "x-confirmation-challenge-id": challengeId,
+    };
+    const prepared = prepareStaffAssistantSendMessagesRequest({
+      conversationId,
+      messages: [
+        {
+          id: "u1",
+          role: "user",
+          parts: [{ type: "text", text: "Delete the customer" }],
+        },
+      ],
+      headers,
+    });
+    expect(prepared.headers).toEqual(headers);
+    expect(prepared.credentials).toBe("omit");
+    expect(prepared.body).not.toHaveProperty("companyId");
   });
 });
 

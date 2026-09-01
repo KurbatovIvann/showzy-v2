@@ -40,6 +40,9 @@ const en: AssistantCopy = {
   thinkingLabel: "Shozik is thinking",
   errors: {
     ...writeErrorsEn,
+    network: "Could not reach the assistant. Try again.",
+    unavailable: "The assistant is unavailable. Try again.",
+    permission: "You do not have permission to use the assistant.",
     unauthenticated: "Sign in again to continue.",
     notConfigured: "The assistant is not configured.",
   },
@@ -60,6 +63,9 @@ const uk: AssistantCopy = {
   thinkingLabel: "Шозік думає",
   errors: {
     ...writeErrorsUk,
+    network: "Не вдалося звʼязатися з асистентом. Спробуйте ще раз.",
+    unavailable: "Асистент недоступний. Спробуйте ще раз.",
+    permission: "Немає права користуватися асистентом.",
     unauthenticated: "Увійдіть знову, щоб продовжити.",
     notConfigured: "Асистент не налаштований.",
   },

@@ -1,6 +1,6 @@
 import { showzyEslintConfig } from "@showzy/tooling/eslint";
 
-import { assistantJsxNoLeakedRender } from "./eslint/assistant-leaked-render.mjs";
+import { assistantRestrictedSyntax } from "./eslint/assistant-leaked-render.mjs";
 import { customersBoundaryConfigs } from "./eslint/customers-boundaries.mjs";
 
 export default [
@@ -9,7 +9,7 @@ export default [
   {
     files: ["src/features/assistant/**/*.tsx"],
     rules: {
-      "no-restricted-syntax": ["error", assistantJsxNoLeakedRender],
+      "no-restricted-syntax": ["error", ...assistantRestrictedSyntax],
     },
   },
 ];

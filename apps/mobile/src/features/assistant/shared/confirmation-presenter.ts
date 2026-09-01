@@ -14,6 +14,9 @@ export type AssistantChatPart = {
   readonly type: string;
   readonly text?: string;
   readonly data?: unknown;
+  readonly toolCallId?: string;
+  readonly state?: string;
+  readonly output?: unknown;
 };
 
 export type AssistantChatMessage = {
@@ -37,13 +40,26 @@ export type ConfirmationCardState =
       readonly confirmation: PendingConfirmation;
     };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isToolErrorOutput(output: unknown): boolean {
+  return isRecord(output) && output.status === "error";
+}
+
+/**
+ * Latest unignored `data-confirmation`. Ignored (dismissed/resolved) ids
+ * are skipped so a later HITL card on a merged assistant message still
+ * shows (AI SDK 7 resume merge + core.md §7).
+ */
 export function pendingConfirmationFromMessages(
   messages: readonly AssistantChatMessage[],
   dismissedChallengeIds: ReadonlySet<string>,
 ): PendingConfirmation | null {
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index];
-    if (message === undefined || message.role !== "assistant") {
+  let latest: PendingConfirmation | null = null;
+  for (const message of messages) {
+    if (message.role !== "assistant") {
       continue;
     }
     for (const part of message.parts) {
@@ -52,12 +68,12 @@ export function pendingConfirmationFromMessages(
         continue;
       }
       if (dismissedChallengeIds.has(confirmation.challengeId)) {
-        return null;
+        continue;
       }
-      return { ...confirmation, messageId: message.id };
+      latest = { ...confirmation, messageId: message.id };
     }
   }
-  return null;
+  return latest;
 }
 
 export function confirmationCardState(args: {
@@ -80,15 +96,83 @@ export function confirmationResumeHeaders(
 }
 
 /**
+ * A failed HTTP 200 resume keeps the same `data-confirmation` part. Only
+ * treat the challenge as consumed when the tool output is no longer that
+ * confirmation and is not a tool error.
+ */
+export function confirmationResumeOutcome(args: {
+  readonly challengeId: string;
+  readonly toolCallId: string;
+  readonly messages: readonly AssistantChatMessage[];
+}): "open" | "succeeded" | "failed" {
+  for (const message of args.messages) {
+    for (const part of message.parts) {
+      if (part.toolCallId !== args.toolCallId) {
+        continue;
+      }
+      if (part.state === "output-error") {
+        return "failed";
+      }
+      if (part.output === undefined) {
+        continue;
+      }
+      const paused = confirmationFromChatPart(part.output);
+      if (paused?.challengeId === args.challengeId) {
+        continue;
+      }
+      if (isToolErrorOutput(part.output)) {
+        return "failed";
+      }
+      return "succeeded";
+    }
+  }
+  return "open";
+}
+
+/**
+ * Mark resolved only when the resume consumed the challenge: the id is
+ * gone from pending parts and there is no error, a newer confirmation
+ * replaced it, or the matching tool result succeeded.
+ */
+export function shouldMarkConfirmationResolved(args: {
+  readonly resolvingChallengeId: string;
+  readonly pending: PendingConfirmation | null;
+  readonly hasError: boolean;
+  readonly messages: readonly AssistantChatMessage[];
+}): boolean {
+  if (args.hasError) {
+    return false;
+  }
+  if (args.pending === null) {
+    return true;
+  }
+  if (args.pending.challengeId !== args.resolvingChallengeId) {
+    return true;
+  }
+  return (
+    confirmationResumeOutcome({
+      challengeId: args.resolvingChallengeId,
+      toolCallId: args.pending.toolCallId,
+      messages: args.messages,
+    }) === "succeeded"
+  );
+}
+
+/**
  * AI-mount equivalent of `submitWithProtocolConfirmation`: the challenge
  * already streamed as `data-confirmation`. Confirm POSTs the same
- * messages plus the challenge header. Never skip HITL.
+ * messages plus the challenge header. Never skip HITL. Same-tick dismiss
+ * is visible when `dismissedChallengeIds` is the live set (a ref).
  */
 export async function executeConfirmationConfirm(args: {
   readonly pending: PendingConfirmation | null;
+  readonly dismissedChallengeIds: ReadonlySet<string>;
   readonly resume: (headers: Readonly<Record<string, string>>) => Promise<void>;
 }): Promise<"resumed" | "skipped"> {
   if (args.pending === null) {
+    return "skipped";
+  }
+  if (args.dismissedChallengeIds.has(args.pending.challengeId)) {
     return "skipped";
   }
   await args.resume(confirmationResumeHeaders(args.pending.challengeId));
