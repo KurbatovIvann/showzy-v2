@@ -17,9 +17,10 @@ function shouldRewriteNodeNextJsSpecifier(moduleName, originModulePath) {
   if (typeof originModulePath !== "string") {
     return false;
   }
+  const origin = originModulePath.replaceAll("\\", "/");
   return (
-    originModulePath.includes("/node_modules/@showzy/") ||
-    /\/packages\/[A-Za-z0-9._-]+\//u.test(originModulePath)
+    origin.includes("/node_modules/@showzy/") ||
+    /(?:^|\/)packages\/[A-Za-z0-9._-]+\//u.test(origin)
   );
 }
 

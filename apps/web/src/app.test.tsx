@@ -93,6 +93,22 @@ describe("OTP request and verify (SHO-312)", () => {
     expect(screen.getByText(/\+380671112233/)).toBeDefined();
   });
 
+  it("stays on verify when the document becomes visible again", async () => {
+    await renderApp("/sign-in");
+    const phone = await screen.findByLabelText("Номер телефону");
+    fireEvent.change(phone, { target: { value: "671112233" } });
+    fireEvent.click(screen.getByRole("button", { name: "Продовжити" }));
+    expect(
+      await screen.findByRole("heading", { name: "Підтвердження входу" }),
+    ).toBeDefined();
+    fireEvent(window, new Event("visibilitychange"));
+    fireEvent(document, new Event("visibilitychange"));
+    expect(
+      screen.getByRole("heading", { name: "Підтвердження входу" }),
+    ).toBeDefined();
+    expect(screen.queryByRole("heading", { name: "ШОЗІ" })).toBeNull();
+  });
+
   it("renders invalid_identifier on the field without calling a leaked message", async () => {
     await renderApp("/sign-in");
     const phone = await screen.findByLabelText("Номер телефону");

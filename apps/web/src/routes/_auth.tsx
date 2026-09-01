@@ -23,15 +23,14 @@ export const Route = createFileRoute("/_auth")({
 
 function AuthLayout() {
   const auth = useAuthSession();
-  if (auth.status === "loading") {
-    return <BootScreen />;
-  }
   if (auth.status === "authenticated") {
     return <Navigate to="/" />;
   }
+  // Keep OtpProvider mounted across a session refetch so `/verify` does
+  // not lose the in-flight OTP and bounce back to `/sign-in`.
   return (
     <OtpProvider>
-      <Outlet />
+      {auth.status === "loading" ? <BootScreen /> : <Outlet />}
     </OtpProvider>
   );
 }

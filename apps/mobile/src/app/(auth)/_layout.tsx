@@ -13,25 +13,29 @@ export default function AuthLayout() {
   if (auth.configError) {
     return <Redirect href="/" />;
   }
-  if (auth.status === "loading") {
-    return <CenteredSpinner accessibilityLabel={auth.copy.loading} />;
-  }
   if (auth.status === "authenticated") {
     return <Redirect href="/session" />;
   }
   if (auth.authClient === null) {
+    if (auth.status === "loading") {
+      return <CenteredSpinner accessibilityLabel={auth.copy.loading} />;
+    }
     return <Redirect href="/" />;
   }
 
   return (
     <OtpProvider>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          animation: "none",
-          contentStyle: { backgroundColor: theme.colors.background },
-        }}
-      />
+      {auth.status === "loading" ? (
+        <CenteredSpinner accessibilityLabel={auth.copy.loading} />
+      ) : (
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            animation: "none",
+            contentStyle: { backgroundColor: theme.colors.background },
+          }}
+        />
+      )}
     </OtpProvider>
   );
 }

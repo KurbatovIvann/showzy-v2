@@ -9,6 +9,26 @@ import type { ExpoAuthStorage } from "./storage";
 
 export type AuthStatus = "loading" | "anonymous" | "authenticated";
 
+/**
+ * Map better-auth `useSession().isPending` onto session status. A refetch
+ * (app foreground) must not return to `loading` after the first settle —
+ * the auth layout used to unmount `OtpProvider` on that flicker and bounce
+ * `/verify` back to `/sign-in`.
+ */
+export function authStatusFromSessionQuery(
+  isPending: boolean,
+  hasSession: boolean,
+  previous: AuthStatus | null,
+): AuthStatus {
+  if (isPending) {
+    if (previous === "anonymous" || previous === "authenticated") {
+      return previous;
+    }
+    return "loading";
+  }
+  return hasSession ? "authenticated" : "anonymous";
+}
+
 export type AuthSessionClient = {
   readonly getCookie: () => string;
   readonly signOut: () => Promise<unknown>;
@@ -131,11 +151,13 @@ export function useReadyAuthSessionValue<
     void refetchRef.current();
   }, [args.authClient, args.storage]);
 
-  const status: AuthStatus = args.isPending
-    ? "loading"
-    : session === null
-      ? "anonymous"
-      : "authenticated";
+  const previousStatus = useRef<AuthStatus | null>(null);
+  const status = authStatusFromSessionQuery(
+    args.isPending,
+    session !== null,
+    previousStatus.current,
+  );
+  previousStatus.current = status;
   const bootError = status === "anonymous" ? mapSessionError(args.error) : null;
 
   return useMemo(

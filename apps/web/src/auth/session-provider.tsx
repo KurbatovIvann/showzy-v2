@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useMemo,
+  useRef,
   type ReactNode,
 } from "react";
 
@@ -10,9 +11,10 @@ import { authCopy, type AuthCopy } from "../i18n/auth";
 import { detectLocale } from "../i18n/locale";
 import type { ShowzyAuthClient } from "./client";
 import { authErrorFromUnknown, type AuthErrorKind } from "./errors";
+import { authStatusFromSessionQuery, type AuthStatus } from "./session-status";
 import { userFromSession, type AuthSessionUser } from "./session-user";
 
-export type AuthStatus = "loading" | "anonymous" | "authenticated";
+export type { AuthStatus } from "./session-status";
 
 export type AuthSessionValue = {
   readonly status: AuthStatus;
@@ -49,11 +51,13 @@ export function SessionProvider({
   }, [refetch]);
 
   const session = userFromSession(sessionQuery.data);
-  const status: AuthStatus = sessionQuery.isPending
-    ? "loading"
-    : session === null
-      ? "anonymous"
-      : "authenticated";
+  const previousStatus = useRef<AuthStatus | null>(null);
+  const status = authStatusFromSessionQuery(
+    sessionQuery.isPending,
+    session !== null,
+    previousStatus.current,
+  );
+  previousStatus.current = status;
 
   const value: AuthSessionValue = {
     status,

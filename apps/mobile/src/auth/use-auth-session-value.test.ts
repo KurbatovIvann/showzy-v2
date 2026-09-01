@@ -306,6 +306,34 @@ describe("useReadyAuthSessionValue", () => {
     expect(jar.getItem(AUTH_COOKIE_KEY)).toBeNull();
     hooked.unmount();
   });
+
+  it("stays loading until the first session query settles", () => {
+    const hooked = mountReady({
+      data: null,
+      isPending: true,
+      authClient,
+      refetch: () => undefined,
+      storage,
+    });
+    expect(hooked.latest().status).toBe("loading");
+    hooked.rerender({ data: null, isPending: false });
+    expect(hooked.latest().status).toBe("anonymous");
+    hooked.unmount();
+  });
+
+  it("does not return to loading while a settled anonymous session refetches", () => {
+    const hooked = mountReady({
+      data: null,
+      isPending: false,
+      authClient,
+      refetch: () => undefined,
+      storage,
+    });
+    expect(hooked.latest().status).toBe("anonymous");
+    hooked.rerender({ data: null, isPending: true });
+    expect(hooked.latest().status).toBe("anonymous");
+    hooked.unmount();
+  });
 });
 
 describe("useBootAuthSessionValue", () => {

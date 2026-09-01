@@ -27,6 +27,27 @@ describe("metro NodeNext .js → .ts rewrite (SHO-297)", () => {
     ).toBe(true);
   });
 
+  it("rewrites Windows origin paths under packages and @showzy node_modules", () => {
+    expect(
+      shouldRewriteNodeNextJsSpecifier(
+        "./ai-manifest.js",
+        "E:\\showzy-v2\\packages\\contract\\src\\client\\index.ts",
+      ),
+    ).toBe(true);
+    expect(
+      shouldRewriteNodeNextJsSpecifier(
+        "./modules.js",
+        "E:\\showzy-v2\\packages\\modules\\catalog\\src\\index.ts",
+      ),
+    ).toBe(true);
+    expect(
+      shouldRewriteNodeNextJsSpecifier(
+        "./foo.js",
+        "E:\\showzy-v2\\node_modules\\@showzy\\validation\\src\\index.ts",
+      ),
+    ).toBe(true);
+  });
+
   it("does not rewrite unrelated .js misses", () => {
     expect(
       shouldRewriteNodeNextJsSpecifier(
@@ -38,6 +59,12 @@ describe("metro NodeNext .js → .ts rewrite (SHO-297)", () => {
       shouldRewriteNodeNextJsSpecifier(
         "./vendor.js",
         "/workspace/apps/mobile/src/index.ts",
+      ),
+    ).toBe(false);
+    expect(
+      shouldRewriteNodeNextJsSpecifier(
+        "./vendor.js",
+        "E:\\showzy-v2\\apps\\mobile\\src\\index.ts",
       ),
     ).toBe(false);
     expect(shouldRewriteNodeNextJsSpecifier("lodash", undefined)).toBe(false);
