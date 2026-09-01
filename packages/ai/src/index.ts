@@ -70,6 +70,7 @@ export {
   STAFF_ASSISTANT_CHAT_MESSAGES_MAX,
   STAFF_ASSISTANT_CHAT_MESSAGE_TEXT_MAX,
   STAFF_ASSISTANT_CHAT_PARTS_MAX,
+  STAFF_ASSISTANT_MODEL_HISTORY_MAX,
   type PausedToolAttempt,
   type PausedToolAttemptResolution,
   type StaffAssistantChatBody,

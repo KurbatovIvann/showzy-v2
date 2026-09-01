@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { STAFF_ASSISTANT_CACHE_PROVIDER_OPTIONS } from "./anthropic-options.js";
 import {
   lastStaffAssistantUserMessage,
   pausedToolAttemptForChallenge,
@@ -10,6 +11,7 @@ import {
   staffAssistantModelMessages,
   STAFF_ASSISTANT_CHAT_MESSAGES_MAX,
   STAFF_ASSISTANT_CHAT_MESSAGE_TEXT_MAX,
+  STAFF_ASSISTANT_MODEL_HISTORY_MAX,
 } from "./messages.js";
 
 const conversationId = "11111111-1111-4111-8111-111111111111";
@@ -24,6 +26,16 @@ function userMessage(text: string, id = "m1") {
 }
 
 describe("staffAssistantChatBodySchema", () => {
+  it("rejects a client summary field", () => {
+    expect(
+      staffAssistantChatBodySchema.safeParse({
+        conversationId,
+        messages: [userMessage("List orders")],
+        summary: "Earlier they asked about orders.",
+      }).success,
+    ).toBe(false);
+  });
+
   it("rejects companyId on the body", () => {
     expect(
       staffAssistantChatBodySchema.safeParse({
@@ -93,6 +105,74 @@ describe("staffAssistantModelMessages", () => {
       messageCount: 2,
       chars: "List orders".length + "You have no orders.".length,
     });
+  });
+
+  it("windows 20 text turns to 8 and drops the older client text", () => {
+    const client = Array.from({ length: 20 }, (_, index) => {
+      const id = `m${String(index)}`;
+      if (index % 2 === 0) {
+        return {
+          id,
+          role: "assistant" as const,
+          parts: [{ type: "text" as const, text: `assistant-${String(index)}` }],
+        };
+      }
+      return {
+        id,
+        role: "user" as const,
+        parts: [{ type: "text" as const, text: `user-${String(index)}` }],
+      };
+    });
+    const windowed = staffAssistantModelMessages(client);
+    expect(windowed).toHaveLength(STAFF_ASSISTANT_MODEL_HISTORY_MAX);
+    expect(windowed.map((message) => message.content)).toEqual([
+      "assistant-12",
+      "user-13",
+      "assistant-14",
+      "user-15",
+      "assistant-16",
+      "user-17",
+      "assistant-18",
+      "user-19",
+    ]);
+    expect(windowed.map((message) => message.content)).not.toContain(
+      "assistant-0",
+    );
+    expect(windowed.at(-1)).toMatchObject({ role: "user", content: "user-19" });
+    expect(windowed.at(-2)).toMatchObject({
+      role: "assistant",
+      content: "assistant-18",
+      providerOptions: STAFF_ASSISTANT_CACHE_PROVIDER_OPTIONS,
+    });
+  });
+
+  it("caches the last retained assistant when the newest turn is the user", () => {
+    const windowed = staffAssistantModelMessages([
+      {
+        id: "u0",
+        role: "user",
+        parts: [{ type: "text", text: "old user" }],
+      },
+      {
+        id: "a0",
+        role: "assistant",
+        parts: [{ type: "text", text: "old assistant" }],
+      },
+      {
+        id: "u1",
+        role: "user",
+        parts: [{ type: "text", text: "List orders" }],
+      },
+    ]);
+    expect(windowed).toHaveLength(3);
+    expect(windowed[1]).toMatchObject({
+      role: "assistant",
+      content: "old assistant",
+      providerOptions: STAFF_ASSISTANT_CACHE_PROVIDER_OPTIONS,
+    });
+    expect(windowed[2]).toEqual({ role: "user", content: "List orders" });
+    expect(windowed[2]).not.toHaveProperty("providerOptions");
+    expect(staffAssistantHistoryStats(windowed).messageCount).toBe(3);
   });
 });
 

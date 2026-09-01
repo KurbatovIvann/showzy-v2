@@ -8,6 +8,7 @@ import {
   attemptKey,
   isStaffAssistantConfirmationOutput,
   toProviderToolName,
+  STAFF_ASSISTANT_MODEL_HISTORY_MAX,
   type LanguageModel,
   type StaffAssistantConfirmationOutput,
 } from "@showzy/ai";
@@ -444,6 +445,86 @@ describe("POST /assistant/chat authorization", () => {
     await readUiMessageSsePayloads(response);
     const prompt = JSON.stringify(model.doStreamCalls[0]?.prompt ?? []);
     expect(prompt).not.toContain("Working set from earlier tool runs");
+  });
+
+  it("windows 20 client messages to 8 and does not log dropped text", async () => {
+    const dropped = "DROPPED_HISTORY_SENTINEL_sho349";
+    const latest = "LATEST_USER_SENTINEL_sho349";
+    const capturing = createCapturingLogger();
+    const model = new MockLanguageModelV3({
+      doStream: [mockTextStream("ASSISTANT_BODY_SENTINEL_never_log")],
+    });
+    const app = createApp({
+      auth,
+      registry,
+      contractModules,
+      pipeline: { ...pipeline, logger: capturing.logger },
+      trustedProxies: [],
+      getPeerAddress: () => REAL_CLIENT,
+      pkiProxy: {
+        rateLimitStore: createInMemoryRateLimitStore(),
+        ipHmacSecret: "test-pki-proxy-ip-hmac-secret!!",
+      },
+      assistant: {
+        model: "mock",
+        gateModel: "mock-gate",
+        languageModel: model,
+      },
+    });
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "History window",
+    });
+    const messages = Array.from({ length: 20 }, (_, index) => {
+      const id = `m${String(index)}`;
+      if (index % 2 === 0) {
+        return {
+          id,
+          role: "assistant" as const,
+          parts: [
+            {
+              type: "text" as const,
+              text: index === 0 ? dropped : `assistant-${String(index)}`,
+            },
+          ],
+        };
+      }
+      return {
+        id,
+        role: "user" as const,
+        parts: [
+          {
+            type: "text" as const,
+            text: index === 19 ? latest : `user-${String(index)}`,
+          },
+        ],
+      };
+    });
+    const response = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: { conversationId: conversation.id, messages },
+    });
+    expect(response.status).toBe(200);
+    await readUiMessageSsePayloads(response);
+    const prompt = JSON.stringify(model.doStreamCalls[0]?.prompt ?? []);
+    const conversationTurns = (model.doStreamCalls[0]?.prompt ?? []).filter(
+      (part) => part.role === "user" || part.role === "assistant",
+    );
+    expect(conversationTurns).toHaveLength(STAFF_ASSISTANT_MODEL_HISTORY_MAX);
+    expect(prompt).toContain(latest);
+    expect(prompt).not.toContain(dropped);
+    const usage = capturing
+      .entries()
+      .find((entry) => entry["msg"] === "staff assistant turn usage");
+    expect(usage?.["history_message_count"]).toBe(
+      STAFF_ASSISTANT_MODEL_HISTORY_MAX,
+    );
+    expect(JSON.stringify(usage)).not.toContain(dropped);
+    expect(JSON.stringify(usage)).not.toContain(latest);
+    expect(JSON.stringify(usage)).not.toContain(
+      "ASSISTANT_BODY_SENTINEL_never_log",
+    );
   });
 
   it("fails typed when Anthropic is not configured after auth", async () => {
