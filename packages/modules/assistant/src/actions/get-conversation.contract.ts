@@ -1,0 +1,43 @@
+/**
+ * Staff conversation get (SHO-321 / feature SHO-318). Mechanical:
+ * `timeout: 5000` is one tenant-scoped conversation plus its messages and
+ * tool-run refs. Missing and foreign-company ids fail with the same
+ * not-found. Company id is never input.
+ */
+import { defineActionContract } from "@showzy/core/contract";
+import { z } from "zod";
+
+import {
+  conversationViewSchema,
+  messageViewSchema,
+  toolRunViewSchema,
+} from "./conversation-view.contract.js";
+
+export const getConversationInputSchema = z.strictObject({
+  conversationId: z.uuid(),
+});
+
+export const getConversationOutputSchema = conversationViewSchema.extend({
+  messages: z.array(messageViewSchema),
+  toolRuns: z.array(toolRunViewSchema),
+});
+
+export const getConversationContract = defineActionContract({
+  name: "assistant.getConversation",
+  description:
+    "Return one staff assistant conversation in the active company, including messages and tool-run refs (action name, toolCallId, challengeId, result ids, outcome). Missing conversations and conversations that belong to another company fail with the same not-found. Company id is never input. Tool-run rows store ids and outcome only — never order or document status.",
+  principal: "staff",
+  transport: "client",
+  input: getConversationInputSchema,
+  output: getConversationOutputSchema,
+  permissions: ["assistant:use"],
+  aiExposure: "internal",
+  risk: "read",
+  requiresConfirmation: false,
+  idempotent: false,
+  emits: [],
+  atomicCalls: [],
+  atomicCallers: [],
+  audit: false,
+  timeout: 5_000,
+});

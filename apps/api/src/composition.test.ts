@@ -6,6 +6,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { assistantSuiteCoverage } from "@showzy/assistant/suite-coverage";
 import { catalogSuiteCoverage } from "@showzy/catalog/suite-coverage";
 import { chatSuiteCoverage } from "@showzy/chat/suite-coverage";
 import { companiesSuiteCoverage } from "@showzy/companies/suite-coverage";
@@ -82,6 +83,7 @@ describe("composition root identity", () => {
     expect(input.projectionGrants).toBe(projectionGrants);
     expect(input.suiteCoverage).toEqual(
       mergeSuiteCoverage([
+        assistantSuiteCoverage,
         catalogSuiteCoverage,
         chatSuiteCoverage,
         companiesSuiteCoverage,

@@ -15,6 +15,8 @@
  * and must list the same `defineEventHandler` objects this file passes
  * through `eventSubscriptionRefs`.
  */
+import { assistantActions } from "@showzy/assistant";
+import { assistantSuiteCoverage } from "@showzy/assistant/suite-coverage";
 import { catalogActions } from "@showzy/catalog";
 import { catalogSuiteCoverage } from "@showzy/catalog/suite-coverage";
 import { chatActions } from "@showzy/chat";
@@ -74,6 +76,7 @@ import { registeredEventSubscriptions } from "./subscriptions.js";
  * (`@showzy/<module>/suite-coverage`).
  */
 const moduleSuiteCoverage: readonly SuiteCoverageManifest[] = [
+  assistantSuiteCoverage,
   catalogSuiteCoverage,
   chatSuiteCoverage,
   companiesSuiteCoverage,
@@ -260,6 +263,7 @@ const readModelGrants: readonly ReadModelGrantRef[] = [
 ];
 
 const schemaImports: readonly SchemaImportRef[] = [
+  { importer: "assistant", schemaOwner: "assistant" },
   { importer: "catalog", schemaOwner: "catalog" },
   { importer: "chat", schemaOwner: "chat" },
   { importer: "companies", schemaOwner: "companies" },
@@ -322,6 +326,7 @@ export function mergeSuiteCoverage(
 /** The boot registry — same builder the contract-check stage walks. */
 export function createActionRegistry(): ActionRegistry {
   const registry = new ActionRegistry();
+  registerActions(registry, assistantActions);
   registerActions(registry, catalogActions);
   registerActions(registry, chatActions);
   registerActions(registry, companiesActions);
