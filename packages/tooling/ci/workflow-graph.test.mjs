@@ -78,8 +78,16 @@ function jobIf(block) {
   return match ? match[1].trim() : undefined;
 }
 
+const turboCacheActionPath = path.join(
+  repoRoot,
+  ".github/actions/turbo-local-cache/action.yml",
+);
+
+const TURBO_TASK_JOBS = ["typecheck", "lint", "test", "build-smoke"];
+
 const workflow = fs.readFileSync(workflowPath, "utf8");
 const setupAction = fs.readFileSync(setupActionPath, "utf8");
+const turboCacheAction = fs.readFileSync(turboCacheActionPath, "utf8");
 
 test("CI workflow keeps concurrency cancellation and has no retries", () => {
   assert.match(workflow, /group:\s+ci-\$\{\{ github\.ref \}\}/);
@@ -106,13 +114,16 @@ test("format, typecheck, lint, test, and build-smoke are independent jobs", () =
   }
 
   assert.match(extractJob(workflow, "format"), /pnpm format:check/);
-  assert.match(extractJob(workflow, "typecheck"), /pnpm typecheck/);
-  assert.match(extractJob(workflow, "lint"), /pnpm lint/);
-  assert.match(extractJob(workflow, "test"), /pnpm test/);
+  assert.match(extractJob(workflow, "typecheck"), /run-turbo\.mjs typecheck/);
+  assert.match(extractJob(workflow, "lint"), /run-turbo\.mjs lint/);
+  assert.match(extractJob(workflow, "test"), /run-turbo\.mjs test/);
 
   const buildSmoke = extractJob(workflow, "build-smoke");
-  assert.match(buildSmoke, /pnpm --filter @showzy\/mobile export:web/);
-  assert.match(buildSmoke, /pnpm --filter @showzy\/web build/);
+  assert.match(
+    buildSmoke,
+    /run-turbo\.mjs export:web --filter=@showzy\/mobile/,
+  );
+  assert.match(buildSmoke, /run-turbo\.mjs build --filter=@showzy\/web/);
 
   const serialChecks = extractJob(workflow, "checks");
   assert.doesNotMatch(serialChecks, /pnpm format:check/);
@@ -171,6 +182,32 @@ test("setup action caches the pnpm store and not node_modules", () => {
   assert.match(setupAction, /cache:\s+pnpm/);
   assert.doesNotMatch(setupAction, /cache:\s*['"]?node_modules/);
   assert.doesNotMatch(setupAction, /actions\/cache@/);
+});
+
+test("Turbo jobs persist keyed .turbo cache and use affected-or-full helper", () => {
+  for (const name of TURBO_TASK_JOBS) {
+    const block = extractJob(workflow, name);
+    assert.match(block, /fetch-depth:\s+0/);
+    assert.match(block, /Fetch PR base for Turbo affected/);
+    assert.match(block, /uses:\s+\.\/\.github\/actions\/turbo-local-cache/);
+    assert.match(block, /run-turbo\.mjs/);
+    assert.match(block, /TURBO_PR_BASE_SHA/);
+  }
+
+  const format = extractJob(workflow, "format");
+  assert.doesNotMatch(format, /run-turbo\.mjs/);
+  assert.doesNotMatch(format, /turbo-local-cache/);
+
+  const e2eSmoke = extractJob(workflow, "e2e-smoke");
+  assert.doesNotMatch(e2eSmoke, /run-turbo\.mjs/);
+  assert.doesNotMatch(e2eSmoke, /turbo-local-cache/);
+  assert.match(e2eSmoke, /turbo run e2e-smoke --filter=@showzy\/web/);
+
+  assert.doesNotMatch(workflow, /TURBO_TOKEN:/);
+  assert.doesNotMatch(workflow, /secrets\.TURBO_TOKEN/);
+  assert.match(turboCacheAction, /path:\s+\.turbo/);
+  assert.doesNotMatch(turboCacheAction, /path:\s*node_modules/);
+  assert.doesNotMatch(setupAction, /path:\s+\.turbo/);
 });
 
 test("publish-job-timing writes a duration summary without failing", () => {

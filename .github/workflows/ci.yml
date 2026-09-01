@@ -7,7 +7,9 @@
 # smoke against the built `apps/web` bundle (SHO-331). Maestro mobile e2e
 # remains a later phase (fnd-T51). SHO-334 split the former serial `checks`
 # body into independent jobs; the job named `checks` is now the fail-closed
-# aggregator and must keep that name.
+# aggregator and must keep that name. SHO-335 persists `.turbo` via GitHub
+# Actions cache (not Vercel remote cache) and runs Turbo `--affected` on pull
+# requests when the comparison base resolves; `main` stays a full suite.
 #
 # All third-party actions are pinned to full commit SHAs (verified against the
 # official repos' tags) because this workflow is itself the merge gate.
@@ -29,6 +31,9 @@ permissions:
   contents: read
   # gitleaks-action lists PR commits via the GitHub API on pull_request events.
   pull-requests: read
+  # Persist `.turbo` with actions/cache (SHO-335). Fork PRs still skip the
+  # cache step; this does not introduce a Vercel remote-cache token.
+  actions: write
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -55,15 +60,24 @@ jobs:
 
   typecheck:
     runs-on: ubuntu-latest
+    env:
+      TURBO_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
     steps:
       - name: Record job start
         run: echo "JOB_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+      - name: Fetch PR base for Turbo affected
+        if: github.event_name == 'pull_request'
+        run: git fetch --no-tags origin "${{ github.base_ref }}" || echo "base fetch failed; run-turbo will use full execution"
       - name: Setup CI workspace
         uses: ./.github/actions/setup-ci-workspace
+      - name: Turbo local cache
+        uses: ./.github/actions/turbo-local-cache
       - name: Typecheck (tsc --noEmit)
-        run: time -p pnpm typecheck
+        run: time -p node packages/tooling/ci/run-turbo.mjs typecheck
       - name: Publish job timing
         if: always()
         env:
@@ -72,15 +86,24 @@ jobs:
 
   lint:
     runs-on: ubuntu-latest
+    env:
+      TURBO_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
     steps:
       - name: Record job start
         run: echo "JOB_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+      - name: Fetch PR base for Turbo affected
+        if: github.event_name == 'pull_request'
+        run: git fetch --no-tags origin "${{ github.base_ref }}" || echo "base fetch failed; run-turbo will use full execution"
       - name: Setup CI workspace
         uses: ./.github/actions/setup-ci-workspace
+      - name: Turbo local cache
+        uses: ./.github/actions/turbo-local-cache
       - name: ESLint
-        run: time -p pnpm lint
+        run: time -p node packages/tooling/ci/run-turbo.mjs lint
       - name: Publish job timing
         if: always()
         env:
@@ -89,15 +112,24 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    env:
+      TURBO_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
     steps:
       - name: Record job start
         run: echo "JOB_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+      - name: Fetch PR base for Turbo affected
+        if: github.event_name == 'pull_request'
+        run: git fetch --no-tags origin "${{ github.base_ref }}" || echo "base fetch failed; run-turbo will use full execution"
       - name: Setup CI workspace
         uses: ./.github/actions/setup-ci-workspace
+      - name: Turbo local cache
+        uses: ./.github/actions/turbo-local-cache
       - name: Vitest
-        run: time -p pnpm test
+        run: time -p node packages/tooling/ci/run-turbo.mjs test
       - name: Publish job timing
         if: always()
         env:
@@ -106,19 +138,28 @@ jobs:
 
   build-smoke:
     runs-on: ubuntu-latest
+    env:
+      TURBO_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
     steps:
       - name: Record job start
         run: echo "JOB_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+      - name: Fetch PR base for Turbo affected
+        if: github.event_name == 'pull_request'
+        run: git fetch --no-tags origin "${{ github.base_ref }}" || echo "base fetch failed; run-turbo will use full execution"
       - name: Setup CI workspace
         uses: ./.github/actions/setup-ci-workspace
+      - name: Turbo local cache
+        uses: ./.github/actions/turbo-local-cache
       - name: Expo export smoke (fnd-T48)
-        run: time -p pnpm --filter @showzy/mobile export:web
+        run: time -p node packages/tooling/ci/run-turbo.mjs export:web --filter=@showzy/mobile
         env:
           EXPO_NO_TELEMETRY: "1"
       - name: Web build smoke (SHO-309)
-        run: time -p pnpm --filter @showzy/web build
+        run: time -p node packages/tooling/ci/run-turbo.mjs build --filter=@showzy/web
       - name: Publish job timing
         if: always()
         env:

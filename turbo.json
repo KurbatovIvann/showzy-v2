@@ -1,13 +1,55 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": [
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    "package.json",
+    "prettier.config.mjs",
+    "packages/tooling/package.json",
+    "packages/tooling/tsconfig/base.json",
+    "packages/tooling/prettier/**",
+    "packages/tooling/eslint/**"
+  ],
+  "globalEnv": ["CI"],
+  "globalPassThroughEnv": [
+    "DOCKER_HOST",
+    "DOCKER_CERT_PATH",
+    "DOCKER_TLS_VERIFY",
+    "HOME",
+    "TMPDIR"
+  ],
   "tasks": {
+    "topo": {
+      "dependsOn": ["^topo"]
+    },
     "build": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "topo"],
+      "inputs": ["$TURBO_DEFAULT$"],
       "outputs": ["dist/**"]
     },
-    "typecheck": {},
-    "lint": {},
-    "test": {},
+    "export:web": {
+      "dependsOn": ["topo"],
+      "inputs": ["$TURBO_DEFAULT$"],
+      "outputs": ["dist/**"],
+      "env": ["EXPO_NO_TELEMETRY"]
+    },
+    "typecheck": {
+      "dependsOn": ["topo"],
+      "inputs": ["$TURBO_DEFAULT$", "tsconfig.json", "tsconfig.*.json"]
+    },
+    "lint": {
+      "dependsOn": ["topo"],
+      "inputs": ["$TURBO_DEFAULT$", "eslint.config.*"]
+    },
+    "test": {
+      "dependsOn": ["topo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "vitest.config.*",
+        "vite.config.*",
+        "playwright.config.*"
+      ]
+    },
     "e2e-smoke": {
       "cache": false
     }
