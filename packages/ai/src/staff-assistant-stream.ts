@@ -23,7 +23,7 @@ import {
 } from "./confirmation.js";
 import { staffAssistantJsonChars } from "./json-chars.js";
 import { staffAssistantHistoryStats } from "./messages.js";
-import { staffAssistantSystemMessage } from "./system-prompt.js";
+import { staffAssistantSystemMessages } from "./system-prompt.js";
 import { staffAssistantToolsetHash } from "./toolset-hash.js";
 import {
   staffAssistantTurnUsageFromTotal,
@@ -257,6 +257,8 @@ export function streamStaffAssistantChat(options: {
   readonly execute: ActionToolExecute;
   readonly abortSignal?: AbortSignal;
   readonly responseHeaders?: Record<string, string>;
+  /** Uncached second system message from persisted tool-run ids. */
+  readonly workingSetAddendum?: string;
   /** Awaited inside the UI-message stream after `result.text`. A throw fails the stream. */
   readonly onTurn?: (turn: StaffAssistantTurnResult) => Promise<void>;
 }): {
@@ -281,7 +283,7 @@ export function streamStaffAssistantChat(options: {
     execute: async ({ writer }) => {
       const result = streamText({
         model: options.model,
-        system: staffAssistantSystemMessage(),
+        system: staffAssistantSystemMessages(options.workingSetAddendum),
         messages: options.messages,
         tools,
         providerOptions: {

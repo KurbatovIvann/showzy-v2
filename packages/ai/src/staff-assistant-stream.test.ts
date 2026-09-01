@@ -20,13 +20,15 @@ import {
   extractUuidResultIds,
   streamStaffAssistantChat,
 } from "./staff-assistant-stream.js";
-import { STAFF_ASSISTANT_EMPTY_TOOLSET_HASH } from "./toolset-hash.js";
+import { staffAssistantSystemPrompt } from "./system-prompt.js";
 import {
   MockLanguageModelV3,
   mockTextStream,
   mockToolCallStream,
   readUiMessageSsePayloads,
 } from "./test.js";
+import { STAFF_ASSISTANT_EMPTY_TOOLSET_HASH } from "./toolset-hash.js";
+import { staffAssistantWorkingSetAddendum } from "./working-set.js";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -217,18 +219,52 @@ describe("streamStaffAssistantChat", () => {
     const systemMessages = (call?.prompt ?? []).filter(
       (part) => part.role === "system",
     );
-    expect(systemMessages.length).toBeGreaterThan(0);
-    for (const message of systemMessages) {
-      expect(anthropicCacheControl(message)).toEqual(
-        STAFF_ASSISTANT_CACHE_CONTROL,
-      );
-    }
+    expect(systemMessages.length).toBe(1);
+    expect(systemMessages[0]).toMatchObject({ content: staffAssistantSystemPrompt });
+    expect(anthropicCacheControl(systemMessages[0])).toEqual(
+      STAFF_ASSISTANT_CACHE_CONTROL,
+    );
     const tools = call?.tools ?? [];
     expect(tools.length).toBe(2);
     expect(anthropicCacheControl(tools[0])).toBeUndefined();
     expect(anthropicCacheControl(tools[1])).toEqual(
       STAFF_ASSISTANT_CACHE_CONTROL,
     );
+  });
+
+  it("injects an uncached working-set system message without a second list call", async () => {
+    const productId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const model = new MockLanguageModelV3({
+      doStream: [mockTextStream("Those products are already in the working set.")],
+    });
+    const execute = vi.fn(() => Promise.resolve({ items: [] }));
+    const workingSetAddendum = staffAssistantWorkingSetAddendum([
+      {
+        actionName: "catalog.listProducts",
+        resultIds: [productId],
+        outcome: "success",
+      },
+    ]);
+    expect(workingSetAddendum).toEqual(expect.stringContaining(productId));
+    const { response } = streamStaffAssistantChat({
+      model,
+      messages: [{ role: "user", content: "What are those products?" }],
+      contracts: [listOrders],
+      execute,
+      ...(workingSetAddendum !== undefined ? { workingSetAddendum } : {}),
+    });
+    await readUiMessageSsePayloads(response);
+    expect(execute).not.toHaveBeenCalled();
+    const systemMessages = (model.doStreamCalls[0]?.prompt ?? []).filter(
+      (part) => part.role === "system",
+    );
+    expect(systemMessages).toHaveLength(2);
+    expect(anthropicCacheControl(systemMessages[0])).toEqual(
+      STAFF_ASSISTANT_CACHE_CONTROL,
+    );
+    expect(anthropicCacheControl(systemMessages[1])).toBeUndefined();
+    expect(JSON.stringify(systemMessages[1])).toContain("catalog.listProducts");
+    expect(JSON.stringify(systemMessages[1])).toContain(productId);
   });
 
   it("attaches no tools when the contract list is empty", async () => {

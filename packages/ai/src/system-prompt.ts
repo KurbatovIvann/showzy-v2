@@ -39,3 +39,20 @@ export function staffAssistantSystemMessage(): SystemModelMessage {
     providerOptions: STAFF_ASSISTANT_CACHE_PROVIDER_OPTIONS,
   };
 }
+
+/**
+ * Cached Shozik prefix plus an optional uncached working-set addendum.
+ * The addendum must not carry cacheControl — it changes every turn.
+ */
+export function staffAssistantSystemMessages(
+  workingSetAddendum?: string,
+): SystemModelMessage[] {
+  const messages: SystemModelMessage[] = [staffAssistantSystemMessage()];
+  if (workingSetAddendum !== undefined && workingSetAddendum !== "") {
+    messages.push({
+      role: "system",
+      content: workingSetAddendum,
+    });
+  }
+  return messages;
+}

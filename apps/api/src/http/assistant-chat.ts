@@ -24,6 +24,7 @@ import {
   staffAssistantChatBodySchema,
   staffAssistantModelMessages,
   staffAssistantUncachedInputTokens,
+  staffAssistantWorkingSetAddendum,
   streamStaffAssistantChat,
   STAFF_ASSISTANT_THINKING_DISABLED,
   STAFF_ASSISTANT_TOOL_RUNS_MAX,
@@ -410,18 +411,22 @@ export async function executeStaffAssistantChat(
       ]);
     }
 
+    const conversation = await executeAction(options.pipeline, {
+      action: getConversation,
+      input: { conversationId: body.conversationId },
+      request: baseRequest,
+      principal: staffPrincipal,
+    });
+    const workingSetAddendum = staffAssistantWorkingSetAddendum(
+      conversation.toolRuns,
+    );
+
     let pausedAttempt: PausedToolAttempt | undefined;
     if (confirmationChallengeId !== undefined) {
       const clientAttempt = pausedToolAttemptForChallenge(
         body.messages,
         confirmationChallengeId,
       );
-      const conversation = await executeAction(options.pipeline, {
-        action: getConversation,
-        input: { conversationId: body.conversationId },
-        request: baseRequest,
-        principal: staffPrincipal,
-      });
       const persistedAttempt = pausedToolAttemptFromToolRuns(
         conversation.toolRuns,
         confirmationChallengeId,
@@ -530,6 +535,7 @@ export async function executeStaffAssistantChat(
       messages: modelMessages,
       contracts: streamContracts,
       abortSignal: options.request.signal,
+      ...(workingSetAddendum !== undefined ? { workingSetAddendum } : {}),
       responseHeaders: {
         "cache-control": "private, no-store",
         [REQUEST_ID_HEADER]: options.requestId,

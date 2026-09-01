@@ -90,5 +90,12 @@ export {
 } from "./staff-assistant-stream.js";
 export {
   staffAssistantSystemMessage,
+  staffAssistantSystemMessages,
   staffAssistantSystemPrompt,
 } from "./system-prompt.js";
+export {
+  staffAssistantWorkingSetAddendum,
+  STAFF_ASSISTANT_WORKING_SET_IDS_MAX,
+  STAFF_ASSISTANT_WORKING_SET_RUNS_MAX,
+  type StaffAssistantWorkingSetRun,
+} from "./working-set.js";

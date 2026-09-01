@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { STAFF_ASSISTANT_CACHE_CONTROL } from "./anthropic-options.js";
 import {
   staffAssistantSystemMessage,
+  staffAssistantSystemMessages,
   staffAssistantSystemPrompt,
 } from "./system-prompt.js";
 
@@ -48,5 +49,16 @@ describe("staffAssistantSystemPrompt", () => {
       type: "ephemeral",
       ttl: "5m",
     });
+  });
+
+  it("leaves the cached prefix unchanged and does not cache the working-set addendum", () => {
+    const cached = staffAssistantSystemMessage();
+    const withAddendum = staffAssistantSystemMessages(
+      "Working set from earlier tool runs in this conversation (ids only; not live record state):\ncatalog.listProducts: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    );
+    expect(withAddendum[0]).toEqual(cached);
+    expect(withAddendum[0]?.content).toBe(staffAssistantSystemPrompt);
+    expect(withAddendum[1]?.providerOptions).toBeUndefined();
+    expect(withAddendum[1]?.content).toContain("catalog.listProducts");
   });
 });

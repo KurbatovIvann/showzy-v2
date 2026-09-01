@@ -18,7 +18,7 @@ import {
   mockToolCallStream,
   readUiMessageSsePayloads,
 } from "@showzy/ai/test";
-import { createConversation } from "@showzy/assistant";
+import { createConversation, recordAssistantTurn } from "@showzy/assistant";
 import { createProduct } from "@showzy/catalog";
 import {
   COMPANY_SELECTOR_HEADER,
@@ -389,6 +389,61 @@ describe("POST /assistant/chat authorization", () => {
       code: "NOT_FOUND",
       status: 404,
     });
+  });
+
+  it("injects persisted catalog.listProducts ids into the next stream prompt", async () => {
+    const productId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const model = new MockLanguageModelV3({
+      doStream: [mockTextStream("Those products are already known.")],
+    });
+    const app = chatApp(model);
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Working set",
+    });
+    await staffInvoke(recordAssistantTurn, {
+      conversationId: conversation.id,
+      body: "Listed products.",
+      toolRuns: [
+        {
+          actionName: "catalog.listProducts",
+          toolCallId: "call-list-products",
+          resultIds: [productId],
+          outcome: "success",
+        },
+      ],
+    });
+    const response = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "What are those products?"),
+    });
+    expect(response.status).toBe(200);
+    await readUiMessageSsePayloads(response);
+    const prompt = JSON.stringify(model.doStreamCalls[0]?.prompt ?? []);
+    expect(prompt).toContain("catalog.listProducts");
+    expect(prompt).toContain(productId);
+    expect(prompt).toContain("Do not call a list tool solely to recover these ids");
+  });
+
+  it("omits the working-set addendum when the conversation has no tool runs", async () => {
+    const model = new MockLanguageModelV3({
+      doStream: [mockTextStream("I only help with this company.")],
+    });
+    const app = chatApp(model);
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Empty runs",
+    });
+    const response = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "Hello"),
+    });
+    expect(response.status).toBe(200);
+    await readUiMessageSsePayloads(response);
+    const prompt = JSON.stringify(model.doStreamCalls[0]?.prompt ?? []);
+    expect(prompt).not.toContain("Working set from earlier tool runs");
   });
 
   it("fails typed when Anthropic is not configured after auth", async () => {
