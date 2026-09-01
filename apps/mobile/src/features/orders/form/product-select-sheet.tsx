@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { CheckIcon, ChevronRightIcon } from "lucide-react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
@@ -6,17 +6,21 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { Button, SearchField, Sheet } from "../../../components/ui";
 import { interpolate } from "../../../i18n/locale";
 import { OrderThumbnail } from "../shared/order-thumbnail";
-import type {
-  ProductSelectLevel,
-  ProductSelectRow,
-  ProductSelectVariantRow,
-  ProductVariantsLoadStatus,
+import {
+  filterProductSelectRows,
+  type ProductSelectLevel,
+  type ProductSelectRow,
+  type ProductSelectVariantRow,
+  type ProductVariantsLoadStatus,
 } from "./product-select";
 
 /**
  * Canvas `ProductSelectSheet`: multi-toggle, ink check, 44×44 thumbnail,
  * confirm footer. Variant drill-down replaces the product list in the
- * same Modal (SHO-249) — never a second Sheet.
+ * same Modal (SHO-249) — never a second Sheet. Closed sessions skip
+ * catalog filter/map work (SHO-305). Sheet content mode already wraps
+ * KeyboardAwareScrollView, so this list stays mapped `memo` rows rather
+ * than a nested FlashList.
  */
 export function ProductSelectSheet(props: {
   readonly visible: boolean;
@@ -57,13 +61,10 @@ export function ProductSelectSheet(props: {
     }
   }, [props.sessionOpen]);
 
-  const normalized = query.trim().toLowerCase();
-  const filtered =
-    normalized.length === 0
-      ? props.products
-      : props.products.filter((product) =>
-          product.name.toLowerCase().includes(normalized),
-        );
+  const filtered = useMemo(
+    () => filterProductSelectRows(props.products, query, props.sessionOpen),
+    [props.products, props.sessionOpen, query],
+  );
 
   return (
     <Sheet
@@ -91,44 +92,50 @@ export function ProductSelectSheet(props: {
         />
       }
     >
-      {variantsOpen ? (
-        <VariantsLevel
-          variants={props.variants}
-          status={props.variantsStatus}
-          selectedIds={props.selectedVariantIds}
-          loadingLabel={props.variantsLoadingLabel}
-          emptyLabel={props.variantsEmptyLabel}
-          errorLabel={props.variantsErrorLabel}
-          onToggle={props.onToggleVariant}
-        />
-      ) : (
-        <>
-          <SearchField
-            value={query}
-            onChangeText={setQuery}
-            placeholder={props.searchPlaceholder}
-            accessibilityLabel={props.searchLabel}
-            maxLength={props.searchMaxLength}
+      {props.sessionOpen ? (
+        variantsOpen ? (
+          <VariantsLevel
+            variants={props.variants}
+            status={props.variantsStatus}
+            selectedIds={props.selectedVariantIds}
+            loadingLabel={props.variantsLoadingLabel}
+            emptyLabel={props.variantsEmptyLabel}
+            errorLabel={props.variantsErrorLabel}
+            onToggle={props.onToggleVariant}
           />
-          <View style={styles.list}>
-            {filtered.length === 0 ? (
-              <Text style={styles.empty}>{props.emptyLabel}</Text>
-            ) : (
-              filtered.map((product) => (
-                <ProductPickerRow
-                  key={product.id}
-                  product={product}
-                  selected={props.selectedIds.has(product.id)}
-                  failedLabel={props.thumbnailFailedLabel}
-                  onPress={() => {
-                    props.onToggle(product.id);
-                  }}
-                />
-              ))
-            )}
-          </View>
-        </>
-      )}
+        ) : (
+          <>
+            <SearchField
+              value={query}
+              onChangeText={setQuery}
+              placeholder={props.searchPlaceholder}
+              accessibilityLabel={props.searchLabel}
+              maxLength={props.searchMaxLength}
+            />
+            <View style={styles.list}>
+              {filtered.length === 0 ? (
+                <Text style={styles.empty}>{props.emptyLabel}</Text>
+              ) : (
+                filtered.map((product) => (
+                  <ProductPickerRow
+                    key={product.id}
+                    id={product.id}
+                    name={product.name}
+                    hasVariants={product.hasVariants}
+                    variantsLabel={product.variantsLabel}
+                    thumbnailFileId={product.thumbnailFileId}
+                    thumbnailUrl={product.thumbnailUrl}
+                    thumbnailFailed={product.thumbnailFailed}
+                    selected={props.selectedIds.has(product.id)}
+                    failedLabel={props.thumbnailFailedLabel}
+                    onPress={props.onToggle}
+                  />
+                ))
+              )}
+            </View>
+          </>
+        )
+      ) : null}
     </Sheet>
   );
 }
@@ -156,34 +163,40 @@ function VariantsLevel(props: {
       {props.variants.map((variant) => (
         <VariantPickerRow
           key={variant.id}
+          id={variant.id}
           name={variant.name}
           selected={props.selectedIds.has(variant.id)}
-          onPress={() => {
-            props.onToggle(variant.id);
-          }}
+          onPress={props.onToggle}
         />
       ))}
     </View>
   );
 }
 
-function ProductPickerRow(props: {
-  readonly product: ProductSelectRow;
+const ProductPickerRow = memo(function ProductPickerRow(props: {
+  readonly id: string;
+  readonly name: string;
+  readonly hasVariants: boolean;
+  readonly variantsLabel: string;
+  readonly thumbnailFileId: string | null;
+  readonly thumbnailUrl: string | null;
+  readonly thumbnailFailed: boolean;
   readonly selected: boolean;
   readonly failedLabel: string;
-  readonly onPress: () => void;
+  readonly onPress: (id: string) => void;
 }) {
   const { theme } = useUnistyles();
-  const { product } = props;
   const showCheck = props.selected;
-  const showChevron = product.hasVariants;
+  const showChevron = props.hasVariants;
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={product.name}
+      accessibilityLabel={props.name}
       accessibilityState={{ selected: props.selected }}
-      onPress={props.onPress}
+      onPress={() => {
+        props.onPress(props.id);
+      }}
       style={({ pressed }) => [
         styles.option,
         props.selected ? styles.optionSelected : null,
@@ -191,14 +204,14 @@ function ProductPickerRow(props: {
       ]}
     >
       <OrderThumbnail
-        fileId={product.thumbnailFileId}
-        url={product.thumbnailUrl}
-        failed={product.thumbnailFailed}
+        fileId={props.thumbnailFileId}
+        url={props.thumbnailUrl}
+        failed={props.thumbnailFailed}
         failedLabel={props.failedLabel}
       />
       <View style={styles.optionBody}>
-        <Text style={styles.optionLabel}>{product.name}</Text>
-        <Text style={styles.optionDescription}>{product.variantsLabel}</Text>
+        <Text style={styles.optionLabel}>{props.name}</Text>
+        <Text style={styles.optionDescription}>{props.variantsLabel}</Text>
       </View>
       {showCheck ? (
         <View style={styles.check}>
@@ -216,12 +229,13 @@ function ProductPickerRow(props: {
       ) : null}
     </Pressable>
   );
-}
+});
 
-function VariantPickerRow(props: {
+const VariantPickerRow = memo(function VariantPickerRow(props: {
+  readonly id: string;
   readonly name: string;
   readonly selected: boolean;
-  readonly onPress: () => void;
+  readonly onPress: (id: string) => void;
 }) {
   const { theme } = useUnistyles();
 
@@ -230,7 +244,9 @@ function VariantPickerRow(props: {
       accessibilityRole="button"
       accessibilityLabel={props.name}
       accessibilityState={{ selected: props.selected }}
-      onPress={props.onPress}
+      onPress={() => {
+        props.onPress(props.id);
+      }}
       style={({ pressed }) => [
         styles.option,
         props.selected ? styles.optionSelected : null,
@@ -250,7 +266,7 @@ function VariantPickerRow(props: {
       ) : null}
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create((theme) => ({
   list: {

@@ -5,12 +5,15 @@
  * reuse it without importing `features/catalog`.
  */
 import { useQueries } from "@tanstack/react-query";
+import { useRef } from "react";
 
 import type { ContractClient } from "../../../api/client";
 import { fileDownloadUrlsQueryOptions } from "../../../api/file-download-query";
 import {
   failedPrimaryImageFileIds,
   mergeDownloadUrlPages,
+  retainStringMap,
+  retainStringSet,
   uniquePrimaryImageFileIds,
 } from "./order-thumbnails";
 
@@ -43,13 +46,19 @@ export function useOrderThumbnails(args: {
       };
     }),
   });
-  const urlsByFileId = mergeDownloadUrlPages(
+  const nextUrls = mergeDownloadUrlPages(
     thumbnailQueries.map((query) => query.data),
   );
-  const failedFileIds = failedPrimaryImageFileIds(
+  const nextFailed = failedPrimaryImageFileIds(
     args.pages,
     thumbnailQueries.map((query) => query.isError),
   );
+  const urlsRef = useRef<ReadonlyMap<string, string> | undefined>(undefined);
+  const failedRef = useRef<ReadonlySet<string> | undefined>(undefined);
+  const urlsByFileId = retainStringMap(urlsRef.current, nextUrls);
+  const failedFileIds = retainStringSet(failedRef.current, nextFailed);
+  urlsRef.current = urlsByFileId;
+  failedRef.current = failedFileIds;
 
   return {
     urlsByFileId,

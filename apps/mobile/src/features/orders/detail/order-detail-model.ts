@@ -5,7 +5,7 @@
  */
 import { classifyWriteFailure } from "../../../api/classify-write-failure";
 import type { QueryFailureKind } from "../../../api/errors";
-import { formatMoneyMinor } from "../../../format/money";
+import { formatMoneyMinor, groupDigits } from "../../../format/money";
 import type { OrdersCopy, OrdersDetailCopy } from "../../../i18n/orders";
 import type { GetOrderOutput } from "../api/order-detail-query";
 import type { OrderQueryLoadState } from "../shared/classify-order-load";
@@ -31,20 +31,7 @@ export type { OrderQueryLoadState as OrderDetailState };
 
 const QUANTITY_MILLI_SCALE = 1000n;
 const QUANTITY_WIRE = /^[1-9][0-9]*$/;
-const GROUP_SEPARATOR = "\u00A0";
 const TIMES = "\u00D7";
-
-function groupDigits(digits: string): string {
-  let grouped = "";
-  for (let index = 0; index < digits.length; index += 1) {
-    const fromEnd = digits.length - index;
-    if (index > 0 && fromEnd % 3 === 0) {
-      grouped += GROUP_SEPARATOR;
-    }
-    grouped += digits.charAt(index);
-  }
-  return grouped;
-}
 
 /**
  * Quantity milli is scale 3 (`1000` = 1). Trailing zeros after the

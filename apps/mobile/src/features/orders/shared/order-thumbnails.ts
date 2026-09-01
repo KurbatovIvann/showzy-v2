@@ -45,6 +45,58 @@ export function mergeDownloadUrlPages(
   return map;
 }
 
+export function stringMapsEqual(
+  left: ReadonlyMap<string, string>,
+  right: ReadonlyMap<string, string>,
+): boolean {
+  if (left.size !== right.size) {
+    return false;
+  }
+  for (const [key, value] of right) {
+    if (left.get(key) !== value) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export function stringSetsEqual(
+  left: ReadonlySet<string>,
+  right: ReadonlySet<string>,
+): boolean {
+  if (left.size !== right.size) {
+    return false;
+  }
+  for (const value of right) {
+    if (!left.has(value)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/** Keep the previous Map when contents match so downstream memos can bail. */
+export function retainStringMap(
+  previous: ReadonlyMap<string, string> | undefined,
+  next: ReadonlyMap<string, string>,
+): ReadonlyMap<string, string> {
+  if (previous !== undefined && stringMapsEqual(previous, next)) {
+    return previous;
+  }
+  return next;
+}
+
+/** Keep the previous Set when contents match so downstream memos can bail. */
+export function retainStringSet(
+  previous: ReadonlySet<string> | undefined,
+  next: ReadonlySet<string>,
+): ReadonlySet<string> {
+  if (previous !== undefined && stringSetsEqual(previous, next)) {
+    return previous;
+  }
+  return next;
+}
+
 /** Primary image ids on pages whose `getDownloadUrls` query failed. */
 export function failedPrimaryImageFileIds(
   pages: ReadonlyArray<{

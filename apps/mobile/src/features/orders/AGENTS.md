@@ -2,14 +2,14 @@
 
 Folder roles follow `src/features/catalog/products/` and customers list
 chrome. `src/app/` stays one-line re-exports. Feature code lives here.
-Form-kit adoption is later (`src/components/form-kit`) — do not clone
-the catalog form stack.
+Compose `src/components/form-kit` (`useFormSave`, `useUnsavedGuard`) for
+the create save/leave shell. Do not clone the catalog form stack.
 
 UI state ownership is `.cursor/rules/mobile-ui-state.mdc`. List filters
 and the status-filter sheet are `useState` / local view state, never
 XState. Detail sheet chrome is a `useReducer`. The create form uses RHF
 
-- a UI Zod draft, a write planner, and an unsaved-leave guard. Views take
+- a UI Zod draft, a write planner, and the shared unsaved-leave guard. Views take
   a view-model and callbacks. No RHF on list or detail.
 
 Do not import `src/features/customers/` from this slice. Hydrate names
@@ -21,13 +21,13 @@ copy picker chrome. Do not join customers in the orders backend module.
 
 ## Folders (one role each)
 
-| Folder    | Owns                                                                                                                                                                                               | Does not own                            |
-| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| `api/`    | `orders.list` infinite binder, `orders.get`, confirm/cancel/create writes, customer-name hydration, picker list/get binders                                                                        | JSX, other modules' query files         |
-| `list/`   | Screen, view, composer hook, presenter, row, filter sheet, customer-name queries                                                                                                                   | Detail / editor                         |
-| `detail/` | Screen, view, facade, query/actions hooks, sheet reducer, line row, actions sheet                                                                                                                  | List filters; editor                    |
-| `form/`   | Create-only screen, view, UI draft Zod, RHF sections, save loop, unsaved guard, picker sheets. Pure roles: `order-form-draft.ts`, `order-form-plan.ts`, `order-form-copy.ts`, `order-form-load.ts` | List filters; detail; edit-after-create |
-| `shared/` | Permissions, hrefs, item-count labels, order id, load classification, customer-name, status, create caps                                                                                           | Transport                               |
+| Folder    | Owns                                                                                                                                                                                                                          | Does not own                            |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| `api/`    | `orders.list` infinite binder, `orders.get`, confirm/cancel/create writes, customer-name hydration, picker list/get binders                                                                                                   | JSX, other modules' query files         |
+| `list/`   | Screen, view, composer hook, presenter, row, filter sheet, customer-name queries                                                                                                                                              | Detail / editor                         |
+| `detail/` | Screen, view, facade, query/actions hooks, sheet reducer, line row, actions sheet                                                                                                                                             | List filters; editor                    |
+| `form/`   | Create-only screen, view, UI draft Zod, RHF sections, save loop, unsaved guard, picker sheets. Pure roles: `order-form-draft.ts`, `order-form-plan.ts`, `order-form-copy.ts`, `order-form-load.ts`, `order-form.presenter.ts` | List filters; detail; edit-after-create |
+| `shared/` | Permissions, hrefs, item-count labels, order id, load classification, customer-name, status, create caps                                                                                                                      | Transport                               |
 
 `list/` must not grow a combined `*-model.ts` and must not grow into
 `detail/` or `form/`. `form/` must not import `list/` or `detail/`.

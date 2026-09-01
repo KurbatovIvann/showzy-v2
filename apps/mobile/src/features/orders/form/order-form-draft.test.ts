@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { CREATE_ORDER_MAX_ITEMS } from "../shared/order-caps";
+import {
+  CREATE_ORDER_MAX_ITEMS,
+  MAX_LINE_QUANTITY_UNITS,
+} from "../shared/order-caps";
 import {
   addOrderLine,
   emptyOrderFormDraft,
@@ -48,6 +51,21 @@ describe("quantity milli stepper", () => {
     expect(stepQuantityMilli("1000", 1)).toBe("2000");
     expect(stepQuantityMilli("1000", -1)).toBe("1000");
     expect(formatOrderLineQuantity("3000")).toBe("3");
+  });
+
+  it("rounds half-up so 1500 milli is 2 units, not a truncated 1", () => {
+    expect(unitsFromQuantityMilli("1500")).toBe(2);
+    expect(unitsFromQuantityMilli("1499")).toBe(1);
+    expect(formatOrderLineQuantity("1500")).toBe("2");
+    expect(stepQuantityMilli("1500", 1)).toBe("3000");
+  });
+
+  it("clamps the stepper at the max whole-unit ceiling", () => {
+    const maxMilli = quantityMilliFromUnits(MAX_LINE_QUANTITY_UNITS);
+    expect(unitsFromQuantityMilli(maxMilli)).toBe(MAX_LINE_QUANTITY_UNITS);
+    expect(stepQuantityMilli(maxMilli, 1)).toBe(maxMilli);
+    expect(quantityMilliFromUnits(MAX_LINE_QUANTITY_UNITS + 1)).toBe(maxMilli);
+    expect(unitsFromQuantityMilli("1")).toBe(1);
   });
 });
 

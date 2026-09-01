@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatMoneyMinor } from "./money";
+import { formatMoneyMinor, groupDigits } from "./money";
 
 const NBSP = "\u00A0";
 
@@ -36,5 +36,13 @@ describe("formatMoneyMinor", () => {
   it("rejects a non-canonical wire value", () => {
     expect(() => formatMoneyMinor("01", "UAH")).toThrow();
     expect(() => formatMoneyMinor("1.5", "UAH")).toThrow();
+  });
+});
+
+describe("groupDigits", () => {
+  it("inserts no-break spaces from the right for shared quantity/money grouping", () => {
+    expect(groupDigits("1")).toBe("1");
+    expect(groupDigits("1234")).toBe(`1${NBSP}234`);
+    expect(groupDigits("1234567")).toBe(`1${NBSP}234${NBSP}567`);
   });
 });

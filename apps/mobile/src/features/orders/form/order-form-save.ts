@@ -1,12 +1,12 @@
 /**
- * Order create save workflow (SHO-213). RHF `handleSubmit` /
- * `parseOrderFormUiDraft` owns the UI parse; planner `invalid` reports
- * field errors through `setFieldErrors`. Not `handleSubmit` as the only
- * write.
+ * Order create save workflow (SHO-213 / SHO-305). Delegates to form-kit
+ * `runFormSave`; `finish` still receives the created `orderId`.
  */
-import type { WireErrorCode } from "@showzy/contract";
-
-import type { QueryFailureKind } from "../../../api/errors";
+import {
+  NO_SAVE_FAILURE,
+  type LastWriteFailure,
+} from "../../../components/form-kit/last-write-failure";
+import { runFormSave } from "../../../components/form-kit/run-form-save";
 import {
   type OrderFormDraft,
   type OrderFormFieldErrors,
@@ -17,12 +17,7 @@ import {
   type OrderFormWrite,
 } from "./order-form-plan";
 
-export type LastWriteFailure = {
-  readonly kind: QueryFailureKind | null;
-  readonly wire: WireErrorCode | null;
-};
-
-export const NO_SAVE_FAILURE: LastWriteFailure = { kind: null, wire: null };
+export { NO_SAVE_FAILURE, type LastWriteFailure };
 
 export type OrderFormSavePorts = {
   readonly getDraft: () => OrderFormDraft;
@@ -41,27 +36,33 @@ export type OrderFormSavePorts = {
 export async function runOrderFormSave(
   ports: OrderFormSavePorts,
 ): Promise<void> {
-  const plan = parseThenPlanOrderFormSave({
-    draft: ports.getDraft(),
-    lastWrite: ports.getLastWrite(),
-    lastFailureKind: ports.getLastFailure().kind,
-    lastWireCode: ports.getLastFailure().wire,
+  await runFormSave<
+    OrderFormDraft,
+    OrderFormWrite,
+    CreateOrderResult,
+    OrderFormFieldErrors
+  >({
+    plan: () =>
+      parseThenPlanOrderFormSave({
+        draft: ports.getDraft(),
+        lastWrite: ports.getLastWrite(),
+        lastFailureKind: ports.getLastFailure().kind,
+        lastWireCode: ports.getLastFailure().wire,
+      }),
+    getDraft: ports.getDraft,
+    setOrigin: ports.setOrigin,
+    getLastWrite: ports.getLastWrite,
+    setLastWrite: ports.setLastWrite,
+    setLastFailure: ports.setLastFailure,
+    setFieldErrors: ports.setFieldErrors,
+    submit: ports.submit,
+    retry: ports.retry,
+    resetMutation: ports.resetMutation,
+    finish: async (result) => {
+      if (result === null) {
+        return;
+      }
+      await ports.finish(result.orderId);
+    },
   });
-  if (plan.kind === "invalid") {
-    ports.setFieldErrors(plan.errors);
-    return;
-  }
-  if (plan.kind === "write") {
-    ports.setLastWrite(plan.write);
-  }
-  const write = ports.getLastWrite();
-  if (write === null) {
-    return;
-  }
-  const result =
-    plan.kind === "retry" ? await ports.retry() : await ports.submit(write);
-  ports.setLastFailure(NO_SAVE_FAILURE);
-  ports.resetMutation();
-  ports.setOrigin(ports.getDraft());
-  await ports.finish(result.orderId);
 }
