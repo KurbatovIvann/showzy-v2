@@ -25,3 +25,10 @@ export const STAFF_ASSISTANT_CACHE_PROVIDER_OPTIONS = {
     cacheControl: STAFF_ASSISTANT_CACHE_CONTROL,
   },
 } as const;
+
+/** Anthropic tool-search: load this tool into context only after a search hit. */
+export const STAFF_ASSISTANT_DEFER_PROVIDER_OPTIONS = {
+  anthropic: {
+    deferLoading: true,
+  },
+} as const;

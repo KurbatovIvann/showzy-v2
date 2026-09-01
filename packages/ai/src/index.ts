@@ -4,6 +4,8 @@ export {
   staffAssistantTools,
   toProviderToolName,
   PROVIDER_TOOL_NAME_PATTERN,
+  STAFF_ASSISTANT_HOT_ACTION_NAMES,
+  STAFF_ASSISTANT_TOOL_SEARCH_NAME,
   type ActionToolExecute,
 } from "./action-tool.js";
 export {
@@ -38,6 +40,7 @@ export {
   STAFF_ASSISTANT_ANTHROPIC_THINKING,
   STAFF_ASSISTANT_CACHE_CONTROL,
   STAFF_ASSISTANT_CACHE_PROVIDER_OPTIONS,
+  STAFF_ASSISTANT_DEFER_PROVIDER_OPTIONS,
   STAFF_ASSISTANT_THINKING_DISABLED,
 } from "./anthropic-options.js";
 export {

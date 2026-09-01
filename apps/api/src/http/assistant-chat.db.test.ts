@@ -7,8 +7,9 @@ import { randomBytes, randomUUID } from "node:crypto";
 import {
   attemptKey,
   isStaffAssistantConfirmationOutput,
-  toProviderToolName,
   STAFF_ASSISTANT_MODEL_HISTORY_MAX,
+  STAFF_ASSISTANT_TOOL_SEARCH_NAME,
+  toProviderToolName,
   type LanguageModel,
   type StaffAssistantConfirmationOutput,
 } from "@showzy/ai";
@@ -1421,9 +1422,24 @@ describe("POST /assistant/chat logs and /rpc channel", () => {
 });
 
 describe("POST /assistant/chat operational gate", () => {
+  function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+  }
+
+  function streamTools(model: MockLanguageModelV3) {
+    return model.doStreamCalls.at(-1)?.tools ?? [];
+  }
+
   function streamToolsLength(model: MockLanguageModelV3): number {
-    const tools = model.doStreamCalls.at(-1)?.tools;
-    return Array.isArray(tools) ? tools.length : 0;
+    return streamTools(model).length;
+  }
+
+  function streamToolNames(model: MockLanguageModelV3): string[] {
+    return streamTools(model).map((tool) => tool.name);
+  }
+
+  function streamToolProviderOptions(tool: unknown): unknown {
+    return isRecord(tool) ? tool["providerOptions"] : undefined;
   }
 
   it("does not attach tools or execute domain actions when the gate is false", async () => {
@@ -1508,6 +1524,17 @@ describe("POST /assistant/chat operational gate", () => {
     }, "orders.list through operational gate");
     expect(streamToolsLength(streamModel)).toBeGreaterThan(0);
     expect(gateModel.doStreamCalls).toHaveLength(0);
+    const names = streamToolNames(streamModel);
+    expect(names).toContain(STAFF_ASSISTANT_TOOL_SEARCH_NAME);
+    expect(names).toContain(toProviderToolName("orders.list"));
+    const deferred = streamTools(streamModel).find(
+      (tool) =>
+        tool.name === toProviderToolName("customers.deleteCustomer"),
+    );
+    expect(deferred).toBeDefined();
+    expect(streamToolProviderOptions(deferred)).toMatchObject({
+      anthropic: { deferLoading: true },
+    });
   });
 
   it("fail-opens and attaches tools when classify throws", async () => {
@@ -1604,5 +1631,8 @@ describe("POST /assistant/chat operational gate", () => {
     await readUiMessageSsePayloads(resume);
     expect(gateModel.doGenerateCalls).toHaveLength(1);
     expect(streamToolsLength(streamModel)).toBeGreaterThan(0);
+    const resumeNames = streamToolNames(streamModel);
+    expect(resumeNames).toContain(STAFF_ASSISTANT_TOOL_SEARCH_NAME);
+    expect(resumeNames).toContain(toProviderToolName("customers.deleteCustomer"));
   });
 });

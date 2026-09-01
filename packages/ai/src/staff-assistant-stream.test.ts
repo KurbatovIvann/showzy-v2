@@ -3,7 +3,11 @@ import { defineActionContract } from "@showzy/core/contract";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import { staffAssistantTools, toProviderToolName } from "./action-tool.js";
+import {
+  staffAssistantTools,
+  STAFF_ASSISTANT_TOOL_SEARCH_NAME,
+  toProviderToolName,
+} from "./action-tool.js";
 import {
   STAFF_ASSISTANT_CACHE_CONTROL,
   STAFF_ASSISTANT_THINKING_DISABLED,
@@ -43,6 +47,17 @@ function anthropicCacheControl(value: unknown): unknown {
     return undefined;
   }
   return anthropic["cacheControl"];
+}
+
+function anthropicDeferLoading(value: unknown): unknown {
+  if (!isRecord(value) || !isRecord(value["providerOptions"])) {
+    return undefined;
+  }
+  const anthropic = value["providerOptions"]["anthropic"];
+  if (!isRecord(anthropic)) {
+    return undefined;
+  }
+  return anthropic["deferLoading"];
 }
 
 const listOrders = defineActionContract({
@@ -109,7 +124,10 @@ describe("staffAssistantTools", () => {
       .mockRejectedValue(new Error("network must not run"));
     const execute = vi.fn(() => Promise.resolve({ items: [] }));
     const tools = staffAssistantTools([listOrders], execute);
-    expect(Object.keys(tools)).toEqual(["orders_list"]);
+    expect(Object.keys(tools)).toEqual([
+      STAFF_ASSISTANT_TOOL_SEARCH_NAME,
+      "orders_list",
+    ]);
     await tools["orders_list"]?.execute?.(
       {},
       { toolCallId: "call-1", messages: [], context: undefined },
@@ -225,11 +243,23 @@ describe("streamStaffAssistantChat", () => {
       STAFF_ASSISTANT_CACHE_CONTROL,
     );
     const tools = call?.tools ?? [];
-    expect(tools.length).toBe(2);
-    expect(anthropicCacheControl(tools[0])).toBeUndefined();
-    expect(anthropicCacheControl(tools[1])).toEqual(
-      STAFF_ASSISTANT_CACHE_CONTROL,
+    expect(tools.length).toBe(3);
+    const search = tools.find(
+      (entry) =>
+        isRecord(entry) && entry["name"] === STAFF_ASSISTANT_TOOL_SEARCH_NAME,
     );
+    const list = tools.find(
+      (entry) => isRecord(entry) && entry["name"] === "orders_list",
+    );
+    const remove = tools.find(
+      (entry) =>
+        isRecord(entry) && entry["name"] === "customers_deleteCustomer",
+    );
+    expect(search).toBeDefined();
+    expect(anthropicCacheControl(list)).toEqual(STAFF_ASSISTANT_CACHE_CONTROL);
+    expect(anthropicDeferLoading(remove)).toBe(true);
+    expect(anthropicDeferLoading(list)).toBeUndefined();
+    expect(anthropicCacheControl(remove)).toBeUndefined();
   });
 
   it("injects an uncached working-set system message without a second list call", async () => {

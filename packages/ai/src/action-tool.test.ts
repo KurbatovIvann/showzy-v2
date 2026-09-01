@@ -8,9 +8,13 @@ import {
   fromProviderToolName,
   PROVIDER_TOOL_NAME_PATTERN,
   staffAssistantTools,
+  STAFF_ASSISTANT_TOOL_SEARCH_NAME,
   toProviderToolName,
 } from "./action-tool.js";
-import { STAFF_ASSISTANT_CACHE_CONTROL } from "./anthropic-options.js";
+import {
+  STAFF_ASSISTANT_CACHE_CONTROL,
+  STAFF_ASSISTANT_DEFER_PROVIDER_OPTIONS,
+} from "./anthropic-options.js";
 
 const customerId = "11111111-1111-4111-8111-111111111111";
 
@@ -144,7 +148,11 @@ describe("staffAssistantTools", () => {
     const execute = vi.fn(() => Promise.resolve({ items: [] }));
     const tools = staffAssistantTools([listOrders, deleteCustomer], execute);
     const names = Object.keys(tools);
-    expect(names).toEqual(["orders_list", "customers_deleteCustomer"]);
+    expect(names).toEqual([
+      STAFF_ASSISTANT_TOOL_SEARCH_NAME,
+      "orders_list",
+      "customers_deleteCustomer",
+    ]);
     for (const name of names) {
       expect(name).toMatch(PROVIDER_TOOL_NAME_PATTERN);
       expect(name).not.toContain(".");
@@ -162,13 +170,33 @@ describe("staffAssistantTools", () => {
     fetchSpy.mockRestore();
   });
 
-  it("marks only the last tool definition with Anthropic cache control", () => {
+  it("keeps hot tools and search in context and defers the rest", () => {
     const tools = staffAssistantTools([listOrders, deleteCustomer], () =>
       Promise.resolve({ items: [] }),
     );
-    expect(tools["orders_list"]?.providerOptions).toBeUndefined();
-    expect(tools["customers_deleteCustomer"]?.providerOptions).toEqual({
+    expect(tools[STAFF_ASSISTANT_TOOL_SEARCH_NAME]).toBeDefined();
+    expect(tools["orders_list"]?.providerOptions).toEqual({
       anthropic: { cacheControl: STAFF_ASSISTANT_CACHE_CONTROL },
     });
+    expect(tools["customers_deleteCustomer"]?.providerOptions).toEqual(
+      STAFF_ASSISTANT_DEFER_PROVIDER_OPTIONS,
+    );
+  });
+
+  it("caches search when every domain tool is deferred", () => {
+    const tools = staffAssistantTools([deleteCustomer], () =>
+      Promise.resolve({}),
+    );
+    expect(tools[STAFF_ASSISTANT_TOOL_SEARCH_NAME]?.providerOptions).toEqual({
+      anthropic: { cacheControl: STAFF_ASSISTANT_CACHE_CONTROL },
+    });
+    expect(tools["customers_deleteCustomer"]?.providerOptions).toEqual(
+      STAFF_ASSISTANT_DEFER_PROVIDER_OPTIONS,
+    );
+  });
+
+  it("attaches nothing when the contract list is empty", () => {
+    const tools = staffAssistantTools([], () => Promise.resolve({}));
+    expect(tools).toEqual({});
   });
 });
