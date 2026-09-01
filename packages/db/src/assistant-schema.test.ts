@@ -341,11 +341,19 @@ describe("assistant schema slice", () => {
       result.rows.map((row) => [row.conname, row.definition]),
     );
 
-    expect(defs.get("assistant_messages_role_check")).toMatch(
-      /IN \('user', 'assistant'\)/,
+    expect(defs.get("assistant_messages_role_check")).toContain("'user'");
+    expect(defs.get("assistant_messages_role_check")).toContain("'assistant'");
+    expect(defs.get("assistant_messages_role_check")).not.toContain("'system'");
+    expect(defs.get("assistant_messages_role_check")).not.toContain("'tool'");
+    expect(defs.get("assistant_tool_runs_outcome_check")).toContain(
+      "'success'",
     );
-    expect(defs.get("assistant_tool_runs_outcome_check")).toMatch(
-      /IN \('success', 'error', 'confirmation_required'\)/,
+    expect(defs.get("assistant_tool_runs_outcome_check")).toContain("'error'");
+    expect(defs.get("assistant_tool_runs_outcome_check")).toContain(
+      "'confirmation_required'",
+    );
+    expect(defs.get("assistant_tool_runs_outcome_check")).not.toContain(
+      "'confirmed'",
     );
   });
 
