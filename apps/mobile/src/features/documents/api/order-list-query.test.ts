@@ -21,11 +21,13 @@ describe("listDocumentOrdersInfiniteOptions", () => {
       getActiveCompany: () => "company-b",
     });
     expect(DOCUMENT_ORDERS_LOOKUP_INPUT).toEqual({
-      status: "confirmed",
+      kind: "page.summary",
+      filter: { statuses: ["confirmed"] },
       limit: DOCUMENT_LOOKUP_PAGE_SIZE,
     });
-    expect(DOCUMENT_ORDERS_LOOKUP_INPUT.status).not.toBe("all");
-    expect(DOCUMENT_ORDERS_LOOKUP_INPUT.status).not.toBe("canceled");
+    expect(DOCUMENT_ORDERS_LOOKUP_INPUT.filter.statuses).not.toContain(
+      "canceled",
+    );
     expect(companyA.queryKey).toEqual(
       contractQueryKey(
         LIST_ORDERS_ACTION,

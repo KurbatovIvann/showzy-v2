@@ -8,39 +8,48 @@ describe("listOrdersInfiniteOptions", () => {
     const all = listOrdersInfiniteOptions({
       client: null,
       companyId: "company-a",
-      input: { status: "all" },
+      input: { kind: "page.summary" },
       getActiveCompany: () => "company-a",
     });
     const canceled = listOrdersInfiniteOptions({
       client: null,
       companyId: "company-a",
-      input: { status: "canceled" },
+      input: {
+        kind: "page.summary",
+        filter: { statuses: ["canceled"] },
+      },
       getActiveCompany: () => "company-a",
     });
     const otherCompany = listOrdersInfiniteOptions({
       client: null,
       companyId: "company-b",
-      input: { status: "all" },
+      input: { kind: "page.summary" },
       getActiveCompany: () => "company-b",
     });
     const searched = listOrdersInfiniteOptions({
       client: null,
       companyId: "company-a",
-      input: { status: "all", query: "1042" },
+      input: {
+        kind: "page.summary",
+        filter: { query: "1042" },
+      },
       getActiveCompany: () => "company-a",
     });
     expect(all.queryKey).toEqual(
-      contractQueryKey(LIST_ORDERS_ACTION, "company-a", { status: "all" }),
+      contractQueryKey(LIST_ORDERS_ACTION, "company-a", {
+        kind: "page.summary",
+      }),
     );
     expect(canceled.queryKey).toEqual(
       contractQueryKey(LIST_ORDERS_ACTION, "company-a", {
-        status: "canceled",
+        kind: "page.summary",
+        filter: { statuses: ["canceled"] },
       }),
     );
     expect(searched.queryKey).toEqual(
       contractQueryKey(LIST_ORDERS_ACTION, "company-a", {
-        status: "all",
-        query: "1042",
+        kind: "page.summary",
+        filter: { query: "1042" },
       }),
     );
     expect(all.queryKey).not.toEqual(canceled.queryKey);

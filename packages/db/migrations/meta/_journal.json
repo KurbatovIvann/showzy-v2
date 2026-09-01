@@ -281,6 +281,13 @@
       "when": 1788245668118,
       "tag": "0039_friendly_crusher_hogan",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1788298855400,
+      "tag": "0040_dapper_killraven",
+      "breakpoints": true
     }
   ]
 }

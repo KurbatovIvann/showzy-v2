@@ -1,5 +1,5 @@
 /**
- * `orders.list` read bindings (SHO-211). Keys follow SHO-102:
+ * `orders.list` read bindings (SHO-211 / SHO-351). Keys follow SHO-102:
  * `[actionName, companyId, input]`; the page cursor is the infinite
  * query page param, never part of the key.
  */
@@ -12,14 +12,36 @@ type ShowzyClient = ContractClient;
 export type ListOrdersOutput = Awaited<
   ReturnType<ShowzyClient["client"]["orders"]["list"]>
 >;
-export type OrderListItem = ListOrdersOutput["items"][number];
+export type ListOrdersSummaryPage = Extract<
+  ListOrdersOutput,
+  { kind: "page.summary" }
+>;
+export type OrderListItem = ListOrdersSummaryPage["items"][number];
 
-export type OrdersListStatus = "new" | "confirmed" | "canceled" | "all";
+export type OrderStatusFilter = "new" | "confirmed" | "canceled";
 
 export type ListOrdersPageInput = {
-  readonly status: OrdersListStatus;
-  readonly query?: string;
+  readonly kind: "page.summary";
+  readonly filter?: {
+    readonly statuses?: OrderStatusFilter[];
+    readonly query?: string;
+  };
 };
+
+async function fetchOrdersSummaryPage(
+  client: ShowzyClient,
+  input: ListOrdersPageInput,
+  cursor: string | null,
+): Promise<ListOrdersSummaryPage> {
+  const page = await client.client.orders.list({
+    ...input,
+    ...(cursor === null ? {} : { cursor }),
+  });
+  if (page.kind !== "page.summary") {
+    throw new TypeError("orders.list expected page.summary");
+  }
+  return page;
+}
 
 export function listOrdersInfiniteOptions(args: {
   readonly client: ContractClient | null;
@@ -38,12 +60,9 @@ export function listOrdersInfiniteOptions(args: {
         if (client === null) {
           return Promise.reject(new TypeError("Failed to fetch"));
         }
-        return client.client.orders.list({
-          ...args.input,
-          ...(cursor === null ? {} : { cursor }),
-        });
+        return fetchOrdersSummaryPage(client, args.input, cursor);
       },
-      nextCursor: (page: ListOrdersOutput) => page.nextCursor,
+      nextCursor: (page: ListOrdersSummaryPage) => page.nextCursor,
     }),
     enabled: client !== null && args.companyId !== null,
   };

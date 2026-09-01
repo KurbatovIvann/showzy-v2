@@ -43,6 +43,15 @@ export const orders = pgTable(
      */
     orderNumber: text("order_number").notNull(),
     customerId: uuid("customer_id"),
+    /**
+     * Header CRM name captured at write time (SHO-351 / ADR-0033).
+     * Unlinked rows (`customer_id` null) store sentinel `unlinked`;
+     * presenters localize it. Default covers NOT NULL on existing
+     * inserts; `orders.create` still writes the live CRM name.
+     */
+    customerNameSnapshot: text("customer_name_snapshot")
+      .notNull()
+      .default("unlinked"),
     status: text("status").notNull().default("new"),
     comment: text("comment"),
     totalNetMinor: bigint("total_net_minor", { mode: "bigint" }).notNull(),
@@ -64,7 +73,19 @@ export const orders = pgTable(
       table.id.desc().nullsFirst(),
     ),
     index("orders_company_status_idx").on(table.companyId, table.status),
+    index("orders_company_status_created_at_id_idx").on(
+      table.companyId,
+      table.status,
+      table.createdAt.desc().nullsFirst(),
+      table.id.desc().nullsFirst(),
+    ),
     index("orders_customer_idx").on(table.customerId),
+    index("orders_company_customer_id_created_at_id_idx").on(
+      table.companyId,
+      table.customerId,
+      table.createdAt.desc().nullsFirst(),
+      table.id.desc().nullsFirst(),
+    ),
     // ON DELETE SET NULL is scoped to customer_id in the follow-up custom
     // migration (db.md §7 / ADR-0025).
     foreignKey({
@@ -87,6 +108,10 @@ export const orders = pgTable(
     check(
       "orders_order_number_shape_check",
       sql`${table.orderNumber} ~ '^[A-Z0-9]+-[0-9A-Z]+$'`,
+    ),
+    check(
+      "orders_customer_name_snapshot_check",
+      sql`char_length(${table.customerNameSnapshot}) > 0`,
     ),
     check("orders_total_net_minor_check", sql`${table.totalNetMinor} >= 0`),
     check("orders_total_tax_minor_check", sql`${table.totalTaxMinor} >= 0`),
@@ -141,6 +166,10 @@ export const orderItems = pgTable(
   (table) => [
     tenantRowUnique("order_items_company_id_id_uq", table),
     index("order_items_order_idx").on(table.orderId),
+    index("order_items_company_order_id_idx").on(
+      table.companyId,
+      table.orderId,
+    ),
     index("order_items_product_idx").on(table.productId),
     index("order_items_variant_idx").on(table.variantId),
     foreignKey({

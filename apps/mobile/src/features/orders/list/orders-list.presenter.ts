@@ -1,5 +1,5 @@
 /**
- * Pure view-model logic for the orders list (SHO-211 / SHO-241). No
+ * Pure view-model logic for the orders list (SHO-211 / SHO-351). No
  * React Native imports so the whole decision surface is unit-testable.
  */
 import type { QueryFailureKind } from "../../../api/errors";
@@ -17,7 +17,7 @@ import { orderStatusTone, type OrderStatusTone } from "../shared/order-status";
 import type {
   ListOrdersPageInput,
   OrderListItem,
-  OrdersListStatus,
+  OrderStatusFilter,
 } from "../api/order.queries";
 
 export { LIST_ORDERS_QUERY_MAX };
@@ -28,8 +28,10 @@ export {
   type CustomerNameHydration,
 };
 export { orderStatusTone, type OrderStatusTone };
+export type { OrderStatusFilter, ListOrdersPageInput };
 
-export type OrderStatusFilter = "new" | "confirmed" | "canceled";
+/** Sentinel persisted on unlinked headers; presenters localize it. */
+export const UNLINKED_CUSTOMER_NAME_SNAPSHOT = "unlinked";
 
 export const ORDER_STATUS_FILTERS: readonly OrderStatusFilter[] = [
   "new",
@@ -59,24 +61,6 @@ export function toggleOrderStatusFilter(
   return sortOrderStatusFilters(next);
 }
 
-/**
- * Empty selected statuses = `all`. A single selected status is sent to
- * the server. Two or three selected statuses fetch `all` and the
- * presenter filters the page client-side (the list action takes one
- * status).
- */
-export function listOrdersStatusParam(
-  selected: readonly OrderStatusFilter[],
-): OrdersListStatus {
-  if (selected.length === 1) {
-    const only = selected[0];
-    if (only !== undefined) {
-      return only;
-    }
-  }
-  return "all";
-}
-
 /** Empty and whitespace-only searches are "no search" — the action rejects them. */
 export function normalizeOrdersSearch(text: string): string | undefined {
   const trimmed = text.trim();
@@ -90,20 +74,17 @@ export function listOrdersPageInput(
   selected: readonly OrderStatusFilter[],
   search: string | undefined,
 ): ListOrdersPageInput {
+  const filter =
+    selected.length === 0 && search === undefined
+      ? undefined
+      : {
+          ...(selected.length === 0 ? {} : { statuses: [...selected] }),
+          ...(search === undefined ? {} : { query: search }),
+        };
   return {
-    status: listOrdersStatusParam(selected),
-    ...(search === undefined ? {} : { query: search }),
+    kind: "page.summary",
+    ...(filter === undefined ? {} : { filter }),
   };
-}
-
-export function filterOrdersBySelectedStatuses<
-  T extends { readonly status: OrderStatusFilter },
->(items: readonly T[], selected: readonly OrderStatusFilter[]): readonly T[] {
-  if (selected.length === 0) {
-    return items;
-  }
-  const allowed = new Set(selected);
-  return items.filter((item) => allowed.has(item.status));
 }
 
 export function hasActiveStatusFilter(
@@ -112,26 +93,14 @@ export function hasActiveStatusFilter(
   return selected.length > 0;
 }
 
-/**
- * Two or more chips fetch `status: "all"` and narrow client-side. Keep
- * requesting pages while the loaded window has no matches — otherwise
- * `classifyOrdersList` would treat an incomplete window as filtered-empty
- * and hide FlashList before later matching rows can load.
- */
-export function shouldPageThroughClientStatusFilter(args: {
-  readonly selectedCount: number;
-  readonly matchingRowCount: number;
-  readonly status: "pending" | "error" | "success";
-  readonly hasNextPage: boolean;
-  readonly isFetchingNextPage: boolean;
-}): boolean {
-  return (
-    args.selectedCount >= 2 &&
-    args.matchingRowCount === 0 &&
-    args.status === "success" &&
-    args.hasNextPage &&
-    !args.isFetchingNextPage
-  );
+export function localizeCustomerNameSnapshot(
+  nameSnapshot: string,
+  fallback: string,
+): string {
+  if (nameSnapshot === UNLINKED_CUSTOMER_NAME_SNAPSHOT) {
+    return fallback;
+  }
+  return nameSnapshot;
 }
 
 const UK_MONTHS = [
@@ -197,16 +166,15 @@ export function toOrderRowView(
   args: {
     readonly locale: Locale;
     readonly copy: OrdersCopy;
-    readonly customerName: CustomerNameHydration;
   },
 ): OrderRowView {
   return {
     id: item.orderId,
-    customerName: customerNameLabel(
-      args.customerName,
+    customerName: localizeCustomerNameSnapshot(
+      item.customer.nameSnapshot,
       args.copy.missingCustomer,
     ),
-    customerNamePending: args.customerName.kind === "pending",
+    customerNamePending: false,
     status: item.status,
     statusLabel: args.copy.statuses[item.status],
     statusTone: orderStatusTone(item.status),
@@ -291,11 +259,9 @@ export type OrdersListState =
 
 /**
  * Canvas state machine: skeletons while loading, offline vs error,
- * then filtered-empty (status and/or search) vs catalog-empty. No
- * probe query — an unfiltered empty page is "no orders yet". A status
- * filter with no matches on the loaded pages is not terminal while
- * more pages exist (or a next page is in flight): keep list chrome so
- * pagination works. Search is server-side; an empty page is terminal.
+ * then filtered-empty (status and/or search) vs catalog-empty. Status
+ * filters are server-side `filter.statuses`; an empty page is terminal
+ * (no client-side multi-status paging). Search is also server-side.
  */
 export function classifyOrdersList(args: {
   readonly clientReady: boolean;
@@ -319,9 +285,6 @@ export function classifyOrdersList(args: {
       : { kind: "error" };
   }
   if (args.rowCount > 0) {
-    return { kind: "rows" };
-  }
-  if (args.hasStatusFilter && (args.hasNextPage || args.isFetchingNextPage)) {
     return { kind: "rows" };
   }
   return args.hasStatusFilter || args.hasSearch

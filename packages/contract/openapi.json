@@ -49826,41 +49826,205 @@
     "/orders/list": {
       "post": {
         "operationId": "orders.list",
-        "summary": "List staff-intake orders in the staff member's active company. Default status all includes new, confirmed, and canceled; pass a CHECK status to filter. Optional query matches the text order number with a case-insensitive contains (optional leading #) or CRM customer name, phone, or email. Paginate with a created-at/id cursor and a page size of at most 50. Each row includes orderId, orderNumber, nullable customerId, status, itemCount, total gross, currency, and createdAt — not the get view or line snapshots. Company id is never input. Does not filter by payment.",
+        "summary": "Query staff-intake orders in the staff member's active company. Pass kind page.summary or page.withLines for a newest-first cursor page, or kind aggregate for a bounded server rollup. Omit filter.statuses to include new, confirmed, and canceled; there is no server status named active or all — until fulfillment statuses exist, active means new plus confirmed. Optional filter.query matches the text order number (optional leading #) or CRM customer name, phone, or email and always requires customers:view. Optional customerIds, createdFrom, and createdTo compose with query. Summary rows include the customer name snapshot and linkedCustomerId, itemCount, and header totals — not the get view. Aggregate buckets are currency-safe and grouped by product (productId+variantId), customer, status, or none. Company id is never input. Does not filter by payment.",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "status": {
-                    "enum": [
-                      "new",
-                      "confirmed",
-                      "canceled",
-                      "all"
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "const": "page.summary"
+                      },
+                      "filter": {
+                        "type": "object",
+                        "properties": {
+                          "statuses": {
+                            "type": "array",
+                            "minItems": 1,
+                            "maxItems": 3,
+                            "items": {
+                              "enum": [
+                                "new",
+                                "confirmed",
+                                "canceled"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "query": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 100
+                          },
+                          "customerIds": {
+                            "type": "array",
+                            "minItems": 1,
+                            "maxItems": 50,
+                            "items": {
+                              "type": "string",
+                              "format": "uuid"
+                            }
+                          },
+                          "createdFrom": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "createdTo": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 50,
+                        "default": 20
+                      },
+                      "cursor": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80
+                      }
+                    },
+                    "required": [
+                      "kind"
                     ],
-                    "type": "string",
-                    "default": "all"
+                    "additionalProperties": false
                   },
-                  "query": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 100
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "const": "page.withLines"
+                      },
+                      "filter": {
+                        "type": "object",
+                        "properties": {
+                          "statuses": {
+                            "type": "array",
+                            "minItems": 1,
+                            "maxItems": 3,
+                            "items": {
+                              "enum": [
+                                "new",
+                                "confirmed",
+                                "canceled"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "query": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 100
+                          },
+                          "customerIds": {
+                            "type": "array",
+                            "minItems": 1,
+                            "maxItems": 50,
+                            "items": {
+                              "type": "string",
+                              "format": "uuid"
+                            }
+                          },
+                          "createdFrom": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "createdTo": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 20,
+                        "default": 20
+                      },
+                      "cursor": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ],
+                    "additionalProperties": false
                   },
-                  "limit": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 50,
-                    "default": 20
-                  },
-                  "cursor": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 80
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "const": "aggregate"
+                      },
+                      "filter": {
+                        "type": "object",
+                        "properties": {
+                          "statuses": {
+                            "type": "array",
+                            "minItems": 1,
+                            "maxItems": 3,
+                            "items": {
+                              "enum": [
+                                "new",
+                                "confirmed",
+                                "canceled"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "query": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 100
+                          },
+                          "customerIds": {
+                            "type": "array",
+                            "minItems": 1,
+                            "maxItems": 50,
+                            "items": {
+                              "type": "string",
+                              "format": "uuid"
+                            }
+                          },
+                          "createdFrom": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "createdTo": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "groupBy": {
+                        "enum": [
+                          "none",
+                          "status",
+                          "product",
+                          "customer"
+                        ],
+                        "type": "string",
+                        "default": "none"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ],
+                    "additionalProperties": false
                   }
-                }
+                ]
               }
             }
           }
@@ -49871,86 +50035,458 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "items": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "orderId": {
-                            "type": "string",
-                            "format": "uuid"
-                          },
-                          "orderNumber": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "customerId": {
-                            "anyOf": [
-                              {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "const": "page.summary"
+                        },
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "orderId": {
                                 "type": "string",
                                 "format": "uuid"
                               },
-                              {
-                                "type": "null"
+                              "orderNumber": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "customer": {
+                                "type": "object",
+                                "properties": {
+                                  "nameSnapshot": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "linkedCustomerId": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "uuid"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "nameSnapshot",
+                                  "linkedCustomerId"
+                                ]
+                              },
+                              "status": {
+                                "enum": [
+                                  "new",
+                                  "confirmed",
+                                  "canceled"
+                                ],
+                                "type": "string"
+                              },
+                              "itemCount": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "totalGrossMinor": {
+                                "type": "string",
+                                "pattern": "^(0|-?[1-9][0-9]*)$"
+                              },
+                              "currency": {
+                                "type": "string",
+                                "minLength": 3,
+                                "maxLength": 3
+                              },
+                              "createdAt": {
+                                "type": "string",
+                                "format": "date-time"
                               }
+                            },
+                            "required": [
+                              "orderId",
+                              "orderNumber",
+                              "customer",
+                              "status",
+                              "itemCount",
+                              "totalGrossMinor",
+                              "currency",
+                              "createdAt"
                             ]
-                          },
-                          "status": {
-                            "enum": [
-                              "new",
-                              "confirmed",
-                              "canceled"
-                            ],
-                            "type": "string"
-                          },
-                          "itemCount": {
-                            "type": "integer",
-                            "minimum": 0,
-                            "maximum": 9007199254740991
-                          },
-                          "totalGrossMinor": {
-                            "type": "string",
-                            "pattern": "^(0|-?[1-9][0-9]*)$"
-                          },
-                          "currency": {
-                            "type": "string",
-                            "minLength": 3,
-                            "maxLength": 3
-                          },
-                          "createdAt": {
-                            "type": "string",
-                            "format": "date-time"
                           }
                         },
-                        "required": [
-                          "orderId",
-                          "orderNumber",
-                          "customerId",
-                          "status",
-                          "itemCount",
-                          "totalGrossMinor",
-                          "currency",
-                          "createdAt"
-                        ]
-                      }
-                    },
-                    "nextCursor": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "minLength": 1
+                        "nextCursor": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         },
-                        {
-                          "type": "null"
+                        "customerMatchTruncated": {
+                          "type": "boolean"
                         }
-                      ]
+                      },
+                      "required": [
+                        "kind",
+                        "items",
+                        "nextCursor",
+                        "customerMatchTruncated"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "const": "page.withLines"
+                        },
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "orderId": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "orderNumber": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "customer": {
+                                "type": "object",
+                                "properties": {
+                                  "nameSnapshot": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  },
+                                  "linkedCustomerId": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "uuid"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "nameSnapshot",
+                                  "linkedCustomerId"
+                                ]
+                              },
+                              "status": {
+                                "enum": [
+                                  "new",
+                                  "confirmed",
+                                  "canceled"
+                                ],
+                                "type": "string"
+                              },
+                              "itemCount": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "totalGrossMinor": {
+                                "type": "string",
+                                "pattern": "^(0|-?[1-9][0-9]*)$"
+                              },
+                              "currency": {
+                                "type": "string",
+                                "minLength": 3,
+                                "maxLength": 3
+                              },
+                              "createdAt": {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              "lines": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "itemId": {
+                                      "type": "string",
+                                      "format": "uuid"
+                                    },
+                                    "productId": {
+                                      "type": "string",
+                                      "format": "uuid"
+                                    },
+                                    "variantId": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "format": "uuid"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "titleSnapshot": {
+                                      "type": "string",
+                                      "minLength": 1
+                                    },
+                                    "quantityMilli": {
+                                      "type": "string",
+                                      "pattern": "^[1-9][0-9]*$"
+                                    },
+                                    "grossAmountMinor": {
+                                      "type": "string",
+                                      "pattern": "^(0|-?[1-9][0-9]*)$"
+                                    },
+                                    "currency": {
+                                      "type": "string",
+                                      "minLength": 3,
+                                      "maxLength": 3
+                                    }
+                                  },
+                                  "required": [
+                                    "itemId",
+                                    "productId",
+                                    "variantId",
+                                    "titleSnapshot",
+                                    "quantityMilli",
+                                    "grossAmountMinor",
+                                    "currency"
+                                  ]
+                                }
+                              }
+                            },
+                            "required": [
+                              "orderId",
+                              "orderNumber",
+                              "customer",
+                              "status",
+                              "itemCount",
+                              "totalGrossMinor",
+                              "currency",
+                              "createdAt",
+                              "lines"
+                            ]
+                          }
+                        },
+                        "nextCursor": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "customerMatchTruncated": {
+                          "type": "boolean"
+                        },
+                        "linesTruncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "items",
+                        "nextCursor",
+                        "customerMatchTruncated",
+                        "linesTruncated"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "const": "aggregate"
+                        },
+                        "orderCount": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "grossByCurrency": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "currency": {
+                                "type": "string",
+                                "minLength": 3,
+                                "maxLength": 3
+                              },
+                              "grossAmountMinor": {
+                                "type": "string",
+                                "pattern": "^(0|-?[1-9][0-9]*)$"
+                              }
+                            },
+                            "required": [
+                              "currency",
+                              "grossAmountMinor"
+                            ]
+                          }
+                        },
+                        "buckets": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "identity": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "const": "product"
+                                      },
+                                      "productId": {
+                                        "type": "string",
+                                        "format": "uuid"
+                                      },
+                                      "variantId": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string",
+                                            "format": "uuid"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "productId",
+                                      "variantId"
+                                    ]
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "const": "customer"
+                                      },
+                                      "customerId": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string",
+                                            "format": "uuid"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "nameSnapshot": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "customerId",
+                                      "nameSnapshot"
+                                    ]
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "const": "status"
+                                      },
+                                      "status": {
+                                        "enum": [
+                                          "new",
+                                          "confirmed",
+                                          "canceled"
+                                        ],
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "status"
+                                    ]
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "const": "none"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind"
+                                    ]
+                                  }
+                                ]
+                              },
+                              "label": {
+                                "type": "string"
+                              },
+                              "orderCount": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "grossByCurrency": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "currency": {
+                                      "type": "string",
+                                      "minLength": 3,
+                                      "maxLength": 3
+                                    },
+                                    "grossAmountMinor": {
+                                      "type": "string",
+                                      "pattern": "^(0|-?[1-9][0-9]*)$"
+                                    }
+                                  },
+                                  "required": [
+                                    "currency",
+                                    "grossAmountMinor"
+                                  ]
+                                }
+                              }
+                            },
+                            "required": [
+                              "identity",
+                              "label",
+                              "orderCount",
+                              "grossByCurrency"
+                            ]
+                          }
+                        },
+                        "bucketsTruncated": {
+                          "type": "boolean"
+                        },
+                        "customerMatchTruncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "orderCount",
+                        "grossByCurrency",
+                        "buckets",
+                        "bucketsTruncated",
+                        "customerMatchTruncated"
+                      ],
+                      "additionalProperties": false
                     }
-                  },
-                  "required": [
-                    "items",
-                    "nextCursor"
                   ]
                 }
               }

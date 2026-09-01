@@ -12,9 +12,9 @@ the same actions. An action is a staff **job**, not a screen widget.
   no workflow mega-action that spans customers+pricing+orders in one write.
 - **List** = bounded domain query: discriminated `kind` (page vs aggregate vs
   bounded lines), extensible `filter`, named caps, explicit truncation.
-  The screen is a client of that query. Do not copy pre-SHO-350
-  `catalog.listProducts` / `orders.list` input as the forever list shape.
-  After SHO-350 merges, new staff lists copy `orders.list`.
+  The screen is a client of that query. Do not copy pre-SHO-351
+  `catalog.listProducts` or page-only `orders.list` input as the forever
+  list shape. New staff lists copy this `orders.list`.
 - **Write** = canonical ids or a unique human `query` reference. Resolve in
   the **owning** module via internal `ctx.call`. Never guess on ambiguous
   names. Do not put name resolution in `pricing.resolveProductPrices`.

@@ -74,7 +74,7 @@ describe("staff AI tool manifest (SHO-322)", () => {
     const listTool = tools[toProviderToolName("orders.list")];
     expect(listTool).toBeDefined();
     await listTool?.execute?.(
-      {},
+      { kind: "page.summary" },
       { toolCallId: "call-list", messages: [], context: undefined },
     );
     expect(execute).toHaveBeenCalledWith("orders.list", expect.anything(), {

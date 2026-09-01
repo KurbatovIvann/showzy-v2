@@ -4,6 +4,7 @@
  * limited to PostgreSQL catalog structure checks.
  */
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 import { eq } from "drizzle-orm";
 import pg from "pg";
@@ -239,6 +240,8 @@ describe("staff orders schema slice", () => {
       // 0029 ADD COLUMN appends after the 0013 table; Drizzle field order
       // in schema/orders.ts is company_id then order_number.
       "order_number",
+      // 0040 ADD COLUMN appends after order_number.
+      "customer_name_snapshot",
     ]);
     expect(columns.get("order_items")).toEqual([
       "id",
@@ -344,8 +347,17 @@ describe("staff orders schema slice", () => {
       "(company_id, status)",
     );
     expect(indexes.get("orders_customer_idx")).toContain("(customer_id)");
+    expect(indexes.get("orders_company_status_created_at_id_idx")).toMatch(
+      /company_id.*status.*created_at.*DESC/i,
+    );
+    expect(indexes.get("orders_company_customer_id_created_at_id_idx")).toMatch(
+      /company_id.*customer_id.*created_at.*DESC/i,
+    );
     expect(indexes.get("order_items_order_idx")).toContain("(order_id)");
     expect(indexes.has("order_items_company_idx")).toBe(false);
+    expect(indexes.get("order_items_company_order_id_idx")).toContain(
+      "(company_id, order_id)",
+    );
     expect(indexes.get("order_items_product_idx")).toContain("(product_id)");
     expect(indexes.get("order_items_variant_idx")).toContain("(variant_id)");
     expect(indexes.get("order_number_counters_pk")).toContain("UNIQUE");
@@ -484,6 +496,10 @@ describe("staff orders schema slice", () => {
     );
     await expectSqlState(
       insertOrder({ companyId: company.id, status: "draft" }),
+      "23514",
+    );
+    await expectSqlState(
+      insertOrder({ companyId: company.id, customerNameSnapshot: "" }),
       "23514",
     );
     await expectSqlState(
@@ -674,6 +690,7 @@ describe("staff orders schema slice", () => {
     const order = await insertOrder({
       companyId: company.id,
       customerId: customer.id,
+      customerNameSnapshot: "Live CRM",
     });
 
     await dbClient.db
@@ -687,6 +704,7 @@ describe("staff orders schema slice", () => {
     expect(remaining).toHaveLength(1);
     expect(remaining[0]?.customerId).toBeNull();
     expect(remaining[0]?.companyId).toBe(company.id);
+    expect(remaining[0]?.customerNameSnapshot).toBe("Live CRM");
   });
 
   it("restricts product and variant deletes while lines exist", async () => {
@@ -869,5 +887,63 @@ describe("staff orders schema slice", () => {
       }),
       "23514",
     );
+  });
+
+  it("defaults unlinked snapshot, backfills live CRM name, and keeps NOT NULL", async () => {
+    const company = await insertCompany();
+    const customer = await insertCustomer(company.id, { name: "Live CRM" });
+    const linked = await insertOrder({
+      companyId: company.id,
+      customerId: customer.id,
+    });
+    expect(linked.customerNameSnapshot).toBe("unlinked");
+    const orphaned = await insertOrder({
+      companyId: company.id,
+      customerId: null,
+    });
+    expect(orphaned.customerNameSnapshot).toBe("unlinked");
+
+    const notNull = await admin.query<{ is_nullable: string }>(
+      `SELECT is_nullable
+       FROM information_schema.columns
+       WHERE table_schema = 'public'
+         AND table_name = 'orders'
+         AND column_name = 'customer_name_snapshot'`,
+    );
+    expect(notNull.rows[0]?.is_nullable).toBe("NO");
+
+    await admin.query(
+      `UPDATE "orders" AS o
+       SET "customer_name_snapshot" = c."name"
+       FROM "company_customers" AS c
+       WHERE o."customer_id" IS NOT NULL
+         AND o."company_id" = c."company_id"
+         AND o."customer_id" = c."id"
+         AND char_length(c."name") > 0
+         AND o."id" = $1`,
+      [linked.id],
+    );
+    const [updated] = await dbClient.db
+      .select({ snapshot: orders.customerNameSnapshot })
+      .from(orders)
+      .where(eq(orders.id, linked.id));
+    expect(updated?.snapshot).toBe("Live CRM");
+    const [stillOrphaned] = await dbClient.db
+      .select({ snapshot: orders.customerNameSnapshot })
+      .from(orders)
+      .where(eq(orders.id, orphaned.id));
+    expect(stillOrphaned?.snapshot).toBe("unlinked");
+  });
+
+  it("ships the CRM snapshot backfill in 0040 (db.md §7)", () => {
+    const sql = readFileSync(
+      new URL("../migrations/0040_dapper_killraven.sql", import.meta.url),
+      "utf8",
+    );
+    expect(sql).toContain('ADD COLUMN "customer_name_snapshot"');
+    expect(sql).toContain("DEFAULT 'unlinked'");
+    expect(sql).toContain('FROM "company_customers" AS c');
+    expect(sql).toContain("db.md §7");
+    expect(sql).not.toContain("Deleted customer");
   });
 });

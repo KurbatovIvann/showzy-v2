@@ -18,7 +18,7 @@ describe("orders.create contract", () => {
     expect(createOrderContract.idempotent).toBe(true);
     expect(createOrderContract.emits).toEqual(["orders.created"]);
     expect(createOrderContract.atomicCalls).toEqual([]);
-    expect(createOrderContract.timeout).toBe(15_000);
+    expect(createOrderContract.timeout).toBe(20_000);
     expect(CREATE_ORDER_MAX_ITEMS).toBe(100);
     expect(CREATE_ORDER_COMMENT_MAX).toBe(2000);
   });

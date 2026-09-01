@@ -17,6 +17,7 @@ export const customersSuiteCoverage = {
     "customers.listCounterparties",
     "customers.listCustomers",
     "customers.listGroups",
+    "customers.listMatchingIds",
     "customers.restoreCustomer",
     "customers.updateCounterparty",
     "customers.updateCustomer",

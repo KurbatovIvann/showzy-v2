@@ -86,7 +86,7 @@ describe("ordersWriteInvalidationKeys", () => {
       orderId: ORDER_ID,
     });
     const listKey = contractQueryKey(LIST_ORDERS_ACTION, "company-a", {
-      status: "all",
+      kind: "page.summary",
     });
     const otherKey = contractQueryKey(GET_ORDER_ACTION, "company-b", {
       orderId: ORDER_ID,

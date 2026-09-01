@@ -1,25 +1,20 @@
 /**
- * Staff order list (SHO-209 / orders-T3, SHO-240 query + orderNumber).
- * Page-only input until SHO-350 (ADR-0033). Copy pagination **helpers**
- * from `@showzy/validation/pagination`, not this filter bag, for a new
- * staff+AI list.
- * - Pagination is a stable `(createdAt desc, id desc)` cursor, not offset.
- *   `limit` defaults to 20 and caps at 50.
- * - Cursor payload is `createdAtISO|id`.
- * - `status` defaults to `all`; `new`, `confirmed`, and `canceled` are
- *   explicit. No payment filter.
- * - Optional `query`: trim, min 1, max `LIST_ORDERS_QUERY_MAX` (100, same
- *   cap as catalog/customers list search). LIKE metacharacters `%`, `_`,
- *   and `\\` are stripped so they cannot widen the match; a query that
- *   strips to empty returns no rows.
- * - Search matches the text `order_number` with a case-insensitive
- *   contains (optional leading `#` stripped) OR CRM name/phone/email
- *   via `ctx.call` `customers.listCustomers`.
- * - Customer-id pages drain up to `LIST_ORDERS_CUSTOMER_SEARCH_MAX_PAGES`
- *   of `LIST_ORDERS_CUSTOMER_SEARCH_PAGE_SIZE` (500 ids). Named cap.
- * - List rows are not the get view: header fields plus `itemCount` only.
- * - `timeout: 10000` covers nested `customers.listCustomers` (5000) plus
- *   the orders page on the remaining budget (mechanical; was 5000).
+ * Staff order list as a channel-neutral domain query (SHO-351 / ADR-0033).
+ * Copy this `kind` + extensible `filter` shape for later staff+AI lists.
+ * Copy pagination **helpers** from `@showzy/validation/pagination`.
+ *
+ * - `kind` selects the job: a summary page, a page with compact lines, or
+ *   a server aggregate. There is no server status `active` or `all`; omit
+ *   `filter.statuses` for every CHECK status. Until fulfillment statuses
+ *   exist, “active” in tool text means `new` + `confirmed`.
+ * - `query` matches the text order number (optional leading `#`) OR live
+ *   CRM name/phone/email via internal `customers.listMatchingIds`. Any
+ *   query requires `customers:view`. Max 100 after trim.
+ * - Caps: summary page default 20 max 50; withLines max 20 orders and
+ *   200 lines; aggregate buckets max 50; `customerIds` max 50.
+ * - Unlinked snapshot sentinel is `unlinked` (presenters localize).
+ * - `timeout: 10000` covers nested `customers.listMatchingIds` (5000)
+ *   plus the orders query (mechanical; was 10000 for paged CRM drain).
  * - Company id is never input.
  */
 import { defineActionContract } from "@showzy/core/contract";
@@ -31,17 +26,19 @@ import {
 } from "@showzy/validation/pagination";
 import { z } from "zod";
 
-import { moneyWireSchema } from "../wire.contract.js";
+import { moneyWireSchema, quantityMilliWireSchema } from "../wire.contract.js";
 import { orderStatusSchema } from "./order-view.contract.js";
 
-export const LIST_ORDERS_DEFAULT_LIMIT = 20;
-export const LIST_ORDERS_MAX_LIMIT = 50;
+export const UNLINKED_CUSTOMER_NAME_SNAPSHOT = "unlinked";
+
+export const LIST_ORDERS_SUMMARY_DEFAULT_LIMIT = 20;
+export const LIST_ORDERS_SUMMARY_MAX_LIMIT = 50;
+export const LIST_ORDERS_WITH_LINES_MAX_LIMIT = 20;
+export const LIST_ORDERS_WITH_LINES_MAX_LINES = 200;
+export const LIST_ORDERS_AGGREGATE_BUCKETS_MAX = 50;
+export const LIST_ORDERS_CUSTOMER_IDS_MAX = 50;
 export const LIST_ORDERS_CURSOR_MAX = 80;
-/** Local cap (SHO-240): same 100 as catalog/customers list search. */
 export const LIST_ORDERS_QUERY_MAX = 100;
-/** Drain cap for nested `customers.listCustomers` pages (SHO-240). */
-export const LIST_ORDERS_CUSTOMER_SEARCH_PAGE_SIZE = 50;
-export const LIST_ORDERS_CUSTOMER_SEARCH_MAX_PAGES = 10;
 
 const listOrdersCursor = createCursorCodec({
   payload: z.object({
@@ -64,24 +61,80 @@ export function parseListOrdersCursor(
   return listOrdersCursor.decode(cursor);
 }
 
-export const listOrdersStatusFilterSchema = z.enum([
-  "new",
-  "confirmed",
-  "canceled",
-  "all",
-]);
+export const listOrdersFilterSchema = z
+  .object({
+    statuses: z.array(orderStatusSchema).min(1).max(3).optional(),
+    query: listSearchInput(LIST_ORDERS_QUERY_MAX),
+    customerIds: z
+      .array(z.uuid())
+      .min(1)
+      .max(LIST_ORDERS_CUSTOMER_IDS_MAX)
+      .optional(),
+    createdFrom: z.iso.datetime().optional(),
+    createdTo: z.iso.datetime().optional(),
+  })
+  .strict()
+  .refine(
+    (filter) =>
+      filter.createdFrom === undefined ||
+      filter.createdTo === undefined ||
+      filter.createdFrom <= filter.createdTo,
+    { message: "createdFrom must be less than or equal to createdTo" },
+  );
 
-export const listOrdersInputSchema = z.object({
-  status: listOrdersStatusFilterSchema.default("all"),
-  query: listSearchInput(LIST_ORDERS_QUERY_MAX),
-  limit: listLimitInput(LIST_ORDERS_MAX_LIMIT, LIST_ORDERS_DEFAULT_LIMIT),
-  cursor: listCursorInput(parseListOrdersCursor, LIST_ORDERS_CURSOR_MAX),
+const listOrdersCursorField = listCursorInput(
+  parseListOrdersCursor,
+  LIST_ORDERS_CURSOR_MAX,
+);
+
+export const listOrdersPageSummaryInputSchema = z.strictObject({
+  kind: z.literal("page.summary"),
+  filter: listOrdersFilterSchema.optional(),
+  limit: listLimitInput(
+    LIST_ORDERS_SUMMARY_MAX_LIMIT,
+    LIST_ORDERS_SUMMARY_DEFAULT_LIMIT,
+  ),
+  cursor: listOrdersCursorField,
 });
 
-export const listOrderRowSchema = z.object({
+export const listOrdersPageWithLinesInputSchema = z.strictObject({
+  kind: z.literal("page.withLines"),
+  filter: listOrdersFilterSchema.optional(),
+  limit: listLimitInput(
+    LIST_ORDERS_WITH_LINES_MAX_LIMIT,
+    LIST_ORDERS_WITH_LINES_MAX_LIMIT,
+  ),
+  cursor: listOrdersCursorField,
+});
+
+export const listOrdersAggregateGroupBySchema = z.enum([
+  "none",
+  "status",
+  "product",
+  "customer",
+]);
+
+export const listOrdersAggregateInputSchema = z.strictObject({
+  kind: z.literal("aggregate"),
+  filter: listOrdersFilterSchema.optional(),
+  groupBy: listOrdersAggregateGroupBySchema.default("none"),
+});
+
+export const listOrdersInputSchema = z.discriminatedUnion("kind", [
+  listOrdersPageSummaryInputSchema,
+  listOrdersPageWithLinesInputSchema,
+  listOrdersAggregateInputSchema,
+]);
+
+export const listOrderCustomerSchema = z.object({
+  nameSnapshot: z.string().min(1),
+  linkedCustomerId: z.uuid().nullable(),
+});
+
+export const listOrderSummaryRowSchema = z.object({
   orderId: z.uuid(),
   orderNumber: z.string().min(1),
-  customerId: z.uuid().nullable(),
+  customer: listOrderCustomerSchema,
   status: orderStatusSchema,
   itemCount: z.number().int().nonnegative(),
   totalGrossMinor: moneyWireSchema,
@@ -89,15 +142,96 @@ export const listOrderRowSchema = z.object({
   createdAt: z.iso.datetime(),
 });
 
-export const listOrdersOutputSchema = z.object({
-  items: z.array(listOrderRowSchema),
-  nextCursor: z.string().min(1).nullable(),
+export const listOrderCompactLineSchema = z.object({
+  itemId: z.uuid(),
+  productId: z.uuid(),
+  variantId: z.uuid().nullable(),
+  titleSnapshot: z.string().min(1),
+  quantityMilli: quantityMilliWireSchema,
+  grossAmountMinor: moneyWireSchema,
+  currency: z.string().length(3),
 });
+
+export const listOrderWithLinesRowSchema = listOrderSummaryRowSchema.extend({
+  lines: z.array(listOrderCompactLineSchema),
+});
+
+export const listOrdersGrossByCurrencySchema = z.object({
+  currency: z.string().length(3),
+  grossAmountMinor: moneyWireSchema,
+});
+
+export const listOrdersBucketIdentitySchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("product"),
+    productId: z.uuid(),
+    variantId: z.uuid().nullable(),
+  }),
+  z.object({
+    kind: z.literal("customer"),
+    customerId: z.uuid().nullable(),
+    nameSnapshot: z.string().min(1),
+  }),
+  z.object({
+    kind: z.literal("status"),
+    status: orderStatusSchema,
+  }),
+  z.object({
+    kind: z.literal("none"),
+  }),
+]);
+
+export const listOrdersBucketSchema = z.object({
+  identity: listOrdersBucketIdentitySchema,
+  label: z.string(),
+  orderCount: z.number().int().nonnegative(),
+  grossByCurrency: z.array(listOrdersGrossByCurrencySchema),
+});
+
+export const listOrdersPageSummaryOutputSchema = z.strictObject({
+  kind: z.literal("page.summary"),
+  items: z.array(listOrderSummaryRowSchema),
+  nextCursor: z.string().min(1).nullable(),
+  customerMatchTruncated: z.boolean(),
+});
+
+export const listOrdersPageWithLinesOutputSchema = z.strictObject({
+  kind: z.literal("page.withLines"),
+  items: z.array(listOrderWithLinesRowSchema),
+  nextCursor: z.string().min(1).nullable(),
+  customerMatchTruncated: z.boolean(),
+  linesTruncated: z.boolean(),
+});
+
+export const listOrdersAggregateOutputSchema = z.strictObject({
+  kind: z.literal("aggregate"),
+  orderCount: z.number().int().nonnegative(),
+  grossByCurrency: z.array(listOrdersGrossByCurrencySchema),
+  buckets: z.array(listOrdersBucketSchema),
+  bucketsTruncated: z.boolean(),
+  customerMatchTruncated: z.boolean(),
+});
+
+export const listOrdersOutputSchema = z.discriminatedUnion("kind", [
+  listOrdersPageSummaryOutputSchema,
+  listOrdersPageWithLinesOutputSchema,
+  listOrdersAggregateOutputSchema,
+]);
+
+export type ListOrdersInput = z.output<typeof listOrdersInputSchema>;
+export type ListOrdersFilter = NonNullable<ListOrdersInput["filter"]>;
+export type ListOrderSummaryRow = z.output<typeof listOrderSummaryRowSchema>;
+export type ListOrderCompactLine = z.output<typeof listOrderCompactLineSchema>;
+export type ListOrdersGrossByCurrency = z.output<
+  typeof listOrdersGrossByCurrencySchema
+>;
+export type ListOrdersBucket = z.output<typeof listOrdersBucketSchema>;
+export type ListOrdersOutput = z.output<typeof listOrdersOutputSchema>;
 
 export const listOrdersContract = defineActionContract({
   name: "orders.list",
   description:
-    "List staff-intake orders in the staff member's active company. Default status all includes new, confirmed, and canceled; pass a CHECK status to filter. Optional query matches the text order number with a case-insensitive contains (optional leading #) or CRM customer name, phone, or email. Paginate with a created-at/id cursor and a page size of at most 50. Each row includes orderId, orderNumber, nullable customerId, status, itemCount, total gross, currency, and createdAt — not the get view or line snapshots. Company id is never input. Does not filter by payment.",
+    "Query staff-intake orders in the staff member's active company. Pass kind page.summary or page.withLines for a newest-first cursor page, or kind aggregate for a bounded server rollup. Omit filter.statuses to include new, confirmed, and canceled; there is no server status named active or all — until fulfillment statuses exist, active means new plus confirmed. Optional filter.query matches the text order number (optional leading #) or CRM customer name, phone, or email and always requires customers:view. Optional customerIds, createdFrom, and createdTo compose with query. Summary rows include the customer name snapshot and linkedCustomerId, itemCount, and header totals — not the get view. Aggregate buckets are currency-safe and grouped by product (productId+variantId), customer, status, or none. Company id is never input. Does not filter by payment.",
   principal: "staff",
   transport: "client",
   input: listOrdersInputSchema,

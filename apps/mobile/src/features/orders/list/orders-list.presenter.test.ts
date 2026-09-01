@@ -6,23 +6,22 @@ import { LIST_ORDERS_QUERY_MAX as capsQueryMax } from "../shared/order-caps";
 import {
   classifyOrdersList,
   customerNameLabel,
-  filterOrdersBySelectedStatuses,
   flattenOrderPages,
   formatOrderCreatedAt,
   groupOrderRows,
   hasActiveStatusFilter,
   isInProgressStatus,
   listOrdersPageInput,
-  listOrdersStatusParam,
+  localizeCustomerNameSnapshot,
   normalizeOrdersSearch,
   orderGroupHeaderLabel,
   orderStatusTone,
   resolveCustomerNameHydration,
-  shouldPageThroughClientStatusFilter,
   stickyHeaderIndices,
   toggleOrderStatusFilter,
   toOrderRowView,
   LIST_ORDERS_QUERY_MAX,
+  UNLINKED_CUSTOMER_NAME_SNAPSHOT,
   type OrderRowView,
 } from "./orders-list.presenter";
 
@@ -36,7 +35,10 @@ function item(overrides: Partial<OrderListItem> = {}): OrderListItem {
   return {
     orderId: ORDER_NEW,
     orderNumber: "KA-1",
-    customerId: CUSTOMER_A,
+    customer: {
+      nameSnapshot: "Марія Ткаченко",
+      linkedCustomerId: CUSTOMER_A,
+    },
     status: "new",
     itemCount: 2,
     totalGrossMinor: "125000",
@@ -88,53 +90,38 @@ describe("normalizeOrdersSearch", () => {
   });
 });
 
-describe("listOrdersStatusParam / listOrdersPageInput", () => {
-  it("maps empty selected statuses to all", () => {
-    expect(listOrdersStatusParam([])).toBe("all");
-    expect(listOrdersPageInput([], undefined)).toEqual({ status: "all" });
+describe("listOrdersPageInput", () => {
+  it("omits statuses when no chips are selected", () => {
+    expect(listOrdersPageInput([], undefined)).toEqual({
+      kind: "page.summary",
+    });
     expect(hasActiveStatusFilter([])).toBe(false);
   });
 
-  it("sends a single selected status to the server", () => {
-    expect(listOrdersStatusParam(["canceled"])).toBe("canceled");
-    expect(listOrdersPageInput(["new"], undefined)).toEqual({ status: "new" });
+  it("sends selected statuses to the server, including multi-select", () => {
+    expect(listOrdersPageInput(["canceled"], undefined)).toEqual({
+      kind: "page.summary",
+      filter: { statuses: ["canceled"] },
+    });
+    expect(listOrdersPageInput(["new", "canceled"], undefined)).toEqual({
+      kind: "page.summary",
+      filter: { statuses: ["new", "canceled"] },
+    });
     expect(hasActiveStatusFilter(["new"])).toBe(true);
   });
 
-  it("fetches all when two or three statuses are selected", () => {
-    expect(listOrdersStatusParam(["new", "canceled"])).toBe("all");
-    expect(listOrdersStatusParam(["new", "confirmed", "canceled"])).toBe("all");
-  });
-
   it("omits the query key entirely when there is no search", () => {
-    expect(listOrdersPageInput([], undefined)).toEqual({ status: "all" });
-    expect(listOrdersPageInput(["canceled"], "1042")).toEqual({
-      status: "canceled",
-      query: "1042",
+    expect(listOrdersPageInput([], undefined)).toEqual({
+      kind: "page.summary",
     });
-  });
-});
-
-describe("filterOrdersBySelectedStatuses", () => {
-  it("keeps every row when the selection is empty", () => {
-    const items = [
-      item({ orderId: ORDER_NEW, status: "new" }),
-      item({ orderId: ORDER_CANCELED, status: "canceled" }),
-    ];
-    expect(filterOrdersBySelectedStatuses(items, [])).toEqual(items);
-  });
-
-  it("keeps only the selected statuses for a multi-select page", () => {
-    const items = [
-      item({ orderId: ORDER_NEW, status: "new" }),
-      item({ orderId: ORDER_CONFIRMED, status: "confirmed" }),
-      item({ orderId: ORDER_CANCELED, status: "canceled" }),
-    ];
-    expect(
-      filterOrdersBySelectedStatuses(items, ["new", "canceled"]).map(
-        (entry) => entry.orderId,
-      ),
-    ).toEqual([ORDER_NEW, ORDER_CANCELED]);
+    expect(listOrdersPageInput(["canceled"], "1042")).toEqual({
+      kind: "page.summary",
+      filter: { statuses: ["canceled"], query: "1042" },
+    });
+    expect(listOrdersPageInput([], "1042")).toEqual({
+      kind: "page.summary",
+      filter: { query: "1042" },
+    });
   });
 });
 
@@ -146,6 +133,28 @@ describe("flattenOrderPages", () => {
     expect(
       flattenOrderPages([{ items: [first, second] }, { items: [third] }]),
     ).toEqual([first, second, third]);
+  });
+});
+
+describe("localizeCustomerNameSnapshot", () => {
+  it("localizes the unlinked sentinel in the presenter, not as persisted English copy", () => {
+    const copy = ordersCopy("en");
+    expect(UNLINKED_CUSTOMER_NAME_SNAPSHOT).toBe("unlinked");
+    expect(
+      localizeCustomerNameSnapshot(
+        UNLINKED_CUSTOMER_NAME_SNAPSHOT,
+        copy.missingCustomer,
+      ),
+    ).toBe("Deleted customer");
+    expect(
+      localizeCustomerNameSnapshot(
+        UNLINKED_CUSTOMER_NAME_SNAPSHOT,
+        ordersCopy("uk").missingCustomer,
+      ),
+    ).toBe("Клієнт видалений");
+    expect(
+      localizeCustomerNameSnapshot("Марія Ткаченко", copy.missingCustomer),
+    ).toBe("Марія Ткаченко");
   });
 });
 
@@ -166,64 +175,23 @@ describe("resolveCustomerNameHydration / customerNameLabel", () => {
       }),
     ).toEqual({ kind: "missing" });
   });
-
-  it("keeps pending and non-NOT_FOUND failures off the deleted copy", () => {
-    expect(customerNameLabel({ kind: "pending" }, fallback)).toBe("");
-    expect(
-      resolveCustomerNameHydration({
-        customerId: CUSTOMER_A,
-        name: undefined,
-        status: "pending",
-        notFound: false,
-      }),
-    ).toEqual({ kind: "pending" });
-    expect(
-      resolveCustomerNameHydration({
-        customerId: CUSTOMER_A,
-        name: undefined,
-        status: "error",
-        notFound: false,
-      }),
-    ).toEqual({ kind: "pending" });
-    expect(
-      resolveCustomerNameHydration({
-        customerId: CUSTOMER_A,
-        name: undefined,
-        status: "error",
-        notFound: true,
-      }),
-    ).toEqual({ kind: "missing" });
-    expect(
-      resolveCustomerNameHydration({
-        customerId: CUSTOMER_A,
-        name: "   ",
-        status: "success",
-        notFound: false,
-      }),
-    ).toEqual({ kind: "missing" });
-    expect(
-      resolveCustomerNameHydration({
-        customerId: CUSTOMER_A,
-        name: "  Марія  ",
-        status: "pending",
-        notFound: false,
-      }),
-    ).toEqual({ kind: "ready", name: "Марія" });
-  });
 });
 
 describe("toOrderRowView", () => {
-  it("maps a contract row onto primitives with #number and without payment", () => {
+  it("maps a contract row onto primitives with snapshot name and #number", () => {
     const copy = ordersCopy("uk");
     const view = toOrderRowView(
       item({
         orderNumber: "KA-K7X2",
-        customerId: CUSTOMER_B,
+        customer: {
+          nameSnapshot: UNLINKED_CUSTOMER_NAME_SNAPSHOT,
+          linkedCustomerId: CUSTOMER_B,
+        },
         status: "canceled",
         itemCount: 1,
         totalGrossMinor: "89000",
       }),
-      { locale: "uk", copy, customerName: { kind: "missing" } },
+      { locale: "uk", copy },
     );
     expect(view.customerName).toBe(copy.missingCustomer);
     expect(view.customerNamePending).toBe(false);
@@ -234,30 +202,17 @@ describe("toOrderRowView", () => {
     expect(view.totalLabel).toBe("890\u00A0₴");
     expect(JSON.stringify(view)).not.toContain("SHZ-");
     expect(JSON.stringify(view)).not.toContain("Оплачен");
-    expect(JSON.stringify(view)).not.toContain("до ");
+    expect(JSON.stringify(view)).not.toContain("unlinked");
   });
 
-  it("keeps a hydrated customer name", () => {
+  it("keeps a live snapshot name without a getCustomer round-trip", () => {
     const view = toOrderRowView(item(), {
       locale: "uk",
       copy: ordersCopy("uk"),
-      customerName: { kind: "ready", name: "Марія Ткаченко" },
     });
     expect(view.customerName).toBe("Марія Ткаченко");
     expect(view.customerNamePending).toBe(false);
     expect(view.statusTone).toBe("action");
-  });
-
-  it("does not print deleted copy while the name query is pending", () => {
-    const copy = ordersCopy("uk");
-    const view = toOrderRowView(item(), {
-      locale: "uk",
-      copy,
-      customerName: { kind: "pending" },
-    });
-    expect(view.customerName).toBe("");
-    expect(view.customerNamePending).toBe(true);
-    expect(view.customerName).not.toBe(copy.missingCustomer);
   });
 });
 
@@ -417,77 +372,13 @@ describe("classifyOrdersList", () => {
     ).toEqual({ kind: "empty-filtered" });
   });
 
-  it("does not keep list chrome for a server search with no matches", () => {
+  it("treats a server status filter with no matches as filtered-empty", () => {
     expect(
       classifyOrdersList({
         ...base,
-        hasSearch: true,
+        hasStatusFilter: true,
         hasNextPage: true,
       }),
     ).toEqual({ kind: "empty-filtered" });
-  });
-
-  it("keeps list chrome when a filter has no matches yet but more pages exist", () => {
-    expect(
-      classifyOrdersList({
-        ...base,
-        hasStatusFilter: true,
-        hasNextPage: true,
-      }),
-    ).toEqual({ kind: "rows" });
-    expect(
-      classifyOrdersList({
-        ...base,
-        hasStatusFilter: true,
-        isFetchingNextPage: true,
-      }),
-    ).toEqual({ kind: "rows" });
-  });
-});
-
-describe("shouldPageThroughClientStatusFilter", () => {
-  const base = {
-    selectedCount: 2,
-    matchingRowCount: 0,
-    status: "success" as const,
-    hasNextPage: true,
-    isFetchingNextPage: false,
-  };
-
-  it("pages a multi-select client filter while loaded pages have no matches", () => {
-    expect(shouldPageThroughClientStatusFilter(base)).toBe(true);
-    expect(
-      shouldPageThroughClientStatusFilter({ ...base, selectedCount: 3 }),
-    ).toBe(true);
-  });
-
-  it("does not page when a single status is server-filtered or none are selected", () => {
-    expect(
-      shouldPageThroughClientStatusFilter({ ...base, selectedCount: 1 }),
-    ).toBe(false);
-    expect(
-      shouldPageThroughClientStatusFilter({ ...base, selectedCount: 0 }),
-    ).toBe(false);
-  });
-
-  it("stops when matches exist, the cursor ends, or a page is already in flight", () => {
-    expect(
-      shouldPageThroughClientStatusFilter({ ...base, matchingRowCount: 1 }),
-    ).toBe(false);
-    expect(
-      shouldPageThroughClientStatusFilter({ ...base, hasNextPage: false }),
-    ).toBe(false);
-    expect(
-      shouldPageThroughClientStatusFilter({
-        ...base,
-        isFetchingNextPage: true,
-      }),
-    ).toBe(false);
-    expect(
-      shouldPageThroughClientStatusFilter({ ...base, status: "pending" }),
-    ).toBe(false);
-    expect(
-      shouldPageThroughClientStatusFilter({ ...base, status: "error" }),
-    ).toBe(false);
   });
 });

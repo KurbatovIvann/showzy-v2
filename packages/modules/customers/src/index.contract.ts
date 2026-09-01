@@ -13,6 +13,7 @@ export { getGroupContract } from "./actions/get-group.contract.js";
 export { listCounterpartiesContract } from "./actions/list-counterparties.contract.js";
 export { listCustomersContract } from "./actions/list-customers.contract.js";
 export { listGroupsContract } from "./actions/list-groups.contract.js";
+export { listMatchingIdsContract } from "./actions/list-matching-ids.contract.js";
 export { restoreCustomerContract } from "./actions/restore-customer.contract.js";
 export { updateCounterpartyContract } from "./actions/update-counterparty.contract.js";
 export { updateCustomerContract } from "./actions/update-customer.contract.js";

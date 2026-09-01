@@ -560,7 +560,7 @@ describe("POST /assistant/chat mock-model parity", () => {
           mockToolCallStream(
             "call-list",
             toProviderToolName("orders.list"),
-            "{}",
+            '{"kind":"page.summary"}',
           ),
           mockTextStream("You have no orders."),
         ],
@@ -1450,7 +1450,7 @@ describe("POST /assistant/chat operational gate", () => {
         mockToolCallStream(
           "call-list",
           toProviderToolName("orders.list"),
-          "{}",
+          '{"kind":"page.summary"}',
         ),
         mockTextStream("should not run"),
       ],
@@ -1494,7 +1494,7 @@ describe("POST /assistant/chat operational gate", () => {
         mockToolCallStream(
           "call-list",
           toProviderToolName("orders.list"),
-          "{}",
+          '{"kind":"page.summary"}',
         ),
         mockTextStream("You have no orders."),
       ],
@@ -1544,7 +1544,7 @@ describe("POST /assistant/chat operational gate", () => {
         mockToolCallStream(
           "call-list",
           toProviderToolName("orders.list"),
-          "{}",
+          '{"kind":"page.summary"}',
         ),
         mockTextStream("You have no orders."),
       ],
@@ -1646,7 +1646,7 @@ describe("POST /assistant/chat operational gate", () => {
         mockToolCallStream(
           "call-list",
           toProviderToolName("orders.list"),
-          "{}",
+          '{"kind":"page.summary"}',
         ),
         mockTextStream("You have no orders."),
         mockTextStream("Creating the price list."),
@@ -1737,7 +1737,7 @@ describe("POST /assistant/chat operational gate", () => {
         mockToolCallStream(
           "call-list",
           toProviderToolName("orders.list"),
-          "{}",
+          '{"kind":"page.summary"}',
         ),
         mockTextStream("You have no orders."),
         mockTextStream("I only help with this company."),

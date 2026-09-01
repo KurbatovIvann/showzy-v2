@@ -771,6 +771,15 @@ describe("orders.create / confirm / get", () => {
     expect(created.comment).toBe("Staff note");
     expect(created.customerId).toBe(fixtures.customerA);
     expect(created.items).toHaveLength(6);
+    expect(
+      Object.prototype.hasOwnProperty.call(created, "customerNameSnapshot"),
+    ).toBe(false);
+
+    const [header] = await kit.db.runtime.db
+      .select({ snapshot: orders.customerNameSnapshot })
+      .from(orders)
+      .where(eq(orders.id, created.orderId));
+    expect(header?.snapshot).toBe("Customer A");
 
     const byProduct = new Map(
       created.items.map((item) => [item.productId, item]),
@@ -996,7 +1005,15 @@ describe("orders.create / confirm / get", () => {
     );
     expect(fetched.orderNumber).toBe(formatStaffOrderNumber("N4", 1n));
 
-    const listed = await kit.invoke(listOrders, {}, actorA);
+    const listed = await kit.invoke(
+      listOrders,
+      { kind: "page.summary" },
+      actorA,
+    );
+    expect(listed.kind).toBe("page.summary");
+    if (listed.kind !== "page.summary") {
+      throw new Error("expected page.summary");
+    }
     expect(listed.items.map((row) => row.orderNumber).toSorted()).toEqual(
       [
         formatStaffOrderNumber("N4", 1n),

@@ -87,8 +87,8 @@ First application: Linear [SHO-350](https://linear.app/showzy-v2/issue/SHO-350)
 ## Consequences
 
 - `.cursor/rules/`, `AGENTS.md`, `/ticket` `/feature`, and blueprint §1/§4
-  point here. “Copy the golden list” means SHO-350 `orders.list` after it
-  merges; until then, do not add another page-only staff list.
+  point here. “Copy the golden list” means SHO-351 `orders.list`
+  (`kind` + extensible `filter`). Do not add another page-only staff list.
 - `pricing.resolveProductPrices` and similar composition reads should not
   be AI tools (SHO-350 T2).
 - Protocol manuals (`docs/specs/core.md`, `contract.md`) stay; they do not

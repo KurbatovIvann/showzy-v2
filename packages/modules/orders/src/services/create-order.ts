@@ -76,6 +76,7 @@ async function insertNumberedHeader(
     readonly companyId: string;
     readonly numberingPrefix: string;
     readonly customerId: string;
+    readonly customerNameSnapshot: string;
     readonly comment: string | null;
     readonly totalNetMinor: bigint;
     readonly totalTaxMinor: bigint;
@@ -103,6 +104,7 @@ async function insertNumberedHeader(
             companyId: values.companyId,
             orderNumber,
             customerId: values.customerId,
+            customerNameSnapshot: values.customerNameSnapshot,
             status: "new",
             comment: values.comment,
             totalNetMinor: values.totalNetMinor,
@@ -296,10 +298,18 @@ export async function createStaffOrder(env: {
   readonly ctx: StaffCtx;
   readonly input: CreateInput;
   readonly numberingPrefix: string;
+  readonly customerNameSnapshot: string;
   readonly products: readonly CatalogOrderProductFact[];
   readonly prices: readonly ResolvedOrderPrice[];
 }): Promise<OrderView> {
-  const { ctx, input, numberingPrefix, products, prices } = env;
+  const {
+    ctx,
+    input,
+    numberingPrefix,
+    customerNameSnapshot,
+    products,
+    prices,
+  } = env;
   if (prices.length !== input.items.length) {
     throw new CoreInvariantError(
       "pricing.resolveProductPrices returned a different item count than create input",
@@ -352,6 +362,7 @@ export async function createStaffOrder(env: {
     companyId: ctx.companyId,
     numberingPrefix,
     customerId: input.customerId,
+    customerNameSnapshot,
     comment,
     totalNetMinor,
     totalTaxMinor,
