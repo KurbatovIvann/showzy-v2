@@ -207,15 +207,42 @@ describe("architecture and agent rules agree", () => {
 });
 
 describe("CI smoke contract (SHO-331)", () => {
-  it("keeps a real Playwright e2e-smoke job, not a placeholder echo", () => {
+  it("pins the executable Playwright e2e-smoke contract, not a job-name placeholder", () => {
     const ci = readRepo(".github/workflows/ci.yml");
     const protection = readRepo("docs/operations/branch-protection.md");
-    expect(ci).not.toMatch(/Placeholder — phase-aware e2e/);
-    expect(ci).toMatch(/playwright test|e2e-smoke/);
+    const playwrightConfig = readFileSync(
+      join(webRoot, "playwright.config.ts"),
+      "utf8",
+    );
+    const webPackage: unknown = JSON.parse(
+      readFileSync(join(webRoot, "package.json"), "utf8"),
+    );
+
+    expect(webPackage).toEqual(
+      expect.objectContaining({
+        scripts: expect.objectContaining({
+          "e2e-smoke": "vite build && playwright test",
+        }),
+      }),
+    );
+    expect(playwrightConfig).toContain('testDir: "./e2e"');
+    expect(playwrightConfig).toContain("retries: 0");
+    expect(ci).toContain("turbo run e2e-smoke");
     expect(ci).toContain("playwright install");
+    expect(ci).not.toMatch(/echo/);
+    expect(ci).not.toMatch(/Placeholder — phase-aware e2e/);
     expect(protection).not.toMatch(/placeholder until fnd-T51/);
     expect(protection).toContain("Playwright");
     expect(webAgents).toContain("Playwright");
     expect(webAgents).toContain("e2e/");
+
+    const srcFiles = listFiles(webSrc).filter((file) =>
+      /\.(ts|tsx)$/.test(file),
+    );
+    for (const file of srcFiles) {
+      const text = readFileSync(file, "utf8");
+      expect(text, file).not.toMatch(/from ["']@playwright\/test["']/);
+      expect(text, file).not.toMatch(/from ["'][^"']*\/e2e\//);
+    }
   });
 });
