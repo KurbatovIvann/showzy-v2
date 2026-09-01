@@ -6,6 +6,9 @@
  * (so a manual Cookie is not overwritten). This adapter rebuilds each
  * request with `credentials: "include"` so the browser sends the same-origin
  * session cookie. Never a hand-written RPC path.
+ *
+ * `onActiveCompanyChange` is the composition hook for cache isolation —
+ * do not monkey-patch `setActiveCompany`.
  */
 import {
   createContractClient,
@@ -15,15 +18,36 @@ import {
 
 export type { ContractClient };
 
+export type ActiveCompanyChangeListener = (companyId: string | null) => void;
+
+export type ShowzyClient = ContractClient & {
+  onActiveCompanyChange(listener: ActiveCompanyChangeListener): () => void;
+};
+
+export type ActiveCompanyListenerHost = {
+  onActiveCompanyChange(listener: ActiveCompanyChangeListener): () => void;
+};
+
+function panelBaseUrl(): string {
+  if (typeof window === "undefined") {
+    return "http://localhost";
+  }
+  return window.location.origin;
+}
+
 export function createShowzyClient(
   options: {
     readonly baseUrl?: string;
     readonly fetch?: ContractClientOptions["fetch"];
+    readonly initialCompanyId?: string | null;
   } = {},
-): ContractClient {
+): ShowzyClient {
   const injected = options.fetch;
-  return createContractClient({
-    baseUrl: options.baseUrl ?? "",
+  const inner = createContractClient({
+    baseUrl: options.baseUrl ?? panelBaseUrl(),
+    ...(options.initialCompanyId === undefined
+      ? {}
+      : { initialCompanyId: options.initialCompanyId }),
     fetch: async (request, init, rpcOptions, path, input) => {
       const sessionRequest = await requestWithBrowserCookies(request);
       if (injected !== undefined) {
@@ -32,6 +56,24 @@ export function createShowzyClient(
       return fetch(sessionRequest.url, await browserFetchInit(sessionRequest));
     },
   });
+  const listeners = new Set<ActiveCompanyChangeListener>();
+  return {
+    client: inner.client,
+    createMutationAttempt: inner.createMutationAttempt,
+    getActiveCompany: () => inner.getActiveCompany(),
+    setActiveCompany(companyId) {
+      inner.setActiveCompany(companyId);
+      for (const listener of [...listeners]) {
+        listener(companyId);
+      }
+    },
+    onActiveCompanyChange(listener) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+  };
 }
 
 async function requestWithBrowserCookies(request: Request): Promise<Request> {

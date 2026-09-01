@@ -1,5 +1,8 @@
+import { COMPANY_SELECTOR_HEADER } from "@showzy/contract";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
+
+import type { CompanyMembership } from "../api/company-membership-query";
 
 /** jsdom document origin — same-origin `/api/auth` and `/rpc`. */
 export const PANEL_ORIGIN = "http://localhost:3000";
@@ -10,7 +13,17 @@ export type MockSessionUser = {
   readonly phoneNumber: string | null;
 };
 
+export type RpcCall = {
+  readonly path: string;
+  readonly companyId: string | null;
+};
+
 type SessionState = { user: MockSessionUser | null };
+
+type RpcState = {
+  memberships: CompanyMembership[];
+  calls: RpcCall[];
+};
 
 type SessionJson = {
   readonly session: {
@@ -34,6 +47,7 @@ type SessionJson = {
 
 type AuthMsw = {
   readonly sessionState: SessionState;
+  readonly rpcState: RpcState;
   readonly server: ReturnType<typeof setupServer>;
   listening: boolean;
 };
@@ -44,18 +58,20 @@ type AuthMsw = {
  * so `listen()` is once-per-worker and tests mutate the same session.
  */
 function authMsw(): AuthMsw {
-  const g = globalThis as typeof globalThis & { __showzyAuthMsw?: AuthMsw };
-  const existing = g.__showzyAuthMsw;
+  const g = globalThis as typeof globalThis & { __showzyPanelMsw?: AuthMsw };
+  const existing = g.__showzyPanelMsw;
   if (existing !== undefined) {
     return existing;
   }
   const sessionState: SessionState = { user: null };
+  const rpcState: RpcState = { memberships: [], calls: [] };
   const created: AuthMsw = {
     sessionState,
-    server: setupServer(...authHandlers(sessionState)),
+    rpcState,
+    server: setupServer(...allHandlers(sessionState, rpcState)),
     listening: false,
   };
-  g.__showzyAuthMsw = created;
+  g.__showzyPanelMsw = created;
   return created;
 }
 
@@ -86,7 +102,11 @@ function sessionJson(sessionState: SessionState): SessionJson {
   };
 }
 
-function authHandlers(sessionState: SessionState) {
+function rpcJson(data: unknown): Response {
+  return HttpResponse.json({ json: data });
+}
+
+function allHandlers(sessionState: SessionState, rpcState: RpcState) {
   return [
     http.get(`${PANEL_ORIGIN}/api/auth/get-session`, () => {
       return HttpResponse.json(sessionJson(sessionState));
@@ -120,16 +140,26 @@ function authHandlers(sessionState: SessionState) {
       };
       return HttpResponse.json(sessionJson(sessionState));
     }),
+    http.post(`${PANEL_ORIGIN}/rpc/companies/listMine`, ({ request }) => {
+      rpcState.calls.push({
+        path: new URL(request.url).pathname,
+        companyId: request.headers.get(COMPANY_SELECTOR_HEADER),
+      });
+      return rpcJson({ memberships: rpcState.memberships });
+    }),
   ];
 }
 
 const msw = authMsw();
 
 export const sessionState = msw.sessionState;
+export const listMineState = msw.rpcState;
 export const server = msw.server;
 
 export function resetAuthMocks(): void {
   sessionState.user = null;
+  listMineState.memberships = [];
+  listMineState.calls = [];
 }
 
 export function ensureAuthServer(): void {
