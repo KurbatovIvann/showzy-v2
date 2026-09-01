@@ -246,14 +246,15 @@ describe("panel chrome nav (SHO-314)", () => {
     expect(within(nav).getByRole("link", { name: "Запрошення" })).toBeDefined();
     expect(within(nav).queryByRole("link", { name: "Групи" })).toBeNull();
     expect(within(nav).queryByRole("link", { name: "Контрагенти" })).toBeNull();
-    await act(async () => {
-      await router.navigate({
-        to: "/$companySlug/customers",
-        params: { companySlug: "kviti-lviv" },
-      });
-    });
+    fireEvent.click(within(nav).getByRole("link", { name: "Клієнти" }));
     await waitFor(() => {
       expect(router.state.location.pathname).toBe("/kviti-lviv/customers");
+      expect(screen.getByRole("region", { name: "Клієнти" })).toBeDefined();
+      expect(
+        within(nav)
+          .getByRole("link", { name: "Клієнти" })
+          .getAttribute("aria-current"),
+      ).toBe("page");
       expect(screen.getByRole("link", { name: "Групи" })).toBeDefined();
     });
     expect(screen.getByRole("link", { name: "Контрагенти" })).toBeDefined();

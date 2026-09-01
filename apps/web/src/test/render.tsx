@@ -3,15 +3,61 @@ import { act, cleanup, render } from "@testing-library/react";
 import { onTestFinished } from "vitest";
 
 import { AppProviders } from "../app-providers";
-import { createShowzyClient } from "../api/client";
-import { createWebQueryClient } from "../api/query-client";
+import { createShowzyClient, type ShowzyClient } from "../api/client";
+import {
+  clearCachedContractQueries,
+  createWebQueryClient,
+} from "../api/query-client";
 import {
   createShowzyAuthClient,
   disposeShowzyAuthClient,
+  type ShowzyAuthClient,
 } from "../auth/client";
 import { createAppRouter } from "../router";
 
-export async function renderApp(path: string) {
+export type RenderedApp = {
+  readonly authClient: ShowzyAuthClient;
+  readonly router: ReturnType<typeof createAppRouter>;
+  readonly queryClient: ReturnType<typeof createWebQueryClient>;
+  readonly apiClient: ShowzyClient;
+};
+
+let currentApp: RenderedApp | undefined;
+let disposeHooked = false;
+
+/**
+ * Drop the live router/auth/query tree before the next `renderApp` (and
+ * at test end). Sequential tables that only `cleanup()` leave memory
+ * histories and session atoms alive; CI then sees an empty `<div />` /
+ * leftover `.panel-shell` (SHO-332).
+ */
+export function disposeRenderedApp(): void {
+  const app = currentApp;
+  currentApp = undefined;
+  cleanup();
+  if (app === undefined) {
+    return;
+  }
+  app.router.history.destroy();
+  disposeShowzyAuthClient(app.authClient);
+  clearCachedContractQueries(app.queryClient);
+  app.apiClient.setActiveCompany(null);
+}
+
+function hookDisposeOnTestFinished(): void {
+  if (disposeHooked) {
+    return;
+  }
+  disposeHooked = true;
+  onTestFinished(() => {
+    disposeHooked = false;
+    disposeRenderedApp();
+  });
+}
+
+export async function renderApp(path: string): Promise<RenderedApp> {
+  disposeRenderedApp();
+  hookDisposeOnTestFinished();
   const authClient = createShowzyAuthClient({
     // jsdom emits visibilitychange while attaching the tree. better-auth
     // then aborts the in-flight session-atom fetch and can leave
@@ -23,13 +69,6 @@ export async function renderApp(path: string) {
   });
   const queryClient = createWebQueryClient({ retryQueries: false });
   const apiClient = createShowzyClient();
-  // After RTL unmount, nanostores still holds a 1000ms delayed destroy
-  // that touches `window`. Run it here, while jsdom is alive (SHO-317).
-  onTestFinished(() => {
-    cleanup();
-    disposeShowzyAuthClient(authClient);
-    queryClient.clear();
-  });
   const router = createAppRouter({
     authClient,
     history: createMemoryHistory({ initialEntries: [path] }),
@@ -39,6 +78,17 @@ export async function renderApp(path: string) {
     defaultPendingMs: 0,
     defaultPendingMinMs: 0,
   });
+  const rendered: RenderedApp = {
+    authClient,
+    router,
+    queryClient,
+    apiClient,
+  };
+  currentApp = rendered;
+  // Resolve matches before paint. Nesting `router.load()` inside `act`
+  // with the session `setTimeout(0)` can deadlock under CI load and
+  // leave RouterProvider as an empty `<div />` (SHO-332).
+  await router.load();
   await act(async () => {
     render(
       <AppProviders
@@ -49,11 +99,10 @@ export async function renderApp(path: string) {
         <RouterProvider router={router} />
       </AppProviders>,
     );
-    await router.load();
     // Session atom fetch is scheduled on setTimeout(0) in onMount.
     await new Promise<void>((resolve) => {
       setTimeout(resolve, 0);
     });
   });
-  return { authClient, router, queryClient, apiClient };
+  return rendered;
 }
