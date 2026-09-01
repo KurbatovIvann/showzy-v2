@@ -1,23 +1,19 @@
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { Platform, Text, View } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import {
   CalendarIcon,
   LayersIcon,
   LinkIcon,
-  LockIcon,
   TagIcon,
-  WifiOffIcon,
 } from "lucide-react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
+import { FormScreenScaffold } from "../../../components/form-kit";
 import {
-  AppHeader,
   Banner,
   Button,
-  EmptyState,
   OptionSelectSheet,
   SegmentedTabs,
   SelectorRow,
@@ -39,113 +35,80 @@ import type { InvitationFormModel } from "./use-invitation-form";
 export function InvitationFormView(model: InvitationFormModel) {
   const { copy } = model;
   const form = copy.inviteForm;
+  const created = model.created !== null;
+  const showSubmitFooter = model.state.kind === "ready" && !created;
 
   return (
-    <SafeAreaView
-      edges={["top", "bottom"]}
+    <FormScreenScaffold
+      title={model.headerTitle}
       accessibilityLabel={model.headerTitle}
-      style={styles.screen}
-    >
-      <AppHeader
-        title={model.headerTitle}
-        back={{
-          onPress: model.requestLeave,
-          accessibilityLabel: copy.backLabel,
-        }}
-      />
-      <InvitationFormBody model={model} />
-      {model.state.kind === "ready" ? (
-        <View style={styles.footer}>
-          {model.created !== null ? (
-            <Button fullWidth label={form.done} onPress={model.requestLeave} />
-          ) : (
-            <View style={styles.footerActions}>
-              <View style={styles.footerButton}>
-                <Button
-                  variant="secondary"
-                  fullWidth
-                  label={form.cancel}
-                  disabled={model.pending}
-                  onPress={model.requestLeave}
-                />
-              </View>
-              <View style={styles.footerButton}>
-                <Button
-                  fullWidth
-                  label={model.submitLabel}
-                  loading={model.pending}
-                  disabled={model.submitDisabled}
-                  onPress={model.save}
-                />
-              </View>
+      backLabel={copy.backLabel}
+      onBack={model.requestLeave}
+      loadKind={model.state.kind}
+      loadingLabel={form.loadingLabel}
+      empty={{
+        offlineTitle: copy.empty.offlineTitle,
+        offlineDescription: copy.empty.offlineDescription,
+        errorTitle: copy.empty.errorTitle,
+        errorDescription: copy.empty.errorDescription,
+        permissionTitle: form.permissionCreateTitle,
+        permissionDescription: form.permissionCreateDescription,
+        retryLabel: copy.empty.retry,
+      }}
+      {...(showSubmitFooter
+        ? {
+            footer: {
+              cancelLabel: form.cancel,
+              submitLabel: model.submitLabel,
+              pending: model.pending,
+              submitDisabled: model.submitDisabled,
+              onCancel: model.requestLeave,
+              onSubmit: model.save,
+            },
+          }
+        : {})}
+      overlay={
+        <>
+          {model.state.kind === "ready" && created ? (
+            <View style={styles.createdFooter}>
+              <Button fullWidth label={form.done} onPress={model.requestLeave} />
             </View>
-          )}
-        </View>
-      ) : null}
-      <OptionSelectSheet
-        visible={model.picker === "group"}
-        title={form.groupSheetTitle}
-        emptyOptionLabel={form.groupEmptyOption}
-        emptyLabel={form.groupEmpty}
-        searchPlaceholder={form.groupSearchPlaceholder}
-        searchLabel={copy.searchLabel}
-        closeLabel={form.closeSheet}
-        value={model.groupId}
-        options={model.groupOptions}
-        searchMaxLength={LIST_GROUPS_SEARCH_MAX}
-        onClose={model.closePicker}
-        onChange={model.selectGroup}
-      />
-      <OptionSelectSheet
-        visible={model.picker === "priceList"}
-        title={form.priceListSheetTitle}
-        emptyOptionLabel={form.priceListEmptyOption}
-        emptyLabel={form.priceListEmpty}
-        searchPlaceholder={form.priceListSearchPlaceholder}
-        searchLabel={copy.searchLabel}
-        closeLabel={form.closeSheet}
-        value={model.priceListId}
-        options={model.priceListOptions}
-        searchMaxLength={LIST_GROUPS_SEARCH_MAX}
-        onClose={model.closePicker}
-        onChange={model.selectPriceList}
-      />
-      <InvitationExpiresPicker model={model} />
-    </SafeAreaView>
+          ) : null}
+          <OptionSelectSheet
+            visible={model.picker === "group"}
+            title={form.groupSheetTitle}
+            emptyOptionLabel={form.groupEmptyOption}
+            emptyLabel={form.groupEmpty}
+            searchPlaceholder={form.groupSearchPlaceholder}
+            searchLabel={copy.searchLabel}
+            closeLabel={form.closeSheet}
+            value={model.groupId}
+            options={model.groupOptions}
+            searchMaxLength={LIST_GROUPS_SEARCH_MAX}
+            onClose={model.closePicker}
+            onChange={model.selectGroup}
+          />
+          <OptionSelectSheet
+            visible={model.picker === "priceList"}
+            title={form.priceListSheetTitle}
+            emptyOptionLabel={form.priceListEmptyOption}
+            emptyLabel={form.priceListEmpty}
+            searchPlaceholder={form.priceListSearchPlaceholder}
+            searchLabel={copy.searchLabel}
+            closeLabel={form.closeSheet}
+            value={model.priceListId}
+            options={model.priceListOptions}
+            searchMaxLength={LIST_GROUPS_SEARCH_MAX}
+            onClose={model.closePicker}
+            onChange={model.selectPriceList}
+          />
+          <InvitationExpiresPicker model={model} />
+        </>
+      }
+    >
+      <InvitationFormReady model={model} />
+    </FormScreenScaffold>
   );
-}
-
-function InvitationFormBody(props: { readonly model: InvitationFormModel }) {
-  const { model } = props;
-  const { copy } = model;
-  const { theme } = useUnistyles();
-  const iconColor = theme.colors.mutedForeground;
-  const form = copy.inviteForm;
-
-  switch (model.state.kind) {
-    case "error":
-      return (
-        <CenteredEmpty>
-          <EmptyState
-            icon={<WifiOffIcon size={theme.iconSize.md} color={iconColor} />}
-            title={copy.empty.errorTitle}
-            description={copy.empty.errorDescription}
-          />
-        </CenteredEmpty>
-      );
-    case "permission":
-      return (
-        <CenteredEmpty>
-          <EmptyState
-            icon={<LockIcon size={theme.iconSize.md} color={iconColor} />}
-            title={form.permissionCreateTitle}
-            description={form.permissionCreateDescription}
-          />
-        </CenteredEmpty>
-      );
-    case "ready":
-      return <InvitationFormReady model={model} />;
-  }
 }
 
 function InvitationFormReady(props: { readonly model: InvitationFormModel }) {
@@ -307,9 +270,13 @@ function InvitationExpiresPicker(props: {
   const form = model.copy.inviteForm;
   const visible = model.picker === "expires";
   const ios = Platform.OS === "ios";
-  const now = Date.now();
-  const minimumDate = new Date(now + INVITE_EXPIRES_MIN_MS);
-  const maximumDate = new Date(now + INVITE_EXPIRES_MAX_MS);
+  const { minimumDate, maximumDate } = useMemo(() => {
+    const now = Date.now();
+    return {
+      minimumDate: new Date(now + INVITE_EXPIRES_MIN_MS),
+      maximumDate: new Date(now + INVITE_EXPIRES_MAX_MS),
+    };
+  }, []);
   const value = new Date(model.expiresAt);
   const pickerValue = Number.isFinite(value.getTime()) ? value : minimumDate;
 
@@ -361,15 +328,7 @@ function InvitationFormSection(props: {
   );
 }
 
-function CenteredEmpty({ children }: { readonly children: ReactNode }) {
-  return <View style={styles.centered}>{children}</View>;
-}
-
 const styles = StyleSheet.create((theme) => ({
-  screen: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
   scroll: {
     flex: 1,
   },
@@ -416,23 +375,12 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: theme.typography.sm.fontSize,
     lineHeight: theme.typography.sm.lineHeight,
   },
-  footer: {
+  createdFooter: {
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
     backgroundColor: theme.colors.card,
     paddingHorizontal: theme.spacing.lg,
     paddingTop: theme.spacing.md,
     paddingBottom: theme.spacing.md,
-  },
-  footerActions: {
-    flexDirection: "row",
-    gap: theme.spacing.sm,
-  },
-  footerButton: {
-    flex: 1,
-  },
-  centered: {
-    flex: 1,
-    justifyContent: "center",
   },
 }));

@@ -1,13 +1,13 @@
 /**
- * Invitation create save workflow (SHO-206). RHF `handleSubmit` /
- * `parseInvitationFormUiDraft` owns the UI parse; planner `invalid`
- * reports field errors through `setFieldErrors`. Not `handleSubmit` as
- * the only write. After a successful create the secret is held in
- * component state only — never a React Query key or list cache field.
+ * Invitation create save workflow (SHO-206 / SHO-307). Delegates to
+ * form-kit `runFormSave`. The one-time token/url stay in `setCreated`,
+ * never a React Query key or list cache field.
  */
-import type { WireErrorCode } from "@showzy/contract";
-
-import type { QueryFailureKind } from "../../../api/errors";
+import {
+  NO_SAVE_FAILURE,
+  type LastWriteFailure,
+} from "../../../components/form-kit/last-write-failure";
+import { runFormSave } from "../../../components/form-kit/run-form-save";
 import type {
   InvitationFormDraft,
   InvitationFormFieldErrors,
@@ -19,12 +19,7 @@ import {
   type InviteCreateSecret,
 } from "./invitation-form-plan";
 
-export type LastWriteFailure = {
-  readonly kind: QueryFailureKind | null;
-  readonly wire: WireErrorCode | null;
-};
-
-export const NO_SAVE_FAILURE: LastWriteFailure = { kind: null, wire: null };
+export { NO_SAVE_FAILURE, type LastWriteFailure };
 
 export type InvitationFormSavePorts = {
   readonly getDraft: () => InvitationFormDraft;
@@ -47,34 +42,34 @@ export type InvitationFormSavePorts = {
 export async function runInvitationFormSave(
   ports: InvitationFormSavePorts,
 ): Promise<void> {
-  const plan = parseThenPlanInvitationFormSave({
-    draft: ports.getDraft(),
-    created: ports.getCreated(),
-    lastWrite: ports.getLastWrite(),
-    lastFailureKind: ports.getLastFailure().kind,
-    lastWireCode: ports.getLastFailure().wire,
+  await runFormSave<
+    InvitationFormDraft,
+    InvitationFormWrite,
+    InvitationFormMutationResult,
+    InvitationFormFieldErrors
+  >({
+    plan: () =>
+      parseThenPlanInvitationFormSave({
+        draft: ports.getDraft(),
+        created: ports.getCreated(),
+        lastWrite: ports.getLastWrite(),
+        lastFailureKind: ports.getLastFailure().kind,
+        lastWireCode: ports.getLastFailure().wire,
+      }),
+    getDraft: ports.getDraft,
+    setOrigin: ports.setOrigin,
+    getLastWrite: ports.getLastWrite,
+    setLastWrite: ports.setLastWrite,
+    setLastFailure: ports.setLastFailure,
+    setFieldErrors: ports.setFieldErrors,
+    submit: ports.submit,
+    retry: ports.retry,
+    resetMutation: ports.resetMutation,
+    applySuccess: ({ result }) => {
+      ports.setCreated(result);
+    },
+    finish: async () => {
+      await ports.finish();
+    },
   });
-  if (plan.kind === "invalid") {
-    ports.setFieldErrors(plan.errors);
-    return;
-  }
-  if (plan.kind === "noop") {
-    ports.setOrigin(ports.getDraft());
-    await ports.finish();
-    return;
-  }
-  if (plan.kind === "write") {
-    ports.setLastWrite(plan.write);
-  }
-  const write = ports.getLastWrite();
-  if (write === null) {
-    return;
-  }
-  const result =
-    plan.kind === "retry" ? await ports.retry() : await ports.submit(write);
-  ports.setLastFailure(NO_SAVE_FAILURE);
-  ports.setCreated(result);
-  ports.resetMutation();
-  ports.setOrigin(ports.getDraft());
-  await ports.finish();
 }

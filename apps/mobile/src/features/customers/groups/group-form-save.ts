@@ -1,12 +1,12 @@
 /**
- * Group form save workflow (SHO-181). RHF `handleSubmit` /
- * `parseGroupFormUiDraft` owns the UI parse; planner `invalid`
- * reports field errors through `setFieldErrors`. Not `handleSubmit` as
- * the only write.
+ * Group form save workflow (SHO-181 / SHO-307). Delegates to form-kit
+ * `runFormSave`; create still stamps `groupId` in `applySuccess`.
  */
-import type { WireErrorCode } from "@showzy/contract";
-
-import type { QueryFailureKind } from "../../../api/errors";
+import {
+  NO_SAVE_FAILURE,
+  type LastWriteFailure,
+} from "../../../components/form-kit/last-write-failure";
+import { runFormSave } from "../../../components/form-kit/run-form-save";
 import {
   type GroupFormDraft,
   type GroupFormFieldErrors,
@@ -20,12 +20,7 @@ import {
   type GroupFormWrite,
 } from "./group-form-plan";
 
-export type LastWriteFailure = {
-  readonly kind: QueryFailureKind | null;
-  readonly wire: WireErrorCode | null;
-};
-
-export const NO_SAVE_FAILURE: LastWriteFailure = { kind: null, wire: null };
+export { NO_SAVE_FAILURE, type LastWriteFailure };
 
 export type GroupFormSavePorts = {
   readonly getDraft: () => GroupFormDraft;
@@ -50,46 +45,47 @@ export type GroupFormSavePorts = {
 export async function runGroupFormSave(
   ports: GroupFormSavePorts,
 ): Promise<void> {
-  const mode = ports.getMode();
-  const groupId = ports.getGroupId();
-  const plan = parseThenPlanGroupFormSave({
-    mode: groupId !== null && mode === "create" ? "edit" : mode,
-    groupId,
-    draft: ports.getDraft(),
-    baseline: ports.getBaseline(),
-    lastWrite: ports.getLastWrite(),
-    lastFailureKind: ports.getLastFailure().kind,
-    lastWireCode: ports.getLastFailure().wire,
+  await runFormSave<
+    GroupFormDraft,
+    GroupFormWrite,
+    GroupFormMutationResult,
+    GroupFormFieldErrors
+  >({
+    plan: () => {
+      const mode = ports.getMode();
+      const groupId = ports.getGroupId();
+      return parseThenPlanGroupFormSave({
+        mode: groupId !== null && mode === "create" ? "edit" : mode,
+        groupId,
+        draft: ports.getDraft(),
+        baseline: ports.getBaseline(),
+        lastWrite: ports.getLastWrite(),
+        lastFailureKind: ports.getLastFailure().kind,
+        lastWireCode: ports.getLastFailure().wire,
+      });
+    },
+    getDraft: ports.getDraft,
+    setOrigin: ports.setOrigin,
+    getLastWrite: ports.getLastWrite,
+    setLastWrite: ports.setLastWrite,
+    setLastFailure: ports.setLastFailure,
+    setFieldErrors: ports.setFieldErrors,
+    submit: ports.submit,
+    retry: ports.retry,
+    resetMutation: ports.resetMutation,
+    applySuccess: ({ draft, write, result }) => {
+      if (write.kind === "createGroup") {
+        ports.setGroupId(result.id);
+      }
+      const applied = applyWriteSuccess({
+        draft,
+        write,
+      });
+      ports.setDraft(applied.draft);
+      ports.setBaseline(applied.baseline);
+    },
+    finish: async () => {
+      await ports.finish();
+    },
   });
-  if (plan.kind === "invalid") {
-    ports.setFieldErrors(plan.errors);
-    return;
-  }
-  if (plan.kind === "noop") {
-    ports.setOrigin(ports.getDraft());
-    await ports.finish();
-    return;
-  }
-  if (plan.kind === "write") {
-    ports.setLastWrite(plan.write);
-  }
-  const write = ports.getLastWrite();
-  if (write === null) {
-    return;
-  }
-  const result =
-    plan.kind === "retry" ? await ports.retry() : await ports.submit(write);
-  ports.setLastFailure(NO_SAVE_FAILURE);
-  if (write.kind === "createGroup") {
-    ports.setGroupId(result.id);
-  }
-  const applied = applyWriteSuccess({
-    draft: ports.getDraft(),
-    write,
-  });
-  ports.setDraft(applied.draft);
-  ports.setBaseline(applied.baseline);
-  ports.resetMutation();
-  ports.setOrigin(ports.getDraft());
-  await ports.finish();
 }

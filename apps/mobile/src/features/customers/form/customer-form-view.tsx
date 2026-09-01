@@ -4,23 +4,19 @@ import {
   ArchiveIcon,
   BuildingIcon,
   LayersIcon,
-  LockIcon,
   PlusIcon,
   RotateCcwIcon,
   TagIcon,
   Trash2Icon,
   UserXIcon,
-  WifiOffIcon,
 } from "lucide-react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
+import { FormScreenScaffold } from "../../../components/form-kit";
 import {
-  AppHeader,
   Banner,
   Button,
-  EmptyState,
   OptionSelectSheet,
   SelectorRow,
   StatusPill,
@@ -37,160 +33,87 @@ import type { CustomerFormModel } from "./use-customer-form";
 export function CustomerFormView(model: CustomerFormModel) {
   const { copy } = model;
   const form = copy.form;
-
-  return (
-    <SafeAreaView
-      edges={["top", "bottom"]}
-      accessibilityLabel={model.headerTitle}
-      style={styles.screen}
-    >
-      <AppHeader
-        title={model.headerTitle}
-        back={{
-          onPress: model.requestLeave,
-          accessibilityLabel: copy.backLabel,
-        }}
-      />
-      <CustomerFormBody model={model} />
-      {model.state.kind === "ready" ? (
-        <View style={styles.footer}>
-          <View style={styles.footerActions}>
-            <View style={styles.footerButton}>
-              <Button
-                variant="secondary"
-                fullWidth
-                label={form.cancel}
-                disabled={model.pending}
-                onPress={model.requestLeave}
-              />
-            </View>
-            <View style={styles.footerButton}>
-              <Button
-                fullWidth
-                label={model.submitLabel}
-                loading={model.pending}
-                disabled={model.submitDisabled}
-                onPress={model.save}
-              />
-            </View>
-          </View>
-        </View>
-      ) : null}
-      <OptionSelectSheet
-        visible={model.picker === "group"}
-        title={form.groupSheetTitle}
-        emptyOptionLabel={form.groupEmptyOption}
-        emptyLabel={form.groupEmpty}
-        searchPlaceholder={form.groupSearchPlaceholder}
-        searchLabel={copy.searchLabel}
-        closeLabel={form.closeSheet}
-        value={model.groupId}
-        options={model.groupOptions}
-        searchMaxLength={LIST_GROUPS_SEARCH_MAX}
-        onClose={model.closePicker}
-        onChange={model.selectGroup}
-      />
-      <OptionSelectSheet
-        visible={model.picker === "priceList"}
-        title={form.priceListSheetTitle}
-        emptyOptionLabel={form.priceListEmptyOption}
-        emptyLabel={form.priceListEmpty}
-        searchPlaceholder={form.priceListSearchPlaceholder}
-        searchLabel={copy.searchLabel}
-        closeLabel={form.closeSheet}
-        value={model.priceListId}
-        options={model.priceListOptions}
-        searchMaxLength={LIST_GROUPS_SEARCH_MAX}
-        onClose={model.closePicker}
-        onChange={model.selectPriceList}
-      />
-    </SafeAreaView>
-  );
-}
-
-function CustomerFormBody(props: { readonly model: CustomerFormModel }) {
-  const { model } = props;
-  const { copy } = model;
   const { theme } = useUnistyles();
   const iconColor = theme.colors.mutedForeground;
-  const form = copy.form;
+  const retryEdit =
+    model.state.kind === "offline" ||
+    (model.state.kind === "error" && model.mode === "edit");
 
-  switch (model.state.kind) {
-    case "loading":
-      return (
-        <View style={styles.skeletons} accessibilityLabel={form.loadingLabel}>
-          <View style={[styles.skeletonLine, styles.skeletonName]} />
-          <View style={[styles.skeletonLine, styles.skeletonPrice]} />
-          <View style={styles.skeletonCard} />
-        </View>
-      );
-    case "offline":
-      return (
-        <CenteredEmpty>
-          <EmptyState
-            icon={<WifiOffIcon size={theme.iconSize.md} color={iconColor} />}
-            title={copy.empty.offlineTitle}
-            description={copy.empty.offlineDescription}
-            action={
-              <Button
-                variant="secondary"
-                label={copy.empty.retry}
-                onPress={model.retry}
-              />
-            }
+  return (
+    <FormScreenScaffold
+      title={model.headerTitle}
+      accessibilityLabel={model.headerTitle}
+      backLabel={copy.backLabel}
+      onBack={model.requestLeave}
+      loadKind={model.state.kind}
+      loadingLabel={form.loadingLabel}
+      empty={{
+        offlineTitle: copy.empty.offlineTitle,
+        offlineDescription: copy.empty.offlineDescription,
+        errorTitle: copy.empty.errorTitle,
+        errorDescription: copy.empty.errorDescription,
+        permissionTitle:
+          model.mode === "create"
+            ? form.permissionCreateTitle
+            : form.permissionEditTitle,
+        permissionDescription:
+          model.mode === "create"
+            ? form.permissionCreateDescription
+            : form.permissionEditDescription,
+        retryLabel: copy.empty.retry,
+        notFoundTitle: form.notFoundTitle,
+        notFoundDescription: form.notFoundDescription,
+        notFoundIcon: <UserXIcon size={theme.iconSize.md} color={iconColor} />,
+      }}
+      {...(retryEdit ? { onRetry: model.retry } : {})}
+      {...(model.state.kind === "ready"
+        ? {
+            footer: {
+              cancelLabel: form.cancel,
+              submitLabel: model.submitLabel,
+              pending: model.pending,
+              submitDisabled: model.submitDisabled,
+              onCancel: model.requestLeave,
+              onSubmit: model.save,
+            },
+          }
+        : {})}
+      overlay={
+        <>
+          <OptionSelectSheet
+            visible={model.picker === "group"}
+            title={form.groupSheetTitle}
+            emptyOptionLabel={form.groupEmptyOption}
+            emptyLabel={form.groupEmpty}
+            searchPlaceholder={form.groupSearchPlaceholder}
+            searchLabel={copy.searchLabel}
+            closeLabel={form.closeSheet}
+            value={model.groupId}
+            options={model.groupOptions}
+            searchMaxLength={LIST_GROUPS_SEARCH_MAX}
+            onClose={model.closePicker}
+            onChange={model.selectGroup}
           />
-        </CenteredEmpty>
-      );
-    case "error":
-      return (
-        <CenteredEmpty>
-          <EmptyState
-            icon={<WifiOffIcon size={theme.iconSize.md} color={iconColor} />}
-            title={copy.empty.errorTitle}
-            description={copy.empty.errorDescription}
-            action={
-              model.mode === "edit" ? (
-                <Button
-                  variant="secondary"
-                  label={copy.empty.retry}
-                  onPress={model.retry}
-                />
-              ) : undefined
-            }
+          <OptionSelectSheet
+            visible={model.picker === "priceList"}
+            title={form.priceListSheetTitle}
+            emptyOptionLabel={form.priceListEmptyOption}
+            emptyLabel={form.priceListEmpty}
+            searchPlaceholder={form.priceListSearchPlaceholder}
+            searchLabel={copy.searchLabel}
+            closeLabel={form.closeSheet}
+            value={model.priceListId}
+            options={model.priceListOptions}
+            searchMaxLength={LIST_GROUPS_SEARCH_MAX}
+            onClose={model.closePicker}
+            onChange={model.selectPriceList}
           />
-        </CenteredEmpty>
-      );
-    case "not-found":
-      return (
-        <CenteredEmpty>
-          <EmptyState
-            icon={<UserXIcon size={theme.iconSize.md} color={iconColor} />}
-            title={form.notFoundTitle}
-            description={form.notFoundDescription}
-          />
-        </CenteredEmpty>
-      );
-    case "permission":
-      return (
-        <CenteredEmpty>
-          <EmptyState
-            icon={<LockIcon size={theme.iconSize.md} color={iconColor} />}
-            title={
-              model.mode === "create"
-                ? form.permissionCreateTitle
-                : form.permissionEditTitle
-            }
-            description={
-              model.mode === "create"
-                ? form.permissionCreateDescription
-                : form.permissionEditDescription
-            }
-          />
-        </CenteredEmpty>
-      );
-    case "ready":
-      return <CustomerFormReady model={model} />;
-  }
+        </>
+      }
+    >
+      <CustomerFormReady model={model} />
+    </FormScreenScaffold>
+  );
 }
 
 function CustomerFormReady(props: { readonly model: CustomerFormModel }) {
@@ -406,15 +329,7 @@ function CustomerFormSection(props: {
   );
 }
 
-function CenteredEmpty({ children }: { readonly children: ReactNode }) {
-  return <View style={styles.centered}>{children}</View>;
-}
-
 const styles = StyleSheet.create((theme) => ({
-  screen: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
   scroll: {
     flex: 1,
   },
@@ -449,46 +364,12 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: theme.typography.xs.fontSize,
     lineHeight: theme.typography.xs.lineHeight,
   },
-  footer: {
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-    backgroundColor: theme.colors.card,
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.md,
-    paddingBottom: theme.spacing.md,
-  },
-  footerActions: {
-    flexDirection: "row",
-    gap: theme.spacing.sm,
-  },
-  footerButton: {
-    flex: 1,
-  },
-  centered: {
-    flex: 1,
-    justifyContent: "center",
-  },
-  skeletons: {
-    gap: theme.spacing.md,
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.sm,
-  },
   skeletonLine: {
     borderRadius: theme.radii.full,
     backgroundColor: theme.colors.skeleton,
   },
-  skeletonName: {
-    height: theme.hitTarget.field,
-    width: "100%",
-  },
   skeletonPrice: {
     height: theme.hitTarget.field,
     width: "60%",
-  },
-  skeletonCard: {
-    height: theme.hitTarget.row,
-    borderRadius: theme.radii.xl,
-    ...theme.squircle,
-    backgroundColor: theme.colors.skeleton,
   },
 }));

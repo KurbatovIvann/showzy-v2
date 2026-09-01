@@ -1,16 +1,15 @@
 /**
- * Group form save hook (SHO-181). Wraps `runGroupFormSave` with
- * `useContractMutation` and customers invalidation + leave-arm callbacks.
+ * Group form save hook (SHO-181 / SHO-307). Single create/update write —
+ * form-kit `useFormSave` / `runFormSave` fits.
  */
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import type { MutationCallOptions } from "@showzy/contract";
 
-import { useApiClient } from "../../../api/api-provider";
-import { useContractMutation } from "../../../api/contract-mutation";
-import { describeQueryFailure, describeWireError } from "../../../api/errors";
+import type { ContractClient } from "../../../api/client";
 import { useActiveCompany } from "../../../api/query-provider";
-import { bindGroupFormMutate } from "../api/group-form-mutation";
+import { useFormSave } from "../../../components/form-kit";
 import { invalidateCustomersAfterWrite } from "../api/customer-status";
+import { bindGroupFormMutate } from "../api/group-form-mutation";
 import type {
   GroupFormDraft,
   GroupFormFieldErrors,
@@ -18,15 +17,24 @@ import type {
   GroupFormSnapshot,
 } from "./group-form-draft";
 import type { GroupFormLoadState } from "./group-form-load";
-import type { GroupFormWrite } from "./group-form-plan";
 import {
-  NO_SAVE_FAILURE,
-  runGroupFormSave,
-  type LastWriteFailure,
-} from "./group-form-save";
+  applyWriteSuccess,
+  parseThenPlanGroupFormSave,
+  type GroupFormMutationResult,
+  type GroupFormWrite,
+} from "./group-form-plan";
 
 export { runGroupFormSave } from "./group-form-save";
 export type { LastWriteFailure, GroupFormSavePorts } from "./group-form-save";
+
+function bindGroupSave(
+  client: ContractClient,
+): (
+  input: GroupFormWrite,
+  options: MutationCallOptions,
+) => Promise<GroupFormMutationResult> {
+  return bindGroupFormMutate(client);
+}
 
 export function useGroupSave(args: {
   readonly mode: GroupFormMode;
@@ -47,104 +55,46 @@ export function useGroupSave(args: {
   readonly isMutationError: boolean;
   readonly resetMutation: () => void;
 } {
-  const apiClient = useApiClient();
-  const apiRef = useRef(apiClient);
-  apiRef.current = apiClient;
   const { activeCompanyId } = useActiveCompany();
   const queryClient = useQueryClient();
-  const [saveBusy, setSaveBusy] = useState(false);
-  const [lastWrite, setLastWrite] = useState<GroupFormWrite | null>(null);
-  const saveBusyRef = useRef(false);
-  const lastWriteRef = useRef<GroupFormWrite | null>(null);
-  const lastFailureRef = useRef<LastWriteFailure>(NO_SAVE_FAILURE);
-  const mountedRef = useRef(true);
-  const argsRef = useRef(args);
-  argsRef.current = args;
 
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
-
-  const mutation = useContractMutation((input: GroupFormWrite, options) => {
-    const current = apiRef.current;
-    if (current === null) {
-      return Promise.reject(new TypeError("Failed to fetch"));
-    }
-    return bindGroupFormMutate(current)(input, options);
-  });
-
-  async function save(): Promise<void> {
-    const current = argsRef.current;
-    if (
-      saveBusyRef.current ||
-      apiClient === null ||
-      current.loadKind !== "ready"
-    ) {
-      return;
-    }
-    saveBusyRef.current = true;
-    setSaveBusy(true);
-    try {
-      await runGroupFormSave({
-        getDraft: current.getDraft,
-        getMode: () => current.mode,
-        getGroupId: () => current.groupIdRef.current,
-        setGroupId: (groupId) => {
-          current.groupIdRef.current = groupId;
-        },
-        getBaseline: () => current.baselineRef.current,
-        setDraft: current.setDraft,
-        setBaseline: (baseline) => {
-          current.baselineRef.current = baseline;
-          current.setBaseline(baseline);
-        },
-        setOrigin: current.setOrigin,
-        getLastWrite: () => lastWriteRef.current,
-        setLastWrite: (write) => {
-          lastWriteRef.current = write;
-          setLastWrite(write);
-        },
-        getLastFailure: () => lastFailureRef.current,
-        setLastFailure: (failure) => {
-          lastFailureRef.current = failure;
-        },
-        setFieldErrors: current.setFieldErrors,
-        submit: mutation.submit,
-        retry: mutation.retry,
-        resetMutation: mutation.reset,
-        finish: async () => {
-          await invalidateCustomersAfterWrite({
-            queryClient,
-            companyId: activeCompanyId,
-          });
-          await current.onSaved();
-        },
+  return useFormSave<
+    GroupFormDraft,
+    GroupFormWrite,
+    GroupFormMutationResult,
+    GroupFormFieldErrors
+  >({
+    bindMutate: bindGroupSave,
+    invalidate: () =>
+      invalidateCustomersAfterWrite({
+        queryClient,
+        companyId: activeCompanyId,
+      }),
+    ready: args.loadKind === "ready",
+    getDraft: args.getDraft,
+    setOrigin: args.setOrigin,
+    setFieldErrors: args.setFieldErrors,
+    plan: ({ lastWrite, lastFailure }) => {
+      const groupId = args.groupIdRef.current;
+      return parseThenPlanGroupFormSave({
+        mode: groupId !== null && args.mode === "create" ? "edit" : args.mode,
+        groupId,
+        draft: args.getDraft(),
+        baseline: args.baselineRef.current,
+        lastWrite,
+        lastFailureKind: lastFailure.kind,
+        lastWireCode: lastFailure.wire,
       });
-    } catch (error: unknown) {
-      lastFailureRef.current = {
-        kind: describeQueryFailure(error).kind,
-        wire: describeWireError(error)?.code ?? null,
-      };
-    } finally {
-      saveBusyRef.current = false;
-      if (mountedRef.current) {
-        setSaveBusy(false);
-      }
-    }
-  }
-
-  return {
-    save,
-    pending: saveBusy || mutation.isPending,
-    lastWrite,
-    mutationError: mutation.error,
-    isMutationError: mutation.isError,
-    resetMutation: () => {
-      lastFailureRef.current = NO_SAVE_FAILURE;
-      mutation.reset();
     },
-  };
+    applySuccess: ({ draft, write, result }) => {
+      if (write.kind === "createGroup") {
+        args.groupIdRef.current = result.id;
+      }
+      const applied = applyWriteSuccess({ draft, write });
+      args.setDraft(applied.draft);
+      args.baselineRef.current = applied.baseline;
+      args.setBaseline(applied.baseline);
+    },
+    onSaved: () => args.onSaved(),
+  });
 }

@@ -1,24 +1,12 @@
 /**
- * Delete on the counterparty editor (SHO-196). Permission is
- * `customers:edit` (not `customers:delete`). UI confirm then protocol
- * confirmation. After a successful write the form arms leave.
+ * Delete on the counterparty editor (SHO-196 / SHO-307). Permission is
+ * `customers:edit` (not `customers:delete`). Reuses list delete writes;
+ * after a successful write the form arms leave.
  */
-import { useRef } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useCallback, useMemo, useRef } from "react";
 
-import { useApiClient } from "../../../api/api-provider";
-import { useContractMutation } from "../../../api/contract-mutation";
-import { describeQueryFailure } from "../../../api/errors";
-import { submitWithProtocolConfirmation } from "../../../api/protocol-confirm";
-import { useActiveCompany } from "../../../api/query-provider";
-import { presentConfirmDialog } from "../../../components/ui/present-confirm-dialog";
 import type { CustomersCopy } from "../../../i18n/customers";
-import { bindCounterpartyDeleteMutate } from "../api/counterparty-delete";
-import { invalidateCustomersAfterWrite } from "../api/customer-status";
-import {
-  customersWriteBanner,
-  mapCustomersWriteFailure,
-} from "../shared/mutation-failure";
+import { useCounterpartyDeleteWrite } from "../shared/use-counterparty-delete-write";
 
 export function useCounterpartyFormLifecycle(args: {
   readonly copy: CustomersCopy;
@@ -30,74 +18,30 @@ export function useCounterpartyFormLifecycle(args: {
   readonly pending: boolean;
   readonly remove: () => Promise<void>;
 } {
-  const apiClient = useApiClient();
-  const apiRef = useRef(apiClient);
-  apiRef.current = apiClient;
-  const { activeCompanyId } = useActiveCompany();
-  const queryClient = useQueryClient();
-  const writeBusyRef = useRef(false);
   const argsRef = useRef(args);
   argsRef.current = args;
-
-  const deleteMutation = useContractMutation(
-    (input: { id: string }, options) => {
-      const current = apiRef.current;
-      if (current === null) {
-        return Promise.reject(new TypeError("Failed to fetch"));
-      }
-      return bindCounterpartyDeleteMutate(current)(input, options);
+  const writes = useCounterpartyDeleteWrite({
+    copy: args.copy,
+    canEdit: args.canEdit,
+    afterSuccess: () => {
+      argsRef.current.armLeave();
     },
+  });
+
+  const remove = useCallback(async () => {
+    const id = argsRef.current.counterpartyId;
+    if (id === null) {
+      return;
+    }
+    await writes.remove(id);
+  }, [writes.remove]);
+
+  return useMemo(
+    () => ({
+      banner: writes.banner,
+      pending: writes.pending,
+      remove,
+    }),
+    [writes.banner, writes.pending, remove],
   );
-
-  const banner = customersWriteBanner(
-    mapCustomersWriteFailure(
-      deleteMutation.isError
-        ? describeQueryFailure(deleteMutation.error).kind
-        : null,
-    ),
-    args.copy.mutation,
-  );
-
-  async function afterWrite(): Promise<void> {
-    await invalidateCustomersAfterWrite({
-      queryClient,
-      companyId: activeCompanyId,
-    });
-    deleteMutation.reset();
-    argsRef.current.armLeave();
-  }
-
-  return {
-    banner,
-    pending: deleteMutation.isPending,
-    remove: async () => {
-      const current = argsRef.current;
-      const id = current.counterpartyId;
-      if (!current.canEdit || id === null || writeBusyRef.current) {
-        return;
-      }
-      const choice = await presentConfirmDialog({
-        title: current.copy.confirm.deleteCounterpartyTitle,
-        message: current.copy.confirm.deleteCounterpartyDescription,
-        confirmLabel: current.copy.confirm.deleteCounterpartyConfirm,
-        cancelLabel: current.copy.confirm.cancel,
-        tone: "danger",
-      });
-      if (choice === "cancel") {
-        return;
-      }
-      writeBusyRef.current = true;
-      try {
-        await submitWithProtocolConfirmation({
-          submit: () => deleteMutation.submit({ id }),
-          confirm: (challengeId) => deleteMutation.confirm(challengeId),
-        });
-        await afterWrite();
-      } catch {
-        // Banner is derived from mutation.error.
-      } finally {
-        writeBusyRef.current = false;
-      }
-    },
-  };
 }

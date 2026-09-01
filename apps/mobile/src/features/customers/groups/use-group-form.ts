@@ -3,38 +3,33 @@ import { useEffect, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 
 import { useApiClient } from "../../../api/api-provider";
-import { describeQueryFailure, describeWireError } from "../../../api/errors";
+import { describeQueryFailure } from "../../../api/errors";
 import { useActiveCompany } from "../../../api/query-provider";
+import { useUnsavedGuard } from "../../../components/form-kit";
 import { useResolvedCompany } from "../../../company-resolution/resolved-company-provider";
 import { customersCopy } from "../../../i18n/customers";
 import { detectLocale } from "../../../i18n/locale";
 import { getGroupQueryOptions } from "../api/group-detail-query";
 import { customerIdFromParam } from "../shared/customer-id";
 import { canEditCustomers } from "../shared/customer-permissions";
-import { selectorLookupValue } from "../shared/option-select";
-import {
-  fieldErrorsFromFormState,
-  groupMemberHint,
-  mapGroupFormFailure,
-  mapValidationIssues,
-  resolveGroupFormCopy,
-  rhfPathsForFieldErrors,
-} from "./group-form-copy";
+import { rhfPathsForFieldErrors } from "./group-form-copy";
 import {
   cloneGroupFormDraft,
   draftFromGroup,
   emptyGroupFormDraft,
-  groupFormFieldChanged,
   snapshotFromGroup,
   type GroupFormDraft,
   type GroupFormMode,
   type GroupFormSnapshot,
 } from "./group-form-draft";
 import { classifyGroupFormLoad } from "./group-form-load";
+import {
+  presentGroupFormCopy,
+  presentGroupFormView,
+} from "./group-form.presenter";
 import { groupFormResolver } from "./group-form.schema";
 import { useGroupFormLookups } from "./use-group-form-lookups";
 import { useGroupSave } from "./use-group-save";
-import { useUnsavedGroupGuard } from "./use-unsaved-group-guard";
 
 export type GroupFormModel = ReturnType<typeof useGroupForm>;
 
@@ -149,7 +144,7 @@ export function useGroupForm(args: {
     },
   });
 
-  const { armLeave, requestLeave } = useUnsavedGroupGuard({
+  const { armLeave, requestLeave } = useUnsavedGuard({
     dirty: isDirty,
     pending: saveApi.pending,
     copy: formCopy,
@@ -160,31 +155,16 @@ export function useGroupForm(args: {
   });
   armLeaveRef.current = armLeave;
 
-  const failure = saveApi.isMutationError
-    ? describeQueryFailure(saveApi.mutationError)
-    : null;
-  const wire = saveApi.isMutationError
-    ? describeWireError(saveApi.mutationError)
-    : null;
-  const serverFields = saveApi.isMutationError
-    ? mapValidationIssues(saveApi.mutationError, saveApi.lastWrite)
-    : null;
-  const fieldErrors = fieldErrorsFromFormState({
+  const pending = saveApi.pending;
+  const resolved = presentGroupFormCopy({
+    formCopy,
+    mode: args.mode,
     submitted: isSubmitted,
     nameMessage: errors.name?.message,
     descriptionMessage: errors.description?.message,
-    server: serverFields,
-  });
-  const mappedBanner = mapGroupFormFailure(
-    failure?.kind ?? null,
-    wire?.code ?? null,
-  );
-  const pending = saveApi.pending;
-  const resolved = resolveGroupFormCopy(formCopy, {
-    mode: args.mode,
-    nameError: fieldErrors.name,
-    descriptionError: fieldErrors.description,
-    banner: mappedBanner,
+    mutationError: saveApi.mutationError,
+    lastWrite: saveApi.lastWrite,
+    isMutationError: saveApi.isMutationError,
     pending,
     clientReady,
   });
@@ -194,52 +174,26 @@ export function useGroupForm(args: {
     saveApi.resetMutation();
   }
 
-  const headerTitle =
-    args.mode === "create"
-      ? copy.editorStub.groupCreateTitle
-      : copy.editorStub.groupEditTitle;
-  const memberCount = query.data?.memberCount ?? 0;
+  const presented = presentGroupFormView({
+    copy,
+    locale,
+    mode: args.mode,
+    origin,
+    loadState,
+    resolved,
+    pending,
+    isDirty,
+    pickerOpen,
+    priceListId,
+    lookups,
+    memberCount: query.data?.memberCount ?? 0,
+  });
 
   return {
     copy,
     mode: args.mode,
     control,
-    originName: origin.name,
-    originDescription: origin.description,
-    state: loadState,
-    nameError: resolved.nameError,
-    descriptionError: resolved.descriptionError,
-    banner: resolved.banner,
-    pending,
-    submitDisabled:
-      resolved.submitDisabled ||
-      loadState.kind !== "ready" ||
-      (args.mode === "edit" && !isDirty),
-    submitLabel: resolved.submitLabel,
-    fieldsEditable: resolved.fieldsEditable && loadState.kind === "ready",
-    headerTitle,
-    pickerOpen,
-    priceListId,
-    priceListValue: selectorLookupValue(
-      priceListId,
-      lookups.priceListNameById,
-      formCopy.assignmentUnavailable,
-    ),
-    priceListChanged: groupFormFieldChanged(
-      args.mode,
-      priceListId,
-      origin.priceListId,
-    ),
-    priceListOptions: lookups.priceListOptions,
-    memberHint:
-      args.mode === "edit"
-        ? groupMemberHint({
-            count: memberCount,
-            locale,
-            memberHint: formCopy.memberHint,
-            members: copy.members,
-          })
-        : null,
+    ...presented,
     onFieldEdit,
     requestLeave,
     openPriceListPicker: () => {

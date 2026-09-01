@@ -1,7 +1,7 @@
-import { Controller, type Control } from "react-hook-form";
+import type { Control } from "react-hook-form";
 
 import type { CustomersInviteFormCopy } from "../../../i18n/customers";
-import { TextField } from "../../../components/ui";
+import { FormTextField } from "../../../components/form-kit";
 import {
   CUSTOMER_EMAIL_MAX,
   CUSTOMER_NAME_MAX,
@@ -17,28 +17,16 @@ export function InvitationFormNameField(props: {
   readonly onFieldEdit: () => void;
 }) {
   return (
-    <Controller
+    <FormTextField
       control={props.control}
       name="name"
-      render={({ field }) => (
-        <TextField
-          label={props.copy.nameLabel}
-          value={field.value}
-          onChangeText={(value) => {
-            field.onChange(value);
-            props.onFieldEdit();
-          }}
-          placeholder={props.copy.namePlaceholder}
-          accessibilityLabel={props.copy.nameLabel}
-          keyboardType="default"
-          autoCapitalize="words"
-          autoCorrect
-          autoComplete="off"
-          maxLength={CUSTOMER_NAME_MAX}
-          editable={props.editable}
-          error={props.error}
-        />
-      )}
+      label={props.copy.nameLabel}
+      placeholder={props.copy.namePlaceholder}
+      error={props.error}
+      editable={props.editable}
+      onFieldEdit={props.onFieldEdit}
+      maxLength={CUSTOMER_NAME_MAX}
+      autoCapitalize="words"
     />
   );
 }
@@ -51,28 +39,19 @@ export function InvitationFormPhoneField(props: {
   readonly onFieldEdit: () => void;
 }) {
   return (
-    <Controller
+    <FormTextField
       control={props.control}
       name="phone"
-      render={({ field }) => (
-        <TextField
-          label={props.copy.phoneLabel}
-          value={field.value}
-          onChangeText={(value) => {
-            field.onChange(value);
-            props.onFieldEdit();
-          }}
-          placeholder={props.copy.phonePlaceholder}
-          accessibilityLabel={props.copy.phoneLabel}
-          keyboardType="phone-pad"
-          autoCapitalize="none"
-          autoCorrect={false}
-          autoComplete="tel"
-          maxLength={CUSTOMER_PHONE_MAX}
-          editable={props.editable}
-          error={props.error}
-        />
-      )}
+      label={props.copy.phoneLabel}
+      placeholder={props.copy.phonePlaceholder}
+      error={props.error}
+      editable={props.editable}
+      onFieldEdit={props.onFieldEdit}
+      maxLength={CUSTOMER_PHONE_MAX}
+      keyboardType="phone-pad"
+      autoCapitalize="none"
+      autoCorrect={false}
+      autoComplete="tel"
     />
   );
 }
@@ -85,28 +64,19 @@ export function InvitationFormEmailField(props: {
   readonly onFieldEdit: () => void;
 }) {
   return (
-    <Controller
+    <FormTextField
       control={props.control}
       name="email"
-      render={({ field }) => (
-        <TextField
-          label={props.copy.emailLabel}
-          value={field.value}
-          onChangeText={(value) => {
-            field.onChange(value);
-            props.onFieldEdit();
-          }}
-          placeholder={props.copy.emailPlaceholder}
-          accessibilityLabel={props.copy.emailLabel}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-          autoComplete="email"
-          maxLength={CUSTOMER_EMAIL_MAX}
-          editable={props.editable}
-          error={props.error}
-        />
-      )}
+      label={props.copy.emailLabel}
+      placeholder={props.copy.emailPlaceholder}
+      error={props.error}
+      editable={props.editable}
+      onFieldEdit={props.onFieldEdit}
+      maxLength={CUSTOMER_EMAIL_MAX}
+      keyboardType="email-address"
+      autoCapitalize="none"
+      autoCorrect={false}
+      autoComplete="email"
     />
   );
 }
@@ -119,27 +89,17 @@ export function InvitationFormMaxUsesField(props: {
   readonly onFieldEdit: () => void;
 }) {
   return (
-    <Controller
+    <FormTextField
       control={props.control}
       name="maxUses"
-      render={({ field }) => (
-        <TextField
-          label={props.copy.maxUsesLabel}
-          value={field.value}
-          onChangeText={(value) => {
-            field.onChange(value);
-            props.onFieldEdit();
-          }}
-          placeholder={props.copy.maxUsesPlaceholder}
-          accessibilityLabel={props.copy.maxUsesLabel}
-          keyboardType="number-pad"
-          autoCapitalize="none"
-          autoCorrect={false}
-          autoComplete="off"
-          editable={props.editable}
-          error={props.error}
-        />
-      )}
+      label={props.copy.maxUsesLabel}
+      placeholder={props.copy.maxUsesPlaceholder}
+      error={props.error}
+      editable={props.editable}
+      onFieldEdit={props.onFieldEdit}
+      keyboardType="number-pad"
+      autoCapitalize="none"
+      autoCorrect={false}
     />
   );
 }

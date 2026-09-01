@@ -1,7 +1,7 @@
-import { Controller, type Control } from "react-hook-form";
+import type { Control } from "react-hook-form";
 
 import type { CustomersCounterpartyFormCopy } from "../../../i18n/customers";
-import { TextField } from "../../../components/ui";
+import { FormTextField } from "../../../components/form-kit";
 import {
   COUNTERPARTY_BANK_MFO_MAX,
   COUNTERPARTY_BANK_NAME_MAX,
@@ -44,38 +44,35 @@ function CounterpartyDraftField(props: {
   readonly numberOfLines?: number;
 }) {
   return (
-    <Controller
+    <FormTextField
       control={props.control}
       name={props.name}
-      render={({ field }) => (
-        <TextField
-          label={props.label}
-          value={field.value}
-          onChangeText={(value) => {
-            field.onChange(value);
-            props.onFieldEdit();
-          }}
-          placeholder={props.placeholder}
-          accessibilityLabel={props.label}
-          keyboardType={props.keyboardType ?? "default"}
-          autoCapitalize={props.autoCapitalize ?? "sentences"}
-          autoCorrect={props.autoCorrect ?? true}
-          autoComplete={props.autoComplete ?? "off"}
-          maxLength={props.maxLength}
-          multiline={props.multiline === true}
-          {...(props.multiline === true && props.numberOfLines !== undefined
-            ? { numberOfLines: props.numberOfLines }
-            : {})}
-          editable={props.editable}
-          error={props.error}
-          changed={counterpartyFormFieldChanged(
-            props.mode,
-            field.value,
-            props.origin,
-          )}
-          changedLabel={props.copy.changedLabel}
-        />
-      )}
+      label={props.label}
+      placeholder={props.placeholder}
+      error={props.error}
+      editable={props.editable}
+      onFieldEdit={props.onFieldEdit}
+      changed={(value) =>
+        counterpartyFormFieldChanged(props.mode, value, props.origin)
+      }
+      changedLabel={props.copy.changedLabel}
+      maxLength={props.maxLength}
+      {...(props.keyboardType !== undefined
+        ? { keyboardType: props.keyboardType }
+        : {})}
+      {...(props.autoCapitalize !== undefined
+        ? { autoCapitalize: props.autoCapitalize }
+        : {})}
+      {...(props.autoCorrect !== undefined
+        ? { autoCorrect: props.autoCorrect }
+        : {})}
+      {...(props.autoComplete !== undefined
+        ? { autoComplete: props.autoComplete }
+        : {})}
+      {...(props.multiline === true ? { multiline: true } : {})}
+      {...(props.numberOfLines !== undefined
+        ? { numberOfLines: props.numberOfLines }
+        : {})}
     />
   );
 }

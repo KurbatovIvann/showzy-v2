@@ -78,6 +78,22 @@ export function customersCreateLabel(
   }
 }
 
+/**
+ * Home banner is the visible tab's write banner. First-non-null across
+ * panes hid other tabs' errors (SHO-307).
+ */
+export function customersHomeBanner(
+  tab: CustomersTab,
+  banners: {
+    readonly clients: string | null;
+    readonly groups: string | null;
+    readonly counterparties: string | null;
+    readonly invitations: string | null;
+  },
+): string | null {
+  return banners[tab];
+}
+
 export { shouldDrainNextPage } from "../../../hooks/drain-pages";
 
 export function lookupPagesSettled(args: {

@@ -4,11 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 
 import { useApiClient } from "../../../api/api-provider";
-import { describeQueryFailure, describeWireError } from "../../../api/errors";
+import { describeQueryFailure } from "../../../api/errors";
 import { useActiveCompany } from "../../../api/query-provider";
+import { useUnsavedGuard } from "../../../components/form-kit";
 import { useResolvedCompany } from "../../../company-resolution/resolved-company-provider";
 import { customersCopy } from "../../../i18n/customers";
-import { detectLocale, interpolate } from "../../../i18n/locale";
+import { detectLocale } from "../../../i18n/locale";
 import { getCustomerQueryOptions } from "../api/customer-detail-query";
 import {
   counterpartyCreateHref,
@@ -20,17 +21,9 @@ import {
   canDeleteCustomers,
   canEditCustomers,
 } from "../shared/customer-permissions";
-import { selectorLookupValue } from "../shared/option-select";
-import {
-  fieldErrorsFromFormState,
-  mapCustomerFormFailure,
-  mapValidationIssues,
-  resolveCustomerFormCopy,
-  rhfPathsForFieldErrors,
-} from "./customer-form-copy";
+import { rhfPathsForFieldErrors } from "./customer-form-copy";
 import {
   cloneCustomerFormDraft,
-  customerFormFieldChanged,
   draftFromCustomer,
   emptyCustomerFormDraft,
   snapshotFromCustomer,
@@ -40,21 +33,19 @@ import {
 } from "./customer-form-draft";
 import { classifyCustomerFormLoad } from "./customer-form-load";
 import {
-  counterpartiesBodyCopy,
-  counterpartiesBodyKind,
-  groupAssignedPriceListId,
-  inheritedPriceListPlaceholder,
-} from "./customer-form-pickers";
+  presentCustomerFormCopy,
+  presentCustomerFormView,
+  type CustomerFormPicker,
+} from "./customer-form.presenter";
 import { customerFormResolver } from "./customer-form.schema";
 import { useCustomerFormLifecycle } from "./use-customer-form-lifecycle";
 import { useCustomerFormLookups } from "./use-customer-form-lookups";
 import { useCustomerLinkedCounterparties } from "./use-customer-linked-counterparties";
 import { useCustomerSave } from "./use-customer-save";
-import { useUnsavedCustomerGuard } from "./use-unsaved-customer-guard";
+
+export type { CustomerFormPicker };
 
 export type CustomerFormModel = ReturnType<typeof useCustomerForm>;
-
-export type CustomerFormPicker = "group" | "priceList" | null;
 
 export function useCustomerForm(args: {
   readonly mode: CustomerFormMode;
@@ -178,7 +169,7 @@ export function useCustomerForm(args: {
     },
   });
 
-  const { armLeave, requestLeave } = useUnsavedCustomerGuard({
+  const { armLeave, requestLeave } = useUnsavedGuard({
     dirty: isDirty,
     pending: saveApi.pending,
     copy: formCopy,
@@ -197,36 +188,18 @@ export function useCustomerForm(args: {
     armLeave,
   });
 
-  const failure = saveApi.isMutationError
-    ? describeQueryFailure(saveApi.mutationError)
-    : null;
-  const wire = saveApi.isMutationError
-    ? describeWireError(saveApi.mutationError)
-    : null;
-  const serverFields = saveApi.isMutationError
-    ? mapValidationIssues(saveApi.mutationError, saveApi.lastWrite)
-    : null;
-  const fieldErrors = fieldErrorsFromFormState({
+  const pending = saveApi.pending || lifecycle.pending;
+  const resolved = presentCustomerFormCopy({
+    formCopy,
+    mode: args.mode,
     submitted: isSubmitted,
     nameMessage: errors.name?.message,
     phoneMessage: errors.phone?.message,
     emailMessage: errors.email?.message,
     notesMessage: errors.notes?.message,
-    server: serverFields,
-  });
-  const mappedBanner = mapCustomerFormFailure(
-    failure?.kind ?? null,
-    wire?.code ?? null,
-  );
-  const pending = saveApi.pending || lifecycle.pending;
-  const resolved = resolveCustomerFormCopy(formCopy, {
-    mode: args.mode,
-    nameError: fieldErrors.name,
-    phoneError: fieldErrors.phone,
-    emailError: fieldErrors.email,
-    notesError: fieldErrors.notes,
-    contactError: fieldErrors.contact,
-    banner: mappedBanner,
+    mutationError: saveApi.mutationError,
+    lastWrite: saveApi.lastWrite,
+    isMutationError: saveApi.isMutationError,
     pending,
     clientReady,
   });
@@ -236,89 +209,31 @@ export function useCustomerForm(args: {
     saveApi.resetMutation();
   }
 
-  const archived = query.data?.status === "archived";
-  const counterpartiesKind = counterpartiesBodyKind({
+  const presented = presentCustomerFormView({
+    copy,
     mode: args.mode,
-    status: linkedCounterparties.status,
-    itemCount: linkedCounterparties.items.length,
-  });
-  const groupPriceListId = groupAssignedPriceListId(
+    origin,
+    loadState,
+    resolved,
+    pending,
+    isDirty,
+    picker,
     groupId,
-    lookups.priceListIdByGroupId,
-  );
-  const headerTitle =
-    args.mode === "create"
-      ? copy.editorStub.clientCreateTitle
-      : copy.editorStub.clientEditTitle;
+    priceListId,
+    lookups,
+    archived: query.data?.status === "archived",
+    canWrite,
+    canDelete,
+    counterpartiesStatus: linkedCounterparties.status,
+    linkedItems: linkedCounterparties.items,
+    lifecycleBanner: lifecycle.banner,
+  });
 
   return {
     copy,
     mode: args.mode,
     control,
-    originName: origin.name,
-    originPhone: origin.phone,
-    originEmail: origin.email,
-    originNotes: origin.notes,
-    state: loadState,
-    nameError: resolved.nameError,
-    phoneError: resolved.phoneError ?? resolved.contactError,
-    emailError: resolved.emailError,
-    notesError: resolved.notesError,
-    banner: lifecycle.banner ?? resolved.banner,
-    pending,
-    submitDisabled:
-      resolved.submitDisabled ||
-      loadState.kind !== "ready" ||
-      (args.mode === "edit" && !isDirty),
-    submitLabel: resolved.submitLabel,
-    fieldsEditable: resolved.fieldsEditable && loadState.kind === "ready",
-    headerTitle,
-    picker,
-    groupId,
-    priceListId,
-    groupValue: selectorLookupValue(
-      groupId,
-      lookups.groupNameById,
-      formCopy.assignmentUnavailable,
-    ),
-    priceListValue: selectorLookupValue(
-      priceListId,
-      lookups.priceListNameById,
-      formCopy.assignmentUnavailable,
-    ),
-    priceListPlaceholder: inheritedPriceListPlaceholder({
-      groupPriceListId,
-      inheritGroup: formCopy.priceListInheritGroup,
-      retailDefault: formCopy.priceListDefault,
-    }),
-    groupChanged: customerFormFieldChanged(args.mode, groupId, origin.groupId),
-    priceListChanged: customerFormFieldChanged(
-      args.mode,
-      priceListId,
-      origin.priceListId,
-    ),
-    groupOptions: lookups.groupOptions,
-    priceListOptions: lookups.priceListOptions,
-    archived,
-    archivedLabel: copy.archivedBadge,
-    showArchive: args.mode === "edit" && !archived && canWrite,
-    showRestore: args.mode === "edit" && archived && canWrite,
-    showDelete: args.mode === "edit" && archived && canDelete,
-    counterpartiesKind,
-    counterpartiesBodyText: counterpartiesBodyCopy({
-      kind: counterpartiesKind,
-      createHint: formCopy.counterpartiesCreateHint,
-      empty: formCopy.counterpartiesEmpty,
-      error: copy.empty.errorDescription,
-    }),
-    linkedCounterparties: linkedCounterparties.items.map((item) => ({
-      id: item.id,
-      name: item.name,
-      edrpouLabel:
-        item.edrpou != null && item.edrpou.length > 0
-          ? interpolate(copy.edrpouBadge, { edrpou: item.edrpou })
-          : formCopy.counterpartiesEdrpouEmpty,
-    })),
+    ...presented,
     onFieldEdit,
     requestLeave,
     openGroupPicker: () => {

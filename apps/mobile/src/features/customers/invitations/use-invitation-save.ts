@@ -1,15 +1,14 @@
 /**
- * Invitation create save hook (SHO-206). Wraps `runInvitationFormSave`
- * with `useContractMutation` and `invites.list` invalidation. The
- * one-time token/url stay in hook state, never in query keys.
+ * Invitation create save hook (SHO-206 / SHO-307). Single `invites.create`
+ * write — form-kit `useFormSave` / `runFormSave` fits. The one-time
+ * token/url stay in hook state, never in query keys.
  */
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import type { MutationCallOptions } from "@showzy/contract";
 
-import { useApiClient } from "../../../api/api-provider";
-import { useContractMutation } from "../../../api/contract-mutation";
-import { describeQueryFailure, describeWireError } from "../../../api/errors";
+import type { ContractClient } from "../../../api/client";
 import { useActiveCompany } from "../../../api/query-provider";
+import { useFormSave } from "../../../components/form-kit";
 import { bindInviteFormMutate } from "../api/invite-form-mutation";
 import { invalidateInvitesAfterWrite } from "../api/invite-revoke";
 import type {
@@ -17,15 +16,20 @@ import type {
   InvitationFormFieldErrors,
 } from "./invitation-form-draft";
 import type { InvitationFormLoadState } from "./invitation-form-load";
-import type {
-  InvitationFormWrite,
-  InviteCreateSecret,
-} from "./invitation-form-plan";
 import {
-  NO_SAVE_FAILURE,
-  runInvitationFormSave,
-  type LastWriteFailure,
-} from "./invitation-form-save";
+  parseThenPlanInvitationFormSave,
+  type InvitationFormWrite,
+  type InviteCreateSecret,
+} from "./invitation-form-plan";
+
+function bindInviteSave(
+  client: ContractClient,
+): (
+  input: InvitationFormWrite,
+  options: MutationCallOptions,
+) => Promise<InviteCreateSecret> {
+  return bindInviteFormMutate(client);
+}
 
 export function useInvitationSave(args: {
   readonly loadKind: InvitationFormLoadState["kind"];
@@ -43,100 +47,37 @@ export function useInvitationSave(args: {
   readonly isMutationError: boolean;
   readonly resetMutation: () => void;
 } {
-  const apiClient = useApiClient();
-  const apiRef = useRef(apiClient);
-  apiRef.current = apiClient;
   const { activeCompanyId } = useActiveCompany();
   const queryClient = useQueryClient();
-  const [saveBusy, setSaveBusy] = useState(false);
-  const [lastWrite, setLastWrite] = useState<InvitationFormWrite | null>(null);
-  const saveBusyRef = useRef(false);
-  const lastWriteRef = useRef<InvitationFormWrite | null>(null);
-  const lastFailureRef = useRef<LastWriteFailure>(NO_SAVE_FAILURE);
-  const mountedRef = useRef(true);
-  const argsRef = useRef(args);
-  argsRef.current = args;
 
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
-
-  const mutation = useContractMutation(
-    (input: InvitationFormWrite, options) => {
-      const current = apiRef.current;
-      if (current === null) {
-        return Promise.reject(new TypeError("Failed to fetch"));
-      }
-      return bindInviteFormMutate(current)(input, options);
+  return useFormSave<
+    InvitationFormDraft,
+    InvitationFormWrite,
+    InviteCreateSecret,
+    InvitationFormFieldErrors
+  >({
+    bindMutate: bindInviteSave,
+    invalidate: () =>
+      invalidateInvitesAfterWrite({
+        queryClient,
+        companyId: activeCompanyId,
+      }),
+    ready: args.loadKind === "ready",
+    getDraft: args.getDraft,
+    setOrigin: args.setOrigin,
+    setFieldErrors: args.setFieldErrors,
+    plan: ({ lastWrite, lastFailure }) =>
+      parseThenPlanInvitationFormSave({
+        draft: args.getDraft(),
+        created: args.createdRef.current,
+        lastWrite,
+        lastFailureKind: lastFailure.kind,
+        lastWireCode: lastFailure.wire,
+      }),
+    applySuccess: ({ result }) => {
+      args.createdRef.current = result;
+      args.setCreated(result);
     },
-  );
-
-  async function save(): Promise<void> {
-    const current = argsRef.current;
-    if (
-      saveBusyRef.current ||
-      apiClient === null ||
-      current.loadKind !== "ready"
-    ) {
-      return;
-    }
-    saveBusyRef.current = true;
-    setSaveBusy(true);
-    try {
-      await runInvitationFormSave({
-        getDraft: current.getDraft,
-        getCreated: () => current.createdRef.current,
-        setCreated: (secret) => {
-          current.createdRef.current = secret;
-          current.setCreated(secret);
-        },
-        setOrigin: current.setOrigin,
-        getLastWrite: () => lastWriteRef.current,
-        setLastWrite: (write) => {
-          lastWriteRef.current = write;
-          setLastWrite(write);
-        },
-        getLastFailure: () => lastFailureRef.current,
-        setLastFailure: (failure) => {
-          lastFailureRef.current = failure;
-        },
-        setFieldErrors: current.setFieldErrors,
-        submit: mutation.submit,
-        retry: mutation.retry,
-        resetMutation: mutation.reset,
-        finish: async () => {
-          await invalidateInvitesAfterWrite({
-            queryClient,
-            companyId: activeCompanyId,
-          });
-          await current.onSaved();
-        },
-      });
-    } catch (error: unknown) {
-      lastFailureRef.current = {
-        kind: describeQueryFailure(error).kind,
-        wire: describeWireError(error)?.code ?? null,
-      };
-    } finally {
-      saveBusyRef.current = false;
-      if (mountedRef.current) {
-        setSaveBusy(false);
-      }
-    }
-  }
-
-  return {
-    save,
-    pending: saveBusy || mutation.isPending,
-    lastWrite,
-    mutationError: mutation.error,
-    isMutationError: mutation.isError,
-    resetMutation: () => {
-      lastFailureRef.current = NO_SAVE_FAILURE;
-      mutation.reset();
-    },
-  };
+    onSaved: () => args.onSaved(),
+  });
 }

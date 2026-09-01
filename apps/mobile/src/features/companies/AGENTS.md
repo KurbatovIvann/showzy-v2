@@ -4,8 +4,11 @@ Folder roles follow `src/features/catalog/products/` (`api/`, `hub/`,
 `form/`, `shared/`). `src/app/` stays one-line re-exports. Feature code
 lives here, not under `src/components/screens/`.
 
-The More → Налаштування компанії hub binds `companies.get` (read). The
-legal editor (`form/`) binds `companies.get` to hydrate and
+The More → Налаштування компанії hub binds `companies.get` (read). Do
+not wrap the hub in `FormScreenScaffold`: it is not a save form (no
+cancel/submit), it shows an identity subtitle, and it uses
+`edges={["top"]}` so the tab bar can sit under the list. The legal
+editor (`form/`) binds `companies.get` to hydrate and
 `companies.updateLegal` to save. Compose `src/components/form-kit`
 (`runFormSave` / `useFormSave` / `useUnsavedGuard` / `FormScreenScaffold`
 / `FormTextField`). Keep draft/plan/schema/copy/load here. Do not call
