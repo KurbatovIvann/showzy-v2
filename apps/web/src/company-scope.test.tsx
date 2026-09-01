@@ -72,6 +72,18 @@ describe("company slug resolve (SHO-313)", () => {
     expect(router.state.location.pathname).toBe("/");
   });
 
+  it("sends an empty listMine at a slug URL to the picker", async () => {
+    signInWith([]);
+    const { router, apiClient } = await renderApp("/kviti-lviv");
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/");
+    });
+    expect(
+      await screen.findByRole("heading", { name: "Оберіть компанію" }),
+    ).toBeDefined();
+    expect(apiClient.getActiveCompany()).toBeNull();
+  });
+
   it("redirects / to the last visited slug when it is still a membership", async () => {
     signInWith([FLOWERS_MEMBERSHIP, BAKERY_MEMBERSHIP]);
     window.localStorage.setItem(DEVICE_PREF_LAST_COMPANY_SLUG_KEY, "pekarnya");
@@ -160,5 +172,52 @@ describe("company header (SHO-313)", () => {
     );
     expect(resolving[0]?.companyId).toBeNull();
     expect(COMPANY_SELECTOR_HEADER).toBe("x-company-id");
+  });
+
+  it("holds the outlet until the selector is set, then sends x-company-id on companies.get", async () => {
+    signInWith([FLOWERS_MEMBERSHIP]);
+    let releaseListMine: (() => void) | undefined;
+    const listMineGate = new Promise<void>((resolve) => {
+      releaseListMine = resolve;
+    });
+    server.use(
+      http.post(
+        `${PANEL_ORIGIN}/rpc/companies/listMine`,
+        async ({ request }) => {
+          listMineState.calls.push({
+            path: new URL(request.url).pathname,
+            companyId: request.headers.get(COMPANY_SELECTOR_HEADER),
+          });
+          await listMineGate;
+          return HttpResponse.json({
+            json: { memberships: listMineState.memberships },
+          });
+        },
+      ),
+    );
+    const { apiClient } = await renderApp("/kviti-lviv");
+    expect(
+      await screen.findByText("Завантаження вашої компанії"),
+    ).toBeDefined();
+    expect(apiClient.getActiveCompany()).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Квіти Львів" })).toBeNull();
+    expect(
+      listMineState.calls.some((call) => call.path === "/rpc/companies/get"),
+    ).toBe(false);
+    expect(listMineState.calls.every((call) => call.companyId === null)).toBe(
+      true,
+    );
+
+    releaseListMine?.();
+    expect(
+      await screen.findByRole("heading", { name: "Квіти Львів" }),
+    ).toBeDefined();
+    expect(apiClient.getActiveCompany()).toBe(FLOWERS_COMPANY_ID);
+
+    await apiClient.client.companies.get({});
+    const scoped = listMineState.calls.find(
+      (call) => call.path === "/rpc/companies/get",
+    );
+    expect(scoped?.companyId).toBe(FLOWERS_COMPANY_ID);
   });
 });

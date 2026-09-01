@@ -106,6 +106,13 @@ function rpcJson(data: unknown): Response {
   return HttpResponse.json({ json: data });
 }
 
+function recordRpc(rpcState: RpcState, request: Request): void {
+  rpcState.calls.push({
+    path: new URL(request.url).pathname,
+    companyId: request.headers.get(COMPANY_SELECTOR_HEADER),
+  });
+}
+
 function allHandlers(sessionState: SessionState, rpcState: RpcState) {
   return [
     http.get(`${PANEL_ORIGIN}/api/auth/get-session`, () => {
@@ -141,11 +148,22 @@ function allHandlers(sessionState: SessionState, rpcState: RpcState) {
       return HttpResponse.json(sessionJson(sessionState));
     }),
     http.post(`${PANEL_ORIGIN}/rpc/companies/listMine`, ({ request }) => {
-      rpcState.calls.push({
-        path: new URL(request.url).pathname,
-        companyId: request.headers.get(COMPANY_SELECTOR_HEADER),
-      });
+      recordRpc(rpcState, request);
       return rpcJson({ memberships: rpcState.memberships });
+    }),
+    http.post(`${PANEL_ORIGIN}/rpc/companies/get`, ({ request }) => {
+      recordRpc(rpcState, request);
+      const companyId = request.headers.get(COMPANY_SELECTOR_HEADER);
+      const current = rpcState.memberships.find(
+        (membership) => membership.company.id === companyId,
+      )?.company;
+      return rpcJson({
+        id: current?.id ?? "c0c0c0c0-0000-4000-8000-000000000099",
+        name: current?.name ?? "unknown",
+        slug: current?.slug ?? "unknown",
+        prefix: current?.prefix ?? "XX",
+        legal: null,
+      });
     }),
   ];
 }
