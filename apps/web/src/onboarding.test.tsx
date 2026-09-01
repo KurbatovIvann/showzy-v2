@@ -236,10 +236,13 @@ describe("optional legal (SHO-324)", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "Зберегти та продовжити" }),
     );
+    const created = listMineState.memberships[0];
+    expect(created).toBeDefined();
+    if (created === undefined) {
+      return;
+    }
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe(
-        `/${listMineState.memberships[0]?.company.slug}`,
-      );
+      expect(router.state.location.pathname).toBe(`/${created.company.slug}`);
     });
     const legal = legalCalls();
     expect(legal).toHaveLength(1);

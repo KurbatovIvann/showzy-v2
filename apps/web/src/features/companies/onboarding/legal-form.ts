@@ -272,5 +272,5 @@ export function parseUpdateLegalInput(
       },
     });
   }
-  return parsed.data;
+  return input;
 }
