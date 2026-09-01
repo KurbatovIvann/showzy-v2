@@ -4,6 +4,7 @@ import {
   createUIMessageStream,
   createUIMessageStreamResponse,
   streamText,
+  toUIMessageStream,
   type LanguageModel,
   type ModelMessage,
   type StepResult,
@@ -105,10 +106,8 @@ function stepRequestedConfirmation(steps: Array<StepResult<ToolSet>>): boolean {
   if (last === undefined) {
     return false;
   }
-  return last.toolResults.some(
-    (result) =>
-      result.type === "tool-result" &&
-      isStaffAssistantConfirmationOutput(result.output),
+  return last.toolResults.some((result) =>
+    isStaffAssistantConfirmationOutput(result.output),
   );
 }
 
@@ -206,7 +205,7 @@ export function streamStaffAssistantChat(options: {
   readonly contracts: readonly ActionContract[];
   readonly execute: ActionToolExecute;
   readonly abortSignal?: AbortSignal;
-  readonly responseHeaders?: HeadersInit;
+  readonly responseHeaders?: Record<string, string>;
 }): {
   readonly response: Response;
   readonly completion: Promise<StaffAssistantTurnResult>;
@@ -229,17 +228,16 @@ export function streamStaffAssistantChat(options: {
         system: staffAssistantSystemPrompt,
         messages: options.messages,
         tools,
-        abortSignal: options.abortSignal,
+        ...(options.abortSignal !== undefined
+          ? { abortSignal: options.abortSignal }
+          : {}),
         stopWhen: [
           ({ steps }) => steps.length >= STAFF_ASSISTANT_MAX_STEPS,
           ({ steps }) => stepRequestedConfirmation(steps),
         ],
         onStepEnd: ({ toolResults }) => {
           for (const toolResult of toolResults) {
-            if (
-              toolResult.type === "tool-result" &&
-              isStaffAssistantConfirmationOutput(toolResult.output)
-            ) {
+            if (isStaffAssistantConfirmationOutput(toolResult.output)) {
               writer.write({
                 type: "data-confirmation",
                 data: toolResult.output,
@@ -248,7 +246,12 @@ export function streamStaffAssistantChat(options: {
           }
         },
       });
-      writer.merge(result.toUIMessageStream());
+      writer.merge(
+        toUIMessageStream({
+          stream: result.stream,
+          tools,
+        }),
+      );
       void result.text.then(
         (text) => {
           resolveCompletion({

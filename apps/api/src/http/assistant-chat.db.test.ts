@@ -52,7 +52,6 @@ import { companyCustomers } from "@showzy/db/schema/customers";
 import { orders } from "@showzy/db/schema/orders";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { z } from "zod";
 
@@ -372,12 +371,12 @@ describe("POST /assistant/chat mock-model parity", () => {
     const payloads = await readUiMessageSsePayloads(response);
     expect(JSON.stringify(payloads)).toContain("You have no orders.");
     await waitFor(async () => {
-      const runs = await kit.db.runtime.db
-        .select()
-        .from(assistantToolRuns)
-        .where(eq(assistantToolRuns.conversationId, conversation.id));
+      const runs = await kit.db.runtime.db.select().from(assistantToolRuns);
       return runs.some(
-        (run) => run.actionName === "orders.list" && run.outcome === "success",
+        (run) =>
+          run.conversationId === conversation.id &&
+          run.actionName === "orders.list" &&
+          run.outcome === "success",
       );
     }, "orders.list tool run");
     expect(fetchSpy).not.toHaveBeenCalled();
@@ -419,18 +418,18 @@ describe("POST /assistant/chat mock-model parity", () => {
     expect(response.status).toBe(200);
     await readUiMessageSsePayloads(response);
     await waitFor(async () => {
-      const rows = await kit.db.runtime.db
-        .select()
-        .from(orders)
-        .where(eq(orders.companyId, kitIdentities.companies.a));
-      return rows.some((row) => row.customerId === customer.id);
+      const rows = await kit.db.runtime.db.select().from(orders);
+      return rows.some(
+        (row) =>
+          row.companyId === kitIdentities.companies.a &&
+          row.customerId === customer.id,
+      );
     }, "created order row");
 
-    const audit = await kit.db.runtime.db
-      .select()
-      .from(auditLog)
-      .where(eq(auditLog.action, "orders.create"));
-    const aiRow = audit.find((row) => row.requestId === requestId);
+    const audit = await kit.db.runtime.db.select().from(auditLog);
+    const aiRow = audit.find(
+      (row) => row.action === "orders.create" && row.requestId === requestId,
+    );
     expect(aiRow).toMatchObject({
       channel: ASSISTANT_INVOCATION_CHANNEL,
       aiTraceId: requestId,
@@ -453,7 +452,7 @@ describe("POST /assistant/chat mock-model parity", () => {
     let streamCalls = 0;
     const app = chatApp(
       new MockLanguageModelV3({
-        doStream: async () => {
+        doStream: () => {
           streamCalls += 1;
           if (streamCalls === 1) {
             return mockToolCallStream(
@@ -507,10 +506,9 @@ describe("POST /assistant/chat mock-model parity", () => {
       "The customer was deleted.",
     );
 
-    const stillThere = await kit.db.runtime.db
-      .select({ id: companyCustomers.id })
-      .from(companyCustomers)
-      .where(eq(companyCustomers.id, customer.id));
+    const stillThere = (
+      await kit.db.runtime.db.select().from(companyCustomers)
+    ).filter((row) => row.id === customer.id);
     expect(stillThere).toHaveLength(1);
 
     const resume = await postChat(app, {
@@ -523,11 +521,8 @@ describe("POST /assistant/chat mock-model parity", () => {
     await readUiMessageSsePayloads(resume);
 
     await waitFor(async () => {
-      const rows = await kit.db.runtime.db
-        .select({ id: companyCustomers.id })
-        .from(companyCustomers)
-        .where(eq(companyCustomers.id, customer.id));
-      return rows.length === 0;
+      const rows = await kit.db.runtime.db.select().from(companyCustomers);
+      return !rows.some((row) => row.id === customer.id);
     }, "deleted customer");
 
     await expect(
@@ -574,11 +569,11 @@ describe("POST /assistant/chat logs and /rpc channel", () => {
     expect(response.status).toBe(200);
     await readUiMessageSsePayloads(response);
     await waitFor(async () => {
-      const rows = await kit.db.runtime.db
-        .select()
-        .from(assistantMessages)
-        .where(eq(assistantMessages.conversationId, conversation.id));
-      return rows.some((row) => row.role === "assistant");
+      const rows = await kit.db.runtime.db.select().from(assistantMessages);
+      return rows.some(
+        (row) =>
+          row.conversationId === conversation.id && row.role === "assistant",
+      );
     }, "assistant persist");
 
     const blob = JSON.stringify(capturing.entries());
@@ -602,18 +597,19 @@ describe("POST /assistant/chat logs and /rpc channel", () => {
       baseUrl: "http://localhost:3000",
       getAccessToken: () => token,
       initialCompanyId: kitIdentities.companies.a,
-      fetch: (request) => app.request(request),
+      fetch: async (request) => app.request(request),
     });
     const attempt = createMutationAttempt();
     const created = await client.assistant.createConversation(
       { title: "rpc-ui" },
       attempt.options,
     );
-    const rows = await kit.db.runtime.db
-      .select()
-      .from(auditLog)
-      .where(eq(auditLog.action, "assistant.createConversation"));
-    const rpcRow = rows.find((row) => row.targetId === created.id);
+    const rows = await kit.db.runtime.db.select().from(auditLog);
+    const rpcRow = rows.find(
+      (row) =>
+        row.action === "assistant.createConversation" &&
+        row.targetId === created.id,
+    );
     expect(rpcRow?.channel).toBe("ui");
     expect(rpcRow?.aiTraceId).toBeNull();
     expect(rpcRow?.toolCallId).toBeNull();
