@@ -2,8 +2,12 @@
  * Decide Turbo full vs affected execution for CI (SHO-335).
  *
  * PRs use the workspace package graph (`turbo run --affected`) when the
- * comparison base exists. Pushes to `main` and any unresolved/shallow base
- * run the full workspace suite. Remote cache is never required.
+ * comparison base exists. `--affected` already includes dependents of a
+ * changed package; do not add a synthetic `topo` / `^topo` task — this
+ * workspace has package cycles (customers↔pricing, documents↔doc-generation)
+ * and Turbo refuses `#topo` / `^build` walks on that graph. Pushes to `main`
+ * and any unresolved/shallow base run the full workspace suite. Remote cache
+ * is never required.
  */
 
 export const TURBO_LOCAL_CACHE = "local:rw";

@@ -3,8 +3,10 @@
  * CI entrypoint for Turbo tasks (SHO-335).
  *
  * Resolves PR comparison history, then runs either `turbo --affected` or a
- * full `turbo run`. Always uses the local filesystem cache (`local:rw`) so
- * GitHub's `.turbo` cache is sufficient and TURBO_TOKEN is never required.
+ * full `turbo run`. `--affected` walks the package graph’s dependents; a
+ * synthetic `topo` or `^build` task graph is not used (this workspace is
+ * cyclic). Always uses the local filesystem cache (`local:rw`) so GitHub's
+ * `.turbo` cache is sufficient and TURBO_TOKEN is never required.
  */
 import { spawnSync } from "node:child_process";
 import { appendFileSync } from "node:fs";

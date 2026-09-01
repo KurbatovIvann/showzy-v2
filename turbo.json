@@ -19,30 +19,22 @@
     "TMPDIR"
   ],
   "tasks": {
-    "topo": {
-      "dependsOn": ["^topo"]
-    },
     "build": {
-      "dependsOn": ["^build", "topo"],
       "inputs": ["$TURBO_DEFAULT$"],
       "outputs": ["dist/**"]
     },
     "export:web": {
-      "dependsOn": ["topo"],
       "inputs": ["$TURBO_DEFAULT$"],
       "outputs": ["dist/**"],
       "env": ["EXPO_NO_TELEMETRY"]
     },
     "typecheck": {
-      "dependsOn": ["topo"],
       "inputs": ["$TURBO_DEFAULT$", "tsconfig.json", "tsconfig.*.json"]
     },
     "lint": {
-      "dependsOn": ["topo"],
       "inputs": ["$TURBO_DEFAULT$", "eslint.config.*"]
     },
     "test": {
-      "dependsOn": ["topo"],
       "inputs": [
         "$TURBO_DEFAULT$",
         "vitest.config.*",

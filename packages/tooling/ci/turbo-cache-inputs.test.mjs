@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
@@ -44,10 +45,6 @@ test("typecheck, lint, test, and builds declare inputs so config changes miss ca
       Array.isArray(inputs) && inputs.includes("$TURBO_DEFAULT$"),
       `${name} must hash package sources`,
     );
-    assert.ok(
-      (turbo.tasks[name].dependsOn ?? []).includes("topo"),
-      `${name} must depend on topo so workspace dependents invalidate`,
-    );
   }
   assert.ok(turbo.tasks.typecheck.inputs.includes("tsconfig.json"));
   assert.ok(turbo.tasks.lint.inputs.includes("eslint.config.*"));
@@ -56,8 +53,76 @@ test("typecheck, lint, test, and builds declare inputs so config changes miss ca
   assert.deepEqual(turbo.tasks["export:web"].outputs, ["dist/**"]);
 });
 
-test("topo walks the package graph without requiring a per-package script", () => {
-  assert.deepEqual(turbo.tasks.topo.dependsOn, ["^topo"]);
+test("turbo.json has no synthetic topo task and no dependsOn topo edges", () => {
+  const turboSource = fs.readFileSync(
+    path.join(repoRoot, "turbo.json"),
+    "utf8",
+  );
+  assert.doesNotMatch(
+    turboSource,
+    /"topo"/,
+    "synthetic topo serializes the cyclic workspace graph and Turbo exits",
+  );
+  assert.equal(turbo.tasks.topo, undefined);
+  for (const [name, task] of Object.entries(turbo.tasks)) {
+    const deps = task.dependsOn ?? [];
+    assert.ok(
+      !deps.includes("topo") && !deps.includes("^topo"),
+      `${name} must not depend on topo`,
+    );
+  }
+  for (const name of ["typecheck", "lint", "test", "build", "export:web"]) {
+    const deps = turbo.tasks[name].dependsOn ?? [];
+    assert.equal(
+      deps.filter((dep) => dep.startsWith("^")).length,
+      0,
+      `${name} must not walk ^task edges; --affected already includes dependents`,
+    );
+  }
+});
+
+/**
+ * @param {string[]} args
+ */
+function turboDryRun(args) {
+  return spawnSync("pnpm", ["exec", "turbo", ...args], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    timeout: 120_000,
+  });
+}
+
+test("turbo typecheck and test dry-run exit 0 despite circular package warnings", () => {
+  for (const task of ["typecheck", "test"]) {
+    const result = turboDryRun(["run", task, "--dry-run", "--cache=local:rw"]);
+    const output = `${result.stdout}\n${result.stderr}`;
+    assert.equal(result.status, 0, `${task} dry-run failed:\n${output}`);
+    assert.match(
+      output,
+      /Circular package dependency detected/,
+      `${task} dry-run must still see the cyclic workspace graph`,
+    );
+    assert.doesNotMatch(output, /Cyclic dependency detected/);
+  }
+});
+
+test("turbo build and export:web dry-run succeed with existing package cycles", () => {
+  const cases = [
+    ["run", "build", "--filter=@showzy/web", "--dry-run", "--cache=local:rw"],
+    [
+      "run",
+      "export:web",
+      "--filter=@showzy/mobile",
+      "--dry-run",
+      "--cache=local:rw",
+    ],
+  ];
+  for (const args of cases) {
+    const result = turboDryRun(args);
+    const output = `${result.stdout}\n${result.stderr}`;
+    assert.equal(result.status, 0, `${args.join(" ")} failed:\n${output}`);
+    assert.doesNotMatch(output, /Cyclic dependency detected/);
+  }
 });
 
 test(".turbo GitHub cache is keyed on lockfile/turbo/tooling and skips forks", () => {
