@@ -1,7 +1,7 @@
 /**
- * Staff customer list (SHO-175 / feature SHO-169). Mechanical choices the
- * feature card left unnamed — copy `catalog.listProducts` and
- * `customers.listGroups`, do not invent a second list shape:
+ * Staff customer list (SHO-175 / feature SHO-169). Mechanical choices for
+ * *this* picker page. Copy pagination **helpers**, not this input bag,
+ * when building a staff+AI list (ADR-0033).
  * - Pagination is a stable `(updated_at desc, id desc)` cursor, not
  *   offset. `limit` defaults to 20 and caps at 50.
  * - Cursor payload is `updatedAt|id` (ISO datetime, then uuid).

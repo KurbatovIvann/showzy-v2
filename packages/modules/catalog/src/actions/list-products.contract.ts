@@ -1,6 +1,8 @@
 /**
- * Staff catalog list (SHO-135 / catalog-T7). Mechanical choices the feature
- * card left unnamed — copy them, do not invent a second list shape:
+ * Staff catalog list (SHO-135 / catalog-T7). Mechanical choices for *this*
+ * picker page: cursor pagination helpers, LIKE sanitization, default
+ * `limit` 20 / cap 50. Copy those **helpers**, not this input bag, when
+ * building a staff+AI list (ADR-0033 / SHO-350 `orders.list`).
  * - Pagination is a stable `(createdAt desc, id desc)` cursor, not offset.
  *   `limit` defaults to 20 and caps at 50 (small-business catalog pages).
  * - `status` defaults to `active`; `archived` and `all` are explicit.

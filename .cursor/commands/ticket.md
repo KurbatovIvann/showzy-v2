@@ -28,7 +28,7 @@ Skip the rest for **mechanical**.
 For **routine** and **sensitive / first-slice**:
 
 1. Read the context pack: feature card, golden files for this layer.
-   Do NOT load unrelated v1 material or archived spec novels.
+   Do NOT load `docs/archive/` or unrelated v1 material.
 2. Verdict: "understood, starting" with a 3–5 line summary of scope +
    required tests, or a stop report. Stop for a product fork (new
    capability, new principal, invariant change, new table). Amend
@@ -40,8 +40,8 @@ Follow **Setup**, **Process**, and **Hard boundaries** in
 `.cursor/commands/implement.md`. Skip that file’s Dispatch section
 (you already decided this is a leaf). Use Linear's generated
 `gitBranchName` when present; otherwise
-`feat/sho-<number>-<slug>`. No `packages/core`, no foreign modules, no
-`docs/specs/` novels.
+`feat/sho-<number>-<slug>`. No `packages/core`. No foreign modules unless
+the feature card names those supporting actions. No `docs/specs/` novels.
 
 ## 3. VERIFY
 

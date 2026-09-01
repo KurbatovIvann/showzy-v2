@@ -52,7 +52,9 @@ The split:
     execution pipeline (core.md §4). A contract without an implementation
     (or vice versa) fails at boot and in the contract check.
 - AI manifests include only descriptors with both `transport: client` and
-  `aiExposure: exposed`, then filter by current principal/permissions. A
+  `aiExposure: exposed`, then filter by current principal/permissions.
+  `exposed` is a product choice, not the default for every client route
+  (ADR-0033). A
   consumer session sees only `consumer`-principal exposed tools (no
   company-scoped tools appear without an active company context). An
   account session sees only `account`-principal exposed tools (no

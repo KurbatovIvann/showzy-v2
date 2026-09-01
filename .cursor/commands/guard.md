@@ -34,7 +34,7 @@ conveyor, the **parent** launches that agent after the child PR exists
 
 - Do not re-run the Verifier rubric unless you find a constitution hole
   it missed.
-- Do not treat `docs/archive/specs/` as authority.
+- Do not open `docs/archive/`.
 - Do not merge. Do not implement fixes — the Executor owns the branch.
 
 ## Output

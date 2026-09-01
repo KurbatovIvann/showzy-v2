@@ -12,7 +12,7 @@
  * has no `verification` table at all, so OTPs cannot reach database backups
  * or dumps. Sessions
  * are explicitly pinned to Postgres (`storeSessionInDatabase`). Residual
- * accepted risk (docs/archive/plans/foundation.md "Reported deviations"): phone codes
+ * accepted risk: phone codes
  * sit plaintext inside the TTL'd secondary store for their 5-minute lifetime
  * (the phone plugin has no `storeOTP`; email codes are additionally hashed).
  */

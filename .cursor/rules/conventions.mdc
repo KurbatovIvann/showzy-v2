@@ -5,6 +5,7 @@ alwaysApply: true
 
 # Code conventions
 
+- **Destination (ADR-0033):** staff UI and staff AI call the same handlers. A list is a bounded domain query (`kind` + extensible `filter`), not a screen page dumped as tools. A write names records by id or unique query; resolve in the owning module. `aiExposure: "exposed"` is a product choice, not the default for every `transport: "client"` route. After SHO-350 merges, new staff lists copy `orders.list` — not pre-SHO-350 `catalog.listProducts` input.
 - **Action naming**: `<module>.<verb>` (e.g. `orders.confirm`, `pricing.resolveProductPrice`). Verbs are imperative, camelCase.
 - **Event naming**: `<module>.<pastVerb>` (e.g. `orders.created`, `orders.confirmed`). The payload schema version lives in the event envelope, never in the name.
 - **Module structure** (`packages/modules/<name>/`):

@@ -1,8 +1,8 @@
 /**
  * Staff order list (SHO-209 / orders-T3, SHO-240 query + orderNumber).
- * Mechanical choices the feature card left unnamed — copy
- * `catalog.listProducts` / `customers.listCustomers`, do not invent a
- * second list shape:
+ * Page-only input until SHO-350 (ADR-0033). Copy pagination **helpers**
+ * from `@showzy/validation/pagination`, not this filter bag, for a new
+ * staff+AI list.
  * - Pagination is a stable `(createdAt desc, id desc)` cursor, not offset.
  *   `limit` defaults to 20 and caps at 50.
  * - Cursor payload is `createdAtISO|id`.

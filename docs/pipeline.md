@@ -34,10 +34,11 @@ PLANNER → [parent orchestrator, optional] → EXECUTOR → VERIFIER → GUARDI
 (human+agent)   (/implement on feature parent)   (one cloud /ticket per child)
 ```
 
-Constitution stays: blueprint §2–§6, accepted ADRs, `.cursor/rules/`,
-`docs/scope.md`, `docs/module-ownership.md`. Domain novels in
-`docs/archive/specs/` are research, not a gate. The executable contract
-of a feature is `*.contract.ts` plus the tests in the definition of done.
+Constitution stays: blueprint §2–§6, accepted ADRs (including ADR-0033
+once accepted), `.cursor/rules/`, `docs/scope.md`,
+`docs/module-ownership.md`. Do not open `docs/archive/`. The executable
+contract of a feature is `*.contract.ts` plus the tests in the definition
+of done.
 
 ## Role reference
 
@@ -212,9 +213,9 @@ and is named in the description.
    self-check, not independent review. Mechanical PRs do not need
    `/review`.
 2. **The contract is TypeScript.** `*.contract.ts` plus DoD tests. Do not
-   write `docs/specs/<module>.md` or treat `docs/archive/specs/` as a
-   gate. Protocol manuals for frozen packages may be patched in the same
-   PR when a test proves them wrong; otherwise they change via ADR.
+   write `docs/specs/<module>.md` or open `docs/archive/`. Protocol
+   manuals for frozen packages may be patched in the same PR when a test
+   proves them wrong; otherwise they change via ADR.
 3. **Escalate, don't grind.** 2 failed review or debug iterations →
    human. Do not wait for another model family.
 4. **Working model is Grok 4.6** until another family is on the Cursor
@@ -225,9 +226,10 @@ and is named in the description.
    Patterns canvas screen, the running Expo SYSTEM, and
    `docs/design/process.md` (ADR-0024). Figma is not a gate artifact.
    Expo shell, auth, and deep-link infrastructure are not gated.
-6. **Copy the golden. Do not invent layers.** Flag new abstractions,
-   extra folders, or generic “clean architecture” that the golden does
-   not use.
+6. **Copy the golden protocol. Do not invent layers.** Flag new
+   abstractions, extra folders, or generic “clean architecture” that the
+   golden does not use. Copy pagination helpers, tenant, errors, and
+   folders — not a screen-shaped list/write input that ADR-0033 retires.
 
 ## Agent skills policy
 

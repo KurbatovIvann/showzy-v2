@@ -33,9 +33,18 @@ Full scope analysis (what we carry over / simplify / drop) and the roadmap:
 ### Rewrite goal
 
 **AI-first interface**: two parallel interfaces — a classic UI and an AI chat —
-that perform **the same actions**. The AI can show data in chat, open modals,
-fill forms, execute operations. Development follows the feature loop
+that perform **the same actions** (ADR-0008). The AI can show data in chat, open
+modals, fill forms, execute operations. Development follows the feature loop
 (ADR-0023): 90–100% of the code is written by AI agents.
+
+**Same actions means task-complete jobs (ADR-0033), not screen widgets.** A
+staff list answers a bounded question (a page **or** a server aggregate)
+without N+1 `get` and without JSON clipping as truth. A write accepts a
+stable id or a unique human reference. Cross-module user jobs stay several
+writes (customer, then prices, then order) — never a workflow mega-action.
+`aiExposure: "exposed"` is a product choice; composition-only `ctx.call`
+reads are not tools. Lists grow by additive filter fields, not new public
+action names.
 
 ### Main problems of the current system (from the audit)
 
@@ -127,7 +136,7 @@ export const createOrderContract = defineActionContract({
   permissions: ["orders:create"],  // checked before the handler
 
   // AI & execution metadata — designed in at phase 0, consumed from phase 9
-  aiExposure: "exposed",           // exposed | internal (never becomes an AI tool)
+  aiExposure: "exposed",           // product choice: exposed | internal (internal never becomes an AI tool; ADR-0033)
   risk: "write",                   // read | draft | write | high
   requiresConfirmation: false,     // high-risk: UI renders a human confirmation step
   idempotent: true,                // safe to retry (workers, webhooks, AI loop)
@@ -147,12 +156,17 @@ export const createOrder = implementAction(createOrderContract, {
 });
 ```
 
+The sample is the registry *shape* (tenant not in input, metadata
+mandatory). Staff list/write **jobs** (discriminated list `kind`, EntityRef
+writes, which routes are AI tools) are ADR-0033 — do not treat this
+UUID-only `orders.create` illustration as the destination input.
+
 From one logical definition (one client-safe descriptor paired with one
 server implementation; ADR-0008, ADR-0016, and contract.md) we
 generate:
 
 1. **oRPC procedure** → typed client for web/mobile + OpenAPI spec.
-2. **AI tool** → `name`/`description`/`input` become the tool definition; the handler is the same.
+2. **AI tool** → only when `aiExposure: "exposed"` (ADR-0033); `name`/`description`/`input` become the tool definition; the handler is the same.
 3. **Form schema** → the same Zod schema in react-hook-form.
 4. **Permissions + audit** → in one place, regardless of who called.
 
@@ -203,7 +217,7 @@ showzy/
 ├─ docs/
 │  ├─ blueprint.md              # this document
 │  ├─ specs/          # protocol manuals for frozen foundation packages
-│  ├─ archive/specs/  # domain novels — research, not a gate (ADR-0023)
+│  ├─ archive/        # humans only; agents must not open (ADR-0033)
 │  └─ plans/          # historical breakdowns; new work is Linear feature cards
 └─ .cursor/
    ├─ rules/          # rules for agents (conventions, prohibitions, DoD)

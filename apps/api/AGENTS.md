@@ -78,6 +78,5 @@ pnpm --filter @showzy/api auth:check      # CI: regenerate + fail on diff
   There is no client-spoofable `x-channel` header.
 - Residual accepted risk: phone OTP codes are plaintext inside the TTL'd
   secondary store for their 5-minute lifetime (the phone plugin has no
-  `storeOTP`; they never reach Postgres) — see
-  `docs/archive/plans/foundation.md` "Reported deviations" before
-  touching the phone plugin config.
+  `storeOTP`; they never reach Postgres). Do not change that without a
+  human and an ADR.

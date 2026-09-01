@@ -1,7 +1,7 @@
 /**
  * Staff price-list list (SHO-171 / pricing-T3, widened SHO-184 / pricing-T4).
- * Mechanical choices the feature card left unnamed — copy
- * `catalog.listProducts`, do not invent a second list shape:
+ * Mechanical choices for *this* picker page. Copy pagination **helpers**,
+ * not this input bag, when building a staff+AI list (ADR-0033).
  * - Pagination is a stable `(isDefault desc, name asc, id asc)` cursor,
  *   not offset. `limit` defaults to 20 and caps at 50.
  * - Cursor payload is `0|id|name` / `1|id|name` so the name (which may

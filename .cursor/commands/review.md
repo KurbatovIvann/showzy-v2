@@ -16,8 +16,7 @@ Done. Cloud executors must not fail the ticket when they cannot nest
 this command. A verdict that lands only after merge is a fallback
 follow-up child (majors and nits), not the happy path.
 
-Do not treat `docs/archive/specs/` as a contract. Do not fail a PR for
-missing a markdown spec.
+Do not open `docs/archive/`. Do not fail a PR for missing a markdown spec.
 
 ## Checklist — verdict is "request changes" if any item fails
 

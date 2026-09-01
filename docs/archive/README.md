@@ -1,7 +1,8 @@
 # Archive
 
-Historical documents. **Not authority.** Agents must not treat files here as
-contracts, UX baselines, or pipeline process.
+Historical documents. **Not authority.** Agents must **not open, grep, or
+cite** this tree unless a human names a specific file (ADR-0033). They are
+not contracts, goldens, UX baselines, or pipeline process.
 
 Current authority:
 

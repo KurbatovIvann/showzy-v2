@@ -1,16 +1,28 @@
 # Shozee 2.0 — Agent Instructions
 
 Ground-up rewrite of Showzy v1: a business operating platform for Ukrainian
-small businesses. Classic UI and AI chat execute the same actions.
+small businesses. Classic UI and AI chat execute the same actions
+(ADR-0008, ADR-0033).
+
+## Destination
+
+The staff UI and the staff assistant finish the **same jobs** through the
+**same handlers**. An action is a staff job, not a screen widget: a list
+answers a bounded question (page or aggregate); a write accepts a stable
+id or a unique human reference. Cross-module phrases stay several writes.
+Composition-only reads are not AI tools. Details:
+`.cursor/rules/channel-neutral-actions.mdc` and
+`docs/adr/0033-channel-neutral-actions.md`.
 
 ## Contract of this thread
 
 The executable contract is the Linear feature card plus `*.contract.ts` and
 the tests in the definition of done. Protocol manuals for frozen packages
 live in `docs/specs/` (`core`, `db`, `contract`, `money`,
-`security-operations`, `companies-foundation`). Domain novels in
-`docs/archive/specs/` are research, not a gate. Do not contradict an
-accepted ADR in `docs/adr/`; deviations need a new ADR first.
+`security-operations`, `companies-foundation`). **Do not open
+`docs/archive/`** unless the human names a file. For v1 column archaeology
+use `docs/reference/`. Do not contradict an accepted ADR in `docs/adr/`;
+deviations need a new ADR first.
 
 Constitution and conventions are in `.cursor/rules/` (already applied).
 

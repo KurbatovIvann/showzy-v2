@@ -4,6 +4,7 @@
 - **Date**: 2026-08-17
 - **Deciders**: owner (+ Claude Fable 5, foundation review)
 - **Amended by**: ADR-0021
+- **See also**: ADR-0033 (task-complete lists/writes; missing match/resolve is an owner-module internal read, not a join)
 
 ## Context
 
@@ -78,3 +79,5 @@ Same-module composition stays free: actions of one module share `services/`.
   declared in the owning spec.
 - Module specs must list: events consumed, actions called via `ctx.call`,
   and read-model grants — making the dependency graph reviewable.
+- Missing match/resolve capability is a new **internal** read on the owning
+  module (ADR-0033). Do not join another module’s tables from the caller.

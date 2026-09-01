@@ -16,8 +16,8 @@ Executors can implement. You do **not** write `docs/specs/<module>.md` or
    slice and/or UI slice). If the golden backend slice does not exist yet,
    this feature *is* that slice — say so, mark it `sensitive` / first-slice,
    and keep it thin. Do not start catalog/companies as the first slice.
-4. Open archived domain novels in `docs/archive/specs/` only if you need
-   v1-behavior research. They are not a gate.
+4. Do not open `docs/archive/`. For v1 columns and dropped behavior use
+   `docs/reference/` (`v1-backend-audit.md`, `v1-database.types.ts`).
 5. Product screens require the Experience Foundation UX gate. Backend
    tickets do not wait on it.
 
@@ -36,8 +36,9 @@ A short card, not a novel:
   protocols, or first golden slice.
 - **Stop-conditions** — new capability beyond the card, new principal,
   new table the card did not name, invariant change, “should this exist”.
-- **Context pack** — 5–15 files the Executor should read. Never “read
-  the archived catalog spec”.
+- **Context pack** — 5–15 files the Executor should read. Never point at
+  `docs/archive/`. Include ADR-0033 when the feature is a staff list or
+  a reference-aware write.
 
 ## Output 2 — ticket graph (Linear, after human approval)
 
@@ -65,8 +66,10 @@ Parent the tickets under the feature issue when Linear allows it.
 - Each ticket must leave CI green on its own.
 - Contested API → a **contract-first** ticket (`*.contract.ts` only).
   Obvious shape from the golden → one implementation ticket.
-- Do not create tickets that modify `packages/core` or a foreign module
-  — those are separate change requests for the human.
+- Do not create tickets that modify `packages/core`. A foreign module is
+  allowed only when the parent card **names** a supporting action owned
+  there (internal match/resolve reads). Unnamed ownership changes are a
+  human change request.
 - Do not create a ticket whose only output is markdown.
 
 Present the card and graph for human approval before creating tickets.

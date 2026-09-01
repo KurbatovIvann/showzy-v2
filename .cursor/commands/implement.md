@@ -25,7 +25,8 @@ nothing more. You do not write `docs/specs/` or `docs/plans/`.
 
 1. Fetch the Linear ticket and its parent feature card. That card plus
    any `*.contract.ts` already on the branch (or on `main`) is the
-   contract. Archived files in `docs/archive/specs/` are research only.
+   contract. Do not open `docs/archive/`. For v1 columns use
+   `docs/reference/`.
 2. Stop vs amend:
    - **Stop and ask** — new capability, new principal, change to an
      invariant, “should this exist at all”, adding a table the card did
@@ -36,10 +37,12 @@ nothing more. You do not write `docs/specs/` or `docs/plans/`.
      requires.
 3. Read `.cursor/rules/` (conventions, prohibitions, definition of done).
 4. Read only the context pack on the ticket. Study the **golden files for
-   this layer**. Copy their shape. Do not invent folders, layers, or
-   dependencies. Mobile tickets: load
-   `.cursor/skills/showzy-mobile/SKILL.md` before writing `apps/mobile`
-   code.
+   this layer**. Copy **protocol** (tenant, pagination helpers, errors,
+   permissions, folders). Do not copy a screen-shaped list/write input
+   that ADR-0033 retires. After SHO-350 merges, staff lists copy
+   `orders.list`. Do not invent folders, layers, or dependencies. Mobile
+   tickets: load `.cursor/skills/showzy-mobile/SKILL.md` before writing
+   `apps/mobile` code.
 5. Work on the Linear ticket's `gitBranchName` when present; otherwise
    `feat/sho-<number>-<slug>`. Linear names are not `cursor/` — when
    opening the PR, set `skip_branch_prefix_check: true`.
@@ -52,8 +55,10 @@ nothing more. You do not write `docs/specs/` or `docs/plans/`.
    They must fail if the behavior is removed. For schema, config, tooling,
    or migrations, prove the change — do not stage a red-then-green ritual.
    Schema columns freeze when this schema PR merges.
-2. **Implement** until tests pass. Follow the golden slice. Do not invent
-   new patterns, abstractions, or dependencies.
+2. **Implement** until tests pass. Follow the golden slice for **runtime
+   protocol**. List/write *jobs* follow ADR-0033 and the feature card —
+   not “copy `catalog.listProducts` input forever.” Do not invent
+   folders, layers, or dependencies.
 3. **Verify loop** — run the checks CI will run for this change. Repeat
    until green. Two failed rounds → stop and ask the human. Runtime/DB
    work needs Vitest + contract + migration suite.
@@ -66,7 +71,9 @@ nothing more. You do not write `docs/specs/` or `docs/plans/`.
 
 ## Hard boundaries
 
-- Never touch `packages/core` or other modules' code.
+- Never touch `packages/core`. Do not touch another module unless the
+  **feature card names** that supporting action (ADR-0015 callees such as
+  `customers.listMatchingIds`). Unnamed foreign-module work is a stop.
 - Tenant scope comes from the verified principal context; an input
   company/resource identifier is only a selector. No raw SQL. No `any`.
 - Tenant scope, output validation, idempotency, confirmation, events, and

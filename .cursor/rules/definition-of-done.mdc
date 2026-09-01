@@ -25,8 +25,8 @@ A task (one branch = one PR) is done only when all of the following hold.
    implementation pair) → migration
    drift/schema checks → phase-appropriate e2e smoke.
 3. **The feature card is satisfied** — behavior matches the Linear feature
-   card and the `*.contract.ts` files in the PR (ADR-0023). Archived novels
-   in `docs/archive/specs/` are research, not a gate. Stop for a product
+   card and the `*.contract.ts` files in the PR (ADR-0023). Do not open
+   `docs/archive/` to decide the gate. Stop for a product
    fork (new capability, new principal, invariant, new table the card did
    not name). Amend mechanical contract detail in the same PR
    (timeout/rate-limit defaults, a Zod refine a test proved, a CHECK/column

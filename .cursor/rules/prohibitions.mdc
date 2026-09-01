@@ -16,9 +16,11 @@ Violating any of these fails review automatically:
   invariant that the Linear feature card did not name is a stop, not a
   drive-by. Mechanical contract detail (timeout/rate-limit defaults, a Zod
   refine a test proved, a CHECK the card implied) may land in the same PR
-  and must be named in the description. Files in `docs/archive/` are not
-  authority. Protocol manuals in `docs/specs/` change via ADR or a same-PR
-  patch when a test proves them wrong.
+  and must be named in the description. **Do not read, grep, or cite
+  `docs/archive/`** unless the human names a file. Those novels are not
+  a contract, not a golden, not a pipeline. Use `docs/reference/` for v1
+  archaeology. Protocol manuals in `docs/specs/` change via ADR or a
+  same-PR patch when a test proves them wrong.
 - **No accepting `companyId` (or any tenant identifier) from action input** as an access grant.
 - **No storing derived order state in chat messages** (or any projection). Store IDs, subscribe to events.
 - **No secrets in code or logs.** Config through validated env (`packages/config`).

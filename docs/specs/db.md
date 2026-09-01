@@ -103,8 +103,7 @@ packages/db/
     ADR-0011/0015). Those tables carry FTS and/or `pg_trgm` indexes (GIN)
     plus supporting indexes for category/city/area filters, popular ordering,
     and public follow/like/comment counters; exact projection columns and
-    index DDL are owned by the `search` module (research:
-    `docs/archive/specs/search.md`).
+    index DDL are owned by the `search` module when that module is built.
   - Domain publication predicates (`companies` published lifecycle; catalog
     active/published product status) remain owned by those modules. Owning
     specs may add **partial indexes** on publication predicates for

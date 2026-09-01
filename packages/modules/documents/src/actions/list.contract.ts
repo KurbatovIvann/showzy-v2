@@ -1,7 +1,7 @@
 /**
- * Staff document list (SHO-233 / feature SHO-227). Copy `orders.list` and
- * the `customers.listCounterparties` empty-page filter; do not invent a
- * second list shape:
+ * Staff document list (SHO-233 / feature SHO-227). Copy pagination
+ * helpers and the empty-page foreign-id filter — not the pre-SHO-350
+ * `orders.list` input as a forever staff+AI shape (ADR-0033).
  * - Pagination is a stable `(createdAt desc, id desc)` cursor, not offset.
  *   `limit` defaults to 20 and caps at 50.
  * - Cursor payload is `createdAtISO|id`.

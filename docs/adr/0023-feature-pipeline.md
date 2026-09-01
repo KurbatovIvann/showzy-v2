@@ -41,7 +41,7 @@ implementation PR is enough.
 
 The executable contract of a feature is the TypeScript descriptor
 (`actions/*.contract.ts`) plus the tests required by the definition of
-done. Domain markdown is research, not a gate.
+done. Do not open `docs/archive/` (ADR-0033).
 
 Agents copy **per layer**. The first merged backend slice is the golden
 API template (schema + read action + write/event if needed + tests). A
@@ -77,8 +77,9 @@ parent.
 ## Consequences
 
 - Product intent lives in `docs/scope.md`, `docs/module-ownership.md`,
-  Linear feature cards, and `*.contract.ts`. Archived domain specs remain
-  searchable research (`docs/archive/specs/`).
+  Linear feature cards, and `*.contract.ts`. Archived domain specs stay
+  in git for humans (`docs/archive/specs/`); agents must not open them
+  unless a human names a file (ADR-0033).
 - Protocol manuals (`docs/specs/core.md`, `db.md`, `contract.md`,
   `money.md`, `security-operations.md`, `companies-foundation.md`) stay
   next to the frozen packages they describe. They are not a `/spec` stage.

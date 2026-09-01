@@ -8,9 +8,10 @@
 
 Blueprint §3 named **Vercel AI SDK v6** as the AI layer before `packages/ai`
 existed. Phase 9 is “connect the LLM to the existing capability graph”
-(blueprint §4, scope §7): tools are `transport: client` +
-`aiExposure: exposed` descriptors; writes go through `executeAction`; HITL
-is core.md §7; audit already records `channel: "ai"`.
+(blueprint §4, scope §7): tools are descriptors with `transport: client`
+**and** `aiExposure: exposed` (not every client route — ADR-0033); writes
+go through `executeAction`; HITL is core.md §7; audit already records
+`channel: "ai"`.
 
 By 2026-09-01 AI SDK **7** is the current major (GA 2026-06-25). It requires
 Node.js 22 and ESM — already true here. Starting Phase 9 on v6 would force
@@ -70,6 +71,8 @@ embeddings, MCP Apps, sandboxes, speech/realtime in the first slice.
   the SDK as a Node-only reason for TypeScript; this ADR pins the major
   and the loop-vs-harness boundary.
 - Phase 9 must not add a coding harness or a second action/tool registry.
+  Which client actions become tools is ADR-0033, not “expose every
+  `transport: client` route.”
 - `/rpc` stays `channel: "ui"` (security-operations §4). The AI mount sets
   `channel: "ai"`.
 - Switching off AI SDK 7 to another loop library needs a new ADR.

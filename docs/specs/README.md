@@ -5,7 +5,8 @@ a `/spec` stage and not a Living/Active/Mixed conveyor (ADR-0023).
 
 New domain work uses `/feature`. The executable contract is
 `*.contract.ts` plus the tests in the definition of done. Domain novels
-that used to live here are research in `docs/archive/specs/`.
+that used to live here are historical files in `docs/archive/specs/`.
+Agents must not open that tree unless a human names a file (ADR-0033).
 
 ## What stays
 
@@ -25,5 +26,6 @@ an ADR changes the runtime. Do not add new domain modules here.
 
 `catalog`, `companies`, `customers`, `orders`, `chat`, `pricing`,
 `documents`, `payments`, `search`, `feature-flags`, and the old spec
-template live in `docs/archive/specs/`. Planner may read them like
-`docs/reference/`. They are not authority.
+template live in `docs/archive/specs/` for humans. They are not
+authority. Agents use `docs/reference/` for v1 archaeology and must not
+open the archive.
