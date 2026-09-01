@@ -319,13 +319,17 @@ describe("client composition", () => {
   });
 
   it("keeps assistant persistence actions off the AI tool manifest", () => {
-    const contracts = Object.values(contractModules).flatMap((module) =>
-      Object.values(module),
-    );
     expect(
-      deriveAiToolSources(contracts)
-        .map((contract) => contract.name)
-        .filter((name) => name.startsWith("assistant.")),
+      deriveAiToolSources([
+        createConversationContract,
+        listConversationsContract,
+        getConversationContract,
+        appendUserMessageContract,
+      ]).map((contract) => contract.name),
     ).toEqual([]);
+    expect(createConversationContract.aiExposure).toBe("internal");
+    expect(listConversationsContract.aiExposure).toBe("internal");
+    expect(getConversationContract.aiExposure).toBe("internal");
+    expect(appendUserMessageContract.aiExposure).toBe("internal");
   });
 });
