@@ -34,6 +34,9 @@ export function CompanyRootScreen() {
   }
 
   const memberships = listMine.data.memberships;
+  if (memberships.length === 0) {
+    return <Navigate replace to="/onboarding" />;
+  }
   const redirectSlug = lastVisitedSlugToRedirect(
     memberships,
     createBrowserCompanyPrefs().getLastCompanySlug(),
@@ -52,33 +55,20 @@ export function CompanyRootScreen() {
     <main className="flex min-h-screen items-center justify-center bg-canvas px-4 py-8">
       <Card className="w-full max-w-[440px] p-6">
         <h1 className="text-lg font-semibold text-ink">{copy.pickerTitle}</h1>
-        {memberships.length === 0 ? (
-          <>
-            <p className="mt-2 text-[15px] font-medium text-ink">
-              {copy.emptyTitle}
-            </p>
-            <p className="mt-1 text-[15px] text-muted">
-              {copy.emptyDescription}
-            </p>
-          </>
-        ) : (
-          <>
-            <p className="mt-2 text-[15px] text-muted">{copy.pickerHint}</p>
-            <ul className="mt-5 flex flex-col gap-2">
-              {memberships.map((membership) => (
-                <li key={membership.membershipId}>
-                  <Link
-                    className={PICKER_LINK_CLASS}
-                    params={{ companySlug: membership.company.slug }}
-                    to="/$companySlug"
-                  >
-                    {membership.company.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
+        <p className="mt-2 text-[15px] text-muted">{copy.pickerHint}</p>
+        <ul className="mt-5 flex flex-col gap-2">
+          {memberships.map((membership) => (
+            <li key={membership.membershipId}>
+              <Link
+                className={PICKER_LINK_CLASS}
+                params={{ companySlug: membership.company.slug }}
+                to="/$companySlug"
+              >
+                {membership.company.name}
+              </Link>
+            </li>
+          ))}
+        </ul>
       </Card>
     </main>
   );

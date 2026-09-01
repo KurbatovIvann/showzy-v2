@@ -8,19 +8,22 @@ export function ChannelTabs<K extends string>({
   onSelect,
   disabled,
   label,
+  className,
 }: {
   readonly tabs: ReadonlyArray<{ readonly key: K; readonly label: string }>;
   readonly selected: K;
   readonly onSelect: (key: K) => void;
   readonly disabled?: boolean;
   readonly label: string;
+  /** OTP keeps `mt-8`. Pass `""` when a parent already spaces the control. */
+  readonly className?: string;
 }) {
   const name = useId();
   return (
     <div
       role="radiogroup"
       aria-label={label}
-      className="mt-8 flex rounded-full bg-canvas p-1"
+      className={cx("flex rounded-full bg-canvas p-1", className ?? "mt-8")}
     >
       {tabs.map((tab) => {
         const isSelected = selected === tab.key;

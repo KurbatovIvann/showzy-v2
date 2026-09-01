@@ -9,7 +9,6 @@ describe("company-scope copy", () => {
     expect(companyScopeCopy("uk").pickerTitle).toBe("Оберіть компанію");
     expect(companyScopeCopy("en").pickerTitle).toBe("Choose a company");
     expect(companyScopeCopy("uk").unknownTitle).toBe("Компанію не знайдено");
-    expect(companyScopeCopy("en").emptyTitle).toBe("No companies");
     expect(companyScopeCopy("uk").switcher).toBe("Компанія");
   });
 });

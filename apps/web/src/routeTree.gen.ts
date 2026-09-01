@@ -15,6 +15,7 @@ import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
 import { Route as AuthVerifyRouteImport } from './routes/_auth/verify'
 import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
 import { Route as AuthedCompanySlugRouteImport } from './routes/_authed/$companySlug'
+import { Route as AuthedOnboardingRouteImport } from './routes/_authed/onboarding'
 import { Route as AuthedCompanySlugIndexRouteImport } from './routes/_authed/$companySlug/index'
 import { Route as AuthedCompanySlugCompanyRouteImport } from './routes/_authed/$companySlug/company'
 import { Route as AuthedCompanySlugCustomersRouteImport } from './routes/_authed/$companySlug/customers'
@@ -75,6 +76,11 @@ const AuthedIndexRoute = AuthedIndexRouteImport.update({
 const AuthedCompanySlugRoute = AuthedCompanySlugRouteImport.update({
   id: '/$companySlug',
   path: '/$companySlug',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedOnboardingRoute = AuthedOnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedCompanySlugIndexRoute = AuthedCompanySlugIndexRouteImport.update({
@@ -279,6 +285,7 @@ export interface FileRoutesByFullPath {
   '/sign-in': typeof AuthSignInRoute
   '/verify': typeof AuthVerifyRoute
   '/$companySlug': typeof AuthedCompanySlugRouteWithChildren
+  '/onboarding': typeof AuthedOnboardingRoute
   '/$companySlug/company': typeof AuthedCompanySlugCompanyRouteWithChildren
   '/$companySlug/customers': typeof AuthedCompanySlugCustomersRouteWithChildren
   '/$companySlug/documents': typeof AuthedCompanySlugDocumentsRouteWithChildren
@@ -317,6 +324,7 @@ export interface FileRoutesByTo {
   '/': typeof AuthedIndexRoute
   '/sign-in': typeof AuthSignInRoute
   '/verify': typeof AuthVerifyRoute
+  '/onboarding': typeof AuthedOnboardingRoute
   '/$companySlug/company': typeof AuthedCompanySlugCompanyRouteWithChildren
   '/$companySlug/customers': typeof AuthedCompanySlugCustomersRouteWithChildren
   '/$companySlug/documents': typeof AuthedCompanySlugDocumentsRouteWithChildren
@@ -358,6 +366,7 @@ export interface FileRoutesById {
   '/_auth/sign-in': typeof AuthSignInRoute
   '/_auth/verify': typeof AuthVerifyRoute
   '/_authed/$companySlug': typeof AuthedCompanySlugRouteWithChildren
+  '/_authed/onboarding': typeof AuthedOnboardingRoute
   '/_authed/': typeof AuthedIndexRoute
   '/_authed/$companySlug/company': typeof AuthedCompanySlugCompanyRouteWithChildren
   '/_authed/$companySlug/customers': typeof AuthedCompanySlugCustomersRouteWithChildren
@@ -400,6 +409,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/verify'
     | '/$companySlug'
+    | '/onboarding'
     | '/$companySlug/company'
     | '/$companySlug/customers'
     | '/$companySlug/documents'
@@ -438,6 +448,7 @@ export interface FileRouteTypes {
     | '/'
     | '/sign-in'
     | '/verify'
+    | '/onboarding'
     | '/$companySlug/company'
     | '/$companySlug/customers'
     | '/$companySlug/documents'
@@ -478,6 +489,7 @@ export interface FileRouteTypes {
     | '/_auth/sign-in'
     | '/_auth/verify'
     | '/_authed/$companySlug'
+    | '/_authed/onboarding'
     | '/_authed/'
     | '/_authed/$companySlug/company'
     | '/_authed/$companySlug/customers'
@@ -561,6 +573,13 @@ declare module '@tanstack/react-router' {
       path: '/$companySlug'
       fullPath: '/$companySlug'
       preLoaderRoute: typeof AuthedCompanySlugRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/onboarding': {
+      id: '/_authed/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof AuthedOnboardingRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/$companySlug/': {
@@ -1058,11 +1077,13 @@ const AuthedCompanySlugRouteWithChildren =
 
 interface AuthedRouteChildren {
   AuthedCompanySlugRoute: typeof AuthedCompanySlugRouteWithChildren
+  AuthedOnboardingRoute: typeof AuthedOnboardingRoute
   AuthedIndexRoute: typeof AuthedIndexRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedCompanySlugRoute: AuthedCompanySlugRouteWithChildren,
+  AuthedOnboardingRoute: AuthedOnboardingRoute,
   AuthedIndexRoute: AuthedIndexRoute,
 }
 

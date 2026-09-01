@@ -67,6 +67,10 @@ export function InputField({
   type = "text",
   inputMode,
   maxLength,
+  autoComplete,
+  autoCapitalize,
+  spellCheck,
+  disabled,
   error,
   hint,
   onChange,
@@ -78,6 +82,10 @@ export function InputField({
   readonly type?: string;
   readonly inputMode?: "text" | "tel" | "email" | "numeric";
   readonly maxLength?: number;
+  readonly autoComplete?: string;
+  readonly autoCapitalize?: string;
+  readonly spellCheck?: boolean;
+  readonly disabled?: boolean;
   readonly error?: string | null | undefined;
   readonly hint?: string | undefined;
   readonly onChange: (value: string) => void;
@@ -88,6 +96,10 @@ export function InputField({
         id={id}
         type={type}
         inputMode={inputMode}
+        autoComplete={autoComplete}
+        autoCapitalize={autoCapitalize}
+        spellCheck={spellCheck}
+        disabled={disabled}
         value={value}
         maxLength={maxLength}
         placeholder={placeholder}
@@ -96,7 +108,11 @@ export function InputField({
         onChange={(event) => {
           onChange(event.target.value);
         }}
-        className={cx(CONTROL_CLASS, error ? "border-danger" : "border-line")}
+        className={cx(
+          CONTROL_CLASS,
+          error ? "border-danger" : "border-line",
+          disabled === true ? "opacity-40" : false,
+        )}
       />
     </FieldShell>
   );

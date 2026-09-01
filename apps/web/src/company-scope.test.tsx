@@ -63,24 +63,23 @@ describe("company slug resolve (SHO-313)", () => {
     ).toBeDefined();
   });
 
-  it("shows the picker when listMine is empty", async () => {
+  it("sends empty listMine to onboarding", async () => {
     signInWith([]);
     const { router } = await renderApp("/");
     expect(
-      await screen.findByRole("heading", { name: "Оберіть компанію" }),
+      await screen.findByRole("heading", { name: "Про ваш бізнес" }),
     ).toBeDefined();
-    expect(screen.getByText("Немає компаній")).toBeDefined();
-    expect(router.state.location.pathname).toBe("/");
+    expect(router.state.location.pathname).toBe("/onboarding");
   });
 
-  it("sends an empty listMine at a slug URL to the picker", async () => {
+  it("sends an empty listMine at a slug URL to onboarding", async () => {
     signInWith([]);
     const { router, apiClient } = await renderApp("/kviti-lviv");
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe("/");
+      expect(router.state.location.pathname).toBe("/onboarding");
     });
     expect(
-      await screen.findByRole("heading", { name: "Оберіть компанію" }),
+      await screen.findByRole("heading", { name: "Про ваш бізнес" }),
     ).toBeDefined();
     expect(apiClient.getActiveCompany()).toBeNull();
   });
