@@ -39,6 +39,7 @@ describe("staffAssistantWorkingSetAddendum", () => {
     expect(addendum).toContain(productId);
     expect(addendum).toContain(otherId);
     expect(addendum).toContain("Do not call a list tool solely to recover these ids");
+    expect(addendum).toContain("not a list of what you can do");
     expect(addendum).not.toContain("confirmed");
   });
 

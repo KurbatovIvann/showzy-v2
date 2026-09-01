@@ -56,7 +56,7 @@ export function staffAssistantWorkingSetAddendum(
     return undefined;
   }
 
-  return `Working set from earlier tool runs in this conversation (ids only; not live record state):
+  return `Working set from earlier tool runs in this conversation (ids only; not live record state). This is not a list of what you can do.
 ${lines.join("\n")}
 
 Do not call a list tool solely to recover these ids. Call get or create with them. Re-list if the staff member asks for a refresh or these ids are insufficient.`;

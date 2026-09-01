@@ -32,6 +32,7 @@ export {
   staffAssistantGateOutputSchema,
   type StaffAssistantGateResult,
 } from "./gate.js";
+export { STAFF_ASSISTANT_PRODUCT_GLOSSARY } from "./product-glossary.js";
 export { filterStaffAiTools } from "./filter-staff-tools.js";
 export { createStaffLanguageModel } from "./language-model.js";
 export type { LanguageModel } from "ai";

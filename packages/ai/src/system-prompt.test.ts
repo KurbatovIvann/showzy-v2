@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { STAFF_ASSISTANT_CACHE_CONTROL } from "./anthropic-options.js";
+import { STAFF_ASSISTANT_PRODUCT_GLOSSARY } from "./product-glossary.js";
 import {
   staffAssistantSystemMessage,
   staffAssistantSystemMessages,
@@ -15,10 +16,23 @@ describe("staffAssistantSystemPrompt", () => {
     expect(staffAssistantSystemPrompt).toContain("English");
   });
 
-  it("states the model is not a principal and must use registry tools", () => {
+  it("embeds the shared product glossary including Ukrainian pricing terms", () => {
+    expect(staffAssistantSystemPrompt).toContain(STAFF_ASSISTANT_PRODUCT_GLOSSARY);
+    expect(staffAssistantSystemPrompt).toContain("прайс лист");
+    expect(staffAssistantSystemPrompt).toContain("pricing");
+  });
+
+  it("states the model is not a principal and must search deferred tools", () => {
     expect(staffAssistantSystemPrompt).toContain("not a principal");
-    expect(staffAssistantSystemPrompt).toContain("tools provided");
+    expect(staffAssistantSystemPrompt).toContain("tool_search_tool_bm25");
     expect(staffAssistantSystemPrompt).toContain("Never call /rpc");
+    expect(staffAssistantSystemPrompt).toContain(
+      "Do not say a tool is missing until search returned nothing useful",
+    );
+    expect(staffAssistantSystemPrompt).toContain("чим можеш допомогти");
+    expect(staffAssistantSystemPrompt).toContain(
+      "not a menu of what you can do",
+    );
   });
 
   it("forbids QES keys, OTP, and cookies, and keeps confirmation as a human step", () => {
