@@ -106,7 +106,7 @@ const events: readonly EventDefinitionRef[] = [
 const callEdges: readonly DeclaredCallEdge[] = [
   {
     caller: "orders.create",
-    callee: "catalog.getProductOrderFacts",
+    callee: "catalog.resolveLineReferences",
   },
   {
     caller: "orders.create",
@@ -118,7 +118,7 @@ const callEdges: readonly DeclaredCallEdge[] = [
   },
   {
     caller: "orders.create",
-    callee: "customers.getCustomer",
+    callee: "customers.resolveCustomerReference",
   },
   {
     caller: "orders.list",

@@ -9,6 +9,9 @@
  *   `entryId`; base is an empty object.
  * - Money wire is `@showzy/validation/money` via `wire.contract.ts`.
  * - `resolverVersion` is the compile-time constant `1`.
+ * - SHO-352 hides this helper from `/rpc` and AI tools
+ *   (`transport: "internal"`, `aiExposure: "internal"`); only
+ *   `orders.create` may `ctx.call` it.
  */
 import { defineActionContract } from "@showzy/core/contract";
 import { z } from "zod";
@@ -70,11 +73,11 @@ export const resolveProductPricesContract = defineActionContract({
   description:
     "Resolve effective unit prices for a batch of products or variants in the staff member's active company. When a customer is named, walk the full five-level chain (personal → customer list → group list → company default list → catalog base); when omitted, use only the company default list then base. Inactive lists are skipped. Within a level a variant entry beats a product entry; a higher level always wins over a lower one. The whole batch fails with not-found when any product, named variant, or customer is missing or outside the company.",
   principal: "staff",
-  transport: "client",
+  transport: "internal",
   input: resolveProductPricesInputSchema,
   output: resolveProductPricesOutputSchema,
   permissions: ["pricing:view"],
-  aiExposure: "exposed",
+  aiExposure: "internal",
   risk: "read",
   requiresConfirmation: false,
   idempotent: false,

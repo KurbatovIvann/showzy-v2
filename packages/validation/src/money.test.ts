@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   INT64_MAX,
   INT64_MIN,
+  decimalQuantityToMilli,
+  isDecimalQuantityString,
   isMoneyWire,
   moneyWireSchema,
   nonNegativeMoneyWireSchema,
@@ -60,5 +62,15 @@ describe("@showzy/validation/money", () => {
     expect(quantityMilliWireSchema.safeParse("0").success).toBe(false);
     expect(quantityMilliWireSchema.safeParse("01").success).toBe(false);
     expect(quantityMilliWireSchema.safeParse("-1").success).toBe(false);
+  });
+
+  it("converts decimal quantity strings at milli scale 3", () => {
+    expect(isDecimalQuantityString("1.5")).toBe(true);
+    expect(isDecimalQuantityString("1.2345")).toBe(false);
+    expect(decimalQuantityToMilli("1.5")).toBe(1500n);
+    expect(decimalQuantityToMilli("1")).toBe(1000n);
+    expect(decimalQuantityToMilli("0.001")).toBe(1n);
+    expect(decimalQuantityToMilli("0")).toBeUndefined();
+    expect(decimalQuantityToMilli("0.000")).toBeUndefined();
   });
 });

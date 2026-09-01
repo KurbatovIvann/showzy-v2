@@ -119,9 +119,9 @@ describe("composition root identity", () => {
         .map((edge) => edge.callee)
         .toSorted(),
     ).toEqual([
-      "catalog.getProductOrderFacts",
+      "catalog.resolveLineReferences",
       "companies.get",
-      "customers.getCustomer",
+      "customers.resolveCustomerReference",
       "pricing.resolveProductPrices",
     ]);
   });

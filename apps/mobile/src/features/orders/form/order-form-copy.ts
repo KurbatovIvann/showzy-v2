@@ -61,7 +61,7 @@ type IssuePath = ReadonlyArray<string | number>;
 
 function issueField(path: IssuePath): "customer" | "items" | "comment" | null {
   const field = path[0];
-  if (field === "customerId") {
+  if (field === "customer" || field === "customerId") {
     return "customer";
   }
   if (field === "items") {

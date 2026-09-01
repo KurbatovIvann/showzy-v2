@@ -233,8 +233,13 @@ async function deliverNamedEvent(
 }
 
 const baseCreateInput = {
-  customerId: fixtures.customerA,
-  items: [{ productId: fixtures.pBase, quantityMilli: "1000" }],
+  customer: { by: "id" as const, id: fixtures.customerA },
+  items: [
+    {
+      product: { by: "id" as const, id: fixtures.pBase },
+      quantity: { milli: "1000" },
+    },
+  ],
 };
 
 beforeAll(async () => {

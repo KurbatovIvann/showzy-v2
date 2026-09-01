@@ -15,7 +15,7 @@ import { parseDbEnum } from "@showzy/module-kit/parse-db-enum";
 import { sql } from "drizzle-orm";
 import type { z } from "zod";
 
-import { createOrderInputSchema } from "../actions/create.contract.js";
+import type { CreateOrderSummary } from "../actions/create.contract.js";
 import {
   orderPriceSourceSchema,
   orderViewSchema,
@@ -27,8 +27,6 @@ import { mapOrderNumberUniqueViolation } from "./order-number.js";
 import { requireWritable } from "./writable.js";
 
 type StaffCtx = Extract<ActionCtx, { principal: "staff" }>;
-type CreateInput = z.output<typeof createOrderInputSchema>;
-type CreateLine = CreateInput["items"][number];
 type OrderView = z.output<typeof orderViewSchema>;
 type OrderItemView = OrderView["items"][number];
 type PriceSource = z.output<typeof orderPriceSourceSchema>;
@@ -41,6 +39,33 @@ type WritableStaffDb = ReturnType<typeof requireWritable>;
  * abort the action tx; the next loop allocates `last_number + 1`.
  */
 const ORDER_NUMBER_ALLOCATE_ATTEMPTS = 8;
+
+export interface PersistedCreateLine {
+  readonly productId: string;
+  readonly variantId: string | null;
+  readonly quantityMilli: string;
+  readonly productName: string;
+  readonly variantName: string | null;
+}
+
+export interface ResolvedOrderPrice {
+  readonly productId: string;
+  readonly variantId: string | null;
+  readonly unitPriceMinor: string;
+  readonly currency: string;
+  readonly source: PriceSource;
+  readonly sourceIds: {
+    readonly personalPriceId?: string | undefined;
+    readonly priceListId?: string | undefined;
+    readonly entryId?: string | undefined;
+  };
+  readonly resolverVersion: number;
+}
+
+interface PersistedLine {
+  readonly view: OrderItemView;
+  readonly row: typeof orderItems.$inferInsert;
+}
 
 async function allocateNextOrderSequence(
   db: WritableStaffDb,
@@ -136,36 +161,6 @@ async function insertNumberedHeader(
   );
 }
 
-export interface CatalogOrderVariantFact {
-  readonly variantId: string;
-  readonly name: string;
-}
-
-export interface CatalogOrderProductFact {
-  readonly productId: string;
-  readonly name: string;
-  readonly variants: readonly CatalogOrderVariantFact[];
-}
-
-export interface ResolvedOrderPrice {
-  readonly productId: string;
-  readonly variantId: string | null;
-  readonly unitPriceMinor: string;
-  readonly currency: string;
-  readonly source: PriceSource;
-  readonly sourceIds: {
-    readonly personalPriceId?: string | undefined;
-    readonly priceListId?: string | undefined;
-    readonly entryId?: string | undefined;
-  };
-  readonly resolverVersion: number;
-}
-
-interface PersistedLine {
-  readonly view: OrderItemView;
-  readonly row: typeof orderItems.$inferInsert;
-}
-
 function requirePriceSource(value: string): PriceSource {
   return parseDbEnum(
     orderPriceSourceSchema,
@@ -174,46 +169,14 @@ function requirePriceSource(value: string): PriceSource {
   );
 }
 
-function productFact(
-  products: readonly CatalogOrderProductFact[],
-  productId: string,
-): CatalogOrderProductFact {
-  const match = products.find((product) => product.productId === productId);
-  if (match === undefined) {
-    throw new CoreInvariantError(
-      `order facts missing product ${productId} after catalog.getProductOrderFacts`,
-    );
-  }
-  return match;
-}
-
-function variantTitleName(
-  fact: CatalogOrderProductFact,
-  variantId: string | undefined,
-): string | undefined {
-  if (variantId === undefined) {
-    return undefined;
-  }
-  const match = fact.variants.find(
-    (variant) => variant.variantId === variantId,
-  );
-  if (match === undefined) {
-    throw new CoreInvariantError(
-      `order facts missing variant ${variantId} on product ${fact.productId}`,
-    );
-  }
-  return match.name;
-}
-
 function validatePriceAlignment(
-  item: CreateLine,
+  item: PersistedCreateLine,
   price: ResolvedOrderPrice,
   index: number,
 ): void {
-  const expectedVariantId = item.variantId ?? null;
   if (
     price.productId !== item.productId ||
-    price.variantId !== expectedVariantId
+    price.variantId !== item.variantId
   ) {
     throw new CoreInvariantError(
       `pricing.resolveProductPrices row ${String(index)} does not match the create line`,
@@ -253,9 +216,8 @@ function orderItemInsertFromView(
 }
 
 function buildOrderLine(args: {
-  readonly item: CreateLine;
+  readonly item: PersistedCreateLine;
   readonly price: ResolvedOrderPrice;
-  readonly fact: CatalogOrderProductFact;
   readonly companyId: string;
   readonly orderId: string;
 }): PersistedLine {
@@ -266,10 +228,10 @@ function buildOrderLine(args: {
   const view: OrderItemView = {
     itemId: randomUUID(),
     productId: args.item.productId,
-    variantId: args.item.variantId ?? null,
+    variantId: args.item.variantId,
     titleSnapshot: titleSnapshot(
-      args.fact.name,
-      variantTitleName(args.fact, args.item.variantId),
+      args.item.productName,
+      args.item.variantName ?? undefined,
     ),
     quantityMilli: args.item.quantityMilli,
     unitPriceMinor: args.price.unitPriceMinor,
@@ -294,23 +256,30 @@ function buildOrderLine(args: {
   };
 }
 
+/**
+ * Persistence accepts only canonical UUIDs + milli (never a human
+ * reference or decimal quantity). Names come from
+ * `catalog.resolveLineReferences`.
+ */
 export async function createStaffOrder(env: {
   readonly ctx: StaffCtx;
-  readonly input: CreateInput;
-  readonly numberingPrefix: string;
+  readonly customerId: string;
   readonly customerNameSnapshot: string;
-  readonly products: readonly CatalogOrderProductFact[];
+  readonly items: readonly PersistedCreateLine[];
+  readonly comment: string | undefined;
+  readonly numberingPrefix: string;
   readonly prices: readonly ResolvedOrderPrice[];
-}): Promise<OrderView> {
+}): Promise<CreateOrderSummary> {
   const {
     ctx,
-    input,
-    numberingPrefix,
+    customerId,
     customerNameSnapshot,
-    products,
+    items,
+    comment,
+    numberingPrefix,
     prices,
   } = env;
-  if (prices.length !== input.items.length) {
+  if (prices.length !== items.length) {
     throw new CoreInvariantError(
       "pricing.resolveProductPrices returned a different item count than create input",
     );
@@ -335,8 +304,8 @@ export async function createStaffOrder(env: {
   let totalTaxMinor = 0n;
   let totalGrossMinor = 0n;
 
-  for (let index = 0; index < input.items.length; index += 1) {
-    const item = input.items[index];
+  for (let index = 0; index < items.length; index += 1) {
+    const item = items[index];
     const price = prices[index];
     if (item === undefined || price === undefined) {
       throw new CoreInvariantError("create line zip went out of range");
@@ -345,7 +314,6 @@ export async function createStaffOrder(env: {
     const line = buildOrderLine({
       item,
       price,
-      fact: productFact(products, item.productId),
       companyId: ctx.companyId,
       orderId,
     });
@@ -355,15 +323,15 @@ export async function createStaffOrder(env: {
     totalGrossMinor += moneyFromCanonical(line.view.grossAmountMinor);
   }
 
-  const comment = input.comment ?? null;
+  const persistedComment = comment ?? null;
   const db = requireWritable(ctx.db);
   const header = await insertNumberedHeader(db, {
     id: orderId,
     companyId: ctx.companyId,
     numberingPrefix,
-    customerId: input.customerId,
+    customerId,
     customerNameSnapshot,
-    comment,
+    comment: persistedComment,
     totalNetMinor,
     totalTaxMinor,
     totalGrossMinor,
@@ -376,25 +344,26 @@ export async function createStaffOrder(env: {
     aggregate: { type: "order", id: orderId },
     payload: {
       orderId,
-      customerId: input.customerId,
+      customerId,
       totalGrossMinor: moneyToCanonical(totalGrossMinor),
       currency,
-      itemCount: input.items.length,
+      itemCount: items.length,
     },
   });
 
   return {
     orderId,
     orderNumber: header.orderNumber,
-    customerId: input.customerId,
+    customer: {
+      nameSnapshot: customerNameSnapshot,
+      linkedCustomerId: customerId,
+    },
     status: "new",
-    comment,
+    itemCount: items.length,
     totalNetMinor: moneyToCanonical(totalNetMinor),
     totalTaxMinor: moneyToCanonical(totalTaxMinor),
     totalGrossMinor: moneyToCanonical(totalGrossMinor),
     currency,
-    confirmedAt: null,
     createdAt: header.createdAt.toISOString(),
-    items: lines.map((line) => line.view),
   };
 }

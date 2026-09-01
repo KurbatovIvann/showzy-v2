@@ -1,8 +1,8 @@
 /**
- * Order create write planner (SHO-213). UI parse happens first via
+ * Order create write planner (SHO-213 / SHO-352). UI parse happens first via
  * `parseOrderFormUiDraft`; this file turns a valid draft into one
- * `orders.create` write. Wire is `{ customerId, items, comment? }` only —
- * no prices, payment, or delivery.
+ * `orders.create` write. Wire is `{ customer: { by: "id" }, items, comment? }`
+ * with milli quantities only — no prices, payment, or delivery.
  */
 import type { WireErrorCode } from "@showzy/contract";
 
@@ -47,14 +47,14 @@ function wireItems(draft: OrderFormDraft): CreateOrderPayload["items"] {
   return draft.items.map((item) => {
     if (item.variantId === null) {
       return {
-        productId: item.productId,
-        quantityMilli: item.quantityMilli,
+        product: { by: "id" as const, id: item.productId },
+        quantity: { milli: item.quantityMilli },
       };
     }
     return {
-      productId: item.productId,
-      variantId: item.variantId,
-      quantityMilli: item.quantityMilli,
+      product: { by: "id" as const, id: item.productId },
+      variant: { by: "id" as const, id: item.variantId },
+      quantity: { milli: item.quantityMilli },
     };
   });
 }
@@ -70,12 +70,12 @@ export function createOrderPayload(
   const items = wireItems(parsed.draft);
   if (comment.length === 0) {
     return {
-      customerId: parsed.draft.customerId,
+      customer: { by: "id", id: parsed.draft.customerId },
       items,
     };
   }
   return {
-    customerId: parsed.draft.customerId,
+    customer: { by: "id", id: parsed.draft.customerId },
     items,
     comment,
   };

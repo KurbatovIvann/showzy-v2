@@ -601,8 +601,13 @@ describe("POST /assistant/chat mock-model parity", () => {
       basePriceMinor: "15000",
     });
     const createInput = JSON.stringify({
-      customerId: customer.id,
-      items: [{ productId: product.productId, quantityMilli: "1000" }],
+      customer: { by: "id", id: customer.id },
+      items: [
+        {
+          product: { by: "id", id: product.productId },
+          quantity: { milli: "1000" },
+        },
+      ],
     });
     const app = chatApp(
       new MockLanguageModelV3({
@@ -940,8 +945,13 @@ describe("POST /assistant/chat attempt identity", () => {
       basePriceMinor: "15000",
     });
     const createInput = JSON.stringify({
-      customerId: customer.id,
-      items: [{ productId: product.productId, quantityMilli: "1000" }],
+      customer: { by: "id", id: customer.id },
+      items: [
+        {
+          product: { by: "id", id: product.productId },
+          quantity: { milli: "1000" },
+        },
+      ],
     });
     const app = chatApp(
       new MockLanguageModelV3({

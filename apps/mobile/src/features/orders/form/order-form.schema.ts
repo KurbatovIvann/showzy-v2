@@ -1,7 +1,7 @@
 /**
  * UI draft Zod for the staff-intake order create form (SHO-213). Caps
  * match `orders.create`. This is not the action wire schema — the
- * planner emits `{ customerId, items, comment? }` only.
+ * planner emits `{ customer: { by: "id" }, items, comment? }` with milli.
  */
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
