@@ -19,8 +19,8 @@ import { orderedPanelTabs, type PanelTab } from "./panel-tabs";
  * Staff shell tab bar (canvas `BottomNav`, ADR-0024). Feature component —
  * not a generic tab primitive (mp-to-mobile.md). Rendered as the custom
  * `tabBar` of the `(app)/(tabs)` navigator; the AI center control is the
- * visually distinct `accent` tab. Long-press voice capture and the
- * assistant sheet are phase 9 (vm-T29) — here AI is a plain tab.
+ * visually distinct `accent` tab. The AI tab hosts AssistantSheet
+ * (SHO-323). Long-press voice capture is out of this slice.
  */
 type TabBarProps = Parameters<
   NonNullable<ComponentProps<typeof Tabs>["tabBar"]>

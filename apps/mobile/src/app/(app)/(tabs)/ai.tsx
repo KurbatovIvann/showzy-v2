@@ -1,1 +1,1 @@
-export { AiPlaceholderScreen as default } from "../../../components/screens/panel/panel-placeholder-screen";
+export { AssistantSheetScreen as default } from "../../../features/assistant/sheet/assistant-sheet-screen";
