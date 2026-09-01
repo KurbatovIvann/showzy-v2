@@ -454,6 +454,67 @@ describe("assistant staff conversation actions", () => {
     expect(logBlob).toContain(appended.id);
   });
 
+  it("append and record write hash-only audit without prompt bodies", async () => {
+    const appendRequestId = randomUUID();
+    const recordRequestId = randomUUID();
+    const appendPrompt =
+      "SECRET_APPEND_PROMPT_must_never_appear_in_audit_snapshot";
+    const recordPrompt =
+      "SECRET_RECORD_PROMPT_must_never_appear_in_audit_snapshot";
+
+    const appended = await kit.invoke(
+      appendUserMessage,
+      { conversationId: fixtures.convA, body: appendPrompt },
+      {},
+      { request: { requestId: appendRequestId } },
+    );
+
+    const appendAudit = await kit.db.runtime.db
+      .select()
+      .from(auditLog)
+      .where(eq(auditLog.requestId, appendRequestId));
+    expect(appendAudit).toHaveLength(1);
+    expect(appendAudit[0]).toMatchObject({
+      action: "assistant.appendUserMessage",
+      companyId: kitIdentities.companies.a,
+      actorType: "user",
+      actorId: kitIdentities.users.anna,
+      targetType: "conversation",
+      targetId: appended.conversationId,
+      outcome: "ok",
+      inputSnapshot: null,
+    });
+    expect(JSON.stringify(appendAudit[0])).not.toContain(appendPrompt);
+
+    const recorded = await kit.invoke(
+      recordAssistantTurn,
+      {
+        conversationId: fixtures.convA,
+        body: recordPrompt,
+        toolRuns: [],
+      },
+      {},
+      { request: { requestId: recordRequestId } },
+    );
+
+    const recordAudit = await kit.db.runtime.db
+      .select()
+      .from(auditLog)
+      .where(eq(auditLog.requestId, recordRequestId));
+    expect(recordAudit).toHaveLength(1);
+    expect(recordAudit[0]).toMatchObject({
+      action: "assistant.recordAssistantTurn",
+      companyId: kitIdentities.companies.a,
+      actorType: "user",
+      actorId: kitIdentities.users.anna,
+      targetType: "conversation",
+      targetId: recorded.conversationId,
+      outcome: "ok",
+      inputSnapshot: null,
+    });
+    expect(JSON.stringify(recordAudit[0])).not.toContain(recordPrompt);
+  });
+
   it("recordAssistantTurn stores result ids and HITL outcome, not order status", async () => {
     const recorded = await kit.invoke(recordAssistantTurn, {
       conversationId: fixtures.recordIds,
