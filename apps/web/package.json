@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Staff panel SPA: Vite + TanStack Router + Tailwind v4, canvas theme, phone/email OTP auth (SHO-309–SHO-312, ADR-0030).",
+  "description": "Staff panel SPA: Vite + TanStack Router + Tailwind v4, canvas theme, phone/email OTP auth, company scope (SHO-309–SHO-313, ADR-0030).",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

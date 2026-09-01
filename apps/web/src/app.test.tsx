@@ -54,15 +54,15 @@ describe("session guard (SHO-312)", () => {
       expect(router.state.location.pathname).toBe("/");
     });
     expect(
-      await screen.findByRole("heading", { name: "Showzy" }),
+      await screen.findByRole("heading", { name: "Оберіть компанію" }),
     ).toBeDefined();
-    expect(screen.getByText("Панель у розробці")).toBeDefined();
+    expect(screen.getByText("Немає компаній")).toBeDefined();
   });
 
   it("keeps an unauthenticated /$companySlug off the placeholder", async () => {
     const { router } = await renderApp("/kviti-lviv");
     await expectSignInLanding(router);
-    expect(screen.queryByText("Компанія: kviti-lviv")).toBeNull();
+    expect(screen.queryByText("Квіти Львів")).toBeNull();
   });
 
   it("sends the visitor to /sign-in after signOut without a route click", async () => {
@@ -73,11 +73,11 @@ describe("session guard (SHO-312)", () => {
     };
     const { authClient, router } = await renderApp("/");
     expect(
-      await screen.findByRole("heading", { name: "Showzy" }),
+      await screen.findByRole("heading", { name: "Оберіть компанію" }),
     ).toBeDefined();
     await authClient.signOut();
     await expectSignInLanding(router);
-    expect(screen.queryByText("Панель у розробці")).toBeNull();
+    expect(screen.queryByText("Оберіть компанію")).toBeNull();
   });
 });
 
@@ -156,7 +156,9 @@ describe("OTP request and verify (SHO-312)", () => {
       target: { value: DUMMY_OTP },
     });
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "Showzy" })).toBeDefined();
+      expect(
+        screen.getByRole("heading", { name: "Оберіть компанію" }),
+      ).toBeDefined();
     });
   });
 

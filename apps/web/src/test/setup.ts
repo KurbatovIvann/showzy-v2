@@ -1,6 +1,7 @@
 import { configure } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach } from "vitest";
 
+import { DEVICE_PREF_LAST_COMPANY_SLUG_KEY } from "../prefs/storage";
 import { ensureAuthServer, resetAuthMocks, server } from "./msw";
 
 // Must stay below Vitest `testTimeout` in vitest.config.ts. When they
@@ -19,12 +20,21 @@ beforeAll(() => {
   ensureAuthServer();
 });
 
+function clearLastCompanySlugPref(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.localStorage.removeItem(DEVICE_PREF_LAST_COMPANY_SLUG_KEY);
+}
+
 beforeEach(() => {
   resetAuthMocks();
   server.resetHandlers();
+  clearLastCompanySlugPref();
 });
 
 afterEach(() => {
   resetAuthMocks();
   server.resetHandlers();
+  clearLastCompanySlugPref();
 });

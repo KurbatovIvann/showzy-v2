@@ -3,6 +3,8 @@ import { act, cleanup, render } from "@testing-library/react";
 import { onTestFinished } from "vitest";
 
 import { AppProviders } from "../app-providers";
+import { createShowzyClient } from "../api/client";
+import { createWebQueryClient } from "../api/query-client";
 import {
   createShowzyAuthClient,
   disposeShowzyAuthClient,
@@ -19,11 +21,14 @@ export async function renderApp(path: string) {
     // (SHO-316).
     sessionOptions: { refetchOnWindowFocus: false },
   });
+  const queryClient = createWebQueryClient({ retryQueries: false });
+  const apiClient = createShowzyClient();
   // After RTL unmount, nanostores still holds a 1000ms delayed destroy
   // that touches `window`. Run it here, while jsdom is alive (SHO-317).
   onTestFinished(() => {
     cleanup();
     disposeShowzyAuthClient(authClient);
+    queryClient.clear();
   });
   const router = createAppRouter({
     authClient,
@@ -36,7 +41,11 @@ export async function renderApp(path: string) {
   });
   await act(async () => {
     render(
-      <AppProviders authClient={authClient}>
+      <AppProviders
+        authClient={authClient}
+        client={apiClient}
+        queryClient={queryClient}
+      >
         <RouterProvider router={router} />
       </AppProviders>,
     );
@@ -46,5 +55,5 @@ export async function renderApp(path: string) {
       setTimeout(resolve, 0);
     });
   });
-  return { authClient, router };
+  return { authClient, router, queryClient, apiClient };
 }
