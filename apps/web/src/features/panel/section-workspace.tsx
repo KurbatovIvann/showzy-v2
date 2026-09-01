@@ -1,5 +1,5 @@
 import { Layers } from "lucide-react";
-import { Link, Outlet, useMatch, useNavigate } from "@tanstack/react-router";
+import { Link, Outlet, useNavigate } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
 import { cx } from "../../components/ui/cx";
@@ -207,16 +207,12 @@ export function FullShellPlaceholderPage({
 
 function DocumentsTabs({ companySlug }: { readonly companySlug: string }) {
   const copy = usePanelChromeCopy();
-  const onTemplates = useMatch({
-    from: "/_authed/$companySlug/_panel/documents/templates",
-    shouldThrow: false,
-  });
   return (
     <div className="flex gap-2 overflow-x-auto px-4 pb-4 pt-3 sm:px-5">
       <TabLink
         label={copy.documentsTab}
         params={{ companySlug }}
-        suppressActive={onTemplates !== undefined}
+        exact
         to="/$companySlug/documents"
       />
       <TabLink
@@ -230,22 +226,12 @@ function DocumentsTabs({ companySlug }: { readonly companySlug: string }) {
 
 function CustomersTabs({ companySlug }: { readonly companySlug: string }) {
   const copy = usePanelChromeCopy();
-  const onGroups = useMatch({
-    from: "/_authed/$companySlug/_panel/customers/groups",
-    shouldThrow: false,
-  });
-  const onCounterparties = useMatch({
-    from: "/_authed/$companySlug/_panel/customers/counterparties",
-    shouldThrow: false,
-  });
   return (
     <div className="flex gap-2 overflow-x-auto px-4 pb-4 pt-3 sm:px-5">
       <TabLink
         label={copy.customers}
         params={{ companySlug }}
-        suppressActive={
-          onGroups !== undefined || onCounterparties !== undefined
-        }
+        exact
         to="/$companySlug/customers"
       />
       <TabLink
@@ -289,10 +275,10 @@ function TabLink({
   label,
   to,
   params,
-  suppressActive = false,
+  exact = false,
 }: {
   readonly label: string;
-  readonly suppressActive?: boolean;
+  readonly exact?: boolean;
   readonly to:
     | "/$companySlug/documents"
     | "/$companySlug/documents/templates"
@@ -305,8 +291,8 @@ function TabLink({
     <Link
       params={params}
       to={to}
-      activeOptions={{ includeSearch: false }}
-      activeProps={suppressActive ? TAB_INACTIVE_PROPS : TAB_ACTIVE_PROPS}
+      activeOptions={{ exact, includeSearch: false }}
+      activeProps={TAB_ACTIVE_PROPS}
       inactiveProps={TAB_INACTIVE_PROPS}
       className={TAB_BASE_CLASS}
     >

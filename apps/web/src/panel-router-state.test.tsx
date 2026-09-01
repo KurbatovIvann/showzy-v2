@@ -369,11 +369,11 @@ describe("phone list/detail and back (SHO-328)", () => {
       expect(router.state.location.pathname).toBe(
         "/kviti-lviv/customers/groups",
       );
+      expect(
+        screen.getByRole("region", { name: "Групи клієнтів" }),
+      ).toBeDefined();
+      expect(screen.queryByRole("region", { name: "Клієнти" })).toBeNull();
     });
-    expect(
-      screen.getByRole("region", { name: "Групи клієнтів" }),
-    ).toBeDefined();
-    expect(screen.queryByRole("region", { name: "Клієнти" })).toBeNull();
   });
 
   it("returns from a template detail to templates, not issued documents", async () => {
@@ -396,8 +396,8 @@ describe("phone list/detail and back (SHO-328)", () => {
       expect(router.state.location.pathname).toBe(
         "/kviti-lviv/documents/templates",
       );
+      expect(screen.getByRole("region", { name: "Документи" })).toBeDefined();
     });
-    expect(screen.getByRole("region", { name: "Документи" })).toBeDefined();
     const region = screen.getByRole("region", { name: "Документи" });
     expect(
       within(region)
@@ -423,16 +423,16 @@ describe("phone list/detail and back (SHO-328)", () => {
     expect(
       screen.getByRole("heading", { name: "Модуль у розробці" }),
     ).toBeDefined();
-    await act(async () => {
+    await act(() => {
       router.history.back();
     });
     await waitFor(() => {
       expect(router.state.location.pathname).toBe("/kviti-lviv/orders");
+      expect(screen.getByRole("region", { name: "Замовлення" })).toBeDefined();
+      expect(
+        screen.queryByRole("heading", { name: "Модуль у розробці" }),
+      ).toBeNull();
     });
-    expect(screen.getByRole("region", { name: "Замовлення" })).toBeDefined();
-    expect(
-      screen.queryByRole("heading", { name: "Модуль у розробці" }),
-    ).toBeNull();
   });
 });
 

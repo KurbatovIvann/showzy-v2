@@ -64,11 +64,36 @@ export function resolvePanelStateFromMatches(
   return { panelSection, pane: pane ?? "list", listTo };
 }
 
+function selectPanelSection(state: {
+  readonly matches: ReadonlyArray<PanelMatchInput>;
+}): PanelSectionId | undefined {
+  return resolvePanelStateFromMatches(state.matches)?.panelSection;
+}
+
+function selectPanelPane(state: {
+  readonly matches: ReadonlyArray<PanelMatchInput>;
+}): PanelPaneMode | undefined {
+  return resolvePanelStateFromMatches(state.matches)?.pane;
+}
+
+function selectPanelListTo(state: {
+  readonly matches: ReadonlyArray<PanelMatchInput>;
+}): CompanySlugPath | undefined {
+  return resolvePanelStateFromMatches(state.matches)?.listTo;
+}
+
 export function useResolvedPanelState(): ResolvedPanelState | undefined {
-  return useRouterState({
-    select: (state) => resolvePanelStateFromMatches(state.matches),
-    structuralSharing: true,
-  });
+  const panelSection = useRouterState({ select: selectPanelSection });
+  const pane = useRouterState({ select: selectPanelPane });
+  const listTo = useRouterState({ select: selectPanelListTo });
+  if (
+    panelSection === undefined ||
+    pane === undefined ||
+    listTo === undefined
+  ) {
+    return undefined;
+  }
+  return { panelSection, pane, listTo };
 }
 
 export function useRequiredPanelState(): ResolvedPanelState {
