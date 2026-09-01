@@ -1,6 +1,7 @@
 import type { ModelMessage } from "ai";
 import { z } from "zod";
 
+import { STAFF_ASSISTANT_CACHE_PROVIDER_OPTIONS } from "./anthropic-options.js";
 import { confirmationFromChatPart } from "./confirmation.js";
 
 /**
@@ -11,6 +12,8 @@ import { confirmationFromChatPart } from "./confirmation.js";
 export const STAFF_ASSISTANT_CHAT_MESSAGE_TEXT_MAX = 16_000;
 export const STAFF_ASSISTANT_CHAT_MESSAGES_MAX = 50;
 export const STAFF_ASSISTANT_CHAT_PARTS_MAX = 32;
+/** Last user/assistant text turns sent to the model (SHO-349). */
+export const STAFF_ASSISTANT_MODEL_HISTORY_MAX = 8;
 
 const chatPartSchema = z.looseObject({
   type: z.string().min(1).max(64),
@@ -85,7 +88,72 @@ export function staffAssistantModelMessages(
     }
     modelMessages.push({ role: message.role, content: text });
   }
-  return modelMessages;
+  return applyStaffAssistantHistoryWindow(modelMessages);
+}
+
+function withHistoryCacheBreakpoint(message: ModelMessage): ModelMessage {
+  return {
+    ...message,
+    providerOptions: {
+      ...message.providerOptions,
+      ...STAFF_ASSISTANT_CACHE_PROVIDER_OPTIONS,
+    },
+  };
+}
+
+/**
+ * Keep the last 8 text turns and cache the previous assistant message so
+ * the growing prefix can hit within the 5-minute TTL. The newest user
+ * turn is never a cache breakpoint.
+ */
+export function applyStaffAssistantHistoryWindow(
+  messages: readonly ModelMessage[],
+): ModelMessage[] {
+  const windowed =
+    messages.length > STAFF_ASSISTANT_MODEL_HISTORY_MAX
+      ? messages.slice(-STAFF_ASSISTANT_MODEL_HISTORY_MAX)
+      : [...messages];
+  if (windowed.length < 2) {
+    return windowed;
+  }
+  const last = windowed.at(-1);
+  const prefixIndex = windowed.length - 2;
+  const prefix = windowed[prefixIndex];
+  if (
+    last === undefined ||
+    last.role !== "user" ||
+    prefix === undefined ||
+    prefix.role !== "assistant"
+  ) {
+    return windowed;
+  }
+  windowed[prefixIndex] = withHistoryCacheBreakpoint(prefix);
+  return windowed;
+}
+
+function modelContentChars(content: ModelMessage["content"]): number {
+  if (typeof content === "string") {
+    return content.length;
+  }
+  let chars = 0;
+  for (const part of content) {
+    if (part.type === "text") {
+      chars += part.text.length;
+    }
+  }
+  return chars;
+}
+
+/** Count and character length of model messages (text parts only). */
+export function staffAssistantHistoryStats(messages: readonly ModelMessage[]): {
+  readonly messageCount: number;
+  readonly chars: number;
+} {
+  let chars = 0;
+  for (const message of messages) {
+    chars += modelContentChars(message.content);
+  }
+  return { messageCount: messages.length, chars };
 }
 
 export interface StaffUserMessageAttempt {

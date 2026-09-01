@@ -11,6 +11,19 @@ export const MOCK_LANGUAGE_MODEL_USAGE = {
   outputTokens: { total: 1, text: 1, reasoning: 0 },
 };
 
+export function mockGenerateObjectResult(text: string) {
+  return {
+    content: [{ type: "text" as const, text }],
+    finishReason: { unified: "stop" as const, raw: undefined },
+    usage: MOCK_LANGUAGE_MODEL_USAGE,
+    warnings: [],
+  };
+}
+
+export function mockOperationalGateGenerate(operational: boolean) {
+  return mockGenerateObjectResult(JSON.stringify({ operational }));
+}
+
 export function mockTextStream(text: string) {
   return {
     stream: convertArrayToReadableStream([

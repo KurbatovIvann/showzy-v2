@@ -14,12 +14,21 @@ import {
 import { z } from "zod";
 
 import { staffAssistantTools, type ActionToolExecute } from "./action-tool.js";
+import { STAFF_ASSISTANT_ANTHROPIC_PROVIDER_OPTIONS } from "./anthropic-options.js";
+import { clipStaffAssistantToolResult } from "./clip-tool-result.js";
 import {
   isStaffAssistantConfirmationOutput,
   STAFF_ASSISTANT_CONFIRMATION_FALLBACK_TEXT,
   type StaffAssistantConfirmationOutput,
 } from "./confirmation.js";
-import { staffAssistantSystemPrompt } from "./system-prompt.js";
+import { staffAssistantJsonChars } from "./json-chars.js";
+import { staffAssistantHistoryStats } from "./messages.js";
+import { staffAssistantSystemMessages } from "./system-prompt.js";
+import { staffAssistantToolsetHash } from "./toolset-hash.js";
+import {
+  staffAssistantTurnUsageFromTotal,
+  type StaffAssistantTurnUsage,
+} from "./usage.js";
 
 export const STAFF_ASSISTANT_TOOL_RUNS_MAX = 50;
 export const STAFF_ASSISTANT_RESULT_IDS_MAX = 50;
@@ -54,6 +63,14 @@ export interface StaffAssistantToolRun {
 export interface StaffAssistantTurnResult {
   readonly text: string;
   readonly toolRuns: readonly StaffAssistantToolRun[];
+  readonly usage: StaffAssistantTurnUsage;
+  readonly toolsAttached: boolean;
+  readonly modelSteps: number;
+  readonly toolResultBytesIn: number;
+  readonly toolResultBytesOut: number;
+  readonly toolsetHash: string;
+  readonly historyMessageCount: number;
+  readonly historyChars: number;
 }
 
 export type StaffAssistantUIMessage = UIMessage<
@@ -125,18 +142,35 @@ function turnText(
   return "Done.";
 }
 
+interface ClipByteMeter {
+  in: number;
+  out: number;
+}
+
+function meterToolResult(
+  meter: ClipByteMeter,
+  raw: unknown,
+  returned: unknown,
+): unknown {
+  meter.in += staffAssistantJsonChars(raw);
+  meter.out += staffAssistantJsonChars(returned);
+  return returned;
+}
+
 function wrapExecute(
   execute: ActionToolExecute,
   runs: StaffAssistantToolRun[],
+  clipBytes: ClipByteMeter,
 ): ActionToolExecute {
   return async (actionName, input, options) => {
     const toolCallId = clipToolCallId(options.toolCallId);
     if (runs.length >= STAFF_ASSISTANT_TOOL_RUNS_MAX) {
-      return {
+      const error = {
         status: "error",
         code: "INTERNAL",
         message: "The assistant could not complete this turn.",
       };
+      return meterToolResult(clipBytes, error, error);
     }
     try {
       const output: unknown = await execute(actionName, input, {
@@ -148,7 +182,11 @@ function wrapExecute(
         resultIds: extractUuidResultIds(output),
         outcome: "success",
       });
-      return output;
+      return meterToolResult(
+        clipBytes,
+        output,
+        clipStaffAssistantToolResult(output),
+      );
     } catch (error) {
       if (error instanceof ConfirmationRequiredError) {
         const confirmation = confirmationFromError(
@@ -163,7 +201,7 @@ function wrapExecute(
           resultIds: [],
           outcome: "confirmation_required",
         });
-        return confirmation;
+        return meterToolResult(clipBytes, confirmation, confirmation);
       }
       if (error instanceof CoreError) {
         runs.push({
@@ -172,11 +210,12 @@ function wrapExecute(
           resultIds: [],
           outcome: "error",
         });
-        return {
+        const payload = {
           status: "error",
           code: error.code,
           message: error.clientMessage,
         };
+        return meterToolResult(clipBytes, payload, payload);
       }
       runs.push({
         actionName,
@@ -184,13 +223,25 @@ function wrapExecute(
         resultIds: [],
         outcome: "error",
       });
-      return {
+      const payload = {
         status: "error",
         code: "INTERNAL",
         message: "The assistant could not complete this turn.",
       };
+      return meterToolResult(clipBytes, payload, payload);
     }
   };
+}
+
+async function staffAssistantModelStepCount(
+  steps: PromiseLike<unknown>,
+): Promise<number> {
+  try {
+    const value = await steps;
+    return Array.isArray(value) ? value.length : 0;
+  } catch {
+    return 0;
+  }
 }
 
 /**
@@ -206,6 +257,8 @@ export function streamStaffAssistantChat(options: {
   readonly execute: ActionToolExecute;
   readonly abortSignal?: AbortSignal;
   readonly responseHeaders?: Record<string, string>;
+  /** Uncached second system message from persisted tool-run ids. */
+  readonly workingSetAddendum?: string;
   /** Awaited inside the UI-message stream after `result.text`. A throw fails the stream. */
   readonly onTurn?: (turn: StaffAssistantTurnResult) => Promise<void>;
 }): {
@@ -213,10 +266,13 @@ export function streamStaffAssistantChat(options: {
   readonly completion: Promise<StaffAssistantTurnResult>;
 } {
   const runs: StaffAssistantToolRun[] = [];
+  const clipBytes: ClipByteMeter = { in: 0, out: 0 };
+  const history = staffAssistantHistoryStats(options.messages);
   const tools = staffAssistantTools(
     options.contracts,
-    wrapExecute(options.execute, runs),
+    wrapExecute(options.execute, runs, clipBytes),
   );
+  const toolsetHash = staffAssistantToolsetHash(Object.keys(tools));
 
   let resolveCompletion!: (value: StaffAssistantTurnResult) => void;
   const completion = new Promise<StaffAssistantTurnResult>((resolve) => {
@@ -227,9 +283,12 @@ export function streamStaffAssistantChat(options: {
     execute: async ({ writer }) => {
       const result = streamText({
         model: options.model,
-        system: staffAssistantSystemPrompt,
+        system: staffAssistantSystemMessages(options.workingSetAddendum),
         messages: options.messages,
         tools,
+        providerOptions: {
+          anthropic: STAFF_ASSISTANT_ANTHROPIC_PROVIDER_OPTIONS,
+        },
         ...(options.abortSignal !== undefined
           ? { abortSignal: options.abortSignal }
           : {}),
@@ -263,6 +322,14 @@ export function streamStaffAssistantChat(options: {
       const turn: StaffAssistantTurnResult = {
         text: turnText(text, runs),
         toolRuns: runs.slice(0, STAFF_ASSISTANT_TOOL_RUNS_MAX),
+        usage: await staffAssistantTurnUsageFromTotal(result.usage),
+        toolsAttached: options.contracts.length > 0,
+        modelSteps: await staffAssistantModelStepCount(result.steps),
+        toolResultBytesIn: clipBytes.in,
+        toolResultBytesOut: clipBytes.out,
+        toolsetHash,
+        historyMessageCount: history.messageCount,
+        historyChars: history.chars,
       };
       resolveCompletion(turn);
       if (options.onTurn !== undefined) {

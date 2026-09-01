@@ -2,6 +2,7 @@ import {
   filterStaffAiTools,
   PROVIDER_TOOL_NAME_PATTERN,
   staffAssistantTools,
+  STAFF_ASSISTANT_TOOL_SEARCH_NAME,
   toProviderToolName,
 } from "@showzy/ai";
 import { describe, expect, it, vi } from "vitest";
@@ -62,7 +63,8 @@ describe("staff AI tool manifest (SHO-322)", () => {
     });
     const tools = staffAssistantTools(filtered, execute);
     const names = Object.keys(tools);
-    expect(names.length).toBe(filtered.length);
+    expect(names.length).toBe(filtered.length + 1);
+    expect(names).toContain(STAFF_ASSISTANT_TOOL_SEARCH_NAME);
     for (const name of names) {
       expect(name).toMatch(PROVIDER_TOOL_NAME_PATTERN);
       expect(name).not.toContain(".");

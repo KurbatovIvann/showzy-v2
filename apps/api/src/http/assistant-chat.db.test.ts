@@ -7,17 +7,20 @@ import { randomBytes, randomUUID } from "node:crypto";
 import {
   attemptKey,
   isStaffAssistantConfirmationOutput,
+  STAFF_ASSISTANT_MODEL_HISTORY_MAX,
+  STAFF_ASSISTANT_TOOL_SEARCH_NAME,
   toProviderToolName,
   type LanguageModel,
   type StaffAssistantConfirmationOutput,
 } from "@showzy/ai";
 import {
   MockLanguageModelV3,
+  mockOperationalGateGenerate,
   mockTextStream,
   mockToolCallStream,
   readUiMessageSsePayloads,
 } from "@showzy/ai/test";
-import { createConversation } from "@showzy/assistant";
+import { createConversation, recordAssistantTurn } from "@showzy/assistant";
 import { createProduct } from "@showzy/catalog";
 import {
   COMPANY_SELECTOR_HEADER,
@@ -242,7 +245,7 @@ afterAll(async () => {
   await kit.db.close();
 });
 
-function chatApp(model?: LanguageModel) {
+function chatApp(model?: LanguageModel, gateLanguageModel?: LanguageModel) {
   return createApp({
     auth,
     registry,
@@ -256,7 +259,9 @@ function chatApp(model?: LanguageModel) {
     },
     assistant: {
       model: "mock",
+      gateModel: "mock-gate",
       ...(model !== undefined ? { languageModel: model } : {}),
+      ...(gateLanguageModel !== undefined ? { gateLanguageModel } : {}),
     },
   });
 }
@@ -386,6 +391,143 @@ describe("POST /assistant/chat authorization", () => {
       code: "NOT_FOUND",
       status: 404,
     });
+  });
+
+  it("injects persisted catalog.listProducts ids into the next stream prompt", async () => {
+    const productId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const model = new MockLanguageModelV3({
+      doStream: [mockTextStream("Those products are already known.")],
+    });
+    const app = chatApp(model);
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Working set",
+    });
+    await staffInvoke(recordAssistantTurn, {
+      conversationId: conversation.id,
+      body: "Listed products.",
+      toolRuns: [
+        {
+          actionName: "catalog.listProducts",
+          toolCallId: "call-list-products",
+          resultIds: [productId],
+          outcome: "success",
+        },
+      ],
+    });
+    const response = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "What are those products?"),
+    });
+    expect(response.status).toBe(200);
+    await readUiMessageSsePayloads(response);
+    const prompt = JSON.stringify(model.doStreamCalls[0]?.prompt ?? []);
+    expect(prompt).toContain("catalog.listProducts");
+    expect(prompt).toContain(productId);
+    expect(prompt).toContain(
+      "Do not call a list tool solely to recover these ids",
+    );
+  });
+
+  it("omits the working-set addendum when the conversation has no tool runs", async () => {
+    const model = new MockLanguageModelV3({
+      doStream: [mockTextStream("I only help with this company.")],
+    });
+    const app = chatApp(model);
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Empty runs",
+    });
+    const response = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "Hello"),
+    });
+    expect(response.status).toBe(200);
+    await readUiMessageSsePayloads(response);
+    const prompt = JSON.stringify(model.doStreamCalls[0]?.prompt ?? []);
+    expect(prompt).not.toContain("Working set from earlier tool runs");
+  });
+
+  it("windows 20 client messages to 8 and does not log dropped text", async () => {
+    const dropped = "DROPPED_HISTORY_SENTINEL_sho349";
+    const latest = "LATEST_USER_SENTINEL_sho349";
+    const capturing = createCapturingLogger();
+    const model = new MockLanguageModelV3({
+      doStream: [mockTextStream("ASSISTANT_BODY_SENTINEL_never_log")],
+    });
+    const app = createApp({
+      auth,
+      registry,
+      contractModules,
+      pipeline: { ...pipeline, logger: capturing.logger },
+      trustedProxies: [],
+      getPeerAddress: () => REAL_CLIENT,
+      pkiProxy: {
+        rateLimitStore: createInMemoryRateLimitStore(),
+        ipHmacSecret: "test-pki-proxy-ip-hmac-secret!!",
+      },
+      assistant: {
+        model: "mock",
+        gateModel: "mock-gate",
+        languageModel: model,
+      },
+    });
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "History window",
+    });
+    const messages = Array.from({ length: 20 }, (_, index) => {
+      const id = `m${String(index)}`;
+      if (index % 2 === 0) {
+        return {
+          id,
+          role: "assistant" as const,
+          parts: [
+            {
+              type: "text" as const,
+              text: index === 0 ? dropped : `assistant-${String(index)}`,
+            },
+          ],
+        };
+      }
+      return {
+        id,
+        role: "user" as const,
+        parts: [
+          {
+            type: "text" as const,
+            text: index === 19 ? latest : `user-${String(index)}`,
+          },
+        ],
+      };
+    });
+    const response = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: { conversationId: conversation.id, messages },
+    });
+    expect(response.status).toBe(200);
+    await readUiMessageSsePayloads(response);
+    const prompt = JSON.stringify(model.doStreamCalls[0]?.prompt ?? []);
+    const conversationTurns = (model.doStreamCalls[0]?.prompt ?? []).filter(
+      (part) => part.role === "user" || part.role === "assistant",
+    );
+    expect(conversationTurns).toHaveLength(STAFF_ASSISTANT_MODEL_HISTORY_MAX);
+    expect(prompt).toContain(latest);
+    expect(prompt).not.toContain(dropped);
+    const usage = capturing
+      .entries()
+      .find((entry) => entry["msg"] === "staff assistant turn usage");
+    expect(usage?.["history_message_count"]).toBe(
+      STAFF_ASSISTANT_MODEL_HISTORY_MAX,
+    );
+    expect(JSON.stringify(usage)).not.toContain(dropped);
+    expect(JSON.stringify(usage)).not.toContain(latest);
+    expect(JSON.stringify(usage)).not.toContain(
+      "ASSISTANT_BODY_SENTINEL_never_log",
+    );
   });
 
   it("fails typed when Anthropic is not configured after auth", async () => {
@@ -1083,7 +1225,7 @@ describe("POST /assistant/chat logs and /rpc channel", () => {
       assistant: {
         model: "mock",
         languageModel: new MockLanguageModelV3({
-          doStream: [mockTextStream("ok")],
+          doStream: [mockTextStream("ASSISTANT_BODY_SENTINEL_never_log")],
         }),
       },
     });
@@ -1113,10 +1255,140 @@ describe("POST /assistant/chat logs and /rpc channel", () => {
 
     const blob = JSON.stringify(capturing.entries());
     expect(blob).not.toContain(prompt);
+    expect(blob).not.toContain("ASSISTANT_BODY_SENTINEL_never_log");
     expect(blob).not.toContain("COOKIESECRET_sho322");
     expect(blob).not.toContain("sk-ant-TESTKEY-never-log");
     expect(blob).not.toContain("111222");
     expect(blob).not.toContain("ANTHROPIC_API_KEY");
+
+    const usage = capturing
+      .entries()
+      .find((entry) => entry["msg"] === "staff assistant turn usage");
+    expect(usage).toBeDefined();
+    expect(typeof usage?.["request_id"]).toBe("string");
+    expect(usage?.["conversation_id"]).toBe(conversation.id);
+    expect(usage?.["company_id"]).toBe(kitIdentities.companies.a);
+    expect(usage?.["actor_id"]).toBe(kitIdentities.users.anna);
+    expect(usage?.["model"]).toBe("mock");
+    expect(usage?.["thinking"]).toBe("disabled");
+    expect(usage?.["tools_attached"]).toBe(true);
+    expect(typeof usage?.["input_tokens"]).toBe("number");
+    expect(typeof usage?.["output_tokens"]).toBe("number");
+    expect(typeof usage?.["cache_read_tokens"]).toBe("number");
+    expect(typeof usage?.["cache_write_tokens"]).toBe("number");
+    expect(usage?.["gate_input_tokens"]).toBe(0);
+    expect(usage?.["gate_output_tokens"]).toBe(0);
+    expect(typeof usage?.["model_steps"]).toBe("number");
+    expect(usage?.["tool_count"]).toBe(0);
+    expect(usage?.["tool_names"]).toEqual([]);
+    expect(typeof usage?.["uncached_input_tokens"]).toBe("number");
+    expect(typeof usage?.["cache_hit_ratio"]).toBe("number");
+    expect(typeof usage?.["history_message_count"]).toBe("number");
+    expect(typeof usage?.["history_chars"]).toBe("number");
+    expect(typeof usage?.["tool_result_bytes_in"]).toBe("number");
+    expect(typeof usage?.["tool_result_bytes_out"]).toBe("number");
+    expect(typeof usage?.["toolset_hash"]).toBe("string");
+    expect(typeof usage?.["estimated_cost_usd"]).toBe("number");
+    expect(Number.isFinite(usage?.["estimated_cost_usd"])).toBe(true);
+    expect(JSON.stringify(usage)).not.toContain(prompt);
+    expect(JSON.stringify(usage)).not.toContain(
+      "ASSISTANT_BODY_SENTINEL_never_log",
+    );
+    expect(usage).not.toHaveProperty("text");
+    expect(usage).not.toHaveProperty("body");
+    expect(usage).not.toHaveProperty("prompt");
+    expect(usage).not.toHaveProperty("messages");
+  });
+
+  it("maps gate generateText usage onto the turn usage line", async () => {
+    const capturing = createCapturingLogger();
+    const app = createApp({
+      auth,
+      registry,
+      contractModules,
+      pipeline: { ...pipeline, logger: capturing.logger },
+      trustedProxies: [],
+      getPeerAddress: () => REAL_CLIENT,
+      pkiProxy: {
+        rateLimitStore: createInMemoryRateLimitStore(),
+        ipHmacSecret: "test-pki-proxy-ip-hmac-secret!!",
+      },
+      assistant: {
+        model: "mock",
+        gateModel: "mock-gate",
+        languageModel: new MockLanguageModelV3({
+          doStream: [mockTextStream("You have no orders.")],
+        }),
+        gateLanguageModel: new MockLanguageModelV3({
+          doGenerate: mockOperationalGateGenerate(true),
+        }),
+      },
+    });
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Gate usage",
+    });
+    const response = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "List orders"),
+    });
+    expect(response.status).toBe(200);
+    await readUiMessageSsePayloads(response);
+    const usage = capturing
+      .entries()
+      .find((entry) => entry["msg"] === "staff assistant turn usage");
+    expect(usage?.["gate_model"]).toBe("mock-gate");
+    expect(usage?.["gate_input_tokens"]).toBe(1);
+    expect(usage?.["gate_output_tokens"]).toBe(1);
+    expect(typeof usage?.["estimated_cost_usd"]).toBe("number");
+    expect(JSON.stringify(usage)).not.toContain("List orders");
+  });
+
+  it("logs zero gate tokens when classify throws and still fail-opens", async () => {
+    const capturing = createCapturingLogger();
+    const streamModel = new MockLanguageModelV3({
+      doStream: [mockTextStream("You have no orders.")],
+    });
+    const app = createApp({
+      auth,
+      registry,
+      contractModules,
+      pipeline: { ...pipeline, logger: capturing.logger },
+      trustedProxies: [],
+      getPeerAddress: () => REAL_CLIENT,
+      pkiProxy: {
+        rateLimitStore: createInMemoryRateLimitStore(),
+        ipHmacSecret: "test-pki-proxy-ip-hmac-secret!!",
+      },
+      assistant: {
+        model: "mock",
+        gateModel: "mock-gate",
+        languageModel: streamModel,
+        gateLanguageModel: new MockLanguageModelV3({
+          doGenerate: () => Promise.reject(new Error("gate down")),
+        }),
+      },
+    });
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Gate throw",
+    });
+    const response = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "List orders"),
+    });
+    expect(response.status).toBe(200);
+    await readUiMessageSsePayloads(response);
+    expect(streamModel.doStreamCalls.length).toBeGreaterThan(0);
+    const usage = capturing
+      .entries()
+      .find((entry) => entry["msg"] === "staff assistant turn usage");
+    expect(usage?.["gate_model"]).toBe("mock-gate");
+    expect(usage?.["gate_input_tokens"]).toBe(0);
+    expect(usage?.["gate_output_tokens"]).toBe(0);
+    expect(usage?.["tools_attached"]).toBe(true);
   });
 
   it("keeps /rpc labeled ui while the AI mount uses ai", async () => {
@@ -1148,5 +1420,400 @@ describe("POST /assistant/chat logs and /rpc channel", () => {
     expect(rpcRow?.channel).toBe("ui");
     expect(rpcRow?.aiTraceId).toBeNull();
     expect(rpcRow?.toolCallId).toBeNull();
+  });
+});
+
+describe("POST /assistant/chat operational gate", () => {
+  function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+  }
+
+  function streamTools(model: MockLanguageModelV3) {
+    return model.doStreamCalls.at(-1)?.tools ?? [];
+  }
+
+  function streamToolsLength(model: MockLanguageModelV3): number {
+    return streamTools(model).length;
+  }
+
+  function streamToolNames(model: MockLanguageModelV3): string[] {
+    return streamTools(model).map((tool) => tool.name);
+  }
+
+  function streamToolProviderOptions(tool: unknown): unknown {
+    return isRecord(tool) ? tool["providerOptions"] : undefined;
+  }
+
+  it("does not attach tools or execute domain actions when the gate is false", async () => {
+    const streamModel = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream(
+          "call-list",
+          toProviderToolName("orders.list"),
+          "{}",
+        ),
+        mockTextStream("should not run"),
+      ],
+    });
+    const gateModel = new MockLanguageModelV3({
+      doGenerate: mockOperationalGateGenerate(false),
+      doStream: [mockTextStream("I only help with this company.")],
+    });
+    const app = chatApp(streamModel, gateModel);
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Weather",
+    });
+    const response = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "What's the weather in Kyiv?"),
+    });
+    expect(response.status).toBe(200);
+    const payloads = await readUiMessageSsePayloads(response);
+    expect(JSON.stringify(payloads)).toContain(
+      "I only help with this company.",
+    );
+    expect(JSON.stringify(payloads)).not.toContain("should not run");
+    expect(streamModel.doStreamCalls).toHaveLength(0);
+    expect(streamToolsLength(gateModel)).toBe(0);
+    expect(gateModel.doGenerateCalls).toHaveLength(1);
+    const runs = await kit.db.runtime.db.select().from(assistantToolRuns);
+    expect(
+      runs.some(
+        (run) =>
+          run.conversationId === conversation.id &&
+          run.actionName === "orders.list",
+      ),
+    ).toBe(false);
+  });
+
+  it("attaches tools when the gate is true", async () => {
+    const streamModel = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream(
+          "call-list",
+          toProviderToolName("orders.list"),
+          "{}",
+        ),
+        mockTextStream("You have no orders."),
+      ],
+    });
+    const gateModel = new MockLanguageModelV3({
+      doGenerate: mockOperationalGateGenerate(true),
+      doStream: [mockTextStream("should not reply as gate")],
+    });
+    const app = chatApp(streamModel, gateModel);
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "List gated",
+    });
+    const response = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "List orders"),
+    });
+    expect(response.status).toBe(200);
+    await readUiMessageSsePayloads(response);
+    await waitFor(async () => {
+      const runs = await kit.db.runtime.db.select().from(assistantToolRuns);
+      return runs.some(
+        (run) =>
+          run.conversationId === conversation.id &&
+          run.actionName === "orders.list" &&
+          run.outcome === "success",
+      );
+    }, "orders.list through operational gate");
+    expect(streamToolsLength(streamModel)).toBeGreaterThan(0);
+    expect(gateModel.doStreamCalls).toHaveLength(0);
+    const names = streamToolNames(streamModel);
+    expect(names).toContain(STAFF_ASSISTANT_TOOL_SEARCH_NAME);
+    expect(names).toContain(toProviderToolName("orders.list"));
+    const deferred = streamTools(streamModel).find(
+      (tool) => tool.name === toProviderToolName("customers.deleteCustomer"),
+    );
+    expect(deferred).toBeDefined();
+    expect(streamToolProviderOptions(deferred)).toMatchObject({
+      anthropic: { deferLoading: true },
+    });
+  });
+
+  it("fail-opens and attaches tools when classify throws", async () => {
+    const streamModel = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream(
+          "call-list",
+          toProviderToolName("orders.list"),
+          "{}",
+        ),
+        mockTextStream("You have no orders."),
+      ],
+    });
+    const gateModel = new MockLanguageModelV3({
+      doGenerate: () => Promise.reject(new Error("gate down")),
+      doStream: [mockTextStream("should not reply as gate")],
+    });
+    const app = chatApp(streamModel, gateModel);
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Fail open",
+    });
+    const response = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "List orders"),
+    });
+    expect(response.status).toBe(200);
+    await readUiMessageSsePayloads(response);
+    await waitFor(async () => {
+      const runs = await kit.db.runtime.db.select().from(assistantToolRuns);
+      return runs.some(
+        (run) =>
+          run.conversationId === conversation.id &&
+          run.actionName === "orders.list",
+      );
+    }, "fail-open still lists orders");
+    expect(streamToolsLength(streamModel)).toBeGreaterThan(0);
+  });
+
+  it("skips the gate on confirmation resume and still attaches tools", async () => {
+    const customer = await staffInvoke(createCustomer, {
+      name: "AI Gate Resume",
+      phone: "+380671110009",
+    });
+    await staffInvoke(archiveCustomer, { id: customer.id });
+    const deleteInput = JSON.stringify({ id: customer.id });
+    const streamModel = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream(
+          "call-delete",
+          toProviderToolName("customers.deleteCustomer"),
+          deleteInput,
+        ),
+        mockToolCallStream(
+          "call-delete-resume",
+          toProviderToolName("customers.deleteCustomer"),
+          deleteInput,
+        ),
+        mockTextStream("The customer was deleted."),
+      ],
+    });
+    const gateModel = new MockLanguageModelV3({
+      doGenerate: mockOperationalGateGenerate(true),
+      doStream: [mockTextStream("should not chitchat")],
+    });
+    const app = chatApp(streamModel, gateModel);
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Gate resume",
+    });
+    const pause = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "Delete the archived customer"),
+    });
+    expect(pause.status).toBe(200);
+    const confirmation = confirmationFromSsePayloads(
+      await readUiMessageSsePayloads(pause),
+    );
+    expect(confirmation).toBeDefined();
+    if (!isStaffAssistantConfirmationOutput(confirmation)) {
+      expect.unreachable("expected confirmation part");
+    }
+    expect(gateModel.doGenerateCalls).toHaveLength(1);
+
+    const resume = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "так"),
+      challengeId: confirmation.challengeId,
+    });
+    expect(resume.status).toBe(200);
+    await readUiMessageSsePayloads(resume);
+    expect(gateModel.doGenerateCalls).toHaveLength(1);
+    expect(streamToolsLength(streamModel)).toBeGreaterThan(0);
+    const resumeNames = streamToolNames(streamModel);
+    expect(resumeNames).toContain(STAFF_ASSISTANT_TOOL_SEARCH_NAME);
+    expect(resumeNames).toContain(
+      toProviderToolName("customers.deleteCustomer"),
+    );
+  });
+
+  it("skips the gate on any follow-up after a tool-using turn", async () => {
+    const capturing = createCapturingLogger();
+    const streamModel = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream(
+          "call-list",
+          toProviderToolName("orders.list"),
+          "{}",
+        ),
+        mockTextStream("You have no orders."),
+        mockTextStream("Creating the price list."),
+      ],
+    });
+    let gateCalls = 0;
+    const gateModel = new MockLanguageModelV3({
+      doGenerate: () => {
+        gateCalls += 1;
+        return Promise.resolve(mockOperationalGateGenerate(gateCalls === 1));
+      },
+      doStream: [mockTextStream("should not reply as gate")],
+    });
+    const app = createApp({
+      auth,
+      registry,
+      contractModules,
+      pipeline: { ...pipeline, logger: capturing.logger },
+      trustedProxies: [],
+      getPeerAddress: () => REAL_CLIENT,
+      pkiProxy: {
+        rateLimitStore: createInMemoryRateLimitStore(),
+        ipHmacSecret: "test-pki-proxy-ip-hmac-secret!!",
+      },
+      assistant: {
+        model: "mock",
+        gateModel: "mock-gate",
+        languageModel: streamModel,
+        gateLanguageModel: gateModel,
+      },
+    });
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Sticky session",
+    });
+    const first = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "List orders"),
+    });
+    expect(first.status).toBe(200);
+    await readUiMessageSsePayloads(first);
+    await waitFor(async () => {
+      const runs = await kit.db.runtime.db.select().from(assistantToolRuns);
+      return runs.some(
+        (run) =>
+          run.conversationId === conversation.id &&
+          run.actionName === "orders.list" &&
+          run.outcome === "success",
+      );
+    }, "orders.list before sticky follow-up");
+    expect(gateModel.doGenerateCalls).toHaveLength(1);
+
+    const followUp = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "Продовжуй"),
+    });
+    expect(followUp.status).toBe(200);
+    const payloads = await readUiMessageSsePayloads(followUp);
+    expect(JSON.stringify(payloads)).toContain("Creating the price list.");
+    expect(gateModel.doGenerateCalls).toHaveLength(1);
+    expect(gateModel.doStreamCalls).toHaveLength(0);
+    expect(streamToolsLength(streamModel)).toBeGreaterThan(0);
+    expect(streamToolNames(streamModel)).toContain(
+      STAFF_ASSISTANT_TOOL_SEARCH_NAME,
+    );
+    const skipGate = capturing
+      .entries()
+      .find(
+        (entry) =>
+          entry["msg"] === "staff assistant turn gate" &&
+          entry["gate_skip"] === "sticky_session",
+      );
+    expect(skipGate?.["operational"]).toBe(true);
+    const followUpUsage = capturing
+      .entries()
+      .filter((entry) => entry["msg"] === "staff assistant turn usage")
+      .at(-1);
+    expect(followUpUsage?.["gate_skip"]).toBe("sticky_session");
+    expect(followUpUsage?.["tools_attached"]).toBe(true);
+    expect(JSON.stringify(followUpUsage)).not.toContain("Продовжуй");
+  });
+
+  it("keeps tools attached for weather after a tool-using turn", async () => {
+    const streamModel = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream(
+          "call-list",
+          toProviderToolName("orders.list"),
+          "{}",
+        ),
+        mockTextStream("You have no orders."),
+        mockTextStream("I only help with this company."),
+      ],
+    });
+    let gateCalls = 0;
+    const gateModel = new MockLanguageModelV3({
+      doGenerate: () => {
+        gateCalls += 1;
+        return Promise.resolve(mockOperationalGateGenerate(gateCalls === 1));
+      },
+      doStream: [mockTextStream("should not reply as gate")],
+    });
+    const app = chatApp(streamModel, gateModel);
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Weather after tools",
+    });
+    const first = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "List orders"),
+    });
+    expect(first.status).toBe(200);
+    await readUiMessageSsePayloads(first);
+    await waitFor(async () => {
+      const runs = await kit.db.runtime.db.select().from(assistantToolRuns);
+      return runs.some(
+        (run) =>
+          run.conversationId === conversation.id &&
+          run.actionName === "orders.list" &&
+          run.outcome === "success",
+      );
+    }, "orders.list before weather");
+
+    const weather = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "What's the weather in Kyiv?"),
+    });
+    expect(weather.status).toBe(200);
+    const payloads = await readUiMessageSsePayloads(weather);
+    expect(JSON.stringify(payloads)).toContain(
+      "I only help with this company.",
+    );
+    expect(gateModel.doGenerateCalls).toHaveLength(1);
+    expect(gateModel.doStreamCalls).toHaveLength(0);
+    expect(streamModel.doStreamCalls).toHaveLength(3);
+    expect(streamToolsLength(streamModel)).toBeGreaterThan(0);
+  });
+
+  it("still classifies a short ack when the conversation has no tool runs", async () => {
+    const streamModel = new MockLanguageModelV3({
+      doStream: [mockTextStream("should not run")],
+    });
+    const gateModel = new MockLanguageModelV3({
+      doGenerate: mockOperationalGateGenerate(false),
+      doStream: [mockTextStream("I only help with this company.")],
+    });
+    const app = chatApp(streamModel, gateModel);
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Ack without tools",
+    });
+    const response = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "так"),
+    });
+    expect(response.status).toBe(200);
+    const payloads = await readUiMessageSsePayloads(response);
+    expect(JSON.stringify(payloads)).toContain(
+      "I only help with this company.",
+    );
+    expect(streamModel.doStreamCalls).toHaveLength(0);
+    expect(gateModel.doGenerateCalls).toHaveLength(1);
+    expect(streamToolsLength(gateModel)).toBe(0);
   });
 });

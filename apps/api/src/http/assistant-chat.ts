@@ -10,20 +10,31 @@
  */
 import {
   attemptKey,
+  classifyStaffAssistantTurn,
   createStaffLanguageModel,
+  EMPTY_STAFF_ASSISTANT_TURN_USAGE,
+  estimateStaffAssistantTurnCostUsd,
   filterStaffAiTools,
   lastStaffAssistantUserMessage,
   pausedToolAttemptForChallenge,
   pausedToolAttemptFromToolRuns,
   resolvePausedToolAttempt,
   StaffAssistantNotConfiguredError,
+  staffAssistantCacheHitRatio,
   staffAssistantChatBodySchema,
   staffAssistantModelMessages,
+  staffAssistantShouldSkipOperationalGate,
+  staffAssistantUncachedInputTokens,
+  staffAssistantWorkingSetAddendum,
   streamStaffAssistantChat,
+  STAFF_ASSISTANT_THINKING_DISABLED,
+  STAFF_ASSISTANT_TOOL_RUNS_MAX,
   type LanguageModel,
   type PausedToolAttempt,
   type StaffAssistantChatMessage,
+  type StaffAssistantGateSkipReason,
   type StaffAssistantTurnResult,
+  type StaffAssistantTurnUsage,
 } from "@showzy/ai";
 import {
   appendUserMessage,
@@ -59,9 +70,11 @@ export const ASSISTANT_INVOCATION_CHANNEL = "ai" as const;
 
 export interface StaffAssistantRuntime {
   readonly model: string;
+  readonly gateModel?: string;
   readonly anthropicApiKey?: string;
   /** Tests inject MockLanguageModelV3 — never a live LLM in CI. */
   readonly languageModel?: LanguageModel;
+  readonly gateLanguageModel?: LanguageModel;
 }
 
 export interface StaffAssistantChatOptions {
@@ -139,6 +152,82 @@ function logFailure(logger: Logger, requestId: string, code: string): void {
   logger.error({ request_id: requestId, code }, "staff assistant chat failed");
 }
 
+function logTurnUsage(options: {
+  readonly logger: Logger;
+  readonly requestId: string;
+  readonly conversationId: string;
+  readonly companyId: string | null;
+  readonly actorId: string;
+  readonly model: string;
+  readonly gateModel?: string;
+  readonly gateSkip?: StaffAssistantGateSkipReason;
+  readonly gateUsage: StaffAssistantTurnUsage;
+  readonly toolsAttached: boolean;
+  readonly usage: StaffAssistantTurnUsage;
+  readonly modelSteps: number;
+  readonly toolNames: readonly string[];
+  readonly historyMessageCount: number;
+  readonly historyChars: number;
+  readonly toolResultBytesIn: number;
+  readonly toolResultBytesOut: number;
+  readonly toolsetHash: string;
+  readonly estimatedCostUsd: number;
+}): void {
+  options.logger.info(
+    {
+      request_id: options.requestId,
+      conversation_id: options.conversationId,
+      company_id: options.companyId,
+      actor_id: options.actorId,
+      model: options.model,
+      ...(options.gateModel !== undefined
+        ? { gate_model: options.gateModel }
+        : {}),
+      thinking: STAFF_ASSISTANT_THINKING_DISABLED,
+      tools_attached: options.toolsAttached,
+      ...(options.gateSkip !== undefined
+        ? { gate_skip: options.gateSkip }
+        : {}),
+      gate_input_tokens: options.gateUsage.inputTokens,
+      gate_output_tokens: options.gateUsage.outputTokens,
+      model_steps: options.modelSteps,
+      tool_count: options.toolNames.length,
+      tool_names: [...options.toolNames],
+      input_tokens: options.usage.inputTokens,
+      output_tokens: options.usage.outputTokens,
+      cache_read_tokens: options.usage.cacheReadTokens,
+      cache_write_tokens: options.usage.cacheWriteTokens,
+      uncached_input_tokens: staffAssistantUncachedInputTokens(options.usage),
+      cache_hit_ratio: staffAssistantCacheHitRatio(options.usage),
+      history_message_count: options.historyMessageCount,
+      history_chars: options.historyChars,
+      tool_result_bytes_in: options.toolResultBytesIn,
+      tool_result_bytes_out: options.toolResultBytesOut,
+      toolset_hash: options.toolsetHash,
+      estimated_cost_usd: options.estimatedCostUsd,
+    },
+    "staff assistant turn usage",
+  );
+}
+
+function logTurnGate(options: {
+  readonly logger: Logger;
+  readonly requestId: string;
+  readonly gateModel: string;
+  readonly operational: boolean;
+  readonly skip?: StaffAssistantGateSkipReason;
+}): void {
+  options.logger.info(
+    {
+      request_id: options.requestId,
+      gate_model: options.gateModel,
+      operational: options.operational,
+      ...(options.skip !== undefined ? { gate_skip: options.skip } : {}),
+    },
+    "staff assistant turn gate",
+  );
+}
+
 function failureCode(error: unknown): string {
   if (error instanceof StaffAssistantNotConfiguredError) {
     return error.code;
@@ -166,6 +255,25 @@ function resolveLanguageModel(
     });
   }
   throw new StaffAssistantNotConfiguredError();
+}
+
+function resolveGateLanguageModel(
+  assistant: StaffAssistantRuntime | undefined,
+): LanguageModel | undefined {
+  if (assistant?.gateLanguageModel !== undefined) {
+    return assistant.gateLanguageModel;
+  }
+  if (
+    assistant !== undefined &&
+    assistant.anthropicApiKey !== undefined &&
+    assistant.anthropicApiKey !== ""
+  ) {
+    return createStaffLanguageModel({
+      apiKey: assistant.anthropicApiKey,
+      model: assistant.gateModel ?? assistant.model,
+    });
+  }
+  return undefined;
 }
 
 function requireImplementation(
@@ -311,18 +419,22 @@ export async function executeStaffAssistantChat(
       ]);
     }
 
+    const conversation = await executeAction(options.pipeline, {
+      action: getConversation,
+      input: { conversationId: body.conversationId },
+      request: baseRequest,
+      principal: staffPrincipal,
+    });
+    const workingSetAddendum = staffAssistantWorkingSetAddendum(
+      conversation.toolRuns,
+    );
+
     let pausedAttempt: PausedToolAttempt | undefined;
     if (confirmationChallengeId !== undefined) {
       const clientAttempt = pausedToolAttemptForChallenge(
         body.messages,
         confirmationChallengeId,
       );
-      const conversation = await executeAction(options.pipeline, {
-        action: getConversation,
-        input: { conversationId: body.conversationId },
-        request: baseRequest,
-        principal: staffPrincipal,
-      });
       const persistedAttempt = pausedToolAttemptFromToolRuns(
         conversation.toolRuns,
         confirmationChallengeId,
@@ -345,6 +457,58 @@ export async function executeStaffAssistantChat(
     }
 
     const model = resolveLanguageModel(options.assistant);
+    const gateLanguageModel = resolveGateLanguageModel(options.assistant);
+    const confirmationResume = confirmationChallengeId !== undefined;
+    let operational = true;
+    let gateRan = false;
+    let gateSkip: StaffAssistantGateSkipReason | undefined;
+    let gateUsage = EMPTY_STAFF_ASSISTANT_TURN_USAGE;
+
+    if (!confirmationResume && gateLanguageModel !== undefined) {
+      const lastUserText = userMessage?.text ?? "";
+      if (lastUserText.trim() !== "") {
+        if (
+          staffAssistantShouldSkipOperationalGate({
+            toolRunCount: conversation.toolRuns.length,
+          })
+        ) {
+          operational = true;
+          gateSkip = "sticky_session";
+          logTurnGate({
+            logger: options.pipeline.logger,
+            requestId: options.requestId,
+            gateModel: options.assistant?.gateModel ?? "unconfigured",
+            operational: true,
+            skip: "sticky_session",
+          });
+        } else {
+          const classified = await classifyStaffAssistantTurn({
+            model: gateLanguageModel,
+            lastUserText,
+            abortSignal: options.request.signal,
+          });
+          operational = classified.operational;
+          gateUsage = classified.usage;
+          gateRan = true;
+          logTurnGate({
+            logger: options.pipeline.logger,
+            requestId: options.requestId,
+            gateModel: options.assistant?.gateModel ?? "unconfigured",
+            operational,
+          });
+        }
+      }
+    }
+
+    const replyModel =
+      !operational && gateLanguageModel !== undefined
+        ? gateLanguageModel
+        : model;
+    const replyModelId = operational
+      ? (options.assistant?.model ?? "unconfigured")
+      : (options.assistant?.gateModel ??
+        options.assistant?.model ??
+        "unconfigured");
 
     if (userMessage !== undefined) {
       await executeAction(options.pipeline, {
@@ -371,6 +535,7 @@ export async function executeStaffAssistantChat(
       role: actor.role,
       permissions: actor.permissions,
     });
+    const streamContracts = operational ? contracts : [];
 
     let confirmationClaimed = false;
     function claimPausedAttempt(
@@ -391,10 +556,11 @@ export async function executeStaffAssistantChat(
     }
 
     const { response } = streamStaffAssistantChat({
-      model,
+      model: replyModel,
       messages: modelMessages,
-      contracts,
+      contracts: streamContracts,
       abortSignal: options.request.signal,
+      ...(workingSetAddendum !== undefined ? { workingSetAddendum } : {}),
       responseHeaders: {
         "cache-control": "private, no-store",
         [REQUEST_ID_HEADER]: options.requestId,
@@ -428,6 +594,47 @@ export async function executeStaffAssistantChat(
         });
       },
       onTurn: async (turn) => {
+        logTurnUsage({
+          logger: options.pipeline.logger,
+          requestId: options.requestId,
+          conversationId: body.conversationId,
+          companyId: companySelector,
+          actorId: session.userId,
+          model: replyModelId,
+          ...(gateRan && options.assistant?.gateModel !== undefined
+            ? { gateModel: options.assistant.gateModel }
+            : {}),
+          ...(gateSkip !== undefined
+            ? {
+                gateModel:
+                  options.assistant?.gateModel ??
+                  options.assistant?.model ??
+                  "unconfigured",
+                gateSkip,
+              }
+            : {}),
+          gateUsage,
+          toolsAttached: turn.toolsAttached,
+          usage: turn.usage,
+          modelSteps: turn.modelSteps,
+          toolNames: turn.toolRuns
+            .slice(0, STAFF_ASSISTANT_TOOL_RUNS_MAX)
+            .map((run) => run.actionName),
+          historyMessageCount: turn.historyMessageCount,
+          historyChars: turn.historyChars,
+          toolResultBytesIn: turn.toolResultBytesIn,
+          toolResultBytesOut: turn.toolResultBytesOut,
+          toolsetHash: turn.toolsetHash,
+          estimatedCostUsd: estimateStaffAssistantTurnCostUsd({
+            reply: turn.usage,
+            replyModelId,
+            gate: gateUsage,
+            gateModelId:
+              options.assistant?.gateModel ??
+              options.assistant?.model ??
+              "unconfigured",
+          }),
+        });
         try {
           await persistAssistantTurn({
             pipeline: options.pipeline,

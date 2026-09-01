@@ -4,6 +4,8 @@ export {
   staffAssistantTools,
   toProviderToolName,
   PROVIDER_TOOL_NAME_PATTERN,
+  STAFF_ASSISTANT_HOT_ACTION_NAMES,
+  STAFF_ASSISTANT_TOOL_SEARCH_NAME,
   type ActionToolExecute,
 } from "./action-tool.js";
 export {
@@ -15,9 +17,54 @@ export {
   type StaffAssistantConfirmationOutput,
 } from "./confirmation.js";
 export { StaffAssistantNotConfiguredError } from "./errors.js";
+export {
+  clipStaffAssistantToolResult,
+  STAFF_ASSISTANT_CLIPPED_STATUS,
+  STAFF_ASSISTANT_CLIP_ARRAY_MAX,
+  STAFF_ASSISTANT_CLIP_IDENTITY_KEYS,
+  STAFF_ASSISTANT_CLIP_JSON_MAX,
+  STAFF_ASSISTANT_CLIP_SHRINK_ARRAY_MAX,
+  type StaffAssistantClippedResult,
+} from "./clip-tool-result.js";
+export {
+  classifyStaffAssistantTurn,
+  STAFF_ASSISTANT_GATE_SYSTEM,
+  staffAssistantGateOutputSchema,
+  type StaffAssistantGateResult,
+} from "./gate.js";
+export { STAFF_ASSISTANT_PRODUCT_GLOSSARY } from "./product-glossary.js";
+export {
+  staffAssistantShouldSkipOperationalGate,
+  type StaffAssistantGateSkipReason,
+} from "./sticky-session.js";
 export { filterStaffAiTools } from "./filter-staff-tools.js";
 export { createStaffLanguageModel } from "./language-model.js";
 export type { LanguageModel } from "ai";
+export {
+  STAFF_ASSISTANT_ANTHROPIC_PROVIDER_OPTIONS,
+  STAFF_ASSISTANT_ANTHROPIC_THINKING,
+  STAFF_ASSISTANT_CACHE_CONTROL,
+  STAFF_ASSISTANT_CACHE_PROVIDER_OPTIONS,
+  STAFF_ASSISTANT_DEFER_PROVIDER_OPTIONS,
+  STAFF_ASSISTANT_THINKING_DISABLED,
+} from "./anthropic-options.js";
+export {
+  EMPTY_STAFF_ASSISTANT_TURN_USAGE,
+  staffAssistantCacheHitRatio,
+  staffAssistantTurnUsageFromUnknown,
+  staffAssistantUncachedInputTokens,
+  type StaffAssistantTurnUsage,
+} from "./usage.js";
+export {
+  estimateStaffAssistantCostUsd,
+  estimateStaffAssistantTurnCostUsd,
+  staffAssistantAnthropicRateTier,
+  STAFF_ASSISTANT_ANTHROPIC_RATES_USD_PER_MTOK,
+} from "./cost.js";
+export {
+  staffAssistantToolsetHash,
+  STAFF_ASSISTANT_EMPTY_TOOLSET_HASH,
+} from "./toolset-hash.js";
 export { attemptKey, type StaffAssistantAttemptKind } from "./attempt-key.js";
 export {
   lastStaffAssistantUserMessage,
@@ -26,10 +73,12 @@ export {
   resolvePausedToolAttempt,
   staffAssistantChatBodySchema,
   staffAssistantChatMessageSchema,
+  staffAssistantHistoryStats,
   staffAssistantModelMessages,
   STAFF_ASSISTANT_CHAT_MESSAGES_MAX,
   STAFF_ASSISTANT_CHAT_MESSAGE_TEXT_MAX,
   STAFF_ASSISTANT_CHAT_PARTS_MAX,
+  STAFF_ASSISTANT_MODEL_HISTORY_MAX,
   type PausedToolAttempt,
   type PausedToolAttemptResolution,
   type StaffAssistantChatBody,
@@ -48,4 +97,14 @@ export {
   type StaffAssistantTurnResult,
   type StaffAssistantUIMessage,
 } from "./staff-assistant-stream.js";
-export { staffAssistantSystemPrompt } from "./system-prompt.js";
+export {
+  staffAssistantSystemMessage,
+  staffAssistantSystemMessages,
+  staffAssistantSystemPrompt,
+} from "./system-prompt.js";
+export {
+  staffAssistantWorkingSetAddendum,
+  STAFF_ASSISTANT_WORKING_SET_IDS_MAX,
+  STAFF_ASSISTANT_WORKING_SET_RUNS_MAX,
+  type StaffAssistantWorkingSetRun,
+} from "./working-set.js";

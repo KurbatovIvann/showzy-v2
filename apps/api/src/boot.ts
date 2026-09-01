@@ -127,6 +127,7 @@ export async function bootApi(config: ServerConfig): Promise<BootedApi> {
     },
     assistant: {
       model: config.ai.model,
+      gateModel: config.ai.gateModel,
       ...(config.ai.anthropicApiKey !== undefined
         ? { anthropicApiKey: config.ai.anthropicApiKey }
         : {}),

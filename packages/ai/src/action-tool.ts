@@ -1,6 +1,12 @@
+import { anthropic } from "@ai-sdk/anthropic";
 import { CoreInvariantError } from "@showzy/core/errors";
 import type { ActionContract } from "@showzy/core/contract";
 import { tool, type Tool, type ToolSet } from "ai";
+
+import {
+  STAFF_ASSISTANT_CACHE_PROVIDER_OPTIONS,
+  STAFF_ASSISTANT_DEFER_PROVIDER_OPTIONS,
+} from "./anthropic-options.js";
 
 /**
  * Anthropic custom tool names (`@ai-sdk/anthropic` sends `tool.name`
@@ -10,6 +16,19 @@ import { tool, type Tool, type ToolSet } from "ai";
  * not a new principal and not a `packages/core` patch.
  */
 export const PROVIDER_TOOL_NAME_PATTERN = /^[a-zA-Z0-9_-]{1,128}$/;
+
+/** Always-in-context domain tools (no `deferLoading`). */
+export const STAFF_ASSISTANT_HOT_ACTION_NAMES = [
+  "orders.list",
+  "orders.get",
+  "catalog.listProducts",
+  "customers.listCustomers",
+] as const;
+
+const HOT_ACTION_NAME_SET = new Set<string>(STAFF_ASSISTANT_HOT_ACTION_NAMES);
+
+/** ToolSet key for Anthropic BM25 tool search (provider-executed). */
+export const STAFF_ASSISTANT_TOOL_SEARCH_NAME = "tool_search_tool_bm25";
 
 /**
  * Injected tool body. Tests fake `executeAction`. The adapter never calls
@@ -65,22 +84,102 @@ export function actionContractToTool(
 
 /**
  * Build the AI SDK tool map keyed by the Anthropic-safe provider name.
- * `execute` still receives `contract.name` (`orders.list`). The HTTP
- * mount injects `executeAction`; this helper never fetches `/rpc`.
+ * Operational catalogs include BM25 tool search; hot actions stay in
+ * context; every other exposed action is `deferLoading`. `execute` still
+ * receives `contract.name` (`orders.list`). Empty catalogs attach nothing
+ * (chitchat). The HTTP mount injects `executeAction`; this helper never
+ * fetches `/rpc`.
  */
 export function staffAssistantTools(
   contracts: readonly ActionContract[],
   execute: ActionToolExecute,
 ): ToolSet {
   const tools: ToolSet = {};
-  for (const contract of contracts) {
-    const providerName = toProviderToolName(contract.name);
-    if (tools[providerName] !== undefined) {
-      throw new CoreInvariantError(
-        `duplicate provider tool name "${providerName}" for "${contract.name}"`,
-      );
-    }
-    tools[providerName] = actionContractToTool(contract, execute);
+  if (contracts.length === 0) {
+    return tools;
   }
+
+  tools[STAFF_ASSISTANT_TOOL_SEARCH_NAME] =
+    anthropic.tools.toolSearchBm25_20251119();
+
+  const byName = new Map<string, ActionContract>();
+  for (const contract of contracts) {
+    byName.set(contract.name, contract);
+  }
+
+  for (const hotName of STAFF_ASSISTANT_HOT_ACTION_NAMES) {
+    const contract = byName.get(hotName);
+    if (contract === undefined) {
+      continue;
+    }
+    insertActionTool(tools, contract, execute);
+  }
+
+  for (const contract of contracts) {
+    if (HOT_ACTION_NAME_SET.has(contract.name)) {
+      continue;
+    }
+    insertActionTool(
+      tools,
+      contract,
+      execute,
+      STAFF_ASSISTANT_DEFER_PROVIDER_OPTIONS,
+    );
+  }
+
+  markLastNonDeferredToolCacheBreakpoint(tools);
   return tools;
+}
+
+function insertActionTool(
+  tools: ToolSet,
+  contract: ActionContract,
+  execute: ActionToolExecute,
+  providerOptions?: typeof STAFF_ASSISTANT_DEFER_PROVIDER_OPTIONS,
+): void {
+  const providerName = toProviderToolName(contract.name);
+  if (tools[providerName] !== undefined) {
+    throw new CoreInvariantError(
+      `duplicate provider tool name "${providerName}" for "${contract.name}"`,
+    );
+  }
+  const aiTool = actionContractToTool(contract, execute);
+  tools[providerName] =
+    providerOptions === undefined ? aiTool : { ...aiTool, providerOptions };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isDeferredTool(tool: { readonly providerOptions?: unknown }): boolean {
+  if (!isRecord(tool.providerOptions)) {
+    return false;
+  }
+  const anthropicOptions = tool.providerOptions["anthropic"];
+  return (
+    isRecord(anthropicOptions) && anthropicOptions["deferLoading"] === true
+  );
+}
+
+function markLastNonDeferredToolCacheBreakpoint(tools: ToolSet): void {
+  const names = Object.keys(tools);
+  for (let index = names.length - 1; index >= 0; index -= 1) {
+    const lastName = names[index];
+    if (lastName === undefined) {
+      continue;
+    }
+    const lastTool = tools[lastName];
+    if (lastTool === undefined || isDeferredTool(lastTool)) {
+      continue;
+    }
+    tools[lastName] = {
+      ...lastTool,
+      providerOptions: {
+        ...lastTool.providerOptions,
+        ...STAFF_ASSISTANT_CACHE_PROVIDER_OPTIONS,
+      },
+    };
+    return;
+  }
 }

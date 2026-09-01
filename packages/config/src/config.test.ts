@@ -69,6 +69,7 @@ describe("loadServerConfig", () => {
     });
     expect(config.ai.anthropicApiKey).toBeUndefined();
     expect(config.ai.model).toBe("claude-sonnet-4-6");
+    expect(config.ai.gateModel).toBe("claude-haiku-4-5");
   });
 
   it("applies defaults for optional keys", () => {
@@ -101,6 +102,7 @@ describe("loadServerConfig", () => {
     });
     expect(config.ai.anthropicApiKey).toBeUndefined();
     expect(config.ai.model).toBe("claude-sonnet-4-6");
+    expect(config.ai.gateModel).toBe("claude-haiku-4-5");
   });
 
   it("fails fast on missing required keys and reports every one of them", () => {
@@ -355,13 +357,16 @@ describe("loadServerConfig", () => {
     const withoutKey = loadServerConfig(missing);
     expect(withoutKey.ai.anthropicApiKey).toBeUndefined();
     expect(withoutKey.ai.model).toBe("claude-sonnet-4-6");
+    expect(withoutKey.ai.gateModel).toBe("claude-haiku-4-5");
 
     const env = validEnv();
     env["ANTHROPIC_API_KEY"] = "sk-ant-test-not-a-real-key";
     env["AI_MODEL"] = "claude-opus-4-6";
+    env["AI_GATE_MODEL"] = "claude-haiku-4-5-20251001";
     const withKey = loadServerConfig(env);
     expect(withKey.ai.anthropicApiKey).toBe("sk-ant-test-not-a-real-key");
     expect(withKey.ai.model).toBe("claude-opus-4-6");
+    expect(withKey.ai.gateModel).toBe("claude-haiku-4-5-20251001");
   });
 
   it("treats an empty ANTHROPIC_API_KEY as unset", () => {
