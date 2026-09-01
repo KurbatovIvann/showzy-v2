@@ -30,8 +30,14 @@ function deleteCopiedSigningKey(file: File): void {
     if (file.exists) {
       file.delete();
     }
-  } catch {
-    // best effort — do not log the path
+  } catch (error: unknown) {
+    // Best effort. Never log the path, key bytes, or file URI.
+    if (__DEV__) {
+      console.warn("[showzy/signing]", {
+        phase: "temp-key-delete",
+        name: error instanceof Error ? error.name : typeof error,
+      });
+    }
   }
 }
 

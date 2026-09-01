@@ -1,9 +1,10 @@
 /**
  * Options / handover chrome, `documents.get` load, and sheet follow-ups
- * (SHO-237). Composer stays query + presenter + navigation.
+ * (SHO-237 / SHO-306). Composer stays query + presenter + navigation.
+ * Callbacks are ref-stable so list row `memo` can bail.
  */
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import { useApiClient } from "../../../api/api-provider";
 import { describeQueryFailure } from "../../../api/errors";
@@ -19,6 +20,11 @@ import {
   openDocumentHandover,
   type DocumentHandoverChrome,
 } from "../share/document-handover-chrome";
+import type { DocumentSigningTarget } from "../signing/use-document-signing";
+import {
+  documentOptionsRowForId,
+  presentDocumentOptionsGetFields,
+} from "./document-list-options.presenter";
 import {
   documentOptionsHidden,
   hideDocumentOptions,
@@ -28,12 +34,9 @@ import {
   waitThenRunDocumentFollowUp,
   type DocumentOptionsChrome,
 } from "./document-options-handshake";
-import type { DocumentSigningTarget } from "../signing/use-document-signing";
 import {
   canOpenSigningFromRow,
   classifyDocumentOptionsGet,
-  type DocumentOptionsGetLoadState,
-  type DocumentSigningStatus,
   type DocumentsListRow,
 } from "./documents-list.presenter";
 import { type DocumentWritesApi } from "./use-document-writes";
@@ -57,6 +60,14 @@ export function useDocumentListOptions(args: {
   const [copyFailed, setCopyFailed] = useState(false);
   const optionsHidden = useSheetHiddenWaiter();
   const handoverHidden = useSheetHiddenWaiter();
+  const argsRef = useRef(args);
+  argsRef.current = args;
+  const optionsHiddenRef = useRef(optionsHidden);
+  optionsHiddenRef.current = optionsHidden;
+  const handoverHiddenRef = useRef(handoverHidden);
+  handoverHiddenRef.current = handoverHidden;
+  const handoverChromeRef = useRef(handoverChrome);
+  handoverChromeRef.current = handoverChrome;
 
   const detailQuery = useQuery(
     getDocumentQueryOptions({
@@ -66,7 +77,7 @@ export function useDocumentListOptions(args: {
       getActiveCompany: () => apiClient?.getActiveCompany() ?? null,
     }),
   );
-  const getLoad: DocumentOptionsGetLoadState = classifyDocumentOptionsGet({
+  const getLoad = classifyDocumentOptionsGet({
     documentId: optionsChrome.documentId,
     clientReady: apiClient !== null && activeCompanyId !== null && args.canView,
     status: detailQuery.status,
@@ -74,33 +85,33 @@ export function useDocumentListOptions(args: {
       ? describeQueryFailure(detailQuery.error).kind
       : null,
   });
-  const getReady = getLoad.kind === "ready";
-  const generationStatus = getReady
-    ? (detailQuery.data?.generation.status ?? null)
-    : null;
-  const pdfDownloadUrl = getReady
-    ? (detailQuery.data?.pdfDownloadUrl ?? null)
-    : null;
-  const signingStatus: DocumentSigningStatus | null = getReady
-    ? (detailQuery.data?.signing.status ?? null)
-    : null;
-  const optionsRow =
-    args.rows.find((row) => row.id === optionsChrome.documentId) ?? null;
+  const getFields = presentDocumentOptionsGetFields({
+    getLoad,
+    generationStatus: detailQuery.data?.generation.status,
+    pdfDownloadUrl: detailQuery.data?.pdfDownloadUrl,
+    signingStatus: detailQuery.data?.signing.status,
+  });
+  const optionsRow = documentOptionsRowForId(
+    args.rows,
+    optionsChrome.documentId,
+  );
+  const optionsRowRef = useRef(optionsRow);
+  optionsRowRef.current = optionsRow;
 
-  function hideOptions(): void {
+  const hideOptions = useCallback(() => {
     setOptionsChrome(hideDocumentOptions);
-  }
+  }, []);
 
-  async function mintThen(handover: boolean): Promise<void> {
-    if (optionsRow === null) {
+  const mintThen = useCallback(async (handover: boolean): Promise<void> => {
+    const target = optionsRowRef.current;
+    if (target === null) {
       return;
     }
-    const target = optionsRow;
     await waitThenRunDocumentFollowUp({
-      waitHidden: optionsHidden.wait,
+      waitHidden: () => optionsHiddenRef.current.wait(),
       hide: hideOptions,
       run: async () => {
-        const url = await args.writes.mintShareUrl(target.id);
+        const url = await argsRef.current.writes.mintShareUrl(target.id);
         if (url === null) {
           return;
         }
@@ -113,130 +124,189 @@ export function useDocumentListOptions(args: {
           );
           return;
         }
-        await args.writes.shareUrl(url);
+        await argsRef.current.writes.shareUrl(url);
       },
     });
-  }
+  }, [hideOptions]);
 
-  return {
-    optionsVisible: optionsChrome.visible,
-    optionsRow,
-    getLoad: getLoad.kind,
-    generationStatus,
-    pdfDownloadUrl,
-    signingStatus,
-    openOptions: (id: string) => {
-      setCopied(false);
-      setCopyFailed(false);
-      setOptionsChrome(openDocumentOptions(id));
-    },
-    closeOptions: () => {
-      hideOptions();
-    },
-    onOptionsHidden: () => {
-      optionsHidden.notify();
-      setOptionsChrome(documentOptionsHidden);
-    },
-    handoverVisible: handoverChrome.visible,
-    handoverUrl: handoverChrome.url,
-    handoverTitle: handoverChrome.documentNumber ?? args.copy.handover.title,
-    copied,
-    copyFailed,
-    closeHandover: () => {
-      setHandoverChrome(hideDocumentHandover);
-    },
-    onHandoverHidden: () => {
-      handoverHidden.notify();
-      setHandoverChrome(documentHandoverHidden);
-      setCopied(false);
-      setCopyFailed(false);
-    },
-    copyHandover: async () => {
-      if (handoverChrome.url === null) {
-        return;
-      }
-      const result = await args.writes.copyUrl(handoverChrome.url);
-      setCopied(result === "ok");
-      setCopyFailed(result !== "ok");
-    },
-    shareHandover: async () => {
-      if (handoverChrome.url === null) {
-        return;
-      }
-      await args.writes.shareUrl(handoverChrome.url);
-    },
-    share: () => {
-      void mintThen(false);
-    },
-    openQr: () => {
-      void mintThen(true);
-    },
-    openPdf: async () => {
-      if (optionsRow === null) {
-        return;
-      }
-      const id = optionsRow.id;
-      await waitThenRunDocumentFollowUp({
-        waitHidden: optionsHidden.wait,
-        hide: hideOptions,
-        run: () => args.writes.openPanelPdf(id),
-      });
-    },
-    sign: async () => {
-      if (optionsRow === null) {
-        return;
-      }
-      const target = optionsRow;
-      if (
-        !canOpenSigningFromRow({
-          showSign: target.showSign,
-          signingSheetOpen: false,
-        })
-      ) {
-        return;
-      }
-      await waitThenRunDocumentFollowUp({
-        waitHidden: optionsHidden.wait,
-        hide: hideOptions,
-        run: () =>
-          args.onSign({
-            id: target.id,
-            documentNumber: target.documentNumber,
-          }),
-      });
-    },
-    print: async () => {
-      if (optionsRow === null) {
-        return;
-      }
-      const id = optionsRow.id;
-      await waitThenRunDocumentFollowUp({
-        waitHidden: optionsHidden.wait,
-        hide: hideOptions,
-        run: () => args.writes.openPanelPdf(id),
-      });
-    },
-    cancel: async () => {
-      if (optionsRow === null) {
-        return;
-      }
-      const target = optionsRow;
-      const choice = await waitThenConfirmDocumentCancel({
-        waitHidden: optionsHidden.wait,
-        hide: hideOptions,
-        presentConfirmDialog,
-        confirm: {
-          title: args.copy.confirm.cancelTitle,
-          message: args.copy.confirm.cancelDescription,
-          confirmLabel: args.copy.confirm.cancelConfirm,
-          cancelLabel: args.copy.confirm.dismiss,
-          tone: "danger",
-        },
-      });
-      if (choice !== "confirm") {
-        return;
-      }
-      await args.writes.cancel(target);
-    },
-  };
+  const openOptions = useCallback((id: string) => {
+    setCopied(false);
+    setCopyFailed(false);
+    setOptionsChrome(openDocumentOptions(id));
+  }, []);
+
+  const closeOptions = useCallback(() => {
+    hideOptions();
+  }, [hideOptions]);
+
+  const onOptionsHidden = useCallback(() => {
+    optionsHiddenRef.current.notify();
+    setOptionsChrome(documentOptionsHidden);
+  }, []);
+
+  const closeHandover = useCallback(() => {
+    setHandoverChrome(hideDocumentHandover);
+  }, []);
+
+  const onHandoverHidden = useCallback(() => {
+    handoverHiddenRef.current.notify();
+    setHandoverChrome(documentHandoverHidden);
+    setCopied(false);
+    setCopyFailed(false);
+  }, []);
+
+  const copyHandover = useCallback(async () => {
+    const url = handoverChromeRef.current.url;
+    if (url === null) {
+      return;
+    }
+    const result = await argsRef.current.writes.copyUrl(url);
+    setCopied(result === "ok");
+    setCopyFailed(result !== "ok");
+  }, []);
+
+  const shareHandover = useCallback(async () => {
+    const url = handoverChromeRef.current.url;
+    if (url === null) {
+      return;
+    }
+    await argsRef.current.writes.shareUrl(url);
+  }, []);
+
+  const share = useCallback(() => {
+    void mintThen(false);
+  }, [mintThen]);
+
+  const openQr = useCallback(() => {
+    void mintThen(true);
+  }, [mintThen]);
+
+  const openPdf = useCallback(async () => {
+    const target = optionsRowRef.current;
+    if (target === null) {
+      return;
+    }
+    const id = target.id;
+    await waitThenRunDocumentFollowUp({
+      waitHidden: () => optionsHiddenRef.current.wait(),
+      hide: hideOptions,
+      run: () => argsRef.current.writes.openPanelPdf(id),
+    });
+  }, [hideOptions]);
+
+  const sign = useCallback(async () => {
+    const target = optionsRowRef.current;
+    if (target === null) {
+      return;
+    }
+    if (
+      !canOpenSigningFromRow({
+        showSign: target.showSign,
+        signingSheetOpen: false,
+      })
+    ) {
+      return;
+    }
+    await waitThenRunDocumentFollowUp({
+      waitHidden: () => optionsHiddenRef.current.wait(),
+      hide: hideOptions,
+      run: () =>
+        argsRef.current.onSign({
+          id: target.id,
+          documentNumber: target.documentNumber,
+        }),
+    });
+  }, [hideOptions]);
+
+  const print = useCallback(async () => {
+    const target = optionsRowRef.current;
+    if (target === null) {
+      return;
+    }
+    const id = target.id;
+    await waitThenRunDocumentFollowUp({
+      waitHidden: () => optionsHiddenRef.current.wait(),
+      hide: hideOptions,
+      run: () => argsRef.current.writes.openPanelPdf(id),
+    });
+  }, [hideOptions]);
+
+  const cancel = useCallback(async () => {
+    const target = optionsRowRef.current;
+    if (target === null) {
+      return;
+    }
+    const choice = await waitThenConfirmDocumentCancel({
+      waitHidden: () => optionsHiddenRef.current.wait(),
+      hide: hideOptions,
+      presentConfirmDialog,
+      confirm: {
+        title: argsRef.current.copy.confirm.cancelTitle,
+        message: argsRef.current.copy.confirm.cancelDescription,
+        confirmLabel: argsRef.current.copy.confirm.cancelConfirm,
+        cancelLabel: argsRef.current.copy.confirm.dismiss,
+        tone: "danger",
+      },
+    });
+    if (choice !== "confirm") {
+      return;
+    }
+    await argsRef.current.writes.cancel(target);
+  }, [hideOptions]);
+
+  return useMemo(
+    () => ({
+      optionsVisible: optionsChrome.visible,
+      optionsRow,
+      getLoad: getLoad.kind,
+      generationStatus: getFields.generationStatus,
+      pdfDownloadUrl: getFields.pdfDownloadUrl,
+      signingStatus: getFields.signingStatus,
+      openOptions,
+      closeOptions,
+      onOptionsHidden,
+      handoverVisible: handoverChrome.visible,
+      handoverUrl: handoverChrome.url,
+      handoverTitle: handoverChrome.documentNumber ?? args.copy.handover.title,
+      copied,
+      copyFailed,
+      closeHandover,
+      onHandoverHidden,
+      copyHandover,
+      shareHandover,
+      share,
+      openQr,
+      openPdf,
+      sign,
+      print,
+      cancel,
+    }),
+    [
+      args.copy.handover.title,
+      copied,
+      copyFailed,
+      copyHandover,
+      closeHandover,
+      closeOptions,
+      cancel,
+      getFields.generationStatus,
+      getFields.pdfDownloadUrl,
+      getFields.signingStatus,
+      getLoad.kind,
+      handoverChrome.documentNumber,
+      handoverChrome.url,
+      handoverChrome.visible,
+      onHandoverHidden,
+      onOptionsHidden,
+      openOptions,
+      openPdf,
+      openQr,
+      optionsChrome.visible,
+      optionsRow,
+      print,
+      share,
+      shareHandover,
+      sign,
+    ],
+  );
 }

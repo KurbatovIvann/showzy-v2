@@ -1,35 +1,26 @@
 /**
- * Canvas DocumentEditor as create-only (SHO-238).
- * Shared: AppHeader, Button, Banner, EmptyState, Sheet, SearchField,
+ * Canvas DocumentEditor as create-only (SHO-238 / SHO-306).
+ * Shared: FormScreenScaffold, AppHeader, Button, Banner, EmptyState,
  * OptionSelectSheet, SelectorRow.
  * Feature: EditorSection, DocumentTypeCards.
  * Omitted: template picker, agreement, city, dates, QES, four types.
+ * No FormTextField call sites — this form is type cards + selectors.
  */
-import type { ReactNode } from "react";
-import { View } from "react-native";
-import {
-  FileTextIcon,
-  LockIcon,
-  UserIcon,
-  WifiOffIcon,
-} from "lucide-react-native";
+import { FileTextIcon, UserIcon } from "lucide-react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
+import { FormScreenScaffold } from "../../../components/form-kit";
 import {
-  AppHeader,
   Banner,
-  Button,
-  EmptyState,
   OptionSelectSheet,
   SelectorRow,
 } from "../../../components/ui";
+import { DocumentHandoverSheet } from "../share/document-handover-sheet";
 import {
   LIST_COUNTERPARTIES_SEARCH_MAX,
   LIST_ORDERS_QUERY_MAX,
 } from "../shared/document-caps";
-import { DocumentHandoverSheet } from "../share/document-handover-sheet";
 import { DocumentTypeCards } from "./document-form-fields";
 import { EditorSection } from "./editor-section";
 import type { DocumentFormModel } from "./use-document-form";
@@ -38,127 +29,90 @@ export function DocumentFormView(model: DocumentFormModel) {
   const form = model.copy.form;
 
   return (
-    <SafeAreaView
-      edges={["top", "bottom"]}
+    <FormScreenScaffold
+      title={model.copy.createLabel}
       accessibilityLabel={model.copy.createLabel}
-      style={styles.screen}
-    >
-      <AppHeader
-        title={model.copy.createLabel}
-        back={{
-          onPress: model.requestLeave,
-          accessibilityLabel: model.copy.backLabel,
-        }}
-      />
-      <DocumentFormBody model={model} />
-      {model.state.kind === "ready" && model.showSubmit ? (
-        <View style={styles.footerDock}>
-          <View style={styles.footerCard}>
-            <View style={styles.footerActions}>
-              <View style={styles.footerButton}>
-                <Button
-                  variant="secondary"
-                  fullWidth
-                  label={form.cancel}
-                  disabled={model.pending}
-                  onPress={model.requestLeave}
-                />
-              </View>
-              <View style={styles.footerButton}>
-                <Button
-                  fullWidth
-                  label={model.submitLabel}
-                  loading={model.pending}
-                  disabled={model.submitDisabled}
-                  onPress={model.save}
-                />
-              </View>
-            </View>
-          </View>
-        </View>
-      ) : null}
-      <OptionSelectSheet
-        visible={model.orderSheetOpen}
-        title={form.orderSheetTitle}
-        searchPlaceholder={form.orderSearchPlaceholder}
-        searchLabel={form.orderSearchLabel}
-        closeLabel={form.closeSheet}
-        emptyLabel={form.orderEmpty}
-        value={model.selectedOrderId}
-        options={model.orderOptions}
-        searchMaxLength={LIST_ORDERS_QUERY_MAX}
-        onClose={model.closeOrderSheet}
-        onChange={(id) => {
-          if (id !== null) {
-            model.pickOrder(id);
+      backLabel={model.copy.backLabel}
+      onBack={model.requestLeave}
+      loadKind={model.state.kind}
+      loadingLabel={form.loadingLabel}
+      empty={{
+        offlineTitle: model.copy.empty.offlineTitle,
+        offlineDescription: model.copy.empty.offlineDescription,
+        errorTitle: model.copy.empty.errorTitle,
+        errorDescription: form.errors.unavailable,
+        permissionTitle: form.permissionCreateTitle,
+        permissionDescription: form.permissionCreateDescription,
+        retryLabel: model.copy.empty.retry,
+      }}
+      {...(model.state.kind === "ready" && model.showSubmit
+        ? {
+            footer: {
+              cancelLabel: form.cancel,
+              submitLabel: model.submitLabel,
+              pending: model.pending,
+              submitDisabled: model.submitDisabled,
+              onCancel: model.requestLeave,
+              onSubmit: model.save,
+            },
           }
-        }}
-      />
-      <OptionSelectSheet
-        visible={model.counterpartySheetOpen}
-        title={form.counterpartySheetTitle}
-        searchPlaceholder={form.counterpartySearchPlaceholder}
-        searchLabel={form.counterpartySearchLabel}
-        closeLabel={form.closeSheet}
-        emptyLabel={form.counterpartyEmpty}
-        emptyOptionLabel={form.counterpartyEmptyOption}
-        value={model.selectedCounterpartyId}
-        options={model.counterpartyOptions}
-        searchMaxLength={LIST_COUNTERPARTIES_SEARCH_MAX}
-        onClose={model.closeCounterpartySheet}
-        onChange={model.pickCounterparty}
-      />
-      <DocumentHandoverSheet
-        visible={model.handoverVisible}
-        title={model.handoverTitle}
-        url={model.handoverUrl}
-        copy={model.copy}
-        copied={model.copied}
-        copyFailed={model.copyFailed}
-        onClose={model.closeHandover}
-        onHidden={model.onHandoverHidden}
-        onCopy={() => {
-          void model.copyHandover();
-        }}
-        onShare={() => {
-          void model.shareHandover();
-        }}
-        onPrint={model.printHandover}
-      />
-    </SafeAreaView>
+        : {})}
+      overlay={
+        <>
+          <OptionSelectSheet
+            visible={model.orderSheetOpen}
+            title={form.orderSheetTitle}
+            searchPlaceholder={form.orderSearchPlaceholder}
+            searchLabel={form.orderSearchLabel}
+            closeLabel={form.closeSheet}
+            emptyLabel={form.orderEmpty}
+            value={model.selectedOrderId}
+            options={model.orderOptions}
+            searchMaxLength={LIST_ORDERS_QUERY_MAX}
+            onClose={model.closeOrderSheet}
+            onChange={(id) => {
+              if (id !== null) {
+                model.pickOrder(id);
+              }
+            }}
+          />
+          <OptionSelectSheet
+            visible={model.counterpartySheetOpen}
+            title={form.counterpartySheetTitle}
+            searchPlaceholder={form.counterpartySearchPlaceholder}
+            searchLabel={form.counterpartySearchLabel}
+            closeLabel={form.closeSheet}
+            emptyLabel={form.counterpartyEmpty}
+            emptyOptionLabel={form.counterpartyEmptyOption}
+            value={model.selectedCounterpartyId}
+            options={model.counterpartyOptions}
+            searchMaxLength={LIST_COUNTERPARTIES_SEARCH_MAX}
+            onClose={model.closeCounterpartySheet}
+            onChange={model.pickCounterparty}
+          />
+          <DocumentHandoverSheet
+            visible={model.handoverVisible}
+            title={model.handoverTitle}
+            url={model.handoverUrl}
+            copy={model.copy}
+            copied={model.copied}
+            copyFailed={model.copyFailed}
+            onClose={model.closeHandover}
+            onHidden={model.onHandoverHidden}
+            onCopy={() => {
+              void model.copyHandover();
+            }}
+            onShare={() => {
+              void model.shareHandover();
+            }}
+            onPrint={model.printHandover}
+          />
+        </>
+      }
+    >
+      <DocumentFormReady model={model} />
+    </FormScreenScaffold>
   );
-}
-
-function DocumentFormBody(props: { readonly model: DocumentFormModel }) {
-  const { model } = props;
-  const { theme } = useUnistyles();
-  const iconColor = theme.colors.mutedForeground;
-  const form = model.copy.form;
-
-  switch (model.state.kind) {
-    case "error":
-      return (
-        <CenteredEmpty>
-          <EmptyState
-            icon={<WifiOffIcon size={theme.iconSize.md} color={iconColor} />}
-            title={model.copy.empty.errorTitle}
-            description={form.errors.unavailable}
-          />
-        </CenteredEmpty>
-      );
-    case "permission":
-      return (
-        <CenteredEmpty>
-          <EmptyState
-            icon={<LockIcon size={theme.iconSize.md} color={iconColor} />}
-            title={form.permissionCreateTitle}
-            description={form.permissionCreateDescription}
-          />
-        </CenteredEmpty>
-      );
-    case "ready":
-      return <DocumentFormReady model={model} />;
-  }
 }
 
 function DocumentFormReady(props: { readonly model: DocumentFormModel }) {
@@ -223,15 +177,7 @@ function DocumentFormReady(props: { readonly model: DocumentFormModel }) {
   );
 }
 
-function CenteredEmpty(props: { readonly children: ReactNode }) {
-  return <View style={styles.centered}>{props.children}</View>;
-}
-
 const styles = StyleSheet.create((theme) => ({
-  screen: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
   scroll: {
     flex: 1,
   },
@@ -239,32 +185,5 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: theme.spacing.lg,
     paddingBottom: theme.spacing.lg,
     gap: theme.spacing.lg,
-  },
-  footerDock: {
-    backgroundColor: theme.colors.background,
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.md,
-    paddingBottom: theme.spacing.md,
-  },
-  footerCard: {
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.card,
-    borderRadius: theme.radii.card,
-    ...theme.squircle,
-    padding: theme.spacing.md,
-    gap: theme.spacing.sm,
-    ...theme.shadows.sm,
-  },
-  footerActions: {
-    flexDirection: "row",
-    gap: theme.spacing.sm,
-  },
-  footerButton: {
-    flex: 1,
-  },
-  centered: {
-    flex: 1,
-    justifyContent: "center",
   },
 }));
