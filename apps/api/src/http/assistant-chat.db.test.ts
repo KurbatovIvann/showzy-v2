@@ -425,7 +425,9 @@ describe("POST /assistant/chat authorization", () => {
     const prompt = JSON.stringify(model.doStreamCalls[0]?.prompt ?? []);
     expect(prompt).toContain("catalog.listProducts");
     expect(prompt).toContain(productId);
-    expect(prompt).toContain("Do not call a list tool solely to recover these ids");
+    expect(prompt).toContain(
+      "Do not call a list tool solely to recover these ids",
+    );
   });
 
   it("omits the working-set addendum when the conversation has no tool runs", async () => {
@@ -1528,8 +1530,7 @@ describe("POST /assistant/chat operational gate", () => {
     expect(names).toContain(STAFF_ASSISTANT_TOOL_SEARCH_NAME);
     expect(names).toContain(toProviderToolName("orders.list"));
     const deferred = streamTools(streamModel).find(
-      (tool) =>
-        tool.name === toProviderToolName("customers.deleteCustomer"),
+      (tool) => tool.name === toProviderToolName("customers.deleteCustomer"),
     );
     expect(deferred).toBeDefined();
     expect(streamToolProviderOptions(deferred)).toMatchObject({
@@ -1633,7 +1634,9 @@ describe("POST /assistant/chat operational gate", () => {
     expect(streamToolsLength(streamModel)).toBeGreaterThan(0);
     const resumeNames = streamToolNames(streamModel);
     expect(resumeNames).toContain(STAFF_ASSISTANT_TOOL_SEARCH_NAME);
-    expect(resumeNames).toContain(toProviderToolName("customers.deleteCustomer"));
+    expect(resumeNames).toContain(
+      toProviderToolName("customers.deleteCustomer"),
+    );
   });
 
   it("skips the gate on any follow-up after a tool-using turn", async () => {
@@ -1777,7 +1780,9 @@ describe("POST /assistant/chat operational gate", () => {
     });
     expect(weather.status).toBe(200);
     const payloads = await readUiMessageSsePayloads(weather);
-    expect(JSON.stringify(payloads)).toContain("I only help with this company.");
+    expect(JSON.stringify(payloads)).toContain(
+      "I only help with this company.",
+    );
     expect(gateModel.doGenerateCalls).toHaveLength(1);
     expect(gateModel.doStreamCalls).toHaveLength(0);
     expect(streamModel.doStreamCalls).toHaveLength(3);
@@ -1804,7 +1809,9 @@ describe("POST /assistant/chat operational gate", () => {
     });
     expect(response.status).toBe(200);
     const payloads = await readUiMessageSsePayloads(response);
-    expect(JSON.stringify(payloads)).toContain("I only help with this company.");
+    expect(JSON.stringify(payloads)).toContain(
+      "I only help with this company.",
+    );
     expect(streamModel.doStreamCalls).toHaveLength(0);
     expect(gateModel.doGenerateCalls).toHaveLength(1);
     expect(streamToolsLength(gateModel)).toBe(0);

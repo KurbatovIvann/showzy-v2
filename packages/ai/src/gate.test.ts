@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { classifyStaffAssistantTurn, STAFF_ASSISTANT_GATE_SYSTEM } from "./gate.js";
+import {
+  classifyStaffAssistantTurn,
+  STAFF_ASSISTANT_GATE_SYSTEM,
+} from "./gate.js";
 import { STAFF_ASSISTANT_PRODUCT_GLOSSARY } from "./product-glossary.js";
 import {
   MockLanguageModelV3,
@@ -18,7 +21,9 @@ const mockGateUsage = {
 
 describe("STAFF_ASSISTANT_GATE_SYSTEM", () => {
   it("shares the product glossary and treats Ukrainian capability questions as operational", () => {
-    expect(STAFF_ASSISTANT_GATE_SYSTEM).toContain(STAFF_ASSISTANT_PRODUCT_GLOSSARY);
+    expect(STAFF_ASSISTANT_GATE_SYSTEM).toContain(
+      STAFF_ASSISTANT_PRODUCT_GLOSSARY,
+    );
     expect(STAFF_ASSISTANT_GATE_SYSTEM).toContain(
       "Чи можеш ти створювати прайс-листи? → true",
     );
@@ -28,7 +33,9 @@ describe("STAFF_ASSISTANT_GATE_SYSTEM", () => {
     expect(STAFF_ASSISTANT_GATE_SYSTEM).toContain(
       "Яка погода в Києві? → false",
     );
-    expect(STAFF_ASSISTANT_GATE_SYSTEM).toContain("If you are unsure, operational true.");
+    expect(STAFF_ASSISTANT_GATE_SYSTEM).toContain(
+      "If you are unsure, operational true.",
+    );
     expect(STAFF_ASSISTANT_GATE_SYSTEM).not.toContain(
       "what you can do, or anything off-topic",
     );

@@ -17,7 +17,9 @@ describe("staffAssistantSystemPrompt", () => {
   });
 
   it("embeds the shared product glossary including Ukrainian pricing terms", () => {
-    expect(staffAssistantSystemPrompt).toContain(STAFF_ASSISTANT_PRODUCT_GLOSSARY);
+    expect(staffAssistantSystemPrompt).toContain(
+      STAFF_ASSISTANT_PRODUCT_GLOSSARY,
+    );
     expect(staffAssistantSystemPrompt).toContain("прайс лист");
     expect(staffAssistantSystemPrompt).toContain("pricing");
   });

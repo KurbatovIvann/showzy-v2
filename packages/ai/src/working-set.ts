@@ -23,7 +23,11 @@ export function staffAssistantWorkingSetAddendum(
   const grouped = new Map<string, string[]>();
   let remaining = STAFF_ASSISTANT_WORKING_SET_IDS_MAX;
 
-  for (let index = windowed.length - 1; index >= 0 && remaining > 0; index -= 1) {
+  for (
+    let index = windowed.length - 1;
+    index >= 0 && remaining > 0;
+    index -= 1
+  ) {
     const run = windowed[index];
     if (run === undefined || run.outcome !== "success") {
       continue;

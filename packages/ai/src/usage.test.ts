@@ -98,8 +98,8 @@ describe("staffAssistantCacheHitRatio", () => {
         cacheWriteTokens: 10,
       }),
     ).toBe(0.8);
-    expect(
-      staffAssistantCacheHitRatio(EMPTY_STAFF_ASSISTANT_TURN_USAGE),
-    ).toBe(0);
+    expect(staffAssistantCacheHitRatio(EMPTY_STAFF_ASSISTANT_TURN_USAGE)).toBe(
+      0,
+    );
   });
 });

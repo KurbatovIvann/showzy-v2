@@ -185,7 +185,9 @@ function logTurnUsage(options: {
         : {}),
       thinking: STAFF_ASSISTANT_THINKING_DISABLED,
       tools_attached: options.toolsAttached,
-      ...(options.gateSkip !== undefined ? { gate_skip: options.gateSkip } : {}),
+      ...(options.gateSkip !== undefined
+        ? { gate_skip: options.gateSkip }
+        : {}),
       gate_input_tokens: options.gateUsage.inputTokens,
       gate_output_tokens: options.gateUsage.outputTokens,
       model_steps: options.modelSteps,

@@ -114,7 +114,9 @@ describe("staffAssistantModelMessages", () => {
         return {
           id,
           role: "assistant" as const,
-          parts: [{ type: "text" as const, text: `assistant-${String(index)}` }],
+          parts: [
+            { type: "text" as const, text: `assistant-${String(index)}` },
+          ],
         };
       }
       return {

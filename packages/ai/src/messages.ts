@@ -145,9 +145,10 @@ function modelContentChars(content: ModelMessage["content"]): number {
 }
 
 /** Count and character length of model messages (text parts only). */
-export function staffAssistantHistoryStats(
-  messages: readonly ModelMessage[],
-): { readonly messageCount: number; readonly chars: number } {
+export function staffAssistantHistoryStats(messages: readonly ModelMessage[]): {
+  readonly messageCount: number;
+  readonly chars: number;
+} {
   let chars = 0;
   for (const message of messages) {
     chars += modelContentChars(message.content);

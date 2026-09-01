@@ -25,7 +25,8 @@ export const STAFF_ASSISTANT_ANTHROPIC_RATES_USD_PER_MTOK = {
   },
 } as const;
 
-export type StaffAssistantAnthropicRateTier = keyof typeof STAFF_ASSISTANT_ANTHROPIC_RATES_USD_PER_MTOK;
+export type StaffAssistantAnthropicRateTier =
+  keyof typeof STAFF_ASSISTANT_ANTHROPIC_RATES_USD_PER_MTOK;
 
 export function staffAssistantAnthropicRateTier(
   modelId: string,
@@ -51,10 +52,7 @@ export function estimateStaffAssistantCostUsd(
     ];
   const cacheRead = usage.cacheReadTokens;
   const cacheWrite = usage.cacheWriteTokens;
-  const uncachedInput = Math.max(
-    0,
-    usage.inputTokens - cacheRead - cacheWrite,
-  );
+  const uncachedInput = Math.max(0, usage.inputTokens - cacheRead - cacheWrite);
   const usd =
     (uncachedInput * rates.input +
       cacheRead * rates.cacheRead +

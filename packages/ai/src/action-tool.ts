@@ -119,7 +119,12 @@ export function staffAssistantTools(
     if (HOT_ACTION_NAME_SET.has(contract.name)) {
       continue;
     }
-    insertActionTool(tools, contract, execute, STAFF_ASSISTANT_DEFER_PROVIDER_OPTIONS);
+    insertActionTool(
+      tools,
+      contract,
+      execute,
+      STAFF_ASSISTANT_DEFER_PROVIDER_OPTIONS,
+    );
   }
 
   markLastNonDeferredToolCacheBreakpoint(tools);
@@ -140,9 +145,7 @@ function insertActionTool(
   }
   const aiTool = actionContractToTool(contract, execute);
   tools[providerName] =
-    providerOptions === undefined
-      ? aiTool
-      : { ...aiTool, providerOptions };
+    providerOptions === undefined ? aiTool : { ...aiTool, providerOptions };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -154,7 +157,9 @@ function isDeferredTool(tool: { readonly providerOptions?: unknown }): boolean {
     return false;
   }
   const anthropicOptions = tool.providerOptions["anthropic"];
-  return isRecord(anthropicOptions) && anthropicOptions["deferLoading"] === true;
+  return (
+    isRecord(anthropicOptions) && anthropicOptions["deferLoading"] === true
+  );
 }
 
 function markLastNonDeferredToolCacheBreakpoint(tools: ToolSet): void {

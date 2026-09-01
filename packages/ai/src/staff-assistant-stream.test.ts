@@ -238,7 +238,9 @@ describe("streamStaffAssistantChat", () => {
       (part) => part.role === "system",
     );
     expect(systemMessages.length).toBe(1);
-    expect(systemMessages[0]).toMatchObject({ content: staffAssistantSystemPrompt });
+    expect(systemMessages[0]).toMatchObject({
+      content: staffAssistantSystemPrompt,
+    });
     expect(anthropicCacheControl(systemMessages[0])).toEqual(
       STAFF_ASSISTANT_CACHE_CONTROL,
     );
@@ -265,7 +267,9 @@ describe("streamStaffAssistantChat", () => {
   it("injects an uncached working-set system message without a second list call", async () => {
     const productId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
     const model = new MockLanguageModelV3({
-      doStream: [mockTextStream("Those products are already in the working set.")],
+      doStream: [
+        mockTextStream("Those products are already in the working set."),
+      ],
     });
     const execute = vi.fn(() => Promise.resolve({ items: [] }));
     const workingSetAddendum = staffAssistantWorkingSetAddendum([
