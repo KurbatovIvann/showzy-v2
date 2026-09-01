@@ -30,6 +30,52 @@ async function waitForSection(region: string): Promise<void> {
   expect(await screen.findByRole("region", { name: region })).toBeDefined();
 }
 
+const SECTION_URLS: ReadonlyArray<{
+  readonly path: string;
+  readonly region: string;
+}> = [
+  { path: "/kviti-lviv/orders", region: "Замовлення" },
+  { path: "/kviti-lviv/orders/ord-1", region: "Замовлення" },
+  { path: "/kviti-lviv/orders/new", region: "Замовлення" },
+  { path: "/kviti-lviv/documents", region: "Документи" },
+  { path: "/kviti-lviv/documents/doc-1", region: "Документи" },
+  { path: "/kviti-lviv/documents/new", region: "Документи" },
+  { path: "/kviti-lviv/documents/templates", region: "Документи" },
+  { path: "/kviti-lviv/documents/templates/tmpl-1", region: "Документи" },
+  { path: "/kviti-lviv/products", region: "Товари" },
+  { path: "/kviti-lviv/products/new", region: "Товари" },
+  { path: "/kviti-lviv/products/prod-1", region: "Товари" },
+  { path: "/kviti-lviv/products/prod-1/edit", region: "Товари" },
+  { path: "/kviti-lviv/customers", region: "Клієнти" },
+  { path: "/kviti-lviv/customers/new", region: "Клієнти" },
+  { path: "/kviti-lviv/customers/c-1", region: "Клієнти" },
+  { path: "/kviti-lviv/customers/groups", region: "Групи клієнтів" },
+  { path: "/kviti-lviv/customers/groups/g-1", region: "Групи клієнтів" },
+  { path: "/kviti-lviv/customers/groups/new", region: "Групи клієнтів" },
+  {
+    path: "/kviti-lviv/customers/counterparties",
+    region: "Контрагенти",
+  },
+  {
+    path: "/kviti-lviv/customers/counterparties/cp-1",
+    region: "Контрагенти",
+  },
+  {
+    path: "/kviti-lviv/customers/counterparties/new",
+    region: "Контрагенти",
+  },
+  { path: "/kviti-lviv/invites", region: "Запрошення" },
+  { path: "/kviti-lviv/invites/inv-1", region: "Запрошення" },
+  { path: "/kviti-lviv/invites/new", region: "Запрошення" },
+  { path: "/kviti-lviv/pricing", region: "Прайс-листи" },
+  { path: "/kviti-lviv/pricing/pl-1", region: "Прайс-листи" },
+  { path: "/kviti-lviv/pricing/new", region: "Прайс-листи" },
+  { path: "/kviti-lviv/pricing/pl-1/edit", region: "Прайс-листи" },
+  { path: "/kviti-lviv/company", region: "Компанія" },
+  { path: "/kviti-lviv/company/legal", region: "Компанія" },
+  { path: "/kviti-lviv/company/team", region: "Компанія" },
+];
+
 describe("directory route tree (SHO-327)", () => {
   it("resolves the products index through the pathless panel layout without a URL segment", async () => {
     signInWithFlowers();
@@ -148,64 +194,13 @@ describe("directory route tree (SHO-327)", () => {
     expect(routeIds(router)).toEqual(deepIds);
   });
 
-  it("covers list, detail, create, and edit URLs for every declared section", async () => {
+  // One `it` per URL so each remount gets a fresh 15s timeout (SHO-332).
+  it.each(SECTION_URLS)("covers $path ($region)", async ({ path, region }) => {
     signInWithFlowers();
-    const cases: ReadonlyArray<{
-      readonly path: string;
-      readonly region: string;
-    }> = [
-      { path: "/kviti-lviv/orders", region: "Замовлення" },
-      { path: "/kviti-lviv/orders/ord-1", region: "Замовлення" },
-      { path: "/kviti-lviv/orders/new", region: "Замовлення" },
-      { path: "/kviti-lviv/documents", region: "Документи" },
-      { path: "/kviti-lviv/documents/doc-1", region: "Документи" },
-      { path: "/kviti-lviv/documents/new", region: "Документи" },
-      { path: "/kviti-lviv/documents/templates", region: "Документи" },
-      { path: "/kviti-lviv/documents/templates/tmpl-1", region: "Документи" },
-      { path: "/kviti-lviv/products", region: "Товари" },
-      { path: "/kviti-lviv/products/new", region: "Товари" },
-      { path: "/kviti-lviv/products/prod-1", region: "Товари" },
-      { path: "/kviti-lviv/products/prod-1/edit", region: "Товари" },
-      { path: "/kviti-lviv/customers", region: "Клієнти" },
-      { path: "/kviti-lviv/customers/new", region: "Клієнти" },
-      { path: "/kviti-lviv/customers/c-1", region: "Клієнти" },
-      { path: "/kviti-lviv/customers/groups", region: "Групи клієнтів" },
-      { path: "/kviti-lviv/customers/groups/g-1", region: "Групи клієнтів" },
-      { path: "/kviti-lviv/customers/groups/new", region: "Групи клієнтів" },
-      {
-        path: "/kviti-lviv/customers/counterparties",
-        region: "Контрагенти",
-      },
-      {
-        path: "/kviti-lviv/customers/counterparties/cp-1",
-        region: "Контрагенти",
-      },
-      {
-        path: "/kviti-lviv/customers/counterparties/new",
-        region: "Контрагенти",
-      },
-      { path: "/kviti-lviv/invites", region: "Запрошення" },
-      { path: "/kviti-lviv/invites/inv-1", region: "Запрошення" },
-      { path: "/kviti-lviv/invites/new", region: "Запрошення" },
-      { path: "/kviti-lviv/pricing", region: "Прайс-листи" },
-      { path: "/kviti-lviv/pricing/pl-1", region: "Прайс-листи" },
-      { path: "/kviti-lviv/pricing/new", region: "Прайс-листи" },
-      { path: "/kviti-lviv/pricing/pl-1/edit", region: "Прайс-листи" },
-      { path: "/kviti-lviv/company", region: "Компанія" },
-      { path: "/kviti-lviv/company/legal", region: "Компанія" },
-      { path: "/kviti-lviv/company/team", region: "Компанія" },
-    ];
-
-    for (const [index, item] of cases.entries()) {
-      if (index > 0) {
-        cleanup();
-        signInWithFlowers();
-      }
-      const { router } = await renderApp(item.path);
-      await waitForSection(item.region);
-      expect(router.state.location.pathname).toBe(item.path);
-      expect(routeIds(router).some((id) => id.includes("/_panel"))).toBe(true);
-    }
+    const { router } = await renderApp(path);
+    await waitForSection(region);
+    expect(router.state.location.pathname).toBe(path);
+    expect(routeIds(router).some((id) => id.includes("/_panel"))).toBe(true);
   });
 
   it("keeps onboarding outside company scope", async () => {

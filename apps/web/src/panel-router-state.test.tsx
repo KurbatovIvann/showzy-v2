@@ -84,101 +84,99 @@ async function waitForRegion(region: string): Promise<void> {
   expect(await screen.findByRole("region", { name: region })).toBeDefined();
 }
 
-describe("route-match panel state (SHO-328)", () => {
-  it("resolves section, pane, and listTo from matched staticData", async () => {
-    signInWithFlowers();
-    const cases: ReadonlyArray<{
-      readonly path: string;
-      readonly region?: string;
-      readonly panelSection: string | undefined;
-      readonly pane: string | undefined;
-      readonly listTo: string | undefined;
-    }> = [
-      {
-        path: "/kviti-lviv",
-        region: "Замовлення",
-        panelSection: "orders",
-        pane: "list",
-        listTo: "/$companySlug/orders",
-      },
-      {
-        path: "/kviti-lviv/orders/ord-1",
-        region: "Замовлення",
-        panelSection: "orders",
-        pane: "detail",
-        listTo: "/$companySlug/orders",
-      },
-      {
-        path: "/kviti-lviv/documents/templates",
-        region: "Документи",
-        panelSection: "documents",
-        pane: "list",
-        listTo: "/$companySlug/documents/templates",
-      },
-      {
-        path: "/kviti-lviv/documents/templates/tmpl-1",
-        region: "Документи",
-        panelSection: "documents",
-        pane: "detail",
-        listTo: "/$companySlug/documents/templates",
-      },
-      {
-        path: "/kviti-lviv/customers/groups",
-        region: "Групи клієнтів",
-        panelSection: "customer-groups",
-        pane: "list",
-        listTo: "/$companySlug/customers/groups",
-      },
-      {
-        path: "/kviti-lviv/customers/groups/g-1",
-        region: "Групи клієнтів",
-        panelSection: "customer-groups",
-        pane: "detail",
-        listTo: "/$companySlug/customers/groups",
-      },
-      {
-        path: "/kviti-lviv/customers/counterparties/cp-1",
-        region: "Контрагенти",
-        panelSection: "counterparties",
-        pane: "detail",
-        listTo: "/$companySlug/customers/counterparties",
-      },
-      {
-        path: "/kviti-lviv/company/legal",
-        region: "Компанія",
-        panelSection: "company",
-        pane: "detail",
-        listTo: "/$companySlug/company",
-      },
-      {
-        path: "/kviti-lviv/documents/templates/tmpl-1/edit",
-        panelSection: undefined,
-        pane: undefined,
-        listTo: undefined,
-      },
-    ];
+const MATCH_CASES: ReadonlyArray<{
+  readonly path: string;
+  readonly region?: string;
+  readonly panelSection: string | undefined;
+  readonly pane: string | undefined;
+  readonly listTo: string | undefined;
+}> = [
+  {
+    path: "/kviti-lviv",
+    region: "Замовлення",
+    panelSection: "orders",
+    pane: "list",
+    listTo: "/$companySlug/orders",
+  },
+  {
+    path: "/kviti-lviv/orders/ord-1",
+    region: "Замовлення",
+    panelSection: "orders",
+    pane: "detail",
+    listTo: "/$companySlug/orders",
+  },
+  {
+    path: "/kviti-lviv/documents/templates",
+    region: "Документи",
+    panelSection: "documents",
+    pane: "list",
+    listTo: "/$companySlug/documents/templates",
+  },
+  {
+    path: "/kviti-lviv/documents/templates/tmpl-1",
+    region: "Документи",
+    panelSection: "documents",
+    pane: "detail",
+    listTo: "/$companySlug/documents/templates",
+  },
+  {
+    path: "/kviti-lviv/customers/groups",
+    region: "Групи клієнтів",
+    panelSection: "customer-groups",
+    pane: "list",
+    listTo: "/$companySlug/customers/groups",
+  },
+  {
+    path: "/kviti-lviv/customers/groups/g-1",
+    region: "Групи клієнтів",
+    panelSection: "customer-groups",
+    pane: "detail",
+    listTo: "/$companySlug/customers/groups",
+  },
+  {
+    path: "/kviti-lviv/customers/counterparties/cp-1",
+    region: "Контрагенти",
+    panelSection: "counterparties",
+    pane: "detail",
+    listTo: "/$companySlug/customers/counterparties",
+  },
+  {
+    path: "/kviti-lviv/company/legal",
+    region: "Компанія",
+    panelSection: "company",
+    pane: "detail",
+    listTo: "/$companySlug/company",
+  },
+  {
+    path: "/kviti-lviv/documents/templates/tmpl-1/edit",
+    panelSection: undefined,
+    pane: undefined,
+    listTo: undefined,
+  },
+];
 
-    for (const [index, item] of cases.entries()) {
-      if (index > 0) {
-        cleanup();
-        signInWithFlowers();
-      }
-      const { router } = await renderApp(item.path);
-      if (item.region === undefined) {
+describe("route-match panel state (SHO-328)", () => {
+  // One `it` per URL so each remount gets a fresh 15s timeout (SHO-332).
+  it.each(MATCH_CASES)(
+    "resolves $path (section=$panelSection pane=$pane)",
+    async ({ path, region, panelSection, pane, listTo }) => {
+      signInWithFlowers();
+      const { router } = await renderApp(path);
+      if (region === undefined) {
         expect(
           await screen.findByRole("heading", { name: "Модуль у розробці" }),
         ).toBeDefined();
         expect(document.querySelector(".panel-shell")).toBeNull();
       } else {
-        await waitForRegion(item.region);
+        await waitForRegion(region);
       }
-      expect(router.state.location.pathname).toBe(item.path);
+      expect(router.state.location.pathname).toBe(path);
       const resolved = resolvePanelStateFromMatches(router.state.matches);
-      expect(resolved?.panelSection).toBe(item.panelSection);
-      expect(resolved?.pane).toBe(item.pane);
-      expect(resolved?.listTo).toBe(item.listTo);
-    }
-  });
+      expect(resolved?.panelSection).toBe(panelSection);
+      expect(resolved?.pane).toBe(pane);
+      expect(resolved?.listTo).toBe(listTo);
+    },
+  );
 });
 
 describe("typed Link tabs and nav (SHO-328)", () => {
@@ -323,45 +321,31 @@ describe("typed Link tabs and nav (SHO-328)", () => {
     ).toBeNull();
   });
 
-  it("keeps the issued documents tab current on a document detail and create", async () => {
+  it.each([
+    "/kviti-lviv/documents/doc-1",
+    "/kviti-lviv/documents/new",
+  ] as const)("keeps the issued documents tab current on %s", async (path) => {
     signInWithFlowers();
-    const cases = [
-      "/kviti-lviv/documents/doc-1",
-      "/kviti-lviv/documents/new",
-    ] as const;
-    for (const [index, path] of cases.entries()) {
-      if (index > 0) {
-        cleanup();
-        signInWithFlowers();
-      }
-      await renderApp(path);
-      await waitForRegion("Документи");
-      setShellWidth(1280);
-      const region = screen.getByRole("region", { name: "Документи" });
-      expect(
-        within(region)
-          .getByRole("link", { name: "Документи" })
-          .getAttribute("aria-current"),
-      ).toBe("page");
-      expect(
-        within(region)
-          .getByRole("link", { name: "Шаблони" })
-          .getAttribute("aria-current"),
-      ).toBeNull();
-    }
+    await renderApp(path);
+    await waitForRegion("Документи");
+    setShellWidth(1280);
+    const region = screen.getByRole("region", { name: "Документи" });
+    expect(
+      within(region)
+        .getByRole("link", { name: "Документи" })
+        .getAttribute("aria-current"),
+    ).toBe("page");
+    expect(
+      within(region)
+        .getByRole("link", { name: "Шаблони" })
+        .getAttribute("aria-current"),
+    ).toBeNull();
   });
 
-  it("keeps the clients tab current on a customer detail and create", async () => {
-    signInWithFlowers();
-    const cases = [
-      "/kviti-lviv/customers/c-1",
-      "/kviti-lviv/customers/new",
-    ] as const;
-    for (const [index, path] of cases.entries()) {
-      if (index > 0) {
-        cleanup();
-        signInWithFlowers();
-      }
+  it.each(["/kviti-lviv/customers/c-1", "/kviti-lviv/customers/new"] as const)(
+    "keeps the clients tab current on %s",
+    async (path) => {
+      signInWithFlowers();
       await renderApp(path);
       await waitForRegion("Клієнти");
       setShellWidth(1280);
@@ -381,8 +365,8 @@ describe("typed Link tabs and nav (SHO-328)", () => {
           .getByRole("link", { name: "Контрагенти" })
           .getAttribute("aria-current"),
       ).toBeNull();
-    }
-  });
+    },
+  );
 
   it("keeps the orders nav current on the company home URL", async () => {
     signInWithFlowers();
