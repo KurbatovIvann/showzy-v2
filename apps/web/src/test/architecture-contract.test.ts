@@ -214,16 +214,10 @@ describe("CI smoke contract (SHO-331)", () => {
       join(webRoot, "playwright.config.ts"),
       "utf8",
     );
-    const webPackage: unknown = JSON.parse(
-      readFileSync(join(webRoot, "package.json"), "utf8"),
-    );
+    const webPackage = readFileSync(join(webRoot, "package.json"), "utf8");
 
-    expect(webPackage).toEqual(
-      expect.objectContaining({
-        scripts: expect.objectContaining({
-          "e2e-smoke": "vite build && playwright test",
-        }),
-      }),
+    expect(webPackage).toContain(
+      '"e2e-smoke": "vite build && playwright test"',
     );
     expect(playwrightConfig).toContain('testDir: "./e2e"');
     expect(playwrightConfig).toContain("retries: 0");
