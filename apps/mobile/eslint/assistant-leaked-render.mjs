@@ -23,3 +23,15 @@ export const assistantRestrictedSyntax = [
   doubleAssertionBan,
   assistantJsxNoLeakedRender,
 ];
+
+/**
+ * Assistant TSX override. Exported as a single config object so tests can
+ * assert wiring without `ESLint#calculateConfigForFile` against the typed
+ * app preset (`projectService: true` timed out under CI load — SHO-342).
+ */
+export const assistantTsxOverride = {
+  files: ["src/features/assistant/**/*.tsx"],
+  rules: {
+    "no-restricted-syntax": ["error", ...assistantRestrictedSyntax],
+  },
+};

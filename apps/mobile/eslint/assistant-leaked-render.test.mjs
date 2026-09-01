@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import {
   assistantJsxNoLeakedRender,
   assistantRestrictedSyntax,
+  assistantTsxOverride,
 } from "./assistant-leaked-render.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -95,7 +97,26 @@ describe("assistantRestrictedSyntax", () => {
   });
 
   it("wires both selectors into the assistant TSX ESLint override", async () => {
-    const eslint = new ESLint({ cwd: join(here, "..") });
+    const eslintConfig = readFileSync(
+      join(here, "../eslint.config.mjs"),
+      "utf8",
+    );
+    expect(eslintConfig).toContain(
+      'import { assistantTsxOverride } from "./eslint/assistant-leaked-render.mjs"',
+    );
+    expect(eslintConfig).toContain("assistantTsxOverride,");
+    expect(assistantTsxOverride.files).toEqual([
+      "src/features/assistant/**/*.tsx",
+    ]);
+
+    // Resolve against the exported override only. Loading the app config
+    // pulls `tseslint.configs.strictTypeChecked` + `projectService: true`
+    // and timed out at Vitest's 5s default under CI load (SHO-342).
+    const eslint = new ESLint({
+      cwd: join(here, ".."),
+      overrideConfigFile: true,
+      overrideConfig: [assistantTsxOverride],
+    });
     const config = await eslint.calculateConfigForFile(
       join(here, "../src/features/assistant/sheet/confirmation-card.tsx"),
     );
