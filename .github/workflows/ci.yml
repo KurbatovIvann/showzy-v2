@@ -10,6 +10,8 @@
 # aggregator and must keep that name. SHO-335 persists `.turbo` via GitHub
 # Actions cache (not Vercel remote cache) and runs Turbo `--affected` on pull
 # requests when the comparison base resolves; `main` stays a full suite.
+# SHO-336 splits Vitest into `test-unit` (Turbo/affected, no Postgres) and
+# `test-db` (one Vitest process, one PostgreSQL template per job).
 #
 # All third-party actions are pinned to full commit SHAs (verified against the
 # official repos' tags) because this workflow is itself the merge gate.
@@ -110,7 +112,7 @@ jobs:
           JOB_RESULT: ${{ job.status }}
         run: bash packages/tooling/ci/publish-job-timing.sh
 
-  test:
+  test-unit:
     runs-on: ubuntu-latest
     env:
       TURBO_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -128,8 +130,36 @@ jobs:
         uses: ./.github/actions/setup-ci-workspace
       - name: Turbo local cache
         uses: ./.github/actions/turbo-local-cache
-      - name: Vitest
-        run: time -p node packages/tooling/ci/run-turbo.mjs test
+      - name: Vitest unit
+        run: time -p node packages/tooling/ci/run-turbo.mjs test:unit --concurrency=2
+      - name: Publish job timing
+        if: always()
+        env:
+          JOB_RESULT: ${{ job.status }}
+        run: bash packages/tooling/ci/publish-job-timing.sh
+
+  test-db:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Record job start
+        run: echo "JOB_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
+      - name: Export DB harness probe paths
+        env:
+          SHOWZY_DB_HARNESS_SETUP_COUNT_FILE: "${{ runner.temp }}/showzy-db-setup-count"
+          SHOWZY_DB_HARNESS_DB_NAMES_FILE: "${{ runner.temp }}/showzy-db-names"
+        run: |
+          echo "SHOWZY_DB_HARNESS_SETUP_COUNT_FILE=$SHOWZY_DB_HARNESS_SETUP_COUNT_FILE" >> "$GITHUB_ENV"
+          echo "SHOWZY_DB_HARNESS_DB_NAMES_FILE=$SHOWZY_DB_HARNESS_DB_NAMES_FILE" >> "$GITHUB_ENV"
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Setup CI workspace
+        uses: ./.github/actions/setup-ci-workspace
+      - name: Assert DB suite collects every on-disk DB test
+        run: time -p node packages/tooling/ci/assert-test-suite-collection.mjs
+      - name: Vitest DB (one PostgreSQL template)
+        run: time -p pnpm test:db
+      - name: Assert one PostgreSQL template for this job
+        run: node packages/tooling/ci/assert-shared-db-runtime.mjs
       - name: Publish job timing
         if: always()
         env:
@@ -315,7 +345,8 @@ jobs:
       - format
       - typecheck
       - lint
-      - test
+      - test-unit
+      - test-db
       - build-smoke
       - secret-scan
       - dependency-audit
@@ -335,7 +366,8 @@ jobs:
           format=${{ needs.format.result }}
           typecheck=${{ needs.typecheck.result }}
           lint=${{ needs.lint.result }}
-          test=${{ needs.test.result }}
+          test-unit=${{ needs.test-unit.result }}
+          test-db=${{ needs.test-db.result }}
           build-smoke=${{ needs.build-smoke.result }}
           secret-scan=${{ needs.secret-scan.result }}
           dependency-audit=${{ needs.dependency-audit.result }}

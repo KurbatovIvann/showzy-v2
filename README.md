@@ -40,6 +40,18 @@ Runtime configuration is validated at boot by `packages/config` — an invalid
 or incomplete `.env` fails fast with the offending keys named (secret values
 are never echoed).
 
+## Tests
+
+```bash
+pnpm test:unit    # Vitest unit projects / packages — no Testcontainers
+pnpm test:db      # all *.db.test.ts plus packages/db Postgres tests; one PostgreSQL
+pnpm test         # unit then DB (local default)
+```
+
+`pnpm --filter @showzy/orders test` still runs that package's unit and DB
+projects (its own container). Prefer root `pnpm test:db` when you want the
+shared CI runtime.
+
 ## Mobile (Expo)
 
 Unistyles 3 requires a custom [development build](https://docs.expo.dev/develop/development-builds/introduction/)

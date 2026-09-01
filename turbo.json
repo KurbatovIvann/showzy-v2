@@ -42,6 +42,14 @@
         "playwright.config.*"
       ]
     },
+    "test:unit": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "vitest.config.*",
+        "vite.config.*",
+        "playwright.config.*"
+      ]
+    },
     "e2e-smoke": {
       "cache": false
     }

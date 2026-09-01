@@ -24,7 +24,8 @@ const PARALLEL_CHECK_JOBS = [
   "format",
   "typecheck",
   "lint",
-  "test",
+  "test-unit",
+  "test-db",
   "build-smoke",
 ];
 
@@ -78,12 +79,33 @@ function jobIf(block) {
   return match ? match[1].trim() : undefined;
 }
 
+/**
+ * Job header is the YAML before `steps:`. GitHub evaluates
+ * `jobs.<id>.env` without the `runner` context (parse failure).
+ * @param {string} block
+ */
+function jobHeader(block) {
+  return block.split(/^ {4}steps:/m)[0] ?? "";
+}
+
+/**
+ * @param {string} source
+ * @returns {string[]}
+ */
+function jobIds(source) {
+  const jobsStart = source.search(/^jobs:\s*$/m);
+  const jobsSource = jobsStart < 0 ? source : source.slice(jobsStart);
+  return [...jobsSource.matchAll(/^ {2}([a-z][a-z0-9-]*):\s*$/gm)].map(
+    (match) => match[1],
+  );
+}
+
 const turboCacheActionPath = path.join(
   repoRoot,
   ".github/actions/turbo-local-cache/action.yml",
 );
 
-const TURBO_TASK_JOBS = ["typecheck", "lint", "test", "build-smoke"];
+const TURBO_TASK_JOBS = ["typecheck", "lint", "test-unit", "build-smoke"];
 
 const workflow = fs.readFileSync(workflowPath, "utf8");
 const setupAction = fs.readFileSync(setupActionPath, "utf8");
@@ -99,7 +121,7 @@ test("CI workflow keeps concurrency cancellation and has no retries", () => {
   assert.doesNotMatch(workflow, /continue-on-error:\s*true/);
 });
 
-test("format, typecheck, lint, test, and build-smoke are independent jobs", () => {
+test("format, typecheck, lint, test-unit, test-db, and build-smoke are independent jobs", () => {
   for (const name of PARALLEL_CHECK_JOBS) {
     const block = extractJob(workflow, name);
     assert.deepEqual(
@@ -116,7 +138,24 @@ test("format, typecheck, lint, test, and build-smoke are independent jobs", () =
   assert.match(extractJob(workflow, "format"), /pnpm format:check/);
   assert.match(extractJob(workflow, "typecheck"), /run-turbo\.mjs typecheck/);
   assert.match(extractJob(workflow, "lint"), /run-turbo\.mjs lint/);
-  assert.match(extractJob(workflow, "test"), /run-turbo\.mjs test/);
+  const testUnit = extractJob(workflow, "test-unit");
+  assert.match(testUnit, /run-turbo\.mjs test:unit/);
+  assert.doesNotMatch(testUnit, /pnpm test:db/);
+  const testDb = extractJob(workflow, "test-db");
+  assert.match(testDb, /pnpm test:db/);
+  assert.match(testDb, /assert-shared-db-runtime\.mjs/);
+  assert.match(testDb, /assert-test-suite-collection\.mjs/);
+  const collectAt = testDb.indexOf("assert-test-suite-collection.mjs");
+  const runAt = testDb.indexOf("pnpm test:db");
+  const probeAt = testDb.indexOf("assert-shared-db-runtime.mjs");
+  assert.ok(
+    collectAt >= 0 && collectAt < runAt && runAt < probeAt,
+    "test-db must collect, then run one suite, then assert one template",
+  );
+  assert.doesNotMatch(testDb, /run-turbo\.mjs/);
+  assert.doesNotMatch(testDb, /turbo-local-cache/);
+  assert.doesNotMatch(testDb, /--shard/);
+  assert.doesNotMatch(workflow, /^ {2}test:\s*$/m);
 
   const buildSmoke = extractJob(workflow, "build-smoke");
   assert.match(
@@ -129,7 +168,7 @@ test("format, typecheck, lint, test, and build-smoke are independent jobs", () =
   assert.doesNotMatch(serialChecks, /pnpm format:check/);
   assert.doesNotMatch(serialChecks, /pnpm typecheck/);
   assert.doesNotMatch(serialChecks, /pnpm lint/);
-  assert.doesNotMatch(serialChecks, /pnpm test/);
+  assert.doesNotMatch(serialChecks, /pnpm test[^\n-]/);
 });
 
 test("secret-scan and the other named gates remain independent workers", () => {
@@ -157,6 +196,38 @@ test("secret-scan and the other named gates remain independent workers", () => {
   assert.match(e2eSmoke, /playwright install --with-deps chromium/);
   assert.match(e2eSmoke, /e2e-smoke --filter=@showzy\/web/);
   assert.doesNotMatch(e2eSmoke, /Placeholder/);
+});
+
+test("job-header scan rejects the GitHub parse failure of runner in jobs.env", () => {
+  const invalidJob = `  test-db:
+    runs-on: ubuntu-latest
+    env:
+      SHOWZY_DB_HARNESS_SETUP_COUNT_FILE: \${{ runner.temp }}/showzy-db-setup-count
+    steps:
+      - run: echo ok
+`;
+  assert.match(jobHeader(invalidJob), /\$\{\{\s*runner\./);
+});
+
+test("job-level env cannot use the runner context", () => {
+  const ids = jobIds(workflow);
+  assert.ok(ids.includes("test-db"), "test-db job must exist");
+  for (const name of ids) {
+    const header = jobHeader(extractJob(workflow, name));
+    assert.doesNotMatch(
+      header,
+      /\$\{\{\s*runner\./,
+      `${name}: runner is invalid in jobs.<id>.env (GitHub parse failure)`,
+    );
+  }
+
+  const testDb = extractJob(workflow, "test-db");
+  const header = jobHeader(testDb);
+  assert.doesNotMatch(header, /SHOWZY_DB_HARNESS_/);
+  assert.match(testDb, /SHOWZY_DB_HARNESS_SETUP_COUNT_FILE/);
+  assert.match(testDb, /SHOWZY_DB_HARNESS_DB_NAMES_FILE/);
+  assert.match(testDb, /GITHUB_ENV/);
+  assert.match(testDb, /\$\{\{\s*runner\.temp\s*\}\}/);
 });
 
 test("checks is a fail-closed aggregator over every required quality job", () => {

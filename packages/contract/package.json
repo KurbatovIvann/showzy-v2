@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit && tsc -p tsconfig.client.json --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:unit": "vitest run --project unit",
     "bundle:probe": "node scripts/bundle-probe.mjs",
     "openapi:generate": "node scripts/write-openapi.mjs",
     "openapi:check": "pnpm openapi:generate && node ../db/scripts/assert-clean-path.mjs openapi.json"

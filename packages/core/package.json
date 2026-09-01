@@ -13,7 +13,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit && tsc -p tsconfig.contract.json --noEmit",
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:unit": "vitest run --project unit"
   },
   "dependencies": {
     "@showzy/db": "workspace:*",
