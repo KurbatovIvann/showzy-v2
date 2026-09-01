@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { CompanyHomeScreen } from "../../../../features/companies/home/company-home-screen";
+import { SectionWorkspacePage } from "../../../../layouts/panel/section-workspace";
 
 export const Route = createFileRoute("/_authed/$companySlug/_panel/")({
   staticData: {
@@ -10,9 +10,5 @@ export const Route = createFileRoute("/_authed/$companySlug/_panel/")({
       listTo: "/$companySlug/orders",
     },
   },
-  component: CompanyHomeRoute,
+  component: SectionWorkspacePage,
 });
-
-function CompanyHomeRoute() {
-  return <CompanyHomeScreen />;
-}

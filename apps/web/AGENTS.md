@@ -56,12 +56,11 @@ apps/web/src/
     support/
 ```
 
-**Today on `main` (do not move in a documentation ticket):** composition
-lives at `src/main.tsx`, `src/router.tsx`, `src/app-providers.tsx`; panel
-chrome lives at `src/features/panel/`; some integration tests sit at
-`src/*.test.tsx`. Later tickets in SHO-325 move files to match this
-tree. Until then, follow the **roles** below even if the path still
-uses today's location.
+**Placement is the tree above.** Feature subfolders (`api/`, `list/`,
+`detail/`, `form/`, `shared/`, `testing/`) are created **when the first
+real file needs them**. Do not create empty folders to match the
+diagram. Integration suites live under `src/test/integration/`;
+shared fixtures/support stay under `src/test/`.
 
 ## Ownership
 
@@ -90,16 +89,19 @@ app/          → routes, api, auth, layouts, features (composition only)
 routes/       → layouts, features/* pages, api (prefetch only)
 layouts/      → components/ui, i18n, prefs, auth (session display);
                 may compose features/companies switcher — not other domains
-features/A    → api/, components/ui, i18n, auth, prefs;
+features/A    → api/, components/ui, i18n, src/auth, prefs;
                 A/api → src/api helpers;
                 A/list|detail|form → same-area api/ and shared/
                 form/ must not import detail/ (and vice versa)
+                other domains only via that domain's shared/
 components/ui → nothing in features, layouts, routes, or api
 ```
 
 Never import `@showzy/core`, `@showzy/db`, `@showzy/config`,
 `@showzy/ai`, module packages, or `@showzy/contract/server` (ESLint
-`clientApp` boundary). `better-auth` only under `src/auth/`.
+`clientApp` boundary). `better-auth` only under `src/auth/`. Layer
+direction is `showzy-web/layer-boundaries` (fixture tests in
+`eslint/import-boundaries.test.mjs`).
 
 ## Routes
 
@@ -190,9 +192,10 @@ symmetry".
 - Mock `/rpc` and `/api/auth` with MSW (`src/test/msw.ts`) or a
   feature `api/` function boundary. Never mock internal modules of
   the unit under test.
-- Colocate `*.test.ts(x)` with the owner. Cross-feature route tests use
-  `renderApp` from `src/test/render.tsx`.
-- Copy `src/app.test.tsx` and `features/companies/onboarding/create-company-mutation.test.ts`.
+- Colocate `*.test.ts(x)` with the owner. Cross-feature route tests live
+  under `src/test/integration/` and use `renderApp` from
+  `src/test/render.tsx`.
+- Copy `src/test/integration/app.test.tsx` and `features/companies/onboarding/create-company-mutation.test.ts`.
 
 ## Stop-conditions
 

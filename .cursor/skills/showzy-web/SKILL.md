@@ -48,17 +48,15 @@ skills. The public storefront is a later app (ADR-0030).
 - URL adapter → `src/routes/` (validate params/search, optional prefetch,
   render a feature page). Parent with children renders `<Outlet />`.
 - Product screens → `src/features/<area>/{api,list,detail,form,shared}`.
-- Panel chrome → `src/layouts/panel` (today still `src/features/panel`;
-  move in later tickets — do not treat panel as a domain feature).
-- App assembly → `src/app/` (today `main.tsx` / `router.tsx` /
-  `app-providers.tsx` at `src/` root; do not move in a docs ticket).
-- Generic primitives → `src/components/ui/` (no domain, no panel CSS
-  once chrome lives under layouts).
+- Panel chrome → `src/layouts/panel` (layout, not a domain feature).
+- App assembly → `src/app/` (`main.tsx`, `router.tsx`, `providers.tsx`,
+  `runtime.ts`).
+- Generic primitives → `src/components/ui/` (no domain, no panel CSS).
 - Contract access → `src/api/` + `features/<area>/api/`. Views never
   call the client.
 - Auth infrastructure → `src/auth/`. Auth screens → `features/auth/`.
 - Tests: colocated with the owner, or `src/test/` for shared MSW /
-  `renderApp` / cross-feature integration.
+  `renderApp` / cross-feature integration (`src/test/integration`).
 
 Feature subfolders are demand-driven. Do not create empty directories
 to match the diagram.

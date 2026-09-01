@@ -1,7 +1,7 @@
 import { createRouter, type RouterHistory } from "@tanstack/react-router";
 
-import type { ShowzyAuthClient } from "./auth/client";
-import { routeTree } from "./routeTree.gen";
+import type { ShowzyAuthClient } from "../auth/client";
+import { routeTree } from "../routeTree.gen";
 
 export type AppRouterContext = {
   readonly authClient: ShowzyAuthClient;

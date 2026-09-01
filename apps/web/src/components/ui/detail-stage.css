@@ -5,7 +5,7 @@
  * a centered card (~34rem) on wide shells and goes full-bleed on narrow
  * ones. Breakpoints follow the panel **shell width** (container query),
  * not the browser viewport — the panel shell (web-T6) declares the `panel`
- * container via `.panel-shell`; until then the narrow styles apply.
+ * container via `.panel-shell` in `layouts/panel`.
  */
 @layer components {
   .panel-shell {

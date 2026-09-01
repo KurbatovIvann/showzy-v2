@@ -155,18 +155,17 @@ Conventions:
 
 ## Directory route tree
 
-### Current (`main`, as of SHO-327)
+### Current (`main`, as of SHO-329)
 
-Do **not** restructure this tree in a documentation ticket. Company-scoped
-routes live in URL-segment folders under pathless `_panel` (chrome) and
-`_full` (template editor). Folder-local `route.tsx` owns the layout and
-must render `<Outlet />`; the exact URL is `index.tsx`. Panel chrome
-still lives in `src/features/panel` until the layouts move ticket.
-Composition files live at `src/main.tsx`, `src/router.tsx`,
-`src/app-providers.tsx`. Panel section, list vs detail, tabs, and back
-targets are derived from typed route matches and `staticData.panel`
-(SHO-328). The company home (`/$companySlug`) is `_panel/index.tsx` so it
-receives panel chrome without a URL segment.
+Company-scoped routes live in URL-segment folders under pathless `_panel`
+(chrome) and `_full` (template editor). Folder-local `route.tsx` owns
+the layout and must render `<Outlet />`; the exact URL is `index.tsx`.
+Panel chrome lives in `src/layouts/panel`. Composition lives under
+`src/app/` (`main.tsx`, `router.tsx`, `providers.tsx`, `runtime.ts`).
+Panel section, list vs detail, tabs, and back targets are derived from
+typed route matches and `staticData.panel` (SHO-328). The company home
+(`/$companySlug`) is `_panel/index.tsx` so it receives panel chrome
+without a URL segment.
 
 ```
 apps/web/src/routes/
@@ -365,7 +364,7 @@ apps/web/src/
 | --- | --- |
 | `app/` | Composition root. `runtime.ts` composes existing services (`bindActiveCompanyRuntime`, auth client). It must not become a global store. |
 | `routes/` | Thin adapters. Validate, prefetch, render. |
-| `layouts/` | Reusable cross-feature shells. **Panel is a layout, not a product feature.** `features/panel` is transitional and must not remain after the move ticket. |
+| `layouts/` | Reusable cross-feature shells. **Panel is a layout, not a product feature.** Production `features/panel` must not remain. |
 | `features/` | User-facing capabilities. Auth **screens** → `features/auth`. Better Auth / session → `auth/`. |
 | `api/` | Shared oRPC + Query helpers. Feature adapters live in `features/<area>/api/`. |
 | `components/ui/` | Domain-neutral primitives only. Panel-specific CSS/components belong under `layouts/panel`. |
@@ -492,8 +491,8 @@ Copy `create-company-mutation.ts` + `create-company-form.ts`. Map
 ### Route integration test
 
 ```tsx
-import { renderApp } from "../test/render";
-import { sessionState } from "../test/msw";
+import { renderApp } from "../render";
+import { sessionState } from "../msw";
 
 it("opens a company-scoped list from the URL", async () => {
   sessionState.user = { id: "user-1", email: "a@b.c", phoneNumber: null };

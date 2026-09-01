@@ -1,6 +1,6 @@
 /**
- * SHO-326: architecture contract is discoverable and agrees with itself.
- * Documentation ticket — no production routing/data behavior change.
+ * SHO-326 / SHO-329: architecture contract is discoverable, agrees with
+ * itself, and the landed `src/app` + `src/layouts/panel` tree is present.
  */
 // @vitest-environment node
 import { existsSync, readFileSync } from "node:fs";
@@ -77,16 +77,28 @@ describe("canonical tree and ownership", () => {
     expect(architecture).toContain("routeTree.gen.ts");
   });
 
-  it("does not create empty ceremonial production directories", () => {
-    // Later SHO-325 tickets that move files into these paths should
-    // replace this absence check with a presence check of real files.
-    expect(existsSync(join(webSrc, "app"))).toBe(false);
-    expect(existsSync(join(webSrc, "layouts"))).toBe(false);
-    expect(existsSync(join(webSrc, "features/orders"))).toBe(false);
-    expect(existsSync(join(webRoot, "src/main.tsx"))).toBe(true);
-    expect(existsSync(join(webSrc, "features/panel"))).toBe(true);
-    expect(architecture).toContain("Do **not** restructure");
+  it("lands the canonical app and panel-layout tree", () => {
+    expect(existsSync(join(webSrc, "app/main.tsx"))).toBe(true);
+    expect(existsSync(join(webSrc, "app/router.tsx"))).toBe(true);
+    expect(existsSync(join(webSrc, "app/providers.tsx"))).toBe(true);
+    expect(existsSync(join(webSrc, "app/runtime.ts"))).toBe(true);
+    expect(existsSync(join(webSrc, "layouts/panel/panel-layout.tsx"))).toBe(
+      true,
+    );
+    expect(existsSync(join(webSrc, "layouts/panel/navigation"))).toBe(true);
+    expect(existsSync(join(webSrc, "layouts/panel/responsive"))).toBe(true);
+    expect(existsSync(join(webSrc, "features/panel"))).toBe(false);
+    expect(existsSync(join(webRoot, "src/main.tsx"))).toBe(false);
+    expect(existsSync(join(webSrc, "test/integration/app.test.tsx"))).toBe(
+      true,
+    );
+    expect(
+      existsSync(join(webSrc, "test/integration/route-tree.test.tsx")),
+    ).toBe(true);
+    expect(architecture).toContain("layouts/panel");
     expect(webAgents).toMatch(/empty (folders|directories)/);
+    expect(skill).not.toContain("today still");
+    expect(eslintConfig).toContain("showzy-web/layer-boundaries");
   });
 });
 

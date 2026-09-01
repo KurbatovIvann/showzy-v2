@@ -2,4 +2,4 @@
 @import "tailwindcss";
 @import "./theme/tokens.css";
 @import "./components/ui/detail-stage.css";
-@import "./components/ui/panel-chrome.css";
+@import "./layouts/panel/panel-chrome.css";

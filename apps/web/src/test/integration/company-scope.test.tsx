@@ -7,9 +7,9 @@ import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { listMineQueryKey } from "./features/companies/api/list-mine";
-import { contractQueryKey } from "./api/query-options";
-import { DEVICE_PREF_LAST_COMPANY_SLUG_KEY } from "./prefs/storage";
+import { listMineQueryKey } from "../../features/companies/api/list-mine";
+import { contractQueryKey } from "../../api/query-options";
+import { DEVICE_PREF_LAST_COMPANY_SLUG_KEY } from "../../prefs/storage";
 import {
   BAKERY_COMPANY_ID,
   BAKERY_MEMBERSHIP,
@@ -17,9 +17,9 @@ import {
   FLOWERS_COMPANY_ID,
   FLOWERS_MEMBERSHIP,
   signedInOwner,
-} from "./test/company-fixtures";
-import { listMineState, PANEL_ORIGIN, server, sessionState } from "./test/msw";
-import { renderApp } from "./test/render";
+} from "../company-fixtures";
+import { listMineState, PANEL_ORIGIN, server, sessionState } from "../msw";
+import { renderApp } from "../render";
 
 afterEach(cleanup);
 

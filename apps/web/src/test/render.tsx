@@ -2,7 +2,8 @@ import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { act, cleanup, render } from "@testing-library/react";
 import { onTestFinished } from "vitest";
 
-import { AppProviders } from "../app-providers";
+import { AppProviders } from "../app/providers";
+import { createAppRouter } from "../app/router";
 import { createShowzyClient, type ShowzyClient } from "../api/client";
 import {
   clearCachedContractQueries,
@@ -13,7 +14,6 @@ import {
   disposeShowzyAuthClient,
   type ShowzyAuthClient,
 } from "../auth/client";
-import { createAppRouter } from "../router";
 
 export type RenderedApp = {
   readonly authClient: ShowzyAuthClient;

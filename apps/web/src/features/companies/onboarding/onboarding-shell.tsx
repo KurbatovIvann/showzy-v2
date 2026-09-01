@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 import type { OnboardingCopy } from "../../../i18n/companies/onboarding";
-import { AuthShell } from "../../auth/auth-shell";
+import { AuthShell } from "../../auth/shared/auth-shell";
 import { OnboardingProgress } from "./onboarding-progress";
 
 /**

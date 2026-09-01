@@ -1,7 +1,7 @@
 import { Button } from "../../../components/ui/button";
 import { InputField } from "../../../components/ui/form-field";
 import { slugPreviewCopy } from "../../../i18n/companies/onboarding";
-import { Banner } from "../../auth/banner";
+import { Banner } from "../../auth/shared/banner";
 import type { CompanyMembership } from "../api/list-mine";
 import { COMPANY_NAME_MAX, COMPANY_SLUG_MAX } from "./create-company-form";
 import { OnboardingShell } from "./onboarding-shell";

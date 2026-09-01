@@ -1,6 +1,6 @@
 import { createContext, useContext, type ReactNode } from "react";
 
-import type { PanelShellMode } from "./panel-shell-mode";
+import type { PanelShellMode } from "./responsive/panel-shell-mode";
 
 export type PanelChromeContextValue = {
   readonly mode: PanelShellMode;
