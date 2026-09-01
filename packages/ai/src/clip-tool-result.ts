@@ -1,12 +1,35 @@
 /**
  * Clip large tool results before they are fed back into the model within
- * a turn (SHO-341). Persistence still uses the unclipped execute output.
+ * a turn (SHO-341 / SHO-346). Persistence still uses the unclipped
+ * execute output. Oversized previews keep identity fields, never
+ * `{ truncated: true }` alone.
  */
 import { isStaffAssistantConfirmationOutput } from "./confirmation.js";
 
 export const STAFF_ASSISTANT_CLIP_ARRAY_MAX = 20;
 export const STAFF_ASSISTANT_CLIP_JSON_MAX = 4_000;
 export const STAFF_ASSISTANT_CLIPPED_STATUS = "clipped" as const;
+export const STAFF_ASSISTANT_CLIP_SHRINK_ARRAY_MAX = 3;
+
+/**
+ * Identifier / name / status keys kept when shrinking a clipped preview.
+ * `itemId` is the line-item id (orders.get / documents.get rows).
+ */
+export const STAFF_ASSISTANT_CLIP_IDENTITY_KEYS = [
+  "id",
+  "itemId",
+  "orderId",
+  "orderNumber",
+  "customerId",
+  "documentId",
+  "name",
+  "titleSnapshot",
+  "status",
+  "nextCursor",
+  "itemCount",
+] as const;
+
+const IDENTITY_KEY_SET = new Set<string>(STAFF_ASSISTANT_CLIP_IDENTITY_KEYS);
 
 export interface StaffAssistantClippedResult {
   readonly status: typeof STAFF_ASSISTANT_CLIPPED_STATUS;
@@ -33,6 +56,39 @@ function jsonLength(value: unknown): number {
   } catch {
     return STAFF_ASSISTANT_CLIP_JSON_MAX + 1;
   }
+}
+
+function pickIdentityFields(
+  record: Record<string, unknown>,
+): Record<string, unknown> {
+  const picked: Record<string, unknown> = {};
+  for (const key of STAFF_ASSISTANT_CLIP_IDENTITY_KEYS) {
+    if (key in record) {
+      picked[key] = record[key];
+    }
+  }
+  return picked;
+}
+
+function compactIdentity(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value
+      .slice(0, STAFF_ASSISTANT_CLIP_SHRINK_ARRAY_MAX)
+      .map((entry) => compactIdentity(entry));
+  }
+  if (!isRecord(value)) {
+    return value;
+  }
+  const picked = pickIdentityFields(value);
+  for (const [key, entry] of Object.entries(value)) {
+    if (key in picked) {
+      continue;
+    }
+    if (Array.isArray(entry) && entry.some((row) => isRecord(row))) {
+      picked[key] = compactIdentity(entry);
+    }
+  }
+  return picked;
 }
 
 function clipUnknown(value: unknown): { preview: unknown; omitted: number } {
@@ -62,20 +118,43 @@ function clipUnknown(value: unknown): { preview: unknown; omitted: number } {
   return { preview: value, omitted: 0 };
 }
 
+function shrinkRow(value: unknown): unknown {
+  if (!isRecord(value)) {
+    return value;
+  }
+  const identity = pickIdentityFields(value);
+  if (Object.keys(identity).length > 0) {
+    return identity;
+  }
+  return value;
+}
+
 function shrinkPreview(value: unknown): unknown {
   if (Array.isArray(value)) {
-    return value.slice(0, 3);
+    return value
+      .slice(0, STAFF_ASSISTANT_CLIP_SHRINK_ARRAY_MAX)
+      .map((entry) => shrinkRow(entry));
   }
   if (!isRecord(value)) {
     return value;
   }
   const shrunk: Record<string, unknown> = {};
   for (const [key, entry] of Object.entries(value)) {
-    if (Array.isArray(entry)) {
-      shrunk[key] = entry.slice(0, 3);
-    } else if (isRecord(entry) || typeof entry === "string") {
+    if (IDENTITY_KEY_SET.has(key)) {
       shrunk[key] = entry;
-    } else if (
+      continue;
+    }
+    if (Array.isArray(entry)) {
+      shrunk[key] = entry
+        .slice(0, STAFF_ASSISTANT_CLIP_SHRINK_ARRAY_MAX)
+        .map((row) => shrinkRow(row));
+      continue;
+    }
+    if (isRecord(entry)) {
+      shrunk[key] = shrinkRow(entry);
+      continue;
+    }
+    if (
       typeof entry === "number" ||
       typeof entry === "boolean" ||
       entry === null
@@ -100,7 +179,7 @@ export function clipStaffAssistantToolResult(output: unknown): unknown {
     omitted = Math.max(omitted, 1);
   }
   if (jsonLength(preview) > STAFF_ASSISTANT_CLIP_JSON_MAX) {
-    preview = { truncated: true };
+    preview = compactIdentity(preview);
     omitted = Math.max(omitted, 1);
   }
 

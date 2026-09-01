@@ -19,7 +19,9 @@ export {
   clipStaffAssistantToolResult,
   STAFF_ASSISTANT_CLIPPED_STATUS,
   STAFF_ASSISTANT_CLIP_ARRAY_MAX,
+  STAFF_ASSISTANT_CLIP_IDENTITY_KEYS,
   STAFF_ASSISTANT_CLIP_JSON_MAX,
+  STAFF_ASSISTANT_CLIP_SHRINK_ARRAY_MAX,
   type StaffAssistantClippedResult,
 } from "./clip-tool-result.js";
 export {
