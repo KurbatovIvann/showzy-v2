@@ -27,6 +27,8 @@ describe("isSensitiveKey", () => {
     expect(isSensitiveKey("ip_hmac_secret")).toBe(true);
     expect(isSensitiveKey("RESEND_API_KEY")).toBe(true);
     expect(isSensitiveKey("SMS_FLY_API_KEY")).toBe(true);
+    expect(isSensitiveKey("ANTHROPIC_API_KEY")).toBe(true);
+    expect(isSensitiveKey("anthropicApiKey")).toBe(true);
     expect(isSensitiveKey("clientIp")).toBe(true);
     expect(isSensitiveKey("rawPayload")).toBe(true);
     expect(isSensitiveKey("uploadUrl")).toBe(true);
@@ -117,6 +119,7 @@ describe("redactUnknown", () => {
       nested: {
         ipHmacSecret: AUTH_SECRET,
         resendApiKey: AUTH_SECRET,
+        anthropicApiKey: AUTH_SECRET,
         ok: true,
       },
     });
@@ -136,6 +139,7 @@ describe("redactUnknown", () => {
     expect(redacted.nested).toEqual({
       ipHmacSecret: REDACTED,
       resendApiKey: REDACTED,
+      anthropicApiKey: REDACTED,
       ok: true,
     });
 
