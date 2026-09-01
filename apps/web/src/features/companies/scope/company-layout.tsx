@@ -1,7 +1,5 @@
-import { Navigate, Outlet, useRouterState } from "@tanstack/react-router";
+import { Navigate, Outlet } from "@tanstack/react-router";
 
-import { isFullShellPath } from "../../panel/section-path";
-import { PanelChrome } from "../../panel/panel-chrome";
 import { CompanyScopeError, CompanyScopeLoading } from "./company-scope-status";
 import { CompanyUnknownScreen } from "./company-unknown-screen";
 import { useCompanyScope } from "./use-company-scope";
@@ -14,7 +12,6 @@ export function CompanyLayout({
 }) {
   const copy = useCompanyScopeCopy();
   const scope = useCompanyScope(companySlug);
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   if (scope.listMine.isPending) {
     return <CompanyScopeLoading label={copy.loading} />;
@@ -36,23 +33,9 @@ export function CompanyLayout({
     return <CompanyUnknownScreen />;
   }
 
-  const body = scope.ready ? (
-    <Outlet />
-  ) : (
-    <p className="px-4 py-6 text-[15px] text-muted">{copy.loading}</p>
-  );
-
-  if (isFullShellPath(pathname, companySlug)) {
-    return body;
+  if (!scope.ready) {
+    return <p className="px-4 py-6 text-[15px] text-muted">{copy.loading}</p>;
   }
 
-  return (
-    <PanelChrome
-      companySlug={companySlug}
-      current={scope.match}
-      memberships={scope.memberships}
-    >
-      {body}
-    </PanelChrome>
-  );
+  return <Outlet />;
 }

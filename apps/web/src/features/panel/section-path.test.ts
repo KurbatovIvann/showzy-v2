@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  isFullShellPath,
   isSectionDetailPath,
   listPathForPathname,
   panelSectionFromPathname,
@@ -45,17 +44,6 @@ describe("isSectionDetailPath", () => {
     );
     expect(isSectionDetailPath(`/${SLUG}/company`, SLUG)).toBe(false);
     expect(isSectionDetailPath(`/${SLUG}/company/team`, SLUG)).toBe(true);
-  });
-});
-
-describe("isFullShellPath", () => {
-  it("detects the template editor takeover", () => {
-    expect(isFullShellPath(`/${SLUG}/documents/templates/t1/edit`, SLUG)).toBe(
-      true,
-    );
-    expect(isFullShellPath(`/${SLUG}/documents/templates/t1`, SLUG)).toBe(
-      false,
-    );
   });
 });
 
