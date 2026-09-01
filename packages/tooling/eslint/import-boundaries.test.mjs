@@ -7,6 +7,10 @@ import { RuleTester } from "eslint";
 import tseslint from "typescript-eslint";
 
 import { importBoundariesRule } from "./import-boundaries.mjs";
+import {
+  showzyBoundaryDependencyOptions,
+  showzyBoundarySettings,
+} from "./base.mjs";
 
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -218,7 +222,66 @@ test("showzy/import-boundaries", () => {
         code: `import { verifyAsic } from "@showzy/document-signing/node";`,
         errors: [{ messageId: "clientApp" }],
       },
+      {
+        filename: file("apps/mobile/src/app/index.ts"),
+        code: `import { staffAssistantSystemPrompt } from "@showzy/ai";`,
+        errors: [{ messageId: "clientApp" }],
+      },
+      {
+        filename: file("apps/web/src/app/page.ts"),
+        code: `import { filterStaffAiTools } from "@showzy/ai";`,
+        errors: [{ messageId: "clientApp" }],
+      },
+      {
+        filename: file("packages/modules/orders/actions/create.ts"),
+        code: `import { actionContractToTool } from "@showzy/ai";`,
+        errors: [{ messageId: "moduleAi" }],
+      },
+      {
+        filename: file(
+          "packages/modules/customers/src/actions/delete-customer.ts",
+        ),
+        code: `import { filterStaffAiTools } from "@showzy/ai";`,
+        errors: [{ messageId: "moduleAi" }],
+      },
     ],
   });
   assert.ok(true);
+});
+
+test("boundaries map includes the ai element and forbids client/module imports", () => {
+  const settings = showzyBoundarySettings(repoRoot);
+  const elements = settings["boundaries/elements"];
+  assert.ok(
+    elements.some(
+      (element) => element.type === "ai" && element.pattern === "packages/ai",
+    ),
+    "boundaries/elements must declare type ai for packages/ai",
+  );
+
+  const policies = showzyBoundaryDependencyOptions.policies;
+  assert.ok(
+    policies.some(
+      (policy) =>
+        policy.from?.file?.categories === "client-app" &&
+        policy.disallow?.to?.module?.source === "@showzy/ai",
+    ),
+    "client apps must be disallowed from importing @showzy/ai",
+  );
+  assert.ok(
+    policies.some(
+      (policy) =>
+        policy.from?.element?.type === "module" &&
+        policy.disallow?.to?.element?.type === "ai",
+    ),
+    "domain modules must be disallowed from depending on the ai element",
+  );
+  assert.ok(
+    policies.some(
+      (policy) =>
+        policy.from?.element?.type === "module" &&
+        policy.disallow?.to?.module?.source === "@showzy/ai",
+    ),
+    "domain modules must be disallowed from importing @showzy/ai",
+  );
 });
