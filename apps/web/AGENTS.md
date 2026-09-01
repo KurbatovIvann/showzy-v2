@@ -202,6 +202,10 @@ symmetry".
 - Colocate `*.test.ts(x)` with the owner. Cross-feature route tests live
   under `src/test/integration/` and use `renderApp` from
   `src/test/render.tsx`.
+- Playwright smoke lives in `e2e/` and is the GitHub Actions `e2e-smoke`
+  job: it launches the **built/served** SPA (`vite preview`) and
+  intercepts `/rpc` + `/api/auth` in the browser. Do not add a production
+  auth bypass. Do not grow this into a domain E2E suite.
 - Copy `src/test/integration/app.test.tsx` and `features/companies/onboarding/create-company-mutation.test.ts`.
 
 ## Stop-conditions

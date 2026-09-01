@@ -159,6 +159,17 @@ describe("directory route tree (SHO-327)", () => {
     );
   });
 
+  it("renders unknown-company copy without panel chrome", async () => {
+    signInWithFlowers();
+    const { router } = await renderApp("/no-such-company");
+    expect(
+      await screen.findByRole("heading", { name: "Компанію не знайдено" }),
+    ).toBeDefined();
+    expect(router.state.location.pathname).toBe("/no-such-company");
+    expect(document.querySelector(".panel-shell")).toBeNull();
+    expect(screen.queryByRole("region", { name: "Замовлення" })).toBeNull();
+  });
+
   it("renders the same nested edit screen on a deep-link reload as after client-side navigation", async () => {
     signInWithFlowers();
     const deep = await renderApp("/kviti-lviv/products/prod-1/edit");

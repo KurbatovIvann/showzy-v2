@@ -111,6 +111,11 @@ describe("canonical tree and ownership", () => {
     expect(
       existsSync(join(webSrc, "test/integration/route-tree.test.tsx")),
     ).toBe(true);
+    expect(
+      existsSync(join(webSrc, "test/integration/contract-data-flow.test.tsx")),
+    ).toBe(true);
+    expect(existsSync(join(webRoot, "playwright.config.ts"))).toBe(true);
+    expect(existsSync(join(webRoot, "e2e/smoke.spec.ts"))).toBe(true);
     expect(architecture).toContain("layouts/panel");
     expect(webAgents).toMatch(/empty (folders|directories)/);
     expect(skill).not.toContain("today still");
@@ -197,6 +202,42 @@ describe("architecture and agent rules agree", () => {
       expect(doc).toContain("Zustand");
       expect(doc).toContain("routeTree.gen.ts");
       expect(doc).toMatch(/CORS|cookie/);
+    }
+  });
+});
+
+describe("CI smoke contract (SHO-331)", () => {
+  it("pins the executable Playwright e2e-smoke contract, not a job-name placeholder", () => {
+    const ci = readRepo(".github/workflows/ci.yml");
+    const protection = readRepo("docs/operations/branch-protection.md");
+    const playwrightConfig = readFileSync(
+      join(webRoot, "playwright.config.ts"),
+      "utf8",
+    );
+    const webPackage = readFileSync(join(webRoot, "package.json"), "utf8");
+
+    expect(webPackage).toContain(
+      '"e2e-smoke": "vite build && playwright test"',
+    );
+    expect(playwrightConfig).toContain('testDir: "./e2e"');
+    expect(playwrightConfig).toContain('testMatch: "**/*.spec.ts"');
+    expect(playwrightConfig).toContain("retries: 0");
+    expect(ci).toContain("turbo run e2e-smoke");
+    expect(ci).toContain("playwright install");
+    expect(ci).not.toMatch(/echo/);
+    expect(ci).not.toMatch(/Placeholder — phase-aware e2e/);
+    expect(protection).not.toMatch(/placeholder until fnd-T51/);
+    expect(protection).toContain("Playwright");
+    expect(webAgents).toContain("Playwright");
+    expect(webAgents).toContain("e2e/");
+
+    const srcFiles = listFiles(webSrc).filter((file) =>
+      /\.(ts|tsx)$/.test(file),
+    );
+    for (const file of srcFiles) {
+      const text = readFileSync(file, "utf8");
+      expect(text, file).not.toMatch(/from ["']@playwright\/test["']/);
+      expect(text, file).not.toMatch(/from ["'][^"']*\/e2e\//);
     }
   });
 });

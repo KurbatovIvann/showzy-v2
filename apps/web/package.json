@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "e2e-smoke": "vite build && playwright test",
+    "e2e-smoke:install": "playwright install chromium"
   },
   "dependencies": {
     "@showzy/contract": "workspace:*",
@@ -23,6 +25,7 @@
     "react-dom": "19.2.3"
   },
   "devDependencies": {
+    "@playwright/test": "1.62.1",
     "@showzy/tooling": "workspace:*",
     "@tailwindcss/vite": "4.3.3",
     "@tanstack/router-plugin": "1.168.35",

@@ -515,7 +515,9 @@ MSW intercepts `/rpc`. Do not reconstruct the route hierarchy from
 
 - Vitest + Testing Library (jsdom) for components/hooks; the `/rpc`
   boundary is mocked (msw), never module internals.
-- Playwright smoke joins CI with the web phase (blueprint test row).
+- Playwright smoke (`apps/web/e2e`) is the GitHub Actions `e2e-smoke` job
+  (SHO-331): built/served SPA, request interception of `/rpc` and
+  `/api/auth`. Not a domain E2E suite. No production auth bypass.
 - Standard definition-of-done rules apply per feature card.
 
 ## Stop-conditions
