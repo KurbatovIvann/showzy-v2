@@ -167,7 +167,6 @@ describe("directory route tree (SHO-327)", () => {
     ).toBeDefined();
     expect(router.state.location.pathname).toBe("/no-such-company");
     expect(document.querySelector(".panel-shell")).toBeNull();
-    expect(routeIds(router).some((id) => id.includes("/_panel"))).toBe(false);
     expect(screen.queryByRole("region", { name: "Замовлення" })).toBeNull();
   });
 

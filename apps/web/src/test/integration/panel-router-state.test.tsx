@@ -489,7 +489,6 @@ describe("phone list/detail and history (SHO-328)", () => {
       expect(screen.queryByRole("region", { name: "Замовлення" })).toBeNull();
     });
   });
-
 });
 
 describe("desktop list+detail (SHO-331)", () => {
@@ -508,7 +507,9 @@ describe("desktop list+detail (SHO-331)", () => {
     expect(
       screen.getByRole("navigation", { name: "Основна навігація" }),
     ).toBeDefined();
-    expect(screen.queryByRole("button", { name: "Назад до списку" })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Назад до списку" }),
+    ).toBeNull();
   });
 });
 

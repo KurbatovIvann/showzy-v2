@@ -13,7 +13,9 @@ test.describe("web panel browser smoke", () => {
     await page.goto("/");
     await expect(page.getByRole("heading", { name: "ШОЗІ" })).toBeVisible();
     await expect(page).toHaveURL(/\/sign-in$/);
-    await expect(page.getByRole("button", { name: "Продовжити" })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Продовжити" }),
+    ).toBeVisible();
   });
 
   test("deep-links a signed-in orders index through intercepted RPC", async ({
@@ -75,9 +77,9 @@ test.describe("web panel browser smoke", () => {
     await expect(
       page.getByRole("heading", { name: "Модуль у розробці" }),
     ).toBeVisible();
-    await expect(
-      page.getByRole("region", { name: "Замовлення" }),
-    ).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Замовлення" })).toHaveCount(
+      0,
+    );
 
     await page.goBack();
     await expect(page).toHaveURL(/\/kviti-lviv\/orders$/);
@@ -109,14 +111,12 @@ test.describe("web panel browser smoke", () => {
     await expect(
       page.getByRole("navigation", { name: "Основна навігація" }),
     ).toHaveCount(0);
-    await expect(
-      page.getByRole("region", { name: "Документи" }),
-    ).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Документи" })).toHaveCount(
+      0,
+    );
     await page.getByRole("button", { name: "Назад до списку" }).click();
     await expect(page).toHaveURL(/\/kviti-lviv\/documents\/templates$/);
-    await expect(
-      page.getByRole("region", { name: "Документи" }),
-    ).toBeVisible();
+    await expect(page.getByRole("region", { name: "Документи" })).toBeVisible();
     await expect(page.locator(".panel-shell")).toHaveCount(1);
   });
 

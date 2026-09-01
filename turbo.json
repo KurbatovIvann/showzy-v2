@@ -9,7 +9,6 @@
     "lint": {},
     "test": {},
     "e2e-smoke": {
-      "dependsOn": ["build"],
       "cache": false
     }
   }

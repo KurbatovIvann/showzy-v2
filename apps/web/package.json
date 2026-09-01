@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
-    "e2e-smoke": "playwright test",
+    "e2e-smoke": "vite build && playwright test",
     "e2e-smoke:install": "playwright install chromium"
   },
   "dependencies": {
