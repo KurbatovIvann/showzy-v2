@@ -4,15 +4,10 @@
  * The detail pane is a stage, not a stretched form: record content sits in
  * a centered card (~34rem) on wide shells and goes full-bleed on narrow
  * ones. Breakpoints follow the panel **shell width** (container query),
- * not the browser viewport — the panel shell (web-T6) declares the `panel`
- * container via `.panel-shell`; until then the narrow styles apply.
+ * not the browser viewport — `layouts/panel/panel-chrome.css` is the sole
+ * `panel` container declaration.
  */
 @layer components {
-  .panel-shell {
-    container-type: inline-size;
-    container-name: panel;
-  }
-
   .detail-stage-inner {
     width: 100%;
     max-width: none;

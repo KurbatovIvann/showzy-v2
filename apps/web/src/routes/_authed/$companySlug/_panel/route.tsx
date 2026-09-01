@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { PanelChromeLayout } from "../../../../features/panel/panel-chrome-layout";
+import { PanelChromeLayout } from "../../../../layouts/panel/panel-layout";
 
 export const Route = createFileRoute("/_authed/$companySlug/_panel")({
   component: PanelChromeLayoutRoute,

@@ -11,18 +11,18 @@ import {
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
-import { cx } from "../../components/ui/cx";
-import type { PanelChromeCopy } from "../../i18n/panel/chrome";
-import { AccountMenu } from "./account-menu";
-import { usePanelChrome } from "./panel-chrome-context";
-import { useResolvedPanelState } from "./panel-route-state";
+import { cx } from "../../../components/ui/cx";
+import type { PanelChromeCopy } from "../../../i18n/panel/chrome";
+import { AccountMenu } from "../account-menu";
+import { usePanelChrome } from "../panel-chrome-context";
+import { useResolvedPanelState } from "../panel-route-state";
 import {
   SECTION_LIST_PATH,
   sidebarNavSection,
   type PanelSectionId,
-} from "./panel-section";
-import { ShozikDialog } from "./shozik-dialog";
-import { usePanelChromeCopy } from "./use-panel-chrome-copy";
+} from "../panel-section";
+import { ShozikDialog } from "../shozik-dialog";
+import { usePanelChromeCopy } from "../use-panel-chrome-copy";
 
 export function LeftNav({
   switcher,

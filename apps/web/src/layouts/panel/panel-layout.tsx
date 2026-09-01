@@ -1,6 +1,6 @@
 import { Outlet } from "@tanstack/react-router";
 
-import { useCompanyScope } from "../companies/scope/use-company-scope";
+import { useCompanyScope } from "../../features/companies/scope/use-company-scope";
 import { PanelChrome } from "./panel-chrome";
 
 /**

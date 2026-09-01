@@ -6,7 +6,7 @@ import { cx } from "../../components/ui/cx";
 import { DetailStage } from "../../components/ui/detail-stage";
 import { detailPaneClass, listPaneClass } from "../../components/ui/pane-class";
 import { PaneHeader } from "../../components/ui/pane-header";
-import { sectionTitle } from "./left-nav";
+import { sectionTitle } from "./navigation/left-nav";
 import { usePanelChrome } from "./panel-chrome-context";
 import { useRequiredPanelState, type PanelPaneMode } from "./panel-route-state";
 import type { CompanySlugPath, PanelSectionId } from "./panel-section";

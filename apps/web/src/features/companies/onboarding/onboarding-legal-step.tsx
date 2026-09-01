@@ -1,7 +1,7 @@
 import { Button } from "../../../components/ui/button";
 import { InputField } from "../../../components/ui/form-field";
-import { Banner } from "../../auth/banner";
-import { ChannelTabs } from "../../auth/channel-tabs";
+import { Banner } from "../../auth/shared/banner";
+import { ChannelTabs } from "../../auth/shared/channel-tabs";
 import {
   COMPANY_LEGAL_ADDRESS_MAX,
   COMPANY_LEGAL_BANK_MFO_MAX,

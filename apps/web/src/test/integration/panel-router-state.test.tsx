@@ -13,10 +13,10 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { resolvePanelStateFromMatches } from "./features/panel/panel-route-state";
-import { FLOWERS_MEMBERSHIP, signedInOwner } from "./test/company-fixtures";
-import { listMineState, sessionState } from "./test/msw";
-import { renderApp } from "./test/render";
+import { resolvePanelStateFromMatches } from "../../layouts/panel/panel-route-state";
+import { FLOWERS_MEMBERSHIP, signedInOwner } from "../company-fixtures";
+import { listMineState, sessionState } from "../msw";
+import { renderApp } from "../render";
 
 afterEach(cleanup);
 

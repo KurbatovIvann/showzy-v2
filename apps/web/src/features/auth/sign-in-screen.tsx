@@ -4,9 +4,9 @@ import { authPolicy } from "../../auth/otp/policy";
 import { useSignInScreen } from "../../auth/use-sign-in";
 import { Button } from "../../components/ui/button";
 import { cx } from "../../components/ui/cx";
-import { AuthShell } from "./auth-shell";
-import { Banner } from "./banner";
-import { ChannelTabs } from "./channel-tabs";
+import { AuthShell } from "./shared/auth-shell";
+import { Banner } from "./shared/banner";
+import { ChannelTabs } from "./shared/channel-tabs";
 
 const PHONE_CONTROL =
   "w-full bg-transparent py-3.5 text-[17px] text-ink placeholder:text-faint focus:outline-none disabled:opacity-40";

@@ -1,9 +1,9 @@
 /**
- * SHO-326: architecture contract is discoverable and agrees with itself.
- * Documentation ticket — no production routing/data behavior change.
+ * SHO-326 / SHO-329: architecture contract is discoverable, agrees with
+ * itself, and the landed `src/app` + `src/layouts/panel` tree is present.
  */
 // @vitest-environment node
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -13,6 +13,19 @@ const here = dirname(fileURLToPath(import.meta.url));
 const webRoot = join(here, "../..");
 const webSrc = join(webRoot, "src");
 const repoRoot = join(webRoot, "../..");
+
+function listFiles(root: string): string[] {
+  const out: string[] = [];
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    const full = join(root, entry.name);
+    if (entry.isDirectory()) {
+      out.push(...listFiles(full));
+    } else {
+      out.push(full);
+    }
+  }
+  return out;
+}
 
 function readRepo(relative: string): string {
   return readFileSync(join(repoRoot, relative), "utf8");
@@ -77,16 +90,64 @@ describe("canonical tree and ownership", () => {
     expect(architecture).toContain("routeTree.gen.ts");
   });
 
-  it("does not create empty ceremonial production directories", () => {
-    // Later SHO-325 tickets that move files into these paths should
-    // replace this absence check with a presence check of real files.
-    expect(existsSync(join(webSrc, "app"))).toBe(false);
-    expect(existsSync(join(webSrc, "layouts"))).toBe(false);
+  it("lands the canonical app and panel-layout tree", () => {
+    expect(existsSync(join(webSrc, "app/main.tsx"))).toBe(true);
+    expect(existsSync(join(webSrc, "app/router.tsx"))).toBe(true);
+    expect(existsSync(join(webSrc, "app/providers.tsx"))).toBe(true);
+    expect(existsSync(join(webSrc, "app/runtime.ts"))).toBe(true);
+    expect(existsSync(join(webSrc, "layouts/panel/panel-layout.tsx"))).toBe(
+      true,
+    );
+    expect(existsSync(join(webSrc, "layouts/panel/navigation"))).toBe(true);
+    expect(existsSync(join(webSrc, "layouts/panel/responsive"))).toBe(true);
+    expect(existsSync(join(webSrc, "features/panel"))).toBe(false);
     expect(existsSync(join(webSrc, "features/orders"))).toBe(false);
-    expect(existsSync(join(webRoot, "src/main.tsx"))).toBe(true);
-    expect(existsSync(join(webSrc, "features/panel"))).toBe(true);
-    expect(architecture).toContain("Do **not** restructure");
+    expect(existsSync(join(webRoot, "src/main.tsx"))).toBe(false);
+    expect(existsSync(join(webRoot, "src/router.tsx"))).toBe(false);
+    expect(existsSync(join(webRoot, "src/app-providers.tsx"))).toBe(false);
+    expect(existsSync(join(webSrc, "test/integration/app.test.tsx"))).toBe(
+      true,
+    );
+    expect(
+      existsSync(join(webSrc, "test/integration/route-tree.test.tsx")),
+    ).toBe(true);
+    expect(architecture).toContain("layouts/panel");
     expect(webAgents).toMatch(/empty (folders|directories)/);
+    expect(skill).not.toContain("today still");
+    expect(eslintConfig).toContain("showzy-web/layer-boundaries");
+    expect(webAgents).toContain("QueryRuntimeProvider");
+    expect(architecture).toContain("QueryRuntimeProvider");
+    expect(readFileSync(join(webSrc, "app/runtime.ts"), "utf8")).not.toContain(
+      "bindActiveCompanyRuntime",
+    );
+  });
+
+  it("does not create empty ceremonial production directories", () => {
+    expect(existsSync(join(webSrc, "features/orders"))).toBe(false);
+    const featuresRoot = join(webSrc, "features");
+    for (const name of readdirSync(featuresRoot, { withFileTypes: true })) {
+      if (!name.isDirectory()) {
+        continue;
+      }
+      expect(readdirSync(join(featuresRoot, name.name)).length).toBeGreaterThan(
+        0,
+      );
+    }
+  });
+
+  it("keeps panel CSS out of generic UI", () => {
+    const uiRoot = join(webSrc, "components/ui");
+    const uiFiles = listFiles(uiRoot);
+    expect(uiFiles.length).toBeGreaterThan(0);
+    for (const file of uiFiles) {
+      if (!/\.(css|tsx|ts)$/.test(file)) {
+        continue;
+      }
+      expect(readFileSync(file, "utf8")).not.toMatch(/\.panel-shell\b/);
+    }
+    expect(
+      readFileSync(join(webSrc, "layouts/panel/panel-chrome.css"), "utf8"),
+    ).toMatch(/\.panel-shell\s*\{/);
   });
 });
 

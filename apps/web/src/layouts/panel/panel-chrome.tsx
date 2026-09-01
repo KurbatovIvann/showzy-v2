@@ -1,13 +1,13 @@
 import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { useAuthSession } from "../../auth/session-provider";
-import type { CompanyMembership } from "../companies/api/list-mine";
-import { CompanySwitcher } from "../companies/scope/company-switcher";
-import { useCompanyScopeCopy } from "../companies/scope/use-company-scope-copy";
-import { LeftNav } from "./left-nav";
-import { MobileTabBar } from "./mobile-tab-bar";
+import type { CompanyMembership } from "../../features/companies/api/list-mine";
+import { CompanySwitcher } from "../../features/companies/scope/company-switcher";
+import { useCompanyScopeCopy } from "../../features/companies/scope/use-company-scope-copy";
+import { LeftNav } from "./navigation/left-nav";
+import { MobileTabBar } from "./navigation/mobile-tab-bar";
 import { PanelChromeProvider } from "./panel-chrome-context";
-import { usePanelShellMode } from "./use-panel-shell-mode";
+import { usePanelShellMode } from "./responsive/use-panel-shell-mode";
 import { usePanelChromeCopy } from "./use-panel-chrome-copy";
 
 export function PanelChrome({

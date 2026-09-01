@@ -7,8 +7,8 @@ import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { PANEL_ORIGIN, server, sessionState } from "./test/msw";
-import { renderApp } from "./test/render";
+import { PANEL_ORIGIN, server, sessionState } from "../msw";
+import { renderApp } from "../render";
 
 afterEach(cleanup);
 

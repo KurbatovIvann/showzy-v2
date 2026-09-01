@@ -1,6 +1,6 @@
 import { createRootRouteWithContext, Outlet } from "@tanstack/react-router";
 
-import type { AppRouterContext } from "../router";
+import type { AppRouterContext } from "../app/router";
 import { BootScreen } from "../features/auth/boot-screen";
 
 export const Route = createRootRouteWithContext<AppRouterContext>()({

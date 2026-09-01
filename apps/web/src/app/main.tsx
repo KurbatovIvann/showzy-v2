@@ -2,12 +2,12 @@ import { RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
-import { AppProviders } from "./app-providers";
-import { createShowzyAuthClient } from "./auth/client";
+import { AppProviders } from "./providers";
 import { createAppRouter } from "./router";
-import "./styles.css";
+import { createAppRuntime } from "./runtime";
+import "../styles.css";
 
-const authClient = createShowzyAuthClient();
+const { authClient } = createAppRuntime();
 const router = createAppRouter({ authClient });
 
 const rootElement = document.getElementById("root");

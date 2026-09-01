@@ -178,7 +178,7 @@ function walkTsFiles(dir: string, acc: string[]): string[] {
 }
 
 describe("production panel routing does not parse pathnames", () => {
-  it("has no prefix/regex helpers under features/panel or company routes", () => {
+  it("has no prefix/regex helpers under layouts/panel or company routes", () => {
     expect(existsSync(join(here, "section-path.ts"))).toBe(false);
     const files = [
       ...walkTsFiles(here, []),

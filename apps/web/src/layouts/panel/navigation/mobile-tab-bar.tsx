@@ -16,12 +16,12 @@ import {
 } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 
-import { cx } from "../../components/ui/cx";
-import { usePanelChrome } from "./panel-chrome-context";
-import { useResolvedPanelState } from "./panel-route-state";
-import { SECTION_LIST_PATH, type PanelSectionId } from "./panel-section";
-import { ShozikDialog } from "./shozik-dialog";
-import { usePanelChromeCopy } from "./use-panel-chrome-copy";
+import { cx } from "../../../components/ui/cx";
+import { usePanelChrome } from "../panel-chrome-context";
+import { useResolvedPanelState } from "../panel-route-state";
+import { SECTION_LIST_PATH, type PanelSectionId } from "../panel-section";
+import { ShozikDialog } from "../shozik-dialog";
+import { usePanelChromeCopy } from "../use-panel-chrome-copy";
 
 type TabIcon = typeof Box;
 

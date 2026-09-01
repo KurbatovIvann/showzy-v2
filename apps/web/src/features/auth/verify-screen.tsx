@@ -2,8 +2,8 @@ import { Navigate } from "@tanstack/react-router";
 
 import { useVerifyScreen } from "../../auth/use-verify";
 import { Button } from "../../components/ui/button";
-import { AuthShell } from "./auth-shell";
-import { Banner } from "./banner";
+import { AuthShell } from "./shared/auth-shell";
+import { Banner } from "./shared/banner";
 import { OtpInput } from "./otp-input";
 
 export function VerifyScreen() {

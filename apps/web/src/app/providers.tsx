@@ -1,11 +1,11 @@
 import type { QueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 
-import { ApiProvider } from "./api/api-provider";
-import type { ShowzyClient } from "./api/client";
-import { QueryProvider, QueryRuntimeProvider } from "./api/query-provider";
-import { SessionProvider } from "./auth/session-provider";
-import type { ShowzyAuthClient } from "./auth/client";
+import { ApiProvider } from "../api/api-provider";
+import type { ShowzyClient } from "../api/client";
+import { QueryProvider, QueryRuntimeProvider } from "../api/query-provider";
+import { SessionProvider } from "../auth/session-provider";
+import type { ShowzyAuthClient } from "../auth/client";
 
 export function AppProviders({
   authClient,
