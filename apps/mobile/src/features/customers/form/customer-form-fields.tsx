@@ -15,7 +15,10 @@ import {
   type CustomerFormMode,
 } from "./customer-form-draft";
 
-type DraftTextKey = keyof CustomerFormDraft;
+type DraftTextKey = Exclude<
+  keyof CustomerFormDraft,
+  "groupId" | "priceListId" | "userId"
+>;
 
 function CustomerDraftField(props: {
   readonly control: Control<CustomerFormDraft>;
