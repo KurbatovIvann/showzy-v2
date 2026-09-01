@@ -11,11 +11,7 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { FormScreenScaffold } from "../../../components/form-kit";
-import {
-  Banner,
-  OptionSelectSheet,
-  SelectorRow,
-} from "../../../components/ui";
+import { Banner, OptionSelectSheet, SelectorRow } from "../../../components/ui";
 import { DocumentHandoverSheet } from "../share/document-handover-sheet";
 import {
   LIST_COUNTERPARTIES_SEARCH_MAX,

@@ -102,32 +102,35 @@ export function useDocumentListOptions(args: {
     setOptionsChrome(hideDocumentOptions);
   }, []);
 
-  const mintThen = useCallback(async (handover: boolean): Promise<void> => {
-    const target = optionsRowRef.current;
-    if (target === null) {
-      return;
-    }
-    await waitThenRunDocumentFollowUp({
-      waitHidden: () => optionsHiddenRef.current.wait(),
-      hide: hideOptions,
-      run: async () => {
-        const url = await argsRef.current.writes.mintShareUrl(target.id);
-        if (url === null) {
-          return;
-        }
-        if (handover) {
-          setHandoverChrome(
-            openDocumentHandover({
-              url,
-              documentNumber: target.documentNumber,
-            }),
-          );
-          return;
-        }
-        await argsRef.current.writes.shareUrl(url);
-      },
-    });
-  }, [hideOptions]);
+  const mintThen = useCallback(
+    async (handover: boolean): Promise<void> => {
+      const target = optionsRowRef.current;
+      if (target === null) {
+        return;
+      }
+      await waitThenRunDocumentFollowUp({
+        waitHidden: () => optionsHiddenRef.current.wait(),
+        hide: hideOptions,
+        run: async () => {
+          const url = await argsRef.current.writes.mintShareUrl(target.id);
+          if (url === null) {
+            return;
+          }
+          if (handover) {
+            setHandoverChrome(
+              openDocumentHandover({
+                url,
+                documentNumber: target.documentNumber,
+              }),
+            );
+            return;
+          }
+          await argsRef.current.writes.shareUrl(url);
+        },
+      });
+    },
+    [hideOptions],
+  );
 
   const openOptions = useCallback((id: string) => {
     setCopied(false);

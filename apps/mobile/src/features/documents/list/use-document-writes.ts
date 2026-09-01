@@ -197,39 +197,42 @@ export function useDocumentWrites(args: {
     }
   }, []);
 
-  const openPanelPdf = useCallback(async (documentId: string): Promise<void> => {
-    const current = apiRef.current;
-    const copy = argsRef.current.copy;
-    if (current === null || companyIdRef.current === null) {
-      setLocalBanner(copy.toast.pdfOpenFailed);
-      return;
-    }
-    try {
-      const view = await queryClientRef.current.fetchQuery(
-        getDocumentQueryOptions({
-          client: current,
-          companyId: companyIdRef.current,
-          documentId,
-          getActiveCompany: () => apiRef.current?.getActiveCompany() ?? null,
-        }),
-      );
-      if (view.generation.status === "failed") {
-        setLocalBanner(copy.toast.pdfFailed);
-        return;
-      }
-      if (view.pdfDownloadUrl === null) {
-        setLocalBanner(copy.toast.pdfNotReady);
-        return;
-      }
-      if (!isSafeHttpUrl(view.pdfDownloadUrl)) {
+  const openPanelPdf = useCallback(
+    async (documentId: string): Promise<void> => {
+      const current = apiRef.current;
+      const copy = argsRef.current.copy;
+      if (current === null || companyIdRef.current === null) {
         setLocalBanner(copy.toast.pdfOpenFailed);
         return;
       }
-      await Linking.openURL(view.pdfDownloadUrl);
-    } catch {
-      setLocalBanner(copy.toast.pdfOpenFailed);
-    }
-  }, []);
+      try {
+        const view = await queryClientRef.current.fetchQuery(
+          getDocumentQueryOptions({
+            client: current,
+            companyId: companyIdRef.current,
+            documentId,
+            getActiveCompany: () => apiRef.current?.getActiveCompany() ?? null,
+          }),
+        );
+        if (view.generation.status === "failed") {
+          setLocalBanner(copy.toast.pdfFailed);
+          return;
+        }
+        if (view.pdfDownloadUrl === null) {
+          setLocalBanner(copy.toast.pdfNotReady);
+          return;
+        }
+        if (!isSafeHttpUrl(view.pdfDownloadUrl)) {
+          setLocalBanner(copy.toast.pdfOpenFailed);
+          return;
+        }
+        await Linking.openURL(view.pdfDownloadUrl);
+      } catch {
+        setLocalBanner(copy.toast.pdfOpenFailed);
+      }
+    },
+    [],
+  );
 
   const pending = cancelMutation.isPending || shareMutation.isPending;
   return useMemo(

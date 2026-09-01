@@ -31,10 +31,7 @@ describe("documentOptionsRowForId", () => {
     expect(documentOptionsRowForId([entry], DOCUMENT_ID)).toBe(entry);
     expect(documentOptionsRowForId([entry], null)).toBeNull();
     expect(
-      documentOptionsRowForId(
-        [entry],
-        "11111111-1111-4111-8111-111111111111",
-      ),
+      documentOptionsRowForId([entry], "11111111-1111-4111-8111-111111111111"),
     ).toBeNull();
   });
 });
