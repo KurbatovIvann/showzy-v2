@@ -75,8 +75,8 @@ describe("staff AI tool manifest (SHO-322)", () => {
       {},
       { toolCallId: "call-list", messages: [], context: undefined },
     );
-    expect(execute).toHaveBeenCalledOnce();
-    expect(execute.mock.calls[0]?.[0]).toBe("orders.list");
-    expect(execute.mock.calls[0]?.[2]).toEqual({ toolCallId: "call-list" });
+    expect(execute).toHaveBeenCalledWith("orders.list", expect.anything(), {
+      toolCallId: "call-list",
+    });
   });
 });
