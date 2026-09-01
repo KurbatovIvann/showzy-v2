@@ -2,11 +2,11 @@
  * Order create save workflow (SHO-213 / SHO-305). Delegates to form-kit
  * `runFormSave`; `finish` still receives the created `orderId`.
  */
-import { runFormSave } from "../../../components/form-kit";
 import {
   NO_SAVE_FAILURE,
   type LastWriteFailure,
 } from "../../../components/form-kit/last-write-failure";
+import { runFormSave } from "../../../components/form-kit/run-form-save";
 import {
   type OrderFormDraft,
   type OrderFormFieldErrors,

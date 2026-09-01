@@ -28,6 +28,10 @@ const CREATE_HOOK = readFileSync(
   new URL("./use-order-form.ts", import.meta.url),
   "utf8",
 );
+const CREATE_SHEETS = readFileSync(
+  new URL("./use-order-form-sheets.ts", import.meta.url),
+  "utf8",
+);
 const PRODUCT_SHEET = readFileSync(
   new URL("./product-select-sheet.tsx", import.meta.url),
   "utf8",
@@ -51,11 +55,12 @@ describe("orders/new route", () => {
     expect(CREATE_VIEW).toContain("ProductSelectSheet");
     expect(CREATE_VIEW).toContain("doneCount={model.productPickCount}");
     expect(CREATE_HOOK).toContain("confirmProductPicks");
-    expect(CREATE_HOOK).toContain("reduceProductPicker");
-    expect(CREATE_HOOK).toContain(
+    expect(CREATE_HOOK).toContain("useOrderFormSheets");
+    expect(CREATE_SHEETS).toContain("reduceProductPicker");
+    expect(CREATE_SHEETS).toContain(
       "productSheetOpen: productPickerOpen(picker)",
     );
-    expect(CREATE_HOOK).toContain(
+    expect(CREATE_SHEETS).toContain(
       "productPickerSessionOpen: productPickerOpen(picker)",
     );
     expect(CREATE_VIEW).toContain(
@@ -70,6 +75,7 @@ describe("orders/new route", () => {
     expect(CREATE_HOOK).not.toContain("variantSheetOpen");
     expect(CREATE_VIEW).not.toContain("features/catalog");
     expect(CREATE_HOOK).not.toContain("features/catalog");
+    expect(CREATE_SHEETS).not.toContain("features/catalog");
     expect(CREATE_VIEW).not.toContain("basePriceMinor");
     expect(CREATE_HOOK).not.toContain("basePriceMinor");
   });
