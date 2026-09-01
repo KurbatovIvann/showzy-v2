@@ -75,20 +75,32 @@ function setShellWidth(width: number): void {
   });
 }
 
+/**
+ * T6 chrome ready signal. Company name is in the LeftNav switcher
+ * (desktop / open tablet drawer), not a page heading. Waiting on that
+ * heading never resolves when the unmeasured shell is phone or tablet.
+ */
+async function waitForPanelChrome(): Promise<void> {
+  await waitFor(() => {
+    expect(document.querySelector(".panel-shell")).not.toBeNull();
+  });
+  expect(
+    await screen.findByRole("region", { name: "Замовлення" }),
+  ).toBeDefined();
+}
+
 describe("panel chrome breakpoints (SHO-314)", () => {
   it("shows nav | list | detail at desktop shell width (≥1024)", async () => {
     signInWithFlowers();
     const { router } = await renderApp("/kviti-lviv");
-    expect(
-      await screen.findByRole("heading", { name: "Квіти Львів" }),
-    ).toBeDefined();
+    await waitForPanelChrome();
     setShellWidth(1280);
     expect(
       document.querySelector(".panel-shell")?.getAttribute("data-shell"),
     ).toBe("desktop");
-    expect(
-      screen.getByRole("navigation", { name: "Основна навігація" }),
-    ).toBeDefined();
+    const nav = screen.getByRole("navigation", { name: "Основна навігація" });
+    expect(nav).toBeDefined();
+    expect(within(nav).getByText("Квіти Львів")).toBeDefined();
     expect(
       screen.queryByRole("navigation", { name: "Мобільна навігація" }),
     ).toBeNull();
@@ -107,7 +119,7 @@ describe("panel chrome breakpoints (SHO-314)", () => {
   it("shows hamburger drawer and both panes at tablet shell width (768–1023)", async () => {
     signInWithFlowers();
     await renderApp("/kviti-lviv");
-    await screen.findByRole("heading", { name: "Квіти Львів" });
+    await waitForPanelChrome();
     setShellWidth(800);
     expect(
       document.querySelector(".panel-shell")?.getAttribute("data-shell"),
@@ -131,7 +143,7 @@ describe("panel chrome breakpoints (SHO-314)", () => {
   it("does not reopen the tablet drawer after leaving tablet and returning", async () => {
     signInWithFlowers();
     await renderApp("/kviti-lviv");
-    await screen.findByRole("heading", { name: "Квіти Львів" });
+    await waitForPanelChrome();
     setShellWidth(800);
     fireEvent.click(screen.getByRole("button", { name: "Меню" }));
     expect(
@@ -157,7 +169,7 @@ describe("panel chrome breakpoints (SHO-314)", () => {
   it("XORs list and detail and shows bottom tabs at phone shell width (<768)", async () => {
     signInWithFlowers();
     const { router } = await renderApp("/kviti-lviv");
-    await screen.findByRole("heading", { name: "Квіти Львів" });
+    await waitForPanelChrome();
     setShellWidth(375);
     expect(
       document.querySelector(".panel-shell")?.getAttribute("data-shell"),
@@ -206,7 +218,7 @@ describe("panel chrome nav (SHO-314)", () => {
   it("selects the nav row that matches the route", async () => {
     signInWithFlowers();
     const { router } = await renderApp("/kviti-lviv");
-    await screen.findByRole("heading", { name: "Квіти Львів" });
+    await waitForPanelChrome();
     setShellWidth(1280);
     fireEvent.click(screen.getByRole("link", { name: "Товари" }));
     await waitFor(() => {
@@ -225,7 +237,7 @@ describe("panel chrome nav (SHO-314)", () => {
   it("keeps sidebar rows flat: no nested Групи/Контрагенти; Запрошення is first-class", async () => {
     signInWithFlowers();
     const { router } = await renderApp("/kviti-lviv");
-    await screen.findByRole("heading", { name: "Квіти Львів" });
+    await waitForPanelChrome();
     setShellWidth(1280);
     const nav = screen.getByRole("navigation", { name: "Основна навігація" });
     expect(within(nav).getByRole("link", { name: "Клієнти" })).toBeDefined();
@@ -247,7 +259,7 @@ describe("panel chrome account menu (SHO-314)", () => {
   it("keeps Вийти inside the account dropdown and signs out to /sign-in", async () => {
     signInWithFlowers();
     const { router } = await renderApp("/kviti-lviv");
-    await screen.findByRole("heading", { name: "Квіти Львів" });
+    await waitForPanelChrome();
     setShellWidth(1280);
     expect(screen.queryByRole("menuitem", { name: "Вийти" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Меню акаунта" }));
@@ -317,7 +329,7 @@ describe("panel chrome mobile more sheet (SHO-314)", () => {
   it("renders Більше groups Операції / Клієнти / Налаштування", async () => {
     signInWithFlowers();
     await renderApp("/kviti-lviv");
-    await screen.findByRole("heading", { name: "Квіти Львів" });
+    await waitForPanelChrome();
     setShellWidth(375);
     fireEvent.click(screen.getByRole("button", { name: "Більше" }));
     expect(screen.getByText("Операції")).toBeDefined();
