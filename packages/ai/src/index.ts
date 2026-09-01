@@ -15,6 +15,11 @@ export {
   type StaffAssistantConfirmationOutput,
 } from "./confirmation.js";
 export { StaffAssistantNotConfiguredError } from "./errors.js";
+export {
+  classifyStaffAssistantTurn,
+  STAFF_ASSISTANT_GATE_SYSTEM,
+  staffAssistantGateOutputSchema,
+} from "./gate.js";
 export { filterStaffAiTools } from "./filter-staff-tools.js";
 export { createStaffLanguageModel } from "./language-model.js";
 export type { LanguageModel } from "ai";

@@ -10,6 +10,7 @@
  */
 import {
   attemptKey,
+  classifyStaffAssistantTurn,
   createStaffLanguageModel,
   filterStaffAiTools,
   lastStaffAssistantUserMessage,
@@ -61,9 +62,11 @@ export const ASSISTANT_INVOCATION_CHANNEL = "ai" as const;
 
 export interface StaffAssistantRuntime {
   readonly model: string;
+  readonly gateModel?: string;
   readonly anthropicApiKey?: string;
   /** Tests inject MockLanguageModelV3 — never a live LLM in CI. */
   readonly languageModel?: LanguageModel;
+  readonly gateLanguageModel?: LanguageModel;
 }
 
 export interface StaffAssistantChatOptions {
@@ -148,6 +151,7 @@ function logTurnUsage(options: {
   readonly companyId: string | null;
   readonly actorId: string;
   readonly model: string;
+  readonly gateModel?: string;
   readonly toolsAttached: boolean;
   readonly usage: StaffAssistantTurnUsage;
 }): void {
@@ -158,6 +162,9 @@ function logTurnUsage(options: {
       company_id: options.companyId,
       actor_id: options.actorId,
       model: options.model,
+      ...(options.gateModel !== undefined
+        ? { gate_model: options.gateModel }
+        : {}),
       thinking: STAFF_ASSISTANT_THINKING_DISABLED,
       tools_attached: options.toolsAttached,
       input_tokens: options.usage.inputTokens,
@@ -166,6 +173,22 @@ function logTurnUsage(options: {
       cache_write_tokens: options.usage.cacheWriteTokens,
     },
     "staff assistant turn usage",
+  );
+}
+
+function logTurnGate(options: {
+  readonly logger: Logger;
+  readonly requestId: string;
+  readonly gateModel: string;
+  readonly operational: boolean;
+}): void {
+  options.logger.info(
+    {
+      request_id: options.requestId,
+      gate_model: options.gateModel,
+      operational: options.operational,
+    },
+    "staff assistant turn gate",
   );
 }
 
@@ -196,6 +219,25 @@ function resolveLanguageModel(
     });
   }
   throw new StaffAssistantNotConfiguredError();
+}
+
+function resolveGateLanguageModel(
+  assistant: StaffAssistantRuntime | undefined,
+): LanguageModel | undefined {
+  if (assistant?.gateLanguageModel !== undefined) {
+    return assistant.gateLanguageModel;
+  }
+  if (
+    assistant !== undefined &&
+    assistant.anthropicApiKey !== undefined &&
+    assistant.anthropicApiKey !== ""
+  ) {
+    return createStaffLanguageModel({
+      apiKey: assistant.anthropicApiKey,
+      model: assistant.gateModel ?? assistant.model,
+    });
+  }
+  return undefined;
 }
 
 function requireImplementation(
@@ -375,6 +417,39 @@ export async function executeStaffAssistantChat(
     }
 
     const model = resolveLanguageModel(options.assistant);
+    const gateLanguageModel = resolveGateLanguageModel(options.assistant);
+    const confirmationResume = confirmationChallengeId !== undefined;
+    let operational = true;
+    let gateRan = false;
+
+    if (!confirmationResume && gateLanguageModel !== undefined) {
+      const lastUserText = userMessage?.text ?? "";
+      if (lastUserText.trim() !== "") {
+        const classified = await classifyStaffAssistantTurn({
+          model: gateLanguageModel,
+          lastUserText,
+          abortSignal: options.request.signal,
+        });
+        operational = classified.operational;
+        gateRan = true;
+        logTurnGate({
+          logger: options.pipeline.logger,
+          requestId: options.requestId,
+          gateModel: options.assistant?.gateModel ?? "unconfigured",
+          operational,
+        });
+      }
+    }
+
+    const replyModel =
+      !operational && gateLanguageModel !== undefined
+        ? gateLanguageModel
+        : model;
+    const replyModelId = operational
+      ? (options.assistant?.model ?? "unconfigured")
+      : (options.assistant?.gateModel ??
+        options.assistant?.model ??
+        "unconfigured");
 
     if (userMessage !== undefined) {
       await executeAction(options.pipeline, {
@@ -401,6 +476,7 @@ export async function executeStaffAssistantChat(
       role: actor.role,
       permissions: actor.permissions,
     });
+    const streamContracts = operational ? contracts : [];
 
     let confirmationClaimed = false;
     function claimPausedAttempt(
@@ -421,9 +497,9 @@ export async function executeStaffAssistantChat(
     }
 
     const { response } = streamStaffAssistantChat({
-      model,
+      model: replyModel,
       messages: modelMessages,
-      contracts,
+      contracts: streamContracts,
       abortSignal: options.request.signal,
       responseHeaders: {
         "cache-control": "private, no-store",
@@ -464,7 +540,10 @@ export async function executeStaffAssistantChat(
           conversationId: body.conversationId,
           companyId: companySelector,
           actorId: session.userId,
-          model: options.assistant?.model ?? "unconfigured",
+          model: replyModelId,
+          ...(gateRan && options.assistant?.gateModel !== undefined
+            ? { gateModel: options.assistant.gateModel }
+            : {}),
           toolsAttached: turn.toolsAttached,
           usage: turn.usage,
         });

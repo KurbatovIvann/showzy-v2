@@ -53,6 +53,8 @@ describe("isSensitiveKey", () => {
     expect(isSensitiveKey("channel")).toBe(false);
     expect(isSensitiveKey("outcome")).toBe(false);
     expect(isSensitiveKey("tool_call_id")).toBe(false);
+    expect(isSensitiveKey("AI_GATE_MODEL")).toBe(false);
+    expect(isSensitiveKey("gateModel")).toBe(false);
   });
 });
 

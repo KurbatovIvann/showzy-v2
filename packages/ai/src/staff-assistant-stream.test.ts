@@ -220,6 +220,24 @@ describe("streamStaffAssistantChat", () => {
     );
   });
 
+  it("attaches no tools when the contract list is empty", async () => {
+    const model = new MockLanguageModelV3({
+      doStream: [mockTextStream("I only help with this company.")],
+    });
+    const execute = vi.fn(() => Promise.resolve({ items: [] }));
+    const { response, completion } = streamStaffAssistantChat({
+      model,
+      messages: [{ role: "user", content: "What's the weather?" }],
+      contracts: [],
+      execute,
+    });
+    await readUiMessageSsePayloads(response);
+    const turn = await completion;
+    expect(turn.toolsAttached).toBe(false);
+    expect(execute).not.toHaveBeenCalled();
+    expect(model.doStreamCalls[0]?.tools ?? []).toEqual([]);
+  });
+
   it("pauses on ConfirmationRequiredError and streams a redacted confirmation part", async () => {
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")

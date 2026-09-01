@@ -29,6 +29,14 @@ describe("staffAssistantSystemPrompt", () => {
     expect(staffAssistantSystemPrompt).toContain("human step");
   });
 
+  it("stays in the company and does not print internal wire keys", () => {
+    expect(staffAssistantSystemPrompt).toContain("this Shozee company");
+    expect(staffAssistantSystemPrompt).toContain("short refusal");
+    expect(staffAssistantSystemPrompt).toContain("supplierSigned");
+    expect(staffAssistantSystemPrompt).toContain("userId");
+    expect(staffAssistantSystemPrompt).toContain("product language");
+  });
+
   it("marks the system message with a 5-minute ephemeral cache breakpoint", () => {
     const message = staffAssistantSystemMessage();
     expect(message.role).toBe("system");

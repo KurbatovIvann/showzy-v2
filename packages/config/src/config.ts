@@ -140,6 +140,11 @@ const envObjectSchema = z.object({
    * (ADR-0032). Default matches the SHO-318 pin.
    */
   AI_MODEL: z.string().min(1).default("claude-sonnet-4-6"),
+  /**
+   * Cheap classifier / chitchat model id (same Anthropic provider, not a
+   * second `@ai-sdk/*` package). Not a secret. Default Haiku 4.5.
+   */
+  AI_GATE_MODEL: z.string().min(1).default("claude-haiku-4-5"),
 });
 
 const envSchema = envObjectSchema.superRefine((parsed, ctx) => {
@@ -258,6 +263,7 @@ export interface ServerConfig {
   readonly ai: {
     readonly anthropicApiKey: string | undefined;
     readonly model: string;
+    readonly gateModel: string;
   };
 }
 
@@ -355,6 +361,7 @@ export function loadServerConfig(
     ai: {
       anthropicApiKey: parsed.ANTHROPIC_API_KEY,
       model: parsed.AI_MODEL,
+      gateModel: parsed.AI_GATE_MODEL,
     },
   };
 }
