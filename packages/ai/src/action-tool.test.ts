@@ -49,9 +49,11 @@ describe("actionContractToTool", () => {
     );
 
     expect(execute).toHaveBeenCalledOnce();
-    expect(execute).toHaveBeenCalledWith("customers.deleteCustomer", {
-      id: customerId,
-    });
+    expect(execute).toHaveBeenCalledWith(
+      "customers.deleteCustomer",
+      { id: customerId },
+      { toolCallId: "tool-1" },
+    );
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
   });

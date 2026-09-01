@@ -2,7 +2,8 @@ import { ActionRegistry, createInMemoryRateLimitStore } from "@showzy/core";
 import { pino } from "pino";
 import { describe, expect, it } from "vitest";
 
-import { createApp, HEALTH_PATH } from "./app.js";
+import { createApp, HEALTH_PATH, HTTP_INVOCATION_CHANNEL } from "./app.js";
+import { ASSISTANT_CHAT_PATH } from "./assistant-chat.js";
 import { PKI_PROXY_PATH } from "./pki-proxy.js";
 import { REQUEST_ID_HEADER } from "./request-id.js";
 
@@ -74,5 +75,28 @@ describe("createApp HTTP shell", () => {
     });
     expect(response.status).not.toBe(401);
     expect(response.status).toBe(400);
+  });
+
+  it("POST /assistant/chat without a session is 401 UNAUTHENTICATED", async () => {
+    const app = silentApp();
+    const response = await app.request(ASSISTANT_CHAT_PATH, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        conversationId: UUID,
+        messages: [
+          { id: "m1", role: "user", parts: [{ type: "text", text: "Hi" }] },
+        ],
+      }),
+    });
+    expect(response.status).toBe(401);
+    expect(await response.json()).toMatchObject({
+      code: "UNAUTHENTICATED",
+      status: 401,
+    });
+  });
+
+  it("keeps /rpc and /api/v1 labeled ui", () => {
+    expect(HTTP_INVOCATION_CHANNEL).toBe("ui");
   });
 });

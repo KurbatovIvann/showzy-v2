@@ -1,13 +1,15 @@
 import type { ActionContract } from "@showzy/core/contract";
-import { tool, type Tool } from "ai";
+import { tool, type Tool, type ToolSet } from "ai";
 
 /**
  * Injected tool body. Tests fake `executeAction`. The adapter never calls
- * `/rpc` and never logs prompts or API keys.
+ * `/rpc` and never logs prompts or API keys. `toolCallId` comes from the
+ * AI SDK loop and is passed through to `executeAction` request meta.
  */
 export type ActionToolExecute = (
   actionName: string,
   input: unknown,
+  options: { readonly toolCallId: string },
 ) => Promise<unknown>;
 
 /**
@@ -22,9 +24,24 @@ export function actionContractToTool(
   return tool({
     description: contract.description,
     inputSchema: contract.input,
-    execute: async (input: unknown) => {
+    execute: async (input: unknown, options) => {
       const parsed: unknown = contract.input.parse(input);
-      return execute(contract.name, parsed);
+      return execute(contract.name, parsed, { toolCallId: options.toolCallId });
     },
   });
+}
+
+/**
+ * Build the AI SDK tool map keyed by action name. The HTTP mount injects
+ * `executeAction`; this helper never fetches `/rpc`.
+ */
+export function staffAssistantTools(
+  contracts: readonly ActionContract[],
+  execute: ActionToolExecute,
+): ToolSet {
+  const tools: ToolSet = {};
+  for (const contract of contracts) {
+    tools[contract.name] = actionContractToTool(contract, execute);
+  }
+  return tools;
 }

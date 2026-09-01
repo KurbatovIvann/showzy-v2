@@ -1,9 +1,10 @@
 /**
  * The Hono HTTP app (ADR-0003, contract.md §3): request-id, trusted-proxy
  * IP, better-auth, oRPC at `/rpc`, OpenAPI REST aliases at `/api/v1`,
- * document-share landing, PKI proxy, and a liveness endpoint. Business
- * logic does not live here — every action runs `executeAction` through
- * the contract server router. `POST /pki/proxy` is HTTP, not an action.
+ * document-share landing, PKI proxy, staff AI SSE at `/assistant/chat`,
+ * and a liveness endpoint. Business logic does not live here — every
+ * action runs `executeAction` through the contract server router or the
+ * dedicated AI mount. `POST /pki/proxy` is HTTP, not an action.
  */
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { ORPCError } from "@orpc/server";
@@ -31,6 +32,11 @@ import { Hono, type Context } from "hono";
 
 import { createTrustedProxyMatcher, resolveClientIp } from "./client-ip.js";
 import {
+  ASSISTANT_CHAT_PATH,
+  executeStaffAssistantChat,
+  type StaffAssistantRuntime,
+} from "./assistant-chat.js";
+import {
   DOCUMENT_SHARE_LANDING_ROUTE,
   executeDocumentShareLanding,
 } from "./document-share-landing.js";
@@ -49,9 +55,9 @@ export const AUTH_PREFIX = "/api/auth";
 export const HEALTH_PATH = "/health";
 
 /**
- * Phase-0: every HTTP invocation (oRPC and `/api/v1`) is labeled `ui`.
- * Revisit when external consumers or the AI mount send a distinct channel
- * (security-operations §4).
+ * oRPC at `/rpc` and OpenAPI REST aliases at `/api/v1` are labeled `ui`.
+ * `POST /assistant/chat` sets `channel: "ai"` (security-operations §4).
+ * Do not add a client-spoofable `x-channel` header.
  */
 export const HTTP_INVOCATION_CHANNEL = "ui" as const;
 
@@ -85,6 +91,8 @@ export interface CreateAppOptions {
   readonly getPeerAddress: (c: Context<AppEnv>) => string;
   /** SSRF-gated OCSP/TSA proxy (SHO-255). Not an action. */
   readonly pkiProxy: PkiProxyRuntime;
+  /** Staff AI SSE (`POST /assistant/chat`). Optional so unit tests of the HTTP shell still boot. */
+  readonly assistant?: StaffAssistantRuntime;
 }
 
 /**
@@ -337,6 +345,21 @@ export function createApp(options: CreateAppOptions): Hono<AppEnv> {
       c.header("Retry-After", String(result.retryAfterSec));
     }
     return c.html(result.html, result.status);
+  });
+
+  app.post(ASSISTANT_CHAT_PATH, async (c) => {
+    const response = await executeStaffAssistantChat({
+      request: c.req.raw,
+      requestId: c.get("requestId"),
+      clientIp: c.get("clientIp"),
+      registry: options.registry,
+      pipeline: options.pipeline,
+      getSession: (headers) => resolveSession(options.auth, headers),
+      ...(options.assistant !== undefined
+        ? { assistant: options.assistant }
+        : {}),
+    });
+    return withRequestId(response, c.get("requestId"));
   });
 
   app.on(["GET", "POST"], `${AUTH_PREFIX}/*`, async (c) => {

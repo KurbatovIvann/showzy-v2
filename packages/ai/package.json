@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Server-only AI SDK 7 thin loop: staff system prompt, ActionContract tool() adapter, and staff-tool filtering (ADR-0032). Owns no domain state and does not mount HTTP.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./test": "./src/test.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

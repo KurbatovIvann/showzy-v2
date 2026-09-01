@@ -125,6 +125,12 @@ export async function bootApi(config: ServerConfig): Promise<BootedApi> {
       rateLimitStore,
       ipHmacSecret: config.rateLimit.ipHmacSecret,
     },
+    assistant: {
+      model: config.ai.model,
+      ...(config.ai.anthropicApiKey !== undefined
+        ? { anthropicApiKey: config.ai.anthropicApiKey }
+        : {}),
+    },
   });
 
   return {
