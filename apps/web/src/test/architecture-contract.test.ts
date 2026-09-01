@@ -220,6 +220,7 @@ describe("CI smoke contract (SHO-331)", () => {
       '"e2e-smoke": "vite build && playwright test"',
     );
     expect(playwrightConfig).toContain('testDir: "./e2e"');
+    expect(playwrightConfig).toContain('testMatch: "**/*.spec.ts"');
     expect(playwrightConfig).toContain("retries: 0");
     expect(ci).toContain("turbo run e2e-smoke");
     expect(ci).toContain("playwright install");
