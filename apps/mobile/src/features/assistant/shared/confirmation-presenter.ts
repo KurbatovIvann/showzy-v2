@@ -159,23 +159,52 @@ export function shouldMarkConfirmationResolved(args: {
 }
 
 /**
+ * Claim the in-flight HITL resolve synchronously so two confirm() calls
+ * before `sendBusy` cannot both POST. Same pattern as dismiss: a live ref.
+ */
+export function claimConfirmationConfirm(args: {
+  readonly pending: PendingConfirmation | null;
+  readonly sendBusy: boolean;
+  readonly dismissedChallengeIds: ReadonlySet<string>;
+  readonly resolvingRef: { current: string | null };
+}): PendingConfirmation | null {
+  if (args.pending === null || args.sendBusy) {
+    return null;
+  }
+  if (args.dismissedChallengeIds.has(args.pending.challengeId)) {
+    return null;
+  }
+  if (args.resolvingRef.current !== null) {
+    return null;
+  }
+  args.resolvingRef.current = args.pending.challengeId;
+  return args.pending;
+}
+
+/**
  * AI-mount equivalent of `submitWithProtocolConfirmation`: the challenge
  * already streamed as `data-confirmation`. Confirm POSTs the same
  * messages plus the challenge header. Never skip HITL. Same-tick dismiss
  * is visible when `dismissedChallengeIds` is the live set (a ref).
+ * `resolvingRef` is claimed synchronously before the resume await.
  */
 export async function executeConfirmationConfirm(args: {
   readonly pending: PendingConfirmation | null;
+  readonly sendBusy: boolean;
   readonly dismissedChallengeIds: ReadonlySet<string>;
+  readonly resolvingRef: { current: string | null };
   readonly resume: (headers: Readonly<Record<string, string>>) => Promise<void>;
 }): Promise<"resumed" | "skipped"> {
-  if (args.pending === null) {
+  const claimed = claimConfirmationConfirm({
+    pending: args.pending,
+    sendBusy: args.sendBusy,
+    dismissedChallengeIds: args.dismissedChallengeIds,
+    resolvingRef: args.resolvingRef,
+  });
+  if (claimed === null) {
     return "skipped";
   }
-  if (args.dismissedChallengeIds.has(args.pending.challengeId)) {
-    return "skipped";
-  }
-  await args.resume(confirmationResumeHeaders(args.pending.challengeId));
+  await args.resume(confirmationResumeHeaders(claimed.challengeId));
   return "resumed";
 }
 

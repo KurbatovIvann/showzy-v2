@@ -123,7 +123,9 @@ describe("executeConfirmationConfirm", () => {
     await expect(
       executeConfirmationConfirm({
         pending,
+        sendBusy: false,
         dismissedChallengeIds: new Set(),
+        resolvingRef: { current: null },
         resume,
       }),
     ).resolves.toBe("resumed");
@@ -146,7 +148,9 @@ describe("executeConfirmationConfirm", () => {
     await expect(
       executeConfirmationConfirm({
         pending: pendingConfirmationFromMessages(messages, dismissed),
+        sendBusy: false,
         dismissedChallengeIds: dismissed,
+        resolvingRef: { current: null },
         resume,
       }),
     ).resolves.toBe("skipped");
@@ -168,7 +172,9 @@ describe("executeConfirmationConfirm", () => {
     await expect(
       executeConfirmationConfirm({
         pending,
+        sendBusy: false,
         dismissedChallengeIds: gate.dismissed,
+        resolvingRef: { current: null },
         resume,
       }),
     ).resolves.toBe("skipped");
@@ -184,13 +190,35 @@ describe("executeConfirmationConfirm", () => {
     await expect(
       executeConfirmationConfirm({
         pending,
+        sendBusy: false,
         dismissedChallengeIds: new Set([challengeA]),
+        resolvingRef: { current: null },
         resume,
       }),
     ).resolves.toBe("resumed");
     expect(resume).toHaveBeenCalledWith({
       [CONFIRMATION_CHALLENGE_HEADER]: challengeB,
     });
+  });
+
+  it("two confirm() calls before busy resume once", async () => {
+    const resume = vi.fn(() => Promise.resolve());
+    const pending = pendingConfirmationFromMessages(messages, new Set());
+    const resolvingRef = { current: null as string | null };
+    const args = {
+      pending,
+      sendBusy: false,
+      dismissedChallengeIds: new Set<string>(),
+      resolvingRef,
+      resume,
+    };
+    const [first, second] = await Promise.all([
+      executeConfirmationConfirm(args),
+      executeConfirmationConfirm(args),
+    ]);
+    expect(new Set([first, second])).toEqual(new Set(["resumed", "skipped"]));
+    expect(resume).toHaveBeenCalledOnce();
+    expect(resolvingRef.current).toBe(challengeA);
   });
 });
 

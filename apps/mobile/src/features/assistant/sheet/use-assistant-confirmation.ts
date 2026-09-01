@@ -36,6 +36,12 @@ export function useAssistantConfirmation(args: {
     string | null
   >(null);
   const dismissedRef = useRef<ReadonlySet<string>>(new Set());
+  const resolvingRef = useRef<string | null>(null);
+
+  const clearResolving = useCallback(() => {
+    resolvingRef.current = null;
+    setResolvingChallengeId(null);
+  }, []);
 
   const ignored = useMemo(() => {
     const next = new Set(dismissed);
@@ -57,9 +63,9 @@ export function useAssistantConfirmation(args: {
   const previousStatus = useRef(args.status);
   useEffect(() => {
     if (args.status === "error") {
-      setResolvingChallengeId(null);
+      clearResolving();
     }
-  }, [args.status]);
+  }, [args.status, clearResolving]);
 
   useEffect(() => {
     const previous = previousStatus.current;
@@ -83,33 +89,38 @@ export function useAssistantConfirmation(args: {
         return next;
       });
     }
-    setResolvingChallengeId(null);
-  }, [args.error, args.messages, args.status, pending, resolvingChallengeId]);
+    clearResolving();
+  }, [
+    args.error,
+    args.messages,
+    args.status,
+    clearResolving,
+    pending,
+    resolvingChallengeId,
+  ]);
 
   const confirm = useCallback(() => {
     const current = pendingRef.current;
-    if (
-      current === null ||
-      args.sendBusy ||
-      dismissedRef.current.has(current.challengeId)
-    ) {
+    if (current === null || resolvingRef.current !== null) {
       return;
     }
     setResolvingChallengeId(current.challengeId);
     void executeConfirmationConfirm({
       pending: current,
+      sendBusy: args.sendBusy,
       dismissedChallengeIds: dismissedRef.current,
+      resolvingRef,
       resume: args.resume,
     })
       .then((result) => {
         if (result === "skipped") {
-          setResolvingChallengeId(null);
+          clearResolving();
         }
       })
       .catch(() => {
-        setResolvingChallengeId(null);
+        clearResolving();
       });
-  }, [args.resume, args.sendBusy]);
+  }, [args.resume, args.sendBusy, clearResolving]);
 
   const dismiss = useCallback(() => {
     const next = executeConfirmationDismiss({
@@ -124,6 +135,7 @@ export function useAssistantConfirmation(args: {
     const empty = new Set<string>();
     dismissedRef.current = empty;
     pendingRef.current = null;
+    resolvingRef.current = null;
     setDismissed(empty);
     setResolved(new Set());
     setResolvingChallengeId(null);
