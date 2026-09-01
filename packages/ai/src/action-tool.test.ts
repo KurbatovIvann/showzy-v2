@@ -1,4 +1,5 @@
 import { defineActionContract } from "@showzy/core/contract";
+import { asSchema } from "ai";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -53,6 +54,22 @@ describe("actionContractToTool", () => {
     });
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
+  });
+
+  it("exposes the contract input schema as the AI SDK tool schema", async () => {
+    const execute = vi.fn(() => Promise.resolve({ ok: true }));
+    const aiTool = actionContractToTool(deleteCustomer, execute);
+    const schema = asSchema(aiTool.inputSchema);
+
+    const rejected = await schema.validate?.({ id: "not-a-uuid" });
+    expect(rejected?.success).toBe(false);
+
+    const accepted = await schema.validate?.({ id: customerId });
+    expect(accepted).toEqual({
+      success: true,
+      value: { id: customerId },
+    });
+    expect(execute).not.toHaveBeenCalled();
   });
 
   it("does not invoke execute when input fails the contract schema", async () => {
