@@ -317,8 +317,8 @@ describe("full-shell template editor (SHO-314)", () => {
       expect(router.state.location.pathname).toBe(
         "/kviti-lviv/documents/templates",
       );
+      expect(screen.getByRole("region", { name: "Документи" })).toBeDefined();
     });
-    expect(screen.getByRole("region", { name: "Документи" })).toBeDefined();
     expect(
       screen.getByRole("navigation", { name: "Основна навігація" }),
     ).toBeDefined();
