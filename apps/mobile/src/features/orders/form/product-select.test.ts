@@ -53,16 +53,12 @@ describe("productPickerParentSubtitle", () => {
 
 describe("filterProductSelectRows", () => {
   it("does not walk the catalog when the picker session is closed", () => {
-    let walked = 0;
     const products = new Proxy([] as ProductSelectRow[], {
-      get(target, property, receiver) {
-        walked += 1;
-        return Reflect.get(target, property, receiver);
+      get(): never {
+        throw new Error("closed session must not read the catalog");
       },
     });
-    const filtered = filterProductSelectRows(products, "торт", false);
-    expect(filtered).toEqual([]);
-    expect(walked).toBe(0);
+    expect(filterProductSelectRows(products, "торт", false)).toEqual([]);
   });
 
   it("filters by name only while the session is open", () => {
