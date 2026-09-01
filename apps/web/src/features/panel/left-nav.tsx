@@ -9,17 +9,18 @@ import {
   Tags,
   Users,
 } from "lucide-react";
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 
 import { cx } from "../../components/ui/cx";
 import type { PanelChromeCopy } from "../../i18n/panel/chrome";
 import { AccountMenu } from "./account-menu";
 import { usePanelChrome } from "./panel-chrome-context";
+import { useResolvedPanelState } from "./panel-route-state";
 import {
-  panelSectionFromPathname,
   SECTION_LIST_PATH,
+  sidebarNavSection,
   type PanelSectionId,
-} from "./section-path";
+} from "./panel-section";
 import { ShozikDialog } from "./shozik-dialog";
 import { usePanelChromeCopy } from "./use-panel-chrome-copy";
 
@@ -34,13 +35,10 @@ export function LeftNav({
 }) {
   const copy = usePanelChromeCopy();
   const chrome = usePanelChrome();
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const active = panelSectionFromPathname(pathname, chrome.companySlug);
+  const panel = useResolvedPanelState();
   const [shozikOpen, setShozikOpen] = useState(false);
-  const navActive: PanelSectionId =
-    active === "customer-groups" || active === "counterparties"
-      ? "customers"
-      : active;
+  const navActive =
+    panel === undefined ? undefined : sidebarNavSection(panel.panelSection);
 
   return (
     <>
@@ -171,7 +169,7 @@ function NavRow({
   readonly id: PanelSectionId;
   readonly label: string;
   readonly Icon: typeof Box;
-  readonly active: PanelSectionId;
+  readonly active: PanelSectionId | undefined;
   readonly companySlug: string;
   readonly onNavigate: () => void;
 }) {
@@ -182,6 +180,7 @@ function NavRow({
         aria-current={selected ? "page" : undefined}
         params={{ companySlug }}
         to={SECTION_LIST_PATH[id]}
+        activeOptions={{ includeSearch: false }}
         onClick={onNavigate}
         className={navRowClass(selected)}
       >

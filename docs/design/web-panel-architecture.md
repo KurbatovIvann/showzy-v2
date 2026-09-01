@@ -163,9 +163,9 @@ routes live in URL-segment folders under pathless `_panel` (chrome) and
 must render `<Outlet />`; the exact URL is `index.tsx`. Panel chrome
 still lives in `src/features/panel` until the layouts move ticket.
 Composition files live at `src/main.tsx`, `src/router.tsx`,
-`src/app-providers.tsx`. Section / list-vs-detail still use pathname
-helpers in `features/panel/section-path.ts` — that is the gap SHO-328
-closes. The company home (`/$companySlug`) is `_panel/index.tsx` so it
+`src/app-providers.tsx`. Panel section, list vs detail, tabs, and back
+targets are derived from typed route matches and `staticData.panel`
+(SHO-328). The company home (`/$companySlug`) is `_panel/index.tsx` so it
 receives panel chrome without a URL segment.
 
 ```
@@ -502,7 +502,8 @@ it("opens a company-scoped list from the URL", async () => {
 });
 ```
 
-MSW intercepts `/rpc`. Do not mock `features/panel/section-path`.
+MSW intercepts `/rpc`. Do not reconstruct the route hierarchy from
+`location.pathname`.
 
 ## Testing
 
