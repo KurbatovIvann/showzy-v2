@@ -66,6 +66,11 @@ When the task touches `apps/mobile`, load
 `.cursor/skills/showzy-mobile/SKILL.md` before writing code. Do not load
 Expo skills for backend or module work.
 
+When the task touches `apps/web`, load
+`.cursor/skills/showzy-web/SKILL.md` and `apps/web/AGENTS.md` before
+writing code. Do not load Expo skills for web work. The panel is a Vite
+SPA (ADR-0030), not the mobile client and not the future storefront.
+
 ## Feature conveyor
 
 `/implement SHO-<parent>` (or `/ticket` / `/conveyor` on a Feature
