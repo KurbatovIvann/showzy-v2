@@ -297,11 +297,9 @@ describe("ordersCreateFacadeTools", () => {
       .jsonSchema;
     expect(json["type"]).toBe("object");
     expect(json["oneOf"]).toBeUndefined();
-    expect(json["properties"]).toMatchObject({
-      customerId: expect.anything(),
-      customerQuery: expect.anything(),
-      items: expect.anything(),
-    });
+    expect(json["properties"]).toHaveProperty("customerId");
+    expect(json["properties"]).toHaveProperty("customerQuery");
+    expect(json["properties"]).toHaveProperty("items");
     expect(json["properties"]).not.toHaveProperty("customer");
   });
 

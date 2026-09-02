@@ -12,7 +12,6 @@ import {
   toProviderToolName,
 } from "@showzy/ai";
 import { PermissionDeniedError } from "@showzy/core/errors";
-import { asSchema } from "ai";
 import { describe, expect, it, vi } from "vitest";
 
 import { createActionRegistry } from "../composition.js";
@@ -100,12 +99,6 @@ describe("staff AI tool manifest (SHO-322)", () => {
     expect(names).toContain(ORDERS_CREATE_TOOL_NAME);
     expect(names).toContain(toProviderToolName("orders.create"));
     expect(names).not.toContain("orders.create");
-    const createJson = await asSchema(
-      tools[ORDERS_CREATE_TOOL_NAME]?.inputSchema,
-    ).jsonSchema;
-    expect(createJson["type"]).toBe("object");
-    expect(createJson["oneOf"]).toBeUndefined();
-    expect(createJson["properties"]).not.toHaveProperty("customer");
     expect(
       tools[toProviderToolName("pricing.createPriceList")]?.providerOptions,
     ).toEqual(STAFF_ASSISTANT_DEFER_PROVIDER_OPTIONS);
