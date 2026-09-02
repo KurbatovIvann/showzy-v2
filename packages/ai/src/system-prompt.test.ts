@@ -7,6 +7,7 @@ import {
   staffAssistantSystemMessages,
   staffAssistantSystemPrompt,
 } from "./system-prompt.js";
+import { staffAssistantTurnContextAddendum } from "./turn-context.js";
 
 describe("staffAssistantSystemPrompt", () => {
   it("identifies the staff-panel channel and bilingual replies", () => {
@@ -45,12 +46,15 @@ describe("staffAssistantSystemPrompt", () => {
 
   it("sends period order counts and gross to orders_list_counts instead of analytics tabs", () => {
     expect(staffAssistantSystemPrompt).toContain(
-      "Period order counts and gross use orders_list_counts with createdFrom / createdTo ISO",
+      "Period order counts and gross use orders_list_counts with period (today, this_week, this_month) or createdFrom / createdTo ISO",
     );
     expect(staffAssistantSystemPrompt).toContain(
       "Do not refuse those jobs as analytics",
     );
     expect(staffAssistantSystemPrompt).toContain("Analytics / Reports");
+    expect(staffAssistantSystemPrompt).toContain(
+      "prefer period on the order list tools",
+    );
   });
 
   it("sends find-by-name, fill, and assign to existing pricing and customers tools", () => {
@@ -95,14 +99,24 @@ describe("staffAssistantSystemPrompt", () => {
     });
   });
 
-  it("leaves the cached prefix unchanged and does not cache the working-set addendum", () => {
+  it("leaves the cached prefix unchanged and does not cache the turn-context addendum", () => {
     const cached = staffAssistantSystemMessage();
-    const withAddendum = staffAssistantSystemMessages(
-      "Working set from earlier tool runs in this conversation (ids only; not live record state):\ncatalog.listProducts: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-    );
+    const addendum = staffAssistantTurnContextAddendum({
+      now: new Date("2026-09-02T12:00:00.000Z"),
+      companyName: "Konditerska Anna",
+      workingSetAddendum:
+        "Working set from earlier tool runs in this conversation (ids only; not live record state):\ncatalog.listProducts: aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    });
+    const withAddendum = staffAssistantSystemMessages(addendum);
+    expect(withAddendum).toHaveLength(2);
     expect(withAddendum[0]).toEqual(cached);
     expect(withAddendum[0]?.content).toBe(staffAssistantSystemPrompt);
+    expect(withAddendum[0]?.content).not.toContain("2 September 2026");
+    expect(withAddendum[0]?.content).not.toContain("Konditerska Anna");
     expect(withAddendum[1]?.providerOptions).toBeUndefined();
+    expect(withAddendum[1]?.content).toContain("2 September 2026");
+    expect(withAddendum[1]?.content).toContain("Europe/Kyiv");
+    expect(withAddendum[1]?.content).toContain("Konditerska Anna");
     expect(withAddendum[1]?.content).toContain("catalog.listProducts");
   });
 });

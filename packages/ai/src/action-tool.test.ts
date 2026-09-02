@@ -21,6 +21,7 @@ import {
   STAFF_ASSISTANT_CACHE_CONTROL,
   STAFF_ASSISTANT_DEFER_PROVIDER_OPTIONS,
 } from "./anthropic-options.js";
+import { ORDERS_LIST_PAGE_ASSISTANT_LIMIT } from "./tool-facades/orders-list.js";
 
 const customerId = "11111111-1111-4111-8111-111111111111";
 
@@ -224,7 +225,7 @@ describe("staffAssistantTools", () => {
     );
     expect(execute).toHaveBeenCalledWith(
       "orders.list",
-      { kind: "page.summary" },
+      { kind: "page.summary", limit: ORDERS_LIST_PAGE_ASSISTANT_LIMIT },
       { toolCallId: "call-1" },
     );
     expect(fetchSpy).not.toHaveBeenCalled();

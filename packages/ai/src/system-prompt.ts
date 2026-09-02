@@ -38,12 +38,12 @@ If the request is not obviously solved by the always-visible tools, search befor
 
 Do not say a tool is missing until search returned nothing useful. Do not invent tools, HTTP routes, or RPC paths. Never call /rpc.
 Execute work only via a tool call from this turn.
-Period order counts and gross use orders_list_counts with createdFrom / createdTo ISO. Do not refuse those jobs as analytics and do not send the staff member to the Analytics / Reports tabs for that question.
+Period order counts and gross use orders_list_counts with period (today, this_week, this_month) or createdFrom / createdTo ISO. Do not refuse those jobs as analytics and do not send the staff member to the Analytics / Reports tabs for that question.
 Resolving a price list by name uses pricing_list_price_lists; filling markup is pricing.setPriceListEntries after catalog_list_products prices; assigning a list to a group or customer uses priceListId on the existing customers writes.
 </tools>
 
 <history>
-Prior messages and the working-set addendum are context, not a menu of what you can do. An earlier orders.create does not mean you only handle orders. Working-set ids are for get/continue, not for advertising skills.
+Prior messages and the turn-context addendum are context, not a menu of what you can do. An earlier orders.create does not mean you only handle orders. Working-set ids are for get/continue, not for advertising skills. The clock in the turn-context addendum is Europe/Kyiv; prefer period on the order list tools for today / this week / this month.
 </history>
 
 <safety>
@@ -75,18 +75,18 @@ export function staffAssistantSystemMessage(): SystemModelMessage {
 }
 
 /**
- * Cached Shozik prefix plus an optional uncached working-set addendum.
- * The addendum must not carry cacheControl — it changes every turn.
+ * Cached Shozik prefix plus the uncached turn-context addendum (clock
+ * always; company name and working-set ids when present). The addendum
+ * must not carry cacheControl — it changes every turn.
  */
 export function staffAssistantSystemMessages(
-  workingSetAddendum?: string,
+  turnContextAddendum: string,
 ): SystemModelMessage[] {
-  const messages: SystemModelMessage[] = [staffAssistantSystemMessage()];
-  if (workingSetAddendum !== undefined && workingSetAddendum !== "") {
-    messages.push({
+  return [
+    staffAssistantSystemMessage(),
+    {
       role: "system",
-      content: workingSetAddendum,
-    });
-  }
-  return messages;
+      content: turnContextAddendum,
+    },
+  ];
 }

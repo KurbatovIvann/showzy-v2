@@ -24,6 +24,7 @@ import {
   staffAssistantChatBodySchema,
   staffAssistantModelMessages,
   staffAssistantShouldSkipOperationalGate,
+  staffAssistantTurnContextAddendum,
   staffAssistantUncachedInputTokens,
   staffAssistantWorkingSetAddendum,
   streamStaffAssistantChat,
@@ -42,6 +43,7 @@ import {
   getStaffActor,
   recordAssistantTurn,
 } from "@showzy/assistant";
+import { getCompany } from "@showzy/companies";
 import {
   COMPANY_SELECTOR_HEADER,
   CONFIRMATION_CHALLENGE_HEADER,
@@ -57,6 +59,7 @@ import {
 import {
   CoreError,
   CoreInvariantError,
+  PermissionDeniedError,
   ValidationError,
 } from "@showzy/core/errors";
 import type { Logger } from "pino";
@@ -67,6 +70,26 @@ import { REQUEST_ID_HEADER } from "./request-id.js";
 export const ASSISTANT_CHAT_PATH = "/assistant/chat";
 
 export const ASSISTANT_INVOCATION_CHANNEL = "ai" as const;
+
+/**
+ * Trade name for the uncached turn-context addendum. `companies.get`
+ * requires `documents:view`; a permission denial omits the name line
+ * without failing the chat turn (SHO-360).
+ */
+export async function readStaffAssistantCompanyTradeName(
+  load: () => Promise<{ readonly name: string }>,
+): Promise<string | undefined> {
+  try {
+    const company = await load();
+    const name = company.name.trim();
+    return name === "" ? undefined : name;
+  } catch (error) {
+    if (error instanceof PermissionDeniedError) {
+      return undefined;
+    }
+    throw error;
+  }
+}
 
 export interface StaffAssistantRuntime {
   readonly model: string;
@@ -428,6 +451,19 @@ export async function executeStaffAssistantChat(
     const workingSetAddendum = staffAssistantWorkingSetAddendum(
       conversation.toolRuns,
     );
+    const companyName = await readStaffAssistantCompanyTradeName(() =>
+      executeAction(options.pipeline, {
+        action: getCompany,
+        input: {},
+        request: baseRequest,
+        principal: staffPrincipal,
+      }),
+    );
+    const turnContextAddendum = staffAssistantTurnContextAddendum({
+      now: new Date(),
+      ...(companyName !== undefined ? { companyName } : {}),
+      ...(workingSetAddendum !== undefined ? { workingSetAddendum } : {}),
+    });
 
     let pausedAttempt: PausedToolAttempt | undefined;
     if (confirmationChallengeId !== undefined) {
@@ -560,7 +596,7 @@ export async function executeStaffAssistantChat(
       messages: modelMessages,
       contracts: streamContracts,
       abortSignal: options.request.signal,
-      ...(workingSetAddendum !== undefined ? { workingSetAddendum } : {}),
+      turnContextAddendum,
       responseHeaders: {
         "cache-control": "private, no-store",
         [REQUEST_ID_HEADER]: options.requestId,

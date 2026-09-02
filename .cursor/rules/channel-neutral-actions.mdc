@@ -12,7 +12,9 @@ screen widget. The assistant may see a narrower mapped schema.
 - **Same handlers.** No `*ForAssistant` `implementAction`, no AI-only
   module Zod, no SQL/GraphQL DSL, no workflow mega-action that spans
   customers+pricing+orders in one write. Named tool façades belong in
-  `packages/ai` and always `execute` the registry name.
+  `packages/ai` and always `execute` the registry name. Copy T7 catalog +
+  SHO-360: input map **and** output map before clip. Do not copy T5
+  input-only façades.
 - **List** = bounded domain query: discriminated `kind` (page vs aggregate vs
   bounded lines), extensible `filter`, named caps, explicit truncation.
   The screen is a client of that query. Do not copy pre-SHO-351

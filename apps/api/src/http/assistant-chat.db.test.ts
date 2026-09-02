@@ -55,7 +55,8 @@ import {
   getCustomer,
 } from "@showzy/customers";
 import { auditLog, idempotencyKeys } from "@showzy/db";
-import { session } from "@showzy/db/schema/auth";
+import { session, user } from "@showzy/db/schema/auth";
+import { companyMembers } from "@showzy/db/schema/companies";
 import {
   assistantMessages,
   assistantToolRuns,
@@ -433,6 +434,10 @@ describe("POST /assistant/chat authorization", () => {
     expect(prompt).toContain(
       "Do not call a list tool solely to recover these ids",
     );
+    expect(prompt).toContain("Europe/Kyiv");
+    expect(prompt).toContain("Konditerska Anna");
+    expect(prompt).not.toContain(kitIdentities.companies.a);
+    expect(prompt).not.toContain("konditerska-anna");
   });
 
   it("omits the working-set addendum when the conversation has no tool runs", async () => {
@@ -453,6 +458,51 @@ describe("POST /assistant/chat authorization", () => {
     await readUiMessageSsePayloads(response);
     const prompt = JSON.stringify(model.doStreamCalls[0]?.prompt ?? []);
     expect(prompt).not.toContain("Working set from earlier tool runs");
+    expect(prompt).toContain("Europe/Kyiv");
+    expect(prompt).toContain("Konditerska Anna");
+    expect(prompt).toContain("week starts on Monday");
+    expect(prompt).not.toContain(kitIdentities.companies.a);
+  });
+
+  it("omits the trade name on documents:view denial and still returns the clock", async () => {
+    const clerkId = randomUUID();
+    await kit.db.runtime.db.insert(user).values({
+      id: clerkId,
+      name: "No Documents Clerk",
+      email: `no-docs-${clerkId}@assistant-kit.test`,
+    });
+    await kit.db.runtime.db.insert(companyMembers).values({
+      companyId: kitIdentities.companies.a,
+      userId: clerkId,
+      role: "employee",
+      permissions: { granted: ["assistant:use"], denied: ["documents:view"] },
+    });
+    const model = new MockLanguageModelV3({
+      doStream: [mockTextStream("Hello without a company name.")],
+    });
+    const app = chatApp(model);
+    const token = await insertBearer(kit, clerkId);
+    const conversation = await staffInvoke(
+      createConversation,
+      { title: "No documents:view" },
+      { userId: clerkId, companyId: kitIdentities.companies.a },
+    );
+    const response = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "Hello"),
+    });
+    expect(response.status).toBe(200);
+    await readUiMessageSsePayloads(response);
+    expect(model.doStreamCalls).toHaveLength(1);
+    const prompt = JSON.stringify(model.doStreamCalls[0]?.prompt ?? []);
+    expect(prompt).toContain("Europe/Kyiv");
+    expect(prompt).toContain("week starts on Monday");
+    expect(prompt).toContain("Money is UAH.");
+    expect(prompt).not.toContain("This company is called");
+    expect(prompt).not.toContain("Konditerska Anna");
+    expect(prompt).not.toContain(kitIdentities.companies.a);
+    expect(prompt).not.toContain("konditerska-anna");
   });
 
   it("windows 20 client messages to 8 and does not log dropped text", async () => {

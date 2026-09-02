@@ -35,7 +35,9 @@ import {
   mockToolCallStream,
   readUiMessageSsePayloads,
 } from "./test.js";
+import { ORDERS_LIST_PAGE_ASSISTANT_LIMIT } from "./tool-facades/orders-list.js";
 import { STAFF_ASSISTANT_EMPTY_TOOLSET_HASH } from "./toolset-hash.js";
+import { staffAssistantTurnContextAddendum } from "./turn-context.js";
 import { staffAssistantWorkingSetAddendum } from "./working-set.js";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -188,7 +190,7 @@ describe("staffAssistantTools", () => {
     );
     expect(execute).toHaveBeenCalledWith(
       "orders.list",
-      { kind: "page.summary" },
+      { kind: "page.summary", limit: ORDERS_LIST_PAGE_ASSISTANT_LIMIT },
       { toolCallId: "call-1" },
     );
     expect(fetchSpy).not.toHaveBeenCalled();
@@ -224,7 +226,7 @@ describe("streamStaffAssistantChat", () => {
 
     expect(execute).toHaveBeenCalledWith(
       "orders.list",
-      { kind: "page.summary" },
+      { kind: "page.summary", limit: ORDERS_LIST_PAGE_ASSISTANT_LIMIT },
       { toolCallId: "call-list" },
     );
     expect(turn.toolRuns).toEqual([
@@ -287,12 +289,22 @@ describe("streamStaffAssistantChat", () => {
     const systemMessages = (call?.prompt ?? []).filter(
       (part) => part.role === "system",
     );
-    expect(systemMessages.length).toBe(1);
+    expect(systemMessages.length).toBe(2);
     expect(systemMessages[0]).toMatchObject({
       content: staffAssistantSystemPrompt,
     });
     expect(anthropicCacheControl(systemMessages[0])).toEqual(
       STAFF_ASSISTANT_CACHE_CONTROL,
+    );
+    expect(anthropicCacheControl(systemMessages[1])).toBeUndefined();
+    expect(JSON.stringify(systemMessages[0])).not.toContain(
+      "Turn context (not cached",
+    );
+    expect(JSON.stringify(systemMessages[1])).toContain(
+      "Turn context (not cached",
+    );
+    expect(JSON.stringify(systemMessages[1])).toContain(
+      "week starts on Monday",
     );
     const tools = call?.tools ?? [];
     expect(tools.length).toBe(4);
@@ -343,12 +355,16 @@ describe("streamStaffAssistantChat", () => {
       },
     ]);
     expect(workingSetAddendum).toEqual(expect.stringContaining(productId));
+    const turnContextAddendum = staffAssistantTurnContextAddendum({
+      now: new Date("2026-09-02T12:00:00.000Z"),
+      ...(workingSetAddendum !== undefined ? { workingSetAddendum } : {}),
+    });
     const { response } = streamStaffAssistantChat({
       model,
       messages: [{ role: "user", content: "What are those products?" }],
       contracts: [listOrders],
       execute,
-      ...(workingSetAddendum !== undefined ? { workingSetAddendum } : {}),
+      turnContextAddendum,
     });
     await readUiMessageSsePayloads(response);
     expect(execute).not.toHaveBeenCalled();
@@ -360,8 +376,10 @@ describe("streamStaffAssistantChat", () => {
       STAFF_ASSISTANT_CACHE_CONTROL,
     );
     expect(anthropicCacheControl(systemMessages[1])).toBeUndefined();
+    expect(JSON.stringify(systemMessages[0])).not.toContain(productId);
     expect(JSON.stringify(systemMessages[1])).toContain("catalog.listProducts");
     expect(JSON.stringify(systemMessages[1])).toContain(productId);
+    expect(JSON.stringify(systemMessages[1])).toContain("Europe/Kyiv");
   });
 
   it("attaches no tools when the contract list is empty", async () => {

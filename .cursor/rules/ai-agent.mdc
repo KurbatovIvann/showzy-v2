@@ -22,5 +22,6 @@ schema**. That is not a second domain API.
   object tools instead. Keep `ensureAnthropicToolInputSchemaType` for
   remaining 1:1 union tools until those get façades.
 - Copy the `orders.list` → `orders_list_page` / `orders_list_counts`
-  pattern (SHO-355) when a later ticket names that list. Do not copy it
-  repo-wide unasked.
+  pattern (SHO-355 input map **and** SHO-360 output map before clip)
+  when a later ticket names that list. Do not copy T5 input-only
+  façades. Do not copy it repo-wide unasked.
