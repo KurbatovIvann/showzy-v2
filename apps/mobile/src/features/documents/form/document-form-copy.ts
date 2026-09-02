@@ -1,9 +1,9 @@
 /**
  * Document create copy keys, formState mapping, and server
- * VALIDATION-by-path mapping (SHO-238). Schema `message` values and
- * issue paths are keys, never user-facing text. Linked-customer mismatch
- * is a server VALIDATION — banner, not a field (do not invent a fifth
- * CRM writer).
+ * VALIDATION-by-path mapping (SHO-238 / SHO-366). Schema `message`
+ * values and issue paths are keys, never user-facing text.
+ * Linked-customer mismatch is a server VALIDATION — banner, not a field
+ * (do not invent a fifth CRM writer).
  */
 import { isWireError, type WireErrorCode } from "@showzy/contract";
 
@@ -11,8 +11,12 @@ import type { QueryFailureKind } from "../../../api/errors";
 import type { DocumentsFormCopy } from "../../../i18n/documents";
 import type { DocumentFormWrite } from "./document-form-plan";
 import {
+  isBasisErrorKey,
+  isLayoutErrorKey,
   isOrderErrorKey,
+  type BasisErrorKey,
   type DocumentFormFieldErrors,
+  type LayoutErrorKey,
   type OrderErrorKey,
 } from "./document-form.schema";
 
@@ -59,10 +63,16 @@ export function mapDocumentFormFailure(
 
 type IssuePath = ReadonlyArray<string | number>;
 
-function issueField(path: IssuePath): "order" | null {
+function issueField(path: IssuePath): "order" | "layout" | "basis" | null {
   const field = path[0];
   if (field === "orderId") {
     return "order";
+  }
+  if (field === "layoutKey") {
+    return "layout";
+  }
+  if (field === "basis") {
+    return "basis";
   }
   return null;
 }
@@ -80,21 +90,29 @@ export function mapValidationIssues(
     return null;
   }
   let order: OrderErrorKey | null = null;
+  let layout: LayoutErrorKey | null = null;
+  let basis: BasisErrorKey | null = null;
   for (const issue of error.data.issues) {
     const field = issueField(issue.path);
     if (field === "order") {
       order = "required";
     }
+    if (field === "layout") {
+      layout = "required";
+    }
+    if (field === "basis") {
+      basis = "too_long";
+    }
   }
-  if (order === null) {
+  if (order === null && layout === null && basis === null) {
     return null;
   }
-  return { order };
+  return { order, layout, basis };
 }
 
 export type DocumentFormRhfErrorEntry = {
-  readonly name: "orderId";
-  readonly message: OrderErrorKey;
+  readonly name: "orderId" | "layoutKey" | "basis";
+  readonly message: OrderErrorKey | LayoutErrorKey | BasisErrorKey;
 };
 
 export function rhfPathsForFieldErrors(
@@ -104,12 +122,20 @@ export function rhfPathsForFieldErrors(
   if (errors.order !== null) {
     paths.push({ name: "orderId", message: errors.order });
   }
+  if (errors.layout !== null) {
+    paths.push({ name: "layoutKey", message: errors.layout });
+  }
+  if (errors.basis !== null) {
+    paths.push({ name: "basis", message: errors.basis });
+  }
   return paths;
 }
 
 export function fieldErrorsFromFormState(args: {
   readonly submitted: boolean;
   readonly orderMessage: unknown;
+  readonly layoutMessage: unknown;
+  readonly basisMessage: unknown;
   readonly server: DocumentFormFieldErrors | null;
 }): DocumentFormFieldErrors {
   const order =
@@ -118,8 +144,22 @@ export function fieldErrorsFromFormState(args: {
     isOrderErrorKey(args.orderMessage)
       ? args.orderMessage
       : null;
+  const layout =
+    args.submitted &&
+    typeof args.layoutMessage === "string" &&
+    isLayoutErrorKey(args.layoutMessage)
+      ? args.layoutMessage
+      : null;
+  const basis =
+    args.submitted &&
+    typeof args.basisMessage === "string" &&
+    isBasisErrorKey(args.basisMessage)
+      ? args.basisMessage
+      : null;
   return {
     order: order ?? args.server?.order ?? null,
+    layout: layout ?? args.server?.layout ?? null,
+    basis: basis ?? args.server?.basis ?? null,
   };
 }
 
@@ -133,10 +173,32 @@ function orderErrorCopy(
   return null;
 }
 
+function layoutErrorCopy(
+  copy: DocumentsFormCopy,
+  key: LayoutErrorKey | null,
+): string | null {
+  if (key === "required") {
+    return copy.errors.layoutRequired;
+  }
+  return null;
+}
+
+function basisErrorCopy(
+  copy: DocumentsFormCopy,
+  key: BasisErrorKey | null,
+): string | null {
+  if (key === "too_long") {
+    return copy.errors.basisTooLong;
+  }
+  return null;
+}
+
 export function resolveDocumentFormCopy(
   copy: DocumentsFormCopy,
   args: {
     readonly orderError: OrderErrorKey | null;
+    readonly layoutError: LayoutErrorKey | null;
+    readonly basisError: BasisErrorKey | null;
     readonly banner: BannerKey | null;
     readonly pending: boolean;
     readonly clientReady: boolean;
@@ -145,6 +207,8 @@ export function resolveDocumentFormCopy(
   },
 ): {
   readonly orderError: string | null;
+  readonly layoutError: string | null;
+  readonly basisError: string | null;
   readonly banner: string | null;
   readonly submitLabel: string;
   readonly submitDisabled: boolean;
@@ -155,6 +219,8 @@ export function resolveDocumentFormCopy(
     !args.pending && args.clientReady && args.canCreate && !args.created;
   return {
     orderError: orderErrorCopy(copy, args.orderError),
+    layoutError: layoutErrorCopy(copy, args.layoutError),
+    basisError: basisErrorCopy(copy, args.basisError),
     banner: args.clientReady
       ? args.banner === null
         ? null

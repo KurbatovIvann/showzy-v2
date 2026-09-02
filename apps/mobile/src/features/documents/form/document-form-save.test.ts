@@ -24,6 +24,8 @@ function validDraft(): DocumentFormDraft {
     type: "payment_invoice",
     orderId: ORDER_ID,
     counterpartyId: "",
+    layoutKey: "payment_invoice.branded",
+    basis: "",
   };
 }
 
@@ -163,6 +165,7 @@ describe("runDocumentFormSave", () => {
       input: {
         orderId: ORDER_ID,
         type: "payment_invoice",
+        layoutKey: "payment_invoice.branded",
       },
     };
     const { ports, calls } = createPorts({

@@ -56,6 +56,7 @@ const FORM_IMPL_FILES = [
   "document-form-draft.ts",
   "document-form-fields.tsx",
   "document-form-handover.ts",
+  "document-form-layouts.ts",
   "document-form-leave.ts",
   "document-form-load.ts",
   "document-form-pickers.ts",
@@ -67,6 +68,7 @@ const FORM_IMPL_FILES = [
   "document-form.schema.ts",
   "editor-section.tsx",
   "use-document-form-handover.ts",
+  "use-document-form-layouts.ts",
   "use-document-form-lookups.ts",
   "use-document-form-pickers.ts",
   "use-document-form.ts",
@@ -93,10 +95,14 @@ describe("documents/new and /d/[token] routes", () => {
     expect(CREATE_HOOK).toContain("useUnsavedGuard");
     expect(CREATE_SAVE).toContain("useFormSave");
     expect(CREATE_VIEW).toContain("FormScreenScaffold");
-    expect(
-      CREATE_HOOK.slice(CREATE_HOOK.indexOf("\n  return {")),
-    ).not.toContain("control");
-    expect(CREATE_VIEW).not.toContain("model.control");
+    expect(CREATE_VIEW).toContain("DocumentTypeCards");
+    expect(CREATE_VIEW).toContain("DocumentLayoutCards");
+    expect(CREATE_VIEW).toContain("DocumentBasisField");
+    expect(CREATE_VIEW).toContain("model.control");
+    expect(CREATE_VIEW).not.toContain("@react-pdf");
+    expect(CREATE_VIEW).not.toContain("getArtifact");
+    expect(CREATE_VIEW).not.toContain("renderPdf");
+    expect(CREATE_HOOK).toContain("useDocumentFormLayouts");
     expect(CREATE_HANDOVER).toContain("waitThenReplaceAfterCreateHandover");
     expect(CREATE_HANDOVER).not.toContain("handoverChrome.visible");
     expect(CREATE_HANDOVER_HOOK).toContain("useSheetHiddenWaiter");

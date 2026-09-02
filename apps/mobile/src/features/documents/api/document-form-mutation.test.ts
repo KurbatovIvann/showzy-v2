@@ -141,6 +141,8 @@ describe("bindDocumentFormMutate", () => {
           orderId: ORDER_ID,
           type: "delivery_note",
           counterpartyId: COUNTERPARTY_ID,
+          layoutKey: "delivery_note.parties",
+          basis: "Договір № 1",
         },
       },
       { context: { idempotencyKey: "k" } },
@@ -150,6 +152,8 @@ describe("bindDocumentFormMutate", () => {
         orderId: ORDER_ID,
         type: "delivery_note",
         counterpartyId: COUNTERPARTY_ID,
+        layoutKey: "delivery_note.parties",
+        basis: "Договір № 1",
       },
     ]);
   });

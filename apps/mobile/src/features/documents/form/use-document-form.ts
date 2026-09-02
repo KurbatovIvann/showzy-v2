@@ -18,6 +18,7 @@ import {
   type DocumentFormDraft,
 } from "./document-form-draft";
 import { classifyDocumentFormLoad } from "./document-form-load";
+import { layoutCardLabel } from "./document-form-layouts";
 import { counterpartyPickerEnabled } from "./document-form-pickers";
 import {
   presentDocumentFormCopy,
@@ -25,6 +26,7 @@ import {
 } from "./document-form.presenter";
 import { documentFormResolver } from "./document-form.schema";
 import { useDocumentFormHandover } from "./use-document-form-handover";
+import { useDocumentFormLayouts } from "./use-document-form-layouts";
 import { useDocumentFormLookups } from "./use-document-form-lookups";
 import { useDocumentFormPickers } from "./use-document-form-pickers";
 import { useDocumentSave } from "./use-document-save";
@@ -56,9 +58,10 @@ export function useDocumentForm() {
     mode: "onSubmit",
   });
   const { isDirty, errors, isSubmitted } = formState;
-  const type = useWatch({ control, name: "type" });
-  const orderId = useWatch({ control, name: "orderId" });
-  const counterpartyId = useWatch({ control, name: "counterpartyId" });
+  const type = useWatch({ control, name: "type" }) ?? "payment_invoice";
+  const orderId = useWatch({ control, name: "orderId" }) ?? "";
+  const counterpartyId = useWatch({ control, name: "counterpartyId" }) ?? "";
+  const layoutKey = useWatch({ control, name: "layoutKey" }) ?? "";
 
   const handover = useDocumentFormHandover({ copy, canEdit });
   const clientReady = apiClient !== null && activeCompanyId !== null;
@@ -69,6 +72,12 @@ export function useDocumentForm() {
   const lookups = useDocumentFormLookups({
     enabled: loadState.kind === "ready",
     orderId,
+  });
+  const layoutsQuery = useDocumentFormLayouts({
+    enabled: loadState.kind === "ready",
+    type,
+    layoutKey,
+    setValue,
   });
   const selectedOrder = lookups.selectedOrder;
   const selectedCounterparty = lookups.counterpartyOptions.find(
@@ -122,6 +131,8 @@ export function useDocumentForm() {
     formCopy,
     submitted: isSubmitted,
     orderMessage: errors.orderId?.message,
+    layoutMessage: errors.layoutKey?.message,
+    basisMessage: errors.basis?.message,
     mutationError: saveApi.mutationError,
     lastWrite: saveApi.lastWrite,
     isMutationError: saveApi.isMutationError,
@@ -130,6 +141,13 @@ export function useDocumentForm() {
     canCreate,
     created: handover.created,
   });
+  const layoutCards = layoutsQuery.layouts.map((row) => ({
+    key: row.key,
+    label: layoutCardLabel(row, locale),
+  }));
+  const selectedLayout = layoutsQuery.layouts.find(
+    (row) => row.key === layoutKey,
+  );
   const presented = presentDocumentFormView({
     copy,
     loadState,
@@ -142,12 +160,21 @@ export function useDocumentForm() {
     counterpartyEnabled,
     orderId,
     counterpartyId,
+    layoutKey,
+    layoutCards,
+    layoutCatalog: layoutsQuery.layouts,
+    layoutsStatus: layoutsQuery.status,
+    layoutPreview:
+      selectedLayout === undefined
+        ? null
+        : layoutCardLabel(selectedLayout, locale),
     orderSheetOpen: pickers.orderSheetOpen,
     counterpartySheetOpen: pickers.counterpartySheetOpen,
   });
 
   return {
     copy,
+    control,
     ...presented,
     orderOptions: lookups.orderOptions,
     counterpartyOptions: lookups.counterpartyOptions,
@@ -164,6 +191,9 @@ export function useDocumentForm() {
     pickOrder: pickers.pickOrder,
     pickCounterparty: pickers.pickCounterparty,
     setType: pickers.setType,
+    pickLayout: pickers.pickLayout,
+    retryLayouts: layoutsQuery.retry,
+    onFieldEdit,
     closeHandover: handover.closeHandover,
     onHandoverHidden: handover.onHandoverHidden,
     copyHandover: handover.copyHandover,

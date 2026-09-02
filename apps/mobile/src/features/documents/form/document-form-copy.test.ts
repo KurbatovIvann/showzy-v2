@@ -43,6 +43,8 @@ describe("mapDocumentFormFailure / mapValidationIssues", () => {
     });
     expect(mapValidationIssues(orderError, write)).toEqual({
       order: "required",
+      layout: null,
+      basis: null,
     });
 
     const mismatch: unknown = new ORPCError("VALIDATION", {
@@ -83,18 +85,32 @@ describe("fieldErrorsFromFormState / rhfPathsForFieldErrors", () => {
       fieldErrorsFromFormState({
         submitted: true,
         orderMessage: "required",
+        layoutMessage: undefined,
+        basisMessage: undefined,
         server: null,
       }),
-    ).toEqual({ order: "required" });
+    ).toEqual({ order: "required", layout: null, basis: null });
     expect(
       fieldErrorsFromFormState({
         submitted: false,
         orderMessage: "required",
+        layoutMessage: "required",
+        basisMessage: "too_long",
         server: emptyFieldErrors(),
       }),
-    ).toEqual({ order: null });
-    expect(rhfPathsForFieldErrors({ order: "required" })).toEqual([
+    ).toEqual({ order: null, layout: null, basis: null });
+    expect(rhfPathsForFieldErrors({ order: "required", layout: null, basis: null })).toEqual([
       { name: "orderId", message: "required" },
+    ]);
+    expect(
+      rhfPathsForFieldErrors({
+        order: null,
+        layout: "required",
+        basis: "too_long",
+      }),
+    ).toEqual([
+      { name: "layoutKey", message: "required" },
+      { name: "basis", message: "too_long" },
     ]);
   });
 });
@@ -104,6 +120,8 @@ describe("resolveDocumentFormCopy", () => {
     const copy = documentsCopy("en").form;
     const denied = resolveDocumentFormCopy(copy, {
       orderError: null,
+      layoutError: null,
+      basisError: null,
       banner: null,
       pending: false,
       clientReady: true,
@@ -114,6 +132,8 @@ describe("resolveDocumentFormCopy", () => {
     expect(denied.fieldsEditable).toBe(false);
     const allowed = resolveDocumentFormCopy(copy, {
       orderError: "required",
+      layoutError: null,
+      basisError: null,
       banner: "conflict",
       pending: false,
       clientReady: true,
@@ -129,6 +149,8 @@ describe("resolveDocumentFormCopy", () => {
     const copy = documentsCopy("en").form;
     const locked = resolveDocumentFormCopy(copy, {
       orderError: null,
+      layoutError: null,
+      basisError: null,
       banner: null,
       pending: false,
       clientReady: true,
@@ -147,6 +169,8 @@ describe("resolveDocumentFormCopy", () => {
     expect(uk.errors.validation).not.toMatch(/позначен|виділен/i);
     const resolved = resolveDocumentFormCopy(en, {
       orderError: null,
+      layoutError: null,
+      basisError: null,
       banner: "validation",
       pending: false,
       clientReady: true,

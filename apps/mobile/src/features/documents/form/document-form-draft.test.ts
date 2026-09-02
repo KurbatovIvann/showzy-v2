@@ -18,21 +18,28 @@ function validDraft(
     type: "payment_invoice",
     orderId: ORDER_ID,
     counterpartyId: "",
+    layoutKey: "payment_invoice.branded",
+    basis: "",
     ...overrides,
   };
 }
 
 describe("document form draft", () => {
-  it("defaults to invoice with empty order and counterparty", () => {
+  it("defaults to invoice with empty order, layout, and basis", () => {
     expect(emptyDocumentFormDraft()).toEqual({
       type: "payment_invoice",
       orderId: "",
       counterpartyId: "",
+      layoutKey: "",
+      basis: "",
     });
     expect(cloneDocumentFormDraft(validDraft()).orderId).toBe(ORDER_ID);
+    expect(cloneDocumentFormDraft(validDraft()).layoutKey).toBe(
+      "payment_invoice.branded",
+    );
   });
 
-  it("is dirty when type, order, or counterparty change from origin", () => {
+  it("is dirty when type, order, counterparty, layout, or basis change", () => {
     const origin = emptyDocumentFormDraft();
     expect(isDocumentFormDirty(origin, origin)).toBe(false);
     expect(isDocumentFormDirty(validDraft(), origin)).toBe(true);
@@ -45,14 +52,26 @@ describe("document form draft", () => {
         validDraft(),
       ),
     ).toBe(true);
+    expect(
+      isDocumentFormDirty(
+        validDraft({ layoutKey: "payment_invoice.plain" }),
+        validDraft(),
+      ),
+    ).toBe(true);
+    expect(
+      isDocumentFormDirty(validDraft({ basis: "Договір" }), validDraft()),
+    ).toBe(true);
   });
 
-  it("parses a complete draft and rejects a missing order", () => {
+  it("parses a complete draft and rejects a missing order or layout", () => {
     expect(parseDocumentFormUiDraft(validDraft())).toEqual({
       ok: true,
       draft: validDraft(),
     });
     expect(validateDocumentForm(emptyDocumentFormDraft()).order).toBe(
+      "required",
+    );
+    expect(validateDocumentForm(emptyDocumentFormDraft()).layout).toBe(
       "required",
     );
     expect(parseDocumentFormUiDraft(emptyDocumentFormDraft()).ok).toBe(false);

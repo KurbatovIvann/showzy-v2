@@ -13,10 +13,18 @@ export type DocumentsFormCopy = Omit<
   "changedLabel" | "submitEdit" | "submitEditLoading"
 > & {
   readonly typeSectionTitle: string;
+  readonly layoutSectionTitle: string;
+  readonly basisSectionTitle: string;
   readonly orderSectionTitle: string;
   readonly counterpartySectionTitle: string;
   readonly typePaymentInvoice: string;
   readonly typeDeliveryNote: string;
+  readonly layoutLoading: string;
+  readonly layoutError: string;
+  readonly layoutRetry: string;
+  readonly layoutPreviewHint: string;
+  readonly basisLabel: string;
+  readonly basisPlaceholder: string;
   readonly orderLabel: string;
   readonly orderPlaceholder: string;
   readonly orderSheetTitle: string;
@@ -36,6 +44,8 @@ export type DocumentsFormCopy = Omit<
   readonly loadingLabel: string;
   readonly errors: {
     readonly orderRequired: string;
+    readonly layoutRequired: string;
+    readonly basisTooLong: string;
     readonly conflict: string;
   } & WriteErrorsCopy;
 };
@@ -264,10 +274,18 @@ const en: DocumentsCopy = {
   },
   form: {
     typeSectionTitle: "Document type",
+    layoutSectionTitle: "Look",
+    basisSectionTitle: "Basis",
     orderSectionTitle: "Order",
     counterpartySectionTitle: "Counterparty",
     typePaymentInvoice: "Invoice РХ",
     typeDeliveryNote: "Delivery note ВН",
+    layoutLoading: "Loading looks…",
+    layoutError: "Could not load looks.",
+    layoutRetry: "Retry",
+    layoutPreviewHint: "Issued PDF look",
+    basisLabel: "Basis",
+    basisPlaceholder: "Agreement or reason (optional)",
     orderLabel: "Order",
     orderPlaceholder: "Choose an order",
     orderSheetTitle: "Order",
@@ -291,6 +309,8 @@ const en: DocumentsCopy = {
     loadingLabel: "Loading",
     errors: {
       orderRequired: "Choose an order.",
+      layoutRequired: "Choose a look.",
+      basisTooLong: "Basis must be 500 characters or fewer.",
       validation:
         "Could not create the document. Check the seller legal details, customer, and counterparty.",
       network: "Could not create the document. Try again.",
@@ -434,10 +454,18 @@ const uk: DocumentsCopy = {
   },
   form: {
     typeSectionTitle: "Тип документа",
+    layoutSectionTitle: "Вигляд",
+    basisSectionTitle: "Підстава",
     orderSectionTitle: "Замовлення",
     counterpartySectionTitle: "Контрагент",
     typePaymentInvoice: "Рахунок РХ",
     typeDeliveryNote: "Видаткова ВН",
+    layoutLoading: "Завантаження виглядів…",
+    layoutError: "Не вдалося завантажити вигляди.",
+    layoutRetry: "Повторити",
+    layoutPreviewHint: "Вигляд виданого PDF",
+    basisLabel: "Підстава",
+    basisPlaceholder: "Договір або причина (необов’язково)",
     orderLabel: "Замовлення",
     orderPlaceholder: "Обрати замовлення",
     orderSheetTitle: "Замовлення",
@@ -460,6 +488,8 @@ const uk: DocumentsCopy = {
     loadingLabel: "Завантаження",
     errors: {
       orderRequired: "Оберіть замовлення.",
+      layoutRequired: "Оберіть вигляд.",
+      basisTooLong: "Підстава має бути не довша за 500 символів.",
       validation:
         "Не вдалося створити документ. Перевірте реквізити продавця, клієнта та контрагента.",
       network: "Не вдалося створити документ. Спробуйте ще раз.",

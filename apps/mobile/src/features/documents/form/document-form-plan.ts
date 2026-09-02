@@ -1,9 +1,9 @@
 /**
- * Document create write planner (SHO-238). UI parse happens first via
- * `parseDocumentFormUiDraft`; this file turns a valid draft into one
- * `documents.createFromOrder` write. Wire is
- * `{ orderId, type, counterpartyId? }` only — no money, template, city,
- * or customerId.
+ * Document create write planner (SHO-238 / SHO-366). UI parse happens
+ * first via `parseDocumentFormUiDraft`; this file turns a valid draft
+ * into one `documents.createFromOrder` write. Wire is
+ * `{ orderId, type, counterpartyId?, layoutKey, basis? }` — no money,
+ * companyId, city, or customerId.
  */
 import type { WireErrorCode } from "@showzy/contract";
 
@@ -16,6 +16,7 @@ import {
   type DocumentFormDraft,
   type DocumentFormFieldErrors,
 } from "./document-form-draft";
+import { wireBasis } from "./document-form-layouts";
 
 type DocumentsClient = ContractClient["client"]["documents"];
 export type CreateFromOrderPayload = Parameters<
@@ -55,16 +56,21 @@ export function createFromOrderPayload(
   if (!parsed.ok) {
     return null;
   }
+  const basis = wireBasis(parsed.draft.type, parsed.draft.basis);
   if (parsed.draft.counterpartyId.length === 0) {
     return {
       orderId: parsed.draft.orderId,
       type: parsed.draft.type,
+      layoutKey: parsed.draft.layoutKey,
+      ...(basis === undefined ? {} : { basis }),
     };
   }
   return {
     orderId: parsed.draft.orderId,
     type: parsed.draft.type,
+    layoutKey: parsed.draft.layoutKey,
     counterpartyId: parsed.draft.counterpartyId,
+    ...(basis === undefined ? {} : { basis }),
   };
 }
 

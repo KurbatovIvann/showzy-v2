@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { classifyDocumentFormLoad } from "./document-form-load";
 
 describe("classifyDocumentFormLoad", () => {
-  it("blocks without documents:create before any picker fetch", () => {
+  it("blocks without documents:create before any picker or layout fetch", () => {
     expect(
       classifyDocumentFormLoad({
         canCreate: false,
