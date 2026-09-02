@@ -12,6 +12,7 @@ const uahView = {
   currency: "UAH",
   supplierDetails: {
     name: "Konditerska Anna",
+    companyType: "tov" as const,
     legalName: "ТОВ Альфа",
     edrpou: "12345678",
     legalAddress: "вул. Хрещатик, 1",
@@ -46,6 +47,8 @@ describe("mapViewToPdfModel", () => {
     expect(model.currency).toBe("UAH");
     expect(model.documentNumber).toBe("KA-РХ-000001");
     expect(model.templateName).toBe("payment_invoice");
+    expect(model.basis).toBeNull();
+    expect(model.supplier.companyType).toBe("tov");
     expect(model.items).toHaveLength(1);
   });
 

@@ -19,8 +19,8 @@ export type DocumentLayoutRow = {
 };
 
 /**
- * System looks. Temporary `isDefault` is `.plain` until SHO-364 / T4
- * switches new invoices to branded and new waybills to parties.
+ * System looks. New invoices default to branded; new waybills to parties.
+ * `.plain` stays listed and is the legacy `template_name` alias target.
  */
 export const DOCUMENT_LAYOUTS: readonly DocumentLayoutRow[] = [
   {
@@ -28,28 +28,28 @@ export const DOCUMENT_LAYOUTS: readonly DocumentLayoutRow[] = [
     type: "payment_invoice",
     labelUk: "Простий рахунок",
     labelEn: "Plain invoice",
-    isDefault: true,
+    isDefault: false,
   },
   {
     key: "payment_invoice.branded",
     type: "payment_invoice",
     labelUk: "Фірмовий рахунок",
     labelEn: "Branded invoice",
-    isDefault: false,
+    isDefault: true,
   },
   {
     key: "delivery_note.plain",
     type: "delivery_note",
     labelUk: "Проста накладна",
     labelEn: "Plain delivery note",
-    isDefault: true,
+    isDefault: false,
   },
   {
     key: "delivery_note.parties",
     type: "delivery_note",
     labelUk: "Накладна зі сторонами",
     labelEn: "Parties delivery note",
-    isDefault: false,
+    isDefault: true,
   },
 ];
 

@@ -39,6 +39,7 @@ export function mapViewToPdfModel(view: {
   readonly currency: string;
   readonly supplierDetails: {
     readonly name: string;
+    readonly companyType: "fop" | "tov";
     readonly legalName: string | null;
     readonly edrpou: string | null;
     readonly legalAddress: string | null;
@@ -87,8 +88,10 @@ export function mapViewToPdfModel(view: {
     documentNumber: view.documentNumber,
     issuedOn: view.issuedOn,
     currency: "UAH",
+    basis: null,
     supplier: {
       name: view.supplierDetails.name,
+      companyType: view.supplierDetails.companyType,
       legalName: view.supplierDetails.legalName,
       edrpou: view.supplierDetails.edrpou,
       legalAddress: view.supplierDetails.legalAddress,

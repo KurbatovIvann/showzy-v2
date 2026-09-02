@@ -87,7 +87,7 @@ describe("docGeneration.listLayouts", () => {
     ]);
     expect(
       result.layouts.filter((row) => row.isDefault).map((row) => row.key),
-    ).toEqual(["payment_invoice.plain", "delivery_note.plain"]);
+    ).toEqual(["payment_invoice.branded", "delivery_note.parties"]);
   });
 
   it("filters by document type", async () => {
