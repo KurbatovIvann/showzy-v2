@@ -10,6 +10,7 @@ import {
   fromProviderToolName,
   ORDERS_LIST_COUNTS_TOOL_NAME,
   ORDERS_LIST_PAGE_TOOL_NAME,
+  PRICING_LIST_PRICE_LISTS_TOOL_NAME,
   PROVIDER_TOOL_NAME_PATTERN,
   staffAssistantHotToolNames,
   staffAssistantTools,
@@ -250,10 +251,14 @@ describe("staffAssistantTools", () => {
       ORDERS_LIST_COUNTS_TOOL_NAME,
       "orders_get",
       CATALOG_LIST_PRODUCTS_TOOL_NAME,
+      PRICING_LIST_PRICE_LISTS_TOOL_NAME,
       "customers_listCustomers",
     ]);
     expect(staffAssistantHotToolNames()).not.toContain("orders_list");
     expect(staffAssistantHotToolNames()).not.toContain("catalog_listProducts");
+    expect(staffAssistantHotToolNames()).not.toContain(
+      "pricing_listPriceLists",
+    );
   });
 
   it("caches search when every domain tool is deferred", () => {
@@ -345,5 +350,149 @@ describe("staffAssistantTools", () => {
       ],
       nextCursor: null,
     });
+  });
+
+  it("advertises pricing_list_price_lists and still dispatches to pricing.listPriceLists", async () => {
+    const listPriceLists = defineActionContract({
+      name: "pricing.listPriceLists",
+      description: "List price lists in the active company.",
+      principal: "staff",
+      transport: "client",
+      aiExposure: "exposed",
+      permissions: ["pricing:view"],
+      risk: "read",
+      requiresConfirmation: false,
+      idempotent: false,
+      emits: [],
+      atomicCalls: [],
+      atomicCallers: [],
+      audit: false,
+      timeout: 5_000,
+      input: z.object({
+        query: z.string().trim().min(1).max(100).optional(),
+        availability: z.enum(["all", "active", "inactive"]).default("all"),
+        limit: z.number().int().min(1).max(50).default(20),
+        cursor: z.string().min(1).max(200).optional(),
+      }),
+      output: z.object({
+        items: z.array(z.object({ id: z.uuid() })),
+        nextCursor: z.string().nullable(),
+      }),
+    });
+    const execute = vi.fn(() =>
+      Promise.resolve({
+        items: [
+          {
+            id: customerId,
+            name: "Opt",
+            isDefault: false,
+            isActive: true,
+            entryCount: 0,
+          },
+        ],
+        nextCursor: null,
+      }),
+    );
+    const tools = staffAssistantTools([listPriceLists], execute);
+    const names = Object.keys(tools);
+    expect(names).toContain(PRICING_LIST_PRICE_LISTS_TOOL_NAME);
+    expect(names).not.toContain("pricing_listPriceLists");
+    expect(names).not.toContain(toProviderToolName("pricing.listPriceLists"));
+    const executeTool = tools[PRICING_LIST_PRICE_LISTS_TOOL_NAME]?.execute;
+    expect(executeTool).toBeTypeOf("function");
+    if (executeTool === undefined) {
+      return;
+    }
+    const result: unknown = await executeTool(
+      { query: "Opt" },
+      { toolCallId: "call-pricing", messages: [], context: undefined },
+    );
+    expect(execute).toHaveBeenCalledWith(
+      "pricing.listPriceLists",
+      { query: "Opt", availability: "all", limit: 20 },
+      { toolCallId: "call-pricing" },
+    );
+    expect(result).toEqual({
+      items: [
+        {
+          id: customerId,
+          name: "Opt",
+          isDefault: false,
+          isActive: true,
+          entryCount: 0,
+        },
+      ],
+      nextCursor: null,
+    });
+  });
+
+  it("keeps pricing writes deferred and does not flatten their schemas", async () => {
+    const createPriceList = defineActionContract({
+      name: "pricing.createPriceList",
+      description: "Create a price list in the staff member's active company.",
+      principal: "staff",
+      transport: "client",
+      aiExposure: "exposed",
+      permissions: ["pricing:manage"],
+      risk: "write",
+      requiresConfirmation: false,
+      idempotent: true,
+      emits: [],
+      atomicCalls: [],
+      atomicCallers: [],
+      audit: true,
+      timeout: 5_000,
+      input: z.strictObject({
+        name: z.string().min(1),
+        isDefault: z.boolean().default(false),
+        isActive: z.boolean().default(true),
+      }),
+      output: z.object({ id: z.uuid() }),
+    });
+    const setPriceListEntries = defineActionContract({
+      name: "pricing.setPriceListEntries",
+      description: "Upsert prices on a price list.",
+      principal: "staff",
+      transport: "client",
+      aiExposure: "exposed",
+      permissions: ["pricing:manage"],
+      risk: "write",
+      requiresConfirmation: false,
+      idempotent: true,
+      emits: [],
+      atomicCalls: [],
+      atomicCallers: [],
+      audit: true,
+      timeout: 10_000,
+      input: z.strictObject({
+        priceListId: z.uuid(),
+        entries: z.array(z.strictObject({ productId: z.uuid() })).min(1),
+      }),
+      output: z.object({ items: z.array(z.object({ id: z.uuid() })) }),
+    });
+    const tools = staffAssistantTools(
+      [createPriceList, setPriceListEntries],
+      () => Promise.resolve({}),
+    );
+    const createName = toProviderToolName("pricing.createPriceList");
+    const setName = toProviderToolName("pricing.setPriceListEntries");
+    expect(Object.keys(tools)).toContain(createName);
+    expect(Object.keys(tools)).toContain(setName);
+    expect(tools[createName]?.providerOptions).toEqual(
+      STAFF_ASSISTANT_DEFER_PROVIDER_OPTIONS,
+    );
+    expect(tools[setName]?.providerOptions).toEqual(
+      STAFF_ASSISTANT_DEFER_PROVIDER_OPTIONS,
+    );
+    expect(tools[createName]?.description).toContain(
+      "pricing_list_price_lists",
+    );
+    expect(tools[createName]?.description).toContain(
+      "pricing.setPriceListEntries",
+    );
+    expect(tools[setName]?.description).toContain("catalog_list_products");
+    const setJson = await asSchema(tools[setName]?.inputSchema).jsonSchema;
+    expect(setJson["type"]).toBe("object");
+    expect(setJson["oneOf"]).toBeUndefined();
   });
 });

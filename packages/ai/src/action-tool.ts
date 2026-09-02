@@ -19,6 +19,12 @@ import {
   ORDERS_LIST_PAGE_TOOL_NAME,
   ordersListFacadeTools,
 } from "./tool-facades/orders-list.js";
+import {
+  PRICING_DEFERRED_TOOL_DESCRIPTION_SUFFIXES,
+  PRICING_LIST_PRICE_LISTS_ACTION_NAME,
+  PRICING_LIST_PRICE_LISTS_TOOL_NAME,
+  pricingListPriceListsFacadeTools,
+} from "./tool-facades/pricing-list-price-lists.js";
 
 /**
  * Anthropic custom tool names (`@ai-sdk/anthropic` sends `tool.name`
@@ -34,6 +40,7 @@ export const STAFF_ASSISTANT_HOT_ACTION_NAMES = [
   ORDERS_LIST_ACTION_NAME,
   "orders.get",
   CATALOG_LIST_PRODUCTS_ACTION_NAME,
+  PRICING_LIST_PRICE_LISTS_ACTION_NAME,
   "customers.listCustomers",
 ] as const;
 
@@ -48,6 +55,8 @@ export {
   ORDERS_LIST_ACTION_NAME,
   ORDERS_LIST_COUNTS_TOOL_NAME,
   ORDERS_LIST_PAGE_TOOL_NAME,
+  PRICING_LIST_PRICE_LISTS_ACTION_NAME,
+  PRICING_LIST_PRICE_LISTS_TOOL_NAME,
 };
 
 /**
@@ -69,6 +78,7 @@ type FacadeToolsFactory = (
 const HOT_FACADE_FACTORIES: Readonly<Record<string, FacadeToolsFactory>> = {
   [ORDERS_LIST_ACTION_NAME]: ordersListFacadeTools,
   [CATALOG_LIST_PRODUCTS_ACTION_NAME]: catalogListProductsFacadeTools,
+  [PRICING_LIST_PRICE_LISTS_ACTION_NAME]: pricingListPriceListsFacadeTools,
 };
 
 const HOT_FACADE_TOOL_NAMES: Readonly<Record<string, readonly string[]>> = {
@@ -77,6 +87,7 @@ const HOT_FACADE_TOOL_NAMES: Readonly<Record<string, readonly string[]>> = {
     ORDERS_LIST_COUNTS_TOOL_NAME,
   ],
   [CATALOG_LIST_PRODUCTS_ACTION_NAME]: [CATALOG_LIST_PRODUCTS_TOOL_NAME],
+  [PRICING_LIST_PRICE_LISTS_ACTION_NAME]: [PRICING_LIST_PRICE_LISTS_TOOL_NAME],
 };
 
 const FACADE_ACTION_NAME_SET = new Set<string>(
@@ -169,8 +180,9 @@ export function actionContractToTool(
  * context; every other exposed action is `deferLoading`. `execute` still
  * receives `contract.name` (`orders.list`). Empty catalogs attach nothing
  * (chitchat). The HTTP mount injects `executeAction`; this helper never
- * fetches `/rpc`. Façade actions (`orders.list`, `catalog.listProducts`)
- * are not raw 1:1 ToolSet keys — named tools map onto the same handlers.
+ * fetches `/rpc`. Façade actions (`orders.list`, `catalog.listProducts`,
+ * `pricing.listPriceLists`) are not raw 1:1 ToolSet keys — named tools
+ * map onto the same handlers.
  */
 export function staffAssistantTools(
   contracts: readonly ActionContract[],
@@ -251,8 +263,19 @@ function insertActionTool(
     );
   }
   const aiTool = actionContractToTool(contract, execute);
+  const descriptionSuffix =
+    PRICING_DEFERRED_TOOL_DESCRIPTION_SUFFIXES[contract.name];
+  const described =
+    descriptionSuffix === undefined
+      ? aiTool
+      : {
+          ...aiTool,
+          description: `${contract.description} ${descriptionSuffix}`,
+        };
   tools[providerName] =
-    providerOptions === undefined ? aiTool : { ...aiTool, providerOptions };
+    providerOptions === undefined
+      ? described
+      : { ...described, providerOptions };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

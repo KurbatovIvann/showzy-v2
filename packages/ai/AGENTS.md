@@ -23,14 +23,15 @@ They do **not** need the same JSON Schema.
 Golden façade: `orders.list` → `orders_list_page` + `orders_list_counts`
 (SHO-355). Second copy: `catalog.listProducts` → `catalog_list_products`
 (SHO-357, compact rows: id, name, basePriceMinor, currency, status,
-variantCount). Copy that pattern for later lists; do not copy it
-repo-wide in the same PR. `orders.create` / customers façades are
-follow-ups.
+variantCount). Third copy: `pricing.listPriceLists` →
+`pricing_list_price_lists` (SHO-358, compact rows: id, name, isDefault,
+isActive, entryCount). Copy that pattern for later lists; do not copy it
+repo-wide in the same PR. `orders.create` remains T9.
 
 `toProviderToolName("orders.list")` (`orders_list`) is the 1:1 mapping,
 not the advertised ToolSet key. Hot names are the façade keys. The 1:1
-`catalog_listProducts` key must not remain advertised once the compact
-façade exists.
+`catalog_listProducts` and `pricing_listPriceLists` keys must not remain
+advertised once those façades exist.
 
 ## Anthropic JSON Schema
 

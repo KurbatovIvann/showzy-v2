@@ -3,6 +3,7 @@ import {
   filterStaffAiTools,
   ORDERS_LIST_COUNTS_TOOL_NAME,
   ORDERS_LIST_PAGE_TOOL_NAME,
+  PRICING_LIST_PRICE_LISTS_TOOL_NAME,
   PROVIDER_TOOL_NAME_PATTERN,
   staffAssistantTools,
   STAFF_ASSISTANT_TOOL_SEARCH_NAME,
@@ -88,6 +89,9 @@ describe("staff AI tool manifest (SHO-322)", () => {
     expect(names).toContain(CATALOG_LIST_PRODUCTS_TOOL_NAME);
     expect(names).not.toContain(toProviderToolName("catalog.listProducts"));
     expect(names).not.toContain("catalog_listProducts");
+    expect(names).toContain(PRICING_LIST_PRICE_LISTS_TOOL_NAME);
+    expect(names).not.toContain(toProviderToolName("pricing.listPriceLists"));
+    expect(names).not.toContain("pricing_listPriceLists");
     const listTool = tools[ORDERS_LIST_PAGE_TOOL_NAME];
     expect(listTool).toBeDefined();
     await listTool?.execute?.(
