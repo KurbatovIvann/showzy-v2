@@ -1,15 +1,18 @@
 ---
-description: Destination for staff actions — task-complete lists/writes, same API for UI and AI
+description: Destination for staff actions — task-complete lists/writes, same executeAction, mapped AI schemas allowed
 alwaysApply: true
 ---
 
 # Channel-neutral actions (ADR-0033)
 
 **Goal:** the staff UI and the staff assistant finish the same jobs through
-the same actions. An action is a staff **job**, not a screen widget.
+the same `executeAction` handlers. An action is a staff **job**, not a
+screen widget. The assistant may see a narrower mapped schema.
 
-- **Same handlers.** No `*ForAssistant`, no AI-only Zod, no SQL/GraphQL DSL,
-  no workflow mega-action that spans customers+pricing+orders in one write.
+- **Same handlers.** No `*ForAssistant` `implementAction`, no AI-only
+  module Zod, no SQL/GraphQL DSL, no workflow mega-action that spans
+  customers+pricing+orders in one write. Named tool façades belong in
+  `packages/ai` and always `execute` the registry name.
 - **List** = bounded domain query: discriminated `kind` (page vs aggregate vs
   bounded lines), extensible `filter`, named caps, explicit truncation.
   The screen is a client of that query. Do not copy pre-SHO-351

@@ -32,8 +32,10 @@ describe("staffAssistantSystemPrompt", () => {
       "Do not say a tool is missing until search returned nothing useful",
     );
     expect(staffAssistantSystemPrompt).toContain("чим можеш допомогти");
-    expect(staffAssistantSystemPrompt).toContain(
-      "not a menu of what you can do",
+    expect(staffAssistantSystemPrompt).toContain("orders_list_page");
+    expect(staffAssistantSystemPrompt).toContain("orders_list_counts");
+    expect(staffAssistantSystemPrompt).not.toContain(
+      "Always-visible domain tools: orders.list",
     );
   });
 

@@ -1,8 +1,13 @@
 export {
   actionContractToTool,
+  ensureAnthropicToolInputSchemaType,
   fromProviderToolName,
+  staffAssistantHotToolNames,
   staffAssistantTools,
   toProviderToolName,
+  ORDERS_LIST_ACTION_NAME,
+  ORDERS_LIST_COUNTS_TOOL_NAME,
+  ORDERS_LIST_PAGE_TOOL_NAME,
   PROVIDER_TOOL_NAME_PATTERN,
   STAFF_ASSISTANT_HOT_ACTION_NAMES,
   STAFF_ASSISTANT_TOOL_SEARCH_NAME,

@@ -1,12 +1,19 @@
 import { anthropic } from "@ai-sdk/anthropic";
 import { CoreInvariantError } from "@showzy/core/errors";
 import type { ActionContract } from "@showzy/core/contract";
-import { tool, type Tool, type ToolSet } from "ai";
+import { jsonSchema, tool, type Tool, type ToolSet } from "ai";
+import { z } from "zod";
 
 import {
   STAFF_ASSISTANT_CACHE_PROVIDER_OPTIONS,
   STAFF_ASSISTANT_DEFER_PROVIDER_OPTIONS,
 } from "./anthropic-options.js";
+import {
+  ORDERS_LIST_ACTION_NAME,
+  ORDERS_LIST_COUNTS_TOOL_NAME,
+  ORDERS_LIST_PAGE_TOOL_NAME,
+  ordersListFacadeTools,
+} from "./tool-facades/orders-list.js";
 
 /**
  * Anthropic custom tool names (`@ai-sdk/anthropic` sends `tool.name`
@@ -17,9 +24,9 @@ import {
  */
 export const PROVIDER_TOOL_NAME_PATTERN = /^[a-zA-Z0-9_-]{1,128}$/;
 
-/** Always-in-context domain tools (no `deferLoading`). */
+/** Always-in-context domain actions (no `deferLoading`). */
 export const STAFF_ASSISTANT_HOT_ACTION_NAMES = [
-  "orders.list",
+  ORDERS_LIST_ACTION_NAME,
   "orders.get",
   "catalog.listProducts",
   "customers.listCustomers",
@@ -27,8 +34,16 @@ export const STAFF_ASSISTANT_HOT_ACTION_NAMES = [
 
 const HOT_ACTION_NAME_SET = new Set<string>(STAFF_ASSISTANT_HOT_ACTION_NAMES);
 
+const FACADE_ACTION_NAME_SET = new Set<string>([ORDERS_LIST_ACTION_NAME]);
+
 /** ToolSet key for Anthropic BM25 tool search (provider-executed). */
 export const STAFF_ASSISTANT_TOOL_SEARCH_NAME = "tool_search_tool_bm25";
+
+export {
+  ORDERS_LIST_ACTION_NAME,
+  ORDERS_LIST_COUNTS_TOOL_NAME,
+  ORDERS_LIST_PAGE_TOOL_NAME,
+};
 
 /**
  * Injected tool body. Tests fake `executeAction`. The adapter never calls
@@ -44,7 +59,8 @@ export type ActionToolExecute = (
 /**
  * Map `orders.list` → `orders_list`. `defineActionContract` requires
  * exactly one dot and alphanumeric camelCase segments, so replacing `.`
- * with `_` is lossless.
+ * with `_` is lossless. Façade ToolSet keys (`orders_list_page`) are
+ * not produced by this helper — they are not advertised as `orders_list`.
  */
 export function toProviderToolName(actionName: string): string {
   const providerName = actionName.replaceAll(".", "_");
@@ -62,11 +78,50 @@ export function fromProviderToolName(providerName: string): string {
 }
 
 /**
+ * Advertised always-in-context ToolSet keys. `orders.list` expands to
+ * named façades; other hot actions stay 1:1 provider names.
+ */
+export function staffAssistantHotToolNames(): readonly string[] {
+  return STAFF_ASSISTANT_HOT_ACTION_NAMES.flatMap((actionName) =>
+    actionName === ORDERS_LIST_ACTION_NAME
+      ? [ORDERS_LIST_PAGE_TOOL_NAME, ORDERS_LIST_COUNTS_TOOL_NAME]
+      : [toProviderToolName(actionName)],
+  );
+}
+
+/**
+ * Anthropic requires `input_schema.type`. Zod 4 discriminated unions
+ * emit `oneOf` without a top-level `type`. Named object façades already
+ * have `type: "object"` — do not flatten `*.contract.ts` to appease this.
+ */
+export function ensureAnthropicToolInputSchemaType(
+  schema: Record<string, unknown>,
+): Record<string, unknown> {
+  if (typeof schema["type"] === "string") {
+    return schema;
+  }
+  return { ...schema, type: "object" };
+}
+
+function actionContractJsonSchema(contract: ActionContract) {
+  const json = z.toJSONSchema(contract.input);
+  return jsonSchema(ensureAnthropicToolInputSchemaType({ ...json }), {
+    validate: (value: unknown) => {
+      const result = contract.input.safeParse(value);
+      if (result.success) {
+        return { success: true as const, value: result.data };
+      }
+      return { success: false as const, error: result.error };
+    },
+  });
+}
+
+/**
  * Wrap one `ActionContract` as an AI SDK 7 `tool()`. The registry `name`
  * and `description` are the executeAction identity; Zod `input` is the
  * schema. `execute` is injected so this package does not own the action
  * pipeline. Provider-safe ToolSet keys are applied by
- * `staffAssistantTools`.
+ * `staffAssistantTools`. Union inputs get `ensureAnthropicToolInputSchemaType`.
  */
 export function actionContractToTool(
   contract: ActionContract,
@@ -74,7 +129,7 @@ export function actionContractToTool(
 ): Tool {
   return tool({
     description: contract.description,
-    inputSchema: contract.input,
+    inputSchema: actionContractJsonSchema(contract),
     execute: async (input: unknown, options) => {
       const parsed: unknown = contract.input.parse(input);
       return execute(contract.name, parsed, { toolCallId: options.toolCallId });
@@ -88,7 +143,8 @@ export function actionContractToTool(
  * context; every other exposed action is `deferLoading`. `execute` still
  * receives `contract.name` (`orders.list`). Empty catalogs attach nothing
  * (chitchat). The HTTP mount injects `executeAction`; this helper never
- * fetches `/rpc`.
+ * fetches `/rpc`. `orders.list` is not a raw ToolSet key — named façades
+ * map onto the same handler.
  */
 export function staffAssistantTools(
   contracts: readonly ActionContract[],
@@ -112,11 +168,18 @@ export function staffAssistantTools(
     if (contract === undefined) {
       continue;
     }
+    if (hotName === ORDERS_LIST_ACTION_NAME) {
+      insertOrdersListFacades(tools, contract, execute);
+      continue;
+    }
     insertActionTool(tools, contract, execute);
   }
 
   for (const contract of contracts) {
     if (HOT_ACTION_NAME_SET.has(contract.name)) {
+      continue;
+    }
+    if (FACADE_ACTION_NAME_SET.has(contract.name)) {
       continue;
     }
     insertActionTool(
@@ -129,6 +192,22 @@ export function staffAssistantTools(
 
   markLastNonDeferredToolCacheBreakpoint(tools);
   return tools;
+}
+
+function insertOrdersListFacades(
+  tools: ToolSet,
+  contract: ActionContract,
+  execute: ActionToolExecute,
+): void {
+  const facades = ordersListFacadeTools(contract, execute);
+  for (const [name, aiTool] of Object.entries(facades)) {
+    if (tools[name] !== undefined) {
+      throw new CoreInvariantError(
+        `duplicate provider tool name "${name}" for "${contract.name}"`,
+      );
+    }
+    tools[name] = aiTool;
+  }
 }
 
 function insertActionTool(

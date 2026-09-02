@@ -7,7 +7,7 @@
 import type { SystemModelMessage } from "ai";
 
 import {
-  STAFF_ASSISTANT_HOT_ACTION_NAMES,
+  staffAssistantHotToolNames,
   STAFF_ASSISTANT_TOOL_SEARCH_NAME,
 } from "./action-tool.js";
 import { STAFF_ASSISTANT_CACHE_PROVIDER_OPTIONS } from "./anthropic-options.js";
@@ -29,7 +29,7 @@ These modules exist in the registry even when their tool schemas are not inlined
 </product>
 
 <tools>
-Always-visible domain tools: ${STAFF_ASSISTANT_HOT_ACTION_NAMES.join(", ")}.
+Always-visible domain tools: ${staffAssistantHotToolNames().join(", ")}.
 All other exposed staff actions are deferred. Discover them with ${STAFF_ASSISTANT_TOOL_SEARCH_NAME}.
 
 Search queries must be English registry terms (price list, pricing, invite, document), never the staff member's Ukrainian phrasing.

@@ -7,11 +7,13 @@ small businesses. Classic UI and AI chat execute the same actions
 ## Destination
 
 The staff UI and the staff assistant finish the **same jobs** through the
-**same handlers**. An action is a staff job, not a screen widget: a list
-answers a bounded question (page or aggregate); a write accepts a stable
-id or a unique human reference. Cross-module phrases stay several writes.
-Composition-only reads are not AI tools. Details:
-`.cursor/rules/channel-neutral-actions.mdc` and
+**same executeAction handlers**. An action is a staff job, not a screen
+widget: a list answers a bounded question (page or aggregate); a write
+accepts a stable id or a unique human reference. The assistant may see a
+narrower mapped schema in `packages/ai`; that is not a second domain API.
+Cross-module phrases stay several writes. Composition-only reads are not
+AI tools. Details: `.cursor/rules/channel-neutral-actions.mdc`,
+`.cursor/rules/ai-agent.mdc`, and
 `docs/adr/0033-channel-neutral-actions.md`.
 
 ## Contract of this thread
