@@ -433,6 +433,10 @@ describe("POST /assistant/chat authorization", () => {
     expect(prompt).toContain(
       "Do not call a list tool solely to recover these ids",
     );
+    expect(prompt).toContain("Europe/Kyiv");
+    expect(prompt).toContain("Konditerska Anna");
+    expect(prompt).not.toContain(kitIdentities.companies.a);
+    expect(prompt).not.toContain("konditerska-anna");
   });
 
   it("omits the working-set addendum when the conversation has no tool runs", async () => {
@@ -453,6 +457,10 @@ describe("POST /assistant/chat authorization", () => {
     await readUiMessageSsePayloads(response);
     const prompt = JSON.stringify(model.doStreamCalls[0]?.prompt ?? []);
     expect(prompt).not.toContain("Working set from earlier tool runs");
+    expect(prompt).toContain("Europe/Kyiv");
+    expect(prompt).toContain("Konditerska Anna");
+    expect(prompt).toContain("week starts on Monday");
+    expect(prompt).not.toContain(kitIdentities.companies.a);
   });
 
   it("windows 20 client messages to 8 and does not log dropped text", async () => {

@@ -21,12 +21,14 @@ They do **not** need the same JSON Schema.
   stay `internal`.
 
 Golden façade: `orders.list` → `orders_list_page` + `orders_list_counts`
-(SHO-355). Second copy: `catalog.listProducts` → `catalog_list_products`
-(SHO-357, compact rows: id, name, basePriceMinor, currency, status,
-variantCount). Third copy: `pricing.listPriceLists` →
-`pricing_list_price_lists` (SHO-358, compact rows: id, name, isDefault,
-isActive, entryCount). Copy that pattern for later lists; do not copy it
-repo-wide in the same PR. `orders.create` remains T9.
+(SHO-355 input map, SHO-360 output map before clip: compact rows,
+cursor-safe paging, explicit `bucketsOmitted`). Second copy:
+`catalog.listProducts` → `catalog_list_products` (SHO-357, compact rows:
+id, name, basePriceMinor, currency, status, variantCount). Third copy:
+`pricing.listPriceLists` → `pricing_list_price_lists` (SHO-358, compact
+rows: id, name, isDefault, isActive, entryCount). Copy **input map and
+output map** for later lists; do not copy T5 input-only façades. Do not
+copy the pattern repo-wide in the same PR. `orders.create` remains T9.
 
 `toProviderToolName("orders.list")` (`orders_list`) is the 1:1 mapping,
 not the advertised ToolSet key. Hot names are the façade keys. The 1:1
@@ -43,5 +45,6 @@ and must not rely on that patch.
 ## Tests
 
 No live LLM in CI. Inject `MockLanguageModelV3`. Façade tests must prove
-the mapped canonical input and that `execute` is called with the registry
-name plus `toolCallId`.
+the mapped canonical input, compact output before clip, and that
+`execute` is called with the registry name plus `toolCallId`. Composition
+tests against the real `orders.list` contract live in `apps/api`.

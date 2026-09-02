@@ -1,8 +1,8 @@
 # ADR-0033: Channel-neutral actions — task-complete lists and reference writes
 
-- **Status**: Proposed
+- **Status**: Accepted
 - **Date**: 2026-09-02
-- **Deciders**: pending owner (+ Cursor Grok 4.6)
+- **Deciders**: Ivan Kurbatov
 
 ## Context
 
@@ -64,7 +64,9 @@ First application: Linear [SHO-350](https://linear.app/showzy-v2/issue/SHO-350)
   named caps, and explicit truncation flags. oRPC and mobile send `kind`.
 - The staff assistant may see **named tool façades** in `packages/ai` that
   map onto the same handler (`execute("orders.list", canonicalInput)`).
-  Façade Zod is adapter-only. Flattening `*.contract.ts` to appease
+  Façade Zod is adapter-only. A list façade owns **model-safe output**
+  (compact rows, cursor-safe paging, explicit omitted) — not only a
+  narrower input schema. Flattening `*.contract.ts` to appease
   Anthropic, `*ForAssistant` twins, and SQL-in-tools are forbidden.
 - Staff **writes** that reference other records accept `{ by: "id" } | { by:
   "query" }` (or stay id-only until that module’s ticket). Query resolution
@@ -96,8 +98,9 @@ First application: Linear [SHO-350](https://linear.app/showzy-v2/issue/SHO-350)
 - `.cursor/rules/`, `AGENTS.md`, `/ticket` `/feature`, and blueprint §1/§4
   point here. “Copy the golden list” means SHO-351 `orders.list`
   (`kind` + extensible `filter`). Do not add another page-only staff list.
-  Named assistant tools over that handler copy SHO-355 (`orders_list_page` /
-  `orders_list_counts` in `packages/ai`).
+  Named assistant tools over that handler copy T7 catalog + SHO-360
+  (`orders_list_page` / `orders_list_counts` in `packages/ai`): input map
+  **and** output map before clip. Do not copy T5 input-only façades.
 - `pricing.resolveProductPrices` and similar composition reads should not
   be AI tools (SHO-350 T2).
 - Protocol manuals (`docs/specs/core.md`, `contract.md`) stay; they do not

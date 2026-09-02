@@ -29,6 +29,7 @@ import { staffAssistantJsonChars } from "./json-chars.js";
 import { staffAssistantHistoryStats } from "./messages.js";
 import { staffAssistantSystemMessages } from "./system-prompt.js";
 import { staffAssistantToolsetHash } from "./toolset-hash.js";
+import { staffAssistantTurnContextAddendum } from "./turn-context.js";
 import {
   staffAssistantTurnUsageFromTotal,
   type StaffAssistantTurnUsage,
@@ -282,8 +283,12 @@ export function streamStaffAssistantChat(options: {
   readonly execute: ActionToolExecute;
   readonly abortSignal?: AbortSignal;
   readonly responseHeaders?: Record<string, string>;
-  /** Uncached second system message from persisted tool-run ids. */
-  readonly workingSetAddendum?: string;
+  /**
+   * Uncached second system message (clock always; company + working set
+   * when the HTTP mount composed them). When omitted, a clock-only
+   * addendum is generated for this turn.
+   */
+  readonly turnContextAddendum?: string;
   /** Awaited inside the UI-message stream after `result.text`. A throw fails the stream. */
   readonly onTurn?: (turn: StaffAssistantTurnResult) => Promise<void>;
 }): {
@@ -309,7 +314,12 @@ export function streamStaffAssistantChat(options: {
     execute: async ({ writer }) => {
       const result = streamText({
         model: options.model,
-        system: staffAssistantSystemMessages(options.workingSetAddendum),
+        system: staffAssistantSystemMessages(
+          options.turnContextAddendum !== undefined &&
+            options.turnContextAddendum !== ""
+            ? options.turnContextAddendum
+            : staffAssistantTurnContextAddendum({ now: new Date() }),
+        ),
         messages: options.messages,
         tools,
         providerOptions: {

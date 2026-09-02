@@ -10,9 +10,11 @@ import {
   STAFF_ASSISTANT_TOOL_SEARCH_NAME,
   toProviderToolName,
 } from "@showzy/ai";
+import { PermissionDeniedError } from "@showzy/core/errors";
 import { describe, expect, it, vi } from "vitest";
 
 import { createActionRegistry } from "../composition.js";
+import { readStaffAssistantCompanyTradeName } from "./assistant-chat.js";
 
 const registry = createActionRegistry();
 const contracts = registry.contracts();
@@ -110,5 +112,31 @@ describe("staff AI tool manifest (SHO-322)", () => {
       expect.objectContaining({ kind: "page.summary" }),
       { toolCallId: "call-list" },
     );
+  });
+});
+
+describe("readStaffAssistantCompanyTradeName", () => {
+  it("returns the trimmed trade name", async () => {
+    await expect(
+      readStaffAssistantCompanyTradeName(() =>
+        Promise.resolve({ name: "  Качани  " }),
+      ),
+    ).resolves.toBe("Качани");
+  });
+
+  it("omits the name on documents:view permission denial", async () => {
+    await expect(
+      readStaffAssistantCompanyTradeName(() => {
+        throw new PermissionDeniedError();
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("does not swallow other errors", async () => {
+    await expect(
+      readStaffAssistantCompanyTradeName(() => {
+        throw new Error("companies.get failed");
+      }),
+    ).rejects.toThrow("companies.get failed");
   });
 });
