@@ -9,6 +9,7 @@ import {
   isStaffAssistantConfirmationOutput,
   ORDERS_LIST_COUNTS_TOOL_NAME,
   ORDERS_LIST_PAGE_TOOL_NAME,
+  PRICING_LIST_PRICE_LISTS_TOOL_NAME,
   STAFF_ASSISTANT_MODEL_HISTORY_MAX,
   STAFF_ASSISTANT_TOOL_SEARCH_NAME,
   toProviderToolName,
@@ -25,6 +26,7 @@ import {
 import { createConversation, recordAssistantTurn } from "@showzy/assistant";
 import { createProduct } from "@showzy/catalog";
 import { createOrder } from "@showzy/orders";
+import { createPriceList } from "@showzy/pricing";
 import {
   COMPANY_SELECTOR_HEADER,
   CONFIRMATION_CHALLENGE_HEADER,
@@ -727,6 +729,68 @@ describe("POST /assistant/chat mock-model parity", () => {
     expect(toolNames).not.toContain(toProviderToolName("orders.list"));
     const secondStep = JSON.stringify(streamModel.doStreamCalls[1]);
     expect(secondStep).toContain('"kind":"aggregate"');
+  });
+
+  it("eval: find price list named Opt uses one pricing.listPriceLists façade call", async () => {
+    const created = await staffInvoke(createPriceList, { name: "Opt" });
+    const streamModel = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream(
+          "call-pricing",
+          PRICING_LIST_PRICE_LISTS_TOOL_NAME,
+          JSON.stringify({ query: "Opt" }),
+        ),
+        mockTextStream("Found price list Opt."),
+      ],
+    });
+    const app = chatApp(streamModel);
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Eval find Opt",
+    });
+    const response = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "find price list named Opt"),
+    });
+    expect(response.status).toBe(200);
+    const payloads = await readUiMessageSsePayloads(response);
+    await waitFor(async () => {
+      const runs = await kit.db.runtime.db.select().from(assistantToolRuns);
+      return runs.some(
+        (run) =>
+          run.conversationId === conversation.id &&
+          run.actionName === "pricing.listPriceLists" &&
+          run.outcome === "success",
+      );
+    }, "pricing.listPriceLists via pricing_list_price_lists");
+    const listRuns = (
+      await kit.db.runtime.db.select().from(assistantToolRuns)
+    ).filter(
+      (run) =>
+        run.conversationId === conversation.id &&
+        run.actionName === "pricing.listPriceLists",
+    );
+    expect(listRuns).toHaveLength(1);
+    expect(streamModel.doStreamCalls.length).toBe(2);
+    const toolNames = (streamModel.doStreamCalls[0]?.tools ?? []).map(
+      (tool) => tool.name,
+    );
+    expect(toolNames).toContain(PRICING_LIST_PRICE_LISTS_TOOL_NAME);
+    expect(toolNames).not.toContain(
+      toProviderToolName("pricing.listPriceLists"),
+    );
+    expect(toolNames).toContain(toProviderToolName("pricing.createPriceList"));
+    expect(toolNames).toContain(
+      toProviderToolName("pricing.setPriceListEntries"),
+    );
+    const secondStep = JSON.stringify(streamModel.doStreamCalls[1]);
+    expect(secondStep).toContain("Opt");
+    expect(secondStep).toContain(created.id);
+    expect(secondStep).toContain("entryCount");
+    expect(JSON.stringify(payloads)).not.toMatch(
+      /cannot find a tool|missing tool/i,
+    );
   });
 
   it("executes orders.create without confirmation", async () => {

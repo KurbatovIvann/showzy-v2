@@ -35,10 +35,12 @@ describe("staffAssistantSystemPrompt", () => {
     expect(staffAssistantSystemPrompt).toContain("orders_list_page");
     expect(staffAssistantSystemPrompt).toContain("orders_list_counts");
     expect(staffAssistantSystemPrompt).toContain("catalog_list_products");
+    expect(staffAssistantSystemPrompt).toContain("pricing_list_price_lists");
     expect(staffAssistantSystemPrompt).not.toContain(
       "Always-visible domain tools: orders.list",
     );
     expect(staffAssistantSystemPrompt).not.toContain("catalog_listProducts");
+    expect(staffAssistantSystemPrompt).not.toContain("pricing_listPriceLists");
   });
 
   it("sends period order counts and gross to orders_list_counts instead of analytics tabs", () => {
@@ -49,6 +51,18 @@ describe("staffAssistantSystemPrompt", () => {
       "Do not refuse those jobs as analytics",
     );
     expect(staffAssistantSystemPrompt).toContain("Analytics / Reports");
+  });
+
+  it("sends find-by-name, fill, and assign to existing pricing and customers tools", () => {
+    expect(staffAssistantSystemPrompt).toContain(
+      "Resolving a price list by name uses pricing_list_price_lists",
+    );
+    expect(staffAssistantSystemPrompt).toContain(
+      "filling markup is pricing.setPriceListEntries after catalog_list_products prices",
+    );
+    expect(staffAssistantSystemPrompt).toContain(
+      "assigning a list to a group or customer uses priceListId on the existing customers writes",
+    );
   });
 
   it("forbids QES keys, OTP, and cookies, and keeps confirmation as a human step", () => {

@@ -7,6 +7,7 @@ import {
   CATALOG_LIST_PRODUCTS_TOOL_NAME,
   ORDERS_LIST_COUNTS_TOOL_NAME,
   ORDERS_LIST_PAGE_TOOL_NAME,
+  PRICING_LIST_PRICE_LISTS_TOOL_NAME,
   staffAssistantTools,
   STAFF_ASSISTANT_TOOL_SEARCH_NAME,
   toProviderToolName,
@@ -120,6 +121,33 @@ const listProducts = defineActionContract({
   audit: false,
   timeout: 5_000,
   input: z.looseObject({}),
+  output: z.object({
+    items: z.array(z.object({ id: z.uuid() })),
+    nextCursor: z.string().nullable(),
+  }),
+});
+
+const listPriceLists = defineActionContract({
+  name: "pricing.listPriceLists",
+  description: "List price lists in the active company.",
+  principal: "staff",
+  transport: "client",
+  aiExposure: "exposed",
+  permissions: ["pricing:view"],
+  risk: "read",
+  requiresConfirmation: false,
+  idempotent: false,
+  emits: [],
+  atomicCalls: [],
+  atomicCallers: [],
+  audit: false,
+  timeout: 5_000,
+  input: z.object({
+    query: z.string().trim().min(1).max(100).optional(),
+    availability: z.enum(["all", "active", "inactive"]).default("all"),
+    limit: z.number().int().min(1).max(50).default(20),
+    cursor: z.string().min(1).max(200).optional(),
+  }),
   output: z.object({
     items: z.array(z.object({ id: z.uuid() })),
     nextCursor: z.string().nullable(),
@@ -436,6 +464,68 @@ describe("streamStaffAssistantChat", () => {
     expect(secondStep).not.toContain("primaryImageFileId");
     expect(secondStep).not.toContain(STAFF_ASSISTANT_CLIPPED_STATUS);
     expect(turn.toolResultBytesOut).toBe(turn.toolResultBytesIn);
+  });
+
+  it("eval: find price list named Opt uses one pricing list façade call with query", async () => {
+    const execute = vi.fn(() =>
+      Promise.resolve({
+        items: [
+          {
+            id: customerId,
+            name: "Opt",
+            isDefault: false,
+            isActive: true,
+            entryCount: 0,
+          },
+        ],
+        nextCursor: null,
+      }),
+    );
+    const model = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream(
+          "call-pricing",
+          PRICING_LIST_PRICE_LISTS_TOOL_NAME,
+          JSON.stringify({ query: "Opt" }),
+        ),
+        mockTextStream("Found price list Opt."),
+      ],
+    });
+    const { response, completion } = streamStaffAssistantChat({
+      model,
+      messages: [{ role: "user", content: "find price list named Opt" }],
+      contracts: [listPriceLists],
+      execute,
+    });
+    const payloads = await readUiMessageSsePayloads(response);
+    const turn = await completion;
+    expect(execute).toHaveBeenCalledOnce();
+    expect(execute).toHaveBeenCalledWith(
+      "pricing.listPriceLists",
+      { query: "Opt", availability: "all", limit: 20 },
+      { toolCallId: "call-pricing" },
+    );
+    expect(turn.toolRuns).toEqual([
+      {
+        actionName: "pricing.listPriceLists",
+        toolCallId: "call-pricing",
+        resultIds: [],
+        outcome: "success",
+      },
+    ]);
+    const toolNames = (model.doStreamCalls[0]?.tools ?? []).map(
+      (tool) => tool.name,
+    );
+    expect(toolNames).toContain(PRICING_LIST_PRICE_LISTS_TOOL_NAME);
+    expect(toolNames).not.toContain(
+      toProviderToolName("pricing.listPriceLists"),
+    );
+    const secondStep = JSON.stringify(model.doStreamCalls[1]);
+    expect(secondStep).toContain("Opt");
+    expect(secondStep).toContain("entryCount");
+    expect(JSON.stringify(payloads)).not.toMatch(
+      /cannot find a tool|missing tool/i,
+    );
   });
 
   it("changes toolsetHash when the attached contract set changes", async () => {
