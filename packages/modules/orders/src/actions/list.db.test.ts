@@ -994,10 +994,14 @@ describe("orders.list", () => {
   });
 
   it("does not call orders.get from the list query", () => {
-    const source = readFileSync(
-      new URL("../services/list-query.ts", import.meta.url),
-      "utf8",
+    const sources = ["index.ts", "filter.ts", "page.ts", "aggregate.ts"].map(
+      (name) =>
+        readFileSync(
+          new URL(`../services/order-list/${name}`, import.meta.url),
+          "utf8",
+        ),
     );
+    const source = sources.join("\n");
     expect(source).not.toMatch(/\bgetOrder\b/);
     expect(source).not.toMatch(/orders\.get/);
   });

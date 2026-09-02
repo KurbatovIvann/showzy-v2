@@ -1,7 +1,7 @@
 import { implementAction } from "@showzy/core";
 import { CoreInvariantError } from "@showzy/core/errors";
 
-import { executeListOrders } from "../services/list-query.js";
+import { executeListOrders } from "../services/order-list/index.js";
 import { listOrdersContract } from "./list.contract.js";
 
 export const listOrders = implementAction(listOrdersContract, {
