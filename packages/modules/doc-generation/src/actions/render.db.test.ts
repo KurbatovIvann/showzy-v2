@@ -478,6 +478,7 @@ async function insertSeedOrder(values: {
       companyId: values.companyId,
       orderNumber: nextSeedOrderNumber(values.companyId),
       customerId: values.customerId,
+      customerNameSnapshot: "Fixture customer",
       status: "new",
       totalNetMinor: unit,
       totalTaxMinor: 0n,

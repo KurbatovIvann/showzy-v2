@@ -246,6 +246,7 @@ beforeAll(async () => {
     companyId: kitIdentities.companies.a,
     orderNumber: "T-1",
     customerId: fixtures.happyCustomer,
+    customerNameSnapshot: "Fixture customer",
     status: "new",
     totalNetMinor: 100n,
     totalTaxMinor: 0n,

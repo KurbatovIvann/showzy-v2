@@ -117,6 +117,7 @@ async function seedListTables(): Promise<string> {
           companyId: company.id,
           orderNumber: `LI-${index.toString(36).toUpperCase()}`,
           customerId: customer.id,
+          customerNameSnapshot: "Fixture customer",
           totalNetMinor: 10_000n,
           totalTaxMinor: 0n,
           totalGrossMinor: 10_000n,

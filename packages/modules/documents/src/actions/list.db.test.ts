@@ -125,6 +125,7 @@ async function insertOrder(values: {
     companyId: values.companyId,
     orderNumber: nextOrderNumber(values.companyId),
     customerId: values.customerId,
+    customerNameSnapshot: "Fixture customer",
     status: "new",
     totalNetMinor: 250n,
     totalTaxMinor: 0n,

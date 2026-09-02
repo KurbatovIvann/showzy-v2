@@ -46,12 +46,10 @@ export const orders = pgTable(
     /**
      * Header CRM name captured at write time (SHO-351 / ADR-0033).
      * Unlinked rows (`customer_id` null) store sentinel `unlinked`;
-     * presenters localize it. Default covers NOT NULL on existing
-     * inserts; `orders.create` still writes the live CRM name.
+     * presenters localize it. No column default: `orders.create` always
+     * writes the snapshot, and forgotten inserts must fail NOT NULL.
      */
-    customerNameSnapshot: text("customer_name_snapshot")
-      .notNull()
-      .default("unlinked"),
+    customerNameSnapshot: text("customer_name_snapshot").notNull(),
     status: text("status").notNull().default("new"),
     comment: text("comment"),
     totalNetMinor: bigint("total_net_minor", { mode: "bigint" }).notNull(),

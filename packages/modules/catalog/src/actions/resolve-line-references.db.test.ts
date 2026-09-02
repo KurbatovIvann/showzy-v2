@@ -286,6 +286,8 @@ describe("catalog.resolveLineReferences", () => {
     }
     expect(error.clientMessage).toContain("TwinCake (UAH)");
     expect(error.clientMessage).toContain("TwinCake (EUR)");
+    expect(error.clientMessage).toContain(fixtures.twinUah);
+    expect(error.clientMessage).toContain(fixtures.twinEur);
   });
 
   it("conflicts on contains-only product hits and never auto-chooses", async () => {
@@ -294,6 +296,32 @@ describe("catalog.resolveLineReferences", () => {
         lines: [{ product: { by: "query", value: "Cake" } }],
       }),
     ).rejects.toBeInstanceOf(ConflictError);
+  });
+
+  it("conflicts on ambiguous variant names with canonical ids", async () => {
+    const error = await kit
+      .invoke(resolveLineReferences, {
+        lines: [
+          {
+            product: { by: "id", id: fixtures.coat },
+            variant: { by: "query", value: "e" },
+          },
+        ],
+      })
+      .then(
+        () => {
+          throw new Error("expected ConflictError");
+        },
+        (caught: unknown) => caught,
+      );
+    expect(error).toBeInstanceOf(ConflictError);
+    if (!(error instanceof ConflictError)) {
+      return;
+    }
+    expect(error.clientMessage).toContain(fixtures.variantRed);
+    expect(error.clientMessage).toContain(fixtures.variantBlue);
+    expect(error.clientMessage).toContain("Red");
+    expect(error.clientMessage).toContain("Blue");
   });
 
   it("returns not-found for missing, foreign, and mismatched variant ids", async () => {
@@ -354,7 +382,7 @@ describe("catalog.resolveLineReferences", () => {
       "utf8",
     );
     expect(source).not.toMatch(/ctx\.call\(/);
-    // id + exact-name + capped contains + variants for resolved products
+    // id + exact-name + per-query capped contains + variants for resolved products
     expect(source.match(/\.from\(/g)?.length).toBe(4);
   });
 
@@ -405,6 +433,55 @@ describe("catalog.resolveLineReferences", () => {
         variantName: null,
       },
     ]);
+  });
+
+  it("does not drop a later contains query into NOT_FOUND after an earlier query fills 100 hits", async () => {
+    const crowdingExactName = "AaaCapCrowd 000";
+    const crowdingExactId = randomUUID();
+    const laterContainsId = randomUUID();
+    const laterContainsName = "ZzzLaterContainsTarget";
+    await insertProduct({
+      id: crowdingExactId,
+      companyId: kitIdentities.companies.a,
+      name: crowdingExactName,
+      basePriceMinor: 10n,
+    });
+    await insertProduct({
+      id: laterContainsId,
+      companyId: kitIdentities.companies.a,
+      name: laterContainsName,
+      basePriceMinor: 10n,
+    });
+    await kit.db.runtime.db.insert(products).values(
+      Array.from({ length: 100 }, (_, index) => ({
+        id: randomUUID(),
+        companyId: kitIdentities.companies.a,
+        name: `AaaCapCrowd ${String(index + 1).padStart(3, "0")}`,
+        basePriceMinor: 10n,
+        status: "active" as const,
+      })),
+    );
+
+    const error = await kit
+      .invoke(resolveLineReferences, {
+        lines: [
+          { product: { by: "query", value: crowdingExactName } },
+          { product: { by: "query", value: "LaterContainsTarget" } },
+        ],
+      })
+      .then(
+        () => {
+          throw new Error("expected ConflictError");
+        },
+        (caught: unknown) => caught,
+      );
+    expect(error).toBeInstanceOf(ConflictError);
+    expect(error).not.toBeInstanceOf(NotFoundError);
+    if (!(error instanceof ConflictError)) {
+      return;
+    }
+    expect(error.clientMessage).toContain(laterContainsId);
+    expect(error.clientMessage).toContain(laterContainsName);
   });
 
   it("lists at most five conflict labels when more products contain the query", async () => {

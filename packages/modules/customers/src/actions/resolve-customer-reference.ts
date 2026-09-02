@@ -59,7 +59,7 @@ function customerConflictLabel(row: CustomerCandidate): string {
   if (row.email !== null && row.email.length > 0) {
     return `${row.name} (${row.email})`;
   }
-  return row.name;
+  return `${row.name} (${row.id})`;
 }
 
 function conflictFromCandidates(

@@ -374,6 +374,7 @@ beforeAll(async () => {
       orderNumber: row.orderNumber,
       customerId:
         row.companyId === companyA ? fixtures.customerA : fixtures.customerB,
+      customerNameSnapshot: "Fixture customer",
       status: "new" as const,
       totalNetMinor: row.companyId === companyA ? 250n : 100n,
       totalTaxMinor: 0n,
