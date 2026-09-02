@@ -33,6 +33,7 @@ type JobRow = {
 
 export function mapViewToPdfModel(view: {
   readonly type: "payment_invoice" | "delivery_note";
+  readonly templateName: string;
   readonly documentNumber: string;
   readonly issuedOn: string;
   readonly currency: string;
@@ -82,6 +83,7 @@ export function mapViewToPdfModel(view: {
   }
   return {
     type: view.type,
+    templateName: view.templateName,
     documentNumber: view.documentNumber,
     issuedOn: view.issuedOn,
     currency: "UAH",

@@ -26,8 +26,12 @@ describe("doc-generation source guards (SHO-236)", () => {
   it("does not recompute issuedOn with Date year APIs or date-fns", () => {
     const sources = [
       "actions/render-pdf.ts",
+      "actions/list-layouts.ts",
+      "actions/resolve-layout.ts",
       "services/render-pdf.ts",
       "services/format-pdf-text.ts",
+      "services/layouts.ts",
+      "services/amount-in-words.ts",
       "templates/document-pdf.tsx",
       "templates/render-document.tsx",
     ];
@@ -59,6 +63,12 @@ describe("doc-generation source guards (SHO-236)", () => {
     expect(lockfile.toLowerCase()).not.toContain("puppeteer@");
     expect(
       existsSync(join(root, "templates/fonts/LiberationSans-Regular.ttf")),
+    ).toBe(true);
+    expect(
+      existsSync(join(root, "templates/fonts/LiberationSans-Bold.ttf")),
+    ).toBe(true);
+    expect(
+      existsSync(join(root, "templates/fonts/LiberationSans-Italic.ttf")),
     ).toBe(true);
   });
 });

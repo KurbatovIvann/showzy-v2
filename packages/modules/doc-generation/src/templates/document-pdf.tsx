@@ -8,6 +8,7 @@ import {
 } from "@react-pdf/renderer";
 import { fileURLToPath } from "node:url";
 
+import { uahAmountInWords } from "../services/amount-in-words.js";
 import {
   formatIssuedOn,
   formatMoneyUah,
@@ -22,8 +23,14 @@ import {
 
 const FONT_FAMILY = "LiberationSans";
 
-const fontSrc = fileURLToPath(
+const regularSrc = fileURLToPath(
   new URL("./fonts/LiberationSans-Regular.ttf", import.meta.url),
+);
+const boldSrc = fileURLToPath(
+  new URL("./fonts/LiberationSans-Bold.ttf", import.meta.url),
+);
+const italicSrc = fileURLToPath(
+  new URL("./fonts/LiberationSans-Italic.ttf", import.meta.url),
 );
 
 let fontRegistered = false;
@@ -32,7 +39,14 @@ function ensureFont(): void {
   if (fontRegistered) {
     return;
   }
-  Font.register({ family: FONT_FAMILY, src: fontSrc });
+  Font.register({
+    family: FONT_FAMILY,
+    fonts: [
+      { src: regularSrc, fontWeight: 400 },
+      { src: boldSrc, fontWeight: 700 },
+      { src: italicSrc, fontWeight: 400, fontStyle: "italic" },
+    ],
+  });
   fontRegistered = true;
 }
 
@@ -47,6 +61,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 16,
+    fontWeight: 700,
     marginBottom: 4,
   },
   meta: {
@@ -83,6 +98,10 @@ const styles = StyleSheet.create({
   },
   totalLine: {
     marginBottom: 2,
+  },
+  amountInWords: {
+    marginTop: 8,
+    fontStyle: "italic",
   },
 });
 
@@ -199,6 +218,9 @@ export function DocumentPdf({ model }: { readonly model: DocumentPdfModel }) {
           </Text>
           <Text style={styles.totalLine}>
             Всього: {formatMoneyUah(model.totalGrossMinor)}
+          </Text>
+          <Text style={styles.amountInWords}>
+            Сума прописом: {uahAmountInWords(model.totalGrossMinor)}
           </Text>
         </View>
       </Page>

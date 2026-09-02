@@ -65,6 +65,7 @@ import {
   requestSignContract,
   shareDocumentContract,
 } from "@showzy/documents/contract";
+import { listLayoutsContract } from "@showzy/doc-generation/contract";
 import {
   completeSigningContract,
   getSigningContract,
@@ -168,6 +169,9 @@ export const contractModules = {
     list: listDocumentsContract,
     requestSign: requestSignContract,
     share: shareDocumentContract,
+  },
+  docGeneration: {
+    listLayouts: listLayoutsContract,
   },
   docSigning: {
     complete: completeSigningContract,
