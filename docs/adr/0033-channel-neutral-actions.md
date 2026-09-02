@@ -30,8 +30,10 @@ cards. They are marked “not authority” and still get grepped.
 
 The product we are building:
 
-1. **One registry, two channels.** UI and AI call the same handlers. No
-   `*ForAssistant` twin, no second tool schema, no generic SQL/GraphQL.
+1. **One registry, two channels.** UI and the assistant share the same
+   `executeAction`. Named tool façades in `packages/ai` may map a narrower
+   schema onto that handler. No `*ForAssistant` `implementAction`, no
+   AI-only module Zod, no generic SQL/GraphQL.
 2. **An action is a staff job, not a widget.** A list can answer a bounded
    question (a page **or** a server aggregate) without `get` per row and
    without JSON clipping as the source of truth. A write can name a customer
@@ -59,7 +61,11 @@ First application: Linear [SHO-350](https://linear.app/showzy-v2/issue/SHO-350)
 
 - Staff **list** actions that UI and AI share use a discriminated `kind`
   (page vs aggregate vs bounded lines) plus an extensible `filter` object,
-  named caps, and explicit truncation flags.
+  named caps, and explicit truncation flags. oRPC and mobile send `kind`.
+- The staff assistant may see **named tool façades** in `packages/ai` that
+  map onto the same handler (`execute("orders.list", canonicalInput)`).
+  Façade Zod is adapter-only. Flattening `*.contract.ts` to appease
+  Anthropic, `*ForAssistant` twins, and SQL-in-tools are forbidden.
 - Staff **writes** that reference other records accept `{ by: "id" } | { by:
   "query" }` (or stay id-only until that module’s ticket). Query resolution
   is an internal `ctx.call` into the **owner** of the named entity. Fuzzy
@@ -67,7 +73,7 @@ First application: Linear [SHO-350](https://linear.app/showzy-v2/issue/SHO-350)
   bounded client message (no new core error code in SHO-350).
 - Executor/planner instructions copy **protocol** from goldens (tenant,
   pagination helpers, errors, permissions), not a screen-shaped input that
-  this ADR retires.
+  this ADR retires. Copy **one handler, not one JSON Schema**.
 - Agents do not read `docs/archive/` unless a human names a file.
 
 ## Alternatives considered
@@ -75,7 +81,8 @@ First application: Linear [SHO-350](https://linear.app/showzy-v2/issue/SHO-350)
 - **Keep copying `catalog.listProducts` as the only list shape** — rejected:
   that is the drift. Pagination helpers stay shared; the *input job* does not.
 - **AI-only list/create twins** — rejected: v1’s disconnected assistant
-  (blueprint §1 problem 4, ADR-0008).
+  (blueprint §1 problem 4, ADR-0008). Named façades in `packages/ai` that
+  still `execute` the registry name are the allowed adapter (SHO-355).
 - **One mega-action per chat utterance** — rejected: unbounded public API;
   permissions, idempotency, and confirmation become fiction.
 - **Relax ADR-0015 so orders JOINs customers** — rejected: tenant and
@@ -89,6 +96,8 @@ First application: Linear [SHO-350](https://linear.app/showzy-v2/issue/SHO-350)
 - `.cursor/rules/`, `AGENTS.md`, `/ticket` `/feature`, and blueprint §1/§4
   point here. “Copy the golden list” means SHO-351 `orders.list`
   (`kind` + extensible `filter`). Do not add another page-only staff list.
+  Named assistant tools over that handler copy SHO-355 (`orders_list_page` /
+  `orders_list_counts` in `packages/ai`).
 - `pricing.resolveProductPrices` and similar composition reads should not
   be AI tools (SHO-350 T2).
 - Protocol manuals (`docs/specs/core.md`, `contract.md`) stay; they do not

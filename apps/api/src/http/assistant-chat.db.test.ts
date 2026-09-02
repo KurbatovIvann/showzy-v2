@@ -7,6 +7,8 @@ import { randomBytes, randomUUID } from "node:crypto";
 import {
   attemptKey,
   isStaffAssistantConfirmationOutput,
+  ORDERS_LIST_COUNTS_TOOL_NAME,
+  ORDERS_LIST_PAGE_TOOL_NAME,
   STAFF_ASSISTANT_MODEL_HISTORY_MAX,
   STAFF_ASSISTANT_TOOL_SEARCH_NAME,
   toProviderToolName,
@@ -22,6 +24,7 @@ import {
 } from "@showzy/ai/test";
 import { createConversation, recordAssistantTurn } from "@showzy/assistant";
 import { createProduct } from "@showzy/catalog";
+import { createOrder } from "@showzy/orders";
 import {
   COMPANY_SELECTOR_HEADER,
   CONFIRMATION_CHALLENGE_HEADER,
@@ -557,11 +560,7 @@ describe("POST /assistant/chat mock-model parity", () => {
     const app = chatApp(
       new MockLanguageModelV3({
         doStream: [
-          mockToolCallStream(
-            "call-list",
-            toProviderToolName("orders.list"),
-            '{"kind":"page.summary"}',
-          ),
+          mockToolCallStream("call-list", ORDERS_LIST_PAGE_TOOL_NAME, "{}"),
           mockTextStream("You have no orders."),
         ],
       }),
@@ -589,6 +588,139 @@ describe("POST /assistant/chat mock-model parity", () => {
     }, "orders.list tool run");
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
+  });
+
+  it("eval 1: active-order product quantities use one orders_list_counts", async () => {
+    const customer = await staffInvoke(createCustomer, {
+      name: "AI Eval Counts Buyer",
+      phone: "+380671110021",
+    });
+    const product = await staffInvoke(createProduct, {
+      name: "AI Eval Widget",
+      basePriceMinor: "1000",
+    });
+    await staffInvoke(createOrder, {
+      customer: { by: "id", id: customer.id },
+      items: [
+        {
+          product: { by: "id", id: product.productId },
+          quantity: { milli: "1000" },
+        },
+      ],
+    });
+    await staffInvoke(createOrder, {
+      customer: { by: "id", id: customer.id },
+      items: [
+        {
+          product: { by: "id", id: product.productId },
+          quantity: { milli: "3000" },
+        },
+      ],
+    });
+    const streamModel = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream(
+          "call-counts",
+          ORDERS_LIST_COUNTS_TOOL_NAME,
+          JSON.stringify({
+            groupBy: "product",
+            statuses: ["new", "confirmed"],
+          }),
+        ),
+        mockTextStream("Active orders include 4000 milli of the widget."),
+      ],
+    });
+    const app = chatApp(streamModel);
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Eval 1 counts",
+    });
+    const response = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(
+        conversation.id,
+        "Which products are in active orders?",
+      ),
+    });
+    expect(response.status).toBe(200);
+    await readUiMessageSsePayloads(response);
+    await waitFor(async () => {
+      const runs = await kit.db.runtime.db.select().from(assistantToolRuns);
+      return runs.some(
+        (run) =>
+          run.conversationId === conversation.id &&
+          run.actionName === "orders.list" &&
+          run.outcome === "success",
+      );
+    }, "orders.list aggregate via orders_list_counts");
+    const listRuns = (
+      await kit.db.runtime.db.select().from(assistantToolRuns)
+    ).filter(
+      (run) =>
+        run.conversationId === conversation.id &&
+        run.actionName === "orders.list",
+    );
+    expect(listRuns).toHaveLength(1);
+    expect(streamModel.doStreamCalls.length).toBe(2);
+    const toolNames = (streamModel.doStreamCalls[0]?.tools ?? []).map(
+      (tool) => tool.name,
+    );
+    expect(toolNames).toContain(ORDERS_LIST_COUNTS_TOOL_NAME);
+    expect(toolNames).not.toContain(toProviderToolName("orders.list"));
+    const secondStep = JSON.stringify(streamModel.doStreamCalls[1]);
+    expect(secondStep).toContain("quantityMilli");
+    expect(secondStep).toContain("4000");
+  });
+
+  it("eval 2: gross rollup uses one orders_list_counts groupBy none", async () => {
+    const streamModel = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream(
+          "call-gross",
+          ORDERS_LIST_COUNTS_TOOL_NAME,
+          JSON.stringify({ groupBy: "none" }),
+        ),
+        mockTextStream("Here is the bounded gross rollup."),
+      ],
+    });
+    const app = chatApp(streamModel);
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Eval 2 counts",
+    });
+    const response = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "What is the order gross?"),
+    });
+    expect(response.status).toBe(200);
+    await readUiMessageSsePayloads(response);
+    await waitFor(async () => {
+      const runs = await kit.db.runtime.db.select().from(assistantToolRuns);
+      return runs.some(
+        (run) =>
+          run.conversationId === conversation.id &&
+          run.actionName === "orders.list" &&
+          run.outcome === "success",
+      );
+    }, "orders.list aggregate groupBy none");
+    const listRuns = (
+      await kit.db.runtime.db.select().from(assistantToolRuns)
+    ).filter(
+      (run) =>
+        run.conversationId === conversation.id &&
+        run.actionName === "orders.list",
+    );
+    expect(listRuns).toHaveLength(1);
+    expect(streamModel.doStreamCalls.length).toBe(2);
+    const toolNames = (streamModel.doStreamCalls[0]?.tools ?? []).map(
+      (tool) => tool.name,
+    );
+    expect(toolNames).toContain(ORDERS_LIST_COUNTS_TOOL_NAME);
+    expect(toolNames).not.toContain(toProviderToolName("orders.list"));
+    const secondStep = JSON.stringify(streamModel.doStreamCalls[1]);
+    expect(secondStep).toContain('"kind":"aggregate"');
   });
 
   it("executes orders.create without confirmation", async () => {
@@ -1457,11 +1589,7 @@ describe("POST /assistant/chat operational gate", () => {
   it("does not attach tools or execute domain actions when the gate is false", async () => {
     const streamModel = new MockLanguageModelV3({
       doStream: [
-        mockToolCallStream(
-          "call-list",
-          toProviderToolName("orders.list"),
-          '{"kind":"page.summary"}',
-        ),
+        mockToolCallStream("call-list", ORDERS_LIST_PAGE_TOOL_NAME, "{}"),
         mockTextStream("should not run"),
       ],
     });
@@ -1501,11 +1629,7 @@ describe("POST /assistant/chat operational gate", () => {
   it("attaches tools when the gate is true", async () => {
     const streamModel = new MockLanguageModelV3({
       doStream: [
-        mockToolCallStream(
-          "call-list",
-          toProviderToolName("orders.list"),
-          '{"kind":"page.summary"}',
-        ),
+        mockToolCallStream("call-list", ORDERS_LIST_PAGE_TOOL_NAME, "{}"),
         mockTextStream("You have no orders."),
       ],
     });
@@ -1538,7 +1662,9 @@ describe("POST /assistant/chat operational gate", () => {
     expect(gateModel.doStreamCalls).toHaveLength(0);
     const names = streamToolNames(streamModel);
     expect(names).toContain(STAFF_ASSISTANT_TOOL_SEARCH_NAME);
-    expect(names).toContain(toProviderToolName("orders.list"));
+    expect(names).toContain(ORDERS_LIST_PAGE_TOOL_NAME);
+    expect(names).toContain(ORDERS_LIST_COUNTS_TOOL_NAME);
+    expect(names).not.toContain(toProviderToolName("orders.list"));
     const deferred = streamTools(streamModel).find(
       (tool) => tool.name === toProviderToolName("customers.deleteCustomer"),
     );
@@ -1551,11 +1677,7 @@ describe("POST /assistant/chat operational gate", () => {
   it("fail-opens and attaches tools when classify throws", async () => {
     const streamModel = new MockLanguageModelV3({
       doStream: [
-        mockToolCallStream(
-          "call-list",
-          toProviderToolName("orders.list"),
-          '{"kind":"page.summary"}',
-        ),
+        mockToolCallStream("call-list", ORDERS_LIST_PAGE_TOOL_NAME, "{}"),
         mockTextStream("You have no orders."),
       ],
     });
@@ -1653,11 +1775,7 @@ describe("POST /assistant/chat operational gate", () => {
     const capturing = createCapturingLogger();
     const streamModel = new MockLanguageModelV3({
       doStream: [
-        mockToolCallStream(
-          "call-list",
-          toProviderToolName("orders.list"),
-          '{"kind":"page.summary"}',
-        ),
+        mockToolCallStream("call-list", ORDERS_LIST_PAGE_TOOL_NAME, "{}"),
         mockTextStream("You have no orders."),
         mockTextStream("Creating the price list."),
       ],
@@ -1744,11 +1862,7 @@ describe("POST /assistant/chat operational gate", () => {
   it("keeps tools attached for weather after a tool-using turn", async () => {
     const streamModel = new MockLanguageModelV3({
       doStream: [
-        mockToolCallStream(
-          "call-list",
-          toProviderToolName("orders.list"),
-          '{"kind":"page.summary"}',
-        ),
+        mockToolCallStream("call-list", ORDERS_LIST_PAGE_TOOL_NAME, "{}"),
         mockTextStream("You have no orders."),
         mockTextStream("I only help with this company."),
       ],

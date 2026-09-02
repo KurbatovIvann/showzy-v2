@@ -4,6 +4,8 @@ import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import {
+  ORDERS_LIST_COUNTS_TOOL_NAME,
+  ORDERS_LIST_PAGE_TOOL_NAME,
   staffAssistantTools,
   STAFF_ASSISTANT_TOOL_SEARCH_NAME,
   toProviderToolName,
@@ -75,7 +77,7 @@ const listOrders = defineActionContract({
   atomicCallers: [],
   audit: false,
   timeout: 5_000,
-  input: z.object({}).default({}),
+  input: z.looseObject({}),
   output: z.object({
     items: z.array(z.object({ orderId: z.uuid() })),
     nextCursor: z.string().nullable(),
@@ -126,15 +128,16 @@ describe("staffAssistantTools", () => {
     const tools = staffAssistantTools([listOrders], execute);
     expect(Object.keys(tools)).toEqual([
       STAFF_ASSISTANT_TOOL_SEARCH_NAME,
-      "orders_list",
+      ORDERS_LIST_PAGE_TOOL_NAME,
+      ORDERS_LIST_COUNTS_TOOL_NAME,
     ]);
-    await tools["orders_list"]?.execute?.(
+    await tools[ORDERS_LIST_PAGE_TOOL_NAME]?.execute?.(
       {},
       { toolCallId: "call-1", messages: [], context: undefined },
     );
     expect(execute).toHaveBeenCalledWith(
       "orders.list",
-      {},
+      { kind: "page.summary" },
       { toolCallId: "call-1" },
     );
     expect(fetchSpy).not.toHaveBeenCalled();
@@ -152,11 +155,7 @@ describe("streamStaffAssistantChat", () => {
     );
     const model = new MockLanguageModelV3({
       doStream: [
-        mockToolCallStream(
-          "call-list",
-          toProviderToolName("orders.list"),
-          "{}",
-        ),
+        mockToolCallStream("call-list", ORDERS_LIST_PAGE_TOOL_NAME, "{}"),
         mockTextStream("You have no orders."),
       ],
     });
@@ -174,7 +173,7 @@ describe("streamStaffAssistantChat", () => {
 
     expect(execute).toHaveBeenCalledWith(
       "orders.list",
-      {},
+      { kind: "page.summary" },
       { toolCallId: "call-list" },
     );
     expect(turn.toolRuns).toEqual([
@@ -245,22 +244,35 @@ describe("streamStaffAssistantChat", () => {
       STAFF_ASSISTANT_CACHE_CONTROL,
     );
     const tools = call?.tools ?? [];
-    expect(tools.length).toBe(3);
+    expect(tools.length).toBe(4);
     const search = tools.find(
       (entry) =>
         isRecord(entry) && entry["name"] === STAFF_ASSISTANT_TOOL_SEARCH_NAME,
     );
-    const list = tools.find(
-      (entry) => isRecord(entry) && entry["name"] === "orders_list",
+    const page = tools.find(
+      (entry) =>
+        isRecord(entry) && entry["name"] === ORDERS_LIST_PAGE_TOOL_NAME,
+    );
+    const counts = tools.find(
+      (entry) =>
+        isRecord(entry) && entry["name"] === ORDERS_LIST_COUNTS_TOOL_NAME,
     );
     const remove = tools.find(
       (entry) =>
         isRecord(entry) && entry["name"] === "customers_deleteCustomer",
     );
     expect(search).toBeDefined();
-    expect(anthropicCacheControl(list)).toEqual(STAFF_ASSISTANT_CACHE_CONTROL);
+    expect(page).toBeDefined();
+    expect(counts).toBeDefined();
+    expect(
+      tools.some((entry) => isRecord(entry) && entry["name"] === "orders_list"),
+    ).toBe(false);
+    expect(anthropicCacheControl(counts)).toEqual(
+      STAFF_ASSISTANT_CACHE_CONTROL,
+    );
     expect(anthropicDeferLoading(remove)).toBe(true);
-    expect(anthropicDeferLoading(list)).toBeUndefined();
+    expect(anthropicDeferLoading(page)).toBeUndefined();
+    expect(anthropicDeferLoading(counts)).toBeUndefined();
     expect(anthropicCacheControl(remove)).toBeUndefined();
   });
 
@@ -335,11 +347,7 @@ describe("streamStaffAssistantChat", () => {
     const execute = vi.fn(() => Promise.resolve({ items, nextCursor: null }));
     const model = new MockLanguageModelV3({
       doStream: [
-        mockToolCallStream(
-          "call-list",
-          toProviderToolName("orders.list"),
-          "{}",
-        ),
+        mockToolCallStream("call-list", ORDERS_LIST_PAGE_TOOL_NAME, "{}"),
         mockTextStream("Here is a preview of the orders."),
       ],
     });

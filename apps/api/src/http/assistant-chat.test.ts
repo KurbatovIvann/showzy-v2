@@ -1,5 +1,7 @@
 import {
   filterStaffAiTools,
+  ORDERS_LIST_COUNTS_TOOL_NAME,
+  ORDERS_LIST_PAGE_TOOL_NAME,
   PROVIDER_TOOL_NAME_PATTERN,
   staffAssistantTools,
   STAFF_ASSISTANT_TOOL_SEARCH_NAME,
@@ -67,22 +69,31 @@ describe("staff AI tool manifest (SHO-322)", () => {
     });
     const tools = staffAssistantTools(filtered, execute);
     const names = Object.keys(tools);
-    expect(names.length).toBe(filtered.length + 1);
+    const extraFacadeTools = filtered.some(
+      (contract) => contract.name === "orders.list",
+    )
+      ? 1
+      : 0;
+    expect(names.length).toBe(filtered.length + 1 + extraFacadeTools);
     expect(names).toContain(STAFF_ASSISTANT_TOOL_SEARCH_NAME);
     for (const name of names) {
       expect(name).toMatch(PROVIDER_TOOL_NAME_PATTERN);
       expect(name).not.toContain(".");
     }
-    expect(names).toContain(toProviderToolName("orders.list"));
+    expect(names).toContain(ORDERS_LIST_PAGE_TOOL_NAME);
+    expect(names).toContain(ORDERS_LIST_COUNTS_TOOL_NAME);
+    expect(names).not.toContain(toProviderToolName("orders.list"));
     expect(names).not.toContain("orders.list");
-    const listTool = tools[toProviderToolName("orders.list")];
+    const listTool = tools[ORDERS_LIST_PAGE_TOOL_NAME];
     expect(listTool).toBeDefined();
     await listTool?.execute?.(
-      { kind: "page.summary" },
+      {},
       { toolCallId: "call-list", messages: [], context: undefined },
     );
-    expect(execute).toHaveBeenCalledWith("orders.list", expect.anything(), {
-      toolCallId: "call-list",
-    });
+    expect(execute).toHaveBeenCalledWith(
+      "orders.list",
+      expect.objectContaining({ kind: "page.summary" }),
+      { toolCallId: "call-list" },
+    );
   });
 });
