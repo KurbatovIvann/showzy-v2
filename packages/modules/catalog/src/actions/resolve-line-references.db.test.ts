@@ -284,10 +284,12 @@ describe("catalog.resolveLineReferences", () => {
     if (!(error instanceof ConflictError)) {
       return;
     }
-    expect(error.clientMessage).toContain("TwinCake (UAH)");
-    expect(error.clientMessage).toContain("TwinCake (EUR)");
-    expect(error.clientMessage).toContain(fixtures.twinUah);
-    expect(error.clientMessage).toContain(fixtures.twinEur);
+    expect(error.clientMessage).toContain(
+      `TwinCake (UAH, ${fixtures.twinUah})`,
+    );
+    expect(error.clientMessage).toContain(
+      `TwinCake (EUR, ${fixtures.twinEur})`,
+    );
   });
 
   it("conflicts on contains-only product hits and never auto-chooses", async () => {
