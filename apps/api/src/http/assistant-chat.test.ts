@@ -1,6 +1,7 @@
 import {
   CATALOG_LIST_PRODUCTS_TOOL_NAME,
   filterStaffAiTools,
+  ORDERS_CREATE_TOOL_NAME,
   ORDERS_LIST_COUNTS_TOOL_NAME,
   ORDERS_LIST_PAGE_TOOL_NAME,
   PRICING_LIST_PRICE_LISTS_TOOL_NAME,
@@ -95,6 +96,9 @@ describe("staff AI tool manifest (SHO-322)", () => {
     expect(names).toContain(PRICING_LIST_PRICE_LISTS_TOOL_NAME);
     expect(names).not.toContain(toProviderToolName("pricing.listPriceLists"));
     expect(names).not.toContain("pricing_listPriceLists");
+    expect(names).toContain(ORDERS_CREATE_TOOL_NAME);
+    expect(names).toContain(toProviderToolName("orders.create"));
+    expect(names).not.toContain("orders.create");
     expect(
       tools[toProviderToolName("pricing.createPriceList")]?.providerOptions,
     ).toEqual(STAFF_ASSISTANT_DEFER_PROVIDER_OPTIONS);
@@ -111,6 +115,31 @@ describe("staff AI tool manifest (SHO-322)", () => {
       "orders.list",
       expect.objectContaining({ kind: "page.summary" }),
       { toolCallId: "call-list" },
+    );
+    const createTool = tools[ORDERS_CREATE_TOOL_NAME];
+    expect(createTool).toBeDefined();
+    expect(createTool?.providerOptions).not.toEqual(
+      STAFF_ASSISTANT_DEFER_PROVIDER_OPTIONS,
+    );
+    await createTool?.execute?.(
+      {
+        customerQuery: "Katya",
+        items: [{ productQuery: "Cake", quantityDecimal: "1.5" }],
+      },
+      { toolCallId: "call-create", messages: [], context: undefined },
+    );
+    expect(execute).toHaveBeenCalledWith(
+      "orders.create",
+      {
+        customer: { by: "query", value: "Katya" },
+        items: [
+          {
+            product: { by: "query", value: "Cake" },
+            quantity: { decimal: "1.5" },
+          },
+        ],
+      },
+      { toolCallId: "call-create" },
     );
   });
 });

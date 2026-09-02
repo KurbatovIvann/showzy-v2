@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import {
   CATALOG_LIST_PRODUCTS_TOOL_NAME,
+  ORDERS_CREATE_TOOL_NAME,
   ORDERS_LIST_COUNTS_TOOL_NAME,
   ORDERS_LIST_PAGE_TOOL_NAME,
   PRICING_LIST_PRICE_LISTS_TOOL_NAME,
@@ -154,6 +155,44 @@ const listPriceLists = defineActionContract({
     items: z.array(z.object({ id: z.uuid() })),
     nextCursor: z.string().nullable(),
   }),
+});
+
+const createOrder = defineActionContract({
+  name: "orders.create",
+  description: "Create a staff-intake order in the active company.",
+  principal: "staff",
+  transport: "client",
+  aiExposure: "exposed",
+  permissions: ["orders:create"],
+  risk: "write",
+  requiresConfirmation: false,
+  idempotent: true,
+  emits: ["orders.created"],
+  atomicCalls: [],
+  atomicCallers: [],
+  audit: true,
+  timeout: 20_000,
+  input: z.strictObject({
+    customer: z.discriminatedUnion("by", [
+      z.strictObject({ by: z.literal("id"), id: z.uuid() }),
+      z.strictObject({ by: z.literal("query"), value: z.string() }),
+    ]),
+    items: z
+      .array(
+        z.strictObject({
+          product: z.discriminatedUnion("by", [
+            z.strictObject({ by: z.literal("id"), id: z.uuid() }),
+            z.strictObject({ by: z.literal("query"), value: z.string() }),
+          ]),
+          quantity: z.union([
+            z.strictObject({ milli: z.string() }),
+            z.strictObject({ decimal: z.string() }),
+          ]),
+        }),
+      )
+      .min(1),
+  }),
+  output: z.object({ orderId: z.uuid() }),
 });
 
 const customerId = "11111111-1111-4111-8111-111111111111";
@@ -541,6 +580,65 @@ describe("streamStaffAssistantChat", () => {
     const secondStep = JSON.stringify(model.doStreamCalls[1]);
     expect(secondStep).toContain("Opt");
     expect(secondStep).toContain("entryCount");
+    expect(JSON.stringify(payloads)).not.toMatch(
+      /cannot find a tool|missing tool/i,
+    );
+  });
+
+  it("eval: unique names create uses one orders_create façade call", async () => {
+    const execute = vi.fn(() => Promise.resolve({ orderId: customerId }));
+    const model = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream(
+          "call-create",
+          ORDERS_CREATE_TOOL_NAME,
+          JSON.stringify({
+            customerQuery: "Katya",
+            items: [{ productQuery: "Cake", quantityDecimal: "1.5" }],
+          }),
+        ),
+        mockTextStream("Order created."),
+      ],
+    });
+    const { response, completion } = streamStaffAssistantChat({
+      model,
+      messages: [
+        { role: "user", content: "Create an order for Katya with Cake" },
+      ],
+      contracts: [createOrder],
+      execute,
+    });
+    const payloads = await readUiMessageSsePayloads(response);
+    const turn = await completion;
+    expect(execute).toHaveBeenCalledOnce();
+    expect(execute).toHaveBeenCalledWith(
+      "orders.create",
+      {
+        customer: { by: "query", value: "Katya" },
+        items: [
+          {
+            product: { by: "query", value: "Cake" },
+            quantity: { decimal: "1.5" },
+          },
+        ],
+      },
+      { toolCallId: "call-create" },
+    );
+    expect(turn.toolRuns).toEqual([
+      {
+        actionName: "orders.create",
+        toolCallId: "call-create",
+        resultIds: [customerId],
+        outcome: "success",
+      },
+    ]);
+    const toolNames = (model.doStreamCalls[0]?.tools ?? []).map(
+      (tool) => tool.name,
+    );
+    expect(toolNames).toContain(ORDERS_CREATE_TOOL_NAME);
+    expect(toolNames).toContain(toProviderToolName("orders.create"));
+    const secondStep = JSON.stringify(model.doStreamCalls[1]);
+    expect(secondStep).toContain(customerId);
     expect(JSON.stringify(payloads)).not.toMatch(
       /cannot find a tool|missing tool/i,
     );

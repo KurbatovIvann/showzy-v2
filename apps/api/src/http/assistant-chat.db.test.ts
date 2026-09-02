@@ -7,6 +7,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import {
   attemptKey,
   isStaffAssistantConfirmationOutput,
+  ORDERS_CREATE_TOOL_NAME,
   ORDERS_LIST_COUNTS_TOOL_NAME,
   ORDERS_LIST_PAGE_TOOL_NAME,
   PRICING_LIST_PRICE_LISTS_TOOL_NAME,
@@ -853,11 +854,11 @@ describe("POST /assistant/chat mock-model parity", () => {
       basePriceMinor: "15000",
     });
     const createInput = JSON.stringify({
-      customer: { by: "id", id: customer.id },
+      customerId: customer.id,
       items: [
         {
-          product: { by: "id", id: product.productId },
-          quantity: { milli: "1000" },
+          productId: product.productId,
+          quantityMilli: "1000",
         },
       ],
     });
@@ -866,7 +867,7 @@ describe("POST /assistant/chat mock-model parity", () => {
         doStream: [
           mockToolCallStream(
             "call-create",
-            toProviderToolName("orders.create"),
+            ORDERS_CREATE_TOOL_NAME,
             createInput,
           ),
           mockTextStream("Order created."),
@@ -909,6 +910,71 @@ describe("POST /assistant/chat mock-model parity", () => {
       outcome: "ok",
     });
     expect(JSON.stringify(aiRow)).not.toContain("Create an order");
+  });
+
+  it("eval 3: unique names via orders_create execute orders.create", async () => {
+    const customer = await staffInvoke(createCustomer, {
+      name: "T9 Query Buyer",
+      phone: "+380671110031",
+    });
+    await staffInvoke(createProduct, {
+      name: "T9 Query Cake",
+      basePriceMinor: "15000",
+    });
+    const streamModel = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream(
+          "call-create-query",
+          ORDERS_CREATE_TOOL_NAME,
+          JSON.stringify({
+            customerQuery: "T9 Query Buyer",
+            items: [{ productQuery: "T9 Query Cake", quantityDecimal: "1.5" }],
+          }),
+        ),
+        mockTextStream("Order created from unique names."),
+      ],
+    });
+    const app = chatApp(streamModel);
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Eval 3 create",
+    });
+    const response = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(
+        conversation.id,
+        "Create an order for T9 Query Buyer with T9 Query Cake",
+      ),
+    });
+    expect(response.status).toBe(200);
+    const payloads = await readUiMessageSsePayloads(response);
+    await waitFor(async () => {
+      const rows = await kit.db.runtime.db.select().from(orders);
+      return rows.some(
+        (row) =>
+          row.companyId === kitIdentities.companies.a &&
+          row.customerId === customer.id,
+      );
+    }, "created order via orders_create query locators");
+    const createRuns = (
+      await kit.db.runtime.db.select().from(assistantToolRuns)
+    ).filter(
+      (run) =>
+        run.conversationId === conversation.id &&
+        run.actionName === "orders.create",
+    );
+    expect(createRuns).toHaveLength(1);
+    expect(createRuns[0]?.outcome).toBe("success");
+    expect(streamModel.doStreamCalls.length).toBe(2);
+    const toolNames = (streamModel.doStreamCalls[0]?.tools ?? []).map(
+      (tool) => tool.name,
+    );
+    expect(toolNames).toContain(ORDERS_CREATE_TOOL_NAME);
+    expect(toolNames).toContain(toProviderToolName("orders.create"));
+    expect(JSON.stringify(payloads)).not.toMatch(
+      /cannot find a tool|missing tool/i,
+    );
   });
 
   it("pauses customers.deleteCustomer and resumes with the Redis challenge", async () => {
@@ -1197,11 +1263,11 @@ describe("POST /assistant/chat attempt identity", () => {
       basePriceMinor: "15000",
     });
     const createInput = JSON.stringify({
-      customer: { by: "id", id: customer.id },
+      customerId: customer.id,
       items: [
         {
-          product: { by: "id", id: product.productId },
-          quantity: { milli: "1000" },
+          productId: product.productId,
+          quantityMilli: "1000",
         },
       ],
     });
@@ -1210,19 +1276,19 @@ describe("POST /assistant/chat attempt identity", () => {
         doStream: [
           mockToolCallStream(
             "call-create-a",
-            toProviderToolName("orders.create"),
+            ORDERS_CREATE_TOOL_NAME,
             createInput,
           ),
           mockTextStream("Order A."),
           mockToolCallStream(
             "call-create-b",
-            toProviderToolName("orders.create"),
+            ORDERS_CREATE_TOOL_NAME,
             createInput,
           ),
           mockTextStream("Order B."),
           mockToolCallStream(
             "call-create-a",
-            toProviderToolName("orders.create"),
+            ORDERS_CREATE_TOOL_NAME,
             createInput,
           ),
           mockTextStream("Order A again."),

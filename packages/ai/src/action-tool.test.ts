@@ -8,6 +8,7 @@ import {
   CATALOG_LIST_PRODUCTS_TOOL_NAME,
   ensureAnthropicToolInputSchemaType,
   fromProviderToolName,
+  ORDERS_CREATE_TOOL_NAME,
   ORDERS_LIST_COUNTS_TOOL_NAME,
   ORDERS_LIST_PAGE_TOOL_NAME,
   PRICING_LIST_PRICE_LISTS_TOOL_NAME,
@@ -251,6 +252,7 @@ describe("staffAssistantTools", () => {
       ORDERS_LIST_PAGE_TOOL_NAME,
       ORDERS_LIST_COUNTS_TOOL_NAME,
       "orders_get",
+      ORDERS_CREATE_TOOL_NAME,
       CATALOG_LIST_PRODUCTS_TOOL_NAME,
       PRICING_LIST_PRICE_LISTS_TOOL_NAME,
       "customers_listCustomers",
@@ -495,5 +497,71 @@ describe("staffAssistantTools", () => {
     const setJson = await asSchema(tools[setName]?.inputSchema).jsonSchema;
     expect(setJson["type"]).toBe("object");
     expect(setJson["oneOf"]).toBeUndefined();
+  });
+
+  it("advertises orders_create as a named object and still dispatches to orders.create", async () => {
+    const createOrder = defineActionContract({
+      name: "orders.create",
+      description: "Create a staff-intake order in the active company.",
+      principal: "staff",
+      transport: "client",
+      aiExposure: "exposed",
+      permissions: ["orders:create"],
+      risk: "write",
+      requiresConfirmation: false,
+      idempotent: true,
+      emits: ["orders.created"],
+      atomicCalls: [],
+      atomicCallers: [],
+      audit: true,
+      timeout: 20_000,
+      input: z.strictObject({
+        customer: z.discriminatedUnion("by", [
+          z.strictObject({ by: z.literal("id"), id: z.uuid() }),
+          z.strictObject({ by: z.literal("query"), value: z.string() }),
+        ]),
+        items: z.array(z.looseObject({})).min(1),
+      }),
+      output: z.object({ orderId: z.uuid() }),
+    });
+    const execute = vi.fn(() => Promise.resolve({ orderId: customerId }));
+    const tools = staffAssistantTools([createOrder], execute);
+    const names = Object.keys(tools);
+    expect(names).toContain(ORDERS_CREATE_TOOL_NAME);
+    expect(names).toContain(toProviderToolName("orders.create"));
+    expect(names).not.toContain("orders.create");
+    const json = await asSchema(tools[ORDERS_CREATE_TOOL_NAME]?.inputSchema)
+      .jsonSchema;
+    expect(json["type"]).toBe("object");
+    expect(json["oneOf"]).toBeUndefined();
+    expect(json["properties"]).not.toHaveProperty("customer");
+    const executeTool = tools[ORDERS_CREATE_TOOL_NAME]?.execute;
+    expect(executeTool).toBeTypeOf("function");
+    if (executeTool === undefined) {
+      return;
+    }
+    await executeTool(
+      {
+        customerQuery: "Katya",
+        items: [{ productQuery: "Cake", quantityDecimal: "1.5" }],
+      },
+      { toolCallId: "call-create", messages: [], context: undefined },
+    );
+    expect(execute).toHaveBeenCalledWith(
+      "orders.create",
+      {
+        customer: { by: "query", value: "Katya" },
+        items: [
+          {
+            product: { by: "query", value: "Cake" },
+            quantity: { decimal: "1.5" },
+          },
+        ],
+      },
+      { toolCallId: "call-create" },
+    );
+    expect(tools[ORDERS_CREATE_TOOL_NAME]?.providerOptions).toEqual({
+      anthropic: { cacheControl: STAFF_ASSISTANT_CACHE_CONTROL },
+    });
   });
 });
