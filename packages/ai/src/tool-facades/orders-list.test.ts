@@ -241,25 +241,19 @@ describe("mapOrdersListPageOutput", () => {
   });
 
   it("truncates assistant-visible nameSnapshot to CUSTOMER_NAME_MAX", () => {
+    expect(MAX_CUSTOMER_NAME).toHaveLength(CUSTOMER_NAME_MAX);
     const mapped = mapOrdersListPageOutput({
       kind: "page.summary",
       items: [fatSummaryRow(1, `${MAX_CUSTOMER_NAME}extra`)],
       nextCursor: null,
       customerMatchTruncated: false,
     });
-    expect(isRecord(mapped)).toBe(true);
-    if (!isRecord(mapped) || !Array.isArray(mapped["items"])) {
-      return;
-    }
-    const row = mapped["items"][0];
-    expect(isRecord(row) && isRecord(row["customer"])).toBe(true);
-    if (!isRecord(row) || !isRecord(row["customer"])) {
-      return;
-    }
-    expect(row["customer"]["nameSnapshot"]).toBe(MAX_CUSTOMER_NAME);
-    expect(String(row["customer"]["nameSnapshot"]).length).toBe(
-      CUSTOMER_NAME_MAX,
-    );
+    expect(mapped).toEqual({
+      kind: "page.summary",
+      items: [compactSummaryRow(1, MAX_CUSTOMER_NAME)],
+      nextCursor: null,
+      customerMatchTruncated: false,
+    });
   });
 });
 
@@ -580,7 +574,10 @@ describe("compact orders.list page clip envelope", () => {
     const nextCursor = "n".repeat(LIST_ORDERS_CURSOR_MAX);
     const mapped = mapOrdersListPageOutput({
       kind: "page.summary",
-      items: items.map((row, index) => fatSummaryRow(index, MAX_CUSTOMER_NAME)),
+      items: Array.from(
+        { length: ORDERS_LIST_PAGE_ASSISTANT_LIMIT },
+        (_, index) => fatSummaryRow(index, MAX_CUSTOMER_NAME),
+      ),
       nextCursor,
       customerMatchTruncated: false,
     });
