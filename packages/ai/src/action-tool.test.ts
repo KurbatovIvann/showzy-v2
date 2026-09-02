@@ -318,7 +318,12 @@ describe("staffAssistantTools", () => {
     expect(names).toContain(CATALOG_LIST_PRODUCTS_TOOL_NAME);
     expect(names).not.toContain("catalog_listProducts");
     expect(names).not.toContain(toProviderToolName("catalog.listProducts"));
-    const result = await tools[CATALOG_LIST_PRODUCTS_TOOL_NAME]?.execute?.(
+    const executeTool = tools[CATALOG_LIST_PRODUCTS_TOOL_NAME]?.execute;
+    expect(executeTool).toBeTypeOf("function");
+    if (executeTool === undefined) {
+      return;
+    }
+    const result: unknown = await executeTool(
       {},
       { toolCallId: "call-catalog", messages: [], context: undefined },
     );

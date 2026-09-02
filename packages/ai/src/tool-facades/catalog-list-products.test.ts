@@ -133,7 +133,12 @@ describe("catalogListProductsFacadeTools", () => {
       }),
     );
     const tools = catalogListProductsFacadeTools(listProducts, execute);
-    const result = await tools[CATALOG_LIST_PRODUCTS_TOOL_NAME]?.execute?.(
+    const executeTool = tools[CATALOG_LIST_PRODUCTS_TOOL_NAME]?.execute;
+    expect(executeTool).toBeTypeOf("function");
+    if (executeTool === undefined) {
+      return;
+    }
+    const result: unknown = await executeTool(
       { query: "Seed", status: "active", limit: 20 },
       { toolCallId: "call-catalog", messages: [], context: undefined },
     );
