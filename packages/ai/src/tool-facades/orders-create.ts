@@ -1,0 +1,224 @@
+/**
+ * Named staff-assistant tool over `orders.create` (SHO-359 / ADR-0033).
+ *
+ * Presentation adapter only: `execute("orders.create", canonical)`.
+ * Do not add `orders.createForAssistant`. Do not flatten
+ * `create.contract.ts`. Do not hot-load unrelated writes.
+ */
+import type { ActionContract } from "@showzy/core/contract";
+import { CoreInvariantError } from "@showzy/core/errors";
+import { tool, type Tool } from "ai";
+import { z } from "zod";
+
+import type { ActionToolExecute } from "../action-tool.js";
+
+export const ORDERS_CREATE_ACTION_NAME = "orders.create";
+export const ORDERS_CREATE_TOOL_NAME = "orders_create";
+
+/** Duplicated from `CREATE_ORDER_MAX_ITEMS` — `@showzy/ai` must not import orders. */
+export const CREATE_ORDER_MAX_ITEMS = 100;
+/** Duplicated from `CREATE_ORDER_COMMENT_MAX`. */
+export const CREATE_ORDER_COMMENT_MAX = 2000;
+/** Duplicated from `ENTITY_REF_QUERY_MAX`. */
+export const ORDERS_CREATE_QUERY_MAX = 100;
+
+const CUSTOMER_LOCATOR_MESSAGE =
+  "Provide exactly one of customerId or customerQuery.";
+const PRODUCT_LOCATOR_MESSAGE =
+  "Provide exactly one of productId or productQuery on each line.";
+const VARIANT_LOCATOR_MESSAGE =
+  "Provide at most one of variantId or variantQuery on each line.";
+const QUANTITY_XOR_MESSAGE =
+  "Provide exactly one of quantityMilli or quantityDecimal on each line.";
+
+const queryField = z
+  .string()
+  .trim()
+  .min(1)
+  .max(ORDERS_CREATE_QUERY_MAX)
+  .optional();
+
+/** Duplicated from `quantityMilliWireSchema` (canonical positive integer string). */
+const quantityMilliField = z
+  .string()
+  .regex(/^[1-9][0-9]*$/, "Expected a canonical positive integer string")
+  .optional();
+
+/** Duplicated from `isDecimalQuantityString` (at most 3 fractional digits). */
+const quantityDecimalField = z
+  .string()
+  .regex(
+    /^(?:0|[1-9][0-9]*)(?:\.[0-9]{1,3})?$/,
+    "Expected a positive decimal string with at most 3 fractional digits",
+  )
+  .optional();
+
+export const ordersCreateItemSchema = z.strictObject({
+  productId: z.uuid().optional(),
+  productQuery: queryField,
+  variantId: z.uuid().optional(),
+  variantQuery: queryField,
+  quantityMilli: quantityMilliField,
+  quantityDecimal: quantityDecimalField,
+});
+
+function hasExactlyOne(
+  left: string | undefined,
+  right: string | undefined,
+): boolean {
+  return (left !== undefined) !== (right !== undefined);
+}
+
+function hasAtMostOne(
+  left: string | undefined,
+  right: string | undefined,
+): boolean {
+  return !(left !== undefined && right !== undefined);
+}
+
+export const ordersCreateInputSchema = z
+  .strictObject({
+    customerId: z.uuid().optional(),
+    customerQuery: queryField,
+    items: z.array(ordersCreateItemSchema).min(1).max(CREATE_ORDER_MAX_ITEMS),
+    comment: z.string().max(CREATE_ORDER_COMMENT_MAX).optional(),
+  })
+  .refine((input) => hasExactlyOne(input.customerId, input.customerQuery), {
+    message: CUSTOMER_LOCATOR_MESSAGE,
+  })
+  .refine(
+    (input) =>
+      input.items.every((item) =>
+        hasExactlyOne(item.productId, item.productQuery),
+      ),
+    { message: PRODUCT_LOCATOR_MESSAGE },
+  )
+  .refine(
+    (input) =>
+      input.items.every((item) =>
+        hasAtMostOne(item.variantId, item.variantQuery),
+      ),
+    { message: VARIANT_LOCATOR_MESSAGE },
+  )
+  .refine(
+    (input) =>
+      input.items.every((item) =>
+        hasExactlyOne(item.quantityMilli, item.quantityDecimal),
+      ),
+    { message: QUANTITY_XOR_MESSAGE },
+  );
+
+export type OrdersCreateFacadeInput = z.output<typeof ordersCreateInputSchema>;
+
+export type OrdersCreateMappedEntityRef =
+  | { readonly by: "id"; readonly id: string }
+  | { readonly by: "query"; readonly value: string };
+
+export type OrdersCreateMappedQuantity =
+  { readonly milli: string } | { readonly decimal: string };
+
+export type OrdersCreateMappedItem = {
+  readonly product: OrdersCreateMappedEntityRef;
+  readonly quantity: OrdersCreateMappedQuantity;
+  readonly variant?: OrdersCreateMappedEntityRef;
+};
+
+export type OrdersCreateMappedInput = {
+  readonly customer: OrdersCreateMappedEntityRef;
+  readonly items: readonly OrdersCreateMappedItem[];
+  readonly comment?: string;
+};
+
+const ORDERS_CREATE_DESCRIPTION =
+  "Create a staff-intake order in the active company. Pass exactly one of customerId or customerQuery (unique name, phone, or email). Each line: exactly one of productId or productQuery, optional variantId or variantQuery (not both), and exactly one of quantityMilli or quantityDecimal (scale 3, for example 1.5). Optional comment. Do not send EntityRef { by, id } / { by, value } unions. Ambiguous names return CONFLICT — do not guess. Creating a customer, group, or price list is a separate write; this tool only creates the order.";
+
+function mapRequiredEntityRef(
+  id: string | undefined,
+  query: string | undefined,
+): OrdersCreateMappedEntityRef {
+  if (id !== undefined) {
+    return { by: "id", id };
+  }
+  if (query !== undefined) {
+    return { by: "query", value: query };
+  }
+  throw new CoreInvariantError(
+    "orders.create façade locator missing after refine",
+  );
+}
+
+function mapOptionalEntityRef(
+  id: string | undefined,
+  query: string | undefined,
+): OrdersCreateMappedEntityRef | undefined {
+  if (id !== undefined) {
+    return { by: "id", id };
+  }
+  if (query !== undefined) {
+    return { by: "query", value: query };
+  }
+  return undefined;
+}
+
+function mapQuantity(
+  milli: string | undefined,
+  decimal: string | undefined,
+): OrdersCreateMappedQuantity {
+  if (milli !== undefined) {
+    return { milli };
+  }
+  if (decimal !== undefined) {
+    return { decimal };
+  }
+  throw new CoreInvariantError(
+    "orders.create façade quantity missing after refine",
+  );
+}
+
+function mapItem(
+  item: OrdersCreateFacadeInput["items"][number],
+): OrdersCreateMappedItem {
+  const variant = mapOptionalEntityRef(item.variantId, item.variantQuery);
+  return {
+    product: mapRequiredEntityRef(item.productId, item.productQuery),
+    ...(variant !== undefined ? { variant } : {}),
+    quantity: mapQuantity(item.quantityMilli, item.quantityDecimal),
+  };
+}
+
+export function mapOrdersCreateInput(
+  input: OrdersCreateFacadeInput,
+): OrdersCreateMappedInput {
+  return {
+    customer: mapRequiredEntityRef(input.customerId, input.customerQuery),
+    items: input.items.map((item) => mapItem(item)),
+    ...(input.comment !== undefined ? { comment: input.comment } : {}),
+  };
+}
+
+/**
+ * One hot ToolSet entry that still executes the `orders.create` registry
+ * name (audit, permissions, timeout, idempotency unchanged).
+ */
+export function ordersCreateFacadeTools(
+  contract: ActionContract,
+  execute: ActionToolExecute,
+): Record<string, Tool> {
+  return {
+    [ORDERS_CREATE_TOOL_NAME]: tool({
+      description: ORDERS_CREATE_DESCRIPTION,
+      inputSchema: ordersCreateInputSchema,
+      execute: async (input, options) => {
+        const parsed = ordersCreateInputSchema.parse(input);
+        const canonical = mapOrdersCreateInput(parsed);
+        return execute(
+          ORDERS_CREATE_ACTION_NAME,
+          contract.input.parse(canonical),
+          {
+            toolCallId: options.toolCallId,
+          },
+        );
+      },
+    }),
+  };
+}

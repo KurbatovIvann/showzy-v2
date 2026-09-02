@@ -27,13 +27,17 @@ cursor-safe paging, explicit `bucketsOmitted`). Second copy:
 id, name, basePriceMinor, currency, status, variantCount). Third copy:
 `pricing.listPriceLists` → `pricing_list_price_lists` (SHO-358, compact
 rows: id, name, isDefault, isActive, entryCount). Copy **input map and
-output map** for later lists; do not copy T5 input-only façades. Do not
-copy the pattern repo-wide in the same PR. `orders.create` remains T9.
+output map** for later lists; do not copy T5 input-only façades. Write
+copy: `orders.create` → `orders_create` (SHO-359, named object over
+EntityRef / quantity unions). Do not copy this write façade to every
+write in the same PR. Do not flatten `create.contract.ts`.
 
 `toProviderToolName("orders.list")` (`orders_list`) is the 1:1 mapping,
 not the advertised ToolSet key. Hot names are the façade keys. The 1:1
 `catalog_listProducts` and `pricing_listPriceLists` keys must not remain
-advertised once those façades exist.
+advertised once those façades exist. `toProviderToolName("orders.create")`
+is already `orders_create` — that key stays advertised, with the named
+object schema, not the EntityRef union.
 
 ## Anthropic JSON Schema
 

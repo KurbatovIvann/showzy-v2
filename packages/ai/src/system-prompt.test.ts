@@ -37,6 +37,7 @@ describe("staffAssistantSystemPrompt", () => {
     expect(staffAssistantSystemPrompt).toContain("orders_list_counts");
     expect(staffAssistantSystemPrompt).toContain("catalog_list_products");
     expect(staffAssistantSystemPrompt).toContain("pricing_list_price_lists");
+    expect(staffAssistantSystemPrompt).toContain("orders_create");
     expect(staffAssistantSystemPrompt).not.toContain(
       "Always-visible domain tools: orders.list",
     );
@@ -66,6 +67,18 @@ describe("staffAssistantSystemPrompt", () => {
     );
     expect(staffAssistantSystemPrompt).toContain(
       "assigning a list to a group or customer uses priceListId on the existing customers writes",
+    );
+  });
+
+  it("sends unique-name order create to orders_create instead of a missing-tool refusal", () => {
+    expect(staffAssistantSystemPrompt).toContain(
+      "Creating an order uses orders_create",
+    );
+    expect(staffAssistantSystemPrompt).toContain(
+      "Do not refuse because EntityRef is missing",
+    );
+    expect(staffAssistantSystemPrompt).toContain(
+      "Do not create a customer, group, or price list in that same write",
     );
   });
 
