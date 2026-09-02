@@ -13,7 +13,11 @@ import {
 } from "ai";
 import { z } from "zod";
 
-import { staffAssistantTools, type ActionToolExecute } from "./action-tool.js";
+import {
+  staffAssistantTools,
+  STAFF_ASSISTANT_TOOL_SEARCH_NAME,
+  type ActionToolExecute,
+} from "./action-tool.js";
 import { STAFF_ASSISTANT_ANTHROPIC_PROVIDER_OPTIONS } from "./anthropic-options.js";
 import { clipStaffAssistantToolResult } from "./clip-tool-result.js";
 import {
@@ -160,17 +164,15 @@ function meterToolResult(
 function wrapExecute(
   execute: ActionToolExecute,
   runs: StaffAssistantToolRun[],
-  clipBytes: ClipByteMeter,
 ): ActionToolExecute {
   return async (actionName, input, options) => {
     const toolCallId = clipToolCallId(options.toolCallId);
     if (runs.length >= STAFF_ASSISTANT_TOOL_RUNS_MAX) {
-      const error = {
+      return {
         status: "error",
         code: "INTERNAL",
         message: "The assistant could not complete this turn.",
       };
-      return meterToolResult(clipBytes, error, error);
     }
     try {
       const output: unknown = await execute(actionName, input, {
@@ -182,11 +184,7 @@ function wrapExecute(
         resultIds: extractUuidResultIds(output),
         outcome: "success",
       });
-      return meterToolResult(
-        clipBytes,
-        output,
-        clipStaffAssistantToolResult(output),
-      );
+      return output;
     } catch (error) {
       if (error instanceof ConfirmationRequiredError) {
         const confirmation = confirmationFromError(
@@ -201,7 +199,7 @@ function wrapExecute(
           resultIds: [],
           outcome: "confirmation_required",
         });
-        return meterToolResult(clipBytes, confirmation, confirmation);
+        return confirmation;
       }
       if (error instanceof CoreError) {
         runs.push({
@@ -210,12 +208,11 @@ function wrapExecute(
           resultIds: [],
           outcome: "error",
         });
-        const payload = {
+        return {
           status: "error",
           code: error.code,
           message: error.clientMessage,
         };
-        return meterToolResult(clipBytes, payload, payload);
       }
       runs.push({
         actionName,
@@ -223,14 +220,42 @@ function wrapExecute(
         resultIds: [],
         outcome: "error",
       });
-      const payload = {
+      return {
         status: "error",
         code: "INTERNAL",
         message: "The assistant could not complete this turn.",
       };
-      return meterToolResult(clipBytes, payload, payload);
     }
   };
+}
+
+/**
+ * Clip the Tool execute return (after named façades map a compact view)
+ * so catalog list prices are not stripped because images bloated the
+ * executeAction payload. Persistence still records the registry output.
+ */
+function clipToolExecutes(tools: ToolSet, clipBytes: ClipByteMeter): void {
+  for (const name of Object.keys(tools)) {
+    if (name === STAFF_ASSISTANT_TOOL_SEARCH_NAME) {
+      continue;
+    }
+    const aiTool = tools[name];
+    if (aiTool === undefined || aiTool.execute === undefined) {
+      continue;
+    }
+    const inner = aiTool.execute;
+    tools[name] = {
+      ...aiTool,
+      execute: async (input, options) => {
+        const output: unknown = await inner(input, options);
+        return meterToolResult(
+          clipBytes,
+          output,
+          clipStaffAssistantToolResult(output),
+        );
+      },
+    };
+  }
 }
 
 async function staffAssistantModelStepCount(
@@ -270,8 +295,9 @@ export function streamStaffAssistantChat(options: {
   const history = staffAssistantHistoryStats(options.messages);
   const tools = staffAssistantTools(
     options.contracts,
-    wrapExecute(options.execute, runs, clipBytes),
+    wrapExecute(options.execute, runs),
   );
+  clipToolExecutes(tools, clipBytes);
   const toolsetHash = staffAssistantToolsetHash(Object.keys(tools));
 
   let resolveCompletion!: (value: StaffAssistantTurnResult) => void;

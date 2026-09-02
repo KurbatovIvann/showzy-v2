@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import {
   actionContractToTool,
+  CATALOG_LIST_PRODUCTS_TOOL_NAME,
   ensureAnthropicToolInputSchemaType,
   fromProviderToolName,
   ORDERS_LIST_COUNTS_TOOL_NAME,
@@ -243,15 +244,16 @@ describe("staffAssistantTools", () => {
     );
   });
 
-  it("lists advertised hot tool names rather than the orders.list union key", () => {
+  it("lists advertised hot tool names rather than the 1:1 union keys", () => {
     expect(staffAssistantHotToolNames()).toEqual([
       ORDERS_LIST_PAGE_TOOL_NAME,
       ORDERS_LIST_COUNTS_TOOL_NAME,
       "orders_get",
-      "catalog_listProducts",
+      CATALOG_LIST_PRODUCTS_TOOL_NAME,
       "customers_listCustomers",
     ]);
     expect(staffAssistantHotToolNames()).not.toContain("orders_list");
+    expect(staffAssistantHotToolNames()).not.toContain("catalog_listProducts");
   });
 
   it("caches search when every domain tool is deferred", () => {
@@ -269,5 +271,79 @@ describe("staffAssistantTools", () => {
   it("attaches nothing when the contract list is empty", () => {
     const tools = staffAssistantTools([], () => Promise.resolve({}));
     expect(tools).toEqual({});
+  });
+
+  it("advertises catalog_list_products and still dispatches to catalog.listProducts", async () => {
+    const listProducts = defineActionContract({
+      name: "catalog.listProducts",
+      description: "List products in the active company.",
+      principal: "staff",
+      transport: "client",
+      aiExposure: "exposed",
+      permissions: ["products:view"],
+      risk: "read",
+      requiresConfirmation: false,
+      idempotent: false,
+      emits: [],
+      atomicCalls: [],
+      atomicCallers: [],
+      audit: false,
+      timeout: 5_000,
+      input: z.looseObject({}),
+      output: z.object({
+        items: z.array(z.object({ id: z.uuid() })),
+        nextCursor: z.string().nullable(),
+      }),
+    });
+    const execute = vi.fn(() =>
+      Promise.resolve({
+        items: [
+          {
+            id: customerId,
+            name: "Seed",
+            basePriceMinor: "1000",
+            currency: "UAH",
+            status: "active",
+            variantCount: 0,
+            primaryImageFileId: null,
+            createdAt: "2026-09-01T12:00:00.000Z",
+            updatedAt: "2026-09-01T12:00:00.000Z",
+          },
+        ],
+        nextCursor: null,
+      }),
+    );
+    const tools = staffAssistantTools([listProducts], execute);
+    const names = Object.keys(tools);
+    expect(names).toContain(CATALOG_LIST_PRODUCTS_TOOL_NAME);
+    expect(names).not.toContain("catalog_listProducts");
+    expect(names).not.toContain(toProviderToolName("catalog.listProducts"));
+    const executeTool = tools[CATALOG_LIST_PRODUCTS_TOOL_NAME]?.execute;
+    expect(executeTool).toBeTypeOf("function");
+    if (executeTool === undefined) {
+      return;
+    }
+    const result: unknown = await executeTool(
+      {},
+      { toolCallId: "call-catalog", messages: [], context: undefined },
+    );
+    expect(execute).toHaveBeenCalledWith(
+      "catalog.listProducts",
+      { status: "active", limit: 20 },
+      { toolCallId: "call-catalog" },
+    );
+    expect(result).toEqual({
+      items: [
+        {
+          id: customerId,
+          name: "Seed",
+          basePriceMinor: "1000",
+          currency: "UAH",
+          status: "active",
+          variantCount: 0,
+        },
+      ],
+      nextCursor: null,
+    });
   });
 });

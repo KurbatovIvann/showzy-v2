@@ -4,6 +4,7 @@ import {
   clipStaffAssistantToolResult,
   STAFF_ASSISTANT_CLIPPED_STATUS,
   STAFF_ASSISTANT_CLIP_ARRAY_MAX,
+  STAFF_ASSISTANT_CLIP_IDENTITY_KEYS,
   STAFF_ASSISTANT_CLIP_JSON_MAX,
 } from "./clip-tool-result.js";
 import { STAFF_ASSISTANT_CONFIRMATION_STATUS } from "./confirmation.js";
@@ -163,5 +164,27 @@ describe("clipStaffAssistantToolResult", () => {
         clipped.preview !== null &&
         "body" in clipped.preview,
     ).toBe(false);
+  });
+
+  it("keeps catalog money snapshots on identity-key shrink", () => {
+    expect(STAFF_ASSISTANT_CLIP_IDENTITY_KEYS).toEqual(
+      expect.arrayContaining(["basePriceMinor", "currency"]),
+    );
+    const items = Array.from({ length: 40 }, (_, index) => ({
+      id: rowId(index),
+      name: `N${"x".repeat(110)}`,
+      basePriceMinor: String(10_000 + index),
+      currency: "UAH",
+      status: "active",
+      variantCount: 1,
+      notes: "n".repeat(200),
+    }));
+    const clipped = clipStaffAssistantToolResult({ items, nextCursor: null });
+    expect(isClipped(clipped)).toBe(true);
+    if (!isClipped(clipped)) {
+      return;
+    }
+    expect(JSON.stringify(clipped.preview)).toContain("basePriceMinor");
+    expect(JSON.stringify(clipped.preview)).toContain("UAH");
   });
 });
