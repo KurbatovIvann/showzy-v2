@@ -29,13 +29,21 @@ export const LIST_ORDERS_CUSTOMER_IDS_MAX = 50;
 export const LIST_ORDERS_QUERY_MAX = 100;
 /** Duplicated from `LIST_ORDERS_CURSOR_MAX`. */
 export const LIST_ORDERS_CURSOR_MAX = 80;
+/**
+ * Duplicated from `CUSTOMER_NAME_MAX` in `@showzy/validation` —
+ * `@showzy/ai` must not import validation or the orders module.
+ * Assistant-visible `nameSnapshot` is truncated to this length.
+ */
+export const CUSTOMER_NAME_MAX = 120;
 
 /**
  * Compact 20-row pages still exceed `STAFF_ASSISTANT_CLIP_JSON_MAX`
- * (~5–6.5 KB). The façade therefore asks the handler for 12 rows so
- * `nextCursor` matches visible rows. Named in SHO-360.
+ * (~5–6.5 KB). A page of 10 compact rows with 120-char names plus a
+ * max-length cursor also exceeds 4000; 9 is the largest named limit
+ * that stays under the cap so handler `nextCursor` matches visible
+ * rows. Named in SHO-360.
  */
-export const ORDERS_LIST_PAGE_ASSISTANT_LIMIT = 12;
+export const ORDERS_LIST_PAGE_ASSISTANT_LIMIT = 9;
 
 const orderStatusSchema = z.enum(["new", "confirmed", "canceled"]);
 const periodField = z.enum(ORDERS_LIST_PERIODS).optional();
@@ -121,8 +129,7 @@ export type OrdersListCountsFacadeInput = z.output<
   typeof ordersListCountsInputSchema
 >;
 
-const ORDERS_LIST_PAGE_DESCRIPTION =
-  "Newest-first order headers in the active company. Compact rows: orderId, orderNumber, customer (nameSnapshot, linkedCustomerId), status, itemCount, totalGrossMinor, currency, createdAt. Optional statuses (new, confirmed, canceled; max 3). Omit statuses to include every CHECK status. There is no server status named active or all — until fulfillment statuses exist, active means new plus confirmed. Optional query matches the text order number (optional leading #) or CRM name, phone, or email and requires customers:view. Optional customerIds (1–50 UUIDs). Prefer period=today, period=this_week, or period=this_month (Europe/Kyiv, week starts Monday, inclusive local day) for those ranges. ISO createdFrom/createdTo remains valid for other intervals. Do not pass period together with createdFrom/createdTo. Do not pass yesterday/thisWeek enums. Optional cursor pages forward. Page size is 12 so every visible row matches nextCursor. Does not return line items. For “how many orders” / “turnover” / “gross” in a period, use orders_list_counts (do not page this tool and sum in the model).";
+const ORDERS_LIST_PAGE_DESCRIPTION = `Newest-first order headers in the active company. Compact rows: orderId, orderNumber, customer (nameSnapshot, linkedCustomerId), status, itemCount, totalGrossMinor, currency, createdAt. Optional statuses (new, confirmed, canceled; max 3). Omit statuses to include every CHECK status. There is no server status named active or all — until fulfillment statuses exist, active means new plus confirmed. Optional query matches the text order number (optional leading #) or CRM name, phone, or email and requires customers:view. Optional customerIds (1–50 UUIDs). Prefer period=today, period=this_week, or period=this_month (Europe/Kyiv, week starts Monday, inclusive local day) for those ranges. ISO createdFrom/createdTo remains valid for other intervals. Do not pass period together with createdFrom/createdTo. Do not pass yesterday/thisWeek enums. Optional cursor pages forward. Page size is ${String(ORDERS_LIST_PAGE_ASSISTANT_LIMIT)} so every visible row matches nextCursor. Does not return line items. For “how many orders” / “turnover” / “gross” in a period, use orders_list_counts (do not page this tool and sum in the model).`;
 
 const ORDERS_LIST_COUNTS_DESCRIPTION =
   "Bounded order rollup in the active company. This is the tool for “how many orders” / “turnover” / “gross” in a period (groupBy none for one company rollup). Do not page orders_list_page and sum in the model. Optional statuses (new, confirmed, canceled; max 3). Omit statuses to include every CHECK status. There is no server status named active or all — until fulfillment statuses exist, active means new plus confirmed. Optional query matches the text order number (optional leading #) or CRM name, phone, or email and requires customers:view. Optional customerIds (1–50 UUIDs). Prefer period=today, period=this_week, or period=this_month (Europe/Kyiv, week starts Monday, inclusive local day) for those ranges. ISO createdFrom/createdTo remains valid for other intervals. Do not pass period together with createdFrom/createdTo. Do not pass yesterday/thisWeek enums. groupBy defaults to status (none, status, product, or customer). Product buckets include quantityMilli (sum of line quantity_milli for that SKU, across currencies). Money buckets never mix currencies. Output always keeps orderCount and every grossByCurrency.grossAmountMinor.";
@@ -237,12 +244,22 @@ function jsonLength(value: unknown): number {
   }
 }
 
+function compactNameSnapshot(value: unknown): unknown {
+  if (typeof value !== "string") {
+    return value;
+  }
+  if (value.length <= CUSTOMER_NAME_MAX) {
+    return value;
+  }
+  return value.slice(0, CUSTOMER_NAME_MAX);
+}
+
 function compactCustomer(value: unknown): unknown {
   if (!isRecord(value)) {
     return value;
   }
   return {
-    nameSnapshot: value["nameSnapshot"],
+    nameSnapshot: compactNameSnapshot(value["nameSnapshot"]),
     linkedCustomerId: value["linkedCustomerId"],
   };
 }

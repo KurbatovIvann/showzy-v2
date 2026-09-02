@@ -119,6 +119,7 @@ export {
   type OrdersListPeriod,
 } from "./kyiv-calendar.js";
 export {
+  CUSTOMER_NAME_MAX,
   LIST_ORDERS_CURSOR_MAX,
   LIST_ORDERS_CUSTOMER_IDS_MAX,
   LIST_ORDERS_QUERY_MAX,

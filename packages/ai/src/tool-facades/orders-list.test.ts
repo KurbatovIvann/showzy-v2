@@ -10,6 +10,7 @@ import {
 } from "../clip-tool-result.js";
 import { STAFF_ASSISTANT_CONFIRMATION_STATUS } from "../confirmation.js";
 import {
+  CUSTOMER_NAME_MAX,
   LIST_ORDERS_CURSOR_MAX,
   LIST_ORDERS_CUSTOMER_IDS_MAX,
   LIST_ORDERS_QUERY_MAX,
@@ -25,6 +26,10 @@ import {
   ordersListFacadeTools,
   ordersListPageInputSchema,
 } from "./orders-list.js";
+
+/** Duplicated from `CUSTOMER_NAME_MAX` — do not import `@showzy/validation`. */
+const CUSTOMER_NAME_MAX_FIXTURE = 120;
+const MAX_CUSTOMER_NAME = "к".repeat(CUSTOMER_NAME_MAX_FIXTURE);
 
 const listOrders = defineActionContract({
   name: "orders.list",
@@ -233,6 +238,28 @@ describe("mapOrdersListPageOutput", () => {
       toolCallId: "call-1",
     };
     expect(mapOrdersListPageOutput(confirmation)).toBe(confirmation);
+  });
+
+  it("truncates assistant-visible nameSnapshot to CUSTOMER_NAME_MAX", () => {
+    const mapped = mapOrdersListPageOutput({
+      kind: "page.summary",
+      items: [fatSummaryRow(1, `${MAX_CUSTOMER_NAME}extra`)],
+      nextCursor: null,
+      customerMatchTruncated: false,
+    });
+    expect(isRecord(mapped)).toBe(true);
+    if (!isRecord(mapped) || !Array.isArray(mapped["items"])) {
+      return;
+    }
+    const row = mapped["items"][0];
+    expect(isRecord(row) && isRecord(row["customer"])).toBe(true);
+    if (!isRecord(row) || !isRecord(row["customer"])) {
+      return;
+    }
+    expect(row["customer"]["nameSnapshot"]).toBe(MAX_CUSTOMER_NAME);
+    expect(String(row["customer"]["nameSnapshot"]).length).toBe(
+      CUSTOMER_NAME_MAX,
+    );
   });
 });
 
@@ -481,6 +508,9 @@ describe("ordersListFacadeTools", () => {
     expect(tools[ORDERS_LIST_PAGE_TOOL_NAME]?.description).not.toContain(
       "page.withLines",
     );
+    expect(tools[ORDERS_LIST_PAGE_TOOL_NAME]?.description).toContain(
+      `Page size is ${String(ORDERS_LIST_PAGE_ASSISTANT_LIMIT)}`,
+    );
   });
 
   it("rejects more than three statuses and overlong query or cursor", () => {
@@ -522,7 +552,8 @@ describe("ordersListFacadeTools", () => {
     expect(LIST_ORDERS_CUSTOMER_IDS_MAX).toBe(50);
     expect(LIST_ORDERS_QUERY_MAX).toBe(100);
     expect(LIST_ORDERS_CURSOR_MAX).toBe(80);
-    expect(ORDERS_LIST_PAGE_ASSISTANT_LIMIT).toBe(12);
+    expect(CUSTOMER_NAME_MAX).toBe(CUSTOMER_NAME_MAX_FIXTURE);
+    expect(ORDERS_LIST_PAGE_ASSISTANT_LIMIT).toBe(9);
     expect(
       ordersListPageInputSchema.safeParse({ customerIds: [] }).success,
     ).toBe(false);
@@ -541,11 +572,46 @@ describe("ordersListFacadeTools", () => {
 });
 
 describe("compact orders.list page clip envelope", () => {
-  it("does not clip an assistant-limit compact page", () => {
+  it("does not clip an assistant-limit page of 120-char names plus a max cursor", () => {
     const items = Array.from(
       { length: ORDERS_LIST_PAGE_ASSISTANT_LIMIT },
-      (_, index) =>
-        compactSummaryRow(index, `Катерина Кексова ${String(index)}`),
+      (_, index) => compactSummaryRow(index, MAX_CUSTOMER_NAME),
+    );
+    const nextCursor = "n".repeat(LIST_ORDERS_CURSOR_MAX);
+    const mapped = mapOrdersListPageOutput({
+      kind: "page.summary",
+      items: items.map((row, index) => fatSummaryRow(index, MAX_CUSTOMER_NAME)),
+      nextCursor,
+      customerMatchTruncated: false,
+    });
+    expect(JSON.stringify(mapped).length).toBeLessThanOrEqual(
+      STAFF_ASSISTANT_CLIP_JSON_MAX,
+    );
+    const clipped = clipStaffAssistantToolResult(mapped);
+    expect(clipped).toBe(mapped);
+    expect(isRecord(clipped)).toBe(true);
+    if (!isRecord(clipped) || !Array.isArray(clipped["items"])) {
+      return;
+    }
+    expect(clipped["items"]).toHaveLength(ORDERS_LIST_PAGE_ASSISTANT_LIMIT);
+    expect(clipped["nextCursor"]).toBe(nextCursor);
+    for (const [index, row] of clipped["items"].entries()) {
+      expect(isRecord(row) && isRecord(row["customer"])).toBe(true);
+      if (!isRecord(row) || !isRecord(row["customer"])) {
+        continue;
+      }
+      expect(row["customer"]["nameSnapshot"]).toBe(MAX_CUSTOMER_NAME);
+      expect(row["totalGrossMinor"]).toBe(items[index]?.totalGrossMinor);
+      expect(row["currency"]).toBe("UAH");
+      expect(row["status"]).toBe(items[index]?.status);
+      expect(row["createdAt"]).toBe(items[index]?.createdAt);
+    }
+  });
+
+  it("one extra 120-char-name row plus a max cursor exceeds the clip cap", () => {
+    const items = Array.from(
+      { length: ORDERS_LIST_PAGE_ASSISTANT_LIMIT + 1 },
+      (_, index) => compactSummaryRow(index, MAX_CUSTOMER_NAME),
     );
     const page = {
       kind: "page.summary",
@@ -553,10 +619,9 @@ describe("compact orders.list page clip envelope", () => {
       nextCursor: "n".repeat(LIST_ORDERS_CURSOR_MAX),
       customerMatchTruncated: false,
     };
-    expect(JSON.stringify(page).length).toBeLessThan(
+    expect(JSON.stringify(page).length).toBeGreaterThan(
       STAFF_ASSISTANT_CLIP_JSON_MAX,
     );
-    expect(clipStaffAssistantToolResult(page)).toBe(page);
   });
 
   it("a 20-row compact fixture still exceeds the clip cap", () => {
