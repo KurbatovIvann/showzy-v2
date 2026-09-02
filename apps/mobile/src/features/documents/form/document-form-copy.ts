@@ -110,10 +110,10 @@ export function mapValidationIssues(
   return { order, layout, basis };
 }
 
-export type DocumentFormRhfErrorEntry = {
-  readonly name: "orderId" | "layoutKey" | "basis";
-  readonly message: OrderErrorKey | LayoutErrorKey | BasisErrorKey;
-};
+export type DocumentFormRhfErrorEntry =
+  | { readonly name: "orderId"; readonly message: OrderErrorKey }
+  | { readonly name: "layoutKey"; readonly message: LayoutErrorKey }
+  | { readonly name: "basis"; readonly message: BasisErrorKey };
 
 export function rhfPathsForFieldErrors(
   errors: DocumentFormFieldErrors,

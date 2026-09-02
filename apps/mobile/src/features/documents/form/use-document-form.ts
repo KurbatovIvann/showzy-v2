@@ -58,10 +58,10 @@ export function useDocumentForm() {
     mode: "onSubmit",
   });
   const { isDirty, errors, isSubmitted } = formState;
-  const type = useWatch({ control, name: "type" }) ?? "payment_invoice";
-  const orderId = useWatch({ control, name: "orderId" }) ?? "";
-  const counterpartyId = useWatch({ control, name: "counterpartyId" }) ?? "";
-  const layoutKey = useWatch({ control, name: "layoutKey" }) ?? "";
+  const type = useWatch({ control, name: "type" });
+  const orderId = useWatch({ control, name: "orderId" });
+  const counterpartyId = useWatch({ control, name: "counterpartyId" });
+  const layoutKey = useWatch({ control, name: "layoutKey" });
 
   const handover = useDocumentFormHandover({ copy, canEdit });
   const clientReady = apiClient !== null && activeCompanyId !== null;

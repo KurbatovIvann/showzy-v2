@@ -35,22 +35,26 @@ describe("listLayouts then createFromOrder", () => {
     const listCalls: unknown[] = [];
     const createCalls: unknown[] = [];
 
-    const listed = await (async (input: {
+    const listed = await (function listLayouts(input: {
       readonly type: "payment_invoice";
-    }) => {
+    }) {
       listCalls.push(input);
-      return { layouts: INVOICE_LAYOUTS };
+      return Promise.resolve({ layouts: INVOICE_LAYOUTS });
     })({ type: "payment_invoice" });
 
     const selectedKey = defaultLayoutKey(listed.layouts);
     expect(selectedKey).toBe("payment_invoice.branded");
     expect(listCalls).toEqual([{ type: "payment_invoice" }]);
+    expect(selectedKey).not.toBeNull();
+    if (selectedKey === null) {
+      return;
+    }
 
     const draft: DocumentFormDraft = {
       type: "payment_invoice",
       orderId: ORDER_ID,
       counterpartyId: COUNTERPARTY_ID,
-      layoutKey: selectedKey ?? "",
+      layoutKey: selectedKey,
       basis: " ignored on invoice ",
     };
     const payload = createFromOrderPayload(draft);
@@ -60,12 +64,17 @@ describe("listLayouts then createFromOrder", () => {
       layoutKey: "payment_invoice.branded",
       counterpartyId: COUNTERPARTY_ID,
     });
+    expect(payload).not.toBeNull();
+    if (payload === null) {
+      return;
+    }
 
     const mutate = bindDocumentFormMutate({
       client: {
         documents: {
-          createFromOrder: (input, _options: MutationCallOptions) => {
+          createFromOrder: (input, options: MutationCallOptions) => {
             createCalls.push(input);
+            expect(options.context.idempotencyKey).toBe("k");
             return Promise.resolve({
               documentId: DOCUMENT_ID,
               orderId: input.orderId,
@@ -107,7 +116,7 @@ describe("listLayouts then createFromOrder", () => {
     await mutate(
       {
         kind: "createFromOrder",
-        input: payload ?? { orderId: ORDER_ID, type: "payment_invoice" },
+        input: payload,
       },
       { context: { idempotencyKey: "k" } },
     );
