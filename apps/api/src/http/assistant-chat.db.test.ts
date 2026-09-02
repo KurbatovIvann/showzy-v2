@@ -784,18 +784,6 @@ describe("POST /assistant/chat mock-model parity", () => {
     expect(toolNames).toContain(
       toProviderToolName("pricing.setPriceListEntries"),
     );
-    const createTool = (streamModel.doStreamCalls[0]?.tools ?? []).find(
-      (tool) => tool.name === toProviderToolName("pricing.createPriceList"),
-    );
-    const setTool = (streamModel.doStreamCalls[0]?.tools ?? []).find(
-      (tool) => tool.name === toProviderToolName("pricing.setPriceListEntries"),
-    );
-    expect(createTool?.providerOptions).toMatchObject({
-      anthropic: { deferLoading: true },
-    });
-    expect(setTool?.providerOptions).toMatchObject({
-      anthropic: { deferLoading: true },
-    });
     const secondStep = JSON.stringify(streamModel.doStreamCalls[1]);
     expect(secondStep).toContain("Opt");
     expect(secondStep).toContain(created.id);

@@ -6,6 +6,7 @@ import {
   PRICING_LIST_PRICE_LISTS_TOOL_NAME,
   PROVIDER_TOOL_NAME_PATTERN,
   staffAssistantTools,
+  STAFF_ASSISTANT_DEFER_PROVIDER_OPTIONS,
   STAFF_ASSISTANT_TOOL_SEARCH_NAME,
   toProviderToolName,
 } from "@showzy/ai";
@@ -92,6 +93,12 @@ describe("staff AI tool manifest (SHO-322)", () => {
     expect(names).toContain(PRICING_LIST_PRICE_LISTS_TOOL_NAME);
     expect(names).not.toContain(toProviderToolName("pricing.listPriceLists"));
     expect(names).not.toContain("pricing_listPriceLists");
+    expect(
+      tools[toProviderToolName("pricing.createPriceList")]?.providerOptions,
+    ).toEqual(STAFF_ASSISTANT_DEFER_PROVIDER_OPTIONS);
+    expect(
+      tools[toProviderToolName("pricing.setPriceListEntries")]?.providerOptions,
+    ).toEqual(STAFF_ASSISTANT_DEFER_PROVIDER_OPTIONS);
     const listTool = tools[ORDERS_LIST_PAGE_TOOL_NAME];
     expect(listTool).toBeDefined();
     await listTool?.execute?.(
