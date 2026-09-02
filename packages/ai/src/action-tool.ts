@@ -9,6 +9,11 @@ import {
   STAFF_ASSISTANT_DEFER_PROVIDER_OPTIONS,
 } from "./anthropic-options.js";
 import {
+  CATALOG_LIST_PRODUCTS_ACTION_NAME,
+  CATALOG_LIST_PRODUCTS_TOOL_NAME,
+  catalogListProductsFacadeTools,
+} from "./tool-facades/catalog-list-products.js";
+import {
   ORDERS_LIST_ACTION_NAME,
   ORDERS_LIST_COUNTS_TOOL_NAME,
   ORDERS_LIST_PAGE_TOOL_NAME,
@@ -28,18 +33,18 @@ export const PROVIDER_TOOL_NAME_PATTERN = /^[a-zA-Z0-9_-]{1,128}$/;
 export const STAFF_ASSISTANT_HOT_ACTION_NAMES = [
   ORDERS_LIST_ACTION_NAME,
   "orders.get",
-  "catalog.listProducts",
+  CATALOG_LIST_PRODUCTS_ACTION_NAME,
   "customers.listCustomers",
 ] as const;
 
 const HOT_ACTION_NAME_SET = new Set<string>(STAFF_ASSISTANT_HOT_ACTION_NAMES);
 
-const FACADE_ACTION_NAME_SET = new Set<string>([ORDERS_LIST_ACTION_NAME]);
-
 /** ToolSet key for Anthropic BM25 tool search (provider-executed). */
 export const STAFF_ASSISTANT_TOOL_SEARCH_NAME = "tool_search_tool_bm25";
 
 export {
+  CATALOG_LIST_PRODUCTS_ACTION_NAME,
+  CATALOG_LIST_PRODUCTS_TOOL_NAME,
   ORDERS_LIST_ACTION_NAME,
   ORDERS_LIST_COUNTS_TOOL_NAME,
   ORDERS_LIST_PAGE_TOOL_NAME,
@@ -55,6 +60,28 @@ export type ActionToolExecute = (
   input: unknown,
   options: { readonly toolCallId: string },
 ) => Promise<unknown>;
+
+type FacadeToolsFactory = (
+  contract: ActionContract,
+  execute: ActionToolExecute,
+) => Record<string, Tool>;
+
+const HOT_FACADE_FACTORIES: Readonly<Record<string, FacadeToolsFactory>> = {
+  [ORDERS_LIST_ACTION_NAME]: ordersListFacadeTools,
+  [CATALOG_LIST_PRODUCTS_ACTION_NAME]: catalogListProductsFacadeTools,
+};
+
+const HOT_FACADE_TOOL_NAMES: Readonly<Record<string, readonly string[]>> = {
+  [ORDERS_LIST_ACTION_NAME]: [
+    ORDERS_LIST_PAGE_TOOL_NAME,
+    ORDERS_LIST_COUNTS_TOOL_NAME,
+  ],
+  [CATALOG_LIST_PRODUCTS_ACTION_NAME]: [CATALOG_LIST_PRODUCTS_TOOL_NAME],
+};
+
+const FACADE_ACTION_NAME_SET = new Set<string>(
+  Object.keys(HOT_FACADE_FACTORIES),
+);
 
 /**
  * Map `orders.list` → `orders_list`. `defineActionContract` requires
@@ -78,14 +105,13 @@ export function fromProviderToolName(providerName: string): string {
 }
 
 /**
- * Advertised always-in-context ToolSet keys. `orders.list` expands to
- * named façades; other hot actions stay 1:1 provider names.
+ * Advertised always-in-context ToolSet keys. Façade actions expand to
+ * named tools; other hot actions stay 1:1 provider names.
  */
 export function staffAssistantHotToolNames(): readonly string[] {
-  return STAFF_ASSISTANT_HOT_ACTION_NAMES.flatMap((actionName) =>
-    actionName === ORDERS_LIST_ACTION_NAME
-      ? [ORDERS_LIST_PAGE_TOOL_NAME, ORDERS_LIST_COUNTS_TOOL_NAME]
-      : [toProviderToolName(actionName)],
+  return STAFF_ASSISTANT_HOT_ACTION_NAMES.flatMap(
+    (actionName) =>
+      HOT_FACADE_TOOL_NAMES[actionName] ?? [toProviderToolName(actionName)],
   );
 }
 
@@ -143,8 +169,8 @@ export function actionContractToTool(
  * context; every other exposed action is `deferLoading`. `execute` still
  * receives `contract.name` (`orders.list`). Empty catalogs attach nothing
  * (chitchat). The HTTP mount injects `executeAction`; this helper never
- * fetches `/rpc`. `orders.list` is not a raw ToolSet key — named façades
- * map onto the same handler.
+ * fetches `/rpc`. Façade actions (`orders.list`, `catalog.listProducts`)
+ * are not raw 1:1 ToolSet keys — named tools map onto the same handlers.
  */
 export function staffAssistantTools(
   contracts: readonly ActionContract[],
@@ -168,8 +194,9 @@ export function staffAssistantTools(
     if (contract === undefined) {
       continue;
     }
-    if (hotName === ORDERS_LIST_ACTION_NAME) {
-      insertOrdersListFacades(tools, contract, execute);
+    const facadeFactory = HOT_FACADE_FACTORIES[hotName];
+    if (facadeFactory !== undefined) {
+      insertFacadeTools(tools, contract, execute, facadeFactory);
       continue;
     }
     insertActionTool(tools, contract, execute);
@@ -194,12 +221,13 @@ export function staffAssistantTools(
   return tools;
 }
 
-function insertOrdersListFacades(
+function insertFacadeTools(
   tools: ToolSet,
   contract: ActionContract,
   execute: ActionToolExecute,
+  factory: FacadeToolsFactory,
 ): void {
-  const facades = ordersListFacadeTools(contract, execute);
+  const facades = factory(contract, execute);
   for (const [name, aiTool] of Object.entries(facades)) {
     if (tools[name] !== undefined) {
       throw new CoreInvariantError(

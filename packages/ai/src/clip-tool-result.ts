@@ -14,6 +14,8 @@ export const STAFF_ASSISTANT_CLIP_SHRINK_ARRAY_MAX = 3;
 /**
  * Identifier / name / status keys kept when shrinking a clipped preview.
  * `itemId` is the line-item id (orders.get / documents.get rows).
+ * `basePriceMinor` / `currency` are catalog list money snapshots (SHO-357)
+ * so a clipped compact page can still fill a markup.
  */
 export const STAFF_ASSISTANT_CLIP_IDENTITY_KEYS = [
   "id",
@@ -27,6 +29,8 @@ export const STAFF_ASSISTANT_CLIP_IDENTITY_KEYS = [
   "status",
   "nextCursor",
   "itemCount",
+  "basePriceMinor",
+  "currency",
 ] as const;
 
 const IDENTITY_KEY_SET = new Set<string>(STAFF_ASSISTANT_CLIP_IDENTITY_KEYS);

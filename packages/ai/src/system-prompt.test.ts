@@ -34,9 +34,11 @@ describe("staffAssistantSystemPrompt", () => {
     expect(staffAssistantSystemPrompt).toContain("чим можеш допомогти");
     expect(staffAssistantSystemPrompt).toContain("orders_list_page");
     expect(staffAssistantSystemPrompt).toContain("orders_list_counts");
+    expect(staffAssistantSystemPrompt).toContain("catalog_list_products");
     expect(staffAssistantSystemPrompt).not.toContain(
       "Always-visible domain tools: orders.list",
     );
+    expect(staffAssistantSystemPrompt).not.toContain("catalog_listProducts");
   });
 
   it("sends period order counts and gross to orders_list_counts instead of analytics tabs", () => {

@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import {
+  CATALOG_LIST_PRODUCTS_TOOL_NAME,
   ORDERS_LIST_COUNTS_TOOL_NAME,
   ORDERS_LIST_PAGE_TOOL_NAME,
   staffAssistantTools,
@@ -101,6 +102,28 @@ const deleteCustomer = defineActionContract({
   timeout: 5_000,
   input: z.object({ id: z.uuid() }),
   output: z.object({ id: z.uuid() }),
+});
+
+const listProducts = defineActionContract({
+  name: "catalog.listProducts",
+  description: "List products in the active company.",
+  principal: "staff",
+  transport: "client",
+  aiExposure: "exposed",
+  permissions: ["products:view"],
+  risk: "read",
+  requiresConfirmation: false,
+  idempotent: false,
+  emits: [],
+  atomicCalls: [],
+  atomicCallers: [],
+  audit: false,
+  timeout: 5_000,
+  input: z.looseObject({}),
+  output: z.object({
+    items: z.array(z.object({ id: z.uuid() })),
+    nextCursor: z.string().nullable(),
+  }),
 });
 
 const customerId = "11111111-1111-4111-8111-111111111111";
@@ -366,6 +389,53 @@ describe("streamStaffAssistantChat", () => {
     expect(secondStep).not.toContain(droppedId);
     expect(secondStep).toContain(STAFF_ASSISTANT_CLIPPED_STATUS);
     expect(turn.toolResultBytesIn).toBeGreaterThan(turn.toolResultBytesOut);
+  });
+
+  it("feeds a compact catalog page into the next step, not image ids", async () => {
+    const imageId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    const items = Array.from({ length: 7 }, (_, index) => ({
+      id: `aaaaaaaa-aaaa-4aaa-8aaa-${index.toString().padStart(12, "0")}`,
+      name: `Seed ${String(index)}`,
+      basePriceMinor: String(10_000 + index),
+      currency: "UAH",
+      status: "active",
+      variantCount: 0,
+      primaryImageFileId: imageId,
+      createdAt: "2026-09-01T12:00:00.000Z",
+      updatedAt: "2026-09-02T08:00:00.000Z",
+    }));
+    const execute = vi.fn(() => Promise.resolve({ items, nextCursor: null }));
+    const model = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream(
+          "call-catalog",
+          CATALOG_LIST_PRODUCTS_TOOL_NAME,
+          "{}",
+        ),
+        mockTextStream("Base prices are ready for a +10% list."),
+      ],
+    });
+    const { response, completion } = streamStaffAssistantChat({
+      model,
+      messages: [{ role: "user", content: "List product prices" }],
+      contracts: [listProducts],
+      execute,
+    });
+    await readUiMessageSsePayloads(response);
+    const turn = await completion;
+    expect(execute).toHaveBeenCalledWith(
+      "catalog.listProducts",
+      { status: "active", limit: 20 },
+      { toolCallId: "call-catalog" },
+    );
+    expect(model.doStreamCalls.length).toBeGreaterThanOrEqual(2);
+    const secondStep = JSON.stringify(model.doStreamCalls[1]);
+    expect(secondStep).toContain("basePriceMinor");
+    expect(secondStep).toContain("UAH");
+    expect(secondStep).not.toContain(imageId);
+    expect(secondStep).not.toContain("primaryImageFileId");
+    expect(secondStep).not.toContain(STAFF_ASSISTANT_CLIPPED_STATUS);
+    expect(turn.toolResultBytesOut).toBe(turn.toolResultBytesIn);
   });
 
   it("changes toolsetHash when the attached contract set changes", async () => {
