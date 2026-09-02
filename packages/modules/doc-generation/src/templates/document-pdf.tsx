@@ -1,12 +1,4 @@
-import {
-  Document,
-  Font,
-  Page,
-  StyleSheet,
-  Text,
-  View,
-} from "@react-pdf/renderer";
-import { fileURLToPath } from "node:url";
+import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 
 import { uahAmountInWords } from "../services/amount-in-words.js";
 import {
@@ -14,45 +6,18 @@ import {
   formatMoneyUah,
   formatQuantityMilli,
 } from "../services/format-pdf-text.js";
+import { ensureLiberationSans, LIBERATION_SANS } from "./liberation-sans.js";
 import {
   DOCUMENT_TITLE,
   type BuyerFace,
   type DocumentPdfModel,
   type SellerFace,
 } from "./model.js";
-
-const FONT_FAMILY = "LiberationSans";
-
-const regularSrc = fileURLToPath(
-  new URL("./fonts/LiberationSans-Regular.ttf", import.meta.url),
-);
-const boldSrc = fileURLToPath(
-  new URL("./fonts/LiberationSans-Bold.ttf", import.meta.url),
-);
-const italicSrc = fileURLToPath(
-  new URL("./fonts/LiberationSans-Italic.ttf", import.meta.url),
-);
-
-let fontRegistered = false;
-
-function ensureFont(): void {
-  if (fontRegistered) {
-    return;
-  }
-  Font.register({
-    family: FONT_FAMILY,
-    fonts: [
-      { src: regularSrc, fontWeight: 400 },
-      { src: boldSrc, fontWeight: 700 },
-      { src: italicSrc, fontWeight: 400, fontStyle: "italic" },
-    ],
-  });
-  fontRegistered = true;
-}
+import { faceLines } from "./pdf-faces.js";
 
 const styles = StyleSheet.create({
   page: {
-    fontFamily: FONT_FAMILY,
+    fontFamily: LIBERATION_SANS,
     fontSize: 10,
     paddingTop: 36,
     paddingBottom: 36,
@@ -125,57 +90,8 @@ function FaceBlock({
   );
 }
 
-function isCustomerFace(
-  face: SellerFace | BuyerFace,
-): face is Extract<BuyerFace, { kind: "customer" }> {
-  return "kind" in face && face.kind === "customer";
-}
-
-function faceLines(face: SellerFace | BuyerFace): string[] {
-  if (isCustomerFace(face)) {
-    return [face.displayName];
-  }
-  const named = face.name;
-  const legalName = "legalName" in face ? face.legalName : null;
-  const rows: string[] = [];
-  rows.push(legalName ?? named);
-  if (legalName !== null && legalName !== named) {
-    rows.push(named);
-  }
-  pushIfPresent(rows, "ЄДРПОУ", face.edrpou);
-  pushIfPresent(rows, "Адреса", face.legalAddress);
-  pushIfPresent(rows, "IBAN", face.iban);
-  pushIfPresent(rows, "Банк", bankLine(face.bankName, face.bankMfo));
-  pushIfPresent(rows, "Тел.", face.phone);
-  pushIfPresent(rows, "Email", face.email);
-  return rows;
-}
-
-function bankLine(
-  bankName: string | null,
-  bankMfo: string | null,
-): string | null {
-  if (bankName === null && bankMfo === null) {
-    return null;
-  }
-  if (bankName !== null && bankMfo !== null) {
-    return `${bankName}, МФО ${bankMfo}`;
-  }
-  return bankName ?? `МФО ${bankMfo ?? ""}`;
-}
-
-function pushIfPresent(
-  rows: string[],
-  label: string,
-  value: string | null,
-): void {
-  if (value !== null && value.length > 0) {
-    rows.push(`${label}: ${value}`);
-  }
-}
-
 export function DocumentPdf({ model }: { readonly model: DocumentPdfModel }) {
-  ensureFont();
+  ensureLiberationSans();
   const title = DOCUMENT_TITLE[model.type];
   return (
     <Document>

@@ -12,7 +12,7 @@ import {
 } from "./layouts.js";
 
 describe("document layout catalog", () => {
-  it("declares exactly four keys with one temporary default per type", () => {
+  it("declares exactly four keys with branded/parties as the type defaults", () => {
     expect(DOCUMENT_LAYOUTS.map((row) => row.key)).toEqual([
       "payment_invoice.plain",
       "payment_invoice.branded",
@@ -24,16 +24,16 @@ describe("document layout catalog", () => {
         (row) => [row.key, row.isDefault],
       ),
     ).toEqual([
-      ["payment_invoice.plain", true],
-      ["payment_invoice.branded", false],
+      ["payment_invoice.plain", false],
+      ["payment_invoice.branded", true],
     ]);
     expect(
       DOCUMENT_LAYOUTS.filter((row) => row.type === "delivery_note").map(
         (row) => [row.key, row.isDefault],
       ),
     ).toEqual([
-      ["delivery_note.plain", true],
-      ["delivery_note.parties", false],
+      ["delivery_note.plain", false],
+      ["delivery_note.parties", true],
     ]);
   });
 

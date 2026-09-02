@@ -5,7 +5,9 @@ import { CoreInvariantError } from "@showzy/core/errors";
 
 import { canonicalizeLayoutKey, layoutRowForKey } from "../services/layouts.js";
 import { DocumentPdf } from "./document-pdf.js";
+import { InvoiceBrandedPdf } from "./invoice-branded-pdf.js";
 import type { DocumentPdfModel } from "./model.js";
+import { WaybillPartiesPdf } from "./waybill-parties-pdf.js";
 
 function isReadableStream(value: unknown): value is Readable {
   return value instanceof Readable;
@@ -46,9 +48,15 @@ function pdfElementForModel(model: DocumentPdfModel) {
       `document layout "${canonical}" does not match type "${model.type}"`,
     );
   }
-  // T4 (SHO-364) replaces branded/parties with dedicated TSX. Until then
-  // every catalog key reuses stacked DocumentPdf so render still yields %PDF.
-  return <DocumentPdf model={model} />;
+  switch (canonical) {
+    case "payment_invoice.branded":
+      return <InvoiceBrandedPdf model={model} />;
+    case "delivery_note.parties":
+      return <WaybillPartiesPdf model={model} />;
+    case "payment_invoice.plain":
+    case "delivery_note.plain":
+      return <DocumentPdf model={model} />;
+  }
 }
 
 export async function renderDocumentPdfBytes(

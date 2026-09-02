@@ -1,5 +1,6 @@
 export interface SellerFace {
   readonly name: string;
+  readonly companyType: "fop" | "tov";
   readonly legalName: string | null;
   readonly edrpou: string | null;
   readonly legalAddress: string | null;
@@ -44,6 +45,8 @@ export interface DocumentPdfModel {
   readonly documentNumber: string;
   readonly issuedOn: string;
   readonly currency: string;
+  /** Waybill «Підстава». T9 persists the column; T4 may set it on the model. */
+  readonly basis: string | null;
   readonly supplier: SellerFace;
   readonly buyer: BuyerFace;
   readonly items: readonly PdfLine[];
