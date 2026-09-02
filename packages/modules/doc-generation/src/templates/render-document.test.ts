@@ -144,7 +144,11 @@ describe(
       expect(text).toContain("ВИДАТКОВА");
       expect(text).toContain("Постачальник");
       expect(text).toContain("Покупець");
+      expect(text).toContain("ТОВ Покупець");
       expect(text).not.toContain("Підстава");
+      expect(text).not.toContain("Директор");
+      const afterReceived = text.split("Отримав").slice(1).join("Отримав");
+      expect(afterReceived).not.toContain("ТОВ Покупець");
     });
 
     it("prints Підстава when the PDF model carries a basis string", async () => {

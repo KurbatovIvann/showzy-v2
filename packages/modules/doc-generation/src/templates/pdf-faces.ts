@@ -158,10 +158,13 @@ export function releasedPersonName(face: SellerFace): string | null {
 }
 
 export function receivedPersonName(face: BuyerFace): string | null {
-  if (isCustomerFace(face)) {
-    return null;
+  switch (face.kind) {
+    case "counterparty":
+    case "customer":
+      // Entity label / display name is not ПІБ. Buyer snapshots have no
+      // person legalName; Magic Patterns WaybillDocument leaves this blank.
+      return null;
   }
-  return face.name;
 }
 
 export function invoiceVatFootnote(model: DocumentPdfModel): string | null {

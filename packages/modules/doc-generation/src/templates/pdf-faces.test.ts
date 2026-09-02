@@ -4,6 +4,8 @@ import type { DocumentPdfModel } from "./model.js";
 import {
   invoiceVatFootnote,
   payerLines,
+  receivedPersonName,
+  releasedPersonName,
   showFopVatExemptFootnote,
   tradeNameInitials,
   waybillVatFootnote,
@@ -88,5 +90,33 @@ describe("pdf layout copy helpers", () => {
       "Тел.: +380501111111",
       "Email: buyer@example.com",
     ]);
+  });
+
+  it("leaves Отримав ПІБ blank for both buyer kinds", () => {
+    expect(
+      receivedPersonName({ kind: "customer", displayName: "Олена Коваленко" }),
+    ).toBeNull();
+    expect(
+      receivedPersonName({
+        kind: "counterparty",
+        name: "ТОВ Покупець",
+        edrpou: "11223344",
+        legalAddress: null,
+        iban: null,
+        bankName: null,
+        bankMfo: null,
+        phone: null,
+        email: null,
+      }),
+    ).toBeNull();
+  });
+
+  it("fills Відпустив ПІБ from seller legalName when present", () => {
+    expect(releasedPersonName(base.supplier)).toBe(
+      "ФОП Курбатов Іван Олександрович",
+    );
+    expect(
+      releasedPersonName({ ...base.supplier, legalName: null }),
+    ).toBeNull();
   });
 });
