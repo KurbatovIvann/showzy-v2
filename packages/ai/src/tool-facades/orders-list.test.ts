@@ -8,6 +8,7 @@ import {
   mapOrdersListPageInput,
   ORDERS_LIST_ACTION_NAME,
   ORDERS_LIST_COUNTS_TOOL_NAME,
+  ORDERS_LIST_CUSTOMER_IDS_MAX,
   ORDERS_LIST_PAGE_TOOL_NAME,
   ordersListCountsInputSchema,
   ordersListFacadeTools,
@@ -34,6 +35,10 @@ const listOrders = defineActionContract({
   output: z.object({ kind: z.string() }),
 });
 
+const customerId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const createdFrom = "2026-08-30T21:00:00.000Z";
+const createdTo = "2026-09-06T20:59:59.999Z";
+
 describe("mapOrdersListPageInput", () => {
   it("maps empty façade input to page.summary without filter or cursor", () => {
     expect(mapOrdersListPageInput({})).toEqual({ kind: "page.summary" });
@@ -49,6 +54,26 @@ describe("mapOrdersListPageInput", () => {
       kind: "page.summary",
       filter: { statuses: ["new", "confirmed"], query: "#42" },
       cursor: "c".repeat(80),
+    });
+  });
+
+  it("maps createdFrom, createdTo, and customerIds onto canonical filter", () => {
+    const parsed = ordersListPageInputSchema.parse({
+      statuses: ["new"],
+      query: "Katya",
+      createdFrom,
+      createdTo,
+      customerIds: [customerId],
+    });
+    expect(mapOrdersListPageInput(parsed)).toEqual({
+      kind: "page.summary",
+      filter: {
+        statuses: ["new"],
+        query: "Katya",
+        createdFrom,
+        createdTo,
+        customerIds: [customerId],
+      },
     });
   });
 });
@@ -73,6 +98,20 @@ describe("mapOrdersListCountsInput", () => {
       groupBy: "product",
     });
   });
+
+  it("maps date and customerIds into filter without statuses", () => {
+    const parsed = ordersListCountsInputSchema.parse({
+      groupBy: "none",
+      createdFrom,
+      createdTo,
+      customerIds: [customerId],
+    });
+    expect(mapOrdersListCountsInput(parsed)).toEqual({
+      kind: "aggregate",
+      filter: { createdFrom, createdTo, customerIds: [customerId] },
+      groupBy: "none",
+    });
+  });
 });
 
 describe("ordersListFacadeTools", () => {
@@ -80,14 +119,26 @@ describe("ordersListFacadeTools", () => {
     const execute = vi.fn(() => Promise.resolve({ kind: "page.summary" }));
     const tools = ordersListFacadeTools(listOrders, execute);
     await tools[ORDERS_LIST_PAGE_TOOL_NAME]?.execute?.(
-      { query: "Katya", statuses: ["new"] },
+      {
+        query: "Katya",
+        statuses: ["new"],
+        createdFrom,
+        createdTo,
+        customerIds: [customerId],
+      },
       { toolCallId: "call-page", messages: [], context: undefined },
     );
     expect(execute).toHaveBeenCalledWith(
       ORDERS_LIST_ACTION_NAME,
       {
         kind: "page.summary",
-        filter: { statuses: ["new"], query: "Katya" },
+        filter: {
+          statuses: ["new"],
+          query: "Katya",
+          createdFrom,
+          createdTo,
+          customerIds: [customerId],
+        },
       },
       { toolCallId: "call-page" },
     );
@@ -97,14 +148,19 @@ describe("ordersListFacadeTools", () => {
     const execute = vi.fn(() => Promise.resolve({ kind: "aggregate" }));
     const tools = ordersListFacadeTools(listOrders, execute);
     await tools[ORDERS_LIST_COUNTS_TOOL_NAME]?.execute?.(
-      { groupBy: "none", statuses: ["confirmed"] },
+      {
+        groupBy: "none",
+        createdFrom,
+        createdTo,
+        customerIds: [customerId],
+      },
       { toolCallId: "call-counts", messages: [], context: undefined },
     );
     expect(execute).toHaveBeenCalledWith(
       ORDERS_LIST_ACTION_NAME,
       {
         kind: "aggregate",
-        filter: { statuses: ["confirmed"] },
+        filter: { createdFrom, createdTo, customerIds: [customerId] },
         groupBy: "none",
       },
       { toolCallId: "call-counts" },
@@ -125,12 +181,30 @@ describe("ordersListFacadeTools", () => {
     expect(countsJson["oneOf"]).toBeUndefined();
   });
 
-  it("describes no server status active and product quantityMilli", () => {
+  it("describes Kyiv ISO conversion, period rollups, and no server status active", () => {
     const tools = ordersListFacadeTools(listOrders, () => Promise.resolve({}));
     expect(tools[ORDERS_LIST_COUNTS_TOOL_NAME]?.description).toContain(
       "quantityMilli",
     );
     expect(tools[ORDERS_LIST_COUNTS_TOOL_NAME]?.description).toContain(
+      "active means new plus confirmed",
+    );
+    expect(tools[ORDERS_LIST_COUNTS_TOOL_NAME]?.description).toContain(
+      "Europe/Kyiv",
+    );
+    expect(tools[ORDERS_LIST_COUNTS_TOOL_NAME]?.description).toContain(
+      "цей тиждень",
+    );
+    expect(tools[ORDERS_LIST_COUNTS_TOOL_NAME]?.description).toContain(
+      "how many orders",
+    );
+    expect(tools[ORDERS_LIST_COUNTS_TOOL_NAME]?.description).toContain(
+      "Do not page orders_list_page and sum in the model",
+    );
+    expect(tools[ORDERS_LIST_PAGE_TOOL_NAME]?.description).toContain(
+      "Europe/Kyiv",
+    );
+    expect(tools[ORDERS_LIST_PAGE_TOOL_NAME]?.description).toContain(
       "active means new plus confirmed",
     );
     expect(tools[ORDERS_LIST_PAGE_TOOL_NAME]?.description).not.toContain(
@@ -149,6 +223,33 @@ describe("ordersListFacadeTools", () => {
     ).toBe(false);
     expect(
       ordersListPageInputSchema.safeParse({ cursor: "c".repeat(81) }).success,
+    ).toBe(false);
+  });
+
+  it("rejects createdFrom after createdTo on both façades", () => {
+    const inverted = {
+      createdFrom: "2026-09-06T00:00:00.000Z",
+      createdTo: "2026-08-30T00:00:00.000Z",
+    };
+    expect(ordersListPageInputSchema.safeParse(inverted).success).toBe(false);
+    expect(ordersListCountsInputSchema.safeParse(inverted).success).toBe(false);
+  });
+
+  it("duplicates customerIds cap 50 and rejects an empty or oversized list", () => {
+    expect(ORDERS_LIST_CUSTOMER_IDS_MAX).toBe(50);
+    expect(
+      ordersListPageInputSchema.safeParse({ customerIds: [] }).success,
+    ).toBe(false);
+    const oversized = Array.from(
+      { length: ORDERS_LIST_CUSTOMER_IDS_MAX + 1 },
+      (_, index) =>
+        `11111111-1111-4111-8111-${String(index).padStart(12, "0")}`,
+    );
+    expect(
+      ordersListPageInputSchema.safeParse({ customerIds: oversized }).success,
+    ).toBe(false);
+    expect(
+      ordersListCountsInputSchema.safeParse({ customerIds: oversized }).success,
     ).toBe(false);
   });
 });

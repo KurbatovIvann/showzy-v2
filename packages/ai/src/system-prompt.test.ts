@@ -39,6 +39,16 @@ describe("staffAssistantSystemPrompt", () => {
     );
   });
 
+  it("sends period order counts and gross to orders_list_counts instead of analytics tabs", () => {
+    expect(staffAssistantSystemPrompt).toContain(
+      "Period order counts and gross use orders_list_counts with createdFrom / createdTo ISO",
+    );
+    expect(staffAssistantSystemPrompt).toContain(
+      "Do not refuse those jobs as analytics",
+    );
+    expect(staffAssistantSystemPrompt).toContain("Analytics / Reports");
+  });
+
   it("forbids QES keys, OTP, and cookies, and keeps confirmation as a human step", () => {
     expect(staffAssistantSystemPrompt).toContain("QES");
     expect(staffAssistantSystemPrompt).toContain("OTP");

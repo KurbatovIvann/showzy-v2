@@ -673,15 +673,21 @@ describe("POST /assistant/chat mock-model parity", () => {
     expect(secondStep).toContain("4000");
   });
 
-  it("eval 2: gross rollup uses one orders_list_counts groupBy none", async () => {
+  it("eval 2: gross in a date range uses one orders_list_counts groupBy none", async () => {
+    const createdFrom = "2026-08-30T21:00:00.000Z";
+    const createdTo = "2026-09-06T20:59:59.999Z";
     const streamModel = new MockLanguageModelV3({
       doStream: [
         mockToolCallStream(
           "call-gross",
           ORDERS_LIST_COUNTS_TOOL_NAME,
-          JSON.stringify({ groupBy: "none" }),
+          JSON.stringify({
+            groupBy: "none",
+            createdFrom,
+            createdTo,
+          }),
         ),
-        mockTextStream("Here is the bounded gross rollup."),
+        mockTextStream("Here is this week's bounded gross rollup."),
       ],
     });
     const app = chatApp(streamModel);
@@ -692,7 +698,7 @@ describe("POST /assistant/chat mock-model parity", () => {
     const response = await postChat(app, {
       token,
       companyId: kitIdentities.companies.a,
-      body: userChatBody(conversation.id, "What is the order gross?"),
+      body: userChatBody(conversation.id, "What is the order gross this week?"),
     });
     expect(response.status).toBe(200);
     await readUiMessageSsePayloads(response);
@@ -704,7 +710,7 @@ describe("POST /assistant/chat mock-model parity", () => {
           run.actionName === "orders.list" &&
           run.outcome === "success",
       );
-    }, "orders.list aggregate groupBy none");
+    }, "orders.list aggregate groupBy none with date interval");
     const listRuns = (
       await kit.db.runtime.db.select().from(assistantToolRuns)
     ).filter(
