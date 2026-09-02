@@ -147,6 +147,7 @@ describe("composition root identity", () => {
       "companies.getSellerFacts",
       "customers.getCounterparty",
       "customers.getCustomer",
+      "docGeneration.resolveLayout",
       "orders.get",
     ]);
     expect(fromCreate.map((edge) => edge.callee)).not.toContain(

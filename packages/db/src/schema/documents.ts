@@ -3,7 +3,8 @@
  * (ADR-0014). Line rows are immutable money snapshots (money.md): no
  * `updated_at`. Deliberately absent: `default_document_templates`, year on
  * the counter, `template_id` FK, `pdf_url`, order status, signature columns
- * (`sign_requested_at` is the HITL grant, not a signature).
+ * (`sign_requested_at` is the HITL grant, not a signature). Named
+ * nullable `basis` is create-time «Підстава» (SHO-365).
  */
 import { sql } from "drizzle-orm";
 import {
@@ -59,6 +60,11 @@ export const documents = pgTable(
     templateName: text("template_name").notNull(),
     ...timestampColumns(),
     signRequestedAt: timestamp("sign_requested_at", { withTimezone: true }),
+    /**
+     * Optional create-time «Підстава» (SHO-365). Snapshot string, not an
+     * FK. Empty input is stored as null. Max 500 after trim.
+     */
+    basis: text("basis"),
   },
   (table) => [
     tenantRowUnique("documents_company_id_id_uq", table),
@@ -108,6 +114,10 @@ export const documents = pgTable(
       sql`${table.templateSource} IN ('system')`,
     ),
     check("documents_currency_check", sql`${table.currency} ~ '^[A-Z]{3}$'`),
+    check(
+      "documents_basis_check",
+      sql`${table.basis} IS NULL OR char_length(${table.basis}) BETWEEN 1 AND 500`,
+    ),
   ],
 );
 

@@ -1,0 +1,2 @@
+ALTER TABLE "documents" ADD COLUMN "basis" text;--> statement-breakpoint
+ALTER TABLE "documents" ADD CONSTRAINT "documents_basis_check" CHECK ("documents"."basis" IS NULL OR char_length("documents"."basis") BETWEEN 1 AND 500);

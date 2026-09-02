@@ -29277,7 +29277,7 @@
     "/documents/createFromOrder": {
       "post": {
         "operationId": "documents.createFromOrder",
-        "summary": "Issue a payment invoice or delivery note from a staff order in the active company. Copies immutable order line snapshots (no reprice); snapshots seller legal requisites from getSellerFacts and the buyer as either a counterparty legal face or the CRM customer display name. Assigns the next per-type document number (prefix, type code, sequence — no year) and the Europe/Kyiv calendar day. Fails when the order is canceled, seller legal is missing, a live document of that type already exists for the order, the counterparty is linked to a different customer, or the order has no customer and no counterparty.",
+        "summary": "Issue a payment invoice or delivery note from a staff order in the active company. Copies immutable order line snapshots (no reprice); snapshots seller legal requisites from getSellerFacts and the buyer as either a counterparty legal face or the CRM customer display name. Assigns the next per-type document number (prefix, type code, sequence — no year) and the Europe/Kyiv calendar day. Optional layoutKey selects a system look; omit it to persist the type default (branded invoice or parties waybill). Optional basis is the create-time Підстава snapshot (trim, max 500). Fails when the order is canceled, seller legal is missing, a live document of that type already exists for the order, the counterparty is linked to a different customer, the order has no customer and no counterparty, or the layout key is unknown or does not match the document type.",
         "requestBody": {
           "required": true,
           "content": {
@@ -29299,6 +29299,14 @@
                   "counterpartyId": {
                     "type": "string",
                     "format": "uuid"
+                  },
+                  "layoutKey": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "basis": {
+                    "type": "string",
+                    "maxLength": 500
                   }
                 },
                 "required": [
@@ -29635,6 +29643,18 @@
                       "type": "string",
                       "minLength": 1
                     },
+                    "basis": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 500
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "createdAt": {
                       "type": "string",
                       "format": "date-time"
@@ -29754,6 +29774,7 @@
                     "currency",
                     "templateSource",
                     "templateName",
+                    "basis",
                     "createdAt",
                     "items"
                   ]
@@ -30758,6 +30779,18 @@
                       "type": "string",
                       "minLength": 1
                     },
+                    "basis": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 500
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "createdAt": {
                       "type": "string",
                       "format": "date-time"
@@ -30951,6 +30984,7 @@
                     "currency",
                     "templateSource",
                     "templateName",
+                    "basis",
                     "createdAt",
                     "items",
                     "generation",
@@ -31959,6 +31993,18 @@
                       "type": "string",
                       "minLength": 1
                     },
+                    "basis": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 500
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "createdAt": {
                       "type": "string",
                       "format": "date-time"
@@ -32100,6 +32146,7 @@
                     "currency",
                     "templateSource",
                     "templateName",
+                    "basis",
                     "createdAt",
                     "items",
                     "pdfDownloadUrl",
@@ -34599,6 +34646,18 @@
                       "type": "string",
                       "minLength": 1
                     },
+                    "basis": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 500
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "createdAt": {
                       "type": "string",
                       "format": "date-time"
@@ -34726,6 +34785,7 @@
                     "currency",
                     "templateSource",
                     "templateName",
+                    "basis",
                     "createdAt",
                     "items",
                     "token",

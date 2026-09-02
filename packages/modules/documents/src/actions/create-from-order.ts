@@ -2,10 +2,12 @@ import { getSellerFacts } from "@showzy/companies";
 import { implementAction, type AuditTargetEnv } from "@showzy/core";
 import { CoreInvariantError } from "@showzy/core/errors";
 import { getCounterparty, getCustomer } from "@showzy/customers";
+import { resolveLayout } from "@showzy/doc-generation/resolve-layout";
 import { getOrder } from "@showzy/orders";
 import { z } from "zod";
 
 import { createFromOrderContract } from "./create-from-order.contract.js";
+import type { documentTypeSchema } from "./document-view.contract.js";
 import { createStaffDocument } from "../services/create-from-order.js";
 import {
   requireCounterpartyCustomerMatch,
@@ -16,6 +18,25 @@ import {
 
 const documentIdHolder = z.object({ documentId: z.string() });
 const orderIdHolder = z.object({ orderId: z.string() });
+
+type DocumentType = z.output<typeof documentTypeSchema>;
+
+/**
+ * Catalog defaults named on SHO-362. Nested `resolveLayout` still
+ * validates the key; one nested read whether the caller omitted layoutKey
+ * or passed one.
+ */
+const DEFAULT_LAYOUT_KEY_BY_TYPE = {
+  payment_invoice: "payment_invoice.branded",
+  delivery_note: "delivery_note.parties",
+} as const satisfies Record<DocumentType, string>;
+
+function persistableBasis(value: string | undefined): string | null {
+  if (value === undefined || value.length === 0) {
+    return null;
+  }
+  return value;
+}
 
 function createAuditTarget(env: AuditTargetEnv): { type: string; id: string } {
   const fromOutput = documentIdHolder.safeParse(env.output);
@@ -35,6 +56,13 @@ export const createFromOrder = implementAction(createFromOrderContract, {
       throw new CoreInvariantError("documents.createFromOrder expects staff");
     }
 
+    const layout = await ctx.call(resolveLayout, {
+      layoutKey: input.layoutKey ?? DEFAULT_LAYOUT_KEY_BY_TYPE[input.type],
+      type: input.type,
+    });
+    const templateName = layout.key;
+    const basis = persistableBasis(input.basis);
+
     const order = await ctx.call(getOrder, { orderId: input.orderId });
     const seller = await ctx.call(getSellerFacts, {});
 
@@ -49,6 +77,8 @@ export const createFromOrder = implementAction(createFromOrderContract, {
       return createStaffDocument({
         ctx,
         input,
+        templateName,
+        basis,
         order,
         seller,
         buyer: snapshotCounterpartyBuyer(counterparty),
@@ -61,6 +91,8 @@ export const createFromOrder = implementAction(createFromOrderContract, {
     return createStaffDocument({
       ctx,
       input,
+      templateName,
+      basis,
       order,
       seller,
       buyer: snapshotCustomerBuyer(customer.name),

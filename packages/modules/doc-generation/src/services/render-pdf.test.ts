@@ -39,6 +39,7 @@ const uahView = {
   totalNetMinor: "250",
   totalTaxMinor: "0",
   totalGrossMinor: "250",
+  basis: null,
 };
 
 describe("mapViewToPdfModel", () => {
@@ -50,6 +51,14 @@ describe("mapViewToPdfModel", () => {
     expect(model.basis).toBeNull();
     expect(model.supplier.companyType).toBe("tov");
     expect(model.items).toHaveLength(1);
+  });
+
+  it("copies a snapshotted basis onto the PDF model", () => {
+    const model = mapViewToPdfModel({
+      ...uahView,
+      basis: "Договір поставки № 15/2026 від 10.01.2026 р.",
+    });
+    expect(model.basis).toBe("Договір поставки № 15/2026 від 10.01.2026 р.");
   });
 
   it("fails closed on a non-UAH money snapshot", () => {

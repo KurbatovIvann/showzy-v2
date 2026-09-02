@@ -254,6 +254,7 @@ beforeAll(async () => {
       currency: "UAH",
       templateSource: "system",
       templateName: "delivery_note",
+      basis: "Договір поставки № 1",
       createdAt,
       updatedAt: createdAt,
     },
@@ -466,6 +467,7 @@ describe("documents.get", () => {
     expect(result.createdAt).toBe(createdAt.toISOString());
     expect(result.templateSource).toBe("system");
     expect(result.templateName).toBe("payment_invoice");
+    expect(result.basis).toBeNull();
     expect(result.totalNetMinor).toBe("750");
     expect(result.totalTaxMinor).toBe("0");
     expect(result.totalGrossMinor).toBe("750");
@@ -508,6 +510,8 @@ describe("documents.get", () => {
     expect(result.type).toBe("delivery_note");
     expect(result.counterpartyId).toBe(fixtures.counterpartyA);
     expect(result.buyerDetails).toEqual(counterpartyBuyerSnapshot);
+    expect(result.templateName).toBe("delivery_note");
+    expect(result.basis).toBe("Договір поставки № 1");
     expect(result.generation).toEqual({ status: "pending", fileId: null });
     expect(result.pdfDownloadUrl).toBeNull();
     expect(result.signing).toEqual({ status: "unsigned" });
@@ -591,5 +595,23 @@ describe("documents.get", () => {
     ) {
       expect(missingError.clientMessage).toBe(foreignError.clientMessage);
     }
+  });
+});
+
+describe("documents.getForGeneration", () => {
+  it("loads a legacy template_name equal to type", async () => {
+    const result = await kit.invoke(getForGeneration, {
+      documentId: fixtures.docInvoice,
+    });
+    expect(result.templateName).toBe("payment_invoice");
+    expect(result.basis).toBeNull();
+  });
+
+  it("returns a snapshotted basis without rewriting template_name", async () => {
+    const result = await kit.invoke(getForGeneration, {
+      documentId: fixtures.docDelivery,
+    });
+    expect(result.templateName).toBe("delivery_note");
+    expect(result.basis).toBe("Договір поставки № 1");
   });
 });

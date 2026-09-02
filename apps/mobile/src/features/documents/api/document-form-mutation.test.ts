@@ -108,6 +108,7 @@ describe("bindDocumentFormMutate", () => {
               currency: "UAH",
               templateSource: "system",
               templateName: "payment_invoice",
+              basis: null,
               createdAt: "2026-08-29T12:00:00.000Z",
               items: [
                 {

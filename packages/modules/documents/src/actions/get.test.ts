@@ -38,6 +38,7 @@ describe("documents.get contract", () => {
     expect(getDocumentContract.timeout).toBe(15_000);
     expect(getDocumentContract.rateLimit).toBeUndefined();
     expect(Object.keys(getDocumentOutputSchema.shape).toSorted()).toEqual([
+      "basis",
       "buyerDetails",
       "counterpartyId",
       "createdAt",

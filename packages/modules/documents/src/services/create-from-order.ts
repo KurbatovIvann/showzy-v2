@@ -103,13 +103,24 @@ async function assertNoLiveDocument(env: {
 export async function createStaffDocument(env: {
   readonly ctx: StaffCtx;
   readonly input: CreateInput;
+  readonly templateName: string;
+  readonly basis: string | null;
   readonly order: OrderSnapshot;
   readonly seller: SellerFacts;
   readonly buyer: BuyerDetails;
   readonly counterpartyId: string | null;
   readonly now?: Date;
 }): Promise<DocumentView> {
-  const { ctx, input, order, seller, buyer, counterpartyId } = env;
+  const {
+    ctx,
+    input,
+    templateName,
+    basis,
+    order,
+    seller,
+    buyer,
+    counterpartyId,
+  } = env;
   assertOrderNotCanceled(order.status);
 
   const first = order.items[0];
@@ -210,7 +221,8 @@ export async function createStaffDocument(env: {
           totalGrossMinor,
           currency,
           templateSource: "system",
-          templateName: input.type,
+          templateName,
+          basis,
         })
         .returning({ createdAt: documents.createdAt })
     )[0];
@@ -270,7 +282,8 @@ export async function createStaffDocument(env: {
     totalGrossMinor: moneyToCanonical(totalGrossMinor),
     currency,
     templateSource: "system",
-    templateName: input.type,
+    templateName,
+    basis,
     createdAt: inserted.createdAt.toISOString(),
     items: lines.map((line) => ({
       itemId: line.itemId,

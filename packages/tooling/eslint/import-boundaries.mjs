@@ -247,13 +247,14 @@ function violation(from, spec, typeOnly) {
       ) {
         return null;
       }
-      // SHO-236: documents.get/share nest getArtifact without importing the
-      // doc-generation barrel (that barrel also exports renderPdf, which
-      // imports documents.getForGeneration — ESM + tsc cycle through TSX).
+      // SHO-236 / SHO-365: documents nest getArtifact and resolveLayout
+      // without importing the doc-generation barrel (that barrel also
+      // exports renderPdf, which imports documents.getForGeneration —
+      // ESM + tsc cycle through TSX).
       if (
         moduleName === "documents" &&
         pkg.name === "doc-generation" &&
-        pkg.rest === "get-artifact"
+        (pkg.rest === "get-artifact" || pkg.rest === "resolve-layout")
       ) {
         return null;
       }

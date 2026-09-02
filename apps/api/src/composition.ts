@@ -181,6 +181,10 @@ const callEdges: readonly DeclaredCallEdge[] = [
     callee: "customers.getCustomer",
   },
   {
+    caller: "documents.createFromOrder",
+    callee: "docGeneration.resolveLayout",
+  },
+  {
     caller: "documents.share",
     callee: "docGeneration.getArtifact",
   },
