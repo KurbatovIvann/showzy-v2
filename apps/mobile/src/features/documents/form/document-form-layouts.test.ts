@@ -58,12 +58,12 @@ describe("document form layouts", () => {
     expect(
       nextLayoutKeyOnCatalog(NOTE_LAYOUTS, "payment_invoice.branded"),
     ).toBe("delivery_note.parties");
-    expect(nextLayoutKeyOnCatalog(INVOICE_LAYOUTS, "delivery_note.parties")).toBe(
-      "payment_invoice.branded",
-    );
-    expect(nextLayoutKeyOnCatalog(INVOICE_LAYOUTS, "payment_invoice.plain")).toBe(
-      "payment_invoice.plain",
-    );
+    expect(
+      nextLayoutKeyOnCatalog(INVOICE_LAYOUTS, "delivery_note.parties"),
+    ).toBe("payment_invoice.branded");
+    expect(
+      nextLayoutKeyOnCatalog(INVOICE_LAYOUTS, "payment_invoice.plain"),
+    ).toBe("payment_invoice.plain");
   });
 
   it("labels from labelUk / labelEn depending on locale", () => {

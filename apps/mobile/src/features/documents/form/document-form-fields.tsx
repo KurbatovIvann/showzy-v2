@@ -97,7 +97,7 @@ export function DocumentLayoutCards(props: {
   readonly error: string | null;
   readonly preview: string | null;
   readonly onRetry: () => void;
-  readonly   onChange: (key: string) => void;
+  readonly onChange: (key: string) => void;
 }) {
   if (props.loading) {
     return <Text style={styles.meta}>{props.copy.layoutLoading}</Text>;

@@ -99,9 +99,9 @@ describe("fieldErrorsFromFormState / rhfPathsForFieldErrors", () => {
         server: emptyFieldErrors(),
       }),
     ).toEqual({ order: null, layout: null, basis: null });
-    expect(rhfPathsForFieldErrors({ order: "required", layout: null, basis: null })).toEqual([
-      { name: "orderId", message: "required" },
-    ]);
+    expect(
+      rhfPathsForFieldErrors({ order: "required", layout: null, basis: null }),
+    ).toEqual([{ name: "orderId", message: "required" }]);
     expect(
       rhfPathsForFieldErrors({
         order: null,

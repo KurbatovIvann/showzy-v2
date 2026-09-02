@@ -26,14 +26,14 @@ landing stays in SHO-235.
 
 ## Folders (one role each)
 
-| Folder     | Owns                                                                                                                                                              | Does not own                       |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| Folder     | Owns                                                                                                                                                                         | Does not own                       |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
 | `api/`     | `documents.list` infinite binder, `documents.get`, cancel/share/create mutations, order/counterparty lookups, `docGeneration.listLayouts`, `documents.getShared`, cache keys | JSX, RHF                           |
-| `list/`    | Screen, view, composer hook, options chrome hook, presenter, row, options sheet, list writes. Filter chips are `ChoiceField` (not `BottomNav` / `SegmentedTabs`)  | Create editor, public token screen |
-| `form/`    | Create editor: schema, draft, plan, save (form-kit), load, copy, pickers, layout catalog, screen/view. Type/layout cards are not list `ChoiceField`              | List, public HTML landing          |
-| `share/`   | Handover sheet/chrome (list + form), public `/d/[token]` screen (unsigned PDF + signed ASiC when `signedDownloadUrl` is set)                                      | Form RHF, list filters             |
-| `signing/` | QES sheet, `useReducer` session, HITL helper, Nitro/web runtime split, JS ASiC packer. List Sign uses `supplierSigned`; options chip uses `documents.get.signing` | List filters, form RHF             |
-| `shared/`  | Permissions, hrefs, ids, share-token parse, issued-on formatting, mutation banners, lookup caps                                                                   | Transport                          |
+| `list/`    | Screen, view, composer hook, options chrome hook, presenter, row, options sheet, list writes. Filter chips are `ChoiceField` (not `BottomNav` / `SegmentedTabs`)             | Create editor, public token screen |
+| `form/`    | Create editor: schema, draft, plan, save (form-kit), load, copy, pickers, layout catalog, screen/view. Type/layout cards are not list `ChoiceField`                          | List, public HTML landing          |
+| `share/`   | Handover sheet/chrome (list + form), public `/d/[token]` screen (unsigned PDF + signed ASiC when `signedDownloadUrl` is set)                                                 | Form RHF, list filters             |
+| `signing/` | QES sheet, `useReducer` session, HITL helper, Nitro/web runtime split, JS ASiC packer. List Sign uses `supplierSigned`; options chip uses `documents.get.signing`            | List filters, form RHF             |
+| `shared/`  | Permissions, hrefs, ids, share-token parse, issued-on formatting, mutation banners, lookup caps                                                                              | Transport                          |
 
 `list/` must not grow a combined `*-model.ts`. Query keys are
 `[actionName, companyId, input]` (SHO-102) for staff actions. Public

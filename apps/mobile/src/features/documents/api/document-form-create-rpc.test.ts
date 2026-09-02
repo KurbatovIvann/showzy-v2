@@ -35,7 +35,9 @@ describe("listLayouts then createFromOrder", () => {
     const listCalls: unknown[] = [];
     const createCalls: unknown[] = [];
 
-    const listed = await (async (input: { readonly type: "payment_invoice" }) => {
+    const listed = await (async (input: {
+      readonly type: "payment_invoice";
+    }) => {
       listCalls.push(input);
       return { layouts: INVOICE_LAYOUTS };
     })({ type: "payment_invoice" });
@@ -119,7 +121,7 @@ describe("listLayouts then createFromOrder", () => {
     ]);
     const serialized = JSON.stringify(createCalls[0]);
     expect(serialized).not.toContain("companyId");
-    expect(serialized).not.toContain("\"basis\"");
+    expect(serialized).not.toContain('"basis"');
     expect(serialized).not.toContain("customerId");
     expect(serialized).not.toContain("money");
   });
