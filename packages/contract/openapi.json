@@ -49802,7 +49802,7 @@
     "/orders/list": {
       "post": {
         "operationId": "orders.list",
-        "summary": "Query staff-intake orders in the staff member's active company. Pass kind page.summary or page.withLines for a newest-first cursor page, or kind aggregate for a bounded server rollup. Omit filter.statuses to include new, confirmed, and canceled; there is no server status named active or all — until fulfillment statuses exist, active means new plus confirmed. Optional filter.query matches the text order number (optional leading #) or CRM customer name, phone, or email and always requires customers:view. Optional customerIds, createdFrom, and createdTo compose with query. Summary rows include the customer name snapshot and linkedCustomerId, itemCount, and header totals — not the get view. Aggregate buckets are currency-safe and grouped by product (productId+variantId), customer, status, or none. Company id is never input. Does not filter by payment.",
+        "summary": "Query staff-intake orders in the staff member's active company. Pass kind page.summary or page.withLines for a newest-first cursor page, or kind aggregate for a bounded server rollup. Omit filter.statuses to include new, confirmed, and canceled; there is no server status named active or all — until fulfillment statuses exist, active means new plus confirmed. Optional filter.query matches the text order number (optional leading #) or CRM customer name, phone, or email and always requires customers:view. Optional customerIds, createdFrom, and createdTo compose with query. Summary rows include the customer name snapshot and linkedCustomerId, itemCount, and header totals — not the get view. Aggregate buckets are currency-safe and grouped by product (productId+variantId), customer, status, or none. Product buckets include quantityMilli (sum of line quantity_milli for that SKU, across currencies). Company id is never input. Does not filter by payment.",
         "requestBody": {
           "required": true,
           "content": {
@@ -50315,11 +50315,11 @@
                         "buckets": {
                           "type": "array",
                           "items": {
-                            "type": "object",
-                            "properties": {
-                              "identity": {
-                                "anyOf": [
-                                  {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "identity": {
                                     "type": "object",
                                     "properties": {
                                       "kind": {
@@ -50347,102 +50347,151 @@
                                       "variantId"
                                     ]
                                   },
-                                  {
-                                    "type": "object",
-                                    "properties": {
-                                      "kind": {
-                                        "const": "customer"
-                                      },
-                                      "customerId": {
-                                        "anyOf": [
-                                          {
-                                            "type": "string",
-                                            "format": "uuid"
-                                          },
-                                          {
-                                            "type": "null"
-                                          }
-                                        ]
-                                      },
-                                      "nameSnapshot": {
-                                        "type": "string",
-                                        "minLength": 1
-                                      }
-                                    },
-                                    "required": [
-                                      "kind",
-                                      "customerId",
-                                      "nameSnapshot"
-                                    ]
+                                  "label": {
+                                    "type": "string"
                                   },
-                                  {
-                                    "type": "object",
-                                    "properties": {
-                                      "kind": {
-                                        "const": "status"
-                                      },
-                                      "status": {
-                                        "enum": [
-                                          "new",
-                                          "confirmed",
-                                          "canceled"
-                                        ],
-                                        "type": "string"
-                                      }
-                                    },
-                                    "required": [
-                                      "kind",
-                                      "status"
-                                    ]
+                                  "orderCount": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
                                   },
-                                  {
-                                    "type": "object",
-                                    "properties": {
-                                      "kind": {
-                                        "const": "none"
-                                      }
-                                    },
-                                    "required": [
-                                      "kind"
-                                    ]
-                                  }
-                                ]
-                              },
-                              "label": {
-                                "type": "string"
-                              },
-                              "orderCount": {
-                                "type": "integer",
-                                "minimum": 0,
-                                "maximum": 9007199254740991
-                              },
-                              "grossByCurrency": {
-                                "type": "array",
-                                "items": {
-                                  "type": "object",
-                                  "properties": {
-                                    "currency": {
-                                      "type": "string",
-                                      "minLength": 3,
-                                      "maxLength": 3
-                                    },
-                                    "grossAmountMinor": {
-                                      "type": "string",
-                                      "pattern": "^(0|-?[1-9][0-9]*)$"
+                                  "grossByCurrency": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "currency": {
+                                          "type": "string",
+                                          "minLength": 3,
+                                          "maxLength": 3
+                                        },
+                                        "grossAmountMinor": {
+                                          "type": "string",
+                                          "pattern": "^(0|-?[1-9][0-9]*)$"
+                                        }
+                                      },
+                                      "required": [
+                                        "currency",
+                                        "grossAmountMinor"
+                                      ]
                                     }
                                   },
-                                  "required": [
-                                    "currency",
-                                    "grossAmountMinor"
-                                  ]
-                                }
+                                  "quantityMilli": {
+                                    "type": "string",
+                                    "pattern": "^[1-9][0-9]*$"
+                                  }
+                                },
+                                "required": [
+                                  "identity",
+                                  "label",
+                                  "orderCount",
+                                  "grossByCurrency",
+                                  "quantityMilli"
+                                ]
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "identity": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": {
+                                            "const": "customer"
+                                          },
+                                          "customerId": {
+                                            "anyOf": [
+                                              {
+                                                "type": "string",
+                                                "format": "uuid"
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ]
+                                          },
+                                          "nameSnapshot": {
+                                            "type": "string",
+                                            "minLength": 1
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "customerId",
+                                          "nameSnapshot"
+                                        ]
+                                      },
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": {
+                                            "const": "status"
+                                          },
+                                          "status": {
+                                            "enum": [
+                                              "new",
+                                              "confirmed",
+                                              "canceled"
+                                            ],
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "status"
+                                        ]
+                                      },
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": {
+                                            "const": "none"
+                                          }
+                                        },
+                                        "required": [
+                                          "kind"
+                                        ]
+                                      }
+                                    ]
+                                  },
+                                  "label": {
+                                    "type": "string"
+                                  },
+                                  "orderCount": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "grossByCurrency": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "currency": {
+                                          "type": "string",
+                                          "minLength": 3,
+                                          "maxLength": 3
+                                        },
+                                        "grossAmountMinor": {
+                                          "type": "string",
+                                          "pattern": "^(0|-?[1-9][0-9]*)$"
+                                        }
+                                      },
+                                      "required": [
+                                        "currency",
+                                        "grossAmountMinor"
+                                      ]
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "identity",
+                                  "label",
+                                  "orderCount",
+                                  "grossByCurrency"
+                                ]
                               }
-                            },
-                            "required": [
-                              "identity",
-                              "label",
-                              "orderCount",
-                              "grossByCurrency"
                             ]
                           }
                         },
