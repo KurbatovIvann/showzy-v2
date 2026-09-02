@@ -19,7 +19,6 @@ import {
   mapOrdersListPageOutput,
   ORDERS_LIST_ACTION_NAME,
   ORDERS_LIST_COUNTS_TOOL_NAME,
-  ORDERS_LIST_CUSTOMER_IDS_MAX,
   ORDERS_LIST_PAGE_ASSISTANT_LIMIT,
   ORDERS_LIST_PAGE_TOOL_NAME,
   ordersListCountsInputSchema,
@@ -521,7 +520,6 @@ describe("ordersListFacadeTools", () => {
 
   it("duplicates customerIds cap 50 and rejects an empty or oversized list", () => {
     expect(LIST_ORDERS_CUSTOMER_IDS_MAX).toBe(50);
-    expect(ORDERS_LIST_CUSTOMER_IDS_MAX).toBe(LIST_ORDERS_CUSTOMER_IDS_MAX);
     expect(LIST_ORDERS_QUERY_MAX).toBe(100);
     expect(LIST_ORDERS_CURSOR_MAX).toBe(80);
     expect(ORDERS_LIST_PAGE_ASSISTANT_LIMIT).toBe(12);

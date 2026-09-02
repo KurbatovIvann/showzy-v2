@@ -25,8 +25,6 @@ export const ORDERS_LIST_COUNTS_TOOL_NAME = "orders_list_counts";
 
 /** Duplicated from `LIST_ORDERS_CUSTOMER_IDS_MAX` — `@showzy/ai` must not import the orders module. */
 export const LIST_ORDERS_CUSTOMER_IDS_MAX = 50;
-/** @deprecated Use `LIST_ORDERS_CUSTOMER_IDS_MAX`. */
-export const ORDERS_LIST_CUSTOMER_IDS_MAX = LIST_ORDERS_CUSTOMER_IDS_MAX;
 /** Duplicated from `LIST_ORDERS_QUERY_MAX`. */
 export const LIST_ORDERS_QUERY_MAX = 100;
 /** Duplicated from `LIST_ORDERS_CURSOR_MAX`. */
@@ -218,6 +216,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function isUnknownArray(value: unknown): value is unknown[] {
+  return Array.isArray(value);
+}
+
 function isTypedToolError(value: unknown): boolean {
   return (
     isRecord(value) &&
@@ -272,7 +274,7 @@ export function mapOrdersListPageOutput(output: unknown): unknown {
     isTypedToolError(output) ||
     !isRecord(output) ||
     output["kind"] !== "page.summary" ||
-    !Array.isArray(output["items"])
+    !isUnknownArray(output["items"])
   ) {
     return output;
   }
@@ -286,7 +288,7 @@ export function mapOrdersListPageOutput(output: unknown): unknown {
 }
 
 function compactGrossByCurrency(value: unknown): unknown {
-  if (!Array.isArray(value)) {
+  if (!isUnknownArray(value)) {
     return value;
   }
   return value.map((row) => {
@@ -373,7 +375,7 @@ export function mapOrdersListCountsOutput(output: unknown): unknown {
     isTypedToolError(output) ||
     !isRecord(output) ||
     output["kind"] !== "aggregate" ||
-    !Array.isArray(output["buckets"])
+    !isUnknownArray(output["buckets"])
   ) {
     return output;
   }
