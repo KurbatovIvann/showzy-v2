@@ -475,7 +475,7 @@ describe("POST /assistant/chat authorization", () => {
       companyId: kitIdentities.companies.a,
       userId: clerkId,
       role: "employee",
-      permissions: { granted: [], denied: ["documents:view"] },
+      permissions: { granted: ["assistant:use"], denied: ["documents:view"] },
     });
     const model = new MockLanguageModelV3({
       doStream: [mockTextStream("Hello without a company name.")],
