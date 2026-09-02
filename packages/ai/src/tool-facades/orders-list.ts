@@ -31,8 +31,8 @@ const customerIdsField = z
   .optional();
 
 function createdIntervalIsValid(input: {
-  createdFrom?: string;
-  createdTo?: string;
+  createdFrom?: string | undefined;
+  createdTo?: string | undefined;
 }): boolean {
   return (
     input.createdFrom === undefined ||
@@ -91,9 +91,9 @@ type OrdersListMappedFilter = {
 
 function mappedOrdersListFilter(input: {
   readonly statuses?: OrdersListPageFacadeInput["statuses"];
-  readonly query?: string;
-  readonly createdFrom?: string;
-  readonly createdTo?: string;
+  readonly query?: string | undefined;
+  readonly createdFrom?: string | undefined;
+  readonly createdTo?: string | undefined;
   readonly customerIds?: OrdersListPageFacadeInput["customerIds"];
 }): OrdersListMappedFilter | undefined {
   const filter: {
