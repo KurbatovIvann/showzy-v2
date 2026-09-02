@@ -13,6 +13,8 @@ import {
 
 const ORDER_ID = "11111111-1111-4111-8111-111111111111";
 const COUNTERPARTY_ID = "22222222-2222-4222-8222-222222222222";
+const INVOICE_LAYOUT = "payment_invoice.branded";
+const NOTE_LAYOUT = "delivery_note.parties";
 
 function validDraft(
   overrides: Partial<DocumentFormDraft> = {},
@@ -21,47 +23,88 @@ function validDraft(
     type: "payment_invoice",
     orderId: ORDER_ID,
     counterpartyId: "",
+    layoutKey: INVOICE_LAYOUT,
+    basis: "",
     ...overrides,
   };
 }
 
 describe("createFromOrderPayload", () => {
-  it("emits wire { orderId, type } only — no money, template, city, or customerId", () => {
+  it("emits { orderId, type, layoutKey } — no companyId, money, city, or customerId", () => {
     const payload = createFromOrderPayload(validDraft());
     expect(payload).toEqual({
       orderId: ORDER_ID,
       type: "payment_invoice",
+      layoutKey: INVOICE_LAYOUT,
     });
-    expect(Object.keys(payload ?? {}).sort()).toEqual(["orderId", "type"]);
+    expect(Object.keys(payload ?? {}).sort()).toEqual([
+      "layoutKey",
+      "orderId",
+      "type",
+    ]);
     const serialized = JSON.stringify(payload);
+    expect(serialized).not.toContain("companyId");
     expect(serialized).not.toContain("total");
     expect(serialized).not.toContain("template");
     expect(serialized).not.toContain("city");
     expect(serialized).not.toContain("customerId");
     expect(serialized).not.toContain("counterpartyId");
     expect(serialized).not.toContain("money");
+    expect(serialized).not.toContain("basis");
   });
 
-  it("includes optional counterpartyId only when set", () => {
+  it("includes optional counterpartyId and delivery-note basis only when set", () => {
     const withCounterparty = createFromOrderPayload(
       validDraft({
         type: "delivery_note",
         counterpartyId: COUNTERPARTY_ID,
+        layoutKey: NOTE_LAYOUT,
+        basis: "  Договір № 1  ",
       }),
     );
     expect(withCounterparty).toEqual({
       orderId: ORDER_ID,
       type: "delivery_note",
       counterpartyId: COUNTERPARTY_ID,
+      layoutKey: NOTE_LAYOUT,
+      basis: "Договір № 1",
     });
     expect(Object.keys(withCounterparty ?? {}).sort()).toEqual([
+      "basis",
       "counterpartyId",
+      "layoutKey",
       "orderId",
       "type",
     ]);
     expect(createFromOrderPayload(validDraft({ counterpartyId: "" }))).toEqual({
       orderId: ORDER_ID,
       type: "payment_invoice",
+      layoutKey: INVOICE_LAYOUT,
+    });
+    expect(
+      createFromOrderPayload(
+        validDraft({
+          type: "delivery_note",
+          layoutKey: NOTE_LAYOUT,
+          basis: "   ",
+        }),
+      ),
+    ).toEqual({
+      orderId: ORDER_ID,
+      type: "delivery_note",
+      layoutKey: NOTE_LAYOUT,
+    });
+    expect(
+      createFromOrderPayload(
+        validDraft({
+          type: "payment_invoice",
+          basis: "should not ship on invoice",
+        }),
+      ),
+    ).toEqual({
+      orderId: ORDER_ID,
+      type: "payment_invoice",
+      layoutKey: INVOICE_LAYOUT,
     });
   });
 });
@@ -78,6 +121,7 @@ describe("planDocumentFormSave", () => {
       return;
     }
     expect(first.write.kind).toBe("createFromOrder");
+    expect(first.write.input.layoutKey).toBe(INVOICE_LAYOUT);
     expect(
       planDocumentFormSave({
         draft: validDraft(),
@@ -110,6 +154,7 @@ describe("planDocumentFormSave", () => {
       input: {
         orderId: ORDER_ID,
         type: "delivery_note",
+        layoutKey: NOTE_LAYOUT,
       },
     };
     const planned = planDocumentFormSave({

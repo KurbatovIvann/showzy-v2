@@ -53,6 +53,13 @@ export function useDocumentFormPickers(args: {
     },
     setType: (next: DocumentFormDraft["type"]) => {
       args.setValue("type", next, { shouldDirty: true });
+      if (next !== "delivery_note") {
+        args.setValue("basis", "", { shouldDirty: true });
+      }
+      args.onFieldEdit();
+    },
+    pickLayout: (key: string) => {
+      args.setValue("layoutKey", key, { shouldDirty: true });
       args.onFieldEdit();
     },
   };

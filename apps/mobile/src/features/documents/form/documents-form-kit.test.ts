@@ -24,8 +24,9 @@ describe("documents form adopts form-kit", () => {
     expect(saveLoop).toContain("runFormSave");
     expect(view).toContain("FormScreenScaffold");
     expect(view).not.toContain("SafeAreaView");
+    expect(fields).toContain("FormTextField");
+    expect(fields).toContain("DocumentLayoutCards");
     expect(fields).not.toContain("<Controller");
-    expect(fields).not.toContain("FormTextField");
     expect(leave).toContain("resolveArmedFormLeave");
     expect(leave).toContain('mode: "dispatch-only"');
   });

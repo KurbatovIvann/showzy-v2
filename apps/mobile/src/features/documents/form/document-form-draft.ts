@@ -1,6 +1,7 @@
 /**
- * Document create draft and dirty detection (SHO-238). UI Zod lives in
- * `document-form.schema.ts`; write planning is `document-form-plan.ts`.
+ * Document create draft and dirty detection (SHO-238 / SHO-366). UI Zod
+ * lives in `document-form.schema.ts`; write planning is
+ * `document-form-plan.ts`.
  */
 import {
   emptyFieldErrors,
@@ -15,12 +16,16 @@ export {
   type DocumentFormFieldErrors,
   type DocumentFormType,
   type OrderErrorKey,
+  type LayoutErrorKey,
+  type BasisErrorKey,
 } from "./document-form.schema";
 
 export type DocumentFormDraft = {
   type: DocumentFormType;
   orderId: string;
   counterpartyId: string;
+  layoutKey: string;
+  basis: string;
 };
 
 export function emptyDocumentFormDraft(): DocumentFormDraft {
@@ -28,6 +33,8 @@ export function emptyDocumentFormDraft(): DocumentFormDraft {
     type: "payment_invoice",
     orderId: "",
     counterpartyId: "",
+    layoutKey: "",
+    basis: "",
   };
 }
 
@@ -38,6 +45,8 @@ export function cloneDocumentFormDraft(
     type: values.type,
     orderId: values.orderId,
     counterpartyId: values.counterpartyId,
+    layoutKey: values.layoutKey,
+    basis: values.basis,
   };
 }
 
@@ -48,7 +57,9 @@ export function isDocumentFormDirty(
   return (
     draft.type !== origin.type ||
     draft.orderId !== origin.orderId ||
-    draft.counterpartyId !== origin.counterpartyId
+    draft.counterpartyId !== origin.counterpartyId ||
+    draft.layoutKey !== origin.layoutKey ||
+    draft.basis !== origin.basis
   );
 }
 
@@ -63,7 +74,9 @@ export function validateDocumentForm(
 }
 
 export function isDocumentFormValid(errors: DocumentFormFieldErrors): boolean {
-  return errors.order === null;
+  return (
+    errors.order === null && errors.layout === null && errors.basis === null
+  );
 }
 
 export type DocumentFormUiParse =

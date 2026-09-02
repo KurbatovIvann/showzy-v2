@@ -1,10 +1,10 @@
 /**
- * Canvas DocumentEditor as create-only (SHO-238 / SHO-306).
+ * Canvas DocumentEditor as create-only (SHO-238 / SHO-306 / SHO-366).
  * Shared: FormScreenScaffold, AppHeader, Button, Banner, EmptyState,
- * OptionSelectSheet, SelectorRow.
- * Feature: EditorSection, DocumentTypeCards.
- * Omitted: template picker, agreement, city, dates, QES, four types.
- * No FormTextField call sites — this form is type cards + selectors.
+ * OptionSelectSheet, SelectorRow, FormTextField (Підстава).
+ * Feature: EditorSection, DocumentTypeCards, DocumentLayoutCards.
+ * Omitted: company template gallery, agreement, city, dates, QES, four
+ * types, react-pdf / live PDF before create.
  */
 import { FileTextIcon, UserIcon } from "lucide-react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
@@ -17,7 +17,11 @@ import {
   LIST_COUNTERPARTIES_SEARCH_MAX,
   LIST_ORDERS_QUERY_MAX,
 } from "../shared/document-caps";
-import { DocumentTypeCards } from "./document-form-fields";
+import {
+  DocumentBasisField,
+  DocumentLayoutCards,
+  DocumentTypeCards,
+} from "./document-form-fields";
 import { EditorSection } from "./editor-section";
 import type { DocumentFormModel } from "./use-document-form";
 
@@ -132,6 +136,31 @@ function DocumentFormReady(props: { readonly model: DocumentFormModel }) {
           onChange={model.setType}
         />
       </EditorSection>
+      <EditorSection title={form.layoutSectionTitle}>
+        <DocumentLayoutCards
+          copy={form}
+          cards={model.layoutCards}
+          value={model.layoutKey}
+          disabled={!model.fieldsEditable}
+          loading={model.layoutsStatus === "loading"}
+          failed={model.layoutsStatus === "error"}
+          error={model.layoutError}
+          preview={model.layoutPreview}
+          onRetry={model.retryLayouts}
+          onChange={model.pickLayout}
+        />
+      </EditorSection>
+      {model.basisVisible ? (
+        <EditorSection title={form.basisSectionTitle}>
+          <DocumentBasisField
+            control={model.control}
+            copy={form}
+            editable={model.fieldsEditable}
+            error={model.basisError}
+            onFieldEdit={model.onFieldEdit}
+          />
+        </EditorSection>
+      ) : null}
       <EditorSection title={form.orderSectionTitle}>
         <SelectorRow
           label={form.orderLabel}

@@ -34,6 +34,7 @@ describe("documents copy", () => {
 
   it("pins canvas list copy in uk (type chips, no search)", () => {
     const uk = documentsCopy("uk");
+    const en = documentsCopy("en");
     expect(uk.title).toBe("Документи");
     expect(uk.createLabel).toBe("Новий документ");
     expect(uk.filters).toEqual({
@@ -67,6 +68,10 @@ describe("documents copy", () => {
     expect(JSON.stringify(uk.filters)).not.toMatch(/Пошук/);
     expect(uk.form.typePaymentInvoice).toBe("Рахунок РХ");
     expect(uk.form.typeDeliveryNote).toBe("Видаткова ВН");
+    expect(uk.form.layoutSectionTitle).toBe("Вигляд");
+    expect(uk.form.basisLabel).toBe("Підстава");
+    expect(uk.form.errors.layoutRequired).toBe("Оберіть вигляд.");
+    expect(en.form.errors.basisTooLong).toContain("500");
     expect(uk.form.orderSearchPlaceholder).toContain("Пошук");
     expect(uk.shared.refresh).toContain("оновити");
     expect(uk.shared.downloadSigned).toBe("Завантажити підписаний файл");
