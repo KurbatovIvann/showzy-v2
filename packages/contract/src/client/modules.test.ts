@@ -54,6 +54,7 @@ import {
   requestSignContract,
   shareDocumentContract,
 } from "@showzy/documents/contract";
+import { listLayoutsContract } from "@showzy/doc-generation/contract";
 import {
   completeSigningContract,
   getSigningContract,
@@ -100,7 +101,7 @@ import { deriveAiToolSources } from "./ai-manifest.js";
 import { contractModules, contractRouter } from "./modules.js";
 
 describe("client composition", () => {
-  it("exposes client catalog, chat, companies, customers, documents, docSigning, files, invites, orders, pricing, and assistant actions and no internal facts actions", () => {
+  it("exposes client catalog, chat, companies, customers, documents, docGeneration, docSigning, files, invites, orders, pricing, and assistant actions and no internal facts actions", () => {
     expect(contractModules).toEqual({
       assistant: {
         createConversation: createConversationContract,
@@ -157,6 +158,9 @@ describe("client composition", () => {
         list: listDocumentsContract,
         requestSign: requestSignContract,
         share: shareDocumentContract,
+      },
+      docGeneration: {
+        listLayouts: listLayoutsContract,
       },
       docSigning: {
         complete: completeSigningContract,
@@ -254,6 +258,13 @@ describe("client composition", () => {
     expect(contractRouter.documents.list).toBeDefined();
     expect(contractRouter.documents.requestSign).toBeDefined();
     expect(contractRouter.documents.share).toBeDefined();
+    expect(contractRouter.docGeneration.listLayouts).toBeDefined();
+    expect(contractModules.docGeneration.listLayouts.aiExposure).toBe(
+      "exposed",
+    );
+    expect(contractModules.docGeneration).not.toHaveProperty("getArtifact");
+    expect(contractModules.docGeneration).not.toHaveProperty("renderPdf");
+    expect(contractModules.docGeneration).not.toHaveProperty("resolveLayout");
     expect(contractRouter.docSigning.get).toBeDefined();
     expect(contractRouter.docSigning.start).toBeDefined();
     expect(contractRouter.docSigning.complete).toBeDefined();

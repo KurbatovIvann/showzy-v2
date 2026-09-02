@@ -1,7 +1,12 @@
 import type { SuiteCoverageManifest } from "@showzy/core";
 
 export const docGenerationSuiteCoverage = {
-  isolation: ["docGeneration.getArtifact", "docGeneration.renderPdf"],
+  isolation: [
+    "docGeneration.getArtifact",
+    "docGeneration.listLayouts",
+    "docGeneration.renderPdf",
+    "docGeneration.resolveLayout",
+  ],
   publicProjection: [],
   consumerIsolation: [],
   accountIsolation: [],

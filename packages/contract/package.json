@@ -27,6 +27,7 @@
     "@showzy/companies": "workspace:*",
     "@showzy/core": "workspace:*",
     "@showzy/customers": "workspace:*",
+    "@showzy/doc-generation": "workspace:*",
     "@showzy/documents": "workspace:*",
     "@showzy/doc-signing": "workspace:*",
     "@showzy/files": "workspace:*",

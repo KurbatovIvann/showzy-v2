@@ -5,9 +5,18 @@
  * (ESM cycle: getArtifact ← documents.get ← getForGeneration ← renderPdf).
  */
 import { getArtifact } from "./actions/get-artifact.js";
+import { listLayouts } from "./actions/list-layouts.js";
 import { renderPdf } from "./actions/render-pdf.js";
+import { resolveLayout } from "./actions/resolve-layout.js";
 
 export { getArtifact };
+export { listLayouts };
 export { renderPdf };
+export { resolveLayout };
 
-export const docGenerationActions = [getArtifact, renderPdf] as const;
+export const docGenerationActions = [
+  getArtifact,
+  listLayouts,
+  renderPdf,
+  resolveLayout,
+] as const;

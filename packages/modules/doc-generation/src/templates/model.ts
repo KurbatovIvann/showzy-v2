@@ -40,6 +40,7 @@ export interface PdfLine {
 
 export interface DocumentPdfModel {
   readonly type: "payment_invoice" | "delivery_note";
+  readonly templateName: string;
   readonly documentNumber: string;
   readonly issuedOn: string;
   readonly currency: string;

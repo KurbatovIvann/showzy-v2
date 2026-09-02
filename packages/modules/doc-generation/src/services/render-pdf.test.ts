@@ -6,6 +6,7 @@ import { mapViewToPdfModel } from "./render-pdf.js";
 
 const uahView = {
   type: "payment_invoice" as const,
+  templateName: "payment_invoice",
   documentNumber: "KA-РХ-000001",
   issuedOn: "2026-03-15",
   currency: "UAH",
@@ -44,6 +45,7 @@ describe("mapViewToPdfModel", () => {
     const model = mapViewToPdfModel(uahView);
     expect(model.currency).toBe("UAH");
     expect(model.documentNumber).toBe("KA-РХ-000001");
+    expect(model.templateName).toBe("payment_invoice");
     expect(model.items).toHaveLength(1);
   });
 
