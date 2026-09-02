@@ -4,7 +4,8 @@
  *
  * Buyer is a discriminated snapshot: counterparty legal face or CRM
  * display name only. Seller is the legal face from `getSellerFacts`.
- * Totals are sums of persisted line snapshots (no reprice).
+ * Totals are sums of persisted line snapshots (no reprice). Optional
+ * `basis` is the create-time «Підстава» snapshot (SHO-365).
  */
 import { z } from "zod";
 
@@ -27,6 +28,8 @@ export const documentTaxTreatmentSchema = z.enum([
 ]);
 
 export const documentCompanyTypeSchema = z.enum(["fop", "tov"]);
+
+export const DOCUMENT_BASIS_MAX = 500;
 
 export const documentTemplateSourceSchema = z.literal("system");
 
@@ -103,6 +106,7 @@ export const documentViewSchema = z.object({
   currency: z.string().length(3),
   templateSource: documentTemplateSourceSchema,
   templateName: z.string().min(1),
+  basis: z.string().min(1).max(DOCUMENT_BASIS_MAX).nullable(),
   createdAt: z.iso.datetime(),
   items: z.array(documentItemViewSchema).min(1),
 });

@@ -9,7 +9,8 @@
     "./contract": "./src/index.contract.ts",
     "./suite-coverage": "./src/suite-coverage.ts",
     "./subscriptions": "./src/events/pdf-renderer.ts",
-    "./get-artifact": "./src/actions/get-artifact.ts"
+    "./get-artifact": "./src/actions/get-artifact.ts",
+    "./resolve-layout": "./src/actions/resolve-layout.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

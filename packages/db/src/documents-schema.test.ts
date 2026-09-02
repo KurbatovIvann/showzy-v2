@@ -326,6 +326,7 @@ describe("documents schema slice", () => {
       "created_at",
       "updated_at",
       "sign_requested_at",
+      "basis",
     ]);
     expect(byTableColumn.get("documents.sign_requested_at")?.data_type).toBe(
       "timestamp with time zone",
@@ -333,6 +334,9 @@ describe("documents schema slice", () => {
     expect(byTableColumn.get("documents.sign_requested_at")?.is_nullable).toBe(
       "YES",
     );
+    expect(byTableColumn.get("documents.basis")?.data_type).toBe("text");
+    expect(byTableColumn.get("documents.basis")?.is_nullable).toBe("YES");
+    expect(byTableColumn.get("documents.basis")?.column_default).toBeNull();
     for (const forbidden of [
       "template_id",
       "pdf_url",
@@ -451,6 +455,9 @@ describe("documents schema slice", () => {
     expectTypeOf<
       (typeof documents.$inferSelect)["signRequestedAt"]
     >().toEqualTypeOf<Date | null>();
+    expectTypeOf<(typeof documents.$inferSelect)["basis"]>().toEqualTypeOf<
+      string | null
+    >();
     expectTypeOf<
       (typeof documentItems.$inferSelect)["quantityMilli"]
     >().toEqualTypeOf<bigint>();
@@ -615,6 +622,7 @@ describe("documents schema slice", () => {
       companyId: company.id,
       orderId: order.id,
     });
+    expect(document.basis).toBeNull();
 
     await expectSqlState(
       insertDocument({
@@ -664,6 +672,29 @@ describe("documents schema slice", () => {
       }),
       "23514",
     );
+    await expectSqlState(
+      insertDocument({
+        companyId: company.id,
+        orderId: order.id,
+        basis: "",
+      }),
+      "23514",
+    );
+    await expectSqlState(
+      insertDocument({
+        companyId: company.id,
+        orderId: order.id,
+        basis: "x".repeat(501),
+      }),
+      "23514",
+    );
+    const withBasis = await insertDocument({
+      companyId: company.id,
+      orderId: order.id,
+      type: "delivery_note",
+      basis: "Договір поставки № 1",
+    });
+    expect(withBasis.basis).toBe("Договір поставки № 1");
     await expectSqlState(
       insertItem({
         companyId: company.id,

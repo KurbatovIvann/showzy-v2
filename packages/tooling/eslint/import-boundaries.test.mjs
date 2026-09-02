@@ -78,6 +78,12 @@ test("showzy/import-boundaries", () => {
         code: `import { getArtifact } from "@showzy/doc-generation/get-artifact";`,
       },
       {
+        filename: file(
+          "packages/modules/documents/src/actions/create-from-order.ts",
+        ),
+        code: `import { resolveLayout } from "@showzy/doc-generation/resolve-layout";`,
+      },
+      {
         filename: file("packages/modules/doc-signing/src/actions/start.ts"),
         code: `import { getArtifact } from "@showzy/doc-generation/get-artifact";`,
       },

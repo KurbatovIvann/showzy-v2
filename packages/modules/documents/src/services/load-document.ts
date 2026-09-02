@@ -126,6 +126,7 @@ async function loadStaffDocumentRecord(env: {
       currency: header.currency,
       templateSource: parseTemplateSource(header.templateSource),
       templateName: header.templateName,
+      basis: header.basis,
       createdAt: header.createdAt.toISOString(),
       items: lineRows.map((row) => ({
         itemId: row.id,

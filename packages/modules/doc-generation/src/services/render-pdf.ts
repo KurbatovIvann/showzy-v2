@@ -76,6 +76,7 @@ export function mapViewToPdfModel(view: {
   readonly totalNetMinor: string;
   readonly totalTaxMinor: string;
   readonly totalGrossMinor: string;
+  readonly basis: string | null;
 }): DocumentPdfModel {
   if (view.currency !== "UAH") {
     throw new CoreInvariantError(
@@ -88,7 +89,7 @@ export function mapViewToPdfModel(view: {
     documentNumber: view.documentNumber,
     issuedOn: view.issuedOn,
     currency: "UAH",
-    basis: null,
+    basis: view.basis,
     supplier: {
       name: view.supplierDetails.name,
       companyType: view.supplierDetails.companyType,

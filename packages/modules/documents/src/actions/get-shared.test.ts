@@ -33,6 +33,7 @@ describe("documents.getShared contract", () => {
     expect(getSharedContract.timeout).toBe(2_000);
     expect(getSharedContract.rateLimit).toBeUndefined();
     expect(Object.keys(getSharedOutputSchema.shape).toSorted()).toEqual([
+      "basis",
       "buyerDetails",
       "counterpartyId",
       "createdAt",

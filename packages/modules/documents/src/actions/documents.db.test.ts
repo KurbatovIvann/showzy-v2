@@ -38,6 +38,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { createFromOrder } from "./create-from-order.js";
+import { DOCUMENT_BASIS_MAX } from "./document-view.contract.js";
+import { getForGeneration } from "./get-for-generation.js";
+import { getDocument } from "./get.js";
 import { documentsCreated } from "../events/created.js";
 import { CANCELED_ORDER_MESSAGE } from "../services/create-from-order.js";
 import { kyivCalendarDay } from "../services/kyiv-calendar-day.js";
@@ -78,6 +81,9 @@ const fixtures = {
   orderNumbering1: randomUUID(),
   orderNumbering2: randomUUID(),
   orderNumbering3: randomUUID(),
+  orderLayoutPlain: randomUUID(),
+  orderBasis: randomUUID(),
+  orderEmptyBasis: randomUUID(),
   itemIsolationA: randomUUID(),
   itemIsolationB: randomUUID(),
   itemIdempotency: randomUUID(),
@@ -93,6 +99,9 @@ const fixtures = {
   itemNumbering1: randomUUID(),
   itemNumbering2: randomUUID(),
   itemNumbering3: randomUUID(),
+  itemLayoutPlain: randomUUID(),
+  itemBasis: randomUUID(),
+  itemEmptyBasis: randomUUID(),
 };
 
 const clerks = {
@@ -475,6 +484,24 @@ beforeAll(async () => {
       customerId: fixtures.customerA,
       status: "new",
     },
+    {
+      id: fixtures.orderLayoutPlain,
+      itemId: fixtures.itemLayoutPlain,
+      customerId: fixtures.customerA,
+      status: "new",
+    },
+    {
+      id: fixtures.orderBasis,
+      itemId: fixtures.itemBasis,
+      customerId: fixtures.customerA,
+      status: "new",
+    },
+    {
+      id: fixtures.orderEmptyBasis,
+      itemId: fixtures.itemEmptyBasis,
+      customerId: fixtures.customerA,
+      status: "new",
+    },
   ];
   for (const row of ordersA) {
     await insertSeedOrder({
@@ -578,7 +605,8 @@ describe("documents.createFromOrder", () => {
     expect(created.documentNumber).not.toMatch(/20\d{2}/);
     expect([beforeDay, afterDay]).toContain(created.issuedOn);
     expect(created.templateSource).toBe("system");
-    expect(created.templateName).toBe("payment_invoice");
+    expect(created.templateName).toBe("payment_invoice.branded");
+    expect(created.basis).toBeNull();
     expect(created.buyerDetails).toEqual({
       kind: "customer",
       displayName: "Customer A",
@@ -652,7 +680,8 @@ describe("documents.createFromOrder", () => {
       edrpou: "11223344",
       legalAddress: "вул. Покупця, 2",
     });
-    expect(created.templateName).toBe("delivery_note");
+    expect(created.templateName).toBe("delivery_note.parties");
+    expect(created.basis).toBeNull();
   });
 
   it("allows a standalone counterparty when the order has a customer", async () => {
@@ -799,5 +828,95 @@ describe("documents.createFromOrder", () => {
         { userId: clerks.noCreate, companyId: kitIdentities.companies.a },
       ),
     ).rejects.toBeInstanceOf(PermissionDeniedError);
+  });
+
+  it("persists an explicit layoutKey as the canonical templateName", async () => {
+    const created = await kit.invoke(createFromOrder, {
+      orderId: fixtures.orderLayoutPlain,
+      type: "payment_invoice",
+      layoutKey: "payment_invoice.plain",
+    });
+    expect(created.templateName).toBe("payment_invoice.plain");
+    expect(created.basis).toBeNull();
+    const loaded = await kit.invoke(getDocument, {
+      documentId: created.documentId,
+    });
+    expect(loaded.templateName).toBe("payment_invoice.plain");
+    expect(loaded.basis).toBeNull();
+  });
+
+  it("round-trips basis on get and getForGeneration", async () => {
+    const basis = "Договір поставки № 15/2026 від 10.01.2026 р.";
+    const created = await kit.invoke(createFromOrder, {
+      orderId: fixtures.orderBasis,
+      type: "delivery_note",
+      layoutKey: "delivery_note.parties",
+      counterpartyId: fixtures.counterpartyLinked,
+      basis,
+    });
+    expect(created.templateName).toBe("delivery_note.parties");
+    expect(created.basis).toBe(basis);
+
+    const staffGet = await kit.invoke(getDocument, {
+      documentId: created.documentId,
+    });
+    expect(staffGet.templateName).toBe("delivery_note.parties");
+    expect(staffGet.basis).toBe(basis);
+
+    const generation = await kit.invoke(getForGeneration, {
+      documentId: created.documentId,
+    });
+    expect(generation.templateName).toBe("delivery_note.parties");
+    expect(generation.basis).toBe(basis);
+  });
+
+  it("stores a blank basis as null", async () => {
+    const created = await kit.invoke(createFromOrder, {
+      orderId: fixtures.orderEmptyBasis,
+      type: "payment_invoice",
+      basis: "   ",
+    });
+    expect(created.basis).toBeNull();
+    expect(created.templateName).toBe("payment_invoice.branded");
+  });
+
+  it("rejects an unknown layoutKey", async () => {
+    await expect(
+      kit.invoke(createFromOrder, {
+        orderId: fixtures.orderMismatch,
+        type: "payment_invoice",
+        layoutKey: "payment_invoice.custom",
+      }),
+    ).rejects.toSatisfy((error: unknown) => {
+      return (
+        error instanceof ValidationError &&
+        error.clientMessage === "Unknown document layout."
+      );
+    });
+  });
+
+  it("rejects a layoutKey for the other document type", async () => {
+    await expect(
+      kit.invoke(createFromOrder, {
+        orderId: fixtures.orderMismatch,
+        type: "payment_invoice",
+        layoutKey: "delivery_note.parties",
+      }),
+    ).rejects.toSatisfy((error: unknown) => {
+      return (
+        error instanceof ValidationError &&
+        error.clientMessage === "Layout key does not match document type."
+      );
+    });
+  });
+
+  it("rejects basis over 500 characters", async () => {
+    await expect(
+      kit.invoke(createFromOrder, {
+        orderId: fixtures.orderMismatch,
+        type: "payment_invoice",
+        basis: "x".repeat(DOCUMENT_BASIS_MAX + 1),
+      }),
+    ).rejects.toBeInstanceOf(ValidationError);
   });
 });
