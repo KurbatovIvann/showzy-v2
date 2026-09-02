@@ -74,6 +74,7 @@ async function insertSeedDocument(values: {
     companyId: kitIdentities.companies.a,
     orderNumber: values.orderNumber,
     customerId: fixtures.customerA,
+    customerNameSnapshot: "Fixture customer",
     status: "new",
     totalNetMinor: unit,
     totalTaxMinor: 0n,

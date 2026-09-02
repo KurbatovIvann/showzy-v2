@@ -78,12 +78,17 @@ async function insertCompany() {
 async function insertOrder(
   values: Omit<
     typeof orders.$inferInsert,
-    "totalNetMinor" | "totalTaxMinor" | "totalGrossMinor" | "orderNumber"
+    | "totalNetMinor"
+    | "totalTaxMinor"
+    | "totalGrossMinor"
+    | "orderNumber"
+    | "customerNameSnapshot"
   > & {
     totalNetMinor?: bigint;
     totalTaxMinor?: bigint;
     totalGrossMinor?: bigint;
     orderNumber?: string;
+    customerNameSnapshot?: string;
   },
 ) {
   const next = (nextOrderNumberByCompany.get(values.companyId) ?? 0) + 1;
@@ -95,6 +100,7 @@ async function insertOrder(
       totalTaxMinor: 0n,
       totalGrossMinor: 10_000n,
       orderNumber: `T-${String(next)}`,
+      customerNameSnapshot: "unlinked",
       ...values,
     })
     .returning();

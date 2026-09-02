@@ -11,6 +11,7 @@ import {
   LIST_ORDERS_WITH_LINES_MAX_LINES,
   UNLINKED_CUSTOMER_NAME_SNAPSHOT,
   listOrderSummaryRowSchema,
+  listOrdersBucketSchema,
   listOrdersContract,
   listOrdersInputSchema,
   parseListOrdersCursor,
@@ -206,5 +207,41 @@ describe("orders.list contract", () => {
         totalGrossMinor: "199",
       }).success,
     ).toBe(true);
+  });
+
+  it("requires quantityMilli only on product aggregate buckets", () => {
+    const product = {
+      identity: {
+        kind: "product" as const,
+        productId: "11111111-1111-4111-8111-111111111111",
+        variantId: null,
+      },
+      label: "Widget",
+      orderCount: 2,
+      grossByCurrency: [{ currency: "UAH", grossAmountMinor: "100" }],
+      quantityMilli: "3000",
+    };
+    expect(listOrdersBucketSchema.parse(product)).toEqual(product);
+    expect(
+      listOrdersBucketSchema.safeParse({
+        identity: product.identity,
+        label: product.label,
+        orderCount: product.orderCount,
+        grossByCurrency: product.grossByCurrency,
+      }).success,
+    ).toBe(false);
+    const status = {
+      identity: { kind: "status" as const, status: "new" as const },
+      label: "new",
+      orderCount: 1,
+      grossByCurrency: [{ currency: "UAH", grossAmountMinor: "100" }],
+    };
+    expect(listOrdersBucketSchema.parse(status)).toEqual(status);
+    expect(
+      Object.prototype.hasOwnProperty.call(
+        listOrdersBucketSchema.parse({ ...status, quantityMilli: "1000" }),
+        "quantityMilli",
+      ),
+    ).toBe(false);
   });
 });

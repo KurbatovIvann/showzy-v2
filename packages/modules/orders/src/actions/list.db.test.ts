@@ -117,6 +117,7 @@ async function insertOrder(values: {
   orderNumber: string;
   currency?: "UAH" | "EUR";
   titleSnapshot?: string;
+  quantityMilli?: bigint;
 }): Promise<void> {
   const currency = values.currency ?? "UAH";
   await kit.db.runtime.db.insert(orders).values({
@@ -142,7 +143,7 @@ async function insertOrder(values: {
       orderId: values.id,
       productId: values.productId,
       titleSnapshot: values.titleSnapshot ?? "Seed",
-      quantityMilli: 1000n,
+      quantityMilli: values.quantityMilli ?? 1000n,
       unitPriceMinor: perLine,
       taxTreatment: "exempt" as const,
       netAmountMinor: perLine,
@@ -284,6 +285,7 @@ beforeAll(async () => {
     createdAt: timestamps.sameProductOldTitle,
     orderNumber: "KA-OLD1",
     titleSnapshot: "Widget · old title",
+    quantityMilli: 2000n,
   });
   await insertOrder({
     id: fixtures.newestNew,
@@ -324,6 +326,7 @@ beforeAll(async () => {
     createdAt: timestamps.confirmed,
     orderNumber: "KA-K7X2",
     titleSnapshot: "Widget · latest",
+    quantityMilli: 3000n,
   });
   await insertOrder({
     id: fixtures.foreign,
@@ -894,6 +897,9 @@ describe("orders.list", () => {
       variantId: null,
     });
     expect(
+      widget && "quantityMilli" in widget ? widget.quantityMilli : undefined,
+    ).toBe("9000");
+    expect(
       widget?.grossByCurrency.find((row) => row.currency === "UAH")
         ?.grossAmountMinor,
     ).toBe("2600");
@@ -901,6 +907,9 @@ describe("orders.list", () => {
     const gadget = productBucket(byProduct, fixtures.productGadget);
     expect(gadget?.orderCount).toBe(1);
     expect(gadget?.label).toBe("Gadget EUR");
+    expect(
+      gadget && "quantityMilli" in gadget ? gadget.quantityMilli : undefined,
+    ).toBe("1000");
 
     expect(byProduct.orderCount).toBe(6);
     expect(byProduct.grossByCurrency).toEqual([
@@ -928,6 +937,9 @@ describe("orders.list", () => {
         )
         .toSorted(),
     ).toEqual(["confirmed", "new"]);
+    expect(
+      byStatus.buckets.every((bucket) => !("quantityMilli" in bucket)),
+    ).toBe(true);
 
     const byCustomer = asAggregate(
       await kit.invoke(listOrders, { kind: "aggregate", groupBy: "customer" }),
@@ -950,6 +962,7 @@ describe("orders.list", () => {
       nameSnapshot: UNLINKED_CUSTOMER_NAME_SNAPSHOT,
     });
     expect(unlinked?.orderCount).toBe(1);
+    expect(unlinked && "quantityMilli" in unlinked).toBe(false);
 
     const none = asAggregate(
       await kit.invoke(listOrders, { kind: "aggregate", groupBy: "none" }),
@@ -958,6 +971,7 @@ describe("orders.list", () => {
     expect(none.buckets[0]?.identity).toEqual({ kind: "none" });
     expect(none.buckets[0]?.orderCount).toBe(6);
     expect(none.orderCount).toBe(6);
+    expect(none.buckets[0] && "quantityMilli" in none.buckets[0]).toBe(false);
   });
 
   it("eval 1: active-order product quantities use one aggregate", async () => {
@@ -970,6 +984,9 @@ describe("orders.list", () => {
     );
     const widget = productBucket(evalActive, fixtures.productA);
     expect(widget?.orderCount).toBe(4);
+    expect(
+      widget && "quantityMilli" in widget ? widget.quantityMilli : undefined,
+    ).toBe("8000");
     expect(
       evalActive.buckets.some((bucket) => bucket.label === "Canceled widget"),
     ).toBe(false);

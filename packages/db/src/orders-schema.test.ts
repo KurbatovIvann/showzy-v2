@@ -137,12 +137,17 @@ function nextOrderNumber(companyId: string): string {
 async function insertOrder(
   values: Omit<
     typeof orders.$inferInsert,
-    "totalNetMinor" | "totalTaxMinor" | "totalGrossMinor" | "orderNumber"
+    | "totalNetMinor"
+    | "totalTaxMinor"
+    | "totalGrossMinor"
+    | "orderNumber"
+    | "customerNameSnapshot"
   > & {
     totalNetMinor?: bigint;
     totalTaxMinor?: bigint;
     totalGrossMinor?: bigint;
     orderNumber?: string;
+    customerNameSnapshot?: string;
   },
 ) {
   const rows = await dbClient.db
@@ -152,6 +157,7 @@ async function insertOrder(
       totalTaxMinor: 0n,
       totalGrossMinor: 10_000n,
       orderNumber: nextOrderNumber(values.companyId),
+      customerNameSnapshot: "unlinked",
       ...values,
     })
     .returning();
@@ -889,7 +895,7 @@ describe("staff orders schema slice", () => {
     );
   });
 
-  it("defaults unlinked snapshot, backfills live CRM name, and keeps NOT NULL", async () => {
+  it("writes the unlinked sentinel without a column default; omitted inserts fail NOT NULL", async () => {
     const company = await insertCompany();
     const customer = await insertCustomer(company.id, { name: "Live CRM" });
     const linked = await insertOrder({
@@ -903,36 +909,32 @@ describe("staff orders schema slice", () => {
     });
     expect(orphaned.customerNameSnapshot).toBe("unlinked");
 
-    const notNull = await admin.query<{ is_nullable: string }>(
-      `SELECT is_nullable
+    const column = await admin.query<{
+      is_nullable: string;
+      column_default: string | null;
+    }>(
+      `SELECT is_nullable, column_default
        FROM information_schema.columns
        WHERE table_schema = 'public'
          AND table_name = 'orders'
          AND column_name = 'customer_name_snapshot'`,
     );
-    expect(notNull.rows[0]?.is_nullable).toBe("NO");
+    expect(column.rows[0]?.is_nullable).toBe("NO");
+    expect(column.rows[0]?.column_default).toBeNull();
 
-    await admin.query(
-      `UPDATE "orders" AS o
-       SET "customer_name_snapshot" = c."name"
-       FROM "company_customers" AS c
-       WHERE o."customer_id" IS NOT NULL
-         AND o."company_id" = c."company_id"
-         AND o."customer_id" = c."id"
-         AND char_length(c."name") > 0
-         AND o."id" = $1`,
-      [linked.id],
+    await expectSqlState(
+      admin.query(
+        `INSERT INTO "orders" (
+           "company_id",
+           "order_number",
+           "total_net_minor",
+           "total_tax_minor",
+           "total_gross_minor"
+         ) VALUES ($1, $2, 1, 0, 1)`,
+        [company.id, nextOrderNumber(company.id)],
+      ),
+      "23502",
     );
-    const [updated] = await dbClient.db
-      .select({ snapshot: orders.customerNameSnapshot })
-      .from(orders)
-      .where(eq(orders.id, linked.id));
-    expect(updated?.snapshot).toBe("Live CRM");
-    const [stillOrphaned] = await dbClient.db
-      .select({ snapshot: orders.customerNameSnapshot })
-      .from(orders)
-      .where(eq(orders.id, orphaned.id));
-    expect(stillOrphaned?.snapshot).toBe("unlinked");
   });
 
   it("ships the CRM snapshot backfill in 0040 (db.md §7)", () => {
@@ -945,5 +947,15 @@ describe("staff orders schema slice", () => {
     expect(sql).toContain('FROM "company_customers" AS c');
     expect(sql).toContain("db.md §7");
     expect(sql).not.toContain("Deleted customer");
+  });
+
+  it("drops the snapshot column default in 0041 once create always writes it", () => {
+    const sql = readFileSync(
+      new URL("../migrations/0041_shiny_zombie.sql", import.meta.url),
+      "utf8",
+    );
+    expect(sql).toContain(
+      'ALTER TABLE "orders" ALTER COLUMN "customer_name_snapshot" DROP DEFAULT',
+    );
   });
 });

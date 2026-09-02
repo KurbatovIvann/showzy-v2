@@ -288,6 +288,13 @@
       "when": 1788298855400,
       "tag": "0040_dapper_killraven",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1788329914262,
+      "tag": "0041_shiny_zombie",
+      "breakpoints": true
     }
   ]
 }

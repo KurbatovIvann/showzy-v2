@@ -181,12 +181,45 @@ export const listOrdersBucketIdentitySchema = z.discriminatedUnion("kind", [
   }),
 ]);
 
-export const listOrdersBucketSchema = z.object({
-  identity: listOrdersBucketIdentitySchema,
+const listOrdersBucketSharedFields = {
   label: z.string(),
   orderCount: z.number().int().nonnegative(),
   grossByCurrency: z.array(listOrdersGrossByCurrencySchema),
+};
+
+/** Product buckets carry line-quantity milli; other groupBy kinds do not. */
+export const listOrdersProductBucketSchema = z.object({
+  identity: z.object({
+    kind: z.literal("product"),
+    productId: z.uuid(),
+    variantId: z.uuid().nullable(),
+  }),
+  ...listOrdersBucketSharedFields,
+  quantityMilli: quantityMilliWireSchema,
 });
+
+export const listOrdersOtherBucketSchema = z.object({
+  identity: z.discriminatedUnion("kind", [
+    z.object({
+      kind: z.literal("customer"),
+      customerId: z.uuid().nullable(),
+      nameSnapshot: z.string().min(1),
+    }),
+    z.object({
+      kind: z.literal("status"),
+      status: orderStatusSchema,
+    }),
+    z.object({
+      kind: z.literal("none"),
+    }),
+  ]),
+  ...listOrdersBucketSharedFields,
+});
+
+export const listOrdersBucketSchema = z.union([
+  listOrdersProductBucketSchema,
+  listOrdersOtherBucketSchema,
+]);
 
 export const listOrdersPageSummaryOutputSchema = z.strictObject({
   kind: z.literal("page.summary"),
@@ -225,13 +258,16 @@ export type ListOrderCompactLine = z.output<typeof listOrderCompactLineSchema>;
 export type ListOrdersGrossByCurrency = z.output<
   typeof listOrdersGrossByCurrencySchema
 >;
+export type ListOrdersProductBucket = z.output<
+  typeof listOrdersProductBucketSchema
+>;
 export type ListOrdersBucket = z.output<typeof listOrdersBucketSchema>;
 export type ListOrdersOutput = z.output<typeof listOrdersOutputSchema>;
 
 export const listOrdersContract = defineActionContract({
   name: "orders.list",
   description:
-    "Query staff-intake orders in the staff member's active company. Pass kind page.summary or page.withLines for a newest-first cursor page, or kind aggregate for a bounded server rollup. Omit filter.statuses to include new, confirmed, and canceled; there is no server status named active or all — until fulfillment statuses exist, active means new plus confirmed. Optional filter.query matches the text order number (optional leading #) or CRM customer name, phone, or email and always requires customers:view. Optional customerIds, createdFrom, and createdTo compose with query. Summary rows include the customer name snapshot and linkedCustomerId, itemCount, and header totals — not the get view. Aggregate buckets are currency-safe and grouped by product (productId+variantId), customer, status, or none. Company id is never input. Does not filter by payment.",
+    "Query staff-intake orders in the staff member's active company. Pass kind page.summary or page.withLines for a newest-first cursor page, or kind aggregate for a bounded server rollup. Omit filter.statuses to include new, confirmed, and canceled; there is no server status named active or all — until fulfillment statuses exist, active means new plus confirmed. Optional filter.query matches the text order number (optional leading #) or CRM customer name, phone, or email and always requires customers:view. Optional customerIds, createdFrom, and createdTo compose with query. Summary rows include the customer name snapshot and linkedCustomerId, itemCount, and header totals — not the get view. Aggregate buckets are currency-safe and grouped by product (productId+variantId), customer, status, or none. Product buckets include quantityMilli (sum of line quantity_milli for that SKU, across currencies). Company id is never input. Does not filter by payment.",
   principal: "staff",
   transport: "client",
   input: listOrdersInputSchema,

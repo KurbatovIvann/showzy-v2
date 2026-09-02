@@ -15,6 +15,7 @@ import {
   sanitizeLikeLiteral,
 } from "@showzy/validation/pagination";
 import { and, asc, eq, ilike, inArray, or, type SQL } from "drizzle-orm";
+import { unionAll } from "drizzle-orm/pg-core";
 
 type StaffDb = Extract<ActionCtx, { principal: "staff" }>["db"];
 
@@ -86,7 +87,11 @@ function mergeProductCandidates(
 }
 
 function productLabel(row: ProductCandidate): string {
-  return `${row.name} (${row.currency})`;
+  return `${row.name} (${row.currency}, ${row.id})`;
+}
+
+function variantLabel(row: VariantCandidate): string {
+  return `${row.name} (${row.id})`;
 }
 
 function conflictLabels<T>(
@@ -153,22 +158,35 @@ async function loadActiveProductsByContainsQuery(
   companyId: string,
   queries: readonly string[],
 ): Promise<ProductCandidate[]> {
-  const contains = orIlike(products.name, queries, likeContainsPattern);
-  if (contains === undefined) {
+  const selects = queries.flatMap((query) => {
+    const pattern = likeContainsPattern(normalizeReferenceQuery(query));
+    if (pattern === undefined) {
+      return [];
+    }
+    return [
+      db
+        .select(productCandidateColumns)
+        .from(products)
+        .where(
+          and(
+            eq(products.companyId, companyId),
+            eq(products.status, "active"),
+            ilike(products.name, pattern),
+          ),
+        )
+        .orderBy(asc(products.name), asc(products.id))
+        .limit(RESOLVE_LINE_CANDIDATE_MAX),
+    ];
+  });
+  const first = selects[0];
+  if (first === undefined) {
     return [];
   }
-  return db
-    .select(productCandidateColumns)
-    .from(products)
-    .where(
-      and(
-        eq(products.companyId, companyId),
-        eq(products.status, "active"),
-        contains,
-      ),
-    )
-    .orderBy(asc(products.name), asc(products.id))
-    .limit(RESOLVE_LINE_CANDIDATE_MAX);
+  const second = selects[1];
+  if (second === undefined) {
+    return await first;
+  }
+  return await unionAll(first, second, ...selects.slice(2));
 }
 
 async function loadVariantsForProducts(
@@ -248,16 +266,17 @@ function resolveVariantRef(
     throw new NotFoundError();
   }
   if (picked.kind === "ambiguous") {
-    throw conflictLabels(ref.value, picked.rows, (row) => row.name);
+    throw conflictLabels(ref.value, picked.rows, variantLabel);
   }
   return picked.row;
 }
 
 /**
  * Bounded reads: at most one product-id SELECT, one active exact-name
- * SELECT, one capped active contains SELECT, and one variant SELECT for
- * the resolved product ids. Never one SELECT per input line and never a
- * nested action call.
+ * SELECT (uncapped), one contains statement that caps candidates per
+ * input query string (not one shared LIMIT across the OR), and one
+ * variant SELECT for the resolved product ids. Never one SELECT per
+ * input line and never a nested action call.
  */
 export async function resolveCatalogLineReferences(args: {
   readonly db: StaffDb;

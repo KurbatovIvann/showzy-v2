@@ -1,4 +1,5 @@
 import { orderItems, orders } from "@showzy/db/schema/orders";
+import { moneyToCanonical } from "@showzy/module-kit/canonical";
 import { and, count, eq, sql, sum } from "drizzle-orm";
 
 import {
@@ -29,6 +30,7 @@ type MutableBucket = {
   newestAt: number;
   newestId: string;
   orderCount: number;
+  quantityMilli: bigint;
   gross: Map<string, bigint>;
 };
 
@@ -52,6 +54,25 @@ function addGrossRow(
   }
 }
 
+function toOutputBucket(bucket: MutableBucket): Bucket {
+  const grossByCurrency = grossByCurrencyFromMap(bucket.gross);
+  if (bucket.identity.kind === "product") {
+    return {
+      identity: bucket.identity,
+      label: bucket.label,
+      orderCount: bucket.orderCount,
+      grossByCurrency,
+      quantityMilli: moneyToCanonical(bucket.quantityMilli),
+    };
+  }
+  return {
+    identity: bucket.identity,
+    label: bucket.label,
+    orderCount: bucket.orderCount,
+    grossByCurrency,
+  };
+}
+
 function sortAndCapBuckets(buckets: MutableBucket[]): {
   readonly buckets: Bucket[];
   readonly bucketsTruncated: boolean;
@@ -68,12 +89,7 @@ function sortAndCapBuckets(buckets: MutableBucket[]): {
     : sorted;
   return {
     bucketsTruncated: truncated,
-    buckets: capped.map((bucket) => ({
-      identity: bucket.identity,
-      label: bucket.label,
-      orderCount: bucket.orderCount,
-      grossByCurrency: grossByCurrencyFromMap(bucket.gross),
-    })),
+    buckets: capped.map(toOutputBucket),
   };
 }
 
@@ -148,6 +164,7 @@ export async function listAggregate(
           newestAt: 0,
           newestId: "",
           orderCount: 0,
+          quantityMilli: 0n,
           gross: new Map(),
         } satisfies MutableBucket);
       bucket.orderCount += toCount(row.orderCount);
@@ -209,6 +226,7 @@ export async function listAggregate(
           newestAt: 0,
           newestId: "",
           orderCount: 0,
+          quantityMilli: 0n,
           gross: new Map(),
         } satisfies MutableBucket);
       bucket.orderCount += toCount(row.orderCount);
@@ -250,6 +268,7 @@ export async function listAggregate(
       newestAt: sql<Date>`max(${orders.createdAt})`,
       newestId: sql<string>`(array_agg(${orders.id} ORDER BY ${orders.createdAt} DESC, ${orders.id} DESC))[1]`,
       newestTitle: sql<string>`(array_agg(${orderItems.titleSnapshot} ORDER BY ${orders.createdAt} DESC, ${orders.id} DESC))[1]`,
+      quantityMilli: sum(orderItems.quantityMilli),
     })
     .from(orderItems)
     .innerJoin(
@@ -281,9 +300,11 @@ export async function listAggregate(
         newestAt: 0,
         newestId: "",
         orderCount: 0,
+        quantityMilli: 0n,
         gross: new Map(),
       } satisfies MutableBucket);
     bucket.orderCount += toCount(row.orderCount);
+    bucket.quantityMilli += toBigint(row.quantityMilli);
     addGrossRow(
       bucket,
       row.currency,

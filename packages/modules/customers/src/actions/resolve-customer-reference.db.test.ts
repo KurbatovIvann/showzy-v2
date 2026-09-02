@@ -173,6 +173,45 @@ describe("customers.resolveCustomerReference", () => {
     expect(error.clientMessage).not.toContain(fixtures.twinA);
   });
 
+  it("adds the canonical id to conflict labels when phone and email are missing", async () => {
+    const firstId = randomUUID();
+    const secondId = randomUUID();
+    await kit.db.runtime.db.insert(companyCustomers).values([
+      {
+        id: firstId,
+        companyId: kitIdentities.companies.a,
+        name: "IdOnly Twin",
+        phone: "-",
+        email: null,
+      },
+      {
+        id: secondId,
+        companyId: kitIdentities.companies.a,
+        name: "IdOnly Twin",
+        phone: "+",
+        email: null,
+      },
+    ]);
+    const error = await kit
+      .invoke(resolveCustomerReference, {
+        by: "query",
+        value: "IdOnly Twin",
+      })
+      .then(
+        () => {
+          throw new Error("expected ConflictError");
+        },
+        (caught: unknown) => caught,
+      );
+    expect(error).toBeInstanceOf(ConflictError);
+    if (!(error instanceof ConflictError)) {
+      return;
+    }
+    expect(error.clientMessage).toContain(firstId);
+    expect(error.clientMessage).toContain(secondId);
+    expect(error.clientMessage).not.toContain("…");
+  });
+
   it("conflicts on a contains-only hit and never auto-chooses", async () => {
     await expect(
       kit.invoke(resolveCustomerReference, { by: "query", value: "Cake" }),
