@@ -159,17 +159,22 @@ function actionContractJsonSchema(contract: ActionContract) {
  * schema. `execute` is injected so this package does not own the action
  * pipeline. Provider-safe ToolSet keys are applied by
  * `staffAssistantTools`. Union inputs get `ensureAnthropicToolInputSchemaType`.
+ * Optional `description` keeps the 1:1 schema while teaching BM25/search
+ * (pricing create/fill path) without flattening the contract.
  */
 export function actionContractToTool(
   contract: ActionContract,
   execute: ActionToolExecute,
+  options?: { readonly description?: string },
 ): Tool {
   return tool({
-    description: contract.description,
+    description: options?.description ?? contract.description,
     inputSchema: actionContractJsonSchema(contract),
-    execute: async (input: unknown, options) => {
+    execute: async (input: unknown, executeOptions) => {
       const parsed: unknown = contract.input.parse(input);
-      return execute(contract.name, parsed, { toolCallId: options.toolCallId });
+      return execute(contract.name, parsed, {
+        toolCallId: executeOptions.toolCallId,
+      });
     },
   });
 }
@@ -262,20 +267,17 @@ function insertActionTool(
       `duplicate provider tool name "${providerName}" for "${contract.name}"`,
     );
   }
-  const aiTool = actionContractToTool(contract, execute);
   const descriptionSuffix =
     PRICING_DEFERRED_TOOL_DESCRIPTION_SUFFIXES[contract.name];
-  const described =
+  const aiTool = actionContractToTool(
+    contract,
+    execute,
     descriptionSuffix === undefined
-      ? aiTool
-      : {
-          ...aiTool,
-          description: `${contract.description} ${descriptionSuffix}`,
-        };
+      ? undefined
+      : { description: `${contract.description} ${descriptionSuffix}` },
+  );
   tools[providerName] =
-    providerOptions === undefined
-      ? described
-      : { ...described, providerOptions };
+    providerOptions === undefined ? aiTool : { ...aiTool, providerOptions };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
