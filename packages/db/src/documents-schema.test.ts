@@ -688,13 +688,6 @@ describe("documents schema slice", () => {
       }),
       "23514",
     );
-    const withBasis = await insertDocument({
-      companyId: company.id,
-      orderId: order.id,
-      type: "delivery_note",
-      basis: "Договір поставки № 1",
-    });
-    expect(withBasis.basis).toBe("Договір поставки № 1");
     await expectSqlState(
       insertItem({
         companyId: company.id,
@@ -789,6 +782,19 @@ describe("documents schema slice", () => {
     expect(free.templateSource).toBe("system");
     expect(free.issuedOn).toBe("2026-08-29");
     expect(free.totalGrossMinor).toBe(0n);
+  });
+
+  it("stores a nullable basis snapshot of at most 500 characters", async () => {
+    const company = await insertCompany();
+    const order = await insertOrder({ companyId: company.id });
+    const withBasis = await insertDocument({
+      companyId: company.id,
+      orderId: order.id,
+      type: "delivery_note",
+      basis: "Договір поставки № 1",
+    });
+    expect(withBasis.basis).toBe("Договір поставки № 1");
+    expect(withBasis.basis?.length).toBeLessThanOrEqual(500);
   });
 
   it("enforces unique document numbers and one live row per order+type", async () => {
