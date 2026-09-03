@@ -29,18 +29,22 @@ id, name, basePriceMinor, currency, status, variantCount). Third copy:
 rows: id, name, isDefault, isActive, entryCount). Fourth copy:
 `customers.listCustomers` → `customers_list_customers` (SHO-381, compact
 rows: id, name, phone, email, status, groupId, priceListId; named
-assistant `limit` from SHO-360). Do not copy kinds. Do not copy this
-list façade repo-wide in the same PR. Copy **input map and output map**
-for later lists; do not copy T5 input-only façades. Write copy:
+assistant `limit` from SHO-360). Fifth copy, deferred:
+`customers.listGroups` → `customers_list_groups` (SHO-382, compact
+rows: id, name, memberCount, priceListId; not hot). Do not copy kinds.
+Do not copy this list façade repo-wide in the same PR. Copy **input map
+and output map** for later lists; do not copy T5 input-only façades.
+Write copy:
 `orders.create` → `orders_create` (SHO-359, named object over EntityRef /
 quantity unions). Do not copy this write façade to every write in the
 same PR. Do not flatten `create.contract.ts`.
 
 `toProviderToolName("orders.list")` (`orders_list`) is the 1:1 mapping,
 not the advertised ToolSet key. Hot names are the façade keys. The 1:1
-`catalog_listProducts`, `pricing_listPriceLists`, and
-`customers_listCustomers` keys must not remain advertised once those
-façades exist. `toProviderToolName("orders.create")` is already
+`catalog_listProducts`, `pricing_listPriceLists`,
+`customers_listCustomers`, and `customers_listGroups` keys must not
+remain advertised once those façades exist.
+`toProviderToolName("orders.create")` is already
 `orders_create` — that key stays advertised, with the named object
 schema, not the EntityRef union.
 

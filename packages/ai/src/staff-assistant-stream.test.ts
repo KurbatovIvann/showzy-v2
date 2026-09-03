@@ -6,6 +6,7 @@ import { z } from "zod";
 import {
   CATALOG_LIST_PRODUCTS_TOOL_NAME,
   CUSTOMERS_LIST_CUSTOMERS_TOOL_NAME,
+  CUSTOMERS_LIST_GROUPS_TOOL_NAME,
   ORDERS_CREATE_TOOL_NAME,
   ORDERS_LIST_COUNTS_TOOL_NAME,
   ORDERS_LIST_PAGE_TOOL_NAME,
@@ -38,6 +39,7 @@ import {
   readUiMessageSsePayloads,
 } from "./test.js";
 import { CUSTOMERS_LIST_CUSTOMERS_ASSISTANT_LIMIT } from "./tool-facades/customers-list-customers.js";
+import { CUSTOMERS_LIST_GROUPS_ASSISTANT_LIMIT } from "./tool-facades/customers-list-groups.js";
 import { ORDERS_LIST_PAGE_ASSISTANT_LIMIT } from "./tool-facades/orders-list.js";
 import { STAFF_ASSISTANT_EMPTY_TOOLSET_HASH } from "./toolset-hash.js";
 import { staffAssistantTurnContextAddendum } from "./turn-context.js";
@@ -162,6 +164,28 @@ const listPriceLists = defineActionContract({
 const listCustomers = defineActionContract({
   name: "customers.listCustomers",
   description: "List CRM customers in the staff member's active company.",
+  principal: "staff",
+  transport: "client",
+  aiExposure: "exposed",
+  permissions: ["customers:view"],
+  risk: "read",
+  requiresConfirmation: false,
+  idempotent: false,
+  emits: [],
+  atomicCalls: [],
+  atomicCallers: [],
+  audit: false,
+  timeout: 5_000,
+  input: z.looseObject({}),
+  output: z.object({
+    items: z.array(z.object({ id: z.uuid() })),
+    nextCursor: z.string().nullable(),
+  }),
+});
+
+const listGroups = defineActionContract({
+  name: "customers.listGroups",
+  description: "List customer groups in the staff member's active company.",
   principal: "staff",
   transport: "client",
   aiExposure: "exposed",
@@ -596,6 +620,55 @@ describe("streamStaffAssistantChat", () => {
     expect(secondStep).toContain("@example.com");
     expect(secondStep).not.toContain("do not leak notes into the model");
     expect(secondStep).not.toContain("user_secret_id");
+    expect(secondStep).not.toContain(STAFF_ASSISTANT_CLIPPED_STATUS);
+    expect(turn.toolResultBytesOut).toBe(turn.toolResultBytesIn);
+  });
+
+  it("feeds a compact groups page into the next step, not description", async () => {
+    const items = Array.from({ length: 3 }, (_, index) => ({
+      id: `aaaaaaaa-aaaa-4aaa-8aaa-${index.toString().padStart(12, "0")}`,
+      name: `VIP ${String(index)}`,
+      slug: `vip-${String(index)}`,
+      description: "do not leak group description",
+      priceListId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      memberCount: 8,
+      createdAt: "2026-09-01T12:00:00.000Z",
+      updatedAt: "2026-09-02T08:00:00.000Z",
+    }));
+    const execute = vi.fn(() => Promise.resolve({ items, nextCursor: null }));
+    const model = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream(
+          "call-groups",
+          CUSTOMERS_LIST_GROUPS_TOOL_NAME,
+          JSON.stringify({ search: "VIP" }),
+        ),
+        mockTextStream("VIP has 8 members."),
+      ],
+    });
+    const { response, completion } = streamStaffAssistantChat({
+      model,
+      messages: [{ role: "user", content: "Find VIP group" }],
+      contracts: [listGroups],
+      execute,
+    });
+    await readUiMessageSsePayloads(response);
+    const turn = await completion;
+    expect(execute).toHaveBeenCalledWith(
+      "customers.listGroups",
+      {
+        search: "VIP",
+        limit: CUSTOMERS_LIST_GROUPS_ASSISTANT_LIMIT,
+      },
+      { toolCallId: "call-groups" },
+    );
+    expect(model.doStreamCalls.length).toBeGreaterThanOrEqual(2);
+    const secondStep = JSON.stringify(model.doStreamCalls[1]);
+    expect(secondStep).toContain("VIP 0");
+    expect(secondStep).toContain('"memberCount":8');
+    expect(secondStep).toContain("cccccccc-cccc-4ccc-8ccc-cccccccccccc");
+    expect(secondStep).not.toContain("do not leak group description");
+    expect(secondStep).not.toContain('"slug"');
     expect(secondStep).not.toContain(STAFF_ASSISTANT_CLIPPED_STATUS);
     expect(turn.toolResultBytesOut).toBe(turn.toolResultBytesIn);
   });

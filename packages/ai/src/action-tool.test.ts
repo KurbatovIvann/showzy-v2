@@ -7,6 +7,7 @@ import {
   actionContractToTool,
   CATALOG_LIST_PRODUCTS_TOOL_NAME,
   CUSTOMERS_LIST_CUSTOMERS_TOOL_NAME,
+  CUSTOMERS_LIST_GROUPS_TOOL_NAME,
   ensureAnthropicToolInputSchemaType,
   fromProviderToolName,
   ORDERS_CREATE_TOOL_NAME,
@@ -24,6 +25,7 @@ import {
   STAFF_ASSISTANT_DEFER_PROVIDER_OPTIONS,
 } from "./anthropic-options.js";
 import { CUSTOMERS_LIST_CUSTOMERS_ASSISTANT_LIMIT } from "./tool-facades/customers-list-customers.js";
+import { CUSTOMERS_LIST_GROUPS_ASSISTANT_LIMIT } from "./tool-facades/customers-list-groups.js";
 import { ORDERS_LIST_PAGE_ASSISTANT_LIMIT } from "./tool-facades/orders-list.js";
 
 const customerId = "11111111-1111-4111-8111-111111111111";
@@ -267,6 +269,10 @@ describe("staffAssistantTools", () => {
     expect(staffAssistantHotToolNames()).not.toContain(
       "customers_listCustomers",
     );
+    expect(staffAssistantHotToolNames()).not.toContain(
+      CUSTOMERS_LIST_GROUPS_TOOL_NAME,
+    );
+    expect(staffAssistantHotToolNames()).not.toContain("customers_listGroups");
   });
 
   it("caches search when every domain tool is deferred", () => {
@@ -653,5 +659,88 @@ describe("staffAssistantTools", () => {
     expect(JSON.stringify(result)).not.toContain("do not leak");
     expect(JSON.stringify(result)).not.toContain("user_secret");
     expect(JSON.stringify(result)).not.toContain("linkedCounterpartyCount");
+  });
+
+  it("advertises deferred customers_list_groups and still dispatches to customers.listGroups", async () => {
+    const listGroups = defineActionContract({
+      name: "customers.listGroups",
+      description: "List customer groups in the staff member's active company.",
+      principal: "staff",
+      transport: "client",
+      aiExposure: "exposed",
+      permissions: ["customers:view"],
+      risk: "read",
+      requiresConfirmation: false,
+      idempotent: false,
+      emits: [],
+      atomicCalls: [],
+      atomicCallers: [],
+      audit: false,
+      timeout: 5_000,
+      input: z.looseObject({}),
+      output: z.object({
+        items: z.array(z.object({ id: z.uuid() })),
+        nextCursor: z.string().nullable(),
+      }),
+    });
+    const execute = vi.fn(() =>
+      Promise.resolve({
+        items: [
+          {
+            id: customerId,
+            name: "VIP",
+            slug: "vip",
+            description: "do not leak description",
+            priceListId: null,
+            memberCount: 4,
+            createdAt: "2026-09-01T12:00:00.000Z",
+            updatedAt: "2026-09-01T12:00:00.000Z",
+          },
+        ],
+        nextCursor: null,
+      }),
+    );
+    const tools = staffAssistantTools([listGroups], execute);
+    const names = Object.keys(tools);
+    expect(names).toContain(CUSTOMERS_LIST_GROUPS_TOOL_NAME);
+    expect(names).not.toContain("customers_listGroups");
+    expect(names).not.toContain(toProviderToolName("customers.listGroups"));
+    expect(tools[CUSTOMERS_LIST_GROUPS_TOOL_NAME]?.providerOptions).toEqual(
+      STAFF_ASSISTANT_DEFER_PROVIDER_OPTIONS,
+    );
+    expect(tools[STAFF_ASSISTANT_TOOL_SEARCH_NAME]?.providerOptions).toEqual({
+      anthropic: { cacheControl: STAFF_ASSISTANT_CACHE_CONTROL },
+    });
+    const executeTool = tools[CUSTOMERS_LIST_GROUPS_TOOL_NAME]?.execute;
+    expect(executeTool).toBeTypeOf("function");
+    if (executeTool === undefined) {
+      return;
+    }
+    const result: unknown = await executeTool(
+      { search: "VIP" },
+      { toolCallId: "call-groups", messages: [], context: undefined },
+    );
+    expect(execute).toHaveBeenCalledWith(
+      "customers.listGroups",
+      {
+        search: "VIP",
+        limit: CUSTOMERS_LIST_GROUPS_ASSISTANT_LIMIT,
+      },
+      { toolCallId: "call-groups" },
+    );
+    expect(result).toEqual({
+      items: [
+        {
+          id: customerId,
+          name: "VIP",
+          memberCount: 4,
+          priceListId: null,
+        },
+      ],
+      nextCursor: null,
+    });
+    expect(JSON.stringify(result)).not.toContain("do not leak description");
+    expect(JSON.stringify(result)).not.toContain("slug");
+    expect(JSON.stringify(result)).not.toContain("createdAt");
   });
 });
