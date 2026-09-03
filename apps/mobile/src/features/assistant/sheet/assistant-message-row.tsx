@@ -3,14 +3,24 @@ import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
 import type { AssistantTimelineStep } from "../shared/chat-rows";
+import type {
+  AssistantOrderEntityCardView,
+  AssistantOrdersListCardView,
+} from "../shared/result-cards";
 import { AssistantTimeline } from "./assistant-timeline";
 import { ConfirmationCard } from "./confirmation-card";
+import { OrderEntityCard } from "./order-entity-card";
+import { OrdersListResultCard } from "./orders-list-result-card";
 
 export const AssistantMessageRow = memo(function AssistantMessageRow(props: {
   readonly role: "user" | "assistant";
   readonly text: string;
   readonly timeline: readonly AssistantTimelineStep[];
   readonly timelineLabel: string;
+  readonly listCard: AssistantOrdersListCardView | null;
+  readonly entityCards: readonly AssistantOrderEntityCardView[];
+  readonly onOpenOrders: () => void;
+  readonly onOpenOrder: (orderId: string) => void;
   readonly confirmationSummary: string | null;
   readonly confirmationTitle: string;
   readonly confirmLabel: string;
@@ -23,6 +33,7 @@ export const AssistantMessageRow = memo(function AssistantMessageRow(props: {
   const isUser = props.role === "user";
   const confirmationSummary = props.confirmationSummary;
   const showTimeline = props.timeline.length > 0;
+  const listCard = props.listCard;
 
   return (
     <View style={isUser ? styles.userWrap : styles.assistantWrap}>
@@ -37,6 +48,20 @@ export const AssistantMessageRow = memo(function AssistantMessageRow(props: {
           accessibilityLabel={props.timelineLabel}
         />
       ) : null}
+      {listCard !== null ? (
+        <OrdersListResultCard
+          card={listCard}
+          onOpenOrders={props.onOpenOrders}
+          onOpenOrder={props.onOpenOrder}
+        />
+      ) : null}
+      {props.entityCards.map((card) => (
+        <OrderEntityCard
+          key={card.id}
+          card={card}
+          onOpenOrder={props.onOpenOrder}
+        />
+      ))}
       {confirmationSummary !== null ? (
         <ConfirmationCard
           title={props.confirmationTitle}

@@ -8,7 +8,6 @@ import type { AssistantTimelineStep } from "../shared/chat-rows";
 /**
  * Canvas `AssistantTimeline` (mp-to-mobile.md): Card of job-label rows
  * with a status dot. Feature chrome — not a second shared Card.
- * List/aggregate/entity blocks stay T2–T4.
  */
 export const AssistantTimeline = memo(function AssistantTimeline(props: {
   readonly steps: readonly AssistantTimelineStep[];

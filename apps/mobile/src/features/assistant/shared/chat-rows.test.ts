@@ -62,6 +62,8 @@ describe("assistantChatRows", () => {
         text: "Delete the customer",
         confirmation: null,
         timeline: [],
+        listCard: null,
+        entityCards: [],
       },
       {
         id: "a1",
@@ -69,6 +71,8 @@ describe("assistantChatRows", () => {
         text: "Confirmation required.",
         confirmation: pending,
         timeline: [],
+        listCard: null,
+        entityCards: [],
       },
     ]);
   });
@@ -109,6 +113,8 @@ describe("assistantChatRows", () => {
           status: "running" as const,
         },
       ],
+      listCard: null,
+      entityCards: [],
     };
     expect(rows[1]).toEqual(inFlightRow);
     expect(assistantRowHasInFlightTools(inFlightRow)).toBe(true);
@@ -145,6 +151,8 @@ describe("assistantChatRows", () => {
           status: "done" as const,
         },
       ],
+      listCard: null,
+      entityCards: [],
     };
     expect(rows).toEqual([doneRow]);
     expect(assistantRowHasInFlightTools(doneRow)).toBe(false);
@@ -182,6 +190,8 @@ describe("assistantChatRows", () => {
     expect(rows[0]?.timeline[0]?.label.includes("orders_list_page")).toBe(
       false,
     );
+    expect(rows[0]?.listCard?.kind).toBe("orders-list");
+    expect(JSON.stringify(rows[0]?.text).includes("page.summary")).toBe(false);
   });
 
   it("still attaches HITL data-confirmation to the matching assistant row with tools", () => {
@@ -364,6 +374,8 @@ describe("assistantChatRows", () => {
             status: "done",
           },
         ],
+        listCard: null,
+        entityCards: [],
       },
     ]);
     const remainingRow = rows[0];
@@ -372,6 +384,81 @@ describe("assistantChatRows", () => {
       return;
     }
     expect(assistantRowHasInFlightTools(remainingRow)).toBe(false);
+  });
+
+  it("attaches one list card for page + counts and skips counts-only", () => {
+    const pageAndCounts = assistantChatRows(
+      [
+        {
+          id: "a1",
+          role: "assistant",
+          parts: [
+            {
+              type: "tool-orders_list_counts",
+              toolCallId: "call-counts",
+              state: "output-available",
+              output: {
+                kind: "aggregate",
+                buckets: [
+                  {
+                    identity: { kind: "status", status: "new" },
+                    orderCount: 1,
+                  },
+                ],
+              },
+            },
+            {
+              type: "tool-orders_list_page",
+              toolCallId: "call-page",
+              state: "output-available",
+              output: {
+                kind: "page.summary",
+                items: [
+                  {
+                    orderId: "0f0e2d5c-4a1b-4c3d-9e8f-102938475601",
+                    orderNumber: "1049",
+                    customer: { nameSnapshot: "Іван", linkedCustomerId: null },
+                    status: "new",
+                    itemCount: 1,
+                    totalGrossMinor: "1000",
+                    currency: "UAH",
+                    createdAt: "2026-09-03T10:00:00.000Z",
+                  },
+                ],
+                nextCursor: null,
+                customerMatchTruncated: false,
+              },
+            },
+          ],
+        },
+      ],
+      null,
+      copy,
+    );
+    expect(pageAndCounts[0]?.listCard?.kind).toBe("orders-list");
+    expect(pageAndCounts[0]?.listCard?.chips).toHaveLength(1);
+    expect(pageAndCounts[0]?.entityCards).toEqual([]);
+
+    const countsOnly = assistantChatRows(
+      [
+        {
+          id: "a1",
+          role: "assistant",
+          parts: [
+            {
+              type: "tool-orders_list_counts",
+              toolCallId: "call-counts",
+              state: "output-available",
+              output: { kind: "aggregate", orderCount: 6 },
+            },
+          ],
+        },
+      ],
+      null,
+      copy,
+    );
+    expect(countsOnly[0]?.listCard).toBeNull();
+    expect(countsOnly[0]?.entityCards).toEqual([]);
   });
 
   it("keeps a successful tool result after the HITL challenge is resolved", () => {
@@ -408,6 +495,8 @@ describe("assistantChatRows", () => {
             status: "done",
           },
         ],
+        listCard: null,
+        entityCards: [],
       },
     ]);
   });

@@ -13,6 +13,14 @@ export type AssistantJobsCopy = {
   readonly fallback: string;
 };
 
+export type AssistantCardsCopy = {
+  readonly listEmptyTitle: string;
+  readonly listEmptyDescription: string;
+  readonly openOrders: string;
+  readonly customerMatchTruncated: string;
+  readonly clipped: string;
+};
+
 export type AssistantCopy = {
   readonly sheetTitle: string;
   readonly emptyTitle: string;
@@ -27,6 +35,7 @@ export type AssistantCopy = {
   readonly thinkingLabel: string;
   readonly timelineLabel: string;
   readonly jobs: AssistantJobsCopy;
+  readonly cards: AssistantCardsCopy;
   readonly errors: {
     readonly validation: string;
     readonly network: string;
@@ -62,6 +71,14 @@ const en: AssistantCopy = {
     customers_listCustomers: "Looking up customers",
     fallback: "Working",
   },
+  cards: {
+    listEmptyTitle: "No orders",
+    listEmptyDescription: "No orders match this request.",
+    openOrders: "Open orders",
+    customerMatchTruncated:
+      "Customer name matches were truncated. Refine the search or open the list.",
+    clipped: "The list was clipped. Open orders to see everything.",
+  },
   errors: {
     ...writeErrorsEn,
     network: "Could not reach the assistant. Try again.",
@@ -95,6 +112,14 @@ const uk: AssistantCopy = {
     pricing_list_price_lists: "Шукаю прайси",
     customers_listCustomers: "Шукаю клієнтів",
     fallback: "Працюю",
+  },
+  cards: {
+    listEmptyTitle: "Немає замовлень",
+    listEmptyDescription: "За цим запитом замовлень немає.",
+    openOrders: "Відкрити замовлення",
+    customerMatchTruncated:
+      "Збіги за імʼям клієнта обрізано. Уточніть запит або відкрийте список.",
+    clipped: "Список обрізано. Відкрийте замовлення, щоб побачити все.",
   },
   errors: {
     ...writeErrorsUk,
