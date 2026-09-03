@@ -122,6 +122,23 @@ describe("spokenTurnText", () => {
       }),
     ).toBe("You have no orders.");
   });
+
+  it("fail-opens a non-JSON markdown table after a successful list, never Done", () => {
+    expect(
+      spokenTurnText({
+        parsedSpoken: undefined,
+        rawText: "| order | total |",
+        runs: [{ outcome: "success" }],
+      }),
+    ).toBe(STAFF_ASSISTANT_SUCCESS_SPOKEN_FALLBACK);
+    expect(
+      spokenTurnText({
+        parsedSpoken: undefined,
+        rawText: "| order | total |",
+        runs: [{ outcome: "success" }, { outcome: "confirmation_required" }],
+      }),
+    ).toBe(STAFF_ASSISTANT_CONFIRMATION_FALLBACK_TEXT);
+  });
 });
 
 describe("createSpokenReplyUiTransform", () => {
@@ -207,6 +224,37 @@ describe("createSpokenReplyUiTransform", () => {
     );
     expect(JSON.stringify(parts)).not.toContain("| order");
     expect(JSON.stringify(parts)).not.toContain("**total**");
+  });
+
+  it("fail-opens a non-JSON markdown table to the short spoken fallback", async () => {
+    const transform = createSpokenReplyUiTransform({
+      runs: [{ outcome: "success" }],
+    });
+    const writer = transform.writable.getWriter();
+    const reader = transform.readable.getReader();
+    const parts: unknown[] = [];
+    const read = (async () => {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+        parts.push(value);
+      }
+    })();
+    await writer.write({ type: "text-start", id: "t" });
+    await writer.write({
+      type: "text-delta",
+      id: "t",
+      text: "| order | total |",
+    });
+    await writer.write({ type: "text-end", id: "t" });
+    await writer.close();
+    await read;
+    expect(JSON.stringify(parts)).toContain(
+      STAFF_ASSISTANT_SUCCESS_SPOKEN_FALLBACK,
+    );
+    expect(JSON.stringify(parts)).not.toContain("| order");
   });
 
   it("fail-opens markdown to the confirmation line when HITL is on the turn", async () => {

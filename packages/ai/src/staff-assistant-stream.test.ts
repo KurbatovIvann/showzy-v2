@@ -1131,6 +1131,33 @@ describe("streamStaffAssistantChat", () => {
     expect(turn.toolRuns[0]?.outcome).toBe("success");
   });
 
+  it("fail-opens a non-JSON markdown table after a successful list", async () => {
+    const execute = vi.fn(() =>
+      Promise.resolve({ items: [], nextCursor: null }),
+    );
+    const model = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream("call-list", ORDERS_LIST_PAGE_TOOL_NAME, "{}"),
+        mockTextStream("| order | total |"),
+      ],
+    });
+    const { response, completion } = streamStaffAssistantChat({
+      model,
+      messages: [{ role: "user", content: "List orders" }],
+      contracts: [listOrders],
+      execute,
+    });
+    const payloads = await readUiMessageSsePayloads(response);
+    const turn = await completion;
+    const payloadText = JSON.stringify(payloads);
+    expect(turn.text).toBe(STAFF_ASSISTANT_SUCCESS_SPOKEN_FALLBACK);
+    expect(turn.text).not.toBe("Done.");
+    expect(turn.text).not.toContain("|");
+    expect(payloadText).not.toContain("|");
+    expect(payloadText).toContain(STAFF_ASSISTANT_SUCCESS_SPOKEN_FALLBACK);
+    expect(turn.toolRuns[0]?.outcome).toBe("success");
+  });
+
   it("keeps the confirmation fallback when a successful list and HITL share a markdown spoken turn", async () => {
     const summary =
       "Delete this archived customer. Confirm the name and primary contact.";

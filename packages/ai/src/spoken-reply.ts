@@ -181,7 +181,8 @@ export function spokenTurnText(options: {
   }
   const trimmed = options.rawText.trim();
   if (trimmed !== "" && !looksLikeJsonObject(trimmed)) {
-    return trimmed;
+    // Output.object parse failure can leave a markdown table as plain text.
+    return sanitizeSpoken(trimmed, options.runs) ?? trimmed;
   }
   if (options.runs.some((run) => run.outcome === "confirmation_required")) {
     return STAFF_ASSISTANT_CONFIRMATION_FALLBACK_TEXT;
@@ -321,6 +322,11 @@ export function createSpokenReplyUiTransform<
       if (part.type === "text-end") {
         if (publishedSpoken === "" && accumulatedJson.trim() !== "") {
           if (!looksLikeJsonObject(accumulatedJson)) {
+            if (spokenContainsMarkdownDump(accumulatedJson)) {
+              // Same delay as JSON `{ spoken }` dumps so HITL can still win.
+              heldMarkdownTextEnd = part;
+              return;
+            }
             controller.enqueue({
               ...part,
               type: "text-delta",
