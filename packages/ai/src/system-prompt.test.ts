@@ -38,11 +38,13 @@ describe("staffAssistantSystemPrompt", () => {
     expect(staffAssistantSystemPrompt).toContain("catalog_list_products");
     expect(staffAssistantSystemPrompt).toContain("pricing_list_price_lists");
     expect(staffAssistantSystemPrompt).toContain("orders_create");
+    expect(staffAssistantSystemPrompt).toContain("customers_list_customers");
     expect(staffAssistantSystemPrompt).not.toContain(
       "Always-visible domain tools: orders.list",
     );
     expect(staffAssistantSystemPrompt).not.toContain("catalog_listProducts");
     expect(staffAssistantSystemPrompt).not.toContain("pricing_listPriceLists");
+    expect(staffAssistantSystemPrompt).not.toContain("customers_listCustomers");
   });
 
   it("sends period order counts and gross to orders_list_counts instead of analytics tabs", () => {
@@ -79,6 +81,18 @@ describe("staffAssistantSystemPrompt", () => {
     );
     expect(staffAssistantSystemPrompt).toContain(
       "Do not create a customer, group, or price list in that same write",
+    );
+  });
+
+  it("sends find-customer to customers_list_customers instead of getCustomer loops", () => {
+    expect(staffAssistantSystemPrompt).toContain(
+      "Find a customer by name/phone/email with customers_list_customers",
+    );
+    expect(staffAssistantSystemPrompt).toContain(
+      "do not call customers.getCustomer in a loop to recover notes",
+    );
+    expect(staffAssistantSystemPrompt).toContain(
+      "create uses existing customers.createCustomer",
     );
   });
 

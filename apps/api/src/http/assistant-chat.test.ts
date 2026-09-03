@@ -1,5 +1,6 @@
 import {
   CATALOG_LIST_PRODUCTS_TOOL_NAME,
+  CUSTOMERS_LIST_CUSTOMERS_TOOL_NAME,
   filterStaffAiTools,
   ORDERS_CREATE_TOOL_NAME,
   ORDERS_LIST_COUNTS_TOOL_NAME,
@@ -96,6 +97,9 @@ describe("staff AI tool manifest (SHO-322)", () => {
     expect(names).toContain(PRICING_LIST_PRICE_LISTS_TOOL_NAME);
     expect(names).not.toContain(toProviderToolName("pricing.listPriceLists"));
     expect(names).not.toContain("pricing_listPriceLists");
+    expect(names).toContain(CUSTOMERS_LIST_CUSTOMERS_TOOL_NAME);
+    expect(names).not.toContain(toProviderToolName("customers.listCustomers"));
+    expect(names).not.toContain("customers_listCustomers");
     expect(names).toContain(ORDERS_CREATE_TOOL_NAME);
     expect(names).toContain(toProviderToolName("orders.create"));
     expect(names).not.toContain("orders.create");

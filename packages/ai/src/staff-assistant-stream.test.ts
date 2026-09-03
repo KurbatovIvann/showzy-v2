@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import {
   CATALOG_LIST_PRODUCTS_TOOL_NAME,
+  CUSTOMERS_LIST_CUSTOMERS_TOOL_NAME,
   ORDERS_CREATE_TOOL_NAME,
   ORDERS_LIST_COUNTS_TOOL_NAME,
   ORDERS_LIST_PAGE_TOOL_NAME,
@@ -36,6 +37,7 @@ import {
   mockToolCallStream,
   readUiMessageSsePayloads,
 } from "./test.js";
+import { CUSTOMERS_LIST_CUSTOMERS_ASSISTANT_LIMIT } from "./tool-facades/customers-list-customers.js";
 import { ORDERS_LIST_PAGE_ASSISTANT_LIMIT } from "./tool-facades/orders-list.js";
 import { STAFF_ASSISTANT_EMPTY_TOOLSET_HASH } from "./toolset-hash.js";
 import { staffAssistantTurnContextAddendum } from "./turn-context.js";
@@ -151,6 +153,28 @@ const listPriceLists = defineActionContract({
     limit: z.number().int().min(1).max(50).default(20),
     cursor: z.string().min(1).max(200).optional(),
   }),
+  output: z.object({
+    items: z.array(z.object({ id: z.uuid() })),
+    nextCursor: z.string().nullable(),
+  }),
+});
+
+const listCustomers = defineActionContract({
+  name: "customers.listCustomers",
+  description: "List CRM customers in the staff member's active company.",
+  principal: "staff",
+  transport: "client",
+  aiExposure: "exposed",
+  permissions: ["customers:view"],
+  risk: "read",
+  requiresConfirmation: false,
+  idempotent: false,
+  emits: [],
+  atomicCalls: [],
+  atomicCallers: [],
+  audit: false,
+  timeout: 5_000,
+  input: z.looseObject({}),
   output: z.object({
     items: z.array(z.object({ id: z.uuid() })),
     nextCursor: z.string().nullable(),
@@ -519,6 +543,59 @@ describe("streamStaffAssistantChat", () => {
     expect(secondStep).toContain("UAH");
     expect(secondStep).not.toContain(imageId);
     expect(secondStep).not.toContain("primaryImageFileId");
+    expect(secondStep).not.toContain(STAFF_ASSISTANT_CLIPPED_STATUS);
+    expect(turn.toolResultBytesOut).toBe(turn.toolResultBytesIn);
+  });
+
+  it("feeds a compact customers page into the next step, not notes", async () => {
+    const items = Array.from({ length: 3 }, (_, index) => ({
+      id: `aaaaaaaa-aaaa-4aaa-8aaa-${index.toString().padStart(12, "0")}`,
+      name: `Катя ${String(index)}`,
+      phone: "+380501234567",
+      email: `c${String(index)}@example.com`,
+      userId: "user_secret_id",
+      notes: "do not leak notes into the model",
+      groupId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      priceListId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      status: "active" as const,
+      linkedCounterpartyCount: 2,
+      createdAt: "2026-09-01T12:00:00.000Z",
+      updatedAt: "2026-09-02T08:00:00.000Z",
+    }));
+    const execute = vi.fn(() => Promise.resolve({ items, nextCursor: null }));
+    const model = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream(
+          "call-customers",
+          CUSTOMERS_LIST_CUSTOMERS_TOOL_NAME,
+          JSON.stringify({ search: "Катя" }),
+        ),
+        mockTextStream("Катя: +380501234567"),
+      ],
+    });
+    const { response, completion } = streamStaffAssistantChat({
+      model,
+      messages: [{ role: "user", content: "Find Katya" }],
+      contracts: [listCustomers],
+      execute,
+    });
+    await readUiMessageSsePayloads(response);
+    const turn = await completion;
+    expect(execute).toHaveBeenCalledWith(
+      "customers.listCustomers",
+      {
+        status: "active",
+        search: "Катя",
+        limit: CUSTOMERS_LIST_CUSTOMERS_ASSISTANT_LIMIT,
+      },
+      { toolCallId: "call-customers" },
+    );
+    expect(model.doStreamCalls.length).toBeGreaterThanOrEqual(2);
+    const secondStep = JSON.stringify(model.doStreamCalls[1]);
+    expect(secondStep).toContain("+380501234567");
+    expect(secondStep).toContain("@example.com");
+    expect(secondStep).not.toContain("do not leak notes into the model");
+    expect(secondStep).not.toContain("user_secret_id");
     expect(secondStep).not.toContain(STAFF_ASSISTANT_CLIPPED_STATUS);
     expect(turn.toolResultBytesOut).toBe(turn.toolResultBytesIn);
   });

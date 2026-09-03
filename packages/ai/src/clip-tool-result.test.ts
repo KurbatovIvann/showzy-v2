@@ -187,4 +187,31 @@ describe("clipStaffAssistantToolResult", () => {
     expect(JSON.stringify(clipped.preview)).toContain("basePriceMinor");
     expect(JSON.stringify(clipped.preview)).toContain("UAH");
   });
+
+  it("keeps CRM contacts on identity-key shrink", () => {
+    expect(STAFF_ASSISTANT_CLIP_IDENTITY_KEYS).toEqual(
+      expect.arrayContaining(["phone", "email", "groupId", "priceListId"]),
+    );
+    const groupId = "66666666-6666-4666-8666-666666666666";
+    const priceListId = "77777777-7777-4777-8777-777777777777";
+    const items = Array.from({ length: 40 }, (_, index) => ({
+      id: rowId(index),
+      name: `N${"x".repeat(110)}`,
+      phone: "+380501234567",
+      email: `c${String(index)}@example.com`,
+      status: "active",
+      groupId,
+      priceListId,
+      notes: "n".repeat(200),
+    }));
+    const clipped = clipStaffAssistantToolResult({ items, nextCursor: null });
+    expect(isClipped(clipped)).toBe(true);
+    if (!isClipped(clipped)) {
+      return;
+    }
+    expect(JSON.stringify(clipped.preview)).toContain("+380501234567");
+    expect(JSON.stringify(clipped.preview)).toContain("@example.com");
+    expect(JSON.stringify(clipped.preview)).toContain(groupId);
+    expect(JSON.stringify(clipped.preview)).toContain(priceListId);
+  });
 });
