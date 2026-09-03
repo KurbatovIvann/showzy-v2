@@ -12,7 +12,10 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { AppHeader, Banner, EmptyState } from "../../../components/ui";
 import type { AssistantCopy } from "../../../i18n/assistant";
-import type { AssistantChatRow } from "../shared/chat-rows";
+import {
+  assistantRowHasInFlightTools,
+  type AssistantChatRow,
+} from "../shared/chat-rows";
 import { AssistantComposer } from "./assistant-composer";
 import { AssistantMessageRow } from "./assistant-message-row";
 
@@ -35,6 +38,19 @@ function keyExtractor(item: AssistantChatRow): string {
   return item.id;
 }
 
+function itemType(item: AssistantChatRow): string {
+  if (item.role === "user") {
+    return "user";
+  }
+  if (item.timeline.length > 0) {
+    return "assistant-timeline";
+  }
+  if (item.confirmation !== null) {
+    return "assistant-confirm";
+  }
+  return "assistant";
+}
+
 export function AssistantSheetView(model: AssistantSheetViewModel) {
   const { theme } = useUnistyles();
   const { copy } = model;
@@ -45,6 +61,8 @@ export function AssistantSheetView(model: AssistantSheetViewModel) {
       <AssistantMessageRow
         role={item.role}
         text={item.text}
+        timeline={item.timeline}
+        timelineLabel={copy.timelineLabel}
         confirmationSummary={
           item.confirmation === null ? null : item.confirmation.summary
         }
@@ -62,6 +80,7 @@ export function AssistantSheetView(model: AssistantSheetViewModel) {
       copy.confirmationTitle,
       copy.confirmingLabel,
       copy.dismissLabel,
+      copy.timelineLabel,
       model.confirm,
       model.confirmationApplying,
       model.dismiss,
@@ -69,6 +88,10 @@ export function AssistantSheetView(model: AssistantSheetViewModel) {
   );
 
   const showEmpty = model.rows.length === 0 && !model.thinking;
+  const lastRow = model.rows[model.rows.length - 1];
+  const showThinking =
+    model.thinking &&
+    (lastRow === undefined || !assistantRowHasInFlightTools(lastRow));
 
   return (
     <SafeAreaView
@@ -103,9 +126,9 @@ export function AssistantSheetView(model: AssistantSheetViewModel) {
             style={styles.list}
             keyExtractor={keyExtractor}
             renderItem={renderItem}
-            getItemType={(item) => item.role}
+            getItemType={itemType}
             ListFooterComponent={
-              model.thinking ? (
+              showThinking ? (
                 <View
                   accessibilityLabel={copy.thinkingLabel}
                   style={styles.thinking}

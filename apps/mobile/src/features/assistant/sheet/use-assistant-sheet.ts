@@ -28,6 +28,7 @@ export function useAssistantSheet(): AssistantSheetViewModel & {
   const rows = assistantChatRows(
     chat.messages,
     confirmation.card.kind === "hidden" ? null : confirmation.card.confirmation,
+    copy,
   );
 
   const chatKind =

@@ -15,6 +15,7 @@ export type AssistantChatPart = {
   readonly text?: string;
   readonly data?: unknown;
   readonly toolCallId?: string;
+  readonly toolName?: string;
   readonly state?: string;
   readonly output?: unknown;
 };

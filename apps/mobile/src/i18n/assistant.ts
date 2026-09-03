@@ -2,6 +2,17 @@
 import { selectCopy, writeErrorsEn, writeErrorsUk } from "./copy";
 import type { Locale } from "./locale";
 
+export type AssistantJobsCopy = {
+  readonly orders_list_page: string;
+  readonly orders_list_counts: string;
+  readonly orders_get: string;
+  readonly orders_create: string;
+  readonly catalog_list_products: string;
+  readonly pricing_list_price_lists: string;
+  readonly customers_listCustomers: string;
+  readonly fallback: string;
+};
+
 export type AssistantCopy = {
   readonly sheetTitle: string;
   readonly emptyTitle: string;
@@ -14,6 +25,8 @@ export type AssistantCopy = {
   readonly confirmingLabel: string;
   readonly confirmationTitle: string;
   readonly thinkingLabel: string;
+  readonly timelineLabel: string;
+  readonly jobs: AssistantJobsCopy;
   readonly errors: {
     readonly validation: string;
     readonly network: string;
@@ -38,6 +51,17 @@ const en: AssistantCopy = {
   confirmingLabel: "Confirming…",
   confirmationTitle: "Confirmation required",
   thinkingLabel: "Shozik is thinking",
+  timelineLabel: "Progress",
+  jobs: {
+    orders_list_page: "Looking up orders",
+    orders_list_counts: "Counting turnover",
+    orders_get: "Opening the order",
+    orders_create: "Creating the order",
+    catalog_list_products: "Searching the catalog",
+    pricing_list_price_lists: "Looking up price lists",
+    customers_listCustomers: "Looking up customers",
+    fallback: "Working",
+  },
   errors: {
     ...writeErrorsEn,
     network: "Could not reach the assistant. Try again.",
@@ -61,6 +85,17 @@ const uk: AssistantCopy = {
   confirmingLabel: "Підтверджую…",
   confirmationTitle: "Потрібне підтвердження",
   thinkingLabel: "Шозік думає",
+  timelineLabel: "Хід роботи",
+  jobs: {
+    orders_list_page: "Шукаю замовлення",
+    orders_list_counts: "Рахую виторг",
+    orders_get: "Відкриваю замовлення",
+    orders_create: "Створюю замовлення",
+    catalog_list_products: "Шукаю в каталозі",
+    pricing_list_price_lists: "Шукаю прайси",
+    customers_listCustomers: "Шукаю клієнтів",
+    fallback: "Працюю",
+  },
   errors: {
     ...writeErrorsUk,
     network: "Не вдалося звʼязатися з асистентом. Спробуйте ще раз.",
