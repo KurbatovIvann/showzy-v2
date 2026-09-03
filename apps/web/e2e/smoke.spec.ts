@@ -31,6 +31,13 @@ test.describe("web panel browser smoke", () => {
       page.getByRole("region", { name: "Замовлення" }),
     ).toBeVisible();
     await expect(
+      page.getByRole("heading", { name: "Оберіть елемент" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Модуль у розробці" }),
+    ).toHaveCount(0);
+    await expect(page.getByText("Замовлень ще немає")).toBeVisible();
+    await expect(
       page.getByRole("navigation", { name: "Основна навігація" }),
     ).toBeVisible();
     await expect(page).toHaveURL(/\/kviti-lviv\/orders$/);
@@ -71,6 +78,9 @@ test.describe("web panel browser smoke", () => {
     ).toBeVisible();
     await expect(
       page.getByRole("heading", { name: "Модуль у розробці" }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("heading", { name: "Оберіть елемент" }),
     ).toHaveCount(0);
 
     await page.goto("/kviti-lviv/orders/ord-1");

@@ -59,7 +59,7 @@ export function useOrdersList() {
     state,
     entries: groupOrderRows(rows),
     selectedOrderId,
-    onSearchChange(value: string) {
+    onSearchChange: (value: string) => {
       void navigate({
         search: (prev) => {
           const next = value.slice(0, LIST_ORDERS_QUERY_MAX);
@@ -73,7 +73,7 @@ export function useOrdersList() {
         replace: true,
       });
     },
-    onStatusChipChange(status: OrderLifecycleStatus | undefined) {
+    onStatusChipChange: (status: OrderLifecycleStatus | undefined) => {
       void navigate({
         search: (prev) => {
           if (status === undefined) {
@@ -86,10 +86,10 @@ export function useOrdersList() {
         replace: true,
       });
     },
-    onRetry() {
+    onRetry: () => {
       void query.refetch();
     },
-    onResetFilters() {
+    onResetFilters: () => {
       void navigate({
         search: {},
         replace: true,

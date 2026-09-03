@@ -112,9 +112,17 @@ describe("orders list (SHO-377)", () => {
       screen.getByText("#KL-K7K3K4 · 3 позиції · 15 бер. 2026"),
     ).toBeDefined();
     expect(screen.getByText("Клієнт видалений")).toBeDefined();
-    expect(screen.getByText("Активні · 1")).toBeDefined();
-    expect(screen.getByText("Закриті · 1")).toBeDefined();
-    expect(screen.queryByText("В роботі")).toBeNull();
+    expect(
+      screen.getByRole("heading", { name: "Активні · 1" }),
+    ).toBeDefined();
+    expect(
+      screen.getByRole("heading", { name: "Закриті · 1" }),
+    ).toBeDefined();
+    expect(screen.getByRole("button", { name: "В роботі" })).toBeDefined();
+    expect(
+      screen.queryByRole("heading", { name: /В роботі/ }),
+    ).toBeNull();
+    expect(screen.queryByRole("heading", { name: /Завершені/ })).toBeNull();
     expect(screen.queryByText("Завершені")).toBeNull();
     expect(
       screen.getByRole("heading", { name: "Оберіть елемент" }),
@@ -139,13 +147,7 @@ describe("orders list (SHO-377)", () => {
       q: "anna",
       status: "confirmed",
     });
-    expect(
-      (
-        screen.getByRole("searchbox", {
-          name: "Пошук замовлень",
-        }) as HTMLInputElement
-      ).value,
-    ).toBe("anna");
+    expect(screen.getByDisplayValue("anna")).toBeDefined();
     expect(
       screen
         .getByRole("button", { name: "Підтверджено" })
@@ -191,7 +193,9 @@ describe("orders list (SHO-377)", () => {
     expect(
       document.querySelector(".panel-shell")?.getAttribute("data-shell"),
     ).toBe("desktop");
-    fireEvent.click(screen.getByRole("link", { name: /Анна Мельник/ }));
+    fireEvent.click(
+      await screen.findByRole("link", { name: /Анна Мельник/ }),
+    );
     await waitFor(() => {
       expect(router.state.location.pathname).toBe(
         `/kviti-lviv/orders/${ANNA_ORDER_ID}`,

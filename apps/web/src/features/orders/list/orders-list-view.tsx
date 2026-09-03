@@ -97,7 +97,12 @@ export function OrdersListView({
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-4 sm:px-3">
         {state.kind === "loading" ? (
-          <p role="status" className="px-3 py-6 text-[14px] text-muted">
+          <p
+            aria-label={copy.loadingLabel}
+            aria-live="polite"
+            className="px-3 py-6 text-[14px] text-muted"
+            role="status"
+          >
             {copy.loadingLabel}
           </p>
         ) : null}
@@ -148,11 +153,10 @@ export function OrdersListView({
             {entries.map((entry) => {
               if (entry.type === "header") {
                 return (
-                  <li
-                    key={entry.key}
-                    className="px-3 pb-1 pt-3 text-[12px] font-medium text-muted"
-                  >
-                    {orderGroupCountLabel(copy, entry.key, entry.count)}
+                  <li key={entry.key} className="px-3 pb-1 pt-3">
+                    <h3 className="text-[12px] font-medium text-muted">
+                      {orderGroupCountLabel(copy, entry.key, entry.count)}
+                    </h3>
                   </li>
                 );
               }

@@ -84,10 +84,14 @@ describe("orders list presenter (SHO-377)", () => {
       ),
     ];
     const grouped = groupOrderRows(views);
-    expect(grouped[0]).toEqual({ type: "header", key: "active", count: 1 });
-    expect(grouped[2]).toEqual({ type: "header", key: "closed", count: 1 });
-    expect(JSON.stringify(grouped)).not.toContain("В роботі");
-    expect(JSON.stringify(grouped)).not.toContain("Завершені");
+    const headers = grouped.filter((entry) => entry.type === "header");
+    expect(headers).toEqual([
+      { type: "header", key: "active", count: 1 },
+      { type: "header", key: "closed", count: 1 },
+    ]);
+    expect(headers.map((entry) => entry.key)).toEqual(["active", "closed"]);
+    expect(JSON.stringify(headers)).not.toContain("В роботі");
+    expect(JSON.stringify(headers)).not.toContain("Завершені");
   });
 
   it("classifies loading, catalog-empty, and filtered-empty", () => {
