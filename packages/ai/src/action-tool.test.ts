@@ -24,6 +24,7 @@ import {
   STAFF_ASSISTANT_CACHE_CONTROL,
   STAFF_ASSISTANT_DEFER_PROVIDER_OPTIONS,
 } from "./anthropic-options.js";
+import { ORDER_ENTITY_PROMPT_LINE } from "./spoken-reply.js";
 import { CUSTOMERS_LIST_CUSTOMERS_ASSISTANT_LIMIT } from "./tool-facades/customers-list-customers.js";
 import { CUSTOMERS_LIST_GROUPS_ASSISTANT_LIMIT } from "./tool-facades/customers-list-groups.js";
 import { ORDERS_LIST_PAGE_ASSISTANT_LIMIT } from "./tool-facades/orders-list.js";
@@ -273,6 +274,32 @@ describe("staffAssistantTools", () => {
       CUSTOMERS_LIST_GROUPS_TOOL_NAME,
     );
     expect(staffAssistantHotToolNames()).not.toContain("customers_listGroups");
+  });
+
+  it("appends the order entity prompt line to orders.get", () => {
+    const getOrder = defineActionContract({
+      name: "orders.get",
+      description:
+        "Return a staff-intake order and its immutable line snapshots in the active company.",
+      principal: "staff",
+      transport: "client",
+      aiExposure: "exposed",
+      permissions: ["orders:view"],
+      risk: "read",
+      requiresConfirmation: false,
+      idempotent: false,
+      emits: [],
+      atomicCalls: [],
+      atomicCallers: [],
+      audit: false,
+      timeout: 2_000,
+      input: z.object({ orderId: z.uuid() }),
+      output: z.object({ orderId: z.uuid() }),
+    });
+    const tools = staffAssistantTools([getOrder], () => Promise.resolve({}));
+    expect(tools["orders_get"]?.description).toContain(
+      ORDER_ENTITY_PROMPT_LINE,
+    );
   });
 
   it("caches search when every domain tool is deferred", () => {

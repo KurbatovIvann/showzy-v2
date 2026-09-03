@@ -106,8 +106,9 @@ function omitDismissedToolPart(
 }
 
 /**
- * Ordered live-turn tool steps. Skips text, `data-confirmation`, and
- * dismissed/ignored HITL tools. Does not stringify `output`.
+ * Ordered live-turn tool steps. Skips text, `data-confirmation`,
+ * Anthropic synthetic `json` structured-output tools, and dismissed/ignored
+ * HITL tools. Does not stringify `output`.
  */
 export function toolStepsFromParts(
   parts: readonly AssistantChatPart[],
@@ -122,6 +123,9 @@ export function toolStepsFromParts(
   for (const [index, part] of parts.entries()) {
     const toolName = toolNameFromPart(part);
     if (toolName === null) {
+      continue;
+    }
+    if (toolName === "json") {
       continue;
     }
     if (

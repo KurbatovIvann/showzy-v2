@@ -178,6 +178,42 @@ describe("toolStepsFromParts", () => {
     expect(JSON.stringify(steps).includes("challengeId")).toBe(false);
   });
 
+  it("omits Anthropic synthetic json structured-output tools", () => {
+    const steps = toolStepsFromParts(
+      [
+        {
+          type: "tool-orders_list_page",
+          toolCallId: "call-page",
+          state: "output-available",
+          output: { kind: "page.summary", items: [] },
+        },
+        {
+          type: "tool-json",
+          toolName: "json",
+          toolCallId: "call-json",
+          state: "output-available",
+          output: { spoken: "Four orders." },
+        },
+        {
+          type: "dynamic-tool",
+          toolName: "json",
+          toolCallId: "call-json-2",
+          state: "running",
+        },
+      ],
+      "a1",
+    );
+    expect(steps).toEqual([
+      {
+        id: "call-page",
+        toolName: "orders_list_page",
+        status: "done",
+      },
+    ]);
+    expect(JSON.stringify(steps).includes("json")).toBe(false);
+    expect(JSON.stringify(steps).includes("spoken")).toBe(false);
+  });
+
   it("omits dismissed HITL tools and keeps a successful non-HITL result", () => {
     const steps = toolStepsFromParts(
       [

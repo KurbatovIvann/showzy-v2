@@ -10,6 +10,10 @@ import {
 } from "../clip-tool-result.js";
 import { STAFF_ASSISTANT_CONFIRMATION_STATUS } from "../confirmation.js";
 import {
+  ORDERS_AGGREGATE_PROMPT_LINE,
+  ORDERS_LIST_PROMPT_LINE,
+} from "../spoken-reply.js";
+import {
   CUSTOMER_NAME_MAX,
   LIST_ORDERS_CURSOR_MAX,
   LIST_ORDERS_CUSTOMER_IDS_MAX,
@@ -510,6 +514,12 @@ describe("ordersListFacadeTools", () => {
     );
     expect(tools[ORDERS_LIST_PAGE_TOOL_NAME]?.description).toContain(
       `Page size is ${String(ORDERS_LIST_PAGE_ASSISTANT_LIMIT)}`,
+    );
+    expect(tools[ORDERS_LIST_PAGE_TOOL_NAME]?.description).toContain(
+      ORDERS_LIST_PROMPT_LINE,
+    );
+    expect(tools[ORDERS_LIST_COUNTS_TOOL_NAME]?.description).toContain(
+      ORDERS_AGGREGATE_PROMPT_LINE,
     );
   });
 

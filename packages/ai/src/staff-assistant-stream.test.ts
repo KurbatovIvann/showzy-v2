@@ -30,13 +30,21 @@ import {
   STAFF_ASSISTANT_CONFIRMATION_FALLBACK_TEXT,
 } from "./confirmation.js";
 import {
+  STAFF_ASSISTANT_SUCCESS_SPOKEN_FALLBACK,
+  STAFF_ASSISTANT_SYNTHETIC_JSON_TOOL_NAME,
+} from "./spoken-reply.js";
+import {
   extractUuidResultIds,
+  STAFF_ASSISTANT_MAX_STEPS,
   streamStaffAssistantChat,
 } from "./staff-assistant-stream.js";
 import { staffAssistantSystemPrompt } from "./system-prompt.js";
 import {
   MockLanguageModelV3,
+  mockJsonToolAndSpokenStream,
+  mockSpokenStream,
   mockTextStream,
+  mockToolCallAndSpokenStream,
   mockToolCallStream,
   readUiMessageSsePayloads,
 } from "./test.js";
@@ -312,6 +320,10 @@ describe("staffAssistantTools", () => {
 });
 
 describe("streamStaffAssistantChat", () => {
+  it("raises the step cap so tool calls plus spoken JSON still fit", () => {
+    expect(STAFF_ASSISTANT_MAX_STEPS).toBe(9);
+  });
+
   it("runs a read tool and streams UI-message SSE without touching the network", async () => {
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
@@ -450,6 +462,25 @@ describe("streamStaffAssistantChat", () => {
     expect(anthropicDeferLoading(page)).toBeUndefined();
     expect(anthropicDeferLoading(counts)).toBeUndefined();
     expect(anthropicCacheControl(remove)).toBeUndefined();
+    expect(
+      tools.some(
+        (entry) =>
+          isRecord(entry) &&
+          entry["name"] === STAFF_ASSISTANT_SYNTHETIC_JSON_TOOL_NAME,
+      ),
+    ).toBe(false);
+    expect(call?.responseFormat).toMatchObject({
+      type: "json",
+    });
+    const responseFormat = call?.responseFormat;
+    expect(responseFormat?.type).toBe("json");
+    const schemaJson =
+      responseFormat?.type === "json"
+        ? JSON.stringify(responseFormat.schema)
+        : "";
+    expect(schemaJson).toContain("spoken");
+    expect(schemaJson).not.toContain("rows");
+    expect(schemaJson).not.toContain("cards");
   });
 
   it("injects an uncached working-set system message without a second list call", async () => {
@@ -922,6 +953,9 @@ describe("streamStaffAssistantChat", () => {
           : undefined,
       ),
     ).toBe(true);
+    expect(turn.text).not.toBe("Done.");
+    expect(turn.text).not.toMatch(/action is done|action done/i);
+    expect(JSON.stringify(payloads)).not.toContain("NoObjectGeneratedError");
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
   });
@@ -946,5 +980,241 @@ describe("streamStaffAssistantChat", () => {
     expect(JSON.stringify(payloads)).toContain(
       "The assistant could not complete this turn.",
     );
+  });
+
+  it("flattens spoken after orders_list_page and keeps the tool part", async () => {
+    const spoken = "Albina has 4 orders this week.";
+    const execute = vi.fn(() =>
+      Promise.resolve({
+        kind: "page.summary",
+        items: [
+          {
+            orderId: customerId,
+            orderNumber: "1049",
+            status: "new",
+          },
+        ],
+        nextCursor: null,
+      }),
+    );
+    const model = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream("call-list", ORDERS_LIST_PAGE_TOOL_NAME, "{}"),
+        mockSpokenStream(spoken),
+      ],
+    });
+    const { response, completion } = streamStaffAssistantChat({
+      model,
+      messages: [{ role: "user", content: "Show Albina's orders" }],
+      contracts: [listOrders],
+      execute,
+    });
+    const payloads = await readUiMessageSsePayloads(response);
+    const turn = await completion;
+    const payloadText = JSON.stringify(payloads);
+    expect(turn.text).toBe(spoken);
+    expect(turn.text).not.toContain("|");
+    expect(turn.text).not.toContain("**");
+    expect(payloadText).toContain(spoken);
+    expect(payloadText).not.toContain('{"spoken"');
+    expect(payloadText).toContain(ORDERS_LIST_PAGE_TOOL_NAME);
+    expect(turn.toolRuns).toEqual([
+      {
+        actionName: "orders.list",
+        toolCallId: "call-list",
+        resultIds: [],
+        outcome: "success",
+      },
+    ]);
+  });
+
+  it("flattens spoken after counts-only aggregate", async () => {
+    const spoken = "6 orders this week, mostly confirmed.";
+    const execute = vi.fn(() =>
+      Promise.resolve({
+        kind: "aggregate",
+        orderCount: 6,
+        grossByCurrency: [{ currency: "UAH", grossAmountMinor: "150000" }],
+        buckets: [
+          {
+            identity: { kind: "status", status: "confirmed" },
+            orderCount: 4,
+            grossByCurrency: [],
+          },
+        ],
+      }),
+    );
+    const model = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream(
+          "call-counts",
+          ORDERS_LIST_COUNTS_TOOL_NAME,
+          JSON.stringify({ period: "this_week" }),
+        ),
+        mockSpokenStream(spoken),
+      ],
+    });
+    const { response, completion } = streamStaffAssistantChat({
+      model,
+      messages: [{ role: "user", content: "How many this week?" }],
+      contracts: [listOrders],
+      execute,
+    });
+    const payloads = await readUiMessageSsePayloads(response);
+    const turn = await completion;
+    const payloadText = JSON.stringify(payloads);
+    expect(turn.text).toBe(spoken);
+    expect(turn.text).not.toContain("|");
+    expect(turn.text).not.toContain("**");
+    expect(payloadText).toContain(spoken);
+    expect(payloadText).not.toContain('{"spoken"');
+    expect(payloadText).toContain(ORDERS_LIST_COUNTS_TOOL_NAME);
+    expect(turn.toolRuns).toEqual([
+      {
+        actionName: "orders.list",
+        toolCallId: "call-counts",
+        resultIds: [],
+        outcome: "success",
+      },
+    ]);
+  });
+
+  it("does not record a synthetic json tool as a domain toolRun", async () => {
+    const spoken = "Four orders this week.";
+    const execute = vi.fn(() =>
+      Promise.resolve({ items: [], nextCursor: null }),
+    );
+    const model = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream("call-list", ORDERS_LIST_PAGE_TOOL_NAME, "{}"),
+        mockJsonToolAndSpokenStream(spoken),
+      ],
+    });
+    const { response, completion } = streamStaffAssistantChat({
+      model,
+      messages: [{ role: "user", content: "List orders" }],
+      contracts: [listOrders],
+      execute,
+    });
+    const payloads = await readUiMessageSsePayloads(response);
+    const turn = await completion;
+    expect(turn.toolRuns.map((run) => run.actionName)).toEqual(["orders.list"]);
+    expect(turn.toolRuns.map((run) => run.toolCallId)).not.toContain(
+      "call-json",
+    );
+    expect(turn.text).toBe(spoken);
+    expect(JSON.stringify(payloads)).not.toContain(
+      `"toolName":"${STAFF_ASSISTANT_SYNTHETIC_JSON_TOOL_NAME}"`,
+    );
+  });
+
+  it("fail-opens a markdown table spoken line after a successful list", async () => {
+    const execute = vi.fn(() =>
+      Promise.resolve({ items: [], nextCursor: null }),
+    );
+    const model = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream("call-list", ORDERS_LIST_PAGE_TOOL_NAME, "{}"),
+        mockSpokenStream("| order | total |\n| **#1** | 10 |"),
+      ],
+    });
+    const { response, completion } = streamStaffAssistantChat({
+      model,
+      messages: [{ role: "user", content: "List orders" }],
+      contracts: [listOrders],
+      execute,
+    });
+    await readUiMessageSsePayloads(response);
+    const turn = await completion;
+    expect(turn.text).toBe(STAFF_ASSISTANT_SUCCESS_SPOKEN_FALLBACK);
+    expect(turn.text).not.toBe("Done.");
+    expect(turn.toolRuns[0]?.outcome).toBe("success");
+  });
+
+  it("fail-opens a non-JSON markdown table after a successful list", async () => {
+    const execute = vi.fn(() =>
+      Promise.resolve({ items: [], nextCursor: null }),
+    );
+    const model = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream("call-list", ORDERS_LIST_PAGE_TOOL_NAME, "{}"),
+        mockTextStream("| order | total |"),
+      ],
+    });
+    const { response, completion } = streamStaffAssistantChat({
+      model,
+      messages: [{ role: "user", content: "List orders" }],
+      contracts: [listOrders],
+      execute,
+    });
+    const payloads = await readUiMessageSsePayloads(response);
+    const turn = await completion;
+    const payloadText = JSON.stringify(payloads);
+    expect(turn.text).toBe(STAFF_ASSISTANT_SUCCESS_SPOKEN_FALLBACK);
+    expect(turn.text).not.toBe("Done.");
+    expect(turn.text).not.toContain("|");
+    expect(payloadText).not.toContain("|");
+    expect(payloadText).toContain(STAFF_ASSISTANT_SUCCESS_SPOKEN_FALLBACK);
+    expect(turn.toolRuns[0]?.outcome).toBe("success");
+  });
+
+  it("keeps the confirmation fallback when a successful list and HITL share a markdown spoken turn", async () => {
+    const summary =
+      "Delete this archived customer. Confirm the name and primary contact.";
+    const execute = vi.fn((actionName: string) => {
+      if (actionName === "customers.deleteCustomer") {
+        return Promise.reject(
+          new ConfirmationRequiredError({
+            challengeId,
+            summary,
+            expiresAt: "2026-09-01T12:00:00.000Z",
+          }),
+        );
+      }
+      return Promise.resolve({ items: [], nextCursor: null });
+    });
+    const model = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream("call-list", ORDERS_LIST_PAGE_TOOL_NAME, "{}"),
+        mockToolCallAndSpokenStream(
+          "call-delete",
+          toProviderToolName("customers.deleteCustomer"),
+          JSON.stringify({ id: customerId }),
+          "| order | total |\n| **#1** | 10 |",
+        ),
+      ],
+    });
+    const { response, completion } = streamStaffAssistantChat({
+      model,
+      messages: [
+        { role: "user", content: "List orders then delete the customer" },
+      ],
+      contracts: [listOrders, deleteCustomer],
+      execute,
+    });
+    const payloads = await readUiMessageSsePayloads(response);
+    const turn = await completion;
+    const payloadText = JSON.stringify(payloads);
+    expect(turn.toolRuns.map((run) => run.outcome)).toEqual([
+      "success",
+      "confirmation_required",
+    ]);
+    expect(turn.text).toBe(STAFF_ASSISTANT_CONFIRMATION_FALLBACK_TEXT);
+    expect(turn.text).not.toBe(STAFF_ASSISTANT_SUCCESS_SPOKEN_FALLBACK);
+    expect(turn.text).not.toBe("Done.");
+    expect(turn.text).not.toMatch(/action is done|action done/i);
+    expect(payloadText).not.toContain(STAFF_ASSISTANT_SUCCESS_SPOKEN_FALLBACK);
+    expect(payloadText).not.toContain("| order");
+    expect(payloadText).not.toContain("NoObjectGeneratedError");
+    expect(payloadText).toContain(STAFF_ASSISTANT_CONFIRMATION_FALLBACK_TEXT);
+    const confirmationChunks = payloads.filter((payload) => {
+      return (
+        typeof payload === "object" &&
+        payload !== null &&
+        "type" in payload &&
+        payload.type === "data-confirmation"
+      );
+    });
+    expect(confirmationChunks.length).toBeGreaterThanOrEqual(1);
   });
 });
