@@ -41,7 +41,11 @@ function FieldShell({ id, label, error, hint, children }: FieldShellProps) {
       </label>
       {children}
       {error ? (
-        <p id={fieldMessageId(id)} className="mt-1 text-[12px] text-danger">
+        <p
+          id={fieldMessageId(id)}
+          role="alert"
+          className="mt-1 text-[12px] text-danger"
+        >
           {error}
         </p>
       ) : null}
@@ -124,6 +128,10 @@ export function TextareaField({
   value,
   placeholder,
   rows = 4,
+  maxLength,
+  disabled,
+  error,
+  hint,
   onChange,
 }: {
   readonly id: string;
@@ -131,19 +139,32 @@ export function TextareaField({
   readonly value: string;
   readonly placeholder?: string;
   readonly rows?: number;
+  readonly maxLength?: number;
+  readonly disabled?: boolean;
+  readonly error?: string | null | undefined;
+  readonly hint?: string | undefined;
   readonly onChange: (value: string) => void;
 }) {
   return (
-    <FieldShell id={id} label={label}>
+    <FieldShell id={id} label={label} error={error} hint={hint}>
       <textarea
         id={id}
         value={value}
         rows={rows}
+        maxLength={maxLength}
+        disabled={disabled}
         placeholder={placeholder}
+        aria-invalid={error ? "true" : undefined}
+        aria-describedby={fieldDescribedBy(id, error, hint)}
         onChange={(event) => {
           onChange(event.target.value);
         }}
-        className={cx("resize-none border-line leading-6", CONTROL_CLASS)}
+        className={cx(
+          "resize-none leading-6",
+          CONTROL_CLASS,
+          error ? "border-danger" : "border-line",
+          disabled === true ? "opacity-40" : false,
+        )}
       />
     </FieldShell>
   );

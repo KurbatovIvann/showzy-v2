@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  canCreateOrders,
   canEditOrders,
+  orderCreateScreenActions,
   orderDetailActions,
   orderDetailPrimaryWrite,
 } from "./order-permissions";
@@ -11,6 +13,24 @@ import {
  * role holds `orders:edit`; owners hold everything implicitly. UI
  * affordance only — the server re-checks permissions.
  */
+describe("order create permission affordances (SHO-379)", () => {
+  it("shows create for every seeded role that holds orders:create", () => {
+    expect(canCreateOrders("owner")).toBe(true);
+    expect(canCreateOrders("admin")).toBe(true);
+    expect(canCreateOrders("manager")).toBe(true);
+    expect(canCreateOrders("employee")).toBe(true);
+    expect(orderCreateScreenActions({ canCreate: true })).toEqual({
+      showSubmit: true,
+    });
+  });
+
+  it("hides create submit when orders:create is not granted", () => {
+    expect(orderCreateScreenActions({ canCreate: false })).toEqual({
+      showSubmit: false,
+    });
+  });
+});
+
 describe("order detail permission affordances (SHO-378)", () => {
   it("shows status writes for every seeded role that holds orders:edit", () => {
     expect(canEditOrders("owner")).toBe(true);

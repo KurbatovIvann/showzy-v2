@@ -16,6 +16,7 @@
     "e2e-smoke:install": "playwright install chromium"
   },
   "dependencies": {
+    "@hookform/resolvers": "5.9.1",
     "@showzy/contract": "workspace:*",
     "@showzy/validation": "workspace:*",
     "@tanstack/react-query": "5.101.4",
@@ -23,7 +24,9 @@
     "better-auth": "1.6.30",
     "lucide-react": "1.38.0",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "react-hook-form": "7.86.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@playwright/test": "1.62.1",

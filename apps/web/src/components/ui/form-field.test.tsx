@@ -94,4 +94,22 @@ describe("TextareaField (SHO-311)", () => {
     fireEvent.change(textarea, { target: { value: "Доставка щоп’ятниці" } });
     expect(onChange).toHaveBeenCalledWith("Доставка щоп’ятниці");
   });
+
+  it("switches to the danger border and message on error", () => {
+    render(
+      <TextareaField
+        id="order-notes"
+        label="Коментар"
+        value=""
+        error="Коментар занадто довгий"
+        hint="Підказка"
+        onChange={() => undefined}
+      />,
+    );
+    const textarea = screen.getByLabelText("Коментар");
+    expect(textarea.className).toContain("border-danger");
+    expect(textarea.getAttribute("aria-invalid")).toBe("true");
+    expect(screen.getByText("Коментар занадто довгий")).toBeDefined();
+    expect(screen.queryByText("Підказка")).toBeNull();
+  });
 });

@@ -50,6 +50,13 @@ type RpcState = {
   listOrdersCalls: OrdersListRpcCall[];
   orderDetails: Record<string, Record<string, unknown>>;
   customersById: Record<string, Record<string, unknown>>;
+  listCustomersItems: unknown[];
+  listCustomersCalls: OrdersListRpcCall[];
+  listProductsItems: unknown[];
+  listProductsCalls: OrdersListRpcCall[];
+  productDetails: Record<string, Record<string, unknown>>;
+  orderCreateNetworkFailuresRemaining: number;
+  createdOrdersByKey: Record<string, Record<string, unknown>>;
 };
 
 type SessionJson = {
@@ -103,6 +110,13 @@ function authMsw(): AuthMsw {
     listOrdersCalls: [],
     orderDetails: {},
     customersById: {},
+    listCustomersItems: [],
+    listCustomersCalls: [],
+    listProductsItems: [],
+    listProductsCalls: [],
+    productDetails: {},
+    orderCreateNetworkFailuresRemaining: 0,
+    createdOrdersByKey: {},
   };
   const created: AuthMsw = {
     sessionState,
@@ -194,6 +208,15 @@ function inputString(input: unknown, key: string): string {
   const record = jsonObject(input);
   const value = record?.[key];
   return typeof value === "string" ? value : "";
+}
+
+function pageLimit(input: unknown): number {
+  const record = jsonObject(input);
+  const limit = record?.limit;
+  if (typeof limit === "number" && Number.isInteger(limit) && limit > 0) {
+    return limit;
+  }
+  return 50;
 }
 
 function recordMutation(
@@ -534,6 +557,215 @@ function allHandlers(sessionState: SessionState, rpcState: RpcState) {
         {},
       );
     }),
+    http.post(
+      `${PANEL_ORIGIN}/rpc/customers/listCustomers`,
+      async ({ request }) => {
+        recordRpc(rpcState, request);
+        const body: unknown = await request.json();
+        const input = envelopeInput(body);
+        rpcState.listCustomersCalls.push({
+          path: new URL(request.url).pathname,
+          companyId: request.headers.get(COMPANY_SELECTOR_HEADER),
+          input,
+        });
+        const search = inputString(input, "search").trim().toLowerCase();
+        const matched =
+          search.length === 0
+            ? rpcState.listCustomersItems
+            : rpcState.listCustomersItems.filter((item) => {
+                const record = jsonObject(item);
+                if (record === null) {
+                  return false;
+                }
+                const name =
+                  typeof record.name === "string"
+                    ? record.name.toLowerCase()
+                    : "";
+                const phone =
+                  typeof record.phone === "string"
+                    ? record.phone.toLowerCase()
+                    : "";
+                return name.includes(search) || phone.includes(search);
+              });
+        const limit = pageLimit(input);
+        return rpcJson({
+          items: matched.slice(0, limit),
+          nextCursor: matched.length > limit ? "next" : null,
+        });
+      },
+    ),
+    http.post(
+      `${PANEL_ORIGIN}/rpc/catalog/listProducts`,
+      async ({ request }) => {
+        recordRpc(rpcState, request);
+        const body: unknown = await request.json();
+        const input = envelopeInput(body);
+        rpcState.listProductsCalls.push({
+          path: new URL(request.url).pathname,
+          companyId: request.headers.get(COMPANY_SELECTOR_HEADER),
+          input,
+        });
+        const query = inputString(input, "query").trim().toLowerCase();
+        const matched =
+          query.length === 0
+            ? rpcState.listProductsItems
+            : rpcState.listProductsItems.filter((item) => {
+                const record = jsonObject(item);
+                const name =
+                  typeof record?.name === "string"
+                    ? record.name.toLowerCase()
+                    : "";
+                return name.includes(query);
+              });
+        const limit = pageLimit(input);
+        return rpcJson({
+          items: matched.slice(0, limit),
+          nextCursor: matched.length > limit ? "next" : null,
+        });
+      },
+    ),
+    http.post(`${PANEL_ORIGIN}/rpc/catalog/getProduct`, async ({ request }) => {
+      recordRpc(rpcState, request);
+      const body: unknown = await request.json();
+      const input = envelopeInput(body);
+      const productId = inputString(input, "productId");
+      const stored = jsonObject(rpcState.productDetails[productId]);
+      if (stored === null) {
+        return rpcError("NOT_FOUND", 404, "Product not found.");
+      }
+      return rpcJson(stored);
+    }),
+    http.post(`${PANEL_ORIGIN}/rpc/orders/create`, async ({ request }) => {
+      recordRpc(rpcState, request);
+      const body: unknown = await request.json();
+      const input = envelopeInput(body);
+      recordMutation(rpcState, request, input);
+      if (rpcState.orderCreateNetworkFailuresRemaining > 0) {
+        rpcState.orderCreateNetworkFailuresRemaining -= 1;
+        return HttpResponse.error();
+      }
+      const key = request.headers.get(IDEMPOTENCY_KEY_HEADER);
+      if (key !== null) {
+        const existing = jsonObject(rpcState.createdOrdersByKey[key]);
+        if (existing !== null) {
+          return rpcJson(existing);
+        }
+      }
+      const record = jsonObject(input);
+      const customerRef = jsonObject(record?.customer);
+      const customerId =
+        customerRef?.by === "id" && typeof customerRef.id === "string"
+          ? customerRef.id
+          : "";
+      const customer = jsonObject(rpcState.customersById[customerId]);
+      if (customerId.length === 0 || customer === null) {
+        return rpcError("NOT_FOUND", 404, "do-not-match-this-message");
+      }
+      const rawItems = Array.isArray(record?.items) ? record.items : [];
+      if (rawItems.length === 0) {
+        return rpcError("VALIDATION", 400, "do-not-match-this-message", {
+          issues: [{ path: ["items"], message: "secret" }],
+        });
+      }
+      const createdAt = "2026-09-03T12:00:00.000Z";
+      const orderId = "99999999-9999-4999-8999-999999999999";
+      const orderNumber = "KL-NEW01";
+      const customerName =
+        typeof customer.name === "string" ? customer.name : "Customer";
+      const getItems = rawItems.map((item) => {
+        const line = jsonObject(item);
+        const productRef = jsonObject(line?.product);
+        const variantRef = jsonObject(line?.variant);
+        const quantity = jsonObject(line?.quantity);
+        const productId =
+          productRef?.by === "id" && typeof productRef.id === "string"
+            ? productRef.id
+            : "";
+        const variantId =
+          variantRef?.by === "id" && typeof variantRef.id === "string"
+            ? variantRef.id
+            : null;
+        const milli =
+          typeof quantity?.milli === "string" ? quantity.milli : "1000";
+        const product = rpcState.listProductsItems
+          .map((row) => jsonObject(row))
+          .find((row) => row?.id === productId);
+        const productName =
+          typeof product?.name === "string" ? product.name : "Item";
+        return {
+          itemId: crypto.randomUUID(),
+          productId,
+          variantId,
+          titleSnapshot: productName,
+          quantityMilli: milli,
+          unitPriceMinor: "0",
+          discountKind: "none",
+          discountValue: "0",
+          discountAmountMinor: "0",
+          taxTreatment: "exempt",
+          taxRateBp: 0,
+          taxAmountMinor: "0",
+          netAmountMinor: "0",
+          grossAmountMinor: "0",
+          currency: "UAH",
+          priceSource: "base",
+          personalPriceId: null,
+          priceListId: null,
+          priceListEntryId: null,
+          resolverVersion: 1,
+        };
+      });
+      const commentRaw =
+        typeof record?.comment === "string" ? record.comment.trim() : "";
+      const getView = {
+        orderId,
+        orderNumber,
+        customerId,
+        status: "new",
+        comment: commentRaw.length > 0 ? commentRaw : null,
+        totalNetMinor: "0",
+        totalTaxMinor: "0",
+        totalGrossMinor: "0",
+        currency: "UAH",
+        confirmedAt: null,
+        createdAt,
+        items: getItems,
+      };
+      const listRow = {
+        orderId,
+        orderNumber,
+        customer: {
+          nameSnapshot: customerName,
+          linkedCustomerId: customerId,
+        },
+        status: "new",
+        itemCount: getItems.length,
+        totalGrossMinor: "0",
+        currency: "UAH",
+        createdAt,
+      };
+      const summary = {
+        orderId,
+        orderNumber,
+        customer: {
+          nameSnapshot: customerName,
+          linkedCustomerId: customerId,
+        },
+        status: "new",
+        itemCount: getItems.length,
+        totalNetMinor: "0",
+        totalTaxMinor: "0",
+        totalGrossMinor: "0",
+        currency: "UAH",
+        createdAt,
+      };
+      rpcState.orderDetails[orderId] = getView;
+      rpcState.listOrdersItems = [...rpcState.listOrdersItems, listRow];
+      if (key !== null) {
+        rpcState.createdOrdersByKey[key] = summary;
+      }
+      return rpcJson(summary);
+    }),
   ];
 }
 
@@ -556,6 +788,13 @@ export function resetAuthMocks(): void {
   listMineState.listOrdersCalls = [];
   listMineState.orderDetails = {};
   listMineState.customersById = {};
+  listMineState.listCustomersItems = [];
+  listMineState.listCustomersCalls = [];
+  listMineState.listProductsItems = [];
+  listMineState.listProductsCalls = [];
+  listMineState.productDetails = {};
+  listMineState.orderCreateNetworkFailuresRemaining = 0;
+  listMineState.createdOrdersByKey = {};
 }
 
 export function seedOrderDetail(view: object): void {
@@ -580,6 +819,81 @@ export function seedCustomer(view: object): void {
     return;
   }
   listMineState.customersById[id] = record;
+  const already = listMineState.listCustomersItems.some((item) => {
+    const row = jsonObject(item);
+    return row?.id === id;
+  });
+  if (!already) {
+    listMineState.listCustomersItems = [
+      ...listMineState.listCustomersItems,
+      record,
+    ];
+  }
+}
+
+export function seedProduct(view: object): void {
+  const record = jsonObject(structuredClone(view));
+  if (record === null) {
+    return;
+  }
+  const id = record.id;
+  if (typeof id !== "string") {
+    return;
+  }
+  const createdAt =
+    typeof record.createdAt === "string"
+      ? record.createdAt
+      : "2026-01-01T00:00:00.000Z";
+  const updatedAt =
+    typeof record.updatedAt === "string" ? record.updatedAt : createdAt;
+  const name = typeof record.name === "string" ? record.name : "Product";
+  const basePriceMinor =
+    typeof record.basePriceMinor === "string" ? record.basePriceMinor : "0";
+  const currency =
+    typeof record.currency === "string" ? record.currency : "UAH";
+  const status = typeof record.status === "string" ? record.status : "active";
+  const variantCount =
+    typeof record.variantCount === "number"
+      ? record.variantCount
+      : Array.isArray(record.variants)
+        ? record.variants.length
+        : 0;
+  const listRow = {
+    id,
+    name,
+    basePriceMinor,
+    currency,
+    status,
+    variantCount,
+    primaryImageFileId:
+      typeof record.primaryImageFileId === "string"
+        ? record.primaryImageFileId
+        : null,
+    createdAt,
+    updatedAt,
+  };
+  const detail = {
+    id,
+    name,
+    basePriceMinor,
+    currency,
+    status,
+    createdAt,
+    updatedAt,
+    variants: Array.isArray(record.variants) ? record.variants : [],
+    imageFileIds: Array.isArray(record.imageFileIds) ? record.imageFileIds : [],
+  };
+  listMineState.productDetails[id] = detail;
+  const already = listMineState.listProductsItems.some((item) => {
+    const row = jsonObject(item);
+    return row?.id === id;
+  });
+  if (!already) {
+    listMineState.listProductsItems = [
+      ...listMineState.listProductsItems,
+      listRow,
+    ];
+  }
 }
 
 export function ensureAuthServer(): void {
