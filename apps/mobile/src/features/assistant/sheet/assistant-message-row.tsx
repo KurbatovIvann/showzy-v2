@@ -1,7 +1,11 @@
-import { memo } from "react";
+import { memo, type ReactNode } from "react";
 import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
+import {
+  assistantTurnColumnLayout,
+  assistantTurnResultStretch,
+} from "../shared/assistant-turn-layout";
 import type { AssistantTimelineStep } from "../shared/chat-rows";
 import type {
   AssistantOrderEntityCardView,
@@ -47,39 +51,45 @@ export const AssistantMessageRow = memo(function AssistantMessageRow(props: {
         </Text>
       ) : null}
       {showTimeline ? (
-        <AssistantTimeline
-          steps={props.timeline}
-          accessibilityLabel={props.timelineLabel}
-        />
+        <AssistantTurnResult>
+          <AssistantTimeline
+            steps={props.timeline}
+            accessibilityLabel={props.timelineLabel}
+          />
+        </AssistantTurnResult>
       ) : null}
       {listCard !== null ? (
-        <OrdersListResultCard
-          card={listCard}
-          onOpenOrders={props.onOpenOrders}
-          onOpenOrder={props.onOpenOrder}
-        />
+        <AssistantTurnResult>
+          <OrdersListResultCard
+            card={listCard}
+            onOpenOrders={props.onOpenOrders}
+            onOpenOrder={props.onOpenOrder}
+          />
+        </AssistantTurnResult>
       ) : null}
       {aggregateCard !== null ? (
-        <OrdersAggregateResultCard card={aggregateCard} />
+        <AssistantTurnResult>
+          <OrdersAggregateResultCard card={aggregateCard} />
+        </AssistantTurnResult>
       ) : null}
       {props.entityCards.map((card) => (
-        <OrderEntityCard
-          key={card.id}
-          card={card}
-          onOpenOrder={props.onOpenOrder}
-        />
+        <AssistantTurnResult key={card.id}>
+          <OrderEntityCard card={card} onOpenOrder={props.onOpenOrder} />
+        </AssistantTurnResult>
       ))}
       {confirmationSummary !== null ? (
-        <ConfirmationCard
-          title={props.confirmationTitle}
-          summary={confirmationSummary}
-          confirmLabel={props.confirmLabel}
-          dismissLabel={props.dismissLabel}
-          confirmingLabel={props.confirmingLabel}
-          applying={props.confirmationApplying}
-          onConfirm={props.onConfirm}
-          onDismiss={props.onDismiss}
-        />
+        <AssistantTurnResult>
+          <ConfirmationCard
+            title={props.confirmationTitle}
+            summary={confirmationSummary}
+            confirmLabel={props.confirmLabel}
+            dismissLabel={props.dismissLabel}
+            confirmingLabel={props.confirmingLabel}
+            applying={props.confirmationApplying}
+            onConfirm={props.onConfirm}
+            onDismiss={props.onDismiss}
+          />
+        </AssistantTurnResult>
       ) : null}
     </View>
   );
@@ -92,10 +102,12 @@ const styles = StyleSheet.create((theme) => ({
     marginBottom: theme.spacing.md,
   },
   assistantWrap: {
-    alignItems: "flex-start",
+    ...assistantTurnColumnLayout,
     gap: theme.spacing.sm,
-    maxWidth: "92%",
     marginBottom: theme.spacing.md,
+  },
+  resultStretch: {
+    ...assistantTurnResultStretch,
   },
   userBubble: {
     maxWidth: "80%",
@@ -122,3 +134,7 @@ const styles = StyleSheet.create((theme) => ({
     ...theme.shadows.sm,
   },
 }));
+
+function AssistantTurnResult(props: { readonly children: ReactNode }) {
+  return <View style={styles.resultStretch}>{props.children}</View>;
+}
