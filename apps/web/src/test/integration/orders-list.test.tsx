@@ -211,9 +211,7 @@ describe("orders list (SHO-377)", () => {
       expect(router.state.location.pathname).toBe(
         `/kviti-lviv/orders/${ANNA_ORDER_ID}`,
       );
-      expect(
-        screen.getByRole("heading", { name: "#KL-K7K3K4" }),
-      ).toBeDefined();
+      expect(screen.getByRole("heading", { name: "#KL-K7K3K4" })).toBeDefined();
     });
     expect(
       screen.queryByRole("heading", { name: "Модуль у розробці" }),

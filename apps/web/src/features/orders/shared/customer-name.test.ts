@@ -45,9 +45,9 @@ describe("resolveCustomerNameHydration", () => {
 
 describe("customerNameLabel", () => {
   it("falls back to missing-customer copy", () => {
-    expect(
-      customerNameLabel({ kind: "missing" }, "Клієнт видалений"),
-    ).toBe("Клієнт видалений");
+    expect(customerNameLabel({ kind: "missing" }, "Клієнт видалений")).toBe(
+      "Клієнт видалений",
+    );
     expect(customerNameLabel({ kind: "pending" }, "Клієнт видалений")).toBe("");
     expect(
       customerNameLabel(

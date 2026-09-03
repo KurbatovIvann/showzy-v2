@@ -187,9 +187,7 @@ describe("orders detail (SHO-378)", () => {
   it("deep-links /{slug}/orders/{id} to snapshot lines, comment, and phone", async () => {
     signInWithFlowers();
     seedCatalog();
-    const { router } = await renderApp(
-      `/kviti-lviv/orders/${ANNA_ORDER_ID}`,
-    );
+    const { router } = await renderApp(`/kviti-lviv/orders/${ANNA_ORDER_ID}`);
     expect(
       await screen.findByRole("heading", { name: "#KL-K7K3K4" }),
     ).toBeDefined();
@@ -237,7 +235,9 @@ describe("orders detail (SHO-378)", () => {
       const detail = await screen.findByRole("region", { name: heading });
       expect(within(detail).getByRole("button", { name: cta })).toBeDefined();
       for (const label of hidden) {
-        expect(within(detail).queryByRole("button", { name: label })).toBeNull();
+        expect(
+          within(detail).queryByRole("button", { name: label }),
+        ).toBeNull();
       }
     },
   );
@@ -247,7 +247,9 @@ describe("orders detail (SHO-378)", () => {
     seedCatalog();
     await renderApp(`/kviti-lviv/orders/${ANNA_ORDER_ID}`);
     const detail = await screen.findByRole("region", { name: "#KL-K7K3K4" });
-    fireEvent.click(within(detail).getByRole("button", { name: "Підтвердити" }));
+    fireEvent.click(
+      within(detail).getByRole("button", { name: "Підтвердити" }),
+    );
     await waitFor(() => {
       expect(
         within(screen.getByRole("region", { name: "#KL-K7K3K4" })).getByRole(
@@ -298,11 +300,19 @@ describe("orders detail (SHO-378)", () => {
         const pane = screen.getByRole("region", { name: heading });
         expect(within(pane).getByText("Скасовано")).toBeDefined();
         expect(
-          within(pane).queryByRole("button", { name: copy.detail.actionsLabel }),
+          within(pane).queryByRole("button", {
+            name: copy.detail.actionsLabel,
+          }),
         ).toBeNull();
-        expect(within(pane).queryByRole("button", { name: "Підтвердити" })).toBeNull();
-        expect(within(pane).queryByRole("button", { name: "В роботу" })).toBeNull();
-        expect(within(pane).queryByRole("button", { name: "Виконано" })).toBeNull();
+        expect(
+          within(pane).queryByRole("button", { name: "Підтвердити" }),
+        ).toBeNull();
+        expect(
+          within(pane).queryByRole("button", { name: "В роботу" }),
+        ).toBeNull();
+        expect(
+          within(pane).queryByRole("button", { name: "Виконано" }),
+        ).toBeNull();
       });
       expect(
         statusWrites().some((call) => call.path === "/rpc/orders/cancel"),
@@ -316,9 +326,15 @@ describe("orders detail (SHO-378)", () => {
     await renderApp(`/kviti-lviv/orders/${DONE_ORDER_ID}`);
     const detail = await screen.findByRole("region", { name: "#KL-CLOSED" });
     expect(within(detail).getByText("Виконано")).toBeDefined();
-    expect(within(detail).queryByRole("button", { name: "Підтвердити" })).toBeNull();
-    expect(within(detail).queryByRole("button", { name: "В роботу" })).toBeNull();
-    expect(within(detail).queryByRole("button", { name: "Виконано" })).toBeNull();
+    expect(
+      within(detail).queryByRole("button", { name: "Підтвердити" }),
+    ).toBeNull();
+    expect(
+      within(detail).queryByRole("button", { name: "В роботу" }),
+    ).toBeNull();
+    expect(
+      within(detail).queryByRole("button", { name: "Виконано" }),
+    ).toBeNull();
     expect(
       within(detail).queryByRole("button", { name: copy.detail.actionsLabel }),
     ).toBeNull();
@@ -333,11 +349,11 @@ describe("orders detail (SHO-378)", () => {
       ),
     );
     await renderApp(`/kviti-lviv/orders/${ANNA_ORDER_ID}`);
-    expect(
-      await screen.findByText(copy.detail.errorTitle),
-    ).toBeDefined();
+    expect(await screen.findByText(copy.detail.errorTitle)).toBeDefined();
     expect(screen.queryByText("secret-server-message")).toBeNull();
-    expect(screen.getByRole("button", { name: copy.detail.retry })).toBeDefined();
+    expect(
+      screen.getByRole("button", { name: copy.detail.retry }),
+    ).toBeDefined();
   });
 
   it("maps confirm network failures to the offline banner via error.code", async () => {
@@ -350,11 +366,13 @@ describe("orders detail (SHO-378)", () => {
         HttpResponse.error(),
       ),
     );
-    fireEvent.click(within(detail).getByRole("button", { name: "Підтвердити" }));
-    expect(
-      await screen.findByRole("alert"),
-    ).toBeDefined();
-    expect(screen.getByRole("alert").textContent).toBe(copy.detail.mutationOffline);
+    fireEvent.click(
+      within(detail).getByRole("button", { name: "Підтвердити" }),
+    );
+    expect(await screen.findByRole("alert")).toBeDefined();
+    expect(screen.getByRole("alert").textContent).toBe(
+      copy.detail.mutationOffline,
+    );
     expect(screen.queryByText("Failed to fetch")).toBeNull();
   });
 
@@ -368,7 +386,9 @@ describe("orders detail (SHO-378)", () => {
         rpcErrorBody("PERMISSION_DENIED", 403, "secret-denied-message"),
       ),
     );
-    fireEvent.click(within(detail).getByRole("button", { name: "Підтвердити" }));
+    fireEvent.click(
+      within(detail).getByRole("button", { name: "Підтвердити" }),
+    );
     expect(await screen.findByRole("alert")).toBeDefined();
     expect(screen.getByRole("alert").textContent).toBe(
       copy.detail.mutationPermission,

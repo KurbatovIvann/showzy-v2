@@ -59,9 +59,7 @@ export function OrderDetailView({
   readonly onCancel: () => void;
 }) {
   const chromeCopy = panelChromeCopy(
-    detectLocale(
-      typeof navigator === "undefined" ? "uk" : navigator.language,
-    ),
+    detectLocale(typeof navigator === "undefined" ? "uk" : navigator.language),
   );
   const stageLabel =
     state.kind === "ready" && order !== null

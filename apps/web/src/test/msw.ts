@@ -205,9 +205,7 @@ function recordMutation(
     path: new URL(request.url).pathname,
     companyId: request.headers.get(COMPANY_SELECTOR_HEADER),
     idempotencyKey: request.headers.get(IDEMPOTENCY_KEY_HEADER),
-    confirmationChallengeId: request.headers.get(
-      CONFIRMATION_CHALLENGE_HEADER,
-    ),
+    confirmationChallengeId: request.headers.get(CONFIRMATION_CHALLENGE_HEADER),
     input,
   });
 }
@@ -250,12 +248,7 @@ function writeOrderStatus(
   if (!allowedFrom.includes(currentStatus)) {
     return rpcError("CONFLICT", 409, "Invalid status transition.");
   }
-  const updated = patchStoredOrderStatus(
-    rpcState,
-    orderId,
-    nextStatus,
-    extra,
-  );
+  const updated = patchStoredOrderStatus(rpcState, orderId, nextStatus, extra);
   if (updated === null) {
     return rpcError("NOT_FOUND", 404, "Order not found.");
   }

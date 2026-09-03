@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { formatOrderMoney, formatOrderQuantityMilli } from "./format-order-money";
+import {
+  formatOrderMoney,
+  formatOrderQuantityMilli,
+} from "./format-order-money";
 
 describe("formatOrderMoney", () => {
   it("formats UAH minor units via moneyFromWire, omitting zero kopiykas", () => {

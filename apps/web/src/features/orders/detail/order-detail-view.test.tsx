@@ -2,8 +2,8 @@
  * Order detail view affordances (SHO-378). Permission hide is proven
  * here because every seeded staff role holds `orders:edit`.
  */
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { ordersCopy } from "../../../i18n/orders";
 import {
@@ -29,6 +29,8 @@ const VIEW = toOrderDetailView({
 });
 
 const NOOP = (): void => undefined;
+
+afterEach(cleanup);
 
 const HIDDEN_WRITES = {
   showConfirm: false,
@@ -107,8 +109,6 @@ describe("OrderDetailView (SHO-378)", () => {
     renderDetail(HIDDEN_WRITES);
     expect(screen.getByText("+380671112233")).toBeDefined();
     expect(document.querySelector('a[href^="tel:"]')).toBeNull();
-    expect(
-      screen.queryByRole("link", { name: "+380671112233" }),
-    ).toBeNull();
+    expect(screen.queryByRole("link", { name: "+380671112233" })).toBeNull();
   });
 });
