@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { ConfirmationRequiredError } from "@showzy/core/errors";
 import { defineActionContract } from "@showzy/core/contract";
 import { describe, expect, it, vi } from "vitest";
@@ -249,6 +251,7 @@ const challengeId = "22222222-2222-4222-8222-222222222222";
 describe("extractUuidResultIds", () => {
   it("collects top-level uuid ids and ignores nested list rows", () => {
     const orderId = "33333333-3333-4333-8333-333333333333";
+    const nestedOrderId = "44444444-4444-4444-8444-444444444444";
     expect(extractUuidResultIds({ orderId, status: "new" })).toEqual([orderId]);
     expect(
       extractUuidResultIds({
@@ -256,6 +259,29 @@ describe("extractUuidResultIds", () => {
         nextCursor: null,
       }),
     ).toEqual([]);
+    expect(
+      extractUuidResultIds({
+        kind: "page.summary",
+        items: [{ orderId: nestedOrderId }, { orderId }],
+        nextCursor: null,
+      }),
+    ).toEqual([]);
+    expect(
+      extractUuidResultIds({
+        orderId,
+        items: [{ orderId: nestedOrderId }],
+      }),
+    ).toEqual([orderId]);
+    const source = readFileSync(
+      new URL("./staff-assistant-stream.ts", import.meta.url),
+      "utf8",
+    );
+    const start = source.indexOf("export function extractUuidResultIds");
+    const end = source.indexOf("function clipToolCallId");
+    const fn = source.slice(start, end);
+    expect(fn).toContain("RESULT_ID_KEYS");
+    expect(fn).not.toContain("items");
+    expect(fn).not.toContain("orderId]");
   });
 });
 

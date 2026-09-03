@@ -14,8 +14,8 @@ import {
 } from "../api/assistant-chat-transport";
 import { bindCreateConversationMutate } from "../api/create-conversation";
 import {
-  ensureAssistantConversation,
   resetAssistantTenantSession,
+  resumeOwnAssistantConversation,
   sendEnsuredAssistantMessage,
 } from "../shared/assistant-session";
 import {
@@ -53,10 +53,12 @@ export function useAssistantChat(): {
   const auth = useAuthSession();
   const apiClient = useApiClient();
   const { activeCompanyId } = useActiveCompany();
+  const sessionUserId = auth.session?.userId ?? null;
   const apiUrl = useMemo(() => resolveApiUrl(), []);
   const confirmationResetRef = useRef<() => void>(() => {
     return;
   });
+  const [hydrateBusy, setHydrateBusy] = useState(false);
 
   const cookieRef = useRef(auth.getCookie);
   cookieRef.current = auth.getCookie;
@@ -97,8 +99,11 @@ export function useAssistantChat(): {
     }));
   }, [messages]);
 
+  const setMessagesRef = useRef(setMessages);
+  setMessagesRef.current = setMessages;
+
   const busy = status === "submitted" || status === "streaming";
-  const sendBusy = busy || createConversation.isPending;
+  const sendBusy = busy || createConversation.isPending || hydrateBusy;
 
   const resume = useCallback(
     (headers: Readonly<Record<string, string>>) =>
@@ -109,28 +114,70 @@ export function useAssistantChat(): {
   useEffect(() => {
     const previous = previousCompanyIdRef.current;
     previousCompanyIdRef.current = activeCompanyId;
-    if (previous === activeCompanyId) {
+    if (previous !== activeCompanyId) {
+      companyEpochRef.current += 1;
+      resetAssistantTenantSession({
+        conversationIdRef,
+        setMessages,
+        resetConfirmation: () => {
+          confirmationResetRef.current();
+        },
+      });
+    }
+    if (
+      activeCompanyId === null ||
+      sessionUserId === null ||
+      apiClient === null
+    ) {
+      setHydrateBusy(false);
       return;
     }
-    companyEpochRef.current += 1;
     const epoch = companyEpochRef.current;
-    resetAssistantTenantSession({
-      conversationIdRef,
-      setMessages,
-      resetConfirmation: () => {
-        confirmationResetRef.current();
-      },
-    });
-    if (activeCompanyId === null) {
-      return;
-    }
-    void ensureAssistantConversation({
-      conversationIdRef,
+    let cancelled = false;
+    setHydrateBusy(true);
+    const client = apiClient;
+    void resumeOwnAssistantConversation({
       companyEpochRef,
       epoch,
-      create: () => createConversation.submit({}),
-    }).catch(() => undefined);
-  }, [activeCompanyId, createConversation, setMessages]);
+      sessionUserId,
+      listConversations: (input) =>
+        client.client.assistant.listConversations(input),
+      getConversation: (input) =>
+        client.client.assistant.getConversation(input),
+      getOrder: async (orderId) => {
+        try {
+          return await client.client.orders.get({ orderId });
+        } catch {
+          return null;
+        }
+      },
+    })
+      .then((result) => {
+        if (cancelled || companyEpochRef.current !== epoch) {
+          return;
+        }
+        if (result.kind !== "resumed") {
+          return;
+        }
+        conversationIdRef.current = result.conversationId;
+        setMessagesRef.current(
+          result.messages.map((message) => ({
+            id: message.id,
+            role: message.role,
+            parts: [...message.parts],
+          })),
+        );
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled && companyEpochRef.current === epoch) {
+          setHydrateBusy(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeCompanyId, apiClient, sessionUserId, setMessages]);
 
   const send = useCallback(() => {
     const text = clipAssistantInput(input);
@@ -173,7 +220,7 @@ export function useAssistantChat(): {
     send,
     resume,
     sendBusy,
-    thinking: busy,
+    thinking: busy || hydrateBusy,
     canSend:
       clipAssistantInput(input).length > 0 &&
       !sendBusy &&
