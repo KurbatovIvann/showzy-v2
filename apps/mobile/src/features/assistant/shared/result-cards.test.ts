@@ -7,6 +7,7 @@ import { ordersCopy } from "../../../i18n/orders";
 import { itemCountLabel } from "../../orders/shared/item-count";
 import { formatOrderCreatedAt } from "../../orders/shared/order-created-at";
 import { orderDetailHref } from "../../orders/shared/order-hrefs";
+import { isToolErrorOutput } from "./confirmation-presenter";
 import {
   ASSISTANT_ORDERS_LIST_HREF,
   ASSISTANT_ORDERS_LIST_ROW_MAX,
@@ -405,6 +406,28 @@ describe("assistantResultCardsFromParts", () => {
               grossByCurrency: [],
             },
           ]),
+        },
+      ],
+      "uk",
+    );
+    expect(cards.listCard).toBeNull();
+    expect(cards.entityCards).toEqual([]);
+  });
+
+  it("does not render a list card from a façade error orders_list_page", () => {
+    const output = {
+      status: "error" as const,
+      code: "PERMISSION_DENIED",
+      message: "Staff cannot list these orders",
+    };
+    expect(isToolErrorOutput(output)).toBe(true);
+    const cards = assistantResultCardsFromParts(
+      [
+        {
+          type: "tool-orders_list_page",
+          toolCallId: "call-page",
+          state: "output-available",
+          output,
         },
       ],
       "uk",

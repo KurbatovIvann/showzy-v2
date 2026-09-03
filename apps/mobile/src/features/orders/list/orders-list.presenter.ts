@@ -149,15 +149,11 @@ export type OrdersListEntry =
     }
   | { readonly type: "row"; readonly order: OrderRowView };
 
-export function isInProgressStatus(status: OrderStatusFilter): boolean {
-  return isOpenOrderStatus(status);
-}
-
 export function groupOrderRows(
   rows: readonly OrderRowView[],
 ): readonly OrdersListEntry[] {
-  const inProgress = rows.filter((row) => isInProgressStatus(row.status));
-  const completed = rows.filter((row) => !isInProgressStatus(row.status));
+  const inProgress = rows.filter((row) => isOpenOrderStatus(row.status));
+  const completed = rows.filter((row) => !isOpenOrderStatus(row.status));
   const entries: OrdersListEntry[] = [];
   if (inProgress.length > 0) {
     entries.push({

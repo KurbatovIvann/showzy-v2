@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { ordersCopy } from "../../../i18n/orders";
 import type { OrderListItem } from "../api/order.queries";
 import { LIST_ORDERS_QUERY_MAX as capsQueryMax } from "../shared/order-caps";
+import { isOpenOrderStatus } from "../shared/order-status";
 import {
   classifyOrdersList,
   customerNameLabel,
@@ -10,7 +11,6 @@ import {
   formatOrderCreatedAt,
   groupOrderRows,
   hasActiveStatusFilter,
-  isInProgressStatus,
   listOrdersPageInput,
   localizeCustomerNameSnapshot,
   normalizeOrdersSearch,
@@ -267,13 +267,13 @@ describe("formatOrderCreatedAt", () => {
   });
 });
 
-describe("orderStatusTone / isInProgressStatus", () => {
+describe("orderStatusTone / isOpenOrderStatus", () => {
   it("treats new, confirmed, and in_progress as the open/active group", () => {
-    expect(isInProgressStatus("new")).toBe(true);
-    expect(isInProgressStatus("confirmed")).toBe(true);
-    expect(isInProgressStatus("in_progress")).toBe(true);
-    expect(isInProgressStatus("done")).toBe(false);
-    expect(isInProgressStatus("canceled")).toBe(false);
+    expect(isOpenOrderStatus("new")).toBe(true);
+    expect(isOpenOrderStatus("confirmed")).toBe(true);
+    expect(isOpenOrderStatus("in_progress")).toBe(true);
+    expect(isOpenOrderStatus("done")).toBe(false);
+    expect(isOpenOrderStatus("canceled")).toBe(false);
     expect(orderStatusTone("new")).toBe("action");
     expect(orderStatusTone("confirmed")).toBe("action");
     expect(orderStatusTone("in_progress")).toBe("attention");
