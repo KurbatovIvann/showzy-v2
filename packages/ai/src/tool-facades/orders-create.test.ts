@@ -3,6 +3,7 @@ import { asSchema } from "ai";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
+import { ORDER_ENTITY_PROMPT_LINE } from "../spoken-reply.js";
 import {
   CREATE_ORDER_COMMENT_MAX,
   CREATE_ORDER_MAX_ITEMS,
@@ -315,6 +316,9 @@ describe("ordersCreateFacadeTools", () => {
     );
     expect(tools[ORDERS_CREATE_TOOL_NAME]?.description).toContain(
       "Creating a customer, group, or price list is a separate write",
+    );
+    expect(tools[ORDERS_CREATE_TOOL_NAME]?.description).toContain(
+      ORDER_ENTITY_PROMPT_LINE,
     );
   });
 });

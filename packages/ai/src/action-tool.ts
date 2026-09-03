@@ -8,6 +8,7 @@ import {
   STAFF_ASSISTANT_CACHE_PROVIDER_OPTIONS,
   STAFF_ASSISTANT_DEFER_PROVIDER_OPTIONS,
 } from "./anthropic-options.js";
+import { ORDER_ENTITY_PROMPT_LINE } from "./spoken-reply.js";
 import {
   CATALOG_LIST_PRODUCTS_ACTION_NAME,
   CATALOG_LIST_PRODUCTS_TOOL_NAME,
@@ -59,6 +60,10 @@ export const STAFF_ASSISTANT_HOT_ACTION_NAMES = [
   PRICING_LIST_PRICE_LISTS_ACTION_NAME,
   CUSTOMERS_LIST_CUSTOMERS_ACTION_NAME,
 ] as const;
+
+const HOT_ACTION_DESCRIPTION_SUFFIXES: Readonly<Record<string, string>> = {
+  "orders.get": ORDER_ENTITY_PROMPT_LINE,
+};
 
 const HOT_ACTION_NAME_SET = new Set<string>(STAFF_ASSISTANT_HOT_ACTION_NAMES);
 
@@ -325,7 +330,8 @@ function insertActionTool(
     );
   }
   const descriptionSuffix =
-    PRICING_DEFERRED_TOOL_DESCRIPTION_SUFFIXES[contract.name];
+    PRICING_DEFERRED_TOOL_DESCRIPTION_SUFFIXES[contract.name] ??
+    HOT_ACTION_DESCRIPTION_SUFFIXES[contract.name];
   const aiTool = actionContractToTool(
     contract,
     execute,

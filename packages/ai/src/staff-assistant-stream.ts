@@ -3,6 +3,7 @@ import { ConfirmationRequiredError, CoreError } from "@showzy/core/errors";
 import {
   createUIMessageStream,
   createUIMessageStreamResponse,
+  Output,
   streamText,
   toUIMessageStream,
   type LanguageModel,
@@ -22,11 +23,16 @@ import { STAFF_ASSISTANT_ANTHROPIC_PROVIDER_OPTIONS } from "./anthropic-options.
 import { clipStaffAssistantToolResult } from "./clip-tool-result.js";
 import {
   isStaffAssistantConfirmationOutput,
-  STAFF_ASSISTANT_CONFIRMATION_FALLBACK_TEXT,
   type StaffAssistantConfirmationOutput,
 } from "./confirmation.js";
 import { staffAssistantJsonChars } from "./json-chars.js";
 import { staffAssistantHistoryStats } from "./messages.js";
+import {
+  createSpokenReplyUiTransform,
+  isStaffAssistantSyntheticJsonTool,
+  spokenTurnText,
+  staffAssistantSpokenOutputSchema,
+} from "./spoken-reply.js";
 import { staffAssistantSystemMessages } from "./system-prompt.js";
 import { staffAssistantToolsetHash } from "./toolset-hash.js";
 import { staffAssistantTurnContextAddendum } from "./turn-context.js";
@@ -38,8 +44,11 @@ import {
 export const STAFF_ASSISTANT_TOOL_RUNS_MAX = 50;
 export const STAFF_ASSISTANT_RESULT_IDS_MAX = 50;
 export const STAFF_ASSISTANT_TOOL_CALL_ID_MAX = 128;
-/** Mechanical cap so a looping model cannot run unbounded tool steps. */
-export const STAFF_ASSISTANT_MAX_STEPS = 8;
+/**
+ * Mechanical cap so a looping model cannot run unbounded tool steps.
+ * Structured `{ spoken }` output is an extra step after tools (SHO-386).
+ */
+export const STAFF_ASSISTANT_MAX_STEPS = 9;
 
 const uuidSchema = z.uuid();
 
@@ -133,18 +142,12 @@ function stepRequestedConfirmation(steps: Array<StepResult<ToolSet>>): boolean {
   );
 }
 
-function turnText(
-  text: string,
+function domainToolRuns(
   runs: readonly StaffAssistantToolRun[],
-): string {
-  const trimmed = text.trim();
-  if (trimmed !== "") {
-    return trimmed;
-  }
-  if (runs.some((run) => run.outcome === "confirmation_required")) {
-    return STAFF_ASSISTANT_CONFIRMATION_FALLBACK_TEXT;
-  }
-  return "Done.";
+): StaffAssistantToolRun[] {
+  return runs.filter(
+    (run) => !isStaffAssistantSyntheticJsonTool(run.actionName),
+  );
 }
 
 interface ClipByteMeter {
@@ -322,6 +325,7 @@ export function streamStaffAssistantChat(options: {
         ),
         messages: options.messages,
         tools,
+        output: Output.object({ schema: staffAssistantSpokenOutputSchema }),
         providerOptions: {
           anthropic: STAFF_ASSISTANT_ANTHROPIC_PROVIDER_OPTIONS,
         },
@@ -345,19 +349,25 @@ export function streamStaffAssistantChat(options: {
       });
       writer.merge(
         toUIMessageStream({
-          stream: result.stream,
+          stream: result.stream.pipeThrough(createSpokenReplyUiTransform()),
           tools,
         }),
       );
-      let text: string;
+      let parsedSpoken: string | undefined;
       try {
-        text = await result.text;
+        parsedSpoken = (await result.output).spoken;
       } catch {
-        text = "The assistant could not complete this turn.";
+        parsedSpoken = undefined;
+      }
+      let rawText: string;
+      try {
+        rawText = await result.text;
+      } catch {
+        rawText = "The assistant could not complete this turn.";
       }
       const turn: StaffAssistantTurnResult = {
-        text: turnText(text, runs),
-        toolRuns: runs.slice(0, STAFF_ASSISTANT_TOOL_RUNS_MAX),
+        text: spokenTurnText({ parsedSpoken, rawText, runs }),
+        toolRuns: domainToolRuns(runs).slice(0, STAFF_ASSISTANT_TOOL_RUNS_MAX),
         usage: await staffAssistantTurnUsageFromTotal(result.usage),
         toolsAttached: options.contracts.length > 0,
         modelSteps: await staffAssistantModelStepCount(result.steps),

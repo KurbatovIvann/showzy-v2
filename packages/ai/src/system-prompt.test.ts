@@ -3,6 +3,11 @@ import { describe, expect, it } from "vitest";
 import { STAFF_ASSISTANT_CACHE_CONTROL } from "./anthropic-options.js";
 import { STAFF_ASSISTANT_PRODUCT_GLOSSARY } from "./product-glossary.js";
 import {
+  ORDER_ENTITY_PROMPT_LINE,
+  ORDERS_AGGREGATE_PROMPT_LINE,
+  ORDERS_LIST_PROMPT_LINE,
+} from "./spoken-reply.js";
+import {
   staffAssistantSystemMessage,
   staffAssistantSystemMessages,
   staffAssistantSystemPrompt,
@@ -113,6 +118,22 @@ describe("staffAssistantSystemPrompt", () => {
     expect(staffAssistantSystemPrompt).toContain("supplierSigned");
     expect(staffAssistantSystemPrompt).toContain("userId");
     expect(staffAssistantSystemPrompt).toContain("product language");
+  });
+
+  it("tells the model the UI already shows surfaces and not to emit card JSON", () => {
+    expect(staffAssistantSystemPrompt).toContain("<presentation>");
+    expect(staffAssistantSystemPrompt).toContain(ORDERS_LIST_PROMPT_LINE);
+    expect(staffAssistantSystemPrompt).toContain(ORDERS_AGGREGATE_PROMPT_LINE);
+    expect(staffAssistantSystemPrompt).toContain(ORDER_ENTITY_PROMPT_LINE);
+    expect(staffAssistantSystemPrompt).toContain("Do not emit card JSON");
+    expect(staffAssistantSystemPrompt).toContain(
+      'Do not name those surfaces "cards" to the staff member',
+    );
+    expect(staffAssistantSystemPrompt).toContain(
+      "No **, |, headings, or code fences",
+    );
+    expect(staffAssistantSystemPrompt).not.toContain("reply with card JSON");
+    expect(staffAssistantSystemPrompt).not.toContain("emit a cards array");
   });
 
   it("marks the system message with a 5-minute ephemeral cache breakpoint", () => {

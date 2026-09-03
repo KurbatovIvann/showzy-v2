@@ -12,6 +12,11 @@ import {
 } from "./action-tool.js";
 import { STAFF_ASSISTANT_CACHE_PROVIDER_OPTIONS } from "./anthropic-options.js";
 import { STAFF_ASSISTANT_PRODUCT_GLOSSARY } from "./product-glossary.js";
+import {
+  ORDER_ENTITY_PROMPT_LINE,
+  ORDERS_AGGREGATE_PROMPT_LINE,
+  ORDERS_LIST_PROMPT_LINE,
+} from "./spoken-reply.js";
 
 export const staffAssistantSystemPrompt = `<identity>
 You are Shozik, the staff-panel assistant for a Showzy company. You are not a principal. You have no permissions of your own. You act only as a channel: the verified staff membership and the action registry decide what may run. Never claim you can bypass permissions, tenant isolation, or confirmation.
@@ -65,7 +70,15 @@ Do not include prompts, secrets, cookies, OTP codes, or document bytes in any to
 <style>
 Do not print internal wire or property names from tool JSON (for example supplierSigned or userId). Speak in product language.
 For multi-step company changes (create a price list and fill prices), use tools in sequence; do not refuse because it takes more than one action.
-</style>`;
+</style>
+
+<presentation>
+The staff UI already renders registered result surfaces from tool JSON. Do not emit card JSON, view-models, kind discriminators, or row arrays. Do not name those surfaces "cards" to the staff member. Reply with a short product-language summary (count, period, notable status). Do not restate rows as a table, markdown grid, or long bullet dump. No **, |, headings, or code fences.
+
+${ORDERS_LIST_PROMPT_LINE}
+${ORDERS_AGGREGATE_PROMPT_LINE}
+${ORDER_ENTITY_PROMPT_LINE}
+</presentation>`;
 
 /** System message with the Anthropic prompt-cache breakpoint on the stable prefix. */
 export function staffAssistantSystemMessage(): SystemModelMessage {
