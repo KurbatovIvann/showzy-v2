@@ -10,10 +10,12 @@ import {
   formatQuantityMilli,
   mapOrderWriteFailure,
   orderDetailActionsForView,
+  orderDetailCompleteLoading,
   orderDetailConfirmLoading,
   orderDetailHeaderSubtitle,
   orderDetailHeaderTitle,
   orderDetailShowsPhoneIcon,
+  orderDetailStartLoading,
   orderDetailWriteChrome,
   orderLineCatalogImages,
   orderLineThumbnailFileId,
@@ -98,7 +100,7 @@ describe("toOrderDetailView", () => {
       customerPhone: " +380501112233 ",
     });
     expect(view.status).toBe("new");
-    expect(view.statusLabel).toBe("Новий");
+    expect(view.statusLabel).toBe("Нове");
     expect(view.statusTone).toBe("action");
     expect(view.comment).toBe("Без горіхів");
     expect(view.dueLabel).toBe("2\u00A0500\u00A0₴");
@@ -124,7 +126,7 @@ describe("toOrderDetailView", () => {
     expect(JSON.stringify(view.lines)).not.toContain("https://");
   });
 
-  it("maps confirmed and canceled pills and hides empty comments", () => {
+  it("maps confirmed, in_progress, done, and canceled pills and hides empty comments", () => {
     const confirmed = toOrderDetailView({
       order: order({ status: "confirmed", comment: "   " }),
       copy,
@@ -132,7 +134,7 @@ describe("toOrderDetailView", () => {
       customerPhone: null,
     });
     expect(confirmed.statusLabel).toBe("Підтверджено");
-    expect(confirmed.statusTone).toBe("action");
+    expect(confirmed.statusTone).toBe("focus");
     expect(confirmed.comment).toBeNull();
     expect(confirmed.customerPhone).toBeNull();
     expect(confirmed.showPhoneIcon).toBe(false);
@@ -342,39 +344,51 @@ describe("line thumbnails", () => {
 });
 
 describe("orderDetailActionsForView", () => {
-  it("shows confirm only for new", () => {
-    expect(
-      orderDetailActionsForView({ canEdit: true, status: "new" }).showConfirm,
-    ).toBe(true);
-    expect(
-      orderDetailActionsForView({ canEdit: true, status: "confirmed" })
-        .showConfirm,
-    ).toBe(false);
-    expect(
-      orderDetailActionsForView({ canEdit: true, status: "in_progress" })
-        .showConfirm,
-    ).toBe(false);
-    expect(
-      orderDetailActionsForView({ canEdit: true, status: "done" }).showConfirm,
-    ).toBe(false);
-    expect(
-      orderDetailActionsForView({ canEdit: true, status: "canceled" })
-        .showConfirm,
-    ).toBe(false);
-  });
+  const hiddenWrites = {
+    showConfirm: false,
+    showStart: false,
+    showComplete: false,
+    showActions: false,
+    cancelEnabled: false,
+  };
 
-  it("disables cancel for done and canceled and hides both without edit", () => {
+  it("shows one primary CTA per open status", () => {
+    expect(orderDetailActionsForView({ canEdit: true, status: "new" })).toEqual(
+      {
+        showConfirm: true,
+        showStart: false,
+        showComplete: false,
+        showActions: true,
+        cancelEnabled: true,
+      },
+    );
     expect(
-      orderDetailActionsForView({ canEdit: true, status: "in_progress" }),
+      orderDetailActionsForView({ canEdit: true, status: "confirmed" }),
     ).toEqual({
       showConfirm: false,
+      showStart: true,
+      showComplete: false,
       showActions: true,
       cancelEnabled: true,
     });
     expect(
+      orderDetailActionsForView({ canEdit: true, status: "in_progress" }),
+    ).toEqual({
+      showConfirm: false,
+      showStart: false,
+      showComplete: true,
+      showActions: true,
+      cancelEnabled: true,
+    });
+  });
+
+  it("hides the primary CTA and disables cancel on terminal statuses", () => {
+    expect(
       orderDetailActionsForView({ canEdit: true, status: "done" }),
     ).toEqual({
       showConfirm: false,
+      showStart: false,
+      showComplete: false,
       showActions: true,
       cancelEnabled: false,
     });
@@ -382,16 +396,20 @@ describe("orderDetailActionsForView", () => {
       orderDetailActionsForView({ canEdit: true, status: "canceled" }),
     ).toEqual({
       showConfirm: false,
+      showStart: false,
+      showComplete: false,
       showActions: true,
       cancelEnabled: false,
     });
+  });
+
+  it("hides every write without edit", () => {
     expect(
       orderDetailActionsForView({ canEdit: false, status: "new" }),
-    ).toEqual({
-      showConfirm: false,
-      showActions: false,
-      cancelEnabled: false,
-    });
+    ).toEqual(hiddenWrites);
+    expect(
+      orderDetailActionsForView({ canEdit: false, status: "in_progress" }),
+    ).toEqual(hiddenWrites);
   });
 
   it("hides confirm and actions when a cached order is error or offline", () => {
@@ -401,28 +419,20 @@ describe("orderDetailActionsForView", () => {
     });
     expect(actionFlags).toEqual({
       showConfirm: true,
+      showStart: false,
+      showComplete: false,
       showActions: true,
       cancelEnabled: true,
     });
     const cached = { hasOrder: true, actionFlags };
-    expect(orderDetailWriteChrome({ stateKind: "error", ...cached })).toEqual({
-      showConfirm: false,
-      showActions: false,
-      cancelEnabled: false,
-    });
+    expect(orderDetailWriteChrome({ stateKind: "error", ...cached })).toEqual(
+      hiddenWrites,
+    );
     expect(orderDetailWriteChrome({ stateKind: "offline", ...cached })).toEqual(
-      {
-        showConfirm: false,
-        showActions: false,
-        cancelEnabled: false,
-      },
+      hiddenWrites,
     );
     expect(orderDetailWriteChrome({ stateKind: "loading", ...cached })).toEqual(
-      {
-        showConfirm: false,
-        showActions: false,
-        cancelEnabled: false,
-      },
+      hiddenWrites,
     );
     expect(orderDetailWriteChrome({ stateKind: "ready", ...cached })).toEqual(
       actionFlags,
@@ -433,16 +443,19 @@ describe("orderDetailActionsForView", () => {
         hasOrder: false,
         actionFlags,
       }),
-    ).toEqual({
-      showConfirm: false,
-      showActions: false,
-      cancelEnabled: false,
-    });
+    ).toEqual(hiddenWrites);
   });
 });
 
 describe("orderDetailConfirmLoading", () => {
-  it("does not paint Confirm as loading while cancel is in flight", () => {
+  const idle = {
+    confirmPending: false,
+    startPending: false,
+    completePending: false,
+    cancelPending: false,
+  };
+
+  it("does not paint Confirm as loading while other writes are in flight", () => {
     const chrome = orderDetailWriteChrome({
       stateKind: "ready",
       hasOrder: true,
@@ -454,8 +467,15 @@ describe("orderDetailConfirmLoading", () => {
     expect(chrome.showConfirm).toBe(true);
     expect(
       orderDetailConfirmLoading({
-        confirmPending: false,
+        ...idle,
         cancelPending: true,
+      }),
+    ).toBe(false);
+    expect(
+      orderDetailConfirmLoading({
+        ...idle,
+        startPending: true,
+        completePending: true,
       }),
     ).toBe(false);
   });
@@ -463,14 +483,38 @@ describe("orderDetailConfirmLoading", () => {
   it("shows Confirm loading only when confirm is in flight", () => {
     expect(
       orderDetailConfirmLoading({
+        ...idle,
         confirmPending: true,
-        cancelPending: false,
+      }),
+    ).toBe(true);
+    expect(orderDetailConfirmLoading(idle)).toBe(false);
+  });
+
+  it("keeps start and complete loading on their own attempts", () => {
+    expect(
+      orderDetailStartLoading({
+        ...idle,
+        startPending: true,
+        confirmPending: true,
       }),
     ).toBe(true);
     expect(
-      orderDetailConfirmLoading({
-        confirmPending: false,
-        cancelPending: false,
+      orderDetailStartLoading({
+        ...idle,
+        confirmPending: true,
+      }),
+    ).toBe(false);
+    expect(
+      orderDetailCompleteLoading({
+        ...idle,
+        completePending: true,
+        startPending: true,
+      }),
+    ).toBe(true);
+    expect(
+      orderDetailCompleteLoading({
+        ...idle,
+        startPending: true,
       }),
     ).toBe(false);
   });

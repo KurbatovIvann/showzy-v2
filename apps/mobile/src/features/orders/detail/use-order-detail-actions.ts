@@ -1,8 +1,9 @@
 /**
- * Confirm / cancel writes + navigation (SHO-212). Confirm and cancel
- * mint separate `useContractMutation` attempts so a failed confirm does
- * not retry as cancel. `requiresConfirmation` is false on both contracts
- * — the actions sheet is the cancel UX, not a second protocol.
+ * Confirm / start / complete / cancel writes + navigation (SHO-212 /
+ * SHO-376). Each write mints a separate `useContractMutation` attempt so
+ * a failed confirm does not retry as start. `requiresConfirmation` is
+ * false on the contracts — the actions sheet is the cancel UX, not a
+ * second protocol.
  */
 import { useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -32,12 +33,16 @@ export function useOrderDetailActions(args: {
 }): {
   readonly banner: string | null;
   readonly confirmPending: boolean;
+  readonly startPending: boolean;
+  readonly completePending: boolean;
   readonly cancelPending: boolean;
   readonly writePending: boolean;
   readonly goBack: () => void;
   readonly openActions: () => void;
   readonly closeActions: () => void;
   readonly confirm: () => void;
+  readonly start: () => void;
+  readonly complete: () => void;
   readonly cancel: () => void;
 } {
   const apiClient = useApiClient();
@@ -49,6 +54,24 @@ export function useOrderDetailActions(args: {
   const writeBusyRef = useRef(false);
 
   const confirmMutation = useContractMutation(
+    (input: OrderStatusWrite, options) => {
+      const current = apiRef.current;
+      if (current === null) {
+        return Promise.reject(new TypeError("Failed to fetch"));
+      }
+      return bindOrderStatusMutate(current)(input, options);
+    },
+  );
+  const startMutation = useContractMutation(
+    (input: OrderStatusWrite, options) => {
+      const current = apiRef.current;
+      if (current === null) {
+        return Promise.reject(new TypeError("Failed to fetch"));
+      }
+      return bindOrderStatusMutate(current)(input, options);
+    },
+  );
+  const completeMutation = useContractMutation(
     (input: OrderStatusWrite, options) => {
       const current = apiRef.current;
       if (current === null) {
@@ -70,18 +93,39 @@ export function useOrderDetailActions(args: {
   const confirmFailure = confirmMutation.isError
     ? describeQueryFailure(confirmMutation.error).kind
     : null;
+  const startFailure = startMutation.isError
+    ? describeQueryFailure(startMutation.error).kind
+    : null;
+  const completeFailure = completeMutation.isError
+    ? describeQueryFailure(completeMutation.error).kind
+    : null;
   const cancelFailure = cancelMutation.isError
     ? describeQueryFailure(cancelMutation.error).kind
     : null;
   const banner =
     orderWriteBanner(mapOrderWriteFailure(cancelFailure), args.copy) ??
+    orderWriteBanner(mapOrderWriteFailure(completeFailure), args.copy) ??
+    orderWriteBanner(mapOrderWriteFailure(startFailure), args.copy) ??
     orderWriteBanner(mapOrderWriteFailure(confirmFailure), args.copy);
+
+  function mutationFor(kind: OrderStatusWrite["kind"]) {
+    switch (kind) {
+      case "confirm":
+        return confirmMutation;
+      case "start":
+        return startMutation;
+      case "complete":
+        return completeMutation;
+      case "cancel":
+        return cancelMutation;
+    }
+  }
 
   async function runWrite(kind: OrderStatusWrite["kind"]): Promise<void> {
     if (args.orderId === null || writeBusyRef.current) {
       return;
     }
-    const mutation = kind === "confirm" ? confirmMutation : cancelMutation;
+    const mutation = mutationFor(kind);
     if (mutation.isPending) {
       return;
     }
@@ -98,6 +142,8 @@ export function useOrderDetailActions(args: {
       });
       args.dispatch({ type: "closeAll" });
       confirmMutation.reset();
+      startMutation.reset();
+      completeMutation.reset();
       cancelMutation.reset();
     } catch {
       // Banner is derived from mutation.error.
@@ -109,8 +155,14 @@ export function useOrderDetailActions(args: {
   return {
     banner,
     confirmPending: confirmMutation.isPending,
+    startPending: startMutation.isPending,
+    completePending: completeMutation.isPending,
     cancelPending: cancelMutation.isPending,
-    writePending: confirmMutation.isPending || cancelMutation.isPending,
+    writePending:
+      confirmMutation.isPending ||
+      startMutation.isPending ||
+      completeMutation.isPending ||
+      cancelMutation.isPending,
     goBack: () => {
       router.back();
     },
@@ -122,6 +174,12 @@ export function useOrderDetailActions(args: {
     },
     confirm: () => {
       void runWrite("confirm");
+    },
+    start: () => {
+      void runWrite("start");
+    },
+    complete: () => {
+      void runWrite("complete");
     },
     cancel: () => {
       args.dispatch({ type: "closeAll" });

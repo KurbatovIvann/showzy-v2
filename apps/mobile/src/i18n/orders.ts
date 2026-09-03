@@ -28,6 +28,8 @@ export type OrdersDetailCopy = {
   readonly commentTitle: string;
   readonly dueLabel: string;
   readonly confirmLabel: string;
+  readonly startLabel: string;
+  readonly completeLabel: string;
   readonly cancelOrder: string;
   readonly actionsTitle: string;
   readonly actionsLabel: string;
@@ -106,8 +108,8 @@ export type OrdersCopy = {
     readonly canceled: string;
   };
   readonly groups: {
-    readonly inProgress: string;
-    readonly completed: string;
+    readonly active: string;
+    readonly closed: string;
   };
   readonly groupCount: string;
   readonly items: OrdersCountForms;
@@ -151,8 +153,8 @@ const en: OrdersCopy = {
     canceled: "Canceled",
   },
   groups: {
-    inProgress: "Active",
-    completed: "Closed",
+    active: "Active",
+    closed: "Closed",
   },
   groupCount: "{{title}} · {{count}}",
   items: {
@@ -196,6 +198,8 @@ const en: OrdersCopy = {
     commentTitle: "Comment",
     dueLabel: "Due",
     confirmLabel: "Confirm",
+    startLabel: "Start",
+    completeLabel: "Complete",
     cancelOrder: "Cancel order",
     actionsTitle: "Actions",
     actionsLabel: "Order actions",
@@ -273,15 +277,15 @@ const uk: OrdersCopy = {
   filterApply: "Показати",
   closeSheet: "Закрити",
   statuses: {
-    new: "Новий",
+    new: "Нове",
     confirmed: "Підтверджено",
     in_progress: "В роботі",
     done: "Виконано",
     canceled: "Скасовано",
   },
   groups: {
-    inProgress: "Активні",
-    completed: "Закриті",
+    active: "Активні",
+    closed: "Закриті",
   },
   groupCount: "{{title}} · {{count}}",
   items: {
@@ -325,6 +329,8 @@ const uk: OrdersCopy = {
     commentTitle: "Коментар",
     dueLabel: "До сплати",
     confirmLabel: "Підтвердити",
+    startLabel: "В роботу",
+    completeLabel: "Виконано",
     cancelOrder: "Скасувати замовлення",
     actionsTitle: "Швидкі дії",
     actionsLabel: "Дії з замовленням",

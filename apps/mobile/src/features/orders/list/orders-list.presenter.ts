@@ -15,6 +15,7 @@ import { itemCountLabel } from "../shared/item-count";
 import { LIST_ORDERS_QUERY_MAX } from "../shared/order-caps";
 import { formatOrderCreatedAt } from "../shared/order-created-at";
 import {
+  isClosedOrderStatus,
   isOpenOrderStatus,
   ORDER_LIFECYCLE_STATUSES,
   orderStatusTone,
@@ -34,6 +35,7 @@ export {
   type CustomerNameHydration,
 };
 export { orderStatusTone, type OrderStatusTone };
+export { isClosedOrderStatus, isOpenOrderStatus };
 export type { OrderStatusFilter, ListOrdersPageInput };
 
 /** Sentinel persisted on unlinked headers; presenters localize it. */
@@ -139,7 +141,7 @@ export function toOrderRowView(
   };
 }
 
-export type OrderGroupKey = "inProgress" | "completed";
+export type OrderGroupKey = "active" | "closed";
 
 export type OrdersListEntry =
   | {
@@ -152,26 +154,26 @@ export type OrdersListEntry =
 export function groupOrderRows(
   rows: readonly OrderRowView[],
 ): readonly OrdersListEntry[] {
-  const inProgress = rows.filter((row) => isOpenOrderStatus(row.status));
-  const completed = rows.filter((row) => !isOpenOrderStatus(row.status));
+  const active = rows.filter((row) => isOpenOrderStatus(row.status));
+  const closed = rows.filter((row) => isClosedOrderStatus(row.status));
   const entries: OrdersListEntry[] = [];
-  if (inProgress.length > 0) {
+  if (active.length > 0) {
     entries.push({
       type: "header",
-      key: "inProgress",
-      count: inProgress.length,
+      key: "active",
+      count: active.length,
     });
-    for (const order of inProgress) {
+    for (const order of active) {
       entries.push({ type: "row", order });
     }
   }
-  if (completed.length > 0) {
+  if (closed.length > 0) {
     entries.push({
       type: "header",
-      key: "completed",
-      count: completed.length,
+      key: "closed",
+      count: closed.length,
     });
-    for (const order of completed) {
+    for (const order of closed) {
       entries.push({ type: "row", order });
     }
   }

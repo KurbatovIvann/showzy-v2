@@ -271,9 +271,10 @@ export function orderDetailActionsForView(args: {
 }
 
 /**
- * Confirm / ⋯ stay hidden unless the query is ready. TanStack keeps
- * `data` on error/offline after a successful get — a stale VM must not
- * keep write chrome up (catalog `product-detail-view` gates on ready).
+ * Confirm / start / complete / ⋯ stay hidden unless the query is ready.
+ * TanStack keeps `data` on error/offline after a successful get — a stale
+ * VM must not keep write chrome up (catalog `product-detail-view`
+ * gates on ready).
  */
 export function orderDetailWriteChrome(args: {
   readonly stateKind: OrderQueryLoadState["kind"];
@@ -283,21 +284,41 @@ export function orderDetailWriteChrome(args: {
   const ready = args.stateKind === "ready" && args.hasOrder;
   return {
     showConfirm: ready && args.actionFlags.showConfirm,
+    showStart: ready && args.actionFlags.showStart,
+    showComplete: ready && args.actionFlags.showComplete,
     showActions: ready && args.actionFlags.showActions,
     cancelEnabled: ready && args.actionFlags.cancelEnabled,
   };
 }
 
+export type OrderDetailWritePending = {
+  readonly confirmPending: boolean;
+  readonly startPending: boolean;
+  readonly completePending: boolean;
+  readonly cancelPending: boolean;
+};
+
 /**
- * Confirm footer loading is confirm-in-flight only. Cancel pending
- * belongs to the actions sheet; it must not OR into Confirm (catalog
+ * Primary-CTA loading is the matching attempt only. Start / complete /
+ * cancel pending must not OR into Confirm (catalog
  * `product-detail-view` keeps footer independent of sheet pending).
  */
-export function orderDetailConfirmLoading(args: {
-  readonly confirmPending: boolean;
-  readonly cancelPending: boolean;
-}): boolean {
+export function orderDetailConfirmLoading(
+  args: OrderDetailWritePending,
+): boolean {
   return args.confirmPending;
+}
+
+export function orderDetailStartLoading(
+  args: OrderDetailWritePending,
+): boolean {
+  return args.startPending;
+}
+
+export function orderDetailCompleteLoading(
+  args: OrderDetailWritePending,
+): boolean {
+  return args.completePending;
 }
 
 export type OrderWriteBannerKey = "offline" | "permission" | "error";

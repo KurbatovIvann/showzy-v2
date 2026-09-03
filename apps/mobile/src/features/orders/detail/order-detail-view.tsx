@@ -57,24 +57,7 @@ export function OrderDetailView(model: OrderDetailModel) {
         }
       />
       <OrderDetailBody model={model} />
-      {model.showConfirm ? (
-        <View style={styles.footerDock}>
-          <View style={styles.footerCard}>
-            <Button
-              fullWidth
-              loading={model.confirmLoading}
-              icon={
-                <CheckIcon
-                  size={theme.iconSize.sm}
-                  color={theme.colors.primaryForeground}
-                />
-              }
-              label={copy.detail.confirmLabel}
-              onPress={model.confirm}
-            />
-          </View>
-        </View>
-      ) : null}
+      <OrderDetailPrimaryCta model={model} />
       <OrderActionsSheet
         visible={model.actionsVisible && model.state.kind === "ready"}
         copy={copy.detail}
@@ -85,6 +68,48 @@ export function OrderDetailView(model: OrderDetailModel) {
         onCancel={model.cancel}
       />
     </SafeAreaView>
+  );
+}
+
+function OrderDetailPrimaryCta(props: { readonly model: OrderDetailModel }) {
+  const { model } = props;
+  const { copy } = model;
+  const { theme } = useUnistyles();
+  let label: string;
+  let loading: boolean;
+  let onPress: () => void;
+  if (model.showConfirm) {
+    label = copy.detail.confirmLabel;
+    loading = model.confirmLoading;
+    onPress = model.confirm;
+  } else if (model.showStart) {
+    label = copy.detail.startLabel;
+    loading = model.startLoading;
+    onPress = model.start;
+  } else if (model.showComplete) {
+    label = copy.detail.completeLabel;
+    loading = model.completeLoading;
+    onPress = model.complete;
+  } else {
+    return null;
+  }
+  return (
+    <View style={styles.footerDock}>
+      <View style={styles.footerCard}>
+        <Button
+          fullWidth
+          loading={loading}
+          icon={
+            <CheckIcon
+              size={theme.iconSize.sm}
+              color={theme.colors.primaryForeground}
+            />
+          }
+          label={label}
+          onPress={onPress}
+        />
+      </View>
+    </View>
   );
 }
 

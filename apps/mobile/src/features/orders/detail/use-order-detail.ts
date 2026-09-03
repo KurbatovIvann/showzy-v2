@@ -1,6 +1,6 @@
 /**
- * Order detail facade (SHO-212). Composes get + customer hydrate,
- * confirm/cancel, and the actions-sheet reducer. View stays
+ * Order detail facade (SHO-212 / SHO-376). Composes get + customer
+ * hydrate, status writes, and the actions-sheet reducer. View stays
  * presentational; no RHF and no XState on this screen.
  */
 import { useQuery } from "@tanstack/react-query";
@@ -16,9 +16,11 @@ import { getCustomerNameQueryOptions } from "../api/customer-name-query";
 import { resolveCustomerNameHydration } from "../shared/customer-name";
 import { canEditOrders, orderDetailActions } from "../shared/order-permissions";
 import {
+  orderDetailCompleteLoading,
   orderDetailConfirmLoading,
   orderDetailHeaderSubtitle,
   orderDetailHeaderTitle,
+  orderDetailStartLoading,
   orderDetailWriteChrome,
   toOrderDetailView,
   uniqueOrderLineProductIds,
@@ -40,10 +42,14 @@ export type OrderDetailModel = {
   readonly state: OrderDetailState;
   readonly order: OrderDetailViewModel | null;
   readonly showConfirm: boolean;
+  readonly showStart: boolean;
+  readonly showComplete: boolean;
   readonly showActions: boolean;
   readonly cancelEnabled: boolean;
   readonly actionsVisible: boolean;
   readonly confirmLoading: boolean;
+  readonly startLoading: boolean;
+  readonly completeLoading: boolean;
   readonly writePending: boolean;
   readonly statusBanner: string | null;
   readonly headerTitle: string;
@@ -53,6 +59,8 @@ export type OrderDetailModel = {
   readonly openActions: () => void;
   readonly closeActions: () => void;
   readonly confirm: () => void;
+  readonly start: () => void;
+  readonly complete: () => void;
   readonly cancel: () => void;
 };
 
@@ -139,18 +147,26 @@ export function useOrderDetail(
     actionFlags,
   });
 
+  const writePending = {
+    confirmPending: actions.confirmPending,
+    startPending: actions.startPending,
+    completePending: actions.completePending,
+    cancelPending: actions.cancelPending,
+  };
+
   return {
     copy,
     state: query.state,
     order,
     showConfirm: writeChrome.showConfirm,
+    showStart: writeChrome.showStart,
+    showComplete: writeChrome.showComplete,
     showActions: writeChrome.showActions,
     cancelEnabled: writeChrome.cancelEnabled,
     actionsVisible: chrome.actionsVisible,
-    confirmLoading: orderDetailConfirmLoading({
-      confirmPending: actions.confirmPending,
-      cancelPending: actions.cancelPending,
-    }),
+    confirmLoading: orderDetailConfirmLoading(writePending),
+    startLoading: orderDetailStartLoading(writePending),
+    completeLoading: orderDetailCompleteLoading(writePending),
     writePending: actions.writePending,
     statusBanner: actions.banner,
     headerTitle:
@@ -172,6 +188,8 @@ export function useOrderDetail(
     openActions: actions.openActions,
     closeActions: actions.closeActions,
     confirm: actions.confirm,
+    start: actions.start,
+    complete: actions.complete,
     cancel: actions.cancel,
   };
 }
