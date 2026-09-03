@@ -303,7 +303,7 @@ describe("hydratedUiMessagesFromConversation", () => {
           actionName: "orders.create",
           toolCallId: "call-create",
           resultIds: [ORDER_B],
-          createdAt: "2026-09-03T10:00:01.000Z",
+          createdAt: "2026-09-03T10:00:02.000Z",
         }),
       ],
       ordersById: new Map([
