@@ -266,7 +266,13 @@ describe("assistantChatRows", () => {
       return;
     }
     expect(assistantRowHasInFlightTools(pendingHitlRow)).toBe(true);
-    expect(JSON.stringify(rows).includes("confirmation_required")).toBe(false);
+    expect(pendingHitlRow.text.includes("confirmation_required")).toBe(false);
+    expect(
+      JSON.stringify(pendingHitlRow.timeline).includes("confirmation_required"),
+    ).toBe(false);
+    expect(
+      JSON.stringify(pendingHitlRow.timeline).includes(pending.summary),
+    ).toBe(false);
   });
 
   it("omits a dismissed HITL timeline step and drops the empty row", () => {
