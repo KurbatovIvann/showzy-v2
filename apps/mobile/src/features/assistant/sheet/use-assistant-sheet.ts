@@ -3,13 +3,11 @@ import { useRouter } from "expo-router";
 
 import { assistantCopy } from "../../../i18n/assistant";
 import { detectLocale } from "../../../i18n/locale";
-import { orderDetailHref } from "../../orders/shared/order-hrefs";
 import {
   assistantChatErrorKind,
   assistantChatErrorMessage,
 } from "../shared/chat-error";
 import { assistantChatRows } from "../shared/chat-rows";
-import { ASSISTANT_ORDERS_LIST_HREF } from "../shared/result-cards";
 import type { AssistantSheetViewModel } from "./assistant-sheet-view";
 import { useAssistantChat } from "./use-assistant-chat";
 import { useAssistantConfirmation } from "./use-assistant-confirmation";
@@ -30,12 +28,9 @@ export function useAssistantSheet(): AssistantSheetViewModel & {
   });
   chat.confirmationResetRef.current = confirmation.reset;
 
-  const openOrders = useCallback(() => {
-    push(ASSISTANT_ORDERS_LIST_HREF);
-  }, [push]);
-  const openOrder = useCallback(
-    (orderId: string) => {
-      push(orderDetailHref(orderId));
+  const openHref = useCallback(
+    (href: string) => {
+      push(href);
     },
     [push],
   );
@@ -63,8 +58,7 @@ export function useAssistantSheet(): AssistantSheetViewModel & {
     send: chat.send,
     confirm: confirmation.confirm,
     dismiss: confirmation.dismiss,
-    openOrders,
-    openOrder,
+    openHref,
     busy: chat.sendBusy,
     thinking: chat.thinking,
     confirmationApplying: confirmation.card.kind === "applying",

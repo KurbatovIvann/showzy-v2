@@ -3,7 +3,7 @@ import { Pressable, Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
 import { Card, StatusPill } from "../../../components/ui";
-import type { AssistantOrderEntityCardView } from "../shared/result-cards";
+import type { AssistantOrderEntityCardView } from "../surfaces";
 
 /**
  * Thin live `orders.get` / `orders.create` card (SHO-369). T4 hydrates
@@ -11,7 +11,7 @@ import type { AssistantOrderEntityCardView } from "../shared/result-cards";
  */
 export const OrderEntityCard = memo(function OrderEntityCard(props: {
   readonly card: AssistantOrderEntityCardView;
-  readonly onOpenOrder: (orderId: string) => void;
+  readonly onOpenHref: (href: string) => void;
 }) {
   const { card } = props;
   const title =
@@ -27,7 +27,7 @@ export const OrderEntityCard = memo(function OrderEntityCard(props: {
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
         onPress={() => {
-          props.onOpenOrder(card.orderId);
+          props.onOpenHref(card.href);
         }}
         style={({ pressed }) => [styles.body, pressed ? styles.pressed : null]}
       >

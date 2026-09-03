@@ -49,20 +49,22 @@ describe("assistant turn layout composition", () => {
     expect(ROW).toContain("assistantTurnColumnLayout");
     expect(ROW).toContain("assistantTurnResultStretch");
     expect(ROW).not.toContain('maxWidth: "92%"');
-    expect(ROW.match(/<AssistantTurnResult/g)?.length).toBe(5);
+    expect(ROW.match(/<AssistantTurnResult/g)?.length).toBe(3);
     expect(ROW).toContain("styles.resultStretch");
     expect(ROW).toContain("AssistantTimeline");
-    expect(ROW).toContain("OrdersListResultCard");
-    expect(ROW).toContain("OrdersAggregateResultCard");
-    expect(ROW).toContain("OrderEntityCard");
+    expect(ROW).toContain("AssistantSurfaceCard");
     expect(ROW).toContain("ConfirmationCard");
   });
 
-  it("keeps listCard / aggregateCard / entityCards slots (T2 registry is out of scope)", () => {
-    expect(ROW).toContain("listCard");
-    expect(ROW).toContain("aggregateCard");
-    expect(ROW).toContain("entityCards");
-    expect(ROW.includes("surfaces:")).toBe(false);
+  it("renders result cards from surfaces[] instead of named card slots", () => {
+    expect(ROW).toContain("surfaces");
+    expect(ROW).toContain("onOpenHref");
+    expect(ROW).toContain("AssistantSurfaceCard");
+    expect(ROW.includes("listCard")).toBe(false);
+    expect(ROW.includes("aggregateCard")).toBe(false);
+    expect(ROW.includes("entityCards")).toBe(false);
+    expect(ROW.includes("onOpenOrders")).toBe(false);
+    expect(ROW.includes("onOpenOrder")).toBe(false);
   });
 
   it("leaves flex:1 on timeline labels, list/aggregate rows, and HITL actions", () => {

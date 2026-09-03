@@ -1,22 +1,18 @@
 import type { AssistantCopy } from "../../../i18n/assistant";
 import type { Locale } from "../../../i18n/locale";
+import { assistantSurfacesFromParts, type AssistantSurface } from "../surfaces";
 import type {
   AssistantChatMessage,
   PendingConfirmation,
 } from "./confirmation-presenter";
 import { assistantJobLabel } from "./job-labels";
-import type {
-  AssistantOrderEntityCardView,
-  AssistantOrdersAggregateCardView,
-  AssistantOrdersListCardView,
-} from "./result-cards";
-import { assistantResultCardsFromParts } from "./result-cards";
 import {
   toolStepsFromParts,
   type AssistantTimelineStatus,
 } from "./turn-timeline";
 
 const NO_DISMISSED_CHALLENGES: ReadonlySet<string> = new Set();
+const EMPTY_SURFACES: readonly AssistantSurface[] = [];
 
 export type AssistantTimelineStep = {
   readonly id: string;
@@ -30,9 +26,7 @@ export type AssistantChatRow = {
   readonly text: string;
   readonly confirmation: PendingConfirmation | null;
   readonly timeline: readonly AssistantTimelineStep[];
-  readonly listCard: AssistantOrdersListCardView | null;
-  readonly aggregateCard: AssistantOrdersAggregateCardView | null;
-  readonly entityCards: readonly AssistantOrderEntityCardView[];
+  readonly surfaces: readonly AssistantSurface[];
 };
 
 function textFromParts(message: AssistantChatMessage): string {
@@ -80,17 +74,15 @@ export function assistantChatRows(
       message.role === "assistant"
         ? labeledTimeline(message, copy, dismissedChallengeIds)
         : [];
-    const resultCards =
+    const surfaces =
       message.role === "assistant"
-        ? assistantResultCardsFromParts(message.parts, locale)
-        : { listCard: null, aggregateCard: null, entityCards: [] };
+        ? assistantSurfacesFromParts(message.parts, locale)
+        : EMPTY_SURFACES;
     if (
       text.length === 0 &&
       confirmation === null &&
       timeline.length === 0 &&
-      resultCards.listCard === null &&
-      resultCards.aggregateCard === null &&
-      resultCards.entityCards.length === 0
+      surfaces.length === 0
     ) {
       continue;
     }
@@ -100,9 +92,7 @@ export function assistantChatRows(
       text,
       confirmation,
       timeline,
-      listCard: resultCards.listCard,
-      aggregateCard: resultCards.aggregateCard,
-      entityCards: resultCards.entityCards,
+      surfaces,
     });
   }
   return rows;

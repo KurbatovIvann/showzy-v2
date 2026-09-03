@@ -3,7 +3,7 @@ import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
 import { Card, StatusPill } from "../../../components/ui";
-import type { AssistantOrdersAggregateCardView } from "../shared/result-cards";
+import type { AssistantOrdersAggregateCardView } from "../surfaces";
 
 /**
  * Live `orders_list_counts` result (SHO-370). Composes Card / StatusPill.

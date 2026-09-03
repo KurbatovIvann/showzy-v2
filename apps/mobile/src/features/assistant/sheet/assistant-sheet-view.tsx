@@ -27,8 +27,7 @@ export type AssistantSheetViewModel = {
   readonly send: () => void;
   readonly confirm: () => void;
   readonly dismiss: () => void;
-  readonly openOrders: () => void;
-  readonly openOrder: (orderId: string) => void;
+  readonly openHref: (href: string) => void;
   readonly busy: boolean;
   readonly thinking: boolean;
   readonly confirmationApplying: boolean;
@@ -44,11 +43,7 @@ function itemType(item: AssistantChatRow): string {
   if (item.role === "user") {
     return "user";
   }
-  if (
-    item.listCard !== null ||
-    item.aggregateCard !== null ||
-    item.entityCards.length > 0
-  ) {
+  if (item.surfaces.length > 0) {
     return "assistant-cards";
   }
   if (item.timeline.length > 0) {
@@ -72,11 +67,8 @@ export function AssistantSheetView(model: AssistantSheetViewModel) {
         text={item.text}
         timeline={item.timeline}
         timelineLabel={copy.timelineLabel}
-        listCard={item.listCard}
-        aggregateCard={item.aggregateCard}
-        entityCards={item.entityCards}
-        onOpenOrders={model.openOrders}
-        onOpenOrder={model.openOrder}
+        surfaces={item.surfaces}
+        onOpenHref={model.openHref}
         confirmationSummary={
           item.confirmation === null ? null : item.confirmation.summary
         }
@@ -98,8 +90,7 @@ export function AssistantSheetView(model: AssistantSheetViewModel) {
       model.confirm,
       model.confirmationApplying,
       model.dismiss,
-      model.openOrder,
-      model.openOrders,
+      model.openHref,
     ],
   );
 

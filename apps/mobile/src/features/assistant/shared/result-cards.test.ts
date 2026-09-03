@@ -7,14 +7,50 @@ import { ordersCopy } from "../../../i18n/orders";
 import { itemCountLabel } from "../../orders/shared/item-count";
 import { formatOrderCreatedAt } from "../../orders/shared/order-created-at";
 import { orderDetailHref } from "../../orders/shared/order-hrefs";
-import { isToolErrorOutput } from "./confirmation-presenter";
 import {
   ASSISTANT_ORDERS_LIST_HREF,
   ASSISTANT_ORDERS_LIST_ROW_MAX,
-  assistantResultCardsFromParts,
+  ASSISTANT_RESULT_SURFACE_REGISTRY,
+  assistantSurfacesFromParts,
   isOrderStatus,
   ORDER_STATUSES,
-} from "./result-cards";
+  type AssistantOrderEntityCardView,
+  type AssistantOrdersAggregateCardView,
+  type AssistantOrdersListCardView,
+  type AssistantSurface,
+} from "../surfaces";
+import { isToolErrorOutput } from "./confirmation-presenter";
+
+function listOf(
+  surfaces: readonly AssistantSurface[],
+): AssistantOrdersListCardView | null {
+  for (const surface of surfaces) {
+    if (surface.kind === "orders-list") {
+      return surface;
+    }
+  }
+  return null;
+}
+
+function aggregateOf(
+  surfaces: readonly AssistantSurface[],
+): AssistantOrdersAggregateCardView | null {
+  for (const surface of surfaces) {
+    if (surface.kind === "orders-aggregate") {
+      return surface;
+    }
+  }
+  return null;
+}
+
+function entitiesOf(
+  surfaces: readonly AssistantSurface[],
+): readonly AssistantOrderEntityCardView[] {
+  return surfaces.filter(
+    (surface): surface is AssistantOrderEntityCardView =>
+      surface.kind === "order-entity",
+  );
+}
 
 const ORDER_A = "0f0e2d5c-4a1b-4c3d-9e8f-102938475601";
 const ORDER_B = "1a2b3c4d-5e6f-4789-8abc-def012345678";
@@ -66,7 +102,7 @@ function countsOutput(
   };
 }
 
-describe("assistantResultCardsFromParts", () => {
+describe("assistantSurfacesFromParts", () => {
   it("accepts the five CHECK statuses and rejects active/completed aliases", () => {
     expect(ORDER_STATUSES).toEqual([
       "new",
@@ -92,7 +128,7 @@ describe("assistantResultCardsFromParts", () => {
         { orderNumber: String(1000 + index) },
       ),
     );
-    const cards = assistantResultCardsFromParts(
+    const surfaces = assistantSurfacesFromParts(
       [
         {
           type: "tool-orders_list_page",
@@ -104,12 +140,12 @@ describe("assistantResultCardsFromParts", () => {
       "uk",
     );
     expect(ASSISTANT_ORDERS_LIST_ROW_MAX).toBe(9);
-    expect(cards.listCard?.rows).toHaveLength(9);
-    expect(cards.entityCards).toHaveLength(0);
+    expect(listOf(surfaces)?.rows).toHaveLength(9);
+    expect(entitiesOf(surfaces)).toHaveLength(0);
   });
 
   it("adds status chips when counts are on the same turn", () => {
-    const cards = assistantResultCardsFromParts(
+    const surfaces = assistantSurfacesFromParts(
       [
         {
           type: "tool-orders_list_counts",
@@ -139,23 +175,23 @@ describe("assistantResultCardsFromParts", () => {
       ],
       "uk",
     );
-    expect(cards.listCard?.chips.map((chip) => chip.status)).toEqual([
+    expect(listOf(surfaces)?.chips.map((chip) => chip.status)).toEqual([
       "new",
       "confirmed",
     ]);
-    expect(cards.listCard?.chips[0]?.label).toBe(
+    expect(listOf(surfaces)?.chips[0]?.label).toBe(
       `${ordersUk.statuses.new} · 2`,
     );
-    expect(cards.listCard?.chips[1]?.label).toBe(
+    expect(listOf(surfaces)?.chips[1]?.label).toBe(
       `${ordersUk.statuses.confirmed} · 4`,
     );
-    expect(cards.listCard?.kind).toBe("orders-list");
-    expect(cards.aggregateCard).toBeNull();
-    expect(cards.entityCards).toHaveLength(0);
+    expect(listOf(surfaces)?.kind).toBe("orders-list");
+    expect(aggregateOf(surfaces)).toBeNull();
+    expect(entitiesOf(surfaces)).toHaveLength(0);
   });
 
   it("renders an empty page without inventing rows", () => {
-    const cards = assistantResultCardsFromParts(
+    const surfaces = assistantSurfacesFromParts(
       [
         {
           type: "tool-orders_list_page",
@@ -166,16 +202,16 @@ describe("assistantResultCardsFromParts", () => {
       ],
       "uk",
     );
-    expect(cards.listCard?.rows).toEqual([]);
-    expect(cards.listCard?.emptyTitle).toBe(uk.cards.listEmptyTitle);
-    expect(cards.listCard?.emptyDescription).toBe(
+    expect(listOf(surfaces)?.rows).toEqual([]);
+    expect(listOf(surfaces)?.emptyTitle).toBe(uk.cards.listEmptyTitle);
+    expect(listOf(surfaces)?.emptyDescription).toBe(
       uk.cards.listEmptyDescription,
     );
-    expect(cards.listCard?.ctaHref).toBeNull();
+    expect(listOf(surfaces)?.ctaHref).toBeNull();
   });
 
   it("sends nextCursor to /orders instead of in-chat paging", () => {
-    const cards = assistantResultCardsFromParts(
+    const surfaces = assistantSurfacesFromParts(
       [
         {
           type: "tool-orders_list_page",
@@ -186,18 +222,17 @@ describe("assistantResultCardsFromParts", () => {
       ],
       "uk",
     );
-    expect(cards.listCard?.ctaHref).toBe(ASSISTANT_ORDERS_LIST_HREF);
-    expect(cards.listCard?.ctaHref).toBe("/orders");
-    expect(cards.listCard?.ctaLabel).toBe(uk.cards.openOrders);
-    expect(cards.listCard !== null && "nextCursor" in cards.listCard).toBe(
-      false,
-    );
-    expect(cards.listCard !== null && "loadMore" in cards.listCard).toBe(false);
-    expect(cards.listCard !== null && "cursor" in cards.listCard).toBe(false);
+    const list = listOf(surfaces);
+    expect(list?.ctaHref).toBe(ASSISTANT_ORDERS_LIST_HREF);
+    expect(list?.ctaHref).toBe("/orders");
+    expect(list?.ctaLabel).toBe(uk.cards.openOrders);
+    expect(list !== null && "nextCursor" in list).toBe(false);
+    expect(list !== null && "loadMore" in list).toBe(false);
+    expect(list !== null && "cursor" in list).toBe(false);
   });
 
   it("sends a clipped envelope to /orders", () => {
-    const cards = assistantResultCardsFromParts(
+    const surfaces = assistantSurfacesFromParts(
       [
         {
           type: "tool-orders_list_page",
@@ -212,13 +247,13 @@ describe("assistantResultCardsFromParts", () => {
       ],
       "uk",
     );
-    expect(cards.listCard?.ctaHref).toBe("/orders");
-    expect(cards.listCard?.footnotes).toContain(uk.cards.clipped);
-    expect(cards.listCard?.rows).toHaveLength(1);
+    expect(listOf(surfaces)?.ctaHref).toBe("/orders");
+    expect(listOf(surfaces)?.footnotes).toContain(uk.cards.clipped);
+    expect(listOf(surfaces)?.rows).toHaveLength(1);
   });
 
   it("shows customerMatchTruncated as a footnote, not paging", () => {
-    const cards = assistantResultCardsFromParts(
+    const surfaces = assistantSurfacesFromParts(
       [
         {
           type: "tool-orders_list_page",
@@ -231,17 +266,14 @@ describe("assistantResultCardsFromParts", () => {
       ],
       "uk",
     );
-    expect(cards.listCard?.footnotes).toEqual([
-      uk.cards.customerMatchTruncated,
-    ]);
-    expect(cards.listCard?.ctaHref).toBeNull();
-    expect(cards.listCard !== null && "nextCursor" in cards.listCard).toBe(
-      false,
-    );
+    const list = listOf(surfaces);
+    expect(list?.footnotes).toEqual([uk.cards.customerMatchTruncated]);
+    expect(list?.ctaHref).toBeNull();
+    expect(list !== null && "nextCursor" in list).toBe(false);
   });
 
   it("never paints an active chip, including from counts buckets", () => {
-    const cards = assistantResultCardsFromParts(
+    const surfaces = assistantSurfacesFromParts(
       [
         {
           type: "tool-orders_list_counts",
@@ -286,19 +318,19 @@ describe("assistantResultCardsFromParts", () => {
       ],
       "uk",
     );
-    const chipJson = JSON.stringify(cards.listCard?.chips);
+    const chipJson = JSON.stringify(listOf(surfaces)?.chips);
     expect(chipJson.includes("active")).toBe(false);
-    expect(cards.listCard?.chips.map((chip) => chip.status)).toEqual([
+    expect(listOf(surfaces)?.chips.map((chip) => chip.status)).toEqual([
       "new",
       "confirmed",
     ]);
-    expect(cards.listCard?.chips.map((chip) => chip.status)).not.toContain(
+    expect(listOf(surfaces)?.chips.map((chip) => chip.status)).not.toContain(
       "active",
     );
   });
 
   it("paints in_progress and done chips from CHECK status buckets", () => {
-    const cardsUk = assistantResultCardsFromParts(
+    const surfacesUk = assistantSurfacesFromParts(
       [
         {
           type: "tool-orders_list_counts",
@@ -343,28 +375,30 @@ describe("assistantResultCardsFromParts", () => {
       ],
       "uk",
     );
-    expect(cardsUk.listCard?.chips.map((chip) => chip.status)).toEqual([
+    expect(listOf(surfacesUk)?.chips.map((chip) => chip.status)).toEqual([
       "in_progress",
       "done",
       "canceled",
     ]);
-    expect(cardsUk.listCard?.chips[0]?.label).toBe(
+    expect(listOf(surfacesUk)?.chips[0]?.label).toBe(
       `${ordersUk.statuses.in_progress} · 2`,
     );
-    expect(cardsUk.listCard?.chips[1]?.label).toBe(
+    expect(listOf(surfacesUk)?.chips[1]?.label).toBe(
       `${ordersUk.statuses.done} · 1`,
     );
-    expect(cardsUk.listCard?.chips[0]?.tone).toBe("attention");
-    expect(cardsUk.listCard?.chips[1]?.tone).toBe("success");
-    expect(cardsUk.listCard?.rows[0]?.statusLabel).toBe(
+    expect(listOf(surfacesUk)?.chips[0]?.tone).toBe("attention");
+    expect(listOf(surfacesUk)?.chips[1]?.tone).toBe("success");
+    expect(listOf(surfacesUk)?.rows[0]?.statusLabel).toBe(
       ordersUk.statuses.in_progress,
     );
-    expect(cardsUk.listCard?.rows[1]?.statusLabel).toBe(ordersUk.statuses.done);
-    expect(JSON.stringify(cardsUk.listCard?.chips).includes("active")).toBe(
+    expect(listOf(surfacesUk)?.rows[1]?.statusLabel).toBe(
+      ordersUk.statuses.done,
+    );
+    expect(JSON.stringify(listOf(surfacesUk)?.chips).includes("active")).toBe(
       false,
     );
 
-    const cardsEn = assistantResultCardsFromParts(
+    const surfacesEn = assistantSurfacesFromParts(
       [
         {
           type: "tool-orders_list_counts",
@@ -388,12 +422,12 @@ describe("assistantResultCardsFromParts", () => {
       ],
       "en",
     );
-    expect(cardsEn.listCard?.chips[0]?.label).toBe("In progress · 2");
-    expect(cardsEn.listCard?.rows[0]?.statusLabel).toBe("In progress");
+    expect(listOf(surfacesEn)?.chips[0]?.label).toBe("In progress · 2");
+    expect(listOf(surfacesEn)?.rows[0]?.statusLabel).toBe("In progress");
   });
 
   it("renders one aggregate card on counts-only turns", () => {
-    const cards = assistantResultCardsFromParts(
+    const surfaces = assistantSurfacesFromParts(
       [
         {
           type: "tool-orders_list_counts",
@@ -411,9 +445,9 @@ describe("assistantResultCardsFromParts", () => {
       ],
       "uk",
     );
-    expect(cards.listCard).toBeNull();
-    expect(cards.aggregateCard?.kind).toBe("orders-aggregate");
-    expect(cards.entityCards).toEqual([]);
+    expect(listOf(surfaces)).toBeNull();
+    expect(aggregateOf(surfaces)?.kind).toBe("orders-aggregate");
+    expect(entitiesOf(surfaces)).toEqual([]);
   });
 
   it("does not render a list card from a façade error orders_list_page", () => {
@@ -423,7 +457,7 @@ describe("assistantResultCardsFromParts", () => {
       message: "Staff cannot list these orders",
     };
     expect(isToolErrorOutput(output)).toBe(true);
-    const cards = assistantResultCardsFromParts(
+    const surfaces = assistantSurfacesFromParts(
       [
         {
           type: "tool-orders_list_page",
@@ -434,13 +468,13 @@ describe("assistantResultCardsFromParts", () => {
       ],
       "uk",
     );
-    expect(cards.listCard).toBeNull();
-    expect(cards.aggregateCard).toBeNull();
-    expect(cards.entityCards).toEqual([]);
+    expect(listOf(surfaces)).toBeNull();
+    expect(aggregateOf(surfaces)).toBeNull();
+    expect(entitiesOf(surfaces)).toEqual([]);
   });
 
   it("does not turn list items into N orders.get entity cards", () => {
-    const cards = assistantResultCardsFromParts(
+    const surfaces = assistantSurfacesFromParts(
       [
         {
           type: "tool-orders_list_page",
@@ -451,12 +485,12 @@ describe("assistantResultCardsFromParts", () => {
       ],
       "uk",
     );
-    expect(cards.listCard?.rows).toHaveLength(2);
-    expect(cards.entityCards).toEqual([]);
+    expect(listOf(surfaces)?.rows).toHaveLength(2);
+    expect(entitiesOf(surfaces)).toEqual([]);
   });
 
   it("maps compact list rows onto orderDetailHref", () => {
-    const cards = assistantResultCardsFromParts(
+    const surfaces = assistantSurfacesFromParts(
       [
         {
           type: "tool-orders_list_page",
@@ -467,7 +501,7 @@ describe("assistantResultCardsFromParts", () => {
       ],
       "uk",
     );
-    const row = cards.listCard?.rows[0];
+    const row = listOf(surfaces)?.rows[0];
     expect(row?.href).toBe(orderDetailHref(ORDER_A));
     expect(row?.orderNumberLabel).toBe("#1049");
     expect(row?.customerName).toBe("Іван");
@@ -492,8 +526,8 @@ describe("assistantResultCardsFromParts", () => {
         output: pageOutput([pageRow(ORDER_A, { createdAt })]),
       },
     ];
-    const ukRow = assistantResultCardsFromParts(parts, "uk").listCard?.rows[0];
-    const enRow = assistantResultCardsFromParts(parts, "en").listCard?.rows[0];
+    const ukRow = listOf(assistantSurfacesFromParts(parts, "uk"))?.rows[0];
+    const enRow = listOf(assistantSurfacesFromParts(parts, "en"))?.rows[0];
     expect(ukRow?.metaLabel).toContain(ukDate);
     expect(enRow?.metaLabel).toContain(enDate);
     expect(ukRow?.metaLabel).not.toContain(enDate);
@@ -504,7 +538,7 @@ describe("assistantResultCardsFromParts", () => {
 
   it("keeps invalid or empty createdAt as an empty meta fragment", () => {
     const itemMeta = itemCountLabel(2, "uk", ordersUk.items);
-    const emptyCards = assistantResultCardsFromParts(
+    const emptySurfaces = assistantSurfacesFromParts(
       [
         {
           type: "tool-orders_list_page",
@@ -515,7 +549,7 @@ describe("assistantResultCardsFromParts", () => {
       ],
       "uk",
     );
-    const invalidCards = assistantResultCardsFromParts(
+    const invalidSurfaces = assistantSurfacesFromParts(
       [
         {
           type: "tool-orders_list_page",
@@ -526,8 +560,10 @@ describe("assistantResultCardsFromParts", () => {
       ],
       "uk",
     );
-    expect(emptyCards.listCard?.rows[0]?.metaLabel).toBe(`#1049 · ${itemMeta}`);
-    expect(invalidCards.listCard?.rows[0]?.metaLabel).toBe(
+    expect(listOf(emptySurfaces)?.rows[0]?.metaLabel).toBe(
+      `#1049 · ${itemMeta}`,
+    );
+    expect(listOf(invalidSurfaces)?.rows[0]?.metaLabel).toBe(
       `#1049 · ${itemMeta}`,
     );
     expect(formatOrderCreatedAt("", "uk")).toBe("");
@@ -535,7 +571,7 @@ describe("assistantResultCardsFromParts", () => {
   });
 
   it("introduces a thin entity card from live orders.get / orders.create", () => {
-    const cards = assistantResultCardsFromParts(
+    const surfaces = assistantSurfacesFromParts(
       [
         {
           type: "tool-orders_get",
@@ -573,18 +609,18 @@ describe("assistantResultCardsFromParts", () => {
       ],
       "uk",
     );
-    expect(cards.listCard).toBeNull();
-    expect(cards.aggregateCard).toBeNull();
-    expect(cards.entityCards).toHaveLength(2);
-    expect(cards.entityCards[0]?.orderId).toBe(ORDER_A);
-    expect(cards.entityCards[0]?.href).toBe(orderDetailHref(ORDER_A));
-    expect(cards.entityCards[0]?.customerName).toBeNull();
-    expect(cards.entityCards[1]?.customerName).toBe("Оля");
-    expect(cards.entityCards).toHaveLength(2);
+    expect(listOf(surfaces)).toBeNull();
+    expect(aggregateOf(surfaces)).toBeNull();
+    expect(entitiesOf(surfaces)).toHaveLength(2);
+    expect(entitiesOf(surfaces)[0]?.orderId).toBe(ORDER_A);
+    expect(entitiesOf(surfaces)[0]?.href).toBe(orderDetailHref(ORDER_A));
+    expect(entitiesOf(surfaces)[0]?.customerName).toBeNull();
+    expect(entitiesOf(surfaces)[1]?.customerName).toBe("Оля");
+    expect(entitiesOf(surfaces)).toHaveLength(2);
   });
 
   it("parses in_progress and done on the thin entity card", () => {
-    const cards = assistantResultCardsFromParts(
+    const surfaces = assistantSurfacesFromParts(
       [
         {
           type: "tool-orders_get",
@@ -613,14 +649,14 @@ describe("assistantResultCardsFromParts", () => {
       ],
       "uk",
     );
-    expect(cards.listCard).toBeNull();
-    expect(cards.aggregateCard).toBeNull();
-    expect(cards.entityCards[0]?.statusLabel).toBe(
+    expect(listOf(surfaces)).toBeNull();
+    expect(aggregateOf(surfaces)).toBeNull();
+    expect(entitiesOf(surfaces)[0]?.statusLabel).toBe(
       ordersUk.statuses.in_progress,
     );
-    expect(cards.entityCards[0]?.statusTone).toBe("attention");
-    expect(cards.entityCards[1]?.statusLabel).toBe(ordersUk.statuses.done);
-    expect(cards.entityCards[1]?.statusTone).toBe("success");
+    expect(entitiesOf(surfaces)[0]?.statusTone).toBe("attention");
+    expect(entitiesOf(surfaces)[1]?.statusLabel).toBe(ordersUk.statuses.done);
+    expect(entitiesOf(surfaces)[1]?.statusTone).toBe("success");
   });
 });
 
@@ -641,11 +677,7 @@ function countsPart(output: Record<string, unknown>): {
   };
 }
 
-function assertLabeledBucketList(
-  card: NonNullable<
-    ReturnType<typeof assistantResultCardsFromParts>["aggregateCard"]
-  >,
-): void {
+function assertLabeledBucketList(card: AssistantOrdersAggregateCardView): void {
   const json = JSON.stringify(card);
   expect(card.kind).toBe("orders-aggregate");
   expect(json.includes("wow")).toBe(false);
@@ -656,9 +688,9 @@ function assertLabeledBucketList(
   expect("wowPercent" in card).toBe(false);
 }
 
-describe("assistantResultCardsFromParts aggregate (SHO-370)", () => {
+describe("assistantSurfacesFromParts aggregate (SHO-370)", () => {
   it("maps period=this_month default groupBy status to one aggregate card", () => {
-    const cards = assistantResultCardsFromParts(
+    const surfaces = assistantSurfacesFromParts(
       [
         countsPart(
           countsOutput(
@@ -697,8 +729,8 @@ describe("assistantResultCardsFromParts aggregate (SHO-370)", () => {
       ],
       "uk",
     );
-    const card = cards.aggregateCard;
-    expect(cards.listCard).toBeNull();
+    const card = aggregateOf(surfaces);
+    expect(listOf(surfaces)).toBeNull();
     expect(card).not.toBeNull();
     if (card === null) {
       return;
@@ -718,11 +750,11 @@ describe("assistantResultCardsFromParts aggregate (SHO-370)", () => {
     expect(card.buckets[2]?.statusTone).toBe("attention");
     expect(card.buckets[0]?.statusTone).toBe("action");
     expect(card.emptyTitle).toBeNull();
-    expect(cards.entityCards).toEqual([]);
+    expect(entitiesOf(surfaces)).toEqual([]);
   });
 
   it("renders groupBy none as a labeled total row, not a chart", () => {
-    const cards = assistantResultCardsFromParts(
+    const surfaces = assistantSurfacesFromParts(
       [
         countsPart(
           countsOutput(
@@ -745,8 +777,8 @@ describe("assistantResultCardsFromParts aggregate (SHO-370)", () => {
       ],
       "uk",
     );
-    const card = cards.aggregateCard;
-    expect(cards.listCard).toBeNull();
+    const card = aggregateOf(surfaces);
+    expect(listOf(surfaces)).toBeNull();
     expect(card).not.toBeNull();
     if (card === null) {
       return;
@@ -764,7 +796,7 @@ describe("assistantResultCardsFromParts aggregate (SHO-370)", () => {
   });
 
   it("never mixes money across currencies", () => {
-    const cards = assistantResultCardsFromParts(
+    const surfaces = assistantSurfacesFromParts(
       [
         countsPart(
           countsOutput(
@@ -791,7 +823,7 @@ describe("assistantResultCardsFromParts aggregate (SHO-370)", () => {
       ],
       "uk",
     );
-    const card = cards.aggregateCard;
+    const card = aggregateOf(surfaces);
     expect(card).not.toBeNull();
     if (card === null) {
       return;
@@ -806,7 +838,7 @@ describe("assistantResultCardsFromParts aggregate (SHO-370)", () => {
   });
 
   it("surfaces bucketsOmitted and bucketsTruncated as footnotes", () => {
-    const cards = assistantResultCardsFromParts(
+    const surfaces = assistantSurfacesFromParts(
       [
         countsPart(
           countsOutput(
@@ -835,7 +867,7 @@ describe("assistantResultCardsFromParts aggregate (SHO-370)", () => {
       ],
       "uk",
     );
-    const card = cards.aggregateCard;
+    const card = aggregateOf(surfaces);
     expect(card).not.toBeNull();
     if (card === null) {
       return;
@@ -847,78 +879,84 @@ describe("assistantResultCardsFromParts aggregate (SHO-370)", () => {
   });
 
   it("pluralizes bucketsOmitted footnotes (uk one and few)", () => {
-    const one = assistantResultCardsFromParts(
-      [
-        countsPart(
-          countsOutput(
-            [
-              {
-                identity: { kind: "none" },
-                label: uk.cards.noneBucket,
-                orderCount: 2,
-                grossByCurrency: [
-                  { currency: "UAH", grossAmountMinor: "1000" },
-                ],
-              },
-            ],
-            { bucketsOmitted: 1 },
+    const one = aggregateOf(
+      assistantSurfacesFromParts(
+        [
+          countsPart(
+            countsOutput(
+              [
+                {
+                  identity: { kind: "none" },
+                  label: uk.cards.noneBucket,
+                  orderCount: 2,
+                  grossByCurrency: [
+                    { currency: "UAH", grossAmountMinor: "1000" },
+                  ],
+                },
+              ],
+              { bucketsOmitted: 1 },
+            ),
           ),
-        ),
-      ],
-      "uk",
-    ).aggregateCard;
+        ],
+        "uk",
+      ),
+    );
     expect(one).not.toBeNull();
     if (one === null) {
       return;
     }
     expect(one.footnotes).toContain("Ще 1 група не показано.");
 
-    const four = assistantResultCardsFromParts(
-      [
-        countsPart(
-          countsOutput(
-            [
-              {
-                identity: { kind: "none" },
-                label: uk.cards.noneBucket,
-                orderCount: 2,
-                grossByCurrency: [
-                  { currency: "UAH", grossAmountMinor: "1000" },
-                ],
-              },
-            ],
-            { bucketsOmitted: 4 },
+    const four = aggregateOf(
+      assistantSurfacesFromParts(
+        [
+          countsPart(
+            countsOutput(
+              [
+                {
+                  identity: { kind: "none" },
+                  label: uk.cards.noneBucket,
+                  orderCount: 2,
+                  grossByCurrency: [
+                    { currency: "UAH", grossAmountMinor: "1000" },
+                  ],
+                },
+              ],
+              { bucketsOmitted: 4 },
+            ),
           ),
-        ),
-      ],
-      "uk",
-    ).aggregateCard;
+        ],
+        "uk",
+      ),
+    );
     expect(four).not.toBeNull();
     if (four === null) {
       return;
     }
     expect(four.footnotes).toContain("Ще 4 групи не показано.");
 
-    const oneEn = assistantResultCardsFromParts(
-      [
-        countsPart(
-          countsOutput(
-            [
-              {
-                identity: { kind: "none" },
-                label: uk.cards.noneBucket,
-                orderCount: 2,
-                grossByCurrency: [
-                  { currency: "UAH", grossAmountMinor: "1000" },
-                ],
-              },
-            ],
-            { bucketsOmitted: 1 },
+    const oneEn = aggregateOf(
+      assistantSurfacesFromParts(
+        [
+          countsPart(
+            countsOutput(
+              [
+                {
+                  identity: { kind: "none" },
+                  label: uk.cards.noneBucket,
+                  orderCount: 2,
+                  grossByCurrency: [
+                    { currency: "UAH", grossAmountMinor: "1000" },
+                  ],
+                },
+              ],
+              { bucketsOmitted: 1 },
+            ),
           ),
-        ),
-      ],
-      "en",
-    ).aggregateCard;
+        ],
+        "en",
+      ),
+    );
     expect(oneEn).not.toBeNull();
     if (oneEn === null) {
       return;
@@ -927,7 +965,7 @@ describe("assistantResultCardsFromParts aggregate (SHO-370)", () => {
   });
 
   it("renders empty buckets as honest empty copy, not a chart", () => {
-    const cards = assistantResultCardsFromParts(
+    const surfaces = assistantSurfacesFromParts(
       [
         countsPart(
           countsOutput([], {
@@ -938,8 +976,8 @@ describe("assistantResultCardsFromParts aggregate (SHO-370)", () => {
       ],
       "uk",
     );
-    const card = cards.aggregateCard;
-    expect(cards.listCard).toBeNull();
+    const card = aggregateOf(surfaces);
+    expect(listOf(surfaces)).toBeNull();
     expect(card).not.toBeNull();
     if (card === null) {
       return;
@@ -952,7 +990,7 @@ describe("assistantResultCardsFromParts aggregate (SHO-370)", () => {
   });
 
   it("renders product and customer groupBy as the same labeled rows", () => {
-    const productCards = assistantResultCardsFromParts(
+    const productSurfaces = assistantSurfacesFromParts(
       [
         countsPart(
           countsOutput([
@@ -972,7 +1010,7 @@ describe("assistantResultCardsFromParts aggregate (SHO-370)", () => {
       ],
       "uk",
     );
-    const customerCards = assistantResultCardsFromParts(
+    const customerSurfaces = assistantSurfacesFromParts(
       [
         countsPart(
           countsOutput([
@@ -991,8 +1029,8 @@ describe("assistantResultCardsFromParts aggregate (SHO-370)", () => {
       ],
       "uk",
     );
-    const product = productCards.aggregateCard;
-    const customer = customerCards.aggregateCard;
+    const product = aggregateOf(productSurfaces);
+    const customer = aggregateOf(customerSurfaces);
     expect(product).not.toBeNull();
     expect(customer).not.toBeNull();
     if (product === null || customer === null) {
@@ -1015,7 +1053,7 @@ describe("assistantResultCardsFromParts aggregate (SHO-370)", () => {
   });
 
   it("keeps one list card and no aggregate when page and counts share a turn", () => {
-    const cards = assistantResultCardsFromParts(
+    const surfaces = assistantSurfacesFromParts(
       [
         countsPart(
           countsOutput([
@@ -1036,13 +1074,13 @@ describe("assistantResultCardsFromParts aggregate (SHO-370)", () => {
       ],
       "uk",
     );
-    expect(cards.listCard?.kind).toBe("orders-list");
-    expect(cards.aggregateCard).toBeNull();
-    expect(cards.entityCards).toEqual([]);
+    expect(listOf(surfaces)?.kind).toBe("orders-list");
+    expect(aggregateOf(surfaces)).toBeNull();
+    expect(entitiesOf(surfaces)).toEqual([]);
   });
 
   it("never paints an active chip or invented Active bucket on the aggregate card", () => {
-    const cards = assistantResultCardsFromParts(
+    const surfaces = assistantSurfacesFromParts(
       [
         countsPart(
           countsOutput([
@@ -1069,7 +1107,7 @@ describe("assistantResultCardsFromParts aggregate (SHO-370)", () => {
       ],
       "uk",
     );
-    const card = cards.aggregateCard;
+    const card = aggregateOf(surfaces);
     expect(card).not.toBeNull();
     if (card === null) {
       return;
@@ -1093,14 +1131,14 @@ describe("assistantResultCardsFromParts aggregate (SHO-370)", () => {
       message: "Staff cannot count these orders",
     };
     expect(isToolErrorOutput(output)).toBe(true);
-    const cards = assistantResultCardsFromParts([countsPart(output)], "uk");
-    expect(cards.listCard).toBeNull();
-    expect(cards.aggregateCard).toBeNull();
-    expect(cards.entityCards).toEqual([]);
+    const surfaces = assistantSurfacesFromParts([countsPart(output)], "uk");
+    expect(listOf(surfaces)).toBeNull();
+    expect(aggregateOf(surfaces)).toBeNull();
+    expect(entitiesOf(surfaces)).toEqual([]);
   });
 
   it("localizes unlinked customer buckets and in_progress status copy", () => {
-    const cards = assistantResultCardsFromParts(
+    const surfaces = assistantSurfacesFromParts(
       [
         countsPart(
           countsOutput([
@@ -1119,13 +1157,45 @@ describe("assistantResultCardsFromParts aggregate (SHO-370)", () => {
       ],
       "uk",
     );
-    expect(cards.aggregateCard?.buckets[0]?.label).toBe(
+    expect(aggregateOf(surfaces)?.buckets[0]?.label).toBe(
       ordersUk.missingCustomer,
     );
   });
 });
 
-describe("assistant result card composition", () => {
+describe("assistant result-card surface registry", () => {
+  it("registers the three orders kinds with English prompt lines", () => {
+    expect(
+      ASSISTANT_RESULT_SURFACE_REGISTRY.map((entry) => entry.kind),
+    ).toEqual(["orders-list", "orders-aggregate", "order-entity"]);
+    for (const entry of ASSISTANT_RESULT_SURFACE_REGISTRY) {
+      expect(entry.promptLine.length).toBeGreaterThan(20);
+      expect(entry.promptLine.includes("**")).toBe(false);
+      expect(/[А-Яа-яІіЇїЄєҐґ]/.test(entry.promptLine)).toBe(false);
+      expect(entry.toolNames.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("omits a permission-denied orders.get entity surface", () => {
+    const surfaces = assistantSurfacesFromParts(
+      [
+        {
+          type: "tool-orders_get",
+          toolCallId: "call-get",
+          state: "output-available",
+          output: {
+            status: "error",
+            code: "PERMISSION_DENIED",
+            message: "Staff cannot read this order",
+          },
+        },
+      ],
+      "uk",
+    );
+    expect(surfaces).toEqual([]);
+    expect(entitiesOf(surfaces)).toEqual([]);
+  });
+
   it("composes Card / StatusPill and does not embed OrdersListScreen / OrderRow", () => {
     const listCard = readFileSync(
       new URL("../sheet/orders-list-result-card.tsx", import.meta.url),
@@ -1139,12 +1209,36 @@ describe("assistant result card composition", () => {
       new URL("../sheet/orders-aggregate-result-card.tsx", import.meta.url),
       "utf8",
     );
-    const mapper = readFileSync(
-      new URL("./result-cards.ts", import.meta.url),
+    const surfaceCard = readFileSync(
+      new URL("../sheet/assistant-surface-card.tsx", import.meta.url),
+      "utf8",
+    );
+    const listParse = readFileSync(
+      new URL("../surfaces/orders-list.ts", import.meta.url),
+      "utf8",
+    );
+    const aggregateParse = readFileSync(
+      new URL("../surfaces/orders-aggregate.ts", import.meta.url),
+      "utf8",
+    );
+    const entityParse = readFileSync(
+      new URL("../surfaces/order-entity.ts", import.meta.url),
+      "utf8",
+    );
+    const compose = readFileSync(
+      new URL("../surfaces/compose.ts", import.meta.url),
+      "utf8",
+    );
+    const registry = readFileSync(
+      new URL("../surfaces/registry.ts", import.meta.url),
       "utf8",
     );
     const messageRow = readFileSync(
       new URL("../sheet/assistant-message-row.tsx", import.meta.url),
+      "utf8",
+    );
+    const sheetView = readFileSync(
+      new URL("../sheet/assistant-sheet-view.tsx", import.meta.url),
       "utf8",
     );
     const hook = readFileSync(
@@ -1154,11 +1248,13 @@ describe("assistant result card composition", () => {
     expect(listCard).toContain("Card");
     expect(listCard).toContain("StatusPill");
     expect(listCard).toContain('from "../../../components/ui"');
+    expect(listCard).toContain("onOpenHref");
     expect(listCard.includes("orders-list-screen")).toBe(false);
     expect(listCard.includes("order-row")).toBe(false);
     expect(listCard.includes('from "../../orders/list')).toBe(false);
     expect(entityCard).toContain("Card");
     expect(entityCard).toContain("StatusPill");
+    expect(entityCard).toContain("onOpenHref");
     expect(entityCard.includes("orders-list-screen")).toBe(false);
     expect(entityCard.includes("order-row")).toBe(false);
     expect(aggregateCard).toContain("Card");
@@ -1168,20 +1264,45 @@ describe("assistant result card composition", () => {
     expect(aggregateCard.includes("order-row")).toBe(false);
     expect(aggregateCard.includes("BarChart")).toBe(false);
     expect(aggregateCard.includes("wow")).toBe(false);
+    expect(surfaceCard).toContain("OrdersListResultCard");
+    expect(surfaceCard).toContain("OrdersAggregateResultCard");
+    expect(surfaceCard).toContain("OrderEntityCard");
+    expect(messageRow).toContain("surfaces");
+    expect(messageRow).toContain("AssistantSurfaceCard");
+    expect(messageRow).toContain("onOpenHref");
+    expect(messageRow.includes("listCard")).toBe(false);
+    expect(messageRow.includes("aggregateCard")).toBe(false);
+    expect(messageRow.includes("entityCards")).toBe(false);
+    expect(messageRow.includes("onOpenOrders")).toBe(false);
+    expect(messageRow.includes("onOpenOrder")).toBe(false);
     expect(messageRow.includes("orders-list-screen")).toBe(false);
     expect(messageRow.includes("order-row")).toBe(false);
-    expect(hook).toContain("orderDetailHref");
-    expect(hook).toContain("ASSISTANT_ORDERS_LIST_HREF");
+    expect(sheetView.includes("listCard")).toBe(false);
+    expect(sheetView.includes("aggregateCard")).toBe(false);
+    expect(sheetView.includes("entityCards")).toBe(false);
+    expect(sheetView).toContain("surfaces");
+    expect(sheetView).toContain("onOpenHref");
+    expect(hook).toContain("openHref");
+    expect(hook.includes("orderDetailHref")).toBe(false);
+    expect(hook.includes("ASSISTANT_ORDERS_LIST_HREF")).toBe(false);
+    expect(hook.includes("openOrders")).toBe(false);
     expect(hook.includes("orders-list-screen")).toBe(false);
     expect(hook.includes("order-row")).toBe(false);
-    expect(mapper.includes('from "@showzy/ai"')).toBe(false);
-    expect(mapper.includes('from "@showzy/core"')).toBe(false);
-    expect(mapper.includes('from "../../orders/list')).toBe(false);
-    expect(mapper).toContain("formatOrderCreatedAt");
-    expect(mapper).toContain("../../orders/shared/order-created-at");
-    expect(mapper).not.toContain("extractUuidResultIds");
-    expect(mapper).not.toContain("sit.svg");
-    expect(mapper).not.toContain("dig.svg");
+    expect(listParse.includes('from "@showzy/ai"')).toBe(false);
+    expect(aggregateParse.includes('from "@showzy/ai"')).toBe(false);
+    expect(entityParse.includes('from "@showzy/ai"')).toBe(false);
+    expect(compose.includes('from "@showzy/ai"')).toBe(false);
+    expect(registry.includes('from "@showzy/ai"')).toBe(false);
+    expect(listParse.includes('from "@showzy/core"')).toBe(false);
+    expect(listParse.includes('from "../../orders/list')).toBe(false);
+    expect(listParse).toContain("formatOrderCreatedAt");
+    expect(listParse).toContain("../../orders/shared/order-created-at");
+    expect(listParse).not.toContain("extractUuidResultIds");
+    expect(aggregateParse).not.toContain("extractUuidResultIds");
+    expect(entityParse).not.toContain("extractUuidResultIds");
+    expect(compose).not.toContain("extractUuidResultIds");
+    expect(listParse).not.toContain("sit.svg");
+    expect(listParse).not.toContain("dig.svg");
     expect(listCard).not.toContain("sit.svg");
     expect(listCard).not.toContain("listen.svg");
     expect(aggregateCard).not.toContain("sit.svg");

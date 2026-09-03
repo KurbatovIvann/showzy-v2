@@ -3,23 +3,23 @@ import { Pressable, Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
 import { Button, Card, StatusPill } from "../../../components/ui";
-import type { AssistantOrdersListCardView } from "../shared/result-cards";
+import type { AssistantOrdersListCardView } from "../surfaces";
 
 /**
  * Live `orders_list_page` result (SHO-369). Composes Card / StatusPill.
  * Feature chrome — not the orders list screen or its virtualized row.
- * CTA opens `/orders`.
+ * CTA opens `card.ctaHref` via `onOpenHref`.
  */
 export const OrdersListResultCard = memo(function OrdersListResultCard(props: {
   readonly card: AssistantOrdersListCardView;
-  readonly onOpenOrders: () => void;
-  readonly onOpenOrder: (orderId: string) => void;
+  readonly onOpenHref: (href: string) => void;
 }) {
   const { card } = props;
   const showChips = card.chips.length > 0;
   const emptyTitle = card.emptyTitle;
   const emptyDescription = card.emptyDescription;
   const ctaLabel = card.ctaLabel;
+  const ctaHref = card.ctaHref;
 
   return (
     <Card>
@@ -47,13 +47,13 @@ export const OrdersListResultCard = memo(function OrdersListResultCard(props: {
             {card.rows.map((row) => (
               <ListResultRow
                 key={row.orderId}
-                orderId={row.orderId}
+                href={row.href}
                 customerName={row.customerName}
                 statusLabel={row.statusLabel}
                 statusTone={row.statusTone}
                 metaLabel={row.metaLabel}
                 totalLabel={row.totalLabel}
-                onOpenOrder={props.onOpenOrder}
+                onOpenHref={props.onOpenHref}
               />
             ))}
           </View>
@@ -63,12 +63,14 @@ export const OrdersListResultCard = memo(function OrdersListResultCard(props: {
             {footnote}
           </Text>
         ))}
-        {ctaLabel === null || card.ctaHref === null ? null : (
+        {ctaLabel === null || ctaHref === null ? null : (
           <Button
             variant="secondary"
             fullWidth
             label={ctaLabel}
-            onPress={props.onOpenOrders}
+            onPress={() => {
+              props.onOpenHref(ctaHref);
+            }}
           />
         )}
       </View>
@@ -77,13 +79,13 @@ export const OrdersListResultCard = memo(function OrdersListResultCard(props: {
 });
 
 const ListResultRow = memo(function ListResultRow(props: {
-  readonly orderId: string;
+  readonly href: string;
   readonly customerName: string;
   readonly statusLabel: string | null;
   readonly statusTone: AssistantOrdersListCardView["rows"][number]["statusTone"];
   readonly metaLabel: string;
   readonly totalLabel: string | null;
-  readonly onOpenOrder: (orderId: string) => void;
+  readonly onOpenHref: (href: string) => void;
 }) {
   return (
     <Pressable
@@ -92,7 +94,7 @@ const ListResultRow = memo(function ListResultRow(props: {
         props.customerName.length > 0 ? props.customerName : props.metaLabel
       }
       onPress={() => {
-        props.onOpenOrder(props.orderId);
+        props.onOpenHref(props.href);
       }}
       style={({ pressed }) => [styles.row, pressed ? styles.pressed : null]}
     >

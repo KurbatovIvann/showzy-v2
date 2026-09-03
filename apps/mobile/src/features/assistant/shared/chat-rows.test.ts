@@ -62,9 +62,7 @@ describe("assistantChatRows", () => {
         text: "Delete the customer",
         confirmation: null,
         timeline: [],
-        listCard: null,
-        aggregateCard: null,
-        entityCards: [],
+        surfaces: [],
       },
       {
         id: "a1",
@@ -72,9 +70,7 @@ describe("assistantChatRows", () => {
         text: "Confirmation required.",
         confirmation: pending,
         timeline: [],
-        listCard: null,
-        aggregateCard: null,
-        entityCards: [],
+        surfaces: [],
       },
     ]);
   });
@@ -115,9 +111,7 @@ describe("assistantChatRows", () => {
           status: "running" as const,
         },
       ],
-      listCard: null,
-      aggregateCard: null,
-      entityCards: [],
+      surfaces: [],
     };
     expect(rows[1]).toEqual(inFlightRow);
     expect(assistantRowHasInFlightTools(inFlightRow)).toBe(true);
@@ -152,9 +146,9 @@ describe("assistantChatRows", () => {
         status: "done",
       },
     ]);
-    expect(rows[0]?.listCard).toBeNull();
-    expect(rows[0]?.aggregateCard?.kind).toBe("orders-aggregate");
-    expect(rows[0]?.entityCards).toEqual([]);
+    expect(rows[0]?.surfaces.map((surface) => surface.kind)).toEqual([
+      "orders-aggregate",
+    ]);
     const doneRow = rows[0];
     expect(doneRow).toBeDefined();
     if (doneRow === undefined) {
@@ -196,7 +190,9 @@ describe("assistantChatRows", () => {
     expect(rows[0]?.timeline[0]?.label.includes("orders_list_page")).toBe(
       false,
     );
-    expect(rows[0]?.listCard?.kind).toBe("orders-list");
+    expect(rows[0]?.surfaces.map((surface) => surface.kind)).toEqual([
+      "orders-list",
+    ]);
     expect(JSON.stringify(rows[0]?.text).includes("page.summary")).toBe(false);
   });
 
@@ -377,9 +373,9 @@ describe("assistantChatRows", () => {
         status: "done",
       },
     ]);
-    expect(rows[0]?.listCard).toBeNull();
-    expect(rows[0]?.aggregateCard?.kind).toBe("orders-aggregate");
-    expect(rows[0]?.entityCards).toEqual([]);
+    expect(rows[0]?.surfaces.map((surface) => surface.kind)).toEqual([
+      "orders-aggregate",
+    ]);
     const remainingRow = rows[0];
     expect(remainingRow).toBeDefined();
     if (remainingRow === undefined) {
@@ -437,10 +433,14 @@ describe("assistantChatRows", () => {
       null,
       copy,
     );
-    expect(pageAndCounts[0]?.listCard?.kind).toBe("orders-list");
-    expect(pageAndCounts[0]?.listCard?.chips).toHaveLength(1);
-    expect(pageAndCounts[0]?.aggregateCard).toBeNull();
-    expect(pageAndCounts[0]?.entityCards).toEqual([]);
+    expect(pageAndCounts[0]?.surfaces.map((surface) => surface.kind)).toEqual([
+      "orders-list",
+    ]);
+    const listSurface = pageAndCounts[0]?.surfaces[0];
+    expect(listSurface?.kind).toBe("orders-list");
+    expect(
+      listSurface?.kind === "orders-list" ? listSurface.chips : [],
+    ).toHaveLength(1);
 
     const countsOnly = assistantChatRows(
       [
@@ -460,9 +460,9 @@ describe("assistantChatRows", () => {
       null,
       copy,
     );
-    expect(countsOnly[0]?.listCard).toBeNull();
-    expect(countsOnly[0]?.aggregateCard?.kind).toBe("orders-aggregate");
-    expect(countsOnly[0]?.entityCards).toEqual([]);
+    expect(countsOnly[0]?.surfaces.map((surface) => surface.kind)).toEqual([
+      "orders-aggregate",
+    ]);
   });
 
   it("keeps a successful tool result after the HITL challenge is resolved", () => {
@@ -499,9 +499,7 @@ describe("assistantChatRows", () => {
             status: "done",
           },
         ],
-        listCard: null,
-        aggregateCard: null,
-        entityCards: [],
+        surfaces: [],
       },
     ]);
   });
