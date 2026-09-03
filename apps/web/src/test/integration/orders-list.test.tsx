@@ -19,8 +19,21 @@ import {
   FLOWERS_MEMBERSHIP,
   signedInOwner,
 } from "../company-fixtures";
-import { ANNA_ORDER, ANNA_ORDER_ID, DONE_ORDER } from "../orders-fixtures";
-import { listMineState, PANEL_ORIGIN, server, sessionState } from "../msw";
+import {
+  ANNA_CUSTOMER,
+  ANNA_ORDER,
+  ANNA_ORDER_DETAIL,
+  ANNA_ORDER_ID,
+  DONE_ORDER,
+} from "../orders-fixtures";
+import {
+  listMineState,
+  PANEL_ORIGIN,
+  seedCustomer,
+  seedOrderDetail,
+  server,
+  sessionState,
+} from "../msw";
 import { renderApp } from "../render";
 
 afterEach(cleanup);
@@ -68,6 +81,8 @@ function signInWithFlowers(): void {
 
 function seedOrders(): void {
   listMineState.listOrdersItems = [ANNA_ORDER, DONE_ORDER];
+  seedOrderDetail(ANNA_ORDER_DETAIL);
+  seedCustomer(ANNA_CUSTOMER);
 }
 
 function setShellWidth(width: number): void {
@@ -197,11 +212,16 @@ describe("orders list (SHO-377)", () => {
         `/kviti-lviv/orders/${ANNA_ORDER_ID}`,
       );
       expect(
-        screen.getByRole("heading", { name: "Модуль у розробці" }),
+        screen.getByRole("heading", { name: "#KL-K7K3K4" }),
       ).toBeDefined();
     });
+    expect(
+      screen.queryByRole("heading", { name: "Модуль у розробці" }),
+    ).toBeNull();
     expect(screen.getByRole("region", { name: "Замовлення" })).toBeDefined();
-    expect(screen.getByText("Анна Мельник")).toBeDefined();
+    await waitFor(() => {
+      expect(screen.getAllByText("Анна Мельник").length).toBeGreaterThan(1);
+    });
     expect(
       screen.queryByRole("heading", { name: "Оберіть елемент" }),
     ).toBeNull();

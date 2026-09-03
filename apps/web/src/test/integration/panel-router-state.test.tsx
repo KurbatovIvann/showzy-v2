@@ -466,8 +466,11 @@ describe("phone list/detail and history (SHO-328)", () => {
       expect(router.state.location.pathname).toBe("/kviti-lviv/orders/ord-1");
     });
     expect(
-      screen.getByRole("heading", { name: "Модуль у розробці" }),
+      screen.getByRole("heading", { name: "Замовлення не знайдено" }),
     ).toBeDefined();
+    expect(
+      screen.queryByRole("heading", { name: "Модуль у розробці" }),
+    ).toBeNull();
     act(() => {
       router.history.back();
     });
@@ -475,7 +478,7 @@ describe("phone list/detail and history (SHO-328)", () => {
       expect(router.state.location.pathname).toBe("/kviti-lviv/orders");
       expect(screen.getByRole("region", { name: "Замовлення" })).toBeDefined();
       expect(
-        screen.queryByRole("heading", { name: "Модуль у розробці" }),
+        screen.queryByRole("heading", { name: "Замовлення не знайдено" }),
       ).toBeNull();
     });
     act(() => {
@@ -484,7 +487,7 @@ describe("phone list/detail and history (SHO-328)", () => {
     await waitFor(() => {
       expect(router.state.location.pathname).toBe("/kviti-lviv/orders/ord-1");
       expect(
-        screen.getByRole("heading", { name: "Модуль у розробці" }),
+        screen.getByRole("heading", { name: "Замовлення не знайдено" }),
       ).toBeDefined();
       expect(screen.queryByRole("region", { name: "Замовлення" })).toBeNull();
     });
@@ -502,8 +505,11 @@ describe("desktop list+detail (SHO-331)", () => {
     ).toBe("desktop");
     expect(screen.getByRole("region", { name: "Замовлення" })).toBeDefined();
     expect(
-      screen.getByRole("heading", { name: "Модуль у розробці" }),
+      screen.getByRole("heading", { name: "Замовлення не знайдено" }),
     ).toBeDefined();
+    expect(
+      screen.queryByRole("heading", { name: "Модуль у розробці" }),
+    ).toBeNull();
     expect(
       screen.getByRole("navigation", { name: "Основна навігація" }),
     ).toBeDefined();

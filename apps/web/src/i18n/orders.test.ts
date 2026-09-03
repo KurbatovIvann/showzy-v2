@@ -15,6 +15,11 @@ describe("orders copy", () => {
     expect(ordersCopy("uk").groups.closed).toBe("Закриті");
     expect(ordersCopy("uk").statuses.in_progress).toBe("В роботі");
     expect(ordersCopy("uk").statuses.done).toBe("Виконано");
+    expect(ordersCopy("uk").detail.confirmLabel).toBe("Підтвердити");
+    expect(ordersCopy("uk").detail.startLabel).toBe("В роботу");
+    expect(ordersCopy("uk").detail.completeLabel).toBe("Виконано");
+    expect(ordersCopy("uk").detail.cancelOrder).toBe("Скасувати");
+    expect(ordersCopy("uk").detail.completeLabel).not.toBe("Завершено");
   });
 
   it("never titles a list group В роботі or Завершені", () => {

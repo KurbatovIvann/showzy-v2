@@ -4,6 +4,28 @@ import type { CountForms } from "./plural";
 
 export type OrdersCountForms = CountForms;
 
+export type OrdersDetailCopy = {
+  readonly title: string;
+  readonly loadingLabel: string;
+  readonly errorTitle: string;
+  readonly errorDescription: string;
+  readonly retry: string;
+  readonly notFoundTitle: string;
+  readonly notFoundDescription: string;
+  readonly customerTitle: string;
+  readonly linesTitle: string;
+  readonly commentTitle: string;
+  readonly dueLabel: string;
+  readonly confirmLabel: string;
+  readonly startLabel: string;
+  readonly completeLabel: string;
+  readonly cancelOrder: string;
+  readonly actionsLabel: string;
+  readonly mutationError: string;
+  readonly mutationOffline: string;
+  readonly mutationPermission: string;
+};
+
 export type OrdersCopy = {
   readonly title: string;
   readonly createLabel: string;
@@ -37,6 +59,7 @@ export type OrdersCopy = {
     readonly catalogTitle: string;
     readonly catalogDescription: string;
   };
+  readonly detail: OrdersDetailCopy;
 };
 
 const en: OrdersCopy = {
@@ -76,6 +99,27 @@ const en: OrdersCopy = {
     catalogTitle: "No orders yet",
     catalogDescription: "Create the first order with + New.",
   },
+  detail: {
+    title: "Order",
+    loadingLabel: "Loading order",
+    errorTitle: "Could not load the order",
+    errorDescription: "Check your connection and try again.",
+    retry: "Retry",
+    notFoundTitle: "Order not found",
+    notFoundDescription: "This order could not be found or is unavailable.",
+    customerTitle: "Customer",
+    linesTitle: "Items",
+    commentTitle: "Comment",
+    dueLabel: "Due",
+    confirmLabel: "Confirm",
+    startLabel: "Start",
+    completeLabel: "Done",
+    cancelOrder: "Cancel",
+    actionsLabel: "Order actions",
+    mutationError: "Could not update the order. Try again.",
+    mutationOffline: "No connection. Connect and try again.",
+    mutationPermission: "You do not have permission to change this order.",
+  },
 };
 
 const uk: OrdersCopy = {
@@ -114,6 +158,27 @@ const uk: OrdersCopy = {
     reset: "Скинути пошук і фільтри",
     catalogTitle: "Замовлень ще немає",
     catalogDescription: "Створіть перше замовлення кнопкою + Нове.",
+  },
+  detail: {
+    title: "Замовлення",
+    loadingLabel: "Завантаження замовлення",
+    errorTitle: "Не вдалося завантажити замовлення",
+    errorDescription: "Перевірте зʼєднання та спробуйте ще раз.",
+    retry: "Повторити",
+    notFoundTitle: "Замовлення не знайдено",
+    notFoundDescription: "Не вдалося знайти це замовлення або воно недоступне.",
+    customerTitle: "Клієнт",
+    linesTitle: "Позиції",
+    commentTitle: "Коментар",
+    dueLabel: "До сплати",
+    confirmLabel: "Підтвердити",
+    startLabel: "В роботу",
+    completeLabel: "Виконано",
+    cancelOrder: "Скасувати",
+    actionsLabel: "Дії з замовленням",
+    mutationError: "Не вдалося оновити замовлення. Спробуйте ще раз.",
+    mutationOffline: "Немає зʼєднання. Підключіться і спробуйте ще раз.",
+    mutationPermission: "Немає дозволу змінювати це замовлення.",
   },
 };
 
