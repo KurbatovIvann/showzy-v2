@@ -43,11 +43,19 @@ describe("orders copy", () => {
     expect(uk.statuses).toEqual({
       new: "Новий",
       confirmed: "Підтверджено",
+      in_progress: "В роботі",
+      done: "Виконано",
       canceled: "Скасовано",
     });
+    expect(en.statuses.in_progress).toBe("In progress");
+    expect(en.statuses.done).toBe("Done");
     expect(uk.groups).toEqual({
-      inProgress: "В роботі",
-      completed: "Завершені",
+      inProgress: "Активні",
+      completed: "Закриті",
+    });
+    expect(en.groups).toEqual({
+      inProgress: "Active",
+      completed: "Closed",
     });
     expect(uk.missingCustomer).toBe("Клієнт видалений");
     expect(uk.empty.offlineTitle).toBe("Немає зʼєднання");
@@ -67,7 +75,10 @@ describe("orders copy", () => {
       "Change the search or filters, or reset them.",
     );
     expect(uk.empty.reset).toBe("Скинути пошук і фільтри");
-    expect(Object.keys(uk.statuses)).not.toContain("in_progress");
+    expect(Object.keys(uk.statuses)).toContain("in_progress");
+    expect(Object.keys(uk.statuses)).toContain("done");
+    expect(Object.keys(uk.statuses)).not.toContain("active");
+    expect(Object.keys(uk.statuses)).not.toContain("completed");
     expect(JSON.stringify(uk)).not.toContain("Оплачен");
   });
 

@@ -13,14 +13,20 @@ import {
 } from "../shared/customer-name";
 import { itemCountLabel } from "../shared/item-count";
 import { LIST_ORDERS_QUERY_MAX } from "../shared/order-caps";
-import { orderStatusTone, type OrderStatusTone } from "../shared/order-status";
+import { formatOrderCreatedAt } from "../shared/order-created-at";
+import {
+  isOpenOrderStatus,
+  ORDER_LIFECYCLE_STATUSES,
+  orderStatusTone,
+  type OrderStatusTone,
+} from "../shared/order-status";
 import type {
   ListOrdersPageInput,
   OrderListItem,
   OrderStatusFilter,
 } from "../api/order.queries";
 
-export { LIST_ORDERS_QUERY_MAX };
+export { LIST_ORDERS_QUERY_MAX, formatOrderCreatedAt };
 
 export {
   customerNameLabel,
@@ -33,11 +39,8 @@ export type { OrderStatusFilter, ListOrdersPageInput };
 /** Sentinel persisted on unlinked headers; presenters localize it. */
 export const UNLINKED_CUSTOMER_NAME_SNAPSHOT = "unlinked";
 
-export const ORDER_STATUS_FILTERS: readonly OrderStatusFilter[] = [
-  "new",
-  "confirmed",
-  "canceled",
-];
+export const ORDER_STATUS_FILTERS: readonly OrderStatusFilter[] =
+  ORDER_LIFECYCLE_STATUSES;
 
 export function flattenOrderPages(
   pages: ReadonlyArray<{ readonly items: readonly OrderListItem[] }>,
@@ -103,53 +106,6 @@ export function localizeCustomerNameSnapshot(
   return nameSnapshot;
 }
 
-const UK_MONTHS = [
-  "січ.",
-  "лют.",
-  "бер.",
-  "квіт.",
-  "трав.",
-  "черв.",
-  "лип.",
-  "серп.",
-  "вер.",
-  "жовт.",
-  "лист.",
-  "груд.",
-] as const;
-
-const EN_MONTHS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-] as const;
-
-/** Canvas `d MMM yyyy` without adding date-fns. Local calendar date. */
-export function formatOrderCreatedAt(iso: string, locale: Locale): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-  const day = date.getDate();
-  const month = date.getMonth();
-  const year = date.getFullYear();
-  const months = locale === "uk" ? UK_MONTHS : EN_MONTHS;
-  const monthLabel = months[month];
-  if (monthLabel === undefined) {
-    return "";
-  }
-  return `${String(day)} ${monthLabel} ${String(year)}`;
-}
-
 export type OrderRowView = {
   readonly id: string;
   readonly customerName: string;
@@ -193,15 +149,11 @@ export type OrdersListEntry =
     }
   | { readonly type: "row"; readonly order: OrderRowView };
 
-export function isInProgressStatus(status: OrderStatusFilter): boolean {
-  return status === "new" || status === "confirmed";
-}
-
 export function groupOrderRows(
   rows: readonly OrderRowView[],
 ): readonly OrdersListEntry[] {
-  const inProgress = rows.filter((row) => isInProgressStatus(row.status));
-  const completed = rows.filter((row) => row.status === "canceled");
+  const inProgress = rows.filter((row) => isOpenOrderStatus(row.status));
+  const completed = rows.filter((row) => !isOpenOrderStatus(row.status));
   const entries: OrdersListEntry[] = [];
   if (inProgress.length > 0) {
     entries.push({

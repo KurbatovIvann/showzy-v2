@@ -101,6 +101,8 @@ export type OrdersCopy = {
   readonly statuses: {
     readonly new: string;
     readonly confirmed: string;
+    readonly in_progress: string;
+    readonly done: string;
     readonly canceled: string;
   };
   readonly groups: {
@@ -144,11 +146,13 @@ const en: OrdersCopy = {
   statuses: {
     new: "New",
     confirmed: "Confirmed",
+    in_progress: "In progress",
+    done: "Done",
     canceled: "Canceled",
   },
   groups: {
-    inProgress: "In progress",
-    completed: "Completed",
+    inProgress: "Active",
+    completed: "Closed",
   },
   groupCount: "{{title}} · {{count}}",
   items: {
@@ -271,11 +275,13 @@ const uk: OrdersCopy = {
   statuses: {
     new: "Новий",
     confirmed: "Підтверджено",
+    in_progress: "В роботі",
+    done: "Виконано",
     canceled: "Скасовано",
   },
   groups: {
-    inProgress: "В роботі",
-    completed: "Завершені",
+    inProgress: "Активні",
+    completed: "Закриті",
   },
   groupCount: "{{title}} · {{count}}",
   items: {

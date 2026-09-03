@@ -5,6 +5,7 @@
  */
 import type { ContractClient } from "../../../api/client";
 import { contractInfiniteQueryOptions } from "../../../api/query-options";
+import type { OrderLifecycleStatus } from "../shared/order-status";
 
 export const LIST_ORDERS_ACTION = "orders.list";
 
@@ -18,7 +19,7 @@ export type ListOrdersSummaryPage = Extract<
 >;
 export type OrderListItem = ListOrdersSummaryPage["items"][number];
 
-export type OrderStatusFilter = "new" | "confirmed" | "canceled";
+export type OrderStatusFilter = OrderLifecycleStatus;
 
 export type ListOrdersPageInput = {
   readonly kind: "page.summary";

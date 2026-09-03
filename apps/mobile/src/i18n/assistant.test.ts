@@ -17,6 +17,7 @@ describe("assistant copy", () => {
     expect(Object.keys(uk)).toEqual(Object.keys(en));
     expect(Object.keys(uk.errors)).toEqual(Object.keys(en.errors));
     expect(Object.keys(uk.jobs)).toEqual(Object.keys(en.jobs));
+    expect(Object.keys(uk.cards)).toEqual(Object.keys(en.cards));
   });
 
   it("pins Ukrainian job labels that are not façade wire names", () => {
@@ -26,6 +27,17 @@ describe("assistant copy", () => {
     expect(uk.jobs.orders_list_page).not.toBe("orders_list_page");
     expect(uk.jobs.orders_list_counts).not.toBe("orders_list_counts");
     expect(uk.jobs.fallback).toBe("Працюю");
+  });
+
+  it("pins Ukrainian list-card copy without an active status chip", () => {
+    const uk = assistantCopy("uk");
+    const en = assistantCopy("en");
+    expect(uk.cards.openOrders).toBe("Відкрити замовлення");
+    expect(en.cards.openOrders).toBe("Open orders");
+    expect(uk.cards.listEmptyTitle).toBe("Немає замовлень");
+    expect(uk.cards.customerMatchTruncated.includes("імʼям")).toBe(true);
+    expect(JSON.stringify(uk.cards).includes("active")).toBe(false);
+    expect(JSON.stringify(en.cards).includes("active")).toBe(false);
   });
 
   it("pins sheet title Шозік/Shozik and keeps the BottomNav label AI", () => {

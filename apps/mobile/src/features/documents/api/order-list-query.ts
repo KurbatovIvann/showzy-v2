@@ -24,7 +24,9 @@ export type DocumentOrderListItem = ListOrdersSummaryPage["items"][number];
 export const DOCUMENT_ORDERS_LOOKUP_INPUT: {
   readonly kind: "page.summary";
   readonly filter: {
-    readonly statuses: Array<"new" | "confirmed" | "canceled">;
+    readonly statuses: Array<
+      "new" | "confirmed" | "in_progress" | "done" | "canceled"
+    >;
   };
   readonly limit: number;
 } = {

@@ -1,9 +1,15 @@
 import type { AssistantCopy } from "../../../i18n/assistant";
+import type { Locale } from "../../../i18n/locale";
 import type {
   AssistantChatMessage,
   PendingConfirmation,
 } from "./confirmation-presenter";
 import { assistantJobLabel } from "./job-labels";
+import type {
+  AssistantOrderEntityCardView,
+  AssistantOrdersListCardView,
+} from "./result-cards";
+import { assistantResultCardsFromParts } from "./result-cards";
 import {
   toolStepsFromParts,
   type AssistantTimelineStatus,
@@ -23,6 +29,8 @@ export type AssistantChatRow = {
   readonly text: string;
   readonly confirmation: PendingConfirmation | null;
   readonly timeline: readonly AssistantTimelineStep[];
+  readonly listCard: AssistantOrdersListCardView | null;
+  readonly entityCards: readonly AssistantOrderEntityCardView[];
 };
 
 function textFromParts(message: AssistantChatMessage): string {
@@ -56,6 +64,7 @@ export function assistantChatRows(
   pending: PendingConfirmation | null,
   copy: AssistantCopy,
   dismissedChallengeIds: ReadonlySet<string> = NO_DISMISSED_CHALLENGES,
+  locale: Locale = "uk",
 ): readonly AssistantChatRow[] {
   const rows: AssistantChatRow[] = [];
   for (const message of messages) {
@@ -69,7 +78,17 @@ export function assistantChatRows(
       message.role === "assistant"
         ? labeledTimeline(message, copy, dismissedChallengeIds)
         : [];
-    if (text.length === 0 && confirmation === null && timeline.length === 0) {
+    const resultCards =
+      message.role === "assistant"
+        ? assistantResultCardsFromParts(message.parts, locale)
+        : { listCard: null, entityCards: [] };
+    if (
+      text.length === 0 &&
+      confirmation === null &&
+      timeline.length === 0 &&
+      resultCards.listCard === null &&
+      resultCards.entityCards.length === 0
+    ) {
       continue;
     }
     rows.push({
@@ -78,6 +97,8 @@ export function assistantChatRows(
       text,
       confirmation,
       timeline,
+      listCard: resultCards.listCard,
+      entityCards: resultCards.entityCards,
     });
   }
   return rows;
