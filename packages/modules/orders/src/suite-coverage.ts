@@ -4,6 +4,8 @@ export const ordersSuiteCoverage = {
   isolation: [
     "orders.create",
     "orders.confirm",
+    "orders.start",
+    "orders.complete",
     "orders.cancel",
     "orders.get",
     "orders.list",
@@ -12,7 +14,13 @@ export const ordersSuiteCoverage = {
   consumerIsolation: [],
   accountIsolation: [],
   shareIsolation: [],
-  idempotency: ["orders.create", "orders.confirm", "orders.cancel"],
+  idempotency: [
+    "orders.create",
+    "orders.confirm",
+    "orders.start",
+    "orders.complete",
+    "orders.cancel",
+  ],
   events: ["orders"],
   atomic: [],
 } as const satisfies SuiteCoverageManifest;
