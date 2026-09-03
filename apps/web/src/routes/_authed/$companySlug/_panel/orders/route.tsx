@@ -1,8 +1,15 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { Outlet, createFileRoute } from "@tanstack/react-router";
 
-import { SectionWorkspaceLayout } from "../../../../../layouts/panel/section-workspace";
+import { validateOrdersSearch } from "../../../../../features/orders/api/orders-list-search";
+import {
+  OrdersListHeaderTrailing,
+  OrdersListPage,
+} from "../../../../../features/orders/list/orders-list-page";
+import { useRequiredPanelState } from "../../../../../layouts/panel/panel-route-state";
+import { SectionWorkspace } from "../../../../../layouts/panel/section-workspace";
 
 export const Route = createFileRoute("/_authed/$companySlug/_panel/orders")({
+  validateSearch: validateOrdersSearch,
   staticData: {
     panel: {
       panelSection: "orders",
@@ -10,5 +17,19 @@ export const Route = createFileRoute("/_authed/$companySlug/_panel/orders")({
       listTo: "/$companySlug/orders",
     },
   },
-  component: SectionWorkspaceLayout,
+  component: OrdersWorkspaceLayout,
 });
+
+function OrdersWorkspaceLayout() {
+  const panel = useRequiredPanelState();
+  return (
+    <SectionWorkspace
+      section={panel.panelSection}
+      pane={panel.pane}
+      headerTrailing={<OrdersListHeaderTrailing />}
+      listContent={<OrdersListPage />}
+    >
+      <Outlet />
+    </SectionWorkspace>
+  );
+}

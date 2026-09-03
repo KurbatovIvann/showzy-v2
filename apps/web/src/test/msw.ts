@@ -30,6 +30,12 @@ export type MutationRpcCall = {
   readonly input: unknown;
 };
 
+export type OrdersListRpcCall = {
+  readonly path: string;
+  readonly companyId: string | null;
+  readonly input: unknown;
+};
+
 type SessionState = { user: MockSessionUser | null };
 
 type RpcState = {
@@ -40,6 +46,8 @@ type RpcState = {
   confirmationChallengeId: string;
   calls: RpcCall[];
   mutationCalls: MutationRpcCall[];
+  listOrdersItems: unknown[];
+  listOrdersCalls: OrdersListRpcCall[];
 };
 
 type SessionJson = {
@@ -89,6 +97,8 @@ function authMsw(): AuthMsw {
     confirmationChallengeId: "challenge-1",
     calls: [],
     mutationCalls: [],
+    listOrdersItems: [],
+    listOrdersCalls: [],
   };
   const created: AuthMsw = {
     sessionState,
@@ -356,6 +366,22 @@ function allHandlers(sessionState: SessionState, rpcState: RpcState) {
         });
       },
     ),
+    http.post(`${PANEL_ORIGIN}/rpc/orders/list`, async ({ request }) => {
+      recordRpc(rpcState, request);
+      const body: unknown = await request.json();
+      const input = envelopeInput(body);
+      rpcState.listOrdersCalls.push({
+        path: new URL(request.url).pathname,
+        companyId: request.headers.get(COMPANY_SELECTOR_HEADER),
+        input,
+      });
+      return rpcJson({
+        kind: "page.summary",
+        items: rpcState.listOrdersItems,
+        nextCursor: null,
+        customerMatchTruncated: false,
+      });
+    }),
   ];
 }
 
@@ -374,6 +400,8 @@ export function resetAuthMocks(): void {
   listMineState.confirmationChallengeId = "challenge-1";
   listMineState.calls = [];
   listMineState.mutationCalls = [];
+  listMineState.listOrdersItems = [];
+  listMineState.listOrdersCalls = [];
 }
 
 export function ensureAuthServer(): void {

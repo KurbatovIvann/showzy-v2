@@ -115,7 +115,7 @@ describe("canonical tree and ownership", () => {
     expect(existsSync(join(webSrc, "layouts/panel/navigation"))).toBe(true);
     expect(existsSync(join(webSrc, "layouts/panel/responsive"))).toBe(true);
     expect(existsSync(join(webSrc, "features/panel"))).toBe(false);
-    expect(existsSync(join(webSrc, "features/orders"))).toBe(false);
+    expect(existsSync(join(webSrc, "features/orders"))).toBe(true);
     expect(existsSync(join(webRoot, "src/main.tsx"))).toBe(false);
     expect(existsSync(join(webRoot, "src/router.tsx"))).toBe(false);
     expect(existsSync(join(webRoot, "src/app-providers.tsx"))).toBe(false);
@@ -142,7 +142,7 @@ describe("canonical tree and ownership", () => {
   });
 
   it("does not create empty ceremonial production directories", () => {
-    expect(existsSync(join(webSrc, "features/orders"))).toBe(false);
+    expect(existsSync(join(webSrc, "features/orders"))).toBe(true);
     const featuresRoot = join(webSrc, "features");
     for (const name of readdirSync(featuresRoot, { withFileTypes: true })) {
       if (!name.isDirectory()) {

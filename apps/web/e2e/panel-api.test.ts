@@ -66,6 +66,7 @@ describe("panel smoke companies.get boundary", () => {
     );
     expect(source).not.toContain('?? "unknown"');
     expect(source).not.toContain("c0c0c0c0-0000-4000-8000-000000000099");
+    expect(source).toContain("**/rpc/orders/list");
   });
 });
 

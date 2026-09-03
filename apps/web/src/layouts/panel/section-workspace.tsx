@@ -42,10 +42,14 @@ const COMPANY_ROW_INACTIVE_PROPS = { className: COMPANY_ROW_INACTIVE_CLASS };
 export function SectionWorkspace({
   section,
   pane,
+  listContent,
+  headerTrailing,
   children,
 }: {
   readonly section: PanelSectionId;
   readonly pane: PanelPaneMode;
+  readonly listContent?: ReactNode;
+  readonly headerTrailing?: ReactNode;
   readonly children: ReactNode;
 }) {
   const copy = usePanelChromeCopy();
@@ -68,6 +72,7 @@ export function SectionWorkspace({
           onOpenNav={chrome.openNav}
           showMenu={chrome.mode === "tablet"}
           showBack={false}
+          trailing={headerTrailing}
         />
         {section === "documents" ? (
           <DocumentsTabs companySlug={chrome.companySlug} />
@@ -80,6 +85,7 @@ export function SectionWorkspace({
         {section === "company" ? (
           <CompanyRows companySlug={chrome.companySlug} />
         ) : null}
+        {listContent}
       </section>
       <div hidden={!detailVisible} className={detailPaneClass()}>
         {children}
