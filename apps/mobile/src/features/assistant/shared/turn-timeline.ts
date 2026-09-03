@@ -3,7 +3,10 @@
  * Parse part names only — no list/aggregate cards, no persistence.
  */
 import { confirmationFromChatPart } from "./confirmation";
-import type { AssistantChatPart } from "./confirmation-presenter";
+import {
+  isToolErrorOutput,
+  type AssistantChatPart,
+} from "./confirmation-presenter";
 
 export type AssistantTimelineStatus = "queued" | "running" | "done" | "error";
 
@@ -40,9 +43,11 @@ export function timelineStatusFromPartState(
     case "output-available":
       // HITL pause finishes the AI SDK tool part as output-available with
       // a confirmation_required payload. That is still in-flight.
-      return confirmationFromChatPart(output) === undefined
-        ? "done"
-        : "running";
+      if (confirmationFromChatPart(output) !== undefined) {
+        return "running";
+      }
+      // HTTP 200 façade failures also arrive as output-available.
+      return isToolErrorOutput(output) ? "error" : "done";
     case "output-error":
     case "output-denied":
       return "error";

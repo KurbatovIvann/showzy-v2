@@ -59,6 +59,25 @@ describe("timelineStatusFromPartState", () => {
     expect(timelineStatusFromPartState("output-available", hitlOutput)).toBe(
       "running",
     );
+  });
+
+  it("marks façade { status: error } output-available as error, not done", () => {
+    expect(
+      timelineStatusFromPartState("output-available", {
+        status: "error",
+        code: "INTERNAL",
+        message: "Tool failed",
+      }),
+    ).toBe("error");
+  });
+
+  it("marks successful page and aggregate output-available as done", () => {
+    expect(
+      timelineStatusFromPartState("output-available", {
+        kind: "page",
+        items: [{ orderId: "o1" }],
+      }),
+    ).toBe("done");
     expect(
       timelineStatusFromPartState("output-available", {
         kind: "aggregate",
@@ -106,6 +125,34 @@ describe("toolStepsFromParts", () => {
     ]);
     expect(JSON.stringify(steps).includes("page.summary")).toBe(false);
     expect(JSON.stringify(steps).includes("orderNumber")).toBe(false);
+  });
+
+  it("keeps façade error output-available as error and does not stringify output", () => {
+    const output = {
+      status: "error" as const,
+      code: "PERMISSION_DENIED",
+      message: "Staff cannot list these orders",
+    };
+    const steps = toolStepsFromParts(
+      [
+        {
+          type: "tool-orders_list_page",
+          toolCallId: "call-page",
+          state: "output-available",
+          output,
+        },
+      ],
+      "a1",
+    );
+    expect(steps).toEqual([
+      {
+        id: "call-page",
+        toolName: "orders_list_page",
+        status: "error",
+      },
+    ]);
+    expect(JSON.stringify(steps).includes("PERMISSION_DENIED")).toBe(false);
+    expect(JSON.stringify(steps).includes("Staff cannot list")).toBe(false);
   });
 
   it("keeps HITL-paused output-available in-flight, not done", () => {
