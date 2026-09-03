@@ -3,13 +3,29 @@
  * (`companies.listMine`) to the seeded permission defaults
  * (`packages/db/seed/role-permission-defaults.ts`): owners hold every
  * permission implicitly; admin, manager, and employee are seeded
- * `orders:edit`. This only hides controls — the server re-checks every
- * action permission and stays authoritative (ADR-0013). Status writes
- * hide without `orders:edit`.
+ * `orders:create` and `orders:edit`. This only hides
+ * controls — the server re-checks every action permission and stays
+ * authoritative (ADR-0013). Status writes hide without `orders:edit`.
+ * Create submit hides without `orders:create`.
  */
 import { isOpenOrderStatus, type OrderLifecycleStatus } from "./order-status";
 
 export type CompanyRole = "owner" | "admin" | "manager" | "employee";
+
+/**
+ * `orders:create` — hides create submit when the role is not granted
+ * the permission. Every seeded staff role currently holds create.
+ * Prove the hide path with `orderCreateScreenActions({ canCreate: false })`.
+ */
+export function canCreateOrders(role: CompanyRole): boolean {
+  switch (role) {
+    case "owner":
+    case "admin":
+    case "manager":
+    case "employee":
+      return true;
+  }
+}
 
 /**
  * `orders:edit` — hides confirm / start / complete / cancel. Every
@@ -84,4 +100,16 @@ export function orderDetailActions(args: {
     showActions: isOpenOrderStatus(args.status),
     cancelEnabled: isOpenOrderStatus(args.status),
   };
+}
+
+/**
+ * Affordance-only: create submit hides without `orders:create`. Server
+ * stays authoritative.
+ */
+export function orderCreateScreenActions(args: {
+  readonly canCreate: boolean;
+}): {
+  readonly showSubmit: boolean;
+} {
+  return { showSubmit: args.canCreate };
 }

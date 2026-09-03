@@ -20,6 +20,13 @@ describe("orders copy", () => {
     expect(ordersCopy("uk").detail.completeLabel).toBe("Виконано");
     expect(ordersCopy("uk").detail.cancelOrder).toBe("Скасувати");
     expect(ordersCopy("uk").detail.completeLabel).not.toBe("Завершено");
+    expect(ordersCopy("uk").create.title).toBe("Нове замовлення");
+    expect(ordersCopy("uk").create.submitCreate).toBe("Створити");
+    expect(ordersCopy("uk").create.leaveTitle).toBe("Вийти без збереження?");
+    expect(ordersCopy("uk").create.errors.customerRequired).toBe(
+      "Оберіть клієнта",
+    );
+    expect(ordersCopy("en").create.submitCreate).toBe("Create");
   });
 
   it("never titles a list group В роботі or Завершені", () => {

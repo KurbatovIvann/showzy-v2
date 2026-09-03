@@ -5,6 +5,8 @@ export const IN_PROGRESS_ORDER_ID = "44444444-4444-4444-8444-444444444444";
 export const ANNA_CUSTOMER_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 export const ROSE_ITEM_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 export const ROSE_PRODUCT_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+export const CREATED_ORDER_ID = "99999999-9999-4999-8999-999999999999";
+export const CREATED_ORDER_NUMBER = "KL-NEW01";
 
 export const ANNA_ORDER = {
   orderId: ANNA_ORDER_ID,
@@ -83,6 +85,18 @@ export const ROSE_LINE = {
   priceListId: null,
   priceListEntryId: null,
   resolverVersion: 1,
+} as const;
+
+export const ROSE_PRODUCT = {
+  id: ROSE_PRODUCT_ID,
+  name: "Троянди",
+  basePriceMinor: "50000",
+  currency: "UAH",
+  status: "active",
+  variantCount: 0,
+  primaryImageFileId: null,
+  createdAt: "2026-01-01T00:00:00.000Z",
+  updatedAt: "2026-01-01T00:00:00.000Z",
 } as const;
 
 export const ANNA_CUSTOMER = {
