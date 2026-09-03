@@ -471,12 +471,15 @@ describe("streamStaffAssistantChat", () => {
     expect(call?.responseFormat).toMatchObject({
       type: "json",
     });
-    const schema = isRecord(call?.responseFormat)
-      ? call.responseFormat["schema"]
-      : undefined;
-    expect(JSON.stringify(schema)).toContain("spoken");
-    expect(JSON.stringify(schema)).not.toContain("rows");
-    expect(JSON.stringify(schema)).not.toContain("cards");
+    const responseFormat = call?.responseFormat;
+    expect(responseFormat?.type).toBe("json");
+    const schemaJson =
+      responseFormat?.type === "json"
+        ? JSON.stringify(responseFormat.schema)
+        : "";
+    expect(schemaJson).toContain("spoken");
+    expect(schemaJson).not.toContain("rows");
+    expect(schemaJson).not.toContain("cards");
   });
 
   it("injects an uncached working-set system message without a second list call", async () => {

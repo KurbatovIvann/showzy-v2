@@ -297,7 +297,9 @@ describe("staffAssistantTools", () => {
       output: z.object({ orderId: z.uuid() }),
     });
     const tools = staffAssistantTools([getOrder], () => Promise.resolve({}));
-    expect(tools["orders_get"]?.description).toContain(ORDER_ENTITY_PROMPT_LINE);
+    expect(tools["orders_get"]?.description).toContain(
+      ORDER_ENTITY_PROMPT_LINE,
+    );
   });
 
   it("caches search when every domain tool is deferred", () => {
