@@ -161,4 +161,16 @@ export async function installPanelApiMocks(
     );
     await fulfillJson(route, fulfillment.body, fulfillment.status);
   });
+
+  await page.route("**/rpc/orders/list", async (route) => {
+    await fulfillJson(
+      route,
+      rpcEnvelope({
+        kind: "page.summary",
+        items: [],
+        nextCursor: null,
+        customerMatchTruncated: false,
+      }),
+    );
+  });
 }
