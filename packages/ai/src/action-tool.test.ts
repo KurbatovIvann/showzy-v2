@@ -6,6 +6,7 @@ import { z } from "zod";
 import {
   actionContractToTool,
   CATALOG_LIST_PRODUCTS_TOOL_NAME,
+  CUSTOMERS_LIST_CUSTOMERS_TOOL_NAME,
   ensureAnthropicToolInputSchemaType,
   fromProviderToolName,
   ORDERS_CREATE_TOOL_NAME,
@@ -22,6 +23,7 @@ import {
   STAFF_ASSISTANT_CACHE_CONTROL,
   STAFF_ASSISTANT_DEFER_PROVIDER_OPTIONS,
 } from "./anthropic-options.js";
+import { CUSTOMERS_LIST_CUSTOMERS_ASSISTANT_LIMIT } from "./tool-facades/customers-list-customers.js";
 import { ORDERS_LIST_PAGE_ASSISTANT_LIMIT } from "./tool-facades/orders-list.js";
 
 const customerId = "11111111-1111-4111-8111-111111111111";
@@ -255,12 +257,15 @@ describe("staffAssistantTools", () => {
       ORDERS_CREATE_TOOL_NAME,
       CATALOG_LIST_PRODUCTS_TOOL_NAME,
       PRICING_LIST_PRICE_LISTS_TOOL_NAME,
-      "customers_listCustomers",
+      CUSTOMERS_LIST_CUSTOMERS_TOOL_NAME,
     ]);
     expect(staffAssistantHotToolNames()).not.toContain("orders_list");
     expect(staffAssistantHotToolNames()).not.toContain("catalog_listProducts");
     expect(staffAssistantHotToolNames()).not.toContain(
       "pricing_listPriceLists",
+    );
+    expect(staffAssistantHotToolNames()).not.toContain(
+      "customers_listCustomers",
     );
   });
 
@@ -563,5 +568,90 @@ describe("staffAssistantTools", () => {
     expect(tools[ORDERS_CREATE_TOOL_NAME]?.providerOptions).toEqual({
       anthropic: { cacheControl: STAFF_ASSISTANT_CACHE_CONTROL },
     });
+  });
+
+  it("advertises customers_list_customers and still dispatches to customers.listCustomers", async () => {
+    const listCustomers = defineActionContract({
+      name: "customers.listCustomers",
+      description: "List CRM customers in the staff member's active company.",
+      principal: "staff",
+      transport: "client",
+      aiExposure: "exposed",
+      permissions: ["customers:view"],
+      risk: "read",
+      requiresConfirmation: false,
+      idempotent: false,
+      emits: [],
+      atomicCalls: [],
+      atomicCallers: [],
+      audit: false,
+      timeout: 5_000,
+      input: z.looseObject({}),
+      output: z.object({
+        items: z.array(z.object({ id: z.uuid() })),
+        nextCursor: z.string().nullable(),
+      }),
+    });
+    const execute = vi.fn(() =>
+      Promise.resolve({
+        items: [
+          {
+            id: customerId,
+            name: "Катя",
+            phone: "+380501234567",
+            email: "katya@example.com",
+            userId: "user_secret",
+            notes: "do not leak",
+            groupId: null,
+            priceListId: null,
+            status: "active",
+            linkedCounterpartyCount: 2,
+            createdAt: "2026-09-01T12:00:00.000Z",
+            updatedAt: "2026-09-01T12:00:00.000Z",
+          },
+        ],
+        nextCursor: null,
+      }),
+    );
+    const tools = staffAssistantTools([listCustomers], execute);
+    const names = Object.keys(tools);
+    expect(names).toContain(CUSTOMERS_LIST_CUSTOMERS_TOOL_NAME);
+    expect(names).not.toContain("customers_listCustomers");
+    expect(names).not.toContain(toProviderToolName("customers.listCustomers"));
+    const executeTool = tools[CUSTOMERS_LIST_CUSTOMERS_TOOL_NAME]?.execute;
+    expect(executeTool).toBeTypeOf("function");
+    if (executeTool === undefined) {
+      return;
+    }
+    const result: unknown = await executeTool(
+      { search: "Катя" },
+      { toolCallId: "call-customers", messages: [], context: undefined },
+    );
+    expect(execute).toHaveBeenCalledWith(
+      "customers.listCustomers",
+      {
+        status: "active",
+        search: "Катя",
+        limit: CUSTOMERS_LIST_CUSTOMERS_ASSISTANT_LIMIT,
+      },
+      { toolCallId: "call-customers" },
+    );
+    expect(result).toEqual({
+      items: [
+        {
+          id: customerId,
+          name: "Катя",
+          phone: "+380501234567",
+          email: "katya@example.com",
+          status: "active",
+          groupId: null,
+          priceListId: null,
+        },
+      ],
+      nextCursor: null,
+    });
+    expect(JSON.stringify(result)).not.toContain("do not leak");
+    expect(JSON.stringify(result)).not.toContain("user_secret");
+    expect(JSON.stringify(result)).not.toContain("linkedCounterpartyCount");
   });
 });

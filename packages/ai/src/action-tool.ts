@@ -14,6 +14,11 @@ import {
   catalogListProductsFacadeTools,
 } from "./tool-facades/catalog-list-products.js";
 import {
+  CUSTOMERS_LIST_CUSTOMERS_ACTION_NAME,
+  CUSTOMERS_LIST_CUSTOMERS_TOOL_NAME,
+  customersListCustomersFacadeTools,
+} from "./tool-facades/customers-list-customers.js";
+import {
   ORDERS_CREATE_ACTION_NAME,
   ORDERS_CREATE_TOOL_NAME,
   ordersCreateFacadeTools,
@@ -47,7 +52,7 @@ export const STAFF_ASSISTANT_HOT_ACTION_NAMES = [
   ORDERS_CREATE_ACTION_NAME,
   CATALOG_LIST_PRODUCTS_ACTION_NAME,
   PRICING_LIST_PRICE_LISTS_ACTION_NAME,
-  "customers.listCustomers",
+  CUSTOMERS_LIST_CUSTOMERS_ACTION_NAME,
 ] as const;
 
 const HOT_ACTION_NAME_SET = new Set<string>(STAFF_ASSISTANT_HOT_ACTION_NAMES);
@@ -58,6 +63,8 @@ export const STAFF_ASSISTANT_TOOL_SEARCH_NAME = "tool_search_tool_bm25";
 export {
   CATALOG_LIST_PRODUCTS_ACTION_NAME,
   CATALOG_LIST_PRODUCTS_TOOL_NAME,
+  CUSTOMERS_LIST_CUSTOMERS_ACTION_NAME,
+  CUSTOMERS_LIST_CUSTOMERS_TOOL_NAME,
   ORDERS_CREATE_ACTION_NAME,
   ORDERS_CREATE_TOOL_NAME,
   ORDERS_LIST_ACTION_NAME,
@@ -88,6 +95,7 @@ const HOT_FACADE_FACTORIES: Readonly<Record<string, FacadeToolsFactory>> = {
   [ORDERS_CREATE_ACTION_NAME]: ordersCreateFacadeTools,
   [CATALOG_LIST_PRODUCTS_ACTION_NAME]: catalogListProductsFacadeTools,
   [PRICING_LIST_PRICE_LISTS_ACTION_NAME]: pricingListPriceListsFacadeTools,
+  [CUSTOMERS_LIST_CUSTOMERS_ACTION_NAME]: customersListCustomersFacadeTools,
 };
 
 const HOT_FACADE_TOOL_NAMES: Readonly<Record<string, readonly string[]>> = {
@@ -98,6 +106,7 @@ const HOT_FACADE_TOOL_NAMES: Readonly<Record<string, readonly string[]>> = {
   [ORDERS_CREATE_ACTION_NAME]: [ORDERS_CREATE_TOOL_NAME],
   [CATALOG_LIST_PRODUCTS_ACTION_NAME]: [CATALOG_LIST_PRODUCTS_TOOL_NAME],
   [PRICING_LIST_PRICE_LISTS_ACTION_NAME]: [PRICING_LIST_PRICE_LISTS_TOOL_NAME],
+  [CUSTOMERS_LIST_CUSTOMERS_ACTION_NAME]: [CUSTOMERS_LIST_CUSTOMERS_TOOL_NAME],
 };
 
 const FACADE_ACTION_NAME_SET = new Set<string>(
@@ -197,8 +206,9 @@ export function actionContractToTool(
  * receives `contract.name` (`orders.list`). Empty catalogs attach nothing
  * (chitchat). The HTTP mount injects `executeAction`; this helper never
  * fetches `/rpc`. Façade actions (`orders.list`, `orders.create`,
- * `catalog.listProducts`, `pricing.listPriceLists`) are not raw 1:1
- * ToolSet keys — named tools map onto the same handlers.
+ * `catalog.listProducts`, `pricing.listPriceLists`,
+ * `customers.listCustomers`) are not raw 1:1 ToolSet keys — named tools
+ * map onto the same handlers.
  * `orders_create` is both the façade key and
  * `toProviderToolName("orders.create")`; the advertised schema is the
  * named object, not the EntityRef union.

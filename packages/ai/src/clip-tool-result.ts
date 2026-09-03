@@ -16,6 +16,8 @@ export const STAFF_ASSISTANT_CLIP_SHRINK_ARRAY_MAX = 3;
  * `itemId` is the line-item id (orders.get / documents.get rows).
  * `basePriceMinor` / `currency` are catalog list money snapshots (SHO-357)
  * so a clipped compact page can still fill a markup.
+ * `phone` / `email` / `groupId` / `priceListId` are CRM list contacts
+ * (SHO-381); identity shrink must not drop them.
  */
 export const STAFF_ASSISTANT_CLIP_IDENTITY_KEYS = [
   "id",
@@ -31,6 +33,10 @@ export const STAFF_ASSISTANT_CLIP_IDENTITY_KEYS = [
   "itemCount",
   "basePriceMinor",
   "currency",
+  "phone",
+  "email",
+  "groupId",
+  "priceListId",
 ] as const;
 
 const IDENTITY_KEY_SET = new Set<string>(STAFF_ASSISTANT_CLIP_IDENTITY_KEYS);
