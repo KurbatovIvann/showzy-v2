@@ -1,12 +1,14 @@
 /**
- * Live-turn orders list / entity cards from current `UIMessage` parts
- * (SHO-369). Parse façade part names, not persisted `toolRuns.actionName`.
- * Do not walk `items[].orderId` into N `orders.get` cards.
+ * Live-turn orders list / aggregate / entity cards from current
+ * `UIMessage` parts (SHO-369 / SHO-370). Parse façade part names, not
+ * persisted `toolRuns.actionName`. Do not walk `items[].orderId` into
+ * N `orders.get` cards.
  */
-import { formatMoneyMinor } from "../../../format/money";
+import { formatMoneyMinor, groupDigits } from "../../../format/money";
 import { assistantCopy } from "../../../i18n/assistant";
-import type { Locale } from "../../../i18n/locale";
+import { interpolate, type Locale } from "../../../i18n/locale";
 import { ordersCopy } from "../../../i18n/orders";
+import { countPluralForm } from "../../../i18n/plural";
 import { itemCountLabel } from "../../orders/shared/item-count";
 import { formatOrderCreatedAt } from "../../orders/shared/order-created-at";
 import { orderDetailHref } from "../../orders/shared/order-hrefs";
@@ -77,15 +79,44 @@ export type AssistantOrderEntityCardView = {
   readonly totalLabel: string | null;
 };
 
+export type AssistantOrdersAggregateGroupBy =
+  "none" | "status" | "product" | "customer";
+
+export type AssistantOrdersAggregateBucketView = {
+  readonly id: string;
+  readonly label: string;
+  readonly orderCountLabel: string;
+  readonly moneyLabels: readonly string[];
+  readonly quantityLabel: string | null;
+  readonly status: OrderLifecycleStatus | null;
+  readonly statusTone: OrderStatusTone | null;
+};
+
+export type AssistantOrdersAggregateCardView = {
+  readonly kind: "orders-aggregate";
+  readonly groupBy: AssistantOrdersAggregateGroupBy;
+  readonly orderCountLabel: string;
+  readonly moneyLabels: readonly string[];
+  readonly buckets: readonly AssistantOrdersAggregateBucketView[];
+  readonly emptyTitle: string | null;
+  readonly emptyDescription: string | null;
+  readonly footnotes: readonly string[];
+};
+
 export type AssistantResultCards = {
   readonly listCard: AssistantOrdersListCardView | null;
+  readonly aggregateCard: AssistantOrdersAggregateCardView | null;
   readonly entityCards: readonly AssistantOrderEntityCardView[];
 };
 
 const EMPTY_RESULT_CARDS: AssistantResultCards = {
   listCard: null,
+  aggregateCard: null,
   entityCards: [],
 };
+
+const QUANTITY_MILLI_SCALE = 1000n;
+const QUANTITY_WIRE = /^(0|[1-9][0-9]*)$/;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -141,6 +172,21 @@ function lastSuccessfulPart(
     found = part;
   }
   return found;
+}
+
+function formatQuantityLabel(wire: unknown): string | null {
+  if (typeof wire !== "string" || !QUANTITY_WIRE.test(wire)) {
+    return null;
+  }
+  const milli = BigInt(wire);
+  const units = milli / QUANTITY_MILLI_SCALE;
+  const remainder = milli % QUANTITY_MILLI_SCALE;
+  const grouped = groupDigits(units.toString(10));
+  if (remainder === 0n) {
+    return grouped;
+  }
+  const fraction = remainder.toString(10).padStart(3, "0").replace(/0+$/, "");
+  return `${grouped},${fraction}`;
 }
 
 function formatTotal(minor: unknown, currency: unknown): string | null {
@@ -295,6 +341,276 @@ function pageCustomerMatchTruncated(payload: unknown): boolean {
   return isRecord(payload) && payload["customerMatchTruncated"] === true;
 }
 
+function grossLabels(value: unknown): readonly string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const labels: string[] = [];
+  for (const row of value) {
+    if (!isRecord(row)) {
+      continue;
+    }
+    const formatted = formatTotal(row["grossAmountMinor"], row["currency"]);
+    if (formatted !== null) {
+      labels.push(formatted);
+    }
+  }
+  return labels;
+}
+
+function orderCountLabel(
+  count: number,
+  locale: Locale,
+  forms: ReturnType<typeof assistantCopy>["cards"]["orderCount"],
+): string {
+  return interpolate(forms[countPluralForm(count, locale)], {
+    count: String(count),
+  });
+}
+
+function inferAggregateGroupBy(
+  buckets: readonly unknown[],
+): AssistantOrdersAggregateGroupBy {
+  for (const bucket of buckets) {
+    if (!isRecord(bucket)) {
+      continue;
+    }
+    const identity = bucket["identity"];
+    if (!isRecord(identity)) {
+      continue;
+    }
+    if (identity["kind"] === "product") {
+      return "product";
+    }
+    if (identity["kind"] === "customer") {
+      return "customer";
+    }
+    if (identity["kind"] === "status" && isOrderStatus(identity["status"])) {
+      return "status";
+    }
+    if (identity["kind"] === "none") {
+      return "none";
+    }
+  }
+  return "status";
+}
+
+function parseStatusBuckets(
+  buckets: readonly unknown[],
+  orders: ReturnType<typeof ordersCopy>,
+): AssistantOrdersAggregateBucketView[] {
+  const byStatus = new Map<OrderLifecycleStatus, unknown>();
+  for (const bucket of buckets) {
+    if (!isRecord(bucket)) {
+      continue;
+    }
+    const identity = bucket["identity"];
+    if (!isRecord(identity) || identity["kind"] !== "status") {
+      continue;
+    }
+    if (!isOrderStatus(identity["status"])) {
+      continue;
+    }
+    byStatus.set(identity["status"], bucket);
+  }
+  const rows: AssistantOrdersAggregateBucketView[] = [];
+  for (const status of ORDER_STATUSES) {
+    const bucket = byStatus.get(status);
+    if (bucket === undefined || !isRecord(bucket)) {
+      continue;
+    }
+    const count =
+      typeof bucket["orderCount"] === "number" ? bucket["orderCount"] : 0;
+    rows.push({
+      id: status,
+      label: orders.statuses[status],
+      orderCountLabel: String(count),
+      moneyLabels: grossLabels(bucket["grossByCurrency"]),
+      quantityLabel: null,
+      status,
+      statusTone: orderStatusTone(status),
+    });
+  }
+  return rows;
+}
+
+function parseNoneBuckets(
+  buckets: readonly unknown[],
+  noneLabel: string,
+): AssistantOrdersAggregateBucketView[] {
+  const rows: AssistantOrdersAggregateBucketView[] = [];
+  for (const [index, bucket] of buckets.entries()) {
+    if (!isRecord(bucket)) {
+      continue;
+    }
+    const identity = bucket["identity"];
+    if (!isRecord(identity) || identity["kind"] !== "none") {
+      continue;
+    }
+    const count =
+      typeof bucket["orderCount"] === "number" ? bucket["orderCount"] : 0;
+    rows.push({
+      id: `none:${String(index)}`,
+      label: noneLabel,
+      orderCountLabel: String(count),
+      moneyLabels: grossLabels(bucket["grossByCurrency"]),
+      quantityLabel: null,
+      status: null,
+      statusTone: null,
+    });
+  }
+  return rows;
+}
+
+function parseProductBuckets(
+  buckets: readonly unknown[],
+): AssistantOrdersAggregateBucketView[] {
+  const rows: AssistantOrdersAggregateBucketView[] = [];
+  for (const [index, bucket] of buckets.entries()) {
+    if (!isRecord(bucket)) {
+      continue;
+    }
+    const identity = bucket["identity"];
+    if (!isRecord(identity) || identity["kind"] !== "product") {
+      continue;
+    }
+    const productId =
+      typeof identity["productId"] === "string" ? identity["productId"] : "";
+    const variantId =
+      typeof identity["variantId"] === "string" ? identity["variantId"] : "";
+    const label = typeof bucket["label"] === "string" ? bucket["label"] : "";
+    const count =
+      typeof bucket["orderCount"] === "number" ? bucket["orderCount"] : 0;
+    const id =
+      productId.length > 0
+        ? `${productId}:${variantId}`
+        : `product:${String(index)}`;
+    rows.push({
+      id,
+      label,
+      orderCountLabel: String(count),
+      moneyLabels: grossLabels(bucket["grossByCurrency"]),
+      quantityLabel: formatQuantityLabel(bucket["quantityMilli"]),
+      status: null,
+      statusTone: null,
+    });
+  }
+  return rows;
+}
+
+function parseCustomerBuckets(
+  buckets: readonly unknown[],
+  missingCustomer: string,
+): AssistantOrdersAggregateBucketView[] {
+  const rows: AssistantOrdersAggregateBucketView[] = [];
+  for (const [index, bucket] of buckets.entries()) {
+    if (!isRecord(bucket)) {
+      continue;
+    }
+    const identity = bucket["identity"];
+    if (!isRecord(identity) || identity["kind"] !== "customer") {
+      continue;
+    }
+    const customerId =
+      typeof identity["customerId"] === "string" ? identity["customerId"] : "";
+    const nameSnapshot =
+      typeof identity["nameSnapshot"] === "string"
+        ? identity["nameSnapshot"]
+        : typeof bucket["label"] === "string"
+          ? bucket["label"]
+          : "";
+    const label =
+      nameSnapshot.length > 0
+        ? localizeCustomerName(nameSnapshot, missingCustomer)
+        : missingCustomer;
+    const count =
+      typeof bucket["orderCount"] === "number" ? bucket["orderCount"] : 0;
+    const id = customerId.length > 0 ? customerId : `customer:${String(index)}`;
+    rows.push({
+      id,
+      label,
+      orderCountLabel: String(count),
+      moneyLabels: grossLabels(bucket["grossByCurrency"]),
+      quantityLabel: null,
+      status: null,
+      statusTone: null,
+    });
+  }
+  return rows;
+}
+
+function parseAggregateBuckets(
+  groupBy: AssistantOrdersAggregateGroupBy,
+  buckets: readonly unknown[],
+  orders: ReturnType<typeof ordersCopy>,
+  noneLabel: string,
+): readonly AssistantOrdersAggregateBucketView[] {
+  switch (groupBy) {
+    case "status":
+      return parseStatusBuckets(buckets, orders);
+    case "none":
+      return parseNoneBuckets(buckets, noneLabel);
+    case "product":
+      return parseProductBuckets(buckets);
+    case "customer":
+      return parseCustomerBuckets(buckets, orders.missingCustomer);
+  }
+}
+
+function parseAggregateCard(
+  output: unknown,
+  locale: Locale,
+  assistant: ReturnType<typeof assistantCopy>,
+  orders: ReturnType<typeof ordersCopy>,
+): AssistantOrdersAggregateCardView | null {
+  const { payload, clipped } = unwrapToolOutput(output);
+  if (!isRecord(payload) || payload["kind"] !== "aggregate") {
+    return null;
+  }
+  const rawBuckets = payload["buckets"];
+  const buckets = Array.isArray(rawBuckets) ? rawBuckets : [];
+  const groupBy = inferAggregateGroupBy(buckets);
+  const parsedBuckets = parseAggregateBuckets(
+    groupBy,
+    buckets,
+    orders,
+    assistant.cards.noneBucket,
+  );
+  const orderCount =
+    typeof payload["orderCount"] === "number" ? payload["orderCount"] : 0;
+  const footnotes: string[] = [];
+  if (payload["customerMatchTruncated"] === true) {
+    footnotes.push(assistant.cards.customerMatchTruncated);
+  }
+  if (payload["bucketsTruncated"] === true) {
+    footnotes.push(assistant.cards.bucketsTruncated);
+  }
+  const omitted = payload["bucketsOmitted"];
+  if (typeof omitted === "number" && omitted > 0) {
+    footnotes.push(
+      itemCountLabel(omitted, locale, assistant.cards.bucketsOmitted),
+    );
+  }
+  if (clipped) {
+    footnotes.push(assistant.cards.clipped);
+  }
+  const empty = parsedBuckets.length === 0;
+  return {
+    kind: "orders-aggregate",
+    groupBy,
+    orderCountLabel: orderCountLabel(
+      orderCount,
+      locale,
+      assistant.cards.orderCount,
+    ),
+    moneyLabels: grossLabels(payload["grossByCurrency"]),
+    buckets: parsedBuckets,
+    emptyTitle: empty ? assistant.cards.aggregateEmptyTitle : null,
+    emptyDescription: empty ? assistant.cards.aggregateEmptyDescription : null,
+    footnotes,
+  };
+}
+
 function parseEntityCard(
   part: AssistantChatPart,
   orders: ReturnType<typeof ordersCopy>,
@@ -328,8 +644,9 @@ function parseEntityCard(
 
 /**
  * One list card when a live `orders_list_page` result is present (chips
- * from same-turn `orders_list_counts`). Counts-only waits for T3.
- * Entity cards from live `orders.get` / `orders.create` only.
+ * from same-turn `orders_list_counts`). Counts-only → one aggregate
+ * card. Never both on the same turn. Entity cards from live
+ * `orders.get` / `orders.create` only.
  */
 export function assistantResultCardsFromParts(
   parts: readonly AssistantChatPart[],
@@ -347,6 +664,7 @@ export function assistantResultCardsFromParts(
   );
 
   let listCard: AssistantOrdersListCardView | null = null;
+  let aggregateCard: AssistantOrdersAggregateCardView | null = null;
   if (pagePart !== null) {
     const { payload, clipped } = unwrapToolOutput(pagePart.output);
     const parsedRows: AssistantOrdersListRowView[] = [];
@@ -382,6 +700,13 @@ export function assistantResultCardsFromParts(
       ctaLabel: showCta ? assistant.cards.openOrders : null,
       ctaHref: showCta ? ASSISTANT_ORDERS_LIST_HREF : null,
     };
+  } else if (countsPart !== null) {
+    aggregateCard = parseAggregateCard(
+      countsPart.output,
+      locale,
+      assistant,
+      orders,
+    );
   }
 
   const entityCards: AssistantOrderEntityCardView[] = [];
@@ -405,8 +730,8 @@ export function assistantResultCardsFromParts(
     }
   }
 
-  if (listCard === null && entityCards.length === 0) {
+  if (listCard === null && aggregateCard === null && entityCards.length === 0) {
     return EMPTY_RESULT_CARDS;
   }
-  return { listCard, entityCards };
+  return { listCard, aggregateCard, entityCards };
 }

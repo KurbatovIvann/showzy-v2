@@ -1,5 +1,10 @@
 /** Staff assistant (Shozik) copy namespace (uk/en). */
-import { selectCopy, writeErrorsEn, writeErrorsUk } from "./copy";
+import {
+  selectCopy,
+  writeErrorsEn,
+  writeErrorsUk,
+  type CountForms,
+} from "./copy";
 import type { Locale } from "./locale";
 
 export type AssistantJobsCopy = {
@@ -19,6 +24,12 @@ export type AssistantCardsCopy = {
   readonly openOrders: string;
   readonly customerMatchTruncated: string;
   readonly clipped: string;
+  readonly orderCount: CountForms;
+  readonly noneBucket: string;
+  readonly aggregateEmptyTitle: string;
+  readonly aggregateEmptyDescription: string;
+  readonly bucketsTruncated: string;
+  readonly bucketsOmitted: CountForms;
 };
 
 export type AssistantCopy = {
@@ -78,6 +89,20 @@ const en: AssistantCopy = {
     customerMatchTruncated:
       "Customer name matches were truncated. Refine the search or open the list.",
     clipped: "The list was clipped. Open orders to see everything.",
+    orderCount: {
+      one: "{{count}} order",
+      few: "{{count}} orders",
+      many: "{{count}} orders",
+    },
+    noneBucket: "Total",
+    aggregateEmptyTitle: "No orders",
+    aggregateEmptyDescription: "No orders match this request.",
+    bucketsTruncated: "Not every group is shown.",
+    bucketsOmitted: {
+      one: "{{count}} more group is not shown.",
+      few: "{{count}} more groups are not shown.",
+      many: "{{count}} more groups are not shown.",
+    },
   },
   errors: {
     ...writeErrorsEn,
@@ -120,6 +145,20 @@ const uk: AssistantCopy = {
     customerMatchTruncated:
       "Збіги за імʼям клієнта обрізано. Уточніть запит або відкрийте список.",
     clipped: "Список обрізано. Відкрийте замовлення, щоб побачити все.",
+    orderCount: {
+      one: "{{count}} замовлення",
+      few: "{{count}} замовлення",
+      many: "{{count}} замовлень",
+    },
+    noneBucket: "Усього",
+    aggregateEmptyTitle: "Немає замовлень",
+    aggregateEmptyDescription: "За цим запитом замовлень немає.",
+    bucketsTruncated: "Показано не всі групи.",
+    bucketsOmitted: {
+      one: "Ще {{count}} група не показано.",
+      few: "Ще {{count}} групи не показано.",
+      many: "Ще {{count}} груп не показано.",
+    },
   },
   errors: {
     ...writeErrorsUk,

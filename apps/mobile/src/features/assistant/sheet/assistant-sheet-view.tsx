@@ -44,7 +44,11 @@ function itemType(item: AssistantChatRow): string {
   if (item.role === "user") {
     return "user";
   }
-  if (item.listCard !== null || item.entityCards.length > 0) {
+  if (
+    item.listCard !== null ||
+    item.aggregateCard !== null ||
+    item.entityCards.length > 0
+  ) {
     return "assistant-cards";
   }
   if (item.timeline.length > 0) {
@@ -69,6 +73,7 @@ export function AssistantSheetView(model: AssistantSheetViewModel) {
         timeline={item.timeline}
         timelineLabel={copy.timelineLabel}
         listCard={item.listCard}
+        aggregateCard={item.aggregateCard}
         entityCards={item.entityCards}
         onOpenOrders={model.openOrders}
         onOpenOrder={model.openOrder}

@@ -5,11 +5,13 @@ import { StyleSheet } from "react-native-unistyles";
 import type { AssistantTimelineStep } from "../shared/chat-rows";
 import type {
   AssistantOrderEntityCardView,
+  AssistantOrdersAggregateCardView,
   AssistantOrdersListCardView,
 } from "../shared/result-cards";
 import { AssistantTimeline } from "./assistant-timeline";
 import { ConfirmationCard } from "./confirmation-card";
 import { OrderEntityCard } from "./order-entity-card";
+import { OrdersAggregateResultCard } from "./orders-aggregate-result-card";
 import { OrdersListResultCard } from "./orders-list-result-card";
 
 export const AssistantMessageRow = memo(function AssistantMessageRow(props: {
@@ -18,6 +20,7 @@ export const AssistantMessageRow = memo(function AssistantMessageRow(props: {
   readonly timeline: readonly AssistantTimelineStep[];
   readonly timelineLabel: string;
   readonly listCard: AssistantOrdersListCardView | null;
+  readonly aggregateCard: AssistantOrdersAggregateCardView | null;
   readonly entityCards: readonly AssistantOrderEntityCardView[];
   readonly onOpenOrders: () => void;
   readonly onOpenOrder: (orderId: string) => void;
@@ -34,6 +37,7 @@ export const AssistantMessageRow = memo(function AssistantMessageRow(props: {
   const confirmationSummary = props.confirmationSummary;
   const showTimeline = props.timeline.length > 0;
   const listCard = props.listCard;
+  const aggregateCard = props.aggregateCard;
 
   return (
     <View style={isUser ? styles.userWrap : styles.assistantWrap}>
@@ -54,6 +58,9 @@ export const AssistantMessageRow = memo(function AssistantMessageRow(props: {
           onOpenOrders={props.onOpenOrders}
           onOpenOrder={props.onOpenOrder}
         />
+      ) : null}
+      {aggregateCard !== null ? (
+        <OrdersAggregateResultCard card={aggregateCard} />
       ) : null}
       {props.entityCards.map((card) => (
         <OrderEntityCard

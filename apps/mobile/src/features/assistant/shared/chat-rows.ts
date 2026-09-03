@@ -7,6 +7,7 @@ import type {
 import { assistantJobLabel } from "./job-labels";
 import type {
   AssistantOrderEntityCardView,
+  AssistantOrdersAggregateCardView,
   AssistantOrdersListCardView,
 } from "./result-cards";
 import { assistantResultCardsFromParts } from "./result-cards";
@@ -30,6 +31,7 @@ export type AssistantChatRow = {
   readonly confirmation: PendingConfirmation | null;
   readonly timeline: readonly AssistantTimelineStep[];
   readonly listCard: AssistantOrdersListCardView | null;
+  readonly aggregateCard: AssistantOrdersAggregateCardView | null;
   readonly entityCards: readonly AssistantOrderEntityCardView[];
 };
 
@@ -81,12 +83,13 @@ export function assistantChatRows(
     const resultCards =
       message.role === "assistant"
         ? assistantResultCardsFromParts(message.parts, locale)
-        : { listCard: null, entityCards: [] };
+        : { listCard: null, aggregateCard: null, entityCards: [] };
     if (
       text.length === 0 &&
       confirmation === null &&
       timeline.length === 0 &&
       resultCards.listCard === null &&
+      resultCards.aggregateCard === null &&
       resultCards.entityCards.length === 0
     ) {
       continue;
@@ -98,6 +101,7 @@ export function assistantChatRows(
       confirmation,
       timeline,
       listCard: resultCards.listCard,
+      aggregateCard: resultCards.aggregateCard,
       entityCards: resultCards.entityCards,
     });
   }
