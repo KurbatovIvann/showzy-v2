@@ -381,4 +381,105 @@ describe("resumeOwnAssistantConversation", () => {
       { type: "text", text: "Ось список." },
     ]);
   });
+
+  it("returns empty when list claims own userId but getConversation belongs to a colleague", async () => {
+    const getOrder = vi.fn();
+    const result = await resumeOwnAssistantConversation({
+      companyEpochRef: { current: 0 },
+      epoch: 0,
+      sessionUserId: sessionUser,
+      listConversations: () =>
+        Promise.resolve({
+          items: [{ id: conversationA, userId: sessionUser }],
+          nextCursor: null,
+        }),
+      getConversation: () =>
+        Promise.resolve({
+          ...ownDetail(conversationA),
+          userId: colleagueUser,
+        }),
+      getOrder,
+    });
+    expect(result).toEqual({ kind: "empty" });
+    expect(getOrder).not.toHaveBeenCalled();
+  });
+
+  it("pins the found conversation id when getConversation throws", async () => {
+    const getOrder = vi.fn();
+    const getConversation = vi.fn(() =>
+      Promise.reject(new Error("getConversation unavailable")),
+    );
+    const result = await resumeOwnAssistantConversation({
+      companyEpochRef: { current: 0 },
+      epoch: 0,
+      sessionUserId: sessionUser,
+      listConversations: () =>
+        Promise.resolve({
+          items: [{ id: conversationA, userId: sessionUser }],
+          nextCursor: null,
+        }),
+      getConversation,
+      getOrder,
+    });
+    expect(result).toEqual({
+      kind: "unavailable",
+      conversationId: conversationA,
+    });
+    expect(getConversation).toHaveBeenCalledWith({
+      conversationId: conversationA,
+    });
+    expect(getOrder).not.toHaveBeenCalled();
+  });
+
+  it("does not create a second conversation after getConversation fails", async () => {
+    const resume = await resumeOwnAssistantConversation({
+      companyEpochRef: { current: 0 },
+      epoch: 0,
+      sessionUserId: sessionUser,
+      listConversations: () =>
+        Promise.resolve({
+          items: [{ id: conversationA, userId: sessionUser }],
+          nextCursor: null,
+        }),
+      getConversation: () => Promise.reject(new Error("unavailable")),
+      getOrder: vi.fn(),
+    });
+    expect(resume.kind).toBe("unavailable");
+    if (resume.kind !== "unavailable") {
+      return;
+    }
+    const conversationIdRef = { current: resume.conversationId };
+    let created = 0;
+    const sendMessage = vi.fn(() => Promise.resolve());
+    await sendEnsuredAssistantMessage({
+      conversationIdRef,
+      companyEpochRef: { current: 0 },
+      create: () => {
+        created += 1;
+        return Promise.resolve({ id: conversationB });
+      },
+      sendMessage,
+      text: "next turn",
+    });
+    expect(created).toBe(0);
+    expect(conversationIdRef.current).toBe(conversationA);
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not treat a listConversations failure as no own row", async () => {
+    const getConversation = vi.fn();
+    const getOrder = vi.fn();
+    await expect(
+      resumeOwnAssistantConversation({
+        companyEpochRef: { current: 0 },
+        epoch: 0,
+        sessionUserId: sessionUser,
+        listConversations: () => Promise.reject(new Error("list failed")),
+        getConversation,
+        getOrder,
+      }),
+    ).rejects.toThrow("list failed");
+    expect(getConversation).not.toHaveBeenCalled();
+    expect(getOrder).not.toHaveBeenCalled();
+  });
 });

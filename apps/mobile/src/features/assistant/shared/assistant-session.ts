@@ -113,9 +113,20 @@ export async function resumeOwnAssistantConversation(args: {
   if (conversationId === null) {
     return { kind: "empty" };
   }
-  const detail = await args.getConversation({ conversationId });
+  let detail: AssistantConversationDetail;
+  try {
+    detail = await args.getConversation({ conversationId });
+  } catch {
+    if (!isCurrentAssistantEpoch(args.companyEpochRef, args.epoch)) {
+      return { kind: "dropped" };
+    }
+    return { kind: "unavailable", conversationId };
+  }
   if (!isCurrentAssistantEpoch(args.companyEpochRef, args.epoch)) {
     return { kind: "dropped" };
+  }
+  if (detail.userId !== args.sessionUserId) {
+    return { kind: "empty" };
   }
   const orderIds = entityResultIdsFromToolRuns(detail.toolRuns);
   const ordersById = await loadOrdersById({

@@ -32,8 +32,10 @@ const NESTED_ORDER = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const MSG_USER = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const MSG_ASSISTANT = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const MSG_ASSISTANT_B = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+const MSG_ASSISTANT_HIGH = "f0f0f0f0-f0f0-40f0-80f0-f0f0f0f0f0f0";
 const RUN_LIST = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 const RUN_GET = "ffffffff-ffff-4fff-8fff-ffffffffffff";
+const RUN_GET_LEX_LOW = "0a0a0a0a-0a0a-40a0-80a0-0a0a0a0a0a0a";
 const RUN_CREATE = "99999999-9999-4999-8999-999999999999";
 const uk = assistantCopy("uk");
 const ordersUk = ordersCopy("uk");
@@ -387,7 +389,7 @@ describe("hydratedUiMessagesFromConversation", () => {
     expect(cards.listCard).toBeNull();
   });
 
-  it("pairs entity runs with the assistant message from that turn", () => {
+  it("pairs entity runs with the later assistant when timestamps differ", () => {
     const grouped = associateToolRunsWithAssistantMessages(
       [
         message({
@@ -424,6 +426,69 @@ describe("hydratedUiMessagesFromConversation", () => {
     ]);
     expect(grouped.get(MSG_ASSISTANT_B)?.map((run) => run.id)).toEqual([
       RUN_GET,
+    ]);
+  });
+
+  it("pairs a same-timestamp get run to the later assistant even when that message id is greater than the run id", () => {
+    expect(MSG_ASSISTANT_HIGH > RUN_GET_LEX_LOW).toBe(true);
+    const laterCreatedAt = "2026-09-03T10:00:05.000Z";
+    const getOutput = orderSnapshot(ORDER_A, "in_progress");
+    const historyMessages = [
+      message({
+        id: MSG_ASSISTANT,
+        role: "assistant",
+        body: "Список.",
+        createdAt: "2026-09-03T10:00:01.000Z",
+      }),
+      message({
+        id: MSG_ASSISTANT_HIGH,
+        role: "assistant",
+        body: "Картка.",
+        createdAt: laterCreatedAt,
+      }),
+    ];
+    const historyRuns = [
+      toolRun({
+        id: RUN_LIST,
+        actionName: "orders.list",
+        toolCallId: "call-list",
+        createdAt: "2026-09-03T10:00:01.000Z",
+      }),
+      toolRun({
+        id: RUN_GET_LEX_LOW,
+        actionName: "orders.get",
+        toolCallId: "call-get",
+        resultIds: [ORDER_A],
+        createdAt: laterCreatedAt,
+      }),
+    ];
+    const grouped = associateToolRunsWithAssistantMessages(
+      historyMessages,
+      historyRuns,
+    );
+    expect(grouped.get(MSG_ASSISTANT)?.map((run) => run.id)).toEqual([
+      RUN_LIST,
+    ]);
+    expect(grouped.get(MSG_ASSISTANT_HIGH)?.map((run) => run.id)).toEqual([
+      RUN_GET_LEX_LOW,
+    ]);
+    const ui = hydratedUiMessagesFromConversation({
+      messages: historyMessages,
+      toolRuns: historyRuns,
+      ordersById: new Map([[ORDER_A, getOutput]]),
+    });
+    expect(ui[0]?.parts).toEqual([{ type: "text", text: "Список." }]);
+    expect(ui[1]?.id).toBe(MSG_ASSISTANT_HIGH);
+    expect(ui[1]?.parts).toEqual([
+      { type: "text", text: "Картка." },
+      {
+        type: "dynamic-tool",
+        toolName: "orders.get",
+        toolCallId: "call-get",
+        state: "output-available",
+        input: {},
+        output: getOutput,
+      },
     ]);
   });
 });
@@ -468,10 +533,12 @@ describe("assistant hydrate source", () => {
     expect(source).not.toContain("Підтвердити");
     expect(source).not.toContain("sit.svg");
     expect(source).not.toContain("dig.svg");
+    expect(source).toContain("next.createdAt > run.createdAt");
     expect(session).toContain("resumeOwnAssistantConversation");
     expect(session).not.toContain("orders_list_page");
     expect(hook).toContain("resumeOwnAssistantConversation");
     expect(hook).toContain("auth.session?.userId");
+    expect(hook).toContain('result.kind === "unavailable"');
     expect(hook).not.toContain("ensureAssistantConversation");
     expect(hook).not.toContain("userId:");
     expect(hook).not.toContain("companyId:");

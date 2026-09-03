@@ -156,6 +156,10 @@ export function useAssistantChat(): {
         if (cancelled || companyEpochRef.current !== epoch) {
           return;
         }
+        if (result.kind === "unavailable") {
+          conversationIdRef.current = result.conversationId;
+          return;
+        }
         if (result.kind !== "resumed") {
           return;
         }

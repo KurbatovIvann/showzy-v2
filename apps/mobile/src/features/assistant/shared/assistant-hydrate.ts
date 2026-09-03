@@ -76,6 +76,10 @@ export type AssistantResumeResult =
   | { readonly kind: "empty" }
   | { readonly kind: "dropped" }
   | {
+      readonly kind: "unavailable";
+      readonly conversationId: string;
+    }
+  | {
       readonly kind: "resumed";
       readonly conversationId: string;
       readonly messages: readonly HydratedAssistantUiMessage[];
@@ -151,38 +155,45 @@ export function entityResultIdsFromToolRuns(
 }
 
 function compareCreatedAtThenId(
-  leftCreatedAt: string,
-  leftId: string,
-  rightCreatedAt: string,
-  rightId: string,
+  left: { readonly createdAt: string; readonly id: string },
+  right: { readonly createdAt: string; readonly id: string },
 ): number {
-  if (leftCreatedAt < rightCreatedAt) {
+  if (left.createdAt < right.createdAt) {
     return -1;
   }
-  if (leftCreatedAt > rightCreatedAt) {
+  if (left.createdAt > right.createdAt) {
     return 1;
   }
-  if (leftId < rightId) {
+  if (left.id < right.id) {
     return -1;
   }
-  if (leftId > rightId) {
+  if (left.id > right.id) {
     return 1;
   }
   return 0;
 }
 
+function sortedByCreatedAtThenId<
+  T extends { readonly createdAt: string; readonly id: string },
+>(items: readonly T[]): T[] {
+  return items.slice().sort(compareCreatedAtThenId);
+}
+
 /**
  * Pair tool runs with the latest assistant message that already exists at
  * the run's timestamp. Same-transaction inserts share `createdAt` (no
- * messageId column — do not invent one).
+ * messageId column — do not invent one). Advance while
+ * `next.createdAt <= run.createdAt`. Do not compare message UUID to
+ * tool-run UUID.
  */
 export function associateToolRunsWithAssistantMessages(
   messages: readonly AssistantHistoryMessage[],
   toolRuns: readonly AssistantHistoryToolRun[],
 ): ReadonlyMap<string, readonly AssistantHistoryToolRun[]> {
-  const assistantMessages = messages.filter(
-    (message) => message.role === "assistant",
+  const assistantMessages = sortedByCreatedAtThenId(
+    messages.filter((message) => message.role === "assistant"),
   );
+  const orderedRuns = sortedByCreatedAtThenId(toolRuns);
   const grouped = new Map<string, AssistantHistoryToolRun[]>();
   for (const message of assistantMessages) {
     grouped.set(message.id, []);
@@ -191,16 +202,13 @@ export function associateToolRunsWithAssistantMessages(
     return grouped;
   }
   let assistantIndex = 0;
-  for (const run of toolRuns) {
+  for (const run of orderedRuns) {
     while (assistantIndex + 1 < assistantMessages.length) {
       const next = assistantMessages[assistantIndex + 1];
       if (next === undefined) {
         break;
       }
-      if (
-        compareCreatedAtThenId(next.createdAt, next.id, run.createdAt, run.id) >
-        0
-      ) {
+      if (next.createdAt > run.createdAt) {
         break;
       }
       assistantIndex += 1;
@@ -228,11 +236,13 @@ export function hydratedUiMessagesFromConversation(args: {
   readonly toolRuns: readonly AssistantHistoryToolRun[];
   readonly ordersById: ReadonlyMap<string, unknown>;
 }): readonly HydratedAssistantUiMessage[] {
+  const messages = sortedByCreatedAtThenId(args.messages);
+  const toolRuns = sortedByCreatedAtThenId(args.toolRuns);
   const runsByMessage = associateToolRunsWithAssistantMessages(
-    args.messages,
-    args.toolRuns,
+    messages,
+    toolRuns,
   );
-  return args.messages.map((message) => {
+  return messages.map((message) => {
     const parts: HydratedAssistantUiPart[] = [
       { type: "text", text: message.body },
     ];
