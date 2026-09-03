@@ -588,7 +588,7 @@ function parseAggregateCard(
   const omitted = payload["bucketsOmitted"];
   if (typeof omitted === "number" && omitted > 0) {
     footnotes.push(
-      interpolate(assistant.cards.bucketsOmitted, { count: String(omitted) }),
+      itemCountLabel(omitted, locale, assistant.cards.bucketsOmitted),
     );
   }
   if (clipped) {

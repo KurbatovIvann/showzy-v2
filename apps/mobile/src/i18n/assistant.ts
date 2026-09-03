@@ -29,7 +29,7 @@ export type AssistantCardsCopy = {
   readonly aggregateEmptyTitle: string;
   readonly aggregateEmptyDescription: string;
   readonly bucketsTruncated: string;
-  readonly bucketsOmitted: string;
+  readonly bucketsOmitted: CountForms;
 };
 
 export type AssistantCopy = {
@@ -98,7 +98,11 @@ const en: AssistantCopy = {
     aggregateEmptyTitle: "No orders",
     aggregateEmptyDescription: "No orders match this request.",
     bucketsTruncated: "Not every group is shown.",
-    bucketsOmitted: "{{count}} more groups are not shown.",
+    bucketsOmitted: {
+      one: "{{count}} more group is not shown.",
+      few: "{{count}} more groups are not shown.",
+      many: "{{count}} more groups are not shown.",
+    },
   },
   errors: {
     ...writeErrorsEn,
@@ -150,7 +154,11 @@ const uk: AssistantCopy = {
     aggregateEmptyTitle: "Немає замовлень",
     aggregateEmptyDescription: "За цим запитом замовлень немає.",
     bucketsTruncated: "Показано не всі групи.",
-    bucketsOmitted: "Ще {{count}} груп не показано.",
+    bucketsOmitted: {
+      one: "Ще {{count}} група не показано.",
+      few: "Ще {{count}} групи не показано.",
+      many: "Ще {{count}} груп не показано.",
+    },
   },
   errors: {
     ...writeErrorsUk,

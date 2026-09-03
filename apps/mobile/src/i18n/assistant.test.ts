@@ -51,9 +51,20 @@ describe("assistant copy", () => {
     expect(uk.cards.orderCount.many).toBe("{{count}} замовлень");
     expect(uk.cards.aggregateEmptyTitle).toBe("Немає замовлень");
     expect(uk.cards.bucketsTruncated).toBe("Показано не всі групи.");
-    expect(uk.cards.bucketsOmitted.includes("{{count}}")).toBe(true);
+    expect(uk.cards.bucketsOmitted.one).toBe("Ще {{count}} група не показано.");
+    expect(uk.cards.bucketsOmitted.few).toBe("Ще {{count}} групи не показано.");
+    expect(uk.cards.bucketsOmitted.many).toBe("Ще {{count}} груп не показано.");
+    expect(en.cards.bucketsOmitted.one).toBe(
+      "{{count}} more group is not shown.",
+    );
+    expect(en.cards.bucketsOmitted.many).toBe(
+      "{{count}} more groups are not shown.",
+    );
     expect(Object.keys(uk.cards.orderCount)).toEqual(
       Object.keys(en.cards.orderCount),
+    );
+    expect(Object.keys(uk.cards.bucketsOmitted)).toEqual(
+      Object.keys(en.cards.bucketsOmitted),
     );
     expect(JSON.stringify(uk.cards).includes("active")).toBe(false);
     expect(JSON.stringify(en.cards).includes("active")).toBe(false);

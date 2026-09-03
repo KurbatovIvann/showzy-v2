@@ -841,9 +841,89 @@ describe("assistantResultCardsFromParts aggregate (SHO-370)", () => {
       return;
     }
     expect(card.footnotes).toContain(uk.cards.bucketsTruncated);
-    expect(card.footnotes).toContain("Ще 4 груп не показано.");
+    expect(card.footnotes).toContain("Ще 4 групи не показано.");
     expect("bucketsOmitted" in card).toBe(false);
     expect("bucketsTruncated" in card).toBe(false);
+  });
+
+  it("pluralizes bucketsOmitted footnotes (uk one and few)", () => {
+    const one = assistantResultCardsFromParts(
+      [
+        countsPart(
+          countsOutput(
+            [
+              {
+                identity: { kind: "none" },
+                label: uk.cards.noneBucket,
+                orderCount: 2,
+                grossByCurrency: [
+                  { currency: "UAH", grossAmountMinor: "1000" },
+                ],
+              },
+            ],
+            { bucketsOmitted: 1 },
+          ),
+        ),
+      ],
+      "uk",
+    ).aggregateCard;
+    expect(one).not.toBeNull();
+    if (one === null) {
+      return;
+    }
+    expect(one.footnotes).toContain("Ще 1 група не показано.");
+
+    const four = assistantResultCardsFromParts(
+      [
+        countsPart(
+          countsOutput(
+            [
+              {
+                identity: { kind: "none" },
+                label: uk.cards.noneBucket,
+                orderCount: 2,
+                grossByCurrency: [
+                  { currency: "UAH", grossAmountMinor: "1000" },
+                ],
+              },
+            ],
+            { bucketsOmitted: 4 },
+          ),
+        ),
+      ],
+      "uk",
+    ).aggregateCard;
+    expect(four).not.toBeNull();
+    if (four === null) {
+      return;
+    }
+    expect(four.footnotes).toContain("Ще 4 групи не показано.");
+
+    const oneEn = assistantResultCardsFromParts(
+      [
+        countsPart(
+          countsOutput(
+            [
+              {
+                identity: { kind: "none" },
+                label: uk.cards.noneBucket,
+                orderCount: 2,
+                grossByCurrency: [
+                  { currency: "UAH", grossAmountMinor: "1000" },
+                ],
+              },
+            ],
+            { bucketsOmitted: 1 },
+          ),
+        ),
+      ],
+      "en",
+    ).aggregateCard;
+    expect(oneEn).not.toBeNull();
+    if (oneEn === null) {
+      return;
+    }
+    expect(oneEn.footnotes).toContain("1 more group is not shown.");
   });
 
   it("renders empty buckets as honest empty copy, not a chart", () => {
