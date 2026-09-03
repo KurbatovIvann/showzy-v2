@@ -349,7 +349,9 @@ export function streamStaffAssistantChat(options: {
       });
       writer.merge(
         toUIMessageStream({
-          stream: result.stream.pipeThrough(createSpokenReplyUiTransform()),
+          stream: result.stream.pipeThrough(
+            createSpokenReplyUiTransform({ runs }),
+          ),
           tools,
         }),
       );

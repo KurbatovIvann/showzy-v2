@@ -78,6 +78,49 @@ export function mockJsonToolAndSpokenStream(spoken: string) {
   };
 }
 
+/**
+ * Same-step tool call plus `{ spoken }` JSON. Used when HITL
+ * `stopWhen` would skip a later spoken-only step.
+ */
+export function mockToolCallAndSpokenStream(
+  toolCallId: string,
+  toolName: string,
+  input: string,
+  spoken: string,
+) {
+  const payload = JSON.stringify({ spoken });
+  return {
+    stream: convertArrayToReadableStream([
+      { type: "stream-start" as const, warnings: [] },
+      {
+        type: "tool-input-start" as const,
+        id: toolCallId,
+        toolName,
+      },
+      {
+        type: "tool-input-delta" as const,
+        id: toolCallId,
+        delta: input,
+      },
+      { type: "tool-input-end" as const, id: toolCallId },
+      {
+        type: "tool-call" as const,
+        toolCallId,
+        toolName,
+        input,
+      },
+      { type: "text-start" as const, id: "t" },
+      { type: "text-delta" as const, id: "t", delta: payload },
+      { type: "text-end" as const, id: "t" },
+      {
+        type: "finish" as const,
+        finishReason: { unified: "stop" as const, raw: undefined },
+        usage: MOCK_LANGUAGE_MODEL_USAGE,
+      },
+    ]),
+  };
+}
+
 export function mockToolCallStream(
   toolCallId: string,
   toolName: string,

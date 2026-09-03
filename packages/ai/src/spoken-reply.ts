@@ -192,6 +192,18 @@ export function spokenTurnText(options: {
   return "Done.";
 }
 
+/**
+ * Markdown `{ spoken }` fail-open. HITL on the same turn must win over a
+ * prior successful tool (do not show a short success summary while a
+ * confirmation card is active). Never `"Done."` here.
+ */
+function spokenMarkdownDumpFallback(runs: readonly SpokenTurnRun[]): string {
+  if (runs.some((run) => run.outcome === "confirmation_required")) {
+    return STAFF_ASSISTANT_CONFIRMATION_FALLBACK_TEXT;
+  }
+  return STAFF_ASSISTANT_SUCCESS_SPOKEN_FALLBACK;
+}
+
 function sanitizeSpoken(
   spoken: string | undefined,
   runs: readonly SpokenTurnRun[],
@@ -206,13 +218,7 @@ function sanitizeSpoken(
   if (!spokenContainsMarkdownDump(trimmed)) {
     return trimmed;
   }
-  if (runs.some((run) => run.outcome === "success")) {
-    return STAFF_ASSISTANT_SUCCESS_SPOKEN_FALLBACK;
-  }
-  if (runs.some((run) => run.outcome === "confirmation_required")) {
-    return STAFF_ASSISTANT_CONFIRMATION_FALLBACK_TEXT;
-  }
-  return STAFF_ASSISTANT_SUCCESS_SPOKEN_FALLBACK;
+  return spokenMarkdownDumpFallback(runs);
 }
 
 function syntheticJsonNameFromPart(part: SpokenStreamPart): string | null {
@@ -232,7 +238,9 @@ function syntheticJsonNameFromPart(part: SpokenStreamPart): string | null {
  */
 export function createSpokenReplyUiTransform<
   T extends SpokenStreamPart,
->(): TransformStream<T, T> {
+>(options?: {
+  readonly runs?: readonly SpokenTurnRun[];
+}): TransformStream<T, T> {
   let accumulatedJson = "";
   let publishedSpoken = "";
   const droppedCallIds = new Set<string>();
@@ -306,7 +314,7 @@ export function createSpokenReplyUiTransform<
               controller.enqueue({
                 ...part,
                 type: "text-delta",
-                text: STAFF_ASSISTANT_SUCCESS_SPOKEN_FALLBACK,
+                text: spokenMarkdownDumpFallback(options?.runs ?? []),
               });
             }
           }

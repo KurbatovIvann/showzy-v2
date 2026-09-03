@@ -44,6 +44,7 @@ import {
   mockJsonToolAndSpokenStream,
   mockSpokenStream,
   mockTextStream,
+  mockToolCallAndSpokenStream,
   mockToolCallStream,
   readUiMessageSsePayloads,
 } from "./test.js";
@@ -1128,5 +1129,65 @@ describe("streamStaffAssistantChat", () => {
     expect(turn.text).toBe(STAFF_ASSISTANT_SUCCESS_SPOKEN_FALLBACK);
     expect(turn.text).not.toBe("Done.");
     expect(turn.toolRuns[0]?.outcome).toBe("success");
+  });
+
+  it("keeps the confirmation fallback when a successful list and HITL share a markdown spoken turn", async () => {
+    const summary =
+      "Delete this archived customer. Confirm the name and primary contact.";
+    const execute = vi.fn((actionName: string) => {
+      if (actionName === "customers.deleteCustomer") {
+        return Promise.reject(
+          new ConfirmationRequiredError({
+            challengeId,
+            summary,
+            expiresAt: "2026-09-01T12:00:00.000Z",
+          }),
+        );
+      }
+      return Promise.resolve({ items: [], nextCursor: null });
+    });
+    const model = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream("call-list", ORDERS_LIST_PAGE_TOOL_NAME, "{}"),
+        mockToolCallAndSpokenStream(
+          "call-delete",
+          toProviderToolName("customers.deleteCustomer"),
+          JSON.stringify({ id: customerId }),
+          "| order | total |\n| **#1** | 10 |",
+        ),
+      ],
+    });
+    const { response, completion } = streamStaffAssistantChat({
+      model,
+      messages: [
+        { role: "user", content: "List orders then delete the customer" },
+      ],
+      contracts: [listOrders, deleteCustomer],
+      execute,
+    });
+    const payloads = await readUiMessageSsePayloads(response);
+    const turn = await completion;
+    const payloadText = JSON.stringify(payloads);
+    expect(turn.toolRuns.map((run) => run.outcome)).toEqual([
+      "success",
+      "confirmation_required",
+    ]);
+    expect(turn.text).toBe(STAFF_ASSISTANT_CONFIRMATION_FALLBACK_TEXT);
+    expect(turn.text).not.toBe(STAFF_ASSISTANT_SUCCESS_SPOKEN_FALLBACK);
+    expect(turn.text).not.toBe("Done.");
+    expect(turn.text).not.toMatch(/action is done|action done/i);
+    expect(payloadText).not.toContain(STAFF_ASSISTANT_SUCCESS_SPOKEN_FALLBACK);
+    expect(payloadText).not.toContain("| order");
+    expect(payloadText).not.toContain("NoObjectGeneratedError");
+    expect(payloadText).toContain(STAFF_ASSISTANT_CONFIRMATION_FALLBACK_TEXT);
+    const confirmationChunks = payloads.filter((payload) => {
+      return (
+        typeof payload === "object" &&
+        payload !== null &&
+        "type" in payload &&
+        payload.type === "data-confirmation"
+      );
+    });
+    expect(confirmationChunks.length).toBeGreaterThanOrEqual(1);
   });
 });

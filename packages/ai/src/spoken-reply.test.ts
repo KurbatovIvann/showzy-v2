@@ -86,6 +86,23 @@ describe("spokenTurnText", () => {
     ).toBe(STAFF_ASSISTANT_SUCCESS_SPOKEN_FALLBACK);
   });
 
+  it("lets confirmation_required win over markdown fail-open after a successful list", () => {
+    expect(
+      spokenTurnText({
+        parsedSpoken: "| order | total |\n| **new** | 1 |",
+        rawText: '{"spoken":"| order | total |"}',
+        runs: [{ outcome: "success" }, { outcome: "confirmation_required" }],
+      }),
+    ).toBe(STAFF_ASSISTANT_CONFIRMATION_FALLBACK_TEXT);
+    expect(
+      spokenTurnText({
+        parsedSpoken: "| order | total |\n| **new** | 1 |",
+        rawText: '{"spoken":"| order | total |"}',
+        runs: [{ outcome: "success" }, { outcome: "confirmation_required" }],
+      }),
+    ).not.toBe(STAFF_ASSISTANT_SUCCESS_SPOKEN_FALLBACK);
+  });
+
   it("keeps the HITL confirmation fallback when JSON is skipped", () => {
     expect(
       spokenTurnText({
@@ -190,5 +207,39 @@ describe("createSpokenReplyUiTransform", () => {
     );
     expect(JSON.stringify(parts)).not.toContain("| order");
     expect(JSON.stringify(parts)).not.toContain("**total**");
+  });
+
+  it("fail-opens markdown to the confirmation line when HITL is on the turn", async () => {
+    const transform = createSpokenReplyUiTransform({
+      runs: [{ outcome: "success" }, { outcome: "confirmation_required" }],
+    });
+    const writer = transform.writable.getWriter();
+    const reader = transform.readable.getReader();
+    const parts: unknown[] = [];
+    const read = (async () => {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+        parts.push(value);
+      }
+    })();
+    await writer.write({ type: "text-start", id: "t" });
+    await writer.write({
+      type: "text-delta",
+      id: "t",
+      text: '{"spoken":"| order | **total** |"}',
+    });
+    await writer.write({ type: "text-end", id: "t" });
+    await writer.close();
+    await read;
+    expect(JSON.stringify(parts)).toContain(
+      STAFF_ASSISTANT_CONFIRMATION_FALLBACK_TEXT,
+    );
+    expect(JSON.stringify(parts)).not.toContain(
+      STAFF_ASSISTANT_SUCCESS_SPOKEN_FALLBACK,
+    );
+    expect(JSON.stringify(parts)).not.toContain("| order");
   });
 });
