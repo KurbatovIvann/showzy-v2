@@ -41,7 +41,11 @@ export const cancelOrder = implementAction(cancelOrderContract, {
     if (row.status === "canceled") {
       throw new ConflictError("Order is already canceled.");
     }
-    if (row.status !== "new" && row.status !== "confirmed") {
+    if (
+      row.status !== "new" &&
+      row.status !== "confirmed" &&
+      row.status !== "in_progress"
+    ) {
       throw new ConflictError("Order cannot be canceled.");
     }
 

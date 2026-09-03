@@ -1,7 +1,9 @@
 /**
- * Staff cancel (SHO-210 / orders-T4). Status-only, copied from
- * `orders.confirm` (ADR-0026): `new` or `confirmed` → `canceled`. No stock,
- * no line edits, no `canceled_at`.
+ * Staff cancel (SHO-210 / orders-T4, extended SHO-375 / orders-T13).
+ * Status-only, copied from `orders.confirm` (ADR-0026): any open status
+ * (`new` | `confirmed` | `in_progress`) → `canceled`. `done` and
+ * `canceled` conflict. No stock, no line edits, no `canceled_at`.
+ * `confirmed_at` is unchanged when the row was previously confirmed.
  *
  * Mechanical: `timeout: 5000` matches confirm in this slice.
  */
@@ -21,7 +23,7 @@ export const cancelOrderOutputSchema = z.object({
 export const cancelOrderContract = defineActionContract({
   name: "orders.cancel",
   description:
-    "Cancel a new or confirmed staff-intake order in the active company. Cancellation is a status transition only: the order moves to canceled. Already canceled orders fail with conflict. Missing or foreign-company orders fail with not-found.",
+    "Cancel a new, confirmed, or in-progress staff-intake order in the active company. Cancellation is a status transition only: the order moves to canceled. Already canceled orders fail with conflict. Missing or foreign-company orders fail with not-found.",
   principal: "staff",
   transport: "client",
   input: cancelOrderInputSchema,
