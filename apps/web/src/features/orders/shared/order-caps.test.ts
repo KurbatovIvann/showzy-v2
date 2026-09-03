@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { LIST_CUSTOMERS_SEARCH_MAX } from "@showzy/validation/customers";
 import { LIST_PRODUCTS_QUERY_MAX } from "@showzy/validation/catalog";
+import { LIST_CUSTOMERS_SEARCH_MAX } from "@showzy/validation/customers";
 
 import {
   LIST_CUSTOMERS_SEARCH_MAX as ORDER_CUSTOMERS_SEARCH_MAX,

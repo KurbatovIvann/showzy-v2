@@ -95,7 +95,7 @@ function seedFirstPageCustomers(): void {
     seedCustomer({
       ...ANNA_CUSTOMER,
       id: `aa000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
-      name: `Клієнт сторінки ${index}`,
+      name: `Клієнт сторінки ${String(index)}`,
       phone: null,
     });
   }
@@ -106,16 +106,20 @@ function seedFirstPageProducts(): void {
     seedProduct({
       ...ROSE_PRODUCT,
       id: `cc000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
-      name: `Товар сторінки ${index}`,
+      name: `Товар сторінки ${String(index)}`,
     });
   }
 }
 
+function isJsonRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function rpcInputString(input: unknown, key: string): string | undefined {
-  if (typeof input !== "object" || input === null) {
+  if (!isJsonRecord(input)) {
     return undefined;
   }
-  const value = Object.getOwnPropertyDescriptor(input, key)?.value;
+  const value = input[key];
   return typeof value === "string" ? value : undefined;
 }
 

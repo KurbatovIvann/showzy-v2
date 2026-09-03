@@ -76,7 +76,7 @@ export function useOrderCreateLookups(args: {
     ...customersListQueryOptions({
       client,
       companyId: activeCompanyId,
-      search: customerSearch,
+      ...(customerSearch === undefined ? {} : { search: customerSearch }),
     }),
     enabled: args.enabled && activeCompanyId !== null,
   });
@@ -84,7 +84,7 @@ export function useOrderCreateLookups(args: {
     ...catalogListProductsQueryOptions({
       client,
       companyId: activeCompanyId,
-      query: productSearch,
+      ...(productSearch === undefined ? {} : { query: productSearch }),
     }),
     enabled: args.enabled && activeCompanyId !== null,
   });
