@@ -10,6 +10,8 @@ import { ordersCopy } from "../../../i18n/orders";
 import { itemCountLabel } from "../../orders/shared/item-count";
 import { orderDetailHref } from "../../orders/shared/order-hrefs";
 import {
+  isOrderLifecycleStatus as isOrderStatus,
+  ORDER_LIFECYCLE_STATUSES as ORDER_STATUSES,
   orderStatusTone,
   type OrderLifecycleStatus,
   type OrderStatusTone,
@@ -21,6 +23,8 @@ import {
 } from "./confirmation-presenter";
 import { toolNameFromPart } from "./turn-timeline";
 
+export { isOrderStatus, ORDER_STATUSES };
+
 /** Named façade page size (SHO-360). Do not import `@showzy/ai`. */
 export const ASSISTANT_ORDERS_LIST_ROW_MAX = 9;
 
@@ -30,11 +34,6 @@ const ORDERS_LIST_PAGE_TOOL = "orders_list_page";
 const ORDERS_LIST_COUNTS_TOOL = "orders_list_counts";
 const ORDERS_GET_TOOLS = new Set(["orders_get", "orders.get"]);
 const ORDERS_CREATE_TOOLS = new Set(["orders_create", "orders.create"]);
-const ORDER_STATUSES: readonly OrderLifecycleStatus[] = [
-  "new",
-  "confirmed",
-  "canceled",
-];
 const UNLINKED_CUSTOMER_NAME_SNAPSHOT = "unlinked";
 
 export type AssistantOrdersListChipView = {
@@ -89,10 +88,6 @@ const EMPTY_RESULT_CARDS: AssistantResultCards = {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isOrderStatus(value: unknown): value is OrderLifecycleStatus {
-  return value === "new" || value === "confirmed" || value === "canceled";
 }
 
 function isClippedOutput(value: unknown): value is {

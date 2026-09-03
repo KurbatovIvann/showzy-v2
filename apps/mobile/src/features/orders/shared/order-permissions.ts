@@ -9,7 +9,7 @@
  * view-gate affordance. Confirm/cancel hide without `orders:edit`.
  */
 import type { CompanyMembership } from "../../../api/company-membership-query";
-import type { OrderLifecycleStatus } from "./order-status";
+import { isOpenOrderStatus, type OrderLifecycleStatus } from "./order-status";
 
 export type CompanyRole = CompanyMembership["role"];
 
@@ -77,8 +77,9 @@ export type OrderDetailActions = {
 
 /**
  * Affordance-only: confirm is the primary CTA on `new`; cancel lives in
- * the actions sheet for `new` / `confirmed` and is disabled when already
- * `canceled`. Without `orders:edit` both hide. Server stays authoritative.
+ * the actions sheet for open statuses (`new` | `confirmed` | `in_progress`)
+ * and is disabled for `done` / `canceled`. Start/complete CTAs are
+ * SHO-376. Without `orders:edit` both hide. Server stays authoritative.
  */
 export function orderDetailActions(args: {
   readonly canEdit: boolean;
@@ -94,6 +95,6 @@ export function orderDetailActions(args: {
   return {
     showConfirm: args.status === "new",
     showActions: true,
-    cancelEnabled: args.status !== "canceled",
+    cancelEnabled: isOpenOrderStatus(args.status),
   };
 }

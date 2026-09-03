@@ -13,7 +13,12 @@ import {
 } from "../shared/customer-name";
 import { itemCountLabel } from "../shared/item-count";
 import { LIST_ORDERS_QUERY_MAX } from "../shared/order-caps";
-import { orderStatusTone, type OrderStatusTone } from "../shared/order-status";
+import {
+  isOpenOrderStatus,
+  ORDER_LIFECYCLE_STATUSES,
+  orderStatusTone,
+  type OrderStatusTone,
+} from "../shared/order-status";
 import type {
   ListOrdersPageInput,
   OrderListItem,
@@ -33,11 +38,8 @@ export type { OrderStatusFilter, ListOrdersPageInput };
 /** Sentinel persisted on unlinked headers; presenters localize it. */
 export const UNLINKED_CUSTOMER_NAME_SNAPSHOT = "unlinked";
 
-export const ORDER_STATUS_FILTERS: readonly OrderStatusFilter[] = [
-  "new",
-  "confirmed",
-  "canceled",
-];
+export const ORDER_STATUS_FILTERS: readonly OrderStatusFilter[] =
+  ORDER_LIFECYCLE_STATUSES;
 
 export function flattenOrderPages(
   pages: ReadonlyArray<{ readonly items: readonly OrderListItem[] }>,
@@ -194,14 +196,14 @@ export type OrdersListEntry =
   | { readonly type: "row"; readonly order: OrderRowView };
 
 export function isInProgressStatus(status: OrderStatusFilter): boolean {
-  return status === "new" || status === "confirmed";
+  return isOpenOrderStatus(status);
 }
 
 export function groupOrderRows(
   rows: readonly OrderRowView[],
 ): readonly OrdersListEntry[] {
   const inProgress = rows.filter((row) => isInProgressStatus(row.status));
-  const completed = rows.filter((row) => row.status === "canceled");
+  const completed = rows.filter((row) => !isInProgressStatus(row.status));
   const entries: OrdersListEntry[] = [];
   if (inProgress.length > 0) {
     entries.push({

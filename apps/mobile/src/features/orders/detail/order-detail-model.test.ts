@@ -137,6 +137,24 @@ describe("toOrderDetailView", () => {
     expect(confirmed.customerPhone).toBeNull();
     expect(confirmed.showPhoneIcon).toBe(false);
 
+    const inProgress = toOrderDetailView({
+      order: order({ status: "in_progress", comment: null }),
+      copy,
+      customer: { kind: "ready", name: "Марія Ткаченко" },
+      customerPhone: null,
+    });
+    expect(inProgress.statusLabel).toBe("В роботі");
+    expect(inProgress.statusTone).toBe("attention");
+
+    const done = toOrderDetailView({
+      order: order({ status: "done", comment: null }),
+      copy,
+      customer: { kind: "ready", name: "Марія Ткаченко" },
+      customerPhone: null,
+    });
+    expect(done.statusLabel).toBe("Виконано");
+    expect(done.statusTone).toBe("success");
+
     const canceled = toOrderDetailView({
       order: order({ status: "canceled", comment: null }),
       copy,
@@ -333,12 +351,33 @@ describe("orderDetailActionsForView", () => {
         .showConfirm,
     ).toBe(false);
     expect(
+      orderDetailActionsForView({ canEdit: true, status: "in_progress" })
+        .showConfirm,
+    ).toBe(false);
+    expect(
+      orderDetailActionsForView({ canEdit: true, status: "done" }).showConfirm,
+    ).toBe(false);
+    expect(
       orderDetailActionsForView({ canEdit: true, status: "canceled" })
         .showConfirm,
     ).toBe(false);
   });
 
-  it("disables cancel for canceled and hides both without edit", () => {
+  it("disables cancel for done and canceled and hides both without edit", () => {
+    expect(
+      orderDetailActionsForView({ canEdit: true, status: "in_progress" }),
+    ).toEqual({
+      showConfirm: false,
+      showActions: true,
+      cancelEnabled: true,
+    });
+    expect(
+      orderDetailActionsForView({ canEdit: true, status: "done" }),
+    ).toEqual({
+      showConfirm: false,
+      showActions: true,
+      cancelEnabled: false,
+    });
     expect(
       orderDetailActionsForView({ canEdit: true, status: "canceled" }),
     ).toEqual({

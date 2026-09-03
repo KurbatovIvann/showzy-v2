@@ -9,6 +9,8 @@ import {
   ASSISTANT_ORDERS_LIST_HREF,
   ASSISTANT_ORDERS_LIST_ROW_MAX,
   assistantResultCardsFromParts,
+  isOrderStatus,
+  ORDER_STATUSES,
 } from "./result-cards";
 
 const ORDER_A = "0f0e2d5c-4a1b-4c3d-9e8f-102938475601";
@@ -62,6 +64,24 @@ function countsOutput(
 }
 
 describe("assistantResultCardsFromParts", () => {
+  it("accepts the five CHECK statuses and rejects active/completed aliases", () => {
+    expect(ORDER_STATUSES).toEqual([
+      "new",
+      "confirmed",
+      "in_progress",
+      "done",
+      "canceled",
+    ]);
+    expect(isOrderStatus("new")).toBe(true);
+    expect(isOrderStatus("confirmed")).toBe(true);
+    expect(isOrderStatus("in_progress")).toBe(true);
+    expect(isOrderStatus("done")).toBe(true);
+    expect(isOrderStatus("canceled")).toBe(true);
+    expect(isOrderStatus("active")).toBe(false);
+    expect(isOrderStatus("completed")).toBe(false);
+    expect(isOrderStatus("all")).toBe(false);
+  });
+
   it("caps the list card at 9 rows", () => {
     const items = Array.from({ length: 12 }, (_, index) =>
       pageRow(
@@ -226,7 +246,7 @@ describe("assistantResultCardsFromParts", () => {
           output: countsOutput([
             {
               identity: { kind: "status", status: "active" },
-              label: "в роботі",
+              label: "active",
               orderCount: 6,
               grossByCurrency: [],
             },
@@ -264,12 +284,108 @@ describe("assistantResultCardsFromParts", () => {
     );
     const chipJson = JSON.stringify(cards.listCard?.chips);
     expect(chipJson.includes("active")).toBe(false);
-    expect(chipJson.includes("в роботі")).toBe(false);
-    expect(chipJson.includes("In progress")).toBe(false);
     expect(cards.listCard?.chips.map((chip) => chip.status)).toEqual([
       "new",
       "confirmed",
     ]);
+    expect(cards.listCard?.chips.map((chip) => chip.status)).not.toContain(
+      "active",
+    );
+  });
+
+  it("paints in_progress and done chips from CHECK status buckets", () => {
+    const cardsUk = assistantResultCardsFromParts(
+      [
+        {
+          type: "tool-orders_list_counts",
+          toolCallId: "call-counts",
+          state: "output-available",
+          output: countsOutput([
+            {
+              identity: { kind: "status", status: "active" },
+              label: "active",
+              orderCount: 9,
+              grossByCurrency: [],
+            },
+            {
+              identity: { kind: "status", status: "done" },
+              label: "done",
+              orderCount: 1,
+              grossByCurrency: [],
+            },
+            {
+              identity: { kind: "status", status: "in_progress" },
+              label: "in_progress",
+              orderCount: 2,
+              grossByCurrency: [],
+            },
+            {
+              identity: { kind: "status", status: "canceled" },
+              label: "canceled",
+              orderCount: 1,
+              grossByCurrency: [],
+            },
+          ]),
+        },
+        {
+          type: "tool-orders_list_page",
+          toolCallId: "call-page",
+          state: "output-available",
+          output: pageOutput([
+            pageRow(ORDER_A, { status: "in_progress" }),
+            pageRow(ORDER_B, { status: "done", orderNumber: "1050" }),
+          ]),
+        },
+      ],
+      "uk",
+    );
+    expect(cardsUk.listCard?.chips.map((chip) => chip.status)).toEqual([
+      "in_progress",
+      "done",
+      "canceled",
+    ]);
+    expect(cardsUk.listCard?.chips[0]?.label).toBe(
+      `${ordersUk.statuses.in_progress} · 2`,
+    );
+    expect(cardsUk.listCard?.chips[1]?.label).toBe(
+      `${ordersUk.statuses.done} · 1`,
+    );
+    expect(cardsUk.listCard?.chips[0]?.tone).toBe("attention");
+    expect(cardsUk.listCard?.chips[1]?.tone).toBe("success");
+    expect(cardsUk.listCard?.rows[0]?.statusLabel).toBe(
+      ordersUk.statuses.in_progress,
+    );
+    expect(cardsUk.listCard?.rows[1]?.statusLabel).toBe(ordersUk.statuses.done);
+    expect(JSON.stringify(cardsUk.listCard?.chips).includes("active")).toBe(
+      false,
+    );
+
+    const cardsEn = assistantResultCardsFromParts(
+      [
+        {
+          type: "tool-orders_list_counts",
+          toolCallId: "call-counts",
+          state: "output-available",
+          output: countsOutput([
+            {
+              identity: { kind: "status", status: "in_progress" },
+              label: "in_progress",
+              orderCount: 2,
+              grossByCurrency: [],
+            },
+          ]),
+        },
+        {
+          type: "tool-orders_list_page",
+          toolCallId: "call-page",
+          state: "output-available",
+          output: pageOutput([pageRow(ORDER_A, { status: "in_progress" })]),
+        },
+      ],
+      "en",
+    );
+    expect(cardsEn.listCard?.chips[0]?.label).toBe("In progress · 2");
+    expect(cardsEn.listCard?.rows[0]?.statusLabel).toBe("In progress");
   });
 
   it("does not render a list or aggregate card on counts-only turns", () => {
@@ -378,6 +494,45 @@ describe("assistantResultCardsFromParts", () => {
     expect(cards.entityCards[0]?.customerName).toBeNull();
     expect(cards.entityCards[1]?.customerName).toBe("Оля");
     expect(cards.entityCards).toHaveLength(2);
+  });
+
+  it("parses in_progress and done on the thin entity card", () => {
+    const cards = assistantResultCardsFromParts(
+      [
+        {
+          type: "tool-orders_get",
+          toolCallId: "call-get-progress",
+          state: "output-available",
+          output: {
+            orderId: ORDER_A,
+            orderNumber: "1049",
+            status: "in_progress",
+            totalGrossMinor: "33000",
+            currency: "UAH",
+          },
+        },
+        {
+          type: "tool-orders_get",
+          toolCallId: "call-get-done",
+          state: "output-available",
+          output: {
+            orderId: ORDER_B,
+            orderNumber: "1050",
+            status: "done",
+            totalGrossMinor: "1000",
+            currency: "UAH",
+          },
+        },
+      ],
+      "uk",
+    );
+    expect(cards.listCard).toBeNull();
+    expect(cards.entityCards[0]?.statusLabel).toBe(
+      ordersUk.statuses.in_progress,
+    );
+    expect(cards.entityCards[0]?.statusTone).toBe("attention");
+    expect(cards.entityCards[1]?.statusLabel).toBe(ordersUk.statuses.done);
+    expect(cards.entityCards[1]?.statusTone).toBe("success");
   });
 });
 

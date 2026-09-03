@@ -70,7 +70,7 @@ describe("order permission affordances", () => {
     );
   });
 
-  it("shows confirm only for new and disables cancel when canceled", () => {
+  it("shows confirm only for new and cancel only for open statuses", () => {
     expect(orderDetailActions({ canEdit: true, status: "new" })).toEqual({
       showConfirm: true,
       showActions: true,
@@ -80,6 +80,18 @@ describe("order permission affordances", () => {
       showConfirm: false,
       showActions: true,
       cancelEnabled: true,
+    });
+    expect(
+      orderDetailActions({ canEdit: true, status: "in_progress" }),
+    ).toEqual({
+      showConfirm: false,
+      showActions: true,
+      cancelEnabled: true,
+    });
+    expect(orderDetailActions({ canEdit: true, status: "done" })).toEqual({
+      showConfirm: false,
+      showActions: true,
+      cancelEnabled: false,
     });
     expect(orderDetailActions({ canEdit: true, status: "canceled" })).toEqual({
       showConfirm: false,

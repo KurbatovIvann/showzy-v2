@@ -16,6 +16,7 @@ import {
   normalizeOrdersSearch,
   orderGroupHeaderLabel,
   orderStatusTone,
+  ORDER_STATUS_FILTERS,
   resolveCustomerNameHydration,
   stickyHeaderIndices,
   toggleOrderStatusFilter,
@@ -29,6 +30,8 @@ const CUSTOMER_A = "11111111-1111-4111-8111-111111111111";
 const CUSTOMER_B = "22222222-2222-4222-8222-222222222222";
 const ORDER_NEW = "0f0e2d5c-4a1b-4c3d-9e8f-102938475601";
 const ORDER_CONFIRMED = "1f0e2d5c-4a1b-4c3d-9e8f-102938475602";
+const ORDER_IN_PROGRESS = "3f0e2d5c-4a1b-4c3d-9e8f-102938475604";
+const ORDER_DONE = "4f0e2d5c-4a1b-4c3d-9e8f-102938475605";
 const ORDER_CANCELED = "2f0e2d5c-4a1b-4c3d-9e8f-102938475603";
 
 function item(overrides: Partial<OrderListItem> = {}): OrderListItem {
@@ -63,7 +66,14 @@ function row(overrides: Partial<OrderRowView> = {}): OrderRowView {
 }
 
 describe("toggleOrderStatusFilter", () => {
-  it("adds, removes, and keeps canonical order", () => {
+  it("adds, removes, and keeps canonical CHECK order", () => {
+    expect(ORDER_STATUS_FILTERS).toEqual([
+      "new",
+      "confirmed",
+      "in_progress",
+      "done",
+      "canceled",
+    ]);
     expect(toggleOrderStatusFilter([], "confirmed")).toEqual(["confirmed"]);
     expect(toggleOrderStatusFilter(["confirmed"], "new")).toEqual([
       "new",
@@ -72,6 +82,9 @@ describe("toggleOrderStatusFilter", () => {
     expect(
       toggleOrderStatusFilter(["new", "confirmed", "canceled"], "confirmed"),
     ).toEqual(["new", "canceled"]);
+    expect(
+      toggleOrderStatusFilter(["canceled", "done"], "in_progress"),
+    ).toEqual(["in_progress", "done", "canceled"]);
   });
 });
 
@@ -106,6 +119,17 @@ describe("listOrdersPageInput", () => {
     expect(listOrdersPageInput(["new", "canceled"], undefined)).toEqual({
       kind: "page.summary",
       filter: { statuses: ["new", "canceled"] },
+    });
+    expect(
+      listOrdersPageInput(
+        ["new", "confirmed", "in_progress", "done", "canceled"],
+        undefined,
+      ),
+    ).toEqual({
+      kind: "page.summary",
+      filter: {
+        statuses: ["new", "confirmed", "in_progress", "done", "canceled"],
+      },
     });
     expect(hasActiveStatusFilter(["new"])).toBe(true);
   });
@@ -205,6 +229,22 @@ describe("toOrderRowView", () => {
     expect(JSON.stringify(view)).not.toContain("unlinked");
   });
 
+  it("maps in_progress and done pills from CHECK statuses", () => {
+    const copy = ordersCopy("uk");
+    const inProgress = toOrderRowView(item({ status: "in_progress" }), {
+      locale: "uk",
+      copy,
+    });
+    expect(inProgress.statusLabel).toBe("В роботі");
+    expect(inProgress.statusTone).toBe("attention");
+    const done = toOrderRowView(item({ status: "done" }), {
+      locale: "uk",
+      copy,
+    });
+    expect(done.statusLabel).toBe("Виконано");
+    expect(done.statusTone).toBe("success");
+  });
+
   it("keeps a live snapshot name without a getCustomer round-trip", () => {
     const view = toOrderRowView(item(), {
       locale: "uk",
@@ -228,18 +268,22 @@ describe("formatOrderCreatedAt", () => {
 });
 
 describe("orderStatusTone / isInProgressStatus", () => {
-  it("treats new and confirmed as in-progress action pills", () => {
+  it("treats new, confirmed, and in_progress as the open/active group", () => {
     expect(isInProgressStatus("new")).toBe(true);
     expect(isInProgressStatus("confirmed")).toBe(true);
+    expect(isInProgressStatus("in_progress")).toBe(true);
+    expect(isInProgressStatus("done")).toBe(false);
     expect(isInProgressStatus("canceled")).toBe(false);
     expect(orderStatusTone("new")).toBe("action");
     expect(orderStatusTone("confirmed")).toBe("action");
+    expect(orderStatusTone("in_progress")).toBe("attention");
+    expect(orderStatusTone("done")).toBe("success");
     expect(orderStatusTone("canceled")).toBe("danger");
   });
 });
 
 describe("groupOrderRows", () => {
-  it("groups new+confirmed as in progress and canceled as completed", () => {
+  it("groups new+confirmed+in_progress as active and done+canceled as closed", () => {
     const entries = groupOrderRows([
       row({ id: ORDER_NEW, status: "new" }),
       row({
@@ -247,32 +291,53 @@ describe("groupOrderRows", () => {
         status: "canceled",
         statusTone: "danger",
       }),
+      row({
+        id: ORDER_IN_PROGRESS,
+        status: "in_progress",
+        statusTone: "attention",
+      }),
+      row({
+        id: ORDER_DONE,
+        status: "done",
+        statusTone: "success",
+      }),
       row({ id: ORDER_CONFIRMED, status: "confirmed" }),
     ]);
     expect(entries.map((entry) => entry.type)).toEqual([
       "header",
       "row",
       "row",
+      "row",
       "header",
+      "row",
       "row",
     ]);
     expect(entries[0]).toEqual({
       type: "header",
       key: "inProgress",
-      count: 2,
+      count: 3,
     });
     expect(entries[1]?.type === "row" ? entries[1].order.id : null).toBe(
       ORDER_NEW,
     );
     expect(entries[2]?.type === "row" ? entries[2].order.id : null).toBe(
+      ORDER_IN_PROGRESS,
+    );
+    expect(entries[3]?.type === "row" ? entries[3].order.id : null).toBe(
       ORDER_CONFIRMED,
     );
-    expect(entries[3]).toEqual({
+    expect(entries[4]).toEqual({
       type: "header",
       key: "completed",
-      count: 1,
+      count: 2,
     });
-    expect(stickyHeaderIndices(entries)).toEqual([0, 3]);
+    expect(entries[5]?.type === "row" ? entries[5].order.id : null).toBe(
+      ORDER_CANCELED,
+    );
+    expect(entries[6]?.type === "row" ? entries[6].order.id : null).toBe(
+      ORDER_DONE,
+    );
+    expect(stickyHeaderIndices(entries)).toEqual([0, 4]);
   });
 
   it("omits an empty group", () => {
@@ -289,12 +354,24 @@ describe("groupOrderRows", () => {
 });
 
 describe("orderGroupHeaderLabel", () => {
-  it("interpolates the canvas group title and count", () => {
+  it("interpolates Active/Closed group titles, not status labels", () => {
     expect(orderGroupHeaderLabel("inProgress", 3, ordersCopy("uk"))).toBe(
-      "В роботі · 3",
+      "Активні · 3",
+    );
+    expect(orderGroupHeaderLabel("completed", 1, ordersCopy("uk"))).toBe(
+      "Закриті · 1",
     );
     expect(orderGroupHeaderLabel("completed", 1, ordersCopy("en"))).toBe(
-      "Completed · 1",
+      "Closed · 1",
+    );
+    expect(orderGroupHeaderLabel("inProgress", 2, ordersCopy("en"))).toBe(
+      "Active · 2",
+    );
+    expect(ordersCopy("uk").groups.inProgress).not.toBe(
+      ordersCopy("uk").statuses.in_progress,
+    );
+    expect(ordersCopy("uk").groups.completed).not.toBe(
+      ordersCopy("uk").statuses.done,
     );
   });
 });
