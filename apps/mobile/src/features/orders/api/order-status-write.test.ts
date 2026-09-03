@@ -113,7 +113,7 @@ describe("bindOrderStatusMutate", () => {
     const mutate = bindOrderStatusMutate({
       client: {
         orders: {
-          confirm: (input, _options: MutationCallOptions) => {
+          confirm: (input) => {
             methods.push("confirm");
             return Promise.resolve({
               orderId: input.orderId,
@@ -122,7 +122,7 @@ describe("bindOrderStatusMutate", () => {
               confirmedAt: "2026-08-29T12:00:00.000Z",
             });
           },
-          start: (input, _options: MutationCallOptions) => {
+          start: (input) => {
             methods.push("start");
             return Promise.resolve({
               orderId: input.orderId,
@@ -130,7 +130,7 @@ describe("bindOrderStatusMutate", () => {
               status: "in_progress",
             });
           },
-          complete: (input, _options: MutationCallOptions) => {
+          complete: (input) => {
             methods.push("complete");
             return Promise.resolve({
               orderId: input.orderId,
@@ -138,7 +138,7 @@ describe("bindOrderStatusMutate", () => {
               status: "done",
             });
           },
-          cancel: (input, _options: MutationCallOptions) => {
+          cancel: (input) => {
             methods.push("cancel");
             return Promise.resolve({
               orderId: input.orderId,
