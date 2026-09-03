@@ -430,7 +430,9 @@ describe("hydratedUiMessagesFromConversation", () => {
   });
 
   it("pairs a same-timestamp get run to the later assistant even when that message id is greater than the run id", () => {
-    expect(MSG_ASSISTANT_HIGH > RUN_GET_LEX_LOW).toBe(true);
+    expect(MSG_ASSISTANT_HIGH.localeCompare(RUN_GET_LEX_LOW)).toBeGreaterThan(
+      0,
+    );
     const laterCreatedAt = "2026-09-03T10:00:05.000Z";
     const getOutput = orderSnapshot(ORDER_A, "in_progress");
     const historyMessages = [
