@@ -5,8 +5,9 @@
  *
  * - `kind` selects the job: a summary page, a page with compact lines, or
  *   a server aggregate. There is no server status `active` or `all`; omit
- *   `filter.statuses` for every CHECK status. Until fulfillment statuses
- *   exist, “active” in tool text means `new` + `confirmed`.
+ *   `filter.statuses` for every CHECK status (`new`, `confirmed`,
+ *   `in_progress`, `done`, `canceled`). UI Активні = `new` + `confirmed` +
+ *   `in_progress` is client grouping only — never a server filter value.
  * - `query` matches the text order number (optional leading `#`) OR live
  *   CRM name/phone/email via internal `customers.listMatchingIds`. Any
  *   query requires `customers:view`. Max 100 after trim.
@@ -63,7 +64,7 @@ export function parseListOrdersCursor(
 
 export const listOrdersFilterSchema = z
   .object({
-    statuses: z.array(orderStatusSchema).min(1).max(3).optional(),
+    statuses: z.array(orderStatusSchema).min(1).max(5).optional(),
     query: listSearchInput(LIST_ORDERS_QUERY_MAX),
     customerIds: z
       .array(z.uuid())
@@ -267,7 +268,7 @@ export type ListOrdersOutput = z.output<typeof listOrdersOutputSchema>;
 export const listOrdersContract = defineActionContract({
   name: "orders.list",
   description:
-    "Query staff-intake orders in the staff member's active company. Pass kind page.summary or page.withLines for a newest-first cursor page, or kind aggregate for a bounded server rollup. Omit filter.statuses to include new, confirmed, and canceled; there is no server status named active or all — until fulfillment statuses exist, active means new plus confirmed. Optional filter.query matches the text order number (optional leading #) or CRM customer name, phone, or email and always requires customers:view. Optional customerIds, createdFrom, and createdTo compose with query. Summary rows include the customer name snapshot and linkedCustomerId, itemCount, and header totals — not the get view. Aggregate buckets are currency-safe and grouped by product (productId+variantId), customer, status, or none. Product buckets include quantityMilli (sum of line quantity_milli for that SKU, across currencies). Company id is never input. Does not filter by payment.",
+    "Query staff-intake orders in the staff member's active company. Pass kind page.summary or page.withLines for a newest-first cursor page, or kind aggregate for a bounded server rollup. Omit filter.statuses to include every CHECK status (new, confirmed, in_progress, done, canceled); there is no server status named active or all. UI Активні is client grouping of new plus confirmed plus in_progress — do not send active as a filter value. Optional filter.query matches the text order number (optional leading #) or CRM customer name, phone, or email and always requires customers:view. Optional customerIds, createdFrom, and createdTo compose with query. Summary rows include the customer name snapshot and linkedCustomerId, itemCount, and header totals — not the get view. Aggregate buckets are currency-safe and grouped by product (productId+variantId), customer, status, or none. Product buckets include quantityMilli (sum of line quantity_milli for that SKU, across currencies). Company id is never input. Does not filter by payment.",
   principal: "staff",
   transport: "client",
   input: listOrdersInputSchema,

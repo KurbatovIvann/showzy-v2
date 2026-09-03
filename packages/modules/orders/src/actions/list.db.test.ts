@@ -37,6 +37,8 @@ const fixtures = {
   productGadget: randomUUID(),
   productB: randomUUID(),
   confirmed: randomUUID(),
+  inProgress: randomUUID(),
+  done: randomUUID(),
   newestNew: randomUUID(),
   eurNew: randomUUID(),
   sameProductOldTitle: randomUUID(),
@@ -44,6 +46,8 @@ const fixtures = {
   orphaned: randomUUID(),
   foreign: randomUUID(),
   itemConfirmed: randomUUID(),
+  itemInProgress: randomUUID(),
+  itemDone: randomUUID(),
   itemNewestNew1: randomUUID(),
   itemNewestNew2: randomUUID(),
   itemEurNew: randomUUID(),
@@ -63,6 +67,8 @@ const timestamps = {
   newestNew: new Date("2026-03-01T00:00:00.000Z"),
   eurNew: new Date("2026-03-15T00:00:00.000Z"),
   confirmed: new Date("2026-04-01T00:00:00.000Z"),
+  inProgress: new Date("2026-04-15T00:00:00.000Z"),
+  done: new Date("2026-04-20T00:00:00.000Z"),
   foreign: new Date("2026-05-01T00:00:00.000Z"),
 };
 
@@ -111,7 +117,7 @@ async function insertOrder(values: {
   customerId: string | null;
   customerNameSnapshot: string;
   productId: string;
-  status: "new" | "confirmed" | "canceled";
+  status: "new" | "confirmed" | "in_progress" | "done" | "canceled";
   totalGrossMinor: bigint;
   createdAt: Date;
   orderNumber: string;
@@ -120,6 +126,10 @@ async function insertOrder(values: {
   quantityMilli?: bigint;
 }): Promise<void> {
   const currency = values.currency ?? "UAH";
+  const requiresConfirmedAt =
+    values.status === "confirmed" ||
+    values.status === "in_progress" ||
+    values.status === "done";
   await kit.db.runtime.db.insert(orders).values({
     id: values.id,
     companyId: values.companyId,
@@ -131,7 +141,7 @@ async function insertOrder(values: {
     totalTaxMinor: 0n,
     totalGrossMinor: values.totalGrossMinor,
     currency,
-    confirmedAt: values.status === "confirmed" ? values.createdAt : undefined,
+    confirmedAt: requiresConfirmedAt ? values.createdAt : undefined,
     createdAt: values.createdAt,
     updatedAt: values.createdAt,
   });
@@ -329,6 +339,32 @@ beforeAll(async () => {
     quantityMilli: 3000n,
   });
   await insertOrder({
+    id: fixtures.inProgress,
+    itemIds: [fixtures.itemInProgress],
+    companyId: companyA,
+    customerId: fixtures.customerA,
+    customerNameSnapshot: "Customer A",
+    productId: fixtures.productA,
+    status: "in_progress",
+    totalGrossMinor: 300n,
+    createdAt: timestamps.inProgress,
+    orderNumber: "KA-PROG",
+    titleSnapshot: "Widget · in progress",
+  });
+  await insertOrder({
+    id: fixtures.done,
+    itemIds: [fixtures.itemDone],
+    companyId: companyA,
+    customerId: fixtures.customerA,
+    customerNameSnapshot: "Customer A",
+    productId: fixtures.productA,
+    status: "done",
+    totalGrossMinor: 500n,
+    createdAt: timestamps.done,
+    orderNumber: "KA-DONE",
+    titleSnapshot: "Widget · done",
+  });
+  await insertOrder({
     id: fixtures.foreign,
     itemIds: [fixtures.itemForeign],
     companyId: companyB,
@@ -396,6 +432,8 @@ describe("orders.list", () => {
     const result = asSummary(await kit.invoke(listOrders, pageSummary));
 
     expect(result.items.map((row) => row.orderId)).toEqual([
+      fixtures.done,
+      fixtures.inProgress,
       fixtures.confirmed,
       fixtures.eurNew,
       fixtures.newestNew,
@@ -475,7 +513,26 @@ describe("orders.list", () => {
     ]);
 
     const omit = asSummary(await kit.invoke(listOrders, pageSummary));
-    expect(omit.items).toHaveLength(6);
+    expect(omit.items).toHaveLength(8);
+    expect(new Set(omit.items.map((row) => row.status))).toEqual(
+      new Set(["new", "confirmed", "in_progress", "done", "canceled"]),
+    );
+
+    const fulfillment = asSummary(
+      await kit.invoke(listOrders, {
+        kind: "page.summary",
+        filter: { statuses: ["in_progress", "done"] },
+      }),
+    );
+    expect(fulfillment.items.map((row) => row.orderId)).toEqual([
+      fixtures.done,
+      fixtures.inProgress,
+    ]);
+    expect(
+      fulfillment.items.every(
+        (row) => row.status === "in_progress" || row.status === "done",
+      ),
+    ).toBe(true);
 
     const empty = asSummary(
       await kit.invoke(listOrders, pageSummary, {
@@ -512,6 +569,8 @@ describe("orders.list", () => {
       }),
     );
     expect(customerAOnly.items.map((row) => row.orderId)).toEqual([
+      fixtures.done,
+      fixtures.inProgress,
       fixtures.confirmed,
       fixtures.newestNew,
       fixtures.sameProductOldTitle,
@@ -528,6 +587,8 @@ describe("orders.list", () => {
       }),
     );
     expect(queryAndCustomer.items.map((row) => row.orderId)).toEqual([
+      fixtures.done,
+      fixtures.inProgress,
       fixtures.confirmed,
       fixtures.newestNew,
       fixtures.sameProductOldTitle,
@@ -562,11 +623,11 @@ describe("orders.list", () => {
       await kit.invoke(listOrders, { kind: "page.summary", limit: 2 }),
     );
     expect(first.items.map((row) => row.orderId)).toEqual([
-      fixtures.confirmed,
-      fixtures.eurNew,
+      fixtures.done,
+      fixtures.inProgress,
     ]);
     expect(first.nextCursor).toBe(
-      formatListOrdersCursor(timestamps.eurNew, fixtures.eurNew),
+      formatListOrdersCursor(timestamps.inProgress, fixtures.inProgress),
     );
 
     const second = asSummary(
@@ -577,8 +638,8 @@ describe("orders.list", () => {
       }),
     );
     expect(second.items.map((row) => row.orderId)).toEqual([
-      fixtures.newestNew,
-      fixtures.sameProductOldTitle,
+      fixtures.confirmed,
+      fixtures.eurNew,
     ]);
     expect(second.nextCursor).toBeTruthy();
 
@@ -590,10 +651,23 @@ describe("orders.list", () => {
       }),
     );
     expect(third.items.map((row) => row.orderId)).toEqual([
+      fixtures.newestNew,
+      fixtures.sameProductOldTitle,
+    ]);
+    expect(third.nextCursor).toBeTruthy();
+
+    const fourth = asSummary(
+      await kit.invoke(listOrders, {
+        kind: "page.summary",
+        limit: 2,
+        cursor: third.nextCursor ?? "",
+      }),
+    );
+    expect(fourth.items.map((row) => row.orderId)).toEqual([
       fixtures.canceled,
       fixtures.orphaned,
     ]);
-    expect(third.nextCursor).toBeNull();
+    expect(fourth.nextCursor).toBeNull();
   });
 
   it("does not include another company's orders or leak a foreign cursor", async () => {
@@ -612,6 +686,8 @@ describe("orders.list", () => {
       }),
     );
     expect(fromForeign.items.map((row) => row.orderId)).toEqual([
+      fixtures.done,
+      fixtures.inProgress,
       fixtures.confirmed,
       fixtures.eurNew,
       fixtures.newestNew,
@@ -704,6 +780,8 @@ describe("orders.list", () => {
       }),
     );
     expect(byName.items.map((row) => row.orderId)).toEqual([
+      fixtures.done,
+      fixtures.inProgress,
       fixtures.confirmed,
       fixtures.newestNew,
       fixtures.sameProductOldTitle,
@@ -717,6 +795,8 @@ describe("orders.list", () => {
       }),
     );
     expect(byPhone.items.map((row) => row.orderId)).toEqual([
+      fixtures.done,
+      fixtures.inProgress,
       fixtures.confirmed,
       fixtures.newestNew,
       fixtures.sameProductOldTitle,
@@ -832,6 +912,8 @@ describe("orders.list", () => {
       }),
     );
     expect(listed.items.map((row) => row.orderId)).toEqual([
+      fixtures.done,
+      fixtures.inProgress,
       fixtures.confirmed,
       fixtures.eurNew,
       fixtures.newestNew,
@@ -889,8 +971,8 @@ describe("orders.list", () => {
       await kit.invoke(listOrders, { kind: "aggregate", groupBy: "product" }),
     );
     const widget = productBucket(byProduct, fixtures.productA);
-    expect(widget?.orderCount).toBe(5);
-    expect(widget?.label).toBe("Widget · latest");
+    expect(widget?.orderCount).toBe(7);
+    expect(widget?.label).toBe("Widget · done");
     expect(widget?.identity).toEqual({
       kind: "product",
       productId: fixtures.productA,
@@ -898,11 +980,11 @@ describe("orders.list", () => {
     });
     expect(
       widget && "quantityMilli" in widget ? widget.quantityMilli : undefined,
-    ).toBe("9000");
+    ).toBe("11000");
     expect(
       widget?.grossByCurrency.find((row) => row.currency === "UAH")
         ?.grossAmountMinor,
-    ).toBe("2600");
+    ).toBe("3400");
 
     const gadget = productBucket(byProduct, fixtures.productGadget);
     expect(gadget?.orderCount).toBe(1);
@@ -911,10 +993,10 @@ describe("orders.list", () => {
       gadget && "quantityMilli" in gadget ? gadget.quantityMilli : undefined,
     ).toBe("1000");
 
-    expect(byProduct.orderCount).toBe(6);
+    expect(byProduct.orderCount).toBe(8);
     expect(byProduct.grossByCurrency).toEqual([
       { currency: "EUR", grossAmountMinor: "800" },
-      { currency: "UAH", grossAmountMinor: "2600" },
+      { currency: "UAH", grossAmountMinor: "3400" },
     ]);
     expect(byProduct.bucketsTruncated).toBe(false);
     expect(byProduct.buckets.map((bucket) => bucket.label)).not.toContain(
@@ -969,8 +1051,8 @@ describe("orders.list", () => {
     );
     expect(none.buckets).toHaveLength(1);
     expect(none.buckets[0]?.identity).toEqual({ kind: "none" });
-    expect(none.buckets[0]?.orderCount).toBe(6);
-    expect(none.orderCount).toBe(6);
+    expect(none.buckets[0]?.orderCount).toBe(8);
+    expect(none.orderCount).toBe(8);
     expect(none.buckets[0] && "quantityMilli" in none.buckets[0]).toBe(false);
   });
 

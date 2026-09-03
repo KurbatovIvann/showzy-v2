@@ -93,11 +93,11 @@ export const orders = pgTable(
     }).onDelete("set null"),
     check(
       "orders_status_check",
-      sql`${table.status} IN ('new', 'confirmed', 'canceled')`,
+      sql`${table.status} IN ('new', 'confirmed', 'in_progress', 'done', 'canceled')`,
     ),
     check(
       "orders_confirmed_requires_confirmed_at_check",
-      sql`${table.status} <> 'confirmed' OR ${table.confirmedAt} IS NOT NULL`,
+      sql`${table.status} NOT IN ('confirmed', 'in_progress', 'done') OR ${table.confirmedAt} IS NOT NULL`,
     ),
     check(
       "orders_new_forbids_confirmed_at_check",
