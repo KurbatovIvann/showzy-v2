@@ -45,6 +45,8 @@ describe("staffAssistantSystemPrompt", () => {
     expect(staffAssistantSystemPrompt).not.toContain("catalog_listProducts");
     expect(staffAssistantSystemPrompt).not.toContain("pricing_listPriceLists");
     expect(staffAssistantSystemPrompt).not.toContain("customers_listCustomers");
+    expect(staffAssistantSystemPrompt).not.toContain("customers_listGroups");
+    expect(staffAssistantSystemPrompt).not.toContain("customers_list_groups");
   });
 
   it("sends period order counts and gross to orders_list_counts instead of analytics tabs", () => {

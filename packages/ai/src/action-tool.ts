@@ -19,6 +19,11 @@ import {
   customersListCustomersFacadeTools,
 } from "./tool-facades/customers-list-customers.js";
 import {
+  CUSTOMERS_LIST_GROUPS_ACTION_NAME,
+  CUSTOMERS_LIST_GROUPS_TOOL_NAME,
+  customersListGroupsFacadeTools,
+} from "./tool-facades/customers-list-groups.js";
+import {
   ORDERS_CREATE_ACTION_NAME,
   ORDERS_CREATE_TOOL_NAME,
   ordersCreateFacadeTools,
@@ -65,6 +70,8 @@ export {
   CATALOG_LIST_PRODUCTS_TOOL_NAME,
   CUSTOMERS_LIST_CUSTOMERS_ACTION_NAME,
   CUSTOMERS_LIST_CUSTOMERS_TOOL_NAME,
+  CUSTOMERS_LIST_GROUPS_ACTION_NAME,
+  CUSTOMERS_LIST_GROUPS_TOOL_NAME,
   ORDERS_CREATE_ACTION_NAME,
   ORDERS_CREATE_TOOL_NAME,
   ORDERS_LIST_ACTION_NAME,
@@ -98,6 +105,15 @@ const HOT_FACADE_FACTORIES: Readonly<Record<string, FacadeToolsFactory>> = {
   [CUSTOMERS_LIST_CUSTOMERS_ACTION_NAME]: customersListCustomersFacadeTools,
 };
 
+/**
+ * Façades that stay out of the always-in-context set. Skipping these in
+ * the deferred loop would hide the named tool from BM25 (SHO-382).
+ */
+const DEFERRED_FACADE_FACTORIES: Readonly<Record<string, FacadeToolsFactory>> =
+  {
+    [CUSTOMERS_LIST_GROUPS_ACTION_NAME]: customersListGroupsFacadeTools,
+  };
+
 const HOT_FACADE_TOOL_NAMES: Readonly<Record<string, readonly string[]>> = {
   [ORDERS_LIST_ACTION_NAME]: [
     ORDERS_LIST_PAGE_TOOL_NAME,
@@ -109,9 +125,10 @@ const HOT_FACADE_TOOL_NAMES: Readonly<Record<string, readonly string[]>> = {
   [CUSTOMERS_LIST_CUSTOMERS_ACTION_NAME]: [CUSTOMERS_LIST_CUSTOMERS_TOOL_NAME],
 };
 
-const FACADE_ACTION_NAME_SET = new Set<string>(
-  Object.keys(HOT_FACADE_FACTORIES),
-);
+const FACADE_ACTION_NAME_SET = new Set<string>([
+  ...Object.keys(HOT_FACADE_FACTORIES),
+  ...Object.keys(DEFERRED_FACADE_FACTORIES),
+]);
 
 /**
  * Map `orders.list` → `orders_list`. `defineActionContract` requires
@@ -207,8 +224,11 @@ export function actionContractToTool(
  * (chitchat). The HTTP mount injects `executeAction`; this helper never
  * fetches `/rpc`. Façade actions (`orders.list`, `orders.create`,
  * `catalog.listProducts`, `pricing.listPriceLists`,
- * `customers.listCustomers`) are not raw 1:1 ToolSet keys — named tools
- * map onto the same handlers.
+ * `customers.listCustomers`, `customers.listGroups`) are not raw 1:1
+ * ToolSet keys — named tools map onto the same handlers. Hot façades stay
+ * in context. Deferred façades (`customers.listGroups`) are advertised
+ * with `deferLoading` so BM25 can find `customers_list_groups`;
+ * `toProviderToolName("customers.listGroups")` is not advertised.
  * `orders_create` is both the façade key and
  * `toProviderToolName("orders.create")`; the advertised schema is the
  * named object, not the EntityRef union.
@@ -247,6 +267,17 @@ export function staffAssistantTools(
     if (HOT_ACTION_NAME_SET.has(contract.name)) {
       continue;
     }
+    const deferredFactory = DEFERRED_FACADE_FACTORIES[contract.name];
+    if (deferredFactory !== undefined) {
+      insertFacadeTools(
+        tools,
+        contract,
+        execute,
+        deferredFactory,
+        STAFF_ASSISTANT_DEFER_PROVIDER_OPTIONS,
+      );
+      continue;
+    }
     if (FACADE_ACTION_NAME_SET.has(contract.name)) {
       continue;
     }
@@ -267,6 +298,7 @@ function insertFacadeTools(
   contract: ActionContract,
   execute: ActionToolExecute,
   factory: FacadeToolsFactory,
+  providerOptions?: typeof STAFF_ASSISTANT_DEFER_PROVIDER_OPTIONS,
 ): void {
   const facades = factory(contract, execute);
   for (const [name, aiTool] of Object.entries(facades)) {
@@ -275,7 +307,8 @@ function insertFacadeTools(
         `duplicate provider tool name "${name}" for "${contract.name}"`,
       );
     }
-    tools[name] = aiTool;
+    tools[name] =
+      providerOptions === undefined ? aiTool : { ...aiTool, providerOptions };
   }
 }
 
