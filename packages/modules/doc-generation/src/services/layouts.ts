@@ -19,30 +19,17 @@ export type DocumentLayoutRow = {
 };
 
 /**
- * System looks. New invoices default to branded; new waybills to parties.
- * `.plain` stays listed and is the legacy `template_name` alias target.
+ * System looks. One look per type: branded invoice, parties waybill.
+ * Issued `template_name` equal to the document type still resolves to
+ * that type's only catalog key.
  */
 export const DOCUMENT_LAYOUTS: readonly DocumentLayoutRow[] = [
-  {
-    key: "payment_invoice.plain",
-    type: "payment_invoice",
-    labelUk: "Простий рахунок",
-    labelEn: "Plain invoice",
-    isDefault: false,
-  },
   {
     key: "payment_invoice.branded",
     type: "payment_invoice",
     labelUk: "Фірмовий рахунок",
     labelEn: "Branded invoice",
     isDefault: true,
-  },
-  {
-    key: "delivery_note.plain",
-    type: "delivery_note",
-    labelUk: "Проста накладна",
-    labelEn: "Plain delivery note",
-    isDefault: false,
   },
   {
     key: "delivery_note.parties",
@@ -57,10 +44,10 @@ const LAYOUT_BY_KEY = new Map<string, DocumentLayoutRow>(
   DOCUMENT_LAYOUTS.map((row) => [row.key, row]),
 );
 
-/** Issued `template_name` equal to the document type still renders `.plain`. */
+/** Issued `template_name` equal to the document type still renders the type default. */
 const LEGACY_LAYOUT_ALIASES = {
-  payment_invoice: "payment_invoice.plain",
-  delivery_note: "delivery_note.plain",
+  payment_invoice: "payment_invoice.branded",
+  delivery_note: "delivery_note.parties",
 } as const satisfies Record<DocumentLayoutType, DocumentLayoutKey>;
 
 export function canonicalizeLayoutKey(

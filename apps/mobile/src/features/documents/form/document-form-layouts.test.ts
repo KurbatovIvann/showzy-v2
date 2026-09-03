@@ -5,18 +5,12 @@ import {
   layoutCardLabel,
   nextLayoutKeyOnCatalog,
   showsBasisField,
+  showsLayoutPicker,
   wireBasis,
   type DocumentLayoutOption,
 } from "./document-form-layouts";
 
 const INVOICE_LAYOUTS: readonly DocumentLayoutOption[] = [
-  {
-    key: "payment_invoice.plain",
-    type: "payment_invoice",
-    labelUk: "Простий рахунок",
-    labelEn: "Plain invoice",
-    isDefault: false,
-  },
   {
     key: "payment_invoice.branded",
     type: "payment_invoice",
@@ -27,13 +21,6 @@ const INVOICE_LAYOUTS: readonly DocumentLayoutOption[] = [
 ];
 
 const NOTE_LAYOUTS: readonly DocumentLayoutOption[] = [
-  {
-    key: "delivery_note.plain",
-    type: "delivery_note",
-    labelUk: "Проста накладна",
-    labelEn: "Plain delivery note",
-    isDefault: false,
-  },
   {
     key: "delivery_note.parties",
     type: "delivery_note",
@@ -46,11 +33,9 @@ const NOTE_LAYOUTS: readonly DocumentLayoutOption[] = [
 describe("document form layouts", () => {
   it("switching type changes the offered keys and default", () => {
     expect(INVOICE_LAYOUTS.map((row) => row.key)).toEqual([
-      "payment_invoice.plain",
       "payment_invoice.branded",
     ]);
     expect(NOTE_LAYOUTS.map((row) => row.key)).toEqual([
-      "delivery_note.plain",
       "delivery_note.parties",
     ]);
     expect(defaultLayoutKey(INVOICE_LAYOUTS)).toBe("payment_invoice.branded");
@@ -63,17 +48,25 @@ describe("document form layouts", () => {
     ).toBe("payment_invoice.branded");
     expect(
       nextLayoutKeyOnCatalog(INVOICE_LAYOUTS, "payment_invoice.plain"),
-    ).toBe("payment_invoice.plain");
+    ).toBe("payment_invoice.branded");
   });
 
   it("labels from labelUk / labelEn depending on locale", () => {
-    const branded = INVOICE_LAYOUTS[1];
+    const branded = INVOICE_LAYOUTS[0];
     expect(branded).toBeDefined();
     if (branded === undefined) {
       return;
     }
     expect(layoutCardLabel(branded, "uk")).toBe("Фірмовий рахунок");
     expect(layoutCardLabel(branded, "en")).toBe("Branded invoice");
+  });
+
+  it("hides the look picker when the catalog has a single ready choice", () => {
+    expect(showsLayoutPicker("loading", 0)).toBe(false);
+    expect(showsLayoutPicker("error", 0)).toBe(true);
+    expect(showsLayoutPicker("ready", 0)).toBe(false);
+    expect(showsLayoutPicker("ready", 1)).toBe(false);
+    expect(showsLayoutPicker("ready", 2)).toBe(true);
   });
 
   it("omits basis for invoices and blank delivery-note text", () => {

@@ -73,6 +73,8 @@ describe("documents copy", () => {
     expect(uk.form.errors.layoutRequired).toBe("Оберіть вигляд.");
     expect(en.form.errors.basisTooLong).toContain("500");
     expect(uk.form.orderSearchPlaceholder).toContain("Пошук");
+    expect(uk.form.submitCreate).toBe("Створити");
+    expect(en.form.submitCreate).toBe("Create");
     expect(uk.shared.refresh).toContain("оновити");
     expect(uk.shared.downloadSigned).toBe("Завантажити підписаний файл");
   });

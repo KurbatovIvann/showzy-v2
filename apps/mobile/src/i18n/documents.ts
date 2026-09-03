@@ -31,6 +31,7 @@ export type DocumentsFormCopy = Omit<
   readonly orderSearchPlaceholder: string;
   readonly orderSearchLabel: string;
   readonly orderEmpty: string;
+  readonly orderMissingCustomer: string;
   readonly counterpartyLabel: string;
   readonly counterpartyPlaceholder: string;
   readonly counterpartyDisabledPlaceholder: string;
@@ -292,6 +293,7 @@ const en: DocumentsCopy = {
     orderSearchPlaceholder: "Search orders…",
     orderSearchLabel: "Search orders",
     orderEmpty: "No orders found.",
+    orderMissingCustomer: "Deleted customer",
     counterpartyLabel: "Counterparty",
     counterpartyPlaceholder: "Optional — legal face",
     counterpartyDisabledPlaceholder: "Choose an order first",
@@ -301,7 +303,6 @@ const en: DocumentsCopy = {
     counterpartyEmptyOption: "Customer name only",
     counterpartyEmpty: "No counterparties for this customer.",
     ...formChromeEn,
-    submitCreate: "Create document",
     submitCreateLoading: "Creating…",
     permissionCreateTitle: "No permission",
     permissionCreateDescription:
@@ -472,6 +473,7 @@ const uk: DocumentsCopy = {
     orderSearchPlaceholder: "Пошук замовлень…",
     orderSearchLabel: "Пошук замовлень",
     orderEmpty: "Замовлень не знайдено.",
+    orderMissingCustomer: "Клієнт видалений",
     counterpartyLabel: "Контрагент",
     counterpartyPlaceholder: "Необов’язково — юрособа",
     counterpartyDisabledPlaceholder: "Спочатку оберіть замовлення",
@@ -481,7 +483,6 @@ const uk: DocumentsCopy = {
     counterpartyEmptyOption: "Лише ім’я клієнта",
     counterpartyEmpty: "Для цього клієнта немає контрагентів.",
     ...formChromeUk,
-    submitCreate: "Створити документ",
     submitCreateLoading: "Створення…",
     permissionCreateTitle: "Немає права",
     permissionCreateDescription: "Немає права створювати документи.",

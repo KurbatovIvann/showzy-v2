@@ -31,17 +31,17 @@ describe("docGeneration.resolveLayout contract", () => {
   it("requires layoutKey and type and rejects companyId", () => {
     expect(
       resolveLayoutInputSchema.parse({
-        layoutKey: "payment_invoice.plain",
+        layoutKey: "payment_invoice.branded",
         type: "payment_invoice",
       }),
     ).toEqual({
-      layoutKey: "payment_invoice.plain",
+      layoutKey: "payment_invoice.branded",
       type: "payment_invoice",
     });
     expect(resolveLayoutInputSchema.safeParse({}).success).toBe(false);
     expect(
       resolveLayoutInputSchema.safeParse({
-        layoutKey: "payment_invoice.plain",
+        layoutKey: "payment_invoice.branded",
       }).success,
     ).toBe(false);
     expect(
@@ -51,7 +51,7 @@ describe("docGeneration.resolveLayout contract", () => {
     ).toBe(false);
     expect(
       resolveLayoutInputSchema.safeParse({
-        layoutKey: "payment_invoice.plain",
+        layoutKey: "payment_invoice.branded",
         type: "payment_invoice",
         companyId: validId,
       }).success,

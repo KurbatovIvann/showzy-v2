@@ -60,13 +60,13 @@ crossTenantSuite(
       resolveLayout,
       {
         input: {
-          layoutKey: "payment_invoice.plain",
+          layoutKey: "payment_invoice.branded",
           type: "payment_invoice",
         },
       },
       {
         input: {
-          layoutKey: "payment_invoice.plain",
+          layoutKey: "payment_invoice.branded",
           type: "payment_invoice",
         },
         companyId: kitIdentities.companies.b,
@@ -77,12 +77,10 @@ crossTenantSuite(
 );
 
 describe("docGeneration.listLayouts", () => {
-  it("lists all four system layouts when unfiltered", async () => {
+  it("lists the two system layouts when unfiltered", async () => {
     const result = await kit.invoke(listLayouts, {});
     expect(result.layouts.map((row) => row.key)).toEqual([
-      "payment_invoice.plain",
       "payment_invoice.branded",
-      "delivery_note.plain",
       "delivery_note.parties",
     ]);
     expect(
@@ -93,12 +91,10 @@ describe("docGeneration.listLayouts", () => {
   it("filters by document type", async () => {
     const invoices = await kit.invoke(listLayouts, { type: "payment_invoice" });
     expect(invoices.layouts.map((row) => row.key)).toEqual([
-      "payment_invoice.plain",
       "payment_invoice.branded",
     ]);
     const notes = await kit.invoke(listLayouts, { type: "delivery_note" });
     expect(notes.layouts.map((row) => row.key)).toEqual([
-      "delivery_note.plain",
       "delivery_note.parties",
     ]);
   });
@@ -137,7 +133,7 @@ describe("docGeneration.resolveLayout", () => {
         type: "payment_invoice",
       }),
     ).resolves.toEqual({
-      key: "payment_invoice.plain",
+      key: "payment_invoice.branded",
       type: "payment_invoice",
     });
     await expect(
@@ -146,7 +142,7 @@ describe("docGeneration.resolveLayout", () => {
         type: "delivery_note",
       }),
     ).resolves.toEqual({
-      key: "delivery_note.plain",
+      key: "delivery_note.parties",
       type: "delivery_note",
     });
   });
@@ -168,7 +164,7 @@ describe("docGeneration.resolveLayout", () => {
   it("rejects a key/type mismatch", async () => {
     await expect(
       kit.invoke(resolveLayout, {
-        layoutKey: "payment_invoice.plain",
+        layoutKey: "payment_invoice.branded",
         type: "delivery_note",
       }),
     ).rejects.toSatisfy((error: unknown) => {
@@ -194,7 +190,7 @@ describe("docGeneration.resolveLayout", () => {
     await expect(
       kit.invoke(
         resolveLayout,
-        { layoutKey: "payment_invoice.plain", type: "payment_invoice" },
+        { layoutKey: "payment_invoice.branded", type: "payment_invoice" },
         { userId: clerkUserId, companyId: kitIdentities.companies.a },
       ),
     ).rejects.toBeInstanceOf(PermissionDeniedError);

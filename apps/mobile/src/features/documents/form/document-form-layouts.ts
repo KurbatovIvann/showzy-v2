@@ -56,6 +56,22 @@ export function showsBasisField(type: DocumentFormType): boolean {
   return type === "delivery_note";
 }
 
+export type DocumentFormLayoutsStatus = "loading" | "ready" | "error";
+
+/** Hide the look picker unless staff must choose or retry a failed catalog. */
+export function showsLayoutPicker(
+  status: DocumentFormLayoutsStatus,
+  cardCount: number,
+): boolean {
+  if (status === "error") {
+    return true;
+  }
+  if (status === "loading") {
+    return false;
+  }
+  return cardCount > 1;
+}
+
 /**
  * Wire `basis` only for delivery notes with a non-empty trim. Empty /
  * whitespace → omit (server stores null). Invoices never send `basis`.
@@ -70,5 +86,3 @@ export function wireBasis(
   const trimmed = basis.trim();
   return trimmed.length === 0 ? undefined : trimmed;
 }
-
-export type DocumentFormLayoutsStatus = "loading" | "ready" | "error";

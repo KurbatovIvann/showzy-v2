@@ -5,27 +5,62 @@ import {
   documentCounterpartyOptionDescription,
   documentOrderOptionDescription,
   documentOrderOptionName,
+  firstCounterpartyNameByCustomerId,
+  UNLINKED_CUSTOMER_NAME_SNAPSHOT,
 } from "./document-form-pickers";
 
 const ORDER_ID = "11111111-1111-4111-8111-111111111111";
 
+const ORDER = {
+  orderId: ORDER_ID,
+  orderNumber: "KA-K7X2",
+  customer: {
+    nameSnapshot: "Customer A",
+    linkedCustomerId: ORDER_ID,
+  },
+  status: "confirmed" as const,
+  itemCount: 1,
+  totalGrossMinor: "123456",
+  currency: "UAH",
+  createdAt: "2026-08-29T12:00:00.000Z",
+};
+
 describe("document form pickers", () => {
-  it("labels an order as #number plus the list snapshot total", () => {
-    const order = {
-      orderId: ORDER_ID,
-      orderNumber: "KA-K7X2",
+  it("labels an order with the customer as primary and number plus total as subtitle", () => {
+    expect(documentOrderOptionName(ORDER, "Deleted customer")).toBe(
+      "Customer A",
+    );
+    expect(documentOrderOptionDescription(ORDER, null)).toContain("#KA-K7X2");
+    expect(documentOrderOptionDescription(ORDER, null)).toContain("₴");
+  });
+
+  it("localizes the unlinked snapshot and appends a distinct counterparty", () => {
+    const unlinked = {
+      ...ORDER,
       customer: {
-        nameSnapshot: "Customer A",
-        linkedCustomerId: ORDER_ID,
+        nameSnapshot: UNLINKED_CUSTOMER_NAME_SNAPSHOT,
+        linkedCustomerId: null,
       },
-      status: "confirmed" as const,
-      itemCount: 1,
-      totalGrossMinor: "123456",
-      currency: "UAH",
-      createdAt: "2026-08-29T12:00:00.000Z",
     };
-    expect(documentOrderOptionName(order)).toBe("#KA-K7X2");
-    expect(documentOrderOptionDescription(order)).toContain("₴");
+    expect(documentOrderOptionName(unlinked, "Клієнт видалений")).toBe(
+      "Клієнт видалений",
+    );
+    expect(documentOrderOptionDescription(ORDER, "ТОВ Альфа")).toContain(
+      "ТОВ Альфа",
+    );
+    expect(documentOrderOptionDescription(ORDER, "Customer A")).not.toContain(
+      "Customer A ·",
+    );
+  });
+
+  it("indexes the first counterparty name per customer", () => {
+    const map = firstCounterpartyNameByCustomerId([
+      { customerId: null, name: "Standalone" },
+      { customerId: ORDER_ID, name: "ТОВ Альфа" },
+      { customerId: ORDER_ID, name: "Later" },
+    ]);
+    expect(map.get(ORDER_ID)).toBe("ТОВ Альфа");
+    expect(map.size).toBe(1);
   });
 
   it("uses edrpou as the counterparty subtitle when present", () => {

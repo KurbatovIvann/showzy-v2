@@ -72,6 +72,7 @@ export function useDocumentForm() {
   const lookups = useDocumentFormLookups({
     enabled: loadState.kind === "ready",
     orderId,
+    missingCustomer: formCopy.orderMissingCustomer,
   });
   const layoutsQuery = useDocumentFormLayouts({
     enabled: loadState.kind === "ready",

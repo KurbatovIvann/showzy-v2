@@ -173,8 +173,7 @@ function twoDigitKopiyky(kopiyky: number): string {
 /**
  * Ukrainian UAH amount in words (hryvnia + kopiyky) from a canonical
  * minor-unit string. Kopiyky stay numeric on the invoice line
- * (`00 копійок`). No Date APIs. Used by T4 branded/parties pages; T3
- * also wires it onto `.plain` totals.
+ * (`00 копійок`). No Date APIs. Used by branded/parties pages.
  */
 export function uahAmountInWords(minor: string): string {
   if (minor.length === 0 || !/^[0-9]+$/.test(minor)) {

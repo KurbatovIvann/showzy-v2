@@ -162,23 +162,23 @@ describe(
       expect(text).toContain("Договір поставки № 15/2026 від 10.01.2026 р.");
     });
 
-    it("keeps legacy aliases on the stacked plain layout", async () => {
+    it("maps legacy type aliases onto branded/parties", async () => {
       const invoiceText = extractPdfText(
         await renderDocumentPdfBytes({
           ...invoice,
           templateName: "payment_invoice",
         }),
       );
-      expect(invoiceText).toContain("Рахунок на оплату");
-      expect(invoiceText).not.toContain("РАХУНОК-ФАКТУРА");
+      expect(invoiceText).toContain("РАХУНОК-ФАКТУРА");
+      expect(invoiceText).not.toContain("Рахунок на оплату");
       const noteText = extractPdfText(
         await renderDocumentPdfBytes({
           ...delivery,
           templateName: "delivery_note",
         }),
       );
-      expect(noteText).toContain("Видаткова накладна");
-      expect(noteText).not.toContain("ВИДАТКОВА НАКЛАДНА");
+      expect(noteText).toContain("ВИДАТКОВА");
+      expect(noteText).not.toContain("Видаткова накладна");
     });
 
     it("fails closed on an unknown layout or a key/type mismatch", async () => {

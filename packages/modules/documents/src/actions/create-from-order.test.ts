@@ -46,14 +46,14 @@ describe("documents.createFromOrder contract", () => {
         orderId: validId,
         type: "delivery_note",
         counterpartyId: validId,
-        layoutKey: "delivery_note.plain",
+        layoutKey: "delivery_note.parties",
         basis: "  Договір № 1  ",
       }),
     ).toEqual({
       orderId: validId,
       type: "delivery_note",
       counterpartyId: validId,
-      layoutKey: "delivery_note.plain",
+      layoutKey: "delivery_note.parties",
       basis: "Договір № 1",
     });
     expect(

@@ -54,8 +54,3 @@ export interface DocumentPdfModel {
   readonly totalTaxMinor: string;
   readonly totalGrossMinor: string;
 }
-
-export const DOCUMENT_TITLE: Record<DocumentPdfModel["type"], string> = {
-  payment_invoice: "Рахунок на оплату",
-  delivery_note: "Видаткова накладна",
-};
