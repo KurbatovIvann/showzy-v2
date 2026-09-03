@@ -51,18 +51,14 @@ export const customersListCustomersInputSchema = z.strictObject({
     .min(1)
     .max(CUSTOMERS_LIST_CUSTOMERS_ASSISTANT_LIMIT)
     .default(CUSTOMERS_LIST_CUSTOMERS_ASSISTANT_LIMIT),
-  cursor: z
-    .string()
-    .min(1)
-    .max(CUSTOMERS_LIST_CUSTOMERS_CURSOR_MAX)
-    .optional(),
+  cursor: z.string().min(1).max(CUSTOMERS_LIST_CUSTOMERS_CURSOR_MAX).optional(),
 });
 
 export type CustomersListCustomersFacadeInput = z.output<
   typeof customersListCustomersInputSchema
 >;
 
-const CUSTOMERS_LIST_CUSTOMERS_DESCRIPTION = `Compact CRM customer page in the active company: id, name, phone, email, status, groupId, priceListId, and nextCursor. Default status is active; pass archived or all to include archived rows. Optional case-insensitive search on name, phone, or email. Optional groupId UUID — a missing or foreign group yields an empty page. Optional cursor pages forward. Page size defaults to ${String(CUSTOMERS_LIST_CUSTOMERS_ASSISTANT_LIMIT)} (cap ${String(CUSTOMERS_LIST_CUSTOMERS_ASSISTANT_LIMIT)}) so every visible row matches nextCursor. Does not return notes, userId, linkedCounterpartyCount, or timestamps. Find a customer by name, phone, or email with this tool. Do not call customers.getCustomer in a loop to recover notes. Create uses customers.createCustomer.`;
+const CUSTOMERS_LIST_CUSTOMERS_DESCRIPTION = `Compact CRM customer page in the active company: id, name, phone, email, status, groupId, priceListId, and nextCursor. Default status is active; pass archived or all to include archived rows. Optional case-insensitive search on name, phone, or email. Optional groupId UUID — a missing or foreign group yields an empty page. Optional cursor pages forward. Page size defaults to ${String(CUSTOMERS_LIST_CUSTOMERS_ASSISTANT_LIMIT)} (cap ${String(CUSTOMERS_LIST_CUSTOMERS_ASSISTANT_LIMIT)}) so every visible row matches nextCursor. Does not return notes, linked-account ids, counterparty counts, or timestamps. Find a customer by name, phone, or email with this tool. Do not call customers.getCustomer in a loop to recover notes. Create uses customers.createCustomer.`;
 
 export function mapCustomersListCustomersInput(
   input: CustomersListCustomersFacadeInput,

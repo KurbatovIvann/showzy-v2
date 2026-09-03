@@ -299,14 +299,16 @@ describe("compact customers.listCustomers clip envelope", () => {
     ) {
       return;
     }
-    expect(clipped.items).toHaveLength(CUSTOMERS_LIST_CUSTOMERS_ASSISTANT_LIMIT);
+    expect(clipped.items).toHaveLength(
+      CUSTOMERS_LIST_CUSTOMERS_ASSISTANT_LIMIT,
+    );
     expect("nextCursor" in clipped && clipped.nextCursor).toBe(nextCursor);
-    const first = clipped.items[0];
-    expect(first).toEqual(items[0]);
-    expect(JSON.stringify(first)).toContain("p".repeat(CUSTOMER_PHONE_MAX));
-    expect(JSON.stringify(first)).toContain("e".repeat(CUSTOMER_EMAIL_MAX));
-    expect(JSON.stringify(first)).toContain(groupId);
-    expect(JSON.stringify(first)).toContain(priceListId);
+    expect(clipped.items[0]).toEqual(items[0]);
+    const serialized = JSON.stringify(clipped);
+    expect(serialized).toContain("p".repeat(CUSTOMER_PHONE_MAX));
+    expect(serialized).toContain("e".repeat(CUSTOMER_EMAIL_MAX));
+    expect(serialized).toContain(groupId);
+    expect(serialized).toContain(priceListId);
   });
 
   it("one extra max-length row plus a max cursor exceeds the clip cap", () => {

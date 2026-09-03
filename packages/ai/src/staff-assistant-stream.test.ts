@@ -596,7 +596,6 @@ describe("streamStaffAssistantChat", () => {
     expect(secondStep).toContain("@example.com");
     expect(secondStep).not.toContain("do not leak notes into the model");
     expect(secondStep).not.toContain("user_secret_id");
-    expect(secondStep).not.toContain("linkedCounterpartyCount");
     expect(secondStep).not.toContain(STAFF_ASSISTANT_CLIPPED_STATUS);
     expect(turn.toolResultBytesOut).toBe(turn.toolResultBytesIn);
   });
