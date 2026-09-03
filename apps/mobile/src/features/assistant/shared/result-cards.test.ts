@@ -842,8 +842,8 @@ describe("assistantResultCardsFromParts aggregate (SHO-370)", () => {
     }
     expect(card.footnotes).toContain(uk.cards.bucketsTruncated);
     expect(card.footnotes).toContain("Ще 4 груп не показано.");
-    expect(card !== null && "bucketsOmitted" in card).toBe(false);
-    expect(card !== null && "bucketsTruncated" in card).toBe(false);
+    expect("bucketsOmitted" in card).toBe(false);
+    expect("bucketsTruncated" in card).toBe(false);
   });
 
   it("renders empty buckets as honest empty copy, not a chart", () => {
