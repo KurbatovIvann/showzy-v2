@@ -243,7 +243,24 @@ export function createSpokenReplyUiTransform<
 }): TransformStream<T, T> {
   let accumulatedJson = "";
   let publishedSpoken = "";
+  let heldMarkdownTextEnd: T | undefined;
   const droppedCallIds = new Set<string>();
+
+  const emitHeldMarkdownFailOpen = (
+    controller: TransformStreamDefaultController<T>,
+  ) => {
+    if (heldMarkdownTextEnd === undefined) {
+      return;
+    }
+    const held = heldMarkdownTextEnd;
+    heldMarkdownTextEnd = undefined;
+    controller.enqueue({
+      ...held,
+      type: "text-delta",
+      text: spokenMarkdownDumpFallback(options?.runs ?? []),
+    });
+    controller.enqueue(held);
+  };
 
   return new TransformStream<T, T>({
     transform(part, controller) {
@@ -273,6 +290,7 @@ export function createSpokenReplyUiTransform<
       }
 
       if (part.type === "text-start") {
+        emitHeldMarkdownFailOpen(controller);
         accumulatedJson = "";
         publishedSpoken = "";
         controller.enqueue(part);
@@ -311,11 +329,10 @@ export function createSpokenReplyUiTransform<
           } else {
             const parsed = spokenFromModelText(accumulatedJson);
             if (parsed !== undefined && spokenContainsMarkdownDump(parsed)) {
-              controller.enqueue({
-                ...part,
-                type: "text-delta",
-                text: spokenMarkdownDumpFallback(options?.runs ?? []),
-              });
+              // Delay until flush so a later same-step confirmation_required
+              // tool result can win over the successful-list markdown fail-open.
+              heldMarkdownTextEnd = part;
+              return;
             }
           }
         }
@@ -324,6 +341,9 @@ export function createSpokenReplyUiTransform<
       }
 
       controller.enqueue(part);
+    },
+    flush(controller) {
+      emitHeldMarkdownFailOpen(controller);
     },
   });
 }
