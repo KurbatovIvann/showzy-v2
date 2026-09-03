@@ -112,16 +112,10 @@ describe("orders list (SHO-377)", () => {
       screen.getByText("#KL-K7K3K4 · 3 позиції · 15 бер. 2026"),
     ).toBeDefined();
     expect(screen.getByText("Клієнт видалений")).toBeDefined();
-    expect(
-      screen.getByRole("heading", { name: "Активні · 1" }),
-    ).toBeDefined();
-    expect(
-      screen.getByRole("heading", { name: "Закриті · 1" }),
-    ).toBeDefined();
+    expect(screen.getByRole("heading", { name: "Активні · 1" })).toBeDefined();
+    expect(screen.getByRole("heading", { name: "Закриті · 1" })).toBeDefined();
     expect(screen.getByRole("button", { name: "В роботі" })).toBeDefined();
-    expect(
-      screen.queryByRole("heading", { name: /В роботі/ }),
-    ).toBeNull();
+    expect(screen.queryByRole("heading", { name: /В роботі/ })).toBeNull();
     expect(screen.queryByRole("heading", { name: /Завершені/ })).toBeNull();
     expect(screen.queryByText("Завершені")).toBeNull();
     expect(
@@ -193,19 +187,21 @@ describe("orders list (SHO-377)", () => {
     expect(
       document.querySelector(".panel-shell")?.getAttribute("data-shell"),
     ).toBe("desktop");
-    fireEvent.click(
-      await screen.findByRole("link", { name: /Анна Мельник/ }),
+    const row = await screen.findByRole("link", { name: /Анна Мельник/ });
+    expect(row.getAttribute("href")).toBe(
+      `/kviti-lviv/orders/${ANNA_ORDER_ID}`,
     );
+    fireEvent.click(row);
     await waitFor(() => {
       expect(router.state.location.pathname).toBe(
         `/kviti-lviv/orders/${ANNA_ORDER_ID}`,
       );
+      expect(
+        screen.getByRole("heading", { name: "Модуль у розробці" }),
+      ).toBeDefined();
     });
     expect(screen.getByRole("region", { name: "Замовлення" })).toBeDefined();
     expect(screen.getByText("Анна Мельник")).toBeDefined();
-    expect(
-      screen.getByRole("heading", { name: "Модуль у розробці" }),
-    ).toBeDefined();
     expect(
       screen.queryByRole("heading", { name: "Оберіть елемент" }),
     ).toBeNull();

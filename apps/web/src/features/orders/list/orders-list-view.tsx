@@ -169,7 +169,7 @@ export function OrdersListView({
                       companySlug,
                       orderId: entry.order.id,
                     }}
-                    search
+                    search={(prev) => prev}
                     aria-current={selected ? "page" : undefined}
                     className={cx(
                       ROW_BASE_CLASS,

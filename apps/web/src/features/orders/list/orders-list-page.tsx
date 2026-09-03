@@ -13,7 +13,7 @@ export function OrdersListHeaderTrailing() {
     <Link
       to="/$companySlug/orders/new"
       params={{ companySlug }}
-      search
+      search={(prev) => prev}
       className="mt-0.5 inline-flex h-10 items-center rounded-full px-3 text-[14px] font-semibold text-action hover:bg-actionSoft focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action"
     >
       {copy.createLabel}
