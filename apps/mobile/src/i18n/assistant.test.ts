@@ -16,6 +16,16 @@ describe("assistant copy", () => {
     const en = assistantCopy("en");
     expect(Object.keys(uk)).toEqual(Object.keys(en));
     expect(Object.keys(uk.errors)).toEqual(Object.keys(en.errors));
+    expect(Object.keys(uk.jobs)).toEqual(Object.keys(en.jobs));
+  });
+
+  it("pins Ukrainian job labels that are not façade wire names", () => {
+    const uk = assistantCopy("uk");
+    expect(uk.jobs.orders_list_page).toBe("Шукаю замовлення");
+    expect(uk.jobs.orders_list_counts).toBe("Рахую виторг");
+    expect(uk.jobs.orders_list_page).not.toBe("orders_list_page");
+    expect(uk.jobs.orders_list_counts).not.toBe("orders_list_counts");
+    expect(uk.jobs.fallback).toBe("Працюю");
   });
 
   it("pins sheet title Шозік/Shozik and keeps the BottomNav label AI", () => {

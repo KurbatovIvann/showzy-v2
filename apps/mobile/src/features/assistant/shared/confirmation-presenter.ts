@@ -15,6 +15,7 @@ export type AssistantChatPart = {
   readonly text?: string;
   readonly data?: unknown;
   readonly toolCallId?: string;
+  readonly toolName?: string;
   readonly state?: string;
   readonly output?: unknown;
 };
@@ -44,7 +45,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function isToolErrorOutput(output: unknown): boolean {
+/** Façade / tool payload `{ status: "error", ... }` — not AI SDK `output-error`. */
+export function isToolErrorOutput(output: unknown): boolean {
   return isRecord(output) && output.status === "error";
 }
 

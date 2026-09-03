@@ -2,11 +2,15 @@ import { memo } from "react";
 import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
+import type { AssistantTimelineStep } from "../shared/chat-rows";
+import { AssistantTimeline } from "./assistant-timeline";
 import { ConfirmationCard } from "./confirmation-card";
 
 export const AssistantMessageRow = memo(function AssistantMessageRow(props: {
   readonly role: "user" | "assistant";
   readonly text: string;
+  readonly timeline: readonly AssistantTimelineStep[];
+  readonly timelineLabel: string;
   readonly confirmationSummary: string | null;
   readonly confirmationTitle: string;
   readonly confirmLabel: string;
@@ -18,6 +22,7 @@ export const AssistantMessageRow = memo(function AssistantMessageRow(props: {
 }) {
   const isUser = props.role === "user";
   const confirmationSummary = props.confirmationSummary;
+  const showTimeline = props.timeline.length > 0;
 
   return (
     <View style={isUser ? styles.userWrap : styles.assistantWrap}>
@@ -25,6 +30,12 @@ export const AssistantMessageRow = memo(function AssistantMessageRow(props: {
         <Text style={isUser ? styles.userBubble : styles.assistantBubble}>
           {props.text}
         </Text>
+      ) : null}
+      {showTimeline ? (
+        <AssistantTimeline
+          steps={props.timeline}
+          accessibilityLabel={props.timelineLabel}
+        />
       ) : null}
       {confirmationSummary !== null ? (
         <ConfirmationCard
