@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { emptyOrderFormDraft, type OrderFormDraft } from "./order-form-draft";
 import {
   createOrderPayload,
+  nextLastWrite,
   parseThenPlanOrderFormSave,
   planOrderFormSave,
   type OrderFormWrite,
@@ -170,5 +171,58 @@ describe("planOrderFormSave", () => {
       lastFailureKind: "network",
     });
     expect(planned.kind).toBe("write");
+  });
+
+  it("retries after an intervening edit that restores the same wire payload", () => {
+    const first = planOrderFormSave({
+      draft: validDraft(),
+      lastWrite: null,
+      lastFailureKind: null,
+    });
+    expect(first.kind).toBe("write");
+    if (first.kind !== "write") {
+      return;
+    }
+    const recorded = nextLastWrite(first, null);
+    expect(
+      planOrderFormSave({
+        draft: validDraft({ comment: "Упакувати окремо" }),
+        lastWrite: recorded,
+        lastFailureKind: "network",
+      }).kind,
+    ).toBe("write");
+    expect(
+      planOrderFormSave({
+        draft: validDraft({ comment: "" }),
+        lastWrite: recorded,
+        lastFailureKind: "network",
+      }),
+    ).toEqual({ kind: "retry" });
+    expect(
+      planOrderFormSave({
+        draft: validDraft({ comment: "  " }),
+        lastWrite: recorded,
+        lastFailureKind: "network",
+      }),
+    ).toEqual({ kind: "retry" });
+  });
+
+  it("does not retry when lastWrite matches but the retryable-failure signal was dropped", () => {
+    const first = planOrderFormSave({
+      draft: validDraft(),
+      lastWrite: null,
+      lastFailureKind: null,
+    });
+    expect(first.kind).toBe("write");
+    if (first.kind !== "write") {
+      return;
+    }
+    expect(
+      planOrderFormSave({
+        draft: validDraft(),
+        lastWrite: nextLastWrite(first, null),
+        lastFailureKind: null,
+      }).kind,
+    ).toBe("write");
   });
 });

@@ -125,6 +125,14 @@ export function planOrderFormSave(args: {
   return { kind: "write", write };
 }
 
+/** Same role as onboarding `nextLastSubmitted`: record the write before the round-trip. */
+export function nextLastWrite(
+  plan: OrderFormSavePlan,
+  previous: OrderFormWrite | null,
+): OrderFormWrite | null {
+  return plan.kind === "write" ? plan.write : previous;
+}
+
 export function parseThenPlanOrderFormSave(args: {
   readonly draft: OrderFormDraft;
   readonly lastWrite: OrderFormWrite | null;

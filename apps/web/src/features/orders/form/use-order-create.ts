@@ -8,9 +8,15 @@ import { useBlocker } from "@tanstack/react-router";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 
+import type { WireErrorCode } from "@showzy/contract";
+
 import { useApiClient } from "../../../api/api-provider";
 import { useContractMutation } from "../../../api/contract-mutation";
-import { describeQueryFailure, describeWireCode } from "../../../api/errors";
+import {
+  describeQueryFailure,
+  describeWireCode,
+  type QueryFailureKind,
+} from "../../../api/errors";
 import { useActiveCompany } from "../../../api/query-provider";
 import { interpolate } from "../../../i18n/locale";
 import {
@@ -44,6 +50,7 @@ import {
 } from "./order-form-draft";
 import { classifyOrderFormLoad } from "./order-form-load";
 import {
+  nextLastWrite,
   parseThenPlanOrderFormSave,
   type OrderFormWrite,
 } from "./order-form-plan";
@@ -105,6 +112,12 @@ export function useOrderCreate(args: {
   });
   const { isDirty, errors, isSubmitted, isValidating } = form.formState;
   const [lastWrite, setLastWrite] = useState<OrderFormWrite | null>(null);
+  // Planner retry signal. Do not read this from mutation.error after field
+  // edits, and do not mutation.reset() in field handlers — that drops the
+  // in-flight attempt so a restored payload would mint a new key.
+  const [lastFailureKind, setLastFailureKind] =
+    useState<QueryFailureKind | null>(null);
+  const [lastWireCode, setLastWireCode] = useState<WireErrorCode | null>(null);
   const [localBanner, setLocalBanner] = useState<BannerKey | null>(null);
   const [plannerErrors, setPlannerErrors] =
     useState<OrderFormFieldErrors>(emptyFieldErrors());
@@ -203,27 +216,28 @@ export function useOrderCreate(args: {
     const plan = parseThenPlanOrderFormSave({
       draft: cloneOrderFormDraft(form.getValues()),
       lastWrite,
-      lastFailureKind: failure?.kind ?? null,
-      lastWireCode: wireCode,
+      lastFailureKind,
+      lastWireCode,
     });
     if (plan.kind === "invalid") {
       setPlannerErrors(plan.errors);
       return;
     }
     setPlannerErrors(emptyFieldErrors());
-    if (plan.kind === "write") {
-      setLastWrite(plan.write);
-    }
+    setLastWrite(nextLastWrite(plan, lastWrite));
     try {
       const result =
         plan.kind === "retry"
           ? await mutation.retry()
           : await mutation.submit(plan.write.input);
+      setLastFailureKind(null);
+      setLastWireCode(null);
       skipLeaveRef.current = true;
       applyOrderCreateSuccess(queryClient, activeCompanyId);
       onCreatedRef.current(result.orderId);
-    } catch {
-      // Field/banner mapping comes from mutation.error + lastWrite.
+    } catch (error: unknown) {
+      setLastFailureKind(describeQueryFailure(error).kind);
+      setLastWireCode(describeWireCode(error));
     }
   }
 
@@ -281,7 +295,6 @@ export function useOrderCreate(args: {
       setPlannerErrors((prev) => ({ ...prev, customer: null }));
       setCustomerOpen(false);
       setCustomerQuery("");
-      mutation.reset();
       setLocalBanner(null);
     },
     setCustomerOpen,
@@ -325,7 +338,6 @@ export function useOrderCreate(args: {
       }
       dispatchPicker({ type: "close" });
       setProductQuery("");
-      mutation.reset();
     },
     stepQuantity: (index: number, delta: number) => {
       const items = form.getValues("items").map((item, itemIndex) =>
@@ -340,7 +352,6 @@ export function useOrderCreate(args: {
         shouldDirty: true,
         shouldValidate: isSubmitted,
       });
-      mutation.reset();
     },
     removeItem: (index: number) => {
       const items = form.getValues("items").toSpliced(index, 1);
@@ -352,13 +363,11 @@ export function useOrderCreate(args: {
         ...prev,
         items: items.length === 0 ? prev.items : null,
       }));
-      mutation.reset();
       setLocalBanner(null);
     },
     changeComment: (value: string) => {
       form.setValue("comment", value, { shouldDirty: true });
       setPlannerErrors((prev) => ({ ...prev, comment: null }));
-      mutation.reset();
       setLocalBanner(null);
     },
     submit: () => {

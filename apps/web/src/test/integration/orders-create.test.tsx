@@ -243,6 +243,86 @@ describe("orders create (SHO-379)", () => {
     expect(writes[0]?.input).toEqual(writes[1]?.input);
   });
 
+  it("retries the same attempt after a field edit that restores the wire payload", async () => {
+    signInWithFlowers();
+    seedCreateLookups();
+    listMineState.orderCreateNetworkFailuresRemaining = 1;
+    const { router } = await renderApp("/kviti-lviv/orders/new");
+    await waitForCreateForm();
+    await pickCustomerAndProduct();
+    submitCreateForm();
+    expect(await screen.findByText(copy.create.errors.network)).toBeDefined();
+    expect(createCalls()).toHaveLength(1);
+    const firstKey = createCalls()[0]?.idempotencyKey;
+    expect(firstKey?.length).toBeGreaterThan(0);
+    const comment = screen.getByLabelText(copy.create.commentLabel);
+    fireEvent.change(comment, { target: { value: "Упакувати окремо" } });
+    fireEvent.click(
+      screen.getByRole("button", { name: copy.create.qtyIncrease }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: copy.create.qtyDecrease }),
+    );
+    fireEvent.change(comment, { target: { value: "" } });
+    submitCreateForm();
+    expect(
+      await screen.findByRole("heading", { name: `#${CREATED_ORDER_NUMBER}` }),
+    ).toBeDefined();
+    expect(router.state.location.pathname).toBe(
+      `/kviti-lviv/orders/${CREATED_ORDER_ID}`,
+    );
+    const writes = createCalls();
+    expect(writes).toHaveLength(2);
+    expect(writes[0]?.idempotencyKey).toBe(writes[1]?.idempotencyKey);
+    expect(writes[0]?.input).toEqual(writes[1]?.input);
+    expect(writes[1]?.input).toEqual({
+      customer: { by: "id", id: ANNA_CUSTOMER.id },
+      items: [
+        {
+          product: { by: "id", id: ROSE_PRODUCT.id },
+          quantity: { milli: "1000" },
+        },
+      ],
+    });
+  });
+
+  it("mints a new create attempt when the payload changes after a retryable failure", async () => {
+    signInWithFlowers();
+    seedCreateLookups();
+    listMineState.orderCreateNetworkFailuresRemaining = 1;
+    const { router } = await renderApp("/kviti-lviv/orders/new");
+    await waitForCreateForm();
+    await pickCustomerAndProduct();
+    submitCreateForm();
+    expect(await screen.findByText(copy.create.errors.network)).toBeDefined();
+    expect(createCalls()).toHaveLength(1);
+    const firstKey = createCalls()[0]?.idempotencyKey;
+    expect(firstKey?.length).toBeGreaterThan(0);
+    fireEvent.change(screen.getByLabelText(copy.create.commentLabel), {
+      target: { value: "Упакувати окремо" },
+    });
+    submitCreateForm();
+    expect(
+      await screen.findByRole("heading", { name: `#${CREATED_ORDER_NUMBER}` }),
+    ).toBeDefined();
+    expect(router.state.location.pathname).toBe(
+      `/kviti-lviv/orders/${CREATED_ORDER_ID}`,
+    );
+    const writes = createCalls();
+    expect(writes).toHaveLength(2);
+    expect(writes[0]?.idempotencyKey).not.toBe(writes[1]?.idempotencyKey);
+    expect(writes[1]?.input).toEqual({
+      customer: { by: "id", id: ANNA_CUSTOMER.id },
+      items: [
+        {
+          product: { by: "id", id: ROSE_PRODUCT.id },
+          quantity: { milli: "1000" },
+        },
+      ],
+      comment: "Упакувати окремо",
+    });
+  });
+
   it("asks to leave when the dirty form navigates away", async () => {
     signInWithFlowers();
     seedCreateLookups();
