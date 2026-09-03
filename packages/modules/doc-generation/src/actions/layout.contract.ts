@@ -11,9 +11,7 @@ export const documentLayoutTypeSchema = z.enum([
 ]);
 
 export const documentLayoutKeySchema = z.enum([
-  "payment_invoice.plain",
   "payment_invoice.branded",
-  "delivery_note.plain",
   "delivery_note.parties",
 ]);
 

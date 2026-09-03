@@ -136,20 +136,22 @@ function DocumentFormReady(props: { readonly model: DocumentFormModel }) {
           onChange={model.setType}
         />
       </EditorSection>
-      <EditorSection title={form.layoutSectionTitle}>
-        <DocumentLayoutCards
-          copy={form}
-          cards={model.layoutCards}
-          value={model.layoutKey}
-          disabled={!model.fieldsEditable}
-          loading={model.layoutsStatus === "loading"}
-          failed={model.layoutsStatus === "error"}
-          error={model.layoutError}
-          preview={model.layoutPreview}
-          onRetry={model.retryLayouts}
-          onChange={model.pickLayout}
-        />
-      </EditorSection>
+      {model.layoutSectionVisible ? (
+        <EditorSection title={form.layoutSectionTitle}>
+          <DocumentLayoutCards
+            copy={form}
+            cards={model.layoutCards}
+            value={model.layoutKey}
+            disabled={!model.fieldsEditable}
+            loading={model.layoutsStatus === "loading"}
+            failed={model.layoutsStatus === "error"}
+            error={model.layoutError}
+            preview={model.layoutPreview}
+            onRetry={model.retryLayouts}
+            onChange={model.pickLayout}
+          />
+        </EditorSection>
+      ) : null}
       {model.basisVisible ? (
         <EditorSection title={form.basisSectionTitle}>
           <DocumentBasisField

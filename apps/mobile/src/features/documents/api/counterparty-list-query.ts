@@ -1,6 +1,7 @@
 /**
  * `customers.listCounterparties` for the document create picker
- * (SHO-238). Scoped to the chosen order's customer. Keys follow SHO-102.
+ * (SHO-238). Company-wide drain annotates the order list; the sheet
+ * then filters by the chosen order's customer. Keys follow SHO-102.
  * Lives in the documents slice so form code does not import
  * `features/customers`.
  */
@@ -16,6 +17,12 @@ export type ListCounterpartiesOutput = Awaited<
 >;
 export type DocumentCounterpartyListItem =
   ListCounterpartiesOutput["items"][number];
+
+export const DOCUMENT_COUNTERPARTIES_COMPANY_INPUT: {
+  readonly limit: number;
+} = {
+  limit: DOCUMENT_LOOKUP_PAGE_SIZE,
+};
 
 export function documentCounterpartiesLookupInput(customerId: string): {
   readonly customerId: string;
@@ -37,7 +44,7 @@ export function listDocumentCounterpartiesInfiniteOptions(args: {
   const client = args.client;
   const input =
     args.customerId === null
-      ? { limit: DOCUMENT_LOOKUP_PAGE_SIZE }
+      ? DOCUMENT_COUNTERPARTIES_COMPANY_INPUT
       : documentCounterpartiesLookupInput(args.customerId);
   return {
     ...contractInfiniteQueryOptions({
@@ -57,9 +64,6 @@ export function listDocumentCounterpartiesInfiniteOptions(args: {
       nextCursor: (page: ListCounterpartiesOutput) => page.nextCursor,
     }),
     enabled:
-      (args.enabled ?? true) &&
-      client !== null &&
-      args.companyId !== null &&
-      args.customerId !== null,
+      (args.enabled ?? true) && client !== null && args.companyId !== null,
   };
 }

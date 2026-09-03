@@ -32,7 +32,6 @@ describe("doc-generation source guards (SHO-236)", () => {
       "services/format-pdf-text.ts",
       "services/layouts.ts",
       "services/amount-in-words.ts",
-      "templates/document-pdf.tsx",
       "templates/extract-pdf-text.ts",
       "templates/invoice-branded-pdf.tsx",
       "templates/liberation-sans.ts",

@@ -4,7 +4,6 @@ import { pdf } from "@react-pdf/renderer";
 import { CoreInvariantError } from "@showzy/core/errors";
 
 import { canonicalizeLayoutKey, layoutRowForKey } from "../services/layouts.js";
-import { DocumentPdf } from "./document-pdf.js";
 import { InvoiceBrandedPdf } from "./invoice-branded-pdf.js";
 import type { DocumentPdfModel } from "./model.js";
 import { WaybillPartiesPdf } from "./waybill-parties-pdf.js";
@@ -53,9 +52,6 @@ function pdfElementForModel(model: DocumentPdfModel) {
       return <InvoiceBrandedPdf model={model} />;
     case "delivery_note.parties":
       return <WaybillPartiesPdf model={model} />;
-    case "payment_invoice.plain":
-    case "delivery_note.plain":
-      return <DocumentPdf model={model} />;
   }
 }
 

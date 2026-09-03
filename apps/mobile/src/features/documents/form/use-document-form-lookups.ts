@@ -1,3 +1,8 @@
+/**
+ * Order and counterparty lookups for the document create form
+ * (SHO-238). Binders live in documents `api/` so the form does not
+ * import the orders or customers feature folders.
+ */
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
@@ -15,6 +20,7 @@ import {
   documentCounterpartyOptionDescription,
   documentOrderOptionDescription,
   documentOrderOptionName,
+  firstCounterpartyNameByCustomerId,
 } from "./document-form-pickers";
 
 export type DocumentFormOrderRow = {
@@ -27,6 +33,7 @@ export type DocumentFormOrderRow = {
 export function useDocumentFormLookups(args: {
   readonly enabled: boolean;
   readonly orderId: string;
+  readonly missingCustomer: string;
 }): {
   readonly orderOptions: readonly OptionSelectItem[];
   readonly orderRows: readonly DocumentFormOrderRow[];
@@ -37,6 +44,7 @@ export function useDocumentFormLookups(args: {
   const { activeCompanyId } = useActiveCompany();
   const getActiveCompany = () => apiClient?.getActiveCompany() ?? null;
   const enabled = args.enabled;
+  const { missingCustomer, orderId } = args;
 
   const ordersQuery = useInfiniteQuery(
     listDocumentOrdersInfiniteOptions({
@@ -53,29 +61,13 @@ export function useDocumentFormLookups(args: {
     fetchNextPage: ordersQuery.fetchNextPage,
   });
 
-  const orderRows = useMemo((): readonly DocumentFormOrderRow[] => {
-    if (ordersQuery.data === undefined) {
-      return [];
-    }
-    return flattenPages(ordersQuery.data.pages).map((row) => ({
-      id: row.orderId,
-      customerId: row.customer.linkedCustomerId,
-      name: documentOrderOptionName(row),
-      description: documentOrderOptionDescription(row),
-    }));
-  }, [ordersQuery.data]);
-
-  const selectedOrder =
-    orderRows.find((row) => row.id === args.orderId) ?? null;
-  const customerId = selectedOrder?.customerId ?? null;
-
   const counterpartiesQuery = useInfiniteQuery(
     listDocumentCounterpartiesInfiniteOptions({
       client: apiClient,
       companyId: activeCompanyId,
-      customerId,
+      customerId: null,
       getActiveCompany,
-      enabled: enabled && customerId !== null,
+      enabled,
     }),
   );
   useDrainInfinitePages({
@@ -84,6 +76,37 @@ export function useDocumentFormLookups(args: {
     isFetchingNextPage: counterpartiesQuery.isFetchingNextPage,
     fetchNextPage: counterpartiesQuery.fetchNextPage,
   });
+
+  const counterpartyNameByCustomerId = useMemo(() => {
+    if (counterpartiesQuery.data === undefined) {
+      return new Map<string, string>();
+    }
+    return firstCounterpartyNameByCustomerId(
+      flattenPages(counterpartiesQuery.data.pages),
+    );
+  }, [counterpartiesQuery.data]);
+
+  const orderRows = useMemo((): readonly DocumentFormOrderRow[] => {
+    if (ordersQuery.data === undefined) {
+      return [];
+    }
+    return flattenPages(ordersQuery.data.pages).map((row) => {
+      const customerId = row.customer.linkedCustomerId;
+      const counterpartyName =
+        customerId === null
+          ? null
+          : (counterpartyNameByCustomerId.get(customerId) ?? null);
+      return {
+        id: row.orderId,
+        customerId,
+        name: documentOrderOptionName(row, missingCustomer),
+        description: documentOrderOptionDescription(row, counterpartyName),
+      };
+    });
+  }, [ordersQuery.data, counterpartyNameByCustomerId, missingCustomer]);
+
+  const selectedOrder = orderRows.find((row) => row.id === orderId) ?? null;
+  const customerId = selectedOrder?.customerId ?? null;
 
   const orderOptions = useMemo(
     () =>
@@ -98,17 +121,19 @@ export function useDocumentFormLookups(args: {
   );
 
   const counterpartyOptions = useMemo(() => {
-    if (counterpartiesQuery.data === undefined) {
+    if (counterpartiesQuery.data === undefined || customerId === null) {
       return [];
     }
     return optionSelectItems(
-      flattenPages(counterpartiesQuery.data.pages).map((row) => ({
-        id: row.id,
-        name: row.name,
-        description: documentCounterpartyOptionDescription(row),
-      })),
+      flattenPages(counterpartiesQuery.data.pages)
+        .filter((row) => row.customerId === customerId)
+        .map((row) => ({
+          id: row.id,
+          name: row.name,
+          description: documentCounterpartyOptionDescription(row),
+        })),
     );
-  }, [counterpartiesQuery.data]);
+  }, [counterpartiesQuery.data, customerId]);
 
   return {
     orderOptions,

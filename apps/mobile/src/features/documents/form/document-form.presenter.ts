@@ -16,6 +16,7 @@ import type { DocumentFormLoadState } from "./document-form-load";
 import {
   layoutKeyIsOffered,
   showsBasisField,
+  showsLayoutPicker,
   type DocumentFormLayoutsStatus,
   type DocumentLayoutOption,
 } from "./document-form-layouts";
@@ -115,6 +116,7 @@ export function presentDocumentFormView(args: {
   readonly layoutCards: readonly DocumentFormLayoutCard[];
   readonly layoutsStatus: DocumentFormLayoutsStatus;
   readonly layoutPreview: string | null;
+  readonly layoutSectionVisible: boolean;
   readonly orderSheetOpen: boolean;
   readonly counterpartySheetOpen: boolean;
   readonly selectedOrderId: string | null;
@@ -153,6 +155,10 @@ export function presentDocumentFormView(args: {
     layoutCards: args.layoutCards,
     layoutsStatus: args.layoutsStatus,
     layoutPreview: args.layoutPreview,
+    layoutSectionVisible: showsLayoutPicker(
+      args.layoutsStatus,
+      args.layoutCards.length,
+    ),
     orderSheetOpen: args.orderSheetOpen,
     counterpartySheetOpen: args.counterpartySheetOpen,
     selectedOrderId: args.orderId.length > 0 ? args.orderId : null,

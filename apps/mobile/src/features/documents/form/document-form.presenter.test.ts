@@ -10,18 +10,10 @@ import {
 const copy = documentsCopy("uk");
 
 const INVOICE_CARDS = [
-  { key: "payment_invoice.plain", label: "Простий рахунок" },
   { key: "payment_invoice.branded", label: "Фірмовий рахунок" },
 ] as const;
 
 const INVOICE_CATALOG = [
-  {
-    key: "payment_invoice.plain",
-    type: "payment_invoice" as const,
-    labelUk: "Простий рахунок",
-    labelEn: "Plain invoice",
-    isDefault: false,
-  },
   {
     key: "payment_invoice.branded",
     type: "payment_invoice" as const,
@@ -72,6 +64,7 @@ describe("presentDocumentFormView", () => {
     expect(view.orderValue).toBe("Замовлення 1");
     expect(view.counterpartyValue).toBe("ТОВ");
     expect(view.basisVisible).toBe(false);
+    expect(view.layoutSectionVisible).toBe(false);
   });
 
   it("shows submit on a ready create draft once a layout is selected", () => {
@@ -115,6 +108,7 @@ describe("presentDocumentFormView", () => {
     expect(view.selectedOrderId).toBeNull();
     expect(view.selectedCounterpartyId).toBeNull();
     expect(view.layoutKey).toBe("payment_invoice.branded");
+    expect(view.layoutSectionVisible).toBe(false);
   });
 
   it("hides basis for invoices and disables submit while layouts load", () => {
@@ -154,6 +148,7 @@ describe("presentDocumentFormView", () => {
     });
     expect(loading.submitDisabled).toBe(true);
     expect(loading.basisVisible).toBe(false);
+    expect(loading.layoutSectionVisible).toBe(false);
 
     const note = presentDocumentFormView({
       copy,
@@ -169,17 +164,9 @@ describe("presentDocumentFormView", () => {
       counterpartyId: "",
       layoutKey: "delivery_note.parties",
       layoutCards: [
-        { key: "delivery_note.plain", label: "Проста накладна" },
         { key: "delivery_note.parties", label: "Накладна зі сторонами" },
       ],
       layoutCatalog: [
-        {
-          key: "delivery_note.plain",
-          type: "delivery_note",
-          labelUk: "Проста накладна",
-          labelEn: "Plain delivery note",
-          isDefault: false,
-        },
         {
           key: "delivery_note.parties",
           type: "delivery_note",
@@ -195,5 +182,6 @@ describe("presentDocumentFormView", () => {
     });
     expect(note.basisVisible).toBe(true);
     expect(note.submitDisabled).toBe(false);
+    expect(note.layoutSectionVisible).toBe(false);
   });
 });

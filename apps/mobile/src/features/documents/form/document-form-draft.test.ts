@@ -54,7 +54,7 @@ describe("document form draft", () => {
     ).toBe(true);
     expect(
       isDocumentFormDirty(
-        validDraft({ layoutKey: "payment_invoice.plain" }),
+        validDraft({ layoutKey: "delivery_note.parties" }),
         validDraft(),
       ),
     ).toBe(true);

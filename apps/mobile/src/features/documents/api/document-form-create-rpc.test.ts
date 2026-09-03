@@ -15,13 +15,6 @@ const COMPANY_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
 const INVOICE_LAYOUTS = [
   {
-    key: "payment_invoice.plain" as const,
-    type: "payment_invoice" as const,
-    labelUk: "Простий рахунок",
-    labelEn: "Plain invoice",
-    isDefault: false,
-  },
-  {
     key: "payment_invoice.branded" as const,
     type: "payment_invoice" as const,
     labelUk: "Фірмовий рахунок",

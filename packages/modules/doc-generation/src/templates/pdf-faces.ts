@@ -67,26 +67,6 @@ export function pushIfPresent(
   }
 }
 
-export function faceLines(face: SellerFace | BuyerFace): string[] {
-  if (isCustomerFace(face)) {
-    return [face.displayName];
-  }
-  const named = face.name;
-  const legalName = "legalName" in face ? face.legalName : null;
-  const rows: string[] = [];
-  rows.push(legalName ?? named);
-  if (legalName !== null && legalName !== named) {
-    rows.push(named);
-  }
-  pushIfPresent(rows, "ЄДРПОУ", face.edrpou);
-  pushIfPresent(rows, "Адреса", face.legalAddress);
-  pushIfPresent(rows, "IBAN", face.iban);
-  pushIfPresent(rows, "Банк", bankLine(face.bankName, face.bankMfo));
-  pushIfPresent(rows, "Тел.", face.phone);
-  pushIfPresent(rows, "Email", face.email);
-  return rows;
-}
-
 export function supplierHeaderLines(face: SellerFace): string[] {
   const rows: string[] = [];
   if (face.legalName !== null && face.legalName.length > 0) {

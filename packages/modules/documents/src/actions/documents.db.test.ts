@@ -834,14 +834,14 @@ describe("documents.createFromOrder", () => {
     const created = await kit.invoke(createFromOrder, {
       orderId: fixtures.orderLayoutPlain,
       type: "payment_invoice",
-      layoutKey: "payment_invoice.plain",
+      layoutKey: "payment_invoice.branded",
     });
-    expect(created.templateName).toBe("payment_invoice.plain");
+    expect(created.templateName).toBe("payment_invoice.branded");
     expect(created.basis).toBeNull();
     const loaded = await kit.invoke(getDocument, {
       documentId: created.documentId,
     });
-    expect(loaded.templateName).toBe("payment_invoice.plain");
+    expect(loaded.templateName).toBe("payment_invoice.branded");
     expect(loaded.basis).toBeNull();
   });
 
