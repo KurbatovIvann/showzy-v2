@@ -4,8 +4,23 @@
  * previous conversation id or messages.
  */
 
+import {
+  entityResultIdsFromToolRuns,
+  findOwnConversationId,
+  hydratedUiMessagesFromConversation,
+  loadOrdersById,
+  type AssistantConversationDetail,
+  type AssistantListConversationsInput,
+  type AssistantListConversationsPage,
+  type AssistantResumeResult,
+} from "./assistant-hydrate";
+
 export type AssistantCompanyEpochRef = { current: number };
 export type AssistantConversationIdRef = { current: string | null };
+export type {
+  AssistantResumeResult,
+  HydratedAssistantUiMessage,
+} from "./assistant-hydrate";
 
 function isCurrentAssistantEpoch(
   companyEpochRef: AssistantCompanyEpochRef,
@@ -66,4 +81,68 @@ export function resetAssistantTenantSession(args: {
   args.conversationIdRef.current = null;
   args.setMessages([]);
   args.resetConfirmation();
+}
+
+/**
+ * Resume the signed-in user's own thread in the active company, or leave
+ * the sheet empty. Does not create a conversation and does not open a
+ * colleague's newest item.
+ */
+export async function resumeOwnAssistantConversation(args: {
+  readonly companyEpochRef: AssistantCompanyEpochRef;
+  readonly epoch: number;
+  readonly sessionUserId: string;
+  readonly listConversations: (
+    input: AssistantListConversationsInput,
+  ) => Promise<AssistantListConversationsPage>;
+  readonly getConversation: (input: {
+    readonly conversationId: string;
+  }) => Promise<AssistantConversationDetail>;
+  readonly getOrder: (orderId: string) => Promise<unknown>;
+}): Promise<AssistantResumeResult> {
+  if (!isCurrentAssistantEpoch(args.companyEpochRef, args.epoch)) {
+    return { kind: "dropped" };
+  }
+  const conversationId = await findOwnConversationId({
+    sessionUserId: args.sessionUserId,
+    listConversations: args.listConversations,
+  });
+  if (!isCurrentAssistantEpoch(args.companyEpochRef, args.epoch)) {
+    return { kind: "dropped" };
+  }
+  if (conversationId === null) {
+    return { kind: "empty" };
+  }
+  let detail: AssistantConversationDetail;
+  try {
+    detail = await args.getConversation({ conversationId });
+  } catch {
+    if (!isCurrentAssistantEpoch(args.companyEpochRef, args.epoch)) {
+      return { kind: "dropped" };
+    }
+    return { kind: "unavailable", conversationId };
+  }
+  if (!isCurrentAssistantEpoch(args.companyEpochRef, args.epoch)) {
+    return { kind: "dropped" };
+  }
+  if (detail.userId !== args.sessionUserId) {
+    return { kind: "empty" };
+  }
+  const orderIds = entityResultIdsFromToolRuns(detail.toolRuns);
+  const ordersById = await loadOrdersById({
+    orderIds,
+    getOrder: args.getOrder,
+  });
+  if (!isCurrentAssistantEpoch(args.companyEpochRef, args.epoch)) {
+    return { kind: "dropped" };
+  }
+  return {
+    kind: "resumed",
+    conversationId: detail.id,
+    messages: hydratedUiMessagesFromConversation({
+      messages: detail.messages,
+      toolRuns: detail.toolRuns,
+      ordersById,
+    }),
+  };
 }

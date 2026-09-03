@@ -3,8 +3,13 @@ import { describe, expect, it, vi } from "vitest";
 import {
   ensureAssistantConversation,
   resetAssistantTenantSession,
+  resumeOwnAssistantConversation,
   sendEnsuredAssistantMessage,
 } from "./assistant-session";
+import type {
+  AssistantConversationDetail,
+  AssistantListConversationsInput,
+} from "./assistant-hydrate";
 
 const conversationA = "11111111-1111-4111-8111-111111111111";
 const conversationB = "55555555-5555-4555-8555-555555555555";
@@ -129,5 +134,352 @@ describe("sendEnsuredAssistantMessage", () => {
     await expect(sendPromise).resolves.toBe("dropped");
     expect(conversationIdRef.current).toBeNull();
     expect(sendMessage).not.toHaveBeenCalled();
+  });
+});
+
+const sessionUser = "user-own";
+const colleagueUser = "user-colleague";
+const conversationColleague = "22222222-2222-4222-8222-222222222222";
+const orderId = "0f0e2d5c-4a1b-4c3d-9e8f-102938475601";
+const messageUserId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+const messageAssistantId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+
+function ownDetail(
+  conversationId: string,
+  body = "Ось картка.",
+): AssistantConversationDetail {
+  return {
+    id: conversationId,
+    userId: sessionUser,
+    messages: [
+      {
+        id: messageUserId,
+        role: "user",
+        body: "Покажи замовлення",
+        createdAt: "2026-09-03T10:00:00.000Z",
+      },
+      {
+        id: messageAssistantId,
+        role: "assistant",
+        body,
+        createdAt: "2026-09-03T10:00:01.000Z",
+      },
+    ],
+    toolRuns: [
+      {
+        id: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+        actionName: "orders.get",
+        toolCallId: "call-get",
+        resultIds: [orderId],
+        outcome: "success",
+        createdAt: "2026-09-03T10:00:01.000Z",
+      },
+    ],
+  };
+}
+
+describe("resumeOwnAssistantConversation", () => {
+  it("resumes the own-user thread and hydrates messages", async () => {
+    const listInputs: AssistantListConversationsInput[] = [];
+    const getInputs: Array<{ conversationId: string }> = [];
+    const getOrder = vi.fn((id: string) =>
+      Promise.resolve({
+        orderId: id,
+        orderNumber: "1049",
+        status: "confirmed",
+        totalGrossMinor: "1000",
+        currency: "UAH",
+      }),
+    );
+    const result = await resumeOwnAssistantConversation({
+      companyEpochRef: { current: 0 },
+      epoch: 0,
+      sessionUserId: sessionUser,
+      listConversations: (input) => {
+        listInputs.push(input);
+        return Promise.resolve({
+          items: [
+            { id: conversationColleague, userId: colleagueUser },
+            { id: conversationA, userId: sessionUser },
+          ],
+          nextCursor: null,
+        });
+      },
+      getConversation: (input) => {
+        getInputs.push(input);
+        return Promise.resolve(ownDetail(input.conversationId));
+      },
+      getOrder,
+    });
+    expect(result.kind).toBe("resumed");
+    if (result.kind !== "resumed") {
+      return;
+    }
+    expect(result.conversationId).toBe(conversationA);
+    expect(result.messages).toHaveLength(2);
+    expect(result.messages[0]?.parts).toEqual([
+      { type: "text", text: "Покажи замовлення" },
+    ]);
+    expect(result.messages[1]?.parts[0]).toEqual({
+      type: "text",
+      text: "Ось картка.",
+    });
+    expect(result.messages[1]?.parts[1]).toEqual({
+      type: "dynamic-tool",
+      toolName: "orders.get",
+      toolCallId: "call-get",
+      state: "output-available",
+      input: {},
+      output: {
+        orderId,
+        orderNumber: "1049",
+        status: "confirmed",
+        totalGrossMinor: "1000",
+        currency: "UAH",
+      },
+    });
+    expect(listInputs).toEqual([{}]);
+    expect(getInputs).toEqual([{ conversationId: conversationA }]);
+    expect(JSON.stringify(listInputs)).not.toContain("userId");
+    expect(JSON.stringify(getInputs)).not.toContain("userId");
+    expect(JSON.stringify(listInputs)).not.toContain("companyId");
+    expect(getOrder).toHaveBeenCalledWith(orderId);
+  });
+
+  it("skips a colleague newest item and leaves the sheet empty", async () => {
+    const getConversation = vi.fn();
+    const getOrder = vi.fn();
+    const result = await resumeOwnAssistantConversation({
+      companyEpochRef: { current: 0 },
+      epoch: 0,
+      sessionUserId: sessionUser,
+      listConversations: () =>
+        Promise.resolve({
+          items: [{ id: conversationColleague, userId: colleagueUser }],
+          nextCursor: null,
+        }),
+      getConversation,
+      getOrder,
+    });
+    expect(result).toEqual({ kind: "empty" });
+    expect(getConversation).not.toHaveBeenCalled();
+    expect(getOrder).not.toHaveBeenCalled();
+  });
+
+  it("does not reuse the previous conversation after a company-switch reset", async () => {
+    const conversationIdRef = { current: conversationA };
+    const companyEpochRef = { current: 0 };
+    resetAssistantTenantSession({
+      conversationIdRef,
+      setMessages: () => undefined,
+      resetConfirmation: () => undefined,
+    });
+    companyEpochRef.current += 1;
+    const result = await resumeOwnAssistantConversation({
+      companyEpochRef,
+      epoch: 1,
+      sessionUserId: sessionUser,
+      listConversations: () =>
+        Promise.resolve({
+          items: [{ id: conversationB, userId: sessionUser }],
+          nextCursor: null,
+        }),
+      getConversation: (input) =>
+        Promise.resolve(ownDetail(input.conversationId)),
+      getOrder: (id) =>
+        Promise.resolve({
+          orderId: id,
+          orderNumber: "1050",
+          status: "new",
+          totalGrossMinor: "0",
+          currency: "UAH",
+        }),
+    });
+    expect(conversationIdRef.current).toBeNull();
+    expect(result.kind).toBe("resumed");
+    if (result.kind !== "resumed") {
+      return;
+    }
+    expect(result.conversationId).toBe(conversationB);
+    expect(result.conversationId).not.toBe(conversationA);
+  });
+
+  it("drops an in-flight resume after company switch", async () => {
+    const companyEpochRef = { current: 0 };
+    let resolveList:
+      | ((value: {
+          readonly items: readonly {
+            readonly id: string;
+            readonly userId: string;
+          }[];
+          readonly nextCursor: string | null;
+        }) => void)
+      | undefined;
+    const getConversation = vi.fn();
+    const resumePromise = resumeOwnAssistantConversation({
+      companyEpochRef,
+      epoch: 0,
+      sessionUserId: sessionUser,
+      listConversations: () =>
+        new Promise((resolve) => {
+          resolveList = resolve;
+        }),
+      getConversation,
+      getOrder: () => Promise.resolve(null),
+    });
+    companyEpochRef.current += 1;
+    resolveList?.({
+      items: [{ id: conversationA, userId: sessionUser }],
+      nextCursor: null,
+    });
+    await expect(resumePromise).resolves.toEqual({ kind: "dropped" });
+    expect(getConversation).not.toHaveBeenCalled();
+  });
+
+  it("does not call orders.get for an unrestorable list run", async () => {
+    const getOrder = vi.fn();
+    const result = await resumeOwnAssistantConversation({
+      companyEpochRef: { current: 0 },
+      epoch: 0,
+      sessionUserId: sessionUser,
+      listConversations: () =>
+        Promise.resolve({
+          items: [{ id: conversationA, userId: sessionUser }],
+          nextCursor: null,
+        }),
+      getConversation: () =>
+        Promise.resolve({
+          id: conversationA,
+          userId: sessionUser,
+          messages: [
+            {
+              id: messageAssistantId,
+              role: "assistant",
+              body: "Ось список.",
+              createdAt: "2026-09-03T10:00:01.000Z",
+            },
+          ],
+          toolRuns: [
+            {
+              id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+              actionName: "orders.list",
+              toolCallId: "call-list",
+              resultIds: [],
+              outcome: "success",
+              createdAt: "2026-09-03T10:00:01.000Z",
+            },
+          ],
+        }),
+      getOrder,
+    });
+    expect(result.kind).toBe("resumed");
+    expect(getOrder).not.toHaveBeenCalled();
+    if (result.kind !== "resumed") {
+      return;
+    }
+    expect(result.messages[0]?.parts).toEqual([
+      { type: "text", text: "Ось список." },
+    ]);
+  });
+
+  it("returns empty when list claims own userId but getConversation belongs to a colleague", async () => {
+    const getOrder = vi.fn();
+    const result = await resumeOwnAssistantConversation({
+      companyEpochRef: { current: 0 },
+      epoch: 0,
+      sessionUserId: sessionUser,
+      listConversations: () =>
+        Promise.resolve({
+          items: [{ id: conversationA, userId: sessionUser }],
+          nextCursor: null,
+        }),
+      getConversation: () =>
+        Promise.resolve({
+          ...ownDetail(conversationA),
+          userId: colleagueUser,
+        }),
+      getOrder,
+    });
+    expect(result).toEqual({ kind: "empty" });
+    expect(getOrder).not.toHaveBeenCalled();
+  });
+
+  it("pins the found conversation id when getConversation throws", async () => {
+    const getOrder = vi.fn();
+    const getConversation = vi.fn(() =>
+      Promise.reject(new Error("getConversation unavailable")),
+    );
+    const result = await resumeOwnAssistantConversation({
+      companyEpochRef: { current: 0 },
+      epoch: 0,
+      sessionUserId: sessionUser,
+      listConversations: () =>
+        Promise.resolve({
+          items: [{ id: conversationA, userId: sessionUser }],
+          nextCursor: null,
+        }),
+      getConversation,
+      getOrder,
+    });
+    expect(result).toEqual({
+      kind: "unavailable",
+      conversationId: conversationA,
+    });
+    expect(getConversation).toHaveBeenCalledWith({
+      conversationId: conversationA,
+    });
+    expect(getOrder).not.toHaveBeenCalled();
+  });
+
+  it("does not create a second conversation after getConversation fails", async () => {
+    const resume = await resumeOwnAssistantConversation({
+      companyEpochRef: { current: 0 },
+      epoch: 0,
+      sessionUserId: sessionUser,
+      listConversations: () =>
+        Promise.resolve({
+          items: [{ id: conversationA, userId: sessionUser }],
+          nextCursor: null,
+        }),
+      getConversation: () => Promise.reject(new Error("unavailable")),
+      getOrder: vi.fn(),
+    });
+    expect(resume.kind).toBe("unavailable");
+    if (resume.kind !== "unavailable") {
+      return;
+    }
+    const conversationIdRef = { current: resume.conversationId };
+    let created = 0;
+    const sendMessage = vi.fn(() => Promise.resolve());
+    await sendEnsuredAssistantMessage({
+      conversationIdRef,
+      companyEpochRef: { current: 0 },
+      create: () => {
+        created += 1;
+        return Promise.resolve({ id: conversationB });
+      },
+      sendMessage,
+      text: "next turn",
+    });
+    expect(created).toBe(0);
+    expect(conversationIdRef.current).toBe(conversationA);
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not treat a listConversations failure as no own row", async () => {
+    const getConversation = vi.fn();
+    const getOrder = vi.fn();
+    await expect(
+      resumeOwnAssistantConversation({
+        companyEpochRef: { current: 0 },
+        epoch: 0,
+        sessionUserId: sessionUser,
+        listConversations: () => Promise.reject(new Error("list failed")),
+        getConversation,
+        getOrder,
+      }),
+    ).rejects.toThrow("list failed");
+    expect(getConversation).not.toHaveBeenCalled();
+    expect(getOrder).not.toHaveBeenCalled();
   });
 });
