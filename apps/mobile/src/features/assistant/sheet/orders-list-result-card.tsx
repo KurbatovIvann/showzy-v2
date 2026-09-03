@@ -17,8 +17,9 @@ export const OrdersListResultCard = memo(function OrdersListResultCard(props: {
 }) {
   const { card } = props;
   const showChips = card.chips.length > 0;
-  const showEmpty = card.emptyTitle !== null;
-  const showCta = card.ctaLabel !== null && card.ctaHref !== null;
+  const emptyTitle = card.emptyTitle;
+  const emptyDescription = card.emptyDescription;
+  const ctaLabel = card.ctaLabel;
 
   return (
     <Card>
@@ -34,15 +35,11 @@ export const OrdersListResultCard = memo(function OrdersListResultCard(props: {
             ))}
           </View>
         ) : null}
-        {showEmpty ? (
+        {emptyTitle !== null ? (
           <View style={styles.empty}>
-            {card.emptyTitle !== null ? (
-              <Text style={styles.emptyTitle}>{card.emptyTitle}</Text>
-            ) : null}
-            {card.emptyDescription !== null ? (
-              <Text style={styles.emptyDescription}>
-                {card.emptyDescription}
-              </Text>
+            <Text style={styles.emptyTitle}>{emptyTitle}</Text>
+            {emptyDescription !== null ? (
+              <Text style={styles.emptyDescription}>{emptyDescription}</Text>
             ) : null}
           </View>
         ) : (
@@ -66,14 +63,14 @@ export const OrdersListResultCard = memo(function OrdersListResultCard(props: {
             {footnote}
           </Text>
         ))}
-        {showCta ? (
+        {ctaLabel === null || card.ctaHref === null ? null : (
           <Button
             variant="secondary"
             fullWidth
-            label={card.ctaLabel ?? ""}
+            label={ctaLabel}
             onPress={props.onOpenOrders}
           />
-        ) : null}
+        )}
       </View>
     </Card>
   );

@@ -391,9 +391,10 @@ describe("assistant result card composition", () => {
       new URL("../sheet/order-entity-card.tsx", import.meta.url),
       "utf8",
     );
-    const mapper = readFileSync(new URL("./result-cards.ts", import.meta.url), {
-      encoding: "utf8",
-    });
+    const mapper = readFileSync(
+      new URL("./result-cards.ts", import.meta.url),
+      "utf8",
+    );
     const messageRow = readFileSync(
       new URL("../sheet/assistant-message-row.tsx", import.meta.url),
       "utf8",
