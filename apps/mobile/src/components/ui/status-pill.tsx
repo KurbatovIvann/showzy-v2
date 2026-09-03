@@ -1,8 +1,16 @@
 import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
-export type StatusPillTone =
-  "neutral" | "action" | "success" | "attention" | "danger";
+export const STATUS_PILL_TONES = [
+  "neutral",
+  "action",
+  "focus",
+  "success",
+  "attention",
+  "danger",
+] as const;
+
+export type StatusPillTone = (typeof STATUS_PILL_TONES)[number];
 
 export type StatusPillSize = "sm" | "md";
 
@@ -61,6 +69,12 @@ const styles = StyleSheet.create((theme) => ({
   },
   actionLabel: {
     color: theme.colors.accent,
+  },
+  focus: {
+    backgroundColor: theme.colors.focusSoft,
+  },
+  focusLabel: {
+    color: theme.colors.focus,
   },
   success: {
     backgroundColor: theme.colors.successSoft,

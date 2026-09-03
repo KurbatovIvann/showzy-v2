@@ -101,8 +101,8 @@ group with a status name («В роботі», «Завершені»).
 | Виконано | `success` | `#237A4B` / `#E6F2EA` |
 | Скасовано | `danger` | `#C0392B` / `#FBEAE7` |
 
-`focus` is a web-canvas token; it is not yet in mobile Unistyles /
-`StatusPill`. Shipped `orders.status` CHECK is
+`focus` / `focusSoft` ship in mobile Unistyles and `StatusPill`.
+Shipped `orders.status` CHECK is
 `new | confirmed | in_progress | done | canceled`.
 
 ## Catalog list (T3 canvas lock)

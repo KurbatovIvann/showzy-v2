@@ -32,6 +32,9 @@ describe("canvas token map (ADR-0024)", () => {
     expect(lightPalette.mutedForeground).toBe("#6E6A61");
     expect(lightPalette.accent).toBe("#2F6FED");
     expect(lightPalette.accentSoft).toBe("#E8F0FF");
+    expect(lightPalette.focus).toBe("#5B4BDB");
+    expect(lightPalette.focusSoft).toBe("#EEEBFF");
+    expect(lightPalette.focusForeground).toBe("#FFFFFF");
     expect(lightPalette.ring).toBe("#2F6FED");
     expect(lightPalette.border).toBe("#E5E2DA");
     expect(lightPalette.input).toBe("#E5E2DA");
@@ -52,6 +55,9 @@ describe("canvas token map (ADR-0024)", () => {
     expect(darkPalette.card).toBe("#211F1A");
     expect(darkPalette.accent).toBe("#5B8FFF");
     expect(darkPalette.accentSoft).toBe("#1A2744");
+    expect(darkPalette.focus).toBe("#8B82FF");
+    expect(darkPalette.focusSoft).toBe("#221A44");
+    expect(darkPalette.focusForeground).toBe("#161410");
     expect(darkPalette.ring).toBe("#5B8FFF");
     expect(darkPalette.border).toBe("#322F2A");
     expect(darkPalette.destructive).toBe("#D45B4F");

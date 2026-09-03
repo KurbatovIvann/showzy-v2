@@ -6,6 +6,7 @@ import {
   canFetchFileDownloadUrls,
   orderCreateScreenActions,
   orderDetailActions,
+  orderDetailPrimaryWrite,
   ordersHeaderActions,
 } from "./order-permissions";
 
@@ -48,36 +49,56 @@ describe("order permission affordances", () => {
     });
   });
 
-  it("shows confirm/cancel for every seeded role that holds orders:edit", () => {
+  it("shows status writes for every seeded role that holds orders:edit", () => {
     expect(canEditOrders("owner")).toBe(true);
     expect(canEditOrders("admin")).toBe(true);
     expect(canEditOrders("manager")).toBe(true);
     expect(canEditOrders("employee")).toBe(true);
   });
 
-  it("hides confirm and cancel when orders:edit is not granted", () => {
-    expect(orderDetailActions({ canEdit: false, status: "new" })).toEqual({
+  it("hides every write when orders:edit is not granted", () => {
+    const hidden = {
       showConfirm: false,
+      showStart: false,
+      showComplete: false,
       showActions: false,
       cancelEnabled: false,
-    });
+    };
+    expect(orderDetailActions({ canEdit: false, status: "new" })).toEqual(
+      hidden,
+    );
     expect(orderDetailActions({ canEdit: false, status: "confirmed" })).toEqual(
-      {
-        showConfirm: false,
-        showActions: false,
-        cancelEnabled: false,
-      },
+      hidden,
+    );
+    expect(
+      orderDetailActions({ canEdit: false, status: "in_progress" }),
+    ).toEqual(hidden);
+    expect(orderDetailActions({ canEdit: false, status: "done" })).toEqual(
+      hidden,
+    );
+    expect(orderDetailActions({ canEdit: false, status: "canceled" })).toEqual(
+      hidden,
     );
   });
 
-  it("shows confirm only for new and cancel only for open statuses", () => {
+  it("maps one primary CTA per open status and enables cancel only while open", () => {
+    expect(orderDetailPrimaryWrite("new")).toBe("confirm");
+    expect(orderDetailPrimaryWrite("confirmed")).toBe("start");
+    expect(orderDetailPrimaryWrite("in_progress")).toBe("complete");
+    expect(orderDetailPrimaryWrite("done")).toBeNull();
+    expect(orderDetailPrimaryWrite("canceled")).toBeNull();
+
     expect(orderDetailActions({ canEdit: true, status: "new" })).toEqual({
       showConfirm: true,
+      showStart: false,
+      showComplete: false,
       showActions: true,
       cancelEnabled: true,
     });
     expect(orderDetailActions({ canEdit: true, status: "confirmed" })).toEqual({
       showConfirm: false,
+      showStart: true,
+      showComplete: false,
       showActions: true,
       cancelEnabled: true,
     });
@@ -85,16 +106,22 @@ describe("order permission affordances", () => {
       orderDetailActions({ canEdit: true, status: "in_progress" }),
     ).toEqual({
       showConfirm: false,
+      showStart: false,
+      showComplete: true,
       showActions: true,
       cancelEnabled: true,
     });
     expect(orderDetailActions({ canEdit: true, status: "done" })).toEqual({
       showConfirm: false,
+      showStart: false,
+      showComplete: false,
       showActions: true,
       cancelEnabled: false,
     });
     expect(orderDetailActions({ canEdit: true, status: "canceled" })).toEqual({
       showConfirm: false,
+      showStart: false,
+      showComplete: false,
       showActions: true,
       cancelEnabled: false,
     });

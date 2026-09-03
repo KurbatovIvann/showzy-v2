@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import { ordersCopy } from "../../../i18n/orders";
 import type { OrderListItem } from "../api/order.queries";
 import { LIST_ORDERS_QUERY_MAX as capsQueryMax } from "../shared/order-caps";
-import { isOpenOrderStatus } from "../shared/order-status";
 import {
   classifyOrdersList,
   customerNameLabel,
@@ -11,17 +10,19 @@ import {
   formatOrderCreatedAt,
   groupOrderRows,
   hasActiveStatusFilter,
+  isClosedOrderStatus,
+  isOpenOrderStatus,
   listOrdersPageInput,
   localizeCustomerNameSnapshot,
   normalizeOrdersSearch,
   orderGroupHeaderLabel,
   orderStatusTone,
-  ORDER_STATUS_FILTERS,
   resolveCustomerNameHydration,
   stickyHeaderIndices,
   toggleOrderStatusFilter,
   toOrderRowView,
   LIST_ORDERS_QUERY_MAX,
+  ORDER_STATUS_FILTERS,
   UNLINKED_CUSTOMER_NAME_SNAPSHOT,
   type OrderRowView,
 } from "./orders-list.presenter";
@@ -30,9 +31,9 @@ const CUSTOMER_A = "11111111-1111-4111-8111-111111111111";
 const CUSTOMER_B = "22222222-2222-4222-8222-222222222222";
 const ORDER_NEW = "0f0e2d5c-4a1b-4c3d-9e8f-102938475601";
 const ORDER_CONFIRMED = "1f0e2d5c-4a1b-4c3d-9e8f-102938475602";
+const ORDER_CANCELED = "2f0e2d5c-4a1b-4c3d-9e8f-102938475603";
 const ORDER_IN_PROGRESS = "3f0e2d5c-4a1b-4c3d-9e8f-102938475604";
 const ORDER_DONE = "4f0e2d5c-4a1b-4c3d-9e8f-102938475605";
-const ORDER_CANCELED = "2f0e2d5c-4a1b-4c3d-9e8f-102938475603";
 
 function item(overrides: Partial<OrderListItem> = {}): OrderListItem {
   return {
@@ -57,7 +58,7 @@ function row(overrides: Partial<OrderRowView> = {}): OrderRowView {
     customerName: "Марія Ткаченко",
     customerNamePending: false,
     status: "new",
-    statusLabel: "Новий",
+    statusLabel: "Нове",
     statusTone: "action",
     metaLabel: "2 позиції · 25 серп. 2026",
     totalLabel: "1 250 ₴",
@@ -66,7 +67,7 @@ function row(overrides: Partial<OrderRowView> = {}): OrderRowView {
 }
 
 describe("toggleOrderStatusFilter", () => {
-  it("adds, removes, and keeps canonical CHECK order", () => {
+  it("pins five CHECK chips and never uses active/all/completed as wire values", () => {
     expect(ORDER_STATUS_FILTERS).toEqual([
       "new",
       "confirmed",
@@ -74,6 +75,12 @@ describe("toggleOrderStatusFilter", () => {
       "done",
       "canceled",
     ]);
+    expect(ORDER_STATUS_FILTERS).not.toContain("active");
+    expect(ORDER_STATUS_FILTERS).not.toContain("all");
+    expect(ORDER_STATUS_FILTERS).not.toContain("completed");
+  });
+
+  it("adds, removes, and keeps canonical CHECK order", () => {
     expect(toggleOrderStatusFilter([], "confirmed")).toEqual(["confirmed"]);
     expect(toggleOrderStatusFilter(["confirmed"], "new")).toEqual([
       "new",
@@ -82,6 +89,11 @@ describe("toggleOrderStatusFilter", () => {
     expect(
       toggleOrderStatusFilter(["new", "confirmed", "canceled"], "confirmed"),
     ).toEqual(["new", "canceled"]);
+    expect(toggleOrderStatusFilter(["done", "new"], "in_progress")).toEqual([
+      "new",
+      "in_progress",
+      "done",
+    ]);
     expect(
       toggleOrderStatusFilter(["canceled", "done"], "in_progress"),
     ).toEqual(["in_progress", "done", "canceled"]);
@@ -116,9 +128,11 @@ describe("listOrdersPageInput", () => {
       kind: "page.summary",
       filter: { statuses: ["canceled"] },
     });
-    expect(listOrdersPageInput(["new", "canceled"], undefined)).toEqual({
+    expect(
+      listOrdersPageInput(["new", "in_progress", "done"], undefined),
+    ).toEqual({
       kind: "page.summary",
-      filter: { statuses: ["new", "canceled"] },
+      filter: { statuses: ["new", "in_progress", "done"] },
     });
     expect(
       listOrdersPageInput(
@@ -132,6 +146,7 @@ describe("listOrdersPageInput", () => {
       },
     });
     expect(hasActiveStatusFilter(["new"])).toBe(true);
+    expect(hasActiveStatusFilter(["in_progress"])).toBe(true);
   });
 
   it("omits the query key entirely when there is no search", () => {
@@ -267,23 +282,29 @@ describe("formatOrderCreatedAt", () => {
   });
 });
 
-describe("orderStatusTone / isOpenOrderStatus", () => {
-  it("treats new, confirmed, and in_progress as the open/active group", () => {
+describe("orderStatusTone / open vs closed", () => {
+  it("maps each CHECK status onto the chrome tone", () => {
+    expect(orderStatusTone("new")).toBe("action");
+    expect(orderStatusTone("confirmed")).toBe("focus");
+    expect(orderStatusTone("in_progress")).toBe("attention");
+    expect(orderStatusTone("done")).toBe("success");
+    expect(orderStatusTone("canceled")).toBe("danger");
+  });
+
+  it("treats new+confirmed+in_progress as active and done+canceled as closed", () => {
     expect(isOpenOrderStatus("new")).toBe(true);
     expect(isOpenOrderStatus("confirmed")).toBe(true);
     expect(isOpenOrderStatus("in_progress")).toBe(true);
     expect(isOpenOrderStatus("done")).toBe(false);
     expect(isOpenOrderStatus("canceled")).toBe(false);
-    expect(orderStatusTone("new")).toBe("action");
-    expect(orderStatusTone("confirmed")).toBe("action");
-    expect(orderStatusTone("in_progress")).toBe("attention");
-    expect(orderStatusTone("done")).toBe("success");
-    expect(orderStatusTone("canceled")).toBe("danger");
+    expect(isClosedOrderStatus("done")).toBe(true);
+    expect(isClosedOrderStatus("canceled")).toBe(true);
+    expect(isClosedOrderStatus("in_progress")).toBe(false);
   });
 });
 
 describe("groupOrderRows", () => {
-  it("groups new+confirmed+in_progress as active and done+canceled as closed", () => {
+  it("groups active (new+confirmed+in_progress) then closed (done+canceled)", () => {
     const entries = groupOrderRows([
       row({ id: ORDER_NEW, status: "new" }),
       row({
@@ -301,7 +322,11 @@ describe("groupOrderRows", () => {
         status: "done",
         statusTone: "success",
       }),
-      row({ id: ORDER_CONFIRMED, status: "confirmed" }),
+      row({
+        id: ORDER_CONFIRMED,
+        status: "confirmed",
+        statusTone: "focus",
+      }),
     ]);
     expect(entries.map((entry) => entry.type)).toEqual([
       "header",
@@ -314,7 +339,7 @@ describe("groupOrderRows", () => {
     ]);
     expect(entries[0]).toEqual({
       type: "header",
-      key: "inProgress",
+      key: "active",
       count: 3,
     });
     expect(entries[1]?.type === "row" ? entries[1].order.id : null).toBe(
@@ -328,7 +353,7 @@ describe("groupOrderRows", () => {
     );
     expect(entries[4]).toEqual({
       type: "header",
-      key: "completed",
+      key: "closed",
       count: 2,
     });
     expect(entries[5]?.type === "row" ? entries[5].order.id : null).toBe(
@@ -344,7 +369,7 @@ describe("groupOrderRows", () => {
     expect(
       groupOrderRows([row({ id: ORDER_CANCELED, status: "canceled" })]),
     ).toEqual([
-      { type: "header", key: "completed", count: 1 },
+      { type: "header", key: "closed", count: 1 },
       {
         type: "row",
         order: row({ id: ORDER_CANCELED, status: "canceled" }),
@@ -354,23 +379,29 @@ describe("groupOrderRows", () => {
 });
 
 describe("orderGroupHeaderLabel", () => {
-  it("interpolates Active/Closed group titles, not status labels", () => {
-    expect(orderGroupHeaderLabel("inProgress", 3, ordersCopy("uk"))).toBe(
+  it("interpolates Активні / Закриті, never В роботі / Завершені as group titles", () => {
+    expect(orderGroupHeaderLabel("active", 3, ordersCopy("uk"))).toBe(
       "Активні · 3",
     );
-    expect(orderGroupHeaderLabel("completed", 1, ordersCopy("uk"))).toBe(
+    expect(orderGroupHeaderLabel("closed", 1, ordersCopy("uk"))).toBe(
       "Закриті · 1",
     );
-    expect(orderGroupHeaderLabel("completed", 1, ordersCopy("en"))).toBe(
+    expect(orderGroupHeaderLabel("closed", 1, ordersCopy("en"))).toBe(
       "Closed · 1",
     );
-    expect(orderGroupHeaderLabel("inProgress", 2, ordersCopy("en"))).toBe(
+    expect(orderGroupHeaderLabel("active", 2, ordersCopy("en"))).toBe(
       "Active · 2",
     );
-    expect(ordersCopy("uk").groups.inProgress).not.toBe(
+    expect(orderGroupHeaderLabel("active", 1, ordersCopy("uk"))).not.toContain(
+      "В роботі",
+    );
+    expect(orderGroupHeaderLabel("closed", 1, ordersCopy("uk"))).not.toContain(
+      "Завершені",
+    );
+    expect(ordersCopy("uk").groups.active).not.toBe(
       ordersCopy("uk").statuses.in_progress,
     );
-    expect(ordersCopy("uk").groups.completed).not.toBe(
+    expect(ordersCopy("uk").groups.closed).not.toBe(
       ordersCopy("uk").statuses.done,
     );
   });

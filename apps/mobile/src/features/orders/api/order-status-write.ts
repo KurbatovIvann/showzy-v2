@@ -1,8 +1,9 @@
 /**
- * Status-only order writes (SHO-212). Confirm and cancel are distinct
- * actions so a failed confirm does not retry as cancel. Cache
- * invalidation is post-success only — never optimistic. Source of truth
- * stays the order domain (`orders.get`), not chat or any projection.
+ * Status-only order writes (SHO-212 / SHO-376). Confirm, start,
+ * complete, and cancel are distinct actions so a failed confirm does not
+ * retry as start. Cache invalidation is post-success only — never
+ * optimistic. Source of truth stays the order domain (`orders.get`),
+ * not chat or any projection.
  */
 import type { MutationCallOptions } from "@showzy/contract";
 import type { QueryClient } from "@tanstack/react-query";
@@ -11,6 +12,8 @@ import { ordersWriteInvalidationKeys } from "./order-cache";
 
 export type OrderStatusWrite =
   | { readonly kind: "confirm"; readonly orderId: string }
+  | { readonly kind: "start"; readonly orderId: string }
+  | { readonly kind: "complete"; readonly orderId: string }
   | { readonly kind: "cancel"; readonly orderId: string };
 
 export type OrderStatusTransport = {
@@ -24,6 +27,22 @@ export type OrderStatusTransport = {
         customerId: string | null;
         status: "confirmed";
         confirmedAt: string;
+      }>;
+      readonly start: (
+        input: { orderId: string },
+        options: MutationCallOptions,
+      ) => Promise<{
+        orderId: string;
+        customerId: string | null;
+        status: "in_progress";
+      }>;
+      readonly complete: (
+        input: { orderId: string },
+        options: MutationCallOptions,
+      ) => Promise<{
+        orderId: string;
+        customerId: string | null;
+        status: "done";
       }>;
       readonly cancel: (
         input: { orderId: string },
@@ -45,6 +64,13 @@ export function bindOrderStatusMutate(client: OrderStatusTransport) {
     switch (input.kind) {
       case "confirm":
         return client.client.orders.confirm(
+          { orderId: input.orderId },
+          options,
+        );
+      case "start":
+        return client.client.orders.start({ orderId: input.orderId }, options);
+      case "complete":
+        return client.client.orders.complete(
           { orderId: input.orderId },
           options,
         );

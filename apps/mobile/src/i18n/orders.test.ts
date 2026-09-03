@@ -41,21 +41,26 @@ describe("orders copy", () => {
     expect(uk.filterReset).toBe("Скинути");
     expect(uk.filterApply).toBe("Показати");
     expect(uk.statuses).toEqual({
-      new: "Новий",
+      new: "Нове",
       confirmed: "Підтверджено",
       in_progress: "В роботі",
       done: "Виконано",
       canceled: "Скасовано",
     });
-    expect(en.statuses.in_progress).toBe("In progress");
-    expect(en.statuses.done).toBe("Done");
+    expect(en.statuses).toEqual({
+      new: "New",
+      confirmed: "Confirmed",
+      in_progress: "In progress",
+      done: "Done",
+      canceled: "Canceled",
+    });
     expect(uk.groups).toEqual({
-      inProgress: "Активні",
-      completed: "Закриті",
+      active: "Активні",
+      closed: "Закриті",
     });
     expect(en.groups).toEqual({
-      inProgress: "Active",
-      completed: "Closed",
+      active: "Active",
+      closed: "Closed",
     });
     expect(uk.missingCustomer).toBe("Клієнт видалений");
     expect(uk.empty.offlineTitle).toBe("Немає зʼєднання");
@@ -77,8 +82,11 @@ describe("orders copy", () => {
     expect(uk.empty.reset).toBe("Скинути пошук і фільтри");
     expect(Object.keys(uk.statuses)).toContain("in_progress");
     expect(Object.keys(uk.statuses)).toContain("done");
-    expect(Object.keys(uk.statuses)).not.toContain("active");
     expect(Object.keys(uk.statuses)).not.toContain("completed");
+    expect(Object.keys(uk.statuses)).not.toContain("active");
+    expect(Object.keys(uk.statuses)).not.toContain("all");
+    expect(Object.keys(uk.groups)).not.toContain("inProgress");
+    expect(Object.keys(uk.groups)).not.toContain("completed");
     expect(JSON.stringify(uk)).not.toContain("Оплачен");
   });
 
@@ -92,6 +100,8 @@ describe("orders copy", () => {
     expect(uk.detail.commentTitle).toBe("Коментар");
     expect(uk.detail.dueLabel).toBe("До сплати");
     expect(uk.detail.confirmLabel).toBe("Підтвердити");
+    expect(uk.detail.startLabel).toBe("В роботу");
+    expect(uk.detail.completeLabel).toBe("Виконано");
     expect(uk.detail.cancelOrder).toBe("Скасувати замовлення");
     expect(uk.detail.actionsTitle).toBe("Швидкі дії");
     expect(uk.detail.offlineTitle.includes("\u02BC")).toBe(true);
@@ -99,6 +109,8 @@ describe("orders copy", () => {
     expect(uk.detail.mutationOffline.includes("\u02BC")).toBe(true);
     expect(uk.detail.offlineTitle.includes("\u2019")).toBe(false);
     expect(en.detail.confirmLabel).toBe("Confirm");
+    expect(en.detail.startLabel).toBe("Start");
+    expect(en.detail.completeLabel).toBe("Complete");
     expect(en.detail.dueLabel).toBe("Due");
     expect(uk.detail.thumbnailUnavailable).toBe("Фото недоступне");
     expect(en.detail.thumbnailUnavailable).toBe("Photo unavailable");

@@ -6,7 +6,7 @@
  * `orders:view`, `orders:create`, and `orders:edit`. This only hides
  * controls — the server re-checks every action permission and stays
  * authoritative (ADR-0013). The list always loads; there is no
- * view-gate affordance. Confirm/cancel hide without `orders:edit`.
+ * view-gate affordance. Status writes hide without `orders:edit`.
  */
 import type { CompanyMembership } from "../../../api/company-membership-query";
 import { isOpenOrderStatus, type OrderLifecycleStatus } from "./order-status";
@@ -36,9 +36,9 @@ export function canFetchFileDownloadUrls(role: CompanyRole): boolean {
 }
 
 /**
- * `orders:edit` — hides confirm and cancel. Every seeded staff role
- * currently holds edit (owner implicit). Prove the hide path with
- * `orderDetailActions({ canEdit: false })`.
+ * `orders:edit` — hides confirm / start / complete / cancel. Every
+ * seeded staff role currently holds edit (owner implicit). Prove the
+ * hide path with `orderDetailActions({ canEdit: false })`.
  */
 export function canEditOrders(role: CompanyRole): boolean {
   switch (role) {
@@ -69,31 +69,61 @@ export function orderCreateScreenActions(args: {
   return { showSubmit: args.canCreate };
 }
 
+export type OrderDetailPrimaryWrite = "confirm" | "start" | "complete";
+
 export type OrderDetailActions = {
   readonly showConfirm: boolean;
+  readonly showStart: boolean;
+  readonly showComplete: boolean;
   readonly showActions: boolean;
   readonly cancelEnabled: boolean;
 };
 
+const HIDDEN_DETAIL_WRITES: OrderDetailActions = {
+  showConfirm: false,
+  showStart: false,
+  showComplete: false,
+  showActions: false,
+  cancelEnabled: false,
+};
+
 /**
- * Affordance-only: confirm is the primary CTA on `new`; cancel lives in
- * the actions sheet for open statuses (`new` | `confirmed` | `in_progress`)
- * and is disabled for `done` / `canceled`. Start/complete CTAs are
- * SHO-376. Without `orders:edit` both hide. Server stays authoritative.
+ * Primary footer write for the current CHECK status. Terminal statuses
+ * have no primary CTA.
+ */
+export function orderDetailPrimaryWrite(
+  status: OrderLifecycleStatus,
+): OrderDetailPrimaryWrite | null {
+  switch (status) {
+    case "new":
+      return "confirm";
+    case "confirmed":
+      return "start";
+    case "in_progress":
+      return "complete";
+    case "done":
+    case "canceled":
+      return null;
+  }
+}
+
+/**
+ * Affordance-only: one primary CTA per open status; cancel lives in the
+ * actions sheet for every loaded order and is enabled only while open.
+ * Without `orders:edit` every write hides. Server stays authoritative.
  */
 export function orderDetailActions(args: {
   readonly canEdit: boolean;
   readonly status: OrderLifecycleStatus;
 }): OrderDetailActions {
   if (!args.canEdit) {
-    return {
-      showConfirm: false,
-      showActions: false,
-      cancelEnabled: false,
-    };
+    return HIDDEN_DETAIL_WRITES;
   }
+  const primary = orderDetailPrimaryWrite(args.status);
   return {
-    showConfirm: args.status === "new",
+    showConfirm: primary === "confirm",
+    showStart: primary === "start",
+    showComplete: primary === "complete",
     showActions: true,
     cancelEnabled: isOpenOrderStatus(args.status),
   };
