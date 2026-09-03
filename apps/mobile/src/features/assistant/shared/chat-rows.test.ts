@@ -88,20 +88,21 @@ describe("assistantChatRows", () => {
       copy,
     );
     expect(rows).toHaveLength(2);
-    expect(rows[1]).toEqual({
+    const inFlightRow = {
       id: "a1",
-      role: "assistant",
+      role: "assistant" as const,
       text: "",
       confirmation: null,
       timeline: [
         {
           id: "call-page",
           label: "Шукаю замовлення",
-          status: "running",
+          status: "running" as const,
         },
       ],
-    });
-    expect(assistantRowHasInFlightTools(rows[1]!)).toBe(true);
+    };
+    expect(rows[1]).toEqual(inFlightRow);
+    expect(assistantRowHasInFlightTools(inFlightRow)).toBe(true);
   });
 
   it("keeps an empty-text row after the tool result arrives", () => {
@@ -123,23 +124,22 @@ describe("assistantChatRows", () => {
       null,
       copy,
     );
-    expect(rows).toEqual([
-      {
-        id: "a1",
-        role: "assistant",
-        text: "",
-        confirmation: null,
-        timeline: [
-          {
-            id: "call-counts",
-            label: "Рахую виторг",
-            status: "done",
-          },
-        ],
-      },
-    ]);
-    expect(assistantRowHasInFlightTools(rows[0]!)).toBe(false);
-    expect(JSON.stringify(rows[0]).includes("aggregate")).toBe(false);
+    const doneRow = {
+      id: "a1",
+      role: "assistant" as const,
+      text: "",
+      confirmation: null,
+      timeline: [
+        {
+          id: "call-counts",
+          label: "Рахую виторг",
+          status: "done" as const,
+        },
+      ],
+    };
+    expect(rows).toEqual([doneRow]);
+    expect(assistantRowHasInFlightTools(doneRow)).toBe(false);
+    expect(JSON.stringify(rows).includes("aggregate")).toBe(false);
   });
 
   it("does not stringify tool JSON into the bubble text", () => {
