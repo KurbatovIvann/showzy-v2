@@ -204,8 +204,11 @@ describe("panel chrome breakpoints (SHO-314)", () => {
       expect(router.state.location.pathname).toBe("/kviti-lviv/orders/ord-1");
     });
     expect(
-      screen.getByRole("heading", { name: "Модуль у розробці" }),
+      screen.getByRole("heading", { name: "Замовлення не знайдено" }),
     ).toBeDefined();
+    expect(
+      screen.queryByRole("heading", { name: "Модуль у розробці" }),
+    ).toBeNull();
     expect(
       screen.getByRole("button", { name: "Назад до списку" }),
     ).toBeDefined();
@@ -214,7 +217,7 @@ describe("panel chrome breakpoints (SHO-314)", () => {
     await waitFor(() => {
       expect(router.state.location.pathname).toBe("/kviti-lviv/orders");
       expect(
-        screen.queryByRole("heading", { name: "Модуль у розробці" }),
+        screen.queryByRole("heading", { name: "Замовлення не знайдено" }),
       ).toBeNull();
       expect(screen.getByRole("region", { name: "Замовлення" })).toBeDefined();
     });

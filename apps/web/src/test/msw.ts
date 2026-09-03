@@ -48,6 +48,8 @@ type RpcState = {
   mutationCalls: MutationRpcCall[];
   listOrdersItems: unknown[];
   listOrdersCalls: OrdersListRpcCall[];
+  orderDetails: Record<string, Record<string, unknown>>;
+  customersById: Record<string, Record<string, unknown>>;
 };
 
 type SessionJson = {
@@ -99,6 +101,8 @@ function authMsw(): AuthMsw {
     mutationCalls: [],
     listOrdersItems: [],
     listOrdersCalls: [],
+    orderDetails: {},
+    customersById: {},
   };
   const created: AuthMsw = {
     sessionState,
@@ -184,6 +188,76 @@ function envelopeInput(body: unknown): unknown {
     return undefined;
   }
   return "json" in record ? record.json : body;
+}
+
+function inputString(input: unknown, key: string): string {
+  const record = jsonObject(input);
+  const value = record?.[key];
+  return typeof value === "string" ? value : "";
+}
+
+function recordMutation(
+  rpcState: RpcState,
+  request: Request,
+  input: unknown,
+): void {
+  rpcState.mutationCalls.push({
+    path: new URL(request.url).pathname,
+    companyId: request.headers.get(COMPANY_SELECTOR_HEADER),
+    idempotencyKey: request.headers.get(IDEMPOTENCY_KEY_HEADER),
+    confirmationChallengeId: request.headers.get(CONFIRMATION_CHALLENGE_HEADER),
+    input,
+  });
+}
+
+function patchStoredOrderStatus(
+  rpcState: RpcState,
+  orderId: string,
+  status: string,
+  extra: Record<string, unknown>,
+): Record<string, unknown> | null {
+  const current = jsonObject(rpcState.orderDetails[orderId]);
+  if (current === null) {
+    return null;
+  }
+  const next = { ...current, status, ...extra };
+  rpcState.orderDetails[orderId] = next;
+  rpcState.listOrdersItems = rpcState.listOrdersItems.map((item) => {
+    const record = jsonObject(item);
+    if (record === null || record.orderId !== orderId) {
+      return item;
+    }
+    return { ...record, status };
+  });
+  return next;
+}
+
+function writeOrderStatus(
+  rpcState: RpcState,
+  orderId: string,
+  allowedFrom: readonly string[],
+  nextStatus: string,
+  extra: Record<string, unknown>,
+): Response {
+  const current = jsonObject(rpcState.orderDetails[orderId]);
+  if (current === null) {
+    return rpcError("NOT_FOUND", 404, "Order not found.");
+  }
+  const currentStatus =
+    typeof current.status === "string" ? current.status : "";
+  if (!allowedFrom.includes(currentStatus)) {
+    return rpcError("CONFLICT", 409, "Invalid status transition.");
+  }
+  const updated = patchStoredOrderStatus(rpcState, orderId, nextStatus, extra);
+  if (updated === null) {
+    return rpcError("NOT_FOUND", 404, "Order not found.");
+  }
+  return rpcJson({
+    orderId,
+    customerId: updated.customerId ?? null,
+    status: nextStatus,
+    ...extra,
+  });
 }
 
 function prefixFromSlug(slug: string): string {
@@ -382,6 +456,84 @@ function allHandlers(sessionState: SessionState, rpcState: RpcState) {
         customerMatchTruncated: false,
       });
     }),
+    http.post(`${PANEL_ORIGIN}/rpc/orders/get`, async ({ request }) => {
+      recordRpc(rpcState, request);
+      const body: unknown = await request.json();
+      const input = envelopeInput(body);
+      const orderId = inputString(input, "orderId");
+      const stored = jsonObject(rpcState.orderDetails[orderId]);
+      if (stored === null) {
+        return rpcError("NOT_FOUND", 404, "Order not found.");
+      }
+      return rpcJson(stored);
+    }),
+    http.post(
+      `${PANEL_ORIGIN}/rpc/customers/getCustomer`,
+      async ({ request }) => {
+        recordRpc(rpcState, request);
+        const body: unknown = await request.json();
+        const input = envelopeInput(body);
+        const id = inputString(input, "id");
+        const stored = jsonObject(rpcState.customersById[id]);
+        if (stored === null) {
+          return rpcError("NOT_FOUND", 404, "Customer not found.");
+        }
+        return rpcJson(stored);
+      },
+    ),
+    http.post(`${PANEL_ORIGIN}/rpc/orders/confirm`, async ({ request }) => {
+      recordRpc(rpcState, request);
+      const body: unknown = await request.json();
+      const input = envelopeInput(body);
+      recordMutation(rpcState, request, input);
+      const confirmedAt = "2026-08-29T12:00:00.000Z";
+      return writeOrderStatus(
+        rpcState,
+        inputString(input, "orderId"),
+        ["new"],
+        "confirmed",
+        { confirmedAt },
+      );
+    }),
+    http.post(`${PANEL_ORIGIN}/rpc/orders/start`, async ({ request }) => {
+      recordRpc(rpcState, request);
+      const body: unknown = await request.json();
+      const input = envelopeInput(body);
+      recordMutation(rpcState, request, input);
+      return writeOrderStatus(
+        rpcState,
+        inputString(input, "orderId"),
+        ["confirmed"],
+        "in_progress",
+        {},
+      );
+    }),
+    http.post(`${PANEL_ORIGIN}/rpc/orders/complete`, async ({ request }) => {
+      recordRpc(rpcState, request);
+      const body: unknown = await request.json();
+      const input = envelopeInput(body);
+      recordMutation(rpcState, request, input);
+      return writeOrderStatus(
+        rpcState,
+        inputString(input, "orderId"),
+        ["in_progress"],
+        "done",
+        {},
+      );
+    }),
+    http.post(`${PANEL_ORIGIN}/rpc/orders/cancel`, async ({ request }) => {
+      recordRpc(rpcState, request);
+      const body: unknown = await request.json();
+      const input = envelopeInput(body);
+      recordMutation(rpcState, request, input);
+      return writeOrderStatus(
+        rpcState,
+        inputString(input, "orderId"),
+        ["new", "confirmed", "in_progress"],
+        "canceled",
+        {},
+      );
+    }),
   ];
 }
 
@@ -402,6 +554,32 @@ export function resetAuthMocks(): void {
   listMineState.mutationCalls = [];
   listMineState.listOrdersItems = [];
   listMineState.listOrdersCalls = [];
+  listMineState.orderDetails = {};
+  listMineState.customersById = {};
+}
+
+export function seedOrderDetail(view: object): void {
+  const record = jsonObject(structuredClone(view));
+  if (record === null) {
+    return;
+  }
+  const orderId = record.orderId;
+  if (typeof orderId !== "string") {
+    return;
+  }
+  listMineState.orderDetails[orderId] = record;
+}
+
+export function seedCustomer(view: object): void {
+  const record = jsonObject(structuredClone(view));
+  if (record === null) {
+    return;
+  }
+  const id = record.id;
+  if (typeof id !== "string") {
+    return;
+  }
+  listMineState.customersById[id] = record;
 }
 
 export function ensureAuthServer(): void {

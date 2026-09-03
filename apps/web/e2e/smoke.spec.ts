@@ -56,8 +56,11 @@ test.describe("web panel browser smoke", () => {
       page.getByRole("region", { name: "Замовлення" }),
     ).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "Модуль у розробці" }),
+      page.getByRole("heading", { name: "Замовлення не знайдено" }),
     ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Модуль у розробці" }),
+    ).toHaveCount(0);
     await expect(
       page.getByRole("button", { name: "Назад до списку" }),
     ).toHaveCount(0);
@@ -85,8 +88,11 @@ test.describe("web panel browser smoke", () => {
 
     await page.goto("/kviti-lviv/orders/ord-1");
     await expect(
-      page.getByRole("heading", { name: "Модуль у розробці" }),
+      page.getByRole("heading", { name: "Замовлення не знайдено" }),
     ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Модуль у розробці" }),
+    ).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Замовлення" })).toHaveCount(
       0,
     );
@@ -99,7 +105,7 @@ test.describe("web panel browser smoke", () => {
     await page.goForward();
     await expect(page).toHaveURL(/\/kviti-lviv\/orders\/ord-1$/);
     await expect(
-      page.getByRole("heading", { name: "Модуль у розробці" }),
+      page.getByRole("heading", { name: "Замовлення не знайдено" }),
     ).toBeVisible();
 
     await page.getByRole("button", { name: "Назад до списку" }).click();
