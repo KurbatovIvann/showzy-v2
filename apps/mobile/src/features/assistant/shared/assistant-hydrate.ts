@@ -64,8 +64,7 @@ export type HydratedAssistantToolPart = {
 };
 
 export type HydratedAssistantUiPart =
-  | { readonly type: "text"; readonly text: string }
-  | HydratedAssistantToolPart;
+  { readonly type: "text"; readonly text: string } | HydratedAssistantToolPart;
 
 export type HydratedAssistantUiMessage = {
   readonly id: string;
@@ -199,12 +198,8 @@ export function associateToolRunsWithAssistantMessages(
         break;
       }
       if (
-        compareCreatedAtThenId(
-          next.createdAt,
-          next.id,
-          run.createdAt,
-          run.id,
-        ) > 0
+        compareCreatedAtThenId(next.createdAt, next.id, run.createdAt, run.id) >
+        0
       ) {
         break;
       }
@@ -276,7 +271,7 @@ export function hydratedUiMessagesFromConversation(args: {
 
 export async function loadOrdersById(args: {
   readonly orderIds: readonly string[];
-  readonly getOrder: (orderId: string) => Promise<unknown | null>;
+  readonly getOrder: (orderId: string) => Promise<unknown>;
 }): Promise<ReadonlyMap<string, unknown>> {
   const ordersById = new Map<string, unknown>();
   const snapshots = await Promise.all(
@@ -290,7 +285,7 @@ export async function loadOrdersById(args: {
     }),
   );
   for (const snapshot of snapshots) {
-    if (snapshot.order !== null) {
+    if (snapshot.order !== null && snapshot.order !== undefined) {
       ordersById.set(snapshot.orderId, snapshot.order);
     }
   }

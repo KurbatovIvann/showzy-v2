@@ -98,7 +98,7 @@ export async function resumeOwnAssistantConversation(args: {
   readonly getConversation: (input: {
     readonly conversationId: string;
   }) => Promise<AssistantConversationDetail>;
-  readonly getOrder: (orderId: string) => Promise<unknown | null>;
+  readonly getOrder: (orderId: string) => Promise<unknown>;
 }): Promise<AssistantResumeResult> {
   if (!isCurrentAssistantEpoch(args.companyEpochRef, args.epoch)) {
     return { kind: "dropped" };

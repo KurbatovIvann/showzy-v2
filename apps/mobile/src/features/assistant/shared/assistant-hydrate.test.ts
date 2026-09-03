@@ -38,10 +38,7 @@ const RUN_CREATE = "99999999-9999-4999-8999-999999999999";
 const uk = assistantCopy("uk");
 const ordersUk = ordersCopy("uk");
 
-function listItem(
-  id: string,
-  userId: string,
-): AssistantConversationListItem {
+function listItem(id: string, userId: string): AssistantConversationListItem {
   return { id, userId };
 }
 
@@ -193,9 +190,16 @@ describe("entityResultIdsFromToolRuns", () => {
       }),
     ];
     expect(entityResultIdsFromToolRuns(runs)).toEqual([ORDER_A, ORDER_B]);
-    expect(isUnrestorableListRun(runs[0]!)).toBe(true);
-    expect(isHydratableOrderEntityRun(runs[0]!)).toBe(false);
-    expect(isHydratableOrderEntityRun(runs[1]!)).toBe(true);
+    const listRun = runs[0];
+    const getRun = runs[1];
+    expect(listRun).toBeDefined();
+    expect(getRun).toBeDefined();
+    if (listRun === undefined || getRun === undefined) {
+      return;
+    }
+    expect(isUnrestorableListRun(listRun)).toBe(true);
+    expect(isHydratableOrderEntityRun(listRun)).toBe(false);
+    expect(isHydratableOrderEntityRun(getRun)).toBe(true);
   });
 
   it("does not walk nested items[].orderId because those are not resultIds", () => {
@@ -251,10 +255,7 @@ describe("hydratedUiMessagesFromConversation", () => {
     expect(messages[1]?.parts).toEqual([
       { type: "text", text: "Ось активні замовлення." },
     ]);
-    const cards = assistantResultCardsFromParts(
-      messages[1]?.parts ?? [],
-      "uk",
-    );
+    const cards = assistantResultCardsFromParts(messages[1]?.parts ?? [], "uk");
     expect(cards.listCard).toBeNull();
     expect(cards.aggregateCard).toBeNull();
     expect(cards.entityCards).toEqual([]);
@@ -308,10 +309,7 @@ describe("hydratedUiMessagesFromConversation", () => {
         [ORDER_B, createOutput],
       ]),
     });
-    const cards = assistantResultCardsFromParts(
-      messages[1]?.parts ?? [],
-      "uk",
-    );
+    const cards = assistantResultCardsFromParts(messages[1]?.parts ?? [], "uk");
     expect(cards.listCard).toBeNull();
     expect(cards.entityCards).toHaveLength(2);
     expect(cards.entityCards[0]?.orderId).toBe(ORDER_A);
@@ -352,10 +350,7 @@ describe("hydratedUiMessagesFromConversation", () => {
       ordersById: new Map(),
     });
     expect(messages[0]?.parts).toEqual([{ type: "text", text: body }]);
-    const cards = assistantResultCardsFromParts(
-      messages[0]?.parts ?? [],
-      "uk",
-    );
+    const cards = assistantResultCardsFromParts(messages[0]?.parts ?? [], "uk");
     expect(cards.entityCards).toEqual([]);
     expect(messages[0]?.parts[0]).toEqual({ type: "text", text: body });
     expect(JSON.stringify(messages)).not.toContain("NOT_FOUND");
@@ -387,10 +382,7 @@ describe("hydratedUiMessagesFromConversation", () => {
         [ORDER_B, orderSnapshot(ORDER_B, "confirmed")],
       ]),
     });
-    const cards = assistantResultCardsFromParts(
-      messages[0]?.parts ?? [],
-      "uk",
-    );
+    const cards = assistantResultCardsFromParts(messages[0]?.parts ?? [], "uk");
     expect(cards.entityCards).toEqual([]);
     expect(cards.listCard).toBeNull();
   });
@@ -427,7 +419,9 @@ describe("hydratedUiMessagesFromConversation", () => {
         }),
       ],
     );
-    expect(grouped.get(MSG_ASSISTANT)?.map((run) => run.id)).toEqual([RUN_LIST]);
+    expect(grouped.get(MSG_ASSISTANT)?.map((run) => run.id)).toEqual([
+      RUN_LIST,
+    ]);
     expect(grouped.get(MSG_ASSISTANT_B)?.map((run) => run.id)).toEqual([
       RUN_GET,
     ]);
