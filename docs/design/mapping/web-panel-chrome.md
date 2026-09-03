@@ -102,9 +102,8 @@ group with a status name («В роботі», «Завершені»).
 | Скасовано | `danger` | `#C0392B` / `#FBEAE7` |
 
 `focus` is a web-canvas token; it is not yet in mobile Unistyles /
-`StatusPill`. Shipped `orders.status` CHECK is still
-`new | confirmed | canceled`. Do not implement the extra states without
-a product/ADR pass.
+`StatusPill`. Shipped `orders.status` CHECK is
+`new | confirmed | in_progress | done | canceled`.
 
 ## Catalog list (T3 canvas lock)
 

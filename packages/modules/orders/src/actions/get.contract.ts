@@ -21,7 +21,7 @@ export const getOrderOutputSchema = orderViewSchema;
 export const getOrderContract = defineActionContract({
   name: "orders.get",
   description:
-    "Return a staff-intake order and its immutable line snapshots in the active company. Missing or foreign-company orders fail with not-found.",
+    "Return a staff-intake order and its immutable line snapshots in the active company. Status is one of the CHECK values new, confirmed, in_progress, done, canceled; there is no server status named active or all. Missing or foreign-company orders fail with not-found.",
   principal: "staff",
   transport: "client",
   input: getOrderInputSchema,

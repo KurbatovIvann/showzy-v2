@@ -473,7 +473,10 @@ describe("ordersListFacadeTools", () => {
       "quantityMilli",
     );
     expect(tools[ORDERS_LIST_COUNTS_TOOL_NAME]?.description).toContain(
-      "active means new plus confirmed",
+      "UI Активні is client grouping of new plus confirmed plus in_progress",
+    );
+    expect(tools[ORDERS_LIST_COUNTS_TOOL_NAME]?.description).toContain(
+      "do not pass active, all, or completed",
     );
     expect(tools[ORDERS_LIST_COUNTS_TOOL_NAME]?.description).toContain(
       "Europe/Kyiv",
@@ -497,7 +500,10 @@ describe("ordersListFacadeTools", () => {
       "period=this_week",
     );
     expect(tools[ORDERS_LIST_PAGE_TOOL_NAME]?.description).toContain(
-      "active means new plus confirmed",
+      "UI Активні is client grouping of new plus confirmed plus in_progress",
+    );
+    expect(tools[ORDERS_LIST_PAGE_TOOL_NAME]?.description).toContain(
+      "do not pass active, all, or completed",
     );
     expect(tools[ORDERS_LIST_PAGE_TOOL_NAME]?.description).not.toContain(
       "page.withLines",
@@ -507,10 +513,52 @@ describe("ordersListFacadeTools", () => {
     );
   });
 
-  it("rejects more than three statuses and overlong query or cursor", () => {
+  it("rejects more than five statuses, aliases, and overlong query or cursor", () => {
     expect(
       ordersListPageInputSchema.safeParse({
-        statuses: ["new", "confirmed", "canceled", "new"],
+        statuses: ["new", "confirmed", "in_progress", "done", "canceled"],
+      }).success,
+    ).toBe(true);
+    expect(
+      ordersListPageInputSchema.safeParse({
+        statuses: ["in_progress", "done"],
+      }).success,
+    ).toBe(true);
+    expect(
+      ordersListPageInputSchema.safeParse({
+        statuses: [
+          "new",
+          "confirmed",
+          "in_progress",
+          "done",
+          "canceled",
+          "new",
+        ],
+      }).success,
+    ).toBe(false);
+    expect(
+      ordersListPageInputSchema.safeParse({
+        statuses: ["active"],
+      }).success,
+    ).toBe(false);
+    expect(
+      ordersListPageInputSchema.safeParse({
+        statuses: ["all"],
+      }).success,
+    ).toBe(false);
+    expect(
+      ordersListPageInputSchema.safeParse({
+        statuses: ["completed"],
+      }).success,
+    ).toBe(false);
+    expect(
+      ordersListCountsInputSchema.safeParse({
+        statuses: ["in_progress", "done"],
+      }).success,
+    ).toBe(true);
+    expect(
+      ordersListCountsInputSchema.safeParse({
+        statuses: ["active"],
       }).success,
     ).toBe(false);
     expect(

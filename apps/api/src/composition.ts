@@ -48,8 +48,10 @@ import { invitesSuiteCoverage } from "@showzy/invites/suite-coverage";
 import {
   ordersActions,
   ordersCanceled,
+  ordersCompleted,
   ordersConfirmed,
   ordersCreated,
+  ordersStarted,
 } from "@showzy/orders";
 import { ordersSuiteCoverage } from "@showzy/orders/suite-coverage";
 import { pricingActions } from "@showzy/pricing";
@@ -93,6 +95,8 @@ const moduleSuiteCoverage: readonly SuiteCoverageManifest[] = [
 const events: readonly EventDefinitionRef[] = [
   ordersCreated,
   ordersConfirmed,
+  ordersStarted,
+  ordersCompleted,
   ordersCanceled,
   documentsCancelled,
   documentsCreated,
