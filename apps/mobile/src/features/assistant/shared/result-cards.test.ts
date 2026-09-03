@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 import { formatMoneyMinor } from "../../../format/money";
 import { assistantCopy } from "../../../i18n/assistant";
 import { ordersCopy } from "../../../i18n/orders";
+import { itemCountLabel } from "../../orders/shared/item-count";
+import { formatOrderCreatedAt } from "../../orders/shared/order-created-at";
 import { orderDetailHref } from "../../orders/shared/order-hrefs";
 import {
   ASSISTANT_ORDERS_LIST_HREF,
@@ -448,6 +450,64 @@ describe("assistantResultCardsFromParts", () => {
     expect(row?.metaLabel.includes("1049")).toBe(true);
   });
 
+  it("formats createdAt with the same locale helper as /orders", () => {
+    const createdAt = "2026-08-25T12:00:00.000Z";
+    const ukDate = formatOrderCreatedAt(createdAt, "uk");
+    const enDate = formatOrderCreatedAt(createdAt, "en");
+    expect(ukDate).toBe("25 серп. 2026");
+    expect(enDate).toBe("25 Aug 2026");
+    expect(ukDate).not.toBe(enDate);
+
+    const parts = [
+      {
+        type: "tool-orders_list_page" as const,
+        toolCallId: "call-page",
+        state: "output-available" as const,
+        output: pageOutput([pageRow(ORDER_A, { createdAt })]),
+      },
+    ];
+    const ukRow = assistantResultCardsFromParts(parts, "uk").listCard?.rows[0];
+    const enRow = assistantResultCardsFromParts(parts, "en").listCard?.rows[0];
+    expect(ukRow?.metaLabel).toContain(ukDate);
+    expect(enRow?.metaLabel).toContain(enDate);
+    expect(ukRow?.metaLabel).not.toContain(enDate);
+    expect(enRow?.metaLabel).not.toContain(ukDate);
+    expect(ukRow?.metaLabel.includes("25.08.2026")).toBe(false);
+    expect(enRow?.metaLabel.includes("25.08.2026")).toBe(false);
+  });
+
+  it("keeps invalid or empty createdAt as an empty meta fragment", () => {
+    const itemMeta = itemCountLabel(2, "uk", ordersUk.items);
+    const emptyCards = assistantResultCardsFromParts(
+      [
+        {
+          type: "tool-orders_list_page",
+          toolCallId: "call-empty-date",
+          state: "output-available",
+          output: pageOutput([pageRow(ORDER_A, { createdAt: "" })]),
+        },
+      ],
+      "uk",
+    );
+    const invalidCards = assistantResultCardsFromParts(
+      [
+        {
+          type: "tool-orders_list_page",
+          toolCallId: "call-invalid-date",
+          state: "output-available",
+          output: pageOutput([pageRow(ORDER_A, { createdAt: "not-a-date" })]),
+        },
+      ],
+      "uk",
+    );
+    expect(emptyCards.listCard?.rows[0]?.metaLabel).toBe(`#1049 · ${itemMeta}`);
+    expect(invalidCards.listCard?.rows[0]?.metaLabel).toBe(
+      `#1049 · ${itemMeta}`,
+    );
+    expect(formatOrderCreatedAt("", "uk")).toBe("");
+    expect(formatOrderCreatedAt("not-a-date", "en")).toBe("");
+  });
+
   it("introduces a thin entity card from live orders.get / orders.create", () => {
     const cards = assistantResultCardsFromParts(
       [
@@ -576,6 +636,9 @@ describe("assistant result card composition", () => {
     expect(hook.includes("order-row")).toBe(false);
     expect(mapper.includes('from "@showzy/ai"')).toBe(false);
     expect(mapper.includes('from "@showzy/core"')).toBe(false);
+    expect(mapper.includes('from "../../orders/list')).toBe(false);
+    expect(mapper).toContain("formatOrderCreatedAt");
+    expect(mapper).toContain("../../orders/shared/order-created-at");
     expect(mapper).not.toContain("extractUuidResultIds");
     expect(mapper).not.toContain("sit.svg");
     expect(mapper).not.toContain("dig.svg");

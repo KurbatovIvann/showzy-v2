@@ -8,6 +8,7 @@ import { assistantCopy } from "../../../i18n/assistant";
 import type { Locale } from "../../../i18n/locale";
 import { ordersCopy } from "../../../i18n/orders";
 import { itemCountLabel } from "../../orders/shared/item-count";
+import { formatOrderCreatedAt } from "../../orders/shared/order-created-at";
 import { orderDetailHref } from "../../orders/shared/order-hrefs";
 import {
   isOrderLifecycleStatus as isOrderStatus,
@@ -156,18 +157,11 @@ function formatTotal(minor: unknown, currency: unknown): string | null {
   }
 }
 
-function formatCreatedAt(iso: unknown): string {
+function formatCreatedAt(iso: unknown, locale: Locale): string {
   if (typeof iso !== "string" || iso.length === 0) {
     return "";
   }
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const year = String(date.getFullYear());
-  return `${day}.${month}.${year}`;
+  return formatOrderCreatedAt(iso, locale);
 }
 
 function localizeCustomerName(
@@ -222,7 +216,7 @@ function parseListRow(
     typeof itemCount === "number"
       ? itemCountLabel(itemCount, locale, orders.items)
       : "";
-  const created = formatCreatedAt(row["createdAt"]);
+  const created = formatCreatedAt(row["createdAt"], locale);
   const numberLabel = orderNumber.length > 0 ? `#${orderNumber}` : "";
   return {
     orderId,

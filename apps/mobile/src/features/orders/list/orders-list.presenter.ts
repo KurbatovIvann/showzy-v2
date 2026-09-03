@@ -13,6 +13,7 @@ import {
 } from "../shared/customer-name";
 import { itemCountLabel } from "../shared/item-count";
 import { LIST_ORDERS_QUERY_MAX } from "../shared/order-caps";
+import { formatOrderCreatedAt } from "../shared/order-created-at";
 import {
   isOpenOrderStatus,
   ORDER_LIFECYCLE_STATUSES,
@@ -25,7 +26,7 @@ import type {
   OrderStatusFilter,
 } from "../api/order.queries";
 
-export { LIST_ORDERS_QUERY_MAX };
+export { LIST_ORDERS_QUERY_MAX, formatOrderCreatedAt };
 
 export {
   customerNameLabel,
@@ -103,53 +104,6 @@ export function localizeCustomerNameSnapshot(
     return fallback;
   }
   return nameSnapshot;
-}
-
-const UK_MONTHS = [
-  "січ.",
-  "лют.",
-  "бер.",
-  "квіт.",
-  "трав.",
-  "черв.",
-  "лип.",
-  "серп.",
-  "вер.",
-  "жовт.",
-  "лист.",
-  "груд.",
-] as const;
-
-const EN_MONTHS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-] as const;
-
-/** Canvas `d MMM yyyy` without adding date-fns. Local calendar date. */
-export function formatOrderCreatedAt(iso: string, locale: Locale): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-  const day = date.getDate();
-  const month = date.getMonth();
-  const year = date.getFullYear();
-  const months = locale === "uk" ? UK_MONTHS : EN_MONTHS;
-  const monthLabel = months[month];
-  if (monthLabel === undefined) {
-    return "";
-  }
-  return `${String(day)} ${monthLabel} ${String(year)}`;
 }
 
 export type OrderRowView = {
