@@ -63,6 +63,7 @@ describe("assistantChatRows", () => {
         confirmation: null,
         timeline: [],
         listCard: null,
+        aggregateCard: null,
         entityCards: [],
       },
       {
@@ -72,6 +73,7 @@ describe("assistantChatRows", () => {
         confirmation: pending,
         timeline: [],
         listCard: null,
+        aggregateCard: null,
         entityCards: [],
       },
     ]);
@@ -114,6 +116,7 @@ describe("assistantChatRows", () => {
         },
       ],
       listCard: null,
+      aggregateCard: null,
       entityCards: [],
     };
     expect(rows[1]).toEqual(inFlightRow);
@@ -139,24 +142,27 @@ describe("assistantChatRows", () => {
       null,
       copy,
     );
-    const doneRow = {
-      id: "a1",
-      role: "assistant" as const,
-      text: "",
-      confirmation: null,
-      timeline: [
-        {
-          id: "call-counts",
-          label: "Рахую виторг",
-          status: "done" as const,
-        },
-      ],
-      listCard: null,
-      entityCards: [],
-    };
-    expect(rows).toEqual([doneRow]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.text).toBe("");
+    expect(rows[0]?.confirmation).toBeNull();
+    expect(rows[0]?.timeline).toEqual([
+      {
+        id: "call-counts",
+        label: "Рахую виторг",
+        status: "done",
+      },
+    ]);
+    expect(rows[0]?.listCard).toBeNull();
+    expect(rows[0]?.aggregateCard?.kind).toBe("orders-aggregate");
+    expect(rows[0]?.entityCards).toEqual([]);
+    const doneRow = rows[0];
+    expect(doneRow).toBeDefined();
+    if (doneRow === undefined) {
+      return;
+    }
     expect(assistantRowHasInFlightTools(doneRow)).toBe(false);
-    expect(JSON.stringify(rows).includes("aggregate")).toBe(false);
+    expect(doneRow.text.includes("aggregate")).toBe(false);
+    expect(doneRow.text.includes("orderCount")).toBe(false);
   });
 
   it("does not stringify tool JSON into the bubble text", () => {
@@ -361,23 +367,19 @@ describe("assistantChatRows", () => {
       copy,
       new Set([pending.challengeId]),
     );
-    expect(rows).toEqual([
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.text).toBe("");
+    expect(rows[0]?.confirmation).toBeNull();
+    expect(rows[0]?.timeline).toEqual([
       {
-        id: "a1",
-        role: "assistant",
-        text: "",
-        confirmation: null,
-        timeline: [
-          {
-            id: "call-counts",
-            label: "Рахую виторг",
-            status: "done",
-          },
-        ],
-        listCard: null,
-        entityCards: [],
+        id: "call-counts",
+        label: "Рахую виторг",
+        status: "done",
       },
     ]);
+    expect(rows[0]?.listCard).toBeNull();
+    expect(rows[0]?.aggregateCard?.kind).toBe("orders-aggregate");
+    expect(rows[0]?.entityCards).toEqual([]);
     const remainingRow = rows[0];
     expect(remainingRow).toBeDefined();
     if (remainingRow === undefined) {
@@ -386,7 +388,7 @@ describe("assistantChatRows", () => {
     expect(assistantRowHasInFlightTools(remainingRow)).toBe(false);
   });
 
-  it("attaches one list card for page + counts and skips counts-only", () => {
+  it("attaches one list card for page + counts and one aggregate card for counts-only", () => {
     const pageAndCounts = assistantChatRows(
       [
         {
@@ -437,6 +439,7 @@ describe("assistantChatRows", () => {
     );
     expect(pageAndCounts[0]?.listCard?.kind).toBe("orders-list");
     expect(pageAndCounts[0]?.listCard?.chips).toHaveLength(1);
+    expect(pageAndCounts[0]?.aggregateCard).toBeNull();
     expect(pageAndCounts[0]?.entityCards).toEqual([]);
 
     const countsOnly = assistantChatRows(
@@ -458,6 +461,7 @@ describe("assistantChatRows", () => {
       copy,
     );
     expect(countsOnly[0]?.listCard).toBeNull();
+    expect(countsOnly[0]?.aggregateCard?.kind).toBe("orders-aggregate");
     expect(countsOnly[0]?.entityCards).toEqual([]);
   });
 
@@ -496,6 +500,7 @@ describe("assistantChatRows", () => {
           },
         ],
         listCard: null,
+        aggregateCard: null,
         entityCards: [],
       },
     ]);

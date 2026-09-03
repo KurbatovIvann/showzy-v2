@@ -150,6 +150,7 @@ describe("assistantResultCardsFromParts", () => {
       `${ordersUk.statuses.confirmed} · 4`,
     );
     expect(cards.listCard?.kind).toBe("orders-list");
+    expect(cards.aggregateCard).toBeNull();
     expect(cards.entityCards).toHaveLength(0);
   });
 
@@ -391,7 +392,7 @@ describe("assistantResultCardsFromParts", () => {
     expect(cardsEn.listCard?.rows[0]?.statusLabel).toBe("In progress");
   });
 
-  it("does not render a list or aggregate card on counts-only turns", () => {
+  it("renders one aggregate card on counts-only turns", () => {
     const cards = assistantResultCardsFromParts(
       [
         {
@@ -411,6 +412,7 @@ describe("assistantResultCardsFromParts", () => {
       "uk",
     );
     expect(cards.listCard).toBeNull();
+    expect(cards.aggregateCard?.kind).toBe("orders-aggregate");
     expect(cards.entityCards).toEqual([]);
   });
 
@@ -433,6 +435,7 @@ describe("assistantResultCardsFromParts", () => {
       "uk",
     );
     expect(cards.listCard).toBeNull();
+    expect(cards.aggregateCard).toBeNull();
     expect(cards.entityCards).toEqual([]);
   });
 
@@ -571,6 +574,7 @@ describe("assistantResultCardsFromParts", () => {
       "uk",
     );
     expect(cards.listCard).toBeNull();
+    expect(cards.aggregateCard).toBeNull();
     expect(cards.entityCards).toHaveLength(2);
     expect(cards.entityCards[0]?.orderId).toBe(ORDER_A);
     expect(cards.entityCards[0]?.href).toBe(orderDetailHref(ORDER_A));
@@ -610,12 +614,434 @@ describe("assistantResultCardsFromParts", () => {
       "uk",
     );
     expect(cards.listCard).toBeNull();
+    expect(cards.aggregateCard).toBeNull();
     expect(cards.entityCards[0]?.statusLabel).toBe(
       ordersUk.statuses.in_progress,
     );
     expect(cards.entityCards[0]?.statusTone).toBe("attention");
     expect(cards.entityCards[1]?.statusLabel).toBe(ordersUk.statuses.done);
     expect(cards.entityCards[1]?.statusTone).toBe("success");
+  });
+});
+
+const PRODUCT_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const CUSTOMER_A = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+
+function countsPart(output: Record<string, unknown>): {
+  readonly type: "tool-orders_list_counts";
+  readonly toolCallId: string;
+  readonly state: "output-available";
+  readonly output: Record<string, unknown>;
+} {
+  return {
+    type: "tool-orders_list_counts",
+    toolCallId: "call-counts",
+    state: "output-available",
+    output,
+  };
+}
+
+function assertLabeledBucketList(
+  card: NonNullable<
+    ReturnType<typeof assistantResultCardsFromParts>["aggregateCard"]
+  >,
+): void {
+  const json = JSON.stringify(card);
+  expect(card.kind).toBe("orders-aggregate");
+  expect(json.includes("wow")).toBe(false);
+  expect(json.includes("barChart")).toBe(false);
+  expect(json.includes("chartType")).toBe(false);
+  expect(json.includes('"active"')).toBe(false);
+  expect("chart" in card).toBe(false);
+  expect("wowPercent" in card).toBe(false);
+}
+
+describe("assistantResultCardsFromParts aggregate (SHO-370)", () => {
+  it("maps period=this_month default groupBy status to one aggregate card", () => {
+    const cards = assistantResultCardsFromParts(
+      [
+        countsPart(
+          countsOutput(
+            [
+              {
+                identity: { kind: "status", status: "in_progress" },
+                label: "in_progress",
+                orderCount: 2,
+                grossByCurrency: [
+                  { currency: "UAH", grossAmountMinor: "4000" },
+                ],
+              },
+              {
+                identity: { kind: "status", status: "new" },
+                label: "new",
+                orderCount: 3,
+                grossByCurrency: [
+                  { currency: "UAH", grossAmountMinor: "3000" },
+                ],
+              },
+              {
+                identity: { kind: "status", status: "confirmed" },
+                label: "confirmed",
+                orderCount: 1,
+                grossByCurrency: [
+                  { currency: "UAH", grossAmountMinor: "1000" },
+                ],
+              },
+            ],
+            {
+              orderCount: 6,
+              grossByCurrency: [{ currency: "UAH", grossAmountMinor: "8000" }],
+            },
+          ),
+        ),
+      ],
+      "uk",
+    );
+    const card = cards.aggregateCard;
+    expect(cards.listCard).toBeNull();
+    expect(card).not.toBeNull();
+    if (card === null) {
+      return;
+    }
+    assertLabeledBucketList(card);
+    expect(card.groupBy).toBe("status");
+    expect(card.orderCountLabel).toBe("6 замовлень");
+    expect(card.moneyLabels).toEqual([formatMoneyMinor("8000", "UAH")]);
+    expect(card.buckets.map((bucket) => bucket.status)).toEqual([
+      "new",
+      "confirmed",
+      "in_progress",
+    ]);
+    expect(card.buckets[0]?.label).toBe(ordersUk.statuses.new);
+    expect(card.buckets[1]?.label).toBe(ordersUk.statuses.confirmed);
+    expect(card.buckets[2]?.label).toBe(ordersUk.statuses.in_progress);
+    expect(card.buckets[2]?.statusTone).toBe("attention");
+    expect(card.buckets[0]?.statusTone).toBe("action");
+    expect(card.emptyTitle).toBeNull();
+    expect(cards.entityCards).toEqual([]);
+  });
+
+  it("renders groupBy none as a labeled total row, not a chart", () => {
+    const cards = assistantResultCardsFromParts(
+      [
+        countsPart(
+          countsOutput(
+            [
+              {
+                identity: { kind: "none" },
+                label: "",
+                orderCount: 6,
+                grossByCurrency: [
+                  { currency: "UAH", grossAmountMinor: "8000" },
+                ],
+              },
+            ],
+            {
+              orderCount: 6,
+              grossByCurrency: [{ currency: "UAH", grossAmountMinor: "8000" }],
+            },
+          ),
+        ),
+      ],
+      "uk",
+    );
+    const card = cards.aggregateCard;
+    expect(cards.listCard).toBeNull();
+    expect(card).not.toBeNull();
+    if (card === null) {
+      return;
+    }
+    assertLabeledBucketList(card);
+    expect(card.groupBy).toBe("none");
+    expect(card.buckets).toHaveLength(1);
+    expect(card.buckets[0]?.label).toBe(uk.cards.noneBucket);
+    expect(card.buckets[0]?.label).toBe("Усього");
+    expect(card.buckets[0]?.status).toBeNull();
+    expect(card.buckets[0]?.orderCountLabel).toBe("6");
+    expect(card.buckets[0]?.moneyLabels).toEqual([
+      formatMoneyMinor("8000", "UAH"),
+    ]);
+  });
+
+  it("never mixes money across currencies", () => {
+    const cards = assistantResultCardsFromParts(
+      [
+        countsPart(
+          countsOutput(
+            [
+              {
+                identity: { kind: "none" },
+                label: "",
+                orderCount: 4,
+                grossByCurrency: [
+                  { currency: "UAH", grossAmountMinor: "1000" },
+                  { currency: "USD", grossAmountMinor: "200" },
+                ],
+              },
+            ],
+            {
+              orderCount: 4,
+              grossByCurrency: [
+                { currency: "UAH", grossAmountMinor: "1000" },
+                { currency: "USD", grossAmountMinor: "200" },
+              ],
+            },
+          ),
+        ),
+      ],
+      "uk",
+    );
+    const card = cards.aggregateCard;
+    expect(card).not.toBeNull();
+    if (card === null) {
+      return;
+    }
+    const uah = formatMoneyMinor("1000", "UAH");
+    const usd = formatMoneyMinor("200", "USD");
+    expect(card.moneyLabels).toEqual([uah, usd]);
+    expect(card.buckets[0]?.moneyLabels).toEqual([uah, usd]);
+    expect(card.moneyLabels).toHaveLength(2);
+    expect(card.moneyLabels.join("")).not.toBe(formatMoneyMinor("1200", "UAH"));
+    expect(JSON.stringify(card).includes("1200")).toBe(false);
+  });
+
+  it("surfaces bucketsOmitted and bucketsTruncated as footnotes", () => {
+    const cards = assistantResultCardsFromParts(
+      [
+        countsPart(
+          countsOutput(
+            [
+              {
+                identity: {
+                  kind: "product",
+                  productId: PRODUCT_A,
+                  variantId: null,
+                },
+                label: "Rose",
+                orderCount: 2,
+                grossByCurrency: [
+                  { currency: "UAH", grossAmountMinor: "1000" },
+                ],
+                quantityMilli: "2000",
+              },
+            ],
+            {
+              orderCount: 12,
+              bucketsTruncated: true,
+              bucketsOmitted: 4,
+            },
+          ),
+        ),
+      ],
+      "uk",
+    );
+    const card = cards.aggregateCard;
+    expect(card).not.toBeNull();
+    if (card === null) {
+      return;
+    }
+    expect(card.footnotes).toContain(uk.cards.bucketsTruncated);
+    expect(card.footnotes).toContain("Ще 4 груп не показано.");
+    expect(card !== null && "bucketsOmitted" in card).toBe(false);
+    expect(card !== null && "bucketsTruncated" in card).toBe(false);
+  });
+
+  it("renders empty buckets as honest empty copy, not a chart", () => {
+    const cards = assistantResultCardsFromParts(
+      [
+        countsPart(
+          countsOutput([], {
+            orderCount: 0,
+            grossByCurrency: [],
+          }),
+        ),
+      ],
+      "uk",
+    );
+    const card = cards.aggregateCard;
+    expect(cards.listCard).toBeNull();
+    expect(card).not.toBeNull();
+    if (card === null) {
+      return;
+    }
+    assertLabeledBucketList(card);
+    expect(card.buckets).toEqual([]);
+    expect(card.emptyTitle).toBe(uk.cards.aggregateEmptyTitle);
+    expect(card.emptyDescription).toBe(uk.cards.aggregateEmptyDescription);
+    expect(card.orderCountLabel).toBe("0 замовлень");
+  });
+
+  it("renders product and customer groupBy as the same labeled rows", () => {
+    const productCards = assistantResultCardsFromParts(
+      [
+        countsPart(
+          countsOutput([
+            {
+              identity: {
+                kind: "product",
+                productId: PRODUCT_A,
+                variantId: null,
+              },
+              label: "Троянда",
+              orderCount: 2,
+              grossByCurrency: [{ currency: "UAH", grossAmountMinor: "5000" }],
+              quantityMilli: "1500",
+            },
+          ]),
+        ),
+      ],
+      "uk",
+    );
+    const customerCards = assistantResultCardsFromParts(
+      [
+        countsPart(
+          countsOutput([
+            {
+              identity: {
+                kind: "customer",
+                customerId: CUSTOMER_A,
+                nameSnapshot: "Іван",
+              },
+              label: "Іван",
+              orderCount: 3,
+              grossByCurrency: [{ currency: "UAH", grossAmountMinor: "7000" }],
+            },
+          ]),
+        ),
+      ],
+      "uk",
+    );
+    const product = productCards.aggregateCard;
+    const customer = customerCards.aggregateCard;
+    expect(product).not.toBeNull();
+    expect(customer).not.toBeNull();
+    if (product === null || customer === null) {
+      return;
+    }
+    assertLabeledBucketList(product);
+    assertLabeledBucketList(customer);
+    expect(product.groupBy).toBe("product");
+    expect(customer.groupBy).toBe("customer");
+    expect(product.kind).toBe(customer.kind);
+    expect(product.kind).toBe("orders-aggregate");
+    expect(product.buckets[0]?.label).toBe("Троянда");
+    expect(product.buckets[0]?.quantityLabel).toBe("1,5");
+    expect(product.buckets[0]?.status).toBeNull();
+    expect(customer.buckets[0]?.label).toBe("Іван");
+    expect(customer.buckets[0]?.quantityLabel).toBeNull();
+    expect(customer.buckets[0]?.status).toBeNull();
+    expect("chartType" in product).toBe(false);
+    expect("chartType" in customer).toBe(false);
+  });
+
+  it("keeps one list card and no aggregate when page and counts share a turn", () => {
+    const cards = assistantResultCardsFromParts(
+      [
+        countsPart(
+          countsOutput([
+            {
+              identity: { kind: "status", status: "new" },
+              label: "new",
+              orderCount: 2,
+              grossByCurrency: [],
+            },
+          ]),
+        ),
+        {
+          type: "tool-orders_list_page",
+          toolCallId: "call-page",
+          state: "output-available",
+          output: pageOutput([pageRow(ORDER_A)]),
+        },
+      ],
+      "uk",
+    );
+    expect(cards.listCard?.kind).toBe("orders-list");
+    expect(cards.aggregateCard).toBeNull();
+    expect(cards.entityCards).toEqual([]);
+  });
+
+  it("never paints an active chip or invented Active bucket on the aggregate card", () => {
+    const cards = assistantResultCardsFromParts(
+      [
+        countsPart(
+          countsOutput([
+            {
+              identity: { kind: "status", status: "active" },
+              label: "active",
+              orderCount: 9,
+              grossByCurrency: [],
+            },
+            {
+              identity: { kind: "status", status: "in_progress" },
+              label: "in_progress",
+              orderCount: 2,
+              grossByCurrency: [{ currency: "UAH", grossAmountMinor: "1000" }],
+            },
+            {
+              identity: { kind: "status", status: "new" },
+              label: "new",
+              orderCount: 1,
+              grossByCurrency: [{ currency: "UAH", grossAmountMinor: "500" }],
+            },
+          ]),
+        ),
+      ],
+      "uk",
+    );
+    const card = cards.aggregateCard;
+    expect(card).not.toBeNull();
+    if (card === null) {
+      return;
+    }
+    const json = JSON.stringify(card);
+    expect(json.includes("active")).toBe(false);
+    expect(json.includes("Активн")).toBe(false);
+    expect(card.buckets.map((bucket) => bucket.status)).toEqual([
+      "new",
+      "in_progress",
+    ]);
+    expect(card.buckets[1]?.label).toBe(ordersUk.statuses.in_progress);
+    expect(card.buckets[1]?.label).toBe("В роботі");
+    expect(card.buckets.map((bucket) => bucket.label)).not.toContain("Активні");
+  });
+
+  it("does not render an aggregate card from a façade error orders_list_counts", () => {
+    const output = {
+      status: "error" as const,
+      code: "PERMISSION_DENIED",
+      message: "Staff cannot count these orders",
+    };
+    expect(isToolErrorOutput(output)).toBe(true);
+    const cards = assistantResultCardsFromParts([countsPart(output)], "uk");
+    expect(cards.listCard).toBeNull();
+    expect(cards.aggregateCard).toBeNull();
+    expect(cards.entityCards).toEqual([]);
+  });
+
+  it("localizes unlinked customer buckets and in_progress status copy", () => {
+    const cards = assistantResultCardsFromParts(
+      [
+        countsPart(
+          countsOutput([
+            {
+              identity: {
+                kind: "customer",
+                customerId: null,
+                nameSnapshot: "unlinked",
+              },
+              label: "unlinked",
+              orderCount: 1,
+              grossByCurrency: [],
+            },
+          ]),
+        ),
+      ],
+      "uk",
+    );
+    expect(cards.aggregateCard?.buckets[0]?.label).toBe(
+      ordersUk.missingCustomer,
+    );
   });
 });
 
@@ -627,6 +1053,10 @@ describe("assistant result card composition", () => {
     );
     const entityCard = readFileSync(
       new URL("../sheet/order-entity-card.tsx", import.meta.url),
+      "utf8",
+    );
+    const aggregateCard = readFileSync(
+      new URL("../sheet/orders-aggregate-result-card.tsx", import.meta.url),
       "utf8",
     );
     const mapper = readFileSync(
@@ -651,6 +1081,13 @@ describe("assistant result card composition", () => {
     expect(entityCard).toContain("StatusPill");
     expect(entityCard.includes("orders-list-screen")).toBe(false);
     expect(entityCard.includes("order-row")).toBe(false);
+    expect(aggregateCard).toContain("Card");
+    expect(aggregateCard).toContain("StatusPill");
+    expect(aggregateCard).toContain('from "../../../components/ui"');
+    expect(aggregateCard.includes("orders-list-screen")).toBe(false);
+    expect(aggregateCard.includes("order-row")).toBe(false);
+    expect(aggregateCard.includes("BarChart")).toBe(false);
+    expect(aggregateCard.includes("wow")).toBe(false);
     expect(messageRow.includes("orders-list-screen")).toBe(false);
     expect(messageRow.includes("order-row")).toBe(false);
     expect(hook).toContain("orderDetailHref");
@@ -667,5 +1104,8 @@ describe("assistant result card composition", () => {
     expect(mapper).not.toContain("dig.svg");
     expect(listCard).not.toContain("sit.svg");
     expect(listCard).not.toContain("listen.svg");
+    expect(aggregateCard).not.toContain("sit.svg");
+    expect(aggregateCard).not.toContain("dig.svg");
+    expect(aggregateCard).not.toContain("listen.svg");
   });
 });

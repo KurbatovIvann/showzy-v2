@@ -40,6 +40,25 @@ describe("assistant copy", () => {
     expect(JSON.stringify(en.cards).includes("active")).toBe(false);
   });
 
+  it("pins aggregate-card copy without an active chip or invented Active group", () => {
+    const uk = assistantCopy("uk");
+    const en = assistantCopy("en");
+    expect(uk.cards.noneBucket).toBe("Усього");
+    expect(en.cards.noneBucket).toBe("Total");
+    expect(uk.cards.noneBucket.includes("Активн")).toBe(false);
+    expect(en.cards.noneBucket.includes("Active")).toBe(false);
+    expect(uk.cards.orderCount.one).toBe("{{count}} замовлення");
+    expect(uk.cards.orderCount.many).toBe("{{count}} замовлень");
+    expect(uk.cards.aggregateEmptyTitle).toBe("Немає замовлень");
+    expect(uk.cards.bucketsTruncated).toBe("Показано не всі групи.");
+    expect(uk.cards.bucketsOmitted.includes("{{count}}")).toBe(true);
+    expect(Object.keys(uk.cards.orderCount)).toEqual(
+      Object.keys(en.cards.orderCount),
+    );
+    expect(JSON.stringify(uk.cards).includes("active")).toBe(false);
+    expect(JSON.stringify(en.cards).includes("active")).toBe(false);
+  });
+
   it("pins sheet title Шозік/Shozik and keeps the BottomNav label AI", () => {
     const uk = assistantCopy("uk");
     const en = assistantCopy("en");
