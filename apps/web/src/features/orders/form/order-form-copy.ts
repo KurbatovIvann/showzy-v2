@@ -5,7 +5,10 @@
  */
 import { isWireError, type WireErrorCode } from "@showzy/contract";
 
-import type { QueryFailureKind } from "../../../api/errors";
+import {
+  describeQueryFailure,
+  type QueryFailureKind,
+} from "../../../api/errors";
 import type { OrdersCreateCopy } from "../../../i18n/orders";
 import type { OrderFormWrite } from "./order-form-plan";
 import {
@@ -233,6 +236,29 @@ function bannerCopy(
     return copy.errors.itemsTooMany;
   }
   return copy.errors[banner];
+}
+
+/**
+ * List-query picker failures. Discriminate on `error.code` via
+ * `describeQueryFailure` — never `error.message`. Do not reuse the
+ * empty-catalog copy.
+ */
+export function mapLookupListError(
+  copy: OrdersCreateCopy,
+  error: unknown,
+  surface: "customers" | "products",
+): string | null {
+  if (error === null || error === undefined) {
+    return null;
+  }
+  const kind = describeQueryFailure(error).kind;
+  if (kind === "network") {
+    return copy.errors.network;
+  }
+  if (kind === "offline") {
+    return copy.errors.offline;
+  }
+  return surface === "customers" ? copy.customersError : copy.productsError;
 }
 
 export function resolveOrderFormCopy(

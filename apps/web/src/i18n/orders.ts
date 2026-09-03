@@ -74,6 +74,9 @@ export type OrdersCreateCopy = {
   readonly emptyCustomers: string;
   readonly emptyProducts: string;
   readonly emptyVariants: string;
+  readonly customersError: string;
+  readonly productsError: string;
+  readonly lookupRetry: string;
   readonly errors: OrdersCreateErrorCopy;
 };
 
@@ -207,6 +210,9 @@ const en: OrdersCopy = {
     emptyCustomers: "No active customers",
     emptyProducts: "No active products",
     emptyVariants: "No active variants",
+    customersError: "Could not load customers. Try again.",
+    productsError: "Could not load products. Try again.",
+    lookupRetry: "Retry",
     errors: {
       customerRequired: "Choose a customer",
       itemsRequired: "Add at least one product",
@@ -315,6 +321,9 @@ const uk: OrdersCopy = {
     emptyCustomers: "Немає активних клієнтів",
     emptyProducts: "Немає активних товарів",
     emptyVariants: "Немає активних варіантів",
+    customersError: "Не вдалося завантажити клієнтів. Спробуйте ще раз.",
+    productsError: "Не вдалося завантажити товари. Спробуйте ще раз.",
+    lookupRetry: "Повторити",
     errors: {
       customerRequired: "Оберіть клієнта",
       itemsRequired: "Додайте хоча б один товар",

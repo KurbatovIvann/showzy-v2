@@ -51,7 +51,9 @@ type RpcState = {
   orderDetails: Record<string, Record<string, unknown>>;
   customersById: Record<string, Record<string, unknown>>;
   listCustomersItems: unknown[];
+  listCustomersCalls: OrdersListRpcCall[];
   listProductsItems: unknown[];
+  listProductsCalls: OrdersListRpcCall[];
   productDetails: Record<string, Record<string, unknown>>;
   orderCreateNetworkFailuresRemaining: number;
   createdOrdersByKey: Record<string, Record<string, unknown>>;
@@ -109,7 +111,9 @@ function authMsw(): AuthMsw {
     orderDetails: {},
     customersById: {},
     listCustomersItems: [],
+    listCustomersCalls: [],
     listProductsItems: [],
+    listProductsCalls: [],
     productDetails: {},
     orderCreateNetworkFailuresRemaining: 0,
     createdOrdersByKey: {},
@@ -204,6 +208,15 @@ function inputString(input: unknown, key: string): string {
   const record = jsonObject(input);
   const value = record?.[key];
   return typeof value === "string" ? value : "";
+}
+
+function pageLimit(input: unknown): number {
+  const record = jsonObject(input);
+  const limit = record?.limit;
+  if (typeof limit === "number" && Number.isInteger(limit) && limit > 0) {
+    return limit;
+  }
+  return 50;
 }
 
 function recordMutation(
@@ -550,8 +563,13 @@ function allHandlers(sessionState: SessionState, rpcState: RpcState) {
         recordRpc(rpcState, request);
         const body: unknown = await request.json();
         const input = envelopeInput(body);
+        rpcState.listCustomersCalls.push({
+          path: new URL(request.url).pathname,
+          companyId: request.headers.get(COMPANY_SELECTOR_HEADER),
+          input,
+        });
         const search = inputString(input, "search").trim().toLowerCase();
-        const items =
+        const matched =
           search.length === 0
             ? rpcState.listCustomersItems
             : rpcState.listCustomersItems.filter((item) => {
@@ -569,7 +587,11 @@ function allHandlers(sessionState: SessionState, rpcState: RpcState) {
                     : "";
                 return name.includes(search) || phone.includes(search);
               });
-        return rpcJson({ items, nextCursor: null });
+        const limit = pageLimit(input);
+        return rpcJson({
+          items: matched.slice(0, limit),
+          nextCursor: matched.length > limit ? "next" : null,
+        });
       },
     ),
     http.post(
@@ -578,8 +600,13 @@ function allHandlers(sessionState: SessionState, rpcState: RpcState) {
         recordRpc(rpcState, request);
         const body: unknown = await request.json();
         const input = envelopeInput(body);
+        rpcState.listProductsCalls.push({
+          path: new URL(request.url).pathname,
+          companyId: request.headers.get(COMPANY_SELECTOR_HEADER),
+          input,
+        });
         const query = inputString(input, "query").trim().toLowerCase();
-        const items =
+        const matched =
           query.length === 0
             ? rpcState.listProductsItems
             : rpcState.listProductsItems.filter((item) => {
@@ -590,7 +617,11 @@ function allHandlers(sessionState: SessionState, rpcState: RpcState) {
                     : "";
                 return name.includes(query);
               });
-        return rpcJson({ items, nextCursor: null });
+        const limit = pageLimit(input);
+        return rpcJson({
+          items: matched.slice(0, limit),
+          nextCursor: matched.length > limit ? "next" : null,
+        });
       },
     ),
     http.post(`${PANEL_ORIGIN}/rpc/catalog/getProduct`, async ({ request }) => {
@@ -758,7 +789,9 @@ export function resetAuthMocks(): void {
   listMineState.orderDetails = {};
   listMineState.customersById = {};
   listMineState.listCustomersItems = [];
+  listMineState.listCustomersCalls = [];
   listMineState.listProductsItems = [];
+  listMineState.listProductsCalls = [];
   listMineState.productDetails = {};
   listMineState.orderCreateNetworkFailuresRemaining = 0;
   listMineState.createdOrdersByKey = {};

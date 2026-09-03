@@ -40,9 +40,13 @@ function stubModel(
     customerQuery: "",
     customers: [],
     customersLoading: false,
+    customersError: null,
+    retryCustomers: NOOP,
     productQuery: "",
     products: [],
     productsLoading: false,
+    productsError: null,
+    retryProducts: NOOP,
     pickerOpen: false,
     pickerKind: "closed",
     pickerProductName: null,
@@ -107,5 +111,44 @@ describe("OrderCreateView (SHO-379)", () => {
     expect(screen.getByText(copy.create.permissionDescription)).toBeDefined();
     expect(screen.queryByRole("button", { name: "Створити" })).toBeNull();
     expect(screen.queryByText("Оберіть клієнта")).toBeNull();
+  });
+
+  it("shows a customer list error with retry, not empty-catalog copy", () => {
+    render(
+      <OrderCreateView
+        model={stubModel({
+          customerOpen: true,
+          customersError: copy.create.customersError,
+          customers: [],
+        })}
+        showBack={false}
+        onBack={NOOP}
+      />,
+    );
+    expect(screen.getByText(copy.create.customersError)).toBeDefined();
+    expect(
+      screen.getByRole("button", { name: copy.create.lookupRetry }),
+    ).toBeDefined();
+    expect(screen.queryByText(copy.create.emptyCustomers)).toBeNull();
+  });
+
+  it("shows a product list error with retry, not empty-catalog copy", () => {
+    render(
+      <OrderCreateView
+        model={stubModel({
+          pickerOpen: true,
+          pickerKind: "products",
+          productsError: copy.create.productsError,
+          products: [],
+        })}
+        showBack={false}
+        onBack={NOOP}
+      />,
+    );
+    expect(screen.getByText(copy.create.productsError)).toBeDefined();
+    expect(
+      screen.getByRole("button", { name: copy.create.lookupRetry }),
+    ).toBeDefined();
+    expect(screen.queryByText(copy.create.emptyProducts)).toBeNull();
   });
 });

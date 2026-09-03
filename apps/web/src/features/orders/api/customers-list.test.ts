@@ -23,6 +23,20 @@ describe("customers.listCustomers query key (SHO-379)", () => {
     ]);
     expect(customersListQueryKey("company-a")[1]).not.toBe("null-company");
   });
+
+  it("puts search on the input in the key and omits blank search", () => {
+    expect(customersListQueryKey("company-a", "  Зоя  ")).toEqual([
+      "customers.listCustomers",
+      "company-a",
+      { ...ORDER_CUSTOMER_LOOKUP_INPUT, search: "Зоя" },
+    ]);
+    expect(customersListQueryKey("company-a", "   ")).toEqual(
+      customersListQueryKey("company-a"),
+    );
+    expect(customersListQueryKey("company-a", "Зоя")).not.toEqual(
+      customersListQueryKey("company-a"),
+    );
+  });
 });
 
 describe("customersListQueryOptions live selector (SHO-379)", () => {

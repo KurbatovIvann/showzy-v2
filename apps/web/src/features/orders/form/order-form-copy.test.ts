@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { ordersCopy } from "../../../i18n/orders";
 import {
   fieldErrorsFromFormState,
+  mapLookupListError,
   mapOrderFormFailure,
   mapValidationIssues,
   resolveOrderFormCopy,
@@ -123,5 +124,36 @@ describe("resolveOrderFormCopy", () => {
     expect(hidden.showSubmit).toBe(false);
     expect(hidden.banner).toBe(copy.errors.permission);
     expect(hidden.banner).not.toBe("do-not-match-this");
+  });
+});
+
+describe("mapLookupListError", () => {
+  it("maps list failures by error.code and never error.message", () => {
+    const copy = ordersCopy("uk").create;
+    expect(
+      mapLookupListError(
+        copy,
+        { code: "INTERNAL", status: 500, message: "secret-list-message" },
+        "customers",
+      ),
+    ).toBe(copy.customersError);
+    expect(
+      mapLookupListError(
+        copy,
+        { code: "INTERNAL", status: 500, message: "secret-list-message" },
+        "products",
+      ),
+    ).toBe(copy.productsError);
+    expect(
+      mapLookupListError(copy, new TypeError("Failed to fetch"), "customers"),
+    ).toBe(copy.errors.network);
+    expect(
+      mapLookupListError(
+        copy,
+        { code: "INTERNAL", status: 500, message: "secret-list-message" },
+        "customers",
+      ),
+    ).not.toBe("secret-list-message");
+    expect(mapLookupListError(copy, null, "customers")).toBeNull();
   });
 });

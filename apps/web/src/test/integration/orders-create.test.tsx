@@ -77,6 +77,48 @@ afterEach(() => {
 
 const copy = ordersCopy("uk");
 
+const ZOYA_CUSTOMER = {
+  ...ANNA_CUSTOMER,
+  id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+  name: "Зоя Прихована",
+  phone: "+380501112233",
+};
+
+const HIDDEN_PRODUCT = {
+  ...ROSE_PRODUCT,
+  id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+  name: "Хризантема Прихована",
+};
+
+function seedFirstPageCustomers(): void {
+  for (let index = 0; index < 50; index += 1) {
+    seedCustomer({
+      ...ANNA_CUSTOMER,
+      id: `aa000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+      name: `Клієнт сторінки ${index}`,
+      phone: null,
+    });
+  }
+}
+
+function seedFirstPageProducts(): void {
+  for (let index = 0; index < 50; index += 1) {
+    seedProduct({
+      ...ROSE_PRODUCT,
+      id: `cc000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+      name: `Товар сторінки ${index}`,
+    });
+  }
+}
+
+function rpcInputString(input: unknown, key: string): string | undefined {
+  if (typeof input !== "object" || input === null) {
+    return undefined;
+  }
+  const value = Object.getOwnPropertyDescriptor(input, key)?.value;
+  return typeof value === "string" ? value : undefined;
+}
+
 function signInWithFlowers(): void {
   sessionState.user = signedInOwner();
   listMineState.memberships = [FLOWERS_MEMBERSHIP];
@@ -393,5 +435,131 @@ describe("orders create (SHO-379)", () => {
     ).toBeDefined();
     expect(screen.queryByText("do-not-match-this")).toBeNull();
     expect(screen.queryByText("secret")).toBeNull();
+  });
+
+  it("finds a customer outside the first unfiltered page via listCustomers.search", async () => {
+    signInWithFlowers();
+    seedFirstPageCustomers();
+    seedCustomer(ZOYA_CUSTOMER);
+    seedProduct(ROSE_PRODUCT);
+    await renderApp("/kviti-lviv/orders/new");
+    await waitForCreateForm();
+    fireEvent.click(
+      screen.getByRole("button", { name: copy.create.customerPlaceholder }),
+    );
+    expect(
+      await screen.findByRole("option", { name: /Клієнт сторінки 0/ }),
+    ).toBeDefined();
+    expect(screen.queryByRole("option", { name: /Зоя Прихована/ })).toBeNull();
+    fireEvent.change(screen.getByLabelText(copy.create.customerSearchLabel), {
+      target: { value: "Зоя" },
+    });
+    expect(
+      await screen.findByRole("option", { name: /Зоя Прихована/ }),
+    ).toBeDefined();
+    expect(
+      listMineState.listCustomersCalls.some(
+        (call) => rpcInputString(call.input, "search") === "Зоя",
+      ),
+    ).toBe(true);
+  });
+
+  it("finds a product outside the first unfiltered page via listProducts.query", async () => {
+    signInWithFlowers();
+    seedCustomer(ANNA_CUSTOMER);
+    seedFirstPageProducts();
+    seedProduct(HIDDEN_PRODUCT);
+    await renderApp("/kviti-lviv/orders/new");
+    await waitForCreateForm();
+    fireEvent.click(
+      screen.getByRole("button", { name: copy.create.addProductsPlaceholder }),
+    );
+    expect(
+      await screen.findByRole("button", { name: "Товар сторінки 0" }),
+    ).toBeDefined();
+    expect(
+      screen.queryByRole("button", { name: HIDDEN_PRODUCT.name }),
+    ).toBeNull();
+    fireEvent.change(screen.getByLabelText(copy.create.productSearchLabel), {
+      target: { value: "Хризантема" },
+    });
+    expect(
+      await screen.findByRole("button", { name: HIDDEN_PRODUCT.name }),
+    ).toBeDefined();
+    expect(
+      listMineState.listProductsCalls.some(
+        (call) => rpcInputString(call.input, "query") === "Хризантема",
+      ),
+    ).toBe(true);
+  });
+
+  it("shows a customers.listCustomers error with retry, not empty copy", async () => {
+    signInWithFlowers();
+    seedCreateLookups();
+    let failCustomers = true;
+    let listCalls = 0;
+    server.use(
+      http.post(`${PANEL_ORIGIN}/rpc/customers/listCustomers`, () => {
+        listCalls += 1;
+        if (failCustomers) {
+          return rpcErrorBody("INTERNAL", 500, "secret-list-message");
+        }
+        return HttpResponse.json({
+          json: { items: [ANNA_CUSTOMER], nextCursor: null },
+        });
+      }),
+    );
+    await renderApp("/kviti-lviv/orders/new");
+    await waitForCreateForm();
+    fireEvent.click(
+      screen.getByRole("button", { name: copy.create.customerPlaceholder }),
+    );
+    expect(await screen.findByText(copy.create.customersError)).toBeDefined();
+    expect(screen.queryByText(copy.create.emptyCustomers)).toBeNull();
+    expect(screen.queryByText("secret-list-message")).toBeNull();
+    const beforeRetry = listCalls;
+    failCustomers = false;
+    fireEvent.click(
+      screen.getByRole("button", { name: copy.create.lookupRetry }),
+    );
+    expect(
+      await screen.findByRole("option", { name: /Анна Мельник/ }),
+    ).toBeDefined();
+    expect(listCalls).toBeGreaterThan(beforeRetry);
+  });
+
+  it("shows a catalog.listProducts error with retry, not empty copy", async () => {
+    signInWithFlowers();
+    seedCreateLookups();
+    let failProducts = true;
+    let listCalls = 0;
+    server.use(
+      http.post(`${PANEL_ORIGIN}/rpc/catalog/listProducts`, () => {
+        listCalls += 1;
+        if (failProducts) {
+          return rpcErrorBody("INTERNAL", 500, "secret-list-message");
+        }
+        return HttpResponse.json({
+          json: { items: [ROSE_PRODUCT], nextCursor: null },
+        });
+      }),
+    );
+    await renderApp("/kviti-lviv/orders/new");
+    await waitForCreateForm();
+    fireEvent.click(
+      screen.getByRole("button", { name: copy.create.addProductsPlaceholder }),
+    );
+    expect(await screen.findByText(copy.create.productsError)).toBeDefined();
+    expect(screen.queryByText(copy.create.emptyProducts)).toBeNull();
+    expect(screen.queryByText("secret-list-message")).toBeNull();
+    const beforeRetry = listCalls;
+    failProducts = false;
+    fireEvent.click(
+      screen.getByRole("button", { name: copy.create.lookupRetry }),
+    );
+    expect(
+      await screen.findByRole("button", { name: ROSE_PRODUCT.name }),
+    ).toBeDefined();
+    expect(listCalls).toBeGreaterThan(beforeRetry);
   });
 });

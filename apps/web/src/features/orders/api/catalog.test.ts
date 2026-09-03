@@ -25,6 +25,17 @@ describe("catalog lookup query keys (SHO-379)", () => {
       "company-a",
       ORDER_PRODUCT_LOOKUP_INPUT,
     ]);
+    expect(catalogListProductsQueryKey("company-a", "  Троянди  ")).toEqual([
+      "catalog.listProducts",
+      "company-a",
+      { ...ORDER_PRODUCT_LOOKUP_INPUT, query: "Троянди" },
+    ]);
+    expect(catalogListProductsQueryKey("company-a", "   ")).toEqual(
+      catalogListProductsQueryKey("company-a"),
+    );
+    expect(catalogListProductsQueryKey("company-a", "Троянди")).not.toEqual(
+      catalogListProductsQueryKey("company-a"),
+    );
     expect(catalogGetProductQueryKey("company-a", PRODUCT_ID)).toEqual([
       "catalog.getProduct",
       "company-a",

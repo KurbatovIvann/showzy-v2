@@ -12,6 +12,8 @@ import { interpolate, detectLocale } from "../../../i18n/locale";
 import { panelChromeCopy } from "../../../i18n/panel/chrome";
 import {
   CREATE_ORDER_COMMENT_MAX,
+  LIST_CUSTOMERS_SEARCH_MAX,
+  LIST_PRODUCTS_QUERY_MAX,
   ORDER_COMMENT_LINES,
 } from "../shared/order-caps";
 import type { OrderCreateModel } from "./use-order-create";
@@ -284,6 +286,7 @@ function CustomerPicker({ model }: { readonly model: OrderCreateModel }) {
               id="order-create-customer-search"
               type="search"
               value={model.customerQuery}
+              maxLength={LIST_CUSTOMERS_SEARCH_MAX}
               placeholder={model.formCopy.customerSearchPlaceholder}
               onChange={(event) => {
                 model.setCustomerQuery(event.target.value);
@@ -297,37 +300,55 @@ function CustomerPicker({ model }: { readonly model: OrderCreateModel }) {
                 {model.copy.loadingLabel}
               </li>
             ) : null}
-            {!model.customersLoading && model.customers.length === 0 ? (
+            {!model.customersLoading && model.customersError !== null ? (
+              <li className="px-3 py-3">
+                <Banner message={model.customersError} />
+                <button
+                  type="button"
+                  onClick={model.retryCustomers}
+                  className="mt-2 text-[14px] font-medium text-action focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action"
+                >
+                  {model.formCopy.lookupRetry}
+                </button>
+              </li>
+            ) : null}
+            {!model.customersLoading &&
+            model.customersError === null &&
+            model.customers.length === 0 ? (
               <li className="px-3 py-3 text-[14px] text-muted">
                 {model.formCopy.emptyCustomers}
               </li>
             ) : null}
-            {model.customers.map((customer) => (
-              <li key={customer.id}>
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={customer.id === model.customerId}
-                  onClick={() => {
-                    model.pickCustomer(customer);
-                  }}
-                  className={cx(
-                    "flex w-full flex-col rounded-field px-3 py-2 text-left",
-                    "hover:bg-canvas focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action",
-                    customer.id === model.customerId ? "bg-actionSoft" : false,
-                  )}
-                >
-                  <span className="text-[15px] font-medium text-ink">
-                    {customer.name}
-                  </span>
-                  {customer.phone !== null ? (
-                    <span className="text-[13px] text-muted">
-                      {customer.phone}
-                    </span>
-                  ) : null}
-                </button>
-              </li>
-            ))}
+            {model.customersError === null
+              ? model.customers.map((customer) => (
+                  <li key={customer.id}>
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={customer.id === model.customerId}
+                      onClick={() => {
+                        model.pickCustomer(customer);
+                      }}
+                      className={cx(
+                        "flex w-full flex-col rounded-field px-3 py-2 text-left",
+                        "hover:bg-canvas focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action",
+                        customer.id === model.customerId
+                          ? "bg-actionSoft"
+                          : false,
+                      )}
+                    >
+                      <span className="text-[15px] font-medium text-ink">
+                        {customer.name}
+                      </span>
+                      {customer.phone !== null ? (
+                        <span className="text-[13px] text-muted">
+                          {customer.phone}
+                        </span>
+                      ) : null}
+                    </button>
+                  </li>
+                ))
+              : null}
           </ul>
         </div>
       ) : null}
@@ -402,6 +423,7 @@ function ProductList({ model }: { readonly model: OrderCreateModel }) {
           id="order-create-product-search"
           type="search"
           value={model.productQuery}
+          maxLength={LIST_PRODUCTS_QUERY_MAX}
           placeholder={model.formCopy.productSearchPlaceholder}
           onChange={(event) => {
             model.setProductQuery(event.target.value);
@@ -415,39 +437,55 @@ function ProductList({ model }: { readonly model: OrderCreateModel }) {
             {model.copy.loadingLabel}
           </li>
         ) : null}
-        {!model.productsLoading && model.products.length === 0 ? (
+        {!model.productsLoading && model.productsError !== null ? (
+          <li className="py-3">
+            <Banner message={model.productsError} />
+            <button
+              type="button"
+              onClick={model.retryProducts}
+              className="mt-2 text-[14px] font-medium text-action focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action"
+            >
+              {model.formCopy.lookupRetry}
+            </button>
+          </li>
+        ) : null}
+        {!model.productsLoading &&
+        model.productsError === null &&
+        model.products.length === 0 ? (
           <li className="py-3 text-[14px] text-muted">
             {model.formCopy.emptyProducts}
           </li>
         ) : null}
-        {model.products.map((product) => {
-          const selected = model.pickerSelectedIds.has(product.id);
-          const hasVariants = product.variantCount > 0;
-          return (
-            <li key={product.id}>
-              <button
-                type="button"
-                aria-pressed={hasVariants ? undefined : selected}
-                onClick={() => {
-                  if (hasVariants) {
-                    model.openVariants(product.id, product.name);
-                    return;
-                  }
-                  model.toggleSimpleProduct(product.id, product.name);
-                }}
-                className={cx(
-                  "flex w-full items-center justify-between rounded-field px-3 py-3 text-left",
-                  "hover:bg-canvas focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action",
-                  selected ? "bg-actionSoft" : false,
-                )}
-              >
-                <span className="text-[15px] font-medium text-ink">
-                  {product.name}
-                </span>
-              </button>
-            </li>
-          );
-        })}
+        {model.productsError === null
+          ? model.products.map((product) => {
+              const selected = model.pickerSelectedIds.has(product.id);
+              const hasVariants = product.variantCount > 0;
+              return (
+                <li key={product.id}>
+                  <button
+                    type="button"
+                    aria-pressed={hasVariants ? undefined : selected}
+                    onClick={() => {
+                      if (hasVariants) {
+                        model.openVariants(product.id, product.name);
+                        return;
+                      }
+                      model.toggleSimpleProduct(product.id, product.name);
+                    }}
+                    className={cx(
+                      "flex w-full items-center justify-between rounded-field px-3 py-3 text-left",
+                      "hover:bg-canvas focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action",
+                      selected ? "bg-actionSoft" : false,
+                    )}
+                  >
+                    <span className="text-[15px] font-medium text-ink">
+                      {product.name}
+                    </span>
+                  </button>
+                </li>
+              );
+            })
+          : null}
       </ul>
     </>
   );

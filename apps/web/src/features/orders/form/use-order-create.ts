@@ -5,7 +5,7 @@
  */
 import { useQueryClient } from "@tanstack/react-query";
 import { useBlocker } from "@tanstack/react-router";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 
 import type { WireErrorCode } from "@showzy/contract";
@@ -33,6 +33,7 @@ import {
 import { useOrdersCopy } from "../shared/use-orders-copy";
 import {
   fieldErrorsFromFormState,
+  mapLookupListError,
   mapOrderFormFailure,
   mapValidationIssues,
   resolveOrderFormCopy,
@@ -74,14 +75,6 @@ function isCompanyRole(value: string): value is CompanyRole {
     value === "manager" ||
     value === "employee"
   );
-}
-
-function matchesLookupQuery(haystack: string, query: string): boolean {
-  const needle = query.trim().toLowerCase();
-  if (needle.length === 0) {
-    return true;
-  }
-  return haystack.toLowerCase().includes(needle);
 }
 
 export function useOrderCreate(args: {
@@ -134,6 +127,8 @@ export function useOrderCreate(args: {
   const lookups = useOrderCreateLookups({
     enabled: loadState.kind === "ready",
     variantProductId: picker.kind === "variants" ? picker.productId : null,
+    customerQuery,
+    productQuery,
   });
 
   const mutation = useContractMutation((input: CreateOrderPayload, options) =>
@@ -184,22 +179,17 @@ export function useOrderCreate(args: {
     loadState.kind === "ready";
 
   const watched = form.watch();
-  const customers = useMemo(
-    () =>
-      lookups.customers.filter((customer) =>
-        matchesLookupQuery(
-          `${customer.name} ${customer.phone ?? ""}`,
-          customerQuery,
-        ),
-      ),
-    [customerQuery, lookups.customers],
+  const customers = lookups.customers;
+  const products = lookups.products;
+  const customersError = mapLookupListError(
+    formCopy,
+    lookups.customersError,
+    "customers",
   );
-  const products = useMemo(
-    () =>
-      lookups.products.filter((product) =>
-        matchesLookupQuery(product.name, productQuery),
-      ),
-    [lookups.products, productQuery],
+  const productsError = mapLookupListError(
+    formCopy,
+    lookups.productsError,
+    "products",
   );
 
   function dispatchPicker(
@@ -269,9 +259,13 @@ export function useOrderCreate(args: {
     customerQuery,
     customers,
     customersLoading: lookups.customersStatus === "pending",
+    customersError,
+    retryCustomers: lookups.retryCustomers,
     productQuery,
     products,
     productsLoading: lookups.productsStatus === "pending",
+    productsError,
+    retryProducts: lookups.retryProducts,
     pickerOpen: productPickerOpen(picker),
     pickerKind: picker.kind,
     pickerProductName: picker.kind === "variants" ? picker.productName : null,
