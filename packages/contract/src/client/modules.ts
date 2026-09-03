@@ -89,10 +89,12 @@ import {
 } from "@showzy/invites/contract";
 import {
   cancelOrderContract,
+  completeOrderContract,
   confirmOrderContract,
   createOrderContract,
   getOrderContract,
   listOrdersContract,
+  startOrderContract,
 } from "@showzy/orders/contract";
 import {
   activatePriceListContract,
@@ -197,6 +199,8 @@ export const contractModules = {
   orders: {
     create: createOrderContract,
     confirm: confirmOrderContract,
+    start: startOrderContract,
+    complete: completeOrderContract,
     cancel: cancelOrderContract,
     get: getOrderContract,
     list: listOrdersContract,
