@@ -16,6 +16,15 @@ const pending: PendingConfirmation = {
   messageId: "a1",
 };
 
+const hitlToolOutput = {
+  status: "confirmation_required" as const,
+  challengeId: pending.challengeId,
+  summary: pending.summary,
+  expiresAt: pending.expiresAt,
+  actionName: pending.actionName,
+  toolCallId: pending.toolCallId,
+};
+
 const pageOutput = {
   kind: "page.summary",
   items: [
@@ -220,5 +229,180 @@ describe("assistantChatRows", () => {
         copy,
       ),
     ).toEqual([]);
+  });
+
+  it("keeps HITL output-available in-flight and bound while pending", () => {
+    const rows = assistantChatRows(
+      [
+        {
+          id: "a1",
+          role: "assistant",
+          parts: [
+            { type: "data-confirmation", data: pending },
+            {
+              type: "tool-customers.deleteCustomer",
+              toolCallId: "call-delete",
+              state: "output-available",
+              output: hitlToolOutput,
+            },
+          ],
+        },
+      ],
+      pending,
+      copy,
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.confirmation).toEqual(pending);
+    expect(rows[0]?.timeline).toEqual([
+      {
+        id: "call-delete",
+        label: "Працюю",
+        status: "running",
+      },
+    ]);
+    const pendingHitlRow = rows[0];
+    expect(pendingHitlRow).toBeDefined();
+    if (pendingHitlRow === undefined) {
+      return;
+    }
+    expect(assistantRowHasInFlightTools(pendingHitlRow)).toBe(true);
+    expect(JSON.stringify(rows).includes("confirmation_required")).toBe(false);
+  });
+
+  it("omits a dismissed HITL timeline step and drops the empty row", () => {
+    expect(
+      assistantChatRows(
+        [
+          {
+            id: "a1",
+            role: "assistant",
+            parts: [
+              { type: "data-confirmation", data: pending },
+              {
+                type: "tool-customers.deleteCustomer",
+                toolCallId: "call-delete",
+                state: "output-available",
+                output: hitlToolOutput,
+              },
+            ],
+          },
+        ],
+        null,
+        copy,
+        new Set([pending.challengeId]),
+      ),
+    ).toEqual([]);
+  });
+
+  it("omits a dismissed in-flight HITL step matched by data-confirmation toolCallId", () => {
+    expect(
+      assistantChatRows(
+        [
+          {
+            id: "a1",
+            role: "assistant",
+            parts: [
+              { type: "data-confirmation", data: pending },
+              {
+                type: "tool-customers.deleteCustomer",
+                toolCallId: "call-delete",
+                state: "input-available",
+              },
+            ],
+          },
+        ],
+        null,
+        copy,
+        new Set([pending.challengeId]),
+      ),
+    ).toEqual([]);
+  });
+
+  it("keeps other tools after omitting a dismissed HITL step", () => {
+    const rows = assistantChatRows(
+      [
+        {
+          id: "a1",
+          role: "assistant",
+          parts: [
+            {
+              type: "tool-orders_list_counts",
+              toolCallId: "call-counts",
+              state: "output-available",
+              output: { kind: "aggregate", orderCount: 6 },
+            },
+            { type: "data-confirmation", data: pending },
+            {
+              type: "tool-customers.deleteCustomer",
+              toolCallId: "call-delete",
+              state: "output-available",
+              output: hitlToolOutput,
+            },
+          ],
+        },
+      ],
+      null,
+      copy,
+      new Set([pending.challengeId]),
+    );
+    expect(rows).toEqual([
+      {
+        id: "a1",
+        role: "assistant",
+        text: "",
+        confirmation: null,
+        timeline: [
+          {
+            id: "call-counts",
+            label: "Рахую виторг",
+            status: "done",
+          },
+        ],
+      },
+    ]);
+    const remainingRow = rows[0];
+    expect(remainingRow).toBeDefined();
+    if (remainingRow === undefined) {
+      return;
+    }
+    expect(assistantRowHasInFlightTools(remainingRow)).toBe(false);
+  });
+
+  it("keeps a successful tool result after the HITL challenge is resolved", () => {
+    const rows = assistantChatRows(
+      [
+        {
+          id: "a1",
+          role: "assistant",
+          parts: [
+            { type: "data-confirmation", data: pending },
+            {
+              type: "tool-customers.deleteCustomer",
+              toolCallId: "call-delete",
+              state: "output-available",
+              output: { deleted: true },
+            },
+          ],
+        },
+      ],
+      null,
+      copy,
+      new Set([pending.challengeId]),
+    );
+    expect(rows).toEqual([
+      {
+        id: "a1",
+        role: "assistant",
+        text: "",
+        confirmation: null,
+        timeline: [
+          {
+            id: "call-delete",
+            label: "Працюю",
+            status: "done",
+          },
+        ],
+      },
+    ]);
   });
 });

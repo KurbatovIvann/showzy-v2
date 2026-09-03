@@ -6,6 +6,15 @@ import {
   toolStepsFromParts,
 } from "./turn-timeline";
 
+const hitlOutput = {
+  status: "confirmation_required" as const,
+  challengeId: "22222222-2222-4222-8222-222222222222",
+  summary: "Delete this archived customer.",
+  expiresAt: "2026-09-01T12:00:00.000Z",
+  actionName: "customers.deleteCustomer",
+  toolCallId: "call-delete",
+};
+
 describe("toolNameFromPart", () => {
   it("reads façade names from tool-{name} parts", () => {
     expect(
@@ -44,6 +53,18 @@ describe("timelineStatusFromPartState", () => {
     expect(timelineStatusFromPartState(undefined)).toBe("running");
     expect(timelineStatusFromPartState("output-available")).toBe("done");
     expect(timelineStatusFromPartState("output-error")).toBe("error");
+  });
+
+  it("does not mark HITL-paused output-available as done", () => {
+    expect(timelineStatusFromPartState("output-available", hitlOutput)).toBe(
+      "running",
+    );
+    expect(
+      timelineStatusFromPartState("output-available", {
+        kind: "aggregate",
+        orderCount: 6,
+      }),
+    ).toBe("done");
   });
 });
 
@@ -85,5 +106,57 @@ describe("toolStepsFromParts", () => {
     ]);
     expect(JSON.stringify(steps).includes("page.summary")).toBe(false);
     expect(JSON.stringify(steps).includes("orderNumber")).toBe(false);
+  });
+
+  it("keeps HITL-paused output-available in-flight, not done", () => {
+    const steps = toolStepsFromParts(
+      [
+        {
+          type: "tool-customers.deleteCustomer",
+          toolCallId: "call-delete",
+          state: "output-available",
+          output: hitlOutput,
+        },
+      ],
+      "a1",
+    );
+    expect(steps).toEqual([
+      {
+        id: "call-delete",
+        toolName: "customers.deleteCustomer",
+        status: "running",
+      },
+    ]);
+    expect(JSON.stringify(steps).includes("confirmation_required")).toBe(false);
+    expect(JSON.stringify(steps).includes("challengeId")).toBe(false);
+  });
+
+  it("omits dismissed HITL tools and keeps a successful non-HITL result", () => {
+    const steps = toolStepsFromParts(
+      [
+        {
+          type: "tool-orders_list_counts",
+          toolCallId: "call-counts",
+          state: "output-available",
+          output: { kind: "aggregate", orderCount: 6 },
+        },
+        { type: "data-confirmation", data: hitlOutput },
+        {
+          type: "tool-customers.deleteCustomer",
+          toolCallId: "call-delete",
+          state: "output-available",
+          output: hitlOutput,
+        },
+      ],
+      "a1",
+      new Set([hitlOutput.challengeId]),
+    );
+    expect(steps).toEqual([
+      {
+        id: "call-counts",
+        toolName: "orders_list_counts",
+        status: "done",
+      },
+    ]);
   });
 });

@@ -2,6 +2,7 @@
  * Live-turn tool timeline from current `UIMessage` parts (SHO-368).
  * Parse part names only — no list/aggregate cards, no persistence.
  */
+import { confirmationFromChatPart } from "./confirmation";
 import type { AssistantChatPart } from "./confirmation-presenter";
 
 export type AssistantTimelineStatus = "queued" | "running" | "done" | "error";
@@ -14,6 +15,7 @@ export type AssistantToolStep = {
 
 const TOOL_TYPE_PREFIX = "tool-";
 const DYNAMIC_TOOL_TYPE = "dynamic-tool";
+const EMPTY_CHALLENGE_IDS: ReadonlySet<string> = new Set();
 
 export function toolNameFromPart(part: AssistantChatPart): string | null {
   if (part.type === DYNAMIC_TOOL_TYPE) {
@@ -32,10 +34,15 @@ export function toolNameFromPart(part: AssistantChatPart): string | null {
 
 export function timelineStatusFromPartState(
   state: string | undefined,
+  output?: unknown,
 ): AssistantTimelineStatus {
   switch (state) {
     case "output-available":
-      return "done";
+      // HITL pause finishes the AI SDK tool part as output-available with
+      // a confirmation_required payload. That is still in-flight.
+      return confirmationFromChatPart(output) === undefined
+        ? "done"
+        : "running";
     case "output-error":
     case "output-denied":
       return "error";
@@ -46,18 +53,75 @@ export function timelineStatusFromPartState(
   }
 }
 
+function dismissedConfirmationToolCallIds(
+  parts: readonly AssistantChatPart[],
+  dismissedChallengeIds: ReadonlySet<string>,
+): ReadonlySet<string> {
+  const ids = new Set<string>();
+  if (dismissedChallengeIds.size === 0) {
+    return ids;
+  }
+  for (const part of parts) {
+    const fromPart = confirmationFromChatPart(part);
+    if (
+      fromPart !== undefined &&
+      dismissedChallengeIds.has(fromPart.challengeId)
+    ) {
+      ids.add(fromPart.toolCallId);
+    }
+    const fromOutput = confirmationFromChatPart(part.output);
+    if (
+      fromOutput !== undefined &&
+      dismissedChallengeIds.has(fromOutput.challengeId)
+    ) {
+      ids.add(fromOutput.toolCallId);
+    }
+  }
+  return ids;
+}
+
+function omitDismissedToolPart(
+  part: AssistantChatPart,
+  dismissedChallengeIds: ReadonlySet<string>,
+  dismissedToolCallIds: ReadonlySet<string>,
+): boolean {
+  const paused = confirmationFromChatPart(part.output);
+  if (paused !== undefined && dismissedChallengeIds.has(paused.challengeId)) {
+    return true;
+  }
+  if (part.state === "output-available" && paused === undefined) {
+    return false;
+  }
+  const callId = part.toolCallId;
+  return (
+    typeof callId === "string" &&
+    callId.length > 0 &&
+    dismissedToolCallIds.has(callId)
+  );
+}
+
 /**
- * Ordered live-turn tool steps. Skips text and `data-confirmation`.
- * Does not stringify `output`.
+ * Ordered live-turn tool steps. Skips text, `data-confirmation`, and
+ * dismissed/ignored HITL tools. Does not stringify `output`.
  */
 export function toolStepsFromParts(
   parts: readonly AssistantChatPart[],
   messageId: string,
+  dismissedChallengeIds: ReadonlySet<string> = EMPTY_CHALLENGE_IDS,
 ): readonly AssistantToolStep[] {
+  const dismissedToolCallIds = dismissedConfirmationToolCallIds(
+    parts,
+    dismissedChallengeIds,
+  );
   const steps: AssistantToolStep[] = [];
   for (const [index, part] of parts.entries()) {
     const toolName = toolNameFromPart(part);
     if (toolName === null) {
+      continue;
+    }
+    if (
+      omitDismissedToolPart(part, dismissedChallengeIds, dismissedToolCallIds)
+    ) {
       continue;
     }
     const callId = part.toolCallId;
@@ -67,7 +131,7 @@ export function toolStepsFromParts(
           ? callId
           : `${messageId}:${String(index)}`,
       toolName,
-      status: timelineStatusFromPartState(part.state),
+      status: timelineStatusFromPartState(part.state, part.output),
     });
   }
   return steps;

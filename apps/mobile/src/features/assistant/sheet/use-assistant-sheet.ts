@@ -29,6 +29,7 @@ export function useAssistantSheet(): AssistantSheetViewModel & {
     chat.messages,
     confirmation.card.kind === "hidden" ? null : confirmation.card.confirmation,
     copy,
+    confirmation.ignoredChallengeIds,
   );
 
   const chatKind =

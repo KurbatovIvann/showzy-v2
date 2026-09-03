@@ -21,6 +21,7 @@ export function useAssistantConfirmation(args: {
   readonly resume: (headers: Readonly<Record<string, string>>) => Promise<void>;
 }): {
   readonly pending: PendingConfirmation | null;
+  readonly ignoredChallengeIds: ReadonlySet<string>;
   readonly card: ConfirmationCardState;
   readonly confirm: () => void;
   readonly dismiss: () => void;
@@ -143,6 +144,7 @@ export function useAssistantConfirmation(args: {
 
   return {
     pending,
+    ignoredChallengeIds: ignored,
     card,
     confirm,
     dismiss,
