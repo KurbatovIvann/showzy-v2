@@ -1912,7 +1912,79 @@ describe("orders.cancel", () => {
     expect(fetched.confirmedAt).toBe(confirmed.confirmedAt);
   });
 
-  it("conflicts when canceling an already canceled order and when confirming after cancel", async () => {
+  it("cancels an in-progress order without clearing confirmed_at", async () => {
+    const created = await kit.invoke(
+      createOrder,
+      createById(fixtures.customerA, [
+        { productId: fixtures.pZero, quantityMilli: "1000" },
+      ]),
+    );
+    const confirmed = await kit.invoke(confirmOrder, {
+      orderId: created.orderId,
+    });
+    await kit.invoke(startOrder, { orderId: created.orderId });
+    const canceled = await kit.invoke(cancelOrder, {
+      orderId: created.orderId,
+    });
+    expect(canceled).toEqual({
+      orderId: created.orderId,
+      customerId: fixtures.customerA,
+      status: "canceled",
+    });
+    expect(Object.prototype.hasOwnProperty.call(canceled, "canceledAt")).toBe(
+      false,
+    );
+
+    const cancelEvents = await kit.db.runtime.db
+      .select()
+      .from(domainEvents)
+      .where(
+        and(
+          eq(domainEvents.aggregateId, created.orderId),
+          eq(domainEvents.name, "orders.canceled"),
+        ),
+      );
+    expect(cancelEvents[0]?.payload).toEqual({
+      orderId: created.orderId,
+      customerId: fixtures.customerA,
+    });
+
+    const fetched = await kit.invoke(getOrder, { orderId: created.orderId });
+    expect(fetched.status).toBe("canceled");
+    expect(fetched.confirmedAt).toBe(confirmed.confirmedAt);
+  });
+
+  it("replays the same idempotency key without changing status or confirmed_at", async () => {
+    const created = await kit.invoke(
+      createOrder,
+      createById(fixtures.customerA, [
+        { productId: fixtures.pZero, quantityMilli: "1000" },
+      ]),
+    );
+    const confirmed = await kit.invoke(confirmOrder, {
+      orderId: created.orderId,
+    });
+    const key = randomUUID();
+    const first = await kit.invoke(
+      cancelOrder,
+      { orderId: created.orderId },
+      {},
+      { request: { idempotencyKey: key } },
+    );
+    const replay = await kit.invoke(
+      cancelOrder,
+      { orderId: created.orderId },
+      {},
+      { request: { idempotencyKey: key } },
+    );
+    expect(replay).toEqual(first);
+
+    const fetched = await kit.invoke(getOrder, { orderId: created.orderId });
+    expect(fetched.status).toBe("canceled");
+    expect(fetched.confirmedAt).toBe(confirmed.confirmedAt);
+  });
+
+  it("conflicts when canceling an already canceled order and when confirming, starting, or completing after cancel", async () => {
     const created = await kit.invoke(
       createOrder,
       createById(fixtures.customerBare, [
@@ -1920,15 +1992,42 @@ describe("orders.cancel", () => {
       ]),
     );
     await kit.invoke(cancelOrder, { orderId: created.orderId });
-    await expect(
+    await expectConflict(
       kit.invoke(cancelOrder, { orderId: created.orderId }),
-    ).rejects.toBeInstanceOf(ConflictError);
-    await expect(
+      "Order is already canceled.",
+    );
+    await expectConflict(
       kit.invoke(confirmOrder, { orderId: created.orderId }),
-    ).rejects.toBeInstanceOf(ConflictError);
-    await expect(
+      "Order cannot be confirmed.",
+    );
+    await expectConflict(
+      kit.invoke(startOrder, { orderId: created.orderId }),
+      "Order cannot be started.",
+    );
+    await expectConflict(
+      kit.invoke(completeOrder, { orderId: created.orderId }),
+      "Order cannot be completed.",
+    );
+    await expectConflict(
       kit.invoke(cancelOrder, { orderId: fixtures.orderCanceled }),
-    ).rejects.toBeInstanceOf(ConflictError);
+      "Order is already canceled.",
+    );
+  });
+
+  it("conflicts when canceling a done order", async () => {
+    const created = await kit.invoke(
+      createOrder,
+      createById(fixtures.customerBare, [
+        { productId: fixtures.pZero, quantityMilli: "1000" },
+      ]),
+    );
+    await kit.invoke(confirmOrder, { orderId: created.orderId });
+    await kit.invoke(startOrder, { orderId: created.orderId });
+    await kit.invoke(completeOrder, { orderId: created.orderId });
+    await expectConflict(
+      kit.invoke(cancelOrder, { orderId: created.orderId }),
+      "Order cannot be canceled.",
+    );
   });
 
   it("returns NotFound for missing and foreign-company orders without leaking existence", async () => {

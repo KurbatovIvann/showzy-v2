@@ -16,5 +16,8 @@ describe("orders.cancel contract", () => {
     expect(cancelOrderContract.emits).toEqual(["orders.canceled"]);
     expect(cancelOrderContract.atomicCalls).toEqual([]);
     expect(cancelOrderContract.timeout).toBe(5_000);
+    expect(cancelOrderContract.description).toContain(
+      "new, confirmed, or in-progress",
+    );
   });
 });
