@@ -2,7 +2,13 @@ import { z } from "zod";
 
 import { moneyWireSchema, quantityMilliWireSchema } from "../wire.contract.js";
 
-export const orderStatusSchema = z.enum(["new", "confirmed", "canceled"]);
+export const orderStatusSchema = z.enum([
+  "new",
+  "confirmed",
+  "in_progress",
+  "done",
+  "canceled",
+]);
 
 export const orderDiscountKindSchema = z.literal("none");
 

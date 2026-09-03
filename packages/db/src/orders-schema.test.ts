@@ -505,6 +505,18 @@ describe("staff orders schema slice", () => {
       "23514",
     );
     await expectSqlState(
+      insertOrder({ companyId: company.id, status: "completed" }),
+      "23514",
+    );
+    await expectSqlState(
+      insertOrder({
+        companyId: company.id,
+        status: "active",
+        confirmedAt: new Date(),
+      }),
+      "23514",
+    );
+    await expectSqlState(
       insertOrder({ companyId: company.id, customerNameSnapshot: "" }),
       "23514",
     );
@@ -830,11 +842,25 @@ describe("staff orders schema slice", () => {
     expect(keys.has("owner:orders:view")).toBe(false);
   });
 
-  it("ties confirmed_at to status without requiring it after cancel", async () => {
+  it("accepts the five CHECK statuses and ties confirmed_at without requiring it after cancel", async () => {
     const company = await insertCompany();
 
     await expectSqlState(
       insertOrder({ companyId: company.id, status: "confirmed" }),
+      "23514",
+    );
+    await expectSqlState(
+      insertOrder({
+        companyId: company.id,
+        status: "in_progress",
+      }),
+      "23514",
+    );
+    await expectSqlState(
+      insertOrder({
+        companyId: company.id,
+        status: "done",
+      }),
       "23514",
     );
     await expectSqlState(
@@ -846,12 +872,35 @@ describe("staff orders schema slice", () => {
       "23514",
     );
 
+    const created = await insertOrder({
+      companyId: company.id,
+      status: "new",
+    });
+    expect(created.status).toBe("new");
+    expect(created.confirmedAt).toBeNull();
+
     const confirmed = await insertOrder({
       companyId: company.id,
       status: "confirmed",
       confirmedAt: new Date(),
     });
     expect(confirmed.confirmedAt).not.toBeNull();
+
+    const inProgress = await insertOrder({
+      companyId: company.id,
+      status: "in_progress",
+      confirmedAt: new Date(),
+    });
+    expect(inProgress.status).toBe("in_progress");
+    expect(inProgress.confirmedAt).not.toBeNull();
+
+    const done = await insertOrder({
+      companyId: company.id,
+      status: "done",
+      confirmedAt: new Date(),
+    });
+    expect(done.status).toBe("done");
+    expect(done.confirmedAt).not.toBeNull();
 
     const canceledFromConfirmed = await insertOrder({
       companyId: company.id,

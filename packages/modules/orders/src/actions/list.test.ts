@@ -78,7 +78,7 @@ describe("orders.list contract", () => {
     expect(
       listOrdersInputSchema.safeParse({
         kind: "page.summary",
-        filter: { statuses: ["in_progress"] },
+        filter: { statuses: ["completed"] },
       }).success,
     ).toBe(false);
     expect(
@@ -168,7 +168,7 @@ describe("orders.list contract", () => {
     expect(parseListOrdersCursor("nope")).toBeUndefined();
   });
 
-  it("accepts statuses[] single, multi, and omitted filter", () => {
+  it("accepts statuses[] single, multi, five CHECK values, and omitted filter", () => {
     expect(
       listOrdersContract.input.parse({
         kind: "page.summary",
@@ -181,6 +181,41 @@ describe("orders.list contract", () => {
         filter: { statuses: ["new", "confirmed"] },
       }).filter?.statuses,
     ).toEqual(["new", "confirmed"]);
+    expect(
+      listOrdersContract.input.parse({
+        kind: "page.summary",
+        filter: { statuses: ["in_progress"] },
+      }).filter?.statuses,
+    ).toEqual(["in_progress"]);
+    expect(
+      listOrdersContract.input.parse({
+        kind: "page.summary",
+        filter: { statuses: ["done"] },
+      }).filter?.statuses,
+    ).toEqual(["done"]);
+    expect(
+      listOrdersContract.input.parse({
+        kind: "page.summary",
+        filter: {
+          statuses: ["new", "confirmed", "in_progress", "done", "canceled"],
+        },
+      }).filter?.statuses,
+    ).toEqual(["new", "confirmed", "in_progress", "done", "canceled"]);
+    expect(
+      listOrdersContract.input.safeParse({
+        kind: "page.summary",
+        filter: {
+          statuses: [
+            "new",
+            "confirmed",
+            "in_progress",
+            "done",
+            "canceled",
+            "new",
+          ],
+        },
+      }).success,
+    ).toBe(false);
     expect(
       listOrdersContract.input.parse({ kind: "page.summary" }).filter,
     ).toBeUndefined();
