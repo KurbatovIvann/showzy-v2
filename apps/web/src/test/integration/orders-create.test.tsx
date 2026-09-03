@@ -130,6 +130,17 @@ async function waitForCreateForm(): Promise<HTMLElement> {
   return pane;
 }
 
+function submitCreateForm(): void {
+  const submit = screen.getByRole("button", {
+    name: copy.create.submitCreate,
+  });
+  const form = submit.closest("form");
+  if (form === null) {
+    throw new Error("expected the order create form");
+  }
+  fireEvent.submit(form);
+}
+
 async function pickCustomerAndProduct(): Promise<void> {
   fireEvent.click(
     screen.getByRole("button", { name: copy.create.customerPlaceholder }),
@@ -155,9 +166,7 @@ describe("orders create (SHO-379)", () => {
     expect(within(pane).queryByText(/500/)).toBeNull();
     expect(within(pane).queryByText("50,00")).toBeNull();
     await pickCustomerAndProduct();
-    fireEvent.click(
-      screen.getByRole("button", { name: copy.create.submitCreate }),
-    );
+    submitCreateForm();
     expect(
       await screen.findByRole("heading", { name: `#${CREATED_ORDER_NUMBER}` }),
     ).toBeDefined();
@@ -195,17 +204,17 @@ describe("orders create (SHO-379)", () => {
     seedCreateLookups();
     await renderApp("/kviti-lviv/orders/new");
     await waitForCreateForm();
-    fireEvent.click(
-      screen.getByRole("button", { name: copy.create.submitCreate }),
-    );
-    expect(
-      await screen.findByRole("alert", {
-        name: copy.create.errors.customerRequired,
-      }),
-    ).toBeDefined();
-    expect(
-      screen.getByRole("alert", { name: copy.create.errors.itemsRequired }),
-    ).toBeDefined();
+    submitCreateForm();
+    await waitFor(() => {
+      expect(
+        screen.getAllByRole("alert").map((node) => node.textContent),
+      ).toEqual(
+        expect.arrayContaining([
+          copy.create.errors.customerRequired,
+          copy.create.errors.itemsRequired,
+        ]),
+      );
+    });
     expect(createCalls()).toHaveLength(0);
   });
 
@@ -216,16 +225,12 @@ describe("orders create (SHO-379)", () => {
     const { router } = await renderApp("/kviti-lviv/orders/new");
     await waitForCreateForm();
     await pickCustomerAndProduct();
-    fireEvent.click(
-      screen.getByRole("button", { name: copy.create.submitCreate }),
-    );
+    submitCreateForm();
     expect(await screen.findByText(copy.create.errors.network)).toBeDefined();
     expect(createCalls()).toHaveLength(1);
     const firstKey = createCalls()[0]?.idempotencyKey;
     expect(firstKey?.length).toBeGreaterThan(0);
-    fireEvent.click(
-      screen.getByRole("button", { name: copy.create.submitCreate }),
-    );
+    submitCreateForm();
     expect(
       await screen.findByRole("heading", { name: `#${CREATED_ORDER_NUMBER}` }),
     ).toBeDefined();
@@ -282,9 +287,7 @@ describe("orders create (SHO-379)", () => {
     await renderApp("/kviti-lviv/orders/new");
     await waitForCreateForm();
     await pickCustomerAndProduct();
-    fireEvent.click(
-      screen.getByRole("button", { name: copy.create.submitCreate }),
-    );
+    submitCreateForm();
     expect(
       await screen.findByText(copy.create.errors.permission),
     ).toBeDefined();
@@ -304,9 +307,7 @@ describe("orders create (SHO-379)", () => {
     await renderApp("/kviti-lviv/orders/new");
     await waitForCreateForm();
     await pickCustomerAndProduct();
-    fireEvent.click(
-      screen.getByRole("button", { name: copy.create.submitCreate }),
-    );
+    submitCreateForm();
     expect(
       await screen.findByText(copy.create.errors.itemsRequired),
     ).toBeDefined();

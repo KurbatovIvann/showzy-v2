@@ -189,6 +189,10 @@ export function OrderCreateView({
                     type="submit"
                     className="flex-1"
                     disabled={model.submitDisabled}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      model.submit();
+                    }}
                   >
                     {model.submitLabel}
                   </Button>

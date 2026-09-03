@@ -73,11 +73,26 @@ describe("fieldErrorsFromFormState / rhfPathsForFieldErrors", () => {
         itemsMessage: "duplicate",
         commentMessage: "too_long",
         server: null,
+        planner: null,
       }),
     ).toEqual({
       customer: "required",
       items: "duplicate",
       comment: "too_long",
+    });
+    expect(
+      fieldErrorsFromFormState({
+        submitted: false,
+        customerMessage: undefined,
+        itemsMessage: undefined,
+        commentMessage: undefined,
+        server: null,
+        planner: { customer: "required", items: "required", comment: null },
+      }),
+    ).toEqual({
+      customer: "required",
+      items: "required",
+      comment: null,
     });
     expect(
       rhfPathsForFieldErrors({

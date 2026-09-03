@@ -6,7 +6,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useBlocker } from "@tanstack/react-router";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { useForm, type UseFormSetError } from "react-hook-form";
+import { useForm } from "react-hook-form";
 
 import { useApiClient } from "../../../api/api-provider";
 import { useContractMutation } from "../../../api/contract-mutation";
@@ -31,11 +31,11 @@ import {
   mapValidationIssues,
   resolveOrderFormCopy,
   rhfItemsMessage,
-  rhfPathsForFieldErrors,
   type BannerKey,
 } from "./order-form-copy";
 import {
   cloneOrderFormDraft,
+  emptyFieldErrors,
   emptyOrderFormDraft,
   formatOrderLineQuantity,
   stepQuantityMilli,
@@ -77,18 +77,6 @@ function matchesLookupQuery(haystack: string, query: string): boolean {
   return haystack.toLowerCase().includes(needle);
 }
 
-function applyPlannerFieldErrors(
-  setError: UseFormSetError<OrderFormDraft>,
-  errors: OrderFormFieldErrors,
-): void {
-  for (const entry of rhfPathsForFieldErrors(errors)) {
-    setError(entry.name, {
-      type: "validate",
-      message: entry.message,
-    });
-  }
-}
-
 export function useOrderCreate(args: {
   readonly onCreated: (orderId: string) => void;
 }) {
@@ -118,6 +106,8 @@ export function useOrderCreate(args: {
   const { isDirty, errors, isSubmitted, isValidating } = form.formState;
   const [lastWrite, setLastWrite] = useState<OrderFormWrite | null>(null);
   const [localBanner, setLocalBanner] = useState<BannerKey | null>(null);
+  const [plannerErrors, setPlannerErrors] =
+    useState<OrderFormFieldErrors>(emptyFieldErrors());
   const [picker, setPicker] = useState<ProductPickerState>(emptyProductPicker);
   const [customerOpen, setCustomerOpen] = useState(false);
   const [customerQuery, setCustomerQuery] = useState("");
@@ -162,6 +152,7 @@ export function useOrderCreate(args: {
     customerMessage: errors.customerId?.message,
     itemsMessage: rhfItemsMessage(errors.items),
     commentMessage: errors.comment?.message,
+    planner: plannerErrors,
     server: serverFields,
   });
   const failureBanner = mapOrderFormFailure(failure?.kind ?? null, wireCode);
@@ -209,45 +200,31 @@ export function useOrderCreate(args: {
       return;
     }
     setLocalBanner(null);
-    await form.handleSubmit(
-      async (values) => {
-        const plan = parseThenPlanOrderFormSave({
-          draft: cloneOrderFormDraft(values),
-          lastWrite,
-          lastFailureKind: failure?.kind ?? null,
-          lastWireCode: wireCode,
-        });
-        if (plan.kind === "invalid") {
-          applyPlannerFieldErrors(form.setError, plan.errors);
-          return;
-        }
-        if (plan.kind === "write") {
-          setLastWrite(plan.write);
-        }
-        try {
-          const result =
-            plan.kind === "retry"
-              ? await mutation.retry()
-              : await mutation.submit(plan.write.input);
-          skipLeaveRef.current = true;
-          applyOrderCreateSuccess(queryClient, activeCompanyId);
-          onCreatedRef.current(result.orderId);
-        } catch {
-          // Field/banner mapping comes from mutation.error + lastWrite.
-        }
-      },
-      () => {
-        const plan = parseThenPlanOrderFormSave({
-          draft: cloneOrderFormDraft(form.getValues()),
-          lastWrite,
-          lastFailureKind: failure?.kind ?? null,
-          lastWireCode: wireCode,
-        });
-        if (plan.kind === "invalid") {
-          applyPlannerFieldErrors(form.setError, plan.errors);
-        }
-      },
-    )();
+    const plan = parseThenPlanOrderFormSave({
+      draft: cloneOrderFormDraft(form.getValues()),
+      lastWrite,
+      lastFailureKind: failure?.kind ?? null,
+      lastWireCode: wireCode,
+    });
+    if (plan.kind === "invalid") {
+      setPlannerErrors(plan.errors);
+      return;
+    }
+    setPlannerErrors(emptyFieldErrors());
+    if (plan.kind === "write") {
+      setLastWrite(plan.write);
+    }
+    try {
+      const result =
+        plan.kind === "retry"
+          ? await mutation.retry()
+          : await mutation.submit(plan.write.input);
+      skipLeaveRef.current = true;
+      applyOrderCreateSuccess(queryClient, activeCompanyId);
+      onCreatedRef.current(result.orderId);
+    } catch {
+      // Field/banner mapping comes from mutation.error + lastWrite.
+    }
   }
 
   return {
@@ -301,6 +278,7 @@ export function useOrderCreate(args: {
         shouldValidate: isSubmitted,
       });
       form.setValue("customerName", customer.name, { shouldDirty: true });
+      setPlannerErrors((prev) => ({ ...prev, customer: null }));
       setCustomerOpen(false);
       setCustomerQuery("");
       mutation.reset();
@@ -341,6 +319,7 @@ export function useOrderCreate(args: {
       form.setValue("nextDraftSerial", result.draft.nextDraftSerial, {
         shouldDirty: true,
       });
+      setPlannerErrors((prev) => ({ ...prev, items: null }));
       if (result.rejected !== null) {
         setLocalBanner(result.rejected);
       }
@@ -349,9 +328,15 @@ export function useOrderCreate(args: {
       mutation.reset();
     },
     stepQuantity: (index: number, delta: number) => {
-      const path = `items.${String(index)}.quantityMilli` as const;
-      const current = form.getValues(path);
-      form.setValue(path, stepQuantityMilli(current, delta), {
+      const items = form.getValues("items").map((item, itemIndex) =>
+        itemIndex === index
+          ? {
+              ...item,
+              quantityMilli: stepQuantityMilli(item.quantityMilli, delta),
+            }
+          : item,
+      );
+      form.setValue("items", items, {
         shouldDirty: true,
         shouldValidate: isSubmitted,
       });
@@ -363,11 +348,16 @@ export function useOrderCreate(args: {
         shouldDirty: true,
         shouldValidate: isSubmitted,
       });
+      setPlannerErrors((prev) => ({
+        ...prev,
+        items: items.length === 0 ? prev.items : null,
+      }));
       mutation.reset();
       setLocalBanner(null);
     },
     changeComment: (value: string) => {
       form.setValue("comment", value, { shouldDirty: true });
+      setPlannerErrors((prev) => ({ ...prev, comment: null }));
       mutation.reset();
       setLocalBanner(null);
     },

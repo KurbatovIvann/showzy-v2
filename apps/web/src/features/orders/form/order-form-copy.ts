@@ -154,6 +154,7 @@ export function fieldErrorsFromFormState(args: {
   readonly customerMessage: unknown;
   readonly itemsMessage: unknown;
   readonly commentMessage: unknown;
+  readonly planner: OrderFormFieldErrors | null;
   readonly server: OrderFormFieldErrors | null;
 }): OrderFormFieldErrors {
   const customer =
@@ -175,9 +176,10 @@ export function fieldErrorsFromFormState(args: {
       ? args.commentMessage
       : null;
   return {
-    customer: customer ?? args.server?.customer ?? null,
-    items: items ?? args.server?.items ?? null,
-    comment: comment ?? args.server?.comment ?? null,
+    customer:
+      customer ?? args.planner?.customer ?? args.server?.customer ?? null,
+    items: items ?? args.planner?.items ?? args.server?.items ?? null,
+    comment: comment ?? args.planner?.comment ?? args.server?.comment ?? null,
   };
 }
 
