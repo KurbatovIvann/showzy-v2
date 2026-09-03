@@ -5,6 +5,11 @@ import { assistantCopy } from "../../../i18n/assistant";
 import { ordersCopy } from "../../../i18n/orders";
 import { orderDetailHref } from "../../orders/shared/order-hrefs";
 import {
+  assistantSurfacesFromParts,
+  type AssistantOrderEntityCardView,
+  type AssistantSurface,
+} from "../surfaces";
+import {
   associateToolRunsWithAssistantMessages,
   entityResultIdsFromToolRuns,
   findOwnConversationId,
@@ -19,7 +24,15 @@ import {
   type AssistantListConversationsInput,
 } from "./assistant-hydrate";
 import { assistantChatRows } from "./chat-rows";
-import { assistantResultCardsFromParts } from "./result-cards";
+
+function entitiesOf(
+  surfaces: readonly AssistantSurface[],
+): readonly AssistantOrderEntityCardView[] {
+  return surfaces.filter(
+    (surface): surface is AssistantOrderEntityCardView =>
+      surface.kind === "order-entity",
+  );
+}
 
 const SESSION_USER = "user-own";
 const COLLEAGUE_USER = "user-colleague";
@@ -257,14 +270,11 @@ describe("hydratedUiMessagesFromConversation", () => {
     expect(messages[1]?.parts).toEqual([
       { type: "text", text: "Ось активні замовлення." },
     ]);
-    const cards = assistantResultCardsFromParts(messages[1]?.parts ?? [], "uk");
-    expect(cards.listCard).toBeNull();
-    expect(cards.aggregateCard).toBeNull();
-    expect(cards.entityCards).toEqual([]);
+    const surfaces = assistantSurfacesFromParts(messages[1]?.parts ?? [], "uk");
+    expect(surfaces).toEqual([]);
     const rows = assistantChatRows(messages, null, uk);
     expect(rows[1]?.text).toBe("Ось активні замовлення.");
-    expect(rows[1]?.listCard).toBeNull();
-    expect(rows[1]?.aggregateCard).toBeNull();
+    expect(rows[1]?.surfaces).toEqual([]);
     expect(JSON.stringify(rows[1])).not.toContain("orders_list_page");
     expect(JSON.stringify(rows[1])).not.toContain("orders_list_counts");
     expect(rows[1]?.text.includes("{")).toBe(false);
@@ -311,21 +321,23 @@ describe("hydratedUiMessagesFromConversation", () => {
         [ORDER_B, createOutput],
       ]),
     });
-    const cards = assistantResultCardsFromParts(messages[1]?.parts ?? [], "uk");
-    expect(cards.listCard).toBeNull();
-    expect(cards.entityCards).toHaveLength(2);
-    expect(cards.entityCards[0]?.orderId).toBe(ORDER_A);
-    expect(cards.entityCards[0]?.href).toBe(orderDetailHref(ORDER_A));
-    expect(cards.entityCards[0]?.statusLabel).toBe(
-      ordersUk.statuses.in_progress,
-    );
-    expect(cards.entityCards[0]?.statusTone).toBe("attention");
-    expect(cards.entityCards[1]?.customerName).toBe("Оля");
-    expect(cards.entityCards[1]?.statusLabel).toBe(ordersUk.statuses.new);
-    expect(cards.entityCards[1]?.statusTone).toBe("action");
+    const surfaces = assistantSurfacesFromParts(messages[1]?.parts ?? [], "uk");
+    expect(surfaces.map((surface) => surface.kind)).toEqual([
+      "order-entity",
+      "order-entity",
+    ]);
+    const entityCards = entitiesOf(surfaces);
+    expect(entityCards).toHaveLength(2);
+    expect(entityCards[0]?.orderId).toBe(ORDER_A);
+    expect(entityCards[0]?.href).toBe(orderDetailHref(ORDER_A));
+    expect(entityCards[0]?.statusLabel).toBe(ordersUk.statuses.in_progress);
+    expect(entityCards[0]?.statusTone).toBe("attention");
+    expect(entityCards[1]?.customerName).toBe("Оля");
+    expect(entityCards[1]?.statusLabel).toBe(ordersUk.statuses.new);
+    expect(entityCards[1]?.statusTone).toBe("action");
     const rows = assistantChatRows(messages, null, uk);
     expect(rows[1]?.text).toBe("Ось картка.");
-    expect(rows[1]?.entityCards).toHaveLength(2);
+    expect(rows[1]?.surfaces).toHaveLength(2);
     expect(JSON.stringify(rows[1]?.text)).not.toContain("in_progress");
   });
 
@@ -352,8 +364,8 @@ describe("hydratedUiMessagesFromConversation", () => {
       ordersById: new Map(),
     });
     expect(messages[0]?.parts).toEqual([{ type: "text", text: body }]);
-    const cards = assistantResultCardsFromParts(messages[0]?.parts ?? [], "uk");
-    expect(cards.entityCards).toEqual([]);
+    const surfaces = assistantSurfacesFromParts(messages[0]?.parts ?? [], "uk");
+    expect(surfaces).toEqual([]);
     expect(messages[0]?.parts[0]).toEqual({ type: "text", text: body });
     expect(JSON.stringify(messages)).not.toContain("NOT_FOUND");
     expect(JSON.stringify(messages)).not.toContain("PERMISSION_DENIED");
@@ -384,9 +396,8 @@ describe("hydratedUiMessagesFromConversation", () => {
         [ORDER_B, orderSnapshot(ORDER_B, "confirmed")],
       ]),
     });
-    const cards = assistantResultCardsFromParts(messages[0]?.parts ?? [], "uk");
-    expect(cards.entityCards).toEqual([]);
-    expect(cards.listCard).toBeNull();
+    const surfaces = assistantSurfacesFromParts(messages[0]?.parts ?? [], "uk");
+    expect(surfaces).toEqual([]);
   });
 
   it("pairs entity runs with the later assistant when timestamps differ", () => {

@@ -7,27 +7,18 @@ import {
   assistantTurnResultStretch,
 } from "../shared/assistant-turn-layout";
 import type { AssistantTimelineStep } from "../shared/chat-rows";
-import type {
-  AssistantOrderEntityCardView,
-  AssistantOrdersAggregateCardView,
-  AssistantOrdersListCardView,
-} from "../shared/result-cards";
+import { assistantSurfaceKey, type AssistantSurface } from "../surfaces";
+import { AssistantSurfaceCard } from "./assistant-surface-card";
 import { AssistantTimeline } from "./assistant-timeline";
 import { ConfirmationCard } from "./confirmation-card";
-import { OrderEntityCard } from "./order-entity-card";
-import { OrdersAggregateResultCard } from "./orders-aggregate-result-card";
-import { OrdersListResultCard } from "./orders-list-result-card";
 
 export const AssistantMessageRow = memo(function AssistantMessageRow(props: {
   readonly role: "user" | "assistant";
   readonly text: string;
   readonly timeline: readonly AssistantTimelineStep[];
   readonly timelineLabel: string;
-  readonly listCard: AssistantOrdersListCardView | null;
-  readonly aggregateCard: AssistantOrdersAggregateCardView | null;
-  readonly entityCards: readonly AssistantOrderEntityCardView[];
-  readonly onOpenOrders: () => void;
-  readonly onOpenOrder: (orderId: string) => void;
+  readonly surfaces: readonly AssistantSurface[];
+  readonly onOpenHref: (href: string) => void;
   readonly confirmationSummary: string | null;
   readonly confirmationTitle: string;
   readonly confirmLabel: string;
@@ -40,8 +31,6 @@ export const AssistantMessageRow = memo(function AssistantMessageRow(props: {
   const isUser = props.role === "user";
   const confirmationSummary = props.confirmationSummary;
   const showTimeline = props.timeline.length > 0;
-  const listCard = props.listCard;
-  const aggregateCard = props.aggregateCard;
 
   return (
     <View style={isUser ? styles.userWrap : styles.assistantWrap}>
@@ -58,23 +47,12 @@ export const AssistantMessageRow = memo(function AssistantMessageRow(props: {
           />
         </AssistantTurnResult>
       ) : null}
-      {listCard !== null ? (
-        <AssistantTurnResult>
-          <OrdersListResultCard
-            card={listCard}
-            onOpenOrders={props.onOpenOrders}
-            onOpenOrder={props.onOpenOrder}
+      {props.surfaces.map((surface) => (
+        <AssistantTurnResult key={assistantSurfaceKey(surface)}>
+          <AssistantSurfaceCard
+            surface={surface}
+            onOpenHref={props.onOpenHref}
           />
-        </AssistantTurnResult>
-      ) : null}
-      {aggregateCard !== null ? (
-        <AssistantTurnResult>
-          <OrdersAggregateResultCard card={aggregateCard} />
-        </AssistantTurnResult>
-      ) : null}
-      {props.entityCards.map((card) => (
-        <AssistantTurnResult key={card.id}>
-          <OrderEntityCard card={card} onOpenOrder={props.onOpenOrder} />
         </AssistantTurnResult>
       ))}
       {confirmationSummary !== null ? (
