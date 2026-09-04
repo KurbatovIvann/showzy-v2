@@ -2,7 +2,8 @@
 
 Shared tooling presets consumed by every package in the monorepo. No product
 runtime code lives here — only configuration, plus CI scripts under `ci/`
-used by `.github/workflows/ci.yml` (SHO-334 aggregator).
+used by `.github/workflows/ci.yml` (SHO-334 aggregator, SHO-387
+`dependency-audit` lockfile/manifest scope).
 
 ## Exports
 

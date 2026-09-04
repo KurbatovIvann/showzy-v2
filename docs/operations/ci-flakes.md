@@ -27,9 +27,13 @@ That surface hung (`ERR_SOCKET_TIMEOUT`) and later returns 410. pnpm 12
 with `pnpm/setup` (native `@pnpm/exe`); `pnpm/action-setup` v6 cannot
 exec it.
 
-The `dependency-audit` job runs `pnpm audit --audit-level high`. Do
-not pass `--ignore-registry-errors`, and do not add GitHub Actions job
-`retry` / rerun-on-failure.
+The `dependency-audit` job always reports a check. It calls
+`pnpm audit --audit-level high` only when the comparison range touches
+`pnpm-lock.yaml`, `pnpm-workspace.yaml`, any `package.json`, or `.npmrc`
+(SHO-387). Application-only PRs do not hit npm's bulk advisory endpoint.
+Unresolved comparison SHAs still run the audit. Do not pass
+`--ignore-registry-errors`, and do not add GitHub Actions job
+`retry` / rerun-on-failure. `workflow_dispatch` always runs the audit.
 
 ## What to do instead
 
