@@ -17,14 +17,25 @@ import {
 import { and, asc, eq, ilike, inArray, or, type SQL } from "drizzle-orm";
 import { unionAll } from "drizzle-orm/pg-core";
 
+import {
+  VARIANT_SELECTION_OPTIONS_MAX,
+  type ResolveLineItemInput,
+  type VariantSelection,
+} from "../actions/resolve-line-references.contract.js";
+import {
+  ambiguousVariantQueryMessage,
+  noActiveVariantsMessage,
+  ReferenceResolutionConflictError,
+  unmatchedVariantQueryMessage,
+  variantRequiredMessage,
+  type VariantSelectionOption,
+} from "./reference-resolution-conflict.js";
+
 type StaffDb = Extract<ActionCtx, { principal: "staff" }>["db"];
 
 const RESOLVE_LINE_CANDIDATE_MAX = 100;
 
-export type LineReferenceInput = {
-  readonly product: EntityRef;
-  readonly variant?: EntityRef | undefined;
-};
+export type LineReferenceInput = ResolveLineItemInput;
 
 export type ResolvedLineReference = {
   readonly productId: string;
@@ -90,10 +101,6 @@ function productLabel(row: ProductCandidate): string {
   return `${row.name} (${row.currency}, ${row.id})`;
 }
 
-function variantLabel(row: VariantCandidate): string {
-  return `${row.name} (${row.id})`;
-}
-
 function conflictLabels<T>(
   query: string,
   rows: readonly T[],
@@ -104,6 +111,62 @@ function conflictLabels<T>(
     .toSorted((left, right) => left.localeCompare(right))
     .slice(0, REFERENCE_CONFLICT_LABELS_MAX);
   return new ConflictError(formatReferenceConflictMessage(query, labels));
+}
+
+function variantSelectionOf(line: LineReferenceInput): VariantSelection {
+  if (line.variant !== undefined) {
+    return { kind: "reference", ref: line.variant };
+  }
+  return line.variantSelection ?? { kind: "unspecified" };
+}
+
+function compareVariantNameThenId(
+  left: VariantCandidate,
+  right: VariantCandidate,
+): number {
+  const byName = left.name.localeCompare(right.name);
+  if (byName !== 0) {
+    return byName;
+  }
+  return left.id.localeCompare(right.id);
+}
+
+function pickerFromVariants(rows: readonly VariantCandidate[]): {
+  readonly options: readonly VariantSelectionOption[];
+  readonly optionsTruncated: boolean;
+} {
+  const sorted = [...rows].toSorted(compareVariantNameThenId);
+  return {
+    options: sorted.slice(0, VARIANT_SELECTION_OPTIONS_MAX).map((row) => ({
+      id: row.id,
+      label: row.name,
+    })),
+    optionsTruncated: sorted.length > VARIANT_SELECTION_OPTIONS_MAX,
+  };
+}
+
+function throwVariantSelectionConflict(args: {
+  readonly reason:
+    "variant_required" | "ambiguous" | "unmatched_query" | "no_active_variants";
+  readonly lineIndex: number;
+  readonly product: ProductCandidate;
+  readonly optionsSource: readonly VariantCandidate[];
+  readonly clientMessage: string;
+}): never {
+  const picker = pickerFromVariants(args.optionsSource);
+  throw new ReferenceResolutionConflictError({
+    reason: args.reason,
+    target: {
+      kind: "order_line_variant",
+      lineIndex: args.lineIndex,
+      productId: args.product.id,
+      productName: args.product.name,
+    },
+    options: args.reason === "no_active_variants" ? [] : picker.options,
+    optionsTruncated:
+      args.reason === "no_active_variants" ? false : picker.optionsTruncated,
+    clientMessage: args.clientMessage,
+  });
 }
 
 const productCandidateColumns = {
@@ -124,7 +187,13 @@ async function loadProductsById(
   return db
     .select(productCandidateColumns)
     .from(products)
-    .where(and(eq(products.companyId, companyId), inArray(products.id, ids)));
+    .where(
+      and(
+        eq(products.companyId, companyId),
+        eq(products.status, "active"),
+        inArray(products.id, ids),
+      ),
+    );
 }
 
 /**
@@ -220,7 +289,7 @@ function resolveProductRef(
 ): ProductCandidate {
   if (ref.by === "id") {
     const row = byId.get(ref.id);
-    if (row === undefined) {
+    if (row === undefined || row.status !== "active") {
       throw new NotFoundError();
     }
     return row;
@@ -242,20 +311,34 @@ function resolveProductRef(
   return picked.row;
 }
 
-function resolveVariantRef(
+function resolveReferencedVariant(
   ref: EntityRef,
-  productId: string,
-  variants: readonly VariantCandidate[],
+  lineIndex: number,
+  product: ProductCandidate,
+  owned: readonly VariantCandidate[],
+  active: readonly VariantCandidate[],
 ): VariantCandidate {
-  const owned = variants.filter((row) => row.productId === productId);
   if (ref.by === "id") {
     const row = owned.find((variant) => variant.id === ref.id);
-    if (row === undefined) {
+    if (row === undefined || row.status !== "active") {
       throw new NotFoundError();
     }
     return row;
   }
-  const active = owned.filter((row) => row.status === "active");
+  // Simple product: no choosable variants. A query is not unmatched_query
+  // (HITL picker); it is the same as a missing variant id.
+  if (owned.length === 0) {
+    throw new NotFoundError();
+  }
+  if (active.length === 0) {
+    throwVariantSelectionConflict({
+      reason: "no_active_variants",
+      lineIndex,
+      product,
+      optionsSource: [],
+      clientMessage: noActiveVariantsMessage(product.name),
+    });
+  }
   const scoped = candidatesContainingQuery(ref.value, active, (row) => [
     row.name,
   ]);
@@ -263,12 +346,76 @@ function resolveVariantRef(
     row.name,
   ]);
   if (picked.kind === "none") {
-    throw new NotFoundError();
+    throwVariantSelectionConflict({
+      reason: "unmatched_query",
+      lineIndex,
+      product,
+      optionsSource: active,
+      clientMessage: unmatchedVariantQueryMessage(ref.value, product.name),
+    });
   }
   if (picked.kind === "ambiguous") {
-    throw conflictLabels(ref.value, picked.rows, variantLabel);
+    throwVariantSelectionConflict({
+      reason: "ambiguous",
+      lineIndex,
+      product,
+      optionsSource: picked.rows,
+      clientMessage: ambiguousVariantQueryMessage(ref.value, product.name),
+    });
   }
   return picked.row;
+}
+
+function resolveLineVariant(
+  line: LineReferenceInput,
+  lineIndex: number,
+  product: ProductCandidate,
+  variants: readonly VariantCandidate[],
+): ResolvedLineReference {
+  const owned = variants.filter((row) => row.productId === product.id);
+  const active = owned.filter((row) => row.status === "active");
+  const selection = variantSelectionOf(line);
+
+  if (selection.kind === "reference") {
+    const variant = resolveReferencedVariant(
+      selection.ref,
+      lineIndex,
+      product,
+      owned,
+      active,
+    );
+    return {
+      productId: product.id,
+      productName: product.name,
+      variantId: variant.id,
+      variantName: variant.name,
+    };
+  }
+
+  if (owned.length === 0) {
+    return {
+      productId: product.id,
+      productName: product.name,
+      variantId: null,
+      variantName: null,
+    };
+  }
+  if (active.length === 0) {
+    throwVariantSelectionConflict({
+      reason: "no_active_variants",
+      lineIndex,
+      product,
+      optionsSource: [],
+      clientMessage: noActiveVariantsMessage(product.name),
+    });
+  }
+  throwVariantSelectionConflict({
+    reason: "variant_required",
+    lineIndex,
+    product,
+    optionsSource: active,
+    clientMessage: variantRequiredMessage(product.name),
+  });
 }
 
 /**
@@ -321,20 +468,6 @@ export async function resolveCatalogLineReferences(args: {
     if (product === undefined) {
       throw new NotFoundError();
     }
-    if (line.variant === undefined) {
-      return {
-        productId: product.id,
-        productName: product.name,
-        variantId: null,
-        variantName: null,
-      };
-    }
-    const variant = resolveVariantRef(line.variant, product.id, variants);
-    return {
-      productId: product.id,
-      productName: product.name,
-      variantId: variant.id,
-      variantName: variant.name,
-    };
+    return resolveLineVariant(line, index, product, variants);
   });
 }

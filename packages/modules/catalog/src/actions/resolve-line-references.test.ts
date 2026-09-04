@@ -1,7 +1,10 @@
+import { REFERENCE_CONFLICT_LABELS_MAX } from "@showzy/validation/entity-ref";
 import { describe, expect, it } from "vitest";
 
 import {
   RESOLVE_LINE_REFERENCES_MAX_LINES,
+  VARIANT_AND_SELECTION_EXCLUSIVE_MESSAGE,
+  VARIANT_SELECTION_OPTIONS_MAX,
   resolveLineReferencesContract,
 } from "./resolve-line-references.contract.js";
 
@@ -24,6 +27,11 @@ describe("catalog.resolveLineReferences contract", () => {
     expect(resolveLineReferencesContract.emits).toEqual([]);
     expect(resolveLineReferencesContract.timeout).toBe(5_000);
     expect(RESOLVE_LINE_REFERENCES_MAX_LINES).toBe(100);
+    expect(VARIANT_SELECTION_OPTIONS_MAX).toBe(20);
+    expect(VARIANT_SELECTION_OPTIONS_MAX).toBeGreaterThan(6);
+    expect(VARIANT_SELECTION_OPTIONS_MAX).not.toBe(
+      REFERENCE_CONFLICT_LABELS_MAX,
+    );
   });
 
   it("accepts 1–100 lines of EntityRef products and rejects extras", () => {
@@ -67,5 +75,63 @@ describe("catalog.resolveLineReferences contract", () => {
         companyId: validId,
       }).success,
     ).toBe(false);
+  });
+
+  it("accepts additive variantSelection and keeps legacy variant exclusive", () => {
+    expect(
+      resolveLineReferencesContract.input.parse({
+        lines: [
+          {
+            product: { by: "id", id: validId },
+            variantSelection: { kind: "unspecified" },
+          },
+          {
+            product: { by: "id", id: validId },
+            variantSelection: { kind: "base" },
+          },
+          {
+            product: { by: "id", id: validId },
+            variantSelection: {
+              kind: "reference",
+              ref: { by: "query", value: "  Lemon  " },
+            },
+          },
+        ],
+      }),
+    ).toEqual({
+      lines: [
+        {
+          product: { by: "id", id: validId },
+          variantSelection: { kind: "unspecified" },
+        },
+        {
+          product: { by: "id", id: validId },
+          variantSelection: { kind: "base" },
+        },
+        {
+          product: { by: "id", id: validId },
+          variantSelection: {
+            kind: "reference",
+            ref: { by: "query", value: "Lemon" },
+          },
+        },
+      ],
+    });
+    const both = resolveLineReferencesContract.input.safeParse({
+      lines: [
+        {
+          product: { by: "id", id: validId },
+          variant: { by: "id", id: validId },
+          variantSelection: { kind: "base" },
+        },
+      ],
+    });
+    expect(both.success).toBe(false);
+    if (both.success) {
+      return;
+    }
+    expect(JSON.stringify(both.error.issues)).toContain(
+      VARIANT_AND_SELECTION_EXCLUSIVE_MESSAGE,
+    );
   });
 });
