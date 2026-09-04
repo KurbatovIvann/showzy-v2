@@ -1,23 +1,22 @@
-import { Link, getRouteApi } from "@tanstack/react-router";
+import { getRouteApi } from "@tanstack/react-router";
 
+import { useOrdersCopy } from "../shared/use-orders-copy";
+import { OrdersCreateLink } from "./orders-create-link";
 import { OrdersListView } from "./orders-list-view";
 import { useOrdersList } from "./use-orders-list";
-import { useOrdersCopy } from "../shared/use-orders-copy";
 
 const ordersRoute = getRouteApi("/_authed/$companySlug/_panel/orders");
 
 export function OrdersListHeaderTrailing() {
   const copy = useOrdersCopy();
   const { companySlug } = ordersRoute.useParams();
+  const { state } = useOrdersList();
+  // Canvas hides the header CTA when the list empty-state has its own.
+  if (state.kind === "empty-catalog") {
+    return null;
+  }
   return (
-    <Link
-      to="/$companySlug/orders/new"
-      params={{ companySlug }}
-      search={(prev) => prev}
-      className="mt-0.5 inline-flex h-10 items-center rounded-full px-3 text-[14px] font-semibold text-action hover:bg-actionSoft focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action"
-    >
-      {copy.createLabel}
-    </Link>
+    <OrdersCreateLink companySlug={companySlug} label={copy.createLabel} />
   );
 }
 

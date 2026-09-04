@@ -8,6 +8,7 @@ import {
   ORDER_LIFECYCLE_STATUSES,
   type OrderLifecycleStatus,
 } from "../shared/order-status";
+import { OrdersCreateLink } from "./orders-create-link";
 import type { OrdersListEntry, OrdersListState } from "./orders-list.presenter";
 
 const CHIP_BASE_CLASS = cx(
@@ -129,6 +130,11 @@ export function OrdersListView({
             <p className="mt-2 text-[14px] leading-relaxed text-muted">
               {copy.empty.catalogDescription}
             </p>
+            <OrdersCreateLink
+              companySlug={companySlug}
+              label={copy.empty.catalogAction}
+              className="mt-4"
+            />
           </div>
         ) : null}
         {state.kind === "empty-filtered" ? (

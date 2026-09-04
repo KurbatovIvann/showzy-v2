@@ -139,7 +139,11 @@ describe("orders list (SHO-377)", () => {
     expect(
       screen.queryByRole("heading", { name: "Модуль у розробці" }),
     ).toBeNull();
-    expect(screen.getByRole("link", { name: "+ Нове" })).toBeDefined();
+    const create = screen.getByRole("link", { name: "+ Нове" });
+    expect(create).toBeDefined();
+    expect(create.className).toContain("bg-ink");
+    expect(create.className).toContain("text-white");
+    expect(create.className).not.toContain("text-action");
   });
 
   it("keeps search and status search params after a reload", async () => {
@@ -235,10 +239,17 @@ describe("orders list (SHO-377)", () => {
 
   it("shows catalog-empty when there are no orders", async () => {
     signInWithFlowers();
-    await renderApp("/kviti-lviv/orders");
+    const { router } = await renderApp("/kviti-lviv/orders");
     await waitForOrdersList();
     expect(await screen.findByText("Замовлень ще немає")).toBeDefined();
     expect(screen.queryByText("Нічого не знайдено")).toBeNull();
+    expect(screen.queryByRole("link", { name: "+ Нове" })).toBeNull();
+    const emptyCreate = screen.getByRole("link", { name: "Нове замовлення" });
+    expect(emptyCreate.className).toContain("bg-ink");
+    fireEvent.click(emptyCreate);
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/kviti-lviv/orders/new");
+    });
   });
 
   it("shows filtered-empty when the query matches nothing", async () => {

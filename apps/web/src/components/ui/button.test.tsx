@@ -6,7 +6,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { Button } from "./button";
+import { Button, buttonClassName } from "./button";
 
 afterEach(cleanup);
 
@@ -40,14 +40,24 @@ describe("Button (SHO-311)", () => {
   it("applies the canvas size steps", () => {
     render(
       <>
+        <Button size="compact">Компактний</Button>
         <Button size="sm">Малий</Button>
         <Button>Середній</Button>
         <Button size="lg">Великий</Button>
       </>,
     );
+    expect(classesOf("Компактний")).toContain("text-[13px]");
     expect(classesOf("Малий")).toContain("text-[14px]");
     expect(classesOf("Середній")).toContain("text-[15px]");
     expect(classesOf("Великий")).toContain("text-[17px]");
+  });
+
+  it("exposes the same classes for a Link-shaped create control", () => {
+    const classes = buttonClassName({ size: "compact" });
+    expect(classes).toContain("bg-ink");
+    expect(classes).toContain("text-white");
+    expect(classes).toContain("text-[13px]");
+    expect(classes).not.toContain("text-action");
   });
 
   it("carries the focus-visible ring on the action token", () => {
