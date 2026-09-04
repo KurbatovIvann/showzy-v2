@@ -78,6 +78,7 @@ const styles = StyleSheet.create((theme) => ({
     borderTopLeftRadius: theme.radii.card,
     borderTopRightRadius: theme.radii.card,
     ...theme.squircle,
+    ...theme.shadows.sm,
   },
   groupMiddle: {
     marginHorizontal: theme.spacing.lg,
@@ -85,6 +86,7 @@ const styles = StyleSheet.create((theme) => ({
     borderColor: theme.colors.border,
     borderLeftWidth: 1,
     borderRightWidth: 1,
+    ...theme.shadows.sm,
   },
   groupEnd: {
     marginHorizontal: theme.spacing.lg,
@@ -98,6 +100,7 @@ const styles = StyleSheet.create((theme) => ({
     borderBottomLeftRadius: theme.radii.card,
     borderBottomRightRadius: theme.radii.card,
     ...theme.squircle,
+    ...theme.shadows.sm,
   },
   groupOnly: {
     marginHorizontal: theme.spacing.lg,

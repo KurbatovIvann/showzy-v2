@@ -54,10 +54,7 @@ export function OrdersListView(model: OrdersListModel) {
           </View>
         );
       }
-      const groupEdge = orderListGroupEdge(entries, index);
-      if (groupEdge === null) {
-        return null;
-      }
+      const groupEdge = orderListGroupEdge(entries, index) ?? "middle";
       return (
         <ListRow groupEdge={groupEdge}>
           <OrderRow
@@ -261,7 +258,7 @@ function OrdersListBody(props: {
         <FlashList
           data={model.entries}
           style={styles.list}
-          extraData={model.entries.length}
+          extraData={model.entries}
           keyExtractor={keyExtractor}
           getItemType={getItemType}
           renderItem={props.renderItem}
@@ -291,8 +288,19 @@ function keyExtractor(entry: OrdersListEntry): string {
   return entry.type === "header" ? `header:${entry.key}` : entry.order.id;
 }
 
-function getItemType(entry: OrdersListEntry): string {
-  return entry.type;
+function getItemType(
+  entry: OrdersListEntry,
+  index: number,
+  extraData?: readonly OrdersListEntry[],
+): string {
+  if (entry.type === "header") {
+    return "header";
+  }
+  const groupEdge =
+    extraData === undefined
+      ? "middle"
+      : (orderListGroupEdge(extraData, index) ?? "middle");
+  return `row:${groupEdge}`;
 }
 
 function CenteredEmpty({ children }: { readonly children: React.ReactNode }) {

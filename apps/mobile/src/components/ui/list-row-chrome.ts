@@ -2,8 +2,8 @@
  * Canvas `ListRow` chrome: hairline above every row except `first`.
  * `provisional` is unused visual-only dashed chrome — do not wire writes.
  * `groupEdge` draws ListSurface corners on a virtualized grouped list
- * (orders sticky «В роботі» / «Завершені») where a wrapping `ListSurface`
- * would clip those headers.
+ * (orders sticky «Активні» / «Закриті») where a wrapping `ListSurface`
+ * would clip those headers. Status chip `in_progress` stays «В роботі».
  */
 
 export type ListRowGroupEdge = "start" | "middle" | "end" | "only";

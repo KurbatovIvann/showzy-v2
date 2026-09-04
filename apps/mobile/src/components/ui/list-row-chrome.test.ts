@@ -1,6 +1,13 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import { listGroupEdge, listRowChrome } from "./list-row-chrome";
+
+const chromeSource = readFileSync(
+  new URL("./list-row-chrome.ts", import.meta.url),
+  "utf8",
+);
 
 describe("listRowChrome", () => {
   it("draws a hairline on every row except the first", () => {
@@ -28,6 +35,15 @@ describe("listRowChrome", () => {
     expect(listRowChrome({ groupEdge: "only" }).showDivider).toBe(false);
     expect(listRowChrome({ groupEdge: "middle" }).showDivider).toBe(true);
     expect(listRowChrome({ groupEdge: "end" }).showDivider).toBe(true);
+  });
+});
+
+describe("list-row-chrome comments", () => {
+  it("names sticky groups Активні / Закриті and keeps in_progress as В роботі", () => {
+    expect(chromeSource).toContain("«Активні» / «Закриті»");
+    expect(chromeSource).toContain("in_progress");
+    expect(chromeSource).toContain("«В роботі»");
+    expect(chromeSource).not.toContain("«Завершені»");
   });
 });
 

@@ -13,11 +13,20 @@ describe("orders list adopts one-surface chrome", () => {
     expect(view).toContain("ListSurface");
     expect(view).toContain("ListRow");
     expect(view).toContain("orderListGroupEdge");
+    expect(view).toContain("extraData={model.entries}");
+    expect(view).toContain("`row:${groupEdge}`");
+    expect(view).toContain('orderListGroupEdge(entries, index) ?? "middle"');
+    expect(view).not.toContain("if (groupEdge === null)");
     expect(view).toContain("stickyHeaderIndices");
     expect(view).not.toContain("ItemSeparatorComponent");
     expect(view).not.toContain("provisional");
     expect(row).toContain("memo(function OrderRow");
     expect(row).not.toContain("theme.shadows.sm");
     expect(row).not.toContain("borderWidth: 1");
+    const presenter = read("./orders-list.presenter.ts");
+    expect(presenter).toContain(
+      'import type { ListRowGroupEdge } from "../../../components/ui/list-row-chrome"',
+    );
+    expect(presenter).not.toContain("export type OrderListGroupEdge");
   });
 });
