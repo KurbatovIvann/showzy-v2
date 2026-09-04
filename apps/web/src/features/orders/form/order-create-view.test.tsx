@@ -6,6 +6,12 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { ordersCopy } from "../../../i18n/orders";
+import {
+  ROSE_FILE_ID,
+  ROSE_PRODUCT,
+  ROSE_PRODUCT_ID,
+  ROSE_THUMB_URL,
+} from "../../../test/orders-fixtures";
 import { OrderCreateView } from "./order-create-view";
 import type { OrderCreateModel } from "./use-order-create";
 
@@ -150,5 +156,56 @@ describe("OrderCreateView (SHO-379)", () => {
       screen.getByRole("button", { name: copy.create.lookupRetry }),
     ).toBeDefined();
     expect(screen.queryByText(copy.create.emptyProducts)).toBeNull();
+  });
+
+  it("renders line thumbnails from the parent-batched signed URL", () => {
+    render(
+      <OrderCreateView
+        model={stubModel({
+          items: [
+            {
+              key: "line-1",
+              productId: ROSE_PRODUCT_ID,
+              productName: "Троянди",
+              variantName: null,
+              quantityLabel: "3",
+              thumbnailFileId: ROSE_FILE_ID,
+              thumbnailUrl: ROSE_THUMB_URL,
+              thumbnailFailed: false,
+            },
+          ],
+        })}
+        showBack={false}
+        onBack={NOOP}
+      />,
+    );
+    const img = document.querySelector(`img[data-file-id="${ROSE_FILE_ID}"]`);
+    expect(img).not.toBeNull();
+    expect(img?.getAttribute("src")).toBe(ROSE_THUMB_URL);
+  });
+
+  it("renders picker thumbnails next to product names", () => {
+    render(
+      <OrderCreateView
+        model={stubModel({
+          pickerOpen: true,
+          pickerKind: "products",
+          products: [
+            {
+              ...ROSE_PRODUCT,
+              thumbnailFileId: ROSE_FILE_ID,
+              thumbnailUrl: ROSE_THUMB_URL,
+              thumbnailFailed: false,
+            },
+          ],
+        })}
+        showBack={false}
+        onBack={NOOP}
+      />,
+    );
+    expect(screen.getByText("Троянди")).toBeDefined();
+    const img = document.querySelector(`img[data-file-id="${ROSE_FILE_ID}"]`);
+    expect(img).not.toBeNull();
+    expect(img?.getAttribute("src")).toBe(ROSE_THUMB_URL);
   });
 });

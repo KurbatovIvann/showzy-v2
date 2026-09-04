@@ -12,6 +12,15 @@ import { isOpenOrderStatus, type OrderLifecycleStatus } from "./order-status";
 
 export type CompanyRole = "owner" | "admin" | "manager" | "employee";
 
+export function isCompanyRole(value: string): value is CompanyRole {
+  return (
+    value === "owner" ||
+    value === "admin" ||
+    value === "manager" ||
+    value === "employee"
+  );
+}
+
 /**
  * `orders:create` — hides create submit when the role is not granted
  * the permission. Every seeded staff role currently holds create.
@@ -40,6 +49,14 @@ export function canEditOrders(role: CompanyRole): boolean {
     case "employee":
       return true;
   }
+}
+
+/**
+ * `files:view` — skips `files.getDownloadUrls` calls that would 403.
+ * Employees are not seeded that permission (same as catalog photos).
+ */
+export function canFetchFileDownloadUrls(role: CompanyRole): boolean {
+  return role !== "employee";
 }
 
 export type OrderDetailPrimaryWrite = "confirm" | "start" | "complete";

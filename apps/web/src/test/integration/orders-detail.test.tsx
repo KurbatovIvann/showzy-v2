@@ -26,6 +26,7 @@ import {
   PANEL_ORIGIN,
   seedCustomer,
   seedOrderDetail,
+  seedProduct,
   server,
   sessionState,
 } from "../msw";
@@ -43,6 +44,10 @@ import {
   IN_PROGRESS_ORDER,
   IN_PROGRESS_ORDER_DETAIL,
   IN_PROGRESS_ORDER_ID,
+  ROSE_FILE_ID,
+  ROSE_PRODUCT,
+  ROSE_PRODUCT_WITH_IMAGE,
+  ROSE_THUMB_URL,
 } from "../orders-fixtures";
 import { renderApp } from "../render";
 
@@ -103,6 +108,7 @@ function seedCatalog(): void {
   seedOrderDetail(IN_PROGRESS_ORDER_DETAIL);
   seedOrderDetail(DONE_ORDER_DETAIL);
   seedCustomer(ANNA_CUSTOMER);
+  seedProduct(ROSE_PRODUCT);
 }
 
 function setShellWidth(width: number): void {
@@ -450,5 +456,62 @@ describe("orders detail (SHO-378)", () => {
       });
       expect(screen.getByRole("region", { name: "Замовлення" })).toBeDefined();
     });
+  });
+
+  it("hydrates line thumbs via catalog.getProduct then files.getDownloadUrls with rendition thumb", async () => {
+    signInWithFlowers();
+    seedCatalog();
+    seedProduct(ROSE_PRODUCT_WITH_IMAGE);
+    await renderApp(`/kviti-lviv/orders/${ANNA_ORDER_ID}`);
+    expect(
+      await screen.findByRole("heading", { name: "#KL-K7K3K4" }),
+    ).toBeDefined();
+    await waitFor(() => {
+      const img = document.querySelector(
+        `img[data-file-id="${ROSE_FILE_ID}"]`,
+      );
+      expect(img).not.toBeNull();
+      expect(img?.getAttribute("src")).toBe(ROSE_THUMB_URL);
+    });
+    expect(
+      listMineState.calls.some(
+        (call) => call.path === "/rpc/catalog/getProduct",
+      ),
+    ).toBe(true);
+    expect(listMineState.getDownloadUrlsCalls).toHaveLength(1);
+    expect(listMineState.getDownloadUrlsCalls[0]?.input).toMatchObject({
+      fileIds: [ROSE_FILE_ID],
+      rendition: "thumb",
+    });
+    expect(listMineState.getDownloadUrlsCalls[0]?.companyId).toBe(
+      FLOWERS_COMPANY_ID,
+    );
+  });
+
+  it("does not call getDownloadUrls for an employee without files:view", async () => {
+    sessionState.user = signedInOwner();
+    listMineState.memberships = [
+      { ...FLOWERS_MEMBERSHIP, role: "employee" },
+    ];
+    seedCatalog();
+    seedProduct(ROSE_PRODUCT_WITH_IMAGE);
+    await renderApp(`/kviti-lviv/orders/${ANNA_ORDER_ID}`);
+    expect(
+      await screen.findByRole("heading", { name: "#KL-K7K3K4" }),
+    ).toBeDefined();
+    await waitFor(() => {
+      expect(
+        listMineState.calls.some(
+          (call) => call.path === "/rpc/catalog/getProduct",
+        ),
+      ).toBe(true);
+    });
+    expect(document.querySelector("img")).toBeNull();
+    expect(listMineState.getDownloadUrlsCalls).toEqual([]);
+    expect(
+      listMineState.calls.some(
+        (call) => call.path === "/rpc/files/getDownloadUrls",
+      ),
+    ).toBe(false);
   });
 });

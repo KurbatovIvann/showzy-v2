@@ -25,6 +25,11 @@ import {
   normalizeOrderLookupSearch,
   ORDER_LOOKUP_SEARCH_DEBOUNCE_MS,
 } from "../shared/order-caps";
+import {
+  orderThumbnailView,
+  type OrderThumbnailView,
+} from "../shared/order-thumbnails";
+import { useOrderThumbnails } from "../shared/use-order-thumbnails";
 
 function useDebouncedValue<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -52,6 +57,7 @@ export function useOrderCreateLookups(args: {
   readonly variantProductId: string | null;
   readonly customerQuery: string;
   readonly productQuery: string;
+  readonly canFetchThumbnails: boolean;
 }) {
   const client = useApiClient();
   const queryClient = useQueryClient();
@@ -115,6 +121,39 @@ export function useOrderCreateLookups(args: {
     return items.filter((row) => matchesLookupQuery(row.name, productSearch));
   }, [productSearch, products.data?.items]);
 
+  const thumbnailPages = useMemo(
+    () => [{ items: productRows }],
+    [productRows],
+  );
+  const { urlsByFileId, failedFileIds } = useOrderThumbnails({
+    client,
+    companyId: activeCompanyId,
+    getActiveCompany: () => client.getActiveCompany(),
+    pages: thumbnailPages,
+    enabled: args.enabled && args.canFetchThumbnails,
+  });
+
+  const thumbnailsByProductId = useMemo(() => {
+    const map = new Map<string, OrderThumbnailView>();
+    for (const row of productRows) {
+      const fileId = args.canFetchThumbnails ? row.primaryImageFileId : null;
+      map.set(
+        row.id,
+        orderThumbnailView({
+          fileId,
+          url: fileId === null ? undefined : urlsByFileId.get(fileId),
+          downloadFailed: fileId !== null && failedFileIds.has(fileId),
+        }),
+      );
+    }
+    return map;
+  }, [
+    args.canFetchThumbnails,
+    failedFileIds,
+    productRows,
+    urlsByFileId,
+  ]);
+
   function retryCustomers(): void {
     if (activeCompanyId === null) {
       return;
@@ -146,5 +185,6 @@ export function useOrderCreateLookups(args: {
       (variant) => variant.status === "active",
     ),
     variantsStatus: product.status,
+    thumbnailsByProductId,
   };
 }

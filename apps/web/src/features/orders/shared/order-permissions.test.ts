@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   canCreateOrders,
   canEditOrders,
+  canFetchFileDownloadUrls,
   orderCreateScreenActions,
   orderDetailActions,
   orderDetailPrimaryWrite,
@@ -28,6 +29,18 @@ describe("order create permission affordances (SHO-379)", () => {
     expect(orderCreateScreenActions({ canCreate: false })).toEqual({
       showSubmit: false,
     });
+  });
+});
+
+describe("files:view download-url affordance", () => {
+  it("lets owner, admin, and manager fetch signed URLs", () => {
+    expect(canFetchFileDownloadUrls("owner")).toBe(true);
+    expect(canFetchFileDownloadUrls("admin")).toBe(true);
+    expect(canFetchFileDownloadUrls("manager")).toBe(true);
+  });
+
+  it("skips getDownloadUrls for employees who are not seeded files:view", () => {
+    expect(canFetchFileDownloadUrls("employee")).toBe(false);
   });
 });
 

@@ -4,13 +4,19 @@ import { ordersCopy } from "../../../i18n/orders";
 import type { GetOrderOutput } from "../api/get";
 import { orderDetailActions } from "../shared/order-permissions";
 import {
+  catalogPrimaryImageFileId,
   commentIfPresent,
   formatOrderNumber,
   mapOrderWriteFailure,
   orderDetailWriteChrome,
+  orderLineCatalogImages,
+  orderLineThumbnailFileId,
   orderWriteBanner,
   planOrderStatusWrite,
+  reuseOrderLineCatalogImages,
   toOrderDetailView,
+  uniqueOrderLineProductIds,
+  withOrderLineThumbnails,
 } from "./order-detail.presenter";
 
 const ORDER: GetOrderOutput = {
@@ -120,5 +126,89 @@ describe("order detail presenter (SHO-378)", () => {
     expect(orderWriteBanner("error", copy)).toBe(copy.mutationError);
     expect(planOrderStatusWrite(true)).toBe("retry");
     expect(planOrderStatusWrite(false)).toBe("submit");
+  });
+});
+
+describe("line thumbnails", () => {
+  const FILE_A = "44444444-4444-4444-8444-444444444444";
+  const FILE_B = "66666666-6666-4666-8666-666666666666";
+  const PRODUCT_B = "55555555-5555-4555-8555-555555555555";
+  const PRODUCT_ID = ORDER.items[0]?.productId ?? "";
+
+  it("keeps first-seen unique product ids", () => {
+    expect(
+      uniqueOrderLineProductIds([
+        { productId: PRODUCT_ID },
+        { productId: PRODUCT_B },
+        { productId: PRODUCT_ID },
+      ]),
+    ).toEqual([PRODUCT_ID, PRODUCT_B]);
+  });
+
+  it("maps a catalog primary file id vs an empty placeholder", () => {
+    expect(catalogPrimaryImageFileId([FILE_A, PRODUCT_B])).toBe(FILE_A);
+    expect(catalogPrimaryImageFileId([])).toBeNull();
+    expect(catalogPrimaryImageFileId(undefined)).toBeNull();
+
+    const snapshot = toOrderDetailView({
+      order: ORDER,
+      copy: ordersCopy("uk"),
+      customer: { kind: "ready", name: "Анна Мельник" },
+      customerPhone: null,
+    });
+    expect(snapshot.lines[0]?.productId).toBe(PRODUCT_ID);
+    expect(snapshot.lines[0]?.thumbnailFileId).toBeNull();
+
+    const withFile = withOrderLineThumbnails(
+      snapshot.lines,
+      new Map([
+        [
+          PRODUCT_ID,
+          {
+            fileId: FILE_A,
+            url: "https://example.test/a",
+            failed: false,
+          },
+        ],
+      ]),
+    );
+    expect(withFile[0]?.thumbnailFileId).toBe(FILE_A);
+    expect(withFile[0]?.thumbnailUrl).toBe("https://example.test/a");
+    expect(withFile[0]?.thumbnailFailed).toBe(false);
+
+    const placeholder = withOrderLineThumbnails(snapshot.lines, new Map());
+    expect(placeholder[0]?.thumbnailFileId).toBeNull();
+    expect(placeholder[0]?.thumbnailUrl).toBeNull();
+    expect(placeholder[0]?.thumbnailFailed).toBe(false);
+  });
+
+  it("joins catalog imageFileIds onto product ids and reuses the items array", () => {
+    const imageFileIds = [FILE_A];
+    const first = orderLineCatalogImages(
+      [PRODUCT_ID, PRODUCT_B],
+      [imageFileIds, undefined],
+    );
+    expect(first).toEqual([
+      { productId: PRODUCT_ID, primaryImageFileId: FILE_A },
+      { productId: PRODUCT_B, primaryImageFileId: null },
+    ]);
+    const second = orderLineCatalogImages(
+      [PRODUCT_ID, PRODUCT_B],
+      [imageFileIds, []],
+    );
+    expect(reuseOrderLineCatalogImages(first, second)).toBe(first);
+    expect(
+      reuseOrderLineCatalogImages(first, [
+        { productId: PRODUCT_ID, primaryImageFileId: FILE_B },
+        { productId: PRODUCT_B, primaryImageFileId: null },
+      ]),
+    ).not.toBe(first);
+  });
+
+  it("skips a catalog file id without files:view so fileId and url stay null", () => {
+    const skipped = orderLineThumbnailFileId(false, FILE_A);
+    expect(skipped).toBeNull();
+    expect(orderLineThumbnailFileId(true, FILE_A)).toBe(FILE_A);
+    expect(orderLineThumbnailFileId(true, null)).toBeNull();
   });
 });

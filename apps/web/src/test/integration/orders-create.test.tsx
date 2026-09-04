@@ -33,7 +33,10 @@ import {
   ANNA_ORDER,
   CREATED_ORDER_ID,
   CREATED_ORDER_NUMBER,
+  ROSE_FILE_ID,
   ROSE_PRODUCT,
+  ROSE_PRODUCT_WITH_IMAGE,
+  ROSE_THUMB_URL,
 } from "../orders-fixtures";
 import { renderApp } from "../render";
 
@@ -565,5 +568,33 @@ describe("orders create (SHO-379)", () => {
       await screen.findByRole("button", { name: ROSE_PRODUCT.name }),
     ).toBeDefined();
     expect(listCalls).toBeGreaterThan(beforeRetry);
+  });
+
+  it("loads picker thumbs via files.getDownloadUrls with rendition thumb", async () => {
+    signInWithFlowers();
+    listMineState.listOrdersItems = [ANNA_ORDER];
+    seedCustomer(ANNA_CUSTOMER);
+    seedProduct(ROSE_PRODUCT_WITH_IMAGE);
+    await renderApp("/kviti-lviv/orders/new");
+    await waitForCreateForm();
+    await waitFor(() => {
+      expect(listMineState.getDownloadUrlsCalls).toHaveLength(1);
+    });
+    expect(listMineState.getDownloadUrlsCalls[0]?.input).toMatchObject({
+      fileIds: [ROSE_FILE_ID],
+      rendition: "thumb",
+    });
+    expect(listMineState.getDownloadUrlsCalls[0]?.companyId).toBe(
+      FLOWERS_COMPANY_ID,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: copy.create.addProductsPlaceholder }),
+    );
+    expect(
+      await screen.findByRole("button", { name: ROSE_PRODUCT.name }),
+    ).toBeDefined();
+    const img = document.querySelector(`img[data-file-id="${ROSE_FILE_ID}"]`);
+    expect(img).not.toBeNull();
+    expect(img?.getAttribute("src")).toBe(ROSE_THUMB_URL);
   });
 });

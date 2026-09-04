@@ -5,6 +5,7 @@ export const IN_PROGRESS_ORDER_ID = "44444444-4444-4444-8444-444444444444";
 export const ANNA_CUSTOMER_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 export const ROSE_ITEM_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 export const ROSE_PRODUCT_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+export const ROSE_FILE_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 export const CREATED_ORDER_ID = "99999999-9999-4999-8999-999999999999";
 export const CREATED_ORDER_NUMBER = "KL-NEW01";
 
@@ -98,6 +99,14 @@ export const ROSE_PRODUCT = {
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-01T00:00:00.000Z",
 } as const;
+
+export const ROSE_PRODUCT_WITH_IMAGE = {
+  ...ROSE_PRODUCT,
+  primaryImageFileId: ROSE_FILE_ID,
+  imageFileIds: [ROSE_FILE_ID],
+} as const;
+
+export const ROSE_THUMB_URL = `https://files.test/${ROSE_FILE_ID}?r=thumb`;
 
 export const ANNA_CUSTOMER = {
   id: ANNA_CUSTOMER_ID,
