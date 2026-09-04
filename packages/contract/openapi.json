@@ -47326,7 +47326,7 @@
     "/orders/create": {
       "post": {
         "operationId": "orders.create",
-        "summary": "Create a staff-intake order for a CRM customer in the active company. Customer and catalog lines accept a canonical id or a unique human query. Each line snapshots the resolved unit price (five-level chain), quantity (milli or decimal at scale 3), exempt/none money path, and catalog title. The whole request fails when any product, named variant, or customer is missing, ambiguous, or outside the company, when two lines resolve to the same product/variant, or when resolved currencies differ. Returns a compact summary; full snapshot is orders.get.",
+        "summary": "Create a staff-intake order for a CRM customer in the active company. Customer and catalog lines accept a canonical id or a unique human query. Each line may carry additive variantSelection (unspecified, base, or a reference id/query). Legacy variant EntityRef is mutually exclusive with variantSelection; omitting both is unspecified, never base. Each line snapshots the resolved unit price (five-level chain), quantity (milli or decimal at scale 3), exempt/none money path, and catalog title. The whole request fails when any product, named variant, or customer is missing, ambiguous, or outside the company, when a variable product has no selected active variant, when two lines resolve to the same product/variant, or when resolved currencies differ. Returns a compact summary; full snapshot is orders.get.",
         "requestBody": {
           "required": true,
           "content": {
@@ -47453,6 +47453,86 @@
                               "required": [
                                 "by",
                                 "value"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        },
+                        "variantSelection": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "const": "unspecified"
+                                }
+                              },
+                              "required": [
+                                "kind"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "const": "base"
+                                }
+                              },
+                              "required": [
+                                "kind"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "const": "reference"
+                                },
+                                "ref": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "by": {
+                                          "const": "id"
+                                        },
+                                        "id": {
+                                          "type": "string",
+                                          "format": "uuid"
+                                        }
+                                      },
+                                      "required": [
+                                        "by",
+                                        "id"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "by": {
+                                          "const": "query"
+                                        },
+                                        "value": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 100
+                                        }
+                                      },
+                                      "required": [
+                                        "by",
+                                        "value"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "ref"
                               ],
                               "additionalProperties": false
                             }
