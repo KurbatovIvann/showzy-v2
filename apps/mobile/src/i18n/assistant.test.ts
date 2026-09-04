@@ -70,6 +70,36 @@ describe("assistant copy", () => {
     expect(JSON.stringify(en.cards).includes("active")).toBe(false);
   });
 
+  it("pins the locked wait-line pool and interval, not tool-keyed jobs", () => {
+    const uk = assistantCopy("uk");
+    const en = assistantCopy("en");
+    expect(uk.waitIntervalMs).toBe(2000);
+    expect(en.waitIntervalMs).toBe(2000);
+    expect(uk.waitLines).toEqual([
+      "Копаюсь у даних",
+      "Напав на слід",
+      "Обнюхую записи",
+      "Ще копну",
+      "Покопаю ще трошечки",
+    ]);
+    expect(en.waitLines).toEqual([
+      "Digging through the data",
+      "Picked up a scent",
+      "Sniffing around",
+      "One more dig",
+      "I'll dig a little more",
+    ]);
+    expect(uk.waitLabel).toBe("Шозік думає");
+    expect(en.waitLabel).toBe("Shozik is thinking");
+    expect("thinkingLabel" in uk).toBe(false);
+    expect("thinkingLabel" in en).toBe(false);
+    expect(uk.waitLines).toHaveLength(en.waitLines.length);
+    expect(JSON.stringify(uk.waitLines).includes("orders_list")).toBe(false);
+    expect(JSON.stringify(en.waitLines).includes("orders_list")).toBe(false);
+    expect(uk.waitLines.includes("Шукаю замовлення")).toBe(false);
+    expect(uk.waitLines.includes("Рахую виторг")).toBe(false);
+  });
+
   it("pins sheet title Шозік/Shozik and keeps the BottomNav label AI", () => {
     const uk = assistantCopy("uk");
     const en = assistantCopy("en");

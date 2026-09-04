@@ -43,8 +43,9 @@ export type AssistantCopy = {
   readonly dismissLabel: string;
   readonly confirmingLabel: string;
   readonly confirmationTitle: string;
-  readonly thinkingLabel: string;
-  readonly timelineLabel: string;
+  readonly waitLabel: string;
+  readonly waitIntervalMs: number;
+  readonly waitLines: readonly [string, string, string, string, string];
   readonly jobs: AssistantJobsCopy;
   readonly cards: AssistantCardsCopy;
   readonly errors: {
@@ -70,8 +71,15 @@ const en: AssistantCopy = {
   dismissLabel: "Cancel",
   confirmingLabel: "Confirming…",
   confirmationTitle: "Confirmation required",
-  thinkingLabel: "Shozik is thinking",
-  timelineLabel: "Progress",
+  waitLabel: "Shozik is thinking",
+  waitIntervalMs: 2000,
+  waitLines: [
+    "Digging through the data",
+    "Picked up a scent",
+    "Sniffing around",
+    "One more dig",
+    "I'll dig a little more",
+  ],
   jobs: {
     orders_list_page: "Looking up orders",
     orders_list_counts: "Counting turnover",
@@ -126,8 +134,15 @@ const uk: AssistantCopy = {
   dismissLabel: "Скасувати",
   confirmingLabel: "Підтверджую…",
   confirmationTitle: "Потрібне підтвердження",
-  thinkingLabel: "Шозік думає",
-  timelineLabel: "Хід роботи",
+  waitLabel: "Шозік думає",
+  waitIntervalMs: 2000,
+  waitLines: [
+    "Копаюсь у даних",
+    "Напав на слід",
+    "Обнюхую записи",
+    "Ще копну",
+    "Покопаю ще трошечки",
+  ],
   jobs: {
     orders_list_page: "Шукаю замовлення",
     orders_list_counts: "Рахую виторг",

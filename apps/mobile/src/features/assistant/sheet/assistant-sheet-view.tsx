@@ -1,5 +1,5 @@
 import { useCallback, useRef } from "react";
-import { ActivityIndicator, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import {
   FlashList,
   type FlashListRef,
@@ -12,10 +12,7 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { AppHeader, Banner, EmptyState } from "../../../components/ui";
 import type { AssistantCopy } from "../../../i18n/assistant";
-import {
-  assistantRowHasInFlightTools,
-  type AssistantChatRow,
-} from "../shared/chat-rows";
+import type { AssistantVisibleRow } from "../shared/chat-rows";
 import {
   assistantShozikPose,
   SHOZIK_EMPTY_POSE_SIZE,
@@ -27,7 +24,7 @@ import { ShozikPoseMark } from "./shozik-pose-mark";
 
 export type AssistantSheetViewModel = {
   readonly copy: AssistantCopy;
-  readonly rows: readonly AssistantChatRow[];
+  readonly rows: readonly AssistantVisibleRow[];
   readonly input: string;
   readonly changeInput: (value: string) => void;
   readonly send: () => void;
@@ -36,24 +33,25 @@ export type AssistantSheetViewModel = {
   readonly openHref: (href: string) => void;
   readonly busy: boolean;
   readonly thinking: boolean;
+  readonly hasInFlightTools: boolean;
   readonly confirmationApplying: boolean;
   readonly canSend: boolean;
   readonly banner: string | null;
 };
 
-function keyExtractor(item: AssistantChatRow): string {
+function keyExtractor(item: AssistantVisibleRow): string {
   return item.id;
 }
 
-function itemType(item: AssistantChatRow): string {
+function itemType(item: AssistantVisibleRow): string {
   if (item.role === "user") {
     return "user";
   }
+  if (item.waiting) {
+    return "assistant-wait";
+  }
   if (item.surfaces.length > 0) {
     return "assistant-cards";
-  }
-  if (item.timeline.length > 0) {
-    return "assistant-timeline";
   }
   if (item.confirmation !== null) {
     return "assistant-confirm";
@@ -62,17 +60,18 @@ function itemType(item: AssistantChatRow): string {
 }
 
 export function AssistantSheetView(model: AssistantSheetViewModel) {
-  const { theme } = useUnistyles();
   const { copy } = model;
-  const listRef = useRef<FlashListRef<AssistantChatRow>>(null);
+  const listRef = useRef<FlashListRef<AssistantVisibleRow>>(null);
 
-  const renderItem: ListRenderItem<AssistantChatRow> = useCallback(
+  const renderItem: ListRenderItem<AssistantVisibleRow> = useCallback(
     ({ item }) => (
       <AssistantMessageRow
         role={item.role}
         text={item.text}
-        timeline={item.timeline}
-        timelineLabel={copy.timelineLabel}
+        waiting={item.waiting}
+        waitLines={copy.waitLines}
+        waitIntervalMs={copy.waitIntervalMs}
+        waitLabel={copy.waitLabel}
         surfaces={item.surfaces}
         onOpenHref={model.openHref}
         confirmationSummary={
@@ -92,7 +91,9 @@ export function AssistantSheetView(model: AssistantSheetViewModel) {
       copy.confirmationTitle,
       copy.confirmingLabel,
       copy.dismissLabel,
-      copy.timelineLabel,
+      copy.waitIntervalMs,
+      copy.waitLabel,
+      copy.waitLines,
       model.confirm,
       model.confirmationApplying,
       model.dismiss,
@@ -101,14 +102,10 @@ export function AssistantSheetView(model: AssistantSheetViewModel) {
   );
 
   const showEmpty = model.rows.length === 0 && !model.thinking;
-  const lastRow = model.rows[model.rows.length - 1];
-  const hasInFlightTools =
-    lastRow !== undefined && assistantRowHasInFlightTools(lastRow);
   const headerPose = assistantShozikPose({
     thinking: model.thinking,
-    hasInFlightTools,
+    hasInFlightTools: model.hasInFlightTools,
   });
-  const showThinking = model.thinking && !hasInFlightTools;
 
   return (
     <SafeAreaView
@@ -142,18 +139,6 @@ export function AssistantSheetView(model: AssistantSheetViewModel) {
             keyExtractor={keyExtractor}
             renderItem={renderItem}
             getItemType={itemType}
-            ListFooterComponent={
-              showThinking ? (
-                <View
-                  accessibilityLabel={copy.thinkingLabel}
-                  style={styles.thinking}
-                >
-                  <ActivityIndicator
-                    color={theme.colors.activityIndicator.onBackground}
-                  />
-                </View>
-              ) : null
-            }
             contentContainerStyle={styles.listContent}
             onContentSizeChange={() => {
               listRef.current?.scrollToEnd({ animated: true });
@@ -217,10 +202,6 @@ const styles = StyleSheet.create((theme) => ({
   listContent: {
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.md,
-  },
-  thinking: {
-    alignItems: "flex-start",
-    paddingVertical: theme.spacing.sm,
   },
   composer: {
     paddingHorizontal: theme.spacing.lg,

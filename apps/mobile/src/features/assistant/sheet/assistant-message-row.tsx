@@ -6,17 +6,18 @@ import {
   assistantTurnColumnLayout,
   assistantTurnResultStretch,
 } from "../shared/assistant-turn-layout";
-import type { AssistantTimelineStep } from "../shared/chat-rows";
 import { assistantSurfaceKey, type AssistantSurface } from "../surfaces";
 import { AssistantSurfaceCard } from "./assistant-surface-card";
-import { AssistantTimeline } from "./assistant-timeline";
+import { AssistantWaitLine } from "./assistant-wait-line";
 import { ConfirmationCard } from "./confirmation-card";
 
 export const AssistantMessageRow = memo(function AssistantMessageRow(props: {
   readonly role: "user" | "assistant";
   readonly text: string;
-  readonly timeline: readonly AssistantTimelineStep[];
-  readonly timelineLabel: string;
+  readonly waiting: boolean;
+  readonly waitLines: readonly string[];
+  readonly waitIntervalMs: number;
+  readonly waitLabel: string;
   readonly surfaces: readonly AssistantSurface[];
   readonly onOpenHref: (href: string) => void;
   readonly confirmationSummary: string | null;
@@ -30,32 +31,32 @@ export const AssistantMessageRow = memo(function AssistantMessageRow(props: {
 }) {
   const isUser = props.role === "user";
   const confirmationSummary = props.confirmationSummary;
-  const showTimeline = props.timeline.length > 0;
 
   return (
     <View style={isUser ? styles.userWrap : styles.assistantWrap}>
-      {props.text.length > 0 ? (
+      {props.waiting ? (
+        <AssistantWaitLine
+          lines={props.waitLines}
+          intervalMs={props.waitIntervalMs}
+          accessibilityLabel={props.waitLabel}
+        />
+      ) : null}
+      {!props.waiting && props.text.length > 0 ? (
         <Text style={isUser ? styles.userBubble : styles.assistantBubble}>
           {props.text}
         </Text>
       ) : null}
-      {showTimeline ? (
-        <AssistantTurnResult>
-          <AssistantTimeline
-            steps={props.timeline}
-            accessibilityLabel={props.timelineLabel}
-          />
-        </AssistantTurnResult>
-      ) : null}
-      {props.surfaces.map((surface) => (
-        <AssistantTurnResult key={assistantSurfaceKey(surface)}>
-          <AssistantSurfaceCard
-            surface={surface}
-            onOpenHref={props.onOpenHref}
-          />
-        </AssistantTurnResult>
-      ))}
-      {confirmationSummary !== null ? (
+      {!props.waiting
+        ? props.surfaces.map((surface) => (
+            <AssistantTurnResult key={assistantSurfaceKey(surface)}>
+              <AssistantSurfaceCard
+                surface={surface}
+                onOpenHref={props.onOpenHref}
+              />
+            </AssistantTurnResult>
+          ))
+        : null}
+      {!props.waiting && confirmationSummary !== null ? (
         <AssistantTurnResult>
           <ConfirmationCard
             title={props.confirmationTitle}
