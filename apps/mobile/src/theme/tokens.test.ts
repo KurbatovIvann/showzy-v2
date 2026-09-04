@@ -123,9 +123,7 @@ describe("canvas token map (ADR-0024)", () => {
 
   it("pins the nav cluster and AI control shadows from the canvas", () => {
     expect(shadows.nav.boxShadow).toBe("0 8px 24px rgba(28, 28, 26, 0.08)");
-    expect(shadows.accent.boxShadow).toBe(
-      "0 6px 16px rgba(78, 97, 222, 0.28)",
-    );
+    expect(shadows.accent.boxShadow).toBe("0 6px 16px rgba(78, 97, 222, 0.28)");
   });
 
   it("keeps glass fallbacks on canvas white / line", () => {

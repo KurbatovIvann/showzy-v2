@@ -19,9 +19,7 @@ export function ListRow(props: {
   });
 
   return (
-    <View
-      style={[styles.row, chrome.showDivider ? styles.rowDivider : null]}
-    >
+    <View style={[styles.row, chrome.showDivider ? styles.rowDivider : null]}>
       {chrome.provisional ? (
         <View style={styles.provisional}>{props.children}</View>
       ) : (

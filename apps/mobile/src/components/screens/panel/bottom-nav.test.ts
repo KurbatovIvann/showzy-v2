@@ -2,7 +2,10 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
-const SOURCE = readFileSync(new URL("./bottom-nav.tsx", import.meta.url), "utf8");
+const SOURCE = readFileSync(
+  new URL("./bottom-nav.tsx", import.meta.url),
+  "utf8",
+);
 
 describe("BottomNav canvas chrome (SHO-389)", () => {
   it("uses sit.svg in an actionSoft circle, not Sparkles", () => {
