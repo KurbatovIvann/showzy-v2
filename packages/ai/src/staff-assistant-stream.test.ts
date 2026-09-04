@@ -38,6 +38,10 @@ import {
   STAFF_ASSISTANT_MAX_STEPS,
   streamStaffAssistantChat,
 } from "./staff-assistant-stream.js";
+import {
+  presentCompletedStaffAssistantTurn,
+  STAFF_ASSISTANT_DEFAULT_LOCALE,
+} from "./presenter.js";
 import { staffAssistantSystemPrompt } from "./system-prompt.js";
 import {
   MockLanguageModelV3,
@@ -215,6 +219,29 @@ const listGroups = defineActionContract({
   }),
 });
 
+const getOrder = defineActionContract({
+  name: "orders.get",
+  description: "Get an order in the active company.",
+  principal: "staff",
+  transport: "client",
+  aiExposure: "exposed",
+  permissions: ["orders:view"],
+  risk: "read",
+  requiresConfirmation: false,
+  idempotent: true,
+  emits: [],
+  atomicCalls: [],
+  atomicCallers: [],
+  audit: false,
+  timeout: 5_000,
+  input: z.object({ orderId: z.uuid() }),
+  output: z.object({
+    orderId: z.uuid(),
+    orderNumber: z.string(),
+    status: z.string(),
+  }),
+});
+
 const createOrder = defineActionContract({
   name: "orders.create",
   description: "Create a staff-intake order in the active company.",
@@ -362,7 +389,8 @@ describe("streamStaffAssistantChat", () => {
         outcome: "success",
       },
     ]);
-    expect(turn.text).toContain("You have no orders.");
+    expect(turn.text).toBe("Немає замовлень.");
+    expect(turn.text).not.toBe("You have no orders.");
     expect(turn.toolsAttached).toBe(true);
     expect(turn.usage.inputTokens).toEqual(expect.any(Number));
     expect(turn.usage.outputTokens).toEqual(expect.any(Number));
@@ -1012,7 +1040,28 @@ describe("streamStaffAssistantChat", () => {
     const payloads = await readUiMessageSsePayloads(response);
     const turn = await completion;
     const payloadText = JSON.stringify(payloads);
-    expect(turn.text).toBe(spoken);
+    const presented = presentCompletedStaffAssistantTurn({
+      locale: STAFF_ASSISTANT_DEFAULT_LOCALE,
+      toolResults: [
+        {
+          toolName: ORDERS_LIST_PAGE_TOOL_NAME,
+          output: {
+            kind: "page.summary",
+            items: [
+              {
+                orderId: customerId,
+                orderNumber: "1049",
+                status: "new",
+              },
+            ],
+            nextCursor: null,
+          },
+        },
+      ],
+    });
+    expect(presented).toBeDefined();
+    expect(turn.text).toBe(presented);
+    expect(turn.text).not.toBe(spoken);
     expect(turn.text).not.toContain("|");
     expect(turn.text).not.toContain("**");
     expect(payloadText).toContain(spoken);
@@ -1063,7 +1112,29 @@ describe("streamStaffAssistantChat", () => {
     const payloads = await readUiMessageSsePayloads(response);
     const turn = await completion;
     const payloadText = JSON.stringify(payloads);
-    expect(turn.text).toBe(spoken);
+    const presented = presentCompletedStaffAssistantTurn({
+      locale: STAFF_ASSISTANT_DEFAULT_LOCALE,
+      toolResults: [
+        {
+          toolName: ORDERS_LIST_COUNTS_TOOL_NAME,
+          output: {
+            kind: "aggregate",
+            orderCount: 6,
+            grossByCurrency: [{ currency: "UAH", grossAmountMinor: "150000" }],
+            buckets: [
+              {
+                identity: { kind: "status", status: "confirmed" },
+                orderCount: 4,
+                grossByCurrency: [],
+              },
+            ],
+          },
+        },
+      ],
+    });
+    expect(presented).toBeDefined();
+    expect(turn.text).toBe(presented);
+    expect(turn.text).not.toBe(spoken);
     expect(turn.text).not.toContain("|");
     expect(turn.text).not.toContain("**");
     expect(payloadText).toContain(spoken);
@@ -1102,7 +1173,8 @@ describe("streamStaffAssistantChat", () => {
     expect(turn.toolRuns.map((run) => run.toolCallId)).not.toContain(
       "call-json",
     );
-    expect(turn.text).toBe(spoken);
+    expect(turn.text).toBe("Немає замовлень.");
+    expect(turn.text).not.toBe(spoken);
     expect(JSON.stringify(payloads)).not.toContain(
       `"toolName":"${STAFF_ASSISTANT_SYNTHETIC_JSON_TOOL_NAME}"`,
     );
@@ -1126,7 +1198,7 @@ describe("streamStaffAssistantChat", () => {
     });
     await readUiMessageSsePayloads(response);
     const turn = await completion;
-    expect(turn.text).toBe(STAFF_ASSISTANT_SUCCESS_SPOKEN_FALLBACK);
+    expect(turn.text).toBe("Немає замовлень.");
     expect(turn.text).not.toBe("Done.");
     expect(turn.toolRuns[0]?.outcome).toBe("success");
   });
@@ -1150,7 +1222,7 @@ describe("streamStaffAssistantChat", () => {
     const payloads = await readUiMessageSsePayloads(response);
     const turn = await completion;
     const payloadText = JSON.stringify(payloads);
-    expect(turn.text).toBe(STAFF_ASSISTANT_SUCCESS_SPOKEN_FALLBACK);
+    expect(turn.text).toBe("Немає замовлень.");
     expect(turn.text).not.toBe("Done.");
     expect(turn.text).not.toContain("|");
     expect(payloadText).not.toContain("|");
@@ -1216,5 +1288,189 @@ describe("streamStaffAssistantChat", () => {
       );
     });
     expect(confirmationChunks.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("persists presenter text for a list tool, not mock model spoken", async () => {
+    const spoken = "MODEL_SPOKEN_SHOULD_NOT_PERSIST";
+    const page = {
+      kind: "page.summary" as const,
+      items: [
+        {
+          orderId: customerId,
+          orderNumber: "1049",
+          status: "new" as const,
+        },
+      ],
+      nextCursor: null,
+    };
+    const execute = vi.fn(() => Promise.resolve(page));
+    const model = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream("call-list", ORDERS_LIST_PAGE_TOOL_NAME, "{}"),
+        mockSpokenStream(spoken),
+      ],
+    });
+    const { response, completion } = streamStaffAssistantChat({
+      model,
+      messages: [{ role: "user", content: "Show the last orders" }],
+      contracts: [listOrders],
+      execute,
+    });
+    await readUiMessageSsePayloads(response);
+    const turn = await completion;
+    expect(turn.text).toBe("Останні замовлення: #1049 (Нове).");
+    expect(turn.text).not.toBe(spoken);
+  });
+
+  it("persists English presenter text when locale is en", async () => {
+    const spoken = "MODEL_SPOKEN_SHOULD_NOT_PERSIST";
+    const execute = vi.fn(() =>
+      Promise.resolve({
+        kind: "page.summary",
+        items: [
+          {
+            orderId: customerId,
+            orderNumber: "1049",
+            status: "new",
+          },
+        ],
+        nextCursor: null,
+      }),
+    );
+    const model = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream("call-list", ORDERS_LIST_PAGE_TOOL_NAME, "{}"),
+        mockSpokenStream(spoken),
+      ],
+    });
+    const { response, completion } = streamStaffAssistantChat({
+      model,
+      messages: [{ role: "user", content: "Show the last orders" }],
+      contracts: [listOrders],
+      execute,
+      locale: "en",
+    });
+    await readUiMessageSsePayloads(response);
+    const turn = await completion;
+    expect(turn.text).toBe("Latest orders: #1049 (New).");
+    expect(turn.text).not.toBe(spoken);
+  });
+
+  it("defaults presenter locale to uk when omitted", async () => {
+    const execute = vi.fn(() =>
+      Promise.resolve({ items: [], nextCursor: null }),
+    );
+    const model = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream("call-list", ORDERS_LIST_PAGE_TOOL_NAME, "{}"),
+        mockSpokenStream("MODEL_SPOKEN"),
+      ],
+    });
+    const { response, completion } = streamStaffAssistantChat({
+      model,
+      messages: [{ role: "user", content: "List orders" }],
+      contracts: [listOrders],
+      execute,
+    });
+    await readUiMessageSsePayloads(response);
+    const turn = await completion;
+    expect(turn.text).toBe("Немає замовлень.");
+  });
+
+  it("persists model spoken when there is no registered surface", async () => {
+    const spoken = "I can look up orders when you ask.";
+    const model = new MockLanguageModelV3({
+      doStream: [mockSpokenStream(spoken)],
+    });
+    const { response, completion } = streamStaffAssistantChat({
+      model,
+      messages: [{ role: "user", content: "Hello" }],
+      contracts: [listOrders],
+      execute: () => Promise.resolve({ items: [], nextCursor: null }),
+    });
+    await readUiMessageSsePayloads(response);
+    const turn = await completion;
+    expect(turn.text).toBe(spoken);
+    expect(turn.toolRuns).toEqual([]);
+  });
+
+  it("persists presenter text for an entity tool, not mock model spoken", async () => {
+    const spoken = "MODEL_SPOKEN_SHOULD_NOT_PERSIST";
+    const execute = vi.fn(() =>
+      Promise.resolve({
+        orderId: customerId,
+        orderNumber: "1049",
+        status: "new",
+      }),
+    );
+    const model = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream(
+          "call-get",
+          toProviderToolName("orders.get"),
+          JSON.stringify({ orderId: customerId }),
+        ),
+        mockSpokenStream(spoken),
+      ],
+    });
+    const { response, completion } = streamStaffAssistantChat({
+      model,
+      messages: [{ role: "user", content: "Open the order" }],
+      contracts: [getOrder],
+      execute,
+      locale: "en",
+    });
+    await readUiMessageSsePayloads(response);
+    const turn = await completion;
+    expect(turn.text).toBe("Order #1049, New.");
+    expect(turn.text).not.toBe(spoken);
+  });
+
+  it("joins multiple registered surfaces in tool-result order", async () => {
+    const spoken = "MODEL_SPOKEN_SHOULD_NOT_PERSIST";
+    const execute = vi.fn((actionName: string) => {
+      if (actionName === "orders.get") {
+        return Promise.resolve({
+          orderId: customerId,
+          orderNumber: "1049",
+          status: "new",
+        });
+      }
+      return Promise.resolve({
+        kind: "page.summary",
+        items: [
+          {
+            orderId: customerId,
+            orderNumber: "1050",
+            status: "confirmed",
+          },
+        ],
+        nextCursor: null,
+      });
+    });
+    const model = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream(
+          "call-get",
+          toProviderToolName("orders.get"),
+          JSON.stringify({ orderId: customerId }),
+        ),
+        mockToolCallStream("call-list", ORDERS_LIST_PAGE_TOOL_NAME, "{}"),
+        mockSpokenStream(spoken),
+      ],
+    });
+    const { response, completion } = streamStaffAssistantChat({
+      model,
+      messages: [{ role: "user", content: "Show that order and the list" }],
+      contracts: [listOrders, getOrder],
+      execute,
+      locale: "en",
+    });
+    await readUiMessageSsePayloads(response);
+    const turn = await completion;
+    expect(turn.text).toBe(
+      "Order #1049, New.\nLatest orders: #1050 (Confirmed).",
+    );
+    expect(turn.text).not.toBe(spoken);
   });
 });

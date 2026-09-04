@@ -116,9 +116,25 @@ describe("prepareStaffAssistantChatRequest", () => {
           parts: [{ type: "text", text: "List orders" }],
         },
       ],
+      locale: "uk",
     });
     expect(prepared.body).not.toHaveProperty("companyId");
     expect(JSON.stringify(prepared.body)).not.toContain("companyId");
+  });
+
+  it("sends an explicit English locale", () => {
+    const prepared = prepareStaffAssistantChatRequest({
+      conversationId,
+      locale: "en",
+      messages: [
+        {
+          id: "u1",
+          role: "user",
+          parts: [{ type: "text", text: "List orders" }],
+        },
+      ],
+    });
+    expect(prepared.body.locale).toBe("en");
   });
 
   it("throws when the conversation is missing", () => {
@@ -152,6 +168,7 @@ describe("prepareStaffAssistantSendMessagesRequest", () => {
     expect(prepared.headers).toEqual(headers);
     expect(prepared.credentials).toBe("omit");
     expect(prepared.body).not.toHaveProperty("companyId");
+    expect(prepared.body.locale).toBe("uk");
   });
 });
 

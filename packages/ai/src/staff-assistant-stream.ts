@@ -28,9 +28,14 @@ import {
 import { staffAssistantJsonChars } from "./json-chars.js";
 import { staffAssistantHistoryStats } from "./messages.js";
 import {
+  staffAssistantPersistedTurnText,
+  STAFF_ASSISTANT_DEFAULT_LOCALE,
+  type StaffAssistantLocale,
+  type StaffAssistantPresentedToolResult,
+} from "./presenter.js";
+import {
   createSpokenReplyUiTransform,
   isStaffAssistantSyntheticJsonTool,
-  spokenTurnText,
   staffAssistantSpokenOutputSchema,
 } from "./spoken-reply.js";
 import { staffAssistantSystemMessages } from "./system-prompt.js";
@@ -238,7 +243,11 @@ function wrapExecute(
  * so catalog list prices are not stripped because images bloated the
  * executeAction payload. Persistence still records the registry output.
  */
-function clipToolExecutes(tools: ToolSet, clipBytes: ClipByteMeter): void {
+function clipToolExecutes(
+  tools: ToolSet,
+  clipBytes: ClipByteMeter,
+  presented: StaffAssistantPresentedToolResult[],
+): void {
   for (const name of Object.keys(tools)) {
     if (name === STAFF_ASSISTANT_TOOL_SEARCH_NAME) {
       continue;
@@ -252,11 +261,13 @@ function clipToolExecutes(tools: ToolSet, clipBytes: ClipByteMeter): void {
       ...aiTool,
       execute: async (input, options) => {
         const output: unknown = await inner(input, options);
-        return meterToolResult(
+        const returned = meterToolResult(
           clipBytes,
           output,
           clipStaffAssistantToolResult(output),
         );
+        presented.push({ toolName: name, output: returned });
+        return returned;
       },
     };
   }
@@ -292,6 +303,11 @@ export function streamStaffAssistantChat(options: {
    * addendum is generated for this turn.
    */
   readonly turnContextAddendum?: string;
+  /**
+   * Explicit presenter locale from the chat request. Legacy callers
+   * omit this; default is Ukrainian.
+   */
+  readonly locale?: StaffAssistantLocale;
   /** Awaited inside the UI-message stream after `result.text`. A throw fails the stream. */
   readonly onTurn?: (turn: StaffAssistantTurnResult) => Promise<void>;
 }): {
@@ -299,13 +315,15 @@ export function streamStaffAssistantChat(options: {
   readonly completion: Promise<StaffAssistantTurnResult>;
 } {
   const runs: StaffAssistantToolRun[] = [];
+  const presentedToolResults: StaffAssistantPresentedToolResult[] = [];
   const clipBytes: ClipByteMeter = { in: 0, out: 0 };
   const history = staffAssistantHistoryStats(options.messages);
+  const locale = options.locale ?? STAFF_ASSISTANT_DEFAULT_LOCALE;
   const tools = staffAssistantTools(
     options.contracts,
     wrapExecute(options.execute, runs),
   );
-  clipToolExecutes(tools, clipBytes);
+  clipToolExecutes(tools, clipBytes, presentedToolResults);
   const toolsetHash = staffAssistantToolsetHash(Object.keys(tools));
 
   let resolveCompletion!: (value: StaffAssistantTurnResult) => void;
@@ -368,7 +386,13 @@ export function streamStaffAssistantChat(options: {
         rawText = "The assistant could not complete this turn.";
       }
       const turn: StaffAssistantTurnResult = {
-        text: spokenTurnText({ parsedSpoken, rawText, runs }),
+        text: staffAssistantPersistedTurnText({
+          locale,
+          toolResults: presentedToolResults,
+          parsedSpoken,
+          rawText,
+          runs,
+        }),
         toolRuns: domainToolRuns(runs).slice(0, STAFF_ASSISTANT_TOOL_RUNS_MAX),
         usage: await staffAssistantTurnUsageFromTotal(result.usage),
         toolsAttached: options.contracts.length > 0,
