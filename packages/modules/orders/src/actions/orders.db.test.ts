@@ -1761,7 +1761,7 @@ describe("orders.create reference resolve (SHO-352)", () => {
     expect(error.clientMessage).toBe(DUPLICATE_ORDER_LINE_MESSAGE);
   });
 
-  it("lets id-path target archived CRM/catalog rows and rejects the same names on query-path", async () => {
+  it("lets id-path target archived CRM rows, rejects archived catalog ids, and rejects archived names on query-path", async () => {
     const archivedCustomer = await kit.invoke(
       createOrder,
       createById(fixtures.customerArchived, [{ productId: fixtures.pZero }]),
@@ -1782,14 +1782,12 @@ describe("orders.create reference resolve (SHO-352)", () => {
       }),
     ).rejects.toBeInstanceOf(NotFoundError);
 
-    const archivedProduct = await kit.invoke(
-      createOrder,
-      createById(fixtures.customerBare, [{ productId: fixtures.pArchived }]),
-    );
-    const snapshot = await kit.invoke(getOrder, {
-      orderId: archivedProduct.orderId,
-    });
-    expect(snapshot.items[0]?.productId).toBe(fixtures.pArchived);
+    await expect(
+      kit.invoke(
+        createOrder,
+        createById(fixtures.customerBare, [{ productId: fixtures.pArchived }]),
+      ),
+    ).rejects.toBeInstanceOf(NotFoundError);
     await expect(
       kit.invoke(createOrder, {
         customer: { by: "id", id: fixtures.customerBare },
