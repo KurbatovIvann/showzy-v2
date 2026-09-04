@@ -82,7 +82,7 @@ describe("staffChatWireMessages", () => {
       { length: STAFF_ASSISTANT_CHAT_MESSAGES_MAX + 1 },
       (_, index) => ({
         id: `m${String(index)}`,
-        role: (index % 2 === 0 ? "user" : "assistant") as const,
+        role: index % 2 === 0 ? ("user" as const) : ("assistant" as const),
         parts: [{ type: "text" as const, text: `turn-${String(index)}` }],
       }),
     );
