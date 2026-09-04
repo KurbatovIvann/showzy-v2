@@ -5,6 +5,7 @@ import {
   LIST_ORDERS_CURSOR_MAX,
   LIST_ORDERS_CUSTOMER_IDS_MAX,
   LIST_ORDERS_QUERY_MAX,
+  LIST_ORDERS_STATUS_BUCKETS_MAX,
   LIST_ORDERS_SUMMARY_DEFAULT_LIMIT,
   LIST_ORDERS_SUMMARY_MAX_LIMIT,
   LIST_ORDERS_WITH_LINES_MAX_LIMIT,
@@ -14,6 +15,7 @@ import {
   listOrdersBucketSchema,
   listOrdersContract,
   listOrdersInputSchema,
+  listOrdersOutputSchema,
   parseListOrdersCursor,
 } from "./list.contract.js";
 
@@ -34,6 +36,7 @@ describe("orders.list contract", () => {
     expect(LIST_ORDERS_WITH_LINES_MAX_LIMIT).toBe(20);
     expect(LIST_ORDERS_WITH_LINES_MAX_LINES).toBe(200);
     expect(LIST_ORDERS_AGGREGATE_BUCKETS_MAX).toBe(50);
+    expect(LIST_ORDERS_STATUS_BUCKETS_MAX).toBe(5);
     expect(LIST_ORDERS_CUSTOMER_IDS_MAX).toBe(50);
     expect(LIST_ORDERS_CURSOR_MAX).toBe(80);
     expect(LIST_ORDERS_QUERY_MAX).toBe(100);
@@ -277,6 +280,48 @@ describe("orders.list contract", () => {
         listOrdersBucketSchema.parse({ ...status, quantityMilli: "1000" }),
         "quantityMilli",
       ),
+    ).toBe(false);
+  });
+
+  it("requires statusBuckets on aggregate output and caps at five CHECK statuses", () => {
+    const statusBucket = {
+      identity: { kind: "status" as const, status: "new" as const },
+      label: "new",
+      orderCount: 1,
+      grossByCurrency: [{ currency: "UAH", grossAmountMinor: "100" }],
+    };
+    const base = {
+      kind: "aggregate" as const,
+      orderCount: 1,
+      grossByCurrency: [{ currency: "UAH", grossAmountMinor: "100" }],
+      buckets: [
+        {
+          identity: { kind: "none" as const },
+          label: "",
+          orderCount: 1,
+          grossByCurrency: [{ currency: "UAH", grossAmountMinor: "100" }],
+        },
+      ],
+      bucketsTruncated: false,
+      customerMatchTruncated: false,
+    };
+    expect(
+      listOrdersOutputSchema.safeParse(base).success,
+    ).toBe(false);
+    expect(
+      listOrdersOutputSchema.parse({
+        ...base,
+        statusBuckets: [statusBucket],
+      }).statusBuckets,
+    ).toEqual([statusBucket]);
+    expect(
+      listOrdersOutputSchema.safeParse({
+        ...base,
+        statusBuckets: Array.from(
+          { length: LIST_ORDERS_STATUS_BUCKETS_MAX + 1 },
+          () => statusBucket,
+        ),
+      }).success,
     ).toBe(false);
   });
 });

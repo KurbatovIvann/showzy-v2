@@ -12,7 +12,8 @@
  *   CRM name/phone/email via internal `customers.listMatchingIds`. Any
  *   query requires `customers:view`. Max 100 after trim.
  * - Caps: summary page default 20 max 50; withLines max 20 orders and
- *   200 lines; aggregate buckets max 50; `customerIds` max 50.
+ *   200 lines; aggregate buckets max 50; statusBuckets max 5 CHECK
+ *   statuses; `customerIds` max 50.
  * - Unlinked snapshot sentinel is `unlinked` (presenters localize).
  * - `timeout: 10000` covers nested `customers.listMatchingIds` (5000)
  *   plus the orders query (mechanical; was 10000 for paged CRM drain).
@@ -37,6 +38,7 @@ export const LIST_ORDERS_SUMMARY_MAX_LIMIT = 50;
 export const LIST_ORDERS_WITH_LINES_MAX_LIMIT = 20;
 export const LIST_ORDERS_WITH_LINES_MAX_LINES = 200;
 export const LIST_ORDERS_AGGREGATE_BUCKETS_MAX = 50;
+export const LIST_ORDERS_STATUS_BUCKETS_MAX = 5;
 export const LIST_ORDERS_CUSTOMER_IDS_MAX = 50;
 export const LIST_ORDERS_CURSOR_MAX = 80;
 export const LIST_ORDERS_QUERY_MAX = 100;
@@ -222,6 +224,15 @@ export const listOrdersBucketSchema = z.union([
   listOrdersOtherBucketSchema,
 ]);
 
+/** Always-on CHECK-status rollup for `kind: "aggregate"` (SHO-395). */
+export const listOrdersStatusBucketSchema = z.object({
+  identity: z.object({
+    kind: z.literal("status"),
+    status: orderStatusSchema,
+  }),
+  ...listOrdersBucketSharedFields,
+});
+
 export const listOrdersPageSummaryOutputSchema = z.strictObject({
   kind: z.literal("page.summary"),
   items: z.array(listOrderSummaryRowSchema),
@@ -244,6 +255,9 @@ export const listOrdersAggregateOutputSchema = z.strictObject({
   buckets: z.array(listOrdersBucketSchema),
   bucketsTruncated: z.boolean(),
   customerMatchTruncated: z.boolean(),
+  statusBuckets: z
+    .array(listOrdersStatusBucketSchema)
+    .max(LIST_ORDERS_STATUS_BUCKETS_MAX),
 });
 
 export const listOrdersOutputSchema = z.discriminatedUnion("kind", [
@@ -263,12 +277,15 @@ export type ListOrdersProductBucket = z.output<
   typeof listOrdersProductBucketSchema
 >;
 export type ListOrdersBucket = z.output<typeof listOrdersBucketSchema>;
+export type ListOrdersStatusBucket = z.output<
+  typeof listOrdersStatusBucketSchema
+>;
 export type ListOrdersOutput = z.output<typeof listOrdersOutputSchema>;
 
 export const listOrdersContract = defineActionContract({
   name: "orders.list",
   description:
-    "Query staff-intake orders in the staff member's active company. Pass kind page.summary or page.withLines for a newest-first cursor page, or kind aggregate for a bounded server rollup. Omit filter.statuses to include every CHECK status (new, confirmed, in_progress, done, canceled); there is no server status named active or all. UI Активні is client grouping of new plus confirmed plus in_progress — do not send active as a filter value. Optional filter.query matches the text order number (optional leading #) or CRM customer name, phone, or email and always requires customers:view. Optional customerIds, createdFrom, and createdTo compose with query. Summary rows include the customer name snapshot and linkedCustomerId, itemCount, and header totals — not the get view. Aggregate buckets are currency-safe and grouped by product (productId+variantId), customer, status, or none. Product buckets include quantityMilli (sum of line quantity_milli for that SKU, across currencies). Company id is never input. Does not filter by payment.",
+    "Query staff-intake orders in the staff member's active company. Pass kind page.summary or page.withLines for a newest-first cursor page, or kind aggregate for a bounded server rollup. Omit filter.statuses to include every CHECK status (new, confirmed, in_progress, done, canceled); there is no server status named active or all. UI Активні is client grouping of new plus confirmed plus in_progress — do not send active as a filter value. Optional filter.query matches the text order number (optional leading #) or CRM customer name, phone, or email and always requires customers:view. Optional customerIds, createdFrom, and createdTo compose with query. Summary rows include the customer name snapshot and linkedCustomerId, itemCount, and header totals — not the get view. Aggregate output always includes orderCount, currency-safe grossByCurrency, and statusBuckets (bounded GROUP BY CHECK status, max 5). The groupBy buckets stay: product (productId+variantId), customer, status, or none. groupBy none still returns one total bucket and statusBuckets. Product buckets include quantityMilli (sum of line quantity_milli for that SKU, across currencies). Company id is never input. Does not filter by payment.",
   principal: "staff",
   transport: "client",
   input: listOrdersInputSchema,
