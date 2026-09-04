@@ -872,6 +872,7 @@ describe("streamStaffAssistantChat", () => {
           {
             product: { by: "query", value: "Cake" },
             quantity: { decimal: "1.5" },
+            variantSelection: { kind: "unspecified" },
           },
         ],
       },
