@@ -3,14 +3,16 @@
  * CI entrypoint for the `dependency-audit` job (SHO-387).
  *
  * The gate remains `pnpm audit --audit-level high` over the committed
- * lockfile. npm registry socket timeouts after pnpm's built-in fetch
- * retries have failed that gate on PRs that add no packages. This wrapper
- * lengthens the audit fetch budget and re-invokes the same command only
- * when the failure is a classified transient registry error.
+ * lockfile. pnpm 10 posted to npm's retired `/security/audits/quick`
+ * endpoint (socket timeout, then 410). pnpm 12 uses `/advisories/bulk`.
+ * This wrapper still re-invokes the same command only when the failure
+ * is a classified transient registry error.
  *
  * Advisory findings still fail on the first report. `--ignore-registry-errors`
  * is forbidden (that would skip the gate). GitHub Actions job-level
- * rerun-on-failure stays forbidden (SHO-145).
+ * rerun-on-failure stays forbidden (SHO-145). `pnpm audit` does not
+ * accept `--fetch-retries` / `--fetch-timeout`; those go on the process
+ * env as `pnpm_config_*` (v11+ no longer reads `npm_config_*`).
  */
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -30,20 +32,16 @@ export const PNPM_AUDIT_ARGS = Object.freeze([
   "audit",
   "--audit-level",
   AUDIT_LEVEL,
-  "--fetch-retries",
-  String(FETCH_RETRIES),
-  "--fetch-timeout",
-  String(FETCH_TIMEOUT_MS),
 ]);
 
 const TRANSIENT_TOKEN_RE =
-  /ERR_SOCKET_TIMEOUT|UND_ERR_CONNECT_TIMEOUT|UND_ERR_SOCKET|ETIMEDOUT|ECONNRESET|ECONNREFUSED|EPIPE|EAI_AGAIN|ENOTFOUND|socket timeout|Client network socket disconnected/i;
+  /ERR_SOCKET_TIMEOUT|UND_ERR_CONNECT_TIMEOUT|UND_ERR_SOCKET|ETIMEDOUT|ECONNRESET|ECONNREFUSED|EPIPE|EAI_AGAIN|ENOTFOUND|socket timeout|Client network socket disconnected|operation timed out|error sending request for url/i;
 
 const TRANSIENT_HTTP_RE =
   /(?:responded with |status(?: code)? |HTTP\/?\s*)(429|502|503|504)\b/i;
 
 const RETIRED_ENDPOINT_RE =
-  /ERR_PNPM_AUDIT_BAD_RESPONSE|AUDIT_BAD_RESPONSE|This endpoint is being retired/i;
+  /This endpoint is being retired|responded with 410|Unknown options: 'fetch-retries'/i;
 
 const ADVISORY_RE = /\d+\s+vulnerabilit(?:y|ies)\b/i;
 
@@ -61,8 +59,8 @@ export function parseAuditArgv(argv) {
 export function auditProcessEnv(env) {
   return {
     ...env,
-    npm_config_fetch_timeout: String(FETCH_TIMEOUT_MS),
-    npm_config_fetch_retries: String(FETCH_RETRIES),
+    pnpm_config_fetch_timeout: String(FETCH_TIMEOUT_MS),
+    pnpm_config_fetch_retries: String(FETCH_RETRIES),
   };
 }
 

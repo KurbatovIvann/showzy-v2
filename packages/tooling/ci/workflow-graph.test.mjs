@@ -13,6 +13,19 @@ const repoRoot = path.resolve(
   "../../..",
 );
 
+test("root packageManager is pnpm 12 so audit uses the bulk advisory endpoint", () => {
+  const pkg = JSON.parse(
+    fs.readFileSync(path.join(repoRoot, "package.json"), "utf8"),
+  );
+  assert.match(pkg.packageManager, /^pnpm@12\./);
+  const lockfile = fs.readFileSync(
+    path.join(repoRoot, "pnpm-lock.yaml"),
+    "utf8",
+  );
+  assert.match(lockfile, /packageManagerDependencies:/);
+  assert.match(lockfile, /specifier: 12\.3\.2/);
+});
+
 const workflowPath = path.join(repoRoot, ".github/workflows/ci.yml");
 const setupActionPath = path.join(
   repoRoot,

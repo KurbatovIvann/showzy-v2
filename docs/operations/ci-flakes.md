@@ -20,14 +20,18 @@ regression. In an agentic workflow the agent cannot tell them apart.
 
 ## `dependency-audit` npm registry timeouts (SHO-387)
 
-`pnpm audit` POSTs to npm's audit endpoint. `ERR_SOCKET_TIMEOUT` after
-pnpm's built-in fetch retries is a registry/network failure, not an
-advisory. The `dependency-audit` job runs
-`packages/tooling/ci/run-dependency-audit.mjs`, which still executes
-`pnpm audit --audit-level high` and re-invokes that command only on
-classified transient registry errors. Advisory findings fail the gate on
-the first report. Do not pass `--ignore-registry-errors`, and do not add
-GitHub Actions job `retry` / rerun-on-failure.
+pnpm 10 called npm's retired `/-/npm/v1/security/audits/quick` endpoint.
+That surface hung (`ERR_SOCKET_TIMEOUT`) and later returns 410. pnpm 12
+(`packageManager` in the root `package.json`) uses
+`/-/npm/v1/security/advisories/bulk` instead.
+
+The `dependency-audit` job still runs
+`packages/tooling/ci/run-dependency-audit.mjs` → `pnpm audit --audit-level
+high`. The wrapper re-invokes that command only on classified transient
+registry errors. Advisory findings fail the gate on the first report. Do
+not pass `--ignore-registry-errors`, and do not add GitHub Actions job
+`retry` / rerun-on-failure. Do not pass `--fetch-retries` /
+`--fetch-timeout` to `pnpm audit` (those are not audit flags).
 
 ## What to do instead
 

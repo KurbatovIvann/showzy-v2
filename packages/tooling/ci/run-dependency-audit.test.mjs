@@ -56,17 +56,11 @@ function mockIo(spawnImpl) {
 test("parseAuditArgv and print-only keep the high audit-level command", () => {
   assert.deepEqual(parseAuditArgv([]), { printOnly: false });
   assert.deepEqual(parseAuditArgv(["--print-only"]), { printOnly: true });
-  assert.deepEqual(PNPM_AUDIT_ARGS, [
-    "audit",
-    "--audit-level",
-    AUDIT_LEVEL,
-    "--fetch-retries",
-    String(FETCH_RETRIES),
-    "--fetch-timeout",
-    String(FETCH_TIMEOUT_MS),
-  ]);
+  assert.deepEqual(PNPM_AUDIT_ARGS, ["audit", "--audit-level", AUDIT_LEVEL]);
   assert.equal(AUDIT_LEVEL, "high");
   assert.ok(!PNPM_AUDIT_ARGS.includes("--ignore-registry-errors"));
+  assert.ok(!PNPM_AUDIT_ARGS.includes("--fetch-retries"));
+  assert.ok(!PNPM_AUDIT_ARGS.includes("--fetch-timeout"));
 });
 
 test("classifyAuditResult treats the SHO-387 socket timeout log as transient", () => {
@@ -79,6 +73,20 @@ test("classifyAuditResult treats the SHO-387 socket timeout log as transient", (
       status: 1,
       stdout: "",
       stderr: "GET https://registry.npmjs.org/foo error (ECONNRESET).\n",
+    }),
+    "transient-registry",
+  );
+  assert.equal(
+    classifyAuditResult({
+      status: 1,
+      stdout: "",
+      stderr: `Error: ERR_PNPM_AUDIT_BAD_RESPONSE
+
+  × Failed to request the audit endpoint (at https://registry.npmjs.org/-/npm/
+  │ v1/security/advisories/bulk): error sending request for url (https://
+  │ registry.npmjs.org/-/npm/v1/security/advisories/bulk)
+  ╰─▶ operation timed out
+`,
     }),
     "transient-registry",
   );
@@ -113,8 +121,7 @@ test("classifyAuditResult fails closed on advisories, 410, and unknown errors", 
     classifyAuditResult({
       status: 1,
       stdout: "",
-      stderr:
-        'ERR_PNPM_AUDIT_BAD_RESPONSE  The audit endpoint (at https://registry.npmjs.org/-/npm/v1/security/audits/quick) responded with 410: {"error":"This endpoint is being retired. Use the bulk advisory endpoint instead."}\n',
+      stderr: "ERROR  Unknown options: 'fetch-retries', 'fetch-timeout'\n",
     }),
     "error",
   );
@@ -160,7 +167,7 @@ test("runDependencyAudit re-invokes after socket timeout and succeeds", () => {
   assert.equal(calls[0].command, "pnpm");
   assert.deepEqual(calls[0].args, [...PNPM_AUDIT_ARGS]);
   assert.equal(
-    calls[0].options.env.npm_config_fetch_timeout,
+    calls[0].options.env.pnpm_config_fetch_timeout,
     String(FETCH_TIMEOUT_MS),
   );
 });
@@ -206,8 +213,8 @@ test("auditProcessEnv preserves caller env and sets fetch budget", () => {
   const env = auditProcessEnv({ PATH: "/usr/bin", CI: "true" });
   assert.equal(env.PATH, "/usr/bin");
   assert.equal(env.CI, "true");
-  assert.equal(env.npm_config_fetch_retries, String(FETCH_RETRIES));
-  assert.equal(env.npm_config_fetch_timeout, String(FETCH_TIMEOUT_MS));
+  assert.equal(env.pnpm_config_fetch_retries, String(FETCH_RETRIES));
+  assert.equal(env.pnpm_config_fetch_timeout, String(FETCH_TIMEOUT_MS));
 });
 
 test("CLI print-only exits 0 and does not spawn pnpm", () => {
@@ -220,4 +227,6 @@ test("CLI print-only exits 0 and does not spawn pnpm", () => {
   assert.deepEqual(payload.command, ["pnpm", ...PNPM_AUDIT_ARGS]);
   assert.equal(payload.maxProcessAttempts, MAX_PROCESS_ATTEMPTS);
   assert.ok(!payload.command.includes("--ignore-registry-errors"));
+  assert.ok(!payload.command.includes("--fetch-retries"));
+  assert.ok(!payload.command.includes("--fetch-timeout"));
 });
