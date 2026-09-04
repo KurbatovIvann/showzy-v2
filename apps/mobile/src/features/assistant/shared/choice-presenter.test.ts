@@ -12,6 +12,7 @@ import {
   choiceCardState,
   choiceSelectAppendParts,
   choiceSelectShouldIgnoreChallenge,
+  commitChoiceSelectResult,
   executeChoiceSelect,
   pendingChoiceFromMessages,
   presentChoiceSelectErrorText,
@@ -244,6 +245,43 @@ describe("pendingChoiceFromMessages", () => {
       messageId: "a2",
     });
   });
+
+  it("shows expired copy after ignore, not a vanished picker or live needs_choice", () => {
+    const expiredParts = choiceSelectAppendParts({
+      result: { status: "expired" },
+      previousChoiceId: choiceId,
+      locale: "en",
+    });
+    const nextMessages: readonly AssistantChoiceMessage[] = [
+      ...messages,
+      {
+        id: "a2",
+        role: "assistant",
+        parts: expiredParts,
+      },
+    ];
+    const pending = pendingChoiceFromMessages(
+      nextMessages,
+      new Set([choiceId]),
+    );
+    expect(pending).toMatchObject({
+      status: "expired",
+      challengeId: choiceId,
+      messageId: "a2",
+      options: [],
+    });
+    expect(
+      claimChoiceSelect({
+        pending,
+        optionId: lemonId,
+        resolvingRef: { current: null },
+      }),
+    ).toBeNull();
+    expect(choiceCardState({ pending, resolvingChallengeId: null }).kind).toBe(
+      "proposed",
+    );
+    expect(pendingChoiceFromMessages(messages, new Set([choiceId]))).toBeNull();
+  });
 });
 
 describe("choiceSelectAppendParts", () => {
@@ -467,8 +505,213 @@ describe("choiceSelectAppendParts", () => {
     );
     expect(presenter).toContain("Never sendMessage");
     expect(presenter).toContain("choiceSelectAppendParts");
+    expect(presenter).toContain("commitChoiceSelectResult");
     expect(presenter).not.toContain("sendMessage(");
-    expect(hook).toContain("choiceSelectAppendParts");
+    expect(hook).toContain("commitChoiceSelectResult");
+    expect(hook).toContain("companyEpochRef");
     expect(hook).not.toContain("sendMessage");
+  });
+});
+
+describe("commitChoiceSelectResult", () => {
+  const orderId = "0f0e2d5c-4a1b-4c3d-9e8f-102938475601";
+  const completedResult = {
+    status: "completed" as const,
+    text: "Order #1049.",
+    entity: { orderId, orderNumber: "1049" },
+  };
+
+  it("appends expired copy then ignores the tappable needs_choice", () => {
+    const appendParts = vi.fn();
+    const ignoreChallenge = vi.fn();
+    const companyEpochRef = { current: 0 };
+    const resolvingRef = { current: choiceId };
+    const outcome = commitChoiceSelectResult({
+      result: { status: "expired" },
+      previousChoiceId: choiceId,
+      locale: "en",
+      companyEpochRef,
+      epoch: 0,
+      resolvingRef,
+      appendParts,
+      ignoreChallenge,
+    });
+    expect(outcome).toBe("applied");
+    const appendOrder = appendParts.mock.invocationCallOrder[0];
+    const ignoreOrder = ignoreChallenge.mock.invocationCallOrder[0];
+    expect(appendOrder).toBeDefined();
+    expect(ignoreOrder).toBeDefined();
+    if (appendOrder === undefined || ignoreOrder === undefined) {
+      return;
+    }
+    expect(appendOrder).toBeLessThan(ignoreOrder);
+    expect(appendParts).toHaveBeenCalledWith([
+      {
+        type: "data-choice",
+        data: {
+          status: "expired",
+          challengeId: choiceId,
+          options: [],
+          optionsTruncated: false,
+        },
+      },
+    ]);
+    expect(ignoreChallenge).toHaveBeenCalledWith(choiceId);
+    const expiredParts = choiceSelectAppendParts({
+      result: { status: "expired" },
+      previousChoiceId: choiceId,
+      locale: "en",
+    });
+    const nextMessages: readonly AssistantChoiceMessage[] = [
+      ...messages,
+      {
+        id: "a2",
+        role: "assistant",
+        parts: expiredParts,
+      },
+    ];
+    const pending = pendingChoiceFromMessages(
+      nextMessages,
+      new Set([choiceId]),
+    );
+    expect(pending?.status).toBe("expired");
+    expect(
+      claimChoiceSelect({
+        pending,
+        optionId: lemonId,
+        resolvingRef: { current: null },
+      }),
+    ).toBeNull();
+  });
+
+  it("does not append a prior tenant result after epoch increment while POST is in flight", async () => {
+    const pending = pendingChoiceFromMessages(messages, new Set());
+    expect(pending?.challengeId).toBe(choiceId);
+    let resolvePost: ((value: typeof completedResult) => void) | undefined;
+    const postChoice = vi.fn(
+      () =>
+        new Promise<typeof completedResult>((resolve) => {
+          resolvePost = resolve;
+        }),
+    );
+    const companyEpochRef = { current: 0 };
+    const epoch = companyEpochRef.current;
+    const resolvingRef = { current: null as string | null };
+    const inFlight = executeChoiceSelect({
+      pending,
+      optionId: lemonId,
+      resolvingRef,
+      postChoice,
+    });
+    expect(resolvingRef.current).toBe(choiceId);
+    companyEpochRef.current += 1;
+    resolvePost?.(completedResult);
+    const result = await inFlight;
+    const appendParts = vi.fn();
+    const ignoreChallenge = vi.fn();
+    expect(
+      commitChoiceSelectResult({
+        result,
+        previousChoiceId: choiceId,
+        locale: "en",
+        companyEpochRef,
+        epoch,
+        resolvingRef,
+        appendParts,
+        ignoreChallenge,
+      }),
+    ).toBe("stale");
+    expect(appendParts).not.toHaveBeenCalled();
+    expect(ignoreChallenge).not.toHaveBeenCalled();
+  });
+
+  it("does not append a prior tenant result after reset while POST is in flight", async () => {
+    const pending = pendingChoiceFromMessages(messages, new Set());
+    expect(pending?.challengeId).toBe(choiceId);
+    let resolvePost: ((value: typeof completedResult) => void) | undefined;
+    const postChoice = vi.fn(
+      () =>
+        new Promise<typeof completedResult>((resolve) => {
+          resolvePost = resolve;
+        }),
+    );
+    const companyEpochRef = { current: 0 };
+    const epoch = companyEpochRef.current;
+    const resolvingRef = { current: null as string | null };
+    const inFlight = executeChoiceSelect({
+      pending,
+      optionId: lemonId,
+      resolvingRef,
+      postChoice,
+    });
+    expect(resolvingRef.current).toBe(choiceId);
+    resolvingRef.current = null;
+    resolvePost?.(completedResult);
+    const result = await inFlight;
+    const appendParts = vi.fn();
+    const ignoreChallenge = vi.fn();
+    expect(
+      commitChoiceSelectResult({
+        result,
+        previousChoiceId: choiceId,
+        locale: "en",
+        companyEpochRef,
+        epoch,
+        resolvingRef,
+        appendParts,
+        ignoreChallenge,
+      }),
+    ).toBe("stale");
+    expect(appendParts).not.toHaveBeenCalled();
+    expect(ignoreChallenge).not.toHaveBeenCalled();
+  });
+
+  it("appends completed text and entity when the session is still current", () => {
+    const appendParts = vi.fn();
+    const ignoreChallenge = vi.fn();
+    expect(
+      commitChoiceSelectResult({
+        result: completedResult,
+        previousChoiceId: choiceId,
+        locale: "en",
+        companyEpochRef: { current: 0 },
+        epoch: 0,
+        resolvingRef: { current: choiceId },
+        appendParts,
+        ignoreChallenge,
+      }),
+    ).toBe("applied");
+    expect(appendParts).toHaveBeenCalledOnce();
+    expect(ignoreChallenge).toHaveBeenCalledWith(choiceId);
+    expect(JSON.stringify(appendParts.mock.calls[0]?.[0])).not.toContain(
+      "sendMessage",
+    );
+  });
+
+  it("appends error text, ignores the picker, and does not leave needs_choice", () => {
+    const appendParts = vi.fn();
+    const ignoreChallenge = vi.fn();
+    const result = {
+      status: "error" as const,
+      code: "CHOICE_OPTION_CONFLICT",
+      message: "This choice was already resolved with a different option.",
+    };
+    expect(
+      commitChoiceSelectResult({
+        result,
+        previousChoiceId: choiceId,
+        locale: "en",
+        companyEpochRef: { current: 0 },
+        epoch: 0,
+        resolvingRef: { current: choiceId },
+        appendParts,
+        ignoreChallenge,
+      }),
+    ).toBe("applied");
+    expect(appendParts).toHaveBeenCalledWith([
+      { type: "text", text: result.message },
+    ]);
+    expect(ignoreChallenge).toHaveBeenCalledWith(choiceId);
+    expect(pendingChoiceFromMessages(messages, new Set([choiceId]))).toBeNull();
   });
 });

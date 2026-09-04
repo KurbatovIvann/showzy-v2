@@ -36,6 +36,7 @@ export function useAssistantSheet(): AssistantSheetViewModel & {
   const choice = useAssistantChoice({
     messages: chat.messages,
     locale,
+    companyEpochRef: chat.companyEpochRef,
     postChoice: chat.postChoice,
     appendParts: chat.appendAssistantParts,
   });

@@ -1,9 +1,9 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 
+import type { AssistantCompanyEpochRef } from "../shared/assistant-session";
 import {
   choiceCardState,
-  choiceSelectAppendParts,
-  choiceSelectShouldIgnoreChallenge,
+  commitChoiceSelectResult,
   executeChoiceSelect,
   pendingChoiceFromMessages,
   type AssistantChoiceMessage,
@@ -16,6 +16,7 @@ import {
 export function useAssistantChoice(args: {
   readonly messages: readonly AssistantChoiceMessage[];
   readonly locale: "uk" | "en";
+  readonly companyEpochRef: AssistantCompanyEpochRef;
   readonly postChoice: (input: {
     readonly choiceId: string;
     readonly optionId: string;
@@ -55,6 +56,7 @@ export function useAssistantChoice(args: {
       if (current === null || resolvingRef.current !== null) {
         return;
       }
+      const epoch = args.companyEpochRef.current;
       setResolvingChallengeId(current.challengeId);
       void executeChoiceSelect({
         pending: current,
@@ -63,33 +65,45 @@ export function useAssistantChoice(args: {
         postChoice: args.postChoice,
       })
         .then((result) => {
-          if (result === "skipped") {
-            clearResolving();
-            return;
-          }
-          if (choiceSelectShouldIgnoreChallenge(result)) {
-            const next = new Set(ignoredRef.current);
-            next.add(current.challengeId);
-            ignoredRef.current = next;
-            setIgnored(next);
-          }
-          const parts = choiceSelectAppendParts({
+          const outcome = commitChoiceSelectResult({
             result,
             previousChoiceId: current.challengeId,
             locale: args.locale,
+            companyEpochRef: args.companyEpochRef,
+            epoch,
+            resolvingRef,
+            appendParts: args.appendParts,
+            ignoreChallenge: (challengeId) => {
+              const next = new Set(ignoredRef.current);
+              next.add(challengeId);
+              ignoredRef.current = next;
+              setIgnored(next);
+            },
           });
-          if (parts.length > 0) {
-            args.appendParts(parts);
+          if (outcome === "skipped") {
+            clearResolving();
+            return;
+          }
+          if (outcome === "stale") {
+            return;
           }
           clearResolving();
         })
         .catch(() => {
           // Transport throw: leave the picker retryable. A resolved
           // `{ status: "error" }` body is handled in `then` (ignore + text).
-          clearResolving();
+          if (resolvingRef.current === current.challengeId) {
+            clearResolving();
+          }
         });
     },
-    [args.appendParts, args.locale, args.postChoice, clearResolving],
+    [
+      args.appendParts,
+      args.companyEpochRef,
+      args.locale,
+      args.postChoice,
+      clearResolving,
+    ],
   );
 
   const reset = useCallback(() => {

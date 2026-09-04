@@ -5,6 +5,10 @@
  */
 import { assistantCopy } from "../../../i18n/assistant";
 import {
+  isCurrentAssistantChoiceSelect,
+  type AssistantCompanyEpochRef,
+} from "./assistant-session";
+import {
   choiceFromChatPart,
   envelopeFromChoicePeek,
   presentChoiceCardText,
@@ -84,11 +88,12 @@ function choiceEnvelopeIsOpenOrExpired(
 }
 
 /**
- * Latest unignored open picker (`needs_choice`) or expired copy.
+ * Latest open picker (`needs_choice`) or expired copy.
  * Completed/claimed peeks are not a ChoiceCard — the later successful
- * entity turn hydrates on its own. Ignored (resolved/expired-consumed)
- * ids are skipped so a sequential successor on a later message still
- * shows.
+ * entity turn hydrates on its own. Ignored ids skip tappable
+ * `needs_choice` so a sequential successor still shows. Expired copy
+ * for a consumed challenge stays visible (hydrate missing/expired
+ * peek, and POST `{ status: "expired" }`).
  */
 export function pendingChoiceFromMessages(
   messages: readonly AssistantChoiceMessage[],
@@ -107,7 +112,10 @@ export function pendingChoiceFromMessages(
       if (!choiceEnvelopeIsOpenOrExpired(choice.status)) {
         continue;
       }
-      if (ignoredChallengeIds.has(choice.challengeId)) {
+      if (
+        choice.status === "needs_choice" &&
+        ignoredChallengeIds.has(choice.challengeId)
+      ) {
         continue;
       }
       latest = { ...choice, messageId: message.id };
@@ -299,4 +307,49 @@ export function choiceSelectAppendParts(args: {
     ];
   }
   return [];
+}
+
+export type CommitChoiceSelectResult = "skipped" | "stale" | "applied";
+
+/**
+ * Apply a POST /assistant/choice body onto the current tenant session.
+ * Append first so an expired envelope is in `messages` before ignore
+ * skips the tappable `needs_choice`. Drop ignore + append when the
+ * company epoch moved or `reset()` cleared the resolving lock.
+ */
+export function commitChoiceSelectResult(args: {
+  readonly result: ChoiceSelectResult | "skipped";
+  readonly previousChoiceId: string;
+  readonly locale: "uk" | "en";
+  readonly companyEpochRef: AssistantCompanyEpochRef;
+  readonly epoch: number;
+  readonly resolvingRef: { readonly current: string | null };
+  readonly appendParts: (parts: readonly ChoiceAppendPart[]) => void;
+  readonly ignoreChallenge: (challengeId: string) => void;
+}): CommitChoiceSelectResult {
+  if (args.result === "skipped") {
+    return "skipped";
+  }
+  if (
+    !isCurrentAssistantChoiceSelect({
+      companyEpochRef: args.companyEpochRef,
+      epoch: args.epoch,
+      resolvingRef: args.resolvingRef,
+      challengeId: args.previousChoiceId,
+    })
+  ) {
+    return "stale";
+  }
+  const parts = choiceSelectAppendParts({
+    result: args.result,
+    previousChoiceId: args.previousChoiceId,
+    locale: args.locale,
+  });
+  if (parts.length > 0) {
+    args.appendParts(parts);
+  }
+  if (choiceSelectShouldIgnoreChallenge(args.result)) {
+    args.ignoreChallenge(args.previousChoiceId);
+  }
+  return "applied";
 }

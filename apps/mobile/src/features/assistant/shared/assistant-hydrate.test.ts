@@ -873,6 +873,12 @@ describe("choice hydrate (SHO-418)", () => {
       options: [],
     });
     expect(pending?.options).toEqual([]);
+    expect(
+      pendingChoiceFromMessages(messages, new Set([CHOICE_ID])),
+    ).toMatchObject({
+      status: "expired",
+      challengeId: CHOICE_ID,
+    });
   });
 });
 

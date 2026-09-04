@@ -25,11 +25,27 @@ export type {
   HydratedAssistantUiMessage,
 } from "./assistant-hydrate";
 
-function isCurrentAssistantEpoch(
+export function isCurrentAssistantEpoch(
   companyEpochRef: AssistantCompanyEpochRef,
   epoch: number,
 ): boolean {
   return companyEpochRef.current === epoch;
+}
+
+/**
+ * Drop a late POST /assistant/choice result when the company epoch moved
+ * or `reset()` cleared the in-flight lock. Same epoch used by hydrate/send.
+ */
+export function isCurrentAssistantChoiceSelect(args: {
+  readonly companyEpochRef: AssistantCompanyEpochRef;
+  readonly epoch: number;
+  readonly resolvingRef: { readonly current: string | null };
+  readonly challengeId: string;
+}): boolean {
+  return (
+    isCurrentAssistantEpoch(args.companyEpochRef, args.epoch) &&
+    args.resolvingRef.current === args.challengeId
+  );
 }
 
 export async function ensureAssistantConversation(args: {

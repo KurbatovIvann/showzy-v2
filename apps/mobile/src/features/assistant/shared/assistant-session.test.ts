@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   ensureAssistantConversation,
+  isCurrentAssistantChoiceSelect,
   resetAssistantTenantSession,
   resumeOwnAssistantConversation,
   sendEnsuredAssistantMessage,
@@ -36,6 +37,49 @@ describe("resetAssistantTenantSession", () => {
     expect(messages).toEqual([]);
     expect(confirmationReset).toBe(true);
     expect(choiceReset).toBe(true);
+  });
+});
+
+describe("isCurrentAssistantChoiceSelect", () => {
+  const challengeId = "33333333-3333-4333-8333-333333333333";
+
+  it("is current when epoch and resolving lock still match", () => {
+    expect(
+      isCurrentAssistantChoiceSelect({
+        companyEpochRef: { current: 2 },
+        epoch: 2,
+        resolvingRef: { current: challengeId },
+        challengeId,
+      }),
+    ).toBe(true);
+  });
+
+  it("is stale after company epoch increment", () => {
+    const companyEpochRef = { current: 0 };
+    const resolvingRef = { current: challengeId };
+    const epoch = companyEpochRef.current;
+    companyEpochRef.current += 1;
+    expect(
+      isCurrentAssistantChoiceSelect({
+        companyEpochRef,
+        epoch,
+        resolvingRef,
+        challengeId,
+      }),
+    ).toBe(false);
+  });
+
+  it("is stale after reset clears the resolving lock", () => {
+    const resolvingRef = { current: challengeId as string | null };
+    resolvingRef.current = null;
+    expect(
+      isCurrentAssistantChoiceSelect({
+        companyEpochRef: { current: 0 },
+        epoch: 0,
+        resolvingRef,
+        challengeId,
+      }),
+    ).toBe(false);
   });
 });
 

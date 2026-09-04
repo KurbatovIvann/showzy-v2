@@ -21,6 +21,7 @@ import {
   resetAssistantTenantSession,
   resumeOwnAssistantConversation,
   sendEnsuredAssistantMessage,
+  type AssistantCompanyEpochRef,
 } from "../shared/assistant-session";
 import {
   queryFailureToAssistantKind,
@@ -61,6 +62,7 @@ export function useAssistantChat(): {
   readonly choiceResetRef: {
     current: () => void;
   };
+  readonly companyEpochRef: AssistantCompanyEpochRef;
   readonly postChoice: (input: {
     readonly choiceId: string;
     readonly optionId: string;
@@ -306,6 +308,7 @@ export function useAssistantChat(): {
     createErrorKind,
     confirmationResetRef,
     choiceResetRef,
+    companyEpochRef,
     postChoice,
     appendAssistantParts,
   };
