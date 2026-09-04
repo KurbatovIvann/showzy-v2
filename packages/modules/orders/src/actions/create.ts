@@ -12,6 +12,7 @@ import { quantityInputToMilli } from "../services/quantity.js";
 import {
   DUPLICATE_ORDER_LINE_MESSAGE,
   createOrderContract,
+  type CreateOrderItemInput,
 } from "./create.contract.js";
 
 const createOrderAuditTarget = createAuditTarget({
@@ -25,6 +26,30 @@ const createOrderAuditTarget = createAuditTarget({
     },
   ],
 });
+
+/**
+ * Map a create line onto catalog.resolveLineReferences (SHO-406).
+ * variantSelection passes through. Legacy variant becomes reference.
+ * Neither field is omitted so catalog unspecified — never coerced to base.
+ */
+function toCatalogLineInput(item: CreateOrderItemInput): {
+  product: CreateOrderItemInput["product"];
+  variantSelection?: CreateOrderItemInput["variantSelection"];
+} {
+  if (item.variantSelection !== undefined) {
+    return {
+      product: item.product,
+      variantSelection: item.variantSelection,
+    };
+  }
+  if (item.variant !== undefined) {
+    return {
+      product: item.product,
+      variantSelection: { kind: "reference", ref: item.variant },
+    };
+  }
+  return { product: item.product };
+}
 
 function canonicalLineKey(productId: string, variantId: string | null): string {
   return `${productId}\0${variantId ?? ""}`;
@@ -60,10 +85,7 @@ export const createOrder = implementAction(createOrderContract, {
 
     const customer = await ctx.call(resolveCustomerReference, input.customer);
     const catalog = await ctx.call(resolveLineReferences, {
-      lines: input.items.map((item) => ({
-        product: item.product,
-        ...(item.variant === undefined ? {} : { variant: item.variant }),
-      })),
+      lines: input.items.map((item) => toCatalogLineInput(item)),
     });
     if (catalog.lines.length !== input.items.length) {
       throw new CoreInvariantError(

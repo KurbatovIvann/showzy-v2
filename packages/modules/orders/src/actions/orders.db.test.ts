@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import { ReferenceResolutionConflictError } from "@showzy/catalog";
 import { defineActionContract } from "@showzy/core/contract";
 import {
   defineEventHandler,
@@ -49,6 +50,7 @@ import { createOrder } from "./create.js";
 import {
   CREATE_ORDER_MAX_ITEMS,
   DUPLICATE_ORDER_LINE_MESSAGE,
+  VARIANT_AND_SELECTION_EXCLUSIVE_MESSAGE,
 } from "./create.contract.js";
 import { getOrder } from "./get.js";
 import { listOrders } from "./list.js";
@@ -124,6 +126,10 @@ const fixtures = {
   customerTwinA: randomUUID(),
   customerTwinB: randomUUID(),
   pArchived: randomUUID(),
+  pRetired: randomUUID(),
+  vBlue: randomUUID(),
+  vArchived: randomUUID(),
+  vRetired: randomUUID(),
 };
 
 const clerks = {
@@ -260,6 +266,18 @@ async function expectConflict(
   if (error instanceof ConflictError) {
     expect(error.clientMessage).toBe(clientMessage);
   }
+}
+
+function expectResolutionConflict(
+  error: unknown,
+): ReferenceResolutionConflictError {
+  expect(error).toBeInstanceOf(ReferenceResolutionConflictError);
+  expect(error).toBeInstanceOf(ConflictError);
+  if (!(error instanceof ReferenceResolutionConflictError)) {
+    throw new Error("expected ReferenceResolutionConflictError");
+  }
+  expect(error.code).toBe("CONFLICT");
+  return error;
 }
 
 function createById(
@@ -545,6 +563,13 @@ beforeAll(async () => {
     status: "archived",
   });
 
+  await insertProduct({
+    id: fixtures.pRetired,
+    companyId: companyA,
+    name: "Retired Box",
+    basePriceMinor: 20n,
+  });
+
   await kit.db.runtime.db.insert(companies).values([
     {
       id: fixtures.numberingA,
@@ -599,14 +624,36 @@ beforeAll(async () => {
     name: "Numbering cake B",
     basePriceMinor: 100n,
   });
-  await kit.db.runtime.db.insert(productVariants).values({
-    id: fixtures.vNamed,
-    companyId: companyA,
-    productId: fixtures.pVariant,
-    name: "Red",
-    basePriceMinor: 900n,
-    currency: "UAH",
-  });
+  await kit.db.runtime.db.insert(productVariants).values([
+    {
+      id: fixtures.vNamed,
+      companyId: companyA,
+      productId: fixtures.pVariant,
+      name: "Red",
+      basePriceMinor: 900n,
+      currency: "UAH",
+    },
+    {
+      id: fixtures.vBlue,
+      companyId: companyA,
+      productId: fixtures.pVariant,
+      name: "Blue",
+    },
+    {
+      id: fixtures.vArchived,
+      companyId: companyA,
+      productId: fixtures.pVariant,
+      name: "Vintage",
+      status: "archived",
+    },
+    {
+      id: fixtures.vRetired,
+      companyId: companyA,
+      productId: fixtures.pRetired,
+      name: "Old Pack",
+      status: "archived",
+    },
+  ]);
 
   await kit.db.runtime.db.insert(personalPrices).values({
     id: fixtures.personalPPersonal,
@@ -877,6 +924,27 @@ crossTenantSuite(
       },
     ),
     isolationCase(
+      createOrder,
+      {
+        input: {
+          customer: { by: "id" as const, id: fixtures.customerA },
+          items: [
+            {
+              product: { by: "id" as const, id: fixtures.pVariant },
+              variantSelection: {
+                kind: "reference" as const,
+                ref: { by: "id" as const, id: fixtures.vNamed },
+              },
+              quantity: { milli: "1000" },
+            },
+          ],
+        },
+      },
+      {
+        input: createById(fixtures.customerB, [{ productId: fixtures.pB }]),
+      },
+    ),
+    isolationCase(
       confirmOrder,
       { input: { orderId: fixtures.orderIsolationA } },
       { input: { orderId: fixtures.orderIsolationB } },
@@ -912,6 +980,23 @@ idempotencySuite(
       input: baseCreateInput,
       conflictingInput: createById(fixtures.customerA, [
         { productId: fixtures.pZero },
+      ]),
+      readEffect: () => countCompanyOrders(kitIdentities.companies.a),
+    },
+    {
+      action: createOrder,
+      input: {
+        customer: { by: "id" as const, id: fixtures.customerA },
+        items: [
+          {
+            product: { by: "id" as const, id: fixtures.pZero },
+            variantSelection: { kind: "base" as const },
+            quantity: { milli: "1000" },
+          },
+        ],
+      },
+      conflictingInput: createById(fixtures.customerA, [
+        { productId: fixtures.pBase },
       ]),
       readEffect: () => countCompanyOrders(kitIdentities.companies.a),
     },
@@ -1834,6 +1919,390 @@ describe("orders.create reference resolve (SHO-352)", () => {
       );
     expect(createAudit[0]?.targetId).toBe(created.orderId);
     expect(createAudit[0]?.targetType).toBe("order");
+  });
+});
+
+describe("orders.create variantSelection (SHO-406)", () => {
+  it("creates a zero-variant simple product with omit, unspecified, or base as variantId null", async () => {
+    const omitted = await kit.invoke(
+      createOrder,
+      createById(fixtures.customerBare, [{ productId: fixtures.pBase }]),
+    );
+    const unspecified = await kit.invoke(createOrder, {
+      customer: { by: "id", id: fixtures.customerBare },
+      items: [
+        {
+          product: { by: "id", id: fixtures.pBase },
+          variantSelection: { kind: "unspecified" },
+          quantity: { milli: "1000" },
+        },
+      ],
+    });
+    const base = await kit.invoke(createOrder, {
+      customer: { by: "id", id: fixtures.customerBare },
+      items: [
+        {
+          product: { by: "id", id: fixtures.pBase },
+          variantSelection: { kind: "base" },
+          quantity: { milli: "1000" },
+        },
+      ],
+    });
+    for (const created of [omitted, unspecified, base]) {
+      const snapshot = await kit.invoke(getOrder, { orderId: created.orderId });
+      expect(snapshot.items).toHaveLength(1);
+      expect(snapshot.items[0]?.productId).toBe(fixtures.pBase);
+      expect(snapshot.items[0]?.variantId).toBeNull();
+    }
+  });
+
+  it("creates the same canonical line from legacy variant and variantSelection.reference", async () => {
+    const legacy = await kit.invoke(
+      createOrder,
+      createById(fixtures.customerBare, [
+        { productId: fixtures.pVariant, variantId: fixtures.vNamed },
+      ]),
+    );
+    const selection = await kit.invoke(createOrder, {
+      customer: { by: "id", id: fixtures.customerBare },
+      items: [
+        {
+          product: { by: "id", id: fixtures.pVariant },
+          variantSelection: {
+            kind: "reference",
+            ref: { by: "id", id: fixtures.vNamed },
+          },
+          quantity: { milli: "1000" },
+        },
+      ],
+    });
+    const legacySnapshot = await kit.invoke(getOrder, {
+      orderId: legacy.orderId,
+    });
+    const selectionSnapshot = await kit.invoke(getOrder, {
+      orderId: selection.orderId,
+    });
+    expect(legacySnapshot.items[0]?.productId).toBe(fixtures.pVariant);
+    expect(legacySnapshot.items[0]?.variantId).toBe(fixtures.vNamed);
+    expect(selectionSnapshot.items[0]?.productId).toBe(
+      legacySnapshot.items[0]?.productId,
+    );
+    expect(selectionSnapshot.items[0]?.variantId).toBe(
+      legacySnapshot.items[0]?.variantId,
+    );
+    expect(legacySnapshot.items[0]?.titleSnapshot).toBe("Coat · Red");
+    expect(selectionSnapshot.items[0]?.titleSnapshot).toBe("Coat · Red");
+  });
+
+  it("rejects variant and variantSelection together and still rejects canonical duplicates after resolve", async () => {
+    const exclusive = await kit
+      .invoke(createOrder, {
+        customer: { by: "id", id: fixtures.customerBare },
+        items: [
+          {
+            product: { by: "id", id: fixtures.pVariant },
+            variant: { by: "id", id: fixtures.vNamed },
+            variantSelection: {
+              kind: "reference",
+              ref: { by: "id", id: fixtures.vNamed },
+            },
+            quantity: { milli: "1000" },
+          },
+        ],
+      })
+      .then(
+        () => {
+          throw new Error("expected ValidationError");
+        },
+        (caught: unknown) => caught,
+      );
+    expect(exclusive).toBeInstanceOf(ValidationError);
+    if (!(exclusive instanceof ValidationError)) {
+      return;
+    }
+    expect(exclusive.clientMessage).toBe("Input validation failed.");
+    expect(JSON.stringify(exclusive.issues)).toContain(
+      VARIANT_AND_SELECTION_EXCLUSIVE_MESSAGE,
+    );
+
+    const duplicate = await kit
+      .invoke(createOrder, {
+        customer: { by: "id", id: fixtures.customerBare },
+        items: [
+          {
+            product: { by: "id", id: fixtures.pVariant },
+            variant: { by: "id", id: fixtures.vNamed },
+            quantity: { milli: "1000" },
+          },
+          {
+            product: { by: "id", id: fixtures.pVariant },
+            variantSelection: {
+              kind: "reference",
+              ref: { by: "id", id: fixtures.vNamed },
+            },
+            quantity: { milli: "2000" },
+          },
+        ],
+      })
+      .then(
+        () => {
+          throw new Error("expected ValidationError");
+        },
+        (caught: unknown) => caught,
+      );
+    expect(duplicate).toBeInstanceOf(ValidationError);
+    if (!(duplicate instanceof ValidationError)) {
+      return;
+    }
+    expect(duplicate.clientMessage).toBe(DUPLICATE_ORDER_LINE_MESSAGE);
+  });
+
+  it("creates from a unique active variant reference by id and by query", async () => {
+    const byId = await kit.invoke(createOrder, {
+      customer: { by: "id", id: fixtures.customerBare },
+      items: [
+        {
+          product: { by: "id", id: fixtures.pVariant },
+          variantSelection: {
+            kind: "reference",
+            ref: { by: "id", id: fixtures.vNamed },
+          },
+          quantity: { milli: "1000" },
+        },
+      ],
+    });
+    const byQuery = await kit.invoke(createOrder, {
+      customer: { by: "id", id: fixtures.customerBare },
+      items: [
+        {
+          product: { by: "query", value: "Coat" },
+          variantSelection: {
+            kind: "reference",
+            ref: { by: "query", value: "Red" },
+          },
+          quantity: { milli: "1000" },
+        },
+      ],
+    });
+    const idSnapshot = await kit.invoke(getOrder, { orderId: byId.orderId });
+    const querySnapshot = await kit.invoke(getOrder, {
+      orderId: byQuery.orderId,
+    });
+    expect(idSnapshot.items[0]?.productId).toBe(fixtures.pVariant);
+    expect(idSnapshot.items[0]?.variantId).toBe(fixtures.vNamed);
+    expect(querySnapshot.items[0]?.productId).toBe(fixtures.pVariant);
+    expect(querySnapshot.items[0]?.variantId).toBe(fixtures.vNamed);
+  });
+
+  it("creates two distinct variants of one product when each line names a different selection", async () => {
+    const created = await kit.invoke(createOrder, {
+      customer: { by: "id", id: fixtures.customerBare },
+      items: [
+        {
+          product: { by: "id", id: fixtures.pVariant },
+          variantSelection: {
+            kind: "reference",
+            ref: { by: "id", id: fixtures.vNamed },
+          },
+          quantity: { milli: "1000" },
+        },
+        {
+          product: { by: "id", id: fixtures.pVariant },
+          variantSelection: {
+            kind: "reference",
+            ref: { by: "id", id: fixtures.vBlue },
+          },
+          quantity: { milli: "1000" },
+        },
+      ],
+    });
+    const snapshot = await kit.invoke(getOrder, { orderId: created.orderId });
+    const variantIds = snapshot.items.map((item) => item.variantId);
+    expect(variantIds).toEqual(
+      expect.arrayContaining([fixtures.vBlue, fixtures.vNamed]),
+    );
+    expect(variantIds).toHaveLength(2);
+  });
+
+  it("conflicts on variable parent omit or base without writing a row", async () => {
+    const before = await countCompanyOrders(kitIdentities.companies.a);
+    const eventsBefore = await countCreatedEvents(kitIdentities.companies.a);
+    const omitted = await kit
+      .invoke(
+        createOrder,
+        createById(fixtures.customerBare, [{ productId: fixtures.pVariant }]),
+      )
+      .then(
+        () => {
+          throw new Error("expected ReferenceResolutionConflictError");
+        },
+        (caught: unknown) => caught,
+      );
+    const base = await kit
+      .invoke(createOrder, {
+        customer: { by: "id", id: fixtures.customerBare },
+        items: [
+          {
+            product: { by: "id", id: fixtures.pVariant },
+            variantSelection: { kind: "base" },
+            quantity: { milli: "1000" },
+          },
+        ],
+      })
+      .then(
+        () => {
+          throw new Error("expected ReferenceResolutionConflictError");
+        },
+        (caught: unknown) => caught,
+      );
+    for (const error of [omitted, base]) {
+      const conflict = expectResolutionConflict(error);
+      expect(conflict.reason).toBe("variant_required");
+      expect(conflict.target).toEqual({
+        kind: "order_line_variant",
+        lineIndex: 0,
+        productId: fixtures.pVariant,
+        productName: "Coat",
+      });
+      expect(conflict.options).toEqual([
+        { id: fixtures.vBlue, label: "Blue" },
+        { id: fixtures.vNamed, label: "Red" },
+      ]);
+      expect(conflict.optionsTruncated).toBe(false);
+      expect(conflict.options.map((option) => option.id)).not.toContain(
+        fixtures.vArchived,
+      );
+    }
+    expect(await countCompanyOrders(kitIdentities.companies.a)).toBe(before);
+    expect(await countCreatedEvents(kitIdentities.companies.a)).toBe(
+      eventsBefore,
+    );
+  });
+
+  it("returns no_active_variants for archived-only variable products and does not sell the parent", async () => {
+    const before = await countCompanyOrders(kitIdentities.companies.a);
+    const unspecified = await kit
+      .invoke(createOrder, {
+        customer: { by: "id", id: fixtures.customerBare },
+        items: [
+          {
+            product: { by: "id", id: fixtures.pRetired },
+            variantSelection: { kind: "unspecified" },
+            quantity: { milli: "1000" },
+          },
+        ],
+      })
+      .then(
+        () => {
+          throw new Error("expected ReferenceResolutionConflictError");
+        },
+        (caught: unknown) => caught,
+      );
+    const omitted = await kit
+      .invoke(
+        createOrder,
+        createById(fixtures.customerBare, [{ productId: fixtures.pRetired }]),
+      )
+      .then(
+        () => {
+          throw new Error("expected ReferenceResolutionConflictError");
+        },
+        (caught: unknown) => caught,
+      );
+    for (const error of [unspecified, omitted]) {
+      const conflict = expectResolutionConflict(error);
+      expect(conflict.reason).toBe("no_active_variants");
+      expect(conflict.target.productId).toBe(fixtures.pRetired);
+      expect(conflict.options).toEqual([]);
+    }
+    expect(await countCompanyOrders(kitIdentities.companies.a)).toBe(before);
+  });
+
+  it("returns NOT_FOUND for archived product and archived variant ids", async () => {
+    await expect(
+      kit.invoke(
+        createOrder,
+        createById(fixtures.customerBare, [{ productId: fixtures.pArchived }]),
+      ),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    const archivedVariantError = await kit
+      .invoke(createOrder, {
+        customer: { by: "id", id: fixtures.customerBare },
+        items: [
+          {
+            product: { by: "id", id: fixtures.pVariant },
+            variantSelection: {
+              kind: "reference",
+              ref: { by: "id", id: fixtures.vArchived },
+            },
+            quantity: { milli: "1000" },
+          },
+        ],
+      })
+      .then(
+        () => {
+          throw new Error("expected NotFoundError");
+        },
+        (caught: unknown) => caught,
+      );
+    expect(archivedVariantError).toBeInstanceOf(NotFoundError);
+    expect(archivedVariantError).not.toBeInstanceOf(
+      ReferenceResolutionConflictError,
+    );
+    await expect(
+      kit.invoke(
+        createOrder,
+        createById(fixtures.customerBare, [
+          { productId: fixtures.pVariant, variantId: fixtures.vArchived },
+        ]),
+      ),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("emits orders.created and denies staff without orders:create", async () => {
+    const created = await kit.invoke(createOrder, {
+      customer: { by: "id", id: fixtures.customerBare },
+      items: [
+        {
+          product: { by: "id", id: fixtures.pBase },
+          variantSelection: { kind: "base" },
+          quantity: { milli: "1000" },
+        },
+      ],
+    });
+    const createdEvents = await kit.db.runtime.db
+      .select()
+      .from(domainEvents)
+      .where(eq(domainEvents.aggregateId, created.orderId));
+    expect(createdEvents.map((row) => row.name)).toContain("orders.created");
+
+    await expect(
+      kit.invoke(
+        createOrder,
+        {
+          customer: { by: "id", id: fixtures.customerBare },
+          items: [
+            {
+              product: { by: "id", id: fixtures.pBase },
+              variantSelection: { kind: "base" },
+              quantity: { milli: "1000" },
+            },
+          ],
+        },
+        {
+          companyId: kitIdentities.companies.a,
+          userId: clerks.noCreate,
+        },
+      ),
+    ).rejects.toBeInstanceOf(PermissionDeniedError);
+  });
+
+  it("leaves historical order-line snapshots stored as written", async () => {
+    const seed = await kit.db.runtime.db
+      .select({ variantId: orderItems.variantId })
+      .from(orderItems)
+      .where(eq(orderItems.id, fixtures.itemIsolationA));
+    expect(seed[0]?.variantId).toBeNull();
   });
 });
 

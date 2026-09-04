@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   CREATE_ORDER_COMMENT_MAX,
   CREATE_ORDER_MAX_ITEMS,
+  VARIANT_AND_SELECTION_EXCLUSIVE_MESSAGE,
   createOrderContract,
 } from "./create.contract.js";
 
@@ -67,6 +68,113 @@ describe("orders.create contract", () => {
         },
       ],
     });
+  });
+
+  it("accepts additive variantSelection and keeps legacy variant exclusive", () => {
+    expect(
+      createOrderContract.input.parse({
+        customer: { by: "id", id: validId },
+        items: [
+          {
+            product: { by: "id", id: productId },
+            variantSelection: { kind: "unspecified" },
+            quantity: { milli: "1000" },
+          },
+          {
+            product: { by: "id", id: productId },
+            variantSelection: { kind: "base" },
+            quantity: { milli: "1000" },
+          },
+          {
+            product: { by: "id", id: productId },
+            variantSelection: {
+              kind: "reference",
+              ref: { by: "query", value: "  Lemon  " },
+            },
+            quantity: { milli: "1000" },
+          },
+          {
+            product: { by: "id", id: productId },
+            variant: { by: "id", id: validId },
+            quantity: { milli: "1000" },
+          },
+        ],
+      }),
+    ).toEqual({
+      customer: { by: "id", id: validId },
+      items: [
+        {
+          product: { by: "id", id: productId },
+          variantSelection: { kind: "unspecified" },
+          quantity: { milli: "1000" },
+        },
+        {
+          product: { by: "id", id: productId },
+          variantSelection: { kind: "base" },
+          quantity: { milli: "1000" },
+        },
+        {
+          product: { by: "id", id: productId },
+          variantSelection: {
+            kind: "reference",
+            ref: { by: "query", value: "Lemon" },
+          },
+          quantity: { milli: "1000" },
+        },
+        {
+          product: { by: "id", id: productId },
+          variant: { by: "id", id: validId },
+          quantity: { milli: "1000" },
+        },
+      ],
+    });
+    const both = createOrderContract.input.safeParse({
+      customer: { by: "id", id: validId },
+      items: [
+        {
+          product: { by: "id", id: productId },
+          variant: { by: "id", id: validId },
+          variantSelection: { kind: "base" },
+          quantity: { milli: "1000" },
+        },
+      ],
+    });
+    expect(both.success).toBe(false);
+    if (both.success) {
+      return;
+    }
+    expect(JSON.stringify(both.error.issues)).toContain(
+      VARIANT_AND_SELECTION_EXCLUSIVE_MESSAGE,
+    );
+  });
+
+  it("does not coerce omit-both to base and keeps EntityRef unions", () => {
+    expect(
+      createOrderContract.input.parse({
+        customer: { by: "id", id: validId },
+        items: [
+          {
+            product: { by: "id", id: productId },
+            quantity: { milli: "1000" },
+          },
+        ],
+      }),
+    ).toEqual({
+      customer: { by: "id", id: validId },
+      items: [
+        {
+          product: { by: "id", id: productId },
+          quantity: { milli: "1000" },
+        },
+      ],
+    });
+    const source = readFileSync(
+      new URL("./create.contract.ts", import.meta.url),
+      "utf8",
+    );
+    expect(source).toContain("discriminatedUnion");
+    expect(source).toContain("entityRefSchema");
+    expect(source).not.toContain("@showzy/catalog");
   });
 
   it("rejects companyId, empty items, duplicate raw refs, and invalid decimal", () => {
@@ -142,8 +250,11 @@ describe("orders.create contract", () => {
     );
     expect(handler).toContain("resolveCustomerReference");
     expect(handler).toContain("resolveLineReferences");
+    expect(handler).toContain("toCatalogLineInput");
+    expect(handler).toContain('kind: "reference"');
     expect(handler).not.toContain("getProductOrderFacts");
     expect(handler).not.toMatch(/\bgetCustomer\b/);
+    expect(handler).not.toMatch(/kind:\s*"base"/);
     expect(persist).not.toContain("EntityRef");
     expect(persist).not.toMatch(/by:\s*"query"/);
   });
