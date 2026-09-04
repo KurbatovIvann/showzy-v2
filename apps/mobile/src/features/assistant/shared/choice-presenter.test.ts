@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 
+import { assistantCopy } from "../../../i18n/assistant";
 import {
   CHOICE_TRUNCATED_COPY,
   presentChoiceCardText,
@@ -13,6 +14,7 @@ import {
   choiceSelectShouldIgnoreChallenge,
   executeChoiceSelect,
   pendingChoiceFromMessages,
+  presentChoiceSelectErrorText,
   type AssistantChoiceMessage,
 } from "./choice-presenter";
 
@@ -373,6 +375,85 @@ describe("choiceSelectAppendParts", () => {
       }),
     ).toBeNull();
     expect(choiceSelectShouldIgnoreChallenge({ status: "expired" })).toBe(true);
+  });
+
+  it("appends conflict error text, ignores the challenge, and does not leave a tappable picker", () => {
+    const result = {
+      status: "error" as const,
+      code: "CHOICE_OPTION_CONFLICT",
+      message: "This choice was already resolved with a different option.",
+    };
+    expect(choiceSelectShouldIgnoreChallenge(result)).toBe(true);
+    expect(
+      choiceSelectAppendParts({
+        result,
+        previousChoiceId: choiceId,
+        locale: "en",
+      }),
+    ).toEqual([{ type: "text", text: result.message }]);
+    const pending = pendingChoiceFromMessages(messages, new Set([choiceId]));
+    expect(pending).toBeNull();
+    expect(
+      claimChoiceSelect({
+        pending,
+        optionId: lemonId,
+        resolvingRef: { current: null },
+      }),
+    ).toBeNull();
+    expect(choiceCardState({ pending, resolvingChallengeId: null })).toEqual({
+      kind: "hidden",
+    });
+  });
+
+  it("appends invalid-option error text and retires the picker", () => {
+    const result = {
+      status: "error" as const,
+      code: "CHOICE_INVALID_OPTION",
+      message: "That option is not available.",
+    };
+    expect(choiceSelectShouldIgnoreChallenge(result)).toBe(true);
+    expect(
+      choiceSelectAppendParts({
+        result,
+        previousChoiceId: choiceId,
+        locale: "en",
+      }),
+    ).toEqual([{ type: "text", text: result.message }]);
+    expect(pendingChoiceFromMessages(messages, new Set([choiceId]))).toBeNull();
+  });
+
+  it("appends generic error text from the POST fallback and retires the picker", () => {
+    const result = {
+      status: "error" as const,
+      text: "Choice resume failed.",
+    };
+    expect(choiceSelectShouldIgnoreChallenge(result)).toBe(true);
+    expect(
+      choiceSelectAppendParts({
+        result,
+        previousChoiceId: choiceId,
+        locale: "en",
+      }),
+    ).toEqual([{ type: "text", text: "Choice resume failed." }]);
+    expect(pendingChoiceFromMessages(messages, new Set([choiceId]))).toBeNull();
+    expect(presentChoiceSelectErrorText(result, "en")).toBe(
+      "Choice resume failed.",
+    );
+  });
+
+  it("uses existing assistant unavailable copy when the error envelope has no text", () => {
+    const result = { status: "error" as const };
+    expect(choiceSelectShouldIgnoreChallenge(result)).toBe(true);
+    expect(
+      choiceSelectAppendParts({
+        result,
+        previousChoiceId: choiceId,
+        locale: "uk",
+      }),
+    ).toEqual([{ type: "text", text: assistantCopy("uk").errors.unavailable }]);
+    expect(presentChoiceSelectErrorText(result, "en")).toBe(
+      assistantCopy("en").errors.unavailable,
+    );
   });
 
   it("does not call sendMessage from the choice presenter or tap hook", () => {

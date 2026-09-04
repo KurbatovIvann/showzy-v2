@@ -84,6 +84,8 @@ export function useAssistantChoice(args: {
           clearResolving();
         })
         .catch(() => {
+          // Transport throw: leave the picker retryable. A resolved
+          // `{ status: "error" }` body is handled in `then` (ignore + text).
           clearResolving();
         });
     },

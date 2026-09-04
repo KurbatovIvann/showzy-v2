@@ -3,6 +3,7 @@
  * choiceId, optionId }` only — no canonical input, target, or mapping.
  * Resume does not call the LLM.
  */
+import { assistantCopy } from "../../../i18n/assistant";
 import {
   choiceFromChatPart,
   envelopeFromChoicePeek,
@@ -54,6 +55,8 @@ export type ChoiceSelectResult = {
   readonly optionsTruncated?: boolean | undefined;
   readonly entity?:
     { readonly orderId: string; readonly orderNumber: string } | undefined;
+  readonly code?: string | undefined;
+  readonly message?: string | undefined;
 };
 
 export type ChoiceAppendPart =
@@ -208,10 +211,33 @@ function needsChoiceEnvelopeFromSelectResult(
 export function choiceSelectShouldIgnoreChallenge(
   result: ChoiceSelectResult,
 ): boolean {
-  if (result.status === "completed" || result.status === "expired") {
+  if (
+    result.status === "completed" ||
+    result.status === "expired" ||
+    result.status === "error"
+  ) {
     return true;
   }
   return needsChoiceEnvelopeFromSelectResult(result) !== undefined;
+}
+
+/**
+ * Visible copy after a resolved `{ status: "error" }` POST body. Prefer
+ * `text`, then the HTTP `message` (`CHOICE_OPTION_CONFLICT` /
+ * `CHOICE_INVALID_OPTION`), then existing assistant unavailable copy.
+ * Never sendMessage.
+ */
+export function presentChoiceSelectErrorText(
+  result: ChoiceSelectResult,
+  locale: "uk" | "en",
+): string {
+  if (typeof result.text === "string" && result.text.length > 0) {
+    return result.text;
+  }
+  if (typeof result.message === "string" && result.message.length > 0) {
+    return result.message;
+  }
+  return assistantCopy(locale).errors.unavailable;
 }
 
 /**
@@ -261,6 +287,14 @@ export function choiceSelectAppendParts(args: {
       {
         type: "data-choice",
         data: envelopeFromChoicePeek(args.previousChoiceId, args.result),
+      },
+    ];
+  }
+  if (args.result.status === "error") {
+    return [
+      {
+        type: "text",
+        text: presentChoiceSelectErrorText(args.result, args.locale),
       },
     ];
   }
