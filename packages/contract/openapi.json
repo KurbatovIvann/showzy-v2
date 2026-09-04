@@ -52010,7 +52010,7 @@
     "/orders/list": {
       "post": {
         "operationId": "orders.list",
-        "summary": "Query staff-intake orders in the staff member's active company. Pass kind page.summary or page.withLines for a newest-first cursor page, or kind aggregate for a bounded server rollup. Omit filter.statuses to include every CHECK status (new, confirmed, in_progress, done, canceled); there is no server status named active or all. UI Активні is client grouping of new plus confirmed plus in_progress — do not send active as a filter value. Optional filter.query matches the text order number (optional leading #) or CRM customer name, phone, or email and always requires customers:view. Optional customerIds, createdFrom, and createdTo compose with query. Summary rows include the customer name snapshot and linkedCustomerId, itemCount, and header totals — not the get view. Aggregate buckets are currency-safe and grouped by product (productId+variantId), customer, status, or none. Product buckets include quantityMilli (sum of line quantity_milli for that SKU, across currencies). Company id is never input. Does not filter by payment.",
+        "summary": "Query staff-intake orders in the staff member's active company. Pass kind page.summary or page.withLines for a newest-first cursor page, or kind aggregate for a bounded server rollup. Omit filter.statuses to include every CHECK status (new, confirmed, in_progress, done, canceled); there is no server status named active or all. UI Активні is client grouping of new plus confirmed plus in_progress — do not send active as a filter value. Optional filter.query matches the text order number (optional leading #) or CRM customer name, phone, or email and always requires customers:view. Optional customerIds, createdFrom, and createdTo compose with query. Summary rows include the customer name snapshot and linkedCustomerId, itemCount, and header totals — not the get view. Aggregate output always includes orderCount, currency-safe grossByCurrency, and statusBuckets (bounded GROUP BY CHECK status, max 5). The groupBy buckets stay: product (productId+variantId), customer, status, or none. groupBy none still returns one total bucket and statusBuckets. Product buckets include quantityMilli (sum of line quantity_milli for that SKU, across currencies). Company id is never input. Does not filter by payment.",
         "requestBody": {
           "required": true,
           "content": {
@@ -52720,6 +52720,72 @@
                         },
                         "customerMatchTruncated": {
                           "type": "boolean"
+                        },
+                        "statusBuckets": {
+                          "type": "array",
+                          "maxItems": 5,
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "identity": {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "const": "status"
+                                  },
+                                  "status": {
+                                    "enum": [
+                                      "new",
+                                      "confirmed",
+                                      "in_progress",
+                                      "done",
+                                      "canceled"
+                                    ],
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "status"
+                                ]
+                              },
+                              "label": {
+                                "type": "string"
+                              },
+                              "orderCount": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "grossByCurrency": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "currency": {
+                                      "type": "string",
+                                      "minLength": 3,
+                                      "maxLength": 3
+                                    },
+                                    "grossAmountMinor": {
+                                      "type": "string",
+                                      "pattern": "^(0|-?[1-9][0-9]*)$"
+                                    }
+                                  },
+                                  "required": [
+                                    "currency",
+                                    "grossAmountMinor"
+                                  ]
+                                }
+                              }
+                            },
+                            "required": [
+                              "identity",
+                              "label",
+                              "orderCount",
+                              "grossByCurrency"
+                            ]
+                          }
                         }
                       },
                       "required": [
@@ -52728,7 +52794,8 @@
                         "grossByCurrency",
                         "buckets",
                         "bucketsTruncated",
-                        "customerMatchTruncated"
+                        "customerMatchTruncated",
+                        "statusBuckets"
                       ],
                       "additionalProperties": false
                     }
