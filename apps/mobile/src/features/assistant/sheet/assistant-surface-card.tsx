@@ -18,7 +18,9 @@ export const AssistantSurfaceCard = memo(function AssistantSurfaceCard(props: {
     case "orders-list":
       return <OrdersListResultCard card={surface} onOpenHref={onOpenHref} />;
     case "orders-aggregate":
-      return <OrdersAggregateResultCard card={surface} />;
+      return (
+        <OrdersAggregateResultCard card={surface} onOpenHref={onOpenHref} />
+      );
     case "order-entity":
       return <OrderEntityCard card={surface} onOpenHref={onOpenHref} />;
   }

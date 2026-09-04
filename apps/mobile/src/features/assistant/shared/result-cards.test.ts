@@ -96,6 +96,7 @@ function countsOutput(
     orderCount: 6,
     grossByCurrency: [{ currency: "UAH", grossAmountMinor: "1000" }],
     buckets,
+    statusBuckets: [],
     bucketsTruncated: false,
     customerMatchTruncated: false,
     ...extra,
@@ -663,17 +664,35 @@ describe("assistantSurfacesFromParts", () => {
 const PRODUCT_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const CUSTOMER_A = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 
-function countsPart(output: Record<string, unknown>): {
+function countsPart(
+  output: Record<string, unknown>,
+  input?: Record<string, unknown>,
+): {
   readonly type: "tool-orders_list_counts";
   readonly toolCallId: string;
   readonly state: "output-available";
   readonly output: Record<string, unknown>;
+  readonly input?: Record<string, unknown>;
 } {
   return {
     type: "tool-orders_list_counts",
     toolCallId: "call-counts",
     state: "output-available",
     output,
+    ...(input !== undefined ? { input } : {}),
+  };
+}
+
+function statusBucket(
+  status: string,
+  orderCount: number,
+  grossByCurrency: readonly Record<string, unknown>[] = [],
+): Record<string, unknown> {
+  return {
+    identity: { kind: "status", status },
+    label: status,
+    orderCount,
+    grossByCurrency,
   };
 }
 
@@ -684,47 +703,36 @@ function assertLabeledBucketList(card: AssistantOrdersAggregateCardView): void {
   expect(json.includes("barChart")).toBe(false);
   expect(json.includes("chartType")).toBe(false);
   expect(json.includes('"active"')).toBe(false);
+  expect(json.includes("average")).toBe(false);
+  expect(json.includes("середн")).toBe(false);
+  expect(json.includes("avgCheck")).toBe(false);
   expect("chart" in card).toBe(false);
   expect("wowPercent" in card).toBe(false);
+  expect("averageCheck" in card).toBe(false);
+  expect(card.ctaHref).toBe(ASSISTANT_ORDERS_LIST_HREF);
+  expect(card.ctaHref).toBe("/orders");
 }
 
-describe("assistantSurfacesFromParts aggregate (SHO-370)", () => {
+describe("assistantSurfacesFromParts aggregate (SHO-370 / SHO-395)", () => {
   it("maps period=this_month default groupBy status to one aggregate card", () => {
+    const statusBuckets = [
+      statusBucket("in_progress", 2, [
+        { currency: "UAH", grossAmountMinor: "4000" },
+      ]),
+      statusBucket("new", 3, [{ currency: "UAH", grossAmountMinor: "3000" }]),
+      statusBucket("confirmed", 1, [
+        { currency: "UAH", grossAmountMinor: "1000" },
+      ]),
+    ];
     const surfaces = assistantSurfacesFromParts(
       [
         countsPart(
-          countsOutput(
-            [
-              {
-                identity: { kind: "status", status: "in_progress" },
-                label: "in_progress",
-                orderCount: 2,
-                grossByCurrency: [
-                  { currency: "UAH", grossAmountMinor: "4000" },
-                ],
-              },
-              {
-                identity: { kind: "status", status: "new" },
-                label: "new",
-                orderCount: 3,
-                grossByCurrency: [
-                  { currency: "UAH", grossAmountMinor: "3000" },
-                ],
-              },
-              {
-                identity: { kind: "status", status: "confirmed" },
-                label: "confirmed",
-                orderCount: 1,
-                grossByCurrency: [
-                  { currency: "UAH", grossAmountMinor: "1000" },
-                ],
-              },
-            ],
-            {
-              orderCount: 6,
-              grossByCurrency: [{ currency: "UAH", grossAmountMinor: "8000" }],
-            },
-          ),
+          countsOutput(statusBuckets, {
+            orderCount: 6,
+            grossByCurrency: [{ currency: "UAH", grossAmountMinor: "8000" }],
+            statusBuckets,
+          }),
+          { period: "this_month", groupBy: "status" },
         ),
       ],
       "uk",
@@ -737,23 +745,31 @@ describe("assistantSurfacesFromParts aggregate (SHO-370)", () => {
     }
     assertLabeledBucketList(card);
     expect(card.groupBy).toBe("status");
+    expect(card.periodLabel).toBe(uk.cards.periodThisMonth);
+    expect(card.periodLabel).toBe("Цього місяця");
     expect(card.orderCountLabel).toBe("6 замовлень");
     expect(card.moneyLabels).toEqual([formatMoneyMinor("8000", "UAH")]);
-    expect(card.buckets.map((bucket) => bucket.status)).toEqual([
+    expect(card.statusBuckets.map((bucket) => bucket.status)).toEqual([
       "new",
       "confirmed",
       "in_progress",
     ]);
-    expect(card.buckets[0]?.label).toBe(ordersUk.statuses.new);
-    expect(card.buckets[1]?.label).toBe(ordersUk.statuses.confirmed);
-    expect(card.buckets[2]?.label).toBe(ordersUk.statuses.in_progress);
-    expect(card.buckets[2]?.statusTone).toBe("attention");
-    expect(card.buckets[0]?.statusTone).toBe("action");
+    expect(card.extraBuckets).toEqual([]);
+    expect(card.statusBuckets[0]?.label).toBe(ordersUk.statuses.new);
+    expect(card.statusBuckets[1]?.label).toBe(ordersUk.statuses.confirmed);
+    expect(card.statusBuckets[2]?.label).toBe(ordersUk.statuses.in_progress);
+    expect(card.statusBuckets[2]?.statusTone).toBe("attention");
+    expect(card.statusBuckets[0]?.statusTone).toBe("action");
     expect(card.emptyTitle).toBeNull();
+    expect(card.ctaLabel).toBe(uk.cards.openOrders);
+    expect(JSON.stringify(card).includes(uk.cards.noneBucket)).toBe(false);
     expect(entitiesOf(surfaces)).toEqual([]);
   });
 
-  it("renders groupBy none as a labeled total row, not a chart", () => {
+  it("does not render a duplicate total row for groupBy none", () => {
+    const statusBuckets = [
+      statusBucket("new", 6, [{ currency: "UAH", grossAmountMinor: "8000" }]),
+    ];
     const surfaces = assistantSurfacesFromParts(
       [
         countsPart(
@@ -771,8 +787,10 @@ describe("assistantSurfacesFromParts aggregate (SHO-370)", () => {
             {
               orderCount: 6,
               grossByCurrency: [{ currency: "UAH", grossAmountMinor: "8000" }],
+              statusBuckets,
             },
           ),
+          { groupBy: "none", period: "this_week" },
         ),
       ],
       "uk",
@@ -785,17 +803,75 @@ describe("assistantSurfacesFromParts aggregate (SHO-370)", () => {
     }
     assertLabeledBucketList(card);
     expect(card.groupBy).toBe("none");
-    expect(card.buckets).toHaveLength(1);
-    expect(card.buckets[0]?.label).toBe(uk.cards.noneBucket);
-    expect(card.buckets[0]?.label).toBe("Усього");
-    expect(card.buckets[0]?.status).toBeNull();
-    expect(card.buckets[0]?.orderCountLabel).toBe("6");
-    expect(card.buckets[0]?.moneyLabels).toEqual([
-      formatMoneyMinor("8000", "UAH"),
-    ]);
+    expect(card.periodLabel).toBe("Цього тижня");
+    expect(card.extraBuckets).toEqual([]);
+    expect(card.statusBuckets).toHaveLength(1);
+    expect(card.statusBuckets[0]?.status).toBe("new");
+    expect(card.statusBuckets[0]?.orderCountLabel).toBe("6");
+    expect(JSON.stringify(card)).not.toContain(uk.cards.noneBucket);
+    expect(JSON.stringify(card)).not.toContain("Усього");
+    expect(card.ctaHref).toBe("/orders");
+  });
+
+  it("maps period=today to the period line", () => {
+    const surfaces = assistantSurfacesFromParts(
+      [
+        countsPart(
+          countsOutput([], { orderCount: 0, grossByCurrency: [] }),
+          { groupBy: "status", period: "today" },
+        ),
+      ],
+      "uk",
+    );
+    expect(aggregateOf(surfaces)?.periodLabel).toBe("Сьогодні");
+    expect(aggregateOf(surfaces)?.ctaHref).toBe("/orders");
+  });
+
+  it("omits the period line when the call has no period or dates", () => {
+    const surfaces = assistantSurfacesFromParts(
+      [
+        countsPart(
+          countsOutput([], {
+            orderCount: 0,
+            grossByCurrency: [],
+          }),
+          { groupBy: "status" },
+        ),
+      ],
+      "uk",
+    );
+    const card = aggregateOf(surfaces);
+    expect(card?.periodLabel).toBeNull();
+    expect(card?.ctaHref).toBe("/orders");
+  });
+
+  it("formats ISO createdFrom/createdTo as the period line", () => {
+    const surfaces = assistantSurfacesFromParts(
+      [
+        countsPart(
+          countsOutput([], { orderCount: 0, grossByCurrency: [] }),
+          {
+            groupBy: "status",
+            createdFrom: "2026-08-25T12:00:00.000Z",
+            createdTo: "2026-08-31T12:00:00.000Z",
+          },
+        ),
+      ],
+      "uk",
+    );
+    const from = formatOrderCreatedAt("2026-08-25T12:00:00.000Z", "uk");
+    const to = formatOrderCreatedAt("2026-08-31T12:00:00.000Z", "uk");
+    expect(surfaces[0] && "periodLabel" in surfaces[0]).toBe(true);
+    expect(aggregateOf(surfaces)?.periodLabel).toBe(`${from} – ${to}`);
   });
 
   it("never mixes money across currencies", () => {
+    const statusBuckets = [
+      statusBucket("new", 4, [
+        { currency: "UAH", grossAmountMinor: "1000" },
+        { currency: "USD", grossAmountMinor: "200" },
+      ]),
+    ];
     const surfaces = assistantSurfacesFromParts(
       [
         countsPart(
@@ -817,8 +893,10 @@ describe("assistantSurfacesFromParts aggregate (SHO-370)", () => {
                 { currency: "UAH", grossAmountMinor: "1000" },
                 { currency: "USD", grossAmountMinor: "200" },
               ],
+              statusBuckets,
             },
           ),
+          { groupBy: "none" },
         ),
       ],
       "uk",
@@ -831,7 +909,7 @@ describe("assistantSurfacesFromParts aggregate (SHO-370)", () => {
     const uah = formatMoneyMinor("1000", "UAH");
     const usd = formatMoneyMinor("200", "USD");
     expect(card.moneyLabels).toEqual([uah, usd]);
-    expect(card.buckets[0]?.moneyLabels).toEqual([uah, usd]);
+    expect(card.statusBuckets[0]?.moneyLabels).toEqual([uah, usd]);
     expect(card.moneyLabels).toHaveLength(2);
     expect(card.moneyLabels.join("")).not.toBe(formatMoneyMinor("1200", "UAH"));
     expect(JSON.stringify(card).includes("1200")).toBe(false);
@@ -861,8 +939,14 @@ describe("assistantSurfacesFromParts aggregate (SHO-370)", () => {
               orderCount: 12,
               bucketsTruncated: true,
               bucketsOmitted: 4,
+              statusBuckets: [
+                statusBucket("new", 12, [
+                  { currency: "UAH", grossAmountMinor: "1000" },
+                ]),
+              ],
             },
           ),
+          { groupBy: "product" },
         ),
       ],
       "uk",
@@ -894,8 +978,12 @@ describe("assistantSurfacesFromParts aggregate (SHO-370)", () => {
                   ],
                 },
               ],
-              { bucketsOmitted: 1 },
+              {
+                bucketsOmitted: 1,
+                statusBuckets: [statusBucket("new", 2)],
+              },
             ),
+            { groupBy: "none" },
           ),
         ],
         "uk",
@@ -922,8 +1010,12 @@ describe("assistantSurfacesFromParts aggregate (SHO-370)", () => {
                   ],
                 },
               ],
-              { bucketsOmitted: 4 },
+              {
+                bucketsOmitted: 4,
+                statusBuckets: [statusBucket("new", 2)],
+              },
             ),
+            { groupBy: "none" },
           ),
         ],
         "uk",
@@ -950,8 +1042,12 @@ describe("assistantSurfacesFromParts aggregate (SHO-370)", () => {
                   ],
                 },
               ],
-              { bucketsOmitted: 1 },
+              {
+                bucketsOmitted: 1,
+                statusBuckets: [statusBucket("new", 2)],
+              },
             ),
+            { groupBy: "none" },
           ),
         ],
         "en",
@@ -983,29 +1079,38 @@ describe("assistantSurfacesFromParts aggregate (SHO-370)", () => {
       return;
     }
     assertLabeledBucketList(card);
-    expect(card.buckets).toEqual([]);
+    expect(card.statusBuckets).toEqual([]);
+    expect(card.extraBuckets).toEqual([]);
     expect(card.emptyTitle).toBe(uk.cards.aggregateEmptyTitle);
     expect(card.emptyDescription).toBe(uk.cards.aggregateEmptyDescription);
     expect(card.orderCountLabel).toBe("0 замовлень");
+    expect(card.ctaLabel).toBe(uk.cards.openOrders);
   });
 
-  it("renders product and customer groupBy as the same labeled rows", () => {
+  it("renders product and customer extra sections alongside statusBuckets", () => {
+    const statusBuckets = [
+      statusBucket("new", 2, [{ currency: "UAH", grossAmountMinor: "5000" }]),
+    ];
     const productSurfaces = assistantSurfacesFromParts(
       [
         countsPart(
-          countsOutput([
-            {
-              identity: {
-                kind: "product",
-                productId: PRODUCT_A,
-                variantId: null,
+          countsOutput(
+            [
+              {
+                identity: {
+                  kind: "product",
+                  productId: PRODUCT_A,
+                  variantId: null,
+                },
+                label: "Троянда",
+                orderCount: 2,
+                grossByCurrency: [{ currency: "UAH", grossAmountMinor: "5000" }],
+                quantityMilli: "1500",
               },
-              label: "Троянда",
-              orderCount: 2,
-              grossByCurrency: [{ currency: "UAH", grossAmountMinor: "5000" }],
-              quantityMilli: "1500",
-            },
-          ]),
+            ],
+            { statusBuckets },
+          ),
+          { groupBy: "product" },
         ),
       ],
       "uk",
@@ -1013,18 +1118,28 @@ describe("assistantSurfacesFromParts aggregate (SHO-370)", () => {
     const customerSurfaces = assistantSurfacesFromParts(
       [
         countsPart(
-          countsOutput([
-            {
-              identity: {
-                kind: "customer",
-                customerId: CUSTOMER_A,
-                nameSnapshot: "Іван",
+          countsOutput(
+            [
+              {
+                identity: {
+                  kind: "customer",
+                  customerId: CUSTOMER_A,
+                  nameSnapshot: "Іван",
+                },
+                label: "Іван",
+                orderCount: 3,
+                grossByCurrency: [{ currency: "UAH", grossAmountMinor: "7000" }],
               },
-              label: "Іван",
-              orderCount: 3,
-              grossByCurrency: [{ currency: "UAH", grossAmountMinor: "7000" }],
+            ],
+            {
+              statusBuckets: [
+                statusBucket("new", 3, [
+                  { currency: "UAH", grossAmountMinor: "7000" },
+                ]),
+              ],
             },
-          ]),
+          ),
+          { groupBy: "customer" },
         ),
       ],
       "uk",
@@ -1042,12 +1157,14 @@ describe("assistantSurfacesFromParts aggregate (SHO-370)", () => {
     expect(customer.groupBy).toBe("customer");
     expect(product.kind).toBe(customer.kind);
     expect(product.kind).toBe("orders-aggregate");
-    expect(product.buckets[0]?.label).toBe("Троянда");
-    expect(product.buckets[0]?.quantityLabel).toBe("1,5");
-    expect(product.buckets[0]?.status).toBeNull();
-    expect(customer.buckets[0]?.label).toBe("Іван");
-    expect(customer.buckets[0]?.quantityLabel).toBeNull();
-    expect(customer.buckets[0]?.status).toBeNull();
+    expect(product.statusBuckets).toHaveLength(1);
+    expect(customer.statusBuckets).toHaveLength(1);
+    expect(product.extraBuckets[0]?.label).toBe("Троянда");
+    expect(product.extraBuckets[0]?.quantityLabel).toBe("1,5");
+    expect(product.extraBuckets[0]?.status).toBeNull();
+    expect(customer.extraBuckets[0]?.label).toBe("Іван");
+    expect(customer.extraBuckets[0]?.quantityLabel).toBeNull();
+    expect(customer.extraBuckets[0]?.status).toBeNull();
     expect("chartType" in product).toBe(false);
     expect("chartType" in customer).toBe(false);
   });
@@ -1083,26 +1200,18 @@ describe("assistantSurfacesFromParts aggregate (SHO-370)", () => {
     const surfaces = assistantSurfacesFromParts(
       [
         countsPart(
-          countsOutput([
-            {
-              identity: { kind: "status", status: "active" },
-              label: "active",
-              orderCount: 9,
-              grossByCurrency: [],
-            },
-            {
-              identity: { kind: "status", status: "in_progress" },
-              label: "in_progress",
-              orderCount: 2,
-              grossByCurrency: [{ currency: "UAH", grossAmountMinor: "1000" }],
-            },
-            {
-              identity: { kind: "status", status: "new" },
-              label: "new",
-              orderCount: 1,
-              grossByCurrency: [{ currency: "UAH", grossAmountMinor: "500" }],
-            },
-          ]),
+          countsOutput([], {
+            statusBuckets: [
+              statusBucket("active", 9),
+              statusBucket("in_progress", 2, [
+                { currency: "UAH", grossAmountMinor: "1000" },
+              ]),
+              statusBucket("new", 1, [
+                { currency: "UAH", grossAmountMinor: "500" },
+              ]),
+            ],
+          }),
+          { groupBy: "status" },
         ),
       ],
       "uk",
@@ -1115,13 +1224,16 @@ describe("assistantSurfacesFromParts aggregate (SHO-370)", () => {
     const json = JSON.stringify(card);
     expect(json.includes("active")).toBe(false);
     expect(json.includes("Активн")).toBe(false);
-    expect(card.buckets.map((bucket) => bucket.status)).toEqual([
+    expect(card.statusBuckets.map((bucket) => bucket.status)).toEqual([
       "new",
       "in_progress",
     ]);
-    expect(card.buckets[1]?.label).toBe(ordersUk.statuses.in_progress);
-    expect(card.buckets[1]?.label).toBe("В роботі");
-    expect(card.buckets.map((bucket) => bucket.label)).not.toContain("Активні");
+    expect(card.extraBuckets).toEqual([]);
+    expect(card.statusBuckets[1]?.label).toBe(ordersUk.statuses.in_progress);
+    expect(card.statusBuckets[1]?.label).toBe("В роботі");
+    expect(card.statusBuckets.map((bucket) => bucket.label)).not.toContain(
+      "Активні",
+    );
   });
 
   it("does not render an aggregate card from a façade error orders_list_counts", () => {
@@ -1141,24 +1253,33 @@ describe("assistantSurfacesFromParts aggregate (SHO-370)", () => {
     const surfaces = assistantSurfacesFromParts(
       [
         countsPart(
-          countsOutput([
-            {
-              identity: {
-                kind: "customer",
-                customerId: null,
-                nameSnapshot: "unlinked",
+          countsOutput(
+            [
+              {
+                identity: {
+                  kind: "customer",
+                  customerId: null,
+                  nameSnapshot: "unlinked",
+                },
+                label: "unlinked",
+                orderCount: 1,
+                grossByCurrency: [],
               },
-              label: "unlinked",
-              orderCount: 1,
-              grossByCurrency: [],
+            ],
+            {
+              statusBuckets: [statusBucket("in_progress", 1)],
             },
-          ]),
+          ),
+          { groupBy: "customer" },
         ),
       ],
       "uk",
     );
-    expect(aggregateOf(surfaces)?.buckets[0]?.label).toBe(
+    expect(aggregateOf(surfaces)?.extraBuckets[0]?.label).toBe(
       ordersUk.missingCustomer,
+    );
+    expect(aggregateOf(surfaces)?.statusBuckets[0]?.label).toBe(
+      ordersUk.statuses.in_progress,
     );
   });
 });
@@ -1259,6 +1380,8 @@ describe("assistant result-card surface registry", () => {
     expect(entityCard.includes("order-row")).toBe(false);
     expect(aggregateCard).toContain("Card");
     expect(aggregateCard).toContain("StatusPill");
+    expect(aggregateCard).toContain("Button");
+    expect(aggregateCard).toContain("onOpenHref");
     expect(aggregateCard).toContain('from "../../../components/ui"');
     expect(aggregateCard.includes("orders-list-screen")).toBe(false);
     expect(aggregateCard.includes("order-row")).toBe(false);
@@ -1266,6 +1389,7 @@ describe("assistant result-card surface registry", () => {
     expect(aggregateCard.includes("wow")).toBe(false);
     expect(surfaceCard).toContain("OrdersListResultCard");
     expect(surfaceCard).toContain("OrdersAggregateResultCard");
+    expect(surfaceCard).toContain("onOpenHref={onOpenHref}");
     expect(surfaceCard).toContain("OrderEntityCard");
     expect(messageRow).toContain("surfaces");
     expect(messageRow).toContain("AssistantSurfaceCard");
@@ -1297,6 +1421,8 @@ describe("assistant result-card surface registry", () => {
     expect(listParse.includes('from "../../orders/list')).toBe(false);
     expect(listParse).toContain("formatOrderCreatedAt");
     expect(listParse).toContain("../../orders/shared/order-created-at");
+    expect(aggregateParse).toContain("formatOrderCreatedAt");
+    expect(aggregateParse).toContain("../../orders/shared/order-created-at");
     expect(listParse).not.toContain("extractUuidResultIds");
     expect(aggregateParse).not.toContain("extractUuidResultIds");
     expect(entityParse).not.toContain("extractUuidResultIds");
