@@ -14,6 +14,7 @@ import {
 export type PanelApiMockOptions = {
   readonly signedIn?: boolean;
   readonly memberships?: readonly CompanyMembership[];
+  readonly listOrdersItems?: readonly unknown[];
 };
 
 export const UNMOCKED_RPC_NOT_FOUND = {
@@ -132,6 +133,7 @@ export async function installPanelApiMocks(
 ): Promise<void> {
   const signedIn = options.signedIn ?? true;
   const memberships = options.memberships ?? [FLOWERS_MEMBERSHIP];
+  const listOrdersItems = options.listOrdersItems ?? [];
 
   await page.route("**/api/auth/**", async (route) => {
     if (route.request().method() === "OPTIONS") {
@@ -167,7 +169,7 @@ export async function installPanelApiMocks(
       route,
       rpcEnvelope({
         kind: "page.summary",
-        items: [],
+        items: listOrdersItems,
         nextCursor: null,
         customerMatchTruncated: false,
       }),
