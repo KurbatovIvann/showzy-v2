@@ -7,9 +7,10 @@ import {
 } from "@showzy/db/schema/catalog";
 import { moneyToCanonical } from "@showzy/module-kit/canonical";
 import { parseDbEnum } from "@showzy/module-kit/parse-db-enum";
-import { likeContainsPattern, paginate } from "@showzy/validation/pagination";
-import { and, count, desc, eq, ilike, inArray, lt, or } from "drizzle-orm";
+import { paginate } from "@showzy/validation/pagination";
+import { and, count, desc, eq, inArray, lt, or } from "drizzle-orm";
 
+import { productListSearchPredicate } from "../services/product-list-search.js";
 import { productStatusSchema } from "../wire.contract.js";
 import {
   formatListProductsCursor,
@@ -47,9 +48,11 @@ export const listProducts = implementAction(listProductsContract, {
       throw new CoreInvariantError("catalog.listProducts expects staff");
     }
 
-    const searchPattern =
-      input.query === undefined ? undefined : likeContainsPattern(input.query);
-    if (input.query !== undefined && searchPattern === undefined) {
+    const searchPredicate =
+      input.query === undefined
+        ? undefined
+        : productListSearchPredicate(input.query);
+    if (input.query !== undefined && searchPredicate === undefined) {
       return { items: [], nextCursor: null };
     }
 
@@ -91,9 +94,7 @@ export const listProducts = implementAction(listProductsContract, {
           input.status === "all"
             ? undefined
             : eq(products.status, input.status),
-          searchPattern === undefined
-            ? undefined
-            : ilike(products.name, searchPattern),
+          searchPredicate,
           cursorPredicate,
         ),
       )

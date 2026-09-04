@@ -45,6 +45,10 @@ export const products = pgTable(
       table.id.desc().nullsFirst(),
     ),
     index("products_company_status_idx").on(table.companyId, table.status),
+    // SHO-396 / SHO-400: GIN trigram on name accelerates `%stem%` ILIKE.
+    // pg_trgm is already installed (0007). company_id stays on the
+    // existing btree indexes; the matcher ANDs tenant scope in SQL.
+    index("products_name_trgm_idx").using("gin", table.name.op("gin_trgm_ops")),
     check("products_base_price_minor_check", sql`${table.basePriceMinor} >= 0`),
     check(
       "products_status_check",
