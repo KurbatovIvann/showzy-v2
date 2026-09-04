@@ -262,7 +262,7 @@ describe("mapOrdersListPageOutput", () => {
 });
 
 describe("mapOrdersListCountsOutput", () => {
-  it("keeps orderCount, money, and product quantityMilli", () => {
+  it("keeps orderCount, money, statusBuckets, and product quantityMilli", () => {
     const mapped = mapOrdersListCountsOutput({
       kind: "aggregate",
       orderCount: 4,
@@ -287,6 +287,17 @@ describe("mapOrdersListCountsOutput", () => {
           unused: true,
         },
       ],
+      statusBuckets: [
+        {
+          identity: { kind: "status", status: "new", extra: true },
+          label: "new",
+          orderCount: 4,
+          grossByCurrency: [
+            { currency: "UAH", grossAmountMinor: "1500", note: "drop" },
+          ],
+          unused: true,
+        },
+      ],
       bucketsTruncated: false,
       customerMatchTruncated: false,
     });
@@ -294,6 +305,14 @@ describe("mapOrdersListCountsOutput", () => {
       kind: "aggregate",
       orderCount: 4,
       grossByCurrency: [{ currency: "UAH", grossAmountMinor: "1500" }],
+      statusBuckets: [
+        {
+          identity: { kind: "status", status: "new" },
+          label: "new",
+          orderCount: 4,
+          grossByCurrency: [{ currency: "UAH", grossAmountMinor: "1500" }],
+        },
+      ],
       buckets: [
         {
           identity: {
@@ -328,6 +347,20 @@ describe("mapOrdersListCountsOutput", () => {
       ],
       quantityMilli: String(12_000 + index),
     }));
+    const statusBuckets = [
+      {
+        identity: { kind: "status" as const, status: "new" as const },
+        label: "new",
+        orderCount: 200,
+        grossByCurrency: [{ currency: "UAH", grossAmountMinor: "50000000" }],
+      },
+      {
+        identity: { kind: "status" as const, status: "confirmed" as const },
+        label: "confirmed",
+        orderCount: 200,
+        grossByCurrency: [{ currency: "USD", grossAmountMinor: "120000" }],
+      },
+    ];
     const mapped = mapOrdersListCountsOutput({
       kind: "aggregate",
       orderCount: 400,
@@ -337,6 +370,7 @@ describe("mapOrdersListCountsOutput", () => {
         { currency: "EUR", grossAmountMinor: "80000" },
       ],
       buckets,
+      statusBuckets,
       bucketsTruncated: true,
       customerMatchTruncated: false,
     });
@@ -350,6 +384,7 @@ describe("mapOrdersListCountsOutput", () => {
       { currency: "USD", grossAmountMinor: "120000" },
       { currency: "EUR", grossAmountMinor: "80000" },
     ]);
+    expect(mapped["statusBuckets"]).toEqual(statusBuckets);
     expect(Array.isArray(mapped["buckets"])).toBe(true);
     const kept = Array.isArray(mapped["buckets"]) ? mapped["buckets"] : [];
     expect(kept.length).toBeGreaterThan(0);
@@ -496,6 +531,15 @@ describe("ordersListFacadeTools", () => {
     );
     expect(tools[ORDERS_LIST_COUNTS_TOOL_NAME]?.description).toContain(
       "Do not page orders_list_page and sum in the model",
+    );
+    expect(tools[ORDERS_LIST_COUNTS_TOOL_NAME]?.description).toContain(
+      "statusBuckets",
+    );
+    expect(tools[ORDERS_LIST_COUNTS_TOOL_NAME]?.description).toContain(
+      "Do not use groupBy none just to get a company total",
+    );
+    expect(tools[ORDERS_LIST_COUNTS_TOOL_NAME]?.description).not.toContain(
+      "groupBy none for one company rollup",
     );
     expect(tools[ORDERS_LIST_PAGE_TOOL_NAME]?.description).toContain(
       "Europe/Kyiv",

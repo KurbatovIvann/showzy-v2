@@ -141,7 +141,7 @@ export type OrdersListCountsFacadeInput = z.output<
 
 const ORDERS_LIST_PAGE_DESCRIPTION = `Newest-first order headers in the active company. Compact rows: orderId, orderNumber, customer (nameSnapshot, linkedCustomerId), status, itemCount, totalGrossMinor, currency, createdAt. Optional statuses (new, confirmed, in_progress, done, canceled; max 5). Omit statuses to include every CHECK status. There is no server status named active or all. UI Активні is client grouping of new plus confirmed plus in_progress — do not pass active, all, or completed. Optional query matches the text order number (optional leading #) or CRM name, phone, or email and requires customers:view. Optional customerIds (1–50 UUIDs). Prefer period=today, period=this_week, or period=this_month (Europe/Kyiv, week starts Monday, inclusive local day) for those ranges. ISO createdFrom/createdTo remains valid for other intervals. Do not pass period together with createdFrom/createdTo. Do not pass yesterday/thisWeek enums. Optional cursor pages forward. Page size is ${String(ORDERS_LIST_PAGE_ASSISTANT_LIMIT)} so every visible row matches nextCursor. Does not return line items. For “how many orders” / “turnover” / “gross” in a period, use orders_list_counts (do not page this tool and sum in the model). ${ORDERS_LIST_PROMPT_LINE}`;
 
-const ORDERS_LIST_COUNTS_DESCRIPTION = `Bounded order rollup in the active company. This is the tool for “how many orders” / “turnover” / “gross” in a period (groupBy none for one company rollup). Do not page orders_list_page and sum in the model. Optional statuses (new, confirmed, in_progress, done, canceled; max 5). Omit statuses to include every CHECK status. There is no server status named active or all. UI Активні is client grouping of new plus confirmed plus in_progress — do not pass active, all, or completed. Optional query matches the text order number (optional leading #) or CRM name, phone, or email and requires customers:view. Optional customerIds (1–50 UUIDs). Prefer period=today, period=this_week, or period=this_month (Europe/Kyiv, week starts Monday, inclusive local day) for those ranges. ISO createdFrom/createdTo remains valid for other intervals. Do not pass period together with createdFrom/createdTo. Do not pass yesterday/thisWeek enums. groupBy defaults to status (none, status, product, or customer). Product buckets include quantityMilli (sum of line quantity_milli for that SKU, across currencies). Money buckets never mix currencies. Output always keeps orderCount and every grossByCurrency.grossAmountMinor. ${ORDERS_AGGREGATE_PROMPT_LINE}`;
+const ORDERS_LIST_COUNTS_DESCRIPTION = `Bounded order rollup in the active company. This is the tool for “how many orders” / “turnover” / “gross” in a period. Do not page orders_list_page and sum in the model. Optional statuses (new, confirmed, in_progress, done, canceled; max 5). Omit statuses to include every CHECK status. There is no server status named active or all. UI Активні is client grouping of new plus confirmed plus in_progress — do not pass active, all, or completed. Optional query matches the text order number (optional leading #) or CRM name, phone, or email and requires customers:view. Optional customerIds (1–50 UUIDs). Prefer period=today, period=this_week, or period=this_month (Europe/Kyiv, week starts Monday, inclusive local day) for those ranges. ISO createdFrom/createdTo remains valid for other intervals. Do not pass period together with createdFrom/createdTo. Do not pass yesterday/thisWeek enums. groupBy defaults to status (none, status, product, or customer). Do not use groupBy none just to get a company total — orderCount, grossByCurrency, and statusBuckets are always present. Product buckets include quantityMilli (sum of line quantity_milli for that SKU, across currencies). Money buckets never mix currencies. Output always keeps orderCount, every grossByCurrency.grossAmountMinor, and statusBuckets (count and money per CHECK status that occurred, max 5). ${ORDERS_AGGREGATE_PROMPT_LINE}`;
 
 type OrdersListMappedFilter = {
   readonly statuses?: NonNullable<OrdersListPageFacadeInput["statuses"]>;
@@ -391,9 +391,10 @@ function countsPayload(
 }
 
 /**
- * Assistant view of `orders.list` aggregate. Always keeps `orderCount`
- * and every `grossByCurrency[].grossAmountMinor`. Slices buckets to a
- * prefix that fits the clip cap and sets adapter `bucketsOmitted`.
+ * Assistant view of `orders.list` aggregate. Always keeps `orderCount`,
+ * every `grossByCurrency[].grossAmountMinor`, and `statusBuckets`.
+ * Slices groupBy `buckets` to a prefix that fits the clip cap and sets
+ * adapter `bucketsOmitted`.
  */
 export function mapOrdersListCountsOutput(output: unknown): unknown {
   if (
@@ -408,10 +409,15 @@ export function mapOrdersListCountsOutput(output: unknown): unknown {
   const compactBuckets = output["buckets"].map((row) =>
     mapOrdersListCompactBucket(row),
   );
+  const rawStatusBuckets = output["statusBuckets"];
+  const compactStatusBuckets = isUnknownArray(rawStatusBuckets)
+    ? rawStatusBuckets.map((row) => mapOrdersListCompactBucket(row))
+    : [];
   const base: Record<string, unknown> = {
     kind: "aggregate",
     orderCount: output["orderCount"],
     grossByCurrency: compactGrossByCurrency(output["grossByCurrency"]),
+    statusBuckets: compactStatusBuckets,
     bucketsTruncated: output["bucketsTruncated"],
     customerMatchTruncated: output["customerMatchTruncated"],
   };
