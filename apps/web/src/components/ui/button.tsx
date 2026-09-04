@@ -8,7 +8,7 @@ import { cx } from "./cx";
  * ring uses the `action` token (`web-panel-chrome.md` §Visual language).
  */
 export type ButtonVariant = "primary" | "secondary" | "danger";
-export type ButtonSize = "sm" | "md" | "lg";
+export type ButtonSize = "compact" | "sm" | "md" | "lg";
 
 const BASE_CLASS =
   "inline-flex items-center justify-center gap-2 rounded-full font-semibold " +
@@ -25,14 +25,27 @@ const VARIANT_CLASS: Record<ButtonVariant, string> = {
   danger: "bg-danger text-white hover:enabled:opacity-90",
 };
 
-/* Canvas sources: sm = ConfirmDialog (`py-2.5 text-[14px]`),
+/* Canvas sources: compact = list-header «+ Нове» (`px-3 py-1.5 text-[13px]`),
+   sm = ConfirmDialog (`py-2.5 text-[14px]`),
    md = detail/form footers (`py-3 text-[15px]`),
    lg = auth CTA (`py-4 text-[17px]`). */
 const SIZE_CLASS: Record<ButtonSize, string> = {
+  compact: "px-3 py-1.5 text-[13px] focus-visible:ring-offset-2",
   sm: "px-4 py-2.5 text-[14px]",
   md: "px-5 py-3 text-[15px]",
   lg: "px-6 py-4 text-[17px]",
 };
+
+/** Shared visual classes so a `Link` can look like `Button` without a nested control. */
+export function buttonClassName({
+  variant = "primary",
+  size = "md",
+}: {
+  readonly variant?: ButtonVariant;
+  readonly size?: ButtonSize;
+} = {}): string {
+  return cx(BASE_CLASS, VARIANT_CLASS[variant], SIZE_CLASS[size]);
+}
 
 export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   readonly variant?: ButtonVariant;
@@ -49,12 +62,7 @@ export function Button({
   return (
     <button
       type={type}
-      className={cx(
-        BASE_CLASS,
-        VARIANT_CLASS[variant],
-        SIZE_CLASS[size],
-        className,
-      )}
+      className={cx(buttonClassName({ variant, size }), className)}
       {...rest}
     />
   );

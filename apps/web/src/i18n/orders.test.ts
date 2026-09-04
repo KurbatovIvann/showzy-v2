@@ -9,6 +9,7 @@ describe("orders copy", () => {
     expect(ordersCopy("uk").title).toBe("Замовлення");
     expect(ordersCopy("en").title).toBe("Orders");
     expect(ordersCopy("uk").createLabel).toBe("+ Нове");
+    expect(ordersCopy("uk").empty.catalogAction).toBe("Нове замовлення");
     expect(ordersCopy("uk").filterAll).toBe("Усі");
     expect(ordersCopy("uk").emptySelection).toBe("Оберіть елемент");
     expect(ordersCopy("uk").groups.active).toBe("Активні");

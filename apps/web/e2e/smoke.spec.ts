@@ -5,6 +5,7 @@
  */
 import { expect, test } from "@playwright/test";
 
+import { ANNA_ORDER } from "../src/test/orders-fixtures";
 import { installPanelApiMocks } from "./panel-api";
 
 test.describe("web panel browser smoke", () => {
@@ -37,10 +38,28 @@ test.describe("web panel browser smoke", () => {
       page.getByRole("heading", { name: "Модуль у розробці" }),
     ).toHaveCount(0);
     await expect(page.getByText("Замовлень ще немає")).toBeVisible();
+    await expect(page.getByRole("link", { name: "+ Нове" })).toHaveCount(0);
+    await expect(
+      page.getByRole("link", { name: "Нове замовлення" }),
+    ).toBeVisible();
     await expect(
       page.getByRole("navigation", { name: "Основна навігація" }),
     ).toBeVisible();
     await expect(page).toHaveURL(/\/kviti-lviv\/orders$/);
+  });
+
+  test("shows the list-header create control as an ink pill when rows exist", async ({
+    page,
+  }) => {
+    await installPanelApiMocks(page, { listOrdersItems: [ANNA_ORDER] });
+    await page.goto("/kviti-lviv/orders");
+    const create = page.getByRole("link", { name: "+ Нове" });
+    await expect(create).toBeVisible();
+    await expect(create).toHaveClass(/bg-ink/);
+    await expect(create).toHaveClass(/text-white/);
+    await expect(
+      page.getByRole("link", { name: "Нове замовлення" }),
+    ).toHaveCount(0);
   });
 
   test("keeps list and detail both visible on a desktop deep-link", async ({

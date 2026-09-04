@@ -112,6 +112,7 @@ export type OrdersCopy = {
     readonly reset: string;
     readonly catalogTitle: string;
     readonly catalogDescription: string;
+    readonly catalogAction: string;
   };
   readonly detail: OrdersDetailCopy;
   readonly create: OrdersCreateCopy;
@@ -152,7 +153,9 @@ const en: OrdersCopy = {
     filteredDescription: "Change the search or filters, or reset them.",
     reset: "Reset search and filters",
     catalogTitle: "No orders yet",
-    catalogDescription: "Create the first order with + New.",
+    catalogDescription:
+      "Create the first order yourself, or ask the assistant to do it for you.",
+    catalogAction: "New order",
   },
   detail: {
     title: "Order",
@@ -263,7 +266,9 @@ const uk: OrdersCopy = {
     filteredDescription: "Спробуйте змінити пошук чи фільтри або скинути їх.",
     reset: "Скинути пошук і фільтри",
     catalogTitle: "Замовлень ще немає",
-    catalogDescription: "Створіть перше замовлення кнопкою + Нове.",
+    catalogDescription:
+      "Створіть перше замовлення вручну або попросіть асистента зробити це за вас.",
+    catalogAction: "Нове замовлення",
   },
   detail: {
     title: "Замовлення",
