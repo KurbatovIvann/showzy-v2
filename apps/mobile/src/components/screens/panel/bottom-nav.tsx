@@ -20,9 +20,9 @@ import { orderedPanelTabs, type PanelTab } from "./panel-tabs";
  * Staff shell tab bar (canvas `BottomNav`, ADR-0024). Feature component —
  * not a generic tab primitive (mp-to-mobile.md). Rendered as the custom
  * `tabBar` of the `(app)/(tabs)` navigator. Center control is `sit.svg`
- * in `actionSoft` (not Sparkles, no accent ring). Hierarchical editor
- * routes already sit beside `(tabs)` — do not re-introduce a tab bar on
- * `/new` and `/edit`.
+ * in `actionSoft` (not a lucide sparkle icon, no accent ring).
+ * Hierarchical editor routes already sit beside `(tabs)` — do not
+ * re-introduce a tab bar on `/new` and `/edit`.
  */
 type TabBarProps = Parameters<
   NonNullable<ComponentProps<typeof Tabs>["tabBar"]>

@@ -3,8 +3,8 @@
  * `provisional` is unused visual-only dashed chrome — do not wire writes.
  */
 export function listRowChrome(input: {
-  readonly first?: boolean;
-  readonly provisional?: boolean;
+  readonly first?: boolean | undefined;
+  readonly provisional?: boolean | undefined;
 }): {
   readonly showDivider: boolean;
   readonly provisional: boolean;
