@@ -5320,7 +5320,7 @@
     "/catalog/listProducts": {
       "post": {
         "operationId": "catalog.listProducts",
-        "summary": "List products in the staff member's active company. Default to active products; pass status archived or all to include archived rows. Optional case-insensitive name search. Paginate with a created-at cursor and a page size of at most 50. Each row includes id, name, base price, currency, status, variant count, the primary image fileId (lowest position, if any), and timestamps. Clients fetch display URLs via files.getDownloadUrl — this action never returns URLs or object keys.",
+        "summary": "List products in the staff member's active company. Default to active products; pass status archived or all to include archived rows. Optional case-insensitive name search: every token stem must match as a word prefix (Ukrainian inflections). Paginate with a created-at cursor and a page size of at most 50. Each row includes id, name, base price, currency, status, variant count, the primary image fileId (lowest position, if any), and timestamps. Clients fetch display URLs via files.getDownloadUrl — this action never returns URLs or object keys.",
         "requestBody": {
           "required": true,
           "content": {
