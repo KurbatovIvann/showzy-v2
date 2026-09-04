@@ -305,9 +305,7 @@ describe("orders.list contract", () => {
       bucketsTruncated: false,
       customerMatchTruncated: false,
     };
-    expect(
-      listOrdersOutputSchema.safeParse(base).success,
-    ).toBe(false);
+    expect(listOrdersOutputSchema.safeParse(base).success).toBe(false);
     expect(
       listOrdersOutputSchema.parse({
         ...base,

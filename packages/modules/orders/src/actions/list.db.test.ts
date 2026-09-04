@@ -1121,9 +1121,9 @@ describe("orders.list", () => {
         { currency: "UAH", grossAmountMinor: "2000" },
       ]);
       expect(JSON.stringify(byNew).includes("2800")).toBe(false);
-      expect(listed.statusBuckets.every((bucket) => !("quantityMilli" in bucket))).toBe(
-        true,
-      );
+      expect(
+        listed.statusBuckets.every((bucket) => !("quantityMilli" in bucket)),
+      ).toBe(true);
     }
 
     const empty = asAggregate(
@@ -1150,9 +1150,7 @@ describe("orders.list", () => {
       filtered.buckets.map((bucket) =>
         bucket.identity.kind === "status" ? bucket.identity.status : null,
       ),
-    ).toEqual(
-      filtered.statusBuckets.map((bucket) => bucket.identity.status),
-    );
+    ).toEqual(filtered.statusBuckets.map((bucket) => bucket.identity.status));
   });
 
   it("eval 1: active-order product quantities use one aggregate", async () => {

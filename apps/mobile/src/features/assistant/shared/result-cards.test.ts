@@ -816,10 +816,10 @@ describe("assistantSurfacesFromParts aggregate (SHO-370 / SHO-395)", () => {
   it("maps period=today to the period line", () => {
     const surfaces = assistantSurfacesFromParts(
       [
-        countsPart(
-          countsOutput([], { orderCount: 0, grossByCurrency: [] }),
-          { groupBy: "status", period: "today" },
-        ),
+        countsPart(countsOutput([], { orderCount: 0, grossByCurrency: [] }), {
+          groupBy: "status",
+          period: "today",
+        }),
       ],
       "uk",
     );
@@ -848,14 +848,11 @@ describe("assistantSurfacesFromParts aggregate (SHO-370 / SHO-395)", () => {
   it("formats ISO createdFrom/createdTo as the period line", () => {
     const surfaces = assistantSurfacesFromParts(
       [
-        countsPart(
-          countsOutput([], { orderCount: 0, grossByCurrency: [] }),
-          {
-            groupBy: "status",
-            createdFrom: "2026-08-25T12:00:00.000Z",
-            createdTo: "2026-08-31T12:00:00.000Z",
-          },
-        ),
+        countsPart(countsOutput([], { orderCount: 0, grossByCurrency: [] }), {
+          groupBy: "status",
+          createdFrom: "2026-08-25T12:00:00.000Z",
+          createdTo: "2026-08-31T12:00:00.000Z",
+        }),
       ],
       "uk",
     );
@@ -1104,7 +1101,9 @@ describe("assistantSurfacesFromParts aggregate (SHO-370 / SHO-395)", () => {
                 },
                 label: "Троянда",
                 orderCount: 2,
-                grossByCurrency: [{ currency: "UAH", grossAmountMinor: "5000" }],
+                grossByCurrency: [
+                  { currency: "UAH", grossAmountMinor: "5000" },
+                ],
                 quantityMilli: "1500",
               },
             ],
@@ -1128,7 +1127,9 @@ describe("assistantSurfacesFromParts aggregate (SHO-370 / SHO-395)", () => {
                 },
                 label: "Іван",
                 orderCount: 3,
-                grossByCurrency: [{ currency: "UAH", grossAmountMinor: "7000" }],
+                grossByCurrency: [
+                  { currency: "UAH", grossAmountMinor: "7000" },
+                ],
               },
             ],
             {

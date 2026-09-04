@@ -337,8 +337,7 @@ export function parseOrdersAggregateSurface(
   if (clipped) {
     footnotes.push(assistant.cards.clipped);
   }
-  const empty =
-    parsedStatusBuckets.length === 0 && extraBuckets.length === 0;
+  const empty = parsedStatusBuckets.length === 0 && extraBuckets.length === 0;
   return {
     kind: "orders-aggregate",
     groupBy,
