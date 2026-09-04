@@ -54,6 +54,9 @@ const RUN_LIST = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 const RUN_GET = "ffffffff-ffff-4fff-8fff-ffffffffffff";
 const RUN_GET_LEX_LOW = "0a0a0a0a-0a0a-40a0-80a0-0a0a0a0a0a0a";
 const RUN_CREATE = "99999999-9999-4999-8999-999999999999";
+const RUN_CHOICE = "88888888-8888-4888-8888-888888888888";
+const CHOICE_ID = "44444444-4444-4444-8444-444444444444";
+const OPTION_LEMON = "77777777-7777-4777-8777-777777777777";
 const uk = assistantCopy("uk");
 const ordersUk = ordersCopy("uk");
 
@@ -532,6 +535,151 @@ describe("loadOrdersById", () => {
     expect(orders.has(ORDER_B)).toBe(false);
     expect(getOrder).toHaveBeenCalledWith(ORDER_A);
     expect(getOrder).toHaveBeenCalledWith(ORDER_B);
+  });
+});
+
+describe("choice hydrate (SHO-418)", () => {
+  const liveEnvelope = {
+    status: "needs_choice" as const,
+    challengeId: CHOICE_ID,
+    reason: "variant_required" as const,
+    productName: "Macarons",
+    options: [{ id: OPTION_LEMON, label: "Lemon" }],
+    optionsTruncated: false,
+  };
+
+  it("does not invent a ChoiceCard when choice_required has no challengeId", () => {
+    const messages = hydratedUiMessagesFromConversation({
+      messages: [
+        message({
+          id: MSG_ASSISTANT,
+          role: "assistant",
+          body: "Select a variant for Macarons: Lemon.",
+          createdAt: "2026-09-03T10:00:01.000Z",
+        }),
+      ],
+      toolRuns: [
+        toolRun({
+          id: RUN_CHOICE,
+          actionName: "orders.create",
+          toolCallId: "call-create",
+          resultIds: [],
+          outcome: "choice_required",
+          createdAt: "2026-09-03T10:00:01.000Z",
+        }),
+      ],
+      ordersById: new Map(),
+      choiceEnvelopes: new Map([[CHOICE_ID, liveEnvelope]]),
+    });
+    expect(messages[0]?.parts).toEqual([
+      { type: "text", text: "Select a variant for Macarons: Lemon." },
+    ]);
+  });
+
+  it("attaches the peeked envelope when the run carries challengeId", () => {
+    const messages = hydratedUiMessagesFromConversation({
+      messages: [
+        message({
+          id: MSG_ASSISTANT,
+          role: "assistant",
+          body: "Select a variant for Macarons: Lemon.",
+          createdAt: "2026-09-03T10:00:01.000Z",
+        }),
+      ],
+      toolRuns: [
+        {
+          id: RUN_CHOICE,
+          actionName: "orders.create",
+          toolCallId: "call-create",
+          challengeId: CHOICE_ID,
+          resultIds: [],
+          outcome: "choice_required",
+          createdAt: "2026-09-03T10:00:01.000Z",
+        },
+      ],
+      ordersById: new Map(),
+      choiceEnvelopes: new Map([[CHOICE_ID, liveEnvelope]]),
+    });
+    expect(messages[0]?.parts).toEqual([
+      { type: "text", text: "Select a variant for Macarons: Lemon." },
+      { type: "data-choice", data: liveEnvelope },
+    ]);
+  });
+
+  it("restores expired, never a tappable picker, when the peek is missing", () => {
+    const expired = {
+      status: "expired" as const,
+      challengeId: CHOICE_ID,
+      options: [] as const,
+      optionsTruncated: false,
+    };
+    const messages = hydratedUiMessagesFromConversation({
+      messages: [
+        message({
+          id: MSG_ASSISTANT,
+          role: "assistant",
+          body: "Select a variant.",
+          createdAt: "2026-09-03T10:00:01.000Z",
+        }),
+      ],
+      toolRuns: [
+        {
+          id: RUN_CHOICE,
+          actionName: "orders.create",
+          toolCallId: "call-create",
+          challengeId: CHOICE_ID,
+          resultIds: [],
+          outcome: "choice_required",
+          createdAt: "2026-09-03T10:00:01.000Z",
+        },
+      ],
+      ordersById: new Map(),
+      choiceEnvelopes: new Map([[CHOICE_ID, expired]]),
+    });
+    expect(messages[0]?.parts[1]).toEqual({
+      type: "data-choice",
+      data: expired,
+    });
+  });
+
+  it("does not restore a list card when a list run sits next to a choice", () => {
+    const messages = hydratedUiMessagesFromConversation({
+      messages: [
+        message({
+          id: MSG_ASSISTANT,
+          role: "assistant",
+          body: "Ось список.",
+          createdAt: "2026-09-03T10:00:01.000Z",
+        }),
+      ],
+      toolRuns: [
+        toolRun({
+          id: RUN_LIST,
+          actionName: "orders.list",
+          toolCallId: "call-list",
+          resultIds: [],
+          createdAt: "2026-09-03T10:00:01.000Z",
+        }),
+        {
+          id: RUN_CHOICE,
+          actionName: "orders.create",
+          toolCallId: "call-create",
+          challengeId: CHOICE_ID,
+          resultIds: [],
+          outcome: "choice_required",
+          createdAt: "2026-09-03T10:00:01.000Z",
+        },
+      ],
+      ordersById: new Map(),
+      choiceEnvelopes: new Map([[CHOICE_ID, liveEnvelope]]),
+    });
+    expect(messages[0]?.parts.map((part) => part.type)).toEqual([
+      "text",
+      "data-choice",
+    ]);
+    expect(
+      assistantSurfacesFromParts(messages[0]?.parts ?? [], "uk"),
+    ).toEqual([]);
   });
 });
 

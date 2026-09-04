@@ -5,15 +5,18 @@
  */
 
 import {
+  choiceIdsFromToolRuns,
   entityResultIdsFromToolRuns,
   findOwnConversationId,
   hydratedUiMessagesFromConversation,
+  loadChoiceEnvelopes,
   loadOrdersById,
   type AssistantConversationDetail,
   type AssistantListConversationsInput,
   type AssistantListConversationsPage,
   type AssistantResumeResult,
 } from "./assistant-hydrate";
+import type { StaffAssistantChoiceCardEnvelope } from "./choice";
 
 export type AssistantCompanyEpochRef = { current: number };
 export type AssistantConversationIdRef = { current: string | null };
@@ -77,10 +80,12 @@ export function resetAssistantTenantSession(args: {
   readonly conversationIdRef: AssistantConversationIdRef;
   readonly setMessages: (messages: []) => void;
   readonly resetConfirmation: () => void;
+  readonly resetChoice: () => void;
 }): void {
   args.conversationIdRef.current = null;
   args.setMessages([]);
   args.resetConfirmation();
+  args.resetChoice();
 }
 
 /**
@@ -99,6 +104,10 @@ export async function resumeOwnAssistantConversation(args: {
     readonly conversationId: string;
   }) => Promise<AssistantConversationDetail>;
   readonly getOrder: (orderId: string) => Promise<unknown>;
+  readonly peekChoice?: (input: {
+    readonly conversationId: string;
+    readonly choiceId: string;
+  }) => Promise<StaffAssistantChoiceCardEnvelope>;
 }): Promise<AssistantResumeResult> {
   if (!isCurrentAssistantEpoch(args.companyEpochRef, args.epoch)) {
     return { kind: "dropped" };
@@ -136,6 +145,24 @@ export async function resumeOwnAssistantConversation(args: {
   if (!isCurrentAssistantEpoch(args.companyEpochRef, args.epoch)) {
     return { kind: "dropped" };
   }
+  let choiceEnvelopes:
+    | ReadonlyMap<string, StaffAssistantChoiceCardEnvelope>
+    | undefined;
+  if (args.peekChoice !== undefined) {
+    const peekChoice = args.peekChoice;
+    const conversationIdForPeek = detail.id;
+    choiceEnvelopes = await loadChoiceEnvelopes({
+      choiceIds: choiceIdsFromToolRuns(detail.toolRuns),
+      peekChoice: (choiceId) =>
+        peekChoice({
+          conversationId: conversationIdForPeek,
+          choiceId,
+        }),
+    });
+    if (!isCurrentAssistantEpoch(args.companyEpochRef, args.epoch)) {
+      return { kind: "dropped" };
+    }
+  }
   return {
     kind: "resumed",
     conversationId: detail.id,
@@ -143,6 +170,7 @@ export async function resumeOwnAssistantConversation(args: {
       messages: detail.messages,
       toolRuns: detail.toolRuns,
       ordersById,
+      ...(choiceEnvelopes !== undefined ? { choiceEnvelopes } : {}),
     }),
   };
 }

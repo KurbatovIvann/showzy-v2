@@ -30,11 +30,13 @@ export type AssistantSheetViewModel = {
   readonly send: () => void;
   readonly confirm: () => void;
   readonly dismiss: () => void;
+  readonly selectChoice: (optionId: string) => void;
   readonly openHref: (href: string) => void;
   readonly busy: boolean;
   readonly thinking: boolean;
   readonly hasInFlightTools: boolean;
   readonly confirmationApplying: boolean;
+  readonly choiceApplying: boolean;
   readonly canSend: boolean;
   readonly banner: string | null;
 };
@@ -55,6 +57,9 @@ function itemType(item: AssistantVisibleRow): string {
   }
   if (item.confirmation !== null) {
     return "assistant-confirm";
+  }
+  if (item.choice !== null) {
+    return "assistant-choice";
   }
   return "assistant";
 }
@@ -84,9 +89,27 @@ export function AssistantSheetView(model: AssistantSheetViewModel) {
         confirmationApplying={model.confirmationApplying}
         onConfirm={model.confirm}
         onDismiss={model.dismiss}
+        choice={item.choice}
+        choiceTitle={
+          item.choice?.productName !== undefined &&
+          item.choice.productName.length > 0
+            ? item.choice.productName
+            : copy.choiceTitle
+        }
+        choiceTruncatedLabel={
+          item.choice?.optionsTruncated === true ? copy.choiceTruncated : null
+        }
+        choiceExpiredLabel={copy.choiceExpired}
+        choiceSelectingLabel={copy.choiceSelecting}
+        choiceApplying={model.choiceApplying}
+        onSelectChoice={model.selectChoice}
       />
     ),
     [
+      copy.choiceExpired,
+      copy.choiceSelecting,
+      copy.choiceTitle,
+      copy.choiceTruncated,
       copy.confirmLabel,
       copy.confirmationTitle,
       copy.confirmingLabel,
@@ -94,10 +117,12 @@ export function AssistantSheetView(model: AssistantSheetViewModel) {
       copy.waitIntervalMs,
       copy.waitLabel,
       copy.waitLines,
+      model.choiceApplying,
       model.confirm,
       model.confirmationApplying,
       model.dismiss,
       model.openHref,
+      model.selectChoice,
     ],
   );
 

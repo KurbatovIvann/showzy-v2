@@ -39,8 +39,8 @@ describe("toolNameFromPart", () => {
     expect(toolNameFromPart({ type: "text", text: "Hi" })).toBeNull();
     expect(
       toolNameFromPart({
-        type: "data-confirmation",
-        data: { status: "confirmation_required" },
+        type: "data-choice",
+        data: { status: "needs_choice" },
       }),
     ).toBeNull();
   });
@@ -59,6 +59,19 @@ describe("timelineStatusFromPartState", () => {
     expect(timelineStatusFromPartState("output-available", hitlOutput)).toBe(
       "running",
     );
+  });
+
+  it("keeps needs_choice output-available in-flight, not done", () => {
+    expect(
+      timelineStatusFromPartState("output-available", {
+        status: "needs_choice",
+        challengeId: hitlOutput.challengeId,
+        reason: "variant_required",
+        productName: "Macarons",
+        options: [{ id: hitlOutput.challengeId, label: "Lemon" }],
+        optionsTruncated: false,
+      }),
+    ).toBe("running");
   });
 
   it("marks façade { status: error } output-available as error, not done", () => {
@@ -176,6 +189,36 @@ describe("toolStepsFromParts", () => {
     ]);
     expect(JSON.stringify(steps).includes("confirmation_required")).toBe(false);
     expect(JSON.stringify(steps).includes("challengeId")).toBe(false);
+  });
+
+  it("skips data-choice parts and keeps needs_choice tool output running", () => {
+    const choiceOutput = {
+      status: "needs_choice" as const,
+      challengeId: hitlOutput.challengeId,
+      reason: "variant_required" as const,
+      productName: "Macarons",
+      options: [{ id: hitlOutput.challengeId, label: "Lemon" }],
+      optionsTruncated: false,
+    };
+    const steps = toolStepsFromParts(
+      [
+        { type: "data-choice", data: choiceOutput },
+        {
+          type: "tool-orders_create",
+          toolCallId: "call-create",
+          state: "output-available",
+          output: choiceOutput,
+        },
+      ],
+      "a1",
+    );
+    expect(steps).toEqual([
+      {
+        id: "call-create",
+        toolName: "orders_create",
+        status: "running",
+      },
+    ]);
   });
 
   it("omits Anthropic synthetic json structured-output tools", () => {

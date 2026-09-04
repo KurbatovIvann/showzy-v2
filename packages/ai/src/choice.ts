@@ -1,10 +1,11 @@
 /**
- * Staff-assistant choice transport (SHO-409 / SHO-401 T8a).
+ * Staff-assistant choice transport (SHO-409 / SHO-418 / SHO-401 T8).
  *
  * Canonical create input, server-only line target, and optionId → variantId
  * mapping stay on the server. The client sends `{ choiceId, optionId }` and
- * may read only the ChoiceCard envelope. Nothing here produces
- * `needs_choice` from a user chat turn (SHO-418).
+ * may read only the ChoiceCard envelope. T8b intercepts a duck-typed
+ * catalog CONFLICT (picker reasons only) on `orders.create` and opens a
+ * store record. This package must not import catalog.
  *
  * TTL is 15 minutes — deliberately longer than core `CONFIRMATION_TTL_MS`
  * (5 minutes). "Are you sure" and "which one" tolerate interruption
@@ -12,6 +13,7 @@
  */
 import { createHash, randomUUID } from "node:crypto";
 
+import { CoreError } from "@showzy/core/errors";
 import { z } from "zod";
 
 export const STAFF_ASSISTANT_NEEDS_CHOICE_STATUS = "needs_choice" as const;
@@ -41,6 +43,15 @@ export const CHOICE_RESOLUTION_REASONS = [
   "unmatched_query",
   "no_active_variants",
 ] as const;
+
+/** Reasons that open a picker. `no_active_variants` is never a ChoiceCard. */
+export const CHOICE_PICKER_REASONS = [
+  "variant_required",
+  "ambiguous",
+  "unmatched_query",
+] as const;
+
+export type ChoicePickerReason = (typeof CHOICE_PICKER_REASONS)[number];
 
 export type ChoiceResolutionReason = (typeof CHOICE_RESOLUTION_REASONS)[number];
 
@@ -381,4 +392,169 @@ export function parseChoiceRecord(raw: string): ChoiceRecord | undefined {
 
 export function serializeChoiceRecord(record: ChoiceRecord): string {
   return JSON.stringify(choiceRecordSchema.parse(record));
+}
+
+export function isStaffAssistantNeedsChoiceOutput(
+  value: unknown,
+): value is StaffAssistantNeedsChoiceOutput {
+  return staffAssistantNeedsChoiceOutputSchema.safeParse(value).success;
+}
+
+export function toolOutputRequestsChoice(value: unknown): boolean {
+  return (
+    isRecord(value) && value["status"] === STAFF_ASSISTANT_NEEDS_CHOICE_STATUS
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Accept the streamed `data-choice` envelope or a flattened choice object
+ * a client echoes in `messages[].parts`.
+ */
+export function choiceFromChatPart(
+  part: unknown,
+): StaffAssistantChoiceCardEnvelope | undefined {
+  const parsed = staffAssistantChoiceCardEnvelopeSchema.safeParse(part);
+  if (parsed.success) {
+    return parsed.data;
+  }
+  if (!isRecord(part)) {
+    return undefined;
+  }
+  const nested = staffAssistantChoiceCardEnvelopeSchema.safeParse(part.data);
+  return nested.success ? nested.data : undefined;
+}
+
+const catalogConflictTargetSchema = z.strictObject({
+  kind: z.literal("order_line_variant").optional(),
+  lineIndex: z.number().int().nonnegative(),
+  productId: z.uuid(),
+  productName: z.string().min(1),
+});
+
+/**
+ * Duck-typed catalog `ReferenceResolutionConflictError` extras. Wire code
+ * stays CONFLICT. Empty options never parse — no empty picker.
+ */
+export const catalogPickerConflictExtrasSchema = z.strictObject({
+  reason: z.enum(CHOICE_PICKER_REASONS),
+  target: catalogConflictTargetSchema,
+  options: z.array(choiceCardOptionSchema).min(1),
+  optionsTruncated: z.boolean(),
+});
+
+export type CatalogPickerConflictExtras = z.output<
+  typeof catalogPickerConflictExtrasSchema
+>;
+
+export function catalogPickerConflictExtrasFromError(
+  error: unknown,
+): CatalogPickerConflictExtras | undefined {
+  if (!(error instanceof CoreError) || error.code !== "CONFLICT") {
+    return undefined;
+  }
+  const extras = {
+    reason: Reflect.get(error, "reason"),
+    target: Reflect.get(error, "target"),
+    options: Reflect.get(error, "options"),
+    optionsTruncated: Reflect.get(error, "optionsTruncated"),
+  };
+  const parsed = catalogPickerConflictExtrasSchema.safeParse(extras);
+  return parsed.success ? parsed.data : undefined;
+}
+
+export function choiceRecordFromPickerConflict(args: {
+  readonly choiceId: string;
+  readonly bind: ChoiceBind;
+  readonly canonicalInput: ChoiceCanonicalCreateInput;
+  readonly extras: CatalogPickerConflictExtras;
+  readonly locale?: "uk" | "en";
+  readonly randomId?: () => string;
+}): ChoiceRecord | undefined {
+  const bound = bindChoiceOptions(
+    args.extras.options,
+    args.extras.optionsTruncated,
+    args.randomId,
+  );
+  if (bound.options.length === 0) {
+    return undefined;
+  }
+  const envelope = choiceCardEnvelope({
+    challengeId: args.choiceId,
+    status: STAFF_ASSISTANT_NEEDS_CHOICE_STATUS,
+    reason: args.extras.reason,
+    productName: args.extras.target.productName,
+    options: bound.options,
+    optionsTruncated: bound.optionsTruncated,
+  });
+  return choiceRecordSchema.parse({
+    status: "open",
+    choiceId: args.choiceId,
+    actorId: args.bind.actorId,
+    companyId: args.bind.companyId,
+    conversationId: args.bind.conversationId,
+    canonicalInput: args.canonicalInput,
+    target: {
+      lineIndex: args.extras.target.lineIndex,
+      productId: args.extras.target.productId,
+      productName: args.extras.target.productName,
+    },
+    optionMap: { ...bound.optionMap },
+    envelope,
+    ...(args.locale !== undefined ? { locale: args.locale } : {}),
+  });
+}
+
+export async function needsChoiceFromOrdersCreateConflict(args: {
+  readonly actionName: string;
+  readonly input: unknown;
+  readonly error: unknown;
+  readonly bind?: ChoiceBind;
+  readonly locale?: "uk" | "en";
+  readonly openChoice?: (record: ChoiceRecord) => Promise<boolean>;
+  readonly mintChoiceId?: () => string;
+}): Promise<StaffAssistantNeedsChoiceOutput | undefined> {
+  if (args.actionName !== "orders.create") {
+    return undefined;
+  }
+  const extras = catalogPickerConflictExtrasFromError(args.error);
+  if (extras === undefined) {
+    return undefined;
+  }
+  const canonical = choiceCanonicalCreateInputSchema.safeParse(args.input);
+  if (!canonical.success) {
+    return undefined;
+  }
+  const choiceId = (args.mintChoiceId ?? randomUUID)();
+  if (args.bind !== undefined) {
+    const record = choiceRecordFromPickerConflict({
+      choiceId,
+      bind: args.bind,
+      canonicalInput: canonical.data,
+      extras,
+      ...(args.locale !== undefined ? { locale: args.locale } : {}),
+    });
+    if (record === undefined) {
+      return undefined;
+    }
+    if (args.openChoice !== undefined) {
+      await args.openChoice(record);
+    }
+    return needsChoiceOutputFromRecord(record);
+  }
+  const bound = bindChoiceOptions(extras.options, extras.optionsTruncated);
+  if (bound.options.length === 0) {
+    return undefined;
+  }
+  return staffAssistantNeedsChoiceOutputSchema.parse({
+    status: STAFF_ASSISTANT_NEEDS_CHOICE_STATUS,
+    challengeId: choiceId,
+    reason: extras.reason,
+    productName: extras.target.productName,
+    options: bound.options,
+    optionsTruncated: bound.optionsTruncated,
+  });
 }

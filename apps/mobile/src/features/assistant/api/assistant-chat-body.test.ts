@@ -77,6 +77,55 @@ describe("staffChatWireMessages", () => {
     ]);
   });
 
+  it("keeps valid data-choice envelopes and drops canonical extras", () => {
+    const choiceId = "33333333-3333-4333-8333-333333333333";
+    const optionId = "88888888-8888-4888-8888-888888888888";
+    const envelope = {
+      status: "needs_choice" as const,
+      challengeId: choiceId,
+      reason: "variant_required" as const,
+      productName: "Macarons",
+      options: [{ id: optionId, label: "Lemon" }],
+      optionsTruncated: false,
+    };
+    expect(
+      staffChatWireMessages([
+        {
+          id: "a1",
+          role: "assistant",
+          parts: [
+            { type: "text", text: "Select a variant." },
+            {
+              type: "data-choice",
+              data: {
+                ...envelope,
+                canonicalInput: {
+                  customer: { by: "id", id: choiceId },
+                  items: [],
+                },
+                target: {
+                  lineIndex: 0,
+                  productId: choiceId,
+                  productName: "Macarons",
+                },
+                optionMap: { [optionId]: choiceId },
+              },
+            },
+          ],
+        },
+      ]),
+    ).toEqual([
+      {
+        id: "a1",
+        role: "assistant",
+        parts: [
+          { type: "text", text: "Select a variant." },
+          { type: "data-choice", data: envelope },
+        ],
+      },
+    ]);
+  });
+
   it("windows history to the SSE mount message cap", () => {
     const messages = Array.from(
       { length: STAFF_ASSISTANT_CHAT_MESSAGES_MAX + 1 },

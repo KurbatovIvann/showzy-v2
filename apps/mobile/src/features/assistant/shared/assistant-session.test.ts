@@ -15,10 +15,11 @@ const conversationA = "11111111-1111-4111-8111-111111111111";
 const conversationB = "55555555-5555-4555-8555-555555555555";
 
 describe("resetAssistantTenantSession", () => {
-  it("clears conversation id, messages, and confirmation on company change", () => {
+  it("clears conversation id, messages, confirmation, and choice on company change", () => {
     const conversationIdRef = { current: conversationA };
     let messages: readonly { id: string }[] = [{ id: "stale" }];
     let confirmationReset = false;
+    let choiceReset = false;
     resetAssistantTenantSession({
       conversationIdRef,
       setMessages: (next) => {
@@ -27,10 +28,14 @@ describe("resetAssistantTenantSession", () => {
       resetConfirmation: () => {
         confirmationReset = true;
       },
+      resetChoice: () => {
+        choiceReset = true;
+      },
     });
     expect(conversationIdRef.current).toBeNull();
     expect(messages).toEqual([]);
     expect(confirmationReset).toBe(true);
+    expect(choiceReset).toBe(true);
   });
 });
 
@@ -79,6 +84,7 @@ describe("ensureAssistantConversation", () => {
       conversationIdRef,
       setMessages: () => undefined,
       resetConfirmation: () => undefined,
+      resetChoice: () => undefined,
     });
     const inputs: unknown[] = [];
     const id = await ensureAssistantConversation({
@@ -127,6 +133,7 @@ describe("sendEnsuredAssistantMessage", () => {
       conversationIdRef,
       setMessages: () => undefined,
       resetConfirmation: () => undefined,
+      resetChoice: () => undefined,
     });
     expect(resolveCreate).toBeDefined();
     resolveCreate?.({ id: conversationA });
@@ -273,6 +280,7 @@ describe("resumeOwnAssistantConversation", () => {
       conversationIdRef,
       setMessages: () => undefined,
       resetConfirmation: () => undefined,
+      resetChoice: () => undefined,
     });
     companyEpochRef.current += 1;
     const result = await resumeOwnAssistantConversation({
@@ -481,5 +489,134 @@ describe("resumeOwnAssistantConversation", () => {
     ).rejects.toThrow("list failed");
     expect(getConversation).not.toHaveBeenCalled();
     expect(getOrder).not.toHaveBeenCalled();
+  });
+
+  it("hydrates a live peek ChoiceCard and expires a missing record", async () => {
+    const choiceId = "44444444-4444-4444-8444-444444444444";
+    const live = {
+      status: "needs_choice" as const,
+      challengeId: choiceId,
+      reason: "variant_required" as const,
+      productName: "Macarons",
+      options: [
+        { id: "77777777-7777-4777-8777-777777777777", label: "Lemon" },
+      ],
+      optionsTruncated: false,
+    };
+    const peekChoice = vi.fn((input: { choiceId: string }) => {
+      if (input.choiceId === choiceId) {
+        return Promise.resolve(live);
+      }
+      return Promise.resolve({
+        status: "expired" as const,
+        challengeId: input.choiceId,
+        options: [],
+        optionsTruncated: false,
+      });
+    });
+    const liveResult = await resumeOwnAssistantConversation({
+      companyEpochRef: { current: 0 },
+      epoch: 0,
+      sessionUserId: sessionUser,
+      listConversations: () =>
+        Promise.resolve({
+          items: [{ id: conversationA, userId: sessionUser }],
+          nextCursor: null,
+        }),
+      getConversation: () =>
+        Promise.resolve({
+          id: conversationA,
+          userId: sessionUser,
+          messages: [
+            {
+              id: messageAssistantId,
+              role: "assistant",
+              body: "Select a variant.",
+              createdAt: "2026-09-03T10:00:01.000Z",
+            },
+          ],
+          toolRuns: [
+            {
+              id: "88888888-8888-4888-8888-888888888888",
+              actionName: "orders.create",
+              toolCallId: "call-create",
+              challengeId: choiceId,
+              resultIds: [],
+              outcome: "choice_required",
+              createdAt: "2026-09-03T10:00:01.000Z",
+            },
+          ],
+        }),
+      getOrder: vi.fn(),
+      peekChoice,
+    });
+    expect(liveResult.kind).toBe("resumed");
+    if (liveResult.kind !== "resumed") {
+      return;
+    }
+    expect(liveResult.messages[0]?.parts).toEqual([
+      { type: "text", text: "Select a variant." },
+      { type: "data-choice", data: live },
+    ]);
+    expect(peekChoice).toHaveBeenCalledWith({
+      conversationId: conversationA,
+      choiceId,
+    });
+
+    const expiredResult = await resumeOwnAssistantConversation({
+      companyEpochRef: { current: 0 },
+      epoch: 0,
+      sessionUserId: sessionUser,
+      listConversations: () =>
+        Promise.resolve({
+          items: [{ id: conversationA, userId: sessionUser }],
+          nextCursor: null,
+        }),
+      getConversation: () =>
+        Promise.resolve({
+          id: conversationA,
+          userId: sessionUser,
+          messages: [
+            {
+              id: messageAssistantId,
+              role: "assistant",
+              body: "Select a variant.",
+              createdAt: "2026-09-03T10:00:01.000Z",
+            },
+          ],
+          toolRuns: [
+            {
+              id: "88888888-8888-4888-8888-888888888888",
+              actionName: "orders.create",
+              toolCallId: "call-create",
+              challengeId: choiceId,
+              resultIds: [],
+              outcome: "choice_required",
+              createdAt: "2026-09-03T10:00:01.000Z",
+            },
+          ],
+        }),
+      getOrder: vi.fn(),
+      peekChoice: () =>
+        Promise.resolve({
+          status: "expired",
+          challengeId: choiceId,
+          options: [],
+          optionsTruncated: false,
+        }),
+    });
+    expect(expiredResult.kind).toBe("resumed");
+    if (expiredResult.kind !== "resumed") {
+      return;
+    }
+    expect(expiredResult.messages[0]?.parts[1]).toEqual({
+      type: "data-choice",
+      data: {
+        status: "expired",
+        challengeId: choiceId,
+        options: [],
+        optionsTruncated: false,
+      },
+    });
   });
 });

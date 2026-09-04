@@ -45,12 +45,13 @@ describe("assistant turn layout composition", () => {
     expect(ROW).toContain("assistantTurnColumnLayout");
     expect(ROW).toContain("assistantTurnResultStretch");
     expect(ROW).not.toContain('maxWidth: "92%"');
-    expect(ROW.match(/<AssistantTurnResult/g)?.length).toBe(2);
+    expect(ROW.match(/<AssistantTurnResult/g)?.length).toBe(3);
     expect(ROW).toContain("styles.resultStretch");
     expect(ROW).toContain("AssistantWaitLine");
     expect(ROW).not.toContain("AssistantTimeline");
     expect(ROW).toContain("AssistantSurfaceCard");
     expect(ROW).toContain("ConfirmationCard");
+    expect(ROW).toContain("ChoiceCard");
   });
 
   it("renders result cards from surfaces[] instead of named card slots", () => {

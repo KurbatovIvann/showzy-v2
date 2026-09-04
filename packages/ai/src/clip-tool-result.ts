@@ -4,6 +4,7 @@
  * execute output. Oversized previews keep identity fields, never
  * `{ truncated: true }` alone.
  */
+import { isStaffAssistantNeedsChoiceOutput } from "./choice.js";
 import { isStaffAssistantConfirmationOutput } from "./confirmation.js";
 
 /**
@@ -191,7 +192,11 @@ function shrinkPreview(value: unknown): unknown {
 }
 
 export function clipStaffAssistantToolResult(output: unknown): unknown {
-  if (isStaffAssistantConfirmationOutput(output) || isTypedToolError(output)) {
+  if (
+    isStaffAssistantConfirmationOutput(output) ||
+    isStaffAssistantNeedsChoiceOutput(output) ||
+    isTypedToolError(output)
+  ) {
     return output;
   }
 

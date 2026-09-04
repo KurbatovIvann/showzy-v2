@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 
-import { ConfirmationRequiredError } from "@showzy/core/errors";
+import { ConfirmationRequiredError, ConflictError } from "@showzy/core/errors";
 import { defineActionContract } from "@showzy/core/contract";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -274,6 +274,22 @@ const createOrder = defineActionContract({
             z.strictObject({ milli: z.string() }),
             z.strictObject({ decimal: z.string() }),
           ]),
+          variantSelection: z
+            .discriminatedUnion("kind", [
+              z.strictObject({ kind: z.literal("unspecified") }),
+              z.strictObject({ kind: z.literal("base") }),
+              z.strictObject({
+                kind: z.literal("reference"),
+                ref: z.discriminatedUnion("by", [
+                  z.strictObject({ by: z.literal("id"), id: z.uuid() }),
+                  z.strictObject({
+                    by: z.literal("query"),
+                    value: z.string(),
+                  }),
+                ]),
+              }),
+            ])
+            .optional(),
         }),
       )
       .min(1),
@@ -1583,6 +1599,188 @@ describe("streamStaffAssistantChat", () => {
     await readUiMessageSsePayloads(response);
     expect(model.doStreamCalls).toHaveLength(1);
     expect(execute).toHaveBeenCalledOnce();
+  });
+
+  class DuckTypedPickerConflict extends ConflictError {
+    readonly reason: string;
+    readonly target: {
+      readonly lineIndex: number;
+      readonly productId: string;
+      readonly productName: string;
+    };
+    readonly options: readonly {
+      readonly id: string;
+      readonly label: string;
+    }[];
+    readonly optionsTruncated: boolean;
+
+    constructor(args: {
+      readonly reason: string;
+      readonly options: readonly {
+        readonly id: string;
+        readonly label: string;
+      }[];
+    }) {
+      super('Select a variant for "Macarons".');
+      this.reason = args.reason;
+      this.target = {
+        lineIndex: 0,
+        productId: customerId,
+        productName: "Macarons",
+      };
+      this.options = args.options;
+      this.optionsTruncated = false;
+    }
+  }
+
+  const lemonVariant = "55555555-5555-4555-8555-555555555555";
+  const vanillaVariant = "66666666-6666-4666-8666-666666666666";
+  const pickerOptions = [
+    { id: lemonVariant, label: "Lemon" },
+    { id: vanillaVariant, label: "Vanilla" },
+  ];
+
+  it("maps a duck-typed CONFLICT extras object to needs_choice rather than error", async () => {
+    const opened: unknown[] = [];
+    const execute = vi.fn(() =>
+      Promise.reject(
+        new DuckTypedPickerConflict({
+          reason: "variant_required",
+          options: pickerOptions,
+        }),
+      ),
+    );
+    const model = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream(
+          "call-create",
+          ORDERS_CREATE_TOOL_NAME,
+          JSON.stringify({
+            customerQuery: "Леха",
+            items: [{ productQuery: "Macarons", quantityDecimal: "1" }],
+          }),
+        ),
+        mockToolCallStream("call-present", ORDERS_LIST_PAGE_TOOL_NAME, "{}"),
+      ],
+    });
+    const { response, completion } = streamStaffAssistantChat({
+      model,
+      messages: [{ role: "user", content: "create an order for macarons" }],
+      contracts: [listOrders, createOrder],
+      execute,
+      forcedToolName: ORDERS_CREATE_TOOL_NAME,
+      choiceBind: {
+        actorId: "anna",
+        companyId: customerId,
+        conversationId: challengeId,
+      },
+      openChoice: (record) => {
+        opened.push(record);
+        return Promise.resolve(true);
+      },
+      mintChoiceId: () => challengeId,
+      locale: "en",
+    });
+    const payloads = await readUiMessageSsePayloads(response);
+    const turn = await completion;
+    expect(execute).toHaveBeenCalledOnce();
+    expect(model.doStreamCalls).toHaveLength(1);
+    expect(turn.toolRuns[0]?.outcome).toBe("choice_required");
+    expect(turn.toolRuns[0]?.challengeId).toBe(challengeId);
+    expect(opened).toHaveLength(1);
+    expect(JSON.stringify(opened[0])).toContain("canonicalInput");
+    const choiceChunks = payloads.filter((payload) => {
+      return (
+        typeof payload === "object" &&
+        payload !== null &&
+        "type" in payload &&
+        payload.type === "data-choice"
+      );
+    });
+    expect(choiceChunks.length).toBeGreaterThanOrEqual(1);
+    expect(JSON.stringify(choiceChunks)).toContain("needs_choice");
+    expect(JSON.stringify(choiceChunks)).not.toContain("canonicalInput");
+    expect(JSON.stringify(choiceChunks)).not.toContain("optionMap");
+    expect(turn.text).toContain("Macarons");
+    expect(turn.text).toContain("Lemon");
+  });
+
+  it("maps unmatched_query and ambiguous CONFLICT extras to needs_choice", async () => {
+    for (const reason of ["unmatched_query", "ambiguous"] as const) {
+      const execute = vi.fn(() =>
+        Promise.reject(
+          new DuckTypedPickerConflict({
+            reason,
+            options: pickerOptions,
+          }),
+        ),
+      );
+      const model = new MockLanguageModelV3({
+        doStream: [
+          mockToolCallStream(
+            "call-create",
+            ORDERS_CREATE_TOOL_NAME,
+            JSON.stringify({
+              customerQuery: "Леха",
+              items: [
+                {
+                  productQuery: "Macarons",
+                  variantQuery: reason === "unmatched_query" ? "Pistachio" : "e",
+                  quantityDecimal: "1",
+                },
+              ],
+            }),
+          ),
+        ],
+      });
+      const { response, completion } = streamStaffAssistantChat({
+        model,
+        messages: [{ role: "user", content: "create macarons" }],
+        contracts: [createOrder],
+        execute,
+        forcedToolName: ORDERS_CREATE_TOOL_NAME,
+      });
+      const payloads = await readUiMessageSsePayloads(response);
+      const turn = await completion;
+      expect(turn.toolRuns[0]?.outcome).toBe("choice_required");
+      expect(JSON.stringify(payloads)).toContain("data-choice");
+      expect(JSON.stringify(payloads)).not.toContain('"status":"error"');
+    }
+  });
+
+  it("maps no_active_variants CONFLICT to an error envelope, not a ChoiceCard", async () => {
+    const execute = vi.fn(() =>
+      Promise.reject(
+        new DuckTypedPickerConflict({
+          reason: "no_active_variants",
+          options: [],
+        }),
+      ),
+    );
+    const model = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream(
+          "call-create",
+          ORDERS_CREATE_TOOL_NAME,
+          JSON.stringify({
+            customerQuery: "Леха",
+            items: [{ productQuery: "Macarons", quantityDecimal: "1" }],
+          }),
+        ),
+      ],
+    });
+    const { response, completion } = streamStaffAssistantChat({
+      model,
+      messages: [{ role: "user", content: "create macarons" }],
+      contracts: [createOrder],
+      execute,
+      forcedToolName: ORDERS_CREATE_TOOL_NAME,
+    });
+    const payloads = await readUiMessageSsePayloads(response);
+    const turn = await completion;
+    expect(turn.toolRuns[0]?.outcome).toBe("error");
+    expect(JSON.stringify(payloads)).not.toContain("data-choice");
+    expect(JSON.stringify(payloads)).not.toContain("needs_choice");
   });
 
   it("attaches only orders_list_counts when that job is forced", async () => {

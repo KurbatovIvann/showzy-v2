@@ -6,6 +6,7 @@
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { fetch as expoFetch } from "expo/fetch";
 
+import type { StaffAssistantChoiceCardEnvelope } from "../shared/choice";
 import {
   assistantChatUrl,
   prepareStaffAssistantSendMessagesRequest,
@@ -23,6 +24,7 @@ export type StaffAssistantUiMessage = UIMessage<
       actionName: string;
       toolCallId: string;
     };
+    choice: StaffAssistantChoiceCardEnvelope;
   }
 >;
 

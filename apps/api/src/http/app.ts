@@ -371,6 +371,7 @@ export function createApp(options: CreateAppOptions): Hono<AppEnv> {
       registry: options.registry,
       pipeline: options.pipeline,
       getSession: (headers) => resolveSession(options.auth, headers),
+      choiceStore,
       ...(options.assistant !== undefined
         ? { assistant: options.assistant }
         : {}),

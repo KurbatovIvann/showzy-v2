@@ -3,10 +3,17 @@
  * newest-updated conversation from a company-wide list, then rebuild
  * history from `getConversation`. List/counts runs stay prose-only.
  * Entity cards hydrate via live `orders.get` on top-level `resultIds`.
+ * Pending choice hydrates via T8a peek (SHO-418). Do not restore list
+ * cards.
  *
  * `userId` is compared to the session here — never sent as list/get
  * input. Company id is never action input.
  */
+
+import {
+  envelopeFromChoicePeek,
+  type StaffAssistantChoiceCardEnvelope,
+} from "./choice";
 
 export const ASSISTANT_LIST_CONVERSATIONS_PAGE_MAX = 50;
 
@@ -42,8 +49,13 @@ export type AssistantHistoryToolRun = {
   readonly id: string;
   readonly actionName: string;
   readonly toolCallId: string;
+  readonly challengeId?: string | null;
   readonly resultIds: readonly string[];
-  readonly outcome: "success" | "error" | "confirmation_required";
+  readonly outcome:
+    | "success"
+    | "error"
+    | "confirmation_required"
+    | "choice_required";
   readonly createdAt: string;
 };
 
@@ -63,8 +75,15 @@ export type HydratedAssistantToolPart = {
   readonly output: unknown;
 };
 
+export type HydratedAssistantChoicePart = {
+  readonly type: "data-choice";
+  readonly data: StaffAssistantChoiceCardEnvelope;
+};
+
 export type HydratedAssistantUiPart =
-  { readonly type: "text"; readonly text: string } | HydratedAssistantToolPart;
+  | { readonly type: "text"; readonly text: string }
+  | HydratedAssistantToolPart
+  | HydratedAssistantChoicePart;
 
 export type HydratedAssistantUiMessage = {
   readonly id: string;
@@ -132,6 +151,59 @@ export function isHydratableOrderEntityRun(
 
 export function isUnrestorableListRun(run: AssistantHistoryToolRun): boolean {
   return run.actionName === UNRESTORABLE_LIST_ACTION;
+}
+
+export function isChoiceRequiredRun(run: AssistantHistoryToolRun): boolean {
+  return (
+    run.outcome === "choice_required" &&
+    typeof run.challengeId === "string" &&
+    run.challengeId.length > 0
+  );
+}
+
+export function choiceIdsFromToolRuns(
+  toolRuns: readonly AssistantHistoryToolRun[],
+): readonly string[] {
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  for (const run of toolRuns) {
+    if (!isChoiceRequiredRun(run) || run.challengeId === undefined) {
+      continue;
+    }
+    const choiceId = run.challengeId;
+    if (choiceId === null || seen.has(choiceId)) {
+      continue;
+    }
+    seen.add(choiceId);
+    ids.push(choiceId);
+  }
+  return ids;
+}
+
+export async function loadChoiceEnvelopes(args: {
+  readonly choiceIds: readonly string[];
+  readonly peekChoice: (
+    choiceId: string,
+  ) => Promise<StaffAssistantChoiceCardEnvelope>;
+}): Promise<ReadonlyMap<string, StaffAssistantChoiceCardEnvelope>> {
+  const envelopes = new Map<string, StaffAssistantChoiceCardEnvelope>();
+  const snapshots = await Promise.all(
+    args.choiceIds.map(async (choiceId) => {
+      try {
+        const envelope = await args.peekChoice(choiceId);
+        return { choiceId, envelope };
+      } catch {
+        return {
+          choiceId,
+          envelope: envelopeFromChoicePeek(choiceId, { status: "expired" }),
+        };
+      }
+    }),
+  );
+  for (const snapshot of snapshots) {
+    envelopes.set(snapshot.choiceId, snapshot.envelope);
+  }
+  return envelopes;
 }
 
 export function entityResultIdsFromToolRuns(
@@ -235,6 +307,10 @@ export function hydratedUiMessagesFromConversation(args: {
   readonly messages: readonly AssistantHistoryMessage[];
   readonly toolRuns: readonly AssistantHistoryToolRun[];
   readonly ordersById: ReadonlyMap<string, unknown>;
+  readonly choiceEnvelopes?: ReadonlyMap<
+    string,
+    StaffAssistantChoiceCardEnvelope
+  >;
 }): readonly HydratedAssistantUiMessage[] {
   const messages = sortedByCreatedAtThenId(args.messages);
   const toolRuns = sortedByCreatedAtThenId(args.toolRuns);
@@ -242,6 +318,7 @@ export function hydratedUiMessagesFromConversation(args: {
     messages,
     toolRuns,
   );
+  const choiceEnvelopes = args.choiceEnvelopes;
   return messages.map((message) => {
     const parts: HydratedAssistantUiPart[] = [
       { type: "text", text: message.body },
@@ -249,7 +326,21 @@ export function hydratedUiMessagesFromConversation(args: {
     if (message.role === "assistant") {
       const runs = runsByMessage.get(message.id) ?? [];
       for (const run of runs) {
-        if (isUnrestorableListRun(run) || !isHydratableOrderEntityRun(run)) {
+        if (isUnrestorableListRun(run)) {
+          continue;
+        }
+        if (
+          isChoiceRequiredRun(run) &&
+          choiceEnvelopes !== undefined &&
+          typeof run.challengeId === "string"
+        ) {
+          const envelope = choiceEnvelopes.get(run.challengeId);
+          if (envelope !== undefined) {
+            parts.push({ type: "data-choice", data: envelope });
+          }
+          continue;
+        }
+        if (!isHydratableOrderEntityRun(run)) {
           continue;
         }
         for (const resultId of run.resultIds) {
