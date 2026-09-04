@@ -2,8 +2,8 @@
  * Staff panel tab descriptors. Pure TypeScript so the canvas tab order
  * stays testable without the React Native runtime.
  *
- * Canvas product lock (mp-to-mobile.md): Замовлення · Товари · AI (center)
- * · Клієнти · Ще.
+ * Canvas product lock (mp-to-mobile.md): Замовлення · Товари · Шозік (center)
+ * · Клієнти · Ще. Route id stays `ai`.
  */
 
 export type PanelTab = "orders" | "products" | "ai" | "customers" | "more";

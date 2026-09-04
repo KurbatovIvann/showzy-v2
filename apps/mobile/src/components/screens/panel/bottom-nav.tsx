@@ -15,6 +15,7 @@ import sitMark from "../../../../assets/sit.svg";
 import { detectLocale } from "../../../i18n/locale";
 import { panelCopy } from "../../../i18n/panel";
 import { orderedPanelTabs, type PanelTab } from "./panel-tabs";
+import { sitTabHeadImageLayout } from "./sit-tab-head-crop";
 
 /**
  * Staff shell tab bar (canvas `BottomNav`, ADR-0024). Feature component —
@@ -34,9 +35,6 @@ const sideTabIcons: Readonly<Record<Exclude<PanelTab, "ai">, LucideIcon>> = {
   customers: UsersIcon,
   more: MenuIcon,
 };
-
-/** Canvas `ShozikAvatar` sit size in the 44pt `actionSoft` circle. */
-const SIT_MARK_SIZE = 36;
 
 export function BottomNav({ state, navigation, insets }: TabBarProps) {
   const copy = useMemo(() => panelCopy(detectLocale()), []);
@@ -131,6 +129,9 @@ function AiTab(props: {
   readonly active: boolean;
   readonly onPress: () => void;
 }) {
+  const { theme } = useUnistyles();
+  const sitHeadStyle = sitTabHeadImageLayout(theme.hitTarget.min);
+
   return (
     <Pressable
       accessibilityRole="tab"
@@ -146,7 +147,7 @@ function AiTab(props: {
           >
             <Image
               source={sitMark}
-              style={styles.sitMark}
+              style={sitHeadStyle}
               contentFit="contain"
               accessible={false}
               accessibilityIgnoresInvertColors
@@ -210,16 +211,13 @@ const styles = StyleSheet.create((theme) => ({
     width: theme.hitTarget.min,
     height: theme.hitTarget.min,
     borderRadius: theme.radii.full,
+    overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: theme.colors.accentSoft,
   },
   aiButtonPressed: {
     transform: [{ scale: 0.95 }],
-  },
-  sitMark: {
-    width: SIT_MARK_SIZE,
-    height: SIT_MARK_SIZE,
   },
   aiLabel: {
     color: theme.colors.accentFg,

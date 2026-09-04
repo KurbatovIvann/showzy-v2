@@ -23,14 +23,14 @@ describe("panel copy", () => {
     expect(uk.tabs).toEqual({
       orders: "Замовлення",
       products: "Товари",
-      ai: "AI",
+      ai: "Шозік",
       customers: "Клієнти",
       more: "Ще",
     });
     expect(en.tabs).toEqual({
       orders: "Orders",
       products: "Products",
-      ai: "AI",
+      ai: "Shozik",
       customers: "Customers",
       more: "More",
     });

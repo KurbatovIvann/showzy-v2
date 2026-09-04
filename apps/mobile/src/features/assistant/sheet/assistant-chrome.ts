@@ -12,6 +12,9 @@ export const SHOZIK_HEADER_POSE_SIZE = 40;
 /** Canvas first-run sit pose. Optical, not a shared hit token. */
 export const SHOZIK_EMPTY_POSE_SIZE = 72;
 
+/** Dig pose in the in-thread wait chip. Optical, not a hit target. */
+export const SHOZIK_WAIT_POSE_SIZE = 32;
+
 export function assistantShozikPose(input: {
   readonly thinking: boolean;
   readonly hasInFlightTools: boolean;

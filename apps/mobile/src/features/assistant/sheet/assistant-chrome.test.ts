@@ -6,6 +6,7 @@ import {
   assistantShozikPose,
   SHOZIK_EMPTY_POSE_SIZE,
   SHOZIK_HEADER_POSE_SIZE,
+  SHOZIK_WAIT_POSE_SIZE,
 } from "./assistant-chrome";
 
 const sheetView = readFileSync(
@@ -131,13 +132,18 @@ describe("assistant wait-state chrome (SHO-394)", () => {
     expect(waitLine).not.toContain("job-labels");
   });
 
-  it("does not add a second Shozik glyph in the thread", () => {
+  it("renders the wait line as a chip with the dig pose on the left", () => {
     expect(messageRow).not.toContain("sit.svg");
     expect(messageRow).not.toContain("dig.svg");
     expect(messageRow).not.toContain("ShozikPoseMark");
+    expect(waitLine).toContain("ShozikPoseMark");
+    expect(waitLine).toContain('pose="dig"');
+    expect(waitLine).toContain("SHOZIK_WAIT_POSE_SIZE");
+    expect(SHOZIK_WAIT_POSE_SIZE).toBe(32);
+    expect(waitLine).toContain("accentSoft");
+    expect(waitLine).toContain('flexDirection: "row"');
     expect(waitLine).not.toContain("sit.svg");
-    expect(waitLine).not.toContain("dig.svg");
-    expect(waitLine).not.toContain("ShozikPoseMark");
+    expect(waitLine).not.toContain("ActivityIndicator");
   });
 
   it("gates wait on current-turn HITL from mapped rows, not thread-wide pending", () => {

@@ -14,7 +14,12 @@ describe("BottomNav canvas chrome (SHO-389)", () => {
     expect(SOURCE).not.toContain("SparklesIcon");
   });
 
-  it("keeps the AI label on actionFg and drops the accent glow", () => {
+  it("crops sit.svg to the head inside the circle", () => {
+    expect(SOURCE).toContain("sitTabHeadImageLayout");
+    expect(SOURCE).toContain('overflow: "hidden"');
+  });
+
+  it("keeps the Shozik label on actionFg and drops the accent glow", () => {
     expect(SOURCE).toContain("theme.colors.accentFg");
     expect(SOURCE).not.toContain("theme.shadows.accent");
     expect(SOURCE).toContain("theme.colors.background");
