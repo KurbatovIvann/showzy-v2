@@ -20,7 +20,8 @@ const ORDER_B = "22222222-2222-4222-8222-222222222222";
 
 const listPage = {
   kind: "page.summary" as const,
-  items: [
+  requestedLimit: 2,
+  rows: [
     {
       orderId: ORDER_A,
       orderNumber: "1049",
@@ -34,6 +35,7 @@ const listPage = {
       customer: { nameSnapshot: "Ivan", linkedCustomerId: ORDER_B },
     },
   ],
+  hasMore: false,
   nextCursor: null,
   customerMatchTruncated: false,
 };
@@ -61,7 +63,7 @@ describe("presentCompletedStaffAssistantTurn", () => {
     const results = [
       {
         toolName: ORDERS_LIST_PAGE_TOOL_NAME,
-        output: { kind: "page.summary", items: [], nextCursor: null },
+        output: { kind: "page.summary", rows: [], hasMore: false, nextCursor: null },
       },
     ];
     expect(
@@ -82,7 +84,7 @@ describe("presentCompletedStaffAssistantTurn", () => {
     const results = [
       {
         toolName: ORDERS_LIST_PAGE_TOOL_NAME,
-        output: { ...listPage, nextCursor: "cursor-1" },
+        output: { ...listPage, hasMore: true, nextCursor: "cursor-1" },
       },
     ];
     expect(
@@ -101,6 +103,61 @@ describe("presentCompletedStaffAssistantTurn", () => {
     ).toBe(
       "Latest orders: #1049 (New), #1050 (Confirmed). There are more orders.",
     );
+  });
+
+  it("speaks rows.length labels and hasMore from the completed view", () => {
+    const rows = [
+      { orderNumber: "1", status: "new" },
+      { orderNumber: "2", status: "confirmed" },
+      { orderNumber: "3", status: "done" },
+    ];
+    const results = [
+      {
+        toolName: ORDERS_LIST_PAGE_TOOL_NAME,
+        output: {
+          kind: "page.summary",
+          requestedLimit: 3,
+          rows,
+          hasMore: true,
+          nextCursor: "more",
+        },
+      },
+    ];
+    const spoken = presentCompletedStaffAssistantTurn({
+      locale: "en",
+      toolResults: results,
+    });
+    expect(spoken).toBe(
+      "Latest orders: #1 (New), #2 (Confirmed), #3 (Done). There are more orders.",
+    );
+    expect(spoken).not.toContain("requestedLimit");
+    expect(spoken).not.toContain("3 orders");
+  });
+
+  it("lists all default-20 rows and omits hasMore when the view says false", () => {
+    const rows = Array.from({ length: 20 }, (_, index) => ({
+      orderNumber: String(1000 + index),
+      status: "new" as const,
+    }));
+    const spoken = presentCompletedStaffAssistantTurn({
+      locale: "en",
+      toolResults: [
+        {
+          toolName: ORDERS_LIST_PAGE_TOOL_NAME,
+          output: {
+            kind: "page.summary",
+            requestedLimit: 20,
+            rows,
+            hasMore: false,
+            nextCursor: null,
+          },
+        },
+      ],
+    });
+    expect(spoken).toContain("#1000 (New)");
+    expect(spoken).toContain("#1019 (New)");
+    expect(spoken).not.toContain("There are more orders.");
+    expect(spoken?.split(", ").length).toBe(20);
   });
 
   it("treats a clipped list preview as hasMore", () => {

@@ -1,6 +1,6 @@
 /**
  * Named staff-assistant tools over `orders.list` (SHO-355 / SHO-356 /
- * SHO-360 / ADR-0033).
+ * SHO-360 / SHO-403 / ADR-0033).
  *
  * Presentation adapter only: both tools `execute("orders.list", canonical)`
  * then map compact output. Do not add `orders.listForAssistant`. Do not
@@ -41,13 +41,17 @@ export const LIST_ORDERS_CURSOR_MAX = 80;
 export const CUSTOMER_NAME_MAX = 120;
 
 /**
- * Compact 20-row pages still exceed `STAFF_ASSISTANT_CLIP_JSON_MAX`
- * (~5–6.5 KB). A page of 10 compact rows with 120-char names plus a
- * max-length cursor also exceeds 4000; 9 is the largest named limit
- * that stays under the cap so handler `nextCursor` matches visible
- * rows. Named in SHO-360.
+ * Duplicated from `LIST_ORDERS_SUMMARY_DEFAULT_LIMIT` — named assistant
+ * `limit` (SHO-403). Do not keep the clip-era fixed page of 9.
  */
-export const ORDERS_LIST_PAGE_ASSISTANT_LIMIT = 9;
+export const ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT = 20;
+/**
+ * Duplicated from `LIST_ORDERS_SUMMARY_MAX_LIMIT`.
+ */
+export const ORDERS_LIST_PAGE_ASSISTANT_MAX_LIMIT = 50;
+/** Default `orders_list_page` limit (SHO-403). */
+export const ORDERS_LIST_PAGE_ASSISTANT_LIMIT =
+  ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT;
 
 const orderStatusSchema = z.enum([
   "new",
@@ -104,6 +108,13 @@ const periodXorDatesRefine = {
   message: "period cannot be combined with createdFrom or createdTo",
 } as const;
 
+const limitField = z
+  .number()
+  .int()
+  .min(1)
+  .max(ORDERS_LIST_PAGE_ASSISTANT_MAX_LIMIT)
+  .default(ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT);
+
 export const ordersListPageInputSchema = z
   .strictObject({
     statuses: statusesField,
@@ -113,6 +124,7 @@ export const ordersListPageInputSchema = z
     createdTo: createdToField,
     customerIds: customerIdsField,
     period: periodField,
+    limit: limitField,
   })
   .refine(createdIntervalIsValid, createdIntervalRefine)
   .refine(periodXorDatesIsValid, periodXorDatesRefine);
@@ -135,11 +147,14 @@ export const ordersListCountsInputSchema = z
 export type OrdersListPageFacadeInput = z.output<
   typeof ordersListPageInputSchema
 >;
+export type OrdersListPageFacadeMapInput = z.input<
+  typeof ordersListPageInputSchema
+>;
 export type OrdersListCountsFacadeInput = z.output<
   typeof ordersListCountsInputSchema
 >;
 
-const ORDERS_LIST_PAGE_DESCRIPTION = `Newest-first order headers in the active company. Compact rows: orderId, orderNumber, customer (nameSnapshot, linkedCustomerId), status, itemCount, totalGrossMinor, currency, createdAt. Optional statuses (new, confirmed, in_progress, done, canceled; max 5). Omit statuses to include every CHECK status. There is no server status named active or all. UI Активні is client grouping of new plus confirmed plus in_progress — do not pass active, all, or completed. Optional query matches the text order number (optional leading #) or CRM name, phone, or email and requires customers:view. Optional customerIds (1–50 UUIDs). Prefer period=today, period=this_week, or period=this_month (Europe/Kyiv, week starts Monday, inclusive local day) for those ranges. ISO createdFrom/createdTo remains valid for other intervals. Do not pass period together with createdFrom/createdTo. Do not pass yesterday/thisWeek enums. Optional cursor pages forward. Page size is ${String(ORDERS_LIST_PAGE_ASSISTANT_LIMIT)} so every visible row matches nextCursor. Does not return line items. For “how many orders” / “turnover” / “gross” in a period, use orders_list_counts (do not page this tool and sum in the model). ${ORDERS_LIST_PROMPT_LINE}`;
+const ORDERS_LIST_PAGE_DESCRIPTION = `Newest-first order headers in the active company. Compact rows: orderId, orderNumber, customer (nameSnapshot, linkedCustomerId), status, itemCount, totalGrossMinor, currency, createdAt. Optional statuses (new, confirmed, in_progress, done, canceled; max 5). Omit statuses to include every CHECK status. There is no server status named active or all. UI Активні is client grouping of new plus confirmed plus in_progress — do not pass active, all, or completed. Optional query matches the text order number (optional leading #) or CRM name, phone, or email and requires customers:view. Optional customerIds (1–50 UUIDs). Prefer period=today, period=this_week, or period=this_month (Europe/Kyiv, week starts Monday, inclusive local day) for those ranges. ISO createdFrom/createdTo remains valid for other intervals. Do not pass period together with createdFrom/createdTo. Do not pass yesterday/thisWeek enums. Optional limit 1–${String(ORDERS_LIST_PAGE_ASSISTANT_MAX_LIMIT)} (default ${String(ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT)}) — pass limit for “last N orders”; do not fetch a larger page and slice in the model. Optional cursor pages forward. Completed output includes requestedLimit, rows, and hasMore (nextCursor != null) so every visible row matches the handler cursor. Does not return line items. For “how many orders” / “turnover” / “gross” in a period, use orders_list_counts (do not page this tool and sum in the model). ${ORDERS_LIST_PROMPT_LINE}`;
 
 const ORDERS_LIST_COUNTS_DESCRIPTION = `Bounded order rollup in the active company. This is the tool for “how many orders” / “turnover” / “gross” in a period. Do not page orders_list_page and sum in the model. Optional statuses (new, confirmed, in_progress, done, canceled; max 5). Omit statuses to include every CHECK status. There is no server status named active or all. UI Активні is client grouping of new plus confirmed plus in_progress — do not pass active, all, or completed. Optional query matches the text order number (optional leading #) or CRM name, phone, or email and requires customers:view. Optional customerIds (1–50 UUIDs). Prefer period=today, period=this_week, or period=this_month (Europe/Kyiv, week starts Monday, inclusive local day) for those ranges. ISO createdFrom/createdTo remains valid for other intervals. Do not pass period together with createdFrom/createdTo. Do not pass yesterday/thisWeek enums. groupBy defaults to status (none, status, product, or customer). Do not use groupBy none just to get a company total — orderCount, grossByCurrency, and statusBuckets are always present. Product buckets include quantityMilli (sum of line quantity_milli for that SKU, across currencies). Money buckets never mix currencies. Output always keeps orderCount, every grossByCurrency.grossAmountMinor, and statusBuckets (count and money per CHECK status that occurred, max 5). ${ORDERS_AGGREGATE_PROMPT_LINE}`;
 
@@ -195,7 +210,7 @@ function mappedOrdersListFilter(
 }
 
 export function mapOrdersListPageInput(
-  input: OrdersListPageFacadeInput,
+  input: OrdersListPageFacadeMapInput,
   clock: OrdersListMapClock = { now: new Date() },
 ): {
   readonly kind: "page.summary";
@@ -207,7 +222,7 @@ export function mapOrdersListPageInput(
   return {
     kind: "page.summary",
     ...(filter !== undefined ? { filter } : {}),
-    limit: ORDERS_LIST_PAGE_ASSISTANT_LIMIT,
+    limit: input.limit ?? ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT,
     ...(input.cursor !== undefined ? { cursor: input.cursor } : {}),
   };
 }
@@ -290,11 +305,14 @@ function mapOrdersListPageCompactRow(row: unknown): unknown {
 }
 
 /**
- * Assistant view of `orders.list` `page.summary`. Drops extra handler
- * fields so clip cannot drop rows 4–20 while keeping `nextCursor`.
+ * Assistant completed view of `orders.list` `page.summary`. Compact
+ * `rows` plus `requestedLimit` and `hasMore` (`nextCursor != null`).
  * Typed errors and confirmation payloads pass through unchanged.
  */
-export function mapOrdersListPageOutput(output: unknown): unknown {
+export function mapOrdersListPageOutput(
+  output: unknown,
+  requestedLimit: number = ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT,
+): unknown {
   if (
     isStaffAssistantConfirmationOutput(output) ||
     isTypedToolError(output) ||
@@ -305,10 +323,13 @@ export function mapOrdersListPageOutput(output: unknown): unknown {
     return output;
   }
   const nextCursor = output["nextCursor"];
+  const cursor = nextCursor === undefined ? null : nextCursor;
   return {
     kind: "page.summary",
-    items: output["items"].map((row) => mapOrdersListPageCompactRow(row)),
-    nextCursor: nextCursor === undefined ? null : nextCursor,
+    requestedLimit,
+    rows: output["items"].map((row) => mapOrdersListPageCompactRow(row)),
+    hasMore: cursor !== null,
+    nextCursor: cursor,
     customerMatchTruncated: output["customerMatchTruncated"],
   };
 }
@@ -472,7 +493,7 @@ export function ordersListFacadeTools(
             toolCallId: options.toolCallId,
           },
         );
-        return mapOrdersListPageOutput(raw);
+        return mapOrdersListPageOutput(raw, parsed.limit);
       },
     }),
     [ORDERS_LIST_COUNTS_TOOL_NAME]: tool({

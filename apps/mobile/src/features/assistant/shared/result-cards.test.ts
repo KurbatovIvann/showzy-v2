@@ -122,8 +122,8 @@ describe("assistantSurfacesFromParts", () => {
     expect(isOrderStatus("all")).toBe(false);
   });
 
-  it("caps the list card at 9 rows", () => {
-    const items = Array.from({ length: 12 }, (_, index) =>
+  it("caps the list card at 50 rows", () => {
+    const items = Array.from({ length: 55 }, (_, index) =>
       pageRow(
         `0f0e2d5c-4a1b-4c3d-9e8f-1029384756${String(index).padStart(2, "0")}`,
         { orderNumber: String(1000 + index) },
@@ -140,9 +140,39 @@ describe("assistantSurfacesFromParts", () => {
       ],
       "uk",
     );
-    expect(ASSISTANT_ORDERS_LIST_ROW_MAX).toBe(9);
-    expect(listOf(surfaces)?.rows).toHaveLength(9);
+    expect(ASSISTANT_ORDERS_LIST_ROW_MAX).toBe(50);
+    expect(listOf(surfaces)?.rows).toHaveLength(50);
     expect(entitiesOf(surfaces)).toHaveLength(0);
+  });
+
+  it("shows exactly three completed-view rows without slicing to nine", () => {
+    const rows = [
+      pageRow(ORDER_A, { orderNumber: "1049" }),
+      pageRow(ORDER_B, { orderNumber: "1050" }),
+      pageRow("33333333-3333-4333-8333-333333333333", {
+        orderNumber: "1051",
+      }),
+    ];
+    const surfaces = assistantSurfacesFromParts(
+      [
+        {
+          type: "tool-orders_list_page",
+          toolCallId: "call-page",
+          state: "output-available",
+          output: {
+            kind: "page.summary",
+            requestedLimit: 3,
+            rows,
+            hasMore: true,
+            nextCursor: "more",
+            customerMatchTruncated: false,
+          },
+        },
+      ],
+      "uk",
+    );
+    expect(listOf(surfaces)?.rows).toHaveLength(3);
+    expect(listOf(surfaces)?.ctaHref).toBe("/orders");
   });
 
   it("adds status chips when counts are on the same turn", () => {

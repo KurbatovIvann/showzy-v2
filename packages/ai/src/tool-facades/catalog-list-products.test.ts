@@ -204,9 +204,10 @@ describe("compact catalog.listProducts clip envelope", () => {
   });
 
   it("keeps basePriceMinor and currency on a 50-row compact page after clip", () => {
-    const items = Array.from({ length: 50 }, (_, index) =>
-      compactProductRow(index, `N${"x".repeat(118)}`),
-    );
+    const items = Array.from({ length: 50 }, (_, index) => ({
+      ...compactProductRow(index, `N${"x".repeat(118)}`),
+      notes: "n".repeat(400),
+    }));
     const page = { items, nextCursor: null };
     const serialized = JSON.stringify(page);
     expect(serialized.length).toBeGreaterThan(STAFF_ASSISTANT_CLIP_JSON_MAX);

@@ -6,7 +6,6 @@ import { z } from "zod";
 import {
   clipStaffAssistantToolResult,
   STAFF_ASSISTANT_CLIP_JSON_MAX,
-  STAFF_ASSISTANT_CLIPPED_STATUS,
 } from "../clip-tool-result.js";
 import { STAFF_ASSISTANT_CONFIRMATION_STATUS } from "../confirmation.js";
 import {
@@ -24,7 +23,9 @@ import {
   mapOrdersListPageOutput,
   ORDERS_LIST_ACTION_NAME,
   ORDERS_LIST_COUNTS_TOOL_NAME,
+  ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT,
   ORDERS_LIST_PAGE_ASSISTANT_LIMIT,
+  ORDERS_LIST_PAGE_ASSISTANT_MAX_LIMIT,
   ORDERS_LIST_PAGE_TOOL_NAME,
   ordersListCountsInputSchema,
   ordersListFacadeTools,
@@ -93,10 +94,24 @@ function compactSummaryRow(index: number, name: string) {
 }
 
 describe("mapOrdersListPageInput", () => {
-  it("maps empty façade input to page.summary with the assistant page limit", () => {
+  it("maps empty façade input to page.summary with the default assistant page limit", () => {
     expect(mapOrdersListPageInput({})).toEqual({
       kind: "page.summary",
-      limit: ORDERS_LIST_PAGE_ASSISTANT_LIMIT,
+      limit: ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT,
+    });
+    expect(
+      mapOrdersListPageInput(ordersListPageInputSchema.parse({})),
+    ).toEqual({
+      kind: "page.summary",
+      limit: 20,
+    });
+  });
+
+  it("maps named limit: 3 onto canonical page.summary without slicing", () => {
+    const parsed = ordersListPageInputSchema.parse({ limit: 3 });
+    expect(mapOrdersListPageInput(parsed)).toEqual({
+      kind: "page.summary",
+      limit: 3,
     });
   });
 
@@ -109,7 +124,7 @@ describe("mapOrdersListPageInput", () => {
     expect(mapOrdersListPageInput(parsed)).toEqual({
       kind: "page.summary",
       filter: { statuses: ["new", "confirmed"], query: "#42" },
-      limit: ORDERS_LIST_PAGE_ASSISTANT_LIMIT,
+      limit: ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT,
       cursor: "c".repeat(LIST_ORDERS_CURSOR_MAX),
     });
   });
@@ -131,7 +146,7 @@ describe("mapOrdersListPageInput", () => {
         createdTo,
         customerIds: [customerId],
       },
-      limit: ORDERS_LIST_PAGE_ASSISTANT_LIMIT,
+      limit: ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT,
     });
   });
 
@@ -140,7 +155,7 @@ describe("mapOrdersListPageInput", () => {
     expect(mapOrdersListPageInput(parsed, CLOCK)).toEqual({
       kind: "page.summary",
       filter: { createdFrom, createdTo },
-      limit: ORDERS_LIST_PAGE_ASSISTANT_LIMIT,
+      limit: ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT,
     });
   });
 });
@@ -218,7 +233,9 @@ describe("mapOrdersListPageOutput", () => {
     });
     expect(mapped).toEqual({
       kind: "page.summary",
-      items: [compactSummaryRow(1, "Катерина Кексова")],
+      requestedLimit: ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT,
+      rows: [compactSummaryRow(1, "Катерина Кексова")],
+      hasMore: true,
       nextCursor: "cursor-1",
       customerMatchTruncated: false,
     });
@@ -254,10 +271,36 @@ describe("mapOrdersListPageOutput", () => {
     });
     expect(mapped).toEqual({
       kind: "page.summary",
-      items: [compactSummaryRow(1, MAX_CUSTOMER_NAME)],
+      requestedLimit: ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT,
+      rows: [compactSummaryRow(1, MAX_CUSTOMER_NAME)],
+      hasMore: false,
       nextCursor: null,
       customerMatchTruncated: false,
     });
+  });
+
+  it("sets requestedLimit, rows.length, and hasMore from the handler page", () => {
+    const mapped = mapOrdersListPageOutput(
+      {
+        kind: "page.summary",
+        items: [
+          fatSummaryRow(1, "A"),
+          fatSummaryRow(2, "B"),
+          fatSummaryRow(3, "C"),
+        ],
+        nextCursor: "cursor-more",
+        customerMatchTruncated: false,
+      },
+      3,
+    );
+    expect(isRecord(mapped)).toBe(true);
+    if (!isRecord(mapped) || !Array.isArray(mapped["rows"])) {
+      return;
+    }
+    expect(mapped["requestedLimit"]).toBe(3);
+    expect(mapped["rows"]).toHaveLength(3);
+    expect(mapped["hasMore"]).toBe(true);
+    expect(mapped["nextCursor"]).toBe("cursor-more");
   });
 });
 
@@ -339,7 +382,7 @@ describe("mapOrdersListCountsOutput", () => {
         productId: `aaaaaaaa-aaaa-4aaa-8aaa-${index.toString().padStart(12, "0")}`,
         variantId: `bbbbbbbb-bbbb-4bbb-8bbb-${index.toString().padStart(12, "0")}`,
       },
-      label: `Насіння соняшника каліброване преміум ${String(index)}`,
+      label: `Насіння соняшника каліброване преміум ${"я".repeat(400)} ${String(index)}`,
       orderCount: 50 - index,
       grossByCurrency: [
         { currency: "UAH", grossAmountMinor: String(1_500_000 + index) },
@@ -442,16 +485,51 @@ describe("ordersListFacadeTools", () => {
           createdTo,
           customerIds: [customerId],
         },
-        limit: ORDERS_LIST_PAGE_ASSISTANT_LIMIT,
+        limit: ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT,
       },
       { toolCallId: "call-page" },
     );
     expect(result).toEqual({
       kind: "page.summary",
-      items: [compactSummaryRow(1, "Katya")],
+      requestedLimit: ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT,
+      rows: [compactSummaryRow(1, "Katya")],
+      hasMore: false,
       nextCursor: null,
       customerMatchTruncated: false,
     });
+  });
+
+  it("maps limit: 3 through execute to canonical orders.list and completed rows", async () => {
+    const execute = vi.fn(() =>
+      Promise.resolve({
+        kind: "page.summary",
+        items: [
+          fatSummaryRow(1, "A"),
+          fatSummaryRow(2, "B"),
+          fatSummaryRow(3, "C"),
+        ],
+        nextCursor: "next-page",
+        customerMatchTruncated: false,
+      }),
+    );
+    const tools = ordersListFacadeTools(listOrders, execute);
+    const result: unknown = await tools[ORDERS_LIST_PAGE_TOOL_NAME]?.execute?.(
+      { limit: 3 },
+      { toolCallId: "call-three", messages: [], context: undefined },
+    );
+    expect(execute).toHaveBeenCalledWith(
+      ORDERS_LIST_ACTION_NAME,
+      { kind: "page.summary", limit: 3 },
+      { toolCallId: "call-three" },
+    );
+    expect(isRecord(result) && Array.isArray(result["rows"])).toBe(true);
+    if (!isRecord(result) || !Array.isArray(result["rows"])) {
+      return;
+    }
+    expect(result["requestedLimit"]).toBe(3);
+    expect(result["rows"]).toHaveLength(3);
+    expect(result["hasMore"]).toBe(true);
+    expect(result["nextCursor"]).toBe("next-page");
   });
 
   it("executes orders.list with mapped aggregate input including query", async () => {
@@ -504,6 +582,7 @@ describe("ordersListFacadeTools", () => {
     expect(countsJson["type"]).toBe("object");
     expect(pageJson["oneOf"]).toBeUndefined();
     expect(countsJson["oneOf"]).toBeUndefined();
+    expect(pageJson["properties"]).toHaveProperty("limit");
   });
 
   it("describes period presets, Kyiv ISO, period rollups, and no server status active", () => {
@@ -557,7 +636,13 @@ describe("ordersListFacadeTools", () => {
       "page.withLines",
     );
     expect(tools[ORDERS_LIST_PAGE_TOOL_NAME]?.description).toContain(
-      `Page size is ${String(ORDERS_LIST_PAGE_ASSISTANT_LIMIT)}`,
+      `Optional limit 1–${String(ORDERS_LIST_PAGE_ASSISTANT_MAX_LIMIT)} (default ${String(ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT)})`,
+    );
+    expect(tools[ORDERS_LIST_PAGE_TOOL_NAME]?.description).not.toContain(
+      "Page size is 9",
+    );
+    expect(tools[ORDERS_LIST_PAGE_TOOL_NAME]?.description).not.toContain(
+      "show_orders",
     );
     expect(tools[ORDERS_LIST_PAGE_TOOL_NAME]?.description).toContain(
       ORDERS_LIST_PROMPT_LINE,
@@ -649,7 +734,23 @@ describe("ordersListFacadeTools", () => {
     expect(LIST_ORDERS_QUERY_MAX).toBe(100);
     expect(LIST_ORDERS_CURSOR_MAX).toBe(80);
     expect(CUSTOMER_NAME_MAX).toBe(CUSTOMER_NAME_MAX_FIXTURE);
-    expect(ORDERS_LIST_PAGE_ASSISTANT_LIMIT).toBe(9);
+    expect(ORDERS_LIST_PAGE_ASSISTANT_LIMIT).toBe(20);
+    expect(ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT).toBe(20);
+    expect(ORDERS_LIST_PAGE_ASSISTANT_MAX_LIMIT).toBe(50);
+    expect(ordersListPageInputSchema.safeParse({}).success).toBe(true);
+    expect(ordersListPageInputSchema.parse({}).limit).toBe(20);
+    expect(ordersListPageInputSchema.safeParse({ limit: 0 }).success).toBe(
+      false,
+    );
+    expect(ordersListPageInputSchema.safeParse({ limit: 51 }).success).toBe(
+      false,
+    );
+    expect(ordersListPageInputSchema.safeParse({ limit: 1 }).success).toBe(
+      true,
+    );
+    expect(ordersListPageInputSchema.safeParse({ limit: 50 }).success).toBe(
+      true,
+    );
     expect(
       ordersListPageInputSchema.safeParse({ customerIds: [] }).success,
     ).toBe(false);
@@ -668,33 +769,38 @@ describe("ordersListFacadeTools", () => {
 });
 
 describe("compact orders.list page clip envelope", () => {
-  it("does not clip an assistant-limit page of 120-char names plus a max cursor", () => {
+  it("does not clip a default-20 max-name completed page plus a max cursor", () => {
     const items = Array.from(
-      { length: ORDERS_LIST_PAGE_ASSISTANT_LIMIT },
+      { length: ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT },
       (_, index) => compactSummaryRow(index, MAX_CUSTOMER_NAME),
     );
     const nextCursor = "n".repeat(LIST_ORDERS_CURSOR_MAX);
-    const mapped = mapOrdersListPageOutput({
-      kind: "page.summary",
-      items: Array.from(
-        { length: ORDERS_LIST_PAGE_ASSISTANT_LIMIT },
-        (_, index) => fatSummaryRow(index, MAX_CUSTOMER_NAME),
-      ),
-      nextCursor,
-      customerMatchTruncated: false,
-    });
+    const mapped = mapOrdersListPageOutput(
+      {
+        kind: "page.summary",
+        items: Array.from(
+          { length: ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT },
+          (_, index) => fatSummaryRow(index, MAX_CUSTOMER_NAME),
+        ),
+        nextCursor,
+        customerMatchTruncated: false,
+      },
+      ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT,
+    );
     expect(JSON.stringify(mapped).length).toBeLessThanOrEqual(
       STAFF_ASSISTANT_CLIP_JSON_MAX,
     );
     const clipped = clipStaffAssistantToolResult(mapped);
     expect(clipped).toBe(mapped);
     expect(isRecord(clipped)).toBe(true);
-    if (!isRecord(clipped) || !Array.isArray(clipped["items"])) {
+    if (!isRecord(clipped) || !Array.isArray(clipped["rows"])) {
       return;
     }
-    expect(clipped["items"]).toHaveLength(ORDERS_LIST_PAGE_ASSISTANT_LIMIT);
+    expect(clipped["requestedLimit"]).toBe(20);
+    expect(clipped["rows"]).toHaveLength(20);
+    expect(clipped["hasMore"]).toBe(true);
     expect(clipped["nextCursor"]).toBe(nextCursor);
-    for (const [index, row] of clipped["items"].entries()) {
+    for (const [index, row] of clipped["rows"].entries()) {
       expect(isRecord(row) && isRecord(row["customer"])).toBe(true);
       if (!isRecord(row) || !isRecord(row["customer"])) {
         continue;
@@ -707,43 +813,32 @@ describe("compact orders.list page clip envelope", () => {
     }
   });
 
-  it("one extra 120-char-name row plus a max cursor exceeds the clip cap", () => {
-    const items = Array.from(
-      { length: ORDERS_LIST_PAGE_ASSISTANT_LIMIT + 1 },
-      (_, index) => compactSummaryRow(index, MAX_CUSTOMER_NAME),
+  it("does not clip a max-50 max-name completed page plus a max cursor", () => {
+    const nextCursor = "n".repeat(LIST_ORDERS_CURSOR_MAX);
+    const mapped = mapOrdersListPageOutput(
+      {
+        kind: "page.summary",
+        items: Array.from(
+          { length: ORDERS_LIST_PAGE_ASSISTANT_MAX_LIMIT },
+          (_, index) => fatSummaryRow(index, MAX_CUSTOMER_NAME),
+        ),
+        nextCursor,
+        customerMatchTruncated: false,
+      },
+      ORDERS_LIST_PAGE_ASSISTANT_MAX_LIMIT,
     );
-    const page = {
-      kind: "page.summary",
-      items,
-      nextCursor: "n".repeat(LIST_ORDERS_CURSOR_MAX),
-      customerMatchTruncated: false,
-    };
-    expect(JSON.stringify(page).length).toBeGreaterThan(
+    expect(JSON.stringify(mapped).length).toBeLessThanOrEqual(
       STAFF_ASSISTANT_CLIP_JSON_MAX,
     );
-  });
-
-  it("a 20-row compact fixture still exceeds the clip cap", () => {
-    const items = Array.from({ length: 20 }, (_, index) =>
-      compactSummaryRow(index, `Катерина Кексова ${String(index)}`),
-    );
-    const page = {
-      kind: "page.summary",
-      items,
-      nextCursor: "n".repeat(LIST_ORDERS_CURSOR_MAX),
-      customerMatchTruncated: false,
-    };
-    expect(JSON.stringify(page).length).toBeGreaterThan(
-      STAFF_ASSISTANT_CLIP_JSON_MAX,
-    );
-    const clipped = clipStaffAssistantToolResult(page);
-    expect(clipped).not.toBe(page);
-    expect(
-      typeof clipped === "object" &&
-        clipped !== null &&
-        "status" in clipped &&
-        clipped.status === STAFF_ASSISTANT_CLIPPED_STATUS,
-    ).toBe(true);
+    const clipped = clipStaffAssistantToolResult(mapped);
+    expect(clipped).toBe(mapped);
+    expect(isRecord(clipped) && Array.isArray(clipped["rows"])).toBe(true);
+    if (!isRecord(clipped) || !Array.isArray(clipped["rows"])) {
+      return;
+    }
+    expect(clipped["rows"]).toHaveLength(50);
+    expect(clipped["hasMore"]).toBe(true);
+    expect(clipped["nextCursor"]).toBe(nextCursor);
   });
 });
 
