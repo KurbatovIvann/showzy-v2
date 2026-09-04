@@ -15,12 +15,14 @@ import {
   parseThenPlanOrderFormSave,
   type CreateOrderResult,
   type OrderFormWrite,
+  type OrderLineCatalogFactsMap,
 } from "./order-form-plan";
 
 export { NO_SAVE_FAILURE, type LastWriteFailure };
 
 export type OrderFormSavePorts = {
   readonly getDraft: () => OrderFormDraft;
+  readonly getCatalogFacts: () => OrderLineCatalogFactsMap;
   readonly setOrigin: (draft: OrderFormDraft) => void;
   readonly getLastWrite: () => OrderFormWrite | null;
   readonly setLastWrite: (write: OrderFormWrite) => void;
@@ -45,6 +47,7 @@ export async function runOrderFormSave(
     plan: () =>
       parseThenPlanOrderFormSave({
         draft: ports.getDraft(),
+        catalogFacts: ports.getCatalogFacts(),
         lastWrite: ports.getLastWrite(),
         lastFailureKind: ports.getLastFailure().kind,
         lastWireCode: ports.getLastFailure().wire,

@@ -176,12 +176,19 @@ export function presentOrderFormCopy(args: {
     commentMessage: args.commentMessage,
     server: args.serverFields,
   });
+  const failureBanner =
+    args.localBanner ?? mapOrderFormFailure(args.failureKind, args.wireCode);
+  const variantPickerError =
+    fieldErrors.items === "variant_required" ||
+    fieldErrors.items === "no_active_variants";
   return resolveOrderFormCopy(args.formCopy, {
     customerError: fieldErrors.customer,
     itemsError: fieldErrors.items,
     commentError: fieldErrors.comment,
     banner:
-      args.localBanner ?? mapOrderFormFailure(args.failureKind, args.wireCode),
+      variantPickerError && failureBanner === "unavailable"
+        ? null
+        : failureBanner,
     pending: args.pending,
     clientReady: args.clientReady,
     canCreate: args.canCreate,

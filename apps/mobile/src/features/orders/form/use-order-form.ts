@@ -17,6 +17,7 @@ import {
 import { EMPTY_ORDER_THUMBNAIL } from "../shared/order-thumbnails";
 import {
   mapValidationIssues,
+  mapVariantSelectionConflict,
   rhfPathsForFieldErrors,
   type BannerKey,
 } from "./order-form-copy";
@@ -36,6 +37,10 @@ import {
   presentVariantSelectRows,
 } from "./order-form.presenter";
 import { orderFormResolver } from "./order-form.schema";
+import {
+  catalogFactsBlockSubmit,
+  uniqueProductIds,
+} from "./order-line-catalog-facts";
 import { commitProductPickerPicks, productPickerPicks } from "./product-picker";
 import { useOrderFormLookups } from "./use-order-form-lookups";
 import { useOrderFormSheets } from "./use-order-form-sheets";
@@ -77,15 +82,20 @@ export function useOrderForm() {
   const sheets = useOrderFormSheets();
   const clientReady = apiClient !== null && activeCompanyId !== null;
   const loadState = classifyOrderFormLoad({ canCreate, clientReady });
+  const draftProductIds = uniqueProductIds(
+    fields.map((field) => field.productId),
+  );
   const lookups = useOrderFormLookups({
     enabled: loadState.kind === "ready",
     variantProductId:
       sheets.picker.kind === "variants" ? sheets.picker.productId : null,
+    draftProductIds,
   });
   const armLeaveRef = useRef(() => {});
   const saveApi = useOrderSave({
     loadKind: loadState.kind,
     getDraft: () => cloneOrderFormDraft(getValues()),
+    getCatalogFacts: () => lookups.catalogFacts,
     setOrigin: (draft) => {
       reset(draft);
     },
@@ -116,9 +126,13 @@ export function useOrderForm() {
     ? describeWireError(saveApi.mutationError)
     : null;
   const serverFields = saveApi.isMutationError
-    ? mapValidationIssues(saveApi.mutationError, saveApi.lastWrite)
+    ? (mapValidationIssues(saveApi.mutationError, saveApi.lastWrite) ??
+      mapVariantSelectionConflict(saveApi.mutationError))
     : null;
   const pending = saveApi.pending;
+  const catalogFactsBlocked = catalogFactsBlockSubmit(
+    lookups.catalogFactsStatus,
+  );
   const resolved = presentOrderFormCopy({
     formCopy,
     submitted: isSubmitted,
@@ -249,11 +263,17 @@ export function useOrderForm() {
     items,
     state: loadState,
     customerError: resolved.customerError,
-    itemsError: resolved.itemsError,
+    itemsError:
+      lookups.catalogFactsStatus === "error"
+        ? formCopy.variantsError
+        : resolved.itemsError,
     commentError: resolved.commentError,
     banner: resolved.banner,
     pending,
-    submitDisabled: resolved.submitDisabled || loadState.kind !== "ready",
+    submitDisabled:
+      resolved.submitDisabled ||
+      loadState.kind !== "ready" ||
+      catalogFactsBlocked,
     submitLabel: resolved.submitLabel,
     fieldsEditable: resolved.fieldsEditable && loadState.kind === "ready",
     showSubmit,
@@ -311,6 +331,9 @@ export function useOrderForm() {
       onFieldEdit();
     },
     save: () => {
+      if (catalogFactsBlocked) {
+        return;
+      }
       void handleSubmit(
         () => {
           void saveApi.save();

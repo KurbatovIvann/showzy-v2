@@ -70,6 +70,8 @@ function createPorts(overrides: {
   let fieldErrors: OrderFormFieldErrors = emptyFieldErrors();
   const ports: OrderFormSavePorts = {
     getDraft: () => draft,
+    getCatalogFacts: () =>
+      new Map([[PRODUCT_ID, { variantRows: [] as const }]]),
     setOrigin: (next) => {
       originDrafts.push(next);
     },
@@ -135,6 +137,7 @@ describe("runOrderFormSave", () => {
         items: [
           {
             product: { by: "id", id: PRODUCT_ID },
+            variantSelection: { kind: "base" },
             quantity: { milli: "1000" },
           },
         ],
@@ -157,5 +160,39 @@ describe("runOrderFormSave", () => {
     expect(calls).toEqual([]);
     expect(getFieldErrors().customer).toBe("required");
     expect(getFieldErrors().items).toBe("required");
+  });
+
+  it("does not submit or map variant_required when getProduct facts are missing", async () => {
+    const { ports, calls, getFieldErrors } = createPorts({
+      draft: validDraft(),
+    });
+    const withoutFacts: OrderFormSavePorts = {
+      ...ports,
+      getCatalogFacts: () => new Map(),
+    };
+    await runOrderFormSave(withoutFacts);
+    expect(calls).toEqual([]);
+    expect(getFieldErrors().items).not.toBe("variant_required");
+    expect(getFieldErrors().items).toBeNull();
+  });
+
+  it("stops on an archived-only variable line without submitting as base", async () => {
+    const archivedVariantId = "55555555-5555-4555-8555-555555555555";
+    const { ports, calls, getFieldErrors } = createPorts({
+      draft: validDraft(),
+    });
+    const withFacts: OrderFormSavePorts = {
+      ...ports,
+      getCatalogFacts: () =>
+        new Map([
+          [
+            PRODUCT_ID,
+            { variantRows: [{ id: archivedVariantId, status: "archived" }] },
+          ],
+        ]),
+    };
+    await runOrderFormSave(withFacts);
+    expect(calls).toEqual([]);
+    expect(getFieldErrors().items).toBe("no_active_variants");
   });
 });

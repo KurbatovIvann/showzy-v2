@@ -17,11 +17,13 @@ import {
   parseThenPlanOrderFormSave,
   type CreateOrderResult,
   type OrderFormWrite,
+  type OrderLineCatalogFactsMap,
 } from "./order-form-plan";
 
 export function useOrderSave(args: {
   readonly loadKind: OrderFormLoadState["kind"];
   readonly getDraft: () => OrderFormDraft;
+  readonly getCatalogFacts: () => OrderLineCatalogFactsMap;
   readonly setOrigin: (draft: OrderFormDraft) => void;
   readonly onSaved: (orderId: string) => Promise<void>;
   readonly setFieldErrors: (errors: OrderFormFieldErrors) => void;
@@ -55,6 +57,7 @@ export function useOrderSave(args: {
     plan: ({ lastWrite, lastFailure }) =>
       parseThenPlanOrderFormSave({
         draft: args.getDraft(),
+        catalogFacts: args.getCatalogFacts(),
         lastWrite,
         lastFailureKind: lastFailure.kind,
         lastWireCode: lastFailure.wire,

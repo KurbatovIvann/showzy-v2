@@ -6,6 +6,7 @@ import {
   fieldErrorsFromFormState,
   mapOrderFormFailure,
   mapValidationIssues,
+  mapVariantSelectionConflict,
   resolveOrderFormCopy,
   rhfItemsMessage,
   rhfPathsForFieldErrors,
@@ -57,6 +58,75 @@ describe("mapOrderFormFailure / mapValidationIssues", () => {
       items: "required",
       comment: "too_long",
     });
+  });
+});
+
+describe("mapVariantSelectionConflict", () => {
+  it("maps structured variant reasons onto the items/variant picker", () => {
+    const required: unknown = new ORPCError("CONFLICT", {
+      defined: true,
+      status: 409,
+      message: "do-not-match-this",
+      data: { reason: "variant_required" },
+    });
+    expect(mapVariantSelectionConflict(required)).toEqual({
+      customer: null,
+      items: "variant_required",
+      comment: null,
+    });
+    const archivedOnly: unknown = new ORPCError("CONFLICT", {
+      defined: true,
+      status: 409,
+      message: "do-not-match-this",
+      data: { reason: "no_active_variants" },
+    });
+    expect(mapVariantSelectionConflict(archivedOnly)).toEqual({
+      customer: null,
+      items: "no_active_variants",
+      comment: null,
+    });
+    const stale: unknown = new ORPCError("CONFLICT", {
+      defined: true,
+      status: 409,
+      message: "do-not-match-this",
+      data: { reason: "variant_not_found" },
+    });
+    expect(mapVariantSelectionConflict(stale)).toEqual({
+      customer: null,
+      items: "variant_required",
+      comment: null,
+    });
+  });
+
+  it("maps a bare wire CONFLICT onto the variant picker, not a dead-end banner", () => {
+    const bare: unknown = new ORPCError("CONFLICT", {
+      defined: true,
+      status: 409,
+      message: "do-not-match-this",
+    });
+    expect(mapVariantSelectionConflict(bare)).toEqual({
+      customer: null,
+      items: "variant_required",
+      comment: null,
+    });
+    expect(mapOrderFormFailure("conflict", "CONFLICT")).toBe("unavailable");
+  });
+
+  it("does not map VALIDATION or retryable 409 codes", () => {
+    const validation: unknown = new ORPCError("VALIDATION", {
+      defined: true,
+      status: 400,
+      message: "do-not-match-this",
+      data: { issues: [] },
+    });
+    expect(mapVariantSelectionConflict(validation)).toBeNull();
+    const retrying: unknown = new ORPCError("RETRY_IN_PROGRESS", {
+      defined: true,
+      status: 409,
+      message: "do-not-match-this",
+      data: { retryAfterSec: 1 },
+    });
+    expect(mapVariantSelectionConflict(retrying)).toBeNull();
   });
 });
 
@@ -127,5 +197,25 @@ describe("resolveOrderFormCopy", () => {
     expect(pending.submitLabel).toBe(copy.submitCreateLoading);
     expect(pending.customerError).toBe(copy.errors.customerRequired);
     expect(pending.itemsError).toBe(copy.errors.itemsRequired);
+    const variant = resolveOrderFormCopy(copy, {
+      customerError: null,
+      itemsError: "variant_required",
+      commentError: null,
+      banner: null,
+      pending: false,
+      clientReady: true,
+      canCreate: true,
+    });
+    expect(variant.itemsError).toBe(copy.errors.itemsVariantRequired);
+    const archived = resolveOrderFormCopy(copy, {
+      customerError: null,
+      itemsError: "no_active_variants",
+      commentError: null,
+      banner: null,
+      pending: false,
+      clientReady: true,
+      canCreate: true,
+    });
+    expect(archived.itemsError).toBe(copy.errors.itemsNoActiveVariants);
   });
 });

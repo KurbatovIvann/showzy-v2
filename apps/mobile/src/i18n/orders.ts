@@ -44,6 +44,8 @@ export type OrdersCreateErrorCopy = {
   readonly itemsRequired: string;
   readonly itemsDuplicate: string;
   readonly itemsTooMany: string;
+  readonly itemsVariantRequired: string;
+  readonly itemsNoActiveVariants: string;
   readonly commentTooLong: string;
 } & WriteErrorsCopy;
 
@@ -256,6 +258,8 @@ const en: OrdersCopy = {
       itemsRequired: "Add at least one product",
       itemsDuplicate: "This product is already on the order.",
       itemsTooMany: "Too many lines. Maximum is 100.",
+      itemsVariantRequired: "Choose a variant",
+      itemsNoActiveVariants: "This product has no active variants",
       commentTooLong: "Comment is too long",
       validation: "Check the fields and try again.",
       network: "Network error. Check your connection.",
@@ -388,6 +392,8 @@ const uk: OrdersCopy = {
       itemsRequired: "Додайте хоча б один товар",
       itemsDuplicate: "Цей товар уже є в замовленні.",
       itemsTooMany: "Забагато позицій. Максимум 100.",
+      itemsVariantRequired: "Оберіть варіант",
+      itemsNoActiveVariants: "У цього товару немає активних варіантів",
       commentTooLong: "Коментар занадто довгий",
       validation: "Перевірте поля і спробуйте ще раз.",
       network: "Помилка мережі. Перевірте зʼєднання.",
