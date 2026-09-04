@@ -28,9 +28,15 @@ import {
 import { staffAssistantJsonChars } from "./json-chars.js";
 import { staffAssistantHistoryStats } from "./messages.js";
 import {
+  staffAssistantPersistedTurnText,
+  staffAssistantTurnUsesCompletedPresenter,
+  STAFF_ASSISTANT_DEFAULT_LOCALE,
+  type StaffAssistantLocale,
+  type StaffAssistantPresentedToolResult,
+} from "./presenter.js";
+import {
   createSpokenReplyUiTransform,
   isStaffAssistantSyntheticJsonTool,
-  spokenTurnText,
   staffAssistantSpokenOutputSchema,
 } from "./spoken-reply.js";
 import { staffAssistantSystemMessages } from "./system-prompt.js";
@@ -238,7 +244,11 @@ function wrapExecute(
  * so catalog list prices are not stripped because images bloated the
  * executeAction payload. Persistence still records the registry output.
  */
-function clipToolExecutes(tools: ToolSet, clipBytes: ClipByteMeter): void {
+function clipToolExecutes(
+  tools: ToolSet,
+  clipBytes: ClipByteMeter,
+  presented: StaffAssistantPresentedToolResult[],
+): void {
   for (const name of Object.keys(tools)) {
     if (name === STAFF_ASSISTANT_TOOL_SEARCH_NAME) {
       continue;
@@ -252,11 +262,13 @@ function clipToolExecutes(tools: ToolSet, clipBytes: ClipByteMeter): void {
       ...aiTool,
       execute: async (input, options) => {
         const output: unknown = await inner(input, options);
-        return meterToolResult(
+        const returned = meterToolResult(
           clipBytes,
           output,
           clipStaffAssistantToolResult(output),
         );
+        presented.push({ toolName: name, output: returned });
+        return returned;
       },
     };
   }
@@ -273,11 +285,54 @@ async function staffAssistantModelStepCount(
   }
 }
 
+const STAFF_ASSISTANT_PRESENTER_STREAM_TEXT_ID = "presenter";
+
+function isStaffAssistantTextStreamPartType(type: string): boolean {
+  return type === "text-start" || type === "text-delta" || type === "text-end";
+}
+
+/**
+ * Drop model `{ spoken }` text parts when a registered completed surface
+ * will replace the live bubble. Tool parts keep streaming.
+ */
+function createSuppressCompletedPresenterTextTransform<
+  T extends { readonly type: string },
+>(shouldSuppress: () => boolean): TransformStream<T, T> {
+  return new TransformStream<T, T>({
+    transform(part, controller) {
+      if (shouldSuppress() && isStaffAssistantTextStreamPartType(part.type)) {
+        return;
+      }
+      controller.enqueue(part);
+    },
+  });
+}
+
+async function writeUiMessageChunks<T>(
+  writer: { write: (part: T) => void },
+  stream: ReadableStream<T>,
+): Promise<void> {
+  const reader = stream.getReader();
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) {
+        return;
+      }
+      writer.write(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 /**
  * AI SDK 7 staff-panel loop (ADR-0032). `execute` is injected so this
  * package never calls `/rpc`. ConfirmationRequiredError pauses the loop
  * and is streamed as a `data-confirmation` part (redacted summary only).
  * The Redis challenge remains core.md §7 — this does not auto-confirm.
+ * When a registered completed surface exists, SSE `text-*` parts are the
+ * presenter string (same as persist), not model `{ spoken }`.
  */
 export function streamStaffAssistantChat(options: {
   readonly model: LanguageModel;
@@ -292,6 +347,11 @@ export function streamStaffAssistantChat(options: {
    * addendum is generated for this turn.
    */
   readonly turnContextAddendum?: string;
+  /**
+   * Explicit presenter locale from the chat request. Legacy callers
+   * omit this; default is Ukrainian.
+   */
+  readonly locale?: StaffAssistantLocale;
   /** Awaited inside the UI-message stream after `result.text`. A throw fails the stream. */
   readonly onTurn?: (turn: StaffAssistantTurnResult) => Promise<void>;
 }): {
@@ -299,13 +359,15 @@ export function streamStaffAssistantChat(options: {
   readonly completion: Promise<StaffAssistantTurnResult>;
 } {
   const runs: StaffAssistantToolRun[] = [];
+  const presentedToolResults: StaffAssistantPresentedToolResult[] = [];
   const clipBytes: ClipByteMeter = { in: 0, out: 0 };
   const history = staffAssistantHistoryStats(options.messages);
+  const locale = options.locale ?? STAFF_ASSISTANT_DEFAULT_LOCALE;
   const tools = staffAssistantTools(
     options.contracts,
     wrapExecute(options.execute, runs),
   );
-  clipToolExecutes(tools, clipBytes);
+  clipToolExecutes(tools, clipBytes, presentedToolResults);
   const toolsetHash = staffAssistantToolsetHash(Object.keys(tools));
 
   let resolveCompletion!: (value: StaffAssistantTurnResult) => void;
@@ -347,11 +409,20 @@ export function streamStaffAssistantChat(options: {
           }
         },
       });
-      writer.merge(
+      await writeUiMessageChunks(
+        writer,
         toUIMessageStream({
-          stream: result.stream.pipeThrough(
-            createSpokenReplyUiTransform({ runs }),
-          ),
+          stream: result.stream
+            .pipeThrough(createSpokenReplyUiTransform({ runs }))
+            .pipeThrough(
+              createSuppressCompletedPresenterTextTransform(() =>
+                staffAssistantTurnUsesCompletedPresenter({
+                  locale,
+                  toolResults: presentedToolResults,
+                  runs,
+                }),
+              ),
+            ),
           tools,
         }),
       );
@@ -368,7 +439,13 @@ export function streamStaffAssistantChat(options: {
         rawText = "The assistant could not complete this turn.";
       }
       const turn: StaffAssistantTurnResult = {
-        text: spokenTurnText({ parsedSpoken, rawText, runs }),
+        text: staffAssistantPersistedTurnText({
+          locale,
+          toolResults: presentedToolResults,
+          parsedSpoken,
+          rawText,
+          runs,
+        }),
         toolRuns: domainToolRuns(runs).slice(0, STAFF_ASSISTANT_TOOL_RUNS_MAX),
         usage: await staffAssistantTurnUsageFromTotal(result.usage),
         toolsAttached: options.contracts.length > 0,
@@ -379,6 +456,18 @@ export function streamStaffAssistantChat(options: {
         historyMessageCount: history.messageCount,
         historyChars: history.chars,
       };
+      if (
+        staffAssistantTurnUsesCompletedPresenter({
+          locale,
+          toolResults: presentedToolResults,
+          runs,
+        })
+      ) {
+        const id = STAFF_ASSISTANT_PRESENTER_STREAM_TEXT_ID;
+        writer.write({ type: "text-start", id });
+        writer.write({ type: "text-delta", id, delta: turn.text });
+        writer.write({ type: "text-end", id });
+      }
       resolveCompletion(turn);
       if (options.onTurn !== undefined) {
         await options.onTurn(turn);

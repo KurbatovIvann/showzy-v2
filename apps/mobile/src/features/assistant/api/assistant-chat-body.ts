@@ -1,7 +1,9 @@
 /**
  * Serialize useChat UI messages into the SSE mount body (SHO-322).
- * Strict `{ conversationId, messages }` — never `companyId`.
+ * Strict `{ conversationId, messages, locale }` — never `companyId`.
  */
+import { detectLocale, type Locale } from "../../../i18n/locale";
+
 export const ASSISTANT_CHAT_PATH = "/assistant/chat";
 export const STAFF_ASSISTANT_CHAT_MESSAGE_TEXT_MAX = 16_000;
 /** Match `@showzy/ai` request cap. Hydrated history can already be 50. */
@@ -38,6 +40,7 @@ export type StaffChatWireMessage = {
 export type StaffAssistantChatBody = {
   readonly conversationId: string;
   readonly messages: readonly StaffChatWireMessage[];
+  readonly locale: Locale;
 };
 
 export class AssistantConversationMissingError extends Error {
@@ -90,6 +93,7 @@ export function staffChatWireMessages(
 export function prepareStaffAssistantChatRequest(args: {
   readonly conversationId: string | null;
   readonly messages: readonly StaffChatUiMessage[];
+  readonly locale?: Locale;
 }): { readonly body: StaffAssistantChatBody } {
   if (args.conversationId === null) {
     throw new AssistantConversationMissingError();
@@ -98,6 +102,7 @@ export function prepareStaffAssistantChatRequest(args: {
     body: {
       conversationId: args.conversationId,
       messages: staffChatWireMessages(args.messages),
+      locale: args.locale ?? detectLocale(),
     },
   };
 }

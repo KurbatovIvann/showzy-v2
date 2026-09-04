@@ -82,6 +82,16 @@ export {
 } from "./toolset-hash.js";
 export { attemptKey, type StaffAssistantAttemptKind } from "./attempt-key.js";
 export {
+  presentCompletedStaffAssistantTurn,
+  staffAssistantLocaleSchema,
+  staffAssistantPersistedTurnText,
+  staffAssistantTurnUsesCompletedPresenter,
+  STAFF_ASSISTANT_DEFAULT_LOCALE,
+  STAFF_ASSISTANT_LOCALES,
+  type StaffAssistantLocale,
+  type StaffAssistantPresentedToolResult,
+} from "./presenter.js";
+export {
   lastStaffAssistantUserMessage,
   pausedToolAttemptForChallenge,
   pausedToolAttemptFromToolRuns,

@@ -76,6 +76,34 @@ describe("staffAssistantChatBodySchema", () => {
       }).success,
     ).toBe(true);
   });
+
+  it("defaults locale to omitted (uk at the mount) and accepts uk or en", () => {
+    const base = {
+      conversationId,
+      messages: [userMessage("List orders")],
+    };
+    const omitted = staffAssistantChatBodySchema.safeParse(base);
+    expect(omitted.success).toBe(true);
+    if (omitted.success) {
+      expect(omitted.data.locale).toBeUndefined();
+    }
+    expect(
+      staffAssistantChatBodySchema.safeParse({ ...base, locale: "uk" }).success,
+    ).toBe(true);
+    expect(
+      staffAssistantChatBodySchema.safeParse({ ...base, locale: "en" }).success,
+    ).toBe(true);
+  });
+
+  it("rejects an invalid locale", () => {
+    expect(
+      staffAssistantChatBodySchema.safeParse({
+        conversationId,
+        messages: [userMessage("List orders")],
+        locale: "fr",
+      }).success,
+    ).toBe(false);
+  });
 });
 
 describe("staffAssistantModelMessages", () => {

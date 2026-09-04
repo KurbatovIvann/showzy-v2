@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { STAFF_ASSISTANT_CACHE_PROVIDER_OPTIONS } from "./anthropic-options.js";
 import { confirmationFromChatPart } from "./confirmation.js";
+import { staffAssistantLocaleSchema } from "./presenter.js";
 
 /**
  * Match `assistant` `messageBodySchema` (16_000). Request validation so
@@ -60,6 +61,7 @@ export const staffAssistantChatBodySchema = z.strictObject({
     .array(staffAssistantChatMessageSchema)
     .min(1)
     .max(STAFF_ASSISTANT_CHAT_MESSAGES_MAX),
+  locale: staffAssistantLocaleSchema.optional(),
 });
 
 export type StaffAssistantChatMessage = z.infer<

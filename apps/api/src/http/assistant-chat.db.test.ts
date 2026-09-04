@@ -20,9 +20,11 @@ import {
 import {
   MockLanguageModelV3,
   mockOperationalGateGenerate,
+  mockSpokenStream,
   mockTextStream,
   mockToolCallStream,
   readUiMessageSsePayloads,
+  sseVisibleTextFromPayloads,
 } from "@showzy/ai/test";
 import { createConversation, recordAssistantTurn } from "@showzy/assistant";
 import { createProduct } from "@showzy/catalog";
@@ -129,6 +131,7 @@ function userChatBody(
   conversationId: string,
   text: string,
   messageId: string = randomUUID(),
+  locale?: "uk" | "en",
 ) {
   return {
     conversationId,
@@ -139,6 +142,7 @@ function userChatBody(
         parts: [{ type: "text" as const, text }],
       },
     ],
+    ...(locale === undefined ? {} : { locale }),
   };
 }
 
@@ -210,6 +214,26 @@ async function waitFor(
     });
   }
   throw new Error(`timed out waiting for ${label}`);
+}
+
+async function waitForAssistantBody(conversationId: string): Promise<string> {
+  let body: string | undefined;
+  await waitFor(async () => {
+    const rows = await kit.db.runtime.db.select().from(assistantMessages);
+    const assistant = rows.find(
+      (row) =>
+        row.conversationId === conversationId && row.role === "assistant",
+    );
+    if (assistant === undefined) {
+      return false;
+    }
+    body = assistant.body;
+    return true;
+  }, "assistant persist");
+  if (body === undefined) {
+    throw new Error("missing assistant persist body");
+  }
+  return body;
 }
 
 let kit: TestKit;
@@ -629,7 +653,12 @@ describe("POST /assistant/chat mock-model parity", () => {
     });
     expect(response.status).toBe(200);
     const payloads = await readUiMessageSsePayloads(response);
-    expect(JSON.stringify(payloads)).toContain("You have no orders.");
+    const visible = sseVisibleTextFromPayloads(payloads);
+    expect(visible).not.toContain("You have no orders.");
+    expect(
+      visible === "Немає замовлень." ||
+        visible.startsWith("Останні замовлення:"),
+    ).toBe(true);
     await waitFor(async () => {
       const runs = await kit.db.runtime.db.select().from(assistantToolRuns);
       return runs.some(
@@ -641,6 +670,136 @@ describe("POST /assistant/chat mock-model parity", () => {
     }, "orders.list tool run");
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
+  });
+
+  it("persists presenter list spoken in assistant_messages.body, not mock model spoken", async () => {
+    const modelSpoken = "MODEL_SPOKEN_SHOULD_NOT_PERSIST";
+    const app = chatApp(
+      new MockLanguageModelV3({
+        doStream: [
+          mockToolCallStream("call-list", ORDERS_LIST_PAGE_TOOL_NAME, "{}"),
+          mockSpokenStream(modelSpoken),
+        ],
+      }),
+    );
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Presenter persist uk",
+    });
+    const response = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "List orders", randomUUID(), "uk"),
+    });
+    expect(response.status).toBe(200);
+    await readUiMessageSsePayloads(response);
+    const body = await waitForAssistantBody(conversation.id);
+    expect(body).not.toBe(modelSpoken);
+    expect(
+      body === "Немає замовлень." || body.startsWith("Останні замовлення:"),
+    ).toBe(true);
+  });
+
+  it("persists English presenter text when locale is en", async () => {
+    const modelSpoken = "MODEL_SPOKEN_SHOULD_NOT_PERSIST";
+    const app = chatApp(
+      new MockLanguageModelV3({
+        doStream: [
+          mockToolCallStream("call-list", ORDERS_LIST_PAGE_TOOL_NAME, "{}"),
+          mockSpokenStream(modelSpoken),
+        ],
+      }),
+    );
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Presenter persist en",
+    });
+    const response = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "List orders", randomUUID(), "en"),
+    });
+    expect(response.status).toBe(200);
+    await readUiMessageSsePayloads(response);
+    const body = await waitForAssistantBody(conversation.id);
+    expect(body).not.toBe(modelSpoken);
+    expect(body === "No orders." || body.startsWith("Latest orders:")).toBe(
+      true,
+    );
+  });
+
+  it("defaults persisted presenter locale to uk when locale is omitted", async () => {
+    const modelSpoken = "MODEL_SPOKEN_SHOULD_NOT_PERSIST";
+    const app = chatApp(
+      new MockLanguageModelV3({
+        doStream: [
+          mockToolCallStream("call-list", ORDERS_LIST_PAGE_TOOL_NAME, "{}"),
+          mockSpokenStream(modelSpoken),
+        ],
+      }),
+    );
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Presenter persist default locale",
+    });
+    const response = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "List orders"),
+    });
+    expect(response.status).toBe(200);
+    await readUiMessageSsePayloads(response);
+    const body = await waitForAssistantBody(conversation.id);
+    expect(body).not.toBe(modelSpoken);
+    expect(
+      body === "Немає замовлень." || body.startsWith("Останні замовлення:"),
+    ).toBe(true);
+  });
+
+  it("persists model spoken when the turn has no registered surface", async () => {
+    const spoken = "I can look up orders when you ask.";
+    const app = chatApp(
+      new MockLanguageModelV3({
+        doStream: [mockSpokenStream(spoken)],
+      }),
+    );
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Spoken-only persist",
+    });
+    const response = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "Hello"),
+    });
+    expect(response.status).toBe(200);
+    await readUiMessageSsePayloads(response);
+    expect(await waitForAssistantBody(conversation.id)).toBe(spoken);
+  });
+
+  it("rejects an invalid locale before the model runs", async () => {
+    const model = new MockLanguageModelV3({
+      doStream: [mockTextStream("should not run")],
+    });
+    const app = chatApp(model);
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Invalid locale",
+    });
+    const response = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: {
+        ...userChatBody(conversation.id, "List orders"),
+        locale: "fr",
+      },
+    });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      code: "VALIDATION",
+      status: 400,
+    });
+    expect(model.doStreamCalls).toHaveLength(0);
   });
 
   it("eval 1: active-order product quantities use one orders_list_counts", async () => {

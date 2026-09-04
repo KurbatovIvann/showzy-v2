@@ -28,12 +28,14 @@ import {
   staffAssistantUncachedInputTokens,
   staffAssistantWorkingSetAddendum,
   streamStaffAssistantChat,
+  STAFF_ASSISTANT_DEFAULT_LOCALE,
   STAFF_ASSISTANT_THINKING_DISABLED,
   STAFF_ASSISTANT_TOOL_RUNS_MAX,
   type LanguageModel,
   type PausedToolAttempt,
   type StaffAssistantChatMessage,
   type StaffAssistantGateSkipReason,
+  type StaffAssistantLocale,
   type StaffAssistantTurnResult,
   type StaffAssistantTurnUsage,
 } from "@showzy/ai";
@@ -341,6 +343,7 @@ function confirmationResumeIssue(message: string): ValidationError {
 async function parseChatBody(request: Request): Promise<{
   conversationId: string;
   messages: StaffAssistantChatMessage[];
+  locale: StaffAssistantLocale;
 }> {
   let raw: unknown;
   try {
@@ -359,7 +362,11 @@ async function parseChatBody(request: Request): Promise<{
   if (!parsed.success) {
     throw new ValidationError(parsed.error.issues);
   }
-  return parsed.data;
+  return {
+    conversationId: parsed.data.conversationId,
+    messages: parsed.data.messages,
+    locale: parsed.data.locale ?? STAFF_ASSISTANT_DEFAULT_LOCALE,
+  };
 }
 
 function staffRequest(options: {
@@ -608,6 +615,7 @@ export async function executeStaffAssistantChat(
       contracts: streamContracts,
       abortSignal: options.request.signal,
       turnContextAddendum,
+      locale: body.locale,
       responseHeaders: {
         "cache-control": "private, no-store",
         [REQUEST_ID_HEADER]: options.requestId,
