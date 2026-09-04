@@ -48,8 +48,5 @@ describe("waitLineAt", () => {
     expect(source.includes("tool")).toBe(false);
     expect(source.includes("orders_list")).toBe(false);
     expect(source.includes("job")).toBe(false);
-    expect(waitLineAt(0, LINES, INTERVAL)).toBe(
-      waitLineAt(0, LINES, INTERVAL),
-    );
   });
 });

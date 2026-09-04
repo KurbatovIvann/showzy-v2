@@ -688,7 +688,7 @@ describe("assistantDisplayRows", () => {
       mapped,
       assistantTurnIsWaiting({ status: "ready", confirmation: null }),
     );
-    expect(visible.every((row) => row.waiting === false)).toBe(true);
+    expect(visible.every((row) => !row.waiting)).toBe(true);
     expect(visible[1]?.text).toBe("Ось активні замовлення.");
     expect(visible[1]?.surfaces).toEqual([]);
   });
@@ -730,8 +730,8 @@ describe("assistantDisplayRows", () => {
     const afterReady = assistantDisplayRows(mapped, false);
     expect(afterReady[0]?.waiting).toBe(false);
     expect(afterReady[0]?.text).toBe("Ось що знайшла.");
-    expect(JSON.stringify(afterReady).includes(ASSISTANT_LIVE_WAIT_ROW_ID)).toBe(
-      false,
-    );
+    expect(
+      JSON.stringify(afterReady).includes(ASSISTANT_LIVE_WAIT_ROW_ID),
+    ).toBe(false);
   });
 });

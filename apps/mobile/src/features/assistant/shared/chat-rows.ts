@@ -17,11 +17,7 @@ const EMPTY_SURFACES: readonly AssistantSurface[] = [];
 /** Stable FlashList id for the live wait line (not persisted). */
 export const ASSISTANT_LIVE_WAIT_ROW_ID = "assistant-wait";
 
-export type AssistantLiveStatus =
-  | "submitted"
-  | "streaming"
-  | "ready"
-  | "error";
+export type AssistantLiveStatus = "submitted" | "streaming" | "ready" | "error";
 
 export type AssistantTimelineStep = {
   readonly id: string;
