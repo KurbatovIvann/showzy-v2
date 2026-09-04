@@ -22,8 +22,9 @@ import {
   StaffAssistantNotConfiguredError,
   staffAssistantCacheHitRatio,
   staffAssistantChatBodySchema,
+  staffAssistantGateToolPolicy,
   staffAssistantModelMessages,
-  staffAssistantShouldSkipOperationalGate,
+  staffAssistantShouldSkipIntentGate,
   staffAssistantTurnContextAddendum,
   staffAssistantUncachedInputTokens,
   staffAssistantWorkingSetAddendum,
@@ -34,7 +35,9 @@ import {
   type LanguageModel,
   type PausedToolAttempt,
   type StaffAssistantChatMessage,
+  type StaffAssistantForcedToolName,
   type StaffAssistantGateSkipReason,
+  type StaffAssistantGateToolPolicy,
   type StaffAssistantLocale,
   type StaffAssistantTurnResult,
   type StaffAssistantTurnUsage,
@@ -235,14 +238,22 @@ function logTurnGate(options: {
   readonly logger: Logger;
   readonly requestId: string;
   readonly gateModel: string;
-  readonly operational: boolean;
+  readonly policy: StaffAssistantGateToolPolicy;
+  readonly mode: string;
+  readonly intent?: string;
+  readonly confidence: string;
   readonly skip?: StaffAssistantGateSkipReason;
 }): void {
   options.logger.info(
     {
       request_id: options.requestId,
       gate_model: options.gateModel,
-      operational: options.operational,
+      gate_mode: options.mode,
+      ...(options.intent !== undefined ? { gate_intent: options.intent } : {}),
+      gate_confidence: options.confidence,
+      ...(options.policy.kind === "forced"
+        ? { gate_forced_tool: options.policy.toolName }
+        : {}),
       ...(options.skip !== undefined ? { gate_skip: options.skip } : {}),
     },
     "staff assistant turn gate",
@@ -513,52 +524,61 @@ export async function executeStaffAssistantChat(
     const model = resolveLanguageModel(options.assistant);
     const gateLanguageModel = resolveGateLanguageModel(options.assistant);
     const confirmationResume = confirmationChallengeId !== undefined;
-    let operational = true;
+    const skipGate = staffAssistantShouldSkipIntentGate({
+      confirmationResume,
+    });
+    let gatePolicy: StaffAssistantGateToolPolicy = { kind: "full" };
     let gateRan = false;
     let gateSkip: StaffAssistantGateSkipReason | undefined;
     let gateUsage = EMPTY_STAFF_ASSISTANT_TURN_USAGE;
+    let forcedToolName: StaffAssistantForcedToolName | undefined;
 
-    if (!confirmationResume && gateLanguageModel !== undefined) {
+    if (!skipGate && gateLanguageModel !== undefined) {
       const lastUserText = userMessage?.text ?? "";
       if (lastUserText.trim() !== "") {
-        if (
-          staffAssistantShouldSkipOperationalGate({
-            toolRunCount: conversation.toolRuns.length,
-          })
-        ) {
-          operational = true;
-          gateSkip = "sticky_session";
-          logTurnGate({
-            logger: options.pipeline.logger,
-            requestId: options.requestId,
-            gateModel: options.assistant?.gateModel ?? "unconfigured",
-            operational: true,
-            skip: "sticky_session",
-          });
-        } else {
-          const classified = await classifyStaffAssistantTurn({
-            model: gateLanguageModel,
-            lastUserText,
-            abortSignal: options.request.signal,
-          });
-          operational = classified.operational;
-          gateUsage = classified.usage;
-          gateRan = true;
-          logTurnGate({
-            logger: options.pipeline.logger,
-            requestId: options.requestId,
-            gateModel: options.assistant?.gateModel ?? "unconfigured",
-            operational,
-          });
+        const classified = await classifyStaffAssistantTurn({
+          model: gateLanguageModel,
+          lastUserText,
+          abortSignal: options.request.signal,
+        });
+        gatePolicy = staffAssistantGateToolPolicy(classified);
+        gateUsage = classified.usage;
+        gateRan = true;
+        if (gatePolicy.kind === "forced") {
+          forcedToolName = gatePolicy.toolName;
         }
+        logTurnGate({
+          logger: options.pipeline.logger,
+          requestId: options.requestId,
+          gateModel: options.assistant?.gateModel ?? "unconfigured",
+          policy: gatePolicy,
+          mode: classified.mode,
+          ...(classified.intent !== undefined
+            ? { intent: classified.intent }
+            : {}),
+          confidence: classified.confidence,
+        });
       }
+    } else if (skipGate) {
+      gateSkip = confirmationResume ? "confirmation_resume" : "choice_resume";
+      logTurnGate({
+        logger: options.pipeline.logger,
+        requestId: options.requestId,
+        gateModel: options.assistant?.gateModel ?? "unconfigured",
+        policy: { kind: "full" },
+        mode: "job",
+        intent: "other",
+        confidence: "high",
+        skip: gateSkip,
+      });
     }
 
+    const attachTools = gatePolicy.kind !== "none";
     const replyModel =
-      !operational && gateLanguageModel !== undefined
+      !attachTools && gateLanguageModel !== undefined
         ? gateLanguageModel
         : model;
-    const replyModelId = operational
+    const replyModelId = attachTools
       ? (options.assistant?.model ?? "unconfigured")
       : (options.assistant?.gateModel ??
         options.assistant?.model ??
@@ -589,7 +609,7 @@ export async function executeStaffAssistantChat(
       role: actor.role,
       permissions: actor.permissions,
     });
-    const streamContracts = operational ? contracts : [];
+    const streamContracts = attachTools ? contracts : [];
 
     let confirmationClaimed = false;
     function claimPausedAttempt(
@@ -613,6 +633,7 @@ export async function executeStaffAssistantChat(
       model: replyModel,
       messages: modelMessages,
       contracts: streamContracts,
+      ...(forcedToolName !== undefined ? { forcedToolName } : {}),
       abortSignal: options.request.signal,
       turnContextAddendum,
       locale: body.locale,

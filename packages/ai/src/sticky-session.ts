@@ -1,14 +1,14 @@
 /**
- * Sticky operational session for the staff gate. After any tool run in
- * the conversation, later turns stay on Sonnet+tools. The classifier
- * runs only on conversations that have not used tools yet (first turn,
- * or chitchat that never executed an action). Phrase allowlists are not
- * part of this decision.
+ * Intent-routing skip for HITL resumes only (SHO-404). Confirmation and
+ * choice resumes do not run the classifier. A later user turn after tool
+ * runs still routes — `sticky_session` must not bypass intent.
  */
-export type StaffAssistantGateSkipReason = "sticky_session";
+export type StaffAssistantGateSkipReason =
+  "confirmation_resume" | "choice_resume";
 
-export function staffAssistantShouldSkipOperationalGate(options: {
-  readonly toolRunCount: number;
+export function staffAssistantShouldSkipIntentGate(options: {
+  readonly confirmationResume?: boolean;
+  readonly choiceResume?: boolean;
 }): boolean {
-  return options.toolRunCount > 0;
+  return options.confirmationResume === true || options.choiceResume === true;
 }

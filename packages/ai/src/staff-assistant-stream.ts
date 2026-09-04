@@ -15,10 +15,12 @@ import {
 import { z } from "zod";
 
 import {
+  pickStaffAssistantForcedTool,
   staffAssistantTools,
   STAFF_ASSISTANT_TOOL_SEARCH_NAME,
   type ActionToolExecute,
 } from "./action-tool.js";
+import type { StaffAssistantForcedToolName } from "./gate.js";
 import { STAFF_ASSISTANT_ANTHROPIC_PROVIDER_OPTIONS } from "./anthropic-options.js";
 import { clipStaffAssistantToolResult } from "./clip-tool-result.js";
 import {
@@ -145,6 +147,23 @@ function stepRequestedConfirmation(steps: Array<StepResult<ToolSet>>): boolean {
   }
   return last.toolResults.some((result) =>
     isStaffAssistantConfirmationOutput(result.output),
+  );
+}
+
+/**
+ * Forced-job lifecycle: stop after a domain tool result (completed view,
+ * `needs_choice`, `confirmation_required`, or `error`). Do not force a
+ * second tool for presentation.
+ */
+function stepReachedForcedJobTerminal(
+  steps: Array<StepResult<ToolSet>>,
+): boolean {
+  const last = steps.at(-1);
+  if (last === undefined) {
+    return false;
+  }
+  return last.toolResults.some(
+    (result) => !isStaffAssistantSyntheticJsonTool(result.toolName),
   );
 }
 
@@ -352,6 +371,11 @@ export function streamStaffAssistantChat(options: {
    * omit this; default is Ukrainian.
    */
   readonly locale?: StaffAssistantLocale;
+  /**
+   * High-confidence job intent (SHO-404): attach only this ToolSet key
+   * and `toolChoice: "required"`. Omit for today's hot set + BM25.
+   */
+  readonly forcedToolName?: StaffAssistantForcedToolName;
   /** Awaited inside the UI-message stream after `result.text`. A throw fails the stream. */
   readonly onTurn?: (turn: StaffAssistantTurnResult) => Promise<void>;
 }): {
@@ -363,10 +387,17 @@ export function streamStaffAssistantChat(options: {
   const clipBytes: ClipByteMeter = { in: 0, out: 0 };
   const history = staffAssistantHistoryStats(options.messages);
   const locale = options.locale ?? STAFF_ASSISTANT_DEFAULT_LOCALE;
-  const tools = staffAssistantTools(
+  const catalog = staffAssistantTools(
     options.contracts,
     wrapExecute(options.execute, runs),
   );
+  const tools =
+    options.forcedToolName !== undefined
+      ? pickStaffAssistantForcedTool(catalog, options.forcedToolName)
+      : catalog;
+  const forceJobTool =
+    options.forcedToolName !== undefined &&
+    tools[options.forcedToolName] !== undefined;
   clipToolExecutes(tools, clipBytes, presentedToolResults);
   const toolsetHash = staffAssistantToolsetHash(Object.keys(tools));
 
@@ -387,6 +418,7 @@ export function streamStaffAssistantChat(options: {
         ),
         messages: options.messages,
         tools,
+        ...(forceJobTool ? { toolChoice: "required" as const } : {}),
         output: Output.object({ schema: staffAssistantSpokenOutputSchema }),
         providerOptions: {
           anthropic: STAFF_ASSISTANT_ANTHROPIC_PROVIDER_OPTIONS,
@@ -394,9 +426,22 @@ export function streamStaffAssistantChat(options: {
         ...(options.abortSignal !== undefined
           ? { abortSignal: options.abortSignal }
           : {}),
+        prepareStep: ({ steps }) => {
+          if (!forceJobTool) {
+            return undefined;
+          }
+          if (stepReachedForcedJobTerminal(steps)) {
+            return { toolChoice: "none" as const };
+          }
+          if (steps.length === 0) {
+            return { toolChoice: "required" as const };
+          }
+          return { toolChoice: "none" as const };
+        },
         stopWhen: [
           ({ steps }) => steps.length >= STAFF_ASSISTANT_MAX_STEPS,
           ({ steps }) => stepRequestedConfirmation(steps),
+          ({ steps }) => forceJobTool && stepReachedForcedJobTerminal(steps),
         ],
         onStepEnd: ({ toolResults }) => {
           for (const toolResult of toolResults) {
