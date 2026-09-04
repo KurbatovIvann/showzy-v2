@@ -4,6 +4,8 @@
  */
 export const ASSISTANT_CHAT_PATH = "/assistant/chat";
 export const STAFF_ASSISTANT_CHAT_MESSAGE_TEXT_MAX = 16_000;
+/** Match `@showzy/ai` request cap. Hydrated history can already be 50. */
+export const STAFF_ASSISTANT_CHAT_MESSAGES_MAX = 50;
 
 export function assistantChatUrl(apiOrigin: string): string {
   return `${apiOrigin.replace(/\/+$/, "")}${ASSISTANT_CHAT_PATH}`;
@@ -80,7 +82,9 @@ export function staffChatWireMessages(
       parts: wireParts(message.parts ?? []),
     });
   }
-  return wired;
+  return wired.length > STAFF_ASSISTANT_CHAT_MESSAGES_MAX
+    ? wired.slice(-STAFF_ASSISTANT_CHAT_MESSAGES_MAX)
+    : wired;
 }
 
 export function prepareStaffAssistantChatRequest(args: {

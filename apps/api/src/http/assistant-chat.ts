@@ -171,10 +171,6 @@ function wireResponse(error: unknown, requestId: string): Response {
   return jsonResponse(wire.status, body, requestId);
 }
 
-function logFailure(logger: Logger, requestId: string, code: string): void {
-  logger.error({ request_id: requestId, code }, "staff assistant chat failed");
-}
-
 function logTurnUsage(options: {
   readonly logger: Logger;
   readonly requestId: string;
@@ -259,6 +255,21 @@ function failureCode(error: unknown): string {
     return error.code;
   }
   return "INTERNAL";
+}
+
+function logFailure(logger: Logger, requestId: string, error: unknown): void {
+  const issuePaths =
+    error instanceof ValidationError
+      ? error.issues.map((issue) => issue.path.map(String).join("."))
+      : undefined;
+  logger.error(
+    {
+      request_id: requestId,
+      code: failureCode(error),
+      ...(issuePaths !== undefined ? { issue_paths: issuePaths } : {}),
+    },
+    "staff assistant chat failed",
+  );
 }
 
 function resolveLanguageModel(
@@ -682,11 +693,7 @@ export async function executeStaffAssistantChat(
             turn,
           });
         } catch (error: unknown) {
-          logFailure(
-            options.pipeline.logger,
-            options.requestId,
-            failureCode(error),
-          );
+          logFailure(options.pipeline.logger, options.requestId, error);
           throw error;
         }
       },
@@ -694,7 +701,7 @@ export async function executeStaffAssistantChat(
 
     return response;
   } catch (error) {
-    logFailure(options.pipeline.logger, options.requestId, failureCode(error));
+    logFailure(options.pipeline.logger, options.requestId, error);
     return wireResponse(error, options.requestId);
   }
 }

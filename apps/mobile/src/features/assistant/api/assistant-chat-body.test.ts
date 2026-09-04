@@ -8,6 +8,7 @@ import {
   prepareStaffAssistantSendMessagesRequest,
   staffChatWireMessages,
   STAFF_ASSISTANT_CHAT_MESSAGE_TEXT_MAX,
+  STAFF_ASSISTANT_CHAT_MESSAGES_MAX,
 } from "./assistant-chat-body";
 
 const conversationId = "11111111-1111-4111-8111-111111111111";
@@ -74,6 +75,23 @@ describe("staffChatWireMessages", () => {
         ],
       },
     ]);
+  });
+
+  it("windows history to the SSE mount message cap", () => {
+    const messages = Array.from(
+      { length: STAFF_ASSISTANT_CHAT_MESSAGES_MAX + 1 },
+      (_, index) => ({
+        id: `m${String(index)}`,
+        role: (index % 2 === 0 ? "user" : "assistant") as const,
+        parts: [{ type: "text" as const, text: `turn-${String(index)}` }],
+      }),
+    );
+    const wired = staffChatWireMessages(messages);
+    expect(wired).toHaveLength(STAFF_ASSISTANT_CHAT_MESSAGES_MAX);
+    expect(wired[0]?.id).toBe("m1");
+    expect(wired.at(-1)?.id).toBe(
+      `m${String(STAFF_ASSISTANT_CHAT_MESSAGES_MAX)}`,
+    );
   });
 });
 
