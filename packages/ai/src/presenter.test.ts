@@ -385,12 +385,12 @@ describe("staffAssistantTurnUsesCompletedPresenter", () => {
         runs: [{ outcome: "choice_required" }],
       }),
     ).toBe(true);
-    expect(
-      presentChoiceStaffAssistantTurn({ locale: "en", toolResults }),
-    ).toBe("Select a variant for Macarons: Lemon, Vanilla.");
-    expect(
-      presentChoiceStaffAssistantTurn({ locale: "uk", toolResults }),
-    ).toBe("Оберіть варіант для Macarons: Lemon, Vanilla.");
+    expect(presentChoiceStaffAssistantTurn({ locale: "en", toolResults })).toBe(
+      "Select a variant for Macarons: Lemon, Vanilla.",
+    );
+    expect(presentChoiceStaffAssistantTurn({ locale: "uk", toolResults })).toBe(
+      "Оберіть варіант для Macarons: Lemon, Vanilla.",
+    );
     expect(
       staffAssistantPersistedTurnText({
         locale: "en",

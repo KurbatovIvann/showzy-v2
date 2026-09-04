@@ -559,9 +559,7 @@ describe("assistantTurnIsWaiting", () => {
       challengeId: "33333333-3333-4333-8333-333333333333",
       reason: "variant_required",
       productName: "Macarons",
-      options: [
-        { id: "88888888-8888-4888-8888-888888888888", label: "Lemon" },
-      ],
+      options: [{ id: "88888888-8888-4888-8888-888888888888", label: "Lemon" }],
       optionsTruncated: false,
       messageId: "a1",
     };

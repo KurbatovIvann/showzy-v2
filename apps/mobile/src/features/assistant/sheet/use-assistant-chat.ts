@@ -74,11 +74,12 @@ export function useAssistantChat(): {
       readonly label: string;
     }[];
     readonly optionsTruncated?: boolean;
-    readonly entity?: { readonly orderId: string; readonly orderNumber: string };
+    readonly entity?: {
+      readonly orderId: string;
+      readonly orderNumber: string;
+    };
   }>;
-  readonly appendAssistantParts: (
-    parts: readonly AssistantChatPart[],
-  ) => void;
+  readonly appendAssistantParts: (parts: readonly AssistantChatPart[]) => void;
 } {
   const auth = useAuthSession();
   const apiClient = useApiClient();

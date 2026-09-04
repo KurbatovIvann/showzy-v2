@@ -263,9 +263,7 @@ function wrapExecute(
         input,
         error,
         locale: hooks.locale,
-        ...(hooks.choiceBind !== undefined
-          ? { bind: hooks.choiceBind }
-          : {}),
+        ...(hooks.choiceBind !== undefined ? { bind: hooks.choiceBind } : {}),
         ...(hooks.openChoice !== undefined
           ? { openChoice: hooks.openChoice }
           : {}),

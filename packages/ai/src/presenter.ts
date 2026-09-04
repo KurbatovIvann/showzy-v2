@@ -500,9 +500,7 @@ export function staffAssistantTurnUsesCompletedPresenter(options: {
   readonly toolResults: readonly StaffAssistantPresentedToolResult[];
   readonly runs: readonly SpokenTurnRun[];
 }): boolean {
-  if (
-    options.runs.some((run) => run.outcome === "confirmation_required")
-  ) {
+  if (options.runs.some((run) => run.outcome === "confirmation_required")) {
     return false;
   }
   if (

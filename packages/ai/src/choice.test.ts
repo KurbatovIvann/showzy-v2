@@ -226,7 +226,10 @@ class DuckTypedPickerConflict extends ConflictError {
 
   constructor(args: {
     readonly reason: string;
-    readonly options: readonly { readonly id: string; readonly label: string }[];
+    readonly options: readonly {
+      readonly id: string;
+      readonly label: string;
+    }[];
     readonly optionsTruncated?: boolean;
   }) {
     super('Select a variant for "Macarons".');
@@ -271,9 +274,7 @@ describe("duck-typed catalog CONFLICT extras (SHO-418)", () => {
       ),
     ).toBeUndefined();
     expect(
-      catalogPickerConflictExtrasFromError(
-        new ConflictError("plain conflict"),
-      ),
+      catalogPickerConflictExtrasFromError(new ConflictError("plain conflict")),
     ).toBeUndefined();
   });
 

@@ -52,10 +52,7 @@ export type AssistantHistoryToolRun = {
   readonly challengeId?: string | null;
   readonly resultIds: readonly string[];
   readonly outcome:
-    | "success"
-    | "error"
-    | "confirmation_required"
-    | "choice_required";
+    "success" | "error" | "confirmation_required" | "choice_required";
   readonly createdAt: string;
 };
 

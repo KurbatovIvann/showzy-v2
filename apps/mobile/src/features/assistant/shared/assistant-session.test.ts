@@ -498,9 +498,7 @@ describe("resumeOwnAssistantConversation", () => {
       challengeId: choiceId,
       reason: "variant_required" as const,
       productName: "Macarons",
-      options: [
-        { id: "77777777-7777-4777-8777-777777777777", label: "Lemon" },
-      ],
+      options: [{ id: "77777777-7777-4777-8777-777777777777", label: "Lemon" }],
       optionsTruncated: false,
     };
     const peekChoice = vi.fn((input: { choiceId: string }) => {

@@ -2533,9 +2533,7 @@ describe("SHO-418 orders_create choice activation", () => {
           ORDERS_CREATE_TOOL_NAME,
           JSON.stringify({
             customerQuery: "T8b Six Buyer",
-            items: [
-              { productQuery: "T8b Six Flavours", quantityDecimal: "1" },
-            ],
+            items: [{ productQuery: "T8b Six Flavours", quantityDecimal: "1" }],
           }),
         ),
         mockSpokenStream("MODEL_SHOULD_NOT_PERSIST"),
@@ -2564,8 +2562,9 @@ describe("SHO-418 orders_create choice activation", () => {
     expect(choice?.options.map((option) => option.label)).toEqual(
       expect.arrayContaining([...sixFlavours]),
     );
-    expect(choice?.options.some((option) => option.label === "T8b Six Flavours"))
-      .toBe(false);
+    expect(
+      choice?.options.some((option) => option.label === "T8b Six Flavours"),
+    ).toBe(false);
     expect(JSON.stringify(choice)).not.toContain("canonicalInput");
     expect(open).toHaveBeenCalledOnce();
     const body = await waitForAssistantBody(conversation.id);

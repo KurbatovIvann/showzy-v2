@@ -71,10 +71,7 @@ describe("choice truncated copy", () => {
     expect(en.choiceTruncated).toBe(CHOICE_TRUNCATED_COPY.en);
     expect(uk.choiceTruncated).toBe(CHOICE_TRUNCATED_COPY.uk);
     expect(
-      presentChoiceCardText(
-        { ...openEnvelope, optionsTruncated: true },
-        "en",
-      ),
+      presentChoiceCardText({ ...openEnvelope, optionsTruncated: true }, "en"),
     ).toContain(CHOICE_TRUNCATED_COPY.en);
   });
 

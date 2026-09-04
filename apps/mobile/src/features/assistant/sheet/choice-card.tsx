@@ -13,8 +13,7 @@ export function ChoiceCard(props: {
   readonly choice: StaffAssistantChoiceCardEnvelope;
   readonly onSelect: (optionId: string) => void;
 }) {
-  const tappable =
-    props.choice.status === "needs_choice" && !props.applying;
+  const tappable = props.choice.status === "needs_choice" && !props.applying;
   const expired = props.choice.status === "expired";
 
   return (

@@ -146,8 +146,7 @@ export async function resumeOwnAssistantConversation(args: {
     return { kind: "dropped" };
   }
   let choiceEnvelopes:
-    | ReadonlyMap<string, StaffAssistantChoiceCardEnvelope>
-    | undefined;
+    ReadonlyMap<string, StaffAssistantChoiceCardEnvelope> | undefined;
   if (args.peekChoice !== undefined) {
     const peekChoice = args.peekChoice;
     const conversationIdForPeek = detail.id;

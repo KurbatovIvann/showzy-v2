@@ -677,9 +677,9 @@ describe("choice hydrate (SHO-418)", () => {
       "text",
       "data-choice",
     ]);
-    expect(
-      assistantSurfacesFromParts(messages[0]?.parts ?? [], "uk"),
-    ).toEqual([]);
+    expect(assistantSurfacesFromParts(messages[0]?.parts ?? [], "uk")).toEqual(
+      [],
+    );
   });
 });
 

@@ -28,9 +28,7 @@ export function useAssistantChoice(args: {
   readonly select: (optionId: string) => void;
   readonly reset: () => void;
 } {
-  const [ignored, setIgnored] = useState<ReadonlySet<string>>(
-    () => new Set(),
-  );
+  const [ignored, setIgnored] = useState<ReadonlySet<string>>(() => new Set());
   const [resolvingChallengeId, setResolvingChallengeId] = useState<
     string | null
   >(null);

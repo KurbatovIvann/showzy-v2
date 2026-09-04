@@ -1725,7 +1725,8 @@ describe("streamStaffAssistantChat", () => {
               items: [
                 {
                   productQuery: "Macarons",
-                  variantQuery: reason === "unmatched_query" ? "Pistachio" : "e",
+                  variantQuery:
+                    reason === "unmatched_query" ? "Pistachio" : "e",
                   quantityDecimal: "1",
                 },
               ],
