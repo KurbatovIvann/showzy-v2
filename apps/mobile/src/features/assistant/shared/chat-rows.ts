@@ -160,24 +160,35 @@ function toVisibleRow(row: AssistantChatRow): AssistantVisibleRow | null {
   };
 }
 
+function lastIndexOfRole(
+  rows: readonly AssistantChatRow[],
+  role: "user" | "assistant",
+): number {
+  for (let index = rows.length - 1; index >= 0; index -= 1) {
+    if (rows[index]?.role === role) {
+      return index;
+    }
+  }
+  return -1;
+}
+
 /**
  * Live-turn presentation: one wait row while in flight; spoken + surfaces
- * together when ready. Past / hydrate turns never wait.
+ * together when ready. Past / hydrate turns never wait. Hide streamed
+ * text/surfaces only for the current-turn assistant (after the last user
+ * row). A previous ready reply stays visible during a follow-up wait.
  */
 export function assistantDisplayRows(
   rows: readonly AssistantChatRow[],
   liveWaiting: boolean,
 ): readonly AssistantVisibleRow[] {
-  let lastAssistantIndex = -1;
-  for (let index = rows.length - 1; index >= 0; index -= 1) {
-    if (rows[index]?.role === "assistant") {
-      lastAssistantIndex = index;
-      break;
-    }
-  }
+  const lastAssistantIndex = lastIndexOfRole(rows, "assistant");
+  const lastUserIndex = lastIndexOfRole(rows, "user");
+  const hideCurrentAssistant =
+    liveWaiting && lastAssistantIndex > lastUserIndex;
   const visible: AssistantVisibleRow[] = [];
   for (const [index, row] of rows.entries()) {
-    if (liveWaiting && index === lastAssistantIndex) {
+    if (hideCurrentAssistant && index === lastAssistantIndex) {
       continue;
     }
     const displayed = toVisibleRow(row);
