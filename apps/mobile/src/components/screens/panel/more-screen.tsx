@@ -18,7 +18,7 @@ import { documentsHref } from "../../../features/documents/shared/document-hrefs
 import { priceListsHref } from "../../../features/pricing/shared/price-list-hrefs";
 import { detectLocale } from "../../../i18n/locale";
 import { panelCopy } from "../../../i18n/panel";
-import { Button, Card } from "../../ui";
+import { Button, Card, ListRow, ListSurface } from "../../ui";
 import { moreRowState } from "./more-rows.presenter";
 
 /**
@@ -46,45 +46,50 @@ export function MoreScreen() {
       <Text style={styles.title}>{copy.tabs.more}</Text>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.sectionTitle}>{copy.more.management}</Text>
-        <View style={styles.group}>
-          <ManagementRow
-            label={copy.more.documents}
-            description={copy.more.documentsDescription}
-            icon={FileTextIcon}
-            disabled={!rows.documentsEnabled}
-            {...(rows.documentsEnabled
-              ? {
-                  onPress: () => {
-                    router.push(documentsHref());
-                  },
-                }
-              : { accessibilityHint: copy.more.documentsDisabledHint })}
-          />
-          {rows.showPriceLists ? (
+        <ListSurface style={styles.surfaceGroup}>
+          <ListRow first>
             <ManagementRow
-              label={copy.more.priceLists}
-              description={copy.more.priceListsDescription}
-              icon={TagsIcon}
-              divided
-              onPress={() => {
-                router.push(priceListsHref());
-              }}
+              label={copy.more.documents}
+              description={copy.more.documentsDescription}
+              icon={FileTextIcon}
+              disabled={!rows.documentsEnabled}
+              {...(rows.documentsEnabled
+                ? {
+                    onPress: () => {
+                      router.push(documentsHref());
+                    },
+                  }
+                : { accessibilityHint: copy.more.documentsDisabledHint })}
             />
+          </ListRow>
+          {rows.showPriceLists ? (
+            <ListRow>
+              <ManagementRow
+                label={copy.more.priceLists}
+                description={copy.more.priceListsDescription}
+                icon={TagsIcon}
+                onPress={() => {
+                  router.push(priceListsHref());
+                }}
+              />
+            </ListRow>
           ) : null}
-        </View>
+        </ListSurface>
         {rows.showCompanySettings ? (
           <>
             <Text style={styles.sectionTitle}>{copy.more.settings}</Text>
-            <View style={styles.group}>
-              <ManagementRow
-                label={copy.more.companySettings}
-                description={copy.more.companySettingsDescription}
-                icon={Building2Icon}
-                onPress={() => {
-                  router.push(companySettingsHref());
-                }}
-              />
-            </View>
+            <ListSurface style={styles.surfaceGroup}>
+              <ListRow first>
+                <ManagementRow
+                  label={copy.more.companySettings}
+                  description={copy.more.companySettingsDescription}
+                  icon={Building2Icon}
+                  onPress={() => {
+                    router.push(companySettingsHref());
+                  }}
+                />
+              </ListRow>
+            </ListSurface>
           </>
         ) : null}
         <Text style={styles.sectionTitle}>{copy.more.session}</Text>
@@ -121,7 +126,6 @@ function ManagementRow(props: {
   readonly icon: LucideIcon;
   readonly onPress?: () => void;
   readonly disabled?: boolean;
-  readonly divided?: boolean;
   readonly accessibilityHint?: string;
 }) {
   const { theme } = useUnistyles();
@@ -142,7 +146,6 @@ function ManagementRow(props: {
       onPress={props.onPress}
       style={({ pressed }) => [
         styles.managementRow,
-        props.divided === true ? styles.managementRowDivided : null,
         disabled ? styles.managementRowDisabled : null,
         pressed && !disabled ? styles.pressed : null,
       ]}
@@ -221,15 +224,7 @@ const styles = StyleSheet.create((theme) => ({
     fontWeight: "600",
     textTransform: "uppercase",
   },
-  group: {
-    overflow: "hidden",
-    backgroundColor: theme.colors.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    // Class B: canvas rounded-[20px] → radii.xl.
-    borderRadius: theme.radii.xl,
-    ...theme.squircle,
-    ...theme.shadows.sm,
+  surfaceGroup: {
     marginBottom: theme.spacing.md,
   },
   managementRow: {
@@ -240,10 +235,6 @@ const styles = StyleSheet.create((theme) => ({
     gap: theme.spacing.md,
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.md,
-  },
-  managementRowDivided: {
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
   },
   managementRowDisabled: {
     opacity: 0.5,

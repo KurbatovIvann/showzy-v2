@@ -16,6 +16,8 @@ import {
   Button,
   EmptyState,
   IconButton,
+  ListRow,
+  ListSurface,
   SearchField,
 } from "../../../components/ui";
 import { interpolate } from "../../../i18n/locale";
@@ -23,6 +25,7 @@ import { OrderRow, OrderRowSkeleton } from "./order-row";
 import { OrdersFilterSheet } from "./orders-filter-sheet";
 import {
   orderGroupHeaderLabel,
+  orderListGroupEdge,
   type OrdersListEntry,
 } from "./orders-list.presenter";
 import type { OrdersListModel } from "./use-orders-list";
@@ -31,7 +34,7 @@ const SKELETON_ROWS = [0, 1, 2, 3, 4] as const;
 
 export function OrdersListView(model: OrdersListModel) {
   const { theme } = useUnistyles();
-  const { copy, openOrder } = model;
+  const { copy, openOrder, entries } = model;
   const filterActive = model.filterCount > 0;
   const filterLabel =
     model.filterCount > 0
@@ -41,7 +44,7 @@ export function OrdersListView(model: OrdersListModel) {
       : copy.filterLabel;
 
   const renderItem: ListRenderItem<OrdersListEntry> = useCallback(
-    ({ item }) => {
+    ({ item, index }) => {
       if (item.type === "header") {
         return (
           <View style={styles.groupHeader}>
@@ -51,8 +54,9 @@ export function OrdersListView(model: OrdersListModel) {
           </View>
         );
       }
+      const groupEdge = orderListGroupEdge(entries, index) ?? "middle";
       return (
-        <View style={styles.rowInset}>
+        <ListRow groupEdge={groupEdge}>
           <OrderRow
             id={item.order.id}
             customerName={item.order.customerName}
@@ -63,10 +67,10 @@ export function OrdersListView(model: OrdersListModel) {
             totalLabel={item.order.totalLabel}
             onPress={openOrder}
           />
-        </View>
+        </ListRow>
       );
     },
-    [copy, openOrder],
+    [copy, entries, openOrder],
   );
 
   return (
@@ -163,9 +167,13 @@ function OrdersListBody(props: {
     case "loading":
       return (
         <View style={styles.skeletons} accessibilityLabel={copy.loadingLabel}>
-          {SKELETON_ROWS.map((index) => (
-            <OrderRowSkeleton key={index} />
-          ))}
+          <ListSurface>
+            {SKELETON_ROWS.map((index) => (
+              <ListRow key={index} first={index === 0}>
+                <OrderRowSkeleton />
+              </ListRow>
+            ))}
+          </ListSurface>
         </View>
       );
     case "offline":
@@ -250,11 +258,11 @@ function OrdersListBody(props: {
         <FlashList
           data={model.entries}
           style={styles.list}
+          extraData={model.entries}
           keyExtractor={keyExtractor}
           getItemType={getItemType}
           renderItem={props.renderItem}
           stickyHeaderIndices={model.stickyHeaderIndices}
-          ItemSeparatorComponent={RowSeparator}
           ListFooterComponent={
             model.loadingMore ? (
               <ActivityIndicator
@@ -280,16 +288,23 @@ function keyExtractor(entry: OrdersListEntry): string {
   return entry.type === "header" ? `header:${entry.key}` : entry.order.id;
 }
 
-function getItemType(entry: OrdersListEntry): string {
-  return entry.type;
+function getItemType(
+  entry: OrdersListEntry,
+  index: number,
+  extraData?: readonly OrdersListEntry[],
+): string {
+  if (entry.type === "header") {
+    return "header";
+  }
+  const groupEdge =
+    extraData === undefined
+      ? "middle"
+      : (orderListGroupEdge(extraData, index) ?? "middle");
+  return `row:${groupEdge}`;
 }
 
 function CenteredEmpty({ children }: { readonly children: React.ReactNode }) {
   return <View style={styles.centered}>{children}</View>;
-}
-
-function RowSeparator() {
-  return <View style={styles.separator} />;
 }
 
 const styles = StyleSheet.create((theme) => ({
@@ -345,7 +360,6 @@ const styles = StyleSheet.create((theme) => ({
     fontWeight: "600",
   },
   skeletons: {
-    gap: theme.spacing.md,
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.sm,
   },
@@ -373,12 +387,6 @@ const styles = StyleSheet.create((theme) => ({
     fontWeight: "600",
     textTransform: "uppercase",
     letterSpacing: 0.6,
-  },
-  rowInset: {
-    paddingHorizontal: theme.spacing.lg,
-  },
-  separator: {
-    height: theme.spacing.md,
   },
   footerSpinner: {
     paddingVertical: theme.spacing.lg,

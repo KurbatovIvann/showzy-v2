@@ -17,6 +17,8 @@ import {
   ChoiceField,
   EmptyState,
   IconButton,
+  ListRow,
+  ListSurface,
   SearchField,
 } from "../../../components/ui";
 import { PriceListOptionsSheet } from "./price-list-options-sheet";
@@ -33,22 +35,24 @@ export function PriceListsListView(model: PriceListsListModel) {
   const { copy, openEdit, openOptions } = model;
 
   const renderItem: ListRenderItem<PriceListsListRow> = useCallback(
-    ({ item }) => (
-      <PriceListRow
-        id={item.id}
-        name={item.name}
-        isDefault={item.isDefault}
-        isActive={item.isActive}
-        pricesLabel={item.pricesLabel}
-        defaultBadge={copy.defaultBadge}
-        inactiveBadge={copy.inactiveBadge}
-        editLabel={copy.editLabel}
-        optionsA11y={item.optionsA11y}
-        canManage={model.canManage}
-        disabled={model.writesPending}
-        onEdit={openEdit}
-        onOptions={openOptions}
-      />
+    ({ item, index }) => (
+      <ListRow first={index === 0}>
+        <PriceListRow
+          id={item.id}
+          name={item.name}
+          isDefault={item.isDefault}
+          isActive={item.isActive}
+          pricesLabel={item.pricesLabel}
+          defaultBadge={copy.defaultBadge}
+          inactiveBadge={copy.inactiveBadge}
+          editLabel={copy.editLabel}
+          optionsA11y={item.optionsA11y}
+          canManage={model.canManage}
+          disabled={model.writesPending}
+          onEdit={openEdit}
+          onOptions={openOptions}
+        />
+      </ListRow>
     ),
     [
       copy.defaultBadge,
@@ -143,9 +147,13 @@ function PriceListsListBody(props: {
     case "loading":
       return (
         <View style={styles.skeletons} accessibilityLabel={copy.loadingLabel}>
-          {SKELETON_ROWS.map((index) => (
-            <PriceListRowSkeleton key={index} />
-          ))}
+          <ListSurface>
+            {SKELETON_ROWS.map((index) => (
+              <ListRow key={index} first={index === 0}>
+                <PriceListRowSkeleton />
+              </ListRow>
+            ))}
+          </ListSurface>
         </View>
       );
     case "offline":
@@ -225,51 +233,37 @@ function PriceListsListBody(props: {
       );
     case "rows":
       return (
-        <FlashList
-          data={model.rows}
-          style={styles.list}
-          keyExtractor={keyExtractor}
-          renderItem={props.renderItem}
-          ItemSeparatorComponent={RowSeparator}
-          ListFooterComponent={
-            <PriceListsFooter
-              hint={model.showHint ? copy.hint : null}
-              loadingMore={model.loadingMore}
-              loadingMoreLabel={copy.loadingMoreLabel}
-            />
-          }
-          onEndReached={model.loadMore}
-          onEndReachedThreshold={0.5}
-          refreshing={model.refreshing}
-          onRefresh={model.refresh}
-          keyboardDismissMode="on-drag"
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={styles.listContent}
-        />
+        <View style={styles.rowsPane}>
+          <View style={styles.surfacePane}>
+            <ListSurface style={styles.surfaceFill}>
+              <FlashList
+                data={model.rows}
+                style={styles.list}
+                keyExtractor={keyExtractor}
+                renderItem={props.renderItem}
+                ListFooterComponent={
+                  model.loadingMore ? (
+                    <ActivityIndicator
+                      accessibilityLabel={copy.loadingMoreLabel}
+                      color={theme.colors.activityIndicator.onBackground}
+                      style={styles.footerSpinner}
+                    />
+                  ) : null
+                }
+                onEndReached={model.loadMore}
+                onEndReachedThreshold={0.5}
+                refreshing={model.refreshing}
+                onRefresh={model.refresh}
+                keyboardDismissMode="on-drag"
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={styles.listContent}
+              />
+            </ListSurface>
+          </View>
+          {model.showHint ? <Text style={styles.hint}>{copy.hint}</Text> : null}
+        </View>
       );
   }
-}
-
-function PriceListsFooter(props: {
-  readonly hint: string | null;
-  readonly loadingMore: boolean;
-  readonly loadingMoreLabel: string;
-}) {
-  const { theme } = useUnistyles();
-  return (
-    <View>
-      {props.loadingMore ? (
-        <ActivityIndicator
-          accessibilityLabel={props.loadingMoreLabel}
-          color={theme.colors.activityIndicator.onBackground}
-          style={styles.footerSpinner}
-        />
-      ) : null}
-      {props.hint !== null ? (
-        <Text style={styles.hint}>{props.hint}</Text>
-      ) : null}
-    </View>
-  );
 }
 
 function keyExtractor(row: PriceListsListRow): string {
@@ -278,10 +272,6 @@ function keyExtractor(row: PriceListsListRow): string {
 
 function CenteredEmpty({ children }: { readonly children: ReactNode }) {
   return <View style={styles.centered}>{children}</View>;
-}
-
-function RowSeparator() {
-  return <View style={styles.separator} />;
 }
 
 const styles = StyleSheet.create((theme) => ({
@@ -299,7 +289,6 @@ const styles = StyleSheet.create((theme) => ({
     paddingBottom: theme.spacing.md,
   },
   skeletons: {
-    gap: theme.spacing.md,
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.sm,
   },
@@ -307,21 +296,29 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
     justifyContent: "center",
   },
+  rowsPane: {
+    flex: 1,
+  },
+  surfacePane: {
+    flex: 1,
+    paddingHorizontal: theme.spacing.lg,
+  },
+  surfaceFill: {
+    flex: 1,
+  },
   list: {
     flex: 1,
   },
   listContent: {
-    paddingHorizontal: theme.spacing.lg,
     paddingBottom: theme.spacing["2xl"],
-  },
-  separator: {
-    height: theme.spacing.md,
   },
   footerSpinner: {
     paddingVertical: theme.spacing.lg,
   },
   hint: {
+    marginHorizontal: theme.spacing.lg,
     marginTop: theme.spacing.md,
+    marginBottom: theme.spacing.lg,
     paddingVertical: theme.spacing.md,
     paddingHorizontal: theme.spacing.lg,
     borderWidth: 1,

@@ -16,6 +16,8 @@ import {
   ChoiceField,
   EmptyState,
   IconButton,
+  ListRow,
+  ListSurface,
   SearchField,
 } from "../../../../components/ui";
 import { ProductRow, ProductRowSkeleton } from "./product-row";
@@ -28,20 +30,22 @@ export function ProductsListView(model: ProductsListModel) {
   const { copy, openProduct } = model;
 
   const renderItem: ListRenderItem<ProductsListRow> = useCallback(
-    ({ item }) => (
-      <ProductRow
-        id={item.id}
-        name={item.name}
-        priceLabel={item.priceLabel}
-        archived={item.archived}
-        archivedLabel={copy.archivedBadge}
-        variantsLabel={item.variantsLabel}
-        thumbnailFileId={item.thumbnailFileId}
-        thumbnailUrl={item.thumbnailUrl}
-        thumbnailFailed={item.thumbnailFailed}
-        thumbnailFailedLabel={copy.thumbnailUnavailable}
-        onPress={openProduct}
-      />
+    ({ item, index }) => (
+      <ListRow first={index === 0}>
+        <ProductRow
+          id={item.id}
+          name={item.name}
+          priceLabel={item.priceLabel}
+          archived={item.archived}
+          archivedLabel={copy.archivedBadge}
+          variantsLabel={item.variantsLabel}
+          thumbnailFileId={item.thumbnailFileId}
+          thumbnailUrl={item.thumbnailUrl}
+          thumbnailFailed={item.thumbnailFailed}
+          thumbnailFailedLabel={copy.thumbnailUnavailable}
+          onPress={openProduct}
+        />
+      </ListRow>
     ),
     [copy.archivedBadge, copy.thumbnailUnavailable, openProduct],
   );
@@ -106,9 +110,13 @@ function ProductsListBody(props: {
     case "loading":
       return (
         <View style={styles.skeletons} accessibilityLabel={copy.loadingLabel}>
-          {SKELETON_ROWS.map((index) => (
-            <ProductRowSkeleton key={index} />
-          ))}
+          <ListSurface>
+            {SKELETON_ROWS.map((index) => (
+              <ListRow key={index} first={index === 0}>
+                <ProductRowSkeleton />
+              </ListRow>
+            ))}
+          </ListSurface>
         </View>
       );
     case "offline":
@@ -224,29 +232,32 @@ function ProductsListBody(props: {
           <Text accessibilityRole="header" style={styles.foundCount}>
             {model.foundCountLabel}
           </Text>
-          <FlashList
-            data={model.rows}
-            style={styles.list}
-            keyExtractor={keyExtractor}
-            renderItem={props.renderItem}
-            ItemSeparatorComponent={RowSeparator}
-            ListFooterComponent={
-              model.loadingMore ? (
-                <ActivityIndicator
-                  accessibilityLabel={copy.loadingMoreLabel}
-                  color={theme.colors.activityIndicator.onBackground}
-                  style={styles.footerSpinner}
-                />
-              ) : null
-            }
-            onEndReached={model.loadMore}
-            onEndReachedThreshold={0.5}
-            refreshing={model.refreshing}
-            onRefresh={model.refresh}
-            keyboardDismissMode="on-drag"
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={styles.listContent}
-          />
+          <View style={styles.surfacePane}>
+            <ListSurface style={styles.surfaceFill}>
+              <FlashList
+                data={model.rows}
+                style={styles.list}
+                keyExtractor={keyExtractor}
+                renderItem={props.renderItem}
+                ListFooterComponent={
+                  model.loadingMore ? (
+                    <ActivityIndicator
+                      accessibilityLabel={copy.loadingMoreLabel}
+                      color={theme.colors.activityIndicator.onBackground}
+                      style={styles.footerSpinner}
+                    />
+                  ) : null
+                }
+                onEndReached={model.loadMore}
+                onEndReachedThreshold={0.5}
+                refreshing={model.refreshing}
+                onRefresh={model.refresh}
+                keyboardDismissMode="on-drag"
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={styles.listContent}
+              />
+            </ListSurface>
+          </View>
         </View>
       );
   }
@@ -260,10 +271,6 @@ function CenteredEmpty({ children }: { readonly children: React.ReactNode }) {
   return <View style={styles.centered}>{children}</View>;
 }
 
-function RowSeparator() {
-  return <View style={styles.separator} />;
-}
-
 const styles = StyleSheet.create((theme) => ({
   screen: {
     flex: 1,
@@ -275,7 +282,6 @@ const styles = StyleSheet.create((theme) => ({
     paddingBottom: theme.spacing.md,
   },
   skeletons: {
-    gap: theme.spacing.md,
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.sm,
   },
@@ -286,11 +292,17 @@ const styles = StyleSheet.create((theme) => ({
   rowsPane: {
     flex: 1,
   },
+  surfacePane: {
+    flex: 1,
+    paddingHorizontal: theme.spacing.lg,
+  },
+  surfaceFill: {
+    flex: 1,
+  },
   list: {
     flex: 1,
   },
   listContent: {
-    paddingHorizontal: theme.spacing.lg,
     paddingBottom: theme.spacing["2xl"],
   },
   foundCount: {
@@ -302,9 +314,6 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.background,
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.sm,
-  },
-  separator: {
-    height: theme.spacing.md,
   },
   footerSpinner: {
     paddingVertical: theme.spacing.lg,

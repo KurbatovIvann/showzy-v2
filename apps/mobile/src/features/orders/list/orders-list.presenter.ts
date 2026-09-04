@@ -3,6 +3,7 @@
  * React Native imports so the whole decision surface is unit-testable.
  */
 import type { QueryFailureKind } from "../../../api/errors";
+import type { ListRowGroupEdge } from "../../../components/ui/list-row-chrome";
 import { formatMoneyMinor } from "../../../format/money";
 import { interpolate, type Locale } from "../../../i18n/locale";
 import type { OrdersCopy } from "../../../i18n/orders";
@@ -201,6 +202,34 @@ export function stickyHeaderIndices(
     }
   }
   return indices;
+}
+
+/**
+ * ListSurface cannot wrap the orders FlashList — sticky group headers
+ * sit on canvas. Split the rounded surface across row cells instead.
+ */
+export function orderListGroupEdge(
+  entries: readonly OrdersListEntry[],
+  index: number,
+): ListRowGroupEdge | null {
+  const item = entries[index];
+  if (item === undefined || item.type !== "row") {
+    return null;
+  }
+  const prev = entries[index - 1];
+  const next = entries[index + 1];
+  const start = prev === undefined || prev.type === "header";
+  const end = next === undefined || next.type === "header";
+  if (start && end) {
+    return "only";
+  }
+  if (start) {
+    return "start";
+  }
+  if (end) {
+    return "end";
+  }
+  return "middle";
 }
 
 export type OrdersListState =

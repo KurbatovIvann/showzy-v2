@@ -1,6 +1,13 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
-import { listRowChrome } from "./list-row-chrome";
+import { listGroupEdge, listRowChrome } from "./list-row-chrome";
+
+const chromeSource = readFileSync(
+  new URL("./list-row-chrome.ts", import.meta.url),
+  "utf8",
+);
 
 describe("listRowChrome", () => {
   it("draws a hairline on every row except the first", () => {
@@ -15,6 +22,42 @@ describe("listRowChrome", () => {
     expect(listRowChrome({ first: true, provisional: true })).toEqual({
       showDivider: false,
       provisional: true,
+      groupEdge: null,
     });
+  });
+
+  it("skips the hairline on grouped start and only edges", () => {
+    expect(listRowChrome({ groupEdge: "start" })).toEqual({
+      showDivider: false,
+      provisional: false,
+      groupEdge: "start",
+    });
+    expect(listRowChrome({ groupEdge: "only" }).showDivider).toBe(false);
+    expect(listRowChrome({ groupEdge: "middle" }).showDivider).toBe(true);
+    expect(listRowChrome({ groupEdge: "end" }).showDivider).toBe(true);
+  });
+});
+
+describe("list-row-chrome comments", () => {
+  it("names sticky groups Активні / Закриті and keeps in_progress as В роботі", () => {
+    expect(chromeSource).toContain("«Активні» / «Закриті»");
+    expect(chromeSource).toContain("in_progress");
+    expect(chromeSource).toContain("«В роботі»");
+    expect(chromeSource).not.toContain("«Завершені»");
+  });
+});
+
+describe("listGroupEdge", () => {
+  it("returns null for an empty list or an out-of-range index", () => {
+    expect(listGroupEdge(0, 0)).toBeNull();
+    expect(listGroupEdge(-1, 2)).toBeNull();
+    expect(listGroupEdge(2, 2)).toBeNull();
+  });
+
+  it("marks a single row as only and splits longer lists into start/middle/end", () => {
+    expect(listGroupEdge(0, 1)).toBe("only");
+    expect(listGroupEdge(0, 3)).toBe("start");
+    expect(listGroupEdge(1, 3)).toBe("middle");
+    expect(listGroupEdge(2, 3)).toBe("end");
   });
 });

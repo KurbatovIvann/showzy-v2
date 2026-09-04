@@ -27,7 +27,7 @@ export const PriceListRow = memo(function PriceListRow(props: {
   const showFooter = actions.showEdit || actions.showOptions;
 
   return (
-    <View style={[styles.card, props.isActive ? null : styles.inactive]}>
+    <View style={[styles.body, props.isActive ? null : styles.inactive]}>
       <View style={styles.header}>
         <View style={styles.avatar}>
           <TagIcon size={theme.iconSize.sm} color={theme.colors.foreground} />
@@ -107,7 +107,7 @@ function EditIcon() {
 
 export function PriceListRowSkeleton() {
   return (
-    <View style={styles.card} accessibilityElementsHidden>
+    <View style={styles.body} accessibilityElementsHidden>
       <View style={styles.header}>
         <View style={styles.skeletonAvatar} />
         <View style={styles.titles}>
@@ -122,16 +122,9 @@ export function PriceListRowSkeleton() {
 }
 
 const styles = StyleSheet.create((theme) => ({
-  card: {
-    backgroundColor: theme.colors.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    // Class B: canvas rounded-[20px] → radii.xl.
-    borderRadius: theme.radii.xl,
-    ...theme.squircle,
+  body: {
     padding: theme.spacing.lg,
     gap: theme.spacing.md,
-    ...theme.shadows.sm,
   },
   inactive: {
     opacity: 0.6,

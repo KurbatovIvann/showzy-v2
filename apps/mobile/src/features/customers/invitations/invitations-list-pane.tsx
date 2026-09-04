@@ -4,7 +4,12 @@ import { FlashList, type ListRenderItem } from "@shopify/flash-list";
 import { MailPlusIcon, PlusIcon, WifiOffIcon } from "lucide-react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
-import { Button, EmptyState } from "../../../components/ui";
+import {
+  Button,
+  EmptyState,
+  ListRow,
+  ListSurface,
+} from "../../../components/ui";
 import { EntityCardSkeleton } from "../shared/entity-card";
 import { InvitationRow } from "./invitation-row";
 import type {
@@ -28,23 +33,25 @@ export function InvitationsListPane(props: {
   );
 
   const renderItem: ListRenderItem<InvitationsListRow> = useCallback(
-    ({ item }) => (
-      <InvitationRow
-        id={item.id}
-        title={item.title}
-        statusLabel={item.statusLabel}
-        statusTone={item.statusTone}
-        groupName={item.groupName}
-        priceListName={item.priceListName}
-        phone={item.phone}
-        email={item.email}
-        usesLabel={item.usesLabel}
-        expiryLabel={item.expiryLabel}
-        revokeA11y={item.revokeA11y}
-        showRevoke={item.showRevoke}
-        disabled={model.writesPending}
-        onRevoke={onRevoke}
-      />
+    ({ item, index }) => (
+      <ListRow first={index === 0}>
+        <InvitationRow
+          id={item.id}
+          title={item.title}
+          statusLabel={item.statusLabel}
+          statusTone={item.statusTone}
+          groupName={item.groupName}
+          priceListName={item.priceListName}
+          phone={item.phone}
+          email={item.email}
+          usesLabel={item.usesLabel}
+          expiryLabel={item.expiryLabel}
+          revokeA11y={item.revokeA11y}
+          showRevoke={item.showRevoke}
+          disabled={model.writesPending}
+          onRevoke={onRevoke}
+        />
+      </ListRow>
     ),
     [model.writesPending, onRevoke],
   );
@@ -72,9 +79,13 @@ function InvitationsListBody(props: {
     case "loading":
       return (
         <View style={styles.skeletons} accessibilityLabel={copy.loadingLabel}>
-          {SKELETON_ROWS.map((index) => (
-            <EntityCardSkeleton key={index} />
-          ))}
+          <ListSurface>
+            {SKELETON_ROWS.map((index) => (
+              <ListRow key={index} first={index === 0}>
+                <EntityCardSkeleton />
+              </ListRow>
+            ))}
+          </ListSurface>
         </View>
       );
     case "offline":
@@ -138,29 +149,32 @@ function InvitationsListBody(props: {
     case "rows":
       return (
         <View style={styles.rowsPane}>
-          <FlashList
-            data={model.rows}
-            style={styles.list}
-            keyExtractor={keyExtractor}
-            renderItem={props.renderItem}
-            ItemSeparatorComponent={RowSeparator}
-            ListFooterComponent={
-              model.loadingMore ? (
-                <ActivityIndicator
-                  accessibilityLabel={copy.loadingMoreLabel}
-                  color={theme.colors.activityIndicator.onBackground}
-                  style={styles.footerSpinner}
-                />
-              ) : null
-            }
-            onEndReached={model.loadMore}
-            onEndReachedThreshold={0.5}
-            refreshing={model.refreshing}
-            onRefresh={model.refresh}
-            keyboardDismissMode="on-drag"
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={styles.listContent}
-          />
+          <View style={styles.surfacePane}>
+            <ListSurface style={styles.surfaceFill}>
+              <FlashList
+                data={model.rows}
+                style={styles.list}
+                keyExtractor={keyExtractor}
+                renderItem={props.renderItem}
+                ListFooterComponent={
+                  model.loadingMore ? (
+                    <ActivityIndicator
+                      accessibilityLabel={copy.loadingMoreLabel}
+                      color={theme.colors.activityIndicator.onBackground}
+                      style={styles.footerSpinner}
+                    />
+                  ) : null
+                }
+                onEndReached={model.loadMore}
+                onEndReachedThreshold={0.5}
+                refreshing={model.refreshing}
+                onRefresh={model.refresh}
+                keyboardDismissMode="on-drag"
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={styles.listContent}
+              />
+            </ListSurface>
+          </View>
         </View>
       );
   }
@@ -174,13 +188,8 @@ function CenteredEmpty({ children }: { readonly children: ReactNode }) {
   return <View style={styles.centered}>{children}</View>;
 }
 
-function RowSeparator() {
-  return <View style={styles.separator} />;
-}
-
 const styles = StyleSheet.create((theme) => ({
   skeletons: {
-    gap: theme.spacing.md,
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.sm,
   },
@@ -191,15 +200,18 @@ const styles = StyleSheet.create((theme) => ({
   rowsPane: {
     flex: 1,
   },
+  surfacePane: {
+    flex: 1,
+    paddingHorizontal: theme.spacing.lg,
+  },
+  surfaceFill: {
+    flex: 1,
+  },
   list: {
     flex: 1,
   },
   listContent: {
-    paddingHorizontal: theme.spacing.lg,
     paddingBottom: theme.spacing["2xl"],
-  },
-  separator: {
-    height: theme.spacing.md,
   },
   footerSpinner: {
     paddingVertical: theme.spacing.lg,

@@ -32,7 +32,7 @@ export const DocumentRow = memo(function DocumentRow(props: {
   const iconColor = theme.colors.icon.muted;
 
   return (
-    <View style={[styles.card, props.cancelled ? styles.cancelled : null]}>
+    <View style={[styles.body, props.cancelled ? styles.cancelled : null]}>
       <View style={styles.header}>
         <StatusPill label={props.typeLabel} />
         {props.cancelled ? (
@@ -107,7 +107,7 @@ function SignIcon() {
 
 export function DocumentRowSkeleton() {
   return (
-    <View style={styles.card} accessibilityElementsHidden>
+    <View style={styles.body} accessibilityElementsHidden>
       <View style={[styles.skeletonLine, styles.skeletonBadge]} />
       <View style={[styles.skeletonLine, styles.skeletonTitle]} />
       <View style={[styles.skeletonLine, styles.skeletonMeta]} />
@@ -117,16 +117,9 @@ export function DocumentRowSkeleton() {
 }
 
 const styles = StyleSheet.create((theme) => ({
-  card: {
-    backgroundColor: theme.colors.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    // Class B: canvas rounded-[20px] → radii.xl.
-    borderRadius: theme.radii.xl,
-    ...theme.squircle,
+  body: {
     padding: theme.spacing.lg,
     gap: theme.spacing.sm,
-    ...theme.shadows.sm,
   },
   cancelled: {
     opacity: 0.72,
