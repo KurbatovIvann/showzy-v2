@@ -21,7 +21,7 @@ export function listRowChrome(input: {
   const firstInSurface =
     input.first === true || groupEdge === "start" || groupEdge === "only";
   return {
-    showDivider: firstInSurface !== true,
+    showDivider: !firstInSurface,
     provisional: input.provisional === true,
     groupEdge,
   };

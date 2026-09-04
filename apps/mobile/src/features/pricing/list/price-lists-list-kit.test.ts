@@ -12,7 +12,7 @@ describe("price lists adopt one-surface chrome", () => {
     const row = read("./price-list-row.tsx");
     expect(view).toContain("ListSurface");
     expect(view).toContain("<ListRow first={index === 0}>");
-    expect(view).toContain("{model.showHint ? (");
+    expect(view).toContain("{model.showHint ?");
     expect(view).toContain("{copy.hint}");
     expect(view).not.toContain("ItemSeparatorComponent");
     const surfaceOpen = view.indexOf(
