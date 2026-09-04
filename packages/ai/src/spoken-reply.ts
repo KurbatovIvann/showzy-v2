@@ -51,7 +51,8 @@ export type StaffAssistantSpokenOutput = z.output<
 >;
 
 type SpokenTurnRun = {
-  readonly outcome: "success" | "error" | "confirmation_required";
+  readonly outcome:
+    "success" | "error" | "confirmation_required" | "choice_required";
 };
 
 type SpokenStreamPart = {
@@ -184,7 +185,13 @@ export function spokenTurnText(options: {
     // Output.object parse failure can leave a markdown table as plain text.
     return sanitizeSpoken(trimmed, options.runs) ?? trimmed;
   }
-  if (options.runs.some((run) => run.outcome === "confirmation_required")) {
+  if (
+    options.runs.some(
+      (run) =>
+        run.outcome === "confirmation_required" ||
+        run.outcome === "choice_required",
+    )
+  ) {
     return STAFF_ASSISTANT_CONFIRMATION_FALLBACK_TEXT;
   }
   if (options.runs.some((run) => run.outcome === "success")) {
@@ -199,7 +206,13 @@ export function spokenTurnText(options: {
  * confirmation card is active). Never `"Done."` here.
  */
 function spokenMarkdownDumpFallback(runs: readonly SpokenTurnRun[]): string {
-  if (runs.some((run) => run.outcome === "confirmation_required")) {
+  if (
+    runs.some(
+      (run) =>
+        run.outcome === "confirmation_required" ||
+        run.outcome === "choice_required",
+    )
+  ) {
     return STAFF_ASSISTANT_CONFIRMATION_FALLBACK_TEXT;
   }
   return STAFF_ASSISTANT_SUCCESS_SPOKEN_FALLBACK;

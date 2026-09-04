@@ -72,7 +72,7 @@ const RESULT_ID_KEYS = [
 ] as const;
 
 export type StaffAssistantToolRunOutcome =
-  "success" | "error" | "confirmation_required";
+  "success" | "error" | "confirmation_required" | "choice_required";
 
 export interface StaffAssistantToolRun {
   readonly actionName: string;

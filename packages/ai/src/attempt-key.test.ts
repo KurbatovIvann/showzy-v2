@@ -5,7 +5,7 @@ import { attemptKey } from "./attempt-key.js";
 const conversationId = "11111111-1111-4111-8111-111111111111";
 
 describe("attemptKey", () => {
-  it("builds message, tool, and turn keys as kind:conversationId:id", () => {
+  it("builds message, tool, turn, and choice keys as kind:conversationId:id", () => {
     expect(attemptKey("message", conversationId, "msg-1")).toBe(
       `message:${conversationId}:msg-1`,
     );
@@ -14,6 +14,9 @@ describe("attemptKey", () => {
     );
     expect(attemptKey("turn", conversationId, "req-1")).toBe(
       `turn:${conversationId}:req-1`,
+    );
+    expect(attemptKey("choice", conversationId, "choice-1")).toBe(
+      `choice:${conversationId}:choice-1`,
     );
   });
 

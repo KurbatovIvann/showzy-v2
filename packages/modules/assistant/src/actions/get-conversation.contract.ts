@@ -25,7 +25,7 @@ export const getConversationOutputSchema = conversationViewSchema.extend({
 export const getConversationContract = defineActionContract({
   name: "assistant.getConversation",
   description:
-    "Return one staff assistant conversation in the active company, including messages and tool-run refs (action name, toolCallId, challengeId, result ids, outcome). Missing conversations and conversations that belong to another company fail with the same not-found. Company id is never input. Tool-run rows store ids and outcome only — never order or document status.",
+    "Return one staff assistant conversation in the active company, including messages and tool-run refs (action name, toolCallId, challengeId, result ids, outcome). challengeId is the opaque interaction id for confirmation or choice; outcome may be success, error, confirmation_required, or choice_required. Missing conversations and conversations that belong to another company fail with the same not-found. Company id is never input. Tool-run rows store ids and outcome only — never order or document status.",
   principal: "staff",
   transport: "client",
   input: getConversationInputSchema,

@@ -30,12 +30,21 @@ import type { ActionPrincipal } from "@showzy/core/contract";
 import { CoreInvariantError } from "@showzy/core/errors";
 import { Hono, type Context } from "hono";
 
+import {
+  createMemoryChoiceStore,
+  type StaffAssistantChoiceStore,
+} from "../stores/choice.js";
 import { createTrustedProxyMatcher, resolveClientIp } from "./client-ip.js";
 import {
   ASSISTANT_CHAT_PATH,
   executeStaffAssistantChat,
   type StaffAssistantRuntime,
 } from "./assistant-chat.js";
+import {
+  ASSISTANT_CHOICE_PATH,
+  executeStaffAssistantChoicePeek,
+  executeStaffAssistantChoiceResume,
+} from "./assistant-choice.js";
 import {
   DOCUMENT_SHARE_LANDING_ROUTE,
   executeDocumentShareLanding,
@@ -93,6 +102,11 @@ export interface CreateAppOptions {
   readonly pkiProxy: PkiProxyRuntime;
   /** Staff AI SSE (`POST /assistant/chat`). Optional so unit tests of the HTTP shell still boot. */
   readonly assistant?: StaffAssistantRuntime;
+  /**
+   * Choice HITL store (`POST /assistant/choice`, `GET /assistant/choice/:id`).
+   * Boot mounts Redis Lua. Tests inject the in-memory CAS store.
+   */
+  readonly choiceStore?: StaffAssistantChoiceStore;
 }
 
 /**
@@ -347,6 +361,8 @@ export function createApp(options: CreateAppOptions): Hono<AppEnv> {
     return c.html(result.html, result.status);
   });
 
+  const choiceStore = options.choiceStore ?? createMemoryChoiceStore();
+
   app.post(ASSISTANT_CHAT_PATH, async (c) => {
     const response = await executeStaffAssistantChat({
       request: c.req.raw,
@@ -358,6 +374,33 @@ export function createApp(options: CreateAppOptions): Hono<AppEnv> {
       ...(options.assistant !== undefined
         ? { assistant: options.assistant }
         : {}),
+    });
+    return withRequestId(response, c.get("requestId"));
+  });
+
+  app.post(ASSISTANT_CHOICE_PATH, async (c) => {
+    const response = await executeStaffAssistantChoiceResume({
+      request: c.req.raw,
+      requestId: c.get("requestId"),
+      clientIp: c.get("clientIp"),
+      registry: options.registry,
+      pipeline: options.pipeline,
+      getSession: (headers) => resolveSession(options.auth, headers),
+      choiceStore,
+    });
+    return withRequestId(response, c.get("requestId"));
+  });
+
+  app.get(`${ASSISTANT_CHOICE_PATH}/:choiceId`, async (c) => {
+    const response = await executeStaffAssistantChoicePeek({
+      request: c.req.raw,
+      requestId: c.get("requestId"),
+      clientIp: c.get("clientIp"),
+      registry: options.registry,
+      pipeline: options.pipeline,
+      getSession: (headers) => resolveSession(options.auth, headers),
+      choiceStore,
+      choiceId: c.req.param("choiceId"),
     });
     return withRequestId(response, c.get("requestId"));
   });

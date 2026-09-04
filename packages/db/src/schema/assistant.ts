@@ -91,7 +91,9 @@ export const assistantMessages = pgTable(
 /**
  * One tool invocation inside a conversation. `result_ids` is a uuid array
  * of produced resource ids (traces, not projections). Outcome is the
- * closed HITL/tool set T3/T4 persist — never order/document status.
+ * closed HITL/tool set (success, error, confirmation_required,
+ * choice_required). `challenge_id` is the opaque interaction id for
+ * confirmation or choice. Never order/document status.
  */
 export const assistantToolRuns = pgTable(
   "assistant_tool_runs",
@@ -125,7 +127,7 @@ export const assistantToolRuns = pgTable(
     }).onDelete("cascade"),
     check(
       "assistant_tool_runs_outcome_check",
-      sql`${table.outcome} IN ('success', 'error', 'confirmation_required')`,
+      sql`${table.outcome} IN ('success', 'error', 'confirmation_required', 'choice_required')`,
     ),
   ],
 );

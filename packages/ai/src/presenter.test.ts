@@ -349,6 +349,13 @@ describe("staffAssistantTurnUsesCompletedPresenter", () => {
         runs: [{ outcome: "success" }, { outcome: "confirmation_required" }],
       }),
     ).toBe(false);
+    expect(
+      staffAssistantTurnUsesCompletedPresenter({
+        locale: "uk",
+        toolResults,
+        runs: [{ outcome: "choice_required" }],
+      }),
+    ).toBe(false);
   });
 
   it("is false when there is no registered surface", () => {

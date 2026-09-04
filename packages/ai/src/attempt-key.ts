@@ -6,7 +6,7 @@
  * different input → conflict). `conversationId` is a namespace so IDs
  * cannot collide across conversations — it is not an access grant.
  */
-export type StaffAssistantAttemptKind = "message" | "tool" | "turn";
+export type StaffAssistantAttemptKind = "message" | "tool" | "turn" | "choice";
 
 export function attemptKey(
   kind: StaffAssistantAttemptKind,

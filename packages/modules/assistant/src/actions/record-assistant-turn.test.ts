@@ -44,6 +44,26 @@ describe("assistant.recordAssistantTurn contract", () => {
     });
     expect(parsed.toolRuns[0]).not.toHaveProperty("status");
     expect(
+      recordAssistantTurnInputSchema.parse({
+        conversationId,
+        body: "Pick a variant.",
+        toolRuns: [
+          {
+            actionName: "orders.create",
+            toolCallId: "call_choice",
+            challengeId: "44444444-4444-4444-8444-444444444444",
+            outcome: "choice_required",
+          },
+        ],
+      }).toolRuns[0],
+    ).toEqual({
+      actionName: "orders.create",
+      toolCallId: "call_choice",
+      challengeId: "44444444-4444-4444-8444-444444444444",
+      resultIds: [],
+      outcome: "choice_required",
+    });
+    expect(
       recordAssistantTurnInputSchema.safeParse({
         conversationId,
         body: "Done.",

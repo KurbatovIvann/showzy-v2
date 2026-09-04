@@ -27,6 +27,7 @@ import { createProcessObservability } from "./observability.js";
 import { createActionPipeline } from "./pipeline.js";
 import {
   createRedisAuthRateLimitStore,
+  createRedisChoiceStore,
   createRedisConfirmationStore,
   createRedisOtpSendStore,
   createRedisRateLimitStore,
@@ -132,6 +133,7 @@ export async function bootApi(config: ServerConfig): Promise<BootedApi> {
         ? { anthropicApiKey: config.ai.anthropicApiKey }
         : {}),
     },
+    choiceStore: createRedisChoiceStore(redis),
   });
 
   return {
