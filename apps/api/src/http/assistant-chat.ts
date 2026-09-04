@@ -113,6 +113,12 @@ export interface StaffAssistantChatOptions {
   readonly pipeline: ActionPipelineDeps;
   readonly getSession: (headers: Headers) => Promise<SessionPrincipal | null>;
   readonly assistant?: StaffAssistantRuntime;
+  /**
+   * Choice HITL resume (SHO-401 T8) calls this executor with
+   * `choiceResume: true`. `POST /assistant/chat` omits it. Not a client
+   * header — confirmation resume stays `x-confirmation-challenge-id`.
+   */
+  readonly choiceResume?: boolean;
 }
 
 function headerOrNull(headers: Headers, name: string): string | null {
@@ -524,8 +530,10 @@ export async function executeStaffAssistantChat(
     const model = resolveLanguageModel(options.assistant);
     const gateLanguageModel = resolveGateLanguageModel(options.assistant);
     const confirmationResume = confirmationChallengeId !== undefined;
+    const choiceResume = options.choiceResume === true;
     const skipGate = staffAssistantShouldSkipIntentGate({
       confirmationResume,
+      choiceResume,
     });
     let gatePolicy: StaffAssistantGateToolPolicy = { kind: "full" };
     let gateRan = false;

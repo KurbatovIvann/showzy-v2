@@ -87,6 +87,7 @@ import {
 import {
   ASSISTANT_CHAT_PATH,
   ASSISTANT_INVOCATION_CHANNEL,
+  executeStaffAssistantChat,
 } from "./assistant-chat.js";
 import { REQUEST_ID_HEADER } from "./request-id.js";
 
@@ -361,6 +362,16 @@ async function postChat(
     headers,
     body: JSON.stringify(options.body),
   });
+}
+
+async function sessionFromAuth(
+  headers: Headers,
+): Promise<{ userId: string } | null> {
+  const result = await auth.api.getSession({ headers });
+  if (result === null) {
+    return null;
+  }
+  return { userId: result.user.id };
 }
 
 describe("POST /assistant/chat authorization", () => {
@@ -2183,6 +2194,76 @@ describe("POST /assistant/chat intent gate", () => {
     expect(resumeNames).toContain(
       toProviderToolName("customers.deleteCustomer"),
     );
+  });
+
+  it("skips the gate on choice resume and still attaches tools", async () => {
+    const capturing = createCapturingLogger();
+    const streamModel = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream("call-list", ORDERS_LIST_PAGE_TOOL_NAME, "{}"),
+        mockTextStream("You have no orders."),
+      ],
+    });
+    const gateModel = new MockLanguageModelV3({
+      doGenerate: mockStaffAssistantGateGenerate({
+        mode: "job",
+        intent: "orders_page",
+        confidence: "high",
+      }),
+      doStream: [mockTextStream("should not reply as gate")],
+    });
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Choice resume skip",
+    });
+    const headers = new Headers({
+      "content-type": "application/json",
+      origin: "http://localhost:3000",
+      authorization: `Bearer ${token}`,
+      [COMPANY_SELECTOR_HEADER]: kitIdentities.companies.a,
+    });
+    const request = new Request(`http://localhost:3000${ASSISTANT_CHAT_PATH}`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(userChatBody(conversation.id, "show last 3 orders")),
+    });
+    const response = await executeStaffAssistantChat({
+      request,
+      requestId: randomUUID(),
+      clientIp: REAL_CLIENT,
+      registry,
+      pipeline: { ...pipeline, logger: capturing.logger },
+      getSession: sessionFromAuth,
+      assistant: {
+        model: "mock",
+        gateModel: "mock-gate",
+        languageModel: streamModel,
+        gateLanguageModel: gateModel,
+      },
+      choiceResume: true,
+    });
+    expect(response.status).toBe(200);
+    await readUiMessageSsePayloads(response);
+    expect(gateModel.doGenerateCalls).toHaveLength(0);
+    expect(gateModel.doStreamCalls).toHaveLength(0);
+    expect(streamToolsLength(streamModel)).toBeGreaterThan(1);
+    const names = streamToolNames(streamModel);
+    expect(names).toContain(STAFF_ASSISTANT_TOOL_SEARCH_NAME);
+    expect(names).toContain(ORDERS_LIST_PAGE_TOOL_NAME);
+    expect(names).toContain(ORDERS_LIST_COUNTS_TOOL_NAME);
+    expect(names).not.toEqual([ORDERS_LIST_PAGE_TOOL_NAME]);
+    expect(streamModel.doStreamCalls[0]?.toolChoice).not.toEqual({
+      type: "required",
+    });
+    const gateLog = capturing
+      .entries()
+      .find((entry) => entry["msg"] === "staff assistant turn gate");
+    expect(gateLog?.["gate_skip"]).toBe("choice_resume");
+    const usage = capturing
+      .entries()
+      .find((entry) => entry["msg"] === "staff assistant turn usage");
+    expect(usage?.["gate_skip"]).toBe("choice_resume");
+    expect(usage?.["tools_attached"]).toBe(true);
   });
 
   it("still routes a second normal user turn after prior tool runs", async () => {
