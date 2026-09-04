@@ -24,6 +24,7 @@ import {
   mockTextStream,
   mockToolCallStream,
   readUiMessageSsePayloads,
+  sseVisibleTextFromPayloads,
 } from "@showzy/ai/test";
 import { createConversation, recordAssistantTurn } from "@showzy/assistant";
 import { createProduct } from "@showzy/catalog";
@@ -652,7 +653,12 @@ describe("POST /assistant/chat mock-model parity", () => {
     });
     expect(response.status).toBe(200);
     const payloads = await readUiMessageSsePayloads(response);
-    expect(JSON.stringify(payloads)).toContain("You have no orders.");
+    const visible = sseVisibleTextFromPayloads(payloads);
+    expect(visible).not.toContain("You have no orders.");
+    expect(
+      visible === "Немає замовлень." ||
+        visible.startsWith("Останні замовлення:"),
+    ).toBe(true);
     await waitFor(async () => {
       const runs = await kit.db.runtime.db.select().from(assistantToolRuns);
       return runs.some(

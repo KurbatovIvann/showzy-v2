@@ -51,6 +51,7 @@ import {
   mockToolCallAndSpokenStream,
   mockToolCallStream,
   readUiMessageSsePayloads,
+  sseVisibleTextFromPayloads,
 } from "./test.js";
 import { CUSTOMERS_LIST_CUSTOMERS_ASSISTANT_LIMIT } from "./tool-facades/customers-list-customers.js";
 import { CUSTOMERS_LIST_GROUPS_ASSISTANT_LIMIT } from "./tool-facades/customers-list-groups.js";
@@ -391,6 +392,8 @@ describe("streamStaffAssistantChat", () => {
     ]);
     expect(turn.text).toBe("Немає замовлень.");
     expect(turn.text).not.toBe("You have no orders.");
+    expect(sseVisibleTextFromPayloads(payloads)).toBe(turn.text);
+    expect(JSON.stringify(payloads)).not.toContain("You have no orders.");
     expect(turn.toolsAttached).toBe(true);
     expect(turn.usage.inputTokens).toEqual(expect.any(Number));
     expect(turn.usage.outputTokens).toEqual(expect.any(Number));
@@ -402,7 +405,6 @@ describe("streamStaffAssistantChat", () => {
     expect(turn.toolsetHash).not.toBe(STAFF_ASSISTANT_EMPTY_TOOLSET_HASH);
     expect(turn.toolResultBytesIn).toBeGreaterThan(0);
     expect(turn.toolResultBytesOut).toBe(turn.toolResultBytesIn);
-    expect(JSON.stringify(payloads)).toContain("You have no orders.");
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
   });
@@ -1064,7 +1066,8 @@ describe("streamStaffAssistantChat", () => {
     expect(turn.text).not.toBe(spoken);
     expect(turn.text).not.toContain("|");
     expect(turn.text).not.toContain("**");
-    expect(payloadText).toContain(spoken);
+    expect(sseVisibleTextFromPayloads(payloads)).toBe(turn.text);
+    expect(payloadText).not.toContain(spoken);
     expect(payloadText).not.toContain('{"spoken"');
     expect(payloadText).toContain(ORDERS_LIST_PAGE_TOOL_NAME);
     expect(turn.toolRuns).toEqual([
@@ -1137,7 +1140,8 @@ describe("streamStaffAssistantChat", () => {
     expect(turn.text).not.toBe(spoken);
     expect(turn.text).not.toContain("|");
     expect(turn.text).not.toContain("**");
-    expect(payloadText).toContain(spoken);
+    expect(sseVisibleTextFromPayloads(payloads)).toBe(turn.text);
+    expect(payloadText).not.toContain(spoken);
     expect(payloadText).not.toContain('{"spoken"');
     expect(payloadText).toContain(ORDERS_LIST_COUNTS_TOOL_NAME);
     expect(turn.toolRuns).toEqual([
@@ -1175,6 +1179,8 @@ describe("streamStaffAssistantChat", () => {
     );
     expect(turn.text).toBe("Немає замовлень.");
     expect(turn.text).not.toBe(spoken);
+    expect(sseVisibleTextFromPayloads(payloads)).toBe(turn.text);
+    expect(JSON.stringify(payloads)).not.toContain(spoken);
     expect(JSON.stringify(payloads)).not.toContain(
       `"toolName":"${STAFF_ASSISTANT_SYNTHETIC_JSON_TOOL_NAME}"`,
     );
@@ -1196,10 +1202,12 @@ describe("streamStaffAssistantChat", () => {
       contracts: [listOrders],
       execute,
     });
-    await readUiMessageSsePayloads(response);
+    const payloads = await readUiMessageSsePayloads(response);
     const turn = await completion;
     expect(turn.text).toBe("Немає замовлень.");
     expect(turn.text).not.toBe("Done.");
+    expect(sseVisibleTextFromPayloads(payloads)).toBe(turn.text);
+    expect(JSON.stringify(payloads)).not.toContain("|");
     expect(turn.toolRuns[0]?.outcome).toBe("success");
   });
 
@@ -1225,8 +1233,9 @@ describe("streamStaffAssistantChat", () => {
     expect(turn.text).toBe("Немає замовлень.");
     expect(turn.text).not.toBe("Done.");
     expect(turn.text).not.toContain("|");
+    expect(sseVisibleTextFromPayloads(payloads)).toBe(turn.text);
     expect(payloadText).not.toContain("|");
-    expect(payloadText).toContain(STAFF_ASSISTANT_SUCCESS_SPOKEN_FALLBACK);
+    expect(payloadText).not.toContain(STAFF_ASSISTANT_SUCCESS_SPOKEN_FALLBACK);
     expect(turn.toolRuns[0]?.outcome).toBe("success");
   });
 
@@ -1278,6 +1287,7 @@ describe("streamStaffAssistantChat", () => {
     expect(payloadText).not.toContain(STAFF_ASSISTANT_SUCCESS_SPOKEN_FALLBACK);
     expect(payloadText).not.toContain("| order");
     expect(payloadText).not.toContain("NoObjectGeneratedError");
+    expect(sseVisibleTextFromPayloads(payloads)).toBe(turn.text);
     expect(payloadText).toContain(STAFF_ASSISTANT_CONFIRMATION_FALLBACK_TEXT);
     const confirmationChunks = payloads.filter((payload) => {
       return (
@@ -1316,10 +1326,12 @@ describe("streamStaffAssistantChat", () => {
       contracts: [listOrders],
       execute,
     });
-    await readUiMessageSsePayloads(response);
+    const payloads = await readUiMessageSsePayloads(response);
     const turn = await completion;
     expect(turn.text).toBe("Останні замовлення: #1049 (Нове).");
     expect(turn.text).not.toBe(spoken);
+    expect(sseVisibleTextFromPayloads(payloads)).toBe(turn.text);
+    expect(JSON.stringify(payloads)).not.toContain(spoken);
   });
 
   it("persists English presenter text when locale is en", async () => {
@@ -1350,10 +1362,12 @@ describe("streamStaffAssistantChat", () => {
       execute,
       locale: "en",
     });
-    await readUiMessageSsePayloads(response);
+    const payloads = await readUiMessageSsePayloads(response);
     const turn = await completion;
     expect(turn.text).toBe("Latest orders: #1049 (New).");
     expect(turn.text).not.toBe(spoken);
+    expect(sseVisibleTextFromPayloads(payloads)).toBe(turn.text);
+    expect(JSON.stringify(payloads)).not.toContain(spoken);
   });
 
   it("defaults presenter locale to uk when omitted", async () => {
@@ -1372,9 +1386,11 @@ describe("streamStaffAssistantChat", () => {
       contracts: [listOrders],
       execute,
     });
-    await readUiMessageSsePayloads(response);
+    const payloads = await readUiMessageSsePayloads(response);
     const turn = await completion;
     expect(turn.text).toBe("Немає замовлень.");
+    expect(sseVisibleTextFromPayloads(payloads)).toBe(turn.text);
+    expect(JSON.stringify(payloads)).not.toContain("MODEL_SPOKEN");
   });
 
   it("persists model spoken when there is no registered surface", async () => {
@@ -1388,9 +1404,10 @@ describe("streamStaffAssistantChat", () => {
       contracts: [listOrders],
       execute: () => Promise.resolve({ items: [], nextCursor: null }),
     });
-    await readUiMessageSsePayloads(response);
+    const payloads = await readUiMessageSsePayloads(response);
     const turn = await completion;
     expect(turn.text).toBe(spoken);
+    expect(sseVisibleTextFromPayloads(payloads)).toBe(turn.text);
     expect(turn.toolRuns).toEqual([]);
   });
 
@@ -1420,10 +1437,12 @@ describe("streamStaffAssistantChat", () => {
       execute,
       locale: "en",
     });
-    await readUiMessageSsePayloads(response);
+    const payloads = await readUiMessageSsePayloads(response);
     const turn = await completion;
     expect(turn.text).toBe("Order #1049, New.");
     expect(turn.text).not.toBe(spoken);
+    expect(sseVisibleTextFromPayloads(payloads)).toBe(turn.text);
+    expect(JSON.stringify(payloads)).not.toContain(spoken);
   });
 
   it("joins multiple registered surfaces in tool-result order", async () => {
@@ -1466,11 +1485,13 @@ describe("streamStaffAssistantChat", () => {
       execute,
       locale: "en",
     });
-    await readUiMessageSsePayloads(response);
+    const payloads = await readUiMessageSsePayloads(response);
     const turn = await completion;
     expect(turn.text).toBe(
       "Order #1049, New.\nLatest orders: #1050 (Confirmed).",
     );
     expect(turn.text).not.toBe(spoken);
+    expect(sseVisibleTextFromPayloads(payloads)).toBe(turn.text);
+    expect(JSON.stringify(payloads)).not.toContain(spoken);
   });
 });

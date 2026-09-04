@@ -85,6 +85,7 @@ export {
   presentCompletedStaffAssistantTurn,
   staffAssistantLocaleSchema,
   staffAssistantPersistedTurnText,
+  staffAssistantTurnUsesCompletedPresenter,
   STAFF_ASSISTANT_DEFAULT_LOCALE,
   STAFF_ASSISTANT_LOCALES,
   type StaffAssistantLocale,

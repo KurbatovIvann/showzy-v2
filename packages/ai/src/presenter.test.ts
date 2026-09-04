@@ -5,6 +5,7 @@ import { STAFF_ASSISTANT_CONFIRMATION_FALLBACK_TEXT } from "./confirmation.js";
 import {
   presentCompletedStaffAssistantTurn,
   staffAssistantPersistedTurnText,
+  staffAssistantTurnUsesCompletedPresenter,
   STAFF_ASSISTANT_DEFAULT_LOCALE,
 } from "./presenter.js";
 import { STAFF_ASSISTANT_SUCCESS_SPOKEN_FALLBACK } from "./spoken-reply.js";
@@ -264,6 +265,38 @@ describe("presentCompletedStaffAssistantTurn", () => {
         ],
       }),
     ).toBeUndefined();
+  });
+});
+
+describe("staffAssistantTurnUsesCompletedPresenter", () => {
+  it("is true for a completed list and false when HITL is on the turn", () => {
+    const toolResults = [
+      { toolName: ORDERS_LIST_PAGE_TOOL_NAME, output: listPage },
+    ];
+    expect(
+      staffAssistantTurnUsesCompletedPresenter({
+        locale: "uk",
+        toolResults,
+        runs: [{ outcome: "success" }],
+      }),
+    ).toBe(true);
+    expect(
+      staffAssistantTurnUsesCompletedPresenter({
+        locale: "uk",
+        toolResults,
+        runs: [{ outcome: "success" }, { outcome: "confirmation_required" }],
+      }),
+    ).toBe(false);
+  });
+
+  it("is false when there is no registered surface", () => {
+    expect(
+      staffAssistantTurnUsesCompletedPresenter({
+        locale: "uk",
+        toolResults: [],
+        runs: [{ outcome: "success" }],
+      }),
+    ).toBe(false);
   });
 });
 

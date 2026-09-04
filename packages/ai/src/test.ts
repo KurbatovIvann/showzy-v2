@@ -165,3 +165,27 @@ export async function readUiMessageSsePayloads(
   }
   return payloads;
 }
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** Concatenate UI-message `text-delta` payloads (live bubble text). */
+export function sseVisibleTextFromPayloads(
+  payloads: readonly unknown[],
+): string {
+  const chunks: string[] = [];
+  for (const payload of payloads) {
+    if (!isRecord(payload) || payload["type"] !== "text-delta") {
+      continue;
+    }
+    if (typeof payload["delta"] === "string") {
+      chunks.push(payload["delta"]);
+      continue;
+    }
+    if (typeof payload["text"] === "string") {
+      chunks.push(payload["text"]);
+    }
+  }
+  return chunks.join("");
+}

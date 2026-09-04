@@ -29,6 +29,7 @@ import { staffAssistantJsonChars } from "./json-chars.js";
 import { staffAssistantHistoryStats } from "./messages.js";
 import {
   staffAssistantPersistedTurnText,
+  staffAssistantTurnUsesCompletedPresenter,
   STAFF_ASSISTANT_DEFAULT_LOCALE,
   type StaffAssistantLocale,
   type StaffAssistantPresentedToolResult,
@@ -284,11 +285,54 @@ async function staffAssistantModelStepCount(
   }
 }
 
+const STAFF_ASSISTANT_PRESENTER_STREAM_TEXT_ID = "presenter";
+
+function isStaffAssistantTextStreamPartType(type: string): boolean {
+  return type === "text-start" || type === "text-delta" || type === "text-end";
+}
+
+/**
+ * Drop model `{ spoken }` text parts when a registered completed surface
+ * will replace the live bubble. Tool parts keep streaming.
+ */
+function createSuppressCompletedPresenterTextTransform<
+  T extends { readonly type: string },
+>(shouldSuppress: () => boolean): TransformStream<T, T> {
+  return new TransformStream<T, T>({
+    transform(part, controller) {
+      if (shouldSuppress() && isStaffAssistantTextStreamPartType(part.type)) {
+        return;
+      }
+      controller.enqueue(part);
+    },
+  });
+}
+
+async function writeUiMessageChunks<T>(
+  writer: { write: (part: T) => void },
+  stream: ReadableStream<T>,
+): Promise<void> {
+  const reader = stream.getReader();
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) {
+        return;
+      }
+      writer.write(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 /**
  * AI SDK 7 staff-panel loop (ADR-0032). `execute` is injected so this
  * package never calls `/rpc`. ConfirmationRequiredError pauses the loop
  * and is streamed as a `data-confirmation` part (redacted summary only).
  * The Redis challenge remains core.md §7 — this does not auto-confirm.
+ * When a registered completed surface exists, SSE `text-*` parts are the
+ * presenter string (same as persist), not model `{ spoken }`.
  */
 export function streamStaffAssistantChat(options: {
   readonly model: LanguageModel;
@@ -365,11 +409,20 @@ export function streamStaffAssistantChat(options: {
           }
         },
       });
-      writer.merge(
+      await writeUiMessageChunks(
+        writer,
         toUIMessageStream({
-          stream: result.stream.pipeThrough(
-            createSpokenReplyUiTransform({ runs }),
-          ),
+          stream: result.stream
+            .pipeThrough(createSpokenReplyUiTransform({ runs }))
+            .pipeThrough(
+              createSuppressCompletedPresenterTextTransform(() =>
+                staffAssistantTurnUsesCompletedPresenter({
+                  locale,
+                  toolResults: presentedToolResults,
+                  runs,
+                }),
+              ),
+            ),
           tools,
         }),
       );
@@ -403,6 +456,18 @@ export function streamStaffAssistantChat(options: {
         historyMessageCount: history.messageCount,
         historyChars: history.chars,
       };
+      if (
+        staffAssistantTurnUsesCompletedPresenter({
+          locale,
+          toolResults: presentedToolResults,
+          runs,
+        })
+      ) {
+        const id = STAFF_ASSISTANT_PRESENTER_STREAM_TEXT_ID;
+        writer.write({ type: "text-start", id });
+        writer.write({ type: "text-delta", id, delta: turn.text });
+        writer.write({ type: "text-end", id });
+      }
       resolveCompletion(turn);
       if (options.onTurn !== undefined) {
         await options.onTurn(turn);

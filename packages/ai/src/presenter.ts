@@ -427,8 +427,29 @@ export function presentCompletedStaffAssistantTurn(options: {
 }
 
 /**
- * Persist body: presenter when a registered completed surface exists,
- * otherwise model `{ spoken }`. HITL confirmation still wins.
+ * True when the live bubble and persist body must come from the completed
+ * presenter, not model `{ spoken }`. HITL confirmation still uses the
+ * spoken flatten.
+ */
+export function staffAssistantTurnUsesCompletedPresenter(options: {
+  readonly locale: StaffAssistantLocale;
+  readonly toolResults: readonly StaffAssistantPresentedToolResult[];
+  readonly runs: readonly SpokenTurnRun[];
+}): boolean {
+  if (options.runs.some((run) => run.outcome === "confirmation_required")) {
+    return false;
+  }
+  return (
+    presentCompletedStaffAssistantTurn({
+      locale: options.locale,
+      toolResults: options.toolResults,
+    }) !== undefined
+  );
+}
+
+/**
+ * Visible bubble and persist body: presenter when a registered completed
+ * surface exists, otherwise model `{ spoken }`. HITL confirmation still wins.
  */
 export function staffAssistantPersistedTurnText(options: {
   readonly locale: StaffAssistantLocale;
@@ -437,19 +458,14 @@ export function staffAssistantPersistedTurnText(options: {
   readonly rawText: string;
   readonly runs: readonly SpokenTurnRun[];
 }): string {
-  if (options.runs.some((run) => run.outcome === "confirmation_required")) {
-    return spokenTurnText({
-      parsedSpoken: options.parsedSpoken,
-      rawText: options.rawText,
-      runs: options.runs,
+  if (staffAssistantTurnUsesCompletedPresenter(options)) {
+    const presented = presentCompletedStaffAssistantTurn({
+      locale: options.locale,
+      toolResults: options.toolResults,
     });
-  }
-  const presented = presentCompletedStaffAssistantTurn({
-    locale: options.locale,
-    toolResults: options.toolResults,
-  });
-  if (presented !== undefined) {
-    return presented;
+    if (presented !== undefined) {
+      return presented;
+    }
   }
   return spokenTurnText({
     parsedSpoken: options.parsedSpoken,
