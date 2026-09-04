@@ -1,10 +1,11 @@
 import { implementAction } from "@showzy/core";
 import { CoreInvariantError } from "@showzy/core/errors";
 import { companyCustomers } from "@showzy/db/schema/customers";
-import { likeContainsPattern, paginate } from "@showzy/validation/pagination";
-import { and, desc, eq, ilike, lt, or } from "drizzle-orm";
+import { paginate } from "@showzy/validation/pagination";
+import { and, desc, eq, lt, or } from "drizzle-orm";
 
 import { countLinkedCounterpartiesByCustomerIds } from "../services/count-linked-counterparties.js";
+import { customerListSearchPredicate } from "../services/customer-list-search.js";
 import { customerColumns, toCustomerView } from "../services/customer-view.js";
 import {
   formatListCustomersCursor,
@@ -18,11 +19,11 @@ export const listCustomers = implementAction(listCustomersContract, {
       throw new CoreInvariantError("customers.listCustomers expects staff");
     }
 
-    const searchPattern =
+    const searchPredicate =
       input.search === undefined
         ? undefined
-        : likeContainsPattern(input.search);
-    if (input.search !== undefined && searchPattern === undefined) {
+        : customerListSearchPredicate(input.search);
+    if (input.search !== undefined && searchPredicate === undefined) {
       return { items: [], nextCursor: null };
     }
 
@@ -45,15 +46,6 @@ export const listCustomers = implementAction(listCustomersContract, {
               eq(companyCustomers.updatedAt, new Date(cursor.updatedAt)),
               lt(companyCustomers.id, cursor.id),
             ),
-          );
-
-    const searchPredicate =
-      searchPattern === undefined
-        ? undefined
-        : or(
-            ilike(companyCustomers.name, searchPattern),
-            ilike(companyCustomers.phone, searchPattern),
-            ilike(companyCustomers.email, searchPattern),
           );
 
     const pageRows = await ctx.db

@@ -1,0 +1,1 @@
+CREATE INDEX "company_customers_name_trgm_idx" ON "company_customers" USING gin ("name" gin_trgm_ops);

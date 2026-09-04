@@ -8,8 +8,9 @@
  * - Status is all (active + archived): list search is not the T2
  *   query-path resolve (active-only).
  * - Query unique-match normalize (NFC, trim, collapse whitespace) then
- *   contains `ilike` on name OR phone OR email. LIKE metacharacters are
- *   stripped; a query that strips to empty returns no ids.
+ *   name token-AND of `nameSearchStems` `ilike` contains (SHO-396 /
+ *   SHO-398) OR phone/email full-string contains. LIKE metacharacters
+ *   are stripped; a query that strips to empty returns no ids.
  */
 import { defineActionContract } from "@showzy/core/contract";
 import { LIST_CUSTOMERS_SEARCH_MAX } from "@showzy/validation/customers";
@@ -30,7 +31,7 @@ export const listMatchingIdsOutputSchema = z.strictObject({
 export const listMatchingIdsContract = defineActionContract({
   name: "customers.listMatchingIds",
   description:
-    "Return a bounded list of CRM customer ids in the staff member's active company whose name, phone, or email contains the query. Used by orders.list search. Truncated is true when more than 500 customers match. Company id is never input. Does not return customer views.",
+    "Return a bounded list of CRM customer ids in the staff member's active company whose name matches every token stem or whose phone or email contains the query. Used by orders.list search. Truncated is true when more than 500 customers match. Company id is never input. Does not return customer views.",
   principal: "staff",
   transport: "internal",
   input: listMatchingIdsInputSchema,

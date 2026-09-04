@@ -367,6 +367,10 @@ describe("customers CRM schema slice", () => {
     expect(
       indexDefs.get("company_customers_company_email_unlinked_idx"),
     ).toContain("WHERE (user_id IS NULL)");
+    const nameTrgm = indexDefs.get("company_customers_name_trgm_idx");
+    expect(nameTrgm).toMatch(/USING gin/i);
+    expect(nameTrgm).toContain("gin_trgm_ops");
+    expect(nameTrgm).toMatch(/\bname\b/);
     expect(indexDefs.get("counterparties_company_id_id_uq")).toContain(
       "UNIQUE",
     );

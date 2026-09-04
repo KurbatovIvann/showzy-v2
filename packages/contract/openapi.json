@@ -23640,7 +23640,7 @@
     "/customers/listCustomers": {
       "post": {
         "operationId": "customers.listCustomers",
-        "summary": "List CRM customers in the staff member's active company. Default to active customers; pass status archived or all to include archived rows. Optional case-insensitive search on name, phone, or email. Optional group filter returns an empty page for a missing or foreign group. Paginate with an updated-at/id cursor and a page size of at most 50. Each row is the customer view (id, name, contacts, notes, group and price-list assignments, status, linked counterparty count, timestamps). Company id is never input. Does not return order counts.",
+        "summary": "List CRM customers in the staff member's active company. Default to active customers; pass status archived or all to include archived rows. Optional case-insensitive search: name matches every token stem (Ukrainian inflections); phone and email stay full-string contains. Optional group filter returns an empty page for a missing or foreign group. Paginate with an updated-at/id cursor and a page size of at most 50. Each row is the customer view (id, name, contacts, notes, group and price-list assignments, status, linked counterparty count, timestamps). Company id is never input. Does not return order counts.",
         "requestBody": {
           "required": true,
           "content": {

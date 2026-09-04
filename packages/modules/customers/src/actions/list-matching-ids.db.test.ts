@@ -196,6 +196,69 @@ describe("customers.listMatchingIds", () => {
     ).rejects.toBeInstanceOf(ValidationError);
   });
 
+  it("includes Катя Самбука for Каті Самбуки and keeps the other tenant out", async () => {
+    const katyaA = randomUUID();
+    const katyaB = randomUUID();
+    await kit.db.runtime.db.insert(companyCustomers).values([
+      {
+        id: katyaA,
+        companyId: kitIdentities.companies.a,
+        name: "Катя Самбука",
+        email: `katya-a-${katyaA}@kit.test`,
+      },
+      {
+        id: katyaB,
+        companyId: kitIdentities.companies.b,
+        name: "Катя Самбука",
+        email: `katya-b-${katyaB}@kit.test`,
+      },
+    ]);
+
+    const listed = await kit.invoke(listMatchingIds, {
+      query: "Каті Самбуки",
+    });
+    expect(listed.truncated).toBe(false);
+    expect(listed.ids).toEqual([katyaA]);
+    expect(listed.ids).not.toContain(katyaB);
+
+    const otherTenant = await kit.invoke(
+      listMatchingIds,
+      { query: "Каті Самбуки" },
+      {
+        companyId: kitIdentities.companies.b,
+        userId: kitIdentities.users.boris,
+      },
+    );
+    expect(otherTenant.ids).toEqual([katyaB]);
+    expect(otherTenant.ids).not.toContain(katyaA);
+  });
+
+  it("returns every similar name id in the tenant instead of picking one", async () => {
+    const sambuka = randomUUID();
+    const sambukova = randomUUID();
+    await kit.db.runtime.db.insert(companyCustomers).values([
+      {
+        id: sambuka,
+        companyId: kitIdentities.companies.a,
+        name: "Катя Самбука",
+        email: `match-sambuka-${sambuka}@kit.test`,
+      },
+      {
+        id: sambukova,
+        companyId: kitIdentities.companies.a,
+        name: "Катерина Самбукова",
+        email: `match-sambukova-${sambukova}@kit.test`,
+      },
+    ]);
+
+    const listed = await kit.invoke(listMatchingIds, {
+      query: "Каті Самбуки",
+    });
+    expect(listed.ids).toEqual(expect.arrayContaining([sambuka, sambukova]));
+    expect(new Set(listed.ids).size).toBeGreaterThanOrEqual(2);
+    expect(listed.truncated).toBe(false);
+  });
+
   it("sets truncated when more than 500 customers match", async () => {
     await kit.db.runtime.db.insert(companyCustomers).values(
       Array.from({ length: LIST_MATCHING_IDS_MAX + 1 }, (_, index) => ({
