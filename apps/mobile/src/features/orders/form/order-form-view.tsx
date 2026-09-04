@@ -26,7 +26,6 @@ import { LIST_CUSTOMERS_SEARCH_MAX } from "@showzy/validation/customers";
 import {
   AppHeader,
   Banner,
-  Button,
   EditorFooter,
   EmptyState,
   OptionSelectSheet,
