@@ -323,6 +323,11 @@ export function formatProductFormFooterPrice(priceText: string): string {
   return formatMoneyMinor(moneyToWire(parsed.minor), PRODUCT_CURRENCY);
 }
 
+export function productFormFooterPriceMuted(priceText: string): boolean {
+  const parsed = parseMajorUnitsToMinor(priceText);
+  return !parsed.ok || parsed.minor === 0n;
+}
+
 function draftSchemaInput(draft: ProductFormDraft) {
   return {
     name: draft.name,

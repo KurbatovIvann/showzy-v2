@@ -78,6 +78,11 @@ describe("orders/new route", () => {
     expect(CREATE_SHEETS).not.toContain("features/catalog");
     expect(CREATE_VIEW).not.toContain("basePriceMinor");
     expect(CREATE_HOOK).not.toContain("basePriceMinor");
+    expect(CREATE_VIEW).toContain("EditorFooter");
+    expect(CREATE_VIEW).toContain("model.footer.empty");
+    expect(CREATE_VIEW).not.toContain("До сплати");
+    expect(CREATE_VIEW).not.toContain("footerDock");
+    expect(CREATE_HOOK).not.toContain("basePriceMinor");
   });
 
   it("keeps variant drill-down in one ProductSelectSheet Modal", () => {

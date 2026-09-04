@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { ordersCopy } from "../../../i18n/orders";
 import { EMPTY_ORDER_THUMBNAIL } from "../shared/order-thumbnails";
 import {
+  presentOrderFormFooter,
   presentProductSelectRows,
   presentProductsValue,
   presentVariantSelectRows,
@@ -39,6 +40,30 @@ describe("order-form presenter rows", () => {
     expect(presentProductsValue(2, formCopy.addProductsValue)).toBe(
       "2 у замовленні",
     );
+    expect(
+      presentOrderFormFooter({
+        itemCount: 0,
+        locale: "uk",
+        items: ordersCopy("uk").items,
+        emptyLabel: formCopy.emptyPositions,
+      }),
+    ).toEqual({
+      empty: true,
+      emptyLabel: "Без позицій",
+      metaLabel: "",
+    });
+    expect(
+      presentOrderFormFooter({
+        itemCount: 2,
+        locale: "uk",
+        items: ordersCopy("uk").items,
+        emptyLabel: formCopy.emptyPositions,
+      }),
+    ).toEqual({
+      empty: false,
+      emptyLabel: "",
+      metaLabel: "2 позиції",
+    });
     expect(presentVariantSelectRows([{ id: PRODUCT_A, name: "1 кг" }])).toEqual(
       [{ id: PRODUCT_A, name: "1 кг" }],
     );
@@ -65,7 +90,7 @@ describe("order-form kit and sheet hygiene", () => {
     );
     expect(hook).toContain("useUnsavedGuard");
     expect(hook).toContain("useOrderFormSheets");
-    expect(hook).toContain("presentProductSelectRows");
+    expect(hook).toContain("presentOrderFormFooter");
     expect(hook).not.toContain("useUnsavedOrderGuard");
     expect(save).toContain("useFormSave");
     expect(saveLoop).toContain("runFormSave");

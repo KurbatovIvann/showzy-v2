@@ -1,15 +1,15 @@
 /**
  * Canvas OrderEditor as create-only (SHO-242).
- * Shared: AppHeader, Button, TextField, SearchField, Sheet, EmptyState, Banner,
- * OptionSelectSheet, SelectorRow.
+ * Shared: AppHeader, Button, EditorFooter, TextField, SearchField, Sheet,
+ * EmptyState, Banner, OptionSelectSheet, SelectorRow.
  * Feature: EditorSection, OrderLineCard, QuantityStepper,
  * ProductSelectSheet (products + in-sheet variant drill-down).
  * OptionSelectSheet is customers only — never stacked on the product Modal.
  * Omitted: payment, delivery, due date, status picker, discount, line
- * prices, and «До сплати» (owner decision 2 — footer is line count).
+ * prices, and the order-total row (owner decision 2 — footer is line count).
  */
 import type { ReactNode } from "react";
-import { Text, View } from "react-native";
+import { View } from "react-native";
 import {
   LockIcon,
   PackagePlusIcon,
@@ -27,6 +27,7 @@ import {
   AppHeader,
   Banner,
   Button,
+  EditorFooter,
   EmptyState,
   OptionSelectSheet,
   SelectorRow,
@@ -55,31 +56,18 @@ export function OrderFormView(model: OrderFormModel) {
       />
       <OrderFormBody model={model} />
       {model.state.kind === "ready" && model.showSubmit ? (
-        <View style={styles.footerDock}>
-          <View style={styles.footerCard}>
-            <Text style={styles.footerLines}>{model.footerLinesLabel}</Text>
-            <View style={styles.footerActions}>
-              <View style={styles.footerButton}>
-                <Button
-                  variant="secondary"
-                  fullWidth
-                  label={form.cancel}
-                  disabled={model.pending}
-                  onPress={model.requestLeave}
-                />
-              </View>
-              <View style={styles.footerButton}>
-                <Button
-                  fullWidth
-                  label={model.submitLabel}
-                  loading={model.pending}
-                  disabled={model.submitDisabled}
-                  onPress={model.save}
-                />
-              </View>
-            </View>
-          </View>
-        </View>
+        <EditorFooter
+          cancelLabel={form.cancel}
+          confirmLabel={model.submitLabel}
+          confirming={model.pending}
+          confirmDisabled={model.submitDisabled}
+          cancelDisabled={model.pending}
+          onCancel={model.requestLeave}
+          onConfirm={model.save}
+          empty={model.footer.empty}
+          emptyLabel={model.footer.emptyLabel}
+          metaLabel={model.footer.metaLabel}
+        />
       ) : null}
       <OptionSelectSheet
         visible={model.customerSheetOpen}
@@ -259,35 +247,6 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: theme.spacing.lg,
     paddingBottom: theme.spacing.lg,
     gap: theme.spacing.lg,
-  },
-  footerDock: {
-    backgroundColor: theme.colors.background,
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.md,
-    paddingBottom: theme.spacing.md,
-  },
-  footerCard: {
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.card,
-    borderRadius: theme.radii.card,
-    ...theme.squircle,
-    padding: theme.spacing.md,
-    gap: theme.spacing.sm,
-    ...theme.shadows.sm,
-  },
-  footerLines: {
-    color: theme.colors.mutedForeground,
-    fontSize: theme.typography.sm.fontSize,
-    lineHeight: theme.typography.sm.lineHeight,
-    fontWeight: "500",
-  },
-  footerActions: {
-    flexDirection: "row",
-    gap: theme.spacing.sm,
-  },
-  footerButton: {
-    flex: 1,
   },
   centered: {
     flex: 1,

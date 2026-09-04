@@ -75,6 +75,7 @@ describe("FormScreenScaffold", () => {
     expect(source).toContain("notFoundDescription");
     expect(source).toContain("notFoundIcon");
     expect(source).toContain("footerLeading");
-    expect(source).toContain("{footer.footerLeading}");
+    expect(source).toContain("EditorFooter");
+    expect(source).not.toContain("borderTopWidth");
   });
 });

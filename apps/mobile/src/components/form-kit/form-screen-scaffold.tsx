@@ -4,7 +4,7 @@ import { LockIcon, WifiOffIcon } from "lucide-react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
-import { AppHeader, Button, EmptyState } from "../ui";
+import { AppHeader, Button, EditorFooter, EmptyState } from "../ui";
 import {
   formScaffoldBody,
   formScaffoldShowsFooter,
@@ -20,6 +20,12 @@ export type FormScreenScaffoldFooter = {
   readonly onCancel: () => void;
   readonly onSubmit: () => void;
   readonly footerLeading?: ReactNode;
+  readonly empty?: boolean;
+  readonly emptyLabel?: string;
+  readonly metaLabel?: string;
+  readonly metaValue?: string;
+  readonly metaValueMuted?: boolean;
+  readonly hint?: string;
 };
 
 export type FormScreenScaffoldEmpty = {
@@ -175,29 +181,24 @@ function FormScaffoldFooter(props: {
 }) {
   const { footer } = props;
   return (
-    <View style={styles.footer}>
-      {footer.footerLeading}
-      <View style={styles.footerActions}>
-        <View style={styles.footerButton}>
-          <Button
-            variant="secondary"
-            fullWidth
-            label={footer.cancelLabel}
-            disabled={footer.pending}
-            onPress={footer.onCancel}
-          />
-        </View>
-        <View style={styles.footerButton}>
-          <Button
-            fullWidth
-            label={footer.submitLabel}
-            loading={footer.pending}
-            disabled={footer.submitDisabled}
-            onPress={footer.onSubmit}
-          />
-        </View>
-      </View>
-    </View>
+    <EditorFooter
+      cancelLabel={footer.cancelLabel}
+      confirmLabel={footer.submitLabel}
+      confirming={footer.pending}
+      confirmDisabled={footer.submitDisabled}
+      cancelDisabled={footer.pending}
+      onCancel={footer.onCancel}
+      onConfirm={footer.onSubmit}
+      empty={footer.empty === true}
+      emptyLabel={footer.emptyLabel ?? ""}
+      metaLabel={footer.metaLabel ?? ""}
+      metaValue={footer.metaValue ?? ""}
+      metaValueMuted={footer.metaValueMuted === true}
+      hint={footer.hint ?? ""}
+      {...(footer.footerLeading !== undefined
+        ? { leading: footer.footerLeading }
+        : {})}
+    />
   );
 }
 
@@ -209,22 +210,6 @@ const styles = StyleSheet.create((theme) => ({
   screen: {
     flex: 1,
     backgroundColor: theme.colors.background,
-  },
-  footer: {
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-    backgroundColor: theme.colors.card,
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.md,
-    paddingBottom: theme.spacing.md,
-    gap: theme.spacing.sm,
-  },
-  footerActions: {
-    flexDirection: "row",
-    gap: theme.spacing.sm,
-  },
-  footerButton: {
-    flex: 1,
   },
   centered: {
     flex: 1,

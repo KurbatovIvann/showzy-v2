@@ -10,6 +10,8 @@ export {
   type ConfirmDialogRequest,
   type ConfirmDialogTone,
 } from "./confirm-dialog";
+export { EditorFooter } from "./editor-footer";
+export { editorFooterChrome } from "./editor-footer-chrome";
 export { EmptyState } from "./empty-state";
 export { IconButton } from "./icon-button";
 export { ListSurface, ListRow } from "./list-surface";

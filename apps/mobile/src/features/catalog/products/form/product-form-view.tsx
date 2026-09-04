@@ -6,6 +6,7 @@ import {
   PlusIcon,
   WifiOffIcon,
 } from "lucide-react-native";
+import { useWatch } from "react-hook-form";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
@@ -15,16 +16,17 @@ import {
   AppHeader,
   Banner,
   Button,
+  EditorFooter,
   EmptyState,
 } from "../../../../components/ui";
 import { PhotoSourceSheet } from "../photos/photo-source-sheet";
 import { firstVariantFieldError } from "./product-form-copy";
 import {
   formatProductFormFooterPrice,
+  productFormFooterPriceMuted,
   type ProductFormVariantDraft,
 } from "./product-form-draft";
 import {
-  ProductFormFooterPrice,
   ProductFormNameField,
   ProductFormPriceField,
   useProductFormPriceLabel,
@@ -56,35 +58,7 @@ export function ProductFormView(model: ProductFormModel) {
       />
       <ProductFormBody model={model} />
       {model.state.kind === "ready" ? (
-        <View style={styles.footer}>
-          <View style={styles.footerPriceRow}>
-            <Text style={styles.footerPriceLabel}>{form.footerBasePrice}</Text>
-            <ProductFormFooterPrice
-              control={model.control}
-              style={styles.footerPriceValue}
-            />
-          </View>
-          <View style={styles.footerActions}>
-            <View style={styles.footerButton}>
-              <Button
-                variant="secondary"
-                fullWidth
-                label={form.cancel}
-                disabled={model.pending}
-                onPress={model.requestLeave}
-              />
-            </View>
-            <View style={styles.footerButton}>
-              <Button
-                fullWidth
-                label={model.submitLabel}
-                loading={model.pending}
-                disabled={model.submitDisabled}
-                onPress={model.save}
-              />
-            </View>
-          </View>
-        </View>
+        <ProductFormEditorFooter model={model} />
       ) : null}
       <VariantEditorSheet
         visible={model.variantSheet.kind !== "closed"}
@@ -316,6 +290,26 @@ function ProductFormReady(props: { readonly model: ProductFormModel }) {
   );
 }
 
+function ProductFormEditorFooter(props: { readonly model: ProductFormModel }) {
+  const { model } = props;
+  const form = model.copy.form;
+  const priceText = useWatch({ control: model.control, name: "priceText" });
+  return (
+    <EditorFooter
+      cancelLabel={form.cancel}
+      confirmLabel={model.submitLabel}
+      confirming={model.pending}
+      confirmDisabled={model.submitDisabled}
+      cancelDisabled={model.pending}
+      onCancel={model.requestLeave}
+      onConfirm={model.save}
+      metaLabel={form.footerBasePrice}
+      metaValue={formatProductFormFooterPrice(priceText)}
+      metaValueMuted={productFormFooterPriceMuted(priceText)}
+    />
+  );
+}
+
 function variantPriceLabel(
   template: string,
   variant: ProductFormVariantDraft,
@@ -442,40 +436,6 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: theme.typography.sm.fontSize,
     lineHeight: theme.typography.sm.lineHeight,
     fontWeight: "600",
-  },
-  footer: {
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-    backgroundColor: theme.colors.card,
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.md,
-    paddingBottom: theme.spacing.md,
-    gap: theme.spacing.sm,
-  },
-  footerPriceRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: theme.spacing.md,
-  },
-  footerPriceLabel: {
-    color: theme.colors.mutedForeground,
-    fontSize: theme.typography.sm.fontSize,
-    lineHeight: theme.typography.sm.lineHeight,
-  },
-  footerPriceValue: {
-    color: theme.colors.foreground,
-    fontSize: theme.typography.xl.fontSize,
-    lineHeight: theme.typography.xl.lineHeight,
-    fontWeight: "600",
-    fontVariant: ["tabular-nums"],
-  },
-  footerActions: {
-    flexDirection: "row",
-    gap: theme.spacing.sm,
-  },
-  footerButton: {
-    flex: 1,
   },
   pressed: {
     opacity: 0.85,

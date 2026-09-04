@@ -9,7 +9,6 @@ import { useUnsavedGuard } from "../../../components/form-kit";
 import { useResolvedCompany } from "../../../company-resolution/resolved-company-provider";
 import { detectLocale } from "../../../i18n/locale";
 import { ordersCopy } from "../../../i18n/orders";
-import { itemCountLabel } from "../shared/item-count";
 import { orderDetailHref } from "../shared/order-hrefs";
 import {
   canCreateOrders,
@@ -30,6 +29,7 @@ import {
 import { classifyOrderFormLoad } from "./order-form-load";
 import {
   presentOrderFormCopy,
+  presentOrderFormFooter,
   presentOrderFormItems,
   presentProductsValue,
   presentProductSelectRows,
@@ -263,7 +263,12 @@ export function useOrderForm() {
       items.length,
       formCopy.addProductsValue,
     ),
-    footerLinesLabel: itemCountLabel(items.length, locale, copy.items),
+    footer: presentOrderFormFooter({
+      itemCount: items.length,
+      locale,
+      items: copy.items,
+      emptyLabel: formCopy.emptyPositions,
+    }),
     customerSheetOpen: sheets.customerSheetOpen,
     productSheetOpen: sheets.productSheetOpen,
     productPickerSessionOpen: sheets.productPickerSessionOpen,

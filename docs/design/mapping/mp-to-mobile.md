@@ -152,6 +152,7 @@ System font. No webfont.
 | `Button` | `Button` | pill; control type `typography.md` (16); `size: "lg"` is 54 high; primary disabled is `disabledOpacity` 35%, not a faint fill; `danger` is `destructiveSoft` / `destructive` (pressed inverts to fill); optional `icon` and `fullWidth` |
 | `Card` | section / `Card` | 22px, `line` border, `surface` fill; optional `provisional` dashed `provisionalBorder` / `provisionalFill` |
 | `ListSurface` / `ListRow` | `ListSurface` / `ListRow` | one rounded surface, hairline dividers; `first` skips the top rule; `provisional` is unused visual chrome only — do not wire writes |
+| `EditorFooter` | `EditorFooter` | floating spec card (`shadows.nav`, `radii.card`); equal pill `Button`s; optional empty line, meta row, hint; `footerLeading` passthrough for the form scaffold. Primary disabled is T1 Button 35% opacity. Do not fork a second footer in a feature folder |
 | `TextField` | `TextField` | 16px radius, canvas fill; optional label / leading / prefix / suffix; `changed` chip uses `StatusPill` `action`; `size: "lg"` is 54 + 16 tabular-nums + focus `ring`; default `keyboardType` is `"default"` |
 | `SegmentedTabs` | `AuthModeSwitch` / customers tab strip | `layout="equal"` (default): two-up auth row, track `hitTarget.field`. `layout="scroll"`: compact overflowing CRM strip (canvas `CustomersScreen` tabs — not `BottomNav`). Host is full-bleed; `contentPaddingHorizontal` keeps rest alignment with the padded column and scrolls to the screen edge (no overlay masks, `contentInsetAdjustmentBehavior="never"`, `fadingEdgeLength={0}`). Pills `hitTarget.min` / `typography.sm`. Class B: canvas 40/14 → 44/`typography.sm`. Do not put track chrome on `ScrollView` `contentContainerStyle`. Selected chrome is a sliding pill (v1 `SegmentedControl` indicator) — `translateX` + `width`, 250ms ease-in-out; snap on first measure, resize, and reduced motion. Animating `width` is the measured trade-off: the pill is absolutely positioned with no children, so Yoga does not re-layout siblings; `scaleX` would smear `radii.full`. |
 | `TabView` | swipeable multi-scene pages (v1 PagerView + shared TabView) | Native (`tab-view.native.tsx`) owns `react-native-pager-view` sync with the tab bar (tap → `setPage`, swipe → `onPageSelected`). Web/export (`tab-view.tsx`) keeps the same bar and shows the selected scene only. Default bar is `SegmentedTabs`; CRM uses `renderTabBar` for the full-bleed scroll strip. `lazy` mounts a scene on first visit. Not `BottomNav`. Pill does not interpolate during the swipe (settles on `onPageSelected`, same as v1). |
@@ -168,7 +169,7 @@ System font. No webfont.
 | `CenteredSpinner` | guard-layout loading | full-screen centered `ActivityIndicator`; auth / signed-in shells |
 
 **Not shared yet** (add to `ui/` on first screen that needs them): none
-listed after `ListSurface` / `ListRow` landed with the v44 kit (SHO-389).
+listed after `EditorFooter` landed with the v44 form chrome (SHO-390).
 
 Feature examples (never in `ui/`): `OrderRow`, `ProductRow`,
 `AssistantSheet`, `BottomNav` (staff shell, not a generic tab primitive).
