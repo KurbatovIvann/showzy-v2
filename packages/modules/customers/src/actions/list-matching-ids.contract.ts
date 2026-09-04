@@ -8,7 +8,7 @@
  * - Status is all (active + archived): list search is not the T2
  *   query-path resolve (active-only).
  * - Query unique-match normalize (NFC, trim, collapse whitespace) then
- *   name token-AND of `nameSearchStems` `ilike` contains (SHO-396 /
+ *   name token-AND of `nameSearchStems` as word-prefix `ilike` (SHO-396 /
  *   SHO-398) OR phone/email full-string contains. LIKE metacharacters
  *   are stripped; a query that strips to empty returns no ids.
  */

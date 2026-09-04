@@ -399,4 +399,27 @@ describe("customers.listCustomers", () => {
       new Set(listed.items.map((row) => row.id)).size,
     ).toBeGreaterThanOrEqual(2);
   });
+
+  it("does not let a short token match inside another name word", async () => {
+    const customerA = randomUUID();
+    const customerExtra = randomUUID();
+    await kit.db.runtime.db.insert(companyCustomers).values([
+      {
+        id: customerA,
+        companyId: kitIdentities.companies.a,
+        name: "Customer A",
+        email: `customer-a-${customerA}@kit.test`,
+      },
+      {
+        id: customerExtra,
+        companyId: kitIdentities.companies.a,
+        name: "Customer Extra",
+        email: `customer-extra-${customerExtra}@kit.test`,
+      },
+    ]);
+
+    const listed = await kit.invoke(listCustomers, { search: "Customer A" });
+    expect(listed.items.map((row) => row.id)).toContain(customerA);
+    expect(listed.items.map((row) => row.id)).not.toContain(customerExtra);
+  });
 });

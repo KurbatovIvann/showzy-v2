@@ -7,7 +7,7 @@
  * - Cursor payload is `updatedAt|id` (ISO datetime, then uuid).
  * - `status` defaults to `active`; `archived` and `all` are explicit.
  * - Search is optional, max 100. Name is token-AND of `nameSearchStems`
- *   `ilike` contains (SHO-396 / SHO-398); phone and email stay
+ *   as word-prefix `ilike` (SHO-396 / SHO-398); phone and email stay
  *   full-string contains. The row matches name-AND OR phone OR email.
  *   LIKE metacharacters `%`, `_`, and `\\` in the query are stripped so
  *   they cannot widen or escape the match; a query that strips to empty

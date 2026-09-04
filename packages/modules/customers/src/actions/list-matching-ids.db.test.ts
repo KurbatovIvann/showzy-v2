@@ -259,6 +259,29 @@ describe("customers.listMatchingIds", () => {
     expect(listed.truncated).toBe(false);
   });
 
+  it("does not let a short token match inside another name word", async () => {
+    const customerA = randomUUID();
+    const customerExtra = randomUUID();
+    await kit.db.runtime.db.insert(companyCustomers).values([
+      {
+        id: customerA,
+        companyId: kitIdentities.companies.a,
+        name: "Customer A",
+        email: `match-customer-a-${customerA}@kit.test`,
+      },
+      {
+        id: customerExtra,
+        companyId: kitIdentities.companies.a,
+        name: "Customer Extra",
+        email: `match-customer-extra-${customerExtra}@kit.test`,
+      },
+    ]);
+
+    const listed = await kit.invoke(listMatchingIds, { query: "Customer A" });
+    expect(listed.ids).toContain(customerA);
+    expect(listed.ids).not.toContain(customerExtra);
+  });
+
   it("sets truncated when more than 500 customers match", async () => {
     await kit.db.runtime.db.insert(companyCustomers).values(
       Array.from({ length: LIST_MATCHING_IDS_MAX + 1 }, (_, index) => ({
