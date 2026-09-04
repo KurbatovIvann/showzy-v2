@@ -77,6 +77,36 @@ describe("createApp HTTP shell", () => {
     expect(response.status).toBe(400);
   });
 
+  it("POST /assistant/choice without a session is 401 UNAUTHENTICATED", async () => {
+    const app = silentApp();
+    const response = await app.request("/assistant/choice", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        conversationId: UUID,
+        choiceId: UUID,
+        optionId: UUID,
+      }),
+    });
+    expect(response.status).toBe(401);
+    expect(await response.json()).toMatchObject({
+      code: "UNAUTHENTICATED",
+      status: 401,
+    });
+  });
+
+  it("GET /assistant/choice/:choiceId without a session is 401 UNAUTHENTICATED", async () => {
+    const app = silentApp();
+    const response = await app.request(
+      `/assistant/choice/${UUID}?conversationId=${UUID}`,
+    );
+    expect(response.status).toBe(401);
+    expect(await response.json()).toMatchObject({
+      code: "UNAUTHENTICATED",
+      status: 401,
+    });
+  });
+
   it("POST /assistant/chat without a session is 401 UNAUTHENTICATED", async () => {
     const app = silentApp();
     const response = await app.request(ASSISTANT_CHAT_PATH, {

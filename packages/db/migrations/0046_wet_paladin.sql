@@ -1,0 +1,2 @@
+ALTER TABLE "assistant_tool_runs" DROP CONSTRAINT "assistant_tool_runs_outcome_check";--> statement-breakpoint
+ALTER TABLE "assistant_tool_runs" ADD CONSTRAINT "assistant_tool_runs_outcome_check" CHECK ("assistant_tool_runs"."outcome" IN ('success', 'error', 'confirmation_required', 'choice_required'));

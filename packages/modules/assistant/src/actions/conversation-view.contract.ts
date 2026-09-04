@@ -5,7 +5,8 @@
  * message body 16_000, action/tool-call ids 128, 50 tool-runs and result
  * ids per turn. No `companyId` — catalog/customer views also omit tenant
  * id. Tool-run rows store result ids and outcome only — never order or
- * document status.
+ * document status. `challengeId` is the opaque interaction id for both
+ * confirmation and choice.
  */
 import { z } from "zod";
 
@@ -29,6 +30,7 @@ export const toolRunOutcomeSchema = z.enum([
   "success",
   "error",
   "confirmation_required",
+  "choice_required",
 ]);
 
 export const companyRoleSchema = z.enum(COMPANY_ROLE_VALUES);

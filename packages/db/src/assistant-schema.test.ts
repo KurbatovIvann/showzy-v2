@@ -352,6 +352,9 @@ describe("assistant schema slice", () => {
     expect(defs.get("assistant_tool_runs_outcome_check")).toContain(
       "'confirmation_required'",
     );
+    expect(defs.get("assistant_tool_runs_outcome_check")).toContain(
+      "'choice_required'",
+    );
     expect(defs.get("assistant_tool_runs_outcome_check")).not.toContain(
       "'confirmed'",
     );
@@ -508,6 +511,18 @@ describe("assistant schema slice", () => {
     expect(pending.resultIds).toEqual([]);
     expect(pending.challengeId).toBe(challengeId);
     expect(pending.outcome).toBe("confirmation_required");
+
+    const choicePending = await insertToolRun({
+      companyId: company.id,
+      conversationId: conversation.id,
+      actionName: "orders.create",
+      toolCallId: "call_choice",
+      challengeId,
+      outcome: "choice_required",
+    });
+    expect(choicePending.resultIds).toEqual([]);
+    expect(choicePending.challengeId).toBe(challengeId);
+    expect(choicePending.outcome).toBe("choice_required");
 
     const succeeded = await insertToolRun({
       companyId: company.id,

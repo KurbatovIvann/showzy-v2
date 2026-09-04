@@ -569,6 +569,56 @@ describe("assistant staff conversation actions", () => {
     expect(hitl).not.toHaveProperty("status");
     expect(JSON.stringify(rows)).not.toMatch(/confirmed|issued|paid/);
 
+    const confirmationMessage = (
+      await kit.db.runtime.db
+        .select()
+        .from(assistantMessages)
+        .where(eq(assistantMessages.id, recorded.messageId))
+    )[0];
+    expect(confirmationMessage?.role).toBe("assistant");
+    expect(confirmationMessage?.body).toBe("Waiting on confirmation.");
+  });
+
+  it("recordAssistantTurn stores choice_required using the same challengeId", async () => {
+    const conversation = await kit.invoke(createConversation, {
+      title: "Choice HITL",
+    });
+    const recorded = await kit.invoke(recordAssistantTurn, {
+      conversationId: conversation.id,
+      body: "Pick a variant.",
+      toolRuns: [
+        {
+          actionName: "orders.create",
+          toolCallId: "call_choice",
+          challengeId,
+          resultIds: [],
+          outcome: "choice_required",
+        },
+      ],
+    });
+    expect(recorded.toolRuns).toHaveLength(1);
+    expect(recorded.toolRuns[0]).toMatchObject({
+      actionName: "orders.create",
+      toolCallId: "call_choice",
+      challengeId,
+      resultIds: [],
+      outcome: "choice_required",
+    });
+    const rows = await kit.db.runtime.db
+      .select()
+      .from(assistantToolRuns)
+      .where(
+        and(
+          eq(assistantToolRuns.companyId, kitIdentities.companies.a),
+          eq(assistantToolRuns.conversationId, conversation.id),
+        ),
+      );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      challengeId,
+      outcome: "choice_required",
+    });
+
     const message = (
       await kit.db.runtime.db
         .select()
@@ -576,7 +626,7 @@ describe("assistant staff conversation actions", () => {
         .where(eq(assistantMessages.id, recorded.messageId))
     )[0];
     expect(message?.role).toBe("assistant");
-    expect(message?.body).toBe("Waiting on confirmation.");
+    expect(message?.body).toBe("Pick a variant.");
   });
 
   it("getStaffActor returns owner role with owner-all intact and stored employee permissions", async () => {
