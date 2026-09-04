@@ -103,6 +103,28 @@ describe("staffAssistantSystemPrompt", () => {
     );
   });
 
+  it("tells the model to pass nominative names, not the whole utterance, and retry an empty page", () => {
+    expect(staffAssistantSystemPrompt).toContain(
+      "put people and product names in nominative (Катя Самбука, Наполеон)",
+    );
+    expect(staffAssistantSystemPrompt).toContain(
+      "not the inflected form from the staff sentence (Каті Самбуки, наполеона)",
+    );
+    expect(staffAssistantSystemPrompt).toContain(
+      "Pass only the name or query, not the whole utterance («замовлення для …»)",
+    );
+    expect(staffAssistantSystemPrompt).toContain(
+      'One empty page is not "does not exist": retry with nominative',
+    );
+    expect(staffAssistantSystemPrompt).toContain(
+      "last-name or product-name stem",
+    );
+    expect(staffAssistantSystemPrompt).not.toContain(
+      "resolveCustomerReference",
+    );
+    expect(staffAssistantSystemPrompt).not.toContain("nameSearchStems");
+  });
+
   it("forbids QES keys, OTP, and cookies, and keeps confirmation as a human step", () => {
     expect(staffAssistantSystemPrompt).toContain("QES");
     expect(staffAssistantSystemPrompt).toContain("OTP");
