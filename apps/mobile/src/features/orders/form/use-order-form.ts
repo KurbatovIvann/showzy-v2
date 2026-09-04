@@ -37,7 +37,10 @@ import {
   presentVariantSelectRows,
 } from "./order-form.presenter";
 import { orderFormResolver } from "./order-form.schema";
-import { uniqueProductIds } from "./order-line-catalog-facts";
+import {
+  catalogFactsBlockSubmit,
+  uniqueProductIds,
+} from "./order-line-catalog-facts";
 import { commitProductPickerPicks, productPickerPicks } from "./product-picker";
 import { useOrderFormLookups } from "./use-order-form-lookups";
 import { useOrderFormSheets } from "./use-order-form-sheets";
@@ -127,6 +130,9 @@ export function useOrderForm() {
       mapVariantSelectionConflict(saveApi.mutationError))
     : null;
   const pending = saveApi.pending;
+  const catalogFactsBlocked = catalogFactsBlockSubmit(
+    lookups.catalogFactsStatus,
+  );
   const resolved = presentOrderFormCopy({
     formCopy,
     submitted: isSubmitted,
@@ -257,14 +263,17 @@ export function useOrderForm() {
     items,
     state: loadState,
     customerError: resolved.customerError,
-    itemsError: resolved.itemsError,
+    itemsError:
+      lookups.catalogFactsStatus === "error"
+        ? formCopy.variantsError
+        : resolved.itemsError,
     commentError: resolved.commentError,
     banner: resolved.banner,
     pending,
     submitDisabled:
       resolved.submitDisabled ||
       loadState.kind !== "ready" ||
-      lookups.catalogFactsPending,
+      catalogFactsBlocked,
     submitLabel: resolved.submitLabel,
     fieldsEditable: resolved.fieldsEditable && loadState.kind === "ready",
     showSubmit,
@@ -322,7 +331,7 @@ export function useOrderForm() {
       onFieldEdit();
     },
     save: () => {
-      if (lookups.catalogFactsPending) {
+      if (catalogFactsBlocked) {
         return;
       }
       void handleSubmit(

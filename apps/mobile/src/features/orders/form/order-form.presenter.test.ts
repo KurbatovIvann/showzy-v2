@@ -146,4 +146,29 @@ describe("order-form kit and sheet hygiene", () => {
     expect(sheet).toContain("{props.sessionOpen ? (");
     expect(sheet).toContain("onPress: (id: string) => void");
   });
+
+  it("blocks save while catalog getProduct is pending or errored, without variant_required", () => {
+    const hook = readFileSync(
+      new URL("./use-order-form.ts", import.meta.url),
+      "utf8",
+    );
+    const lookups = readFileSync(
+      new URL("./use-order-form-lookups.ts", import.meta.url),
+      "utf8",
+    );
+    const plan = readFileSync(
+      new URL("./order-form-plan.ts", import.meta.url),
+      "utf8",
+    );
+    expect(lookups).toContain("classifyCatalogFactsLoad");
+    expect(lookups).toContain("catalogQueryLoadStatus");
+    expect(lookups).toContain("catalogFactsBlockSubmit");
+    expect(hook).toContain("catalogFactsBlockSubmit");
+    expect(hook).toContain('lookups.catalogFactsStatus === "error"');
+    expect(hook).toContain("formCopy.variantsError");
+    expect(hook).toContain("if (catalogFactsBlocked)");
+    expect(plan).toContain("catalogFactsReadyForDraft");
+    expect(plan).toContain("if (facts === undefined)");
+    expect(plan).toContain("return null;");
+  });
 });

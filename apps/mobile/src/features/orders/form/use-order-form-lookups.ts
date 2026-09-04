@@ -18,9 +18,14 @@ import {
 } from "../shared/order-thumbnails";
 import { useOrderThumbnails } from "../shared/use-order-thumbnails";
 import {
+  catalogFactsBlockSubmit,
   catalogFactsFromProduct,
+  catalogQueryLoadStatus,
+  classifyCatalogFactsLoad,
   overlayCatalogVariantCount,
   uniqueProductIds,
+  type CatalogFactsLoadStatus,
+  type CatalogFactsQuerySnapshot,
   type OrderLineCatalogFacts,
   type OrderLineCatalogFactsMap,
 } from "./order-line-catalog-facts";
@@ -46,6 +51,7 @@ export function useOrderFormLookups(args: {
   readonly variantsStatus: ProductVariantsLoadStatus;
   readonly thumbnailsByProductId: ReadonlyMap<string, OrderFormThumbnail>;
   readonly catalogFacts: OrderLineCatalogFactsMap;
+  readonly catalogFactsStatus: CatalogFactsLoadStatus;
   readonly catalogFactsPending: boolean;
 } {
   const apiClient = useApiClient();
@@ -139,11 +145,22 @@ export function useOrderFormLookups(args: {
   }, [catalogProductIds, productQueries]);
 
   const draftCatalogIds = uniqueProductIds(args.draftProductIds);
-  const catalogFactsPending = draftCatalogIds.some((productId) => {
-    const index = catalogProductIds.indexOf(productId);
-    const query = index < 0 ? undefined : productQueries[index];
-    return query === undefined || query.isPending;
-  });
+  const catalogQueryByProductId = new Map<
+    string,
+    CatalogFactsQuerySnapshot | undefined
+  >();
+  for (const [index, productId] of catalogProductIds.entries()) {
+    const query = productQueries[index];
+    catalogQueryByProductId.set(
+      productId,
+      query === undefined ? undefined : { status: query.status },
+    );
+  }
+  const catalogFactsStatus = classifyCatalogFactsLoad(
+    draftCatalogIds,
+    catalogQueryByProductId,
+  );
+  const catalogFactsPending = catalogFactsBlockSubmit(catalogFactsStatus);
 
   const productRows = useMemo((): readonly OrderFormProductRow[] => {
     if (productsQuery.data === undefined) {
@@ -203,13 +220,14 @@ export function useOrderFormLookups(args: {
     variantsStatus:
       args.variantProductId === null
         ? "idle"
-        : pickerQuery === undefined || pickerQuery.status === "pending"
-          ? "loading"
-          : pickerQuery.status === "error"
-            ? "error"
-            : "ready",
+        : catalogQueryLoadStatus(
+            pickerQuery === undefined
+              ? undefined
+              : { status: pickerQuery.status },
+          ),
     thumbnailsByProductId,
     catalogFacts,
+    catalogFactsStatus,
     catalogFactsPending,
   };
 }

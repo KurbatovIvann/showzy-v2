@@ -5,6 +5,7 @@ import {
   createOrderPayload,
   parseThenPlanOrderFormSave,
   planOrderFormSave,
+  validateOrderFormCatalog,
   type OrderFormWrite,
   type OrderLineCatalogFactsMap,
 } from "./order-form-plan";
@@ -301,14 +302,21 @@ describe("planOrderFormSave", () => {
     expect(planned.kind).toBe("write");
   });
 
-  it("does not submit when catalog facts are missing", () => {
-    expect(planOrderFormSave(planArgs(validDraft(), new Map()))).toEqual({
+  it("does not plan variant_required or a write when catalog facts are missing", () => {
+    const planned = planOrderFormSave(planArgs(validDraft(), new Map()));
+    expect(planned.kind).not.toBe("write");
+    expect(planned.kind).not.toBe("retry");
+    expect(planned).toEqual({
       kind: "invalid",
       errors: {
         customer: null,
-        items: "variant_required",
+        items: null,
         comment: null,
       },
     });
+    expect(validateOrderFormCatalog(validDraft(), new Map()).items).not.toBe(
+      "variant_required",
+    );
+    expect(validateOrderFormCatalog(validDraft(), new Map()).items).toBeNull();
   });
 });

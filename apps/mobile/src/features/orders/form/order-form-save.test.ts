@@ -162,6 +162,20 @@ describe("runOrderFormSave", () => {
     expect(getFieldErrors().items).toBe("required");
   });
 
+  it("does not submit or map variant_required when getProduct facts are missing", async () => {
+    const { ports, calls, getFieldErrors } = createPorts({
+      draft: validDraft(),
+    });
+    const withoutFacts: OrderFormSavePorts = {
+      ...ports,
+      getCatalogFacts: () => new Map(),
+    };
+    await runOrderFormSave(withoutFacts);
+    expect(calls).toEqual([]);
+    expect(getFieldErrors().items).not.toBe("variant_required");
+    expect(getFieldErrors().items).toBeNull();
+  });
+
   it("stops on an archived-only variable line without submitting as base", async () => {
     const archivedVariantId = "55555555-5555-4555-8555-555555555555";
     const { ports, calls, getFieldErrors } = createPorts({

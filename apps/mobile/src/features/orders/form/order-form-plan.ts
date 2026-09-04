@@ -71,12 +71,19 @@ function wireItems(draft: OrderFormDraft): CreateOrderPayload["items"] {
   }));
 }
 
+function catalogFactsReadyForDraft(
+  draft: OrderFormDraft,
+  catalogFacts: OrderLineCatalogFactsMap,
+): boolean {
+  return draft.items.every((item) => catalogFacts.has(item.productId));
+}
+
 function catalogErrorForLine(
   item: OrderFormLineDraft,
   facts: OrderLineCatalogFacts | undefined,
 ): ItemsErrorKey | null {
   if (facts === undefined) {
-    return "variant_required";
+    return null;
   }
   const sellability = classifyProductSellability(facts.variantRows);
   if (item.variantId === null) {
@@ -162,6 +169,9 @@ export function planOrderFormSave(args: {
   const errors = validateOrderForm(args.draft);
   if (!isOrderFormValid(errors)) {
     return { kind: "invalid", errors };
+  }
+  if (!catalogFactsReadyForDraft(args.draft, args.catalogFacts)) {
+    return { kind: "invalid", errors: emptyFieldErrors() };
   }
   const catalogErrors = validateOrderFormCatalog(args.draft, args.catalogFacts);
   if (!isOrderFormValid(catalogErrors)) {
