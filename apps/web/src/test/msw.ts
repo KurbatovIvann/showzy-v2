@@ -55,6 +55,7 @@ type RpcState = {
   listProductsItems: unknown[];
   listProductsCalls: OrdersListRpcCall[];
   productDetails: Record<string, Record<string, unknown>>;
+  getDownloadUrlsCalls: OrdersListRpcCall[];
   orderCreateNetworkFailuresRemaining: number;
   createdOrdersByKey: Record<string, Record<string, unknown>>;
 };
@@ -115,6 +116,7 @@ function authMsw(): AuthMsw {
     listProductsItems: [],
     listProductsCalls: [],
     productDetails: {},
+    getDownloadUrlsCalls: [],
     orderCreateNetworkFailuresRemaining: 0,
     createdOrdersByKey: {},
   };
@@ -208,6 +210,15 @@ function inputString(input: unknown, key: string): string {
   const record = jsonObject(input);
   const value = record?.[key];
   return typeof value === "string" ? value : "";
+}
+
+function inputStringArray(input: unknown, key: string): string[] {
+  const record = jsonObject(input);
+  const value = record?.[key];
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter((item): item is string => typeof item === "string");
 }
 
 function pageLimit(input: unknown): number {
@@ -635,6 +646,34 @@ function allHandlers(sessionState: SessionState, rpcState: RpcState) {
       }
       return rpcJson(stored);
     }),
+    http.post(
+      `${PANEL_ORIGIN}/rpc/files/getDownloadUrls`,
+      async ({ request }) => {
+        recordRpc(rpcState, request);
+        const body: unknown = await request.json();
+        const input = envelopeInput(body);
+        rpcState.getDownloadUrlsCalls.push({
+          path: new URL(request.url).pathname,
+          companyId: request.headers.get(COMPANY_SELECTOR_HEADER),
+          input,
+        });
+        const fileIds = inputStringArray(input, "fileIds");
+        if (fileIds.length === 0) {
+          return rpcError("VALIDATION", 400, "fileIds required");
+        }
+        const rendition = inputString(input, "rendition");
+        return rpcJson({
+          files: fileIds.map((fileId) => ({
+            fileId,
+            downloadUrl:
+              rendition.length === 0
+                ? `https://files.test/${fileId}`
+                : `https://files.test/${fileId}?r=${rendition}`,
+            expiresAt: "2099-01-01T00:00:00.000Z",
+          })),
+        });
+      },
+    ),
     http.post(`${PANEL_ORIGIN}/rpc/orders/create`, async ({ request }) => {
       recordRpc(rpcState, request);
       const body: unknown = await request.json();
@@ -793,6 +832,7 @@ export function resetAuthMocks(): void {
   listMineState.listProductsItems = [];
   listMineState.listProductsCalls = [];
   listMineState.productDetails = {};
+  listMineState.getDownloadUrlsCalls = [];
   listMineState.orderCreateNetworkFailuresRemaining = 0;
   listMineState.createdOrdersByKey = {};
 }
@@ -884,16 +924,20 @@ export function seedProduct(view: object): void {
     imageFileIds: Array.isArray(record.imageFileIds) ? record.imageFileIds : [],
   };
   listMineState.productDetails[id] = detail;
-  const already = listMineState.listProductsItems.some((item) => {
+  const alreadyIndex = listMineState.listProductsItems.findIndex((item) => {
     const row = jsonObject(item);
     return row?.id === id;
   });
-  if (!already) {
+  if (alreadyIndex === -1) {
     listMineState.listProductsItems = [
       ...listMineState.listProductsItems,
       listRow,
     ];
+    return;
   }
+  const next = [...listMineState.listProductsItems];
+  next[alreadyIndex] = listRow;
+  listMineState.listProductsItems = next;
 }
 
 export function ensureAuthServer(): void {
