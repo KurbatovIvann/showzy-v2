@@ -331,4 +331,95 @@ describe("customers.listCustomers", () => {
     expect(wildcards).toEqual({ items: [], nextCursor: null });
     expect(escaped).toEqual({ items: [], nextCursor: null });
   });
+
+  it("finds Катя Самбука by the inflected query Каті Самбуки in the same tenant", async () => {
+    const katyaA = randomUUID();
+    const katyaB = randomUUID();
+    await kit.db.runtime.db.insert(companyCustomers).values([
+      {
+        id: katyaA,
+        companyId: kitIdentities.companies.a,
+        name: "Катя Самбука",
+        email: `katya-a-${katyaA}@kit.test`,
+      },
+      {
+        id: katyaB,
+        companyId: kitIdentities.companies.b,
+        name: "Катя Самбука",
+        email: `katya-b-${katyaB}@kit.test`,
+      },
+    ]);
+
+    const listed = await kit.invoke(listCustomers, {
+      search: "Каті Самбуки",
+    });
+    expect(listed.items.map((row) => row.id)).toEqual([katyaA]);
+    expect(listed.items[0]?.name).toBe("Катя Самбука");
+    const blob = JSON.stringify(listed);
+    expect(blob).not.toContain(katyaB);
+    expect(blob).not.toContain(kitIdentities.companies.b);
+
+    const otherTenant = await kit.invoke(
+      listCustomers,
+      { search: "Каті Самбуки" },
+      {
+        companyId: kitIdentities.companies.b,
+        userId: kitIdentities.users.boris,
+      },
+    );
+    expect(otherTenant.items.map((row) => row.id)).toEqual([katyaB]);
+    expect(otherTenant.items.map((row) => row.id)).not.toContain(katyaA);
+  });
+
+  it("returns every similar name in the tenant instead of picking one", async () => {
+    const sambuka = randomUUID();
+    const sambukova = randomUUID();
+    await kit.db.runtime.db.insert(companyCustomers).values([
+      {
+        id: sambuka,
+        companyId: kitIdentities.companies.a,
+        name: "Катя Самбука",
+        email: `sambuka-${sambuka}@kit.test`,
+      },
+      {
+        id: sambukova,
+        companyId: kitIdentities.companies.a,
+        name: "Катерина Самбукова",
+        email: `sambukova-${sambukova}@kit.test`,
+      },
+    ]);
+
+    const listed = await kit.invoke(listCustomers, {
+      search: "Каті Самбуки",
+    });
+    expect(listed.items.map((row) => row.id)).toEqual(
+      expect.arrayContaining([sambuka, sambukova]),
+    );
+    expect(
+      new Set(listed.items.map((row) => row.id)).size,
+    ).toBeGreaterThanOrEqual(2);
+  });
+
+  it("does not let a short token match inside another name word", async () => {
+    const customerA = randomUUID();
+    const customerExtra = randomUUID();
+    await kit.db.runtime.db.insert(companyCustomers).values([
+      {
+        id: customerA,
+        companyId: kitIdentities.companies.a,
+        name: "Customer A",
+        email: `customer-a-${customerA}@kit.test`,
+      },
+      {
+        id: customerExtra,
+        companyId: kitIdentities.companies.a,
+        name: "Customer Extra",
+        email: `customer-extra-${customerExtra}@kit.test`,
+      },
+    ]);
+
+    const listed = await kit.invoke(listCustomers, { search: "Customer A" });
+    expect(listed.items.map((row) => row.id)).toContain(customerA);
+    expect(listed.items.map((row) => row.id)).not.toContain(customerExtra);
+  });
 });

@@ -110,6 +110,13 @@ export const companyCustomers = pgTable(
     index("company_customers_company_email_unlinked_idx")
       .on(table.companyId, table.email)
       .where(sql`${table.userId} IS NULL`),
+    // SHO-396 / SHO-398: GIN trigram on name accelerates `%stem%` ILIKE.
+    // pg_trgm is already installed (0007). company_id stays on the
+    // existing btree indexes; the matcher ANDs tenant scope in SQL.
+    index("company_customers_name_trgm_idx").using(
+      "gin",
+      table.name.op("gin_trgm_ops"),
+    ),
     foreignKey({
       name: "company_customers_customer_groups_company_fk",
       columns: [table.companyId, table.groupId],
