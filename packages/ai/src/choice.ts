@@ -456,11 +456,16 @@ export function catalogPickerConflictExtrasFromError(
   if (!(error instanceof CoreError) || error.code !== "CONFLICT") {
     return undefined;
   }
-  const extras = {
-    reason: Reflect.get(error, "reason"),
-    target: Reflect.get(error, "target"),
-    options: Reflect.get(error, "options"),
-    optionsTruncated: Reflect.get(error, "optionsTruncated"),
+  const extras: {
+    readonly reason: unknown;
+    readonly target: unknown;
+    readonly options: unknown;
+    readonly optionsTruncated: unknown;
+  } = {
+    reason: Reflect.get(error, "reason") as unknown,
+    target: Reflect.get(error, "target") as unknown,
+    options: Reflect.get(error, "options") as unknown,
+    optionsTruncated: Reflect.get(error, "optionsTruncated") as unknown,
   };
   const parsed = catalogPickerConflictExtrasSchema.safeParse(extras);
   return parsed.success ? parsed.data : undefined;

@@ -141,10 +141,11 @@ function currentTurnHasHitl(rows: readonly AssistantChatRow[]): boolean {
   if (lastAssistantIndex <= lastUserIndex) {
     return false;
   }
-  return (
-    rows[lastAssistantIndex]?.confirmation !== null ||
-    rows[lastAssistantIndex]?.choice !== null
-  );
+  const row = rows[lastAssistantIndex];
+  if (row === undefined) {
+    return false;
+  }
+  return row.confirmation !== null || row.choice !== null;
 }
 
 export function assistantTurnIsWaiting(input: {

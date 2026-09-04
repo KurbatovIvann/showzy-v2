@@ -28,9 +28,10 @@ import {
 } from "../shared/chat-error";
 import { envelopeFromChoicePeek } from "../shared/choice";
 import type {
-  AssistantChatMessage,
-  AssistantChatPart,
-} from "../shared/confirmation-presenter";
+  ChoiceAppendPart,
+  ChoiceSelectResult,
+} from "../shared/choice-presenter";
+import type { AssistantChatMessage } from "../shared/confirmation-presenter";
 import type { AssistantChatStatus } from "./use-assistant-confirmation";
 
 function resolveApiUrl(): string | null {
@@ -63,23 +64,8 @@ export function useAssistantChat(): {
   readonly postChoice: (input: {
     readonly choiceId: string;
     readonly optionId: string;
-  }) => Promise<{
-    readonly status: string;
-    readonly text?: string;
-    readonly challengeId?: string;
-    readonly reason?: string;
-    readonly productName?: string;
-    readonly options?: readonly {
-      readonly id: string;
-      readonly label: string;
-    }[];
-    readonly optionsTruncated?: boolean;
-    readonly entity?: {
-      readonly orderId: string;
-      readonly orderNumber: string;
-    };
-  }>;
-  readonly appendAssistantParts: (parts: readonly AssistantChatPart[]) => void;
+  }) => Promise<ChoiceSelectResult>;
+  readonly appendAssistantParts: (parts: readonly ChoiceAppendPart[]) => void;
 } {
   const auth = useAuthSession();
   const apiClient = useApiClient();
@@ -146,7 +132,7 @@ export function useAssistantChat(): {
   );
 
   const appendAssistantParts = useCallback(
-    (parts: readonly AssistantChatPart[]) => {
+    (parts: readonly ChoiceAppendPart[]) => {
       setMessages((current) => [
         ...current,
         {

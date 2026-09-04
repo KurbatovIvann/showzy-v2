@@ -7,11 +7,11 @@ import {
   executeChoiceSelect,
   pendingChoiceFromMessages,
   type AssistantChoiceMessage,
+  type ChoiceAppendPart,
   type ChoiceCardState,
   type ChoiceSelectResult,
   type PendingChoice,
 } from "../shared/choice-presenter";
-import type { AssistantChatPart } from "../shared/confirmation-presenter";
 
 export function useAssistantChoice(args: {
   readonly messages: readonly AssistantChoiceMessage[];
@@ -20,7 +20,7 @@ export function useAssistantChoice(args: {
     readonly choiceId: string;
     readonly optionId: string;
   }) => Promise<ChoiceSelectResult>;
-  readonly appendParts: (parts: readonly AssistantChatPart[]) => void;
+  readonly appendParts: (parts: readonly ChoiceAppendPart[]) => void;
 }): {
   readonly pending: PendingChoice | null;
   readonly ignoredChallengeIds: ReadonlySet<string>;

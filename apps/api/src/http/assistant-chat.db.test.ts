@@ -2521,7 +2521,7 @@ describe("SHO-418 orders_create choice activation", () => {
   it("omits variantQuery → needs_choice with six active options and no parent", async () => {
     const store = createMemoryChoiceStore();
     const open = vi.spyOn(store, "open");
-    const customer = await staffInvoke(createCustomer, {
+    await staffInvoke(createCustomer, {
       name: "T8b Six Buyer",
       phone: "+380671110041",
     });

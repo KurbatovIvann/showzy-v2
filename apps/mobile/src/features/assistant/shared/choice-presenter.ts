@@ -45,14 +45,34 @@ export type ChoiceCardState =
 
 export type ChoiceSelectResult = {
   readonly status: string;
-  readonly text?: string;
-  readonly challengeId?: string;
-  readonly reason?: string;
-  readonly productName?: string;
-  readonly options?: readonly { readonly id: string; readonly label: string }[];
-  readonly optionsTruncated?: boolean;
-  readonly entity?: { readonly orderId: string; readonly orderNumber: string };
+  readonly text?: string | undefined;
+  readonly challengeId?: string | undefined;
+  readonly reason?: string | undefined;
+  readonly productName?: string | undefined;
+  readonly options?:
+    readonly { readonly id: string; readonly label: string }[] | undefined;
+  readonly optionsTruncated?: boolean | undefined;
+  readonly entity?:
+    { readonly orderId: string; readonly orderNumber: string } | undefined;
 };
+
+export type ChoiceAppendPart =
+  | { readonly type: "text"; readonly text: string }
+  | {
+      readonly type: "data-choice";
+      readonly data: StaffAssistantChoiceCardEnvelope;
+    }
+  | {
+      readonly type: "dynamic-tool";
+      readonly toolName: "orders.create";
+      readonly toolCallId: string;
+      readonly state: "output-available";
+      readonly input: Record<string, never>;
+      readonly output: {
+        readonly orderId: string;
+        readonly orderNumber: string;
+      };
+    };
 
 /**
  * Latest unignored `data-choice`. Ignored (resolved/expired-consumed) ids
@@ -164,9 +184,9 @@ export function choiceSelectAppendParts(args: {
   readonly result: ChoiceSelectResult;
   readonly previousChoiceId: string;
   readonly locale: "uk" | "en";
-}): readonly AssistantChoicePart[] {
+}): readonly ChoiceAppendPart[] {
   if (args.result.status === "completed") {
-    const parts: AssistantChoicePart[] = [];
+    const parts: ChoiceAppendPart[] = [];
     if (typeof args.result.text === "string" && args.result.text.length > 0) {
       parts.push({ type: "text", text: args.result.text });
     }

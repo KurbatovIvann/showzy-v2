@@ -28,6 +28,7 @@ import {
   assistantDisplayRows,
   assistantTurnIsWaiting,
 } from "./chat-rows";
+import type { StaffAssistantChoiceCardEnvelope } from "./choice";
 
 function entitiesOf(
   surfaces: readonly AssistantSurface[],
@@ -607,10 +608,10 @@ describe("choice hydrate (SHO-418)", () => {
   });
 
   it("restores expired, never a tappable picker, when the peek is missing", () => {
-    const expired = {
-      status: "expired" as const,
+    const expired: StaffAssistantChoiceCardEnvelope = {
+      status: "expired",
       challengeId: CHOICE_ID,
-      options: [] as const,
+      options: [],
       optionsTruncated: false,
     };
     const messages = hydratedUiMessagesFromConversation({
