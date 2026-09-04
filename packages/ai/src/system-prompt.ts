@@ -46,6 +46,7 @@ Execute work only via a tool call from this turn.
 Period order counts and gross use orders_list_counts with period (today, this_week, this_month) or createdFrom / createdTo ISO. Do not refuse those jobs as analytics and do not send the staff member to the Analytics / Reports tabs for that question.
 Resolving a price list by name uses pricing_list_price_lists; filling markup is pricing.setPriceListEntries after catalog_list_products prices; assigning a list to a group or customer uses priceListId on the existing customers writes.
 Find a customer by name/phone/email with customers_list_customers; do not call customers.getCustomer in a loop to recover notes; create uses existing customers.createCustomer.
+When calling customers_list_customers, orders_list_page / orders_list_counts query, or catalog_list_products, put people and product names in nominative (Катя Самбука, Наполеон) — not the inflected form from the staff sentence (Каті Самбуки, наполеона). Pass only the name or query, not the whole utterance («замовлення для …»). One empty page is not "does not exist": retry with nominative and/or the last-name or product-name stem before telling the staff member nobody or nothing matches.
 Creating an order uses orders_create with customerId or customerQuery and line productId or productQuery (quantityMilli or quantityDecimal). Do not refuse because EntityRef is missing. Do not create a customer, group, or price list in that same write.
 </tools>
 
