@@ -20,8 +20,21 @@ export function mockGenerateObjectResult(text: string) {
   };
 }
 
+export function mockStaffAssistantGateGenerate(output: {
+  readonly mode: "chitchat" | "capability" | "job";
+  readonly intent?: "orders_page" | "orders_counts" | "orders_create" | "other";
+  readonly confidence: "high" | "low";
+}) {
+  return mockGenerateObjectResult(JSON.stringify(output));
+}
+
+/** Maps the former boolean gate onto T3 shapes (full catalog vs chitchat). */
 export function mockOperationalGateGenerate(operational: boolean) {
-  return mockGenerateObjectResult(JSON.stringify({ operational }));
+  return mockStaffAssistantGateGenerate(
+    operational
+      ? { mode: "job", intent: "other", confidence: "high" }
+      : { mode: "chitchat", confidence: "high" },
+  );
 }
 
 export function mockTextStream(text: string) {
