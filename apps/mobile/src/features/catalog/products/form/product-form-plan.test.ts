@@ -6,6 +6,7 @@ import {
   draftFromProduct,
   emptyProductFormDraft,
   formatProductFormFooterPrice,
+  productFormFooterPriceMuted,
   snapshotFromDraft,
   snapshotFromProduct,
   upsertVariantDraft,
@@ -568,9 +569,12 @@ describe("variant sheet save into the write plan", () => {
     });
   });
 
-  it("formats an empty footer price as zero hryvnia", () => {
+  it("formats an empty footer price as zero hryvnia and mutes zero/invalid amounts", () => {
     expect(formatProductFormFooterPrice("")).toMatch(/0/);
     expect(formatProductFormFooterPrice("10")).toMatch(/10/);
+    expect(productFormFooterPriceMuted("")).toBe(true);
+    expect(productFormFooterPriceMuted("0")).toBe(true);
+    expect(productFormFooterPriceMuted("10")).toBe(false);
   });
 });
 

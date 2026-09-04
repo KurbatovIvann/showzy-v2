@@ -1,5 +1,3 @@
-import type { ComponentProps } from "react";
-import { Text } from "react-native";
 import { Controller, useWatch, type Control } from "react-hook-form";
 
 import type { ProductsFormCopy } from "../../../../i18n/products";
@@ -96,14 +94,6 @@ export function ProductFormPriceField(props: {
       )}
     />
   );
-}
-
-export function ProductFormFooterPrice(props: {
-  readonly control: Control<ProductFormDraft>;
-  readonly style: ComponentProps<typeof Text>["style"];
-}) {
-  const label = useProductFormPriceLabel(props.control);
-  return <Text style={props.style}>{label}</Text>;
 }
 
 export function useProductFormPriceLabel(

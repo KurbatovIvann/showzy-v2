@@ -15,6 +15,7 @@ import {
   AppHeader,
   Banner,
   Button,
+  EditorFooter,
   EmptyState,
   IconButton,
   StatusPill,
@@ -64,35 +65,24 @@ export function ProductDetailView(model: ProductDetailModel) {
       {model.canEdit &&
       model.state.kind === "ready" &&
       model.product !== null ? (
-        <View style={styles.footer}>
-          <View style={styles.footerButton}>
-            <Button
-              fullWidth
-              icon={
-                <PencilIcon
-                  size={theme.iconSize.sm}
-                  color={theme.colors.primaryForeground}
-                />
-              }
-              label={copy.detail.editLabel}
-              onPress={model.openEdit}
+        <EditorFooter
+          cancelLabel={copy.detail.photosLabel}
+          confirmLabel={copy.detail.editLabel}
+          onCancel={model.openPhotos}
+          onConfirm={model.openEdit}
+          cancelIcon={
+            <CameraIcon
+              size={theme.iconSize.sm}
+              color={theme.colors.foreground}
             />
-          </View>
-          <View style={styles.footerButton}>
-            <Button
-              variant="secondary"
-              fullWidth
-              icon={
-                <CameraIcon
-                  size={theme.iconSize.sm}
-                  color={theme.colors.foreground}
-                />
-              }
-              label={copy.detail.photosLabel}
-              onPress={model.openPhotos}
+          }
+          confirmIcon={
+            <PencilIcon
+              size={theme.iconSize.sm}
+              color={theme.colors.primaryForeground}
             />
-          </View>
-        </View>
+          }
+        />
       ) : null}
       <ProductActionsSheet
         visible={model.productActionsVisible}
@@ -512,19 +502,6 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.mutedForeground,
     fontSize: theme.typography.xs.fontSize,
     lineHeight: theme.typography.xs.lineHeight,
-  },
-  footer: {
-    flexDirection: "row",
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-    backgroundColor: theme.colors.card,
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.md,
-    paddingBottom: theme.spacing.md,
-    gap: theme.spacing.sm,
-  },
-  footerButton: {
-    flex: 1,
   },
   centered: {
     flex: 1,

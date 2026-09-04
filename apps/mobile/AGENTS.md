@@ -39,9 +39,9 @@ the same directory.
   `HierarchicalCompanyStack` for hierarchical pushes. Auth / root / tabs
   stay excluded.
 - `src/components/ui/` — **shared** primitives only (Button, Card, TextField,
-  `SegmentedTabs`, `TabView`, `ListSurface` / `ListRow`, inputs, Sheet /
-  StatusPill / EmptyState / `CenteredSpinner`, `OptionSelectSheet`,
-  `SelectorRow`). Never imports
+  `SegmentedTabs`, `TabView`, `ListSurface` / `ListRow`, `EditorFooter`,
+  inputs, Sheet / StatusPill / EmptyState / `CenteredSpinner`,
+  `OptionSelectSheet`, `SelectorRow`). Never imports
   feature code; feature policy values (e.g. OTP length, search caps, copy)
   arrive as props. Before adding a new file here, confirm the canvas piece
   is actually shared. In-screen tabs are `SegmentedTabs` + `TabView` only —

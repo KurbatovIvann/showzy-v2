@@ -6,6 +6,7 @@
 import type { WireErrorCode } from "@showzy/contract";
 
 import type { QueryFailureKind } from "../../../api/errors";
+import type { CountForms } from "../../../i18n/copy";
 import { interpolate, type Locale } from "../../../i18n/locale";
 import type { OrdersCreateCopy } from "../../../i18n/orders";
 import { itemCountLabel } from "../shared/item-count";
@@ -116,6 +117,30 @@ export function presentProductsValue(
   return interpolate(addProductsValue, {
     count: String(itemCount),
   });
+}
+
+export function presentOrderFormFooter(args: {
+  readonly itemCount: number;
+  readonly locale: Locale;
+  readonly items: CountForms;
+  readonly emptyLabel: string;
+}): {
+  readonly empty: boolean;
+  readonly emptyLabel: string;
+  readonly metaLabel: string;
+} {
+  if (args.itemCount === 0) {
+    return {
+      empty: true,
+      emptyLabel: args.emptyLabel,
+      metaLabel: "",
+    };
+  }
+  return {
+    empty: false,
+    emptyLabel: "",
+    metaLabel: itemCountLabel(args.itemCount, args.locale, args.items),
+  };
 }
 
 export function presentProductPickerLevel(

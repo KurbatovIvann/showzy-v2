@@ -148,6 +148,8 @@ describe("orders copy", () => {
     );
     expect(uk.create.variantsSelected).toBe("{{count}} вибрано · {{names}}");
     expect(uk.create.thumbnailUnavailable).toBe("Фото недоступне");
+    expect(uk.create.emptyPositions).toBe("Без позицій");
+    expect(en.create.emptyPositions).toBe("No items");
     expect(en.create.productSheetDone).toBe("Done · {{count}}");
     expect(en.create.variantsBackLabel).toBe("Back to products");
     expect(en.create.variantsSelected).toBe("{{count}} selected · {{names}}");
