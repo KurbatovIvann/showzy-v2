@@ -13,6 +13,8 @@ This directory holds UX and design-system artifacts for Showzy V2.
 - **Port rule (mobile):** [`mapping/mp-to-mobile.md`](mapping/mp-to-mobile.md) —
   inventory the canvas, classify shared vs feature, reuse or create;
   do not paste React/Tailwind.
+- **Port rule (web):** [`mapping/mp-to-web.md`](mapping/mp-to-web.md) —
+  MCP-read Screens + canvas files before `apps/web` JSX.
 - **Web panel chrome (phase 10):** [`mapping/web-panel-chrome.md`](mapping/web-panel-chrome.md)
   — master–detail (nav | list | detail), responsive from the start
   (drawer on tablet, Sophie-style bottom tabs on phone, list XOR detail

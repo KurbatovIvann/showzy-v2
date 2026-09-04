@@ -30,7 +30,8 @@ universal form/page/view-model framework.
 | Any `apps/web` change | `apps/web/AGENTS.md` |
 | Routes, layouts, folder tree | `docs/design/web-panel-architecture.md` |
 | Stack / same-origin cookies | `docs/adr/0030-web-panel-spa-and-deferred-storefront.md` |
-| Canvas chrome | `docs/design/mapping/web-panel-chrome.md` |
+| Canvas chrome lock | `docs/design/mapping/web-panel-chrome.md` |
+| Product screen port | `docs/design/mapping/mp-to-web.md` + Magic Patterns canvas Screens |
 | Query keys / mutations | `apps/web/src/api/query-options.ts`, `contract-mutation.ts` |
 | Golden feature slice | `apps/web/src/features/companies/` |
 

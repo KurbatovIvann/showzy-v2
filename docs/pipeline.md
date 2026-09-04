@@ -221,10 +221,13 @@ and is named in the description.
 4. **Working model is Grok 4.6** until another family is on the Cursor
    plan. Do not keep a per-role model matrix in the meantime.
 5. **UX gate blocks product screens in `apps/mobile`.** It does not block
-   backend features. UI work must follow
+   backend features. Mobile UI work must follow
    `docs/design/mapping/mp-to-mobile.md` and reference the Magic
    Patterns canvas screen, the running Expo SYSTEM, and
-   `docs/design/process.md` (ADR-0024). Figma is not a gate artifact.
+   `docs/design/process.md` (ADR-0024). **Web** product screens
+   (`apps/web`) must MCP-read the web canvas (`mp-to-web.md`) before
+   writing JSX; if MCP fails, stop. That is a mandatory canvas read,
+   not the mobile UX gate. Figma is not a gate artifact.
    Expo shell, auth, and deep-link infrastructure are not gated.
 6. **Copy the golden protocol. Do not invent layers.** Flag new
    abstractions, extra folders, or generic “clean architecture” that the

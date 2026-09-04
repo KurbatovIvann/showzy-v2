@@ -29,6 +29,13 @@ For **routine** and **sensitive / first-slice**:
 
 1. Read the context pack: feature card, golden files for this layer.
    Do NOT load `docs/archive/` or unrelated v1 material.
+   **Web product screens** (`apps/web` list/detail/form/chrome the user
+   sees): Magic Patterns MCP-read the web canvas before writing JSX
+   (`.cursor/rules/web-panel-port.mdc`, `docs/design/mapping/mp-to-web.md`).
+   Find the Screens entry in `canvas.manifest.js` and the canvas files
+   for that `state.screen`. If MCP is unavailable, **stop** — do not
+   invent layout from `web-panel-chrome.md`. This is not the mobile UX
+   gate; it is a mandatory canvas read.
 2. Verdict: "understood, starting" with a 3–5 line summary of scope +
    required tests, or a stop report. Stop for a product fork (new
    capability, new principal, invariant change, new table). Amend

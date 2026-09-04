@@ -103,11 +103,15 @@ confirmation, or QES.
 ## Integration with the engineering pipeline
 
 - `docs/pipeline.md` is the engineering feature loop (ADR-0023).
-- Product-screen `/implement` requires a canvas reference and
-  `mp-to-mobile.md`. Backend `/feature` tickets are not gated.
+- Product-screen `/implement` in `apps/mobile` requires a canvas
+  reference and `mp-to-mobile.md`. Backend `/feature` tickets are not
+  gated. **Web** product screens require a Magic Patterns MCP read of
+  the web canvas (`mp-to-web.md`); that is a mandatory canvas read, not
+  the mobile UX gate.
 - UI implementation tasks (`/implement`) reference the feature card, the
-  Magic Patterns canvas, and `docs/design/mapping/mp-to-mobile.md`, not
-  archived greenfield component contracts, archived domain specs, or Figma.
+  Magic Patterns canvas, and `docs/design/mapping/mp-to-mobile.md` or
+  `mp-to-web.md` (by app), not archived greenfield component contracts,
+  archived domain specs, or Figma.
 - UI acceptance: canvas intent, token fidelity, shared-vs-feature
   placement, accessibility, loading/empty/error/offline, localization,
   and internal evaluation evidence with its limitation. Classic/AI

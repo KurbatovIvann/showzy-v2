@@ -13,7 +13,9 @@ ADRs, and this file win.
 
 | Concern                              | Source                                                                                                   |
 | ------------------------------------ | -------------------------------------------------------------------------------------------------------- |
-| Visual language                      | Canvas tokens in `src/theme/` and [`web-panel-chrome.md`](../../docs/design/mapping/web-panel-chrome.md) |
+| Product screen visuals               | Web canvas Screens + files ([`mp-to-web.md`](../../docs/design/mapping/mp-to-web.md)); inventory in [`web-panel-chrome.md`](../../docs/design/mapping/web-panel-chrome.md) §Screens |
+| Theme tokens                         | `src/theme/`                                                                                             |
+| Chrome / tokens lock                 | [`web-panel-chrome.md`](../../docs/design/mapping/web-panel-chrome.md) (breakpoints, nav IA, tones — not a screen substitute) |
 | Directory / route / data conventions | [`web-panel-architecture.md`](../../docs/design/web-panel-architecture.md)                               |
 | Stack / cookies / slug vs UUID       | [ADR-0030](../../docs/adr/0030-web-panel-spa-and-deferred-storefront.md)                                 |
 | Domain behavior                      | Linear feature card + `@showzy/contract`                                                                 |

@@ -42,7 +42,10 @@ nothing more. You do not write `docs/specs/` or `docs/plans/`.
    that ADR-0033 retires. Staff lists copy `orders.list` (SHO-351). Do
    not invent folders, layers, or dependencies. Mobile
    tickets: load `.cursor/skills/showzy-mobile/SKILL.md` before writing
-   `apps/mobile` code.
+   `apps/mobile` code. Web product-screen tickets: follow
+   `.cursor/rules/web-panel-port.mdc` and
+   `docs/design/mapping/mp-to-web.md` — MCP-read the web canvas Screens
+   entry and component files before writing JSX. If MCP fails, stop.
 5. Work on the Linear ticket's `gitBranchName` when present; otherwise
    `feat/sho-<number>-<slug>`. Linear names are not `cursor/` — when
    opening the PR, set `skip_branch_prefix_check: true`.

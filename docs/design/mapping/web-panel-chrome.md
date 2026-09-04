@@ -393,3 +393,52 @@ does not follow `i18n/panel.ts` tabs. Auth is phone/email OTP only
 
 T2–T7 and documents T1–T6 fill the list and detail panes; they do not
 replace this chrome.
+
+## Screens inventory
+
+The Screens tab is the port inventory. `state.screen` is a
+`PrototypeSwitcher` ScreenId. Read the canvas files for that id before
+writing `apps/web` JSX (`mp-to-web.md`). Happy-path list+detail often
+share one Screen (wide auto-selects the first row).
+
+Editor: [Shozee V2 — Web panel](https://www.magicpatterns.com/c/fdsqxjz1djvww5spay7zey).
+
+| ScreenId | Canvas files (start here) |
+| --- | --- |
+| `signin` / `verify` | `components/auth/SignIn.tsx`, `Verify.tsx` |
+| `onboarding-profile` / `-errors` | `components/onboarding/OnboardingProfile.tsx` |
+| `onboarding-company` / `-city` | `components/onboarding/OnboardingCompany.tsx` |
+| `onboarding-legal` / `-quickfill` | `components/onboarding/OnboardingLegal.tsx` |
+| `panel` | `OrdersList.tsx`, `OrderDetail.tsx` |
+| `orders-loading` / `orders-empty` | `OrdersList.tsx` (demo modes) |
+| `orders-create` | `OrderCreate.tsx` |
+| `orders-create-products` | `OrderCreate.tsx` + `ProductPicker.tsx` |
+| `products` | `ProductsList.tsx`, `ProductDetail.tsx` |
+| `products-loading` / `products-empty` | `ProductsList.tsx` |
+| `products-create` / `products-edit` | `ProductForm.tsx` |
+| `products-variant` | `ProductForm.tsx` (variant sheet) |
+| `customers` | `CustomersList.tsx` |
+| `customers-client` | `ClientDetail.tsx` |
+| `customers-create` | `ClientForm.tsx` |
+| `customer-groups` / `-detail` / `-create` | `CustomersSection.tsx`, `GroupForm.tsx` |
+| `counterparties` / `-detail` / `-create` | `CustomersSection.tsx`, `CounterpartyForm.tsx` |
+| `invites` / `-detail` / `-create` | `InviteDetail.tsx`, `InviteCreate.tsx` |
+| `pricing` | `PriceListsList.tsx`, `PriceListDetail.tsx` |
+| `pricing-loading` / `pricing-empty` | `PriceListsList.tsx` |
+| `pricing-create` / `pricing-edit` | `PriceListForm.tsx` |
+| `company` | `CompanyList.tsx`, `CompanyProfile.tsx` |
+| `company-legal` / `company-legal-missing` | `CompanyLegalForm.tsx` |
+| `company-team` | `CompanyTeam.tsx` |
+| `documents` / `-loading` / `-empty` | `DocumentsList.tsx` |
+| `documents-pdf-*` / `-signed` / `-cancelled` | `DocumentDetail.tsx` |
+| `documents-create` (+ no-legal / no-party) | `DocumentCreate.tsx` |
+| `templates` / `-system-only` | `TemplatesList.tsx`, `TemplateDetail.tsx` |
+| `templates-in-company` | `CompanyTemplatesAlt.tsx` |
+| `template-editor` / `-preview` / `-system` | `editor/TemplateEditor.tsx` |
+| `documents-share` / `-rotate` | `ShareDialog.tsx` |
+| `documents-sign` (+ pending / errors) | `sign/SignDialog.tsx` |
+| `share-doc` / `-signed` / `-cancelled` | `components/share/SharedDocumentPage.tsx` |
+| `share-doc-expired` | `components/share/ShareExpired.tsx` |
+
+`App.tsx` `PANEL_SCREENS` and `canvas.manifest.js` must stay aligned.
+A surface missing from the manifest is not ready to implement.

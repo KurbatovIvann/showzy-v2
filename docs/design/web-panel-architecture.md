@@ -1,11 +1,13 @@
 # Web panel architecture (`apps/web`)
 
 > Decision record: [ADR-0030](../adr/0030-web-panel-spa-and-deferred-storefront.md).
-> UX source of truth: the web canvas (ADR-0024) and
-> [`mapping/web-panel-chrome.md`](mapping/web-panel-chrome.md). Agent
-> rules: [`apps/web/AGENTS.md`](../../apps/web/AGENTS.md) and
-> `.cursor/skills/showzy-web/SKILL.md`. This document is the directory /
-> data-flow contract for SHO-325; it is not a product-behavior gate.
+> UX source of truth: the web canvas (ADR-0024),
+> [`mapping/mp-to-web.md`](mapping/mp-to-web.md) (screen port), and
+> [`mapping/web-panel-chrome.md`](mapping/web-panel-chrome.md) (chrome
+> lock). Agent rules: [`apps/web/AGENTS.md`](../../apps/web/AGENTS.md)
+> and `.cursor/skills/showzy-web/SKILL.md`. This document is the
+> directory / data-flow contract for SHO-325; it is not a
+> product-behavior gate.
 
 ## Scope
 
