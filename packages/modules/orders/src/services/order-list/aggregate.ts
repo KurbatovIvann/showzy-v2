@@ -7,6 +7,7 @@ import {
   type ListOrdersBucket,
   type ListOrdersInput,
   type ListOrdersOutput,
+  type ListOrdersStatusBucket,
 } from "../../actions/list.contract.js";
 import { parseStatus } from "../parse-status.js";
 import {
@@ -73,6 +74,71 @@ function toOutputBucket(bucket: MutableBucket): Bucket {
   };
 }
 
+function toStatusOutputBuckets(
+  buckets: readonly MutableBucket[],
+): ListOrdersStatusBucket[] {
+  const out: ListOrdersStatusBucket[] = [];
+  for (const bucket of sortAndCapBuckets([...buckets]).buckets) {
+    if (bucket.identity.kind !== "status") {
+      continue;
+    }
+    out.push({
+      identity: bucket.identity,
+      label: bucket.label,
+      orderCount: bucket.orderCount,
+      grossByCurrency: bucket.grossByCurrency,
+    });
+  }
+  return out;
+}
+
+async function queryStatusBuckets(
+  ctx: StaffCtx,
+  where: ReturnType<typeof and>,
+): Promise<MutableBucket[]> {
+  const rows = await ctx.db
+    .select({
+      status: orders.status,
+      currency: orders.currency,
+      orderCount: count(),
+      grossMinor: sum(orders.totalGrossMinor),
+      newestAt: sql<Date>`max(${orders.createdAt})`,
+      newestId: sql<string>`(array_agg(${orders.id} ORDER BY ${orders.createdAt} DESC, ${orders.id} DESC))[1]`,
+    })
+    .from(orders)
+    .where(where)
+    .groupBy(orders.status, orders.currency);
+
+  const byStatus = new Map<string, MutableBucket>();
+  for (const row of rows) {
+    const status = parseStatus(row.status);
+    const existing = byStatus.get(status);
+    const bucket =
+      existing ??
+      ({
+        identity: { kind: "status", status },
+        label: status,
+        sortKey: status,
+        newestAt: 0,
+        newestId: "",
+        orderCount: 0,
+        quantityMilli: 0n,
+        gross: new Map(),
+      } satisfies MutableBucket);
+    bucket.orderCount += toCount(row.orderCount);
+    addGrossRow(
+      bucket,
+      row.currency,
+      toBigint(row.grossMinor),
+      new Date(row.newestAt),
+      row.newestId,
+      status,
+    );
+    byStatus.set(status, bucket);
+  }
+  return [...byStatus.values()];
+}
+
 function sortAndCapBuckets(buckets: MutableBucket[]): {
   readonly buckets: Bucket[];
   readonly bucketsTruncated: boolean;
@@ -118,6 +184,8 @@ export async function listAggregate(
     mergeGross(totalGross, row.currency, toBigint(row.grossMinor));
   }
   const grossByCurrency = grossByCurrencyFromMap(totalGross);
+  const statusMutable = await queryStatusBuckets(ctx, where);
+  const statusBuckets = toStatusOutputBuckets(statusMutable);
 
   if (input.groupBy === "none") {
     return {
@@ -134,51 +202,12 @@ export async function listAggregate(
       ],
       bucketsTruncated: false,
       customerMatchTruncated: queryMatch.truncated,
+      statusBuckets,
     };
   }
 
   if (input.groupBy === "status") {
-    const rows = await ctx.db
-      .select({
-        status: orders.status,
-        currency: orders.currency,
-        orderCount: count(),
-        grossMinor: sum(orders.totalGrossMinor),
-        newestAt: sql<Date>`max(${orders.createdAt})`,
-        newestId: sql<string>`(array_agg(${orders.id} ORDER BY ${orders.createdAt} DESC, ${orders.id} DESC))[1]`,
-      })
-      .from(orders)
-      .where(where)
-      .groupBy(orders.status, orders.currency);
-
-    const byStatus = new Map<string, MutableBucket>();
-    for (const row of rows) {
-      const status = parseStatus(row.status);
-      const existing = byStatus.get(status);
-      const bucket =
-        existing ??
-        ({
-          identity: { kind: "status", status },
-          label: status,
-          sortKey: status,
-          newestAt: 0,
-          newestId: "",
-          orderCount: 0,
-          quantityMilli: 0n,
-          gross: new Map(),
-        } satisfies MutableBucket);
-      bucket.orderCount += toCount(row.orderCount);
-      addGrossRow(
-        bucket,
-        row.currency,
-        toBigint(row.grossMinor),
-        new Date(row.newestAt),
-        row.newestId,
-        status,
-      );
-      byStatus.set(status, bucket);
-    }
-    const capped = sortAndCapBuckets([...byStatus.values()]);
+    const capped = sortAndCapBuckets(statusMutable);
     return {
       kind: "aggregate",
       orderCount,
@@ -186,6 +215,7 @@ export async function listAggregate(
       buckets: capped.buckets,
       bucketsTruncated: capped.bucketsTruncated,
       customerMatchTruncated: queryMatch.truncated,
+      statusBuckets,
     };
   }
 
@@ -255,6 +285,7 @@ export async function listAggregate(
       buckets: capped.buckets,
       bucketsTruncated: capped.bucketsTruncated,
       customerMatchTruncated: queryMatch.truncated,
+      statusBuckets,
     };
   }
 
@@ -323,5 +354,6 @@ export async function listAggregate(
     buckets: capped.buckets,
     bucketsTruncated: capped.bucketsTruncated,
     customerMatchTruncated: queryMatch.truncated,
+    statusBuckets,
   };
 }

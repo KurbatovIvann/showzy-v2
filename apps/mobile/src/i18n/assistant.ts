@@ -30,6 +30,9 @@ export type AssistantCardsCopy = {
   readonly aggregateEmptyDescription: string;
   readonly bucketsTruncated: string;
   readonly bucketsOmitted: CountForms;
+  readonly periodToday: string;
+  readonly periodThisWeek: string;
+  readonly periodThisMonth: string;
 };
 
 export type AssistantCopy = {
@@ -111,6 +114,9 @@ const en: AssistantCopy = {
       few: "{{count}} more groups are not shown.",
       many: "{{count}} more groups are not shown.",
     },
+    periodToday: "Today",
+    periodThisWeek: "This week",
+    periodThisMonth: "This month",
   },
   errors: {
     ...writeErrorsEn,
@@ -174,6 +180,9 @@ const uk: AssistantCopy = {
       few: "Ще {{count}} групи не показано.",
       many: "Ще {{count}} груп не показано.",
     },
+    periodToday: "Сьогодні",
+    periodThisWeek: "Цього тижня",
+    periodThisMonth: "Цього місяця",
   },
   errors: {
     ...writeErrorsUk,

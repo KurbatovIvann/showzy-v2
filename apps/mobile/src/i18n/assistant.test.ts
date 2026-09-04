@@ -60,6 +60,12 @@ describe("assistant copy", () => {
     expect(en.cards.bucketsOmitted.many).toBe(
       "{{count}} more groups are not shown.",
     );
+    expect(uk.cards.periodToday).toBe("Сьогодні");
+    expect(uk.cards.periodThisWeek).toBe("Цього тижня");
+    expect(uk.cards.periodThisMonth).toBe("Цього місяця");
+    expect(en.cards.periodToday).toBe("Today");
+    expect(en.cards.periodThisWeek).toBe("This week");
+    expect(en.cards.periodThisMonth).toBe("This month");
     expect(Object.keys(uk.cards.orderCount)).toEqual(
       Object.keys(en.cards.orderCount),
     );

@@ -98,6 +98,14 @@ function asAggregate(result: ListOrdersOutput) {
   return result;
 }
 
+function statusBucketStatuses(
+  result: Extract<ListOrdersOutput, { kind: "aggregate" }>,
+) {
+  return result.statusBuckets
+    .map((bucket) => bucket.identity.status)
+    .toSorted();
+}
+
 function productBucket(
   result: Extract<ListOrdersOutput, { kind: "aggregate" }>,
   productId: string,
@@ -424,6 +432,15 @@ crossTenantSuite(
         userId: kitIdentities.users.anna,
       },
     ),
+    isolationCase(
+      listOrders,
+      { input: { kind: "aggregate", groupBy: "none" } },
+      {
+        input: { kind: "aggregate", groupBy: "none" },
+        companyId: kitIdentities.companies.b,
+        userId: kitIdentities.users.anna,
+      },
+    ),
   ],
 );
 
@@ -705,6 +722,17 @@ describe("orders.list", () => {
         companyId: kitIdentities.companies.a,
       }),
     ).rejects.toBeInstanceOf(PermissionDeniedError);
+
+    await expect(
+      kit.invoke(
+        listOrders,
+        { kind: "aggregate", groupBy: "none" },
+        {
+          userId: clerkUserId,
+          companyId: kitIdentities.companies.a,
+        },
+      ),
+    ).rejects.toBeInstanceOf(PermissionDeniedError);
   });
 
   it("rejects missing kind, a bad cursor, and an oversized limit", async () => {
@@ -728,6 +756,13 @@ describe("orders.list", () => {
 
     await expect(
       kit.invoke(listOrders, { kind: "page.summary", limit: 0 }),
+    ).rejects.toBeInstanceOf(ValidationError);
+
+    await expect(
+      kit.invoke(listOrders, {
+        kind: "aggregate",
+        filter: { statuses: ["active"] },
+      }),
     ).rejects.toBeInstanceOf(ValidationError);
   });
 
@@ -1054,6 +1089,68 @@ describe("orders.list", () => {
     expect(none.buckets[0]?.orderCount).toBe(8);
     expect(none.orderCount).toBe(8);
     expect(none.buckets[0] && "quantityMilli" in none.buckets[0]).toBe(false);
+    expect(statusBucketStatuses(none)).toEqual([
+      "canceled",
+      "confirmed",
+      "done",
+      "in_progress",
+      "new",
+    ]);
+  });
+
+  it("always includes currency-safe statusBuckets on every aggregate groupBy", async () => {
+    const groupBys = ["none", "status", "product", "customer"] as const;
+    for (const groupBy of groupBys) {
+      const listed = asAggregate(
+        await kit.invoke(listOrders, { kind: "aggregate", groupBy }),
+      );
+      expect(statusBucketStatuses(listed)).toEqual([
+        "canceled",
+        "confirmed",
+        "done",
+        "in_progress",
+        "new",
+      ]);
+      expect(listed.statusBuckets).toHaveLength(5);
+      const byNew = listed.statusBuckets.find(
+        (bucket) => bucket.identity.status === "new",
+      );
+      expect(byNew?.orderCount).toBe(4);
+      expect(byNew?.grossByCurrency).toEqual([
+        { currency: "EUR", grossAmountMinor: "800" },
+        { currency: "UAH", grossAmountMinor: "2000" },
+      ]);
+      expect(JSON.stringify(byNew).includes("2800")).toBe(false);
+      expect(
+        listed.statusBuckets.every((bucket) => !("quantityMilli" in bucket)),
+      ).toBe(true);
+    }
+
+    const empty = asAggregate(
+      await kit.invoke(
+        listOrders,
+        { kind: "aggregate", groupBy: "none" },
+        { companyId: fixtures.emptyCompany },
+      ),
+    );
+    expect(empty.orderCount).toBe(0);
+    expect(empty.buckets).toHaveLength(1);
+    expect(empty.buckets[0]?.identity).toEqual({ kind: "none" });
+    expect(empty.statusBuckets).toEqual([]);
+
+    const filtered = asAggregate(
+      await kit.invoke(listOrders, {
+        kind: "aggregate",
+        groupBy: "status",
+        filter: { statuses: ["new", "confirmed"] },
+      }),
+    );
+    expect(statusBucketStatuses(filtered)).toEqual(["confirmed", "new"]);
+    expect(
+      filtered.buckets.map((bucket) =>
+        bucket.identity.kind === "status" ? bucket.identity.status : null,
+      ),
+    ).toEqual(filtered.statusBuckets.map((bucket) => bucket.identity.status));
   });
 
   it("eval 1: active-order product quantities use one aggregate", async () => {

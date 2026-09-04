@@ -22,7 +22,7 @@ export const ORDERS_LIST_PROMPT_LINE =
  * `ORDERS_AGGREGATE_PROMPT_LINE`. Do not import mobile.
  */
 export const ORDERS_AGGREGATE_PROMPT_LINE =
-  "After orders_list_counts with no page on the same turn, the UI already shows the orders aggregate card. Reply with a short product-language summary of the totals. Do not dump a markdown table of buckets.";
+  "After orders_list_counts with no page on the same turn, the UI already shows the orders aggregate card with period, totals, and a status breakdown. Reply with a short product-language summary of the totals. Do not dump a markdown table of buckets. Do not call orders_list_counts or orders.list again for the card.";
 
 /**
  * Copied from `apps/mobile/.../surfaces/order-entity.ts`

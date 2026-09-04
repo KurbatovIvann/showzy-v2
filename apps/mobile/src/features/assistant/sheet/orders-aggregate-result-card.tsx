@@ -2,25 +2,32 @@ import { memo } from "react";
 import { Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
-import { Card, StatusPill } from "../../../components/ui";
+import { Button, Card, StatusPill } from "../../../components/ui";
 import type { AssistantOrdersAggregateCardView } from "../surfaces";
 
 /**
- * Live `orders_list_counts` result (SHO-370). Composes Card / StatusPill.
- * Labeled bucket list for none | status | product | customer — not a
- * chart and not the orders list screen.
+ * Live `orders_list_counts` result (SHO-370 / SHO-395). Composes Card /
+ * StatusPill. Period, totals, always-on status rows, optional
+ * product/customer section, CTA — not a chart and not the orders list
+ * screen.
  */
 export const OrdersAggregateResultCard = memo(
   function OrdersAggregateResultCard(props: {
     readonly card: AssistantOrdersAggregateCardView;
+    readonly onOpenHref: (href: string) => void;
   }) {
     const { card } = props;
     const emptyTitle = card.emptyTitle;
     const emptyDescription = card.emptyDescription;
+    const periodLabel = card.periodLabel;
+    const showExtra = card.extraBuckets.length > 0;
 
     return (
       <Card>
         <View style={styles.body}>
+          {periodLabel !== null ? (
+            <Text style={styles.period}>{periodLabel}</Text>
+          ) : null}
           <Text style={styles.headline}>{card.orderCountLabel}</Text>
           {card.moneyLabels.length > 0 ? (
             <View style={styles.moneyColumn}>
@@ -39,18 +46,37 @@ export const OrdersAggregateResultCard = memo(
               ) : null}
             </View>
           ) : (
-            <View style={styles.rows}>
-              {card.buckets.map((bucket) => (
-                <AggregateBucketRow
-                  key={bucket.id}
-                  label={bucket.label}
-                  orderCountLabel={bucket.orderCountLabel}
-                  moneyLabels={bucket.moneyLabels}
-                  quantityLabel={bucket.quantityLabel}
-                  statusLabel={bucket.status !== null ? bucket.label : null}
-                  statusTone={bucket.statusTone}
-                />
-              ))}
+            <View style={styles.sections}>
+              {card.statusBuckets.length > 0 ? (
+                <View style={styles.rows}>
+                  {card.statusBuckets.map((bucket) => (
+                    <AggregateBucketRow
+                      key={bucket.id}
+                      label={bucket.label}
+                      orderCountLabel={bucket.orderCountLabel}
+                      moneyLabels={bucket.moneyLabels}
+                      quantityLabel={bucket.quantityLabel}
+                      statusLabel={bucket.status !== null ? bucket.label : null}
+                      statusTone={bucket.statusTone}
+                    />
+                  ))}
+                </View>
+              ) : null}
+              {showExtra ? (
+                <View style={styles.rows}>
+                  {card.extraBuckets.map((bucket) => (
+                    <AggregateBucketRow
+                      key={bucket.id}
+                      label={bucket.label}
+                      orderCountLabel={bucket.orderCountLabel}
+                      moneyLabels={bucket.moneyLabels}
+                      quantityLabel={bucket.quantityLabel}
+                      statusLabel={null}
+                      statusTone={null}
+                    />
+                  ))}
+                </View>
+              ) : null}
             </View>
           )}
           {card.footnotes.map((footnote) => (
@@ -58,6 +84,14 @@ export const OrdersAggregateResultCard = memo(
               {footnote}
             </Text>
           ))}
+          <Button
+            variant="secondary"
+            fullWidth
+            label={card.ctaLabel}
+            onPress={() => {
+              props.onOpenHref(card.ctaHref);
+            }}
+          />
         </View>
       </Card>
     );
@@ -70,7 +104,7 @@ const AggregateBucketRow = memo(function AggregateBucketRow(props: {
   readonly moneyLabels: readonly string[];
   readonly quantityLabel: string | null;
   readonly statusLabel: string | null;
-  readonly statusTone: AssistantOrdersAggregateCardView["buckets"][number]["statusTone"];
+  readonly statusTone: AssistantOrdersAggregateCardView["statusBuckets"][number]["statusTone"];
 }) {
   return (
     <View style={styles.row}>
@@ -104,6 +138,11 @@ const styles = StyleSheet.create((theme) => ({
   body: {
     gap: theme.spacing.md,
   },
+  period: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.xs.fontSize,
+    lineHeight: theme.typography.xs.lineHeight,
+  },
   headline: {
     color: theme.colors.foreground,
     fontSize: theme.typography.sm.fontSize,
@@ -119,6 +158,9 @@ const styles = StyleSheet.create((theme) => ({
     lineHeight: theme.typography.sm.lineHeight,
     fontWeight: "600",
     fontVariant: ["tabular-nums"],
+  },
+  sections: {
+    gap: theme.spacing.md,
   },
   rows: {
     gap: theme.spacing.xs,

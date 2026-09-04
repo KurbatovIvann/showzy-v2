@@ -33,6 +33,7 @@ export async function executeListOrders(
             : [],
         bucketsTruncated: false,
         customerMatchTruncated: queryMatch.truncated,
+        statusBuckets: [],
       };
     }
     if (input.kind === "page.withLines") {

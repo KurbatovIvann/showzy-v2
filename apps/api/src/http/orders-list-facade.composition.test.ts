@@ -280,11 +280,20 @@ describe("orders list façade ↔ orders.list contract (SHO-360)", () => {
       { currency: "UAH", grossAmountMinor: "99000000" },
       { currency: "USD", grossAmountMinor: "120000" },
     ];
+    const statusBuckets = [
+      {
+        identity: { kind: "status" as const, status: "new" as const },
+        label: "new",
+        orderCount: 400,
+        grossByCurrency,
+      },
+    ];
     const mapped = mapOrdersListCountsOutput({
       kind: "aggregate",
       orderCount: 400,
       grossByCurrency,
       buckets,
+      statusBuckets,
       bucketsTruncated: true,
       customerMatchTruncated: false,
     });
@@ -295,6 +304,7 @@ describe("orders list façade ↔ orders.list contract (SHO-360)", () => {
     }
     expect(clipped["orderCount"]).toBe(400);
     expect(clipped["grossByCurrency"]).toEqual(grossByCurrency);
+    expect(clipped["statusBuckets"]).toEqual(statusBuckets);
     for (const row of Array.isArray(clipped["grossByCurrency"])
       ? clipped["grossByCurrency"]
       : []) {
