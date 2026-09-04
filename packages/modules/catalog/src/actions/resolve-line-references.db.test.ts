@@ -582,6 +582,47 @@ describe("catalog.resolveLineReferences", () => {
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 
+  it("returns not-found for a variant query on a simple product, not unmatched_query", async () => {
+    const selectionError = await kit
+      .invoke(resolveLineReferences, {
+        lines: [
+          {
+            product: { by: "id", id: fixtures.alpha },
+            variantSelection: {
+              kind: "reference",
+              ref: { by: "query", value: "Lemon" },
+            },
+          },
+        ],
+      })
+      .then(
+        () => {
+          throw new Error("expected NotFoundError");
+        },
+        (caught: unknown) => caught,
+      );
+    expect(selectionError).toBeInstanceOf(NotFoundError);
+    expect(selectionError).not.toBeInstanceOf(ReferenceResolutionConflictError);
+
+    const legacyError = await kit
+      .invoke(resolveLineReferences, {
+        lines: [
+          {
+            product: { by: "id", id: fixtures.alpha },
+            variant: { by: "query", value: "Lemon" },
+          },
+        ],
+      })
+      .then(
+        () => {
+          throw new Error("expected NotFoundError");
+        },
+        (caught: unknown) => caught,
+      );
+    expect(legacyError).toBeInstanceOf(NotFoundError);
+    expect(legacyError).not.toBeInstanceOf(ReferenceResolutionConflictError);
+  });
+
   it("conflicts on unmatched variant query with active options, not an empty picker", async () => {
     const error = await kit
       .invoke(resolveLineReferences, {

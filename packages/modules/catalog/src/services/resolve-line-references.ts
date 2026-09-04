@@ -325,7 +325,12 @@ function resolveReferencedVariant(
     }
     return row;
   }
-  if (owned.length > 0 && active.length === 0) {
+  // Simple product: no choosable variants. A query is not unmatched_query
+  // (HITL picker); it is the same as a missing variant id.
+  if (owned.length === 0) {
+    throw new NotFoundError();
+  }
+  if (active.length === 0) {
     throwVariantSelectionConflict({
       reason: "no_active_variants",
       lineIndex,
