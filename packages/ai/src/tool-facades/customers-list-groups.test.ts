@@ -276,7 +276,7 @@ describe("compact customers.listGroups clip envelope", () => {
     expect(serialized).not.toContain("slug");
   });
 
-  it("one extra max-length row plus a max cursor exceeds the clip cap", () => {
+  it("one extra max-length row plus a max cursor still fits the raised clip budget", () => {
     const items = Array.from(
       { length: CUSTOMERS_LIST_GROUPS_ASSISTANT_LIMIT + 1 },
       (_, index) => maxLengthCompactRow(index),
@@ -285,7 +285,7 @@ describe("compact customers.listGroups clip envelope", () => {
       items,
       nextCursor: "c".repeat(CUSTOMERS_LIST_GROUPS_CURSOR_MAX),
     };
-    expect(JSON.stringify(page).length).toBeGreaterThan(
+    expect(JSON.stringify(page).length).toBeLessThanOrEqual(
       STAFF_ASSISTANT_CLIP_JSON_MAX,
     );
   });

@@ -78,10 +78,13 @@ describe("clipStaffAssistantToolResult", () => {
     expect(clipStaffAssistantToolResult(get)).toBe(get);
   });
 
-  it("clips a list of 50 rows to the array cap and reports omitted", () => {
-    const items = Array.from({ length: 50 }, (_, index) => ({
-      orderId: rowId(index),
-    }));
+  it("clips a list longer than the array cap and reports omitted", () => {
+    const items = Array.from(
+      { length: STAFF_ASSISTANT_CLIP_ARRAY_MAX + 30 },
+      (_, index) => ({
+        orderId: rowId(index),
+      }),
+    );
     const clipped = clipStaffAssistantToolResult({
       items,
       nextCursor: null,
@@ -92,7 +95,7 @@ describe("clipStaffAssistantToolResult", () => {
         items: items.slice(0, STAFF_ASSISTANT_CLIP_ARRAY_MAX),
         nextCursor: null,
       },
-      omitted: 50 - STAFF_ASSISTANT_CLIP_ARRAY_MAX,
+      omitted: 30,
     });
   });
 
@@ -115,6 +118,7 @@ describe("clipStaffAssistantToolResult", () => {
       customerId,
       status: "confirmed",
       comment: "c".repeat(STAFF_ASSISTANT_CLIP_JSON_MAX),
+      notes: "n".repeat(800),
       items,
     };
     const clipped = clipStaffAssistantToolResult(get);
@@ -177,7 +181,7 @@ describe("clipStaffAssistantToolResult", () => {
       currency: "UAH",
       status: "active",
       variantCount: 1,
-      notes: "n".repeat(200),
+      notes: "n".repeat(800),
     }));
     const clipped = clipStaffAssistantToolResult({ items, nextCursor: null });
     expect(isClipped(clipped)).toBe(true);
@@ -202,7 +206,7 @@ describe("clipStaffAssistantToolResult", () => {
       status: "active",
       groupId,
       priceListId,
-      notes: "n".repeat(200),
+      notes: "n".repeat(800),
     }));
     const clipped = clipStaffAssistantToolResult({ items, nextCursor: null });
     expect(isClipped(clipped)).toBe(true);

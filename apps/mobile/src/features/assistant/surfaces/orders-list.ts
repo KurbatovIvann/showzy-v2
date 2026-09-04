@@ -25,8 +25,8 @@ import {
   unwrapToolOutput,
 } from "./helpers";
 
-/** Named façade page size (SHO-360). Do not import `@showzy/ai`. */
-export const ASSISTANT_ORDERS_LIST_ROW_MAX = 9;
+/** Named façade page cap (SHO-403). Do not import `@showzy/ai`. */
+export const ASSISTANT_ORDERS_LIST_ROW_MAX = 50;
 
 export const ASSISTANT_ORDERS_LIST_HREF = "/orders";
 
@@ -166,8 +166,21 @@ function pageItems(payload: unknown): unknown[] {
   if (!isRecord(payload)) {
     return [];
   }
+  if (Array.isArray(payload["rows"])) {
+    return payload["rows"];
+  }
   const items = payload["items"];
   return Array.isArray(items) ? items : [];
+}
+
+function pageHasMore(payload: unknown, clipped: boolean): boolean {
+  if (clipped) {
+    return true;
+  }
+  if (isRecord(payload) && typeof payload["hasMore"] === "boolean") {
+    return payload["hasMore"];
+  }
+  return pageNextCursor(payload) !== null;
 }
 
 function pageNextCursor(payload: unknown): string | null {
@@ -216,7 +229,8 @@ export function parseOrdersListSurface(
     }
   }
   const nextCursor = pageNextCursor(payload);
-  const showCta = clipped || nextCursor !== null;
+  const hasMore = pageHasMore(payload, clipped);
+  const showCta = hasMore || nextCursor !== null;
   const footnotes: string[] = [];
   if (pageCustomerMatchTruncated(payload)) {
     footnotes.push(assistant.cards.customerMatchTruncated);

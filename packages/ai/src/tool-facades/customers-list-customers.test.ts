@@ -311,7 +311,7 @@ describe("compact customers.listCustomers clip envelope", () => {
     expect(serialized).toContain(priceListId);
   });
 
-  it("one extra max-length row plus a max cursor exceeds the clip cap", () => {
+  it("one extra max-length row plus a max cursor still fits the raised clip budget", () => {
     const items = Array.from(
       { length: CUSTOMERS_LIST_CUSTOMERS_ASSISTANT_LIMIT + 1 },
       (_, index) => maxLengthCompactRow(index),
@@ -320,15 +320,16 @@ describe("compact customers.listCustomers clip envelope", () => {
       items,
       nextCursor: "c".repeat(CUSTOMERS_LIST_CUSTOMERS_CURSOR_MAX),
     };
-    expect(JSON.stringify(page).length).toBeGreaterThan(
+    expect(JSON.stringify(page).length).toBeLessThanOrEqual(
       STAFF_ASSISTANT_CLIP_JSON_MAX,
     );
   });
 
   it("keeps phone and email on a 20-row compact page after clip identity shrink", () => {
-    const items = Array.from({ length: 20 }, (_, index) =>
-      compactCustomerRow(index, `N${"x".repeat(118)}`),
-    );
+    const items = Array.from({ length: 20 }, (_, index) => ({
+      ...compactCustomerRow(index, `N${"x".repeat(118)}`),
+      notes: "n".repeat(1_000),
+    }));
     const page = { items, nextCursor: null };
     expect(JSON.stringify(page).length).toBeGreaterThan(
       STAFF_ASSISTANT_CLIP_JSON_MAX,

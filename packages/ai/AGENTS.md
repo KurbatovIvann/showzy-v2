@@ -22,7 +22,9 @@ They do **not** need the same JSON Schema.
 
 Golden façade: `orders.list` → `orders_list_page` + `orders_list_counts`
 (SHO-355 input map, SHO-360 output map before clip: compact rows,
-cursor-safe paging, explicit `bucketsOmitted`). Second copy:
+cursor-safe paging, explicit `bucketsOmitted`; SHO-403 named `limit`
+1–50 default 20 and clip JSON budget 22_000 so a completed page is not
+silently row-dropped). Second copy:
 `catalog.listProducts` → `catalog_list_products` (SHO-357, compact rows:
 id, name, basePriceMinor, currency, status, variantCount). Third copy:
 `pricing.listPriceLists` → `pricing_list_price_lists` (SHO-358, compact

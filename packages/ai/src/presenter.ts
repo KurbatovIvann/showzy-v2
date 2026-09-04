@@ -14,7 +14,7 @@ import { spokenTurnText } from "./spoken-reply.js";
 import { ORDERS_CREATE_TOOL_NAME } from "./tool-facades/orders-create.js";
 import {
   ORDERS_LIST_COUNTS_TOOL_NAME,
-  ORDERS_LIST_PAGE_ASSISTANT_LIMIT,
+  ORDERS_LIST_PAGE_ASSISTANT_MAX_LIMIT,
   ORDERS_LIST_PAGE_TOOL_NAME,
 } from "./tool-facades/orders-list.js";
 
@@ -224,25 +224,45 @@ function lastSuccessfulIndex(
   return found;
 }
 
+function pageRows(payload: unknown): unknown[] {
+  if (!isRecord(payload)) {
+    return [];
+  }
+  if (Array.isArray(payload["rows"])) {
+    return payload["rows"];
+  }
+  if (Array.isArray(payload["items"])) {
+    return payload["items"];
+  }
+  return [];
+}
+
+function pageHasMore(payload: unknown, clipped: boolean): boolean {
+  if (clipped) {
+    return true;
+  }
+  if (isRecord(payload) && typeof payload["hasMore"] === "boolean") {
+    return payload["hasMore"];
+  }
+  return (
+    isRecord(payload) &&
+    typeof payload["nextCursor"] === "string" &&
+    payload["nextCursor"].length > 0
+  );
+}
+
 function presentListSurface(
   pageOutput: unknown,
   locale: StaffAssistantLocale,
 ): string {
   const copy = COPY[locale];
   const { payload, clipped } = unwrapToolOutput(pageOutput);
-  const items =
-    isRecord(payload) && Array.isArray(payload["items"])
-      ? payload["items"]
-      : [];
-  const nextCursor =
-    isRecord(payload) && typeof payload["nextCursor"] === "string"
-      ? payload["nextCursor"]
-      : null;
+  const items = pageRows(payload);
   const customerMatchTruncated =
     isRecord(payload) && payload["customerMatchTruncated"] === true;
   const labels: string[] = [];
   for (const row of items) {
-    if (labels.length >= ORDERS_LIST_PAGE_ASSISTANT_LIMIT) {
+    if (labels.length >= ORDERS_LIST_PAGE_ASSISTANT_MAX_LIMIT) {
       break;
     }
     if (!isRecord(row)) {
@@ -265,7 +285,7 @@ function presentListSurface(
   if (customerMatchTruncated) {
     footnotes.push(copy.customerMatchTruncated);
   }
-  if (clipped || (nextCursor !== null && nextCursor.length > 0)) {
+  if (pageHasMore(payload, clipped)) {
     footnotes.push(copy.hasMore);
   }
   const main =

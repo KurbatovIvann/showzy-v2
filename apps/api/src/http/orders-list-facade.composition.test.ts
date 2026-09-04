@@ -97,11 +97,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function visiblePageItems(mapped: unknown): unknown[] {
-  if (!isRecord(mapped) || !Array.isArray(mapped["items"])) {
+function visiblePageRows(mapped: unknown): unknown[] {
+  if (!isRecord(mapped) || !Array.isArray(mapped["rows"])) {
     return [];
   }
-  return mapped["items"];
+  return mapped["rows"];
 }
 
 describe("orders list façade ↔ orders.list contract (SHO-360)", () => {
@@ -156,7 +156,7 @@ describe("orders list façade ↔ orders.list contract (SHO-360)", () => {
     expect(LIST_ORDERS_CURSOR_MAX).toBe(80);
     expect(LIST_ORDERS_CUSTOMER_IDS_MAX).toBe(50);
     expect(CUSTOMER_NAME_MAX).toBe(CUSTOMER_NAME_MAX_FIXTURE);
-    expect(ORDERS_LIST_PAGE_ASSISTANT_LIMIT).toBe(9);
+    expect(ORDERS_LIST_PAGE_ASSISTANT_LIMIT).toBe(20);
     expect(
       listOrdersInputSchema.safeParse({
         kind: "page.summary",
@@ -212,50 +212,47 @@ describe("orders list façade ↔ orders.list contract (SHO-360)", () => {
 
   it("keeps name, gross, currency, status, and date on every visible max-name compact row without a cursor skip hole", () => {
     const fat20 = Array.from({ length: 20 }, (_, index) =>
-      fatSummaryRow(index),
+      fatSummaryRow(index, MAX_CUSTOMER_NAME),
     );
-    const mapped20 = mapOrdersListPageOutput({
-      kind: "page.summary",
-      items: fat20,
-      nextCursor: "after-20",
-      customerMatchTruncated: false,
-    });
-    expect(JSON.stringify(mapped20).length).toBeGreaterThan(
+    const mapped20 = mapOrdersListPageOutput(
+      {
+        kind: "page.summary",
+        items: fat20,
+        nextCursor: "after-20",
+        customerMatchTruncated: false,
+      },
+      20,
+    );
+    expect(JSON.stringify(mapped20).length).toBeLessThanOrEqual(
       STAFF_ASSISTANT_CLIP_JSON_MAX,
     );
+    expect(clipStaffAssistantToolResult(mapped20)).toBe(mapped20);
 
     const fatPage = Array.from(
       { length: ORDERS_LIST_PAGE_ASSISTANT_LIMIT },
       (_, index) => fatSummaryRow(index, MAX_CUSTOMER_NAME),
     );
     const nextCursor = "n".repeat(LIST_ORDERS_CURSOR_MAX);
-    const mapped = mapOrdersListPageOutput({
-      kind: "page.summary",
-      items: fatPage,
-      nextCursor,
-      customerMatchTruncated: false,
-    });
-    expect(JSON.stringify(mapped).length).toBeLessThanOrEqual(
-      STAFF_ASSISTANT_CLIP_JSON_MAX,
+    const mapped = mapOrdersListPageOutput(
+      {
+        kind: "page.summary",
+        items: fatPage,
+        nextCursor,
+        customerMatchTruncated: false,
+      },
+      ORDERS_LIST_PAGE_ASSISTANT_LIMIT,
     );
-    const oneOver = mapOrdersListPageOutput({
-      kind: "page.summary",
-      items: Array.from(
-        { length: ORDERS_LIST_PAGE_ASSISTANT_LIMIT + 1 },
-        (_, index) => fatSummaryRow(index, MAX_CUSTOMER_NAME),
-      ),
-      nextCursor,
-      customerMatchTruncated: false,
-    });
-    expect(JSON.stringify(oneOver).length).toBeGreaterThan(
+    expect(JSON.stringify(mapped).length).toBeLessThanOrEqual(
       STAFF_ASSISTANT_CLIP_JSON_MAX,
     );
 
     const clipped = clipStaffAssistantToolResult(mapped);
     expect(clipped).toBe(mapped);
-    const items = visiblePageItems(clipped);
-    expect(items).toHaveLength(ORDERS_LIST_PAGE_ASSISTANT_LIMIT);
-    for (const [index, row] of items.entries()) {
+    const rows = visiblePageRows(clipped);
+    expect(rows).toHaveLength(ORDERS_LIST_PAGE_ASSISTANT_LIMIT);
+    expect(isRecord(clipped) && clipped["hasMore"]).toBe(true);
+    expect(isRecord(clipped) && clipped["requestedLimit"]).toBe(20);
+    for (const [index, row] of rows.entries()) {
       expect(isRecord(row)).toBe(true);
       if (!isRecord(row) || !isRecord(row["customer"])) {
         continue;

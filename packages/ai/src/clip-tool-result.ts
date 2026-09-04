@@ -6,8 +6,20 @@
  */
 import { isStaffAssistantConfirmationOutput } from "./confirmation.js";
 
-export const STAFF_ASSISTANT_CLIP_ARRAY_MAX = 20;
-export const STAFF_ASSISTANT_CLIP_JSON_MAX = 4_000;
+/**
+ * Array backstop after façade compact maps. Matches
+ * `LIST_ORDERS_SUMMARY_MAX_LIMIT` / `orders_list_page` max (SHO-403) so a
+ * completed 50-row page is not sliced while `nextCursor` stays null.
+ */
+export const STAFF_ASSISTANT_CLIP_ARRAY_MAX = 50;
+/**
+ * JSON backstop after façade compact maps. SHO-403: a max-name
+ * `orders_list_page` completed view of 50 compact rows plus an 80-char
+ * cursor is 20_176 bytes. **22_000** is the mechanical budget so handler
+ * `nextCursor` matches visible rows. Do not treat `{ truncated: true }`
+ * as the page.
+ */
+export const STAFF_ASSISTANT_CLIP_JSON_MAX = 22_000;
 export const STAFF_ASSISTANT_CLIPPED_STATUS = "clipped" as const;
 export const STAFF_ASSISTANT_CLIP_SHRINK_ARRAY_MAX = 3;
 
@@ -18,6 +30,7 @@ export const STAFF_ASSISTANT_CLIP_SHRINK_ARRAY_MAX = 3;
  * so a clipped compact page can still fill a markup.
  * `phone` / `email` / `groupId` / `priceListId` are CRM list contacts
  * (SHO-381); identity shrink must not drop them.
+ * `requestedLimit` / `hasMore` are the SHO-403 completed list view.
  */
 export const STAFF_ASSISTANT_CLIP_IDENTITY_KEYS = [
   "id",
@@ -37,6 +50,8 @@ export const STAFF_ASSISTANT_CLIP_IDENTITY_KEYS = [
   "email",
   "groupId",
   "priceListId",
+  "requestedLimit",
+  "hasMore",
 ] as const;
 
 const IDENTITY_KEY_SET = new Set<string>(STAFF_ASSISTANT_CLIP_IDENTITY_KEYS);
