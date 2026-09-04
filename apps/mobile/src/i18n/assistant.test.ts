@@ -106,13 +106,13 @@ describe("assistant copy", () => {
     expect(uk.waitLines.includes("Рахую виторг")).toBe(false);
   });
 
-  it("pins sheet title Шозік/Shozik and keeps the BottomNav label AI", () => {
+  it("pins sheet title Шозік/Shozik and matches the BottomNav label", () => {
     const uk = assistantCopy("uk");
     const en = assistantCopy("en");
     expect(uk.sheetTitle).toBe("Шозік");
     expect(en.sheetTitle).toBe("Shozik");
-    expect(panelCopy("uk").tabs.ai).toBe("AI");
-    expect(panelCopy("en").tabs.ai).toBe("AI");
+    expect(panelCopy("uk").tabs.ai).toBe("Шозік");
+    expect(panelCopy("en").tabs.ai).toBe("Shozik");
   });
 
   it("overrides network/unavailable/permission with assistant wording", () => {

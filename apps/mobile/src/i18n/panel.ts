@@ -34,7 +34,7 @@ const en: PanelCopy = {
   tabs: {
     orders: "Orders",
     products: "Products",
-    ai: "AI",
+    ai: "Shozik",
     customers: "Customers",
     more: "More",
   },
@@ -64,7 +64,7 @@ const uk: PanelCopy = {
   tabs: {
     orders: "Замовлення",
     products: "Товари",
-    ai: "AI",
+    ai: "Шозік",
     customers: "Клієнти",
     more: "Ще",
   },

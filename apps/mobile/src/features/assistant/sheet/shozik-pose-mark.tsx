@@ -12,9 +12,9 @@ const poseSource = {
 } as const;
 
 /**
- * Local Shozik artwork for conversation chrome. One pose on screen:
- * `sit.svg` idle, `dig.svg` while tools are in flight. Do not hotlink
- * Magic Patterns CDN images.
+ * Local Shozik artwork for conversation chrome. Header and first-run
+ * empty use sit/dig; the in-thread wait chip uses `dig.svg` while the
+ * live turn is in flight. Do not hotlink Magic Patterns CDN images.
  */
 export function ShozikPoseMark(props: {
   readonly pose: AssistantShozikPose;
