@@ -12,6 +12,7 @@ import {
   LIST_ORDERS_WITH_LINES_MAX_LINES,
   UNLINKED_CUSTOMER_NAME_SNAPSHOT,
   listOrderSummaryRowSchema,
+  listOrdersAggregateOutputSchema,
   listOrdersBucketSchema,
   listOrdersContract,
   listOrdersInputSchema,
@@ -307,7 +308,7 @@ describe("orders.list contract", () => {
     };
     expect(listOrdersOutputSchema.safeParse(base).success).toBe(false);
     expect(
-      listOrdersOutputSchema.parse({
+      listOrdersAggregateOutputSchema.parse({
         ...base,
         statusBuckets: [statusBucket],
       }).statusBuckets,
