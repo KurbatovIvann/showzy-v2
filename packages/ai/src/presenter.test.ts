@@ -63,7 +63,12 @@ describe("presentCompletedStaffAssistantTurn", () => {
     const results = [
       {
         toolName: ORDERS_LIST_PAGE_TOOL_NAME,
-        output: { kind: "page.summary", rows: [], hasMore: false, nextCursor: null },
+        output: {
+          kind: "page.summary",
+          rows: [],
+          hasMore: false,
+          nextCursor: null,
+        },
       },
     ];
     expect(

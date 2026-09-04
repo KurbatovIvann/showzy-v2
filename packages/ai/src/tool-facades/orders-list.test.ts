@@ -99,12 +99,12 @@ describe("mapOrdersListPageInput", () => {
       kind: "page.summary",
       limit: ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT,
     });
-    expect(
-      mapOrdersListPageInput(ordersListPageInputSchema.parse({})),
-    ).toEqual({
-      kind: "page.summary",
-      limit: 20,
-    });
+    expect(mapOrdersListPageInput(ordersListPageInputSchema.parse({}))).toEqual(
+      {
+        kind: "page.summary",
+        limit: 20,
+      },
+    );
   });
 
   it("maps named limit: 3 onto canonical page.summary without slicing", () => {
