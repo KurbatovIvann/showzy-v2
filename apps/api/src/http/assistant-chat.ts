@@ -70,6 +70,7 @@ import {
 import type { Logger } from "pino";
 import type { z } from "zod";
 
+import type { StaffAssistantChoiceStore } from "../stores/choice.js";
 import { REQUEST_ID_HEADER } from "./request-id.js";
 
 export const ASSISTANT_CHAT_PATH = "/assistant/chat";
@@ -119,6 +120,7 @@ export interface StaffAssistantChatOptions {
    * header — confirmation resume stays `x-confirmation-challenge-id`.
    */
   readonly choiceResume?: boolean;
+  readonly choiceStore?: StaffAssistantChoiceStore;
 }
 
 function headerOrNull(headers: Headers, name: string): string | null {
@@ -649,6 +651,25 @@ export async function executeStaffAssistantChat(
         "cache-control": "private, no-store",
         [REQUEST_ID_HEADER]: options.requestId,
       },
+      ...(companySelector !== null
+        ? {
+            choiceBind: {
+              actorId: session.userId,
+              companyId: companySelector,
+              conversationId: body.conversationId,
+            },
+          }
+        : {}),
+      ...(options.choiceStore === undefined
+        ? {}
+        : (() => {
+            const choiceStore = options.choiceStore;
+            return {
+              openChoice: (
+                record: Parameters<StaffAssistantChoiceStore["open"]>[0],
+              ) => choiceStore.open(record),
+            };
+          })()),
       execute: (actionName, input, toolOptions) => {
         const action = requireImplementation(options.registry, actionName);
         const resumedAttempt = claimPausedAttempt(

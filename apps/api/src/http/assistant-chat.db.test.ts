@@ -6,7 +6,9 @@ import { randomBytes, randomUUID } from "node:crypto";
 
 import {
   attemptKey,
+  assistantChoiceInteractionResultSchema,
   isStaffAssistantConfirmationOutput,
+  isStaffAssistantNeedsChoiceOutput,
   ORDERS_CREATE_TOOL_NAME,
   ORDERS_LIST_COUNTS_TOOL_NAME,
   ORDERS_LIST_PAGE_TOOL_NAME,
@@ -17,6 +19,7 @@ import {
   type LanguageModel,
   type StaffAssistantConfirmationOutput,
 } from "@showzy/ai";
+import * as ShowzyAi from "@showzy/ai";
 import {
   MockLanguageModelV3,
   mockOperationalGateGenerate,
@@ -28,7 +31,7 @@ import {
   sseVisibleTextFromPayloads,
 } from "@showzy/ai/test";
 import { createConversation, recordAssistantTurn } from "@showzy/assistant";
-import { createProduct } from "@showzy/catalog";
+import { archiveVariant, createProduct } from "@showzy/catalog";
 import { createOrder } from "@showzy/orders";
 import { createPriceList } from "@showzy/pricing";
 import {
@@ -75,6 +78,7 @@ import type { z } from "zod";
 import { buildAuthOptions } from "../auth/options.js";
 import { createAtomicOtpSendStore } from "../auth/otp-send-guard.js";
 import { createActionRegistry } from "../composition.js";
+import { createMemoryChoiceStore } from "../stores/choice.js";
 import {
   createMemoryAuthRateLimitStore,
   createMemorySecondaryStorage,
@@ -89,6 +93,7 @@ import {
   ASSISTANT_INVOCATION_CHANNEL,
   executeStaffAssistantChat,
 } from "./assistant-chat.js";
+import { ASSISTANT_CHOICE_PATH } from "./assistant-choice.js";
 import { REQUEST_ID_HEADER } from "./request-id.js";
 
 const REAL_CLIENT = "203.0.113.50";
@@ -162,6 +167,24 @@ function confirmationFromSsePayloads(
       continue;
     }
     if (isStaffAssistantConfirmationOutput(payload.data)) {
+      return payload.data;
+    }
+  }
+  return undefined;
+}
+
+function choiceFromSsePayloads(payloads: unknown[]) {
+  for (const payload of payloads) {
+    if (
+      typeof payload !== "object" ||
+      payload === null ||
+      !("type" in payload) ||
+      payload.type !== "data-choice" ||
+      !("data" in payload)
+    ) {
+      continue;
+    }
+    if (isStaffAssistantNeedsChoiceOutput(payload.data)) {
       return payload.data;
     }
   }
@@ -278,7 +301,11 @@ afterAll(async () => {
   await kit.db.close();
 });
 
-function chatApp(model?: LanguageModel, gateLanguageModel?: LanguageModel) {
+function chatApp(
+  model?: LanguageModel,
+  gateLanguageModel?: LanguageModel,
+  choiceStore?: ReturnType<typeof createMemoryChoiceStore>,
+) {
   return createApp({
     auth,
     registry,
@@ -290,6 +317,7 @@ function chatApp(model?: LanguageModel, gateLanguageModel?: LanguageModel) {
       rateLimitStore: createInMemoryRateLimitStore(),
       ipHmacSecret: "test-pki-proxy-ip-hmac-secret!!",
     },
+    ...(choiceStore !== undefined ? { choiceStore } : {}),
     assistant: {
       model: "mock",
       gateModel: "mock-gate",
@@ -2445,5 +2473,360 @@ describe("POST /assistant/chat intent gate", () => {
     expect(streamModel.doStreamCalls).toHaveLength(0);
     expect(gateModel.doGenerateCalls).toHaveLength(1);
     expect(streamToolsLength(gateModel)).toBe(0);
+  });
+});
+
+describe("SHO-418 orders_create choice activation", () => {
+  async function postChoice(
+    app: ReturnType<typeof createApp>,
+    options: {
+      readonly token: string;
+      readonly companyId: string;
+      readonly body: unknown;
+    },
+  ): Promise<Response> {
+    const headers = new Headers({
+      "content-type": "application/json",
+      origin: "http://localhost:3000",
+      authorization: `Bearer ${options.token}`,
+      [COMPANY_SELECTOR_HEADER]: options.companyId,
+    });
+    return app.request(ASSISTANT_CHOICE_PATH, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(options.body),
+    });
+  }
+
+  async function seedVariableProduct(
+    name: string,
+    variantNames: readonly string[],
+  ) {
+    return staffInvoke(createProduct, {
+      name,
+      basePriceMinor: "1500",
+      variants: variantNames.map((variantName) => ({ name: variantName })),
+    });
+  }
+
+  const sixFlavours = [
+    "Lemon",
+    "Vanilla",
+    "Raspberry",
+    "Pistachio",
+    "Chocolate",
+    "Rose",
+  ] as const;
+
+  it("omits variantQuery → needs_choice with six active options and no parent", async () => {
+    const store = createMemoryChoiceStore();
+    const open = vi.spyOn(store, "open");
+    await staffInvoke(createCustomer, {
+      name: "T8b Six Buyer",
+      phone: "+380671110041",
+    });
+    await seedVariableProduct("T8b Six Flavours", sixFlavours);
+    const streamModel = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream(
+          "call-create-six",
+          ORDERS_CREATE_TOOL_NAME,
+          JSON.stringify({
+            customerQuery: "T8b Six Buyer",
+            items: [{ productQuery: "T8b Six Flavours", quantityDecimal: "1" }],
+          }),
+        ),
+        mockSpokenStream("MODEL_SHOULD_NOT_PERSIST"),
+      ],
+    });
+    const app = chatApp(streamModel, undefined, store);
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "T8b six",
+    });
+    const response = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(
+        conversation.id,
+        "Create an order of T8b Six Flavours",
+        randomUUID(),
+        "en",
+      ),
+    });
+    expect(response.status).toBe(200);
+    const payloads = await readUiMessageSsePayloads(response);
+    const choice = choiceFromSsePayloads(payloads);
+    expect(choice).toBeDefined();
+    expect(choice?.options).toHaveLength(6);
+    expect(choice?.options.map((option) => option.label)).toEqual(
+      expect.arrayContaining([...sixFlavours]),
+    );
+    expect(
+      choice?.options.some((option) => option.label === "T8b Six Flavours"),
+    ).toBe(false);
+    expect(JSON.stringify(choice)).not.toContain("canonicalInput");
+    expect(open).toHaveBeenCalledOnce();
+    const body = await waitForAssistantBody(conversation.id);
+    expect(body).toContain("T8b Six Flavours");
+    for (const flavour of sixFlavours) {
+      expect(body).toContain(flavour);
+    }
+    const runs = (
+      await kit.db.runtime.db.select().from(assistantToolRuns)
+    ).filter((run) => run.conversationId === conversation.id);
+    expect(runs[0]?.outcome).toBe("choice_required");
+    expect(runs[0]?.challengeId).toBe(choice?.challengeId);
+  });
+
+  it("unique variantQuery Lemon creates without writing a choice record", async () => {
+    const store = createMemoryChoiceStore();
+    const open = vi.spyOn(store, "open");
+    const customer = await staffInvoke(createCustomer, {
+      name: "T8b Lemon Buyer",
+      phone: "+380671110042",
+    });
+    await seedVariableProduct("T8b Lemon Unique", ["Lemon", "Vanilla"]);
+    const streamModel = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream(
+          "call-create-lemon",
+          ORDERS_CREATE_TOOL_NAME,
+          JSON.stringify({
+            customerQuery: "T8b Lemon Buyer",
+            items: [
+              {
+                productQuery: "T8b Lemon Unique",
+                variantQuery: "Lemon",
+                quantityDecimal: "1",
+              },
+            ],
+          }),
+        ),
+        mockSpokenStream("Order created."),
+      ],
+    });
+    const app = chatApp(streamModel, undefined, store);
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "T8b lemon",
+    });
+    const response = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "Create lemon macarons"),
+    });
+    expect(response.status).toBe(200);
+    const payloads = await readUiMessageSsePayloads(response);
+    expect(choiceFromSsePayloads(payloads)).toBeUndefined();
+    expect(open).not.toHaveBeenCalled();
+    await waitFor(async () => {
+      const rows = await kit.db.runtime.db.select().from(orders);
+      return rows.some((row) => row.customerId === customer.id);
+    }, "unique lemon create");
+  });
+
+  it("no_active_variants is an unavailable error, not a ChoiceCard", async () => {
+    const store = createMemoryChoiceStore();
+    const customer = await staffInvoke(createCustomer, {
+      name: "T8b Archived Buyer",
+      phone: "+380671110043",
+    });
+    const product = await seedVariableProduct("T8b Archived Only", ["One"]);
+    const variantId = product.variants[0]?.variantId;
+    expect(variantId).toBeDefined();
+    if (variantId !== undefined) {
+      await staffInvoke(archiveVariant, { variantId });
+    }
+    const streamModel = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream(
+          "call-create-archived",
+          ORDERS_CREATE_TOOL_NAME,
+          JSON.stringify({
+            customerQuery: "T8b Archived Buyer",
+            items: [
+              { productQuery: "T8b Archived Only", quantityDecimal: "1" },
+            ],
+          }),
+        ),
+        mockSpokenStream("should not present a card"),
+      ],
+    });
+    const app = chatApp(streamModel, undefined, store);
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "T8b archived",
+    });
+    const response = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "Create archived only"),
+    });
+    expect(response.status).toBe(200);
+    const payloads = await readUiMessageSsePayloads(response);
+    expect(choiceFromSsePayloads(payloads)).toBeUndefined();
+    expect(JSON.stringify(payloads)).not.toContain("needs_choice");
+    const companyOrders = (
+      await kit.db.runtime.db.select().from(orders)
+    ).filter((row) => row.customerId === customer.id);
+    expect(companyOrders).toHaveLength(0);
+  });
+
+  it("unmatched_query and ambiguous return needs_choice with catalog options", async () => {
+    const cases = [
+      {
+        phone: "+380671110044",
+        name: "T8b Unmatched Buyer",
+        product: "T8b Unmatched Coat",
+        query: "Pistachio",
+        variants: ["Blue", "Red"] as const,
+      },
+      {
+        phone: "+380671110045",
+        name: "T8b Ambiguous Buyer",
+        product: "T8b Ambiguous Coat",
+        query: "e",
+        variants: ["Blue", "Red"] as const,
+      },
+    ];
+    for (const fixture of cases) {
+      const customer = await staffInvoke(createCustomer, {
+        name: fixture.name,
+        phone: fixture.phone,
+      });
+      await seedVariableProduct(fixture.product, fixture.variants);
+      const streamModel = new MockLanguageModelV3({
+        doStream: [
+          mockToolCallStream(
+            `call-create-${fixture.query}`,
+            ORDERS_CREATE_TOOL_NAME,
+            JSON.stringify({
+              customerQuery: fixture.name,
+              items: [
+                {
+                  productQuery: fixture.product,
+                  variantQuery: fixture.query,
+                  quantityDecimal: "1",
+                },
+              ],
+            }),
+          ),
+        ],
+      });
+      const store = createMemoryChoiceStore();
+      const app = chatApp(streamModel, undefined, store);
+      const token = await insertBearer(kit, kitIdentities.users.anna);
+      const conversation = await staffInvoke(createConversation, {
+        title: fixture.name,
+      });
+      const response = await postChat(app, {
+        token,
+        companyId: kitIdentities.companies.a,
+        body: userChatBody(conversation.id, `Create ${fixture.product}`),
+      });
+      expect(response.status).toBe(200);
+      const payloads = await readUiMessageSsePayloads(response);
+      const choice = choiceFromSsePayloads(payloads);
+      expect(choice?.options.map((option) => option.label)).toEqual(
+        expect.arrayContaining(["Blue", "Red"]),
+      );
+      expect(choice?.options).toHaveLength(2);
+      const companyOrders = (
+        await kit.db.runtime.db.select().from(orders)
+      ).filter((row) => row.customerId === customer.id);
+      expect(companyOrders).toHaveLength(0);
+    }
+  });
+
+  it("two unresolved lines produce sequential choices and create only after both taps without an LLM", async () => {
+    const store = createMemoryChoiceStore();
+    const customer = await staffInvoke(createCustomer, {
+      name: "T8b Seq Buyer",
+      phone: "+380671110046",
+    });
+    await seedVariableProduct("T8b Seq Macarons", ["Lemon", "Vanilla"]);
+    await seedVariableProduct("T8b Seq Eclairs", ["Coffee", "Chocolate"]);
+    const streamModel = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream(
+          "call-create-seq",
+          ORDERS_CREATE_TOOL_NAME,
+          JSON.stringify({
+            customerQuery: "T8b Seq Buyer",
+            items: [
+              { productQuery: "T8b Seq Macarons", quantityDecimal: "1" },
+              { productQuery: "T8b Seq Eclairs", quantityDecimal: "1" },
+            ],
+          }),
+        ),
+      ],
+    });
+    const app = chatApp(streamModel, undefined, store);
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "T8b sequential",
+    });
+    const streamSpy = vi.spyOn(ShowzyAi, "streamStaffAssistantChat");
+    const chatResponse = await postChat(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: userChatBody(conversation.id, "Create both lines"),
+    });
+    expect(chatResponse.status).toBe(200);
+    const firstChoice = choiceFromSsePayloads(
+      await readUiMessageSsePayloads(chatResponse),
+    );
+    expect(firstChoice?.productName).toBe("T8b Seq Macarons");
+    const streamCallsAfterChat = streamSpy.mock.calls.length;
+    const lemon = firstChoice?.options.find(
+      (option) => option.label === "Lemon",
+    );
+    expect(lemon).toBeDefined();
+    const firstTap = await postChoice(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: {
+        conversationId: conversation.id,
+        choiceId: firstChoice?.challengeId,
+        optionId: lemon?.id,
+      },
+    });
+    expect(firstTap.status).toBe(200);
+    const firstBody = assistantChoiceInteractionResultSchema.parse(
+      await firstTap.json(),
+    );
+    expect(firstBody.status).toBe("needs_choice");
+    expect(streamSpy.mock.calls.length).toBe(streamCallsAfterChat);
+    const afterFirst = (await kit.db.runtime.db.select().from(orders)).filter(
+      (row) => row.customerId === customer.id,
+    );
+    expect(afterFirst).toHaveLength(0);
+    if (firstBody.status !== "needs_choice") {
+      return;
+    }
+    const coffee = firstBody.options.find(
+      (option) => option.label === "Coffee",
+    );
+    const secondTap = await postChoice(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: {
+        conversationId: conversation.id,
+        choiceId: firstBody.challengeId,
+        optionId: coffee?.id,
+      },
+    });
+    expect(secondTap.status).toBe(200);
+    const secondBody = assistantChoiceInteractionResultSchema.parse(
+      await secondTap.json(),
+    );
+    expect(secondBody.status).toBe("completed");
+    expect(streamSpy.mock.calls.length).toBe(streamCallsAfterChat);
+    const created = (await kit.db.runtime.db.select().from(orders)).filter(
+      (row) => row.customerId === customer.id,
+    );
+    expect(created).toHaveLength(1);
+    streamSpy.mockRestore();
   });
 });

@@ -72,4 +72,11 @@ describe("POST /assistant/choice unit", () => {
     classify.mockRestore();
     stream.mockRestore();
   });
+
+  it("forwards catalog optionsTruncated into bindChoiceOptions for successor cards", () => {
+    const src = readFileSync(join(here, "assistant-choice.ts"), "utf8");
+    expect(src).toContain("bindChoiceOptions(");
+    expect(src).toContain("options.conflict.optionsTruncated");
+    expect(src).toContain("optionsTruncated: bound.optionsTruncated");
+  });
 });

@@ -8,6 +8,7 @@ import {
   assistantRowHasInFlightTools,
   assistantTurnIsWaiting,
 } from "./chat-rows";
+import type { PendingChoice } from "./choice-presenter";
 import type { PendingConfirmation } from "./confirmation-presenter";
 
 const copy = assistantCopy("uk");
@@ -67,6 +68,7 @@ describe("assistantChatRows", () => {
         role: "user",
         text: "Delete the customer",
         confirmation: null,
+        choice: null,
         timeline: [],
         surfaces: [],
       },
@@ -75,6 +77,7 @@ describe("assistantChatRows", () => {
         role: "assistant",
         text: "Confirmation required.",
         confirmation: pending,
+        choice: null,
         timeline: [],
         surfaces: [],
       },
@@ -110,6 +113,7 @@ describe("assistantChatRows", () => {
       role: "assistant" as const,
       text: "",
       confirmation: null,
+      choice: null,
       timeline: [
         {
           id: "call-page",
@@ -498,6 +502,7 @@ describe("assistantChatRows", () => {
         role: "assistant",
         text: "",
         confirmation: null,
+        choice: null,
         timeline: [
           {
             id: "call-delete",
@@ -546,6 +551,42 @@ describe("assistantTurnIsWaiting", () => {
     );
     expect(assistantTurnIsWaiting({ status: "streaming", rows })).toBe(false);
     expect(assistantTurnIsWaiting({ status: "submitted", rows })).toBe(false);
+  });
+
+  it("does not wait when a pending ChoiceCard is on the current turn", () => {
+    const choice: PendingChoice = {
+      status: "needs_choice",
+      challengeId: "33333333-3333-4333-8333-333333333333",
+      reason: "variant_required",
+      productName: "Macarons",
+      options: [{ id: "88888888-8888-4888-8888-888888888888", label: "Lemon" }],
+      optionsTruncated: false,
+      messageId: "a1",
+    };
+    const rows = assistantChatRows(
+      [
+        {
+          id: "u1",
+          role: "user",
+          parts: [{ type: "text", text: "Create macarons" }],
+        },
+        {
+          id: "a1",
+          role: "assistant",
+          parts: [
+            { type: "text", text: "Select a variant." },
+            { type: "data-choice", data: choice },
+          ],
+        },
+      ],
+      null,
+      copy,
+      new Set(),
+      "uk",
+      choice,
+    );
+    expect(rows[1]?.choice).toEqual(choice);
+    expect(assistantTurnIsWaiting({ status: "streaming", rows })).toBe(false);
   });
 
   it("still waits when leftover HITL is on a past assistant", () => {
@@ -619,6 +660,7 @@ describe("assistantDisplayRows", () => {
       role: "assistant",
       text: "",
       confirmation: null,
+      choice: null,
       surfaces: [],
       waiting: true,
     });
@@ -745,6 +787,7 @@ describe("assistantDisplayRows", () => {
         role: "assistant",
         waiting: false,
         confirmation: pending,
+        choice: null,
       });
       expect(visible[1]?.waiting).toBe(false);
       expect(visible[3]?.waiting).toBe(true);
@@ -872,6 +915,7 @@ describe("assistantDisplayRows", () => {
       role: "assistant",
       text: "",
       confirmation: null,
+      choice: null,
       surfaces: [],
       waiting: true,
     });

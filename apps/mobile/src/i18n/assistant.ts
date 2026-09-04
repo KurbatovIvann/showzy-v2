@@ -46,6 +46,10 @@ export type AssistantCopy = {
   readonly dismissLabel: string;
   readonly confirmingLabel: string;
   readonly confirmationTitle: string;
+  readonly choiceTitle: string;
+  readonly choiceTruncated: string;
+  readonly choiceExpired: string;
+  readonly choiceSelecting: string;
   readonly waitLabel: string;
   readonly waitIntervalMs: number;
   readonly waitLines: readonly [string, string, string, string, string];
@@ -74,6 +78,10 @@ const en: AssistantCopy = {
   dismissLabel: "Cancel",
   confirmingLabel: "Confirming…",
   confirmationTitle: "Confirmation required",
+  choiceTitle: "Select a variant",
+  choiceTruncated: "More variants exist. Reply with the exact flavour name.",
+  choiceExpired: "This choice expired.",
+  choiceSelecting: "Selecting…",
   waitLabel: "Shozik is thinking",
   waitIntervalMs: 2000,
   waitLines: [
@@ -140,6 +148,10 @@ const uk: AssistantCopy = {
   dismissLabel: "Скасувати",
   confirmingLabel: "Підтверджую…",
   confirmationTitle: "Потрібне підтвердження",
+  choiceTitle: "Оберіть варіант",
+  choiceTruncated: "Є ще варіанти. Напишіть точну назву смаку.",
+  choiceExpired: "Цей вибір більше недоступний.",
+  choiceSelecting: "Обираю…",
   waitLabel: "Шозік думає",
   waitIntervalMs: 2000,
   waitLines: [

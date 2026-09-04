@@ -8,6 +8,10 @@
 import { z } from "zod";
 
 import { toProviderToolName } from "./action-tool.js";
+import {
+  isStaffAssistantNeedsChoiceOutput,
+  type StaffAssistantNeedsChoiceOutput,
+} from "./choice.js";
 import { STAFF_ASSISTANT_CLIPPED_STATUS } from "./clip-tool-result.js";
 import { isStaffAssistantConfirmationOutput } from "./confirmation.js";
 import { spokenTurnText } from "./spoken-reply.js";
@@ -21,6 +25,11 @@ import {
 export const STAFF_ASSISTANT_LOCALES = ["uk", "en"] as const;
 export type StaffAssistantLocale = (typeof STAFF_ASSISTANT_LOCALES)[number];
 export const STAFF_ASSISTANT_DEFAULT_LOCALE: StaffAssistantLocale = "uk";
+
+export const CHOICE_TRUNCATED_COPY: Record<StaffAssistantLocale, string> = {
+  en: "More variants exist. Reply with the exact flavour name.",
+  uk: "Є ще варіанти. Напишіть точну назву смаку.",
+};
 
 export const staffAssistantLocaleSchema = z.enum(STAFF_ASSISTANT_LOCALES);
 
@@ -140,6 +149,9 @@ function isSuccessfulToolOutput(output: unknown): boolean {
     return false;
   }
   if (isStaffAssistantConfirmationOutput(output)) {
+    return false;
+  }
+  if (isStaffAssistantNeedsChoiceOutput(output)) {
     return false;
   }
   return true;
@@ -447,6 +459,37 @@ export function presentCompletedStaffAssistantTurn(options: {
   return surfaces.map((surface) => surface.spoken).join("\n");
 }
 
+function presentChoiceSurface(
+  output: StaffAssistantNeedsChoiceOutput,
+  locale: StaffAssistantLocale,
+): string {
+  const labels = output.options.map((option) => option.label).join(", ");
+  const intro =
+    locale === "uk"
+      ? `Оберіть варіант для ${output.productName}: ${labels}.`
+      : `Select a variant for ${output.productName}: ${labels}.`;
+  if (output.optionsTruncated) {
+    return `${intro} ${CHOICE_TRUNCATED_COPY[locale]}`;
+  }
+  return intro;
+}
+
+export function presentChoiceStaffAssistantTurn(options: {
+  readonly locale: StaffAssistantLocale;
+  readonly toolResults: readonly StaffAssistantPresentedToolResult[];
+}): string | undefined {
+  for (let index = options.toolResults.length - 1; index >= 0; index -= 1) {
+    const result = options.toolResults[index];
+    if (
+      result !== undefined &&
+      isStaffAssistantNeedsChoiceOutput(result.output)
+    ) {
+      return presentChoiceSurface(result.output, options.locale);
+    }
+  }
+  return undefined;
+}
+
 /**
  * True when the live bubble and persist body must come from the completed
  * presenter, not model `{ spoken }`. HITL confirmation still uses the
@@ -457,13 +500,18 @@ export function staffAssistantTurnUsesCompletedPresenter(options: {
   readonly toolResults: readonly StaffAssistantPresentedToolResult[];
   readonly runs: readonly SpokenTurnRun[];
 }): boolean {
+  if (options.runs.some((run) => run.outcome === "confirmation_required")) {
+    return false;
+  }
   if (
-    options.runs.some(
-      (run) =>
-        run.outcome === "confirmation_required" ||
-        run.outcome === "choice_required",
-    )
+    presentChoiceStaffAssistantTurn({
+      locale: options.locale,
+      toolResults: options.toolResults,
+    }) !== undefined
   ) {
+    return true;
+  }
+  if (options.runs.some((run) => run.outcome === "choice_required")) {
     return false;
   }
   return (
@@ -486,6 +534,13 @@ export function staffAssistantPersistedTurnText(options: {
   readonly runs: readonly SpokenTurnRun[];
 }): string {
   if (staffAssistantTurnUsesCompletedPresenter(options)) {
+    const choice = presentChoiceStaffAssistantTurn({
+      locale: options.locale,
+      toolResults: options.toolResults,
+    });
+    if (choice !== undefined) {
+      return choice;
+    }
     const presented = presentCompletedStaffAssistantTurn({
       locale: options.locale,
       toolResults: options.toolResults,

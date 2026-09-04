@@ -15,6 +15,7 @@ import {
 } from "../shared/chat-rows";
 import type { AssistantSheetViewModel } from "./assistant-sheet-view";
 import { useAssistantChat } from "./use-assistant-chat";
+import { useAssistantChoice } from "./use-assistant-choice";
 import { useAssistantConfirmation } from "./use-assistant-confirmation";
 
 export function useAssistantSheet(): AssistantSheetViewModel & {
@@ -32,6 +33,14 @@ export function useAssistantSheet(): AssistantSheetViewModel & {
     resume: chat.resume,
   });
   chat.confirmationResetRef.current = confirmation.reset;
+  const choice = useAssistantChoice({
+    messages: chat.messages,
+    locale,
+    companyEpochRef: chat.companyEpochRef,
+    postChoice: chat.postChoice,
+    appendParts: chat.appendAssistantParts,
+  });
+  chat.choiceResetRef.current = choice.reset;
 
   const openHref = useCallback(
     (href: string) => {
@@ -42,13 +51,20 @@ export function useAssistantSheet(): AssistantSheetViewModel & {
 
   const pendingConfirmation =
     confirmation.card.kind === "hidden" ? null : confirmation.card.confirmation;
+  const pendingChoice =
+    choice.card.kind === "hidden" ? null : choice.card.choice;
+  const ignoredChallengeIds = new Set(confirmation.ignoredChallengeIds);
+  for (const challengeId of choice.ignoredChallengeIds) {
+    ignoredChallengeIds.add(challengeId);
+  }
 
   const mappedRows = assistantChatRows(
     chat.messages,
     pendingConfirmation,
     copy,
-    confirmation.ignoredChallengeIds,
+    ignoredChallengeIds,
     locale,
+    pendingChoice,
   );
   const liveWaiting = assistantTurnIsWaiting({
     status: chat.status,
@@ -74,11 +90,13 @@ export function useAssistantSheet(): AssistantSheetViewModel & {
     send: chat.send,
     confirm: confirmation.confirm,
     dismiss: confirmation.dismiss,
+    selectChoice: choice.select,
     openHref,
     busy: chat.sendBusy,
     thinking: chat.thinking,
     hasInFlightTools,
     confirmationApplying: confirmation.card.kind === "applying",
+    choiceApplying: choice.card.kind === "applying",
     canSend: chat.canSend,
     banner,
   };

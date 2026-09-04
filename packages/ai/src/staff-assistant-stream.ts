@@ -21,12 +21,21 @@ import {
   type ActionToolExecute,
 } from "./action-tool.js";
 import type { StaffAssistantForcedToolName } from "./gate.js";
-import { STAFF_ASSISTANT_ANTHROPIC_PROVIDER_OPTIONS } from "./anthropic-options.js";
-import { clipStaffAssistantToolResult } from "./clip-tool-result.js";
 import {
   isStaffAssistantConfirmationOutput,
   type StaffAssistantConfirmationOutput,
 } from "./confirmation.js";
+import { STAFF_ASSISTANT_ANTHROPIC_PROVIDER_OPTIONS } from "./anthropic-options.js";
+import { clipStaffAssistantToolResult } from "./clip-tool-result.js";
+import {
+  choiceCardEnvelope,
+  isStaffAssistantNeedsChoiceOutput,
+  needsChoiceFromOrdersCreateConflict,
+  toolOutputRequestsChoice,
+  type ChoiceBind,
+  type ChoiceRecord,
+  type StaffAssistantChoiceCardEnvelope,
+} from "./choice.js";
 import { staffAssistantJsonChars } from "./json-chars.js";
 import { staffAssistantHistoryStats } from "./messages.js";
 import {
@@ -97,7 +106,10 @@ export interface StaffAssistantTurnResult {
 
 export type StaffAssistantUIMessage = UIMessage<
   unknown,
-  { confirmation: StaffAssistantConfirmationOutput }
+  {
+    confirmation: StaffAssistantConfirmationOutput;
+    choice: StaffAssistantChoiceCardEnvelope;
+  }
 >;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -150,6 +162,16 @@ function stepRequestedConfirmation(steps: Array<StepResult<ToolSet>>): boolean {
   );
 }
 
+function stepRequestedChoice(steps: Array<StepResult<ToolSet>>): boolean {
+  const last = steps.at(-1);
+  if (last === undefined) {
+    return false;
+  }
+  return last.toolResults.some((result) =>
+    toolOutputRequestsChoice(result.output),
+  );
+}
+
 /**
  * Forced-job lifecycle: stop after a domain tool result (completed view,
  * `needs_choice`, `confirmation_required`, or `error`). Do not force a
@@ -193,6 +215,12 @@ function meterToolResult(
 function wrapExecute(
   execute: ActionToolExecute,
   runs: StaffAssistantToolRun[],
+  hooks: {
+    readonly locale: StaffAssistantLocale;
+    readonly choiceBind?: ChoiceBind;
+    readonly openChoice?: (record: ChoiceRecord) => Promise<boolean>;
+    readonly mintChoiceId?: () => string;
+  },
 ): ActionToolExecute {
   return async (actionName, input, options) => {
     const toolCallId = clipToolCallId(options.toolCallId);
@@ -229,6 +257,29 @@ function wrapExecute(
           outcome: "confirmation_required",
         });
         return confirmation;
+      }
+      const needsChoice = await needsChoiceFromOrdersCreateConflict({
+        actionName,
+        input,
+        error,
+        locale: hooks.locale,
+        ...(hooks.choiceBind !== undefined ? { bind: hooks.choiceBind } : {}),
+        ...(hooks.openChoice !== undefined
+          ? { openChoice: hooks.openChoice }
+          : {}),
+        ...(hooks.mintChoiceId !== undefined
+          ? { mintChoiceId: hooks.mintChoiceId }
+          : {}),
+      });
+      if (needsChoice !== undefined) {
+        runs.push({
+          actionName,
+          toolCallId,
+          challengeId: needsChoice.challengeId,
+          resultIds: [],
+          outcome: "choice_required",
+        });
+        return needsChoice;
       }
       if (error instanceof CoreError) {
         runs.push({
@@ -398,6 +449,13 @@ export function streamStaffAssistantChat(options: {
    * hot set + BM25.
    */
   readonly forcedToolName?: StaffAssistantForcedToolName;
+  /**
+   * Tenant bind for a user-turn ChoiceCard. Canonical input stays
+   * server-side; the stream only writes the envelope.
+   */
+  readonly choiceBind?: ChoiceBind;
+  readonly openChoice?: (record: ChoiceRecord) => Promise<boolean>;
+  readonly mintChoiceId?: () => string;
   /** Awaited inside the UI-message stream after `result.text`. A throw fails the stream. */
   readonly onTurn?: (turn: StaffAssistantTurnResult) => Promise<void>;
 }): {
@@ -411,7 +469,18 @@ export function streamStaffAssistantChat(options: {
   const locale = options.locale ?? STAFF_ASSISTANT_DEFAULT_LOCALE;
   const catalog = staffAssistantTools(
     options.contracts,
-    wrapExecute(options.execute, runs),
+    wrapExecute(options.execute, runs, {
+      locale,
+      ...(options.choiceBind !== undefined
+        ? { choiceBind: options.choiceBind }
+        : {}),
+      ...(options.openChoice !== undefined
+        ? { openChoice: options.openChoice }
+        : {}),
+      ...(options.mintChoiceId !== undefined
+        ? { mintChoiceId: options.mintChoiceId }
+        : {}),
+    }),
   );
   const { tools, forceJobTool } = staffAssistantStreamTools(
     catalog,
@@ -460,6 +529,7 @@ export function streamStaffAssistantChat(options: {
         stopWhen: [
           ({ steps }) => steps.length >= STAFF_ASSISTANT_MAX_STEPS,
           ({ steps }) => stepRequestedConfirmation(steps),
+          ({ steps }) => stepRequestedChoice(steps),
           ({ steps }) => forceJobTool && stepReachedForcedJobTerminal(steps),
         ],
         onStepEnd: ({ toolResults }) => {
@@ -468,6 +538,19 @@ export function streamStaffAssistantChat(options: {
               writer.write({
                 type: "data-confirmation",
                 data: toolResult.output,
+              });
+            }
+            if (isStaffAssistantNeedsChoiceOutput(toolResult.output)) {
+              writer.write({
+                type: "data-choice",
+                data: choiceCardEnvelope({
+                  challengeId: toolResult.output.challengeId,
+                  status: "needs_choice",
+                  reason: toolResult.output.reason,
+                  productName: toolResult.output.productName,
+                  options: toolResult.output.options,
+                  optionsTruncated: toolResult.output.optionsTruncated,
+                }),
               });
             }
           }

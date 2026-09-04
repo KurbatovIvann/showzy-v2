@@ -98,7 +98,14 @@ export {
   assistantChoiceBodySchema,
   assistantChoiceInteractionResultSchema,
   bindChoiceOptions,
+  catalogPickerConflictExtrasFromError,
+  catalogPickerConflictExtrasSchema,
+  choiceFromChatPart,
+  isStaffAssistantNeedsChoiceOutput,
+  needsChoiceFromOrdersCreateConflict,
+  toolOutputRequestsChoice,
   bindsMatch,
+  CHOICE_PICKER_REASONS,
   CHOICE_OPTIONS_MAX,
   CHOICE_REDIS_KEY_PREFIX,
   CHOICE_TTL_MS,
@@ -129,6 +136,8 @@ export {
   type StaffAssistantNeedsChoiceOutput,
 } from "./choice.js";
 export {
+  CHOICE_TRUNCATED_COPY,
+  presentChoiceStaffAssistantTurn,
   presentCompletedStaffAssistantTurn,
   staffAssistantLocaleSchema,
   staffAssistantPersistedTurnText,

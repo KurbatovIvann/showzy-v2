@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import { STAFF_ASSISTANT_CLIPPED_STATUS } from "./clip-tool-result.js";
 import { STAFF_ASSISTANT_CONFIRMATION_FALLBACK_TEXT } from "./confirmation.js";
 import {
+  CHOICE_TRUNCATED_COPY,
+  presentChoiceStaffAssistantTurn,
   presentCompletedStaffAssistantTurn,
   staffAssistantPersistedTurnText,
   staffAssistantTurnUsesCompletedPresenter,
@@ -356,6 +358,58 @@ describe("staffAssistantTurnUsesCompletedPresenter", () => {
         runs: [{ outcome: "choice_required" }],
       }),
     ).toBe(false);
+  });
+
+  it("is true when a needs_choice envelope is present so spoken matches the card", () => {
+    const optionA = "55555555-5555-4555-8555-555555555555";
+    const optionB = "66666666-6666-4666-8666-666666666666";
+    const challengeId = "77777777-7777-4777-8777-777777777777";
+    const needsChoice = {
+      status: "needs_choice" as const,
+      challengeId,
+      reason: "variant_required" as const,
+      productName: "Macarons",
+      options: [
+        { id: optionA, label: "Lemon" },
+        { id: optionB, label: "Vanilla" },
+      ],
+      optionsTruncated: false,
+    };
+    const toolResults = [
+      { toolName: ORDERS_CREATE_TOOL_NAME, output: needsChoice },
+    ];
+    expect(
+      staffAssistantTurnUsesCompletedPresenter({
+        locale: "en",
+        toolResults,
+        runs: [{ outcome: "choice_required" }],
+      }),
+    ).toBe(true);
+    expect(presentChoiceStaffAssistantTurn({ locale: "en", toolResults })).toBe(
+      "Select a variant for Macarons: Lemon, Vanilla.",
+    );
+    expect(presentChoiceStaffAssistantTurn({ locale: "uk", toolResults })).toBe(
+      "Оберіть варіант для Macarons: Lemon, Vanilla.",
+    );
+    expect(
+      staffAssistantPersistedTurnText({
+        locale: "en",
+        toolResults,
+        parsedSpoken: "MODEL_SPOKEN_SHOULD_NOT_PERSIST",
+        rawText: '{"spoken":"MODEL_SPOKEN_SHOULD_NOT_PERSIST"}',
+        runs: [{ outcome: "choice_required" }],
+      }),
+    ).toBe("Select a variant for Macarons: Lemon, Vanilla.");
+    const truncated = presentChoiceStaffAssistantTurn({
+      locale: "en",
+      toolResults: [
+        {
+          toolName: ORDERS_CREATE_TOOL_NAME,
+          output: { ...needsChoice, optionsTruncated: true },
+        },
+      ],
+    });
+    expect(truncated).toContain(CHOICE_TRUNCATED_COPY.en);
   });
 
   it("is false when there is no registered surface", () => {

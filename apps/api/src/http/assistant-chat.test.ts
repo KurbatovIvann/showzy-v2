@@ -146,6 +146,7 @@ describe("staff AI tool manifest (SHO-322)", () => {
         items: [
           {
             product: { by: "query", value: "Cake" },
+            variantSelection: { kind: "unspecified" },
             quantity: { decimal: "1.5" },
           },
         ],

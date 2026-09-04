@@ -118,10 +118,17 @@ export type OrdersCreateMappedEntityRef =
 export type OrdersCreateMappedQuantity =
   { readonly milli: string } | { readonly decimal: string };
 
+export type OrdersCreateMappedVariantSelection =
+  | { readonly kind: "unspecified" }
+  | {
+      readonly kind: "reference";
+      readonly ref: OrdersCreateMappedEntityRef;
+    };
+
 export type OrdersCreateMappedItem = {
   readonly product: OrdersCreateMappedEntityRef;
   readonly quantity: OrdersCreateMappedQuantity;
-  readonly variant?: OrdersCreateMappedEntityRef;
+  readonly variantSelection: OrdersCreateMappedVariantSelection;
 };
 
 export type OrdersCreateMappedInput = {
@@ -147,17 +154,21 @@ function mapRequiredEntityRef(
   );
 }
 
-function mapOptionalEntityRef(
+/**
+ * Absence of a variant locator is unspecified, never `base`. Mapping omit
+ * to `base` would sell the parent of a variable product.
+ */
+function mapVariantSelection(
   id: string | undefined,
   query: string | undefined,
-): OrdersCreateMappedEntityRef | undefined {
+): OrdersCreateMappedVariantSelection {
   if (id !== undefined) {
-    return { by: "id", id };
+    return { kind: "reference", ref: { by: "id", id } };
   }
   if (query !== undefined) {
-    return { by: "query", value: query };
+    return { kind: "reference", ref: { by: "query", value: query } };
   }
-  return undefined;
+  return { kind: "unspecified" };
 }
 
 function mapQuantity(
@@ -178,10 +189,9 @@ function mapQuantity(
 function mapItem(
   item: OrdersCreateFacadeInput["items"][number],
 ): OrdersCreateMappedItem {
-  const variant = mapOptionalEntityRef(item.variantId, item.variantQuery);
   return {
     product: mapRequiredEntityRef(item.productId, item.productQuery),
-    ...(variant !== undefined ? { variant } : {}),
+    variantSelection: mapVariantSelection(item.variantId, item.variantQuery),
     quantity: mapQuantity(item.quantityMilli, item.quantityDecimal),
   };
 }

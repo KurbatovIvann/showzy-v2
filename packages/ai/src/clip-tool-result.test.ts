@@ -8,6 +8,7 @@ import {
   STAFF_ASSISTANT_CLIP_JSON_MAX,
 } from "./clip-tool-result.js";
 import { STAFF_ASSISTANT_CONFIRMATION_STATUS } from "./confirmation.js";
+import { STAFF_ASSISTANT_NEEDS_CHOICE_STATUS } from "./choice.js";
 import { extractUuidResultIds } from "./staff-assistant-stream.js";
 
 const customerId = "11111111-1111-4111-8111-111111111111";
@@ -44,6 +45,18 @@ describe("clipStaffAssistantToolResult", () => {
       toolCallId: "call-delete",
     };
     expect(clipStaffAssistantToolResult(confirmation)).toBe(confirmation);
+  });
+
+  it("passes needs_choice payloads through unchanged", () => {
+    const needsChoice = {
+      status: STAFF_ASSISTANT_NEEDS_CHOICE_STATUS,
+      challengeId,
+      reason: "variant_required",
+      productName: "Macarons",
+      options: [{ id: challengeId, label: "Lemon" }],
+      optionsTruncated: false,
+    };
+    expect(clipStaffAssistantToolResult(needsChoice)).toBe(needsChoice);
   });
 
   it("passes typed error objects through unchanged", () => {

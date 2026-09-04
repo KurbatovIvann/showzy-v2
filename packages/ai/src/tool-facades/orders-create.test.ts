@@ -45,6 +45,16 @@ const createOrder = defineActionContract({
         z.strictObject({
           product: entityRef,
           variant: entityRef.optional(),
+          variantSelection: z
+            .discriminatedUnion("kind", [
+              z.strictObject({ kind: z.literal("unspecified") }),
+              z.strictObject({ kind: z.literal("base") }),
+              z.strictObject({
+                kind: z.literal("reference"),
+                ref: entityRef,
+              }),
+            ])
+            .optional(),
           quantity: z.union([
             z.strictObject({ milli: z.string() }),
             z.strictObject({ decimal: z.string() }),
@@ -78,10 +88,22 @@ describe("mapOrdersCreateInput", () => {
       items: [
         {
           product: { by: "query", value: "Cake" },
+          variantSelection: { kind: "unspecified" },
           quantity: { decimal: "1.5" },
         },
       ],
     });
+  });
+
+  it("maps omit of variantQuery and variantId to unspecified, never base", () => {
+    const parsed = ordersCreateInputSchema.parse({
+      customerId,
+      items: [{ productId, quantityMilli: "1000" }],
+    });
+    const mapped = mapOrdersCreateInput(parsed);
+    expect(mapped.items[0]?.variantSelection).toEqual({ kind: "unspecified" });
+    expect(JSON.stringify(mapped)).not.toContain('"kind":"base"');
+    expect(mapped.items[0]).not.toHaveProperty("variant");
   });
 
   it("maps UUID locators onto by id EntityRef", () => {
@@ -101,7 +123,10 @@ describe("mapOrdersCreateInput", () => {
       items: [
         {
           product: { by: "id", id: productId },
-          variant: { by: "id", id: variantId },
+          variantSelection: {
+            kind: "reference",
+            ref: { by: "id", id: variantId },
+          },
           quantity: { milli: "1000" },
         },
       ],
@@ -125,7 +150,10 @@ describe("mapOrdersCreateInput", () => {
       items: [
         {
           product: { by: "query", value: "Cake" },
-          variant: { by: "query", value: "Large" },
+          variantSelection: {
+            kind: "reference",
+            ref: { by: "query", value: "Large" },
+          },
           quantity: { milli: "2000" },
         },
       ],
@@ -261,6 +289,7 @@ describe("ordersCreateFacadeTools", () => {
         items: [
           {
             product: { by: "query", value: "Cake" },
+            variantSelection: { kind: "unspecified" },
             quantity: { decimal: "1.5" },
           },
         ],

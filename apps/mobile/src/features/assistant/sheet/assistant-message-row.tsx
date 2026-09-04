@@ -6,9 +6,11 @@ import {
   assistantTurnColumnLayout,
   assistantTurnResultStretch,
 } from "../shared/assistant-turn-layout";
+import type { PendingChoice } from "../shared/choice-presenter";
 import { assistantSurfaceKey, type AssistantSurface } from "../surfaces";
 import { AssistantSurfaceCard } from "./assistant-surface-card";
 import { AssistantWaitLine } from "./assistant-wait-line";
+import { ChoiceCard } from "./choice-card";
 import { ConfirmationCard } from "./confirmation-card";
 
 export const AssistantMessageRow = memo(function AssistantMessageRow(props: {
@@ -28,9 +30,17 @@ export const AssistantMessageRow = memo(function AssistantMessageRow(props: {
   readonly confirmationApplying: boolean;
   readonly onConfirm: () => void;
   readonly onDismiss: () => void;
+  readonly choice: PendingChoice | null;
+  readonly choiceTitle: string;
+  readonly choiceTruncatedLabel: string | null;
+  readonly choiceExpiredLabel: string;
+  readonly choiceSelectingLabel: string;
+  readonly choiceApplying: boolean;
+  readonly onSelectChoice: (optionId: string) => void;
 }) {
   const isUser = props.role === "user";
   const confirmationSummary = props.confirmationSummary;
+  const choice = props.choice;
 
   return (
     <View style={isUser ? styles.userWrap : styles.assistantWrap}>
@@ -67,6 +77,19 @@ export const AssistantMessageRow = memo(function AssistantMessageRow(props: {
             applying={props.confirmationApplying}
             onConfirm={props.onConfirm}
             onDismiss={props.onDismiss}
+          />
+        </AssistantTurnResult>
+      ) : null}
+      {!props.waiting && choice !== null ? (
+        <AssistantTurnResult>
+          <ChoiceCard
+            title={props.choiceTitle}
+            truncatedLabel={props.choiceTruncatedLabel}
+            expiredLabel={props.choiceExpiredLabel}
+            selectingLabel={props.choiceSelectingLabel}
+            applying={props.choiceApplying}
+            choice={choice}
+            onSelect={props.onSelectChoice}
           />
         </AssistantTurnResult>
       ) : null}

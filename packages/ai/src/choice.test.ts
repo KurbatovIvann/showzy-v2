@@ -1,14 +1,20 @@
 import { CONFIRMATION_TTL_MS } from "@showzy/core";
+import { ConflictError } from "@showzy/core/errors";
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 
 import {
   applyChoiceOptionToCanonicalInput,
   assistantChoiceBodySchema,
   bindChoiceOptions,
+  catalogPickerConflictExtrasFromError,
   CHOICE_OPTIONS_MAX,
   CHOICE_TTL_MS,
   choiceCardEnvelope,
   choiceRedisKey,
+  needsChoiceFromOrdersCreateConflict,
   parseChoiceRecord,
   peekEnvelopeFromRecord,
   serializeChoiceRecord,
@@ -128,6 +134,37 @@ describe("choice transport (SHO-409)", () => {
     expect(JSON.stringify(bound.options)).not.toContain(variantLemon);
   });
 
+  it("forwards catalog optionsTruncated when the list is at or below the cap", () => {
+    const two = bindChoiceOptions(
+      [
+        { id: variantLemon, label: "Lemon" },
+        { id: variantVanilla, label: "Vanilla" },
+      ],
+      true,
+    );
+    expect(two.options).toHaveLength(2);
+    expect(two.optionsTruncated).toBe(true);
+    const twentyIds = Array.from({ length: CHOICE_OPTIONS_MAX }, (_, index) => {
+      const suffix = String(index).padStart(12, "0");
+      return {
+        id: `55555555-5555-4555-8555-${suffix}`,
+        label: `V${String(index)}`,
+      };
+    });
+    const twenty = bindChoiceOptions(twentyIds, true);
+    expect(twenty.options).toHaveLength(CHOICE_OPTIONS_MAX);
+    expect(twenty.optionsTruncated).toBe(true);
+    expect(
+      bindChoiceOptions(
+        [
+          { id: variantLemon, label: "Lemon" },
+          { id: variantVanilla, label: "Vanilla" },
+        ],
+        false,
+      ).optionsTruncated,
+    ).toBe(false);
+  });
+
   it("patches the server target line and ignores a leftover variant field", () => {
     const withLegacyVariant: ChoiceCanonicalCreateInput = {
       customer: canonical.customer,
@@ -204,5 +241,156 @@ describe("choice transport (SHO-409)", () => {
         optionsTruncated: false,
       }).status,
     ).toBe("expired");
+  });
+});
+
+class DuckTypedPickerConflict extends ConflictError {
+  readonly reason: string;
+  readonly target: {
+    readonly kind: "order_line_variant";
+    readonly lineIndex: number;
+    readonly productId: string;
+    readonly productName: string;
+  };
+  readonly options: readonly { readonly id: string; readonly label: string }[];
+  readonly optionsTruncated: boolean;
+
+  constructor(args: {
+    readonly reason: string;
+    readonly options: readonly {
+      readonly id: string;
+      readonly label: string;
+    }[];
+    readonly optionsTruncated?: boolean;
+  }) {
+    super('Select a variant for "Macarons".');
+    this.reason = args.reason;
+    this.target = {
+      kind: "order_line_variant",
+      lineIndex: 0,
+      productId,
+      productName: "Macarons",
+    };
+    this.options = args.options;
+    this.optionsTruncated = args.optionsTruncated ?? false;
+  }
+}
+
+describe("duck-typed catalog CONFLICT extras (SHO-418)", () => {
+  it("does not import catalog", () => {
+    const source = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "choice.ts"),
+      "utf8",
+    );
+    expect(source).not.toContain("@showzy/catalog");
+  });
+
+  it("parses picker extras and ignores no_active_variants", () => {
+    const picker = new DuckTypedPickerConflict({
+      reason: "variant_required",
+      options: [
+        { id: variantLemon, label: "Lemon" },
+        { id: variantVanilla, label: "Vanilla" },
+      ],
+    });
+    expect(catalogPickerConflictExtrasFromError(picker)?.reason).toBe(
+      "variant_required",
+    );
+    expect(
+      catalogPickerConflictExtrasFromError(
+        new DuckTypedPickerConflict({
+          reason: "no_active_variants",
+          options: [],
+        }),
+      ),
+    ).toBeUndefined();
+    expect(
+      catalogPickerConflictExtrasFromError(new ConflictError("plain conflict")),
+    ).toBeUndefined();
+  });
+
+  it("opens needs_choice from orders.create CONFLICT and skips empty options", async () => {
+    const opened: ChoiceRecord[] = [];
+    const output = await needsChoiceFromOrdersCreateConflict({
+      actionName: "orders.create",
+      input: canonical,
+      error: new DuckTypedPickerConflict({
+        reason: "ambiguous",
+        options: [{ id: variantLemon, label: "Lemon" }],
+      }),
+      bind: {
+        actorId: "anna",
+        companyId,
+        conversationId,
+      },
+      openChoice: (record) => {
+        opened.push(record);
+        return Promise.resolve(true);
+      },
+      mintChoiceId: () => choiceId,
+    });
+    expect(output?.status).toBe("needs_choice");
+    expect(output?.options).toHaveLength(1);
+    expect(opened).toHaveLength(1);
+    expect(JSON.stringify(output)).not.toContain("canonicalInput");
+    expect(JSON.stringify(output)).not.toContain(productId);
+
+    const empty = await needsChoiceFromOrdersCreateConflict({
+      actionName: "orders.create",
+      input: canonical,
+      error: new DuckTypedPickerConflict({
+        reason: "no_active_variants",
+        options: [],
+      }),
+      bind: {
+        actorId: "anna",
+        companyId,
+        conversationId,
+      },
+      openChoice: () => Promise.resolve(true),
+    });
+    expect(empty).toBeUndefined();
+  });
+
+  it("keeps optionsTruncated true on a short picker list", async () => {
+    const output = await needsChoiceFromOrdersCreateConflict({
+      actionName: "orders.create",
+      input: canonical,
+      error: new DuckTypedPickerConflict({
+        reason: "variant_required",
+        options: [
+          { id: variantLemon, label: "Lemon" },
+          { id: variantVanilla, label: "Vanilla" },
+        ],
+        optionsTruncated: true,
+      }),
+      mintChoiceId: () => choiceId,
+    });
+    expect(output?.options).toHaveLength(2);
+    expect(output?.optionsTruncated).toBe(true);
+  });
+
+  it("returns undefined when openChoice SET NX fails", async () => {
+    const opened: ChoiceRecord[] = [];
+    const output = await needsChoiceFromOrdersCreateConflict({
+      actionName: "orders.create",
+      input: canonical,
+      error: new DuckTypedPickerConflict({
+        reason: "variant_required",
+        options: [{ id: variantLemon, label: "Lemon" }],
+      }),
+      bind: {
+        actorId: "anna",
+        companyId,
+        conversationId,
+      },
+      openChoice: (record) => {
+        opened.push(record);
+        return Promise.resolve(false);
+      },
+      mintChoiceId: () => choiceId,
+    });
+    expect(opened).toHaveLength(1);
+    expect(output).toBeUndefined();
   });
 });

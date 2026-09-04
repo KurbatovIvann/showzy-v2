@@ -9,6 +9,10 @@ import { useBoundContractMutation } from "../../../api/use-bound-contract-mutati
 import { useAuthSession } from "../../../auth/session-provider";
 import { clipAssistantInput } from "../api/assistant-chat-body";
 import {
+  peekAssistantChoice,
+  postAssistantChoice,
+} from "../api/assistant-choice";
+import {
   createStaffAssistantTransport,
   type StaffAssistantUiMessage,
 } from "../api/assistant-chat-transport";
@@ -17,11 +21,17 @@ import {
   resetAssistantTenantSession,
   resumeOwnAssistantConversation,
   sendEnsuredAssistantMessage,
+  type AssistantCompanyEpochRef,
 } from "../shared/assistant-session";
 import {
   queryFailureToAssistantKind,
   type AssistantChatErrorKind,
 } from "../shared/chat-error";
+import { envelopeFromChoicePeek } from "../shared/choice";
+import type {
+  ChoiceAppendPart,
+  ChoiceSelectResult,
+} from "../shared/choice-presenter";
 import type { AssistantChatMessage } from "../shared/confirmation-presenter";
 import type { AssistantChatStatus } from "./use-assistant-confirmation";
 
@@ -49,6 +59,15 @@ export function useAssistantChat(): {
   readonly confirmationResetRef: {
     current: () => void;
   };
+  readonly choiceResetRef: {
+    current: () => void;
+  };
+  readonly companyEpochRef: AssistantCompanyEpochRef;
+  readonly postChoice: (input: {
+    readonly choiceId: string;
+    readonly optionId: string;
+  }) => Promise<ChoiceSelectResult>;
+  readonly appendAssistantParts: (parts: readonly ChoiceAppendPart[]) => void;
 } {
   const auth = useAuthSession();
   const apiClient = useApiClient();
@@ -56,6 +75,9 @@ export function useAssistantChat(): {
   const sessionUserId = auth.session?.userId ?? null;
   const apiUrl = useMemo(() => resolveApiUrl(), []);
   const confirmationResetRef = useRef<() => void>(() => {
+    return;
+  });
+  const choiceResetRef = useRef<() => void>(() => {
     return;
   });
   const [hydrateBusy, setHydrateBusy] = useState(false);
@@ -111,6 +133,41 @@ export function useAssistantChat(): {
     [sendMessage],
   );
 
+  const appendAssistantParts = useCallback(
+    (parts: readonly ChoiceAppendPart[]) => {
+      setMessages((current) => [
+        ...current,
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          parts: [...parts],
+        },
+      ]);
+    },
+    [setMessages],
+  );
+
+  const postChoice = useCallback(
+    (input: { readonly choiceId: string; readonly optionId: string }) => {
+      const conversationId = conversationIdRef.current;
+      if (conversationId === null || apiUrl === null) {
+        return Promise.resolve({
+          status: "error",
+          text: "Choice resume failed.",
+        });
+      }
+      return postAssistantChoice({
+        apiUrl,
+        getCookie: () => cookieRef.current(),
+        getCompanyId: () => companyIdRef.current,
+        conversationId,
+        choiceId: input.choiceId,
+        optionId: input.optionId,
+      });
+    },
+    [apiUrl],
+  );
+
   useEffect(() => {
     const previous = previousCompanyIdRef.current;
     previousCompanyIdRef.current = activeCompanyId;
@@ -121,6 +178,9 @@ export function useAssistantChat(): {
         setMessages,
         resetConfirmation: () => {
           confirmationResetRef.current();
+        },
+        resetChoice: () => {
+          choiceResetRef.current();
         },
       });
     }
@@ -150,6 +210,20 @@ export function useAssistantChat(): {
         } catch {
           return null;
         }
+      },
+      peekChoice: ({ conversationId, choiceId }) => {
+        if (apiUrl === null) {
+          return Promise.resolve(
+            envelopeFromChoicePeek(choiceId, { status: "expired" }),
+          );
+        }
+        return peekAssistantChoice({
+          apiUrl,
+          getCookie: () => cookieRef.current(),
+          getCompanyId: () => companyIdRef.current,
+          conversationId,
+          choiceId,
+        });
       },
     })
       .then((result) => {
@@ -181,7 +255,7 @@ export function useAssistantChat(): {
     return () => {
       cancelled = true;
     };
-  }, [activeCompanyId, apiClient, sessionUserId, setMessages]);
+  }, [activeCompanyId, apiClient, apiUrl, sessionUserId, setMessages]);
 
   const send = useCallback(() => {
     const text = clipAssistantInput(input);
@@ -233,5 +307,9 @@ export function useAssistantChat(): {
       apiUrl !== null,
     createErrorKind,
     confirmationResetRef,
+    choiceResetRef,
+    companyEpochRef,
+    postChoice,
+    appendAssistantParts,
   };
 }

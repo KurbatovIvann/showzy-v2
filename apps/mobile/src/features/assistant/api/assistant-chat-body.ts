@@ -3,6 +3,7 @@
  * Strict `{ conversationId, messages, locale }` — never `companyId`.
  */
 import { detectLocale, type Locale } from "../../../i18n/locale";
+import { choiceEnvelopeForWire } from "../shared/choice";
 
 export const ASSISTANT_CHAT_PATH = "/assistant/chat";
 export const STAFF_ASSISTANT_CHAT_MESSAGE_TEXT_MAX = 16_000;
@@ -66,6 +67,13 @@ function wireParts(parts: readonly StaffChatUiPart[]): StaffChatWirePart[] {
     }
     if (part.type === "data-confirmation") {
       wired.push({ type: "data-confirmation", data: part.data });
+      continue;
+    }
+    if (part.type === "data-choice") {
+      const envelope = choiceEnvelopeForWire(part.data ?? part);
+      if (envelope !== undefined) {
+        wired.push({ type: "data-choice", data: envelope });
+      }
     }
   }
   return wired;

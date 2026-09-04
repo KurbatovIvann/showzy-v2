@@ -2,6 +2,7 @@
  * Live-turn tool timeline from current `UIMessage` parts (SHO-368).
  * Parse part names only — no list/aggregate cards, no persistence.
  */
+import { choiceFromChatPart } from "./choice";
 import { confirmationFromChatPart } from "./confirmation";
 import {
   isToolErrorOutput,
@@ -46,6 +47,9 @@ export function timelineStatusFromPartState(
       if (confirmationFromChatPart(output) !== undefined) {
         return "running";
       }
+      if (choiceFromChatPart(output) !== undefined) {
+        return "running";
+      }
       // HTTP 200 façade failures also arrive as output-available.
       return isToolErrorOutput(output) ? "error" : "done";
     case "output-error":
@@ -81,6 +85,22 @@ function dismissedConfirmationToolCallIds(
     ) {
       ids.add(fromOutput.toolCallId);
     }
+    const fromChoicePart = choiceFromChatPart(part);
+    if (
+      fromChoicePart !== undefined &&
+      dismissedChallengeIds.has(fromChoicePart.challengeId) &&
+      typeof part.toolCallId === "string"
+    ) {
+      ids.add(part.toolCallId);
+    }
+    const fromChoiceOutput = choiceFromChatPart(part.output);
+    if (
+      fromChoiceOutput !== undefined &&
+      dismissedChallengeIds.has(fromChoiceOutput.challengeId) &&
+      typeof part.toolCallId === "string"
+    ) {
+      ids.add(part.toolCallId);
+    }
   }
   return ids;
 }
@@ -92,6 +112,13 @@ function omitDismissedToolPart(
 ): boolean {
   const paused = confirmationFromChatPart(part.output);
   if (paused !== undefined && dismissedChallengeIds.has(paused.challengeId)) {
+    return true;
+  }
+  const pausedChoice = choiceFromChatPart(part.output);
+  if (
+    pausedChoice !== undefined &&
+    dismissedChallengeIds.has(pausedChoice.challengeId)
+  ) {
     return true;
   }
   if (part.state === "output-available" && paused === undefined) {
@@ -107,8 +134,8 @@ function omitDismissedToolPart(
 
 /**
  * Ordered live-turn tool steps. Skips text, `data-confirmation`,
- * Anthropic synthetic `json` structured-output tools, and dismissed/ignored
- * HITL tools. Does not stringify `output`.
+ * `data-choice`, Anthropic synthetic `json` structured-output tools, and
+ * dismissed/ignored HITL tools. Does not stringify `output`.
  */
 export function toolStepsFromParts(
   parts: readonly AssistantChatPart[],

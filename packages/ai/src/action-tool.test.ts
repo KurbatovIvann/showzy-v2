@@ -609,6 +609,7 @@ describe("staffAssistantTools", () => {
         items: [
           {
             product: { by: "query", value: "Cake" },
+            variantSelection: { kind: "unspecified" },
             quantity: { decimal: "1.5" },
           },
         ],

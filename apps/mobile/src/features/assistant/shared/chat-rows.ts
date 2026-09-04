@@ -1,6 +1,7 @@
 import type { AssistantCopy } from "../../../i18n/assistant";
 import type { Locale } from "../../../i18n/locale";
 import { assistantSurfacesFromParts, type AssistantSurface } from "../surfaces";
+import type { PendingChoice } from "./choice-presenter";
 import type {
   AssistantChatMessage,
   PendingConfirmation,
@@ -30,6 +31,7 @@ export type AssistantChatRow = {
   readonly role: "user" | "assistant";
   readonly text: string;
   readonly confirmation: PendingConfirmation | null;
+  readonly choice: PendingChoice | null;
   readonly timeline: readonly AssistantTimelineStep[];
   readonly surfaces: readonly AssistantSurface[];
 };
@@ -40,6 +42,7 @@ export type AssistantVisibleRow = {
   readonly role: "user" | "assistant";
   readonly text: string;
   readonly confirmation: PendingConfirmation | null;
+  readonly choice: PendingChoice | null;
   readonly surfaces: readonly AssistantSurface[];
   readonly waiting: boolean;
 };
@@ -76,6 +79,7 @@ export function assistantChatRows(
   copy: AssistantCopy,
   dismissedChallengeIds: ReadonlySet<string> = NO_DISMISSED_CHALLENGES,
   locale: Locale = "uk",
+  pendingChoice: PendingChoice | null = null,
 ): readonly AssistantChatRow[] {
   const rows: AssistantChatRow[] = [];
   for (const message of messages) {
@@ -85,6 +89,10 @@ export function assistantChatRows(
     const text = textFromParts(message);
     const confirmation =
       pending !== null && pending.messageId === message.id ? pending : null;
+    const choice =
+      pendingChoice !== null && pendingChoice.messageId === message.id
+        ? pendingChoice
+        : null;
     const timeline =
       message.role === "assistant"
         ? labeledTimeline(message, copy, dismissedChallengeIds)
@@ -96,6 +104,7 @@ export function assistantChatRows(
     if (
       text.length === 0 &&
       confirmation === null &&
+      choice === null &&
       timeline.length === 0 &&
       surfaces.length === 0
     ) {
@@ -106,6 +115,7 @@ export function assistantChatRows(
       role: message.role,
       text,
       confirmation,
+      choice,
       timeline,
       surfaces,
     });
@@ -131,7 +141,11 @@ function currentTurnHasHitl(rows: readonly AssistantChatRow[]): boolean {
   if (lastAssistantIndex <= lastUserIndex) {
     return false;
   }
-  return rows[lastAssistantIndex]?.confirmation !== null;
+  const row = rows[lastAssistantIndex];
+  if (row === undefined) {
+    return false;
+  }
+  return row.confirmation !== null || row.choice !== null;
 }
 
 export function assistantTurnIsWaiting(input: {
@@ -154,6 +168,7 @@ function toVisibleRow(row: AssistantChatRow): AssistantVisibleRow | null {
       role: "user",
       text: row.text,
       confirmation: null,
+      choice: null,
       surfaces: EMPTY_SURFACES,
       waiting: false,
     };
@@ -161,6 +176,7 @@ function toVisibleRow(row: AssistantChatRow): AssistantVisibleRow | null {
   if (
     row.text.length === 0 &&
     row.confirmation === null &&
+    row.choice === null &&
     row.surfaces.length === 0
   ) {
     return null;
@@ -170,6 +186,7 @@ function toVisibleRow(row: AssistantChatRow): AssistantVisibleRow | null {
     role: "assistant",
     text: row.text,
     confirmation: row.confirmation,
+    choice: row.choice,
     surfaces: row.surfaces,
     waiting: false,
   };
@@ -218,6 +235,7 @@ export function assistantDisplayRows(
       role: "assistant",
       text: "",
       confirmation: null,
+      choice: null,
       surfaces: EMPTY_SURFACES,
       waiting: true,
     });
