@@ -19,8 +19,8 @@ describe("sitTabHeadImageLayout", () => {
     expect(layout.width).toBe(circleSize * SIT_TAB_HEAD_SCALE);
     expect(layout.height).toBe(layout.width);
     expect(layout.width).toBeGreaterThan(circleSize);
-    expect(layout.top).toBeLessThan(0);
     expect(layout.left).toBeLessThan(0);
+    expect(layout.top + layout.height).toBeGreaterThan(circleSize);
     expect(layout.top).toBeCloseTo(
       circleSize / 2 - SIT_HEAD_FOCUS_Y * layout.width,
     );
