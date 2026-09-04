@@ -14,6 +14,15 @@ import {
 const NO_DISMISSED_CHALLENGES: ReadonlySet<string> = new Set();
 const EMPTY_SURFACES: readonly AssistantSurface[] = [];
 
+/** Stable FlashList id for the live wait line (not persisted). */
+export const ASSISTANT_LIVE_WAIT_ROW_ID = "assistant-wait";
+
+export type AssistantLiveStatus =
+  | "submitted"
+  | "streaming"
+  | "ready"
+  | "error";
+
 export type AssistantTimelineStep = {
   readonly id: string;
   readonly label: string;
@@ -27,6 +36,16 @@ export type AssistantChatRow = {
   readonly confirmation: PendingConfirmation | null;
   readonly timeline: readonly AssistantTimelineStep[];
   readonly surfaces: readonly AssistantSurface[];
+};
+
+/** Thread row after wait-state buffering. Timeline is never shown. */
+export type AssistantVisibleRow = {
+  readonly id: string;
+  readonly role: "user" | "assistant";
+  readonly text: string;
+  readonly confirmation: PendingConfirmation | null;
+  readonly surfaces: readonly AssistantSurface[];
+  readonly waiting: boolean;
 };
 
 function textFromParts(message: AssistantChatMessage): string {
@@ -102,4 +121,83 @@ export function assistantRowHasInFlightTools(row: AssistantChatRow): boolean {
   return row.timeline.some(
     (step) => step.status === "queued" || step.status === "running",
   );
+}
+
+export function assistantTurnIsWaiting(input: {
+  readonly status: AssistantLiveStatus;
+  readonly confirmation: PendingConfirmation | null;
+}): boolean {
+  if (input.confirmation !== null) {
+    return false;
+  }
+  return input.status === "submitted" || input.status === "streaming";
+}
+
+function toVisibleRow(row: AssistantChatRow): AssistantVisibleRow | null {
+  if (row.role === "user") {
+    if (row.text.length === 0) {
+      return null;
+    }
+    return {
+      id: row.id,
+      role: "user",
+      text: row.text,
+      confirmation: null,
+      surfaces: EMPTY_SURFACES,
+      waiting: false,
+    };
+  }
+  if (
+    row.text.length === 0 &&
+    row.confirmation === null &&
+    row.surfaces.length === 0
+  ) {
+    return null;
+  }
+  return {
+    id: row.id,
+    role: "assistant",
+    text: row.text,
+    confirmation: row.confirmation,
+    surfaces: row.surfaces,
+    waiting: false,
+  };
+}
+
+/**
+ * Live-turn presentation: one wait row while in flight; spoken + surfaces
+ * together when ready. Past / hydrate turns never wait.
+ */
+export function assistantDisplayRows(
+  rows: readonly AssistantChatRow[],
+  liveWaiting: boolean,
+): readonly AssistantVisibleRow[] {
+  let lastAssistantIndex = -1;
+  for (let index = rows.length - 1; index >= 0; index -= 1) {
+    if (rows[index]?.role === "assistant") {
+      lastAssistantIndex = index;
+      break;
+    }
+  }
+  const visible: AssistantVisibleRow[] = [];
+  for (const [index, row] of rows.entries()) {
+    if (liveWaiting && index === lastAssistantIndex) {
+      continue;
+    }
+    const displayed = toVisibleRow(row);
+    if (displayed !== null) {
+      visible.push(displayed);
+    }
+  }
+  if (liveWaiting) {
+    visible.push({
+      id: ASSISTANT_LIVE_WAIT_ROW_ID,
+      role: "assistant",
+      text: "",
+      confirmation: null,
+      surfaces: EMPTY_SURFACES,
+      waiting: true,
+    });
+  }
+  return visible;
 }

@@ -108,3 +108,35 @@ describe("assistant conversation chrome (SHO-392)", () => {
     expect(entityCard).not.toContain("dig.svg");
   });
 });
+
+describe("assistant wait-state chrome (SHO-394)", () => {
+  const waitLine = readFileSync(
+    new URL("./assistant-wait-line.tsx", import.meta.url),
+    "utf8",
+  );
+  const messageRow = readFileSync(
+    new URL("./assistant-message-row.tsx", import.meta.url),
+    "utf8",
+  );
+
+  it("replaces the leftover spinner and in-thread job timeline with one wait line", () => {
+    expect(sheetView).not.toContain("ActivityIndicator");
+    expect(sheetView).not.toContain("ListFooterComponent");
+    expect(sheetView).not.toContain("AssistantTimeline");
+    expect(messageRow).not.toContain("AssistantTimeline");
+    expect(messageRow).toContain("AssistantWaitLine");
+    expect(waitLine).toContain("accessibilityLiveRegion");
+    expect(waitLine).toContain("polite");
+    expect(waitLine).not.toContain("ActivityIndicator");
+    expect(waitLine).not.toContain("job-labels");
+  });
+
+  it("does not add a second Shozik glyph in the thread", () => {
+    expect(messageRow).not.toContain("sit.svg");
+    expect(messageRow).not.toContain("dig.svg");
+    expect(messageRow).not.toContain("ShozikPoseMark");
+    expect(waitLine).not.toContain("sit.svg");
+    expect(waitLine).not.toContain("dig.svg");
+    expect(waitLine).not.toContain("ShozikPoseMark");
+  });
+});

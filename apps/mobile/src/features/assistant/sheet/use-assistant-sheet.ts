@@ -7,7 +7,12 @@ import {
   assistantChatErrorKind,
   assistantChatErrorMessage,
 } from "../shared/chat-error";
-import { assistantChatRows } from "../shared/chat-rows";
+import {
+  assistantChatRows,
+  assistantDisplayRows,
+  assistantRowHasInFlightTools,
+  assistantTurnIsWaiting,
+} from "../shared/chat-rows";
 import type { AssistantSheetViewModel } from "./assistant-sheet-view";
 import { useAssistantChat } from "./use-assistant-chat";
 import { useAssistantConfirmation } from "./use-assistant-confirmation";
@@ -35,13 +40,24 @@ export function useAssistantSheet(): AssistantSheetViewModel & {
     [push],
   );
 
-  const rows = assistantChatRows(
+  const pendingConfirmation =
+    confirmation.card.kind === "hidden" ? null : confirmation.card.confirmation;
+
+  const mappedRows = assistantChatRows(
     chat.messages,
-    confirmation.card.kind === "hidden" ? null : confirmation.card.confirmation,
+    pendingConfirmation,
     copy,
     confirmation.ignoredChallengeIds,
     locale,
   );
+  const liveWaiting = assistantTurnIsWaiting({
+    status: chat.status,
+    confirmation: pendingConfirmation,
+  });
+  const rows = assistantDisplayRows(mappedRows, liveWaiting);
+  const lastMapped = mappedRows[mappedRows.length - 1];
+  const hasInFlightTools =
+    lastMapped !== undefined && assistantRowHasInFlightTools(lastMapped);
 
   const chatKind =
     chat.error !== undefined ? assistantChatErrorKind(chat.error) : null;
@@ -61,6 +77,7 @@ export function useAssistantSheet(): AssistantSheetViewModel & {
     openHref,
     busy: chat.sendBusy,
     thinking: chat.thinking,
+    hasInFlightTools,
     confirmationApplying: confirmation.card.kind === "applying",
     canSend: chat.canSend,
     banner,

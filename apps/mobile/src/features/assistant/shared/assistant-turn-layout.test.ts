@@ -12,10 +12,6 @@ const ROW = readFileSync(
   new URL("../sheet/assistant-message-row.tsx", import.meta.url),
   "utf8",
 );
-const TIMELINE = readFileSync(
-  new URL("../sheet/assistant-timeline.tsx", import.meta.url),
-  "utf8",
-);
 const LIST = readFileSync(
   new URL("../sheet/orders-list-result-card.tsx", import.meta.url),
   "utf8",
@@ -49,9 +45,10 @@ describe("assistant turn layout composition", () => {
     expect(ROW).toContain("assistantTurnColumnLayout");
     expect(ROW).toContain("assistantTurnResultStretch");
     expect(ROW).not.toContain('maxWidth: "92%"');
-    expect(ROW.match(/<AssistantTurnResult/g)?.length).toBe(3);
+    expect(ROW.match(/<AssistantTurnResult/g)?.length).toBe(2);
     expect(ROW).toContain("styles.resultStretch");
-    expect(ROW).toContain("AssistantTimeline");
+    expect(ROW).toContain("AssistantWaitLine");
+    expect(ROW).not.toContain("AssistantTimeline");
     expect(ROW).toContain("AssistantSurfaceCard");
     expect(ROW).toContain("ConfirmationCard");
   });
@@ -67,8 +64,7 @@ describe("assistant turn layout composition", () => {
     expect(ROW.includes("onOpenOrder")).toBe(false);
   });
 
-  it("leaves flex:1 on timeline labels, list/aggregate rows, and HITL actions", () => {
-    expect(TIMELINE).toContain("flex: 1");
+  it("leaves flex:1 on list/aggregate rows and HITL actions", () => {
     expect(LIST).toContain("flex: 1");
     expect(AGGREGATE).toContain("flex: 1");
     expect(CONFIRMATION).toContain("flex: 1");

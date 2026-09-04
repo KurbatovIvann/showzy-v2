@@ -23,7 +23,11 @@ import {
   type AssistantHistoryToolRun,
   type AssistantListConversationsInput,
 } from "./assistant-hydrate";
-import { assistantChatRows } from "./chat-rows";
+import {
+  assistantChatRows,
+  assistantDisplayRows,
+  assistantTurnIsWaiting,
+} from "./chat-rows";
 
 function entitiesOf(
   surfaces: readonly AssistantSurface[],
@@ -278,6 +282,12 @@ describe("hydratedUiMessagesFromConversation", () => {
     expect(JSON.stringify(rows[1])).not.toContain("orders_list_page");
     expect(JSON.stringify(rows[1])).not.toContain("orders_list_counts");
     expect(rows[1]?.text.includes("{")).toBe(false);
+    const visible = assistantDisplayRows(
+      rows,
+      assistantTurnIsWaiting({ status: "ready", confirmation: null }),
+    );
+    expect(visible.every((row) => row.waiting === false)).toBe(true);
+    expect(visible[1]?.text).toBe("Ось активні замовлення.");
   });
 
   it("hydrates thin entity cards via live orders.get snapshots", () => {
