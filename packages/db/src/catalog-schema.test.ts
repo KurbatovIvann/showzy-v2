@@ -297,6 +297,10 @@ describe("catalog status and product_media schema slice", () => {
     expect(indexDefs.get("product_media_product_idx")).toContain(
       '(company_id, product_id, "position")',
     );
+    const nameTrgm = indexDefs.get("products_name_trgm_idx");
+    expect(nameTrgm).toMatch(/USING gin/i);
+    expect(nameTrgm).toContain("gin_trgm_ops");
+    expect(nameTrgm).toMatch(/\bname\b/);
   });
 
   it("declares composite same-tenant FKs with cascade on product and restrict on file", async () => {

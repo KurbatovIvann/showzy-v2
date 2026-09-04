@@ -347,4 +347,91 @@ describe("catalog.listProducts", () => {
     expect(wildcards).toEqual({ items: [], nextCursor: null });
     expect(escaped).toEqual({ items: [], nextCursor: null });
   });
+
+  it("finds Наполеон by the inflected query наполеона in the same tenant", async () => {
+    const napoleonA = randomUUID();
+    const napoleonB = randomUUID();
+    await insertProduct({
+      id: napoleonA,
+      companyId: kitIdentities.companies.a,
+      name: "Наполеон",
+      basePriceMinor: 400n,
+      createdAt: new Date("2026-01-15T00:00:00.000Z"),
+    });
+    await insertProduct({
+      id: napoleonB,
+      companyId: kitIdentities.companies.b,
+      name: "Наполеон",
+      basePriceMinor: 400n,
+      createdAt: new Date("2026-01-15T00:00:00.000Z"),
+    });
+
+    const listed = await kit.invoke(listProducts, { query: "наполеона" });
+    expect(listed.items.map((row) => row.id)).toEqual([napoleonA]);
+    expect(listed.items[0]?.name).toBe("Наполеон");
+    const blob = JSON.stringify(listed);
+    expect(blob).not.toContain(napoleonB);
+    expect(blob).not.toContain(kitIdentities.companies.b);
+
+    const otherTenant = await kit.invoke(
+      listProducts,
+      { query: "наполеона" },
+      {
+        companyId: kitIdentities.companies.b,
+        userId: kitIdentities.users.boris,
+      },
+    );
+    expect(otherTenant.items.map((row) => row.id)).toEqual([napoleonB]);
+    expect(otherTenant.items.map((row) => row.id)).not.toContain(napoleonA);
+  });
+
+  it("returns every similar name in the tenant instead of picking one", async () => {
+    const napoleon = randomUUID();
+    const napoleonTorte = randomUUID();
+    await insertProduct({
+      id: napoleon,
+      companyId: kitIdentities.companies.a,
+      name: "Наполеон",
+      basePriceMinor: 400n,
+      createdAt: new Date("2026-01-16T00:00:00.000Z"),
+    });
+    await insertProduct({
+      id: napoleonTorte,
+      companyId: kitIdentities.companies.a,
+      name: "Наполеонівський торт",
+      basePriceMinor: 500n,
+      createdAt: new Date("2026-01-17T00:00:00.000Z"),
+    });
+
+    const listed = await kit.invoke(listProducts, { query: "наполеона" });
+    expect(listed.items.map((row) => row.id)).toEqual(
+      expect.arrayContaining([napoleon, napoleonTorte]),
+    );
+    expect(
+      new Set(listed.items.map((row) => row.id)).size,
+    ).toBeGreaterThanOrEqual(2);
+  });
+
+  it("does not let a short token match inside another name word", async () => {
+    const productA = randomUUID();
+    const productExtra = randomUUID();
+    await insertProduct({
+      id: productA,
+      companyId: kitIdentities.companies.a,
+      name: "Product A",
+      basePriceMinor: 100n,
+      createdAt: new Date("2026-01-18T00:00:00.000Z"),
+    });
+    await insertProduct({
+      id: productExtra,
+      companyId: kitIdentities.companies.a,
+      name: "Product Extra",
+      basePriceMinor: 100n,
+      createdAt: new Date("2026-01-19T00:00:00.000Z"),
+    });
+
+    const listed = await kit.invoke(listProducts, { query: "Product A" });
+    expect(listed.items.map((row) => row.id)).toContain(productA);
+    expect(listed.items.map((row) => row.id)).not.toContain(productExtra);
+  });
 });
