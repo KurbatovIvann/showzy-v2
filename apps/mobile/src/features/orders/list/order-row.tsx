@@ -7,10 +7,10 @@ import { StatusPill } from "../../../components/ui";
 import type { OrderStatusTone } from "./orders-list.presenter";
 
 /**
- * Canvas `OrderRow` minus omitted extras (due date, payment and delivery
- * chips). Meta is `#{orderNumber} · items · createdAt`. Primitive props
- * keep `memo` effective in the virtualized list; the shared `onPress`
- * takes the row id.
+ * Canvas `OrderRow` content inside `ListRow`. Omits payment/delivery chips,
+ * provisional drafts, and the Shozik origin glyph. Primitive props keep
+ * `memo` effective in the virtualized list; the shared `onPress` takes
+ * the row id.
  */
 export const OrderRow = memo(function OrderRow(props: {
   readonly id: string;
@@ -31,7 +31,7 @@ export const OrderRow = memo(function OrderRow(props: {
       onPress={() => {
         props.onPress(props.id);
       }}
-      style={({ pressed }) => [styles.card, pressed ? styles.pressed : null]}
+      style={({ pressed }) => [styles.row, pressed ? styles.pressed : null]}
     >
       <View style={styles.body}>
         <View style={styles.nameRow}>
@@ -71,7 +71,7 @@ function ChevronIcon() {
 
 export function OrderRowSkeleton() {
   return (
-    <View style={styles.card} accessibilityElementsHidden>
+    <View style={styles.row} accessibilityElementsHidden>
       <View style={styles.body}>
         <View style={[styles.skeletonLine, styles.skeletonName]} />
         <View style={[styles.skeletonLine, styles.skeletonMeta]} />
@@ -82,20 +82,13 @@ export function OrderRowSkeleton() {
 }
 
 const styles = StyleSheet.create((theme) => ({
-  card: {
+  row: {
     minHeight: theme.hitTarget.row,
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing.md,
-    backgroundColor: theme.colors.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    // Class B: canvas rounded-[20px] → radii.xl. Card primitive is 22.
-    borderRadius: theme.radii.xl,
-    ...theme.squircle,
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.md,
-    ...theme.shadows.sm,
   },
   pressed: {
     opacity: 0.85,
@@ -125,8 +118,8 @@ const styles = StyleSheet.create((theme) => ({
   },
   total: {
     color: theme.colors.foreground,
-    fontSize: theme.typography.base.fontSize,
-    lineHeight: theme.typography.base.lineHeight,
+    fontSize: theme.typography.rowTotal.fontSize,
+    lineHeight: theme.typography.rowTotal.lineHeight,
     fontWeight: "600",
     fontVariant: ["tabular-nums"],
   },

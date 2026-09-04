@@ -7,10 +7,10 @@ import { StatusPill } from "../../../../components/ui";
 import { ProductThumbnail } from "./product-thumbnail";
 
 /**
- * Canvas `ProductRow`: card row with thumbnail, name (+ archived pill),
- * variant count, price, and a trailing chevron. Primitive props keep
- * `memo` effective in the virtualized list; the shared `onPress` takes
- * the row id.
+ * Canvas `ProductRow` content inside `ListRow`: thumbnail, name
+ * (+ archived pill), variant count, price, trailing chevron. Primitive
+ * props keep `memo` effective in the virtualized list; the shared
+ * `onPress` takes the row id.
  */
 export const ProductRow = memo(function ProductRow(props: {
   readonly id: string;
@@ -32,7 +32,7 @@ export const ProductRow = memo(function ProductRow(props: {
       onPress={() => {
         props.onPress(props.id);
       }}
-      style={({ pressed }) => [styles.card, pressed ? styles.pressed : null]}
+      style={({ pressed }) => [styles.row, pressed ? styles.pressed : null]}
     >
       <ProductThumbnail
         fileId={props.thumbnailFileId}
@@ -73,7 +73,7 @@ function ChevronIcon() {
 
 export function ProductRowSkeleton() {
   return (
-    <View style={styles.card} accessibilityElementsHidden>
+    <View style={styles.row} accessibilityElementsHidden>
       <View style={styles.skeletonThumbnail} />
       <View style={styles.body}>
         <View style={[styles.skeletonLine, styles.skeletonName]} />
@@ -85,20 +85,13 @@ export function ProductRowSkeleton() {
 }
 
 const styles = StyleSheet.create((theme) => ({
-  card: {
+  row: {
     minHeight: theme.hitTarget.row,
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing.md,
-    backgroundColor: theme.colors.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    // Class B: canvas rounded-[20px] → radii.xl. Card primitive is 22.
-    borderRadius: theme.radii.xl,
-    ...theme.squircle,
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.md,
-    ...theme.shadows.sm,
   },
   pressed: {
     opacity: 0.85,
@@ -117,7 +110,6 @@ const styles = StyleSheet.create((theme) => ({
   name: {
     flexShrink: 1,
     color: theme.colors.foreground,
-    // Canvas 15 / 13 / 16 → base / xs / md.
     fontSize: theme.typography.base.fontSize,
     lineHeight: theme.typography.base.lineHeight,
     fontWeight: "600",

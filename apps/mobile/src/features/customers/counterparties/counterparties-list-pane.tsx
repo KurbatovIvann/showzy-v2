@@ -9,7 +9,12 @@ import {
 } from "lucide-react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
-import { Button, EmptyState } from "../../../components/ui";
+import {
+  Button,
+  EmptyState,
+  ListRow,
+  ListSurface,
+} from "../../../components/ui";
 import { EntityCardSkeleton } from "../shared/entity-card";
 import { CounterpartyRow } from "./counterparty-row";
 import type {
@@ -34,19 +39,21 @@ export function CounterpartiesListPane(props: {
   );
 
   const renderItem: ListRenderItem<CounterpartiesListRow> = useCallback(
-    ({ item }) => (
-      <CounterpartyRow
-        id={item.id}
-        name={item.name}
-        edrpouLabel={item.edrpouLabel}
-        customerName={item.customerName}
-        editLabel={copy.editLabel}
-        deleteA11y={item.deleteA11y}
-        canEdit={model.canEdit}
-        disabled={model.writesPending}
-        onEdit={model.openEdit}
-        onRemove={onRemove}
-      />
+    ({ item, index }) => (
+      <ListRow first={index === 0}>
+        <CounterpartyRow
+          id={item.id}
+          name={item.name}
+          edrpouLabel={item.edrpouLabel}
+          customerName={item.customerName}
+          editLabel={copy.editLabel}
+          deleteA11y={item.deleteA11y}
+          canEdit={model.canEdit}
+          disabled={model.writesPending}
+          onEdit={model.openEdit}
+          onRemove={onRemove}
+        />
+      </ListRow>
     ),
     [
       copy.editLabel,
@@ -80,9 +87,13 @@ function CounterpartiesListBody(props: {
     case "loading":
       return (
         <View style={styles.skeletons} accessibilityLabel={copy.loadingLabel}>
-          {SKELETON_ROWS.map((index) => (
-            <EntityCardSkeleton key={index} />
-          ))}
+          <ListSurface>
+            {SKELETON_ROWS.map((index) => (
+              <ListRow key={index} first={index === 0}>
+                <EntityCardSkeleton />
+              </ListRow>
+            ))}
+          </ListSurface>
         </View>
       );
     case "offline":
@@ -163,29 +174,32 @@ function CounterpartiesListBody(props: {
     case "rows":
       return (
         <View style={styles.rowsPane}>
-          <FlashList
-            data={model.rows}
-            style={styles.list}
-            keyExtractor={keyExtractor}
-            renderItem={props.renderItem}
-            ItemSeparatorComponent={RowSeparator}
-            ListFooterComponent={
-              model.loadingMore ? (
-                <ActivityIndicator
-                  accessibilityLabel={copy.loadingMoreLabel}
-                  color={theme.colors.activityIndicator.onBackground}
-                  style={styles.footerSpinner}
-                />
-              ) : null
-            }
-            onEndReached={model.loadMore}
-            onEndReachedThreshold={0.5}
-            refreshing={model.refreshing}
-            onRefresh={model.refresh}
-            keyboardDismissMode="on-drag"
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={styles.listContent}
-          />
+          <View style={styles.surfacePane}>
+            <ListSurface style={styles.surfaceFill}>
+              <FlashList
+                data={model.rows}
+                style={styles.list}
+                keyExtractor={keyExtractor}
+                renderItem={props.renderItem}
+                ListFooterComponent={
+                  model.loadingMore ? (
+                    <ActivityIndicator
+                      accessibilityLabel={copy.loadingMoreLabel}
+                      color={theme.colors.activityIndicator.onBackground}
+                      style={styles.footerSpinner}
+                    />
+                  ) : null
+                }
+                onEndReached={model.loadMore}
+                onEndReachedThreshold={0.5}
+                refreshing={model.refreshing}
+                onRefresh={model.refresh}
+                keyboardDismissMode="on-drag"
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={styles.listContent}
+              />
+            </ListSurface>
+          </View>
         </View>
       );
   }
@@ -199,13 +213,8 @@ function CenteredEmpty({ children }: { readonly children: ReactNode }) {
   return <View style={styles.centered}>{children}</View>;
 }
 
-function RowSeparator() {
-  return <View style={styles.separator} />;
-}
-
 const styles = StyleSheet.create((theme) => ({
   skeletons: {
-    gap: theme.spacing.md,
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.sm,
   },
@@ -216,15 +225,18 @@ const styles = StyleSheet.create((theme) => ({
   rowsPane: {
     flex: 1,
   },
+  surfacePane: {
+    flex: 1,
+    paddingHorizontal: theme.spacing.lg,
+  },
+  surfaceFill: {
+    flex: 1,
+  },
   list: {
     flex: 1,
   },
   listContent: {
-    paddingHorizontal: theme.spacing.lg,
     paddingBottom: theme.spacing["2xl"],
-  },
-  separator: {
-    height: theme.spacing.md,
   },
   footerSpinner: {
     paddingVertical: theme.spacing.lg,

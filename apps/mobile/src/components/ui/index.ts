@@ -15,7 +15,11 @@ export { editorFooterChrome } from "./editor-footer-chrome";
 export { EmptyState } from "./empty-state";
 export { IconButton } from "./icon-button";
 export { ListSurface, ListRow } from "./list-surface";
-export { listRowChrome } from "./list-row-chrome";
+export {
+  listGroupEdge,
+  listRowChrome,
+  type ListRowGroupEdge,
+} from "./list-row-chrome";
 export { OtpInput } from "./otp-input";
 export {
   filterOptionSelectItems,

@@ -12,6 +12,8 @@ import {
   ChoiceField,
   EmptyState,
   IconButton,
+  ListRow,
+  ListSurface,
 } from "../../../components/ui";
 import { DocumentHandoverSheet } from "../share/document-handover-sheet";
 import { DocumentSigningSheet } from "../signing/document-signing-sheet";
@@ -29,26 +31,28 @@ export function DocumentsListView(model: DocumentsListModel) {
   const { copy, openOptions, signRow } = model;
 
   const renderItem: ListRenderItem<DocumentsListRow> = useCallback(
-    ({ item }) => (
-      <DocumentRow
-        id={item.id}
-        documentNumber={item.documentNumber}
-        typeLabel={item.typeLabel}
-        buyerLabel={item.buyerLabel}
-        issuedOnLabel={item.issuedOnLabel}
-        totalLabel={item.totalLabel}
-        cancelled={item.cancelled}
-        cancelledBadge={copy.cancelledBadge}
-        signedBadge={copy.signedBadge}
-        showSign={item.showSign}
-        showSignedChip={item.showSignedChip}
-        signButton={copy.signButton}
-        optionsA11y={item.optionsA11y}
-        optionsButton={copy.optionsButton}
-        disabled={model.writesPending}
-        onSign={signRow}
-        onOptions={openOptions}
-      />
+    ({ item, index }) => (
+      <ListRow first={index === 0}>
+        <DocumentRow
+          id={item.id}
+          documentNumber={item.documentNumber}
+          typeLabel={item.typeLabel}
+          buyerLabel={item.buyerLabel}
+          issuedOnLabel={item.issuedOnLabel}
+          totalLabel={item.totalLabel}
+          cancelled={item.cancelled}
+          cancelledBadge={copy.cancelledBadge}
+          signedBadge={copy.signedBadge}
+          showSign={item.showSign}
+          showSignedChip={item.showSignedChip}
+          signButton={copy.signButton}
+          optionsA11y={item.optionsA11y}
+          optionsButton={copy.optionsButton}
+          disabled={model.writesPending}
+          onSign={signRow}
+          onOptions={openOptions}
+        />
+      </ListRow>
     ),
     [
       copy.cancelledBadge,
@@ -183,9 +187,13 @@ function DocumentsListBody(props: {
     case "loading":
       return (
         <View style={styles.skeletons} accessibilityLabel={copy.loadingLabel}>
-          {SKELETON_ROWS.map((index) => (
-            <DocumentRowSkeleton key={index} />
-          ))}
+          <ListSurface>
+            {SKELETON_ROWS.map((index) => (
+              <ListRow key={index} first={index === 0}>
+                <DocumentRowSkeleton />
+              </ListRow>
+            ))}
+          </ListSurface>
         </View>
       );
     case "offline":
@@ -267,26 +275,29 @@ function DocumentsListBody(props: {
       );
     case "rows":
       return (
-        <FlashList
-          data={model.rows}
-          style={styles.list}
-          keyExtractor={keyExtractor}
-          renderItem={props.renderItem}
-          ItemSeparatorComponent={RowSeparator}
-          ListFooterComponent={
-            <DocumentsFooter
-              loadingMore={model.loadingMore}
-              loadingMoreLabel={copy.loadingMoreLabel}
+        <View style={styles.surfacePane}>
+          <ListSurface style={styles.surfaceFill}>
+            <FlashList
+              data={model.rows}
+              style={styles.list}
+              keyExtractor={keyExtractor}
+              renderItem={props.renderItem}
+              ListFooterComponent={
+                <DocumentsFooter
+                  loadingMore={model.loadingMore}
+                  loadingMoreLabel={copy.loadingMoreLabel}
+                />
+              }
+              onEndReached={model.loadMore}
+              onEndReachedThreshold={0.5}
+              refreshing={model.refreshing}
+              onRefresh={model.refresh}
+              keyboardDismissMode="on-drag"
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={styles.listContent}
             />
-          }
-          onEndReached={model.loadMore}
-          onEndReachedThreshold={0.5}
-          refreshing={model.refreshing}
-          onRefresh={model.refresh}
-          keyboardDismissMode="on-drag"
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={styles.listContent}
-        />
+          </ListSurface>
+        </View>
       );
   }
 }
@@ -317,10 +328,6 @@ function CenteredEmpty({ children }: { readonly children: ReactNode }) {
   return <View style={styles.centered}>{children}</View>;
 }
 
-function RowSeparator() {
-  return <View style={styles.separator} />;
-}
-
 const styles = StyleSheet.create((theme) => ({
   screen: {
     flex: 1,
@@ -336,7 +343,6 @@ const styles = StyleSheet.create((theme) => ({
     paddingBottom: theme.spacing.md,
   },
   skeletons: {
-    gap: theme.spacing.md,
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.sm,
   },
@@ -344,15 +350,18 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
     justifyContent: "center",
   },
+  surfacePane: {
+    flex: 1,
+    paddingHorizontal: theme.spacing.lg,
+  },
+  surfaceFill: {
+    flex: 1,
+  },
   list: {
     flex: 1,
   },
   listContent: {
-    paddingHorizontal: theme.spacing.lg,
     paddingBottom: theme.spacing["2xl"],
-  },
-  separator: {
-    height: theme.spacing.md,
   },
   footerSpinner: {
     paddingVertical: theme.spacing.lg,

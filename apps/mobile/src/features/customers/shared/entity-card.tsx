@@ -6,8 +6,8 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { Button } from "../../../components/ui";
 
 /**
- * Canvas `EntityCard` chrome shared by client, group, counterparty,
- * and invitation rows. Not a list-wide Pressable — there is no customer
+ * Canvas `EntityCard` content inside `ListRow`. Outer card chrome lives
+ * on `ListSurface`. Not a list-wide Pressable — there is no customer
  * detail ticket.
  */
 export function EntityCard(props: {
@@ -28,7 +28,7 @@ export function EntityCard(props: {
   const disabled = props.disabled === true;
   const showFooter = props.showEdit || props.showRemove;
   return (
-    <View style={styles.card}>
+    <View style={styles.body}>
       <View style={styles.header}>
         {props.avatar}
         <View style={styles.titles}>
@@ -73,7 +73,7 @@ export function EntityCard(props: {
 
 export function EntityCardSkeleton() {
   return (
-    <View style={styles.card} accessibilityElementsHidden>
+    <View style={styles.body} accessibilityElementsHidden>
       <View style={styles.header}>
         <View style={styles.skeletonAvatar} />
         <View style={styles.titles}>
@@ -127,16 +127,9 @@ function RemoveIconButton(props: {
 }
 
 const styles = StyleSheet.create((theme) => ({
-  card: {
-    backgroundColor: theme.colors.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    // Class B: canvas rounded-[20px] → radii.xl.
-    borderRadius: theme.radii.xl,
-    ...theme.squircle,
+  body: {
     padding: theme.spacing.lg,
     gap: theme.spacing.md,
-    ...theme.shadows.sm,
   },
   header: {
     flexDirection: "row",

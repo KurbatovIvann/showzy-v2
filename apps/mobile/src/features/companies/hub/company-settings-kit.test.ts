@@ -15,6 +15,8 @@ describe("companies hub stays off FormScreenScaffold", () => {
     expect(hub).toContain("SafeAreaView");
     expect(hub).toContain('edges={["top"]}');
     expect(hub).toContain("subtitle: model.identity.name");
+    expect(hub).toContain("ListSurface");
+    expect(hub).toContain("<ListRow first>");
     expect(hub).not.toContain("FormScreenScaffold");
     expect(legal).toContain("FormScreenScaffold");
     expect(legal).not.toContain("SafeAreaView");

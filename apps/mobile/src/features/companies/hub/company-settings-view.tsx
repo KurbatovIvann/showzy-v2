@@ -9,7 +9,13 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
-import { AppHeader, Button, EmptyState } from "../../../components/ui";
+import {
+  AppHeader,
+  Button,
+  EmptyState,
+  ListRow,
+  ListSurface,
+} from "../../../components/ui";
 import { CompanySettingsRow } from "./company-settings-row";
 import type { CompanySettingsModel } from "./use-company-settings";
 
@@ -46,7 +52,11 @@ function CompanySettingsBody(props: { readonly model: CompanySettingsModel }) {
       return (
         <View style={styles.skeletons} accessibilityLabel={copy.loadingLabel}>
           <View style={styles.skeletonCard} />
-          <View style={styles.skeletonRow} />
+          <ListSurface>
+            <ListRow first>
+              <View style={styles.skeletonRow} />
+            </ListRow>
+          </ListSurface>
         </View>
       );
     case "offline":
@@ -143,15 +153,17 @@ function CompanySettingsReady(props: {
       </View>
       {/* Canvas "Про компанію" omitted — public profile / slug change is a stop. */}
       <Text style={styles.sectionTitle}>{copy.documentsSection}</Text>
-      <View style={styles.group}>
-        <CompanySettingsRow
-          label={copy.legalLabel}
-          description={legalRow.description}
-          attention={legalRow.attention}
-          onPress={model.openLegal}
-          icon={<FileTextIcon size={theme.iconSize.md} color={iconColor} />}
-        />
-      </View>
+      <ListSurface style={styles.surfaceGroup}>
+        <ListRow first>
+          <CompanySettingsRow
+            label={copy.legalLabel}
+            description={legalRow.description}
+            attention={legalRow.attention}
+            onPress={model.openLegal}
+            icon={<FileTextIcon size={theme.iconSize.md} color={iconColor} />}
+          />
+        </ListRow>
+      </ListSurface>
     </ScrollView>
   );
 }
@@ -256,15 +268,8 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.sm,
   },
-  group: {
-    overflow: "hidden",
+  surfaceGroup: {
     marginHorizontal: theme.spacing.lg,
-    backgroundColor: theme.colors.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radii.xl,
-    ...theme.squircle,
-    ...theme.shadows.sm,
   },
   centered: {
     flex: 1,
@@ -283,8 +288,6 @@ const styles = StyleSheet.create((theme) => ({
   },
   skeletonRow: {
     height: theme.hitTarget.row,
-    borderRadius: theme.radii.xl,
-    ...theme.squircle,
     backgroundColor: theme.colors.skeleton,
   },
 }));

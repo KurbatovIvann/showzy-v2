@@ -16,6 +16,7 @@ import {
   localizeCustomerNameSnapshot,
   normalizeOrdersSearch,
   orderGroupHeaderLabel,
+  orderListGroupEdge,
   orderStatusTone,
   resolveCustomerNameHydration,
   stickyHeaderIndices,
@@ -375,6 +376,29 @@ describe("groupOrderRows", () => {
         order: row({ id: ORDER_CANCELED, status: "canceled" }),
       },
     ]);
+  });
+
+  it("splits ListSurface chrome per sticky group without wrapping headers", () => {
+    const entries = groupOrderRows([
+      row({ id: ORDER_NEW, status: "new" }),
+      row({
+        id: ORDER_CONFIRMED,
+        status: "confirmed",
+        statusTone: "focus",
+      }),
+      row({ id: ORDER_CANCELED, status: "canceled", statusTone: "danger" }),
+    ]);
+    expect(orderListGroupEdge(entries, 0)).toBeNull();
+    expect(orderListGroupEdge(entries, 1)).toBe("start");
+    expect(orderListGroupEdge(entries, 2)).toBe("end");
+    expect(orderListGroupEdge(entries, 3)).toBeNull();
+    expect(orderListGroupEdge(entries, 4)).toBe("only");
+    expect(
+      orderListGroupEdge(
+        groupOrderRows([row({ id: ORDER_NEW, status: "new" })]),
+        1,
+      ),
+    ).toBe("only");
   });
 });
 
