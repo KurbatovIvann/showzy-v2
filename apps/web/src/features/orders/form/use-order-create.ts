@@ -27,9 +27,11 @@ import {
 import { useListMine } from "../../companies/shared/list-mine";
 import {
   canCreateOrders,
+  canFetchFileDownloadUrls,
+  isCompanyRole,
   orderCreateScreenActions,
-  type CompanyRole,
 } from "../shared/order-permissions";
+import { EMPTY_ORDER_THUMBNAIL } from "../shared/order-thumbnails";
 import { useOrdersCopy } from "../shared/use-orders-copy";
 import {
   fieldErrorsFromFormState,
@@ -68,15 +70,6 @@ import {
 } from "./product-picker";
 import { useOrderCreateLookups } from "./use-order-create-lookups";
 
-function isCompanyRole(value: string): value is CompanyRole {
-  return (
-    value === "owner" ||
-    value === "admin" ||
-    value === "manager" ||
-    value === "employee"
-  );
-}
-
 export function useOrderCreate(args: {
   readonly onCreated: (orderId: string) => void;
 }) {
@@ -95,6 +88,10 @@ export function useOrderCreate(args: {
     membership !== undefined &&
     isCompanyRole(membership.role) &&
     canCreateOrders(membership.role);
+  const canFetchThumbnails =
+    membership !== undefined &&
+    isCompanyRole(membership.role) &&
+    canFetchFileDownloadUrls(membership.role);
   const clientReady = activeCompanyId !== null;
   const loadState = classifyOrderFormLoad({ canCreate, clientReady });
 
@@ -129,6 +126,7 @@ export function useOrderCreate(args: {
     variantProductId: picker.kind === "variants" ? picker.productId : null,
     customerQuery,
     productQuery,
+    canFetchThumbnails,
   });
 
   const mutation = useContractMutation((input: CreateOrderPayload, options) =>
@@ -238,12 +236,21 @@ export function useOrderCreate(args: {
     customerId: watched.customerId,
     customerName: watched.customerName,
     comment: watched.comment,
-    items: watched.items.map((item) => ({
-      key: item.key,
-      productName: item.productName,
-      variantName: item.variantName,
-      quantityLabel: formatOrderLineQuantity(item.quantityMilli),
-    })),
+    items: watched.items.map((item) => {
+      const thumbnail =
+        lookups.thumbnailsByProductId.get(item.productId) ??
+        EMPTY_ORDER_THUMBNAIL;
+      return {
+        key: item.key,
+        productId: item.productId,
+        productName: item.productName,
+        variantName: item.variantName,
+        quantityLabel: formatOrderLineQuantity(item.quantityMilli),
+        thumbnailFileId: thumbnail.fileId,
+        thumbnailUrl: thumbnail.url,
+        thumbnailFailed: thumbnail.failed,
+      };
+    }),
     customerError: resolved.customerError,
     itemsError: resolved.itemsError,
     commentError: resolved.commentError,
@@ -262,7 +269,16 @@ export function useOrderCreate(args: {
     customersError,
     retryCustomers: lookups.retryCustomers,
     productQuery,
-    products,
+    products: products.map((product) => {
+      const thumbnail =
+        lookups.thumbnailsByProductId.get(product.id) ?? EMPTY_ORDER_THUMBNAIL;
+      return {
+        ...product,
+        thumbnailFileId: thumbnail.fileId,
+        thumbnailUrl: thumbnail.url,
+        thumbnailFailed: thumbnail.failed,
+      };
+    }),
     productsLoading: lookups.productsStatus === "pending",
     productsError,
     retryProducts: lookups.retryProducts,

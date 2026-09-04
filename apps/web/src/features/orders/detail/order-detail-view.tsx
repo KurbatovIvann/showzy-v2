@@ -11,6 +11,7 @@ import { panelChromeCopy } from "../../../i18n/panel/chrome";
 import { detectLocale } from "../../../i18n/locale";
 import type { OrdersCopy } from "../../../i18n/orders";
 import type { OrderQueryLoadState } from "../shared/classify-order-load";
+import { OrderThumbnail } from "../shared/order-thumbnail";
 import type { OrderDetailViewModel } from "./order-detail.presenter";
 
 export function OrderDetailView({
@@ -166,6 +167,12 @@ export function OrderDetailView({
             <ul className="mt-2 divide-y divide-line">
               {order.lines.map((line) => (
                 <li key={line.itemId} className="flex items-start gap-3 py-3">
+                  <OrderThumbnail
+                    fileId={line.thumbnailFileId}
+                    url={line.thumbnailUrl}
+                    failed={line.thumbnailFailed}
+                    failedLabel={copy.detail.thumbnailUnavailable}
+                  />
                   <span className="min-w-0 flex-1">
                     <span className="block text-[15px] font-medium text-ink">
                       {line.title}

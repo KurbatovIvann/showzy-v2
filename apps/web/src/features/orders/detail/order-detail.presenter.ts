@@ -20,6 +20,10 @@ import {
   type OrderLifecycleStatus,
   type OrderStatusTone,
 } from "../shared/order-status";
+import {
+  EMPTY_ORDER_THUMBNAIL,
+  type OrderThumbnailView,
+} from "../shared/order-thumbnails";
 
 const TIMES = "\u00D7";
 
@@ -48,12 +52,117 @@ export function formatOrderNumber(orderNumber: string): string {
   return `#${orderNumber}`;
 }
 
+/**
+ * First-seen unique `productId` values from order lines so detail can
+ * hydrate catalog primary images without a second snapshot field.
+ */
+export function uniqueOrderLineProductIds(
+  items: ReadonlyArray<{ readonly productId: string }>,
+): string[] {
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  for (const item of items) {
+    if (seen.has(item.productId)) {
+      continue;
+    }
+    seen.add(item.productId);
+    ids.push(item.productId);
+  }
+  return ids;
+}
+
+/**
+ * Catalog primary image is the first ordered `imageFileIds` entry
+ * (`listProducts.primaryImageFileId`). Empty → package placeholder.
+ */
+export function catalogPrimaryImageFileId(
+  imageFileIds: readonly string[] | undefined,
+): string | null {
+  if (imageFileIds === undefined || imageFileIds.length === 0) {
+    return null;
+  }
+  return imageFileIds[0] ?? null;
+}
+
+export type OrderLineCatalogImage = {
+  readonly productId: string;
+  readonly primaryImageFileId: string | null;
+};
+
+/**
+ * Join catalog primary images onto unique line product ids. Pure so the
+ * detail thumbnail hook can memoize from `productIds` + `imageFileIds`.
+ */
+export function orderLineCatalogImages(
+  productIds: readonly string[],
+  imageFileIdsByIndex: readonly (readonly string[] | undefined)[],
+): readonly OrderLineCatalogImage[] {
+  return productIds.map((productId, index) => ({
+    productId,
+    primaryImageFileId: catalogPrimaryImageFileId(imageFileIdsByIndex[index]),
+  }));
+}
+
+/** Keep the previous items array when productId/fileId pairs did not change. */
+export function reuseOrderLineCatalogImages(
+  previous: readonly OrderLineCatalogImage[],
+  next: readonly OrderLineCatalogImage[],
+): readonly OrderLineCatalogImage[] {
+  if (previous.length !== next.length) {
+    return next;
+  }
+  for (let index = 0; index < previous.length; index += 1) {
+    const left = previous[index];
+    const right = next[index];
+    if (
+      left === undefined ||
+      right === undefined ||
+      left.productId !== right.productId ||
+      left.primaryImageFileId !== right.primaryImageFileId
+    ) {
+      return next;
+    }
+  }
+  return previous;
+}
+
+/**
+ * Catalog list join: skip a file id without `files:view` so the row
+ * stays a placeholder.
+ */
+export function orderLineThumbnailFileId(
+  canFetch: boolean,
+  primaryImageFileId: string | null,
+): string | null {
+  return canFetch ? primaryImageFileId : null;
+}
+
 export type OrderDetailLineView = {
   readonly itemId: string;
+  readonly productId: string;
   readonly title: string;
   readonly metaLabel: string;
   readonly grossLabel: string;
+  readonly thumbnailFileId: string | null;
+  readonly thumbnailUrl: string | null;
+  readonly thumbnailFailed: boolean;
 };
+
+export function withOrderLineThumbnails(
+  lines: readonly OrderDetailLineView[],
+  thumbnailsByProductId: ReadonlyMap<string, OrderThumbnailView>,
+): readonly OrderDetailLineView[] {
+  return lines.map((line) => {
+    const thumbnail =
+      thumbnailsByProductId.get(line.productId) ?? EMPTY_ORDER_THUMBNAIL;
+    return {
+      ...line,
+      thumbnailFileId: thumbnail.fileId,
+      thumbnailUrl: thumbnail.url,
+      thumbnailFailed: thumbnail.failed,
+    };
+  });
+}
 
 export type OrderDetailViewModel = {
   readonly orderId: string;
@@ -89,9 +198,13 @@ export function toOrderDetailView(args: {
       const qtyLabel = formatOrderQuantityMilli(item.quantityMilli);
       return {
         itemId: item.itemId,
+        productId: item.productId,
         title: item.titleSnapshot,
         metaLabel: `${unitLabel} ${TIMES} ${qtyLabel}`,
         grossLabel: formatOrderMoney(item.grossAmountMinor, item.currency),
+        thumbnailFileId: null,
+        thumbnailUrl: null,
+        thumbnailFailed: false,
       };
     }),
     customerName: customerNameLabel(args.customer, args.copy.missingCustomer),

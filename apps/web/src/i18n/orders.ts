@@ -24,6 +24,7 @@ export type OrdersDetailCopy = {
   readonly mutationError: string;
   readonly mutationOffline: string;
   readonly mutationPermission: string;
+  readonly thumbnailUnavailable: string;
 };
 
 export type OrdersCreateErrorCopy = {
@@ -77,6 +78,7 @@ export type OrdersCreateCopy = {
   readonly customersError: string;
   readonly productsError: string;
   readonly lookupRetry: string;
+  readonly thumbnailUnavailable: string;
   readonly errors: OrdersCreateErrorCopy;
 };
 
@@ -174,6 +176,7 @@ const en: OrdersCopy = {
     mutationError: "Could not update the order. Try again.",
     mutationOffline: "No connection. Connect and try again.",
     mutationPermission: "You do not have permission to change this order.",
+    thumbnailUnavailable: "Photo unavailable",
   },
   create: {
     title: "New order",
@@ -213,6 +216,7 @@ const en: OrdersCopy = {
     customersError: "Could not load customers. Try again.",
     productsError: "Could not load products. Try again.",
     lookupRetry: "Retry",
+    thumbnailUnavailable: "Photo unavailable",
     errors: {
       customerRequired: "Choose a customer",
       itemsRequired: "Add at least one product",
@@ -285,6 +289,7 @@ const uk: OrdersCopy = {
     mutationError: "Не вдалося оновити замовлення. Спробуйте ще раз.",
     mutationOffline: "Немає зʼєднання. Підключіться і спробуйте ще раз.",
     mutationPermission: "Немає дозволу змінювати це замовлення.",
+    thumbnailUnavailable: "Фото недоступне",
   },
   create: {
     title: "Нове замовлення",
@@ -324,6 +329,7 @@ const uk: OrdersCopy = {
     customersError: "Не вдалося завантажити клієнтів. Спробуйте ще раз.",
     productsError: "Не вдалося завантажити товари. Спробуйте ще раз.",
     lookupRetry: "Повторити",
+    thumbnailUnavailable: "Фото недоступне",
     errors: {
       customerRequired: "Оберіть клієнта",
       itemsRequired: "Додайте хоча б один товар",

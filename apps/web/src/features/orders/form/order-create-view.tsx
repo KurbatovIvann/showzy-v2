@@ -1,4 +1,4 @@
-import { Minus, Plus, Search, Trash2, X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import { Banner } from "../../auth/shared/banner";
@@ -8,7 +8,7 @@ import { DetailStage } from "../../../components/ui/detail-stage";
 import { TextareaField } from "../../../components/ui/form-field";
 import { LeaveDialog } from "../../../components/ui/leave-dialog";
 import { PaneHeader } from "../../../components/ui/pane-header";
-import { interpolate, detectLocale } from "../../../i18n/locale";
+import { detectLocale } from "../../../i18n/locale";
 import { panelChromeCopy } from "../../../i18n/panel/chrome";
 import {
   CREATE_ORDER_COMMENT_MAX,
@@ -16,6 +16,8 @@ import {
   LIST_PRODUCTS_QUERY_MAX,
   ORDER_COMMENT_LINES,
 } from "../shared/order-caps";
+import { OrderThumbnail } from "../shared/order-thumbnail";
+import { OrderLineCard } from "./order-line-card";
 import type { OrderCreateModel } from "./use-order-create";
 
 export function OrderCreateView({
@@ -96,58 +98,23 @@ export function OrderCreateView({
                 ) : null}
                 <ul className="mt-2 divide-y divide-line">
                   {model.items.map((item, index) => (
-                    <li key={item.key} className="flex items-center gap-3 py-3">
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-[15px] font-medium text-ink">
-                          {item.productName}
-                        </span>
-                        {item.variantName !== null ? (
-                          <span className="mt-0.5 block text-[13px] text-muted">
-                            {item.variantName}
-                          </span>
-                        ) : null}
-                      </span>
-                      <div className="flex shrink-0 items-center gap-1">
-                        <button
-                          type="button"
-                          aria-label={model.formCopy.qtyDecrease}
-                          disabled={!model.fieldsEditable}
-                          onClick={() => {
-                            model.stepQuantity(index, -1);
-                          }}
-                          className="flex h-8 w-8 items-center justify-center rounded-full text-ink hover:bg-canvas focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action disabled:opacity-40"
-                        >
-                          <Minus size={16} aria-hidden />
-                        </button>
-                        <span className="min-w-6 text-center text-[15px] font-semibold tabular-nums text-ink">
-                          {item.quantityLabel}
-                        </span>
-                        <button
-                          type="button"
-                          aria-label={model.formCopy.qtyIncrease}
-                          disabled={!model.fieldsEditable}
-                          onClick={() => {
-                            model.stepQuantity(index, 1);
-                          }}
-                          className="flex h-8 w-8 items-center justify-center rounded-full text-ink hover:bg-canvas focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action disabled:opacity-40"
-                        >
-                          <Plus size={16} aria-hidden />
-                        </button>
-                        <button
-                          type="button"
-                          aria-label={interpolate(model.formCopy.removeLine, {
-                            name: item.productName,
-                          })}
-                          disabled={!model.fieldsEditable}
-                          onClick={() => {
-                            model.removeItem(index);
-                          }}
-                          className="ml-1 flex h-8 w-8 items-center justify-center rounded-full text-danger hover:bg-canvas focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action disabled:opacity-40"
-                        >
-                          <Trash2 size={16} aria-hidden />
-                        </button>
-                      </div>
-                    </li>
+                    <OrderLineCard
+                      key={item.key}
+                      productName={item.productName}
+                      variantName={item.variantName}
+                      quantityLabel={item.quantityLabel}
+                      editable={model.fieldsEditable}
+                      thumbnailFileId={item.thumbnailFileId}
+                      thumbnailUrl={item.thumbnailUrl}
+                      thumbnailFailed={item.thumbnailFailed}
+                      copy={model.formCopy}
+                      onStep={(delta) => {
+                        model.stepQuantity(index, delta);
+                      }}
+                      onRemove={() => {
+                        model.removeItem(index);
+                      }}
+                    />
                   ))}
                 </ul>
                 <button
@@ -473,12 +440,18 @@ function ProductList({ model }: { readonly model: OrderCreateModel }) {
                       model.toggleSimpleProduct(product.id, product.name);
                     }}
                     className={cx(
-                      "flex w-full items-center justify-between rounded-field px-3 py-3 text-left",
+                      "flex w-full items-center gap-3 rounded-field px-3 py-3 text-left",
                       "hover:bg-canvas focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action",
                       selected ? "bg-actionSoft" : false,
                     )}
                   >
-                    <span className="text-[15px] font-medium text-ink">
+                    <OrderThumbnail
+                      fileId={product.thumbnailFileId}
+                      url={product.thumbnailUrl}
+                      failed={product.thumbnailFailed}
+                      failedLabel={model.formCopy.thumbnailUnavailable}
+                    />
+                    <span className="min-w-0 flex-1 text-[15px] font-medium text-ink">
                       {product.name}
                     </span>
                   </button>

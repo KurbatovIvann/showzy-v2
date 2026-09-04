@@ -18,8 +18,9 @@ import {
 import { resolveCustomerNameHydration } from "../shared/customer-name";
 import {
   canEditOrders,
+  canFetchFileDownloadUrls,
+  isCompanyRole,
   orderDetailActions,
-  type CompanyRole,
 } from "../shared/order-permissions";
 import { useOrdersCopy } from "../shared/use-orders-copy";
 import type { OrdersCopy } from "../../../i18n/orders";
@@ -27,18 +28,12 @@ import {
   orderDetailHeaderTitle,
   orderDetailWriteChrome,
   toOrderDetailView,
+  uniqueOrderLineProductIds,
+  withOrderLineThumbnails,
   type OrderDetailViewModel,
 } from "./order-detail.presenter";
 import { useOrderDetailActions } from "./use-order-detail-actions";
-
-function isCompanyRole(value: string): value is CompanyRole {
-  return (
-    value === "owner" ||
-    value === "admin" ||
-    value === "manager" ||
-    value === "employee"
-  );
-}
+import { useOrderDetailThumbnails } from "./use-order-detail-thumbnails";
 
 export type OrderDetailModel = {
   readonly copy: OrdersCopy;
@@ -74,6 +69,10 @@ export function useOrderDetail(orderIdParam: string): OrderDetailModel {
     membership !== undefined &&
     isCompanyRole(membership.role) &&
     canEditOrders(membership.role);
+  const canFetchThumbnails =
+    membership !== undefined &&
+    isCompanyRole(membership.role) &&
+    canFetchFileDownloadUrls(membership.role);
   const orderId = parseOrderId(orderIdParam);
   const query = useQuery(
     ordersGetQueryOptions({
@@ -114,7 +113,16 @@ export function useOrderDetail(orderIdParam: string): OrderDetailModel {
       customerQuery.status,
     ],
   );
-  const order = useMemo(() => {
+  const productIds = useMemo(
+    () => uniqueOrderLineProductIds(query.data?.items ?? []),
+    [query.data?.items],
+  );
+  const thumbnailsByProductId = useOrderDetailThumbnails({
+    productIds,
+    enabled: state.kind === "ready",
+    canFetchThumbnails,
+  });
+  const snapshot = useMemo(() => {
     if (query.data === undefined) {
       return null;
     }
@@ -125,6 +133,15 @@ export function useOrderDetail(orderIdParam: string): OrderDetailModel {
       customerPhone: customerQuery.data?.phone ?? null,
     });
   }, [copy, customer, customerQuery.data?.phone, query.data]);
+  const order = useMemo(() => {
+    if (snapshot === null) {
+      return null;
+    }
+    return {
+      ...snapshot,
+      lines: withOrderLineThumbnails(snapshot.lines, thumbnailsByProductId),
+    };
+  }, [snapshot, thumbnailsByProductId]);
   const actionFlags = orderDetailActions({
     canEdit,
     status: order?.status ?? "canceled",
