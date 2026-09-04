@@ -158,6 +158,14 @@ describe("orders copy", () => {
     expect(uk.create.errors.network.includes("\u02BC")).toBe(true);
     expect(uk.create.errors.offline.includes("\u2019")).toBe(false);
     expect(uk.create.errors.network.includes("\u2019")).toBe(false);
+    expect(uk.create.errors.itemsVariantRequired).toBe("Оберіть варіант");
+    expect(en.create.errors.itemsVariantRequired).toBe("Choose a variant");
+    expect(uk.create.errors.itemsNoActiveVariants).toBe(
+      "У цього товару немає активних варіантів",
+    );
+    expect(en.create.errors.itemsNoActiveVariants).toBe(
+      "This product has no active variants",
+    );
     expect(en.create.title).toBe("New order");
     expect(en.create.submitCreate).toBe("Create");
     expect(JSON.stringify(uk.create)).not.toContain("Редактор у розробці");

@@ -51,6 +51,7 @@ describe("bindOrderCreateMutate", () => {
         items: [
           {
             product: { by: "id", id: PRODUCT_ID },
+            variantSelection: { kind: "base" },
             quantity: { milli: "1000" },
           },
         ],

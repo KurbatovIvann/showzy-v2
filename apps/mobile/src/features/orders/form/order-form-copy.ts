@@ -9,6 +9,7 @@ import type { QueryFailureKind } from "../../../api/errors";
 import type { OrdersCreateCopy } from "../../../i18n/orders";
 import type { OrderFormWrite } from "./order-form-plan";
 import {
+  emptyFieldErrors,
   isCommentErrorKey,
   isCustomerErrorKey,
   isItemsErrorKey,
@@ -204,7 +205,58 @@ function itemsErrorCopy(
   if (key === "too_many") {
     return copy.errors.itemsTooMany;
   }
+  if (key === "variant_required") {
+    return copy.errors.itemsVariantRequired;
+  }
+  if (key === "no_active_variants") {
+    return copy.errors.itemsNoActiveVariants;
+  }
   return null;
+}
+
+function conflictReasonFromUnknown(error: unknown): string | null {
+  if (typeof error !== "object" || error === null) {
+    return null;
+  }
+  if ("reason" in error && typeof error.reason === "string") {
+    return error.reason;
+  }
+  if (
+    !("data" in error) ||
+    typeof error.data !== "object" ||
+    error.data === null
+  ) {
+    return null;
+  }
+  if ("reason" in error.data && typeof error.data.reason === "string") {
+    return error.data.reason;
+  }
+  return null;
+}
+
+/**
+ * Domain variant-selection CONFLICT (SHO-407). Maps structured `reason`
+ * when present; a bare wire `CONFLICT` (contract `toWireError` omits
+ * `reason`) still lands on the variant picker so a stale selection is
+ * not a generic dead-end. Never matches `error.message` text.
+ */
+export function mapVariantSelectionConflict(
+  error: unknown,
+): OrderFormFieldErrors | null {
+  if (!isWireError(error) || error.code !== "CONFLICT") {
+    return null;
+  }
+  const reason = conflictReasonFromUnknown(error);
+  if (reason === "no_active_variants") {
+    return { ...emptyFieldErrors(), items: "no_active_variants" };
+  }
+  if (reason === "customer_not_found") {
+    return { ...emptyFieldErrors(), customer: "required" };
+  }
+  if (reason === "product_not_found") {
+    return { ...emptyFieldErrors(), items: "required" };
+  }
+  return { ...emptyFieldErrors(), items: "variant_required" };
 }
 
 function commentErrorCopy(

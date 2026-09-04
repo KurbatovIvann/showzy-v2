@@ -1,8 +1,11 @@
 /**
- * Order create write planner (SHO-213 / SHO-352). UI parse happens first via
- * `parseOrderFormUiDraft`; this file turns a valid draft into one
- * `orders.create` write. Wire is `{ customer: { by: "id" }, items, comment? }`
- * with milli quantities only — no prices, payment, or delivery.
+ * Order create write planner (SHO-213 / SHO-352 / SHO-407). UI parse
+ * happens first via `parseOrderFormUiDraft`; this file turns a valid
+ * draft into one `orders.create` write. Wire is
+ * `{ customer: { by: "id" }, items, comment? }` with milli quantities
+ * only — no prices, payment, or delivery. New source sends explicit
+ * `variantSelection` (`base` or `reference` by id), never legacy
+ * `variant`, and never omits selection as catalog unspecified.
  */
 import type { WireErrorCode } from "@showzy/contract";
 
@@ -14,11 +17,19 @@ import {
   validateOrderForm,
   type OrderFormDraft,
   type OrderFormFieldErrors,
+  type OrderFormLineDraft,
 } from "./order-form-draft";
+import { emptyFieldErrors, type ItemsErrorKey } from "./order-form.schema";
+import {
+  classifyProductSellability,
+  type OrderLineCatalogFacts,
+  type OrderLineCatalogFactsMap,
+} from "./order-line-catalog-facts";
 
 type OrdersClient = ContractClient["client"]["orders"];
 export type CreateOrderPayload = Parameters<OrdersClient["create"]>[0];
 export type CreateOrderResult = Awaited<ReturnType<OrdersClient["create"]>>;
+export type { OrderLineCatalogFactsMap };
 
 export type OrderFormWrite = {
   readonly kind: "createOrder";
@@ -43,20 +54,63 @@ const RETRYABLE_WIRE: ReadonlySet<WireErrorCode> = new Set([
   "IDEMPOTENCY_CONFLICT",
 ]);
 
+function variantSelectionForLine(
+  item: OrderFormLineDraft,
+): NonNullable<CreateOrderPayload["items"][number]["variantSelection"]> {
+  if (item.variantId === null) {
+    return { kind: "base" };
+  }
+  return { kind: "reference", ref: { by: "id", id: item.variantId } };
+}
+
 function wireItems(draft: OrderFormDraft): CreateOrderPayload["items"] {
-  return draft.items.map((item) => {
-    if (item.variantId === null) {
-      return {
-        product: { by: "id" as const, id: item.productId },
-        quantity: { milli: item.quantityMilli },
-      };
+  return draft.items.map((item) => ({
+    product: { by: "id" as const, id: item.productId },
+    variantSelection: variantSelectionForLine(item),
+    quantity: { milli: item.quantityMilli },
+  }));
+}
+
+function catalogErrorForLine(
+  item: OrderFormLineDraft,
+  facts: OrderLineCatalogFacts | undefined,
+): ItemsErrorKey | null {
+  if (facts === undefined) {
+    return "variant_required";
+  }
+  const sellability = classifyProductSellability(facts.variantRows);
+  if (item.variantId === null) {
+    if (sellability === "simple") {
+      return null;
     }
-    return {
-      product: { by: "id" as const, id: item.productId },
-      variant: { by: "id" as const, id: item.variantId },
-      quantity: { milli: item.quantityMilli },
-    };
-  });
+    if (sellability === "unavailable") {
+      return "no_active_variants";
+    }
+    return "variant_required";
+  }
+  if (sellability === "unavailable") {
+    return "no_active_variants";
+  }
+  const selected = facts.variantRows.find((row) => row.id === item.variantId);
+  if (selected === undefined || selected.status !== "active") {
+    return "variant_required";
+  }
+  return null;
+}
+
+export function validateOrderFormCatalog(
+  draft: OrderFormDraft,
+  catalogFacts: OrderLineCatalogFactsMap,
+): OrderFormFieldErrors {
+  let items: ItemsErrorKey | null = null;
+  for (const item of draft.items) {
+    const error = catalogErrorForLine(item, catalogFacts.get(item.productId));
+    if (error !== null) {
+      items = error;
+      break;
+    }
+  }
+  return { ...emptyFieldErrors(), items };
 }
 
 export function createOrderPayload(
@@ -100,6 +154,7 @@ export function isOrderFormRetryable(
 
 export function planOrderFormSave(args: {
   readonly draft: OrderFormDraft;
+  readonly catalogFacts: OrderLineCatalogFactsMap;
   readonly lastWrite: OrderFormWrite | null;
   readonly lastFailureKind: QueryFailureKind | null;
   readonly lastWireCode?: WireErrorCode | null;
@@ -107,6 +162,10 @@ export function planOrderFormSave(args: {
   const errors = validateOrderForm(args.draft);
   if (!isOrderFormValid(errors)) {
     return { kind: "invalid", errors };
+  }
+  const catalogErrors = validateOrderFormCatalog(args.draft, args.catalogFacts);
+  if (!isOrderFormValid(catalogErrors)) {
+    return { kind: "invalid", errors: catalogErrors };
   }
   const input = createOrderPayload(args.draft);
   if (input === null) {
@@ -129,6 +188,7 @@ export function planOrderFormSave(args: {
 
 export function parseThenPlanOrderFormSave(args: {
   readonly draft: OrderFormDraft;
+  readonly catalogFacts: OrderLineCatalogFactsMap;
   readonly lastWrite: OrderFormWrite | null;
   readonly lastFailureKind: QueryFailureKind | null;
   readonly lastWireCode?: WireErrorCode | null;

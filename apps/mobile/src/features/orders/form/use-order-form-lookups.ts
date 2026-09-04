@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueries } from "@tanstack/react-query";
 import { useMemo } from "react";
 
 import { useApiClient } from "../../../api/api-provider";
@@ -17,6 +17,13 @@ import {
   type OrderThumbnailView,
 } from "../shared/order-thumbnails";
 import { useOrderThumbnails } from "../shared/use-order-thumbnails";
+import {
+  catalogFactsFromProduct,
+  overlayCatalogVariantCount,
+  uniqueProductIds,
+  type OrderLineCatalogFacts,
+  type OrderLineCatalogFactsMap,
+} from "./order-line-catalog-facts";
 import type { ProductVariantsLoadStatus } from "./product-select";
 
 export type OrderFormProductRow = {
@@ -31,12 +38,15 @@ export type OrderFormThumbnail = OrderThumbnailView;
 export function useOrderFormLookups(args: {
   readonly enabled: boolean;
   readonly variantProductId: string | null;
+  readonly draftProductIds: readonly string[];
 }): {
   readonly customerOptions: ReturnType<typeof optionSelectItems>;
   readonly productRows: readonly OrderFormProductRow[];
   readonly variantOptions: ReturnType<typeof optionSelectItems>;
   readonly variantsStatus: ProductVariantsLoadStatus;
   readonly thumbnailsByProductId: ReadonlyMap<string, OrderFormThumbnail>;
+  readonly catalogFacts: OrderLineCatalogFactsMap;
+  readonly catalogFactsPending: boolean;
 } {
   const apiClient = useApiClient();
   const { activeCompanyId } = useActiveCompany();
@@ -44,6 +54,10 @@ export function useOrderFormLookups(args: {
   const getActiveCompany = () => apiClient?.getActiveCompany() ?? null;
   const enabled = args.enabled;
   const canFetchThumbnails = canFetchFileDownloadUrls(membership.role);
+  const catalogProductIds = uniqueProductIds([
+    ...args.draftProductIds,
+    args.variantProductId,
+  ]);
 
   const customersQuery = useInfiniteQuery(
     listOrderCustomersInfiniteOptions({
@@ -75,14 +89,20 @@ export function useOrderFormLookups(args: {
     fetchNextPage: productsQuery.fetchNextPage,
   });
 
-  const productQuery = useQuery(
-    getOrderCatalogProductQueryOptions({
-      client: apiClient,
-      companyId: activeCompanyId,
-      productId: args.variantProductId,
-      getActiveCompany,
+  const productQueries = useQueries({
+    queries: catalogProductIds.map((productId) => {
+      const options = getOrderCatalogProductQueryOptions({
+        client: apiClient,
+        companyId: activeCompanyId,
+        productId,
+        getActiveCompany,
+      });
+      return {
+        ...options,
+        enabled: options.enabled && enabled,
+      };
     }),
-  );
+  });
 
   const productPages = productsQuery.data?.pages ?? [];
   const { urlsByFileId, failedFileIds } = useOrderThumbnails({
@@ -107,6 +127,24 @@ export function useOrderFormLookups(args: {
     );
   }, [customersQuery.data]);
 
+  const catalogFacts = useMemo((): OrderLineCatalogFactsMap => {
+    const map = new Map<string, OrderLineCatalogFacts>();
+    for (const [index, productId] of catalogProductIds.entries()) {
+      const data = productQueries[index]?.data;
+      if (data !== undefined) {
+        map.set(productId, catalogFactsFromProduct(data));
+      }
+    }
+    return map;
+  }, [catalogProductIds, productQueries]);
+
+  const draftCatalogIds = uniqueProductIds(args.draftProductIds);
+  const catalogFactsPending = draftCatalogIds.some((productId) => {
+    const index = catalogProductIds.indexOf(productId);
+    const query = index < 0 ? undefined : productQueries[index];
+    return query === undefined || query.isPending;
+  });
+
   const productRows = useMemo((): readonly OrderFormProductRow[] => {
     if (productsQuery.data === undefined) {
       return [];
@@ -114,10 +152,13 @@ export function useOrderFormLookups(args: {
     return flattenPages(productsQuery.data.pages).map((row) => ({
       id: row.id,
       name: row.name,
-      variantCount: row.variantCount,
+      variantCount: overlayCatalogVariantCount(
+        row.variantCount,
+        catalogFacts.get(row.id),
+      ),
       primaryImageFileId: row.primaryImageFileId,
     }));
-  }, [productsQuery.data]);
+  }, [catalogFacts, productsQuery.data]);
 
   const thumbnailsByProductId = useMemo(() => {
     const map = new Map<string, OrderFormThumbnail>();
@@ -135,19 +176,25 @@ export function useOrderFormLookups(args: {
     return map;
   }, [canFetchThumbnails, failedFileIds, productRows, urlsByFileId]);
 
+  const pickerIndex =
+    args.variantProductId === null
+      ? -1
+      : catalogProductIds.indexOf(args.variantProductId);
+  const pickerQuery = pickerIndex < 0 ? undefined : productQueries[pickerIndex];
+
   const variantOptions = useMemo(() => {
-    if (productQuery.data === undefined) {
+    if (pickerQuery?.data === undefined) {
       return [];
     }
     return optionSelectItems(
-      productQuery.data.variants
+      pickerQuery.data.variants
         .filter((variant) => variant.status === "active")
         .map((variant) => ({
           id: variant.id,
           name: variant.name,
         })),
     );
-  }, [productQuery.data]);
+  }, [pickerQuery?.data]);
 
   return {
     customerOptions,
@@ -156,11 +203,13 @@ export function useOrderFormLookups(args: {
     variantsStatus:
       args.variantProductId === null
         ? "idle"
-        : productQuery.status === "pending"
+        : pickerQuery === undefined || pickerQuery.status === "pending"
           ? "loading"
-          : productQuery.status === "error"
+          : pickerQuery.status === "error"
             ? "error"
             : "ready",
     thumbnailsByProductId,
+    catalogFacts,
+    catalogFactsPending,
   };
 }

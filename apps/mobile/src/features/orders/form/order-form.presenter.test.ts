@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { ordersCopy } from "../../../i18n/orders";
 import { EMPTY_ORDER_THUMBNAIL } from "../shared/order-thumbnails";
 import {
+  presentOrderFormCopy,
   presentOrderFormFooter,
   presentProductSelectRows,
   presentProductsValue,
@@ -67,6 +68,52 @@ describe("order-form presenter rows", () => {
     expect(presentVariantSelectRows([{ id: PRODUCT_A, name: "1 кг" }])).toEqual(
       [{ id: PRODUCT_A, name: "1 кг" }],
     );
+  });
+});
+
+describe("presentOrderFormCopy variant conflict", () => {
+  it("maps CONFLICT onto the items picker and suppresses the unavailable banner", () => {
+    const formCopy = ordersCopy("uk").create;
+    const resolved = presentOrderFormCopy({
+      formCopy,
+      submitted: true,
+      customerMessage: undefined,
+      itemsError: undefined,
+      commentMessage: undefined,
+      serverFields: {
+        customer: null,
+        items: "variant_required",
+        comment: null,
+      },
+      localBanner: null,
+      failureKind: "conflict",
+      wireCode: "CONFLICT",
+      pending: false,
+      clientReady: true,
+      canCreate: true,
+    });
+    expect(resolved.itemsError).toBe(formCopy.errors.itemsVariantRequired);
+    expect(resolved.banner).toBeNull();
+    const archived = presentOrderFormCopy({
+      formCopy,
+      submitted: true,
+      customerMessage: undefined,
+      itemsError: undefined,
+      commentMessage: undefined,
+      serverFields: {
+        customer: null,
+        items: "no_active_variants",
+        comment: null,
+      },
+      localBanner: null,
+      failureKind: "conflict",
+      wireCode: "CONFLICT",
+      pending: false,
+      clientReady: true,
+      canCreate: true,
+    });
+    expect(archived.itemsError).toBe(formCopy.errors.itemsNoActiveVariants);
+    expect(archived.banner).toBeNull();
   });
 });
 

@@ -79,6 +79,8 @@ describe("orderFormDraftSchema", () => {
     }
     expect(fieldErrorsFromDraftSchema(parsed.error).items).toBe("duplicate");
     expect(isItemsErrorKey("duplicate")).toBe(true);
+    expect(isItemsErrorKey("variant_required")).toBe(true);
+    expect(isItemsErrorKey("no_active_variants")).toBe(true);
   });
 
   it("allows the same product with a different variant", () => {
