@@ -180,14 +180,38 @@ export async function executeChoiceSelect(args: {
   });
 }
 
+function needsChoiceEnvelopeFromSelectResult(
+  result: ChoiceSelectResult,
+): StaffAssistantChoiceCardEnvelope | undefined {
+  if (result.status !== "needs_choice") {
+    return undefined;
+  }
+  if (typeof result.optionsTruncated !== "boolean") {
+    return undefined;
+  }
+  if (result.options === undefined) {
+    return undefined;
+  }
+  const parsed = staffAssistantChoiceCardEnvelopeSchema.safeParse({
+    status: "needs_choice",
+    challengeId: result.challengeId,
+    ...(typeof result.reason === "string" ? { reason: result.reason } : {}),
+    ...(typeof result.productName === "string"
+      ? { productName: result.productName }
+      : {}),
+    options: result.options,
+    optionsTruncated: result.optionsTruncated,
+  });
+  return parsed.success ? parsed.data : undefined;
+}
+
 export function choiceSelectShouldIgnoreChallenge(
   result: ChoiceSelectResult,
 ): boolean {
-  return (
-    result.status === "completed" ||
-    result.status === "needs_choice" ||
-    result.status === "expired"
-  );
+  if (result.status === "completed" || result.status === "expired") {
+    return true;
+  }
+  return needsChoiceEnvelopeFromSelectResult(result) !== undefined;
 }
 
 /**
@@ -220,27 +244,16 @@ export function choiceSelectAppendParts(args: {
     return parts;
   }
   if (args.result.status === "needs_choice") {
-    const parsed = staffAssistantChoiceCardEnvelopeSchema.safeParse({
-      status: "needs_choice",
-      challengeId: args.result.challengeId,
-      ...(typeof args.result.reason === "string"
-        ? { reason: args.result.reason }
-        : {}),
-      ...(typeof args.result.productName === "string"
-        ? { productName: args.result.productName }
-        : {}),
-      options: args.result.options ?? [],
-      optionsTruncated: args.result.optionsTruncated ?? false,
-    });
-    if (!parsed.success) {
+    const envelope = needsChoiceEnvelopeFromSelectResult(args.result);
+    if (envelope === undefined) {
       return [];
     }
     return [
       {
         type: "text",
-        text: presentChoiceCardText(parsed.data, args.locale),
+        text: presentChoiceCardText(envelope, args.locale),
       },
-      { type: "data-choice", data: parsed.data },
+      { type: "data-choice", data: envelope },
     ];
   }
   if (args.result.status === "expired") {

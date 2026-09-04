@@ -1,9 +1,16 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 
-import type { StaffAssistantChoiceCardEnvelope } from "./choice";
+import {
+  CHOICE_TRUNCATED_COPY,
+  presentChoiceCardText,
+  type StaffAssistantChoiceCardEnvelope,
+} from "./choice";
 import {
   claimChoiceSelect,
   choiceCardState,
+  choiceSelectAppendParts,
+  choiceSelectShouldIgnoreChallenge,
   executeChoiceSelect,
   pendingChoiceFromMessages,
   type AssistantChoiceMessage,
@@ -234,5 +241,153 @@ describe("pendingChoiceFromMessages", () => {
       challengeId: successorId,
       messageId: "a2",
     });
+  });
+});
+
+describe("choiceSelectAppendParts", () => {
+  const orderId = "0f0e2d5c-4a1b-4c3d-9e8f-102938475601";
+
+  it("appends completed presenter text and an orders.create entity with empty input", () => {
+    const parts = choiceSelectAppendParts({
+      result: {
+        status: "completed",
+        text: "Order #1049.",
+        entity: { orderId, orderNumber: "1049" },
+      },
+      previousChoiceId: choiceId,
+      locale: "en",
+    });
+    expect(parts).toEqual([
+      { type: "text", text: "Order #1049." },
+      {
+        type: "dynamic-tool",
+        toolName: "orders.create",
+        toolCallId: `choice:${choiceId}`,
+        state: "output-available",
+        input: {},
+        output: { orderId, orderNumber: "1049" },
+      },
+    ]);
+    expect(JSON.stringify(parts)).not.toContain("canonical");
+    expect(JSON.stringify(parts)).not.toContain("target");
+    expect(JSON.stringify(parts)).not.toContain("optionMap");
+    expect(choiceSelectShouldIgnoreChallenge({ status: "completed" })).toBe(
+      true,
+    );
+  });
+
+  it("appends spoken text and a successor data-choice for sequential needs_choice", () => {
+    const result = {
+      status: "needs_choice" as const,
+      challengeId: successorId,
+      reason: "variant_required" as const,
+      productName: "Eclairs",
+      options: [{ id: lemonId, label: "Coffee" }],
+      optionsTruncated: true,
+    };
+    const parts = choiceSelectAppendParts({
+      result,
+      previousChoiceId: choiceId,
+      locale: "en",
+    });
+    expect(parts).toEqual([
+      {
+        type: "text",
+        text: presentChoiceCardText(
+          {
+            status: "needs_choice",
+            challengeId: successorId,
+            reason: "variant_required",
+            productName: "Eclairs",
+            options: [{ id: lemonId, label: "Coffee" }],
+            optionsTruncated: true,
+          },
+          "en",
+        ),
+      },
+      {
+        type: "data-choice",
+        data: {
+          status: "needs_choice",
+          challengeId: successorId,
+          reason: "variant_required",
+          productName: "Eclairs",
+          options: [{ id: lemonId, label: "Coffee" }],
+          optionsTruncated: true,
+        },
+      },
+    ]);
+    expect(parts[0]).toMatchObject({ type: "text" });
+    if (parts[0]?.type === "text") {
+      expect(parts[0].text).toContain(CHOICE_TRUNCATED_COPY.en);
+    }
+    expect(choiceSelectShouldIgnoreChallenge(result)).toBe(true);
+  });
+
+  it("does not append or ignore when sequential needs_choice omits optionsTruncated", () => {
+    const result = {
+      status: "needs_choice" as const,
+      challengeId: successorId,
+      reason: "variant_required" as const,
+      productName: "Eclairs",
+      options: [{ id: lemonId, label: "Coffee" }],
+    };
+    expect(
+      choiceSelectAppendParts({
+        result,
+        previousChoiceId: choiceId,
+        locale: "en",
+      }),
+    ).toEqual([]);
+    expect(choiceSelectShouldIgnoreChallenge(result)).toBe(false);
+  });
+
+  it("appends a non-tappable expired envelope", () => {
+    const parts = choiceSelectAppendParts({
+      result: { status: "expired" },
+      previousChoiceId: choiceId,
+      locale: "en",
+    });
+    expect(parts).toEqual([
+      {
+        type: "data-choice",
+        data: {
+          status: "expired",
+          challengeId: choiceId,
+          options: [],
+          optionsTruncated: false,
+        },
+      },
+    ]);
+    expect(
+      claimChoiceSelect({
+        pending: {
+          status: "expired",
+          challengeId: choiceId,
+          options: [],
+          optionsTruncated: false,
+          messageId: "a1",
+        },
+        optionId: lemonId,
+        resolvingRef: { current: null },
+      }),
+    ).toBeNull();
+    expect(choiceSelectShouldIgnoreChallenge({ status: "expired" })).toBe(true);
+  });
+
+  it("does not call sendMessage from the choice presenter or tap hook", () => {
+    const presenter = readFileSync(
+      new URL("./choice-presenter.ts", import.meta.url),
+      "utf8",
+    );
+    const hook = readFileSync(
+      new URL("../sheet/use-assistant-choice.ts", import.meta.url),
+      "utf8",
+    );
+    expect(presenter).toContain("Never sendMessage");
+    expect(presenter).toContain("choiceSelectAppendParts");
+    expect(presenter).not.toContain("sendMessage(");
+    expect(hook).toContain("choiceSelectAppendParts");
+    expect(hook).not.toContain("sendMessage");
   });
 });
