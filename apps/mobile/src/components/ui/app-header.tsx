@@ -13,13 +13,15 @@ export type AppHeaderBack = {
 
 /**
  * Canvas `AppHeader`: screen title row with optional subtitle, back
- * control, and a trailing actions slot. Screens own the safe-area top
- * inset; this component only draws the row.
+ * control, leading slot (Shozik on the AI tab later), and a trailing
+ * actions slot. Screens own the safe-area top inset; this component
+ * only draws the row.
  */
 export function AppHeader(props: {
   readonly title: string;
   readonly subtitle?: string;
   readonly back?: AppHeaderBack;
+  readonly leading?: ReactNode;
   readonly actions?: ReactNode;
 }) {
   const { theme } = useUnistyles();
@@ -37,6 +39,9 @@ export function AppHeader(props: {
           accessibilityLabel={props.back.accessibilityLabel}
           onPress={props.back.onPress}
         />
+      ) : null}
+      {props.leading != null ? (
+        <View style={styles.leading}>{props.leading}</View>
       ) : null}
       <View style={styles.titles}>
         <Text numberOfLines={1} accessibilityRole="header" style={styles.title}>
@@ -63,14 +68,17 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.md,
   },
+  leading: {
+    flexShrink: 0,
+  },
   titles: {
     flex: 1,
     minWidth: 0,
   },
   title: {
     color: theme.colors.foreground,
-    fontSize: theme.typography.xl.fontSize,
-    lineHeight: theme.typography.xl.lineHeight,
+    fontSize: theme.typography.title.fontSize,
+    lineHeight: theme.typography.title.lineHeight,
     fontWeight: "600",
   },
   subtitle: {

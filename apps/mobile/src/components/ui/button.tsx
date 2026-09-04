@@ -15,7 +15,6 @@ export function Button(props: {
   const variant = props.variant ?? "primary";
   const size = props.size ?? "default";
   const disabled = props.disabled === true || props.loading === true;
-  const lgDisabled = disabled && size === "lg" && variant === "primary";
   const { theme } = useUnistyles();
   const indicatorByVariant = {
     primary: theme.colors.activityIndicator.onPrimary,
@@ -39,7 +38,11 @@ export function Button(props: {
         variant === "danger" && pressed && !disabled
           ? styles.dangerPressed
           : null,
-        lgDisabled ? styles.disabledLg : disabled ? styles.disabled : null,
+        disabled
+          ? variant === "primary"
+            ? styles.disabledPrimary
+            : styles.disabled
+          : null,
         pressed && !disabled && variant !== "danger" ? styles.pressed : null,
       ]}
     >
@@ -49,7 +52,7 @@ export function Button(props: {
         ) : (
           <View style={styles.content}>
             {props.icon}
-            <Text style={buttonLabelStyle(variant, size, pressed && !disabled)}>
+            <Text style={buttonLabelStyle(variant, pressed && !disabled)}>
               {props.label}
             </Text>
           </View>
@@ -100,8 +103,8 @@ const styles = StyleSheet.create((theme) => ({
   disabled: {
     opacity: 0.5,
   },
-  disabledLg: {
-    backgroundColor: theme.colors.icon.muted,
+  disabledPrimary: {
+    opacity: theme.disabledOpacity,
   },
   pressed: {
     opacity: theme.pressedOpacity,
@@ -118,17 +121,11 @@ const styles = StyleSheet.create((theme) => ({
     lineHeight: theme.typography.md.lineHeight,
     fontWeight: "600",
   },
-  lgLabel: {
-    color: theme.colors.primaryForeground,
-    fontSize: theme.typography.lg.fontSize,
-    lineHeight: theme.typography.lg.lineHeight,
-    fontWeight: "600",
-  },
   ghostLabel: {
     color: theme.colors.primary,
-    fontSize: theme.typography.sm.fontSize,
-    lineHeight: theme.typography.sm.lineHeight,
-    fontWeight: "500",
+    fontSize: theme.typography.md.fontSize,
+    lineHeight: theme.typography.md.lineHeight,
+    fontWeight: "600",
   },
   dangerLabel: {
     color: theme.colors.destructive,
@@ -158,11 +155,6 @@ const VARIANT_LABEL = {
   danger: styles.dangerLabel,
 } as const;
 
-const PRIMARY_LABEL = {
-  default: styles.label,
-  lg: styles.lgLabel,
-} as const;
-
 const SIZE_CHROME = {
   default: null,
   lg: styles.buttonLg,
@@ -170,14 +162,10 @@ const SIZE_CHROME = {
 
 function buttonLabelStyle(
   variant: "primary" | "secondary" | "ghost" | "danger",
-  size: "default" | "lg",
   dangerPressed: boolean,
 ) {
   if (variant === "danger" && dangerPressed) {
     return styles.dangerPressedLabel;
-  }
-  if (variant === "primary") {
-    return PRIMARY_LABEL[size];
   }
   return VARIANT_LABEL[variant];
 }

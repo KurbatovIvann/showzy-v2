@@ -81,12 +81,19 @@ roles, not a second product.
 | Ink / primary fill | `ink` `#1C1C1A` | `colors.primary` / `foreground` | inverted fill `#EDEBE6` |
 | Muted text | `muted` `#6E6A61` | `colors.mutedForeground` | `#9B968B` |
 | Faint text | `faint` `#9B968B` | `colors.icon.muted` | `#7A7570` |
-| Track / hairline | `line` `#E5E2DA` | `colors.border` / `input` / `muted` | `#322F2A` |
+| Track / hairline | `line` `#EFEDE7` | `colors.border` / `input` | `#322F2A` |
+| Muted fill | `mutedFill` `#E5E2DA` | `colors.muted` | `#322F2A` |
 | Field fill | `bg-canvas` | `colors.inputFill` | `#1C1A17` |
-| Action / AI / focus | `action` `#2F6FED` | `colors.accent` / `ring` | `#5B8FFF` |
-| Action soft | `actionSoft` `#E8F0FF` | `colors.accentSoft` | `#1A2744` |
-| Success | `success` `#237A4B` | `colors.success` | `#3D9A64` |
-| Success soft | `successSoft` `#E6F2EA` | `colors.successSoft` | `#1A2E24` |
+| Action / AI / focus | `action` `#4E61DE` | `colors.accent` / `ring` | `#7A81F0` |
+| Action label | `actionFg` `#4657BD` | `colors.accentFg` | `#8B94F5` |
+| Action soft | `actionSoft` `#EEF3FF` | `colors.accentSoft` | `#1A2448` |
+| Disabled | `disabled` `#C7C2B8` | `colors.disabled` | `#5C574E` |
+| Provisional | `provisional` `#4E61DE` | `colors.provisional` | `#7A81F0` |
+| Provisional fill | `provisionalFill` `#EEF3FF` | `colors.provisionalFill` | `#1A2448` |
+| Provisional border | `provisionalBorder` `#AEBCEC` | `colors.provisionalBorder` | `#3A4270` |
+| Provisional label | `provisionalFg` `#4657BD` | `colors.provisionalFg` | `#8B94F5` |
+| Success | `success` `#56633F` | `colors.success` | `#708358` |
+| Success soft | `successSoft` `#E1EECC` | `colors.successSoft` | `#1E2A18` |
 | Attention | `attention` `#A65A16` | `colors.warning` | `#D4893A` |
 | Attention soft | `attentionSoft` `#FBEFE1` | `colors.warningSoft` | `#2E2418` |
 | Danger | `danger` `#C0392B` | `colors.destructive` | `#D45B4F` |
@@ -94,7 +101,9 @@ roles, not a second product.
 | Sheet dim | `bg-ink/35` | `colors.overlay` | `rgba(0,0,0,0.45)` |
 
 Primary **buttons are ink**, not action blue. Action blue is AI, focus
-rings, “changed” chips, and selected-filter badges.
+rings, “changed” chips, and selected-filter badges. Labels on action-soft
+surfaces use `actionFg` (`colors.accentFg`). Provisional chrome uses the
+`provisional*` roles (visual only until a later ticket wires writes).
 
 Status must never be color-only: always a label.
 
@@ -106,10 +115,14 @@ System font. No webfont.
 | --- | --- | --- |
 | Field label | 13 medium muted | `typography.xs` |
 | Nav label | 11 medium (AI label 10 snapped) | `typography.2xs` |
-| Body / control | 15 | `typography.base` (controls weight 600) |
+| Body | 15 | `typography.base` |
+| Control | 16 semibold | `typography.md` |
+| Row total | 17/24 semibold | `typography.rowTotal` |
 | Sheet / empty title | 17 semibold | `typography.lg` (snap) |
-| Screen title | 20 semibold | `typography.xl` |
+| Legacy compact title | 20 semibold | `typography.xl` |
+| Screen title | 26/32 semibold | `typography.title` |
 | Auth title | 28 semibold | `typography.3xl` |
+| Headline | 30/36 semibold | `typography.headline` |
 | Auth wordmark | 44 bold leading-none | `typography.display` |
 | Auth OTP digits | 22 semibold | `typography.2xl` (snap; owner-approved) |
 | Auth CTA | 17 semibold | `typography.lg` (snap; owner-approved) |
@@ -120,14 +133,14 @@ System font. No webfont.
 | Auth panel | 28 | `radii.lgPanel` |
 | Sheet top | 30 | `radii.sheet` |
 | Button / search / icon | pill | `radii.full` |
-| Hit target | 44 / field 48 / lg 54 | `hitTarget.min` / `hitTarget.field` / `hitTarget.lg` |
+| Hit target | 44 / field 48 / lg 54 | `hitTarget.min` / `hitTarget.field` **64** (do not snap to canvas 48) / `hitTarget.lg` |
 | List row | min 88 | `hitTarget.row` |
 | Pill inset | 2 | `spacing.2xs` |
 | Lucide | 18 / 20 | `iconSize.sm` / `iconSize.md` |
 | Card shadow | `0 1px 2px rgba(28,28,26,0.05)` | `shadows.sm` (`boxShadow`; New Architecture) |
 | Auth panel shadow | `0 14px 40px rgba(28,28,26,0.10)` | `shadows.lgPanel` (`boxShadow`; New Architecture) |
-| Nav cluster shadow | `0 8px 24px rgba(28,28,26,0.10)` | `shadows.nav` (`boxShadow`; New Architecture) |
-| AI control glow | `0 6px 16px rgba(47,111,237,0.28)` | `shadows.accent` (`boxShadow`; New Architecture) |
+| Nav cluster shadow | `0 8px 24px rgba(28,28,26,0.08)` | `shadows.nav` (`boxShadow`; New Architecture) |
+| AI control glow | `0 6px 16px rgba(78,97,222,0.28)` | `shadows.accent` (`boxShadow`; New Architecture) |
 | iOS squircle | `CACornerCurve.continuous` | `theme.squircle` (`borderCurve: "continuous"`). Current on RN 0.86 — not deprecated. Android ignores it. Skip on `radii.full` capsules. |
 
 ## Shared primitives today
@@ -136,8 +149,9 @@ System font. No webfont.
 
 | Primitive | Canvas counterpart | Notes |
 | --- | --- | --- |
-| `Button` | `Button` | pill; `size: "lg"` is 54 + `typography.lg`; lg disabled uses faint fill, not opacity; `danger` is `destructiveSoft` / `destructive` (pressed inverts to fill); optional `icon` and `fullWidth` |
-| `Card` | section / `Card` | 22px, `line` border, `surface` fill |
+| `Button` | `Button` | pill; control type `typography.md` (16); `size: "lg"` is 54 high; primary disabled is `disabledOpacity` 35%, not a faint fill; `danger` is `destructiveSoft` / `destructive` (pressed inverts to fill); optional `icon` and `fullWidth` |
+| `Card` | section / `Card` | 22px, `line` border, `surface` fill; optional `provisional` dashed `provisionalBorder` / `provisionalFill` |
+| `ListSurface` / `ListRow` | `ListSurface` / `ListRow` | one rounded surface, hairline dividers; `first` skips the top rule; `provisional` is unused visual chrome only — do not wire writes |
 | `TextField` | `TextField` | 16px radius, canvas fill; optional label / leading / prefix / suffix; `changed` chip uses `StatusPill` `action`; `size: "lg"` is 54 + 16 tabular-nums + focus `ring`; default `keyboardType` is `"default"` |
 | `SegmentedTabs` | `AuthModeSwitch` / customers tab strip | `layout="equal"` (default): two-up auth row, track `hitTarget.field`. `layout="scroll"`: compact overflowing CRM strip (canvas `CustomersScreen` tabs — not `BottomNav`). Host is full-bleed; `contentPaddingHorizontal` keeps rest alignment with the padded column and scrolls to the screen edge (no overlay masks, `contentInsetAdjustmentBehavior="never"`, `fadingEdgeLength={0}`). Pills `hitTarget.min` / `typography.sm`. Class B: canvas 40/14 → 44/`typography.sm`. Do not put track chrome on `ScrollView` `contentContainerStyle`. Selected chrome is a sliding pill (v1 `SegmentedControl` indicator) — `translateX` + `width`, 250ms ease-in-out; snap on first measure, resize, and reduced motion. Animating `width` is the measured trade-off: the pill is absolutely positioned with no children, so Yoga does not re-layout siblings; `scaleX` would smear `radii.full`. |
 | `TabView` | swipeable multi-scene pages (v1 PagerView + shared TabView) | Native (`tab-view.native.tsx`) owns `react-native-pager-view` sync with the tab bar (tap → `setPage`, swipe → `onPageSelected`). Web/export (`tab-view.tsx`) keeps the same bar and shows the selected scene only. Default bar is `SegmentedTabs`; CRM uses `renderTabBar` for the full-bleed scroll strip. `lazy` mounts a scene on first visit. Not `BottomNav`. Pill does not interpolate during the swipe (settles on `onPageSelected`, same as v1). |
@@ -145,7 +159,7 @@ System font. No webfont.
 | `Banner` | inline error | keep; do not invent a second error strip |
 | `EmptyState` | `EmptyState` | centered icon badge (48 circle on `muted`), `typography.lg` title, `typography.sm` muted description, optional action slot |
 | `StatusPill` | `StatusPill` | soft tone capsule (neutral/action/success/attention/danger); status is never color-only |
-| `AppHeader` | `AppHeader` | title/subtitle row with paired back control (`{ onPress, accessibilityLabel }`) and actions slot; screens own the safe-area inset |
+| `AppHeader` | `AppHeader` | title uses `typography.title`; optional `leading` slot (Shozik on the AI tab later); paired back control (`{ onPress, accessibilityLabel }`) and actions slot; screens own the safe-area inset |
 | `IconButton` | round icon controls | 44pt circle; `primary` ink fill, `secondary` bordered card |
 | `SearchField` | list search | raised capsule, leading search icon; not the squircle `TextField` |
 | `ChoiceField` | `ChoiceField` | horizontal chip row (44pt chips for list filters) — not the same as SegmentedTabs |
@@ -154,10 +168,12 @@ System font. No webfont.
 | `CenteredSpinner` | guard-layout loading | full-screen centered `ActivityIndicator`; auth / signed-in shells |
 
 **Not shared yet** (add to `ui/` on first screen that needs them): none
-listed after SwitchRow landed with the product editor.
+listed after `ListSurface` / `ListRow` landed with the v44 kit (SHO-389).
 
 Feature examples (never in `ui/`): `OrderRow`, `ProductRow`,
 `AssistantSheet`, `BottomNav` (staff shell, not a generic tab primitive).
+Center control is `sit.svg` in `actionSoft` (no Sparkles, no accent ring);
+the AI label is always `actionFg`. Hide-on-editor stays the `(app)` Stack.
 
 ### Tab chrome — reuse, do not fork
 
