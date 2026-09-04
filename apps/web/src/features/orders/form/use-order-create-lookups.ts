@@ -1,11 +1,12 @@
 /**
- * Customer/product lookups for order create (SHO-379). Debounced
+ * Customer/product lookups for order create (SHO-379 / SHO-408). Debounced
  * picker query is `customers.listCustomers.search` /
  * `catalog.listProducts.query` (key includes that input). Client
- * `includes` is a last-resort filter on the returned page. Variants
- * load `catalog.getProduct` when that level is open.
+ * `includes` is a last-resort filter on the returned page. Draft lines
+ * and the open variant picker overlay `catalog.getProduct` rows so list
+ * `variantCount` (active-only) cannot treat archived-only as simple.
  */
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 
 import { useApiClient } from "../../../api/api-provider";
@@ -30,6 +31,17 @@ import {
   type OrderThumbnailView,
 } from "../shared/order-thumbnails";
 import { useOrderThumbnails } from "../shared/use-order-thumbnails";
+import {
+  catalogFactsBlockSubmit,
+  catalogFactsFromProduct,
+  catalogQueryLoadStatus,
+  classifyCatalogFactsLoad,
+  overlayCatalogVariantCount,
+  uniqueProductIds,
+  type CatalogFactsQuerySnapshot,
+  type OrderLineCatalogFacts,
+  type OrderLineCatalogFactsMap,
+} from "./order-line-catalog-facts";
 
 function useDebouncedValue<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -55,6 +67,7 @@ function matchesLookupQuery(haystack: string, query: string): boolean {
 export function useOrderCreateLookups(args: {
   readonly enabled: boolean;
   readonly variantProductId: string | null;
+  readonly draftProductIds: readonly string[];
   readonly customerQuery: string;
   readonly productQuery: string;
   readonly canFetchThumbnails: boolean;
@@ -78,6 +91,10 @@ export function useOrderCreateLookups(args: {
     debouncedProductQuery,
     LIST_PRODUCTS_QUERY_MAX,
   );
+  const catalogProductIds = uniqueProductIds([
+    ...args.draftProductIds,
+    args.variantProductId,
+  ]);
   const customers = useQuery({
     ...customersListQueryOptions({
       client,
@@ -94,13 +111,18 @@ export function useOrderCreateLookups(args: {
     }),
     enabled: args.enabled && activeCompanyId !== null,
   });
-  const product = useQuery({
-    ...catalogGetProductQueryOptions({
-      client,
-      companyId: activeCompanyId,
-      productId: args.variantProductId,
+  const productQueries = useQueries({
+    queries: catalogProductIds.map((productId) => {
+      const options = catalogGetProductQueryOptions({
+        client,
+        companyId: activeCompanyId,
+        productId,
+      });
+      return {
+        ...options,
+        enabled: options.enabled && args.enabled,
+      };
     }),
-    enabled: args.enabled && args.variantProductId !== null,
   });
 
   const customerRows = useMemo(() => {
@@ -113,13 +135,31 @@ export function useOrderCreateLookups(args: {
     );
   }, [customerSearch, customers.data?.items]);
 
+  const catalogFacts = useMemo((): OrderLineCatalogFactsMap => {
+    const map = new Map<string, OrderLineCatalogFacts>();
+    for (const [index, productId] of catalogProductIds.entries()) {
+      const data = productQueries[index]?.data;
+      if (data !== undefined) {
+        map.set(productId, catalogFactsFromProduct(data));
+      }
+    }
+    return map;
+  }, [catalogProductIds, productQueries]);
+
   const productRows = useMemo(() => {
     const items = products.data?.items ?? [];
-    if (productSearch === undefined) {
-      return items;
-    }
-    return items.filter((row) => matchesLookupQuery(row.name, productSearch));
-  }, [productSearch, products.data?.items]);
+    const filtered =
+      productSearch === undefined
+        ? items
+        : items.filter((row) => matchesLookupQuery(row.name, productSearch));
+    return filtered.map((row) => ({
+      ...row,
+      variantCount: overlayCatalogVariantCount(
+        row.variantCount,
+        catalogFacts.get(row.id),
+      ),
+    }));
+  }, [catalogFacts, productSearch, products.data?.items]);
 
   const thumbnailPages = useMemo(() => [{ items: productRows }], [productRows]);
   const { urlsByFileId, failedFileIds } = useOrderThumbnails({
@@ -145,6 +185,30 @@ export function useOrderCreateLookups(args: {
     }
     return map;
   }, [args.canFetchThumbnails, failedFileIds, productRows, urlsByFileId]);
+
+  const draftCatalogIds = uniqueProductIds(args.draftProductIds);
+  const catalogQueryByProductId = new Map<
+    string,
+    CatalogFactsQuerySnapshot | undefined
+  >();
+  for (const [index, productId] of catalogProductIds.entries()) {
+    const query = productQueries[index];
+    catalogQueryByProductId.set(
+      productId,
+      query === undefined ? undefined : { status: query.status },
+    );
+  }
+  const catalogFactsStatus = classifyCatalogFactsLoad(
+    draftCatalogIds,
+    catalogQueryByProductId,
+  );
+  const catalogFactsPending = catalogFactsBlockSubmit(catalogFactsStatus);
+
+  const pickerIndex =
+    args.variantProductId === null
+      ? -1
+      : catalogProductIds.indexOf(args.variantProductId);
+  const pickerQuery = pickerIndex < 0 ? undefined : productQueries[pickerIndex];
 
   function retryCustomers(): void {
     if (activeCompanyId === null) {
@@ -173,10 +237,20 @@ export function useOrderCreateLookups(args: {
     productsStatus: products.status,
     productsError: products.status === "error" ? products.error : null,
     retryProducts,
-    variants: (product.data?.variants ?? []).filter(
+    variants: (pickerQuery?.data?.variants ?? []).filter(
       (variant) => variant.status === "active",
     ),
-    variantsStatus: product.status,
+    variantsStatus:
+      args.variantProductId === null
+        ? ("idle" as const)
+        : catalogQueryLoadStatus(
+            pickerQuery === undefined
+              ? undefined
+              : { status: pickerQuery.status },
+          ),
     thumbnailsByProductId,
+    catalogFacts,
+    catalogFactsStatus,
+    catalogFactsPending,
   };
 }

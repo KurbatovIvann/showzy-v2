@@ -23,6 +23,7 @@ const INPUT: CreateOrderPayload = {
   items: [
     {
       product: { by: "id", id: PRODUCT_ID },
+      variantSelection: { kind: "base" },
       quantity: { milli: "1000" },
     },
   ],
@@ -75,6 +76,14 @@ describe("bindOrderCreateMutate", () => {
       "customer",
       "items",
     ]);
+    expect(
+      Object.keys(
+        (calls[0]?.input as CreateOrderPayload | undefined)?.items[0] ?? {},
+      ).sort(),
+    ).toEqual(["product", "quantity", "variantSelection"]);
+    expect(
+      (calls[0]?.input as CreateOrderPayload | undefined)?.items[0],
+    ).not.toHaveProperty("variant");
     expect(JSON.stringify(calls[0]?.input)).not.toContain('by":"query');
     expect(JSON.stringify(calls[0]?.input)).not.toContain("decimal");
     expect(calls[0]?.key).toBe(calls[1]?.key);
