@@ -18,6 +18,19 @@ infra flake or a real regression. It is not a signal to retrigger.
 Those tactics hide the difference between a test bug and a product
 regression. In an agentic workflow the agent cannot tell them apart.
 
+## `dependency-audit` npm registry timeouts (SHO-387)
+
+pnpm 10 called npm's retired `/-/npm/v1/security/audits/quick` endpoint.
+That surface hung (`ERR_SOCKET_TIMEOUT`) and later returns 410. pnpm 12
+(`packageManager` in the root `package.json`) uses
+`/-/npm/v1/security/advisories/bulk` instead. CI installs that binary
+with `pnpm/setup` (native `@pnpm/exe`); `pnpm/action-setup` v6 cannot
+exec it.
+
+The `dependency-audit` job runs `pnpm audit --audit-level high`. Do
+not pass `--ignore-registry-errors`, and do not add GitHub Actions job
+`retry` / rerun-on-failure.
+
 ## What to do instead
 
 1. Treat the failure as a bug until proven otherwise.

@@ -12,6 +12,19 @@ const repoRoot = path.resolve(
   "../../..",
 );
 
+test("root packageManager is pnpm 12 so audit uses the bulk advisory endpoint", () => {
+  const pkg = JSON.parse(
+    fs.readFileSync(path.join(repoRoot, "package.json"), "utf8"),
+  );
+  assert.match(pkg.packageManager, /^pnpm@12\./);
+  const lockfile = fs.readFileSync(
+    path.join(repoRoot, "pnpm-lock.yaml"),
+    "utf8",
+  );
+  assert.match(lockfile, /packageManagerDependencies:/);
+  assert.match(lockfile, /specifier: 12\.3\.2/);
+});
+
 const workflowPath = path.join(repoRoot, ".github/workflows/ci.yml");
 const setupActionPath = path.join(
   repoRoot,
@@ -185,10 +198,13 @@ test("secret-scan and the other named gates remain independent workers", () => {
     extractJob(workflow, "secret-scan"),
     /gitleaks\/gitleaks-action@/,
   );
-  assert.match(
-    extractJob(workflow, "dependency-audit"),
-    /pnpm audit --audit-level high/,
-  );
+  const dependencyAudit = extractJob(workflow, "dependency-audit");
+  assert.match(dependencyAudit, /pnpm audit --audit-level high/);
+  assert.match(dependencyAudit, /pnpm\/setup@/);
+  assert.match(dependencyAudit, /install:\s*["']false["']/);
+  assert.doesNotMatch(dependencyAudit, /ignore-registry-errors/);
+  assert.doesNotMatch(dependencyAudit, /run-dependency-audit/);
+  assert.doesNotMatch(dependencyAudit, /pnpm\/action-setup@/);
   assert.match(extractJob(workflow, "contract-check"), /contract:check/);
   assert.match(extractJob(workflow, "migration-drift"), /db:check/);
   assert.match(extractJob(workflow, "bundle-probe"), /bundle:probe/);
@@ -250,6 +266,9 @@ test("checks is a fail-closed aggregator over every required quality job", () =>
 });
 
 test("setup action caches the pnpm store and not node_modules", () => {
+  assert.match(setupAction, /pnpm\/setup@/);
+  assert.match(setupAction, /install:\s*["']false["']/);
+  assert.doesNotMatch(setupAction, /pnpm\/action-setup@/);
   assert.match(setupAction, /cache:\s+pnpm/);
   assert.doesNotMatch(setupAction, /cache:\s*['"]?node_modules/);
   assert.doesNotMatch(setupAction, /actions\/cache@/);

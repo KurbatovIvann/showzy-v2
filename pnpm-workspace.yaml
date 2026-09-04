@@ -11,16 +11,24 @@ overrides:
   lodash: "^4.18.1"
 
 # SHO-246 / SHO-244: sharp's install script extracts the prebuilt libvips
-# binary. pnpm 10 ignores dependency scripts unless allowlisted. Do not add
-# other packages here as a workaround for native cutters (no imgproxy).
-onlyBuiltDependencies:
-  - sharp
+# binary. pnpm 12 `allowBuilds` replaces `onlyBuiltDependencies`. `true`
+# runs the script; `false` is a reviewed deny. Unlisted lifecycle scripts
+# fail the install (`strictDepBuilds`). Do not add other `true` entries as
+# a workaround for native cutters (no imgproxy).
+allowBuilds:
+  sharp: true
+  cpu-features: false
+  esbuild: false
+  msgpackr-extract: false
+  msw: false
+  protobufjs: false
+  ssh2: false
 
 # Expo SDK 57 Metro (0.84.4 via @expo/metro) still depends on image-size
 # 1.2.1. Both high GHSAs list <=2.0.2 with no patched release. Build-time
 # parser DoS in Metro, not a Showzy runtime path. Drop when Expo/Metro
 # bumps image-size (fnd-T48).
-auditConfig:
-  ignoreGhsas:
+audit:
+  ignore:
     - GHSA-w3rx-r6r6-pgpr
     - GHSA-5p2g-fcmc-qvqq
