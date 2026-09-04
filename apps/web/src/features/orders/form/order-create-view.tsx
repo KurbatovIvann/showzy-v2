@@ -1,4 +1,4 @@
-import { Search, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, Plus, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import { Banner } from "../../auth/shared/banner";
@@ -9,6 +9,10 @@ import { TextareaField } from "../../../components/ui/form-field";
 import { LeaveDialog } from "../../../components/ui/leave-dialog";
 import { PaneHeader } from "../../../components/ui/pane-header";
 import { detectLocale } from "../../../i18n/locale";
+import {
+  orderItemsInOrderLabel,
+  orderVariantMetaLabel,
+} from "../../../i18n/orders";
 import { panelChromeCopy } from "../../../i18n/panel/chrome";
 import {
   CREATE_ORDER_COMMENT_MAX,
@@ -16,8 +20,13 @@ import {
   LIST_PRODUCTS_QUERY_MAX,
   ORDER_COMMENT_LINES,
 } from "../shared/order-caps";
+import { CustomerIdentityCard } from "../shared/customer-identity-card";
 import { OrderThumbnail } from "../shared/order-thumbnail";
+import { OrdersSearchInput } from "../shared/orders-search-input";
+import { PickerCheckCircle } from "../shared/picker-check";
+import { OrdersSectionLabel } from "../shared/section-label";
 import { OrderLineCard } from "./order-line-card";
+import { isIdentityBlockedOnOrder } from "./product-picker";
 import type { OrderCreateModel } from "./use-order-create";
 
 export function OrderCreateView({
@@ -29,11 +38,12 @@ export function OrderCreateView({
   readonly showBack: boolean;
   readonly onBack: () => void;
 }) {
-  const chromeCopy = panelChromeCopy(
-    detectLocale(typeof navigator === "undefined" ? "uk" : navigator.language),
+  const locale = detectLocale(
+    typeof navigator === "undefined" ? "uk" : navigator.language,
   );
+  const chromeCopy = panelChromeCopy(locale);
   const pickerOverlay = model.pickerOpen ? (
-    <ProductPickerOverlay model={model} backLabel={chromeCopy.backToList} />
+    <ProductPickerOverlay model={model} locale={locale} />
   ) : undefined;
 
   return (
@@ -80,7 +90,7 @@ export function OrderCreateView({
               model.submit();
             }}
           >
-            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
               {model.banner !== null ? (
                 <div className="mb-4">
                   <Banner message={model.banner} />
@@ -88,62 +98,95 @@ export function OrderCreateView({
               ) : null}
               <CustomerPicker model={model} />
               <div className="mt-6">
-                <h3 className="text-[13px] font-medium text-muted">
-                  {model.formCopy.itemsTitle}
-                </h3>
+                <div className="flex items-center justify-between gap-3">
+                  <OrdersSectionLabel>
+                    {model.formCopy.itemsTitle}
+                  </OrdersSectionLabel>
+                  {model.items.length > 0 ? (
+                    <Button
+                      type="button"
+                      size="compact"
+                      disabled={!model.fieldsEditable}
+                      onClick={model.openPicker}
+                    >
+                      <Plus size={14} aria-hidden />
+                      {model.formCopy.addProductsLabel}
+                    </Button>
+                  ) : null}
+                </div>
                 {model.itemsError !== null ? (
                   <p role="alert" className="mt-1 text-[12px] text-danger">
                     {model.itemsError}
                   </p>
                 ) : null}
-                <ul className="mt-2 divide-y divide-line">
-                  {model.items.map((item, index) => (
-                    <OrderLineCard
-                      key={item.key}
-                      productName={item.productName}
-                      variantName={item.variantName}
-                      quantityLabel={item.quantityLabel}
-                      editable={model.fieldsEditable}
-                      thumbnailFileId={item.thumbnailFileId}
-                      thumbnailUrl={item.thumbnailUrl}
-                      thumbnailFailed={item.thumbnailFailed}
-                      copy={model.formCopy}
-                      onStep={(delta) => {
-                        model.stepQuantity(index, delta);
-                      }}
-                      onRemove={() => {
-                        model.removeItem(index);
-                      }}
-                    />
-                  ))}
-                </ul>
-                <button
-                  type="button"
-                  disabled={!model.fieldsEditable}
-                  onClick={model.openPicker}
-                  className="mt-3 text-[14px] font-medium text-action focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action disabled:opacity-40"
-                >
-                  {model.items.length === 0
-                    ? model.formCopy.addProductsPlaceholder
-                    : model.formCopy.addProductsLabel}
-                </button>
+                {model.items.length === 0 ? (
+                  <button
+                    type="button"
+                    disabled={!model.fieldsEditable}
+                    onClick={model.openPicker}
+                    className={cx(
+                      "mt-3 flex w-full flex-col items-center justify-center rounded-card border border-dashed border-line bg-canvas px-4 py-8",
+                      "text-[14px] font-medium text-muted",
+                      "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action",
+                      !model.fieldsEditable ? "opacity-40" : "hover:bg-surface",
+                    )}
+                  >
+                    {model.formCopy.addProductsPlaceholder}
+                  </button>
+                ) : (
+                  <ul className="mt-2 space-y-2">
+                    {model.items.map((item, index) => (
+                      <OrderLineCard
+                        key={item.key}
+                        productName={item.productName}
+                        variantName={item.variantName}
+                        quantityLabel={item.quantityLabel}
+                        editable={model.fieldsEditable}
+                        thumbnailFileId={item.thumbnailFileId}
+                        thumbnailUrl={item.thumbnailUrl}
+                        thumbnailFailed={item.thumbnailFailed}
+                        copy={model.formCopy}
+                        onCommitUnits={(units) => {
+                          model.setQuantityUnits(index, units);
+                        }}
+                        onRemove={() => {
+                          model.removeItem(index);
+                        }}
+                      />
+                    ))}
+                  </ul>
+                )}
               </div>
               <div className="mt-6">
-                <TextareaField
-                  id="order-create-comment"
-                  label={model.formCopy.commentLabel}
-                  value={model.comment}
-                  placeholder={model.formCopy.commentPlaceholder}
-                  rows={ORDER_COMMENT_LINES}
-                  maxLength={CREATE_ORDER_COMMENT_MAX}
-                  disabled={!model.fieldsEditable}
-                  error={model.commentError}
-                  onChange={model.changeComment}
-                />
+                <OrdersSectionLabel>
+                  {model.formCopy.commentTitle}
+                </OrdersSectionLabel>
+                <div className="mt-2">
+                  <TextareaField
+                    id="order-create-comment"
+                    label={model.formCopy.commentLabel}
+                    value={model.comment}
+                    placeholder={model.formCopy.commentPlaceholder}
+                    rows={ORDER_COMMENT_LINES}
+                    maxLength={CREATE_ORDER_COMMENT_MAX}
+                    disabled={!model.fieldsEditable}
+                    error={model.commentError}
+                    onChange={model.changeComment}
+                  />
+                </div>
               </div>
             </div>
-            <div className="sticky bottom-0 border-t border-line bg-surface px-6 py-4">
-              <div className="flex gap-2">
+            <div className="sticky bottom-0 border-t border-line bg-surface p-3 sm:p-4">
+              {model.items.length > 0 ? (
+                <p className="mb-3 text-center text-[13px] text-muted">
+                  {orderItemsInOrderLabel(
+                    model.copy,
+                    locale,
+                    model.items.length,
+                  )}
+                </p>
+              ) : null}
+              <div className="flex flex-col gap-2 sm:flex-row">
                 <Button
                   type="button"
                   variant="secondary"
@@ -204,14 +247,9 @@ function CustomerPicker({ model }: { readonly model: OrderCreateModel }) {
     };
   }, [model.customerOpen, model.setCustomerOpen]);
 
-  const triggerLabel =
-    model.customerName.length > 0
-      ? model.customerName
-      : model.formCopy.customerPlaceholder;
-
   return (
     <div ref={rootRef} className="relative">
-      <p className="text-[13px] text-muted">{model.formCopy.customerLabel}</p>
+      <OrdersSectionLabel>{model.formCopy.customerTitle}</OrdersSectionLabel>
       <button
         type="button"
         aria-expanded={model.customerOpen}
@@ -222,16 +260,24 @@ function CustomerPicker({ model }: { readonly model: OrderCreateModel }) {
           model.setCustomerOpen(!model.customerOpen);
         }}
         className={cx(
-          "mt-1 w-full rounded-card border bg-canvas px-3 py-2.5 text-left text-[15px]",
+          "mt-2 flex w-full items-center rounded-card bg-canvas px-3 py-2.5 text-left shadow-card",
           "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action",
-          model.customerError !== null
-            ? "border-danger text-ink"
-            : "border-line",
-          model.customerName.length > 0 ? "text-ink" : "text-faint",
+          model.customerError !== null ? "ring-1 ring-danger" : false,
           !model.fieldsEditable ? "opacity-40" : false,
         )}
       >
-        {triggerLabel}
+        <CustomerIdentityCard
+          name={model.customerName.length > 0 ? model.customerName : null}
+          phone={model.customerPhone}
+          placeholder={model.formCopy.customerPlaceholder}
+          trailing={
+            <ChevronDown
+              size={18}
+              className="shrink-0 text-faint"
+              aria-hidden
+            />
+          }
+        />
       </button>
       {model.customerError !== null ? (
         <p role="alert" className="mt-1 text-[12px] text-danger">
@@ -240,27 +286,15 @@ function CustomerPicker({ model }: { readonly model: OrderCreateModel }) {
       ) : null}
       {model.customerOpen ? (
         <div className="absolute z-20 mt-1 w-full rounded-card border border-line bg-surface p-2 shadow-card">
-          <label className="sr-only" htmlFor="order-create-customer-search">
-            {model.formCopy.customerSearchLabel}
-          </label>
-          <div className="relative">
-            <Search
-              size={16}
-              aria-hidden
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-faint"
-            />
-            <input
-              id="order-create-customer-search"
-              type="search"
-              value={model.customerQuery}
-              maxLength={LIST_CUSTOMERS_SEARCH_MAX}
-              placeholder={model.formCopy.customerSearchPlaceholder}
-              onChange={(event) => {
-                model.setCustomerQuery(event.target.value);
-              }}
-              className="w-full rounded-card border border-line bg-canvas py-2 pl-9 pr-3 text-[14px] text-ink placeholder:text-faint focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action"
-            />
-          </div>
+          <OrdersSearchInput
+            id="order-create-customer-search"
+            label={model.formCopy.customerSearchLabel}
+            value={model.customerQuery}
+            maxLength={LIST_CUSTOMERS_SEARCH_MAX}
+            placeholder={model.formCopy.customerSearchPlaceholder}
+            bordered={false}
+            onChange={model.setCustomerQuery}
+          />
           <ul role="listbox" className="mt-2 max-h-56 overflow-y-auto">
             {model.customersLoading ? (
               <li className="px-3 py-3 text-[14px] text-muted">
@@ -297,21 +331,18 @@ function CustomerPicker({ model }: { readonly model: OrderCreateModel }) {
                         model.pickCustomer(customer);
                       }}
                       className={cx(
-                        "flex w-full flex-col rounded-field px-3 py-2 text-left",
+                        "flex w-full rounded-field px-2 py-2 text-left",
                         "hover:bg-canvas focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action",
                         customer.id === model.customerId
                           ? "bg-actionSoft"
                           : false,
                       )}
                     >
-                      <span className="text-[15px] font-medium text-ink">
-                        {customer.name}
-                      </span>
-                      {customer.phone !== null ? (
-                        <span className="text-[13px] text-muted">
-                          {customer.phone}
-                        </span>
-                      ) : null}
+                      <CustomerIdentityCard
+                        name={customer.name}
+                        phone={customer.phone}
+                        size="sm"
+                      />
                     </button>
                   </li>
                 ))
@@ -325,79 +356,83 @@ function CustomerPicker({ model }: { readonly model: OrderCreateModel }) {
 
 function ProductPickerOverlay({
   model,
-  backLabel,
+  locale,
 }: {
   readonly model: OrderCreateModel;
-  readonly backLabel: string;
+  readonly locale: "en" | "uk";
 }) {
   const variants = model.pickerKind === "variants";
+  const title = variants
+    ? (model.pickerProductName ?? model.formCopy.productSheetTitle)
+    : model.formCopy.productSheetTitle;
+  const closeLabel = variants
+    ? model.formCopy.variantsBackLabel
+    : model.formCopy.productSheetClose;
+
   return (
     <div className="flex min-h-full flex-col">
-      <PaneHeader
-        title={
-          <h2 className="text-inherit font-inherit">
-            {variants
-              ? (model.pickerProductName ?? model.formCopy.productSheetTitle)
-              : model.formCopy.productSheetTitle}
-          </h2>
-        }
-        menuLabel=""
-        backLabel={variants ? model.formCopy.variantsBackLabel : backLabel}
-        onOpenNav={() => undefined}
-        onBack={variants ? model.closeVariants : model.closePicker}
-        showMenu={false}
-        showBack
-        trailing={
-          <button
-            type="button"
-            aria-label={model.formCopy.cancel}
-            onClick={model.closePicker}
-            className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full text-ink hover:bg-canvas focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action"
-          >
+      <div className="flex items-center gap-1 border-b border-line px-2 py-2.5 sm:px-3">
+        <button
+          type="button"
+          aria-label={closeLabel}
+          onClick={variants ? model.closeVariants : model.closePicker}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink hover:bg-canvas focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action"
+        >
+          {variants ? (
+            <ChevronLeft size={20} aria-hidden />
+          ) : (
             <X size={20} aria-hidden />
-          </button>
-        }
-      />
-      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+          )}
+        </button>
+        <div className="min-w-0 flex-1 px-1 text-center text-[16px] font-semibold tracking-tight text-ink sm:text-[17px]">
+          {title}
+        </div>
+        <span className="h-10 w-10 shrink-0" aria-hidden />
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
         {variants ? (
           <VariantList model={model} />
         ) : (
-          <ProductList model={model} />
+          <ProductList model={model} locale={locale} />
         )}
       </div>
-      <div className="sticky bottom-0 border-t border-line bg-surface px-6 py-4">
-        <Button type="button" className="w-full" onClick={model.commitPicker}>
-          {model.pickerDoneLabel}
-        </Button>
+      <div className="sticky bottom-0 border-t border-line bg-surface p-3 sm:p-4">
+        {model.pickerPickCount === 0 ? (
+          <Button
+            type="button"
+            variant="secondary"
+            className="w-full"
+            onClick={model.closePicker}
+          >
+            {model.formCopy.productSheetClose}
+          </Button>
+        ) : (
+          <Button type="button" className="w-full" onClick={model.commitPicker}>
+            {model.pickerAddLabel}
+          </Button>
+        )}
       </div>
     </div>
   );
 }
 
-function ProductList({ model }: { readonly model: OrderCreateModel }) {
+function ProductList({
+  model,
+  locale,
+}: {
+  readonly model: OrderCreateModel;
+  readonly locale: "en" | "uk";
+}) {
   return (
     <>
-      <label className="sr-only" htmlFor="order-create-product-search">
-        {model.formCopy.productSearchLabel}
-      </label>
-      <div className="relative">
-        <Search
-          size={16}
-          aria-hidden
-          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-faint"
-        />
-        <input
-          id="order-create-product-search"
-          type="search"
-          value={model.productQuery}
-          maxLength={LIST_PRODUCTS_QUERY_MAX}
-          placeholder={model.formCopy.productSearchPlaceholder}
-          onChange={(event) => {
-            model.setProductQuery(event.target.value);
-          }}
-          className="w-full rounded-card border border-line bg-canvas py-2 pl-9 pr-3 text-[14px] text-ink placeholder:text-faint focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action"
-        />
-      </div>
+      <OrdersSearchInput
+        id="order-create-product-search"
+        label={model.formCopy.productSearchLabel}
+        value={model.productQuery}
+        maxLength={LIST_PRODUCTS_QUERY_MAX}
+        placeholder={model.formCopy.productSearchPlaceholder}
+        onChange={model.setProductQuery}
+      />
       <ul className="mt-3">
         {model.productsLoading ? (
           <li className="py-3 text-[14px] text-muted">
@@ -425,13 +460,23 @@ function ProductList({ model }: { readonly model: OrderCreateModel }) {
         ) : null}
         {model.productsError === null
           ? model.products.map((product) => {
-              const selected = model.pickerSelectedIds.has(product.id);
               const hasVariants = product.variantCount > 0;
+              const selected = model.pickerSelectedIds.has(product.id);
+              const blocked =
+                !hasVariants &&
+                isIdentityBlockedOnOrder(
+                  model.existingLineKeys,
+                  product.id,
+                  null,
+                  model.pickerPicks,
+                );
               return (
                 <li key={product.id}>
                   <button
                     type="button"
+                    aria-label={product.name}
                     aria-pressed={hasVariants ? undefined : selected}
+                    disabled={blocked}
                     onClick={() => {
                       if (hasVariants) {
                         model.openVariants(product.id, product.name);
@@ -441,8 +486,8 @@ function ProductList({ model }: { readonly model: OrderCreateModel }) {
                     }}
                     className={cx(
                       "flex w-full items-center gap-3 rounded-field px-3 py-3 text-left",
-                      "hover:bg-canvas focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action",
-                      selected ? "bg-actionSoft" : false,
+                      "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action",
+                      blocked ? "opacity-40" : "hover:bg-canvas",
                     )}
                   >
                     <OrderThumbnail
@@ -451,9 +496,21 @@ function ProductList({ model }: { readonly model: OrderCreateModel }) {
                       failed={product.thumbnailFailed}
                       failedLabel={model.formCopy.thumbnailUnavailable}
                     />
-                    <span className="min-w-0 flex-1 text-[15px] font-medium text-ink">
-                      {product.name}
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[15px] font-medium text-ink">
+                        {product.name}
+                      </span>
+                      <span className="text-[12px] text-muted" aria-hidden>
+                        {orderVariantMetaLabel(
+                          model.copy,
+                          locale,
+                          product.variantCount,
+                        )}
+                      </span>
                     </span>
+                    {hasVariants ? null : (
+                      <PickerCheckCircle checked={selected} />
+                    )}
                   </button>
                 </li>
               );
@@ -490,23 +547,33 @@ function VariantList({ model }: { readonly model: OrderCreateModel }) {
     <ul>
       {model.variants.map((variant) => {
         const selected = model.pickerSelectedVariantIds.has(variant.id);
+        const productId = model.pickerProductId ?? "";
+        const blocked = isIdentityBlockedOnOrder(
+          model.existingLineKeys,
+          productId,
+          variant.id,
+          model.pickerPicks,
+        );
         return (
           <li key={variant.id}>
             <button
               type="button"
+              aria-label={variant.name}
               aria-pressed={selected}
+              disabled={blocked}
               onClick={() => {
                 model.pickVariant(variant.id, variant.name);
               }}
               className={cx(
-                "flex w-full items-center justify-between rounded-field px-3 py-3 text-left",
-                "hover:bg-canvas focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action",
-                selected ? "bg-actionSoft" : false,
+                "flex w-full items-center gap-3 rounded-field px-3 py-3 text-left",
+                "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action",
+                blocked ? "opacity-40" : "hover:bg-canvas",
               )}
             >
-              <span className="text-[15px] font-medium text-ink">
+              <span className="min-w-0 flex-1 text-[15px] font-medium text-ink">
                 {variant.name}
               </span>
+              <PickerCheckCircle checked={selected} />
             </button>
           </li>
         );

@@ -3,8 +3,8 @@ import { useEffect } from "react";
 import { Button } from "./button";
 
 /**
- * Dirty-form leave confirm. Canvas LeaveDialog intent (SHO-379): title,
- * stay vs leave, Escape stays. Domain copy is passed in — this primitive
+ * Dirty-form leave confirm. Canvas LeaveDialog intent: stay is outline,
+ * leave is ink, Escape stays. Domain copy is passed in — this primitive
  * has no product strings.
  */
 export function LeaveDialog({
@@ -45,7 +45,7 @@ export function LeaveDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/20 p-4">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/25 p-4">
       <div
         aria-hidden="true"
         className="absolute inset-0 cursor-default"
@@ -55,7 +55,7 @@ export function LeaveDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="leave-dialog-title"
-        className="relative w-full max-w-[380px] rounded-panel bg-surface p-6 shadow-auth"
+        className="relative w-full max-w-md rounded-panel border border-line bg-surface p-6 shadow-auth"
       >
         <h2
           id="leave-dialog-title"
@@ -64,13 +64,19 @@ export function LeaveDialog({
           {title}
         </h2>
         {description ? (
-          <p className="mt-2 text-[15px] leading-6 text-muted">{description}</p>
+          <p className="mt-2 text-[15px] text-muted">{description}</p>
         ) : null}
-        <div className="mt-6 flex flex-col gap-2">
-          <Button type="button" autoFocus onClick={onStay}>
+        <div className="mt-6 flex flex-col gap-2 sm:flex-row">
+          <Button
+            type="button"
+            variant="secondary"
+            className="flex-1"
+            autoFocus
+            onClick={onStay}
+          >
             {stayLabel}
           </Button>
-          <Button type="button" variant="secondary" onClick={onLeave}>
+          <Button type="button" className="flex-1" onClick={onLeave}>
             {leaveLabel}
           </Button>
         </div>

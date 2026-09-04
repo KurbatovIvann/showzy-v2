@@ -5,6 +5,8 @@ import { OrdersCreateLink } from "./orders-create-link";
 import { OrdersListView } from "./orders-list-view";
 import { useOrdersList } from "./use-orders-list";
 
+export { OrdersListCompanySubtitle } from "./orders-list-company-subtitle";
+
 const ordersRoute = getRouteApi("/_authed/$companySlug/_panel/orders");
 
 export function OrdersListHeaderTrailing() {

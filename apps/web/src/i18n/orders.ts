@@ -1,6 +1,6 @@
 /** Orders list copy namespace (uk/en). Locale plumbing lives in `./locale`. */
 import { interpolate, type Locale } from "./locale";
-import type { CountForms } from "./plural";
+import { countPluralForm, type CountForms } from "./plural";
 
 export type OrdersCountForms = CountForms;
 
@@ -68,10 +68,16 @@ export type OrdersCreateCopy = {
   readonly variantsBackLabel: string;
   readonly variantsLoading: string;
   readonly variantsError: string;
-  readonly productSheetDone: string;
+  readonly productSheetClose: string;
+  readonly productSheetAdd: string;
+  readonly variants: OrdersCountForms;
+  readonly noVariants: string;
   readonly qtyDecrease: string;
   readonly qtyIncrease: string;
+  readonly qtyInput: string;
   readonly removeLine: string;
+  readonly removeVisible: string;
+  readonly itemsInOrder: string;
   readonly emptyCustomers: string;
   readonly emptyProducts: string;
   readonly emptyVariants: string;
@@ -174,7 +180,7 @@ const en: OrdersCopy = {
     confirmLabel: "Confirm",
     startLabel: "Start",
     completeLabel: "Done",
-    cancelOrder: "Cancel",
+    cancelOrder: "Cancel order",
     actionsLabel: "Order actions",
     mutationError: "Could not update the order. Try again.",
     mutationOffline: "No connection. Connect and try again.",
@@ -184,7 +190,7 @@ const en: OrdersCopy = {
   create: {
     title: "New order",
     itemsTitle: "Items",
-    addProductsLabel: "Products",
+    addProductsLabel: "Add products",
     addProductsPlaceholder: "Add products to the order",
     customerTitle: "Customer",
     customerLabel: "Customer",
@@ -209,10 +215,20 @@ const en: OrdersCopy = {
     variantsBackLabel: "Back to products",
     variantsLoading: "Loading variants…",
     variantsError: "Could not load variants. Try again.",
-    productSheetDone: "Done · {{count}}",
+    productSheetClose: "Close",
+    productSheetAdd: "Add · {{count}}",
+    variants: {
+      one: "{{count}} variant",
+      few: "{{count}} variants",
+      many: "{{count}} variants",
+    },
+    noVariants: "No variants",
     qtyDecrease: "Decrease quantity",
     qtyIncrease: "Increase quantity",
+    qtyInput: "Quantity for {{name}}",
     removeLine: "Remove {{name}}",
+    removeVisible: "Remove",
+    itemsInOrder: "{{countLabel}} in the order",
     emptyCustomers: "No active customers",
     emptyProducts: "No active products",
     emptyVariants: "No active variants",
@@ -289,7 +305,7 @@ const uk: OrdersCopy = {
     confirmLabel: "Підтвердити",
     startLabel: "В роботу",
     completeLabel: "Виконано",
-    cancelOrder: "Скасувати",
+    cancelOrder: "Скасувати замовлення",
     actionsLabel: "Дії з замовленням",
     mutationError: "Не вдалося оновити замовлення. Спробуйте ще раз.",
     mutationOffline: "Немає зʼєднання. Підключіться і спробуйте ще раз.",
@@ -299,7 +315,7 @@ const uk: OrdersCopy = {
   create: {
     title: "Нове замовлення",
     itemsTitle: "Товари",
-    addProductsLabel: "Товари",
+    addProductsLabel: "Додати товари",
     addProductsPlaceholder: "Додайте товари до замовлення",
     customerTitle: "Клієнт",
     customerLabel: "Клієнт",
@@ -324,10 +340,20 @@ const uk: OrdersCopy = {
     variantsBackLabel: "Назад до товарів",
     variantsLoading: "Завантажуємо варіанти…",
     variantsError: "Не вдалося завантажити варіанти. Спробуйте ще раз.",
-    productSheetDone: "Готово · {{count}}",
+    productSheetClose: "Закрити",
+    productSheetAdd: "Додати · {{count}}",
+    variants: {
+      one: "{{count}} варіант",
+      few: "{{count}} варіанти",
+      many: "{{count}} варіантів",
+    },
+    noVariants: "Без варіантів",
     qtyDecrease: "Зменшити кількість",
     qtyIncrease: "Збільшити кількість",
+    qtyInput: "Кількість для {{name}}",
     removeLine: "Видалити {{name}}",
+    removeVisible: "Видалити",
+    itemsInOrder: "{{countLabel}} у замовленні",
     emptyCustomers: "Немає активних клієнтів",
     emptyProducts: "Немає активних товарів",
     emptyVariants: "Немає активних варіантів",
@@ -361,6 +387,30 @@ export function orderGroupCountLabel(
 ): string {
   return interpolate(copy.groupCount, {
     title: copy.groups[key],
+    count: String(count),
+  });
+}
+
+export function orderItemsInOrderLabel(
+  copy: OrdersCopy,
+  locale: Locale,
+  count: number,
+): string {
+  const countLabel = interpolate(copy.items[countPluralForm(count, locale)], {
+    count: String(count),
+  });
+  return interpolate(copy.create.itemsInOrder, { countLabel });
+}
+
+export function orderVariantMetaLabel(
+  copy: OrdersCopy,
+  locale: Locale,
+  count: number,
+): string {
+  if (count === 0) {
+    return copy.create.noVariants;
+  }
+  return interpolate(copy.create.variants[countPluralForm(count, locale)], {
     count: String(count),
   });
 }

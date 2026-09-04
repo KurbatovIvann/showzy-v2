@@ -72,11 +72,35 @@ export function cloneOrderFormDraft(values: OrderFormDraft): OrderFormDraft {
   };
 }
 
-function clampLineQuantityUnits(units: number): number {
+export const LINE_QUANTITY_INPUT_MAX_DIGITS = String(
+  MAX_LINE_QUANTITY_UNITS,
+).length;
+
+export function clampLineQuantityUnits(units: number): number {
   if (!Number.isInteger(units) || units < 1) {
     return 1;
   }
   return Math.min(MAX_LINE_QUANTITY_UNITS, units);
+}
+
+/** Keep only ASCII digits so the qty field can be typed, not only stepped. */
+export function digitsFromQuantityInput(raw: string): string {
+  return raw.replaceAll(/\D/g, "");
+}
+
+export function unitsFromQuantityInput(raw: string): number {
+  const digits = digitsFromQuantityInput(raw);
+  if (digits.length === 0) {
+    return 1;
+  }
+  const value = BigInt(digits);
+  if (value < 1n) {
+    return 1;
+  }
+  if (value > BigInt(MAX_LINE_QUANTITY_UNITS)) {
+    return MAX_LINE_QUANTITY_UNITS;
+  }
+  return Number(value);
 }
 
 export function quantityMilliFromUnits(units: number): string {

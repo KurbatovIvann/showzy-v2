@@ -3,12 +3,14 @@ import { describe, expect, it } from "vitest";
 import { MAX_LINE_QUANTITY_UNITS } from "../shared/order-caps";
 import {
   addOrderLine,
+  digitsFromQuantityInput,
   emptyOrderFormDraft,
   formatOrderLineQuantity,
   parseOrderFormUiDraft,
   quantityMilliFromUnits,
   removeOrderLine,
   stepQuantityMilli,
+  unitsFromQuantityInput,
   unitsFromQuantityMilli,
   validateOrderForm,
   type OrderFormDraft,
@@ -59,6 +61,17 @@ describe("quantity milli stepper", () => {
     expect(unitsFromQuantityMilli(maxMilli)).toBe(MAX_LINE_QUANTITY_UNITS);
     expect(stepQuantityMilli(maxMilli, 1)).toBe(maxMilli);
     expect(quantityMilliFromUnits(MAX_LINE_QUANTITY_UNITS + 1)).toBe(maxMilli);
+  });
+
+  it("parses typed quantity, ignoring junk and clamping the ceiling", () => {
+    expect(digitsFromQuantityInput("12 pcs")).toBe("12");
+    expect(unitsFromQuantityInput("")).toBe(1);
+    expect(unitsFromQuantityInput("0")).toBe(1);
+    expect(unitsFromQuantityInput("4")).toBe(4);
+    expect(unitsFromQuantityInput("12 pcs")).toBe(12);
+    expect(unitsFromQuantityInput(String(MAX_LINE_QUANTITY_UNITS + 1))).toBe(
+      MAX_LINE_QUANTITY_UNITS,
+    );
   });
 });
 

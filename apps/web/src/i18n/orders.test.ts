@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { detectLocale } from "./locale";
-import { orderGroupCountLabel, ordersCopy } from "./orders";
+import {
+  orderGroupCountLabel,
+  orderItemsInOrderLabel,
+  ordersCopy,
+  orderVariantMetaLabel,
+} from "./orders";
 
 describe("orders copy", () => {
   it("defaults to Ukrainian and picks English only from an en locale", () => {
@@ -19,9 +24,10 @@ describe("orders copy", () => {
     expect(ordersCopy("uk").detail.confirmLabel).toBe("Підтвердити");
     expect(ordersCopy("uk").detail.startLabel).toBe("В роботу");
     expect(ordersCopy("uk").detail.completeLabel).toBe("Виконано");
-    expect(ordersCopy("uk").detail.cancelOrder).toBe("Скасувати");
+    expect(ordersCopy("uk").detail.cancelOrder).toBe("Скасувати замовлення");
     expect(ordersCopy("uk").detail.completeLabel).not.toBe("Завершено");
-    expect(ordersCopy("uk").create.title).toBe("Нове замовлення");
+    expect(ordersCopy("uk").create.addProductsLabel).toBe("Додати товари");
+    expect(ordersCopy("uk").create.productSheetClose).toBe("Закрити");
     expect(ordersCopy("uk").create.submitCreate).toBe("Створити");
     expect(ordersCopy("uk").create.leaveTitle).toBe("Вийти без збереження?");
     expect(ordersCopy("uk").create.errors.customerRequired).toBe(
@@ -31,11 +37,15 @@ describe("orders copy", () => {
     expect(ordersCopy("en").detail.thumbnailUnavailable).toBe(
       "Photo unavailable",
     );
-    expect(ordersCopy("uk").detail.thumbnailUnavailable).toBe("Фото недоступне");
+    expect(ordersCopy("uk").detail.thumbnailUnavailable).toBe(
+      "Фото недоступне",
+    );
     expect(ordersCopy("en").create.thumbnailUnavailable).toBe(
       "Photo unavailable",
     );
-    expect(ordersCopy("uk").create.thumbnailUnavailable).toBe("Фото недоступне");
+    expect(ordersCopy("uk").create.thumbnailUnavailable).toBe(
+      "Фото недоступне",
+    );
   });
 
   it("never titles a list group В роботі or Завершені", () => {
@@ -46,6 +56,16 @@ describe("orders copy", () => {
     );
     expect(orderGroupCountLabel(ordersCopy("uk"), "closed", 1)).toBe(
       "Закриті · 1",
+    );
+  });
+
+  it("labels picker variant meta and the create footer item count", () => {
+    expect(orderVariantMetaLabel(ordersCopy("uk"), "uk", 0)).toBe(
+      "Без варіантів",
+    );
+    expect(orderVariantMetaLabel(ordersCopy("uk"), "uk", 2)).toBe("2 варіанти");
+    expect(orderItemsInOrderLabel(ordersCopy("uk"), "uk", 1)).toBe(
+      "1 позиція у замовленні",
     );
   });
 });

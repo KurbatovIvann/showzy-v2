@@ -202,7 +202,9 @@ describe("orders detail (SHO-378)", () => {
     );
     const detail = screen.getByRole("region", { name: "#KL-K7K3K4" });
     await waitFor(() => {
-      expect(within(detail).getByText("Анна Мельник")).toBeDefined();
+      expect(
+        within(detail).getAllByText("Анна Мельник").length,
+      ).toBeGreaterThan(0);
       expect(within(detail).getByText("+380671112233")).toBeDefined();
     });
     expect(within(detail).getByText("Нове")).toBeDefined();
@@ -301,7 +303,9 @@ describe("orders detail (SHO-378)", () => {
       fireEvent.click(
         within(detail).getByRole("button", { name: copy.detail.actionsLabel }),
       );
-      fireEvent.click(screen.getByRole("menuitem", { name: "Скасувати" }));
+      fireEvent.click(
+        screen.getByRole("menuitem", { name: "Скасувати замовлення" }),
+      );
       await waitFor(() => {
         const pane = screen.getByRole("region", { name: heading });
         expect(within(pane).getByText("Скасовано")).toBeDefined();
@@ -467,9 +471,7 @@ describe("orders detail (SHO-378)", () => {
       await screen.findByRole("heading", { name: "#KL-K7K3K4" }),
     ).toBeDefined();
     await waitFor(() => {
-      const img = document.querySelector(
-        `img[data-file-id="${ROSE_FILE_ID}"]`,
-      );
+      const img = document.querySelector(`img[data-file-id="${ROSE_FILE_ID}"]`);
       expect(img).not.toBeNull();
       expect(img?.getAttribute("src")).toBe(ROSE_THUMB_URL);
     });
@@ -490,9 +492,7 @@ describe("orders detail (SHO-378)", () => {
 
   it("does not call getDownloadUrls for an employee without files:view", async () => {
     sessionState.user = signedInOwner();
-    listMineState.memberships = [
-      { ...FLOWERS_MEMBERSHIP, role: "employee" },
-    ];
+    listMineState.memberships = [{ ...FLOWERS_MEMBERSHIP, role: "employee" }];
     seedCatalog();
     seedProduct(ROSE_PRODUCT_WITH_IMAGE);
     await renderApp(`/kviti-lviv/orders/${ANNA_ORDER_ID}`);
