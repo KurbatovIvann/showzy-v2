@@ -1,8 +1,9 @@
-import { Minus, Plus, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 
 import { interpolate } from "../../../i18n/locale";
 import type { OrdersCreateCopy } from "../../../i18n/orders";
 import { OrderThumbnail } from "../shared/order-thumbnail";
+import { OrderLineQtyControl } from "./order-line-qty-control";
 
 export function OrderLineCard(props: {
   readonly productName: string;
@@ -13,15 +14,18 @@ export function OrderLineCard(props: {
   readonly thumbnailUrl: string | null;
   readonly thumbnailFailed: boolean;
   readonly copy: OrdersCreateCopy;
-  readonly onStep: (deltaUnits: number) => void;
+  readonly onCommitUnits: (units: number) => void;
   readonly onRemove: () => void;
 }) {
   const removeLabel = interpolate(props.copy.removeLine, {
     name: props.productName,
   });
+  const qtyInputLabel = interpolate(props.copy.qtyInput, {
+    name: props.productName,
+  });
 
   return (
-    <li className="flex items-center gap-3 py-3">
+    <li className="flex items-center gap-3 rounded-card bg-canvas p-3">
       <OrderThumbnail
         fileId={props.thumbnailFileId}
         url={props.thumbnailUrl}
@@ -29,7 +33,7 @@ export function OrderLineCard(props: {
         failedLabel={props.copy.thumbnailUnavailable}
       />
       <span className="min-w-0 flex-1">
-        <span className="block text-[15px] font-medium text-ink">
+        <span className="block truncate text-[15px] font-medium text-ink">
           {props.productName}
         </span>
         {props.variantName !== null ? (
@@ -37,43 +41,25 @@ export function OrderLineCard(props: {
             {props.variantName}
           </span>
         ) : null}
-      </span>
-      <div className="flex shrink-0 items-center gap-1">
-        <button
-          type="button"
-          aria-label={props.copy.qtyDecrease}
-          disabled={!props.editable}
-          onClick={() => {
-            props.onStep(-1);
-          }}
-          className="flex h-8 w-8 items-center justify-center rounded-full text-ink hover:bg-canvas focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action disabled:opacity-40"
-        >
-          <Minus size={16} aria-hidden />
-        </button>
-        <span className="min-w-6 text-center text-[15px] font-semibold tabular-nums text-ink">
-          {props.quantityLabel}
-        </span>
-        <button
-          type="button"
-          aria-label={props.copy.qtyIncrease}
-          disabled={!props.editable}
-          onClick={() => {
-            props.onStep(1);
-          }}
-          className="flex h-8 w-8 items-center justify-center rounded-full text-ink hover:bg-canvas focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action disabled:opacity-40"
-        >
-          <Plus size={16} aria-hidden />
-        </button>
         <button
           type="button"
           aria-label={removeLabel}
           disabled={!props.editable}
           onClick={props.onRemove}
-          className="ml-1 flex h-8 w-8 items-center justify-center rounded-full text-danger hover:bg-canvas focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action disabled:opacity-40"
+          className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-dangerSoft px-2.5 py-1 text-[13px] font-semibold text-danger hover:opacity-90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action disabled:opacity-40"
         >
-          <Trash2 size={16} aria-hidden />
+          <Trash2 size={14} aria-hidden />
+          {props.copy.removeVisible}
         </button>
-      </div>
+      </span>
+      <OrderLineQtyControl
+        quantityLabel={props.quantityLabel}
+        editable={props.editable}
+        inputLabel={qtyInputLabel}
+        decreaseLabel={props.copy.qtyDecrease}
+        increaseLabel={props.copy.qtyIncrease}
+        onCommitUnits={props.onCommitUnits}
+      />
     </li>
   );
 }

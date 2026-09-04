@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { MoreHorizontal, Phone } from "lucide-react";
+import { Check, MoreHorizontal, Play } from "lucide-react";
 
 import { Banner } from "../../auth/shared/banner";
 import { Button } from "../../../components/ui/button";
@@ -11,7 +11,9 @@ import { panelChromeCopy } from "../../../i18n/panel/chrome";
 import { detectLocale } from "../../../i18n/locale";
 import type { OrdersCopy } from "../../../i18n/orders";
 import type { OrderQueryLoadState } from "../shared/classify-order-load";
+import { CustomerIdentityCard } from "../shared/customer-identity-card";
 import { OrderThumbnail } from "../shared/order-thumbnail";
+import { OrdersSectionLabel } from "../shared/section-label";
 import type { OrderDetailViewModel } from "./order-detail.presenter";
 
 export function OrderDetailView({
@@ -149,62 +151,70 @@ export function OrderDetailView({
       ) : null}
       {state.kind === "ready" && order !== null ? (
         <div className="flex min-h-0 flex-1 flex-col">
-          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
-            <div className="flex items-center gap-2">
-              <StatusPill label={order.statusLabel} tone={order.statusTone} />
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
+            <StatusPill
+              label={order.statusLabel}
+              tone={order.statusTone}
+              size="md"
+            />
+            <div className="mt-5">
+              <OrdersSectionLabel>
+                {copy.detail.customerTitle}
+              </OrdersSectionLabel>
+              <div className="mt-2 rounded-card bg-canvas p-3">
+                <CustomerIdentityCard
+                  name={order.customerName}
+                  phone={order.customerPhone}
+                />
+              </div>
             </div>
-            {order.customerPhone !== null ? (
-              <p className="mt-4 flex items-center gap-2 text-[15px] text-ink">
-                {order.showPhoneIcon ? (
-                  <Phone size={16} className="text-muted" aria-hidden />
-                ) : null}
-                <span>{order.customerPhone}</span>
-              </p>
-            ) : null}
-            <h3 className="mt-6 text-[13px] font-medium text-muted">
-              {copy.detail.linesTitle}
-            </h3>
-            <ul className="mt-2 divide-y divide-line">
-              {order.lines.map((line) => (
-                <li key={line.itemId} className="flex items-start gap-3 py-3">
-                  <OrderThumbnail
-                    fileId={line.thumbnailFileId}
-                    url={line.thumbnailUrl}
-                    failed={line.thumbnailFailed}
-                    failedLabel={copy.detail.thumbnailUnavailable}
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[15px] font-medium text-ink">
-                      {line.title}
+            <div className="mt-5">
+              <OrdersSectionLabel>{copy.detail.linesTitle}</OrdersSectionLabel>
+              <ul className="mt-2 space-y-1">
+                {order.lines.map((line) => (
+                  <li
+                    key={line.itemId}
+                    className="flex items-start gap-3 rounded-xl bg-canvas px-3 py-3"
+                  >
+                    <OrderThumbnail
+                      fileId={line.thumbnailFileId}
+                      url={line.thumbnailUrl}
+                      failed={line.thumbnailFailed}
+                      failedLabel={copy.detail.thumbnailUnavailable}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[15px] text-ink">
+                        {line.title}
+                      </span>
+                      <span className="text-[12px] text-muted">
+                        {line.metaLabel}
+                      </span>
                     </span>
-                    <span className="mt-0.5 block text-[13px] text-muted">
-                      {line.metaLabel}
+                    <span className="shrink-0 text-[15px] font-medium tabular-nums text-ink">
+                      {line.grossLabel}
                     </span>
-                  </span>
-                  <span className="shrink-0 text-[15px] font-semibold tabular-nums text-ink">
-                    {line.grossLabel}
-                  </span>
-                </li>
-              ))}
-            </ul>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-2 flex items-center justify-between px-1 py-2">
+                <span className="text-[13px] text-muted">
+                  {copy.detail.dueLabel}
+                </span>
+                <span className="text-[16px] font-semibold tabular-nums text-ink">
+                  {order.dueLabel}
+                </span>
+              </div>
+            </div>
             {order.comment !== null ? (
               <div className="mt-5">
-                <h3 className="text-[13px] font-medium text-muted">
+                <OrdersSectionLabel>
                   {copy.detail.commentTitle}
-                </h3>
-                <p className="mt-1 text-[15px] leading-relaxed text-ink">
+                </OrdersSectionLabel>
+                <p className="mt-2 rounded-card bg-canvas p-4 text-[15px] leading-6 text-ink">
                   {order.comment}
                 </p>
               </div>
             ) : null}
-            <div className="mt-6 flex items-baseline justify-between gap-3">
-              <span className="text-[13px] font-medium text-muted">
-                {copy.detail.dueLabel}
-              </span>
-              <span className="text-[18px] font-semibold tabular-nums text-ink">
-                {order.dueLabel}
-              </span>
-            </div>
             {statusBanner !== null ? (
               <div className="mt-4">
                 <Banner message={statusBanner} />
@@ -212,12 +222,17 @@ export function OrderDetailView({
             ) : null}
           </div>
           {onPrimary !== null && primaryLabel !== null ? (
-            <div className="sticky bottom-0 border-t border-line bg-surface px-6 py-4">
+            <div className="sticky bottom-0 z-10 mt-auto border-t border-line bg-surface p-3 sm:p-4">
               <Button
                 className="w-full"
                 disabled={primaryPending}
                 onClick={onPrimary}
               >
+                {showStart ? (
+                  <Play size={16} aria-hidden />
+                ) : (
+                  <Check size={16} aria-hidden />
+                )}
                 {primaryLabel}
               </Button>
             </div>
@@ -279,17 +294,17 @@ function CancelMenu({
           setOpen((prev) => !prev);
         }}
         className={cx(
-          "mt-0.5 flex h-10 w-10 items-center justify-center rounded-full text-ink",
-          "hover:bg-canvas focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action",
+          "flex h-9 w-9 items-center justify-center rounded-full border border-line bg-surface text-ink",
+          "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action",
         )}
       >
-        <MoreHorizontal size={20} aria-hidden />
+        <MoreHorizontal size={18} aria-hidden />
       </button>
       {open ? (
         <div
           id={menuId}
           role="menu"
-          className="absolute right-0 z-10 mt-1 min-w-40 rounded-card border border-line bg-surface py-1 shadow-card"
+          className="absolute right-0 top-11 z-10 min-w-[220px] overflow-hidden rounded-card border border-line bg-surface shadow-auth"
         >
           <button
             type="button"
@@ -299,7 +314,7 @@ function CancelMenu({
               setOpen(false);
               onCancel();
             }}
-            className="block w-full px-3 py-2 text-left text-[14px] font-medium text-danger hover:bg-canvas focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action"
+            className="w-full px-4 py-2.5 text-left text-[14px] font-medium text-danger hover:bg-dangerSoft focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-action"
           >
             {cancelLabel}
           </button>

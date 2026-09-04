@@ -47,7 +47,7 @@ import {
   emptyFieldErrors,
   emptyOrderFormDraft,
   formatOrderLineQuantity,
-  stepQuantityMilli,
+  quantityMilliFromUnits,
   type OrderFormDraft,
   type OrderFormFieldErrors,
 } from "./order-form-draft";
@@ -61,6 +61,7 @@ import { orderFormResolver } from "./order-form.schema";
 import {
   commitProductPickerPicks,
   emptyProductPicker,
+  lineIdentityKeySet,
   productPickerOpen,
   productPickerPicks,
   productPickerSelectedIds,
@@ -114,6 +115,7 @@ export function useOrderCreate(args: {
   const [picker, setPicker] = useState<ProductPickerState>(emptyProductPicker);
   const [customerOpen, setCustomerOpen] = useState(false);
   const [customerQuery, setCustomerQuery] = useState("");
+  const [customerPhone, setCustomerPhone] = useState<string | null>(null);
   const [productQuery, setProductQuery] = useState("");
   const skipLeaveRef = useRef(false);
   const dirtyRef = useRef(false);
@@ -282,26 +284,33 @@ export function useOrderCreate(args: {
     productsLoading: lookups.productsStatus === "pending",
     productsError,
     retryProducts: lookups.retryProducts,
+    customerPhone,
     pickerOpen: productPickerOpen(picker),
     pickerKind: picker.kind,
     pickerProductName: picker.kind === "variants" ? picker.productName : null,
+    pickerProductId: picker.kind === "variants" ? picker.productId : null,
+    pickerPicks: productPickerPicks(picker),
     pickerSelectedIds: productPickerSelectedIds(productPickerPicks(picker)),
     pickerSelectedVariantIds: productPickerSelectedVariantIds(picker),
-    pickerDoneLabel: interpolate(formCopy.productSheetDone, {
+    pickerPickCount: productPickerPicks(picker).length,
+    pickerAddLabel: interpolate(formCopy.productSheetAdd, {
       count: String(productPickerPicks(picker).length),
     }),
+    existingLineKeys: lineIdentityKeySet(watched.items),
     variants: lookups.variants,
     variantsLoading: lookups.variantsStatus === "pending",
     variantsError: lookups.variantsStatus === "error",
     pickCustomer: (customer: {
       readonly id: string;
       readonly name: string;
+      readonly phone: string | null;
     }) => {
       form.setValue("customerId", customer.id, {
         shouldDirty: true,
         shouldValidate: isSubmitted,
       });
       form.setValue("customerName", customer.name, { shouldDirty: true });
+      setCustomerPhone(customer.phone);
       setPlannerErrors((prev) => ({ ...prev, customer: null }));
       setCustomerOpen(false);
       setCustomerQuery("");
@@ -349,19 +358,22 @@ export function useOrderCreate(args: {
       dispatchPicker({ type: "close" });
       setProductQuery("");
     },
-    stepQuantity: (index: number, delta: number) => {
-      const items = form.getValues("items").map((item, itemIndex) =>
-        itemIndex === index
-          ? {
-              ...item,
-              quantityMilli: stepQuantityMilli(item.quantityMilli, delta),
-            }
-          : item,
+    setQuantityUnits: (index: number, units: number) => {
+      const quantityMilli = quantityMilliFromUnits(units);
+      const items = form.getValues("items");
+      if (items[index]?.quantityMilli === quantityMilli) {
+        return;
+      }
+      form.setValue(
+        "items",
+        items.map((item, itemIndex) =>
+          itemIndex === index ? { ...item, quantityMilli } : item,
+        ),
+        {
+          shouldDirty: true,
+          shouldValidate: isSubmitted,
+        },
       );
-      form.setValue("items", items, {
-        shouldDirty: true,
-        shouldValidate: isSubmitted,
-      });
     },
     removeItem: (index: number) => {
       const items = form.getValues("items").toSpliced(index, 1);

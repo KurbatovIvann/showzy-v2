@@ -122,6 +122,7 @@ describe("orders list (SHO-377)", () => {
     await waitForOrdersList();
     const list = screen.getByRole("region", { name: "Замовлення" });
     expect(within(list).getByText("Замовлення")).toBeDefined();
+    expect(within(list).getByText("Квіти Львів")).toBeDefined();
     expect(await screen.findByText("Анна Мельник")).toBeDefined();
     expect(
       screen.getByText("#KL-K7K3K4 · 3 позиції · 15 бер. 2026"),

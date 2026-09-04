@@ -44,12 +44,14 @@ export function SectionWorkspace({
   pane,
   listContent,
   headerTrailing,
+  headerSubtitle,
   children,
 }: {
   readonly section: PanelSectionId;
   readonly pane: PanelPaneMode;
   readonly listContent?: ReactNode;
   readonly headerTrailing?: ReactNode;
+  readonly headerSubtitle?: ReactNode;
   readonly children: ReactNode;
 }) {
   const copy = usePanelChromeCopy();
@@ -67,6 +69,7 @@ export function SectionWorkspace({
       >
         <PaneHeader
           title={sectionTitle(section, copy)}
+          subtitle={headerSubtitle}
           menuLabel={copy.menu}
           backLabel={copy.backToList}
           onOpenNav={chrome.openNav}

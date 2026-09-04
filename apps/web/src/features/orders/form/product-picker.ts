@@ -193,6 +193,32 @@ export type CommitProductPickerResult = {
   readonly rejected: "duplicate" | "too_many" | null;
 };
 
+export function lineIdentityKeySet(
+  lines: ReadonlyArray<{
+    readonly productId: string;
+    readonly variantId: string | null;
+  }>,
+): ReadonlySet<string> {
+  return new Set(
+    lines.map((line) => orderLineIdentityKey(line.productId, line.variantId)),
+  );
+}
+
+export function isIdentityBlockedOnOrder(
+  existingKeys: ReadonlySet<string>,
+  productId: string,
+  variantId: string | null,
+  draftPicks: readonly ProductPickerPick[],
+): boolean {
+  const key = orderLineIdentityKey(productId, variantId);
+  if (!existingKeys.has(key)) {
+    return false;
+  }
+  return !draftPicks.some(
+    (pick) => orderLineIdentityKey(pick.productId, pick.variantId) === key,
+  );
+}
+
 export function commitProductPickerPicks(
   draft: OrderFormDraft,
   picks: readonly ProductPickerPick[],

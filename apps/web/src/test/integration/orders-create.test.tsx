@@ -14,6 +14,7 @@ import {
 import { http, HttpResponse } from "msw";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { interpolate } from "../../i18n/locale";
 import { ordersCopy } from "../../i18n/orders";
 import {
   FLOWERS_COMPANY_ID,
@@ -201,7 +202,7 @@ async function pickCustomerAndProduct(): Promise<void> {
   fireEvent.click(
     await screen.findByRole("button", { name: ROSE_PRODUCT.name }),
   );
-  fireEvent.click(screen.getByRole("button", { name: "Готово · 1" }));
+  fireEvent.click(screen.getByRole("button", { name: "Додати · 1" }));
   expect(await screen.findByText(ROSE_PRODUCT.name)).toBeDefined();
 }
 
@@ -246,6 +247,32 @@ describe("orders create (SHO-379)", () => {
       ),
     ).toBe(true);
     expect(screen.getByRole("region", { name: "Замовлення" })).toBeDefined();
+  });
+
+  it("writes a typed line quantity on create", async () => {
+    signInWithFlowers();
+    seedCreateLookups();
+    await renderApp("/kviti-lviv/orders/new");
+    await waitForCreateForm();
+    await pickCustomerAndProduct();
+    const qty = screen.getByRole("textbox", {
+      name: interpolate(copy.create.qtyInput, { name: ROSE_PRODUCT.name }),
+    });
+    fireEvent.change(qty, { target: { value: "4" } });
+    fireEvent.blur(qty);
+    submitCreateForm();
+    expect(
+      await screen.findByRole("heading", { name: `#${CREATED_ORDER_NUMBER}` }),
+    ).toBeDefined();
+    expect(createCalls()[0]?.input).toEqual({
+      customer: { by: "id", id: ANNA_CUSTOMER.id },
+      items: [
+        {
+          product: { by: "id", id: ROSE_PRODUCT.id },
+          quantity: { milli: "4000" },
+        },
+      ],
+    });
   });
 
   it("requires a customer and at least one item", async () => {

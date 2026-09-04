@@ -2,6 +2,7 @@ import { Outlet, createFileRoute } from "@tanstack/react-router";
 
 import { validateOrdersSearch } from "../../../../../features/orders/api/orders-list-search";
 import {
+  OrdersListCompanySubtitle,
   OrdersListHeaderTrailing,
   OrdersListPage,
 } from "../../../../../features/orders/list/orders-list-page";
@@ -26,6 +27,7 @@ function OrdersWorkspaceLayout() {
     <SectionWorkspace
       section={panel.panelSection}
       pane={panel.pane}
+      headerSubtitle={<OrdersListCompanySubtitle />}
       headerTrailing={<OrdersListHeaderTrailing />}
       listContent={<OrdersListPage />}
     >

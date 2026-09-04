@@ -202,7 +202,9 @@ describe("orders detail (SHO-378)", () => {
     );
     const detail = screen.getByRole("region", { name: "#KL-K7K3K4" });
     await waitFor(() => {
-      expect(within(detail).getByText("Анна Мельник")).toBeDefined();
+      expect(
+        within(detail).getAllByText("Анна Мельник").length,
+      ).toBeGreaterThan(0);
       expect(within(detail).getByText("+380671112233")).toBeDefined();
     });
     expect(within(detail).getByText("Нове")).toBeDefined();
@@ -301,7 +303,9 @@ describe("orders detail (SHO-378)", () => {
       fireEvent.click(
         within(detail).getByRole("button", { name: copy.detail.actionsLabel }),
       );
-      fireEvent.click(screen.getByRole("menuitem", { name: "Скасувати" }));
+      fireEvent.click(
+        screen.getByRole("menuitem", { name: "Скасувати замовлення" }),
+      );
       await waitFor(() => {
         const pane = screen.getByRole("region", { name: heading });
         expect(within(pane).getByText("Скасовано")).toBeDefined();

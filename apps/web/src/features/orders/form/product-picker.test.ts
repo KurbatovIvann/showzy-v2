@@ -4,6 +4,8 @@ import { addOrderLine, emptyOrderFormDraft } from "./order-form-draft";
 import {
   commitProductPickerPicks,
   emptyProductPicker,
+  isIdentityBlockedOnOrder,
+  lineIdentityKeySet,
   productPickerOpen,
   productPickerPicks,
   productPickerSelectedIds,
@@ -89,5 +91,25 @@ describe("reduceProductPicker", () => {
     );
     expect(committed.rejected).toBeNull();
     expect(committed.lines).toHaveLength(2);
+  });
+});
+
+describe("isIdentityBlockedOnOrder", () => {
+  it("blocks a simple product already on the order unless it is in this draft", () => {
+    const existing = lineIdentityKeySet([
+      { productId: PRODUCT_A, variantId: null },
+    ]);
+    expect(isIdentityBlockedOnOrder(existing, PRODUCT_A, null, [])).toBe(true);
+    expect(isIdentityBlockedOnOrder(existing, PRODUCT_B, null, [])).toBe(false);
+    const draft = productPickerPicks(
+      reduceProductPicker(openPicker(), {
+        type: "toggleSimple",
+        productId: PRODUCT_A,
+        productName: "Торт",
+      }),
+    );
+    expect(isIdentityBlockedOnOrder(existing, PRODUCT_A, null, draft)).toBe(
+      false,
+    );
   });
 });

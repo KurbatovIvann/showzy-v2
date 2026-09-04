@@ -107,7 +107,9 @@ describe("OrderDetailView (SHO-378)", () => {
     fireEvent.click(
       screen.getByRole("button", { name: copy.detail.actionsLabel }),
     );
-    expect(screen.getByRole("menuitem", { name: "Скасувати" })).toBeDefined();
+    expect(
+      screen.getByRole("menuitem", { name: "Скасувати замовлення" }),
+    ).toBeDefined();
     expect(screen.queryByText("Виставити документ")).toBeNull();
   });
 

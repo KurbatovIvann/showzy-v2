@@ -55,5 +55,10 @@ describe("LeaveDialog (SHO-379)", () => {
       screen.getByRole("button", { name: "Вийти без збереження" }),
     );
     expect(onLeave).toHaveBeenCalledTimes(1);
+    const stay = screen.getByRole("button", { name: "Продовжити редагування" });
+    const leave = screen.getByRole("button", { name: "Вийти без збереження" });
+    expect(stay.className).toContain("border-line");
+    expect(stay.className).not.toContain("bg-ink");
+    expect(leave.className).toContain("bg-ink");
   });
 });
