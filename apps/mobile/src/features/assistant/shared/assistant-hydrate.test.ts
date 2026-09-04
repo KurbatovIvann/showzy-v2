@@ -23,6 +23,7 @@ import {
   type AssistantHistoryToolRun,
   type AssistantListConversationsInput,
 } from "./assistant-hydrate";
+import { pendingChoiceFromMessages } from "./choice-presenter";
 import {
   assistantChatRows,
   assistantDisplayRows,
@@ -57,7 +58,9 @@ const RUN_GET_LEX_LOW = "0a0a0a0a-0a0a-40a0-80a0-0a0a0a0a0a0a";
 const RUN_CREATE = "99999999-9999-4999-8999-999999999999";
 const RUN_CHOICE = "88888888-8888-4888-8888-888888888888";
 const CHOICE_ID = "44444444-4444-4444-8444-444444444444";
+const CHOICE_ID_B = "55555555-5555-4555-8555-555555555555";
 const OPTION_LEMON = "77777777-7777-4777-8777-777777777777";
+const RUN_CHOICE_B = "66666666-6666-4666-8666-666666666666";
 const uk = assistantCopy("uk");
 const ordersUk = ordersCopy("uk");
 
@@ -88,6 +91,22 @@ function toolRun(args: {
     toolCallId: args.toolCallId,
     resultIds: args.resultIds ?? [],
     outcome: args.outcome ?? "success",
+    createdAt: args.createdAt,
+  };
+}
+
+function choiceRequiredRun(args: {
+  readonly id: string;
+  readonly challengeId: string;
+  readonly createdAt: string;
+}): AssistantHistoryToolRun {
+  return {
+    id: args.id,
+    actionName: "orders.create",
+    toolCallId: `call-${args.id}`,
+    challengeId: args.challengeId,
+    resultIds: [],
+    outcome: "choice_required",
     createdAt: args.createdAt,
   };
 }
@@ -605,6 +624,11 @@ describe("choice hydrate (SHO-418)", () => {
       { type: "text", text: "Select a variant for Macarons: Lemon." },
       { type: "data-choice", data: liveEnvelope },
     ]);
+    expect(pendingChoiceFromMessages(messages, new Set())).toMatchObject({
+      status: "needs_choice",
+      challengeId: CHOICE_ID,
+      messageId: MSG_ASSISTANT,
+    });
   });
 
   it("restores expired, never a tappable picker, when the peek is missing", () => {
@@ -681,6 +705,174 @@ describe("choice hydrate (SHO-418)", () => {
     expect(assistantSurfacesFromParts(messages[0]?.parts ?? [], "uk")).toEqual(
       [],
     );
+  });
+
+  it("does not restore a tappable ChoiceCard when peek is completed", () => {
+    const completed: StaffAssistantChoiceCardEnvelope = {
+      ...liveEnvelope,
+      status: "completed",
+    };
+    const createOutput = orderSnapshot(ORDER_B, "new");
+    const messages = hydratedUiMessagesFromConversation({
+      messages: [
+        message({
+          id: MSG_ASSISTANT,
+          role: "assistant",
+          body: "Select a variant for Macarons: Lemon.",
+          createdAt: "2026-09-03T10:00:01.000Z",
+        }),
+        message({
+          id: MSG_ASSISTANT_B,
+          role: "assistant",
+          body: "Замовлення створено.",
+          createdAt: "2026-09-03T10:00:05.000Z",
+        }),
+      ],
+      toolRuns: [
+        choiceRequiredRun({
+          id: RUN_CHOICE,
+          challengeId: CHOICE_ID,
+          createdAt: "2026-09-03T10:00:01.000Z",
+        }),
+        toolRun({
+          id: RUN_CREATE,
+          actionName: "orders.create",
+          toolCallId: "call-create",
+          resultIds: [ORDER_B],
+          createdAt: "2026-09-03T10:00:05.000Z",
+        }),
+      ],
+      ordersById: new Map([[ORDER_B, createOutput]]),
+      choiceEnvelopes: new Map([[CHOICE_ID, completed]]),
+    });
+    expect(messages[0]?.parts).toEqual([
+      { type: "text", text: "Select a variant for Macarons: Lemon." },
+    ]);
+    expect(messages[0]?.parts.map((part) => part.type)).not.toContain(
+      "data-choice",
+    );
+    expect(pendingChoiceFromMessages(messages, new Set())).toBeNull();
+    const surfaces = assistantSurfacesFromParts(messages[1]?.parts ?? [], "uk");
+    expect(entitiesOf(surfaces).map((card) => card.orderId)).toEqual([ORDER_B]);
+  });
+
+  it("does not restore a tappable ChoiceCard when peek is claimed", () => {
+    const claimed: StaffAssistantChoiceCardEnvelope = {
+      ...liveEnvelope,
+      status: "claimed",
+    };
+    const messages = hydratedUiMessagesFromConversation({
+      messages: [
+        message({
+          id: MSG_ASSISTANT,
+          role: "assistant",
+          body: "Select a variant.",
+          createdAt: "2026-09-03T10:00:01.000Z",
+        }),
+      ],
+      toolRuns: [
+        choiceRequiredRun({
+          id: RUN_CHOICE,
+          challengeId: CHOICE_ID,
+          createdAt: "2026-09-03T10:00:01.000Z",
+        }),
+      ],
+      ordersById: new Map(),
+      choiceEnvelopes: new Map([[CHOICE_ID, claimed]]),
+    });
+    expect(messages[0]?.parts).toEqual([
+      { type: "text", text: "Select a variant." },
+    ]);
+    expect(pendingChoiceFromMessages(messages, new Set())).toBeNull();
+  });
+
+  it("still pending a sequential later needs_choice after a completed predecessor", () => {
+    const completed: StaffAssistantChoiceCardEnvelope = {
+      ...liveEnvelope,
+      status: "completed",
+    };
+    const successor: StaffAssistantChoiceCardEnvelope = {
+      ...liveEnvelope,
+      challengeId: CHOICE_ID_B,
+    };
+    const messages = hydratedUiMessagesFromConversation({
+      messages: [
+        message({
+          id: MSG_ASSISTANT,
+          role: "assistant",
+          body: "Select a variant for Macarons: Lemon.",
+          createdAt: "2026-09-03T10:00:01.000Z",
+        }),
+        message({
+          id: MSG_ASSISTANT_B,
+          role: "assistant",
+          body: "Select a variant for the second line.",
+          createdAt: "2026-09-03T10:00:05.000Z",
+        }),
+      ],
+      toolRuns: [
+        choiceRequiredRun({
+          id: RUN_CHOICE,
+          challengeId: CHOICE_ID,
+          createdAt: "2026-09-03T10:00:01.000Z",
+        }),
+        choiceRequiredRun({
+          id: RUN_CHOICE_B,
+          challengeId: CHOICE_ID_B,
+          createdAt: "2026-09-03T10:00:05.000Z",
+        }),
+      ],
+      ordersById: new Map(),
+      choiceEnvelopes: new Map([
+        [CHOICE_ID, completed],
+        [CHOICE_ID_B, successor],
+      ]),
+    });
+    expect(messages[0]?.parts.map((part) => part.type)).toEqual(["text"]);
+    expect(messages[1]?.parts).toEqual([
+      { type: "text", text: "Select a variant for the second line." },
+      { type: "data-choice", data: successor },
+    ]);
+    expect(pendingChoiceFromMessages(messages, new Set())).toMatchObject({
+      status: "needs_choice",
+      challengeId: CHOICE_ID_B,
+      messageId: MSG_ASSISTANT_B,
+    });
+  });
+
+  it("hydrated expired peek is expired copy, not a tappable picker", () => {
+    const expired: StaffAssistantChoiceCardEnvelope = {
+      status: "expired",
+      challengeId: CHOICE_ID,
+      options: [],
+      optionsTruncated: false,
+    };
+    const messages = hydratedUiMessagesFromConversation({
+      messages: [
+        message({
+          id: MSG_ASSISTANT,
+          role: "assistant",
+          body: "Select a variant.",
+          createdAt: "2026-09-03T10:00:01.000Z",
+        }),
+      ],
+      toolRuns: [
+        choiceRequiredRun({
+          id: RUN_CHOICE,
+          challengeId: CHOICE_ID,
+          createdAt: "2026-09-03T10:00:01.000Z",
+        }),
+      ],
+      ordersById: new Map(),
+      choiceEnvelopes: new Map([[CHOICE_ID, expired]]),
+    });
+    const pending = pendingChoiceFromMessages(messages, new Set());
+    expect(pending).toMatchObject({
+      status: "expired",
+      challengeId: CHOICE_ID,
+      options: [],
+    });
+    expect(pending?.options).toEqual([]);
   });
 });
 

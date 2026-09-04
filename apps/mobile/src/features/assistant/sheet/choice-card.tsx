@@ -26,7 +26,7 @@ export function ChoiceCard(props: {
         {expired ? <Text style={styles.note}>{props.expiredLabel}</Text> : null}
         {props.applying ? (
           <Text style={styles.applying}>{props.selectingLabel}</Text>
-        ) : (
+        ) : tappable ? (
           <View style={styles.options}>
             {props.choice.options.map((option) => (
               <Button
@@ -34,14 +34,13 @@ export function ChoiceCard(props: {
                 variant="secondary"
                 fullWidth
                 label={option.label}
-                disabled={!tappable}
                 onPress={() => {
                   props.onSelect(option.id);
                 }}
               />
             ))}
           </View>
-        )}
+        ) : null}
       </View>
     </Card>
   );

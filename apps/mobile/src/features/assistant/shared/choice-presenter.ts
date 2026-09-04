@@ -74,9 +74,17 @@ export type ChoiceAppendPart =
       };
     };
 
+function choiceEnvelopeIsOpenOrExpired(
+  status: StaffAssistantChoiceCardEnvelope["status"],
+): boolean {
+  return status === "needs_choice" || status === "expired";
+}
+
 /**
- * Latest unignored `data-choice`. Ignored (resolved/expired-consumed) ids
- * are skipped so a sequential successor card on a later message still
+ * Latest unignored open picker (`needs_choice`) or expired copy.
+ * Completed/claimed peeks are not a ChoiceCard — the later successful
+ * entity turn hydrates on its own. Ignored (resolved/expired-consumed)
+ * ids are skipped so a sequential successor on a later message still
  * shows.
  */
 export function pendingChoiceFromMessages(
@@ -93,6 +101,9 @@ export function pendingChoiceFromMessages(
       if (choice === undefined) {
         continue;
       }
+      if (!choiceEnvelopeIsOpenOrExpired(choice.status)) {
+        continue;
+      }
       if (ignoredChallengeIds.has(choice.challengeId)) {
         continue;
       }
@@ -106,7 +117,10 @@ export function choiceCardState(args: {
   readonly pending: PendingChoice | null;
   readonly resolvingChallengeId: string | null;
 }): ChoiceCardState {
-  if (args.pending === null) {
+  if (
+    args.pending === null ||
+    !choiceEnvelopeIsOpenOrExpired(args.pending.status)
+  ) {
     return { kind: "hidden" };
   }
   if (args.resolvingChallengeId === args.pending.challengeId) {

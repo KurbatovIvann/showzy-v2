@@ -3,8 +3,9 @@
  * newest-updated conversation from a company-wide list, then rebuild
  * history from `getConversation`. List/counts runs stay prose-only.
  * Entity cards hydrate via live `orders.get` on top-level `resultIds`.
- * Pending choice hydrates via T8a peek (SHO-418). Do not restore list
- * cards.
+ * Pending choice hydrates via T8a peek (SHO-418): `needs_choice` restores
+ * the picker; `expired` shows expired copy; `completed`/`claimed` do not
+ * restore a ChoiceCard. Do not restore list cards.
  *
  * `userId` is compared to the session here — never sent as list/get
  * input. Company id is never action input.
@@ -332,7 +333,11 @@ export function hydratedUiMessagesFromConversation(args: {
           typeof run.challengeId === "string"
         ) {
           const envelope = choiceEnvelopes.get(run.challengeId);
-          if (envelope !== undefined) {
+          if (
+            envelope !== undefined &&
+            (envelope.status === "needs_choice" ||
+              envelope.status === "expired")
+          ) {
             parts.push({ type: "data-choice", data: envelope });
           }
           continue;
