@@ -119,14 +119,29 @@ export function assistantRowHasInFlightTools(row: AssistantChatRow): boolean {
   );
 }
 
-export function assistantTurnIsWaiting(input: {
-  readonly status: AssistantLiveStatus;
-  readonly confirmation: PendingConfirmation | null;
-}): boolean {
-  if (input.confirmation !== null) {
+/**
+ * HITL on the **current** turn (last assistant after the last user) turns
+ * the wait line off. A leftover confirmation on a past assistant must
+ * not suppress wait/buffering for a newer live turn — composer `canSend`
+ * stays gated on `sendBusy` only, so that follow-up is allowed.
+ */
+function currentTurnHasHitl(rows: readonly AssistantChatRow[]): boolean {
+  const lastAssistantIndex = lastIndexOfRole(rows, "assistant");
+  const lastUserIndex = lastIndexOfRole(rows, "user");
+  if (lastAssistantIndex <= lastUserIndex) {
     return false;
   }
-  return input.status === "submitted" || input.status === "streaming";
+  return rows[lastAssistantIndex]?.confirmation !== null;
+}
+
+export function assistantTurnIsWaiting(input: {
+  readonly status: AssistantLiveStatus;
+  readonly rows: readonly AssistantChatRow[];
+}): boolean {
+  if (input.status !== "submitted" && input.status !== "streaming") {
+    return false;
+  }
+  return !currentTurnHasHitl(input.rows);
 }
 
 function toVisibleRow(row: AssistantChatRow): AssistantVisibleRow | null {
@@ -176,7 +191,8 @@ function lastIndexOfRole(
  * Live-turn presentation: one wait row while in flight; spoken + surfaces
  * together when ready. Past / hydrate turns never wait. Hide streamed
  * text/surfaces only for the current-turn assistant (after the last user
- * row). A previous ready reply stays visible during a follow-up wait.
+ * row). A previous ready reply — including leftover HITL on that past
+ * assistant — stays visible during a follow-up wait.
  */
 export function assistantDisplayRows(
   rows: readonly AssistantChatRow[],

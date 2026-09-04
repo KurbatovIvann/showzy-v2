@@ -43,7 +43,6 @@ export type AssistantCopy = {
   readonly dismissLabel: string;
   readonly confirmingLabel: string;
   readonly confirmationTitle: string;
-  readonly thinkingLabel: string;
   readonly waitLabel: string;
   readonly waitIntervalMs: number;
   readonly waitLines: readonly [string, string, string, string, string];
@@ -72,7 +71,6 @@ const en: AssistantCopy = {
   dismissLabel: "Cancel",
   confirmingLabel: "Confirming…",
   confirmationTitle: "Confirmation required",
-  thinkingLabel: "Shozik is thinking",
   waitLabel: "Shozik is thinking",
   waitIntervalMs: 2000,
   waitLines: [
@@ -136,7 +134,6 @@ const uk: AssistantCopy = {
   dismissLabel: "Скасувати",
   confirmingLabel: "Підтверджую…",
   confirmationTitle: "Потрібне підтвердження",
-  thinkingLabel: "Шозік думає",
   waitLabel: "Шозік думає",
   waitIntervalMs: 2000,
   waitLines: [

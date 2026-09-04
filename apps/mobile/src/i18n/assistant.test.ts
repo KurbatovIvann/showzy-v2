@@ -91,6 +91,8 @@ describe("assistant copy", () => {
     ]);
     expect(uk.waitLabel).toBe("Шозік думає");
     expect(en.waitLabel).toBe("Shozik is thinking");
+    expect("thinkingLabel" in uk).toBe(false);
+    expect("thinkingLabel" in en).toBe(false);
     expect(uk.waitLines).toHaveLength(en.waitLines.length);
     expect(JSON.stringify(uk.waitLines).includes("orders_list")).toBe(false);
     expect(JSON.stringify(en.waitLines).includes("orders_list")).toBe(false);

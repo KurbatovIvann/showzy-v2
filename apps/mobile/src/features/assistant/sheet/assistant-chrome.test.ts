@@ -139,4 +139,13 @@ describe("assistant wait-state chrome (SHO-394)", () => {
     expect(waitLine).not.toContain("dig.svg");
     expect(waitLine).not.toContain("ShozikPoseMark");
   });
+
+  it("gates wait on current-turn HITL from mapped rows, not thread-wide pending", () => {
+    const hook = readFileSync(
+      new URL("./use-assistant-sheet.ts", import.meta.url),
+      "utf8",
+    );
+    expect(hook).toContain("rows: mappedRows");
+    expect(hook.includes("confirmation: pendingConfirmation")).toBe(false);
+  });
 });

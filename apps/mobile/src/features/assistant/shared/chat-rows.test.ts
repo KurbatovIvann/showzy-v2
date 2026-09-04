@@ -511,32 +511,68 @@ describe("assistantChatRows", () => {
   });
 });
 
+const hitlParts = [
+  { type: "data-confirmation" as const, data: pending },
+  {
+    type: "tool-customers.deleteCustomer" as const,
+    toolCallId: "call-delete",
+    state: "input-available" as const,
+  },
+];
+
 describe("assistantTurnIsWaiting", () => {
   it("waits only on a live submitted or streaming turn without HITL", () => {
-    expect(
-      assistantTurnIsWaiting({ status: "submitted", confirmation: null }),
-    ).toBe(true);
-    expect(
-      assistantTurnIsWaiting({ status: "streaming", confirmation: null }),
-    ).toBe(true);
-    expect(
-      assistantTurnIsWaiting({ status: "ready", confirmation: null }),
-    ).toBe(false);
-    expect(
-      assistantTurnIsWaiting({ status: "error", confirmation: null }),
-    ).toBe(false);
-    expect(
-      assistantTurnIsWaiting({
-        status: "streaming",
-        confirmation: pending,
-      }),
-    ).toBe(false);
-    expect(
-      assistantTurnIsWaiting({
-        status: "submitted",
-        confirmation: pending,
-      }),
-    ).toBe(false);
+    expect(assistantTurnIsWaiting({ status: "submitted", rows: [] })).toBe(
+      true,
+    );
+    expect(assistantTurnIsWaiting({ status: "streaming", rows: [] })).toBe(
+      true,
+    );
+    expect(assistantTurnIsWaiting({ status: "ready", rows: [] })).toBe(false);
+    expect(assistantTurnIsWaiting({ status: "error", rows: [] })).toBe(false);
+  });
+
+  it("does not wait when HITL is on the current turn", () => {
+    const rows = assistantChatRows(
+      [
+        {
+          id: "a1",
+          role: "assistant",
+          parts: hitlParts,
+        },
+      ],
+      pending,
+      copy,
+    );
+    expect(assistantTurnIsWaiting({ status: "streaming", rows })).toBe(false);
+    expect(assistantTurnIsWaiting({ status: "submitted", rows })).toBe(false);
+  });
+
+  it("still waits when leftover HITL is on a past assistant", () => {
+    const rows = assistantChatRows(
+      [
+        {
+          id: "u1",
+          role: "user",
+          parts: [{ type: "text", text: "Delete the customer" }],
+        },
+        {
+          id: "a1",
+          role: "assistant",
+          parts: hitlParts,
+        },
+        {
+          id: "u2",
+          role: "user",
+          parts: [{ type: "text", text: "а за цей тиждень?" }],
+        },
+      ],
+      pending,
+      copy,
+    );
+    expect(rows[1]?.confirmation).toEqual(pending);
+    expect(assistantTurnIsWaiting({ status: "submitted", rows })).toBe(true);
+    expect(assistantTurnIsWaiting({ status: "streaming", rows })).toBe(true);
   });
 });
 
@@ -574,7 +610,7 @@ describe("assistantDisplayRows", () => {
     ]);
     const visible = assistantDisplayRows(
       mapped,
-      assistantTurnIsWaiting({ status: "streaming", confirmation: null }),
+      assistantTurnIsWaiting({ status: "streaming", rows: mapped }),
     );
     expect(visible).toHaveLength(2);
     expect(visible[0]?.role).toBe("user");
@@ -604,7 +640,7 @@ describe("assistantDisplayRows", () => {
     );
     const visible = assistantDisplayRows(
       mapped,
-      assistantTurnIsWaiting({ status: "ready", confirmation: null }),
+      assistantTurnIsWaiting({ status: "ready", rows: mapped }),
     );
     expect(visible).toHaveLength(1);
     expect(visible[0]?.waiting).toBe(false);
@@ -629,7 +665,7 @@ describe("assistantDisplayRows", () => {
     );
     const visible = assistantDisplayRows(
       mapped,
-      assistantTurnIsWaiting({ status: "error", confirmation: null }),
+      assistantTurnIsWaiting({ status: "error", rows: mapped }),
     );
     expect(visible[0]?.waiting).toBe(false);
     expect(visible[0]?.text).toBe("Ось що знайшла.");
@@ -657,7 +693,7 @@ describe("assistantDisplayRows", () => {
     );
     const liveWaiting = assistantTurnIsWaiting({
       status: "streaming",
-      confirmation: pending,
+      rows: mapped,
     });
     expect(liveWaiting).toBe(false);
     const visible = assistantDisplayRows(mapped, liveWaiting);
@@ -665,6 +701,100 @@ describe("assistantDisplayRows", () => {
     expect(visible[0]?.waiting).toBe(false);
     expect(visible[0]?.confirmation).toEqual(pending);
     expect(visible[0]?.id).toBe("a1");
+  });
+
+  it("waits on a follow-up while leftover HITL on a past assistant stays visible", () => {
+    const mapped = assistantChatRows(
+      [
+        {
+          id: "u1",
+          role: "user",
+          parts: [{ type: "text", text: "Delete the customer" }],
+        },
+        {
+          id: "a1",
+          role: "assistant",
+          parts: hitlParts,
+        },
+        {
+          id: "u2",
+          role: "user",
+          parts: [{ type: "text", text: "а за цей тиждень?" }],
+        },
+      ],
+      pending,
+      copy,
+    );
+    expect(mapped[1]?.confirmation).toEqual(pending);
+
+    for (const status of ["submitted", "streaming"] as const) {
+      const liveWaiting = assistantTurnIsWaiting({
+        status,
+        rows: mapped,
+      });
+      expect(liveWaiting).toBe(true);
+      const visible = assistantDisplayRows(mapped, liveWaiting);
+      expect(visible.map((row) => row.id)).toEqual([
+        "u1",
+        "a1",
+        "u2",
+        ASSISTANT_LIVE_WAIT_ROW_ID,
+      ]);
+      expect(visible[1]).toMatchObject({
+        id: "a1",
+        role: "assistant",
+        waiting: false,
+        confirmation: pending,
+      });
+      expect(visible[1]?.waiting).toBe(false);
+      expect(visible[3]?.waiting).toBe(true);
+      expect(visible[3]?.id).toBe(ASSISTANT_LIVE_WAIT_ROW_ID);
+    }
+  });
+
+  it("hides a new in-flight assistant on follow-up while leftover HITL stays", () => {
+    const mapped = assistantChatRows(
+      [
+        {
+          id: "u1",
+          role: "user",
+          parts: [{ type: "text", text: "Delete the customer" }],
+        },
+        {
+          id: "a1",
+          role: "assistant",
+          parts: hitlParts,
+        },
+        {
+          id: "u2",
+          role: "user",
+          parts: [{ type: "text", text: "а за цей тиждень?" }],
+        },
+        {
+          id: "a2",
+          role: "assistant",
+          parts: streamingParts,
+        },
+      ],
+      pending,
+      copy,
+    );
+    const liveWaiting = assistantTurnIsWaiting({
+      status: "streaming",
+      rows: mapped,
+    });
+    expect(liveWaiting).toBe(true);
+    const visible = assistantDisplayRows(mapped, liveWaiting);
+    expect(visible.map((row) => row.id)).toEqual([
+      "u1",
+      "a1",
+      "u2",
+      ASSISTANT_LIVE_WAIT_ROW_ID,
+    ]);
+    expect(visible[1]?.confirmation).toEqual(pending);
+    expect(visible[1]?.waiting).toBe(false);
+    expect(visible.some((row) => row.id === "a2")).toBe(false);
+    expect(visible[3]?.waiting).toBe(true);
   });
 
   it("never waits on hydrate / past turns", () => {
@@ -686,7 +816,7 @@ describe("assistantDisplayRows", () => {
     );
     const visible = assistantDisplayRows(
       mapped,
-      assistantTurnIsWaiting({ status: "ready", confirmation: null }),
+      assistantTurnIsWaiting({ status: "ready", rows: mapped }),
     );
     expect(visible.every((row) => !row.waiting)).toBe(true);
     expect(visible[1]?.text).toBe("Ось активні замовлення.");
@@ -717,7 +847,7 @@ describe("assistantDisplayRows", () => {
     );
     const visible = assistantDisplayRows(
       mapped,
-      assistantTurnIsWaiting({ status: "submitted", confirmation: null }),
+      assistantTurnIsWaiting({ status: "submitted", rows: mapped }),
     );
     expect(visible).toHaveLength(4);
     expect(visible[0]?.role).toBe("user");
@@ -776,7 +906,7 @@ describe("assistantDisplayRows", () => {
     );
     const visible = assistantDisplayRows(
       mapped,
-      assistantTurnIsWaiting({ status: "streaming", confirmation: null }),
+      assistantTurnIsWaiting({ status: "streaming", rows: mapped }),
     );
     expect(visible.map((row) => row.id)).toEqual([
       "u1",

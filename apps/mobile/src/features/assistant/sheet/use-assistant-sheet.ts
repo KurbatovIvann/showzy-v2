@@ -52,7 +52,7 @@ export function useAssistantSheet(): AssistantSheetViewModel & {
   );
   const liveWaiting = assistantTurnIsWaiting({
     status: chat.status,
-    confirmation: pendingConfirmation,
+    rows: mappedRows,
   });
   const rows = assistantDisplayRows(mappedRows, liveWaiting);
   const lastMapped = mappedRows[mappedRows.length - 1];

@@ -284,7 +284,7 @@ describe("hydratedUiMessagesFromConversation", () => {
     expect(rows[1]?.text.includes("{")).toBe(false);
     const visible = assistantDisplayRows(
       rows,
-      assistantTurnIsWaiting({ status: "ready", confirmation: null }),
+      assistantTurnIsWaiting({ status: "ready", rows }),
     );
     expect(visible.every((row) => !row.waiting)).toBe(true);
     expect(visible[1]?.text).toBe("Ось активні замовлення.");
