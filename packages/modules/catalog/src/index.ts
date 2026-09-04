@@ -12,6 +12,7 @@ import { restoreVariant } from "./actions/restore-variant.js";
 import { setProductImages } from "./actions/set-product-images.js";
 import { updateProduct } from "./actions/update-product.js";
 import { updateVariant } from "./actions/update-variant.js";
+import { ReferenceResolutionConflictError } from "./services/reference-resolution-conflict.js";
 
 export { archiveProduct };
 export { archiveVariant };
@@ -22,6 +23,7 @@ export { getProductOrderFacts };
 export { getProductPricingFacts };
 export { listProducts };
 export { resolveLineReferences };
+export { ReferenceResolutionConflictError };
 export { restoreProduct };
 export { restoreVariant };
 export { setProductImages };
