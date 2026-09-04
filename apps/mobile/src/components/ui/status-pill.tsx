@@ -68,7 +68,7 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.accentSoft,
   },
   actionLabel: {
-    color: theme.colors.accent,
+    color: theme.colors.accentFg,
   },
   focus: {
     backgroundColor: theme.colors.focusSoft,

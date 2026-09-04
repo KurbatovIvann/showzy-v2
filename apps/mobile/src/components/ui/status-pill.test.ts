@@ -21,3 +21,14 @@ describe("StatusPill focus tone (SHO-376)", () => {
     expect(SOURCE).not.toContain("#EEEBFF");
   });
 });
+
+describe("StatusPill action tone (SHO-389)", () => {
+  it("puts action labels on accentFg over accentSoft (mp-to-mobile)", () => {
+    expect(SOURCE).toMatch(
+      /action:\s*\{\s*backgroundColor:\s*theme\.colors\.accentSoft/,
+    );
+    expect(SOURCE).toMatch(
+      /actionLabel:\s*\{\s*color:\s*theme\.colors\.accentFg/,
+    );
+  });
+});
