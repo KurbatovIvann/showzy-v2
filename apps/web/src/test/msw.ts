@@ -669,7 +669,7 @@ function allHandlers(sessionState: SessionState, rpcState: RpcState) {
               rendition.length === 0
                 ? `https://files.test/${fileId}`
                 : `https://files.test/${fileId}?r=${rendition}`,
-            expiresAt: "2099-01-01T00:00:00.000Z",
+            expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
           })),
         });
       },
