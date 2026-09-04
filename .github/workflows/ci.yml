@@ -234,7 +234,9 @@ jobs:
         with:
           node-version: "22"
       - name: pnpm audit (fail on high/critical advisories)
-        run: time -p pnpm audit --audit-level high
+        # SHO-387: registry socket timeouts are classified in
+        # packages/tooling/ci/run-dependency-audit.mjs (SHO-145).
+        run: time -p node packages/tooling/ci/run-dependency-audit.mjs
       - name: Publish job timing
         if: always()
         env:

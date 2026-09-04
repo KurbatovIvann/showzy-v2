@@ -82,7 +82,9 @@ This repository is **private and user-owned**, so GitHub's
 `actions/dependency-review-action` is unavailable (it requires a public
 repository or an organization-owned repository with GitHub Code
 Security/Advanced Security). The `dependency-audit` job therefore gates on
-`pnpm audit --audit-level high` against the committed lockfile.
+`pnpm audit --audit-level high` against the committed lockfile, invoked
+through `packages/tooling/ci/run-dependency-audit.mjs` so npm registry
+socket timeouts do not skip or weaken the gate (SHO-387).
 
 If the repository ever becomes public or moves into an organization with
 Code Security, replace the `dependency-audit` job body with

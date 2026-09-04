@@ -18,6 +18,17 @@ infra flake or a real regression. It is not a signal to retrigger.
 Those tactics hide the difference between a test bug and a product
 regression. In an agentic workflow the agent cannot tell them apart.
 
+## `dependency-audit` npm registry timeouts (SHO-387)
+
+`pnpm audit` POSTs to npm's audit endpoint. `ERR_SOCKET_TIMEOUT` after
+pnpm's built-in fetch retries is a registry/network failure, not an
+advisory. The `dependency-audit` job runs
+`packages/tooling/ci/run-dependency-audit.mjs`, which still executes
+`pnpm audit --audit-level high` and re-invokes that command only on
+classified transient registry errors. Advisory findings fail the gate on
+the first report. Do not pass `--ignore-registry-errors`, and do not add
+GitHub Actions job `retry` / rerun-on-failure.
+
 ## What to do instead
 
 1. Treat the failure as a bug until proven otherwise.

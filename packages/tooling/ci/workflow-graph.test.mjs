@@ -6,6 +6,7 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { REQUIRED_QUALITY_GATES } from "./required-quality-gates.mjs";
+import { PNPM_AUDIT_ARGS } from "./run-dependency-audit.mjs";
 
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -185,10 +186,19 @@ test("secret-scan and the other named gates remain independent workers", () => {
     extractJob(workflow, "secret-scan"),
     /gitleaks\/gitleaks-action@/,
   );
-  assert.match(
-    extractJob(workflow, "dependency-audit"),
-    /pnpm audit --audit-level high/,
+  const dependencyAudit = extractJob(workflow, "dependency-audit");
+  assert.match(dependencyAudit, /run-dependency-audit\.mjs/);
+  assert.doesNotMatch(dependencyAudit, /ignore-registry-errors/);
+  const auditWrapper = fs.readFileSync(
+    path.join(repoRoot, "packages/tooling/ci/run-dependency-audit.mjs"),
+    "utf8",
   );
+  assert.match(auditWrapper, /--audit-level/);
+  assert.match(auditWrapper, /["']high["']/);
+  assert.match(auditWrapper, /pnpm audit --audit-level high/);
+  assert.ok(!PNPM_AUDIT_ARGS.includes("--ignore-registry-errors"));
+  assert.equal(PNPM_AUDIT_ARGS[0], "audit");
+  assert.equal(PNPM_AUDIT_ARGS[2], "high");
   assert.match(extractJob(workflow, "contract-check"), /contract:check/);
   assert.match(extractJob(workflow, "migration-drift"), /db:check/);
   assert.match(extractJob(workflow, "bundle-probe"), /bundle:probe/);
