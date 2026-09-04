@@ -236,6 +236,9 @@ export type BoundChoiceOptions = {
 /**
  * Mint opaque optionIds. Catalog picker ids are variant UUIDs — those stay
  * in `optionMap` and never go to the client as option ids.
+ * Forward `optionsTruncated` from catalog extras even when the option
+ * list is at or below `CHOICE_OPTIONS_MAX` — a prefix of 2 or 20 is not
+ * the full set.
  */
 export function bindChoiceOptions(
   catalogOptions: readonly CatalogChoiceOption[],
@@ -546,7 +549,10 @@ export async function needsChoiceFromOrdersCreateConflict(args: {
       return undefined;
     }
     if (args.openChoice !== undefined) {
-      await args.openChoice(record);
+      const opened = await args.openChoice(record);
+      if (!opened) {
+        return undefined;
+      }
     }
     return needsChoiceOutputFromRecord(record);
   }

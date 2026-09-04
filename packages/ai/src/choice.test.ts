@@ -134,6 +134,37 @@ describe("choice transport (SHO-409)", () => {
     expect(JSON.stringify(bound.options)).not.toContain(variantLemon);
   });
 
+  it("forwards catalog optionsTruncated when the list is at or below the cap", () => {
+    const two = bindChoiceOptions(
+      [
+        { id: variantLemon, label: "Lemon" },
+        { id: variantVanilla, label: "Vanilla" },
+      ],
+      true,
+    );
+    expect(two.options).toHaveLength(2);
+    expect(two.optionsTruncated).toBe(true);
+    const twentyIds = Array.from({ length: CHOICE_OPTIONS_MAX }, (_, index) => {
+      const suffix = String(index).padStart(12, "0");
+      return {
+        id: `55555555-5555-4555-8555-${suffix}`,
+        label: `V${String(index)}`,
+      };
+    });
+    const twenty = bindChoiceOptions(twentyIds, true);
+    expect(twenty.options).toHaveLength(CHOICE_OPTIONS_MAX);
+    expect(twenty.optionsTruncated).toBe(true);
+    expect(
+      bindChoiceOptions(
+        [
+          { id: variantLemon, label: "Lemon" },
+          { id: variantVanilla, label: "Vanilla" },
+        ],
+        false,
+      ).optionsTruncated,
+    ).toBe(false);
+  });
+
   it("patches the server target line and ignores a leftover variant field", () => {
     const withLegacyVariant: ChoiceCanonicalCreateInput = {
       customer: canonical.customer,
@@ -319,5 +350,47 @@ describe("duck-typed catalog CONFLICT extras (SHO-418)", () => {
       openChoice: () => Promise.resolve(true),
     });
     expect(empty).toBeUndefined();
+  });
+
+  it("keeps optionsTruncated true on a short picker list", async () => {
+    const output = await needsChoiceFromOrdersCreateConflict({
+      actionName: "orders.create",
+      input: canonical,
+      error: new DuckTypedPickerConflict({
+        reason: "variant_required",
+        options: [
+          { id: variantLemon, label: "Lemon" },
+          { id: variantVanilla, label: "Vanilla" },
+        ],
+        optionsTruncated: true,
+      }),
+      mintChoiceId: () => choiceId,
+    });
+    expect(output?.options).toHaveLength(2);
+    expect(output?.optionsTruncated).toBe(true);
+  });
+
+  it("returns undefined when openChoice SET NX fails", async () => {
+    const opened: ChoiceRecord[] = [];
+    const output = await needsChoiceFromOrdersCreateConflict({
+      actionName: "orders.create",
+      input: canonical,
+      error: new DuckTypedPickerConflict({
+        reason: "variant_required",
+        options: [{ id: variantLemon, label: "Lemon" }],
+      }),
+      bind: {
+        actorId: "anna",
+        companyId,
+        conversationId,
+      },
+      openChoice: (record) => {
+        opened.push(record);
+        return Promise.resolve(false);
+      },
+      mintChoiceId: () => choiceId,
+    });
+    expect(opened).toHaveLength(1);
+    expect(output).toBeUndefined();
   });
 });
