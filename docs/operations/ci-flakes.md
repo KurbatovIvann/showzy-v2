@@ -23,15 +23,13 @@ regression. In an agentic workflow the agent cannot tell them apart.
 pnpm 10 called npm's retired `/-/npm/v1/security/audits/quick` endpoint.
 That surface hung (`ERR_SOCKET_TIMEOUT`) and later returns 410. pnpm 12
 (`packageManager` in the root `package.json`) uses
-`/-/npm/v1/security/advisories/bulk` instead.
+`/-/npm/v1/security/advisories/bulk` instead. CI installs that binary
+with `pnpm/setup` (native `@pnpm/exe`); `pnpm/action-setup` v6 cannot
+exec it.
 
-The `dependency-audit` job still runs
-`packages/tooling/ci/run-dependency-audit.mjs` → `pnpm audit --audit-level
-high`. The wrapper re-invokes that command only on classified transient
-registry errors. Advisory findings fail the gate on the first report. Do
+The `dependency-audit` job runs `pnpm audit --audit-level high`. Do
 not pass `--ignore-registry-errors`, and do not add GitHub Actions job
-`retry` / rerun-on-failure. Do not pass `--fetch-retries` /
-`--fetch-timeout` to `pnpm audit` (those are not audit flags).
+`retry` / rerun-on-failure.
 
 ## What to do instead
 

@@ -82,11 +82,11 @@ This repository is **private and user-owned**, so GitHub's
 `actions/dependency-review-action` is unavailable (it requires a public
 repository or an organization-owned repository with GitHub Code
 Security/Advanced Security). The `dependency-audit` job therefore gates on
-`pnpm audit --audit-level high` against the committed lockfile, invoked
-through `packages/tooling/ci/run-dependency-audit.mjs` (SHO-387). The
-root `packageManager` pin is pnpm 12 so audit uses npm's
+`pnpm audit --audit-level high` against the committed lockfile (SHO-387).
+The root `packageManager` pin is pnpm 12 so audit uses npm's
 `/security/advisories/bulk` endpoint (pnpm 10's `/audits/quick` is
-retired).
+retired). CI installs pnpm with `pnpm/setup`, which downloads the native
+executable; `pnpm/action-setup` v6 cannot run pnpm 12.
 
 If the repository ever becomes public or moves into an organization with
 Code Security, replace the `dependency-audit` job body with
