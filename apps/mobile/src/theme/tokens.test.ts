@@ -14,6 +14,7 @@ import {
   lightPalette,
   otpCellMaxWidth,
   pressedOpacity,
+  disabledOpacity,
   radii,
   shadows,
   spacing,
@@ -30,19 +31,25 @@ describe("canvas token map (ADR-0024)", () => {
     expect(lightPalette.primaryForeground).toBe("#FFFFFF");
     expect(lightPalette.muted).toBe("#E5E2DA");
     expect(lightPalette.mutedForeground).toBe("#6E6A61");
-    expect(lightPalette.accent).toBe("#2F6FED");
-    expect(lightPalette.accentSoft).toBe("#E8F0FF");
+    expect(lightPalette.accent).toBe("#4E61DE");
+    expect(lightPalette.accentFg).toBe("#4657BD");
+    expect(lightPalette.accentSoft).toBe("#EEF3FF");
     expect(lightPalette.focus).toBe("#5B4BDB");
     expect(lightPalette.focusSoft).toBe("#EEEBFF");
     expect(lightPalette.focusForeground).toBe("#FFFFFF");
-    expect(lightPalette.ring).toBe("#2F6FED");
-    expect(lightPalette.border).toBe("#E5E2DA");
-    expect(lightPalette.input).toBe("#E5E2DA");
+    expect(lightPalette.ring).toBe("#4E61DE");
+    expect(lightPalette.border).toBe("#EFEDE7");
+    expect(lightPalette.input).toBe("#EFEDE7");
     expect(lightPalette.inputFill).toBe("#F7F6F2");
+    expect(lightPalette.disabled).toBe("#C7C2B8");
+    expect(lightPalette.provisional).toBe("#4E61DE");
+    expect(lightPalette.provisionalFill).toBe("#EEF3FF");
+    expect(lightPalette.provisionalBorder).toBe("#AEBCEC");
+    expect(lightPalette.provisionalFg).toBe("#4657BD");
     expect(lightPalette.destructive).toBe("#C0392B");
     expect(lightPalette.destructiveSoft).toBe("#FBEAE7");
-    expect(lightPalette.success).toBe("#237A4B");
-    expect(lightPalette.successSoft).toBe("#E6F2EA");
+    expect(lightPalette.success).toBe("#56633F");
+    expect(lightPalette.successSoft).toBe("#E1EECC");
     expect(lightPalette.warning).toBe("#A65A16");
     expect(lightPalette.warningSoft).toBe("#FBEFE1");
     expect(lightPalette.overlay).toBe("rgba(28, 28, 26, 0.35)");
@@ -53,16 +60,23 @@ describe("canvas token map (ADR-0024)", () => {
     expect(darkPalette.background).toBe("#161410");
     expect(darkPalette.foreground).toBe("#EDEBE6");
     expect(darkPalette.card).toBe("#211F1A");
-    expect(darkPalette.accent).toBe("#5B8FFF");
-    expect(darkPalette.accentSoft).toBe("#1A2744");
+    expect(darkPalette.accent).toBe("#7A81F0");
+    expect(darkPalette.accentFg).toBe("#8B94F5");
+    expect(darkPalette.accentSoft).toBe("#1A2448");
     expect(darkPalette.focus).toBe("#8B82FF");
     expect(darkPalette.focusSoft).toBe("#221A44");
     expect(darkPalette.focusForeground).toBe("#161410");
-    expect(darkPalette.ring).toBe("#5B8FFF");
+    expect(darkPalette.ring).toBe("#7A81F0");
     expect(darkPalette.border).toBe("#322F2A");
     expect(darkPalette.destructive).toBe("#D45B4F");
-    expect(darkPalette.success).toBe("#3D9A64");
+    expect(darkPalette.success).toBe("#708358");
+    expect(darkPalette.successSoft).toBe("#1E2A18");
     expect(darkPalette.warning).toBe("#D4893A");
+    expect(darkPalette.disabled).toBe("#5C574E");
+    expect(darkPalette.provisional).toBe("#7A81F0");
+    expect(darkPalette.provisionalFill).toBe("#1A2448");
+    expect(darkPalette.provisionalBorder).toBe("#3A4270");
+    expect(darkPalette.provisionalFg).toBe("#8B94F5");
   });
 
   it("pins spacing, canvas radii, type, and hit targets", () => {
@@ -84,10 +98,14 @@ describe("canvas token map (ADR-0024)", () => {
     expect(typography["2xs"]).toEqual({ fontSize: 11, lineHeight: 14 });
     expect(typography.xs).toEqual({ fontSize: 13, lineHeight: 18 });
     expect(typography.base).toEqual({ fontSize: 15, lineHeight: 22 });
+    expect(typography.md).toEqual({ fontSize: 16, lineHeight: 22 });
+    expect(typography.rowTotal).toEqual({ fontSize: 17, lineHeight: 24 });
     expect(typography.lg).toEqual({ fontSize: 18, lineHeight: 24 });
     expect(typography.xl).toEqual({ fontSize: 20, lineHeight: 26 });
     expect(typography["2xl"]).toEqual({ fontSize: 24, lineHeight: 30 });
+    expect(typography.title).toEqual({ fontSize: 26, lineHeight: 32 });
     expect(typography["3xl"]).toEqual({ fontSize: 28, lineHeight: 34 });
+    expect(typography.headline).toEqual({ fontSize: 30, lineHeight: 36 });
     expect(typography.display).toEqual({ fontSize: 44, lineHeight: 44 });
     expect(avatarSizes).toEqual({ sm: 32, md: 42, lg: 80, xl: 96 });
     expect(companyAvatarSizes.md.dimension).toBe(44);
@@ -104,10 +122,8 @@ describe("canvas token map (ADR-0024)", () => {
   });
 
   it("pins the nav cluster and AI control shadows from the canvas", () => {
-    expect(shadows.nav.boxShadow).toBe("0 8px 24px rgba(28, 28, 26, 0.10)");
-    expect(shadows.accent.boxShadow).toBe(
-      "0 6px 16px rgba(47, 111, 237, 0.28)",
-    );
+    expect(shadows.nav.boxShadow).toBe("0 8px 24px rgba(28, 28, 26, 0.08)");
+    expect(shadows.accent.boxShadow).toBe("0 6px 16px rgba(78, 97, 222, 0.28)");
   });
 
   it("keeps glass fallbacks on canvas white / line", () => {
@@ -132,8 +148,10 @@ describe("canvas token map (ADR-0024)", () => {
     expect(darkTheme.colors).toBe(darkPalette);
     expect(lightTheme.colors).toBe(lightPalette);
     expect(lightTheme.pressedOpacity).toBe(pressedOpacity);
+    expect(lightTheme.disabledOpacity).toBe(disabledOpacity);
     expect(lightTheme.otpCellMaxWidth).toBe(otpCellMaxWidth);
     expect(darkTheme.pressedOpacity).toBe(pressedOpacity);
+    expect(darkTheme.disabledOpacity).toBe(disabledOpacity);
   });
 
   it("deletes dead palette / geometry tokens (SHO-299)", () => {
@@ -153,8 +171,9 @@ describe("canvas token map (ADR-0024)", () => {
     expect("auth" in hitTarget).toBe(false);
   });
 
-  it("pins pressed opacity, OTP cell width, and keyboard appearance", () => {
+  it("pins pressed opacity, primary disabled opacity, OTP cell width, and keyboard appearance", () => {
     expect(pressedOpacity).toBe(0.85);
+    expect(disabledOpacity).toBe(0.35);
     expect(otpCellMaxWidth).toBe(56);
     expect(keyboardAppearance("dark")).toBe("dark");
     expect(keyboardAppearance("light")).toBe("light");

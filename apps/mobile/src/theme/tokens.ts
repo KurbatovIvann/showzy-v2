@@ -18,25 +18,31 @@ export const lightPalette = {
   primaryForeground: "#FFFFFF",
   muted: "#E5E2DA",
   mutedForeground: "#6E6A61",
-  accent: "#2F6FED",
+  accent: "#4E61DE",
+  accentFg: "#4657BD",
   accentForeground: "#FFFFFF",
-  accentSoft: "#E8F0FF",
+  accentSoft: "#EEF3FF",
   focus: "#5B4BDB",
   focusForeground: "#FFFFFF",
   focusSoft: "#EEEBFF",
   destructive: "#C0392B",
   destructiveForeground: "#FFFFFF",
   destructiveSoft: "#FBEAE7",
-  success: "#237A4B",
+  success: "#56633F",
   successForeground: "#FFFFFF",
-  successSoft: "#E6F2EA",
+  successSoft: "#E1EECC",
   warning: "#A65A16",
   warningForeground: "#FFFFFF",
   warningSoft: "#FBEFE1",
-  border: "#E5E2DA",
-  input: "#E5E2DA",
+  border: "#EFEDE7",
+  input: "#EFEDE7",
   inputFill: "#F7F6F2",
-  ring: "#2F6FED",
+  ring: "#4E61DE",
+  disabled: "#C7C2B8",
+  provisional: "#4E61DE",
+  provisionalFill: "#EEF3FF",
+  provisionalBorder: "#AEBCEC",
+  provisionalFg: "#4657BD",
 
   skeleton: "#E5E2DA",
 
@@ -76,26 +82,33 @@ export const darkPalette = {
   primaryForeground: "#161410",
   muted: "#322F2A",
   mutedForeground: "#9B968B",
-  accent: "#5B8FFF",
+  // Action #4E61DE lifted like former accent (#2F6FED → #5B8FFF).
+  accent: "#7A81F0",
+  accentFg: "#8B94F5",
   accentForeground: "#161410",
-  accentSoft: "#1A2744",
-  // Indigo lifted like accent (#2F6FED → #5B8FFF) / warning (#A65A16 → #D4893A).
+  accentSoft: "#1A2448",
+  // Indigo lifted like accent (#4E61DE → #7A81F0) / warning (#A65A16 → #D4893A).
   focus: "#8B82FF",
   focusForeground: "#161410",
   focusSoft: "#221A44",
   destructive: "#D45B4F",
   destructiveForeground: "#FFFFFF",
   destructiveSoft: "#2E1C1A",
-  success: "#3D9A64",
+  success: "#708358",
   successForeground: "#FFFFFF",
-  successSoft: "#1A2E24",
+  successSoft: "#1E2A18",
   warning: "#D4893A",
   warningForeground: "#161410",
   warningSoft: "#2E2418",
   border: "#322F2A",
   input: "#322F2A",
   inputFill: "#1C1A17",
-  ring: "#5B8FFF",
+  ring: "#7A81F0",
+  disabled: "#5C574E",
+  provisional: "#7A81F0",
+  provisionalFill: "#1A2448",
+  provisionalBorder: "#3A4270",
+  provisionalFg: "#8B94F5",
 
   skeleton: "#322F2A",
 
@@ -162,6 +175,9 @@ export const hitTarget = {
 /** Pressed-state opacity for Pressable chrome (was a repeated 0.85 literal). */
 export const pressedOpacity = 0.85;
 
+/** Canvas primary disabled (`disabled:opacity-35`), not a faint fill. */
+export const disabledOpacity = 0.35;
+
 /** OTP digit cell max width (canvas square boxes). */
 export const otpCellMaxWidth = 56;
 
@@ -197,10 +213,13 @@ export const typography = {
   sm: { fontSize: 14, lineHeight: 20 },
   base: { fontSize: 15, lineHeight: 22 },
   md: { fontSize: 16, lineHeight: 22 },
+  rowTotal: { fontSize: 17, lineHeight: 24 },
   lg: { fontSize: 18, lineHeight: 24 },
   xl: { fontSize: 20, lineHeight: 26 },
   "2xl": { fontSize: 24, lineHeight: 30 },
+  title: { fontSize: 26, lineHeight: 32 },
   "3xl": { fontSize: 28, lineHeight: 34 },
+  headline: { fontSize: 30, lineHeight: 36 },
   "4xl": { fontSize: 32, lineHeight: 38 },
   display: { fontSize: 44, lineHeight: 44 },
 } as const satisfies Record<string, TypeScale>;
@@ -235,8 +254,8 @@ export const shadows = {
   sm: { boxShadow: "0 1px 2px rgba(28, 28, 26, 0.05)" },
   lg: { boxShadow: "0 8px 24px rgba(28, 28, 26, 0.16)" },
   lgPanel: { boxShadow: "0 14px 40px rgba(28, 28, 26, 0.10)" },
-  nav: { boxShadow: "0 8px 24px rgba(28, 28, 26, 0.10)" },
-  accent: { boxShadow: "0 6px 16px rgba(47, 111, 237, 0.28)" },
+  nav: { boxShadow: "0 8px 24px rgba(28, 28, 26, 0.08)" },
+  accent: { boxShadow: "0 6px 16px rgba(78, 97, 222, 0.28)" },
 } as const;
 
 export type GlassFallback = {

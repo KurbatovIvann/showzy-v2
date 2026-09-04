@@ -121,10 +121,7 @@ export function useOrderCreateLookups(args: {
     return items.filter((row) => matchesLookupQuery(row.name, productSearch));
   }, [productSearch, products.data?.items]);
 
-  const thumbnailPages = useMemo(
-    () => [{ items: productRows }],
-    [productRows],
-  );
+  const thumbnailPages = useMemo(() => [{ items: productRows }], [productRows]);
   const { urlsByFileId, failedFileIds } = useOrderThumbnails({
     client,
     companyId: activeCompanyId,
@@ -147,12 +144,7 @@ export function useOrderCreateLookups(args: {
       );
     }
     return map;
-  }, [
-    args.canFetchThumbnails,
-    failedFileIds,
-    productRows,
-    urlsByFileId,
-  ]);
+  }, [args.canFetchThumbnails, failedFileIds, productRows, urlsByFileId]);
 
   function retryCustomers(): void {
     if (activeCompanyId === null) {

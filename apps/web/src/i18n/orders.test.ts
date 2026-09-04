@@ -31,11 +31,15 @@ describe("orders copy", () => {
     expect(ordersCopy("en").detail.thumbnailUnavailable).toBe(
       "Photo unavailable",
     );
-    expect(ordersCopy("uk").detail.thumbnailUnavailable).toBe("Фото недоступне");
+    expect(ordersCopy("uk").detail.thumbnailUnavailable).toBe(
+      "Фото недоступне",
+    );
     expect(ordersCopy("en").create.thumbnailUnavailable).toBe(
       "Photo unavailable",
     );
-    expect(ordersCopy("uk").create.thumbnailUnavailable).toBe("Фото недоступне");
+    expect(ordersCopy("uk").create.thumbnailUnavailable).toBe(
+      "Фото недоступне",
+    );
   });
 
   it("never titles a list group В роботі or Завершені", () => {

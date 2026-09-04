@@ -1,16 +1,17 @@
 import { useMemo, type ComponentProps } from "react";
 import { Pressable, Text, View } from "react-native";
 import type { Tabs } from "expo-router";
+import { Image } from "expo-image";
 import {
   BoxIcon,
   MenuIcon,
   ShoppingBagIcon,
-  SparklesIcon,
   UsersIcon,
   type LucideIcon,
 } from "lucide-react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
+import sitMark from "../../../../assets/sit.svg";
 import { detectLocale } from "../../../i18n/locale";
 import { panelCopy } from "../../../i18n/panel";
 import { orderedPanelTabs, type PanelTab } from "./panel-tabs";
@@ -18,21 +19,24 @@ import { orderedPanelTabs, type PanelTab } from "./panel-tabs";
 /**
  * Staff shell tab bar (canvas `BottomNav`, ADR-0024). Feature component —
  * not a generic tab primitive (mp-to-mobile.md). Rendered as the custom
- * `tabBar` of the `(app)/(tabs)` navigator; the AI center control is the
- * visually distinct `accent` tab. The AI tab hosts AssistantSheet
- * (SHO-323). Long-press voice capture is out of this slice.
+ * `tabBar` of the `(app)/(tabs)` navigator. Center control is `sit.svg`
+ * in `actionSoft` (not a lucide sparkle icon, no accent ring).
+ * Hierarchical editor routes already sit beside `(tabs)` — do not
+ * re-introduce a tab bar on `/new` and `/edit`.
  */
 type TabBarProps = Parameters<
   NonNullable<ComponentProps<typeof Tabs>["tabBar"]>
 >[0];
 
-const tabIcons: Readonly<Record<PanelTab, LucideIcon>> = {
+const sideTabIcons: Readonly<Record<Exclude<PanelTab, "ai">, LucideIcon>> = {
   orders: ShoppingBagIcon,
   products: BoxIcon,
-  ai: SparklesIcon,
   customers: UsersIcon,
   more: MenuIcon,
 };
+
+/** Canvas `ShozikAvatar` sit size in the 44pt `actionSoft` circle. */
+const SIT_MARK_SIZE = 36;
 
 export function BottomNav({ state, navigation, insets }: TabBarProps) {
   const copy = useMemo(() => panelCopy(detectLocale()), []);
@@ -92,13 +96,13 @@ export function BottomNav({ state, navigation, insets }: TabBarProps) {
 }
 
 function NavItem(props: {
-  readonly tab: PanelTab;
+  readonly tab: Exclude<PanelTab, "ai">;
   readonly label: string;
   readonly active: boolean;
   readonly onPress: () => void;
 }) {
   const { theme } = useUnistyles();
-  const Icon = tabIcons[props.tab];
+  const Icon = sideTabIcons[props.tab];
   return (
     <Pressable
       accessibilityRole="tab"
@@ -127,7 +131,6 @@ function AiTab(props: {
   readonly active: boolean;
   readonly onPress: () => void;
 }) {
-  const { theme } = useUnistyles();
   return (
     <Pressable
       accessibilityRole="tab"
@@ -141,9 +144,12 @@ function AiTab(props: {
           <View
             style={[styles.aiButton, pressed ? styles.aiButtonPressed : null]}
           >
-            <SparklesIcon
-              size={theme.iconSize.md}
-              color={theme.colors.accentForeground}
+            <Image
+              source={sitMark}
+              style={styles.sitMark}
+              contentFit="contain"
+              accessible={false}
+              accessibilityIgnoresInvertColors
             />
           </View>
           <Text style={styles.aiLabel}>{props.label}</Text>
@@ -206,14 +212,17 @@ const styles = StyleSheet.create((theme) => ({
     borderRadius: theme.radii.full,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: theme.colors.accent,
-    ...theme.shadows.accent,
+    backgroundColor: theme.colors.accentSoft,
   },
   aiButtonPressed: {
     transform: [{ scale: 0.95 }],
   },
+  sitMark: {
+    width: SIT_MARK_SIZE,
+    height: SIT_MARK_SIZE,
+  },
   aiLabel: {
-    color: theme.colors.accent,
+    color: theme.colors.accentFg,
     fontSize: theme.typography["2xs"].fontSize,
     lineHeight: theme.typography["2xs"].lineHeight,
     fontWeight: "500",

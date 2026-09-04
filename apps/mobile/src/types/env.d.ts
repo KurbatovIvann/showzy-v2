@@ -35,3 +35,12 @@ declare module "react-dom/client" {
 
 /** Metro inlines this to `true` in the Expo dev client and `false` in release. */
 declare const __DEV__: boolean;
+
+/**
+ * Local SVG assets (Shozik poses). Metro treats `.svg` as an image asset;
+ * `require` / default import resolves to a numeric module id for expo-image.
+ */
+declare module "*.svg" {
+  const src: number;
+  export default src;
+}

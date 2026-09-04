@@ -25,6 +25,7 @@ export {
   lightPalette,
   otpCellMaxWidth,
   pressedOpacity,
+  disabledOpacity,
   radii,
   shadows,
   spacing,
