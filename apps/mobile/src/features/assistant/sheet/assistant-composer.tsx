@@ -3,6 +3,7 @@ import { SendHorizonalIcon } from "lucide-react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { keyboardAppearance } from "../../../theme/tokens";
+import { assistantComposerSendVisible } from "./assistant-chrome";
 
 export function AssistantComposer(props: {
   readonly value: string;
@@ -15,6 +16,7 @@ export function AssistantComposer(props: {
   readonly canSend: boolean;
 }) {
   const { theme, rt } = useUnistyles();
+  const showSend = assistantComposerSendVisible(props.value);
   const sendColor = props.canSend
     ? theme.colors.accentForeground
     : theme.colors.icon.muted;
@@ -33,19 +35,21 @@ export function AssistantComposer(props: {
         style={styles.input}
         keyboardAppearance={keyboardAppearance(rt.themeName)}
       />
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={props.sendLabel}
-        disabled={!props.canSend}
-        onPress={props.onSend}
-        style={({ pressed }) => [
-          styles.send,
-          props.canSend ? styles.sendReady : styles.sendDisabled,
-          pressed && props.canSend ? styles.pressed : null,
-        ]}
-      >
-        <SendHorizonalIcon size={theme.iconSize.sm} color={sendColor} />
-      </Pressable>
+      {showSend ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={props.sendLabel}
+          disabled={!props.canSend}
+          onPress={props.onSend}
+          style={({ pressed }) => [
+            styles.send,
+            props.canSend ? styles.sendReady : styles.sendDisabled,
+            pressed && props.canSend ? styles.pressed : null,
+          ]}
+        >
+          <SendHorizonalIcon size={theme.iconSize.sm} color={sendColor} />
+        </Pressable>
+      ) : null}
     </View>
   );
 }

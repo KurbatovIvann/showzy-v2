@@ -1,11 +1,11 @@
 import { useCallback, useRef } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, Text, View } from "react-native";
 import {
   FlashList,
   type FlashListRef,
   type ListRenderItem,
 } from "@shopify/flash-list";
-import { SparklesIcon, WifiOffIcon } from "lucide-react-native";
+import { WifiOffIcon } from "lucide-react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
@@ -16,8 +16,14 @@ import {
   assistantRowHasInFlightTools,
   type AssistantChatRow,
 } from "../shared/chat-rows";
+import {
+  assistantShozikPose,
+  SHOZIK_EMPTY_POSE_SIZE,
+  SHOZIK_HEADER_POSE_SIZE,
+} from "./assistant-chrome";
 import { AssistantComposer } from "./assistant-composer";
 import { AssistantMessageRow } from "./assistant-message-row";
+import { ShozikPoseMark } from "./shozik-pose-mark";
 
 export type AssistantSheetViewModel = {
   readonly copy: AssistantCopy;
@@ -96,9 +102,13 @@ export function AssistantSheetView(model: AssistantSheetViewModel) {
 
   const showEmpty = model.rows.length === 0 && !model.thinking;
   const lastRow = model.rows[model.rows.length - 1];
-  const showThinking =
-    model.thinking &&
-    (lastRow === undefined || !assistantRowHasInFlightTools(lastRow));
+  const hasInFlightTools =
+    lastRow !== undefined && assistantRowHasInFlightTools(lastRow);
+  const headerPose = assistantShozikPose({
+    thinking: model.thinking,
+    hasInFlightTools,
+  });
+  const showThinking = model.thinking && !hasInFlightTools;
 
   return (
     <SafeAreaView
@@ -107,24 +117,22 @@ export function AssistantSheetView(model: AssistantSheetViewModel) {
       style={styles.screen}
     >
       <KeyboardAvoidingView style={styles.flex} behavior="padding">
-        <AppHeader title={copy.sheetTitle} />
+        <AppHeader
+          title={copy.sheetTitle}
+          leading={
+            <ShozikPoseMark pose={headerPose} size={SHOZIK_HEADER_POSE_SIZE} />
+          }
+        />
         {model.banner !== null ? (
           <View style={styles.banner}>
             <Banner message={model.banner} />
           </View>
         ) : null}
         {showEmpty ? (
-          <View style={styles.unavailable}>
-            <EmptyState
-              icon={
-                <SparklesIcon
-                  size={theme.iconSize.md}
-                  color={theme.colors.accent}
-                />
-              }
-              title={copy.emptyTitle}
-              description={copy.emptyDescription}
-            />
+          <View style={styles.empty}>
+            <ShozikPoseMark pose="sit" size={SHOZIK_EMPTY_POSE_SIZE} />
+            <Text style={styles.emptyTitle}>{copy.emptyTitle}</Text>
+            <Text style={styles.emptyDescription}>{copy.emptyDescription}</Text>
           </View>
         ) : (
           <FlashList
@@ -225,5 +233,25 @@ const styles = StyleSheet.create((theme) => ({
   unavailable: {
     flex: 1,
     justifyContent: "center",
+  },
+  empty: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: theme.spacing.md,
+    paddingHorizontal: theme.spacing["2xl"],
+  },
+  emptyTitle: {
+    color: theme.colors.foreground,
+    textAlign: "center",
+    fontSize: theme.typography.xl.fontSize,
+    lineHeight: theme.typography.xl.lineHeight,
+    fontWeight: "600",
+  },
+  emptyDescription: {
+    color: theme.colors.mutedForeground,
+    textAlign: "center",
+    fontSize: theme.typography.sm.fontSize,
+    lineHeight: theme.typography.sm.lineHeight,
   },
 }));
