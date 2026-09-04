@@ -84,13 +84,4 @@ describe("canvas theme tokens (SHO-311)", () => {
       "--shadow-card: 0 1px 2px rgba(28, 28, 26, 0.05);",
     );
   });
-
-  it("styles pointer-device scrollbars as a thin canvas bar", () => {
-    expect(tokensCss).toContain("scrollbar-width: thin;");
-    expect(tokensCss).toContain("width: 6px;");
-    expect(tokensCss).toContain("height: 6px;");
-    expect(tokensCss).toContain(
-      "scrollbar-color: var(--color-faint) transparent;",
-    );
-  });
 });

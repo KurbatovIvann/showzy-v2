@@ -11,17 +11,17 @@ ADRs, and this file win.
 
 ## Sources of truth
 
-| Concern                              | Source                                                                                                                                                                              |
-| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Concern                              | Source                                                                                                   |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------- |
 | Product screen visuals               | Web canvas Screens + files ([`mp-to-web.md`](../../docs/design/mapping/mp-to-web.md)); inventory in [`web-panel-chrome.md`](../../docs/design/mapping/web-panel-chrome.md) §Screens |
-| Theme tokens                         | `src/theme/`                                                                                                                                                                        |
-| Chrome / tokens lock                 | [`web-panel-chrome.md`](../../docs/design/mapping/web-panel-chrome.md) (breakpoints, nav IA, tones — not a screen substitute)                                                       |
-| Directory / route / data conventions | [`web-panel-architecture.md`](../../docs/design/web-panel-architecture.md)                                                                                                          |
-| Stack / cookies / slug vs UUID       | [ADR-0030](../../docs/adr/0030-web-panel-spa-and-deferred-storefront.md)                                                                                                            |
-| Domain behavior                      | Linear feature card + `@showzy/contract`                                                                                                                                            |
-| Query keys / mutations               | `src/api/query-options.ts`, `src/api/contract-mutation.ts`                                                                                                                          |
-| Golden feature slice                 | `src/features/companies/` (api, onboarding form, company scope)                                                                                                                     |
-| Auth / sessions                      | better-auth over `/api/auth` (ADR-0006). Browser cookies, same-origin.                                                                                                              |
+| Theme tokens                         | `src/theme/`                                                                                             |
+| Chrome / tokens lock                 | [`web-panel-chrome.md`](../../docs/design/mapping/web-panel-chrome.md) (breakpoints, nav IA, tones — not a screen substitute) |
+| Directory / route / data conventions | [`web-panel-architecture.md`](../../docs/design/web-panel-architecture.md)                               |
+| Stack / cookies / slug vs UUID       | [ADR-0030](../../docs/adr/0030-web-panel-spa-and-deferred-storefront.md)                                 |
+| Domain behavior                      | Linear feature card + `@showzy/contract`                                                                 |
+| Query keys / mutations               | `src/api/query-options.ts`, `src/api/contract-mutation.ts`                                               |
+| Golden feature slice                 | `src/features/companies/` (api, onboarding form, company scope)                                          |
+| Auth / sessions                      | better-auth over `/api/auth` (ADR-0006). Browser cookies, same-origin.                                   |
 
 Figma is not a source of spacing or color. Never modify the V1
 repository. Do not paste Magic Patterns React/Tailwind as-is.

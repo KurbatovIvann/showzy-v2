@@ -171,9 +171,14 @@ describe("canonical tree and ownership", () => {
       }
       expect(readFileSync(file, "utf8")).not.toMatch(/\.panel-shell\b/);
     }
-    expect(
-      readFileSync(join(webSrc, "layouts/panel/panel-chrome.css"), "utf8"),
-    ).toMatch(/\.panel-shell\s*\{/);
+    const chromeCss = readFileSync(
+      join(webSrc, "layouts/panel/panel-chrome.css"),
+      "utf8",
+    );
+    expect(chromeCss).toMatch(/\.panel-shell\s*\{/);
+    expect(chromeCss).toContain(".panel-shell *::-webkit-scrollbar");
+    expect(chromeCss).toContain("width: 6px;");
+    expect(chromeCss).toContain("scrollbar-width: thin;");
   });
 });
 
