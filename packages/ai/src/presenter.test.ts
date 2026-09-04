@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { STAFF_ASSISTANT_CLIPPED_STATUS } from "./clip-tool-result.js";
+import { STAFF_ASSISTANT_CONFIRMATION_FALLBACK_TEXT } from "./confirmation.js";
 import {
   presentCompletedStaffAssistantTurn,
   staffAssistantPersistedTurnText,
@@ -298,18 +299,26 @@ describe("staffAssistantPersistedTurnText", () => {
     ).toBe("Four orders this week.");
   });
 
-  it("keeps confirmation fallback over a completed list on the same turn", () => {
+  it("keeps confirmation fallback over a completed list when spoken is a markdown dump", () => {
     expect(
       staffAssistantPersistedTurnText({
         locale: "en",
         toolResults: [
           { toolName: ORDERS_LIST_PAGE_TOOL_NAME, output: listPage },
         ],
-        parsedSpoken: "MODEL_SPOKEN",
-        rawText: '{"spoken":"MODEL_SPOKEN"}',
+        parsedSpoken: "| order | total |",
+        rawText: '{"spoken":"| order | total |"}',
         runs: [{ outcome: "success" }, { outcome: "confirmation_required" }],
       }),
-    ).toBe("Confirmation required.");
+    ).toBe(STAFF_ASSISTANT_CONFIRMATION_FALLBACK_TEXT);
+    expect(
+      presentCompletedStaffAssistantTurn({
+        locale: "en",
+        toolResults: [
+          { toolName: ORDERS_LIST_PAGE_TOOL_NAME, output: listPage },
+        ],
+      }),
+    ).not.toBe(STAFF_ASSISTANT_CONFIRMATION_FALLBACK_TEXT);
   });
 
   it("still fail-opens markdown spoken when there is no surface", () => {
