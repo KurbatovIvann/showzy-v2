@@ -200,11 +200,20 @@ test("secret-scan and the other named gates remain independent workers", () => {
   );
   const dependencyAudit = extractJob(workflow, "dependency-audit");
   assert.match(dependencyAudit, /pnpm audit --audit-level high/);
+  assert.match(dependencyAudit, /dependency-audit-scope\.mjs/);
+  assert.match(dependencyAudit, /fetch-depth:\s+0/);
+  assert.match(dependencyAudit, /steps\.scope\.outputs\.run == 'true'/);
   assert.match(dependencyAudit, /pnpm\/setup@/);
   assert.match(dependencyAudit, /install:\s*["']false["']/);
   assert.doesNotMatch(dependencyAudit, /ignore-registry-errors/);
-  assert.doesNotMatch(dependencyAudit, /run-dependency-audit/);
   assert.doesNotMatch(dependencyAudit, /pnpm\/action-setup@/);
+  const auditScope = fs.readFileSync(
+    path.join(repoRoot, "packages/tooling/ci/dependency-audit-scope.mjs"),
+    "utf8",
+  );
+  assert.match(auditScope, /pnpm-lock\.yaml/);
+  assert.match(auditScope, /package\.json/);
+  assert.doesNotMatch(auditScope, /pnpm\s+audit[^\n]*ignore-registry-errors/);
   assert.match(extractJob(workflow, "contract-check"), /contract:check/);
   assert.match(extractJob(workflow, "migration-drift"), /db:check/);
   assert.match(extractJob(workflow, "bundle-probe"), /bundle:probe/);
