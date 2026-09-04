@@ -14,7 +14,12 @@ import {
 export { CREATE_ORDER_COMMENT_MAX, CREATE_ORDER_MAX_ITEMS };
 
 export type CustomerErrorKey = "required";
-export type ItemsErrorKey = "required" | "duplicate" | "too_many";
+export type ItemsErrorKey =
+  | "required"
+  | "duplicate"
+  | "too_many"
+  | "variant_required"
+  | "no_active_variants";
 export type CommentErrorKey = "too_long";
 
 export type OrderFormFieldErrors = {
@@ -32,7 +37,13 @@ export function isCustomerErrorKey(value: string): value is CustomerErrorKey {
 }
 
 export function isItemsErrorKey(value: string): value is ItemsErrorKey {
-  return value === "required" || value === "duplicate" || value === "too_many";
+  return (
+    value === "required" ||
+    value === "duplicate" ||
+    value === "too_many" ||
+    value === "variant_required" ||
+    value === "no_active_variants"
+  );
 }
 
 export function isCommentErrorKey(value: string): value is CommentErrorKey {

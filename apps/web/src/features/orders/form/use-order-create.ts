@@ -1,6 +1,6 @@
 /**
- * Order create composer (SHO-379). RHF draft + onboarding-style planner
- * (`submit` vs `retry`) + `useContractMutation`. Dirty leave uses
+ * Order create composer (SHO-379 / SHO-408). RHF draft + onboarding-style
+ * planner (`submit` vs `retry`) + `useContractMutation`. Dirty leave uses
  * `useBlocker`. Views do not own the client.
  */
 import { useQueryClient } from "@tanstack/react-query";
@@ -38,6 +38,7 @@ import {
   mapLookupListError,
   mapOrderFormFailure,
   mapValidationIssues,
+  mapVariantSelectionConflict,
   resolveOrderFormCopy,
   rhfItemsMessage,
   type BannerKey,
@@ -58,6 +59,10 @@ import {
   type OrderFormWrite,
 } from "./order-form-plan";
 import { orderFormResolver } from "./order-form.schema";
+import {
+  catalogFactsBlockSubmit,
+  uniqueProductIds,
+} from "./order-line-catalog-facts";
 import {
   commitProductPickerPicks,
   emptyProductPicker,
@@ -123,9 +128,13 @@ export function useOrderCreate(args: {
   const onCreatedRef = useRef(args.onCreated);
   onCreatedRef.current = args.onCreated;
 
+  const watched = form.watch();
   const lookups = useOrderCreateLookups({
     enabled: loadState.kind === "ready",
     variantProductId: picker.kind === "variants" ? picker.productId : null,
+    draftProductIds: uniqueProductIds(
+      watched.items.map((item) => item.productId),
+    ),
     customerQuery,
     productQuery,
     canFetchThumbnails,
@@ -153,7 +162,8 @@ export function useOrderCreate(args: {
     : null;
   const wireCode = mutation.isError ? describeWireCode(mutation.error) : null;
   const serverFields = mutation.isError
-    ? mapValidationIssues(mutation.error, lastWrite)
+    ? (mapValidationIssues(mutation.error, lastWrite) ??
+      mapVariantSelectionConflict(mutation.error))
     : null;
   const fieldKeys = fieldErrorsFromFormState({
     submitted: isSubmitted,
@@ -163,7 +173,17 @@ export function useOrderCreate(args: {
     planner: plannerErrors,
     server: serverFields,
   });
-  const failureBanner = mapOrderFormFailure(failure?.kind ?? null, wireCode);
+  const mappedFailure = mapOrderFormFailure(failure?.kind ?? null, wireCode);
+  const variantPickerError =
+    fieldKeys.items === "variant_required" ||
+    fieldKeys.items === "no_active_variants";
+  const failureBanner =
+    variantPickerError && mappedFailure === "unavailable"
+      ? null
+      : mappedFailure;
+  const catalogFactsBlocked = catalogFactsBlockSubmit(
+    lookups.catalogFactsStatus,
+  );
   const resolved = resolveOrderFormCopy(formCopy, {
     customerError: fieldKeys.customer,
     itemsError: fieldKeys.items,
@@ -178,7 +198,6 @@ export function useOrderCreate(args: {
     resolved.showSubmit &&
     loadState.kind === "ready";
 
-  const watched = form.watch();
   const customers = lookups.customers;
   const products = lookups.products;
   const customersError = mapLookupListError(
@@ -199,12 +218,13 @@ export function useOrderCreate(args: {
   }
 
   async function submit(): Promise<void> {
-    if (mutation.isPending || !canCreate) {
+    if (mutation.isPending || !canCreate || catalogFactsBlocked) {
       return;
     }
     setLocalBanner(null);
     const plan = parseThenPlanOrderFormSave({
       draft: cloneOrderFormDraft(form.getValues()),
+      catalogFacts: lookups.catalogFacts,
       lastWrite,
       lastFailureKind,
       lastWireCode,
@@ -228,6 +248,10 @@ export function useOrderCreate(args: {
     } catch (error: unknown) {
       setLastFailureKind(describeQueryFailure(error).kind);
       setLastWireCode(describeWireCode(error));
+      const conflictFields = mapVariantSelectionConflict(error);
+      if (conflictFields !== null) {
+        setPlannerErrors(conflictFields);
+      }
     }
   }
 
@@ -254,13 +278,16 @@ export function useOrderCreate(args: {
       };
     }),
     customerError: resolved.customerError,
-    itemsError: resolved.itemsError,
+    itemsError:
+      lookups.catalogFactsStatus === "error"
+        ? formCopy.variantsError
+        : resolved.itemsError,
     commentError: resolved.commentError,
     banner: resolved.banner,
     pending: mutation.isPending,
     validating: isValidating,
     submitLabel: resolved.submitLabel,
-    submitDisabled: resolved.submitDisabled,
+    submitDisabled: resolved.submitDisabled || catalogFactsBlocked,
     fieldsEditable: resolved.fieldsEditable,
     showSubmit,
     leaveOpen: blocker.status === "blocked",
@@ -298,7 +325,7 @@ export function useOrderCreate(args: {
     }),
     existingLineKeys: lineIdentityKeySet(watched.items),
     variants: lookups.variants,
-    variantsLoading: lookups.variantsStatus === "pending",
+    variantsLoading: lookups.variantsStatus === "loading",
     variantsError: lookups.variantsStatus === "error",
     pickCustomer: (customer: {
       readonly id: string;

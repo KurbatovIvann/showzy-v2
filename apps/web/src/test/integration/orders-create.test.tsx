@@ -94,6 +94,43 @@ const HIDDEN_PRODUCT = {
   name: "Хризантема Прихована",
 };
 
+const CAKE_PRODUCT_ID = "14141414-1414-4141-8141-141414141414";
+const CAKE_VARIANT_ID = "15151515-1515-4151-8151-151515151515";
+const ARCHIVE_CAKE_ID = "16161616-1616-4161-8161-161616161616";
+const ARCHIVE_VARIANT_ID = "17171717-1717-4171-8171-171717171717";
+
+const CAKE_PRODUCT = {
+  ...ROSE_PRODUCT,
+  id: CAKE_PRODUCT_ID,
+  name: "Торт Макарон",
+  variantCount: 1,
+  variants: [
+    {
+      id: CAKE_VARIANT_ID,
+      name: "Lemon",
+      status: "active" as const,
+      basePriceMinor: null,
+      currency: null,
+    },
+  ],
+};
+
+const ARCHIVE_CAKE_PRODUCT = {
+  ...ROSE_PRODUCT,
+  id: ARCHIVE_CAKE_ID,
+  name: "Архівний торт",
+  variantCount: 0,
+  variants: [
+    {
+      id: ARCHIVE_VARIANT_ID,
+      name: "Old",
+      status: "archived" as const,
+      basePriceMinor: null,
+      currency: null,
+    },
+  ],
+};
+
 function seedFirstPageCustomers(): void {
   for (let index = 0; index < 50; index += 1) {
     seedCustomer({
@@ -162,6 +199,26 @@ function rpcErrorBody(
   return HttpResponse.json({ json: payload }, { status });
 }
 
+function expectedSimpleCreate(args?: {
+  readonly quantityMilli?: string;
+  readonly comment?: string;
+}): Record<string, unknown> {
+  const payload: Record<string, unknown> = {
+    customer: { by: "id", id: ANNA_CUSTOMER.id },
+    items: [
+      {
+        product: { by: "id", id: ROSE_PRODUCT.id },
+        variantSelection: { kind: "base" },
+        quantity: { milli: args?.quantityMilli ?? "1000" },
+      },
+    ],
+  };
+  if (args?.comment !== undefined) {
+    payload.comment = args.comment;
+  }
+  return payload;
+}
+
 function createCalls(): typeof listMineState.mutationCalls {
   return listMineState.mutationCalls.filter(
     (call) => call.path === "/rpc/orders/create",
@@ -204,6 +261,16 @@ async function pickCustomerAndProduct(): Promise<void> {
   );
   fireEvent.click(screen.getByRole("button", { name: "Додати · 1" }));
   expect(await screen.findByText(ROSE_PRODUCT.name)).toBeDefined();
+  await waitFor(() => {
+    expect(
+      listMineState.calls.some(
+        (call) => call.path === "/rpc/catalog/getProduct",
+      ),
+    ).toBe(true);
+    expect(
+      screen.getByRole("button", { name: copy.create.submitCreate }),
+    ).toHaveProperty("disabled", false);
+  });
 }
 
 describe("orders create (SHO-379)", () => {
@@ -227,15 +294,7 @@ describe("orders create (SHO-379)", () => {
     expect(writes).toHaveLength(1);
     expect(writes[0]?.companyId).toBe(FLOWERS_COMPANY_ID);
     expect(writes[0]?.idempotencyKey?.length).toBeGreaterThan(0);
-    expect(writes[0]?.input).toEqual({
-      customer: { by: "id", id: ANNA_CUSTOMER.id },
-      items: [
-        {
-          product: { by: "id", id: ROSE_PRODUCT.id },
-          quantity: { milli: "1000" },
-        },
-      ],
-    });
+    expect(writes[0]?.input).toEqual(expectedSimpleCreate());
     expect(
       listMineState.calls.every(
         (call) => call.path !== "/rpc/pricing/resolveProductPrices",
@@ -264,15 +323,9 @@ describe("orders create (SHO-379)", () => {
     expect(
       await screen.findByRole("heading", { name: `#${CREATED_ORDER_NUMBER}` }),
     ).toBeDefined();
-    expect(createCalls()[0]?.input).toEqual({
-      customer: { by: "id", id: ANNA_CUSTOMER.id },
-      items: [
-        {
-          product: { by: "id", id: ROSE_PRODUCT.id },
-          quantity: { milli: "4000" },
-        },
-      ],
-    });
+    expect(createCalls()[0]?.input).toEqual(
+      expectedSimpleCreate({ quantityMilli: "4000" }),
+    );
   });
 
   it("requires a customer and at least one item", async () => {
@@ -351,15 +404,7 @@ describe("orders create (SHO-379)", () => {
     expect(writes).toHaveLength(2);
     expect(writes[0]?.idempotencyKey).toBe(writes[1]?.idempotencyKey);
     expect(writes[0]?.input).toEqual(writes[1]?.input);
-    expect(writes[1]?.input).toEqual({
-      customer: { by: "id", id: ANNA_CUSTOMER.id },
-      items: [
-        {
-          product: { by: "id", id: ROSE_PRODUCT.id },
-          quantity: { milli: "1000" },
-        },
-      ],
-    });
+    expect(writes[1]?.input).toEqual(expectedSimpleCreate());
   });
 
   it("mints a new create attempt when the payload changes after a retryable failure", async () => {
@@ -387,16 +432,9 @@ describe("orders create (SHO-379)", () => {
     const writes = createCalls();
     expect(writes).toHaveLength(2);
     expect(writes[0]?.idempotencyKey).not.toBe(writes[1]?.idempotencyKey);
-    expect(writes[1]?.input).toEqual({
-      customer: { by: "id", id: ANNA_CUSTOMER.id },
-      items: [
-        {
-          product: { by: "id", id: ROSE_PRODUCT.id },
-          quantity: { milli: "1000" },
-        },
-      ],
-      comment: "Упакувати окремо",
-    });
+    expect(writes[1]?.input).toEqual(
+      expectedSimpleCreate({ comment: "Упакувати окремо" }),
+    );
   });
 
   it("asks to leave when the dirty form navigates away", async () => {
@@ -623,5 +661,137 @@ describe("orders create (SHO-379)", () => {
     const img = document.querySelector(`img[data-file-id="${ROSE_FILE_ID}"]`);
     expect(img).not.toBeNull();
     expect(img?.getAttribute("src")).toBe(ROSE_THUMB_URL);
+  });
+
+  it("writes variantSelection.reference by id for an active variant and never sends variant", async () => {
+    signInWithFlowers();
+    listMineState.listOrdersItems = [ANNA_ORDER];
+    seedCustomer(ANNA_CUSTOMER);
+    seedProduct(CAKE_PRODUCT);
+    await renderApp("/kviti-lviv/orders/new");
+    await waitForCreateForm();
+    fireEvent.click(
+      screen.getByRole("button", { name: copy.create.customerPlaceholder }),
+    );
+    fireEvent.click(
+      await screen.findByRole("option", { name: /Анна Мельник/ }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: copy.create.addProductsPlaceholder }),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: CAKE_PRODUCT.name }),
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "Lemon" }));
+    fireEvent.click(screen.getByRole("button", { name: "Додати · 1" }));
+    expect(await screen.findByText(CAKE_PRODUCT.name)).toBeDefined();
+    await waitFor(() => {
+      expect(
+        listMineState.calls.some(
+          (call) => call.path === "/rpc/catalog/getProduct",
+        ),
+      ).toBe(true);
+      expect(
+        screen.getByRole("button", { name: copy.create.submitCreate }),
+      ).toHaveProperty("disabled", false);
+    });
+    submitCreateForm();
+    expect(
+      await screen.findByRole("heading", { name: `#${CREATED_ORDER_NUMBER}` }),
+    ).toBeDefined();
+    const input = createCalls()[0]?.input;
+    expect(input).toEqual({
+      customer: { by: "id", id: ANNA_CUSTOMER.id },
+      items: [
+        {
+          product: { by: "id", id: CAKE_PRODUCT.id },
+          variantSelection: {
+            kind: "reference",
+            ref: { by: "id", id: CAKE_VARIANT_ID },
+          },
+          quantity: { milli: "1000" },
+        },
+      ],
+    });
+    expect(JSON.stringify(input)).not.toContain('"variant":');
+  });
+
+  it("blocks archived-only variable products from submitting as a base line", async () => {
+    signInWithFlowers();
+    listMineState.listOrdersItems = [ANNA_ORDER];
+    seedCustomer(ANNA_CUSTOMER);
+    seedProduct(ARCHIVE_CAKE_PRODUCT);
+    await renderApp("/kviti-lviv/orders/new");
+    await waitForCreateForm();
+    fireEvent.click(
+      screen.getByRole("button", { name: copy.create.customerPlaceholder }),
+    );
+    fireEvent.click(
+      await screen.findByRole("option", { name: /Анна Мельник/ }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: copy.create.addProductsPlaceholder }),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: ARCHIVE_CAKE_PRODUCT.name }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Додати · 1" }));
+    expect(await screen.findByText(ARCHIVE_CAKE_PRODUCT.name)).toBeDefined();
+    await waitFor(() => {
+      expect(
+        listMineState.calls.some(
+          (call) => call.path === "/rpc/catalog/getProduct",
+        ),
+      ).toBe(true);
+      expect(
+        screen.getByRole("button", { name: copy.create.submitCreate }),
+      ).toHaveProperty("disabled", false);
+    });
+    submitCreateForm();
+    expect(
+      await screen.findByText(copy.create.errors.itemsNoActiveVariants),
+    ).toBeDefined();
+    expect(screen.queryByText(copy.create.errors.unavailable)).toBeNull();
+    expect(createCalls()).toHaveLength(0);
+  });
+
+  it("maps a structured CONFLICT onto the variant picker, not a generic banner", async () => {
+    signInWithFlowers();
+    seedCreateLookups();
+    server.use(
+      http.post(`${PANEL_ORIGIN}/rpc/orders/create`, () =>
+        rpcErrorBody("CONFLICT", 409, "do-not-match-this", {
+          reason: "variant_required",
+        }),
+      ),
+    );
+    await renderApp("/kviti-lviv/orders/new");
+    await waitForCreateForm();
+    await pickCustomerAndProduct();
+    submitCreateForm();
+    expect(
+      await screen.findByText(copy.create.errors.itemsVariantRequired),
+    ).toBeDefined();
+    expect(screen.queryByText(copy.create.errors.unavailable)).toBeNull();
+    expect(screen.queryByText("do-not-match-this")).toBeNull();
+  });
+
+  it("maps a bare wire CONFLICT onto the variant picker, not a dead-end banner", async () => {
+    signInWithFlowers();
+    seedCreateLookups();
+    server.use(
+      http.post(`${PANEL_ORIGIN}/rpc/orders/create`, () =>
+        rpcErrorBody("CONFLICT", 409, "do-not-match-this"),
+      ),
+    );
+    await renderApp("/kviti-lviv/orders/new");
+    await waitForCreateForm();
+    await pickCustomerAndProduct();
+    submitCreateForm();
+    expect(
+      await screen.findByText(copy.create.errors.itemsVariantRequired),
+    ).toBeDefined();
+    expect(screen.queryByText(copy.create.errors.unavailable)).toBeNull();
+    expect(screen.queryByText("do-not-match-this")).toBeNull();
   });
 });

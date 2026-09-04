@@ -33,6 +33,18 @@ describe("orders copy", () => {
     expect(ordersCopy("uk").create.errors.customerRequired).toBe(
       "Оберіть клієнта",
     );
+    expect(ordersCopy("uk").create.errors.itemsVariantRequired).toBe(
+      "Оберіть варіант",
+    );
+    expect(ordersCopy("en").create.errors.itemsVariantRequired).toBe(
+      "Choose a variant",
+    );
+    expect(ordersCopy("uk").create.errors.itemsNoActiveVariants).toBe(
+      "У цього товару немає активних варіантів",
+    );
+    expect(ordersCopy("en").create.errors.itemsNoActiveVariants).toBe(
+      "This product has no active variants",
+    );
     expect(ordersCopy("en").create.submitCreate).toBe("Create");
     expect(ordersCopy("en").detail.thumbnailUnavailable).toBe(
       "Photo unavailable",

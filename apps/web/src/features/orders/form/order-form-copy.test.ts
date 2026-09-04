@@ -6,11 +6,13 @@ import {
   mapLookupListError,
   mapOrderFormFailure,
   mapValidationIssues,
+  mapVariantSelectionConflict,
   resolveOrderFormCopy,
   rhfItemsMessage,
   rhfPathsForFieldErrors,
 } from "./order-form-copy";
 import type { OrderFormWrite } from "./order-form-plan";
+import { emptyFieldErrors, isItemsErrorKey } from "./order-form.schema";
 
 const CUSTOMER_ID = "11111111-1111-4111-8111-111111111111";
 const PRODUCT_ID = "33333333-3333-4333-8333-333333333333";
@@ -34,6 +36,7 @@ describe("mapOrderFormFailure / mapValidationIssues", () => {
         items: [
           {
             product: { by: "id", id: PRODUCT_ID },
+            variantSelection: { kind: "base" },
             quantity: { milli: "1000" },
           },
         ],
@@ -62,6 +65,75 @@ describe("mapOrderFormFailure / mapValidationIssues", () => {
     expect(JSON.stringify(mapValidationIssues(error, write))).not.toContain(
       "secret",
     );
+  });
+});
+
+describe("mapVariantSelectionConflict", () => {
+  it("maps structured variant reasons onto the items/variant picker", () => {
+    const required: unknown = {
+      code: "CONFLICT",
+      status: 409,
+      message: "do-not-match-this",
+      data: { reason: "variant_required" },
+    };
+    expect(mapVariantSelectionConflict(required)).toEqual({
+      customer: null,
+      items: "variant_required",
+      comment: null,
+    });
+    const archivedOnly: unknown = {
+      code: "CONFLICT",
+      status: 409,
+      message: "do-not-match-this",
+      data: { reason: "no_active_variants" },
+    };
+    expect(mapVariantSelectionConflict(archivedOnly)).toEqual({
+      customer: null,
+      items: "no_active_variants",
+      comment: null,
+    });
+    const stale: unknown = {
+      code: "CONFLICT",
+      status: 409,
+      message: "do-not-match-this",
+      data: { reason: "variant_not_found" },
+    };
+    expect(mapVariantSelectionConflict(stale)).toEqual({
+      customer: null,
+      items: "variant_required",
+      comment: null,
+    });
+  });
+
+  it("maps a bare wire CONFLICT onto the variant picker, not a dead-end banner", () => {
+    const bare: unknown = {
+      code: "CONFLICT",
+      status: 409,
+      message: "do-not-match-this",
+    };
+    expect(mapVariantSelectionConflict(bare)).toEqual({
+      customer: null,
+      items: "variant_required",
+      comment: null,
+    });
+    expect(mapOrderFormFailure("conflict", "CONFLICT")).toBe("unavailable");
+  });
+
+  it("does not map VALIDATION or retryable 409 codes", () => {
+    const validation: unknown = {
+      code: "VALIDATION",
+      status: 400,
+      message: "do-not-match-this",
+      data: { issues: [] },
+    };
+    expect(mapVariantSelectionConflict(validation)).toBeNull();
+    const retrying: unknown = {
+      code: "RETRY_IN_PROGRESS",
+      status: 409,
+      message: "do-not-match-this",
+      data: { retryAfterSec: 1 },
+    };
+    expect(mapVariantSelectionConflict(retrying)).toBeNull();
   });
 });
 
@@ -106,6 +178,13 @@ describe("fieldErrorsFromFormState / rhfPathsForFieldErrors", () => {
       { name: "items", message: "required" },
     ]);
     expect(rhfItemsMessage({ root: { message: "required" } })).toBe("required");
+    expect(isItemsErrorKey("variant_required")).toBe(true);
+    expect(isItemsErrorKey("no_active_variants")).toBe(true);
+    expect(emptyFieldErrors()).toEqual({
+      customer: null,
+      items: null,
+      comment: null,
+    });
   });
 });
 
@@ -124,6 +203,32 @@ describe("resolveOrderFormCopy", () => {
     expect(hidden.showSubmit).toBe(false);
     expect(hidden.banner).toBe(copy.errors.permission);
     expect(hidden.banner).not.toBe("do-not-match-this");
+  });
+
+  it("maps variant picker keys onto items copy, not a generic banner", () => {
+    const copy = ordersCopy("uk").create;
+    const variant = resolveOrderFormCopy(copy, {
+      customerError: null,
+      itemsError: "variant_required",
+      commentError: null,
+      banner: null,
+      pending: false,
+      clientReady: true,
+      canCreate: true,
+    });
+    expect(variant.itemsError).toBe(copy.errors.itemsVariantRequired);
+    expect(variant.banner).toBeNull();
+    const archived = resolveOrderFormCopy(copy, {
+      customerError: null,
+      itemsError: "no_active_variants",
+      commentError: null,
+      banner: null,
+      pending: false,
+      clientReady: true,
+      canCreate: true,
+    });
+    expect(archived.itemsError).toBe(copy.errors.itemsNoActiveVariants);
+    expect(archived.banner).toBeNull();
   });
 });
 

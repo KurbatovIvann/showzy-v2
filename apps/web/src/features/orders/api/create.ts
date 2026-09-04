@@ -3,6 +3,8 @@
  * Success invalidates **list** keys only — the create summary is not
  * `orders.get` shaped, so detail hydrates after navigate. UI wire is
  * `{ customer: { by: "id" }, items, comment? }` with milli only.
+ * New source always sends explicit `variantSelection` (`base` or
+ * `reference` by id) and never legacy `variant`.
  */
 import type { MutationCallOptions } from "@showzy/contract";
 import type { QueryClient } from "@tanstack/react-query";
@@ -13,11 +15,18 @@ import { ordersListCacheKey } from "./order-cache";
 type OrdersCreateFn = ShowzyClient["client"]["orders"]["create"];
 type OrdersCreateInput = Parameters<OrdersCreateFn>[0];
 
+export type CreateOrderVariantSelection =
+  | { readonly kind: "base" }
+  | {
+      readonly kind: "reference";
+      readonly ref: { readonly by: "id"; readonly id: string };
+    };
+
 export type CreateOrderPayload = {
   readonly customer: { readonly by: "id"; readonly id: string };
   readonly items: ReadonlyArray<{
     readonly product: { readonly by: "id"; readonly id: string };
-    readonly variant?: { readonly by: "id"; readonly id: string };
+    readonly variantSelection: CreateOrderVariantSelection;
     readonly quantity: { readonly milli: string };
   }>;
   readonly comment?: string;
@@ -39,16 +48,9 @@ export type OrderCreateTransport = {
 function toCreateInput(input: CreateOrderPayload): OrdersCreateInput {
   const items: OrdersCreateInput["items"] = [];
   for (const item of input.items) {
-    if (item.variant === undefined) {
-      items.push({
-        product: item.product,
-        quantity: item.quantity,
-      });
-      continue;
-    }
     items.push({
       product: item.product,
-      variant: item.variant,
+      variantSelection: item.variantSelection,
       quantity: item.quantity,
     });
   }
