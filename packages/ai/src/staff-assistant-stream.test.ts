@@ -1526,6 +1526,33 @@ describe("streamStaffAssistantChat", () => {
     expect(execute).toHaveBeenCalledOnce();
   });
 
+  it("fail-opens to the full catalog when the forced job tool is missing", async () => {
+    const model = new MockLanguageModelV3({
+      doStream: [mockTextStream("You have no orders.")],
+    });
+    const { response, completion } = streamStaffAssistantChat({
+      model,
+      messages: [{ role: "user", content: "show last 3 orders" }],
+      contracts: [deleteCustomer, listProducts, createOrder],
+      execute: () => Promise.resolve({ items: [], nextCursor: null }),
+      forcedToolName: ORDERS_LIST_PAGE_TOOL_NAME,
+    });
+    await readUiMessageSsePayloads(response);
+    const turn = await completion;
+    const first = model.doStreamCalls[0];
+    const names = (first?.tools ?? []).map((tool) => tool.name);
+    expect(names.length).toBeGreaterThan(0);
+    expect(names).toContain(STAFF_ASSISTANT_TOOL_SEARCH_NAME);
+    expect(names).toContain(CATALOG_LIST_PRODUCTS_TOOL_NAME);
+    expect(names).toContain(ORDERS_CREATE_TOOL_NAME);
+    expect(names).toContain(toProviderToolName("customers.deleteCustomer"));
+    expect(names).not.toContain(ORDERS_LIST_PAGE_TOOL_NAME);
+    expect(names).not.toContain(ORDERS_LIST_COUNTS_TOOL_NAME);
+    expect(first?.toolChoice).not.toEqual({ type: "required" });
+    expect(first?.toolChoice).toEqual({ type: "auto" });
+    expect(turn.toolsAttached).toBe(true);
+  });
+
   it("stops after needs_choice and does not force a second presentation tool", async () => {
     const execute = vi.fn(() =>
       Promise.resolve({

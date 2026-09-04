@@ -346,6 +346,25 @@ async function writeUiMessageChunks<T>(
 }
 
 /**
+ * High-confidence job intents attach one ToolSet key with
+ * `toolChoice: "required"`. A missing key is a wrong narrow set — fail-open
+ * to the permission-filtered catalog (same as `other`) and do not force.
+ */
+function staffAssistantStreamTools(
+  catalog: ToolSet,
+  forcedToolName: StaffAssistantForcedToolName | undefined,
+): { readonly tools: ToolSet; readonly forceJobTool: boolean } {
+  if (forcedToolName === undefined) {
+    return { tools: catalog, forceJobTool: false };
+  }
+  const pickedForced = pickStaffAssistantForcedTool(catalog, forcedToolName);
+  if (pickedForced[forcedToolName] === undefined) {
+    return { tools: catalog, forceJobTool: false };
+  }
+  return { tools: pickedForced, forceJobTool: true };
+}
+
+/**
  * AI SDK 7 staff-panel loop (ADR-0032). `execute` is injected so this
  * package never calls `/rpc`. ConfirmationRequiredError pauses the loop
  * and is streamed as a `data-confirmation` part (redacted summary only).
@@ -373,7 +392,10 @@ export function streamStaffAssistantChat(options: {
   readonly locale?: StaffAssistantLocale;
   /**
    * High-confidence job intent (SHO-404): attach only this ToolSet key
-   * and `toolChoice: "required"`. Omit for today's hot set + BM25.
+   * and `toolChoice: "required"`. When the key is absent from the
+   * permission-filtered catalog, fail-open to the full catalog (same as
+   * `other`) and do not force `toolChoice: "required"`. Omit for today's
+   * hot set + BM25.
    */
   readonly forcedToolName?: StaffAssistantForcedToolName;
   /** Awaited inside the UI-message stream after `result.text`. A throw fails the stream. */
@@ -391,13 +413,10 @@ export function streamStaffAssistantChat(options: {
     options.contracts,
     wrapExecute(options.execute, runs),
   );
-  const tools =
-    options.forcedToolName !== undefined
-      ? pickStaffAssistantForcedTool(catalog, options.forcedToolName)
-      : catalog;
-  const forceJobTool =
-    options.forcedToolName !== undefined &&
-    tools[options.forcedToolName] !== undefined;
+  const { tools, forceJobTool } = staffAssistantStreamTools(
+    catalog,
+    options.forcedToolName,
+  );
   clipToolExecutes(tools, clipBytes, presentedToolResults);
   const toolsetHash = staffAssistantToolsetHash(Object.keys(tools));
 
@@ -493,7 +512,7 @@ export function streamStaffAssistantChat(options: {
         }),
         toolRuns: domainToolRuns(runs).slice(0, STAFF_ASSISTANT_TOOL_RUNS_MAX),
         usage: await staffAssistantTurnUsageFromTotal(result.usage),
-        toolsAttached: options.contracts.length > 0,
+        toolsAttached: Object.keys(tools).length > 0,
         modelSteps: await staffAssistantModelStepCount(result.steps),
         toolResultBytesIn: clipBytes.in,
         toolResultBytesOut: clipBytes.out,
