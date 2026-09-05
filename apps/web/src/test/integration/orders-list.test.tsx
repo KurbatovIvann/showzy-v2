@@ -15,6 +15,7 @@ import { http, HttpResponse } from "msw";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
+  BAKERY_MEMBERSHIP,
   FLOWERS_COMPANY_ID,
   FLOWERS_MEMBERSHIP,
   signedInOwner,
@@ -236,6 +237,65 @@ describe("orders list (SHO-377)", () => {
     expect(
       ordersListCalls().every((call) => call.companyId === FLOWERS_COMPANY_ID),
     ).toBe(true);
+  });
+
+  it("hides + Нове when the selected membership lacks orders:create", async () => {
+    sessionState.user = signedInOwner();
+    listMineState.memberships = [
+      {
+        ...FLOWERS_MEMBERSHIP,
+        role: "employee",
+        permissions: ["orders:edit", "orders:view"],
+      },
+    ];
+    seedOrders();
+    await renderApp("/kviti-lviv/orders");
+    await waitForOrdersList();
+    expect(await screen.findByText("Анна Мельник")).toBeDefined();
+    expect(screen.queryByRole("link", { name: "+ Нове" })).toBeNull();
+  });
+
+  it("hides catalog-empty create when orders:create is denied", async () => {
+    sessionState.user = signedInOwner();
+    listMineState.memberships = [
+      {
+        ...FLOWERS_MEMBERSHIP,
+        role: "employee",
+        permissions: ["orders:edit", "orders:view"],
+      },
+    ];
+    await renderApp("/kviti-lviv/orders");
+    await waitForOrdersList();
+    expect(await screen.findByText("Замовлень ще немає")).toBeDefined();
+    expect(screen.queryByRole("link", { name: "+ Нове" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Нове замовлення" })).toBeNull();
+  });
+
+  it("uses the selected membership's create permission after a company switch", async () => {
+    sessionState.user = signedInOwner();
+    listMineState.memberships = [
+      FLOWERS_MEMBERSHIP,
+      {
+        ...BAKERY_MEMBERSHIP,
+        role: "employee",
+        permissions: ["orders:edit", "orders:view"],
+      },
+    ];
+    seedOrders();
+    const { router } = await renderApp("/kviti-lviv/orders");
+    await waitForOrdersList();
+    expect(screen.getByRole("link", { name: "+ Нове" })).toBeDefined();
+    fireEvent.click(screen.getByRole("link", { name: "Пекарня" }));
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/pekarnya");
+    });
+    fireEvent.click(screen.getByRole("link", { name: "Замовлення" }));
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/pekarnya/orders");
+    });
+    await waitForOrdersList();
+    expect(screen.queryByRole("link", { name: "+ Нове" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Нове замовлення" })).toBeNull();
   });
 
   it("shows catalog-empty when there are no orders", async () => {

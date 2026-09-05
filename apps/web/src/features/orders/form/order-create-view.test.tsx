@@ -1,6 +1,6 @@
 /**
- * Order create view affordances (SHO-379). Permission hide is proven
- * here because every seeded staff role holds `orders:create`.
+ * Order create view affordances (SHO-379 / SHO-438). Permission hide is
+ * proven here; listMine effective keys drive `loadState` in the composer.
  */
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";

@@ -3,6 +3,9 @@
  * `useListMine` share `listMineQueryOptions` so hydrate/navigation
  * reuse one cache entry.
  */
+import { isWireError } from "@showzy/contract";
+import type { QueryClient } from "@tanstack/react-query";
+
 import type { ShowzyClient } from "../../../api/client";
 import {
   accountContractQueryKey,
@@ -39,4 +42,25 @@ export function listMineQueryOptions(
     }),
     enabled: sessionUserId !== null,
   };
+}
+
+/**
+ * Stale capability rows must not keep looking authorized after the server
+ * denies a write. Account-scoped listMine is the source of the next
+ * affordance pass.
+ */
+export function refreshListMineAfterAuthorizationDenied(args: {
+  readonly queryClient: QueryClient;
+  readonly sessionUserId: string | null;
+  readonly error: unknown;
+}): void {
+  if (args.sessionUserId === null) {
+    return;
+  }
+  if (!isWireError(args.error) || args.error.code !== "PERMISSION_DENIED") {
+    return;
+  }
+  void args.queryClient.invalidateQueries({
+    queryKey: listMineQueryKey(args.sessionUserId),
+  });
 }

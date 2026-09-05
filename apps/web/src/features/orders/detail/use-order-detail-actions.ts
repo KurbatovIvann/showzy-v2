@@ -10,7 +10,9 @@ import { useApiClient } from "../../../api/api-provider";
 import { useContractMutation } from "../../../api/contract-mutation";
 import { describeQueryFailure } from "../../../api/errors";
 import { useActiveCompany } from "../../../api/query-provider";
+import { useAuthSession } from "../../../auth/session-provider";
 import type { OrdersDetailCopy } from "../../../i18n/orders";
+import { refreshListMineAfterAuthorizationDenied } from "../../companies/shared/list-mine";
 import {
   bindOrderStatusMutate,
   invalidateOrdersAfterStatusWrite,
@@ -42,6 +44,11 @@ export function useOrderDetailActions(args: {
   const { activeCompanyId } = useActiveCompany();
   const queryClient = useQueryClient();
   const writeBusyRef = useRef(false);
+  const auth = useAuthSession();
+  const sessionUserId =
+    auth.status === "authenticated" && auth.session !== null
+      ? auth.session.userId
+      : null;
 
   const confirmMutation = useContractMutation(
     (input: OrderStatusWrite, options) =>
@@ -114,7 +121,12 @@ export function useOrderDetailActions(args: {
       startMutation.reset();
       completeMutation.reset();
       cancelMutation.reset();
-    } catch {
+    } catch (error: unknown) {
+      refreshListMineAfterAuthorizationDenied({
+        queryClient,
+        sessionUserId,
+        error,
+      });
       // Banner is derived from mutation.error via error.code.
     } finally {
       writeBusyRef.current = false;

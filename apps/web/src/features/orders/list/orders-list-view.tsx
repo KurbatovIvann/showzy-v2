@@ -38,6 +38,7 @@ export function OrdersListView({
   state,
   entries,
   selectedOrderId,
+  showCreate,
   onSearchChange,
   onStatusChipChange,
   onRetry,
@@ -50,6 +51,7 @@ export function OrdersListView({
   readonly state: OrdersListState;
   readonly entries: readonly OrdersListEntry[];
   readonly selectedOrderId: string | undefined;
+  readonly showCreate: boolean;
   readonly onSearchChange: (value: string) => void;
   readonly onStatusChipChange: (
     status: OrderLifecycleStatus | undefined,
@@ -114,10 +116,12 @@ export function OrdersListView({
           title={copy.empty.catalogTitle}
           body={copy.empty.catalogDescription}
           action={
-            <OrdersCreateLink
-              companySlug={companySlug}
-              label={copy.empty.catalogAction}
-            />
+            showCreate ? (
+              <OrdersCreateLink
+                companySlug={companySlug}
+                label={copy.empty.catalogAction}
+              />
+            ) : undefined
           }
         />
       ) : null}

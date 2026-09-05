@@ -1,16 +1,23 @@
 /**
- * UI affordance mapping from the verified membership role
- * (`companies.listMine`) to the seeded permission defaults
- * (`packages/db/seed/role-permission-defaults.ts`): owners hold every
- * permission implicitly; admin, manager, and employee are seeded
- * `orders:create` and `orders:edit`. This only hides
- * controls — the server re-checks every action permission and stays
- * authoritative (ADR-0013). Status writes hide without `orders:edit`.
- * Create submit hides without `orders:create`.
+ * UI affordance mapping from the caller's verified membership
+ * (`companies.listMine`): owners hold every permission implicitly;
+ * other roles consult the server-resolved `permissions` array. Missing
+ * or stale arrays do not fall back to granting every role. This only
+ * hides controls — the server re-checks every action permission and stays
+ * authoritative (ADR-0013).
  */
 import { isOpenOrderStatus, type OrderLifecycleStatus } from "./order-status";
 
 export type CompanyRole = "owner" | "admin" | "manager" | "employee";
+
+export const ORDER_CREATE_PERMISSION = "orders:create";
+export const ORDER_EDIT_PERMISSION = "orders:edit";
+export const FILES_VIEW_PERMISSION = "files:view";
+
+export type MembershipCapability = {
+  readonly role: string;
+  readonly permissions?: readonly string[] | null;
+};
 
 export function isCompanyRole(value: string): value is CompanyRole {
   return (
@@ -22,41 +29,50 @@ export function isCompanyRole(value: string): value is CompanyRole {
 }
 
 /**
- * `orders:create` — hides create submit when the role is not granted
- * the permission. Every seeded staff role currently holds create.
- * Prove the hide path with `orderCreateScreenActions({ canCreate: false })`.
+ * Owner-all short-circuit, then the resolved key list. Unknown role or
+ * missing permissions deny. Do not re-implement deny/grant/default
+ * precedence here — the server already resolved it.
  */
-export function canCreateOrders(role: CompanyRole): boolean {
-  switch (role) {
-    case "owner":
-    case "admin":
-    case "manager":
-    case "employee":
-      return true;
+export function membershipHasPermission(
+  membership: MembershipCapability,
+  permission: string,
+): boolean {
+  if (!isCompanyRole(membership.role)) {
+    return false;
   }
+  if (membership.role === "owner") {
+    return true;
+  }
+  const permissions = membership.permissions;
+  if (permissions === undefined || permissions === null) {
+    return false;
+  }
+  return permissions.includes(permission);
 }
 
 /**
- * `orders:edit` — hides confirm / start / complete / cancel. Every
- * seeded staff role currently holds edit (owner implicit). Prove the
- * hide path with `orderDetailActions({ canEdit: false })`.
+ * `orders:create` — hides create submit / list create when the
+ * membership is not granted the permission.
  */
-export function canEditOrders(role: CompanyRole): boolean {
-  switch (role) {
-    case "owner":
-    case "admin":
-    case "manager":
-    case "employee":
-      return true;
-  }
+export function canCreateOrders(membership: MembershipCapability): boolean {
+  return membershipHasPermission(membership, ORDER_CREATE_PERMISSION);
+}
+
+/**
+ * `orders:edit` — hides confirm / start / complete / cancel. Status
+ * writes use the same action permission those contracts declare.
+ */
+export function canEditOrders(membership: MembershipCapability): boolean {
+  return membershipHasPermission(membership, ORDER_EDIT_PERMISSION);
 }
 
 /**
  * `files:view` — skips `files.getDownloadUrls` calls that would 403.
- * Employees are not seeded that permission (same as catalog photos).
  */
-export function canFetchFileDownloadUrls(role: CompanyRole): boolean {
-  return role !== "employee";
+export function canFetchFileDownloadUrls(
+  membership: MembershipCapability,
+): boolean {
+  return membershipHasPermission(membership, FILES_VIEW_PERMISSION);
 }
 
 export type OrderDetailPrimaryWrite = "confirm" | "start" | "complete";

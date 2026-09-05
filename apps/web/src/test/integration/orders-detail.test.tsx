@@ -386,6 +386,34 @@ describe("orders detail (SHO-378)", () => {
     expect(screen.queryByText("Failed to fetch")).toBeNull();
   });
 
+  it("hides status writes when the selected membership lacks orders:edit", async () => {
+    sessionState.user = signedInOwner();
+    listMineState.memberships = [
+      {
+        ...FLOWERS_MEMBERSHIP,
+        role: "employee",
+        permissions: ["orders:create", "orders:view"],
+      },
+    ];
+    seedCatalog();
+    await renderApp(`/kviti-lviv/orders/${ANNA_ORDER_ID}`);
+    const detail = await screen.findByRole("region", { name: "#KL-K7K3K4" });
+    expect(
+      within(detail).queryByRole("button", { name: "Підтвердити" }),
+    ).toBeNull();
+    expect(
+      within(detail).queryByRole("button", { name: "В роботу" }),
+    ).toBeNull();
+    expect(
+      within(detail).queryByRole("button", { name: "Виконано" }),
+    ).toBeNull();
+    expect(
+      within(detail).queryByRole("button", {
+        name: copy.detail.actionsLabel,
+      }),
+    ).toBeNull();
+  });
+
   it("maps permission-denied writes by error.code, never message text", async () => {
     signInWithFlowers();
     seedCatalog();
@@ -404,6 +432,43 @@ describe("orders detail (SHO-378)", () => {
       copy.detail.mutationPermission,
     );
     expect(screen.queryByText("secret-denied-message")).toBeNull();
+  });
+
+  it("refreshes listMine after a denied status write so stale edits hide", async () => {
+    signInWithFlowers();
+    seedCatalog();
+    await renderApp(`/kviti-lviv/orders/${ANNA_ORDER_ID}`);
+    const detail = await screen.findByRole("region", { name: "#KL-K7K3K4" });
+    server.use(
+      http.post(`${PANEL_ORIGIN}/rpc/orders/confirm`, () =>
+        rpcErrorBody("PERMISSION_DENIED", 403, "secret-denied-message"),
+      ),
+    );
+    const listMineBefore = listMineState.calls.filter(
+      (call) => call.path === "/rpc/companies/listMine",
+    ).length;
+    listMineState.memberships = [
+      {
+        ...FLOWERS_MEMBERSHIP,
+        role: "employee",
+        permissions: ["orders:create", "orders:view"],
+      },
+    ];
+    fireEvent.click(
+      within(detail).getByRole("button", { name: "Підтвердити" }),
+    );
+    expect(await screen.findByRole("alert")).toBeDefined();
+    await waitFor(() => {
+      expect(
+        listMineState.calls.filter(
+          (call) => call.path === "/rpc/companies/listMine",
+        ).length,
+      ).toBeGreaterThan(listMineBefore);
+    });
+    const after = screen.getByRole("region", { name: "#KL-K7K3K4" });
+    expect(
+      within(after).queryByRole("button", { name: "Підтвердити" }),
+    ).toBeNull();
   });
 
   it("keeps list search/status/selection in the URL while the parent list stays mounted", async () => {
@@ -492,7 +557,13 @@ describe("orders detail (SHO-378)", () => {
 
   it("does not call getDownloadUrls for an employee without files:view", async () => {
     sessionState.user = signedInOwner();
-    listMineState.memberships = [{ ...FLOWERS_MEMBERSHIP, role: "employee" }];
+    listMineState.memberships = [
+      {
+        ...FLOWERS_MEMBERSHIP,
+        role: "employee",
+        permissions: ["orders:create", "orders:edit", "orders:view"],
+      },
+    ];
     seedCatalog();
     seedProduct(ROSE_PRODUCT_WITH_IMAGE);
     await renderApp(`/kviti-lviv/orders/${ANNA_ORDER_ID}`);
@@ -513,5 +584,37 @@ describe("orders detail (SHO-378)", () => {
         (call) => call.path === "/rpc/files/getDownloadUrls",
       ),
     ).toBe(false);
+  });
+
+  it("loads line thumbs when files:view is granted to a non-owner", async () => {
+    sessionState.user = signedInOwner();
+    listMineState.memberships = [
+      {
+        ...FLOWERS_MEMBERSHIP,
+        role: "employee",
+        permissions: [
+          "files:view",
+          "orders:create",
+          "orders:edit",
+          "orders:view",
+        ],
+      },
+    ];
+    seedCatalog();
+    seedProduct(ROSE_PRODUCT_WITH_IMAGE);
+    await renderApp(`/kviti-lviv/orders/${ANNA_ORDER_ID}`);
+    expect(
+      await screen.findByRole("heading", { name: "#KL-K7K3K4" }),
+    ).toBeDefined();
+    await waitFor(() => {
+      expect(listMineState.getDownloadUrlsCalls).toHaveLength(1);
+    });
+    expect(listMineState.getDownloadUrlsCalls[0]?.input).toMatchObject({
+      fileIds: [ROSE_FILE_ID],
+      rendition: "thumb",
+    });
+    const img = document.querySelector(`img[data-file-id="${ROSE_FILE_ID}"]`);
+    expect(img).not.toBeNull();
+    expect(img?.getAttribute("src")).toBe(ROSE_THUMB_URL);
   });
 });

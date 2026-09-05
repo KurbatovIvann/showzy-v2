@@ -12,9 +12,9 @@ const ordersRoute = getRouteApi("/_authed/$companySlug/_panel/orders");
 export function OrdersListHeaderTrailing() {
   const copy = useOrdersCopy();
   const { companySlug } = ordersRoute.useParams();
-  const { state } = useOrdersList();
+  const { state, showCreate } = useOrdersList();
   // Canvas hides the header CTA when the list empty-state has its own.
-  if (state.kind === "empty-catalog") {
+  if (state.kind === "empty-catalog" || !showCreate) {
     return null;
   }
   return (
@@ -33,6 +33,7 @@ export function OrdersListPage() {
       state={model.state}
       entries={model.entries}
       selectedOrderId={model.selectedOrderId}
+      showCreate={model.showCreate}
       onSearchChange={model.onSearchChange}
       onStatusChipChange={model.onStatusChipChange}
       onRetry={model.onRetry}
