@@ -168,8 +168,11 @@ describe("orders list façade ↔ orders.list contract (SHO-360)", () => {
     expect(ORDERS_LIST_PAGE_ASSISTANT_MAX_LIMIT).toBe(
       LIST_ORDERS_SUMMARY_MAX_LIMIT,
     );
-    expect(listOrdersInputSchema.parse({ kind: "page.summary" }).limit).toBe(
-      LIST_ORDERS_SUMMARY_DEFAULT_LIMIT,
+    expect(listOrdersInputSchema.parse({ kind: "page.summary" })).toMatchObject(
+      {
+        kind: "page.summary",
+        limit: LIST_ORDERS_SUMMARY_DEFAULT_LIMIT,
+      },
     );
     expect(ordersListPageInputSchema.parse({}).limit).toBe(
       LIST_ORDERS_SUMMARY_DEFAULT_LIMIT,
