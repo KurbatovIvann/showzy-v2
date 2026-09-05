@@ -1871,6 +1871,14 @@ describe("POST /assistant/chat logs and /rpc channel", () => {
     expect(usage?.["gate_output_tokens"]).toBe(1);
     expect(typeof usage?.["estimated_cost_usd"]).toBe("number");
     expect(JSON.stringify(usage)).not.toContain("List orders");
+    const gateLog = capturing
+      .entries()
+      .find((entry) => entry["msg"] === "staff assistant turn gate");
+    expect(gateLog?.["gate_model"]).toBe("mock-gate");
+    expect(gateLog?.["gate_mode"]).toBe("job");
+    expect(gateLog?.["gate_intent"]).toBe("other");
+    expect(gateLog?.["gate_confidence"]).toBe("high");
+    expect(gateLog).not.toHaveProperty("gate_skip");
   });
 
   it("logs zero gate tokens when classify throws and still fail-opens", async () => {
@@ -2163,6 +2171,7 @@ describe("POST /assistant/chat intent gate", () => {
   });
 
   it("skips the gate on confirmation resume and still attaches tools", async () => {
+    const capturing = createCapturingLogger();
     const customer = await staffInvoke(createCustomer, {
       name: "AI Gate Resume",
       phone: "+380671110009",
@@ -2188,7 +2197,24 @@ describe("POST /assistant/chat intent gate", () => {
       doGenerate: mockOperationalGateGenerate(true),
       doStream: [mockTextStream("should not chitchat")],
     });
-    const app = chatApp(streamModel, gateModel);
+    const app = createApp({
+      auth,
+      registry,
+      contractModules,
+      pipeline: { ...pipeline, logger: capturing.logger },
+      trustedProxies: [],
+      getPeerAddress: () => REAL_CLIENT,
+      pkiProxy: {
+        rateLimitStore: createInMemoryRateLimitStore(),
+        ipHmacSecret: "test-pki-proxy-ip-hmac-secret!!",
+      },
+      assistant: {
+        model: "mock",
+        gateModel: "mock-gate",
+        languageModel: streamModel,
+        gateLanguageModel: gateModel,
+      },
+    });
     const token = await insertBearer(kit, kitIdentities.users.anna);
     const conversation = await staffInvoke(createConversation, {
       title: "Gate resume",
@@ -2207,6 +2233,14 @@ describe("POST /assistant/chat intent gate", () => {
       expect.unreachable("expected confirmation part");
     }
     expect(gateModel.doGenerateCalls).toHaveLength(1);
+    const classifiedGate = capturing
+      .entries()
+      .find((entry) => entry["msg"] === "staff assistant turn gate");
+    expect(classifiedGate?.["gate_model"]).toBe("mock-gate");
+    expect(classifiedGate?.["gate_mode"]).toBe("job");
+    expect(classifiedGate?.["gate_intent"]).toBe("other");
+    expect(classifiedGate?.["gate_confidence"]).toBe("high");
+    expect(classifiedGate).not.toHaveProperty("gate_skip");
 
     const resume = await postChat(app, {
       token,
@@ -2223,6 +2257,15 @@ describe("POST /assistant/chat intent gate", () => {
     expect(resumeNames).toContain(
       toProviderToolName("customers.deleteCustomer"),
     );
+    const resumeGate = capturing
+      .entries()
+      .filter((entry) => entry["msg"] === "staff assistant turn gate")
+      .at(-1);
+    expect(resumeGate?.["gate_skip"]).toBe("confirmation_resume");
+    expect(resumeGate?.["gate_model"]).toBe("mock-gate");
+    expect(resumeGate).not.toHaveProperty("gate_mode");
+    expect(resumeGate).not.toHaveProperty("gate_intent");
+    expect(resumeGate).not.toHaveProperty("gate_confidence");
   });
 
   it("skips the gate on choice resume and still attaches tools", async () => {
@@ -2288,6 +2331,10 @@ describe("POST /assistant/chat intent gate", () => {
       .entries()
       .find((entry) => entry["msg"] === "staff assistant turn gate");
     expect(gateLog?.["gate_skip"]).toBe("choice_resume");
+    expect(gateLog?.["gate_model"]).toBe("mock-gate");
+    expect(gateLog).not.toHaveProperty("gate_mode");
+    expect(gateLog).not.toHaveProperty("gate_intent");
+    expect(gateLog).not.toHaveProperty("gate_confidence");
     const usage = capturing
       .entries()
       .find((entry) => entry["msg"] === "staff assistant turn usage");

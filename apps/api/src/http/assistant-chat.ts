@@ -247,18 +247,20 @@ function logTurnGate(options: {
   readonly requestId: string;
   readonly gateModel: string;
   readonly policy: StaffAssistantGateToolPolicy;
-  readonly mode: string;
+  readonly mode?: string;
   readonly intent?: string;
-  readonly confidence: string;
+  readonly confidence?: string;
   readonly skip?: StaffAssistantGateSkipReason;
 }): void {
   options.logger.info(
     {
       request_id: options.requestId,
       gate_model: options.gateModel,
-      gate_mode: options.mode,
+      ...(options.mode !== undefined ? { gate_mode: options.mode } : {}),
       ...(options.intent !== undefined ? { gate_intent: options.intent } : {}),
-      gate_confidence: options.confidence,
+      ...(options.confidence !== undefined
+        ? { gate_confidence: options.confidence }
+        : {}),
       ...(options.policy.kind === "forced"
         ? { gate_forced_tool: options.policy.toolName }
         : {}),
@@ -576,9 +578,6 @@ export async function executeStaffAssistantChat(
         requestId: options.requestId,
         gateModel: options.assistant?.gateModel ?? "unconfigured",
         policy: { kind: "full" },
-        mode: "job",
-        intent: "other",
-        confidence: "high",
         skip: gateSkip,
       });
     }

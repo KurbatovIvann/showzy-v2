@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { defineActionContract } from "@showzy/core/contract";
 import { asSchema } from "ai";
 import { describe, expect, it, vi } from "vitest";
@@ -24,7 +26,6 @@ import {
   ORDERS_LIST_ACTION_NAME,
   ORDERS_LIST_COUNTS_TOOL_NAME,
   ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT,
-  ORDERS_LIST_PAGE_ASSISTANT_LIMIT,
   ORDERS_LIST_PAGE_ASSISTANT_MAX_LIMIT,
   ORDERS_LIST_PAGE_TOOL_NAME,
   ordersListCountsInputSchema,
@@ -732,7 +733,6 @@ describe("ordersListFacadeTools", () => {
     expect(LIST_ORDERS_QUERY_MAX).toBe(100);
     expect(LIST_ORDERS_CURSOR_MAX).toBe(80);
     expect(CUSTOMER_NAME_MAX).toBe(120);
-    expect(ORDERS_LIST_PAGE_ASSISTANT_LIMIT).toBe(20);
     expect(ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT).toBe(20);
     expect(ORDERS_LIST_PAGE_ASSISTANT_MAX_LIMIT).toBe(50);
     expect(ordersListPageInputSchema.safeParse({}).success).toBe(true);
@@ -837,6 +837,22 @@ describe("compact orders.list page clip envelope", () => {
     expect(clipped["rows"]).toHaveLength(50);
     expect(clipped["hasMore"]).toBe(true);
     expect(clipped["nextCursor"]).toBe(nextCursor);
+  });
+});
+
+describe("SHO-425 retired alias", () => {
+  it("does not keep the retired assistant page LIMIT alias", () => {
+    const retired = ["ORDERS_LIST_PAGE_ASSISTANT_", "LIMIT"].join("");
+    const facade = readFileSync(
+      new URL("./orders-list.ts", import.meta.url),
+      "utf8",
+    );
+    const barrel = readFileSync(
+      new URL("../index.ts", import.meta.url),
+      "utf8",
+    );
+    expect(facade).not.toContain(retired);
+    expect(barrel).not.toContain(retired);
   });
 });
 

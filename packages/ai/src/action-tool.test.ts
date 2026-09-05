@@ -28,7 +28,7 @@ import {
 import { ORDER_ENTITY_PROMPT_LINE } from "./spoken-reply.js";
 import { CUSTOMERS_LIST_CUSTOMERS_ASSISTANT_LIMIT } from "./tool-facades/customers-list-customers.js";
 import { CUSTOMERS_LIST_GROUPS_ASSISTANT_LIMIT } from "./tool-facades/customers-list-groups.js";
-import { ORDERS_LIST_PAGE_ASSISTANT_LIMIT } from "./tool-facades/orders-list.js";
+import { ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT } from "./tool-facades/orders-list.js";
 
 const customerId = "11111111-1111-4111-8111-111111111111";
 
@@ -232,7 +232,7 @@ describe("staffAssistantTools", () => {
     );
     expect(execute).toHaveBeenCalledWith(
       "orders.list",
-      { kind: "page.summary", limit: ORDERS_LIST_PAGE_ASSISTANT_LIMIT },
+      { kind: "page.summary", limit: ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT },
       { toolCallId: "call-1" },
     );
     expect(fetchSpy).not.toHaveBeenCalled();

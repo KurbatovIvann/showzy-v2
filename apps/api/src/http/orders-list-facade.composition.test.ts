@@ -12,12 +12,17 @@ import {
   mapOrdersListCountsOutput,
   mapOrdersListPageInput,
   mapOrdersListPageOutput,
-  ORDERS_LIST_PAGE_ASSISTANT_LIMIT,
+  ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT,
+  ORDERS_LIST_PAGE_ASSISTANT_MAX_LIMIT,
   ordersListCountsInputSchema,
   ordersListPageInputSchema,
   STAFF_ASSISTANT_CLIP_JSON_MAX,
 } from "@showzy/ai";
-import { listOrdersContract } from "@showzy/orders/contract";
+import {
+  LIST_ORDERS_SUMMARY_DEFAULT_LIMIT,
+  LIST_ORDERS_SUMMARY_MAX_LIMIT,
+  listOrdersContract,
+} from "@showzy/orders/contract";
 import { describe, expect, it } from "vitest";
 
 const CLOCK = { now: new Date("2026-09-02T12:00:00.000Z") } as const;
@@ -149,14 +154,29 @@ describe("orders list façade ↔ orders.list contract (SHO-360)", () => {
     }
   });
 
-  it("duplicates query, cursor, customerIds, and status caps from the contract", () => {
-    // `@showzy/orders/contract` exports the action, not the cap numbers.
-    // These must match `list.contract.ts` (`LIST_ORDERS_*` = 100 / 80 / 50).
+  it("duplicates query, cursor, customerIds, status, and limit caps from the contract", () => {
+    // SHO-413: `@showzy/orders/contract` exports the cap numbers. Pin
+    // façade defaults against those constants and the real schema
+    // (SHO-425): a drifted MAX would otherwise stay green in CI.
     expect(LIST_ORDERS_QUERY_MAX).toBe(100);
     expect(LIST_ORDERS_CURSOR_MAX).toBe(80);
     expect(LIST_ORDERS_CUSTOMER_IDS_MAX).toBe(50);
     expect(CUSTOMER_NAME_MAX).toBe(CUSTOMER_NAME_MAX_FIXTURE);
-    expect(ORDERS_LIST_PAGE_ASSISTANT_LIMIT).toBe(20);
+    expect(ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT).toBe(
+      LIST_ORDERS_SUMMARY_DEFAULT_LIMIT,
+    );
+    expect(ORDERS_LIST_PAGE_ASSISTANT_MAX_LIMIT).toBe(
+      LIST_ORDERS_SUMMARY_MAX_LIMIT,
+    );
+    expect(listOrdersInputSchema.parse({ kind: "page.summary" })).toMatchObject(
+      {
+        kind: "page.summary",
+        limit: LIST_ORDERS_SUMMARY_DEFAULT_LIMIT,
+      },
+    );
+    expect(ordersListPageInputSchema.parse({}).limit).toBe(
+      LIST_ORDERS_SUMMARY_DEFAULT_LIMIT,
+    );
     expect(
       listOrdersInputSchema.safeParse({
         kind: "page.summary",
@@ -208,11 +228,34 @@ describe("orders list façade ↔ orders.list contract (SHO-360)", () => {
     expect(
       ordersListPageInputSchema.safeParse({ statuses: ["active"] }).success,
     ).toBe(false);
+    expect(
+      listOrdersInputSchema.safeParse({
+        kind: "page.summary",
+        limit: LIST_ORDERS_SUMMARY_MAX_LIMIT,
+      }).success,
+    ).toBe(true);
+    expect(
+      listOrdersInputSchema.safeParse({
+        kind: "page.summary",
+        limit: LIST_ORDERS_SUMMARY_MAX_LIMIT + 1,
+      }).success,
+    ).toBe(false);
+    expect(
+      ordersListPageInputSchema.safeParse({
+        limit: LIST_ORDERS_SUMMARY_MAX_LIMIT,
+      }).success,
+    ).toBe(true);
+    expect(
+      ordersListPageInputSchema.safeParse({
+        limit: LIST_ORDERS_SUMMARY_MAX_LIMIT + 1,
+      }).success,
+    ).toBe(false);
   });
 
   it("keeps name, gross, currency, status, and date on every visible max-name compact row without a cursor skip hole", () => {
-    const fat20 = Array.from({ length: 20 }, (_, index) =>
-      fatSummaryRow(index, MAX_CUSTOMER_NAME),
+    const fat20 = Array.from(
+      { length: ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT },
+      (_, index) => fatSummaryRow(index, MAX_CUSTOMER_NAME),
     );
     const mapped20 = mapOrdersListPageOutput(
       {
@@ -221,7 +264,7 @@ describe("orders list façade ↔ orders.list contract (SHO-360)", () => {
         nextCursor: "after-20",
         customerMatchTruncated: false,
       },
-      20,
+      ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT,
     );
     expect(JSON.stringify(mapped20).length).toBeLessThanOrEqual(
       STAFF_ASSISTANT_CLIP_JSON_MAX,
@@ -229,7 +272,7 @@ describe("orders list façade ↔ orders.list contract (SHO-360)", () => {
     expect(clipStaffAssistantToolResult(mapped20)).toBe(mapped20);
 
     const fatPage = Array.from(
-      { length: ORDERS_LIST_PAGE_ASSISTANT_LIMIT },
+      { length: ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT },
       (_, index) => fatSummaryRow(index, MAX_CUSTOMER_NAME),
     );
     const nextCursor = "n".repeat(LIST_ORDERS_CURSOR_MAX);
@@ -240,7 +283,7 @@ describe("orders list façade ↔ orders.list contract (SHO-360)", () => {
         nextCursor,
         customerMatchTruncated: false,
       },
-      ORDERS_LIST_PAGE_ASSISTANT_LIMIT,
+      ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT,
     );
     expect(JSON.stringify(mapped).length).toBeLessThanOrEqual(
       STAFF_ASSISTANT_CLIP_JSON_MAX,
@@ -249,9 +292,11 @@ describe("orders list façade ↔ orders.list contract (SHO-360)", () => {
     const clipped = clipStaffAssistantToolResult(mapped);
     expect(clipped).toBe(mapped);
     const rows = visiblePageRows(clipped);
-    expect(rows).toHaveLength(ORDERS_LIST_PAGE_ASSISTANT_LIMIT);
+    expect(rows).toHaveLength(ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT);
     expect(isRecord(clipped) && clipped["hasMore"]).toBe(true);
-    expect(isRecord(clipped) && clipped["requestedLimit"]).toBe(20);
+    expect(isRecord(clipped) && clipped["requestedLimit"]).toBe(
+      LIST_ORDERS_SUMMARY_DEFAULT_LIMIT,
+    );
     for (const [index, row] of rows.entries()) {
       expect(isRecord(row)).toBe(true);
       if (!isRecord(row) || !isRecord(row["customer"])) {
