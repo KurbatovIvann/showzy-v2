@@ -13,6 +13,10 @@ import {
   applyChoiceOptionToCanonicalInput,
   assistantChoiceInteractionResultSchema,
   attemptKey,
+  CHOICE_OPTIONS_MAX,
+  CHOICE_TRUNCATED_COPY,
+  presentChoiceStaffAssistantNeedsChoice,
+  presentChoiceStaffAssistantTurn,
   staffAssistantChoiceCardEnvelopeSchema,
   successorChoiceId,
   type ChoiceCanonicalCreateInput,
@@ -282,6 +286,7 @@ async function openChoice(options: {
   readonly lineIndex?: number;
   readonly actorId?: string;
   readonly companyId?: string;
+  readonly locale?: "uk" | "en";
 }): Promise<{
   record: ChoiceRecord;
   optionByLabel: Map<string, string>;
@@ -323,7 +328,7 @@ async function openChoice(options: {
       options: envelopeOptions,
       optionsTruncated: false,
     },
-    locale: "uk",
+    locale: options.locale ?? "uk",
   };
   expect(await options.store.open(record)).toBe(true);
   return { record, optionByLabel };
@@ -378,6 +383,7 @@ describe("POST /assistant/choice (seeded store)", () => {
     expect(body.text.length).toBeGreaterThan(0);
     expect(body.entity.orderNumber.length).toBeGreaterThan(0);
     expect(body.text).toContain(body.entity.orderNumber);
+    expect(body.text.startsWith("Замовлення")).toBe(true);
 
     const chatProbe = await app.request(ASSISTANT_CHAT_PATH, {
       method: "POST",
@@ -886,6 +892,8 @@ describe("POST /assistant/choice (seeded store)", () => {
   });
 
   it("returns the next needs_choice in deterministic line order from a seeded store", async () => {
+    const classify = vi.spyOn(ShowzyAi, "classifyStaffAssistantTurn");
+    const stream = vi.spyOn(ShowzyAi, "streamStaffAssistantChat");
     const { app, store } = choiceApp();
     const token = await insertBearer(kit, kitIdentities.users.anna);
     const conversation = await staffInvoke(createConversation, {
@@ -911,6 +919,11 @@ describe("POST /assistant/choice (seeded store)", () => {
       extraProducts: [{ productId: second.productId }],
       lineIndex: 0,
     });
+    const bind = {
+      actorId: kitIdentities.users.anna,
+      companyId: kitIdentities.companies.a,
+      conversationId: conversation.id,
+    };
     const firstOption = optionByLabel.get("Lemon");
     const firstTap = await postChoice(app, {
       token,
@@ -927,11 +940,59 @@ describe("POST /assistant/choice (seeded store)", () => {
     );
     expect(firstBody.status).toBe("needs_choice");
     if (firstBody.status !== "needs_choice") {
+      classify.mockRestore();
+      stream.mockRestore();
       return;
     }
     expect(firstBody.challengeId).toBe(successorChoiceId(record.choiceId));
     expect(firstBody.productName).toBe(second.name);
     expect(firstBody.options.length).toBeGreaterThan(0);
+    const successor = await store.peek({
+      choiceId: firstBody.challengeId,
+      bind,
+    });
+    expect(successor.kind).toBe("found");
+    if (successor.kind !== "found") {
+      classify.mockRestore();
+      stream.mockRestore();
+      return;
+    }
+    const presented = presentChoiceStaffAssistantNeedsChoice({
+      locale: "uk",
+      record: successor.record,
+    });
+    expect(firstBody).toEqual(presented);
+    expect(firstBody.text).toBe(
+      presentChoiceStaffAssistantTurn({
+        locale: "uk",
+        toolResults: [
+          {
+            toolName: "orders.create",
+            output: {
+              status: "needs_choice",
+              challengeId: firstBody.challengeId,
+              reason: firstBody.reason,
+              productName: firstBody.productName,
+              options: firstBody.options,
+              optionsTruncated: firstBody.optionsTruncated,
+            },
+          },
+        ],
+      }),
+    );
+    expect(firstBody.text).toContain(second.name);
+    expect(firstBody.text).toContain("Coffee");
+    expect(firstBody.text).toContain("Chocolate");
+    expect(firstBody.text).not.toBe(`Select a variant for "${second.name}".`);
+    const assistantAfterFirst = (
+      await kit.db.runtime.db.select().from(assistantMessages)
+    ).filter(
+      (row) =>
+        row.conversationId === conversation.id && row.role === "assistant",
+    );
+    expect(assistantAfterFirst).toHaveLength(1);
+    expect(assistantAfterFirst[0]?.body).toBe(firstBody.text);
+    expect(assistantAfterFirst[0]?.body).toBe(presented.text);
     const runsAfterFirst = (
       await kit.db.runtime.db.select().from(assistantToolRuns)
     ).filter((row) => row.conversationId === conversation.id);
@@ -940,6 +1001,34 @@ describe("POST /assistant/choice (seeded store)", () => {
       outcome: "choice_required",
       challengeId: firstBody.challengeId,
     });
+    const retry = await postChoice(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: {
+        conversationId: conversation.id,
+        choiceId: record.choiceId,
+        optionId: firstOption,
+      },
+    });
+    expect(retry.status).toBe(200);
+    const retryBody = assistantChoiceInteractionResultSchema.parse(
+      await retry.json(),
+    );
+    expect(retryBody).toEqual(firstBody);
+    const assistantAfterRetry = (
+      await kit.db.runtime.db.select().from(assistantMessages)
+    ).filter(
+      (row) =>
+        row.conversationId === conversation.id && row.role === "assistant",
+    );
+    expect(assistantAfterRetry).toHaveLength(1);
+    expect(assistantAfterRetry[0]?.body).toBe(firstBody.text);
+    const runsAfterRetry = (
+      await kit.db.runtime.db.select().from(assistantToolRuns)
+    ).filter((row) => row.conversationId === conversation.id);
+    expect(runsAfterRetry).toHaveLength(1);
+    expect(classify).not.toHaveBeenCalled();
+    expect(stream).not.toHaveBeenCalled();
     const coffee = firstBody.options.find(
       (option) => option.label === "Coffee",
     );
@@ -959,8 +1048,19 @@ describe("POST /assistant/choice (seeded store)", () => {
     );
     expect(secondBody.status).toBe("completed");
     if (secondBody.status !== "completed") {
+      classify.mockRestore();
+      stream.mockRestore();
       return;
     }
+    expect(secondBody.text.startsWith("Замовлення")).toBe(true);
+    const completedTurns = (
+      await kit.db.runtime.db.select().from(assistantMessages)
+    ).filter(
+      (row) =>
+        row.conversationId === conversation.id && row.role === "assistant",
+    );
+    expect(completedTurns).toHaveLength(2);
+    expect(completedTurns[1]?.body).toBe(secondBody.text);
     const companyOrders = (
       await kit.db.runtime.db.select().from(orders)
     ).filter((row) => row.customerId === customer.id);
@@ -972,6 +1072,191 @@ describe("POST /assistant/choice (seeded store)", () => {
     expect(runs.some((row) => row.outcome === "choice_required")).toBe(true);
     const success = runs.find((row) => row.outcome === "success");
     expect(success?.resultIds).toContain(secondBody.entity.orderId);
+    expect(classify).not.toHaveBeenCalled();
+    expect(stream).not.toHaveBeenCalled();
+    classify.mockRestore();
+    stream.mockRestore();
+  });
+
+  it("persists sequential English presenter text, not catalog clientMessage", async () => {
+    const classify = vi.spyOn(ShowzyAi, "classifyStaffAssistantTurn");
+    const stream = vi.spyOn(ShowzyAi, "streamStaffAssistantChat");
+    const { app, store } = choiceApp();
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Choice sequential en",
+    });
+    const customer = await staffInvoke(createCustomer, {
+      name: "Sequential EN Buyer",
+      phone: nextPhone(),
+    });
+    const first = await seedVariableProduct("Macarons EN Seq", [
+      "Lemon",
+      "Vanilla",
+    ]);
+    const second = await seedVariableProduct("Eclairs EN Seq", [
+      "Coffee",
+      "Chocolate",
+    ]);
+    const { record, optionByLabel } = await openChoice({
+      store,
+      conversationId: conversation.id,
+      customerId: customer.id,
+      product: first,
+      extraProducts: [{ productId: second.productId }],
+      lineIndex: 0,
+      locale: "en",
+    });
+    const bind = {
+      actorId: kitIdentities.users.anna,
+      companyId: kitIdentities.companies.a,
+      conversationId: conversation.id,
+    };
+    const firstTap = await postChoice(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: {
+        conversationId: conversation.id,
+        choiceId: record.choiceId,
+        optionId: optionByLabel.get("Lemon"),
+      },
+    });
+    expect(firstTap.status).toBe(200);
+    const firstBody = assistantChoiceInteractionResultSchema.parse(
+      await firstTap.json(),
+    );
+    expect(firstBody.status).toBe("needs_choice");
+    if (firstBody.status !== "needs_choice") {
+      classify.mockRestore();
+      stream.mockRestore();
+      return;
+    }
+    const successor = await store.peek({
+      choiceId: firstBody.challengeId,
+      bind,
+    });
+    expect(successor.kind).toBe("found");
+    if (successor.kind !== "found") {
+      classify.mockRestore();
+      stream.mockRestore();
+      return;
+    }
+    const presented = presentChoiceStaffAssistantNeedsChoice({
+      locale: "en",
+      record: successor.record,
+    });
+    expect(firstBody.text).toBe(presented.text);
+    expect(firstBody.text).toBe(
+      `Select a variant for ${second.name}: ${firstBody.options
+        .map((option) => option.label)
+        .join(", ")}.`,
+    );
+    const persisted = (
+      await kit.db.runtime.db.select().from(assistantMessages)
+    ).filter(
+      (row) =>
+        row.conversationId === conversation.id && row.role === "assistant",
+    );
+    expect(persisted).toHaveLength(1);
+    expect(persisted[0]?.body).toBe(firstBody.text);
+    expect(persisted[0]?.body).not.toBe(
+      `Select a variant for "${second.name}".`,
+    );
+    expect(classify).not.toHaveBeenCalled();
+    expect(stream).not.toHaveBeenCalled();
+    classify.mockRestore();
+    stream.mockRestore();
+  });
+
+  it("persists truncated sequential presenter copy live and after reload", async () => {
+    const classify = vi.spyOn(ShowzyAi, "classifyStaffAssistantTurn");
+    const stream = vi.spyOn(ShowzyAi, "streamStaffAssistantChat");
+    const { app, store } = choiceApp();
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Choice sequential truncated",
+    });
+    const customer = await staffInvoke(createCustomer, {
+      name: "Sequential Trunc Buyer",
+      phone: nextPhone(),
+    });
+    const first = await seedVariableProduct("Macarons Trunc Seq", [
+      "Lemon",
+      "Vanilla",
+    ]);
+    const overflowNames = Array.from(
+      { length: CHOICE_OPTIONS_MAX + 1 },
+      (_, index) => `Flavour ${String(index).padStart(2, "0")}`,
+    );
+    const second = await seedVariableProduct(
+      "Eclairs Trunc Seq",
+      overflowNames,
+    );
+    const { record, optionByLabel } = await openChoice({
+      store,
+      conversationId: conversation.id,
+      customerId: customer.id,
+      product: first,
+      extraProducts: [{ productId: second.productId }],
+      lineIndex: 0,
+    });
+    const bind = {
+      actorId: kitIdentities.users.anna,
+      companyId: kitIdentities.companies.a,
+      conversationId: conversation.id,
+    };
+    const firstTap = await postChoice(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: {
+        conversationId: conversation.id,
+        choiceId: record.choiceId,
+        optionId: optionByLabel.get("Lemon"),
+      },
+    });
+    expect(firstTap.status).toBe(200);
+    const firstBody = assistantChoiceInteractionResultSchema.parse(
+      await firstTap.json(),
+    );
+    expect(firstBody.status).toBe("needs_choice");
+    if (firstBody.status !== "needs_choice") {
+      classify.mockRestore();
+      stream.mockRestore();
+      return;
+    }
+    expect(firstBody.optionsTruncated).toBe(true);
+    expect(firstBody.options).toHaveLength(CHOICE_OPTIONS_MAX);
+    const successor = await store.peek({
+      choiceId: firstBody.challengeId,
+      bind,
+    });
+    expect(successor.kind).toBe("found");
+    if (successor.kind !== "found") {
+      classify.mockRestore();
+      stream.mockRestore();
+      return;
+    }
+    const presented = presentChoiceStaffAssistantNeedsChoice({
+      locale: "uk",
+      record: successor.record,
+    });
+    expect(firstBody.text).toBe(presented.text);
+    expect(firstBody.text).toContain(CHOICE_TRUNCATED_COPY.uk);
+    for (const option of firstBody.options) {
+      expect(firstBody.text).toContain(option.label);
+    }
+    const persisted = (
+      await kit.db.runtime.db.select().from(assistantMessages)
+    ).filter(
+      (row) =>
+        row.conversationId === conversation.id && row.role === "assistant",
+    );
+    expect(persisted).toHaveLength(1);
+    expect(persisted[0]?.body).toBe(firstBody.text);
+    expect(classify).not.toHaveBeenCalled();
+    expect(stream).not.toHaveBeenCalled();
+    classify.mockRestore();
+    stream.mockRestore();
   });
 
   it("returns a typed error when the next line is archived-only, without opening a successor", async () => {
@@ -1053,6 +1338,19 @@ describe("POST /assistant/choice (seeded store)", () => {
     });
     expect(runs[0]?.challengeId).toBeNull();
     expect(runs.some((row) => row.outcome === "choice_required")).toBe(false);
+    const persisted = (
+      await kit.db.runtime.db.select().from(assistantMessages)
+    ).filter(
+      (row) =>
+        row.conversationId === conversation.id && row.role === "assistant",
+    );
+    expect(persisted).toHaveLength(1);
+    expect(persisted[0]?.body).toBe(body.message);
+    expect(persisted[0]?.body).toContain(archived.name);
+    expect(persisted[0]?.body.toLowerCase()).toContain("no active");
+    expect(persisted[0]?.body).not.toContain("Оберіть варіант");
+    expect(persisted[0]?.body).not.toContain(CHOICE_TRUNCATED_COPY.uk);
+    expect(persisted[0]?.body).not.toContain(CHOICE_TRUNCATED_COPY.en);
     const companyOrders = (
       await kit.db.runtime.db.select().from(orders)
     ).filter((row) => row.customerId === customer.id);

@@ -392,7 +392,7 @@ describe("choiceSelectAppendParts", () => {
     );
   });
 
-  it("appends spoken text and a successor data-choice for sequential needs_choice", () => {
+  it("appends server-provided sequential text and a successor data-choice", () => {
     const result = {
       status: "needs_choice" as const,
       challengeId: successorId,
@@ -400,26 +400,17 @@ describe("choiceSelectAppendParts", () => {
       productName: "Eclairs",
       options: [{ id: lemonId, label: "Coffee" }],
       optionsTruncated: true,
+      text: "SERVER_PRESENTER: Eclairs Coffee truncated",
     };
     const parts = choiceSelectAppendParts({
       result,
       previousChoiceId: choiceId,
-      locale: "en",
+      locale: "uk",
     });
     expect(parts).toEqual([
       {
         type: "text",
-        text: presentChoiceCardText(
-          {
-            status: "needs_choice",
-            challengeId: successorId,
-            reason: "variant_required",
-            productName: "Eclairs",
-            options: [{ id: lemonId, label: "Coffee" }],
-            optionsTruncated: true,
-          },
-          "en",
-        ),
+        text: "SERVER_PRESENTER: Eclairs Coffee truncated",
       },
       {
         type: "data-choice",
@@ -433,10 +424,88 @@ describe("choiceSelectAppendParts", () => {
         },
       },
     ]);
-    expect(parts[0]).toMatchObject({ type: "text" });
-    if (parts[0]?.type === "text") {
-      expect(parts[0].text).toContain(CHOICE_TRUNCATED_COPY.en);
-    }
+    expect(parts[0]).toMatchObject({
+      type: "text",
+      text: result.text,
+    });
+    expect(parts[0]).not.toEqual({
+      type: "text",
+      text: presentChoiceCardText(
+        {
+          status: "needs_choice",
+          challengeId: successorId,
+          reason: "variant_required",
+          productName: "Eclairs",
+          options: [{ id: lemonId, label: "Coffee" }],
+          optionsTruncated: true,
+        },
+        "uk",
+      ),
+    });
+    expect(choiceSelectShouldIgnoreChallenge(result)).toBe(true);
+  });
+
+  it("appends server truncated copy as-is for uk and en, including after a locale mismatch", () => {
+    const ukText = `Оберіть варіант для Еклери: Кава. ${CHOICE_TRUNCATED_COPY.uk}`;
+    const enText = `Select a variant for Eclairs: Coffee. ${CHOICE_TRUNCATED_COPY.en}`;
+    const ukParts = choiceSelectAppendParts({
+      result: {
+        status: "needs_choice",
+        challengeId: successorId,
+        reason: "variant_required",
+        productName: "Еклери",
+        options: [{ id: lemonId, label: "Кава" }],
+        optionsTruncated: true,
+        text: ukText,
+      },
+      previousChoiceId: choiceId,
+      locale: "en",
+    });
+    expect(ukParts[0]).toEqual({ type: "text", text: ukText });
+    const enParts = choiceSelectAppendParts({
+      result: {
+        status: "needs_choice",
+        challengeId: successorId,
+        reason: "variant_required",
+        productName: "Eclairs",
+        options: [{ id: lemonId, label: "Coffee" }],
+        optionsTruncated: true,
+        text: enText,
+      },
+      previousChoiceId: choiceId,
+      locale: "uk",
+    });
+    expect(enParts[0]).toEqual({ type: "text", text: enText });
+    expect(ukText).not.toBe(
+      presentChoiceCardText(
+        {
+          status: "needs_choice",
+          challengeId: successorId,
+          productName: "Еклери",
+          options: [{ id: lemonId, label: "Кава" }],
+          optionsTruncated: true,
+        },
+        "en",
+      ),
+    );
+  });
+
+  it("does not invent sequential bubble text when the server omits text", () => {
+    const result = {
+      status: "needs_choice" as const,
+      challengeId: successorId,
+      reason: "variant_required" as const,
+      productName: "Eclairs",
+      options: [{ id: lemonId, label: "Coffee" }],
+      optionsTruncated: true,
+    };
+    expect(
+      choiceSelectAppendParts({
+        result,
+        previousChoiceId: choiceId,
+        locale: "en",
+      }),
+    ).toEqual([]);
     expect(choiceSelectShouldIgnoreChallenge(result)).toBe(true);
   });
 
@@ -582,6 +651,8 @@ describe("choiceSelectAppendParts", () => {
     expect(presenter).toContain("Never sendMessage");
     expect(presenter).toContain("choiceSelectAppendParts");
     expect(presenter).toContain("commitChoiceSelectResult");
+    expect(presenter).toContain("args.result.text");
+    expect(presenter).not.toContain("presentChoiceCardText");
     expect(presenter).not.toContain("sendMessage(");
     expect(hook).toContain("commitChoiceSelectResult");
     expect(hook).toContain("companyEpochRef");

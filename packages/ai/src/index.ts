@@ -122,6 +122,7 @@ export {
   resolveMappedVariantId,
   serializeChoiceRecord,
   staffAssistantChoiceCardEnvelopeSchema,
+  staffAssistantNeedsChoiceInteractionSchema,
   staffAssistantNeedsChoiceOutputSchema,
   STAFF_ASSISTANT_NEEDS_CHOICE_STATUS,
   successorChoiceId,
@@ -136,10 +137,12 @@ export {
   type ChoiceRecordStatus,
   type ChoiceTarget,
   type StaffAssistantChoiceCardEnvelope,
+  type StaffAssistantNeedsChoiceInteraction,
   type StaffAssistantNeedsChoiceOutput,
 } from "./choice.js";
 export {
   CHOICE_TRUNCATED_COPY,
+  presentChoiceStaffAssistantNeedsChoice,
   presentChoiceStaffAssistantTurn,
   presentCompletedStaffAssistantTurn,
   staffAssistantLocaleSchema,

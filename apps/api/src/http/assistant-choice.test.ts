@@ -57,6 +57,9 @@ describe("POST /assistant/choice unit", () => {
     expect(src).not.toContain("streamText");
     expect(src).not.toContain("createStaffLanguageModel");
     expect(src).not.toMatch(/redis\.call\(\s*"GETDEL"/);
+    expect(src).toContain("presentChoiceStaffAssistantNeedsChoice");
+    expect(src).toContain("body: needsChoice.text");
+    expect((src.match(/body: error\.clientMessage/g) ?? []).length).toBe(1);
     const chat = readFileSync(join(here, "assistant-chat.ts"), "utf8");
     expect(chat).toContain("classifyStaffAssistantTurn");
     expect(chat).toContain("CONFIRMATION_CHALLENGE_HEADER");
