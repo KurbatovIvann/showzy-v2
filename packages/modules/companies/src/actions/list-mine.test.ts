@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { listMineContract, listMineInputSchema, listMineOutputSchema } from "./list-mine.contract.js";
+import {
+  listMineContract,
+  listMineInputSchema,
+  listMineOutputSchema,
+} from "./list-mine.contract.js";
 
 describe("companies.listMine contract", () => {
   it("is an account client read with no permissions, audit, events, or confirmation", () => {
@@ -67,8 +71,7 @@ describe("companies.listMine contract", () => {
       "orders:create",
     ]);
     expect(
-      listMineInputSchema.safeParse({ permissions: ["orders:create"] })
-        .success,
+      listMineInputSchema.safeParse({ permissions: ["orders:create"] }).success,
     ).toBe(false);
   });
 });

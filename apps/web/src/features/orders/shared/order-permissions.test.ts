@@ -13,21 +13,11 @@ import {
 const OWNER = { role: "owner" as const, permissions: [] };
 const ADMIN_DEFAULTS = {
   role: "admin" as const,
-  permissions: [
-    "files:view",
-    "orders:create",
-    "orders:edit",
-    "orders:view",
-  ],
+  permissions: ["files:view", "orders:create", "orders:edit", "orders:view"],
 };
 const MANAGER_DEFAULTS = {
   role: "manager" as const,
-  permissions: [
-    "files:view",
-    "orders:create",
-    "orders:edit",
-    "orders:view",
-  ],
+  permissions: ["files:view", "orders:create", "orders:edit", "orders:view"],
 };
 const EMPLOYEE_DEFAULTS = {
   role: "employee" as const,

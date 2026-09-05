@@ -11,7 +11,11 @@ import {
 } from "@showzy/core/testing";
 import { auditLog, domainEvents } from "@showzy/db";
 import { user } from "@showzy/db/schema/auth";
-import { companies, companyMembers, rolePermissionDefaults } from "@showzy/db/schema/companies";
+import {
+  companies,
+  companyMembers,
+  rolePermissionDefaults,
+} from "@showzy/db/schema/companies";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -287,9 +291,7 @@ describe("companies.listMine", () => {
       { userId: fixtures.grantUser },
     );
     expect(granted.memberships).toHaveLength(1);
-    expect(granted.memberships[0]?.membershipId).toBe(
-      fixtures.membershipGrant,
-    );
+    expect(granted.memberships[0]?.membershipId).toBe(fixtures.membershipGrant);
     expect(granted.memberships[0]?.role).toBe("employee");
     expect(granted.memberships[0]?.permissions).toEqual([
       "files:view",
@@ -332,9 +334,9 @@ describe("companies.listMine", () => {
       {},
       { userId: fixtures.grantUser },
     );
-    expect(result.memberships.map((membership) => membership.membershipId)).toEqual(
-      [fixtures.membershipGrant],
-    );
+    expect(
+      result.memberships.map((membership) => membership.membershipId),
+    ).toEqual([fixtures.membershipGrant]);
     const serialized = JSON.stringify(result);
     expect(serialized).not.toContain(fixtures.membershipDeny);
     expect(serialized).not.toContain(fixtures.membershipOther);

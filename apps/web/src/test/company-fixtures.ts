@@ -20,12 +20,7 @@ export const FLOWERS_MEMBERSHIP: CompanyMembership = {
 export const BAKERY_MEMBERSHIP: CompanyMembership = {
   membershipId: "c0c0c0c0-0000-4000-8000-000000000012",
   role: "manager",
-  permissions: [
-    "files:view",
-    "orders:create",
-    "orders:edit",
-    "orders:view",
-  ],
+  permissions: ["files:view", "orders:create", "orders:edit", "orders:view"],
   company: {
     id: BAKERY_COMPANY_ID,
     name: "Пекарня",
