@@ -65,11 +65,15 @@ describe("envelopeFromChoicePeek", () => {
     expect(claimedRetryOptionId(openEnvelope)).toBeUndefined();
   });
 
-  it("treats an unreadable peek as expired", () => {
-    expect(envelopeFromChoicePeek(choiceId, "nope")).toMatchObject({
-      status: "expired",
-      challengeId: choiceId,
-    });
+  it("does not treat an unreadable peek as expired", () => {
+    expect(envelopeFromChoicePeek(choiceId, "nope")).toBeUndefined();
+    expect(
+      envelopeFromChoicePeek(choiceId, {
+        code: "INTERNAL",
+        status: 500,
+        message: "Internal error.",
+      }),
+    ).toBeUndefined();
   });
 });
 

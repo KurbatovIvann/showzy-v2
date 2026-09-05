@@ -27,7 +27,6 @@ import {
   queryFailureToAssistantKind,
   type AssistantChatErrorKind,
 } from "../shared/chat-error";
-import { envelopeFromChoicePeek } from "../shared/choice";
 import type {
   ChoiceAppendPart,
   ChoiceSelectResult,
@@ -211,19 +210,21 @@ export function useAssistantChat(): {
           return null;
         }
       },
-      peekChoice: ({ conversationId, choiceId }) => {
+      peekChoice: async ({ conversationId, choiceId }) => {
         if (apiUrl === null) {
-          return Promise.resolve(
-            envelopeFromChoicePeek(choiceId, { status: "expired" }),
-          );
+          return undefined;
         }
-        return peekAssistantChoice({
+        const peeked = await peekAssistantChoice({
           apiUrl,
           getCookie: () => cookieRef.current(),
           getCompanyId: () => companyIdRef.current,
           conversationId,
           choiceId,
         });
+        if (peeked.kind !== "envelope") {
+          return undefined;
+        }
+        return peeked.envelope;
       },
     })
       .then((result) => {

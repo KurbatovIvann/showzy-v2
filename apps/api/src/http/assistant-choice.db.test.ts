@@ -25,6 +25,7 @@ import {
 import { createConversation, recordAssistantTurn } from "@showzy/assistant";
 import { archiveVariant, createProduct } from "@showzy/catalog";
 import { COMPANY_SELECTOR_HEADER, contractModules } from "@showzy/contract";
+import * as ShowzyCore from "@showzy/core";
 import {
   createConfirmationHook,
   createInMemoryConfirmationStore,
@@ -32,6 +33,7 @@ import {
   executeAction,
   type ImplementedAction,
 } from "@showzy/core";
+import { CoreInvariantError } from "@showzy/core/errors";
 import {
   createTestKit,
   kitIdentities,
@@ -999,6 +1001,152 @@ describe("POST /assistant/choice (seeded store)", () => {
     expect(stream).not.toHaveBeenCalled();
     classify.mockRestore();
     stream.mockRestore();
+    const assistantTurns = (
+      await kit.db.runtime.db.select().from(assistantMessages)
+    ).filter(
+      (row) =>
+        row.conversationId === conversation.id && row.role === "assistant",
+    );
+    expect(assistantTurns).toHaveLength(1);
+    const runs = (
+      await kit.db.runtime.db.select().from(assistantToolRuns)
+    ).filter((row) => row.conversationId === conversation.id);
+    const successRuns = runs.filter((row) => row.outcome === "success");
+    expect(successRuns).toHaveLength(1);
+    expect(successRuns[0]?.resultIds).toEqual([companyOrders[0]?.id]);
+  });
+
+  it("replays a post-commit history persist failure as the completed result with one order", async () => {
+    const classify = vi.spyOn(ShowzyAi, "classifyStaffAssistantTurn");
+    const stream = vi.spyOn(ShowzyAi, "streamStaffAssistantChat");
+    const { app, store } = choiceApp();
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Choice persist crash",
+    });
+    const customer = await staffInvoke(createCustomer, {
+      name: "Persist Crash Buyer",
+      phone: nextPhone(),
+    });
+    const product = await seedVariableProduct("Persist Cake", [
+      "Lemon",
+      "Vanilla",
+    ]);
+    const { record, optionByLabel } = await openChoice({
+      store,
+      conversationId: conversation.id,
+      customerId: customer.id,
+      product,
+    });
+    const optionId = optionByLabel.get("Lemon");
+    expect(optionId).toBeDefined();
+    if (optionId === undefined) {
+      classify.mockRestore();
+      stream.mockRestore();
+      return;
+    }
+
+    const realExecuteAction = ShowzyCore.executeAction;
+    const executeSpy = vi
+      .spyOn(ShowzyCore, "executeAction")
+      .mockImplementation(async (deps, invocation) => {
+        if (
+          invocation.action.contract.name === "assistant.recordAssistantTurn"
+        ) {
+          throw new CoreInvariantError(
+            "simulated assistant.recordAssistantTurn persist failure",
+          );
+        }
+        return realExecuteAction(deps, invocation);
+      });
+
+    try {
+      const failed = await postChoice(app, {
+        token,
+        companyId: kitIdentities.companies.a,
+        body: {
+          conversationId: conversation.id,
+          choiceId: record.choiceId,
+          optionId,
+        },
+      });
+      expect(failed.status).toBe(500);
+      const failedBody = await failed.json();
+      expect(failedBody).toEqual({
+        code: "INTERNAL",
+        status: 500,
+        message: "Internal error.",
+      });
+      expect(JSON.stringify(failedBody)).not.toContain(
+        "simulated assistant.recordAssistantTurn persist failure",
+      );
+      expect(JSON.stringify(failedBody)).not.toContain("canonicalInput");
+
+      const claimedPeek = await peekChoice(app, {
+        token,
+        companyId: kitIdentities.companies.a,
+        conversationId: conversation.id,
+        choiceId: record.choiceId,
+      });
+      expect(claimedPeek.status).toBe(200);
+      const claimedEnvelope = staffAssistantChoiceCardEnvelopeSchema.parse(
+        await claimedPeek.json(),
+      );
+      expect(claimedEnvelope.status).toBe("claimed");
+      expect(claimedEnvelope.claimedOptionId).toBe(optionId);
+
+      const ordersAfterFail = (
+        await kit.db.runtime.db.select().from(orders)
+      ).filter((row) => row.customerId === customer.id);
+      expect(ordersAfterFail).toHaveLength(1);
+    } finally {
+      executeSpy.mockRestore();
+    }
+
+    const replay = await postChoice(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: {
+        conversationId: conversation.id,
+        choiceId: record.choiceId,
+        optionId,
+      },
+    });
+    expect(replay.status).toBe(200);
+    const replayBody = assistantChoiceInteractionResultSchema.parse(
+      await replay.json(),
+    );
+    expect(replayBody.status).toBe("completed");
+    if (replayBody.status !== "completed") {
+      classify.mockRestore();
+      stream.mockRestore();
+      return;
+    }
+
+    const companyOrders = (
+      await kit.db.runtime.db.select().from(orders)
+    ).filter((row) => row.customerId === customer.id);
+    expect(companyOrders).toHaveLength(1);
+    expect(replayBody.entity.orderId).toBe(companyOrders[0]?.id);
+
+    const completed = await store.peek({
+      choiceId: record.choiceId,
+      bind: {
+        actorId: kitIdentities.users.anna,
+        companyId: kitIdentities.companies.a,
+        conversationId: conversation.id,
+      },
+    });
+    expect(completed.kind).toBe("found");
+    if (completed.kind === "found") {
+      expect(completed.record.status).toBe("completed");
+    }
+
+    expect(classify).not.toHaveBeenCalled();
+    expect(stream).not.toHaveBeenCalled();
+    classify.mockRestore();
+    stream.mockRestore();
+
     const assistantTurns = (
       await kit.db.runtime.db.select().from(assistantMessages)
     ).filter(

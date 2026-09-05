@@ -724,5 +724,97 @@ describe("resumeOwnAssistantConversation", () => {
         optionsTruncated: false,
       },
     });
+
+    const unavailableResult = await resumeOwnAssistantConversation({
+      companyEpochRef: { current: 0 },
+      epoch: 0,
+      sessionUserId: sessionUser,
+      listConversations: () =>
+        Promise.resolve({
+          items: [{ id: conversationA, userId: sessionUser }],
+          nextCursor: null,
+        }),
+      getConversation: () =>
+        Promise.resolve({
+          id: conversationA,
+          userId: sessionUser,
+          messages: [
+            {
+              id: messageAssistantId,
+              role: "assistant",
+              body: "Select a variant.",
+              createdAt: "2026-09-03T10:00:01.000Z",
+            },
+          ],
+          toolRuns: [
+            {
+              id: "88888888-8888-4888-8888-888888888888",
+              actionName: "orders.create",
+              toolCallId: "call-create",
+              challengeId: choiceId,
+              resultIds: [],
+              outcome: "choice_required",
+              createdAt: "2026-09-03T10:00:01.000Z",
+            },
+          ],
+        }),
+      getOrder: vi.fn(),
+      peekChoice: () => Promise.reject(new TypeError("Failed to fetch")),
+    });
+    expect(unavailableResult.kind).toBe("resumed");
+    if (unavailableResult.kind !== "resumed") {
+      return;
+    }
+    expect(unavailableResult.messages[0]?.parts).toEqual([
+      { type: "text", text: "Select a variant." },
+    ]);
+    expect(JSON.stringify(unavailableResult.messages)).not.toContain(
+      '"status":"expired"',
+    );
+
+    const recoveredResult = await resumeOwnAssistantConversation({
+      companyEpochRef: { current: 0 },
+      epoch: 0,
+      sessionUserId: sessionUser,
+      listConversations: () =>
+        Promise.resolve({
+          items: [{ id: conversationA, userId: sessionUser }],
+          nextCursor: null,
+        }),
+      getConversation: () =>
+        Promise.resolve({
+          id: conversationA,
+          userId: sessionUser,
+          messages: [
+            {
+              id: messageAssistantId,
+              role: "assistant",
+              body: "Select a variant.",
+              createdAt: "2026-09-03T10:00:01.000Z",
+            },
+          ],
+          toolRuns: [
+            {
+              id: "88888888-8888-4888-8888-888888888888",
+              actionName: "orders.create",
+              toolCallId: "call-create",
+              challengeId: choiceId,
+              resultIds: [],
+              outcome: "choice_required",
+              createdAt: "2026-09-03T10:00:01.000Z",
+            },
+          ],
+        }),
+      getOrder: vi.fn(),
+      peekChoice: () => Promise.resolve(live),
+    });
+    expect(recoveredResult.kind).toBe("resumed");
+    if (recoveredResult.kind !== "resumed") {
+      return;
+    }
+    expect(recoveredResult.messages[0]?.parts[1]).toEqual({
+      type: "data-choice",
+      data: live,
+    });
   });
 });

@@ -5,15 +5,15 @@
  * Entity cards hydrate via live `orders.get` on top-level `resultIds`.
  * Pending choice hydrates via T8a peek (SHO-418 / SHO-426): `needs_choice`
  * restores the picker; `claimed` restores a recovery card; `expired`
- * shows expired copy; `completed` does not restore a ChoiceCard. Do not
- * restore list cards.
+ * shows expired copy; `completed` does not restore a ChoiceCard. A
+ * temporary or malformed peek is omitted so reload can recover — it is
+ * not a false expiry. Do not restore list cards.
  *
  * `userId` is compared to the session here — never sent as list/get
  * input. Company id is never action input.
  */
 
 import {
-  envelopeFromChoicePeek,
   isRestorableChoiceStatus,
   type StaffAssistantChoiceCardEnvelope,
 } from "./choice";
@@ -184,7 +184,7 @@ export async function loadChoiceEnvelopes(args: {
   readonly choiceIds: readonly string[];
   readonly peekChoice: (
     choiceId: string,
-  ) => Promise<StaffAssistantChoiceCardEnvelope>;
+  ) => Promise<StaffAssistantChoiceCardEnvelope | undefined>;
 }): Promise<ReadonlyMap<string, StaffAssistantChoiceCardEnvelope>> {
   const envelopes = new Map<string, StaffAssistantChoiceCardEnvelope>();
   const snapshots = await Promise.all(
@@ -193,15 +193,14 @@ export async function loadChoiceEnvelopes(args: {
         const envelope = await args.peekChoice(choiceId);
         return { choiceId, envelope };
       } catch {
-        return {
-          choiceId,
-          envelope: envelopeFromChoicePeek(choiceId, { status: "expired" }),
-        };
+        return { choiceId, envelope: undefined };
       }
     }),
   );
   for (const snapshot of snapshots) {
-    envelopes.set(snapshot.choiceId, snapshot.envelope);
+    if (snapshot.envelope !== undefined) {
+      envelopes.set(snapshot.choiceId, snapshot.envelope);
+    }
   }
   return envelopes;
 }

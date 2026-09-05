@@ -77,11 +77,13 @@ export function choiceFromChatPart(
 /**
  * T8a peek returns `{ status: "expired" }` with no other fields. Expand
  * that into a non-tappable expired envelope — never a dead open picker.
+ * Unreadable or HTTP/Core error bodies are not expiry: return undefined
+ * so reload can peek again.
  */
 export function envelopeFromChoicePeek(
   choiceId: string,
   body: unknown,
-): StaffAssistantChoiceCardEnvelope {
+): StaffAssistantChoiceCardEnvelope | undefined {
   if (isRecord(body) && body.status === "expired") {
     return {
       status: "expired",
@@ -98,12 +100,7 @@ export function envelopeFromChoicePeek(
   if (stripped !== undefined) {
     return stripped;
   }
-  return {
-    status: "expired",
-    challengeId: choiceId,
-    options: [],
-    optionsTruncated: false,
-  };
+  return undefined;
 }
 
 /**

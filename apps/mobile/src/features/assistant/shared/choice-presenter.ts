@@ -49,6 +49,8 @@ export type ChoiceCardState =
       readonly choice: PendingChoice;
     };
 
+export type ChoiceSelectRecoverability = "retryable" | "terminal" | "ambiguous";
+
 export type ChoiceSelectResult = {
   readonly status: string;
   readonly text?: string | undefined;
@@ -63,7 +65,106 @@ export type ChoiceSelectResult = {
     { readonly orderId: string; readonly orderNumber: string } | undefined;
   readonly code?: string | undefined;
   readonly message?: string | undefined;
+  readonly httpStatus?: number | undefined;
+  readonly retryAfterSec?: number | undefined;
+  readonly recoverability?: ChoiceSelectRecoverability | undefined;
 };
+
+const TERMINAL_INTERACTION_CODES = new Set([
+  "CHOICE_OPTION_CONFLICT",
+  "CHOICE_INVALID_OPTION",
+]);
+
+const TERMINAL_WIRE_CODES = new Set([
+  "UNAUTHENTICATED",
+  "PERMISSION_DENIED",
+  "NOT_FOUND",
+  "VALIDATION",
+  "IDEMPOTENCY_CONFLICT",
+]);
+
+const RETRYABLE_WIRE_CODES = new Set([
+  "RETRY_IN_PROGRESS",
+  "RATE_LIMITED",
+  "INTERNAL",
+  "TIMEOUT",
+]);
+
+function httpStatusRecoverability(
+  httpStatus: number,
+): ChoiceSelectRecoverability | undefined {
+  if (
+    httpStatus === 401 ||
+    httpStatus === 403 ||
+    httpStatus === 400 ||
+    httpStatus === 404 ||
+    httpStatus === 422
+  ) {
+    return "terminal";
+  }
+  if (
+    httpStatus === 408 ||
+    httpStatus === 429 ||
+    httpStatus === 502 ||
+    httpStatus === 503 ||
+    httpStatus === 504 ||
+    (httpStatus >= 500 && httpStatus <= 599)
+  ) {
+    return "retryable";
+  }
+  if (httpStatus === 409) {
+    return undefined;
+  }
+  return undefined;
+}
+
+/**
+ * Classify a choice POST outcome from real server codes and HTTP status.
+ * 409 is retryable only for `RETRY_IN_PROGRESS`, not every conflict.
+ */
+export function deriveChoiceSelectRecoverability(
+  result: ChoiceSelectResult,
+): ChoiceSelectRecoverability {
+  if (result.status === "completed" || result.status === "expired") {
+    return "terminal";
+  }
+  if (result.status === "needs_choice") {
+    return needsChoiceEnvelopeFromSelectResult(result) !== undefined
+      ? "terminal"
+      : "ambiguous";
+  }
+  if (typeof result.code === "string") {
+    if (
+      TERMINAL_INTERACTION_CODES.has(result.code) ||
+      TERMINAL_WIRE_CODES.has(result.code)
+    ) {
+      return "terminal";
+    }
+    if (RETRYABLE_WIRE_CODES.has(result.code)) {
+      return "retryable";
+    }
+  }
+  if (typeof result.httpStatus === "number") {
+    const fromHttp = httpStatusRecoverability(result.httpStatus);
+    if (fromHttp !== undefined) {
+      return fromHttp;
+    }
+  }
+  return "ambiguous";
+}
+
+export function classifyChoiceSelect(
+  result: ChoiceSelectResult,
+): ChoiceSelectRecoverability {
+  return result.recoverability ?? deriveChoiceSelectRecoverability(result);
+}
+
+export function choiceSelectAllowsSameOptionRetry(
+  result: ChoiceSelectResult,
+): boolean {
+  const recoverability = classifyChoiceSelect(result);
+  return recoverability === "retryable" || recoverability === "ambiguous";
+}
 
 export type ChoiceAppendPart =
   | { readonly type: "text"; readonly text: string }
@@ -94,8 +195,9 @@ function choiceEnvelopeIsRestorable(
  * Completed peeks are not a ChoiceCard — the later successful entity turn
  * hydrates on its own. Ignored ids skip tappable `needs_choice` / `claimed`
  * so a sequential successor still shows. Expired copy for a consumed
- * challenge stays visible (hydrate missing/expired peek, and POST
- * `{ status: "expired" }`).
+ * challenge stays visible (hydrate `{ status: "expired" }` peek, and POST
+ * `{ status: "expired" }`). Temporary peek failures are omitted, not
+ * expired.
  */
 export function pendingChoiceFromMessages(
   messages: readonly AssistantChoiceMessage[],
@@ -234,21 +336,15 @@ function needsChoiceEnvelopeFromSelectResult(
 export function choiceSelectShouldIgnoreChallenge(
   result: ChoiceSelectResult,
 ): boolean {
-  if (
-    result.status === "completed" ||
-    result.status === "expired" ||
-    result.status === "error"
-  ) {
-    return true;
-  }
-  return needsChoiceEnvelopeFromSelectResult(result) !== undefined;
+  return classifyChoiceSelect(result) === "terminal";
 }
 
 /**
- * Visible copy after a resolved `{ status: "error" }` POST body. Prefer
- * `text`, then the HTTP `message` (`CHOICE_OPTION_CONFLICT` /
+ * Visible copy after a terminal `{ status: "error" }` POST body. Prefer
+ * `text`, then distinct auth/permission copy from the real wire code,
+ * then the HTTP `message` (`CHOICE_OPTION_CONFLICT` /
  * `CHOICE_INVALID_OPTION`), then existing assistant unavailable copy.
- * Never sendMessage.
+ * Never sendMessage. Never surface confirmation challenge tokens.
  */
 export function presentChoiceSelectErrorText(
   result: ChoiceSelectResult,
@@ -257,10 +353,17 @@ export function presentChoiceSelectErrorText(
   if (typeof result.text === "string" && result.text.length > 0) {
     return result.text;
   }
+  const copy = assistantCopy(locale);
+  if (result.code === "UNAUTHENTICATED" || result.httpStatus === 401) {
+    return copy.errors.unauthenticated;
+  }
+  if (result.code === "PERMISSION_DENIED" || result.httpStatus === 403) {
+    return copy.errors.permission;
+  }
   if (typeof result.message === "string" && result.message.length > 0) {
     return result.message;
   }
-  return assistantCopy(locale).errors.unavailable;
+  return copy.errors.unavailable;
 }
 
 /**
@@ -307,14 +410,26 @@ export function choiceSelectAppendParts(args: {
     ];
   }
   if (args.result.status === "expired") {
+    const expired = envelopeFromChoicePeek(
+      args.previousChoiceId,
+      args.result,
+    ) ?? {
+      status: "expired" as const,
+      challengeId: args.previousChoiceId,
+      options: [],
+      optionsTruncated: false,
+    };
     return [
       {
         type: "data-choice",
-        data: envelopeFromChoicePeek(args.previousChoiceId, args.result),
+        data: expired,
       },
     ];
   }
-  if (args.result.status === "error") {
+  if (
+    args.result.status === "error" &&
+    classifyChoiceSelect(args.result) === "terminal"
+  ) {
     return [
       {
         type: "text",
@@ -330,8 +445,10 @@ export type CommitChoiceSelectResult = "skipped" | "stale" | "applied";
 /**
  * Apply a POST /assistant/choice body onto the current tenant session.
  * Append first so an expired envelope is in `messages` before ignore
- * skips the tappable `needs_choice`. Drop ignore + append when the
- * company epoch moved or `reset()` cleared the resolving lock.
+ * skips the tappable `needs_choice`. Retryable and ambiguous outcomes
+ * keep the original challenge so the same option can be posted again.
+ * Drop ignore + append when the company epoch moved or `reset()` cleared
+ * the resolving lock.
  */
 export function commitChoiceSelectResult(args: {
   readonly result: ChoiceSelectResult | "skipped";

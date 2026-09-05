@@ -17,6 +17,7 @@ import {
   hydratedUiMessagesFromConversation,
   isHydratableOrderEntityRun,
   isUnrestorableListRun,
+  loadChoiceEnvelopes,
   loadOrdersById,
   type AssistantConversationListItem,
   type AssistantHistoryMessage,
@@ -631,7 +632,7 @@ describe("choice hydrate (SHO-418)", () => {
     });
   });
 
-  it("restores expired, never a tappable picker, when the peek is missing", () => {
+  it("restores expired, never a tappable picker, when the peek is expired", () => {
     const expired: StaffAssistantChoiceCardEnvelope = {
       status: "expired",
       challengeId: CHOICE_ID,
@@ -892,6 +893,92 @@ describe("choice hydrate (SHO-418)", () => {
       pendingChoiceFromMessages(messages, new Set([CHOICE_ID])),
     ).toMatchObject({
       status: "expired",
+      challengeId: CHOICE_ID,
+    });
+  });
+});
+
+describe("loadChoiceEnvelopes", () => {
+  const liveEnvelope: StaffAssistantChoiceCardEnvelope = {
+    status: "needs_choice",
+    challengeId: CHOICE_ID,
+    reason: "variant_required",
+    productName: "Macarons",
+    options: [{ id: OPTION_LEMON, label: "Lemon" }],
+    optionsTruncated: false,
+  };
+
+  it("omits a temporary peek failure instead of marking the choice expired", async () => {
+    const envelopes = await loadChoiceEnvelopes({
+      choiceIds: [CHOICE_ID],
+      peekChoice: () => Promise.reject(new TypeError("Failed to fetch")),
+    });
+    expect(envelopes.has(CHOICE_ID)).toBe(false);
+    const messages = hydratedUiMessagesFromConversation({
+      messages: [
+        message({
+          id: MSG_ASSISTANT,
+          role: "assistant",
+          body: "Select a variant.",
+          createdAt: "2026-09-03T10:00:01.000Z",
+        }),
+      ],
+      toolRuns: [
+        {
+          id: RUN_CHOICE,
+          actionName: "orders.create",
+          toolCallId: "call-create",
+          challengeId: CHOICE_ID,
+          resultIds: [],
+          outcome: "choice_required",
+          createdAt: "2026-09-03T10:00:01.000Z",
+        },
+      ],
+      ordersById: new Map(),
+      choiceEnvelopes: envelopes,
+    });
+    expect(messages[0]?.parts).toEqual([
+      { type: "text", text: "Select a variant." },
+    ]);
+    expect(pendingChoiceFromMessages(messages, new Set())).toBeNull();
+  });
+
+  it("restores the live card after a later successful peek", async () => {
+    const failed = await loadChoiceEnvelopes({
+      choiceIds: [CHOICE_ID],
+      peekChoice: () => Promise.resolve(undefined),
+    });
+    expect(failed.size).toBe(0);
+    const restored = await loadChoiceEnvelopes({
+      choiceIds: [CHOICE_ID],
+      peekChoice: () => Promise.resolve(liveEnvelope),
+    });
+    expect(restored.get(CHOICE_ID)).toEqual(liveEnvelope);
+    const messages = hydratedUiMessagesFromConversation({
+      messages: [
+        message({
+          id: MSG_ASSISTANT,
+          role: "assistant",
+          body: "Select a variant.",
+          createdAt: "2026-09-03T10:00:01.000Z",
+        }),
+      ],
+      toolRuns: [
+        {
+          id: RUN_CHOICE,
+          actionName: "orders.create",
+          toolCallId: "call-create",
+          challengeId: CHOICE_ID,
+          resultIds: [],
+          outcome: "choice_required",
+          createdAt: "2026-09-03T10:00:01.000Z",
+        },
+      ],
+      ordersById: new Map(),
+      choiceEnvelopes: restored,
+    });
+    expect(pendingChoiceFromMessages(messages, new Set())).toMatchObject({
+      status: "needs_choice",
       challengeId: CHOICE_ID,
     });
   });
