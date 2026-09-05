@@ -26,6 +26,15 @@ describe("catalog.resolveLineReferences contract", () => {
     expect(resolveLineReferencesContract.idempotent).toBe(false);
     expect(resolveLineReferencesContract.emits).toEqual([]);
     expect(resolveLineReferencesContract.timeout).toBe(5_000);
+    expect(resolveLineReferencesContract.description).toContain(
+      "Product query matches include active and archived rows",
+    );
+    expect(resolveLineReferencesContract.description).toContain(
+      "Product and variant ids must be active",
+    );
+    expect(resolveLineReferencesContract.description).toContain(
+      "reason archived, empty options",
+    );
     expect(RESOLVE_LINE_REFERENCES_MAX_LINES).toBe(100);
     expect(VARIANT_SELECTION_OPTIONS_MAX).toBe(20);
     expect(VARIANT_SELECTION_OPTIONS_MAX).toBeGreaterThan(6);

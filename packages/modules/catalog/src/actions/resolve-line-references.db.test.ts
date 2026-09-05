@@ -22,6 +22,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   ReferenceResolutionConflictError,
   ambiguousProductQueryMessage,
+  archivedProductMessage,
+  archivedProductQueryMessage,
 } from "../services/reference-resolution-conflict.js";
 import { resolveLineReferences } from "./resolve-line-references.js";
 import {
@@ -38,7 +40,14 @@ const fixtures = {
   twinUah: randomUUID(),
   twinEur: randomUUID(),
   archived: randomUUID(),
+  archivedAlpha: randomUUID(),
+  archivedCoat: randomUUID(),
+  archivedTwin: randomUUID(),
+  archivedTwinOne: randomUUID(),
+  archivedTwinTwo: randomUUID(),
+  archivedVariable: randomUUID(),
   foreign: randomUUID(),
+  foreignArchived: randomUUID(),
   otherRedProduct: randomUUID(),
   retiredBox: randomUUID(),
   macarons: randomUUID(),
@@ -48,6 +57,7 @@ const fixtures = {
   variantOtherRed: randomUUID(),
   variantForeign: randomUUID(),
   variantRetired: randomUUID(),
+  variantArchivedVariable: randomUUID(),
   macaronLemon: randomUUID(),
   macaronChocolate: randomUUID(),
   macaronVanilla: randomUUID(),
@@ -138,10 +148,59 @@ beforeAll(async () => {
     status: "archived",
   });
   await insertProduct({
+    id: fixtures.archivedAlpha,
+    companyId: kitIdentities.companies.a,
+    name: "Alpha",
+    basePriceMinor: 50n,
+    status: "archived",
+  });
+  await insertProduct({
+    id: fixtures.archivedCoat,
+    companyId: kitIdentities.companies.a,
+    name: "Coat",
+    basePriceMinor: 50n,
+    status: "archived",
+  });
+  await insertProduct({
+    id: fixtures.archivedTwin,
+    companyId: kitIdentities.companies.a,
+    name: "TwinCake",
+    basePriceMinor: 50n,
+    status: "archived",
+  });
+  await insertProduct({
+    id: fixtures.archivedTwinOne,
+    companyId: kitIdentities.companies.a,
+    name: "ZzzArchiveTwin One",
+    basePriceMinor: 50n,
+    status: "archived",
+  });
+  await insertProduct({
+    id: fixtures.archivedTwinTwo,
+    companyId: kitIdentities.companies.a,
+    name: "ZzzArchiveTwin Two",
+    basePriceMinor: 50n,
+    status: "archived",
+  });
+  await insertProduct({
+    id: fixtures.archivedVariable,
+    companyId: kitIdentities.companies.a,
+    name: "Archived Variable Box",
+    basePriceMinor: 20n,
+    status: "archived",
+  });
+  await insertProduct({
     id: fixtures.foreign,
     companyId: kitIdentities.companies.b,
     name: "Alpha",
     basePriceMinor: 100n,
+  });
+  await insertProduct({
+    id: fixtures.foreignArchived,
+    companyId: kitIdentities.companies.b,
+    name: "Secret Foreign Archive",
+    basePriceMinor: 50n,
+    status: "archived",
   });
   await insertProduct({
     id: fixtures.otherRedProduct,
@@ -199,6 +258,13 @@ beforeAll(async () => {
       companyId: kitIdentities.companies.a,
       productId: fixtures.retiredBox,
       name: "Old Filling",
+      status: "archived",
+    },
+    {
+      id: fixtures.variantArchivedVariable,
+      companyId: kitIdentities.companies.a,
+      productId: fixtures.archivedVariable,
+      name: "Retired Filling",
       status: "archived",
     },
     {
@@ -567,11 +633,6 @@ describe("catalog.resolveLineReferences", () => {
     ).rejects.toBeInstanceOf(NotFoundError);
     await expect(
       kit.invoke(resolveLineReferences, {
-        lines: [{ product: { by: "query", value: "Old Widget" } }],
-      }),
-    ).rejects.toBeInstanceOf(NotFoundError);
-    await expect(
-      kit.invoke(resolveLineReferences, {
         lines: [
           {
             product: { by: "id", id: fixtures.coat },
@@ -583,6 +644,122 @@ describe("catalog.resolveLineReferences", () => {
         ],
       }),
     ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it("returns archived for a unique archived-only query and does not resolve the line", async () => {
+    const error = await kit
+      .invoke(resolveLineReferences, {
+        lines: [{ product: { by: "query", value: "old widget" } }],
+      })
+      .then(
+        () => {
+          throw new Error("expected ReferenceResolutionConflictError");
+        },
+        (caught: unknown) => caught,
+      );
+    const conflict = expectResolutionConflict(error);
+    expect(conflict.reason).toBe("archived");
+    expect(conflict.target).toEqual({
+      kind: "order_line_product",
+      lineIndex: 0,
+      query: "old widget",
+      productName: "Old Widget",
+    });
+    expect("productName" in conflict.target).toBe(true);
+    expect(conflict.options).toEqual([]);
+    expect(conflict.optionsTruncated).toBe(false);
+    expect(conflict.clientMessage).toBe(archivedProductMessage("Old Widget"));
+    expect(conflict.clientMessage).toContain("Old Widget");
+  });
+
+  it("returns archived for an archived variable product query without selling the parent", async () => {
+    const error = await kit
+      .invoke(resolveLineReferences, {
+        lines: [{ product: { by: "query", value: "Archived Variable Box" } }],
+      })
+      .then(
+        () => {
+          throw new Error("expected ReferenceResolutionConflictError");
+        },
+        (caught: unknown) => caught,
+      );
+    const conflict = expectResolutionConflict(error);
+    expect(conflict.reason).toBe("archived");
+    expect(conflict.options).toEqual([]);
+    expect(conflict.optionsTruncated).toBe(false);
+    expect(conflict.target).toEqual({
+      kind: "order_line_product",
+      lineIndex: 0,
+      query: "Archived Variable Box",
+      productName: "Archived Variable Box",
+    });
+  });
+
+  it("returns archived with the query as subject when several archived-only products match", async () => {
+    const error = await kit
+      .invoke(resolveLineReferences, {
+        lines: [{ product: { by: "query", value: "ZzzArchiveTwin" } }],
+      })
+      .then(
+        () => {
+          throw new Error("expected ReferenceResolutionConflictError");
+        },
+        (caught: unknown) => caught,
+      );
+    const conflict = expectResolutionConflict(error);
+    expect(conflict.reason).toBe("archived");
+    expect(conflict.target).toEqual({
+      kind: "order_line_product",
+      lineIndex: 0,
+      query: "ZzzArchiveTwin",
+    });
+    expect("productName" in conflict.target).toBe(false);
+    expect(conflict.options).toEqual([]);
+    expect(conflict.optionsTruncated).toBe(false);
+    expect(conflict.clientMessage).toBe(
+      archivedProductQueryMessage("ZzzArchiveTwin"),
+    );
+    expect(conflict.clientMessage).not.toContain("ZzzArchiveTwin One");
+    expect(conflict.clientMessage).not.toContain("ZzzArchiveTwin Two");
+  });
+
+  it("still uniquely resolves an active query when an archived sibling has the same name", async () => {
+    const resolved = await kit.invoke(resolveLineReferences, {
+      lines: [{ product: { by: "query", value: "Alpha" } }],
+    });
+    expect(resolved.lines).toEqual([
+      {
+        productId: fixtures.alpha,
+        productName: "Alpha",
+        variantId: null,
+        variantName: null,
+      },
+    ]);
+  });
+
+  it("still requires an active variant when an archived sibling shares the product name", async () => {
+    const error = await kit
+      .invoke(resolveLineReferences, {
+        lines: [{ product: { by: "query", value: "Coat" } }],
+      })
+      .then(
+        () => {
+          throw new Error("expected ReferenceResolutionConflictError");
+        },
+        (caught: unknown) => caught,
+      );
+    const conflict = expectResolutionConflict(error);
+    expect(conflict.reason).toBe("variant_required");
+    expect(conflict.target).toEqual({
+      kind: "order_line_variant",
+      lineIndex: 0,
+      productId: fixtures.coat,
+      productName: "Coat",
+    });
+    expect(conflict.options.map((option) => option.id)).toEqual([
+      fixtures.variantBlue,
+      fixtures.variantRed,
+    ]);
   });
 
   it("returns not-found for a variant query on a simple product, not unmatched_query", async () => {
@@ -804,6 +981,9 @@ describe("catalog.resolveLineReferences", () => {
       { id: fixtures.twinUah, label: "TwinCake (UAH)" },
     ]);
     expect(conflict.optionsTruncated).toBe(false);
+    expect(conflict.options.map((option) => option.id)).not.toContain(
+      fixtures.archivedTwin,
+    );
     expect(conflict.clientMessage).toBe(
       ambiguousProductQueryMessage("TwinCake"),
     );
@@ -871,6 +1051,9 @@ describe("catalog.resolveLineReferences", () => {
     const conflict = expectResolutionConflict(error);
     expect(conflict.reason).toBe("ambiguous");
     expect(conflict.options.length).toBeGreaterThan(1);
+    expect(conflict.options.map((option) => option.id)).not.toContain(
+      fixtures.archivedTwin,
+    );
     expect(conflict.clientMessage).not.toContain("Multiple matches");
   });
 
@@ -968,8 +1151,14 @@ describe("catalog.resolveLineReferences", () => {
       "utf8",
     );
     expect(source).not.toMatch(/ctx\.call\(/);
-    // id + exact-name + per-query capped contains + variants for candidates
+    // id + exact-name helper + per-query capped contains helper + variants.
+    // Exact and contains helpers run once per status so archived rows cannot
+    // consume the active candidate budget.
     expect(source.match(/\.from\(/g)?.length).toBe(4);
+    // Declaration plus one call per status (active, archived).
+    expect(source.match(/loadProductsByExactQuery\(/g)).toHaveLength(3);
+    expect(source.match(/loadProductsByContainsQuery\(/g)).toHaveLength(3);
+    expect(source).toMatch(/sellableProducts/);
     expect(source).toMatch(/VARIANT_SELECTION_OPTIONS_MAX/);
   });
 
@@ -1073,6 +1262,236 @@ describe("catalog.resolveLineReferences", () => {
     expect(conflict.options).toEqual([
       { id: laterContainsId, label: laterContainsName },
     ]);
+  });
+
+  it("does not leak a foreign archived name and does not let foreign archived rows change a local match", async () => {
+    const ownerError = await kit
+      .invoke(
+        resolveLineReferences,
+        {
+          lines: [
+            { product: { by: "query", value: "Secret Foreign Archive" } },
+          ],
+        },
+        {
+          userId: kitIdentities.users.boris,
+          companyId: kitIdentities.companies.b,
+        },
+      )
+      .then(
+        () => {
+          throw new Error("expected ReferenceResolutionConflictError");
+        },
+        (caught: unknown) => caught,
+      );
+    const ownerConflict = expectResolutionConflict(ownerError);
+    expect(ownerConflict.reason).toBe("archived");
+    expect(ownerConflict.target).toEqual({
+      kind: "order_line_product",
+      lineIndex: 0,
+      query: "Secret Foreign Archive",
+      productName: "Secret Foreign Archive",
+    });
+
+    const strangerError = await kit
+      .invoke(resolveLineReferences, {
+        lines: [{ product: { by: "query", value: "Secret Foreign Archive" } }],
+      })
+      .then(
+        () => {
+          throw new Error("expected NotFoundError");
+        },
+        (caught: unknown) => caught,
+      );
+    expect(strangerError).toBeInstanceOf(NotFoundError);
+    expect(strangerError).not.toBeInstanceOf(ReferenceResolutionConflictError);
+    if (!(strangerError instanceof NotFoundError)) {
+      return;
+    }
+    expect(strangerError.clientMessage).toBe(
+      "The requested resource was not found.",
+    );
+    expect(strangerError.clientMessage).not.toContain("Secret Foreign Archive");
+    expect(strangerError.clientMessage.toLowerCase()).not.toContain("archived");
+    expect(strangerError.message).not.toContain("Secret Foreign Archive");
+
+    const localAlpha = await kit.invoke(resolveLineReferences, {
+      lines: [{ product: { by: "query", value: "Alpha" } }],
+    });
+    expect(localAlpha.lines[0]?.productId).toBe(fixtures.alpha);
+
+    const twinError = await kit
+      .invoke(resolveLineReferences, {
+        lines: [{ product: { by: "query", value: "TwinCake" } }],
+      })
+      .then(
+        () => {
+          throw new Error("expected ReferenceResolutionConflictError");
+        },
+        (caught: unknown) => caught,
+      );
+    const twinConflict = expectResolutionConflict(twinError);
+    expect(twinConflict.reason).toBe("ambiguous");
+    expect(twinConflict.options.map((option) => option.id)).not.toContain(
+      fixtures.foreignArchived,
+    );
+    expect(twinConflict.options.map((option) => option.id)).not.toContain(
+      fixtures.archivedTwin,
+    );
+  });
+
+  it("keeps a unique archived contains-only subject named and never auto-selects", async () => {
+    const archivedId = randomUUID();
+    await insertProduct({
+      id: archivedId,
+      companyId: kitIdentities.companies.a,
+      name: "Zzz Unique ArchiveContainsHost",
+      basePriceMinor: 10n,
+      status: "archived",
+    });
+    const error = await kit
+      .invoke(resolveLineReferences, {
+        lines: [{ product: { by: "query", value: "ArchiveContainsHost" } }],
+      })
+      .then(
+        () => {
+          throw new Error("expected ReferenceResolutionConflictError");
+        },
+        (caught: unknown) => caught,
+      );
+    const conflict = expectResolutionConflict(error);
+    expect(conflict.reason).toBe("archived");
+    expect(conflict.target).toEqual({
+      kind: "order_line_product",
+      lineIndex: 0,
+      query: "ArchiveContainsHost",
+      productName: "Zzz Unique ArchiveContainsHost",
+    });
+    expect(conflict.options).toEqual([]);
+    expect(conflict.optionsTruncated).toBe(false);
+  });
+
+  it("opens an active contains-only picker and ignores archived matches", async () => {
+    const activeId = randomUUID();
+    const archivedId = randomUUID();
+    await insertProduct({
+      id: activeId,
+      companyId: kitIdentities.companies.a,
+      name: "SHO440Contains Active",
+      basePriceMinor: 10n,
+    });
+    await insertProduct({
+      id: archivedId,
+      companyId: kitIdentities.companies.a,
+      name: "SHO440Contains Archived",
+      basePriceMinor: 10n,
+      status: "archived",
+    });
+    const error = await kit
+      .invoke(resolveLineReferences, {
+        lines: [{ product: { by: "query", value: "SHO440Contains" } }],
+      })
+      .then(
+        () => {
+          throw new Error("expected ReferenceResolutionConflictError");
+        },
+        (caught: unknown) => caught,
+      );
+    const conflict = expectResolutionConflict(error);
+    expect(conflict.reason).toBe("ambiguous");
+    expect(conflict.target).toEqual({
+      kind: "order_line_product",
+      lineIndex: 0,
+      query: "SHO440Contains",
+    });
+    expect("productName" in conflict.target).toBe(false);
+    expect(conflict.options).toEqual([
+      { id: activeId, label: "SHO440Contains Active" },
+    ]);
+    expect(conflict.options.map((option) => option.id)).not.toContain(
+      archivedId,
+    );
+    expect(conflict.optionsTruncated).toBe(false);
+  });
+
+  it("does not hide an active contains match behind 100 archived contains hits", async () => {
+    const activeId = randomUUID();
+    await insertProduct({
+      id: activeId,
+      companyId: kitIdentities.companies.a,
+      name: "Zzz SHO440Crowd Live",
+      basePriceMinor: 10n,
+    });
+    await kit.db.runtime.db.insert(products).values(
+      Array.from({ length: 100 }, (_, index) => ({
+        id: randomUUID(),
+        companyId: kitIdentities.companies.a,
+        name: `Aaa SHO440Crowd ${String(index).padStart(3, "0")}`,
+        basePriceMinor: 10n,
+        status: "archived" as const,
+      })),
+    );
+    const error = await kit
+      .invoke(resolveLineReferences, {
+        lines: [{ product: { by: "query", value: "SHO440Crowd" } }],
+      })
+      .then(
+        () => {
+          throw new Error("expected ReferenceResolutionConflictError");
+        },
+        (caught: unknown) => caught,
+      );
+    const conflict = expectResolutionConflict(error);
+    expect(conflict.reason).toBe("ambiguous");
+    expect(conflict.target).toEqual({
+      kind: "order_line_product",
+      lineIndex: 0,
+      query: "SHO440Crowd",
+    });
+    expect(conflict.options).toEqual([
+      { id: activeId, label: "Zzz SHO440Crowd Live" },
+    ]);
+    expect(conflict.optionsTruncated).toBe(false);
+  });
+
+  it("still names a unique archived exact match when archived contains hits fill the cap", async () => {
+    const uniqueName = "ZzzSHO440ExactSurvivor";
+    await insertProduct({
+      id: randomUUID(),
+      companyId: kitIdentities.companies.a,
+      name: uniqueName,
+      basePriceMinor: 10n,
+      status: "archived",
+    });
+    await kit.db.runtime.db.insert(products).values(
+      Array.from({ length: 101 }, (_, index) => ({
+        id: randomUUID(),
+        companyId: kitIdentities.companies.a,
+        name: `Aaa${uniqueName} ${String(index).padStart(3, "0")}`,
+        basePriceMinor: 10n,
+        status: "archived" as const,
+      })),
+    );
+    const error = await kit
+      .invoke(resolveLineReferences, {
+        lines: [{ product: { by: "query", value: uniqueName } }],
+      })
+      .then(
+        () => {
+          throw new Error("expected ReferenceResolutionConflictError");
+        },
+        (caught: unknown) => caught,
+      );
+    const conflict = expectResolutionConflict(error);
+    expect(conflict.reason).toBe("archived");
+    expect(conflict.target).toEqual({
+      kind: "order_line_product",
+      lineIndex: 0,
+      query: uniqueName,
+      productName: uniqueName,
+    });
+    expect(conflict.options).toEqual([]);
+    expect(conflict.optionsTruncated).toBe(false);
   });
 
   it("caps picker options separately from REFERENCE_CONFLICT_LABELS_MAX", async () => {

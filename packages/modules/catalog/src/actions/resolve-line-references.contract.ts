@@ -1,10 +1,12 @@
 /**
  * Internal catalog line resolve for `orders.create` (SHO-352 / SHO-405 /
- * ADR-0033). Batch 1–100. Product and variant references by id on this
- * create-path are active only. Query-path is active only. Variant query is
- * scoped to the resolved product. A product with any variant rows (active
- * or archived) is variable: the parent is not sellable. Bounded DB
- * queries — no per-line SELECT or ctx.call. Output order matches input.
+ * ADR-0033 / SHO-440). Batch 1–100. Product and variant references by id on
+ * this create-path are active only. Product query-path loads active and
+ * archived rows; unique active wins. Variant query is scoped to the
+ * resolved product and stays active-only. A product with any variant
+ * rows (active or archived) is variable: the parent is not sellable.
+ * Bounded DB queries — no per-line SELECT or ctx.call. Output order
+ * matches input.
  *
  * Mechanical: `timeout: 5000` matches other catalog facts reads. Query
  * max 100. Product and variant picker cap `VARIANT_SELECTION_OPTIONS_MAX`
@@ -71,7 +73,7 @@ export const resolveLineReferencesOutputSchema = z.strictObject({
 export const resolveLineReferencesContract = defineActionContract({
   name: "catalog.resolveLineReferences",
   description:
-    "Resolve a batch of order lines in the staff member's active company from product and optional variant ids or unique names. variantSelection is unspecified, base, or a reference (id or query). Legacy variant EntityRef is mutually exclusive with variantSelection and maps to reference. Product and variant ids must be active. Query matches are active rows only. A product with any variant rows is variable: unspecified or base requires exactly one active variant and never sells the parent; archived-only variants are unavailable. Zero variant rows may resolve variantId null. Variant queries are scoped to the resolved product. Zero product matches are not-found. A variant id or query on a product with zero variant rows is not-found. Ambiguous or contains-only product queries return a structured catalog conflict (reason, server-side line target, options, optionsTruncated) and never auto-select. Variant selection conflicts use the same structured conflict. Output preserves input order. Company id is never input.",
+    "Resolve a batch of order lines in the staff member's active company from product and optional variant ids or unique names. variantSelection is unspecified, base, or a reference (id or query). Legacy variant EntityRef is mutually exclusive with variantSelection and maps to reference. Product and variant ids must be active. Product query matches include active and archived rows: a unique active match wins even when an archived row has a similar name; archived-only matches return a structured catalog conflict (reason archived, empty options, optionsTruncated false) that names a unique archived product or keeps the query as subject when several match, and never sells; zero matches in both are not-found. A product with any variant rows is variable: unspecified or base requires exactly one active variant and never sells the parent; archived-only variants are unavailable. Zero variant rows may resolve variantId null. Variant queries are scoped to the resolved product and match active rows only. Zero product matches are not-found. A variant id or query on a product with zero variant rows is not-found. Ambiguous or contains-only product queries among active rows return a structured catalog conflict (reason, server-side line target, options, optionsTruncated) and never auto-select. Variant selection conflicts use the same structured conflict. Output preserves input order. Company id is never input.",
   principal: "staff",
   transport: "internal",
   input: resolveLineReferencesInputSchema,

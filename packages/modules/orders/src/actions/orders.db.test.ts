@@ -1883,7 +1883,7 @@ describe("orders.create reference resolve (SHO-352)", () => {
     expect(error.clientMessage).toBe(DUPLICATE_ORDER_LINE_MESSAGE);
   });
 
-  it("lets id-path target archived CRM rows, rejects archived catalog ids, and rejects archived names on query-path", async () => {
+  it("lets id-path target archived CRM rows, rejects archived catalog ids, and conflicts on archived catalog names", async () => {
     const archivedCustomer = await kit.invoke(
       createOrder,
       createById(fixtures.customerArchived, [{ productId: fixtures.pZero }]),
@@ -1910,8 +1910,11 @@ describe("orders.create reference resolve (SHO-352)", () => {
         createById(fixtures.customerBare, [{ productId: fixtures.pArchived }]),
       ),
     ).rejects.toBeInstanceOf(NotFoundError);
-    await expect(
-      kit.invoke(createOrder, {
+
+    const ordersBefore = await countCompanyOrders(kitIdentities.companies.a);
+    const eventsBefore = await countCreatedEvents(kitIdentities.companies.a);
+    const archivedNameError = await kit
+      .invoke(createOrder, {
         customer: { by: "id", id: fixtures.customerBare },
         items: [
           {
@@ -1919,8 +1922,32 @@ describe("orders.create reference resolve (SHO-352)", () => {
             quantity: { milli: "1000" },
           },
         ],
-      }),
-    ).rejects.toBeInstanceOf(NotFoundError);
+      })
+      .then(
+        () => {
+          throw new Error("expected ReferenceResolutionConflictError");
+        },
+        (caught: unknown) => caught,
+      );
+    const archivedNameConflict = expectResolutionConflict(archivedNameError);
+    expect(archivedNameConflict.reason).toBe("archived");
+    expect(archivedNameConflict.target).toEqual({
+      kind: "order_line_product",
+      lineIndex: 0,
+      query: "Archived Widget",
+      productName: "Archived Widget",
+    });
+    expect(archivedNameConflict.options).toEqual([]);
+    expect(archivedNameConflict.optionsTruncated).toBe(false);
+    expect(archivedNameConflict.clientMessage).toBe(
+      '"Archived Widget" is archived.',
+    );
+    expect(await countCompanyOrders(kitIdentities.companies.a)).toBe(
+      ordersBefore,
+    );
+    expect(await countCreatedEvents(kitIdentities.companies.a)).toBe(
+      eventsBefore,
+    );
   });
 
   it("audits and emits orders.created on the resolved canonical customer id", async () => {
