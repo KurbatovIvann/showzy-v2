@@ -62,7 +62,7 @@ import {
 } from "./test.js";
 import { CUSTOMERS_LIST_CUSTOMERS_ASSISTANT_LIMIT } from "./tool-facades/customers-list-customers.js";
 import { CUSTOMERS_LIST_GROUPS_ASSISTANT_LIMIT } from "./tool-facades/customers-list-groups.js";
-import { ORDERS_LIST_PAGE_ASSISTANT_LIMIT } from "./tool-facades/orders-list.js";
+import { ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT } from "./tool-facades/orders-list.js";
 import { STAFF_ASSISTANT_EMPTY_TOOLSET_HASH } from "./toolset-hash.js";
 import { staffAssistantTurnContextAddendum } from "./turn-context.js";
 import { staffAssistantWorkingSetAddendum } from "./working-set.js";
@@ -362,7 +362,7 @@ describe("staffAssistantTools", () => {
     );
     expect(execute).toHaveBeenCalledWith(
       "orders.list",
-      { kind: "page.summary", limit: ORDERS_LIST_PAGE_ASSISTANT_LIMIT },
+      { kind: "page.summary", limit: ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT },
       { toolCallId: "call-1" },
     );
     expect(fetchSpy).not.toHaveBeenCalled();
@@ -402,7 +402,7 @@ describe("streamStaffAssistantChat", () => {
 
     expect(execute).toHaveBeenCalledWith(
       "orders.list",
-      { kind: "page.summary", limit: ORDERS_LIST_PAGE_ASSISTANT_LIMIT },
+      { kind: "page.summary", limit: ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT },
       { toolCallId: "call-list" },
     );
     expect(turn.toolRuns).toEqual([

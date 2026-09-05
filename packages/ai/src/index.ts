@@ -220,7 +220,6 @@ export {
   mapOrdersListPageInput,
   mapOrdersListPageOutput,
   ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT,
-  ORDERS_LIST_PAGE_ASSISTANT_LIMIT,
   ORDERS_LIST_PAGE_ASSISTANT_MAX_LIMIT,
   ordersListCountsInputSchema,
   ordersListPageInputSchema,
