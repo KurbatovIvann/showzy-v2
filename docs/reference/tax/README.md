@@ -5,6 +5,10 @@ about the tax side**, so that a future implementer does not have to
 rediscover it, and so that a claim made today can be re-checked against
 the date it was made.
 
+It also covers what *feeds* the tax side — bank statement ingestion — because
+for our primary customer the declared income is what lands on the account,
+so the ledger and the declaration are one problem, not two.
+
 Workstream: [SHO-443](https://linear.app/showzy-v2/issue/SHO-443/research-ukrainian-tax-service-dps-integration-surface).
 
 ## What this is not
@@ -49,15 +53,21 @@ not trusted.** A block without S/V/C is a draft note, not a finding.
 
 ## Topics
 
+Ordered by priority after the 2026-09-05 redirection (`legal-frame.md` §2a):
+the primary customer settles by IBAN, owes no fiscalisation, and needs a
+bank-derived income ledger feeding a declaration.
+
 | File | Linear | Status |
 | --- | --- | --- |
-| `legal-frame.md` | [SHO-444](https://linear.app/showzy-v2/issue/SHO-444) | in progress |
-| `kep-signing.md` | [SHO-445](https://linear.app/showzy-v2/issue/SHO-445) | not started |
-| `prro-fiscal-api.md` | [SHO-446](https://linear.app/showzy-v2/issue/SHO-446) | not started |
-| `reporting-api.md` | [SHO-447](https://linear.app/showzy-v2/issue/SHO-447) | not started |
-| `registers.md` | [SHO-448](https://linear.app/showzy-v2/issue/SHO-448) | not started |
-| `vendors.md` | [SHO-449](https://linear.app/showzy-v2/issue/SHO-449) | not started |
-| `impact-now.md` | [SHO-450](https://linear.app/showzy-v2/issue/SHO-450) | not started |
+| `target-flow.md` | [SHO-443](https://linear.app/showzy-v2/issue/SHO-443) | the phase 1 flow this research serves — read first |
+| `bank-ingestion.md` | [SHO-451](https://linear.app/showzy-v2/issue/SHO-451) | first pass; 7 open questions |
+| `reporting-api.md` | [SHO-447](https://linear.app/showzy-v2/issue/SHO-447) | first pass; submission API confirmed, 6 open questions |
+| `impact-now.md` | [SHO-450](https://linear.app/showzy-v2/issue/SHO-450) | not started — one constraint confirmed |
+| `kep-signing.md` | [SHO-445](https://linear.app/showzy-v2/issue/SHO-445) | crypto requirements established; encryption gap found |
+| `legal-frame.md` | [SHO-444](https://linear.app/showzy-v2/issue/SHO-444) | first pass; 5 open questions |
+| `vendors.md` | [SHO-449](https://linear.app/showzy-v2/issue/SHO-449) | fiscalisation decided; reporting fork open |
+| `registers.md` | [SHO-448](https://linear.app/showzy-v2/issue/SHO-448) | first pass; token model is the constraint |
+| `prro-fiscal-api.md` | [SHO-446](https://linear.app/showzy-v2/issue/SHO-446) | cancelled — we integrate a provider, not the protocol |
 
 Supporting: `glossary.md` (Ukrainian terms), `sources.md` (source register).
 
