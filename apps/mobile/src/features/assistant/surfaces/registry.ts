@@ -4,6 +4,18 @@
  * `<presentation>`), and a React card in `sheet/`. Timeline and HITL are
  * not registered here. Do not import `@showzy/ai`. Do not put this in
  * `@showzy/contract`.
+ *
+ * Adding the **second list-shaped** surface (customers, price lists):
+ * build it generic — one card driven by a typed column descriptor — and
+ * move `orders-list` onto it in the same PR. Do not copy `orders-list.ts`
+ * and swap the columns.
+ *
+ * Not done already because there is nothing to generalise from yet:
+ * `orders-list` is the only table here. `orders-aggregate` (buckets,
+ * groupBy inference) and `order-entity` (one record) are different
+ * shapes, and what they genuinely share already lives in `./helpers`.
+ * An abstraction derived from one example is the wrong abstraction —
+ * wait for the second real case, then derive it from both.
  */
 import type { Locale } from "../../../i18n/locale";
 import type { AssistantChatPart } from "../shared/confirmation-presenter";
