@@ -9,15 +9,15 @@ import {
   isCustomerErrorKey,
   isItemsErrorKey,
   orderFormDraftSchema,
-} from "@showzy/validation/orders";
-
-import { emptyOrderFormDraft, type OrderFormDraft } from "./order-form-draft";
+} from "./orders.js";
 
 const CUSTOMER_ID = "11111111-1111-4111-8111-111111111111";
 const PRODUCT_ID = "33333333-3333-4333-8333-333333333333";
 const VARIANT_ID = "44444444-4444-4444-8444-444444444444";
 
-function validDraft(overrides: Partial<OrderFormDraft> = {}): OrderFormDraft {
+function validDraft(
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
   return {
     customerId: CUSTOMER_ID,
     customerName: "Марія",
@@ -37,9 +37,20 @@ function validDraft(overrides: Partial<OrderFormDraft> = {}): OrderFormDraft {
   };
 }
 
-describe("orderFormDraftSchema", () => {
+describe("@showzy/validation/orders", () => {
+  it("pins the create ceilings copied from orders.create", () => {
+    expect(CREATE_ORDER_COMMENT_MAX).toBe(2000);
+    expect(CREATE_ORDER_MAX_ITEMS).toBe(100);
+  });
+
   it("requires a customer and at least one line", () => {
-    const parsed = orderFormDraftSchema.safeParse(emptyOrderFormDraft());
+    const parsed = orderFormDraftSchema.safeParse({
+      customerId: "",
+      customerName: "",
+      comment: "",
+      nextDraftSerial: 1,
+      items: [],
+    });
     expect(parsed.success).toBe(false);
     if (parsed.success) {
       return;
@@ -123,9 +134,7 @@ describe("orderFormDraftSchema", () => {
     expect(isCommentErrorKey("too_long")).toBe(true);
   });
 
-  it("accepts a comment at the max and pins the create ceiling", () => {
-    expect(CREATE_ORDER_COMMENT_MAX).toBe(2000);
-    expect(CREATE_ORDER_MAX_ITEMS).toBe(100);
+  it("accepts a comment at the max and returns empty field errors", () => {
     expect(
       orderFormDraftSchema.safeParse(
         validDraft({ comment: "x".repeat(CREATE_ORDER_COMMENT_MAX) }),

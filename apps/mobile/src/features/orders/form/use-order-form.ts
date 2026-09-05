@@ -1,6 +1,10 @@
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
+
+import { uniqueProductIds } from "@showzy/validation/order-line-catalog-facts";
+import { orderFormDraftSchema } from "@showzy/validation/orders";
 
 import { useApiClient } from "../../../api/api-provider";
 import { describeQueryFailure, describeWireError } from "../../../api/errors";
@@ -36,11 +40,7 @@ import {
   presentProductSelectRows,
   presentVariantSelectRows,
 } from "./order-form.presenter";
-import { orderFormResolver } from "./order-form.schema";
-import {
-  catalogFactsBlockSubmit,
-  uniqueProductIds,
-} from "./order-line-catalog-facts";
+import { catalogFactsBlockSubmit } from "./order-line-catalog-facts";
 import { commitProductPickerPicks, productPickerPicks } from "./product-picker";
 import { useOrderFormLookups } from "./use-order-form-lookups";
 import { useOrderFormSheets } from "./use-order-form-sheets";
@@ -70,7 +70,7 @@ export function useOrderForm() {
     formState,
   } = useForm<OrderFormDraft>({
     defaultValues: emptyOrderFormDraft(),
-    resolver: orderFormResolver,
+    resolver: zodResolver(orderFormDraftSchema),
     mode: "onSubmit",
   });
   const { append, update, remove, fields } = useFieldArray({

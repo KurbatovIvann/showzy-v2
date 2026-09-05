@@ -1,6 +1,8 @@
 import { ORPCError } from "@orpc/client";
 import { describe, expect, it } from "vitest";
 
+import { emptyFieldErrors } from "@showzy/validation/orders";
+
 import { ordersCopy } from "../../../i18n/orders";
 import {
   fieldErrorsFromFormState,
@@ -12,7 +14,6 @@ import {
   rhfPathsForFieldErrors,
 } from "./order-form-copy";
 import type { OrderFormWrite } from "./order-form-plan";
-import { emptyFieldErrors } from "./order-form.schema";
 
 const CUSTOMER_ID = "11111111-1111-4111-8111-111111111111";
 const PRODUCT_ID = "33333333-3333-4333-8333-333333333333";

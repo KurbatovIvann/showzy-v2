@@ -9,6 +9,8 @@
     "./customers": "./src/customers.ts",
     "./entity-ref": "./src/entity-ref.ts",
     "./money": "./src/money.ts",
+    "./order-line-catalog-facts": "./src/order-line-catalog-facts.ts",
+    "./orders": "./src/orders.ts",
     "./pagination": "./src/pagination.ts",
     "./signing": "./src/signing.ts",
     "./slug": "./src/slug.ts"

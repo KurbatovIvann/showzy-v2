@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { emptyFieldErrors } from "./order-form.schema";
+import { emptyFieldErrors } from "@showzy/validation/orders";
+
 import {
   emptyOrderFormDraft,
   type OrderFormDraft,

@@ -8,6 +8,12 @@
  * `variant`, and never omits selection as catalog unspecified.
  */
 import type { WireErrorCode } from "@showzy/contract";
+import {
+  classifyProductSellability,
+  type OrderLineCatalogFacts,
+  type OrderLineCatalogFactsMap,
+} from "@showzy/validation/order-line-catalog-facts";
+import { emptyFieldErrors, type ItemsErrorKey } from "@showzy/validation/orders";
 
 import type { ContractClient } from "../../../api/client";
 import type { QueryFailureKind } from "../../../api/errors";
@@ -19,12 +25,6 @@ import {
   type OrderFormFieldErrors,
   type OrderFormLineDraft,
 } from "./order-form-draft";
-import { emptyFieldErrors, type ItemsErrorKey } from "./order-form.schema";
-import {
-  classifyProductSellability,
-  type OrderLineCatalogFacts,
-  type OrderLineCatalogFactsMap,
-} from "./order-line-catalog-facts";
 
 type OrdersClient = ContractClient["client"]["orders"];
 export type CreateOrderPayload = Parameters<OrdersClient["create"]>[0];

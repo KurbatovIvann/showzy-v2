@@ -4,10 +4,6 @@
  * never user-facing text.
  */
 import { isWireError, type WireErrorCode } from "@showzy/contract";
-
-import type { QueryFailureKind } from "../../../api/errors";
-import type { OrdersCreateCopy } from "../../../i18n/orders";
-import type { OrderFormWrite } from "./order-form-plan";
 import {
   emptyFieldErrors,
   isCommentErrorKey,
@@ -17,7 +13,11 @@ import {
   type CustomerErrorKey,
   type ItemsErrorKey,
   type OrderFormFieldErrors,
-} from "./order-form.schema";
+} from "@showzy/validation/orders";
+
+import type { QueryFailureKind } from "../../../api/errors";
+import type { OrdersCreateCopy } from "../../../i18n/orders";
+import type { OrderFormWrite } from "./order-form-plan";
 
 export type BannerKey =
   | "validation"

@@ -3,12 +3,15 @@
  * planner (`submit` vs `retry`) + `useContractMutation`. Dirty leave uses
  * `useBlocker`. Views do not own the client.
  */
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import { useBlocker } from "@tanstack/react-router";
 import { useCallback, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 
 import type { WireErrorCode } from "@showzy/contract";
+import { uniqueProductIds } from "@showzy/validation/order-line-catalog-facts";
+import { orderFormDraftSchema } from "@showzy/validation/orders";
 
 import { useApiClient } from "../../../api/api-provider";
 import { useContractMutation } from "../../../api/contract-mutation";
@@ -58,11 +61,7 @@ import {
   parseThenPlanOrderFormSave,
   type OrderFormWrite,
 } from "./order-form-plan";
-import { orderFormResolver } from "./order-form.schema";
-import {
-  catalogFactsBlockSubmit,
-  uniqueProductIds,
-} from "./order-line-catalog-facts";
+import { catalogFactsBlockSubmit } from "./order-line-catalog-facts";
 import {
   commitProductPickerPicks,
   emptyProductPicker,
@@ -103,7 +102,7 @@ export function useOrderCreate(args: {
 
   const form = useForm<OrderFormDraft>({
     defaultValues: emptyOrderFormDraft(),
-    resolver: orderFormResolver,
+    resolver: zodResolver(orderFormDraftSchema),
     mode: "onSubmit",
   });
   const { isDirty, errors, isSubmitted, isValidating } = form.formState;

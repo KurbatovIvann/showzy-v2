@@ -1,11 +1,11 @@
 /**
- * Create-form ceilings copied from `orders.create`
- * (`CREATE_ORDER_MAX_ITEMS` / `CREATE_ORDER_COMMENT_MAX`). Web cannot
- * import module contracts; keep these in lockstep.
+ * Create-form ceilings from `@showzy/validation/orders` (SHO-423). Same
+ * numbers as `orders.create`. Web cannot import module contracts.
  */
-export const CREATE_ORDER_MAX_ITEMS = 100;
-
-export const CREATE_ORDER_COMMENT_MAX = 2000;
+export {
+  CREATE_ORDER_COMMENT_MAX,
+  CREATE_ORDER_MAX_ITEMS,
+} from "@showzy/validation/orders";
 
 /** Page size for customer/product pickers (contract list max). */
 export const ORDER_LOOKUP_PAGE_SIZE = 50;

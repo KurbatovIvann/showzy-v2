@@ -1,21 +1,22 @@
 /**
  * Order create draft, dirty detection, and line helpers (SHO-379).
- * UI Zod lives in `order-form.schema.ts`; write planning is
+ * UI Zod lives in `@showzy/validation/orders`; write planning is
  * `order-form-plan.ts`.
  */
-import {
-  CREATE_ORDER_MAX_ITEMS,
-  DEFAULT_LINE_QUANTITY_MILLI,
-  MAX_LINE_QUANTITY_UNITS,
-  QUANTITY_MILLI_PER_UNIT,
-} from "../shared/order-caps";
 import {
   emptyFieldErrors,
   fieldErrorsFromDraftSchema,
   orderFormDraftSchema,
   orderLineIdentityKey,
   type OrderFormFieldErrors,
-} from "./order-form.schema";
+} from "@showzy/validation/orders";
+
+import {
+  CREATE_ORDER_MAX_ITEMS,
+  DEFAULT_LINE_QUANTITY_MILLI,
+  MAX_LINE_QUANTITY_UNITS,
+  QUANTITY_MILLI_PER_UNIT,
+} from "../shared/order-caps";
 
 export {
   emptyFieldErrors,
@@ -24,7 +25,7 @@ export {
   type CustomerErrorKey,
   type ItemsErrorKey,
   type OrderFormFieldErrors,
-} from "./order-form.schema";
+} from "@showzy/validation/orders";
 
 export type OrderFormLineDraft = {
   key: string;
