@@ -483,9 +483,10 @@ async function emittedCardEvents(orderId: string) {
 async function driveToProcessed(
   subscription: typeof cardSubscription,
   eventId: string,
+  now: () => number = Date.now,
 ): Promise<void> {
   for (;;) {
-    const outcome: DeliveryOutcome = await executeDelivery(deps(), {
+    const outcome: DeliveryOutcome = await executeDelivery(deps({ now }), {
       subscription,
       eventId,
       claimedBy: testWorker,
@@ -1721,7 +1722,11 @@ describe("blocked aggregate heads must not starve independent deliveries (SHO-43
     );
     expectNoEventIds(afterReplay, seeded.successorEventIds);
 
-    await driveToProcessed(cardSubscription, seeded.predecessorEventId);
+    await driveToProcessed(
+      cardSubscription,
+      seeded.predecessorEventId,
+      () => now,
+    );
     const afterHead = await chatClaimable(now);
     expect(afterHead).toContainEqual(
       claimableOf(cardSubscription, seeded.successorEventIds[0] ?? ""),
@@ -1730,7 +1735,11 @@ describe("blocked aggregate heads must not starve independent deliveries (SHO-43
       seeded.successorEventIds[1] ?? "",
     );
 
-    await driveToProcessed(cardSubscription, seeded.successorEventIds[0] ?? "");
+    await driveToProcessed(
+      cardSubscription,
+      seeded.successorEventIds[0] ?? "",
+      () => now,
+    );
     const sequences = cardRuns
       .filter((run) => run.envelope.payload.orderId === seeded.blockedOrderId)
       .map((run) => run.envelope.aggregate.sequence);
