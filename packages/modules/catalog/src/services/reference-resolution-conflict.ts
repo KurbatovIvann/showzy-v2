@@ -1,6 +1,7 @@
 /**
- * Catalog-owned structured conflict for order-line variant selection
- * (SHO-405 / SHO-401). Wire code stays CONFLICT — no new core error class.
+ * Catalog-owned structured conflict for order-line variant and product
+ * selection (SHO-405 / SHO-410 / SHO-401). Wire code stays CONFLICT —
+ * no new core error class.
  */
 import { ConflictError } from "@showzy/core/errors";
 
@@ -21,6 +22,15 @@ export type OrderLineVariantTarget = {
   readonly productName: string;
 };
 
+export type OrderLineProductTarget = {
+  readonly kind: "order_line_product";
+  readonly lineIndex: number;
+  readonly query: string;
+};
+
+export type ReferenceResolutionTarget =
+  OrderLineVariantTarget | OrderLineProductTarget;
+
 export type VariantSelectionOption = {
   readonly id: string;
   readonly label: string;
@@ -28,13 +38,13 @@ export type VariantSelectionOption = {
 
 export class ReferenceResolutionConflictError extends ConflictError {
   readonly reason: ReferenceResolutionConflictReason;
-  readonly target: OrderLineVariantTarget;
+  readonly target: ReferenceResolutionTarget;
   readonly options: readonly VariantSelectionOption[];
   readonly optionsTruncated: boolean;
 
   constructor(args: {
     readonly reason: ReferenceResolutionConflictReason;
-    readonly target: OrderLineVariantTarget;
+    readonly target: ReferenceResolutionTarget;
     readonly options: readonly VariantSelectionOption[];
     readonly optionsTruncated: boolean;
     readonly clientMessage: string;
@@ -67,4 +77,8 @@ export function ambiguousVariantQueryMessage(
   productName: string,
 ): string {
   return `Multiple variants matched "${query}" for "${productName}".`;
+}
+
+export function ambiguousProductQueryMessage(query: string): string {
+  return `Select a product matching "${query}".`;
 }

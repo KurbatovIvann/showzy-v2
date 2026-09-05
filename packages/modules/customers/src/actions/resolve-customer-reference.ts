@@ -1,16 +1,10 @@
 import { implementAction } from "@showzy/core";
-import {
-  ConflictError,
-  CoreInvariantError,
-  NotFoundError,
-} from "@showzy/core/errors";
+import { CoreInvariantError, NotFoundError } from "@showzy/core/errors";
 import { companyCustomers } from "@showzy/db/schema/customers";
 import {
   candidatesContainingQuery,
-  formatReferenceConflictMessage,
   normalizeReferenceQuery,
   pickUniqueNormalizedMatch,
-  REFERENCE_CONFLICT_LABELS_MAX,
 } from "@showzy/validation/entity-ref";
 import {
   likeContainsPattern,
@@ -18,7 +12,14 @@ import {
 } from "@showzy/validation/pagination";
 import { and, desc, eq, ilike, or, type SQL } from "drizzle-orm";
 
-import { resolveCustomerReferenceContract } from "./resolve-customer-reference.contract.js";
+import {
+  CustomerReferenceConflictError,
+  ambiguousCustomerQueryMessage,
+} from "../services/reference-resolution-conflict.js";
+import {
+  CUSTOMER_REFERENCE_OPTIONS_MAX,
+  resolveCustomerReferenceContract,
+} from "./resolve-customer-reference.contract.js";
 
 const RESOLVE_CUSTOMER_CANDIDATE_MAX = 100;
 
@@ -62,15 +63,45 @@ function customerConflictLabel(row: CustomerCandidate): string {
   return `${row.name} (${row.id})`;
 }
 
-function conflictFromCandidates(
+function compareCustomerNameThenId(
+  left: CustomerCandidate,
+  right: CustomerCandidate,
+): number {
+  const byName = left.name.localeCompare(right.name);
+  if (byName !== 0) {
+    return byName;
+  }
+  return left.id.localeCompare(right.id);
+}
+
+function pickerFromCustomers(rows: readonly CustomerCandidate[]): {
+  readonly options: readonly {
+    readonly id: string;
+    readonly label: string;
+  }[];
+  readonly optionsTruncated: boolean;
+} {
+  const sorted = [...rows].toSorted(compareCustomerNameThenId);
+  return {
+    options: sorted.slice(0, CUSTOMER_REFERENCE_OPTIONS_MAX).map((row) => ({
+      id: row.id,
+      label: customerConflictLabel(row),
+    })),
+    optionsTruncated: sorted.length > CUSTOMER_REFERENCE_OPTIONS_MAX,
+  };
+}
+
+function throwCustomerSelectionConflict(
   query: string,
   rows: readonly CustomerCandidate[],
-): ConflictError {
-  const labels = [...rows]
-    .map(customerConflictLabel)
-    .toSorted((left, right) => left.localeCompare(right))
-    .slice(0, REFERENCE_CONFLICT_LABELS_MAX);
-  return new ConflictError(formatReferenceConflictMessage(query, labels));
+): never {
+  const picker = pickerFromCustomers(rows);
+  throw new CustomerReferenceConflictError({
+    target: { kind: "customer", query },
+    options: picker.options,
+    optionsTruncated: picker.optionsTruncated,
+    clientMessage: ambiguousCustomerQueryMessage(query),
+  });
 }
 
 function fieldMatch(pattern: string): SQL {
@@ -175,7 +206,7 @@ export const resolveCustomerReference = implementAction(
         throw new NotFoundError();
       }
       if (picked.kind === "ambiguous") {
-        throw conflictFromCandidates(input.value, picked.rows);
+        throwCustomerSelectionConflict(input.value, picked.rows);
       }
 
       const name = picked.row.name.trim();

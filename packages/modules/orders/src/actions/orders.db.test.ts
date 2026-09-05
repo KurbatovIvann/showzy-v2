@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { ReferenceResolutionConflictError } from "@showzy/catalog";
+import { CustomerReferenceConflictError } from "@showzy/customers";
 import { defineActionContract } from "@showzy/core/contract";
 import {
   defineEventHandler,
@@ -277,6 +278,19 @@ function expectResolutionConflict(
     throw new Error("expected ReferenceResolutionConflictError");
   }
   expect(error.code).toBe("CONFLICT");
+  return error;
+}
+
+function expectCustomerConflict(
+  error: unknown,
+): CustomerReferenceConflictError {
+  expect(error).toBeInstanceOf(CustomerReferenceConflictError);
+  expect(error).toBeInstanceOf(ConflictError);
+  if (!(error instanceof CustomerReferenceConflictError)) {
+    throw new Error("expected CustomerReferenceConflictError");
+  }
+  expect(error.code).toBe("CONFLICT");
+  expect(error.reason).toBe("ambiguous");
   return error;
 }
 
@@ -1747,20 +1761,29 @@ describe("orders.create reference resolve (SHO-352)", () => {
         },
         (caught: unknown) => caught,
       );
-    expect(error).toBeInstanceOf(ConflictError);
-    if (!(error instanceof ConflictError)) {
-      return;
-    }
-    expect(error.clientMessage).toContain("…2233");
-    expect(error.clientMessage).toContain("…5566");
-    expect(error.clientMessage).not.toContain(fixtures.customerTwinA);
+    const conflict = expectCustomerConflict(error);
+    expect(conflict.target).toEqual({
+      kind: "customer",
+      query: "Twin Buyer",
+    });
+    expect(conflict.options.map((option) => option.id).toSorted()).toEqual(
+      [fixtures.customerTwinA, fixtures.customerTwinB].toSorted(),
+    );
+    expect(conflict.options.map((option) => option.label).toSorted()).toEqual([
+      "Twin Buyer (…2233)",
+      "Twin Buyer (…5566)",
+    ]);
+    expect(conflict.clientMessage).toBe(
+      'Select a customer matching "Twin Buyer".',
+    );
+    expect(conflict.clientMessage).not.toContain("Multiple matches");
     expect(await countCompanyOrders(kitIdentities.companies.a)).toBe(before);
     expect(await countCreatedEvents(kitIdentities.companies.a)).toBe(
       eventsBefore,
     );
   });
 
-  it("conflicts on zero/ambiguous product refs with at most five labels", async () => {
+  it("conflicts on zero/ambiguous product refs with structured product options", async () => {
     await expect(
       kit.invoke(createOrder, {
         customer: { by: "query", value: "Nobody Here" },
@@ -1772,8 +1795,8 @@ describe("orders.create reference resolve (SHO-352)", () => {
         ],
       }),
     ).rejects.toBeInstanceOf(NotFoundError);
-    await expect(
-      kit.invoke(createOrder, {
+    const productError = await kit
+      .invoke(createOrder, {
         customer: { by: "id", id: fixtures.customerA },
         items: [
           {
@@ -1781,8 +1804,25 @@ describe("orders.create reference resolve (SHO-352)", () => {
             quantity: { milli: "1000" },
           },
         ],
-      }),
-    ).rejects.toBeInstanceOf(ConflictError);
+      })
+      .then(
+        () => {
+          throw new Error("expected ReferenceResolutionConflictError");
+        },
+        (caught: unknown) => caught,
+      );
+    const productConflict = expectResolutionConflict(productError);
+    expect(productConflict.reason).toBe("ambiguous");
+    expect(productConflict.target).toEqual({
+      kind: "order_line_product",
+      lineIndex: 0,
+      query: "list",
+    });
+    expect(productConflict.options.length).toBeGreaterThan(1);
+    expect(productConflict.clientMessage).toBe(
+      'Select a product matching "list".',
+    );
+    expect(productConflict.clientMessage).not.toContain("Multiple matches");
 
     await kit.db.runtime.db.insert(companyCustomers).values(
       Array.from({ length: 6 }, (_, index) => ({
@@ -1805,17 +1845,14 @@ describe("orders.create reference resolve (SHO-352)", () => {
       })
       .then(
         () => {
-          throw new Error("expected ConflictError");
+          throw new Error("expected CustomerReferenceConflictError");
         },
         (caught: unknown) => caught,
       );
-    expect(error).toBeInstanceOf(ConflictError);
-    if (!(error instanceof ConflictError)) {
-      return;
-    }
-    const labels = [...error.clientMessage.matchAll(/CapLabel \d/g)];
-    expect(labels.length).toBe(5);
-    expect(error.clientMessage).not.toContain("CapLabel 5");
+    const conflict = expectCustomerConflict(error);
+    expect(conflict.options).toHaveLength(6);
+    expect(conflict.optionsTruncated).toBe(false);
+    expect(conflict.clientMessage).not.toContain("Multiple matches");
   });
 
   it("rejects duplicate product/variant after canonical resolve", async () => {

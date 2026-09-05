@@ -7,9 +7,8 @@
  * queries — no per-line SELECT or ctx.call. Output order matches input.
  *
  * Mechanical: `timeout: 5000` matches other catalog facts reads. Query
- * max 100. Product-name conflict labels cap 5 (`REFERENCE_CONFLICT_LABELS_MAX`).
- * Variant picker cap `VARIANT_SELECTION_OPTIONS_MAX` (20) is separate so a
- * normal 6-flavour product fits. Company id is never input.
+ * max 100. Product and variant picker cap `VARIANT_SELECTION_OPTIONS_MAX`
+ * (20) is not `REFERENCE_CONFLICT_LABELS_MAX` (5). Company id is never input.
  */
 import { defineActionContract } from "@showzy/core/contract";
 import { entityRefSchema } from "@showzy/validation/entity-ref";
@@ -72,7 +71,7 @@ export const resolveLineReferencesOutputSchema = z.strictObject({
 export const resolveLineReferencesContract = defineActionContract({
   name: "catalog.resolveLineReferences",
   description:
-    "Resolve a batch of order lines in the staff member's active company from product and optional variant ids or unique names. variantSelection is unspecified, base, or a reference (id or query). Legacy variant EntityRef is mutually exclusive with variantSelection and maps to reference. Product and variant ids must be active. Query matches are active rows only. A product with any variant rows is variable: unspecified or base requires exactly one active variant and never sells the parent; archived-only variants are unavailable. Zero variant rows may resolve variantId null. Variant queries are scoped to the resolved product. Zero product matches are not-found. A variant id or query on a product with zero variant rows is not-found. Ambiguous product names return conflict with at most five tenant-safe labels. Variant selection conflicts return a structured catalog conflict (reason, server-side line target, options, optionsTruncated). Output preserves input order. Company id is never input.",
+    "Resolve a batch of order lines in the staff member's active company from product and optional variant ids or unique names. variantSelection is unspecified, base, or a reference (id or query). Legacy variant EntityRef is mutually exclusive with variantSelection and maps to reference. Product and variant ids must be active. Query matches are active rows only. A product with any variant rows is variable: unspecified or base requires exactly one active variant and never sells the parent; archived-only variants are unavailable. Zero variant rows may resolve variantId null. Variant queries are scoped to the resolved product. Zero product matches are not-found. A variant id or query on a product with zero variant rows is not-found. Ambiguous or contains-only product queries return a structured catalog conflict (reason, server-side line target, options, optionsTruncated) and never auto-select. Variant selection conflicts use the same structured conflict. Output preserves input order. Company id is never input.",
   principal: "staff",
   transport: "internal",
   input: resolveLineReferencesInputSchema,

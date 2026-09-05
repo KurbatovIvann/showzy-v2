@@ -19,7 +19,10 @@ import { products, productVariants } from "@showzy/db/schema/catalog";
 import { companyMembers } from "@showzy/db/schema/companies";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { ReferenceResolutionConflictError } from "../services/reference-resolution-conflict.js";
+import {
+  ReferenceResolutionConflictError,
+  ambiguousProductQueryMessage,
+} from "../services/reference-resolution-conflict.js";
 import { resolveLineReferences } from "./resolve-line-references.js";
 import {
   RESOLVE_LINE_REFERENCES_MAX_LINES,
@@ -771,36 +774,97 @@ describe("catalog.resolveLineReferences", () => {
     expect(overflowConflict.optionsTruncated).toBe(true);
   });
 
-  it("conflicts on ambiguous product names with currency discriminators", async () => {
+  it("conflicts on ambiguous product names with structured options", async () => {
     const error = await kit
       .invoke(resolveLineReferences, {
         lines: [{ product: { by: "query", value: "TwinCake" } }],
       })
       .then(
         () => {
-          throw new Error("expected ConflictError");
+          throw new Error("expected ReferenceResolutionConflictError");
         },
         (caught: unknown) => caught,
       );
-    expect(error).toBeInstanceOf(ConflictError);
-    expect(error).not.toBeInstanceOf(ReferenceResolutionConflictError);
-    if (!(error instanceof ConflictError)) {
-      return;
-    }
-    expect(error.clientMessage).toContain(
-      `TwinCake (UAH, ${fixtures.twinUah})`,
+    const conflict = expectResolutionConflict(error);
+    expect(conflict.reason).toBe("ambiguous");
+    expect(conflict.target).toEqual({
+      kind: "order_line_product",
+      lineIndex: 0,
+      query: "TwinCake",
+    });
+    expect(conflict.options).toEqual([
+      { id: fixtures.twinEur, label: "TwinCake (EUR)" },
+      { id: fixtures.twinUah, label: "TwinCake (UAH)" },
+    ]);
+    expect(conflict.optionsTruncated).toBe(false);
+    expect(conflict.clientMessage).toBe(
+      ambiguousProductQueryMessage("TwinCake"),
     );
-    expect(error.clientMessage).toContain(
-      `TwinCake (EUR, ${fixtures.twinEur})`,
+    expect(conflict.clientMessage).not.toContain("Multiple matches");
+  });
+
+  it("opens a one-option picker for a contains-only product hit and never auto-chooses", async () => {
+    const macaronsId = randomUUID();
+    await insertProduct({
+      id: macaronsId,
+      companyId: kitIdentities.companies.a,
+      name: "Макаронси",
+      basePriceMinor: 300n,
+    });
+    await kit.db.runtime.db.insert(productVariants).values([
+      {
+        id: randomUUID(),
+        companyId: kitIdentities.companies.a,
+        productId: macaronsId,
+        name: "Lemon",
+      },
+      {
+        id: randomUUID(),
+        companyId: kitIdentities.companies.a,
+        productId: macaronsId,
+        name: "Chocolate",
+      },
+    ]);
+    const error = await kit
+      .invoke(resolveLineReferences, {
+        lines: [{ product: { by: "query", value: "макаронс" } }],
+      })
+      .then(
+        () => {
+          throw new Error("expected ReferenceResolutionConflictError");
+        },
+        (caught: unknown) => caught,
+      );
+    const conflict = expectResolutionConflict(error);
+    expect(conflict.reason).toBe("ambiguous");
+    expect(conflict.target).toEqual({
+      kind: "order_line_product",
+      lineIndex: 0,
+      query: "макаронс",
+    });
+    expect(conflict.options).toEqual([{ id: macaronsId, label: "Макаронси" }]);
+    expect(conflict.optionsTruncated).toBe(false);
+    expect(conflict.clientMessage).toBe(
+      ambiguousProductQueryMessage("макаронс"),
     );
+    expect(conflict.clientMessage).not.toContain("Multiple matches");
   });
 
   it("conflicts on contains-only product hits and never auto-chooses", async () => {
-    await expect(
-      kit.invoke(resolveLineReferences, {
+    const error = await kit
+      .invoke(resolveLineReferences, {
         lines: [{ product: { by: "query", value: "Cake" } }],
-      }),
-    ).rejects.toBeInstanceOf(ConflictError);
+      })
+      .then(
+        () => {
+          throw new Error("expected ReferenceResolutionConflictError");
+        },
+        (caught: unknown) => caught,
+      );
+    const conflict = expectResolutionConflict(error);
+    expect(conflict.reason).toBe("ambiguous");
+    expect(conflict.options.length).toBeGreaterThan(1);
+    expect(conflict.clientMessage).not.toContain("Multiple matches");
   });
 
   it("returns not-found for missing, foreign, and mismatched variant ids", async () => {
@@ -830,6 +894,18 @@ describe("catalog.resolveLineReferences", () => {
         lines: [{ product: { by: "query", value: "Nobody" } }],
       }),
     ).rejects.toBeInstanceOf(NotFoundError);
+    const unmatched = await kit
+      .invoke(resolveLineReferences, {
+        lines: [{ product: { by: "query", value: "Nobody" } }],
+      })
+      .then(
+        () => {
+          throw new Error("expected NotFoundError");
+        },
+        (caught: unknown) => caught,
+      );
+    expect(unmatched).toBeInstanceOf(NotFoundError);
+    expect(unmatched).not.toBeInstanceOf(ReferenceResolutionConflictError);
   });
 
   it("denies staff without products:view", async () => {
@@ -885,7 +961,7 @@ describe("catalog.resolveLineReferences", () => {
       "utf8",
     );
     expect(source).not.toMatch(/ctx\.call\(/);
-    // id + exact-name + per-query capped contains + variants for resolved products
+    // id + exact-name + per-query capped contains + variants for candidates
     expect(source.match(/\.from\(/g)?.length).toBe(4);
     expect(source).toMatch(/VARIANT_SELECTION_OPTIONS_MAX/);
   });
@@ -975,21 +1051,24 @@ describe("catalog.resolveLineReferences", () => {
       })
       .then(
         () => {
-          throw new Error("expected ConflictError");
+          throw new Error("expected ReferenceResolutionConflictError");
         },
         (caught: unknown) => caught,
       );
-    expect(error).toBeInstanceOf(ConflictError);
-    expect(error).not.toBeInstanceOf(NotFoundError);
-    expect(error).not.toBeInstanceOf(ReferenceResolutionConflictError);
-    if (!(error instanceof ConflictError)) {
-      return;
-    }
-    expect(error.clientMessage).toContain(laterContainsId);
-    expect(error.clientMessage).toContain(laterContainsName);
+    const conflict = expectResolutionConflict(error);
+    expect(conflict).not.toBeInstanceOf(NotFoundError);
+    expect(conflict.reason).toBe("ambiguous");
+    expect(conflict.target).toEqual({
+      kind: "order_line_product",
+      lineIndex: 1,
+      query: "LaterContainsTarget",
+    });
+    expect(conflict.options).toEqual([
+      { id: laterContainsId, label: laterContainsName },
+    ]);
   });
 
-  it("lists at most five conflict labels when more products contain the query", async () => {
+  it("caps picker options separately from REFERENCE_CONFLICT_LABELS_MAX", async () => {
     await kit.db.runtime.db.insert(products).values(
       Array.from({ length: 6 }, (_, index) => ({
         id: randomUUID(),
@@ -1005,17 +1084,25 @@ describe("catalog.resolveLineReferences", () => {
       })
       .then(
         () => {
-          throw new Error("expected ConflictError");
+          throw new Error("expected ReferenceResolutionConflictError");
         },
         (caught: unknown) => caught,
       );
-    expect(error).toBeInstanceOf(ConflictError);
-    expect(error).not.toBeInstanceOf(ReferenceResolutionConflictError);
-    if (!(error instanceof ConflictError)) {
-      return;
-    }
-    const labels = [...error.clientMessage.matchAll(/MatchCap \d/g)];
-    expect(labels.length).toBe(5);
-    expect(error.clientMessage).not.toContain("MatchCap 5");
+    const conflict = expectResolutionConflict(error);
+    expect(conflict.reason).toBe("ambiguous");
+    expect(conflict.options).toHaveLength(6);
+    expect(conflict.optionsTruncated).toBe(false);
+    expect(conflict.options.map((option) => option.label)).toEqual([
+      "MatchCap 0",
+      "MatchCap 1",
+      "MatchCap 2",
+      "MatchCap 3",
+      "MatchCap 4",
+      "MatchCap 5",
+    ]);
+    expect(conflict.clientMessage).toBe(
+      ambiguousProductQueryMessage("MatchCap"),
+    );
+    expect(conflict.clientMessage).not.toContain("Multiple matches");
   });
 });

@@ -38,6 +38,12 @@ export const CHOICE_TRUNCATED_COPY: Record<StaffAssistantLocale, string> = {
   uk: "Є ще варіанти. Напишіть точну назву смаку.",
 };
 
+export const CHOICE_TRUNCATED_MATCH_COPY: Record<StaffAssistantLocale, string> =
+  {
+    en: "More matches exist. Reply with the exact name.",
+    uk: "Є ще збіги. Напишіть точну назву.",
+  };
+
 export const staffAssistantLocaleSchema = z.enum(STAFF_ASSISTANT_LOCALES);
 
 const ORDERS_GET_TOOL_NAME = toProviderToolName("orders.get");
@@ -466,17 +472,39 @@ export function presentCompletedStaffAssistantTurn(options: {
   return surfaces.map((surface) => surface.spoken).join("\n");
 }
 
-function presentChoiceSurface(
+function presentChoiceIntro(
   output: StaffAssistantNeedsChoiceOutput,
   locale: StaffAssistantLocale,
 ): string {
   const labels = output.options.map((option) => option.label).join(", ");
-  const intro =
-    locale === "uk"
-      ? `Оберіть варіант для ${output.productName}: ${labels}.`
-      : `Select a variant for ${output.productName}: ${labels}.`;
+  const kind = output.choiceKind ?? "variant";
+  if (kind === "customer") {
+    return locale === "uk"
+      ? `Оберіть клієнта «${output.productName}»: ${labels}.`
+      : `Select a customer matching ${output.productName}: ${labels}.`;
+  }
+  if (kind === "product") {
+    return locale === "uk"
+      ? `Оберіть товар «${output.productName}»: ${labels}.`
+      : `Select a product matching ${output.productName}: ${labels}.`;
+  }
+  return locale === "uk"
+    ? `Оберіть варіант для ${output.productName}: ${labels}.`
+    : `Select a variant for ${output.productName}: ${labels}.`;
+}
+
+function presentChoiceSurface(
+  output: StaffAssistantNeedsChoiceOutput,
+  locale: StaffAssistantLocale,
+): string {
+  const intro = presentChoiceIntro(output, locale);
+  const kind = output.choiceKind ?? "variant";
   if (output.optionsTruncated) {
-    return `${intro} ${CHOICE_TRUNCATED_COPY[locale]}`;
+    const truncated =
+      kind === "variant"
+        ? CHOICE_TRUNCATED_COPY[locale]
+        : CHOICE_TRUNCATED_MATCH_COPY[locale];
+    return `${intro} ${truncated}`;
   }
   return intro;
 }

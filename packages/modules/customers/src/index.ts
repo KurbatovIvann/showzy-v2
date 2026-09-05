@@ -19,6 +19,7 @@ import { restoreCustomer } from "./actions/restore-customer.js";
 import { updateCounterparty } from "./actions/update-counterparty.js";
 import { updateCustomer } from "./actions/update-customer.js";
 import { updateGroup } from "./actions/update-group.js";
+import { CustomerReferenceConflictError } from "./services/reference-resolution-conflict.js";
 
 export { applyInviteCrm };
 export { archiveCustomer };
@@ -41,6 +42,7 @@ export { restoreCustomer };
 export { updateCounterparty };
 export { updateCustomer };
 export { updateGroup };
+export { CustomerReferenceConflictError };
 
 export const customersActions = [
   applyInviteCrm,

@@ -113,8 +113,10 @@ export {
   CHOICE_TTL_MS,
   choiceCanonicalCreateInputSchema,
   choiceCardEnvelope,
+  choiceKindFromTarget,
   choiceRedisKey,
   choiceRecordSchema,
+  choiceSubjectName,
   needsChoiceOutputFromRecord,
   parseChoiceRecord,
   peekEnvelopeFromRecord,
@@ -133,6 +135,7 @@ export {
   type ChoiceBind,
   type ChoiceCanonicalCreateInput,
   type ChoiceCardOption,
+  type ChoiceKind,
   type ChoiceRecord,
   type ChoiceRecordStatus,
   type ChoiceTarget,
@@ -142,6 +145,7 @@ export {
 } from "./choice.js";
 export {
   CHOICE_TRUNCATED_COPY,
+  CHOICE_TRUNCATED_MATCH_COPY,
   presentChoiceStaffAssistantNeedsChoice,
   presentChoiceStaffAssistantTurn,
   presentCompletedStaffAssistantTurn,

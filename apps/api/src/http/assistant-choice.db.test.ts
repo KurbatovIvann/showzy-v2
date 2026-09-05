@@ -256,6 +256,13 @@ async function seedVariableProduct(
   });
 }
 
+async function seedSimpleProduct(name: string) {
+  return staffInvoke(createProduct, {
+    name,
+    basePriceMinor: "1500",
+  });
+}
+
 function canonicalFor(
   customerId: string,
   products: readonly { productId: string }[],
@@ -325,6 +332,122 @@ async function openChoice(options: {
       challengeId: choiceId,
       reason: "variant_required",
       productName: options.product.name,
+      options: envelopeOptions,
+      optionsTruncated: false,
+    },
+    locale: options.locale ?? "uk",
+  };
+  expect(await options.store.open(record)).toBe(true);
+  return { record, optionByLabel };
+}
+
+async function openProductChoice(options: {
+  readonly store: ReturnType<typeof createMemoryChoiceStore>;
+  readonly conversationId: string;
+  readonly customerId: string;
+  readonly query: string;
+  readonly catalogOptions: readonly {
+    readonly productId: string;
+    readonly label: string;
+  }[];
+  readonly locale?: "uk" | "en";
+}): Promise<{
+  record: ChoiceRecord;
+  optionByLabel: Map<string, string>;
+}> {
+  const choiceId = randomUUID();
+  const optionByLabel = new Map<string, string>();
+  const optionMap: Record<string, string> = {};
+  const envelopeOptions = options.catalogOptions.map((option) => {
+    const optionId = randomUUID();
+    optionByLabel.set(option.label, optionId);
+    optionMap[optionId] = option.productId;
+    return { id: optionId, label: option.label };
+  });
+  const record: ChoiceRecord = {
+    status: "open",
+    choiceId,
+    actorId: kitIdentities.users.anna,
+    companyId: kitIdentities.companies.a,
+    conversationId: options.conversationId,
+    canonicalInput: {
+      customer: { by: "id", id: options.customerId },
+      items: [
+        {
+          product: { by: "query", value: options.query },
+          variantSelection: { kind: "unspecified" },
+          quantity: { milli: "1000" },
+        },
+      ],
+    },
+    target: {
+      kind: "order_line_product",
+      lineIndex: 0,
+      query: options.query,
+    },
+    optionMap,
+    envelope: {
+      status: "needs_choice",
+      challengeId: choiceId,
+      reason: "ambiguous",
+      choiceKind: "product",
+      productName: options.query,
+      options: envelopeOptions,
+      optionsTruncated: false,
+    },
+    locale: options.locale ?? "uk",
+  };
+  expect(await options.store.open(record)).toBe(true);
+  return { record, optionByLabel };
+}
+
+async function openCustomerChoice(options: {
+  readonly store: ReturnType<typeof createMemoryChoiceStore>;
+  readonly conversationId: string;
+  readonly query: string;
+  readonly productId: string;
+  readonly catalogOptions: readonly {
+    readonly customerId: string;
+    readonly label: string;
+  }[];
+  readonly locale?: "uk" | "en";
+}): Promise<{
+  record: ChoiceRecord;
+  optionByLabel: Map<string, string>;
+}> {
+  const choiceId = randomUUID();
+  const optionByLabel = new Map<string, string>();
+  const optionMap: Record<string, string> = {};
+  const envelopeOptions = options.catalogOptions.map((option) => {
+    const optionId = randomUUID();
+    optionByLabel.set(option.label, optionId);
+    optionMap[optionId] = option.customerId;
+    return { id: optionId, label: option.label };
+  });
+  const record: ChoiceRecord = {
+    status: "open",
+    choiceId,
+    actorId: kitIdentities.users.anna,
+    companyId: kitIdentities.companies.a,
+    conversationId: options.conversationId,
+    canonicalInput: {
+      customer: { by: "query", value: options.query },
+      items: [
+        {
+          product: { by: "id", id: options.productId },
+          variantSelection: { kind: "unspecified" },
+          quantity: { milli: "1000" },
+        },
+      ],
+    },
+    target: { kind: "customer", query: options.query },
+    optionMap,
+    envelope: {
+      status: "needs_choice",
+      challengeId: choiceId,
+      reason: "ambiguous",
+      choiceKind: "customer",
+      productName: options.query,
       options: envelopeOptions,
       optionsTruncated: false,
     },
@@ -794,7 +917,7 @@ describe("POST /assistant/choice (seeded store)", () => {
     }
     const patched = applyChoiceOptionToCanonicalInput(
       record.canonicalInput,
-      record.target.lineIndex,
+      record.target,
       variantId,
     );
     await executeAction(pipeline, {
@@ -1555,6 +1678,186 @@ describe("POST /assistant/choice (seeded store)", () => {
     });
     expect(missing.status).toBe(200);
     expect(await missing.json()).toEqual({ status: "expired" });
+  });
+
+  it("resumes a product picker then a variant picker sequentially without an LLM", async () => {
+    const classify = vi.spyOn(ShowzyAi, "classifyStaffAssistantTurn");
+    const stream = vi.spyOn(ShowzyAi, "streamStaffAssistantChat");
+    const { app, store } = choiceApp();
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Choice product then variant",
+    });
+    const customer = await staffInvoke(createCustomer, {
+      name: "Macaron Buyer",
+      phone: nextPhone(),
+    });
+    const product = await seedVariableProduct("Макаронси Seq", [
+      "Lemon",
+      "Vanilla",
+    ]);
+    const { record, optionByLabel } = await openProductChoice({
+      store,
+      conversationId: conversation.id,
+      customerId: customer.id,
+      query: "макаронс",
+      catalogOptions: [
+        { productId: product.productId, label: "Макаронси Seq" },
+      ],
+    });
+    const productOption = optionByLabel.get("Макаронси Seq");
+    expect(productOption).toBeDefined();
+    const forged = await postChoice(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: {
+        conversationId: conversation.id,
+        choiceId: record.choiceId,
+        optionId: product.productId,
+      },
+    });
+    expect(forged.status).toBe(200);
+    expect(await forged.json()).toMatchObject({
+      status: "error",
+      code: "CHOICE_INVALID_OPTION",
+    });
+    const firstTap = await postChoice(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: {
+        conversationId: conversation.id,
+        choiceId: record.choiceId,
+        optionId: productOption,
+      },
+    });
+    expect(firstTap.status).toBe(200);
+    const firstBody = assistantChoiceInteractionResultSchema.parse(
+      await firstTap.json(),
+    );
+    expect(firstBody.status).toBe("needs_choice");
+    if (firstBody.status !== "needs_choice") {
+      return;
+    }
+    expect(firstBody.choiceKind).toBe("variant");
+    expect(firstBody.productName).toBe("Макаронси Seq");
+    expect(firstBody.options.map((option) => option.label).toSorted()).toEqual([
+      "Lemon",
+      "Vanilla",
+    ]);
+    expect(JSON.stringify(firstBody)).not.toContain("Multiple matches");
+    expect(JSON.stringify(firstBody)).not.toContain("canonicalInput");
+    const lemon = firstBody.options.find((option) => option.label === "Lemon");
+    expect(lemon).toBeDefined();
+    const secondTap = await postChoice(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: {
+        conversationId: conversation.id,
+        choiceId: firstBody.challengeId,
+        optionId: lemon?.id,
+      },
+    });
+    expect(secondTap.status).toBe(200);
+    const secondBody = assistantChoiceInteractionResultSchema.parse(
+      await secondTap.json(),
+    );
+    expect(secondBody.status).toBe("completed");
+    const companyOrders = (
+      await kit.db.runtime.db.select().from(orders)
+    ).filter((row) => row.customerId === customer.id);
+    expect(companyOrders).toHaveLength(1);
+    expect(classify).not.toHaveBeenCalled();
+    expect(stream).not.toHaveBeenCalled();
+    classify.mockRestore();
+    stream.mockRestore();
+  });
+
+  it("resumes a customer picker without an LLM and replays the same option", async () => {
+    const classify = vi.spyOn(ShowzyAi, "classifyStaffAssistantTurn");
+    const stream = vi.spyOn(ShowzyAi, "streamStaffAssistantChat");
+    const { app, store } = choiceApp();
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Choice customer picker",
+    });
+    const firstCustomer = await staffInvoke(createCustomer, {
+      name: "Twin Katya Choice",
+      phone: nextPhone(),
+    });
+    const secondCustomer = await staffInvoke(createCustomer, {
+      name: "Twin Katya Choice",
+      phone: nextPhone(),
+    });
+    const product = await seedSimpleProduct("Simple Choice Cake");
+    const { record, optionByLabel } = await openCustomerChoice({
+      store,
+      conversationId: conversation.id,
+      query: "Twin Katya Choice",
+      productId: product.productId,
+      catalogOptions: [
+        {
+          customerId: firstCustomer.id,
+          label: "Twin Katya Choice (first)",
+        },
+        {
+          customerId: secondCustomer.id,
+          label: "Twin Katya Choice (second)",
+        },
+      ],
+    });
+    const optionId = optionByLabel.get("Twin Katya Choice (first)");
+    expect(optionId).toBeDefined();
+    const firstTap = await postChoice(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: {
+        conversationId: conversation.id,
+        choiceId: record.choiceId,
+        optionId,
+      },
+    });
+    expect(firstTap.status).toBe(200);
+    const firstBody = assistantChoiceInteractionResultSchema.parse(
+      await firstTap.json(),
+    );
+    expect(firstBody.status).toBe("completed");
+    if (firstBody.status !== "completed") {
+      return;
+    }
+    const replay = await postChoice(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: {
+        conversationId: conversation.id,
+        choiceId: record.choiceId,
+        optionId,
+      },
+    });
+    expect(replay.status).toBe(200);
+    expect(await replay.json()).toEqual(firstBody);
+    const otherOption = optionByLabel.get("Twin Katya Choice (second)");
+    const different = await postChoice(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: {
+        conversationId: conversation.id,
+        choiceId: record.choiceId,
+        optionId: otherOption,
+      },
+    });
+    expect(different.status).toBe(200);
+    expect(await different.json()).toMatchObject({
+      status: "error",
+      code: "CHOICE_OPTION_CONFLICT",
+    });
+    const companyOrders = (
+      await kit.db.runtime.db.select().from(orders)
+    ).filter((row) => row.customerId === firstCustomer.id);
+    expect(companyOrders).toHaveLength(1);
+    expect(classify).not.toHaveBeenCalled();
+    expect(stream).not.toHaveBeenCalled();
+    classify.mockRestore();
+    stream.mockRestore();
   });
 
   it("keeps the confirmation resume path in assistant-chat.ts", () => {

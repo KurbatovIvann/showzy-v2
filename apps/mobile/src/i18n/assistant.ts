@@ -48,6 +48,7 @@ export type AssistantCopy = {
   readonly confirmationTitle: string;
   readonly choiceTitle: string;
   readonly choiceTruncated: string;
+  readonly choiceTruncatedMatch: string;
   readonly choiceExpired: string;
   readonly choiceClaimed: string;
   readonly choiceRetry: string;
@@ -82,6 +83,7 @@ const en: AssistantCopy = {
   confirmationTitle: "Confirmation required",
   choiceTitle: "Select a variant",
   choiceTruncated: "More variants exist. Reply with the exact flavour name.",
+  choiceTruncatedMatch: "More matches exist. Reply with the exact name.",
   choiceExpired: "This choice expired.",
   choiceClaimed: "This choice is already in progress. Continue to finish it.",
   choiceRetry: "Continue",
@@ -154,6 +156,7 @@ const uk: AssistantCopy = {
   confirmationTitle: "Потрібне підтвердження",
   choiceTitle: "Оберіть варіант",
   choiceTruncated: "Є ще варіанти. Напишіть точну назву смаку.",
+  choiceTruncatedMatch: "Є ще збіги. Напишіть точну назву.",
   choiceExpired: "Цей вибір більше недоступний.",
   choiceClaimed: "Цей вибір уже в процесі. Продовжіть, щоб завершити.",
   choiceRetry: "Продовжити",

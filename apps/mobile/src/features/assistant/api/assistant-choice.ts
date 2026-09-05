@@ -20,6 +20,7 @@ const choiceSelectResultSchema = z.object({
   text: z.string().optional(),
   challengeId: z.uuid().optional(),
   reason: z.string().optional(),
+  choiceKind: z.enum(["variant", "product", "customer"]).optional(),
   productName: z.string().optional(),
   options: z
     .array(z.object({ id: z.uuid(), label: z.string().min(1) }))

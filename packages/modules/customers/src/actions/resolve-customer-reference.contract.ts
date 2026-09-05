@@ -5,8 +5,9 @@
  * may still target archived rows (current getCustomer behavior).
  *
  * Mechanical: `timeout: 5000` matches other customers facts reads. Query
- * max 100. Conflict labels cap 5 with phone-last-digits or email
- * discriminators. No notes. Company id is never input.
+ * max 100. Picker cap `CUSTOMER_REFERENCE_OPTIONS_MAX` (20) is not
+ * `REFERENCE_CONFLICT_LABELS_MAX` (5). Option labels use phone-last-digits
+ * or email discriminators. No notes. Company id is never input.
  */
 import { defineActionContract } from "@showzy/core/contract";
 import {
@@ -16,6 +17,13 @@ import {
 import { z } from "zod";
 
 export const RESOLVE_CUSTOMER_REFERENCE_QUERY_MAX = ENTITY_REF_QUERY_MAX;
+
+/**
+ * Bounded customer picker size for ambiguous / contains-only queries.
+ * Not `REFERENCE_CONFLICT_LABELS_MAX` (5). Matches catalog
+ * `VARIANT_SELECTION_OPTIONS_MAX` / AI `CHOICE_OPTIONS_MAX`.
+ */
+export const CUSTOMER_REFERENCE_OPTIONS_MAX = 20;
 
 export const resolveCustomerReferenceInputSchema = entityRefSchema;
 
@@ -27,7 +35,7 @@ export const resolveCustomerReferenceOutputSchema = z.strictObject({
 export const resolveCustomerReferenceContract = defineActionContract({
   name: "customers.resolveCustomerReference",
   description:
-    "Resolve one CRM customer in the staff member's active company from a canonical id or a unique human query (name, phone, or email). Query matches are active customers only. An id may still target an archived row. Zero matches are not-found. Ambiguous matches return conflict with at most five tenant-safe labels. Company id is never input. Does not return notes.",
+    "Resolve one CRM customer in the staff member's active company from a canonical id or a unique human query (name, phone, or email). Query matches are active customers only. An id may still target an archived row. Zero matches are not-found. Ambiguous or contains-only matches return a structured conflict (reason, server-side customer target, options, optionsTruncated) and never auto-select. Company id is never input. Does not return notes.",
   principal: "staff",
   transport: "internal",
   input: resolveCustomerReferenceInputSchema,

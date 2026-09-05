@@ -98,7 +98,10 @@ export function AssistantSheetView(model: AssistantSheetViewModel) {
         }
         choiceTruncatedLabel={
           item.choice?.status === "needs_choice" && item.choice.optionsTruncated
-            ? copy.choiceTruncated
+            ? item.choice.choiceKind === "product" ||
+              item.choice.choiceKind === "customer"
+              ? copy.choiceTruncatedMatch
+              : copy.choiceTruncated
             : null
         }
         choiceExpiredLabel={copy.choiceExpired}
@@ -116,6 +119,7 @@ export function AssistantSheetView(model: AssistantSheetViewModel) {
       copy.choiceSelecting,
       copy.choiceTitle,
       copy.choiceTruncated,
+      copy.choiceTruncatedMatch,
       copy.confirmLabel,
       copy.confirmationTitle,
       copy.confirmingLabel,

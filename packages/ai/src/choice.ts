@@ -1,11 +1,11 @@
 /**
- * Staff-assistant choice transport (SHO-409 / SHO-418 / SHO-401 T8).
+ * Staff-assistant choice transport (SHO-409 / SHO-418 / SHO-410 / SHO-401 T8).
  *
- * Canonical create input, server-only line target, and optionId → variantId
- * mapping stay on the server. The client sends `{ choiceId, optionId }` and
- * may read only the ChoiceCard envelope. T8b intercepts a duck-typed
- * catalog CONFLICT (picker reasons only) on `orders.create` and opens a
- * store record. This package must not import catalog.
+ * Canonical create input, server-only target (variant line, product line, or
+ * customer), and optionId → entity id mapping stay on the server. The client
+ * sends `{ choiceId, optionId }` and may read only the ChoiceCard envelope.
+ * Intercepts a duck-typed CONFLICT (picker reasons only) on `orders.create`
+ * and opens a store record. This package must not import catalog or customers.
  *
  * TTL is 15 minutes — deliberately longer than core `CONFIRMATION_TTL_MS`
  * (5 minutes). "Are you sure" and "which one" tolerate interruption
@@ -25,8 +25,8 @@ export const STAFF_ASSISTANT_NEEDS_CHOICE_STATUS = "needs_choice" as const;
 export const CHOICE_TTL_MS = 15 * 60 * 1000;
 
 /**
- * Variant picker cap. Not `REFERENCE_CONFLICT_LABELS_MAX` (5), which would
- * clip a normal 6-flavour product. Matches catalog
+ * Variant / product / customer picker cap. Not `REFERENCE_CONFLICT_LABELS_MAX`
+ * (5), which would clip a normal 6-flavour product. Matches catalog
  * `VARIANT_SELECTION_OPTIONS_MAX`.
  */
 export const CHOICE_OPTIONS_MAX = 20;
@@ -54,6 +54,12 @@ export const CHOICE_PICKER_REASONS = [
 export type ChoicePickerReason = (typeof CHOICE_PICKER_REASONS)[number];
 
 export type ChoiceResolutionReason = (typeof CHOICE_RESOLUTION_REASONS)[number];
+
+export const CHOICE_KINDS = ["variant", "product", "customer"] as const;
+
+export type ChoiceKind = (typeof CHOICE_KINDS)[number];
+
+export const choiceKindSchema = z.enum(CHOICE_KINDS);
 
 export const choiceResolutionReasonSchema = z.enum(CHOICE_RESOLUTION_REASONS);
 
@@ -97,13 +103,42 @@ export type ChoiceCanonicalCreateInput = z.output<
   typeof choiceCanonicalCreateInputSchema
 >;
 
-export const choiceTargetSchema = z.strictObject({
-  lineIndex: z.number().int().nonnegative(),
-  productId: z.uuid(),
-  productName: z.string().min(1),
-});
+export const choiceTargetSchema = z.union([
+  z.strictObject({
+    kind: z.literal("customer"),
+    query: z.string().min(1),
+  }),
+  z.strictObject({
+    kind: z.literal("order_line_product"),
+    lineIndex: z.number().int().nonnegative(),
+    query: z.string().min(1),
+  }),
+  z.strictObject({
+    kind: z.literal("order_line_variant").optional(),
+    lineIndex: z.number().int().nonnegative(),
+    productId: z.uuid(),
+    productName: z.string().min(1),
+  }),
+]);
 
 export type ChoiceTarget = z.output<typeof choiceTargetSchema>;
+
+export function choiceKindFromTarget(target: ChoiceTarget): ChoiceKind {
+  if (target.kind === "customer") {
+    return "customer";
+  }
+  if (target.kind === "order_line_product") {
+    return "product";
+  }
+  return "variant";
+}
+
+export function choiceSubjectName(target: ChoiceTarget): string {
+  if (target.kind === "customer" || target.kind === "order_line_product") {
+    return target.query;
+  }
+  return target.productName;
+}
 
 export const choiceCardOptionSchema = z.strictObject({
   id: z.uuid(),
@@ -132,6 +167,7 @@ export const staffAssistantChoiceCardEnvelopeSchema = z.strictObject({
   status: choiceCardStateSchema,
   challengeId: z.uuid(),
   reason: choiceResolutionReasonSchema.optional(),
+  choiceKind: choiceKindSchema.optional(),
   productName: z.string().min(1).optional(),
   options: z.array(choiceCardOptionSchema).min(1).max(CHOICE_OPTIONS_MAX),
   optionsTruncated: z.boolean(),
@@ -146,6 +182,7 @@ export const staffAssistantNeedsChoiceOutputSchema = z.strictObject({
   status: z.literal(STAFF_ASSISTANT_NEEDS_CHOICE_STATUS),
   challengeId: z.uuid(),
   reason: choiceResolutionReasonSchema,
+  choiceKind: choiceKindSchema.optional(),
   productName: z.string().min(1),
   options: z.array(choiceCardOptionSchema).min(1).max(CHOICE_OPTIONS_MAX),
   optionsTruncated: z.boolean(),
@@ -252,7 +289,7 @@ export type BoundChoiceOptions = {
 };
 
 /**
- * Mint opaque optionIds. Catalog picker ids are variant UUIDs — those stay
+ * Mint opaque optionIds. Catalog picker ids are entity UUIDs — those stay
  * in `optionMap` and never go to the client as option ids.
  * Forward `optionsTruncated` from catalog extras even when the option
  * list is at or below `CHOICE_OPTIONS_MAX` — a prefix of 2 or 20 is not
@@ -280,6 +317,7 @@ export function choiceCardEnvelope(input: {
   readonly challengeId: string;
   readonly status: ChoiceCardState;
   readonly reason?: ChoiceResolutionReason;
+  readonly choiceKind?: ChoiceKind;
   readonly productName?: string;
   readonly options: readonly ChoiceCardOption[];
   readonly optionsTruncated: boolean;
@@ -289,6 +327,7 @@ export function choiceCardEnvelope(input: {
     status: input.status,
     challengeId: input.challengeId,
     ...(input.reason !== undefined ? { reason: input.reason } : {}),
+    ...(input.choiceKind !== undefined ? { choiceKind: input.choiceKind } : {}),
     ...(input.productName !== undefined
       ? { productName: input.productName }
       : {}),
@@ -303,11 +342,15 @@ export function choiceCardEnvelope(input: {
 export function needsChoiceOutputFromRecord(
   record: ChoiceRecord,
 ): StaffAssistantNeedsChoiceOutput {
+  const choiceKind =
+    record.envelope.choiceKind ?? choiceKindFromTarget(record.target);
   return staffAssistantNeedsChoiceOutputSchema.parse({
     status: STAFF_ASSISTANT_NEEDS_CHOICE_STATUS,
     challengeId: record.choiceId,
     reason: record.envelope.reason ?? "variant_required",
-    productName: record.envelope.productName ?? record.target.productName,
+    choiceKind,
+    productName:
+      record.envelope.productName ?? choiceSubjectName(record.target),
     options: record.envelope.options,
     optionsTruncated: record.envelope.optionsTruncated,
   });
@@ -327,6 +370,9 @@ export function peekEnvelopeFromRecord(
     status,
     ...(record.envelope.reason !== undefined
       ? { reason: record.envelope.reason }
+      : {}),
+    ...(record.envelope.choiceKind !== undefined
+      ? { choiceKind: record.envelope.choiceKind }
       : {}),
     ...(record.envelope.productName !== undefined
       ? { productName: record.envelope.productName }
@@ -356,14 +402,42 @@ export function recordBind(record: ChoiceRecord): ChoiceBind {
 }
 
 /**
- * Patch the server-stored target line with the mapped variant id.
- * Client-supplied target / slot / variant id is never an argument.
+ * Patch the server-stored canonical create input with the mapped entity id.
+ * Client-supplied target / slot / entity id is never an argument.
  */
 export function applyChoiceOptionToCanonicalInput(
   input: ChoiceCanonicalCreateInput,
-  lineIndex: number,
-  variantId: string,
+  target: ChoiceTarget,
+  mappedId: string,
 ): ChoiceCanonicalCreateInput {
+  if (target.kind === "customer") {
+    return {
+      customer: { by: "id", id: mappedId },
+      items: input.items,
+      ...(input.comment !== undefined ? { comment: input.comment } : {}),
+    };
+  }
+  if (target.kind === "order_line_product") {
+    const items = input.items.map((item, index) => {
+      if (index !== target.lineIndex) {
+        return item;
+      }
+      return {
+        product: { by: "id" as const, id: mappedId },
+        quantity: item.quantity,
+        ...(item.variant !== undefined ? { variant: item.variant } : {}),
+        ...(item.variantSelection !== undefined
+          ? { variantSelection: item.variantSelection }
+          : {}),
+      };
+    });
+    return {
+      customer: input.customer,
+      items,
+      ...(input.comment !== undefined ? { comment: input.comment } : {}),
+    };
+  }
+  const lineIndex = target.lineIndex;
   const items = input.items.map((item, index) => {
     if (index !== lineIndex) {
       return item;
@@ -373,7 +447,7 @@ export function applyChoiceOptionToCanonicalInput(
       quantity: item.quantity,
       variantSelection: {
         kind: "reference" as const,
-        ref: { by: "id" as const, id: variantId },
+        ref: { by: "id" as const, id: mappedId },
       },
     };
   });
@@ -456,16 +530,27 @@ export function choiceFromChatPart(
   return nested.success ? nested.data : undefined;
 }
 
-const catalogConflictTargetSchema = z.strictObject({
-  kind: z.literal("order_line_variant").optional(),
-  lineIndex: z.number().int().nonnegative(),
-  productId: z.uuid(),
-  productName: z.string().min(1),
-});
+const catalogConflictTargetSchema = z.union([
+  z.strictObject({
+    kind: z.literal("customer"),
+    query: z.string().min(1),
+  }),
+  z.strictObject({
+    kind: z.literal("order_line_product"),
+    lineIndex: z.number().int().nonnegative(),
+    query: z.string().min(1),
+  }),
+  z.strictObject({
+    kind: z.literal("order_line_variant").optional(),
+    lineIndex: z.number().int().nonnegative(),
+    productId: z.uuid(),
+    productName: z.string().min(1),
+  }),
+]);
 
 /**
- * Duck-typed catalog `ReferenceResolutionConflictError` extras. Wire code
- * stays CONFLICT. Empty options never parse — no empty picker.
+ * Duck-typed catalog/customers picker extras. Wire code stays CONFLICT.
+ * Empty options never parse — no empty picker.
  */
 export const catalogPickerConflictExtrasSchema = z.strictObject({
   reason: z.enum(CHOICE_PICKER_REASONS),
@@ -515,11 +600,14 @@ export function choiceRecordFromPickerConflict(args: {
   if (bound.options.length === 0) {
     return undefined;
   }
+  const target = choiceTargetSchema.parse(args.extras.target);
+  const choiceKind = choiceKindFromTarget(target);
   const envelope = choiceCardEnvelope({
     challengeId: args.choiceId,
     status: STAFF_ASSISTANT_NEEDS_CHOICE_STATUS,
     reason: args.extras.reason,
-    productName: args.extras.target.productName,
+    choiceKind,
+    productName: choiceSubjectName(target),
     options: bound.options,
     optionsTruncated: bound.optionsTruncated,
   });
@@ -530,11 +618,7 @@ export function choiceRecordFromPickerConflict(args: {
     companyId: args.bind.companyId,
     conversationId: args.bind.conversationId,
     canonicalInput: args.canonicalInput,
-    target: {
-      lineIndex: args.extras.target.lineIndex,
-      productId: args.extras.target.productId,
-      productName: args.extras.target.productName,
-    },
+    target,
     optionMap: { ...bound.optionMap },
     envelope,
     ...(args.locale !== undefined ? { locale: args.locale } : {}),
@@ -585,11 +669,13 @@ export async function needsChoiceFromOrdersCreateConflict(args: {
   if (bound.options.length === 0) {
     return undefined;
   }
+  const target = choiceTargetSchema.parse(extras.target);
   return staffAssistantNeedsChoiceOutputSchema.parse({
     status: STAFF_ASSISTANT_NEEDS_CHOICE_STATUS,
     challengeId: choiceId,
     reason: extras.reason,
-    productName: extras.target.productName,
+    choiceKind: choiceKindFromTarget(target),
+    productName: choiceSubjectName(target),
     options: bound.options,
     optionsTruncated: bound.optionsTruncated,
   });

@@ -191,7 +191,11 @@ describe("choice transport (SHO-409)", () => {
     };
     const patched = applyChoiceOptionToCanonicalInput(
       withLegacyVariant,
-      0,
+      {
+        lineIndex: 0,
+        productId,
+        productName: "Macarons",
+      },
       variantLemon,
     );
     expect(patched.items[0]).toEqual({
@@ -204,6 +208,40 @@ describe("choice transport (SHO-409)", () => {
     });
     expect(patched.items[0]).not.toHaveProperty("variant");
     expect(patched.items[1]).toEqual(withLegacyVariant.items[1]);
+  });
+
+  it("patches a customer or product target without stripping later variant selection", () => {
+    const input: ChoiceCanonicalCreateInput = {
+      customer: { by: "query", value: "Katya" },
+      items: [
+        {
+          product: { by: "query", value: "макаронс" },
+          variantSelection: { kind: "unspecified" },
+          quantity: { milli: "1000" },
+        },
+      ],
+    };
+    const afterCustomer = applyChoiceOptionToCanonicalInput(
+      input,
+      { kind: "customer", query: "Katya" },
+      customerId,
+    );
+    expect(afterCustomer.customer).toEqual({ by: "id", id: customerId });
+    expect(afterCustomer.items).toEqual(input.items);
+    const afterProduct = applyChoiceOptionToCanonicalInput(
+      afterCustomer,
+      {
+        kind: "order_line_product",
+        lineIndex: 0,
+        query: "макаронс",
+      },
+      productId,
+    );
+    expect(afterProduct.items[0]).toEqual({
+      product: { by: "id", id: productId },
+      quantity: { milli: "1000" },
+      variantSelection: { kind: "unspecified" },
+    });
   });
 
   it("peek envelope omits canonical input, target, mapping, actor, and company", () => {
@@ -381,12 +419,13 @@ class DuckTypedPickerConflict extends ConflictError {
 }
 
 describe("duck-typed catalog CONFLICT extras (SHO-418)", () => {
-  it("does not import catalog", () => {
+  it("does not import catalog or customers", () => {
     const source = readFileSync(
       join(dirname(fileURLToPath(import.meta.url)), "choice.ts"),
       "utf8",
     );
     expect(source).not.toContain("@showzy/catalog");
+    expect(source).not.toContain("@showzy/customers");
   });
 
   it("parses picker extras and ignores no_active_variants", () => {
@@ -460,6 +499,7 @@ describe("duck-typed catalog CONFLICT extras (SHO-418)", () => {
       mintChoiceId: () => choiceId,
     });
     expect(output?.status).toBe("needs_choice");
+    expect(output?.choiceKind).toBe("variant");
     expect(output?.options).toHaveLength(1);
     expect(opened).toHaveLength(1);
     expect(JSON.stringify(output)).not.toContain("canonicalInput");
@@ -522,5 +562,124 @@ describe("duck-typed catalog CONFLICT extras (SHO-418)", () => {
     });
     expect(opened).toHaveLength(1);
     expect(output).toBeUndefined();
+  });
+});
+
+class DuckTypedProductConflict extends ConflictError {
+  readonly reason = "ambiguous" as const;
+  readonly target: {
+    readonly kind: "order_line_product";
+    readonly lineIndex: number;
+    readonly query: string;
+  };
+  readonly options: readonly { readonly id: string; readonly label: string }[];
+  readonly optionsTruncated: boolean;
+
+  constructor(args: {
+    readonly query: string;
+    readonly options: readonly {
+      readonly id: string;
+      readonly label: string;
+    }[];
+  }) {
+    super(`Select a product matching "${args.query}".`);
+    this.target = {
+      kind: "order_line_product",
+      lineIndex: 0,
+      query: args.query,
+    };
+    this.options = args.options;
+    this.optionsTruncated = false;
+  }
+}
+
+class DuckTypedCustomerConflict extends ConflictError {
+  readonly reason = "ambiguous" as const;
+  readonly target: { readonly kind: "customer"; readonly query: string };
+  readonly options: readonly { readonly id: string; readonly label: string }[];
+  readonly optionsTruncated: boolean;
+
+  constructor(args: {
+    readonly query: string;
+    readonly options: readonly {
+      readonly id: string;
+      readonly label: string;
+    }[];
+  }) {
+    super(`Select a customer matching "${args.query}".`);
+    this.target = { kind: "customer", query: args.query };
+    this.options = args.options;
+    this.optionsTruncated = false;
+  }
+}
+
+describe("duck-typed product and customer CONFLICT extras (SHO-410)", () => {
+  it("opens a one-option product ChoiceCard and never maps Multiple matches prose", async () => {
+    const opened: ChoiceRecord[] = [];
+    const output = await needsChoiceFromOrdersCreateConflict({
+      actionName: "orders.create",
+      input: {
+        customer: { by: "id", id: customerId },
+        items: [
+          {
+            product: { by: "query", value: "макаронс" },
+            variantSelection: { kind: "unspecified" },
+            quantity: { milli: "1000" },
+          },
+        ],
+      },
+      error: new DuckTypedProductConflict({
+        query: "макаронс",
+        options: [{ id: productId, label: "Макаронси" }],
+      }),
+      bind: {
+        actorId: "anna",
+        companyId,
+        conversationId,
+      },
+      openChoice: (record) => {
+        opened.push(record);
+        return Promise.resolve(true);
+      },
+      mintChoiceId: () => choiceId,
+    });
+    expect(output?.status).toBe("needs_choice");
+    expect(output?.choiceKind).toBe("product");
+    expect(output?.reason).toBe("ambiguous");
+    expect(output?.productName).toBe("макаронс");
+    expect(output?.options).toHaveLength(1);
+    expect(output?.options[0]?.label).toBe("Макаронси");
+    expect(JSON.stringify(output)).not.toContain("Multiple matches");
+    expect(JSON.stringify(output)).not.toContain(productId);
+    expect(opened[0]?.target).toEqual({
+      kind: "order_line_product",
+      lineIndex: 0,
+      query: "макаронс",
+    });
+  });
+
+  it("opens a customer ChoiceCard from two matching names", async () => {
+    const twinA = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const twinB = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    const output = await needsChoiceFromOrdersCreateConflict({
+      actionName: "orders.create",
+      input: {
+        customer: { by: "query", value: "Katya" },
+        items: canonical.items,
+      },
+      error: new DuckTypedCustomerConflict({
+        query: "Katya",
+        options: [
+          { id: twinA, label: "Katya (…2233)" },
+          { id: twinB, label: "Katya (…5566)" },
+        ],
+      }),
+      mintChoiceId: () => choiceId,
+    });
+    expect(output?.choiceKind).toBe("customer");
+    expect(output?.productName).toBe("Katya");
+    expect(output?.options).toHaveLength(2);
+    expect(JSON.stringify(output)).not.toContain("Multiple matches");
+    expect(JSON.stringify(output)).not.toContain(twinA);
   });
 });
