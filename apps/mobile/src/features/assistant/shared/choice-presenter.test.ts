@@ -10,8 +10,10 @@ import {
 import {
   claimChoiceSelect,
   choiceCardState,
+  choiceSelectAllowsSameOptionRetry,
   choiceSelectAppendParts,
   choiceSelectShouldIgnoreChallenge,
+  classifyChoiceSelect,
   commitChoiceSelectResult,
   executeChoiceSelect,
   pendingChoiceFromMessages,
@@ -566,7 +568,9 @@ describe("choiceSelectAppendParts", () => {
       code: "CHOICE_OPTION_CONFLICT",
       message: "This choice was already resolved with a different option.",
     };
+    expect(classifyChoiceSelect(result)).toBe("terminal");
     expect(choiceSelectShouldIgnoreChallenge(result)).toBe(true);
+    expect(choiceSelectAllowsSameOptionRetry(result)).toBe(false);
     expect(
       choiceSelectAppendParts({
         result,
@@ -594,7 +598,9 @@ describe("choiceSelectAppendParts", () => {
       code: "CHOICE_INVALID_OPTION",
       message: "That option is not available.",
     };
+    expect(classifyChoiceSelect(result)).toBe("terminal");
     expect(choiceSelectShouldIgnoreChallenge(result)).toBe(true);
+    expect(choiceSelectAllowsSameOptionRetry(result)).toBe(false);
     expect(
       choiceSelectAppendParts({
         result,
@@ -605,27 +611,39 @@ describe("choiceSelectAppendParts", () => {
     expect(pendingChoiceFromMessages(messages, new Set([choiceId]))).toBeNull();
   });
 
-  it("appends generic error text from the POST fallback and retires the picker", () => {
+  it("does not retire the picker on a generic parse-failure error body", () => {
     const result = {
       status: "error" as const,
       text: "Choice resume failed.",
     };
-    expect(choiceSelectShouldIgnoreChallenge(result)).toBe(true);
+    expect(classifyChoiceSelect(result)).toBe("ambiguous");
+    expect(choiceSelectShouldIgnoreChallenge(result)).toBe(false);
+    expect(choiceSelectAllowsSameOptionRetry(result)).toBe(true);
     expect(
       choiceSelectAppendParts({
         result,
         previousChoiceId: choiceId,
         locale: "en",
       }),
-    ).toEqual([{ type: "text", text: "Choice resume failed." }]);
-    expect(pendingChoiceFromMessages(messages, new Set([choiceId]))).toBeNull();
-    expect(presentChoiceSelectErrorText(result, "en")).toBe(
-      "Choice resume failed.",
-    );
+    ).toEqual([]);
+    expect(pendingChoiceFromMessages(messages, new Set())).toMatchObject({
+      status: "needs_choice",
+      challengeId: choiceId,
+    });
+    expect(
+      claimChoiceSelect({
+        pending: pendingChoiceFromMessages(messages, new Set()),
+        optionId: lemonId,
+        resolvingRef: { current: null },
+      }),
+    ).toMatchObject({ challengeId: choiceId });
   });
 
-  it("uses existing assistant unavailable copy when the error envelope has no text", () => {
-    const result = { status: "error" as const };
+  it("uses existing assistant unavailable copy when a terminal error has no text", () => {
+    const result = {
+      status: "error" as const,
+      code: "CHOICE_INVALID_OPTION",
+    };
     expect(choiceSelectShouldIgnoreChallenge(result)).toBe(true);
     expect(
       choiceSelectAppendParts({
@@ -634,7 +652,7 @@ describe("choiceSelectAppendParts", () => {
         locale: "uk",
       }),
     ).toEqual([{ type: "text", text: assistantCopy("uk").errors.unavailable }]);
-    expect(presentChoiceSelectErrorText(result, "en")).toBe(
+    expect(presentChoiceSelectErrorText({ status: "error" }, "en")).toBe(
       assistantCopy("en").errors.unavailable,
     );
   });
@@ -860,5 +878,257 @@ describe("commitChoiceSelectResult", () => {
     ]);
     expect(ignoreChallenge).toHaveBeenCalledWith(choiceId);
     expect(pendingChoiceFromMessages(messages, new Set([choiceId]))).toBeNull();
+  });
+
+  it("keeps the card after RETRY_IN_PROGRESS 409 so the same option can be posted again", () => {
+    const appendParts = vi.fn();
+    const ignoreChallenge = vi.fn();
+    const result = {
+      status: "error" as const,
+      code: "RETRY_IN_PROGRESS",
+      httpStatus: 409,
+      retryAfterSec: 2,
+      message:
+        "A previous attempt of this request is still in progress. Retry shortly.",
+    };
+    expect(classifyChoiceSelect(result)).toBe("retryable");
+    expect(choiceSelectShouldIgnoreChallenge(result)).toBe(false);
+    expect(choiceSelectAllowsSameOptionRetry(result)).toBe(true);
+    expect(
+      commitChoiceSelectResult({
+        result,
+        previousChoiceId: choiceId,
+        locale: "en",
+        companyEpochRef: { current: 0 },
+        epoch: 0,
+        resolvingRef: { current: choiceId },
+        appendParts,
+        ignoreChallenge,
+      }),
+    ).toBe("applied");
+    expect(appendParts).not.toHaveBeenCalled();
+    expect(ignoreChallenge).not.toHaveBeenCalled();
+    const pending = pendingChoiceFromMessages(messages, new Set());
+    const resolvingRef = { current: null as string | null };
+    expect(
+      claimChoiceSelect({
+        pending,
+        optionId: lemonId,
+        resolvingRef,
+      }),
+    ).toMatchObject({ challengeId: choiceId });
+    expect(resolvingRef.current).toBe(choiceId);
+  });
+});
+
+describe("choice select recoverability", () => {
+  it("classifies numeric 409 by code, not every 409 as retryable", () => {
+    expect(
+      classifyChoiceSelect({
+        status: "error",
+        code: "RETRY_IN_PROGRESS",
+        httpStatus: 409,
+        retryAfterSec: 1,
+      }),
+    ).toBe("retryable");
+    expect(
+      classifyChoiceSelect({
+        status: "error",
+        code: "CONFLICT",
+        httpStatus: 409,
+      }),
+    ).toBe("ambiguous");
+    expect(
+      classifyChoiceSelect({
+        status: "error",
+        code: "CHOICE_OPTION_CONFLICT",
+        httpStatus: 200,
+      }),
+    ).toBe("terminal");
+  });
+
+  it("retains the picker for 429, 500, 503, network, and malformed outcomes", () => {
+    const retryable = [
+      {
+        status: "error",
+        code: "RATE_LIMITED",
+        httpStatus: 429,
+        retryAfterSec: 12,
+      },
+      {
+        status: "error",
+        code: "INTERNAL",
+        httpStatus: 500,
+      },
+      {
+        status: "error",
+        httpStatus: 503,
+        recoverability: "retryable" as const,
+      },
+      { status: "error", recoverability: "retryable" as const },
+      {
+        status: "error",
+        httpStatus: 200,
+        recoverability: "ambiguous" as const,
+      },
+    ] as const;
+    for (const result of retryable) {
+      expect(choiceSelectShouldIgnoreChallenge(result)).toBe(false);
+      expect(choiceSelectAllowsSameOptionRetry(result)).toBe(true);
+      expect(
+        choiceSelectAppendParts({
+          result,
+          previousChoiceId: choiceId,
+          locale: "en",
+        }),
+      ).toEqual([]);
+    }
+  });
+
+  it("does not start an automatic retry loop from executeChoiceSelect", async () => {
+    const postChoice = vi.fn(() =>
+      Promise.resolve({
+        status: "error",
+        code: "INTERNAL",
+        httpStatus: 500,
+      }),
+    );
+    const pending = pendingChoiceFromMessages(messages, new Set());
+    const result = await executeChoiceSelect({
+      pending,
+      optionId: lemonId,
+      resolvingRef: { current: null },
+      postChoice,
+    });
+    expect(result).toMatchObject({ status: "error", httpStatus: 500 });
+    expect(postChoice).toHaveBeenCalledOnce();
+    expect(postChoice).toHaveBeenCalledWith({
+      choiceId,
+      optionId: lemonId,
+    });
+  });
+
+  it("permits a second same-option POST after the tap lock is released", async () => {
+    const postChoice = vi.fn(() =>
+      Promise.resolve({
+        status: "completed",
+        text: "Order #1049.",
+        entity: {
+          orderId: "0f0e2d5c-4a1b-4c3d-9e8f-102938475601",
+          orderNumber: "1049",
+        },
+      }),
+    );
+    const pending = pendingChoiceFromMessages(messages, new Set());
+    const resolvingRef = { current: null as string | null };
+    const first = await executeChoiceSelect({
+      pending,
+      optionId: lemonId,
+      resolvingRef,
+      postChoice,
+    });
+    expect(
+      choiceSelectAllowsSameOptionRetry({
+        status: "error",
+        code: "INTERNAL",
+        httpStatus: 500,
+      }),
+    ).toBe(true);
+    expect(first).toMatchObject({ status: "completed" });
+    resolvingRef.current = null;
+    const second = await executeChoiceSelect({
+      pending,
+      optionId: lemonId,
+      resolvingRef,
+      postChoice,
+    });
+    expect(second).toMatchObject({ status: "completed" });
+    expect(postChoice).toHaveBeenCalledTimes(2);
+    expect(postChoice).toHaveBeenNthCalledWith(1, {
+      choiceId,
+      optionId: lemonId,
+    });
+    expect(postChoice).toHaveBeenNthCalledWith(2, {
+      choiceId,
+      optionId: lemonId,
+    });
+  });
+
+  it("gives distinct terminal copy for expired, invalid, and forbidden without unauthorized resume", () => {
+    const expired = { status: "expired" as const };
+    const invalid = {
+      status: "error" as const,
+      code: "CHOICE_INVALID_OPTION",
+      message: "That option is not available.",
+    };
+    const forbidden = {
+      status: "error" as const,
+      code: "PERMISSION_DENIED",
+      httpStatus: 403,
+      message: "You do not have permission to perform this action.",
+    };
+    const unauthenticated = {
+      status: "error" as const,
+      code: "UNAUTHENTICATED",
+      httpStatus: 401,
+      message: "Authentication required.",
+    };
+    expect(
+      choiceSelectAppendParts({
+        result: expired,
+        previousChoiceId: choiceId,
+        locale: "en",
+      }),
+    ).toEqual([
+      {
+        type: "data-choice",
+        data: {
+          status: "expired",
+          challengeId: choiceId,
+          options: [],
+          optionsTruncated: false,
+        },
+      },
+    ]);
+    expect(
+      choiceSelectAppendParts({
+        result: invalid,
+        previousChoiceId: choiceId,
+        locale: "en",
+      }),
+    ).toEqual([{ type: "text", text: invalid.message }]);
+    expect(
+      choiceSelectAppendParts({
+        result: forbidden,
+        previousChoiceId: choiceId,
+        locale: "en",
+      }),
+    ).toEqual([{ type: "text", text: assistantCopy("en").errors.permission }]);
+    expect(
+      choiceSelectAppendParts({
+        result: unauthenticated,
+        previousChoiceId: choiceId,
+        locale: "en",
+      }),
+    ).toEqual([
+      { type: "text", text: assistantCopy("en").errors.unauthenticated },
+    ]);
+    expect(presentChoiceSelectErrorText(forbidden, "en")).not.toBe(
+      presentChoiceSelectErrorText(unauthenticated, "en"),
+    );
+    expect(presentChoiceSelectErrorText(invalid, "en")).not.toBe(
+      presentChoiceSelectErrorText(forbidden, "en"),
+    );
+    for (const result of [expired, invalid, forbidden, unauthenticated]) {
+      expect(choiceSelectShouldIgnoreChallenge(result)).toBe(true);
+      expect(choiceSelectAllowsSameOptionRetry(result)).toBe(false);
+      expect(
+        claimChoiceSelect({
+          pending: pendingChoiceFromMessages(messages, new Set([choiceId])),
+          optionId: lemonId,
+          resolvingRef: { current: null },
+        }),
+      ).toBeNull();
+    }
   });
 });

@@ -123,7 +123,7 @@ export async function resumeOwnAssistantConversation(args: {
   readonly peekChoice?: (input: {
     readonly conversationId: string;
     readonly choiceId: string;
-  }) => Promise<StaffAssistantChoiceCardEnvelope>;
+  }) => Promise<StaffAssistantChoiceCardEnvelope | undefined>;
 }): Promise<AssistantResumeResult> {
   if (!isCurrentAssistantEpoch(args.companyEpochRef, args.epoch)) {
     return { kind: "dropped" };

@@ -90,8 +90,9 @@ export function useAssistantChoice(args: {
           clearResolving();
         })
         .catch(() => {
-          // Transport throw: leave the picker retryable. A resolved
-          // `{ status: "error" }` body is handled in `then` (ignore + text).
+          // Transport throw: leave the picker retryable. Retryable and
+          // ambiguous `{ status: "error" }` bodies are handled in `then`
+          // (keep challenge). Terminal errors ignore + text.
           if (resolvingRef.current === current.challengeId) {
             clearResolving();
           }
