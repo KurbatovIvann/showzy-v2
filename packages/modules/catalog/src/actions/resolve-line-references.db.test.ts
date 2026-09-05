@@ -1345,7 +1345,7 @@ describe("catalog.resolveLineReferences", () => {
     await insertProduct({
       id: archivedId,
       companyId: kitIdentities.companies.a,
-      name: "Zzz Unique Archive Contains Host",
+      name: "Zzz Unique ArchiveContainsHost",
       basePriceMinor: 10n,
       status: "archived",
     });
@@ -1365,7 +1365,7 @@ describe("catalog.resolveLineReferences", () => {
       kind: "order_line_product",
       lineIndex: 0,
       query: "ArchiveContainsHost",
-      productName: "Zzz Unique Archive Contains Host",
+      productName: "Zzz Unique ArchiveContainsHost",
     });
     expect(conflict.options).toEqual([]);
     expect(conflict.optionsTruncated).toBe(false);
