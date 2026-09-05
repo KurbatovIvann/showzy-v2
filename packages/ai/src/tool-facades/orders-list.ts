@@ -7,6 +7,14 @@
  * flatten `list.contract.ts`. Global clip is a backstop after this map.
  */
 import type { ActionContract } from "@showzy/core/contract";
+import {
+  LIST_ORDERS_CURSOR_MAX,
+  LIST_ORDERS_CUSTOMER_IDS_MAX,
+  LIST_ORDERS_QUERY_MAX,
+  LIST_ORDERS_SUMMARY_DEFAULT_LIMIT,
+  LIST_ORDERS_SUMMARY_MAX_LIMIT,
+} from "@showzy/orders/contract";
+import { CUSTOMER_NAME_MAX } from "@showzy/validation/customers";
 import { tool, type Tool } from "ai";
 import { z } from "zod";
 
@@ -27,28 +35,22 @@ export const ORDERS_LIST_ACTION_NAME = "orders.list";
 export const ORDERS_LIST_PAGE_TOOL_NAME = "orders_list_page";
 export const ORDERS_LIST_COUNTS_TOOL_NAME = "orders_list_counts";
 
-/** Duplicated from `LIST_ORDERS_CUSTOMER_IDS_MAX` — `@showzy/ai` must not import the orders module. */
-export const LIST_ORDERS_CUSTOMER_IDS_MAX = 50;
-/** Duplicated from `LIST_ORDERS_QUERY_MAX`. */
-export const LIST_ORDERS_QUERY_MAX = 100;
-/** Duplicated from `LIST_ORDERS_CURSOR_MAX`. */
-export const LIST_ORDERS_CURSOR_MAX = 80;
-/**
- * Duplicated from `CUSTOMER_NAME_MAX` in `@showzy/validation` —
- * `@showzy/ai` must not import validation or the orders module.
- * Assistant-visible `nameSnapshot` is truncated to this length.
- */
-export const CUSTOMER_NAME_MAX = 120;
+export {
+  CUSTOMER_NAME_MAX,
+  LIST_ORDERS_CURSOR_MAX,
+  LIST_ORDERS_CUSTOMER_IDS_MAX,
+  LIST_ORDERS_QUERY_MAX,
+};
 
 /**
- * Duplicated from `LIST_ORDERS_SUMMARY_DEFAULT_LIMIT` — named assistant
- * `limit` (SHO-403). Do not keep the clip-era fixed page of 9.
+ * Named assistant `limit` (SHO-403). Same numbers as
+ * `LIST_ORDERS_SUMMARY_DEFAULT_LIMIT` / `LIST_ORDERS_SUMMARY_MAX_LIMIT`.
+ * Do not keep the clip-era fixed page of 9.
  */
-export const ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT = 20;
-/**
- * Duplicated from `LIST_ORDERS_SUMMARY_MAX_LIMIT`.
- */
-export const ORDERS_LIST_PAGE_ASSISTANT_MAX_LIMIT = 50;
+export const ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT =
+  LIST_ORDERS_SUMMARY_DEFAULT_LIMIT;
+export const ORDERS_LIST_PAGE_ASSISTANT_MAX_LIMIT =
+  LIST_ORDERS_SUMMARY_MAX_LIMIT;
 /** Default `orders_list_page` limit (SHO-403). */
 export const ORDERS_LIST_PAGE_ASSISTANT_LIMIT =
   ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT;

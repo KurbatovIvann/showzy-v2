@@ -32,9 +32,7 @@ import {
   ordersListPageInputSchema,
 } from "./orders-list.js";
 
-/** Duplicated from `CUSTOMER_NAME_MAX` — do not import `@showzy/validation`. */
-const CUSTOMER_NAME_MAX_FIXTURE = 120;
-const MAX_CUSTOMER_NAME = "к".repeat(CUSTOMER_NAME_MAX_FIXTURE);
+const MAX_CUSTOMER_NAME = "к".repeat(CUSTOMER_NAME_MAX);
 
 const listOrders = defineActionContract({
   name: "orders.list",
@@ -733,7 +731,7 @@ describe("ordersListFacadeTools", () => {
     expect(LIST_ORDERS_CUSTOMER_IDS_MAX).toBe(50);
     expect(LIST_ORDERS_QUERY_MAX).toBe(100);
     expect(LIST_ORDERS_CURSOR_MAX).toBe(80);
-    expect(CUSTOMER_NAME_MAX).toBe(CUSTOMER_NAME_MAX_FIXTURE);
+    expect(CUSTOMER_NAME_MAX).toBe(120);
     expect(ORDERS_LIST_PAGE_ASSISTANT_LIMIT).toBe(20);
     expect(ORDERS_LIST_PAGE_ASSISTANT_DEFAULT_LIMIT).toBe(20);
     expect(ORDERS_LIST_PAGE_ASSISTANT_MAX_LIMIT).toBe(50);

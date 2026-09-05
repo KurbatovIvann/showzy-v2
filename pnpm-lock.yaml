@@ -608,12 +608,27 @@ importers:
       '@ai-sdk/anthropic':
         specifier: 4.0.46
         version: 4.0.46(zod@4.4.3)
+      '@showzy/catalog':
+        specifier: workspace:*
+        version: link:../modules/catalog
       '@showzy/contract':
         specifier: workspace:*
         version: link:../contract
       '@showzy/core':
         specifier: workspace:*
         version: link:../core
+      '@showzy/customers':
+        specifier: workspace:*
+        version: link:../modules/customers
+      '@showzy/orders':
+        specifier: workspace:*
+        version: link:../modules/orders
+      '@showzy/pricing':
+        specifier: workspace:*
+        version: link:../modules/pricing
+      '@showzy/validation':
+        specifier: workspace:*
+        version: link:../validation
       ai:
         specifier: 7.0.87
         version: 7.0.87(zod@4.4.3)

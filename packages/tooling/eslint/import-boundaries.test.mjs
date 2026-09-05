@@ -136,6 +136,16 @@ test("showzy/import-boundaries", () => {
         filename: file("packages/modules/orders/actions/create.test.ts"),
         code: `import { users } from "@showzy/db";`,
       },
+      {
+        filename: file("packages/ai/src/tool-facades/orders-list.ts"),
+        code: `
+          import type { ActionContract } from "@showzy/core/contract";
+          import { staffHasPermission } from "@showzy/core";
+          import { aiToolSourcesForPrincipal } from "@showzy/contract";
+          import { LIST_ORDERS_QUERY_MAX } from "@showzy/orders/contract";
+          import { CUSTOMER_NAME_MAX } from "@showzy/validation/customers";
+        `,
+      },
     ],
     invalid: [
       {
@@ -249,6 +259,16 @@ test("showzy/import-boundaries", () => {
         ),
         code: `import { filterStaffAiTools } from "@showzy/ai";`,
         errors: [{ messageId: "moduleAi" }],
+      },
+      {
+        filename: file("packages/ai/src/tool-facades/orders-list.ts"),
+        code: `import { createOrder } from "@showzy/orders";`,
+        errors: [{ messageId: "aiModuleBarrel" }],
+      },
+      {
+        filename: file("packages/ai/src/tool-facades/orders-list.ts"),
+        code: `import { users } from "@showzy/db";`,
+        errors: [{ messageId: "aiModuleBarrel" }],
       },
     ],
   });

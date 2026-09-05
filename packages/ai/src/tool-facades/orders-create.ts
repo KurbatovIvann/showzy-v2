@@ -7,6 +7,16 @@
  */
 import type { ActionContract } from "@showzy/core/contract";
 import { CoreInvariantError } from "@showzy/core/errors";
+import {
+  CREATE_ORDER_COMMENT_MAX,
+  CREATE_ORDER_MAX_ITEMS,
+} from "@showzy/orders/contract";
+import { ENTITY_REF_QUERY_MAX } from "@showzy/validation/entity-ref";
+import {
+  DECIMAL_QUANTITY_MESSAGE,
+  isDecimalQuantityString,
+  quantityMilliWireSchema,
+} from "@showzy/validation/money";
 import { tool, type Tool } from "ai";
 import { z } from "zod";
 
@@ -16,12 +26,9 @@ import { ORDER_ENTITY_PROMPT_LINE } from "../spoken-reply.js";
 export const ORDERS_CREATE_ACTION_NAME = "orders.create";
 export const ORDERS_CREATE_TOOL_NAME = "orders_create";
 
-/** Duplicated from `CREATE_ORDER_MAX_ITEMS` — `@showzy/ai` must not import orders. */
-export const CREATE_ORDER_MAX_ITEMS = 100;
-/** Duplicated from `CREATE_ORDER_COMMENT_MAX`. */
-export const CREATE_ORDER_COMMENT_MAX = 2000;
-/** Duplicated from `ENTITY_REF_QUERY_MAX`. */
-export const ORDERS_CREATE_QUERY_MAX = 100;
+export { CREATE_ORDER_COMMENT_MAX, CREATE_ORDER_MAX_ITEMS };
+
+export const ORDERS_CREATE_QUERY_MAX = ENTITY_REF_QUERY_MAX;
 
 const CUSTOMER_LOCATOR_MESSAGE =
   "Provide exactly one of customerId or customerQuery.";
@@ -39,19 +46,11 @@ const queryField = z
   .max(ORDERS_CREATE_QUERY_MAX)
   .optional();
 
-/** Duplicated from `quantityMilliWireSchema` (canonical positive integer string). */
-const quantityMilliField = z
-  .string()
-  .regex(/^[1-9][0-9]*$/, "Expected a canonical positive integer string")
-  .optional();
+const quantityMilliField = quantityMilliWireSchema.optional();
 
-/** Duplicated from `isDecimalQuantityString` (at most 3 fractional digits). */
 const quantityDecimalField = z
   .string()
-  .regex(
-    /^(?:0|[1-9][0-9]*)(?:\.[0-9]{1,3})?$/,
-    "Expected a positive decimal string with at most 3 fractional digits",
-  )
+  .refine(isDecimalQuantityString, { message: DECIMAL_QUANTITY_MESSAGE })
   .optional();
 
 export const ordersCreateItemSchema = z.strictObject({

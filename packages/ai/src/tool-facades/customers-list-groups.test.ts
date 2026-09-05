@@ -1,4 +1,5 @@
 import { defineActionContract } from "@showzy/core/contract";
+import { GROUP_NAME_MAX } from "@showzy/validation/customers";
 import { asSchema } from "ai";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -43,9 +44,6 @@ const listGroups = defineActionContract({
 
 const groupId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const priceListId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
-
-/** Duplicated from `GROUP_NAME_MAX` — do not import customers. */
-const GROUP_NAME_MAX = 120;
 
 function fatGroupRow(
   index: number,

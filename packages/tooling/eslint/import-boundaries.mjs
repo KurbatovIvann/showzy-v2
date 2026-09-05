@@ -95,6 +95,9 @@ function classify(filename) {
   if (moduleMatch !== null && moduleMatch[1] !== undefined) {
     return { kind: "module", module: moduleMatch[1] };
   }
+  if (path.includes("/packages/ai/")) {
+    return { kind: "ai" };
+  }
   return { kind: "skip" };
 }
 
@@ -285,6 +288,31 @@ function violation(from, spec, typeOnly) {
     return null;
   }
 
+  if (from.kind === "ai") {
+    if (isRelative(spec)) {
+      return null;
+    }
+    if (spec.startsWith("node:") || NODE_BUILTINS.has(spec)) {
+      return null;
+    }
+    if (pkg === null) {
+      return null;
+    }
+    if (pkg.name === "core") {
+      return null;
+    }
+    if (pkg.name === "contract" && pkg.rest === "") {
+      return null;
+    }
+    if (pkg.name === "validation") {
+      return null;
+    }
+    if (!PLATFORM_PACKAGES.has(pkg.name) && pkg.rest === "contract") {
+      return null;
+    }
+    return { messageId: "aiModuleBarrel" };
+  }
+
   return null;
 }
 
@@ -311,6 +339,8 @@ export const importBoundariesRule = {
         "Client apps may import only @showzy/contract, @showzy/validation, @showzy/ui, and @showzy/document-signing (native/web adapters; never /node) (contract.md §2, SHO-251).",
       contractClient:
         "The contract client layer must not import Node builtins, @showzy/db, core server paths, or @showzy/contract/server (ADR-0016).",
+      aiModuleBarrel:
+        "packages/ai may import @showzy/core/*, @showzy/contract, @showzy/validation/*, and @showzy/<module>/contract; it must not import a module barrel or @showzy/db (ADR-0016, ADR-0032).",
     },
   },
   create(context) {

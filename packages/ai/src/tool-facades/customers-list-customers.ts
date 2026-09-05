@@ -8,6 +8,10 @@
  * `list-customers.contract.ts`. Do not rebuild the public list as `kind`.
  */
 import type { ActionContract } from "@showzy/core/contract";
+import {
+  LIST_CUSTOMERS_CURSOR_MAX,
+  LIST_CUSTOMERS_SEARCH_MAX,
+} from "@showzy/customers/contract";
 import { tool, type Tool } from "ai";
 import { z } from "zod";
 
@@ -16,10 +20,8 @@ import type { ActionToolExecute } from "../action-tool.js";
 export const CUSTOMERS_LIST_CUSTOMERS_ACTION_NAME = "customers.listCustomers";
 export const CUSTOMERS_LIST_CUSTOMERS_TOOL_NAME = "customers_list_customers";
 
-/** Duplicated from `LIST_CUSTOMERS_SEARCH_MAX` — `@showzy/ai` must not import customers. */
-export const CUSTOMERS_LIST_CUSTOMERS_SEARCH_MAX = 100;
-/** Duplicated from `LIST_CUSTOMERS_CURSOR_MAX`. */
-export const CUSTOMERS_LIST_CUSTOMERS_CURSOR_MAX = 80;
+export const CUSTOMERS_LIST_CUSTOMERS_SEARCH_MAX = LIST_CUSTOMERS_SEARCH_MAX;
+export const CUSTOMERS_LIST_CUSTOMERS_CURSOR_MAX = LIST_CUSTOMERS_CURSOR_MAX;
 
 /**
  * Compact 20-row pages (full `CustomerView`, including notes) clip
