@@ -8,6 +8,7 @@ import { randomUUID } from "node:crypto";
 
 import {
   DELIVERY_CLAIM_MARGIN_MS,
+  DELIVERY_DISCOVERY_BATCH_SIZE,
   defineEvent,
   defineEventHandler,
   dispatchOutboxBatch,
@@ -19,7 +20,7 @@ import { defineActionContract } from "@showzy/core/contract";
 import { CoreInvariantError } from "@showzy/core/errors";
 import { createTestKit, type TestKit } from "@showzy/core/testing";
 import { domainEvents, eventDeliveries, idempotencyKeys } from "@showzy/db";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { pino } from "pino";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -51,7 +52,10 @@ const placeAction = implementAction(
     principal: "staff",
     transport: "internal",
     aiExposure: "internal",
-    input: z.object({ orderId: z.uuid() }),
+    input: z.object({
+      orderId: z.uuid(),
+      count: z.number().int().positive().default(1),
+    }),
     output: z.object({ ok: z.boolean() }),
     permissions: ["workerFixture:write"],
     risk: "write",
@@ -65,10 +69,12 @@ const placeAction = implementAction(
   }),
   {
     handler: (input, ctx) => {
-      ctx.emit(orderPlaced, {
-        aggregate: { type: "order", id: input.orderId },
-        payload: { orderId: input.orderId },
-      });
+      for (let index = 0; index < input.count; index += 1) {
+        ctx.emit(orderPlaced, {
+          aggregate: { type: "order", id: input.orderId },
+          payload: { orderId: input.orderId },
+        });
+      }
       return Promise.resolve({ ok: true });
     },
     auditTarget: () => ({ type: "order", id: "fixture" }),
@@ -427,5 +433,92 @@ describe("apps/worker outbox loop (core.md §6)", () => {
 describe("outbox notify channel", () => {
   it("matches the db.md §4 trigger channel", () => {
     expect(OUTBOX_NOTIFY_CHANNEL).toBe("domain_events");
+  });
+});
+
+describe("apps/worker blocked-aggregate starvation (SHO-435)", () => {
+  it("processes independent ready work within two ticks while successors stay blocked", async () => {
+    processedEventIds.length = 0;
+    const nowMs = Date.UTC(2026, 8, 5, 21, 0, 0);
+    const blockedOrderId = randomUUID();
+    await kit.invoke(placeAction, {
+      orderId: blockedOrderId,
+      count: DELIVERY_DISCOVERY_BATCH_SIZE + 1,
+    });
+    const independentOrderId = randomUUID();
+    await kit.invoke(placeAction, { orderId: independentOrderId });
+
+    for (;;) {
+      const dispatched = await dispatchOutboxBatch(
+        { db: kit.db.runtime.db, now: () => nowMs },
+        {
+          subscriptions: [cardSubscription],
+          claimedBy: "starvation-dispatcher",
+        },
+      );
+      if (dispatched.claimedEvents === 0) {
+        break;
+      }
+    }
+
+    const blockedEvents = await kit.db.runtime.db
+      .select({ id: domainEvents.id })
+      .from(domainEvents)
+      .where(eq(domainEvents.aggregateId, blockedOrderId))
+      .orderBy(asc(domainEvents.aggregateSequence));
+    const independentEvents = await kit.db.runtime.db
+      .select({ id: domainEvents.id })
+      .from(domainEvents)
+      .where(eq(domainEvents.aggregateId, independentOrderId));
+    const predecessorEventId = blockedEvents[0]?.id;
+    const successorEventIds = blockedEvents.slice(1).map((row) => row.id);
+    const independentEventId = independentEvents[0]?.id;
+    if (
+      predecessorEventId === undefined ||
+      independentEventId === undefined ||
+      successorEventIds.length !== DELIVERY_DISCOVERY_BATCH_SIZE
+    ) {
+      throw new Error("worker starvation fixture was incomplete");
+    }
+
+    await kit.db.runtime.db
+      .update(eventDeliveries)
+      .set({
+        status: "dead",
+        attempts: 5,
+        nextAttemptAt: null,
+        lastError: "CONFLICT: parked predecessor.",
+      })
+      .where(
+        and(
+          eq(eventDeliveries.consumer, cardSubscription.consumer),
+          eq(eventDeliveries.eventId, predecessorEventId),
+        ),
+      );
+
+    const worker = createOutboxWorker({
+      db: kit.db.runtime.db,
+      pipeline: { ...kit.pipeline, now: () => nowMs },
+      subscriptions: [cardSubscription],
+      workerId: "worker-starvation",
+      logger: silent,
+      now: () => nowMs,
+    });
+
+    const firstTick = await worker.tick();
+    expect(firstTick.processed).toBeGreaterThanOrEqual(1);
+    expect(processedEventIds).toContain(independentEventId);
+    for (const eventId of successorEventIds) {
+      expect(processedEventIds).not.toContain(eventId);
+    }
+
+    await worker.tick();
+    expect(
+      processedEventIds.filter((id) => id === independentEventId),
+    ).toHaveLength(1);
+    for (const eventId of successorEventIds) {
+      expect(await deliveryStatus(eventId)).toBe("pending");
+    }
+    await worker.stop();
   });
 });

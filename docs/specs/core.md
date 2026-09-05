@@ -408,8 +408,13 @@ Envelope (stored in `domain_events`, spec'd in db.md):
   `(consumer, eventId)` is unique (the delivery PK and claim key).
   `findClaimableDeliveries` returns the outbox event name so the worker
   executor selects the matching `EventSubscription` by
-  `(consumer, eventName)` without querying foundation tables. The
-  dispatcher runs the bound system
+  `(consumer, eventName)` without querying foundation tables.
+  Discovery returns a bounded batch of due **aggregate heads**: a due
+  delivery is eligible only when that consumer has no earlier
+  non-processed delivery for the same aggregate, including dead and
+  not-yet-due predecessors. Claim re-validates ordering, due time, and
+  leases. Blocked successors therefore cannot fill the batch and starve
+  independent aggregates. The dispatcher runs the bound system
   action through the normal action pipeline in the delivery transaction
   (special core entrypoint, not `ctx.call`); transition to `processed`,
   action effects, audit, and emitted events commit together. A redelivery is
@@ -729,6 +734,7 @@ does not apply — fails the check.
 
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
+| 2026-09-05 | §6: `findClaimableDeliveries` selects due aggregate heads before LIMIT | SHO-435: blocked successors filled the bounded batch and starved independent deliveries | SHO-435 |
 | 2026-09-05 | §5: takeover CAS re-checks status/lease/retention; a lost race reloads for replay/conflict/retry | SHO-434: stale expired `in_progress` read could reopen a concurrently completed attempt | SHO-434 |
 | 2026-08-22 | §12: `crossTenantSuite` treats `system` + `systemScope: global` like public-global — invoke succeeds; foreign deny is not the isolation property | SHO-115 scheduled GC cannot discover leftovers if the suite requires a per-id 404 | SHO-115 |
 | 2026-08-21 | §6: one consumer id may bind multiple events; `findClaimableDeliveries` returns the outbox event name so the worker executor looks up `(consumer, eventName)` | SHO-95: `Map(consumer → subscription)` dropped the second binding of `chat.order-card-updater` | SHO-95 |

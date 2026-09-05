@@ -139,6 +139,7 @@ export type {
 } from "./runtime/events/define-event-handler.js";
 export {
   DELIVERY_CLAIM_MARGIN_MS,
+  DELIVERY_DISCOVERY_BATCH_SIZE,
   DELIVERY_MAX_ATTEMPTS,
   DELIVERY_RETRY_BASE_MS,
   deliveryRetryDelayMs,
