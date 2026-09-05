@@ -9,8 +9,8 @@ import {
   applyChoiceOptionToCanonicalInput,
   assistantChoiceBodySchema,
   attemptKey,
-  bindChoiceOptions,
-  choiceCardEnvelope,
+  catalogPickerConflictExtrasFromError,
+  choiceRecordFromPickerConflict,
   extractUuidResultIds,
   needsChoiceOutputFromRecord,
   peekEnvelopeFromRecord,
@@ -19,6 +19,7 @@ import {
   STAFF_ASSISTANT_DEFAULT_LOCALE,
   successorChoiceId,
   type AssistantChoiceInteractionResult,
+  type CatalogPickerConflictExtras,
   type ChoiceRecord,
   type StaffAssistantChoiceCardEnvelope,
 } from "@showzy/ai";
@@ -267,9 +268,9 @@ async function persistChoiceTurn(options: {
   };
   readonly body: string;
   readonly toolCallId: string;
-  readonly challengeId: string;
   readonly resultIds: readonly string[];
-  readonly outcome: "success" | "choice_required";
+  readonly outcome: "success" | "choice_required" | "error";
+  readonly challengeId?: string;
 }): Promise<void> {
   await executeAction(options.pipeline, {
     action: recordAssistantTurn,
@@ -280,9 +281,11 @@ async function persistChoiceTurn(options: {
         {
           actionName: "orders.create",
           toolCallId: options.toolCallId,
-          challengeId: options.challengeId,
           resultIds: [...options.resultIds],
           outcome: options.outcome,
+          ...(options.challengeId !== undefined
+            ? { challengeId: options.challengeId }
+            : {}),
         },
       ],
     },
@@ -304,39 +307,25 @@ async function openSuccessorChoice(options: {
   readonly store: StaffAssistantChoiceStore;
   readonly parent: ChoiceRecord;
   readonly patchedInput: ChoiceRecord["canonicalInput"];
-  readonly conflict: ReferenceResolutionConflictError;
-}): Promise<ChoiceRecord> {
+  readonly extras: CatalogPickerConflictExtras;
+}): Promise<ChoiceRecord | undefined> {
   const nextId = successorChoiceId(options.parent.choiceId);
-  const bound = bindChoiceOptions(
-    options.conflict.options,
-    options.conflict.optionsTruncated,
-  );
-  const envelope = choiceCardEnvelope({
-    challengeId: nextId,
-    status: "needs_choice",
-    reason: options.conflict.reason,
-    productName: options.conflict.target.productName,
-    options: bound.options,
-    optionsTruncated: bound.optionsTruncated,
-  });
-  const next: ChoiceRecord = {
-    status: "open",
+  const next = choiceRecordFromPickerConflict({
     choiceId: nextId,
-    actorId: options.parent.actorId,
-    companyId: options.parent.companyId,
-    conversationId: options.parent.conversationId,
-    canonicalInput: options.patchedInput,
-    target: {
-      lineIndex: options.conflict.target.lineIndex,
-      productId: options.conflict.target.productId,
-      productName: options.conflict.target.productName,
+    bind: {
+      actorId: options.parent.actorId,
+      companyId: options.parent.companyId,
+      conversationId: options.parent.conversationId,
     },
-    optionMap: { ...bound.optionMap },
-    envelope,
+    canonicalInput: options.patchedInput,
+    extras: options.extras,
     ...(options.parent.locale !== undefined
       ? { locale: options.parent.locale }
       : {}),
-  };
+  });
+  if (next === undefined) {
+    return undefined;
+  }
   await options.store.open(next);
   const peeked = await options.store.peek({
     choiceId: nextId,
@@ -481,13 +470,37 @@ export async function executeStaffAssistantChoiceResume(
       );
     } catch (error) {
       if (error instanceof ReferenceResolutionConflictError) {
-        const next = await openSuccessorChoice({
-          store: options.choiceStore,
-          parent: record,
-          patchedInput: patched,
-          conflict: error,
-        });
-        const needsChoice = needsChoiceOutputFromRecord(next);
+        const extras = catalogPickerConflictExtrasFromError(error);
+        if (extras !== undefined) {
+          const next = await openSuccessorChoice({
+            store: options.choiceStore,
+            parent: record,
+            patchedInput: patched,
+            extras,
+          });
+          if (next !== undefined) {
+            const needsChoice = needsChoiceOutputFromRecord(next);
+            await persistChoiceTurn({
+              pipeline: options.pipeline,
+              conversationId: conversation.id,
+              choiceId: record.choiceId,
+              requestId: options.requestId,
+              clientIp: options.clientIp,
+              principal: staffPrincipal,
+              body: error.clientMessage,
+              toolCallId: choiceToolCallId(next.choiceId),
+              challengeId: next.choiceId,
+              resultIds: [],
+              outcome: "choice_required",
+            });
+            await options.choiceStore.complete({
+              choiceId: record.choiceId,
+              bind,
+              optionId: body.optionId,
+            });
+            return interactionResponse(needsChoice, options.requestId);
+          }
+        }
         await persistChoiceTurn({
           pipeline: options.pipeline,
           conversationId: conversation.id,
@@ -496,17 +509,19 @@ export async function executeStaffAssistantChoiceResume(
           clientIp: options.clientIp,
           principal: staffPrincipal,
           body: error.clientMessage,
-          toolCallId: choiceToolCallId(next.choiceId),
-          challengeId: next.choiceId,
+          toolCallId,
           resultIds: [],
-          outcome: "choice_required",
+          outcome: "error",
         });
         await options.choiceStore.complete({
           choiceId: record.choiceId,
           bind,
           optionId: body.optionId,
         });
-        return interactionResponse(needsChoice, options.requestId);
+        return interactionResponse(
+          errorResult(error.code, error.clientMessage),
+          options.requestId,
+        );
       }
       throw error;
     }

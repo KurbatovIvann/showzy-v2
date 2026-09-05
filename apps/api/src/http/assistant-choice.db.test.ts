@@ -19,7 +19,7 @@ import {
   type ChoiceRecord,
 } from "@showzy/ai";
 import { createConversation } from "@showzy/assistant";
-import { createProduct } from "@showzy/catalog";
+import { archiveVariant, createProduct } from "@showzy/catalog";
 import { COMPANY_SELECTOR_HEADER, contractModules } from "@showzy/contract";
 import {
   createConfirmationHook,
@@ -814,6 +814,201 @@ describe("POST /assistant/choice (seeded store)", () => {
     expect(runs.some((row) => row.outcome === "choice_required")).toBe(true);
     const success = runs.find((row) => row.outcome === "success");
     expect(success?.resultIds).toContain(secondBody.entity.orderId);
+  });
+
+  it("returns a typed error when the next line is archived-only, without opening a successor", async () => {
+    const { app, store } = choiceApp();
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Choice T9 archived-only",
+    });
+    const customer = await staffInvoke(createCustomer, {
+      name: "T9 Archived Buyer",
+      phone: nextPhone(),
+    });
+    const first = await seedVariableProduct("T9 Macarons Picker", [
+      "Lemon",
+      "Vanilla",
+    ]);
+    const archived = await seedVariableProduct("T9 Archived Only Cake", [
+      "One",
+    ]);
+    const archivedVariantId = archived.variants[0]?.variantId;
+    expect(archivedVariantId).toBeDefined();
+    if (archivedVariantId !== undefined) {
+      await staffInvoke(archiveVariant, { variantId: archivedVariantId });
+    }
+    const { record, optionByLabel } = await openChoice({
+      store,
+      conversationId: conversation.id,
+      customerId: customer.id,
+      product: first,
+      extraProducts: [{ productId: archived.productId }],
+      lineIndex: 0,
+    });
+    const firstOption = optionByLabel.get("Lemon");
+    const bind = {
+      actorId: kitIdentities.users.anna,
+      companyId: kitIdentities.companies.a,
+      conversationId: conversation.id,
+    };
+    const response = await postChoice(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: {
+        conversationId: conversation.id,
+        choiceId: record.choiceId,
+        optionId: firstOption,
+      },
+    });
+    expect(response.status).toBe(200);
+    const body = assistantChoiceInteractionResultSchema.parse(
+      await response.json(),
+    );
+    expect(body.status).toBe("error");
+    if (body.status !== "error") {
+      return;
+    }
+    expect(body.code).toBe("CONFLICT");
+    expect(body.message).toContain(archived.name);
+    expect(body.message.toLowerCase()).toContain("no active");
+    const successor = await store.peek({
+      choiceId: successorChoiceId(record.choiceId),
+      bind,
+    });
+    expect(successor.kind).toBe("expired");
+    const parent = await store.peek({
+      choiceId: record.choiceId,
+      bind,
+    });
+    expect(parent.kind).toBe("found");
+    if (parent.kind === "found") {
+      expect(parent.record.status).toBe("completed");
+    }
+    const runs = (
+      await kit.db.runtime.db.select().from(assistantToolRuns)
+    ).filter((row) => row.conversationId === conversation.id);
+    expect(runs).toHaveLength(1);
+    expect(runs[0]).toMatchObject({
+      actionName: "orders.create",
+      outcome: "error",
+    });
+    expect(runs[0]?.challengeId).toBeNull();
+    expect(runs.some((row) => row.outcome === "choice_required")).toBe(false);
+    const companyOrders = (
+      await kit.db.runtime.db.select().from(orders)
+    ).filter((row) => row.customerId === customer.id);
+    expect(companyOrders).toHaveLength(0);
+  });
+
+  it("chains two pickers then errors on an archived-only third line", async () => {
+    const { app, store } = choiceApp();
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Choice T9 three-line",
+    });
+    const customer = await staffInvoke(createCustomer, {
+      name: "T9 Three Line Buyer",
+      phone: nextPhone(),
+    });
+    const first = await seedVariableProduct("T9 Three Macarons", [
+      "Lemon",
+      "Vanilla",
+    ]);
+    const second = await seedVariableProduct("T9 Three Eclairs", [
+      "Coffee",
+      "Chocolate",
+    ]);
+    const archived = await seedVariableProduct("T9 Three Archived", ["One"]);
+    const archivedVariantId = archived.variants[0]?.variantId;
+    expect(archivedVariantId).toBeDefined();
+    if (archivedVariantId !== undefined) {
+      await staffInvoke(archiveVariant, { variantId: archivedVariantId });
+    }
+    const { record, optionByLabel } = await openChoice({
+      store,
+      conversationId: conversation.id,
+      customerId: customer.id,
+      product: first,
+      extraProducts: [
+        { productId: second.productId },
+        { productId: archived.productId },
+      ],
+      lineIndex: 0,
+    });
+    const bind = {
+      actorId: kitIdentities.users.anna,
+      companyId: kitIdentities.companies.a,
+      conversationId: conversation.id,
+    };
+    const firstTap = await postChoice(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: {
+        conversationId: conversation.id,
+        choiceId: record.choiceId,
+        optionId: optionByLabel.get("Lemon"),
+      },
+    });
+    expect(firstTap.status).toBe(200);
+    const firstBody = assistantChoiceInteractionResultSchema.parse(
+      await firstTap.json(),
+    );
+    expect(firstBody.status).toBe("needs_choice");
+    if (firstBody.status !== "needs_choice") {
+      return;
+    }
+    expect(firstBody.challengeId).toBe(successorChoiceId(record.choiceId));
+    expect(firstBody.productName).toBe(second.name);
+    expect(firstBody.options.length).toBeGreaterThan(0);
+    const coffee = firstBody.options.find(
+      (option) => option.label === "Coffee",
+    );
+    expect(coffee).toBeDefined();
+    const secondTap = await postChoice(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: {
+        conversationId: conversation.id,
+        choiceId: firstBody.challengeId,
+        optionId: coffee?.id,
+      },
+    });
+    expect(secondTap.status).toBe(200);
+    const secondBody = assistantChoiceInteractionResultSchema.parse(
+      await secondTap.json(),
+    );
+    expect(secondBody.status).toBe("error");
+    if (secondBody.status !== "error") {
+      return;
+    }
+    expect(secondBody.code).toBe("CONFLICT");
+    expect(secondBody.message).toContain(archived.name);
+    const third = await store.peek({
+      choiceId: successorChoiceId(firstBody.challengeId),
+      bind,
+    });
+    expect(third.kind).toBe("expired");
+    const secondRecord = await store.peek({
+      choiceId: firstBody.challengeId,
+      bind,
+    });
+    expect(secondRecord.kind).toBe("found");
+    if (secondRecord.kind === "found") {
+      expect(secondRecord.record.status).toBe("completed");
+    }
+    const runs = (
+      await kit.db.runtime.db.select().from(assistantToolRuns)
+    ).filter((row) => row.conversationId === conversation.id);
+    expect(runs.some((row) => row.outcome === "choice_required")).toBe(true);
+    expect(runs.some((row) => row.outcome === "error")).toBe(true);
+    expect(runs.some((row) => row.outcome === "success")).toBe(false);
+    const errorRun = runs.find((row) => row.outcome === "error");
+    expect(errorRun?.challengeId).toBeNull();
+    const companyOrders = (
+      await kit.db.runtime.db.select().from(orders)
+    ).filter((row) => row.customerId === customer.id);
+    expect(companyOrders).toHaveLength(0);
   });
 
   it("safe peek returns the envelope only and does not consume the record", async () => {

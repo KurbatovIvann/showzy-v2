@@ -11,6 +11,8 @@ import {
   bindChoiceOptions,
   catalogPickerConflictExtrasFromError,
   CHOICE_OPTIONS_MAX,
+  CHOICE_PICKER_REASONS,
+  CHOICE_RESOLUTION_REASONS,
   CHOICE_TTL_MS,
   choiceCardEnvelope,
   choiceRedisKey,
@@ -19,6 +21,7 @@ import {
   peekEnvelopeFromRecord,
   serializeChoiceRecord,
   staffAssistantChoiceCardEnvelopeSchema,
+  staffAssistantNeedsChoiceOutputSchema,
   successorChoiceId,
   type ChoiceCanonicalCreateInput,
   type ChoiceRecord,
@@ -237,10 +240,46 @@ describe("choice transport (SHO-409)", () => {
       choiceCardEnvelope({
         challengeId: choiceId,
         status: "expired",
-        options: [],
+        options: [
+          { id: optionLemon, label: "Lemon" },
+          { id: optionVanilla, label: "Vanilla" },
+        ],
         optionsTruncated: false,
       }).status,
     ).toBe("expired");
+  });
+
+  it("refuses to construct an envelope or needs_choice output with empty options", () => {
+    expect(
+      staffAssistantChoiceCardEnvelopeSchema.safeParse({
+        status: "needs_choice",
+        challengeId: choiceId,
+        reason: "variant_required",
+        productName: "Macarons",
+        options: [],
+        optionsTruncated: false,
+      }).success,
+    ).toBe(false);
+    expect(
+      staffAssistantNeedsChoiceOutputSchema.safeParse({
+        status: "needs_choice",
+        challengeId: choiceId,
+        reason: "variant_required",
+        productName: "Macarons",
+        options: [],
+        optionsTruncated: false,
+      }).success,
+    ).toBe(false);
+    expect(() =>
+      choiceCardEnvelope({
+        challengeId: choiceId,
+        status: "needs_choice",
+        reason: "variant_required",
+        productName: "Macarons",
+        options: [],
+        optionsTruncated: false,
+      }),
+    ).toThrow();
   });
 });
 
@@ -307,6 +346,32 @@ describe("duck-typed catalog CONFLICT extras (SHO-418)", () => {
     expect(
       catalogPickerConflictExtrasFromError(new ConflictError("plain conflict")),
     ).toBeUndefined();
+  });
+
+  it("façade extras predicate agrees on every CHOICE_RESOLUTION_REASONS value", () => {
+    const lemon = [{ id: variantLemon, label: "Lemon" }];
+    for (const reason of CHOICE_RESOLUTION_REASONS) {
+      const withOptions = catalogPickerConflictExtrasFromError(
+        new DuckTypedPickerConflict({ reason, options: lemon }),
+      );
+      const empty = catalogPickerConflictExtrasFromError(
+        new DuckTypedPickerConflict({ reason, options: [] }),
+      );
+      const isPicker = (CHOICE_PICKER_REASONS as readonly string[]).includes(
+        reason,
+      );
+      expect({
+        reason,
+        extras: withOptions !== undefined,
+      }).toEqual({ reason, extras: isPicker });
+      expect(empty).toBeUndefined();
+    }
+    expect(CHOICE_RESOLUTION_REASONS).toEqual([
+      "variant_required",
+      "ambiguous",
+      "unmatched_query",
+      "no_active_variants",
+    ]);
   });
 
   it("opens needs_choice from orders.create CONFLICT and skips empty options", async () => {

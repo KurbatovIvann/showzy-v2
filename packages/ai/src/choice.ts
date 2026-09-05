@@ -123,14 +123,16 @@ export type ChoiceCardState = z.output<typeof choiceCardStateSchema>;
 
 /**
  * Client ChoiceCard envelope. Never includes canonical input, target,
- * option mapping, actor, or company.
+ * option mapping, actor, or company. Empty options never parse — no
+ * empty picker (SHO-420). Expired HTTP peek is `{ status: "expired" }`
+ * and does not go through this schema.
  */
 export const staffAssistantChoiceCardEnvelopeSchema = z.strictObject({
   status: choiceCardStateSchema,
   challengeId: z.uuid(),
   reason: choiceResolutionReasonSchema.optional(),
   productName: z.string().min(1).optional(),
-  options: z.array(choiceCardOptionSchema).max(CHOICE_OPTIONS_MAX),
+  options: z.array(choiceCardOptionSchema).min(1).max(CHOICE_OPTIONS_MAX),
   optionsTruncated: z.boolean(),
 });
 
@@ -143,7 +145,7 @@ export const staffAssistantNeedsChoiceOutputSchema = z.strictObject({
   challengeId: z.uuid(),
   reason: choiceResolutionReasonSchema,
   productName: z.string().min(1),
-  options: z.array(choiceCardOptionSchema).max(CHOICE_OPTIONS_MAX),
+  options: z.array(choiceCardOptionSchema).min(1).max(CHOICE_OPTIONS_MAX),
   optionsTruncated: z.boolean(),
 });
 
