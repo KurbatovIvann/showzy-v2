@@ -182,12 +182,17 @@ async function markJobReady(
     );
 }
 
-async function markJobFailed(
+/**
+ * Persist terminal failed without clobbering a concurrent ready win.
+ * UPDATE matches 0 rows when status is already ready; reload the
+ * surviving row like `markTenantDocumentFailed`.
+ */
+export async function markJobFailed(
   ctx: SystemTenantCtx,
   documentId: string,
-): Promise<void> {
+): Promise<RenderPdfResult> {
   const db = requireWritable(ctx.db);
-  await db
+  const updated = await db
     .update(documentGenerationJobs)
     .set({
       status: "failed",
@@ -200,7 +205,24 @@ async function markJobFailed(
         eq(documentGenerationJobs.documentId, documentId),
         ne(documentGenerationJobs.status, "ready"),
       ),
-    );
+    )
+    .returning({
+      status: documentGenerationJobs.status,
+      fileId: documentGenerationJobs.fileId,
+    });
+  const afterUpdate = updated[0] ?? (await loadJob(ctx, documentId));
+  if (
+    afterUpdate !== undefined &&
+    afterUpdate.status === "ready" &&
+    afterUpdate.fileId !== null
+  ) {
+    return {
+      status: "ready",
+      fileId: afterUpdate.fileId,
+      documentId,
+    };
+  }
+  return { status: "failed", fileId: null, documentId };
 }
 
 function logRenderFailure(
@@ -262,14 +284,16 @@ export async function renderTenantDocumentPdf(env: {
     return { status: "ready", fileId, documentId };
   } catch (error) {
     if (error instanceof PdfGenerationTerminalError) {
-      await markJobFailed(ctx, documentId);
+      const outcome = await markJobFailed(ctx, documentId);
       logRenderFailure(ctx, documentId, error, "terminal");
-      return { status: "failed", fileId: null, documentId };
+      return outcome;
     }
     logRenderFailure(ctx, documentId, error, "retryable");
     // Isolation suites require NotFound/PermissionDenied on foreign
     // access. Outbox delivery still retries those CoreErrors; wrapping
-    // would turn a tenant denial into CONFLICT.
+    // would turn a tenant denial into CONFLICT. After five attempts the
+    // worker has no retry scope and does not persist failed — deleted
+    // and foreign deliveries are that class (see pdf-retry.ts).
     if (
       error instanceof NotFoundError ||
       error instanceof PermissionDeniedError

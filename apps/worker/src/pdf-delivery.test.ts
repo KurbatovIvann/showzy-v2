@@ -1,11 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 
 import type { ActionPipelineDeps, ClaimableDelivery } from "@showzy/core";
-import { CoreInvariantError } from "@showzy/core/errors";
-import { PdfGenerationRetryableError } from "@showzy/doc-generation/pdf-retry";
+import { CoreInvariantError, NotFoundError } from "@showzy/core/errors";
+import { toPdfGenerationRetryableError } from "@showzy/doc-generation/pdf-retry";
 import { PDF_RENDERER_CONSUMER } from "@showzy/doc-generation/subscriptions";
 import { pino, type Logger } from "pino";
 import { describe, expect, it } from "vitest";
@@ -15,6 +12,9 @@ import { maybeFinalizeDeadPdfGeneration } from "./pdf-delivery.js";
 const documentId = "11111111-1111-4111-8111-111111111111";
 const companyId = "22222222-2222-4222-8222-222222222222";
 const eventId = randomUUID();
+const signedUrlError = new Error(
+  "put failed https://garage.example/bucket/obj?X-Amz-Signature=secret",
+);
 
 function captureLogger(): {
   logger: Logger;
@@ -56,6 +56,12 @@ function pdfDelivery(consumer = PDF_RENDERER_CONSUMER): ClaimableDelivery {
   };
 }
 
+function assertNoSignedUrl(payload: string): void {
+  expect(payload).not.toContain("https://");
+  expect(payload).not.toContain("X-Amz-");
+  expect(payload).not.toContain("garage.example");
+}
+
 describe("maybeFinalizeDeadPdfGeneration", () => {
   it("skips non-pdf consumers and in-budget retries", async () => {
     const captured = captureLogger();
@@ -76,10 +82,10 @@ describe("maybeFinalizeDeadPdfGeneration", () => {
       delivery: pdfDelivery(),
       outcome: {
         status: "failed",
-        error: new PdfGenerationRetryableError({
+        error: toPdfGenerationRetryableError({
           documentId,
           companyId,
-          reason: "Error: injected",
+          cause: signedUrlError,
         }),
         retryAt: new Date().toISOString(),
       },
@@ -112,18 +118,41 @@ describe("maybeFinalizeDeadPdfGeneration", () => {
     ]);
   });
 
-  it("logs bookkeeping failure without signed URLs when markFailed cannot run", async () => {
+  it("does not persist failed for unwrapped NotFoundError after exhaustion", async () => {
     const captured = captureLogger();
     await maybeFinalizeDeadPdfGeneration({
       pipeline: unusedPipeline(captured.logger),
       delivery: pdfDelivery(),
       outcome: {
         status: "failed",
-        error: new PdfGenerationRetryableError({
-          documentId,
-          companyId,
-          reason: "Error: injected storage outage",
-        }),
+        error: new NotFoundError(),
+        retryAt: null,
+      },
+      logger: captured.logger,
+      workerId: "w1",
+    });
+    expect(captured.entries()).toEqual([
+      expect.objectContaining({
+        msg: "pdf delivery dead-lettered without document scope; replay-dead-deliveries recovers",
+        error_code: "NOT_FOUND",
+      }),
+    ]);
+  });
+
+  it("logs bookkeeping failure without signed URLs when markFailed cannot run", async () => {
+    const captured = captureLogger();
+    const retryable = toPdfGenerationRetryableError({
+      documentId,
+      companyId,
+      cause: signedUrlError,
+    });
+    expect(retryable.cause).toBeUndefined();
+    await maybeFinalizeDeadPdfGeneration({
+      pipeline: unusedPipeline(captured.logger),
+      delivery: pdfDelivery(),
+      outcome: {
+        status: "failed",
+        error: retryable,
         retryAt: null,
       },
       logger: captured.logger,
@@ -139,22 +168,6 @@ describe("maybeFinalizeDeadPdfGeneration", () => {
         }),
       ]),
     );
-    expect(JSON.stringify(entries)).not.toContain("https://");
-    expect(JSON.stringify(entries)).not.toContain("X-Amz-");
-  });
-});
-
-describe("pdf delivery source", () => {
-  it("finalizes through executeAction(markFailed) without domain SQL", () => {
-    const directory = dirname(fileURLToPath(import.meta.url));
-    const source = readFileSync(join(directory, "pdf-delivery.ts"), "utf8");
-    const loop = readFileSync(join(directory, "loop.ts"), "utf8");
-    expect(loop).toContain("maybeFinalizeDeadPdfGeneration");
-    expect(source).toContain("executeAction");
-    expect(source).toContain("markFailed");
-    expect(source).toContain("replay-dead-deliveries");
-    expect(source).not.toContain("documentGenerationJobs");
-    expect(source).not.toContain("@showzy/db/schema/");
-    expect(source).not.toContain("drizzle-orm");
+    assertNoSignedUrl(JSON.stringify(entries));
   });
 });

@@ -35,11 +35,14 @@ describe("pdf failure classification (SHO-436)", () => {
     expect(reason).toContain("[redacted-key]");
   });
 
-  it("carries tenant document scope on retryable errors", () => {
+  it("carries tenant document scope on retryable errors without attaching a raw cause", () => {
+    const cause = new CoreInvariantError(
+      "injected storage outage https://garage.example/bucket/obj?X-Amz-Signature=secret",
+    );
     const error = toPdfGenerationRetryableError({
       documentId,
       companyId,
-      cause: new CoreInvariantError("injected storage outage"),
+      cause,
     });
     expect(error).toBeInstanceOf(PdfGenerationRetryableError);
     expect(error).toBeInstanceOf(ConflictError);
@@ -47,7 +50,11 @@ describe("pdf failure classification (SHO-436)", () => {
     expect(readPdfRetryScope(error)).toEqual({ documentId, companyId });
     expect(error.clientMessage).toBe("PDF generation failed.");
     expect(error.message).toContain(documentId);
+    expect(error.cause).toBeUndefined();
     expect(error.message).not.toContain("https://");
+    expect(error.message).not.toContain("X-Amz-Signature");
+    expect(error.message).not.toContain("garage.example");
+    expect(error.message).toContain("[redacted-url]");
   });
 
   it("does not treat terminal snapshot errors as retry scope", () => {

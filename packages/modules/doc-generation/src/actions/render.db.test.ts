@@ -7,6 +7,7 @@ import { defineActionContract } from "@showzy/core/contract";
 import {
   DELIVERY_MAX_ATTEMPTS,
   DELIVERY_RETRY_BASE_MS,
+  canonicalJsonSha256,
   dispatchOutboxBatch,
   executeAction,
   executeDelivery,
@@ -31,7 +32,7 @@ import {
   kitIdentities,
   type TestKit,
 } from "@showzy/core/testing";
-import { domainEvents } from "@showzy/db";
+import { auditLog, domainEvents } from "@showzy/db";
 import { user } from "@showzy/db/schema/auth";
 import { products } from "@showzy/db/schema/catalog";
 import { companyLegalInfo, companyMembers } from "@showzy/db/schema/companies";
@@ -76,7 +77,9 @@ import { pdfRendererCreated } from "../events/pdf-renderer.js";
 import { artifactFileId } from "../services/artifact-file-id.js";
 import { PdfGenerationRetryableError } from "../services/pdf-retry.js";
 import { putGeneratedPdf } from "../services/put-generated-pdf.js";
+import { markJobFailed } from "../services/render-pdf.js";
 import { requireWritable } from "../services/writable.js";
+import { maybeFinalizeDeadPdfGeneration } from "../../../../../apps/worker/src/pdf-delivery.js";
 
 const GARAGE_IMAGE = "dxflrs/garage:v2.3.0";
 const GARAGE_BUCKET = "showzy";
@@ -663,7 +666,9 @@ function withPutObjectFailures(remaining: { count: number }): () => void {
     putObject: async (input) => {
       if (remaining.count > 0) {
         remaining.count -= 1;
-        throw new CoreInvariantError("injected storage outage");
+        throw new CoreInvariantError(
+          `injected storage outage https://garage.example/${input.key}?X-Amz-Signature=test-secret`,
+        );
       }
       return store.putObject(input);
     },
@@ -1186,6 +1191,8 @@ describe("docGeneration.renderPdf garage", () => {
       expect(payload).toContain(fixtures.fail);
       expect(payload).not.toContain("https://");
       expect(payload).not.toContain("X-Amz-");
+      expect(payload).not.toContain("garage.example");
+      expect(payload).not.toContain("test-secret");
       expect(payload).not.toContain(GARAGE_SECRET_KEY);
     } finally {
       restore();
@@ -1290,6 +1297,28 @@ describe("docGeneration.renderPdf garage", () => {
     expect(again).toEqual(ready);
   });
 
+  it("terminal markJobFailed returns a concurrent ready row", async () => {
+    const ready = await requireKit().invoke(getArtifact, {
+      documentId: fixtures.invoice,
+    });
+    expect(ready.status).toBe("ready");
+    expect(ready.fileId).not.toBeNull();
+    const ctx = await requireKit().buildTestContext("system");
+    if (ctx.principal !== "system" || ctx.scope !== "tenant") {
+      throw new Error("expected tenant system context");
+    }
+    const outcome = await markJobFailed(ctx, fixtures.invoice);
+    expect(outcome).toEqual({
+      status: "ready",
+      fileId: ready.fileId,
+      documentId: fixtures.invoice,
+    });
+    const again = await requireKit().invoke(getArtifact, {
+      documentId: fixtures.invoice,
+    });
+    expect(again).toEqual(ready);
+  });
+
   it("rejects staff callers and invalid markFailed input", async () => {
     await expect(
       executeAction(requireKit().pipeline, {
@@ -1382,7 +1411,7 @@ describe("docGeneration.renderPdf delivery retry (SHO-436)", () => {
     expect(filesRows).toHaveLength(1);
   });
 
-  it("exhausts the delivery budget and persists failed through a fresh transaction", async () => {
+  it("exhausts the delivery budget and persists failed through the worker finalizer", async () => {
     const requestId = randomUUID();
     const created = await requireKit().invoke(
       createFromOrder,
@@ -1395,6 +1424,7 @@ describe("docGeneration.renderPdf delivery retry (SHO-436)", () => {
     const pipeline = { ...requireKit().pipeline, now: () => nowMs.value };
     const remaining = { count: DELIVERY_MAX_ATTEMPTS };
     const restore = withPutObjectFailures(remaining);
+    let last: Awaited<ReturnType<typeof executeDelivery>> | undefined;
     try {
       for (let attempt = 1; attempt <= DELIVERY_MAX_ATTEMPTS; attempt += 1) {
         const outcome = await executeDelivery(pipeline, {
@@ -1406,6 +1436,7 @@ describe("docGeneration.renderPdf delivery retry (SHO-436)", () => {
         if (outcome.status !== "failed") {
           throw new Error("expected a failed delivery outcome");
         }
+        last = outcome;
         if (attempt < DELIVERY_MAX_ATTEMPTS) {
           const delay = DELIVERY_RETRY_BASE_MS * 2 ** (attempt - 1);
           expect(outcome.retryAt).toBe(
@@ -1420,21 +1451,108 @@ describe("docGeneration.renderPdf delivery retry (SHO-436)", () => {
       restore();
     }
     expect(remaining.count).toBe(0);
+    if (last === undefined || last.status !== "failed") {
+      throw new Error("expected a final failed delivery outcome");
+    }
+    expect(last.error).toBeInstanceOf(PdfGenerationRetryableError);
+    if (!(last.error instanceof PdfGenerationRetryableError)) {
+      throw new Error("expected PdfGenerationRetryableError");
+    }
+    expect(last.error.pdfDocumentId).toBe(created.documentId);
+    expect(last.error.pdfCompanyId).toBe(kitIdentities.companies.a);
+    expect(last.error.cause).toBeUndefined();
+    expect(last.error.message).not.toContain("https://");
+    expect(last.error.message).not.toContain("X-Amz-");
     await expect(
       requireKit().invoke(getArtifact, { documentId: created.documentId }),
     ).rejects.toBeInstanceOf(NotFoundError);
-    const finalized = await requireKit().invoke(markFailed, {
+
+    const delivery = {
+      consumer: pdfRendererCreated.consumer,
+      eventId,
+      eventName: "documents.created" as const,
+    };
+    await maybeFinalizeDeadPdfGeneration({
+      pipeline: requireKit().pipeline,
+      delivery,
+      outcome: last,
+      logger: requireKit().pipeline.logger,
+      workerId: "sho-436-exhaust",
+    });
+    const artifact = await requireKit().invoke(getArtifact, {
       documentId: created.documentId,
     });
-    expect(finalized).toEqual({
-      status: "failed",
-      fileId: null,
+    expect(artifact).toEqual({ status: "failed", fileId: null });
+
+    const markRows = await requireKit()
+      .db.runtime.db.select({
+        companyId: auditLog.companyId,
+        actorId: auditLog.actorId,
+        channel: auditLog.channel,
+        targetId: auditLog.targetId,
+        inputHash: auditLog.inputHash,
+        outcome: auditLog.outcome,
+      })
+      .from(auditLog)
+      .where(
+        and(
+          eq(auditLog.action, "docGeneration.markFailed"),
+          eq(auditLog.targetId, created.documentId),
+        ),
+      );
+    expect(markRows).toEqual([
+      {
+        companyId: last.error.pdfCompanyId,
+        actorId: pdfRendererCreated.consumer,
+        channel: "system",
+        targetId: last.error.pdfDocumentId,
+        inputHash: canonicalJsonSha256({
+          documentId: last.error.pdfDocumentId,
+        }),
+        outcome: "ok",
+      },
+    ]);
+
+    await maybeFinalizeDeadPdfGeneration({
+      pipeline: requireKit().pipeline,
+      delivery,
+      outcome: last,
+      logger: requireKit().pipeline.logger,
+      workerId: "sho-436-exhaust",
+    });
+    const replayed = await requireKit().invoke(getArtifact, {
       documentId: created.documentId,
     });
-    const reloaded = await requireKit().invoke(getArtifact, {
-      documentId: created.documentId,
+    expect(replayed).toEqual({ status: "failed", fileId: null });
+
+    const ready = await requireKit().invoke(getArtifact, {
+      documentId: fixtures.invoice,
     });
-    expect(reloaded).toEqual({ status: "failed", fileId: null });
+    expect(ready.status).toBe("ready");
+    await maybeFinalizeDeadPdfGeneration({
+      pipeline: requireKit().pipeline,
+      delivery: {
+        consumer: pdfRendererCreated.consumer,
+        eventId: randomUUID(),
+        eventName: "documents.created",
+      },
+      outcome: {
+        status: "failed",
+        retryAt: null,
+        error: new PdfGenerationRetryableError({
+          documentId: fixtures.invoice,
+          companyId: kitIdentities.companies.a,
+          reason: "Error: stale finalizer",
+        }),
+      },
+      logger: requireKit().pipeline.logger,
+      workerId: "sho-436-exhaust",
+    });
+    const invoiceAgain = await requireKit().invoke(getArtifact, {
+      documentId: fixtures.invoice,
+    });
+    expect(invoiceAgain).toEqual(ready);
+
     expect(
       await findClaimableDeliveries(
         { db: requireKit().db.runtime.db },

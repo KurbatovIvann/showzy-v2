@@ -19,7 +19,7 @@ export const getForGenerationOutputSchema = documentViewSchema;
 export const getForGenerationContract = defineActionContract({
   name: "documents.getForGeneration",
   description:
-    "Return the tenant document snapshots and immutable line copies for system PDF rendering. Missing or foreign-company documents fail with not-found. Company id is never input. Internal facts read for docGeneration.renderPdf; not a client route.",
+    "Return the tenant document snapshots and immutable line copies for system PDF rendering. Missing or foreign-company documents fail with not-found. Company id is never input. Internal facts read for docGeneration.renderPdf and docGeneration.markFailed; not a client route.",
   principal: "system",
   systemScope: "tenant",
   transport: "internal",

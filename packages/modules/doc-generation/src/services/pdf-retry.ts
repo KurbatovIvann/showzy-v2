@@ -8,10 +8,19 @@
  *
  * Retryable: renderer, object-store PUT/Head, nested recordGeneratedObject,
  * and other unexpected throws — propagate so delivery does not ACK.
- * `NotFoundError` / `PermissionDeniedError` stay unwrapped so isolation
- * denials remain typed; delivery still retries those CoreErrors.
  * Terminal: snapshot/invariant failures that cannot recover on retry —
  * persist failed in the same transaction and return (ACK the delivery).
+ *
+ * Isolation class (unwrapped `NotFoundError` / `PermissionDeniedError`):
+ * `documents.getForGeneration` uses the same not-found for missing and
+ * foreign-company documents so existence is not leaked. Wrapping those
+ * as `PdfGenerationRetryableError` (`CONFLICT`) would weaken isolation.
+ * Delivery still retries the CoreError. After five attempts the worker
+ * has no `readPdfRetryScope`, so `maybeFinalizeDeadPdfGeneration` logs
+ * `replay-dead-deliveries` and does **not** persist failed. Deleted
+ * documents CASCADE their jobs; foreign deliveries never write a job in
+ * this tenant. `getArtifact` stays not-found (the panel maps that to
+ * pending). That is this class, not a same-tenant `CONFLICT` mark.
  */
 import { DELIVERY_MAX_ATTEMPTS, DELIVERY_RETRY_BASE_MS } from "@showzy/core";
 import {
@@ -48,10 +57,8 @@ export class PdfGenerationRetryableError extends ConflictError {
     readonly documentId: string;
     readonly companyId: string;
     readonly reason: string;
-    readonly cause?: unknown;
   }) {
     super("PDF generation failed.", {
-      ...(env.cause !== undefined ? { cause: env.cause } : {}),
       internalMessage: `docGeneration.renderPdf retryable failure document_id=${env.documentId} reason=${env.reason}`,
     });
     this.name = "PdfGenerationRetryableError";
@@ -87,7 +94,6 @@ export function toPdfGenerationRetryableError(env: {
     documentId: env.documentId,
     companyId: env.companyId,
     reason: sanitizePdfFailureReason(env.cause),
-    ...(env.cause !== undefined ? { cause: env.cause } : {}),
   });
 }
 

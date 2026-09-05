@@ -60,7 +60,7 @@ export const renderPdfOutputSchema = getArtifactOutputSchema.extend({
 export const renderPdfContract = defineActionContract({
   name: "docGeneration.renderPdf",
   description:
-    "Render the system TSX invoice or delivery-note PDF for a delivered documents.created event, PUT the bytes, and record a purpose=document file. Upserts one generation job per document (pending → ready). Tenant scope comes from the system delivery context, never from input as a grant. Retry-safe: a ready job returns the same artifact file id. Transient renderer/storage failures throw so outbox delivery retries (five attempts, 1s/2s/4s/8s); terminal snapshot invariants persist failed and return. Exhausted retries are finalized by docGeneration.markFailed outside this transaction.",
+    "Render the system TSX invoice or delivery-note PDF for a delivered documents.created event, PUT the bytes, and record a purpose=document file. Upserts one generation job per document (pending → ready). Tenant scope comes from the system delivery context, never from input as a grant. Retry-safe: a ready job returns the same artifact file id. Transient renderer/storage failures throw so outbox delivery retries (five attempts, 1s/2s/4s/8s); terminal snapshot invariants persist failed and return. Exhausted retries are finalized by docGeneration.markFailed outside this transaction. Missing and foreign-company documents stay NotFound (not CONFLICT) so isolation is not weakened; those deliveries are not failure-bookkept.",
   principal: "system",
   systemScope: "tenant",
   transport: "internal",
