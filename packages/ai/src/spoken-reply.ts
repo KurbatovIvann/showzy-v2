@@ -41,6 +41,13 @@ export const STAFF_ASSISTANT_SYNTHETIC_JSON_TOOL_NAME = "json";
 export const STAFF_ASSISTANT_SUCCESS_SPOKEN_FALLBACK =
   "Here is a short summary of the result.";
 
+/**
+ * Persist/stream fallback when a tool run failed and the model produced
+ * no `{ spoken }`. Never `"Done."` after a tool error (SHO-429).
+ */
+export const STAFF_ASSISTANT_TOOL_ERROR_FALLBACK =
+  "The assistant could not complete this turn.";
+
 /** `{ spoken }` only — no rows, cards, kinds, money, or order payloads. */
 export const staffAssistantSpokenOutputSchema = z.strictObject({
   spoken: z.string(),
@@ -69,6 +76,40 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export function isStaffAssistantSyntheticJsonTool(name: string): boolean {
   return name === STAFF_ASSISTANT_SYNTHETIC_JSON_TOOL_NAME;
+}
+
+export function isStaffAssistantTypedToolError(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    value["status"] === "error" &&
+    typeof value["code"] === "string"
+  );
+}
+
+export function staffAssistantTypedToolErrorMessage(
+  output: unknown,
+): string | undefined {
+  if (!isStaffAssistantTypedToolError(output) || !isRecord(output)) {
+    return undefined;
+  }
+  const message = output["message"];
+  if (typeof message !== "string") {
+    return undefined;
+  }
+  const trimmed = message.trim();
+  return trimmed === "" ? undefined : trimmed;
+}
+
+export function lastStaffAssistantTypedToolErrorMessage(
+  outputs: readonly unknown[],
+): string | undefined {
+  for (let index = outputs.length - 1; index >= 0; index -= 1) {
+    const message = staffAssistantTypedToolErrorMessage(outputs[index]);
+    if (message !== undefined) {
+      return message;
+    }
+  }
+  return undefined;
 }
 
 export function spokenContainsMarkdownDump(spoken: string): boolean {
@@ -168,14 +209,21 @@ export function spokenTurnText(options: {
   readonly parsedSpoken: string | undefined;
   readonly rawText: string;
   readonly runs: readonly SpokenTurnRun[];
+  /** Typed tool `message` when `outcome` is `error`. Model `{ spoken }` still wins. */
+  readonly toolErrorMessage?: string;
 }): string {
-  const fromParsed = sanitizeSpoken(options.parsedSpoken, options.runs);
+  const fromParsed = sanitizeSpoken(
+    options.parsedSpoken,
+    options.runs,
+    options.toolErrorMessage,
+  );
   if (fromParsed !== undefined) {
     return fromParsed;
   }
   const fromRaw = sanitizeSpoken(
     spokenFromModelText(options.rawText),
     options.runs,
+    options.toolErrorMessage,
   );
   if (fromRaw !== undefined) {
     return fromRaw;
@@ -183,7 +231,9 @@ export function spokenTurnText(options: {
   const trimmed = options.rawText.trim();
   if (trimmed !== "" && !looksLikeJsonObject(trimmed)) {
     // Output.object parse failure can leave a markdown table as plain text.
-    return sanitizeSpoken(trimmed, options.runs) ?? trimmed;
+    return (
+      sanitizeSpoken(trimmed, options.runs, options.toolErrorMessage) ?? trimmed
+    );
   }
   if (
     options.runs.some(
@@ -193,6 +243,9 @@ export function spokenTurnText(options: {
     )
   ) {
     return STAFF_ASSISTANT_CONFIRMATION_FALLBACK_TEXT;
+  }
+  if (options.runs.some((run) => run.outcome === "error")) {
+    return typedToolErrorSpokenFallback(options.toolErrorMessage);
   }
   if (options.runs.some((run) => run.outcome === "success")) {
     return STAFF_ASSISTANT_SUCCESS_SPOKEN_FALLBACK;
@@ -205,7 +258,20 @@ export function spokenTurnText(options: {
  * prior successful tool (do not show a short success summary while a
  * confirmation card is active). Never `"Done."` here.
  */
-function spokenMarkdownDumpFallback(runs: readonly SpokenTurnRun[]): string {
+function typedToolErrorSpokenFallback(
+  toolErrorMessage: string | undefined,
+): string {
+  const fallback = toolErrorMessage?.trim();
+  if (fallback !== undefined && fallback !== "") {
+    return fallback;
+  }
+  return STAFF_ASSISTANT_TOOL_ERROR_FALLBACK;
+}
+
+function spokenMarkdownDumpFallback(
+  runs: readonly SpokenTurnRun[],
+  toolErrorMessage: string | undefined,
+): string {
   if (
     runs.some(
       (run) =>
@@ -215,12 +281,16 @@ function spokenMarkdownDumpFallback(runs: readonly SpokenTurnRun[]): string {
   ) {
     return STAFF_ASSISTANT_CONFIRMATION_FALLBACK_TEXT;
   }
+  if (runs.some((run) => run.outcome === "error")) {
+    return typedToolErrorSpokenFallback(toolErrorMessage);
+  }
   return STAFF_ASSISTANT_SUCCESS_SPOKEN_FALLBACK;
 }
 
 function sanitizeSpoken(
   spoken: string | undefined,
   runs: readonly SpokenTurnRun[],
+  toolErrorMessage: string | undefined,
 ): string | undefined {
   if (spoken === undefined) {
     return undefined;
@@ -232,7 +302,7 @@ function sanitizeSpoken(
   if (!spokenContainsMarkdownDump(trimmed)) {
     return trimmed;
   }
-  return spokenMarkdownDumpFallback(runs);
+  return spokenMarkdownDumpFallback(runs, toolErrorMessage);
 }
 
 function syntheticJsonNameFromPart(part: SpokenStreamPart): string | null {
@@ -254,6 +324,7 @@ export function createSpokenReplyUiTransform<
   T extends SpokenStreamPart,
 >(options?: {
   readonly runs?: readonly SpokenTurnRun[];
+  readonly toolErrorMessage?: () => string | undefined;
 }): TransformStream<T, T> {
   let accumulatedJson = "";
   let publishedSpoken = "";
@@ -271,7 +342,10 @@ export function createSpokenReplyUiTransform<
     controller.enqueue({
       ...held,
       type: "text-delta",
-      text: spokenMarkdownDumpFallback(options?.runs ?? []),
+      text: spokenMarkdownDumpFallback(
+        options?.runs ?? [],
+        options?.toolErrorMessage?.(),
+      ),
     });
     controller.enqueue(held);
   };

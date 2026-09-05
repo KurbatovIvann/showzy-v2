@@ -16,6 +16,15 @@ export const STAFF_ASSISTANT_CHAT_PARTS_MAX = 32;
 /** Last user/assistant text turns sent to the model (SHO-349). */
 export const STAFF_ASSISTANT_MODEL_HISTORY_MAX = 8;
 
+/**
+ * Dropping an empty assistant message must not leave two consecutive user
+ * turns (SHO-429). The client may post `parts: []` after a silent tool
+ * error; keep a non-empty assistant line so the next user request is not
+ * merged with the previous one.
+ */
+export const STAFF_ASSISTANT_EMPTY_ASSISTANT_HISTORY_PLACEHOLDER =
+  "The previous assistant turn had no spoken text.";
+
 const chatPartSchema = z.looseObject({
   type: z.string().min(1).max(64),
   text: z.string().max(STAFF_ASSISTANT_CHAT_MESSAGE_TEXT_MAX).optional(),
@@ -86,6 +95,12 @@ export function staffAssistantModelMessages(
     }
     const text = textFromParts(message.parts);
     if (text === "") {
+      if (message.role === "assistant") {
+        modelMessages.push({
+          role: "assistant",
+          content: STAFF_ASSISTANT_EMPTY_ASSISTANT_HISTORY_PLACEHOLDER,
+        });
+      }
       continue;
     }
     modelMessages.push({ role: message.role, content: text });
