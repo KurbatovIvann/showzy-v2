@@ -8,6 +8,8 @@
  *
  * Retryable: renderer, object-store PUT/Head, nested recordGeneratedObject,
  * and other unexpected throws — propagate so delivery does not ACK.
+ * `NotFoundError` / `PermissionDeniedError` stay unwrapped so isolation
+ * denials remain typed; delivery still retries those CoreErrors.
  * Terminal: snapshot/invariant failures that cannot recover on retry —
  * persist failed in the same transaction and return (ACK the delivery).
  */

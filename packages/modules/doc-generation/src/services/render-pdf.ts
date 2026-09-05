@@ -1,4 +1,5 @@
 import type { ActionCtx } from "@showzy/core";
+import { NotFoundError, PermissionDeniedError } from "@showzy/core/errors";
 import { documentGenerationJobs } from "@showzy/db/schema/doc-generation";
 import { getForGeneration } from "@showzy/documents";
 import { recordGeneratedObject } from "@showzy/files";
@@ -266,6 +267,15 @@ export async function renderTenantDocumentPdf(env: {
       return { status: "failed", fileId: null, documentId };
     }
     logRenderFailure(ctx, documentId, error, "retryable");
+    // Isolation suites require NotFound/PermissionDenied on foreign
+    // access. Outbox delivery still retries those CoreErrors; wrapping
+    // would turn a tenant denial into CONFLICT.
+    if (
+      error instanceof NotFoundError ||
+      error instanceof PermissionDeniedError
+    ) {
+      throw error;
+    }
     throw toPdfGenerationRetryableError({
       documentId,
       companyId: ctx.companyId,
