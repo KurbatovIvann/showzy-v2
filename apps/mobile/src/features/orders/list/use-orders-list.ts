@@ -52,7 +52,7 @@ export function useOrdersList() {
   const { activeCompanyId } = useActiveCompany();
   const membership = useResolvedCompany();
   const router = useRouter();
-  const canCreate = canCreateOrders(membership.role);
+  const canCreate = canCreateOrders(membership);
   const { showCreate } = ordersHeaderActions({ canCreate });
 
   const [selectedStatuses, setSelectedStatuses] = useState<

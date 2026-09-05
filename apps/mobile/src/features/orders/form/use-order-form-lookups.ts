@@ -60,7 +60,7 @@ export function useOrderFormLookups(args: {
   const membership = useResolvedCompany();
   const getActiveCompany = () => apiClient?.getActiveCompany() ?? null;
   const enabled = args.enabled;
-  const canFetchThumbnails = canFetchFileDownloadUrls(membership.role);
+  const canFetchThumbnails = canFetchFileDownloadUrls(membership);
   const catalogProductIds = uniqueProductIds([
     ...args.draftProductIds,
     args.variantProductId,

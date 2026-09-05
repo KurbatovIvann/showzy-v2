@@ -31,7 +31,7 @@ export function useOrderDetailThumbnails(args: {
   const { activeCompanyId } = useActiveCompany();
   const membership = useResolvedCompany();
   const getActiveCompany = () => apiClient?.getActiveCompany() ?? null;
-  const canFetchThumbnails = canFetchFileDownloadUrls(membership.role);
+  const canFetchThumbnails = canFetchFileDownloadUrls(membership);
   const productIds = args.productIds;
 
   const productQueries = useQueries({
