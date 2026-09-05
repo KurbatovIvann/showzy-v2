@@ -186,7 +186,7 @@ export function createIdempotencyHook(
             nowMs: nowAfterRead,
             now,
             grant,
-            beforeTakeover,
+            ...(beforeTakeover === undefined ? {} : { beforeTakeover }),
             reset: {
               requestHash,
               expiresAt: new Date(nowAfterRead + IDEMPOTENCY_RETENTION_MS),
@@ -218,7 +218,7 @@ export function createIdempotencyHook(
               nowMs: nowAfterRead,
               now,
               grant,
-              beforeTakeover,
+              ...(beforeTakeover === undefined ? {} : { beforeTakeover }),
             });
           case "in_progress": {
             if (existing.leaseExpiresAt.getTime() > nowAfterRead) {
@@ -240,7 +240,7 @@ export function createIdempotencyHook(
               nowMs: nowAfterRead,
               now,
               grant,
-              beforeTakeover,
+              ...(beforeTakeover === undefined ? {} : { beforeTakeover }),
             });
           }
           default:
