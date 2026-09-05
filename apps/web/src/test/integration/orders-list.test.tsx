@@ -286,6 +286,9 @@ describe("orders list (SHO-377)", () => {
     await waitForOrdersList();
     expect(screen.getByRole("link", { name: "+ Нове" })).toBeDefined();
     fireEvent.click(screen.getByRole("link", { name: "Пекарня" }));
+    expect(
+      await screen.findByRole("heading", { name: "Пекарня" }),
+    ).toBeDefined();
     await waitFor(() => {
       expect(router.state.location.pathname).toBe("/pekarnya");
     });
