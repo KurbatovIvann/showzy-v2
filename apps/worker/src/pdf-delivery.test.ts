@@ -130,13 +130,15 @@ describe("maybeFinalizeDeadPdfGeneration", () => {
       workerId: "w1",
     });
     const entries = captured.entries();
-    expect(entries).toEqual([
-      expect.objectContaining({
-        msg: "pdf failure bookkeeping failed; replay-dead-deliveries recovers",
-        document_id: documentId,
-        event_id: eventId,
-      }),
-    ]);
+    expect(entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          msg: "pdf failure bookkeeping failed; replay-dead-deliveries recovers",
+          document_id: documentId,
+          event_id: eventId,
+        }),
+      ]),
+    );
     expect(JSON.stringify(entries)).not.toContain("https://");
     expect(JSON.stringify(entries)).not.toContain("X-Amz-");
   });

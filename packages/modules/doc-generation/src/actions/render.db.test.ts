@@ -57,7 +57,6 @@ import {
   configureFilesObjectStore,
   getFilesObjectStore,
   mapConfiguredFilesObjectStore,
-  type FilesObjectStore,
 } from "@showzy/files/storage";
 import { sha256Hex } from "@showzy/module-kit/sha256";
 import { and, count, eq, isNull } from "drizzle-orm";
@@ -656,7 +655,7 @@ function recordInput(documentId: string): {
 }
 
 function withPutObjectFailures(remaining: { count: number }): () => void {
-  return mapConfiguredFilesObjectStore((store: FilesObjectStore) => ({
+  return mapConfiguredFilesObjectStore((store) => ({
     signPut: (input) => store.signPut(input),
     signGet: (input) => store.signGet(input),
     headObject: (key) => store.headObject(key),
@@ -1193,25 +1192,23 @@ describe("docGeneration.renderPdf garage", () => {
 
   it("retries after a successful PUT when metadata recording fails", async () => {
     const remaining = { count: 1 };
-    const restore = mapConfiguredFilesObjectStore(
-      (store: FilesObjectStore) => ({
-        signPut: (input) => store.signPut(input),
-        signGet: (input) => store.signGet(input),
-        headObject: (key) => store.headObject(key),
-        getObject: async (key) => {
-          if (remaining.count > 0) {
-            remaining.count -= 1;
-            throw new CoreInvariantError("injected getObject outage");
-          }
-          return store.getObject(key);
-        },
-        putObject: (input) => store.putObject(input),
-        copyObject: (input) => store.copyObject(input),
-        deleteObject: (key) => store.deleteObject(key),
-        probeBucket: () => store.probeBucket(),
-        close: () => store.close(),
-      }),
-    );
+    const restore = mapConfiguredFilesObjectStore((store) => ({
+      signPut: (input) => store.signPut(input),
+      signGet: (input) => store.signGet(input),
+      headObject: (key) => store.headObject(key),
+      getObject: async (key) => {
+        if (remaining.count > 0) {
+          remaining.count -= 1;
+          throw new CoreInvariantError("injected getObject outage");
+        }
+        return store.getObject(key);
+      },
+      putObject: (input) => store.putObject(input),
+      copyObject: (input) => store.copyObject(input),
+      deleteObject: (key) => store.deleteObject(key),
+      probeBucket: () => store.probeBucket(),
+      close: () => store.close(),
+    }));
     try {
       await expect(
         requireKit().invoke(

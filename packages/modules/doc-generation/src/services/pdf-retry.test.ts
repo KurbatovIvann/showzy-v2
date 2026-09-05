@@ -41,6 +41,7 @@ describe("pdf failure classification (SHO-436)", () => {
       companyId,
       cause: new CoreInvariantError("injected storage outage"),
     });
+    expect(error).toBeInstanceOf(PdfGenerationRetryableError);
     expect(error).toBeInstanceOf(ConflictError);
     expect(error.pdfFailureClass).toBe("retryable");
     expect(readPdfRetryScope(error)).toEqual({ documentId, companyId });
