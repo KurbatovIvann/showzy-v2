@@ -64,7 +64,7 @@ const fixtures = {
 
 const emitOrphanCreated = implementAction(
   defineActionContract({
-    name: "workerPdfDelivery.emitOrphanCreated",
+    name: "documents.emitOrphanCreated",
     description:
       "Test-local emitter of documents.created for a missing document id.",
     principal: "staff",
