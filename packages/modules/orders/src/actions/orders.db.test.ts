@@ -2249,7 +2249,10 @@ describe("orders.create variantSelection (SHO-406)", () => {
     for (const error of [unspecified, omitted]) {
       const conflict = expectResolutionConflict(error);
       expect(conflict.reason).toBe("no_active_variants");
-      expect(conflict.target.productId).toBe(fixtures.pRetired);
+      expect(conflict.target).toMatchObject({
+        kind: "order_line_variant",
+        productId: fixtures.pRetired,
+      });
       expect(conflict.options).toEqual([]);
     }
     expect(await countCompanyOrders(kitIdentities.companies.a)).toBe(before);

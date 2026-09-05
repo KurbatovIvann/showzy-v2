@@ -647,8 +647,12 @@ describe("catalog.resolveLineReferences", () => {
       );
     const conflict = expectResolutionConflict(error);
     expect(conflict.reason).toBe("unmatched_query");
-    expect(conflict.target.lineIndex).toBe(0);
-    expect(conflict.target.productId).toBe(fixtures.coat);
+    expect(conflict.target).toEqual({
+      kind: "order_line_variant",
+      lineIndex: 0,
+      productId: fixtures.coat,
+      productName: "Coat",
+    });
     expect(conflict.options).toEqual([
       { id: fixtures.variantBlue, label: "Blue" },
       { id: fixtures.variantRed, label: "Red" },
@@ -703,9 +707,12 @@ describe("catalog.resolveLineReferences", () => {
       );
     const conflict = expectResolutionConflict(error);
     expect(conflict.reason).toBe("variant_required");
-    expect(conflict.target.lineIndex).toBe(1);
-    expect(conflict.target.productId).toBe(fixtures.coat);
-    expect(conflict.target.productName).toBe("Coat");
+    expect(conflict.target).toEqual({
+      kind: "order_line_variant",
+      lineIndex: 1,
+      productId: fixtures.coat,
+      productName: "Coat",
+    });
   });
 
   it("fits a six-flavour product in the picker and truncates above the named cap", async () => {
