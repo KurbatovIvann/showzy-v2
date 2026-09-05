@@ -223,8 +223,11 @@ ipHmacSecret, logger, now? })` fills the pipeline's `rateLimit` slot.
   names `completed`, but a divergent payload on a live/failed row is the
   same caller bug and taking it over would corrupt the record); live lease
   → `ConcurrentRetryError` (+ retry-after); `failed`/expired lease/passed
-  retention → conditional takeover CAS'd on the observed `attempt_id`, so
-  concurrent retries produce exactly one winner.
+  retention → conditional takeover CAS'd on the observed `attempt_id`
+  **and** current status/lease/retention eligibility, so concurrent
+  retries produce exactly one winner and a stale snapshot cannot reopen a
+  completed row. A lost CAS reloads and returns replay, conflict, or
+  `ConcurrentRetryError`.
 - The lease is `contract.timeout + IDEMPOTENCY_LEASE_MARGIN_MS`. The
   pipeline deadline bounds every handler, so no mid-flight renewal exists;
   if `finalize` finds its attempt superseded it throws to roll the whole

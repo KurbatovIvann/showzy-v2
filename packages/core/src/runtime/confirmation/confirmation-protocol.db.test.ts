@@ -16,6 +16,7 @@
 import { randomUUID } from "node:crypto";
 
 import {
+  auditLog,
   companies,
   companyMembers,
   idempotencyKeys,
@@ -43,7 +44,10 @@ import {
   ValidationError,
 } from "../../errors/index.js";
 import { createAuditHook } from "../audit/create-audit-hook.js";
-import { createIdempotencyHook } from "../idempotency/create-idempotency-hook.js";
+import {
+  createIdempotencyHook,
+  IDEMPOTENCY_LEASE_MARGIN_MS,
+} from "../idempotency/create-idempotency-hook.js";
 import {
   implementAction,
   type ImplementedAction,
@@ -154,11 +158,44 @@ function fakeClock(startMs = Date.now()): {
   };
 }
 
+function deferred(): {
+  readonly promise: Promise<void>;
+  readonly resolve: () => void;
+} {
+  let resolve = (): void => {};
+  const promise = new Promise<void>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
+}
+
+function arrivalBarrier(expected: number): {
+  readonly arrive: () => Promise<void>;
+  readonly waitUntilFull: Promise<void>;
+  readonly release: () => void;
+} {
+  let arrivals = 0;
+  const full = deferred();
+  const released = deferred();
+  return {
+    arrive: async () => {
+      arrivals += 1;
+      if (arrivals === expected) {
+        full.resolve();
+      }
+      await released.promise;
+    },
+    waitUntilFull: full.promise,
+    release: released.resolve,
+  };
+}
+
 function deps(
   options: {
     readonly store?: ConfirmationStore;
     readonly now?: () => number;
     readonly confirmation?: boolean;
+    readonly beforeTakeover?: () => Promise<void>;
   } = {},
 ): ActionPipelineDeps {
   const clock = options.now === undefined ? {} : { now: options.now };
@@ -173,6 +210,9 @@ function deps(
       idempotency: createIdempotencyHook({
         db: database.runtime.db,
         ...clock,
+        ...(options.beforeTakeover === undefined
+          ? {}
+          : { beforeTakeover: options.beforeTakeover }),
       }),
       ...(options.confirmation === false
         ? {}
@@ -199,9 +239,11 @@ interface RunOptions {
   readonly userId?: string;
   readonly note?: string;
   readonly challengeId?: string;
+  readonly requestId?: string;
   readonly store?: ConfirmationStore;
   readonly now?: () => number;
   readonly confirmation?: boolean;
+  readonly beforeTakeover?: () => Promise<void>;
   readonly action?: FixtureAction;
 }
 
@@ -242,6 +284,9 @@ function run(options: RunOptions = {}): Promise<{ resultId: string }> {
     action,
     input: { note: options.note ?? "hello" },
     request: requestMeta({
+      ...(options.requestId !== undefined
+        ? { requestId: options.requestId }
+        : {}),
       ...(options.key !== undefined ? { idempotencyKey: options.key } : {}),
       ...(options.challengeId !== undefined
         ? { confirmationChallengeId: options.challengeId }
@@ -433,6 +478,69 @@ describe("confirmation protocol — replay and persisted grant", () => {
     expect(retry.challenge.challengeId).not.toBe(
       required.challenge.challengeId,
     );
+  });
+
+  it("replays a confirmed completion instead of reclaiming it, without a new challenge or second audit", async () => {
+    const clock = fakeClock();
+    const originalStarted = deferred();
+    const originalHold = deferred();
+    const takeover = arrivalBarrier(1);
+    const originalRequestId = randomUUID();
+    const reclaimerRequestId = randomUUID();
+    let runs = 0;
+    const action = implementAction(contract, {
+      handler: async () => {
+        originalStarted.resolve();
+        await originalHold.promise;
+        runs += 1;
+        return { resultId: randomUUID() };
+      },
+      confirmationSummary: () => "Revoke access for Confirm Co.",
+      auditTarget: () => ({ type: "note", id: "fixture" }),
+    });
+    const key = randomUUID();
+    const flow = session({ now: clock.now });
+    const required = await flow.requireChallenge({ action, key });
+    const original = flow.run({
+      action,
+      key,
+      challengeId: required.challenge.challengeId,
+      requestId: originalRequestId,
+      beforeTakeover: takeover.arrive,
+    });
+    await originalStarted.promise;
+    clock.advance(contract.timeout + IDEMPOTENCY_LEASE_MARGIN_MS + 1);
+
+    const reclaimer = flow.run({
+      action,
+      key,
+      requestId: reclaimerRequestId,
+      beforeTakeover: takeover.arrive,
+    });
+    await takeover.waitUntilFull;
+    originalHold.resolve();
+    const first = await original;
+    takeover.release();
+    const replayed = await reclaimer;
+
+    expect(replayed.resultId).toBe(first.resultId);
+    expect(runs).toBe(1);
+    const [row] = await rowsForKey(key);
+    expect(row?.status).toBe("completed");
+    expect(row?.confirmationChallengeId).toBe(required.challenge.challengeId);
+    expect(row?.response).toEqual({ resultId: first.resultId });
+
+    const originalAudit = await database.runtime.db
+      .select()
+      .from(auditLog)
+      .where(eq(auditLog.requestId, originalRequestId));
+    const reclaimerAudit = await database.runtime.db
+      .select()
+      .from(auditLog)
+      .where(eq(auditLog.requestId, reclaimerRequestId));
+    expect(originalAudit).toHaveLength(1);
+    expect(originalAudit[0]?.outcome).toBe("ok");
+    expect(reclaimerAudit).toHaveLength(0);
   });
 });
 
