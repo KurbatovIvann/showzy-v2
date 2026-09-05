@@ -512,14 +512,13 @@ describe("apps/worker blocked-aggregate starvation (SHO-435)", () => {
       expect(processedEventIds).not.toContain(eventId);
     }
 
-    const secondTick = await worker.tick();
+    await worker.tick();
     expect(
       processedEventIds.filter((id) => id === independentEventId),
     ).toHaveLength(1);
     for (const eventId of successorEventIds) {
       expect(await deliveryStatus(eventId)).toBe("pending");
     }
-    expect(secondTick.processed).toBeGreaterThanOrEqual(0);
     await worker.stop();
   });
 });

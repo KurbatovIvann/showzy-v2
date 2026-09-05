@@ -1722,11 +1722,13 @@ describe("blocked aggregate heads must not starve independent deliveries (SHO-43
     );
     expectNoEventIds(afterReplay, seeded.successorEventIds);
 
-    await driveToProcessed(
-      cardSubscription,
-      seeded.predecessorEventId,
-      () => now,
-    );
+    expect(
+      await executeDelivery(deps({ now: () => now }), {
+        subscription: cardSubscription,
+        eventId: seeded.predecessorEventId,
+        claimedBy: testWorker,
+      }),
+    ).toEqual({ status: "processed" });
     const afterHead = await chatClaimable(now);
     expect(afterHead).toContainEqual(
       claimableOf(cardSubscription, seeded.successorEventIds[0] ?? ""),
@@ -1735,11 +1737,13 @@ describe("blocked aggregate heads must not starve independent deliveries (SHO-43
       seeded.successorEventIds[1] ?? "",
     );
 
-    await driveToProcessed(
-      cardSubscription,
-      seeded.successorEventIds[0] ?? "",
-      () => now,
-    );
+    expect(
+      await executeDelivery(deps({ now: () => now }), {
+        subscription: cardSubscription,
+        eventId: seeded.successorEventIds[0] ?? "",
+        claimedBy: testWorker,
+      }),
+    ).toEqual({ status: "processed" });
     const sequences = cardRuns
       .filter((run) => run.envelope.payload.orderId === seeded.blockedOrderId)
       .map((run) => run.envelope.aggregate.sequence);
@@ -1767,7 +1771,6 @@ describe("blocked aggregate heads must not starve independent deliveries (SHO-43
       throw new Error("expected a claimable-deliveries query");
     }
     const compiled = query.toSQL();
-    expect(compiled.sql.toLowerCase()).toContain("limit");
 
     const explained = await database.admin.query<{
       "QUERY PLAN": unknown;

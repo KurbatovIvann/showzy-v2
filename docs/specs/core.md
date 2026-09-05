@@ -735,6 +735,7 @@ does not apply — fails the check.
 | Date | Change | Why | Reported by |
 | --- | --- | --- | --- |
 | 2026-09-05 | §6: `findClaimableDeliveries` selects due aggregate heads before LIMIT | SHO-435: blocked successors filled the bounded batch and starved independent deliveries | SHO-435 |
+| 2026-09-05 | §5: takeover CAS re-checks status/lease/retention; a lost race reloads for replay/conflict/retry | SHO-434: stale expired `in_progress` read could reopen a concurrently completed attempt | SHO-434 |
 | 2026-08-22 | §12: `crossTenantSuite` treats `system` + `systemScope: global` like public-global — invoke succeeds; foreign deny is not the isolation property | SHO-115 scheduled GC cannot discover leftovers if the suite requires a per-id 404 | SHO-115 |
 | 2026-08-21 | §6: one consumer id may bind multiple events; `findClaimableDeliveries` returns the outbox event name so the worker executor looks up `(consumer, eventName)` | SHO-95: `Map(consumer → subscription)` dropped the second binding of `chat.order-card-updater` | SHO-95 |
 | 2026-08-19 | `ShareCtx.tokenHash` and share `resolveTarget` return the stored hash | fnd-T11B: `share:<tokenHash>` is not representable without the hash on the context; the idempotency-key test proved the gap | scaffold (fnd-T11B) |
