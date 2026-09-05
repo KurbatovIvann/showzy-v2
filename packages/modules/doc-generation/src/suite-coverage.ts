@@ -4,6 +4,7 @@ export const docGenerationSuiteCoverage = {
   isolation: [
     "docGeneration.getArtifact",
     "docGeneration.listLayouts",
+    "docGeneration.markFailed",
     "docGeneration.renderPdf",
     "docGeneration.resolveLayout",
   ],
@@ -11,7 +12,7 @@ export const docGenerationSuiteCoverage = {
   consumerIsolation: [],
   accountIsolation: [],
   shareIsolation: [],
-  idempotency: [],
+  idempotency: ["docGeneration.markFailed"],
   events: ["docGeneration"],
   atomic: [
     {

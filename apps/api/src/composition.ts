@@ -237,6 +237,10 @@ const callEdges: readonly DeclaredCallEdge[] = [
     callee: "documents.getForGeneration",
   },
   {
+    caller: "docGeneration.markFailed",
+    callee: "documents.getForGeneration",
+  },
+  {
     caller: "docSigning.abandonRequest",
     callee: "documents.getForGeneration",
   },

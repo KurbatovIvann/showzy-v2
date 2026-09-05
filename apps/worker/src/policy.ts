@@ -60,12 +60,16 @@ export const MAINTENANCE_QUEUE_NAME = "maintenance";
 
 /**
  * PDF execution queue (SHO-236). Production `documents.created` delivery
- * still invokes `docGeneration.renderPdf` through the outbox (chat
- * golden). Redis has no volume (db.md §6), so this host does not enqueue
- * durable one-shot PDF work — the unique `document_generation_jobs` row
- * plus outbox delivery is the retry target. The processor is the thin
- * `executeAction(renderPdf)` wrapper for when a job is added (replay /
- * later persistence policy).
+ * still invokes
+ * `docGeneration.renderPdf` through the outbox (chat golden). Redis has
+ * no volume (db.md §6), so this host does not enqueue durable one-shot
+ * PDF work — the unique `document_generation_jobs` row plus outbox
+ * delivery is the retry target (five attempts, 1s/2s/4s/8s). The
+ * processor is the thin `executeAction(renderPdf)` wrapper for when a
+ * job is added (replay / later persistence policy). Retryable render
+ * failures throw so BullMQ does not complete the job; terminal
+ * `{status:"failed"}` is an honest ACK. Do not add a second BullMQ
+ * attempt budget here.
  */
 export const PDF_QUEUE_NAME = "pdf";
 

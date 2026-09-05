@@ -1,13 +1,18 @@
 import type { ActionCtx } from "@showzy/core";
-import { CoreInvariantError } from "@showzy/core/errors";
+import { NotFoundError, PermissionDeniedError } from "@showzy/core/errors";
 import { documentGenerationJobs } from "@showzy/db/schema/doc-generation";
 import { getForGeneration } from "@showzy/documents";
 import { recordGeneratedObject } from "@showzy/files";
 import { postgresUniqueConstraint } from "@showzy/module-kit/postgres-unique";
 import { sha256Hex } from "@showzy/module-kit/sha256";
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 
 import { artifactFileId } from "./artifact-file-id.js";
+import {
+  PdfGenerationTerminalError,
+  sanitizePdfFailureReason,
+  toPdfGenerationRetryableError,
+} from "./pdf-retry.js";
 import { DOCUMENT_MIME_TYPE, putGeneratedPdf } from "./put-generated-pdf.js";
 import { requireWritable } from "./writable.js";
 import type { DocumentPdfModel } from "../templates/model.js";
@@ -79,7 +84,7 @@ export function mapViewToPdfModel(view: {
   readonly basis: string | null;
 }): DocumentPdfModel {
   if (view.currency !== "UAH") {
-    throw new CoreInvariantError(
+    throw new PdfGenerationTerminalError(
       `document money snapshot currency "${view.currency}" is not UAH`,
     );
   }
@@ -156,20 +161,17 @@ async function insertPendingJob(
   }
 }
 
-async function markJob(
+async function markJobReady(
   ctx: SystemTenantCtx,
   documentId: string,
-  values: {
-    readonly status: "ready" | "failed";
-    readonly fileId: string | null;
-  },
+  fileId: string,
 ): Promise<void> {
   const db = requireWritable(ctx.db);
   await db
     .update(documentGenerationJobs)
     .set({
-      status: values.status,
-      fileId: values.fileId,
+      status: "ready",
+      fileId,
       updatedAt: new Date(),
     })
     .where(
@@ -178,6 +180,66 @@ async function markJob(
         eq(documentGenerationJobs.documentId, documentId),
       ),
     );
+}
+
+/**
+ * Persist terminal failed without clobbering a concurrent ready win.
+ * UPDATE matches 0 rows when status is already ready; reload the
+ * surviving row like `markTenantDocumentFailed`.
+ */
+export async function markJobFailed(
+  ctx: SystemTenantCtx,
+  documentId: string,
+): Promise<RenderPdfResult> {
+  const db = requireWritable(ctx.db);
+  const updated = await db
+    .update(documentGenerationJobs)
+    .set({
+      status: "failed",
+      fileId: null,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(documentGenerationJobs.companyId, ctx.companyId),
+        eq(documentGenerationJobs.documentId, documentId),
+        ne(documentGenerationJobs.status, "ready"),
+      ),
+    )
+    .returning({
+      status: documentGenerationJobs.status,
+      fileId: documentGenerationJobs.fileId,
+    });
+  const afterUpdate = updated[0] ?? (await loadJob(ctx, documentId));
+  if (
+    afterUpdate !== undefined &&
+    afterUpdate.status === "ready" &&
+    afterUpdate.fileId !== null
+  ) {
+    return {
+      status: "ready",
+      fileId: afterUpdate.fileId,
+      documentId,
+    };
+  }
+  return { status: "failed", fileId: null, documentId };
+}
+
+function logRenderFailure(
+  ctx: SystemTenantCtx,
+  documentId: string,
+  error: unknown,
+  failureClass: "retryable" | "terminal",
+): void {
+  ctx.log.error(
+    {
+      document_id: documentId,
+      pdf_failure_class: failureClass,
+      err_name: error instanceof Error ? error.name : "unknown",
+      err_message: sanitizePdfFailureReason(error),
+    },
+    "docGeneration.renderPdf failed",
+  );
 }
 
 export async function renderTenantDocumentPdf(env: {
@@ -198,40 +260,50 @@ export async function renderTenantDocumentPdf(env: {
     };
   }
 
-  const view = await ctx.call(getForGeneration, { documentId });
-  if (existing === undefined) {
-    await insertPendingJob(ctx, documentId);
-  }
-
-  const fileId = artifactFileId(documentId);
-  let bytes: Uint8Array;
   try {
-    bytes = await renderDocumentPdfBytes(mapViewToPdfModel(view));
+    const view = await ctx.call(getForGeneration, { documentId });
+    if (existing === undefined) {
+      await insertPendingJob(ctx, documentId);
+    }
+
+    const fileId = artifactFileId(documentId);
+    const bytes = await renderDocumentPdfBytes(mapViewToPdfModel(view));
     await putGeneratedPdf({
       companyId: ctx.companyId,
       fileId,
       bytes,
     });
+    await ctx.callAtomic(recordGeneratedObject, {
+      fileId,
+      purpose: "document",
+      mimeType: DOCUMENT_MIME_TYPE,
+      byteSize: bytes.byteLength,
+      checksumSha256: sha256Hex(bytes),
+    });
+    await markJobReady(ctx, documentId, fileId);
+    return { status: "ready", fileId, documentId };
   } catch (error) {
-    await markJob(ctx, documentId, { status: "failed", fileId: null });
-    ctx.log.error(
-      {
-        document_id: documentId,
-        err_name: error instanceof Error ? error.name : "unknown",
-        err_message: error instanceof Error ? error.message : "non-error throw",
-      },
-      "docGeneration.renderPdf failed",
-    );
-    return { status: "failed", fileId: null, documentId };
+    if (error instanceof PdfGenerationTerminalError) {
+      const outcome = await markJobFailed(ctx, documentId);
+      logRenderFailure(ctx, documentId, error, "terminal");
+      return outcome;
+    }
+    logRenderFailure(ctx, documentId, error, "retryable");
+    // Isolation suites require NotFound/PermissionDenied on foreign
+    // access. Outbox delivery still retries those CoreErrors; wrapping
+    // would turn a tenant denial into CONFLICT. After five attempts the
+    // worker has no retry scope and does not persist failed — deleted
+    // and foreign deliveries are that class (see pdf-retry.ts).
+    if (
+      error instanceof NotFoundError ||
+      error instanceof PermissionDeniedError
+    ) {
+      throw error;
+    }
+    throw toPdfGenerationRetryableError({
+      documentId,
+      companyId: ctx.companyId,
+      cause: error,
+    });
   }
-
-  await ctx.callAtomic(recordGeneratedObject, {
-    fileId,
-    purpose: "document",
-    mimeType: DOCUMENT_MIME_TYPE,
-    byteSize: bytes.byteLength,
-    checksumSha256: sha256Hex(bytes),
-  });
-  await markJob(ctx, documentId, { status: "ready", fileId });
-  return { status: "ready", fileId, documentId };
 }

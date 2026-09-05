@@ -1,6 +1,8 @@
 import { CoreInvariantError } from "@showzy/core/errors";
 import { documentObjectKey, getFilesObjectStore } from "@showzy/files/storage";
 
+import { PdfGenerationTerminalError } from "./pdf-retry.js";
+
 /** Same ceiling as files `MAX_DOCUMENT_BYTES` (security-operations.md §3). */
 export const MAX_DOCUMENT_BYTES = 25 * 1024 * 1024;
 
@@ -47,7 +49,7 @@ export async function putGeneratedPdf(env: {
   readonly bytes: Uint8Array;
 }): Promise<void> {
   if (env.bytes.byteLength < 1 || env.bytes.byteLength > MAX_DOCUMENT_BYTES) {
-    throw new CoreInvariantError(
+    throw new PdfGenerationTerminalError(
       "generated PDF byte size is outside the ceiling",
     );
   }

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { CoreInvariantError } from "@showzy/core/errors";
 
+import { PdfGenerationTerminalError } from "./pdf-retry.js";
 import { mapViewToPdfModel } from "./render-pdf.js";
 
 const uahView = {
@@ -62,6 +63,9 @@ describe("mapViewToPdfModel", () => {
   });
 
   it("fails closed on a non-UAH money snapshot", () => {
+    expect(() => mapViewToPdfModel({ ...uahView, currency: "USD" })).toThrow(
+      PdfGenerationTerminalError,
+    );
     expect(() => mapViewToPdfModel({ ...uahView, currency: "USD" })).toThrow(
       CoreInvariantError,
     );
