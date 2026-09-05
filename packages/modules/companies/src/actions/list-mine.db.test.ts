@@ -11,7 +11,11 @@ import {
 } from "@showzy/core/testing";
 import { auditLog, domainEvents } from "@showzy/db";
 import { user } from "@showzy/db/schema/auth";
-import { companies, companyMembers } from "@showzy/db/schema/companies";
+import {
+  companies,
+  companyMembers,
+  rolePermissionDefaults,
+} from "@showzy/db/schema/companies";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -20,11 +24,26 @@ import { listMine } from "./list-mine.js";
 const fixtures = {
   emptyUser: randomUUID(),
   multiUser: randomUUID(),
+  grantUser: randomUUID(),
+  denyUser: randomUUID(),
+  otherUser: randomUUID(),
   companyFirst: randomUUID(),
   companySecond: randomUUID(),
+  companyGrant: randomUUID(),
+  companyDeny: randomUUID(),
+  companyOther: randomUUID(),
   membershipFirst: randomUUID(),
   membershipSecond: randomUUID(),
+  membershipGrant: randomUUID(),
+  membershipDeny: randomUUID(),
+  membershipOther: randomUUID(),
 };
+
+const EMPLOYEE_DEFAULT_PERMISSIONS = [
+  "orders:create",
+  "orders:edit",
+  "orders:view",
+] as const;
 
 let kit: TestKit;
 
@@ -42,6 +61,21 @@ beforeAll(async () => {
       name: "Two companies",
       email: "multi@companies-kit.test",
     },
+    {
+      id: fixtures.grantUser,
+      name: "Granted employee",
+      email: "grant@companies-kit.test",
+    },
+    {
+      id: fixtures.denyUser,
+      name: "Denied employee",
+      email: "deny@companies-kit.test",
+    },
+    {
+      id: fixtures.otherUser,
+      name: "Other account",
+      email: "other@companies-kit.test",
+    },
   ]);
 
   await kit.db.runtime.db.insert(companies).values([
@@ -57,6 +91,34 @@ beforeAll(async () => {
       slug: "atelier-amaltea",
       prefix: "AA",
     },
+    {
+      id: fixtures.companyGrant,
+      name: "Grant Workshop",
+      slug: "grant-workshop",
+      prefix: "GW",
+    },
+    {
+      id: fixtures.companyDeny,
+      name: "Deny Workshop",
+      slug: "deny-workshop",
+      prefix: "DW",
+    },
+    {
+      id: fixtures.companyOther,
+      name: "Other Workshop",
+      slug: "other-workshop",
+      prefix: "OW",
+    },
+  ]);
+
+  // Insert defaults out of alphabetical order so listMine must sort.
+  await kit.db.runtime.db.insert(rolePermissionDefaults).values([
+    { role: "manager", permission: "orders:edit" },
+    { role: "manager", permission: "orders:view" },
+    { role: "manager", permission: "orders:create" },
+    { role: "employee", permission: "orders:edit" },
+    { role: "employee", permission: "orders:view" },
+    { role: "employee", permission: "orders:create" },
   ]);
 
   // Explicit timestamps pin the stable order: the alphabetically-last
@@ -67,7 +129,7 @@ beforeAll(async () => {
       companyId: fixtures.companyFirst,
       userId: fixtures.multiUser,
       role: "owner",
-      permissions: { granted: [], denied: [] },
+      permissions: { granted: [], denied: ["orders:create"] },
       createdAt: new Date("2026-01-01T00:00:00Z"),
     },
     {
@@ -77,6 +139,30 @@ beforeAll(async () => {
       role: "manager",
       permissions: { granted: [], denied: [] },
       createdAt: new Date("2026-02-01T00:00:00Z"),
+    },
+    {
+      id: fixtures.membershipGrant,
+      companyId: fixtures.companyGrant,
+      userId: fixtures.grantUser,
+      role: "employee",
+      permissions: { granted: ["files:view"], denied: [] },
+    },
+    {
+      id: fixtures.membershipDeny,
+      companyId: fixtures.companyDeny,
+      userId: fixtures.denyUser,
+      role: "employee",
+      permissions: {
+        granted: ["files:view", "orders:create"],
+        denied: ["files:view", "orders:create"],
+      },
+    },
+    {
+      id: fixtures.membershipOther,
+      companyId: fixtures.companyOther,
+      userId: fixtures.otherUser,
+      role: "employee",
+      permissions: { granted: ["secrets:leak"], denied: [] },
     },
   ]);
 
@@ -134,6 +220,7 @@ describe("companies.listMine", () => {
     expect(result.memberships).toHaveLength(1);
     expect(result.memberships[0]).toMatchObject({
       role: "owner",
+      permissions: [],
       company: {
         id: kitIdentities.companies.a,
         name: "Konditerska Anna",
@@ -159,6 +246,7 @@ describe("companies.listMine", () => {
         {
           membershipId: fixtures.membershipFirst,
           role: "owner",
+          permissions: [],
           company: {
             id: fixtures.companyFirst,
             name: "Zavod Zoryany",
@@ -169,6 +257,7 @@ describe("companies.listMine", () => {
         {
           membershipId: fixtures.membershipSecond,
           role: "manager",
+          permissions: [...EMPLOYEE_DEFAULT_PERMISSIONS],
           company: {
             id: fixtures.companySecond,
             name: "Atelier Amaltea",
@@ -193,6 +282,67 @@ describe("companies.listMine", () => {
     expect(serialized).not.toContain(kitIdentities.companies.a);
     expect(serialized).not.toContain(fixtures.companyFirst);
     expect(serialized).not.toContain(fixtures.companySecond);
+  });
+
+  it("returns role defaults, explicit grants, and deny-over-grant/default with stable key order", async () => {
+    const granted = await kit.invoke(
+      listMine,
+      {},
+      { userId: fixtures.grantUser },
+    );
+    expect(granted.memberships).toHaveLength(1);
+    expect(granted.memberships[0]?.membershipId).toBe(fixtures.membershipGrant);
+    expect(granted.memberships[0]?.role).toBe("employee");
+    expect(granted.memberships[0]?.permissions).toEqual([
+      "files:view",
+      ...EMPLOYEE_DEFAULT_PERMISSIONS,
+    ]);
+
+    const denied = await kit.invoke(
+      listMine,
+      {},
+      { userId: fixtures.denyUser },
+    );
+    expect(denied.memberships).toHaveLength(1);
+    expect(denied.memberships[0]?.membershipId).toBe(fixtures.membershipDeny);
+    expect(denied.memberships[0]?.permissions).toEqual([
+      "orders:edit",
+      "orders:view",
+    ]);
+    expect(denied.memberships[0]?.permissions).not.toContain("orders:create");
+    expect(denied.memberships[0]?.permissions).not.toContain("files:view");
+  });
+
+  it("does not enumerate owner-all even when the owner row has an explicit deny", async () => {
+    const result = await kit.invoke(
+      listMine,
+      {},
+      { userId: fixtures.multiUser },
+    );
+    const owner = result.memberships[0];
+    expect(owner?.role).toBe("owner");
+    expect(owner?.permissions).toEqual([]);
+    expect(owner?.permissions).not.toContain("orders:create");
+    expect(owner?.permissions).not.toEqual(
+      expect.arrayContaining([...EMPLOYEE_DEFAULT_PERMISSIONS]),
+    );
+  });
+
+  it("never returns another account's memberships or permission overrides", async () => {
+    const result = await kit.invoke(
+      listMine,
+      {},
+      { userId: fixtures.grantUser },
+    );
+    expect(
+      result.memberships.map((membership) => membership.membershipId),
+    ).toEqual([fixtures.membershipGrant]);
+    const serialized = JSON.stringify(result);
+    expect(serialized).not.toContain(fixtures.membershipDeny);
+    expect(serialized).not.toContain(fixtures.membershipOther);
+    expect(serialized).not.toContain(fixtures.companyOther);
+    expect(serialized).not.toContain("secrets:leak");
+    expect(serialized).not.toContain(fixtures.otherUser);
   });
 
   it("rejects any input identifier — the input is a strict empty object", async () => {

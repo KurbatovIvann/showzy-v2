@@ -72,7 +72,7 @@ export function useOrderDetail(
   const apiClient = useApiClient();
   const { activeCompanyId } = useActiveCompany();
   const membership = useResolvedCompany();
-  const canEdit = canEditOrders(membership.role);
+  const canEdit = canEditOrders(membership);
   const [sheets, dispatch] = useReducer(
     reduceOrderDetailSheets,
     IDLE_DETAIL_SHEETS,

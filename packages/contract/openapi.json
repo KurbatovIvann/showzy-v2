@@ -11813,7 +11813,7 @@
     "/companies/create": {
       "post": {
         "operationId": "companies.create",
-        "summary": "Create a company owned by the authenticated user. Takes only the business name and public slug; the unique numbering prefix is generated server-side from the name. Atomically inserts the company and the caller's owner membership and returns that membership with the company identity (id, name, slug, prefix). Re-submitting the identical name and slug by the same owner returns the already-created company; a slug occupied by any other company is a conflict.",
+        "summary": "Create a company owned by the authenticated user. Takes only the business name and public slug; the unique numbering prefix is generated server-side from the name. Atomically inserts the company and the caller's owner membership and returns that membership with the company identity (id, name, slug, prefix) and an empty effective permissions array (owner-all is not enumerated). Re-submitting the identical name and slug by the same owner returns the already-created company; a slug occupied by any other company is a conflict.",
         "requestBody": {
           "required": true,
           "content": {
@@ -11863,6 +11863,12 @@
                       ],
                       "type": "string"
                     },
+                    "permissions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
                     "company": {
                       "type": "object",
                       "properties": {
@@ -11891,6 +11897,7 @@
                   "required": [
                     "membershipId",
                     "role",
+                    "permissions",
                     "company"
                   ]
                 }
@@ -13380,7 +13387,7 @@
     "/companies/listMine": {
       "post": {
         "operationId": "companies.listMine",
-        "summary": "List the authenticated user's own company memberships with each company's identity (id, name, slug, numbering prefix) and the caller's membership id and role, in stable creation order. Returns an empty list for an account with no memberships. Takes no input; the caller is derived from the verified session only.",
+        "summary": "List the authenticated user's own company memberships with each company's identity (id, name, slug, numbering prefix), the caller's membership id and role, and the caller's effective permission keys for that membership, in stable creation order. Returns an empty list for an account with no memberships. Takes no input; the caller is derived from the verified session only. Owner-all is not enumerated as a finite key list.",
         "requestBody": {
           "required": true,
           "content": {
@@ -13418,6 +13425,12 @@
                             ],
                             "type": "string"
                           },
+                          "permissions": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
                           "company": {
                             "type": "object",
                             "properties": {
@@ -13446,6 +13459,7 @@
                         "required": [
                           "membershipId",
                           "role",
+                          "permissions",
                           "company"
                         ]
                       }

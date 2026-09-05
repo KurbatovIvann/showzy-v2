@@ -30,11 +30,14 @@ import {
   bindOrderCreateMutate,
   type CreateOrderPayload,
 } from "../api/create";
-import { useListMine } from "../../companies/shared/list-mine";
+import { useAuthSession } from "../../../auth/session-provider";
+import {
+  refreshListMineAfterAuthorizationDenied,
+  useListMine,
+} from "../../companies/shared/list-mine";
 import {
   canCreateOrders,
   canFetchFileDownloadUrls,
-  isCompanyRole,
   orderCreateScreenActions,
 } from "../shared/order-permissions";
 import { EMPTY_ORDER_THUMBNAIL } from "../shared/order-thumbnails";
@@ -91,14 +94,14 @@ export function useOrderCreate(args: {
   const membership = (listMine.data?.memberships ?? []).find(
     (item) => item.company.id === activeCompanyId,
   );
-  const canCreate =
-    membership !== undefined &&
-    isCompanyRole(membership.role) &&
-    canCreateOrders(membership.role);
+  const auth = useAuthSession();
+  const sessionUserId =
+    auth.status === "authenticated" && auth.session !== null
+      ? auth.session.userId
+      : null;
+  const canCreate = membership !== undefined && canCreateOrders(membership);
   const canFetchThumbnails =
-    membership !== undefined &&
-    isCompanyRole(membership.role) &&
-    canFetchFileDownloadUrls(membership.role);
+    membership !== undefined && canFetchFileDownloadUrls(membership);
   const clientReady = activeCompanyId !== null;
   const loadState = classifyOrderFormLoad({ canCreate, clientReady });
 
@@ -249,6 +252,11 @@ export function useOrderCreate(args: {
     } catch (error: unknown) {
       setLastFailureKind(describeQueryFailure(error).kind);
       setLastWireCode(describeWireCode(error));
+      refreshListMineAfterAuthorizationDenied({
+        queryClient,
+        sessionUserId,
+        error,
+      });
       const conflictFields = mapVariantSelectionConflict(error);
       if (conflictFields !== null) {
         setPlannerErrors(conflictFields);

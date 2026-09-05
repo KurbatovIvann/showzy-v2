@@ -5,6 +5,7 @@ import {
   LIST_MINE_ACTION,
   listMineQueryKey,
   listMineQueryOptions,
+  refreshListMineAfterAuthorizationDenied,
 } from "./company-membership-query";
 import { ClientUnavailableError } from "./errors";
 import { createShowzyQueryClient } from "./query-client";
@@ -34,6 +35,61 @@ describe("listMineQueryOptions", () => {
         retry: false,
       }),
     ).rejects.toBeInstanceOf(ClientUnavailableError);
+    queryClient.clear();
+  });
+});
+
+describe("refreshListMineAfterAuthorizationDenied (SHO-438)", () => {
+  it("invalidates listMine on PERMISSION_DENIED and ignores other failures", () => {
+    const queryClient = createShowzyQueryClient({ retryDelay: () => 0 });
+    const key = listMineQueryKey("user-1");
+    queryClient.setQueryData(key, { memberships: [] });
+    refreshListMineAfterAuthorizationDenied({
+      queryClient,
+      sessionUserId: "user-1",
+      error: new Error("network"),
+    });
+    expect(queryClient.getQueryState(key)?.isInvalidated).toBe(false);
+    refreshListMineAfterAuthorizationDenied({
+      queryClient,
+      sessionUserId: null,
+      error: {
+        code: "PERMISSION_DENIED",
+        status: 403,
+        message: "denied",
+      },
+    });
+    expect(queryClient.getQueryState(key)?.isInvalidated).toBe(false);
+    refreshListMineAfterAuthorizationDenied({
+      queryClient,
+      sessionUserId: "user-1",
+      error: {
+        code: "PERMISSION_DENIED",
+        status: 403,
+        message: "denied",
+      },
+    });
+    expect(queryClient.getQueryState(key)?.isInvalidated).toBe(true);
+    queryClient.clear();
+  });
+
+  it("does not invalidate another account's listMine row", () => {
+    const queryClient = createShowzyQueryClient({ retryDelay: () => 0 });
+    const ownKey = listMineQueryKey("user-1");
+    const otherKey = listMineQueryKey("user-2");
+    queryClient.setQueryData(ownKey, { memberships: [] });
+    queryClient.setQueryData(otherKey, { memberships: [] });
+    refreshListMineAfterAuthorizationDenied({
+      queryClient,
+      sessionUserId: "user-1",
+      error: {
+        code: "PERMISSION_DENIED",
+        status: 403,
+        message: "denied",
+      },
+    });
+    expect(queryClient.getQueryState(ownKey)?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(otherKey)?.isInvalidated).toBe(false);
     queryClient.clear();
   });
 });

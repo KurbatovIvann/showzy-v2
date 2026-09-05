@@ -179,7 +179,10 @@ export type {
   SessionPrincipal,
   SystemScopeInput,
 } from "./runtime/context/factories.js";
-export { staffHasPermission } from "./runtime/context/permissions.js";
+export {
+  resolveEffectivePermissions,
+  staffHasPermission,
+} from "./runtime/context/permissions.js";
 export { SHARE_DURABLE_ACTOR } from "./runtime/context/types.js";
 export type {
   AccountCtx,

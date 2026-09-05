@@ -3,12 +3,14 @@ import { getRouteApi, useParams } from "@tanstack/react-router";
 
 import { useApiClient } from "../../../api/api-provider";
 import { useActiveCompany } from "../../../api/query-provider";
+import { useListMine } from "../../companies/shared/list-mine";
 import { ordersListQueryOptions } from "../api/list";
 import {
   LIST_ORDERS_QUERY_MAX,
   listOrdersPageInput,
   normalizeOrdersSearch,
 } from "../api/orders-list-search";
+import { canCreateOrders } from "../shared/order-permissions";
 import type { OrderLifecycleStatus } from "../shared/order-status";
 import { useOrdersCopy, useOrdersLocale } from "../shared/use-orders-copy";
 import {
@@ -22,6 +24,11 @@ const ordersRoute = getRouteApi("/_authed/$companySlug/_panel/orders");
 export function useOrdersList() {
   const client = useApiClient();
   const { activeCompanyId } = useActiveCompany();
+  const listMine = useListMine();
+  const membership = (listMine.data?.memberships ?? []).find(
+    (item) => item.company.id === activeCompanyId,
+  );
+  const showCreate = membership !== undefined && canCreateOrders(membership);
   const { companySlug } = ordersRoute.useParams();
   const search = ordersRoute.useSearch();
   const navigate = ordersRoute.useNavigate();
@@ -59,6 +66,7 @@ export function useOrdersList() {
     state,
     entries: groupOrderRows(rows),
     selectedOrderId,
+    showCreate,
     onSearchChange: (value: string) => {
       void navigate({
         search: (prev) => {

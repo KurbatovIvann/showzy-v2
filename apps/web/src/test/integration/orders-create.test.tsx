@@ -470,6 +470,27 @@ describe("orders create (SHO-379)", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
+  it("shows the permission empty state when orders:create is denied", async () => {
+    sessionState.user = signedInOwner();
+    listMineState.memberships = [
+      {
+        ...FLOWERS_MEMBERSHIP,
+        role: "employee",
+        permissions: ["orders:edit", "orders:view"],
+      },
+    ];
+    await renderApp("/kviti-lviv/orders/new");
+    expect(
+      await screen.findByRole("heading", {
+        name: copy.create.permissionTitle,
+      }),
+    ).toBeDefined();
+    expect(screen.getByText(copy.create.permissionDescription)).toBeDefined();
+    expect(
+      screen.queryByRole("button", { name: copy.create.submitCreate }),
+    ).toBeNull();
+  });
+
   it("maps PERMISSION_DENIED by error.code, never error.message", async () => {
     signInWithFlowers();
     seedCreateLookups();
@@ -486,6 +507,48 @@ describe("orders create (SHO-379)", () => {
       await screen.findByText(copy.create.errors.permission),
     ).toBeDefined();
     expect(screen.queryByText("do-not-match-this")).toBeNull();
+  });
+
+  it("refreshes listMine after PERMISSION_DENIED so stale create hides", async () => {
+    signInWithFlowers();
+    seedCreateLookups();
+    server.use(
+      http.post(`${PANEL_ORIGIN}/rpc/orders/create`, () =>
+        rpcErrorBody("PERMISSION_DENIED", 403, "do-not-match-this"),
+      ),
+    );
+    await renderApp("/kviti-lviv/orders/new");
+    await waitForCreateForm();
+    await pickCustomerAndProduct();
+    const listMineBefore = listMineState.calls.filter(
+      (call) => call.path === "/rpc/companies/listMine",
+    ).length;
+    listMineState.memberships = [
+      {
+        ...FLOWERS_MEMBERSHIP,
+        role: "employee",
+        permissions: ["orders:view"],
+      },
+    ];
+    submitCreateForm();
+    expect(
+      await screen.findByText(copy.create.errors.permission),
+    ).toBeDefined();
+    await waitFor(() => {
+      expect(
+        listMineState.calls.filter(
+          (call) => call.path === "/rpc/companies/listMine",
+        ).length,
+      ).toBeGreaterThan(listMineBefore);
+    });
+    expect(
+      await screen.findByRole("heading", {
+        name: copy.create.permissionTitle,
+      }),
+    ).toBeDefined();
+    expect(
+      screen.queryByRole("button", { name: copy.create.submitCreate }),
+    ).toBeNull();
   });
 
   it("maps VALIDATION issues onto fields by path, never by message", async () => {
@@ -633,6 +696,57 @@ describe("orders create (SHO-379)", () => {
       await screen.findByRole("button", { name: ROSE_PRODUCT.name }),
     ).toBeDefined();
     expect(listCalls).toBeGreaterThan(beforeRetry);
+  });
+
+  it("does not call getDownloadUrls on create without files:view", async () => {
+    sessionState.user = signedInOwner();
+    listMineState.memberships = [
+      {
+        ...FLOWERS_MEMBERSHIP,
+        role: "employee",
+        permissions: ["orders:create", "orders:edit", "orders:view"],
+      },
+    ];
+    listMineState.listOrdersItems = [ANNA_ORDER];
+    seedCustomer(ANNA_CUSTOMER);
+    seedProduct(ROSE_PRODUCT_WITH_IMAGE);
+    await renderApp("/kviti-lviv/orders/new");
+    await waitForCreateForm();
+    fireEvent.click(
+      screen.getByRole("button", { name: copy.create.addProductsPlaceholder }),
+    );
+    expect(
+      await screen.findByRole("button", { name: ROSE_PRODUCT.name }),
+    ).toBeDefined();
+    expect(listMineState.getDownloadUrlsCalls).toEqual([]);
+  });
+
+  it("loads picker thumbs when files:view is granted to a non-owner", async () => {
+    sessionState.user = signedInOwner();
+    listMineState.memberships = [
+      {
+        ...FLOWERS_MEMBERSHIP,
+        role: "employee",
+        permissions: [
+          "files:view",
+          "orders:create",
+          "orders:edit",
+          "orders:view",
+        ],
+      },
+    ];
+    listMineState.listOrdersItems = [ANNA_ORDER];
+    seedCustomer(ANNA_CUSTOMER);
+    seedProduct(ROSE_PRODUCT_WITH_IMAGE);
+    await renderApp("/kviti-lviv/orders/new");
+    await waitForCreateForm();
+    await waitFor(() => {
+      expect(listMineState.getDownloadUrlsCalls).toHaveLength(1);
+    });
+    expect(listMineState.getDownloadUrlsCalls[0]?.input).toMatchObject({
+      fileIds: [ROSE_FILE_ID],
+      rendition: "thumb",
+    });
   });
 
   it("loads picker thumbs via files.getDownloadUrls with rendition thumb", async () => {

@@ -118,6 +118,7 @@ function membership(id: string, name: string): CompanyMembership {
   return {
     membershipId: `membership-${id}`,
     role: "owner",
+    permissions: [],
     company: {
       id,
       name,

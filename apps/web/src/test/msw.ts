@@ -306,6 +306,7 @@ function membershipFromCreate(name: string, slug: string): CompanyMembership {
   return {
     membershipId: crypto.randomUUID(),
     role: "owner",
+    permissions: [],
     company: {
       id: crypto.randomUUID(),
       name,

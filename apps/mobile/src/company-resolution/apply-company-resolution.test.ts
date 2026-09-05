@@ -7,6 +7,7 @@ import { resolveCompany } from "./resolve-company";
 const membership: CompanyMembership = {
   membershipId: "membership-a",
   role: "owner",
+  permissions: [],
   company: {
     id: "company-a",
     name: "Alpha",

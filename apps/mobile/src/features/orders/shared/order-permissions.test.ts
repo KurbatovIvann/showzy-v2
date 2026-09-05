@@ -4,81 +4,113 @@ import {
   canCreateOrders,
   canEditOrders,
   canFetchFileDownloadUrls,
+  membershipHasPermission,
   orderCreateScreenActions,
   orderDetailActions,
   orderDetailPrimaryWrite,
   ordersHeaderActions,
 } from "./order-permissions";
 
-/**
- * Mirrors `packages/db/seed/role-permission-defaults.ts`: every staff
- * role holds `orders:view`, `orders:create`, and `orders:edit`; owners
- * hold everything implicitly. UI affordance only — the server
- * re-checks permissions.
- */
-describe("order permission affordances", () => {
-  it("shows the create control for every seeded role that holds orders:create", () => {
-    expect(canCreateOrders("owner")).toBe(true);
-    expect(canCreateOrders("admin")).toBe(true);
-    expect(canCreateOrders("manager")).toBe(true);
-    expect(canCreateOrders("employee")).toBe(true);
-  });
+const OWNER = { role: "owner" as const, permissions: [] };
+const ADMIN_DEFAULTS = {
+  role: "admin" as const,
+  permissions: ["files:view", "orders:create", "orders:edit", "orders:view"],
+};
+const MANAGER_DEFAULTS = {
+  role: "manager" as const,
+  permissions: ["files:view", "orders:create", "orders:edit", "orders:view"],
+};
+const EMPLOYEE_DEFAULTS = {
+  role: "employee" as const,
+  permissions: ["orders:create", "orders:edit", "orders:view"],
+};
 
-  it("skips thumbnail URL fetches without files:view", () => {
-    expect(canFetchFileDownloadUrls("owner")).toBe(true);
-    expect(canFetchFileDownloadUrls("admin")).toBe(true);
-    expect(canFetchFileDownloadUrls("manager")).toBe(true);
-    expect(canFetchFileDownloadUrls("employee")).toBe(false);
-  });
-
-  it("hides the plus control when orders:create is not granted", () => {
-    expect(ordersHeaderActions({ canCreate: false })).toEqual({
-      showCreate: false,
+describe("order create permission affordances (SHO-438)", () => {
+  it("shows create for owner-all and seeded default roles that hold orders:create", () => {
+    expect(canCreateOrders(OWNER)).toBe(true);
+    expect(canCreateOrders(ADMIN_DEFAULTS)).toBe(true);
+    expect(canCreateOrders(MANAGER_DEFAULTS)).toBe(true);
+    expect(canCreateOrders(EMPLOYEE_DEFAULTS)).toBe(true);
+    expect(orderCreateScreenActions({ canCreate: true })).toEqual({
+      showSubmit: true,
     });
     expect(ordersHeaderActions({ canCreate: true })).toEqual({
       showCreate: true,
     });
   });
 
-  it("hides the create submit when orders:create is not granted", () => {
+  it("hides create when orders:create is denied or missing from a non-owner", () => {
+    expect(
+      canCreateOrders({
+        role: "employee",
+        permissions: ["orders:edit", "orders:view"],
+      }),
+    ).toBe(false);
+    expect(canCreateOrders({ role: "employee" })).toBe(false);
+    expect(canCreateOrders({ role: "admin" })).toBe(false);
     expect(orderCreateScreenActions({ canCreate: false })).toEqual({
       showSubmit: false,
     });
-    expect(orderCreateScreenActions({ canCreate: true })).toEqual({
-      showSubmit: true,
+    expect(ordersHeaderActions({ canCreate: false })).toEqual({
+      showCreate: false,
     });
   });
+});
 
-  it("shows status writes for every seeded role that holds orders:edit", () => {
-    expect(canEditOrders("owner")).toBe(true);
-    expect(canEditOrders("admin")).toBe(true);
-    expect(canEditOrders("manager")).toBe(true);
-    expect(canEditOrders("employee")).toBe(true);
+describe("files:view download-url affordance", () => {
+  it("lets owner-all and seeded roles with files:view fetch signed URLs", () => {
+    expect(canFetchFileDownloadUrls(OWNER)).toBe(true);
+    expect(canFetchFileDownloadUrls(ADMIN_DEFAULTS)).toBe(true);
+    expect(canFetchFileDownloadUrls(MANAGER_DEFAULTS)).toBe(true);
   });
 
-  it("hides every write when orders:edit is not granted", () => {
-    const hidden = {
-      showConfirm: false,
-      showStart: false,
-      showComplete: false,
-      showActions: false,
-      cancelEnabled: false,
-    };
-    expect(orderDetailActions({ canEdit: false, status: "new" })).toEqual(
-      hidden,
-    );
-    expect(orderDetailActions({ canEdit: false, status: "confirmed" })).toEqual(
-      hidden,
-    );
+  it("skips getDownloadUrls without files:view and honors an explicit grant", () => {
+    expect(canFetchFileDownloadUrls(EMPLOYEE_DEFAULTS)).toBe(false);
     expect(
-      orderDetailActions({ canEdit: false, status: "in_progress" }),
-    ).toEqual(hidden);
-    expect(orderDetailActions({ canEdit: false, status: "done" })).toEqual(
-      hidden,
-    );
-    expect(orderDetailActions({ canEdit: false, status: "canceled" })).toEqual(
-      hidden,
-    );
+      canFetchFileDownloadUrls({
+        role: "employee",
+        permissions: ["files:view", "orders:view"],
+      }),
+    ).toBe(true);
+    expect(canFetchFileDownloadUrls({ role: "employee" })).toBe(false);
+  });
+});
+
+describe("order detail permission affordances (SHO-438)", () => {
+  it("shows status writes for owner-all and seeded roles that hold orders:edit", () => {
+    expect(canEditOrders(OWNER)).toBe(true);
+    expect(canEditOrders(ADMIN_DEFAULTS)).toBe(true);
+    expect(canEditOrders(MANAGER_DEFAULTS)).toBe(true);
+    expect(canEditOrders(EMPLOYEE_DEFAULTS)).toBe(true);
+  });
+
+  it("hides status writes when orders:edit is denied on the selected membership", () => {
+    expect(
+      canEditOrders({
+        role: "manager",
+        permissions: ["orders:create", "orders:view"],
+      }),
+    ).toBe(false);
+    expect(
+      canCreateOrders({
+        role: "manager",
+        permissions: ["orders:create", "orders:view"],
+      }),
+    ).toBe(true);
+  });
+
+  it("does not leak another company's capabilities through the helper", () => {
+    const flowers = OWNER;
+    const bakery = {
+      role: "employee" as const,
+      permissions: ["orders:view"],
+    };
+    expect(canCreateOrders(flowers)).toBe(true);
+    expect(canEditOrders(flowers)).toBe(true);
+    expect(canFetchFileDownloadUrls(flowers)).toBe(true);
+    expect(canCreateOrders(bakery)).toBe(false);
+    expect(canEditOrders(bakery)).toBe(false);
+    expect(canFetchFileDownloadUrls(bakery)).toBe(false);
   });
 
   it("maps one primary CTA per open status and enables cancel only while open", () => {
@@ -125,5 +157,39 @@ describe("order permission affordances", () => {
       showActions: true,
       cancelEnabled: false,
     });
+  });
+
+  it("hides every write when orders:edit is not granted", () => {
+    const hidden = {
+      showConfirm: false,
+      showStart: false,
+      showComplete: false,
+      showActions: false,
+      cancelEnabled: false,
+    };
+    expect(orderDetailActions({ canEdit: false, status: "new" })).toEqual(
+      hidden,
+    );
+    expect(orderDetailActions({ canEdit: false, status: "confirmed" })).toEqual(
+      hidden,
+    );
+    expect(
+      orderDetailActions({ canEdit: false, status: "in_progress" }),
+    ).toEqual(hidden);
+    expect(orderDetailActions({ canEdit: false, status: "done" })).toEqual(
+      hidden,
+    );
+    expect(orderDetailActions({ canEdit: false, status: "canceled" })).toEqual(
+      hidden,
+    );
+  });
+
+  it("treats unknown roles as a deny rather than granting every role", () => {
+    expect(
+      membershipHasPermission(
+        { role: "superadmin", permissions: [] },
+        "orders:create",
+      ),
+    ).toBe(false);
   });
 });

@@ -58,7 +58,7 @@ export function useOrderForm() {
   const apiClient = useApiClient();
   const { activeCompanyId } = useActiveCompany();
   const membership = useResolvedCompany();
-  const canCreate = canCreateOrders(membership.role);
+  const canCreate = canCreateOrders(membership);
 
   const {
     control,

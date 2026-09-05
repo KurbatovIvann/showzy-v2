@@ -19,7 +19,6 @@ import { resolveCustomerNameHydration } from "../shared/customer-name";
 import {
   canEditOrders,
   canFetchFileDownloadUrls,
-  isCompanyRole,
   orderDetailActions,
 } from "../shared/order-permissions";
 import { useOrdersCopy } from "../shared/use-orders-copy";
@@ -65,14 +64,9 @@ export function useOrderDetail(orderIdParam: string): OrderDetailModel {
   const membership = (listMine.data?.memberships ?? []).find(
     (item) => item.company.id === activeCompanyId,
   );
-  const canEdit =
-    membership !== undefined &&
-    isCompanyRole(membership.role) &&
-    canEditOrders(membership.role);
+  const canEdit = membership !== undefined && canEditOrders(membership);
   const canFetchThumbnails =
-    membership !== undefined &&
-    isCompanyRole(membership.role) &&
-    canFetchFileDownloadUrls(membership.role);
+    membership !== undefined && canFetchFileDownloadUrls(membership);
   const orderId = parseOrderId(orderIdParam);
   const query = useQuery(
     ordersGetQueryOptions({

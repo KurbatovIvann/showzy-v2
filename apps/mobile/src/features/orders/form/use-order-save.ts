@@ -5,7 +5,9 @@
  */
 import { useQueryClient } from "@tanstack/react-query";
 
+import { refreshListMineAfterAuthorizationDenied } from "../../../api/company-membership-query";
 import { useActiveCompany } from "../../../api/query-provider";
+import { useAuthSession } from "../../../auth/session-provider";
 import { useFormSave } from "../../../components/form-kit";
 import {
   bindOrderCreateMutate,
@@ -37,6 +39,8 @@ export function useOrderSave(args: {
 } {
   const { activeCompanyId } = useActiveCompany();
   const queryClient = useQueryClient();
+  const auth = useAuthSession();
+  const sessionUserId = auth.session?.userId ?? null;
 
   return useFormSave<
     OrderFormDraft,
@@ -44,7 +48,21 @@ export function useOrderSave(args: {
     CreateOrderResult,
     OrderFormFieldErrors
   >({
-    bindMutate: bindOrderCreateMutate,
+    bindMutate: (client) => {
+      const inner = bindOrderCreateMutate(client);
+      return async (input, options) => {
+        try {
+          return await inner(input, options);
+        } catch (error: unknown) {
+          refreshListMineAfterAuthorizationDenied({
+            queryClient,
+            sessionUserId,
+            error,
+          });
+          throw error;
+        }
+      };
+    },
     invalidate: () =>
       invalidateOrdersAfterCreate({
         queryClient,
