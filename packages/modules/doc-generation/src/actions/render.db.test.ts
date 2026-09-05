@@ -670,7 +670,9 @@ function withPutObjectFailures(remaining: { count: number }): () => void {
     copyObject: (input) => store.copyObject(input),
     deleteObject: (key) => store.deleteObject(key),
     probeBucket: () => store.probeBucket(),
-    close: () => store.close(),
+    close: () => {
+      store.close();
+    },
   }));
 }
 
@@ -1207,7 +1209,9 @@ describe("docGeneration.renderPdf garage", () => {
       copyObject: (input) => store.copyObject(input),
       deleteObject: (key) => store.deleteObject(key),
       probeBucket: () => store.probeBucket(),
-      close: () => store.close(),
+      close: () => {
+        store.close();
+      },
     }));
     try {
       await expect(
