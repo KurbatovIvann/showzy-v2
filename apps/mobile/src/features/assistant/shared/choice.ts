@@ -12,6 +12,11 @@ export const CHOICE_TRUNCATED_COPY = {
   uk: "Є ще варіанти. Напишіть точну назву смаку.",
 } as const;
 
+export const CHOICE_TRUNCATED_MATCH_COPY = {
+  en: "More matches exist. Reply with the exact name.",
+  uk: "Є ще збіги. Напишіть точну назву.",
+} as const;
+
 export const CHOICE_CLAIMED_COPY = {
   en: "This choice is already in progress. Continue to finish it.",
   uk: "Цей вибір уже в процесі. Продовжіть, щоб завершити.",
@@ -33,6 +38,7 @@ export const staffAssistantChoiceCardEnvelopeSchema = z.strictObject({
       "no_active_variants",
     ])
     .optional(),
+  choiceKind: z.enum(["variant", "product", "customer"]).optional(),
   productName: z.string().min(1).optional(),
   options: z
     .array(
@@ -119,6 +125,9 @@ export function choiceEnvelopeForWire(
     status: nested.status,
     challengeId: nested.challengeId,
     ...(typeof nested.reason === "string" ? { reason: nested.reason } : {}),
+    ...(typeof nested.choiceKind === "string"
+      ? { choiceKind: nested.choiceKind }
+      : {}),
     ...(typeof nested.productName === "string"
       ? { productName: nested.productName }
       : {}),
@@ -138,12 +147,30 @@ export function presentChoiceCardText(
 ): string {
   const labels = envelope.options.map((option) => option.label).join(", ");
   const name = envelope.productName ?? "";
-  const intro =
-    locale === "uk"
-      ? `Оберіть варіант для ${name}: ${labels}.`
-      : `Select a variant for ${name}: ${labels}.`;
+  const kind = envelope.choiceKind ?? "variant";
+  let intro: string;
+  if (kind === "customer") {
+    intro =
+      locale === "uk"
+        ? `Оберіть клієнта «${name}»: ${labels}.`
+        : `Select a customer matching ${name}: ${labels}.`;
+  } else if (kind === "product") {
+    intro =
+      locale === "uk"
+        ? `Оберіть товар «${name}»: ${labels}.`
+        : `Select a product matching ${name}: ${labels}.`;
+  } else {
+    intro =
+      locale === "uk"
+        ? `Оберіть варіант для ${name}: ${labels}.`
+        : `Select a variant for ${name}: ${labels}.`;
+  }
   if (envelope.optionsTruncated) {
-    return `${intro} ${CHOICE_TRUNCATED_COPY[locale]}`;
+    const truncated =
+      kind === "variant"
+        ? CHOICE_TRUNCATED_COPY[locale]
+        : CHOICE_TRUNCATED_MATCH_COPY[locale];
+    return `${intro} ${truncated}`;
   }
   return intro;
 }

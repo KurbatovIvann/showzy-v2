@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { ENTITY_REF_QUERY_MAX } from "@showzy/validation/entity-ref";
+import {
+  ENTITY_REF_QUERY_MAX,
+  REFERENCE_CONFLICT_LABELS_MAX,
+} from "@showzy/validation/entity-ref";
 
 import {
+  CUSTOMER_REFERENCE_OPTIONS_MAX,
   RESOLVE_CUSTOMER_REFERENCE_QUERY_MAX,
   resolveCustomerReferenceContract,
 } from "./resolve-customer-reference.contract.js";
@@ -27,6 +31,10 @@ describe("customers.resolveCustomerReference contract", () => {
     expect(resolveCustomerReferenceContract.timeout).toBe(5_000);
     expect(RESOLVE_CUSTOMER_REFERENCE_QUERY_MAX).toBe(ENTITY_REF_QUERY_MAX);
     expect(RESOLVE_CUSTOMER_REFERENCE_QUERY_MAX).toBe(100);
+    expect(CUSTOMER_REFERENCE_OPTIONS_MAX).toBe(20);
+    expect(CUSTOMER_REFERENCE_OPTIONS_MAX).not.toBe(
+      REFERENCE_CONFLICT_LABELS_MAX,
+    );
   });
 
   it("accepts id or query and rejects extras, blank query, and companyId", () => {

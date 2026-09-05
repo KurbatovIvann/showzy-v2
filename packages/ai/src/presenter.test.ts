@@ -4,6 +4,7 @@ import { STAFF_ASSISTANT_CLIPPED_STATUS } from "./clip-tool-result.js";
 import { STAFF_ASSISTANT_CONFIRMATION_FALLBACK_TEXT } from "./confirmation.js";
 import {
   CHOICE_TRUNCATED_COPY,
+  CHOICE_TRUNCATED_MATCH_COPY,
   presentChoiceStaffAssistantNeedsChoice,
   presentChoiceStaffAssistantTurn,
   presentCompletedStaffAssistantTurn,
@@ -546,6 +547,84 @@ describe("presentChoiceStaffAssistantNeedsChoice", () => {
         record: successorRecord(true),
       }).text,
     ).toContain(CHOICE_TRUNCATED_COPY.en);
+  });
+
+  it("presents product and customer pickers without Multiple matches prose", () => {
+    const productOutput = {
+      status: "needs_choice" as const,
+      challengeId,
+      reason: "ambiguous" as const,
+      choiceKind: "product" as const,
+      productName: "макаронс",
+      options: [{ id: optionA, label: "Макаронси" }],
+      optionsTruncated: false,
+    };
+    const customerOutput = {
+      status: "needs_choice" as const,
+      challengeId,
+      reason: "ambiguous" as const,
+      choiceKind: "customer" as const,
+      productName: "Katya",
+      options: [
+        { id: optionA, label: "Katya (…2233)" },
+        { id: optionB, label: "Katya (…5566)" },
+      ],
+      optionsTruncated: false,
+    };
+    expect(
+      presentChoiceStaffAssistantTurn({
+        locale: "en",
+        toolResults: [
+          { toolName: ORDERS_CREATE_TOOL_NAME, output: productOutput },
+        ],
+      }),
+    ).toBe("Select a product matching макаронс: Макаронси.");
+    expect(
+      presentChoiceStaffAssistantTurn({
+        locale: "uk",
+        toolResults: [
+          { toolName: ORDERS_CREATE_TOOL_NAME, output: productOutput },
+        ],
+      }),
+    ).toBe("Оберіть товар «макаронс»: Макаронси.");
+    expect(
+      presentChoiceStaffAssistantTurn({
+        locale: "en",
+        toolResults: [
+          { toolName: ORDERS_CREATE_TOOL_NAME, output: customerOutput },
+        ],
+      }),
+    ).toBe("Select a customer matching Katya: Katya (…2233), Katya (…5566).");
+    expect(
+      presentChoiceStaffAssistantTurn({
+        locale: "en",
+        toolResults: [
+          {
+            toolName: ORDERS_CREATE_TOOL_NAME,
+            output: { ...productOutput, optionsTruncated: true },
+          },
+        ],
+      }),
+    ).toContain(CHOICE_TRUNCATED_MATCH_COPY.en);
+    expect(
+      presentChoiceStaffAssistantTurn({
+        locale: "uk",
+        toolResults: [
+          {
+            toolName: ORDERS_CREATE_TOOL_NAME,
+            output: { ...customerOutput, optionsTruncated: true },
+          },
+        ],
+      }),
+    ).toContain(CHOICE_TRUNCATED_MATCH_COPY.uk);
+    expect(
+      presentChoiceStaffAssistantTurn({
+        locale: "en",
+        toolResults: [
+          { toolName: ORDERS_CREATE_TOOL_NAME, output: productOutput },
+        ],
+      }),
+    ).not.toContain("Multiple matches");
   });
 });
 

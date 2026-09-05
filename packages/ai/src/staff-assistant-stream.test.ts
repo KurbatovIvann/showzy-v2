@@ -45,6 +45,7 @@ import {
 } from "./staff-assistant-stream.js";
 import {
   CHOICE_TRUNCATED_COPY,
+  CHOICE_TRUNCATED_MATCH_COPY,
   presentCompletedStaffAssistantTurn,
   STAFF_ASSISTANT_DEFAULT_LOCALE,
 } from "./presenter.js";
@@ -1641,6 +1642,62 @@ describe("streamStaffAssistantChat", () => {
     }
   }
 
+  class DuckTypedProductConflict extends ConflictError {
+    readonly reason = "ambiguous" as const;
+    readonly target: {
+      readonly kind: "order_line_product";
+      readonly lineIndex: number;
+      readonly query: string;
+    };
+    readonly options: readonly {
+      readonly id: string;
+      readonly label: string;
+    }[];
+    readonly optionsTruncated: boolean;
+
+    constructor(args: {
+      readonly query: string;
+      readonly options: readonly {
+        readonly id: string;
+        readonly label: string;
+      }[];
+      readonly optionsTruncated?: boolean;
+    }) {
+      super(`Select a product matching "${args.query}".`);
+      this.target = {
+        kind: "order_line_product",
+        lineIndex: 0,
+        query: args.query,
+      };
+      this.options = args.options;
+      this.optionsTruncated = args.optionsTruncated ?? false;
+    }
+  }
+
+  class DuckTypedCustomerConflict extends ConflictError {
+    readonly reason = "ambiguous" as const;
+    readonly target: { readonly kind: "customer"; readonly query: string };
+    readonly options: readonly {
+      readonly id: string;
+      readonly label: string;
+    }[];
+    readonly optionsTruncated: boolean;
+
+    constructor(args: {
+      readonly query: string;
+      readonly options: readonly {
+        readonly id: string;
+        readonly label: string;
+      }[];
+      readonly optionsTruncated?: boolean;
+    }) {
+      super(`Select a customer matching "${args.query}".`);
+      this.target = { kind: "customer", query: args.query };
+      this.options = args.options;
+      this.optionsTruncated = args.optionsTruncated ?? false;
+    }
+  }
+
   const lemonVariant = "55555555-5555-4555-8555-555555555555";
   const vanillaVariant = "66666666-6666-4666-8666-666666666666";
   const pickerOptions = [
@@ -1750,6 +1807,91 @@ describe("streamStaffAssistantChat", () => {
     expect(turn.text).toContain(CHOICE_TRUNCATED_COPY.en);
     expect(turn.text).toContain("Lemon");
     expect(turn.text).toContain("Vanilla");
+  });
+
+  it("forwards product and customer choiceKind on live data-choice with match truncated copy", async () => {
+    const productIdA = "77777777-7777-4777-8777-777777777777";
+    const productIdB = "88888888-8888-4888-8888-888888888888";
+    const customerTwinA = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const customerTwinB = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    const cases = [
+      {
+        kind: "product" as const,
+        spoken: "Select a product matching макаронс:",
+        input: {
+          customerQuery: "Леха",
+          items: [{ productQuery: "макаронс", quantityDecimal: "10" }],
+        },
+        error: new DuckTypedProductConflict({
+          query: "макаронс",
+          options: [
+            { id: productIdA, label: "Макаронси" },
+            { id: productIdB, label: "Macarons" },
+          ],
+          optionsTruncated: true,
+        }),
+      },
+      {
+        kind: "customer" as const,
+        spoken: "Select a customer matching Katya:",
+        input: {
+          customerQuery: "Katya",
+          items: [{ productQuery: "Cake", quantityDecimal: "1" }],
+        },
+        error: new DuckTypedCustomerConflict({
+          query: "Katya",
+          options: [
+            { id: customerTwinA, label: "Katya (…2233)" },
+            { id: customerTwinB, label: "Katya (…5566)" },
+          ],
+          optionsTruncated: true,
+        }),
+      },
+    ];
+    for (const testCase of cases) {
+      const execute = vi.fn(() => Promise.reject(testCase.error));
+      const model = new MockLanguageModelV3({
+        doStream: [
+          mockToolCallStream(
+            "call-create",
+            ORDERS_CREATE_TOOL_NAME,
+            JSON.stringify(testCase.input),
+          ),
+        ],
+      });
+      const { response, completion } = streamStaffAssistantChat({
+        model,
+        messages: [{ role: "user", content: "create an order" }],
+        contracts: [createOrder],
+        execute,
+        locale: "en",
+      });
+      const payloads = await readUiMessageSsePayloads(response);
+      const turn = await completion;
+      const choiceChunks = payloads.filter((payload) => {
+        return (
+          typeof payload === "object" &&
+          payload !== null &&
+          "type" in payload &&
+          payload.type === "data-choice"
+        );
+      });
+      expect(choiceChunks.length).toBeGreaterThanOrEqual(1);
+      const envelope = choiceChunks
+        .map((chunk) => {
+          if (!isRecord(chunk) || !isRecord(chunk.data)) {
+            return undefined;
+          }
+          return chunk.data;
+        })
+        .find((data) => data !== undefined);
+      expect(envelope?.choiceKind).toBe(testCase.kind);
+      expect(turn.toolRuns[0]?.outcome).toBe("choice_required");
+      expect(turn.text).toContain(testCase.spoken);
+      expect(turn.text).not.toContain("Select a variant");
+      expect(turn.text).toContain(CHOICE_TRUNCATED_MATCH_COPY.en);
+      expect(turn.text).not.toContain(CHOICE_TRUNCATED_COPY.en);
+    }
   });
 
   it("returns an ordinary error when openChoice SET NX fails", async () => {

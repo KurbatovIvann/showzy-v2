@@ -1,13 +1,11 @@
 import type { ActionCtx } from "@showzy/core";
-import { ConflictError, NotFoundError } from "@showzy/core/errors";
+import { NotFoundError } from "@showzy/core/errors";
 import { products, productVariants } from "@showzy/db/schema/catalog";
 import { uniqueIds } from "@showzy/module-kit/unique-ids";
 import {
   candidatesContainingQuery,
-  formatReferenceConflictMessage,
   normalizeReferenceQuery,
   pickUniqueNormalizedMatch,
-  REFERENCE_CONFLICT_LABELS_MAX,
   type EntityRef,
 } from "@showzy/validation/entity-ref";
 import {
@@ -23,6 +21,7 @@ import {
   type VariantSelection,
 } from "../actions/resolve-line-references.contract.js";
 import {
+  ambiguousProductQueryMessage,
   ambiguousVariantQueryMessage,
   noActiveVariantsMessage,
   ReferenceResolutionConflictError,
@@ -97,20 +96,50 @@ function mergeProductCandidates(
   return [...byId.values()];
 }
 
-function productLabel(row: ProductCandidate): string {
+function compareProductNameThenId(
+  left: ProductCandidate,
+  right: ProductCandidate,
+): number {
+  const byName = left.name.localeCompare(right.name);
+  if (byName !== 0) {
+    return byName;
+  }
+  const byCurrency = left.currency.localeCompare(right.currency);
+  if (byCurrency !== 0) {
+    return byCurrency;
+  }
+  return left.id.localeCompare(right.id);
+}
+
+function productOptionLabel(
+  row: ProductCandidate,
+  siblings: readonly ProductCandidate[],
+): string {
+  const sameName = siblings.filter((candidate) => candidate.name === row.name);
+  if (sameName.length === 1) {
+    return row.name;
+  }
+  const sameNameCurrency = sameName.filter(
+    (candidate) => candidate.currency === row.currency,
+  );
+  if (sameNameCurrency.length === 1) {
+    return `${row.name} (${row.currency})`;
+  }
   return `${row.name} (${row.currency}, ${row.id})`;
 }
 
-function conflictLabels<T>(
-  query: string,
-  rows: readonly T[],
-  labelOf: (row: T) => string,
-): ConflictError {
-  const labels = [...rows]
-    .map(labelOf)
-    .toSorted((left, right) => left.localeCompare(right))
-    .slice(0, REFERENCE_CONFLICT_LABELS_MAX);
-  return new ConflictError(formatReferenceConflictMessage(query, labels));
+function pickerFromProducts(rows: readonly ProductCandidate[]): {
+  readonly options: readonly VariantSelectionOption[];
+  readonly optionsTruncated: boolean;
+} {
+  const sorted = [...rows].toSorted(compareProductNameThenId);
+  return {
+    options: sorted.slice(0, VARIANT_SELECTION_OPTIONS_MAX).map((row) => ({
+      id: row.id,
+      label: productOptionLabel(row, sorted),
+    })),
+    optionsTruncated: sorted.length > VARIANT_SELECTION_OPTIONS_MAX,
+  };
 }
 
 function variantSelectionOf(line: LineReferenceInput): VariantSelection {
@@ -143,6 +172,25 @@ function pickerFromVariants(rows: readonly VariantCandidate[]): {
     })),
     optionsTruncated: sorted.length > VARIANT_SELECTION_OPTIONS_MAX,
   };
+}
+
+function throwProductSelectionConflict(args: {
+  readonly lineIndex: number;
+  readonly query: string;
+  readonly optionsSource: readonly ProductCandidate[];
+}): never {
+  const picker = pickerFromProducts(args.optionsSource);
+  throw new ReferenceResolutionConflictError({
+    reason: "ambiguous",
+    target: {
+      kind: "order_line_product",
+      lineIndex: args.lineIndex,
+      query: args.query,
+    },
+    options: picker.options,
+    optionsTruncated: picker.optionsTruncated,
+    clientMessage: ambiguousProductQueryMessage(args.query),
+  });
 }
 
 function throwVariantSelectionConflict(args: {
@@ -284,6 +332,7 @@ async function loadVariantsForProducts(
 
 function resolveProductRef(
   ref: EntityRef,
+  lineIndex: number,
   byId: ReadonlyMap<string, ProductCandidate>,
   queryCandidates: readonly ProductCandidate[],
 ): ProductCandidate {
@@ -306,7 +355,11 @@ function resolveProductRef(
     throw new NotFoundError();
   }
   if (picked.kind === "ambiguous") {
-    throw conflictLabels(ref.value, picked.rows, productLabel);
+    throwProductSelectionConflict({
+      lineIndex,
+      query: ref.value,
+      optionsSource: picked.rows,
+    });
   }
   return picked.row;
 }
@@ -422,8 +475,9 @@ function resolveLineVariant(
  * Bounded reads: at most one product-id SELECT, one active exact-name
  * SELECT (uncapped), one contains statement that caps candidates per
  * input query string (not one shared LIMIT across the OR), and one
- * variant SELECT for the resolved product ids. Never one SELECT per
- * input line and never a nested action call.
+ * variant SELECT for candidate product ids. Never one SELECT per
+ * input line and never a nested action call. Product-level conflict on
+ * a line is thrown before that line's variant conflict.
  */
 export async function resolveCatalogLineReferences(args: {
   readonly db: StaffDb;
@@ -450,24 +504,15 @@ export async function resolveCatalogLineReferences(args: {
   ]);
   const byId = new Map(idRows.map((row) => [row.id, row]));
   const queryRows = mergeProductCandidates(exactRows, containsRows);
-
-  const resolvedProducts: ProductCandidate[] = [];
-  for (const line of args.lines) {
-    resolvedProducts.push(resolveProductRef(line.product, byId, queryRows));
-  }
-
-  const resolvedProductIds = uniqueIds(resolvedProducts.map((row) => row.id));
+  const candidateProducts = mergeProductCandidates(idRows, queryRows);
   const variants = await loadVariantsForProducts(
     args.db,
     args.companyId,
-    resolvedProductIds,
+    uniqueIds(candidateProducts.map((row) => row.id)),
   );
 
   return args.lines.map((line, index) => {
-    const product = resolvedProducts[index];
-    if (product === undefined) {
-      throw new NotFoundError();
-    }
+    const product = resolveProductRef(line.product, index, byId, queryRows);
     return resolveLineVariant(line, index, product, variants);
   });
 }

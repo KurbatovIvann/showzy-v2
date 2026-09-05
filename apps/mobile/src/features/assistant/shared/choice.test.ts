@@ -6,6 +6,7 @@ import {
   CHOICE_CLAIMED_COPY,
   CHOICE_RETRY_COPY,
   CHOICE_TRUNCATED_COPY,
+  CHOICE_TRUNCATED_MATCH_COPY,
   claimedOptionLabel,
   claimedRetryOptionId,
   choiceEnvelopeForWire,
@@ -97,6 +98,8 @@ describe("choice truncated copy", () => {
     const uk = assistantCopy("uk");
     expect(en.choiceTruncated).toBe(CHOICE_TRUNCATED_COPY.en);
     expect(uk.choiceTruncated).toBe(CHOICE_TRUNCATED_COPY.uk);
+    expect(en.choiceTruncatedMatch).toBe(CHOICE_TRUNCATED_MATCH_COPY.en);
+    expect(uk.choiceTruncatedMatch).toBe(CHOICE_TRUNCATED_MATCH_COPY.uk);
     expect(en.choiceClaimed).toBe(CHOICE_CLAIMED_COPY.en);
     expect(uk.choiceClaimed).toBe(CHOICE_CLAIMED_COPY.uk);
     expect(en.choiceRetry).toBe(CHOICE_RETRY_COPY.en);
@@ -104,6 +107,31 @@ describe("choice truncated copy", () => {
     expect(
       presentChoiceCardText({ ...openEnvelope, optionsTruncated: true }, "en"),
     ).toContain(CHOICE_TRUNCATED_COPY.en);
+    expect(
+      presentChoiceCardText(
+        {
+          ...openEnvelope,
+          reason: "ambiguous",
+          choiceKind: "product",
+          productName: "макаронс",
+          options: [{ id: lemonId, label: "Макаронси" }],
+        },
+        "en",
+      ),
+    ).toBe("Select a product matching макаронс: Макаронси.");
+    expect(
+      presentChoiceCardText(
+        {
+          ...openEnvelope,
+          reason: "ambiguous",
+          choiceKind: "customer",
+          productName: "Katya",
+          options: [{ id: lemonId, label: "Katya (…2233)" }],
+          optionsTruncated: true,
+        },
+        "uk",
+      ),
+    ).toContain(CHOICE_TRUNCATED_MATCH_COPY.uk);
   });
 
   it("does not import @showzy/ai from ChoiceCard", () => {

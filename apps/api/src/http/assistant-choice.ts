@@ -404,8 +404,8 @@ export async function executeStaffAssistantChoiceResume(
     }
 
     const record = claimed.record;
-    const variantId = resolveMappedVariantId(record.optionMap, body.optionId);
-    if (variantId === undefined) {
+    const mappedId = resolveMappedVariantId(record.optionMap, body.optionId);
+    if (mappedId === undefined) {
       return interactionResponse(
         errorResult("CHOICE_INVALID_OPTION", "That option is not available."),
         options.requestId,
@@ -413,8 +413,8 @@ export async function executeStaffAssistantChoiceResume(
     }
     const patched = applyChoiceOptionToCanonicalInput(
       record.canonicalInput,
-      record.target.lineIndex,
-      variantId,
+      record.target,
+      mappedId,
     );
     const locale = record.locale ?? STAFF_ASSISTANT_DEFAULT_LOCALE;
     const toolCallId = choiceToolCallId(record.choiceId);
@@ -469,41 +469,41 @@ export async function executeStaffAssistantChoiceResume(
         options.requestId,
       );
     } catch (error) {
-      if (error instanceof ReferenceResolutionConflictError) {
-        const extras = catalogPickerConflictExtrasFromError(error);
-        if (extras !== undefined) {
-          const next = await openSuccessorChoice({
-            store: options.choiceStore,
-            parent: record,
-            patchedInput: patched,
-            extras,
+      const extras = catalogPickerConflictExtrasFromError(error);
+      if (extras !== undefined) {
+        const next = await openSuccessorChoice({
+          store: options.choiceStore,
+          parent: record,
+          patchedInput: patched,
+          extras,
+        });
+        if (next !== undefined) {
+          const needsChoice = presentChoiceStaffAssistantNeedsChoice({
+            locale,
+            record: next,
           });
-          if (next !== undefined) {
-            const needsChoice = presentChoiceStaffAssistantNeedsChoice({
-              locale,
-              record: next,
-            });
-            await persistChoiceTurn({
-              pipeline: options.pipeline,
-              conversationId: conversation.id,
-              choiceId: record.choiceId,
-              requestId: options.requestId,
-              clientIp: options.clientIp,
-              principal: staffPrincipal,
-              body: needsChoice.text,
-              toolCallId: choiceToolCallId(next.choiceId),
-              challengeId: next.choiceId,
-              resultIds: [],
-              outcome: "choice_required",
-            });
-            await options.choiceStore.complete({
-              choiceId: record.choiceId,
-              bind,
-              optionId: body.optionId,
-            });
-            return interactionResponse(needsChoice, options.requestId);
-          }
+          await persistChoiceTurn({
+            pipeline: options.pipeline,
+            conversationId: conversation.id,
+            choiceId: record.choiceId,
+            requestId: options.requestId,
+            clientIp: options.clientIp,
+            principal: staffPrincipal,
+            body: needsChoice.text,
+            toolCallId: choiceToolCallId(next.choiceId),
+            challengeId: next.choiceId,
+            resultIds: [],
+            outcome: "choice_required",
+          });
+          await options.choiceStore.complete({
+            choiceId: record.choiceId,
+            bind,
+            optionId: body.optionId,
+          });
+          return interactionResponse(needsChoice, options.requestId);
         }
+      }
+      if (error instanceof ReferenceResolutionConflictError) {
         await persistChoiceTurn({
           pipeline: options.pipeline,
           conversationId: conversation.id,

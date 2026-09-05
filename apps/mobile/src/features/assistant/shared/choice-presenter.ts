@@ -54,6 +54,7 @@ export type ChoiceSelectResult = {
   readonly text?: string | undefined;
   readonly challengeId?: string | undefined;
   readonly reason?: string | undefined;
+  readonly choiceKind?: "variant" | "product" | "customer" | undefined;
   readonly productName?: string | undefined;
   readonly options?:
     readonly { readonly id: string; readonly label: string }[] | undefined;
@@ -216,6 +217,11 @@ function needsChoiceEnvelopeFromSelectResult(
     status: "needs_choice",
     challengeId: result.challengeId,
     ...(typeof result.reason === "string" ? { reason: result.reason } : {}),
+    ...(result.choiceKind === "variant" ||
+    result.choiceKind === "product" ||
+    result.choiceKind === "customer"
+      ? { choiceKind: result.choiceKind }
+      : {}),
     ...(typeof result.productName === "string"
       ? { productName: result.productName }
       : {}),

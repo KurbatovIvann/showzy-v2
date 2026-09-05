@@ -18,7 +18,24 @@ import { companyMembers } from "@showzy/db/schema/companies";
 import { companyCustomers } from "@showzy/db/schema/customers";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import {
+  CustomerReferenceConflictError,
+  ambiguousCustomerQueryMessage,
+} from "../services/reference-resolution-conflict.js";
 import { resolveCustomerReference } from "./resolve-customer-reference.js";
+
+function expectCustomerConflict(
+  error: unknown,
+): CustomerReferenceConflictError {
+  expect(error).toBeInstanceOf(CustomerReferenceConflictError);
+  expect(error).toBeInstanceOf(ConflictError);
+  if (!(error instanceof CustomerReferenceConflictError)) {
+    throw new Error("expected CustomerReferenceConflictError");
+  }
+  expect(error.code).toBe("CONFLICT");
+  expect(error.reason).toBe("ambiguous");
+  return error;
+}
 
 const fixtures = {
   alpha: randomUUID(),
@@ -154,23 +171,29 @@ describe("customers.resolveCustomerReference", () => {
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 
-  it("conflicts on an ambiguous name with at most five discriminated labels and no notes", async () => {
+  it("conflicts on an ambiguous name with structured options and no notes", async () => {
     const error = await kit
       .invoke(resolveCustomerReference, { by: "query", value: "Katya" })
       .then(
         () => {
-          throw new Error("expected ConflictError");
+          throw new Error("expected CustomerReferenceConflictError");
         },
         (caught: unknown) => caught,
       );
-    expect(error).toBeInstanceOf(ConflictError);
-    if (!(error instanceof ConflictError)) {
-      return;
-    }
-    expect(error.clientMessage).toContain("…2233");
-    expect(error.clientMessage).toContain("…5566");
-    expect(error.clientMessage).not.toContain("secret-note");
-    expect(error.clientMessage).not.toContain(fixtures.twinA);
+    const conflict = expectCustomerConflict(error);
+    expect(conflict.target).toEqual({ kind: "customer", query: "Katya" });
+    expect(conflict.options.map((option) => option.id).toSorted()).toEqual(
+      [fixtures.twinA, fixtures.twinB].toSorted(),
+    );
+    expect(conflict.options.map((option) => option.label).toSorted()).toEqual([
+      "Katya (…2233)",
+      "Katya (…5566)",
+    ]);
+    expect(conflict.optionsTruncated).toBe(false);
+    expect(conflict.clientMessage).toBe(ambiguousCustomerQueryMessage("Katya"));
+    expect(conflict.clientMessage).not.toContain("Multiple matches");
+    expect(conflict.clientMessage).not.toContain("secret-note");
+    expect(JSON.stringify(conflict.options)).not.toContain("secret-note");
   });
 
   it("adds the canonical id to conflict labels when phone and email are missing", async () => {
@@ -199,23 +222,50 @@ describe("customers.resolveCustomerReference", () => {
       })
       .then(
         () => {
-          throw new Error("expected ConflictError");
+          throw new Error("expected CustomerReferenceConflictError");
         },
         (caught: unknown) => caught,
       );
-    expect(error).toBeInstanceOf(ConflictError);
-    if (!(error instanceof ConflictError)) {
-      return;
-    }
-    expect(error.clientMessage).toContain(firstId);
-    expect(error.clientMessage).toContain(secondId);
-    expect(error.clientMessage).not.toContain("…");
+    const conflict = expectCustomerConflict(error);
+    expect(conflict.options.map((option) => option.label).toSorted()).toEqual(
+      [`IdOnly Twin (${firstId})`, `IdOnly Twin (${secondId})`].toSorted(),
+    );
+    expect(conflict.clientMessage).not.toContain("…");
+    expect(conflict.clientMessage).not.toContain("Multiple matches");
   });
 
-  it("conflicts on a contains-only hit and never auto-chooses", async () => {
-    await expect(
-      kit.invoke(resolveCustomerReference, { by: "query", value: "Cake" }),
-    ).rejects.toBeInstanceOf(ConflictError);
+  it("opens a one-option picker for a contains-only customer hit and never auto-chooses", async () => {
+    const error = await kit
+      .invoke(resolveCustomerReference, { by: "query", value: "Alpha" })
+      .then(
+        () => {
+          throw new Error("expected CustomerReferenceConflictError");
+        },
+        (caught: unknown) => caught,
+      );
+    const conflict = expectCustomerConflict(error);
+    expect(conflict.target).toEqual({ kind: "customer", query: "Alpha" });
+    expect(conflict.options).toEqual([
+      { id: fixtures.alpha, label: "Alpha Cake (…1111)" },
+    ]);
+    expect(conflict.optionsTruncated).toBe(false);
+    expect(conflict.clientMessage).toBe(ambiguousCustomerQueryMessage("Alpha"));
+    expect(conflict.clientMessage).not.toContain("Multiple matches");
+  });
+
+  it("conflicts on contains-only customer hits and never auto-chooses", async () => {
+    const error = await kit
+      .invoke(resolveCustomerReference, { by: "query", value: "Cake" })
+      .then(
+        () => {
+          throw new Error("expected CustomerReferenceConflictError");
+        },
+        (caught: unknown) => caught,
+      );
+    const conflict = expectCustomerConflict(error);
+    expect(conflict.target).toEqual({ kind: "customer", query: "Cake" });
+    expect(conflict.options.length).toBeGreaterThan(1);
+    expect(conflict.clientMessage).not.toContain("Multiple matches");
   });
 
   it("returns not-found for a missing id, a foreign id, and a zero query", async () => {
@@ -289,7 +339,7 @@ describe("customers.resolveCustomerReference", () => {
     ).rejects.toBeInstanceOf(ValidationError);
   });
 
-  it("lists at most five conflict labels when more customers contain the query", async () => {
+  it("caps picker options separately from REFERENCE_CONFLICT_LABELS_MAX", async () => {
     await kit.db.runtime.db.insert(companyCustomers).values(
       Array.from({ length: 6 }, (_, index) => ({
         id: randomUUID(),
@@ -303,17 +353,25 @@ describe("customers.resolveCustomerReference", () => {
       .invoke(resolveCustomerReference, { by: "query", value: "MatchCap" })
       .then(
         () => {
-          throw new Error("expected ConflictError");
+          throw new Error("expected CustomerReferenceConflictError");
         },
         (caught: unknown) => caught,
       );
-    expect(error).toBeInstanceOf(ConflictError);
-    if (!(error instanceof ConflictError)) {
-      return;
-    }
-    const labels = [...error.clientMessage.matchAll(/MatchCap \d/g)];
-    expect(labels.length).toBe(5);
-    expect(error.clientMessage).not.toContain("MatchCap 5");
+    const conflict = expectCustomerConflict(error);
+    expect(conflict.options).toHaveLength(6);
+    expect(conflict.optionsTruncated).toBe(false);
+    expect(conflict.options.map((option) => option.label)).toEqual([
+      "MatchCap 0 (matchcap-0@kit.test)",
+      "MatchCap 1 (matchcap-1@kit.test)",
+      "MatchCap 2 (matchcap-2@kit.test)",
+      "MatchCap 3 (matchcap-3@kit.test)",
+      "MatchCap 4 (matchcap-4@kit.test)",
+      "MatchCap 5 (matchcap-5@kit.test)",
+    ]);
+    expect(conflict.clientMessage).toBe(
+      ambiguousCustomerQueryMessage("MatchCap"),
+    );
+    expect(conflict.clientMessage).not.toContain("Multiple matches");
   });
 
   it("resolves a unique query-path name when the contains scan is capped", async () => {
