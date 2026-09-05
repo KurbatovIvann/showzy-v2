@@ -9,6 +9,10 @@
  * Groups are not archived — do not invent a status filter.
  */
 import type { ActionContract } from "@showzy/core/contract";
+import {
+  LIST_GROUPS_CURSOR_MAX,
+  LIST_GROUPS_SEARCH_MAX,
+} from "@showzy/customers/contract";
 import { tool, type Tool } from "ai";
 import { z } from "zod";
 
@@ -17,10 +21,8 @@ import type { ActionToolExecute } from "../action-tool.js";
 export const CUSTOMERS_LIST_GROUPS_ACTION_NAME = "customers.listGroups";
 export const CUSTOMERS_LIST_GROUPS_TOOL_NAME = "customers_list_groups";
 
-/** Duplicated from `LIST_GROUPS_SEARCH_MAX` — `@showzy/ai` must not import customers. */
-export const CUSTOMERS_LIST_GROUPS_SEARCH_MAX = 100;
-/** Duplicated from `LIST_GROUPS_CURSOR_MAX`. */
-export const CUSTOMERS_LIST_GROUPS_CURSOR_MAX = 200;
+export const CUSTOMERS_LIST_GROUPS_SEARCH_MAX = LIST_GROUPS_SEARCH_MAX;
+export const CUSTOMERS_LIST_GROUPS_CURSOR_MAX = LIST_GROUPS_CURSOR_MAX;
 
 /**
  * Compact 20-row pages (full `GroupView`, including description max 2000)

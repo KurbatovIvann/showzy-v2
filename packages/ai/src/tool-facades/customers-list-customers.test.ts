@@ -1,4 +1,9 @@
 import { defineActionContract } from "@showzy/core/contract";
+import {
+  CUSTOMER_EMAIL_MAX,
+  CUSTOMER_NAME_MAX,
+  CUSTOMER_PHONE_MAX,
+} from "@showzy/validation/customers";
 import { asSchema } from "ai";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -45,13 +50,6 @@ const listCustomers = defineActionContract({
 const customerId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const groupId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const priceListId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
-
-/** Duplicated from `CUSTOMER_NAME_MAX` — do not import `@showzy/validation`. */
-const CUSTOMER_NAME_MAX = 120;
-/** Duplicated from `CUSTOMER_PHONE_MAX`. */
-const CUSTOMER_PHONE_MAX = 30;
-/** Duplicated from `CUSTOMER_EMAIL_MAX`. */
-const CUSTOMER_EMAIL_MAX = 200;
 
 function fatCustomerRow(
   index: number,

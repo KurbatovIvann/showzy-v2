@@ -16,8 +16,13 @@
   },
   "dependencies": {
     "@ai-sdk/anthropic": "4.0.46",
+    "@showzy/catalog": "workspace:*",
     "@showzy/contract": "workspace:*",
     "@showzy/core": "workspace:*",
+    "@showzy/customers": "workspace:*",
+    "@showzy/orders": "workspace:*",
+    "@showzy/pricing": "workspace:*",
+    "@showzy/validation": "workspace:*",
     "ai": "7.0.87",
     "zod": "^4.4.3"
   },

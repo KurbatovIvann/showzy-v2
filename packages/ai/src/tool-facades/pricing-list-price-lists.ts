@@ -6,6 +6,12 @@
  * `list-price-lists.contract.ts`. Do not hot-load every pricing write.
  */
 import type { ActionContract } from "@showzy/core/contract";
+import {
+  LIST_PRICE_LISTS_CURSOR_MAX,
+  LIST_PRICE_LISTS_DEFAULT_LIMIT,
+  LIST_PRICE_LISTS_MAX_LIMIT,
+  LIST_PRICE_LISTS_QUERY_MAX,
+} from "@showzy/pricing/contract";
 import { tool, type Tool } from "ai";
 import { z } from "zod";
 
@@ -17,14 +23,12 @@ export const PRICING_CREATE_PRICE_LIST_ACTION_NAME = "pricing.createPriceList";
 export const PRICING_SET_PRICE_LIST_ENTRIES_ACTION_NAME =
   "pricing.setPriceListEntries";
 
-/** Duplicated from `LIST_PRICE_LISTS_DEFAULT_LIMIT` — `@showzy/ai` must not import pricing. */
-export const LIST_PRICE_LISTS_DEFAULT_LIMIT = 20;
-/** Duplicated from `LIST_PRICE_LISTS_MAX_LIMIT`. */
-export const LIST_PRICE_LISTS_MAX_LIMIT = 50;
-/** Duplicated from `LIST_PRICE_LISTS_QUERY_MAX`. */
-export const LIST_PRICE_LISTS_QUERY_MAX = 100;
-/** Duplicated from `LIST_PRICE_LISTS_CURSOR_MAX`. */
-export const LIST_PRICE_LISTS_CURSOR_MAX = 200;
+export {
+  LIST_PRICE_LISTS_CURSOR_MAX,
+  LIST_PRICE_LISTS_DEFAULT_LIMIT,
+  LIST_PRICE_LISTS_MAX_LIMIT,
+  LIST_PRICE_LISTS_QUERY_MAX,
+};
 
 export const pricingListPriceListsInputSchema = z.strictObject({
   query: z.string().trim().min(1).max(LIST_PRICE_LISTS_QUERY_MAX).optional(),

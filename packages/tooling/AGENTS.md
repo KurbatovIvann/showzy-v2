@@ -29,7 +29,9 @@ used by `.github/workflows/ci.yml` (SHO-334 aggregator, SHO-387
   → `@showzy/contract` + validation/ui/document-signing (never module-kit,
   never `@showzy/ai`). `@showzy/ai` is a server-only platform package
   (ADR-0032): `apps/api` may import it; mobile, web, and domain modules
-  must not. `@showzy/module-kit` is a platform package (ADR-0031): module server code
+  must not. `packages/ai` itself may import `@showzy/core/*`,
+  `@showzy/contract`, `@showzy/validation/*`, and `@showzy/<module>/contract`;
+  it must not import a module barrel or `@showzy/db`. `@showzy/module-kit` is a platform package (ADR-0031): module server code
   may import it. The contract-client layer currently
   permits any non-`@showzy` npm package (today: `zod`, `@orpc/*`). Tighten
   to an explicit external allowlist when that set grows — do not add

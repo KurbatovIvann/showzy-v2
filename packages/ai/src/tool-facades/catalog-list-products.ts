@@ -5,6 +5,12 @@
  * Do not add `catalog.listProductsForAssistant`. Do not flatten
  * `list-products.contract.ts`. Do not rebuild the public list as `kind`.
  */
+import {
+  LIST_PRODUCTS_CURSOR_MAX,
+  LIST_PRODUCTS_DEFAULT_LIMIT,
+  LIST_PRODUCTS_MAX_LIMIT,
+  LIST_PRODUCTS_QUERY_MAX,
+} from "@showzy/catalog/contract";
 import type { ActionContract } from "@showzy/core/contract";
 import { tool, type Tool } from "ai";
 import { z } from "zod";
@@ -14,14 +20,10 @@ import type { ActionToolExecute } from "../action-tool.js";
 export const CATALOG_LIST_PRODUCTS_ACTION_NAME = "catalog.listProducts";
 export const CATALOG_LIST_PRODUCTS_TOOL_NAME = "catalog_list_products";
 
-/** Duplicated from `LIST_PRODUCTS_DEFAULT_LIMIT` — `@showzy/ai` must not import catalog. */
-export const CATALOG_LIST_PRODUCTS_DEFAULT_LIMIT = 20;
-/** Duplicated from `LIST_PRODUCTS_MAX_LIMIT`. */
-export const CATALOG_LIST_PRODUCTS_MAX_LIMIT = 50;
-/** Duplicated from `LIST_PRODUCTS_QUERY_MAX`. */
-export const CATALOG_LIST_PRODUCTS_QUERY_MAX = 100;
-/** Duplicated from `LIST_PRODUCTS_CURSOR_MAX`. */
-export const CATALOG_LIST_PRODUCTS_CURSOR_MAX = 80;
+export const CATALOG_LIST_PRODUCTS_DEFAULT_LIMIT = LIST_PRODUCTS_DEFAULT_LIMIT;
+export const CATALOG_LIST_PRODUCTS_MAX_LIMIT = LIST_PRODUCTS_MAX_LIMIT;
+export const CATALOG_LIST_PRODUCTS_QUERY_MAX = LIST_PRODUCTS_QUERY_MAX;
+export const CATALOG_LIST_PRODUCTS_CURSOR_MAX = LIST_PRODUCTS_CURSOR_MAX;
 
 const catalogListProductsStatusSchema = z.enum(["active", "archived", "all"]);
 
