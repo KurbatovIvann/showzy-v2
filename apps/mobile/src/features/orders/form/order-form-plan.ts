@@ -13,7 +13,10 @@ import {
   type OrderLineCatalogFacts,
   type OrderLineCatalogFactsMap,
 } from "@showzy/validation/order-line-catalog-facts";
-import { emptyFieldErrors, type ItemsErrorKey } from "@showzy/validation/orders";
+import {
+  emptyFieldErrors,
+  type ItemsErrorKey,
+} from "@showzy/validation/orders";
 
 import type { ContractClient } from "../../../api/client";
 import type { QueryFailureKind } from "../../../api/errors";
