@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  catalogFactsBlockSubmit,
   catalogFactsFromProduct,
+  catalogQueryLoadStatus,
+  classifyCatalogFactsLoad,
   classifyProductSellability,
   overlayCatalogVariantCount,
   uniqueProductIds,
@@ -50,5 +53,57 @@ describe("uniqueProductIds", () => {
     expect(
       uniqueProductIds([PRODUCT_A, null, "", PRODUCT_A, PRODUCT_B, undefined]),
     ).toEqual([PRODUCT_A, PRODUCT_B]);
+  });
+});
+
+describe("catalogQueryLoadStatus / classifyCatalogFactsLoad", () => {
+  it("distinguishes pending vs error the way picker variantsStatus does", () => {
+    expect(catalogQueryLoadStatus(undefined)).toBe("loading");
+    expect(catalogQueryLoadStatus({ status: "pending" })).toBe("loading");
+    expect(catalogQueryLoadStatus({ status: "error" })).toBe("error");
+    expect(catalogQueryLoadStatus({ status: "success" })).toBe("ready");
+    expect(catalogFactsBlockSubmit("loading")).toBe(true);
+    expect(catalogFactsBlockSubmit("error")).toBe(true);
+    expect(catalogFactsBlockSubmit("ready")).toBe(false);
+    expect(catalogFactsBlockSubmit("idle")).toBe(false);
+  });
+
+  it("treats a draft-line getProduct error as not ready, not as a simple product", () => {
+    expect(classifyCatalogFactsLoad([], new Map())).toBe("idle");
+    expect(
+      classifyCatalogFactsLoad(
+        [PRODUCT_A],
+        new Map([[PRODUCT_A, { status: "pending" }]]),
+      ),
+    ).toBe("loading");
+    expect(
+      classifyCatalogFactsLoad(
+        [PRODUCT_A],
+        new Map([[PRODUCT_A, { status: "error" }]]),
+      ),
+    ).toBe("error");
+    expect(
+      classifyCatalogFactsLoad(
+        [PRODUCT_A],
+        new Map([[PRODUCT_A, { status: "success" }]]),
+      ),
+    ).toBe("ready");
+    expect(
+      classifyCatalogFactsLoad(
+        [PRODUCT_A, PRODUCT_B],
+        new Map([
+          [PRODUCT_A, { status: "pending" }],
+          [PRODUCT_B, { status: "error" }],
+        ]),
+      ),
+    ).toBe("error");
+    expect(
+      catalogFactsBlockSubmit(
+        classifyCatalogFactsLoad(
+          [PRODUCT_A],
+          new Map([[PRODUCT_A, { status: "error" }]]),
+        ),
+      ),
+    ).toBe(true);
   });
 });

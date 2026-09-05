@@ -3,7 +3,10 @@ import { useRouter } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 
-import { uniqueProductIds } from "@showzy/validation/order-line-catalog-facts";
+import {
+  catalogFactsBlockSubmit,
+  uniqueProductIds,
+} from "@showzy/validation/order-line-catalog-facts";
 import { orderFormDraftSchema } from "@showzy/validation/orders";
 
 import { useApiClient } from "../../../api/api-provider";
@@ -40,7 +43,6 @@ import {
   presentProductSelectRows,
   presentVariantSelectRows,
 } from "./order-form.presenter";
-import { catalogFactsBlockSubmit } from "./order-line-catalog-facts";
 import { commitProductPickerPicks, productPickerPicks } from "./product-picker";
 import { useOrderFormLookups } from "./use-order-form-lookups";
 import { useOrderFormSheets } from "./use-order-form-sheets";

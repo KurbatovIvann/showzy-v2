@@ -10,7 +10,10 @@ import { useCallback, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 
 import type { WireErrorCode } from "@showzy/contract";
-import { uniqueProductIds } from "@showzy/validation/order-line-catalog-facts";
+import {
+  catalogFactsBlockSubmit,
+  uniqueProductIds,
+} from "@showzy/validation/order-line-catalog-facts";
 import { orderFormDraftSchema } from "@showzy/validation/orders";
 
 import { useApiClient } from "../../../api/api-provider";
@@ -61,7 +64,6 @@ import {
   parseThenPlanOrderFormSave,
   type OrderFormWrite,
 } from "./order-form-plan";
-import { catalogFactsBlockSubmit } from "./order-line-catalog-facts";
 import {
   commitProductPickerPicks,
   emptyProductPicker,

@@ -1,17 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  catalogFactsBlockSubmit,
   catalogFactsFromProduct,
+  catalogQueryLoadStatus,
+  classifyCatalogFactsLoad,
   classifyProductSellability,
   overlayCatalogVariantCount,
   uniqueProductIds,
 } from "@showzy/validation/order-line-catalog-facts";
-
-import {
-  catalogFactsBlockSubmit,
-  catalogQueryLoadStatus,
-  classifyCatalogFactsLoad,
-} from "./order-line-catalog-facts";
 
 const VARIANT_ACTIVE = "44444444-4444-4444-8444-444444444444";
 const VARIANT_ARCHIVED = "55555555-5555-4555-8555-555555555555";

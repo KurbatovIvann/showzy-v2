@@ -52,13 +52,19 @@ function consumes(
 }
 
 describe("SHO-423 shared order-form domain (source guard)", () => {
-  it("does not restore the removed app-local schema file", () => {
+  it("does not restore the removed app-local invariant or schema files", () => {
     expect(existsSync(join(repoRoot, MOBILE_FORM, "order-form.schema.ts"))).toBe(
       false,
     );
     expect(existsSync(join(repoRoot, WEB_FORM, "order-form.schema.ts"))).toBe(
       false,
     );
+    expect(
+      existsSync(join(repoRoot, MOBILE_FORM, "order-line-catalog-facts.ts")),
+    ).toBe(false);
+    expect(
+      existsSync(join(repoRoot, WEB_FORM, "order-line-catalog-facts.ts")),
+    ).toBe(false);
   });
 
   it("does not re-declare classifyProductSellability in either app", () => {
