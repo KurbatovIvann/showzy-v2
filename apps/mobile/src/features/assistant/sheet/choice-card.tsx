@@ -24,8 +24,6 @@ export function ChoiceCard(props: {
   const retryOptionId = claimedRetryOptionId(props.choice);
   const selectedLabel = claimedOptionLabel(props.choice);
   const claimed = props.choice.status === "claimed";
-  const retryTappable =
-    claimed && retryOptionId !== undefined && !props.applying;
   const expired = props.choice.status === "expired";
 
   return (
@@ -56,7 +54,7 @@ export function ChoiceCard(props: {
               />
             ))}
           </View>
-        ) : retryTappable && retryOptionId !== undefined ? (
+        ) : retryOptionId !== undefined && claimed ? (
           <Button
             fullWidth
             label={props.retryLabel}

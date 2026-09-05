@@ -97,8 +97,7 @@ export function AssistantSheetView(model: AssistantSheetViewModel) {
             : copy.choiceTitle
         }
         choiceTruncatedLabel={
-          item.choice?.status === "needs_choice" &&
-          item.choice.optionsTruncated === true
+          item.choice?.status === "needs_choice" && item.choice.optionsTruncated
             ? copy.choiceTruncated
             : null
         }
