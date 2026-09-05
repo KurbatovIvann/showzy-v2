@@ -209,12 +209,13 @@ function installMemoryObjectStore(remainingFailures: {
         etag: "mem",
       });
     },
-    putObject: async (input) => {
+    putObject: (input) => {
       if (remainingFailures.count > 0) {
         remainingFailures.count -= 1;
-        throw new CoreInvariantError(signedUrlMessage);
+        return Promise.reject(new CoreInvariantError(signedUrlMessage));
       }
       objects.set(input.key, input.bytes);
+      return Promise.resolve();
     },
     copyObject: () => Promise.resolve("copied"),
     deleteObject: (key) => {
