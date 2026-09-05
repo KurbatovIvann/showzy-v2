@@ -76,6 +76,9 @@ function sampleRecord(status: ChoiceRecord["status"] = "open"): ChoiceRecord {
       ],
       optionsTruncated: false,
     },
+    ...(status === "claimed" || status === "completed"
+      ? { claimedOptionId: optionLemon }
+      : {}),
   };
 }
 
@@ -229,6 +232,29 @@ describe("choice transport (SHO-409)", () => {
         target: { lineIndex: 0, productId, productName: "Macarons" },
       }).success,
     ).toBe(false);
+  });
+
+  it("claimed peek includes only the opaque claimedOptionId, not a variant id", () => {
+    const envelope = peekEnvelopeFromRecord(sampleRecord("claimed"));
+    expect(envelope.status).toBe("claimed");
+    expect(envelope.claimedOptionId).toBe(optionLemon);
+    expect(envelope.options.map((option) => option.id)).toContain(optionLemon);
+    const serialized = JSON.stringify(envelope);
+    expect(serialized).not.toContain("canonicalInput");
+    expect(serialized).not.toContain("lineIndex");
+    expect(serialized).not.toContain(productId);
+    expect(serialized).not.toContain(variantLemon);
+    expect(serialized).not.toContain(variantVanilla);
+    expect(serialized).not.toContain("optionMap");
+    expect(serialized).not.toContain("actorId");
+    expect(serialized).not.toContain(companyId);
+    expect(envelope.claimedOptionId).not.toBe(variantLemon);
+  });
+
+  it("completed peek is not a claimed recovery envelope", () => {
+    const envelope = peekEnvelopeFromRecord(sampleRecord("completed"));
+    expect(envelope.status).toBe("completed");
+    expect(envelope.claimedOptionId).toBeUndefined();
   });
 
   it("round-trips a stored record and derives a stable successor id", () => {

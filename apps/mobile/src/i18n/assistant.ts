@@ -49,6 +49,8 @@ export type AssistantCopy = {
   readonly choiceTitle: string;
   readonly choiceTruncated: string;
   readonly choiceExpired: string;
+  readonly choiceClaimed: string;
+  readonly choiceRetry: string;
   readonly choiceSelecting: string;
   readonly waitLabel: string;
   readonly waitIntervalMs: number;
@@ -81,6 +83,8 @@ const en: AssistantCopy = {
   choiceTitle: "Select a variant",
   choiceTruncated: "More variants exist. Reply with the exact flavour name.",
   choiceExpired: "This choice expired.",
+  choiceClaimed: "This choice is already in progress. Continue to finish it.",
+  choiceRetry: "Continue",
   choiceSelecting: "Selecting…",
   waitLabel: "Shozik is thinking",
   waitIntervalMs: 2000,
@@ -151,6 +155,8 @@ const uk: AssistantCopy = {
   choiceTitle: "Оберіть варіант",
   choiceTruncated: "Є ще варіанти. Напишіть точну назву смаку.",
   choiceExpired: "Цей вибір більше недоступний.",
+  choiceClaimed: "Цей вибір уже в процесі. Продовжіть, щоб завершити.",
+  choiceRetry: "Продовжити",
   choiceSelecting: "Обираю…",
   waitLabel: "Шозік думає",
   waitIntervalMs: 2000,

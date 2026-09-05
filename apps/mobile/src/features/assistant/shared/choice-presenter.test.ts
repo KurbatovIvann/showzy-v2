@@ -105,6 +105,43 @@ describe("executeChoiceSelect", () => {
     await expect(first).resolves.toEqual({ status: "completed" });
   });
 
+  it("retries a claimed recovery through POST /assistant/choice with no sendMessage", async () => {
+    const claimed: StaffAssistantChoiceCardEnvelope = {
+      ...envelope,
+      status: "claimed",
+      claimedOptionId: lemonId,
+    };
+    const pending = pendingChoiceFromMessages(
+      [assistantChoiceMessage("a1", claimed)],
+      new Set(),
+    );
+    const postChoice = vi.fn(() =>
+      Promise.resolve({
+        status: "completed",
+        text: "Order #1049.",
+        entity: {
+          orderId: "0f0e2d5c-4a1b-4c3d-9e8f-102938475601",
+          orderNumber: "1049",
+        },
+      }),
+    );
+    const result = await executeChoiceSelect({
+      pending,
+      optionId: lemonId,
+      resolvingRef: { current: null },
+      postChoice,
+    });
+    expect(result).toMatchObject({ status: "completed" });
+    expect(postChoice).toHaveBeenCalledWith({
+      choiceId: choiceId,
+      optionId: lemonId,
+    });
+    expect(JSON.stringify(postChoice.mock.calls)).not.toContain("canonical");
+    expect(JSON.stringify(postChoice.mock.calls)).not.toContain("target");
+    expect(JSON.stringify(postChoice.mock.calls)).not.toContain("optionMap");
+    expect(JSON.stringify(postChoice.mock.calls)).not.toContain("sendMessage");
+  });
+
   it("does not claim an expired card", () => {
     const resolvingRef = { current: null as string | null };
     expect(
@@ -156,23 +193,62 @@ describe("pendingChoiceFromMessages", () => {
     ).toEqual({ kind: "hidden" });
   });
 
-  it("does not treat a claimed peek as a pending tappable ChoiceCard", () => {
+  it("restores a claimed recovery card that retries only the claimed option", () => {
+    const claimed: StaffAssistantChoiceCardEnvelope = {
+      ...envelope,
+      status: "claimed",
+      claimedOptionId: lemonId,
+    };
+    const pending = pendingChoiceFromMessages(
+      [assistantChoiceMessage("a1", claimed)],
+      new Set(),
+    );
+    expect(pending).toMatchObject({
+      status: "claimed",
+      challengeId: choiceId,
+      claimedOptionId: lemonId,
+      messageId: "a1",
+    });
+    expect(choiceCardState({ pending, resolvingChallengeId: null })).toEqual({
+      kind: "proposed",
+      choice: pending,
+    });
+    const resolvingRef = { current: null as string | null };
+    expect(
+      claimChoiceSelect({
+        pending,
+        optionId: vanillaId,
+        resolvingRef,
+      }),
+    ).toBeNull();
+    expect(resolvingRef.current).toBeNull();
+    expect(
+      claimChoiceSelect({
+        pending,
+        optionId: lemonId,
+        resolvingRef,
+      }),
+    ).toMatchObject({ challengeId: choiceId, claimedOptionId: lemonId });
+    expect(resolvingRef.current).toBe(choiceId);
+  });
+
+  it("does not retry a claimed envelope that omitted claimedOptionId", () => {
     const claimed: StaffAssistantChoiceCardEnvelope = {
       ...envelope,
       status: "claimed",
     };
+    const pending = pendingChoiceFromMessages(
+      [assistantChoiceMessage("a1", claimed)],
+      new Set(),
+    );
+    expect(pending?.status).toBe("claimed");
     expect(
-      pendingChoiceFromMessages(
-        [assistantChoiceMessage("a1", claimed)],
-        new Set(),
-      ),
-    ).toBeNull();
-    expect(
-      choiceCardState({
-        pending: { ...claimed, messageId: "a1" },
-        resolvingChallengeId: null,
+      claimChoiceSelect({
+        pending,
+        optionId: lemonId,
+        resolvingRef: { current: null },
       }),
-    ).toEqual({ kind: "hidden" });
+    ).toBeNull();
   });
 
   it("restores expired copy, not a tappable picker", () => {

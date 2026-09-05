@@ -3,9 +3,14 @@ import { describe, expect, it } from "vitest";
 
 import { assistantCopy } from "../../../i18n/assistant";
 import {
+  CHOICE_CLAIMED_COPY,
+  CHOICE_RETRY_COPY,
   CHOICE_TRUNCATED_COPY,
+  claimedOptionLabel,
+  claimedRetryOptionId,
   choiceEnvelopeForWire,
   envelopeFromChoicePeek,
+  isRestorableChoiceStatus,
   presentChoiceCardText,
 } from "./choice";
 
@@ -35,6 +40,28 @@ describe("envelopeFromChoicePeek", () => {
     expect(envelopeFromChoicePeek(choiceId, openEnvelope)).toEqual(
       openEnvelope,
     );
+  });
+
+  it("keeps a claimed peek envelope with the opaque claimedOptionId", () => {
+    const claimed = {
+      ...openEnvelope,
+      status: "claimed" as const,
+      claimedOptionId: lemonId,
+    };
+    expect(envelopeFromChoicePeek(choiceId, claimed)).toEqual(claimed);
+    expect(
+      choiceEnvelopeForWire({
+        ...claimed,
+        canonicalInput: { customer: { by: "id", id: choiceId } },
+        target: { lineIndex: 0, productId: choiceId, productName: "Macarons" },
+        optionMap: { [lemonId]: choiceId },
+      }),
+    ).toEqual(claimed);
+    expect(isRestorableChoiceStatus("claimed")).toBe(true);
+    expect(isRestorableChoiceStatus("completed")).toBe(false);
+    expect(claimedRetryOptionId(claimed)).toBe(lemonId);
+    expect(claimedOptionLabel(claimed)).toBe("Lemon");
+    expect(claimedRetryOptionId(openEnvelope)).toBeUndefined();
   });
 
   it("treats an unreadable peek as expired", () => {
@@ -70,6 +97,10 @@ describe("choice truncated copy", () => {
     const uk = assistantCopy("uk");
     expect(en.choiceTruncated).toBe(CHOICE_TRUNCATED_COPY.en);
     expect(uk.choiceTruncated).toBe(CHOICE_TRUNCATED_COPY.uk);
+    expect(en.choiceClaimed).toBe(CHOICE_CLAIMED_COPY.en);
+    expect(uk.choiceClaimed).toBe(CHOICE_CLAIMED_COPY.uk);
+    expect(en.choiceRetry).toBe(CHOICE_RETRY_COPY.en);
+    expect(uk.choiceRetry).toBe(CHOICE_RETRY_COPY.uk);
     expect(
       presentChoiceCardText({ ...openEnvelope, optionsTruncated: true }, "en"),
     ).toContain(CHOICE_TRUNCATED_COPY.en);
@@ -84,5 +115,8 @@ describe("choice truncated copy", () => {
     expect(card).not.toContain("@showzy/ai");
     expect(card).toContain("Button");
     expect(card).toContain("Card");
+    expect(card).toContain("claimedRetryOptionId");
+    expect(card).toContain("retryLabel");
+    expect(card).not.toContain("completed");
   });
 });

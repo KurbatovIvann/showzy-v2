@@ -106,6 +106,21 @@ describe("assistant copy", () => {
     expect(uk.waitLines.includes("Рахую виторг")).toBe(false);
   });
 
+  it("pins claimed ChoiceCard recovery copy in Ukrainian and English", () => {
+    const uk = assistantCopy("uk");
+    const en = assistantCopy("en");
+    expect(en.choiceClaimed).toBe(
+      "This choice is already in progress. Continue to finish it.",
+    );
+    expect(uk.choiceClaimed).toBe(
+      "Цей вибір уже в процесі. Продовжіть, щоб завершити.",
+    );
+    expect(en.choiceRetry).toBe("Continue");
+    expect(uk.choiceRetry).toBe("Продовжити");
+    expect(en.choiceExpired).toBe("This choice expired.");
+    expect(uk.choiceExpired).toBe("Цей вибір більше недоступний.");
+  });
+
   it("pins sheet title Шозік/Shozik and matches the BottomNav label", () => {
     const uk = assistantCopy("uk");
     const en = assistantCopy("en");
