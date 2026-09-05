@@ -614,4 +614,62 @@ describe("staffAssistantPersistedTurnText", () => {
       }),
     ).toBe(STAFF_ASSISTANT_SUCCESS_SPOKEN_FALLBACK);
   });
+
+  it("falls back to the typed tool message when create errors without spoken", () => {
+    const message =
+      'Multiple matches for "макаронс": Макаронси (UAH, 11111111-1111-4111-8111-111111111111).';
+    const notFound = 'No product matches "xyzzy".';
+    for (const locale of ["uk", "en"] as const) {
+      expect(
+        staffAssistantPersistedTurnText({
+          locale,
+          toolResults: [
+            {
+              toolName: ORDERS_CREATE_TOOL_NAME,
+              output: { status: "error", code: "CONFLICT", message },
+            },
+          ],
+          parsedSpoken: undefined,
+          rawText: "",
+          runs: [{ outcome: "error" }],
+        }),
+      ).toBe(message);
+      expect(
+        staffAssistantPersistedTurnText({
+          locale,
+          toolResults: [
+            {
+              toolName: ORDERS_CREATE_TOOL_NAME,
+              output: { status: "error", code: "NOT_FOUND", message: notFound },
+            },
+          ],
+          parsedSpoken: undefined,
+          rawText: "",
+          runs: [{ outcome: "error" }],
+        }),
+      ).toBe(notFound);
+    }
+  });
+
+  it("keeps model spoken over catalog clientMessage on a tool error", () => {
+    expect(
+      staffAssistantPersistedTurnText({
+        locale: "uk",
+        toolResults: [
+          {
+            toolName: ORDERS_CREATE_TOOL_NAME,
+            output: {
+              status: "error",
+              code: "CONFLICT",
+              message:
+                'Multiple matches for "макаронс": Макаронси (UAH, 11111111-1111-4111-8111-111111111111).',
+            },
+          },
+        ],
+        parsedSpoken: "Не знайшла той товар. Уточніть назву.",
+        rawText: '{"spoken":"Не знайшла той товар. Уточніть назву."}',
+        runs: [{ outcome: "error" }],
+      }),
+    ).toBe("Не знайшла той товар. Уточніть назву.");
+  });
 });

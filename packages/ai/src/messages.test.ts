@@ -11,6 +11,7 @@ import {
   staffAssistantModelMessages,
   STAFF_ASSISTANT_CHAT_MESSAGES_MAX,
   STAFF_ASSISTANT_CHAT_MESSAGE_TEXT_MAX,
+  STAFF_ASSISTANT_EMPTY_ASSISTANT_HISTORY_PLACEHOLDER,
   STAFF_ASSISTANT_MODEL_HISTORY_MAX,
 } from "./messages.js";
 
@@ -203,6 +204,43 @@ describe("staffAssistantModelMessages", () => {
     expect(windowed[2]).toEqual({ role: "user", content: "List orders" });
     expect(windowed[2]).not.toHaveProperty("providerOptions");
     expect(staffAssistantHistoryStats(windowed).messageCount).toBe(3);
+  });
+
+  it("does not leave two consecutive user messages when the previous assistant has no text", () => {
+    const windowed = staffAssistantModelMessages([
+      {
+        id: "u0",
+        role: "user",
+        parts: [{ type: "text", text: "Створи замовлення 10 макаронс" }],
+      },
+      {
+        id: "a0",
+        role: "assistant",
+        parts: [],
+      },
+      {
+        id: "u1",
+        role: "user",
+        parts: [
+          {
+            type: "text",
+            text: "Створи клієнта Іван і замовлення 3 торти",
+          },
+        ],
+      },
+    ]);
+    expect(windowed.map((message) => message.role)).toEqual([
+      "user",
+      "assistant",
+      "user",
+    ]);
+    expect(windowed[1]).toMatchObject({
+      role: "assistant",
+      content: STAFF_ASSISTANT_EMPTY_ASSISTANT_HISTORY_PLACEHOLDER,
+    });
+    expect(windowed.filter((message) => message.role === "user")).toHaveLength(
+      2,
+    );
   });
 });
 

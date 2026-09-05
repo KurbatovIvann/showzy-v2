@@ -1,6 +1,10 @@
 import { readFileSync } from "node:fs";
 
-import { ConfirmationRequiredError, ConflictError } from "@showzy/core/errors";
+import {
+  ConfirmationRequiredError,
+  ConflictError,
+  NotFoundError,
+} from "@showzy/core/errors";
 import { defineActionContract } from "@showzy/core/contract";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -32,6 +36,7 @@ import {
 import {
   STAFF_ASSISTANT_SUCCESS_SPOKEN_FALLBACK,
   STAFF_ASSISTANT_SYNTHETIC_JSON_TOOL_NAME,
+  STAFF_ASSISTANT_TOOL_ERROR_FALLBACK,
 } from "./spoken-reply.js";
 import {
   extractUuidResultIds,
@@ -1890,6 +1895,7 @@ describe("streamStaffAssistantChat", () => {
             items: [{ productQuery: "Macarons", quantityDecimal: "1" }],
           }),
         ),
+        mockSpokenStream("That product has no active variants."),
       ],
     });
     const { response, completion } = streamStaffAssistantChat({
@@ -1987,5 +1993,159 @@ describe("streamStaffAssistantChat", () => {
     expect(names).toContain(toProviderToolName("customers.deleteCustomer"));
     expect(names.length).toBeGreaterThan(1);
     expect(model.doStreamCalls[0]?.toolChoice).toEqual({ type: "auto" });
+  });
+
+  const macaronsConflictMessage =
+    'Multiple matches for "макаронс": Макаронси (UAH, 11111111-1111-4111-8111-111111111111).';
+  const unknownProductMessage = 'No product matches "xyzzy".';
+  const ordersCreateMacaronsInput = JSON.stringify({
+    customerQuery: "Леха",
+    items: [{ productQuery: "макаронс", quantityDecimal: "10" }],
+  });
+
+  it("does not stop a forced create on CONFLICT; recovery is speech-only", async () => {
+    const execute = vi.fn(() =>
+      Promise.reject(new ConflictError(macaronsConflictMessage)),
+    );
+    const spoken = "Не знайшла той товар. Уточніть назву.";
+    const model = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream(
+          "call-create",
+          ORDERS_CREATE_TOOL_NAME,
+          ordersCreateMacaronsInput,
+        ),
+        mockSpokenStream(spoken),
+        mockToolCallStream("call-retry", CATALOG_LIST_PRODUCTS_TOOL_NAME, "{}"),
+      ],
+    });
+    const { response, completion } = streamStaffAssistantChat({
+      model,
+      messages: [
+        { role: "user", content: "Створи замовлення для Леха 10 макаронс" },
+      ],
+      contracts: [listOrders, createOrder, listProducts],
+      execute,
+      forcedToolName: ORDERS_CREATE_TOOL_NAME,
+      locale: "uk",
+    });
+    const payloads = await readUiMessageSsePayloads(response);
+    const turn = await completion;
+    expect(execute).toHaveBeenCalledOnce();
+    expect(model.doStreamCalls).toHaveLength(2);
+    expect(model.doStreamCalls[0]?.toolChoice).toEqual({ type: "required" });
+    expect(model.doStreamCalls[1]?.toolChoice).toEqual({ type: "none" });
+    expect(turn.toolRuns[0]?.outcome).toBe("error");
+    expect(turn.text).toBe(spoken);
+    expect(turn.text).not.toBe("Done.");
+    expect(turn.text).not.toBe("");
+    expect(sseVisibleTextFromPayloads(payloads)).toBe(turn.text);
+    expect(JSON.stringify(payloads)).not.toContain("needs_choice");
+    expect(turn.modelSteps).toBeLessThan(STAFF_ASSISTANT_MAX_STEPS);
+  });
+
+  it("uses the typed CONFLICT message when recovery has no spoken", async () => {
+    for (const locale of ["uk", "en"] as const) {
+      const execute = vi.fn(() =>
+        Promise.reject(new ConflictError(macaronsConflictMessage)),
+      );
+      const model = new MockLanguageModelV3({
+        doStream: [
+          mockToolCallStream(
+            "call-create",
+            ORDERS_CREATE_TOOL_NAME,
+            ordersCreateMacaronsInput,
+          ),
+          mockTextStream(""),
+        ],
+      });
+      const { response, completion } = streamStaffAssistantChat({
+        model,
+        messages: [
+          { role: "user", content: "Створи замовлення для Леха 10 макаронс" },
+        ],
+        contracts: [createOrder],
+        execute,
+        forcedToolName: ORDERS_CREATE_TOOL_NAME,
+        locale,
+      });
+      const payloads = await readUiMessageSsePayloads(response);
+      const turn = await completion;
+      expect(turn.toolRuns[0]?.outcome).toBe("error");
+      expect(turn.text).toBe(macaronsConflictMessage);
+      expect(turn.text).not.toBe("Done.");
+      expect(turn.text).not.toBe(STAFF_ASSISTANT_TOOL_ERROR_FALLBACK);
+      expect(sseVisibleTextFromPayloads(payloads)).toBe(turn.text);
+      expect(sseVisibleTextFromPayloads(payloads).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("does not stop a forced create on NOT_FOUND; recovery is speech-only", async () => {
+    const execute = vi.fn(() =>
+      Promise.reject(new NotFoundError(unknownProductMessage)),
+    );
+    const spoken = "That name is not a product in this company.";
+    const model = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream(
+          "call-create",
+          ORDERS_CREATE_TOOL_NAME,
+          JSON.stringify({
+            customerQuery: "Леха",
+            items: [{ productQuery: "xyzzy", quantityDecimal: "1" }],
+          }),
+        ),
+        mockSpokenStream(spoken),
+      ],
+    });
+    const { response, completion } = streamStaffAssistantChat({
+      model,
+      messages: [{ role: "user", content: "create an order for xyzzy" }],
+      contracts: [createOrder],
+      execute,
+      forcedToolName: ORDERS_CREATE_TOOL_NAME,
+      locale: "en",
+    });
+    const payloads = await readUiMessageSsePayloads(response);
+    const turn = await completion;
+    expect(execute).toHaveBeenCalledOnce();
+    expect(model.doStreamCalls).toHaveLength(2);
+    expect(model.doStreamCalls[1]?.toolChoice).toEqual({ type: "none" });
+    expect(turn.toolRuns[0]?.outcome).toBe("error");
+    expect(turn.text).toBe(spoken);
+    expect(turn.text).not.toBe("Done.");
+    expect(sseVisibleTextFromPayloads(payloads)).toBe(turn.text);
+  });
+
+  it("uses the typed NOT_FOUND message when recovery has no spoken", async () => {
+    const execute = vi.fn(() =>
+      Promise.reject(new NotFoundError(unknownProductMessage)),
+    );
+    const model = new MockLanguageModelV3({
+      doStream: [
+        mockToolCallStream(
+          "call-create",
+          ORDERS_CREATE_TOOL_NAME,
+          JSON.stringify({
+            customerQuery: "Леха",
+            items: [{ productQuery: "xyzzy", quantityDecimal: "1" }],
+          }),
+        ),
+        mockTextStream(""),
+      ],
+    });
+    const { response, completion } = streamStaffAssistantChat({
+      model,
+      messages: [{ role: "user", content: "create an order for xyzzy" }],
+      contracts: [createOrder],
+      execute,
+      forcedToolName: ORDERS_CREATE_TOOL_NAME,
+      locale: "en",
+    });
+    const payloads = await readUiMessageSsePayloads(response);
+    const turn = await completion;
+    expect(turn.text).toBe(unknownProductMessage);
+    expect(turn.text).not.toBe("Done.");
+    expect(sseVisibleTextFromPayloads(payloads)).toBe(turn.text);
   });
 });

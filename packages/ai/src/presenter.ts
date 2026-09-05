@@ -18,7 +18,10 @@ import {
 } from "./choice.js";
 import { STAFF_ASSISTANT_CLIPPED_STATUS } from "./clip-tool-result.js";
 import { isStaffAssistantConfirmationOutput } from "./confirmation.js";
-import { spokenTurnText } from "./spoken-reply.js";
+import {
+  lastStaffAssistantTypedToolErrorMessage,
+  spokenTurnText,
+} from "./spoken-reply.js";
 import { ORDERS_CREATE_TOOL_NAME } from "./tool-facades/orders-create.js";
 import {
   ORDERS_LIST_COUNTS_TOOL_NAME,
@@ -569,9 +572,13 @@ export function staffAssistantPersistedTurnText(options: {
       return presented;
     }
   }
+  const toolErrorMessage = lastStaffAssistantTypedToolErrorMessage(
+    options.toolResults.map((result) => result.output),
+  );
   return spokenTurnText({
     parsedSpoken: options.parsedSpoken,
     rawText: options.rawText,
     runs: options.runs,
+    ...(toolErrorMessage !== undefined ? { toolErrorMessage } : {}),
   });
 }

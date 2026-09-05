@@ -11,6 +11,7 @@ import {
   staffAssistantSpokenOutputSchema,
   STAFF_ASSISTANT_SUCCESS_SPOKEN_FALLBACK,
   STAFF_ASSISTANT_SYNTHETIC_JSON_TOOL_NAME,
+  STAFF_ASSISTANT_TOOL_ERROR_FALLBACK,
 } from "./spoken-reply.js";
 
 describe("staffAssistantSpokenOutputSchema", () => {
@@ -138,6 +139,46 @@ describe("spokenTurnText", () => {
         runs: [{ outcome: "success" }, { outcome: "confirmation_required" }],
       }),
     ).toBe(STAFF_ASSISTANT_CONFIRMATION_FALLBACK_TEXT);
+  });
+
+  it("falls back to the typed tool message after an error, never Done", () => {
+    const message =
+      'Multiple matches for "макаронс": Макаронси (UAH, 11111111-1111-4111-8111-111111111111).';
+    expect(
+      spokenTurnText({
+        parsedSpoken: undefined,
+        rawText: "",
+        runs: [{ outcome: "error" }],
+        toolErrorMessage: message,
+      }),
+    ).toBe(message);
+    expect(
+      spokenTurnText({
+        parsedSpoken: undefined,
+        rawText: '{"spoken":""}',
+        runs: [{ outcome: "error" }],
+        toolErrorMessage: message,
+      }),
+    ).not.toBe("Done.");
+    expect(
+      spokenTurnText({
+        parsedSpoken: undefined,
+        rawText: "",
+        runs: [{ outcome: "error" }],
+      }),
+    ).toBe(STAFF_ASSISTANT_TOOL_ERROR_FALLBACK);
+  });
+
+  it("keeps model spoken over the typed tool error message", () => {
+    expect(
+      spokenTurnText({
+        parsedSpoken: "Не знайшла той товар. Уточніть назву.",
+        rawText: '{"spoken":"Не знайшла той товар. Уточніть назву."}',
+        runs: [{ outcome: "error" }],
+        toolErrorMessage:
+          'Multiple matches for "макаронс": Макаронси (UAH, 11111111-1111-4111-8111-111111111111).',
+      }),
+    ).toBe("Не знайшла той товар. Уточніть назву.");
   });
 });
 

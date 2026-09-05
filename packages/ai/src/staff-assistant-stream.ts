@@ -48,6 +48,8 @@ import {
 import {
   createSpokenReplyUiTransform,
   isStaffAssistantSyntheticJsonTool,
+  isStaffAssistantTypedToolError,
+  lastStaffAssistantTypedToolErrorMessage,
   staffAssistantSpokenOutputSchema,
 } from "./spoken-reply.js";
 import { staffAssistantSystemMessages } from "./system-prompt.js";
@@ -173,10 +175,23 @@ function stepRequestedChoice(steps: Array<StepResult<ToolSet>>): boolean {
 }
 
 /**
- * Forced-job lifecycle: stop after a domain tool result (completed view,
- * `needs_choice`, `confirmation_required`, or `error`). Do not force a
- * second tool for presentation.
+ * Forced-job lifecycle: stop after a completed view, `needs_choice`, or
+ * `confirmation_required`. A typed tool `{ status: "error" }` is not
+ * terminal — the model gets one `toolChoice: "none"` speech step, then
+ * this becomes true once that step has no domain tool result (SHO-429).
  */
+function domainToolResults(
+  step: StepResult<ToolSet>,
+): ReadonlyArray<{ readonly toolName: string; readonly output: unknown }> {
+  return step.toolResults.filter(
+    (result) => !isStaffAssistantSyntheticJsonTool(result.toolName),
+  );
+}
+
+function isForcedJobTerminalOutput(output: unknown): boolean {
+  return !isStaffAssistantTypedToolError(output);
+}
+
 function stepReachedForcedJobTerminal(
   steps: Array<StepResult<ToolSet>>,
 ): boolean {
@@ -184,8 +199,17 @@ function stepReachedForcedJobTerminal(
   if (last === undefined) {
     return false;
   }
-  return last.toolResults.some(
-    (result) => !isStaffAssistantSyntheticJsonTool(result.toolName),
+  const lastDomain = domainToolResults(last);
+  if (lastDomain.some((result) => isForcedJobTerminalOutput(result.output))) {
+    return true;
+  }
+  if (lastDomain.length > 0) {
+    return false;
+  }
+  return steps.some((step) =>
+    domainToolResults(step).some((result) =>
+      isStaffAssistantTypedToolError(result.output),
+    ),
   );
 }
 
@@ -356,6 +380,7 @@ async function staffAssistantModelStepCount(
 }
 
 const STAFF_ASSISTANT_PRESENTER_STREAM_TEXT_ID = "presenter";
+const STAFF_ASSISTANT_TOOL_ERROR_STREAM_TEXT_ID = "tool-error";
 
 function isStaffAssistantTextStreamPartType(type: string): boolean {
   return type === "text-start" || type === "text-delta" || type === "text-end";
@@ -372,6 +397,27 @@ function createSuppressCompletedPresenterTextTransform<
     transform(part, controller) {
       if (shouldSuppress() && isStaffAssistantTextStreamPartType(part.type)) {
         return;
+      }
+      controller.enqueue(part);
+    },
+  });
+}
+
+function createRecordVisibleTextTransform<
+  T extends {
+    readonly type: string;
+    readonly delta?: unknown;
+    readonly text?: unknown;
+  },
+>(seen: { chars: number }): TransformStream<T, T> {
+  return new TransformStream<T, T>({
+    transform(part, controller) {
+      if (part.type === "text-delta") {
+        if (typeof part.delta === "string") {
+          seen.chars += part.delta.length;
+        } else if (typeof part.text === "string") {
+          seen.chars += part.text.length;
+        }
       }
       controller.enqueue(part);
     },
@@ -556,11 +602,20 @@ export function streamStaffAssistantChat(options: {
           }
         },
       });
+      const visibleText = { chars: 0 };
       await writeUiMessageChunks(
         writer,
         toUIMessageStream({
           stream: result.stream
-            .pipeThrough(createSpokenReplyUiTransform({ runs }))
+            .pipeThrough(
+              createSpokenReplyUiTransform({
+                runs,
+                toolErrorMessage: () =>
+                  lastStaffAssistantTypedToolErrorMessage(
+                    presentedToolResults.map((item) => item.output),
+                  ),
+              }),
+            )
             .pipeThrough(
               createSuppressCompletedPresenterTextTransform(() =>
                 staffAssistantTurnUsesCompletedPresenter({
@@ -569,7 +624,8 @@ export function streamStaffAssistantChat(options: {
                   runs,
                 }),
               ),
-            ),
+            )
+            .pipeThrough(createRecordVisibleTextTransform(visibleText)),
           tools,
         }),
       );
@@ -611,6 +667,15 @@ export function streamStaffAssistantChat(options: {
         })
       ) {
         const id = STAFF_ASSISTANT_PRESENTER_STREAM_TEXT_ID;
+        writer.write({ type: "text-start", id });
+        writer.write({ type: "text-delta", id, delta: turn.text });
+        writer.write({ type: "text-end", id });
+      } else if (
+        domainToolRuns(runs).length > 0 &&
+        turn.text.trim() !== "" &&
+        visibleText.chars === 0
+      ) {
+        const id = STAFF_ASSISTANT_TOOL_ERROR_STREAM_TEXT_ID;
         writer.write({ type: "text-start", id });
         writer.write({ type: "text-delta", id, delta: turn.text });
         writer.write({ type: "text-end", id });
