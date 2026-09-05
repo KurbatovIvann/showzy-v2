@@ -220,6 +220,10 @@ export function createJobHost(options: CreateJobHostOptions): JobHost {
     }
   }
 
+  /**
+   * Thin `executeAction(renderPdf)` wrapper. Retryable failures throw so
+   * the job is not completed; the outbox is the production retry budget.
+   */
   async function processPdfJob(job: PdfJob): Promise<unknown> {
     if (job.name !== PDF_JOB_NAME) {
       options.logger.error(

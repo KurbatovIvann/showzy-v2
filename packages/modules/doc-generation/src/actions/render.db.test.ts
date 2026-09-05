@@ -4,21 +4,34 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { defineActionContract } from "@showzy/core/contract";
-import { implementAction } from "@showzy/core";
+import {
+  DELIVERY_MAX_ATTEMPTS,
+  DELIVERY_RETRY_BASE_MS,
+  dispatchOutboxBatch,
+  executeAction,
+  executeDelivery,
+  findClaimableDeliveries,
+  implementAction,
+} from "@showzy/core";
 import {
   ConflictError,
   CoreInvariantError,
+  NotFoundError,
   PermissionDeniedError,
+  ValidationError,
 } from "@showzy/core/errors";
 import {
   atomicCallSuite,
+  createCapturingLogger,
   createTestKit,
   crossTenantSuite,
   eventSuite,
+  idempotencySuite,
   isolationCase,
   kitIdentities,
   type TestKit,
 } from "@showzy/core/testing";
+import { domainEvents } from "@showzy/db";
 import { user } from "@showzy/db/schema/auth";
 import { products } from "@showzy/db/schema/catalog";
 import { companyLegalInfo, companyMembers } from "@showzy/db/schema/companies";
@@ -43,6 +56,8 @@ import {
   closeFilesObjectStore,
   configureFilesObjectStore,
   getFilesObjectStore,
+  mapConfiguredFilesObjectStore,
+  type FilesObjectStore,
 } from "@showzy/files/storage";
 import { sha256Hex } from "@showzy/module-kit/sha256";
 import { and, count, eq, isNull } from "drizzle-orm";
@@ -55,10 +70,12 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { getArtifact } from "./get-artifact.js";
+import { markFailed } from "./mark-failed.js";
 import { renderPdf } from "./render-pdf.js";
 import type { renderPdfInputSchema } from "./render-pdf.contract.js";
 import { pdfRendererCreated } from "../events/pdf-renderer.js";
 import { artifactFileId } from "../services/artifact-file-id.js";
+import { PdfGenerationRetryableError } from "../services/pdf-retry.js";
 import { putGeneratedPdf } from "../services/put-generated-pdf.js";
 import { requireWritable } from "../services/writable.js";
 
@@ -88,6 +105,14 @@ const fixtures = {
   pendingShare: randomUUID(),
   atomicFail: randomUUID(),
   atomicOk: randomUUID(),
+  usd: randomUUID(),
+  markIdempotent: randomUUID(),
+  markConflict: randomUUID(),
+  markFresh: randomUUID(),
+  orderRetry: randomUUID(),
+  itemRetry: randomUUID(),
+  orderExhaust: randomUUID(),
+  itemExhaust: randomUUID(),
 };
 
 const clerks = {
@@ -509,11 +534,13 @@ async function insertSeedDocument(values: {
   documentNumber: string;
   type?: "payment_invoice" | "delivery_note";
   buyer?: typeof customerBuyerSnapshot | typeof counterpartyBuyerSnapshot;
+  currency?: "UAH" | "USD";
 }): Promise<void> {
   const orderId = randomUUID();
   const orderItemId = randomUUID();
   const itemId = randomUUID();
   const type = values.type ?? "payment_invoice";
+  const currency = values.currency ?? "UAH";
   await insertSeedOrder({
     id: orderId,
     itemId: orderItemId,
@@ -537,7 +564,7 @@ async function insertSeedDocument(values: {
       totalNetMinor: 250n,
       totalTaxMinor: 0n,
       totalGrossMinor: 250n,
-      currency: "UAH",
+      currency,
       templateSource: "system",
       templateName: type,
     });
@@ -552,7 +579,7 @@ async function insertSeedDocument(values: {
     taxTreatment: "exempt",
     netAmountMinor: 250n,
     grossAmountMinor: 250n,
-    currency: "UAH",
+    currency,
   });
 }
 
@@ -626,6 +653,56 @@ function recordInput(documentId: string): {
     documentId,
     failAfterCall: false,
   };
+}
+
+function withPutObjectFailures(remaining: { count: number }): () => void {
+  return mapConfiguredFilesObjectStore((store: FilesObjectStore) => ({
+    signPut: (input) => store.signPut(input),
+    signGet: (input) => store.signGet(input),
+    headObject: (key) => store.headObject(key),
+    getObject: (key) => store.getObject(key),
+    putObject: async (input) => {
+      if (remaining.count > 0) {
+        remaining.count -= 1;
+        throw new CoreInvariantError("injected storage outage");
+      }
+      return store.putObject(input);
+    },
+    copyObject: (input) => store.copyObject(input),
+    deleteObject: (key) => store.deleteObject(key),
+    probeBucket: () => store.probeBucket(),
+    close: () => store.close(),
+  }));
+}
+
+async function dispatchPdfCreated(requestId: string): Promise<string> {
+  const rows = await requireKit()
+    .db.runtime.db.select({ id: domainEvents.id, name: domainEvents.name })
+    .from(domainEvents)
+    .where(eq(domainEvents.requestId, requestId));
+  const match = rows.filter((row) => row.name === "documents.created");
+  const eventId = match[0]?.id;
+  if (match.length !== 1 || eventId === undefined) {
+    throw new Error("expected one documents.created outbox row");
+  }
+  await dispatchOutboxBatch(
+    { db: requireKit().db.runtime.db },
+    { subscriptions: [pdfRendererCreated], claimedBy: "sho-436-dispatch" },
+  );
+  return eventId;
+}
+
+async function countFailedJobs(): Promise<number> {
+  const rows = await requireKit()
+    .db.runtime.db.select({ value: count() })
+    .from(documentGenerationJobs)
+    .where(
+      and(
+        eq(documentGenerationJobs.companyId, kitIdentities.companies.a),
+        eq(documentGenerationJobs.status, "failed"),
+      ),
+    );
+  return rows[0]?.value ?? 0;
 }
 
 beforeAll(async () => {
@@ -787,6 +864,49 @@ beforeAll(async () => {
     productId: fixtures.productA,
     documentNumber: "KA-РХ-000905",
   });
+  await insertSeedDocument({
+    id: fixtures.usd,
+    companyId: companyA,
+    customerId: fixtures.customerA,
+    productId: fixtures.productA,
+    documentNumber: "KA-РХ-000907",
+    currency: "USD",
+  });
+  await insertSeedDocument({
+    id: fixtures.markIdempotent,
+    companyId: companyA,
+    customerId: fixtures.customerA,
+    productId: fixtures.productA,
+    documentNumber: "KA-РХ-000908",
+  });
+  await insertSeedDocument({
+    id: fixtures.markConflict,
+    companyId: companyA,
+    customerId: fixtures.customerA,
+    productId: fixtures.productA,
+    documentNumber: "KA-РХ-000909",
+  });
+  await insertSeedDocument({
+    id: fixtures.markFresh,
+    companyId: companyA,
+    customerId: fixtures.customerA,
+    productId: fixtures.productA,
+    documentNumber: "KA-РХ-000910",
+  });
+  await insertSeedOrder({
+    id: fixtures.orderRetry,
+    itemId: fixtures.itemRetry,
+    companyId: companyA,
+    customerId: fixtures.customerA,
+    productId: fixtures.productA,
+  });
+  await insertSeedOrder({
+    id: fixtures.orderExhaust,
+    itemId: fixtures.itemExhaust,
+    companyId: companyA,
+    customerId: fixtures.customerA,
+    productId: fixtures.productA,
+  });
 
   await putGeneratedPdf({
     companyId: companyA,
@@ -859,6 +979,11 @@ crossTenantSuite(requireKit, [
       }),
     },
   ),
+  isolationCase(
+    markFailed,
+    { input: { documentId: fixtures.isolationA } },
+    { input: { documentId: fixtures.isolationB } },
+  ),
 ]);
 
 eventSuite(requireKit, {
@@ -871,6 +996,16 @@ eventSuite(requireKit, {
   subscription: pdfRendererCreated,
   readProjection: countReadyJobs,
 });
+
+idempotencySuite(requireKit, [
+  {
+    action: markFailed,
+    input: { documentId: fixtures.markIdempotent },
+    conflictingInput: { documentId: fixtures.markConflict },
+    freshInput: () => ({ documentId: fixtures.markFresh }),
+    readEffect: countFailedJobs,
+  },
+]);
 
 atomicCallSuite(requireKit, [
   {
@@ -1020,11 +1155,76 @@ describe("docGeneration.renderPdf garage", () => {
     expect(pendingToken?.pdfDownloadUrl).toBeNull();
   });
 
-  it("failed job does not leave a catalog-purpose file", async () => {
-    closeFilesObjectStore();
-    const before = await countDocumentFiles();
+  it("one storage failure throws and does not persist a failed job", async () => {
+    const captured = createCapturingLogger();
+    const restore = withPutObjectFailures({ count: 1 });
     try {
-      const result = await requireKit().invoke(
+      await expect(
+        requireKit().invoke(
+          renderPdf,
+          createdEnvelope({
+            documentId: fixtures.fail,
+            type: "payment_invoice",
+            documentNumber: "KA-РХ-000903",
+          }),
+          {},
+          { deps: { ...requireKit().pipeline, logger: captured.logger } },
+        ),
+      ).rejects.toBeInstanceOf(PdfGenerationRetryableError);
+      await expect(
+        requireKit().invoke(getArtifact, { documentId: fixtures.fail }),
+      ).rejects.toBeInstanceOf(NotFoundError);
+      const leftover = await requireKit()
+        .db.runtime.db.select()
+        .from(files)
+        .where(eq(files.id, artifactFileId(fixtures.fail)));
+      expect(leftover).toHaveLength(0);
+      const payload = JSON.stringify(captured.entries());
+      expect(payload).toContain("docGeneration.renderPdf failed");
+      expect(payload).toContain("retryable");
+      expect(payload).toContain(fixtures.fail);
+      expect(payload).not.toContain("https://");
+      expect(payload).not.toContain("X-Amz-");
+      expect(payload).not.toContain(GARAGE_SECRET_KEY);
+    } finally {
+      restore();
+    }
+  });
+
+  it("retries after a successful PUT when metadata recording fails", async () => {
+    const remaining = { count: 1 };
+    const restore = mapConfiguredFilesObjectStore(
+      (store: FilesObjectStore) => ({
+        signPut: (input) => store.signPut(input),
+        signGet: (input) => store.signGet(input),
+        headObject: (key) => store.headObject(key),
+        getObject: async (key) => {
+          if (remaining.count > 0) {
+            remaining.count -= 1;
+            throw new CoreInvariantError("injected getObject outage");
+          }
+          return store.getObject(key);
+        },
+        putObject: (input) => store.putObject(input),
+        copyObject: (input) => store.copyObject(input),
+        deleteObject: (key) => store.deleteObject(key),
+        probeBucket: () => store.probeBucket(),
+        close: () => store.close(),
+      }),
+    );
+    try {
+      await expect(
+        requireKit().invoke(
+          renderPdf,
+          createdEnvelope({
+            documentId: fixtures.fail,
+            type: "payment_invoice",
+            documentNumber: "KA-РХ-000903",
+          }),
+        ),
+      ).rejects.toBeInstanceOf(PdfGenerationRetryableError);
+      expect(remaining.count).toBe(0);
+      const first = await requireKit().invoke(
         renderPdf,
         createdEnvelope({
           documentId: fixtures.fail,
@@ -1032,22 +1232,217 @@ describe("docGeneration.renderPdf garage", () => {
           documentNumber: "KA-РХ-000903",
         }),
       );
-      expect(result.status).toBe("failed");
-      expect(result.fileId).toBeNull();
-      const leftover = await requireKit()
-        .db.runtime.db.select()
+      expect(first.status).toBe("ready");
+      expect(first.fileId).toBe(artifactFileId(fixtures.fail));
+      const second = await requireKit().invoke(
+        renderPdf,
+        createdEnvelope({
+          documentId: fixtures.fail,
+          type: "payment_invoice",
+          documentNumber: "KA-РХ-000903",
+        }),
+      );
+      expect(second.fileId).toBe(first.fileId);
+      const rows = await requireKit()
+        .db.runtime.db.select({ id: files.id })
         .from(files)
         .where(eq(files.id, artifactFileId(fixtures.fail)));
-      expect(leftover).toHaveLength(0);
-      expect(await countDocumentFiles()).toBe(before);
-      const [job] = await requireKit()
-        .db.runtime.db.select()
-        .from(documentGenerationJobs)
-        .where(eq(documentGenerationJobs.documentId, fixtures.fail));
-      expect(job?.status).toBe("failed");
+      expect(rows).toHaveLength(1);
     } finally {
-      configureFilesObjectStore(garageS3Config());
-      await waitForBucket();
+      restore();
     }
+  });
+
+  it("terminal snapshot errors persist failed without retrying", async () => {
+    const result = await requireKit().invoke(
+      renderPdf,
+      createdEnvelope({
+        documentId: fixtures.usd,
+        type: "payment_invoice",
+        documentNumber: "KA-РХ-000907",
+      }),
+    );
+    expect(result).toEqual({
+      status: "failed",
+      fileId: null,
+      documentId: fixtures.usd,
+    });
+    const artifact = await requireKit().invoke(getArtifact, {
+      documentId: fixtures.usd,
+    });
+    expect(artifact).toEqual({ status: "failed", fileId: null });
+  });
+
+  it("does not overwrite a ready artifact with markFailed", async () => {
+    const ready = await requireKit().invoke(getArtifact, {
+      documentId: fixtures.invoice,
+    });
+    expect(ready.status).toBe("ready");
+    const finalized = await requireKit().invoke(markFailed, {
+      documentId: fixtures.invoice,
+    });
+    expect(finalized.status).toBe("ready");
+    expect(finalized.fileId).toBe(ready.fileId);
+    const again = await requireKit().invoke(getArtifact, {
+      documentId: fixtures.invoice,
+    });
+    expect(again).toEqual(ready);
+  });
+
+  it("rejects staff callers and invalid markFailed input", async () => {
+    await expect(
+      executeAction(requireKit().pipeline, {
+        action: markFailed,
+        input: { documentId: fixtures.markIdempotent },
+        request: {
+          requestId: randomUUID(),
+          correlationId: randomUUID(),
+          channel: "ui",
+        },
+        principal: {
+          mode: "staff",
+          session: { userId: kitIdentities.users.anna },
+          companySelector: kitIdentities.companies.a,
+        },
+      }),
+    ).rejects.toBeInstanceOf(CoreInvariantError);
+    await expect(
+      requireKit().invoke(markFailed, { documentId: "not-a-uuid" }),
+    ).rejects.toBeInstanceOf(ValidationError);
+  });
+});
+
+describe("docGeneration.renderPdf delivery retry (SHO-436)", () => {
+  it("does not ACK a transient storage failure; a scheduled retry becomes ready", async () => {
+    const requestId = randomUUID();
+    const created = await requireKit().invoke(
+      createFromOrder,
+      { orderId: fixtures.orderRetry, type: "payment_invoice" },
+      {},
+      { request: { requestId, idempotencyKey: randomUUID() } },
+    );
+    const eventId = await dispatchPdfCreated(requestId);
+    const nowMs = { value: Date.now() };
+    const pipeline = { ...requireKit().pipeline, now: () => nowMs.value };
+    const restore = withPutObjectFailures({ count: 1 });
+    let first: Awaited<ReturnType<typeof executeDelivery>>;
+    try {
+      first = await executeDelivery(pipeline, {
+        subscription: pdfRendererCreated,
+        eventId,
+        claimedBy: "sho-436-retry",
+      });
+    } finally {
+      restore();
+    }
+    expect(first.status).toBe("failed");
+    if (first.status !== "failed") {
+      throw new Error("expected a failed delivery outcome");
+    }
+    expect(first.retryAt).toBe(
+      new Date(nowMs.value + DELIVERY_RETRY_BASE_MS).toISOString(),
+    );
+    expect(first.error).toBeInstanceOf(PdfGenerationRetryableError);
+    await expect(
+      requireKit().invoke(getArtifact, { documentId: created.documentId }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    expect(
+      await findClaimableDeliveries(
+        { db: requireKit().db.runtime.db },
+        { subscriptions: [pdfRendererCreated], now: () => nowMs.value },
+      ),
+    ).not.toContainEqual({
+      consumer: pdfRendererCreated.consumer,
+      eventId,
+      eventName: "documents.created",
+    });
+    nowMs.value += DELIVERY_RETRY_BASE_MS;
+    const second = await executeDelivery(pipeline, {
+      subscription: pdfRendererCreated,
+      eventId,
+      claimedBy: "sho-436-retry",
+    });
+    expect(second).toEqual({ status: "processed" });
+    const artifact = await requireKit().invoke(getArtifact, {
+      documentId: created.documentId,
+    });
+    expect(artifact.status).toBe("ready");
+    expect(artifact.fileId).toBe(artifactFileId(created.documentId));
+    const replay = await executeDelivery(pipeline, {
+      subscription: pdfRendererCreated,
+      eventId,
+      claimedBy: "sho-436-retry",
+    });
+    expect(replay.status).toBe("alreadyProcessed");
+    const filesRows = await requireKit()
+      .db.runtime.db.select({ id: files.id })
+      .from(files)
+      .where(eq(files.id, artifactFileId(created.documentId)));
+    expect(filesRows).toHaveLength(1);
+  });
+
+  it("exhausts the delivery budget and persists failed through a fresh transaction", async () => {
+    const requestId = randomUUID();
+    const created = await requireKit().invoke(
+      createFromOrder,
+      { orderId: fixtures.orderExhaust, type: "payment_invoice" },
+      {},
+      { request: { requestId, idempotencyKey: randomUUID() } },
+    );
+    const eventId = await dispatchPdfCreated(requestId);
+    const nowMs = { value: Date.now() };
+    const pipeline = { ...requireKit().pipeline, now: () => nowMs.value };
+    const remaining = { count: DELIVERY_MAX_ATTEMPTS };
+    const restore = withPutObjectFailures(remaining);
+    try {
+      for (let attempt = 1; attempt <= DELIVERY_MAX_ATTEMPTS; attempt += 1) {
+        const outcome = await executeDelivery(pipeline, {
+          subscription: pdfRendererCreated,
+          eventId,
+          claimedBy: "sho-436-exhaust",
+        });
+        expect(outcome.status).toBe("failed");
+        if (outcome.status !== "failed") {
+          throw new Error("expected a failed delivery outcome");
+        }
+        if (attempt < DELIVERY_MAX_ATTEMPTS) {
+          const delay = DELIVERY_RETRY_BASE_MS * 2 ** (attempt - 1);
+          expect(outcome.retryAt).toBe(
+            new Date(nowMs.value + delay).toISOString(),
+          );
+          nowMs.value += delay;
+        } else {
+          expect(outcome.retryAt).toBeNull();
+        }
+      }
+    } finally {
+      restore();
+    }
+    expect(remaining.count).toBe(0);
+    await expect(
+      requireKit().invoke(getArtifact, { documentId: created.documentId }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+    const finalized = await requireKit().invoke(markFailed, {
+      documentId: created.documentId,
+    });
+    expect(finalized).toEqual({
+      status: "failed",
+      fileId: null,
+      documentId: created.documentId,
+    });
+    const reloaded = await requireKit().invoke(getArtifact, {
+      documentId: created.documentId,
+    });
+    expect(reloaded).toEqual({ status: "failed", fileId: null });
+    expect(
+      await findClaimableDeliveries(
+        { db: requireKit().db.runtime.db },
+        { subscriptions: [pdfRendererCreated], now: () => nowMs.value },
+      ),
+    ).not.toContainEqual({
+      consumer: pdfRendererCreated.consumer,
+      eventId,
+      eventName: "documents.created",
+    });
   });
 });

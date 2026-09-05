@@ -20,6 +20,7 @@ import type { Database } from "@showzy/db";
 import type { Logger } from "pino";
 
 import type { OutboxListener } from "./listen.js";
+import { maybeFinalizeDeadPdfGeneration } from "./pdf-delivery.js";
 import {
   DELIVERY_CONCURRENCY,
   POLL_INTERVAL_MS,
@@ -385,7 +386,7 @@ export function createOutboxWorker(
         { db: options.pipeline.db },
         { subscriptions: options.subscriptions, ...clock },
       ),
-    execute: (delivery) => {
+    execute: async (delivery) => {
       const subscription = byConsumerAndEvent.get(
         consumerEventKey(delivery.consumer, delivery.eventName),
       );
@@ -399,13 +400,21 @@ export function createOutboxWorker(
           },
           "no subscription for claimable delivery",
         );
-        return Promise.resolve({ status: "deferred" });
+        return { status: "deferred" };
       }
-      return executeDelivery(options.pipeline, {
+      const outcome = await executeDelivery(options.pipeline, {
         subscription,
         eventId: delivery.eventId,
         claimedBy: options.workerId,
       });
+      await maybeFinalizeDeadPdfGeneration({
+        pipeline: options.pipeline,
+        delivery,
+        outcome,
+        logger: options.logger,
+        workerId: options.workerId,
+      });
+      return outcome;
     },
     cleanup: () =>
       options.now === undefined

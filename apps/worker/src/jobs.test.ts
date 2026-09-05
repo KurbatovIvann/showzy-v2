@@ -66,6 +66,7 @@ describe("BullMQ job host policy (fnd-T29 / SHO-120 / SHO-236 / SHO-248)", () =>
     expect(jobsSource).not.toContain("documentGenerationJobs");
     expect(jobsSource).not.toContain("@showzy/db/schema/");
     expect(jobsSource).not.toContain("drizzle-orm");
+    expect(jobsSource).toContain("return executeAction");
   });
 
   it("binds and probes the files object store at worker boot, then closes it", () => {

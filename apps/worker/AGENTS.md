@@ -39,6 +39,10 @@ wakeup, polling fallback, graceful drain, and the job host.
   dispatches then executes due deliveries; shutdown waits for in-flight
   work and does not claim further. Executor lookup is keyed by
   `(consumer, eventName)` so one consumer id may bind multiple events.
+  After `executeDelivery`, `maybeFinalizeDeadPdfGeneration` persists a
+  durable failed PDF job via `docGeneration.markFailed` when the
+  `docGeneration.pdf-renderer` delivery is dead (`retryAt: null`). Scope
+  comes from `PdfGenerationRetryableError`, not a domain-table query.
   Idempotency cleanup is **not** on this loop.
 - `src/listen.ts` — dedicated `pg.Client` for `LISTEN domain_events`.
   A dropped listen connection reconnects with backoff, logs recovery, and

@@ -269,6 +269,7 @@ describe("client composition", () => {
     expect(contractModules.docGeneration).not.toHaveProperty("getArtifact");
     expect(contractModules.docGeneration).not.toHaveProperty("renderPdf");
     expect(contractModules.docGeneration).not.toHaveProperty("resolveLayout");
+    expect(contractModules.docGeneration).not.toHaveProperty("markFailed");
     expect(contractRouter.docSigning.get).toBeDefined();
     expect(contractRouter.docSigning.start).toBeDefined();
     expect(contractRouter.docSigning.complete).toBeDefined();

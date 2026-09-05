@@ -26,9 +26,12 @@ describe("doc-generation source guards (SHO-236)", () => {
   it("does not recompute issuedOn with Date year APIs or date-fns", () => {
     const sources = [
       "actions/render-pdf.ts",
+      "actions/mark-failed.ts",
       "actions/list-layouts.ts",
       "actions/resolve-layout.ts",
       "services/render-pdf.ts",
+      "services/mark-failed.ts",
+      "services/pdf-retry.ts",
       "services/format-pdf-text.ts",
       "services/layouts.ts",
       "services/amount-in-words.ts",
