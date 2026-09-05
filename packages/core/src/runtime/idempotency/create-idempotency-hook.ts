@@ -12,10 +12,13 @@
  * hit: `completed` + same request hash → replay the stored snapshot;
  * different hash → `IdempotencyConflictError`; a live `in_progress` lease →
  * `ConcurrentRetryError`; `failed` or an expired lease → conditional
- * takeover keyed on the observed `attempt_id`, so exactly one retry wins.
- * `finalize` flips the row to `completed` with the response snapshot
- * **inside the handler transaction** — snapshot and effects commit
- * atomically. `markFailed` runs in its own transaction after rollback.
+ * takeover keyed on the observed `attempt_id` and current
+ * status/lease/retention eligibility, so exactly one retry wins and a
+ * stale snapshot cannot reopen a completed attempt. A lost CAS reloads
+ * and returns replay, conflict, or retry. `finalize` flips the row to
+ * `completed` with the response snapshot **inside the handler
+ * transaction** — snapshot and effects commit atomically. `markFailed`
+ * runs in its own transaction after rollback.
  *
  * The lease is the action timeout plus a bounded safety margin: the
  * whole-pipeline deadline (core.md §4) bounds every handler, so an attempt
@@ -32,7 +35,7 @@
 import { randomUUID } from "node:crypto";
 
 import { idempotencyKeys, type Database } from "@showzy/db";
-import { and, eq, lte } from "drizzle-orm";
+import { and, eq, lte, or } from "drizzle-orm";
 
 import {
   ConcurrentRetryError,
@@ -64,6 +67,12 @@ export interface IdempotencyHookDeps {
   readonly db: Database;
   /** Clock override for tests; defaults to `Date.now`. */
   readonly now?: () => number;
+  /**
+   * Test seam: awaited after a reclaim decision and before the
+   * eligibility-fenced UPDATE, so tests can interleave a concurrent
+   * finalize without timing sleeps.
+   */
+  readonly beforeTakeover?: () => Promise<void>;
 }
 
 /**
@@ -101,6 +110,7 @@ export function createIdempotencyHook(
   deps: IdempotencyHookDeps,
 ): IdempotencyHook {
   const now = deps.now ?? Date.now;
+  const beforeTakeover = deps.beforeTakeover;
 
   return {
     async probe(env) {
@@ -171,9 +181,12 @@ export function createIdempotencyHook(
           return await takeover(deps.db, {
             identity,
             observedAttemptId: existing.attemptId,
+            requestHash,
             leaseMs,
             nowMs: nowAfterRead,
+            now,
             grant,
+            beforeTakeover,
             reset: {
               requestHash,
               expiresAt: new Date(nowAfterRead + IDEMPOTENCY_RETENTION_MS),
@@ -200,9 +213,12 @@ export function createIdempotencyHook(
             return await takeover(deps.db, {
               identity,
               observedAttemptId: existing.attemptId,
+              requestHash,
               leaseMs,
               nowMs: nowAfterRead,
+              now,
               grant,
+              beforeTakeover,
             });
           case "in_progress": {
             if (existing.leaseExpiresAt.getTime() > nowAfterRead) {
@@ -219,9 +235,12 @@ export function createIdempotencyHook(
             return await takeover(deps.db, {
               identity,
               observedAttemptId: existing.attemptId,
+              requestHash,
               leaseMs,
               nowMs: nowAfterRead,
+              now,
               grant,
+              beforeTakeover,
             });
           }
           default:
@@ -318,18 +337,23 @@ function execute(
 }
 
 /**
- * Conditional takeover of a failed/stale/expired reservation, keyed on the
- * attempt id the caller observed (§5): the UPDATE matches at most once per
- * observed attempt, so concurrent retries produce exactly one winner.
+ * Conditional takeover of a failed/stale/expired reservation. The UPDATE
+ * is fenced on the observed `attempt_id` **and** current eligibility
+ * (retention passed, `failed`, or `in_progress` with an expired lease)
+ * so a stale snapshot cannot reopen a completed attempt (SHO-434). A lost
+ * CAS reloads and returns replay, conflict, or retry.
  */
 async function takeover(
   db: Database,
   options: {
     readonly identity: RowIdentity;
     readonly observedAttemptId: string;
+    readonly requestHash: string;
     readonly leaseMs: number;
     readonly nowMs: number;
+    readonly now: () => number;
     readonly grant: ConfirmationGrant | undefined;
+    readonly beforeTakeover?: () => Promise<void>;
     /** Set when reusing a row whose retention has passed. */
     readonly reset?: {
       readonly requestHash: string;
@@ -341,6 +365,7 @@ async function takeover(
   },
 ): Promise<IdempotencyReserveResult> {
   const attemptId = randomUUID();
+  await options.beforeTakeover?.();
   const updated = await db
     .update(idempotencyKeys)
     .set({
@@ -357,15 +382,75 @@ async function takeover(
       and(
         pkWhere(options.identity),
         eq(idempotencyKeys.attemptId, options.observedAttemptId),
+        reclaimableWhere(options.nowMs),
       ),
     )
     .returning({ attemptId: idempotencyKeys.attemptId });
   if (updated.length === 0) {
-    throw new ConcurrentRetryError(retryAfterSec(options.leaseMs), undefined, {
-      internalMessage: `lost the conditional takeover race on "${options.identity.action}"`,
-    });
+    return await resolveLostTakeover(db, options);
   }
   return execute({ ...options.identity, attemptId, leaseMs: options.leaseMs });
+}
+
+/**
+ * Eligibility at mutation time: retention has passed (replay re-executes),
+ * the attempt failed, or an `in_progress` lease is expired. `completed`
+ * inside the retention window is intentionally excluded.
+ */
+function reclaimableWhere(nowMs: number) {
+  const at = new Date(nowMs);
+  return or(
+    lte(idempotencyKeys.expiresAt, at),
+    eq(idempotencyKeys.status, "failed"),
+    and(
+      eq(idempotencyKeys.status, "in_progress"),
+      lte(idempotencyKeys.leaseExpiresAt, at),
+    ),
+  );
+}
+
+async function resolveLostTakeover(
+  db: Database,
+  options: {
+    readonly identity: RowIdentity;
+    readonly requestHash: string;
+    readonly leaseMs: number;
+    readonly now: () => number;
+  },
+): Promise<IdempotencyReserveResult> {
+  const [existing] = await db
+    .select()
+    .from(idempotencyKeys)
+    .where(pkWhere(options.identity));
+  if (existing === undefined) {
+    throw new ConcurrentRetryError(1, undefined, {
+      internalMessage: `idempotency reservation on "${options.identity.action}" vanished during takeover — cleanup race`,
+    });
+  }
+  const nowMs = options.now();
+  if (existing.requestHash !== options.requestHash) {
+    throw new IdempotencyConflictError(undefined, {
+      internalMessage: `idempotency key reuse with a different payload on "${options.identity.action}" (status ${existing.status})`,
+    });
+  }
+  if (existing.status === "completed") {
+    return { kind: "replay", response: existing.response };
+  }
+  if (
+    existing.status === "in_progress" &&
+    existing.leaseExpiresAt.getTime() > nowMs
+  ) {
+    throw new ConcurrentRetryError(
+      retryAfterSec(existing.leaseExpiresAt.getTime() - nowMs),
+      undefined,
+      {
+        internalMessage: `a live attempt ${existing.attemptId} holds the lease on "${options.identity.action}"`,
+      },
+    );
+  }
+  throw new ConcurrentRetryError(retryAfterSec(options.leaseMs), undefined, {
+    internalMessage: `lost the conditional takeover race on "${options.identity.action}"`,
+  });
 }
 
 function requestHashOf(

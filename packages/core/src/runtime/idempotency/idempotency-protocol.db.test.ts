@@ -13,6 +13,8 @@
  *   `ConcurrentRetryError` with a retry-after hint).
  * - A failed attempt marks the key `failed`; a retry takes it over.
  * - A crashed attempt's expired lease is taken over by exactly one retry.
+ * - A stale takeover cannot reopen a just-completed attempt (SHO-434):
+ *   the CAS re-checks status/lease/retention and a lost race replays.
  * - Replay after the 48-h retention re-executes; cleanup removes expired
  *   keys only.
  */
@@ -211,6 +213,95 @@ function shiftedHook(ms: number): IdempotencyHook {
   });
 }
 
+function deferred(): {
+  readonly promise: Promise<void>;
+  readonly resolve: () => void;
+} {
+  let resolve = (): void => {};
+  const promise = new Promise<void>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
+}
+
+function arrivalBarrier(expected: number): {
+  readonly arrive: () => Promise<void>;
+  readonly waitUntilFull: Promise<void>;
+  readonly release: () => void;
+} {
+  let arrivals = 0;
+  const full = deferred();
+  const released = deferred();
+  return {
+    arrive: async () => {
+      arrivals += 1;
+      if (arrivals === expected) {
+        full.resolve();
+      }
+      await released.promise;
+    },
+    waitUntilFull: full.promise,
+    release: released.resolve,
+  };
+}
+
+function controllableClock(startMs = Date.now()): {
+  now: () => number;
+  advance: (ms: number) => void;
+} {
+  let current = startMs;
+  return {
+    now: () => current,
+    advance: (ms) => {
+      current += ms;
+    },
+  };
+}
+
+const LEASE_SPAN_MS = contract.timeout + IDEMPOTENCY_LEASE_MARGIN_MS;
+
+function effectName(key: string): string {
+  return `idem-fence:${key}`;
+}
+
+async function countEffects(key: string): Promise<number> {
+  const rows = await database.runtime.db
+    .select()
+    .from(fixtureProducts)
+    .where(eq(fixtureProducts.name, effectName(key)));
+  return rows.length;
+}
+
+function fencingAction(options: {
+  readonly key: string;
+  readonly onStart?: () => void;
+  readonly hold?: Promise<void>;
+}): { action: FixtureAction; runs: () => number } {
+  let runs = 0;
+  const action = implementAction(contract, {
+    handler: async (_input, ctx) => {
+      options.onStart?.();
+      if (options.hold !== undefined) {
+        await options.hold;
+      }
+      runs += 1;
+      if (ctx.principal !== "staff" || !("insert" in ctx.db)) {
+        throw new CoreInvariantError("fixture expects a writable staff tx");
+      }
+      const resultId = randomUUID();
+      await ctx.db.insert(fixtureProducts).values({
+        id: resultId,
+        companyId: ctx.companyId,
+        name: effectName(options.key),
+        published: false,
+      });
+      return { resultId };
+    },
+    auditTarget: () => ({ type: "note", id: "fixture" }),
+  });
+  return { action, runs: () => runs };
+}
+
 // --- Tests --------------------------------------------------------------------
 
 describe("idempotency protocol — key requirement (core.md §5)", () => {
@@ -342,9 +433,7 @@ describe("idempotency protocol — concurrency and leases", () => {
     const key = randomUUID();
     // Simulate a crash: a reservation whose lease has long expired and whose
     // attempt never finalized or failed — exactly what a dead process leaves.
-    const staleHook = shiftedHook(
-      contract.timeout + IDEMPOTENCY_LEASE_MARGIN_MS + 60_000,
-    );
+    const staleHook = shiftedHook(LEASE_SPAN_MS + 60_000);
     const reserved = await staleHook.reserve({
       contract,
       request: {
@@ -400,6 +489,257 @@ describe("idempotency protocol — concurrency and leases", () => {
     expect(runs).toBe(1);
     const [finalRow] = await rowsForKey(key);
     expect(finalRow?.status).toBe("completed");
+  });
+});
+
+describe("idempotency protocol — takeover fencing (SHO-434)", () => {
+  it("does not reopen a completed attempt after a stale expired in_progress read", async () => {
+    const key = randomUUID();
+    const clock = controllableClock();
+    const originalStarted = deferred();
+    const originalHold = deferred();
+    const takeover = arrivalBarrier(1);
+    const hook = createIdempotencyHook({
+      db: database.runtime.db,
+      now: clock.now,
+      beforeTakeover: takeover.arrive,
+    });
+    const { action, runs } = fencingAction({
+      key,
+      onStart: originalStarted.resolve,
+      hold: originalHold.promise,
+    });
+
+    const original = run(action, { key, hook });
+    await originalStarted.promise;
+    clock.advance(LEASE_SPAN_MS + 1);
+
+    const reclaimer = run(action, { key, hook });
+    await takeover.waitUntilFull;
+    originalHold.resolve();
+    const first = await original;
+    takeover.release();
+    const replayed = await reclaimer;
+
+    expect(replayed.resultId).toBe(first.resultId);
+    expect(runs()).toBe(1);
+    expect(await countEffects(key)).toBe(1);
+    const [row] = await rowsForKey(key);
+    expect(row?.status).toBe("completed");
+    expect(row?.response).toEqual({ resultId: first.resultId });
+  });
+
+  it("lets at most one of two concurrent reclaimers execute an expired attempt", async () => {
+    const key = randomUUID();
+    const staleHook = shiftedHook(LEASE_SPAN_MS + 60_000);
+    const reserved = await staleHook.reserve({
+      contract,
+      request: {
+        action: contract.name,
+        ...requestMeta({ idempotencyKey: key }),
+      },
+      principal: {
+        mode: "staff",
+        session: { userId: users.anna },
+        companySelector: companyA,
+      },
+      input: { note: "hello" },
+      authorization: {
+        actor: { type: "user", id: users.anna },
+        companyId: companyA,
+      },
+      confirmationGrant: undefined,
+    });
+    expect(reserved.kind).toBe("execute");
+
+    const takeover = arrivalBarrier(2);
+    const hook = createIdempotencyHook({
+      db: database.runtime.db,
+      beforeTakeover: takeover.arrive,
+    });
+    const { action, runs } = fencingAction({ key });
+    const first = run(action, { key, hook });
+    const second = run(action, { key, hook });
+    await takeover.waitUntilFull;
+    takeover.release();
+    const outcomes = await Promise.allSettled([first, second]);
+
+    const fulfilled = outcomes.filter((o) => o.status === "fulfilled");
+    const rejected = outcomes.filter((o) => o.status === "rejected");
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect(rejected[0]).toEqual(
+      expect.objectContaining({ status: "rejected" }),
+    );
+    if (rejected[0]?.status === "rejected") {
+      expect(rejected[0].reason).toBeInstanceOf(ConcurrentRetryError);
+    }
+    expect(runs()).toBe(1);
+    expect(await countEffects(key)).toBe(1);
+    const [row] = await rowsForKey(key);
+    expect(row?.status).toBe("completed");
+  });
+
+  it("does not reclaim an unexpired in_progress lease", async () => {
+    const key = randomUUID();
+    const originalStarted = deferred();
+    const originalHold = deferred();
+    const { action, runs } = fencingAction({
+      key,
+      onStart: originalStarted.resolve,
+      hold: originalHold.promise,
+    });
+
+    const original = run(action, { key });
+    await originalStarted.promise;
+    const loser = await run(action, { key }).then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+    originalHold.resolve();
+    const first = await original;
+
+    expect(loser).toBeInstanceOf(ConcurrentRetryError);
+    expect(runs()).toBe(1);
+    expect(await countEffects(key)).toBe(1);
+    expect(first.resultId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
+    const [row] = await rowsForKey(key);
+    expect(row?.status).toBe("completed");
+    expect(row?.attemptId).toBeDefined();
+  });
+
+  it("still recovers an eligible failed attempt", async () => {
+    const key = randomUUID();
+    let failFirst = true;
+    const action = implementAction(contract, {
+      handler: async (_input, ctx) => {
+        if (ctx.principal !== "staff" || !("insert" in ctx.db)) {
+          throw new CoreInvariantError("fixture expects a writable staff tx");
+        }
+        if (failFirst) {
+          failFirst = false;
+          throw new ConflictError("First attempt fails.");
+        }
+        const resultId = randomUUID();
+        await ctx.db.insert(fixtureProducts).values({
+          id: resultId,
+          companyId: ctx.companyId,
+          name: effectName(key),
+          published: false,
+        });
+        return { resultId };
+      },
+      auditTarget: () => ({ type: "note", id: "fixture" }),
+    });
+
+    await expect(run(action, { key })).rejects.toThrow(ConflictError);
+    const [failedRow] = await rowsForKey(key);
+    expect(failedRow?.status).toBe("failed");
+
+    const retried = await run(action, { key });
+    expect(await countEffects(key)).toBe(1);
+    const [completedRow] = await rowsForKey(key);
+    expect(completedRow?.status).toBe("completed");
+    expect(completedRow?.attemptId).not.toBe(failedRow?.attemptId);
+    expect(completedRow?.response).toEqual({ resultId: retried.resultId });
+  });
+
+  it("rejects a different payload on an expired in_progress row without taking it over", async () => {
+    const key = randomUUID();
+    const clock = controllableClock();
+    const originalStarted = deferred();
+    const originalHold = deferred();
+    const hook = createIdempotencyHook({
+      db: database.runtime.db,
+      now: clock.now,
+    });
+    const { action, runs } = fencingAction({
+      key,
+      onStart: originalStarted.resolve,
+      hold: originalHold.promise,
+    });
+
+    const original = run(action, { key, note: "original", hook });
+    await originalStarted.promise;
+    clock.advance(LEASE_SPAN_MS + 1);
+    const [before] = await rowsForKey(key);
+
+    await expect(run(action, { key, note: "changed", hook })).rejects.toThrow(
+      IdempotencyConflictError,
+    );
+
+    originalHold.resolve();
+    await original;
+
+    expect(runs()).toBe(1);
+    expect(await countEffects(key)).toBe(1);
+    const [afterConflict] = await rowsForKey(key);
+    expect(afterConflict?.attemptId).toBe(before?.attemptId);
+    expect(afterConflict?.requestHash).toBe(before?.requestHash);
+    expect(afterConflict?.status).toBe("completed");
+  });
+
+  it("rolls back an old finalize after a newer owner took the lease", async () => {
+    const key = randomUUID();
+    const clock = controllableClock();
+    const originalStarted = deferred();
+    const originalHold = deferred();
+    const reclaimerStarted = deferred();
+    const reclaimerHold = deferred();
+    const hook = createIdempotencyHook({
+      db: database.runtime.db,
+      now: clock.now,
+    });
+
+    let handlerIndex = 0;
+    const racingAction = implementAction(contract, {
+      handler: async (_input, ctx) => {
+        const index = handlerIndex;
+        handlerIndex += 1;
+        if (index === 0) {
+          originalStarted.resolve();
+          await originalHold.promise;
+        } else {
+          reclaimerStarted.resolve();
+          await reclaimerHold.promise;
+        }
+        if (ctx.principal !== "staff" || !("insert" in ctx.db)) {
+          throw new CoreInvariantError("fixture expects a writable staff tx");
+        }
+        const resultId = randomUUID();
+        await ctx.db.insert(fixtureProducts).values({
+          id: resultId,
+          companyId: ctx.companyId,
+          name: effectName(key),
+          published: false,
+        });
+        return { resultId };
+      },
+      auditTarget: () => ({ type: "note", id: "fixture" }),
+    });
+
+    const original = run(racingAction, { key, hook });
+    await originalStarted.promise;
+    clock.advance(LEASE_SPAN_MS + 1);
+    const reclaimer = run(racingAction, { key, hook });
+    await reclaimerStarted.promise;
+
+    originalHold.resolve();
+    const originalError = await original.then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+    expect(originalError).toBeInstanceOf(ConcurrentRetryError);
+
+    reclaimerHold.resolve();
+    const winner = await reclaimer;
+
+    expect(await countEffects(key)).toBe(1);
+    const [row] = await rowsForKey(key);
+    expect(row?.status).toBe("completed");
+    expect(row?.response).toEqual({ resultId: winner.resultId });
   });
 });
 
