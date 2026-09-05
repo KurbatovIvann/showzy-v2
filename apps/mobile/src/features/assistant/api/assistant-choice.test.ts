@@ -28,7 +28,7 @@ const cookie = "better-auth.session_token=SECRET_SESSION_COOKIE";
 function jsonResponse(
   status: number,
   body: unknown,
-  headers: HeadersInit = {},
+  headers: Record<string, string> = {},
 ): Response {
   return new Response(JSON.stringify(body), {
     status,

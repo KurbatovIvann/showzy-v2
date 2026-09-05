@@ -1044,11 +1044,11 @@ describe("choice select recoverability", () => {
     });
     expect(second).toMatchObject({ status: "completed" });
     expect(postChoice).toHaveBeenCalledTimes(2);
-    expect(postChoice.mock.calls[0]?.[0]).toEqual({
+    expect(postChoice).toHaveBeenNthCalledWith(1, {
       choiceId,
       optionId: lemonId,
     });
-    expect(postChoice.mock.calls[1]?.[0]).toEqual({
+    expect(postChoice).toHaveBeenNthCalledWith(2, {
       choiceId,
       optionId: lemonId,
     });
