@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { listMineContract, listMineInputSchema } from "./list-mine.contract.js";
+import { listMineContract, listMineInputSchema, listMineOutputSchema } from "./list-mine.contract.js";
 
 describe("companies.listMine contract", () => {
   it("is an account client read with no permissions, audit, events, or confirmation", () => {
@@ -31,5 +31,44 @@ describe("companies.listMine contract", () => {
     );
     expect(listMineInputSchema.safeParse([]).success).toBe(false);
     expect(listMineInputSchema.safeParse(null).success).toBe(false);
+  });
+
+  it("requires additive effective permissions on each membership and ignores client-supplied input authority", () => {
+    const company = {
+      id: "11111111-1111-4111-8111-111111111111",
+      name: "Cafe",
+      slug: "cafe",
+      prefix: "CA",
+    };
+    const withoutPermissions = {
+      membershipId: "22222222-2222-4222-8222-222222222222",
+      role: "manager" as const,
+      company,
+    };
+    expect(
+      listMineOutputSchema.safeParse({
+        memberships: [withoutPermissions],
+      }).success,
+    ).toBe(false);
+    const parsed = listMineOutputSchema.safeParse({
+      memberships: [
+        {
+          ...withoutPermissions,
+          permissions: ["orders:edit", "orders:create"],
+        },
+      ],
+    });
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) {
+      return;
+    }
+    expect(parsed.data.memberships[0]?.permissions).toEqual([
+      "orders:edit",
+      "orders:create",
+    ]);
+    expect(
+      listMineInputSchema.safeParse({ permissions: ["orders:create"] })
+        .success,
+    ).toBe(false);
   });
 });

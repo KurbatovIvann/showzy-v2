@@ -4,6 +4,7 @@ import {
   CREATE_COMPANY_NAME_MAX,
   createCompanyContract,
   createCompanyInputSchema,
+  createCompanyOutputSchema,
 } from "./create.contract.js";
 
 describe("companies.create contract", () => {
@@ -100,5 +101,27 @@ describe("companies.create contract", () => {
     expect(createCompanyInputSchema.safeParse(null).success).toBe(false);
     expect(createCompanyInputSchema.safeParse([]).success).toBe(false);
     expect(createCompanyInputSchema.safeParse({}).success).toBe(false);
+  });
+
+  it("returns the owner membership view with an empty permissions array", () => {
+    const view = {
+      membershipId: "22222222-2222-4222-8222-222222222222",
+      role: "owner" as const,
+      permissions: [],
+      company: {
+        id: "11111111-1111-4111-8111-111111111111",
+        name: "Cafe",
+        slug: "cafe",
+        prefix: "CA",
+      },
+    };
+    expect(createCompanyOutputSchema.safeParse(view).success).toBe(true);
+    expect(
+      createCompanyOutputSchema.safeParse({
+        membershipId: view.membershipId,
+        role: view.role,
+        company: view.company,
+      }).success,
+    ).toBe(false);
   });
 });

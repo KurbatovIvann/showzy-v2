@@ -62,6 +62,7 @@ export async function createOwnedCompany(env: {
   return {
     membershipId,
     role: "owner",
+    permissions: [],
     company: { id: companyId, name: input.name, slug: input.slug, prefix },
   };
 }
@@ -111,6 +112,7 @@ async function replayOwnIdenticalCreate(
       return {
         membershipId: membership.id,
         role: "owner",
+        permissions: [],
         company: {
           id: occupying.id,
           name: occupying.name,

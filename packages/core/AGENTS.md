@@ -13,7 +13,8 @@ Four export subpaths exist:
 - `@showzy/core` (root, server-only) — `implementAction` + `ActionRegistry`
   (fnd-T9), the registry-walking contract check (fnd-T10) including the
   `suiteCoverage` manifest (fnd-T22), the seven principal context factories
-  plus `effectiveCompanyId` / `staffHasPermission` (fnd-T11 / fnd-T11B),
+  plus `effectiveCompanyId` / `staffHasPermission` /
+  `resolveEffectivePermissions` (fnd-T11 / fnd-T11B; SHO-438 re-export),
   the execution
   pipeline `executeAction` (fnd-T12), the audit protocol `createAuditHook`
   and `canonicalJson`/`canonicalJsonSha256` (fnd-T13), rate limiting

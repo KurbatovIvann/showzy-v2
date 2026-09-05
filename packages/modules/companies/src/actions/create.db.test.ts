@@ -142,6 +142,7 @@ describe("companies.create", () => {
     );
 
     expect(result.role).toBe("owner");
+    expect(result.permissions).toEqual([]);
     expect(result.company.name).toBe("Nova Pekarnya");
     expect(result.company.slug).toBe("nova-pekarnya");
     expect(result.company.prefix).toBe("NP");

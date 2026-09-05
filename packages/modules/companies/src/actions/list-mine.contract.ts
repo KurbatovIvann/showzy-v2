@@ -25,6 +25,12 @@ export const companyMemberRoleSchema = z.enum([
 export const companyMembershipViewSchema = z.object({
   membershipId: z.uuid(),
   role: companyMemberRoleSchema,
+  /**
+   * Effective keys for this membership after role defaults, explicit
+   * grants, and explicit denies (deny wins). Owner-all is not listed —
+   * `role: "owner"` remains the owner short-circuit.
+   */
+  permissions: z.array(z.string()),
   company: z.object({
     id: z.uuid(),
     name: z.string(),
@@ -43,7 +49,7 @@ export const listMineOutputSchema = z.object({
 export const listMineContract = defineActionContract({
   name: "companies.listMine",
   description:
-    "List the authenticated user's own company memberships with each company's identity (id, name, slug, numbering prefix) and the caller's membership id and role, in stable creation order. Returns an empty list for an account with no memberships. Takes no input; the caller is derived from the verified session only.",
+    "List the authenticated user's own company memberships with each company's identity (id, name, slug, numbering prefix), the caller's membership id and role, and the caller's effective permission keys for that membership, in stable creation order. Returns an empty list for an account with no memberships. Takes no input; the caller is derived from the verified session only. Owner-all is not enumerated as a finite key list.",
   principal: "account",
   transport: "client",
   input: listMineInputSchema,

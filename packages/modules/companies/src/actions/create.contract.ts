@@ -61,7 +61,7 @@ export const createCompanyOutputSchema = companyMembershipViewSchema;
 export const createCompanyContract = defineActionContract({
   name: "companies.create",
   description:
-    "Create a company owned by the authenticated user. Takes only the business name and public slug; the unique numbering prefix is generated server-side from the name. Atomically inserts the company and the caller's owner membership and returns that membership with the company identity (id, name, slug, prefix). Re-submitting the identical name and slug by the same owner returns the already-created company; a slug occupied by any other company is a conflict.",
+    "Create a company owned by the authenticated user. Takes only the business name and public slug; the unique numbering prefix is generated server-side from the name. Atomically inserts the company and the caller's owner membership and returns that membership with the company identity (id, name, slug, prefix) and an empty effective permissions array (owner-all is not enumerated). Re-submitting the identical name and slug by the same owner returns the already-created company; a slug occupied by any other company is a conflict.",
   principal: "account",
   transport: "client",
   input: createCompanyInputSchema,
