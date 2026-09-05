@@ -593,7 +593,9 @@ export function streamStaffAssistantChat(options: {
                   challengeId: toolResult.output.challengeId,
                   status: "needs_choice",
                   reason: toolResult.output.reason,
-                  choiceKind: toolResult.output.choiceKind,
+                  ...(toolResult.output.choiceKind !== undefined
+                    ? { choiceKind: toolResult.output.choiceKind }
+                    : {}),
                   productName: toolResult.output.productName,
                   options: toolResult.output.options,
                   optionsTruncated: toolResult.output.optionsTruncated,
