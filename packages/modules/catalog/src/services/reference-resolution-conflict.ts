@@ -1,6 +1,6 @@
 /**
  * Catalog-owned structured conflict for order-line variant and product
- * selection (SHO-405 / SHO-410 / SHO-401). Wire code stays CONFLICT —
+ * selection (SHO-405 / SHO-410 / SHO-401 / SHO-440). Wire code stays CONFLICT —
  * no new core error class.
  */
 import { ConflictError } from "@showzy/core/errors";
@@ -10,6 +10,7 @@ export const REFERENCE_RESOLUTION_CONFLICT_REASONS = [
   "ambiguous",
   "unmatched_query",
   "no_active_variants",
+  "archived",
 ] as const;
 
 export type ReferenceResolutionConflictReason =
@@ -26,6 +27,8 @@ export type OrderLineProductTarget = {
   readonly kind: "order_line_product";
   readonly lineIndex: number;
   readonly query: string;
+  /** Canonical name when exactly one archived product is identified. */
+  readonly productName?: string;
 };
 
 export type ReferenceResolutionTarget =
@@ -81,4 +84,12 @@ export function ambiguousVariantQueryMessage(
 
 export function ambiguousProductQueryMessage(query: string): string {
   return `Select a product matching "${query}".`;
+}
+
+export function archivedProductMessage(productName: string): string {
+  return `"${productName}" is archived.`;
+}
+
+export function archivedProductQueryMessage(query: string): string {
+  return `No active product matched "${query}"; matching products are archived.`;
 }

@@ -7,6 +7,7 @@ import {
   normalizeReferenceQuery,
   pickUniqueNormalizedMatch,
   type EntityRef,
+  type UniqueMatchResult,
 } from "@showzy/validation/entity-ref";
 import {
   likeContainsPattern,
@@ -23,6 +24,8 @@ import {
 import {
   ambiguousProductQueryMessage,
   ambiguousVariantQueryMessage,
+  archivedProductMessage,
+  archivedProductQueryMessage,
   noActiveVariantsMessage,
   ReferenceResolutionConflictError,
   unmatchedVariantQueryMessage,
@@ -31,6 +34,8 @@ import {
 } from "./reference-resolution-conflict.js";
 
 type StaffDb = Extract<ActionCtx, { principal: "staff" }>["db"];
+
+type ProductLifecycleStatus = "active" | "archived";
 
 const RESOLVE_LINE_CANDIDATE_MAX = 100;
 
@@ -193,6 +198,35 @@ function throwProductSelectionConflict(args: {
   });
 }
 
+function throwArchivedProductConflict(args: {
+  readonly lineIndex: number;
+  readonly query: string;
+  readonly uniqueProduct: ProductCandidate | undefined;
+}): never {
+  throw new ReferenceResolutionConflictError({
+    reason: "archived",
+    target:
+      args.uniqueProduct === undefined
+        ? {
+            kind: "order_line_product",
+            lineIndex: args.lineIndex,
+            query: args.query,
+          }
+        : {
+            kind: "order_line_product",
+            lineIndex: args.lineIndex,
+            query: args.query,
+            productName: args.uniqueProduct.name,
+          },
+    options: [],
+    optionsTruncated: false,
+    clientMessage:
+      args.uniqueProduct === undefined
+        ? archivedProductQueryMessage(args.query)
+        : archivedProductMessage(args.uniqueProduct.name),
+  });
+}
+
 function throwVariantSelectionConflict(args: {
   readonly reason:
     "variant_required" | "ambiguous" | "unmatched_query" | "no_active_variants";
@@ -247,12 +281,15 @@ async function loadProductsById(
 /**
  * Equality ILIKE (no `%` wrap) for every unique query string. No scan cap:
  * different query strings cannot crowd each other out, and duplicate exact
- * names are the natural CONFLICT set rather than a contains bag.
+ * names are the natural CONFLICT set rather than a contains bag. Active and
+ * archived run as independent statements so archived rows cannot consume
+ * the active budget.
  */
-async function loadActiveProductsByExactQuery(
+async function loadProductsByExactQuery(
   db: StaffDb,
   companyId: string,
   queries: readonly string[],
+  status: ProductLifecycleStatus,
 ): Promise<ProductCandidate[]> {
   const exact = orIlike(products.name, queries, sanitizeLikeLiteral);
   if (exact === undefined) {
@@ -264,16 +301,17 @@ async function loadActiveProductsByExactQuery(
     .where(
       and(
         eq(products.companyId, companyId),
-        eq(products.status, "active"),
+        eq(products.status, status),
         exact,
       ),
     );
 }
 
-async function loadActiveProductsByContainsQuery(
+async function loadProductsByContainsQuery(
   db: StaffDb,
   companyId: string,
   queries: readonly string[],
+  status: ProductLifecycleStatus,
 ): Promise<ProductCandidate[]> {
   const selects = queries.flatMap((query) => {
     const pattern = likeContainsPattern(normalizeReferenceQuery(query));
@@ -287,7 +325,7 @@ async function loadActiveProductsByContainsQuery(
         .where(
           and(
             eq(products.companyId, companyId),
-            eq(products.status, "active"),
+            eq(products.status, status),
             ilike(products.name, pattern),
           ),
         )
@@ -330,11 +368,27 @@ async function loadVariantsForProducts(
     );
 }
 
+function uniqueArchivedSubject(
+  picked: UniqueMatchResult<ProductCandidate>,
+): ProductCandidate | undefined {
+  if (picked.kind === "unique") {
+    return picked.row;
+  }
+  if (picked.kind === "ambiguous" && picked.rows.length === 1) {
+    const [row] = picked.rows;
+    if (row !== undefined) {
+      return row;
+    }
+  }
+  return undefined;
+}
+
 function resolveProductRef(
   ref: EntityRef,
   lineIndex: number,
   byId: ReadonlyMap<string, ProductCandidate>,
-  queryCandidates: readonly ProductCandidate[],
+  activeQueryCandidates: readonly ProductCandidate[],
+  archivedQueryCandidates: readonly ProductCandidate[],
 ): ProductCandidate {
   if (ref.by === "id") {
     const row = byId.get(ref.id);
@@ -343,25 +397,44 @@ function resolveProductRef(
     }
     return row;
   }
-  const scoped = candidatesContainingQuery(
+  const activeScoped = candidatesContainingQuery(
     ref.value,
-    queryCandidates,
+    activeQueryCandidates,
     (row) => [row.name],
   );
-  const picked = pickUniqueNormalizedMatch(ref.value, scoped, (row) => [
-    row.name,
-  ]);
-  if (picked.kind === "none") {
-    throw new NotFoundError();
+  const activePicked = pickUniqueNormalizedMatch(
+    ref.value,
+    activeScoped,
+    (row) => [row.name],
+  );
+  if (activePicked.kind === "unique") {
+    return activePicked.row;
   }
-  if (picked.kind === "ambiguous") {
+  if (activePicked.kind === "ambiguous") {
     throwProductSelectionConflict({
       lineIndex,
       query: ref.value,
-      optionsSource: picked.rows,
+      optionsSource: activePicked.rows,
     });
   }
-  return picked.row;
+  const archivedScoped = candidatesContainingQuery(
+    ref.value,
+    archivedQueryCandidates,
+    (row) => [row.name],
+  );
+  const archivedPicked = pickUniqueNormalizedMatch(
+    ref.value,
+    archivedScoped,
+    (row) => [row.name],
+  );
+  if (archivedPicked.kind === "none") {
+    throw new NotFoundError();
+  }
+  throwArchivedProductConflict({
+    lineIndex,
+    query: ref.value,
+    uniqueProduct: uniqueArchivedSubject(archivedPicked),
+  });
 }
 
 function resolveReferencedVariant(
@@ -472,12 +545,14 @@ function resolveLineVariant(
 }
 
 /**
- * Bounded reads: at most one product-id SELECT, one active exact-name
- * SELECT (uncapped), one contains statement that caps candidates per
- * input query string (not one shared LIMIT across the OR), and one
- * variant SELECT for candidate product ids. Never one SELECT per
- * input line and never a nested action call. Product-level conflict on
- * a line is thrown before that line's variant conflict.
+ * Bounded reads: at most one product-id SELECT (active), one exact-name
+ * SELECT per status (uncapped active and archived), one contains statement
+ * per status that caps candidates per input query string (not one
+ * shared LIMIT across the OR or across statuses), and one variant SELECT
+ * for sellable (id + active query) product ids. Archived candidates do not
+ * load variants. Never one SELECT per input line and never a nested
+ * action call. Product-level conflict on a line is thrown before that
+ * line's variant conflict.
  */
 export async function resolveCatalogLineReferences(args: {
   readonly db: StaffDb;
@@ -497,22 +572,55 @@ export async function resolveCatalogLineReferences(args: {
     ),
   );
 
-  const [idRows, exactRows, containsRows] = await Promise.all([
-    loadProductsById(args.db, args.companyId, productIds),
-    loadActiveProductsByExactQuery(args.db, args.companyId, productQueries),
-    loadActiveProductsByContainsQuery(args.db, args.companyId, productQueries),
-  ]);
+  const [idRows, exactActive, containsActive, exactArchived, containsArchived] =
+    await Promise.all([
+      loadProductsById(args.db, args.companyId, productIds),
+      loadProductsByExactQuery(
+        args.db,
+        args.companyId,
+        productQueries,
+        "active",
+      ),
+      loadProductsByContainsQuery(
+        args.db,
+        args.companyId,
+        productQueries,
+        "active",
+      ),
+      loadProductsByExactQuery(
+        args.db,
+        args.companyId,
+        productQueries,
+        "archived",
+      ),
+      loadProductsByContainsQuery(
+        args.db,
+        args.companyId,
+        productQueries,
+        "archived",
+      ),
+    ]);
   const byId = new Map(idRows.map((row) => [row.id, row]));
-  const queryRows = mergeProductCandidates(exactRows, containsRows);
-  const candidateProducts = mergeProductCandidates(idRows, queryRows);
+  const activeQueryRows = mergeProductCandidates(exactActive, containsActive);
+  const archivedQueryRows = mergeProductCandidates(
+    exactArchived,
+    containsArchived,
+  );
+  const sellableProducts = mergeProductCandidates(idRows, activeQueryRows);
   const variants = await loadVariantsForProducts(
     args.db,
     args.companyId,
-    uniqueIds(candidateProducts.map((row) => row.id)),
+    uniqueIds(sellableProducts.map((row) => row.id)),
   );
 
   return args.lines.map((line, index) => {
-    const product = resolveProductRef(line.product, index, byId, queryRows);
+    const product = resolveProductRef(
+      line.product,
+      index,
+      byId,
+      activeQueryRows,
+      archivedQueryRows,
+    );
     return resolveLineVariant(line, index, product, variants);
   });
 }
