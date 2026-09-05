@@ -4,6 +4,7 @@ import { STAFF_ASSISTANT_CLIPPED_STATUS } from "./clip-tool-result.js";
 import { STAFF_ASSISTANT_CONFIRMATION_FALLBACK_TEXT } from "./confirmation.js";
 import {
   CHOICE_TRUNCATED_COPY,
+  presentChoiceStaffAssistantNeedsChoice,
   presentChoiceStaffAssistantTurn,
   presentCompletedStaffAssistantTurn,
   staffAssistantPersistedTurnText,
@@ -420,6 +421,131 @@ describe("staffAssistantTurnUsesCompletedPresenter", () => {
         runs: [{ outcome: "success" }],
       }),
     ).toBe(false);
+  });
+});
+
+describe("presentChoiceStaffAssistantNeedsChoice", () => {
+  const optionA = "55555555-5555-4555-8555-555555555555";
+  const optionB = "66666666-6666-4666-8666-666666666666";
+  const challengeId = "77777777-7777-4777-8777-777777777777";
+  const productId = "44444444-4444-4444-8444-444444444444";
+  const customerId = "88888888-8888-4888-8888-888888888888";
+  const companyId = "22222222-2222-4222-8222-222222222222";
+  const conversationId = "11111111-1111-4111-8111-111111111111";
+  const variantLemon = "aaaaaaaa-5555-4555-8555-555555555555";
+
+  function successorRecord(optionsTruncated: boolean) {
+    return {
+      status: "open" as const,
+      choiceId: challengeId,
+      actorId: "anna",
+      companyId,
+      conversationId,
+      canonicalInput: {
+        customer: { by: "id" as const, id: customerId },
+        items: [
+          {
+            product: { by: "id" as const, id: productId },
+            variantSelection: { kind: "unspecified" as const },
+            quantity: { milli: "1000" },
+          },
+        ],
+      },
+      target: {
+        lineIndex: 0,
+        productId,
+        productName: "Еклери",
+      },
+      optionMap: { [optionA]: variantLemon },
+      envelope: {
+        status: "needs_choice" as const,
+        challengeId,
+        reason: "variant_required" as const,
+        productName: "Еклери",
+        options: [
+          { id: optionA, label: "Кава" },
+          { id: optionB, label: "Шоколад" },
+        ],
+        optionsTruncated,
+      },
+    };
+  }
+
+  it("returns the same presenter string the first ChoiceCard would persist", () => {
+    const record = successorRecord(false);
+    const uk = presentChoiceStaffAssistantNeedsChoice({
+      locale: "uk",
+      record,
+    });
+    const en = presentChoiceStaffAssistantNeedsChoice({
+      locale: "en",
+      record,
+    });
+    const toolResults = [
+      {
+        toolName: ORDERS_CREATE_TOOL_NAME,
+        output: {
+          status: "needs_choice" as const,
+          challengeId,
+          reason: "variant_required" as const,
+          productName: "Еклери",
+          options: [
+            { id: optionA, label: "Кава" },
+            { id: optionB, label: "Шоколад" },
+          ],
+          optionsTruncated: false,
+        },
+      },
+    ];
+    expect(uk.text).toBe(
+      presentChoiceStaffAssistantTurn({ locale: "uk", toolResults }),
+    );
+    expect(en.text).toBe(
+      presentChoiceStaffAssistantTurn({ locale: "en", toolResults }),
+    );
+    expect(uk.text).toBe("Оберіть варіант для Еклери: Кава, Шоколад.");
+    expect(en.text).toBe("Select a variant for Еклери: Кава, Шоколад.");
+    expect(uk.text).toContain("Кава");
+    expect(uk.text).toContain("Шоколад");
+    expect(uk.text).not.toBe('Select a variant for "Еклери".');
+    expect(en.text).not.toBe('Select a variant for "Еклери".');
+    expect(uk.challengeId).toBe(challengeId);
+    expect(uk.options.map((option) => option.label)).toEqual([
+      "Кава",
+      "Шоколад",
+    ]);
+  });
+
+  it("appends the same truncated refinement copy the first card uses", () => {
+    const truncated = presentChoiceStaffAssistantNeedsChoice({
+      locale: "uk",
+      record: successorRecord(true),
+    });
+    expect(truncated.text).toContain(CHOICE_TRUNCATED_COPY.uk);
+    expect(truncated.text).toBe(
+      presentChoiceStaffAssistantTurn({
+        locale: "uk",
+        toolResults: [
+          {
+            toolName: ORDERS_CREATE_TOOL_NAME,
+            output: {
+              status: "needs_choice",
+              challengeId,
+              reason: "variant_required",
+              productName: "Еклери",
+              options: truncated.options,
+              optionsTruncated: true,
+            },
+          },
+        ],
+      }),
+    );
+    expect(
+      presentChoiceStaffAssistantNeedsChoice({
+        locale: "en",
+        record: successorRecord(true),
+      }).text,
+    ).toContain(CHOICE_TRUNCATED_COPY.en);
   });
 });
 

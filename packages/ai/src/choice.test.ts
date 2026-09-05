@@ -8,6 +8,7 @@ import { dirname, join } from "node:path";
 import {
   applyChoiceOptionToCanonicalInput,
   assistantChoiceBodySchema,
+  assistantChoiceInteractionResultSchema,
   bindChoiceOptions,
   catalogPickerConflictExtrasFromError,
   CHOICE_OPTIONS_MAX,
@@ -306,6 +307,44 @@ describe("choice transport (SHO-409)", () => {
         optionsTruncated: false,
       }),
     ).toThrow();
+  });
+
+  it("requires presenter text on the sequential needs_choice interaction result", () => {
+    const view = {
+      status: "needs_choice" as const,
+      challengeId: choiceId,
+      reason: "variant_required" as const,
+      productName: "Еклери",
+      options: [
+        { id: optionLemon, label: "Кава" },
+        { id: optionVanilla, label: "Шоколад" },
+      ],
+      optionsTruncated: false,
+    };
+    expect(staffAssistantNeedsChoiceOutputSchema.safeParse(view).success).toBe(
+      true,
+    );
+    expect(assistantChoiceInteractionResultSchema.safeParse(view).success).toBe(
+      false,
+    );
+    const presented = "Оберіть варіант для Еклери: Кава, Шоколад.";
+    const parsed = assistantChoiceInteractionResultSchema.parse({
+      ...view,
+      text: presented,
+    });
+    expect(parsed).toMatchObject({ status: "needs_choice", text: presented });
+    if (parsed.status !== "needs_choice") {
+      return;
+    }
+    expect(parsed.text).toBe(presented);
+    expect(parsed.productName).toBe("Еклери");
+    expect(parsed.options.map((option) => option.label)).toEqual([
+      "Кава",
+      "Шоколад",
+    ]);
+    expect(JSON.stringify(parsed)).not.toContain("canonicalInput");
+    expect(JSON.stringify(parsed)).not.toContain("optionMap");
+    expect(JSON.stringify(parsed)).not.toContain(productId);
   });
 });
 

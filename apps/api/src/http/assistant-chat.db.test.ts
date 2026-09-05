@@ -12,6 +12,7 @@ import {
   ORDERS_CREATE_TOOL_NAME,
   ORDERS_LIST_COUNTS_TOOL_NAME,
   ORDERS_LIST_PAGE_TOOL_NAME,
+  presentChoiceStaffAssistantTurn,
   PRICING_LIST_PRICE_LISTS_TOOL_NAME,
   STAFF_ASSISTANT_MODEL_HISTORY_MAX,
   STAFF_ASSISTANT_TOOL_SEARCH_NAME,
@@ -2805,6 +2806,35 @@ describe("SHO-418 orders_create choice activation", () => {
     if (firstBody.status !== "needs_choice") {
       return;
     }
+    expect(firstBody.text).toBe(
+      presentChoiceStaffAssistantTurn({
+        locale: "uk",
+        toolResults: [
+          {
+            toolName: ORDERS_CREATE_TOOL_NAME,
+            output: {
+              status: "needs_choice",
+              challengeId: firstBody.challengeId,
+              reason: firstBody.reason,
+              productName: firstBody.productName,
+              options: firstBody.options,
+              optionsTruncated: firstBody.optionsTruncated,
+            },
+          },
+        ],
+      }),
+    );
+    expect(firstBody.text).toContain("T8b Seq Eclairs");
+    const sequentialPersisted = (
+      await kit.db.runtime.db.select().from(assistantMessages)
+    ).filter(
+      (row) =>
+        row.conversationId === conversation.id && row.role === "assistant",
+    );
+    const successorTurn = sequentialPersisted.find(
+      (row) => row.body === firstBody.text,
+    );
+    expect(successorTurn?.body).toBe(firstBody.text);
     const coffee = firstBody.options.find(
       (option) => option.label === "Coffee",
     );

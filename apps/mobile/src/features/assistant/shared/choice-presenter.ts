@@ -13,7 +13,6 @@ import {
   choiceFromChatPart,
   envelopeFromChoicePeek,
   isRestorableChoiceStatus,
-  presentChoiceCardText,
   staffAssistantChoiceCardEnvelopeSchema,
   type StaffAssistantChoiceCardEnvelope,
 } from "./choice";
@@ -260,7 +259,8 @@ export function presentChoiceSelectErrorText(
 
 /**
  * Local append after POST /assistant/choice. Never sendMessage — resume
- * must not call the LLM.
+ * must not call the LLM. Sequential `needs_choice` speech is the server
+ * `text` (SHO-427); do not invent a second bubble from the envelope.
  */
 export function choiceSelectAppendParts(args: {
   readonly result: ChoiceSelectResult;
@@ -292,11 +292,11 @@ export function choiceSelectAppendParts(args: {
     if (envelope === undefined) {
       return [];
     }
+    if (typeof args.result.text !== "string" || args.result.text.length === 0) {
+      return [];
+    }
     return [
-      {
-        type: "text",
-        text: presentChoiceCardText(envelope, args.locale),
-      },
+      { type: "text", text: args.result.text },
       { type: "data-choice", data: envelope },
     ];
   }

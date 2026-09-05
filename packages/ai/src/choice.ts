@@ -155,6 +155,20 @@ export type StaffAssistantNeedsChoiceOutput = z.output<
   typeof staffAssistantNeedsChoiceOutputSchema
 >;
 
+/**
+ * Sequential `POST /assistant/choice` result (SHO-427). Additive `text`
+ * is presenter output for the same view-model — not catalog
+ * `clientMessage`. First-turn tool output stays the schema above.
+ */
+export const staffAssistantNeedsChoiceInteractionSchema =
+  staffAssistantNeedsChoiceOutputSchema.extend({
+    text: z.string().min(1),
+  });
+
+export type StaffAssistantNeedsChoiceInteraction = z.output<
+  typeof staffAssistantNeedsChoiceInteractionSchema
+>;
+
 export const choiceBindSchema = z.strictObject({
   actorId: z.string().min(1),
   companyId: z.uuid(),
@@ -210,7 +224,7 @@ export const assistantChoiceInteractionResultSchema = z.discriminatedUnion(
       text: z.string().min(1),
       entity: assistantChoiceCompletedEntitySchema,
     }),
-    staffAssistantNeedsChoiceOutputSchema,
+    staffAssistantNeedsChoiceInteractionSchema,
     z.strictObject({
       status: z.literal("expired"),
     }),

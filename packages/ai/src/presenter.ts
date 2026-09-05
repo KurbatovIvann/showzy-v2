@@ -10,6 +10,10 @@ import { z } from "zod";
 import { toProviderToolName } from "./action-tool.js";
 import {
   isStaffAssistantNeedsChoiceOutput,
+  needsChoiceOutputFromRecord,
+  staffAssistantNeedsChoiceInteractionSchema,
+  type ChoiceRecord,
+  type StaffAssistantNeedsChoiceInteraction,
   type StaffAssistantNeedsChoiceOutput,
 } from "./choice.js";
 import { STAFF_ASSISTANT_CLIPPED_STATUS } from "./clip-tool-result.js";
@@ -488,6 +492,22 @@ export function presentChoiceStaffAssistantTurn(options: {
     }
   }
   return undefined;
+}
+
+/**
+ * Sequential ChoiceCard speech from the successor record's view-model
+ * (SHO-427). Same copy as `presentChoiceStaffAssistantTurn` — not catalog
+ * `clientMessage`. Persist this string and return it as `text`.
+ */
+export function presentChoiceStaffAssistantNeedsChoice(options: {
+  readonly locale: StaffAssistantLocale;
+  readonly record: ChoiceRecord;
+}): StaffAssistantNeedsChoiceInteraction {
+  const output = needsChoiceOutputFromRecord(options.record);
+  return staffAssistantNeedsChoiceInteractionSchema.parse({
+    ...output,
+    text: presentChoiceSurface(output, options.locale),
+  });
 }
 
 /**

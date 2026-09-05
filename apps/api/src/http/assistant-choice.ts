@@ -12,8 +12,8 @@ import {
   catalogPickerConflictExtrasFromError,
   choiceRecordFromPickerConflict,
   extractUuidResultIds,
-  needsChoiceOutputFromRecord,
   peekEnvelopeFromRecord,
+  presentChoiceStaffAssistantNeedsChoice,
   presentCompletedStaffAssistantTurn,
   resolveMappedVariantId,
   STAFF_ASSISTANT_DEFAULT_LOCALE,
@@ -479,7 +479,10 @@ export async function executeStaffAssistantChoiceResume(
             extras,
           });
           if (next !== undefined) {
-            const needsChoice = needsChoiceOutputFromRecord(next);
+            const needsChoice = presentChoiceStaffAssistantNeedsChoice({
+              locale,
+              record: next,
+            });
             await persistChoiceTurn({
               pipeline: options.pipeline,
               conversationId: conversation.id,
@@ -487,7 +490,7 @@ export async function executeStaffAssistantChoiceResume(
               requestId: options.requestId,
               clientIp: options.clientIp,
               principal: staffPrincipal,
-              body: error.clientMessage,
+              body: needsChoice.text,
               toolCallId: choiceToolCallId(next.choiceId),
               challengeId: next.choiceId,
               resultIds: [],
