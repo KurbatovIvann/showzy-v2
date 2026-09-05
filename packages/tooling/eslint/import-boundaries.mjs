@@ -283,6 +283,28 @@ function violation(from, spec, typeOnly) {
       ) {
         return null;
       }
+      // SHO-88 / SHO-281: pricing.resolveProductPrices nests the customers
+      // pricing facts and customers.resolveGroupPriceListId nests the pricing
+      // point read. Through the barrels those two edges close a real ESM
+      // cycle (customers/index -> createGroup -> resolveGroupPriceListId ->
+      // pricing/index -> resolveProductPrices -> customers/index); the leaf
+      // entries import nothing back, so the cycle is gone at module level.
+      // ADR-0015 composition is unchanged: both stay a ctx.call of a read
+      // action, only the specifier is narrowed.
+      if (
+        moduleName === "pricing" &&
+        pkg.name === "customers" &&
+        pkg.rest === "get-customer-pricing-facts"
+      ) {
+        return null;
+      }
+      if (
+        moduleName === "customers" &&
+        pkg.name === "pricing" &&
+        pkg.rest === "get-price-list"
+      ) {
+        return null;
+      }
       return { messageId: "moduleCross" };
     }
     return null;

@@ -97,6 +97,18 @@ test("showzy/import-boundaries", () => {
         code: `import { getSupplierSignedFlags } from "@showzy/doc-signing/get-supplier-signed-flags";`,
       },
       {
+        filename: file(
+          "packages/modules/pricing/src/actions/resolve-product-prices.ts",
+        ),
+        code: `import { getCustomerPricingFacts } from "@showzy/customers/get-customer-pricing-facts";`,
+      },
+      {
+        filename: file(
+          "packages/modules/customers/src/services/resolve-price-list.ts",
+        ),
+        code: `import { getPriceList } from "@showzy/pricing/get-price-list";`,
+      },
+      {
         filename: file("packages/modules/search/services/index.ts"),
         code: `import { products } from "@showzy/db/schema/catalog";`,
       },
@@ -192,6 +204,11 @@ test("showzy/import-boundaries", () => {
       {
         filename: file("packages/modules/orders/actions/create.ts"),
         code: `import { helper } from "@showzy/catalog/services/helper";`,
+        errors: [{ messageId: "moduleCross" }],
+      },
+      {
+        filename: file("packages/modules/orders/actions/create.ts"),
+        code: `import { getPriceList } from "@showzy/pricing/get-price-list";`,
         errors: [{ messageId: "moduleCross" }],
       },
       {

@@ -7,7 +7,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./contract": "./src/index.contract.ts",
-    "./suite-coverage": "./src/suite-coverage.ts"
+    "./suite-coverage": "./src/suite-coverage.ts",
+    "./get-customer-pricing-facts": "./src/actions/get-customer-pricing-facts.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

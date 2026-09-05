@@ -1,7 +1,7 @@
 import { getProductPricingFacts } from "@showzy/catalog";
 import { implementAction } from "@showzy/core";
 import { CoreInvariantError } from "@showzy/core/errors";
-import { getCustomerPricingFacts } from "@showzy/customers";
+import { getCustomerPricingFacts } from "@showzy/customers/get-customer-pricing-facts";
 
 import { resolveProductPricesForCompany } from "../services/resolve-product-prices.js";
 import { resolveProductPricesContract } from "./resolve-product-prices.contract.js";

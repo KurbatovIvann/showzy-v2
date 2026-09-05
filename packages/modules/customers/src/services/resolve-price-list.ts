@@ -1,6 +1,6 @@
 import type { ActionCtx } from "@showzy/core";
 import { NotFoundError } from "@showzy/core/errors";
-import { getPriceList } from "@showzy/pricing";
+import { getPriceList } from "@showzy/pricing/get-price-list";
 
 type StaffCtx = Extract<ActionCtx, { principal: "staff" }>;
 
