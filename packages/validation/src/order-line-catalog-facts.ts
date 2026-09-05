@@ -1,8 +1,12 @@
 /**
- * T4/T5 sellability for order-form lines (SHO-407). Any variant rows
- * (active or archived) means the parent is not sellable. List
- * `variantCount` may only count active rows — overlay `catalog.getProduct`
- * facts when present.
+ * Client sellability for order-form lines (SHO-423). Mirrors catalog
+ * `resolve-line-references`: any variant rows (active or archived) means
+ * the parent is not sellable; active variants mean one must be selected;
+ * archived-only means unavailable. List `variantCount` may only count
+ * active rows — overlay `catalog.getProduct` facts when present.
+ *
+ * Query load-state helpers live here too: they were identical in both
+ * apps and have no framework imports.
  */
 export type OrderLineCatalogVariantRow = {
   readonly id: string;

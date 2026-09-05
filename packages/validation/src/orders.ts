@@ -1,17 +1,15 @@
 /**
- * UI draft Zod for the staff-intake order create form (SHO-379). Caps
- * match `orders.create`. This is not the action wire schema — the
- * planner emits `{ customer: { by: "id" }, items, comment? }` with milli.
+ * Staff order-create draft Zod and create caps (SHO-423). Caps match
+ * `orders.create`. This is not the action wire schema — the planner
+ * emits `{ customer: { by: "id" }, items, comment? }` with milli.
  */
-import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
-import {
-  CREATE_ORDER_COMMENT_MAX,
-  CREATE_ORDER_MAX_ITEMS,
-} from "../shared/order-caps";
+/** Same ceiling as `CREATE_ORDER_MAX_ITEMS` on `orders.create`. */
+export const CREATE_ORDER_MAX_ITEMS = 100;
 
-export { CREATE_ORDER_COMMENT_MAX, CREATE_ORDER_MAX_ITEMS };
+/** Same ceiling as `CREATE_ORDER_COMMENT_MAX` on `orders.create`. */
+export const CREATE_ORDER_COMMENT_MAX = 2000;
 
 export type CustomerErrorKey = "required";
 export type ItemsErrorKey =
@@ -108,8 +106,6 @@ export const orderFormDraftSchema = z.object({
       message: "duplicate",
     }),
 });
-
-export const orderFormResolver = zodResolver(orderFormDraftSchema);
 
 /**
  * Map UI-schema issues onto field copy keys. Schema `message` values

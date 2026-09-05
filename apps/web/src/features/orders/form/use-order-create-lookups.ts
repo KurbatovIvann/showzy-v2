@@ -9,6 +9,18 @@
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 
+import {
+  catalogFactsBlockSubmit,
+  catalogFactsFromProduct,
+  catalogQueryLoadStatus,
+  classifyCatalogFactsLoad,
+  overlayCatalogVariantCount,
+  uniqueProductIds,
+  type CatalogFactsQuerySnapshot,
+  type OrderLineCatalogFacts,
+  type OrderLineCatalogFactsMap,
+} from "@showzy/validation/order-line-catalog-facts";
+
 import { useApiClient } from "../../../api/api-provider";
 import { useActiveCompany } from "../../../api/query-provider";
 import {
@@ -31,17 +43,6 @@ import {
   type OrderThumbnailView,
 } from "../shared/order-thumbnails";
 import { useOrderThumbnails } from "../shared/use-order-thumbnails";
-import {
-  catalogFactsBlockSubmit,
-  catalogFactsFromProduct,
-  catalogQueryLoadStatus,
-  classifyCatalogFactsLoad,
-  overlayCatalogVariantCount,
-  uniqueProductIds,
-  type CatalogFactsQuerySnapshot,
-  type OrderLineCatalogFacts,
-  type OrderLineCatalogFactsMap,
-} from "./order-line-catalog-facts";
 
 function useDebouncedValue<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value);

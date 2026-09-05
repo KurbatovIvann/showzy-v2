@@ -5,13 +5,14 @@
  * XState, not RHF. Variants are a second level of the same session,
  * not a second Modal.
  */
+import { orderLineIdentityKey } from "@showzy/validation/orders";
+
 import {
   addOrderLine,
   type AddOrderLineInput,
   type OrderFormDraft,
   type OrderFormLineDraft,
 } from "./order-form-draft";
-import { orderLineIdentityKey } from "./order-form.schema";
 
 export type ProductPickerPick = AddOrderLineInput;
 

@@ -8,7 +8,7 @@ import {
   classifyProductSellability,
   overlayCatalogVariantCount,
   uniqueProductIds,
-} from "./order-line-catalog-facts";
+} from "@showzy/validation/order-line-catalog-facts";
 
 const VARIANT_ACTIVE = "44444444-4444-4444-8444-444444444444";
 const VARIANT_ARCHIVED = "55555555-5555-4555-8555-555555555555";

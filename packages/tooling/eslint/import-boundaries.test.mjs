@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -310,4 +311,14 @@ test("boundaries map includes the ai element and forbids client/module imports",
     ),
     "domain modules must be disallowed from importing @showzy/ai",
   );
+});
+
+test("@showzy/validation runtime dependency is only zod (SHO-423)", () => {
+  const pkg = JSON.parse(
+    readFileSync(
+      path.join(repoRoot, "packages/validation/package.json"),
+      "utf8",
+    ),
+  );
+  assert.deepEqual(Object.keys(pkg.dependencies), ["zod"]);
 });

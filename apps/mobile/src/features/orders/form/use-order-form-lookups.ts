@@ -1,6 +1,19 @@
 import { useInfiniteQuery, useQueries } from "@tanstack/react-query";
 import { useMemo } from "react";
 
+import {
+  catalogFactsBlockSubmit,
+  catalogFactsFromProduct,
+  catalogQueryLoadStatus,
+  classifyCatalogFactsLoad,
+  overlayCatalogVariantCount,
+  uniqueProductIds,
+  type CatalogFactsLoadStatus,
+  type CatalogFactsQuerySnapshot,
+  type OrderLineCatalogFacts,
+  type OrderLineCatalogFactsMap,
+} from "@showzy/validation/order-line-catalog-facts";
+
 import { useApiClient } from "../../../api/api-provider";
 import { useActiveCompany } from "../../../api/query-provider";
 import { useResolvedCompany } from "../../../company-resolution/resolved-company-provider";
@@ -17,18 +30,6 @@ import {
   type OrderThumbnailView,
 } from "../shared/order-thumbnails";
 import { useOrderThumbnails } from "../shared/use-order-thumbnails";
-import {
-  catalogFactsBlockSubmit,
-  catalogFactsFromProduct,
-  catalogQueryLoadStatus,
-  classifyCatalogFactsLoad,
-  overlayCatalogVariantCount,
-  uniqueProductIds,
-  type CatalogFactsLoadStatus,
-  type CatalogFactsQuerySnapshot,
-  type OrderLineCatalogFacts,
-  type OrderLineCatalogFactsMap,
-} from "./order-line-catalog-facts";
 import type { ProductVariantsLoadStatus } from "./product-select";
 
 export type OrderFormProductRow = {

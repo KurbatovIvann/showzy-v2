@@ -8,7 +8,7 @@ import {
   classifyProductSellability,
   overlayCatalogVariantCount,
   uniqueProductIds,
-} from "@showzy/validation/order-line-catalog-facts";
+} from "./order-line-catalog-facts.js";
 
 const VARIANT_ACTIVE = "44444444-4444-4444-8444-444444444444";
 const VARIANT_ARCHIVED = "55555555-5555-4555-8555-555555555555";
@@ -16,11 +16,11 @@ const PRODUCT_A = "33333333-3333-4333-8333-333333333333";
 const PRODUCT_B = "66666666-6666-4666-8666-666666666666";
 
 describe("classifyProductSellability", () => {
-  it("treats zero variant rows as simple", () => {
+  it("treats zero variant rows as a sellable base (simple)", () => {
     expect(classifyProductSellability([])).toBe("simple");
   });
 
-  it("treats any variant rows with an active id as variable", () => {
+  it("requires a variant when any row is active", () => {
     expect(
       classifyProductSellability([
         { id: VARIANT_ARCHIVED, status: "archived" },
@@ -29,7 +29,7 @@ describe("classifyProductSellability", () => {
     ).toBe("variable");
   });
 
-  it("treats archived-only rows as unavailable, not simple", () => {
+  it("treats archived-only rows as unavailable, never a parent line", () => {
     expect(
       classifyProductSellability([
         { id: VARIANT_ARCHIVED, status: "archived" },
