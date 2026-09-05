@@ -5,6 +5,7 @@ export {
   CREATE_ORDER_COMMENT_MAX,
   CREATE_ORDER_MAX_ITEMS,
   createOrderContract,
+  createOrderInputSchema,
 } from "./actions/create.contract.js";
 export { getOrderContract } from "./actions/get.contract.js";
 export {

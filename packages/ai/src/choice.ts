@@ -5,7 +5,8 @@
  * customer), and optionId → entity id mapping stay on the server. The client
  * sends `{ choiceId, optionId }` and may read only the ChoiceCard envelope.
  * Intercepts a duck-typed CONFLICT (picker reasons only) on `orders.create`
- * and opens a store record. This package must not import catalog or customers.
+ * and opens a store record. This package must not import catalog, customers,
+ * or a module barrel (`@showzy/orders/contract` is the allowed path).
  *
  * TTL is 15 minutes — deliberately longer than core `CONFIRMATION_TTL_MS`
  * (5 minutes). "Are you sure" and "which one" tolerate interruption
@@ -14,6 +15,7 @@
 import { createHash, randomUUID } from "node:crypto";
 
 import { CoreError } from "@showzy/core/errors";
+import { createOrderInputSchema } from "@showzy/orders/contract";
 import { z } from "zod";
 
 export const STAFF_ASSISTANT_NEEDS_CHOICE_STATUS = "needs_choice" as const;
@@ -63,41 +65,12 @@ export const choiceKindSchema = z.enum(CHOICE_KINDS);
 
 export const choiceResolutionReasonSchema = z.enum(CHOICE_RESOLUTION_REASONS);
 
-const entityRefSchema = z.discriminatedUnion("by", [
-  z.strictObject({ by: z.literal("id"), id: z.uuid() }),
-  z.strictObject({ by: z.literal("query"), value: z.string().min(1) }),
-]);
-
-const variantSelectionSchema = z.discriminatedUnion("kind", [
-  z.strictObject({ kind: z.literal("unspecified") }),
-  z.strictObject({ kind: z.literal("base") }),
-  z.strictObject({
-    kind: z.literal("reference"),
-    ref: entityRefSchema,
-  }),
-]);
-
-const quantitySchema = z.union([
-  z.strictObject({ milli: z.string().min(1) }),
-  z.strictObject({ decimal: z.string().min(1) }),
-]);
-
-const choiceCanonicalItemSchema = z.strictObject({
-  product: entityRefSchema,
-  variant: entityRefSchema.optional(),
-  variantSelection: variantSelectionSchema.optional(),
-  quantity: quantitySchema,
-});
-
 /**
- * Server-side `orders.create` input stored with the draft. Duplicated so
- * `@showzy/ai` does not import the orders module.
+ * Server-side `orders.create` input stored with the draft. Same schema
+ * instance as `createOrderInputSchema` so a new field cannot silently
+ * break `parseChoiceRecord` (SHO-422).
  */
-export const choiceCanonicalCreateInputSchema = z.strictObject({
-  customer: entityRefSchema,
-  items: z.array(choiceCanonicalItemSchema).min(1),
-  comment: z.string().optional(),
-});
+export const choiceCanonicalCreateInputSchema = createOrderInputSchema;
 
 export type ChoiceCanonicalCreateInput = z.output<
   typeof choiceCanonicalCreateInputSchema

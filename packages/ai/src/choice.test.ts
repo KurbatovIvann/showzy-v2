@@ -1,7 +1,11 @@
 import { CONFIRMATION_TTL_MS } from "@showzy/core";
 import { ConflictError } from "@showzy/core/errors";
+import {
+  CREATE_ORDER_COMMENT_MAX,
+  createOrderInputSchema,
+} from "@showzy/orders/contract";
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -15,6 +19,7 @@ import {
   CHOICE_PICKER_REASONS,
   CHOICE_RESOLUTION_REASONS,
   CHOICE_TTL_MS,
+  choiceCanonicalCreateInputSchema,
   choiceCardEnvelope,
   choiceRedisKey,
   needsChoiceFromOrdersCreateConflict,
@@ -296,6 +301,74 @@ describe("choice transport (SHO-409)", () => {
     expect(envelope.claimedOptionId).toBeUndefined();
   });
 
+  it("reuses createOrderInputSchema as the stored canonical input (SHO-422)", () => {
+    expect(choiceCanonicalCreateInputSchema).toBe(createOrderInputSchema);
+
+    const canonicalInput = createOrderInputSchema.parse({
+      customer: { by: "id", id: customerId },
+      items: [
+        {
+          product: { by: "id", id: productId },
+          variantSelection: { kind: "unspecified" },
+          quantity: { milli: "1000" },
+        },
+      ],
+      comment: "c".repeat(CREATE_ORDER_COMMENT_MAX),
+    });
+    const raw = serializeChoiceRecord({
+      ...sampleRecord("open"),
+      canonicalInput,
+    });
+    expect(parseChoiceRecord(raw)?.canonicalInput).toEqual(canonicalInput);
+
+    expect(
+      parseChoiceRecord(
+        JSON.stringify({
+          ...sampleRecord("open"),
+          canonicalInput: {
+            ...canonical,
+            comment: "c".repeat(CREATE_ORDER_COMMENT_MAX + 1),
+          },
+        }),
+      ),
+    ).toBeUndefined();
+    expect(
+      parseChoiceRecord(
+        JSON.stringify({
+          ...sampleRecord("open"),
+          canonicalInput: {
+            customer: canonical.customer,
+            items: [
+              {
+                product: { by: "id", id: productId },
+                variantSelection: { kind: "unspecified" },
+                quantity: { milli: "not-a-quantity" },
+              },
+            ],
+          },
+        }),
+      ),
+    ).toBeUndefined();
+  });
+
+  it("does not keep duplicated contract copies in packages/ai/src (SHO-422)", () => {
+    const srcRoot = dirname(fileURLToPath(import.meta.url));
+    const files = readdirSync(srcRoot, { recursive: true, encoding: "utf8" });
+    const duplicatedPrefix = "Duplicated ";
+    const needles = [`${duplicatedPrefix}so`, `${duplicatedPrefix}from`];
+    const hits: string[] = [];
+    for (const file of files) {
+      if (!file.endsWith(".ts")) {
+        continue;
+      }
+      const source = readFileSync(join(srcRoot, file), "utf8");
+      if (needles.some((needle) => source.includes(needle))) {
+        hits.push(file);
+      }
+    }
+    expect(hits).toEqual([]);
+  });
+
   it("round-trips a stored record and derives a stable successor id", () => {
     const raw = serializeChoiceRecord(sampleRecord("claimed"));
     expect(parseChoiceRecord(raw)?.choiceId).toBe(choiceId);
@@ -419,13 +492,16 @@ class DuckTypedPickerConflict extends ConflictError {
 }
 
 describe("duck-typed catalog CONFLICT extras (SHO-418)", () => {
-  it("does not import catalog or customers", () => {
+  it("does not import catalog, customers, a module barrel, or @showzy/db", () => {
     const source = readFileSync(
       join(dirname(fileURLToPath(import.meta.url)), "choice.ts"),
       "utf8",
     );
     expect(source).not.toContain("@showzy/catalog");
     expect(source).not.toContain("@showzy/customers");
+    expect(source).not.toMatch(/from ["']@showzy\/orders["']/);
+    expect(source).not.toContain("@showzy/db");
+    expect(source).toContain('from "@showzy/orders/contract"');
   });
 
   it("parses picker extras and ignores no_active_variants", () => {
