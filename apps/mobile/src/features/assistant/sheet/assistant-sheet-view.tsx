@@ -97,16 +97,23 @@ export function AssistantSheetView(model: AssistantSheetViewModel) {
             : copy.choiceTitle
         }
         choiceTruncatedLabel={
-          item.choice?.optionsTruncated === true ? copy.choiceTruncated : null
+          item.choice?.status === "needs_choice" &&
+          item.choice.optionsTruncated === true
+            ? copy.choiceTruncated
+            : null
         }
         choiceExpiredLabel={copy.choiceExpired}
+        choiceClaimedLabel={copy.choiceClaimed}
+        choiceRetryLabel={copy.choiceRetry}
         choiceSelectingLabel={copy.choiceSelecting}
         choiceApplying={model.choiceApplying}
         onSelectChoice={model.selectChoice}
       />
     ),
     [
+      copy.choiceClaimed,
       copy.choiceExpired,
+      copy.choiceRetry,
       copy.choiceSelecting,
       copy.choiceTitle,
       copy.choiceTruncated,

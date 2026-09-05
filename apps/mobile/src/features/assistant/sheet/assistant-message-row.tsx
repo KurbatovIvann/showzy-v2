@@ -34,6 +34,8 @@ export const AssistantMessageRow = memo(function AssistantMessageRow(props: {
   readonly choiceTitle: string;
   readonly choiceTruncatedLabel: string | null;
   readonly choiceExpiredLabel: string;
+  readonly choiceClaimedLabel: string;
+  readonly choiceRetryLabel: string;
   readonly choiceSelectingLabel: string;
   readonly choiceApplying: boolean;
   readonly onSelectChoice: (optionId: string) => void;
@@ -86,6 +88,8 @@ export const AssistantMessageRow = memo(function AssistantMessageRow(props: {
             title={props.choiceTitle}
             truncatedLabel={props.choiceTruncatedLabel}
             expiredLabel={props.choiceExpiredLabel}
+            claimedLabel={props.choiceClaimedLabel}
+            retryLabel={props.choiceRetryLabel}
             selectingLabel={props.choiceSelectingLabel}
             applying={props.choiceApplying}
             choice={choice}

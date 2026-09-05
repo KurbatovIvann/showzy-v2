@@ -756,10 +756,15 @@ describe("choice hydrate (SHO-418)", () => {
     expect(entitiesOf(surfaces).map((card) => card.orderId)).toEqual([ORDER_B]);
   });
 
-  it("does not restore a tappable ChoiceCard when peek is claimed", () => {
+  it("restores a claimed recovery card, not a free picker, after claim-before-create", () => {
     const claimed: StaffAssistantChoiceCardEnvelope = {
       ...liveEnvelope,
       status: "claimed",
+      claimedOptionId: OPTION_LEMON,
+      options: [
+        { id: OPTION_LEMON, label: "Lemon" },
+        { id: "88888888-8888-4888-8888-888888888888", label: "Vanilla" },
+      ],
     };
     const messages = hydratedUiMessagesFromConversation({
       messages: [
@@ -782,8 +787,18 @@ describe("choice hydrate (SHO-418)", () => {
     });
     expect(messages[0]?.parts).toEqual([
       { type: "text", text: "Select a variant." },
+      { type: "data-choice", data: claimed },
     ]);
-    expect(pendingChoiceFromMessages(messages, new Set())).toBeNull();
+    const pending = pendingChoiceFromMessages(messages, new Set());
+    expect(pending).toMatchObject({
+      status: "claimed",
+      challengeId: CHOICE_ID,
+      claimedOptionId: OPTION_LEMON,
+      messageId: MSG_ASSISTANT,
+    });
+    expect(JSON.stringify(claimed)).not.toContain("canonicalInput");
+    expect(JSON.stringify(claimed)).not.toContain("optionMap");
+    expect(JSON.stringify(claimed)).not.toContain("lineIndex");
   });
 
   it("still pending a sequential later needs_choice after a completed predecessor", () => {

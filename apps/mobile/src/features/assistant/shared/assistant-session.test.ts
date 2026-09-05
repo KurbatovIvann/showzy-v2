@@ -605,6 +605,70 @@ describe("resumeOwnAssistantConversation", () => {
       choiceId,
     });
 
+    const claimed = {
+      status: "claimed" as const,
+      challengeId: choiceId,
+      reason: "variant_required" as const,
+      productName: "Macarons",
+      options: [{ id: "77777777-7777-4777-8777-777777777777", label: "Lemon" }],
+      optionsTruncated: false,
+      claimedOptionId: "77777777-7777-4777-8777-777777777777",
+    };
+    const claimedPeek = vi.fn(() => Promise.resolve(claimed));
+    const claimedResult = await resumeOwnAssistantConversation({
+      companyEpochRef: { current: 0 },
+      epoch: 0,
+      sessionUserId: sessionUser,
+      listConversations: () =>
+        Promise.resolve({
+          items: [{ id: conversationA, userId: sessionUser }],
+          nextCursor: null,
+        }),
+      getConversation: () =>
+        Promise.resolve({
+          id: conversationA,
+          userId: sessionUser,
+          messages: [
+            {
+              id: messageAssistantId,
+              role: "assistant",
+              body: "Select a variant.",
+              createdAt: "2026-09-03T10:00:01.000Z",
+            },
+          ],
+          toolRuns: [
+            {
+              id: "88888888-8888-4888-8888-888888888888",
+              actionName: "orders.create",
+              toolCallId: "call-create",
+              challengeId: choiceId,
+              resultIds: [],
+              outcome: "choice_required",
+              createdAt: "2026-09-03T10:00:01.000Z",
+            },
+          ],
+        }),
+      getOrder: vi.fn(),
+      peekChoice: claimedPeek,
+    });
+    expect(claimedResult.kind).toBe("resumed");
+    if (claimedResult.kind !== "resumed") {
+      return;
+    }
+    expect(claimedResult.messages[0]?.parts).toEqual([
+      { type: "text", text: "Select a variant." },
+      { type: "data-choice", data: claimed },
+    ]);
+    expect(claimedPeek).toHaveBeenCalledWith({
+      conversationId: conversationA,
+      choiceId,
+    });
+    expect(claimed.claimedOptionId).toBe(
+      "77777777-7777-4777-8777-777777777777",
+    );
+    expect(JSON.stringify(claimed)).not.toContain("canonicalInput");
+    expect(JSON.stringify(claimed)).not.toContain("optionMap");
+
     const expiredResult = await resumeOwnAssistantConversation({
       companyEpochRef: { current: 0 },
       epoch: 0,

@@ -9,8 +9,10 @@ import {
   type AssistantCompanyEpochRef,
 } from "./assistant-session";
 import {
+  claimedRetryOptionId,
   choiceFromChatPart,
   envelopeFromChoicePeek,
+  isRestorableChoiceStatus,
   presentChoiceCardText,
   staffAssistantChoiceCardEnvelopeSchema,
   type StaffAssistantChoiceCardEnvelope,
@@ -81,19 +83,19 @@ export type ChoiceAppendPart =
       };
     };
 
-function choiceEnvelopeIsOpenOrExpired(
+function choiceEnvelopeIsRestorable(
   status: StaffAssistantChoiceCardEnvelope["status"],
 ): boolean {
-  return status === "needs_choice" || status === "expired";
+  return isRestorableChoiceStatus(status);
 }
 
 /**
- * Latest open picker (`needs_choice`) or expired copy.
- * Completed/claimed peeks are not a ChoiceCard — the later successful
- * entity turn hydrates on its own. Ignored ids skip tappable
- * `needs_choice` so a sequential successor still shows. Expired copy
- * for a consumed challenge stays visible (hydrate missing/expired
- * peek, and POST `{ status: "expired" }`).
+ * Latest open picker (`needs_choice`), claimed recovery, or expired copy.
+ * Completed peeks are not a ChoiceCard — the later successful entity turn
+ * hydrates on its own. Ignored ids skip tappable `needs_choice` / `claimed`
+ * so a sequential successor still shows. Expired copy for a consumed
+ * challenge stays visible (hydrate missing/expired peek, and POST
+ * `{ status: "expired" }`).
  */
 export function pendingChoiceFromMessages(
   messages: readonly AssistantChoiceMessage[],
@@ -109,11 +111,11 @@ export function pendingChoiceFromMessages(
       if (choice === undefined) {
         continue;
       }
-      if (!choiceEnvelopeIsOpenOrExpired(choice.status)) {
+      if (!choiceEnvelopeIsRestorable(choice.status)) {
         continue;
       }
       if (
-        choice.status === "needs_choice" &&
+        (choice.status === "needs_choice" || choice.status === "claimed") &&
         ignoredChallengeIds.has(choice.challengeId)
       ) {
         continue;
@@ -130,7 +132,7 @@ export function choiceCardState(args: {
 }): ChoiceCardState {
   if (
     args.pending === null ||
-    !choiceEnvelopeIsOpenOrExpired(args.pending.status)
+    !choiceEnvelopeIsRestorable(args.pending.status)
   ) {
     return { kind: "hidden" };
   }
@@ -140,9 +142,23 @@ export function choiceCardState(args: {
   return { kind: "proposed", choice: args.pending };
 }
 
+function choiceSelectOptionAllowed(
+  pending: PendingChoice,
+  optionId: string,
+): boolean {
+  if (pending.status === "needs_choice") {
+    return pending.options.some((option) => option.id === optionId);
+  }
+  if (pending.status === "claimed") {
+    return claimedRetryOptionId(pending) === optionId;
+  }
+  return false;
+}
+
 /**
  * Claim the in-flight option synchronously so duplicate and different-
  * option taps skip before POST. `resolvingRef` is the live lock.
+ * Claimed recovery may retry only the already-claimed opaque option.
  */
 export function claimChoiceSelect(args: {
   readonly pending: PendingChoice | null;
@@ -152,16 +168,10 @@ export function claimChoiceSelect(args: {
   if (args.pending === null) {
     return null;
   }
-  if (args.pending.status !== "needs_choice") {
+  if (!choiceSelectOptionAllowed(args.pending, args.optionId)) {
     return null;
   }
   if (args.resolvingRef.current !== null) {
-    return null;
-  }
-  const allowed = args.pending.options.some(
-    (option) => option.id === args.optionId,
-  );
-  if (!allowed) {
     return null;
   }
   args.resolvingRef.current = args.pending.challengeId;

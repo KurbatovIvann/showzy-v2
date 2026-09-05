@@ -12,6 +12,16 @@ export const CHOICE_TRUNCATED_COPY = {
   uk: "Є ще варіанти. Напишіть точну назву смаку.",
 } as const;
 
+export const CHOICE_CLAIMED_COPY = {
+  en: "This choice is already in progress. Continue to finish it.",
+  uk: "Цей вибір уже в процесі. Продовжіть, щоб завершити.",
+} as const;
+
+export const CHOICE_RETRY_COPY = {
+  en: "Continue",
+  uk: "Продовжити",
+} as const;
+
 export const staffAssistantChoiceCardEnvelopeSchema = z.strictObject({
   status: z.enum(["needs_choice", "claimed", "completed", "expired"]),
   challengeId: z.uuid(),
@@ -33,6 +43,7 @@ export const staffAssistantChoiceCardEnvelopeSchema = z.strictObject({
     )
     .max(CHOICE_OPTIONS_MAX),
   optionsTruncated: z.boolean(),
+  claimedOptionId: z.uuid().optional(),
 });
 
 export type StaffAssistantChoiceCardEnvelope = z.output<
@@ -113,6 +124,9 @@ export function choiceEnvelopeForWire(
       : {}),
     options: nested.options,
     optionsTruncated: nested.optionsTruncated,
+    ...(typeof nested.claimedOptionId === "string"
+      ? { claimedOptionId: nested.claimedOptionId }
+      : {}),
   };
   const parsed = staffAssistantChoiceCardEnvelopeSchema.safeParse(stripped);
   return parsed.success ? parsed.data : undefined;
@@ -132,4 +146,38 @@ export function presentChoiceCardText(
     return `${intro} ${CHOICE_TRUNCATED_COPY[locale]}`;
   }
   return intro;
+}
+
+/**
+ * Open picker, claimed recovery, or expired copy. Completed is not a
+ * ChoiceCard — the later successful entity turn hydrates on its own.
+ */
+export function isRestorableChoiceStatus(
+  status: StaffAssistantChoiceCardEnvelope["status"],
+): boolean {
+  return (
+    status === "needs_choice" || status === "claimed" || status === "expired"
+  );
+}
+
+/**
+ * Opaque option the claimed recovery card may retry. Never a variant id.
+ */
+export function claimedRetryOptionId(
+  envelope: StaffAssistantChoiceCardEnvelope,
+): string | undefined {
+  if (envelope.status !== "claimed") {
+    return undefined;
+  }
+  return envelope.claimedOptionId;
+}
+
+export function claimedOptionLabel(
+  envelope: StaffAssistantChoiceCardEnvelope,
+): string | undefined {
+  const optionId = claimedRetryOptionId(envelope);
+  if (optionId === undefined) {
+    return undefined;
+  }
+  return envelope.options.find((option) => option.id === optionId)?.label;
 }

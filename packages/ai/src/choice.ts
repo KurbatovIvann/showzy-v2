@@ -125,7 +125,8 @@ export type ChoiceCardState = z.output<typeof choiceCardStateSchema>;
  * Client ChoiceCard envelope. Never includes canonical input, target,
  * option mapping, actor, or company. Empty options never parse — no
  * empty picker (SHO-420). Expired HTTP peek is `{ status: "expired" }`
- * and does not go through this schema.
+ * and does not go through this schema. `claimedOptionId` is the opaque
+ * option already claimed (SHO-426); it is never a variant id.
  */
 export const staffAssistantChoiceCardEnvelopeSchema = z.strictObject({
   status: choiceCardStateSchema,
@@ -134,6 +135,7 @@ export const staffAssistantChoiceCardEnvelopeSchema = z.strictObject({
   productName: z.string().min(1).optional(),
   options: z.array(choiceCardOptionSchema).min(1).max(CHOICE_OPTIONS_MAX),
   optionsTruncated: z.boolean(),
+  claimedOptionId: z.uuid().optional(),
 });
 
 export type StaffAssistantChoiceCardEnvelope = z.output<
@@ -267,6 +269,7 @@ export function choiceCardEnvelope(input: {
   readonly productName?: string;
   readonly options: readonly ChoiceCardOption[];
   readonly optionsTruncated: boolean;
+  readonly claimedOptionId?: string;
 }): StaffAssistantChoiceCardEnvelope {
   return staffAssistantChoiceCardEnvelopeSchema.parse({
     status: input.status,
@@ -277,6 +280,9 @@ export function choiceCardEnvelope(input: {
       : {}),
     options: [...input.options],
     optionsTruncated: input.optionsTruncated,
+    ...(input.claimedOptionId !== undefined
+      ? { claimedOptionId: input.claimedOptionId }
+      : {}),
   });
 }
 
@@ -313,6 +319,9 @@ export function peekEnvelopeFromRecord(
       : {}),
     options: record.envelope.options,
     optionsTruncated: record.envelope.optionsTruncated,
+    ...(status === "claimed" && record.claimedOptionId !== undefined
+      ? { claimedOptionId: record.claimedOptionId }
+      : {}),
   });
 }
 

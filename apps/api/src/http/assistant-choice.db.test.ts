@@ -18,7 +18,7 @@ import {
   type ChoiceCanonicalCreateInput,
   type ChoiceRecord,
 } from "@showzy/ai";
-import { createConversation } from "@showzy/assistant";
+import { createConversation, recordAssistantTurn } from "@showzy/assistant";
 import { archiveVariant, createProduct } from "@showzy/catalog";
 import { COMPANY_SELECTOR_HEADER, contractModules } from "@showzy/contract";
 import {
@@ -624,6 +624,131 @@ describe("POST /assistant/choice (seeded store)", () => {
     }
   });
 
+  it("restores a claimed peek after claim-before-create and retries the same option once", async () => {
+    const classify = vi.spyOn(ShowzyAi, "classifyStaffAssistantTurn");
+    const stream = vi.spyOn(ShowzyAi, "streamStaffAssistantChat");
+    const { app, store } = choiceApp();
+    const token = await insertBearer(kit, kitIdentities.users.anna);
+    const conversation = await staffInvoke(createConversation, {
+      title: "Choice claimed recover",
+    });
+    const customer = await staffInvoke(createCustomer, {
+      name: "Claim Crash Buyer",
+      phone: nextPhone(),
+    });
+    const product = await seedVariableProduct("Claim Cake", [
+      "Lemon",
+      "Vanilla",
+    ]);
+    const { record, optionByLabel } = await openChoice({
+      store,
+      conversationId: conversation.id,
+      customerId: customer.id,
+      product,
+    });
+    const lemonId = optionByLabel.get("Lemon");
+    const vanillaId = optionByLabel.get("Vanilla");
+    expect(lemonId).toBeDefined();
+    expect(vanillaId).toBeDefined();
+    if (lemonId === undefined || vanillaId === undefined) {
+      classify.mockRestore();
+      stream.mockRestore();
+      return;
+    }
+    await staffInvoke(recordAssistantTurn, {
+      conversationId: conversation.id,
+      body: "Select a variant.",
+      toolRuns: [
+        {
+          actionName: "orders.create",
+          toolCallId: "call_choice",
+          challengeId: record.choiceId,
+          resultIds: [],
+          outcome: "choice_required",
+        },
+      ],
+    });
+    const claimed = await store.claim({
+      choiceId: record.choiceId,
+      bind: {
+        actorId: kitIdentities.users.anna,
+        companyId: kitIdentities.companies.a,
+        conversationId: conversation.id,
+      },
+      optionId: lemonId,
+    });
+    expect(claimed.kind).toBe("claimed");
+    const claimedPeek = await peekChoice(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      conversationId: conversation.id,
+      choiceId: record.choiceId,
+    });
+    expect(claimedPeek.status).toBe(200);
+    const claimedEnvelope = staffAssistantChoiceCardEnvelopeSchema.parse(
+      await claimedPeek.json(),
+    );
+    expect(claimedEnvelope).toMatchObject({
+      status: "claimed",
+      challengeId: record.choiceId,
+      claimedOptionId: lemonId,
+    });
+    const serialized = JSON.stringify(claimedEnvelope);
+    expect(serialized).not.toContain("canonicalInput");
+    expect(serialized).not.toContain("optionMap");
+    expect(serialized).not.toContain("lineIndex");
+    expect(serialized).not.toContain("actorId");
+    expect(serialized).not.toContain(product.productId);
+    expect(serialized).not.toContain(kitIdentities.companies.a);
+    expect(serialized).not.toContain(kitIdentities.users.anna);
+    for (const variant of product.variants) {
+      expect(serialized).not.toContain(variant.variantId);
+    }
+    const different = await postChoice(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: {
+        conversationId: conversation.id,
+        choiceId: record.choiceId,
+        optionId: vanillaId,
+      },
+    });
+    expect(different.status).toBe(200);
+    expect(await different.json()).toMatchObject({
+      status: "error",
+      code: "CHOICE_OPTION_CONFLICT",
+    });
+    const retry = await postChoice(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      body: {
+        conversationId: conversation.id,
+        choiceId: record.choiceId,
+        optionId: lemonId,
+      },
+    });
+    expect(retry.status).toBe(200);
+    const body = assistantChoiceInteractionResultSchema.parse(
+      await retry.json(),
+    );
+    expect(body.status).toBe("completed");
+    const companyOrders = (
+      await kit.db.runtime.db.select().from(orders)
+    ).filter((row) => row.customerId === customer.id);
+    expect(companyOrders).toHaveLength(1);
+    const runs = (
+      await kit.db.runtime.db.select().from(assistantToolRuns)
+    ).filter((row) => row.conversationId === conversation.id);
+    expect(
+      runs.filter((row) => row.outcome === "choice_required"),
+    ).toHaveLength(1);
+    expect(runs.filter((row) => row.outcome === "success")).toHaveLength(1);
+    expect(classify).not.toHaveBeenCalled();
+    expect(stream).not.toHaveBeenCalled();
+    classify.mockRestore();
+    stream.mockRestore();
+  });
+
   it("replays a claimed-after-create crash instead of inserting a second order", async () => {
     const { app, store } = choiceApp();
     const token = await insertBearer(kit, kitIdentities.users.anna);
@@ -695,6 +820,22 @@ describe("POST /assistant/choice (seeded store)", () => {
     if (afterCreate.kind === "found") {
       expect(afterCreate.record.status).toBe("claimed");
     }
+    const claimedPeek = await peekChoice(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      conversationId: conversation.id,
+      choiceId: record.choiceId,
+    });
+    expect(claimedPeek.status).toBe(200);
+    const claimedEnvelope = staffAssistantChoiceCardEnvelopeSchema.parse(
+      await claimedPeek.json(),
+    );
+    expect(claimedEnvelope.status).toBe("claimed");
+    expect(claimedEnvelope.claimedOptionId).toBe(optionId);
+    expect(JSON.stringify(claimedEnvelope)).not.toContain("canonicalInput");
+    expect(claimedEnvelope.claimedOptionId).not.toBe(variantId);
+    const classify = vi.spyOn(ShowzyAi, "classifyStaffAssistantTurn");
+    const stream = vi.spyOn(ShowzyAi, "streamStaffAssistantChat");
     const response = await postChoice(app, {
       token,
       companyId: kitIdentities.companies.a,
@@ -725,6 +866,23 @@ describe("POST /assistant/choice (seeded store)", () => {
     if (completed.kind === "found") {
       expect(completed.record.status).toBe("completed");
     }
+    expect(classify).not.toHaveBeenCalled();
+    expect(stream).not.toHaveBeenCalled();
+    classify.mockRestore();
+    stream.mockRestore();
+    const assistantTurns = (
+      await kit.db.runtime.db.select().from(assistantMessages)
+    ).filter(
+      (row) =>
+        row.conversationId === conversation.id && row.role === "assistant",
+    );
+    expect(assistantTurns).toHaveLength(1);
+    const runs = (
+      await kit.db.runtime.db.select().from(assistantToolRuns)
+    ).filter((row) => row.conversationId === conversation.id);
+    const successRuns = runs.filter((row) => row.outcome === "success");
+    expect(successRuns).toHaveLength(1);
+    expect(successRuns[0]?.resultIds).toEqual([companyOrders[0]?.id]);
   });
 
   it("returns the next needs_choice in deterministic line order from a seeded store", async () => {
@@ -1068,6 +1226,29 @@ describe("POST /assistant/choice (seeded store)", () => {
       optionId: optionByLabel.get("Red") ?? "",
     });
     expect(claimed.kind).toBe("claimed");
+    const claimedPeek = await peekChoice(app, {
+      token,
+      companyId: kitIdentities.companies.a,
+      conversationId: conversation.id,
+      choiceId: record.choiceId,
+    });
+    expect(claimedPeek.status).toBe(200);
+    const claimedEnvelope = staffAssistantChoiceCardEnvelopeSchema.parse(
+      await claimedPeek.json(),
+    );
+    expect(claimedEnvelope.status).toBe("claimed");
+    expect(claimedEnvelope.claimedOptionId).toBe(optionByLabel.get("Red"));
+    const claimedSerialized = JSON.stringify(claimedEnvelope);
+    expect(claimedSerialized).not.toContain("canonicalInput");
+    expect(claimedSerialized).not.toContain("optionMap");
+    expect(claimedSerialized).not.toContain("lineIndex");
+    expect(claimedSerialized).not.toContain("actorId");
+    expect(claimedSerialized).not.toContain(product.productId);
+    expect(claimedSerialized).not.toContain(kitIdentities.companies.a);
+    expect(claimedSerialized).not.toContain(kitIdentities.users.anna);
+    for (const variant of product.variants) {
+      expect(claimedSerialized).not.toContain(variant.variantId);
+    }
     const missing = await peekChoice(app, {
       token,
       companyId: kitIdentities.companies.a,
