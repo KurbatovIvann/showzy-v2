@@ -13,7 +13,8 @@
  *   `event_deliveries` row per registered consumer, and marks the events
  *   dispatched — all in one transaction, so a crash never leaves an event
  *   half-fanned-out.
- * - `delivery-execute.ts` — `findClaimableDeliveries` (bounded discovery)
+ * - `delivery-execute.ts` — `findClaimableDeliveries` (bounded discovery
+ *   of due aggregate heads before LIMIT, SHO-435)
  *   and `executeDelivery`, the special delivery entrypoint (not
  *   `ctx.call`): it runs the bound system action through the **normal
  *   execution pipeline inside the delivery transaction**, with the
@@ -31,8 +32,10 @@ export {
 } from "./delivery-dispatch.js";
 export {
   DELIVERY_CLAIM_MARGIN_MS,
+  DELIVERY_DISCOVERY_BATCH_SIZE,
   DELIVERY_MAX_ATTEMPTS,
   DELIVERY_RETRY_BASE_MS,
+  buildClaimableDeliveriesQuery,
   deliveryRetryDelayMs,
   executeDelivery,
   findClaimableDeliveries,

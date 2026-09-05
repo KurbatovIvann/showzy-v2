@@ -13,14 +13,17 @@
  * non-processed delivery for an aggregate, and holds a transaction-scoped
  * `(consumer, aggregate)` advisory lock while applying effects — both
  * enforced through the `delivery-shared.ts` helpers the claim phase uses
- * too. Nothing is guaranteed across aggregates; handlers must still
- * tolerate replays. The loops that call these live in `apps/worker`
- * (fnd-T27); core still owns no process loop.
+ * too. Discovery selects due **aggregate heads** before LIMIT so a
+ * bounded batch of blocked successors cannot starve independent work
+ * (SHO-435); claim still re-validates ordering. Nothing is guaranteed
+ * across aggregates; handlers must still tolerate replays. The loops that
+ * call these live in `apps/worker` (fnd-T27); core still owns no process
+ * loop.
  */
 import { randomUUID } from "node:crypto";
 
-import { domainEvents, eventDeliveries } from "@showzy/db";
-import { and, asc, eq, isNull, lte, or, sql } from "drizzle-orm";
+import { domainEvents, eventDeliveries, type Tx } from "@showzy/db";
+import { and, asc, eq, isNull, lte, notExists, or, sql } from "drizzle-orm";
 
 import { CoreError, CoreInvariantError } from "../../errors/index.js";
 import type {
@@ -32,6 +35,7 @@ import { createDeliveryReservationHook } from "./delivery-reservation-hook.js";
 import {
   acquireAggregateAdvisoryLock,
   assertDeliveryRouting,
+  earlierUnprocessedDeliverySubquery,
   hasEarlierUnprocessedDelivery,
   lockDeliveryRow,
   ownedProcessingDelivery,
@@ -39,7 +43,8 @@ import {
 } from "./delivery-shared.js";
 import type { EventEnvelope } from "./envelope.js";
 
-const DEFAULT_DELIVERY_BATCH_SIZE = 100;
+/** Bounded discovery batch. Raising this is not a starvation fix (SHO-435). */
+export const DELIVERY_DISCOVERY_BATCH_SIZE = 100;
 
 /** Five failed handler attempts park one consumer's delivery (core.md §6). */
 export const DELIVERY_MAX_ATTEMPTS = 5;
@@ -85,6 +90,9 @@ export interface ClaimableDelivery {
  * is a non-authoritative discovery read: concurrent workers may see the
  * same row, while the short claim transaction below chooses one owner.
  *
+ * Rows are due **aggregate heads** — no earlier non-processed delivery
+ * exists for the same `(consumer, aggregate)` — then ordered by due time
+ * and limited. Claim still re-checks predecessors, leases, and due time.
  * Keeping discovery in core means the fnd-T27 worker loop never queries
  * foundation tables directly. Each row includes `eventName` so the worker
  * can select the matching `EventSubscription` when one consumer binds
@@ -102,7 +110,33 @@ export async function findClaimableDeliveries(
     return [];
   }
   const nowMs = (options.now ?? Date.now)();
-  const nowDate = new Date(nowMs);
+  const batchSize = options.batchSize ?? DELIVERY_DISCOVERY_BATCH_SIZE;
+  return await deps.db.transaction(async (tx) => {
+    const query = buildClaimableDeliveriesQuery(tx, {
+      subscriptions: options.subscriptions,
+      nowMs,
+      batchSize,
+    });
+    if (query === undefined) {
+      return [];
+    }
+    return await query;
+  });
+}
+
+/**
+ * The discovery SELECT used by `findClaimableDeliveries`. Exported so
+ * tests can EXPLAIN the same SQL the worker runs (SHO-435).
+ */
+export function buildClaimableDeliveriesQuery(
+  db: Pick<Tx, "select">,
+  options: {
+    readonly subscriptions: readonly EventSubscription[];
+    readonly nowMs: number;
+    readonly batchSize: number;
+  },
+) {
+  const nowDate = new Date(options.nowMs);
   const consumerConditions = options.subscriptions.map((subscription) =>
     and(
       eq(eventDeliveries.consumer, subscription.consumer),
@@ -122,7 +156,7 @@ export async function findClaimableDeliveries(
             lte(
               eventDeliveries.claimedAt,
               new Date(
-                nowMs -
+                options.nowMs -
                   subscription.contract.timeout -
                   DELIVERY_CLAIM_MARGIN_MS,
               ),
@@ -134,22 +168,34 @@ export async function findClaimableDeliveries(
   );
   const predicate = or(...consumerConditions);
   if (predicate === undefined) {
-    return [];
+    return undefined;
   }
 
-  return await deps.db.transaction(async (tx) =>
-    tx
-      .select({
-        consumer: eventDeliveries.consumer,
-        eventId: eventDeliveries.eventId,
-        eventName: domainEvents.name,
-      })
-      .from(eventDeliveries)
-      .innerJoin(domainEvents, eq(eventDeliveries.eventId, domainEvents.id))
-      .where(predicate)
-      .orderBy(asc(eventDeliveries.nextAttemptAt), asc(eventDeliveries.eventId))
-      .limit(options.batchSize ?? DEFAULT_DELIVERY_BATCH_SIZE),
-  );
+  return db
+    .select({
+      consumer: eventDeliveries.consumer,
+      eventId: eventDeliveries.eventId,
+      eventName: domainEvents.name,
+    })
+    .from(eventDeliveries)
+    .innerJoin(domainEvents, eq(eventDeliveries.eventId, domainEvents.id))
+    .where(
+      and(
+        predicate,
+        // Filter heads *before* LIMIT so a dead/delayed predecessor's
+        // due successors cannot monopolize the bounded batch (SHO-435).
+        notExists(
+          earlierUnprocessedDeliverySubquery(db, {
+            consumer: eventDeliveries.consumer,
+            aggregateType: domainEvents.aggregateType,
+            aggregateId: domainEvents.aggregateId,
+            aggregateSequence: domainEvents.aggregateSequence,
+          }),
+        ),
+      ),
+    )
+    .orderBy(asc(eventDeliveries.nextAttemptAt), asc(eventDeliveries.eventId))
+    .limit(options.batchSize);
 }
 
 /**

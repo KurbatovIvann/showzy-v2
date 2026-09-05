@@ -58,7 +58,9 @@ import { defineEvent } from "./define-event.js";
 import { defineEventHandler } from "./define-event-handler.js";
 import {
   DELIVERY_CLAIM_MARGIN_MS,
+  DELIVERY_DISCOVERY_BATCH_SIZE,
   DELIVERY_RETRY_BASE_MS,
+  buildClaimableDeliveriesQuery,
   dispatchOutboxBatch,
   executeDelivery,
   findClaimableDeliveries,
@@ -72,6 +74,7 @@ let database: TestDatabase;
 
 const anna = "user_anna_delivery";
 const companyA = randomUUID();
+const companyB = randomUUID();
 const testWorker = "delivery-test-worker";
 const silentLogger = pino({ enabled: false });
 
@@ -87,12 +90,24 @@ beforeAll(async () => {
       slug: "delivery-co",
       prefix: "DL",
     },
+    {
+      id: companyB,
+      name: "Delivery Co B",
+      slug: "delivery-co-b",
+      prefix: "DB",
+    },
   ]);
   // Owner short-circuits permission resolution (owner-all), so the fixture
   // needs no role_permission_defaults rows.
   await database.runtime.db.insert(companyMembers).values([
     {
       companyId: companyA,
+      userId: anna,
+      role: "owner" as const,
+      permissions: { granted: [], denied: [] },
+    },
+    {
+      companyId: companyB,
       userId: anna,
       role: "owner" as const,
       permissions: { granted: [], denied: [] },
@@ -147,6 +162,7 @@ const placeContract = defineActionContract({
   input: z.object({
     orderId: z.uuid(),
     kind: z.enum(["placed", "noted"]).default("placed"),
+    count: z.number().int().positive().default(1),
   }),
   output: z.object({ ok: z.boolean() }),
   permissions: ["deliveryFixture:write"],
@@ -162,10 +178,13 @@ const placeContract = defineActionContract({
 
 const placeAction = implementAction(placeContract, {
   handler: (input, ctx) => {
-    ctx.emit(input.kind === "placed" ? orderPlaced : orderNoted, {
-      aggregate: { type: "order", id: input.orderId },
-      payload: { orderId: input.orderId },
-    });
+    const event = input.kind === "placed" ? orderPlaced : orderNoted;
+    for (let index = 0; index < input.count; index += 1) {
+      ctx.emit(event, {
+        aggregate: { type: "order", id: input.orderId },
+        payload: { orderId: input.orderId },
+      });
+    }
     return Promise.resolve({ ok: true });
   },
   auditTarget: () => ({ type: "order", id: "fixture" }),
@@ -397,31 +416,41 @@ function claimableOf(subscription: typeof cardSubscription, eventId: string) {
   };
 }
 
-/** Emits one order event through the pipeline; returns its outbox id. */
+/** Emits one or more order events through the pipeline; returns outbox ids in emit order. */
 async function placeOrder(
   orderId: string,
   kind: "placed" | "noted" = "placed",
-): Promise<{ eventId: string; request: PipelineRequestMeta }> {
+  options: { readonly count?: number; readonly companyId?: string } = {},
+): Promise<{
+  eventId: string;
+  eventIds: string[];
+  request: PipelineRequestMeta;
+}> {
   const request = requestMeta();
   await executeAction(deps(), {
     action: placeAction,
-    input: { orderId, kind },
+    input: { orderId, kind, count: options.count ?? 1 },
     request,
     principal: {
       mode: "staff",
       session: { userId: anna },
-      companySelector: companyA,
+      companySelector: options.companyId ?? companyA,
     },
   });
   const rows = await database.runtime.db
-    .select({ id: domainEvents.id })
+    .select({ id: domainEvents.id, sequence: domainEvents.aggregateSequence })
     .from(domainEvents)
-    .where(eq(domainEvents.requestId, request.requestId));
-  const eventId = rows[0]?.id;
-  if (eventId === undefined || rows.length !== 1) {
-    throw new Error("expected exactly one emitted outbox row");
+    .where(eq(domainEvents.requestId, request.requestId))
+    .orderBy(asc(domainEvents.aggregateSequence));
+  const expected = options.count ?? 1;
+  if (rows.length !== expected || rows[0] === undefined) {
+    throw new Error(`expected ${String(expected)} emitted outbox row(s)`);
   }
-  return { eventId, request };
+  return {
+    eventId: rows[0].id,
+    eventIds: rows.map((row) => row.id),
+    request,
+  };
 }
 
 async function dispatch() {
@@ -472,6 +501,97 @@ async function driveToProcessed(
     }
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
+}
+
+async function parkChatDelivery(
+  eventId: string,
+  values: {
+    readonly status: "dead" | "pending" | "processing";
+    readonly nextAttemptAt?: Date | null;
+    readonly claimedAt?: Date | null;
+    readonly claimedBy?: string | null;
+    readonly attempts?: number;
+  },
+): Promise<void> {
+  await database.runtime.db
+    .update(eventDeliveries)
+    .set({
+      status: values.status,
+      attempts: values.attempts ?? (values.status === "dead" ? 5 : 0),
+      nextAttemptAt:
+        values.nextAttemptAt === undefined ? null : values.nextAttemptAt,
+      claimedAt: values.claimedAt ?? null,
+      claimedBy: values.claimedBy ?? null,
+      lastError:
+        values.status === "dead" ? "CONFLICT: parked predecessor." : null,
+    })
+    .where(
+      and(
+        eq(eventDeliveries.consumer, cardSubscription.consumer),
+        eq(eventDeliveries.eventId, eventId),
+      ),
+    );
+}
+
+function claimableIds(rows: readonly { readonly eventId: string }[]): string[] {
+  return rows.map((row) => row.eventId);
+}
+
+function expectNoEventIds(
+  rows: readonly { readonly eventId: string }[],
+  forbidden: readonly string[],
+): void {
+  const ids = new Set(claimableIds(rows));
+  for (const eventId of forbidden) {
+    expect(ids.has(eventId)).toBe(false);
+  }
+}
+
+interface ExplainPlanNode {
+  readonly "Node Type": string;
+  readonly "Plan Rows"?: number;
+  readonly "Index Name"?: string;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  if (typeof value !== "object" || value === null) {
+    return undefined;
+  }
+  return value as Record<string, unknown>;
+}
+
+function unknownList(value: unknown): readonly unknown[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.map((entry: unknown) => entry);
+}
+
+function flattenExplainPlans(root: unknown): ExplainPlanNode[] {
+  const listed = unknownList(root);
+  const envelope = asRecord(listed.length > 0 ? listed[0] : root);
+  const start = envelope?.["Plan"] ?? root;
+  const nodes: ExplainPlanNode[] = [];
+  const stack: unknown[] = [start];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    const record = asRecord(current);
+    if (record === undefined) {
+      continue;
+    }
+    const nodeType = record["Node Type"];
+    if (typeof nodeType === "string") {
+      const planRows = record["Plan Rows"];
+      const indexName = record["Index Name"];
+      nodes.push({
+        "Node Type": nodeType,
+        ...(typeof planRows === "number" ? { "Plan Rows": planRows } : {}),
+        ...(typeof indexName === "string" ? { "Index Name": indexName } : {}),
+      });
+    }
+    stack.push(...unknownList(record["Plans"]));
+  }
+  return nodes;
 }
 
 // --- Tests --------------------------------------------------------------------
@@ -1226,6 +1346,446 @@ describe("delivery retry, dead-letter, claim recovery, and replay (core.md §6)"
         replayed: 2,
       }),
     ]);
+  });
+});
+
+describe("blocked aggregate heads must not starve independent deliveries (SHO-435)", () => {
+  const successorCount = DELIVERY_DISCOVERY_BATCH_SIZE;
+
+  async function seedBlockedThenIndependent(options: {
+    readonly predecessor: "dead" | "delayed";
+    readonly now: number;
+    readonly blockedCompanyId?: string;
+    readonly independentCompanyId?: string;
+    readonly extraBlockedAggregates?: number;
+  }): Promise<{
+    readonly predecessorEventId: string;
+    readonly successorEventIds: string[];
+    readonly independentEventId: string;
+    readonly independentOrderId: string;
+    readonly blockedOrderId: string;
+  }> {
+    const blockedOrderId = randomUUID();
+    const blocked = await placeOrder(blockedOrderId, "placed", {
+      count: successorCount + 1,
+      companyId: options.blockedCompanyId ?? companyA,
+    });
+    const extraOrderIds: string[] = [];
+    for (
+      let extra = 0;
+      extra < (options.extraBlockedAggregates ?? 0);
+      extra += 1
+    ) {
+      const extraOrderId = randomUUID();
+      extraOrderIds.push(extraOrderId);
+      await placeOrder(extraOrderId, "placed", {
+        count: successorCount + 1,
+        companyId: options.blockedCompanyId ?? companyA,
+      });
+    }
+    const independentOrderId = randomUUID();
+    const independent = await placeOrder(independentOrderId, "placed", {
+      companyId: options.independentCompanyId ?? companyA,
+    });
+    for (;;) {
+      const dispatched = await dispatchOutboxBatch(
+        { db: database.runtime.db, now: () => options.now },
+        { subscriptions: allSubscriptions, claimedBy: "starvation-dispatcher" },
+      );
+      if (dispatched.claimedEvents === 0) {
+        break;
+      }
+    }
+
+    const predecessorEventId = blocked.eventIds[0];
+    const successorEventIds = blocked.eventIds.slice(1);
+    if (
+      predecessorEventId === undefined ||
+      successorEventIds.length !== successorCount
+    ) {
+      throw new Error("blocked aggregate seed was incomplete");
+    }
+    const delayedAt = new Date(options.now + 60_000);
+    await parkChatDelivery(
+      predecessorEventId,
+      options.predecessor === "dead"
+        ? { status: "dead" }
+        : { status: "pending", nextAttemptAt: delayedAt, attempts: 1 },
+    );
+    for (const extraOrderId of extraOrderIds) {
+      const extraEvents = await database.runtime.db
+        .select({ id: domainEvents.id })
+        .from(domainEvents)
+        .where(eq(domainEvents.aggregateId, extraOrderId))
+        .orderBy(asc(domainEvents.aggregateSequence));
+      const extraPredecessor = extraEvents[0]?.id;
+      if (extraPredecessor === undefined) {
+        throw new Error("extra blocked aggregate was missing");
+      }
+      await parkChatDelivery(
+        extraPredecessor,
+        options.predecessor === "dead"
+          ? { status: "dead" }
+          : { status: "pending", nextAttemptAt: delayedAt, attempts: 1 },
+      );
+    }
+    return {
+      predecessorEventId,
+      successorEventIds,
+      independentEventId: independent.eventId,
+      independentOrderId,
+      blockedOrderId,
+    };
+  }
+
+  async function chatClaimable(now: number) {
+    return findClaimableDeliveries(
+      { db: database.runtime.db },
+      {
+        subscriptions: [cardSubscription],
+        now: () => now,
+      },
+    );
+  }
+
+  it("selects independent ready work when 100 dead-predecessor successors sort first", async () => {
+    const now = Date.UTC(2026, 8, 5, 12, 0, 0);
+    const seeded = await seedBlockedThenIndependent({
+      predecessor: "dead",
+      now,
+    });
+
+    const first = await chatClaimable(now);
+    const second = await chatClaimable(now);
+    expect(first).toContainEqual(
+      claimableOf(cardSubscription, seeded.independentEventId),
+    );
+    expect(second).toContainEqual(
+      claimableOf(cardSubscription, seeded.independentEventId),
+    );
+    expect(first.length).toBeLessThanOrEqual(DELIVERY_DISCOVERY_BATCH_SIZE);
+    expectNoEventIds(first, seeded.successorEventIds);
+    expectNoEventIds(first, [seeded.predecessorEventId]);
+
+    const successorRow = await deliveryRow(
+      cardSubscription.consumer,
+      seeded.successorEventIds[0] ?? "",
+    );
+    expect(
+      await executeDelivery(deps({ now: () => now }), {
+        subscription: cardSubscription,
+        eventId: seeded.successorEventIds[0] ?? "",
+        claimedBy: testWorker,
+      }),
+    ).toEqual({ status: "deferred" });
+    expect(
+      await deliveryRow(
+        cardSubscription.consumer,
+        seeded.successorEventIds[0] ?? "",
+      ),
+    ).toMatchObject({
+      status: "pending",
+      nextAttemptAt: successorRow?.nextAttemptAt,
+    });
+
+    expect(
+      await executeDelivery(deps({ now: () => now }), {
+        subscription: cardSubscription,
+        eventId: seeded.independentEventId,
+        claimedBy: testWorker,
+      }),
+    ).toEqual({ status: "processed" });
+    expect(
+      (await deliveryRow(cardSubscription.consumer, seeded.independentEventId))
+        ?.status,
+    ).toBe("processed");
+    for (const eventId of seeded.successorEventIds) {
+      expect(
+        (await deliveryRow(cardSubscription.consumer, eventId))?.status,
+      ).toBe("pending");
+    }
+    expect(
+      (await deliveryRow(cardSubscription.consumer, seeded.predecessorEventId))
+        ?.status,
+    ).toBe("dead");
+  });
+
+  it("selects independent ready work when the predecessor is delayed, not dead", async () => {
+    const now = Date.UTC(2026, 8, 5, 13, 0, 0);
+    const seeded = await seedBlockedThenIndependent({
+      predecessor: "delayed",
+      now,
+    });
+
+    const due = await chatClaimable(now);
+    expect(due).toContainEqual(
+      claimableOf(cardSubscription, seeded.independentEventId),
+    );
+    expectNoEventIds(due, seeded.successorEventIds);
+    expect(claimableIds(due)).not.toContain(seeded.predecessorEventId);
+
+    const later = await chatClaimable(now + 60_000);
+    expect(later).toContainEqual(
+      claimableOf(cardSubscription, seeded.predecessorEventId),
+    );
+    expectNoEventIds(later, seeded.successorEventIds);
+  });
+
+  it("keeps due-time boundaries with a controlled clock", async () => {
+    const now = Date.UTC(2026, 8, 5, 14, 0, 0);
+    const seeded = await seedBlockedThenIndependent({
+      predecessor: "dead",
+      now,
+    });
+    await database.runtime.db
+      .update(eventDeliveries)
+      .set({ nextAttemptAt: new Date(now + 5_000) })
+      .where(
+        and(
+          eq(eventDeliveries.consumer, cardSubscription.consumer),
+          eq(eventDeliveries.eventId, seeded.independentEventId),
+        ),
+      );
+
+    expect(claimableIds(await chatClaimable(now))).not.toContain(
+      seeded.independentEventId,
+    );
+    expect(claimableIds(await chatClaimable(now + 4_999))).not.toContain(
+      seeded.independentEventId,
+    );
+    expect(await chatClaimable(now + 5_000)).toContainEqual(
+      claimableOf(cardSubscription, seeded.independentEventId),
+    );
+  });
+
+  it("does not let blocked rows across aggregates or tenants hide other ready work", async () => {
+    const now = Date.UTC(2026, 8, 5, 15, 0, 0);
+    const seeded = await seedBlockedThenIndependent({
+      predecessor: "dead",
+      now,
+      blockedCompanyId: companyA,
+      independentCompanyId: companyB,
+      extraBlockedAggregates: 1,
+    });
+
+    const due = await chatClaimable(now);
+    expect(due).toContainEqual(
+      claimableOf(cardSubscription, seeded.independentEventId),
+    );
+    expectNoEventIds(due, seeded.successorEventIds);
+    expect(
+      (
+        await database.runtime.db
+          .select({ companyId: domainEvents.companyId })
+          .from(domainEvents)
+          .where(eq(domainEvents.id, seeded.independentEventId))
+      )[0]?.companyId,
+    ).toBe(companyB);
+  });
+
+  it("lets an independent consumer keep its own aggregate order while another is parked", async () => {
+    const now = Date.UTC(2026, 8, 5, 16, 0, 0);
+    const seeded = await seedBlockedThenIndependent({
+      predecessor: "dead",
+      now,
+    });
+
+    expect(
+      await executeDelivery(deps({ now: () => now }), {
+        subscription: billingSubscription,
+        eventId: seeded.predecessorEventId,
+        claimedBy: testWorker,
+      }),
+    ).toEqual({ status: "processed" });
+    expect(
+      await executeDelivery(deps({ now: () => now }), {
+        subscription: billingSubscription,
+        eventId: seeded.successorEventIds[0] ?? "",
+        claimedBy: testWorker,
+      }),
+    ).toEqual({ status: "processed" });
+    expect(
+      (await deliveryRow(cardSubscription.consumer, seeded.predecessorEventId))
+        ?.status,
+    ).toBe("dead");
+    expect(
+      (
+        await deliveryRow(
+          cardSubscription.consumer,
+          seeded.successorEventIds[0] ?? "",
+        )
+      )?.status,
+    ).toBe("pending");
+  });
+
+  it("does not execute the same delivery twice under concurrent workers", async () => {
+    const now = Date.UTC(2026, 8, 5, 17, 0, 0);
+    const seeded = await seedBlockedThenIndependent({
+      predecessor: "dead",
+      now,
+    });
+    const runsBefore = cardRuns.filter(
+      (run) => run.envelope.eventId === seeded.independentEventId,
+    ).length;
+
+    const [left, right] = await Promise.all([
+      executeDelivery(deps({ now: () => now }), {
+        subscription: cardSubscription,
+        eventId: seeded.independentEventId,
+        claimedBy: "starvation-worker-a",
+      }),
+      executeDelivery(deps({ now: () => now }), {
+        subscription: cardSubscription,
+        eventId: seeded.independentEventId,
+        claimedBy: "starvation-worker-b",
+      }),
+    ]);
+    const statuses = [left.status, right.status].toSorted();
+    expect(statuses).toContain("processed");
+    expect(statuses).toEqual(expect.arrayContaining(["processed"]));
+    expect(
+      statuses.every(
+        (status) =>
+          status === "processed" ||
+          status === "alreadyProcessed" ||
+          status === "deferred",
+      ),
+    ).toBe(true);
+    expect(
+      cardRuns.filter(
+        (run) => run.envelope.eventId === seeded.independentEventId,
+      ),
+    ).toHaveLength(runsBefore + 1);
+  });
+
+  it("still reclaims a stale claim on independent work beside a blocked aggregate", async () => {
+    const now = Date.UTC(2026, 8, 5, 18, 0, 0);
+    const seeded = await seedBlockedThenIndependent({
+      predecessor: "dead",
+      now,
+    });
+    await parkChatDelivery(seeded.independentEventId, {
+      status: "processing",
+      attempts: 1,
+      nextAttemptAt: null,
+      claimedAt: new Date(now),
+      claimedBy: "starvation-crashed-worker",
+    });
+
+    expect(claimableIds(await chatClaimable(now))).not.toContain(
+      seeded.independentEventId,
+    );
+    const reclaimAt =
+      now + cardSubscription.contract.timeout + DELIVERY_CLAIM_MARGIN_MS;
+    expect(await chatClaimable(reclaimAt)).toContainEqual(
+      claimableOf(cardSubscription, seeded.independentEventId),
+    );
+    expectNoEventIds(await chatClaimable(reclaimAt), seeded.successorEventIds);
+    expect(
+      await executeDelivery(deps({ now: () => reclaimAt }), {
+        subscription: cardSubscription,
+        eventId: seeded.independentEventId,
+        claimedBy: "starvation-recovery-worker",
+      }),
+    ).toEqual({ status: "processed" });
+  });
+
+  it("replays a dead predecessor and releases successors in order while other work stays done", async () => {
+    const now = Date.UTC(2026, 8, 5, 19, 0, 0);
+    const seeded = await seedBlockedThenIndependent({
+      predecessor: "dead",
+      now,
+      independentCompanyId: companyB,
+    });
+    expect(
+      await executeDelivery(deps({ now: () => now }), {
+        subscription: cardSubscription,
+        eventId: seeded.independentEventId,
+        claimedBy: testWorker,
+      }),
+    ).toEqual({ status: "processed" });
+
+    expect(
+      await replayDeadDeliveries(
+        { db: database.runtime.db, now: () => now },
+        {
+          consumer: cardSubscription.consumer,
+          eventId: seeded.predecessorEventId,
+        },
+      ),
+    ).toEqual({ replayed: 1 });
+
+    const afterReplay = await chatClaimable(now);
+    expect(afterReplay).toContainEqual(
+      claimableOf(cardSubscription, seeded.predecessorEventId),
+    );
+    expectNoEventIds(afterReplay, seeded.successorEventIds);
+
+    await driveToProcessed(cardSubscription, seeded.predecessorEventId);
+    const afterHead = await chatClaimable(now);
+    expect(afterHead).toContainEqual(
+      claimableOf(cardSubscription, seeded.successorEventIds[0] ?? ""),
+    );
+    expect(claimableIds(afterHead)).not.toContain(
+      seeded.successorEventIds[1] ?? "",
+    );
+
+    await driveToProcessed(cardSubscription, seeded.successorEventIds[0] ?? "");
+    const sequences = cardRuns
+      .filter((run) => run.envelope.payload.orderId === seeded.blockedOrderId)
+      .map((run) => run.envelope.aggregate.sequence);
+    expect(sequences).toEqual(["1", "2"]);
+    expect(
+      (await deliveryRow(cardSubscription.consumer, seeded.independentEventId))
+        ?.status,
+    ).toBe("processed");
+  });
+
+  it("keeps discovery bounded: LIMIT plus predecessor anti-join, not an application scan", async () => {
+    const now = Date.UTC(2026, 8, 5, 20, 0, 0);
+    const seeded = await seedBlockedThenIndependent({
+      predecessor: "dead",
+      now,
+    });
+    await database.admin.query("ANALYZE event_deliveries, domain_events");
+
+    const query = buildClaimableDeliveriesQuery(database.runtime.db, {
+      subscriptions: [cardSubscription],
+      nowMs: now,
+      batchSize: DELIVERY_DISCOVERY_BATCH_SIZE,
+    });
+    if (query === undefined) {
+      throw new Error("expected a claimable-deliveries query");
+    }
+    const compiled = query.toSQL();
+    expect(compiled.sql.toLowerCase()).toContain("limit");
+
+    const explained = await database.admin.query<{
+      "QUERY PLAN": unknown;
+    }>(`EXPLAIN (FORMAT JSON) ${compiled.sql}`, compiled.params);
+    const nodes = flattenExplainPlans(explained.rows[0]?.["QUERY PLAN"]);
+    expect(nodes.some((node) => node["Node Type"] === "Limit")).toBe(true);
+    const limitNode = nodes.find((node) => node["Node Type"] === "Limit");
+    expect(limitNode?.["Plan Rows"]).toBe(DELIVERY_DISCOVERY_BATCH_SIZE);
+    const usesKnownIndex = nodes.some(
+      (node) =>
+        node["Index Name"] === "event_deliveries_status_next_attempt_at_idx" ||
+        node["Index Name"] === "event_deliveries_pk" ||
+        node["Index Name"] === "domain_events_aggregate_sequence_uq" ||
+        node["Index Name"] === "event_deliveries_event_id_idx" ||
+        node["Index Name"] === "domain_events_pkey",
+    );
+    const usesAntiJoin = nodes.some((node) =>
+      node["Node Type"].includes("Anti Join"),
+    );
+    expect(usesKnownIndex || usesAntiJoin).toBe(true);
+
+    const due = await chatClaimable(now);
+    expect(due.length).toBeLessThanOrEqual(DELIVERY_DISCOVERY_BATCH_SIZE);
+    expect(due).toContainEqual(
+      claimableOf(cardSubscription, seeded.independentEventId),
+    );
+    expectNoEventIds(due, seeded.successorEventIds);
   });
 });
 

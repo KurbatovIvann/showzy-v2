@@ -8,9 +8,21 @@
  * execute phase cannot drift apart.
  */
 import { domainEvents, eventDeliveries, type Tx } from "@showzy/db";
-import { and, eq, lt, ne, sql, type SQL } from "drizzle-orm";
+import { and, eq, lt, ne, sql, type SQL, type SQLWrapper } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 
 import { CoreInvariantError } from "../../errors/index.js";
+
+/**
+ * Correlated aliases for the earliest-unprocessed predecessor probe.
+ * Starting from `domain_events` uses `domain_events_aggregate_sequence_uq`
+ * (type, id, sequence) then the delivery PK `(consumer, event_id)`.
+ */
+const earlierEvents = alias(domainEvents, "earlier_aggregate_events");
+const earlierDeliveries = alias(
+  eventDeliveries,
+  "earlier_aggregate_deliveries",
+);
 
 /** The stored outbox event, as both delivery phases read it. */
 export type OutboxEventRow = {
@@ -129,8 +141,43 @@ export async function acquireAggregateAdvisoryLock(
 /**
  * Earliest-first aggregate ordering (core.md §6): whether this consumer
  * still has a non-processed delivery of the same aggregate with a lower
- * sequence — if so, the queried delivery must defer.
+ * sequence — if so, the queried delivery must defer. Dead and not-yet-due
+ * predecessors count; `processed` does not.
+ *
+ * Discovery (`findClaimableDeliveries`) uses the same subquery as a
+ * `NOT EXISTS` filter so blocked successors cannot fill the bounded batch
+ * (SHO-435). Claim still re-runs this probe under the advisory lock.
  */
+export function earlierUnprocessedDeliverySubquery(
+  db: Pick<Tx, "select">,
+  options: {
+    readonly consumer: SQLWrapper | string;
+    readonly aggregateType: SQLWrapper | string;
+    readonly aggregateId: SQLWrapper | string;
+    readonly aggregateSequence: SQLWrapper | bigint;
+  },
+) {
+  return db
+    .select({ eventId: earlierDeliveries.eventId })
+    .from(earlierEvents)
+    .innerJoin(
+      earlierDeliveries,
+      and(
+        eq(earlierDeliveries.eventId, earlierEvents.id),
+        eq(earlierDeliveries.consumer, options.consumer),
+      ),
+    )
+    .where(
+      and(
+        ne(earlierDeliveries.status, "processed"),
+        eq(earlierEvents.aggregateType, options.aggregateType),
+        eq(earlierEvents.aggregateId, options.aggregateId),
+        lt(earlierEvents.aggregateSequence, options.aggregateSequence),
+      ),
+    )
+    .limit(1);
+}
+
 export async function hasEarlierUnprocessedDelivery(
   tx: Tx,
   options: {
@@ -140,20 +187,7 @@ export async function hasEarlierUnprocessedDelivery(
     readonly aggregateSequence: bigint;
   },
 ): Promise<boolean> {
-  const [earlier] = await tx
-    .select({ eventId: eventDeliveries.eventId })
-    .from(eventDeliveries)
-    .innerJoin(domainEvents, eq(eventDeliveries.eventId, domainEvents.id))
-    .where(
-      and(
-        eq(eventDeliveries.consumer, options.consumer),
-        ne(eventDeliveries.status, "processed"),
-        eq(domainEvents.aggregateType, options.aggregateType),
-        eq(domainEvents.aggregateId, options.aggregateId),
-        lt(domainEvents.aggregateSequence, options.aggregateSequence),
-      ),
-    )
-    .limit(1);
+  const [earlier] = await earlierUnprocessedDeliverySubquery(tx, options);
   return earlier !== undefined;
 }
 
